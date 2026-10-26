@@ -538,10 +538,12 @@ describe('xmr send: broadcast', () => {
     ).rejects.toThrow(ETranslations.privacy_error_broadcast_unknown__msg);
   });
 
-  // The runtime recorded it as pending; resending would pick other inputs and
-  // could pay twice, so the send is reported as submitted.
-  it('reports an unknown network outcome as submitted', async () => {
+  // Fails like BTC; the message asks to check history, where the runtime
+  // keeps the tx pending, and the recipient is still recorded.
+  it('fails on an unknown network outcome after recording the recipient', async () => {
+    const recordXmrSent = jest.fn(async () => undefined);
     const { vault } = createVault({
+      recordXmrSent,
       broadcast: async () =>
         JSON.stringify({
           txid: 'deadbeef',
@@ -562,7 +564,10 @@ describe('xmr send: broadcast', () => {
           } as IEncodedTxXmr,
         },
       } as never),
-    ).resolves.toMatchObject({ txid: 'deadbeef' });
+    ).rejects.toThrow(ETranslations.privacy_error_broadcast_unknown__msg);
+    expect(recordXmrSent).toHaveBeenCalledWith(
+      expect.objectContaining({ txid: 'deadbeef', recipient: RECIPIENT }),
+    );
   });
 
   // The pending row needs the amount, and the total its change (wallet2

@@ -331,27 +331,6 @@ it('retains the signed payment across confirmation, serialization and repeated r
   expect(restarted.runtime).not.toHaveBeenCalled();
 });
 
-it.each([false, true])(
-  'clears legacy Unknown in public details, withUTXOs=%s',
-  async (withUTXOs) => {
-    const legacy = localPayment();
-    legacy.decodedTx.broadcastOutcomeUnknown = true;
-    legacy.decodedTx.status = EDecodedTxStatus.Pending;
-    const { vault, raw } = createVault(legacy);
-    raw.status = EOnChainHistoryTxStatus.Pending;
-    raw.broadcastOutcomeUnknown = true;
-    const detail = (
-      await vault.fetchAccountHistoryDetail({ ...params, txid, withUTXOs })
-    ).data.data.data;
-    expect(detail.status).toBe(EOnChainHistoryTxStatus.Pending);
-    // The details page falls back to the old row's flag only when this is absent.
-    expect(
-      detail.broadcastOutcomeUnknown ??
-        legacy.decodedTx.broadcastOutcomeUnknown,
-    ).toBe(false);
-  },
-);
-
 it('restores summary facts while preserving the real input/output arrays and chain status', async () => {
   const { vault, raw } = createVault();
   const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))

@@ -13,13 +13,11 @@ export type IXmrSentRecord = {
   recipient: string;
   amountAtomic?: string;
   feeAtomic?: string;
-  outcomeUnknown?: true;
 };
 
 export type IXmrSentAmount = {
   amountAtomic: string;
   feeAtomic: string;
-  broadcastOutcomeUnknown?: boolean;
 };
 
 // accountId -> txid -> IXmrSentRecord. Records are stored untyped and
@@ -33,7 +31,6 @@ const xmrSentSchema = z.object({
   recipient: z.string(),
   amountAtomic: z.string().regex(/^\d+$/).optional(),
   feeAtomic: z.string().regex(/^\d+$/).optional(),
-  outcomeUnknown: z.literal(true).optional(),
 });
 
 type IRecordMap = Record<string, unknown>;
@@ -72,7 +69,6 @@ function pickXmrSentAmounts(
   return {
     amountAtomic: source.amountAtomic,
     feeAtomic: source.feeAtomic,
-    ...(source.outcomeUnknown ? { outcomeUnknown: true } : {}),
   };
 }
 
@@ -113,14 +109,12 @@ export class SimpleDbEntityPrivacyChainXmrSent extends SimpleDbEntityBase<IPriva
     recipient,
     amountAtomic,
     feeAtomic,
-    outcomeUnknown,
   }: {
     accountId: string;
     txid: string;
     recipient: string;
     amountAtomic?: string;
     feeAtomic?: string;
-    outcomeUnknown?: boolean;
   }): Promise<void> {
     await this.updateAccounts((accounts) => {
       const stored = accounts[accountId];
@@ -135,11 +129,7 @@ export class SimpleDbEntityPrivacyChainXmrSent extends SimpleDbEntityBase<IPriva
       // amounts already recorded for this tx.
       const amounts =
         amountAtomic !== undefined && feeAtomic !== undefined
-          ? pickXmrSentAmounts({
-              amountAtomic,
-              feeAtomic,
-              outcomeUnknown: outcomeUnknown ? true : undefined,
-            })
+          ? pickXmrSentAmounts({ amountAtomic, feeAtomic })
           : pickXmrSentAmounts(previous);
       const record = xmrSentSchema.safeParse({ recipient, ...amounts });
       if (!record.success) {

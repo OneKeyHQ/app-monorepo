@@ -2,9 +2,7 @@ import * as React from 'react';
 
 import { act, render } from '@testing-library/react-native';
 
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { NativeHistoryList } from './NativeHistoryList';
 
@@ -28,7 +26,6 @@ jest.mock('@onekeyfe/react-native-native-list', () => ({
   },
 }));
 jest.mock('react-native', () => ({
-  Platform: { OS: 'web' },
   View: ({ children }: { children: React.ReactNode }) => children,
 }));
 jest.mock('@onekeyhq/components', () => ({
@@ -124,12 +121,7 @@ jest.mock('@onekeyhq/shared/src/utils/historyUtils', () => ({
   }: {
     history: IAccountHistoryTx[];
   }) => history,
-  getHistoryTxDisplayStatus: jest.requireActual<
-    typeof import('@onekeyhq/shared/src/utils/historyUtils')
-  >('@onekeyhq/shared/src/utils/historyUtils').getHistoryTxDisplayStatus,
-  getPendingHistorySectionState: jest.requireActual<
-    typeof import('@onekeyhq/shared/src/utils/historyUtils')
-  >('@onekeyhq/shared/src/utils/historyUtils').getPendingHistorySectionState,
+  getHistoryTxDisplayStatus: () => 'confirmed',
   convertToSectionGroups: ({ items }: { items: IAccountHistoryTx[] }) => [
     { title: 'Date', data: items },
   ],
@@ -187,54 +179,5 @@ it.each([true, false])(
       mockResolveVault({ hideFeeInfoInHistoryList: hidden });
     });
     expect(fee()?.hidden).toBe(hidden);
-  },
-);
-
-it.each([
-  { unknown: [true], title: ETranslations.global_unknown, loading: false },
-  { unknown: [false], title: ETranslations.global_confirming, loading: true },
-  {
-    unknown: [true, false],
-    title: ETranslations.global_pending,
-    loading: true,
-  },
-])(
-  'displays the actual pending broadcast state $title on the Home list',
-  async ({ unknown, title, loading }) => {
-    mockGetVaultSettings.mockResolvedValue({ hideFeeInfoInHistoryList: true });
-    const data: IAccountHistoryTx[] = unknown.map(
-      (broadcastOutcomeUnknown, index) => ({
-        id: `test-${index}`,
-        decodedTx: {
-          networkId: 'zec--0',
-          accountId: 'test-account',
-          txid: `tx-${index}`,
-          owner: 'own',
-          signer: 'own',
-          nonce: 0,
-          extraInfo: null,
-          actions: [],
-          status: EDecodedTxStatus.Pending,
-          broadcastOutcomeUnknown,
-        },
-      }),
-    );
-    render(
-      <NativeHistoryList
-        data={data}
-        initialized
-        frozenTopEnabled={false}
-        frozenTopIdentityKey="test-owner"
-        observeFrozenTop={false}
-        onAwayFromTopChange={() => undefined}
-      />,
-    );
-    await act(async () => undefined);
-    expect(
-      mockSnapshot.rows.find((row) => row.type === 'sectionHeader'),
-    ).toMatchObject({
-      title,
-      titleLoading: loading,
-    });
   },
 );

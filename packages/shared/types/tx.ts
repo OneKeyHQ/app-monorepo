@@ -140,7 +140,6 @@ export type IDecodedTx = {
 
   status: EDecodedTxStatus;
   // A signed transaction was submitted without a confirmed broadcast response.
-  broadcastOutcomeUnknown?: boolean;
   block?: number;
   confirmations?: number;
   // data wont change anymore

@@ -72,7 +72,6 @@ export function toXmrSentAmount(
   return {
     amountAtomic: record.amountAtomic,
     feeAtomic: record.feeAtomic,
-    ...(record.outcomeUnknown ? { broadcastOutcomeUnknown: true } : {}),
   };
 }
 
@@ -189,10 +188,6 @@ export async function buildXmrLocalHistoryTx({
     nonce: 0,
     actions: [action],
     status: getXmrHistoryStatus(item),
-    broadcastOutcomeUnknown:
-      item.height === null &&
-      !item.failed &&
-      sentAmount?.broadcastOutcomeUnknown,
     block: item.height ?? undefined,
     confirmations: getXmrConfirmations(item, chainTip),
     networkId,

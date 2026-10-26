@@ -44,7 +44,6 @@ import {
   maybeOpenPrivateSendHistoryDetail,
 } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -104,7 +103,6 @@ import type { ColorValue } from 'react-native';
 
 function getTxStatusTextProps(
   status: EDecodedTxStatus | EOnChainHistoryTxStatus | undefined,
-  broadcastOutcomeUnknown = false,
 ): {
   key: ETranslations;
   color: ColorValue;
@@ -119,11 +117,9 @@ function getTxStatusTextProps(
   ) {
     // A broadcast on-chain tx is "confirming", not "pending" (OK-56372).
     return {
-      key: broadcastOutcomeUnknown
-        ? ETranslations.global_unknown
-        : ETranslations.global_confirming,
+      key: ETranslations.global_confirming,
       color: '$textCaution',
-      isConfirming: !broadcastOutcomeUnknown,
+      isConfirming: true,
     };
   }
 
@@ -1131,13 +1127,7 @@ function HistoryDetails() {
       historyTx?.decodedTx.status === EDecodedTxStatus.Dropped
     )
       status = EDecodedTxStatus.Dropped;
-    const { key, color, isConfirming } = getTxStatusTextProps(
-      status,
-      networkId === getNetworkIdsMap().zec
-        ? false
-        : (txDetails?.broadcastOutcomeUnknown ??
-            historyTx?.decodedTx.broadcastOutcomeUnknown),
-    );
+    const { key, color, isConfirming } = getTxStatusTextProps(status);
 
     const broadcastTimeMs = txDetails?.timestamp
       ? txDetails.timestamp * 1000
@@ -1185,18 +1175,15 @@ function HistoryDetails() {
       </YStack>
     );
   }, [
-    networkId,
     isLocalWalletHistory,
     txDetails?.block,
     historyTx?.decodedTx.block,
     historyTx?.decodedTx.status,
-    historyTx?.decodedTx.broadcastOutcomeUnknown,
     historyTx?.decodedTx.updatedAt,
     historyTx?.decodedTx.createdAt,
     intl,
     renderReplaceTxActions,
     txDetails?.status,
-    txDetails?.broadcastOutcomeUnknown,
     txDetails?.timestamp,
     txDetails?.confirmationETASeconds,
     txDetails?.confirmationETABlocks,

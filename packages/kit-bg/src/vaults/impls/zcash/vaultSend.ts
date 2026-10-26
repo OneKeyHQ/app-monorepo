@@ -660,7 +660,7 @@ export async function broadcastTransaction(
         txid: expectedTxid,
       })
       .catch(() => undefined);
-    return { ...broadcast, txid: expectedTxid, broadcastOutcomeUnknown: false };
+    return { ...broadcast, txid: expectedTxid };
   }
   const signedPcztHex = encodedTx?.signedPcztHex ?? signedTx.rawTx;
   if (!signedPcztHex) {
@@ -715,6 +715,5 @@ export async function broadcastTransaction(
     ...signedTx,
     txid,
     encodedTx: signedTx.encodedTx,
-    broadcastOutcomeUnknown: false,
   };
 }

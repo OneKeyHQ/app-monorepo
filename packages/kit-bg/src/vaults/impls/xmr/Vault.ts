@@ -789,14 +789,6 @@ export default class Vault extends VaultBase {
       broadcast?: 'accepted' | 'unknown';
       error?: unknown;
     };
-    if (broadcast === 'unknown') {
-      // Recorded as pending: a later scan confirms it, or the pending check
-      // marks it failed and frees its inputs if the node never had it.
-      console.warn('[xmr] broadcast outcome unknown; recorded as pending', {
-        txid,
-        error: broadcastError,
-      });
-    }
     if (signedTx.txid && txid !== signedTx.txid) {
       // The txid is fixed at signing. A different one back means the runtime
       // broadcast something other than what was signed.
@@ -814,7 +806,6 @@ export default class Vault extends VaultBase {
         recipient: encodedTx.to,
         amountAtomic: encodedTx.amountAtomic,
         feeAtomic: encodedTx.feeAtomic,
-        ...(broadcast === 'unknown' ? { outcomeUnknown: true } : {}),
       });
     } catch (error) {
       console.error(
@@ -826,12 +817,19 @@ export default class Vault extends VaultBase {
       );
     }
 
-    return {
-      ...signedTx,
-      txid,
-      encodedTx,
-      broadcastOutcomeUnknown: broadcast === 'unknown',
-    };
+    if (broadcast === 'unknown') {
+      // Fails like BTC. The runtime keeps the tx pending: a later scan
+      // confirms it, or the pending check frees its inputs.
+      console.error('[xmr] broadcast outcome unknown', {
+        txid,
+        error: broadcastError,
+      });
+      throw new OneKeyLocalError(
+        localWalletText(ETranslations.privacy_error_broadcast_unknown__msg),
+      );
+    }
+
+    return { ...signedTx, txid, encodedTx };
   }
 
   // A balance that is not enabled or cannot be read shows as zero, as on other chains.

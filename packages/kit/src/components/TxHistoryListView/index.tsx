@@ -23,7 +23,6 @@ import {
   convertToSectionGroups,
   getFilteredHistoryBySearchKey,
   getHistoryTxDisplayStatus,
-  getPendingHistorySectionState,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
@@ -334,8 +333,6 @@ function TxHistoryListViewSectionHeader(
     }
   }, [data, inTabList, isTabFocused, recomputeLayout]);
 
-  const pendingSection = getPendingHistorySectionState(data);
-
   if (
     data[0] &&
     getHistoryTxDisplayStatus(data[0]) === EDecodedTxStatus.Pending
@@ -349,13 +346,9 @@ function TxHistoryListViewSectionHeader(
         gap="$2"
         mt={index === 0 ? '$0' : '$5'}
       >
-        {pendingSection.showSpinner ? (
-          <Spinner size="small" color="$textCaution" />
-        ) : null}
+        <Spinner size="small" color="$textCaution" />
         <SizableText numberOfLines={1} size="$headingXs" color="$textCaution">
-          {intl.formatMessage({
-            id: pendingSection.titleId,
-          })}
+          {intl.formatMessage({ id: ETranslations.global_confirming })}
         </SizableText>
       </XStack>
     );

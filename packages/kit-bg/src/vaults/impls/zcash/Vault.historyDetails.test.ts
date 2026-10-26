@@ -132,6 +132,5 @@ it.each(
     );
     expect(detail.gasFee).toBe('0.0001');
     expect(detail.confirmations).toBe(pending ? undefined : 11);
-    expect(detail.broadcastOutcomeUnknown ?? true).toBe(false);
   },
 );
