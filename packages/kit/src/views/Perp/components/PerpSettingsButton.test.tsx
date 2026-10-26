@@ -2,9 +2,19 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 
+import { PerpMenu } from './PerpMenu';
 import { PerpSettingsButton } from './PerpSettingsButton';
+
+const mockContentSizeHandlers = new Map<
+  string,
+  (width: number, height: number) => void
+>();
+
+jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
+  useThemeVariant: () => 'light',
+}));
 
 const mockShowPerpSettingsDialog = jest.fn();
 const mockPerpSettingsPopover = jest.fn();
@@ -18,18 +28,81 @@ jest.mock('react-intl', () => ({
   }),
 }));
 
-jest.mock('@onekeyhq/components', () => ({
-  DebugRenderTracker: ({ children }: { children?: ReactNode }) => children,
-  IconButton: ({ onPress }: { onPress?: () => void }) => (
-    <button type="button" onClick={onPress}>
-      settings
-    </button>
-  ),
-  Stack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
-    <div data-testid={testID}>{children}</div>
-  ),
-  useMedia: () => mockMedia,
+jest.mock('react-native', () => ({
+  ...jest.requireActual<typeof import('react-native')>('react-native'),
+  useWindowDimensions: () => ({ width: 390, height: 844 }),
 }));
+
+jest.mock('@onekeyhq/components', () => {
+  const Primitive = ({
+    children,
+    testID,
+    onPress,
+    accessibilityRole,
+    accessibilityState,
+    onContentSizeChange,
+    height,
+    scrollEnabled,
+    'aria-hidden': ariaHidden,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+    onPress?: () => void;
+    accessibilityRole?: 'button' | 'tab' | 'tablist';
+    accessibilityState?: { selected?: boolean };
+    onContentSizeChange?: (width: number, height: number) => void;
+    height?: number;
+    scrollEnabled?: boolean;
+    'aria-hidden'?: boolean;
+  }) => {
+    if (testID && onContentSizeChange)
+      mockContentSizeHandlers.set(testID, onContentSizeChange);
+    return onPress ? (
+      <button
+        type="button"
+        data-testid={testID}
+        onClick={onPress}
+        role={accessibilityRole === 'tab' ? 'tab' : undefined}
+        aria-selected={accessibilityState?.selected}
+      >
+        {children}
+      </button>
+    ) : (
+      <div
+        data-testid={testID}
+        role={accessibilityRole}
+        aria-hidden={ariaHidden}
+        data-height={height}
+        data-scroll-enabled={scrollEnabled}
+      >
+        {children}
+      </div>
+    );
+  };
+  return {
+    DebugRenderTracker: ({ children }: { children?: ReactNode }) => children,
+    IconButton: ({
+      onPress,
+      testID,
+      accessibilityLabel,
+    }: {
+      onPress?: () => void;
+      testID?: string;
+      accessibilityLabel?: string;
+    }) => (
+      <button type="button" onClick={onPress} data-testid={testID}>
+        {accessibilityLabel ?? 'settings'}
+      </button>
+    ),
+    Stack: Primitive,
+    XStack: Primitive,
+    YStack: Primitive,
+    ScrollView: Primitive,
+    SizableText: Primitive,
+    Icon: () => null,
+    useMedia: () => mockMedia,
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/Spotlight', () => ({
   useSpotlight: () => ({
@@ -41,10 +114,6 @@ jest.mock('@onekeyhq/kit/src/components/Spotlight', () => ({
 
 jest.mock('../hooks/useShowGuide', () => ({
   useShowGuide: () => ({ showGuide: jest.fn() }),
-}));
-
-jest.mock('./PerpsActivityCenterAction', () => ({
-  PerpsActivityCenterAction: () => null,
 }));
 
 jest.mock('./PerpSettingsDialog', () => ({
@@ -108,5 +177,107 @@ describe('PerpSettingsButton', () => {
       expect.objectContaining({ showChartPositionSetting: true }),
     );
     expect(mockShowPerpSettingsDialog).not.toHaveBeenCalled();
+  });
+});
+
+describe('Perps mobile flat menu', () => {
+  it('shows settings directly above campaigns in the desktop popover', () => {
+    const view = render(
+      <PerpMenu
+        isPopover
+        onOpenHistory={jest.fn()}
+        settingsContent={<span>Trading settings</span>}
+        renderActivityCenter={() => <span>Reward banner</span>}
+      />,
+    );
+    expect(view.getByText('Trading settings')).toBeTruthy();
+    expect(view.getByText('perps_menu_features__title')).toBeTruthy();
+    expect(view.getByText('perps_menu_campaign_center__title')).toBeTruthy();
+    expect(view.getByText('Reward banner')).toBeTruthy();
+    expect(view.queryByTestId('perp-mobile-menu-shortcut-settings')).toBeNull();
+    expect(view.queryByTestId('perp-mobile-menu-shortcut-history')).toBeNull();
+    expect(view.queryByTestId('perp-mobile-menu-back')).toBeNull();
+  });
+
+  it('shows shortcuts and campaigns together and returns from preferences', () => {
+    const view = render(
+      <PerpMenu
+        onOpenHistory={jest.fn()}
+        onOpenHelp={jest.fn()}
+        settingsContent={<span>Trading settings</span>}
+        renderActivityCenter={() => <span>Reward banner</span>}
+      />,
+    );
+    expect(view.queryByRole('tablist')).toBeNull();
+    expect(view.getByText('perps_menu_features__title')).toBeTruthy();
+    expect(view.getByText('perps_menu_campaign_center__title')).toBeTruthy();
+    expect(view.getByText('Reward banner')).toBeTruthy();
+    expect(view.getByTestId('perp-mobile-menu-shortcut-help')).toBeTruthy();
+    fireEvent.click(view.getByTestId('perp-mobile-menu-shortcut-settings'));
+    expect(view.getByText('Trading settings')).toBeTruthy();
+    expect(view.queryByText('Reward banner')).toBeNull();
+    fireEvent.click(view.getByTestId('perp-mobile-menu-back'));
+    expect(view.queryByText('Trading settings')).toBeNull();
+    expect(view.getByText('Reward banner')).toBeTruthy();
+    expect(view.getByTestId('perp-mobile-menu-shortcut-history')).toBeTruthy();
+    expect(view.queryByTestId('perp-mobile-menu-close')).toBeNull();
+  });
+
+  it('keeps layout navigation internal and routes history, guide and support', () => {
+    const onOpenHistory = jest.fn();
+    const onOpenGuide = jest.fn();
+    const onOpenHelp = jest.fn();
+    const view = render(
+      <PerpMenu
+        layoutSettings={{
+          renderContent: (onOpenPositionActions) => (
+            <button type="button" onClick={onOpenPositionActions}>
+              Position actions
+            </button>
+          ),
+          positionActionsContent: <span>Position action settings</span>,
+        }}
+        onOpenHistory={onOpenHistory}
+        onOpenGuide={onOpenGuide}
+        onOpenHelp={onOpenHelp}
+        settingsContent={<span>Trading settings</span>}
+      />,
+    );
+    fireEvent.click(view.getByTestId('perp-mobile-menu-shortcut-layout'));
+    expect(view.getByText('Position actions')).toBeTruthy();
+    fireEvent.click(view.getByText('Position actions'));
+    expect(view.getByText('Position action settings')).toBeTruthy();
+    fireEvent.click(view.getByTestId('perp-mobile-menu-back'));
+    expect(view.getByText('Position actions')).toBeTruthy();
+    fireEvent.click(view.getByTestId('perp-mobile-menu-back'));
+    fireEvent.click(view.getByTestId('perp-mobile-menu-shortcut-history'));
+    fireEvent.click(view.getByTestId('perp-mobile-menu-shortcut-guide'));
+    fireEvent.click(view.getByTestId('perp-mobile-menu-shortcut-help'));
+    for (const action of [onOpenHistory, onOpenGuide, onOpenHelp]) {
+      expect(action).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('only enables scrolling when the menu content exceeds its height limit', () => {
+    const view = render(
+      <PerpMenu
+        onOpenHistory={jest.fn()}
+        onOpenHelp={jest.fn()}
+        settingsContent={<span>Settings</span>}
+      />,
+    );
+    const contentId = 'perp-mobile-menu-content';
+    act(() => mockContentSizeHandlers.get(contentId)?.(390, 240));
+    expect(
+      view.getByTestId(contentId).getAttribute('data-scroll-enabled'),
+    ).toBe('false');
+    act(() => mockContentSizeHandlers.get(contentId)?.(390, 900));
+    expect(
+      view.getByTestId(contentId).getAttribute('data-scroll-enabled'),
+    ).toBe('true');
+    act(() => mockContentSizeHandlers.get(contentId)?.(390, 240));
+    expect(
+      view.getByTestId(contentId).getAttribute('data-scroll-enabled'),
+    ).toBe('false');
   });
 });

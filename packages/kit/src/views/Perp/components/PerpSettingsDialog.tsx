@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { styled } from '@tamagui/core';
 import { useIntl } from 'react-intl';
-import { useReducedMotion } from 'react-native-reanimated';
 
 import {
-  AnimatePresence,
   Dialog,
   ESwitchSize,
   Icon,
   Popover,
   SizableText,
-  Stack,
   Switch,
   Toast,
   XStack,
@@ -22,7 +18,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { WebAccountPanelHeader } from '@onekeyhq/kit/src/components/TabPageHeader/components/WebAccountPanel/atoms/WebAccountPanelHeader';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
@@ -32,46 +28,27 @@ import {
   usePerpsSpotDustingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useShowGuide } from '../hooks/useShowGuide';
+import { useShowPortfolio } from '../hooks/useShowPortfolio';
 import { resetPerpDesktopLeftSplit } from '../layouts/perpLayoutUtils';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
 
-import { PerpGuideContent } from './Guide/PerpGuideContent';
 import {
+  PerpLayoutSettingsContent,
   PerpLayoutSettingsEntry,
-  showPerpLayoutSettingsDialog,
+  PerpPositionActionsSettingsContent,
 } from './PerpLayoutSettings';
+import { PerpMenu } from './PerpMenu';
 import { PerpsActivityCenterContent } from './PerpsActivityCenterAction';
 
-import type { LayoutChangeEvent } from 'react-native';
-
-type IPerpSettingsView = 'settings' | 'activityCenter' | 'guide';
-
 const SETTINGS_PANEL_WIDTH = 360;
-const ANIMATE_ONLY_HEIGHT: string[] = ['height'];
-
-const AnimatedSettingsPanelView = styled(Stack, {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  variants: {
-    going: {
-      ':number': (going: number) => ({
-        enterStyle: {
-          x: going >= 0 ? SETTINGS_PANEL_WIDTH : -SETTINGS_PANEL_WIDTH,
-        },
-        exitStyle: {
-          x: going >= 0 ? -SETTINGS_PANEL_WIDTH : SETTINGS_PANEL_WIDTH,
-        },
-      }),
-    },
-  } as const,
-});
 
 const ABSTRACTION_MODE_OPTIONS = [
   {
@@ -360,9 +337,7 @@ function PerpSettingsMainContent({
   onOpenLayoutSettings,
   onOpenGuide,
 }: Omit<IPerpSettingsPopoverContentProps, 'closePopover'> & {
-  onOpenActivityCenter: () => void;
-  onOpenLayoutSettings: () => void;
-  onOpenGuide: () => void;
+  onOpenLayoutSettings?: () => void;
 }) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
@@ -457,7 +432,7 @@ function PerpSettingsMainContent({
         />
       </ListItem>
 
-      {showChartPositionSetting ? (
+      {showChartPositionSetting && onOpenLayoutSettings ? (
         <PerpLayoutSettingsEntry
           onPress={onOpenLayoutSettings}
           showFeatureDot={platformEnv.isNative || !gtMd}
@@ -515,172 +490,6 @@ function PerpSettingsMainContent({
   );
 }
 
-function PerpSettingsPopoverContent({
-  closePopover,
-  onOpenActivityCenter,
-  onOpenGuide,
-  showActivityCenterEntry = false,
-  showChartPositionSetting = false,
-  showGuideEntry = false,
-}: IPerpSettingsPopoverContentProps) {
-  const intl = useIntl();
-  const reducedMotion = useReducedMotion();
-  const { showGuide } = useShowGuide();
-  const [view, setView] = useState<IPerpSettingsView>('settings');
-  const [going, setGoing] = useState(1);
-  const [navSeq, setNavSeq] = useState(0);
-  const [contentHeight, setContentHeight] = useState<number | undefined>(
-    undefined,
-  );
-  const [heightReady, setHeightReady] = useState(false);
-  const navSeqRef = useRef(navSeq);
-  navSeqRef.current = navSeq;
-
-  const navigate = useCallback((nextView: IPerpSettingsView) => {
-    setGoing(1);
-    setNavSeq((seq) => seq + 1);
-    setView(nextView);
-  }, []);
-
-  const back = useCallback(() => {
-    setGoing(-1);
-    setNavSeq((seq) => seq + 1);
-    setView('settings');
-  }, []);
-
-  const handleViewLayout = useCallback((seq: number, height: number) => {
-    if (height > 0 && navSeqRef.current === seq) {
-      setContentHeight(height);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (contentHeight !== undefined && !heightReady) {
-      setHeightReady(true);
-    }
-  }, [contentHeight, heightReady]);
-
-  const handleOpenActivityCenter = useCallback(() => {
-    if (onOpenActivityCenter) {
-      void runAfterActionListClose(closePopover, onOpenActivityCenter, {
-        waitForAnimation: false,
-      });
-      return;
-    }
-    navigate('activityCenter');
-  }, [closePopover, navigate, onOpenActivityCenter]);
-
-  const handleOpenLayoutSettings = useCallback(() => {
-    void runAfterActionListClose(
-      closePopover,
-      () => {
-        showPerpLayoutSettingsDialog({
-          title: intl.formatMessage({
-            id: ETranslations.perps_layout_settings__title,
-          }),
-          positionActionsTitle: intl.formatMessage({
-            id: ETranslations.perp_position_action_buttons__title,
-          }),
-        });
-      },
-      { waitForAnimation: false },
-    );
-  }, [closePopover, intl]);
-
-  const handleOpenGuide = useCallback(() => {
-    if (onOpenGuide) {
-      void runAfterActionListClose(closePopover, onOpenGuide, {
-        waitForAnimation: false,
-      });
-      return;
-    }
-    if (showActivityCenterEntry) {
-      navigate('guide');
-      return;
-    }
-    void closePopover();
-    showGuide();
-  }, [closePopover, navigate, onOpenGuide, showActivityCenterEntry, showGuide]);
-
-  const rendered = useMemo(() => {
-    if (view === 'settings') {
-      return (
-        <PerpSettingsMainContent
-          showActivityCenterEntry={showActivityCenterEntry}
-          showChartPositionSetting={showChartPositionSetting}
-          showGuideEntry={showGuideEntry}
-          onOpenActivityCenter={handleOpenActivityCenter}
-          onOpenLayoutSettings={handleOpenLayoutSettings}
-          onOpenGuide={handleOpenGuide}
-        />
-      );
-    }
-
-    const backLabel = intl.formatMessage({
-      id: ETranslations.global_back,
-    });
-    if (view === 'activityCenter') {
-      return (
-        <YStack w="100%">
-          <WebAccountPanelHeader title={backLabel} onBack={back} />
-          <PerpsActivityCenterContent
-            copyAsUrl
-            closePopover={closePopover}
-            showTitle={false}
-          />
-        </YStack>
-      );
-    }
-
-    return (
-      <YStack w="100%">
-        <WebAccountPanelHeader title={backLabel} onBack={back} />
-        <YStack h={640}>
-          <PerpGuideContent onClose={closePopover} />
-        </YStack>
-      </YStack>
-    );
-  }, [
-    back,
-    closePopover,
-    handleOpenActivityCenter,
-    handleOpenLayoutSettings,
-    handleOpenGuide,
-    intl,
-    showActivityCenterEntry,
-    showChartPositionSetting,
-    showGuideEntry,
-    view,
-  ]);
-
-  const animation = reducedMotion || !heightReady ? '0ms' : 'smooth';
-  const presenceCustom = useMemo(() => ({ going }), [going]);
-
-  return (
-    <Stack
-      position="relative"
-      width="100%"
-      overflow="hidden"
-      height={contentHeight}
-      transition={animation}
-      animateOnly={ANIMATE_ONLY_HEIGHT}
-    >
-      <AnimatePresence custom={presenceCustom} initial={false}>
-        <AnimatedSettingsPanelView
-          key={navSeq}
-          going={going}
-          transition={reducedMotion ? '0ms' : 'smooth'}
-          onLayout={(event: LayoutChangeEvent) =>
-            handleViewLayout(navSeq, event.nativeEvent.layout.height)
-          }
-        >
-          {rendered}
-        </AnimatedSettingsPanelView>
-      </AnimatePresence>
-    </Stack>
-  );
-}
-
 export interface IPerpSettingsPopoverProps {
   renderTrigger: ReactNode;
   showActivityCenterEntry?: boolean;
@@ -688,16 +497,94 @@ export interface IPerpSettingsPopoverProps {
   showGuideEntry?: boolean;
 }
 
+function PerpSettingsMenuContent({
+  isPopover = false,
+  closePopover,
+  onOpenGuide,
+  showActivityCenterEntry,
+  showChartPositionSetting,
+  showGuideEntry,
+}: IPerpSettingsPopoverContentProps & { isPopover?: boolean }) {
+  const navigation = useAppNavigation();
+  const { showGuide } = useShowGuide({ forceModal: true });
+  const { showPortfolio } = useShowPortfolio();
+  const closeThenOpen = (action: () => void) => {
+    void runAfterActionListClose(closePopover, action, {
+      waitForAnimation: false,
+    });
+  };
+
+  return (
+    <PerpMenu
+      isPopover={isPopover}
+      layoutSettings={
+        isPopover
+          ? undefined
+          : {
+              renderContent: (onOpenPositionActions) => (
+                <PerpLayoutSettingsContent
+                  onOpenPositionActions={onOpenPositionActions}
+                  showChartPosition={showChartPositionSetting}
+                />
+              ),
+              positionActionsContent: (
+                <YStack px="$5" py="$4">
+                  <PerpPositionActionsSettingsContent />
+                </YStack>
+              ),
+            }
+      }
+      onOpenHistory={() => {
+        closeThenOpen(() => {
+          navigation.pushModal(EModalRoutes.PerpModal, {
+            screen: EModalPerpRoutes.PerpTradersHistoryList,
+          });
+        });
+      }}
+      onOpenGuide={
+        showGuideEntry && !isPopover
+          ? () => closeThenOpen(onOpenGuide ?? showGuide)
+          : undefined
+      }
+      onOpenHelp={
+        isPopover
+          ? undefined
+          : () =>
+              closeThenOpen(() => {
+                void showIntercom();
+              })
+      }
+      settingsContent={<PerpSettingsMainContent />}
+      onOpenPortfolio={() =>
+        closeThenOpen(() => {
+          void showPortfolio();
+        })
+      }
+      renderActivityCenter={
+        showActivityCenterEntry
+          ? () => (
+              <PerpsActivityCenterContent
+                copyAsUrl
+                closePopover={closePopover}
+                showTitle={false}
+                menuLayout
+                menuPopoverLayout={isPopover}
+              />
+            )
+          : undefined
+      }
+    />
+  );
+}
+
 export function showPerpSettingsDialog({
   title,
-  onOpenActivityCenter,
   onOpenGuide,
   showActivityCenterEntry = false,
   showChartPositionSetting = false,
   showGuideEntry = false,
 }: {
   title: string;
-  onOpenActivityCenter?: () => void;
   onOpenGuide?: () => void;
   showActivityCenterEntry?: boolean;
   showChartPositionSetting?: boolean;
@@ -714,7 +601,9 @@ export function showPerpSettingsDialog({
 
   const dialogInstance = Dialog.show({
     title,
+    showHeader: false,
     showFooter: false,
+    sheetDragArea: 'header',
     contentContainerProps: {
       p: '$0',
     },
@@ -723,9 +612,8 @@ export function showPerpSettingsDialog({
     },
     renderContent: (
       <PerpsProviderMirror>
-        <PerpSettingsPopoverContent
+        <PerpSettingsMenuContent
           closePopover={closeDialog}
-          onOpenActivityCenter={onOpenActivityCenter}
           onOpenGuide={onOpenGuide}
           showActivityCenterEntry={showActivityCenterEntry}
           showChartPositionSetting={showChartPositionSetting}
@@ -754,8 +642,10 @@ export function PerpSettingsPopover({
           id: ETranslations.address_book_menu_title,
         })}
         renderTrigger={renderTrigger}
+        showHeader={false}
         renderContent={({ closePopover }) => (
-          <PerpSettingsPopoverContent
+          <PerpSettingsMenuContent
+            isPopover
             closePopover={closePopover}
             showActivityCenterEntry={showActivityCenterEntry}
             showChartPositionSetting={showChartPositionSetting}
