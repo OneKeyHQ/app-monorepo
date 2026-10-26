@@ -142,7 +142,11 @@ function createVault(post: jest.Mock) {
       },
       serviceToken: { getToken: async () => undefined },
       serviceAccount: {
-        getDBAccountSafe: async () => ({ address: 't1-own', xpub: 'xpub' }),
+        getDBAccountSafe: async () => ({
+          id: accountId,
+          address: 't1-own',
+          xpub: 'xpub',
+        }),
       },
       serviceAccountProfile: { _getWalletTypeHeader: async () => ({}) },
       serviceHistory: {

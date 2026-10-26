@@ -27,6 +27,7 @@ function createVault({ pausedMetaVkFp = 'fp-paused' } = {}) {
   );
   const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
     networkId: 'zec--0',
+    zcashGetAccountMeta: async () => undefined,
     backgroundApi: {
       simpleDb: {
         privacyChainState: {
@@ -34,6 +35,8 @@ function createVault({ pausedMetaVkFp = 'fp-paused' } = {}) {
             { accountId: LIVE, meta: { vkFp: 'fp-live' } },
             { accountId: PAUSED, meta: { vkFp: pausedMetaVkFp } },
           ],
+          isAccountDeletionPending: async () => false,
+          getAccountEpoch: async () => undefined,
         },
       },
     },
