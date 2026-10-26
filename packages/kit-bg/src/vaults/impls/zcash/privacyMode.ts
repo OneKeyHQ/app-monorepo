@@ -206,6 +206,40 @@ export class ZcashPrivacyMode {
       }
     }
     await this.assertZcashAccountContext({ networkId, accountId });
+    const retryLocalWalletSetup = async (vault: VaultZcash) => {
+      if (isHwWallet) {
+        await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+          () =>
+            vault.zcashRetryLocalWalletSetup({
+              deviceParams,
+              ...(forceViewingKeyDerivation ? { forceDerivation: true } : {}),
+            }),
+          {
+            deviceParams,
+            debugMethodName: 'zcashPrivacyMode.enablePrivacyMode',
+          },
+        );
+      } else {
+        await vault.zcashRetryLocalWalletSetup({
+          password,
+          ...(forceViewingKeyDerivation ? { forceDerivation: true } : {}),
+        });
+      }
+    };
+    // An enabled account that only lost its key re-derives it in place: a
+    // failed attempt (e.g. cancelled on the device) must not turn it off.
+    if (
+      state.intent === 'on' &&
+      state.operation === undefined &&
+      existingMeta &&
+      !hasExplicitBirthday &&
+      !needsBirthdayUpdate
+    ) {
+      await retryLocalWalletSetup(
+        (await vaultFactory.getVault({ networkId, accountId })) as VaultZcash,
+      );
+      return;
+    }
     await this.backgroundApi.simpleDb.privacyChainState.beginZcashPrivacyModeEnable(
       {
         networkId,
@@ -222,24 +256,7 @@ export class ZcashPrivacyMode {
         accountId,
       })) as VaultZcash;
       if (needsViewingKeyDerivation) {
-        if (isHwWallet) {
-          await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-            () =>
-              vault.zcashRetryLocalWalletSetup({
-                deviceParams,
-                ...(forceViewingKeyDerivation ? { forceDerivation: true } : {}),
-              }),
-            {
-              deviceParams,
-              debugMethodName: 'zcashPrivacyMode.enablePrivacyMode',
-            },
-          );
-        } else {
-          await vault.zcashRetryLocalWalletSetup({
-            password,
-            ...(forceViewingKeyDerivation ? { forceDerivation: true } : {}),
-          });
-        }
+        await retryLocalWalletSetup(vault);
       }
       const meta =
         await this.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta(
