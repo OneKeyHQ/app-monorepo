@@ -71,6 +71,7 @@ it.each([null, 100])(
       inputCount: 1,
       priority: 'normal',
       signableHex: 'aabb',
+      privacyEpoch: '0123456789abcdef',
     };
     let stored: unknown;
     const entity = new SimpleDbEntityPrivacyChainXmrSent();
@@ -88,6 +89,13 @@ it.each([null, 100])(
       backgroundApi: {
         simpleDb: {
           privacyChainXmrSent: entity,
+          privacyChainState: {
+            getXmrAccountState: async () => ({
+              intent: 'on',
+              epoch: '0123456789abcdef',
+              appliedEpoch: '0123456789abcdef',
+            }),
+          },
           // The runtime identity is named by the stored key's fingerprint.
           privacyChainKeys: {
             getKey: async () => ({
