@@ -397,6 +397,7 @@ export type IUpdateFirmwareTaskFn = ({
 type IUpdateFirmwareTask = {
   fn: IUpdateFirmwareTaskFn;
   workflowId: number | undefined;
+  attemptId: number;
 };
 
 interface IFirmwareUpdateResult {
@@ -2416,6 +2417,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     this.updateTasks[id] = {
       fn,
       workflowId: this.updateWorkflowTracking?.workflowId,
+      attemptId: 0,
     };
     return id;
   }
@@ -3184,11 +3186,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (!task || !this.isUpdateWorkflowCurrent(task.workflowId)) {
       return;
     }
+    const attemptId = task.attemptId;
+    const isCurrentAttempt = () =>
+      this.updateTasks[id] === task && task.attemptId === attemptId;
 
     try {
       await this.cancelUpdateWorkflowIfExit();
     } catch (error) {
-      await this.updateTasksReject({ id, error });
+      if (isCurrentAttempt()) {
+        await this.updateTasksReject({ id, error });
+      }
       return;
     }
 
@@ -3196,18 +3203,18 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await firmwareUpdateRetryAtom.set(undefined);
 
       await preFn?.();
-      if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
+      if (!this.isUpdateWorkflowCurrent(task.workflowId) || !isCurrentAttempt()) {
         return;
       }
 
       const result = await task.fn({ id });
-      if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
+      if (!this.isUpdateWorkflowCurrent(task.workflowId) || !isCurrentAttempt()) {
         return;
       }
       await this.updateTasksResolve({ id, data: result });
       serviceHardwareUtils.hardwareLog('runUpdateTask SUCCESS', result);
     } catch (error) {
-      if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
+      if (!this.isUpdateWorkflowCurrent(task.workflowId) || !isCurrentAttempt()) {
         return;
       }
       if (task.workflowId !== undefined) {
@@ -3238,7 +3245,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
       // TODO hide deviceCheckingLoading and confirm dialog
     } finally {
-      if (this.isUpdateWorkflowCurrent(task.workflowId)) {
+      if (this.isUpdateWorkflowCurrent(task.workflowId) && isCurrentAttempt()) {
         try {
           await this.cancelUpdateWorkflowIfExit();
           // Workflow is still alive (not exited by user), but in retry wait state
@@ -3272,6 +3279,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (task.workflowId !== undefined) {
       this.recordUpdateWorkflowRetry(task.workflowId);
     }
+    task.attemptId += 1;
 
     // Re-block lock screen before resuming hardware communication. Guard
     // first, then silence (see startUpdateWorkflow) — and a silence that
