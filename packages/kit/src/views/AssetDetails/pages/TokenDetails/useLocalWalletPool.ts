@@ -511,9 +511,12 @@ export function useLocalWalletPool({
           storageUnsupported:
             value.storageUnsupportedNetworkIds.includes(networkId),
           paused: value.pausedNetworkIds.includes(networkId),
-          error: value.pausedNetworkIds.includes(networkId)
-            ? undefined
-            : value.syncErrorByNetworkId[networkId],
+          // Paused or held for data: nothing is retrying.
+          error:
+            value.pausedNetworkIds.includes(networkId) ||
+            value.dataBlockedNetworkIds.includes(networkId)
+              ? undefined
+              : value.syncErrorByNetworkId[networkId],
         }),
         isEqual,
       ),

@@ -180,22 +180,32 @@ describe('chain status shared by settings and the floating control', () => {
     ).toMatchObject({ labelId: ETranslations.global_synced, entry: complete });
   });
 
-  it('uses the same error, pause and data-wait priorities', () => {
+  // A paused or held scan is not retrying, so its last error is not current.
+  it('puts pause and the data wait ahead of an old error', () => {
     state.boostingNetworkIds = [];
     state.pausedNetworkIds = ['xmr--0'];
     state.dataBlockedNetworkIds = ['xmr--0'];
     state.syncErrorByNetworkId['xmr--0'] = 'failed';
     expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }).labelId,
-    ).toBe(ETranslations.syncing_paused__title);
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
+    ).toMatchObject({
+      labelId: ETranslations.syncing_paused__title,
+      syncError: undefined,
+    });
     state.pausedNetworkIds = [];
     expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }).labelId,
-    ).toBe(ETranslations.global_sync_error);
-    state.syncErrorByNetworkId = {};
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
+    ).toMatchObject({
+      labelId: ETranslations.privacy_sync_waiting_wifi__msg,
+      syncError: undefined,
+    });
+    state.dataBlockedNetworkIds = [];
     expect(
-      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }).labelId,
-    ).toBe(ETranslations.privacy_sync_waiting_wifi__msg);
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
+    ).toMatchObject({
+      labelId: ETranslations.global_sync_error,
+      syncError: 'failed',
+    });
   });
 });
 

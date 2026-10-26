@@ -158,9 +158,12 @@ export function getPrivacyChainNetworkSyncDisplay({
   const entry =
     getPrivacyChainBackfillProgress(known, networkId) ??
     (backfilling ? undefined : Object.values(known)[0]);
-  const hasSyncError =
-    isStorageUnsupported ||
-    (!isPaused && state.syncErrorByNetworkId[networkId] !== undefined);
+  // A paused or held scan is not retrying, so its last error is not current.
+  const syncError =
+    isPaused || isHeldByData
+      ? undefined
+      : state.syncErrorByNetworkId[networkId];
+  const hasSyncError = isStorageUnsupported || syncError !== undefined;
   const labelId = hasSyncError
     ? ETranslations.global_sync_error
     : getPrivacyChainSyncLabel({
@@ -176,6 +179,7 @@ export function getPrivacyChainNetworkSyncDisplay({
     isPaused,
     isHeldByData,
     isStorageUnsupported,
+    syncError,
   };
 }
 
