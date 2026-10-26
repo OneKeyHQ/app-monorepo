@@ -320,6 +320,7 @@ function main() {
       `${compilerName}-runtime.bundle.js`,
     );
     const entryPath = path.join(outputRoot, `${compilerName}.bundle.js`);
+    // cspell:ignore Chunkonekey
     const chunkQueue = `rspackChunkonekey_ext_${compilerName.replace('-', '_')}`;
     if (
       !fs.readFileSync(runtimePath, 'utf8').includes(chunkQueue) ||
@@ -390,10 +391,11 @@ function main() {
     // (run 38020508845), above 39 MiB. The WalletKit 1.5.6 upgrade (bundled
     // @walletconnect/pay stack in the single-file MV3 background
     // bundle, ~0.38 MB measured against the same-day x run) adds on top of
-    // that, so 40 MiB leaves about 1.5% headroom for incremental growth.
+    // that. The TradingView drawing tool translations then raised Linux CI to
+    // 41954632 bytes (run 40249909402), so 41 MiB leaves about 2.5% headroom.
     backgroundBytes: readBudget(
       'EXT_BUILD_MAX_BACKGROUND_BYTES',
-      40 * 1024 * 1024,
+      41 * 1024 * 1024,
     ),
   };
 
