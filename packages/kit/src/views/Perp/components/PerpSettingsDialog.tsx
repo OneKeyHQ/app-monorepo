@@ -44,6 +44,7 @@ import {
   PerpLayoutSettingsContent,
   PerpLayoutSettingsEntry,
   PerpPositionActionsSettingsContent,
+  showPerpLayoutSettingsDialog,
 } from './PerpLayoutSettings';
 import { PerpMenu } from './PerpMenu';
 import { PerpsActivityCenterContent } from './PerpsActivityCenterAction';
@@ -505,6 +506,7 @@ function PerpSettingsMenuContent({
   showChartPositionSetting,
   showGuideEntry,
 }: IPerpSettingsPopoverContentProps & { isPopover?: boolean }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { showGuide } = useShowGuide({ forceModal: true });
   const { showPortfolio } = useShowPortfolio();
@@ -554,7 +556,25 @@ function PerpSettingsMenuContent({
                 void showIntercom();
               })
       }
-      settingsContent={<PerpSettingsMainContent />}
+      settingsContent={
+        <PerpSettingsMainContent
+          showGuideEntry={isPopover && showGuideEntry}
+          showChartPositionSetting={isPopover && showChartPositionSetting}
+          onOpenGuide={() => closeThenOpen(onOpenGuide ?? showGuide)}
+          onOpenLayoutSettings={() =>
+            closeThenOpen(() => {
+              showPerpLayoutSettingsDialog({
+                title: intl.formatMessage({
+                  id: ETranslations.perps_layout_settings__title,
+                }),
+                positionActionsTitle: intl.formatMessage({
+                  id: ETranslations.perp_position_action_buttons__title,
+                }),
+              });
+            })
+          }
+        />
+      }
       onOpenPortfolio={() =>
         closeThenOpen(() => {
           void showPortfolio();
