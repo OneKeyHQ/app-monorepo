@@ -3,6 +3,7 @@ import type { IZcashDeriveAddressFromUfvkResult } from '@onekeyhq/core/src/chain
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
+import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheStore';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 import {
   getLocalWalletViewingKey,
@@ -187,23 +188,27 @@ export async function resolveAndSaveZcashAccountMeta({
     return;
   }
 
+  // Enable stays offline: the last tip a sync saw beats the clock estimate.
+  const chainTip =
+    derived.chainTip ??
+    (await getLastLocalWalletChainTip({ backgroundApi, networkId }).catch(
+      () => undefined,
+    ));
   let birthdayHeight: number;
   let birthdaySource: IZcashAccountMeta['birthdaySource'];
   if (privacyModeState.birthdayHeight !== undefined) {
     birthdayHeight = clampZcashBirthdayHeight({
       birthdayHeight: privacyModeState.birthdayHeight,
-      chainTip: derived.chainTip ?? undefined,
+      chainTip,
     });
     birthdaySource = 'manual-height';
   } else {
     const birthdayTimestamp = checkIsDefined(
       privacyModeState.birthdayTimestamp,
     );
-    // A null tip (offline, or a carrier that cannot reach lightwalletd)
-    // falls back to the clock-based estimate instead of blocking enable.
     birthdayHeight = estimateZcashBirthdayHeight({
       birthdayTimestamp,
-      chainTip: derived.chainTip,
+      chainTip,
       now: Date.now(),
     });
     birthdaySource =
