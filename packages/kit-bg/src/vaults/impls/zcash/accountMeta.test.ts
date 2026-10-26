@@ -121,6 +121,42 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     await expect(zcash.listAccountIds({ networkId })).resolves.toEqual([]);
   });
 
+  // A balance poll repairs a missing key; deleting local data meanwhile must
+  // leave the key store empty.
+  it('does not write a repaired key back after local data is deleted', async () => {
+    const { account, backgroundApi, zcash, derived, readKey } = createContext();
+    await zcash.beginZcashPrivacyModeEnable({
+      networkId,
+      accountId: account.id,
+      birthdayHeight: 3_000_000,
+    });
+    await resolveAndSaveZcashAccountMeta({
+      account,
+      backgroundApi,
+      networkId,
+      derive: async () => derived,
+    });
+    await backgroundApi.simpleDb.privacyChainKeys.removeKeys({
+      accountIds: [account.id],
+    });
+
+    await expect(
+      resolveAndSaveZcashAccountMeta({
+        account,
+        backgroundApi,
+        networkId,
+        derive: async () => {
+          await zcash.requestAccountDeletion({
+            networkId,
+            accountId: account.id,
+          });
+          return derived;
+        },
+      }),
+    ).rejects.toThrow('privacy state changed during setup');
+    await expect(readKey()).resolves.toBeUndefined();
+  });
+
   it('does not write metadata for a removed App account before GC runs', async () => {
     const { account, backgroundApi, zcash, derived, getDBAccountSafe } =
       createContext();
