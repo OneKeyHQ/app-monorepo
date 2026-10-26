@@ -178,8 +178,8 @@ const DustSweepNetworkChip = memo(function DustSweepNetworkChip({
         }
       >
         <XStack gap="$1.5" alignItems="center">
-          {/* The execution route remounts these chips; keep their loaded
-            logos instead of waiting for another network lookup. */}
+          {/* Reuse the provided logo when chips mount instead of waiting
+            for another network lookup. */}
           {entry.network.logoURI ? (
             <NetworkAvatarBase logoURI={entry.network.logoURI} size="$6" />
           ) : (
