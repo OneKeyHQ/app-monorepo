@@ -110,9 +110,6 @@ describe('removed-account gc', () => {
         getLocalWalletNetworkIds,
         forEachLocalWalletCapability: jest.fn(async () => undefined),
         backgroundApi: {
-          serviceSignature: {
-            listZcashSignedTransactionAccountIds: async () => [],
-          },
           serviceAccount: {
             getAllAccounts: async () => ({ accounts: [] }),
             getAllIndexedAccounts: async () => ({ indexedAccounts: [] }),

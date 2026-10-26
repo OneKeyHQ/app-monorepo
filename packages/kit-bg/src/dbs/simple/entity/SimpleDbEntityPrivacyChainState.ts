@@ -140,11 +140,6 @@ const accountRecordSchema = z.object({
   // Random 64-bit hex, renewed when scan data or its requested target changes,
   // so older work and cached results cannot overwrite the current request.
   epoch: z.string().regex(/^[0-9a-f]{16}$/),
-  // Only privacy deletion rotates the archive fence; rescans keep signed activity.
-  signatureEpoch: z
-    .string()
-    .regex(/^[0-9a-f]{16}$/)
-    .optional(),
   scan: z.object({
     intent: z.enum(['on', 'off']),
     deletion: z
@@ -284,13 +279,7 @@ function parseAccountRecord(
 ): IPrivacyChainAccountRecord | undefined {
   const result = accountRecordSchema.safeParse(raw);
   if (!result.success) return undefined;
-  // Old pending deletions predate the independent archive fence. Normalize
-  // before every writer reads them so completion persists the fence too.
-  return compact({
-    ...result.data,
-    signatureEpoch:
-      result.data.signatureEpoch ?? result.data.scan.deletion?.requestId,
-  });
+  return compact(result.data);
 }
 
 function parseWalletRecord(
@@ -913,7 +902,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       writeAccount(state, accountId, {
         ...record,
         epoch: createEpoch(),
-        signatureEpoch: requestId,
         scan: {
           ...record.scan,
           intent: 'off',
@@ -1057,14 +1045,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       : epoch;
   }
 
-  async getAccountSignatureEpoch({
-    accountId,
-  }: {
-    accountId: string;
-  }): Promise<string | undefined> {
-    return (await this.readAccountRecord(accountId))?.record.signatureEpoch;
-  }
-
   async isAccountSyncCurrent({
     accountId,
     epoch,
@@ -1146,7 +1126,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         networkId: record.networkId,
         walletId: record.walletId,
         epoch: createEpoch(),
-        signatureEpoch: record.signatureEpoch,
         scan: {
           intent: 'off',
           birthday: record.scan.birthday,

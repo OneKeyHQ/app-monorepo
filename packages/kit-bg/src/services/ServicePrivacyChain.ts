@@ -6,7 +6,6 @@ import {
   backgroundMethod,
   backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -169,7 +168,6 @@ type ILocalWalletLifecycleTarget = {
   runtimeAccountIds?: string[];
   // A newer, durably authorized enable survives the old runtime cleanup.
   preserveAuthorization?: boolean;
-  deletionRequestId?: string;
 };
 
 // Chain-agnostic singleton behind vaultSettings.localWallet: runs the
@@ -965,11 +963,7 @@ class ServicePrivacyChain extends ServiceBase {
         )
           throw e;
         // Finish cache/UI cleanup, but never report a successful key deletion.
-        if (
-          step === 'viewingKeys:delete' ||
-          step === 'signatureRecords:delete' ||
-          event === 'deleteLocalData'
-        )
+        if (step === 'viewingKeys:delete' || event === 'deleteLocalData')
           cleanupResult.error ??=
             e instanceof Error
               ? e
@@ -1103,7 +1097,6 @@ class ServicePrivacyChain extends ServiceBase {
       case 'deviceState:rewritePendingDrop':
       case 'genericStorage:clearedWithAppStorage':
       case 'localHistory:clearedWithAppStorage':
-      case 'signatureRecords:clearedWithAppStorage':
       case 'walletState:clearedWithAppStorage':
         return;
       case 'runtimeRows:unlessAlias':
@@ -1190,18 +1183,6 @@ class ServicePrivacyChain extends ServiceBase {
         await backgroundApi.simpleDb.privacyChainXmrSent.removeAccounts({
           accountIds,
         });
-        return;
-      case 'signatureRecords:delete':
-        if (networkId && networkId !== getNetworkIdsMap().zec) return;
-        await forEachAccount((accountId) =>
-          backgroundApi.serviceSignature.removeSignedTransactionsForAccount({
-            networkId: getNetworkIdsMap().zec,
-            accountId,
-            ...(target.deletionRequestId
-              ? { deletionRequestId: target.deletionRequestId }
-              : {}),
-          }),
-        );
         return;
       case 'displayCaches:delete':
         if (scope === 'app') {
@@ -2388,10 +2369,6 @@ class ServicePrivacyChain extends ServiceBase {
               'xmrSent',
               this.backgroundApi.simpleDb.privacyChainXmrSent.listAccountIds(),
             ),
-            listOrEmpty(
-              'signatures',
-              this.backgroundApi.serviceSignature.listZcashSignedTransactionAccountIds(),
-            ),
           ])
         ).flat(),
       );
@@ -2984,7 +2961,6 @@ class ServicePrivacyChain extends ServiceBase {
             accountIds: [request.accountId],
             runtimeAccountIds: [],
             preserveAuthorization: current.reenabled,
-            deletionRequestId: request.requestId,
           },
         ],
       });

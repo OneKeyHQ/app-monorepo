@@ -89,9 +89,6 @@ describe('Zcash identity mismatch recovery', () => {
         getDBAccountSafe: jest.fn(async () => account),
         getAccount: jest.fn(async () => ({ address: 't1account' })),
       },
-      serviceSignature: {
-        removeSignedTransactionsForAccount: jest.fn(async () => undefined),
-      },
     } as unknown as IBackgroundApi;
     const derived = {
       ufvk: 'ufvk-before-firmware-change',
