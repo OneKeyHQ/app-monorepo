@@ -1303,8 +1303,17 @@ function BasePerpTokenSelectorContent() {
       if (isImeComposingKeyboardEvent(event)) return;
       const key = getKeyboardEventKey(event);
       const keyboardEvent = event.nativeEvent as Partial<KeyboardEvent>;
+      const inputTarget = keyboardEvent.target;
+      if (
+        typeof HTMLInputElement !== 'undefined' &&
+        inputTarget instanceof HTMLInputElement &&
+        inputTarget.value.trim().slice(0, 64) !== inputQueryRef.current
+      ) {
+        inputQueryRef.current = inputTarget.value.trim().slice(0, 64);
+        pendingKeyboardScroll.current = undefined;
+        setKeyboardSelection(undefined);
+      }
       if (key === 'ArrowLeft' || key === 'ArrowRight') {
-        const inputTarget = keyboardEvent.target;
         if (
           keyboardEvent.metaKey ||
           keyboardEvent.ctrlKey ||
