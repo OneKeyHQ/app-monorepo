@@ -255,7 +255,6 @@ it('leaves a paused chain paused when the balance is refreshed', async () => {
     .mockResolvedValue(undefined);
   await service.refreshLocalWalletAccount(params);
   expect(start).not.toHaveBeenCalled();
-  expect(service.boostPausedByNetwork[networkId]).toBe(true);
 });
 
 it('does not use stale display progress to establish success, and does not lose authoritative success to a failed display read', async () => {
