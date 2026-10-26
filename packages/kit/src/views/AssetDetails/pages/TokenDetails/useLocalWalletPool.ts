@@ -140,7 +140,10 @@ export function buildLocalWalletSyncStatusText({
       ? ` · ${intl.formatMessage({ id: regionLabelId })}`
       : '';
     const eta = formatEtaSuffix(remaining, scanRatePerSec);
-    const remainingText = formatPrivacyChainRemainingBlocks(syncProgress, intl);
+    // The block count only stands in until a scan rate gives a time.
+    const remainingText = eta
+      ? ''
+      : formatPrivacyChainRemainingBlocks(syncProgress, intl);
     const line =
       formatPrivacyChainSyncProgress({
         scanned,
