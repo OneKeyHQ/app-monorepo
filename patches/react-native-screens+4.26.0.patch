@@ -1686,7 +1686,7 @@ index 1c84484..976b44f 100644
  
  #if !TARGET_OS_TV
 diff --git a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
-index fd6f70d..660cd6f 100644
+index fd6f70d..da4c6d4 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
 @@ -148,9 +148,6 @@ + (void)enforceDesiredDeviceOrientation
@@ -1699,7 +1699,7 @@ index fd6f70d..660cd6f 100644
  
          // `attemptRotationToDeviceOrientation` is deprecated for modern OS versions
          // so we need to use `setNeedsUpdateOfSupportedInterfaceOrientations`
-@@ -159,7 +156,45 @@ + (void)enforceDesiredDeviceOrientation
+@@ -159,7 +156,46 @@ + (void)enforceDesiredDeviceOrientation
            topController = topController.presentedViewController;
          }
  
@@ -1729,6 +1729,8 @@ index fd6f70d..660cd6f 100644
 +          }
 +        };
 +        void (^updateOrientation)(void) = ^{
++          // Refresh stale masks first, or UIKit can reject the geometry request.
++          invalidateSupportedOrientations();
 +          [scene requestGeometryUpdateWithPreferences:geometryPreferences
 +                                         errorHandler:^(NSError *_Nonnull error){
 +                                         }];
@@ -1739,7 +1741,6 @@ index fd6f70d..660cd6f 100644
 +        } else {
 +          [UIView performWithoutAnimation:^{
 +            // Invalidate inside the block before a geometry request can start rotation.
-+            invalidateSupportedOrientations();
 +            updateOrientation();
 +          }];
 +        }
