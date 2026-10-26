@@ -1754,13 +1754,6 @@ function DeFiListBlock({
   useEffect(() => {
     if (allNetworksResult) {
       if (
-        refreshCacheOnly ||
-        allNetworksResult.length !== expectedOverviewResultsRef.current ||
-        allNetworksResult.some((result) => !result)
-      ) {
-        return;
-      }
-      if (
         !shouldApplyDeFiAllNetworksResult({
           applied: appliedAllNetworksResultRef.current,
           result: allNetworksResult,
@@ -1773,6 +1766,14 @@ function DeFiListBlock({
         result: allNetworksResult,
         ownerKey: currentOwnerKey,
       };
+
+      if (
+        refreshCacheOnly ||
+        allNetworksResult.length !== expectedOverviewResultsRef.current ||
+        allNetworksResult.some((result) => !result)
+      ) {
+        return;
+      }
 
       const tempOverview = {
         totalValue: 0,
