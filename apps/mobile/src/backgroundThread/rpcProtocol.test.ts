@@ -165,6 +165,20 @@ describe('background thread RPC protocol', () => {
     ).toEqual({ $$broadcastTxContext: context });
   });
 
+  // bg tells "the privacy runtime is down" from an ordinary sync failure by
+  // this marker; it is a short enum string.
+  it('keeps the privacy runtime failure marker from background error data', () => {
+    expect(
+      buildSafeBackgroundThreadErrorData({
+        privacyChainRuntimeFailure: 'handshake',
+        detail: 'must-not-cross',
+      }),
+    ).toEqual({ privacyChainRuntimeFailure: 'handshake' });
+    expect(
+      buildSafeBackgroundThreadErrorData({ privacyChainRuntimeFailure: 1 }),
+    ).toBeUndefined();
+  });
+
   it('drops non-LSE background error data before serialization', () => {
     const circular: Record<string, unknown> = {};
     circular.self = circular;

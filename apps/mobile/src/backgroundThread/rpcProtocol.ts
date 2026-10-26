@@ -353,6 +353,16 @@ export function buildBackgroundThreadErrorResponse(
 
 export function buildSafeBackgroundThreadErrorData(data: unknown) {
   const broadcastTxContext = getBroadcastTxContextFromData(data);
+  // Lets bg tell a privacy runtime that is down from an ordinary failure.
+  const runtimeFailure =
+    data && typeof data === 'object' && !Array.isArray(data)
+      ? (data as { privacyChainRuntimeFailure?: unknown })
+          .privacyChainRuntimeFailure
+      : undefined;
+  const runtimeFailureData =
+    typeof runtimeFailure === 'string'
+      ? { privacyChainRuntimeFailure: runtimeFailure }
+      : {};
   if (
     data &&
     typeof data === 'object' &&
@@ -367,13 +377,17 @@ export function buildSafeBackgroundThreadErrorData(data: unknown) {
       ...(broadcastTxContext
         ? { [BROADCAST_TX_CONTEXT_DATA_FIELD]: broadcastTxContext }
         : {}),
+      ...runtimeFailureData,
     };
   }
 
   if (broadcastTxContext) {
-    return { [BROADCAST_TX_CONTEXT_DATA_FIELD]: broadcastTxContext };
+    return {
+      [BROADCAST_TX_CONTEXT_DATA_FIELD]: broadcastTxContext,
+      ...runtimeFailureData,
+    };
   }
-  return undefined;
+  return typeof runtimeFailure === 'string' ? runtimeFailureData : undefined;
 }
 
 export function parseBackgroundThreadResponse(
