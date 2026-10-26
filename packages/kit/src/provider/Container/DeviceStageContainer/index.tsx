@@ -116,6 +116,14 @@ function DeviceStageContainerCmp() {
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
+  const deviceProgress = stage?.payload?.deviceProgress;
+  // File writes carry byte counts; address scans only report a percentage.
+  const transferProgress =
+    !stage?.vendor &&
+    typeof deviceProgress?.totalBytes === 'number' &&
+    deviceProgress.totalBytes > 0
+      ? deviceProgress.progress
+      : undefined;
   const isPro2NeoPassphraseCreation =
     stage?.passphraseMode === 'create' &&
     isProtocolV2ProductType(stage?.deviceType);
@@ -588,6 +596,7 @@ function DeviceStageContainerCmp() {
       vendorModel={stage?.vendorModel}
       vendorModelName={stage?.vendorModelName}
       appName={stage?.appName}
+      transferProgress={transferProgress}
       installProgress={stage?.installProgress}
       installQueue={stage?.installQueue}
       installActiveIndex={stage?.installActiveIndex}

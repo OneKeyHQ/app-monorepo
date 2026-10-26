@@ -209,6 +209,8 @@ export interface IDeviceStageProps {
   /** The coin app the install steps talk about (`Ethereum`) — titles
    * and rows of `installConfirm`/`installing`. */
   appName?: string;
+  /** File-write progress reported by the SDK, 0–100. */
+  transferProgress?: number;
   /** Live install progress, 0–100 — `installing`'s bar and the active
    * row of `installBatch`. Real progress from the vendor SDK, never
    * simulated. */

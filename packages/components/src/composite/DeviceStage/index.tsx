@@ -585,6 +585,7 @@ export function DeviceStage({
   vendorModel,
   vendorModelName,
   appName,
+  transferProgress,
   installProgress,
   installQueue,
   installActiveIndex,
@@ -2242,6 +2243,16 @@ export function DeviceStage({
   // — never for a flight settling over the other glyphs.
   const bluetoothBadgePaused =
     capsuleGlyph !== 'bluetooth' || pose !== 'capsule' || poseInFlight;
+  const transferPercent =
+    step === 'processing' &&
+    typeof transferProgress === 'number' &&
+    Number.isFinite(transferProgress)
+      ? Math.max(0, Math.min(100, Math.round(transferProgress)))
+      : undefined;
+  const transferAccessibilityValue = useMemo(
+    () => ({ min: 0, max: 100, now: transferPercent }),
+    [transferPercent],
+  );
   const capsule = useMemo(
     () => (
       <XStack
@@ -2297,10 +2308,36 @@ export function DeviceStage({
               {capsuleText.sub}
             </SizableText>
           ) : null}
+          {transferPercent !== undefined ? (
+            <YStack gap="$1" mt="$1" minWidth={120}>
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                {`${transferPercent}%`}
+              </SizableText>
+              <Stack
+                testID="device-stage-transfer-progress"
+                accessibilityRole="progressbar"
+                accessibilityValue={transferAccessibilityValue}
+                h="$1"
+                borderRadius="$full"
+                bg="$neutral5"
+                overflow="hidden"
+              >
+                <Stack h="100%" width={`${transferPercent}%`} bg="$bgPrimary" />
+              </Stack>
+            </YStack>
+          ) : null}
         </YStack>
       </XStack>
     ),
-    [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
+    [
+      bluetoothBadgePaused,
+      capsuleGlyph,
+      capsuleText,
+      pose,
+      transferAccessibilityValue,
+      transferPercent,
+      vendorImageSource,
+    ],
   );
 
   const dismissLabel = useMemo(
