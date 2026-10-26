@@ -1167,12 +1167,38 @@ export async function syncLocalWalletGroupImpl(
   });
 }
 
-// Requeues the account without deleting local transaction evidence.
+// Aliases share one runtime account, so a rescan starts at their earliest
+// birthday; a later one would make the runtime drop another alias's notes.
+async function zcashSharedRescanAccount(
+  vault: Vault,
+  { accountId, birthdayHeight }: { accountId: string; birthdayHeight?: number },
+): Promise<IZcashWalletAccount> {
+  const account = await vault.zcashGetWalletAccount({ accountId });
+  const metas =
+    await vault.backgroundApi.simpleDb.privacyChainState.listZcashAccountMetas({
+      networkId: vault.networkId,
+    });
+  const ownVkFp = metas.find((item) => item.accountId === accountId)?.meta.vkFp;
+  const aliasBirthdays = metas
+    .filter((item) => item.accountId !== accountId)
+    .filter((item) => ownVkFp !== undefined && item.meta.vkFp === ownVkFp)
+    .map((item) => item.meta.birthdayHeight);
+  const heights = [
+    birthdayHeight ?? account.birthdayHeight,
+    ...aliasBirthdays,
+  ].filter((height): height is number => height !== undefined);
+  return {
+    ...account,
+    birthdayHeight: heights.length ? Math.min(...heights) : undefined,
+  };
+}
+
+// Requeues the account from its shared birthday.
 export async function zcashRewindAccount(
   vault: Vault,
   { accountId }: { accountId: string },
 ): Promise<void> {
-  const account = await vault.zcashGetWalletAccount({ accountId });
+  const account = await zcashSharedRescanAccount(vault, { accountId });
   const lifecycleMutex = getZcashAccountLifecycleMutex({
     networkId: vault.networkId,
     ufvk: account.ufvk,
@@ -1398,12 +1424,12 @@ export async function applyPendingRescan(
     }
     // The runtime moves first; until it succeeds the saved birthday stays and
     // the request journal is retried. Replaying a done rescan only requeues.
-    const account = await vault.zcashGetWalletAccount({ accountId });
-    const api = await vault.zcashGetApi();
-    await api.rescanWallet({
-      ...account,
+    const account = await zcashSharedRescanAccount(vault, {
+      accountId,
       birthdayHeight: repair.birthdayHeight,
     });
+    const api = await vault.zcashGetApi();
+    await api.rescanWallet(account);
     await vault.backgroundApi.simpleDb.privacyChainState.saveZcashAccountMeta({
       accountId,
       expectedMeta: currentMeta,

@@ -172,6 +172,35 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     expect(f.purgeWallet).not.toHaveBeenCalled();
   });
 
+  it('rescans aliases of one viewing key from their earliest birthday', async () => {
+    const f = fixture('pending');
+    Object.assign(f.vault.backgroundApi.simpleDb.privacyChainState, {
+      listZcashAccountMetas: async () => [
+        {
+          accountId: f.accountId,
+          meta: { vkFp: 'shared', birthdayHeight: 2_500_000 },
+        },
+        {
+          accountId: 'alias',
+          meta: { vkFp: 'shared', birthdayHeight: 1_900_000 },
+        },
+        {
+          accountId: 'other',
+          meta: { vkFp: 'other', birthdayHeight: 1_000_000 },
+        },
+      ],
+    });
+    await f.vault.zcashRewindAccount({ accountId: f.accountId });
+    await f.vault.applyPendingRescan({
+      accountId: f.accountId,
+      repair: f.repair,
+    });
+    expect(f.rescanWallet.mock.calls).toEqual([
+      [{ ...f.account, birthdayHeight: 1_900_000 }],
+      [{ ...f.account, birthdayHeight: 1_900_000 }],
+    ]);
+  });
+
   it('keeps the saved birthday, epochs and journal when the runtime refuses the rescan', async () => {
     const f = fixture('pending');
     f.rescanWallet.mockRejectedValueOnce(new Error('rescan refused'));
