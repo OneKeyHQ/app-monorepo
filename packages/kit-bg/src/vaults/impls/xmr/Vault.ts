@@ -546,10 +546,11 @@ export default class Vault extends VaultBase {
   }: {
     password: string;
   }): Promise<boolean> {
-    const { spendsFound } = await this.xmrImportKeyImages({
+    const { imported, spendsFound } = await this.xmrImportKeyImages({
       password,
     });
-    return spendsFound > 0;
+    // An imported key image unlocks a password-locked output either way.
+    return imported > 0 || spendsFound > 0;
   }
 
   private async xmrCountOutputsWithoutKeyImage({
