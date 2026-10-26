@@ -9,7 +9,10 @@ import { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { EBinanceDepositErrorCode } from '@onekeyhq/shared/types/exchange';
+import {
+  EBinanceDepositErrorCode,
+  EBinanceDepositSessionStatus,
+} from '@onekeyhq/shared/types/exchange';
 import type { IBinanceDepositSnapshot } from '@onekeyhq/shared/types/exchange';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -17,6 +20,17 @@ import { BINANCE_DEPOSIT_COPY } from './binanceDepositCopy';
 
 // Local reads only; the service asks the server at its own pace.
 const SNAPSHOT_POLL_INTERVAL_MS = 1500;
+
+function getErrorToastTitle(error: unknown): string {
+  switch ((error as { code?: number } | undefined)?.code) {
+    case EBinanceDepositErrorCode.CapabilityStale:
+      return BINANCE_DEPOSIT_COPY.toastAssetUnavailable;
+    case EBinanceDepositErrorCode.RateLimited:
+      return BINANCE_DEPOSIT_COPY.toastRateLimited;
+    default:
+      return BINANCE_DEPOSIT_COPY.toastUnavailable;
+  }
+}
 
 function isSameSnapshot(
   a: IBinanceDepositSnapshot | null | undefined,
@@ -78,7 +92,8 @@ export function useBinanceDepositRecipient({
 
   // Both answers are cached so the entry is there when the page opens. A
   // token Binance doesn't accept is cached as null: the cache never stores
-  // undefined, and a stale asset would flash the entry on every open.
+  // undefined, and a stale asset would flash the entry on every open. A
+  // failed fetch keeps what is there.
   const { result: asset, run: refreshAsset } = usePromiseResult(
     async () =>
       depositToken
@@ -94,6 +109,7 @@ export function useBinanceDepositRecipient({
       swrKey: depositToken
         ? `binance-deposit-asset:${networkId}:${depositToken.address || 'native'}`
         : undefined,
+      keepResultIfError: true,
     },
   );
   // Asked again only when the asset comes or goes, not each time a fresh
@@ -120,7 +136,14 @@ export function useBinanceDepositRecipient({
     }
   }, []);
 
+  // The card's button can be tapped while the open after a start is still
+  // on its way; the link is opened once.
+  const isOpeningRef = useRef(false);
   const openBinance = useCallback(async (localId: string, attempt: number) => {
+    if (isOpeningRef.current) {
+      return;
+    }
+    isOpeningRef.current = true;
     try {
       // The link only lives in this local variable: it is not stored,
       // logged or put into navigation.
@@ -132,8 +155,26 @@ export function useBinanceDepositRecipient({
       // The system has to open it: the in-app browser would not hand a
       // universal link over to the Binance app.
       await openUrlUtils.linkingOpenURL(link);
-    } catch {
-      Toast.error({ title: BINANCE_DEPOSIT_COPY.toastUnavailable });
+    } catch (error) {
+      if (attempt !== attemptRef.current) {
+        return;
+      }
+      // An expired link fails the session, and the card then says so and
+      // offers to try again: no toast on top.
+      const next =
+        await backgroundApiProxy.serviceBinanceDeposit.getSnapshot(localId);
+      if (attempt !== attemptRef.current) {
+        return;
+      }
+      if (next?.phase === 'failed') {
+        setSnapshot((current) =>
+          current?.localId === localId ? next : current,
+        );
+        return;
+      }
+      Toast.error({ title: getErrorToastTitle(error) });
+    } finally {
+      isOpeningRef.current = false;
     }
   }, []);
 
@@ -143,7 +184,12 @@ export function useBinanceDepositRecipient({
         return;
       }
       setSnapshot(next);
-      if (next.phase === 'awaiting') {
+      // Only a session still waiting for the authorization has a link to
+      // open; a resumed one the user already confirmed has none.
+      if (
+        next.phase === 'awaiting' &&
+        next.status === EBinanceDepositSessionStatus.INIT
+      ) {
         await openBinance(next.localId, attempt);
       }
     },
@@ -155,7 +201,7 @@ export function useBinanceDepositRecipient({
       if (attempt !== attemptRef.current) {
         return;
       }
-      Toast.error({ title: BINANCE_DEPOSIT_COPY.toastUnavailable });
+      Toast.error({ title: getErrorToastTitle(error) });
       if (
         (error as { code?: number } | undefined)?.code ===
         EBinanceDepositErrorCode.CapabilityStale
@@ -173,9 +219,10 @@ export function useBinanceDepositRecipient({
     [refreshAsset],
   );
 
-  // Not behind the busy lock: after a cancel, the next tap must not wait for
-  // the abandoned request. The service picks up an unfinished session for
-  // the same asset instead of creating a second one.
+  // Not behind the busy lock: after a cancel the card must come back at
+  // once. The service runs starts one after another and picks up the
+  // unfinished session, so this tap gets the answer of a create still
+  // running.
   const start = useCallback(async () => {
     if (!asset) {
       return;

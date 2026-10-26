@@ -326,3 +326,79 @@ describe('pickXpubFromDBAccount (address-keyed storage owner)', () => {
     ).toBe('stake1u...stake');
   });
 });
+
+describe('getAddressPrefix', () => {
+  it.each([
+    ['0x96223d67518AAedcBed163098fA4BC3fa2384F4f', '0x'],
+    ['bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq', 'bc1'],
+    ['BC1QAR0SRRR7XFKVY5L643LYDNW9RE59GTZZWF5MDQ', 'BC1'],
+    ['cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu', 'cosmos1'],
+    [
+      'ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq2ty6ncud4dtpqks4fkjj36k7h729far7q724lt7',
+      'ckb1',
+    ],
+    ['bitcoincash:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy', 'bitcoincash:'],
+    ['1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', ''],
+    ['r9cZA1mLK5R5Am25ArfXFmqgNwjZgnfk59', ''],
+    ['7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV', ''],
+    // Split like bech32 at the last "1", but without its checksum: a NEAR
+    // implicit account and a Filecoin-style address.
+    ['ead581ddd3387b1bbb64b7d621a660c11bd526cd2a48c8f87ba254cb391e398d', ''],
+    ['f1rqxhxs54r2w7rtjjh2fpd7cel7muc46fdnkrq77', ''],
+  ])('%s → %s', (address, prefix) => {
+    expect(accountUtils.getAddressPrefix(address)).toBe(prefix);
+  });
+});
+
+describe('isSimilarAddress', () => {
+  const evmReal = '0x96223d67518AAedcBed163098fA4BC3fa2384F4f';
+
+  test('flags an address made to start and end like another', () => {
+    expect(
+      accountUtils.isSimilarAddress(
+        evmReal,
+        '0x96223d0b3f1e9a2c77d41e58b0c2f9e6a1384F4f',
+      ),
+    ).toBe(true);
+  });
+
+  test('does not flag one address written in another case', () => {
+    expect(accountUtils.isSimilarAddress(evmReal, evmReal.toLowerCase())).toBe(
+      false,
+    );
+  });
+
+  test('does not count the prefix every address of the chain has', () => {
+    // 3 + 3 matching characters after "0x".
+    expect(
+      accountUtils.isSimilarAddress(
+        evmReal,
+        '0x962bcccccccccccccccccccccccccccccccc0F4f',
+      ),
+    ).toBe(false);
+    expect(
+      accountUtils.isSimilarAddress(
+        'bitcoincash:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy',
+        'bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a',
+      ),
+    ).toBe(false);
+  });
+
+  test('counts a start the address format gives as a short match', () => {
+    const ckb =
+      'ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq2ty6ncud4dtpqks4fkjj36k7h729far7q724lt7';
+    expect(
+      accountUtils.isSimilarAddress(
+        ckb,
+        'ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw2thjykus8hzg053mcq4dfhwmxdgwguqcprsuh7',
+      ),
+    ).toBe(false);
+    // The same start, and the ends match too.
+    expect(
+      accountUtils.isSimilarAddress(
+        ckb,
+        'ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqws6ta4ce92ffcw49kxjd6em2mxygh95tc5evlt7',
+      ),
+    ).toBe(true);
+  });
+});

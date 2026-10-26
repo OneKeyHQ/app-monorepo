@@ -260,6 +260,12 @@ class ServiceBinanceDeposit extends ServiceBase {
 
   private lastQueryAt = 0;
 
+  // Starts run one after another, so a tap after a cancel can't race the
+  // create that is still running.
+  private startQueue: Promise<unknown> = Promise.resolve();
+
+  // Throws when the list can't be fetched, so the caller can keep what it
+  // has; undefined means Binance doesn't accept the token.
   @backgroundMethod()
   async getDepositAsset(params: {
     networkId: string;
@@ -267,25 +273,39 @@ class ServiceBinanceDeposit extends ServiceBase {
     contractAddress?: string;
     isNative: boolean;
   }): Promise<IBinanceDepositAsset | undefined> {
-    try {
-      const assets =
-        await this.backgroundApi.serviceToken.getBinanceSupportedAssets();
-      return findBinanceDepositAsset({ assets, ...params });
-    } catch {
-      return undefined;
-    }
+    const assets =
+      await this.backgroundApi.serviceToken.getBinanceSupportedAssets();
+    return findBinanceDepositAsset({ assets, ...params });
+  }
+
+  @backgroundMethod()
+  async startSession(
+    asset: IBinanceDepositAsset,
+  ): Promise<IBinanceDepositSnapshot> {
+    const run = this.startQueue.then(() => this.startSessionNow(asset));
+    this.startQueue = run.catch(() => undefined);
+    return run;
   }
 
   // A new session gets a new key. An unfinished one for the same asset is
   // picked up instead: the server would refuse a second one until it expires.
-  @backgroundMethod()
-  async startSession(
+  private async startSessionNow(
     asset: IBinanceDepositAsset,
   ): Promise<IBinanceDepositSnapshot> {
     const existing =
       await this.backgroundApi.simpleDb.binanceDeposit.getSession();
     if (existing && isBinanceDepositResumable(existing, asset, Date.now())) {
-      return this.toSnapshot(existing);
+      if (existing.status !== 'LOCAL_PENDING_CREATE') {
+        return this.toSnapshot(existing);
+      }
+      // Still waiting for its create. The start before this one has
+      // finished and a Try again would use the same key, so the create is
+      // sent again with it; the server maps it to the same session. Without
+      // the key the session starts over.
+      const sessionKey = await this.readSessionKey(existing.localId);
+      if (sessionKey) {
+        return this.runCreate(existing, sessionKey);
+      }
     }
     await this.discardSession();
     const localId = generateUUID();

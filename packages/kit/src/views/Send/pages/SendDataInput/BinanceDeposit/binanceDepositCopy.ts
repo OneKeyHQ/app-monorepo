@@ -16,6 +16,8 @@ export const BINANCE_DEPOSIT_COPY = {
   securityFailedDesc: 'This address can’t be used.',
   enterAddress: 'Enter address instead',
   toastUnavailable: 'Couldn’t reach Binance. Try again later.',
+  toastAssetUnavailable: 'This asset can’t be deposited to Binance right now.',
+  toastRateLimited: 'Too many requests. Try again later.',
   verifyFailedTitle: 'Couldn’t verify the deposit address. Nothing was sent.',
   verifyFailedDesc: 'Go back and get the address again.',
 };

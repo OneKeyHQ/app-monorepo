@@ -1,8 +1,8 @@
 import {
   findLookalikeAddresses,
   formatRecipientExtra,
-  getAddressPrefix,
   isLookalikeAddress,
+  looksLikeListedAddress,
   shortenRecipientAddress,
 } from './recipientListAddressUtils';
 
@@ -13,27 +13,26 @@ yarn jest packages/kit/src/views/Send/pages/SendDataInput/recipientListAddressUt
 const EVM_REAL = '0x96223d67518AAedcBed163098fA4BC3fa2384F4f';
 // Same first 6 and last 6 after "0x": identical in short form.
 const EVM_FAKE = '0x96223d0b3f1e9a2c77d41e58b0c2f9e6a1384F4f';
-
-describe('getAddressPrefix', () => {
-  it.each([
-    [EVM_REAL, '0x'],
-    ['bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq', 'bc1'],
-    ['cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu', 'cosmos1'],
-    ['bitcoincash:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy', 'bitcoincash:'],
-    ['1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', ''],
-    ['r9cZA1mLK5R5Am25ArfXFmqgNwjZgnfk59', ''],
-    ['7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV', ''],
-  ])('%s → %s', (address, prefix) => {
-    expect(getAddressPrefix(address)).toBe(prefix);
-  });
-});
+// A NEAR implicit account: hex with a "1" in it, which is not bech32.
+const NEAR_IMPLICIT =
+  'ead581ddd3387b1bbb64b7d621a660c11bd526cd2a48c8f87ba254cb391e398d';
+// CKB full addresses with one lock script share their first 58 characters.
+const CKB_FULL =
+  'ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq2ty6ncud4dtpqks4fkjj36k7h729far7q724lt7';
+const CKB_FULL_OTHER =
+  'ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw2thjykus8hzg053mcq4dfhwmxdgwguqcprsuh7';
+// Also ends like CKB_FULL.
+const CKB_FULL_SAME_END =
+  'ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqws6ta4ce92ffcw49kxjd6em2mxygh95tc5evlt7';
 
 describe('shortenRecipientAddress', () => {
   it.each([
     [EVM_REAL, '0x96223d...384F4f'],
     // 6 characters past a prefix, never fewer than 8 in total.
     ['bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq', 'bc1qar0sr...wf5mdq'],
+    ['BC1QAR0SRRR7XFKVY5L643LYDNW9RE59GTZZWF5MDQ', 'BC1QAR0SR...WF5MDQ'],
     ['1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', '1A1zP1eP...DivfNa'],
+    [NEAR_IMPLICIT, 'ead581dd...1e398d'],
     ['cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu', 'cosmos1qypqxp...lzv7xu'],
     [
       'bitcoincash:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy',
@@ -87,10 +86,26 @@ describe('findLookalikeAddresses', () => {
     const lookalikes = findLookalikeAddresses([
       'bitcoincash:qr95sy3j9xwd2ap32xkykttr4cvcu7as4y0qverfuy',
       'bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a',
-      'celestia1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu',
-      'celestia1w4m8z8shpf4lzjk2cq0yxr4yq5thuhvz0h2a3z',
+      'celestia1496sf6n0pcxxzlt8xgdm72yg0ndv33hm3fw5q3',
+      'celestia1zg9gtvwjnc225yj73danwz54vgkgmnxkas0jxx',
     ]);
     expect(lookalikes.size).toBe(0);
+  });
+
+  it('does not flag addresses only for the start their format gives them', () => {
+    expect(findLookalikeAddresses([CKB_FULL, CKB_FULL_OTHER]).size).toBe(0);
+  });
+
+  it('flags format-sharing addresses whose ends match too', () => {
+    expect(findLookalikeAddresses([CKB_FULL, CKB_FULL_SAME_END]).size).toBe(2);
+  });
+
+  it('compares bech32 written in capitals with its lowercase form', () => {
+    const lookalikes = findLookalikeAddresses([
+      CKB_FULL,
+      CKB_FULL_SAME_END.toUpperCase(),
+    ]);
+    expect(isLookalikeAddress(lookalikes, CKB_FULL)).toBe(true);
   });
 
   it('flags lookalikes after a long prefix', () => {
@@ -107,6 +122,29 @@ describe('findLookalikeAddresses', () => {
       'alice@getalbx.com',
     ]);
     expect(lookalikes.size).toBe(0);
+  });
+});
+
+describe('looksLikeListedAddress', () => {
+  const listed = [EVM_REAL, '0x73f46BB9410aa31bB9A0f3Ba1497bacC2a17D944'];
+
+  it('flags a pasted lookalike of a listed address', () => {
+    expect(looksLikeListedAddress(listed, EVM_FAKE)).toBe(true);
+  });
+
+  it('does not flag a listed address itself, in any case', () => {
+    expect(looksLikeListedAddress(listed, EVM_REAL)).toBe(false);
+    expect(looksLikeListedAddress(listed, EVM_REAL.toLowerCase())).toBe(false);
+  });
+
+  it('does not flag unrelated addresses or names', () => {
+    expect(
+      looksLikeListedAddress(
+        listed,
+        '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+      ),
+    ).toBe(false);
+    expect(looksLikeListedAddress(listed, 'vitalik.eth')).toBe(false);
   });
 });
 

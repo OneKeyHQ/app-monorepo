@@ -1,4 +1,5 @@
 import { sha256 as sha256ByNoble } from '@noble/hashes/sha256';
+import { bech32, bech32m } from 'bech32';
 import { isNaN, isNil, isNumber } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
@@ -1335,24 +1336,115 @@ function countMatchingSuffix(str1: string, str2: string): number {
   return count;
 }
 
-// Detects address poisoning attacks where scammers create addresses
-// with matching prefix/suffix to trick users into copying wrong addresses
-function isSimilarAddress(address1: string, address2: string): boolean {
-  // Must be different addresses of same length with valid input
-  if (
-    !address1 ||
-    !address2 ||
-    address1 === address2 ||
-    address1.length !== address2.length
-  ) {
+const SIMILARITY_THRESHOLD = 8;
+// Two similar addresses share at least half the threshold at one end.
+const SIMILARITY_BUCKET_CHARS = Math.ceil(SIMILARITY_THRESHOLD / 2);
+// No one can generate a shared start this long to order: it comes from the
+// address format, such as a CKB lock script, the keys of a Monero wallet or
+// a Stellar base account. It counts as a short match, so the ends must match
+// too.
+const FORMAT_SHARED_LENGTH = 16;
+const FORMAT_SHARED_COUNTED = 6;
+// CKB full addresses and LNURLs run past the usual bech32 limit of 90.
+const BECH32_MAX_LENGTH = 1023;
+
+// The part every address of a chain starts with: "0x", a bech32 prefix such
+// as "bc1" or "cosmos1", or a scheme ending in ":". It says nothing about
+// which address it is.
+function getAddressPrefix(address: string): string {
+  const colonIndex = address.indexOf(':');
+  if (colonIndex > 0 && /^[a-z]+$/.test(address.slice(0, colonIndex))) {
+    return address.slice(0, colonIndex + 1);
+  }
+  // Only the checksum tells bech32 apart: a hex key that contains a "1"
+  // splits the same way.
+  const bech32Address =
+    bech32.decodeUnsafe(address, BECH32_MAX_LENGTH) ??
+    bech32m.decodeUnsafe(address, BECH32_MAX_LENGTH);
+  if (bech32Address) {
+    return address.slice(0, bech32Address.prefix.length + 1);
+  }
+  if (/^0x[0-9a-f]+$/i.test(address)) {
+    return address.slice(0, 2);
+  }
+  return '';
+}
+
+// What two addresses are compared by: the part after the prefix, ignoring
+// case where it says nothing: in hex it is only a checksum, and bech32 is
+// written all in one case or the other.
+function getComparableAddress(address: string): string {
+  const prefix = getAddressPrefix(address);
+  const rest = address.slice(prefix.length);
+  return prefix.toLowerCase() === '0x' || prefix.endsWith('1')
+    ? rest.toLowerCase()
+    : rest;
+}
+
+function isSimilarComparableAddress(key1: string, key2: string): boolean {
+  if (!key1 || !key2 || key1 === key2 || key1.length !== key2.length) {
     return false;
   }
+  const prefixMatch = countMatchingPrefix(key1, key2);
+  return (
+    (prefixMatch >= FORMAT_SHARED_LENGTH
+      ? FORMAT_SHARED_COUNTED
+      : prefixMatch) +
+      countMatchingSuffix(key1, key2) >=
+    SIMILARITY_THRESHOLD
+  );
+}
 
-  const SIMILARITY_THRESHOLD = 8;
-  const prefixMatch = countMatchingPrefix(address1, address2);
-  const suffixMatch = countMatchingSuffix(address1, address2);
+// Detects address poisoning attacks where scammers create addresses
+// with matching prefix/suffix to trick users into copying wrong addresses.
+// The prefix every address of a chain has is not counted.
+function isSimilarAddress(address1: string, address2: string): boolean {
+  return isSimilarComparableAddress(
+    getComparableAddress(address1),
+    getComparableAddress(address2),
+  );
+}
 
-  return prefixMatch + suffixMatch >= SIMILARITY_THRESHOLD;
+// The addresses among `addresses` that are similar to another one, as keys
+// for isInSimilarAddresses. A list can hold every account and contact, so
+// only addresses of one length that share their first or last characters
+// are compared.
+function findSimilarAddresses(addresses: string[]): Set<string> {
+  const buckets = new Map<string, string[]>();
+  new Set(addresses.filter(Boolean).map(getComparableAddress)).forEach(
+    (key) => {
+      [
+        `${key.length}^${key.slice(0, SIMILARITY_BUCKET_CHARS)}`,
+        `${key.length}$${key.slice(-SIMILARITY_BUCKET_CHARS)}`,
+      ].forEach((bucketKey) => {
+        const bucket = buckets.get(bucketKey);
+        if (bucket) {
+          bucket.push(key);
+        } else {
+          buckets.set(bucketKey, [key]);
+        }
+      });
+    },
+  );
+  const similar = new Set<string>();
+  buckets.forEach((bucket) => {
+    for (let i = 0; i < bucket.length; i += 1) {
+      for (let j = i + 1; j < bucket.length; j += 1) {
+        if (isSimilarComparableAddress(bucket[i], bucket[j])) {
+          similar.add(bucket[i]);
+          similar.add(bucket[j]);
+        }
+      }
+    }
+  });
+  return similar;
+}
+
+function isInSimilarAddresses(
+  similar: ReadonlySet<string>,
+  address: string,
+): boolean {
+  return similar.has(getComparableAddress(address));
 }
 
 export default {
@@ -1419,7 +1511,10 @@ export default {
   isEnabledBtcFreshAddress,
   isValidDeriveType,
   normalizeDeriveType,
+  getAddressPrefix,
   isSimilarAddress,
+  findSimilarAddresses,
+  isInSimilarAddresses,
 
   parseAccountId,
   parseIndexedAccountId,

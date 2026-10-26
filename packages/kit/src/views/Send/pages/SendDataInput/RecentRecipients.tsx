@@ -176,7 +176,8 @@ function QuickSelectListItemBase({
     // the account's width cap leaves the wallet at least the rest of the
     // line. The wallet stays whole when it is needed: two rows share the
     // account name, or it says the keys are elsewhere (watch-only,
-    // connected).
+    // connected). Then the cap moves to the wallet, so a long one still
+    // leaves the account on the line.
     primary = (
       <XStack alignItems="center">
         <SizableText
@@ -184,6 +185,7 @@ function QuickSelectListItemBase({
           color="$textSubdued"
           numberOfLines={1}
           flexShrink={keepWalletName ? 0 : 1}
+          maxWidth={keepWalletName ? '70%' : undefined}
         >
           {item.walletName}
         </SizableText>

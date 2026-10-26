@@ -1,5 +1,8 @@
 import { useCallback, useContext } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { Toast } from '@onekeyhq/components';
 import type { IFieldErrorProps } from '@onekeyhq/components';
 import { useFormContext } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -11,11 +14,14 @@ import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook
 
 import { AddressInputContext } from './AddressInputContext';
 
+import type { IAddressInputValue } from '.';
+
 export function AddressInputHyperlinkText({
   error,
   errorMessageAlign,
   testID,
 }: IFieldErrorProps) {
+  const intl = useIntl();
   const form = useFormContext();
   const navigation = useAppNavigation();
   const contentValues = useContext(AddressInputContext);
@@ -29,8 +35,9 @@ export function AddressInputHyperlinkText({
         const to = contentValues.name ? values[contentValues.name] : '';
         const accountId = values.accountId || contentValues.accountId;
         const networkId = values.networkId || contentValues.networkId;
-        const address =
-          typeof to === 'string' ? to : (to as { raw: string }).raw;
+        const toValue: IAddressInputValue =
+          typeof to === 'string' ? { raw: to } : (to as IAddressInputValue);
+        const address = toValue.raw;
         if (!address) {
           return;
         }
@@ -48,6 +55,23 @@ export function AddressInputHyperlinkText({
         });
 
         if (!isAllowListed) {
+          // The add button's rule: a new contact skips the similarity checks,
+          // so a lookalike is never one tap away from the address book.
+          const checkLookalike = contentValues.isLookalikeAddress;
+          const isLookalike = checkLookalike
+            ? checkLookalike(
+                toValue.resolved ?? address,
+                toValue.similarAddress,
+              )
+            : !!toValue.similarAddress;
+          if (!addressBookId && isLookalike) {
+            Toast.warning({
+              title: intl.formatMessage({
+                id: ETranslations.wallet_address_poisoning_alert,
+              }),
+            });
+            return;
+          }
           navigation.pushModal(EModalRoutes.AddressBookModal, {
             screen: EModalAddressBookRoutes.EditItemModal,
             params: {
@@ -62,9 +86,11 @@ export function AddressInputHyperlinkText({
     },
     [
       contentValues.accountId,
+      contentValues.isLookalikeAddress,
       contentValues.name,
       contentValues.networkId,
       form,
+      intl,
       navigation,
     ],
   );

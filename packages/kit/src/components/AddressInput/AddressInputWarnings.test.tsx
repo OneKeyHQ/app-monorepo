@@ -6,6 +6,9 @@ import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 
 import { AddressInputWarnings } from './AddressInputWarnings';
 
+import type { IAddressQueryResult } from '.';
+import type { IAddressLookalikeCheck } from './types';
+
 type IMockStackProps = {
   children?: ReactNode;
   testID?: string;
@@ -47,6 +50,11 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {},
+}));
+
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ pushModal: jest.fn() }),
@@ -78,11 +86,10 @@ const ADD_TO_ADDRESS_BOOK = 'address-input-add-to-address-book-btn';
 const TRANSFERRED_ADDRESS = '0x96223d0b3f1e9a2c77d41e58b0c2f9e6a1384F4f';
 
 function renderTransferredAddress({
-  similarAddress,
   isLookalikeAddress,
-}: {
-  similarAddress?: string;
-  isLookalikeAddress?: (address: string) => boolean;
+  ...queryResult
+}: Partial<IAddressQueryResult> & {
+  isLookalikeAddress?: IAddressLookalikeCheck;
 } = {}) {
   return render(
     <AddressInputWarnings
@@ -91,7 +98,7 @@ function renderTransferredAddress({
         input: TRANSFERRED_ADDRESS,
         validAddress: TRANSFERRED_ADDRESS,
         addressInteractionStatus: EAddressInteractionStatus.INTERACTED,
-        similarAddress,
+        ...queryResult,
       }}
       isLookalikeAddress={isLookalikeAddress}
     />,
@@ -122,8 +129,52 @@ describe('AddressInputWarnings', () => {
     const isLookalikeAddress = jest.fn(() => true);
     renderTransferredAddress({ isLookalikeAddress });
 
-    expect(isLookalikeAddress).toHaveBeenCalledWith(TRANSFERRED_ADDRESS);
+    expect(isLookalikeAddress).toHaveBeenCalledWith(
+      TRANSFERRED_ADDRESS,
+      undefined,
+    );
     expect(mockRenderedButtons).not.toContain(ADD_TO_ADDRESS_BOOK);
+  });
+
+  it("leaves a flagged similar address to the page's own check", () => {
+    const similarAddress = '0x96223d67518AAedcBed163098fA4BC3fa2384F4f';
+    const isLookalikeAddress = jest.fn(() => false);
+    renderTransferredAddress({ similarAddress, isLookalikeAddress });
+
+    expect(isLookalikeAddress).toHaveBeenCalledWith(
+      TRANSFERRED_ADDRESS,
+      similarAddress,
+    );
+    expect(mockRenderedButtons).toContain(ADD_TO_ADDRESS_BOOK);
+  });
+
+  it('checks the address a name resolves to', () => {
+    const isLookalikeAddress = jest.fn(() => false);
+    renderTransferredAddress({
+      input: 'vitalik.eth',
+      validAddress: undefined,
+      resolveAddress: TRANSFERRED_ADDRESS,
+      isLookalikeAddress,
+    });
+
+    expect(isLookalikeAddress).toHaveBeenCalledWith(
+      TRANSFERRED_ADDRESS,
+      undefined,
+    );
+  });
+
+  it('does not offer the address book for an account the user signs with', () => {
+    renderTransferredAddress({ walletAccountId: "hd-1--m/44'/60'/0'/0/0" });
+
+    expect(mockRenderedButtons).not.toContain(ADD_TO_ADDRESS_BOOK);
+  });
+
+  it('offers the address book for a watch-only account', () => {
+    renderTransferredAddress({
+      walletAccountId: `watching--60--${TRANSFERRED_ADDRESS}`,
+    });
+
+    expect(mockRenderedButtons).toContain(ADD_TO_ADDRESS_BOOK);
   });
 
   it('shows a static warning when CEX deposits are explicitly disabled', () => {

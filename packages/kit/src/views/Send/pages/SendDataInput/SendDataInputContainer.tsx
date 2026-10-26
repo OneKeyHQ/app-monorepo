@@ -100,7 +100,7 @@ import {
   BinanceDepositRecipientCard,
 } from './BinanceDeposit/BinanceDepositRecipient';
 import { useBinanceDepositRecipient } from './BinanceDeposit/useBinanceDepositRecipient';
-import { NO_LOOKALIKES, isLookalikeAddress } from './recipientListAddressUtils';
+import { looksLikeListedAddress } from './recipientListAddressUtils';
 import RecipientQuickSelect from './RecipientQuickSelect';
 import {
   getSendAddressRiskCheckButtonState,
@@ -239,11 +239,18 @@ function SendDataInputContainer() {
   const [quickSelectActiveTab, setQuickSelectActiveTab] =
     useState<IRecipientQuickSelectTab>('recent');
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
-  const [quickSelectLookalikes, setQuickSelectLookalikes] =
-    useState<ReadonlySet<string>>(NO_LOOKALIKES);
+  const [quickSelectAddresses, setQuickSelectAddresses] = useState<string[]>(
+    [],
+  );
   const isQuickSelectLookalike = useCallback(
-    (candidate: string) => isLookalikeAddress(quickSelectLookalikes, candidate),
-    [quickSelectLookalikes],
+    (candidate: string, similarAddress?: string) =>
+      looksLikeListedAddress(
+        similarAddress
+          ? [...quickSelectAddresses, similarAddress]
+          : quickSelectAddresses,
+        candidate,
+      ),
+    [quickSelectAddresses],
   );
   const [scannedAmount, setScannedAmount] = useState('');
   // Skip-amount paths (ERC-721, fixed Lightning invoice) build the unsigned
@@ -1717,7 +1724,7 @@ function SendDataInputContainer() {
                   keylessWalletsOnly={keylessWalletsOnly}
                   // The whole page is one network.
                   showAccountNetworkBadge={false}
-                  onLookalikeAddressesChange={setQuickSelectLookalikes}
+                  onListedAddressesChange={setQuickSelectAddresses}
                 />
               </>
             )}

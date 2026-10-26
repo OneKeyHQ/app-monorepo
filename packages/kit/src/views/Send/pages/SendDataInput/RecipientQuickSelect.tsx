@@ -149,7 +149,8 @@ type IRecipientQuickSelectProps = {
   onMatchStatusChange?: (hasMatches: boolean) => void;
   // Off where the page already names the network, which the badge repeats.
   showAccountNetworkBadge?: boolean;
-  onLookalikeAddressesChange?: (lookalikes: ReadonlySet<string>) => void;
+  // Every address the tabs list, for checking a typed address against them.
+  onListedAddressesChange?: (addresses: string[]) => void;
 };
 
 type IAccountRecipientsProps = {
@@ -1075,7 +1076,7 @@ function RecipientQuickSelect({
   keylessWalletsOnly,
   senderDeriveType,
   showAccountNetworkBadge,
-  onLookalikeAddressesChange,
+  onListedAddressesChange,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
   const isRecentHidden = hideTabs?.includes('recent') ?? false;
@@ -1124,13 +1125,17 @@ function RecipientQuickSelect({
       addressBook: forTab('addressBook'),
     };
   }, []);
-  const lookalikeAddresses = useMemo(
-    () => findLookalikeAddresses(Object.values(tabAddresses).flat()),
+  const listedAddresses = useMemo(
+    () => Object.values(tabAddresses).flat(),
     [tabAddresses],
   );
+  const lookalikeAddresses = useMemo(
+    () => findLookalikeAddresses(listedAddresses),
+    [listedAddresses],
+  );
   useEffect(() => {
-    onLookalikeAddressesChange?.(lookalikeAddresses);
-  }, [lookalikeAddresses, onLookalikeAddressesChange]);
+    onListedAddressesChange?.(listedAddresses);
+  }, [listedAddresses, onListedAddressesChange]);
 
   // Set of tabs that should appear (excludes hideTabs and Lightning hidden tabs)
   const visibleTabKeys = useMemo<IRecipientQuickSelectTab[]>(() => {

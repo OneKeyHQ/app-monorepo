@@ -56,6 +56,7 @@ import {
 } from './utils';
 
 import type { IScanPluginProps } from './plugins/scan';
+import type { IAddressLookalikeCheck } from './types';
 import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
 
 type IResolvedAddressProps = {
@@ -174,9 +175,9 @@ type IAddressInputProps = Omit<
   onScanResult?: IScanPluginProps['onScanResult'];
   hasQuickSelectMatches?: boolean;
   tokenAddress?: string;
-  // Whether the address looks like another one the page lists; such an
-  // address is not offered for the address book.
-  isLookalikeAddress?: (address: string) => boolean;
+  // Such an address is not offered for the address book. Without it, any
+  // address the query flags as similar counts.
+  isLookalikeAddress?: IAddressLookalikeCheck;
 };
 
 export type IAddressQueryResult = {
@@ -795,6 +796,7 @@ export function AddressInputField({
     name,
     hideNonBackedUpWallet,
     hasQuickSelectMatches,
+    isLookalikeAddress,
   } = props;
   const { trigger, watch } = useFormContext();
   const toValue = watch(name) as IAddressInputValue | undefined;
@@ -813,8 +815,9 @@ export function AddressInputField({
       networkId,
       accountId,
       hideNonBackedUpWallet,
+      isLookalikeAddress,
     }),
-    [accountId, hideNonBackedUpWallet, name, networkId],
+    [accountId, hideNonBackedUpWallet, isLookalikeAddress, name, networkId],
   );
 
   // Show hint when: has matches, has input, not resolved, not pending
