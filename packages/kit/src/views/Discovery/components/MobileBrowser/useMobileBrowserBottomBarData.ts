@@ -33,6 +33,8 @@ export interface IMobileBrowserBottomBarProps {
   id: string;
   // Scroll-driven chrome state and address actions.
   chrome: IMobileBrowserChrome;
+  // Back to Explore keeping the tab, with a fresh thumbnail for the tab list.
+  onMinimize: () => void;
 }
 
 export function useMobileBrowserBottomBarData({ id }: { id: string }) {

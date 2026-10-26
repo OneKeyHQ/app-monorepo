@@ -141,11 +141,7 @@ const BrowserPageBackdrop = memo(
     const baseColor = usePageBaseColor(tabId);
     return (
       <Stack
-        position="absolute"
-        top={0}
-        right={0}
-        bottom={0}
-        left={0}
+        fullscreen
         bg="$bgApp"
         style={baseColor ? { backgroundColor: baseColor } : undefined}
       />
@@ -571,15 +567,8 @@ function MobileBrowser() {
       layoutExpanded,
       onExpand: expandBrowserChrome,
       onSearchBarPress: handleSearchBarPress,
-      onMinimize: handleGoBackHome,
     }),
-    [
-      chromeProgress,
-      layoutExpanded,
-      expandBrowserChrome,
-      handleSearchBarPress,
-      handleGoBackHome,
-    ],
+    [chromeProgress, layoutExpanded, expandBrowserChrome, handleSearchBarPress],
   );
 
   useAndroidHardwareBack({
@@ -778,6 +767,7 @@ function MobileBrowser() {
                 <MobileBrowserBottomBar
                   id={activeTabId ?? ''}
                   chrome={browserChrome}
+                  onMinimize={handleGoBackHome}
                 />
               </Animated.View>
             </Freeze>
@@ -869,6 +859,7 @@ function MobileBrowser() {
                   <MobileBrowserBottomBar
                     id={activeTabId ?? ''}
                     chrome={browserChrome}
+                    onMinimize={handleGoBackHome}
                   />
                 </Animated.View>
               </Freeze>

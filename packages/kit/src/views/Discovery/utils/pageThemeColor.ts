@@ -78,20 +78,21 @@ function storeColor(
   return true;
 }
 
-// Returns the normalized color that was stored.
-export function setPageThemeColor(tabId: string, color: string | undefined) {
-  const next = normalizeColor(color);
-  if (storeColor(colors, tabId, next)) {
+// Stores both colors (already normalized), notifying once if either changed.
+function setPageColors(
+  tabId: string,
+  color: string | undefined,
+  baseColor: string | undefined,
+) {
+  const colorChanged = storeColor(colors, tabId, color);
+  const baseChanged = storeColor(baseColors, tabId, baseColor);
+  if (colorChanged || baseChanged) {
     emit();
   }
-  return next;
 }
 
 export function clearPageColors(tabId: string) {
-  const changed = storeColor(colors, tabId, undefined);
-  if (storeColor(baseColors, tabId, undefined) || changed) {
-    emit();
-  }
+  setPageColors(tabId, undefined, undefined);
 }
 
 function usePageThemeColor(tabId: string | null | undefined) {
@@ -138,7 +139,7 @@ export function applyCachedPageThemeColor(tabId: string, url: string) {
   const origin = originOf(url);
   const cached = origin ? originColors.get(origin) : undefined;
   if (cached) {
-    setPageThemeColor(tabId, cached);
+    setPageColors(tabId, cached, baseColors.get(tabId));
   }
 }
 
@@ -160,13 +161,7 @@ export function tryDispatchPageThemeMessage(
       return false;
     }
     const stored = normalizeColor(message.color);
-    const colorChanged = storeColor(colors, tabId, stored);
-    if (
-      storeColor(baseColors, tabId, normalizeColor(message.baseColor)) ||
-      colorChanged
-    ) {
-      emit();
-    }
+    setPageColors(tabId, stored, normalizeColor(message.baseColor));
     const origin = originOf(pageUrl);
     if (origin) {
       // A page that reports no color also drops its stale cache, so the next
@@ -242,9 +237,8 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     };
     var lastReport;
     var read = function () {
-      var baseColor =
-        backgroundOf(document.body) ||
-        backgroundOf(document.documentElement);
+      // Walks up from <body> to <html>.
+      var baseColor = backgroundOf(document.body || document.documentElement);
       var color =
         backgroundOf(document.elementFromPoint(window.innerWidth / 2, 2)) ||
         baseColor;
@@ -258,15 +252,17 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
           }
         }
       }
-      var report = JSON.stringify({
-        type: '${PAGE_THEME_MESSAGE_TYPE}',
-        color: color,
-        baseColor: baseColor,
-      });
+      var report = color + '|' + baseColor;
       if (report === lastReport) return;
       lastReport = report;
       window.ReactNativeWebView &&
-        window.ReactNativeWebView.postMessage(report);
+        window.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: '${PAGE_THEME_MESSAGE_TYPE}',
+            color: color,
+            baseColor: baseColor,
+          }),
+        );
     };
     // Re-injection (SPA navigation) and restores from the back-forward cache
     // land on a document that already reported: the app may be showing

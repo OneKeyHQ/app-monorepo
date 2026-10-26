@@ -333,11 +333,54 @@ function MorphingAddressBackground({
   );
 }
 
+// The WebView ends above the bar: the strip behind the bar takes the page
+// color. It follows the bar, not the WebView's edge: during a morph the
+// WebView reaches further down (it resizes once, when the chrome settles),
+// and the opaque strip keeps that part hidden, so the glass always sits on
+// the page color rather than on page content passing behind it. Laid out at
+// its full height and slid down as the bar collapses (a transform, not a
+// per-frame height change). No fade above it: a plain alpha fade (no blur)
+// over page content of another color looks muddy.
+function BarPageStrip({
+  id,
+  progress,
+  bottom,
+}: {
+  id: string;
+  progress: SharedValue<number>;
+  bottom: number;
+}) {
+  const { pageColor } = usePageTheme(id);
+  const fullHeight = getBarReservedHeight(bottom);
+  const collapsedHeight = getCollapsedReservedHeight(bottom);
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: (fullHeight - collapsedHeight) * (1 - progress.value) },
+    ],
+  }));
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.strip, { height: fullHeight }, style]}
+    >
+      <Stack
+        flex={1}
+        bg="$bgApp"
+        style={pageColor ? { backgroundColor: pageColor } : undefined}
+      />
+    </Animated.View>
+  );
+}
+
 // Bar: [tabs] [back · address · reload] [menu]. Forward,
 // translate, bookmark etc. live in the menu. While scrolling down the bar
 // fades out and a small address pill stays above the home indicator. iOS 26
 // renders the capsules as Liquid Glass.
-function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
+function MobileBrowserBottomBar({
+  id,
+  chrome,
+  onMinimize,
+}: IMobileBrowserBottomBarProps) {
   const intl = useIntl();
   const {
     bottom,
@@ -362,32 +405,11 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     handleTranslateTestAIError,
   } = useMobileBrowserBottomBarData({ id });
 
-  const { progress, onExpand, onSearchBarPress, onMinimize } = chrome;
+  const { progress, onExpand, onSearchBarPress } = chrome;
   // Match the page's light/dark look (glass, icons, text), like Safari.
-  const { pageColor, pageThemeName } = usePageTheme(id);
+  const { pageThemeName } = usePageTheme(id);
   const appThemeName = useThemeName();
   const isChromeCollapsed = useIsChromeCollapsed(progress);
-  // The WebView's bottom edge once the chrome settles.
-  const stripFullHeight = getBarReservedHeight(bottom);
-  const stripCollapsedHeight = getCollapsedReservedHeight(bottom);
-  // Follows the bar, not the WebView's edge: during a morph the WebView
-  // reaches further down (it resizes once, when the chrome settles), and
-  // the opaque strip keeps that part hidden, so the glass always sits on the
-  // page color rather than on page content passing behind it.
-  // Laid out at its full height and slid down as the bar collapses (a
-  // transform, not a per-frame height change).
-  const stripStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY:
-          (stripFullHeight - stripCollapsedHeight) * (1 - progress.value),
-      },
-    ],
-  }));
-  const pageColorStyle = useMemo(
-    () => (pageColor ? { backgroundColor: pageColor } : undefined),
-    [pageColor],
-  );
   const sideFade = useMemo<ICapsuleFade>(
     () => ({ progress, range: [SIDE_FADE_START, 1] }),
     [progress],
@@ -459,15 +481,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     <Theme name={pageThemeName ?? appThemeName}>
       <Stack h="100%" zIndex={1} pointerEvents="box-none">
         {PAGE_DRAWS_UNDER_BROWSER_BAR ? null : (
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.strip, { height: stripFullHeight }, stripStyle]}
-          >
-            {/* The WebView ends above the bar: the strip behind the bar takes
-              the page color. No fade above it: a plain alpha fade (no blur)
-              over page content of another color looks muddy. */}
-            <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
-          </Animated.View>
+          <BarPageStrip id={id} progress={progress} bottom={bottom} />
         )}
         <MorphingAddressBackground
           progress={progress}
