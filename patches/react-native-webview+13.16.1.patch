@@ -935,7 +935,7 @@ index 6497a8b..233bb7a 100644
            webViewRef.current && Commands.postMessage(webViewRef.current, data),
          injectJavaScript: (data: string) =>
 diff --git a/node_modules/react-native-webview/src/WebView.ios.tsx b/node_modules/react-native-webview/src/WebView.ios.tsx
-index deb179b..40385db 100644
+index deb179b..11c8daf 100644
 --- a/node_modules/react-native-webview/src/WebView.ios.tsx
 +++ b/node_modules/react-native-webview/src/WebView.ios.tsx
 @@ -149,6 +149,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
@@ -947,6 +947,48 @@ index deb179b..40385db 100644
          postMessage: (data: string) =>
            webViewRef.current && Commands.postMessage(webViewRef.current, data),
          injectJavaScript: (data: string) =>
+@@ -196,8 +198,24 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
+       console.error(`RNCWebView invalid state encountered: ${viewState}`);
+     }
+ 
+-    const webViewStyles = [styles.container, styles.webView, style];
+-    const webViewContainerStyle = [styles.container, containerStyle];
++    // OneKey patch: content the scroll view draws past its frame
++    // (scrollViewClipsToBounds={false}) must not be clipped by the views
++    // around it either, whose container style hides overflow.
++    const unclippedStyle =
++      otherProps.scrollViewClipsToBounds === false
++        ? styles.overflowVisible
++        : undefined;
++    const webViewStyles = [
++      styles.container,
++      styles.webView,
++      style,
++      unclippedStyle,
++    ];
++    const webViewContainerStyle = [
++      styles.container,
++      containerStyle,
++      unclippedStyle,
++    ];
+ 
+     const decelerationRate = processDecelerationRate(decelerationRateProp);
+ 
+diff --git a/node_modules/react-native-webview/src/WebView.styles.ts b/node_modules/react-native-webview/src/WebView.styles.ts
+index 69aa0de..c438cda 100644
+--- a/node_modules/react-native-webview/src/WebView.styles.ts
++++ b/node_modules/react-native-webview/src/WebView.styles.ts
+@@ -5,6 +5,10 @@ const styles = StyleSheet.create({
+     flex: 1,
+     overflow: 'hidden',
+   },
++  // OneKey patch: see scrollViewClipsToBounds in WebView.ios.tsx.
++  overflowVisible: {
++    overflow: 'visible',
++  },
+   loadingOrErrorView: {
+     position: 'absolute',
+     flex: 1,
 diff --git a/node_modules/react-native-webview/src/WebViewShared.tsx b/node_modules/react-native-webview/src/WebViewShared.tsx
 index 3b0a38b..52e4bce 100644
 --- a/node_modules/react-native-webview/src/WebViewShared.tsx
