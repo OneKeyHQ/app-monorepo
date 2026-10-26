@@ -327,4 +327,28 @@ describe('getEntryLocalWalletSendPools', () => {
     expect(result.current.selectedPool?.spendableParsed).toBe('5');
     expect(result.current.isReady).toBe(true);
   });
+
+  // Paused privacy lists only the public pool; paying publicly is the
+  // user's own choice, not a default.
+  it('selects nothing when a private entry pool is missing while privacy is paused', () => {
+    mockSnapshot.result = {
+      scope: scopeFor(props),
+      pools: [{ ...pools[2], isDefault: true }],
+      isPrivacyPaused: true,
+    };
+    const { result } = renderHook(() =>
+      useLocalWalletSendPool({
+        ...props,
+        initialPool: 'ironwood',
+        poolDescriptors: descriptors,
+      }),
+    );
+    expect(result.current.pools?.map((pool) => pool.key)).toEqual([
+      'transparent',
+    ]);
+    expect(result.current.selectedPool).toBeUndefined();
+
+    act(() => result.current.selectPool('transparent'));
+    expect(result.current.selectedPool?.key).toBe('transparent');
+  });
 });

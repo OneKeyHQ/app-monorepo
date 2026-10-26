@@ -116,12 +116,19 @@ export function useLocalWalletSendPool({
     ? initialPool
     : undefined;
   if (selection?.scope === scope) preferredPool = selection.key;
-  const selectedPool = pools
-    ? getDefaultLocalWalletSendPool({
-        pools,
-        preferredPool,
-      })
-    : undefined;
+  // A private entry pool left out entirely (privacy paused) leaves the source
+  // to the user; one listed but ineligible (TEX) falls back to the default.
+  const isEntryPoolMissing =
+    !!poolDescriptors?.some((pool) => pool.key === initialPool) &&
+    !!currentResult?.pools &&
+    !currentResult.pools.some((pool) => pool.key === initialPool);
+  const selectedPool =
+    pools && (selection?.scope === scope || !isEntryPoolMissing)
+      ? getDefaultLocalWalletSendPool({
+          pools,
+          preferredPool,
+        })
+      : undefined;
   useEffect(() => {
     // Freeze even the initial default: a balance refresh is not permission to
     // spend from another pool after the user has started entering an amount.
