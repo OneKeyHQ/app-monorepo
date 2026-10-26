@@ -396,10 +396,10 @@ index 286dcb6..04f3459 100644
  
    /** Registers an additional JS bundle with HMRClient. */
 diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
-index ae2e36c..e0075b0 100644
+index ae2e36c..bc26fc0 100644
 --- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
 +++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
-@@ -912,7 +912,13 @@ public open class ReactViewGroup public constructor(context: Context?) :
+@@ -912,7 +912,20 @@ public open class ReactViewGroup public constructor(context: Context?) :
      if (_overflow != Overflow.VISIBLE || getTag(R.id.filter) != null) {
        clipToPaddingBox(this, canvas)
      }
@@ -407,9 +407,16 @@ index ae2e36c..e0075b0 100644
 +    try {
 +      super.dispatchDraw(canvas)
 +    } catch (e: NullPointerException) {
-+      // Race condition: child view removed during draw cycle by reanimated mount transaction.
-+      // The view hierarchy will be re-drawn correctly on the next frame.
++      // OneKey patch: recover only the known display-list child-removal race.
 +      // Tracking: https://github.com/software-mansion/react-native-reanimated/issues/8422
++      val frame = e.stackTrace.firstOrNull()
++      if (frame?.className != "android.view.ViewGroup" ||
++          frame.methodName != "dispatchGetDisplayList" ||
++          e.message?.contains("android.view.View.mViewFlags") != true) {
++        throw e
++      }
++      FLog.w(TAG, "Child removed while building a display list; scheduling redraw", e)
++      postInvalidateOnAnimation()
 +    }
    }
  
@@ -429,7 +436,7 @@ index f3ec9bc..c9cb706 100644
      return convertNSStringToJSIString(runtime, (NSString *)value);
    } else if ([value isKindOfClass:[NSNumber class]]) {
 diff --git a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
-index 815e469..47c4f53 100644
+index 815e469..d001c57 100644
 --- a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
 +++ b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
 @@ -10,6 +10,7 @@
@@ -481,7 +488,22 @@ index 815e469..47c4f53 100644
    [_instance invalidate];
    if (_inspectorPageId.has_value()) {
      facebook::react::jsinspector_modern::getInspectorInstance().removePage(*_inspectorPageId);
-@@ -625,8 +639,53 @@ - (void)_setBundleURL:(NSURL *)bundleURL
+@@ -503,6 +517,14 @@ - (BOOL)instance:(RCTInstance *)instance
+                    isFatal:(BOOL)isFatal
+                  extraData:(NSDictionary<NSString *, id> *)extraData
+ {
++  // OneKey patch: failed bundle execution never flushes the buffered executor.
++  if (isFatal) {
++    __weak RCTHost *weakSelf = self;
++    RCTExecuteOnMainQueue(^{
++      [weakSelf _completeReloadForInstance:instance];
++    });
++  }
++
+   if (![_hostDelegate respondsToSelector:@selector(host:
+                                              didReceiveJSErrorStack:message:originalMessage:name:componentStack
+                                                                    :exceptionId:isFatal:extraData:)]) {
+@@ -625,8 +647,53 @@ - (void)_setBundleURL:(NSURL *)bundleURL
    RCTReloadCommandSetBundleURL(_bundleURL);
  }
  
@@ -535,7 +557,7 @@ index 815e469..47c4f53 100644
    [_instance invalidate];
    _instance = nil;
    if (_bundleURLProvider) {
-@@ -649,6 +708,36 @@ - (void)_reloadWithShouldRestartSurfaces:(BOOL)shouldRestartSurfaces
+@@ -649,6 +716,28 @@ - (void)_reloadWithShouldRestartSurfaces:(BOOL)shouldRestartSurfaces
        [_instance callFunctionOnBufferedRuntimeExecutor:[surface](facebook::jsi::Runtime &_) { [surface start]; }];
      }
    }
@@ -559,16 +581,8 @@ index 815e469..47c4f53 100644
 +    });
 +  }];
 +
-+  // Bundle loading or execution can fail before the buffered executor runs.
-+  // Always reopen the gate so a later reload can recover without restarting
-+  // the process. Stale timers are ignored by the instance identity check.
-+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-+    RCTHost *strongSelf = weakSelf;
-+    RCTInstance *strongReloadedInstance = weakReloadedInstance;
-+    if (strongSelf && strongReloadedInstance) {
-+      [strongSelf _completeReloadForInstance:strongReloadedInstance];
-+    }
-+  });
++  // OneKey patch: a slow bundle is still executing. Only the buffered executor
++  // above, a bundle-loading failure, or a fatal JS error may release this gate.
  }
  
  #pragma mark - jsinspector_modern

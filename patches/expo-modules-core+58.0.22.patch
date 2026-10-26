@@ -183,7 +183,7 @@ index 10af42b..6e943ac 100644
  
    private synchronized NativeModulesProxy getOrCreateNativeModulesProxy(
 diff --git a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
-index f30fc12..4657fae 100644
+index f30fc12..b98b291 100644
 --- a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
 +++ b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
 @@ -92,12 +92,18 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
@@ -207,32 +207,4 @@ index f30fc12..4657fae 100644
 +        }
        }
      }
-   }
-@@ -156,6 +162,7 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
-   }
- 
-   internal static var viewClassesRegistry = [String: AnyClass]()
-+  internal static var viewClassAppIdentifiersRegistry = [String: String]()
- 
-   /**
-    Dynamically creates a subclass of the `ExpoFabricView` class with injected app context and name of the associated module.
-@@ -165,6 +172,11 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
-    */
-   @objc
-   public static func makeViewClass(forAppContext appContext: AppContext, moduleName: String, viewName: String, className: String) -> AnyClass? {
-+    let appIdentifier = appContext.appIdentifier ?? ""
-+    if let registeredAppIdentifier = viewClassAppIdentifiersRegistry[className], registeredAppIdentifier != appIdentifier {
-+      // OneKey patch: never rebind one Fabric class to a different React host.
-+      fatalError("Cannot bind Fabric view class '\(className)' to a different app context")
-+    }
-     if let viewClass = viewClassesRegistry[className] {
-       inject(appContext: appContext)
-       injectInitializer(appContext: appContext, moduleName: moduleName, viewName: viewName, toViewClass: viewClass)
-@@ -178,6 +190,7 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
- 
-     // Save the allocated view class in the registry for the later use (e.g. when the app is reloaded).
-     viewClassesRegistry[className] = viewClass
-+    viewClassAppIdentifiersRegistry[className] = appIdentifier
- 
-     return viewClass
    }
