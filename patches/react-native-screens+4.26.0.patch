@@ -1686,7 +1686,7 @@ index 1c84484..976b44f 100644
  
  #if !TARGET_OS_TV
 diff --git a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
-index fd6f70d..3be9ee7 100644
+index fd6f70d..660cd6f 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
 @@ -148,9 +148,6 @@ + (void)enforceDesiredDeviceOrientation
@@ -1699,7 +1699,7 @@ index fd6f70d..3be9ee7 100644
  
          // `attemptRotationToDeviceOrientation` is deprecated for modern OS versions
          // so we need to use `setNeedsUpdateOfSupportedInterfaceOrientations`
-@@ -159,7 +156,33 @@ + (void)enforceDesiredDeviceOrientation
+@@ -159,7 +156,45 @@ + (void)enforceDesiredDeviceOrientation
            topController = topController.presentedViewController;
          }
  
@@ -1716,18 +1716,30 @@ index fd6f70d..3be9ee7 100644
 +        }
 +        BOOL animated = ![orientationController isKindOfClass:[RNSScreen class]] ||
 +            ((RNSScreen *)orientationController).screenView.screenOrientationAnimated;
++        // OneKey patch: overlay windows forward their supported orientations to the
++        // app's top controller. Invalidate every window, or their stale masks pin the
++        // scene orientation and the app window can never rotate back.
++        void (^invalidateSupportedOrientations)(void) = ^{
++          [topController setNeedsUpdateOfSupportedInterfaceOrientations];
++          for (UIWindow *window in scene.windows) {
++            UIViewController *rootController = window.rootViewController;
++            if (rootController != nil && rootController != topController) {
++              [rootController setNeedsUpdateOfSupportedInterfaceOrientations];
++            }
++          }
++        };
 +        void (^updateOrientation)(void) = ^{
 +          [scene requestGeometryUpdateWithPreferences:geometryPreferences
 +                                         errorHandler:^(NSError *_Nonnull error){
 +                                         }];
-+          [topController setNeedsUpdateOfSupportedInterfaceOrientations];
++          invalidateSupportedOrientations();
 +        };
 +        if (animated) {
 +          updateOrientation();
 +        } else {
 +          [UIView performWithoutAnimation:^{
 +            // Invalidate inside the block before a geometry request can start rotation.
-+            [topController setNeedsUpdateOfSupportedInterfaceOrientations];
++            invalidateSupportedOrientations();
 +            updateOrientation();
 +          }];
 +        }
