@@ -1,8 +1,11 @@
+import BigNumber from 'bignumber.js';
+
 import { buildCoinScopedOrderOpenParams } from '@onekeyhq/kit-bg/src/services/ServiceHyperLiquid/utils/coinScopedOrder';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
   buildReversePositionOrder,
+  getReversePositionClearingPrice,
   getReversePositionSize,
   isReversePositionScopeValid,
 } from './reversePosition';
@@ -157,5 +160,59 @@ describe('reverse position', () => {
     },
   ])('rejects changed account or position', (current) => {
     expect(isReversePositionScopeValid({ snapshot, ...current })).toBe(false);
+  });
+});
+
+describe('reverse execution boundary', () => {
+  const estimate = (positionSize: string, changes = {}) =>
+    getReversePositionClearingPrice({
+      coin: 'BTC',
+      positionSize: new BigNumber(positionSize),
+      referencePrice: '100',
+      szDecimals: 2,
+      book: {
+        coin: 'BTC',
+        time: Date.now(),
+        levels: [
+          [
+            { px: '99', sz: '1', n: 1 },
+            { px: '95', sz: '1', n: 1 },
+          ],
+          [
+            { px: '101', sz: '1', n: 1 },
+            { px: '105', sz: '1', n: 1 },
+          ],
+        ],
+      },
+      ...changes,
+    });
+  it.each([
+    ['1', '95'],
+    ['-1', '105'],
+    ['2', '92'],
+    ['-2', '108'],
+  ])(
+    'uses full doubled order depth or slippage fallback for %s',
+    (size, expected) => {
+      expect(estimate(size)?.toFixed()).toBe(expected);
+    },
+  );
+  it('stops at the slippage boundary instead of using out-of-range depth', () => {
+    expect(
+      estimate('1', {
+        book: {
+          coin: 'BTC',
+          time: Date.now(),
+          levels: [[{ px: '90', sz: '100', n: 1 }], []],
+        },
+      })?.toFixed(),
+    ).toBe('92');
+  });
+  it.each([
+    undefined,
+    { coin: 'ETH', time: Date.now(), levels: [[], []] },
+    { coin: 'BTC', time: Date.now() - 31_000, levels: [[], []] },
+  ])('rejects unavailable, wrong-coin or stale books', (book) => {
+    expect(estimate('1', { book })).toBeNull();
   });
 });

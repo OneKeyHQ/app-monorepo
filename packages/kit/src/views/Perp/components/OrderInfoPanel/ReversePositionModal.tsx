@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -45,6 +46,7 @@ import {
 } from './utils/addPosition';
 import {
   buildReversePositionOrder,
+  getReversePositionClearingPrice,
   getReversePositionSize,
   isReversePositionScopeValid,
 } from './utils/reversePosition';
@@ -134,6 +136,30 @@ export function ReversePositionContent({
     [snapshot.coin],
     { watchLoading: true, checkIsFocused: false, undefinedResultIfError: true },
   );
+  const { result: book } = usePromiseResult(
+    async () => {
+      const cached =
+        await backgroundApiProxy.serviceHyperliquid.getL2BookSnapshotCache({
+          coin: snapshot.coin,
+        });
+      if (
+        cached?.coin === snapshot.coin &&
+        Math.abs(Date.now() - cached.time) <=
+          PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS
+      )
+        return cached;
+      return backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
+        coin: snapshot.coin,
+      });
+    },
+    [snapshot.coin],
+    {
+      pollingInterval: PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS,
+      checkIsFocused: false,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+    },
+  );
   const szDecimals = symbolMeta?.universe?.szDecimals;
   const { mid } = usePerpsMidPrice({ coin: snapshot.coin, szDecimals });
   const { assetCtx } = usePerpsAssetCtx({ assetId: symbolMeta?.assetId ?? -1 });
@@ -160,7 +186,19 @@ export function ReversePositionContent({
   const liquidationPrice = useMemo(() => {
     if (!symbolMeta || !markPrice || !position || !isScopeValid || !size)
       return null;
+    const estimatedClearingPrice =
+      referencePrice && szDecimals !== undefined
+        ? getReversePositionClearingPrice({
+            coin: snapshot.coin,
+            book,
+            referencePrice,
+            positionSize: isBuy ? size.negated() : size,
+            szDecimals,
+          })
+        : null;
+    if (!estimatedClearingPrice) return null;
     return estimateLiquidationPrice({
+      estimatedClearingPrice,
       side,
       orderSize: size.multipliedBy(2),
       priceMode: 'market',
@@ -177,6 +215,11 @@ export function ReversePositionContent({
       crossAvailableAfterMaintenance,
     });
   }, [
+    book,
+    referencePrice,
+    szDecimals,
+    snapshot.coin,
+    isBuy,
     crossAvailableAfterMaintenance,
     isScopeValid,
     position,

@@ -1,7 +1,12 @@
 import BigNumber from 'bignumber.js';
 
 import { DEFAULT_PERPS_SLIPPAGE } from '@onekeyhq/shared/src/consts/perp';
-import { normalizePerpsAccountAddress } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
+import {
+  formatHlPrice,
+  normalizePerpsAccountAddress,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IL2BookResponse } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IPlaceOrderByCoinParams } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { validateAddPositionOrder } from './addPosition';
@@ -27,6 +32,59 @@ export function getReversePositionSize(
     size.minus(rounded).abs().lte(size.abs().multipliedBy(Number.EPSILON))
     ? rounded
     : null;
+}
+
+export function getReversePositionClearingPrice({
+  coin,
+  book,
+  referencePrice,
+  positionSize,
+  szDecimals,
+}: {
+  coin: string;
+  book: IL2BookResponse | undefined;
+  referencePrice: string;
+  positionSize: BigNumber;
+  szDecimals: number;
+}): BigNumber | null {
+  if (
+    !book ||
+    book.coin !== coin ||
+    !Number.isFinite(book.time) ||
+    Math.abs(Date.now() - book.time) > PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS
+  )
+    return null;
+  const isBuy = positionSize.lt(0);
+  const limitPrice = new BigNumber(
+    formatHlPrice(
+      new BigNumber(referencePrice).multipliedBy(
+        new BigNumber(1).plus(
+          isBuy ? DEFAULT_PERPS_SLIPPAGE : -DEFAULT_PERPS_SLIPPAGE,
+        ),
+      ),
+      szDecimals,
+    ),
+  );
+  if (
+    !limitPrice.isFinite() ||
+    limitPrice.lte(0) ||
+    !positionSize.isFinite() ||
+    positionSize.isZero()
+  )
+    return null;
+  const orderSize = positionSize.abs().multipliedBy(2);
+  let filledSize = new BigNumber(0);
+  for (const level of book.levels[isBuy ? 1 : 0]) {
+    const price = new BigNumber(level.px);
+    const size = new BigNumber(level.sz);
+    if (!price.isFinite() || price.lte(0) || !size.isFinite() || size.lt(0))
+      return null;
+    if (isBuy ? price.gt(limitPrice) : price.lt(limitPrice)) break;
+    filledSize = filledSize.plus(size);
+    // Hyperliquid uses the last fill level, not the volume-weighted average.
+    if (filledSize.gte(orderSize)) return price;
+  }
+  return limitPrice;
 }
 
 export function isReversePositionScopeValid({

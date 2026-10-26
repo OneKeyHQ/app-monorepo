@@ -17,6 +17,11 @@ const mockSnapshot = {
 };
 let mockMid = '2000';
 let mockMarkPrice = '2000';
+let mockBookLoader: () => Promise<unknown>;
+let mockBookPending = false;
+let mockBookPrice: string | undefined;
+const mockFetchBook = jest.fn<Promise<unknown>, unknown[]>();
+const mockGetBookCache = jest.fn<Promise<unknown>, unknown[]>();
 let mockPreviewLoader: () => Promise<unknown>;
 let mockPreviewMeta = {
   coin: 'ETH',
@@ -105,6 +110,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHyperliquid: {
+      getL2BookSnapshotCache: (...args: unknown[]) => mockGetBookCache(...args),
+      fetchL2BookByCoin: (...args: unknown[]) => mockFetchBook(...args),
       getActiveAssetDataByCoin: (...args: unknown[]) => mockFetchAsset(...args),
       getSymbolMeta: async () => mockTarget.symbolMeta,
       getMarketOrderReferencePrice: async () => mockTarget.price,
@@ -112,7 +119,22 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (callback: () => Promise<unknown>) => {
+  usePromiseResult: (
+    callback: () => Promise<unknown>,
+    _deps: unknown[],
+    options: { pollingInterval?: number },
+  ) => {
+    if (options.pollingInterval) {
+      mockBookLoader = callback;
+      if (mockBookPending) return { result: undefined };
+      return {
+        result: {
+          coin: mockPreviewMeta.coin,
+          time: Date.now(),
+          levels: [[{ px: mockBookPrice ?? mockMid, sz: '100', n: 1 }], []],
+        },
+      };
+    }
     mockPreviewLoader = callback;
     return { result: mockPreviewMeta, isLoading: false, run: jest.fn() };
   },
@@ -168,6 +190,10 @@ function deferred() {
 describe('reverse position confirmation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBookPending = false;
+    mockBookPrice = undefined;
+    mockGetBookCache.mockResolvedValue(undefined);
+    mockFetchBook.mockResolvedValue(null);
     mockMid = '2000';
     mockMarkPrice = '2000';
     mockPreviewMeta = mockTarget.symbolMeta;
@@ -207,6 +233,45 @@ describe('reverse position confirmation', () => {
     expect(view.getByText('$2,253.6')).toBeTruthy();
     expect(view.queryByText('$2,000')).toBeNull();
     expect(mockFetchAsset).not.toHaveBeenCalled();
+  });
+
+  it('shows reference price before the book request completes', () => {
+    mockBookPending = true;
+    mockPosition.leverage.type = 'isolated';
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    expect(view.getByText('$2,000')).toBeTruthy();
+    expect(view.getByText('--')).toBeTruthy();
+    expect(mockFetchAsset).not.toHaveBeenCalled();
+  });
+
+  it('loads a target-coin book independently and reuses only fresh cached depth', async () => {
+    render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    const fresh = { coin: 'ETH', time: Date.now(), levels: [[], []] };
+    mockGetBookCache.mockResolvedValue(fresh);
+    expect(await mockBookLoader()).toBe(fresh);
+    expect(mockFetchBook).not.toHaveBeenCalled();
+    mockGetBookCache.mockResolvedValue({ ...fresh, coin: 'BTC' });
+    await mockBookLoader();
+    expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'ETH' });
+    mockFetchBook.mockClear();
+    mockGetBookCache.mockResolvedValue({ ...fresh, time: Date.now() - 31_000 });
+    await mockBookLoader();
+    expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'ETH' });
+    expect(mockFetchAsset).not.toHaveBeenCalled();
+  });
+
+  it('updates liquidation notional from the execution boundary while keeping the mark unchanged', () => {
+    mockPosition.leverage.type = 'isolated';
+    mockBookPrice = '1900';
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    expect(view.getByText('$2,148.7')).toBeTruthy();
+    expect(view.getByText('$2,000')).toBeTruthy();
   });
 
   it('formats WLD API noise at the coin size precision before doubling', () => {
