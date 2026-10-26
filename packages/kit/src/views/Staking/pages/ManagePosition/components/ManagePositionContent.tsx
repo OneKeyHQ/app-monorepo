@@ -34,6 +34,7 @@ import type {
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
+import { StakingAmountResultLine } from '../../../components/StakingAmountResultLine';
 import {
   EarnFormRow,
   EarnFormSummary,
@@ -233,8 +234,16 @@ export const ManageSectionShell = ({
   // box's title, then the result and its rows, each with a dash
   const isEarnDepositForm =
     hasPayWith && activeIndex === 0 && !isPendleProvider;
-  const boxTitle = isEarnDepositForm
-    ? EARN_DESKTOP_DEMO_COPY.payWith
+  // Pendle's buy with Pay with, as it lands: the line under the box, what
+  // you get at maturity, its rows and "Details", and its button
+  const isPendleDepositForm =
+    hasPayWith && activeIndex === 0 && isPendleProvider;
+  const boxTitle =
+    isEarnDepositForm || isPendleDepositForm
+      ? EARN_DESKTOP_DEMO_COPY.payWith
+      : activeLabel;
+  const confirmLabel = isPendleDepositForm
+    ? intl.formatMessage({ id: ETranslations.global_buy })
     : activeLabel;
   const borrowAction = useMemo(() => {
     if (
@@ -316,40 +325,59 @@ export const ManageSectionShell = ({
       <YStack px="$5" py="$2.5" gap="$4">
         {/* Amount input frame — fixed chrome, only the value pends. Dimensions
             mirror StakingAmountInput/AmountInput so nothing shifts on load. */}
-        <YStack borderRadius="$3" bg="$bgSubdued" px="$3.5" py="$2.5" gap="$2">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {boxTitle}
-          </SizableText>
-          <XStack h="$11" ai="center" jc="space-between">
-            <Skeleton h="$6" w="$24" borderRadius="$2" />
-            <XStack ai="center" m="$1.5" mb="$0" p="$2" gap="$2">
-              {/* Pendle resolves the actual pair after this shell renders, so
+        <YStack>
+          <YStack
+            borderRadius="$3"
+            bg="$bgSubdued"
+            px="$3.5"
+            py="$2.5"
+            gap="$2"
+          >
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {boxTitle}
+            </SizableText>
+            <XStack h="$11" ai="center" jc="space-between">
+              <Skeleton h="$6" w="$24" borderRadius="$2" />
+              <XStack ai="center" m="$1.5" mb="$0" p="$2" gap="$2">
+                {/* Pendle resolves the actual pair after this shell renders, so
                   its route image is not authoritative during loading. Keep the
                   icon as a skeleton until token metadata arrives; this also
                   matches AmountInput's $7 token trigger size (OK-63661). */}
-              {fallbackTokenImageUri && !isPendleProvider ? (
-                <Token
-                  size="sm"
-                  w="$7"
-                  h="$7"
-                  tokenImageUri={fallbackTokenImageUri}
-                />
-              ) : (
-                <Skeleton w="$7" h="$7" radius="round" />
-              )}
-              {/* The symbol is the one real string this frame used to draw, and
+                {fallbackTokenImageUri && !isPendleProvider ? (
+                  <Token
+                    size="sm"
+                    w="$7"
+                    h="$7"
+                    tokenImageUri={fallbackTokenImageUri}
+                  />
+                ) : (
+                  <Skeleton w="$7" h="$7" radius="round" />
+                )}
+                {/* The symbol is the one real string this frame used to draw, and
                   a vault symbol can be as long as "Morpho-cbBTC-USDC-wrapper" —
                   a full-width name sitting among skeleton bars reads worse than
                   no name at all, and the page title already carries it. Skeleton
                   it like everything else and let the real symbol land with the
                   rest of the data. */}
-              <Skeleton h="$6" w="$20" borderRadius="$2" />
+                <Skeleton h="$6" w="$20" borderRadius="$2" />
+              </XStack>
             </XStack>
-          </XStack>
-          <XStack jc="space-between" ai="center">
-            <Skeleton h="$3" w="$16" borderRadius="$2" />
-            <Skeleton h="$3" w="$20" borderRadius="$2" />
-          </XStack>
+            <XStack jc="space-between" ai="center">
+              <Skeleton h="$3" w="$16" borderRadius="$2" />
+              <Skeleton h="$3" w="$20" borderRadius="$2" />
+            </XStack>
+          </YStack>
+          {isPendleDepositForm ? (
+            <YStack pt="$2">
+              <StakingAmountResultLine
+                label={intl.formatMessage({
+                  id: ETranslations.swap_review_you_receive,
+                })}
+                value="–"
+                isPlaceholder
+              />
+            </YStack>
+          ) : null}
         </YStack>
 
         {/* The caller's own selector stands where the protocol switcher
@@ -445,6 +473,20 @@ export const ManageSectionShell = ({
             }
           />
         ) : null}
+        {isPendleDepositForm ? (
+          <EarnFormSummary
+            outcome={{
+              label: EARN_DESKTOP_DEMO_COPY.atMaturityYouGet,
+              values: [],
+              isEarning: true,
+              hasNoteLine: true,
+            }}
+            rows={EARN_DESKTOP_DEMO_COPY.pendleRowTitles.map((title) => (
+              <EarnFormRow key={title} label={title} />
+            ))}
+            detailsPlaceholder
+          />
+        ) : null}
         {!hasProtocolSwitch && borrowAction && !isEarnDepositForm ? (
           <BorrowInfoSectionSkeleton action={borrowAction} />
         ) : null}
@@ -460,14 +502,14 @@ export const ManageSectionShell = ({
             disabled
             width="100%"
           >
-            {activeLabel}
+            {confirmLabel}
           </Button>
         )}
       </YStack>
       {isInModalContext ? (
         <Page.Footer>
           <Page.FooterActions
-            onConfirmText={activeLabel}
+            onConfirmText={confirmLabel}
             confirmButtonProps={{ disabled: true }}
           />
           <PercentageStageOnKeyboard

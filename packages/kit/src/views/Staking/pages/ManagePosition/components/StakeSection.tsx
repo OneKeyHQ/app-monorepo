@@ -198,7 +198,8 @@ export const StakeSection = ({
       providerName,
     });
   }, [protocolInfo?.providerDetail.name, providerName]);
-  const [selectedStakeAsset, setSelectedStakeAsset] = useState<
+  // The token Pendle's form last bought with, or picked in its own list
+  const [stakeAssetChoice, setStakeAssetChoice] = useState<
     IEarnTokenItem | undefined
   >(undefined);
   const stakeAssetsSymbol = useMemo(
@@ -575,49 +576,51 @@ export const StakeSection = ({
           address: payToken.token.address,
           isNative: payToken.token.isNative,
         });
-  useEffect(() => {
+  // The token Pendle's form buys with, worked out as the form renders, so
+  // it is never drawn on another token first (the list's first, before the
+  // wallet is read) and drawn again: Pay with's token when the list takes
+  // it, else the one before, else the list's first
+  const selectedStakeAsset = useMemo(() => {
     if (!selectableStakeAssets.length) {
-      setSelectedStakeAsset(undefined);
-      return;
+      return undefined;
     }
-
-    setSelectedStakeAsset((prev) => {
-      // The token Pay with is on goes first
-      if (payWithAddress !== undefined) {
-        const picked = selectableStakeAssets.find(
-          (asset) =>
-            normalizeStakeTokenAddress({
-              address: asset.info.address,
-              isNative: asset.info.isNative,
-            }) === payWithAddress,
-        );
-        if (picked) {
-          return picked;
-        }
-      }
-      if (prev) {
-        const prevAddress = normalizeStakeTokenAddress({
-          address: prev.info.address,
-          isNative: prev.info.isNative,
-        });
-        const matchedPrev = selectableStakeAssets.find((asset) => {
-          const assetAddress = normalizeStakeTokenAddress({
+    if (payWithAddress !== undefined) {
+      const picked = selectableStakeAssets.find(
+        (asset) =>
+          normalizeStakeTokenAddress({
             address: asset.info.address,
             isNative: asset.info.isNative,
-          });
-          return (
-            assetAddress === prevAddress &&
-            asset.info.symbol.toLowerCase() === prev.info.symbol.toLowerCase()
-          );
-        });
-        if (matchedPrev) {
-          return matchedPrev;
-        }
+          }) === payWithAddress,
+      );
+      if (picked) {
+        return picked;
       }
-
-      return selectableStakeAssets[0];
-    });
-  }, [payWithAddress, selectableStakeAssets]);
+    }
+    if (stakeAssetChoice) {
+      const prevAddress = normalizeStakeTokenAddress({
+        address: stakeAssetChoice.info.address,
+        isNative: stakeAssetChoice.info.isNative,
+      });
+      const matchedPrev = selectableStakeAssets.find((asset) => {
+        const assetAddress = normalizeStakeTokenAddress({
+          address: asset.info.address,
+          isNative: asset.info.isNative,
+        });
+        return (
+          assetAddress === prevAddress &&
+          asset.info.symbol.toLowerCase() ===
+            stakeAssetChoice.info.symbol.toLowerCase()
+        );
+      });
+      if (matchedPrev) {
+        return matchedPrev;
+      }
+    }
+    return selectableStakeAssets[0];
+  }, [payWithAddress, selectableStakeAssets, stakeAssetChoice]);
+  useEffect(() => {
+    setStakeAssetChoice(selectedStakeAsset);
+  }, [selectedStakeAsset]);
 
   const effectiveStakeTokenInfo = useMemo(() => {
     if (!tokenInfo || !selectedStakeAsset) {
@@ -831,7 +834,7 @@ export const StakeSection = ({
         action: 'stake' as const,
         currentTokenAddress: currentAddress,
         onSelect: (item: IEarnTokenItem) => {
-          setSelectedStakeAsset(item);
+          setStakeAssetChoice(item);
         },
       },
     });
@@ -1417,16 +1420,24 @@ export const StakeSection = ({
     } else if (canPayWith && hasRequiredData) {
       standInSymbol = depositSymbol;
     }
+    // The logo always the symbol's. Pendle's page image is its route's, not
+    // the token's, so until the token is known its place holds a
+    // placeholder, as in the loading frame before
+    let standInImage = standInToken?.logoURI;
+    if (!standInToken && tokenInfo?.token.symbol === standInSymbol) {
+      standInImage = tokenInfo?.token.logoURI;
+    }
+    if (!standInImage && !standInToken && !isPendleProvider) {
+      standInImage = fallbackTokenImageUri;
+    }
     return (
       <UniversalStake
         accountId={accountId}
         networkId={networkId}
         balance={payToken?.amount ?? '0'}
         balanceLoading={canPayWith && hasRequiredData && !payToken}
-        tokenImageUri={standInToken?.logoURI || fallbackTokenImageUri}
-        tokenImageLoading={
-          !standInToken && !tokenInfo?.token && !fallbackTokenImageUri
-        }
+        tokenImageUri={standInImage}
+        tokenImageLoading={!standInImage}
         tokenSymbol={standInSymbol}
         isDisabled
         inputTitle={payInputTitle}
