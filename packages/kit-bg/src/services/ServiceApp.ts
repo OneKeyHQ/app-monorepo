@@ -703,8 +703,6 @@ class ServiceApp extends ServiceBase {
     from?: EEnterWay;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
-    marketTokenSymbol?: string;
-    resolveMarketAsset?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   }) {
     const {
@@ -718,8 +716,6 @@ class ServiceApp extends ServiceBase {
       from,
       showFavoriteButton,
       marketTokenCategory,
-      marketTokenSymbol,
-      resolveMarketAsset,
       tokenDetailPreview,
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
@@ -742,12 +738,6 @@ class ServiceApp extends ServiceBase {
     }
     if (marketTokenCategory) {
       routeParams.marketTokenCategory = marketTokenCategory;
-    }
-    if (marketTokenSymbol) {
-      routeParams.marketTokenSymbol = marketTokenSymbol;
-    }
-    if (resolveMarketAsset) {
-      routeParams.resolveMarketAsset = true;
     }
     if (marketTokenId) {
       routeParams.marketTokenId = marketTokenId;

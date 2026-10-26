@@ -38,7 +38,6 @@ export function useUniversalSearchMarketPress({
   const toMarketDetailPage = useToDetailPage({
     switchToMarketTabFirst: true,
     from: EEnterWay.Search,
-    resolveMarketAsset: true,
   });
 
   return useCallback(
@@ -51,8 +50,6 @@ export function useUniversalSearchMarketPress({
         network,
       });
       const listingStockId = isStockListing ? stockId?.trim() : undefined;
-      // The Market selector's rule: an asset-only result opens through its
-      // asset id, while a concrete chain token keeps its own chain identity.
       const assetId = isStockListing
         ? undefined
         : getSelectorSearchAssetId(item.payload);
