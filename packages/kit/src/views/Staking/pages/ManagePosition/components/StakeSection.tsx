@@ -393,15 +393,26 @@ export const StakeSection = ({
   const handleAutoSubmit = useCallback(() => {
     setHandoff((prev) => (prev ? { ...prev, autoSubmitKey: undefined } : prev));
   }, []);
-  // Pay with moves to the deposit token once the wallet lists it
-  const heldDepositKey = pay.heldTokens.find(
-    (item) => item.isDepositToken,
+  // What a swap buys: the provider form's own token. Pendle's is its buy
+  // side's (USDC for PT-sUSDe), not the page's, so the swap path names it by
+  // itself and the hand-off pays with it
+  const swapTokenAddress = tokenInfo?.token
+    ? normalizeStakeTokenAddress({
+        address: tokenInfo.token.address,
+        isNative: tokenInfo.token.isNative,
+      })
+    : undefined;
+  // Pay with moves to the token the swap brought once the wallet lists it
+  const handoffPayKey = pay.heldTokens.find((item) =>
+    isPendleProvider
+      ? getPayTokenAddress(item) === swapTokenAddress
+      : item.isDepositToken,
   )?.key;
   useEffect(() => {
-    if (handoff && heldDepositKey && payKey !== heldDepositKey) {
-      setPayKey(heldDepositKey);
+    if (handoff && handoffPayKey && payKey !== handoffPayKey) {
+      setPayKey(handoffPayKey);
     }
-  }, [handoff, heldDepositKey, payKey, setPayKey]);
+  }, [handoff, handoffPayKey, payKey, setPayKey]);
   // Pay with's picker: Swap's, kept to this network, in a modal over the
   // form. Picking another token starts the amount over, as an amount of the
   // last token means nothing in this one
@@ -485,12 +496,15 @@ export const StakeSection = ({
   // The form shown before this one: paying with another token brings the
   // swap form's line under the box (it grows in), and paying with the token
   // itself again takes it away (its room closes); the same form drawn again
-  // for another protocol keeps it as it was
+  // for another protocol keeps it as it was. Pendle's own form has the line
+  // too ("You receive"), so between its two forms the line stays
   const lastPayModeRef = useRef(payMode);
   const revealsDepositLine =
+    !isPendleProvider &&
     payMode === 'swapThenDeposit' &&
     lastPayModeRef.current !== 'swapThenDeposit';
   const collapsesDepositLine =
+    !isPendleProvider &&
     payMode !== 'swapThenDeposit' &&
     lastPayModeRef.current === 'swapThenDeposit';
   useEffect(() => {
@@ -538,12 +552,16 @@ export const StakeSection = ({
     [borrowMarketAddress, payOffers, protocolInfo?.vault, providerName],
   );
 
-  const payWithAddress = payToken
-    ? normalizeStakeTokenAddress({
-        address: payToken.token.address,
-        isNative: payToken.token.isNative,
-      })
-    : undefined;
+  // The token Pendle's form buys with: Pay with's, and after a swap the
+  // token the swap brought, before the wallet's list shows it
+  const payWithAddress =
+    handoff && isPendleProvider
+      ? swapTokenAddress
+      : payToken &&
+        normalizeStakeTokenAddress({
+          address: payToken.token.address,
+          isNative: payToken.token.isNative,
+        });
   useEffect(() => {
     if (!selectableStakeAssets.length) {
       setSelectedStakeAsset(undefined);
@@ -675,11 +693,10 @@ export const StakeSection = ({
         accountId,
       };
     }
-    if (isPendleProvider || !protocolInfo?.provider) {
+    if (!protocolInfo?.provider) {
       return undefined;
     }
-    return {
-      kind: 'staking',
+    const request = {
       provider: protocolInfo.provider,
       symbol: stakeRequestSymbol || effectiveStakeTokenInfo?.token.symbol || '',
       vault: earnUtils.shouldSendEarnProtocolVault({
@@ -688,6 +705,28 @@ export const StakeSection = ({
         ? protocolInfo.vault || ''
         : '',
       accountAddress: protocolInfo.earnAccount?.accountAddress || '',
+    };
+    if (isPendleProvider) {
+      // Pendle's buy with the token the swap brings, quoted as its own form
+      // quotes a buy
+      if (!tokenInfo?.token || !receiveInputConfig?.tokenAddress) {
+        return undefined;
+      }
+      return {
+        kind: 'pendle',
+        ...request,
+        inputTokenAddress: resolveStakeTokenAddress({
+          address: tokenInfo.token.address,
+          isNative: tokenInfo.token.isNative,
+        }),
+        outputTokenAddress: receiveInputConfig.tokenAddress,
+        receiveSymbol: receiveInputConfig.tokenSymbol ?? '',
+        slippage: pendleSlippage,
+      };
+    }
+    return {
+      kind: 'staking',
+      ...request,
       inputTokenAddress: selectedStakeTokenAddress,
       outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
     };
@@ -698,12 +737,15 @@ export const StakeSection = ({
     isBorrowStake,
     isPendleProvider,
     payMode,
+    pendleSlippage,
     protocolInfo?.earnAccount?.accountAddress,
     protocolInfo?.provider,
     protocolInfo?.vault,
     receiveInputConfig?.tokenAddress,
+    receiveInputConfig?.tokenSymbol,
     selectedStakeTokenAddress,
     stakeRequestSymbol,
+    tokenInfo?.token,
   ]);
   const approveSpenderAddress = useMemo(() => {
     if (borrowApiCtx.isBorrow) {
@@ -1133,6 +1175,18 @@ export const StakeSection = ({
               : undefined,
             withdrawAll: false,
             stakeType: nativeStakeType,
+            // Pendle's buy with the token the swap brings, checked as its own
+            // form checks a buy
+            ...(isPendleProvider && tokenInfo?.token
+              ? {
+                  inputTokenAddress: resolveStakeTokenAddress({
+                    address: tokenInfo.token.address,
+                    isNative: tokenInfo.token.isNative,
+                  }),
+                  outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
+                  slippage: pendleSlippage,
+                }
+              : {}),
           });
           // The deposit form holds its button on an alert as on an error
           message =
@@ -1158,11 +1212,15 @@ export const StakeSection = ({
       ensureRiskAccepted,
       intl,
       isBorrowStake,
+      isPendleProvider,
       nativeStakeType,
       networkId,
+      pendleSlippage,
       protocolInfo?.vault,
       providerName,
+      receiveInputConfig?.tokenAddress,
       stakeRequestSymbol,
+      tokenInfo?.token,
     ],
   );
   // The balance the swap left, read on chain, until the page's own catches up
@@ -1173,8 +1231,18 @@ export const StakeSection = ({
     const own = new BigNumber(effectiveStakeTokenInfo?.balanceParsed ?? '');
     return BigNumber.max(own.isFinite() ? own : 0, handoff.balance).toFixed();
   }, [effectiveStakeTokenInfo?.balanceParsed, handoff?.balance]);
+  // Pendle's form presses itself once it is on the token the swap brought,
+  // never on another token it takes
+  const isOnSwappedToken =
+    !isPendleProvider ||
+    normalizeStakeTokenAddress({
+      address: effectiveStakeTokenInfo?.token.address,
+      isNative: effectiveStakeTokenInfo?.token.isNative,
+    }) === swapTokenAddress;
   const handoffSubmitKey =
-    handoff?.target === handoffTarget ? handoff.autoSubmitKey : undefined;
+    handoff?.target === handoffTarget && isOnSwappedToken
+      ? handoff.autoSubmitKey
+      : undefined;
 
   // Determine the effective max balance for supply
   const effectiveMaxBalance = useMemo(() => {
@@ -1348,35 +1416,47 @@ export const StakeSection = ({
       ? tokenInfo.token
       : undefined;
   if (payMode === 'swapThenDeposit' && payToken && depositTokenToBuy) {
-    const heldDepositToken = pay.tokens.find((item) => item.isDepositToken);
+    // The wallet's entry for the token the swap buys, for its price
+    const heldSwapToken = pay.tokens.find((item) =>
+      isPendleProvider
+        ? getPayTokenAddress(item) === swapTokenAddress
+        : item.isDepositToken,
+    );
+    // The deposit form's own word for it: Supply on a lending market, Buy
+    // on Pendle. The line under the box says what that brings, and for
+    // Pendle what its own form says: the PT you receive
+    let actionLabel = intl.formatMessage({ id: ETranslations.earn_deposit });
+    let depositLineLabel = EARN_DESKTOP_DEMO_COPY.youDeposit;
+    if (isBorrowStake) {
+      actionLabel =
+        borrowActionLabel ??
+        intl.formatMessage({ id: ETranslations.defi_supply });
+      depositLineLabel = EARN_DESKTOP_DEMO_COPY.youSupply;
+    } else if (isPendleProvider) {
+      actionLabel = intl.formatMessage({ id: ETranslations.global_buy });
+      depositLineLabel = intl.formatMessage({
+        id: ETranslations.swap_review_you_receive,
+      });
+    }
     return (
       <EarnRouterSwapDepositForm
         // Another provider or token starts the form over
         key={`${providerName}|${protocolInfo?.vault ?? ''}|${payToken.key}`}
         accountId={accountId}
         networkId={networkId}
-        // The deposit form's own word for it: Supply on a lending market
-        actionLabel={
-          isBorrowStake
-            ? (borrowActionLabel ??
-              intl.formatMessage({ id: ETranslations.defi_supply }))
-            : intl.formatMessage({ id: ETranslations.earn_deposit })
-        }
-        depositLineLabel={
-          isBorrowStake
-            ? EARN_DESKTOP_DEMO_COPY.youSupply
-            : EARN_DESKTOP_DEMO_COPY.youDeposit
-        }
+        actionLabel={actionLabel}
+        depositLineLabel={depositLineLabel}
         isDisabled={isDisabled}
         apr={payOfferApr}
         payToken={payToken}
         depositToken={{
-          symbol: depositSymbol,
+          // Pendle's buy side's token is not the page's
+          symbol: isPendleProvider ? depositTokenToBuy.symbol : depositSymbol,
           name: depositTokenToBuy.name,
           logoURI: depositTokenToBuy.logoURI || fallbackTokenImageUri,
           priceUsd:
-            heldDepositToken && Number(heldDepositToken.priceUsd) > 0
-              ? heldDepositToken.priceUsd
+            heldSwapToken && Number(heldSwapToken.priceUsd) > 0
+              ? heldSwapToken.priceUsd
               : String(tokenInfo?.price ?? '0'),
           address: depositTokenToBuy.address,
           decimals: depositTokenToBuy.decimals,

@@ -39,11 +39,13 @@ import {
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IBorrowTransactionConfirmation,
+  IEarnTooltip,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
@@ -52,6 +54,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { EarnLendingSummary } from '../../../Borrow/components/ManagePosition/modules/InfoDisplaySection/EarnLendingSummary';
 import { EarnFooterFade } from '../../../Staking/components/EarnFooterFade';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
+import { usePendleTransactionDetails } from '../../../Staking/components/ProtocolDetails/PendleSharedComponents';
 import {
   EStakeProgressStep,
   StakeProgress,
@@ -66,8 +69,10 @@ import {
   EarnFormRow,
   EarnFormSummary,
   EarnFormSwitchingContext,
+  buildOutcomeValueFromText,
   buildRewardNoteRows,
   buildRewardsOutcome,
+  splitPendleRewardRows,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
 import { generateSwapHistoryItemForContext } from '../../../Swap/hooks/useSwapTxHistory';
@@ -85,6 +90,7 @@ import {
   earnRouterSwapReducer,
   getEarnSwapDepositAmount,
   getEarnSwapPayMax,
+  keepPendleMarketRows,
 } from './earnRouter.utils';
 import {
   EarnSwapError,
@@ -121,8 +127,8 @@ const QUOTE_DEBOUNCE_MS = 500;
 
 /**
  * What the provider's own deposit form asks the server for its card: a
- * staking provider's summary, or a lending market's info. Pendle's form
- * reads its card off a swap quote, so it has none here
+ * staking provider's summary, a lending market's info, or Pendle's quote for
+ * buying with what the swap brings
  */
 export type IEarnRouterSummaryRequest =
   | {
@@ -133,6 +139,20 @@ export type IEarnRouterSummaryRequest =
       accountAddress: string;
       inputTokenAddress?: string;
       outputTokenAddress?: string;
+    }
+  | {
+      // Pendle's buy: the form keeps Pendle's own line (the PT bought) and
+      // card (what you get at maturity, the rates)
+      kind: 'pendle';
+      provider: string;
+      symbol: string;
+      vault: string;
+      accountAddress: string;
+      inputTokenAddress: string;
+      outputTokenAddress: string;
+      // The PT's symbol, for the line under the box
+      receiveSymbol: string;
+      slippage?: number;
     }
   | {
       kind: 'lending';
@@ -151,6 +171,14 @@ type IDepositSummary = {
 };
 
 const NO_SUMMARY: IDepositSummary = { lendingLoading: false };
+
+type IPendleRowLabel = { title: string; tooltip?: IEarnTooltip };
+
+// The labels of Pendle's result and rows as last answered, holding their
+// places before the next answer
+let lastPendleSwapLabels:
+  | { outcome?: IPendleRowLabel; rows: IPendleRowLabel[] }
+  | undefined;
 
 // The provider form's rows for what reaches the provider, asked the way that
 // form asks: for an empty amount too, so the rows hold their places, and the
@@ -190,6 +218,11 @@ function useDepositSummary({
       return;
     }
     const hasAmount = new BigNumber(amount).gt(0);
+    // Pendle quotes nothing for no amount: its rows hold their labels
+    if (request.kind === 'pendle' && !hasAmount) {
+      setSummary(NO_SUMMARY);
+      return;
+    }
     const requestAmount = hasAmount ? amount : '0';
     if (request.kind === 'lending') {
       setSummary((prev) => ({ ...prev, lendingLoading: true }));
@@ -227,6 +260,8 @@ function useDepositSummary({
               amount: requestAmount,
               inputTokenAddress: request.inputTokenAddress,
               outputTokenAddress: request.outputTokenAddress,
+              slippage:
+                request.kind === 'pendle' ? request.slippage : undefined,
             });
           if (requestAmount === '0') {
             keepFirstFrame(
@@ -247,10 +282,12 @@ function useDepositSummary({
             });
           }
         } catch {
-          // The last rows stay
+          // The last rows stay; Pendle's show dashes rather than another
+          // amount's figures, as its own form's do
           if (isCurrent) {
             setSummary((prev) => ({
               ...prev,
+              staking: request.kind === 'pendle' ? undefined : prev.staking,
               stakingAmount: requestAmount,
               lendingLoading: false,
             }));
@@ -866,17 +903,66 @@ export function EarnRouterSwapDepositForm({
 
   // What it gets you, as the provider's own form shows it: the server's
   // rewards for a vault, a year at the supply rate for a lending market,
-  // else a year at the provider's rate. With nothing typed the rows keep
-  // their places with a dash
+  // what Pendle pays at maturity and its rates, else a year at the
+  // provider's rate. With nothing typed the rows keep their places with a
+  // dash
   const stakingSummary = depositSummary.staking;
-  // No figures yet: nothing typed, no route, or the rows still the empty
-  // amount's (the first estimate's are on their way)
+  const isPendle = summaryRequest?.kind === 'pendle';
+  // No figures yet: nothing typed, no route, the rows still the empty
+  // amount's (the first estimate's are on their way), or no Pendle quote
   const isSummaryPlaceholder =
     !hasAmount ||
     hasNoRoute ||
     !shownDeposit ||
     (summaryRequest?.kind === 'staking' &&
-      depositSummary.stakingAmount === '0');
+      depositSummary.stakingAmount === '0') ||
+    (isPendle && !stakingSummary);
+  // From the swap's new estimate until the provider's answer for it
+  const isSummaryUpdating =
+    (summaryRequest?.kind === 'staking' || isPendle) &&
+    Boolean(shownDeposit) &&
+    depositSummary.stakingAmount !== shownDeposit;
+  // Pendle's quote split as its own form splits it: what you get at
+  // maturity is the result, the rates are rows
+  const pendleQuote = isPendle ? stakingSummary : undefined;
+  const pendleRewardRows = useMemo(
+    () =>
+      splitPendleRewardRows(
+        (pendleQuote?.rewards ?? []).filter(
+          (reward) =>
+            !!reward?.title?.text?.trim() &&
+            !!reward?.description?.text?.trim(),
+        ),
+      ),
+    [pendleQuote?.rewards],
+  );
+  const pendleMarketQuote = useMemo(
+    () => keepPendleMarketRows(pendleQuote),
+    [pendleQuote],
+  );
+  const pendleMarketRows = usePendleTransactionDetails({
+    transactionConfirmation: pendleMarketQuote,
+    amountValue: depositSummary.stakingAmount ?? '',
+    isPendleLikeLayout: isPendle,
+    placeholder: isSummaryPlaceholder,
+  });
+  if (pendleQuote) {
+    const { outcomeRow, detailRows } = pendleRewardRows;
+    lastPendleSwapLabels = {
+      outcome: outcomeRow
+        ? { title: outcomeRow.title.text.trim(), tooltip: outcomeRow.tooltip }
+        : lastPendleSwapLabels?.outcome,
+      rows: [
+        ...detailRows.map((row) => ({
+          title: row.title.text,
+          tooltip: row.tooltip,
+        })),
+        ...(
+          pendleMarketQuote?.transactionDetails?.data?.transactionDetails ?? []
+        ).map((row) => ({ title: row.title.text, tooltip: row.tooltip })),
+      ],
+    };
+  }
   let summary: ReactNode;
   if (summaryRequest?.kind === 'lending') {
     summary = isDisabled ? null : (
@@ -889,11 +975,60 @@ export function EarnRouterSwapDepositForm({
         transactionConfirmationLoading={depositSummary.lendingLoading}
       />
     );
+  } else if (isPendle) {
+    const { outcomeRow, detailRows } = pendleRewardRows;
+    const outcomeValue = isSummaryPlaceholder
+      ? undefined
+      : buildOutcomeValueFromText(outcomeRow?.description);
+    const outcome: IEarnOutcome = {
+      label:
+        outcomeRow?.title.text.trim() ||
+        lastPendleSwapLabels?.outcome?.title ||
+        EARN_DESKTOP_DEMO_COPY.atMaturityYouGet,
+      tooltip: outcomeRow?.tooltip ?? lastPendleSwapLabels?.outcome?.tooltip,
+      values: outcomeValue ? [outcomeValue] : [],
+      isEarning: true,
+      // Under the amount at maturity, the gain
+      hasNoteLine: true,
+    };
+    const reservedRows: IPendleRowLabel[] =
+      lastPendleSwapLabels?.rows ??
+      EARN_DESKTOP_DEMO_COPY.pendleRateRowTitles.map((title) => ({ title }));
+    const rows = pendleQuote
+      ? [
+          ...detailRows.map((row, index) => (
+            <EarnFormRow
+              key={`pendle-rate-${index}`}
+              label={row.title.text}
+              tooltip={row.tooltip}
+              value={
+                isSummaryPlaceholder ? undefined : (
+                  <EarnText
+                    text={row.description}
+                    size="$bodyMdMedium"
+                    textAlign="right"
+                  />
+                )
+              }
+            />
+          )),
+          ...pendleMarketRows,
+        ]
+      : reservedRows.map((row, index) => (
+          <EarnFormRow
+            key={`pendle-reserved-${index}`}
+            label={row.title}
+            tooltip={row.tooltip}
+          />
+        ));
+    summary = isDisabled ? null : (
+      <EarnFormSummary
+        outcome={outcome}
+        isLoading={isQuoting || isSummaryUpdating}
+        rows={rows}
+      />
+    );
   } else {
-    const isStakingUpdating =
-      summaryRequest?.kind === 'staking' &&
-      Boolean(shownDeposit) &&
-      depositSummary.stakingAmount !== shownDeposit;
     const outcome: IEarnOutcome =
       summaryRequest?.kind === 'staking'
         ? buildRewardsOutcome({
@@ -949,20 +1084,31 @@ export function EarnRouterSwapDepositForm({
     summary = isDisabled ? null : (
       <EarnFormSummary
         outcome={outcome}
-        isLoading={isQuoting || isStakingUpdating}
+        isLoading={isQuoting || isSummaryUpdating}
         rows={rows}
       />
     );
   }
 
-  // The deposit line: the swap's estimate once quoted (the last one, dimmed,
-  // while the next is); a dash before an amount or with no route
+  // The line under the box: the swap's estimate once quoted (the last one,
+  // dimmed, while the next is), or for Pendle the PT its buy gets for that,
+  // as Pendle's own form's line. A dash before an amount or with no route
   let depositLine = '–';
-  if (shownDeposit) {
+  if (summaryRequest?.kind === 'pendle') {
+    const bought = isSummaryPlaceholder
+      ? ''
+      : earnUtils.extractAmountFromText(pendleQuote?.receive?.description);
+    if (new BigNumber(bought).gt(0)) {
+      depositLine = `≈ ${numberFormat(bought, {
+        formatter: 'balance',
+      })} ${summaryRequest.receiveSymbol}`;
+    }
+  } else if (shownDeposit) {
     depositLine = `≈ ${numberFormat(shownDeposit, {
       formatter: 'balance',
     })} ${depositToken.symbol}`;
   }
+  const isDepositLinePlaceholder = !depositLine.startsWith('≈');
 
   // A route problem is not the amount's: it stays a notice under the
   // protocol
@@ -1037,11 +1183,15 @@ export function EarnRouterSwapDepositForm({
               </SizableText>
             ) : (
               <StakingAmountResultLine
-                testID="earn-router-swap-deposit-amount"
+                testID={
+                  isPendle
+                    ? 'earn-pendle-receive-amount'
+                    : 'earn-router-swap-deposit-amount'
+                }
                 label={depositLineLabel}
                 value={depositLine}
-                isPlaceholder={!shownDeposit}
-                loading={isQuoting}
+                isPlaceholder={isDepositLinePlaceholder}
+                loading={isQuoting || (isPendle && isSummaryUpdating)}
               />
             )}
           </YStack>

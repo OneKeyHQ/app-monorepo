@@ -1,5 +1,7 @@
 // Demo copy the app has no translation key for yet. Before this layout ships
 // these go through the 1k-i18n flow; every other string uses an existing key.
+const PENDLE_RATE_ROW_TITLES = ['Effective Fixed APY', 'Market Reference APY'];
+
 export const EARN_DESKTOP_DEMO_COPY = {
   withdrawals: 'Withdrawals',
   aYear: 'a year',
@@ -21,11 +23,10 @@ export const EARN_DESKTOP_DEMO_COPY = {
   atMaturityYouGet: 'At Maturity You Get',
   // The rows a Pendle quote brings first, also in its own words, held in
   // place with dashes until the first quote is in
-  pendleRowTitles: [
-    'Effective Fixed APY',
-    'Market Reference APY',
-    'Min. Received',
-  ],
+  pendleRowTitles: [...PENDLE_RATE_ROW_TITLES, 'Min. Received'],
+  // Paying with a token Pendle doesn't take, swap then buy: the rates only,
+  // as the buy's own figures come with its quote at the second step
+  pendleRateRowTitles: PENDLE_RATE_ROW_TITLES,
   // After a withdrawal: the same token's better rate on the same network,
   // against the rate the withdrawal left
   earnMoreOn: (symbol: string) => `Earn more on ${symbol}`,

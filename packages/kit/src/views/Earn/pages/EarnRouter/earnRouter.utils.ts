@@ -4,6 +4,7 @@ import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchQuoteResult,
@@ -612,4 +613,34 @@ export function getEarnSwapPayMax({
   return max.gt(0)
     ? max.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
     : '0';
+}
+
+// ---------- Pendle on the swap path ----------
+
+// Pendle's quote less what only its buy's own execution sets (the least
+// received, the fee, the route): the buy is quoted again for what the swap
+// actually brings, at the second step, and shows those there. The market's
+// rate before and after the buy stays
+export function keepPendleMarketRows(
+  quote?: IStakeTransactionConfirmation,
+): IStakeTransactionConfirmation | undefined {
+  const details = quote?.transactionDetails;
+  if (!quote || !details?.data) {
+    return quote;
+  }
+  return {
+    ...quote,
+    transactionDetails: {
+      ...details,
+      data: {
+        ...details.data,
+        transactionDetails: details.data.transactionDetails?.filter(
+          (item) =>
+            !item.description?.text &&
+            Boolean(item.current?.title?.text || item.latest?.title?.text),
+        ),
+        swapRoute: undefined,
+      },
+    },
+  };
 }

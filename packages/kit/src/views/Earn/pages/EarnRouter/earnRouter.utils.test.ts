@@ -1,6 +1,7 @@
 import type {
   IBorrowMarketItem,
   IStakeProtocolListItem,
+  IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 import type {
   IFetchQuoteResult,
@@ -18,6 +19,7 @@ import {
   getEarnSwapSlippage,
   getPayTokenAddress,
   isUsableEarnSwapQuote,
+  keepPendleMarketRows,
   listPayTokens,
   listWithPayTokens,
   matchesPayTokenKeyword,
@@ -1168,5 +1170,93 @@ describe('getEarnSwapSlippage', () => {
       getEarnSwapSlippage({ autoSuggestedSlippage: 0.5 } as IFetchQuoteResult),
     ).toBe(0.5);
     expect(getEarnSwapSlippage({} as IFetchQuoteResult)).toBe(1);
+  });
+});
+
+describe('keepPendleMarketRows', () => {
+  // Pendle's quote for 1.1993 sUSDe into PT-sUSDE (26 Nov 2026), 10-26
+  const quote = {
+    rewards: [
+      {
+        title: { text: 'Effective Fixed APY' },
+        description: { text: '4.67%' },
+      },
+      { title: { text: 'Maturity' }, description: { text: '26 Nov 2026' } },
+      {
+        title: { text: 'At Maturity You Get' },
+        description: {
+          text: '1.510816864369869454 USDe (in sUSDe)\n-0.05% Gain',
+        },
+      },
+    ],
+    receive: {
+      title: { text: 'Est. receive' },
+      description: { text: '1.510816864369869454' },
+    },
+    transactionDetails: {
+      type: 'view',
+      data: {
+        transactionDetails: [
+          {
+            title: { text: 'Market Reference APY' },
+            current: { title: { text: '4.77%', color: '$textSubdued' } },
+            latest: { title: { text: '4.77%' } },
+          },
+          {
+            title: { text: 'Min. Received' },
+            description: { text: '1.4957 PT sUSDe' },
+          },
+          {
+            title: { text: 'Fee' },
+            description: { text: '<0.01%' },
+            button: { type: 'popup', data: { title: { text: 'Fee details' } } },
+          },
+        ],
+        swapRoute: [
+          {
+            token: {
+              decimals: 18,
+              address: '0x9d39a5de30e57443bff2a8307a4256c8797a3497',
+              symbol: 'sUSDe',
+              logoURI: 'https://example.com/susde.png',
+            },
+            connector: { text: { text: 'Pendle -0.01%' } },
+          },
+          {
+            token: {
+              decimals: 18,
+              address: '0xb195b618ea52b77cb2a58846f452f59f8dfa9390',
+              symbol: 'PT-sUSDE',
+              logoURI: 'https://example.com/pt-susde.png',
+            },
+          },
+        ],
+      },
+    },
+  } as IStakeTransactionConfirmation;
+
+  it("keeps the market's rate before and after, not the buy's own rows", () => {
+    const kept = keepPendleMarketRows(quote);
+    expect(
+      kept?.transactionDetails?.data?.transactionDetails?.map(
+        (row) => row.title.text,
+      ),
+    ).toEqual(['Market Reference APY']);
+    expect(kept?.transactionDetails?.data?.swapRoute).toBeUndefined();
+  });
+
+  it('keeps the rest of the quote, and the quote itself, as they are', () => {
+    const kept = keepPendleMarketRows(quote);
+    expect(kept?.rewards).toBe(quote.rewards);
+    expect(kept?.receive).toBe(quote.receive);
+    expect(kept?.transactionDetails?.type).toBe('view');
+    expect(quote.transactionDetails?.data?.transactionDetails).toHaveLength(3);
+    expect(quote.transactionDetails?.data?.swapRoute).toHaveLength(2);
+  });
+
+  it('returns a quote without details, or none, as it is', () => {
+    expect(keepPendleMarketRows(undefined)).toBeUndefined();
+    const plain: IStakeTransactionConfirmation = { rewards: [] };
+    expect(keepPendleMarketRows(plain)).toBe(plain);
   });
 });
