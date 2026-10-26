@@ -173,23 +173,8 @@ export function mergeZcashLocalTransparentPayment({
   };
 }
 
-function shieldedCounterparty(amount: string): IOnChainHistoryTxTransfer {
-  return {
-    type: EOnChainHistoryTransferType.Shielded,
-    address: '',
-    from: '',
-    to: '',
-    token: '',
-    key: '',
-    amount,
-    label: '',
-    isNative: true,
-    isOwn: false,
-  };
-}
-
-// Older account-scoped receive rows omit the shielded sender. Missing send
-// details or owned outputs alone do not identify a shielded recipient.
+// Missing send details or owned outputs alone do not identify a shielded
+// counterparty.
 export function normalizeZcashBackendHistoryTx(
   tx: IOnChainHistoryTx,
 ): IOnChainHistoryTx {
@@ -215,19 +200,15 @@ export function normalizeZcashBackendHistoryTx(
         receive.isChange !== true &&
         isDestination(receive),
     );
-  // Older indexer rows list no sends on a receive; newer ones list the shielded
-  // side themselves. Either way only an empty `from` means a shielded sender.
+  // Only a shielded sender the indexer lists itself, with no public `from`.
   if (
     tx.type === EOnChainHistoryTxType.Receive &&
+    sends.length > 0 &&
     sends.every(isShieldedEntry) &&
     !receives.some((receive) => !isShieldedEntry(receive) && !!receive.from) &&
     !tx.from
   ) {
-    return {
-      ...tx,
-      shieldedCounterparty: 'from',
-      sends: sends.length ? sends : [shieldedCounterparty(tx.value ?? '0')],
-    };
+    return { ...tx, shieldedCounterparty: 'from' };
   }
   if (
     tx.type === EOnChainHistoryTxType.Send &&
