@@ -399,6 +399,13 @@ export function isInvalidAmount(num: string): boolean {
   return BigNumber(num).isNaN() || num.endsWith('.');
 }
 
+// How long an Earn form's emptied box keeps the last figures (dimmed) after
+// its last key, the same in every form: a digit deleted and typed again
+// reads as a change, not a blink, and the keys on the way to a new amount
+// ("0", "0.") keep them through a slow typist's pauses. A longer pause with
+// no amount turns them into dashes
+export const EARN_EMPTIED_HOLD_MS = 600;
+
 // The amount a typed value stands for, as the box shows it once it loses
 // focus: "1." and "1.0" on the way to "1.05" are 1, so an Earn form keeps
 // its figures and its button for them and asks nothing new

@@ -17,7 +17,10 @@ import {
   keepFirstFrame,
   readFirstFrame,
 } from '../../../Earn/pages/EarnRouter/earnFirstFrameCache';
-import { getTypedAmountValue } from '../../../Staking/utils/utils';
+import {
+  EARN_EMPTIED_HOLD_MS,
+  getTypedAmountValue,
+} from '../../../Staking/utils/utils';
 
 export type IBorrowActionType = 'supply' | 'withdraw' | 'borrow' | 'repay';
 
@@ -73,9 +76,6 @@ function createEmptyBorrowTransactionConfirmationState({
   };
 }
 
-// As long as an emptied box keeps its figures after its last key
-// (EarnLendingSummary)
-const EMPTIED_HOLD_MS = 350;
 // How long after the box moved off an amount its answer can be taken back
 const TAKE_BACK_MS = 3000;
 
@@ -233,7 +233,7 @@ export function useUniversalBorrowAction({
     } else if (new BigNumber(typedAmount).gt(0)) {
       hold.refilled = true;
     } else {
-      hold.heldUntil = now + EMPTIED_HOLD_MS;
+      hold.heldUntil = now + EARN_EMPTIED_HOLD_MS;
     }
   }, [typedAmount]);
 
@@ -432,7 +432,7 @@ export function useUniversalBorrowAction({
       }
       if (normalizedAmount === '0') {
         emptiedHoldRef.current = {
-          heldUntil: now + EMPTIED_HOLD_MS,
+          heldUntil: now + EARN_EMPTIED_HOLD_MS,
           refilled: false,
         };
       }

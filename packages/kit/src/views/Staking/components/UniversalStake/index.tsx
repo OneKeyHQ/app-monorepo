@@ -99,6 +99,7 @@ import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import {
+  EARN_EMPTIED_HOLD_MS,
   countDecimalPlaces,
   getTypedAmountValue,
   isInvalidAmount,
@@ -154,8 +155,6 @@ type IShownQuote = {
   confirmation?: IStakeTransactionConfirmation;
 };
 const EMPTY_SHOWN_QUOTE: IShownQuote = { amount: '' };
-// An emptied box keeps its figures this long, the quotes' own debounce
-const QUOTE_SETTLE_MS = 350;
 // 25%, 50% and 75% of a balance fill at most this many decimals
 const PERCENT_INPUT_DECIMALS = 6;
 
@@ -2272,7 +2271,7 @@ export function UniversalStake({
       setShownQuote(EMPTY_SHOWN_QUOTE);
       setReceiveQuote(undefined);
       setIsEmptiedHolding(false);
-    }, QUOTE_SETTLE_MS);
+    }, EARN_EMPTIED_HOLD_MS);
     return () => clearTimeout(timer);
   }, [isPositiveAmount, typedAmountValue]);
   // The rows keep their places in every state: the shown quote's figures,

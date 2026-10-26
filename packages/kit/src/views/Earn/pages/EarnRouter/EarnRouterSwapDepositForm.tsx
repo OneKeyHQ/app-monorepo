@@ -76,7 +76,10 @@ import {
   buildRowKeys,
   splitPendleRewardRows,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
-import { getTypedAmountValue } from '../../../Staking/utils/utils';
+import {
+  EARN_EMPTIED_HOLD_MS,
+  getTypedAmountValue,
+} from '../../../Staking/utils/utils';
 import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
 import { generateSwapHistoryItemForContext } from '../../../Swap/hooks/useSwapTxHistory';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
@@ -128,9 +131,6 @@ const SUMMARY_DEBOUNCE_MS = 350;
 const DEPOSIT_LINE_MS = 200;
 // Typing settles before the swap service is asked
 const QUOTE_DEBOUNCE_MS = 500;
-// A box emptied keeps its figures this long (dimmed), as the provider forms
-// do: a digit deleted and typed again reads as a change, not a blink
-const EMPTY_SETTLE_MS = 350;
 // How long after the box moved off an amount its figures can be taken back
 const TAKE_BACK_MS = 3000;
 
@@ -798,7 +798,7 @@ export function EarnRouterSwapDepositForm({
       isEmptiedRef.current = false;
       leftQuotesRef.current.clear();
       setSettleTick((tick) => tick + 1);
-    }, EMPTY_SETTLE_MS);
+    }, EARN_EMPTIED_HOLD_MS);
     return () => clearTimeout(timer);
   }, [hasAmount, typedAmount]);
   const isEmptySettling = !hasAmount && isEmptiedRef.current;

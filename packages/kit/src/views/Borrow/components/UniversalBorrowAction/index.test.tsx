@@ -33,6 +33,8 @@ import {
 
 import { act, renderHook } from '@testing-library/react-native';
 
+import { EARN_EMPTIED_HOLD_MS } from '../../../Staking/utils/utils';
+
 type IDeferred<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
@@ -278,6 +280,29 @@ describe('useUniversalBorrowAction', () => {
       expect(callsFor('0.5')).toBe(1);
     });
 
+    it("takes it back through a slow typist's pauses on the zeros", async () => {
+      const { result, rerender } = await renderAnswered('0.5');
+      rerender({ amount: '' });
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      rerender({ amount: '0' });
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+        await Promise.resolve();
+      });
+      rerender({ amount: '0.' });
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+        await Promise.resolve();
+      });
+      rerender({ amount: '0.5' });
+
+      expect(result.current.transactionConfirmation).toBe(answerForTyped);
+      expect(result.current.transactionConfirmationLoading).toBe(false);
+      expect(callsFor('0.5')).toBe(1);
+    });
+
     it('asks again after a pause on the zeros, once dashes showed', async () => {
       const { result, rerender } = await renderAnswered('0.5');
       rerender({ amount: '' });
@@ -286,7 +311,7 @@ describe('useUniversalBorrowAction', () => {
       });
       rerender({ amount: '0.' });
       await act(async () => {
-        jest.advanceTimersByTime(400);
+        jest.advanceTimersByTime(EARN_EMPTIED_HOLD_MS + 50);
         await Promise.resolve();
       });
       rerender({ amount: '0.5' });
@@ -335,7 +360,7 @@ describe('useUniversalBorrowAction', () => {
       });
       rerender({ amount: '' });
       await act(async () => {
-        jest.advanceTimersByTime(400);
+        jest.advanceTimersByTime(EARN_EMPTIED_HOLD_MS + 50);
         await Promise.resolve();
       });
       rerender({ amount: '1.5' });
@@ -348,7 +373,7 @@ describe('useUniversalBorrowAction', () => {
       const { result, rerender } = await renderAnswered();
       rerender({ amount: '' });
       await act(async () => {
-        jest.advanceTimersByTime(400);
+        jest.advanceTimersByTime(EARN_EMPTIED_HOLD_MS + 50);
         await Promise.resolve();
       });
       rerender({ amount: '1.5' });

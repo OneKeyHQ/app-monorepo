@@ -12,6 +12,7 @@ import {
   EarnFormSummary,
 } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
 import type { IEarnOutcome } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
+import { EARN_EMPTIED_HOLD_MS } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
@@ -21,10 +22,6 @@ import type {
 
 import { CollateralInfo } from './CollateralInfo';
 import { FeeInfo } from './FeeInfo';
-
-// A box emptied keeps its figures this long (dimmed), as the other Earn
-// forms do: a digit deleted and typed again reads as a change, not a blink
-const EMPTY_SETTLE_MS = 350;
 
 // The server sizes these for its own card; a row keeps the rows' size
 const rowText = (text?: IEarnText): IEarnText | undefined => {
@@ -129,7 +126,7 @@ export function EarnLendingSummary({
       isEmptiedRef.current = false;
       isKeptForEmptiedRef.current = true;
       setSettleTick((tick) => tick + 1);
-    }, EMPTY_SETTLE_MS);
+    }, EARN_EMPTIED_HOLD_MS);
     return () => clearTimeout(timer);
   }, [isTypedPositive, amountValue]);
   const isEmptySettling = !isTypedPositive && isEmptiedRef.current;

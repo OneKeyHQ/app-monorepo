@@ -72,6 +72,7 @@ import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { useHandleWithdraw } from '../../pages/ProtocolDetails/useHandleActions';
 import {
+  EARN_EMPTIED_HOLD_MS,
   countDecimalPlaces,
   getTypedAmountValue,
   isInvalidAmount,
@@ -229,8 +230,6 @@ const isInstantAndFreePath = (box: IWithdrawPathBox) =>
 
 // A line or a row of cards that comes with typing grows in this long
 const AMOUNT_LINE_MS = 200;
-// An emptied box keeps its figures this long, the answers' own debounce
-const QUOTE_SETTLE_MS = 350;
 // Half the gap between the amount box and the second box ($2)
 const RECEIVE_ARROW_GAP_CENTER = 4;
 // A way out's answer asked ahead is used this long, then asked again
@@ -1849,7 +1848,7 @@ export function UniversalWithdraw({
     const timer = setTimeout(() => {
       setShownQuote(EMPTY_SHOWN_WITHDRAW_QUOTE);
       setIsEmptiedHolding(false);
-    }, QUOTE_SETTLE_MS);
+    }, EARN_EMPTIED_HOLD_MS);
     return () => clearTimeout(timer);
   }, [isPositiveAmount, typedAmountValue]);
   // What the rows show: the shown answer's figures (cancelling a queued
