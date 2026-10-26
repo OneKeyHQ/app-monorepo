@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 
 import { Button, IconButton, XStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { useStakingPendingTxs } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
 import { RefreshCooldownButton } from '@onekeyhq/kit/src/views/Staking/components/RefreshCooldownButton';
 import { PendingIndicator } from '@onekeyhq/kit/src/views/Staking/components/StakingActivityIndicator';
@@ -24,6 +25,8 @@ export type IHeaderRightViewProps = {
   onRefreshQuote: () => void;
 };
 
+const HEADER_CONTROLS_ENTER = { opacity: 0 } as const;
+
 export function HeaderRightView({
   pendingCount,
   historyText,
@@ -36,9 +39,17 @@ export function HeaderRightView({
   onOpenSlippage,
   onRefreshQuote,
 }: IHeaderRightViewProps) {
-  // Figma order: Slippage → History → Refresh
+  // Figma order: Slippage → History → Refresh. They come with the form's
+  // data, after the frame that holds its place: they fade in, as the
+  // figures that come later do
   return (
-    <XStack ai="center" gap="$3.5">
+    <XStack
+      ai="center"
+      gap="$3.5"
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
+      enterStyle={HEADER_CONTROLS_ENTER}
+    >
       {showPendleControls ? (
         <IconButton
           testID="staking-has-content-icon-btn"

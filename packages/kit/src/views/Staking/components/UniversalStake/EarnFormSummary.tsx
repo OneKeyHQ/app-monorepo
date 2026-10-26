@@ -11,7 +11,6 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Accordion,
@@ -56,7 +55,22 @@ const STALE_OPACITY = 0.4;
 const DETAILS_KEY = 'earn-form-details';
 // Once open: the accordion measures, then opens over 'fast' (200 ms), and
 // the modal follows it, about 420 ms in all
-const DETAILS_REVEAL_MS = 450;
+const DETAILS_UNFOLD_MS = 600;
+
+// The modal's scroll area holding a node, once its content is taller than it
+function findScrollArea(node: HTMLElement): HTMLElement | null {
+  let el = node.parentElement;
+  while (el && el !== document.body) {
+    if (
+      /(auto|scroll)/.test(getComputedStyle(el).overflowY) &&
+      el.scrollHeight > el.clientHeight
+    ) {
+      return el;
+    }
+    el = el.parentElement;
+  }
+  return null;
+}
 
 export type IEarnOutcomeValue = {
   main: string;
@@ -624,31 +638,42 @@ function EarnFormRowEntry({
 
 function EarnFormDetails({ rows }: { rows: ReactElement[] }) {
   const intl = useIntl();
-  const reduceMotion = useReducedMotion();
   // Opened at the bottom of a modal at its full height (Pendle's route), the
-  // rows it folds would sit under the edge: once open they are brought into
-  // view, the least scroll that shows them
+  // rows it folds would go under the edge: the form scrolls with them as they
+  // unfold, each frame the least that keeps their bottom in view, so it is
+  // one movement rather than a scroll once they are open. A scroll of the
+  // user's own stops it
   const contentRef = useRef<IElement>(null);
-  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  useEffect(() => () => clearTimeout(revealTimerRef.current), []);
-  const handleValueChange = useCallback(
-    (value: string) => {
-      clearTimeout(revealTimerRef.current);
-      if (value !== DETAILS_KEY || !platformEnv.isRuntimeBrowser) {
-        return;
+  const unfoldFrameRef = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(unfoldFrameRef.current), []);
+  const handleValueChange = useCallback((value: string) => {
+    cancelAnimationFrame(unfoldFrameRef.current);
+    if (value !== DETAILS_KEY || !platformEnv.isRuntimeBrowser) {
+      return;
+    }
+    const startedAt = performance.now();
+    let scrolledTo: number | undefined;
+    const follow = () => {
+      const node = contentRef.current as unknown as HTMLElement | null;
+      const area = node ? findScrollArea(node) : null;
+      if (node && area) {
+        if (scrolledTo !== undefined && area.scrollTop !== scrolledTo) {
+          return;
+        }
+        const visibleBottom =
+          area.getBoundingClientRect().top + area.clientHeight;
+        const under = node.getBoundingClientRect().bottom - visibleBottom;
+        if (under > 0.5) {
+          area.scrollTop += under;
+          scrolledTo = area.scrollTop;
+        }
       }
-      revealTimerRef.current = setTimeout(() => {
-        const node = contentRef.current as unknown as HTMLElement | null;
-        node?.scrollIntoView?.({
-          block: 'nearest',
-          behavior: reduceMotion ? 'auto' : 'smooth',
-        });
-      }, DETAILS_REVEAL_MS);
-    },
-    [reduceMotion],
-  );
+      if (performance.now() - startedAt < DETAILS_UNFOLD_MS) {
+        unfoldFrameRef.current = requestAnimationFrame(follow);
+      }
+    };
+    unfoldFrameRef.current = requestAnimationFrame(follow);
+  }, []);
   return (
     <Accordion
       overflow="hidden"

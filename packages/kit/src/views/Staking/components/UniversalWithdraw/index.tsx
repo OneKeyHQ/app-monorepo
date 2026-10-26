@@ -2184,13 +2184,15 @@ export function UniversalWithdraw({
     : confirmDisabled;
 
   // The button keeps its look while the amount is checked (no spinner, no
-  // grey that comes and goes with each keystroke); a press in that moment
-  // goes once the answer is in
+  // grey that comes and goes with each keystroke), "Approve and …" too, as
+  // the deposit form's does; a press in that moment goes once the answer
+  // is in
   const [isPressWaitingAnswer, setIsPressWaitingAnswer] = useState(false);
   const isOwnButtonState =
-    !footerActionOverride && !shouldApprove && !effectiveShowExpiredRefresh;
+    !footerActionOverride && !effectiveShowExpiredRefresh;
   const buttonLoading = isOwnButtonState
-    ? loading || isPressWaitingAnswer
+    ? isPressWaitingAnswer ||
+      (shouldApprove ? loadingAllowance || approving : loading)
     : effectiveConfirmLoading;
   const buttonDisabled = isOwnButtonState
     ? isDisableBeforeAnswer
