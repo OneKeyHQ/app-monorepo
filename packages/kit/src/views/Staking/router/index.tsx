@@ -9,6 +9,7 @@ import type {
 
 import { ModalAssetDetailsStack } from '../../AssetDetails/router';
 import { EARN_GUIDE_MODAL_SIZE } from '../../Earn/components/desktopHome/earnGuide.utils';
+import { EARN_PAY_WITH_PICKER_SIZE } from '../../Earn/pages/EarnRouter/earnPayWithPickerData';
 
 const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
@@ -176,8 +177,19 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     // modal out of the one under it only when it knows the size as it
     // opens. The size goes here, as the navigator sets it over the options.
     // Narrow windows keep it full screen
-    modalContentMaxWidth: 640,
-    modalContentMaxHeight: 700,
+    modalContentMaxWidth: EARN_PAY_WITH_PICKER_SIZE.width,
+    // Over a taller modal (the guide) it takes that one's height: a stacked
+    // modal of the same size shows only the edge of the one under it, a
+    // shorter one would leave its title row showing above. The options'
+    // own value, as it reads the route
+    options: ({ route }) => ({
+      modalContentMaxHeight:
+        (
+          route.params as
+            | IModalStakingParamList[EModalStakingRoutes.EarnPayWithTokenSelect]
+            | undefined
+        )?.modalHeight ?? EARN_PAY_WITH_PICKER_SIZE.height,
+    }),
   },
   {
     name: EModalStakingRoutes.EarnPayWithTokenRisk,

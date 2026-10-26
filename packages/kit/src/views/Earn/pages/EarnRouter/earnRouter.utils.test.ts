@@ -16,8 +16,11 @@ import {
   getEarnSwapDepositAmount,
   getEarnSwapPayMax,
   getEarnSwapSlippage,
+  getPayTokenAddress,
   isUsableEarnSwapQuote,
   listPayTokens,
+  listWithPayTokens,
+  matchesPayTokenKeyword,
   mergePickedPayTokens,
   pickBetterOffer,
   pickDefaultPayToken,
@@ -497,6 +500,147 @@ describe('picks in Pay with picker', () => {
           swapToken('WBTC', WBTC, { price: '80120', currency: 'usd' }),
         ).amount,
       ).toBe('2');
+    });
+  });
+});
+
+describe("Pay with's own tokens in the picker's list", () => {
+  const SUSDE = '0x9D39A5DE30e57443BfF2A8307A4256c8797A3497';
+  const SUSD3 = '0xf689555121e529Ff0463e191F9Bd9d1E496164a7';
+  const SPUSDC = '0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d';
+  const STETH = '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84';
+  const CRV = '0xD533a949740bb3306d119CC777fa900bA034cd52';
+  const LINK = '0x514910771AF9Ca656af840dff83E8264EcF986CA';
+  const token = (
+    symbol: string,
+    contractAddress: string,
+    balanceParsed: string,
+    fiatValue: string,
+    extra: Partial<ISwapToken> = {},
+  ): ISwapToken => ({
+    networkId: 'evm--1',
+    contractAddress,
+    symbol,
+    name: symbol,
+    decimals: 18,
+    balanceParsed,
+    fiatValue,
+    ...extra,
+  });
+  // The 10-26 test wallet on Ethereum, as Swap lists it with DeFi tokens off
+  const list = [
+    token('USDC', USDC.toLowerCase(), '4.0258', '4.02'),
+    token('USDe', USDE.toLowerCase(), '2.2739', '2.27'),
+    token('USDS', SKY_DOLLAR.toLowerCase(), '1.7666', '1.77'),
+    token('ETH', '', '0.000723', '1.67', { isNative: true }),
+    token('USDT', USDT.toLowerCase(), '0.8337', '0.83'),
+    token('stETH', STETH.toLowerCase(), '0.000266', '0.61'),
+    token('CRV', CRV.toLowerCase(), '0.4851', '0.16'),
+    token('LINK', LINK.toLowerCase(), '0', '0'),
+  ];
+  // Its tokens Swap files under DeFi tokens
+  const candidates = [
+    token('spUSDC', SPUSDC.toLowerCase(), '19.48', '20.24'),
+    token('sUSD3', SUSD3.toLowerCase(), '2.328', '2.97'),
+    token('sUSDe', SUSDE.toLowerCase(), '2.275', '2.84'),
+    token('stETH', STETH.toLowerCase(), '0.000266', '0.61'),
+  ];
+  // Pay with's own tokens there: the wallet's tokens Earn lists, and ETH
+  const payTokenAddresses = [
+    USDC,
+    SUSD3,
+    SUSDE,
+    USDE,
+    SKY_DOLLAR,
+    '',
+    USDT,
+    STETH,
+  ].map((address) => address.toLowerCase());
+  const symbols = (tokens: ISwapToken[]) =>
+    tokens.map((item) => item.symbol);
+
+  it("adds Pay with's tokens that Swap files under DeFi tokens, among the wallet's by value", () => {
+    expect(
+      symbols(listWithPayTokens({ list, candidates, payTokenAddresses })),
+    ).toEqual([
+      'USDC',
+      'sUSD3',
+      'sUSDe',
+      'USDe',
+      'USDS',
+      'ETH',
+      'USDT',
+      'stETH',
+      'CRV',
+      'LINK',
+    ]);
+  });
+
+  it("leaves out other DeFi tokens, a token listed already and one the wallet doesn't hold", () => {
+    const result = listWithPayTokens({
+      list,
+      candidates: [
+        candidates[0],
+        candidates[3],
+        token('sUSDe', SUSDE.toLowerCase(), '0', '0'),
+      ],
+      payTokenAddresses,
+    });
+    expect(result).toBe(list);
+  });
+
+  it('puts a token worth less than every held one after them, before the tokens not held', () => {
+    expect(
+      symbols(
+        listWithPayTokens({
+          list,
+          candidates: [token('sUSDe', SUSDE.toLowerCase(), '0.01', '0.01')],
+          payTokenAddresses,
+        }),
+      ).slice(-3),
+    ).toEqual(['CRV', 'sUSDe', 'LINK']);
+  });
+
+  it('matches the address in any case', () => {
+    expect(
+      symbols(
+        listWithPayTokens({
+          list,
+          candidates: [token('sUSDe', SUSDE, '2.275', '2.84')],
+          payTokenAddresses,
+        }),
+      ).slice(0, 3),
+    ).toEqual(['USDC', 'sUSDe', 'USDe']);
+  });
+
+  it('takes the address as Pay with keys its tokens', () => {
+    const [usdc] = listPayTokens({
+      group: ethereumWallet,
+      depositSymbol: 'USDC',
+    });
+    expect(getPayTokenAddress(usdc)).toBe(USDC.toLowerCase());
+  });
+
+  describe('matchesPayTokenKeyword', () => {
+    const susde = candidates[2];
+    it('matches the typed letters in the symbol or the name, in any case', () => {
+      expect(matchesPayTokenKeyword(susde, 'SUSD')).toBe(true);
+      expect(
+        matchesPayTokenKeyword(
+          { ...susde, name: 'Staked USDe' },
+          ' staked ',
+        ),
+      ).toBe(true);
+      expect(matchesPayTokenKeyword(susde, 'usd3')).toBe(false);
+    });
+
+    it('matches a whole contract address only', () => {
+      expect(matchesPayTokenKeyword(susde, SUSDE)).toBe(true);
+      expect(matchesPayTokenKeyword(susde, SUSDE.slice(0, 10))).toBe(false);
+    });
+
+    it('matches anything without a keyword', () => {
+      expect(matchesPayTokenKeyword(susde, '  ')).toBe(true);
     });
   });
 });

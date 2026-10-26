@@ -14,8 +14,14 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { listWithPayTokens } from './earnRouter.utils';
+
 // What Pay with's picker reads before it can draw, kept here so a deposit
 // form can read it ahead and the picker opens complete
+
+// Its size on wide windows, Swap's token column alone. Over a taller modal
+// it takes that one's height instead (see the route)
+export const EARN_PAY_WITH_PICKER_SIZE = { width: 640, height: 700 };
 
 const pickerNetworks = new Map<string, ISwapNetwork>();
 const pickerNetworkReads = new Map<string, Promise<ISwapNetwork>>();
@@ -90,6 +96,8 @@ export function getPayWithPickerAccountAddress({
 }) {
   return pickerAccountAddresses.get(`${accountId}|${networkId}`);
 }
+
+const NO_TOKENS: ISwapToken[] = [];
 
 // The last full list per network, account, filter and currency: the picker
 // shows it at once on opening again, as Swap shows its last list
@@ -183,9 +191,73 @@ export function readPayWithPickerTokens(request: IPayWithPickerTokensRequest) {
   return read;
 }
 
+type IPayWithPickerHeldDeFiRequest = {
+  accountId: string;
+  networkId: string;
+  accountAddress: string;
+  currencyId: string;
+};
+
+export function buildPayWithPickerHeldDeFiKey({
+  networkId,
+  accountAddress,
+  currencyId,
+}: IPayWithPickerHeldDeFiRequest) {
+  return [networkId, accountAddress, currencyId].join('|');
+}
+
+// The last read per network, account and currency, for the next open
+export const payWithPickerHeldDeFiLists = new Map<string, ISwapToken[]>();
+const pickerHeldDeFiReads = new Map<string, Promise<ISwapToken[]>>();
+
+// The wallet's tokens Swap files under DeFi tokens, which its list leaves
+// out while that switch is off; Pay with offers some of them (sUSDe, sUSD3).
+// Read beside the list: as the service's side read it neither cancels the
+// list's request nor is cancelled by it
+export function readPayWithPickerHeldDeFiTokens(
+  request: IPayWithPickerHeldDeFiRequest,
+) {
+  const key = buildPayWithPickerHeldDeFiKey(request);
+  const reading = pickerHeldDeFiReads.get(key);
+  if (reading) {
+    return reading;
+  }
+  const { accountId, networkId, accountAddress, currencyId } = request;
+  const read = backgroundApiProxy.serviceSwap
+    .fetchSwapTokens({
+      ...buildSwapTokenFetchParams({
+        currentNetworkId: networkId,
+        swapType: ESwapTabSwitchType.SWAP,
+        lpToken: true,
+        requestCurrency: currencyId,
+        shouldUseCurrentAccountAddress: true,
+        currentAccountAddress: accountAddress,
+        currentAccountNetworkId: networkId,
+        currentAccountId: accountId,
+      }),
+      onlyAccountTokens: true,
+      isAllNetworkFetchAccountTokens: true,
+    })
+    .then((tokens) => {
+      payWithPickerHeldDeFiLists.set(key, tokens);
+      return tokens;
+    });
+  pickerHeldDeFiReads.set(key, read);
+  void read
+    .catch(() => undefined)
+    .finally(() => {
+      if (pickerHeldDeFiReads.get(key) === read) {
+        pickerHeldDeFiReads.delete(key);
+      }
+    });
+  return read;
+}
+
 // Rows a picker shows before any scrolling
 const PRELOADED_ROW_LOGOS = 10;
-const preloadedLogoNetworks = new Set<string>();
+// Each logo at each size once: the rows change as the wallet's tokens come
+// in (Pay with's own go in among them)
+const preloadedLogos = new Set<string>();
 
 // The logos of the first rows and of the Popular token chips, at the sizes
 // they are drawn at (a row's token at its size, a chip's image at its own),
@@ -199,14 +271,9 @@ function preloadPayWithPickerLogos({
   tokens: ISwapToken[];
   isWide: boolean;
 }) {
-  const key = `${networkId}|${String(isWide)}`;
-  if (preloadedLogoNetworks.has(key)) {
-    return;
-  }
-  preloadedLogoNetworks.add(key);
   const rowResizeWidth = getTokenImageResizeWidth('lg');
   const chipSize = getTokenValue(isWide ? '$5' : '$4.5', 'size');
-  void preloadImages([
+  const sources = [
     ...tokens
       .slice(0, PRELOADED_ROW_LOGOS)
       .filter((token) => token.logoURI)
@@ -218,7 +285,19 @@ function preloadPayWithPickerLogos({
         width: chipSize,
         height: chipSize,
       })),
-  ]);
+  ].filter((source) => {
+    const key = `${source.uri ?? ''}|${
+      'resizeWidth' in source ? `r${source.resizeWidth}` : `s${source.width}`
+    }`;
+    if (preloadedLogos.has(key)) {
+      return false;
+    }
+    preloadedLogos.add(key);
+    return true;
+  });
+  if (sources.length) {
+    void preloadImages(sources);
+  }
 }
 
 // The network's full list read ahead while a deposit form with Pay with
@@ -230,6 +309,7 @@ export async function warmPayWithPickerTokens({
   currencyId,
   showLpTokensOnly,
   isWide,
+  payTokenAddresses,
 }: {
   accountId: string;
   networkId: string;
@@ -237,6 +317,8 @@ export async function warmPayWithPickerTokens({
   showLpTokensOnly: boolean;
   // The picker's layout: its chips are drawn at another size on phones
   isWide: boolean;
+  // Pay with's own tokens, which the picker lists also where Swap doesn't
+  payTokenAddresses: string[];
 }) {
   try {
     const [network, accountAddress] = await Promise.all([
@@ -253,10 +335,34 @@ export async function warmPayWithPickerTokens({
       currencyId,
       keyword: '',
     };
-    const tokens =
+    // With DeFi tokens off, the wallet's DeFi tokens too: the picker shows
+    // Pay with's own among them in its list
+    const heldDeFiRequest =
+      request.lpToken === false && accountAddress
+        ? { accountId, networkId, accountAddress, currencyId }
+        : undefined;
+    const [tokens, heldDeFiTokens] = await Promise.all([
       payWithPickerTokenLists.get(buildPayWithPickerRequestKey(request)) ??
-      (await readPayWithPickerTokens(request));
-    preloadPayWithPickerLogos({ networkId, tokens, isWide });
+        readPayWithPickerTokens(request),
+      heldDeFiRequest
+        ? (payWithPickerHeldDeFiLists.get(
+            buildPayWithPickerHeldDeFiKey(heldDeFiRequest),
+          ) ??
+          readPayWithPickerHeldDeFiTokens(heldDeFiRequest).catch(
+            () => NO_TOKENS,
+          ))
+        : NO_TOKENS,
+    ]);
+    // The rows as the picker draws them
+    preloadPayWithPickerLogos({
+      networkId,
+      tokens: listWithPayTokens({
+        list: tokens,
+        candidates: heldDeFiTokens,
+        payTokenAddresses,
+      }),
+      isWide,
+    });
   } catch {
     // The picker asks for its list itself
   }

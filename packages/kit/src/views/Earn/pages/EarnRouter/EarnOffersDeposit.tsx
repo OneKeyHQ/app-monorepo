@@ -422,6 +422,7 @@ export function EarnOffersDeposit({
   footerActionOverride,
   onAmountChange,
   onOfferChange,
+  payWithPickerHeight,
 }: {
   symbol: string;
   networkId: string;
@@ -437,6 +438,9 @@ export function EarnOffersDeposit({
   onAmountChange?: (amount: string) => void;
   // The offer the form is on, as it starts and after each switch
   onOfferChange?: (offerKey: string) => void;
+  // Wide windows: Pay with's picker as tall as the modal the form is in,
+  // where that one is taller than the picker (the desktop Earn guide)
+  payWithPickerHeight?: number;
 }) {
   const intl = useIntl();
   const { offers, isLoaded } = useEarnRouterOffers({ symbol, networkId });
@@ -453,8 +457,9 @@ export function EarnOffersDeposit({
       preferDepositToken: Boolean(amount),
       selectedKey: payKey,
       onSelectedKeyChange: setPayKey,
+      pickerHeight: payWithPickerHeight,
     }),
-    [amount, payKey],
+    [amount, payKey, payWithPickerHeight],
   );
 
   const [pickedKey, setPickedKey] = useState(offerKey);

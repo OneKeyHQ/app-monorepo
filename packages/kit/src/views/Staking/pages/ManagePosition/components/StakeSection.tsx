@@ -34,6 +34,7 @@ import {
 import {
   findOffer,
   findPayToken,
+  getPayTokenAddress,
   resolvePayMode,
   toPickedPayToken,
 } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnRouter.utils';
@@ -298,19 +299,6 @@ export const StakeSection = ({
     // The picker's own test for its two-column layout
     isWide: Boolean((platformEnv.isDesktop || platformEnv.isWeb) && gtMd),
   });
-  useEffect(() => {
-    if (!canPayWith) {
-      return;
-    }
-    void preloadEarnPayWithTokenSelect();
-    void readPayWithPickerNetwork(networkId);
-    void readPayWithPickerAccountAddress({ accountId, networkId });
-    void warmPayWithPickerTokens({
-      accountId,
-      networkId,
-      ...pickerPrefsRef.current,
-    });
-  }, [accountId, canPayWith, networkId]);
   // The page's token: Pendle's form token is the one its buy side starts on
   // (USDC for PT-sUSD3), which isn't the token the page is for
   const depositSymbol = protocolInfo?.symbol || tokenInfo?.token.symbol || '';
@@ -325,6 +313,29 @@ export const StakeSection = ({
     depositSymbol,
     enabled: canPayWith && Boolean(depositSymbol),
   });
+  // Pay with's own tokens by address, which the picker lists also where
+  // Swap files them under DeFi tokens. Joined, so a balance refresh that
+  // keeps the same tokens changes nothing
+  const payTokenAddressesKey = useMemo(
+    () => pay.heldTokens.map(getPayTokenAddress).filter(Boolean).join(','),
+    [pay.heldTokens],
+  );
+  useEffect(() => {
+    if (!canPayWith) {
+      return;
+    }
+    void preloadEarnPayWithTokenSelect();
+    void readPayWithPickerNetwork(networkId);
+    void readPayWithPickerAccountAddress({ accountId, networkId });
+    void warmPayWithPickerTokens({
+      accountId,
+      networkId,
+      ...pickerPrefsRef.current,
+      payTokenAddresses: payTokenAddressesKey
+        ? payTokenAddressesKey.split(',')
+        : [],
+    });
+  }, [accountId, canPayWith, networkId, payTokenAddressesKey]);
   // The start amount goes to the first form shown. One opened by picking
   // another token in Pay with starts empty, as before
   const [startAmount, setStartAmount] = useState(initialAmount);
@@ -434,16 +445,28 @@ export const StakeSection = ({
       tokenInfo?.token,
     ],
   );
+  const pickerHeight = payWith?.pickerHeight;
   const handleOpenPayWith = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.EarnPayWithTokenSelect,
       params: {
         accountId,
         networkId,
+        payTokenAddresses: payTokenAddressesKey
+          ? payTokenAddressesKey.split(',')
+          : [],
+        modalHeight: pickerHeight,
         onSelect: handlePickPayToken,
       },
     });
-  }, [accountId, handlePickPayToken, navigation, networkId]);
+  }, [
+    accountId,
+    handlePickPayToken,
+    navigation,
+    networkId,
+    payTokenAddressesKey,
+    pickerHeight,
+  ]);
   // Laid over each form's own token chip
   const payWithTrigger = useMemo(
     () => ({ testID: PAY_WITH_TRIGGER_TEST_ID }),

@@ -112,7 +112,7 @@ const PICKED_PAY_TOKEN_KEY = 'earn-pay-picked';
 const isPickedPayTokenKey = (key: string) =>
   key.startsWith(`${PICKED_PAY_TOKEN_KEY}|`);
 
-const getPayTokenAddress = (item: IEarnRouterPayToken) =>
+export const getPayTokenAddress = (item: IEarnRouterPayToken) =>
   normalizeStakeTokenAddress({
     address: item.token.address,
     isNative: item.token.isNative,
@@ -228,6 +228,75 @@ export function findPayToken(
     (item) =>
       !isPickedPayTokenKey(item.key) && getPayTokenAddress(item) === address,
   );
+}
+
+const getSwapTokenAddress = (token: ISwapToken) =>
+  normalizeStakeTokenAddress({
+    address: token.contractAddress,
+    isNative: token.isNative,
+  });
+
+const isHeldSwapToken = (token: ISwapToken) =>
+  new BigNumber(token.balanceParsed ?? 0).gt(0);
+
+const getSwapTokenValue = (token: ISwapToken) => {
+  const value = new BigNumber(token.fiatValue ?? 0);
+  return value.isFinite() ? value : new BigNumber(0);
+};
+
+// A search the way it reads: the typed letters in the symbol or the name, or
+// the whole contract address
+export function matchesPayTokenKeyword(token: ISwapToken, keyword: string) {
+  const typed = keyword.trim().toLowerCase();
+  if (!typed) {
+    return true;
+  }
+  return (
+    token.symbol.toLowerCase().includes(typed) ||
+    (token.name ?? '').toLowerCase().includes(typed) ||
+    token.contractAddress.toLowerCase() === typed
+  );
+}
+
+// The picker's list with the tokens Pay with itself offers that it lacks:
+// Swap files some under DeFi tokens (sUSDe, sUSD3), and Pay with's chip can
+// be on one. Only the wallet's, each among the wallet's tokens by its value;
+// the list's own order stays
+export function listWithPayTokens({
+  list,
+  candidates,
+  payTokenAddresses,
+}: {
+  list: ISwapToken[];
+  // The wallet's tokens Swap keeps out of the list
+  candidates: ISwapToken[];
+  // Pay with's own tokens, by address as `getPayTokenAddress` gives it
+  payTokenAddresses: string[];
+}): ISwapToken[] {
+  const offered = new Set(payTokenAddresses);
+  const listed = new Set(list.map(getSwapTokenAddress));
+  const extra = candidates
+    .filter((token) => {
+      const address = getSwapTokenAddress(token);
+      return (
+        offered.has(address) && !listed.has(address) && isHeldSwapToken(token)
+      );
+    })
+    .toSorted(
+      (a, b) => getSwapTokenValue(b).comparedTo(getSwapTokenValue(a)) ?? 0,
+    );
+  if (!extra.length) {
+    return list;
+  }
+  const result = [...list];
+  extra.forEach((token) => {
+    const value = getSwapTokenValue(token);
+    const index = result.findIndex(
+      (item) => !isHeldSwapToken(item) || getSwapTokenValue(item).lt(value),
+    );
+    result.splice(index === -1 ? result.length : index, 0, token);
+  });
+  return result;
 }
 
 export type IEarnRouterPayMode =

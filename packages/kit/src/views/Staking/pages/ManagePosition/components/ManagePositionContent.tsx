@@ -77,6 +77,9 @@ export type IManagePositionPayWith = {
   // keeps it across offers)
   selectedKey?: string;
   onSelectedKeyChange?: (key: string) => void;
+  // Wide windows: the picker's height when the form is in a taller modal
+  // (the desktop Earn guide), which it takes on
+  pickerHeight?: number;
 };
 
 export type IManagePositionFooterAction = {

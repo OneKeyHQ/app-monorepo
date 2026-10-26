@@ -46,6 +46,7 @@ import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 import {
+  EARN_GUIDE_MODAL_SIZE,
   EARN_GUIDE_SUGGESTED_GAS,
   EARN_GUIDE_SYMBOL,
   getEarnGuideNetworkId,
@@ -715,6 +716,7 @@ function EarnGuidePage() {
             onOfferChange={handleDepositOfferChange}
             onHeaderRightChange={noop}
             footerActionOverride={previewFooterAction}
+            payWithPickerHeight={EARN_GUIDE_MODAL_SIZE.height}
           />
         ) : (
           <ManageSectionShell

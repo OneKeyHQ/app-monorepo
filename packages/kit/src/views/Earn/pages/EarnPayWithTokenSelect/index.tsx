@@ -55,15 +55,23 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  EARN_PAY_WITH_PICKER_SIZE,
+  buildPayWithPickerHeldDeFiKey,
   buildPayWithPickerRequestKey,
   getPayWithPickerAccountAddress,
   getPayWithPickerNetwork,
   isPayWithPickerLpFilterShown,
+  payWithPickerHeldDeFiLists,
   payWithPickerTokenLists,
   readPayWithPickerAccountAddress,
+  readPayWithPickerHeldDeFiTokens,
   readPayWithPickerNetwork,
   readPayWithPickerTokens,
 } from '../EarnRouter/earnPayWithPickerData';
+import {
+  listWithPayTokens,
+  matchesPayTokenKeyword,
+} from '../EarnRouter/earnRouter.utils';
 
 import type { FlatList } from 'react-native';
 
@@ -116,7 +124,8 @@ function useLockedNetwork(networkId: string) {
 /**
  * Pay with's token picker: Swap's picker kept to the deposit's network, with
  * no network to switch to. Every token on the network shows, the wallet's
- * with their balances, as in Swap
+ * with their balances, as in Swap, and the wallet's tokens Pay with offers
+ * even where Swap files them under DeFi tokens
  */
 function EarnPayWithTokenSelectPage() {
   const intl = useIntl();
@@ -125,7 +134,8 @@ function EarnPayWithTokenSelectPage() {
     IModalStakingParamList,
     EModalStakingRoutes.EarnPayWithTokenSelect
   >();
-  const { accountId, networkId, onSelect } = route.params;
+  const { accountId, networkId, payTokenAddresses, modalHeight, onSelect } =
+    route.params;
   const { gtMd, md } = useMedia();
   const { bottom } = useSafeAreaInsets();
   const { copyText, getClipboard } = useClipboard();
@@ -244,7 +254,64 @@ function EarnPayWithTokenSelectPage() {
     requestKey && !keyword
       ? payWithPickerTokenLists.get(requestKey)
       : undefined;
-  const shownTokens = answered ? result?.tokens : cachedTokens;
+  const listTokens = answered ? result?.tokens : cachedTokens;
+
+  // With DeFi tokens off, the wallet's tokens Swap files there, read beside
+  // the list: the ones Pay with offers (sUSDe, sUSD3) show in it, in a search
+  // too, so the token on Pay with's chip is always there
+  const hasPayTokens = Boolean(payTokenAddresses?.length);
+  const heldDeFiRequest = useMemo(
+    () =>
+      requestLpToken === false && accountAddress && hasPayTokens
+        ? { accountId, networkId, accountAddress, currencyId }
+        : undefined,
+    [
+      accountAddress,
+      accountId,
+      currencyId,
+      hasPayTokens,
+      networkId,
+      requestLpToken,
+    ],
+  );
+  const heldDeFiKey = heldDeFiRequest
+    ? buildPayWithPickerHeldDeFiKey(heldDeFiRequest)
+    : undefined;
+  const { result: heldDeFiResult } = usePromiseResult(async () => {
+    if (!heldDeFiRequest || heldDeFiKey === undefined) {
+      return undefined;
+    }
+    const tokens = await readPayWithPickerHeldDeFiTokens(
+      heldDeFiRequest,
+    ).catch(() => payWithPickerHeldDeFiLists.get(heldDeFiKey) ?? NO_TOKENS);
+    return { heldDeFiKey, tokens };
+  }, [heldDeFiKey, heldDeFiRequest]);
+  let heldDeFiTokens: ISwapToken[] | undefined = NO_TOKENS;
+  if (heldDeFiKey !== undefined) {
+    heldDeFiTokens =
+      heldDeFiResult?.heldDeFiKey === heldDeFiKey
+        ? heldDeFiResult.tokens
+        : payWithPickerHeldDeFiLists.get(heldDeFiKey);
+  }
+  // The rows show once both are in: Pay with's tokens go in among the
+  // wallet's, and coming later they would push the rows under them down
+  const shownTokens = useMemo(() => {
+    if (!listTokens || !heldDeFiTokens) {
+      return undefined;
+    }
+    if (!heldDeFiTokens.length || !payTokenAddresses?.length) {
+      return listTokens;
+    }
+    return listWithPayTokens({
+      list: listTokens,
+      candidates: keyword
+        ? heldDeFiTokens.filter((token) =>
+            matchesPayTokenKeyword(token, keyword),
+          )
+        : heldDeFiTokens,
+      payTokenAddresses,
+    });
+  }, [heldDeFiTokens, keyword, listTokens, payTokenAddresses]);
   // Each row's network badge, which Swap takes from the network it shows:
   // the list itself doesn't carry it
   const networkLogoURI = network?.logoURI;
@@ -272,7 +339,7 @@ function EarnPayWithTokenSelectPage() {
     );
     return buildServerAuthoritativeSearchResults(badgedTokens, matchesByToken);
   }, [badgedTokens, fuseTokens, keyword]);
-  const listLoading = !answered || isSearchSettling;
+  const listLoading = !answered || isSearchSettling || !heldDeFiTokens;
 
   const popularTokens = useMemo(
     () => swapPopularTokens[networkId] ?? [],
@@ -550,9 +617,16 @@ function EarnPayWithTokenSelectPage() {
     <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
-        // Swap's token column alone: the app's usual modal width
-        modalContentMaxWidth={useDesktopTokenSelector ? 640 : undefined}
-        modalContentMaxHeight={useDesktopTokenSelector ? 700 : undefined}
+        // Swap's token column alone: the app's usual modal width. Over a
+        // taller modal, its height (as on the route)
+        modalContentMaxWidth={
+          useDesktopTokenSelector ? EARN_PAY_WITH_PICKER_SIZE.width : undefined
+        }
+        modalContentMaxHeight={
+          useDesktopTokenSelector
+            ? (modalHeight ?? EARN_PAY_WITH_PICKER_SIZE.height)
+            : undefined
+        }
         {...(!useDesktopTokenSelector
           ? {
               headerSearchBarOptions: {

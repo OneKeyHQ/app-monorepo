@@ -140,6 +140,11 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.EarnPayWithTokenSelect]: {
     accountId: string;
     networkId: string;
+    // Pay with's own tokens by address, listed also where Swap files them
+    // under DeFi tokens
+    payTokenAddresses?: string[];
+    // Wide windows: over a taller modal (the desktop Earn guide), its height
+    modalHeight?: number;
     // Called with the pick after the picker closes
     onSelect: (token: ISwapToken) => void;
   };
