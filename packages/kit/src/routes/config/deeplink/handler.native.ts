@@ -11,6 +11,9 @@ export const registerHandler: IRegisterHandler = (
   const nativeLinkingHandler = ({ url }: { url: string }) => {
     // TODO: maybe need to edit WalletConnect landing page
     handleDeepLinkUrl({ url });
+    if (platformEnv.isNativeIOS && Linking.getLinkingURL() === url) {
+      Linking.clearInitialURL();
+    }
     return url;
   };
 
