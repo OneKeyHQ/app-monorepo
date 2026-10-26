@@ -246,8 +246,10 @@ CategoryTabItem.displayName = 'CategoryTabItem';
 
 function TokenListHeader({
   layoutMode = 'perp',
+  onInteraction,
 }: {
   layoutMode?: 'perp' | 'spot' | 'mixed';
+  onInteraction?: () => void;
 }) {
   const intl = useIntl();
   const isSpotLayout = layoutMode === 'spot';
@@ -258,7 +260,14 @@ function TokenListHeader({
     : SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT;
   const mixedColumnLayout = MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT;
   return (
-    <XStack width="100%" px="$4" py="$2">
+    <XStack
+      width="100%"
+      px="$4"
+      py="$2"
+      {...(platformEnv.isNative
+        ? undefined
+        : { onClickCapture: onInteraction })}
+    >
       <SortableHeaderCell
         field="name"
         label={intl.formatMessage({
@@ -380,6 +389,18 @@ function BasePerpTokenSelectorContent() {
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
   const inputQueryRef = useRef(searchQuery);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const handleSearchFocus = useCallback<NonNullable<IInputProps['onFocus']>>(
+    (event) => {
+      if (event.target instanceof HTMLInputElement) {
+        searchInputRef.current = event.target;
+      }
+    },
+    [],
+  );
+  const focusSearchInput = useCallback(() => {
+    searchInputRef.current?.focus({ preventScroll: true });
+  }, []);
   const keyboardSubmitPending = useRef(false);
   const keyboardRowRefs = useRef(new Map<string, HTMLElement>());
   const keyboardFavoritesPending = useRef(new Set<string>());
@@ -508,6 +529,7 @@ function BasePerpTokenSelectorContent() {
   );
   const setActiveTab = useCallback(
     (tab: string) => {
+      focusSearchInput();
       pendingKeyboardScroll.current = undefined;
       setKeyboardSelection(undefined);
       defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
@@ -517,10 +539,16 @@ function BasePerpTokenSelectorContent() {
       });
       updateActiveTab(tab);
     },
-    [activePerpsAccount.walletType, displayActiveTab, updateActiveTab],
+    [
+      activePerpsAccount.walletType,
+      displayActiveTab,
+      focusSearchInput,
+      updateActiveTab,
+    ],
   );
   const setPrimaryTab = useCallback(
     (tab: string) => {
+      focusSearchInput();
       if (tab === displayPrimaryTab) {
         return;
       }
@@ -533,7 +561,12 @@ function BasePerpTokenSelectorContent() {
       });
       updateActiveTab(tab);
     },
-    [activePerpsAccount.walletType, displayPrimaryTab, updateActiveTab],
+    [
+      activePerpsAccount.walletType,
+      displayPrimaryTab,
+      focusSearchInput,
+      updateActiveTab,
+    ],
   );
 
   const handleSelectToken = useCallback(
@@ -1458,6 +1491,7 @@ function BasePerpTokenSelectorContent() {
               flex: 1,
             }}
             autoFocus
+            onFocus={platformEnv.isNative ? undefined : handleSearchFocus}
             placeholder={intl.formatMessage({
               id: ETranslations.global_search_asset,
             })}
@@ -1531,7 +1565,10 @@ function BasePerpTokenSelectorContent() {
             </YStack>
           ) : (
             <YStack width="100%" minWidth={0} overflow="hidden">
-              <TokenListHeader layoutMode={desktopListLayout} />
+              <TokenListHeader
+                layoutMode={desktopListLayout}
+                onInteraction={focusSearchInput}
+              />
               <YStack height={350} minWidth={0}>
                 <ListView
                   ref={listRef}
