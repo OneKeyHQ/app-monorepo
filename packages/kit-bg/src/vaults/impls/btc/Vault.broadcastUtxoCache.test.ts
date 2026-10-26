@@ -2,7 +2,23 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import VaultBtc from './Vault';
 
-import type { IBroadcastTransactionParams } from '../../types';
+import type {
+  IBroadcastTransactionByCustomRpcParams,
+  IBroadcastTransactionParams,
+} from '../../types';
+
+const mockCustomRpcBroadcast: jest.Mock<
+  Promise<string>,
+  [rawTx: string]
+> = jest.fn();
+
+jest.mock('./sdkBtc/ClientBtc', () => ({
+  // The vault instantiates a client per custom RPC broadcast; only the
+  // broadcast call matters here.
+  ClientBtc: class {
+    broadcastTransaction = (rawTx: string) => mockCustomRpcBroadcast(rawTx);
+  },
+}));
 
 type IClearableCache = { clear: jest.Mock };
 
@@ -50,6 +66,47 @@ describe('VaultBtc.broadcastTransaction UTXO cache invalidation', () => {
     await expect(vault.broadcastTransaction(params)).rejects.toThrow(
       'txn-mempool-conflict',
     );
+    expect(vault._collectUTXOsInfoByApiWithCache.clear).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(vault._collectClaimedUtxosWithCache.clear).toHaveBeenCalledTimes(1);
+  });
+});
+
+const customRpcParams = {
+  customRpcInfo: { rpc: 'https://btc-rpc.example.test', enabled: true },
+  signedTx: params.signedTx,
+} as unknown as IBroadcastTransactionByCustomRpcParams;
+
+describe('VaultBtc.broadcastTransactionFromCustomRpc UTXO cache invalidation', () => {
+  beforeEach(() => {
+    mockCustomRpcBroadcast.mockReset();
+  });
+
+  it('drops the memoized UTXO pool after a custom RPC broadcast', async () => {
+    mockCustomRpcBroadcast.mockResolvedValueOnce('txid-custom-rpc');
+    const vault = createVault(jest.fn());
+
+    const result =
+      await vault.broadcastTransactionFromCustomRpc(customRpcParams);
+
+    expect(result.txid).toBe('txid-custom-rpc');
+    expect(mockCustomRpcBroadcast).toHaveBeenCalledWith('00');
+    expect(vault._collectUTXOsInfoByApiWithCache.clear).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(vault._collectClaimedUtxosWithCache.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops the memoized UTXO pool even when the custom RPC broadcast fails', async () => {
+    mockCustomRpcBroadcast.mockRejectedValueOnce(
+      new OneKeyLocalError('custom-rpc-rejected'),
+    );
+    const vault = createVault(jest.fn());
+
+    await expect(
+      vault.broadcastTransactionFromCustomRpc(customRpcParams),
+    ).rejects.toThrow('custom-rpc-rejected');
     expect(vault._collectUTXOsInfoByApiWithCache.clear).toHaveBeenCalledTimes(
       1,
     );

@@ -1756,12 +1756,18 @@ export default class VaultBtc extends VaultBase {
       throw new OneKeyInternalError('Invalid rpc url');
     }
     const client = new ClientBtc(rpcUrl);
-    const txid = await client.broadcastTransaction(signedTx.rawTx);
-    return {
-      ...signedTx,
-      txid,
-      encodedTx: signedTx.encodedTx,
-    };
+    try {
+      const txid = await client.broadcastTransaction(signedTx.rawTx);
+      return {
+        ...signedTx,
+        txid,
+        encodedTx: signedTx.encodedTx,
+      };
+    } finally {
+      // Custom RPC sends bypass broadcastTransaction(), so the spent inputs
+      // must leave the memoized UTXO pool here as well.
+      this.clearUtxoCaches();
+    }
   }
 
   override async getAddressType({ address }: { address: string }) {
