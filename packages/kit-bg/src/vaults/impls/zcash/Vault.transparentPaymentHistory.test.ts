@@ -49,32 +49,54 @@ const params = {
   xpub: 'test-xpub',
 };
 
-it.each(['zec--0', 'btc--0'])(
-  'retains explicit change metadata without rewriting transfers, network=%s',
-  async (networkId) => {
-    const vault = Object.create(VaultBtc.prototype) as VaultBtc;
-    const raw = backendPayment();
-    raw.networkId = networkId;
-    raw.receives = [{ ...raw.sends[0], to: sender, isChange: true }];
-    const action = await vault.buildHistoryTransferAction({
-      tx: raw,
+it('retains explicit change metadata without rewriting transfers', async () => {
+  const vault = Object.create(Vault.prototype) as Vault;
+  const raw = backendPayment();
+  raw.receives = [{ ...raw.sends[0], to: sender, isChange: true }];
+  const action = await vault.buildHistoryTransferAction({
+    tx: raw,
+    tokens: {},
+    nfts: {},
+  });
+  expect(action.assetTransfer?.receives[0]).toMatchObject({
+    from: sender,
+    to: sender,
+    amount: raw.receives[0].amount,
+    isOwn: true,
+    isChange: true,
+  });
+  expect(action.assetTransfer?.from).toBe(raw.from);
+  expect(action.assetTransfer?.to).toBe(raw.to);
+});
+
+it('marks a shielded note by pool instead of exposing its label as an address', () => {
+  const vault = Object.create(Vault.prototype) as Vault;
+  expect(
+    vault.buildHistoryTransfer({
+      transfer: {
+        ...backendPayment().sends[0],
+        type: EOnChainHistoryTransferType.Shielded,
+        from: '',
+        to: '',
+        address: 'Shielded',
+        label: 'Shielded',
+        poolId: 4,
+      },
       tokens: {},
       nfts: {},
-    });
-    expect(action.assetTransfer?.receives[0]).toMatchObject({
-      from: sender,
-      to: sender,
-      amount: raw.receives[0].amount,
-      isOwn: true,
-      isChange: true,
-    });
-    expect(action.assetTransfer?.from).toBe(raw.from);
-    expect(action.assetTransfer?.to).toBe(raw.to);
-  },
-);
+    }),
+  ).toMatchObject({
+    from: '',
+    to: '',
+    tokenIdOnNetwork: '',
+    isShielded: true,
+    shieldedFrom: { poolId: 4 },
+    shieldedTo: { poolId: 4 },
+  });
+});
 
 it('keeps mixed recipients after gating a summary that points at public change', async () => {
-  const vault = Object.create(VaultBtc.prototype) as VaultBtc;
+  const vault = Object.create(Vault.prototype) as Vault;
   const raw = backendPayment();
   const publicRecipient = 't1external';
   const change = 't1change';

@@ -32,6 +32,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { getOnChainHistoryTransferDisplayAddress } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IPrivacyChainComposedBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
 import {
   gateLocalWalletHistoryDetail,
@@ -50,6 +51,7 @@ import type {
   IEstimateGasParams,
   IServerEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
+import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
 import type {
   IAccountHistoryTx,
   IServerFetchAccountHistoryDetailParams,
@@ -829,6 +831,40 @@ export default class Vault extends VaultBtc {
       tx.decodedTx.totalFeeFiatValue = undefined;
     }
     return tx;
+  }
+
+  // A shielded note has no token or address of its own; both ends lie in
+  // its pool.
+  override buildHistoryTransfer(
+    params: Parameters<VaultBtc['buildHistoryTransfer']>[0],
+  ) {
+    const { transfer } = params;
+    const isShielded = transfer.type === EOnChainHistoryTransferType.Shielded;
+    const built = super.buildHistoryTransfer({
+      ...params,
+      transfer: {
+        ...transfer,
+        token: isShielded ? '' : transfer.token,
+        from: getOnChainHistoryTransferDisplayAddress({
+          transfer,
+          endpoint: 'from',
+        }),
+        to: getOnChainHistoryTransferDisplayAddress({
+          transfer,
+          endpoint: 'to',
+        }),
+      },
+    });
+    const pool =
+      transfer.poolId === undefined ? {} : { poolId: transfer.poolId };
+    return {
+      ...built,
+      ...(isShielded
+        ? { shieldedFrom: { ...pool }, shieldedTo: { ...pool } }
+        : {}),
+      isChange: transfer.isChange,
+      isShielded,
+    };
   }
 
   override async buildHistoryTx(

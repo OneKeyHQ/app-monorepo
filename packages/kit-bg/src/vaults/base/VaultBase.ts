@@ -29,7 +29,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
-  getOnChainHistoryTransferDisplayAddress,
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -78,10 +77,7 @@ import type {
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
-import {
-  EOnChainHistoryTransferType,
-  EOnChainHistoryTxType,
-} from '@onekeyhq/shared/types/history';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -1035,36 +1031,21 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
   }) {
-    const isShielded = transfer.type === EOnChainHistoryTransferType.Shielded;
     const { icon, symbol, name, isNFT, isNative, price } =
       getOnChainHistoryTxAssetInfo({
         key: transfer.key,
-        tokenAddress: isShielded ? '' : transfer.token,
+        tokenAddress: transfer.token,
         tokens,
         nfts,
       });
 
-    const shielded =
-      transfer.poolId === undefined ? {} : { poolId: transfer.poolId };
     return {
-      from: getOnChainHistoryTransferDisplayAddress({
-        transfer,
-        endpoint: 'from',
-      }),
-      to: getOnChainHistoryTransferDisplayAddress({
-        transfer,
-        endpoint: 'to',
-      }),
-      // Both ends of a shielded note lie in its pool.
-      ...(isShielded
-        ? { shieldedFrom: { ...shielded }, shieldedTo: { ...shielded } }
-        : {}),
-      tokenIdOnNetwork: isShielded ? '' : transfer.token,
+      from: transfer.from,
+      to: transfer.to,
+      tokenIdOnNetwork: transfer.token,
       amount: transfer.amount,
       label: transfer.label,
       isOwn: transfer.isOwn,
-      isChange: transfer.isChange,
-      isShielded,
       icon,
       name,
       symbol,
