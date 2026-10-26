@@ -7,14 +7,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { parseCaptchaMessage } from './captchaMessage';
 
-import type { ICaptchaFrameProps } from './captchaMessage';
+import type { ICaptchaFrameProps, ICaptchaFrameResult } from './captchaMessage';
 
 function WebCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
   const intl = useIntl();
   const ref = useRef<HTMLIFrameElement>(null);
   const resultCallback = useRef(onResult);
   resultCallback.current = onResult;
-  const failRef = useRef<() => void>(() => {});
+  const failRef = useRef<(message?: ICaptchaFrameResult) => void>(() => {});
   const didLoad = useRef(false);
   const [isReady, setReady] = useState(false);
   const [isFailed, setFailed] = useState(false);
@@ -48,7 +48,10 @@ function WebCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
       port.onmessageerror = null;
       port.close();
     };
-    const fail = () => {
+    const fail = (
+      message?: ICaptchaFrameResult,
+      failureSource: 'host_load_error' | 'host_watchdog' = 'host_load_error',
+    ) => {
       if (!active || failed) return;
       failed = true;
       stopTimer();
@@ -59,12 +62,14 @@ function WebCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
         type: 'onekey-test-captcha',
         requestId,
         status: 'load-error',
+        code: message?.code,
+        source: message ? 'provider_message' : failureSource,
       });
     };
     failRef.current = fail;
     // Cross-origin error documents can fire load without firing error. Only
     // a result from the document's port can complete startup, not the handshake.
-    timer = setTimeout(fail, 30_000);
+    timer = setTimeout(() => fail(undefined, 'host_watchdog'), 30_000);
     const handleMessage = (event: MessageEvent<unknown>) => {
       if (
         !active ||
@@ -98,14 +103,14 @@ function WebCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
         const message = parseCaptchaMessage(result.data, requestId);
         if (!message) return;
         if (message.status === 'load-error') {
-          fail();
+          fail(message);
           return;
         }
         stopTimer();
         setReady(message.status !== 'timeout');
         resultCallback.current(message);
       };
-      port.onmessageerror = fail;
+      port.onmessageerror = () => fail();
     };
     window.addEventListener('message', handleMessage);
     return () => {
