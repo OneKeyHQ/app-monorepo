@@ -55,7 +55,11 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
-import { PAGE_DRAWS_UNDER_BROWSER_BAR } from '../../components/MobileBrowser/browserChrome';
+import {
+  PAGE_DRAWS_UNDER_BROWSER_BAR,
+  getBarReservedHeight,
+} from '../../components/MobileBrowser/browserChrome';
+import { PageBaseColorFill } from '../../components/MobileBrowser/BrowserChromeCapsule';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
@@ -69,7 +73,6 @@ import {
   useWebTabs,
 } from '../../hooks/useWebTabs';
 import { dismissWebviewKeyboard, webviewRefs } from '../../utils/explorerUtils';
-import { usePageBaseColor } from '../../utils/pageThemeColor';
 import { checkAndCreateFolder } from '../../utils/screenshot';
 import { showTabBar, useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
@@ -106,13 +109,14 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 3,
   },
-  // Inside the iOS root layer: the WebView's own box, which ends above the
-  // bottom bar (webPageBottomStyle) while the root layer reaches the screen
-  // bottom to hold the page backdrop.
-  iosWebPageArea: {
+  // Under the iPhone bottom bar, behind the WebView (whose scroll view draws
+  // past its frame there): the page's base color shows where the page has no
+  // more content to draw (its end, or a short page). Only the bar's area: the
+  // WebView covers the rest. Height set from the safe area.
+  iosPageBackdrop: {
     position: 'absolute',
-    top: 0,
     right: 0,
+    bottom: 0,
     left: 0,
   },
   iosWebPageRootLayerVisible: {
@@ -131,30 +135,6 @@ const styles = StyleSheet.create({
     zIndex: 4,
   },
 });
-
-// Behind the iPhone WebView, down to the screen bottom: the page's base color
-// shows under the bottom bar where the page has no more content to draw there
-// (its end, or a short page). Its own component, so color reports don't
-// re-render the browser.
-const BrowserPageBackdrop = memo(
-  ({ tabId }: { tabId: string | null | undefined }) => {
-    const baseColor = usePageBaseColor(tabId);
-    return (
-      // Not `fullscreen`: on native, Stack is core's View, which lacks that
-      // variant (only YStack/XStack have it), so it would collapse to 0 high.
-      <Stack
-        position="absolute"
-        top={0}
-        right={0}
-        bottom={0}
-        left={0}
-        bg="$bgApp"
-        style={baseColor ? { backgroundColor: baseColor } : undefined}
-      />
-    );
-  },
-);
-BrowserPageBackdrop.displayName = 'BrowserPageBackdrop';
 
 const useAndroidHardwareBack = platformEnv.isNativeAndroid
   ? ({
@@ -539,7 +519,7 @@ function MobileBrowser() {
     },
     [navigation],
   );
-  const { top } = useSafeAreaInsets();
+  const { top, bottom: bottomInset } = useSafeAreaInsets();
   // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
   // matches the Wallet header's glass search bar) and is nudged down so its
   // center vertically aligns with the Wallet search bar — which sits centered in
@@ -750,10 +730,19 @@ function MobileBrowser() {
                 ]}
               >
                 {PAGE_DRAWS_UNDER_BROWSER_BAR ? (
-                  <BrowserPageBackdrop tabId={activeTabId} />
+                  <PageBaseColorFill
+                    tabId={activeTabId}
+                    style={[
+                      styles.iosPageBackdrop,
+                      { height: getBarReservedHeight(bottomInset) },
+                    ]}
+                  />
                 ) : null}
+                {/* The WebView's own box: ends above the bar
+                    (webPageBottomStyle) while this layer reaches the screen
+                    bottom. */}
                 <Animated.View
-                  style={[styles.iosWebPageArea, webPageBottomStyle]}
+                  style={[StyleSheet.absoluteFill, webPageBottomStyle]}
                 >
                   {content}
                 </Animated.View>

@@ -138,8 +138,8 @@ export function usePageTheme(tabId: string | null | undefined) {
 export function applyCachedPageThemeColor(tabId: string, url: string) {
   const origin = originOf(url);
   const cached = origin ? originColors.get(origin) : undefined;
-  if (cached) {
-    setPageColors(tabId, cached, baseColors.get(tabId));
+  if (cached && storeColor(colors, tabId, cached)) {
+    emit();
   }
 }
 
@@ -160,14 +160,14 @@ export function tryDispatchPageThemeMessage(
     if (message?.type !== PAGE_THEME_MESSAGE_TYPE) {
       return false;
     }
-    const stored = normalizeColor(message.color);
-    setPageColors(tabId, stored, normalizeColor(message.baseColor));
+    const color = normalizeColor(message.color);
+    setPageColors(tabId, color, normalizeColor(message.baseColor));
     const origin = originOf(pageUrl);
     if (origin) {
       // A page that reports no color also drops its stale cache, so the next
       // visit doesn't open on an old tint.
-      if (stored) {
-        originColors.set(origin, stored);
+      if (color) {
+        originColors.set(origin, color);
       } else {
         originColors.delete(origin);
       }

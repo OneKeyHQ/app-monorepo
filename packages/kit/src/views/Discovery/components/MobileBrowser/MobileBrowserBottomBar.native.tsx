@@ -34,7 +34,7 @@ import {
 } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
-import { usePageBaseColor, usePageTheme } from '../../utils/pageThemeColor';
+import { usePageTheme } from '../../utils/pageThemeColor';
 
 import {
   AddressCapsuleTitle,
@@ -57,6 +57,7 @@ import {
 import {
   BrowserChromeCapsule,
   PILL_RADIUS,
+  PageBaseColorFill,
   useCapsuleFadeStyle,
 } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
@@ -352,7 +353,6 @@ function BarPageStrip({
   progress: SharedValue<number>;
   bottom: number;
 }) {
-  const baseColor = usePageBaseColor(id);
   const fullHeight = getBarReservedHeight(bottom);
   const collapsedHeight = getCollapsedReservedHeight(bottom);
   const style = useAnimatedStyle(() => ({
@@ -365,11 +365,7 @@ function BarPageStrip({
       pointerEvents="none"
       style={[styles.strip, { height: fullHeight }, style]}
     >
-      <Stack
-        flex={1}
-        bg="$bgApp"
-        style={baseColor ? { backgroundColor: baseColor } : undefined}
-      />
+      <PageBaseColorFill tabId={id} style={StyleSheet.absoluteFill} />
     </Animated.View>
   );
 }
