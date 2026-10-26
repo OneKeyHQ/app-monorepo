@@ -32,10 +32,6 @@
 # keepnames still allows unused classes to be removed. dontwarn only suppresses
 # missing-class diagnostics; it does not supply runtime classes or protect JNI.
 
-# AGP 9 removed proguard-android.txt, which carried -dontoptimize. Keep R8
-# optimizations off so release behavior matches the previous base file.
--dontoptimize
-
 # Preserve the existing Reanimated/TurboModule native interoperability rules.
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
