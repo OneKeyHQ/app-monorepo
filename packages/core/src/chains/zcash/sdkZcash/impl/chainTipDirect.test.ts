@@ -98,6 +98,30 @@ describe('chainTipDirect', () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  // An unread reply body holds a desktop host stream until it is cancelled.
+  it.each([
+    ['an HTTP error', new Response('bad gateway', { status: 502 })],
+    [
+      'a grpc error status',
+      new Response('', { headers: { 'grpc-status': '14' } }),
+    ],
+  ])('releases the request after %s', async (_label, response) => {
+    const originalFetch = globalThis.fetch;
+    let signal: AbortSignal | null | undefined;
+    try {
+      globalThis.fetch = jest.fn(async (_url: string, init?: RequestInit) => {
+        signal = init?.signal;
+        return response;
+      }) as typeof fetch;
+      await expect(
+        fetchZcashChainTipDirect({ lightwalletdUrl: 'https://example.test' }),
+      ).resolves.toBeNull();
+      expect(signal?.aborted).toBe(true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 
 describe('lightd info chain name', () => {
