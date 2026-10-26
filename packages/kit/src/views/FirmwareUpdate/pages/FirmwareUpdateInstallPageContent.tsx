@@ -249,6 +249,11 @@ export function FirmwareUpdateInstallPageContent({
     if (!retryInfo) {
       return;
     }
+    if (!result) {
+      return;
+    }
+    const freshResult = await recheckFirmwareRelease(result);
+    setResult(freshResult);
     await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
     setStepInfo({
       step: EFirmwareUpdateSteps.updateStart,
@@ -258,8 +263,8 @@ export function FirmwareUpdateInstallPageContent({
     });
     await backgroundApiProxy.serviceFirmwareUpdate.retryUpdateTask({
       id: retryInfo.id,
-      connectId: result?.updatingConnectId,
-      releaseResult: result,
+      connectId: freshResult.updatingConnectId,
+      releaseResult: freshResult,
     });
   }, [result, retryInfo, setStepInfo]);
 

@@ -28,7 +28,11 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceFirmwareUpdate: {
       clearHardwareUiStateBeforeStartUpdateWorkflow: jest.fn(),
+      checkAllFirmwareRelease: jest.fn(),
       retryUpdateTask: jest.fn(),
+    },
+    serviceHardware: {
+      resolveHardwareTransport: jest.fn(),
     },
   },
 }));
@@ -99,6 +103,7 @@ jest.mock('../utils', () => ({
 const {
   clearHardwareUiStateBeforeStartUpdateWorkflow: mockClearHardwareUi,
   retryUpdateTask: mockRetryUpdateTask,
+  checkAllFirmwareRelease: mockCheckAllFirmwareRelease,
 } = jest.requireMock('../../../background/instance/backgroundApiProxy').default
   .serviceFirmwareUpdate as {
   clearHardwareUiStateBeforeStartUpdateWorkflow: jest.MockedFunction<
@@ -118,6 +123,16 @@ describe('FirmwareUpdateInstallPageContent device cancellation', () => {
     jest.clearAllMocks();
     mockClearHardwareUi.mockResolvedValue(undefined);
     mockRetryUpdateTask.mockResolvedValue(undefined);
+    mockCheckAllFirmwareRelease.mockResolvedValue({
+      updatingConnectId: 'fresh-connect-id',
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult);
+    jest
+      .requireMock('../../../background/instance/backgroundApiProxy').default
+      .serviceHardware.resolveHardwareTransport.mockResolvedValue({
+        connectId: 'fresh-connect-id',
+        transportType: 'ble',
+      });
     jest
       .mocked(useFirmwareUpdateStepInfoAtom)
       .mockReturnValue([
@@ -163,8 +178,10 @@ describe('FirmwareUpdateInstallPageContent device cancellation', () => {
     expect(mockClearHardwareUi).toHaveBeenCalledTimes(1);
     expect(mockRetryUpdateTask).toHaveBeenCalledWith({
       id: retryInfo.id,
-      connectId: result.updatingConnectId,
-      releaseResult: result,
+      connectId: 'fresh-connect-id',
+      releaseResult: expect.objectContaining({
+        updatingConnectId: 'fresh-connect-id',
+      }),
     });
 
     jest
