@@ -307,6 +307,21 @@ describe('durable pending history expiry', () => {
     },
   );
 
+  it('never persists a private pending row through a batch update', async () => {
+    const { entity, storage } = await fixture();
+    const privateRow: IAccountHistoryTx = {
+      ...tx('private', [1]),
+      id: 'private-row',
+      decodedTx: { ...pending.decodedTx, txid: 'cc'.repeat(32) },
+    };
+    await entity.batchUpdateLocalHistoryTxs([
+      { ...params, pendingTxs: [pending, privateRow] },
+    ]);
+    const lastWrite = JSON.stringify(storage.setItem.mock.calls.at(-1)?.[1]);
+    expect(lastWrite).toContain(pending.decodedTx.txid);
+    expect(lastWrite).not.toContain(privateRow.decodedTx.txid);
+  });
+
   it('replaces Dropped with a backend row already in a block even if its status is Pending', async () => {
     const { entity, drop } = await fixture();
     await drop();
