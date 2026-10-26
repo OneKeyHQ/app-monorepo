@@ -65,11 +65,7 @@ import {
   getPrivacyChainPublicDisplayFlow,
 } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import type { IPrivacyChainEndpointItem } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
-import {
-  swrCacheNamespaces,
-  swrCacheUtils,
-  swrKeys,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   collectDecodedTxInvolvedAddresses,
   getStakingActionLabel,
@@ -435,16 +431,6 @@ function HistoryDetails() {
   });
 
   const isLocalWalletHistory = !!vaultSettings?.localWallet;
-  useEffect(() => {
-    if (!isLocalWalletHistory) return;
-    // Detail snapshots can contain decrypted memos and private recipients,
-    // including one that landed before vault settings resolved.
-    // Keep these facts in wallet-owned storage, not the shared display cache.
-    swrCacheUtils.removeByPrefix(
-      `${swrCacheNamespaces.historyTxDetail}:v1:${networkId}:`,
-    );
-    swrCacheUtils.flushNow();
-  }, [isLocalWalletHistory, networkId]);
   const accountAddress = route.params?.accountAddress || account?.address;
   const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
   const isInitialPrivateSendHistory = historyTxParam
@@ -583,7 +569,6 @@ function HistoryDetails() {
       swrKey: txid
         ? swrKeys.historyTxDetail({ networkId, accountAddress, txid })
         : undefined,
-      swrShouldPersist: () => !isLocalWalletHistory,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         !privateSendSwapDetailOpened.current &&
@@ -1133,20 +1118,19 @@ function HistoryDetails() {
     const broadcastTimeMs = txDetails?.timestamp
       ? txDetails.timestamp * 1000
       : (historyTx?.decodedTx.updatedAt ?? historyTx?.decodedTx.createdAt);
-    const subtitle =
-      isConfirming &&
-      (!isLocalWalletHistory ||
-        !!(txDetails?.block ?? historyTx?.decodedTx.block))
-        ? getTxConfirmSubtitle({
-            confirmationETASeconds: txDetails?.confirmationETASeconds,
-            confirmationETABlocks: txDetails?.confirmationETABlocks,
-            broadcastTimeMs,
-            nowMs: Date.now(),
-            // Mirrors the real speed-up entry (renderReplaceButtons); "Order
-            // inquiry" is not an accelerate action.
-            canSpeedUp: canReplaceTx,
-          })
-        : null;
+    const subtitle = isConfirming
+      ? getTxConfirmSubtitle({
+          confirmationETASeconds: txDetails?.confirmationETASeconds,
+          confirmationETABlocks: txDetails?.confirmationETABlocks,
+          broadcastTimeMs,
+          nowMs: Date.now(),
+          // Mirror only the real speed-up entry (renderReplaceButtons requires
+          // canReplaceTx); the "Order inquiry" button is not an accelerate
+          // action, so checkSpeedUpStateEnabled must not unlock the nudge.
+          // Stays undefined until the async capability check resolves.
+          canSpeedUp: canReplaceTx,
+        })
+      : null;
 
     return (
       <YStack gap="$1">
@@ -1177,8 +1161,6 @@ function HistoryDetails() {
     );
   }, [
     isLocalWalletHistory,
-    txDetails?.block,
-    historyTx?.decodedTx.block,
     historyTx?.decodedTx.status,
     historyTx?.decodedTx.updatedAt,
     historyTx?.decodedTx.createdAt,
@@ -1622,13 +1604,6 @@ function HistoryDetails() {
   });
 
   const renderFeeInfo = useCallback(() => {
-    if (isLocalWalletHistory && !txInfo?.gasFee) {
-      return (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_unknown })}
-        </SizableText>
-      );
-    }
     const gasFeeDisplayValues = getHistoryFeeDisplayValues({
       gasFee: txInfo?.gasFee,
       gasFeeFiatValue: txInfo?.gasFeeFiatValue,
@@ -1680,7 +1655,6 @@ function HistoryDetails() {
     );
   }, [
     intl,
-    isLocalWalletHistory,
     nativeToken?.symbol,
     settings.currencyInfo.symbol,
     txInfo?.gasFee,
