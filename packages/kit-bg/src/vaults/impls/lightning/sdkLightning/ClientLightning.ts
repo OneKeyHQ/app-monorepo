@@ -18,14 +18,17 @@ import type {
 import type { ICheckPaymentResponse } from '@onekeyhq/shared/types/lightning/payments';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
+import { LightningAuthorizationRequiredError } from './LightningAuthorizationRequiredError';
+
 import type { IBroadcastTransactionParams } from '../../../types';
 import type { AxiosInstance } from 'axios';
 
 function isAuthError(error: unknown): boolean {
   return (
-    (error as OneKeyError) &&
-    ((error as OneKeyError).code === 401 ||
-      (error as OneKeyError).code === 50_401)
+    error instanceof LightningAuthorizationRequiredError ||
+    ((error as OneKeyError) &&
+      ((error as OneKeyError).code === 401 ||
+        (error as OneKeyError).code === 50_401))
   );
 }
 
@@ -94,39 +97,22 @@ class ClientLightning {
     networkId: string;
     address?: string;
   }) {
-    return this.retryOperation({
-      fn: async () => {
-        const usedAddress =
-          address ||
-          (await this.backgroundApi.serviceLightning.getLightningAddress({
-            accountId,
-            networkId,
-          }));
-        let credential: string | undefined = '';
-        try {
-          const token =
-            await this.backgroundApi.simpleDb.lightning.getCredential({
-              address: usedAddress,
-            });
-          credential = token;
-        } catch (e) {
-          console.error('=====>>>getAuthorization failed: ', e);
-          credential = '';
-        }
-        if (!credential) {
-          throw new OneKeyLocalError('No credential');
-        }
-        return credential;
-      },
-      shouldRetry: (error: unknown) =>
-        (error as Error).message === 'No credential',
-      onRetry: async () => {
-        await this.backgroundApi.serviceLightning.exchangeToken({
-          accountId,
-          networkId,
-        });
-      },
-    });
+    const usedAddress =
+      address ||
+      (await this.backgroundApi.serviceLightning.getLightningAddress({
+        accountId,
+        networkId,
+      }));
+    const credential =
+      await this.backgroundApi.simpleDb.lightning.getCredential({
+        address: usedAddress,
+      });
+    // Account discovery, history and status reads must never prompt a restored
+    // wallet to sign. Only explicit authorization or mutation retries may do so.
+    if (!credential) {
+      throw new LightningAuthorizationRequiredError();
+    }
+    return credential;
   }
 
   async checkAccountExist(address: string) {
@@ -247,6 +233,9 @@ class ClientLightning {
       shouldRetry: isAuthError,
       onRetry: async () => {
         await this.backgroundApi.serviceLightning.exchangeToken(params);
+        // A rejected memoized check is removed asynchronously. Invalidate it
+        // now so this explicit retry cannot request a second authorization.
+        await this.checkAuth.delete(params);
       },
     });
   }
@@ -444,6 +433,7 @@ class ClientLightning {
         });
       },
       shouldRetry: (e) => {
+        if (isAuthError(e)) return true;
         const error = e as OneKeyServerApiError;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         return error.data?.data?.code === 50_401;

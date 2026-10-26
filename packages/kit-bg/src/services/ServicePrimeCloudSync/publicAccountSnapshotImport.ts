@@ -10,6 +10,7 @@ import type {
   ICloudPublicAccountSnapshotResult,
 } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { vaultFactory } from '../../vaults/factory';
 
 import {
@@ -82,6 +83,11 @@ async function validatePublicAccount({
   deriveInfo: IAccountDeriveInfo;
   isCurrent: () => boolean;
 }): Promise<boolean> {
+  if (snapshot.version === 2) {
+    const { validatePublicAccount: validateV2PublicAccount } =
+      await import('./publicAccountSnapshotValidation');
+    return validateV2PublicAccount({ snapshot, vault, deriveInfo, isCurrent });
+  }
   const account = snapshot.account;
   const address = await vault.validateAddress(account.address);
   if (!isCurrent() || !address.isValid) return false;
@@ -286,7 +292,10 @@ export async function importPublicAccountSnapshots({
           if (!isCurrent()) return { ...result, cancelled: true };
           const settings = await vault.getVaultSettings();
           if (!isCurrent()) return { ...result, cancelled: true };
-          if (settings.impl === first.account.impl) {
+          if (
+            settings.impl === first.account.impl &&
+            !(first.wallet.kind === 'hd' && settings.softwareAccountDisabled)
+          ) {
             deriveInfo = Object.values(settings.accountDeriveInfo).find(
               (info) =>
                 info.template === first.account.template &&
@@ -308,20 +317,32 @@ export async function importPublicAccountSnapshots({
         const valid: IDBAccount[] = [];
         const validSnapshots: ICloudPublicAccountSnapshot[] = [];
         const conflictingIds = new Set<string>();
+        const existingById = new Map<string, IDBAccount>();
+        if (first.version === 2) {
+          const { records } = await localDb.getRecordsByIds({
+            name: ELocalDBStoreNames.Account,
+            ids: group.map(
+              (snapshot) =>
+                publicAccountSnapshotToAccount(snapshot, wallet.id).id,
+            ),
+          });
+          if (!isCurrent()) return { ...result, cancelled: true };
+          for (const account of records)
+            if (account) existingById.set(account.id, account);
+        }
         for (const snapshot of group) {
           try {
+            const account = publicAccountSnapshotToAccount(snapshot, wallet.id);
+            const existing = existingById.get(account.id);
             if (
-              await validatePublicAccount({
+              (existing && publicAccountIdentityEqual(existing, account)) ||
+              (await validatePublicAccount({
                 snapshot,
                 vault,
                 deriveInfo,
                 isCurrent,
-              })
+              }))
             ) {
-              const account = publicAccountSnapshotToAccount(
-                snapshot,
-                wallet.id,
-              );
               const previous = valid.find((item) => item.id === account.id);
               if (conflictingIds.has(account.id)) {
                 result.conflicts += 1;
@@ -431,8 +452,28 @@ export async function importPublicAccountSnapshots({
         return undefined;
       };
       for (const group of groups.values()) {
-        const cancelled = await processGroup(group);
-        if (cancelled) return cancelled;
+        // Public BIP32 validation is expensive even without a seed/device.
+        // Commit small validated groups so a cancelled round can retry cheaply.
+        const heavy = [
+          'btc',
+          'tbtc',
+          'ltc',
+          'bch',
+          'doge',
+          'neurai',
+          'lightning',
+          'tlightning',
+        ].includes(group.snapshots[0].account.impl);
+        const size = heavy ? 2 : BATCH_SIZE;
+        for (let cursor = 0; cursor < group.snapshots.length; cursor += size) {
+          const cancelled = await processGroup({
+            ...group,
+            snapshots: group.snapshots.slice(cursor, cursor + size),
+          });
+          if (cancelled) return cancelled;
+          if (cursor + size < group.snapshots.length)
+            await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        }
       }
       // Let large restores yield to cancellation on background JS runtimes.
       if (offset + BATCH_SIZE < snapshots.length) {

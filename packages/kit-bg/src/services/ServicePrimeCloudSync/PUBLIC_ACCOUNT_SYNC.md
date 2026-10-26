@@ -58,9 +58,12 @@ records in the same batch. We do not introduce an unknown outer data type, which
 would make that older dispatcher throw. This is evidence for this verified
 reader, not a guarantee about every historical App build or migration tool.
 
-Future incompatible formats or required capabilities **must increment the format
-and reserved ID namespace**. New readers must not reuse a v1 key for incompatible
-data. This reader rejects unknown versions/capabilities/chains/derivations,
+Future incompatible formats or required capabilities must increment the format.
+New chain identities use the v2 reserved namespace. Existing BTC/EVM/Solana
+identities retain their original hash/namespace even when a public representation
+requires v2 (notably software Solana's Base58 key); this preserves one tombstone
+per account. The frozen v1 reader rejects v2 before applying it and cannot replace
+it during initialization. This reader rejects unknown versions/capabilities/chains/derivations,
 preserves the pool/cloud record, and shows an update hint. It does not guess a
 converter or treat the record as empty/deleted. Known v1 records are never rebuilt
 by a full initialization scan when their key already exists. Local source writes
@@ -72,7 +75,7 @@ The existing, currently uncalled mode-conversion utility also refuses unknown
 snapshot formats rather than re-encrypting them. Encrypted records belonging to
 another Cloud key are not implicitly migrated by plaintext filling.
 
-## Supported data in this implementation
+## Original v1 coverage (retained)
 
 - OneKey hardware and software HD/Keyless wallets already present locally.
 - Bitcoin mainnet: BIP44, nested SegWit, native SegWit and Taproot account paths.
@@ -108,6 +111,12 @@ receiver's selected address is never silently replaced.
   back accounts/indexes/counter together. Allocation explicitly fails on search
   exhaustion, read failure or the hardened-index boundary, never returning an
   occupied index.
+- Public BIP32 families use two-record validated checkpoints; their public child
+  calculations use at most four relative paths per SDK call and yield between
+  calls. Ordinary v2 families retain the 50-record transaction cap. A v2 retry
+  batch-reads local accounts and skips expensive public calculations only when
+  the complete canonical public identity already matches. The transaction still
+  rechecks wallet, credential, source version and cancellation before committing.
 - Recheck wallet/device and HD
   credential in the transaction, check cancellation before commit, and insert
   accounts and their indexes together. No per-account creation, echo sync row,
@@ -282,6 +291,8 @@ yarn jest --runInBand \
   packages/kit-bg/src/vaults/impls/btc/KeyringHardwareTrezor.test.ts \
   packages/kit-bg/src/vaults/impls/btc/KeyringHardwareKeystone.test.ts \
   packages/kit/src/views/Prime/pages/PrimeCloudSync/HardwareCloudSyncKeySection.test.tsx \
+  packages/kit-bg/src/vaults/impls/lightning/sdkLightning/ClientLightning.authorization.test.ts \
+  packages/kit/src/views/LightningNetwork/components/LNHardwareWalletAuth.test.tsx \
   packages/kit-bg/src/services/ServiceSend.hardwareCloudSync.test.ts \
   packages/kit-bg/src/services/ServiceDApp.deriveContextHash.test.ts
 node --test development/scripts/hardware-cloud-sdk-redaction.node-test.js
@@ -450,3 +461,143 @@ compiled with 13 dependency warnings. Unchanged default budgets all passed:
 387.8 / 650 KiB largest module and 99.69 / 105 MiB all raw scripts.
 These results validate isolated client logic and build budgets, not backend,
 native storage/UI or physical hardware acceptance.
+
+## V2 coverage: all concrete Vault families
+
+`version: 2` requires exactly `account-copy-v2`. The type remains `Account`; new
+chains use `cloud-public-account:v2:<identity hash>`. The original three families
+still emit v1 whenever that representation is valid. No encryption, credential,
+nonce, conflict timestamp, server protocol or DB schema migration was introduced.
+
+The 34 static Vault registrations contain 32 concrete entries plus the virtual
+`onekeyall` and `aggregate` entries. This includes testnets and Nostr, not 32
+independent mainnet blockchains. Hardware remains OneKey-only. Existing disabled
+software/keyring capabilities are not enabled by account copy.
+
+| Family / actual impl | Wallet scope | Public fields / validation | Regression evidence |
+| --- | --- | --- | --- |
+| BTC, TBTC, LTC, DOGE, BCH, NEURAI | Existing HD / OneKey hardware | Chain-specific public xpub versions, script/path/index/depth, descriptor, selected address and bounded relative map | Real Core / SDK public vectors, wrong script/network/private-node cases |
+| EVM, TRON, XRP, Nervos (`nervos`) | Existing HD / OneKey hardware | Native address, public key, curve and template; EVM default/Live/Legacy | Public SDK identity comparisons, original v1 regressions |
+| Solana | Existing HD / OneKey hardware | Base58 software key in v2, legacy hex/empty hardware representation in v1 | Equivalent canonical IDs and real Base58 public vector |
+| Algorand, SUI, Aptos, BFC, Stellar | Existing HD / OneKey hardware | Ed25519 public key and each protocol's native address encoding | Real public-address SDK and invalid points/addresses |
+| Cosmos, DOT, CFX, FIL | Existing HD / OneKey hardware | Empty base address and network-to-address map; trusted receiver network definitions, curve/prefix/chain ID | Multi-network maps, bad prefixes, conflicting identities and address-only hardware limits |
+| Cardano | Existing HD / OneKey hardware | 1852 account public key, receive `0/0`, stake `2/0`, public child calculations and network | Public CSL vectors, receive/stake mismatch, release of all temporary public key objects |
+| NEXA | Existing HD / OneKey hardware | Public key as DB base address, per-network display address map, optional empty xpub | Real main/test display map, wrong public key/network |
+| TON, Kaspa | Existing HD / OneKey hardware | Version/encoding suffix, TON V4R2, Kaspa OneKey/Official distinction | Same-path suffix isolation and native public SDK |
+| NEAR | Existing HD / OneKey hardware | `ed25519:` public key and implicit address | Actual encoded public vector and malformed-key cases |
+| ALPH | Existing OneKey hardware | Actual returned account path plus relative path and public key | Real public-address SDK; software creation remains disabled |
+| NEO, SCDO | Existing OneKey hardware | Native P256 / SCDO address rules; SCDO historical address-only records | Public SDK and actual hardware shape; disabled software creation remains disabled |
+| Dynex (`dynex`) | Existing OneKey hardware | Existing address-only shape, embedded public spend/view data, network prefix and checksum | Pure local CryptoNote decoding and corruption cases; no backend validation |
+| Lightning / `tlightning` | Existing HD / OneKey hardware | Public account xpub or complete HD leaf key; pseudo local path is mapped to Bitcoin public context | No register/sign calls; explicit service authorization tested separately |
+| Nostr | Existing HD / OneKey hardware where already supported | X-only public key / npub and existing derivation template | Native public SDK; no transfer-chain capability invented |
+
+All rows have independent public fixtures with source labels. The codec suite
+also compares the fixtures with actual Vault settings rather than only checking
+the new registry against itself. The production importer dispatch and the real
+LocalDbBase transaction methods are tested separately; in-memory DB doubles do
+not certify native Realm/IndexedDB behavior.
+
+### Limits that remain explicit
+
+- A registered chain is not a promise that every hardware model/firmware or every
+  software keyring supports it. ALPH, NEO, SCDO and Dynex software creation remains
+  disabled/NotImplemented. No firmware upgrade or new signing algorithm is added.
+- The receiver still needs exactly one matching local wallet, its existing
+  software credential or OneKey device association, and any necessary local
+  network definition. Custom EVM and receiver-configured custom networks use
+  receiver-owned metadata. Missing definitions remain pending; RPC URLs, headers
+  and tokens are not copied from Cloud or trusted from a snapshot.
+- Historical hardware address-only records use an explicit audited chain list,
+  real address/checksum/network checks where the protocol provides them, and
+  authenticated Cloud plus existing local wallet binding. This does not prove
+  seed ancestry. SCDO has no address checksum; its existing encoding/shard checks
+  and provenance are the available boundary. Software records cannot use this
+  fallback. Missing essential public material remains pending.
+- Conflicting variant maps are not silently merged or overwritten. A differing
+  existing address/key/path/encoding stays a conflict. Deletion retains the same
+  source-version checks, pool tombstone and shared-index protections.
+- Imported, watch-only and external connections retain their prior scope. No
+  private key, seed, session, pairing information, `findAddresses`, custom address
+  cache, hardware response or connection credential enters the public snapshot.
+
+### Lightning authorization after copy
+
+Import copies only existing public account records; it does not call normal
+creation, registration, template signing or token exchange. A copied account can
+exist while Lightning service authorization is still absent. Background token,
+history, status and invoice reads never request a password/device to repair that
+state. The existing explicit authorization button is shown for both HD and
+hardware accounts; deliberate invoice/transaction actions keep normal safe
+authorization/retry behavior. Hardware still signs real operations. Tokens are
+local-only. Account/network changes remount the authorization gate, and late
+results, cancelled old requests and delayed refreshes cannot update the new view.
+
+### Compatibility and performance evidence
+
+The actual `5e352660` codec and Account reader are frozen in test-only files.
+Encrypted v2 records/tombstones remain untouched, report `needsUpdate`, do not
+reach the importer, and are not reinitialized as v1. The earlier frozen
+`7140d406` name-only reader remains in the regression set.
+
+An isolated public SDK probe measured three BTC child addresses at approximately
+367 ms cold / 314 ms warm. A 64-address record took about 5.78 seconds after
+chunking, with 16 SDK calls, 15 event-loop ticks and a longest observed SDK batch
+of 399 ms. Queued cancellation stopped after the first batch in about 360 ms.
+These are cloud CPU measurements, not device/production throughput guarantees.
+The existing 20-second reconciliation limit, 50-record/256-KiB upload cap and all
+startup budgets are unchanged. A partial committed import can retry by identity;
+already accepted v2 public data does not repeat the expensive calculation.
+
+ADA public validation uses the already locked CSL 13.2.0 browser implementation,
+now declared directly by kit-bg, without installation or a version upgrade. It
+avoids the older helper's unsafe allocation path and frees public objects in
+`finally`. Jest uses the same-version Node build for that public API; a separate
+real browser-library load/public-child probe produced byte-identical output.
+Native/webview/extension execution remains a separate acceptance gate.
+
+Dependency review: CSL changes from an existing transitive 13.2.0 dependency to
+an explicit kit-bg 13.2.0 dependency; its locked artifact/checksum is unchanged.
+Registry metadata points to Emurgo's repository and the release was published
+on 2024-11-14. The [upstream advisory page](https://github.com/Emurgo/cardano-serialization-lib/security/advisories)
+listed no published advisories when inspected; that is not a claim that all
+possible vulnerabilities were excluded. The installed entrypoints contain no
+network/storage access or install hook. The generated binding includes two
+existing `new Function` interoperability shims; this change does not add dynamic
+source text, and calls only the public-key byte/index APIs. These are unchanged
+third-party bits, not a newly downloaded or upgraded library.
+The exact public from-bytes/derive/as-bytes path also passed with Node string
+code generation disabled; this checks that path, not the complete extension CSP.
+
+For final local acceptance, repeat the earlier two-device scenarios for at least
+one account in every matrix row, including receive/stake addresses, variant maps,
+testnets/custom definitions, default/alternate encodings, rename/delete/re-add,
+lock/source changes, and Lightning without a device or service token. Use only
+disposable test wallets and a test Cloud space. Mock fixtures and a renderer
+build do not establish production backend, native lifecycle or hardware support.
+
+Independent client reviews checked the real Vault/Core/Keyring call paths,
+public allowlists, old-reader rejection, namespace stability, curve/network
+validation and transactional import/deletion. They caught and corrected a Solana
+Base58 identity-folding issue and Lightning UI stale-account/false-auth/late-result
+cases. A final strict wallet-kind regression rejects coercible arrays/objects.
+No test-integrity exemption or budget increase was introduced: the chain registry
+test executes the real settings registry rather than asserting on source text.
+
+| V2 review dimension | Score | Scope |
+| --- | --- | --- |
+| Security | 8/10 | Public-only fields, strict metadata and existing provenance boundaries |
+| Code quality | 8/10 | Real public SDK vectors, bounded work and cancellation regressions |
+| Architecture | 8/10 | Existing Cloud/DB/credentials, lazy chain SDKs, no server protocol change |
+| Completeness | 7/10 | Native/extension/backend/hardware acceptance remains external |
+| Weighted total | 7.9/10 | Client review complete; external acceptance gates remain |
+
+Delivery validation on 2026-10-26: the combined 52-suite regression passed 777
+tests, including both phases' earlier fixes. After the final strict wallet-kind
+and executable-registry adjustments, the codec/importer pair passed 83 tests.
+SDK redaction passed 3 Node tests. The unified commit profile passed lint, format,
+storage/context/API/test integrity, patch checks and full types (381.3 seconds).
+The production renderer compiled with 13 dependency warnings. All unchanged
+desktop startup budgets passed: 5,330 / 6,800 modules, 12.12 / 14 MiB startup
+modules, 23 / 30 initial scripts, 12.87 / 15 MiB raw initial scripts,
+3.32 / 3.8 MiB gzip, 2.64 / 3 MiB Brotli, 387.8 / 650 KiB largest module,
+99.79 / 105 MiB all raw scripts. No CI rerun, PR, merge or deployment was made.

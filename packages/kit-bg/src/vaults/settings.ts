@@ -132,8 +132,12 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
   return loadVaultSettingsByImpl(impl);
 }
 
+export function getRegisteredVaultSettingsImpls(): string[] {
+  return Object.keys(settingsLoader);
+}
+
 export async function preloadAllVaultSettings() {
-  const impls = Object.keys(settingsLoader);
+  const impls = getRegisteredVaultSettingsImpls();
   await Promise.all(impls.map((impl) => loadVaultSettingsByImpl(impl)));
 }
 

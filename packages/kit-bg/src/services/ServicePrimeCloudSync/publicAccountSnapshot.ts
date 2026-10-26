@@ -1,3 +1,5 @@
+import bs58 from 'bs58';
+
 import {
   getBip32FromBase58,
   getBtcForkNetwork,
@@ -12,7 +14,15 @@ import type { ICloudPublicAccountSnapshot } from '@onekeyhq/shared/types/prime/p
 
 import { EDBAccountType } from '../../dbs/local/consts';
 
+import { PublicAccountSnapshotUnsupportedError } from './publicAccountSnapshotErrors';
+import {
+  isPublicAccountSnapshotImpl,
+  normalizePublicAccountSnapshotV2,
+} from './publicAccountSnapshotV2';
+
 import type { IDBAccount, IDBWallet } from '../../dbs/local/types';
+
+export { PublicAccountSnapshotUnsupportedError } from './publicAccountSnapshotErrors';
 
 export const PUBLIC_ACCOUNT_SNAPSHOT_PREFIX = 'cloud-public-account:';
 export const PUBLIC_ACCOUNT_SNAPSHOT_MAX_BYTES = 16 * 1024;
@@ -30,12 +40,6 @@ export function getPublicAccountSnapshotTaprootDescriptor({
 }): string {
   const fingerprint = normalizePublicAccountWalletXfp(walletXfp).split('--')[0];
   return `tr([${fingerprint}${path.substring(1)}]${xpub}/<0;1>/*)`;
-}
-
-export class PublicAccountSnapshotUnsupportedError extends OneKeyLocalError {
-  constructor() {
-    super('This account snapshot requires a compatible App version.');
-  }
 }
 
 function invalid(): never {
@@ -99,6 +103,16 @@ export function normalizePublicAccountSnapshot(
   value: unknown,
 ): ICloudPublicAccountSnapshot {
   const root = object(value);
+  if (root.version === 2) {
+    if (
+      root.schema !== 'onekey-public-account' ||
+      !Array.isArray(root.capabilities) ||
+      root.capabilities.length !== 1 ||
+      root.capabilities[0] !== 'account-copy-v2'
+    )
+      throw new PublicAccountSnapshotUnsupportedError();
+    return normalizePublicAccountSnapshotV2(root);
+  }
   if (root.schema !== 'onekey-public-account' || root.version !== 1)
     throw new PublicAccountSnapshotUnsupportedError();
   if (
@@ -310,7 +324,10 @@ export function getPublicAccountSnapshotId(
     pathIndex: account.pathIndex,
     idSuffix: account.idSuffix,
   };
-  return `${PUBLIC_ACCOUNT_SNAPSHOT_PREFIX}v1:${Buffer.from(appCrypto.hash.sha256Sync(Buffer.from(stringUtils.stableStringify(identity), 'utf8'))).toString('hex')}`;
+  const identityVersion = ['btc', 'evm', 'sol'].includes(account.impl)
+    ? 1
+    : snapshot.version;
+  return `${PUBLIC_ACCOUNT_SNAPSHOT_PREFIX}v${identityVersion}:${Buffer.from(appCrypto.hash.sha256Sync(Buffer.from(stringUtils.stableStringify(identity), 'utf8'))).toString('hex')}`;
 }
 
 export function normalizePublicAccountSnapshotRecord(value: unknown) {
@@ -346,12 +363,18 @@ export function publicAccountSnapshotToAccount(
   walletId: string,
 ): IDBAccount {
   const { account: a } = normalizePublicAccountSnapshot(snapshot);
-  const id = accountUtils.buildHDAccountId({
+  let id = accountUtils.buildHDAccountId({
     walletId,
     path: a.path,
     idSuffix: a.idSuffix,
     isUtxo: a.type === 'utxo',
   });
+  if (a.impl === 'lightning' || a.impl === 'tlightning') {
+    id = accountUtils.buildLightningAccountId({
+      accountId: id,
+      isTestnet: a.impl === 'tlightning',
+    });
+  }
   const base = {
     id,
     name: a.name,
@@ -368,38 +391,83 @@ export function publicAccountSnapshotToAccount(
     pub: a.pub,
     networks: a.networks,
     createAtNetwork: a.createAtNetwork,
+    ...(snapshot.version === 2 && a.relPath !== undefined
+      ? { relPath: a.relPath }
+      : {}),
+    ...(snapshot.version === 2 && a.xpub !== undefined ? { xpub: a.xpub } : {}),
+    ...(snapshot.version === 2 && a.xpubSegwit !== undefined
+      ? { xpubSegwit: a.xpubSegwit }
+      : {}),
   };
-  return a.type === 'utxo'
-    ? {
-        ...base,
-        type: EDBAccountType.UTXO,
-        xpub: a.xpub ?? '',
-        xpubSegwit: a.xpubSegwit,
-        relPath: a.relPath,
-        addresses: { ...a.addresses },
-      }
-    : { ...base, type: EDBAccountType.SIMPLE };
+  if (a.type === 'utxo')
+    return {
+      ...base,
+      type: EDBAccountType.UTXO,
+      xpub: a.xpub ?? '',
+      xpubSegwit: a.xpubSegwit,
+      relPath: a.relPath,
+      addresses: { ...a.addresses },
+    };
+  if (a.type === 'variant')
+    return {
+      ...base,
+      type: EDBAccountType.VARIANT,
+      addresses: { ...a.addresses },
+    };
+  return {
+    ...base,
+    type: EDBAccountType.SIMPLE,
+    ...(snapshot.version === 2 && a.addresses
+      ? { addresses: { ...a.addresses } }
+      : {}),
+  };
 }
 
 export function publicAccountIdentityEqual(
   a: IDBAccount,
   b: IDBAccount,
 ): boolean {
-  const project = (account: IDBAccount) => ({
-    impl: account.impl,
-    type: account.type,
-    path: account.path,
-    pathIndex: account.pathIndex,
-    template: account.template,
-    idSuffix: accountUtils.parseAccountId({ accountId: account.id }).idSuffix,
-    coinType: account.coinType,
-    address:
-      account.impl === 'evm' ? account.address.toLowerCase() : account.address,
-    pub: account.pub?.toLowerCase() ?? '',
-    xpub: 'xpub' in account ? account.xpub : undefined,
-    networks: account.networks ? [...account.networks].toSorted() : [],
-    createAtNetwork: account.createAtNetwork,
-  });
+  const project = (account: IDBAccount) => {
+    let xpub = 'xpub' in account ? account.xpub : undefined;
+    if (!['btc', 'evm', 'sol'].includes(account.impl)) xpub ??= '';
+    let pub = account.pub ?? '';
+    if (account.impl === 'sol' && pub && !/^[\da-f]{64}$/i.test(pub)) {
+      try {
+        const decoded = bs58.decode(pub);
+        if (decoded.length === 32) pub = Buffer.from(decoded).toString('hex');
+      } catch {
+        // Preserve malformed metadata exactly rather than folding distinct keys.
+      }
+    } else if (
+      /^(0x)?([\da-f]{64}|(02|03)[\da-f]{64}|04[\da-f]{128})$/i.test(pub)
+    )
+      pub = pub.toLowerCase();
+    return {
+      impl: account.impl,
+      type: account.type,
+      path: account.path,
+      pathIndex: account.pathIndex,
+      template: account.template,
+      idSuffix: accountUtils.parseAccountId({ accountId: account.id }).idSuffix,
+      coinType: account.coinType,
+      address:
+        account.impl === 'evm'
+          ? account.address.toLowerCase()
+          : account.address,
+      pub,
+      xpub,
+      ...(!['btc', 'evm', 'sol'].includes(account.impl)
+        ? {
+            relPath: account.relPath,
+            addresses: 'addresses' in account ? (account.addresses ?? {}) : {},
+            xpubSegwit:
+              'xpubSegwit' in account ? (account.xpubSegwit ?? '') : '',
+          }
+        : {}),
+      networks: account.networks ? [...account.networks].toSorted() : [],
+      createAtNetwork: account.createAtNetwork,
+    };
+  };
   return (
     stringUtils.stableStringify(project(a)) ===
     stringUtils.stableStringify(project(b))
@@ -420,17 +488,23 @@ export function buildPublicAccountSnapshot({
     !accountUtils.isBotWallet({ walletId: wallet.id })
   )
     kind = 'hd';
-  if (!kind || !wallet.xfp || !['btc', 'evm', 'sol'].includes(account.impl))
+  if (!kind || !wallet.xfp || !isPublicAccountSnapshotImpl(account.impl))
     return undefined;
   const map = getNetworkIdsMap();
   const networkId =
     account.createAtNetwork ||
     account.networks?.[0] ||
+    ('addresses' in account
+      ? Object.keys(account.addresses ?? {}).find((id) =>
+          id.startsWith(`${account.impl}--`),
+        )
+      : undefined) ||
     ({ btc: map.btc, evm: map.eth, sol: map.sol } as Record<string, string>)[
       account.impl
-    ];
+    ] ||
+    Object.values(map).find((id) => id.startsWith(`${account.impl}--`));
   const { idSuffix } = accountUtils.parseAccountId({ accountId: account.id });
-  return normalizePublicAccountSnapshot({
+  const raw = {
     schema: 'onekey-public-account',
     version: 1,
     capabilities: ['account-copy-v1'],
@@ -461,6 +535,25 @@ export function buildPublicAccountSnapshot({
         : {}),
       networks: account.networks,
       createAtNetwork: account.createAtNetwork,
+    },
+  };
+  if (['btc', 'evm', 'sol'].includes(account.impl)) {
+    try {
+      return normalizePublicAccountSnapshot(raw);
+    } catch (_error) {
+      /* A supported test/custom network may require v2. */
+    }
+  }
+  return normalizePublicAccountSnapshot({
+    ...raw,
+    version: 2,
+    capabilities: ['account-copy-v2'],
+    account: {
+      ...raw.account,
+      ...(account.relPath !== undefined ? { relPath: account.relPath } : {}),
+      ...('addresses' in account && account.addresses !== undefined
+        ? { addresses: account.addresses }
+        : {}),
     },
   });
 }

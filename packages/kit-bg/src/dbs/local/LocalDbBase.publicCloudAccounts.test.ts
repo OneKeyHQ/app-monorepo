@@ -6,6 +6,15 @@ import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { withPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
+import {
+  buildPublicAccountSnapshot,
+  publicAccountSnapshotToAccount,
+} from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
+import {
+  PUBLIC_ACCOUNT_ALL_CHAIN_IMPLS,
+  publicAccountAllChainFixtures,
+  publicAccountAllChainWallet,
+} from '../../services/ServicePrimeCloudSync/publicAccountSnapshot.allChains.test-utils';
 import { rememberPublicAccountSnapshotWrite } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 
 import { EDBAccountType } from './consts';
@@ -265,6 +274,79 @@ class PublicAccountTestDb extends LocalDbBase {
 }
 
 describe('LocalDbBase.importPublicCloudAccounts', () => {
+  it.each(PUBLIC_ACCOUNT_ALL_CHAIN_IMPLS)(
+    '%s public records use real transactional import, delete and index allocation',
+    async (impl) => {
+      const fixture = (await publicAccountAllChainFixtures()).find(
+        (item) => item.impl === impl,
+      );
+      if (!fixture) throw new OneKeyLocalError('Missing chain fixture');
+      const db = new PublicAccountTestDb();
+      const target = publicAccountAllChainWallet(
+        fixture.kind,
+        fixture.kind === 'hd' ? 'hd-1' : 'hw-1',
+      );
+      if (fixture.kind === 'hardware') {
+        target.associatedDevice = 'local-device';
+        db.put(ELocalDBStoreNames.Device, {
+          id: 'local-device',
+          settingsRaw: '{"vendor":"onekey"}',
+        });
+      }
+      db.put(ELocalDBStoreNames.Wallet, target);
+      const snapshot = buildPublicAccountSnapshot({
+        wallet: publicAccountAllChainWallet(fixture.kind),
+        account: fixture.account,
+      });
+      if (!snapshot) throw new OneKeyLocalError('Missing public snapshot');
+      const copied = publicAccountSnapshotToAccount(snapshot, target.id);
+      const params = {
+        walletId: target.id,
+        expectedWallet: {
+          ...snapshot.wallet,
+          associatedDevice: target.associatedDevice,
+          passphraseState: target.passphraseState,
+        },
+        expectedCredential:
+          fixture.kind === 'hd' ? 'encrypted-local-test-credential' : undefined,
+        accounts: [copied],
+        isCurrent: () => true,
+      };
+      expect(await db.importPublicCloudAccounts(params)).toMatchObject({
+        added: 1,
+        conflicts: 0,
+        pending: 0,
+      });
+      expect(await db.importPublicCloudAccounts(params)).toMatchObject({
+        added: 0,
+        unchanged: 1,
+      });
+      expect(
+        (await db.getWallet({ walletId: target.id })).nextIds?.accountHdIndex,
+      ).toBe(1);
+      const sourceItemsByAccountId = db.prepareSources([copied]);
+      expect(
+        await db.deletePublicCloudAccounts({
+          ...params,
+          sourceItemsByAccountId,
+        }),
+      ).toMatchObject({ deleted: 1, pending: 0 });
+      expect(await db.importPublicCloudAccounts(params)).toMatchObject({
+        added: 1,
+      });
+      const { records } = await db.getRecordsByIds({
+        name: ELocalDBStoreNames.Account,
+        ids: [copied.id],
+      });
+      expect(records[0]).toEqual(copied);
+      expect(
+        (await db.getWallet({ walletId: target.id })).nextIds?.accountHdIndex,
+      ).toBe(1);
+      expect(
+        await db.findHDNextIndexedAccountIndex({ walletId: target.id }),
+      ).toBe(1);
+    },
+  );
   it.each([
     { firstEvmAddress: '0x111', index: 3, expected: '0x111--3' },
     { firstEvmAddress: undefined, index: 3, expected: 'hd-1--3' },
