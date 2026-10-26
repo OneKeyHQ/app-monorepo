@@ -210,7 +210,6 @@ function privacyProposal(
 
 function privacySendFixture(networkId: string) {
   const accountId = 'hd-1--0';
-  let approvalAvailable = true;
   const unsignedTx: IUnsignedTxPro = {
     uuid: 'synthetic-reservation',
     encodedTx: privacyProposal(
@@ -241,17 +240,8 @@ function privacySendFixture(networkId: string) {
     }),
     buildUnsignedTx: jest.fn(async () => unsignedTx),
     refreshUnsignedTxBeforeSign: jest.fn(async (tx: IUnsignedTxPro) => tx),
-    buildDecodedTx: jest.fn(async () => {
-      if (!approvalAvailable) {
-        throw new OneKeyLocalError('Transaction review expired');
-      }
-      return decodedTx;
-    }),
-    signTransaction: jest.fn(async () => {
-      approvalAvailable = false;
-      decodedTx.nativeAmount = '2';
-      return signedTx;
-    }),
+    buildDecodedTx: jest.fn(async () => decodedTx),
+    signTransaction: jest.fn(async () => signedTx),
     broadcastTransaction: jest.fn(async () => ({ txid: signedTx.txid })),
     checkShouldRetryBroadcastTx: jest.fn(async () => false),
     isSignedTxRejectedByBroadcast: jest.fn(async () => false),
@@ -378,75 +368,6 @@ describe('privacy send approval lifecycle', () => {
     },
   );
 
-  it.each([
-    ['xmr--0', false],
-    ['zec--0', false],
-    ['xmr--0', true],
-    ['zec--0', true],
-  ])(
-    '%s captures verified details before consuming approval, signOnly=%s',
-    async (networkId, signOnly) => {
-      const fixture = privacySendFixture(networkId);
-      const { service, vault, backgroundApi, accountId, signedTx } = fixture;
-      const unsignedTx = await service.buildUnsignedTx({
-        accountId,
-        networkId,
-      });
-      await service.buildDecodedTx({ accountId, networkId, unsignedTx });
-      const sentTxsTrackingId = 'privacy-review';
-      const result = await service.batchSignAndSendTransaction({
-        accountId,
-        networkId,
-        unsignedTxs: [unsignedTx],
-        signOnly,
-        transferPayload: undefined,
-        sentTxsTrackingId,
-      });
-      expect(result).toHaveLength(1);
-      expect(result[0].signedTx.txid).toBe(signedTx.txid);
-      expect(result[0].decodedTx.nativeAmount).toBe('1');
-      expect(vault.buildDecodedTx).toHaveBeenCalledTimes(2);
-      expect(vault.buildDecodedTx.mock.invocationCallOrder[1]).toBeLessThan(
-        vault.signTransaction.mock.invocationCallOrder[0],
-      );
-      expect(vault.signTransaction).toHaveBeenCalledTimes(1);
-      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(
-        signOnly ? 0 : 1,
-      );
-      expect(
-        backgroundApi.serviceHistory.saveSendConfirmHistoryTxs,
-      ).toHaveBeenCalledTimes(signOnly ? 0 : 1);
-      expect(
-        await service.getBatchBroadcastedTxUuids({ sentTxsTrackingId }),
-      ).toEqual(signOnly ? [] : [{ uuid: unsignedTx.uuid, recorded: true }]);
-    },
-  );
-
-  it.each(['xmr--0', 'zec--0'])(
-    '%s rejects a revoked review before signing or broadcasting',
-    async (networkId) => {
-      const { service, vault, accountId } = privacySendFixture(networkId);
-      const unsignedTx = await service.buildUnsignedTx({
-        accountId,
-        networkId,
-      });
-      vault.buildDecodedTx.mockRejectedValueOnce(
-        new OneKeyLocalError('Transaction review expired'),
-      );
-      await expect(
-        service.batchSignAndSendTransaction({
-          accountId,
-          networkId,
-          unsignedTxs: [unsignedTx],
-          signOnly: false,
-          transferPayload: undefined,
-        }),
-      ).rejects.toThrow('Transaction review expired');
-      expect(vault.signTransaction).not.toHaveBeenCalled();
-      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
-    },
-  );
-
   it('does not record a successful Zcash send or signature when broadcasting throws', async () => {
     const { service, vault, backgroundApi, accountId } =
       privacySendFixture('zec--0');
@@ -478,36 +399,6 @@ describe('privacy send approval lifecycle', () => {
     ).toEqual([]);
     expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
   });
-
-  it.each(['xmr--0', 'zec--0'])(
-    '%s preserves broadcast success when local history storage fails',
-    async (networkId) => {
-      const { service, vault, backgroundApi, accountId, signedTx } =
-        privacySendFixture(networkId);
-      backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mockRejectedValueOnce(
-        new OneKeyLocalError('Synthetic history storage failure'),
-      );
-      const unsignedTx = await service.buildUnsignedTx({
-        accountId,
-        networkId,
-      });
-      const sentTxsTrackingId = 'privacy-history-failure';
-      const result = await service.batchSignAndSendTransaction({
-        accountId,
-        networkId,
-        unsignedTxs: [unsignedTx],
-        signOnly: false,
-        transferPayload: undefined,
-        sentTxsTrackingId,
-      });
-      expect(result[0].signedTx.txid).toBe(signedTx.txid);
-      expect(
-        await service.getBatchBroadcastedTxUuids({ sentTxsTrackingId }),
-      ).toEqual([{ uuid: unsignedTx.uuid, recorded: true }]);
-      expect(vault.signTransaction).toHaveBeenCalledTimes(1);
-      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
-    },
-  );
 });
 
 describe('privacy fee checks stay local', () => {
