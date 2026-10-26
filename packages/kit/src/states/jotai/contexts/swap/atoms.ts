@@ -437,6 +437,8 @@ export const {
   receivingAddress?: string;
   quoteRequestId?: string;
   manualRefresh?: boolean;
+  slippageItem?: { key: ESwapSlippageSegmentKey; value: number };
+  incognito?: boolean;
 }>({ actionLock: false });
 
 export const {

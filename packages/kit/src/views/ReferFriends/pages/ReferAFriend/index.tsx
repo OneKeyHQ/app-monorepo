@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   AnimatePresence,
   Page,
-  SizableText,
   Stack,
   XStack,
   YStack,
@@ -234,18 +233,6 @@ function ReferAFriendPageWrapper() {
                 // compact switch as the navigation bar elsewhere.
                 variant={md ? 'compact' : 'tabs'}
               />
-              {/* Same intro at the right of the tabs as the signed-in page;
-                  compact layouts show it atop the Perks content. */}
-              {md ? null : (
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  flexShrink={1}
-                >
-                  {tabCopy.perksIntro}
-                </SizableText>
-              )}
             </XStack>
           </Page.Container>
         ) : null}

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useState,
   useSyncExternalStore,
 } from 'react';
 import type { ComponentType, PropsWithChildren, ReactNode } from 'react';
@@ -81,6 +82,7 @@ let mockActualResults = false;
 let mockSafeBottom = 0;
 let mockIsRefreshing = false;
 let mockAutoRefreshTimerActive = true;
+let mockHasNetworks = false;
 let mockSelectionProps: { obscuredBottom?: number } = {};
 const mockAgain = jest.fn();
 const mockRetry = jest.fn();
@@ -385,7 +387,18 @@ function TestProvider({ children }: PropsWithChildren) {
         mockAgain();
         session.reset();
       },
-      networks: [],
+      networks: mockHasNetworks
+        ? [
+            {
+              network: { networkId: 'evm--1', name: 'Ethereum', symbol: 'ETH' },
+              accountId: snapshot.accountId,
+              address: snapshot.address,
+              nativeToken: snapshot.nativeToken,
+              tokens: snapshot.tokens,
+              balanceUsd: '1',
+            },
+          ]
+        : [],
       loadStatus: 'ready',
       selected: snapshot.tokens,
       selectedValueUsd: '1',
@@ -468,8 +481,21 @@ jest.mock('./components/DustSweepSelection', () => ({
     return null;
   },
 }));
+function NetworkBar() {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <button
+      type="button"
+      data-testid="dust-sweep-network-toggle"
+      aria-expanded={expanded}
+      onClick={() => setExpanded((value) => !value)}
+    >
+      {expanded ? 'Collapse' : '+2'}
+    </button>
+  );
+}
 jest.mock('./components/DustSweepFilters', () => ({
-  DustSweepNetworks: () => null,
+  DustSweepNetworks: NetworkBar,
 }));
 
 function Home() {
@@ -601,6 +627,7 @@ beforeEach(() => {
   mockSafeBottom = 0;
   mockIsRefreshing = false;
   mockAutoRefreshTimerActive = true;
+  mockHasNetworks = false;
   mockSelectionProps = {};
   mockLayouts.clear();
   mockLiveSheet = null;
@@ -678,60 +705,104 @@ it('does not show a title refresh spinner while executing a cached selection', a
   await act(async () => pending.resolve(success));
 });
 
-it('pushes exactly one execution route for double Convert and keeps the session mounted through Stop/Continue', async () => {
+it('keeps the desktop network bar mounted and its expansion independent of sweep phases', async () => {
+  mockHasNetworks = true;
   const pending = deferred<IResult>();
-  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('tx');
-    return pending.promise;
-  });
+  execute
+    .mockImplementation(completeItem)
+    .mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+      onSigning();
+      onBroadcast('tx');
+      return pending.promise;
+    });
   mountFlow();
+  const networkBar = screen.getByTestId('dust-sweep-network-toggle');
+  fireEvent.click(networkBar);
+  expect(networkBar.getAttribute('aria-expanded')).toBe('true');
+
   fireEvent.click(activeButton('Convert twice'));
-  expect(flowRoutes()?.map((route) => route.name)).toEqual([
-    'Selection',
-    'Execution',
-  ]);
-  expect(mockProviderMounts).toBe(1);
-  expect(mockProviderUnmounts).toBe(0);
+  expect(screen.getAllByTestId('dust-sweep-network-toggle')).toHaveLength(1);
+  expect(screen.getByTestId('dust-sweep-network-toggle')).toBe(networkBar);
+  expect(networkBar.getAttribute('aria-expanded')).toBe('true');
   expect(execute).toHaveBeenCalledTimes(1);
-  expect(screen.getByText('running:hidden')).toBeTruthy();
-  expect(screen.getByText('running:focused')).toBeTruthy();
-  fireEvent.click(activeButton('Stop'));
-  fireEvent.click(activeButton('Continue'));
-  expect(flowRoutes()).toHaveLength(2);
-  expect(execute).toHaveBeenCalledTimes(1);
+
   await act(async () => pending.resolve(success));
+  expect(screen.getByTestId('dust-sweep-network-toggle')).toBe(networkBar);
+  expect(networkBar.getAttribute('aria-expanded')).toBe('true');
+  fireEvent.click(activeButton('Again'));
+  expect(screen.getByTestId('dust-sweep-network-toggle')).toBe(networkBar);
+  expect(networkBar.getAttribute('aria-expanded')).toBe('true');
+
+  fireEvent.click(networkBar);
+  await act(async () => fireEvent.click(activeButton('Convert twice')));
+  expect(screen.getByTestId('dust-sweep-network-toggle')).toBe(networkBar);
+  expect(networkBar.getAttribute('aria-expanded')).toBe('false');
+  expect(execute).toHaveBeenCalledTimes(2);
 });
 
-it('keeps a newly unknown signing result in the same session until a second explicit Leave', async () => {
-  const pending = deferred<IResult>();
-  execute.mockImplementation(async ({ onSigning }) => {
-    onSigning();
-    return pending.promise;
-  });
-  mountFlow();
-  fireEvent.click(activeButton('Convert twice'));
-  fireEvent.click(activeButton('Local back'));
-  const first = confirmDialog();
-  let leaving: ReturnType<NonNullable<IDialogShowProps['onConfirm']>>;
-  act(() => {
-    leaving = first.onConfirm?.(dialogInstance);
-  });
-  await act(async () => {
-    pending.reject(new DustSweepUnknownSubmission());
-    await leaving;
-  });
-  expect(ref.getCurrentRoute()?.name).toBe('Execution');
-  expect(mockWarning).toHaveBeenCalledTimes(1);
-  act(() => {
-    first.onCloseStart?.();
-    void first.onClose?.();
-  });
-  fireEvent.click(activeButton('Local back'));
-  await act(async () => confirmDialog().onConfirm?.(dialogInstance));
-  expect(ref.getCurrentRoute()?.name).toBe('Home');
-  expect(execute).toHaveBeenCalledTimes(1);
-});
+it.each([false, true])(
+  'starts only once on double Convert and keeps the session mounted through Stop/Continue (native: %s)',
+  async (native) => {
+    mockNative = native;
+    const pending = deferred<IResult>();
+    execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+      onSigning();
+      onBroadcast('tx');
+      return pending.promise;
+    });
+    mountFlow();
+    fireEvent.click(activeButton('Convert twice'));
+    expect(flowRoutes()?.map((route) => route.name)).toEqual(
+      native ? ['Selection', 'Execution'] : ['Selection'],
+    );
+    expect(mockProviderMounts).toBe(1);
+    expect(mockProviderUnmounts).toBe(0);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('running:hidden')).toBeNull();
+    expect(screen.getByText('running:focused')).toBeTruthy();
+    fireEvent.click(activeButton('Stop'));
+    fireEvent.click(activeButton('Continue'));
+    expect(flowRoutes()).toHaveLength(native ? 2 : 1);
+    expect(execute).toHaveBeenCalledTimes(1);
+    await act(async () => pending.resolve(success));
+  },
+);
+
+it.each([false, true])(
+  'keeps a newly unknown signing result in the same session until a second explicit Leave (native: %s)',
+  async (native) => {
+    mockNative = native;
+    const pending = deferred<IResult>();
+    execute.mockImplementation(async ({ onSigning }) => {
+      onSigning();
+      return pending.promise;
+    });
+    mountFlow();
+    fireEvent.click(activeButton('Convert twice'));
+    fireEvent.click(activeButton('Local back'));
+    const first = confirmDialog();
+    let leaving: ReturnType<NonNullable<IDialogShowProps['onConfirm']>>;
+    act(() => {
+      leaving = first.onConfirm?.(dialogInstance);
+    });
+    await act(async () => {
+      pending.reject(new DustSweepUnknownSubmission());
+      await leaving;
+    });
+    expect(ref.getCurrentRoute()?.name).toBe(
+      native ? 'Execution' : 'Selection',
+    );
+    expect(mockWarning).toHaveBeenCalledTimes(1);
+    act(() => {
+      first.onCloseStart?.();
+      void first.onClose?.();
+    });
+    fireEvent.click(activeButton('Local back'));
+    await act(async () => confirmDialog().onConfirm?.(dialogInstance));
+    expect(ref.getCurrentRoute()?.name).toBe('Home');
+    expect(execute).toHaveBeenCalledTimes(1);
+  },
+);
 
 it('Again returns to selection in the same provider and a new Convert creates a fresh session', async () => {
   execute.mockImplementation(completeItem);
@@ -773,24 +844,28 @@ it('preserves an ancestor reset destination after confirmation instead of replac
   expect(ref.getCurrentRoute()?.name).toBe('Other');
 });
 
-it('keeps the mobile result in place and does not start from hidden selection', async () => {
-  mockDesktop = false;
-  execute.mockImplementation(completeItem);
-  mountFlow();
-  await act(async () => fireEvent.click(activeButton('Convert twice')));
-  // The sweep runs in the live sheet; nothing else is opened.
-  expect(liveSheetCalls()).toHaveLength(1);
-  expect(otherDialogCalls()).toHaveLength(0);
-  // The retained selection screen no longer renders its footer, so it has no
-  // Convert action to start another sweep from.
-  expect(
-    screen
-      .queryAllByRole('button', { name: 'Convert twice', hidden: true })
-      .filter((element) => element.closest('[hidden]')),
-  ).toHaveLength(0);
-  expect(execute).toHaveBeenCalledTimes(1);
-  expect(flowRoutes()).toHaveLength(2);
-});
+it.each([false, true])(
+  'keeps the compact result in place and does not start from hidden selection (native: %s)',
+  async (native) => {
+    mockDesktop = false;
+    mockNative = native;
+    execute.mockImplementation(completeItem);
+    mountFlow();
+    await act(async () => fireEvent.click(activeButton('Convert twice')));
+    // The sweep runs in the live sheet; nothing else is opened.
+    expect(liveSheetCalls()).toHaveLength(1);
+    expect(otherDialogCalls()).toHaveLength(0);
+    // The retained selection screen no longer renders its footer, so it has no
+    // Convert action to start another sweep from.
+    expect(
+      screen
+        .queryAllByRole('button', { name: 'Convert twice', hidden: true })
+        .filter((element) => element.closest('[hidden]')),
+    ).toHaveLength(0);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(flowRoutes()).toHaveLength(native ? 2 : 1);
+  },
+);
 
 function activeTestId(testID: string) {
   const element = screen
@@ -1015,46 +1090,52 @@ it('keeps a back control in a desktop-width modal without the Home tab top bar',
   expect(ref.getCurrentRoute()?.name).toBe('Home');
 });
 
-it('closes obsolete dialogs and ignores their callbacks after Again starts a new session', async () => {
-  mockDesktop = false;
-  const first = deferred<IResult>();
-  const second = deferred<IResult>();
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('first');
-    return first.promise;
-  });
-  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-    onSigning();
-    onBroadcast('second');
-    return second.promise;
-  });
-  mountFlow();
-  await act(async () => fireEvent.click(activeButton('Convert twice')));
-  fireEvent.click(activeButton('Local back'));
-  const oldLeave = confirmDialog();
-  const leaveClosing = deferred<void>();
-  mockDialogClose.mockImplementationOnce(() => leaveClosing.promise);
-  // The live sheet already closed for the leave dialog; completion now closes
-  // the leave dialog itself.
-  const closesBefore = mockDialogClose.mock.calls.length;
-  await act(async () => first.resolve(success));
-  expect(mockDialogClose.mock.calls.length - closesBefore).toBe(1);
-  expect(otherDialogCalls()).toHaveLength(1);
-  await act(async () => oldLeave.onConfirm?.(dialogInstance));
-  await act(async () => leaveClosing.resolve());
-  // The completed sweep comes back in the live sheet; no other dialog opens.
-  expect(screen.getByText('completed:focused')).toBeTruthy();
-  expect(otherDialogCalls()).toHaveLength(1);
-  fireEvent.click(activeButton('Again'));
-  expect(ref.getCurrentRoute()?.name).toBe('Selection');
-  fireEvent.click(activeButton('Convert twice'));
-  await act(async () => oldLeave.onConfirm?.(dialogInstance));
-  expect(execute).toHaveBeenCalledTimes(2);
-  expect(execute.mock.calls[1][0].signal.aborted).toBe(false);
-  expect(screen.getByText('running:focused')).toBeTruthy();
-  await act(async () => second.resolve(success));
-  expect(ref.getCurrentRoute()?.name).toBe('Execution');
-  expect(screen.getByText('completed:focused')).toBeTruthy();
-  expect(otherDialogCalls()).toHaveLength(1);
-});
+it.each([false, true])(
+  'closes obsolete dialogs and ignores their callbacks after Again starts a new session (native: %s)',
+  async (native) => {
+    mockDesktop = false;
+    mockNative = native;
+    const first = deferred<IResult>();
+    const second = deferred<IResult>();
+    execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+      onSigning();
+      onBroadcast('first');
+      return first.promise;
+    });
+    execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+      onSigning();
+      onBroadcast('second');
+      return second.promise;
+    });
+    mountFlow();
+    await act(async () => fireEvent.click(activeButton('Convert twice')));
+    fireEvent.click(activeButton('Local back'));
+    const oldLeave = confirmDialog();
+    const leaveClosing = deferred<void>();
+    mockDialogClose.mockImplementationOnce(() => leaveClosing.promise);
+    // The live sheet already closed for the leave dialog; completion now closes
+    // the leave dialog itself.
+    const closesBefore = mockDialogClose.mock.calls.length;
+    await act(async () => first.resolve(success));
+    expect(mockDialogClose.mock.calls.length - closesBefore).toBe(1);
+    expect(otherDialogCalls()).toHaveLength(1);
+    await act(async () => oldLeave.onConfirm?.(dialogInstance));
+    await act(async () => leaveClosing.resolve());
+    // The completed sweep comes back in the live sheet; no other dialog opens.
+    expect(screen.getByText('completed:focused')).toBeTruthy();
+    expect(otherDialogCalls()).toHaveLength(1);
+    fireEvent.click(activeButton('Again'));
+    expect(ref.getCurrentRoute()?.name).toBe('Selection');
+    fireEvent.click(activeButton('Convert twice'));
+    await act(async () => oldLeave.onConfirm?.(dialogInstance));
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute.mock.calls[1][0].signal.aborted).toBe(false);
+    expect(screen.getByText('running:focused')).toBeTruthy();
+    await act(async () => second.resolve(success));
+    expect(ref.getCurrentRoute()?.name).toBe(
+      native ? 'Execution' : 'Selection',
+    );
+    expect(screen.getByText('completed:focused')).toBeTruthy();
+    expect(otherDialogCalls()).toHaveLength(1);
+  },
+);
