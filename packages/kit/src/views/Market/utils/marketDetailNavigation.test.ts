@@ -168,6 +168,7 @@ describe('marketDetailNavigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     platformEnv.isNative = true;
+    platformEnv.isDesktop = false;
     platformEnv.isNativeIOS = false;
     mockRootNavigationCurrent = rootNavigationMock;
     getRootStateMock.mockReturnValue(undefined);
@@ -770,33 +771,38 @@ describe('marketDetailNavigation', () => {
     );
   });
 
-  it('reads the current stock detail identity under a selector overlay', () => {
-    getRootStateMock.mockReturnValue({
-      key: 'root',
-      index: 1,
-      routes: [
-        {
-          name: 'main',
-          state: {
-            key: 'market-stack',
-            index: 1,
-            routes: [
-              { key: 'list', name: 'TabMarket' },
-              {
-                key: 'stock-detail',
-                name: 'MarketStockDetail',
-                params: { stockId: 'AAPL' },
-              },
-            ],
+  it.each(['MarketStockDetail', 'MarketDetailV2'])(
+    'reads stock identity from %s under a desktop selector overlay',
+    (routeName) => {
+      platformEnv.isDesktop = true;
+      platformEnv.isNative = false;
+      getRootStateMock.mockReturnValue({
+        key: 'root',
+        index: 1,
+        routes: [
+          {
+            name: 'main',
+            state: {
+              key: 'market-stack',
+              index: 1,
+              routes: [
+                { key: 'list', name: 'TabMarket' },
+                {
+                  key: 'stock-detail',
+                  name: routeName,
+                  params: { stockId: 'AAPL' },
+                },
+              ],
+            },
           },
-        },
-        { key: 'modal', name: 'MobileTokenSelector' },
-      ],
-    });
+          { key: 'modal', name: 'MobileTokenSelector' },
+        ],
+      });
 
-    expect(getCurrentMarketStockDetailId()).toBe('AAPL');
-    expect(getCurrentMarketStockDetailRoute()).toEqual({ stockId: 'AAPL' });
-  });
+      expect(getCurrentMarketStockDetailId()).toBe('AAPL');
+      expect(getCurrentMarketStockDetailRoute()).toEqual({ stockId: 'AAPL' });
+    },
+  );
 
   describe('with a legacy Market route still in the Discovery stack', () => {
     const buildTabsState = (
@@ -903,6 +909,7 @@ describe('marketDetailNavigation', () => {
       legacyTokenPreview: undefined,
       marketTokenPreviewId: undefined,
       stockId: undefined,
+      initialSection: undefined,
       stockPreviewSymbol: undefined,
       stockPreviewName: undefined,
       stockPreviewLogoUrl: undefined,
@@ -1122,6 +1129,105 @@ describe('marketDetailNavigation', () => {
     });
   });
 
+  it.each(
+    ['desktop', 'native'].flatMap((platform) =>
+      [
+        ['MarketDetailV2', 'MarketStockDetail', 'tab'],
+        ['MarketStockDetail', 'MarketDetailV2', 'tab'],
+        ['MarketDetailV2', 'MarketStockDetail', 'focused'],
+        ['MarketStockDetail', 'MarketDetailV2', 'focused'],
+      ].map(([currentName, nextName, entry]) => [
+        platform,
+        currentName,
+        nextName,
+        entry,
+      ]),
+    ),
+  )(
+    'keeps the %s route when switching %s to %s via %s navigation',
+    (platform, currentName, nextName, entry) => {
+      platformEnv.isDesktop = platform === 'desktop';
+      platformEnv.isNative = platform === 'native';
+      const router = StackRouter({});
+      const config = {
+        routeNames: ['TabMarket', 'MarketDetailV2', 'MarketStockDetail'],
+        routeParamList: {},
+        routeGetIdList: {},
+      };
+      const stockParams = {
+        stockId: 'TSM',
+        stockPreviewSymbol: 'TSM',
+        stockPreviewName: 'Taiwan Semiconductor',
+        stockPreviewLogoUrl: 'tsm.png',
+        stockPreviewQuote: { price: 100 },
+        initialSection: 'overview',
+      };
+      const tokenParams = {
+        tokenAddress: '',
+        network: 'eth',
+        isNative: true,
+        marketTokenId: 'eth',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+      };
+      const params =
+        nextName === 'MarketStockDetail' ? stockParams : tokenParams;
+      const stack = {
+        ...router.getInitialState(config),
+        key: 'market-stack',
+        index: 1,
+        routes: [
+          { key: 'list', name: 'TabMarket' },
+          {
+            key: 'detail',
+            name: currentName,
+            params:
+              currentName === 'MarketStockDetail' ? stockParams : tokenParams,
+          },
+        ],
+      };
+      getRootStateMock.mockReturnValue({
+        routes: [{ name: 'main', state: stack }],
+      });
+      getCurrentRouteMock.mockReturnValue({ name: currentName, key: 'detail' });
+
+      const navigate =
+        entry === 'tab'
+          ? openOrReplaceMarketDetailRoute
+          : replaceFocusedMarketDetailRoute;
+      expect(navigate({ routeName: nextName, params })).toBe(true);
+      const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
+        typeof router.getStateForAction
+      >[1];
+      expect(action.type).toBe('SET_PARAMS');
+      const updated = router.getStateForAction(stack, action, config);
+      expect(updated?.routes[1].key).toBe('detail');
+      expect(updated?.routes[1].name).toBe(currentName);
+      expect(updated?.routes[1].params).toEqual(
+        expect.objectContaining({
+          ...params,
+          ...(nextName === 'MarketStockDetail'
+            ? { marketTokenId: undefined, marketTokenCategory: undefined }
+            : {
+                stockId: undefined,
+                stockPreviewSymbol: undefined,
+                stockPreviewName: undefined,
+                stockPreviewLogoUrl: undefined,
+                stockPreviewQuote: undefined,
+                initialSection: undefined,
+              }),
+        }),
+      );
+      const afterBack = router.getStateForAction(
+        router.getRehydratedState(updated ?? stack, config),
+        { type: 'POP', payload: { count: 1 } },
+        config,
+      );
+      expect(afterBack?.routes.map((route) => route.name)).toEqual([
+        'TabMarket',
+      ]);
+    },
+  );
+
   it('still collapses leftover details under a token selector overlay', () => {
     getRootStateMock.mockReturnValue(selectorOverlayStackedState);
     getCurrentRouteMock.mockReturnValue({ name: 'MobileTokenSelector' });
@@ -1311,9 +1417,9 @@ describe('marketDetailNavigation', () => {
     });
   });
 
-  it('replaces the focused detail when switching to a stock page', () => {
+  it('replaces a focused legacy native detail when switching to a stock page', () => {
     platformEnv.isNativeAndroid = true;
-    getCurrentRouteMock.mockReturnValue({ name: 'MarketDetailV2' });
+    getCurrentRouteMock.mockReturnValue({ name: 'MarketNativeDetail' });
 
     expect(
       replaceFocusedMarketDetailRoute({

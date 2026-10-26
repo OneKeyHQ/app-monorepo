@@ -164,7 +164,7 @@ describe('useToDetailPage', () => {
     jest
       .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
       .mockReset();
-    Object.assign(platformEnv, { isNative: false });
+    Object.assign(platformEnv, { isNative: false, isDesktop: false });
     jest.useFakeTimers();
     mockCurrentRouteName = 'MarketDetailV2';
     mockGetCurrentRoute.mockReturnValue({
@@ -791,6 +791,42 @@ describe('useToDetailPage', () => {
     expect(mockNavigationPush).not.toHaveBeenCalled();
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
+
+  it.each([
+    ['MarketDetailV2', 'TSM'],
+    ['MarketStockDetail', undefined],
+  ])(
+    'updates desktop %s in place when selecting stockId=%s',
+    async (routeName, stockId) => {
+      Object.assign(platformEnv, {
+        isExtensionUiPopup: false,
+        isDesktop: true,
+      });
+      mockCurrentRouteName = routeName;
+      const { result } = renderHook(() =>
+        useToDetailPage({ replaceCurrentDetail: true }),
+      );
+      await act(async () => {
+        await result.current({
+          tokenAddress: stockId ? '' : '0xqnt',
+          networkId: stockId ? '' : 'evm--1',
+          symbol: stockId ?? 'QNT',
+          stockId,
+        });
+      });
+      expect(mockNavigationSetParams).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stockId,
+          tokenAddress: stockId ? '' : '0xqnt',
+          stockPreviewQuote: undefined,
+          marketTokenId: undefined,
+          initialSection: undefined,
+        }),
+      );
+      expect(mockNavigationReplace).not.toHaveBeenCalled();
+      expect(mockNavigationPush).not.toHaveBeenCalled();
+    },
+  );
 
   it('updates the current V2 detail route without replacing it', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {

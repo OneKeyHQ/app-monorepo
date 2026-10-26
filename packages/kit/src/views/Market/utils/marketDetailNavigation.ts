@@ -153,6 +153,7 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'legacyTokenPreview',
   'marketTokenPreviewId',
   'stockId',
+  'initialSection',
   'stockPreviewSymbol',
   'stockPreviewName',
   'stockPreviewLogoUrl',
@@ -211,6 +212,21 @@ export function isFocusedMarketDetailRouteName(name?: string) {
   return (
     isReplaceableMarketDetailRouteName(name) ||
     name === EModalSwapRoutes.SwapProMarketDetail
+  );
+}
+
+export function canReuseMarketDetailRoute(
+  currentName: string | undefined,
+  nextName: string,
+) {
+  // Both routes render MarketDetailV2; preserve the page across asset types.
+  return (
+    currentName === nextName ||
+    ((platformEnv.isDesktop || platformEnv.isNative) &&
+      ((currentName === ETabMarketRoutes.MarketDetailV2 &&
+        nextName === ETabMarketRoutes.MarketStockDetail) ||
+        (currentName === ETabMarketRoutes.MarketStockDetail &&
+          nextName === ETabMarketRoutes.MarketDetailV2)))
   );
 }
 
@@ -309,7 +325,13 @@ export function getCurrentMarketStockDetailRoute() {
   const stack = findMarketTabStack(navigation?.getRootState?.());
   const routes = stack?.routes ?? [];
   const current = routes[stack?.index ?? routes.length - 1];
-  if (current?.name !== ETabMarketRoutes.MarketStockDetail) {
+  if (
+    !canReuseMarketDetailRoute(
+      current?.name,
+      ETabMarketRoutes.MarketStockDetail,
+    ) ||
+    typeof current?.params?.stockId !== 'string'
+  ) {
     return undefined;
   }
   return current.params;
@@ -549,7 +571,9 @@ function canUpdateCurrentDetailInPlace(
     isReplaceableMarketDetailRouteName(route.name),
   ).length;
   return Boolean(
-    current?.key && current.name === routeName && leftoverDetailCount <= 1,
+    current?.key &&
+    canReuseMarketDetailRoute(current.name, routeName) &&
+    leftoverDetailCount <= 1,
   );
 }
 
@@ -643,10 +667,10 @@ export function replaceFocusedMarketDetailRoute({
     });
     return true;
   }
-  if (current?.name === routeName) {
+  if (canReuseMarketDetailRoute(current?.name, routeName)) {
     navigation.dispatch({
       ...CommonActions.setParams(nextParams),
-      ...(current.key ? { source: current.key } : {}),
+      ...(current?.key ? { source: current.key } : {}),
       ...(ownerKey ? { target: ownerKey } : {}),
     });
     return true;
