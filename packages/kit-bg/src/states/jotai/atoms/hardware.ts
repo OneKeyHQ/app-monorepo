@@ -352,6 +352,8 @@ export type IThirdPartyHardwareUiState = {
   action: EThirdPartyHardwareUiAction;
   vendor: EHardwareVendor;
   payload?: {
+    /** SDK request id echoed by the QR fallback consent response. */
+    requestId?: string;
     message?: string;
     chain?: string;
     /** SDK request reason used for UI copy. */

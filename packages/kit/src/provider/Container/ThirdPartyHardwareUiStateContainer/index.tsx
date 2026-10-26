@@ -1287,7 +1287,10 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       ) {
         return;
       }
-      const response = buildThirdPartyHardwareUiResponse(action, true, { tag });
+      const response = buildThirdPartyHardwareUiResponse(action, true, {
+        tag,
+        requestId: uiStateRef.current?.payload?.requestId,
+      });
       if (response) {
         await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
           {

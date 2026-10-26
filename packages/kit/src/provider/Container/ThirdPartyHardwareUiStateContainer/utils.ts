@@ -97,6 +97,7 @@ export function buildThirdPartyHardwareUiResponse(
   action: EThirdPartyHardwareUiAction | undefined,
   confirmed: boolean,
   extras?: {
+    requestId?: string;
     tag?: string;
     passphrase?: string;
     passphraseOnDevice?: boolean;
@@ -119,7 +120,10 @@ export function buildThirdPartyHardwareUiResponse(
     case EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm:
       return {
         type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
-        payload: { confirmed },
+        payload: {
+          confirmed,
+          ...(extras?.requestId ? { requestId: extras.requestId } : {}),
+        },
       };
     case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
       // No confirm/deny — the response IS the pairing tag the user typed
@@ -195,7 +199,9 @@ export async function cancelThirdPartyHardwareUiRequest({
   const action = state?.action;
   try {
     if (vendor) {
-      const response = buildThirdPartyHardwareUiResponse(action, false);
+      const response = buildThirdPartyHardwareUiResponse(action, false, {
+        requestId: state?.payload?.requestId,
+      });
       if (response) {
         await uiResponse({ vendor, response });
       } else {

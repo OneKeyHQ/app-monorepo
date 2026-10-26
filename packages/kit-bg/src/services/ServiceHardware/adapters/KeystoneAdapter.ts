@@ -135,13 +135,21 @@ export class KeystoneAdapter
       defaultLogger.hardware.sdkLog.log(
         '[3rdPartyHW][Keystone] REQUEST_QR_FALLBACK_CONFIRM',
       );
+      const requestId =
+        'requestId' in event.payload &&
+        typeof event.payload.requestId === 'string'
+          ? event.payload.requestId
+          : undefined;
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
         ...(event.payload.operationId
           ? { operationId: event.payload.operationId }
           : {}),
-        payload: { vendor: event.payload.vendor },
+        payload: {
+          vendor: event.payload.vendor,
+          ...(requestId ? { requestId } : {}),
+        },
       });
     });
 
