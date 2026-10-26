@@ -1112,6 +1112,11 @@ export function UniversalStake({
     },
     350,
   );
+  // The amount the network fee was last asked for (not the box's): a box
+  // moving to the same amount ("1" to "1." or "1.0") asks nothing new, while
+  // a form that mounts with its amount already in (carried over a protocol
+  // switch) still asks for its first fee
+  const feeAmountRef = useRef<string | undefined>(undefined);
 
   const checkEstimateGasAlert = useCallback(
     async (onNext: () => Promise<void> | undefined) => {
@@ -1258,6 +1263,7 @@ export function UniversalStake({
       !amountValueBN.isNaN() &&
       amountValueBN.gt(0)
     ) {
+      feeAmountRef.current = amountValue;
       void debouncedFetchEstimateFeeResp(amountValue);
     }
     prevShouldApproveRef.current = shouldApprove;
@@ -1414,6 +1420,7 @@ export function UniversalStake({
           setAmountValue('');
           setCheckoutAmountMessage('');
           setCheckAmountAlerts([]);
+          feeAmountRef.current = '';
           void debouncedFetchEstimateFeeResp();
         }
         return;
@@ -1428,7 +1435,8 @@ export function UniversalStake({
         // For the amount the form takes ("1." is 1), so the fee matches it,
         // and asked again only when that amount changes
         const amount = getTypedAmountValue(value);
-        if (amount !== transactionConfirmationAmountRef.current) {
+        if (amount !== feeAmountRef.current) {
+          feeAmountRef.current = amount;
           void debouncedFetchEstimateFeeResp(amount);
         }
       }
