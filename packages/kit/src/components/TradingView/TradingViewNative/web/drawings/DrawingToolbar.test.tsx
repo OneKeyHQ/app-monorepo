@@ -11,6 +11,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { DrawingToolbar } from './DrawingToolbar';
@@ -136,7 +137,9 @@ it('keeps drawing tool icons at full opacity while another coin restores its dra
   await waitFor(() =>
     expect(
       screen
-        .getByRole('button', { name: 'Trend Line' })
+        .getByRole('button', {
+          name: ETranslations.market_drawing_tool_trend__title,
+        })
         .hasAttribute('disabled'),
     ).toBe(false),
   );
@@ -148,21 +151,23 @@ it('keeps drawing tool icons at full opacity while another coin restores its dra
 
   rerender(<Toolbar key="ETH" coin="ETH" enabled />);
   for (const name of [
-    'Trend Line',
-    'Fib Retracement',
-    'XABCD Pattern',
-    'Price Range',
-    'Rectangle',
-    'Text',
-    'Emojis',
-    'Measure',
+    ETranslations.market_drawing_tool_trend__title,
+    ETranslations.market_drawing_tool_fib__title,
+    ETranslations.market_drawing_tool_xabcd__title,
+    ETranslations.market_drawing_tool_price_range__title,
+    ETranslations.market_drawing_tool_rectangle__title,
+    ETranslations.market_drawing_tool_text__title,
+    ETranslations.market_drawing_tool_emoji__title,
+    ETranslations.market_drawing_tool_measure__title,
   ]) {
     for (const button of screen.getAllByRole('button', { name })) {
       expect(button.hasAttribute('disabled')).toBe(true);
       expect(getComputedStyle(button).opacity).toBe('1');
     }
   }
-  const undo = screen.getByRole('button', { name: /Undo drawing/ });
+  const undo = screen.getByRole('button', {
+    name: new RegExp(`^${ETranslations.menu_undo} \\(`),
+  });
   expect(undo.hasAttribute('disabled')).toBe(true);
   expect(getComputedStyle(undo).opacity).toBe('0.3');
 
@@ -170,12 +175,17 @@ it('keeps drawing tool icons at full opacity while another coin restores its dra
   await waitFor(() =>
     expect(
       screen
-        .getByRole('button', { name: 'Trend Line' })
+        .getByRole('button', {
+          name: ETranslations.market_drawing_tool_trend__title,
+        })
         .hasAttribute('disabled'),
     ).toBe(false),
   );
   expect(
-    getComputedStyle(screen.getByRole('button', { name: 'Trend Line' }))
-      .opacity,
+    getComputedStyle(
+      screen.getByRole('button', {
+        name: ETranslations.market_drawing_tool_trend__title,
+      }),
+    ).opacity,
   ).toBe('1');
 });
