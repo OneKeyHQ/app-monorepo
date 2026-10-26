@@ -149,7 +149,7 @@ target 'OneKeyWallet' do
   )
 
   # Enable modular headers for EMASCurl to fix SniConnect dependency
-  pod 'EMASCurl', :modular_headers => true
+  pod 'EMASCurl', :modular_headers => true unless mac_catalyst_enabled
 
   # Manually add RNGoogleSignin pod (expo-module.config.json only includes the Expo adapter, not the TurboModule)
   # pod 'RNGoogleSignin', :path => '../../../node_modules/@react-native-google-signin/google-signin'

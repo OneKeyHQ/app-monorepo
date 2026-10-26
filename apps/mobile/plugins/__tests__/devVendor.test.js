@@ -945,6 +945,8 @@ describe('devVendor', () => {
     const excluded = [
       '@onekeyfe/react-native-cloud-kit-module',
       '@onekeyfe/react-native-lite-card',
+      '@onekeyfe/react-native-sni-connect',
+      '@onramper/onramper-react-native',
       '@phantom/react-native-juicebox-sdk',
       '@shopify/react-native-skia',
       '@walletconnect/react-native-compat',
