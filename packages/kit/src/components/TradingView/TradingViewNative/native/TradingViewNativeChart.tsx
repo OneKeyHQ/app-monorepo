@@ -240,6 +240,7 @@ export const TradingViewNativeChart = memo(
     const {
       controller: drawingController,
       drawings,
+      drawingText,
       projection: drawingProjection,
       gesture: drawingGesture,
       pointerId: drawingPointerId,
@@ -527,6 +528,7 @@ export const TradingViewNativeChart = memo(
       );
       return createTradingViewNativeSkiaPicture({
         drawings: enableDrawings ? drawings.value : undefined,
+        drawingText,
         onScene: (scene) => {
           if (!enableDrawings) return;
           drawingProjection.value = {
@@ -572,6 +574,7 @@ export const TradingViewNativeChart = memo(
       candleLabels,
       priceDecimalPlaces,
       enableDrawings,
+      drawingText,
       extendTimeAxisBorderToCanvasEdge,
       isMobileLayout,
       priceAxisFontSize,

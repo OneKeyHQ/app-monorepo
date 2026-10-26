@@ -40,6 +40,7 @@ import {
   TRADE_MARK_LABEL_PATH_FONT_SIZE,
 } from './tradeMarkLabelPaths';
 
+import type { IDrawingCanvasText } from '../drawings/drawingText';
 import type { IDrawingRenderState } from '../drawings/useChartDrawings';
 
 export interface ITradingViewNativeSkiaResources {
@@ -603,11 +604,13 @@ function drawTradingViewNativeSkiaCommands({
 export function createTradingViewNativeSkiaPicture({
   resources,
   drawings,
+  drawingText,
   onScene,
   ...sceneOptions
 }: Omit<IBuildTradingViewNativeChartSceneOptions, 'measureTextWidth'> & {
   resources: ITradingViewNativeSkiaResources;
   drawings?: IDrawingRenderState;
+  drawingText?: IDrawingCanvasText;
   onScene?: (scene: ITradingViewNativeChartScene) => void;
 }): SkPicture {
   'worklet';
@@ -654,6 +657,7 @@ export function createTradingViewNativeSkiaPicture({
           priceDecimalPlaces: sceneOptions.priceDecimalPlaces,
           size: { width: sceneOptions.width, height: sceneOptions.height },
           showPriceAxis: sceneOptions.chartSettings?.options.yAxis,
+          text: drawingText,
         },
         resources.fonts.legend,
         sceneOptions.chartSettings?.background.colors[0] ?? '#ffffff',

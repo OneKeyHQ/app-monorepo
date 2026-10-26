@@ -28,8 +28,10 @@ import {
 import { TRADING_VIEW_DRAWING_ICONS } from '../drawings/icons';
 import {
   DEFAULT_DRAWING_FONT_SIZE,
+  DRAWING_DASH_LABEL_IDS,
   DRAWING_FONT_SIZES,
   DRAWING_TOOLBAR_GROUPS,
+  DRAWING_TOOLBAR_GROUP_LABEL_IDS,
   DRAWING_TOOLS,
   getDrawingToolbarGroup,
   isFreehandTool,
@@ -37,7 +39,7 @@ import {
   isTextDrawingTool,
 } from '../drawings/model';
 
-import type { IDrawingTool } from '../drawings/model';
+import type { IDrawingTool, IDrawingToolbarGroup } from '../drawings/model';
 import type { IChartDrawingsController } from '../drawings/useChartDrawings';
 
 type IIconName = keyof typeof TRADING_VIEW_DRAWING_ICONS;
@@ -163,7 +165,7 @@ export function NativeDrawingToolbar({
   const intl = useIntl();
   const { state } = controller;
   const [collapsed, setCollapsed] = useState(false);
-  const [group, setGroup] = useState<string | null>(null);
+  const [group, setGroup] = useState<IDrawingToolbarGroup | null>(null);
   const [settings, setSettings] = useState(false);
   useEffect(() => {
     if (state.editingCoordinates) setSettings(true);
@@ -187,9 +189,21 @@ export function NativeDrawingToolbar({
     setSettings(false);
     if (state.panel) controller.togglePanel(state.panel);
   };
-  let panelTitle = state.panel === 'objects' ? 'Object Tree' : 'Data Window';
-  if (settings) panelTitle = 'Drawing settings';
-  if (group) panelTitle = group;
+  const toolLabel = (tool: IDrawingTool) =>
+    intl.formatMessage({ id: DRAWING_TOOLS[tool].labelId });
+  const groupLabel = (name: IDrawingToolbarGroup) =>
+    intl.formatMessage({ id: DRAWING_TOOLBAR_GROUP_LABEL_IDS[name] });
+  let panelTitle = intl.formatMessage({
+    id:
+      state.panel === 'objects'
+        ? ETranslations.market_drawing_object_tree__title
+        : ETranslations.market_drawing_data_window__title,
+  });
+  if (settings)
+    panelTitle = intl.formatMessage({
+      id: ETranslations.market_drawing_drawing_settings__title,
+    });
+  if (group) panelTitle = groupLabel(group);
   const data = state.data;
   const date = data ? new Date(data.time * 1000).toISOString() : null;
   return (
@@ -210,7 +224,9 @@ export function NativeDrawingToolbar({
           >
             <DrawingButton
               icon="cursor"
-              label="Cursor"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_cursor__title,
+              })}
               testID="native-drawing-cursor"
               active={state.tool === 'cursor'}
               onPress={() => {
@@ -227,7 +243,7 @@ export function NativeDrawingToolbar({
                 <DrawingButton
                   key={name}
                   icon={tool}
-                  label={name}
+                  label={groupLabel(name)}
                   testID={`native-drawing-group-${name}`}
                   active={
                     state.tool !== 'cursor' &&
@@ -243,7 +259,9 @@ export function NativeDrawingToolbar({
             })}
             <DrawingButton
               icon="objects"
-              label="Object Tree"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_object_tree__title,
+              })}
               testID="native-drawing-objects"
               active={state.panel === 'objects'}
               onPress={() => {
@@ -254,7 +272,9 @@ export function NativeDrawingToolbar({
             />
             <DrawingButton
               icon="data"
-              label="Data Window"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_data_window__title,
+              })}
               testID="native-drawing-data"
               active={state.panel === 'data'}
               onPress={() => {
@@ -265,49 +285,59 @@ export function NativeDrawingToolbar({
             />
             <DrawingButton
               icon="magnet"
-              label="Magnet"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_magnet_mode__title,
+              })}
               testID="native-drawing-magnet"
               active={state.magnet}
               onPress={() => controller.toggle('magnet')}
             />
             <DrawingButton
               icon="stay"
-              label="Stay in drawing mode"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_stay_in_drawing_mode__title,
+              })}
               testID="native-drawing-stay"
               active={state.stayInDrawingMode}
               onPress={() => controller.toggle('stayInDrawingMode')}
             />
             <DrawingButton
               icon={state.locked ? 'lock' : 'unlock'}
-              label="Lock all drawings"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_lock_all_drawings__action,
+              })}
               testID="native-drawing-lock-all"
               active={state.locked}
               onPress={() => controller.toggle('locked')}
             />
             <DrawingButton
               icon={state.hidden ? 'show' : 'hide'}
-              label="Hide drawings"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_hide_drawings__action,
+              })}
               testID="native-drawing-hide-all"
               active={state.hidden}
               onPress={() => controller.toggle('hidden')}
             />
             <DrawingButton
               icon="undo"
-              label="Undo"
+              label={intl.formatMessage({ id: ETranslations.menu_undo })}
               testID="native-drawing-undo"
               disabled={!state.history.past.length}
               onPress={() => controller.historyAction('undo')}
             />
             <DrawingButton
               icon="redo"
-              label="Redo"
+              label={intl.formatMessage({ id: ETranslations.menu_redo })}
               testID="native-drawing-redo"
               disabled={!state.history.future.length}
               onPress={() => controller.historyAction('redo')}
             />
             <DrawingButton
               icon="delete"
-              label="Remove unlocked drawings"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_remove_unlocked_drawings__action,
+              })}
               testID="native-drawing-clear"
               disabled={
                 state.locked ||
@@ -361,13 +391,17 @@ export function NativeDrawingToolbar({
             flex={1}
             onPress={() => setSettings(true)}
           >
-            Settings
+            {intl.formatMessage({ id: ETranslations.global_settings })}
           </Button>
           {selected ? (
             <>
               <DrawingButton
                 icon={selected.locked ? 'lock' : 'unlock'}
-                label={selected.locked ? 'Unlock drawing' : 'Lock drawing'}
+                label={intl.formatMessage({
+                  id: selected.locked
+                    ? ETranslations.market_drawing_unlock_drawing__action
+                    : ETranslations.market_drawing_lock_drawing__action,
+                })}
                 testID="native-drawing-lock"
                 active={selected.locked}
                 disabled={state.locked}
@@ -375,7 +409,9 @@ export function NativeDrawingToolbar({
               />
               <DrawingButton
                 icon="delete"
-                label="Delete drawing"
+                label={intl.formatMessage({
+                  id: ETranslations.market_drawing_delete_drawing__action,
+                })}
                 testID="native-drawing-delete"
                 disabled={disabled}
                 onPress={controller.removeSelected}
@@ -388,7 +424,7 @@ export function NativeDrawingToolbar({
             variant="tertiary"
             onPress={() => controller.selectTool('cursor')}
           >
-            Done
+            {intl.formatMessage({ id: ETranslations.global_done })}
           </Button>
         </XStack>
       ) : null}
@@ -421,7 +457,7 @@ export function NativeDrawingToolbar({
               variant="tertiary"
               onPress={close}
             >
-              Done
+              {intl.formatMessage({ id: ETranslations.global_done })}
             </Button>
           </XStack>
           <DrawingScrollView
@@ -437,7 +473,7 @@ export function NativeDrawingToolbar({
                       key={tool}
                       testID={`native-drawing-tool-${tool}`}
                       accessibilityRole="button"
-                      accessibilityLabel={DRAWING_TOOLS[tool].label}
+                      accessibilityLabel={toolLabel(tool)}
                       accessibilityState={{ selected: state.tool === tool }}
                       minHeight={44}
                       px="$2"
@@ -451,7 +487,7 @@ export function NativeDrawingToolbar({
                     >
                       <DrawingIcon name={tool} active={state.tool === tool} />
                       <SizableText size="$bodyMd">
-                        {DRAWING_TOOLS[tool].label}
+                        {toolLabel(tool)}
                       </SizableText>
                     </XStack>
                   ))}
@@ -472,7 +508,12 @@ export function NativeDrawingToolbar({
                     <XStack
                       testID={`native-drawing-object-${drawing.id}`}
                       accessibilityRole="button"
-                      accessibilityLabel={`Select ${drawing.name ?? DRAWING_TOOLS[drawing.tool].label}`}
+                      accessibilityLabel={intl.formatMessage(
+                        {
+                          id: ETranslations.market_drawing_select_name__action,
+                        },
+                        { name: drawing.name ?? toolLabel(drawing.tool) },
+                      )}
                       flex={1}
                       minWidth={0}
                       minHeight={44}
@@ -487,12 +528,14 @@ export function NativeDrawingToolbar({
                         flex={1}
                         opacity={drawing.hidden ? 0.5 : 1}
                       >
-                        {drawing.name || DRAWING_TOOLS[drawing.tool].label}
+                        {drawing.name || toolLabel(drawing.tool)}
                       </SizableText>
                     </XStack>
                     <DrawingButton
                       icon={drawing.hidden ? 'show' : 'hide'}
-                      label="Toggle visibility"
+                      label={intl.formatMessage({
+                        id: ETranslations.market_drawing_toggle_visibility__action,
+                      })}
                       testID={`native-drawing-visibility-${drawing.id}`}
                       onPress={() =>
                         controller.updateDrawing(drawing.id, {
@@ -502,7 +545,9 @@ export function NativeDrawingToolbar({
                     />
                     <DrawingButton
                       icon={drawing.locked ? 'lock' : 'unlock'}
-                      label="Toggle lock"
+                      label={intl.formatMessage({
+                        id: ETranslations.market_drawing_toggle_lock__action,
+                      })}
                       testID={`native-drawing-lock-${drawing.id}`}
                       disabled={state.locked}
                       onPress={() =>
@@ -515,17 +560,19 @@ export function NativeDrawingToolbar({
                 ))}
                 {!state.history.present.length ? (
                   <SizableText p="$3" size="$bodySm" color="$textSubdued">
-                    Drawings on this chart will appear here.
+                    {intl.formatMessage({
+                      id: ETranslations.market_drawing_objects_empty__desc,
+                    })}
                   </SizableText>
                 ) : null}
                 {selected ? (
                   <YStack p="$2" gap="$2">
                     <EditField
                       key={`${selected.id}-name`}
-                      label="Name"
-                      value={
-                        selected.name ?? DRAWING_TOOLS[selected.tool].label
-                      }
+                      label={intl.formatMessage({
+                        id: ETranslations.market_drawing_object_name__title,
+                      })}
+                      value={selected.name ?? toolLabel(selected.tool)}
                       testID="native-drawing-object-name"
                       disabled={disabled}
                       onSave={(name) =>
@@ -547,7 +594,9 @@ export function NativeDrawingToolbar({
                           controller.reorderDrawing(selected.id, 1)
                         }
                       >
-                        Forward
+                        {intl.formatMessage({
+                          id: ETranslations.market_drawing_bring_forward__action,
+                        })}
                       </Button>
                       <Button
                         testID="native-drawing-backward"
@@ -558,7 +607,9 @@ export function NativeDrawingToolbar({
                           controller.reorderDrawing(selected.id, -1)
                         }
                       >
-                        Backward
+                        {intl.formatMessage({
+                          id: ETranslations.market_drawing_send_backward__action,
+                        })}
                       </Button>
                     </XStack>
                     <XStack gap="$2">
@@ -571,7 +622,7 @@ export function NativeDrawingToolbar({
                           setSettings(true);
                         }}
                       >
-                        Edit
+                        {intl.formatMessage({ id: ETranslations.global_edit })}
                       </Button>
                       <Button
                         testID="native-drawing-object-delete"
@@ -580,7 +631,9 @@ export function NativeDrawingToolbar({
                         disabled={disabled}
                         onPress={controller.removeSelected}
                       >
-                        Delete
+                        {intl.formatMessage({
+                          id: ETranslations.global_delete,
+                        })}
                       </Button>
                     </XStack>
                   </YStack>
@@ -592,12 +645,16 @@ export function NativeDrawingToolbar({
                 <SizableText size="$bodySm" color="$textSubdued">
                   {date
                     ? `${date.slice(0, 10)} ${date.slice(11, 19)} UTC`
-                    : 'Waiting for chart data…'}
+                    : intl.formatMessage({
+                        id: ETranslations.market_drawing_data_loading__desc,
+                      })}
                 </SizableText>
                 {data?.groups.map((section, index) => (
                   <YStack key={`${section.name}-${index}`} gap="$1">
                     <SizableText size="$bodySmMedium">
-                      {section.name}
+                      {section.labelId
+                        ? intl.formatMessage({ id: section.labelId })
+                        : section.name}
                     </SizableText>
                     {section.rows.map((row) => (
                       <XStack
@@ -606,7 +663,9 @@ export function NativeDrawingToolbar({
                         gap="$2"
                       >
                         <SizableText size="$bodySm" color="$textSubdued">
-                          {row.name}
+                          {row.labelId
+                            ? intl.formatMessage({ id: row.labelId })
+                            : row.name}
                         </SizableText>
                         <SizableText
                           testID={`native-drawing-data-${row.name}`}
@@ -629,8 +688,15 @@ export function NativeDrawingToolbar({
                 selected.tool !== 'priceLabel' ? (
                   <EditField
                     key={`${selected.id}-text-${selected.text ?? ''}`}
-                    label="Content"
-                    value={selected.text ?? 'Text'}
+                    label={intl.formatMessage({
+                      id: ETranslations.market_drawing_content__title,
+                    })}
+                    value={
+                      selected.text ??
+                      intl.formatMessage({
+                        id: ETranslations.market_drawing_tool_text__title,
+                      })
+                    }
                     testID="native-drawing-text"
                     disabled={disabled}
                     multiline
@@ -640,7 +706,11 @@ export function NativeDrawingToolbar({
                   />
                 ) : null}
                 <SizableText size="$bodySmMedium">
-                  {hasText ? 'Text color' : 'Color'}
+                  {intl.formatMessage({
+                    id: hasText
+                      ? ETranslations.market_drawing_text_color__title
+                      : ETranslations.market_drawing_color__title,
+                  })}
                 </SizableText>
                 <XStack flexWrap="wrap" gap="$2">
                   {[
@@ -685,13 +755,22 @@ export function NativeDrawingToolbar({
                 </XStack>
                 {hasText ? (
                   <>
-                    <SizableText size="$bodySmMedium">Font size</SizableText>
+                    <SizableText size="$bodySmMedium">
+                      {intl.formatMessage({
+                        id: ETranslations.market_drawing_font_size__title,
+                      })}
+                    </SizableText>
                     <XStack gap="$2" flexWrap="wrap">
                       {DRAWING_FONT_SIZES.map((fontSize) => (
                         <Button
                           key={fontSize}
                           testID={`native-drawing-font-size-${fontSize}`}
-                          accessibilityLabel={`Font size ${fontSize}`}
+                          accessibilityLabel={intl.formatMessage(
+                            {
+                              id: ETranslations.market_drawing_font_size_size__title,
+                            },
+                            { size: fontSize },
+                          )}
                           accessibilityState={{
                             selected:
                               (style.fontSize ?? DEFAULT_DRAWING_FONT_SIZE) ===
@@ -717,7 +796,11 @@ export function NativeDrawingToolbar({
                 {hasLine ? (
                   <>
                     <SizableText size="$bodySmMedium">
-                      {hasText ? 'Border width' : 'Line width'}
+                      {intl.formatMessage({
+                        id: hasText
+                          ? ETranslations.market_drawing_border_width__title
+                          : ETranslations.market_drawing_line_width__title,
+                      })}
                     </SizableText>
                     <XStack gap="$2">
                       {[1, 2, 3, 4].map((width) => (
@@ -749,7 +832,9 @@ export function NativeDrawingToolbar({
                           disabled={disabled}
                           onPress={() => controller.changeStyle({ dash })}
                         >
-                          {dash}
+                          {intl.formatMessage({
+                            id: DRAWING_DASH_LABEL_IDS[dash],
+                          })}
                         </Button>
                       ))}
                     </XStack>
@@ -768,7 +853,9 @@ export function NativeDrawingToolbar({
                     borderColor="$borderSubdued"
                     pt="$3"
                   >
-                    Position
+                    {intl.formatMessage({
+                      id: ETranslations.market_drawing_position__title,
+                    })}
                   </SizableText>
                 ) : null}
                 {selected?.anchor ? (
@@ -791,7 +878,12 @@ export function NativeDrawingToolbar({
                     <YStack key={`${selected.id}-${index}`} gap="$2">
                       <EditField
                         key={point.price}
-                        label={`Point ${index + 1} price`}
+                        label={intl.formatMessage(
+                          {
+                            id: ETranslations.market_drawing_point_index_price__title,
+                          },
+                          { index: index + 1 },
+                        )}
                         value={String(point.price)}
                         testID={`native-drawing-price-${index}`}
                         disabled={disabled}
@@ -804,7 +896,12 @@ export function NativeDrawingToolbar({
                       />
                       <EditField
                         key={point.time}
-                        label={`Point ${index + 1} time (UTC)`}
+                        label={intl.formatMessage(
+                          {
+                            id: ETranslations.market_drawing_point_index_time_utc__title,
+                          },
+                          { index: index + 1 },
+                        )}
                         value={new Date(point.time * 1000).toISOString()}
                         testID={`native-drawing-time-${index}`}
                         disabled={disabled}
@@ -832,7 +929,9 @@ export function NativeDrawingToolbar({
           p="$2"
         >
           <SizableText size="$bodySm" color="$textCritical">
-            Drawings could not be saved on this device.
+            {intl.formatMessage({
+              id: ETranslations.market_drawing_save_failed__msg,
+            })}
           </SizableText>
         </Stack>
       ) : null}
@@ -849,7 +948,9 @@ export function NativeDrawingToolbar({
             DRAWING_TOOLS[state.draft.drawing.tool].points
           }
         >
-          Finish drawing
+          {intl.formatMessage({
+            id: ETranslations.market_drawing_finish_drawing__action,
+          })}
         </Button>
       ) : null}
     </>
