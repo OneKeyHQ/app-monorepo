@@ -30,8 +30,10 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useTheme,
 } from '@onekeyhq/components';
 import { KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET } from '@onekeyhq/components/src/content/Keyboard';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { addressTypeTooltipMap } from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorItem';
@@ -1291,7 +1293,9 @@ function RecipientQuickSelect({
   senderDeriveType,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
+  const theme = useTheme();
   const pagerMode = pagerHeader !== undefined;
+  const nativeSegmentedTabs = pagerMode && platformEnv.isNative;
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const pagerViewportRef = useRef<View>(null);
   const focusedFieldRef = useRef<IFocusMeasurable | null>(null);
@@ -1301,7 +1305,9 @@ function RecipientQuickSelect({
   const [pagerHeaderHeight, setPagerHeaderHeight] = useState(
     platformEnv.isNative ? 180 : 0,
   );
-  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(48);
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(
+    nativeSegmentedTabs ? 56 : 48,
+  );
   const invalidateFocusMeasurement = useCallback((clearField = false) => {
     focusGenerationRef.current += 1;
     if (clearField) focusedFieldRef.current = null;
@@ -1773,7 +1779,12 @@ function RecipientQuickSelect({
       >
         <CollapsiblePagerView
           ref={pagerRef}
-          style={{ flex: 1 }}
+          style={{
+            flex: 1,
+            ...(nativeSegmentedTabs
+              ? { backgroundColor: theme.bgApp.val }
+              : {}),
+          }}
           initialPage={Math.max(0, visibleTabKeys.indexOf(activeTab))}
           headerHeight={pagerHeaderHeight}
           stickyHeaderHeight={stickyHeaderHeight}
@@ -1783,15 +1794,43 @@ function RecipientQuickSelect({
             </Stack>
           }
           stickyHeader={
-            <Stack
-              px="$5"
-              pt="$3"
-              pb="$3"
-              bg="$bgApp"
-              onLayout={handleStickyHeaderLayout}
-            >
-              {tabs}
-            </Stack>
+            nativeSegmentedTabs ? (
+              <Stack height={56} bg="$bgApp" pointerEvents="none" />
+            ) : (
+              <Stack
+                px="$5"
+                pt="$3"
+                pb="$3"
+                bg="$bgApp"
+                onLayout={handleStickyHeaderLayout}
+              >
+                {tabs}
+              </Stack>
+            )
+          }
+          nativeTabBar={
+            nativeSegmentedTabs
+              ? {
+                  items: tabOptions.map(({ label, value, testID }) => ({
+                    key: value,
+                    title: label,
+                    testID,
+                  })),
+                  style: {
+                    variant: 'segmented',
+                    height: 56,
+                    contentPaddingHorizontal: 20,
+                    contentPaddingVertical: 12,
+                    itemSpacing: 0,
+                    fontSize: 14,
+                    fontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
+                    backgroundColor: theme.bgStrong.val,
+                    indicatorColor: theme.bgSegmentThumb.val,
+                    activeTextColor: theme.text.val,
+                    inactiveTextColor: theme.textSubdued.val,
+                  },
+                }
+              : undefined
           }
           nestedScrollEnabled
           {...(platformEnv.isNative

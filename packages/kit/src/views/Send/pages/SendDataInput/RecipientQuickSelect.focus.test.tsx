@@ -14,6 +14,19 @@ let mockPageSelected:
 let mockPageScrollStateChanged:
   | ((event: { nativeEvent: { pageScrollState: string } }) => void)
   | undefined;
+let mockNativeTabBar:
+  | {
+      items: { key: string; title: string; testID?: string }[];
+      style: {
+        variant?: string;
+        height?: number;
+        contentPaddingVertical?: number;
+      };
+    }
+  | undefined;
+let mockRecentMatchStatus:
+  | ((hasMatches: boolean, matchCount: number) => void)
+  | undefined;
 const mockKeyboardListeners = new Map<
   string,
   (event: { endCoordinates: { screenY: number; height: number } }) => void
@@ -54,17 +67,20 @@ jest.mock('react-native-pager-view', () => {
         stickyHeader,
         onPageSelected,
         onPageScrollStateChanged,
+        nativeTabBar,
       }: {
         children?: React.ReactNode;
         header?: React.ReactNode;
         stickyHeader?: React.ReactNode;
         onPageSelected?: typeof mockPageSelected;
         onPageScrollStateChanged?: typeof mockPageScrollStateChanged;
+        nativeTabBar?: typeof mockNativeTabBar;
       },
       ref,
     ) => {
       mockPageSelected = onPageSelected;
       mockPageScrollStateChanged = onPageScrollStateChanged;
+      mockNativeTabBar = nativeTabBar;
       React.useImperativeHandle(ref, () => ({
         scrollHeaderToOffset: mockScrollHeaderToOffset,
         scrollHeaderBy: mockScrollHeaderBy,
@@ -124,12 +140,21 @@ jest.mock('@onekeyhq/components', () => {
     MatchSizeableText: Container,
     KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET: 0,
     Popover: Container,
-    SegmentControl: Container,
+    SegmentControl: () =>
+      React.createElement('div', { 'data-testid': 'react-segments' }),
     SizableText: Container,
     Stack,
     Tooltip: Container,
     XStack: Container,
     YStack: Container,
+    useTheme: () => ({
+      bgStrong: { val: '#ddd' },
+      bgSegmentThumb: { val: '#fff' },
+      bgApp: { val: '#fafafa' },
+      text: { val: '#111' },
+      textSubdued: { val: '#666' },
+    }),
+    BRAND_FONT_NATIVE_FAMILY: { medium: 'OneKeySans-Medium' },
   };
 });
 
@@ -201,7 +226,14 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 }));
 jest.mock('./RecentRecipients', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({
+    onMatchStatusChange,
+  }: {
+    onMatchStatusChange?: typeof mockRecentMatchStatus;
+  }) => {
+    mockRecentMatchStatus = onMatchStatusChange;
+    return null;
+  },
 }));
 jest.mock('./QuickSelectListShared', () => ({
   QuickSelectListItemFrame: () => null,
@@ -224,11 +256,14 @@ function showKeyboard() {
 
 function renderPager(
   hideTabs: Array<'account' | 'addressBook'> = ['account', 'addressBook'],
+  searchKey = '',
 ) {
   const rendered = render(
     <RecipientQuickSelect
       networkId="xrp--0"
       hideTabs={hideTabs}
+      searchKey={searchKey}
+      isSearchMode={Boolean(searchKey)}
       pagerHeader={(requestFocus) => {
         mockRequestFocus = requestFocus;
         return null;
@@ -266,6 +301,8 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     mockRequestFocus = undefined;
     mockPageSelected = undefined;
     mockPageScrollStateChanged = undefined;
+    mockNativeTabBar = undefined;
+    mockRecentMatchStatus = undefined;
     globalThis.requestAnimationFrame = jest.fn(
       (callback: FrameRequestCallback) => {
         callback(0);
@@ -301,6 +338,30 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     expect(mockScrollHeaderToOffset).toHaveBeenCalledTimes(3);
     expect(mockScrollHeaderToOffset).toHaveBeenLastCalledWith(222);
     expect(mockScrollHeaderBy).not.toHaveBeenCalled();
+  });
+
+  it('uses the native segmented bar with the visible tab keys', () => {
+    renderPager(['addressBook']);
+    expect(mockNativeTabBar?.items.map(({ key }) => key)).toEqual([
+      'recent',
+      'account',
+    ]);
+    expect(mockNativeTabBar?.items[1]?.testID).toBe(
+      'send-recipient-quick-account-tab',
+    );
+    expect(mockNativeTabBar?.style).toMatchObject({
+      variant: 'segmented',
+      height: 56,
+      contentPaddingVertical: 12,
+    });
+    expect(screen.queryByTestId('react-segments')).toBeNull();
+  });
+
+  it('updates native tab titles when search counts change', () => {
+    renderPager(['account', 'addressBook'], 'alice');
+    expect(mockNativeTabBar?.items.map(({ key }) => key)).toEqual(['recent']);
+    act(() => mockRecentMatchStatus?.(true, 7));
+    expect(mockNativeTabBar?.items[0]?.title).toContain('(7)');
   });
 
   it('retains the focused field across touch and wheel invalidation', () => {
@@ -343,6 +404,8 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
       value: 900,
     });
     const { field } = renderPager();
+    expect(mockNativeTabBar).toBeUndefined();
+    expect(screen.getByTestId('react-segments')).toBeTruthy();
     visualViewport.height = 500;
     act(() => viewportHandlers.get('resize')?.());
     expect(mockScrollHeaderBy).toHaveBeenLastCalledWith(222);

@@ -1568,6 +1568,7 @@ const SwapTokenSelectPage = ({
               networks={networkFilterData.networks}
               sameChainNetwork={networkFilterData.sameChainNetwork}
               sameChainBadgeText={sameChainBadgeText}
+              fitToAvailableWidth
               maxVisibleNetworks={
                 md
                   ? swapNetworksCommonCountMD -
