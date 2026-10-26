@@ -124,10 +124,6 @@ PODS:
     - Yoga
   - boost (1.84.0):
     - ReactNativeDependencies
-  - Burnt (0.12.2):
-    - ExpoModulesCore
-    - SPAlert (~> 4.2)
-    - SPIndicator (~> 1.6)
   - ChartWebview (6.7.0-9):
     - hermes-engine
     - NitroModules
@@ -4072,8 +4068,6 @@ PODS:
     - Yoga
   - SocketRocket (0.7.1):
     - ReactNativeDependencies
-  - SPAlert (4.2.0)
-  - SPIndicator (1.6.4)
   - SplitBundleLoader (6.7.0-9):
     - hermes-engine
     - RCTRequired
@@ -4135,7 +4129,6 @@ DEPENDENCIES:
   - "BackgroundThread (from `../../../node_modules/@onekeyfe/react-native-background-thread`)"
   - "BleUtils (from `../../../node_modules/@onekeyfe/react-native-ble-utils`)"
   - boost (from `build/rndeps-facades/boost`)
-  - Burnt (from `../../../node_modules/burnt/ios`)
   - "ChartWebview (from `../../../node_modules/@onekeyfe/react-native-chart-webview`)"
   - CloudFs (from `../../../node_modules/react-native-cloud-fs`)
   - "CloudKitModule (from `../../../node_modules/@onekeyfe/react-native-cloud-kit-module`)"
@@ -4361,8 +4354,6 @@ SPEC REPOS:
     - SDWebImageSVGCoder
     - SDWebImageWebPCoder
     - Sentry
-    - SPAlert
-    - SPIndicator
     - SSZipArchive
     - YttriumWrapper
     - ZXingObjC
@@ -4380,8 +4371,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-ble-utils"
   boost:
     :path: build/rndeps-facades/boost
-  Burnt:
-    :path: "../../../node_modules/burnt/ios"
   ChartWebview:
     :path: "../../../node_modules/@onekeyfe/react-native-chart-webview"
   CloudFs:
@@ -4785,7 +4774,6 @@ SPEC CHECKSUMS:
   BackgroundThread: a48ae3c9de6053e89511f75b5a5ad815fa345ef9
   BleUtils: 42d45afffcf4fcbb6b235aa094816117b556aced
   boost: 8502bfdc46e2804408af2e163049ece181009af4
-  Burnt: e3a3397e26172fca31a59bb27421475a58068836
   ChartWebview: 89822232c91b6fadfd2d3478767d4940079b7cdb
   CloudFs: 21db13876a07b57440bba87e8db7890d28680c0b
   CloudKitModule: ef2c37f3a17fc2d13ed7be4313439f8a39a436ce
@@ -4997,8 +4985,6 @@ SPEC CHECKSUMS:
   Skeleton: af56d88c8ebab5ef658a54c688cfb90ff7aef1c9
   SniConnect: a31080e91d9c278e4e1ddc76118fd6a7fac7d357
   SocketRocket: 37aec555668fb852ec12e3c0de59a86ca58f0871
-  SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
-  SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SplitBundleLoader: 2b83356c84b3b66b322f3ab351ebc73f6af88910
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
   TcpSocket: e8f2f93080b99230a890a35a5a7a9eccf933f31d

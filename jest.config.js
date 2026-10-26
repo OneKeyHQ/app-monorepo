@@ -58,6 +58,9 @@ module.exports = async () => {
     // 'extensionsToTreatAsEsm': ['.wasm', '.ts'],
     moduleNameMapper: {
       '^react-native$': 'react-native-web',
+      // Keep the TypeScript declaration alias from replacing executable code in Jest.
+      '^react\\-native\\-webview/src/WebViewShared$':
+        require.resolve('react-native-webview/src/WebViewShared.tsx'),
       // '^(\\.{1,2}/.*/cardano_message_signing_bg\\.wasm\\.js)$': '$1',
       '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$':
         '<rootDir>/__mocks__/fileMock.js',
@@ -83,7 +86,7 @@ module.exports = async () => {
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: [
-      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@onekeyfe/react-native-native-overlay|@react-navigation/(core|routers)|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39)|timeout-signal|p-limit|p-retry|is-network-error|yocto-queue|react-native-web/dist/(exports|modules))/)',
+      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@onekeyfe/react-native-native-overlay|@react-navigation/(core|routers)|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39)|timeout-signal|p-limit|p-retry|is-network-error|yocto-queue|react-native-webview|react-native-web/dist/(exports|modules))/)',
     ],
     transform: {
       'node_modules/(@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39))/.+\\.m?js$':

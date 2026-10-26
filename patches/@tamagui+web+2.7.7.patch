@@ -48,7 +48,7 @@ index 7384d83..90f4cf8 100644
            if (process.env.NODE_ENV === "development" && debug === "verbose") console.info("pseudo:", key, pseudoStyleObject, pseudoStyles);
            for (const psuedoStyle of pseudoStyles) {
 diff --git a/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js b/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
-index b83ef32..0cedfc7 100644
+index b83ef32..210543a 100644
 --- a/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
 +++ b/node_modules/@tamagui/web/dist/cjs/helpers/mainThreadPressEvents.native.js
 @@ -29,8 +29,44 @@ __export(mainThreadPressEvents_native_exports, {
@@ -145,8 +145,8 @@ index b83ef32..0cedfc7 100644
 +    var touch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier);
 +    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
 +    ref.current.latestTouch = { pageX: touch.pageX, pageY: touch.pageY };
-+    ref.current.latestTouchEvent = Object.assign(
-+      Object.create(Object.getPrototypeOf(e)), e, { nativeEvent: { ...e.nativeEvent } }
++    ref.current.latestTouchEvent = Object.setPrototypeOf(
++      { ...e, nativeEvent: { ...e.nativeEvent } }, Object.getPrototypeOf(e)
 +    );
 +  }
 +  function measureResponderRegion(e) {
@@ -465,7 +465,7 @@ index abf7a63..cec9cf3 100644
            if (process.env.NODE_ENV === "development" && debug === "verbose") console.info("pseudo:", key, pseudoStyleObject, pseudoStyles);
            for (const psuedoStyle of pseudoStyles) {
 diff --git a/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js b/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
-index bd0a1d6..4fdd452 100644
+index bd0a1d6..c00a948 100644
 --- a/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
 +++ b/node_modules/@tamagui/web/dist/esm/helpers/mainThreadPressEvents.native.js
 @@ -1,7 +1,43 @@
@@ -561,8 +561,8 @@ index bd0a1d6..4fdd452 100644
 +    var touch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier);
 +    if (!touch || typeof touch.pageX !== "number" || typeof touch.pageY !== "number") return;
 +    ref.current.latestTouch = { pageX: touch.pageX, pageY: touch.pageY };
-+    ref.current.latestTouchEvent = Object.assign(
-+      Object.create(Object.getPrototypeOf(e)), e, { nativeEvent: { ...e.nativeEvent } }
++    ref.current.latestTouchEvent = Object.setPrototypeOf(
++      { ...e, nativeEvent: { ...e.nativeEvent } }, Object.getPrototypeOf(e)
 +    );
 +  }
 +  function measureResponderRegion(e) {
@@ -869,7 +869,7 @@ index c91b74f..f93aa0b 100644
  
            if (process.env.NODE_ENV === 'development' && debug === 'verbose') {
 diff --git a/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts b/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
-index 8ad8f79..65f4d53 100644
+index 8ad8f79..9d8e0fe 100644
 --- a/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
 +++ b/node_modules/@tamagui/web/src/helpers/mainThreadPressEvents.native.ts
 @@ -8,6 +8,8 @@
@@ -1001,8 +1001,8 @@ index 8ad8f79..65f4d53 100644
 +    const touch = getTouchFromPressEvent(e, ref.current.activeTouchIdentifier)
 +    if (typeof touch?.pageX !== 'number' || typeof touch?.pageY !== 'number') return
 +    ref.current.latestTouch = { pageX: touch.pageX, pageY: touch.pageY }
-+    ref.current.latestTouchEvent = Object.assign(
-+      Object.create(Object.getPrototypeOf(e)), e, { nativeEvent: { ...e.nativeEvent } }
++    ref.current.latestTouchEvent = Object.setPrototypeOf(
++      { ...e, nativeEvent: { ...e.nativeEvent } }, Object.getPrototypeOf(e)
 +    )
 +  }
 +

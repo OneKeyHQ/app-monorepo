@@ -74,7 +74,6 @@ const nativeContractDependencies = {
   ],
   ios: [
     '@onramper/onramper-react-native',
-    'burnt',
     'expo-apple-authentication',
     'expo-glass-effect',
     'expo-modules-jsi',
