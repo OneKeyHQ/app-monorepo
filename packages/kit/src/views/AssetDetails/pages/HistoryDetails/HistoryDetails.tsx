@@ -1282,14 +1282,10 @@ function HistoryDetails() {
     txDetails?.inputOutputSource === 'account' &&
     !!(txDetails.sends?.length || txDetails.receives?.length);
   const showUTXOs =
-    (!isLocalWalletHistory ||
-      new BigNumber(txDetails?.block ?? historyTx?.decodedTx.block ?? 0).gt(
-        0,
-      )) &&
-    (!localWalletHistoryFlow ||
-      hasWalletIO ||
-      localWalletHistoryFlow.from.length > 0 ||
-      localWalletHistoryFlow.to.length > 0);
+    !localWalletHistoryFlow ||
+    hasWalletIO ||
+    localWalletHistoryFlow.from.length > 0 ||
+    localWalletHistoryFlow.to.length > 0;
 
   const renderTxFlow = useCallback(() => {
     const action = historyTx?.decodedTx.actions[0];
