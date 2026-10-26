@@ -12,7 +12,6 @@ import {
 
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Badge,
@@ -373,7 +372,7 @@ function TokenListHeader({
   );
 }
 
-function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
+function BasePerpTokenSelectorContent() {
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1442,14 +1441,11 @@ function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
 
   const content = (
     <YStack
-      minHeight={0}
-      maxHeight={maxHeight}
-      flexShrink={1}
       {...(platformEnv.isNative
         ? undefined
         : { onKeyDownCapture: handleFavoriteShortcut })}
     >
-      <YStack gap="$1" minHeight={0} flexShrink={1}>
+      <YStack gap="$1">
         <XStack px="$2" pt="$2">
           <SearchBar
             testID={PerpTestIDs.TokenSelectorSearch}
@@ -1526,21 +1522,15 @@ function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
             </ScrollView>
           </XStack>
         ) : null}
-        <YStack minHeight={0} flexShrink={1}>
+        <YStack>
           {showFavoritesEmpty ? (
-            <YStack height={350} minHeight={0} flexShrink={1}>
+            <YStack height={350}>
               <FavoritesEmptyState />
             </YStack>
           ) : (
-            <YStack
-              width="100%"
-              minWidth={0}
-              minHeight={0}
-              flexShrink={1}
-              overflow="hidden"
-            >
+            <YStack width="100%" minWidth={0} overflow="hidden">
               <TokenListHeader layoutMode={desktopListLayout} />
-              <YStack height={350} minWidth={0} minHeight={0} flexShrink={1}>
+              <YStack height={350} minWidth={0}>
                 <ListView
                   ref={listRef}
                   showsVerticalScrollIndicator={false}
@@ -1634,8 +1624,8 @@ function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
   );
 }
 
-function PerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
-  return <BasePerpTokenSelectorContent maxHeight={maxHeight} />;
+function PerpTokenSelectorContent() {
+  return <BasePerpTokenSelectorContent />;
 }
 
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
@@ -1645,12 +1635,6 @@ function BasePerpTokenSelector() {
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const [isOpen, setIsOpen] = useState(false);
-  const { height: viewportHeight, width: viewportWidth } =
-    useWindowDimensions();
-  const [contentMaxHeight, setContentMaxHeight] = useState<number>();
-  useEffect(() => {
-    setContentMaxHeight(undefined);
-  }, [viewportHeight, viewportWidth]);
   const [contentGeneration, setContentGeneration] = useState(0);
   const isOpeningRef = useRef(false);
   const {
@@ -1699,7 +1683,6 @@ function BasePerpTokenSelector() {
         return;
       }
       isOpeningRef.current = true;
-      setContentMaxHeight(undefined);
       void waitForTokenSelectorOpenPrewarm(
         Promise.resolve().then(() => prewarmTokenSelectorImages()),
       ).finally(() => {
@@ -1741,10 +1724,6 @@ function BasePerpTokenSelector() {
         })}
         floatingPanelProps={{
           width: DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH,
-          onLayout: (event) => {
-            const height = event.nativeEvent.layout.height;
-            if (height > 0) setContentMaxHeight(height);
-          },
         }}
         open={isOpen}
         onOpenChange={handleOpenChange}
@@ -1814,17 +1793,11 @@ function BasePerpTokenSelector() {
             <Icon name="ChevronBottomOutline" size="$4" />
           </Badge>
         }
-        renderContent={
-          <PerpTokenSelectorContentMemo
-            key={contentGeneration}
-            maxHeight={contentMaxHeight}
-          />
-        }
+        renderContent={<PerpTokenSelectorContentMemo key={contentGeneration} />}
       />
     ),
     [
       contentGeneration,
-      contentMaxHeight,
       isOpen,
       triggerLabel,
       activeCoin,
