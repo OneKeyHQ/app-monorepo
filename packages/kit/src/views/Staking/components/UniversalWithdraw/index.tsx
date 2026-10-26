@@ -1776,16 +1776,24 @@ export function UniversalWithdraw({
   if (transactionConfirmation) {
     lastConfirmationRef.current = transactionConfirmation;
   }
-  // A box emptied keeps its figures a moment (dimmed), so a digit deleted
-  // and typed again doesn't blink; left empty, the rows go back to dashes
+  // A box emptied keeps what was on screen a moment (the figures dimmed, or
+  // the placeholders of a quote on its way), so a digit deleted and typed
+  // again is a change rather than a blink or a restart; left empty, the
+  // rows go back to dashes together
+  const [wasPositiveAmount, setWasPositiveAmount] = useState(isPositiveAmount);
+  const [isEmptiedHolding, setIsEmptiedHolding] = useState(false);
+  if (wasPositiveAmount !== isPositiveAmount) {
+    setWasPositiveAmount(isPositiveAmount);
+    setIsEmptiedHolding(!isPositiveAmount);
+  }
   useEffect(() => {
     if (isPositiveAmount) {
       return undefined;
     }
-    const timer = setTimeout(
-      () => setShownQuote(EMPTY_SHOWN_WITHDRAW_QUOTE),
-      QUOTE_SETTLE_MS,
-    );
+    const timer = setTimeout(() => {
+      setShownQuote(EMPTY_SHOWN_WITHDRAW_QUOTE);
+      setIsEmptiedHolding(false);
+    }, QUOTE_SETTLE_MS);
     return () => clearTimeout(timer);
   }, [isPositiveAmount]);
   // What the rows show: the shown answer's figures (cancelling a queued
@@ -1801,7 +1809,7 @@ export function UniversalWithdraw({
   if (!isCancelWithdrawal) {
     isQuoteUpdating = isPositiveAmount
       ? shownQuote.requestKey !== transactionConfirmationRequestKey
-      : shownQuote.amount !== '';
+      : shownQuote.amount !== '' || isEmptiedHolding;
   }
 
   const pendleDetailRows = usePendleTransactionDetails({
@@ -1864,7 +1872,7 @@ export function UniversalWithdraw({
     feeAmount: estimateFee?.amount,
     amountValue,
     isPositiveAmount,
-    hasShownFigures: shownQuote.amount !== '',
+    hasShownFigures: shownQuote.amount !== '' || isEmptiedHolding,
   });
   // Cancelling a queued withdrawal has no amount: its fee shows as it is
   let shownFee = feeFigure.shownFee;
@@ -2246,9 +2254,9 @@ export function UniversalWithdraw({
       }
       fiatSymbol={symbol}
       payFiatValue={currentValue}
-      // Through the moment an emptied box keeps its figures it waits
-      // as for a changed amount, with the rows
-      loading={quoteLoading || (!isPositiveAmount && isQuoteUpdating)}
+      // Waits as the rows do: from a changed amount, or through the moment
+      // an emptied box keeps its figures, until the answer for it
+      loading={isQuoteUpdating}
     />
   );
 

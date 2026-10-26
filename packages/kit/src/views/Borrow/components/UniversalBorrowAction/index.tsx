@@ -12,6 +12,12 @@ import type {
   IEarnEstimateFeeResp,
 } from '@onekeyhq/shared/types/staking';
 
+import {
+  buildSupplyEmptyFirstFrameKey,
+  keepFirstFrame,
+  readFirstFrame,
+} from '../../../Earn/pages/EarnRouter/earnFirstFrameCache';
+
 export type IBorrowActionType = 'supply' | 'withdraw' | 'borrow' | 'repay';
 
 export type IUniversalBorrowActionParams = {
@@ -186,6 +192,18 @@ export function useUniversalBorrowAction({
   }, [amount]);
 
   const shouldFetchTransactionConfirmation = isReady && !isDisabled;
+  // A supply's answer for an empty amount is kept for the next form on this
+  // market (this one built again, or paying with another token)
+  const supplyEmptyKey =
+    action === 'supply' && isReady
+      ? buildSupplyEmptyFirstFrameKey({
+          accountId,
+          networkId,
+          provider,
+          marketAddress,
+          reserveAddress,
+        })
+      : undefined;
 
   const transactionConfirmationScopeKey = useMemo(
     () =>
@@ -299,6 +317,9 @@ export function useUniversalBorrowAction({
       }
       try {
         const resp = await fetchTransactionConfirmation(value);
+        if (supplyEmptyKey && value === '0') {
+          keepFirstFrame(supplyEmptyKey, resp);
+        }
         if (transactionConfirmationRequestNonceRef.current === requestNonce) {
           setTransactionConfirmationState({
             requestKey,
@@ -574,10 +595,22 @@ export function useUniversalBorrowAction({
     [amount, effectiveCheckAmountState.checkAmountMessage],
   );
 
+  // Supplying with nothing typed: until the market answers, its last answer
+  // for an empty amount, so the form opens with the market's rows
+  let { transactionConfirmation } = effectiveTransactionConfirmationState;
+  if (
+    !transactionConfirmation &&
+    supplyEmptyKey &&
+    normalizedAmount === '0' &&
+    shouldFetchTransactionConfirmation
+  ) {
+    transactionConfirmation =
+      readFirstFrame<IBorrowTransactionConfirmation>(supplyEmptyKey);
+  }
+
   return {
     estimateFeeResp,
-    transactionConfirmation:
-      effectiveTransactionConfirmationState.transactionConfirmation,
+    transactionConfirmation,
     transactionConfirmationLoading:
       effectiveTransactionConfirmationState.transactionConfirmationLoading,
     checkAmountMessage: effectiveCheckAmountState.checkAmountMessage,

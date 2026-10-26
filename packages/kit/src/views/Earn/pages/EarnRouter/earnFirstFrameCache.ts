@@ -96,3 +96,21 @@ export const buildEmptyAmountFirstFrameKey = ({
   `${action}-empty:${networkId}:${providerName.toLowerCase()}:${symbol.toLowerCase()}:${(
     vault ?? ''
   ).toLowerCase()}`;
+
+// A lending market's answer for an empty supply: the same for the market's
+// own form and for paying with another token, so either opens with the
+// market's rows
+export const buildSupplyEmptyFirstFrameKey = ({
+  accountId,
+  networkId,
+  provider,
+  marketAddress,
+  reserveAddress,
+}: {
+  accountId: string;
+  networkId: string;
+  provider: string;
+  marketAddress: string;
+  reserveAddress: string;
+}) =>
+  `supply-empty:${accountId}:${networkId}:${provider.toLowerCase()}:${marketAddress.toLowerCase()}:${reserveAddress.toLowerCase()}`;

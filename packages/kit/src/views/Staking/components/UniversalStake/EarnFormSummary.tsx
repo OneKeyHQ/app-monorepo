@@ -127,7 +127,8 @@ export function useEarnFeeFigure({
   feeAmount?: string;
   amountValue: string;
   isPositiveAmount: boolean;
-  // The other figures are on screen (this amount's, or dimmed, the last's)
+  // The other figures are on screen (this amount's, or dimmed, the last's),
+  // or their placeholders through an emptied box's moment
   hasShownFigures: boolean;
 }) {
   const shownRef = useRef<IEarnEstimateFeeResp | undefined>(undefined);
@@ -331,6 +332,15 @@ export function EarnFormValue({
     children === null ||
     children === false
   );
+  // Decided as the value appears and kept while it stays: a view that gains
+  // an enterStyle after it mounted is drawn again as a new view, so its
+  // first dim would jump rather than fade
+  const valueFadesInRef = useRef<boolean | undefined>(undefined);
+  if (!hasValue) {
+    valueFadesInRef.current = undefined;
+  } else if (valueFadesInRef.current === undefined) {
+    valueFadesInRef.current = isMountedRef.current;
+  }
   const showsPlaceholder = !hasValue && isQuoting;
   return (
     <XStack
@@ -351,7 +361,7 @@ export function EarnFormValue({
           opacity={isDimmed ? STALE_OPACITY : 1}
           transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
-          enterStyle={isMountedRef.current ? FADE_IN : undefined}
+          enterStyle={valueFadesInRef.current ? FADE_IN : undefined}
         >
           {children}
         </XStack>
@@ -376,6 +386,14 @@ function OutcomeValues({
   fadesIn?: boolean;
 }) {
   const hasValues = outcome.values.length > 0;
+  // Decided as the figures appear and kept while they stay, as a row's
+  // value is
+  const valuesFadeInRef = useRef<boolean | undefined>(undefined);
+  if (!hasValues) {
+    valuesFadeInRef.current = undefined;
+  } else if (valuesFadeInRef.current === undefined) {
+    valuesFadeInRef.current = fadesIn;
+  }
   // The note line's room, where the figure has no note (yet)
   const noteRoom =
     outcome.hasNoteLine && !outcome.values.some((value) => value.note) ? (
@@ -404,7 +422,7 @@ function OutcomeValues({
           opacity={isDimmed ? STALE_OPACITY : 1}
           transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
-          enterStyle={fadesIn ? FADE_IN : undefined}
+          enterStyle={valuesFadeInRef.current ? FADE_IN : undefined}
         >
           {outcome.values.map((value, index) => (
             <YStack key={index} ai="flex-end">
@@ -585,11 +603,14 @@ function EarnFormRowEntry({
   fadesIn: boolean;
   children: ReactNode;
 }) {
+  // As the row mounts, and kept: the row would be drawn again as a new
+  // view if it gained an enterStyle later
+  const [entryFadesIn] = useState(fadesIn);
   return (
     <YStack
       transition="quick"
       animateOnly={ANIMATE_ONLY_OPACITY}
-      enterStyle={fadesIn ? FADE_IN : undefined}
+      enterStyle={entryFadesIn ? FADE_IN : undefined}
     >
       {children}
     </YStack>

@@ -951,6 +951,8 @@ export function UniversalStake({
   const [receiveQuote, setReceiveQuote] = useState<
     { amount?: string; description?: IEarnText } | undefined
   >(undefined);
+  // The amount whose figure the line last showed
+  const lineShownAmountRef = useRef<string | undefined>(undefined);
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
@@ -1572,8 +1574,18 @@ export function UniversalStake({
     return !remainingCapBN.isNaN() && remainingCapBN.isEqualTo(0);
   }, [protocolInfo?.remainingCap]);
 
+  // The server's word on an amount over the balance stops once the amount is
+  // back within it, not when its next check comes in (Pendle's speaks of a
+  // deposit balance, a second message for what the user just put right)
+  const isStaleOverBalanceMessage =
+    checkedAmount !== undefined &&
+    checkedAmount !== amountValue &&
+    new BigNumber(checkedAmount).gt(balance) &&
+    !isInsufficientBalance;
   const isCheckAmountMessageError =
-    amountValue?.length > 0 && !!checkAmountMessage;
+    amountValue?.length > 0 &&
+    !!checkAmountMessage &&
+    !isStaleOverBalanceMessage;
 
   const amountInputDisabled = useMemo(() => {
     return isDisabled || isStakingCapFull;
@@ -2215,10 +2227,17 @@ export function UniversalStake({
     const amountBN = new BigNumber(amountValue);
     return !amountBN.isNaN() && amountBN.gt(0);
   }, [amountValue]);
-  // A box emptied keeps its figures a moment (dimmed), so a digit deleted
-  // and typed again doesn't blink; left empty, the rows and the line under
-  // the box go back to dashes, and the next amount starts from placeholders
-  // rather than the last amount's figures
+  // A box emptied keeps what was on screen a moment (the figures dimmed, or
+  // the placeholders of a quote on its way), so a digit deleted and typed
+  // again is a change rather than a blink or a restart; left empty, the rows
+  // and the line under the box go back to dashes together, and the next
+  // amount starts from placeholders rather than the last amount's figures
+  const [wasPositiveAmount, setWasPositiveAmount] = useState(isPositiveAmount);
+  const [isEmptiedHolding, setIsEmptiedHolding] = useState(false);
+  if (wasPositiveAmount !== isPositiveAmount) {
+    setWasPositiveAmount(isPositiveAmount);
+    setIsEmptiedHolding(!isPositiveAmount);
+  }
   useEffect(() => {
     if (isPositiveAmount) {
       return undefined;
@@ -2226,6 +2245,7 @@ export function UniversalStake({
     const timer = setTimeout(() => {
       setShownQuote(EMPTY_SHOWN_QUOTE);
       setReceiveQuote(undefined);
+      setIsEmptiedHolding(false);
     }, QUOTE_SETTLE_MS);
     return () => clearTimeout(timer);
   }, [isPositiveAmount]);
@@ -2238,9 +2258,11 @@ export function UniversalStake({
     lastConfirmationRef.current ??
     emptyAmountConfirmation;
   // From the keystroke until this amount's quote is in: the figures shown
-  // are the last amount's, dimmed
+  // are the last amount's, dimmed. Through an emptied box's moment what was
+  // on screen waits too
   const isQuoteUpdating =
-    (isPositiveAmount ? amountValue : '') !== shownQuote.amount;
+    (isPositiveAmount ? amountValue : '') !== shownQuote.amount ||
+    isEmptiedHolding;
 
   const pendleRows = useMemo(
     () =>
@@ -2331,7 +2353,7 @@ export function UniversalStake({
     feeAmount: estimateFeeAmount,
     amountValue,
     isPositiveAmount,
-    hasShownFigures: shownQuote.amount !== '',
+    hasShownFigures: shownQuote.amount !== '' || isEmptiedHolding,
   });
 
   const summaryRows = useMemo(() => {
@@ -2711,20 +2733,36 @@ export function UniversalStake({
   // skeleton until a quote for this very amount is in, a dash without one.
   // A box emptied keeps the last figure a moment (dimmed), as the rows do
   const receiveSymbol = effectiveReceiveInputConfig?.tokenSymbol ?? '';
-  const isReceiveSettling =
-    !isPositiveAmount && new BigNumber(receiveQuote?.amount ?? '').gt(0);
+  // With the amount over the balance, or turned down by the server's check,
+  // the red line stands in the line's place: the figure quoted then was
+  // never on screen, so coming back the line waits for the next one with a
+  // placeholder rather than showing that one, dimmed, as the last
+  const isLineCovered =
+    isPositiveAmount &&
+    !isDisabled &&
+    (isInsufficientBalance || isCheckAmountMessageError);
+  const lineQuote =
+    receiveQuote &&
+    (receiveQuote.amount === lineShownAmountRef.current ||
+      (receiveQuote.amount === amountValue && !isLineCovered))
+      ? receiveQuote
+      : undefined;
+  const isReceiveSettling = isEmptiedHolding;
+  // Dimmed until this amount's figure is in, as the rows are
   const isReceiveQuoting =
-    (isPositiveAmount &&
-      (quoteLoading || receiveQuote?.amount !== amountValue)) ||
+    (isPositiveAmount && lineQuote?.amount !== amountValue) ||
     isReceiveSettling;
   let receiveLine = '–';
   if (isPositiveAmount || isReceiveSettling) {
-    const bought = earnUtils.extractAmountFromText(receiveQuote?.description);
+    const bought = earnUtils.extractAmountFromText(lineQuote?.description);
     receiveLine = new BigNumber(bought).gt(0)
       ? `≈ ${numberFormat(bought, { formatter: 'balance' })} ${receiveSymbol}`
       : '–';
   }
   const isReceiveLinePlaceholder = !receiveLine.startsWith('≈');
+  if (!isReceiveLinePlaceholder && !isLineCovered) {
+    lineShownAmountRef.current = lineQuote?.amount;
+  }
 
   // What is wrong with the amount, as one red line under the box: the
   // server's check, else more than the balance

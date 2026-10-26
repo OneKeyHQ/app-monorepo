@@ -132,10 +132,22 @@ export function EarnOfferSwitcher({
   onSelect?: (offer: IEarnDesktopHoldOffer) => void;
 }) {
   const focusFirstRef = useRef(false);
-  const fadesIn =
-    !shownRowKeyRef ||
-    (shownRowKeyRef.current !== undefined &&
-      shownRowKeyRef.current !== selected.key);
+  // Decided as the row for an offer appears and kept while it shows that
+  // offer: the row would be drawn again as a new view if it gained an
+  // enterStyle later
+  const rowFadeRef = useRef<{ key: string; fadesIn: boolean } | undefined>(
+    undefined,
+  );
+  if (rowFadeRef.current?.key !== selected.key) {
+    rowFadeRef.current = {
+      key: selected.key,
+      fadesIn:
+        !shownRowKeyRef ||
+        (shownRowKeyRef.current !== undefined &&
+          shownRowKeyRef.current !== selected.key),
+    };
+  }
+  const { fadesIn } = rowFadeRef.current;
   useEffect(() => {
     if (shownRowKeyRef) {
       shownRowKeyRef.current = selected.key;

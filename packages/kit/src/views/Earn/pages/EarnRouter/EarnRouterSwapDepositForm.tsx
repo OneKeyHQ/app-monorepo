@@ -82,6 +82,7 @@ import { buildKeyboardPressProps } from '../../components/desktopHome/earnDeskto
 
 import {
   buildEmptyAmountFirstFrameKey,
+  buildSupplyEmptyFirstFrameKey,
   keepFirstFrame,
   readFirstFrame,
 } from './earnFirstFrameCache';
@@ -250,6 +251,18 @@ function useDepositSummary({
                   amount: requestAmount,
                 },
               );
+            if (requestAmount === '0') {
+              keepFirstFrame(
+                buildSupplyEmptyFirstFrameKey({
+                  accountId: request.accountId,
+                  networkId,
+                  provider: request.provider,
+                  marketAddress: request.marketAddress,
+                  reserveAddress: request.reserveAddress,
+                }),
+                lending,
+              );
+            }
             if (isCurrent) {
               setSummary({
                 lending,
@@ -312,6 +325,38 @@ function useDepositSummary({
       clearTimeout(timer);
     };
   }, [networkId, request, amount, isDisabled]);
+  // Before its own answer, the rows for an empty amount as the provider's
+  // own form last read them: the request can come a moment after the form,
+  // and a form built again for another Pay with token keeps its rows
+  if (request && !isDisabled && !new BigNumber(amount).gt(0)) {
+    if (request.kind === 'lending' && !summary.lending) {
+      const lending = readFirstFrame<IBorrowTransactionConfirmation>(
+        buildSupplyEmptyFirstFrameKey({
+          accountId: request.accountId,
+          networkId,
+          provider: request.provider,
+          marketAddress: request.marketAddress,
+          reserveAddress: request.reserveAddress,
+        }),
+      );
+      if (lending) {
+        return { ...summary, lending, lendingAmount: '0' };
+      }
+    }
+    if (request.kind === 'staking' && !summary.staking) {
+      const staking = readFirstFrame<IStakeTransactionConfirmation>(
+        buildEmptyAmountFirstFrameKey({
+          networkId,
+          providerName: request.provider,
+          symbol: request.symbol,
+          vault: request.vault,
+        }),
+      );
+      if (staking) {
+        return { ...summary, staking, stakingAmount: '0' };
+      }
+    }
+  }
   return summary;
 }
 
@@ -605,14 +650,26 @@ export function EarnRouterSwapDepositForm({
   // The last estimate stays (dimmed) while the next amount is quoted, and the
   // rows keep its figures until the new ones are in
   const lastDepositRef = useRef('');
-  // Emptied with figures on screen: they stay a moment, dimmed; left empty,
-  // dashes, and the next amount starts from placeholders
+  // What was last on screen: the estimate on the line under the box, the
+  // estimate the provider's figures were for (Pendle's line, as the red
+  // line can stand in its place, and the rows), the market's answer
+  const lineShownDepositRef = useRef('');
+  const lineShownSummaryAmountRef = useRef<string | undefined>(undefined);
+  const shownSummaryAmountRef = useRef<string | undefined>(undefined);
+  const shownLendingAmountRef = useRef<string | undefined>(undefined);
+  // Emptied: what was on screen stays a moment (the figures dimmed, or the
+  // placeholders of an estimate on its way), so a digit deleted and typed
+  // again is a change rather than a blink or a restart; left empty, dashes
+  // together, and the next amount starts from placeholders. A route's
+  // dashes have nothing to keep
   const wasAmountRef = useRef(hasAmount);
+  const wasNoRouteRef = useRef(false);
   const isEmptiedRef = useRef(false);
   if (wasAmountRef.current !== hasAmount) {
     wasAmountRef.current = hasAmount;
-    isEmptiedRef.current = !hasAmount && Boolean(lastDepositRef.current);
+    isEmptiedRef.current = !hasAmount && !wasNoRouteRef.current;
   }
+  wasNoRouteRef.current = hasNoRoute;
   const [, setSettleTick] = useState(0);
   useEffect(() => {
     if (hasAmount || !isEmptiedRef.current) {
@@ -631,6 +688,18 @@ export function EarnRouterSwapDepositForm({
     lastDepositRef.current = '';
   }
   const shownDeposit = depositAmount || lastDepositRef.current;
+  // The line's figure: an estimate made while the red line stood in its
+  // place (over the balance) was never on screen, so coming back the line
+  // waits for the next one with a placeholder rather than showing that one,
+  // dimmed, as the last
+  const lineDeposit =
+    (Boolean(depositAmount) && !isQuoting) ||
+    shownDeposit === lineShownDepositRef.current
+      ? shownDeposit
+      : '';
+  if (lineDeposit && !isInsufficient) {
+    lineShownDepositRef.current = lineDeposit;
+  }
   const payFiat = hasAmount
     ? toFiat(amountValue.times(payToken.priceUsd).toFixed())
     : '';
@@ -640,6 +709,31 @@ export function EarnRouterSwapDepositForm({
     amount: shownDeposit,
     isDisabled,
   });
+  // An answer shows when it is for this amount's estimate, or is the one on
+  // screen (dimmed while the next is worked out). One for an earlier
+  // estimate that was never on screen (it came in after the amount
+  // changed, or under the red line) waits behind placeholders instead
+  const summaryAmount = depositSummary.stakingAmount;
+  const isSummaryCurrent =
+    Boolean(depositAmount) && summaryAmount === depositAmount;
+  const canShowSummary =
+    isSummaryCurrent ||
+    (summaryAmount !== undefined &&
+      summaryAmount === shownSummaryAmountRef.current);
+  const canShowLineSummary =
+    isSummaryCurrent ||
+    (summaryAmount !== undefined &&
+      summaryAmount === lineShownSummaryAmountRef.current);
+  const lendingAmount = depositSummary.lendingAmount;
+  const canShowLending =
+    lendingAmount !== undefined &&
+    (lendingAmount === shownLendingAmountRef.current ||
+      (shownDeposit
+        ? Boolean(depositAmount) && lendingAmount === depositAmount
+        : lendingAmount === '0'));
+  if (canShowLending) {
+    shownLendingAmountRef.current = lendingAmount;
+  }
 
   // With no card to ask for: a year at the provider's rate, in the token
   // deposited and in money. For the estimate shown, so the last one's stays
@@ -950,19 +1044,29 @@ export function EarnRouterSwapDepositForm({
   const stakingSummary = depositSummary.staking;
   const isPendle = summaryRequest?.kind === 'pendle';
   // No figures yet: nothing typed, no route, the rows still the empty
-  // amount's (the first estimate's are on their way), or no Pendle quote
+  // amount's (the first estimate's are on their way), no Pendle quote, or
+  // an answer that never was on screen
   const isSummaryPlaceholder =
     (!hasAmount && !isEmptySettling) ||
     hasNoRoute ||
     !shownDeposit ||
     (summaryRequest?.kind === 'staking' &&
       depositSummary.stakingAmount === '0') ||
-    (isPendle && !stakingSummary);
+    (isPendle && !stakingSummary) ||
+    ((summaryRequest?.kind === 'staking' || isPendle) && !canShowSummary);
   // From the swap's new estimate until the provider's answer for it
   const isSummaryUpdating =
     (summaryRequest?.kind === 'staking' || isPendle) &&
     Boolean(shownDeposit) &&
     depositSummary.stakingAmount !== shownDeposit;
+  const isSummaryLoading = isQuoting || isSummaryUpdating || isEmptySettling;
+  if (!isSummaryPlaceholder) {
+    shownSummaryAmountRef.current = summaryAmount;
+  } else if (!isSummaryLoading) {
+    // Dashes: nothing of the last amount's is on screen any more
+    shownSummaryAmountRef.current = undefined;
+    lineShownSummaryAmountRef.current = undefined;
+  }
   // Pendle's quote split as its own form splits it: what you get at
   // maturity is the result, the rates are rows
   const pendleQuote = isPendle ? stakingSummary : undefined;
@@ -1012,7 +1116,9 @@ export function EarnRouterSwapDepositForm({
         tokenSymbol={depositToken.symbol}
         price={depositToken.priceUsd}
         currencySymbol={currencyInfo.symbol}
-        transactionConfirmation={depositSummary.lending}
+        transactionConfirmation={
+          canShowLending ? depositSummary.lending : undefined
+        }
         // From the swap's new estimate until the market's answer for it
         transactionConfirmationLoading={
           depositSummary.lendingLoading ||
@@ -1079,7 +1185,7 @@ export function EarnRouterSwapDepositForm({
     summary = isDisabled ? null : (
       <EarnFormSummary
         outcome={outcome}
-        isLoading={isQuoting || isSummaryUpdating || isEmptySettling}
+        isLoading={isSummaryLoading}
         rows={rows}
       />
     );
@@ -1139,7 +1245,7 @@ export function EarnRouterSwapDepositForm({
     summary = isDisabled ? null : (
       <EarnFormSummary
         outcome={outcome}
-        isLoading={isQuoting || isSummaryUpdating || isEmptySettling}
+        isLoading={isSummaryLoading}
         rows={rows}
       />
     );
@@ -1150,20 +1256,24 @@ export function EarnRouterSwapDepositForm({
   // as Pendle's own form's line. A dash before an amount or with no route
   let depositLine = '–';
   if (summaryRequest?.kind === 'pendle') {
-    const bought = isSummaryPlaceholder
-      ? ''
-      : earnUtils.extractAmountFromText(pendleQuote?.receive?.description);
+    const bought =
+      isSummaryPlaceholder || !canShowLineSummary
+        ? ''
+        : earnUtils.extractAmountFromText(pendleQuote?.receive?.description);
     if (new BigNumber(bought).gt(0)) {
       depositLine = `≈ ${numberFormat(bought, {
         formatter: 'balance',
       })} ${summaryRequest.receiveSymbol}`;
     }
-  } else if (shownDeposit) {
-    depositLine = `≈ ${numberFormat(shownDeposit, {
+  } else if (lineDeposit) {
+    depositLine = `≈ ${numberFormat(lineDeposit, {
       formatter: 'balance',
     })} ${depositToken.symbol}`;
   }
   const isDepositLinePlaceholder = !depositLine.startsWith('≈');
+  if (isPendle && !isDepositLinePlaceholder && !isInsufficient) {
+    lineShownSummaryAmountRef.current = summaryAmount;
+  }
 
   // A route problem is not the amount's: it stays a notice under the
   // protocol
