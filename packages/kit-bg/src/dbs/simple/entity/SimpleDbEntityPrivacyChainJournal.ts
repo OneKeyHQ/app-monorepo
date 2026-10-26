@@ -473,14 +473,11 @@ export class SimpleDbEntityPrivacyChainJournal extends SimpleDbEntityBase<IPriva
     });
   }
 
-  // One account's sends. A tx counts as expired once its expiryHeight is
-  // below `expiredBeforeHeight`; without it, none is. An unexpired tx may
-  // still be mined whatever its broadcast state (an unknown outcome may have
-  // reached the node), so it always keeps its rawTx and its input locks.
-  // - 'pending' ("Clear pending transactions"): everything else goes,
-  //   including locks of a send still being signed, as BTC keeps no local
-  //   input locks.
-  // - 'expired' (deleting local data): only expired txs and locks go.
+  // One account's sends.
+  // - 'pending' ("Clear pending transactions"): everything goes, as BTC keeps
+  //   no local input locks.
+  // - 'expired' (deleting local data): only txs and locks whose expiryHeight
+  //   is below `expiredBeforeHeight` go; without it, none.
   async clearTransparentPendingSends({
     accountId,
     expiredBeforeHeight,
@@ -495,24 +492,18 @@ export class SimpleDbEntityPrivacyChainJournal extends SimpleDbEntityBase<IPriva
       return;
     }
     const isExpired = (expiryHeight: number) =>
-      expiredBeforeHeight !== undefined && expiryHeight < expiredBeforeHeight;
+      scope === 'pending' ||
+      (expiredBeforeHeight !== undefined && expiryHeight < expiredBeforeHeight);
     await this.updateZcashBucket(accountId, (bucket) => {
-      const keptOwnerIds = new Set<string>();
       for (const [txid, tx] of Object.entries(bucket.pendingTxs.valid)) {
         if (isExpired(tx.expiryHeight)) {
           delete bucket.pendingTxs.valid[txid];
-        } else {
-          keptOwnerIds.add(tx.ownerId);
         }
       }
       for (const [key, reservation] of Object.entries(
         bucket.reservations.valid,
       )) {
-        const kept =
-          scope === 'pending'
-            ? keptOwnerIds.has(reservation.ownerId)
-            : !isExpired(reservation.expiryHeight);
-        if (!kept) {
+        if (isExpired(reservation.expiryHeight)) {
           delete bucket.reservations.valid[key];
         }
       }
