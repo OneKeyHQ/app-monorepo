@@ -6,11 +6,7 @@ import { createContext, useContext } from 'react';
 import { act, fireEvent, render } from '@testing-library/react';
 import { createStore } from 'jotai';
 
-import {
-  ProviderJotaiContextMarketV2,
-  networkIdAtom,
-  tokenDetailAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { ProviderJotaiContextMarketV2 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
@@ -54,11 +50,6 @@ jest.mock('@onekeyhq/components', () => ({
   useIsModalPage: () => false,
   useMedia: () => ({ gtLg: !platformEnv.isNative, md: false }),
   usePreventRemove: jest.fn(),
-  rootNavigationRef: {
-    current: {
-      getCurrentRoute: () => ({ key: mockFocusedKey, name: 'MarketDetailV2' }),
-    },
-  },
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -223,7 +214,7 @@ async function refresh(routeKey: string) {
   });
 }
 
-describe('MarketDetailV2 request ownership', () => {
+describe('MarketDetailV2 asset detail recovery', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRefreshes.clear();
@@ -238,35 +229,6 @@ describe('MarketDetailV2 request ownership', () => {
       assetDetail((payload as { assetId: string }).assetId),
     );
   });
-
-  it.each(['extension', 'native'])(
-    'prevents a retained %s page from polling over a focused detail in the same store',
-    async (platform) => {
-      platformEnv.isNative = platform === 'native';
-      const store = createStore();
-      const pages = (showB: boolean) => (
-        <ProviderJotaiContextMarketV2 store={store}>
-          <Detail routeKey="a" assetId="doge" />
-          {showB ? <Detail routeKey="b" assetId="bitcoin" /> : null}
-        </ProviderJotaiContextMarketV2>
-      );
-      const view = render(pages(false));
-      await refresh('a');
-      expect(store.get(tokenDetailAtom())?.symbol).toBe('DOGE');
-
-      // A stays mounted while another tab opens detail B in a modal.
-      mockFocusedKey = 'b';
-      mockRootLength = 2;
-      view.rerender(pages(true));
-      await refresh('b');
-      expect(store.get(tokenDetailAtom())?.symbol).toBe('BITCOIN');
-      const requestCount = mockFetchAsset.mock.calls.length;
-      await refresh('a');
-      expect(mockFetchAsset).toHaveBeenCalledTimes(requestCount);
-      expect(store.get(tokenDetailAtom())?.symbol).toBe('BITCOIN');
-      expect(store.get(networkIdAtom())).toBe('btc--0');
-    },
-  );
 
   it('restores the header when an Asset switch fails in fullscreen', async () => {
     platformEnv.isWeb = true;

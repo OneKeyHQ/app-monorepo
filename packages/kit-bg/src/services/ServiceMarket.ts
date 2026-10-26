@@ -4,9 +4,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { LRUCache, memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
@@ -31,27 +30,16 @@ import type {
 } from '@onekeyhq/shared/types/market';
 
 import { type IDBCloudSyncItem } from '../dbs/local/types';
-import { settingsPersistAtom } from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
 
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
-
-type IInitialMarketAssetDetailCacheEntry = {
-  promise: Promise<IMarketAssetDetailData>;
-  expiresAt?: number;
-};
 
 @backgroundClass()
 class ServiceMarket extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
-
-  private initialMarketAssetDetailCache = new LRUCache<
-    string,
-    IInitialMarketAssetDetailCacheEntry
-  >({ max: 20 });
 
   _fetchCategories = memoizee(
     async () => {
@@ -130,75 +118,10 @@ class ServiceMarket extends ServiceBase {
     variantId,
     currency = 'usd',
     autoHandleError,
-    reuseInitialResult = false,
   }: {
     assetId: string;
     variantId?: string;
     currency?: string;
-    autoHandleError?: boolean;
-    reuseInitialResult?: boolean;
-  }) {
-    if (reuseInitialResult) {
-      const { endpoint } = await this.getClientEndpointInfo(
-        EServiceEndpointEnum.Utility,
-      );
-      const settings = await settingsPersistAtom.get();
-      const locale = (
-        settings.locale === 'system' ? getDefaultLocale() : settings.locale
-      ).toLowerCase();
-      const requestCurrency = settings.currencyInfo.id;
-      const key = JSON.stringify([
-        assetId,
-        variantId ?? null,
-        currency,
-        locale,
-        requestCurrency,
-        endpoint,
-      ]);
-      const cached = this.initialMarketAssetDetailCache.get(key);
-      if (cached && (!cached.expiresAt || cached.expiresAt > Date.now())) {
-        return cached.promise;
-      }
-      const entry: IInitialMarketAssetDetailCacheEntry = {
-        promise: this._fetchMarketAssetDetail({
-          assetId,
-          variantId,
-          currency,
-          autoHandleError: false,
-        }),
-      };
-      this.initialMarketAssetDetailCache.set(key, entry);
-      void entry.promise.then(
-        () => {
-          if (this.initialMarketAssetDetailCache.get(key) === entry) {
-            entry.expiresAt = Date.now() + 5000;
-          }
-        },
-        () => {
-          if (this.initialMarketAssetDetailCache.get(key) === entry) {
-            this.initialMarketAssetDetailCache.delete(key);
-          }
-        },
-      );
-      return entry.promise;
-    }
-    return this._fetchMarketAssetDetail({
-      assetId,
-      variantId,
-      currency,
-      autoHandleError,
-    });
-  }
-
-  async _fetchMarketAssetDetail({
-    assetId,
-    variantId,
-    currency,
-    autoHandleError,
-  }: {
-    assetId: string;
-    variantId?: string;
-    currency: string;
     autoHandleError?: boolean;
   }) {
     try {

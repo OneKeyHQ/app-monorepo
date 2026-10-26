@@ -130,7 +130,6 @@ interface IMarketAssetTokenDetailPayload {
   variantId?: string;
   tokenAddress: string;
   networkId: string;
-  reuseInitialResult?: boolean;
   isCurrentRequest?: () => boolean;
 }
 
@@ -139,14 +138,8 @@ async function fetchMarketAssetTokenDetail(
   set: IJotaiSetter,
   payload: IMarketAssetTokenDetailPayload,
 ): Promise<IMarketAssetDetailData> {
-  const {
-    assetId,
-    variantId,
-    tokenAddress,
-    networkId,
-    reuseInitialResult,
-    isCurrentRequest,
-  } = payload;
+  const { assetId, variantId, tokenAddress, networkId, isCurrentRequest } =
+    payload;
   const isAssetOnly = !tokenAddress && !networkId;
   const expectedTokenAddress = isAssetOnly
     ? get(tokenAddressAtom())
@@ -171,7 +164,6 @@ async function fetchMarketAssetTokenDetail(
         assetId,
         variantId,
         currency: MARKET_ASSET_DETAIL_CURRENCY,
-        ...(reuseInitialResult ? { reuseInitialResult: true } : undefined),
       });
 
     if (!isCurrentIdentity()) {

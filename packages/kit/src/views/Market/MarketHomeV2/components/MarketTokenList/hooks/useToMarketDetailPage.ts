@@ -11,7 +11,6 @@ import {
   useMedia,
   useSplitViewType,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
@@ -162,17 +161,6 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         : selectedToken;
       const navigationGeneration = navigationGenerationRef.current + 1;
       navigationGenerationRef.current = navigationGeneration;
-      if (isAssetEntry && item.assetId) {
-        void backgroundApiProxy.serviceMarket
-          .fetchMarketAssetDetail({
-            assetId: item.assetId,
-            variantId: item.marketVariantId,
-            currency: 'usd',
-            autoHandleError: false,
-            reuseInitialResult: true,
-          })
-          .catch(() => undefined);
-      }
       const shouldResolveMarketAsset = Boolean(
         options?.resolveMarketAsset && !item.marketTokenId && !item.stock,
       );
@@ -285,6 +273,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           ? EEnterWay.ExtensionPopup
           : EEnterWay.ExtensionSidePanel;
 
+        const { default: backgroundApiProxy } =
+          await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
         if (navigationGenerationRef.current !== navigationGeneration) {
           return;
         }

@@ -24,7 +24,6 @@ const mockFetchMarketAssetDetail = jest.fn<
       assetId: string;
       currency?: string;
       autoHandleError?: boolean;
-      reuseInitialResult?: boolean;
     },
   ]
 >();
@@ -185,7 +184,6 @@ describe('useAutoRefreshTokenDetail', () => {
         variantId: 'doge-doge--0-1',
         tokenAddress: '',
         networkId: 'doge--0',
-        reuseInitialResult: true,
       }),
     );
     expect(mockFetchTokenDetail).not.toHaveBeenCalled();
@@ -241,12 +239,10 @@ describe('useAutoRefreshTokenDetail', () => {
     expect(mockFetchAssetTokenDetail.mock.calls[0]?.[0]).toMatchObject({
       assetId: 'bitcoin',
       variantId: 'bitcoin-evm--1-0xbtc',
-      reuseInitialResult: true,
     });
     expect(mockFetchAssetTokenDetail.mock.calls[1]?.[0]).toMatchObject({
       assetId: 'bitcoin',
       variantId: 'bitcoin-evm--1-0xbtc',
-      reuseInitialResult: false,
     });
     expect(promiseOptions).toMatchObject({
       pollingInterval: 6000,
@@ -255,7 +251,7 @@ describe('useAutoRefreshTokenDetail', () => {
     });
   });
 
-  it('drops a completed Asset result when currency or locale changes', async () => {
+  it('drops a completed Asset result when currency changes', async () => {
     mockFetchAssetTokenDetail.mockResolvedValue(initialAssetDetail);
     const input = {
       tokenAddress: '',
@@ -278,19 +274,7 @@ describe('useAutoRefreshTokenDetail', () => {
     await act(async () => {
       await promiseFactory?.();
     });
-    expect(mockFetchAssetTokenDetail.mock.calls[1]?.[0]).toMatchObject({
-      reuseInitialResult: true,
-    });
-
-    mockLocale = 'zh-CN';
-    rerender();
-    expect(result.current.marketAssetDetail).toBeUndefined();
-    await act(async () => {
-      await promiseFactory?.();
-    });
-    expect(mockFetchAssetTokenDetail.mock.calls[2]?.[0]).toMatchObject({
-      reuseInitialResult: true,
-    });
+    expect(mockFetchAssetTokenDetail).toHaveBeenCalledTimes(2);
   });
 
   it('keeps ordinary market tokens on the token detail owner', async () => {
@@ -368,7 +352,7 @@ describe('useAutoRefreshTokenDetail', () => {
 
   it('does not expose an asset result from a previous route', () => {
     promiseResult = {
-      requestKey: 'asset:btc::btc--0::usd:en-us',
+      requestKey: 'asset:btc::btc--0::usd',
       assetDetail: { asset: { assetId: 'btc' } },
     };
 
@@ -403,13 +387,13 @@ describe('useAutoRefreshTokenDetail', () => {
 
     await act(async () => {
       await expect(promiseFactory?.()).resolves.toEqual({
-        requestKey: 'asset:doge::doge--0::usd:en-us',
+        requestKey: 'asset:doge::doge--0::usd',
         assetDetail,
       });
     });
     await act(async () => {
       await expect(promiseFactory?.()).resolves.toEqual({
-        requestKey: 'asset:doge::doge--0::usd:en-us',
+        requestKey: 'asset:doge::doge--0::usd',
         assetDetail,
       });
     });
@@ -453,7 +437,7 @@ describe('useAutoRefreshTokenDetail', () => {
 
     await act(async () => {
       await expect(fetchBtc?.()).resolves.toEqual({
-        requestKey: 'asset:btc::btc--0::usd:en-us',
+        requestKey: 'asset:btc::btc--0::usd',
         assetDetail: btcAssetDetail,
       });
     });
@@ -465,7 +449,7 @@ describe('useAutoRefreshTokenDetail', () => {
 
     await act(async () => {
       await expect(fetchBtc?.()).resolves.toEqual({
-        requestKey: 'asset:btc::btc--0::usd:en-us',
+        requestKey: 'asset:btc::btc--0::usd',
         assetDetail: btcAssetDetail,
       });
     });

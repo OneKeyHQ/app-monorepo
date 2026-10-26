@@ -249,14 +249,6 @@ describe('navigateToMarketTokenDetail', () => {
   );
 
   it('keeps an explicit Asset variant when navigating from a favorite', async () => {
-    mockFetchAssetDetail.mockResolvedValueOnce({
-      selectedVariant: {
-        tokenAddress: '',
-        networkId: 'btc--0',
-        isNative: true,
-        variantId: 'btc-native',
-      },
-    });
     await navigateToMarketTokenDetail(
       {
         assetId: 'bitcoin',
@@ -272,7 +264,7 @@ describe('navigateToMarketTokenDetail', () => {
     );
     jest.runAllTimers();
 
-    expect(mockFetchAssetDetail).toHaveBeenCalledTimes(1);
+    expect(mockFetchAssetDetail).not.toHaveBeenCalled();
     expect(prepareTokenDetailPreviewMock).not.toHaveBeenCalled();
     expect(navigateMock).toHaveBeenCalledWith('main', {
       screen: 'Market',
@@ -391,8 +383,7 @@ describe('navigateToMarketTokenDetail', () => {
     },
   );
 
-  it('opens an Asset route while the detail prefetch is pending', async () => {
-    mockFetchAssetDetail.mockReturnValue(new Promise(() => undefined));
+  it('opens an Asset route without fetching Asset detail', async () => {
     const beforeNavigate = jest.fn();
     await navigateToMarketTokenDetail(
       { address: '', networkId: '', assetId: 'bitcoin' },
@@ -402,13 +393,7 @@ describe('navigateToMarketTokenDetail', () => {
       },
     );
     expect(beforeNavigate).toHaveBeenCalledTimes(1);
-    expect(mockFetchAssetDetail).toHaveBeenCalledWith({
-      assetId: 'bitcoin',
-      variantId: undefined,
-      currency: 'usd',
-      autoHandleError: false,
-      reuseInitialResult: true,
-    });
+    expect(mockFetchAssetDetail).not.toHaveBeenCalled();
     jest.runAllTimers();
     expect(navigateMock).toHaveBeenCalledWith(
       expect.anything(),

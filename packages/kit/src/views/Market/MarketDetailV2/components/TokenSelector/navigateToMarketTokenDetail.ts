@@ -1,5 +1,4 @@
 import { rootNavigationRef } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -49,17 +48,6 @@ export async function navigateToMarketTokenDetail(
 ) {
   const isCurrentRequest = opts.isCurrentRequest ?? (() => true);
   const token = selectedToken;
-  if (token.assetId) {
-    void backgroundApiProxy.serviceMarket
-      .fetchMarketAssetDetail({
-        assetId: token.assetId,
-        variantId: token.marketVariantId,
-        currency: 'usd',
-        autoHandleError: false,
-        reuseInitialResult: true,
-      })
-      .catch(() => undefined);
-  }
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
 
   const shortCode = networkUtils.getNetworkShortCode({
