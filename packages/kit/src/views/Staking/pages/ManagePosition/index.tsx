@@ -314,6 +314,16 @@ const ManagePositionPage = () => {
   );
   // The figure the form showed for the amount, read as the deposit lands
   const sideOutcomeCarry = useMemo<{ current?: IEarnOutcome }>(() => ({}), []);
+  // An emptied box (also a pick in Pay with, which empties it) has no
+  // figures to carry to the next form, as in the deposit modal
+  const handleSideAmountChange = useCallback(
+    (value: string) => {
+      if (!value) {
+        sideOutcomeCarry.current = undefined;
+      }
+    },
+    [sideOutcomeCarry],
+  );
   const handleSideDeposited = useCallback(
     (amount?: string, info?: IWithdrawSuccessInfo) => {
       if (!amount) {
@@ -480,6 +490,7 @@ const ManagePositionPage = () => {
           onStakeWithdrawSuccess={onStakeWithdrawSuccess}
           onWithdrawn={better ? handleWithdrawn : undefined}
           onDeposited={side === 'deposit' ? handleSideDeposited : undefined}
+          onAmountChange={handleSideAmountChange}
           onHeaderRightChange={setHeaderControls}
           offerSwitch={positionRow}
         />

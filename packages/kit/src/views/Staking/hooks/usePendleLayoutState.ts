@@ -54,7 +54,6 @@ export function usePendleLayoutState({
     transactionConfirmation,
     amountValue,
     isPendleLikeLayout,
-    loading,
   });
 
   const pendleRewardRows = useMemo(

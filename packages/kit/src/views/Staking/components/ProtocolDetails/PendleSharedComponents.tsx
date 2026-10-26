@@ -1,4 +1,4 @@
-import type { FC, ReactElement } from 'react';
+import type { FC, ReactElement, ReactNode } from 'react';
 import { useMemo } from 'react';
 
 import {
@@ -18,8 +18,7 @@ import type {
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 
-import { CalculationListItem } from '../CalculationList';
-import { EarnFormValue } from '../UniversalStake/EarnFormSummary';
+import { EarnFormRow, buildRowKeys } from '../UniversalStake/EarnFormSummary';
 
 import { ActionPopupContent } from './EarnActionIcon';
 import { EarnAmountText } from './EarnAmountText';
@@ -213,13 +212,11 @@ export function usePendleTransactionDetails({
   transactionConfirmation,
   amountValue,
   isPendleLikeLayout,
-  loading,
   placeholder,
 }: {
   transactionConfirmation?: IStakeTransactionConfirmation;
   amountValue: string;
   isPendleLikeLayout: boolean;
-  loading?: boolean;
   // No amount: the last quote's rows, each value a dash
   placeholder?: boolean;
 }): ReactElement[] {
@@ -242,140 +239,84 @@ export function usePendleTransactionDetails({
         (routeItem) =>
           !!routeItem?.token?.symbol && !!routeItem?.token?.logoURI,
       ) ?? [];
-    const resolveTooltipDescription = (tooltip?: IEarnTooltip) => {
-      if (tooltip?.type !== 'text') {
-        return undefined;
-      }
-      return tooltip.data?.description;
-    };
 
+    // The form's rows, keyed by label: a row holding its place and the same
+    // row with its figure are one row
+    const rowKeys = buildRowKeys(
+      detailItems.map((detailItem) => detailItem.title.text),
+    );
     detailItems.forEach((detailItem, index) => {
-      const hasRichTooltip =
-        detailItem.tooltip &&
-        (detailItem.tooltip.type !== 'text' ||
-          detailItem.tooltip.data?.items?.length);
-      const tooltipDescription = resolveTooltipDescription(detailItem.tooltip);
       const popupButton =
         detailItem.button?.type === 'popup' ? detailItem.button : undefined;
-
-      items.push(
-        <CalculationListItem key={`tx-detail-${index}`}>
-          {hasRichTooltip ? (
-            <XStack gap="$1" ai="center" flex={1}>
-              {/* The rows' label color, not the one the server sends */}
-              <SizableText
-                color="$textSubdued"
-                size={detailItem.title.size || '$bodyMd'}
-              >
-                {detailItem.title.text}
-              </SizableText>
-              <EarnTooltip
-                title={detailItem.title.text}
-                tooltip={detailItem.tooltip}
+      // A dash, or a placeholder while the amount's quote is coming
+      let value: ReactNode;
+      if (placeholder) {
+        value = undefined;
+      } else if (popupButton) {
+        value = (
+          <Popover
+            title={popupButton.data.title?.text ?? ''}
+            renderTrigger={
+              <XStack gap="$1" ai="center" cursor="pointer">
+                <EarnText text={detailItem.description} size="$bodyMdMedium" />
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  size="$5"
+                  color="$iconSubdued"
+                />
+              </XStack>
+            }
+            renderContent={
+              <ActionPopupContent
+                bulletList={popupButton.data.bulletList}
+                items={popupButton.data.items}
+                panel={popupButton.data.panel}
+                description={popupButton.data.description}
               />
-            </XStack>
-          ) : (
-            <CalculationListItem.Label
-              size={detailItem.title.size || '$bodyMd'}
-              tooltip={tooltipDescription?.text}
-              tooltipTextProps={
-                tooltipDescription
-                  ? {
-                      size: tooltipDescription.size,
-                      color: tooltipDescription.color,
-                    }
-                  : undefined
-              }
-            >
-              {detailItem.title.text}
-            </CalculationListItem.Label>
-          )}
-          {(() => {
-            // A dash, or a placeholder while the amount's quote is coming
-            if (placeholder) {
-              return <EarnFormValue />;
             }
-            if (loading) {
-              return (
-                <Stack py="$0.5">
-                  <Skeleton h="$3.5" w="$16" />
-                </Stack>
-              );
-            }
-            if (popupButton) {
-              return (
-                <EarnFormValue>
-                  <Popover
-                    title={popupButton.data.title?.text ?? ''}
-                    renderTrigger={
-                      <XStack gap="$1" ai="center" cursor="pointer">
-                        <EarnText
-                          text={detailItem.description}
-                          size="$bodyMdMedium"
-                        />
-                        <Icon
-                          name="ChevronRightSmallOutline"
-                          size="$5"
-                          color="$iconSubdued"
-                        />
-                      </XStack>
-                    }
-                    renderContent={
-                      <ActionPopupContent
-                        bulletList={popupButton.data.bulletList}
-                        items={popupButton.data.items}
-                        panel={popupButton.data.panel}
-                        description={popupButton.data.description}
-                      />
-                    }
-                  />
-                </EarnFormValue>
-              );
-            }
-            if (detailItem.description?.text) {
-              return (
-                <EarnFormValue>
-                  <EarnText
-                    text={detailItem.description}
-                    size="$bodyMdMedium"
-                    textAlign="right"
-                  />
-                </EarnFormValue>
-              );
-            }
-            // Before and after; one value when they are the same
-            const isUnchanged =
-              detailItem.current?.title?.text?.trim() ===
-              detailItem.latest?.title?.text?.trim();
-            const before = isUnchanged ? undefined : detailItem.current?.title;
-            return (
-              <EarnFormValue>
-                <XStack alignItems="center" gap="$1.5" flexShrink={1}>
-                  {before ? (
-                    <EarnText
-                      text={before}
-                      size="$bodySm"
-                      color={before.color ?? '$textSubdued'}
-                    />
-                  ) : null}
-                  {before && detailItem.latest?.title ? (
-                    <Icon
-                      name="ArrowRightOutline"
-                      size="$4"
-                      color="$iconDisabled"
-                    />
-                  ) : null}
-                  {detailItem.latest?.title ? (
-                    <EarnText
-                      text={detailItem.latest.title}
-                      size="$bodyMdMedium"
-                    />
-                  ) : null}
-                </XStack>
-              </EarnFormValue>
-            );
-          })()}
-        </CalculationListItem>,
+          />
+        );
+      } else if (detailItem.description?.text) {
+        value = (
+          <EarnText
+            text={detailItem.description}
+            size="$bodyMdMedium"
+            textAlign="right"
+          />
+        );
+      } else {
+        // Before and after; one value when they are the same
+        const isUnchanged =
+          detailItem.current?.title?.text?.trim() ===
+          detailItem.latest?.title?.text?.trim();
+        const before = isUnchanged ? undefined : detailItem.current?.title;
+        value = (
+          <XStack alignItems="center" gap="$1.5" flexShrink={1}>
+            {before ? (
+              <EarnText
+                text={before}
+                size="$bodySm"
+                color={before.color ?? '$textSubdued'}
+              />
+            ) : null}
+            {before && detailItem.latest?.title ? (
+              <Icon name="ArrowRightOutline" size="$4" color="$iconDisabled" />
+            ) : null}
+            {detailItem.latest?.title ? (
+              <EarnText text={detailItem.latest.title} size="$bodyMdMedium" />
+            ) : null}
+          </XStack>
+        );
+      }
+      // The same row as every other in the form: label (its (i) opens the
+      // same way as theirs) and value
+      items.push(
+        <EarnFormRow
+          key={rowKeys[index]}
+          label={detailItem.title.text}
+          tooltip={detailItem.tooltip}
+          value={value}
+        />,
       );
     });
 
@@ -387,11 +328,5 @@ export function usePendleTransactionDetails({
     }
 
     return items;
-  }, [
-    amountValue,
-    isPendleLikeLayout,
-    loading,
-    placeholder,
-    transactionConfirmation,
-  ]);
+  }, [amountValue, isPendleLikeLayout, placeholder, transactionConfirmation]);
 }

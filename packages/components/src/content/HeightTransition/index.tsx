@@ -64,6 +64,10 @@ function HeightTransition({
   const [isInitialPending, setIsInitialPending] =
     useState(skipInitialAnimation);
   const isInitialPendingRef = useRef(skipInitialAnimation);
+  // Content there from the first frame takes its own height until it is
+  // measured (the content stays in the flow for that), so the first frame
+  // shows it whole rather than at height 0
+  const [isUnmeasured, setIsUnmeasured] = useState(skipInitialAnimation);
 
   // On Android with Fabric/New Architecture, guard against stale worklet
   // callbacks that can cause SIGSEGV in Value::~Value during navigation
@@ -78,13 +82,16 @@ function HeightTransition({
   );
 
   const childStyle = useAnimatedStyle(() => {
-    const opacity = !measuredHeight.value || hide ? 0 : 1;
+    const opacity = hide || (!measuredHeight.value && !isUnmeasured) ? 0 : 1;
     return {
       opacity: isInitialPending ? opacity : withTiming(opacity, transition),
     };
-  }, [hide, isInitialPending, measuredHeight, transition]);
+  }, [hide, isInitialPending, isUnmeasured, measuredHeight, transition]);
 
   const containerStyle = useAnimatedStyle(() => {
+    if (isUnmeasured && !hide) {
+      return {};
+    }
     const height = hide ? 0 : measuredHeight.value;
     return {
       height: isInitialPending
@@ -95,7 +102,14 @@ function HeightTransition({
             }
           }),
     };
-  }, [hide, isInitialPending, measuredHeight, isMounted, transition]);
+  }, [
+    hide,
+    isInitialPending,
+    isUnmeasured,
+    measuredHeight,
+    isMounted,
+    transition,
+  ]);
 
   const handleLayout = useCallback(
     ({ nativeEvent }: { nativeEvent: { layout: { height: number } } }) => {
@@ -110,6 +124,7 @@ function HeightTransition({
       // Timing starts once the first height has been drawn as it is
       if (isInitialPendingRef.current && height > 0) {
         isInitialPendingRef.current = false;
+        setIsUnmeasured(false);
         requestAnimationFrame(() =>
           requestAnimationFrame(() => setIsInitialPending(false)),
         );
@@ -123,9 +138,14 @@ function HeightTransition({
     [style, containerStyle],
   );
 
+  // Content measured from its first frame stays in the flow throughout, so
+  // the container never goes without a height as its own height is set
   const innerStyle = useMemo(
-    () => [StyleSheet.absoluteFill, styles.autoBottom, childStyle],
-    [childStyle],
+    () =>
+      skipInitialAnimation
+        ? childStyle
+        : [StyleSheet.absoluteFill, styles.autoBottom, childStyle],
+    [childStyle, skipInitialAnimation],
   );
 
   return (

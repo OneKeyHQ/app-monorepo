@@ -72,6 +72,7 @@ import {
   buildOutcomeValueFromText,
   buildRewardNoteRows,
   buildRewardsOutcome,
+  buildRowKeys,
   splitPendleRewardRows,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
@@ -806,11 +807,19 @@ export function EarnRouterSwapDepositForm({
   const isBusy = !isIdle;
   // Nothing to change while the swap runs, or while the provider is off
   const isLocked = isBusy || Boolean(isDisabled);
+  // Pendle's line (the PT bought) comes with its own quote, after the swap's:
+  // the button waits for it (or for its failure), as a vault's waits for
+  // its line, so it never lights up beside a placeholder
+  const isPendleLineComing =
+    summaryRequest?.kind === 'pendle' &&
+    Boolean(depositAmount) &&
+    depositSummary.stakingAmount !== depositAmount;
   const canStart =
     !isDisabled &&
     hasAmount &&
     !isInsufficient &&
     Boolean(depositAmount) &&
+    !isPendleLineComing &&
     Boolean(account);
 
   const handleSelectPercentage = useCallback(
@@ -994,11 +1003,15 @@ export function EarnRouterSwapDepositForm({
     const reservedRows: IPendleRowLabel[] =
       lastPendleSwapLabels?.rows ??
       EARN_DESKTOP_DEMO_COPY.pendleRateRowTitles.map((title) => ({ title }));
+    // Keyed by label, as Pendle's market rows are: the rows holding their
+    // places become the rows with their figures, which fade in there
+    const rateRowKeys = buildRowKeys(detailRows.map((row) => row.title.text));
+    const reservedRowKeys = buildRowKeys(reservedRows.map((row) => row.title));
     const rows = pendleQuote
       ? [
           ...detailRows.map((row, index) => (
             <EarnFormRow
-              key={`pendle-rate-${index}`}
+              key={rateRowKeys[index]}
               label={row.title.text}
               tooltip={row.tooltip}
               value={
@@ -1016,7 +1029,7 @@ export function EarnRouterSwapDepositForm({
         ]
       : reservedRows.map((row, index) => (
           <EarnFormRow
-            key={`pendle-reserved-${index}`}
+            key={reservedRowKeys[index]}
             label={row.title}
             tooltip={row.tooltip}
           />

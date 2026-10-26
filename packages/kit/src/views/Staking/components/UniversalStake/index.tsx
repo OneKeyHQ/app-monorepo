@@ -130,6 +130,7 @@ import {
   buildOutcomeValueFromText,
   buildRewardNoteRows,
   buildRewardsOutcome,
+  buildRowKeys,
   splitPendleRewardRows,
 } from './EarnFormSummary';
 import { hasStakingRewardsSummary } from './StakingConfirmationSummary';
@@ -2206,15 +2207,17 @@ export function UniversalStake({
     return !amountBN.isNaN() && amountBN.gt(0);
   }, [amountValue]);
   // A box emptied keeps its figures a moment (dimmed), so a digit deleted
-  // and typed again doesn't blink; left empty, the rows go back to dashes
+  // and typed again doesn't blink; left empty, the rows and the line under
+  // the box go back to dashes, and the next amount starts from placeholders
+  // rather than the last amount's figures
   useEffect(() => {
     if (isPositiveAmount) {
       return undefined;
     }
-    const timer = setTimeout(
-      () => setShownQuote(EMPTY_SHOWN_QUOTE),
-      QUOTE_SETTLE_MS,
-    );
+    const timer = setTimeout(() => {
+      setShownQuote(EMPTY_SHOWN_QUOTE);
+      setReceiveQuote(undefined);
+    }, QUOTE_SETTLE_MS);
     return () => clearTimeout(timer);
   }, [isPositiveAmount]);
   // The rows keep their places in every state: the shown quote's figures,
@@ -2320,10 +2323,13 @@ export function UniversalStake({
       const reservedRows: { title: string; tooltip?: IEarnTooltip }[] =
         lastPendleRows ??
         EARN_DESKTOP_DEMO_COPY.pendleRowTitles.map((title) => ({ title }));
+      // Keyed by label, as the answered rows are: each becomes the same
+      // row with its figure, which fades in where its placeholder was
+      const reservedKeys = buildRowKeys(reservedRows.map((row) => row.title));
       reservedRows.forEach((row, index) => {
         items.push(
           <EarnFormRow
-            key={`pendle-reserved-${index}`}
+            key={reservedKeys[index]}
             label={row.title}
             tooltip={row.tooltip}
           />,
@@ -2332,10 +2338,13 @@ export function UniversalStake({
       return items;
     }
     if (isPendleLikeLayout) {
+      const rewardKeys = buildRowKeys(
+        pendleRows.detailRows.map((reward) => reward.title.text),
+      );
       pendleRows.detailRows.forEach((reward, index) => {
         items.push(
           <EarnFormRow
-            key={`pendle-reward-${index}`}
+            key={rewardKeys[index]}
             label={reward.title.text}
             tooltip={reward.tooltip}
             value={
@@ -2420,11 +2429,12 @@ export function UniversalStake({
       );
     } else if (!usePermit2Approve) {
       // Held in place until this amount's estimate is in, so the button
-      // doesn't move on the first digit. A permit deposit has no estimate to
-      // wait for (it signs a permit first), so it holds no row
+      // doesn't move on the first digit; the same row as the fee's, which
+      // fades in where its placeholder was. A permit deposit has no
+      // estimate to wait for (it signs a permit first), so it holds no row
       items.push(
         <EarnFormRow
-          key="network-fee-placeholder"
+          key="network-fee"
           label={intl.formatMessage({
             id: ETranslations.global_est_network_fee,
           })}

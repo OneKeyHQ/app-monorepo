@@ -15,7 +15,6 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Accordion,
-  AnimatePresence,
   HeightTransition,
   Icon,
   SizableText,
@@ -37,6 +36,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { easeModalHeightChanges } from '../../hooks/useFitModalHeight';
+import { EarnFadingPlaceholder } from '../EarnFadingPlaceholder';
 import { EarnAmountText } from '../ProtocolDetails/EarnAmountText';
 import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 
@@ -231,6 +231,21 @@ export function splitPendleRewardRows(rows: IPendleRewardRow[]) {
   };
 }
 
+/**
+ * Rows' keys by their labels: a row holding its place (its label, with a
+ * dash or a placeholder) and the same row with its figure are one row, so
+ * the figure comes in where the placeholder was and the label stays put. A
+ * label met again gets its count after it
+ */
+export function buildRowKeys(labels: string[], prefix = 'row'): string[] {
+  const seen = new Map<string, number>();
+  return labels.map((label) => {
+    const count = seen.get(label) ?? 0;
+    seen.set(label, count + 1);
+    return count ? `${prefix}-${label}-${count}` : `${prefix}-${label}`;
+  });
+}
+
 function Dash() {
   return (
     <SizableText size="$bodyMdMedium" color="$textDisabled">
@@ -239,25 +254,55 @@ function Dash() {
   );
 }
 
+// A row's value line, which a placeholder holds while there is no value
+const VALUE_LINE_HEIGHT = 20;
+const VALUE_PLACEHOLDER_WIDTH = 64;
+
 /**
  * A row's value: dimmed while a new amount's figures are on their way, then
- * the new text at full strength. With no value yet, a dash, or a placeholder
- * the size of a value while one is coming
+ * the new figure in its place, brightening. With no value yet, a dash, or a
+ * placeholder the size of a value while one is coming; the value fades in
+ * as the placeholder fades out, as the result and the line under the box do
  */
 export function EarnFormValue({ children }: { children?: ReactNode }) {
   const { isQuoting, isDimmed } = useContext(EarnFormQuotingContext);
-  if (children === undefined || children === null || children === false) {
-    return isQuoting ? <Skeleton.BodyMd w={64} /> : <Dash />;
-  }
+  // A value there as the row mounts shows at once; one that comes later
+  // fades in
+  const isMountedRef = useRef(false);
+  useEffect(() => {
+    isMountedRef.current = true;
+  }, []);
+  const hasValue = !(
+    children === undefined ||
+    children === null ||
+    children === false
+  );
+  const showsPlaceholder = !hasValue && isQuoting;
   return (
     <XStack
+      position="relative"
       ai="center"
       jc="flex-end"
-      opacity={isDimmed ? STALE_OPACITY : 1}
-      transition="quick"
-      animateOnly={ANIMATE_ONLY_OPACITY}
+      minHeight={VALUE_LINE_HEIGHT}
+      minWidth={showsPlaceholder ? VALUE_PLACEHOLDER_WIDTH : undefined}
     >
-      {children}
+      <EarnFadingPlaceholder visible={showsPlaceholder} bottom={0}>
+        <Skeleton.BodyMd w={VALUE_PLACEHOLDER_WIDTH} />
+      </EarnFadingPlaceholder>
+      {hasValue ? (
+        <XStack
+          key="value"
+          ai="center"
+          jc="flex-end"
+          opacity={isDimmed ? STALE_OPACITY : 1}
+          transition="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
+          enterStyle={isMountedRef.current ? FADE_IN : undefined}
+        >
+          {children}
+        </XStack>
+      ) : null}
+      {!hasValue && !isQuoting ? <Dash /> : null}
     </XStack>
   );
 }
@@ -277,28 +322,6 @@ function OutcomeValues({
   fadesIn?: boolean;
 }) {
   const hasValues = outcome.values.length > 0;
-  // The placeholder sits over the figures' place and fades out as they fade
-  // in, the size of a line of them
-  const placeholder = (
-    <AnimatePresence>
-      {!hasValues && isLoading ? (
-        <YStack
-          key="placeholder"
-          position="absolute"
-          right={0}
-          top={0}
-          bottom={0}
-          jc="center"
-          transition="quick"
-          animateOnly={ANIMATE_ONLY_OPACITY}
-          enterStyle={FADE_IN}
-          exitStyle={FADE_OUT}
-        >
-          <Skeleton.BodyLg w={96} />
-        </YStack>
-      ) : null}
-    </AnimatePresence>
-  );
   // The note line's room, where the figure has no note (yet)
   const noteRoom =
     outcome.hasNoteLine && !outcome.values.some((value) => value.note) ? (
@@ -306,73 +329,79 @@ function OutcomeValues({
         {' '}
       </SizableText>
     ) : null;
-  if (!hasValues) {
-    return (
-      <YStack ai="flex-end">
-        <YStack position="relative" minHeight="$6" jc="center" ai="flex-end">
-          {placeholder}
-          {isLoading ? null : (
-            <SizableText size="$bodyLgMedium" color="$textDisabled">
-              –
-            </SizableText>
-          )}
-        </YStack>
-        {noteRoom}
-      </YStack>
-    );
-  }
+  // One tree in every state, so the placeholder (on the figure's first
+  // line) fades out as the figures fade in. Figures that replace figures
+  // change in place: the dimmed last ones brighten into the new ones, with
+  // no blank between
   return (
     <YStack position="relative" ai="flex-end">
-      {placeholder}
-      <YStack
-        key="values"
-        ai="flex-end"
-        gap="$1"
-        // A new figure on its way: the last one stays, dimmed
-        opacity={isDimmed ? STALE_OPACITY : 1}
-        transition="quick"
-        animateOnly={ANIMATE_ONLY_OPACITY}
+      <EarnFadingPlaceholder
+        visible={!hasValues && Boolean(isLoading)}
+        height="$6"
       >
-        {outcome.values.map((value) => (
-          <YStack
-            // A new figure fades in where the last one was
-            key={`${value.main}|${value.suffix ?? ''}|${value.note ?? ''}`}
-            ai="flex-end"
-            transition="quick"
-            animateOnly={ANIMATE_ONLY_OPACITY}
-            enterStyle={fadesIn ? FADE_IN : undefined}
-          >
-            <XStack columnGap="$1.5" ai="center" jc="flex-end" flexWrap="wrap">
-              <EarnAmountText
-                size="$bodyLgMedium"
-                color={outcome.isEarning ? '$textSuccess' : '$text'}
-                fontVariant={TABULAR_NUMS}
-                textAlign="right"
+        <Skeleton.BodyLg w={96} />
+      </EarnFadingPlaceholder>
+      {hasValues ? (
+        <YStack
+          key="values"
+          ai="flex-end"
+          gap="$1"
+          // A new figure on its way: the last one stays, dimmed
+          opacity={isDimmed ? STALE_OPACITY : 1}
+          transition="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
+          enterStyle={fadesIn ? FADE_IN : undefined}
+        >
+          {outcome.values.map((value, index) => (
+            <YStack key={index} ai="flex-end">
+              <XStack
+                columnGap="$1.5"
+                ai="center"
+                jc="flex-end"
+                flexWrap="wrap"
               >
-                {value.main}
-              </EarnAmountText>
-              {value.suffix ? (
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
+                <EarnAmountText
+                  size="$bodyLgMedium"
+                  color={outcome.isEarning ? '$textSuccess' : '$text'}
                   fontVariant={TABULAR_NUMS}
+                  textAlign="right"
                 >
-                  {padCents(value.suffix)}
+                  {value.main}
+                </EarnAmountText>
+                {value.suffix ? (
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    fontVariant={TABULAR_NUMS}
+                  >
+                    {padCents(value.suffix)}
+                  </SizableText>
+                ) : null}
+                {value.tooltip ? (
+                  <EarnTooltip title={value.main} tooltip={value.tooltip} />
+                ) : null}
+              </XStack>
+              {value.note ? (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {value.note}
                 </SizableText>
               ) : null}
-              {value.tooltip ? (
-                <EarnTooltip title={value.main} tooltip={value.tooltip} />
-              ) : null}
-            </XStack>
-            {value.note ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {value.note}
+            </YStack>
+          ))}
+          {noteRoom}
+        </YStack>
+      ) : (
+        <YStack key="empty" ai="flex-end">
+          <YStack minHeight="$6" jc="center" ai="flex-end">
+            {isLoading ? null : (
+              <SizableText size="$bodyLgMedium" color="$textDisabled">
+                –
               </SizableText>
-            ) : null}
+            )}
           </YStack>
-        ))}
-        {noteRoom}
-      </YStack>
+          {noteRoom}
+        </YStack>
+      )}
     </YStack>
   );
 }
@@ -614,12 +643,14 @@ export function EarnFormSummary({
     isFirstRenderRef.current = false;
   }, []);
   const hasOwnValues = Boolean(outcome?.values.length);
-  // The modal lets go of them once the box is emptied
+  // The modal lets go of them once the box is emptied. Only settled figures
+  // are kept: ones dimmed for an amount no longer typed (the box emptied a
+  // moment) would come back for the next amount
   useEffect(() => {
-    if (carry && outcome && hasOwnValues) {
+    if (carry && outcome && hasOwnValues && !isOutcomeLoading) {
       carry.current = outcome;
     }
-  }, [carry, hasOwnValues, outcome]);
+  }, [carry, hasOwnValues, isOutcomeLoading, outcome]);
   // Until this form's own figures are in, the last form's stay, dimmed: only
   // the same result (a vault's year for a vault's), never Pendle's for one
   const carried =

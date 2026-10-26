@@ -1960,10 +1960,11 @@ export function UniversalWithdraw({
       );
     } else if (!isLidoWithdraw) {
       // Held in place until this amount's estimate is in, so the button
-      // doesn't move on the first digit
+      // doesn't move on the first digit; the same row as the fee's, which
+      // fades in where its placeholder was
       items.push(
         <EarnFormRow
-          key="network-fee-placeholder"
+          key="network-fee"
           label={intl.formatMessage({
             id: ETranslations.global_est_network_fee,
           })}

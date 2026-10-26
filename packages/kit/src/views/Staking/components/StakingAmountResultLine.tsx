@@ -1,11 +1,7 @@
-import {
-  AnimatePresence,
-  SizableText,
-  Skeleton,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, Skeleton, XStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
+
+import { EarnFadingPlaceholder } from './EarnFadingPlaceholder';
 
 const HIDDEN_STYLE = { opacity: 0 } as const;
 // A figure being worked out again stays at this opacity until the new one
@@ -39,30 +35,19 @@ export function StakingAmountResultLine({
       <XStack position="relative" flexShrink={1} jc="flex-end" minHeight={20}>
         {/* The placeholder sits where the figure goes and fades out as it
             fades in */}
-        <AnimatePresence>
-          {showsPlaceholder ? (
-            <YStack
-              key="placeholder"
-              position="absolute"
-              right={0}
-              top={0}
-              bottom={0}
-              jc="center"
-              transition="quick"
-              animateOnly={ANIMATE_ONLY_OPACITY}
-              enterStyle={HIDDEN_STYLE}
-              exitStyle={HIDDEN_STYLE}
-            >
-              <Skeleton.BodyMd w={96} />
-            </YStack>
-          ) : null}
-        </AnimatePresence>
+        <EarnFadingPlaceholder visible={showsPlaceholder} bottom={0}>
+          <Skeleton.BodyMd w={96} />
+        </EarnFadingPlaceholder>
+        {/* A figure fades in as the placeholder fades out; one that
+            replaces a figure changes in place, the dimmed last one
+            brightening into it with no blank between. A dash shows at
+            once, as the rows' dashes do */}
         {showsPlaceholder ? null : (
           <XStack
-            key={value}
+            key={isPlaceholder ? 'dash' : 'figure'}
             transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY}
-            enterStyle={HIDDEN_STYLE}
+            enterStyle={isPlaceholder ? undefined : HIDDEN_STYLE}
             opacity={loading ? STALE_OPACITY : 1}
             flexShrink={1}
           >
