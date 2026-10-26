@@ -227,6 +227,8 @@ const isInstantAndFreePath = (box: IWithdrawPathBox) =>
 const AMOUNT_LINE_MS = 200;
 // An emptied box keeps its figures this long, the answers' own debounce
 const QUOTE_SETTLE_MS = 350;
+// Half the gap between the amount box and the second box ($2)
+const RECEIVE_ARROW_GAP_CENTER = 4;
 // A way out's answer asked ahead is used this long, then asked again
 const PATH_ANSWER_FRESH_MS = 30_000;
 // 25%, 50% and 75% of a balance fill at most this many decimals
@@ -920,6 +922,8 @@ export function UniversalWithdraw({
     waitForAllowanceAfterApprove,
   ]);
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  // The amount the server's message was for
+  const checkAmountMessageAmountRef = useRef('');
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
@@ -1242,6 +1246,7 @@ export function UniversalWithdraw({
           setCheckoutAmountMessage('');
           setCheckAmountAlerts(response.data?.alerts || []);
         } else {
+          checkAmountMessageAmountRef.current = params.amount;
           setCheckoutAmountMessage(response.message);
           setCheckAmountAlerts([]);
         }
@@ -1679,8 +1684,36 @@ export function UniversalWithdraw({
     [balance, decimals, onChangeAmountValue],
   );
 
-  const isCheckAmountMessageError =
-    amountValue?.length > 0 && !!checkAmountMessage;
+  // What is wrong with the amount, as one red line: more than the balance
+  // reads the same whichever check says it first, as in the deposit forms,
+  // at once and in the app's words (the server's comes a moment later, and
+  // Pendle's speaks of a deposit); else the server's check
+  const isOverBalance =
+    !isCancelWithdrawal &&
+    !isDisabled &&
+    !isInvalidAmount(amountValue) &&
+    new BigNumber(amountValue).gt(new BigNumber(balance || '0'));
+  let amountErrorText: string | undefined;
+  if (amountValue?.length > 0) {
+    if (isOverBalance) {
+      amountErrorText = intl.formatMessage({
+        id: ETranslations.earn_insufficient_balance,
+      });
+    } else if (
+      checkAmountMessage &&
+      // The server's word on an amount over the balance stops once the
+      // amount is back within it, not when its next check comes in
+      !(
+        checkAmountMessageAmountRef.current !== amountValue &&
+        new BigNumber(checkAmountMessageAmountRef.current).gt(
+          new BigNumber(balance || '0'),
+        )
+      )
+    ) {
+      amountErrorText = checkAmountMessage;
+    }
+  }
+  const isCheckAmountMessageError = Boolean(amountErrorText);
   // The server's check of the amount and, for a way out that must be
   // current, its answer: a moment after each keystroke
   const isWaitingAnswer =
@@ -2178,6 +2211,47 @@ export function UniversalWithdraw({
   const footnoteText =
     pendleTipText ?? (isFormTipNote ? formTransactionTip?.text : undefined);
 
+  // What is wrong with the amount, in red: under the amount box, or under
+  // the second box where there is one
+  const amountErrorLine = (
+    <HeightTransition duration={AMOUNT_LINE_MS}>
+      {amountErrorText ? (
+        <YStack pt="$2" px="$3.5">
+          <SizableText
+            testID="earn-amount-error"
+            size="$bodyMd"
+            color="$textCritical"
+          >
+            {amountErrorText}
+          </SizableText>
+        </YStack>
+      ) : null}
+    </HeightTransition>
+  );
+
+  const receiveBox = (
+    <ManagePageV2ReceiveInput
+      // The shown answer's, as the rows: an emptied box empties it
+      // once they go back to dashes
+      receive={shownConfirmation?.receive}
+      // One name before and after the quote; the server's would
+      // replace it once a quote is in
+      config={
+        effectiveReceiveInputConfig
+          ? {
+              ...effectiveReceiveInputConfig,
+              title: effectiveReceiveInputConfig.title || youReceiveLabel,
+            }
+          : undefined
+      }
+      fiatSymbol={symbol}
+      payFiatValue={currentValue}
+      // Through the moment an emptied box keeps its figures it waits
+      // as for a changed amount, with the rows
+      loading={quoteLoading || (!isPositiveAmount && isQuoteUpdating)}
+    />
+  );
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -2225,66 +2299,44 @@ export function UniversalWithdraw({
                 <Stack position="absolute" w="100%" h="100%" zIndex={1} />
               ) : null}
             </Stack>
-            <HeightTransition duration={AMOUNT_LINE_MS}>
-              {isCheckAmountMessageError ? (
-                <YStack pt="$2" px="$3.5">
-                  <SizableText
-                    testID="earn-amount-error"
-                    size="$bodyMd"
-                    color="$textCritical"
-                  >
-                    {checkAmountMessage}
-                  </SizableText>
-                </YStack>
-              ) : null}
-            </HeightTransition>
+            {showReceiveInput ? null : amountErrorLine}
           </YStack>
-          <ManagePageV2ReceiveInput
-            // The shown answer's, as the rows: an emptied box empties it
-            // once they go back to dashes
-            receive={shownConfirmation?.receive}
-            // One name before and after the quote; the server's would
-            // replace it once a quote is in
-            config={
-              effectiveReceiveInputConfig
-                ? {
-                    ...effectiveReceiveInputConfig,
-                    title: effectiveReceiveInputConfig.title || youReceiveLabel,
-                  }
-                : undefined
-            }
-            fiatSymbol={symbol}
-            payFiatValue={currentValue}
-            // Through the moment an emptied box keeps its figures it waits
-            // as for a changed amount, with the rows
-            loading={quoteLoading || (!isPositiveAmount && isQuoteUpdating)}
-          />
+          {/* With a second box the red line goes under it: between the
+              boxes the arrow joining them would sit on it */}
+          {showReceiveInput ? (
+            <YStack position="relative">
+              {receiveBox}
+              {amountErrorLine}
+              <Stack
+                ai="center"
+                position="absolute"
+                // Centered on the gap between the two boxes, whatever comes
+                // under them
+                top={-RECEIVE_ARROW_GAP_CENTER}
+                left="50%"
+                zIndex={2}
+                pointerEvents="none"
+                style={receiveArrowOverlayStyle}
+              >
+                <IconButton
+                  testID="staking-icon-btn"
+                  alignSelf="center"
+                  bg="$bgApp"
+                  variant="tertiary"
+                  icon="ArrowBottomOutline"
+                  iconProps={{
+                    color: '$icon',
+                  }}
+                  size="small"
+                  disabled
+                  opacity={1}
+                />
+              </Stack>
+            </YStack>
+          ) : (
+            receiveBox
+          )}
         </YStack>
-        {showReceiveInput ? (
-          <Stack
-            ai="center"
-            position="absolute"
-            top="50%"
-            left="50%"
-            zIndex={2}
-            pointerEvents="none"
-            style={receiveArrowOverlayStyle}
-          >
-            <IconButton
-              testID="staking-icon-btn"
-              alignSelf="center"
-              bg="$bgApp"
-              variant="tertiary"
-              icon="ArrowBottomOutline"
-              iconProps={{
-                color: '$icon',
-              }}
-              size="small"
-              disabled
-              opacity={1}
-            />
-          </Stack>
-        ) : null}
       </Stack>
       {/* Where it comes from, then the ways out when there are two: cards
           side by side, each with when it pays and what it costs. The cards

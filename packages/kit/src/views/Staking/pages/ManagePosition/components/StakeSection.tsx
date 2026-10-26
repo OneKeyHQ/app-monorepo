@@ -1406,14 +1406,28 @@ export const StakeSection = ({
         />
       );
     }
+    // Once the protocol is known, the protocol's own layout (Pendle's line,
+    // rows and button) and the token the form is likely to start on: Pay
+    // with's pick once the wallet is read, the page's token before that. The
+    // form that follows then only fills it in
+    const standInToken = hasRequiredData ? payToken?.token : undefined;
+    let standInSymbol = tokenInfo?.token.symbol;
+    if (standInToken) {
+      standInSymbol = standInToken.symbol;
+    } else if (canPayWith && hasRequiredData) {
+      standInSymbol = depositSymbol;
+    }
     return (
       <UniversalStake
         accountId={accountId}
         networkId={networkId}
-        balance="0"
-        tokenImageUri={fallbackTokenImageUri}
-        tokenImageLoading={!tokenInfo?.token && !fallbackTokenImageUri}
-        tokenSymbol={tokenInfo?.token.symbol}
+        balance={payToken?.amount ?? '0'}
+        balanceLoading={canPayWith && hasRequiredData && !payToken}
+        tokenImageUri={standInToken?.logoURI || fallbackTokenImageUri}
+        tokenImageLoading={
+          !standInToken && !tokenInfo?.token && !fallbackTokenImageUri
+        }
+        tokenSymbol={standInSymbol}
         isDisabled
         inputTitle={payInputTitle}
         hideTradeOrBuy={canPayWith}
@@ -1427,6 +1441,14 @@ export const StakeSection = ({
         beforeFooter={beforeFooter}
         footerActionOverride={footerActionOverride}
         protocolSwitchConfig={protocolSwitchConfig}
+        providerName={hasRequiredData ? providerName : undefined}
+        providerLogo={protocolInfo?.providerDetail.logoURI}
+        receiveInputConfig={hasRequiredData ? receiveInputConfig : undefined}
+        showApyDetail={showApyDetail}
+        approveType={hasRequiredData ? effectiveApproveType : undefined}
+        tokenSelectorTriggerProps={
+          hasRequiredData ? stakeTokenSelectorTriggerProps : undefined
+        }
       />
     );
   }

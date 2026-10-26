@@ -602,6 +602,8 @@ type IUniversalStakeProps = {
   apr?: string;
 
   isDisabled?: boolean;
+  // The balance is not known yet: its place shows the box's skeleton
+  balanceLoading?: boolean;
 
   estimateFeeUTXO?: Required<Pick<IFeeUTXO, 'feeRate'>>[];
 
@@ -683,6 +685,7 @@ export function UniversalStake({
   providerLogo,
   estimateFeeUTXO,
   isDisabled,
+  balanceLoading,
   onConfirm,
   onFeeRateChange,
   protocolInfo,
@@ -2784,7 +2787,9 @@ export function UniversalStake({
               // skeleton instead of a stale value that jumps on load. The
               // deposit modal's switch keeps the token and network, so its
               // balance stays
-              loading: Boolean(footerActionOverride?.loading) && !offerSwitch,
+              loading:
+                Boolean(balanceLoading) ||
+                (Boolean(footerActionOverride?.loading) && !offerSwitch),
             }}
             inputProps={{
               placeholder: '0',
