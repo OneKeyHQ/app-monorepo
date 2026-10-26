@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
 import {
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   memo,
   startTransition,
   useCallback,
@@ -246,10 +247,8 @@ CategoryTabItem.displayName = 'CategoryTabItem';
 
 function TokenListHeader({
   layoutMode = 'perp',
-  onInteraction,
 }: {
   layoutMode?: 'perp' | 'spot' | 'mixed';
-  onInteraction?: () => void;
 }) {
   const intl = useIntl();
   const isSpotLayout = layoutMode === 'spot';
@@ -260,14 +259,7 @@ function TokenListHeader({
     : SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT;
   const mixedColumnLayout = MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT;
   return (
-    <XStack
-      width="100%"
-      px="$4"
-      py="$2"
-      {...(platformEnv.isNative
-        ? undefined
-        : { onClickCapture: onInteraction })}
-    >
+    <XStack width="100%" px="$4" py="$2">
       <SortableHeaderCell
         field="name"
         label={intl.formatMessage({
@@ -398,9 +390,14 @@ function BasePerpTokenSelectorContent() {
     },
     [],
   );
-  const focusSearchInput = useCallback(() => {
-    searchInputRef.current?.focus({ preventScroll: true });
-  }, []);
+  const focusSearchInput = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (event.target !== searchInputRef.current) {
+        searchInputRef.current?.focus({ preventScroll: true });
+      }
+    },
+    [],
+  );
   const keyboardSubmitPending = useRef(false);
   const keyboardRowRefs = useRef(new Map<string, HTMLElement>());
   const keyboardFavoritesPending = useRef(new Set<string>());
@@ -529,7 +526,6 @@ function BasePerpTokenSelectorContent() {
   );
   const setActiveTab = useCallback(
     (tab: string) => {
-      focusSearchInput();
       pendingKeyboardScroll.current = undefined;
       setKeyboardSelection(undefined);
       defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
@@ -539,16 +535,10 @@ function BasePerpTokenSelectorContent() {
       });
       updateActiveTab(tab);
     },
-    [
-      activePerpsAccount.walletType,
-      displayActiveTab,
-      focusSearchInput,
-      updateActiveTab,
-    ],
+    [activePerpsAccount.walletType, displayActiveTab, updateActiveTab],
   );
   const setPrimaryTab = useCallback(
     (tab: string) => {
-      focusSearchInput();
       if (tab === displayPrimaryTab) {
         return;
       }
@@ -561,12 +551,7 @@ function BasePerpTokenSelectorContent() {
       });
       updateActiveTab(tab);
     },
-    [
-      activePerpsAccount.walletType,
-      displayPrimaryTab,
-      focusSearchInput,
-      updateActiveTab,
-    ],
+    [activePerpsAccount.walletType, displayPrimaryTab, updateActiveTab],
   );
 
   const handleSelectToken = useCallback(
@@ -1476,6 +1461,7 @@ function BasePerpTokenSelectorContent() {
       {...(platformEnv.isNative
         ? undefined
         : {
+            onClickCapture: focusSearchInput,
             onKeyDownCapture: handleFavoriteShortcut,
             onWheelCapture: cancelPendingKeyboardScroll,
           })}
@@ -1565,10 +1551,7 @@ function BasePerpTokenSelectorContent() {
             </YStack>
           ) : (
             <YStack width="100%" minWidth={0} overflow="hidden">
-              <TokenListHeader
-                layoutMode={desktopListLayout}
-                onInteraction={focusSearchInput}
-              />
+              <TokenListHeader layoutMode={desktopListLayout} />
               <YStack height={350} minWidth={0}>
                 <ListView
                   ref={listRef}
