@@ -1008,3 +1008,45 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: The new production files are imported by the hardware sales page, so they enter the native graph, but no stable IDs were committed.
 **Fix**: Register both files in apps/mobile/bundle-registry/module-id-registry.json and pass a strict iOS union build.
 **Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
+
+## Case: Invite consent write could land on the account that became active
+**Date**: 2026-10-21 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Toggling invite nickname/avatar consent could update a different OneKey ID if the account changed before the request left the background runtime.
+**Root Cause**: `updateInviteProfilePublic` remembered the user id, then sent a PUT with no pinned token. The request interceptor attached whoever was current. The local atom guard ran only after the server accepted the write.
+**Fix**: The switch passes the user id visible at tap time. The service captures that account's auth snapshot, sends `X-Onekey-Request-Token`, and refuses success if the session changed before or after the PUT.
+**Catchable by**: Section 5: race conditions in async operations; NEW — an account-scoped write must pin the token captured for the initiating user, not only guard the local state write
+
+## Case: A non-user-info payload cleared invite consent
+**Date**: 2026-10-21 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: The invite profile switch could show off after a legacy login or a profile-only fallback even though the server still had consent on.
+**Root Cause**: `updatePrimeAtomByServerUserInfo` treated a missing `inviteProfilePublic` as off for every caller. Legacy `/prime/v1/user/login` and a complete `/account/profile` fallback omit the field.
+**Fix**: Only a successful `GET /prime/v1/user/info` normalizes an omitted field to false, and that value is applied after the profile merge. Other payloads keep the same user's value unless they include a real boolean.
+**Catchable by**: Section 4: shared writer checked for every caller; NEW — an omitted optional field is authoritative only for the endpoint that owns it
+
+## Case: Bulk revoke Cancel mid-run restarted the loop and blanked the app
+**Date**: 2026-10-23 | **Platforms**: Desktop, Mobile, Web, Extension (reproduced on Desktop)
+**Symptom**: After closing the hardware capsule on one tx and pressing the footer Cancel while the bulk approval revoke was still running, the whole app went to a blank ErrorBoundary page reading `Cannot read properties of undefined (reading 'uuid')`, and the device received two sign requests within the same second.
+**Root Cause**: `handleOnCancel` picked retry vs. abort from `failedTxCount` / `skippedTxCount` instead of the run state, so a mid-run Cancel replaced `unsignedTxs` and started a second `usePromiseResult` loop next to the live one. The old loop later wrote `currentProcessIndex` past the end of the shorter list, and the Pause/Resume state updater dereferenced `unsignedTxs[currentProcessIndex].uuid` during render. Separately, every `await waitUntilInProgress()` was preceded, not followed, by the abort check, so Cancel while paused right before the sign call still signed one more tx after the page had closed.
+**Fix**: Retry is only offered from `Finished`; Cancel always aborts and pops. Retry resets the progress index and the progress ref. `waitUntilInProgress` resolves `false` on abort and every call site breaks on it. The index reads are null-guarded and the signed-tx read is hoisted out of the updater. jsdom tests cover cancel mid-run, cancel while paused (after and before the sign call) and retry after finish.
+**Catchable by**: Section 5: race conditions in async operations; NEW — a button that can both abort and restart must branch on the run state, not on derived counts; NEW — an abort flag must be re-checked after every await that can park the loop (pause / poll), not only before it; NEW — a state updater runs during render, so it must not dereference an index owned by an async loop
+
+## Case: Perks empty state read a missing bind status
+**Date**: 2026-10-22 | **Platforms**: Desktop, mobile, web, extension
+**Symptom**: The Perks empty state could throw while the wallet id and the bind-status result were both still missing.
+**Root Cause**: `result?.walletId === walletId` is true when both sides are undefined, and the true branch then read `result.status`.
+**Fix**: Require `result` itself before comparing wallet ids.
+**Catchable by**: Section 7: type check. A comparison of two optional ids does not prove the object exists.
+
+## Case: Perks Enter Code hidden when wallet lookup fails
+**Date**: 2026-10-23 | **Platforms**: iOS, Android, extension main, desktop, web
+**Symptom**: When the wallet or first account could not be read yet, the Perks empty state treated the wallet as not applicable and hid Enter Code, with no refresh.
+**Root Cause**: Wallet lookup returned null for both ineligible wallets and transient getWallet/getAccount failures. Bind display status mapped every null to unsupported.
+**Fix**: Return unavailable for a failed or unfinished lookup and unsupported only for wallets that can never take a code. Display status stays unknown when the lookup is unavailable.
+**Catchable by**: Section 4: distinguish not loaded from ineligible; Section 6: lookup failure stays unknown, and an ineligible wallet stays unsupported.
+
+## Case: Priced Earn token dropped when a sibling has no USD
+**Date**: 2026-10-23 | **Platforms**: desktop, web, extension, iOS, Android
+**Symptom**: A server-priced WETH reward counted as $0 in Perks totals when another reward in the same group had no usdValue.
+**Root Cause**: getEarnValue required every item to have usdValue. One gap switched the whole group to title parsing, which only counts stablecoins.
+**Fix**: Price each item with server USD first, then a stablecoin amount or title. Return a dollar amount only when every item has one; otherwise keep the token text and sum the known dollars.
+**Catchable by**: Section 6: priced WETH plus unpriced ARB keeps the WETH dollars in usdPart.

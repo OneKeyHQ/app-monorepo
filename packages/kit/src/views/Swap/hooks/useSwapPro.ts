@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
   ESwapProJumpTokenDirection,
   useSwapProJumpTokenAtom,
@@ -35,8 +36,6 @@ import type {
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
   swapProPositionsListMaxCount,
-  swapProPositionsListMinValue,
-  swapProStockPositionsListMinValue,
   wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -47,6 +46,7 @@ import type {
 import {
   ESwapDirectionType,
   ESwapProTradeType,
+  ESwapQuoteKind,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -107,6 +107,7 @@ import {
   filterSwapProCounterpartyTokens,
   getSwapProDefaultTokens,
 } from '../utils/swapTypeUtils';
+import { isTradePositionVisible } from '../utils/tradePositionUtils';
 
 import { backfillSwapProTokenStockIdentity } from './swapStockChannelUtils';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
@@ -1915,14 +1916,13 @@ export function useSwapProPositionsListFilter(
   isStockPositions?: boolean,
 ) {
   const filterMinValueTokenList = useMemo(() => {
-    // Stock positions use a lower $0.1 floor (vs $1) and skip the max-count cap,
-    // so small stock holdings still show and aren't pushed out of the top N.
-    const minValue = isStockPositions
-      ? swapProStockPositionsListMinValue
-      : swapProPositionsListMinValue;
-    return sourceTokenList.filter((token) => {
-      return new BigNumber(token.fiatValue || '0').gt(minValue);
-    });
+    return sourceTokenList.filter((token) =>
+      isTradePositionVisible({
+        balance: token.balanceParsed,
+        fiatValue: token.fiatValue,
+        isStock: isStockPositions,
+      }),
+    );
   }, [sourceTokenList, isStockPositions]);
 
   const filterDefaultTokenList = useMemo(() => {
@@ -1993,7 +1993,10 @@ export function useSwapBuildTxInfo() {
 }
 
 export function useSwapProActionsQuote() {
-  const { quoteSpeedAction, resetQuoteAction } = useSwapActions().current;
+  const { quoteSpeedAction, resumeQuoteAction, resetQuoteAction } =
+    useSwapActions().current;
+  const [appIsLocked] = useAppIsLockedAtom();
+  const isFocused = useIsFocused();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapTradeType] = useSwapProTradeTypeAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
@@ -2047,10 +2050,21 @@ export function useSwapProActionsQuote() {
     [swapTabSwitchType, swapTradeType],
   );
 
+  const previousQuoteInputRef = useRef({
+    amount: debounceInputAmount,
+    stockIsOpen: selectedStockIsOpen,
+  });
   useEffect(() => {
-    // Read only as a re-run trigger: an open-state flip re-requests the
-    // quote so stale closed-market state refreshes (OK-58986).
-    void selectedStockIsOpen;
+    if (appIsLocked || !isFocused) {
+      return;
+    }
+    const quoteInputChanged =
+      previousQuoteInputRef.current.amount !== debounceInputAmount ||
+      previousQuoteInputRef.current.stockIsOpen !== selectedStockIsOpen;
+    previousQuoteInputRef.current = {
+      amount: debounceInputAmount,
+      stockIsOpen: selectedStockIsOpen,
+    };
     const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
     if (
       enableSwapProMarketQuote &&
@@ -2058,16 +2072,32 @@ export function useSwapProActionsQuote() {
       !debounceInputAmountBN.isNaN() &&
       debounceInputAmountBN.gt(0)
     ) {
-      void quoteSpeedAction(
-        slippageItemRef.current,
-        swapProAccount.result?.addressDetail.address,
-        swapProAccount.result?.id,
-        swapProAccount.result?.addressDetail.address,
-      );
+      // Only lifecycle recovery preserves the old refresh budget. Input edits
+      // and either market-state transition must start a fresh quote round.
+      if (platformEnv.isNative && !quoteInputChanged) {
+        void resumeQuoteAction({
+          slippageItem: slippageItemRef.current,
+          address: swapProAccount.result.addressDetail.address,
+          accountId: swapProAccount.result.id,
+          receivingAddress: swapProAccount.result.addressDetail.address,
+          kind: ESwapQuoteKind.SELL,
+          incognito: false,
+        });
+      } else {
+        void quoteSpeedAction(
+          slippageItemRef.current,
+          swapProAccount.result.addressDetail.address,
+          swapProAccount.result.id,
+          swapProAccount.result.addressDetail.address,
+        );
+      }
     }
   }, [
+    appIsLocked,
+    isFocused,
     debounceInputAmount,
     quoteSpeedAction,
+    resumeQuoteAction,
     swapProSelectToken?.contractAddress,
     swapProSelectToken?.networkId,
     swapProDirection,

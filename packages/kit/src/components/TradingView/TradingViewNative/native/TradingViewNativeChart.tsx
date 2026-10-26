@@ -29,6 +29,7 @@ import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getDateFormatTemplate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import {
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
@@ -167,6 +168,7 @@ export const TradingViewNativeChart = memo(
     viewportRequest,
     runtimeRef,
   }: ITradingViewNativeChartProps) => {
+    const dateFormatTemplate = getDateFormatTemplate(locale);
     const indicatorPanes = useIndicatorPanes(
       inputSubIndicatorPanes,
       drawingStorageKey,
@@ -240,6 +242,7 @@ export const TradingViewNativeChart = memo(
     const {
       controller: drawingController,
       drawings,
+      drawingText,
       projection: drawingProjection,
       gesture: drawingGesture,
       pointerId: drawingPointerId,
@@ -526,7 +529,9 @@ export const TradingViewNativeChart = memo(
         priceAxisWidth.value,
       );
       return createTradingViewNativeSkiaPicture({
+        dateFormatTemplate,
         drawings: enableDrawings ? drawings.value : undefined,
+        drawingText,
         onScene: (scene) => {
           if (!enableDrawings) return;
           drawingProjection.value = {
@@ -570,8 +575,10 @@ export const TradingViewNativeChart = memo(
       });
     }, [
       candleLabels,
+      dateFormatTemplate,
       priceDecimalPlaces,
       enableDrawings,
+      drawingText,
       extendTimeAxisBorderToCanvasEdge,
       isMobileLayout,
       priceAxisFontSize,

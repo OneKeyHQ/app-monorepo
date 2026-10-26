@@ -1,4 +1,7 @@
 // cspell:ignore tickmarks
+import { DateLocaleMap } from '@onekeyhq/shared/src/locale/dateLocaleMap';
+import { getDateFormatTemplate } from '@onekeyhq/shared/src/utils/dateUtils';
+
 import formatChartPriceSource from './formatChartPriceSource';
 import { getLightweightChartsRuntimeScriptTag } from './lightweightChartsRuntime';
 
@@ -25,7 +28,14 @@ function getStyles(): string {
 }
 
 function getChartInitScript(): string {
+  const monthDayFormats = Object.fromEntries(
+    Object.keys(DateLocaleMap).map((locale) => [
+      locale,
+      getDateFormatTemplate(locale, { hideYear: true }),
+    ]),
+  );
   return `
+      var monthDayFormats = ${JSON.stringify(monthDayFormats)};
       window.__onekeyFormatChartPrice = ${formatChartPriceSource};
       function getPriceFormatter(nextConfig) {
         if (nextConfig.priceScaleFormat === 'full') {
@@ -126,42 +136,40 @@ function getChartInitScript(): string {
         );
       }
       var timeScaleFormatterCache = new Map();
-      function getTimeScaleFormatOptions(tickMarkType) {
-        if (tickMarkType === 0) return { year: 'numeric' };
-        if (tickMarkType === 1) return { month: 'short' };
-        if (tickMarkType === 2) return { day: 'numeric' };
-        if (tickMarkType === 3) {
-          return { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
-        }
-        if (tickMarkType === 4) {
-          return {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hourCycle: 'h23',
-          };
-        }
-        return { month: 'short', day: 'numeric' };
-      }
       function formatTimeScaleTickMark(time, tickMarkType, nextConfig) {
         var date = new Date(time * 1000);
-        var formatterKey = [
-          nextConfig.locale || '',
-          nextConfig.timeZone,
-          tickMarkType,
-        ].join('|');
+        if (tickMarkType === 1) {
+          var monthKey = 'month:' + (nextConfig.locale || 'en') + ':' + (nextConfig.timeZone || '');
+          var monthFormatter = timeScaleFormatterCache.get(monthKey);
+          if (!monthFormatter) {
+            monthFormatter = new Intl.DateTimeFormat(nextConfig.locale || 'en', {
+              month: 'short', calendar: 'gregory', numberingSystem: 'latn',
+              timeZone: nextConfig.timeZone,
+            });
+            timeScaleFormatterCache.set(monthKey, monthFormatter);
+          }
+          return monthFormatter.format(date);
+        }
+        var formatterKey = nextConfig.timeZone || '';
         var formatter = timeScaleFormatterCache.get(formatterKey);
         if (!formatter) {
-          formatter = new Intl.DateTimeFormat(
-            nextConfig.locale || undefined,
-            Object.assign(
-              { timeZone: nextConfig.timeZone },
-              getTimeScaleFormatOptions(tickMarkType)
-            )
-          );
+          formatter = new Intl.DateTimeFormat('en-US', {
+            calendar: 'gregory', numberingSystem: 'latn',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hourCycle: 'h23', timeZone: nextConfig.timeZone,
+          });
           timeScaleFormatterCache.set(formatterKey, formatter);
         }
-        return formatter.format(date);
+        var parts = {};
+        formatter.formatToParts(date).forEach(function(part) { parts[part.type] = part.value; });
+        if (tickMarkType === 0) return parts.year;
+        if (tickMarkType === 2) return parts.day;
+        if (tickMarkType === 3) return parts.hour + ':' + parts.minute;
+        if (tickMarkType === 4) return parts.hour + ':' + parts.minute + ':' + parts.second;
+        var template = monthDayFormats[nextConfig.locale] || monthDayFormats.en;
+        var values = { yyyy: parts.year, MM: parts.month, dd: parts.day };
+        return template.replace(/yyyy|MM|dd/g, function(token) { return values[token]; });
       }
       function getTimeScaleOptions(nextConfig) {
         // fixRightEdge clamps any right offset back to zero. Scrolling and

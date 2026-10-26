@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 
@@ -12,6 +12,18 @@ import { StockTokenVariantSelector } from './StockTokenVariantSelector';
 
 const setSelectedTokenIdMock = jest.fn();
 const closePopoverMock = jest.fn();
+const setIssuerPreferenceMock = jest.fn();
+// The selector writes through an updater; apply the latest one to `previous`.
+function lastIssuerWrite(previous: { issuer?: string } = {}) {
+  const update = setIssuerPreferenceMock.mock.calls.at(-1)?.[0] as
+    | ((value: { issuer?: string }) => { issuer?: string })
+    | undefined;
+  return update?.(previous);
+}
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useSwapStockIssuerPreferencePersistAtom: () => [{}, setIssuerPreferenceMock],
+}));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -238,6 +250,7 @@ describe('StockTokenVariantSelector', () => {
   beforeEach(() => {
     setSelectedTokenIdMock.mockReset();
     closePopoverMock.mockReset();
+    setIssuerPreferenceMock.mockReset();
     mockStockDetailState.tokenVariants = mockVariants;
     mockStockDetailState.selectedTokenId = mockVariants[0].tokenId;
     mockStockDetailState.portfolioNetworkId = mockVariants[0].networkId;
@@ -300,6 +313,9 @@ describe('StockTokenVariantSelector', () => {
     fireEvent.click(secondRow);
 
     expect(setSelectedTokenIdMock).toHaveBeenCalledWith('aapl-bsc');
+    expect(lastIssuerWrite()).toEqual({ issuer: 'ondo' });
+    const unchanged = { issuer: 'ondo' };
+    expect(lastIssuerWrite(unchanged)).toBe(unchanged);
     expect(closePopoverMock).toHaveBeenCalledTimes(1);
   });
 
@@ -309,7 +325,19 @@ describe('StockTokenVariantSelector', () => {
     fireEvent.click(screen.getByTestId('stock-token-variant-row-2'));
 
     expect(setSelectedTokenIdMock).not.toHaveBeenCalled();
+    expect(setIssuerPreferenceMock).not.toHaveBeenCalled();
     expect(closePopoverMock).not.toHaveBeenCalled();
+  });
+
+  it('leaves remembering the issuer to an onSelect caller', async () => {
+    // Swap remembers it only once the switch commits, so a cancelled risk
+    // prompt does not change the default issuer.
+    const onSelect = jest.fn(() => Promise.resolve(true));
+    render(<StockTokenVariantSelector onSelect={onSelect} />);
+    fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+    await act(async () => undefined);
+    expect(onSelect).toHaveBeenCalledWith(mockVariants[1]);
+    expect(setIssuerPreferenceMock).not.toHaveBeenCalled();
   });
 
   it('closes before an asynchronous variant selection finishes', () => {

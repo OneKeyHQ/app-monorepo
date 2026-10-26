@@ -1,6 +1,7 @@
 import type { IMarketPreferredToken } from '../../types/market';
 import type {
   EMarketBannerType,
+  IMarketStockDetailPreview,
   IMarketTokenDetailPreview,
 } from '../../types/marketV2';
 import type { EEnterWay } from '../logger/scopes/dex';
@@ -32,17 +33,22 @@ export type IMarketTokenDetailRouteParams = {
   showFavoriteButton?: boolean;
 };
 
+// A section the desktop detail page scrolls to on open, below the chart.
+export type IMarketStockDetailInitialSection = 'overview';
+
 export type IMarketStockDetailRouteParams = {
   stockId: string;
   stockPreviewSymbol?: string;
   stockPreviewName?: string;
   stockPreviewLogoUrl?: string;
+  stockPreviewQuote?: IMarketStockDetailPreview['quote'];
   tokenAddress?: string;
   network?: string;
   isNative?: boolean;
   from?: EEnterWay;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
+  initialSection?: IMarketStockDetailInitialSection;
 };
 
 export type ITabMarketParamList = {

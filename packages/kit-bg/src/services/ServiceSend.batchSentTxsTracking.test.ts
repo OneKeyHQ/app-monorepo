@@ -90,6 +90,12 @@ function makeService() {
     ),
   });
   const backgroundApi = {
+    simpleDb: {
+      broadcastRecords: {
+        getRecord: jest.fn().mockResolvedValue(undefined),
+        updateRecord: jest.fn().mockResolvedValue(undefined),
+      },
+    },
     serviceSignature: {
       addItemFromSendProcess: jest.fn().mockResolvedValue(undefined),
     },

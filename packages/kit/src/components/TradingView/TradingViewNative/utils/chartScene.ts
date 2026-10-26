@@ -254,6 +254,7 @@ export type ITradingViewNativeChartSceneCommand =
     };
 
 export interface IBuildTradingViewNativeChartSceneOptions {
+  dateFormatTemplate?: string;
   autoScalePointRange?: ITradingViewNativeVisiblePointRange;
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
@@ -676,6 +677,7 @@ function appendLegendCommands({
 }
 
 export function buildTradingViewNativeChartScene({
+  dateFormatTemplate,
   autoScalePointRange,
   candleIntervalSeconds,
   candleTimeMode,
@@ -893,6 +895,7 @@ export function buildTradingViewNativeChartScene({
 
   const scalePointRange = autoScalePointRange ?? visiblePointRange;
   const layout = getTradingViewNativeChartLayout({
+    dateFormatTemplate,
     autoScalePointRange: scalePointRange,
     additionalPriceRange: getTradingViewNativeIndicatorPriceRange({
       ...scalePointRange,
@@ -1528,6 +1531,7 @@ export function buildTradingViewNativeChartScene({
     const timeLabel = formatTradingViewNativeCrosshairTime(
       crosshairTimestamp,
       candleIntervalSeconds,
+      dateFormatTemplate,
     );
     const timeTextWidth = measureTextWidth(timeLabel, 'axis');
     const timeLabelWidth = Math.min(

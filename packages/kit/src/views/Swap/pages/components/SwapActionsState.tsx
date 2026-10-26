@@ -195,6 +195,7 @@ const SwapActionsState = ({
     cleanQuoteInterval,
     closeQuoteEvent,
     loadSwapSelectTokenDetail,
+    requestSelectedTokenBalanceRefresh,
     quoteAction,
   } = useSwapActions().current;
   const swapActionState = useSwapActionState();
@@ -550,6 +551,7 @@ const SwapActionsState = ({
       return;
     }
     if (swapActionState.isRefreshQuote) {
+      requestSelectedTokenBalanceRefresh();
       if (onRefreshQuote) {
         onRefreshQuote();
         return;
@@ -581,6 +583,7 @@ const SwapActionsState = ({
     onRefreshQuote,
     quoteAction,
     quoteActionLock.kind,
+    requestSelectedTokenBalanceRefresh,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
     swapActionState.shouldDepositToTrade,

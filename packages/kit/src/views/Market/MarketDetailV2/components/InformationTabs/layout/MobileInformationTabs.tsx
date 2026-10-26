@@ -130,6 +130,7 @@ function PendingInformationTabs() {
 
 export function MobileInformationTabs({
   containerWidth,
+  initialHeaderHeight,
   renderHeader,
   pendingHeader,
   onScrollEnd,
@@ -144,6 +145,7 @@ export function MobileInformationTabs({
   isMarketAssetDetailLoading,
 }: {
   containerWidth?: number;
+  initialHeaderHeight?: number;
   renderHeader: () => ReactElement | null;
   // Shown in place of the tabs until the token's network is known.
   pendingHeader?: ReactNode;
@@ -360,9 +362,9 @@ export function MobileInformationTabs({
   // Generate unique key based on tabs composition
   const tabsKey = useMemo(() => tabKeys.join('-'), [tabKeys]);
 
-  // The tab set depends on the network, so hold only the header until the
-  // stock variant resolves instead of mounting tabs that remount right away.
-  if (!networkId) {
+  // Stock tabs are independent of the selected token network. Other tab sets
+  // wait for it so their header does not remount when the network resolves.
+  if (!networkId && detailKind !== 'stock') {
     return pendingHeader ? (
       <YStack>
         {pendingHeader}
@@ -371,9 +373,14 @@ export function MobileInformationTabs({
     ) : null;
   }
 
+  const initialStickyHeight = preferPosition ? 89 : 45;
   return (
     <MarketDetailPager
       key={tabsKey}
+      initialHeaderHeight={initialHeaderHeight}
+      initialStickyHeaderHeight={
+        initialHeaderHeight === undefined ? undefined : initialStickyHeight
+      }
       width={platformEnv.isNative ? resolvedContainerWidth : undefined}
       scrollEnabled={scrollEnabled}
       renderHeader={renderHeader}

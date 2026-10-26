@@ -11,7 +11,7 @@ import {
   useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
@@ -178,9 +178,7 @@ const OpenOrdersRow = memo(
     }, [actions, assetInfo.isSpot, assetInfo.rawCoin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
-      const date = formatTime(timeDate, {
-        formatTemplate: 'yyyy-LL-dd',
-      });
+      const date = formatDate(timeDate, { hideTimeForever: true });
       const time = formatTime(timeDate, {
         formatTemplate: 'HH:mm:ss',
       });
@@ -282,11 +280,15 @@ const OpenOrdersRow = memo(
             width="100%"
             alignItems="center"
           >
-            <YStack onPress={handleSwitchInstrument} cursor="pointer">
+            <YStack>
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodyMdMedium"
+                alignSelf="flex-start"
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
               >
                 {assetInfo.assetSymbol}
               </SizableText>
@@ -461,8 +463,6 @@ const OpenOrdersRow = memo(
               {...getColumnStyle(columnConfigs[1])}
               justifyContent="center"
               alignItems={calcCellAlign(columnConfigs[1].align)}
-              onPress={handleSwitchInstrument}
-              cursor="pointer"
             >
               <SizableText
                 size="$bodySm"
@@ -470,6 +470,9 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 color={assetInfo.typeColor}
                 ellipsizeMode="tail"
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
               >
                 {assetInfo.assetSymbol}
               </SizableText>

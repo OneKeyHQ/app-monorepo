@@ -31,6 +31,7 @@ import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends
 import { useInviteLevelDetail } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/hooks/useCurrentLevelCard';
 import { getInviteEarningsState } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteEarningsState';
 import { InviteLevelPill } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
+import { InviteRewardSettingsButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteRewardSettingsButton';
 import { InviteTabContent } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteTabContent';
 import { useInviteValueSummary } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteValueLine';
 import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
@@ -49,7 +50,6 @@ import {
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
-import { useReferralTabCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
 import { useReferralTabSwitch } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/useReferralTabSwitch';
 import {
   getInviteCodeStepImageHeight,
@@ -104,7 +104,12 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
     if (activeTab !== EReferralPageTab.invite) {
       return null;
     }
-    return <RulesButton />;
+    return (
+      <XStack gap="$2" ai="center">
+        <RulesButton />
+        <InviteRewardSettingsButton />
+      </XStack>
+    );
   }, [activeTab]);
 
   if (isCompactHeader) {
@@ -396,7 +401,6 @@ const InviteShareFooter = memo(function InviteShareFooter({
 });
 
 function InviteRewardPage() {
-  const tabCopy = useReferralTabCopy();
   const intl = useIntl();
   const { md } = useMedia();
   const pageCanvas = useInvitePageCanvas();
@@ -621,6 +625,8 @@ function InviteRewardPage() {
                   })}
                 </SizableText>
               )}
+              {/* Perks says whose rewards these are beside its rewards
+                  section title, not here. */}
               {isInviteTab ? (
                 <XStack ai="center" gap="$2" flexShrink={1} jc="flex-end">
                   {summaryInfo ? (
@@ -632,21 +638,11 @@ function InviteRewardPage() {
                   ) : null}
                   <XStack gap="$4" ai="center">
                     <RulesButton />
+                    <InviteRewardSettingsButton />
                     {platformEnv.isWeb ? <LogoutButton /> : null}
                   </XStack>
                 </XStack>
-              ) : (
-                // Perks says whose rewards these are where the invite tab
-                // keeps its level and rules.
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  flexShrink={1}
-                >
-                  {tabCopy.perksIntro}
-                </SizableText>
-              )}
+              ) : null}
             </XStack>
           </Page.Container>
         )}
