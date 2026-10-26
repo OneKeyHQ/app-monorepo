@@ -29,7 +29,9 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 import { usePerpsCrossAvailableAfterMaintenance } from '../../hooks/usePerpsCrossAvailableAfterMaintenance';
+import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';
@@ -119,19 +121,32 @@ export function ReversePositionContent({
     return { assetData, symbolMeta, price: referencePrice };
   }, [intl, snapshot.accountAddress, snapshot.coin]);
   const {
-    result: target,
+    result: symbolMeta,
     isLoading,
     run,
-  } = usePromiseResult(fetchTarget, [fetchTarget], {
-    watchLoading: true,
-    checkIsFocused: false,
-    undefinedResultIfError: true,
-  });
+  } = usePromiseResult(
+    async () => {
+      const meta = await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+        coin: snapshot.coin,
+      });
+      return meta?.coin === snapshot.coin && !meta.isSpot ? meta : undefined;
+    },
+    [snapshot.coin],
+    { watchLoading: true, checkIsFocused: false, undefinedResultIfError: true },
+  );
+  const szDecimals = symbolMeta?.universe?.szDecimals;
+  const { mid } = usePerpsMidPrice({ coin: snapshot.coin, szDecimals });
+  const { assetCtx } = usePerpsAssetCtx({ assetId: symbolMeta?.assetId ?? -1 });
+  // Preview uses coin-scoped streaming data. Account limits are fetched again
+  // on submit, so a slow activeAssetData request cannot block the preview.
+  const referencePrice = getValidPerpsPrice(mid);
+  const markPrice = symbolMeta
+    ? getValidPerpsPrice(assetCtx.markPrice)
+    : undefined;
   const isScopeValid = isReversePositionScopeValid({
     snapshot,
     ...liveScopeRef.current,
   });
-  const szDecimals = target?.symbolMeta.universe?.szDecimals;
   const size =
     szDecimals === undefined
       ? null
@@ -143,17 +158,17 @@ export function ReversePositionContent({
     snapshot.coin,
   );
   const liquidationPrice = useMemo(() => {
-    if (!target || !position || !isScopeValid || !size) return null;
+    if (!symbolMeta || !markPrice || !position || !isScopeValid || !size)
+      return null;
     return estimateLiquidationPrice({
       side,
       orderSize: size.multipliedBy(2),
       priceMode: 'market',
-      orderPrice: new BigNumber(target.price),
-      markPrice: new BigNumber(target.assetData.markPx),
-      marginMode: target.assetData.leverage.type,
-      leverage: target.assetData.leverage.value,
-      marginTiers: target.symbolMeta.marginTable?.marginTiers,
-      maxLeverage: target.symbolMeta.universe?.maxLeverage ?? 1,
+      markPrice: new BigNumber(markPrice),
+      marginMode: position.leverage.type,
+      leverage: position.leverage.value,
+      marginTiers: symbolMeta.marginTable?.marginTiers,
+      maxLeverage: symbolMeta.universe?.maxLeverage ?? 1,
       existingPositionSize: new BigNumber(position.szi),
       isolatedRawUsd:
         position.leverage.type === 'isolated'
@@ -167,7 +182,8 @@ export function ReversePositionContent({
     position,
     side,
     size,
-    target,
+    markPrice,
+    symbolMeta,
   ]);
 
   const handleSubmit = useCallback(async () => {
@@ -282,14 +298,14 @@ export function ReversePositionContent({
       label: intl.formatMessage({
         id: ETranslations.perp_spot_reference_price__title,
       }),
-      value: target
-        ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(target.price, target.symbolMeta.universe?.szDecimals))}`
+      value: referencePrice
+        ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(referencePrice, szDecimals))}`
         : '--',
     },
     {
       label: intl.formatMessage({ id: ETranslations.perp_est_liq_price }),
       value: liquidationPrice?.gt(0)
-        ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(liquidationPrice.toFixed(), target?.symbolMeta.universe?.szDecimals))}`
+        ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(liquidationPrice.toFixed(), szDecimals))}`
         : '--',
     },
   ];
@@ -365,7 +381,7 @@ export function ReversePositionContent({
           })}
         </SizableText>
       ) : null}
-      {!target && !isLoading ? (
+      {!symbolMeta && !isLoading ? (
         <Button
           testID="perp-reverse-position-retry-button"
           onPress={() => void run()}
@@ -382,7 +398,13 @@ export function ReversePositionContent({
             testID={PerpTestIDs.ReversePositionConfirmButton}
             size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
-            disabled={!target || !size || !isScopeValid || isSubmitting}
+            disabled={
+              !symbolMeta ||
+              !referencePrice ||
+              !size ||
+              !isScopeValid ||
+              isSubmitting
+            }
             loading={isSubmitting}
             onPress={handleSubmit}
           >

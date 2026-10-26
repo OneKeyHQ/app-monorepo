@@ -15,18 +15,27 @@ const mockSnapshot = {
   accountAddress: '0x1111',
   positionSize: '1',
 };
+let mockMid = '2000';
+let mockMarkPrice = '2000';
+let mockPreviewLoader: () => Promise<unknown>;
+let mockPreviewMeta = {
+  coin: 'ETH',
+  assetId: 1,
+  isSpot: false,
+  universe: { szDecimals: 3, maxLeverage: 20 },
+};
 let mockAccount = { accountAddress: mockSnapshot.accountAddress };
 let mockPosition = {
   coin: 'ETH',
   szi: '1',
-  leverage: { type: 'cross', value: 10 },
+  leverage: { type: 'cross', value: 10, rawUsd: '-1800' },
 };
 const mockAssetData = {
   coin: 'ETH',
   user: mockSnapshot.accountAddress,
   markPx: '2000',
   maxTradeSzs: ['5', '5'],
-  leverage: { type: 'cross', value: 10 },
+  leverage: { type: 'cross', value: 10, rawUsd: '-1800' },
 };
 const mockTarget = {
   assetData: mockAssetData,
@@ -103,11 +112,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({
-    result: mockTarget,
-    isLoading: false,
-    run: jest.fn(),
-  }),
+  usePromiseResult: (callback: () => Promise<unknown>) => {
+    mockPreviewLoader = callback;
+    return { result: mockPreviewMeta, isLoading: false, run: jest.fn() };
+  },
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useHyperliquidActions: () => ({
@@ -116,6 +124,12 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsActiveAccountAtom: () => [mockAccount],
+}));
+jest.mock('../../hooks/usePerpsMidPrice', () => ({
+  usePerpsMidPrice: () => ({ mid: mockMid }),
+}));
+jest.mock('../../hooks/usePerpsAssetCtx', () => ({
+  usePerpsAssetCtx: () => ({ assetCtx: { markPrice: mockMarkPrice } }),
 }));
 jest.mock('../../hooks/useEnableTradingWithDepositFallback', () => ({
   useEnsureTradingEnabled: () => mockEnsureTrading,
@@ -154,11 +168,14 @@ function deferred() {
 describe('reverse position confirmation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockMid = '2000';
+    mockMarkPrice = '2000';
+    mockPreviewMeta = mockTarget.symbolMeta;
     mockAccount = { accountAddress: mockSnapshot.accountAddress };
     mockPosition = {
       coin: 'ETH',
       szi: '1',
-      leverage: { type: 'cross', value: 10 },
+      leverage: { type: 'cross', value: 10, rawUsd: '-1800' },
     };
     mockFetchAsset.mockResolvedValue(mockAssetData);
     mockPlaceOrder.mockResolvedValue({ status: 'ok' });
@@ -170,6 +187,28 @@ describe('reverse position confirmation', () => {
       },
     }));
   });
+  it('loads preview without account-limit requests and updates with streamed prices', async () => {
+    mockPosition.leverage.type = 'isolated';
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    await act(async () => {
+      await mockPreviewLoader();
+    });
+    expect(mockFetchAsset).not.toHaveBeenCalled();
+    expect(view.getByText('$2,000')).toBeTruthy();
+    expect(view.getByText('$2,146.3')).toBeTruthy();
+    mockMid = '2100';
+    mockMarkPrice = '2100';
+    view.rerender(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    expect(view.getByText('$2,100')).toBeTruthy();
+    expect(view.getByText('$2,253.6')).toBeTruthy();
+    expect(view.queryByText('$2,000')).toBeNull();
+    expect(mockFetchAsset).not.toHaveBeenCalled();
+  });
+
   it('formats WLD API noise at the coin size precision before doubling', () => {
     const snapshot = {
       ...mockSnapshot,
@@ -177,8 +216,8 @@ describe('reverse position confirmation', () => {
       positionSize: '-3965060.8999999999',
     };
     mockPosition = { ...mockPosition, coin: 'WLD', szi: snapshot.positionSize };
-    mockTarget.symbolMeta = {
-      ...mockTarget.symbolMeta,
+    mockPreviewMeta = {
+      ...mockPreviewMeta,
       coin: 'WLD',
       universe: { szDecimals: 1, maxLeverage: 10 },
     };
@@ -187,12 +226,6 @@ describe('reverse position confirmation', () => {
     );
     expect(view.getByText(/7,930,121.8 WLD/)).toBeTruthy();
     expect(view.container.textContent).not.toContain('999999');
-    mockTarget.symbolMeta = {
-      coin: 'ETH',
-      assetId: 1,
-      isSpot: false,
-      universe: { szDecimals: 3, maxLeverage: 20 },
-    };
   });
 
   it('submits one market order, never cancels orders, and prevents duplicate submission', async () => {
