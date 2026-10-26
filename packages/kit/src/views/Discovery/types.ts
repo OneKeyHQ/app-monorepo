@@ -103,20 +103,22 @@ export interface IWebTabsAtom {
 }
 
 export interface IMobileBottomOptionsProps {
-  disabled: boolean;
   isBookmark: boolean;
   onBookmarkPress: (bookmark: boolean) => void;
-  onRefresh: () => void;
   onShare: () => void;
   onCopyUrl: () => void;
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
   onBrowserOpen: () => void;
-  onGoBackHomePage?: () => void;
   onCloseTab: () => void;
   displayDisconnectOption: boolean;
   onDisconnect: () => void;
   siteMode?: ESiteMode;
+  // Page actions folded into the menu by the mobile bottom bar.
+  canGoForward: boolean;
+  onGoForward: () => void;
+  isTranslated: boolean;
+  onTranslatePress: () => void;
   onRequestSiteMode: (siteMode: ESiteMode) => void;
 }
 
