@@ -35,7 +35,6 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
-  swapProPositionsListMaxCount,
   wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -1925,16 +1924,6 @@ export function useSwapProPositionsListFilter(
     );
   }, [sourceTokenList, isStockPositions]);
 
-  const filterDefaultTokenList = useMemo(() => {
-    if (
-      isStockPositions ||
-      filterMinValueTokenList.length <= swapProPositionsListMaxCount
-    ) {
-      return filterMinValueTokenList;
-    }
-    return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
-  }, [filterMinValueTokenList, isStockPositions]);
-
   const finallyTokenList = useMemo(
     () =>
       filterToken
@@ -1943,8 +1932,8 @@ export function useSwapProPositionsListFilter(
               equalTokenNoCaseSensitive({ token1: t, token2: token }),
             ),
           )
-        : filterDefaultTokenList,
-    [filterDefaultTokenList, filterMinValueTokenList, filterToken],
+        : filterMinValueTokenList,
+    [filterMinValueTokenList, filterToken],
   );
   return {
     finallyTokenList,

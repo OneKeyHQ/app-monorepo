@@ -84,6 +84,7 @@ ntli
 unfocus
 usdc
 USDC
+EURC
 Realtime
 Tpsl
 tpsl
