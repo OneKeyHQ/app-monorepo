@@ -139,6 +139,7 @@ function createKeyring({
           ...createSeedFingerprintStore(),
           // No identity recorded yet: the first key is accepted.
           getAccountVkFp: jest.fn(async () => undefined),
+          getAccountEpoch: jest.fn(async () => undefined),
           ...simpleDbZcash,
         },
         privacyChainJournal: { ...journal },

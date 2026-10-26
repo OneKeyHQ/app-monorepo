@@ -168,6 +168,9 @@ export async function resolveAndSaveZcashAccountMeta({
     );
   }
 
+  const epoch = await backgroundApi.simpleDb.privacyChainState.getAccountEpoch({
+    accountId: account.id,
+  });
   const derived = await derive({ hdIndex });
   if (
     !(await backgroundApi.serviceAccount.getDBAccountSafe({
@@ -175,6 +178,14 @@ export async function resolveAndSaveZcashAccountMeta({
     }))
   ) {
     throw new OneKeyLocalError('zcash: account removed during privacy setup');
+  }
+  // Local data deleted (or reset) while deriving: never write the key back.
+  if (
+    (await backgroundApi.simpleDb.privacyChainState.getAccountEpoch({
+      accountId: account.id,
+    })) !== epoch
+  ) {
+    throw new OneKeyLocalError('zcash: privacy state changed during setup');
   }
   const vkFp = await saveZcashViewingKey({
     backgroundApi,
