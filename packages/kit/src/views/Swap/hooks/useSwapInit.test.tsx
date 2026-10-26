@@ -1701,6 +1701,69 @@ describe('empty Swap bootstrap with a newer restored account revision', () => {
     },
   );
 
+  it('uses recovered configuration for a new route intent without changing the timed-out entry or refetching', async () => {
+    jest.useFakeTimers();
+    const home = { ...homeSelectedAccount, networkId: 'evm--1' };
+    const info = { ...homeInfo, selectedAccount: home };
+    jest.mocked(getLatestHomeSelectedAccountInfo).mockResolvedValue(info);
+    jest
+      .mocked(getHomeSelectedAccountInfoFromContextStore)
+      .mockReturnValue(info);
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    const view = renderMarket({
+      swapSource: ESwapSource.WALLET_HOME,
+      importNetworkId: 'evm--1',
+    });
+    await act(async () => {});
+    await act(async () => jest.advanceTimersByTime(2000));
+    const fallbackFrom = mockStore.get(swapSelectFromTokenAtom());
+    const fallbackTo = mockStore.get(swapSelectToTokenAtom());
+    const arbFrom = {
+      ...configuredTo,
+      networkId: 'evm--42161',
+      contractAddress: '0xaave',
+      symbol: 'AAVE',
+    };
+    const arbTo = {
+      ...configuredTo,
+      networkId: 'evm--42161',
+      contractAddress: '0xusdt',
+      symbol: 'USDT',
+    };
+    await act(async () =>
+      request.resolve([
+        configuredNetwork,
+        {
+          ...freshNetwork,
+          networkId: 'evm--42161',
+          defaultSelectTokenDetail: { from: arbFrom, to: arbTo },
+        },
+      ]),
+    );
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(fallbackFrom);
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(fallbackTo);
+    selectedAccount = { ...home, networkId: 'evm--42161' };
+    const arbInfo = {
+      ...info,
+      selectedAccount,
+      selectedAccountUpdatedAt: 1000,
+    };
+    jest.mocked(getLatestHomeSelectedAccountInfo).mockResolvedValue(arbInfo);
+    jest
+      .mocked(getHomeSelectedAccountInfoFromContextStore)
+      .mockReturnValue(arbInfo);
+    view.rerender({
+      swapSource: ESwapSource.WALLET_HOME,
+      importNetworkId: 'evm--42161',
+    });
+    await act(async () => {});
+    expect(mockStore.get(swapSelectFromTokenAtom())).toMatchObject(arbFrom);
+    expect(mockStore.get(swapSelectToTokenAtom())).toMatchObject(arbTo);
+    expect(mockFetchNetworks).toHaveBeenCalledTimes(1);
+    view.unmount();
+  });
+
   it('preserves manual selection made before an asset default times out', async () => {
     jest.useFakeTimers();
     const request = deferred<ISwapNetwork[]>();

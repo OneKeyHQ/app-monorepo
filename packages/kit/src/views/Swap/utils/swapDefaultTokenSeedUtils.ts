@@ -21,6 +21,7 @@ import {
   isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType,
   shouldResetSelectedTokensForAllNetworkHome,
   shouldSyncSwapAutomaticDefaultNetwork,
+  shouldSyncSwapAutomaticEmptyDefaults,
 } from './swapColdStartTokenCacheUtils';
 
 import type { ISwapDefaultConfigStatus } from './swapColdStartTokenCacheUtils';
@@ -180,7 +181,15 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   swapType?: ESwapTabSwitchType;
 }) {
   if (!hasSelectedTokens) {
-    return false;
+    return (
+      !preserveSelectedTokens &&
+      shouldSyncSwapAutomaticEmptyDefaults({
+        cachedContext,
+        hasSelectedTokens,
+        selectedAccount: homeSelectedAccount,
+        swapType,
+      })
+    );
   }
 
   if (preserveSelectedTokens) {

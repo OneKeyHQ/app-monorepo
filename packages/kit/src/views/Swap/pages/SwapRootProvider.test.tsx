@@ -20,6 +20,8 @@ import {
   swapDefaultConfigStatusAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
+  swapNetworkConfigStatusAtom,
+  swapNetworks,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedTokensColdStartContextAtom,
@@ -225,6 +227,105 @@ describe.each(['native main', 'desktop single runtime'])(
         );
         expect(store.get(swapSelectToTokenAtom())?.symbol).toBe(
           automatic ? undefined : 'USDC',
+        );
+        view.unmount();
+      },
+    );
+
+    it.each([
+      'automatic pair',
+      'automatic empty',
+      'manual pair',
+      'typed amount',
+    ])(
+      'uses recovered configuration only for a later Home intent with %s',
+      async (selection) => {
+        setSnapshot(automaticContext);
+        const view = render(<SwapRootProvider />);
+        const store = jotaiContextStore.getOrCreateStore({
+          storeName: EJotaiContextStoreNames.swap,
+        });
+        await act(async () => {});
+        const empty = selection === 'automatic empty';
+        const automaticSeed = empty ? {} : automaticContext.defaultTokenSeed;
+        const context = {
+          ...automaticContext,
+          networkId: empty ? 'evm--no-local-default' : 'evm--1',
+          defaultTokenSeed:
+            selection === 'manual pair' ? undefined : automaticSeed,
+        };
+        mockHomeSelectedAccount.networkId = context.networkId;
+        await act(async () => {
+          store.set(swapDefaultConfigStatusAtom(), 'failed');
+          store.set(swapInitialSelectedTokensSyncedAtom(), true);
+          store.set(swapSelectedTokensColdStartContextAtom(), context);
+          if (empty) {
+            store.set(swapSelectFromTokenAtom(), undefined);
+            store.set(swapSelectToTokenAtom(), undefined);
+          }
+          if (selection === 'typed amount') {
+            store.set(swapFromTokenAmountAtom(), { value: '1', isInput: true });
+          }
+        });
+        const configuredFrom = {
+          ...fromToken,
+          networkId: 'evm--42161',
+          contractAddress: '0xaave',
+          symbol: 'AAVE',
+        };
+        const configuredTo = {
+          ...toToken,
+          networkId: 'evm--42161',
+          contractAddress: '0xusdt',
+          symbol: 'USDT',
+        };
+        await act(async () => {
+          store.set(swapNetworks(), [
+            {
+              networkId: 'evm--42161',
+              name: 'Arbitrum',
+              symbol: 'ETH',
+              backendIndex: true,
+              supportSingleSwap: true,
+              supportCrossChainSwap: false,
+              supportLimit: false,
+              supportStock: false,
+              isDeFiEnabled: true,
+              defaultSelectTokenDetail: {
+                from: configuredFrom,
+                to: configuredTo,
+              },
+            },
+          ]);
+          store.set(swapNetworkConfigStatusAtom(), 'success');
+        });
+        expect(store.get(swapSelectFromTokenAtom())).toEqual(
+          empty ? undefined : fromToken,
+        );
+        expect(store.get(swapSelectToTokenAtom())).toEqual(
+          empty ? undefined : toToken,
+        );
+        await act(async () => {
+          mockHomeSelectedAccount.networkId = 'evm--42161';
+          appEventBus.emit(
+            EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+            {
+              sceneName: EAccountSelectorSceneName.home,
+              num: 0,
+              selectedAccount: {
+                ...mockHomeSelectedAccount,
+                networkId: 'evm--42161',
+              },
+              selectedAccountUpdatedAt: Date.now(),
+            },
+          );
+        });
+        const automatic = selection.startsWith('automatic');
+        expect(store.get(swapSelectFromTokenAtom())).toEqual(
+          automatic ? configuredFrom : fromToken,
+        );
+        expect(store.get(swapSelectToTokenAtom())).toEqual(
+          automatic ? configuredTo : toToken,
         );
         view.unmount();
       },

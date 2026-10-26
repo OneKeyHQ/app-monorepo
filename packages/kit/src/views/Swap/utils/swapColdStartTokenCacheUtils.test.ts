@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapAutomaticDefaultTokenContext,
   buildSwapDefaultSelectedTokensForNetwork,
   buildSwapDefaultSelectedTokensFromHomeAccount,
   buildSwapDefaultTokenSeed,
@@ -2759,6 +2760,92 @@ describe('swap cold-start selected token context', () => {
         focusedWallet: 'wallet-1',
       }),
     );
+  });
+});
+
+describe('automatic empty default ownership', () => {
+  const home: IAccountSelectorSelectedAccount = {
+    walletId: 'wallet-empty',
+    indexedAccountId: 'account-empty',
+    deriveType: 'default',
+    networkId: 'evm--no-local-default',
+    othersWalletAccountId: undefined,
+    focusedWallet: 'wallet-empty',
+  };
+  const context = buildSwapAutomaticDefaultTokenContext({
+    homeSelectedAccount: home,
+    swapType: ESwapTabSwitchType.SWAP,
+    now: 1,
+  });
+  const options = {
+    cachedContext: context,
+    hasSelectedTokens: false,
+    initialSelectedTokensSynced: true,
+    swapSelectedAccount: home,
+    swapType: ESwapTabSwitchType.SWAP,
+    defaultConfigStatus: 'success' as const,
+  };
+
+  it('keeps the same Home empty after late recovery and does not take ownership of an explicit empty pair', () => {
+    expect(context?.defaultTokenSeed).toEqual({});
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        ...options,
+        homeSelectedAccount: home,
+      }).type,
+    ).toBe('preserve');
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        ...options,
+        cachedContext: context
+          ? { ...context, defaultTokenSeed: undefined }
+          : undefined,
+        homeSelectedAccount: { ...home, networkId: 'evm--42161' },
+      }).type,
+    ).toBe('preserve');
+  });
+
+  it.each([
+    { networkId: 'evm--42161' },
+    { indexedAccountId: 'another-account' },
+  ])('allows a real new Home intent after an empty result: %j', (change) => {
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        ...options,
+        homeSelectedAccount: { ...home, ...change },
+      }),
+    ).toBe(true);
+    expect(
+      shouldHandleSwapColdStartHomeAccountUpdate({
+        cachedContext: context,
+        hasSelectedTokens: false,
+        initialSelectedTokensSynced: true,
+        swapType: ESwapTabSwitchType.SWAP,
+        eventPayload: {
+          selectedAccount: { ...home, ...change },
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not create an automatic empty owner without an account', () => {
+    expect(
+      buildSwapAutomaticDefaultTokenContext({
+        homeSelectedAccount: { networkId: home.networkId },
+        swapType: ESwapTabSwitchType.SWAP,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('clears the automatic empty owner when Home is disconnected', () => {
+    expect(
+      getSwapSelectedTokensHomeAccountSyncAction({
+        ...options,
+        homeSelectedAccount: undefined,
+      }).type,
+    ).toBe('clear');
   });
 });
 

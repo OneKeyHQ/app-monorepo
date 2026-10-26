@@ -18,6 +18,7 @@ const SWAP_DEFAULT_CONFIG_WAIT_MS = 2000;
 
 export function useSwapNetworks() {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
+  // This deadline belongs to the initial entry, not later Home or route intents.
   const [defaultConfigStatus, setDefaultConfigStatus] =
     useSwapDefaultConfigStatusAtom();
   const [networkConfigStatus, setNetworkConfigStatus] =
@@ -27,6 +28,8 @@ export function useSwapNetworks() {
   swapNetworksRef.current = swapNetworks;
   const defaultConfigStatusRef = useRef(defaultConfigStatus);
   defaultConfigStatusRef.current = defaultConfigStatus;
+  const networkConfigStatusRef = useRef(networkConfigStatus);
+  networkConfigStatusRef.current = networkConfigStatus;
   const hasRefreshedSwapNetworksRef = useRef(false);
   const isActiveRef = useRef(true);
   const defaultConfigDeadlineRef = useRef<number | undefined>(undefined);
@@ -215,6 +218,8 @@ export function useSwapNetworks() {
   return {
     defaultConfigStatus,
     defaultConfigStatusRef,
+    networkConfigStatus,
+    networkConfigStatusRef,
     fetchSwapNetworks,
     hasRefreshedSwapNetworksRef,
     networkListFetching,

@@ -14,6 +14,7 @@ import {
   useSwapDefaultConfigStatusAtom,
   useSwapFromTokenAmountAtom,
   useSwapInitialSelectedTokensSyncedAtom,
+  useSwapNetworkConfigStatusAtom,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -26,6 +27,7 @@ import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
+  buildSwapAutomaticDefaultTokenContext,
   buildSwapDefaultSelectedTokensFromHomeAccount,
   isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount,
   shouldHandleSwapColdStartHomeAccountUpdate,
@@ -45,6 +47,9 @@ function SwapTokenSelectorColdStartCacheSync() {
 
 function SwapColdStartCacheSync() {
   const [defaultConfigStatus] = useSwapDefaultConfigStatusAtom();
+  const [networkConfigStatus] = useSwapNetworkConfigStatusAtom();
+  const networkConfigStatusRef = useRef(networkConfigStatus);
+  networkConfigStatusRef.current = networkConfigStatus;
   const [swapNetworks] = useSwapNetworksAtom();
   const swapNetworksRef = useRef(swapNetworks);
   swapNetworksRef.current = swapNetworks;
@@ -97,14 +102,35 @@ function SwapColdStartCacheSync() {
 
     const setDefaultSelectedTokensFromHomeAccount = (
       selectedAccount?: IAccountSelectorSelectedAccount,
+      isNewIntent = false,
     ) => {
+      const configStatus =
+        isNewIntent && networkConfigStatusRef.current === 'success'
+          ? 'success'
+          : defaultConfigStatus;
       const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
-        defaultConfigStatus,
+        defaultConfigStatus: configStatus,
         homeSelectedAccount: selectedAccount,
         swapType: swapTypeSwitchRef.current,
         swapNetworks: swapNetworksRef.current,
       });
       if (!defaultTokens) {
+        if (
+          configStatus !== 'pending' &&
+          swapTypeSwitchRef.current === ESwapTabSwitchType.SWAP
+        ) {
+          const context = buildSwapAutomaticDefaultTokenContext({
+            homeSelectedAccount: selectedAccount,
+            swapType: ESwapTabSwitchType.SWAP,
+          });
+          if (context) {
+            setSwapFromToken(undefined);
+            setSwapToToken(undefined);
+            setSelectedTokensColdStartContext(context);
+            markInitialSelectedTokensSynced();
+            return true;
+          }
+        }
         return false;
       }
 
@@ -186,7 +212,11 @@ function SwapColdStartCacheSync() {
           return;
         }
         if (
-          !setDefaultSelectedTokensFromHomeAccount(eventPayload.selectedAccount)
+          !setDefaultSelectedTokensFromHomeAccount(
+            eventPayload.selectedAccount,
+            initialSelectedTokensSyncedRef.current ||
+              eventPayload.selectedAccountUpdatedAt !== undefined,
+          )
         ) {
           if (defaultConfigStatus === 'pending') {
             if (swapTypeSwitchRef.current === ESwapTabSwitchType.SWAP) {
