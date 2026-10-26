@@ -140,7 +140,6 @@ type IBatchBroadcastedTx =
       signedTx: IBatchSignedTx;
       unsignedTx: IUnsignedTxPro;
       feeInfo: ISendSelectedFeeInfo | undefined;
-      reviewedDecodedTx?: IDecodedTx;
     };
 
 const assertAccountCanSign = (accountId: string) => {
@@ -2152,9 +2151,6 @@ class ServiceSend extends ServiceBase {
     }
     const isPrivateSend = transferPayload?.isPrivateSend === true;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    const requiresPrivacyReview = await isLocalWalletNetwork({
-      networkId,
-    });
 
     // A Gas Account quote is bound to a single user tx (payloadHash + locked
     // nonce). In batch flows every iteration would otherwise reuse the same
@@ -2221,21 +2217,10 @@ class ServiceSend extends ServiceBase {
               })
             : undefined;
         let signedTx: IBatchSignedTx;
-        let reviewedDecodedTx: IDecodedTx | undefined;
-        const buildDecodedTx = () =>
-          this.buildDecodedTx({
-            networkId,
-            accountId,
-            unsignedTx,
-            feeInfo,
-            transferPayload,
-            saveToLocalHistory: true,
-          });
         if (broadcastedTx?.status === 'broadcasted') {
           // An earlier attempt broadcast this tx and then failed; finish the
           // remaining steps with what was actually broadcast.
-          ({ unsignedTx, feeInfo, signedTx, reviewedDecodedTx } =
-            broadcastedTx);
+          ({ unsignedTx, feeInfo, signedTx } = broadcastedTx);
         } else {
           if (progressEventId) {
             appEventBus.emit(EAppEventBusNames.BatchSignTxProgress, {
@@ -2246,10 +2231,6 @@ class ServiceSend extends ServiceBase {
           if (!broadcastRecord && (i > 0 || hasEarlierBroadcast)) {
             unsignedTx =
               await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
-          }
-          // Keep the verified history snapshot after signing consumes the approval.
-          if (requiresPrivacyReview) {
-            reviewedDecodedTx = cloneDeep(await buildDecodedTx());
           }
           const buildSignedTx = () =>
             signOnly && !beforeBroadcastAction && !replaceTxInfo
@@ -2306,7 +2287,6 @@ class ServiceSend extends ServiceBase {
               signedTx,
               unsignedTx,
               feeInfo,
-              reviewedDecodedTx,
             });
           }
           // Free-trial metering: this call just broadcast, so mark the usage
@@ -2332,7 +2312,14 @@ class ServiceSend extends ServiceBase {
             accountId,
           });
         }
-        const decodedTx = reviewedDecodedTx ?? (await buildDecodedTx());
+        const decodedTx = await this.buildDecodedTx({
+          networkId,
+          accountId,
+          unsignedTx,
+          feeInfo,
+          transferPayload,
+          saveToLocalHistory: true,
+        });
         if (isPrivateSend) {
           decodedTx.payload = {
             value:
@@ -2401,31 +2388,17 @@ class ServiceSend extends ServiceBase {
             sourceInfo,
           );
           if (signedTx && !signOnly) {
-            try {
-              await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs(
-                {
-                  networkId,
-                  accountId,
-                  data: {
-                    signedTx,
-                    decodedTx,
-                  },
-                  replaceTxInfo,
-                  primeInfiniPayment: signedTx.primeInfiniPayment,
-                },
-              );
-              await this.markBroadcastRecordSettled({ unsignedTx });
-            } catch (error) {
-              if (!requiresPrivacyReview || !signedTx.txid) {
-                throw error;
-              }
-              // The runtime retains the send; a history failure must not invite a second payment.
-              console.error('[privacy-chain] sent history not saved', {
-                networkId,
-                txid: signedTx.txid,
-                error: error instanceof Error ? error.message : '',
-              });
-            }
+            await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+              networkId,
+              accountId,
+              data: {
+                signedTx,
+                decodedTx,
+              },
+              replaceTxInfo,
+              primeInfiniPayment: signedTx.primeInfiniPayment,
+            });
+            await this.markBroadcastRecordSettled({ unsignedTx });
           }
         }
 
