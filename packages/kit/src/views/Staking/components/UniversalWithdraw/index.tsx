@@ -423,9 +423,14 @@ export function UniversalWithdraw({
   const withdrawAllRef = useRef(false);
   const [isWithdrawAll, setIsWithdrawAll] = useState(false);
   const isCancelWithdrawal = initialWithdrawType === 'cancel';
-  const [amountValue, setAmountValue] = useState(
+  const [typedAmountValue, setAmountValue] = useState(
     isCancelWithdrawal ? '0' : (initialAmount ?? ''),
   );
+  // "1." on the way to "1.5" is the amount 1: the quote, the checks, the
+  // figures and the button take it so, while the box keeps what was typed
+  const amountValue = typedAmountValue.endsWith('.')
+    ? typedAmountValue.slice(0, -1)
+    : typedAmountValue;
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
   // Tracks the withdraw type the user explicitly picked in the path selector.
   // Default selection always prefers the first enabled option (instant); this
@@ -1792,10 +1797,14 @@ export function UniversalWithdraw({
 
   // During approve/submit flow, don't show expired refresh — the transaction is in progress.
   // Nor while a new answer for the amount in the box is on its way: the
-  // expired quote is being replaced, so the button keeps its look
+  // expired quote is being replaced, so the button keeps its look. Nor for
+  // an amount the red line turns down: the button stays off for it
   const isTransacting = approving || loading;
   const effectiveShowExpiredRefresh =
-    showExpiredRefresh && !isTransacting && !quoteLoading;
+    showExpiredRefresh &&
+    !isTransacting &&
+    !quoteLoading &&
+    !isCheckAmountMessageError;
 
   const amountInputDisabled = useMemo(() => {
     return isDisabled || initialAmount !== undefined || isCancelWithdrawal;
@@ -1827,6 +1836,9 @@ export function UniversalWithdraw({
     setWasPositiveAmount(isPositiveAmount);
     setIsEmptiedHolding(!isPositiveAmount);
   }
+  // Each key typed into it while it still has no amount ("0." on the way to
+  // "0.5") keeps what was on screen a moment more: dashes come with a
+  // pause, not mid-word
   useEffect(() => {
     if (isPositiveAmount) {
       return undefined;
@@ -1836,7 +1848,7 @@ export function UniversalWithdraw({
       setIsEmptiedHolding(false);
     }, QUOTE_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [isPositiveAmount]);
+  }, [isPositiveAmount, typedAmountValue]);
   // What the rows show: the shown answer's figures (cancelling a queued
   // withdrawal, which has no amount, this answer's own); else the last
   // answer's labels with dashes, or placeholders while one is coming
@@ -2330,7 +2342,7 @@ export function UniversalWithdraw({
                 }
                 disabled={amountInputDisabled}
                 hasError={isCheckAmountMessageError}
-                value={amountValue}
+                value={typedAmountValue}
                 onChange={onChangeAmountValue}
                 onBlur={onBlurAmountValue}
                 tokenSelectorTriggerProps={{

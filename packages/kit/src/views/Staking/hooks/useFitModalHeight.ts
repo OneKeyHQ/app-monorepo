@@ -55,6 +55,23 @@ export function easeModalHeightChanges() {
 // Modals this has sized: coming back to one (History closed) eases from
 // where it is instead of jumping
 const sizedModals = new WeakSet<HTMLElement>();
+
+/**
+ * How much taller the modal holding a node can still grow to fit what it
+ * holds before that has to scroll: 0 outside a modal sized here. It grows a
+ * frame behind its content, so what the content gained this frame and the
+ * modal can still take isn't for the content to scroll
+ */
+export function getModalRoomToGrow(node: HTMLElement): number {
+  const modal = node.closest<HTMLElement>(MODAL_SCREEN_SELECTOR);
+  if (!modal || !sizedModals.has(modal)) {
+    return 0;
+  }
+  const largest = Math.ceil(
+    Math.min(MODAL_MAX_HEIGHT, window.innerHeight * MODAL_MAX_WINDOW_SHARE),
+  );
+  return Math.max(0, largest - modal.offsetHeight);
+}
 // A modal easing back to its usual size after the page left it
 const releases = new WeakMap<HTMLElement, () => void>();
 

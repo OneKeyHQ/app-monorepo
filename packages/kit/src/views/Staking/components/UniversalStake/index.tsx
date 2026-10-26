@@ -730,9 +730,14 @@ export function UniversalStake({
   // A start amount (what was typed before a switch to another protocol) is
   // in the box from the first frame, so the form drawn again doesn't flash
   // empty
-  const [amountValue, setAmountValue] = useState(() =>
+  const [typedAmountValue, setAmountValue] = useState(() =>
     getStartAmount(initialAmount, decimals),
   );
+  // "1." on the way to "1.5" is the amount 1: the quote, the checks, the
+  // figures and the button take it so, while the box keeps what was typed
+  const amountValue = typedAmountValue.endsWith('.')
+    ? typedAmountValue.slice(0, -1)
+    : typedAmountValue;
   // Asked as the form mounts, and kept: the room closes over its own time
   // whatever renders come after
   const [closesDepositLineRoom] = useState(Boolean(collapsesDepositLine));
@@ -1418,7 +1423,10 @@ export function UniversalStake({
       );
       if (!isOverflowDecimals) {
         setAmountValue(value);
-        void debouncedFetchEstimateFeeResp(value);
+        // For the amount the form takes ("1." is 1), so the fee matches it
+        void debouncedFetchEstimateFeeResp(
+          value.endsWith('.') ? value.slice(0, -1) : value,
+        );
       }
     },
     [decimals, debouncedFetchEstimateFeeResp],
@@ -2248,6 +2256,9 @@ export function UniversalStake({
     setWasPositiveAmount(isPositiveAmount);
     setIsEmptiedHolding(!isPositiveAmount);
   }
+  // Each key typed into it while it still has no amount ("0." on the way to
+  // "0.5") keeps what was on screen a moment more: dashes come with a
+  // pause, not mid-word
   useEffect(() => {
     if (isPositiveAmount) {
       return undefined;
@@ -2258,7 +2269,7 @@ export function UniversalStake({
       setIsEmptiedHolding(false);
     }, QUOTE_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [isPositiveAmount]);
+  }, [isPositiveAmount, typedAmountValue]);
   // The rows keep their places in every state: the shown quote's figures,
   // else the labels of the last quote (or of the server's empty-amount
   // answer) with dashes, or placeholders while a quote is coming
@@ -2274,9 +2285,15 @@ export function UniversalStake({
     (isPositiveAmount ? amountValue : '') !== shownQuote.amount ||
     isEmptiedHolding;
   // Nor from a keystroke until that amount's quote is in: the expired quote
-  // is being replaced, so the button keeps its look
+  // is being replaced, so the button keeps its look. Nor for an amount the
+  // red line turns down (over the balance): the button stays off for it
   const effectiveShowExpiredRefresh =
-    showExpiredRefresh && !isTransacting && !quoteLoading && !isQuoteUpdating;
+    showExpiredRefresh &&
+    !isTransacting &&
+    !quoteLoading &&
+    !isQuoteUpdating &&
+    !isInsufficientBalance &&
+    !isCheckAmountMessageError;
 
   const pendleRows = useMemo(
     () =>
@@ -2827,7 +2844,7 @@ export function UniversalStake({
             }
             disabled={amountInputDisabled}
             hasError={Boolean(amountErrorText)}
-            value={amountValue}
+            value={typedAmountValue}
             onChange={onChangeAmountValue}
             onBlur={onBlurAmountValue}
             tokenSelectorTriggerProps={{

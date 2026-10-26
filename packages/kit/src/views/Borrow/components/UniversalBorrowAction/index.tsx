@@ -72,25 +72,24 @@ function createEmptyBorrowTransactionConfirmationState({
   };
 }
 
-// As long as an emptied box keeps its figures (EarnLendingSummary)
+// As long as an emptied box keeps its figures after its last key
+// (EarnLendingSummary)
 const EMPTIED_HOLD_MS = 350;
-// How long after the box was emptied its answer can still be taken back
+// How long after the box moved off an amount its answer can be taken back
 const TAKE_BACK_MS = 3000;
 
-type IEmptiedAnswer = {
-  requestKey: string;
+// An answer on screen as the box moved off its amount, and when
+type ILeftAnswer = {
   transactionConfirmation: IBorrowTransactionConfirmation;
   at: number;
-  // Typed into while it still kept its figures
+};
+// The emptied box: until when it keeps its figures (each key typed into it
+// while it still has no amount, "0." on the way to "0.5", keeps them a
+// moment more), and whether an amount was typed while it did
+type IEmptiedHold = {
+  heldUntil: number;
   refilled: boolean;
 };
-const canTakeBack = (
-  emptied: IEmptiedAnswer | undefined,
-  requestKey: string,
-): emptied is IEmptiedAnswer =>
-  emptied?.requestKey === requestKey &&
-  Date.now() - emptied.at <= TAKE_BACK_MS &&
-  (emptied.refilled || Date.now() - emptied.at <= EMPTIED_HOLD_MS);
 
 export function resolveBorrowTransactionConfirmationStateForRequest({
   requestKey,
@@ -169,12 +168,17 @@ export function useUniversalBorrowAction({
   provider,
   marketAddress,
   reserveAddress,
-  amount,
+  amount: typedAmount,
   isDisabled = false,
   withdrawAll,
   repayAll,
 }: IUniversalBorrowActionParams): IUniversalBorrowActionState {
   const intl = useIntl();
+  // "1." on the way to "1.5" is the amount 1, not an invalid one: the form
+  // keeps its figures and its button for it and asks nothing new
+  const amount = typedAmount.endsWith('.')
+    ? typedAmount.slice(0, -1)
+    : typedAmount;
   const [estimateFeeResp, setEstimateFeeResp] = useState<
     IEarnEstimateFeeResp | undefined
   >();
@@ -191,14 +195,47 @@ export function useUniversalBorrowAction({
   const transactionConfirmationRequestNonceRef = useRef(0);
   const estimateFeeRequestNonceRef = useRef(0);
   const checkAmountRequestNonceRef = useRef(0);
-  // The answer on screen when the box was emptied. The same amount typed
-  // again while the emptied box still keeps its figures takes it back at
-  // once, also through the other amounts on the way to it ("1" and "1."
-  // before "1.5"), rather than waiting for the market to say it again
+  // The answers on screen as the box moved off their amounts (emptied, or a
+  // digit deleted), each kept a moment. The same amount typed again takes
+  // its answer back at once, also through the amounts typed on the way
+  // ("1" and "1." before "1.5"), rather than waiting for the market to say
+  // the same again. Once an emptied box has gone to dashes nothing comes
+  // back
   const transactionConfirmationStateRef = useRef(transactionConfirmationState);
   transactionConfirmationStateRef.current = transactionConfirmationState;
-  const emptiedAnswerRef = useRef<IEmptiedAnswer | undefined>(undefined);
+  const leftAnswersRef = useRef(new Map<string, ILeftAnswer>());
+  const emptiedHoldRef = useRef<IEmptiedHold | undefined>(undefined);
   const lastNormalizedAmountRef = useRef('0');
+  const readLeftAnswer = useCallback((requestKey: string) => {
+    const hold = emptiedHoldRef.current;
+    if (hold && !hold.refilled && Date.now() > hold.heldUntil) {
+      return undefined;
+    }
+    const left = leftAnswersRef.current.get(requestKey);
+    return left && Date.now() - left.at <= TAKE_BACK_MS
+      ? left.transactionConfirmation
+      : undefined;
+  }, []);
+  // Typed into while the emptied box still keeps its figures: an amount
+  // can take its answer back; a key that leaves it without one ("0" or "0."
+  // on the way to "0.5") keeps the figures a moment more. Typed into later,
+  // the box had gone to dashes: nothing comes back. Before the effect
+  // below, which takes the answer back
+  useEffect(() => {
+    const hold = emptiedHoldRef.current;
+    if (!hold || hold.refilled) {
+      return;
+    }
+    const now = Date.now();
+    if (now > hold.heldUntil) {
+      emptiedHoldRef.current = undefined;
+      leftAnswersRef.current.clear();
+    } else if (new BigNumber(typedAmount).gt(0)) {
+      hold.refilled = true;
+    } else {
+      hold.heldUntil = now + EMPTIED_HOLD_MS;
+    }
+  }, [typedAmount]);
 
   const isReady = useMemo(
     () =>
@@ -375,39 +412,39 @@ export function useUniversalBorrowAction({
     const previousState = transactionConfirmationStateRef.current;
     const previousAmount = lastNormalizedAmountRef.current;
     lastNormalizedAmountRef.current = normalizedAmount;
-    if (
-      normalizedAmount === '0' &&
-      previousAmount !== '0' &&
-      previousState.transactionConfirmation
-    ) {
-      emptiedAnswerRef.current = {
-        requestKey: previousState.requestKey,
-        transactionConfirmation: previousState.transactionConfirmation,
-        at: Date.now(),
-        refilled: false,
-      };
-    } else if (
-      normalizedAmount !== '0' &&
-      previousAmount === '0' &&
-      emptiedAnswerRef.current &&
-      !emptiedAnswerRef.current.refilled
-    ) {
-      // Typed into after it had gone to dashes: nothing to take back
-      if (Date.now() - emptiedAnswerRef.current.at <= EMPTIED_HOLD_MS) {
-        emptiedAnswerRef.current.refilled = true;
-      } else {
-        emptiedAnswerRef.current = undefined;
+    if (previousAmount !== normalizedAmount) {
+      const now = Date.now();
+      const left = leftAnswersRef.current;
+      left.forEach((entry, key) => {
+        if (now - entry.at > TAKE_BACK_MS) {
+          left.delete(key);
+        }
+      });
+      if (
+        previousAmount !== '0' &&
+        previousState.transactionConfirmation &&
+        previousState.requestKey !== transactionConfirmationRequestKey
+      ) {
+        left.set(previousState.requestKey, {
+          transactionConfirmation: previousState.transactionConfirmation,
+          at: now,
+        });
+      }
+      if (normalizedAmount === '0') {
+        emptiedHoldRef.current = {
+          heldUntil: now + EMPTIED_HOLD_MS,
+          refilled: false,
+        };
       }
     }
-    const emptiedAnswer = emptiedAnswerRef.current;
-    if (
-      shouldFetchTransactionConfirmation &&
-      canTakeBack(emptiedAnswer, transactionConfirmationRequestKey)
-    ) {
-      emptiedAnswerRef.current = undefined;
+    const leftAnswer = shouldFetchTransactionConfirmation
+      ? readLeftAnswer(transactionConfirmationRequestKey)
+      : undefined;
+    if (leftAnswer) {
+      leftAnswersRef.current.delete(transactionConfirmationRequestKey);
       setTransactionConfirmationState({
         requestKey: transactionConfirmationRequestKey,
-        transactionConfirmation: emptiedAnswer.transactionConfirmation,
+        transactionConfirmation: leftAnswer,
         transactionConfirmationLoading: false,
       });
       return;
@@ -443,6 +480,7 @@ export function useUniversalBorrowAction({
     networkId,
     normalizedAmount,
     provider,
+    readLeftAnswer,
     repayAll,
     reserveAddress,
     shouldFetchTransactionConfirmation,
@@ -652,22 +690,23 @@ export function useUniversalBorrowAction({
   });
 
   // Taken back from the frame the amount is typed again in
-  const emptiedAnswer = emptiedAnswerRef.current;
-  const effectiveTransactionConfirmationState =
+  const takenBackAnswer =
     shouldFetchTransactionConfirmation &&
     transactionConfirmationState.requestKey !==
-      transactionConfirmationRequestKey &&
-    canTakeBack(emptiedAnswer, transactionConfirmationRequestKey)
-      ? {
-          requestKey: transactionConfirmationRequestKey,
-          transactionConfirmation: emptiedAnswer.transactionConfirmation,
-          transactionConfirmationLoading: false,
-        }
-      : resolveBorrowTransactionConfirmationStateForRequest({
-          requestKey: transactionConfirmationRequestKey,
-          shouldFetch: shouldFetchTransactionConfirmation,
-          state: transactionConfirmationState,
-        });
+      transactionConfirmationRequestKey
+      ? readLeftAnswer(transactionConfirmationRequestKey)
+      : undefined;
+  const effectiveTransactionConfirmationState = takenBackAnswer
+    ? {
+        requestKey: transactionConfirmationRequestKey,
+        transactionConfirmation: takenBackAnswer,
+        transactionConfirmationLoading: false,
+      }
+    : resolveBorrowTransactionConfirmationStateForRequest({
+        requestKey: transactionConfirmationRequestKey,
+        shouldFetch: shouldFetchTransactionConfirmation,
+        state: transactionConfirmationState,
+      });
 
   const isCheckAmountMessageError = useMemo(
     () => amount.length > 0 && !!effectiveCheckAmountState.checkAmountMessage,

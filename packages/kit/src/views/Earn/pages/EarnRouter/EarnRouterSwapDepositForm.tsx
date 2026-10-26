@@ -130,7 +130,7 @@ const QUOTE_DEBOUNCE_MS = 500;
 // A box emptied keeps its figures this long (dimmed), as the provider forms
 // do: a digit deleted and typed again reads as a change, not a blink
 const EMPTY_SETTLE_MS = 350;
-// How long after the box was emptied its quote can still be taken back
+// How long after the box moved off an amount its figures can be taken back
 const TAKE_BACK_MS = 3000;
 
 /**
@@ -223,12 +223,64 @@ function useDepositSummary({
       ? { staking, stakingAmount: '0', lendingLoading: false }
       : NO_SUMMARY;
   });
+  const summaryRef = useRef(summary);
+  summaryRef.current = summary;
+  // The answers on screen as the estimate moved off their amounts (a digit
+  // deleted and typed back), each kept a moment: the same estimate again
+  // takes its answer back at once, with the quote. No estimate (dashes), or
+  // another request, lets them go
+  const leftSummariesRef = useRef(
+    new Map<string, { summary: IDepositSummary; at: number }>(),
+  );
+  const requestKey = JSON.stringify(request ?? null);
+  const lastRequestKeyRef = useRef(requestKey);
+  if (lastRequestKeyRef.current !== requestKey) {
+    lastRequestKeyRef.current = requestKey;
+    leftSummariesRef.current.clear();
+  }
   useDeepCompareEffect(() => {
     if (!request || isDisabled) {
       setSummary(NO_SUMMARY);
       return;
     }
     const hasAmount = new BigNumber(amount).gt(0);
+    const leftSummaries = leftSummariesRef.current;
+    if (hasAmount) {
+      const now = Date.now();
+      leftSummaries.forEach((entry, key) => {
+        if (now - entry.at > TAKE_BACK_MS) {
+          leftSummaries.delete(key);
+        }
+      });
+      const current = summaryRef.current;
+      const currentAmount =
+        request.kind === 'lending'
+          ? current.lendingAmount
+          : current.stakingAmount;
+      const hasAnswer =
+        request.kind === 'lending'
+          ? Boolean(current.lending)
+          : Boolean(current.staking);
+      if (
+        hasAnswer &&
+        currentAmount &&
+        currentAmount !== '0' &&
+        currentAmount !== amount
+      ) {
+        leftSummaries.set(currentAmount, {
+          summary: { ...current, lendingLoading: false },
+          at: now,
+        });
+      }
+      const left = leftSummaries.get(amount);
+      if (left) {
+        leftSummaries.delete(amount);
+        setSummary(left.summary);
+        return;
+      }
+    } else {
+      leftSummaries.clear();
+    }
     // Pendle quotes nothing for no amount: its rows hold their labels
     if (request.kind === 'pendle' && !hasAmount) {
       setSummary(NO_SUMMARY);
@@ -329,6 +381,21 @@ function useDepositSummary({
       clearTimeout(timer);
     };
   }, [networkId, request, amount, isDisabled]);
+  // An answer moved off, taken back from the frame its estimate is in again
+  if (request && !isDisabled && new BigNumber(amount).gt(0)) {
+    const answeredAmount =
+      request.kind === 'lending'
+        ? summary.lendingAmount
+        : summary.stakingAmount;
+    const left = leftSummariesRef.current.get(amount);
+    if (
+      left &&
+      Date.now() - left.at <= TAKE_BACK_MS &&
+      (answeredAmount !== amount || summary.lendingLoading)
+    ) {
+      return left.summary;
+    }
+  }
   // Before its own answer, the rows for an empty amount as the provider's
   // own form last read them: the request can come a moment after the form,
   // and a form built again for another Pay with token keeps its rows
@@ -520,7 +587,12 @@ export function EarnRouterSwapDepositForm({
         : undefined,
     [networkId, payToken.token.isNative],
   );
-  const [amount, setAmount] = useState(initialAmount ?? '');
+  const [typedAmount, setAmount] = useState(initialAmount ?? '');
+  // "1." on the way to "1.5" is the amount 1: quoted, checked and swapped
+  // as 1, while the box keeps what was typed
+  const amount = typedAmount.endsWith('.')
+    ? typedAmount.slice(0, -1)
+    : typedAmount;
   // Told when the amount changes, not when the caller's callback does (the
   // guide passes a new one each render, which would undo a reported amount)
   const onAmountChangeRef = useRef(onAmountChange);
@@ -592,40 +664,39 @@ export function EarnRouterSwapDepositForm({
   const [quoteState, setQuoteState] = useState<IQuoteState>(NO_QUOTE);
   const quoteStateRef = useRef(quoteState);
   quoteStateRef.current = quoteState;
-  // The quote in hand when the box was emptied: the same amount typed again
-  // while the emptied box keeps its figures takes it back as it was, so every
-  // figure returns at once, also through the other amounts on the way to it
-  // ("1" and "1." before "1.5"). Left empty, it goes. The press asks for a
-  // fresh quote anyway
-  const emptiedQuoteRef = useRef<{
-    amount: string;
-    quote: IFetchQuoteResult;
-    at: number;
-  }>(undefined);
+  // The quotes on screen as the box moved off their amounts (emptied, or a
+  // digit deleted), each kept a moment: the same amount typed again takes
+  // its quote back as it was, so every figure returns at once, also through
+  // the amounts typed on the way ("1" before "1.5"). Once an emptied box has
+  // gone to dashes they go. The press asks for a fresh quote anyway
+  const leftQuotesRef = useRef(
+    new Map<string, { quote: IFetchQuoteResult; at: number }>(),
+  );
   const canQuote = hasAmount && isSwappable;
   useEffect(() => {
     // While the swap runs the estimate stays as it went to the wallet
     if (!isIdle) {
       return;
     }
-    if (!canQuote) {
-      // Keys that keep the box empty (the zeros of "0.0003") keep the quote
-      // it was emptied of
-      const shown = quoteStateRef.current;
-      if (shown.quote && shown.amount) {
-        emptiedQuoteRef.current = {
-          amount: shown.amount,
-          quote: shown.quote,
-          at: Date.now(),
-        };
+    const now = Date.now();
+    const leftQuotes = leftQuotesRef.current;
+    leftQuotes.forEach((entry, key) => {
+      if (now - entry.at > TAKE_BACK_MS) {
+        leftQuotes.delete(key);
       }
+    });
+    const shown = quoteStateRef.current;
+    if (shown.quote && shown.amount && shown.amount !== amount) {
+      leftQuotes.set(shown.amount, { quote: shown.quote, at: now });
+    }
+    if (!canQuote) {
       setQuoteState(NO_QUOTE);
       return;
     }
-    const emptied = emptiedQuoteRef.current;
-    if (emptied?.amount === amount && Date.now() - emptied.at <= TAKE_BACK_MS) {
-      emptiedQuoteRef.current = undefined;
-      setQuoteState({ amount, quote: emptied.quote, isLoading: false });
+    const left = leftQuotes.get(amount);
+    if (left) {
+      leftQuotes.delete(amount);
+      setQuoteState({ amount, quote: left.quote, isLoading: false });
       return;
     }
     const controller = new AbortController();
@@ -659,13 +730,11 @@ export function EarnRouterSwapDepositForm({
       controller.abort();
     };
   }, [account, amount, canQuote, fromToken, isIdle, toToken]);
-  // The emptied box's quote, taken back as the same amount is typed again
-  const emptiedQuote = emptiedQuoteRef.current;
+  // A quote moved off, taken back from the frame its amount is typed again
+  const leftQuote = leftQuotesRef.current.get(amount);
   const takenBackQuote =
-    hasAmount &&
-    emptiedQuote?.amount === amount &&
-    Date.now() - emptiedQuote.at <= TAKE_BACK_MS
-      ? emptiedQuote.quote
+    hasAmount && leftQuote && Date.now() - leftQuote.at <= TAKE_BACK_MS
+      ? leftQuote.quote
       : undefined;
   const quote =
     quoteState.amount === amount ? quoteState.quote : takenBackQuote;
@@ -715,21 +784,24 @@ export function EarnRouterSwapDepositForm({
   }
   wasNoRouteRef.current = hasNoRoute;
   const [, setSettleTick] = useState(0);
+  // Each key typed into it while it still has no amount (the zeros of
+  // "0.0003") keeps what was on screen a moment more: dashes come with a
+  // pause, not mid-word
   useEffect(() => {
     if (hasAmount) {
       return undefined;
     }
     if (!isEmptiedRef.current) {
-      emptiedQuoteRef.current = undefined;
+      leftQuotesRef.current.clear();
       return undefined;
     }
     const timer = setTimeout(() => {
       isEmptiedRef.current = false;
-      emptiedQuoteRef.current = undefined;
+      leftQuotesRef.current.clear();
       setSettleTick((tick) => tick + 1);
     }, EMPTY_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [hasAmount]);
+  }, [hasAmount, typedAmount]);
   const isEmptySettling = !hasAmount && isEmptiedRef.current;
   if (depositAmount) {
     lastDepositRef.current = depositAmount;
@@ -1375,7 +1447,7 @@ export function EarnRouterSwapDepositForm({
           title={EARN_DESKTOP_DEMO_COPY.payWith}
           disabled={isLocked}
           hasError={isInsufficient}
-          value={amount}
+          value={typedAmount}
           onChange={onChangeAmount}
           onBlur={onBlurAmount}
           tokenSelectorTriggerProps={{

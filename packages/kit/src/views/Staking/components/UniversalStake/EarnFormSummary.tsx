@@ -35,7 +35,10 @@ import type {
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 
-import { easeModalHeightChanges } from '../../hooks/useFitModalHeight';
+import {
+  easeModalHeightChanges,
+  getModalRoomToGrow,
+} from '../../hooks/useFitModalHeight';
 import { EarnFadingPlaceholder } from '../EarnFadingPlaceholder';
 import { EarnAmountText } from '../ProtocolDetails/EarnAmountText';
 import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
@@ -792,8 +795,6 @@ function EarnFormDetails({ rows }: { rows: ReactElement[] }) {
     let underAtStart: number | undefined;
     let foldFrom: { top: number; extra: number; height: number } | undefined;
     let foldStartedAt: number | undefined;
-    let lastArea: HTMLElement | null = null;
-    let lastAreaHeight = 0;
     const follow = () => {
       const animator = animatorRef.current as unknown as HTMLElement | null;
       const area = animator ? findScrollArea(animator) : null;
@@ -809,12 +810,6 @@ function EarnFormDetails({ rows }: { rows: ReactElement[] }) {
           return;
         }
         const drawn = animator.getBoundingClientRect();
-        // A modal still growing to fit (it follows a frame behind) takes the
-        // rows itself: scrolled now, it would be clamped back as it grows
-        const isAreaGrowing =
-          area !== lastArea || area.clientHeight > lastAreaHeight + 0.5;
-        lastArea = area;
-        lastAreaHeight = area.clientHeight;
         if (isOpening) {
           const visibleBottom =
             area.getBoundingClientRect().top + area.clientHeight;
@@ -824,8 +819,11 @@ function EarnFormDetails({ rows }: { rows: ReactElement[] }) {
           const unfolded = full > 0 ? Math.min(1, drawn.height / full) : 0;
           underAtStart ??= Math.max(0, under);
           const stillUnder = underAtStart * (1 - unfolded);
-          if (!isAreaGrowing && under - stillUnder > 0.5) {
-            area.scrollTop += under - stillUnder;
+          // What a modal still growing to fit can't take: scrolled for the
+          // rest, it would be clamped back as it grows
+          const beyondModal = under - stillUnder - getModalRoomToGrow(animator);
+          if (beyondModal > 0.5) {
+            area.scrollTop += beyondModal;
           }
         } else {
           foldFrom ??= {
@@ -866,8 +864,6 @@ function EarnFormDetails({ rows }: { rows: ReactElement[] }) {
           }
         }
         scrolledTo = area.scrollTop;
-      } else {
-        lastArea = null;
       }
       if (performance.now() - startedAt < DETAILS_UNFOLD_MS) {
         unfoldFrameRef.current = requestAnimationFrame(follow);

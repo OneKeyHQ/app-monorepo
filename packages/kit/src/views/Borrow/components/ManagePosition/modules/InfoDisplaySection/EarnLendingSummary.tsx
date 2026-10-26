@@ -118,6 +118,8 @@ export function EarnLendingSummary({
       Boolean(lastPositiveAmountRef.current);
   }
   const [, setSettleTick] = useState(0);
+  // Each key typed into it while it still has no amount ("0." on the way to
+  // "0.5") keeps them a moment more: dashes come with a pause, not mid-word
   useEffect(() => {
     if (isTypedPositive || !isEmptiedRef.current) {
       return undefined;
@@ -127,7 +129,7 @@ export function EarnLendingSummary({
       setSettleTick((tick) => tick + 1);
     }, EMPTY_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [isTypedPositive]);
+  }, [isTypedPositive, amountValue]);
   const isEmptySettling = !isTypedPositive && isEmptiedRef.current;
   if (isTypedPositive) {
     lastPositiveAmountRef.current = amountValue;

@@ -143,7 +143,10 @@ export function ManagePosition(props: IManagePositionProps) {
     if (!onConfirm) return;
 
     const started = await onConfirm({
-      amount: amountValue,
+      // "1." in the box is 1
+      amount: amountValue.endsWith('.')
+        ? amountValue.slice(0, -1)
+        : amountValue,
       withdrawAll: baseState.isWithdrawAll,
       repayAll: baseState.isRepayAll,
     });
