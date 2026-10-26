@@ -160,8 +160,7 @@ export async function fetchStockPortfolioData({
                   networkId: variant.networkId,
                   contractAddress: variant.contractAddress,
                 },
-              }) &&
-              hasTradePositionBalance(item.amount),
+              }) && hasTradePositionBalance(item.amount),
           )
           .map<IMarketAccountPortfolioDisplayItem>((item) => ({
             ...item,

@@ -83,8 +83,8 @@ describe('isTradePositionVisible', () => {
     expect(
       isTradePositionVisible({ fiatValue: '0.001', currency: 'cny' }),
     ).toBe(true);
-    expect(
-      isTradePositionVisible({ fiatValue: '0', currency: 'cny' }),
-    ).toBe(false);
+    expect(isTradePositionVisible({ fiatValue: '0', currency: 'cny' })).toBe(
+      false,
+    );
   });
 });
