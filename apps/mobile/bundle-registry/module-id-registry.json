@@ -24838,6 +24838,7 @@
     "packages/kit/src/views/Onboardingv2/pages/VerifyPinPage.tsx": 15499,
     "packages/kit/src/views/Onboardingv2/pages/VerifyRecoveryPhrase.tsx": 1233,
     "packages/kit/src/views/Onboardingv2/pages/checkAndUpdateStepState.ts": 19871,
+    "packages/kit/src/views/Onboardingv2/pages/connectKeystoneUsbOrCreateQrWallet.ts": 9801,
     "packages/kit/src/views/Onboardingv2/pages/deviceSetupPro2.tsx": 15068,
     "packages/kit/src/views/Onboardingv2/pages/finalizeWalletSetupOperationUtils.ts": 20762,
     "packages/kit/src/views/Onboardingv2/pages/firmwareRecheckUtils.ts": 8133,
