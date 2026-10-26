@@ -28,6 +28,8 @@ import {
   isInstallReferrerExpired,
   isValidInviteCode,
 } from '@onekeyhq/shared/src/referralCode/installReferrerUtils';
+import { isPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
+import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
 import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import type {
   EExportTimeRange,
@@ -88,11 +90,15 @@ import type {
   IWalletDevUnbindResponse,
 } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
+import { perpsRecallProgressAtom } from '../states/jotai/atoms/perps';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
+import { settingsPersistAtom } from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -117,6 +123,65 @@ const SILENT_IN_PROD = { autoHandleError: !platformEnv.isProduction } as any;
 
 @backgroundClass()
 class ServiceReferralCode extends ServiceBase {
+  @backgroundMethod()
+  async fetchPerpsRecallProgress(): Promise<IPerpsRecallProgress | null> {
+    const { instanceId: rawInstanceId } = await settingsPersistAtom.get();
+    const instanceId = rawInstanceId.trim().toLowerCase();
+    const { endpoint } = await this.getClientEndpointInfo(
+      EServiceEndpointEnum.Rebate,
+    );
+    const previous = await perpsRecallProgressAtom.get();
+    if (previous.instanceId !== instanceId || previous.endpoint !== endpoint) {
+      await perpsRecallProgressAtom.set({
+        instanceId,
+        endpoint,
+        progress: null,
+      });
+    }
+    const progress = /^[a-z0-9][a-z0-9_-]{0,63}$/.test(instanceId)
+      ? await this.fetchPerpsRecallProgressMemo(instanceId, endpoint)
+      : null;
+    const scope = await perpsRecallProgressAtom.get();
+    // An older instance/environment request cannot replace the active result.
+    if (scope.instanceId === instanceId && scope.endpoint === endpoint) {
+      await perpsRecallProgressAtom.set({ instanceId, endpoint, progress });
+    }
+    return progress;
+  }
+
+  private fetchPerpsRecallProgressMemo = memoizee(
+    async (
+      instanceId: string,
+      _endpoint: string,
+    ): Promise<IPerpsRecallProgress | null> => {
+      try {
+        // The raw client retains common request headers but lets this endpoint
+        // handle its expected 204 empty body without the code=0 interceptor.
+        const client = await this.getRawDataClient(EServiceEndpointEnum.Rebate);
+        const response = await client.get<{ code: number; data?: unknown }>(
+          '/rebate/v1/recall/progress',
+          {
+            params: { instanceId },
+          },
+        );
+        if (response.status !== 200 || response.data?.code !== 0) return null;
+        return isPerpsRecallProgress(response.data.data)
+          ? response.data.data
+          : null;
+      } catch {
+        // Cache failures briefly too, so multiple activity entry points cannot
+        // repeatedly retry a promotion endpoint while the user is trading.
+        return null;
+      }
+    },
+    {
+      promise: true,
+      primitive: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+      max: 2,
+    },
+  );
+
   private _migrationPromise: Promise<void> | null = null;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {

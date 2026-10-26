@@ -82,6 +82,7 @@ export enum EAtomNames {
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
   // perps
   webviewPerpTradeTargetAtom = 'webviewPerpTradeTargetAtom',
+  perpsRecallProgressAtom = 'perpsRecallProgressAtom',
   perpsActiveAccountAtom = 'perpsActiveAccountAtom',
   perpsActiveAccountRefreshHookAtom = 'perpsActiveAccountRefreshHookAtom',
   perpsActiveAccountSummaryAtom = 'perpsActiveAccountSummaryAtom',

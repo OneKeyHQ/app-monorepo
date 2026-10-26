@@ -5,6 +5,7 @@ import { EAtomNames, atomsConfig } from '../atomNames';
 import { jotaiDefaultStore } from '../utils/jotaiDefaultStore';
 
 import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
+import * as perpsAtoms from './perps';
 import {
   type IPerpsAccountDisplaySnapshotAtom,
   type IPerpsAccountDisplaySnapshotEntry,
@@ -74,6 +75,16 @@ describe('perpsTradingViewIndicatorSettingsPersistAtom', () => {
       expect.objectContaining({ active: false, id: 'VOL' }),
     ]);
   });
+});
+
+describe('recall atom initialization', () => {
+  it.each([EAtomNames.perpsRecallProgressAtom])(
+    'exports %s for the startup atom registry',
+    (name) => {
+      expect(perpsAtoms).toHaveProperty(name);
+      expect(perpsAtoms).toHaveProperty([name, 'name'], name);
+    },
+  );
 });
 
 describe('tradingModeAtom', () => {

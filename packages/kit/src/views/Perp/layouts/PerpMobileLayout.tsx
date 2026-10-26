@@ -57,6 +57,7 @@ import {
   PerpMobileTopChartTicker,
 } from '../components/PerpMobileTopChartProvider';
 import { PerpOrderBook } from '../components/PerpOrderBook';
+import { PerpsRecallBanner } from '../components/PerpsRecallBanner';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import { usePerpsAccountScopedActiveTwapOrders } from '../hooks/usePerpsAccountScopedActiveTwapOrders';
@@ -453,6 +454,7 @@ export function PerpMobileLayout() {
               <PerpTradingPanel isMobile />
             </YStack>
           </XStack>
+          <PerpsRecallBanner />
           <XStack
             bg="$bgApp"
             borderBottomWidth="$px"

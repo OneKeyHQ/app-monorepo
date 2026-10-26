@@ -3,9 +3,11 @@
  */
 /* eslint-disable import/first */
 
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactElement, ReactNode } from 'react';
+import { cloneElement } from 'react';
 
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -14,18 +16,85 @@ import {
 } from '@testing-library/react';
 
 const mockOpenUrlExternal = jest.fn();
+const mockOpenUrlInDiscovery = jest.fn();
 const mockPopoverClose = jest.fn();
 const mockHubShown = jest.fn();
 const mockHubActionPressed = jest.fn();
 const mockPopoverFloatingPanelProps = jest.fn();
+const mockPopoverShowHeader = jest.fn();
 let mockGtMd = true;
 let mockIsLoggedIn = true;
+let mockDarkTheme = false;
+let mockRecallProgress: IPerpsRecallProgress | null = null;
+let mockRecallEnded = false;
+let mockSnoozedBanners: Record<string, number> = {};
+const mockRecallRefresh = jest.fn();
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const mockSnoozeRecall = jest.fn<Promise<number>, [{ bannerId: string }]>(
+  async () => Date.now() + ONE_WEEK_MS,
+);
+const mockRefreshSnoozedBanners = jest.fn();
+let mockCloseBanner: (() => Promise<void>) | undefined;
+const mockDialogClose = jest.fn(async () => undefined);
+const mockDialogShow = jest.fn<
+  void,
+  [
+    {
+      title?: string;
+      showFooter?: boolean;
+      onClose?: () => void;
+      renderContent?: ReactNode;
+    },
+  ]
+>();
 
-jest.mock('react-intl', () => ({
-  useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
+jest.mock('../../views/Perp/hooks/usePerpsRecallProgress', () => ({
+  usePerpsRecallProgress: () => ({
+    progress: mockRecallProgress,
+    hasEnded: mockRecallEnded,
+    instanceId: 'test-instance',
+    refresh: mockRecallRefresh,
   }),
 }));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  usePerpsCommonConfigPersistAtom: () => [
+    { perpConfigCommon: { activityCards: [] } },
+  ],
+}));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: () => ({
+    result: mockSnoozedBanners,
+    run: mockRefreshSnoozedBanners,
+  }),
+}));
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceWalletBanner: {
+      snoozeBanner: (params: { bannerId: string }) => mockSnoozeRecall(params),
+    },
+  },
+}));
+
+jest.mock('react-native-svg', () => ({
+  __esModule: true,
+  default: 'svg',
+  Circle: 'circle',
+  G: 'g',
+  Path: 'path',
+}));
+
+jest.mock('react-intl', () => {
+  const { createIntl } =
+    jest.requireActual<typeof import('react-intl')>('react-intl');
+  const intl = createIntl({ locale: 'en-US' });
+  return {
+    useIntl: () => ({
+      ...intl,
+      formatMessage: ({ id }: { id: string }) => id,
+    }),
+  };
+});
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -72,22 +141,68 @@ jest.mock('@onekeyhq/components', () => {
         title,
       ),
     Icon: ({ name }: { name: string }) => <span data-testid={`icon-${name}`} />,
+    Dialog: {
+      Header: Primitive,
+      Title: Primitive,
+      show: (options: Parameters<typeof mockDialogShow>[0]) => {
+        mockDialogShow(options);
+        return { close: mockDialogClose };
+      },
+    },
+    Button: Primitive,
+    onVisibilityStateChange: () => () => undefined,
+    Alert: ({
+      title,
+      renderTitle,
+      ...props
+    }: {
+      title?: string;
+      renderTitle?: (props: object) => ReactNode;
+      testID?: string;
+      onPress?: () => void;
+    }) => React.createElement(Primitive, props, title, renderTitle?.({})),
+    IconButton: (props: {
+      testID?: string;
+      onPress?: () => void | Promise<void>;
+    }) => {
+      if (props.testID === 'perps-recall-banner-close') {
+        mockCloseBanner = async () => props.onPress?.();
+      }
+      return React.createElement(Primitive, props);
+    },
+    Progress: Primitive,
     Image: Primitive,
     LottieView: Primitive,
     Popover: ({
+      showHeader,
       floatingPanelProps,
+      renderTrigger,
+      open,
       renderContent,
     }: {
       floatingPanelProps?: unknown;
-      renderContent: (params: {
-        closePopover: typeof mockPopoverClose;
-      }) => ReactNode;
+      showHeader?: boolean;
+      renderTrigger?: ReactNode;
+      open?: boolean;
+      renderContent:
+        | ReactElement
+        | ComponentType<{
+            closePopover: typeof mockPopoverClose;
+          }>;
     }) => {
       mockPopoverFloatingPanelProps(floatingPanelProps);
+      mockPopoverShowHeader(showHeader);
+      const content =
+        typeof renderContent === 'function'
+          ? React.createElement(renderContent, {
+              closePopover: mockPopoverClose,
+            })
+          : renderContent;
       return React.createElement(
         'div',
         null,
-        renderContent({ closePopover: mockPopoverClose }),
+        renderTrigger,
+        open === false ? null : content,
       );
     },
     SizableText: Primitive,
@@ -95,6 +210,17 @@ jest.mock('@onekeyhq/components', () => {
     XStack: Primitive,
     YStack: Primitive,
     useMedia: () => ({ gtMd: mockGtMd }),
+    useThemeName: () => (mockDarkTheme ? 'dark' : 'light'),
+    useTheme: () => ({
+      text: { val: mockDarkTheme ? '#EEEEEE' : '#111111' },
+      textInverse: { val: mockDarkTheme ? '#111111' : '#FFFFFF' },
+      bg: { val: mockDarkTheme ? '#1B1B1B' : '#FFFFFF' },
+      bgStrong: { val: mockDarkTheme ? '#292929' : '#F3F3F3' },
+      bgAccent: { val: mockDarkTheme ? '#3EDC2F' : '#22AB15' },
+      borderSubdued: { val: mockDarkTheme ? '#333333' : '#DDDDDD' },
+    }),
+    usePopoverContext: () => ({ closePopover: mockPopoverClose }),
+    useDialogInstance: () => ({ close: mockPopoverClose }),
     runAfterActionListClose,
   };
 });
@@ -128,6 +254,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
+jest.mock('@onekeyhq/kit/src/hooks/useReferFriends', () => ({
+  useOpenReferralPage: () => jest.fn(),
+}));
+
 jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
 }));
@@ -135,6 +265,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: (...args: unknown[]) => {
     mockOpenUrlExternal(...args);
+  },
+  openUrlInDiscovery: (...args: unknown[]) => {
+    mockOpenUrlInDiscovery(...args);
   },
 }));
 
@@ -163,8 +296,19 @@ jest.mock(
   () => ({}),
 );
 
+import { IconButton } from '@onekeyhq/components';
+import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
+
+import {
+  PerpsActivityCenterContent,
+  PerpsActivityCenterAction,
+} from '../../views/Perp/components/PerpsActivityCenterAction';
+import { PerpsRecallBanner } from '../../views/Perp/components/PerpsRecallBanner';
+import { PerpsRecallDialogContent } from '../../views/Perp/components/PerpsRecallDialog';
+import { PerpsRecallProgressCard } from '../../views/Perp/components/PerpsRecallProgressCard';
 
 import { ActivityHubAction } from './ActivityHubAction';
 import { ActivityHubContent } from './ActivityHubContent';
@@ -552,4 +696,508 @@ describe('ActivityHubContent', () => {
       expect(mockOpenUrlExternal).toHaveBeenCalledWith(CAMPAIGNS[0].url),
     );
   });
+});
+
+describe('Perps recall activity integration', () => {
+  const progress: IPerpsRecallProgress = {
+    activityId: 'recall-1',
+    activityStatus: 'running',
+    status: 'running',
+    volume: '1000.25',
+    totalReward: '150',
+    earnedReward: '0',
+    topTarget: '4000',
+    current: { index: 1, target: '4000', remaining: '2999.75', reward: '150' },
+    deadline: '2030-01-01T00:00:00.000Z',
+    payoutStatus: 'pending',
+    paidAmount: null,
+    paidAt: null,
+  };
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRecallProgress = progress;
+    mockRecallEnded = false;
+    mockSnoozedBanners = {};
+    mockGtMd = false;
+    mockDarkTheme = false;
+    platformEnv.isNative = false;
+    platformEnv.isDesktop = false;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('opens a standalone dialog from the banner and can reopen after closing', () => {
+    mockGtMd = true;
+    render(<PerpsRecallBanner />);
+    fireEvent.click(screen.getByTestId('perps-recall-banner'));
+    expect(mockDialogShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Comeback rewards',
+        showFooter: false,
+      }),
+    );
+    expect(mockRecallRefresh).toHaveBeenCalled();
+    expect(mockPopoverShowHeader).not.toHaveBeenCalled();
+    const dialog = render(<>{mockDialogShow.mock.calls[0][0].renderContent}</>);
+    expect(screen.getByTestId('perps-recall-progress')).toBeTruthy();
+    expect(screen.queryByTestId('activity-hub-detail-back')).toBeNull();
+    expect(screen.getByText('$1,000.25 / $4,000')).toBeTruthy();
+    dialog.unmount();
+    fireEvent.click(screen.getByTestId('perps-recall-banner'));
+    expect(mockDialogShow).toHaveBeenCalledTimes(2);
+    render(<>{mockDialogShow.mock.calls[1][0].renderContent}</>);
+    expect(screen.getByTestId('perps-recall-progress')).toBeTruthy();
+  });
+
+  it.each([true, false])(
+    'closes the activity center before opening the reward dialog (native: %s)',
+    async (native) => {
+      platformEnv.isNative = native;
+      let resolveClose: (() => void) | undefined;
+      const closePopover = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveClose = resolve;
+          }),
+      );
+      render(<PerpsActivityCenterContent closePopover={closePopover} />);
+      fireEvent.click(screen.getByTestId('activity-hub-detail-entry'));
+      expect(closePopover).toHaveBeenCalledTimes(1);
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      resolveClose?.();
+      await waitFor(() => expect(mockDialogShow).toHaveBeenCalledTimes(1));
+      render(<>{mockDialogShow.mock.calls[0][0].renderContent}</>);
+      expect(screen.getByTestId('perps-recall-progress')).toBeTruthy();
+    },
+  );
+
+  it.each([
+    { native: true, wide: true },
+    { native: false, wide: false },
+  ])(
+    'uses one activity center dialog with internal reward navigation ($native / $wide)',
+    ({ native, wide }) => {
+      platformEnv.isNative = native;
+      mockGtMd = wide;
+      render(
+        <PerpsActivityCenterAction
+          renderTrigger={
+            <IconButton testID="test-hub-trigger" icon="GiftOutline" />
+          }
+        />,
+      );
+      fireEvent.click(screen.getByTestId('test-hub-trigger'));
+      expect(mockDialogShow).toHaveBeenCalledTimes(1);
+      expect(mockPopoverShowHeader).not.toHaveBeenCalled();
+      render(<>{mockDialogShow.mock.calls[0][0].renderContent}</>);
+      expect(
+        screen.getByTestId(
+          native ? 'activity-hub-referral' : 'activity-hub-open-perks',
+        ),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByTestId('activity-hub-detail-entry'));
+      expect(mockPopoverClose).not.toHaveBeenCalled();
+      expect(mockDialogShow).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('perps-recall-progress')).toBeTruthy();
+      fireEvent.click(screen.getByTestId('perps-activity-dialog-back'));
+      expect(screen.getByTestId('activity-hub-detail-entry')).toBeTruthy();
+      expect(screen.queryByTestId('perps-recall-progress')).toBeNull();
+    },
+  );
+
+  it('opens the mobile menu dialog from controlled state and resets it on close', () => {
+    const onOpenChange = jest.fn();
+    const view = render(
+      <PerpsActivityCenterAction
+        open
+        onOpenChange={onOpenChange}
+        renderTrigger={<span>Open hub</span>}
+      />,
+    );
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByText('Open hub'));
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+    act(() => mockDialogShow.mock.calls[0][0].onClose?.());
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    view.rerender(
+      <PerpsActivityCenterAction
+        open={false}
+        onOpenChange={onOpenChange}
+        renderTrigger={<span>Open hub</span>}
+      />,
+    );
+    view.rerender(
+      <PerpsActivityCenterAction
+        open
+        onOpenChange={onOpenChange}
+        renderTrigger={<span>Open hub</span>}
+      />,
+    );
+    expect(mockDialogShow).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the desktop activity center in a popover', () => {
+    mockGtMd = true;
+    render(<PerpsActivityCenterAction renderTrigger={<span>Open hub</span>} />);
+    expect(mockPopoverShowHeader).toHaveBeenCalled();
+    expect(mockDialogShow).not.toHaveBeenCalled();
+  });
+
+  it('snoozes only this activity directly without a confirmation dialog', async () => {
+    jest.useFakeTimers();
+    const view = render(<PerpsRecallBanner />);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('perps-recall-banner-close'));
+    });
+    expect(mockDialogShow).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('perps-recall-banner')).toBeNull();
+    expect(screen.queryByTestId('perps-recall-progress')).toBeNull();
+    expect(screen.queryByTestId('perps-recall-restore-banner')).toBeNull();
+    expect(mockSnoozeRecall).toHaveBeenCalledWith({
+      bannerId: 'perps-recall:test-instance:recall-1',
+    });
+    mockRecallProgress = { ...progress, activityId: 'recall-2' };
+    view.rerender(<PerpsRecallBanner />);
+    expect(screen.getByTestId('perps-recall-banner')).toBeTruthy();
+    mockRecallProgress = progress;
+    view.rerender(<PerpsRecallBanner />);
+    act(() => jest.advanceTimersByTime(ONE_WEEK_MS - 1));
+    expect(screen.queryByTestId('perps-recall-banner')).toBeNull();
+    act(() => jest.advanceTimersByTime(1));
+    expect(screen.getByTestId('perps-recall-banner')).toBeTruthy();
+  });
+
+  it('keeps the banner visible if persisting the snooze fails', async () => {
+    render(<PerpsRecallBanner />);
+    mockSnoozeRecall.mockRejectedValueOnce(new Error('Storage unavailable'));
+    await expect(mockCloseBanner?.()).rejects.toThrow('Storage unavailable');
+    expect(screen.getByTestId('perps-recall-banner')).toBeTruthy();
+    expect(mockDialogShow).not.toHaveBeenCalled();
+  });
+
+  it('loads a persisted snooze and shows the banner at its expiry', () => {
+    jest.useFakeTimers();
+    mockRecallProgress = null;
+    const view = render(<PerpsRecallBanner />);
+    expect(screen.queryByTestId('perps-recall-banner')).toBeNull();
+    mockRecallProgress = progress;
+    mockSnoozedBanners = {
+      'perps-recall:test-instance:recall-1': Date.now() + ONE_WEEK_MS,
+    };
+    view.rerender(<PerpsRecallBanner />);
+    expect(screen.queryByTestId('perps-recall-banner')).toBeNull();
+    act(() => jest.advanceTimersByTime(ONE_WEEK_MS));
+    expect(screen.getByTestId('perps-recall-banner')).toBeTruthy();
+  });
+
+  it('updates the open dialog when the activity ends', async () => {
+    const view = render(<PerpsRecallBanner />);
+    fireEvent.click(screen.getByTestId('perps-recall-banner'));
+    const content = mockDialogShow.mock.calls[0][0].renderContent;
+    const dialog = render(<>{content}</>);
+    expect(screen.getByTestId('perps-recall-progress')).toBeTruthy();
+    expect(screen.queryByTestId('activity-hub-detail-entry')).toBeNull();
+    mockRecallEnded = true;
+    view.rerender(<PerpsRecallBanner />);
+    dialog.rerender(<>{cloneElement(content as ReactElement)}</>);
+    expect(screen.getByTestId('perps-recall-banner')).toBeTruthy();
+    expect(screen.getByTestId('perps-recall-progress')).toBeTruthy();
+    expect(
+      screen.getByText('Activity ended · Awaiting final results'),
+    ).toBeTruthy();
+    expect(screen.getByText('Awaiting final results')).toBeTruthy();
+  });
+
+  it('keeps a paid activity banner as an entry to final results', async () => {
+    mockRecallEnded = true;
+    mockRecallProgress = {
+      ...progress,
+      activityStatus: 'ended',
+      status: 'achieved',
+      current: null,
+      earnedReward: '0.02',
+      payoutStatus: 'paid',
+      paidAmount: '0.02',
+    };
+    render(<PerpsRecallBanner />);
+    expect(
+      screen.getByText('You’ve received 0.02 USDC in comeback rewards.'),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByTestId('perps-recall-banner'));
+    const content = mockDialogShow.mock.calls[0][0].renderContent;
+    render(<>{content}</>);
+    expect(screen.getByTestId('perps-recall-progress')).toBeTruthy();
+    expect(screen.queryByTestId('activity-hub-detail-entry')).toBeNull();
+    expect(screen.getByText('Reward received')).toBeTruthy();
+  });
+
+  it('stops displaying stale progress when dialog data becomes unavailable', async () => {
+    const view = render(<PerpsRecallBanner />);
+    fireEvent.click(screen.getByTestId('perps-recall-banner'));
+    const content = mockDialogShow.mock.calls[0][0].renderContent;
+    const dialog = render(<>{content}</>);
+    expect(screen.getByTestId('perps-recall-progress')).toBeTruthy();
+    mockRecallProgress = null;
+    view.rerender(<PerpsRecallBanner />);
+    dialog.rerender(<>{cloneElement(content as ReactElement)}</>);
+    expect(screen.queryByTestId('perps-recall-progress')).toBeNull();
+    expect(screen.queryByTestId('activity-hub-detail-entry')).toBeNull();
+    expect(
+      screen.getByText('Activity details are currently unavailable.'),
+    ).toBeTruthy();
+  });
+
+  it('renders achieved rewards without a current target and preserves final payout details', () => {
+    mockRecallProgress = {
+      ...progress,
+      status: 'achieved',
+      current: null,
+      earnedReward: '150',
+    };
+    const view = render(<PerpsRecallBanner />);
+    expect(
+      screen.getByText('Target reached! 150.00 USDC reward awaiting payout.'),
+    ).toBeTruthy();
+    view.unmount();
+    render(
+      <PerpsRecallProgressCard
+        hasEnded
+        progress={{
+          ...mockRecallProgress,
+          activityStatus: 'ended',
+          payoutStatus: 'paid',
+          paidAmount: '145',
+          paidAt: '2030-01-02T00:00:00.000Z',
+        }}
+      />,
+    );
+    expect(screen.getByText('Trading target completed')).toBeTruthy();
+    expect(screen.getByText('Reward received')).toBeTruthy();
+    expect(screen.getByTestId('perps-recall-reward').textContent).toBe('145');
+    expect(screen.queryByText('Current target reward')).toBeNull();
+    expect(
+      screen.queryByText('Earned rewards have not been paid yet.'),
+    ).toBeNull();
+  });
+
+  it('shows the remaining trading volume without promotional copy or a deadline', () => {
+    render(<PerpsRecallBanner />);
+    expect(
+      screen.getByText(
+        'Trade 2,999.75 USDC more to earn 150.00 USDC in rewards.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Before .*UTC/)).toBeNull();
+    expect(screen.queryByText(/Exclusive/)).toBeNull();
+  });
+
+  it('shows the locked reward status and a two-line progress summary', () => {
+    const view = render(
+      <PerpsRecallProgressCard progress={progress} hasEnded={false} />,
+    );
+    expect(screen.getByTestId('perps-recall-reward').textContent).toBe('150');
+    expect(screen.getByTestId('perps-recall-traded').textContent).toBe(
+      '$1,000.25 / $4,000',
+    );
+    expect(screen.getByTestId('perps-recall-status').textContent).toBe(
+      'Reward locked',
+    );
+    expect(screen.queryByTestId('perps-recall-remaining')).toBeNull();
+    expect(screen.queryByText('Trading target completed')).toBeNull();
+    expect(screen.queryByText('Awaiting payout')).toBeNull();
+    expect(screen.getByTestId('perps-recall-percentage').textContent).toBe(
+      '25%',
+    );
+
+    view.rerender(
+      <PerpsRecallProgressCard
+        progress={{
+          ...progress,
+          status: 'achieved',
+          current: null,
+          volume: '4000.2316',
+          earnedReward: '150',
+        }}
+        hasEnded={false}
+      />,
+    );
+    expect(screen.getByTestId('perps-recall-traded').textContent).toBe(
+      '$4,000.2316',
+    );
+    expect(screen.queryByTestId('perps-recall-remaining')).toBeNull();
+    expect(screen.getByTestId('perps-recall-percentage').textContent).toBe(
+      '100%',
+    );
+    expect(screen.getByText('Trading target completed')).toBeTruthy();
+    expect(screen.getByText('Awaiting payout')).toBeTruthy();
+  });
+
+  it('keeps zero progress empty and preserves skipped payout and ended results', () => {
+    const view = render(
+      <PerpsRecallProgressCard
+        progress={{ ...progress, volume: '0' }}
+        hasEnded={false}
+      />,
+    );
+    expect(screen.getByTestId('perps-recall-percentage').textContent).toBe(
+      '0%',
+    );
+    expect(view.container.querySelector('circle[stroke-dasharray]')).toBeNull();
+    expect(screen.queryByText('Trading target completed')).toBeNull();
+
+    view.rerender(
+      <PerpsRecallProgressCard
+        progress={{
+          ...progress,
+          activityStatus: 'ended',
+          payoutStatus: 'skipped',
+        }}
+        hasEnded
+      />,
+    );
+    expect(screen.getByText('Payout skipped')).toBeTruthy();
+    expect(screen.queryByText('Awaiting payout')).toBeNull();
+    expect(screen.getByTestId('perps-recall-reward').textContent).toBe('0');
+
+    view.rerender(
+      <PerpsRecallProgressCard
+        progress={{ ...progress, activityStatus: 'ended' }}
+        hasEnded
+      />,
+    );
+    expect(screen.getByText('Target not reached')).toBeTruthy();
+    expect(screen.queryByText('Trading target completed')).toBeNull();
+  });
+
+  it.each(['native', 'desktop', 'web'] as const)(
+    'opens the help center after closing the dialog on %s',
+    async (platform) => {
+      platformEnv.isNative = platform === 'native';
+      platformEnv.isDesktop = platform === 'desktop';
+      let resolveClose: (() => void) | undefined;
+      mockPopoverClose.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveClose = resolve;
+          }),
+      );
+      render(
+        <PerpsRecallDialogContent
+          activityId="recall-1"
+          instanceId="test-instance"
+        />,
+      );
+      fireEvent.click(screen.getByTestId('perps-recall-help'));
+      expect(mockPopoverClose).toHaveBeenCalledTimes(1);
+      expect(mockOpenUrlInDiscovery).not.toHaveBeenCalled();
+      expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+
+      await act(async () => resolveClose?.());
+      if (platform === 'web') {
+        expect(mockOpenUrlExternal).toHaveBeenCalledWith(HELP_CENTER_URL);
+        expect(mockOpenUrlInDiscovery).not.toHaveBeenCalled();
+      } else {
+        expect(mockOpenUrlInDiscovery).toHaveBeenCalledWith({
+          url: HELP_CENTER_URL,
+        });
+        expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it('updates the SVG illustration and progress ring with the active theme', () => {
+    const view = render(
+      <PerpsRecallProgressCard progress={progress} hasEnded={false} />,
+    );
+    expect(view.container.querySelector('path[stroke="#111111"]')).toBeTruthy();
+    expect(view.container.querySelector('path[fill="#FFFFFF"]')).toBeTruthy();
+    expect(
+      view.container.querySelector('circle[stroke="#22AB15"]'),
+    ).toBeTruthy();
+
+    mockDarkTheme = true;
+    view.rerender(
+      <PerpsRecallProgressCard progress={progress} hasEnded={false} />,
+    );
+    expect(view.container.querySelector('path[stroke="#EEEEEE"]')).toBeTruthy();
+    expect(view.container.querySelector('path[fill="#1B1B1B"]')).toBeTruthy();
+    expect(
+      view.container.querySelector('circle[stroke="#3EDC2F"]'),
+    ).toBeTruthy();
+    expect(view.container.querySelector('circle[stroke="#22AB15"]')).toBeNull();
+  });
+
+  it('uses a wide hub for recall content even without configured campaign links', async () => {
+    mockGtMd = true;
+    const onOpen = jest.fn();
+    render(
+      <ActivityHubAction
+        source="Perps"
+        renderTrigger={<span>Open activity center</span>}
+        onOpenReferral={jest.fn()}
+        detailEntry={{
+          id: progress.activityId,
+          title: 'Comeback rewards',
+          icon: 'GiftOutline',
+          onOpen,
+        }}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('activity-hub-detail-entry')).toBeTruthy(),
+    );
+    expect(screen.queryByTestId('perps-recall-progress')).toBeNull();
+    expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({
+      width: 384,
+    });
+    expect(screen.getByTestId('activity-hub-open-perks')).toBeTruthy();
+    expect(
+      screen.getByText(`${ETranslations.perps_ongoing_events} (1)`),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByTestId('activity-hub-detail-entry'));
+    await waitFor(() => expect(onOpen).toHaveBeenCalledTimes(1));
+    expect(mockPopoverClose).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([true, false])(
+    'lists recall first among current activities (wide screen: %s)',
+    (wideScreen) => {
+      mockGtMd = wideScreen;
+      const closePopover = jest.fn();
+      const onOpen = jest.fn();
+      render(
+        <ActivityHubContent
+          source="Perps"
+          closePopover={closePopover}
+          onOpenReferral={jest.fn()}
+          campaigns={CAMPAIGNS}
+          detailEntry={{
+            id: progress.activityId,
+            title: 'Comeback rewards',
+            subtitle: 'View your rewards and trading progress',
+            icon: 'GiftOutline',
+            onOpen,
+            closeOnOpen: false,
+          }}
+        />,
+      );
+      expect(
+        screen.getByText(`${ETranslations.perps_ongoing_events} (2)`),
+      ).toBeTruthy();
+      const recallCard = screen.getByTestId('activity-hub-detail-entry');
+      expect(recallCard.parentElement).toBe(getCampaignCard().parentElement);
+      expect(recallCard.nextElementSibling).toBe(getCampaignCard());
+      expect(recallCard.parentElement).not.toBe(
+        screen.getByTestId('activity-hub-open-perks').parentElement,
+      );
+      fireEvent.click(recallCard);
+      expect(onOpen).toHaveBeenCalledTimes(1);
+      expect(closePopover).not.toHaveBeenCalled();
+      expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+      expect(screen.getByTestId('activity-hub-detail-entry')).toBeTruthy();
+      expect(getCampaignCard()).toBeTruthy();
+    },
+  );
 });

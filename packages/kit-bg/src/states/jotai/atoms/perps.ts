@@ -2,6 +2,7 @@
 import BigNumber from 'bignumber.js';
 
 import { PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
+import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { computePerpsCrossMarginRatio } from '@onekeyhq/shared/src/utils/perpsMarginRatioUtils';
 import type { IPerpsCrossMarginRatio } from '@onekeyhq/shared/src/utils/perpsMarginRatioUtils';
@@ -90,6 +91,18 @@ export const {
 } = globalAtom<IWebviewPerpTradeTarget>({
   name: EAtomNames.webviewPerpTradeTargetAtom,
   initialValue: { revision: 0 },
+});
+
+export const {
+  target: perpsRecallProgressAtom,
+  use: usePerpsRecallProgressAtom,
+} = globalAtom<{
+  instanceId: string;
+  endpoint: string;
+  progress: IPerpsRecallProgress | null;
+}>({
+  name: EAtomNames.perpsRecallProgressAtom,
+  initialValue: { instanceId: '', endpoint: '', progress: null },
 });
 
 // #region Active Account

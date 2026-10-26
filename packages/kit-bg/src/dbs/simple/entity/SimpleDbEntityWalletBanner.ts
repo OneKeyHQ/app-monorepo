@@ -4,6 +4,7 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IWalletBannerDBData {
   closedForever?: Record<string, boolean>; // key: bannerId, value: true
+  snoozedUntil?: Record<string, number>; // key: bannerId, value: expiry timestamp
   topBanners?: IWalletBanner[];
 }
 
@@ -11,6 +12,24 @@ export class SimpleDbEntityWalletBanner extends SimpleDbEntityBase<IWalletBanner
   entityName = 'walletBanner';
 
   override enableCache = false;
+
+  async getSnoozedBanners() {
+    const data = await this.getRawData();
+    return data?.snoozedUntil ?? {};
+  }
+
+  async setBannerSnoozedUntil({
+    bannerId,
+    snoozedUntil,
+  }: {
+    bannerId: string;
+    snoozedUntil: number;
+  }) {
+    await this.setRawData((data) => ({
+      ...data,
+      snoozedUntil: { ...data?.snoozedUntil, [bannerId]: snoozedUntil },
+    }));
+  }
 
   async getClosedForeverBanners() {
     const data = await this.getRawData();

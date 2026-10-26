@@ -8,6 +8,7 @@ import {
   IconButton,
   Popover,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useIsSplitMainActive,
@@ -35,6 +36,8 @@ import {
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
 import { getTradingButtonStyleValues } from '../../utils/styleUtils';
+import { PerpFeatureDot } from '../PerpFeatureDot';
+import { PerpsActivityCenterAction } from '../PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelectorMobile } from '../TokenSelector/PerpTokenSelector';
 
@@ -307,6 +310,7 @@ export function PerpTickerBarMobile({
   onToggleTopChart,
   showTopChartToggle = false,
 }: IPerpTickerBarMobileProps) {
+  const intl = useIntl();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const rect = getPerpsMobileLayoutTraceRect(event);
@@ -333,21 +337,63 @@ export function PerpTickerBarMobile({
         <PerpBadgesRow />
       </YStack>
 
-      <XStack pt="$0.5" gap="$4" alignItems="center">
-        {showTopChartToggle && onToggleTopChart ? (
-          <PerpTopChartButtonMobile
-            isExpanded={isTopChartExpanded}
-            onPress={onToggleTopChart}
+      <XStack pt="$0.5" gap="$4" alignItems="center" flexShrink={0}>
+        <Stack
+          position="relative"
+          w="$5"
+          h="$5"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <PerpsActivityCenterAction
+            renderTrigger={
+              <IconButton
+                testID="perp-mobile-activity-center"
+                icon="GiftOutline"
+                size="small"
+                variant="tertiary"
+                iconProps={{ color: '$iconSubdued' }}
+                title={intl.formatMessage({
+                  id: ETranslations.perps_activity_hub,
+                })}
+              />
+            }
           />
+          <Stack
+            position="absolute"
+            top={-4}
+            right={-4}
+            borderRadius="$full"
+            borderWidth="$0.5"
+            borderColor="$bgApp"
+            pointerEvents="none"
+            accessible={false}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <PerpFeatureDot testID="perp-mobile-activity-center-dot" />
+          </Stack>
+        </Stack>
+        {showTopChartToggle && onToggleTopChart ? (
+          <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+            <PerpTopChartButtonMobile
+              isExpanded={isTopChartExpanded}
+              onPress={onToggleTopChart}
+            />
+          </Stack>
         ) : null}
-        <PerpCandleChartButtonMobile />
-        <PerpSettingsButton
-          testID={PerpTestIDs.MobileSettingsButton}
-          disabled={shouldRedirectOnboardingToTravelMode()}
-          showActivityCenterEntry
-          showChartPositionSetting
-          showGuideEntry
-        />
+        <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+          <PerpCandleChartButtonMobile />
+        </Stack>
+        <Stack w="$5" h="$5" alignItems="center" justifyContent="center">
+          <PerpSettingsButton
+            testID={PerpTestIDs.MobileSettingsButton}
+            disabled={shouldRedirectOnboardingToTravelMode()}
+            showActivityCenterEntry
+            showChartPositionSetting
+            showGuideEntry
+          />
+        </Stack>
       </XStack>
     </XStack>
   );
