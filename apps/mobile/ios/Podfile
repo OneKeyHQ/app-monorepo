@@ -122,11 +122,7 @@ target 'OneKeyWallet' do
   pod 'MMKV', :path => mmkv_relative_source
   pod 'MMKVCore', :path => mmkv_relative_source
 
-  if mac_catalyst_enabled
-    use_expo_modules!({ exclude: ['expo-camera'] })
-  else
-    use_expo_modules!
-  end
+  use_expo_modules!
   config = use_native_modules!
 
   pod 'SDWebImage', '5.21.7', :modular_headers => true

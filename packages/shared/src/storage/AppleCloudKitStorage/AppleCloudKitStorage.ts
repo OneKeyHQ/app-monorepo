@@ -10,7 +10,7 @@ import type {
 
 export class AppleCloudKitStorage implements IAppleCloudKitStorage {
   private getCloudKitModule(): IAppleCloudKitNativeModule {
-    if (platformEnv.isNativeIOS && CloudKitModule) {
+    if (platformEnv.isNativeIOS) {
       return CloudKitModule as IAppleCloudKitNativeModule;
     }
     if (platformEnv.isDesktopMac) {

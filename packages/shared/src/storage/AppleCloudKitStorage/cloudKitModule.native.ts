@@ -1,16 +1,4 @@
-import platformEnv from '../../platformEnv';
+import { CloudKit } from '@onekeyfe/react-native-cloud-kit-module';
 
-import type { CloudKit } from '@onekeyfe/react-native-cloud-kit-module';
-
-type ICloudKitModule = typeof CloudKit;
-
-const CloudKitModule: ICloudKitModule | undefined =
-  platformEnv.isNativeIOSMacCatalyst
-    ? undefined
-    : (
-        require('@onekeyfe/react-native-cloud-kit-module') as {
-          CloudKit: ICloudKitModule;
-        }
-      ).CloudKit;
-
+const CloudKitModule = CloudKit;
 export default CloudKitModule;

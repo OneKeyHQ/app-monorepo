@@ -245,9 +245,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   async supportCloudBackup(): Promise<boolean> {
-    if (platformEnv.isNativeIOSMacCatalyst) {
-      return false;
-    }
     if (platformEnv.isNativeIOS) {
       // return false;
       return true;

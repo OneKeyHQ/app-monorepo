@@ -943,17 +943,14 @@ describe('devVendor', () => {
       'apps/mobile/ios/Podfile.lock',
     );
     const excluded = [
-      '@onekeyfe/react-native-cloud-kit-module',
       '@onekeyfe/react-native-lite-card',
       '@onekeyfe/react-native-sni-connect',
       '@onramper/onramper-react-native',
       '@phantom/react-native-juicebox-sdk',
       '@shopify/react-native-skia',
       '@walletconnect/react-native-compat',
-      'expo-camera',
       'jcore-react-native',
       'jpush-react-native',
-      'react-native-network-info',
     ];
     const androidBaseline = computeNativeContractKey(
       'android',
@@ -979,15 +976,22 @@ describe('devVendor', () => {
             'node_modules/react-native/scripts/codegen/generate-artifacts-executor/utils',
           ),
         );
-        expect(
-          findDisabledLibrariesByPlatform(catalystConfig, 'ios'),
-        ).toContain('@onekeyfe/react-native-network-info');
+        const disabled = findDisabledLibrariesByPlatform(catalystConfig, 'ios');
+        for (const supported of [
+          '@onekeyfe/react-native-cloud-kit-module',
+          '@onekeyfe/react-native-network-info',
+          'expo-camera',
+        ]) {
+          expect(disabled).not.toContain(supported);
+        }
         const descriptor = catalystVendor.getNativeContractDescriptor(
           'ios',
           fixture.repoRoot,
         );
         const names = descriptor.dependencies.map(({ name }) => name);
         expect(names).toContain('@onekeyfe/react-native-bundle-crypto');
+        expect(names).toContain('@onekeyfe/react-native-cloud-kit-module');
+        expect(names).toContain('react-native-network-info');
         for (const name of excluded) {
           expect(names).not.toContain(name);
         }

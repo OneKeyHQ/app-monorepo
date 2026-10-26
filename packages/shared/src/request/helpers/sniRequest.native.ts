@@ -195,7 +195,8 @@ function normalizeSniMethod(method: string): SniConnectMethod {
 
 /**
  * Check if SNI is supported on current platform
- * @returns true for iOS/Android, except Mac Catalyst
+ * The current native transport dependency has no Mac Catalyst binary slice.
+ * @returns true when the native SNI dependency is linked
  */
 export function isSniSupported(): boolean {
   return !platformEnv.isNativeIOSMacCatalyst;
