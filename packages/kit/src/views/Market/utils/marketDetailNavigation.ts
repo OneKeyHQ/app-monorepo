@@ -135,6 +135,13 @@ const REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES = new Set<string>([
   ETabMarketRoutes.MarketNativeDetail,
 ]);
 
+// These tab routes share the same MarketDetailV2 screen component.
+const MARKET_DETAIL_V2_ROUTE_NAMES = new Set<string>([
+  ETabMarketRoutes.MarketDetailV2,
+  ETabMarketRoutes.MarketStockDetail,
+  ETabMarketRoutes.MarketNativeDetail,
+]);
+
 const MARKET_HOST_ROUTE_NAMES = new Set<string>([
   ...REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES,
   ETabMarketRoutes.MarketBannerDetail,
@@ -559,17 +566,32 @@ function dispatchResetToSingleDetail({
   hostRoutes,
   routeName,
   params,
+  currentRoute,
 }: {
   navigation: INavigationLike;
   stackKey: string;
   hostRoutes: IResetRoute[];
   routeName: string;
   params: Record<string, unknown>;
+  currentRoute?: INavigationRouteNode;
 }) {
+  const shouldKeepRouteKey = Boolean(
+    !platformEnv.isNative &&
+    currentRoute?.name &&
+    MARKET_DETAIL_V2_ROUTE_NAMES.has(currentRoute.name) &&
+    MARKET_DETAIL_V2_ROUTE_NAMES.has(routeName),
+  );
   navigation.dispatch({
     ...CommonActions.reset({
       index: hostRoutes.length,
-      routes: [...hostRoutes, { name: routeName, params }],
+      routes: [
+        ...hostRoutes,
+        {
+          ...(shouldKeepRouteKey ? { key: currentRoute?.key } : undefined),
+          name: routeName,
+          params,
+        },
+      ],
     }),
     target: stackKey,
   });
@@ -616,6 +638,7 @@ export function openOrReplaceMarketDetailRoute({
     hostRoutes: getPreservedHostRoutes(stack),
     routeName,
     params: nextParams,
+    currentRoute: current,
   });
   return true;
 }

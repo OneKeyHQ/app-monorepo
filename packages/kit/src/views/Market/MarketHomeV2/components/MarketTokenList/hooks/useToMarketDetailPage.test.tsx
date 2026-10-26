@@ -20,6 +20,8 @@ jest.mock('react-intl', () => ({
 const mockNavigationPush = jest.fn();
 const mockNavigationReplace = jest.fn();
 const mockNavigationSetParams = jest.fn();
+const mockNavigationDispatch = jest.fn();
+const mockGetRootState = jest.fn();
 const mockClearTokenDetail = jest.fn();
 const mockPrepareStockTokenDetail = jest.fn();
 const mockPrepareTokenDetailPreview = jest.fn();
@@ -42,6 +44,7 @@ jest.mock('@react-navigation/native', () => ({
     key: 'market-detail',
   })),
   CommonActions: {
+    reset: (state: unknown) => ({ type: 'RESET', payload: state }),
     setParams: (params: unknown) => ({
       type: 'SET_PARAMS',
       payload: { params },
@@ -105,6 +108,10 @@ jest.mock('@onekeyhq/components', () => ({
     current: {
       navigate: jest.fn(),
       getCurrentRoute: () => mockGetCurrentRoute(),
+      getRootState: (): unknown => mockGetRootState() as unknown,
+      dispatch: (action: unknown) => {
+        mockNavigationDispatch(action);
+      },
     },
   },
   useMedia: jest.fn(() => ({ gtLg: false })),
@@ -167,6 +174,7 @@ describe('useToDetailPage', () => {
     Object.assign(platformEnv, { isNative: false });
     jest.useFakeTimers();
     mockCurrentRouteName = 'MarketDetailV2';
+    mockGetRootState.mockReturnValue(undefined);
     mockGetCurrentRoute.mockReturnValue({
       name: mockCurrentRouteName,
       key: 'market-detail',
@@ -758,7 +766,7 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
-  it('replaces the current detail route for a stock selected from detail', async () => {
+  it('falls back to replacing a stock detail when the tab stack is unavailable', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
@@ -791,6 +799,55 @@ describe('useToDetailPage', () => {
     expect(mockNavigationPush).not.toHaveBeenCalled();
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
+
+  it.each([true, false])(
+    'retains the sidebar route when selecting a stock=%s',
+    async (isStock) => {
+      platformEnv.isExtensionUiPopup = false;
+      mockCurrentRouteName = isStock ? 'MarketDetailV2' : 'MarketStockDetail';
+      mockGetRootState.mockReturnValue({
+        key: 'root',
+        routes: [
+          {
+            name: 'main',
+            state: {
+              key: 'market-stack',
+              index: 1,
+              routes: [
+                { key: 'list', name: 'TabMarket' },
+                { key: 'market-detail', name: mockCurrentRouteName },
+              ],
+            },
+          },
+        ],
+      });
+      const { result } = renderHook(() =>
+        useToDetailPage({ replaceCurrentDetail: true }),
+      );
+      await act(async () => {
+        await result.current({
+          ...tokenItem,
+          ...(isStock ? { stockId: 'TSM' } : {}),
+        });
+      });
+      expect(mockNavigationDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'RESET',
+          target: 'market-stack',
+          payload: expect.objectContaining({
+            routes: expect.arrayContaining([
+              expect.objectContaining({
+                key: 'market-detail',
+                name: isStock ? 'MarketStockDetail' : 'MarketDetailV2',
+              }),
+            ]),
+          }),
+        }),
+      );
+      expect(mockNavigationReplace).not.toHaveBeenCalled();
+      expect(mockNavigationPush).not.toHaveBeenCalled();
+    },
+  );
 
   it('updates the current V2 detail route without replacing it', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {

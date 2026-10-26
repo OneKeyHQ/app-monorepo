@@ -1002,6 +1002,70 @@ describe('marketDetailNavigation', () => {
     });
   });
 
+  it.each([
+    [false, 'MarketDetailV2', 'MarketStockDetail', true],
+    [false, 'MarketStockDetail', 'MarketDetailV2', true],
+    [false, 'MarketNativeDetail', 'MarketStockDetail', true],
+    [false, 'MarketStockDetail', 'MarketNativeDetail', true],
+    [true, 'MarketDetailV2', 'MarketStockDetail', false],
+    [false, 'MarketDetail', 'MarketStockDetail', false],
+  ] as const)(
+    'switches %s native, %s -> %s with retained screen=%s',
+    (isNative, from, to, shouldRetain) => {
+      platformEnv.isNative = isNative;
+      const router = StackRouter({});
+      const config = {
+        routeNames: [
+          'TabMarket',
+          'MarketDetail',
+          'MarketDetailV2',
+          'MarketStockDetail',
+          'MarketNativeDetail',
+        ],
+        routeParamList: {},
+        routeGetIdList: {},
+      };
+      const stack = {
+        ...router.getInitialState(config),
+        index: 1,
+        routes: [
+          { key: 'list', name: 'TabMarket' },
+          {
+            key: 'detail',
+            name: from,
+            params: { stockId: 'OLD', marketTokenId: 'old' },
+          },
+        ],
+      };
+      getRootStateMock.mockReturnValue({
+        key: 'root',
+        routes: [{ name: 'main', state: stack }],
+      });
+      const params =
+        to === 'MarketStockDetail'
+          ? { stockId: 'TSM' }
+          : { network: 'eth', tokenAddress: '0xtoken' };
+      expect(openOrReplaceMarketDetailRoute({ routeName: to, params })).toBe(
+        true,
+      );
+      const action = dispatchMock.mock.calls[0][0] as Parameters<
+        typeof router.getStateForAction
+      >[1];
+      const updated = router.getStateForAction(stack, action, config);
+      expect(updated?.routes).toHaveLength(2);
+      expect(updated?.routes[0].key).toBe('list');
+      if (shouldRetain) {
+        expect(updated?.routes[1].key).toBe('detail');
+      } else {
+        expect(updated?.routes[1].key).not.toBe('detail');
+      }
+      expect(updated?.routes[1].name).toBe(to);
+      expect(updated?.routes[1].params).toEqual(
+        buildReplacedMarketDetailParams(params),
+      );
+    },
+  );
+
   it('updates the current token detail in place when the stack is already a single detail', () => {
     getRootStateMock.mockReturnValue({
       key: 'root',

@@ -282,6 +282,16 @@ export function useToMarketStockDetailPage(
           prepareMarketDetailTabBarTransition();
         } else {
           if (
+            !platformEnv.isNative &&
+            currentRouteName !== ETabMarketRoutes.MarketStockDetail &&
+            openOrReplaceMarketDetailRoute({
+              routeName: ETabMarketRoutes.MarketStockDetail,
+              params: stockDetailParams,
+            })
+          ) {
+            return true;
+          }
+          if (
             (platformEnv.isDesktop || platformEnv.isWeb) &&
             currentRouteName === ETabMarketRoutes.MarketStockDetail
           ) {

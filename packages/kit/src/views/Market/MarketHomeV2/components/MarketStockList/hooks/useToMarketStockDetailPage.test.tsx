@@ -359,6 +359,49 @@ describe('useToMarketStockDetailPage', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  it('keeps the desktop detail route when the selector switches from a token to a stock', async () => {
+    mockGetRootState.mockReturnValue({
+      key: 'root',
+      routes: [
+        {
+          name: 'main',
+          state: {
+            key: 'market-stack',
+            index: 1,
+            routes: [
+              { key: 'list', name: 'TabMarket' },
+              { key: 'detail', name: 'MarketDetailV2' },
+            ],
+          },
+        },
+      ],
+    });
+    const { result } = renderHook(() =>
+      useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+    );
+    await act(async () => {
+      await result.current('TSM');
+    });
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RESET',
+        target: 'market-stack',
+        payload: expect.objectContaining({
+          routes: expect.arrayContaining([
+            expect.objectContaining({
+              key: 'detail',
+              name: 'MarketStockDetail',
+              params: expect.objectContaining({ stockId: 'TSM' }),
+            }),
+          ]),
+        }),
+      }),
+    );
+    expect(mockPopToTop).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   it('updates the current stock route without remounting the detail page', async () => {
     mockCurrentRouteName = ETabMarketRoutes.MarketStockDetail;
     const { result } = renderHook(() =>

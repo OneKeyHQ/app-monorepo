@@ -20,6 +20,7 @@ import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetai
 import { resolveMarketAssetRouteIdentity } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import {
   buildReplacedMarketDetailParams,
+  openOrReplaceMarketDetailRoute,
   prepareMarketDetailTabBarTransition,
 } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
@@ -441,6 +442,16 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
           }
+        }
+        if (
+          shouldReplaceCurrentDetail &&
+          !platformEnv.isNative &&
+          openOrReplaceMarketDetailRoute({
+            routeName: detailRouteName,
+            params: params as Record<string, unknown>,
+          })
+        ) {
+          return;
         }
         if (shouldUpdateCurrentDetail) {
           navigation.setParams(
