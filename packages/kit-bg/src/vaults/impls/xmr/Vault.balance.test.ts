@@ -12,12 +12,10 @@ import type { ILocalWalletAccountBalance } from '../../localWallet/types';
 function createVault({
   enabled,
   paused = false,
-  backfillComplete = true,
   balance,
 }: {
   enabled: boolean;
   paused?: boolean;
-  backfillComplete?: boolean;
   balance: () => Promise<ILocalWalletAccountBalance | null>;
 }) {
   const vault: Vault = Object.assign(Object.create(Vault.prototype), {
@@ -26,7 +24,6 @@ function createVault({
     getLocalWalletCapability: () => ({
       getAccountState: async () => ({ enabled, paused }),
       getAccountBalance: balance,
-      getSyncProgress: async () => ({ isBackfillComplete: backfillComplete }),
     }),
     getNetwork: async () => ({
       decimals: 12,
@@ -50,53 +47,31 @@ function readBalance(vault: Vault) {
   return vault.fetchAccountDetails({ accountAddress: 'a' } as never);
 }
 
-// '' is "unknown" to the token list; '0' is a confirmed zero. A scanned
-// account that cannot answer right now is the former, never the latter.
+// Not enabled or unreadable shows zero, as other chains do.
 describe('xmr balance for display', () => {
-  // Never scanned is not a known zero, and must not pull totals down to "--".
-  it('reports a never-scanned account as not enabled, not as zero', async () => {
-    const vault = createVault({ enabled: false, balance: async () => null });
-    await expect(readBalance(vault)).resolves.toMatchObject({
-      data: { data: { balance: '' } },
-    });
-    await expect(readTokenFiat(vault)).resolves.toMatchObject({
-      balance: '',
-      balanceStatus: 'notEnabled',
-    });
-  });
-
-  it('marks a balance still backfilling as partial', async () => {
-    const vault = createVault({
-      enabled: true,
-      backfillComplete: false,
-      balance: async () => ({
-        total: '1000000000000',
-        totalParsed: '1',
-        pools: [],
-      }),
-    });
-    await expect(readTokenFiat(vault)).resolves.toMatchObject({
-      balance: '1000000000000',
-      balanceStatus: 'partial',
-    });
-  });
-
-  it('reports unknown when a scanned account has no figure yet', async () => {
-    const vault = createVault({ enabled: true, balance: async () => null });
-    await expect(readBalance(vault)).resolves.toMatchObject({
-      data: { data: { balance: '' } },
-    });
-  });
-
-  it('reports unknown when the runtime cannot be reached', async () => {
-    const vault = createVault({
-      enabled: true,
-      balance: () => Promise.reject(new Error('runtime down')),
-    });
-    await expect(readBalance(vault)).resolves.toMatchObject({
-      data: { data: { balance: '' } },
-    });
-  });
+  it.each([
+    ['not enabled', { enabled: false, balance: async () => null }],
+    ['without a figure yet', { enabled: true, balance: async () => null }],
+    [
+      'with the runtime unreachable',
+      {
+        enabled: true,
+        balance: () => Promise.reject(new Error('runtime down')),
+      },
+    ],
+  ] as [string, Parameters<typeof createVault>[0]][])(
+    'shows zero %s',
+    async (_label, options) => {
+      const vault = createVault(options);
+      await expect(readBalance(vault)).resolves.toMatchObject({
+        data: { data: { balance: '0' } },
+      });
+      await expect(readTokenFiat(vault)).resolves.toMatchObject({
+        balance: '0',
+        fiatValue: '0',
+      });
+    },
+  );
 
   it('keeps a paused account balance in the home list and account totals', async () => {
     const vault = createVault({

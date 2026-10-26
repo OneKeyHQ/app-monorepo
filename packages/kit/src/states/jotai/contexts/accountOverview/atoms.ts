@@ -1,5 +1,4 @@
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
-import type { IBalanceStatus } from '@onekeyhq/shared/types/token';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -33,7 +32,6 @@ export {
 export const { atom: accountWorthAtom, use: useAccountWorthAtom } =
   contextAtom<{
     worth: Record<string, string>;
-    worthStatus?: Record<string, IBalanceStatus>;
     createAtNetworkWorth: string;
     accountId: string;
     initialized: boolean;

@@ -62,7 +62,6 @@ import type {
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
-import type { IBalanceStatus } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -835,47 +834,35 @@ export default class Vault extends VaultBase {
     };
   }
 
-  /**
-   * Distinguishes "never scanned" (zero) from "can't answer right now"
-   * (`''`, read as unknown) - a scan merely behind still reports what it's seen.
-   */
+  // A balance that is not enabled or cannot be read shows as zero, as on other chains.
   private async xmrGetBalanceForDisplay(): Promise<{
     total: string;
     totalParsed: string;
     spendable: string;
     spendableParsed: string;
-    balanceStatus: IBalanceStatus;
   }> {
-    const unknown = {
-      total: '',
-      totalParsed: '',
-      spendable: '',
-      spendableParsed: '',
+    const zero = {
+      total: '0',
+      totalParsed: '0',
+      spendable: '0',
+      spendableParsed: '0',
     };
     try {
       const capability = this.getLocalWalletCapability();
       const state = await capability.getAccountState({
         accountId: this.accountId,
       });
-      // Pausing retains the saved balance; a never-enabled account has no known figure.
+      // Pausing retains the saved balance.
       if (!state.enabled && !state.paused) {
-        return { ...unknown, balanceStatus: 'notEnabled' };
+        return zero;
       }
       const balance = await capability.getAccountBalance({
         accountId: this.accountId,
       });
       if (!balance?.total || !balance.totalParsed) {
-        return { ...unknown, balanceStatus: 'unavailable' };
+        return zero;
       }
-      const progress = state.enabled
-        ? await capability
-            .getSyncProgress({ accountId: this.accountId })
-            .catch(() => undefined)
-        : undefined;
       const spendable = balance.spendable ?? balance.total;
-      // Saved earlier, or the scan has not reached the tip yet.
-      const isStale = balance.balanceStatus === 'partial';
-      const isBackfilling = !!progress && !progress.isBackfillComplete;
       return {
         total: balance.total,
         totalParsed: balance.totalParsed,
@@ -883,13 +870,11 @@ export default class Vault extends VaultBase {
         spendableParsed: new BigNumber(spendable)
           .shiftedBy(-XMR_DECIMALS)
           .toFixed(),
-        balanceStatus: isStale || isBackfilling ? 'partial' : 'complete',
       };
     } catch (error) {
-      // A balance read must never take down the account page. The scanner
-      // being unavailable is a state, not a crash.
+      // A balance read must never take down the account page.
       console.error('[xmr] balance unavailable', { error });
-      return { ...unknown, balanceStatus: 'unavailable' };
+      return zero;
     }
   }
 
@@ -929,8 +914,7 @@ export default class Vault extends VaultBase {
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
     const network = await this.getNetwork();
-    const { total, totalParsed, balanceStatus } =
-      await this.xmrGetBalanceForDisplay();
+    const { total, totalParsed } = await this.xmrGetBalanceForDisplay();
     const { networkId, accountAddress } = params.requestApiParams;
     return buildLocalWalletNativeTokenList({
       network,
@@ -938,7 +922,6 @@ export default class Vault extends VaultBase {
       accountAddress,
       balance: total,
       balanceParsed: totalParsed,
-      balanceStatus,
     });
   }
 
@@ -948,7 +931,7 @@ export default class Vault extends VaultBase {
     _params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
     const network = await this.getNetwork();
-    const { total, totalParsed, spendable, spendableParsed, balanceStatus } =
+    const { total, totalParsed, spendable, spendableParsed } =
       await this.xmrGetBalanceForDisplay();
     const known = total !== '' && spendable !== '';
     const frozen = known
@@ -958,7 +941,6 @@ export default class Vault extends VaultBase {
       data: {
         data: [
           {
-            balanceStatus,
             info: {
               address: '',
               decimals: network.decimals,

@@ -1,5 +1,3 @@
-import type { IBalanceStatus } from '@onekeyhq/shared/types/token';
-
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
 // Per-Provider scope: each mounted tab gets its own store and cannot
@@ -22,7 +20,6 @@ export type IPrivacyChainPoolDisplayData = {
   ownerKey: string;
   address?: string;
   balanceParsed?: string;
-  balanceStatus?: IBalanceStatus;
   // True once a read completes (success or failure), not "balance present".
   // Failed reads render as unavailable, never as a spinner or a zero.
   balanceSettled: boolean;

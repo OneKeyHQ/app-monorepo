@@ -741,9 +741,7 @@ export function buildXmrLocalWalletCapability(
         read: () => readBalance(accountId),
       });
       if (!result) return null;
-      return result.stale
-        ? { ...result.value, balanceStatus: 'partial' }
-        : result.value;
+      return result.value;
     },
 
     // One pool: the send flow shows no picker.

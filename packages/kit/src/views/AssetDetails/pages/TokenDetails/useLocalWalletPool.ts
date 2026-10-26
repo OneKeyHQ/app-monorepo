@@ -550,7 +550,6 @@ export function useLocalWalletPool({
       ownerKey: privacyChainPoolOwnerKey({ accountId, networkId, poolId }),
       address: poolAddress,
       balanceParsed: poolBalance?.totalParsed,
-      balanceStatus: poolBalance?.balanceStatus,
       balanceSettled: hasAttemptedBalance || hasSyncError || isSyncPaused,
       action: move
         ? {

@@ -1,7 +1,6 @@
 // cspell:ignore Zodl
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IBalanceStatus } from '@onekeyhq/shared/types/token';
 
 import type { IRescanLocalWalletFrom } from '../types';
 
@@ -175,7 +174,6 @@ export type ILocalWalletFrozenPart = {
 
 export type ILocalWalletPoolBalance = {
   key: string;
-  balanceStatus?: IBalanceStatus;
   total?: string;
   totalParsed?: string;
   spendable?: string;
@@ -193,7 +191,6 @@ export type ILocalWalletPoolBalance = {
 };
 
 export type ILocalWalletAccountBalance = {
-  balanceStatus?: IBalanceStatus;
   total?: string;
   totalParsed?: string;
   spendable?: string;

@@ -459,7 +459,6 @@ it('shows a pending registration as preparing and keeps private sending disabled
     pools: [
       {
         key: 'ironwood',
-        balanceStatus: 'unavailable',
         hints: [],
         move: { type: 'withdraw', enabled: false },
       },

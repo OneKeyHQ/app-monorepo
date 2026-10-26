@@ -482,7 +482,10 @@ function TokenDetailsHeaderContent({
       localWalletPool.balance !== undefined);
   let balanceParsed: string | undefined;
   if (shouldShowPoolBalance) {
-    balanceParsed = poolDisplay?.balanceParsed;
+    balanceParsed = poolDisplay?.balanceParsed ?? '0';
+  } else if (isPrivatePool) {
+    // A private pool that is not enabled shows an empty balance, as other chains do.
+    balanceParsed = '0';
   } else if (!hasSelectedPool) {
     balanceParsed = tokenRebaseUtils.applyBalanceMultiplier({
       amount: tokenDetails?.balanceParsed,
@@ -497,19 +500,7 @@ function TokenDetailsHeaderContent({
         ? new BigNumber(balanceParsed).times(price).toFixed()
         : undefined;
   } else if (isPrivatePool) {
-    fiatValue = undefined;
-  }
-  // A backfilling balance still shows what was scanned; only
-  // an unreadable or never-enabled one has no figure.
-  const detailsBalanceStatus = hasSelectedPool
-    ? undefined
-    : tokenDetails?.balanceStatus;
-  if (
-    detailsBalanceStatus === 'unavailable' ||
-    detailsBalanceStatus === 'notEnabled'
-  ) {
-    balanceParsed = undefined;
-    fiatValue = undefined;
+    fiatValue = '0';
   }
   let isBalanceLoading = showLoadingState;
   if (shouldShowPoolBalance) {

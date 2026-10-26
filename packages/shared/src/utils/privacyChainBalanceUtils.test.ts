@@ -8,7 +8,6 @@ describe('composePrivacyChainBalance', () => {
       spendable: '1000',
     });
     expect(r.total).toBe('1250');
-    expect(r.balanceStatus).toBe('complete');
   });
 
   it('reports an incomplete total when the indexer could not be asked', () => {
@@ -17,9 +16,7 @@ describe('composePrivacyChainBalance', () => {
       publicSideIndexer: undefined,
       spendable: '1000',
     });
-    // The known half, marked partial so it does not read as the whole.
     expect(r.total).toBe('1000');
-    expect(r.balanceStatus).toBe('partial');
     expect(r.frozen).toBe('');
   });
 
@@ -31,7 +28,6 @@ describe('composePrivacyChainBalance', () => {
       spendable: undefined,
     });
     expect(r.total).toBe('250');
-    expect(r.balanceStatus).toBe('partial');
   });
 
   it('distinguishes an indexer zero from an indexer failure', () => {
@@ -41,7 +37,6 @@ describe('composePrivacyChainBalance', () => {
       spendable: '1000',
     });
     expect(zero.total).toBe('1000');
-    expect(zero.balanceStatus).toBe('complete');
   });
 
   it('never lets an indexer inflate what can be spent', () => {
@@ -99,7 +94,6 @@ describe('privacy balance completeness', () => {
       total: '',
       spendable: '',
       frozen: '',
-      balanceStatus: 'unavailable',
     });
     expect(
       composePrivacyChainBalance({
@@ -111,11 +105,10 @@ describe('privacy balance completeness', () => {
       total: '0',
       spendable: '0',
       frozen: '0',
-      balanceStatus: 'complete',
     });
   });
   // A backfill can take days; the total shows what has been found so far plus
-  // the public side, marked partial, instead of nothing.
+  // the public side, instead of nothing.
   it('shows a partial total while the private side is still backfilling', () => {
     expect(
       composePrivacyChainBalance({
@@ -128,7 +121,6 @@ describe('privacy balance completeness', () => {
       total: '150',
       spendable: '120',
       frozen: '',
-      balanceStatus: 'partial',
     });
   });
 });
