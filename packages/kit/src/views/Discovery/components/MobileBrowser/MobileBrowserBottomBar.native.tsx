@@ -34,7 +34,7 @@ import {
 } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
-import { usePageTheme } from '../../utils/pageThemeColor';
+import { usePageBaseColor, usePageTheme } from '../../utils/pageThemeColor';
 
 import {
   AddressCapsuleTitle,
@@ -333,11 +333,13 @@ function MorphingAddressBackground({
   );
 }
 
-// The WebView ends above the bar: the strip behind the bar takes the page
-// color. It follows the bar, not the WebView's edge: during a morph the
-// WebView reaches further down (it resizes once, when the chrome settles),
-// and the opaque strip keeps that part hidden, so the glass always sits on
-// the page color rather than on page content passing behind it. Laid out at
+// The WebView ends above the bar: the strip behind the bar takes the page's
+// base color (body/html), which is what the page ends on, rather than its top
+// color (e.g. a colored banner), so there is no seam above the bar. It
+// follows the bar, not the WebView's edge: during a morph the WebView reaches
+// further down (it resizes once, when the chrome settles), and the opaque
+// strip keeps that part hidden, so the glass always sits on the page color
+// rather than on page content passing behind it. Laid out at
 // its full height and slid down as the bar collapses (a transform, not a
 // per-frame height change). No fade above it: a plain alpha fade (no blur)
 // over page content of another color looks muddy.
@@ -350,7 +352,7 @@ function BarPageStrip({
   progress: SharedValue<number>;
   bottom: number;
 }) {
-  const { pageColor } = usePageTheme(id);
+  const baseColor = usePageBaseColor(id);
   const fullHeight = getBarReservedHeight(bottom);
   const collapsedHeight = getCollapsedReservedHeight(bottom);
   const style = useAnimatedStyle(() => ({
@@ -366,7 +368,7 @@ function BarPageStrip({
       <Stack
         flex={1}
         bg="$bgApp"
-        style={pageColor ? { backgroundColor: pageColor } : undefined}
+        style={baseColor ? { backgroundColor: baseColor } : undefined}
       />
     </Animated.View>
   );

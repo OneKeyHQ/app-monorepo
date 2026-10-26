@@ -10,9 +10,9 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 const PAGE_THEME_MESSAGE_TYPE = '$onekeyPageThemeColor';
 
 const colors = new Map<string, string>();
-// Per-tab base background (body/html), the color past the end of the page.
-// The iPhone browser lays it under the WebView, where it shows below the
-// page's last content (see Browser.native's page backdrop).
+// Per-tab base background (body/html), the color past the end of the page:
+// it fills the area under the mobile browser's bottom bar (the iPhone page
+// backdrop in Browser.native, else the bar's strip).
 const baseColors = new Map<string, string>();
 // Last color seen per origin (this session), so a revisited site tints the
 // chrome as soon as it starts loading instead of after its first report.
