@@ -34,7 +34,6 @@ import {
   buildMarketTokenDetailPreview,
 } from '../../utils/marketDetailPreview';
 
-import { getSelectorSearchAssetId } from './constants';
 import {
   DETAIL_SELECTOR_TOKEN_CATEGORY,
   DetailSelectorBrowseTabs,
@@ -171,7 +170,6 @@ function MobileTokenSelectorContent() {
         tokenDetailActions,
         beforeNavigate: () => navigation.popStack(),
         showFavoriteButton,
-        resolveMarketAsset: Boolean(searchQuery),
         marketTokenCategory:
           isFavoritesSelection || isTopCoinsSelection || searchQuery
             ? undefined
@@ -246,7 +244,7 @@ function MobileTokenSelectorContent() {
         address: token.address,
         networkId: token.network,
         isNative: token.isNative,
-        assetId: getSelectorSearchAssetId(token),
+        assetId: token.assetId,
         stockId: token.stockId,
         tokenDetailPreview,
       });

@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { rootNavigationRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
-import { getSelectorSearchAssetId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/constants';
 import { buildMarketSearchTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -38,7 +37,6 @@ export function useUniversalSearchMarketPress({
   const toMarketDetailPage = useToDetailPage({
     switchToMarketTabFirst: true,
     from: EEnterWay.Search,
-    resolveMarketAsset: true,
   });
 
   return useCallback(
@@ -51,11 +49,8 @@ export function useUniversalSearchMarketPress({
         network,
       });
       const listingStockId = isStockListing ? stockId?.trim() : undefined;
-      // The Market selector's rule: an asset-only result opens through its
-      // asset id, while a concrete chain token keeps its own chain identity.
-      const assetId = isStockListing
-        ? undefined
-        : getSelectorSearchAssetId(item.payload);
+      // Navigation retains the backend asset id and the selected chain identity.
+      const assetId = isStockListing ? undefined : item.payload.assetId;
       // When network is empty and there is no asset id, the item was converted
       // from IMarketToken (trending/legacy) and address contains coingeckoId
       // for legacy navigation

@@ -244,7 +244,6 @@ function BaseMarketTokenSelectorContent({
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
         showFavoriteButton,
-        resolveMarketAsset: Boolean(searchQuery),
         tokenDetailPreview: token.tokenDetailPreview,
         marketTokenCategory:
           isFavoritesSelection || isTopCoinsSelection || searchQuery

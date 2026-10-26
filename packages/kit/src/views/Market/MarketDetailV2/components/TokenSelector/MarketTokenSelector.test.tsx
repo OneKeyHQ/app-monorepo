@@ -582,7 +582,7 @@ describe('MarketTokenSelector stock default category', () => {
       fireEvent.click(screen.getByTestId('mobile-search-result'));
       expect(mockNavigateToMarketTokenDetail).toHaveBeenCalledWith(
         expect.objectContaining({
-          assetId: undefined,
+          assetId: isNative ? 'solana' : 'usd-coin',
           networkId: 'sol--101',
           address,
           isNative,
@@ -797,7 +797,6 @@ describe('MarketTokenSelector stock default category', () => {
       expect(mockNavigateToMarketTokenDetail).toHaveBeenCalledWith(
         expect.objectContaining({ symbol, networkId, isNative, assetId }),
         expect.objectContaining({
-          resolveMarketAsset: false,
           marketTokenCategory: undefined,
           tokenDetailPreview: expect.objectContaining({ symbol, networkId }),
         }),
@@ -865,7 +864,6 @@ describe('MarketTokenSelector stock default category', () => {
       }),
       expect.objectContaining({
         marketTokenCategory: undefined,
-        resolveMarketAsset: true,
       }),
     );
   });
@@ -926,9 +924,7 @@ describe('MarketTokenSelector stock default category', () => {
         address: '0xdex',
         networkId: 'evm--1',
       }),
-      expect.objectContaining({
-        resolveMarketAsset: true,
-      }),
+      expect.anything(),
     );
     expect(mockToStock).not.toHaveBeenCalled();
   });

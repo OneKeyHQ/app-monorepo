@@ -126,10 +126,9 @@ export function getSelectorSearchAssetId(
     'assetId' | 'network' | 'address' | 'isNative'
   >,
 ): string | undefined {
-  // Native coins keep their canonical asset id so favorites match Top Coins
-  // (OK-64236); navigation still resolves the searched chain's variant.
+  // Native coin favorites use the backend asset id to match Top Coins (OK-64236).
   if (item.isNative) return item.assetId;
-  // A concrete chain token must not be replaced by the asset's default variant.
+  // Contract token favorites retain their chain and address identity.
   const hasChainIdentity = Boolean(
     item.network?.trim() && (item.address?.trim() || item.isNative),
   );
@@ -145,7 +144,7 @@ export function convertSearchTokenToMarketToken(
       item.assetId && !item.network && !item.address
         ? `market_asset_${item.assetId}`
         : `${item.network}_${item.address}`,
-    assetId: getSelectorSearchAssetId(item),
+    assetId: item.assetId,
     name: item.name,
     symbol: item.symbol,
     address: item.address,

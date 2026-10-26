@@ -154,8 +154,6 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'marketTokenId',
   'marketVariantId',
   'marketTokenCategory',
-  'marketTokenSymbol',
-  'resolveMarketAsset',
   'skipMarketDataFetch',
   'legacyTokenPreview',
   'marketTokenPreviewId',

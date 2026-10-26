@@ -902,8 +902,6 @@ describe('marketDetailNavigation', () => {
       marketTokenId: undefined,
       marketVariantId: undefined,
       marketTokenCategory: undefined,
-      marketTokenSymbol: undefined,
-      resolveMarketAsset: undefined,
       skipMarketDataFetch: undefined,
       legacyTokenPreview: undefined,
       marketTokenPreviewId: undefined,
