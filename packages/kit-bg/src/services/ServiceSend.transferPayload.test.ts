@@ -286,7 +286,6 @@ function privacySendFixture(networkId: string) {
       getVaultSettings: jest.fn(async () => ({ maxRetryBroadcastTxCount: 0 })),
     },
     serviceSignature: {
-      getZcashSignatureRecordContext: jest.fn(async () => ({ generation: 0 })),
       addItemFromSendProcess: jest.fn(async () => undefined),
     },
     serviceHistory: {
