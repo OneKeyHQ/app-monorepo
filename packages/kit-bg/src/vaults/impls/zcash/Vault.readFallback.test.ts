@@ -369,34 +369,6 @@ describe('Zcash transparent send the backend has not seen yet', () => {
       });
     return { read, settle, save };
   }
-  it('keeps the row saved at send time as pending', async () => {
-    const { read } = fixture();
-    const rows = await read();
-    expect(rows?.map((tx) => tx.id)).toEqual(['row-ab']);
-    expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).toBe(false);
-  });
-  it('does not treat a backend Pending row as node acceptance', async () => {
-    const { read, settle } = fixture({ observed: true });
-    const rows = await read();
-    expect(rows?.[0].decodedTx).toMatchObject({
-      status: 'Pending',
-      broadcastOutcomeUnknown: false,
-      createdAt: 1,
-      encodedTx: { expiry: 100 },
-    });
-    expect(settle).not.toHaveBeenCalled();
-  });
-  it('keeps a legacy pending send with missing journal and expiry traceable', async () => {
-    const { read } = fixture({ withJournal: false });
-    const rows = await read();
-    expect(rows?.map((tx) => tx.id)).toEqual(['row-ab']);
-    expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).toBe(false);
-  });
-  it('keeps known node acceptance while the backend still reports Pending', async () => {
-    const { read } = fixture({ observed: true, accepted: true });
-    const rows = await read();
-    expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).toBe(false);
-  });
   it.each([true, false])(
     'does not invent an unknown broadcast for an observed non-local transaction (incoming=%s)',
     async (incoming) => {
@@ -410,25 +382,6 @@ describe('Zcash transparent send the backend has not seen yet', () => {
       expect(rows?.[0].decodedTx.status).toBe('Pending');
       expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).not.toBe(true);
       expect(rows?.[0].decodedTx.createdAt).toBe(10);
-    },
-  );
-  it.each([true, false])(
-    'stores only sends from this device in local pending history (incoming=%s)',
-    async (incoming) => {
-      const { read, save } = fixture({
-        observed: true,
-        withJournal: !incoming,
-        locallyCreated: !incoming,
-        incoming,
-      });
-      await read();
-      expect(save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          pendingTxs: incoming
-            ? []
-            : [expect.objectContaining({ id: 'row-ab' })],
-        }),
-      );
     },
   );
 });

@@ -24,10 +24,7 @@ import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
-import type { ILocalWalletHistoryAddressGate } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
 
@@ -46,104 +43,6 @@ import type { IBuildEncodedTxParams } from '../../types';
 
 // Backend blocks past expiry before an unmined send is dropped; covers indexer lag and shallow reorgs.
 export const ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS = 10;
-
-// Only OneKey backend data decides: its tip must pass the signed expiry by the
-// margin and its complete snapshot must not show the tx mined. Only then is the
-// send marked Dropped and its signed inputs released.
-export async function zcashDropExpiredTransparentSends(
-  vault: Vault,
-  {
-    accountId,
-    historyParams,
-    cachedHistory,
-    backendTipHeight,
-    backendStatuses,
-    backendMinedTxids,
-    addressGate,
-  }: {
-    accountId: string;
-    historyParams: { networkId: string; accountAddress: string; xpub?: string };
-    cachedHistory: IAccountHistoryTx[];
-    backendTipHeight: number;
-    // Statuses from this pass's complete backend snapshot, by lowercase txid.
-    backendStatuses: Map<string, EDecodedTxStatus>;
-    // Rows the backend reports in a block, whatever their status says.
-    backendMinedTxids: Set<string>;
-    addressGate: ILocalWalletHistoryAddressGate;
-  },
-): Promise<void> {
-  const pending =
-    await vault.backgroundApi.simpleDb.privacyChainJournal.listTransparentPendingTxs(
-      {
-        accountId,
-      },
-    );
-  const expiryByTxid = new Map(
-    pending.map((tx) => [tx.txid.toLowerCase(), tx.expiryHeight]),
-  );
-  for (const tx of cachedHistory) {
-    const encoded = tx.decodedTx.encodedTx as IEncodedTxZcash | undefined;
-    const expiry =
-      encoded?.zcashTransparentBuild?.expiryHeight ?? encoded?.expiry;
-    if (
-      tx.decodedTx.status === EDecodedTxStatus.Pending &&
-      encoded?.zcashMode === 'transparent' &&
-      expiry !== undefined
-    ) {
-      expiryByTxid.set(tx.decodedTx.txid.toLowerCase(), expiry);
-    }
-  }
-  const expired = new Set(
-    [...expiryByTxid]
-      .filter(([txid, expiry]) => {
-        const status = backendStatuses.get(txid);
-        return (
-          backendTipHeight > expiry + ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS &&
-          !backendMinedTxids.has(txid) &&
-          (status === undefined || status === EDecodedTxStatus.Pending)
-        );
-      })
-      .map(([txid]) => txid),
-  );
-  if (!expired.size) return;
-  const rows = cachedHistory
-    .filter(
-      (tx) =>
-        tx.decodedTx.status === EDecodedTxStatus.Pending &&
-        expired.has(tx.decodedTx.txid.toLowerCase()),
-    )
-    .map((tx) =>
-      gateLocalWalletHistoryTx(addressGate, {
-        ...tx,
-        decodedTx: {
-          ...tx.decodedTx,
-          status: EDecodedTxStatus.Dropped,
-          broadcastOutcomeUnknown: false,
-        },
-      }),
-    );
-  if (rows.length) {
-    await vault.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs([
-      {
-        ...historyParams,
-        confirmedTxs: rows,
-        confirmedTxsToSave: rows,
-      },
-    ]);
-  }
-  // Persist the terminal row before releasing its journal, so storage
-  // failures are retryable.
-  await Promise.all(
-    [...expired].map((txid) =>
-      vault.backgroundApi.simpleDb.privacyChainJournal.settleTransparentPendingTx(
-        {
-          accountId,
-          txid,
-        },
-      ),
-    ),
-  );
-}
 
 export function zcashTransparentAccountIndex(
   vault: Vault,

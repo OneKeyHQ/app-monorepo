@@ -42,11 +42,10 @@ function localTx(): IAccountHistoryTx {
   } as unknown as IAccountHistoryTx;
 }
 
-// Indexer-backed chains hand a pending row over to the indexer as soon as it
-// sees the tx. A vault-authoritative source keeps the local row until the tx
-// resolves.
+// A pending row is handed over to the history source as soon as the source
+// lists the tx, even as pending.
 describe('ServiceHistory local pending reconciliation', () => {
-  function createService(authoritative = false) {
+  function createService() {
     const batchUpdateLocalHistoryTxs = jest.fn(async () => undefined);
     const service = Object.assign(
       Object.create(ServiceHistory.prototype) as InstanceType<
@@ -54,12 +53,7 @@ describe('ServiceHistory local pending reconciliation', () => {
       >,
       {
         backgroundApi: {
-          serviceNetwork: {
-            getVaultSettings: async () =>
-              authoritative
-                ? { localWallet: { historySource: 'vault-authoritative' } }
-                : {},
-          },
+          serviceNetwork: { getVaultSettings: async () => ({}) },
           simpleDb: { localHistory: { batchUpdateLocalHistoryTxs } },
         },
       },
@@ -67,64 +61,36 @@ describe('ServiceHistory local pending reconciliation', () => {
     return { service, batchUpdateLocalHistoryTxs };
   }
 
-  async function reconcile(
-    onChainStatus: EDecodedTxStatus,
-    authoritative = false,
-    pendingTx = localTx(),
-  ) {
-    const { service } = createService(authoritative);
-    return service.batchUpdateLocalHistoryTxs([
-      {
-        accountAddress: 'addr',
-        networkId: 'btc--0',
-        onChainHistoryTxs: [tx(onChainStatus)],
-        confirmedTxs: [],
-        pendingTxs: [pendingTx],
-        pendingTxsToModify: [],
-      },
-    ]);
-  }
-
-  it('hands the local row to the indexer once it reports the tx, even as pending', async () => {
-    const result = await reconcile(EDecodedTxStatus.Pending);
-    expect(result.allFinalPendingTxs).toHaveLength(0);
-  });
-
-  it('keeps the local row pending while an authoritative source still says pending', async () => {
-    const result = await reconcile(EDecodedTxStatus.Pending, true);
-    expect(result.allFinalPendingTxs).toHaveLength(1);
-  });
-
-  it('hands a pending row this device did not send to the authoritative snapshot', async () => {
-    const result = await reconcile(
+  it.each([
+    ['a local pending row', EDecodedTxStatus.Pending, localTx()],
+    [
+      'another pending row',
       EDecodedTxStatus.Pending,
-      true,
       tx(EDecodedTxStatus.Pending),
-    );
-    expect(result.allFinalPendingTxs).toHaveLength(0);
-  });
-
-  it.each([localTx(), tx(EDecodedTxStatus.Pending)])(
-    'leaves indexer-backed chains unchanged for any pending row',
-    async (pendingTx) => {
-      const result = await reconcile(
-        EDecodedTxStatus.Pending,
-        false,
-        pendingTx,
-      );
+    ],
+    ['a confirmed row', EDecodedTxStatus.Confirmed, localTx()],
+  ])(
+    'hands over %s once the source lists it',
+    async (_label, status, pendingTx) => {
+      const { service } = createService();
+      const result = await service.batchUpdateLocalHistoryTxs([
+        {
+          accountAddress: 'addr',
+          networkId: 'btc--0',
+          onChainHistoryTxs: [tx(status)],
+          confirmedTxs: [],
+          pendingTxs: [pendingTx],
+          pendingTxsToModify: [],
+        },
+      ]);
       expect(result.allFinalPendingTxs).toHaveLength(0);
     },
   );
 
-  it('settles the local row once the indexer confirms it', async () => {
-    const result = await reconcile(EDecodedTxStatus.Confirmed);
-    expect(result.allFinalPendingTxs).toHaveLength(0);
-  });
-
   it.each(['zec--0', 'btc--0'])(
     'matches differently cased hashes only for Zcash, network=%s',
     async (networkId) => {
-      const { service, batchUpdateLocalHistoryTxs } = createService(true);
+      const { service, batchUpdateLocalHistoryTxs } = createService();
       const pending = localTx();
       pending.id = 'local-lowercase';
       pending.decodedTx.networkId = networkId;
@@ -150,63 +116,6 @@ describe('ServiceHistory local pending reconciliation', () => {
         expect(batchUpdateLocalHistoryTxs).toHaveBeenCalledWith([
           expect.objectContaining({ confirmedTxs: [pending] }),
         ]);
-    },
-  );
-
-  it('uses and persists authoritative Pending refinements instead of the earlier cache read', async () => {
-    const { service, batchUpdateLocalHistoryTxs } = createService(true);
-    const refined = tx(EDecodedTxStatus.Pending);
-    refined.decodedTx.broadcastOutcomeUnknown = true;
-    refined.decodedTx.createdAt = 1;
-    const result = await service.batchUpdateLocalHistoryTxs([
-      {
-        accountAddress: 'addr',
-        networkId: 'btc--0',
-        onChainHistoryTxs: [refined],
-        confirmedTxs: [],
-        pendingTxs: [localTx()],
-        pendingTxsToModify: [],
-      },
-    ]);
-    expect(result.allFinalPendingTxs[0].decodedTx).toMatchObject({
-      broadcastOutcomeUnknown: true,
-      createdAt: 1,
-    });
-    expect(batchUpdateLocalHistoryTxs).toHaveBeenCalledWith([
-      expect.objectContaining({
-        pendingTxsToModify: [
-          expect.objectContaining({ decodedTx: refined.decodedTx }),
-        ],
-      }),
-    ]);
-  });
-
-  it.each([true, false])(
-    'only removes missing confirmed history from a full vault snapshot (all networks=%s)',
-    async (isAllNetworks) => {
-      const { service, batchUpdateLocalHistoryTxs } = createService(true);
-      const confirmed = tx(EDecodedTxStatus.Confirmed);
-      const result = await service.batchUpdateLocalHistoryTxs(
-        [
-          {
-            accountAddress: 'addr',
-            networkId: 'btc--0',
-            onChainHistoryTxs: [],
-            confirmedTxs: [confirmed],
-            pendingTxs: [],
-            pendingTxsToModify: [],
-          },
-        ],
-        { isAllNetworks },
-      );
-      expect(result.allConfirmedTxsToSave).toEqual(
-        isAllNetworks ? [confirmed] : [],
-      );
-      expect(batchUpdateLocalHistoryTxs).toHaveBeenCalledWith([
-        expect.objectContaining({
-          confirmedTxsToRemove: isAllNetworks ? [] : [confirmed],
-        }),
-      ]);
     },
   );
 });

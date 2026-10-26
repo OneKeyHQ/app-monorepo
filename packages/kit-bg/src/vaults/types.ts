@@ -253,8 +253,6 @@ export type IVaultSettings = {
     // 'account-opt-in': scanning is costly, so each account enables it.
     activation: 'always' | 'account-opt-in';
     balanceShape: 'single' | 'pooled';
-    // 'vault-authoritative': the vault's snapshot is canonical in ServiceHistory.
-    historySource: 'server' | 'vault-authoritative';
     // In this chain's blocks; block time differs per chain.
     tipLagWarningBlocks: number;
     // Display order is tab order. At most one backend pool.

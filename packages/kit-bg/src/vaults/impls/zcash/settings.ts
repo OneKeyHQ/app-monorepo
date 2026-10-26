@@ -67,7 +67,6 @@ const settings: IVaultSettings = {
       '^(t[13][1-9A-HJ-NP-Za-km-z]{33}|tex1[02-9ac-hj-np-z]{38})$',
     privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
     hiddenEndpointLabelId: ETranslations.privacy_history_shielded__title,
-    historySource: 'vault-authoritative',
     tipLagWarningBlocks: 48,
     // Orchard stays listed: imported seeds may still hold value there (it
     // stopped receiving at NU6.3). Sapling is view-only (no prover), omitted.

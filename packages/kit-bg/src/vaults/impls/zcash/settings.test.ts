@@ -66,7 +66,6 @@ describe('zcash vault settings invariants', () => {
       expect.objectContaining({
         activation: 'account-opt-in',
         balanceShape: 'pooled',
-        historySource: 'vault-authoritative',
         tipLagWarningBlocks: 48,
         accountSetup: {
           requiresBirthday: true,
@@ -103,6 +102,5 @@ describe('zcash vault settings invariants', () => {
       PRIVACY_CHAIN_PUBLIC_POOL_ID,
     ]);
     expect(localWallet?.withholdAddressFromBackend).toBeFalsy();
-    expect(localWallet?.historySource).toBe('vault-authoritative');
   });
 });

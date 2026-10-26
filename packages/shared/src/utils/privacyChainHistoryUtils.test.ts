@@ -1,8 +1,4 @@
-import { EDecodedTxStatus } from '../../types/tx';
-
 import {
-  appendMissingPrivacyChainHistoryTxs,
-  isPrivacyChainHistoryComplete,
   isPrivacyChainHistoryVisible,
   mergePrivacyChainHistoryTxs,
   projectPrivacyChainHistoryTxToPool,
@@ -523,106 +519,6 @@ describe('projectPrivacyChainHistoryTxToPool on an indexer-backed mixed row', ()
     expect(transfer?.receives).toEqual([
       expect.objectContaining({ from: '', to: 't1own', amount: '0.028112' }),
     ]);
-  });
-});
-
-describe('appendMissingPrivacyChainHistoryTxs', () => {
-  it('does not restore a stale pending row with another hash casing', () => {
-    const hash = 'ab'.repeat(32);
-    const current = {
-      ...tx(hash.toUpperCase(), 'public'),
-      decodedTx: {
-        txid: hash.toUpperCase(),
-        status: EDecodedTxStatus.Confirmed,
-      },
-    };
-    const cached = {
-      ...tx(hash, 'public'),
-      decodedTx: { txid: hash, status: EDecodedTxStatus.Pending },
-    };
-    expect(
-      appendMissingPrivacyChainHistoryTxs({
-        currentTxs: [current],
-        cachedTxs: [cached],
-      }),
-    ).toEqual([current]);
-  });
-  it('does not restore stale pool metadata for a current txid', () => {
-    const current = {
-      source: 'current',
-      decodedTx: { txid: 'a' },
-      privacyChainHistoryPoolIds: [4],
-      privacyChainHistorySide: 'private' as const,
-    };
-    const cached = {
-      source: 'cached',
-      decodedTx: { txid: 'a' },
-      privacyChainHistoryPoolIds: [3],
-      privacyChainHistorySide: 'private' as const,
-    };
-
-    expect(
-      appendMissingPrivacyChainHistoryTxs({
-        currentTxs: [current],
-        cachedTxs: [cached],
-      }),
-    ).toEqual([current]);
-  });
-
-  it('does not restore a cached terminal status after a current reorg', () => {
-    const current = {
-      source: 'current',
-      decodedTx: { txid: 'a', status: EDecodedTxStatus.Pending },
-    };
-    const cached = {
-      source: 'cached',
-      decodedTx: { txid: 'a', status: EDecodedTxStatus.Confirmed },
-    };
-
-    expect(
-      appendMissingPrivacyChainHistoryTxs({
-        currentTxs: [current],
-        cachedTxs: [cached],
-      }),
-    ).toEqual([current]);
-  });
-
-  it('keeps cache-only rows while the current snapshot is incomplete', () => {
-    expect(
-      appendMissingPrivacyChainHistoryTxs({
-        currentTxs: [tx('a', 'private')],
-        cachedTxs: [tx('b', 'public')],
-      }).map((item) => item.decodedTx.txid),
-    ).toEqual(['a', 'b']);
-  });
-});
-
-describe('isPrivacyChainHistoryComplete', () => {
-  it('is complete only when both halves answered', () => {
-    expect(
-      isPrivacyChainHistoryComplete({
-        privateSideComplete: true,
-        publicSideFailed: false,
-      }),
-    ).toBe(true);
-  });
-
-  it('is incomplete while the local scan is still backfilling', () => {
-    expect(
-      isPrivacyChainHistoryComplete({
-        privateSideComplete: false,
-        publicSideFailed: false,
-      }),
-    ).toBe(false);
-  });
-
-  it('is incomplete when the indexer failed, so nothing gets deleted', () => {
-    expect(
-      isPrivacyChainHistoryComplete({
-        privateSideComplete: true,
-        publicSideFailed: true,
-      }),
-    ).toBe(false);
   });
 });
 
