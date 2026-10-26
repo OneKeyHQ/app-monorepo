@@ -69,7 +69,6 @@ import {
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
-import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
 import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddressGate';
 import { localWalletText } from '../../localWallet/messages';
 import {
@@ -997,14 +996,8 @@ export default class Vault extends VaultBase {
     const items = neverEnabled
       ? undefined
       : await this.xmrListHistoryItems({ accountId });
-    if (!items) {
-      return loadCachedLocalWalletHistory({
-        backgroundApi: this.backgroundApi,
-        networkId: params.networkId,
-        accountAddress: params.accountAddress,
-        xpub: params.xpub,
-      });
-    }
+    // Monero rows are never cached, so there is nothing to fall back to.
+    if (!items) return [];
 
     const [account, nativeToken, sentRecords, progress] = await Promise.all([
       this.getAccount(),
@@ -1052,10 +1045,7 @@ export default class Vault extends VaultBase {
     }
   }
 
-  /**
-   * `undefined` vs `[]` matters: `[]` is an authoritative "no transactions"
-   * (clears stale cache); `undefined` falls back to cache instead of wiping it.
-   */
+  // `undefined` when the runtime cannot answer.
   private async xmrListHistoryItems({
     accountId,
   }: {

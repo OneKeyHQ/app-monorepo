@@ -19,24 +19,14 @@ import Vault from './Vault';
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
 const ADDRESS = '4-synthetic-primary-address';
 
-// undefined would send the address to the server history API, so an
-// unanswerable runtime falls back to the cached rows.
+// undefined would send the address to the server history API.
 describe('xmr history when the runtime cannot answer', () => {
-  it('returns the cached rows instead of undefined', async () => {
-    const confirmed = [{ id: 'confirmed' }] as unknown as IAccountHistoryTx[];
-    const pending = [{ id: 'pending' }] as unknown as IAccountHistoryTx[];
+  it('returns an empty list instead of undefined', async () => {
     const vault: Vault = Object.assign(Object.create(Vault.prototype), {
       accountId: ACCOUNT_ID,
       networkId: 'xmr--0',
+      xmrIsHistoryNeverEnabled: async () => false,
       xmrListHistoryItems: async () => undefined,
-      backgroundApi: {
-        simpleDb: {
-          localHistory: {
-            getAccountLocalHistoryConfirmedTxs: jest.fn(async () => confirmed),
-            getAccountLocalHistoryPendingTxs: jest.fn(async () => pending),
-          },
-        },
-      },
     });
 
     await expect(
@@ -45,11 +35,11 @@ describe('xmr history when the runtime cannot answer', () => {
         networkId: 'xmr--0',
         accountAddress: ADDRESS,
       }),
-    ).resolves.toEqual([...confirmed, ...pending]);
+    ).resolves.toEqual([]);
   });
 });
 
-// Pausing hides the primary address on Receive, so cached rows lose it too.
+// Pausing hides the primary address on Receive, so history rows lose it too.
 describe('xmr history shows our primary address only while Receive does', () => {
   it.each([
     ['scanning', ADDRESS, ADDRESS],
@@ -83,19 +73,13 @@ describe('xmr history shows our primary address only while Receive does', () => 
     const vault: Vault = Object.assign(Object.create(Vault.prototype), {
       accountId: ACCOUNT_ID,
       networkId: 'xmr--0',
-      xmrListHistoryItems: async () => undefined,
+      xmrBuildHistoryTxs: async () => [selfSend],
       backgroundApi: {
         servicePrivacyChain: {
           getLocalWalletAccountAddresses: async () => ({
             publicAddress: ADDRESS,
             privateAddress,
           }),
-        },
-        simpleDb: {
-          localHistory: {
-            getAccountLocalHistoryConfirmedTxs: jest.fn(async () => [selfSend]),
-            getAccountLocalHistoryPendingTxs: jest.fn(async () => []),
-          },
         },
       },
     });
@@ -153,7 +137,6 @@ describe('xmr history for an account that never enabled scanning', () => {
   });
 
   function createVault(getAccountState: () => Promise<unknown>) {
-    const cached = [{ id: 'cached' }] as unknown as IAccountHistoryTx[];
     const vault: Vault = Object.assign(Object.create(Vault.prototype), {
       accountId: ACCOUNT_ID,
       networkId: 'xmr--0',
@@ -163,14 +146,10 @@ describe('xmr history for an account that never enabled scanning', () => {
             getAccountEpoch: async () => undefined,
             getXmrAccountState: jest.fn(getAccountState),
           },
-          localHistory: {
-            getAccountLocalHistoryConfirmedTxs: jest.fn(async () => cached),
-            getAccountLocalHistoryPendingTxs: jest.fn(async () => []),
-          },
         },
       },
     });
-    return { vault, cached };
+    return { vault };
   }
 
   const read = (vault: Vault) =>
@@ -180,9 +159,9 @@ describe('xmr history for an account that never enabled scanning', () => {
       accountAddress: ADDRESS,
     });
 
-  it('answers from the cached rows without loading the runtime', async () => {
-    const { vault, cached } = createVault(async () => ({ intent: 'off' }));
-    await expect(read(vault)).resolves.toEqual(cached);
+  it('answers empty without loading the runtime', async () => {
+    const { vault } = createVault(async () => ({ intent: 'off' }));
+    await expect(read(vault)).resolves.toEqual([]);
     expect(localRuntime).not.toHaveBeenCalled();
   });
 
@@ -196,8 +175,8 @@ describe('xmr history for an account that never enabled scanning', () => {
       },
     ],
   ])('still reads the runtime when %s', async (_label, getAccountState) => {
-    const { vault, cached } = createVault(getAccountState);
-    await expect(read(vault)).resolves.toEqual(cached);
+    const { vault } = createVault(getAccountState);
+    await expect(read(vault)).resolves.toEqual([]);
     expect(localRuntime).toHaveBeenCalledTimes(1);
   });
 });
