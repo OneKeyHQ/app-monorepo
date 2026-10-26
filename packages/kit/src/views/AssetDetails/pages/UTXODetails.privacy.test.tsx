@@ -41,19 +41,27 @@ function mockGatedDetails() {
   return gateLocalWalletHistoryDetail(gate, mockDetails as IOnChainHistoryTx);
 }
 
-jest.mock('react-intl', () => ({
-  useIntl: () => ({
-    formatMessage: (
-      { id, defaultMessage }: { id: string; defaultMessage?: string },
-      values?: Record<string, string>,
-    ) =>
-      defaultMessage
-        ? defaultMessage.replace(/\{(\w+)\}/g, (_, key: string) =>
-            String(values?.[key]),
-          )
-        : id,
-  }),
-}));
+// Messages with values render from the English catalog; others stay ids.
+jest.mock('react-intl', () => {
+  const en = jest.requireActual<Record<string, string>>(
+    '@onekeyhq/shared/src/locale/json/en_US.json',
+  );
+  return {
+    useIntl: () => ({
+      formatMessage: (
+        { id, defaultMessage }: { id: string; defaultMessage?: string },
+        values?: Record<string, string>,
+      ) => {
+        const message = defaultMessage ?? (values ? en[id] : undefined);
+        return message
+          ? message.replace(/\{(\w+)\}/g, (_, key: string) =>
+              String(values?.[key]),
+            )
+          : id;
+      },
+    }),
+  };
+});
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({
     params: { networkId: mockNetworkId, accountId: 'acc', txId: 'tx' },
