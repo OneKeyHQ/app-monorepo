@@ -132,12 +132,18 @@ export class LedgerAdapter
           // Dedicated install atom (separate from the single-slot ui-state):
           // the imperatively-shown install dialog reads progress here and
           // coexists with any device-prompt toast.
-          void thirdPartyAppInstallAtom.set({
+          void thirdPartyAppInstallAtom.set((previous) => ({
             vendor: EHardwareVendor.ledger,
-            ...(event.operationId ? { operationId: event.operationId } : {}),
+            // The SDK's initial progress event may omit the confirmation's operation ID.
+            operationId:
+              event.operationId ??
+              (previous?.vendor === EHardwareVendor.ledger &&
+              previous.appName === appName
+                ? previous.operationId
+                : undefined),
             appName,
             progress,
-          });
+          }));
           break;
         }
         default: {

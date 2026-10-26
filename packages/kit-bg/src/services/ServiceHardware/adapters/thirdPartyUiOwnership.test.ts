@@ -2,9 +2,12 @@ import { EConnectorInteraction, UI_REQUEST } from '@onekeyfe/hwk-adapter-core';
 
 import {
   EThirdPartyHardwareUiAction,
+  type IThirdPartyAppInstallState,
   type IThirdPartyHardwareUiState,
+  thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { KeystoneAdapter } from './KeystoneAdapter';
 import { LedgerAdapter } from './LedgerAdapter';
@@ -49,17 +52,105 @@ function createAdapter(
 
 describe('third-party UI ownership', () => {
   let state: IThirdPartyHardwareUiState | undefined;
+  let installState: IThirdPartyAppInstallState | undefined;
 
   beforeEach(() => {
     state = undefined;
+    installState = undefined;
     jest
       .spyOn(thirdPartyHardwareUiStateAtom, 'set')
       .mockImplementation(async (value) => {
         state = typeof value === 'function' ? value(state) : value;
       });
+    jest
+      .spyOn(thirdPartyAppInstallAtom, 'set')
+      .mockImplementation(async (value) => {
+        installState =
+          typeof value === 'function' ? value(installState) : value;
+      });
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+  it('clears a Ledger install that fails after the unattributed initial progress event', async () => {
+    const { adapter, listeners } = createAdapter(LedgerAdapter);
+    (adapter as unknown as { activeOperationId: string }).activeOperationId =
+      'operation-current';
+    listeners.get(UI_REQUEST.REQUEST_INSTALL_APP)?.({
+      payload: { appName: 'Bitcoin', operationId: 'operation-current' },
+    });
+    listeners.get('ui-event')?.({
+      type: EConnectorInteraction.AppInstallProgress,
+      payload: {
+        connectId: 'synthetic-connection',
+        appName: 'Bitcoin',
+        progress: 0,
+      },
+    });
+    expect(installState?.progress).toBe(0);
+
+    listeners.get('operation-ended')?.({
+      payload: { operationId: 'operation-current', reason: 'disconnect' },
+    });
+    await Promise.resolve();
+    expect(installState).toBeUndefined();
+  });
+
+  it.each([
+    {
+      vendor: EHardwareVendor.ledger,
+      appName: 'Ethereum',
+      operationId: undefined,
+    },
+    {
+      vendor: EHardwareVendor.trezor,
+      appName: 'Bitcoin',
+      operationId: undefined,
+    },
+    {
+      vendor: EHardwareVendor.ledger,
+      appName: 'Bitcoin',
+      operationId: 'operation-new',
+    },
+  ])('does not borrow another installation owner: %p', (previous) => {
+    installState = { ...previous, operationId: 'operation-old' };
+    const { listeners } = createAdapter(LedgerAdapter);
+    listeners.get('ui-event')?.({
+      type: EConnectorInteraction.AppInstallProgress,
+      ...(previous.operationId ? { operationId: previous.operationId } : {}),
+      payload: {
+        connectId: 'synthetic-connection',
+        appName: 'Bitcoin',
+        progress: 0,
+      },
+    });
+    expect(installState?.operationId).toBe(previous.operationId);
+  });
+
+  it('preserves a newer Ledger installation when an older operation ends', async () => {
+    const { adapter, listeners } = createAdapter(LedgerAdapter);
+    (adapter as unknown as { activeOperationId: string }).activeOperationId =
+      'operation-old';
+    listeners.get(UI_REQUEST.REQUEST_INSTALL_APP)?.({
+      payload: { appName: 'Bitcoin', operationId: 'operation-new' },
+    });
+    listeners.get('ui-event')?.({
+      type: EConnectorInteraction.AppInstallProgress,
+      payload: {
+        connectId: 'synthetic-connection',
+        appName: 'Bitcoin',
+        progress: 0,
+      },
+    });
+    listeners.get('operation-ended')?.({
+      payload: { operationId: 'operation-old', reason: 'timeout' },
+    });
+    await Promise.resolve();
+    expect(installState).toMatchObject({
+      operationId: 'operation-new',
+      progress: 0,
+    });
+  });
 
   it('keeps the current Trezor request owned after ignoring another operation close', async () => {
     let finish: (value: unknown) => void = () => undefined;
