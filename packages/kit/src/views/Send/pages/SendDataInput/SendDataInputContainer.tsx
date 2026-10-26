@@ -26,7 +26,9 @@ import {
   TextArea,
   Toast,
   XStack,
+  YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
   type IFormMode,
@@ -98,6 +100,7 @@ import {
   BinanceDepositRecipientCard,
 } from './BinanceDeposit/BinanceDepositRecipient';
 import { useBinanceDepositRecipient } from './BinanceDeposit/useBinanceDepositRecipient';
+import { isLookalikeAddress } from './recipientListAddressUtils';
 import RecipientQuickSelect from './RecipientQuickSelect';
 import {
   getSendAddressRiskCheckButtonState,
@@ -147,6 +150,7 @@ const addressRiskCheckInteractionProps = {
 function SendDataInputContainer() {
   const intl = useIntl();
   const media = useMedia();
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
   const navigation =
@@ -233,6 +237,12 @@ function SendDataInputContainer() {
   const [quickSelectActiveTab, setQuickSelectActiveTab] =
     useState<IRecipientQuickSelectTab>('recent');
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
+  const [quickSelectLookalikes, setQuickSelectLookalikes] =
+    useState<ReadonlySet<string>>();
+  const isQuickSelectLookalike = useCallback(
+    (candidate: string) => isLookalikeAddress(quickSelectLookalikes, candidate),
+    [quickSelectLookalikes],
+  );
   const [scannedAmount, setScannedAmount] = useState('');
   // Skip-amount paths (ERC-721, fixed Lightning invoice) build the unsigned
   // tx inside this handler, which can take seconds on mobile — the Next
@@ -561,7 +571,7 @@ function SendDataInputContainer() {
     addressRiskCheckLabelAddon = (
       <Skeleton width={88} height={20} radius="round" />
     );
-  } else if (addressRiskCheckButtonState !== 'hidden') {
+  } else if (addressRiskCheckButtonState === 'enabled') {
     addressRiskCheckLabelAddon = (
       <Button
         testID={SendTestIDs.addressRiskCheckButton}
@@ -569,10 +579,7 @@ function SendDataInputContainer() {
         variant="tertiary"
         childrenAsText={false}
         cursor="default"
-        {...(addressRiskCheckButtonState === 'enabled'
-          ? addressRiskCheckInteractionProps
-          : {})}
-        disabled={addressRiskCheckButtonState !== 'enabled'}
+        {...addressRiskCheckInteractionProps}
         loading={isAddressRiskAccessPending}
         onPress={() => {
           void handleAddressRiskCheck();
@@ -1523,12 +1530,23 @@ function SendDataInputContainer() {
     ],
   );
 
+  const hasFooter =
+    (binanceDeposit.isActive
+      ? !!binanceDestination
+      : toResolved && !toPending) || isSubmitting;
+
   return (
     <Page
       scrollEnabled
-      safeAreaEnabled
+      // The page's safe-area spacer is an opaque block that cuts the list off
+      // while scrolling. The list scrolls under the home indicator instead,
+      // and only ends above it when no footer takes that space.
+      safeAreaEnabled={false}
       scrollProps={{
         keyboardShouldPersistTaps: 'handled',
+        contentContainerStyle: hasFooter
+          ? undefined
+          : { paddingBottom: safeAreaBottom },
       }}
     >
       <Page.Header
@@ -1623,44 +1641,57 @@ function SendDataInputContainer() {
               />
             ) : (
               <>
-                <AddressInputField
-                  name="to"
-                  labelAddon={addressRiskCheckLabelAddon}
-                  testID={SendTestIDs.recipientInput}
-                  numberOfLines={
-                    networkUtils.isLightningNetworkByNetworkId(
-                      currentAccount.networkId,
-                    )
-                      ? 5
-                      : 2
-                  }
-                  actionsLayout="recipient"
-                  placeholder={
-                    // Lightning has its own placeholder ("Enter invoice, Lightning Address or LNURL")
-                    networkUtils.isLightningNetworkByNetworkId(
-                      currentAccount.networkId,
-                    )
-                      ? undefined
-                      : intl.formatMessage({
-                          id: ETranslations.search_or_paste_address__desc,
-                        })
-                  }
-                  onScanResult={onScanResult}
-                  accountId={currentAccount.accountId}
-                  networkId={currentAccount.networkId}
-                  enableAddressBook
-                  enableWalletName
-                  enableVerifySendFundToSelf
-                  enableAddressInteractionStatus
-                  enableAddressContract
-                  enableAllowListValidation={enableAllowListValidation}
-                  onInputTypeChange={handleAddressInputChangeType}
-                  hideNonBackedUpWallet
-                  ignoreSimilarAddressInAddressBook
-                  enableCheckSimilarAddressInAddressBook
-                  hasQuickSelectMatches={hasQuickSelectMatches}
-                  tokenAddress={badgeQueryTokenAddress}
-                />
+                {/* Grouped with the input it fills in: the form's field gap
+                    doesn't apply between them. */}
+                <YStack>
+                  <AddressInputField
+                    name="to"
+                    labelAddon={addressRiskCheckLabelAddon}
+                    testID={SendTestIDs.recipientInput}
+                    // Same size rule as the Tag field below.
+                    size={media.gtMd ? 'medium' : 'large'}
+                    numberOfLines={
+                      networkUtils.isLightningNetworkByNetworkId(
+                        currentAccount.networkId,
+                      )
+                        ? 5
+                        : 2
+                    }
+                    actionsLayout="recipient"
+                    placeholder={
+                      // Lightning has its own placeholder ("Enter invoice, Lightning Address or LNURL")
+                      networkUtils.isLightningNetworkByNetworkId(
+                        currentAccount.networkId,
+                      )
+                        ? undefined
+                        : intl.formatMessage({
+                            id: ETranslations.search_or_paste_address__desc,
+                          })
+                    }
+                    onScanResult={onScanResult}
+                    accountId={currentAccount.accountId}
+                    networkId={currentAccount.networkId}
+                    enableAddressBook
+                    enableWalletName
+                    enableVerifySendFundToSelf
+                    enableAddressInteractionStatus
+                    enableAddressContract
+                    enableAllowListValidation={enableAllowListValidation}
+                    onInputTypeChange={handleAddressInputChangeType}
+                    hideNonBackedUpWallet
+                    ignoreSimilarAddressInAddressBook
+                    enableCheckSimilarAddressInAddressBook
+                    hasQuickSelectMatches={hasQuickSelectMatches}
+                    tokenAddress={badgeQueryTokenAddress}
+                    isLookalikeAddress={isQuickSelectLookalike}
+                  />
+                  {binanceDeposit.isEntryAvailable ? (
+                    <BinanceDepositEntry
+                      hidden={!!toAddressRaw?.trim()}
+                      onPress={() => void binanceDeposit.start()}
+                    />
+                  ) : null}
+                </YStack>
                 {toSimilarAddress ? (
                   <Alert
                     type="warning"
@@ -1670,12 +1701,6 @@ function SendDataInputContainer() {
                   />
                 ) : null}
                 {renderDataInput()}
-                {binanceDeposit.isEntryAvailable ? (
-                  <BinanceDepositEntry
-                    hidden={!!toAddressRaw?.trim()}
-                    onPress={() => void binanceDeposit.start()}
-                  />
-                ) : null}
                 <RecipientQuickSelect
                   accountId={currentAccount.accountId}
                   networkId={currentAccount.networkId}
@@ -1689,15 +1714,16 @@ function SendDataInputContainer() {
                   onSelect={handleQuickSelectRecipient}
                   hideTabs={recipientHiddenTabs}
                   keylessWalletsOnly={keylessWalletsOnly}
+                  // The whole page is one network.
+                  showAccountNetworkBadge={false}
+                  onLookalikeAddressesChange={setQuickSelectLookalikes}
                 />
               </>
             )}
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
-      {(binanceDeposit.isActive
-        ? !!binanceDestination
-        : toResolved && !toPending) || isSubmitting ? (
+      {hasFooter ? (
         <Page.Footer>
           <Page.FooterActions
             onConfirm={

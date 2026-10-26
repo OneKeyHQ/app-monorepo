@@ -23970,6 +23970,7 @@
     "packages/kit/src/views/Send/pages/SendDataInput/RecentRecipients.tsx": 17793,
     "packages/kit/src/views/Send/pages/SendDataInput/RecipientQuickSelect.tsx": 7733,
     "packages/kit/src/views/Send/pages/SendDataInput/SendDataInputContainer.tsx": 22752,
+    "packages/kit/src/views/Send/pages/SendDataInput/recipientListAddressUtils.ts": 9670,
     "packages/kit/src/views/Send/pages/SendDataInput/recipientQuickSelectTabUtils.ts": 1888,
     "packages/kit/src/views/Send/pages/SendDataInput/recipientSelectionUtils.ts": 4907,
     "packages/kit/src/views/Send/pages/SendDataInput/searchMatchUtils.ts": 21642,

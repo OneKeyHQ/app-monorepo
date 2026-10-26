@@ -64,9 +64,9 @@ export function getSendAddressRiskCheckButtonState({
   resolvedAddress?: string;
   isPending?: boolean;
 }) {
+  // Nothing to check yet: no button, and no placeholder that would vanish.
+  if (canRunCheck && (!resolvedAddress?.trim() || isPending)) return 'hidden';
   if (supportNetworkId !== currentNetworkId) return 'loading';
   if (!isSupported) return 'hidden';
-  if (!canRunCheck) return 'enabled';
-  if (!resolvedAddress?.trim() || isPending) return 'disabled';
   return 'enabled';
 }

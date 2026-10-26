@@ -111,16 +111,21 @@ describe('recipientSelectionUtils', () => {
       'enabled',
     ],
     [
-      'treats a free user the press checks for like Prime and disables without an address',
+      'treats a free user the press checks for like Prime and hides without an address',
       { canRunCheck: true, resolvedAddress: undefined },
-      'disabled',
+      'hidden',
     ],
     [
-      'disables a Prime check without a resolved address',
+      'hides a Prime check without a resolved address',
       { resolvedAddress: undefined },
-      'disabled',
+      'hidden',
     ],
-    ['disables a pending Prime check', { isPending: true }, 'disabled'],
+    [
+      'hides a Prime check without an address before support loads',
+      { currentNetworkId: 'evm--137', resolvedAddress: undefined },
+      'hidden',
+    ],
+    ['hides a pending Prime check', { isPending: true }, 'hidden'],
     ['enables a resolved Prime check', {}, 'enabled'],
   ])('%s', (_name, overrides, expected) => {
     expect(

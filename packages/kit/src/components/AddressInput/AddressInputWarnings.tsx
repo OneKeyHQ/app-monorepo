@@ -20,9 +20,11 @@ import type { IAddressQueryResult } from '.';
 export function AddressInputWarnings({
   queryResult,
   networkId,
+  isLookalikeAddress,
 }: {
   queryResult: IAddressQueryResult;
   networkId: string;
+  isLookalikeAddress?: (address: string) => boolean;
 }) {
   const intl = useIntl();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
@@ -42,6 +44,15 @@ export function AddressInputWarnings({
     // Don't show if already in address book or wallet
     if (queryResult?.addressBookId || queryResult?.walletAccountId)
       return false;
+    // Saved contacts skip the similarity checks, so an address that looks
+    // like another one is never one tap away from the address book.
+    if (
+      queryResult?.similarAddress ||
+      isLookalikeAddress?.(
+        queryResult?.validAddress ?? queryResult?.input ?? '',
+      )
+    )
+      return false;
     // Show for transferred addresses (add to address book guidance)
     if (
       queryResult?.addressInteractionStatus ===
@@ -60,8 +71,12 @@ export function AddressInputWarnings({
   }, [
     queryResult?.addressBookId,
     queryResult?.walletAccountId,
+    queryResult?.similarAddress,
+    queryResult?.validAddress,
+    queryResult?.input,
     queryResult?.addressInteractionStatus,
     isEnableTransferAllowList,
+    isLookalikeAddress,
   ]);
 
   const onAddToAddressBook = useCallback(() => {

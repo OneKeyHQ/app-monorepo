@@ -32,7 +32,7 @@ function AccountAvatarWithWallet({
 
   return (
     <AccountAvatar
-      size="default"
+      size="medium"
       address={address}
       wallet={resolvedWallet}
       enableEnterAnimation
@@ -126,7 +126,7 @@ function QuickSelectListSkeleton({ count = 3 }: { count?: number }) {
           px="$5"
           py="$3"
           renderAvatar={() => (
-            <Skeleton width="$10" height="$10" borderRadius="$2" bg="$bgApp" />
+            <Skeleton width="$8" height="$8" borderRadius="$2" bg="$bgApp" />
           )}
         >
           <ListItem.Text

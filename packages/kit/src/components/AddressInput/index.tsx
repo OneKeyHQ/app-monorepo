@@ -174,6 +174,9 @@ type IAddressInputProps = Omit<
   onScanResult?: IScanPluginProps['onScanResult'];
   hasQuickSelectMatches?: boolean;
   tokenAddress?: string;
+  // Whether the address looks like another one the page lists; such an
+  // address is not offered for the address book.
+  isLookalikeAddress?: (address: string) => boolean;
 };
 
 export type IAddressQueryResult = {
@@ -186,6 +189,8 @@ export type IAddressQueryResult = {
   walletId?: string;
   addressBookId?: string;
   addressBookName?: string;
+  // The saved name alone; addressBookName puts the address book label first.
+  addressBookItemName?: string;
   resolveAddress?: string;
   validAddress?: string;
   resolveOptions?: string[];
@@ -347,6 +352,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableCheckSimilarAddressInAddressBook,
     hasQuickSelectMatches: _hasQuickSelectMatches,
     tokenAddress,
+    isLookalikeAddress,
     ...rest
   } = props;
   const intl = useIntl();
@@ -768,7 +774,11 @@ export function AddressInput(props: IAddressInputProps) {
         numberOfLines={screenWidth <= 768 ? 3 : 2}
         {...(screenWidth <= 768 && { minHeight: 64 })}
       />
-      <AddressInputWarnings queryResult={queryResult} networkId={networkId} />
+      <AddressInputWarnings
+        queryResult={queryResult}
+        networkId={networkId}
+        isLookalikeAddress={isLookalikeAddress}
+      />
     </>
   );
 }

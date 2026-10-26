@@ -31,17 +31,19 @@ const BINANCE_LOGO: ImageSourcePropType = require('@onekeyhq/shared/src/assets/w
 const CARD_ENTERING = FadeIn.duration(MOTION_ENTER_MS).easing(MOTION_EASE_OUT);
 
 // The entry and every state of the recipient card, failures included,
-// share one background and corner radius.
+// share one background and corner radius; the radius matches the large
+// address input these replace (the entry only shows on phones).
 const CARD_FRAME = {
   p: '$4',
   gap: '$3',
   bg: '$neutral3',
-  borderRadius: '$5',
+  borderRadius: '$3',
   borderCurve: 'continuous',
 } as const;
 
-// Fades in when offered and pushes the list below down instead of jumping;
-// collapses the same way while an address is being typed.
+// Fades in when offered and pushes everything below down instead of
+// jumping; collapses the same way while an address is being typed. Its gap
+// to the input sits inside the transition, so it collapses too.
 export function BinanceDepositEntry({
   hidden,
   onPress,
@@ -55,6 +57,7 @@ export function BinanceDepositEntry({
         testID="send-binance-deposit-entry"
         mx="$0"
         mt="$3"
+        py="$3"
         gap="$3"
         drillIn
         onPress={onPress}
@@ -65,7 +68,7 @@ export function BinanceDepositEntry({
         pressStyle={{ bg: '$neutral5' }}
         userSelect="none"
       >
-        <Image w="$10" h="$10" borderRadius="$full" source={BINANCE_LOGO} />
+        <Image w="$8" h="$8" borderRadius="$full" source={BINANCE_LOGO} />
         <ListItem.Text flex={1} primary={BINANCE_DEPOSIT_COPY.accountName} />
       </ListItem>
     </HeightTransition>
