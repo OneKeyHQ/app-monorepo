@@ -7,7 +7,7 @@ import {
   uploadLogBundle,
 } from '.';
 
-import pRetry from 'p-retry';
+import pRetry, { AbortError } from 'p-retry';
 import { useIntl } from 'react-intl';
 
 import {
@@ -29,6 +29,7 @@ import { inAppStateLockDialogProps } from '@onekeyhq/kit/src/views/Setting/hooks
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   BROWSER_LOG_MAX_BYTES,
   ELogUploadStage,
@@ -41,8 +42,15 @@ import type {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { downloadLogDigest } from './downloadLogDigest';
+import {
+  LOG_UPLOAD_MAX_RETRIES,
+  isRetryableLogUploadError,
+  isUploadTokenReusable,
+  normalizeTokenExpiresAtMs,
+} from './logUploadUtils';
 
-const MAX_RETRIES = 3;
+import type { ILogUploadTokenCache } from './logUploadUtils';
+
 const usesBrowserLogExport = platformEnv.isExtension || platformEnv.isWeb;
 
 // Internal UI states (combining backend stages for better UX)
@@ -180,43 +188,75 @@ function UploadLogsDialogContent({
 
       const fileBaseName = generateFileBaseName();
       fileBaseNameRef.current = fileBaseName;
-      let browserDigest: ILogDigest | undefined;
+      // One archive per upload on every platform: a fresh archive changes
+      // sha256, which would force a new token on each retry and trip the
+      // token endpoint's rate limit.
+      let digest: ILogDigest | undefined;
+      let tokenCache: ILogUploadTokenCache | undefined;
+      let attempt = 0;
+      let tokenReused = false;
+
+      const getUploadToken = async (currentDigest: ILogDigest) => {
+        if (isUploadTokenReusable(tokenCache, currentDigest, Date.now())) {
+          tokenReused = true;
+          return tokenCache.uploadToken;
+        }
+        tokenReused = false;
+        const issuedAtMs = Date.now();
+        const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
+          {
+            sizeBytes: currentDigest.sizeBytes,
+            sha256: currentDigest.sha256,
+          },
+        );
+        tokenCache = {
+          uploadToken: token.uploadToken,
+          expiresAtMs: normalizeTokenExpiresAtMs(token.expiresAt, issuedAtMs),
+          sha256: currentDigest.sha256,
+          sizeBytes: currentDigest.sizeBytes,
+        };
+        return token.uploadToken;
+      };
 
       const attemptUpload = async () => {
-        if (usesBrowserLogExport && !browserDigest) {
-          browserDigest = await collectLogDigest(fileBaseName, exportScope);
-        }
-        const digest = browserDigest ?? (await collectLogDigest(fileBaseName));
+        attempt += 1;
         try {
-          const token =
-            await backgroundApiProxy.serviceLogger.requestUploadToken({
-              sizeBytes: digest.sizeBytes,
-              sha256: digest.sha256,
-            });
-          const { result } = await uploadLogBundle({
-            uploadToken: token.uploadToken,
-            digest,
-          });
+          digest ??= usesBrowserLogExport
+            ? await collectLogDigest(fileBaseName, exportScope)
+            : await collectLogDigest(fileBaseName);
+          const uploadToken = await getUploadToken(digest);
+          const { result } = await uploadLogBundle({ uploadToken, digest });
           return result.objectKey;
-        } finally {
-          if (!usesBrowserLogExport) await disposeLogDigest(digest);
+        } catch (error) {
+          const retryable = isRetryableLogUploadError(error);
+          const resolvedError = resolveError(error);
+          defaultLogger.setting.logUpload.attemptFailed({
+            attempt,
+            tokenReused,
+            retryable,
+            errorCode: (
+              error as { code?: unknown } | undefined
+            )?.code?.toString(),
+            errorMessage: resolvedError.message,
+          });
+          if (!retryable) {
+            throw new AbortError(resolvedError);
+          }
+          throw error;
         }
       };
 
       try {
-        // Try upload with silent retry (no error display during retry)
-        await pRetry(() => attemptUpload(), {
-          retries: MAX_RETRIES,
-          onFailedAttempt: (error) => {
-            // Log retry attempts for debugging (not shown to user)
-            console.log(
-              `[Log Upload] Retry attempt ${error.attemptNumber}/${
-                MAX_RETRIES + 1
-              } failed:`,
-              error.message,
-            );
-          },
-        });
+        // Silent retry (no error display during retry) for transient errors.
+        try {
+          await pRetry(() => attemptUpload(), {
+            retries: LOG_UPLOAD_MAX_RETRIES,
+          });
+        } finally {
+          if (digest && !usesBrowserLogExport) {
+            await disposeLogDigest(digest);
+          }
+        }
 
         // Upload succeeded
         console.log('[Log Upload] Upload succeeded');
@@ -252,7 +292,7 @@ function UploadLogsDialogContent({
         setProgressPercent(0);
 
         try {
-          if (browserDigest) downloadLogDigest(browserDigest);
+          if (usesBrowserLogExport && digest) downloadLogDigest(digest);
           else await exportLogs(fileBaseName, exportScope);
 
           // Export succeeded
@@ -273,7 +313,7 @@ function UploadLogsDialogContent({
           );
         }
       } finally {
-        if (browserDigest) await disposeLogDigest(browserDigest);
+        if (usesBrowserLogExport && digest) await disposeLogDigest(digest);
         isActiveRef.current = false;
       }
     },

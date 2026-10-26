@@ -28,7 +28,13 @@ import {
 } from './ipTableRequestOutcome';
 import { isSniFailClosedError } from './sniFailClosedError';
 import { redactIpLiterals, safeSniLogValue } from './sniLogRedaction';
-import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
+import {
+  isProxyActiveForUrl,
+  isSniSupported,
+  isSniUploadFileSupported,
+  sniRequest,
+  sniUploadFile,
+} from './sniRequest';
 import {
   raceSniRequestWithAbort,
   throwIfSniRequestAborted,
@@ -40,6 +46,7 @@ import type {
   IAvailabilityIpTableState,
   IAvailabilityRoute,
 } from '../availabilityMetrics';
+import type { ISniRequestOptions, ISniResponse } from '../types/ipTable';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -1804,6 +1811,177 @@ export function createIpTableAdapter(
       throw error;
     }
   };
+}
+
+export type IIpTableUploadFileSkipReason =
+  | 'sni_unsupported'
+  | 'upload_unsupported'
+  | 'invalid_url'
+  | 'proxy_active'
+  | 'preflight_error'
+  | 'no_selected_ip'
+  | 'sni_bypass';
+
+export type IIpTableUploadFileResult =
+  | { route: 'sni'; ipHash: string; response: ISniResponse }
+  | { route: 'skipped'; reason: IIpTableUploadFileSkipReason };
+
+/**
+ * Upload a local file over the same pinned-IP/SNI route the axios adapter
+ * would pick for `url`. It never falls back to the domain itself: `skipped`
+ * means nothing was sent, and a thrown error means the SNI upload started and
+ * failed, so the caller decides whether a domain retry is safe.
+ *
+ * Must run where the IP table config lives (the background runtime on
+ * split-runtime targets); elsewhere no IP is selected and it skips.
+ */
+export async function uploadFileViaIpTable(params: {
+  url: string;
+  filePath: string;
+  headers: Record<string, string>;
+  method?: 'POST' | 'PUT';
+  timeout: number;
+  signal?: ISniRequestOptions['signal'];
+}): Promise<IIpTableUploadFileResult> {
+  const { url, filePath, headers, timeout, signal } = params;
+  const method = params.method ?? 'POST';
+  const skip = (
+    reason: IIpTableUploadFileSkipReason,
+    fields: Record<string, unknown> = {},
+  ): IIpTableUploadFileResult => {
+    logIpTableEvent('warn', 'sni_upload_decision', {
+      platform: getSniLogPlatform(),
+      method,
+      decision: 'skipped',
+      reason,
+      ...fields,
+    });
+    return { route: 'skipped', reason };
+  };
+
+  if (!isSniSupported()) {
+    return skip('sni_unsupported');
+  }
+  if (!isSniUploadFileSupported()) {
+    return skip('upload_unsupported');
+  }
+
+  let targetUrl: URL;
+  try {
+    targetUrl = new URL(url);
+  } catch {
+    return skip('invalid_url');
+  }
+  if (targetUrl.protocol !== 'https:' || targetUrl.port) {
+    return skip('invalid_url', { hostname: targetUrl.hostname });
+  }
+  const { hostname } = targetUrl;
+  const rootDomain = extractRootDomain(hostname);
+
+  throwIfSniRequestAborted(signal);
+  try {
+    const proxyActive = await raceSniRequestWithAbort(
+      isProxyActiveForUrl(targetUrl.toString()),
+      signal,
+    );
+    if (proxyActive === true) {
+      return skip('proxy_active', { hostname, rootDomain });
+    }
+  } catch (error) {
+    if (getErrorCode(error) === 'SNI_CANCELLED') {
+      throw error;
+    }
+    return skip('preflight_error', {
+      hostname,
+      rootDomain,
+      errorCode: getErrorCode(error),
+    });
+  }
+
+  const selectedIp = await raceSniRequestWithAbort(
+    getSelectedIpForHost(hostname),
+    signal,
+  );
+  if (!selectedIp) {
+    return skip('no_selected_ip', { hostname, rootDomain });
+  }
+  const ipHash = hashForLog(selectedIp);
+  if (
+    shouldBypassSni(rootDomain, selectedIp, method) &&
+    !(await isFailoverDisabledByDevSettings())
+  ) {
+    return skip('sni_bypass', {
+      hostname,
+      rootDomain,
+      selectedIpHash: ipHash,
+    });
+  }
+
+  logIpTableEvent('info', 'sni_upload_decision', {
+    platform: getSniLogPlatform(),
+    hostname,
+    rootDomain,
+    method,
+    decision: 'sni',
+    selectedIpHash: ipHash,
+  });
+
+  const requestSequence = nextIpTableRequestSequence();
+  try {
+    const response = await sniUploadFile(
+      {
+        ip: selectedIp,
+        hostname,
+        path: `${targetUrl.pathname}${targetUrl.search}`,
+        headers,
+        method,
+        filePath,
+        timeout,
+      },
+      { signal },
+    );
+    if (!response) {
+      return skip('upload_unsupported', { hostname, rootDomain });
+    }
+    await recordSniRequestOutcome({
+      rootDomain,
+      ip: selectedIp,
+      ok: true,
+      requestSequence,
+    });
+    reportRequestSuccessCallback?.({
+      domain: rootDomain,
+      requestType: 'ip',
+      target: selectedIp,
+      requestSequence,
+    });
+    return { route: 'sni', ipHash, response };
+  } catch (error) {
+    if (countsAgainstSelectedIp(error)) {
+      await recordSniRequestOutcome({
+        rootDomain,
+        ip: selectedIp,
+        ok: false,
+        requestSequence,
+      });
+      reportRequestFailureCallback?.({
+        domain: rootDomain,
+        requestType: 'ip',
+        target: selectedIp,
+        error: getErrorMessage(error),
+        requestSequence,
+      });
+    }
+    logIpTableEvent('error', 'sni_upload_failed', {
+      hostname,
+      rootDomain,
+      method,
+      selectedIpHash: ipHash,
+      errorCode: getErrorCode(error),
+      errorMessage: getErrorMessage(error),
+    });
+    throw error;
+  }
 }
 
 /**

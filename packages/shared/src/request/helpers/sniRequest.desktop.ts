@@ -10,6 +10,7 @@ import type {
   ISniRequestConfig,
   ISniRequestOptions,
   ISniResponse,
+  ISniUploadFileConfig,
 } from '../types/ipTable';
 
 const DESKTOP_SNI_PREFLIGHT_NOT_FOUND_RE =
@@ -45,7 +46,10 @@ export async function sniRequest(
     }
 
     // Call main process via proxy
-    const response = await executeSniRequestWithAbort<ISniResponse>(
+    const response = await executeSniRequestWithAbort<
+      ISniRequestConfig,
+      ISniResponse
+    >(
       config,
       options,
       (requestConfig) => desktopApiProxy.sniRequest.request(requestConfig),
@@ -69,6 +73,20 @@ export async function sniRequest(
 
     return null;
   }
+}
+
+/**
+ * SNI file upload is native-only; desktop uploads use the domain path.
+ */
+export async function sniUploadFile(
+  _config: ISniUploadFileConfig,
+  _options?: ISniRequestOptions,
+): Promise<ISniResponse | null> {
+  return null;
+}
+
+export function isSniUploadFileSupported(): boolean {
+  return false;
 }
 
 /**

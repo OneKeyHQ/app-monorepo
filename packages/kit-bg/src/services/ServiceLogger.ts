@@ -3,15 +3,21 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ILoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import {
   BROWSER_LOG_MAX_BYTES,
   type ILogExportScope,
+  type ILogUploadViaIpTableResult,
   RECENT_LOG_EXPORT_BYTES,
 } from '@onekeyhq/shared/src/logger/types';
 import loggerUtils from '@onekeyhq/shared/src/logger/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import { uploadFileViaIpTable } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
+import { redactIpLiterals } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
@@ -131,6 +137,97 @@ class ServiceLogger extends ServiceBase {
       IApiClientResponse<{ uploadToken: string; expiresAt: number }>
     >('/wallet/v1/client/log/token', payload);
     return response.data.data;
+  }
+
+  /**
+   * Upload a native log archive over the IP table's pinned-IP/SNI route. Runs
+   * in bg because only bg holds the IP table config on split-runtime targets;
+   * the native SNI module and the archive file are shared with main.
+   */
+  @backgroundMethod()
+  async uploadLogFileViaIpTable(params: {
+    uploadToken: string;
+    filePath: string;
+    mimeType: string;
+    sizeBytes: number;
+    timeoutMs: number;
+  }): Promise<ILogUploadViaIpTableResult> {
+    const { uploadToken, filePath, mimeType, sizeBytes, timeoutMs } = params;
+    if (!platformEnv.isNative) {
+      return { route: 'skipped', reason: 'not_native' };
+    }
+    if (!uploadToken || sizeBytes <= 0) {
+      throw new OneKeyLocalError('Invalid log upload params');
+    }
+    const endpointInfo = await this.getClientEndpointInfo(
+      EServiceEndpointEnum.Wallet,
+    );
+    const uploadUrl = `${endpointInfo.endpoint.replace(
+      /\/$/,
+      '',
+    )}/wallet/v1/client/log`;
+    const baseHeaders: Record<string, string> = {
+      ...(await getRequestHeaders()),
+      authorization: `Bearer ${uploadToken}`,
+      'content-type': mimeType,
+    };
+    // Content-Length is owned by the native transport.
+    delete baseHeaders['content-length'];
+    delete baseHeaders['Content-Length'];
+    const headers = await withCustomUAHeaders(uploadUrl, baseHeaders);
+
+    let hostname = 'unknown';
+    try {
+      hostname = new URL(uploadUrl).hostname;
+    } catch {
+      // Logged as unknown; the transport rejects the URL itself.
+    }
+    const startedAt = Date.now();
+    try {
+      const result = await uploadFileViaIpTable({
+        url: uploadUrl,
+        filePath,
+        headers,
+        timeout: timeoutMs,
+      });
+      if (result.route === 'skipped') {
+        return result;
+      }
+      const httpStatus =
+        result.response.statusCode ?? result.response.status ?? 0;
+      defaultLogger.setting.logUpload.uploadSucceeded({
+        path: 'sni',
+        hostname,
+        sizeBytes,
+        elapsedMs: Date.now() - startedAt,
+        httpStatus,
+      });
+      return {
+        route: 'sni',
+        httpStatus,
+        body: result.response.body ?? result.response.data ?? '',
+        ipHash: result.ipHash,
+      };
+    } catch (error) {
+      const errorCode =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: unknown }).code)
+          : 'unknown';
+      const errorMessage = redactIpLiterals(
+        error instanceof Error ? error.message : String(error),
+      );
+      defaultLogger.setting.logUpload.uploadFailed({
+        path: 'sni',
+        hostname,
+        sizeBytes,
+        elapsedMs: Date.now() - startedAt,
+        errorCode,
+        errorMessage,
+      });
+      // Plain result instead of a thrown error: the native error shape does
+      // not survive the bg -> main bridge reliably.
+      return { route: 'failed', errorCode, errorMessage };
+    }
   }
 }
 
