@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketStockDetailPreview,
@@ -198,17 +199,34 @@ export function useMarketDetailDisplayData() {
     tokenDetail,
   ]);
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    // Preview and cached metadata can reach trading before the detail refresh.
+    const nativeDecimals = displayTokenDetail?.isNative
+      ? networkUtils.getLocalNetworkInfo(displayTokenDetail.networkId ?? '')
+          ?.decimals
+      : undefined;
+    const resolvedTokenDetail =
+      displayTokenDetail &&
+      nativeDecimals !== undefined &&
+      (displayTokenDetail.decimals !== nativeDecimals ||
+        displayTokenDetail.decimalsResolved === false)
+        ? {
+            ...displayTokenDetail,
+            decimals: nativeDecimals,
+            decimalsResolved: true,
+          }
+        : displayTokenDetail;
+
+    return {
       ...tokenDetailData,
-      tokenDetail: displayTokenDetail,
+      tokenDetail: resolvedTokenDetail,
       fullTokenDetail: tokenDetail,
       isPreviewTokenDetail,
       isStockToken:
-        tokenDetailData.isStockToken || resolveIsStockToken(displayTokenDetail),
-    }),
-    [displayTokenDetail, isPreviewTokenDetail, tokenDetail, tokenDetailData],
-  );
+        tokenDetailData.isStockToken ||
+        resolveIsStockToken(resolvedTokenDetail),
+    };
+  }, [displayTokenDetail, isPreviewTokenDetail, tokenDetail, tokenDetailData]);
 }
 
 export const useMarketDetailHeaderDisplayData = useMarketDetailDisplayData;

@@ -1561,6 +1561,92 @@ describe('marketV2 asset token detail actions', () => {
     expect(store.get(tokenDetailLoadingAtom())).toBe(false);
   });
 
+  it.each([
+    { source: 'preview', networkId: 'btc--0', decimals: 8 },
+    { source: 'cached detail', networkId: 'btc--0', decimals: 8 },
+    { source: 'preview', networkId: 'evm--1', decimals: 18 },
+    { source: 'preview', networkId: 'sol--101', decimals: 9 },
+  ])(
+    'uses native decimals for $networkId despite zero decimals in $source',
+    async ({ source, networkId, decimals }) => {
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(useMarketAssetTokenDetailAction, {
+        wrapper: Wrapper,
+      });
+      const token = {
+        address: '',
+        networkId,
+        isNative: true,
+        name: 'Native asset',
+        symbol: 'NATIVE',
+        logoUrl: '',
+        decimals: 0,
+      };
+      store.set(networkIdAtom(), networkId);
+      store.set(tokenAddressAtom(), '');
+      if (source === 'preview') {
+        store.set(tokenDetailPreviewAtom(), { ...token, selectedAt: 1 });
+      } else {
+        store.set(tokenDetailAtom(), { ...token, decimalsResolved: true });
+      }
+      mockFetchMarketAssetDetail.mockResolvedValue({
+        ...dogeAssetDetail,
+        selectedVariant: { ...dogeAssetDetail.selectedVariant, networkId },
+      });
+
+      await act(async () => {
+        await result.current({ assetId: 'doge', networkId, tokenAddress: '' });
+      });
+
+      expect(store.get(tokenDetailAtom())).toMatchObject({
+        networkId,
+        decimals,
+        decimalsResolved: true,
+      });
+      expect(mockFetchTokenInfoOnly).not.toHaveBeenCalled();
+    },
+  );
+
+  it('preserves confirmed zero decimals for a non-native token', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(useMarketAssetTokenDetailAction, {
+      wrapper: Wrapper,
+    });
+    const networkId = 'evm--1';
+    const tokenAddress = '0x0000000000000000000000000000000000000001';
+    store.set(networkIdAtom(), networkId);
+    store.set(tokenAddressAtom(), tokenAddress);
+    store.set(tokenDetailAtom(), {
+      address: tokenAddress,
+      networkId,
+      name: 'Indivisible token',
+      symbol: 'TOKEN',
+      logoUrl: '',
+      decimals: 0,
+      decimalsResolved: true,
+    });
+    mockFetchMarketAssetDetail.mockResolvedValue({
+      ...dogeAssetDetail,
+      selectedVariant: {
+        ...dogeAssetDetail.selectedVariant,
+        networkId,
+        tokenAddress,
+        isNative: false,
+      },
+    });
+
+    await act(async () => {
+      await result.current({ assetId: 'doge', networkId, tokenAddress });
+    });
+
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      networkId,
+      decimals: 0,
+      decimalsResolved: true,
+    });
+    expect(mockFetchTokenInfoOnly).not.toHaveBeenCalled();
+  });
+
   it('preserves the matching preview when the initial Asset API request fails', async () => {
     const { store, Wrapper } = createWrapper();
     const { result } = renderHook(
