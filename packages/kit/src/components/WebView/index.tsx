@@ -79,6 +79,12 @@ export interface IWebViewProps
    * @description Whitelisted origins that may request camera or microphone access.
    */
   mediaPermissionWhitelist?: string[];
+  /** @platform ios
+   * @description Let page content draw past the WebView's frame (e.g. under a
+   * floating toolbar); the page is still laid out within the frame.
+   * @default true
+   */
+  scrollViewClipsToBounds?: boolean;
   /** Disable OneKey inpage provider injection and bridge connection.
    * Use for content-only WebViews (e.g. WebView overlay from deeplink/notification).
    * @see IInpageProviderWebViewProps.disableBridge

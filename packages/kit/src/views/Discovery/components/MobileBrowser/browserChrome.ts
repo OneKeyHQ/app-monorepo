@@ -31,6 +31,12 @@ export interface IMobileBrowserChrome {
 
 const isAndroid = platformEnv.isNativeAndroid;
 
+// iPhone, like Telegram's in-app browser: the WebView still ends above the
+// bottom bar (so fixed elements and the viewport clear it), but its scroll
+// view doesn't clip, so the page keeps drawing under the glass bar instead of
+// an opaque strip. The page's base color fills in below its last content.
+export const PAGE_DRAWS_UNDER_BROWSER_BAR = !!platformEnv.isNativeIOSPhone;
+
 // How far the capsule's back button is pulled toward the site badge: its
 // narrow chevron leaves a wider gap there than to the capsule edge. Measured
 // per platform (solid Android capsule vs iOS glass) so both gaps match.

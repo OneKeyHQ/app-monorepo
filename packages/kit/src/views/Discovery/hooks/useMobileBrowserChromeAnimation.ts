@@ -173,7 +173,8 @@ function useMobileBrowserChromeAnimation() {
   // Phone layout (used with webPageShiftStyle): the WebView ends above the
   // bar (above the collapsed pill's strip once collapsed), so the chrome
   // never covers page content. During a morph the part passing behind the
-  // bar is hidden by the bar's page-colored strip.
+  // bar is hidden by the bar's page-colored strip; on iPhone the page keeps
+  // drawing under the bar instead (PAGE_DRAWS_UNDER_BROWSER_BAR).
   const webPageBottomStyle = useAnimatedStyle(() => ({
     bottom: layoutExpanded.value ? fullBarHeight : collapsedBarHeight,
   }));

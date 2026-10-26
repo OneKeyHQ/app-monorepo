@@ -55,6 +55,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
+import { PAGE_DRAWS_UNDER_BROWSER_BAR } from '../../components/MobileBrowser/browserChrome';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
@@ -68,6 +69,7 @@ import {
   useWebTabs,
 } from '../../hooks/useWebTabs';
 import { dismissWebviewKeyboard, webviewRefs } from '../../utils/explorerUtils';
+import { usePageBaseColor } from '../../utils/pageThemeColor';
 import { checkAndCreateFolder } from '../../utils/screenshot';
 import { showTabBar, useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
@@ -104,6 +106,15 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 3,
   },
+  // Inside the iOS root layer: the WebView's own box, which ends above the
+  // bottom bar (webPageBottomStyle) while the root layer reaches the screen
+  // bottom to hold the page backdrop.
+  iosWebPageArea: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    left: 0,
+  },
   iosWebPageRootLayerVisible: {
     opacity: 1,
     zIndex: 3,
@@ -120,6 +131,28 @@ const styles = StyleSheet.create({
     zIndex: 4,
   },
 });
+
+// Behind the iPhone WebView, down to the screen bottom: the page's base color
+// shows under the bottom bar where the page has no more content to draw there
+// (its end, or a short page). Its own component, so color reports don't
+// re-render the browser.
+const BrowserPageBackdrop = memo(
+  ({ tabId }: { tabId: string | null | undefined }) => {
+    const baseColor = usePageBaseColor(tabId);
+    return (
+      <Stack
+        position="absolute"
+        top={0}
+        right={0}
+        bottom={0}
+        left={0}
+        bg="$bgApp"
+        style={baseColor ? { backgroundColor: baseColor } : undefined}
+      />
+    );
+  },
+);
+BrowserPageBackdrop.displayName = 'BrowserPageBackdrop';
 
 const useAndroidHardwareBack = platformEnv.isNativeAndroid
   ? ({
@@ -715,14 +748,20 @@ function MobileBrowser() {
                 }
                 style={[
                   styles.webPageRootLayer,
-                  webPageBottomStyle,
                   webPageShiftStyle,
                   shouldShowRootWebPageLayer
                     ? styles.iosWebPageRootLayerVisible
                     : styles.iosWebPageRootLayerHidden,
                 ]}
               >
-                {content}
+                {PAGE_DRAWS_UNDER_BROWSER_BAR ? (
+                  <BrowserPageBackdrop tabId={activeTabId} />
+                ) : null}
+                <Animated.View
+                  style={[styles.iosWebPageArea, webPageBottomStyle]}
+                >
+                  {content}
+                </Animated.View>
               </Animated.View>
             ) : null}
             <Freeze freeze={!displayBottomBar}>

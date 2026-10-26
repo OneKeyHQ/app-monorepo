@@ -45,6 +45,7 @@ import {
 import {
   CAPSULE_BACK_BUTTON_PULL,
   CAPSULE_BUTTON_HIT_SLOP,
+  PAGE_DRAWS_UNDER_BROWSER_BAR,
   getBarCapsuleBottom,
   getBarReservedHeight,
   getCollapsedPillBottom,
@@ -457,15 +458,17 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     // in-flow height on tablets.
     <Theme name={pageThemeName ?? appThemeName}>
       <Stack h="100%" zIndex={1} pointerEvents="box-none">
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.strip, { height: stripFullHeight }, stripStyle]}
-        >
-          {/* The WebView ends above the bar: the strip behind the bar takes
-            the page color. No fade above it: a plain alpha fade (no blur) over
-            page content of another color looks muddy. */}
-          <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
-        </Animated.View>
+        {PAGE_DRAWS_UNDER_BROWSER_BAR ? null : (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.strip, { height: stripFullHeight }, stripStyle]}
+          >
+            {/* The WebView ends above the bar: the strip behind the bar takes
+              the page color. No fade above it: a plain alpha fade (no blur)
+              over page content of another color looks muddy. */}
+            <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
+          </Animated.View>
+        )}
         <MorphingAddressBackground
           progress={progress}
           capsuleWidth={capsuleWidth}

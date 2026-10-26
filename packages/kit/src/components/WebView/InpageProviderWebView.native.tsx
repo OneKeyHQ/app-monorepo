@@ -107,6 +107,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       allowFileAccessFromFileURLs,
       allowFileAccess,
       allowingReadAccessToURL,
+      scrollViewClipsToBounds,
       onError,
       onHttpError,
       disableBridge,
@@ -316,6 +317,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           }
           {...nativeWebviewProps}
           allowingReadAccessToURL={allowingReadAccessToURL}
+          scrollViewClipsToBounds={scrollViewClipsToBounds}
           onError={onError}
           onHttpError={onHttpError}
         />

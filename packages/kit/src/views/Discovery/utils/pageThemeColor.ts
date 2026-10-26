@@ -10,6 +10,10 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 const PAGE_THEME_MESSAGE_TYPE = '$onekeyPageThemeColor';
 
 const colors = new Map<string, string>();
+// Per-tab base background (body/html), the color past the end of the page.
+// The iPhone browser lays it under the WebView, where it shows below the
+// page's last content (see Browser.native's page backdrop).
+const baseColors = new Map<string, string>();
 // Last color seen per origin (this session), so a revisited site tints the
 // chrome as soon as it starts loading instead of after its first report.
 const originColors = new LRUCache<string, string>({ max: 100 });
@@ -52,26 +56,57 @@ function parseRgb(color: string) {
   return { r, g, b };
 }
 
+function normalizeColor(color: unknown) {
+  const rgb = typeof color === 'string' ? parseRgb(color) : undefined;
+  return rgb ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` : undefined;
+}
+
+// Returns whether the map changed.
+function storeColor(
+  map: Map<string, string>,
+  tabId: string,
+  color: string | undefined,
+) {
+  if (map.get(tabId) === color) {
+    return false;
+  }
+  if (color) {
+    map.set(tabId, color);
+  } else {
+    map.delete(tabId);
+  }
+  return true;
+}
+
 // Returns the normalized color that was stored.
 export function setPageThemeColor(tabId: string, color: string | undefined) {
-  const rgb = color ? parseRgb(color) : undefined;
-  const next = rgb ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` : undefined;
-  if (colors.get(tabId) === next) {
-    return next;
+  const next = normalizeColor(color);
+  if (storeColor(colors, tabId, next)) {
+    emit();
   }
-  if (next) {
-    colors.set(tabId, next);
-  } else {
-    colors.delete(tabId);
-  }
-  emit();
   return next;
+}
+
+export function clearPageColors(tabId: string) {
+  const changed = storeColor(colors, tabId, undefined);
+  if (storeColor(baseColors, tabId, undefined) || changed) {
+    emit();
+  }
 }
 
 function usePageThemeColor(tabId: string | null | undefined) {
   return useSyncExternalStore(
     subscribe,
     () => (tabId ? colors.get(tabId) : undefined),
+    () => undefined,
+  );
+}
+
+// The page's base background, else its chrome color.
+export function usePageBaseColor(tabId: string | null | undefined) {
+  return useSyncExternalStore(
+    subscribe,
+    () => (tabId ? (baseColors.get(tabId) ?? colors.get(tabId)) : undefined),
     () => undefined,
   );
 }
@@ -116,14 +151,22 @@ export function tryDispatchPageThemeMessage(
     return false;
   }
   try {
-    const message = JSON.parse(data) as { type?: string; color?: unknown };
+    const message = JSON.parse(data) as {
+      type?: string;
+      color?: unknown;
+      baseColor?: unknown;
+    };
     if (message?.type !== PAGE_THEME_MESSAGE_TYPE) {
       return false;
     }
-    const stored = setPageThemeColor(
-      tabId,
-      typeof message.color === 'string' ? message.color : undefined,
-    );
+    const stored = normalizeColor(message.color);
+    const colorChanged = storeColor(colors, tabId, stored);
+    if (
+      storeColor(baseColors, tabId, normalizeColor(message.baseColor)) ||
+      colorChanged
+    ) {
+      emit();
+    }
     const origin = originOf(pageUrl);
     if (origin) {
       // A page that reports no color also drops its stale cache, so the next
@@ -143,6 +186,8 @@ export function tryDispatchPageThemeMessage(
 // Reports the page color the way Safari 26 tints its chrome: the background
 // behind the top of the viewport (a fixed header, else body/html). Safari 26
 // no longer uses <meta name="theme-color">; it is only a last fallback here.
+// Also reports the base background (body/html), which can differ from the
+// top (e.g. a colored banner over a gray page).
 // Re-reads after a short delay (late SPA paint), when the system color scheme
 // changes, and when the page switches its own theme (class/style/data-*
 // changes on <html>/<body>, or a new theme-color), like Safari tracking a
@@ -195,12 +240,14 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       }
       return '';
     };
-    var lastColor;
+    var lastReport;
     var read = function () {
-      var color =
-        backgroundOf(document.elementFromPoint(window.innerWidth / 2, 2)) ||
+      var baseColor =
         backgroundOf(document.body) ||
         backgroundOf(document.documentElement);
+      var color =
+        backgroundOf(document.elementFromPoint(window.innerWidth / 2, 2)) ||
+        baseColor;
       if (!color) {
         var metas = document.querySelectorAll('meta[name="theme-color"]');
         for (var i = 0; i < metas.length; i++) {
@@ -211,19 +258,22 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
           }
         }
       }
-      if (color === lastColor) return;
-      lastColor = color;
+      var report = JSON.stringify({
+        type: '${PAGE_THEME_MESSAGE_TYPE}',
+        color: color,
+        baseColor: baseColor,
+      });
+      if (report === lastReport) return;
+      lastReport = report;
       window.ReactNativeWebView &&
-        window.ReactNativeWebView.postMessage(
-          JSON.stringify({ type: '${PAGE_THEME_MESSAGE_TYPE}', color: color }),
-        );
+        window.ReactNativeWebView.postMessage(report);
     };
     // Re-injection (SPA navigation) and restores from the back-forward cache
     // land on a document that already reported: the app may be showing
     // another page's color by now, so report again even if unchanged, and
     // re-read once the new route has painted.
     var refresh = function () {
-      lastColor = undefined;
+      lastReport = undefined;
       read();
       setTimeout(read, 800);
     };

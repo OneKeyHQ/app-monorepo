@@ -27,11 +27,12 @@ import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
 import {
   PAGE_THEME_COLOR_SCRIPT,
   applyCachedPageThemeColor,
-  setPageThemeColor,
+  clearPageColors,
   tryDispatchPageThemeMessage,
 } from '../../utils/pageThemeColor';
 import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
+import { PAGE_DRAWS_UNDER_BROWSER_BAR } from '../MobileBrowser/browserChrome';
 
 import BrowserLoadingBar from './BrowserLoadingBar';
 
@@ -235,7 +236,7 @@ function WebContent({
       if (id !== homeTab.id) {
         delete webviewRefs[id];
       }
-      setPageThemeColor(id, undefined);
+      clearPageColors(id);
     },
     [id],
   );
@@ -249,6 +250,7 @@ function WebContent({
         pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
         mediaPermissionWhitelist={fiatPaySiteWhitelist}
+        scrollViewClipsToBounds={!PAGE_DRAWS_UNDER_BROWSER_BAR}
         customReceiveHandler={customReceiveHandler}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
