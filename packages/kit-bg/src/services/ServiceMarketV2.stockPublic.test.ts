@@ -80,6 +80,85 @@ describe('ServiceMarketV2 public stock APIs', () => {
     jest.restoreAllMocks();
   });
 
+  it('keeps partial batch rows aligned and only retries missing tokens', async () => {
+    const service = createService();
+    const unknown = {
+      chainId: 'evm--1',
+      contractAddress: `0x${'a'.repeat(40)}`,
+      isNative: false,
+    };
+    const stock = {
+      chainId: 'evm--1',
+      contractAddress: `0x${'b'.repeat(40)}`,
+      isNative: false,
+    };
+    const stockRow = {
+      networkId: stock.chainId,
+      address: stock.contractAddress.toUpperCase(),
+      isNative: false,
+      stock: { stockId: 'AAPL' },
+    };
+    mockPost.mockResolvedValueOnce({ data: { data: { list: [stockRow] } } });
+    const first = await service.fetchMarketTokenListBatch({
+      tokenAddressList: [unknown, stock],
+    });
+    expect(first.list[0]).toBeUndefined();
+    expect(first.list[1]).toEqual(stockRow);
+
+    mockPost.mockResolvedValueOnce({ data: { data: { list: [] } } });
+    const second = await service.fetchMarketTokenListBatch({
+      tokenAddressList: [unknown, stock],
+    });
+    expect(second.list[0]).toBeUndefined();
+    expect(second.list[1]).toEqual(stockRow);
+    expect(mockPost.mock.calls[1][1].tokenAddressList).toEqual([unknown]);
+  });
+
+  it('matches batch rows by network and native identity instead of order', async () => {
+    const service = createService();
+    const address = `0x${'a'.repeat(40)}`;
+    const tokenAddressList = [
+      { chainId: 'evm--1', contractAddress: address, isNative: false },
+      { chainId: 'evm--56', contractAddress: address, isNative: false },
+      { chainId: 'evm--1', contractAddress: '', isNative: true },
+    ];
+    const eth = {
+      networkId: 'evm--1',
+      address: `0x${'e'.repeat(40)}`,
+      isNative: true,
+      symbol: 'ETH',
+    };
+    const bsc = { networkId: 'evm--56', address, isNative: false };
+    mockPost.mockResolvedValue({ data: { data: { list: [eth, bsc] } } });
+
+    const { list } = await service.fetchMarketTokenListBatch({
+      tokenAddressList,
+    });
+    expect(list[0]).toBeUndefined();
+    expect(list[1]).toEqual(bsc);
+    expect(list[2]).toEqual(eth);
+  });
+
+  it('rejects malformed batch responses while accepting valid empty lists', async () => {
+    const service = createService();
+    const params = {
+      tokenAddressList: [
+        { chainId: 'evm--1', contractAddress: '', isNative: true },
+      ],
+    };
+    mockPost.mockResolvedValueOnce({ data: { data: {} } });
+    await expect(service.fetchMarketTokenListBatch(params)).rejects.toThrow(
+      'Invalid market token batch response',
+    );
+    mockPost.mockResolvedValueOnce({ data: { data: { list: [] } } });
+    await expect(service.fetchMarketTokenListBatch(params)).resolves.toEqual({
+      list: [],
+    });
+    const error = new Error('offline');
+    mockPost.mockRejectedValueOnce(error);
+    await expect(service.fetchMarketTokenListBatch(params)).rejects.toBe(error);
+  });
+
   it('deduplicates stock banner requests and clears cached quotes explicitly', async () => {
     const service = createService();
     mockGet.mockResolvedValue({

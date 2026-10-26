@@ -100,6 +100,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
 import {
   InvoiceExpiredError,
+  JsonRPCResponseError,
   OneKeyLocalError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
@@ -244,6 +245,8 @@ function makeService() {
     fetchAccountDetailsByRpc: jest
       .fn()
       .mockResolvedValue({ data: { data: { nonce: 99 } } }),
+    checkSignedTxBroadcastStatus: jest.fn().mockResolvedValue('unknown'),
+    isSignedTxRejectedByBroadcast: jest.fn().mockResolvedValue(false),
     refreshUnsignedTxBeforeBatchSign: jest.fn((tx: IUnsignedTxPro) =>
       Promise.resolve(tx),
     ),
@@ -388,12 +391,48 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     jest.restoreAllMocks();
   });
 
-  test('preserves a locally signed hash on an opted-in broadcast rejection', async () => {
+  test.each([40_024, 40_026, 40_034, 40_049])(
+    'does not retain a signed hash for a definite broadcast rejection (%s)',
+    async (code) => {
+      const { service, vault } = makeService();
+      const rejection = new OneKeyServerApiError({
+        code,
+        message: 'Node rejected transaction',
+      });
+      vault.signTransaction.mockResolvedValue({
+        ...signedTx,
+        txid: `0x${'a'.repeat(64)}`,
+      });
+      vault.broadcastTransaction.mockRejectedValue(rejection);
+
+      await expect(
+        signAndSend(service, { preserveBroadcastTxIdOnError: true }),
+      ).rejects.toBe(rejection);
+      expect(getBroadcastTxContext(rejection, networkId)).toBeUndefined();
+      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('does not retain a signed hash for a custom RPC nonce rejection', async () => {
+    const { service, vault } = makeService();
+    const rejection = new JsonRPCResponseError('nonce too low');
+    vault.signTransaction.mockResolvedValue({
+      ...signedTx,
+      txid: `0x${'a'.repeat(64)}`,
+    });
+    vault.broadcastTransaction.mockRejectedValue(rejection);
+    await expect(
+      signAndSend(service, { preserveBroadcastTxIdOnError: true }),
+    ).rejects.toBe(rejection);
+    expect(getBroadcastTxContext(rejection, networkId)).toBeUndefined();
+  });
+
+  test('preserves a locally signed hash when the broadcast result is uncertain', async () => {
     const { service, vault } = makeService();
     const txId = `0x${'a'.repeat(64)}`;
     const rejection = new OneKeyServerApiError({
-      code: 40_024,
-      message: 'Nonce already used',
+      code: 40_000,
+      message: 'Broadcast response unavailable',
       requestId: 'request-1',
     });
     vault.signTransaction.mockResolvedValue({ ...signedTx, txid: txId });
@@ -415,6 +454,37 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     });
     expect(vault.signTransaction).toHaveBeenCalledTimes(1);
     expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('retains an uncertain attempt when a later retry rejects the nonce', async () => {
+    const { service, vault } = makeService();
+    const txId = `0x${'a'.repeat(64)}`;
+    const uncertain = new OneKeyServerApiError({
+      code: 40_001,
+      message: 'Service unavailable',
+    });
+    const rejected = new OneKeyServerApiError({
+      code: 40_024,
+      message: 'Nonce already used',
+    });
+    vault.signTransaction.mockResolvedValue({ ...signedTx, txid: txId });
+    vault.broadcastTransaction
+      .mockRejectedValueOnce(uncertain)
+      .mockRejectedValueOnce(rejected);
+    vault.checkShouldRetryBroadcastTx
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+
+    const error = await signAndSend(service, {
+      preserveBroadcastTxIdOnError: true,
+    }).catch((caught: unknown) => caught);
+    expect(error).toBe(rejected);
+    expect(getBroadcastTxContext(error, networkId)).toEqual({
+      networkId,
+      txId,
+    });
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(2);
   });
 
   test('leaves a default caller broadcast rejection unchanged', async () => {

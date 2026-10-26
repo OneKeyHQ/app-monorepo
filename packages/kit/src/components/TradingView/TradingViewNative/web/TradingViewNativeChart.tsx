@@ -14,6 +14,7 @@ import { isEqual } from 'lodash';
 import { Spinner, Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import type { IElement } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getDateFormatTemplate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import {
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE as AXIS_FONT_SIZE,
@@ -140,6 +141,7 @@ interface ITimeAxisPointerDragState {
 
 export const TradingViewNativeChart = memo(
   ({
+    locale,
     drawingStorageKey,
     loadDrawingHistory,
     enableDrawings: drawingsEnabled = false,
@@ -176,6 +178,7 @@ export const TradingViewNativeChart = memo(
     testID,
     viewportRequest,
   }: ITradingViewNativeChartProps) => {
+    const dateFormatTemplate = getDateFormatTemplate(locale);
     const indicatorPanes = useIndicatorPanes(
       inputSubIndicatorPanes,
       drawingStorageKey,
@@ -527,6 +530,7 @@ export const TradingViewNativeChart = memo(
         }
         const referenceLinePriceRange = getReferenceLinePriceRange();
         const scene = drawTradingViewNativeCanvasChart({
+          dateFormatTemplate,
           autoScalePointRange,
           candleIntervalSeconds,
           candleTimeMode,
@@ -636,6 +640,7 @@ export const TradingViewNativeChart = memo(
       [
         axisText,
         background,
+        dateFormatTemplate,
         candleIntervalSeconds,
         candleTimeMode,
         getInteractiveChartComponents,

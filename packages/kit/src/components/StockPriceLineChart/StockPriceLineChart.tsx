@@ -5,9 +5,9 @@ import { colord } from 'colord';
 import { useIntl } from 'react-intl';
 
 import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormatAsRaw } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
@@ -36,9 +36,6 @@ const PRICE_SCALE_MAX_CHARACTERS = 10;
 // Keeps the pulsing tail dot clear of the current price label on the axis.
 const LAST_POINT_RIGHT_GAP = 8;
 const HOVER_PRICE_FORMATTER_OPTIONS = { currency: '$' } as const;
-// All-numeric and fixed across locales, so the hover time reads the same
-// everywhere instead of switching to localized month names.
-const HOVER_TIME_FORMAT_TEMPLATE = 'yyyy/LL/dd, HH:mm';
 // The hover card follows the cursor on both axes. Fixed width so it can be
 // flipped and clamped before it is drawn, and so figures like "$123,456.78"
 // and the widest hover time ("2000/00/00, 00:00", ~99px at 11px brand sans)
@@ -146,6 +143,7 @@ export function StockPriceLineChart({
 }) {
   const theme = useTheme();
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
   const priceFormatter = useCallback(
@@ -191,11 +189,11 @@ export function StockPriceLineChart({
     },
     [],
   );
-  // Android keeps tracking locally across refreshes. Keep an optional price
+  // Native charts keep tracking locally across refreshes. Keep an optional price
   // header on that point too, until it leaves the refreshed range.
   useEffect(() => {
     setHoverData((current) => {
-      if (!platformEnv.isNativeAndroid || !current) return null;
+      if (!platformEnv.isNative || !current) return null;
       const point = data.find(([time]) => time === current.time);
       return point ? { ...current, price: point[1] } : null;
     });
@@ -275,7 +273,7 @@ export function StockPriceLineChart({
   // moves; only the solid overlay drawn on top of it is cut at the cursor.
   const hoveredTime = hoverData?.time;
   const solidData = useMemo(() => {
-    if (platformEnv.isNativeAndroid || hoveredTime === undefined) {
+    if (platformEnv.isNative || hoveredTime === undefined) {
       return data;
     }
     const upToCursor = data.filter(([time]) => time <= hoveredTime);
@@ -287,7 +285,7 @@ export function StockPriceLineChart({
   const nativeScrubOptions = useMemo<
     ILightweightChartNativeScrubOptions | undefined
   >(() => {
-    if (!platformEnv.isNativeAndroid) return undefined;
+    if (!platformEnv.isNative) return undefined;
     return {
       labels: Object.fromEntries(
         data.map(([time, price]) => {
@@ -311,7 +309,7 @@ export function StockPriceLineChart({
             time,
             {
               time: formatDate(new Date(time * 1000), {
-                formatTemplate: HOVER_TIME_FORMAT_TEMPLATE,
+                hideSeconds: true,
               }),
               price: hoverLabelShowsPrice ? priceLabel : undefined,
             },
@@ -326,6 +324,7 @@ export function StockPriceLineChart({
     };
   }, [
     data,
+    formatDate,
     hoverLabelShowsPrice,
     hoverLabelLargePrice,
     theme.bg.val,
@@ -378,10 +377,10 @@ export function StockPriceLineChart({
     () =>
       hoverData
         ? formatDate(new Date(hoverData.time * 1000), {
-            formatTemplate: HOVER_TIME_FORMAT_TEMPLATE,
+            hideSeconds: true,
           })
         : '',
-    [hoverData],
+    [hoverData, formatDate],
   );
 
   return (
@@ -439,7 +438,7 @@ export function StockPriceLineChart({
             : handleHover
         }
       />
-      {!platformEnv.isNativeAndroid && hoverData && tooltipPosition ? (
+      {!platformEnv.isNative && hoverData && tooltipPosition ? (
         <Stack
           testID="stock-price-line-chart-hover-label"
           position="absolute"

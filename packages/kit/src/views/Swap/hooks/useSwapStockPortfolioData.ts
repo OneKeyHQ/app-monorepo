@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -10,9 +10,13 @@ import {
   fetchStockPortfolioData,
   getStockPortfolioVariantKey,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useStockPortfolioData';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
+
+import { isTradePositionVisible } from '../utils/tradePositionUtils';
 
 import {
   resolveSwapBalanceAccount,
@@ -20,9 +24,9 @@ import {
 } from './useSwapAccount.utils';
 import { useSwapProPositionAccountIdentity } from './useSwapPro';
 
-// Dust floor for the My position table. The raw list still carries every
-// holding so the token selector can report a real balance for each variant.
-const SWAP_STOCK_POSITION_LIST_MIN_VALUE_USD = 0.01;
+type ISwapStockPortfolioResult = Awaited<
+  ReturnType<typeof fetchStockPortfolioData>
+> & { stockId: string; portfolioOwnerKey: string; scope: string };
 
 function buildPortfolioOwnerKey({
   accountId,
@@ -60,6 +64,7 @@ function getNetworkAccountXpub(account: INetworkAccount) {
  * in flight, so the list never blinks out between polls.
  */
 export function useSwapStockPortfolioData() {
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const { accountId, indexedAccountId } = useSwapProPositionAccountIdentity();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { portfolioNetworkId, stockId, tokenVariants } = useStockDetail();
@@ -68,9 +73,16 @@ export function useSwapStockPortfolioData() {
     indexedAccountId,
     deriveType: activeAccount.deriveType,
   })}:${activeAccount.network?.id ?? ''}:${activeAccount.account?.id ?? ''}:${activeAccount.account?.address ?? ''}:${activeAccount.ready}`;
-  const successfulPortfolioCacheRef = useRef(
-    new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
-  );
+  const successfulPortfolioCacheRef = useRef({
+    currencyId: currencyInfo.id,
+    cache: new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
+  });
+  if (successfulPortfolioCacheRef.current.currencyId !== currencyInfo.id) {
+    successfulPortfolioCacheRef.current = {
+      currencyId: currencyInfo.id,
+      cache: new Map(),
+    };
+  }
   // Cache network accounts by Swap identity and the resolved global derive type.
   // Read that type on each poll so changes cannot reuse another address.
   const networkAccountCacheRef = useRef(
@@ -101,6 +113,15 @@ export function useSwapStockPortfolioData() {
   );
   const tokenVariantsRef = useRef(tokenVariants);
   tokenVariantsRef.current = tokenVariants;
+  const portfolioScope = JSON.stringify([
+    portfolioOwnerKey,
+    stockId,
+    tokenVariantsKey,
+    currencyInfo.id,
+  ]);
+  const [displaySnapshots] = useState(
+    () => new LRUCache<string, ISwapStockPortfolioResult>({ max: 20 }),
+  );
 
   const resolveNetworkAccount = useCallback(
     async (networkId: string) => {
@@ -173,7 +194,7 @@ export function useSwapStockPortfolioData() {
       const data = await fetchStockPortfolioData({
         stockId,
         tokenVariants: tokenVariantsRef.current,
-        successfulPortfolioCache: successfulPortfolioCacheRef.current,
+        successfulPortfolioCache: successfulPortfolioCacheRef.current.cache,
         resolveNetworkAccount,
         fetchPortfolio: (params) =>
           backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
@@ -181,7 +202,7 @@ export function useSwapStockPortfolioData() {
             throwOnError: true,
           }),
       });
-      return { ...data, stockId, portfolioOwnerKey };
+      return { ...data, stockId, portfolioOwnerKey, scope: portfolioScope };
     },
     // The request reads the latest variants from a ref; see tokenVariantsKey.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,6 +210,7 @@ export function useSwapStockPortfolioData() {
       hasAccount,
       portfolioOwnerKey,
       portfolioNetworkId,
+      portfolioScope,
       resolveNetworkAccount,
       stockId,
       tokenVariantsKey,
@@ -210,21 +232,30 @@ export function useSwapStockPortfolioData() {
   const currentPortfolioResult =
     hasAccount &&
     portfolioResult?.stockId === stockId &&
-    portfolioResult?.portfolioOwnerKey === portfolioOwnerKey
+    portfolioResult?.portfolioOwnerKey === portfolioOwnerKey &&
+    portfolioResult.scope === portfolioScope
       ? portfolioResult
       : undefined;
+  // Retain accepted, account-scoped display rows; execution balances and
+  // authoritative empty/unknown verdicts remain owned by the current request.
+  if (currentPortfolioResult?.resolvedVariantKeys.length) {
+    displaySnapshots.set(portfolioScope, currentPortfolioResult);
+  }
+  const acceptedDisplayResult = currentPortfolioResult?.resolvedVariantKeys
+    .length
+    ? currentPortfolioResult
+    : (displaySnapshots.get(portfolioScope) ?? currentPortfolioResult);
+  const displayPortfolioResult = hasAccount ? acceptedDisplayResult : undefined;
   const portfolioData = useMemo(
-    () => currentPortfolioResult?.items ?? [],
-    [currentPortfolioResult],
+    () => displayPortfolioResult?.items ?? [],
+    [displayPortfolioResult],
   );
-  // What the table shows: dust dropped, largest holding first.
+  // Keep every held variant, largest holding first.
   const positionListData = useMemo(
     () =>
       portfolioData
         .filter((item) =>
-          new BigNumber(item.totalPrice ?? '0').gte(
-            SWAP_STOCK_POSITION_LIST_MIN_VALUE_USD,
-          ),
+          isTradePositionVisible({ balance: item.amount, isStock: true }),
         )
         .toSorted((left, right) =>
           new BigNumber(right.totalPrice ?? '0').comparedTo(

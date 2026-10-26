@@ -12,10 +12,7 @@ import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/Trad
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
-import {
-  useMarketDetailChartDisplayModePersistAtom,
-  useMarketPriceSourceAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
@@ -24,6 +21,7 @@ import {
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketStockDetailInitialSection } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
@@ -36,7 +34,7 @@ import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
-import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
+import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
@@ -51,7 +49,10 @@ import {
 } from '../utils/marketTokenIdentity';
 import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
-import { StockDesktopLayout } from './StockDesktopLayout';
+import {
+  STOCK_DETAIL_TABS_TEST_ID,
+  StockDesktopLayout,
+} from './StockDesktopLayout';
 import { TokenDesktopLayout } from './TokenDesktopLayout';
 import { TopCoinsDesktopLayout } from './TopCoinsDesktopLayout';
 
@@ -160,6 +161,8 @@ export interface IDesktopLayoutProps {
   marketTokenCategory?: string;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
+  initialSection?: IMarketStockDetailInitialSection;
+  onInitialSectionShown?: () => void;
 }
 
 export function DesktopLayout({
@@ -178,6 +181,8 @@ export function DesktopLayout({
   marketTokenCategory,
   disableTrade,
   showFavoriteButton = true,
+  initialSection,
+  onInitialSectionShown,
 }: IDesktopLayoutProps) {
   const {
     tokenAddress: storeTokenAddress,
@@ -187,6 +192,7 @@ export function DesktopLayout({
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
+    isStockToken,
     isLoading: isTokenDetailLoading,
   } = useTokenDetail();
   const { tokenDetail: displayTokenDetail } = useMarketDetailDisplayData();
@@ -197,18 +203,13 @@ export function DesktopLayout({
     selectedTokenVariant,
     stockDetail,
     stockId,
-    isStockDetailError,
+    isStockDetailReady,
   } = useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
     marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID;
-  const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
-  const displayedStockPriceSource = resolveDisplayedStockPriceMode({
-    stockId,
-    isStockDetailError,
-    storedPriceMode: stockPriceSource,
-  });
+  const { priceMode: displayedStockPriceSource } = useStockPriceSource();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && displayedStockPriceSource === 'share';
   // Stock detail charts offer Prev close in both price modes.
@@ -264,6 +265,7 @@ export function DesktopLayout({
     networkId,
     accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
     xpub: shouldUseStockDesktopLayout ? undefined : xpub,
+    isStock: Boolean(isStockToken || isStockRoute),
   });
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
@@ -382,9 +384,49 @@ export function DesktopLayout({
     isTerminalStockTradeUnavailable;
 
   const scrollContainerRef = useRef<HTMLElement>(null);
+  // The stock an Overview entry has already placed: its variant resolving
+  // afterwards changes networkId / tokenAddress, which must not scroll the
+  // page back to the chart. A different stock resets as before.
+  const sectionShownStockIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
+    if (stockId && sectionShownStockIdRef.current === stockId) return;
+    sectionShownStockIdRef.current = undefined;
     scrollContainerRef.current?.scrollTo({ top: 0 });
   }, [networkId, stockId, tokenAddress]);
+  // Entries from a page that already shows this chart (Swap's "view full
+  // data") open on Overview instead, or the jump looks like it did nothing.
+  // Waits for the stock detail so the header above has its final height.
+  useEffect(() => {
+    if (
+      initialSection !== 'overview' ||
+      !shouldUseStockDesktopLayout ||
+      !isStockDetailReady
+    ) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      const container = scrollContainerRef.current;
+      const anchor = container?.querySelector(
+        `[data-testid="${STOCK_DETAIL_TABS_TEST_ID}"]`,
+      );
+      if (!container || !anchor) return;
+      container.scrollTo({
+        top:
+          anchor.getBoundingClientRect().top -
+          container.getBoundingClientRect().top +
+          container.scrollTop,
+      });
+      sectionShownStockIdRef.current = stockId;
+      onInitialSectionShown?.();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    initialSection,
+    isStockDetailReady,
+    onInitialSectionShown,
+    shouldUseStockDesktopLayout,
+    stockId,
+  ]);
   useIframeWheelPassthrough({
     disabled: isChartFullscreen || isTradingViewNative,
     scrollRef: scrollContainerRef,
@@ -639,6 +681,7 @@ export function DesktopLayout({
           chartFullscreenZIndex={CHART_FULLSCREEN_Z_INDEX}
           onChartSwitch={onChartSwitch}
           onEnterChartFullscreen={handleEnterChartFullscreen}
+          initialSection={initialSection}
         />
       </Stack>
     );

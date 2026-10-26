@@ -36,6 +36,9 @@ export default function ChainSelectorPage({
     hideLowValueNetworkValue,
     indexedAccountId,
     accountId,
+    networkValues,
+    networkValueCurrency,
+    groupByNetworkValue,
     featuredNetwork,
   } = route.params ?? {};
   const { result } = usePromiseResult(
@@ -72,7 +75,10 @@ export default function ChainSelectorPage({
       }
       let accountNetworkValues: Record<string, string> | undefined;
       let accountNetworkValueCurrency: string | undefined;
-      if (showNetworkValues) {
+      if (networkValues) {
+        accountNetworkValues = networkValues;
+        accountNetworkValueCurrency = networkValueCurrency;
+      } else if (showNetworkValues) {
         let valueAccountId = indexedAccountId || '';
         if (!valueAccountId && accountId) {
           if (accountUtils.isOthersAccount({ accountId })) {
@@ -117,14 +123,16 @@ export default function ChainSelectorPage({
           }
           accountNetworkValues = formattedValues;
           accountNetworkValueCurrency = accountsValue?.currency;
-
-          // Sort networks by value descending
-          networks.sort((a, b) => {
-            const valA = new BigNumber(formattedValues[a.id] || 0);
-            const valB = new BigNumber(formattedValues[b.id] || 0);
-            return valB.comparedTo(valA);
-          });
         }
+      }
+      const values = accountNetworkValues;
+      if (values) {
+        // Sort networks by value descending
+        networks.sort((a, b) =>
+          new BigNumber(values[b.id] || 0).comparedTo(
+            new BigNumber(values[a.id] || 0),
+          ),
+        );
       }
 
       if (featuredNetwork) {
@@ -153,6 +161,8 @@ export default function ChainSelectorPage({
       showNetworkValues,
       indexedAccountId,
       accountId,
+      networkValues,
+      networkValueCurrency,
       featuredNetwork,
     ],
     {
@@ -170,6 +180,7 @@ export default function ChainSelectorPage({
       accountNetworkValues={result?.accountNetworkValues}
       accountNetworkValueCurrency={result?.accountNetworkValueCurrency}
       hideLowValueNetworkValue={hideLowValueNetworkValue}
+      groupByNetworkValue={groupByNetworkValue}
       featuredNetwork={featuredNetwork}
       onPressItem={(network) => {
         onSelect?.(network);

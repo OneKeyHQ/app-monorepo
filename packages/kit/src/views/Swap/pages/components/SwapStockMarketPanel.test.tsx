@@ -44,6 +44,12 @@ const publicStockDetail: IMarketStockPublicDetail = {
 
 function createStockDetailState(): ReturnType<typeof useStockDetail> {
   return {
+    priceSource: {
+      priceMode: 'token',
+      sharePriceAvailable: true,
+      isPriceSourceReady: true,
+      handlePriceModeChange: jest.fn(),
+    },
     stockId: 'AAPL',
     stockDetail: publicStockDetail,
     isStockRoute: true,
@@ -56,6 +62,7 @@ function createStockDetailState(): ReturnType<typeof useStockDetail> {
     isTokenVariantsLoading: false,
     isTokenVariantPending: false,
     isTokenVariantsError: false,
+    isTokenVariantsFresh: true,
     retryTokenVariants: jest
       .fn<Promise<void>, []>()
       .mockResolvedValue(undefined),
@@ -152,12 +159,19 @@ jest.mock(
   }),
 );
 jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
-  StockMarketStatusBadge: ({ stock }: { stock?: IMarketStockInfo }) => (
+  StockMarketStatusBadge: ({
+    stock,
+    showLastUpdate = true,
+  }: {
+    stock?: IMarketStockInfo;
+    showLastUpdate?: boolean;
+  }) => (
     <div
       data-testid="stock-status"
       data-title={stock?.title}
       data-is-open={String(stock?.isOpen)}
       data-updated-at={stock?.priceUpdatedAt}
+      data-show-last-update={String(showLastUpdate)}
     />
   ),
 }));
@@ -201,10 +215,15 @@ jest.mock(
   () => ({ useToMarketStockDetailPage: () => jest.fn() }),
 );
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useMarketPriceSourceAtom: () => {
+    const { useState } = jest.requireActual<typeof import('react')>('react');
+    return useState({ source: 'token' });
+  },
   useMarketDetailChartDisplayModePersistAtom: () => [
     { mode: 'simple' },
     jest.fn(),
   ],
+  useSwapStockIssuerPreferencePersistAtom: () => [{}, jest.fn()],
 }));
 jest.mock('../modal/swapKLineTradingViewNativeUtils', () => ({
   getSwapKLineTradingViewNativeSource: () => undefined,
@@ -278,6 +297,18 @@ describe.each(['mobile', 'desktop', 'web', 'extension'] as const)(
 
       expect(screen.queryByTestId('stock-status-loading')).toBeNull();
       expect(screen.getByTestId('stock-status')).toBeTruthy();
+    });
+
+    it('notes the share price update only where the share price shows', () => {
+      mockStockDetailState.isStockDetailReady = true;
+      renderSurface();
+
+      // Mobile trade quotes the token only; desktop opens on the share price.
+      expect(
+        screen
+          .getByTestId('stock-status')
+          .getAttribute('data-show-last-update'),
+      ).toBe(surface === 'mobile' ? 'false' : 'true');
     });
 
     it('shows the settled public status on every surface', () => {

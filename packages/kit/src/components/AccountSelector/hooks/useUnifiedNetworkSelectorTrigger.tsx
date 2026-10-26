@@ -10,6 +10,7 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
+import { useRecentNetworksCacheSync } from '../../../views/ChainSelector/components/useRecentNetworksCacheSync';
 
 import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
 
@@ -22,6 +23,15 @@ export function useUnifiedNetworkSelectorTrigger({ num }: { num: number }) {
   });
 
   const navigation = useAppNavigation();
+
+  const isHomeScene =
+    sceneName === EAccountSelectorSceneName.home ||
+    sceneName === EAccountSelectorSceneName.homeUrlAccount;
+  useRecentNetworksCacheSync({
+    enabled: isHomeScene,
+    walletId: activeAccount?.wallet?.id,
+    accountId: activeAccount?.account?.id,
+  });
 
   const showUnifiedNetworkSelector = useCallback(
     ({
@@ -44,13 +54,12 @@ export function useUnifiedNetworkSelectorTrigger({ num }: { num: number }) {
         recordNetworkHistoryEnabled,
         onNetworksChanged,
         defaultTab,
-        editable:
-          sceneName === EAccountSelectorSceneName.home ||
-          sceneName === EAccountSelectorSceneName.homeUrlAccount,
+        editable: isHomeScene,
       });
     },
     [
       defaultNetworkId,
+      isHomeScene,
       networkIds,
       navigation,
       num,

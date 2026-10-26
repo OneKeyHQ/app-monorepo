@@ -847,7 +847,14 @@ export interface IMarketStockPublicItem {
 export type IMarketStockDetailPreview = Pick<
   IMarketStockPublicItem,
   'stockId' | 'symbol' | 'name' | 'logoUrl'
->;
+> & {
+  quote?: {
+    source: 'share';
+    price: string;
+    priceChange24hPercent?: string;
+    quoteUpdatedAt?: string;
+  };
+};
 
 export type IMarketStockPublicListSortBy =
   | 'default'

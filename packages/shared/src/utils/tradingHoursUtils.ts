@@ -1,3 +1,5 @@
+import { normalizeStockIssuer } from './stockTokenVariant';
+
 import type { IFetchUSMarketStatusResult } from '../../types/swap/types';
 
 /**
@@ -482,18 +484,14 @@ function isEffectiveUSMarketHalt({
 }
 
 /**
- * Sources treated as Ondo-issued. Some Ondo stocks report a legacy
- * 'coingecko' source — keep this the single source of truth (kit's
- * `isOndoStockSource` delegates here).
+ * Identifies Ondo sources for issuer-specific token behavior. Some Ondo
+ * stocks report a legacy 'coingecko' source; the alias list lives in
+ * `normalizeStockIssuer` (kit's `isOndoStockSource` delegates here).
  */
-const ONDO_US_MARKET_STOCK_SOURCES = new Set(['ondo', 'coingecko']);
-
-/** Identifies Ondo sources for issuer-specific token behavior. */
 export function isOndoUSMarketStock(
   source: string | undefined | null,
 ): boolean {
-  const normalized = source?.trim().toLowerCase();
-  return !!normalized && ONDO_US_MARKET_STOCK_SOURCES.has(normalized);
+  return normalizeStockIssuer(source ?? undefined) === 'ondo';
 }
 
 /**

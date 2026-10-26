@@ -461,7 +461,7 @@ export default function DevBundleManagerModal() {
                       onConfirm: async () => {
                         try {
                           await BundleUpdate.resetToBuiltInBundle();
-                          BundleUpdate.restart();
+                          await BundleUpdate.restart();
                         } catch (error) {
                           showTestError(error);
                         }

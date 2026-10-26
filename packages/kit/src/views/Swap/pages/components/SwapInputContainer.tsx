@@ -527,7 +527,7 @@ const SwapInputContainer = ({
                   caretColor: 'transparent',
                 } as unknown as StyleProp<TextStyle>)
               : undefined,
-          inputAccessoryViewID: platformEnv.isNativeIOS
+          inputAccessoryViewID: platformEnv.isNativeIOSPhone
             ? inputAccessoryViewID
             : undefined,
           autoCorrect: false,
@@ -543,7 +543,7 @@ const SwapInputContainer = ({
         tokenSelectorTriggerProps={tokenSelectorTriggerProps}
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
-      {platformEnv.isNativeIOS && direction === ESwapDirectionType.FROM ? (
+      {platformEnv.isNativeIOSPhone && direction === ESwapDirectionType.FROM ? (
         <InputAccessoryView nativeID={inputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}

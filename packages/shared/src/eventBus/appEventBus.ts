@@ -32,7 +32,11 @@ import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import { EAppEventBusNames } from './appEventBusNames';
 
-import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
+import type {
+  EAccountSelectorSceneName,
+  EHomeTab,
+  IServerNetwork,
+} from '../../types';
 import type {
   IDeFiProtocol,
   IFetchAccountDeFiPositionsResp,
@@ -146,6 +150,8 @@ export type IEventBusPayloadAccountDataUpdate =
 export type IEventBusPayloadAccountUpdate = {
   /** Whether account-scoped network data changed. */
   isAccountDataChanged?: boolean;
+  /** Indexed owners that were committed by an explicit creation operation. */
+  createdIndexedAccountIds?: string[];
 };
 
 // The item shape is owned by kit's settings config; it stays opaque here so
@@ -196,7 +202,9 @@ export interface IAppEventBusPayload {
     walletId: string;
   };
   [EAppEventBusNames.AccountUpdate]: IEventBusPayloadAccountUpdate | undefined;
-  [EAppEventBusNames.AccountRemove]: undefined;
+  [EAppEventBusNames.AccountRemove]:
+    | { accountId?: string; indexedAccountId?: string }
+    | undefined;
   [EAppEventBusNames.AddDBAccountsToWallet]: {
     walletId: string;
     accounts: IDBAccount[];
@@ -497,6 +505,12 @@ export interface IAppEventBusPayload {
   // changes the set (e.g. a network delisted to TRASH). All network selectors
   // listen to it to re-pull their network list.
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
+  // Emitted by bg whenever a network is recorded as recently used, so the
+  // UI can keep its selector cache slot exact for writers it does not see.
+  [EAppEventBusNames.RecentNetworkRecorded]: { network: IServerNetwork };
+  // Emitted by bg when the recently-used list is cleared, so UI cache writers
+  // can drop results of lookups that were still in flight.
+  [EAppEventBusNames.RecentNetworksCleared]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
     expectedSelectedAccount: IAccountSelectorSelectedAccount;
     selectedAccount: IAccountSelectorSelectedAccount;
@@ -573,6 +587,15 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CheckAddressBeforeSending]: {
     promiseId: number;
     type: 'scam' | 'contract';
+  };
+  // One chunk of a batch send left the device. The batch call rejects with
+  // no partial result when a later chunk fails, so this is how the confirm
+  // page learns which chunks are already on chain before the user retries.
+  [EAppEventBusNames.BatchSendTxBroadcasted]: {
+    uuid: string;
+    txid: string;
+    networkId: string;
+    accountId: string;
   };
   [EAppEventBusNames.HideTabBar]: boolean;
   [EAppEventBusNames.RequestHardwareUIDialog]: {
@@ -667,6 +690,7 @@ export interface IAppEventBusPayload {
     decision: string;
   };
   [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
+  [EAppEventBusNames.BundleUpdateRestartFailed]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;

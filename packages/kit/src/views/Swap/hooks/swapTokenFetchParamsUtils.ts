@@ -35,6 +35,7 @@ export function buildSwapTokenFetchParams({
   currentNetworkId,
   currentSelectNetworkId,
   searchNetworkId,
+  searchNetworks,
   keywords,
   swapType,
   lpToken,
@@ -48,6 +49,7 @@ export function buildSwapTokenFetchParams({
   currentNetworkId?: string;
   currentSelectNetworkId?: string;
   searchNetworkId?: string;
+  searchNetworks?: IFetchTokensParams['searchNetworks'];
   keywords?: string;
   swapType?: ESwapTabSwitchType;
   lpToken?: boolean;
@@ -66,6 +68,13 @@ export function buildSwapTokenFetchParams({
     keywords,
     lpToken,
     currency: requestCurrency,
+    ...(keywords &&
+    networkUtils.isAllNetwork({ networkId: targetNetworkId }) &&
+    swapType !== ESwapTabSwitchType.STOCK
+      ? {
+          searchNetworks,
+        }
+      : {}),
     ...(selectedNetworkId &&
     !networkUtils.isAllNetwork({ networkId: selectedNetworkId }) &&
     networkUtils.isAllNetwork({ networkId: targetNetworkId }) &&

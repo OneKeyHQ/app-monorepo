@@ -10,7 +10,12 @@ import {
   ESwapStepType,
 } from '@onekeyhq/shared/types/swap/types';
 
-import PreSwapConfirmResult from './PreSwapConfirmResult';
+import PreSwapConfirmResult, {
+  SwapTransactionResultStatus,
+} from './PreSwapConfirmResult';
+
+const mockLottiePause = jest.fn();
+const mockLottieResume = jest.fn();
 
 jest.mock('@onekeyhq/components', () => {
   function MockStack({
@@ -35,7 +40,19 @@ jest.mock('@onekeyhq/components', () => {
     Illustration: ({ name }: { name: string }) => (
       <span data-testid="result-illustration">{name}</span>
     ),
-    LottieView: () => <span data-testid="result-lottie" />,
+    LottieView: jest
+      .requireActual<typeof import('react')>('react')
+      .forwardRef(function MockLottie(_props, ref) {
+        jest
+          .requireActual<typeof import('react')>('react')
+          .useImperativeHandle(ref, () => ({
+            play: jest.fn(),
+            pause: mockLottiePause,
+            resume: mockLottieResume,
+            reset: jest.fn(),
+          }));
+        return <span data-testid="result-lottie" />;
+      }),
     SizableText: MockStack,
     XStack: MockStack,
     YStack: MockStack,
@@ -117,5 +134,31 @@ describe('PreSwapConfirmResult', () => {
     expect(screen.getByTestId('result-lottie')).toBeTruthy();
     fireEvent.click(screen.getByText(ETranslations.global_done));
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SwapTransactionResultStatus', () => {
+  beforeEach(() => {
+    mockLottiePause.mockClear();
+    mockLottieResume.mockClear();
+  });
+
+  it('holds the pending hourglass while paused and resumes it after', () => {
+    const { rerender } = render(
+      <SwapTransactionResultStatus status="pending" />,
+    );
+    expect(mockLottiePause).not.toHaveBeenCalled();
+    expect(mockLottieResume).not.toHaveBeenCalled();
+
+    rerender(<SwapTransactionResultStatus status="pending" paused />);
+    expect(mockLottiePause).toHaveBeenCalledTimes(1);
+
+    rerender(<SwapTransactionResultStatus status="pending" />);
+    expect(mockLottieResume).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts held when it mounts paused', () => {
+    render(<SwapTransactionResultStatus status="pending" paused />);
+    expect(mockLottiePause).toHaveBeenCalledTimes(1);
   });
 });

@@ -161,8 +161,6 @@ const PositionRowDesktopSymbolAndLeverage = memo(
           alignItems="center"
           justifyContent={calcCellAlign(columnConfig.align)}
           gap="$2"
-          onPress={onChangeAsset}
-          cursor="pointer"
         >
           <XStack alignItems="center" gap="$2">
             <Divider
@@ -181,6 +179,10 @@ const PositionRowDesktopSymbolAndLeverage = memo(
                 color={assetInfo.assetColor}
                 hoverStyle={{ fontWeight: 700 }}
                 pressStyle={{ fontWeight: 700 }}
+                alignSelf="flex-start"
+                maxWidth="100%"
+                onPress={onChangeAsset}
+                cursor="pointer"
               >
                 {assetInfo.assetSymbol}
               </SizableText>
@@ -834,13 +836,7 @@ const PositionRowMobileHeader = memo(
 
     return (
       <XStack justifyContent="space-between" flex={1} position="relative">
-        <XStack
-          flex={1}
-          gap="$2"
-          alignItems="center"
-          onPress={onChangeAsset}
-          cursor="default"
-        >
+        <XStack flex={1} gap="$2" alignItems="center">
           <XStack
             w="$4"
             h="$4"
@@ -862,7 +858,12 @@ const PositionRowMobileHeader = memo(
                   })}
             </SizableText>
           </XStack>
-          <SizableText size="$bodyMdMedium" color="$text">
+          <SizableText
+            size="$bodyMdMedium"
+            color="$text"
+            onPress={onChangeAsset}
+            cursor="pointer"
+          >
             {assetInfo.assetSymbol}
           </SizableText>
           <SizableText
