@@ -1,9 +1,11 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import evmSettings from '@onekeyhq/kit-bg/src/vaults/impls/evm/settings';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EProtocolOfExchange,
   ESwapNetworkFeeLevel,
+  EWrappedType,
 } from '@onekeyhq/shared/types/swap/types';
 
 const mockPrepareSendConfirmUnsignedTx = jest.fn();
@@ -100,6 +102,8 @@ const {
 } = require('./marketDirectSendTx') as typeof import('./marketDirectSendTx');
 const { createSwapReviewAnalytics } =
   require('@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics') as typeof import('@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics');
+const { isSwapGasSponsored } =
+  require('@onekeyhq/kit/src/views/Swap/utils/swapGasUtils') as typeof import('@onekeyhq/kit/src/views/Swap/utils/swapGasUtils');
 
 function createUnsignedTx(
   overrides: Partial<IUnsignedTxPro> = {},
@@ -299,6 +303,107 @@ describe('marketDirectSendTx', () => {
         unsignedTx: expect.objectContaining({ nonce: 12 }),
       }),
     );
+  });
+
+  it.each([true, false])(
+    'preserves MegaFuel eligibility without a payer field (sponsorable=%s)',
+    async (sponsorable) => {
+      const unsignedTx = createUnsignedTx();
+      const megafuelEligible = { sponsorable, sponsorName: 'MegaFuel' };
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockResolvedValue({
+        ...createEstimateFeeResult(),
+        megafuelEligible,
+      });
+
+      const { gasInfos } = await estimateMarketDirectGasInfos({
+        accountId: 'account',
+        accountAddress: '0xuser',
+        networkId: 'evm--56',
+        buildUnsignedParams: {
+          accountId: 'account',
+          networkId: 'evm--56',
+          encodedTx: unsignedTx.encodedTx,
+        },
+      });
+
+      expect(gasInfos).toHaveLength(1);
+      expect(gasInfos[0].gasInfo.megafuelEligible).toEqual(megafuelEligible);
+      expect(gasInfos[0].gasInfo.payer).toBeUndefined();
+      expect(isSwapGasSponsored(gasInfos[0].gasInfo)).toBe(sponsorable);
+    },
+  );
+
+  it.each(['evm--1', 'tron--0x2b6653dc'])(
+    'stops a swap without approval metadata when the send-time estimate rejects (%s)',
+    async (networkId) => {
+      const unsignedTx = createSponsoredUnsignedTx();
+      if (unsignedTx.swapInfo) {
+        unsignedTx.swapInfo.swapBuildResData.result.gasAccountEnabled = false;
+        unsignedTx.swapInfo.swapBuildResData.result.gasLimit = 243_000;
+      }
+      const onBeforeSignAndSend = jest.fn();
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockRejectedValue(new Error('Insufficient allowance'));
+
+      await expect(
+        sendMarketDirectUnsignedTxs({
+          accountId: 'account',
+          accountAddress: '0xuser',
+          networkId,
+          buildUnsignedParams: {
+            accountId: 'account',
+            networkId,
+            encodedTx: unsignedTx.encodedTx,
+            swapInfo: unsignedTx.swapInfo,
+          },
+          onBeforeSignAndSend,
+        }),
+      ).rejects.toThrow('Insufficient allowance');
+
+      expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+      expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+      expect(mockUpdateUnsignedTx).not.toHaveBeenCalled();
+      expect(mockPrecheckUnsignedTxs).not.toHaveBeenCalled();
+      expect(mockVerifyTransaction).not.toHaveBeenCalled();
+      expect(mockPreActionsBeforeSending).not.toHaveBeenCalled();
+      expect(onBeforeSignAndSend).not.toHaveBeenCalled();
+      expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it('passes wrappedInfo to the local unsigned builder and stops before signing when gas estimation rejects', async () => {
+    const wrappedInfo = {
+      from: '0xuser',
+      contract: '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+      type: EWrappedType.WITHDRAW,
+      amount: '0.001',
+    };
+    const onBeforeSignAndSend = jest.fn();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockEstimateFee.mockRejectedValue(new Error('Unwrap estimate failed'));
+    await expect(
+      sendMarketDirectUnsignedTxs({
+        accountId: 'account',
+        accountAddress: '0xuser',
+        networkId: 'evm--56',
+        buildUnsignedParams: {
+          accountId: 'account',
+          networkId: 'evm--56',
+          wrappedInfo,
+        },
+        onBeforeSignAndSend,
+      }),
+    ).rejects.toThrow('Unwrap estimate failed');
+    expect(mockPrepareSendConfirmUnsignedTx).toHaveBeenCalledWith({
+      accountId: 'account',
+      networkId: 'evm--56',
+      wrappedInfo,
+      isInternalSwap: true,
+    });
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(onBeforeSignAndSend).not.toHaveBeenCalled();
+    expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
   });
 
   it('estimates the approved swap instead of reusing its pre-approval provider gas limit', async () => {
@@ -649,6 +754,7 @@ describe('marketDirectSendTx', () => {
   it.each([
     { checked: true, isFeeInfoOverflow: true },
     { checked: false, skipReason: 'fee unavailable' },
+    { checked: false, isFeeInfoOverflow: true },
   ])(
     'rejects unconfirmed fee verification before signing: %j',
     async (feeResult) => {
@@ -658,20 +764,29 @@ describe('marketDirectSendTx', () => {
         txFeeInfoVerifyResult: feeResult,
       });
       const onBeforeSignAndSend = jest.fn();
-      await expect(
-        sendMarketDirectUnsignedTxs({
-          accountAddress: '0xuser',
+      const operation = sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
           accountId: 'account-1',
           networkId: 'evm--1',
-          buildUnsignedParams: {
-            accountId: 'account-1',
-            networkId: 'evm--1',
-            encodedTx: unsignedTx.encodedTx,
-          },
-          rejectFeeInfoOverflow: true,
-          onBeforeSignAndSend,
-        }),
-      ).rejects.toBeInstanceOf(MarketDirectFeeOverflowError);
+          encodedTx: unsignedTx.encodedTx,
+        },
+        rejectFeeInfoOverflow: true,
+        onBeforeSignAndSend,
+      });
+      await expect(operation).rejects.toBeInstanceOf(
+        MarketDirectFeeOverflowError,
+      );
+      await expect(operation).rejects.toMatchObject({
+        key:
+          feeResult.checked &&
+          'isFeeInfoOverflow' in feeResult &&
+          feeResult.isFeeInfoOverflow
+            ? ETranslations.fee_alert_dialog_description
+            : 'onekey_error',
+      });
       expect(mockVerifyTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           skipVerifyError: true,
@@ -1647,7 +1762,8 @@ describe('marketDirectSendTx', () => {
   });
 
   it('validates rebuilt send-time gas infos before signing', async () => {
-    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    const unsignedTx = createUnsignedTx({ solanaRent: '0.002' });
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
     const validateFinalGasInfos = jest
       .fn()
       .mockRejectedValue(new Error('insufficient final gas balance'));
@@ -1683,15 +1799,18 @@ describe('marketDirectSendTx', () => {
       }),
     ).rejects.toThrow('insufficient final gas balance');
 
-    expect(validateFinalGasInfos).toHaveBeenCalledWith([
-      expect.objectContaining({
-        gasInfo: expect.objectContaining({
-          gas: expect.objectContaining({
-            gasPrice: '2',
+    expect(validateFinalGasInfos).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          gasInfo: expect.objectContaining({
+            gas: expect.objectContaining({
+              gasPrice: '2',
+            }),
           }),
         }),
-      }),
-    ]);
+      ],
+      [unsignedTx],
+    );
     expect(mockUpdateUnsignedTx).not.toHaveBeenCalled();
     expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
   });
@@ -1775,7 +1894,10 @@ describe('marketDirectSendTx', () => {
   );
 
   it('revalidates user-paid gas before retrying a failed sponsor send', async () => {
-    const sponsoredUnsignedTx = createSponsoredUnsignedTx();
+    const sponsoredUnsignedTx = {
+      ...createSponsoredUnsignedTx(),
+      solanaRent: '0.002',
+    };
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
     mockEstimateFee.mockResolvedValue({
       ...createEstimateFeeResult(),
@@ -1807,22 +1929,30 @@ describe('marketDirectSendTx', () => {
     ).rejects.toThrow('insufficient user-paid gas balance');
 
     expect(validateFinalGasInfos).toHaveBeenCalledTimes(2);
-    expect(validateFinalGasInfos).toHaveBeenNthCalledWith(1, [
-      expect.objectContaining({
-        gasInfo: expect.objectContaining({
-          payer: 'gasAccount',
-          gasAccountEligible: true,
+    expect(validateFinalGasInfos).toHaveBeenNthCalledWith(
+      1,
+      [
+        expect.objectContaining({
+          gasInfo: expect.objectContaining({
+            payer: 'gasAccount',
+            gasAccountEligible: true,
+          }),
         }),
-      }),
-    ]);
-    expect(validateFinalGasInfos).toHaveBeenNthCalledWith(2, [
-      expect.objectContaining({
-        gasInfo: expect.objectContaining({
-          payer: 'user',
-          gasAccountEligible: false,
+      ],
+      [sponsoredUnsignedTx],
+    );
+    expect(validateFinalGasInfos).toHaveBeenNthCalledWith(
+      2,
+      [
+        expect.objectContaining({
+          gasInfo: expect.objectContaining({
+            payer: 'user',
+            gasAccountEligible: false,
+          }),
         }),
-      }),
-    ]);
+      ],
+      [sponsoredUnsignedTx],
+    );
     expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
   });
 

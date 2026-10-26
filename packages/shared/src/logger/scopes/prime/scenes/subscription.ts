@@ -2,6 +2,10 @@
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import type {
+  IPrimeFreeTrialAttemptParams,
+  IPrimeFreeTrialResultParams,
+} from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
 import { getPrimeInfiniPaymentSafeLogParams } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
   getOneKeyIdAuthFailureServerParams,
@@ -39,6 +43,37 @@ import type {
 // Payment channel dimension: 'iap' = native in-app purchase (RevenueCat),
 // 'stripe' = RevenueCat web billing (Stripe), 'crypto' = Infini crypto checkout
 export type IPrimePaymentMethod = 'iap' | 'stripe' | 'crypto';
+
+// Card checkout flow for paymentMethod 'stripe': 'embedded' = purchases-js
+// Stripe form inside the app, 'hostedLink' = RevenueCat Web Purchase Link.
+export type IPrimeCardCheckoutFlow = 'embedded' | 'hostedLink';
+
+export type IPrimeWebCheckoutFlowParams = {
+  stage:
+    | 'extensionHandoff'
+    | 'fallback'
+    | 'baseline'
+    | 'open'
+    | 'reopen'
+    | 'return'
+    | 'polling'
+    | 'settle'
+    | 'recovery';
+  status:
+    | 'started'
+    | 'succeeded'
+    | 'failed'
+    | 'blocked'
+    | 'pending'
+    | 'timedOut'
+    | 'cancelled';
+  reason?: string;
+  platform?: string;
+  isSandbox?: boolean;
+  subscriptionPeriod?: ISubscriptionPeriod;
+  featureName?: EPrimeFeatures | string;
+  periodType?: string;
+};
 
 // Interactive login method dimension for the OneKey ID login funnel.
 export type IOneKeyIdLoginMethod = 'email' | 'google' | 'apple' | 'oauth';
@@ -338,6 +373,22 @@ export class PrimeSubscriptionScene extends BaseScene {
     return params;
   }
 
+  /** Client attempts, including requests blocked before any server call. */
+  @LogToServer()
+  public primeFreeTrialAttempt(
+    params: IPrimeFreeTrialAttemptParams & { source: 'client' },
+  ) {
+    return params;
+  }
+
+  /** Access grants are distinct from completed business execution. */
+  @LogToServer()
+  public primeFreeTrialResult(
+    params: IPrimeFreeTrialResultParams & { source: 'client' },
+  ) {
+    return params;
+  }
+
   @LogToLocal({ level: 'info' })
   public primeFreeTrialTrace(params: {
     featureId?: EPrimeFeatures;
@@ -474,18 +525,34 @@ export class PrimeSubscriptionScene extends BaseScene {
     featureName,
     currency,
     paymentMethod,
+    cardCheckoutFlow,
   }: {
     subscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     currency?: string;
     paymentMethod?: IPrimePaymentMethod;
+    cardCheckoutFlow?: IPrimeCardCheckoutFlow;
   }) {
     return {
       subscriptionPeriod,
       featureName,
       currency,
       paymentMethod,
+      cardCheckoutFlow,
     };
+  }
+
+  /**
+   * RevenueCat hosted card checkout (Web Purchase Link) lifecycle: opening,
+   * returning from the hosted page, polling and settling the result.
+   * Never carries the checkout URL, which contains the OneKey ID and email.
+   */
+  @LogToLocal({ level: 'info' })
+  @LogToServer()
+  public primeWebCheckoutFlow(
+    params: IPrimeWebCheckoutFlowParams,
+  ): IPrimeWebCheckoutFlowParams {
+    return params;
   }
 
   @LogToLocal({ level: 'info' })
@@ -556,12 +623,18 @@ export class PrimeSubscriptionScene extends BaseScene {
     currency,
     featureName,
     paymentMethod,
+    cardCheckoutFlow,
+    periodType,
   }: {
     planType: 'monthly' | 'yearly';
     amount: number;
     currency: string;
     featureName?: EPrimeFeatures;
     paymentMethod?: IPrimePaymentMethod;
+    cardCheckoutFlow?: IPrimeCardCheckoutFlow;
+    // RevenueCat entitlement period type ('trial' / 'intro' / 'normal'),
+    // known only when success is confirmed by polling RevenueCat.
+    periodType?: string;
   }) {
     return {
       planType,
@@ -569,6 +642,8 @@ export class PrimeSubscriptionScene extends BaseScene {
       currency,
       featureName,
       paymentMethod,
+      cardCheckoutFlow,
+      periodType,
     };
   }
 
@@ -587,6 +662,7 @@ export class PrimeSubscriptionScene extends BaseScene {
     reason,
     errorCode,
     errorMessage,
+    cardCheckoutFlow,
   }: {
     paymentMethod: IPrimePaymentMethod;
     subscriptionPeriod?: ISubscriptionPeriod;
@@ -594,6 +670,7 @@ export class PrimeSubscriptionScene extends BaseScene {
     reason: IPrimeSubscribeFailedReason;
     errorCode?: string;
     errorMessage?: string;
+    cardCheckoutFlow?: IPrimeCardCheckoutFlow;
   }) {
     this.primeSubscribeFailedLocal({
       paymentMethod,
@@ -607,6 +684,7 @@ export class PrimeSubscriptionScene extends BaseScene {
       featureName,
       reason,
       errorCode,
+      cardCheckoutFlow,
     };
   }
 

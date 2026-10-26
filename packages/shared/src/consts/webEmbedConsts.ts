@@ -9,4 +9,6 @@ export enum EWebEmbedPrivateRequestMethod {
   closeWebViewModalAfterPrimePurchaseSuccess = 'webembedPrivateRequest_closeWebViewModalAfterPrimePurchaseSuccess',
   showToast = 'webembedPrivateRequest_showToast',
   showDebugMessageDialog = 'webembedPrivateRequest_showDebugMessageDialog',
+  // The embedded Stripe checkout failed; continue in the hosted Purchase Link.
+  fallbackToPrimeHostedCheckout = 'webembedPrivateRequest_fallbackToPrimeHostedCheckout',
 }

@@ -11,6 +11,7 @@
         "./@types/react-native-webview-src/WebViewShared.d.ts"
       ]
     },
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

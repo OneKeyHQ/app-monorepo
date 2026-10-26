@@ -1,57 +1,56 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-const SEARCH_RESULT_TABS = [
-  { id: 'all', translationId: ETranslations.global_all },
-  {
-    id: 'stocks',
-    translationId: ETranslations.perps_token_selector_stocks,
-  },
-  { id: 'market', translationId: ETranslations.global_market },
-] as const;
+import {
+  type IMarketSearchTab,
+  getDetailPopoverSearchTabs,
+} from '../../../utils/marketSearchList';
 
-export type IMarketTokenSelectorSearchTab =
-  (typeof SEARCH_RESULT_TABS)[number]['id'];
+import { SelectorTabBar } from './selectorTabBar';
+
+const SEARCH_TAB_LABELS: Record<IMarketSearchTab, ETranslations> = {
+  all: ETranslations.global_all,
+  tokens: ETranslations.global_universal_search_tabs_tokens,
+  stocks: ETranslations.perps_token_selector_stocks,
+};
+
+export type IMarketTokenSelectorSearchTab = IMarketSearchTab;
 
 export function MarketTokenSelectorSearchTabs({
   value,
   onChange,
+  hasStockResults = false,
+  hasTokenResults = true,
+  backgroundColor,
 }: {
   value: IMarketTokenSelectorSearchTab;
   onChange: (value: IMarketTokenSelectorSearchTab) => void;
+  hasStockResults?: boolean;
+  hasTokenResults?: boolean;
+  backgroundColor?: '$bg' | '$bgApp';
 }) {
   const intl = useIntl();
+  const tabs = useMemo(
+    () =>
+      getDetailPopoverSearchTabs(hasStockResults, hasTokenResults).map(
+        (tab) => ({
+          id: tab,
+          label: intl.formatMessage({ id: SEARCH_TAB_LABELS[tab] }),
+        }),
+      ),
+    [hasStockResults, hasTokenResults, intl],
+  );
 
   return (
-    <XStack
-      flexShrink={0}
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
-    >
-      {SEARCH_RESULT_TABS.map((tab) => {
-        const isActive = value === tab.id;
-        return (
-          <YStack
-            key={tab.id}
-            testID={`market-token-selector-search-tab-${tab.id}`}
-            px="$4"
-            py="$3"
-            cursor="pointer"
-            borderBottomWidth={isActive ? '$0.5' : '$0'}
-            borderBottomColor="$borderActive"
-            onPress={() => onChange(tab.id)}
-          >
-            <SizableText
-              size="$headingSm"
-              color={isActive ? '$text' : '$textSubdued'}
-            >
-              {intl.formatMessage({ id: tab.translationId })}
-            </SizableText>
-          </YStack>
-        );
-      })}
-    </XStack>
+    <SelectorTabBar
+      tabs={tabs}
+      value={value}
+      onChange={onChange}
+      testIDPrefix="market-token-selector-search-tab-"
+      backgroundColor={backgroundColor}
+    />
   );
 }

@@ -246,11 +246,11 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dep
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       # EAS skips gitignored files, so hand it the verified private font through
       # a non-ignored directory. fonts:sync on the EAS install picks it up before
@@ -298,3 +298,7 @@ jobs:
             PROFILE="production"
           fi
           eas build --profile="${PROFILE}" --platform ios --non-interactive --no-wait
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup

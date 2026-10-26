@@ -16,6 +16,7 @@ import {
 } from './SwapStockPortfolio';
 
 let mockLargeLayout = true;
+let mockSelectionPending = false;
 let mockItems: IMarketAccountPortfolioDisplayItem[] = [];
 let mockTokens: ISwapToken[] = [];
 let mockVariants: IMarketStockTokenVariant[] = [];
@@ -47,6 +48,10 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: Stack,
     Skeleton: Stack,
     Stack,
+    Tabs: {
+      FlatList: Stack,
+      ScrollView: Stack,
+    },
     XStack: Stack,
     YStack: Stack,
     useMedia: () => ({ gtLg: mockLargeLayout }),
@@ -82,6 +87,7 @@ jest.mock('./SwapStockMarketProvider', () => ({
   useSwapStockSelection: () => ({
     selectToken: mockSelectToken,
     selectVariant: mockSelectVariant,
+    stockSelectionPending: mockSelectionPending,
   }),
 }));
 jest.mock('./SwapSmoothReveal', () => ({
@@ -129,11 +135,19 @@ function renderPosition() {
 describe('SwapStockMyPosition selection', () => {
   beforeEach(() => {
     mockLargeLayout = true;
+    mockSelectionPending = false;
     mockItems = [item, { ...item, networkId: 'evm--1', amount: '3' }];
     mockTokens = [{ ...token, networkId: 'evm--1' }, token];
     mockVariants = [variant, { ...variant, networkId: 'evm--1' }];
     mockSelectToken.mockReset().mockResolvedValue(true);
     mockSelectVariant.mockReset().mockResolvedValue(true);
+  });
+
+  it('does not show the committed company holdings under a pending company header', () => {
+    mockSelectionPending = true;
+    const screen = renderPosition();
+    expect(screen.queryByText(item.amount)).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
   });
 
   it.each([true, false])(

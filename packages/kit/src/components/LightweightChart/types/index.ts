@@ -64,6 +64,15 @@ export type ILightweightChartTime = UTCTimestamp;
 // [time, value] pairs for the overlay line; a null value is a gap.
 export type ILightweightSecondaryLineChart = [number, number | null][];
 
+export interface ILightweightChartNativeScrubOptions {
+  labels: Record<string, { time: string; price?: string }>;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  timeColor: string;
+  largePrice: boolean;
+}
+
 export interface ILightweightChartConfig {
   theme: ILightweightChartTheme;
   data: ILightweightChartData[];
@@ -113,6 +122,8 @@ export interface ILightweightChartConfig {
   locale?: string;
   hideCrosshairPriceLabel?: boolean;
   pulseLastPoint?: boolean;
+  nativeScrubOptions?: ILightweightChartNativeScrubOptions;
+  notifyOnHover?: boolean;
 }
 
 export interface ILightweightChartProps {
@@ -185,16 +196,18 @@ export interface ILightweightChartProps {
   timeScaleRightOffsetPixels?: number;
   timeZone?: string;
   locale?: string;
-  // Native WebView only. Keeps the default axis hover label unless a chart
+  // Native only. Keeps the default axis hover label unless a chart
   // with its own tooltip explicitly opts out.
   hideCrosshairPriceLabel?: boolean;
   // When true, overlays an animated "breathing" dot on the last data point to
   // signal the chart is live. Toggling it does not recreate the chart; the
-  // native WebView draws the same dot inside its page.
+  // native renderer draws the same dot inside its canvas.
   pulseLastPoint?: boolean;
   // Web/desktop only. Keep the chart instance alive when only data changes,
   // then update series data in place to avoid axis/marker flicker.
   preserveChartInstanceOnDataChange?: boolean;
+  // Native only: keep the solid line and tooltip in the chart's touch runtime.
+  nativeScrubOptions?: ILightweightChartNativeScrubOptions;
   onHover?: (data: {
     time?: number;
     price?: number;

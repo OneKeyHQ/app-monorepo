@@ -15,6 +15,15 @@ import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel
 type ISwapProTestState = {
   initializeSwapProSelectToken: jest.Mock;
   resetQuoteAction: jest.Mock;
+  resumeQuoteAction: jest.Mock;
+  quoteSpeedAction: jest.Mock;
+  locked: boolean;
+  focused: boolean;
+  tokenDetail?: {
+    networkId: string;
+    address: string;
+    stock: { isOpen: boolean };
+  };
   setInputAmount: jest.Mock;
   selectedToken: ISwapToken;
   buyToken?: ISwapToken;
@@ -141,6 +150,10 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
   const state: ISwapProTestState = {
     initializeSwapProSelectToken: jest.fn(),
     resetQuoteAction: jest.fn(),
+    resumeQuoteAction: jest.fn(),
+    quoteSpeedAction: jest.fn(),
+    locked: false,
+    focused: true,
     setInputAmount: jest.fn((value: string) => {
       state.inputAmount = value;
     }),
@@ -179,6 +192,8 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
         invalidateSwapProTokenBalanceRequest: jest.fn(),
         isSwapProTokenBalanceRequestLatest: jest.fn(() => true),
         resetQuoteAction: state.resetQuoteAction,
+        resumeQuoteAction: state.resumeQuoteAction,
+        quoteSpeedAction: state.quoteSpeedAction,
       },
     }),
     useSwapFromTokenAmountAtom: () => [{ value: '', isInput: true }, setter],
@@ -187,6 +202,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
     useSwapProSelectTokenAtom: () => [state.selectedToken, setter],
     useSwapProSellToTokenAtom: () => [state.sellToken, setSellToken],
     useSwapProTokenBalanceLoadingAtom: () => [false],
+    useSwapProTokenMarketDetailInfoAtom: () => [state.tokenDetail],
     useSwapProTokenSupportLimitAtom: () => [true],
     useSwapProTradeTypeAtom: () => [state.tradeType, setter],
     useSwapProUseSelectBuyTokenAtom: () => [state.buyToken, setBuyToken],
@@ -207,7 +223,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/swap', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () =>
+    (globalThis as unknown as { __swapProAtomState: ISwapProTestState })
+      .__swapProAtomState.focused,
 }));
 
 jest.mock('../../Market/hooks', () => ({
@@ -244,10 +262,27 @@ jest.mock('./useSwapAccount', () => ({
 }));
 
 jest.mock('./useSwapState', () => ({
-  useSwapSlippagePercentageModeInfo: jest.fn(),
+  useSwapSlippagePercentageModeInfo: () => ({
+    slippageItem: { key: 'auto', value: 0.5 },
+  }),
 }));
 
-import { useSwapProAccount, useSwapProTokenInit } from './useSwapPro';
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
+  useAppIsLockedAtom: () => [
+    (globalThis as unknown as { __swapProAtomState: ISwapProTestState })
+      .__swapProAtomState.locked,
+  ],
+}));
+
+jest.mock('../../../hooks/useDebounce', () => ({
+  useDebounce: (value: unknown) => value,
+}));
+
+import {
+  useSwapProAccount,
+  useSwapProTokenInit,
+  useSwapProActionsQuote,
+} from './useSwapPro';
 
 const accountServices = (
   globalThis as unknown as {
@@ -318,6 +353,11 @@ beforeEach(() => {
   swapProAtomState.defaultTokens = [];
   swapProAtomState.setInputAmount.mockClear();
   swapProAtomState.resetQuoteAction.mockClear();
+  swapProAtomState.resumeQuoteAction.mockClear();
+  swapProAtomState.quoteSpeedAction.mockClear();
+  swapProAtomState.locked = false;
+  swapProAtomState.focused = true;
+  swapProAtomState.tokenDetail = undefined;
 });
 
 describe('useSwapProAccount cache identity', () => {
@@ -571,4 +611,135 @@ describe('useSwapProTokenInit automatic payment token changes', () => {
     expect(swapProAtomState.inputAmount).toBe('0.1');
     expect(swapProAtomState.resetQuoteAction).not.toHaveBeenCalled();
   });
+});
+
+describe('native Pro quote lock lifecycle', () => {
+  beforeEach(() => {
+    platformEnv.isNative = true;
+    swapProAtomState.selectedToken = {
+      networkId: 'btc--0',
+      contractAddress: 'btc',
+      symbol: 'BTC',
+      decimals: 8,
+      isNative: true,
+    };
+    swapProAtomState.inputAmount = '0.1';
+    promiseResultState.hasResult = true;
+    promiseResultState.result = {
+      requestScope: 'btc--0|indexed-1||BIP44',
+      scope: 'btc--0|indexed-1||BIP44',
+      account: {
+        id: 'btc-account',
+        addressDetail: { address: 'bc1q-test', networkId: 'btc--0' },
+      },
+    };
+  });
+
+  it('routes unchanged unlock through budget-preserving resume', () => {
+    const { rerender, unmount } = renderHook(() => useSwapProActionsQuote());
+    expect(swapProAtomState.resumeQuoteAction).toHaveBeenCalledTimes(1);
+    swapProAtomState.resumeQuoteAction.mockClear();
+    swapProAtomState.locked = true;
+    rerender({});
+    expect(swapProAtomState.resumeQuoteAction).not.toHaveBeenCalled();
+    expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
+    swapProAtomState.locked = false;
+    rerender({});
+    expect(swapProAtomState.resumeQuoteAction).toHaveBeenCalledTimes(1);
+    expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('starts a new quote round for an amount changed while paused', () => {
+    const { rerender, unmount } = renderHook(() => useSwapProActionsQuote());
+    swapProAtomState.resumeQuoteAction.mockClear();
+    swapProAtomState.locked = true;
+    rerender({});
+    swapProAtomState.inputAmount = '0.2';
+    rerender({});
+    expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
+    swapProAtomState.locked = false;
+    rerender({});
+    expect(swapProAtomState.quoteSpeedAction).toHaveBeenCalledTimes(1);
+    expect(swapProAtomState.resumeQuoteAction).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('replays a market reopen received while locked after unlock', () => {
+    swapProAtomState.tokenDetail = {
+      networkId: 'btc--0',
+      address: 'btc',
+      stock: { isOpen: false },
+    };
+    const { rerender, unmount } = renderHook(() => useSwapProActionsQuote());
+    swapProAtomState.quoteSpeedAction.mockClear();
+    swapProAtomState.locked = true;
+    rerender({});
+    swapProAtomState.tokenDetail = {
+      networkId: 'btc--0',
+      address: 'btc',
+      stock: { isOpen: true },
+    };
+    rerender({});
+    expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
+    swapProAtomState.locked = false;
+    rerender({});
+    expect(swapProAtomState.quoteSpeedAction).toHaveBeenCalledTimes(1);
+    rerender({});
+    expect(swapProAtomState.quoteSpeedAction).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('starts a new quote round after clearing and re-entering the same amount', () => {
+    const { rerender, unmount } = renderHook(() => useSwapProActionsQuote());
+    swapProAtomState.resumeQuoteAction.mockClear();
+    swapProAtomState.resetQuoteAction.mockClear();
+    swapProAtomState.inputAmount = '';
+    rerender({});
+    expect(swapProAtomState.resetQuoteAction).toHaveBeenCalledTimes(1);
+    swapProAtomState.inputAmount = '0.1';
+    rerender({});
+    expect(swapProAtomState.quoteSpeedAction).toHaveBeenCalledTimes(1);
+    expect(swapProAtomState.resumeQuoteAction).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('does not resume a hidden page on unlock and resumes on return', () => {
+    const { rerender, unmount } = renderHook(() => useSwapProActionsQuote());
+    swapProAtomState.resumeQuoteAction.mockClear();
+    swapProAtomState.focused = false;
+    rerender({});
+    swapProAtomState.locked = true;
+    rerender({});
+    swapProAtomState.locked = false;
+    rerender({});
+    expect(swapProAtomState.resumeQuoteAction).not.toHaveBeenCalled();
+    expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
+    swapProAtomState.focused = true;
+    rerender({});
+    expect(swapProAtomState.resumeQuoteAction).toHaveBeenCalledTimes(1);
+    expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it.each([false, true])(
+    're-quotes a selected stock open-state change to %s',
+    (isOpen) => {
+      swapProAtomState.tokenDetail = {
+        networkId: 'btc--0',
+        address: 'btc',
+        stock: { isOpen: !isOpen },
+      };
+      const { rerender, unmount } = renderHook(() => useSwapProActionsQuote());
+      swapProAtomState.resumeQuoteAction.mockClear();
+      swapProAtomState.tokenDetail = {
+        ...swapProAtomState.tokenDetail,
+        stock: { isOpen },
+      };
+      rerender({});
+      expect(swapProAtomState.quoteSpeedAction).toHaveBeenCalledTimes(1);
+      expect(swapProAtomState.resumeQuoteAction).not.toHaveBeenCalled();
+      unmount();
+    },
+  );
 });

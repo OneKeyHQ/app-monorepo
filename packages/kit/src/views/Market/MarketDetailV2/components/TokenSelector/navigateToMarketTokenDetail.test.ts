@@ -3,11 +3,16 @@ import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarR
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { finishMarketDetailTabBarTransition } from '../../../utils/marketDetailNavigation';
+import { resolveMarketAssetRouteIdentity } from '../../utils/resolveMarketAssetRouteIdentity';
 
+import { convertSearchTokenToMarketToken } from './constants';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
 const mockFetchAssetDetail = jest.fn<Promise<unknown>, unknown[]>();
 const mockToastError = jest.fn();
+jest.mock('../../utils/resolveMarketAssetRouteIdentity', () => ({
+  resolveMarketAssetRouteIdentity: jest.fn(),
+}));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
@@ -106,6 +111,7 @@ jest.mock('@react-navigation/native', () => ({
 describe('navigateToMarketTokenDetail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(resolveMarketAssetRouteIdentity).mockReset();
     jest.useFakeTimers();
     platformEnv.isDesktop = true;
     platformEnv.isNative = false;
@@ -245,6 +251,105 @@ describe('navigateToMarketTokenDetail', () => {
     expect(onError).toHaveBeenCalledTimes(1);
     expect(changeActiveTokenMock).not.toHaveBeenCalled();
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    'waits for desktop selector preflight and preserves route resolution when inconclusive (asset=%s)',
+    async (matchesAsset) => {
+      getCurrentRouteMock.mockReturnValue({
+        name: 'MarketDetailV2',
+        key: 'detail',
+      });
+      const preview = {
+        address: '0xtoken',
+        networkId: 'evm--1',
+        symbol: 'TOKEN',
+        name: 'Token',
+        decimals: 18,
+        selectedAt: 1,
+      };
+      const identity = {
+        marketTokenId: 'token',
+        marketVariantId: 'token-eth',
+        networkId: 'evm--1',
+        tokenAddress: '0xtoken',
+        isNative: false,
+      };
+      let resolve!: (value: typeof identity | undefined) => void;
+      jest.mocked(resolveMarketAssetRouteIdentity).mockReturnValueOnce(
+        new Promise((done) => {
+          resolve = done;
+        }),
+      );
+      const beforeNavigate = jest.fn();
+      const pending = navigateToMarketTokenDetail(preview, {
+        tokenDetailActions,
+        tokenDetailPreview: preview,
+        resolveMarketAsset: true,
+        beforeNavigate,
+      });
+      expect(dispatchMock).not.toHaveBeenCalled();
+      expect(changeActiveTokenMock).not.toHaveBeenCalled();
+      expect(beforeNavigate).not.toHaveBeenCalled();
+      resolve(matchesAsset ? identity : undefined);
+      await pending;
+      expect(beforeNavigate).toHaveBeenCalledTimes(1);
+      expect(changeActiveTokenMock).not.toHaveBeenCalled();
+      expect(prepareTokenDetailPreviewMock).not.toHaveBeenCalled();
+      expect(clearTokenDetailMock).not.toHaveBeenCalled();
+      jest.runAllTimers();
+      expect(dispatchMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'SET_PARAMS',
+          payload: {
+            params: expect.objectContaining({
+              tokenAddress: '0xtoken',
+              resolveMarketAsset: matchesAsset ? undefined : true,
+              marketTokenSymbol: matchesAsset ? undefined : preview.symbol,
+              legacyTokenPreview: preview,
+              marketTokenId: matchesAsset ? 'token' : undefined,
+              marketTokenCategory: matchesAsset ? 'top_coins' : undefined,
+            }),
+          },
+        }),
+      );
+    },
+  );
+
+  it('does not close or navigate an obsolete desktop selector request', async () => {
+    getCurrentRouteMock.mockReturnValue({
+      name: 'MarketDetailV2',
+      key: 'detail',
+    });
+    const preview = {
+      address: '0xtoken',
+      networkId: 'evm--1',
+      symbol: 'TOKEN',
+      name: 'Token',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    let resolve!: () => void;
+    jest.mocked(resolveMarketAssetRouteIdentity).mockReturnValueOnce(
+      new Promise((done) => {
+        resolve = () => done(undefined);
+      }),
+    );
+    let isCurrent = true;
+    const beforeNavigate = jest.fn();
+    const pending = navigateToMarketTokenDetail(preview, {
+      tokenDetailActions,
+      tokenDetailPreview: preview,
+      resolveMarketAsset: true,
+      beforeNavigate,
+      isCurrentRequest: () => isCurrent,
+    });
+    isCurrent = false;
+    resolve();
+    await pending;
+    expect(beforeNavigate).not.toHaveBeenCalled();
+    expect(dispatchMock).not.toHaveBeenCalled();
+    expect(changeActiveTokenMock).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(
@@ -428,6 +533,56 @@ describe('navigateToMarketTokenDetail', () => {
     );
     expect(mockFetchAssetDetail).not.toHaveBeenCalled();
   });
+
+  it.each([false])(
+    'keeps the selected search chain instead of the default asset variant (native token: %s)',
+    async (isNative) => {
+      jest.mocked(networkUtils.getNetworkShortCode).mockReturnValueOnce('sol');
+      mockFetchAssetDetail.mockResolvedValue({
+        selectedVariant: {
+          networkId: 'evm--1',
+          tokenAddress: '0xDefault',
+          isNative: false,
+          variantId: 'default-eth',
+        },
+      });
+      const address = isNative ? '' : 'SolanaUsdc';
+      const selected = convertSearchTokenToMarketToken({
+        assetId: isNative ? 'solana' : 'usd-coin',
+        network: 'sol--101',
+        address,
+        isNative,
+        symbol: isNative ? 'SOL' : 'USDC',
+        name: isNative ? 'Solana' : 'USD Coin',
+        price: '1',
+        decimals: 6,
+        logoUrl: '',
+        networkLogoURI: '',
+        liquidity: '0',
+        volume_24h: '0',
+      });
+      await navigateToMarketTokenDetail(
+        { ...selected, networkId: selected.networkId ?? '' },
+        { tokenDetailActions, resolveMarketAsset: true },
+      );
+      jest.runAllTimers();
+      expect(mockFetchAssetDetail).not.toHaveBeenCalled();
+      expect(navigateMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            params: expect.objectContaining({
+              tokenAddress: address,
+              network: 'sol',
+              isNative,
+              resolveMarketAsset: true,
+            }),
+          }),
+        }),
+      );
+      expect(selected.networkId).toBe('sol--101');
+    },
+  );
 
   it('resolves an asset only on navigation and preserves the asset route', async () => {
     mockFetchAssetDetail.mockResolvedValue({

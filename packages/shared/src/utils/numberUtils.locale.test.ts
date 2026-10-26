@@ -82,6 +82,25 @@ describe('numberUtils locale separators', () => {
     appLocale.setLocale('hi-IN', {} as any);
     expect(formatLocalizedNumberString('12345678.9')).toBe('1,23,45,678.9');
   });
+
+  test.each(['de', 'it-IT'])(
+    '%s: preserves significant digits after rounding',
+    (locale) => {
+      appLocale.setLocale(locale, defaultMessages);
+      const options = { currency: '$', minLeadingZeros: 3 };
+      expect(formatDisplayNumber(formatPrice('0.00099999', options))).toBe(
+        '$0,001',
+      );
+      expect(formatDisplayNumber(formatPrice('-0.000099999', options))).toEqual(
+        ['-', '$', '0,0', { value: 3, type: 'sub' }, '1'],
+      );
+      expect(
+        formatDisplayNumber(formatPrice('0.00099999', options), {
+          splitDecimal: true,
+        }),
+      ).toEqual(['$', '0', { value: ',001', type: 'decimal' }]);
+    },
+  );
 });
 
 describe('numberUtils it-IT formatting', () => {

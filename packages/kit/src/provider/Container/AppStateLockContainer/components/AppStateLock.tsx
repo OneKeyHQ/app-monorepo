@@ -33,7 +33,6 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import { AppStateContainer } from './AppStateContainer';
@@ -187,8 +186,6 @@ const AppStateLock = ({
         ref={lockContainerRef}
         position="absolute"
         fullscreen
-        // keep the lock screen interface at the top by the z-index on Web & Android
-        zIndex={APP_STATE_LOCK_Z_INDEX}
         flex={1}
         bg="$bgApp"
         pointerEvents={platformEnv.isNative ? undefined : 'auto'}

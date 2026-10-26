@@ -1,4 +1,4 @@
-import type { ISwapNetwork, ISwapToken } from './types';
+import type { ISwapErrorMessage, ISwapNetwork, ISwapToken } from './types';
 
 export const DUST_SWEEP_PROVIDER = 'SwapOKX';
 
@@ -16,12 +16,9 @@ export type IDustSweepReason =
   | 'valueDrop'
   | 'noQuote'
   | 'insufficientGas'
+  | 'insufficientBalance'
   | 'txFailed'
   | 'unknown';
-export type IDustSweepQuoteFailure = {
-  reason: IDustSweepReason;
-  providerErrorMessage?: string;
-};
 export type IDustSweepToken = ISwapToken & {
   key: string;
   amount: string;
@@ -55,10 +52,14 @@ export type IDustSweepItem = {
   approvalTxIds?: string[];
   txId?: string;
   receivedAmount?: string;
+  receivedAmountEstimated?: boolean;
   receiptUnavailable?: boolean;
   reason?: IDustSweepReason;
   message?: string;
+  /** User-facing send API error while the transaction outcome is unresolved. */
+  submissionErrorMessage?: string;
   providerErrorMessage?: string;
+  localError?: ISwapErrorMessage;
 };
 export type IDustSweepSnapshot = {
   id: string;

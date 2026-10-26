@@ -1,3 +1,187 @@
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.cpp b/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.cpp
+index cb732ae..365ac41 100644
+--- a/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.cpp
++++ b/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.cpp
+@@ -19,11 +19,10 @@ react::ComponentDescriptor::Unique concreteExpoComponentDescriptorConstructor(
+   );
+ 
+   std::shared_lock lock(statePropMapMutex);
+-  if (statePropMap.contains(std::static_pointer_cast<std::string const>(parameters.flavor))) {
++  auto flavor = std::static_pointer_cast<std::string const>(parameters.flavor);
++  if (flavor && statePropMap.contains(flavor)) {
+     descriptor->setStateProps(
+-      statePropMap.at(
+-        std::static_pointer_cast<std::string const>(parameters.flavor)
+-      )
++      statePropMap.at(flavor)
+     );
+   }
+ 
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp b/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp
+index 61a8f7f..7eaee91 100644
+--- a/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp
++++ b/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp
+@@ -41,38 +41,54 @@ void FabricComponentsRegistry::registerComponentsRegistry(
+ 
+   auto frontendConverterProvider = FrontendConverterProvider::instance();
+ 
++  // OneKey patch: synchronize process-wide statePropMap and deduplicate component flavor registration
++  // across concurrent main + bg ReactHost initialization on Android.
++  static std::unordered_map<std::string, std::shared_ptr<std::string const>> registeredFlavors;
++
+   for (size_t i = 0; i < size; ++i) {
+-    auto flavor = std::make_shared<std::string const>(componentNames->getElement(i)->toStdString());
+-    auto componentName = react::ComponentName{flavor->c_str()};
++    // auto flavor = std::make_shared<std::string const>(componentNames->getElement(i)->toStdString());
++    auto componentNameStr = componentNames->getElement(i)->toStdString();
++    std::shared_ptr<std::string const> flavor;
++    bool isNewFlavor = false;
++    {
++      std::unique_lock lock(statePropMapMutex);
++      auto existingFlavorIt = registeredFlavors.find(componentNameStr);
++      if (existingFlavorIt != registeredFlavors.end()) {
++        flavor = existingFlavorIt->second;
++      } else {
++        flavor = std::make_shared<std::string const>(componentNameStr);
++        registeredFlavors.emplace(componentNameStr, flavor);
++        isNewFlavor = true;
++      }
+ 
+-    std::unordered_map<std::string, std::shared_ptr<FrontendConverter>> propMap;
++      std::unordered_map<std::string, std::shared_ptr<FrontendConverter>> propMap;
+ 
+-    auto propNames = statePropNames->getElement(i);
+-    auto propTypes = statePropTypes->getElement(i);
+-    assert(propNames->size() == propTypes->size());
++      auto propNames = statePropNames->getElement(i);
++      auto propTypes = statePropTypes->getElement(i);
++      assert(propNames->size() == propTypes->size());
+ 
+-    for (size_t j = 0; j < propNames->size(); ++j) {
+-      auto propName = propNames->getElement(j)->toStdString();
+-      auto propType = propTypes->getElement(j);
+-      auto converter = frontendConverterProvider->obtainConverter(propType);
+-      propMap.emplace(propName, converter);
+-    }
++      for (size_t j = 0; j < propNames->size(); ++j) {
++        auto propName = propNames->getElement(j)->toStdString();
++        auto propType = propTypes->getElement(j);
++        auto converter = frontendConverterProvider->obtainConverter(propType);
++        propMap.emplace(propName, converter);
++      }
+ 
+-    {
+-      // Released before `add` below, which constructs descriptors that take the shared lock.
+-      std::unique_lock lock(statePropMapMutex);
+       statePropMap.insert_or_assign(
+         flavor,
+-        propMap
++        std::move(propMap)
+       );
+     }
+ 
+-    providerRegistry->add(react::ComponentDescriptorProvider{
+-      reinterpret_cast<react::ComponentHandle>(componentName),
+-      componentName,
+-      flavor,
+-      &concreteExpoComponentDescriptorConstructor
+-    });
++    if (isNewFlavor) {
++      auto componentName = react::ComponentName{flavor->c_str()};
++      providerRegistry->add(react::ComponentDescriptorProvider{
++        reinterpret_cast<react::ComponentHandle>(componentName),
++        componentName,
++        flavor,
++        &concreteExpoComponentDescriptorConstructor
++      });
++    }
+   }
+ }
+ 
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryAdapter.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryAdapter.java
+index 10af42b..6e943ac 100644
+--- a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryAdapter.java
++++ b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryAdapter.java
+@@ -62,20 +62,23 @@ public class ModuleRegistryAdapter implements ReactPackage {
+ 
+   @Override
+   public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
+-    NativeModulesProxy proxy = getOrCreateNativeModulesProxy(reactContext, null);
+-    ModuleRegistry moduleRegistry = proxy.getModuleRegistry();
++    // OneKey patch: serialize native module and view manager creation across main + bg ReactHosts
++    synchronized (ModuleRegistryAdapter.class) {
++      NativeModulesProxy proxy = getOrCreateNativeModulesProxy(reactContext, null);
++      ModuleRegistry moduleRegistry = proxy.getModuleRegistry();
+ 
+-    for (InternalModule internalModule : mReactAdapterPackage.createInternalModules(reactContext)) {
+-      moduleRegistry.registerInternalModule(internalModule);
+-    }
++      for (InternalModule internalModule : mReactAdapterPackage.createInternalModules(reactContext)) {
++        moduleRegistry.registerInternalModule(internalModule);
++      }
+ 
+-    List<NativeModule> nativeModules = getNativeModulesFromModuleRegistry(reactContext, moduleRegistry, null);
+-    if (mWrapperDelegates != null) {
+-      KotlinInteropModuleRegistry kotlinInteropModuleRegistry = proxy.getKotlinInteropModuleRegistry();
+-      kotlinInteropModuleRegistry.updateModuleHoldersInViewDelegates(mWrapperDelegates);
+-    }
++      List<NativeModule> nativeModules = getNativeModulesFromModuleRegistry(reactContext, moduleRegistry, null);
++      if (mWrapperDelegates != null) {
++        KotlinInteropModuleRegistry kotlinInteropModuleRegistry = proxy.getKotlinInteropModuleRegistry();
++        kotlinInteropModuleRegistry.updateModuleHoldersInViewDelegates(mWrapperDelegates);
++      }
+ 
+-    return nativeModules;
++      return nativeModules;
++    }
+   }
+ 
+   protected List<NativeModule> getNativeModulesFromModuleRegistry(
+@@ -105,24 +108,27 @@ public class ModuleRegistryAdapter implements ReactPackage {
+   @Override
+   @SuppressWarnings("unchecked")
+   public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
+-    List<ViewManager> viewManagerList = new ArrayList<>(mModuleRegistryProvider.getReactViewManagers(reactContext));
+-
+-    NativeModulesProxy modulesProxy = Objects.requireNonNull(getOrCreateNativeModulesProxy(reactContext, null));
+-    KotlinInteropModuleRegistry kotlinInteropModuleRegistry = modulesProxy.getKotlinInteropModuleRegistry();
+-    List<ViewManagerWrapperDelegate> kViewManagerDelegates = kotlinInteropModuleRegistry.exportViewManagerDelegates();
+-    // Saves all holders that needs to be in sync with module registry
+-    mWrapperDelegates = kViewManagerDelegates;
+-    List<? extends ViewManager<?, ?>> viewManagers = kViewManagerDelegates
+-      .stream()
+-      .map(ViewManagerWrapperDelegate::toRNViewManager)
+-      .collect(Collectors.toList());
+-    viewManagerList.addAll(viewManagers);
+-    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+-      // Intentionally to only add Sweet API view managers for Fabric support
+-      mFabricComponentsRegistry = new FabricComponentsRegistry(kViewManagerDelegates);
+-    }
++    // OneKey patch: serialize FabricComponentsRegistry and view manager creation across main + bg ReactHosts
++    synchronized (ModuleRegistryAdapter.class) {
++      List<ViewManager> viewManagerList = new ArrayList<>(mModuleRegistryProvider.getReactViewManagers(reactContext));
++
++      NativeModulesProxy modulesProxy = Objects.requireNonNull(getOrCreateNativeModulesProxy(reactContext, null));
++      KotlinInteropModuleRegistry kotlinInteropModuleRegistry = modulesProxy.getKotlinInteropModuleRegistry();
++      List<ViewManagerWrapperDelegate> kViewManagerDelegates = kotlinInteropModuleRegistry.exportViewManagerDelegates();
++      // Saves all holders that needs to be in sync with module registry
++      mWrapperDelegates = kViewManagerDelegates;
++      List<? extends ViewManager<?, ?>> viewManagers = kViewManagerDelegates
++        .stream()
++        .map(ViewManagerWrapperDelegate::toRNViewManager)
++        .collect(Collectors.toList());
++      viewManagerList.addAll(viewManagers);
++      if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
++        // Intentionally to only add Sweet API view managers for Fabric support
++        mFabricComponentsRegistry = new FabricComponentsRegistry(kViewManagerDelegates);
++      }
+ 
+-    return viewManagerList;
++      return viewManagerList;
++    }
+   }
+ 
+   private synchronized NativeModulesProxy getOrCreateNativeModulesProxy(
 diff --git a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
 index f30fc12..4657fae 100644
 --- a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift

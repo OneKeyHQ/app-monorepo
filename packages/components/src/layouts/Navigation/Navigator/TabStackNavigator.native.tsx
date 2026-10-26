@@ -27,6 +27,7 @@ import {
 } from '../../../hooks';
 import { BottomTabBarVisibilityContext } from '../../Page/BottomTabBarVisibilityContext';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
+import { ANDROID_TAB_BAR_STYLE } from '../BottomTabs/tabBarOverlay';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -244,7 +245,7 @@ export function TabStackNavigator<RouteName extends string>({
     () =>
       // On iOS 26+ omit backgroundColor so UITabBar renders the system
       // Liquid Glass material via configureWithDefaultBackground. Setting
-      // appearance.backgroundColor in @onekeyfe/react-native-tab-view would
+      // appearance.backgroundColor in @onekeyfe/react-native-bottom-tabs would
       // overwrite the glass material with an opaque fill.
       platformEnv.isNativeIOS26Plus
         ? undefined
@@ -259,6 +260,7 @@ export function TabStackNavigator<RouteName extends string>({
         hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
         disablePageAnimations
         sidebarAdaptable={false}
+        androidTabBarStyle={ANDROID_TAB_BAR_STYLE}
         tabBarHidden={hidden}
         tabBarActiveTintColor={theme.iconActive.val}
         tabBarInactiveTintColor={theme.iconSubdued.val}

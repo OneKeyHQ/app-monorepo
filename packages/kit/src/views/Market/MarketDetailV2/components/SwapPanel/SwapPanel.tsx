@@ -8,6 +8,7 @@ import {
   Button,
   Divider,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   View,
@@ -125,6 +126,7 @@ export function SwapPanel({
   swapToken,
   disableTrade,
   portfolioData,
+  isPortfolioPending = false,
   onShowSwapDialog,
   executionReady = true,
   footerMode = 'buy-sell',
@@ -136,6 +138,7 @@ export function SwapPanel({
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
+  isPortfolioPending?: boolean;
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
   // False until the token detail confirms the token can be traded. The footer
   // keeps its place and shows the buttons disabled instead of appearing late.
@@ -297,14 +300,8 @@ export function SwapPanel({
                 id: ETranslations.dexmarket_details_myposition,
               })}
             </SizableText>
-            {myPositionInfo.isZero ? (
-              <Currency
-                size="$bodySmMedium"
-                formatter="value"
-                sourceCurrency={USD_CURRENCY_ID}
-              >
-                0.00
-              </Currency>
+            {isPortfolioPending ? (
+              <Skeleton width="$12" height="$4" />
             ) : (
               <Currency
                 size="$bodySmMedium"

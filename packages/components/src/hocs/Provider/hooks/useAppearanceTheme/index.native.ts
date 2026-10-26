@@ -10,18 +10,25 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IGetAppThemeVariant,
   ISetSystemBarsOverride,
+  ISystemBarsOverride,
   IUpdateAppRootViewBackground,
   IUseAppearanceTheme,
 } from './type';
 
-const setDarkContent = (isAnimated = true) => {
+const appGround = (variant: 'light' | 'dark'): string =>
+  getTokenValue(
+    variant === 'dark' ? '$bgAppDark' : '$bgAppLight',
+    'color',
+  ) as string;
+
+const setDarkContent = (_color?: string, isAnimated = true) => {
   StatusBar.setBarStyle('light-content', isAnimated);
   if (platformEnv.isNativeAndroid) {
     setStyle('light');
   }
 };
 
-const setLightContent = (isAnimated = true) => {
+const setLightContent = (_color?: string, isAnimated = true) => {
   StatusBar.setBarStyle('dark-content', isAnimated);
   if (platformEnv.isNativeAndroid) {
     setStyle('dark');
@@ -40,7 +47,16 @@ const setLightContent = (isAnimated = true) => {
 // are transparent over the WINDOW background and the window paint below is
 // what colors the bands. The calls above only pick the icon styles.
 let appVariant: 'light' | 'dark' | undefined;
-let overrideVariant: 'light' | 'dark' | null = null;
+// One slot per foreground surface (onboarding, the mobile browser...), so one
+// surface releasing its pin can't clear another's; the latest set wins.
+const overrides = new Map<string, ISystemBarsOverride>();
+const getOverride = () => {
+  let latest: ISystemBarsOverride | undefined;
+  overrides.forEach((value) => {
+    latest = value;
+  });
+  return latest;
+};
 // The app's own window-background request (NavigationContainer keeps it
 // on the app theme), replayed on override release.
 let appRootViewBackground:
@@ -52,22 +68,20 @@ let appRootViewBackground:
   | undefined;
 
 function applySystemBars() {
-  const effective = overrideVariant ?? appVariant;
+  const override = getOverride();
+  const effective = override?.variant ?? appVariant;
   if (effective === 'light') {
-    setLightContent();
+    setLightContent(override?.color);
   } else if (effective === 'dark') {
-    setDarkContent();
+    setDarkContent(override?.color);
   }
-  // The window paint: the override pins it to its variant's app ground;
-  // otherwise the app's own request is replayed verbatim (it also
-  // carries the iOS user-interface-style side effect).
-  if (overrideVariant) {
+  // The window paint: the override pins it to its color, else its variant's
+  // app ground; otherwise the app's own request is replayed verbatim (it
+  // also carries the iOS user-interface-style side effect).
+  if (override) {
     updateRootViewBackgroundColor(
-      getTokenValue(
-        overrideVariant === 'dark' ? '$bgAppDark' : '$bgAppLight',
-        'color',
-      ) as string,
-      overrideVariant,
+      override.color ?? appGround(override.variant),
+      override.variant,
       appRootViewBackground?.themeSetting,
     );
   } else if (appRootViewBackground) {
@@ -80,13 +94,23 @@ function applySystemBars() {
 }
 
 export const getAppThemeVariant: IGetAppThemeVariant = () =>
-  overrideVariant ?? appVariant;
+  getOverride()?.variant ?? appVariant;
 
-export const setSystemBarsOverride: ISetSystemBarsOverride = (variant) => {
-  if (overrideVariant === variant) {
+export const setSystemBarsOverride: ISetSystemBarsOverride = (
+  ownerId,
+  override,
+) => {
+  const current = overrides.get(ownerId);
+  if (
+    current?.variant === override?.variant &&
+    current?.color === override?.color
+  ) {
     return;
   }
-  overrideVariant = variant;
+  overrides.delete(ownerId);
+  if (override) {
+    overrides.set(ownerId, override);
+  }
   applySystemBars();
 };
 
@@ -99,7 +123,7 @@ export const updateAppRootViewBackground: IUpdateAppRootViewBackground = (
   themeSetting,
 ) => {
   appRootViewBackground = { color, themeVariant, themeSetting };
-  if (overrideVariant) {
+  if (overrides.size) {
     applySystemBars();
     return;
   }

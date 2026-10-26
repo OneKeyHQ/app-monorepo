@@ -17,6 +17,8 @@ import {
 } from './translateBridge';
 import { useWebViewTranslate } from './useWebViewTranslate';
 
+const mockTrialAttempt = jest.fn();
+const mockTrialResult = jest.fn();
 const mockApiTranslate = jest.fn();
 const mockInjectJavaScript = jest.fn();
 const mockAddEventListener = jest.fn();
@@ -56,10 +58,13 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   const noopLogger: unknown = new Proxy(jest.fn(), {
     apply: () => undefined,
-    get: (_target, key) =>
-      key === 'primeFreeTrialUsageSuccess'
-        ? mockFreeTrialUsageSuccess
-        : noopLogger,
+    get: (_target, key) => {
+      if (key === 'primeFreeTrialAttempt') return mockTrialAttempt;
+      if (key === 'primeFreeTrialResult') return mockTrialResult;
+      if (key === 'primeFreeTrialUsageSuccess')
+        return mockFreeTrialUsageSuccess;
+      return noopLogger;
+    },
   });
   return { defaultLogger: noopLogger };
 });
@@ -193,6 +198,226 @@ describe('useWebViewTranslate free-trial stop', () => {
   afterEach(() => {
     jest.useRealTimers();
   });
+
+  it('does not report completion before a billed response, then records actual success once', async () => {
+    const { sessionId, unmount } = await startSession(jest.fn(), {
+      entitlementSource: 'freeTrial',
+    });
+    expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+    expect(mockTrialResult).not.toHaveBeenCalled();
+    mockApiTranslate.mockResolvedValue({
+      translations: ['translated'],
+      hasBilledBatch: true,
+    });
+    await act(async () => {
+      request(sessionId, 'tr_analytics', ['private page text']);
+      await flush();
+    });
+    expect(mockTrialResult).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'success', attemptId: sessionId }),
+    );
+    unmount();
+    expect(mockTrialResult).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(mockTrialAttempt.mock.calls)).not.toContain(
+      'private page text',
+    );
+  });
+
+  it.each([90_600, 90_601])(
+    'records a server rejection %s once for a non-billed session',
+    async (code) => {
+      mockApiTranslate.mockResolvedValue({
+        translations: ['original'],
+        freeTrialError: {
+          code,
+          data: { featureId: EPrimeFeatures.DAppTranslate },
+        },
+      });
+      const { sessionId, unmount } = await startSession(jest.fn(), {
+        entitlementSource: 'freeTrial',
+      });
+      await act(async () => {
+        request(sessionId, 'tr_rejected', ['original']);
+        await flush();
+      });
+      unmount();
+      expect(mockTrialResult).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: code === 90_600 ? 'exhausted' : 'notOpen',
+          rejectionSource: 'server',
+        }),
+      );
+    },
+  );
+  it('records a late billed result after restoring instead of claiming the in-flight request was cancelled', async () => {
+    const pending = deferred<unknown>();
+    mockApiTranslate.mockReturnValueOnce(pending.promise);
+    const { result, sessionId } = await startSession(jest.fn(), {
+      entitlementSource: 'freeTrial',
+    });
+    act(() => {
+      request(sessionId, 'tr_cancelled', ['private text']);
+      result.current.restoreOriginal();
+    });
+    await act(async () => {
+      pending.resolve({ translations: ['translated'], hasBilledBatch: true });
+      await flush();
+    });
+    expect(mockTrialResult).toHaveBeenCalledTimes(1);
+    expect(mockTrialResult).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'success' }),
+    );
+  });
+  it('records original-text fallback as failure rather than successful translation', async () => {
+    mockApiTranslate.mockResolvedValue({
+      translations: ['original'],
+      hasBilledBatch: false,
+    });
+    const { sessionId } = await startSession(jest.fn(), {
+      entitlementSource: 'freeTrial',
+    });
+    await act(async () => {
+      request(sessionId, 'tr_fallback', ['original']);
+      await flush();
+    });
+    expect(mockTrialResult).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'failed' }),
+    );
+    expect(mockFreeTrialUsageSuccess).not.toHaveBeenCalled();
+  });
+
+  it('waits for concurrent requests and preserves a billed result when another request is rejected', async () => {
+    const pending = deferred<unknown>();
+    mockApiTranslate
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce({
+        translations: ['original'],
+        freeTrialError: EXHAUSTED,
+      });
+    const { sessionId } = await startSession(jest.fn(), {
+      entitlementSource: 'freeTrial',
+    });
+    await act(async () => {
+      request(sessionId, 'tr_pending_result', ['a']);
+      request(sessionId, 'tr_denied_result', ['b']);
+      await flush();
+    });
+    expect(mockTrialResult).not.toHaveBeenCalled();
+    await act(async () => {
+      pending.resolve({ translations: ['A'], hasBilledBatch: true });
+      await flush();
+    });
+    expect(mockTrialResult).toHaveBeenCalledTimes(1);
+    expect(mockTrialResult).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'success' }),
+    );
+  });
+  it('records a cancelled session before any request without success on opening the translator', async () => {
+    const { result } = await startSession(jest.fn(), {
+      entitlementSource: 'freeTrial',
+    });
+    expect(mockTrialResult).not.toHaveBeenCalled();
+    act(() => {
+      result.current.restoreOriginal();
+    });
+    expect(mockTrialResult).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'cancelled' }),
+    );
+    expect(mockApiTranslate).not.toHaveBeenCalled();
+  });
+
+  it('corrects an earlier failed request group when the streaming session later delivers billed translations', async () => {
+    mockApiTranslate
+      .mockResolvedValueOnce({
+        translations: ['original'],
+        hasBilledBatch: false,
+      })
+      .mockResolvedValueOnce({
+        translations: ['translated'],
+        hasBilledBatch: true,
+      });
+    const { sessionId, unmount } = await startSession(jest.fn(), {
+      entitlementSource: 'freeTrial',
+    });
+    await act(async () => {
+      request(sessionId, 'tr_early_failure', ['original']);
+      await flush();
+    });
+    await act(async () => {
+      request(sessionId, 'tr_later_success', ['later']);
+      await flush();
+    });
+    expect(mockTrialResult).toHaveBeenCalledTimes(2);
+    expect(mockTrialResult).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        result: 'success',
+        previousResult: 'failed',
+        attemptId: sessionId,
+      }),
+    );
+    unmount();
+    expect(mockTrialResult).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { platform: 'Native', code: 90_600 },
+    { platform: 'Native', code: 90_601 },
+    { platform: 'Desktop', code: 90_600 },
+    { platform: 'Desktop', code: 90_601 },
+  ])(
+    'corrects an earlier fallback when a later request returns $code on $platform',
+    async ({ platform, code }) => {
+      mockedPlatformEnv.isNative = platform === 'Native';
+      mockedPlatformEnv.isDesktop = platform === 'Desktop';
+      try {
+        mockApiTranslate
+          .mockResolvedValueOnce({
+            translations: ['original'],
+            hasBilledBatch: false,
+          })
+          .mockResolvedValueOnce({
+            translations: ['later'],
+            freeTrialError: {
+              code,
+              data: { featureId: EPrimeFeatures.DAppTranslate },
+            },
+          });
+        const { sessionId, unmount } = await startSession(jest.fn(), {
+          entitlementSource: 'freeTrial',
+        });
+        const dispatch = platform === 'Desktop' ? desktopRequest : request;
+        await act(async () => {
+          dispatch(sessionId, 'tr_early_fallback', ['original']);
+          await flush();
+        });
+        expect(mockTrialResult).toHaveBeenCalledTimes(1);
+        expect(mockTrialResult).toHaveBeenLastCalledWith(
+          expect.objectContaining({ result: 'failed', attemptId: sessionId }),
+        );
+        await act(async () => {
+          dispatch(sessionId, 'tr_later_rejection', ['later']);
+          await flush();
+        });
+        expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+        expect(mockTrialResult).toHaveBeenCalledTimes(2);
+        expect(mockTrialResult).toHaveBeenLastCalledWith({
+          featureId: EPrimeFeatures.DAppTranslate,
+          attemptId: sessionId,
+          stage: 'execution',
+          source: 'client',
+          result: code === 90_600 ? 'exhausted' : 'notOpen',
+          rejectionSource: 'server',
+          previousResult: 'failed',
+        });
+        unmount();
+        expect(mockTrialResult).toHaveBeenCalledTimes(2);
+      } finally {
+        mockedPlatformEnv.isNative = true;
+        mockedPlatformEnv.isDesktop = false;
+      }
+    },
+  );
 
   it('writes billed translations back, then stops without restoring', async () => {
     const onFreeTrialUnavailable = jest.fn();

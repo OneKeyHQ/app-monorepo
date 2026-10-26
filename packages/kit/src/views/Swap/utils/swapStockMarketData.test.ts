@@ -1,3 +1,7 @@
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketStockPublicItem,
   IMarketStockPublicListResponse,
@@ -8,15 +12,45 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
+import { getTokenIdentityKey } from '../hooks/swapStockChannelUtils';
+
 import {
   fetchSwapStockSelection,
   fetchSwapStockVariantToken,
+  getCachedSwapStockAssetPreview,
+  getCachedSwapStockId,
+  resolveSwapStockAutoVariant,
   resolveSwapStockAvailability,
   resolveSwapStockLoadingScopes,
   resolveSwapStockSelectionToken,
   resolveSwapStockTokenSelectionKind,
   selectSwapStockVariant,
 } from './swapStockMarketData';
+
+jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/utils/swrCacheUtils')
+  >('@onekeyhq/shared/src/utils/swrCacheUtils');
+  const entries = new Map<string, { data: unknown; updatedAt: number }>();
+  return {
+    ...actual,
+    swrCacheUtils: {
+      get: <T>(key: string) => entries.get(key)?.data as T | undefined,
+      keysByPrefix: (prefix: string) =>
+        [...entries.keys()].filter((key) => key.startsWith(prefix)),
+      getWithTimestamp: <T>(key: string) =>
+        entries.get(key) as { data: T; updatedAt: number } | undefined,
+      set: (key: string, data: unknown) => {
+        entries.set(key, { data, updatedAt: Date.now() });
+      },
+      clearAll: () => entries.clear(),
+      flushNow: jest.fn(),
+    },
+  };
+});
+
+beforeEach(() => swrCacheUtils.clearAll());
+afterAll(() => swrCacheUtils.flushNow());
 
 const fetchVariantsMock = jest.fn<
   Promise<IMarketStockTokenVariantsResponse>,
@@ -87,10 +121,31 @@ describe('resolveSwapStockLoadingScopes', () => {
           kind: 'ticker',
           tokenKey: 'new-token',
         },
-        currentTokenKey: 'new-token',
+        currentTokenKey: 'old-token',
         isTokenVariantPending: true,
       }),
     ).toEqual(allLoading);
+  });
+
+  it('holds the trade target while a restored token awaits the issuer rule', () => {
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: { phase: 'idle' },
+        currentTokenKey: 'restored-token',
+        isTokenVariantPending: false,
+        isAutoVariantPending: true,
+      }),
+    ).toEqual(tradeLoading);
+  });
+
+  it('keeps the committed asset visible while its variants are still confirming', () => {
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: { phase: 'applying', kind: 'ticker', tokenKey: 'new-token' },
+        currentTokenKey: 'new-token',
+        isTokenVariantPending: true,
+      }),
+    ).toEqual(tradeLoading);
   });
 
   it('loads only the trade target and input while a variant changes', () => {
@@ -143,6 +198,16 @@ describe('resolveSwapStockLoadingScopes', () => {
     expect(
       resolveSwapStockAvailability({ pending: false, failed: false }),
     ).toBe('unavailable');
+  });
+
+  it('keeps cached displays intact while a selection waits for its risk check', () => {
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: { phase: 'checkingRisk', kind: 'ticker' },
+        currentTokenKey: 'old-token',
+        isTokenVariantPending: false,
+      }),
+    ).toEqual(noLoading);
   });
 
   it('does not let a background variant refresh reload stock surfaces', () => {
@@ -273,7 +338,7 @@ describe('resolveSwapStockSelectionToken', () => {
     ).resolves.toEqual({
       ...positionToken,
       isStock: true,
-      stock: { ...positionToken.stock, stockId: stock.stockId },
+      stock: { ...positionToken.stock, stockId: stock.stockId.toUpperCase() },
     });
     expect(searchStocksMock).toHaveBeenCalledWith({ query: EVM_ADDRESS });
   });
@@ -357,6 +422,324 @@ function buildDetailResponse(
     data: { token, websocket: { txs: false, kline: false } },
   };
 }
+
+describe('Swap stock selection caches', () => {
+  const locale = 'en-us';
+  const positionToken: ISwapToken = {
+    networkId: 'evm--1',
+    contractAddress: EVM_ADDRESS,
+    decimals: 18,
+    symbol: 'AAPLon',
+    balanceParsed: '0.5',
+    stock: { subtitle: 'Apple', sourceLogoUri: 'https://example.com/ondo.png' },
+  };
+  const scope = `${getTokenIdentityKey(positionToken)}:${locale}`;
+  const variantsKey = swrKeys.marketStockTokenVariants({
+    stockId: 'APPLE',
+    locale,
+  });
+
+  function seedDetail(
+    token = buildDetail(),
+    fetchedAt = Date.now(),
+    tokenScope = scope,
+  ) {
+    swrCacheUtils.set(swrKeys.swapStockTokenDetail({ tokenScope }), {
+      scope: tokenScope,
+      token,
+      fetchedAt,
+    });
+  }
+
+  beforeEach(() => {
+    searchStocksMock.mockReset();
+    fetchVariantsMock.mockReset();
+    fetchDetailMock.mockReset();
+  });
+
+  it('reuses verified contract identity without replacing account-owned token fields', async () => {
+    swrCacheUtils.set(
+      swrKeys.swapStockTokenIdentity({
+        tokenScope: getTokenIdentityKey(positionToken),
+      }),
+      {
+        tokenIdentity: getTokenIdentityKey(positionToken),
+        stock,
+        failed: false,
+      },
+    );
+    const revisited = await resolveSwapStockSelectionToken(positionToken);
+    expect(revisited).toMatchObject({
+      ...positionToken,
+      stock: { ...positionToken.stock, stockId: stock.stockId.toUpperCase() },
+    });
+    expect(searchStocksMock).not.toHaveBeenCalled();
+    expect(fetchVariantsMock).not.toHaveBeenCalled();
+  });
+
+  it('uses scoped cached company data for position preview and identity even when display data is old', async () => {
+    seedDetail(buildDetail(), Date.now() - 120_000);
+    swrCacheUtils.set(swrKeys.marketStockDetail({ stockId: 'APPLE', locale }), {
+      stockId: 'APPLE',
+      data: { ...stock, stockId: 'APPLE' },
+    });
+    expect(getCachedSwapStockAssetPreview(positionToken, locale)).toMatchObject(
+      {
+        stockId: 'APPLE',
+        symbol: 'AAPL',
+        name: 'Apple',
+        logoUrl: stock.logoUrl,
+      },
+    );
+    await expect(
+      resolveSwapStockSelectionToken(positionToken, locale),
+    ).resolves.toMatchObject({
+      balanceParsed: '0.5',
+      stock: { stockId: 'APPLE' },
+    });
+    expect(searchStocksMock).not.toHaveBeenCalled();
+  });
+
+  it('never substitutes token or issuer metadata for missing asset display data', () => {
+    seedDetail(buildDetail());
+    expect(
+      getCachedSwapStockAssetPreview(
+        {
+          ...positionToken,
+          stock: {
+            ...positionToken.stock!,
+            stockId: 'APPLE',
+            underlyingAssetTicker: 'AAPL',
+          },
+        },
+        locale,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('reuses the parent of an uncached sibling without borrowing token metadata', async () => {
+    const sibling = {
+      ...positionToken,
+      contractAddress: '0x1111111111111111111111111111111111111111',
+      symbol: 'SPCXx',
+      stock: { subtitle: '', sourceLogoUri: 'https://example.com/xstocks.png' },
+    };
+    const asset = { ...stock, stockId: 'SPCX', symbol: 'SPCX', name: 'SpaceX' };
+    seedDetail(
+      buildDetail({ stock: { ...buildDetail().stock!, stockId: 'SPCX' } }),
+    );
+    swrCacheUtils.set(swrKeys.marketStockDetail({ stockId: 'SPCX', locale }), {
+      stockId: 'SPCX',
+      data: asset,
+    });
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'SPCX', locale }),
+      {
+        stockId: 'SPCX',
+        items: [
+          buildVariant({ symbol: 'bSPCX' }),
+          buildVariant({
+            networkId: sibling.networkId,
+            contractAddress: sibling.contractAddress,
+            symbol: sibling.symbol,
+            tokenId: 'spcx-xstocks',
+          }),
+        ],
+        fetchedAt: Date.now() - 120_000,
+      },
+    );
+
+    expect(getCachedSwapStockId(sibling, locale)).toBe('SPCX');
+    expect(getCachedSwapStockAssetPreview(sibling, locale)).toEqual(asset);
+    const resolved = await resolveSwapStockSelectionToken(sibling, locale);
+    expect(resolved).toEqual({
+      ...sibling,
+      isStock: true,
+      stock: { ...sibling.stock, stockId: 'SPCX', subtitle: '' },
+    });
+    expect(
+      swrCacheUtils.get(
+        swrKeys.swapStockTokenDetail({
+          tokenScope: `${getTokenIdentityKey(sibling)}:${locale}`,
+        }),
+      ),
+    ).toBeUndefined();
+    expect(searchStocksMock).not.toHaveBeenCalled();
+    expect(fetchDetailMock).not.toHaveBeenCalled();
+  });
+
+  it('can identify a parent from its variants without any child detail cache', () => {
+    swrCacheUtils.set(variantsKey, {
+      stockId: 'APPLE',
+      items: [buildVariant()],
+    });
+    expect(getCachedSwapStockId(positionToken, locale)).toBe('APPLE');
+    expect(
+      getCachedSwapStockAssetPreview(positionToken, locale),
+    ).toBeUndefined();
+  });
+
+  it.each([
+    { locale: 'zh-cn', items: [buildVariant()] },
+    { locale, items: [buildVariant({ networkId: 'evm--56' })] },
+    { locale, items: [buildVariant({ contractAddress: '0xother' })] },
+    { locale, items: [buildVariant()], failed: true },
+    { locale, items: undefined },
+    { locale, items: [buildVariant()], stockId: 'WRONG' },
+  ])(
+    'rejects a parent relationship with a mismatched scope or payload %p',
+    (entry) => {
+      swrCacheUtils.set(
+        swrKeys.marketStockTokenVariants({
+          stockId: 'APPLE',
+          locale: entry.locale,
+        }),
+        { stockId: 'APPLE', ...entry },
+      );
+      expect(getCachedSwapStockId(positionToken, locale)).toBeUndefined();
+    },
+  );
+
+  it('does not pick a parent when cached variants disagree about its identity', () => {
+    for (const stockId of ['APPLE', 'OTHER']) {
+      swrCacheUtils.set(swrKeys.marketStockTokenVariants({ stockId, locale }), {
+        stockId,
+        items: [buildVariant()],
+      });
+    }
+    expect(getCachedSwapStockId(positionToken, locale)).toBeUndefined();
+  });
+
+  it('does not reuse identity stored under another contract scope', async () => {
+    swrCacheUtils.set(
+      swrKeys.swapStockTokenIdentity({
+        tokenScope: getTokenIdentityKey(positionToken),
+      }),
+      {
+        tokenIdentity: 'evm--56:another-contract:token',
+        stock,
+        failed: false,
+      },
+    );
+    searchStocksMock.mockResolvedValue({ items: [stock], total: 1 });
+    fetchVariantsMock.mockResolvedValue({
+      stockId: stock.stockId,
+      items: [buildVariant()],
+    });
+    await resolveSwapStockSelectionToken(positionToken, locale);
+    expect(searchStocksMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens a warm ticker using the cached default or exact issuer without serial network requests', async () => {
+    swrCacheUtils.set(variantsKey, {
+      stockId: 'APPLE',
+      items: [buildVariant(), defaultVariant],
+      defaultTokenId: defaultVariant.tokenId,
+    });
+    seedDetail();
+    seedDetail(
+      buildDetail({
+        address: SOLANA_ADDRESS,
+        networkId: defaultVariant.networkId,
+        symbol: 'AAPLx',
+        logoUrl: 'https://example.com/aapl-xstocks.png',
+        stock: {
+          stockId: 'APPLE',
+          source: 'xstocks',
+          subtitle: 'Apple',
+          sourceLogoUri: 'https://example.com/xstocks.png',
+        },
+      }),
+      Date.now(),
+      `${getTokenIdentityKey({ ...defaultVariant, isNative: false })}:${locale}`,
+    );
+    await expect(
+      fetchSwapStockSelection(stock, undefined, locale),
+    ).resolves.toMatchObject({
+      networkId: 'sol--101',
+      symbol: 'AAPLx',
+      logoURI: 'https://example.com/aapl-xstocks.png',
+      stock: {
+        source: 'xstocks',
+        sourceLogoUri: 'https://example.com/xstocks.png',
+      },
+    });
+    await expect(
+      fetchSwapStockSelection(stock, 'AAPLon', locale),
+    ).resolves.toMatchObject({
+      networkId: 'evm--1',
+      // The USD `price`, never the display-currency `priceConverted`.
+      currency: 'usd',
+      price: '311.25',
+    });
+    expect(fetchVariantsMock).not.toHaveBeenCalled();
+    expect(fetchDetailMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { networkId: 'evm--56' },
+    { address: '0x1111111111111111111111111111111111111111' },
+    { decimals: 0, decimalsResolved: false },
+    { stock: { ...buildDetail().stock!, stockId: 'TSLA' } },
+  ])(
+    'revalidates malformed or mismatched cached token details %p',
+    async (overrides) => {
+      seedDetail(buildDetail(overrides));
+      fetchDetailMock.mockResolvedValue(buildDetailResponse());
+      await expect(
+        fetchSwapStockVariantToken(buildVariant(), stock.stockId, locale),
+      ).resolves.toMatchObject({ symbol: 'AAPLon' });
+      expect(fetchDetailMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('uses payload freshness rather than the newly written cache entry timestamp', async () => {
+    seedDetail(buildDetail(), Date.now() - 61_000);
+    fetchDetailMock.mockResolvedValue(buildDetailResponse());
+    await fetchSwapStockVariantToken(buildVariant(), stock.stockId, locale);
+    expect(fetchDetailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('revalidates variants after their existing polling window while retaining fresh token metadata', async () => {
+    seedDetail();
+    swrCacheUtils.set(variantsKey, {
+      stockId: 'APPLE',
+      items: [buildVariant()],
+    });
+    const now = Date.now();
+    const dateNow = jest.spyOn(Date, 'now').mockReturnValue(now + 6001);
+    fetchVariantsMock.mockResolvedValue({
+      stockId: stock.stockId,
+      items: [buildVariant()],
+    });
+    try {
+      await fetchSwapStockSelection(stock, undefined, locale);
+      expect(fetchVariantsMock).toHaveBeenCalledTimes(1);
+      expect(fetchDetailMock).not.toHaveBeenCalled();
+    } finally {
+      dateNow.mockRestore();
+    }
+  });
+
+  it('does not use a cached active default to bypass an explicit paused issuer', async () => {
+    const paused = buildVariant({ isPaused: true });
+    swrCacheUtils.set(variantsKey, {
+      stockId: 'APPLE',
+      items: [defaultVariant, paused],
+      defaultTokenId: defaultVariant.tokenId,
+    });
+    fetchVariantsMock.mockResolvedValue({
+      stockId: stock.stockId,
+      items: [defaultVariant, paused],
+      defaultTokenId: defaultVariant.tokenId,
+    });
+    await expect(
+      fetchSwapStockSelection(stock, 'AAPLon', locale),
+    ).rejects.toThrow('No tradable stock token');
+    expect(fetchVariantsMock).toHaveBeenCalledTimes(1);
+    expect(fetchDetailMock).not.toHaveBeenCalled();
+  });
+});
 
 describe('selectSwapStockVariant', () => {
   it.each([undefined, '', '  ', 'Apple', 'AAPL'])(
@@ -661,5 +1044,94 @@ describe('Swap stock selection response mapping', () => {
       'No tradable stock token',
     );
     expect(fetchDetailMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('issuer preference in Swap stock defaults', () => {
+  const ondo = buildVariant();
+  const ondoBsc = buildVariant({
+    tokenId: 'apple-ondo-bsc',
+    networkId: 'evm--56',
+    contractAddress: '0x0000000000000000000000000000000000000056',
+  });
+  const bStocks = buildVariant({
+    tokenId: 'apple-bstocks-bsc',
+    issuer: 'bStocks',
+    symbol: 'AAPLB',
+    networkId: 'evm--56',
+    contractAddress: '0x00000000000000000000000000000000000000b5',
+  });
+
+  it('switches stocks to the remembered issuer ahead of bStocks', () => {
+    expect(
+      selectSwapStockVariant({
+        items: [bStocks, ondo],
+        preferredIssuer: 'ondo',
+      }),
+    ).toBe(ondo);
+    expect(selectSwapStockVariant({ items: [ondo, bStocks] })).toBe(bStocks);
+  });
+
+  it('moves a restored non-bStocks token to bStocks without a preference', () => {
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [ondo, bStocks],
+        current: ondo,
+      }),
+    ).toBe(bStocks);
+  });
+
+  it('moves a restored token to the remembered issuer', () => {
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [bStocks, ondo],
+        current: bStocks,
+        preferredIssuer: 'ondo',
+      }),
+    ).toBe(ondo);
+  });
+
+  it('keeps a token whose issuer already matches the rule, on any network', () => {
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [bStocks, ondo, ondoBsc],
+        current: ondoBsc,
+        defaultTokenId: ondo.tokenId,
+        preferredIssuer: 'ondo',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [ondo, bStocks],
+        current: bStocks,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('moves a paused token to a tradable token of the same issuer', () => {
+    const pausedOndoBsc = { ...ondoBsc, isPaused: true };
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [bStocks, ondo, pausedOndoBsc],
+        current: pausedOndoBsc,
+        preferredIssuer: 'ondo',
+      }),
+    ).toBe(ondo);
+    // With no tradable replacement the paused token stays.
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [pausedOndoBsc],
+        current: pausedOndoBsc,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps the token when no tradable variant can replace it', () => {
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [ondo, { ...bStocks, tradingEnabled: false }],
+        current: ondo,
+      }),
+    ).toBeUndefined();
   });
 });

@@ -186,17 +186,13 @@ describe('hardware label form presentation', () => {
         intl: mockIntl,
       },
       {
-        nativeSheet: true,
         onSubmit: jest.fn(),
       },
     );
 
     const options = jest.mocked(Dialog.show).mock.calls.at(-1)?.[0];
-    expect(options?.nativeSheet).toBe(true);
     render(<>{options?.renderContent}</>);
-    expect(buildChangeHistoryInputAddon).toHaveBeenCalledWith(
-      expect.objectContaining({ nativeSheet: true }),
-    );
+    expect(buildChangeHistoryInputAddon).toHaveBeenCalled();
   });
 
   it.each([EDeviceType.Pro2, EDeviceType.Neo])(

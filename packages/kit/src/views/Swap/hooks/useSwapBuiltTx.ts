@@ -38,6 +38,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyAppError, OneKeyError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isGasAccountSubmitResultUnknownError } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -51,11 +52,7 @@ import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import {
-  numberFormat,
-  toBigIntHex,
-} from '@onekeyhq/shared/src/utils/numberUtils';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEstimateFeeParams,
@@ -153,7 +150,9 @@ import {
   getSwapRequiredNativeBalanceAmount,
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
+import { getSwapBalanceInsufficientMessage } from '../utils/swapErrorUtils';
 import {
+  applyEvmThorSwapGasLimit,
   canReuseSwapReviewGasInfo,
   isSwapGasSponsored,
   shouldRequestSwapGasAccount,
@@ -171,6 +170,8 @@ import {
   type ISwapStepSignAndSendProgress,
   buildCustomSlippageQuoteResultCtx,
   buildRebuiltSwapReviewQuoteResult,
+  buildSwapStepFailurePatch,
+  hasSwapStepSubmitResultUnknown,
   markSubmittedSwapApprovalsCompleted,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldFallbackSwapStep,
@@ -197,10 +198,6 @@ import {
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
 const getEthers = createLazySdkLoader(() => import('ethers'));
-
-const formatter: INumberFormatProps = {
-  formatter: 'balance',
-};
 
 type ISwapGasFeeInfo = {
   encodeTx: IEncodedTx;
@@ -750,31 +747,12 @@ export function useSwapBuildTx({
       tokenSymbol: string;
       reserveAmount?: string;
     }) => {
-      const isBtcNetwork = networkUtils.isBTCNetwork(networkId);
-      return {
-        title: isBtcNetwork
-          ? intl.formatMessage({
-              id: ETranslations.send_toast_btc_fork_insufficient_fund,
-            })
-          : intl.formatMessage(
-              {
-                id: ETranslations.swap_page_toast_insufficient_balance_title,
-              },
-              { token: tokenSymbol },
-            ),
-        message:
-          !isBtcNetwork && reserveAmount
-            ? intl.formatMessage(
-                {
-                  id: ETranslations.swap_page_toast_insufficient_balance_content,
-                },
-                {
-                  token: tokenSymbol,
-                  number: numberFormat(reserveAmount, formatter),
-                },
-              )
-            : undefined,
-      };
+      return getSwapBalanceInsufficientMessage({
+        intl,
+        networkId,
+        tokenSymbol,
+        reserveAmount,
+      });
     },
     [intl],
   );
@@ -1645,6 +1623,7 @@ export function useSwapBuildTx({
         gasAccountEligible?: boolean;
         gasAccountQuote?: IGasAccountQuote;
         gasAccountScenarioReason?: string;
+        gasAccountSkipReason?: string;
       },
       gasCommon: {
         baseFee?: string;
@@ -1742,6 +1721,7 @@ export function useSwapBuildTx({
         gasAccountEligible: gasRes.gasAccountEligible,
         gasAccountQuote: gasRes.gasAccountQuote,
         gasAccountScenarioReason: gasRes.gasAccountScenarioReason,
+        gasAccountSkipReason: gasRes.gasAccountSkipReason,
       };
     },
     [
@@ -2230,11 +2210,15 @@ export function useSwapBuildTx({
               swapInfo,
             );
           }
-          const gasParseInfo = buildGasInfo(
-            gasRes,
-            gasRes.common,
-            estimateFeeParams.estimateFeeParams,
-          );
+          const gasParseInfo = applyEvmThorSwapGasLimit({
+            networkId,
+            buildTx: unsignedTx.swapInfo?.swapBuildResData,
+            gasInfo: buildGasInfo(
+              gasRes,
+              gasRes.common,
+              estimateFeeParams.estimateFeeParams,
+            ),
+          });
           try {
             lastTxRes = await updateUnsignedTxAndSendTx({
               isApprove,
@@ -4079,11 +4063,15 @@ export function useSwapBuildTx({
               JSON.stringify(unsignedTx.encodedTx ?? ''),
               swapInfo,
             );
-            const gasParseInfo = buildGasInfo(
-              gasRes,
-              gasRes.common,
-              estimateFeeParams.estimateFeeParams,
-            );
+            const gasParseInfo = applyEvmThorSwapGasLimit({
+              networkId,
+              buildTx: unsignedTx.swapInfo?.swapBuildResData,
+              gasInfo: buildGasInfo(
+                gasRes,
+                gasRes.common,
+                estimateFeeParams.estimateFeeParams,
+              ),
+            });
             gasFeeInfos = [
               ...gasFeeInfos,
               {
@@ -4663,6 +4651,11 @@ export function useSwapBuildTx({
       }
       const { steps: swapStepsValuesFinal, preSwapData: preSwapDataFinal } =
         reviewGuard.execution.state;
+      // A result-unknown sponsored send already happened in this review: the
+      // tx may be on chain, so nothing here may run again (OK-64746).
+      if (hasSwapStepSubmitResultUnknown(swapStepsValuesFinal)) {
+        return;
+      }
       const updateExecutionState = (
         updater: (prev: ISwapReviewState) => ISwapReviewState,
       ) => updateSwapReviewState(updater, reviewGuard);
@@ -4877,11 +4870,15 @@ export function useSwapBuildTx({
               if (!canExecuteSwapReview(reviewGuard)) {
                 return;
               }
-              const shouldFallback = shouldFallbackSwapStep({
-                error,
-                stepType: step.type,
-                signAndSendProgress,
-              });
+              // A result-unknown sponsored send never re-enters the separate
+              // confirm page either: that would rebuild and resend the tx.
+              const shouldFallback =
+                !isGasAccountSubmitResultUnknownError(error) &&
+                shouldFallbackSwapStep({
+                  error,
+                  stepType: step.type,
+                  signAndSendProgress,
+                });
               const oneKeyError = error as IOneKeyError;
               let errorMessage: string | undefined =
                 oneKeyError?.message ?? 'Unknown error';
@@ -4928,6 +4925,13 @@ export function useSwapBuildTx({
                   quoteResult: fallbackSwapStepsValues.quoteResult,
                 };
               }
+              const failedStepPatch = buildSwapStepFailurePatch({
+                error,
+                errorMessage,
+                resultUnknownMessage: intl.formatMessage({
+                  id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+                }),
+              });
               updateExecutionState((prevSteps) => {
                 if (shouldFallback) {
                   return {
@@ -4940,10 +4944,7 @@ export function useSwapBuildTx({
                 const nextState = updateSwapReviewStep({
                   reviewState: prevSteps,
                   stepIndex: i,
-                  partialStep: {
-                    status: ESwapStepStatus.FAILED,
-                    errorMessage,
-                  },
+                  partialStep: failedStepPatch,
                 });
                 if (nextState === prevSteps) {
                   return prevSteps;

@@ -300,9 +300,14 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     ttl: PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
   });
 
-  private _lastAccountDisplayCacheWriteAt: Record<
+  private _lastAccountDisplayCacheWrites: Record<
     string,
-    Partial<Record<IPerpsAccountDisplayCacheWriteType, number>>
+    Partial<
+      Record<
+        IPerpsAccountDisplayCacheWriteType,
+        { updatedAt: number; isPartial?: boolean }
+      >
+    >
   > = {};
 
   private _l2BookSnapshotCacheTimer: ReturnType<typeof setTimeout> | null =
@@ -581,23 +586,30 @@ export default class ServiceHyperliquidCache extends ServiceBase {
   private _shouldWriteAccountDisplayCache({
     accountAddress,
     type,
+    isPartial,
   }: {
     accountAddress: string;
     type: IPerpsAccountDisplayCacheWriteType;
+    isPartial?: boolean;
   }) {
     const normalized = accountAddress.toLowerCase();
     const now = Date.now();
-    const writeState = this._lastAccountDisplayCacheWriteAt[normalized] ?? {};
+    const writeState = this._lastAccountDisplayCacheWrites[normalized] ?? {};
+    const lastWrite = writeState[type];
+    // Completeness changes must reach the cache before an account is revisited.
+    const completenessChanged =
+      isPartial !== undefined && lastWrite?.isPartial !== isPartial;
     if (
+      !completenessChanged &&
       !shouldWritePerpsAccountDisplayCache({
-        lastWriteAt: writeState[type],
+        lastWriteAt: lastWrite?.updatedAt,
         now,
       })
     ) {
       return false;
     }
-    writeState[type] = now;
-    this._lastAccountDisplayCacheWriteAt[normalized] = writeState;
+    writeState[type] = { updatedAt: now, isPartial };
+    this._lastAccountDisplayCacheWrites[normalized] = writeState;
     return true;
   }
 
@@ -642,6 +654,9 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       accountValue: shouldUseComputedValue
         ? computedValue.accountValue
         : prevEntry?.accountValue,
+      isAccountValuePartial: shouldUseComputedValue
+        ? computedValue.isAccountValuePartial
+        : prevEntry?.isAccountValuePartial,
       withdrawable: shouldUseComputedValue
         ? computedValue.withdrawable
         : prevEntry?.withdrawable,
@@ -660,6 +675,7 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       !this._shouldWriteAccountDisplayCache({
         accountAddress: targetAddress,
         type: 'snapshot',
+        isPartial: Boolean(nextEntry.isAccountValuePartial),
       })
     ) {
       return;
@@ -761,6 +777,7 @@ export default class ServiceHyperliquidCache extends ServiceBase {
             accountAddress: targetAddress,
             balances: spot.data.balances,
             spotTotalUsd: spot.data.spotTotalUsd,
+            hasUnsupportedBalances: spot.data.hasUnsupportedBalances,
           };
         });
       }
@@ -807,20 +824,24 @@ export default class ServiceHyperliquidCache extends ServiceBase {
     accountAddress,
     balances,
     spotTotalUsd,
+    hasUnsupportedBalances,
   }: {
     accountAddress: string;
     balances: ISpotBalanceItem[];
     spotTotalUsd: string;
+    hasUnsupportedBalances?: boolean;
   }) {
     const data: IPerpsAccountDisplayCacheSpotBalances = {
       accountAddress,
       balances,
       spotTotalUsd,
+      hasUnsupportedBalances,
     };
     if (
       !this._shouldWriteAccountDisplayCache({
         accountAddress,
         type: 'spotBalances',
+        isPartial: Boolean(hasUnsupportedBalances),
       })
     ) {
       return;

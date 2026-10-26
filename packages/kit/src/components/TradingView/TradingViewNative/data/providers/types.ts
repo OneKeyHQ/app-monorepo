@@ -49,6 +49,9 @@ export interface ITradingViewNativeHistoryResponse extends IMarketTokenKLineResp
 
 export interface ITradingViewNativeHistoryDataProvider {
   getCandleTimeMode?: () => ITradingViewNativeCandleTimeMode;
+  getInitialHistoryRequestCandleCount?: (
+    interval: ITradingViewNativeKLineInterval,
+  ) => number;
   getHistoryRequestCandleCount: (
     interval: ITradingViewNativeKLineInterval,
   ) => number;

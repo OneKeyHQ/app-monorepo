@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useThirdPartyAppInstallAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { Layout } from './utils/Layout';
@@ -54,7 +55,7 @@ const LedgerAppOpsTester = () => {
   const appendLog = (text: string) => {
     setLogs([
       ...logsRef.current,
-      { at: new Date().toLocaleTimeString(), text },
+      { at: formatTime(new Date(), { hideMilliseconds: true }), text },
     ]);
   };
 

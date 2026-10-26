@@ -1,6 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
-import { usePreventRemove, useRoute } from '@react-navigation/core';
+import {
+  useFocusEffect,
+  usePreventRemove,
+  useRoute,
+} from '@react-navigation/core';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 import Animated, {
@@ -15,59 +28,133 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import {
+  ButtonFrame,
   Dialog,
   Icon,
   IconButton,
   NavBackButton,
   Page,
-  ScrollView,
   SizableText,
+  Spinner,
   Stack,
   Toast,
   XStack,
   YStack,
+  useInPageDialog,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useIsOverlayPage } from '@onekeyhq/components/src/hocs/PageType';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
 
+import { useHeaderHeightCacheKey } from '../Earn/hooks/useHeaderHeightCacheKey';
+import { useNativeStackHeaderHeightEstimate } from '../Earn/hooks/useNativeStackHeaderHeightEstimate';
+import { useSettledHeaderHeight } from '../Earn/hooks/useSettledHeaderHeight';
+
 import { DustSweepDetails } from './components/DustSweepDetails';
 import { DustSweepNetworks } from './components/DustSweepFilters';
-import { DustSweepSelection } from './components/DustSweepSelection';
 import {
-  DustSweepResult,
-  DustSweepSummary,
-} from './components/DustSweepSummary';
+  DUST_SWEEP_DESKTOP_CARD_MAX_HEIGHT,
+  DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT,
+  DUST_SWEEP_MOBILE_DIRECTION_SIZE,
+  DustSweepSelection,
+} from './components/DustSweepSelection';
+import { DustSweepSummary } from './components/DustSweepSummary';
 import { DustSweepFlow, useDustSweepFlow } from './DustSweepFlow';
-import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
+import {
+  DustSweepProvider,
+  DustSweepScreenProvider,
+  useDustSweep,
+} from './DustSweepProvider';
 import { getDustSweepPresentation } from './stateMachine';
 
+import type { IDustSweepState } from './stateMachine';
 import type { NavigationAction, RouteProp } from '@react-navigation/core';
 
-// Desktop layout: the token list column gives up width so the direction arrow
-// sits in its own gap column with 12px clearance from both cards.
-const DESKTOP_SELECTION_WIDTH = '51.2%';
+// Desktop layout: two equal-width cards with the direction arrow in its own
+// gap column, 12px clear of both.
 const DESKTOP_COLUMN_GAP = 64;
 const DESKTOP_DIRECTION_SIZE = 40;
+// Let the page content fill the window so the cards can take the remaining
+// height instead of a fixed one that overflows short windows.
+const DESKTOP_SCROLL_PROPS = { contentContainerStyle: { flexGrow: 1 } };
+// Extra rows from expanding the network bar come out of the cards' minimum
+// height, so the action button keeps its place on short windows.
+const DESKTOP_CARD_MIN_HEIGHT_FLOOR = 400;
 
 function useDustSweepDesktopLayout() {
   const media = useMedia();
   return !platformEnv.isNative && media.gtMd;
 }
 
+function DustSweepRefreshControl() {
+  const { selecting, isFocused, isRefreshing, autoRefreshTimerActive, retry } =
+    useDustSweep();
+  const intl = useIntl();
+  if (!selecting) return null;
+  const disabled = !isFocused || isRefreshing;
+  return (
+    <ButtonFrame
+      testID="dust-sweep-refresh"
+      aria-label={intl.formatMessage({
+        id: ETranslations.global_refresh,
+      })}
+      aria-busy={isRefreshing}
+      aria-disabled={disabled}
+      disabled={disabled}
+      focusable={!disabled}
+      cursor={disabled ? 'default' : 'pointer'}
+      onPress={disabled ? undefined : retry}
+      bg="$transparent"
+      borderWidth={0}
+      p={0}
+      width={24}
+      height={24}
+      alignItems="center"
+      justifyContent="center"
+      flexShrink={0}
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineWidth: 2,
+      }}
+    >
+      {isRefreshing ? (
+        <Spinner size="small" />
+      ) : (
+        <Stack pointerEvents="none">
+          <SwapRefreshButtonBase
+            refreshAction={retry}
+            disabled={!isFocused}
+            isRefreshQuote={false}
+            isLoading={false}
+            isFocused={isFocused}
+            autoRefreshTimerActive={autoRefreshTimerActive}
+          />
+        </Stack>
+      )}
+    </ButtonFrame>
+  );
+}
+
 function DustSweepDirectionIcon({
   desktop = false,
-  running,
+  running = false,
 }: {
   desktop?: boolean;
-  running: boolean;
+  running?: boolean;
 }) {
   const reducedMotion = useReducedMotion();
   const animated = running && !reducedMotion;
@@ -97,7 +184,7 @@ function DustSweepDirectionIcon({
     };
   }, [animated, desktop, progress]);
   return (
-    <Stack width={20} height={20} overflow="hidden">
+    <Stack width="$5" height="$5" overflow="hidden">
       <Animated.View style={style}>
         <Icon
           name={desktop ? 'ArrowRightOutline' : 'ArrowBottomOutline'}
@@ -109,18 +196,15 @@ function DustSweepDirectionIcon({
   );
 }
 
-function DustSweepResultDialog({
+// The completed result stays on the page, so the sheet only carries the
+// per-token breakdown; Back and Done both close it.
+function DustSweepDetailsDialog({
   state,
   onClose,
-  onAgain,
-  details = false,
 }: {
-  state: Parameters<typeof DustSweepResult>[0]['state'];
+  state: IDustSweepState;
   onClose: () => void;
-  onAgain: () => void | Promise<void>;
-  details?: boolean;
 }) {
-  const [showDetails, setShowDetails] = useState(details);
   const { height } = useWindowDimensions();
   const { top, bottom } = useSafeAreaInsets();
   const maxHeight = Math.max(
@@ -129,34 +213,109 @@ function DustSweepResultDialog({
       ? Math.min(Math.floor(height * 0.92), height - top - bottom)
       : height - 48,
   );
-
-  if (showDetails)
-    return (
-      <DustSweepDetails
-        state={state}
-        maxHeight={maxHeight}
-        onBack={() => setShowDetails(false)}
-        onDone={onClose}
-      />
-    );
   return (
-    <ScrollView maxHeight={Math.min(420, maxHeight)}>
-      <DustSweepResult
-        state={state}
-        onDetails={
-          state.phase === 'completed' ? onClose : () => setShowDetails(true)
+    <DustSweepDetails
+      state={state}
+      maxHeight={maxHeight}
+      onBack={onClose}
+      onDone={onClose}
+    />
+  );
+}
+
+type IDustSweepLiveSnapshot = {
+  model: ReturnType<typeof useDustSweep>;
+  onDetails: () => void;
+  onLeave: () => void;
+};
+
+// Dialogs render outside the page tree, so the live sheet reads the latest
+// page model through this tiny store instead of the Dust Sweep context.
+function createDustSweepLiveStore(initial: IDustSweepLiveSnapshot) {
+  let snapshot = initial;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => snapshot,
+    set: (next: IDustSweepLiveSnapshot) => {
+      if (
+        next.model === snapshot.model &&
+        next.onDetails === snapshot.onDetails &&
+        next.onLeave === snapshot.onLeave
+      )
+        return;
+      snapshot = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+// Mobile: the converting → completed view as a bottom sheet over the page,
+// like the Swap order review.
+function DustSweepLiveSheet({
+  store,
+  onHeightChange,
+}: {
+  store: ReturnType<typeof createDustSweepLiveStore>;
+  onHeightChange: (height: number) => void;
+}) {
+  const { bottom } = useSafeAreaInsets();
+  const { model, onDetails, onLeave } = useSyncExternalStore(
+    store.subscribe,
+    store.get,
+    store.get,
+  );
+  // Done resets the session before the sheet finishes closing; keep showing
+  // the last sweep instead of flashing the token selection.
+  const lastSweep = useRef(model);
+  if (!model.selecting) lastSweep.current = model;
+  return (
+    <DustSweepScreenProvider value={lastSweep.current}>
+      {/* The sheet's height (plus the safe area under it) is how much of the
+          token list it covers. */}
+      <Stack
+        testID="dust-sweep-live-sheet-content"
+        onLayout={(event) =>
+          onHeightChange(event.nativeEvent.layout.height + bottom)
         }
-        onAgain={state.phase === 'completed' ? onAgain : onClose}
-      />
-    </ScrollView>
+      >
+        <DustSweepSummary
+          desktop={false}
+          onDetails={onDetails}
+          onLeave={onLeave}
+        />
+      </Stack>
+    </DustSweepScreenProvider>
   );
 }
 
 function DustSweepPageContent() {
-  const { session, selecting, sweepAgain, isFocused } = useDustSweep();
+  const model = useDustSweep();
+  const { session, selecting, isFocused, networks, loadStatus } = model;
   const intl = useIntl();
   const { exit, continueRemoval, execution } = useDustSweepFlow();
   const desktop = useDustSweepDesktopLayout();
+  const [networkExtraHeight, setNetworkExtraHeight] = useState(0);
+  const desktopCardMinHeight = Math.max(
+    DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT - networkExtraHeight,
+    DESKTOP_CARD_MIN_HEIGHT_FLOOR,
+  );
+  const liveSheetDialog = useInPageDialog();
+  // As a Home sub page on iOS 26 the transparent nav bar overlaps the body, so
+  // offset it by the settled bar height (same approach as the Borrow home).
+  const headerHeight = useHeaderHeight();
+  const headerHeightCacheKey = useHeaderHeightCacheKey();
+  const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
+  const { paddingTop: bodyPaddingTop, isSettled: isHeaderHeightSettled } =
+    useSettledHeaderHeight(headerHeight, {
+      cacheKey: headerHeightCacheKey,
+      estimatedHeaderHeight,
+    });
   const [approvedRemovalAction, setApprovedRemovalAction] = useState<
     NavigationAction | undefined
   >(undefined);
@@ -167,8 +326,7 @@ function DustSweepPageContent() {
     ReturnType<typeof Dialog.show> | undefined
   >(undefined);
   const leavePending = useRef(false);
-  const resultShown = useRef<string | undefined>(undefined);
-  const resultDialog = useRef<ReturnType<typeof Dialog.show> | undefined>(
+  const detailsDialog = useRef<ReturnType<typeof Dialog.show> | undefined>(
     undefined,
   );
   const { state } = session;
@@ -198,9 +356,12 @@ function DustSweepPageContent() {
         alignItems="center"
         maxWidth={260}
       >
-        <SizableText size="$headingLg" numberOfLines={1}>
-          {title}
-        </SizableText>
+        <XStack alignItems="center" gap="$2">
+          <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
+            {title}
+          </SizableText>
+          <DustSweepRefreshControl />
+        </XStack>
         {subtitle ? (
           <SizableText
             testID="dust-sweep-progress-label"
@@ -338,89 +499,123 @@ function DustSweepPageContent() {
   useEffect(() => {
     if (approvedRemovalAction) continueRemoval(approvedRemovalAction);
   }, [approvedRemovalAction, continueRemoval]);
-  const showResult = useCallback(
-    (details: boolean) => {
-      if (
-        !state.snapshot ||
-        resultDialog.current ||
-        visibleLeaveDialog ||
-        leaveDialog.current
-      )
-        return;
-      const dialog = Dialog.show({
-        testID: 'dust-sweep-result-sheet',
-        nativeSheet: true,
-        showHeader: false,
-        showFooter: false,
-        disableDrag: true,
-        contentContainerProps: { px: 0, pb: 0 },
-        onCloseStart: () => {
-          if (resultDialog.current === dialog) resultDialog.current = undefined;
-        },
-        renderContent: (
-          <DustSweepResultDialog
-            state={state}
-            details={details}
-            onClose={() => {
-              if (resultDialog.current === dialog) void dialog.close();
-            }}
-            onAgain={() => {
-              if (resultDialog.current !== dialog) return;
-              resultDialog.current = undefined;
-              void dialog.close();
-              sweepAgain();
-            }}
-          />
-        ),
-      });
-      resultDialog.current = dialog;
-    },
-    [state, sweepAgain, visibleLeaveDialog],
-  );
-  const onDetails = useCallback(
-    () => showResult(state.phase !== 'completed'),
-    [showResult, state.phase],
-  );
-  useEffect(() => {
+  // Details (offered while a submission is unknown) opens the per-token
+  // breakdown; the completed result itself stays in the summary.
+  const onDetails = useCallback(() => {
     if (
-      desktop ||
-      !isFocused ||
-      visibleLeaveDialog ||
-      state.phase !== 'completed' ||
       !state.snapshot ||
-      resultShown.current === state.snapshot.id
+      detailsDialog.current ||
+      visibleLeaveDialog ||
+      leaveDialog.current
     )
       return;
-    resultShown.current = state.snapshot.id;
-    showResult(false);
-  }, [desktop, isFocused, visibleLeaveDialog, state, showResult]);
+    const dialog = Dialog.show({
+      testID: 'dust-sweep-details-sheet',
+      showHeader: false,
+      showFooter: false,
+      disableDrag: true,
+      contentContainerProps: { px: 0, pb: 0 },
+      onCloseStart: () => {
+        if (detailsDialog.current === dialog) detailsDialog.current = undefined;
+      },
+      renderContent: (
+        <DustSweepDetailsDialog
+          state={state}
+          onClose={() => {
+            if (detailsDialog.current === dialog) void dialog.close();
+          }}
+        />
+      ),
+    });
+    detailsDialog.current = dialog;
+  }, [state, visibleLeaveDialog]);
   useEffect(() => {
     if (!isFocused || selecting) {
-      const dialog = resultDialog.current;
-      resultDialog.current = undefined;
+      const dialog = detailsDialog.current;
+      detailsDialog.current = undefined;
       void dialog?.close();
     }
   }, [isFocused, selecting]);
   useEffect(
     () => () => {
-      const dialog = resultDialog.current;
-      resultDialog.current = undefined;
+      const dialog = detailsDialog.current;
+      detailsDialog.current = undefined;
       void dialog?.close();
     },
     [desktop],
   );
-  const onDone = useCallback(() => exit(), [exit]);
+  // Wrapped so the press event is never passed to exit() as an action.
+  const onBack = useCallback(() => exit(), [exit]);
+  const [liveStore] = useState(() =>
+    createDustSweepLiveStore({ model, onDetails, onLeave: onBack }),
+  );
+  useLayoutEffect(() => {
+    liveStore.set({ model, onDetails, onLeave: onBack });
+  });
+  const liveSheet = useRef<ReturnType<typeof Dialog.show> | undefined>(
+    undefined,
+  );
+  const [liveSheetHeight, setLiveSheetHeight] = useState(0);
+  // It stays open until Done returns to selection (no drag or backdrop close
+  // mid-sweep), and yields to the leave confirmation.
+  const showLiveSheet =
+    !desktop && !selecting && isFocused && !visibleLeaveDialog;
+  useEffect(() => {
+    if (!showLiveSheet) {
+      const dialog = liveSheet.current;
+      liveSheet.current = undefined;
+      void dialog?.close();
+      return;
+    }
+    if (liveSheet.current) return;
+    const dialog = liveSheetDialog.show({
+      testID: 'dust-sweep-live-sheet',
+      showHeader: false,
+      showFooter: false,
+      disableDrag: true,
+      dismissOnOverlayPress: false,
+      disableSystemClose: true,
+      contentContainerProps: { px: 0, pb: 0 },
+      onCloseStart: () => {
+        if (liveSheet.current === dialog) liveSheet.current = undefined;
+      },
+      renderContent: (
+        <DustSweepLiveSheet
+          store={liveStore}
+          onHeightChange={setLiveSheetHeight}
+        />
+      ),
+    });
+    liveSheet.current = dialog;
+  }, [liveSheetDialog, liveStore, showLiveSheet]);
+  useEffect(
+    () => () => {
+      const dialog = liveSheet.current;
+      liveSheet.current = undefined;
+      void dialog?.close();
+    },
+    [],
+  );
   // The Home tab top bar (with its back button) is only rendered on the tab
   // route, so a Swap modal widened to desktop width keeps its own back control.
   const overlay = useIsOverlayPage();
+  // A wallet with no assets has no network chips, so drop the empty row.
+  const showNetworks = loadStatus === 'loading' || networks.length > 0;
   return (
-    <Page testID="dust-sweep-page" scrollEnabled={desktop}>
+    <Page
+      testID="dust-sweep-page"
+      scrollEnabled={desktop}
+      scrollProps={desktop ? DESKTOP_SCROLL_PROPS : undefined}
+    >
       <Page.Header
         title={title}
         headerTitle={renderHeaderTitle}
         headerShown={!desktop}
       />
-      <Page.Body>
+      <Page.Body
+        pt={desktop ? undefined : bodyPaddingTop}
+        opacity={desktop || isHeaderHeightSettled ? 1 : 0}
+      >
         {desktop ? (
           // Title spacing matches other desktop Home sub pages (ApprovalListPage);
           // mb matches the 30px gap below the network chips.
@@ -436,15 +631,27 @@ function DustSweepPageContent() {
                   accessibilityLabel={intl.formatMessage({
                     id: ETranslations.global_back,
                   })}
-                  onPress={onDone}
+                  onPress={onBack}
                 />
               ) : null}
               <SizableText size="$heading2xl">{title}</SizableText>
+              <DustSweepRefreshControl />
             </XStack>
-            <DustSweepNetworks desktop />
+            {showNetworks ? (
+              <DustSweepNetworks
+                desktop
+                onExtraHeightChange={setNetworkExtraHeight}
+              />
+            ) : null}
             {/* Stretch so the summary card always matches the token list card height. */}
-            <XStack mt={30} flex={1} alignItems="stretch">
-              <YStack width={DESKTOP_SELECTION_WIDTH}>
+            <XStack
+              mt={showNetworks ? 30 : 0}
+              flex={1}
+              minHeight={desktopCardMinHeight}
+              maxHeight={DUST_SWEEP_DESKTOP_CARD_MAX_HEIGHT}
+              alignItems="stretch"
+            >
+              <YStack flex={1} flexBasis={0} minWidth={0}>
                 <DustSweepSelection desktop />
               </YStack>
               <Stack
@@ -468,36 +675,33 @@ function DustSweepPageContent() {
                   />
                 </Stack>
               </Stack>
-              <YStack flex={1}>
-                <DustSweepSummary
-                  desktop
-                  onDone={onDone}
-                  onDetails={onDetails}
-                />
+              <YStack flex={1} flexBasis={0} minWidth={0}>
+                <DustSweepSummary desktop onDetails={onDetails} />
               </YStack>
             </XStack>
           </Page.Container>
         ) : (
           <YStack flex={1} minHeight={0}>
-            <DustSweepSelection desktop={false} />
+            <DustSweepSelection
+              desktop={false}
+              obscuredBottom={liveSheetHeight}
+            />
           </YStack>
         )}
       </Page.Body>
-      {desktop ? null : (
+      {/* Mobile picks tokens in this footer; the sweep itself runs in the
+          live sheet, so the footer steps aside while it is open. */}
+      {desktop || !selecting ? null : (
         <Page.Footer safeAreaBottomMode="container">
           <YStack position="relative" bg="$bgApp">
-            <DustSweepSummary
-              desktop={false}
-              onDone={onDone}
-              onDetails={onDetails}
-            />
+            <DustSweepSummary desktop={false} onDetails={onDetails} />
             <Stack
               position="absolute"
               left="50%"
-              x={-18}
-              top={-18}
-              width={36}
-              height={36}
+              x={-DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2}
+              top={-DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2}
+              width={DUST_SWEEP_MOBILE_DIRECTION_SIZE}
+              height={DUST_SWEEP_MOBILE_DIRECTION_SIZE}
               borderWidth={1}
               borderColor="$borderSubdued"
               bg="$bgApp"
@@ -505,9 +709,7 @@ function DustSweepPageContent() {
               alignItems="center"
               justifyContent="center"
             >
-              <DustSweepDirectionIcon
-                running={isFocused && state.phase === 'running'}
-              />
+              <DustSweepDirectionIcon />
             </Stack>
           </YStack>
         </Page.Footer>
@@ -543,6 +745,18 @@ export default function DustSweepPage() {
   // The Home tab top bar only belongs to the tab route, not to the Swap modal
   // (e.g. a modal opened at a narrow width and then widened).
   const overlay = useIsOverlayPage();
+  // Small screens open this Home sub page full screen, so the bottom tab bar
+  // must not cover the action footer.
+  useFocusEffect(
+    useCallback(() => {
+      if (desktop) return undefined;
+      const ownerId = createHideTabBarOwnerId('dust-sweep');
+      requestHideTabBar(ownerId);
+      return () => {
+        releaseHideTabBar(ownerId);
+      };
+    }, [desktop]),
+  );
   if (!route.params?.walletId || !route.params.accountId) {
     return (
       <Page>

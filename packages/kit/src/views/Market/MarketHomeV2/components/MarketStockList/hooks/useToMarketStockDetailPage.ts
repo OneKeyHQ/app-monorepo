@@ -14,6 +14,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { buildMarketStockDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import {
   getCurrentMarketStockDetailRoute,
   openOrReplaceMarketDetailRoute,
@@ -30,22 +31,34 @@ import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
+  type IMarketStockDetailInitialSection,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IMarketStockDetailPreview } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockDetailPreview,
+  IMarketStockPublicItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 interface IUseToMarketStockDetailPageOptions {
   replaceCurrentDetail?: boolean;
 }
 
-export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview & {
-  tokenAddress?: string;
-  networkId?: string;
-  isNative?: boolean;
-};
+export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview &
+  Partial<
+    Pick<
+      IMarketStockPublicItem,
+      'price' | 'priceChange24hPercent' | 'quoteUpdatedAt'
+    >
+  > & {
+    tokenAddress?: string;
+    networkId?: string;
+    isNative?: boolean;
+    initialSection?: IMarketStockDetailInitialSection;
+    from?: EEnterWay;
+  };
 
 export type IMarketStockDetailNavigationInput =
   | string
@@ -121,15 +134,28 @@ export function useToMarketStockDetailPage(
     media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   return useCallback(
-    async (stock: IMarketStockDetailNavigationInput) => {
+    async (
+      stock: IMarketStockDetailNavigationInput,
+      request?: {
+        isCurrentRequest: () => boolean;
+        onNavigationStart?: () => void;
+      },
+    ): Promise<boolean> => {
       if (
         travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
         'travel-mode'
       ) {
-        return;
+        return false;
       }
+      const isCurrentRequest = request?.isCurrentRequest ?? (() => true);
+      if (!isCurrentRequest()) return false;
       const stockId = typeof stock === 'string' ? stock : stock.stockId;
       const stockPreview = typeof stock === 'string' ? undefined : stock;
+      // Snapshot quotes are an in-memory native header optimization, never URL params.
+      const stockPreviewQuote =
+        platformEnv.isNative && stockPreview
+          ? buildMarketStockDetailPreview(stockPreview)?.quote
+          : undefined;
       const stockTokenParams =
         stockPreview?.tokenAddress && stockPreview.networkId
           ? {
@@ -165,6 +191,12 @@ export function useToMarketStockDetailPage(
         isStockRoute: true,
         layout: preloadLayout,
       });
+      if (platformEnv.isNative) {
+        await preloadPromise;
+      }
+
+      if (!isCurrentRequest()) return false;
+
       if (!shouldKeepCurrentStockTokenDetail) {
         tokenDetailActions.current.prepareStockTokenDetail({
           tokenAddress: stockTokenParams?.tokenAddress ?? '',
@@ -181,10 +213,6 @@ export function useToMarketStockDetailPage(
           EAppEventBusNames.CleanTokenDetailInTabletDetailView,
           undefined,
         );
-      }
-
-      if (platformEnv.isNative) {
-        await preloadPromise;
       }
 
       if (
@@ -208,7 +236,7 @@ export function useToMarketStockDetailPage(
             : EEnterWay.ExtensionSidePanel,
         });
         closeExtensionPopupAfterExpandTabOpen();
-        return;
+        return true;
       }
 
       if (options?.replaceCurrentDetail) {
@@ -220,6 +248,7 @@ export function useToMarketStockDetailPage(
                 stockPreviewSymbol: stockPreview.symbol,
                 stockPreviewName: stockPreview.name,
                 stockPreviewLogoUrl: stockPreview.logoUrl,
+                ...(stockPreviewQuote ? { stockPreviewQuote } : undefined),
               }
             : undefined),
         };
@@ -229,17 +258,21 @@ export function useToMarketStockDetailPage(
             routeName: ETabMarketRoutes.MarketStockDetail,
             params: stockDetailParams,
           });
+          // Switching tabs dismisses the selector; this is no longer a user cancellation.
+          request?.onNavigationStart?.();
           await switchTabAsync(marketTab);
+          if (replacedCurrentDetail) return true;
+          if (!isCurrentRequest()) return false;
           if (
-            replacedCurrentDetail ||
             replaceFocusedMarketDetailRoute({
               routeName: ETabMarketRoutes.MarketStockDetail,
               params: stockDetailParams,
             })
           ) {
-            return;
+            return true;
           }
-          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+          if (!rootNavigationRef.current) return false;
+          rootNavigationRef.current.navigate(ERootRoutes.Main, {
             screen: marketTab,
             params: {
               screen: ETabMarketRoutes.MarketStockDetail,
@@ -263,6 +296,7 @@ export function useToMarketStockDetailPage(
               stockPreviewSymbol: stockPreview?.symbol,
               stockPreviewName: stockPreview?.name,
               stockPreviewLogoUrl: stockPreview?.logoUrl,
+              stockPreviewQuote,
             });
           } else {
             // Reset the tab stack so returning from the selected stock does not
@@ -275,10 +309,11 @@ export function useToMarketStockDetailPage(
             prepareMarketDetailTabBarTransition();
           }
         }
-        return;
+        return true;
       }
 
-      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+      if (!rootNavigationRef.current) return false;
+      rootNavigationRef.current.navigate(ERootRoutes.Main, {
         screen: ETabRoutes.Market,
         params: {
           screen: ETabMarketRoutes.MarketStockDetail,
@@ -290,12 +325,18 @@ export function useToMarketStockDetailPage(
                   stockPreviewSymbol: stockPreview.symbol,
                   stockPreviewName: stockPreview.name,
                   stockPreviewLogoUrl: stockPreview.logoUrl,
+                  ...(stockPreviewQuote ? { stockPreviewQuote } : undefined),
                 }
               : undefined),
+            ...(stockPreview?.initialSection
+              ? { initialSection: stockPreview.initialSection }
+              : undefined),
+            ...(stockPreview?.from ? { from: stockPreview.from } : undefined),
           },
         },
       });
       prepareMarketDetailTabBarTransition();
+      return true;
     },
     [
       navigation,

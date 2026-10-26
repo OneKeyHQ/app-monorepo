@@ -1,12 +1,18 @@
 /** @jest-environment jsdom */
+/* cspell:ignore Infini */
 
 import SettingTab from './';
 
 import { fireEvent, render, renderHook, waitFor } from '@testing-library/react';
 
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  ESettingsTabNames,
+  ETabDeveloperRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { SettingTestIDs } from '../../testIDs';
 
@@ -15,10 +21,12 @@ import { useSettingsConfig } from './config';
 const mockPlatform = platformEnv;
 let mockGtMd = false;
 let mockTravelMode = false;
+let mockDevEnabled = false;
 const mockNavigation = {
   dispatch: jest.fn(),
   emit: jest.fn(() => ({ defaultPrevented: false })),
   push: jest.fn(),
+  pushModal: jest.fn(),
   setOptions: jest.fn(),
 };
 const mockCategoryOpened = jest.fn();
@@ -191,7 +199,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useShowAddressBook', () => ({
   useShowAddressBook: () => jest.fn(),
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useDevSettingsPersistAtom: () => [{ enabled: false }],
+  useDevSettingsPersistAtom: () => [{ enabled: mockDevEnabled }],
   usePasswordBiologyAuthInfoAtom: () => [{ isSupport: false }],
   usePasswordPersistAtom: () => [{ isPasswordSet: true }],
   usePasswordWebAuthInfoAtom: () => [{ isSupport: false }],
@@ -218,6 +226,9 @@ jest.mock('./useSearch', () => ({
 jest.mock('./SearchView', () => ({ SearchView: () => null }));
 jest.mock('./useSettingsPageStyle', () => ({
   useSettingsPageStyle: () => ({}),
+}));
+jest.mock('./RestoreInfiniPendingTransactionsListItem', () => ({
+  RestoreInfiniPendingTransactionsListItem: () => null,
 }));
 jest.mock('./CustomElement', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -258,6 +269,71 @@ jest.mock('./CustomElement', () => {
             }),
       ),
   };
+});
+
+describe.each(['desktop', 'extension'])('Developer entry on %s', (platform) => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockTravelMode = false;
+    mockDevEnabled = false;
+    Object.assign(mockPlatform, {
+      isNative: false,
+      isNativeIOS: false,
+      isNativeIOSPad: false,
+      isDev: true,
+      isDesktop: platform === 'desktop',
+      isExtension: platform === 'extension',
+    });
+  });
+  afterEach(() => {
+    mockDevEnabled = false;
+    Object.assign(mockPlatform, {
+      isDev: false,
+      isDesktop: false,
+      isExtension: false,
+      isNative: true,
+    });
+  });
+
+  it('exports only a reachable Developer row without an empty settings placeholder while disabled', () => {
+    const { result } = renderHook(() => useSettingsConfig());
+    const category = result.current.find(
+      (item) => item?.name === ESettingsTabNames.Dev,
+    );
+    const rows = category?.configs.flat().filter((item) => !!item) ?? [];
+    expect(rows.map((item) => item?.id)).toEqual(['developer-pages']);
+    const entry = rows[0];
+    const { result: navigation } = renderHook(() => useAppNavigation());
+    const view = render(
+      <button onClick={() => entry?.onPress?.(navigation.current)}>
+        {entry?.title}
+      </button>,
+    );
+    fireEvent.click(view.getByRole('button'));
+    expect(mockNavigation.pushModal).toHaveBeenCalledWith(
+      EModalRoutes.DeveloperModal,
+      {
+        screen: ETabDeveloperRoutes.TabDeveloper,
+      },
+    );
+    expect(entry?.renderElement).toBeUndefined();
+  });
+
+  it('mounts the settings section only after runtime developer settings are enabled', () => {
+    mockDevEnabled = true;
+    const { result } = renderHook(() => useSettingsConfig());
+    const rows = result.current
+      .find((item) => item?.name === ESettingsTabNames.Dev)
+      ?.configs.flat()
+      .filter(Boolean);
+    expect(rows?.map((item) => item?.id)).toEqual([
+      'developer-pages',
+      'dev-mode',
+    ]);
+    expect(
+      rows?.find((item) => item?.id === 'dev-mode')?.renderElement,
+    ).toBeTruthy();
+  });
 });
 jest.mock('./ListItem', () => {
   const React = jest.requireActual<typeof import('react')>('react');

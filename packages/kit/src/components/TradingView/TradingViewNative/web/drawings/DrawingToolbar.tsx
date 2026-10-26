@@ -33,18 +33,35 @@ import type {
   IXStackProps,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
+
+import {
+  DrawingAnchorFields,
+  DrawingStyleOptions,
+} from '../../drawings/DrawingStyleOptions';
 
 import { TRADING_VIEW_DRAWING_ICONS } from './icons';
 import {
   DEFAULT_DRAWING_FONT_SIZE,
+  DRAWING_DASH_LABEL_IDS,
   DRAWING_FONT_SIZES,
+  DRAWING_TOOLBAR_GROUPS,
+  DRAWING_TOOLBAR_GROUP_LABEL_IDS,
   DRAWING_TOOLS,
   MAX_DRAWINGS,
+  getDrawingToolbarGroup,
   isFreehandTool,
+  isPathTool,
   isTextDrawingTool,
 } from './model';
 
-import type { IDrawingStyle, IDrawingTool } from './model';
+import type {
+  IDrawingStyle,
+  IDrawingTool,
+  IDrawingToolbarGroup,
+} from './model';
 import type { IChartDrawingsController } from './useChartDrawings';
 
 type IActionIcon =
@@ -67,9 +84,14 @@ type IPropertiesPosition = { left: number; top: number };
 function DrawingButton({
   active,
   disabled,
+  disabledOpacity = 0.3,
   menuItem,
   ...props
-}: Omit<IButtonProps, 'color'> & { active?: boolean; menuItem?: boolean }) {
+}: Omit<IButtonProps, 'color'> & {
+  active?: boolean;
+  disabledOpacity?: number;
+  menuItem?: boolean;
+}) {
   // Preserve the radio role on a menu item's rendered button.
   const roleProps = menuItem ? { role: undefined } : {};
   return (
@@ -84,7 +106,7 @@ function DrawingButton({
       borderRadius={5}
       backgroundColor={active ? '$bgActive' : '$transparent'}
       cursor={disabled ? 'default' : 'pointer'}
-      opacity={disabled ? 0.3 : 1}
+      opacity={disabled ? disabledOpacity : 1}
       disabled={disabled}
       hoverStyle={disabled ? undefined : { backgroundColor: '$bgHover' }}
       focusVisibleStyle={{
@@ -229,18 +251,22 @@ export function DrawingIcon({
 
 function ToolButton({
   label,
+  title = label,
   icon,
   active,
   disabled,
+  disabledOpacity,
   onClick,
   children,
   testID,
   compact = false,
 }: {
   label: string;
+  title?: string;
   icon?: IDrawingTool | IActionIcon;
   active?: boolean;
   disabled?: boolean;
+  disabledOpacity?: number;
   onClick: () => void;
   children?: ReactNode;
   testID?: string;
@@ -249,12 +275,13 @@ function ToolButton({
   const theme = useTheme();
   return (
     <DrawingButton
-      render={<button type="button" title={label} aria-label={label} />}
+      render={<button type="button" title={title} aria-label={label} />}
       testID={testID}
       aria-label={label}
       aria-pressed={active}
       active={active}
       disabled={disabled}
+      disabledOpacity={disabledOpacity}
       width={compact ? 28 : 36}
       onPress={onClick}
     >
@@ -283,13 +310,17 @@ function FontSizeSelect({
   onChange: (fontSize: number) => void;
   expanded?: boolean;
 }) {
+  const intl = useIntl();
+  const label = intl.formatMessage({
+    id: ETranslations.market_drawing_font_size__title,
+  });
   return (
     <DrawingSelect
       expanded={expanded}
       id={id}
-      aria-label="Font size"
+      aria-label={label}
       data-testid="chart-drawing-font-size"
-      title="Font size"
+      title={label}
       value={value}
       disabled={disabled}
       onChange={(event) => onChange(Number(event.target.value))}
@@ -312,10 +343,13 @@ function LineStyleControls({
   disabled: boolean;
   onChange: (style: Partial<IDrawingStyle>) => void;
 }) {
+  const intl = useIntl();
   return (
     <>
       <DrawingSelect
-        aria-label="Line width"
+        aria-label={intl.formatMessage({
+          id: ETranslations.market_drawing_line_width__title,
+        })}
         value={style.width}
         disabled={disabled}
         onChange={(event) => onChange({ width: Number(event.target.value) })}
@@ -327,7 +361,9 @@ function LineStyleControls({
         ))}
       </DrawingSelect>
       <DrawingSelect
-        aria-label="Line style"
+        aria-label={intl.formatMessage({
+          id: ETranslations.market_chart_settings__line_style,
+        })}
         value={style.dash}
         disabled={disabled}
         onChange={(event) =>
@@ -336,9 +372,11 @@ function LineStyleControls({
           })
         }
       >
-        <option value="solid">Solid</option>
-        <option value="dashed">Dashed</option>
-        <option value="dotted">Dotted</option>
+        {(['solid', 'dashed', 'dotted'] as const).map((dash) => (
+          <option key={dash} value={dash}>
+            {intl.formatMessage({ id: DRAWING_DASH_LABEL_IDS[dash] })}
+          </option>
+        ))}
       </DrawingSelect>
     </>
   );
@@ -366,12 +404,22 @@ export function DrawingToolbar({
   const [propertiesPosition, setPropertiesPosition] =
     useState<IPropertiesPosition>({ left: 62, top: 8 });
   const intl = useIntl();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return (
+        appStorage.syncStorage.getBoolean(
+          EAppSyncStorageKeys.onekey_trading_view_native_drawing_toolbar_collapsed,
+        ) === true
+      );
+    } catch {
+      return false;
+    }
+  });
   const toggleToolbarLabel = intl.formatMessage({
     id: collapsed ? ETranslations.global_expand : ETranslations.global_collapse,
   });
   const [positionExpanded, setPositionExpanded] = useState(false);
-  const [menu, setMenu] = useState<string | null>(null);
+  const [menu, setMenu] = useState<IDrawingToolbarGroup | null>(null);
   const [lastTools, setLastTools] = useState<Record<string, IDrawingTool>>({
     Lines: 'trend',
   });
@@ -496,82 +544,142 @@ export function DrawingToolbar({
   const activeTool = selected?.tool ?? state.tool;
   const hasText = isTextDrawingTool(activeTool);
   const hasLine = activeTool !== 'text' && activeTool !== 'priceLabel';
-  const groups = [
-    ...new Set(Object.values(DRAWING_TOOLS).map((tool) => tool.group)),
-  ];
+  const groups = DRAWING_TOOLBAR_GROUPS;
+  const toolLabel = (tool: IDrawingTool) =>
+    intl.formatMessage({ id: DRAWING_TOOLS[tool].labelId });
+  const groupLabel = (group: IDrawingToolbarGroup) =>
+    intl.formatMessage({ id: DRAWING_TOOLBAR_GROUP_LABEL_IDS[group] });
+  // Hydration pauses drawing actions on each symbol switch without dimming their icons.
   const disabled = !state.ready;
   const styleDisabled = Boolean(selected && (selected.locked || state.locked));
   const pointFields =
     selected && state.editingCoordinates ? (
       <>
-        {selected.points
-          .map((point, index) => ({ point, index }))
-          .filter(
-            ({ index }) =>
-              !isFreehandTool(selected.tool) ||
-              index === 0 ||
-              index === selected.points.length - 1,
-          )
-          .map(({ point, index }) => (
-            <YStack key={`${selected.id}-${index}`}>
-              <DrawingFieldLabel>
-                <SizableText fontSize={12}>Point {index + 1}</SizableText>
-                <DrawingInput
-                  flexible={hasText}
-                  aria-label={`Point ${index + 1} price`}
-                  key={point.price}
-                  type="number"
-                  step="any"
-                  defaultValue={point.price}
-                  disabled={styleDisabled}
-                  onBlur={(event) => {
-                    if (event.target.value !== '')
-                      controller.editPoint(index, {
-                        price: event.target.valueAsNumber,
-                      });
-                  }}
-                />
-              </DrawingFieldLabel>
-              <DrawingFieldLabel>
-                <SizableText fontSize={12}>Time (UTC)</SizableText>
-                <DrawingInput
-                  flexible={hasText}
-                  aria-label={`Point ${index + 1} time`}
-                  key={point.time}
-                  type="datetime-local"
-                  step="1"
-                  defaultValue={new Date(point.time * 1000)
-                    .toISOString()
-                    .slice(0, 19)}
-                  disabled={styleDisabled}
-                  onBlur={(event) => {
-                    if (event.target.value)
-                      controller.editPoint(index, {
-                        time:
-                          new Date(`${event.target.value}Z`).getTime() / 1000,
-                      });
-                  }}
-                />
-              </DrawingFieldLabel>
-            </YStack>
-          ))}
+        {selected.anchor ? (
+          <DrawingAnchorFields
+            anchor={selected.anchor}
+            disabled={styleDisabled}
+            onChange={controller.editAnchor}
+          />
+        ) : (
+          <>
+            {selected.points
+              .map((point, index) => ({ point, index }))
+              .filter(
+                ({ index }) =>
+                  !isFreehandTool(selected.tool) ||
+                  index === 0 ||
+                  index === selected.points.length - 1,
+              )
+              .map(({ point, index }) => (
+                <YStack key={`${selected.id}-${index}`}>
+                  <DrawingFieldLabel>
+                    <SizableText fontSize={12}>
+                      {intl.formatMessage(
+                        { id: ETranslations.market_drawing_point_index__title },
+                        { index: index + 1 },
+                      )}
+                    </SizableText>
+                    <DrawingInput
+                      flexible={hasText}
+                      aria-label={intl.formatMessage(
+                        {
+                          id: ETranslations.market_drawing_point_index_price__title,
+                        },
+                        { index: index + 1 },
+                      )}
+                      key={point.price}
+                      type="number"
+                      step="any"
+                      defaultValue={point.price}
+                      disabled={styleDisabled}
+                      onBlur={(event) => {
+                        if (event.target.value !== '')
+                          controller.editPoint(index, {
+                            price: event.target.valueAsNumber,
+                          });
+                      }}
+                    />
+                  </DrawingFieldLabel>
+                  <DrawingFieldLabel>
+                    <SizableText fontSize={12}>
+                      {intl.formatMessage({
+                        id: ETranslations.market_drawing_time_utc__title,
+                      })}
+                    </SizableText>
+                    <DrawingInput
+                      flexible={hasText}
+                      aria-label={intl.formatMessage(
+                        {
+                          id: ETranslations.market_drawing_point_index_time__title,
+                        },
+                        { index: index + 1 },
+                      )}
+                      key={point.time}
+                      type="datetime-local"
+                      step="1"
+                      defaultValue={new Date(point.time * 1000)
+                        .toISOString()
+                        .slice(0, 19)}
+                      disabled={styleDisabled}
+                      onBlur={(event) => {
+                        if (event.target.value)
+                          controller.editPoint(index, {
+                            time:
+                              new Date(`${event.target.value}Z`).getTime() /
+                              1000,
+                          });
+                      }}
+                    />
+                  </DrawingFieldLabel>
+                </YStack>
+              ))}
+          </>
+        )}
       </>
     ) : null;
-  let hint = state.draft
-    ? 'Click to finish · Esc to cancel'
-    : 'Click to place a point · Esc to cancel';
-  if (state.history.present.length >= MAX_DRAWINGS)
-    hint = 'Drawing limit reached. Remove a drawing to continue.';
-  if (state.saveFailed) hint = 'Drawings could not be saved on this device.';
-  if (state.tool !== 'cursor' && isFreehandTool(state.tool))
-    hint = 'Click and drag to draw · Esc to cancel';
+  const cancelKey = 'Esc';
+  let hint = intl.formatMessage(
+    {
+      id: state.draft
+        ? ETranslations.market_drawing_finish_hint__desc
+        : ETranslations.market_drawing_place_point_hint__desc,
+    },
+    { cancelKey },
+  );
+  if (
+    state.tool === 'measure' ||
+    (state.tool !== 'cursor' && isFreehandTool(state.tool))
+  )
+    hint = intl.formatMessage(
+      { id: ETranslations.market_drawing_drag_hint__desc },
+      { cancelKey },
+    );
+  if (state.tool !== 'cursor' && isPathTool(state.tool))
+    hint = intl.formatMessage(
+      { id: ETranslations.market_drawing_path_hint__desc },
+      { finishKey: 'Enter', cancelKey },
+    );
+  if (state.history.present.length >= MAX_DRAWINGS && state.tool !== 'measure')
+    hint = intl.formatMessage({
+      id: ETranslations.market_drawing_limit_reached__msg,
+    });
+  if (state.saveFailed)
+    hint = intl.formatMessage({
+      id: ETranslations.market_drawing_save_failed__msg,
+    });
   const shortcuts: Partial<Record<IDrawingTool, string>> = {
-    trend: 'Alt T',
-    horizontal: 'Alt H',
-    vertical: 'Alt V',
-    cross: 'Alt C',
-    fib: 'Alt F',
-    rectangle: 'Alt ⇧ R',
+    trend: `${shortcutsKeys.Alt} T`,
+    horizontal: `${shortcutsKeys.Alt} H`,
+    horizontalRay: `${shortcutsKeys.Alt} J`,
+    vertical: `${shortcutsKeys.Alt} V`,
+    cross: `${shortcutsKeys.Alt} C`,
+    fib: `${shortcutsKeys.Alt} F`,
+    rectangle: `${shortcutsKeys.Alt} ${shortcutsKeys.Shift} R`,
+    measure: intl.formatMessage(
+      { id: ETranslations.market_drawing_measure_shortcut__desc },
+      { shiftKey: shortcutsKeys.Shift },
+    ),
   };
   useEffect(() => {
     if (!menu) return undefined;
@@ -614,7 +722,9 @@ export function DrawingToolbar({
       render={<div ref={rootRef} data-collapsed={collapsed} />}
       testID="chart-drawing-toolbar"
       role="group"
-      aria-label="Chart drawings"
+      aria-label={intl.formatMessage({
+        id: ETranslations.market_drawing_chart_drawings__title,
+      })}
       position="static"
       width={collapsed ? 0 : 48}
       flexShrink={0}
@@ -631,11 +741,19 @@ export function DrawingToolbar({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ alignItems: 'center' }}
         role="toolbar"
-        aria-label="Drawing tools"
+        aria-label={intl.formatMessage({
+          id: ETranslations.market_drawing_drawing_tools__title,
+        })}
         aria-orientation="vertical"
       >
         <ToolButton
-          label="Cursor (Esc)"
+          label={`${intl.formatMessage({
+            id: ETranslations.market_drawing_cursor__title,
+          })} (${cancelKey})`}
+          title={intl.formatMessage(
+            { id: ETranslations.market_drawing_cursor_shortcut__desc },
+            { cancelKey, shiftKey: shortcutsKeys.Shift },
+          )}
           icon="cursor"
           active={state.tool === 'cursor'}
           onClick={() => {
@@ -648,7 +766,7 @@ export function DrawingToolbar({
           const tool =
             lastTools[group] ??
             (Object.keys(DRAWING_TOOLS) as IDrawingTool[]).find(
-              (key) => DRAWING_TOOLS[key].group === group,
+              (key) => getDrawingToolbarGroup(key) === group,
             ) ??
             'trend';
           return (
@@ -659,12 +777,18 @@ export function DrawingToolbar({
               width="100%"
             >
               <ToolButton
-                label={DRAWING_TOOLS[tool].label}
+                label={toolLabel(tool)}
+                title={
+                  shortcuts[tool]
+                    ? `${toolLabel(tool)} (${shortcuts[tool]})`
+                    : toolLabel(tool)
+                }
                 icon={tool}
                 disabled={disabled}
+                disabledOpacity={1}
                 active={
                   state.tool !== 'cursor' &&
-                  DRAWING_TOOLS[state.tool].group === group
+                  getDrawingToolbarGroup(state.tool) === group
                 }
                 onClick={() => {
                   controller.selectTool(tool);
@@ -673,15 +797,20 @@ export function DrawingToolbar({
               />
               <DrawingButton
                 render={
-                  <button type="button" title={group} aria-label={group} />
+                  <button
+                    type="button"
+                    title={groupLabel(group)}
+                    aria-label={groupLabel(group)}
+                  />
                 }
                 position="absolute"
                 right={0}
                 width={12}
-                aria-label={group}
+                aria-label={groupLabel(group)}
                 aria-haspopup="menu"
                 aria-expanded={menu === group}
                 disabled={disabled}
+                disabledOpacity={1}
                 onPress={() => setMenu(menu === group ? null : group)}
               >
                 <DrawingIcon name="chevron" color={theme.iconSubdued.val} />
@@ -691,44 +820,69 @@ export function DrawingToolbar({
         })}
         <DrawingDivider />
         <ToolButton
-          label="Magnet mode"
+          label={intl.formatMessage({
+            id: ETranslations.market_drawing_magnet_mode__title,
+          })}
+          title={intl.formatMessage(
+            { id: ETranslations.market_drawing_magnet_shortcut__desc },
+            { modifierKey: shortcutsKeys.CmdOrCtrl },
+          )}
           icon="magnet"
           active={state.magnet}
           onClick={() => controller.toggle('magnet')}
         />
         <ToolButton
-          label="Stay in drawing mode"
+          label={intl.formatMessage({
+            id: ETranslations.market_drawing_stay_in_drawing_mode__title,
+          })}
           icon="stay"
           active={state.stayInDrawingMode}
           onClick={() => controller.toggle('stayInDrawingMode')}
         />
         <ToolButton
-          label={state.locked ? 'Unlock all drawings' : 'Lock all drawings'}
+          label={intl.formatMessage({
+            id: state.locked
+              ? ETranslations.market_drawing_unlock_all_drawings__action
+              : ETranslations.market_drawing_lock_all_drawings__action,
+          })}
           icon={state.locked ? 'lock' : 'unlock'}
           active={state.locked}
           onClick={() => controller.toggle('locked')}
         />
         <ToolButton
-          label={state.hidden ? 'Show drawings' : 'Hide drawings'}
+          label={`${intl.formatMessage({
+            id: state.hidden
+              ? ETranslations.market_drawing_show_drawings__action
+              : ETranslations.market_drawing_hide_drawings__action,
+          })} (${shortcutsKeys.CmdOrCtrl} ${shortcutsKeys.Alt} H)`}
           icon={state.hidden ? 'show' : 'hide'}
           active={state.hidden}
           onClick={() => controller.toggle('hidden')}
         />
         <DrawingDivider />
         <ToolButton
-          label="Undo drawing (Ctrl/⌘ Z)"
+          label={`${intl.formatMessage({ id: ETranslations.menu_undo })} (${
+            shortcutsKeys.CmdOrCtrl
+          } Z)`}
           icon="undo"
           disabled={!state.history.past.length}
           onClick={() => controller.historyAction('undo')}
         />
         <ToolButton
-          label="Redo drawing (Ctrl/⌘ Y)"
+          label={`${intl.formatMessage({ id: ETranslations.menu_redo })} (${
+            shortcutsKeys.CmdOrCtrl
+          } Y)`}
+          title={`${intl.formatMessage({ id: ETranslations.menu_redo })} (${
+            shortcutsKeys.CmdOrCtrl
+          } Y / ${shortcutsKeys.CmdOrCtrl} ${shortcutsKeys.Shift} Z)`}
           icon="redo"
           disabled={!state.history.future.length}
           onClick={() => controller.historyAction('redo')}
         />
         <ToolButton
-          label="Remove unlocked drawings"
+          label={intl.formatMessage({
+            id: ETranslations.market_drawing_remove_unlocked_drawings__action,
+          })}
           icon="delete"
           disabled={
             state.locked ||
@@ -737,7 +891,9 @@ export function DrawingToolbar({
           onClick={controller.clear}
         />
         <ToolButton
-          label="Object Tree"
+          label={intl.formatMessage({
+            id: ETranslations.market_drawing_object_tree__title,
+          })}
           icon="objects"
           testID="chart-object-tree-toggle"
           active={state.panel === 'objects'}
@@ -747,7 +903,9 @@ export function DrawingToolbar({
           }}
         />
         <ToolButton
-          label="Data Window"
+          label={`${intl.formatMessage({
+            id: ETranslations.market_drawing_data_window__title,
+          })} (${shortcutsKeys.Alt} D)`}
           icon="data"
           testID="chart-data-window-toggle"
           active={state.panel === 'data'}
@@ -789,6 +947,16 @@ export function DrawingToolbar({
           pressStyle={{ backgroundColor: '$bgActive' }}
           onPress={() => {
             setCollapsed(!collapsed);
+            try {
+              void Promise.resolve(
+                appStorage.syncStorage.set(
+                  EAppSyncStorageKeys.onekey_trading_view_native_drawing_toolbar_collapsed,
+                  !collapsed,
+                ),
+              ).catch(() => undefined);
+            } catch {
+              // Keep the toolbar usable when preference storage is unavailable.
+            }
             setMenu(null);
           }}
         />
@@ -798,7 +966,8 @@ export function DrawingToolbar({
           position="absolute"
           left={52}
           top={8}
-          width={232}
+          width="max-content"
+          maxWidth="calc(100% - 60px)"
           maxHeight="calc(100% - 16px)"
           backgroundColor="$bg"
           borderWidth={1}
@@ -811,7 +980,7 @@ export function DrawingToolbar({
           contentContainerStyle={{ padding: 6 }}
           zIndex={10}
           role="menu"
-          aria-label={menu}
+          aria-label={groupLabel(menu)}
         >
           <SizableText
             paddingVertical={9}
@@ -822,10 +991,10 @@ export function DrawingToolbar({
             textTransform="uppercase"
             letterSpacing={0.8}
           >
-            {menu}
+            {groupLabel(menu)}
           </SizableText>
           {(Object.keys(DRAWING_TOOLS) as IDrawingTool[])
-            .filter((tool) => DRAWING_TOOLS[tool].group === menu)
+            .filter((tool) => getDrawingToolbarGroup(tool) === menu)
             .map((tool) => (
               <DrawingButton
                 key={tool}
@@ -835,10 +1004,10 @@ export function DrawingToolbar({
                     type="button"
                     role="menuitemradio"
                     aria-checked={state.tool === tool}
-                    aria-label={DRAWING_TOOLS[tool].label}
+                    aria-label={toolLabel(tool)}
                   />
                 }
-                aria-label={DRAWING_TOOLS[tool].label}
+                aria-label={toolLabel(tool)}
                 aria-checked={state.tool === tool}
                 active={state.tool === tool}
                 width="100%"
@@ -861,13 +1030,20 @@ export function DrawingToolbar({
                       : theme.iconSubdued.val
                   }
                 />
-                <SizableText fontSize={13}>
-                  {DRAWING_TOOLS[tool].label}
+                <SizableText
+                  fontSize={13}
+                  numberOfLines={1}
+                  flexShrink={1}
+                  textAlign="left"
+                >
+                  {toolLabel(tool)}
                 </SizableText>
                 <SizableText
                   marginLeft="auto"
+                  flexShrink={0}
                   color="$textSubdued"
                   fontSize={10}
+                  whiteSpace="nowrap"
                 >
                   {shortcuts[tool]}
                 </SizableText>
@@ -880,7 +1056,9 @@ export function DrawingToolbar({
           render={<div ref={propertiesRef} />}
           testID="chart-drawing-properties"
           role="toolbar"
-          aria-label="Drawing properties"
+          aria-label={intl.formatMessage({
+            id: ETranslations.market_drawing_drawing_properties__title,
+          })}
           position="absolute"
           left={propertiesPosition.left}
           top={propertiesPosition.top}
@@ -912,8 +1090,12 @@ export function DrawingToolbar({
                 type="button"
                 style={{ touchAction: 'none' }}
                 data-testid="chart-drawing-properties-drag-handle"
-                aria-label="Move drawing properties"
-                title="Drag to move"
+                aria-label={intl.formatMessage({
+                  id: ETranslations.market_drawing_move_drawing_properties__action,
+                })}
+                title={intl.formatMessage({
+                  id: ETranslations.market_drawing_drag_to_move__desc,
+                })}
                 onPointerDown={(event) => {
                   const panel = propertiesRef.current;
                   if (event.button !== 0 || !event.isPrimary || !panel) return;
@@ -974,17 +1156,19 @@ export function DrawingToolbar({
             whiteSpace="nowrap"
             flexShrink={0}
           >
-            {
-              DRAWING_TOOLS[
-                selected?.tool ??
-                  (state.tool === 'cursor' ? 'trend' : state.tool)
-              ].label
-            }
+            {toolLabel(
+              selected?.tool ??
+                (state.tool === 'cursor' ? 'trend' : state.tool),
+            )}
           </SizableText>
           <DrawingInput
             type="color"
-            aria-label="Drawing color"
-            title="Color"
+            aria-label={intl.formatMessage({
+              id: ETranslations.market_drawing_drawing_color__title,
+            })}
+            title={intl.formatMessage({
+              id: ETranslations.market_drawing_color__title,
+            })}
             value={style.color}
             disabled={styleDisabled}
             onChange={(event) =>
@@ -1013,12 +1197,16 @@ export function DrawingToolbar({
                 onPress={controller.toggleCoordinates}
               >
                 <SizableText fontSize={12} color="$iconSubdued">
-                  Settings
+                  {intl.formatMessage({ id: ETranslations.global_settings })}
                 </SizableText>
               </DrawingButton>
               <ToolButton
                 compact
-                label={selected.locked ? 'Unlock drawing' : 'Lock drawing'}
+                label={intl.formatMessage({
+                  id: selected.locked
+                    ? ETranslations.market_drawing_unlock_drawing__action
+                    : ETranslations.market_drawing_lock_drawing__action,
+                })}
                 icon={selected.locked ? 'lock' : 'unlock'}
                 active={selected.locked}
                 disabled={state.locked}
@@ -1026,7 +1214,12 @@ export function DrawingToolbar({
               />
               <ToolButton
                 compact
-                label="Delete drawing"
+                label={intl.formatMessage({
+                  id: ETranslations.market_drawing_delete_drawing__action,
+                })}
+                title={`${intl.formatMessage({
+                  id: ETranslations.market_drawing_delete_drawing__action,
+                })} (Delete / Backspace)`}
                 icon="delete"
                 disabled={styleDisabled}
                 onClick={controller.removeSelected}
@@ -1040,10 +1233,12 @@ export function DrawingToolbar({
           render={<div ref={coordinatesRef} />}
           testID="chart-drawing-settings"
           role="dialog"
-          aria-label="Drawing settings"
+          aria-label={intl.formatMessage({
+            id: ETranslations.market_drawing_drawing_settings__title,
+          })}
           position="absolute"
-          width={hasText ? 300 : undefined}
-          maxWidth={hasText ? 'calc(100% - 100px)' : undefined}
+          width={340}
+          maxWidth="calc(100% - 100px)"
           maxHeight="calc(100% - 90px)"
           overflow="hidden"
           backgroundColor="$bg"
@@ -1058,7 +1253,7 @@ export function DrawingToolbar({
           zIndex={4}
         >
           <SizableText fontSize={12} fontWeight="600" flexShrink={0}>
-            {DRAWING_TOOLS[selected.tool].label}
+            {toolLabel(selected.tool)}
           </SizableText>
           <YStack
             render={<div ref={settingsBodyRef} />}
@@ -1066,9 +1261,14 @@ export function DrawingToolbar({
             flexShrink={1}
             overflowY="auto"
           >
-            {selected.tool === 'text' || selected.tool === 'callout' ? (
+            {isTextDrawingTool(selected.tool) &&
+            selected.tool !== 'priceLabel' ? (
               <YStack render="label" gap={6} marginVertical={10}>
-                <SizableText fontSize={12}>Content</SizableText>
+                <SizableText fontSize={12}>
+                  {intl.formatMessage({
+                    id: ETranslations.market_drawing_content__title,
+                  })}
+                </SizableText>
                 <DrawingField
                   key={`${selected.id}-text-${selected.text ?? ''}`}
                   width="100%"
@@ -1077,10 +1277,17 @@ export function DrawingToolbar({
                   borderRadius={5}
                   render={
                     <textarea
-                      aria-label="Drawing text"
+                      aria-label={intl.formatMessage({
+                        id: ETranslations.market_drawing_drawing_text__title,
+                      })}
                       data-testid="chart-drawing-text"
                       maxLength={500}
-                      defaultValue={selected.text ?? 'Text'}
+                      defaultValue={
+                        selected.text ??
+                        intl.formatMessage({
+                          id: ETranslations.market_drawing_tool_text__title,
+                        })
+                      }
                       disabled={styleDisabled}
                       style={{ resize: 'vertical' }}
                       onBlur={(event) =>
@@ -1097,26 +1304,44 @@ export function DrawingToolbar({
                   flexDirection="column"
                   alignItems="flex-start"
                 >
-                  <SizableText fontSize={12}>Text color</SizableText>
+                  <SizableText fontSize={12}>
+                    {intl.formatMessage({
+                      id: ETranslations.market_drawing_text_color__title,
+                    })}
+                  </SizableText>
                   <DrawingInput
                     expanded
                     type="color"
-                    aria-label="Text color"
-                    value={style.color}
+                    aria-label={intl.formatMessage({
+                      id: ETranslations.market_drawing_text_color__title,
+                    })}
+                    value={
+                      style.textColor ??
+                      (activeTool === 'text' ? style.color : '#FFFFFF')
+                    }
                     disabled={styleDisabled}
                     onChange={(event) =>
-                      controller.changeStyle({ color: event.target.value })
+                      controller.changeStyle({ textColor: event.target.value })
                     }
                   />
                 </DrawingFieldLabel>
                 <DrawingFieldLabel
                   render={
-                    <label htmlFor={fontSizeControlId} aria-label="Font size" />
+                    <label
+                      htmlFor={fontSizeControlId}
+                      aria-label={intl.formatMessage({
+                        id: ETranslations.market_drawing_font_size__title,
+                      })}
+                    />
                   }
                   flexDirection="column"
                   alignItems="flex-start"
                 >
-                  <SizableText fontSize={12}>Font size</SizableText>
+                  <SizableText fontSize={12}>
+                    {intl.formatMessage({
+                      id: ETranslations.market_drawing_font_size__title,
+                    })}
+                  </SizableText>
                   <FontSizeSelect
                     expanded
                     id={fontSizeControlId}
@@ -1137,7 +1362,9 @@ export function DrawingToolbar({
                 marginBottom={8}
               >
                 <SizableText fontSize={12} marginBottom={8} fontWeight="600">
-                  Connection line
+                  {intl.formatMessage({
+                    id: ETranslations.market_chart_settings__border,
+                  })}
                 </SizableText>
                 <XStack gap={6}>
                   <LineStyleControls
@@ -1148,6 +1375,12 @@ export function DrawingToolbar({
                 </XStack>
               </YStack>
             ) : null}
+            <DrawingStyleOptions
+              tool={activeTool}
+              style={style}
+              disabled={styleDisabled}
+              onChange={controller.changeStyle}
+            />
             {hasText ? (
               <YStack
                 borderTopWidth={1}
@@ -1172,7 +1405,9 @@ export function DrawingToolbar({
                     color="$textSubdued"
                   />
                   <SizableText fontSize={12} fontWeight="600">
-                    Position
+                    {intl.formatMessage({
+                      id: ETranslations.market_drawing_position__title,
+                    })}
                   </SizableText>
                 </DrawingButton>
                 {positionExpanded ? pointFields : null}
@@ -1196,7 +1431,9 @@ export function DrawingToolbar({
             marginTop={6}
             childrenAsText={false}
           >
-            <SizableText fontSize={12}>Done</SizableText>
+            <SizableText fontSize={12}>
+              {intl.formatMessage({ id: ETranslations.global_done })}
+            </SizableText>
           </Button>
         </YStack>
       ) : null}
@@ -1219,6 +1456,24 @@ export function DrawingToolbar({
         >
           {hint}
         </SizableText>
+      ) : null}
+      {state.draft && isPathTool(state.draft.drawing.tool) ? (
+        <Button
+          testID="chart-drawing-finish"
+          position="absolute"
+          left={64}
+          bottom={56}
+          size="small"
+          onPress={controller.finishPath}
+          disabled={
+            state.draft.anchors.length <
+            DRAWING_TOOLS[state.draft.drawing.tool].points
+          }
+        >
+          {intl.formatMessage({
+            id: ETranslations.market_drawing_finish_drawing__action,
+          })}
+        </Button>
       ) : null}
     </YStack>
   );

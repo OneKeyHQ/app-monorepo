@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import { buildSwapTokenFetchParams } from '@onekeyhq/kit/src/views/Swap/hooks/swapTokenFetchParamsUtils';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { getSwapAccountNetworkWarningAccountId } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount.utils';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
@@ -34,6 +35,16 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsLoader';
 import type { ISwapProTokenCarryUtils } from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
+import {
+  type ISwapTokenSelectorLoadOptions,
+  SWAP_TOKEN_SELECTOR_DESKTOP_CACHE_SIZE,
+  buildSwapTokenListCacheKey,
+  createSwapTokenSearchSubscriptions,
+  getSwapTokenSelectorCacheEpoch,
+  isSwapTokenSelectorAccountRemoved,
+  isSwapTokenSelectorSnapshotCurrent,
+  isSwapTokenSelectorSnapshotFreshForPreload,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapTokenSelectorCacheUtils';
 import { getSwapQuoteTokenTaxPercentages } from '@onekeyhq/kit/src/views/Swap/utils/swapTokenTaxUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import {
@@ -120,6 +131,7 @@ import {
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
+  swapAllNetworkTokenListStatusAtom,
   swapAutoSlippageSuggestedValueAtom,
   swapBalanceDisplayCacheAtom,
   swapBuildTxFetchingAtom,
@@ -164,9 +176,11 @@ import {
   swapSelectToTokenAtom,
   swapSelectTokenDetailFetchingAtom,
   swapSelectTokenDetailRequestIdAtom,
+  swapSelectTokenPriceRevisionAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokenBalanceMetaAtom,
+  swapSelectedTokenBalanceRefreshRequestedAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
@@ -176,6 +190,7 @@ import {
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
+  swapTokenListRequestsAtom,
   swapTokenMapAtom,
   swapTypeSwitchAtom,
   swapWarningRequestIdAtom,
@@ -191,9 +206,11 @@ import {
   isSwapOrBridgeQuoteType,
   isSwapQuoteActionable,
   isSwapQuoteEventFetching,
+  isSwapQuoteRequestForCurrentInput,
   resolveSwapQuoteRefreshAction,
   shouldShowSwapQuoteLimitWarning,
 } from './quoteProgress';
+import { getSwapTokenSelectorStore } from './tokenSelectorData';
 
 type IIndependentSwapInputAmountType =
   | ESwapTabSwitchType.SWAP
@@ -341,6 +358,39 @@ function isStockProtocol(protocol?: string) {
     protocol === ESwapTabSwitchType.STOCK ||
     protocol === EProtocolOfExchange.STOCK
   );
+}
+
+function buildSwapAccountTokenListParams({
+  network,
+  accountNetworkId,
+  protocol,
+  accountAddress,
+  accountId,
+  lpToken,
+  currency,
+}: {
+  network?: ISwapNetwork;
+  accountNetworkId: string;
+  protocol: ESwapTabSwitchType;
+  accountAddress?: string;
+  accountId?: string;
+  lpToken?: boolean;
+  currency?: string;
+}) {
+  return buildSwapTokenFetchParams({
+    currentSelectNetworkId: accountNetworkId,
+    keywords: '',
+    swapType: protocol,
+    lpToken:
+      network && isTokenSelectorDappTokenFilterSupportedNetworkBase(network)
+        ? lpToken
+        : undefined,
+    requestCurrency: currency,
+    shouldUseCurrentAccountAddress: true,
+    currentAccountAddress: accountAddress,
+    currentAccountNetworkId: accountNetworkId,
+    currentAccountId: accountId,
+  });
 }
 
 type ISwapQuoteActionOverride = {
@@ -862,55 +912,46 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   });
 
   catchSwapTokensMap = contextAtomMethod(
-    async (get, set, key: string, tokens: ISwapToken[]) => {
-      const swapTokenMap = get(swapTokenMapAtom());
-      const swapNetworksList = get(swapNetworks());
-      const catchTokens = swapTokenMap.tokenCatch?.[key];
-      const dateNow = Date.now();
-      let catchCount = 0;
-      const newTokens = tokens.map((token) => {
-        const network = swapNetworksList.find(
-          (n) => n.networkId === token.networkId,
-        );
-        if (network) {
-          token.networkLogoURI = network.logoURI;
-        }
-        return token;
+    (get, set, key: string, tokens: ISwapToken[]) => {
+      const cacheStore = getSwapTokenSelectorStore();
+      const previous = cacheStore.get(swapTokenMapAtom());
+      const networks = get(swapNetworks());
+      const updatedAt = Date.now();
+      const epoch = getSwapTokenSelectorCacheEpoch();
+      const data = tokens.map((token) => {
+        const network = networks.find((n) => n.networkId === token.networkId);
+        return network && token.networkLogoURI !== network.logoURI
+          ? { ...token, networkLogoURI: network.logoURI }
+          : token;
       });
-      if (swapTokenMap.tokenCatch && catchTokens?.data) {
-        // have catch
-        if (JSON.stringify(catchTokens.data) !== JSON.stringify(newTokens)) {
-          // catch data not equal
-          const newTokenCatch = { ...swapTokenMap.tokenCatch };
-          newTokenCatch[key] = {
-            data: newTokens,
-            updatedAt: dateNow,
-          };
-          swapTokenMap.tokenCatch = { ...newTokenCatch };
-        }
-        catchCount = Object.keys(swapTokenMap.tokenCatch).length;
-      } else {
-        // no catch
-        swapTokenMap.tokenCatch = {
-          ...swapTokenMap.tokenCatch,
-          [key]: { data: newTokens, updatedAt: dateNow },
-        };
-        catchCount = Object.keys(swapTokenMap.tokenCatch).length;
-      }
-      if (swapTokenMap.tokenCatch && catchCount > swapTokenCatchMapMaxCount) {
-        // clean old catch
-        const oldUpdatedAtKey = Object.entries(swapTokenMap.tokenCatch).reduce(
-          (min, [mapKey, obj]) =>
-            obj.updatedAt < (swapTokenMap.tokenCatch?.[min]?.updatedAt ?? 0)
-              ? mapKey
-              : min,
-          Object.keys(swapTokenMap.tokenCatch)[0],
+      const tokenCatch = {
+        ...previous.tokenCatch,
+        [key]: {
+          data,
+          updatedAt,
+          refreshVersion: epoch.refresh,
+          identityVersion: epoch.identity,
+        },
+      };
+      const maxCount =
+        platformEnv.isDesktop || platformEnv.isWeb
+          ? SWAP_TOKEN_SELECTOR_DESKTOP_CACHE_SIZE
+          : swapTokenCatchMapMaxCount;
+      const oldestKeys = Object.keys(tokenCatch)
+        .filter((cacheKey) => cacheKey !== key)
+        .toSorted(
+          (left, right) =>
+            tokenCatch[left].updatedAt - tokenCatch[right].updatedAt,
         );
-        if (oldUpdatedAtKey) {
-          delete swapTokenMap.tokenCatch[oldUpdatedAtKey];
-        }
+      for (const oldKey of oldestKeys.slice(
+        0,
+        Math.max(0, Object.keys(tokenCatch).length - maxCount),
+      )) {
+        delete tokenCatch[oldKey];
       }
-      set(swapTokenMapAtom(), { ...swapTokenMap, updatedAt: dateNow });
+      // Record every successful snapshot, even when its contents are unchanged.
+      cacheStore.set(swapTokenMapAtom(), { version: 1, tokenCatch, updatedAt });
+      return data;
     },
   );
 
@@ -1220,26 +1261,270 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   });
 
   tokenListFetchAction = contextAtomMethod(
-    async (get, set, params: IFetchTokensParams) => {
+    async (
+      get,
+      set,
+      params: IFetchTokensParams,
+      options?: ISwapTokenSelectorLoadOptions,
+    ): Promise<ISwapToken[] | undefined> => {
+      const cacheStore = getSwapTokenSelectorStore();
+      if (
+        !params.networkId ||
+        options?.subscriberSignal?.aborted ||
+        isSwapTokenSelectorAccountRemoved({ accountId: params.accountId })
+      )
+        return undefined;
+      const requestParams = {
+        ...params,
+        protocol: params.protocol ?? get(swapTypeSwitchAtom()),
+      };
+      const key = buildSwapTokenListCacheKey(requestParams);
+      const epoch = getSwapTokenSelectorCacheEpoch();
+      const active = cacheStore.get(swapTokenListRequestsAtom())[key];
       try {
-        if (!params.networkId) return;
-        set(swapTokenFetchingAtom(), true);
-        const protocol = get(swapTypeSwitchAtom());
-        const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
-          ...params,
-          protocol,
-          // An empty response is a valid snapshot. Keep failures distinguishable
-          // so a silent refresh can preserve the previous scoped result.
-          throwOnError: true,
-        });
-        await this.catchSwapTokensMap.call(set, JSON.stringify(params), result);
-        set(swapTokenFetchingAtom(), false);
-      } catch (e: any) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
-          set(swapTokenFetchingAtom(), false);
+        if (active && active.identityVersion === epoch.identity) {
+          if (active.refreshVersion !== epoch.refresh) {
+            cacheStore.set(swapTokenListRequestsAtom(), (value) => ({
+              ...value,
+              [key]: { ...active, pendingRefresh: true },
+            }));
+          }
+          return await (active.searchSubscriptions
+            ? active.searchSubscriptions.wait(
+                active.promise,
+                options?.subscriberSignal,
+              )
+            : active.promise);
         }
+        const cached = cacheStore.get(swapTokenMapAtom()).tokenCatch?.[key];
+        if (
+          !requestParams.keywords &&
+          options?.policy !== 'revalidate' &&
+          isSwapTokenSelectorSnapshotCurrent(cached)
+        ) {
+          return cached?.data;
+        }
+        const releaseRequest = (promise: Promise<ISwapToken[]>) => {
+          cacheStore.set(swapTokenListRequestsAtom(), (value) => {
+            if (value[key]?.promise !== promise) return value;
+            const next = { ...value };
+            delete next[key];
+            return next;
+          });
+          cacheStore.set(
+            swapTokenFetchingAtom(),
+            Object.keys(cacheStore.get(swapTokenListRequestsAtom())).length > 0,
+          );
+        };
+        const searchRequestId = requestParams.keywords
+          ? generateUUID()
+          : undefined;
+        const searchSubscriptions = searchRequestId
+          ? createSwapTokenSearchSubscriptions(() => {
+              const current = cacheStore.get(swapTokenListRequestsAtom())[key];
+              if (current?.searchSubscriptions === searchSubscriptions)
+                releaseRequest(current.promise);
+              void backgroundApiProxy.serviceSwap
+                .cancelSwapTokenSearch({ requestId: searchRequestId })
+                .catch(() => undefined);
+            })
+          : undefined;
+        const requestPromise: Promise<ISwapToken[]> = Promise.resolve()
+          .then(async () => {
+            for (;;) {
+              const requestEpoch = getSwapTokenSelectorCacheEpoch();
+              if (
+                searchSubscriptions?.cancelled ||
+                requestEpoch.identity !== epoch.identity
+              ) {
+                throw new OneKeyLocalError(
+                  'Token selector account identity changed',
+                );
+              }
+              cacheStore.set(swapTokenListRequestsAtom(), (value) => ({
+                ...value,
+                [key]: {
+                  ...value[key],
+                  pendingRefresh: false,
+                  refreshVersion: requestEpoch.refresh,
+                },
+              }));
+              let result: ISwapToken[] | undefined;
+              let requestError: unknown;
+              try {
+                result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
+                  ...requestParams,
+                  ...(searchRequestId ? { searchRequestId } : {}),
+                  ...(options?.priority
+                    ? { tokenListPriority: options.priority }
+                    : {}),
+                  ...(options?.background ? { isTokenListPrefetch: true } : {}),
+                  throwOnError: true,
+                });
+              } catch (error) {
+                requestError = error;
+              }
+              const latest = cacheStore.get(swapTokenListRequestsAtom())[key];
+              const latestEpoch = getSwapTokenSelectorCacheEpoch();
+              if (
+                latest?.promise !== requestPromise ||
+                latestEpoch.identity !== epoch.identity
+              ) {
+                throw new OneKeyLocalError(
+                  'Token selector account identity changed',
+                );
+              }
+              // A transaction may settle during the HTTP call. Publish only the
+              // subsequent snapshot, and coalesce every waiter into that one run.
+              if (
+                !latest.pendingRefresh &&
+                latestEpoch.refresh === requestEpoch.refresh
+              ) {
+                if (result === undefined) {
+                  throw requestError instanceof Error
+                    ? requestError
+                    : new OneKeyLocalError(String(requestError));
+                }
+                const tokensWithNetworkLogos = !requestParams.keywords
+                  ? this.catchSwapTokensMap.call(set, key, result)
+                  : result.map((token) => {
+                      const network = get(swapNetworks()).find(
+                        (item) => item.networkId === token.networkId,
+                      );
+                      return network && token.networkLogoURI !== network.logoURI
+                        ? { ...token, networkLogoURI: network.logoURI }
+                        : token;
+                    });
+                // Publishing can synchronously notify transaction subscribers.
+                // Drain their refresh before completing the shared operation.
+                const publishedEpoch = getSwapTokenSelectorCacheEpoch();
+                if (publishedEpoch.identity !== epoch.identity) {
+                  throw new OneKeyLocalError(
+                    'Token selector account identity changed',
+                  );
+                }
+                if (
+                  !cacheStore.get(swapTokenListRequestsAtom())[key]
+                    ?.pendingRefresh &&
+                  publishedEpoch.refresh === requestEpoch.refresh
+                ) {
+                  // Stop accepting joiners before resolving the promise; a new
+                  // event must not join a completed request awaiting finally.
+                  releaseRequest(requestPromise);
+                  return tokensWithNetworkLogos;
+                }
+              }
+            }
+          })
+          .finally(() => {
+            searchSubscriptions?.complete();
+            releaseRequest(requestPromise);
+          });
+        cacheStore.set(swapTokenListRequestsAtom(), (value) => ({
+          ...value,
+          [key]: {
+            promise: requestPromise,
+            identityVersion: epoch.identity,
+            refreshVersion: epoch.refresh,
+            pendingRefresh: false,
+            searchSubscriptions,
+          },
+        }));
+        cacheStore.set(swapTokenFetchingAtom(), true);
+        return await (searchSubscriptions
+          ? searchSubscriptions.wait(requestPromise, options?.subscriberSignal)
+          : requestPromise);
+      } catch (error) {
+        if (options?.throwOnError) throw error;
+        return undefined;
       }
+    },
+  );
+
+  private refreshQuotedTokenPrices = contextAtomMethod(
+    async (get, set, event: ISwapQuoteEventPayload) => {
+      const swapType = get(swapTypeSwitchAtom());
+      if (
+        !isSwapOrBridgeQuoteType(swapType) ||
+        event.params.source === ESwapQuoteSource.MARKET
+      ) {
+        return;
+      }
+      const isCurrentPriceRequest = () =>
+        get(swapQuoteActionLockAtom()).quoteRequestId ===
+          event.quoteRequestId &&
+        get(swapQuoteEventCompletedAtom()) &&
+        get(swapTypeSwitchAtom()) === swapType &&
+        equalTokenNoCaseSensitive({
+          token1: get(swapSelectFromTokenAtom()),
+          token2: event.tokenPairs.fromToken,
+        }) &&
+        equalTokenNoCaseSensitive({
+          token1: get(swapSelectToTokenAtom()),
+          token2: event.tokenPairs.toToken,
+        });
+      if (!isCurrentPriceRequest()) {
+        return;
+      }
+
+      await Promise.allSettled(
+        (
+          [
+            [
+              swapSelectFromTokenAtom(),
+              event.tokenPairs.fromToken,
+              ESwapDirectionType.FROM,
+            ],
+            [
+              swapSelectToTokenAtom(),
+              event.tokenPairs.toToken,
+              ESwapDirectionType.TO,
+            ],
+          ] as const
+        ).map(async ([selectedTokenAtom, token, direction]) => {
+          const contractAddress =
+            await getSwapTokenBalanceContractAddress(token);
+          if (!isCurrentPriceRequest()) {
+            return;
+          }
+          // Price-only requests must not cancel account-scoped balance requests.
+          const details =
+            await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+              networkId: token.networkId,
+              contractAddress,
+              currency: USD_CURRENCY_ID,
+            });
+          const detail = details?.find(
+            (item) =>
+              equalTokenNoCaseSensitive({ token1: item, token2: token }) ||
+              equalTokenNoCaseSensitive({
+                token1: item,
+                token2: { networkId: token.networkId, contractAddress },
+              }),
+          );
+          const price = detail?.price;
+          const priceBN = new BigNumber(price ?? '');
+          if (
+            !price ||
+            !priceBN.isFinite() ||
+            !priceBN.gt(0) ||
+            !isCurrentPriceRequest()
+          ) {
+            return;
+          }
+          // A same-value response still supersedes older balance prices.
+          set(swapSelectTokenPriceRevisionAtom(), (previous) => ({
+            ...previous,
+            [direction]: previous[direction] + 1,
+          }));
+          set(selectedTokenAtom, (previous) =>
+            !previous ||
+            (previous.price === price && previous.currency === USD_CURRENCY_ID)
+              ? previous
+              : { ...previous, price, currency: USD_CURRENCY_ID },
+          );
+        }),
+      );
     },
   );
 
@@ -1328,6 +1613,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               } else {
                 this.requireManualQuoteRefresh.call(set);
               }
+              void this.refreshQuotedTokenPrices.call(set, event);
               break;
             }
             const autoSlippageData = dataJson as ISwapQuoteEventAutoSlippage;
@@ -1424,6 +1710,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   event,
                   shouldScheduleAutoRefresh,
                 );
+                void this.refreshQuotedTokenPrices.call(set, event);
                 break;
               }
               set(swapQuoteEventCompletedAtom(), false);
@@ -1592,6 +1879,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteFetchingAtom(), false);
           this.closeQuoteEvent(event.quoteRequestId);
           this.settleQuoteRefresh.call(set, event, shouldScheduleAutoRefresh);
+          void this.refreshQuotedTokenPrices.call(set, event);
           break;
         }
         case 'error': {
@@ -1602,6 +1890,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           this.closeQuoteEvent(event.quoteRequestId);
           this.settleQuoteRefresh.call(set, event, shouldScheduleAutoRefresh);
+          void this.refreshQuotedTokenPrices.call(set, event);
           break;
         }
         case 'close': {
@@ -1610,6 +1899,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           this.settleQuoteRefresh.call(set, event, shouldScheduleAutoRefresh);
+          void this.refreshQuotedTokenPrices.call(set, event);
           break;
         }
         default:
@@ -1645,6 +1935,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         protocol === ESwapTabSwitchType.STOCK
           ? false
           : (incognito ?? swapIncognitoMode);
+      if (get(swapQuoteActionLockAtom()).quoteRequestId === quoteRequestId) {
+        set(swapQuoteActionLockAtom(), (value) => ({
+          ...value,
+          incognito: incognitoEnabled,
+        }));
+      }
       const isActiveQuoteRequest = () => {
         const activeQuoteRequest = get(swapQuoteActionLockAtom());
         return (
@@ -1655,9 +1951,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
       const limitPartiallyFillable = limitPartiallyFillableObj.value;
       const expirationTime = get(swapLimitExpirationTimeAtom());
-      if (shouldRefreshQuote || !isActiveQuoteRequest()) {
+      if (!isActiveQuoteRequest()) {
+        return;
+      }
+      if (shouldRefreshQuote) {
         this.cleanQuoteInterval.call(set);
-        if (shouldRefreshQuote && isActiveQuoteRequest()) {
+        if (isActiveQuoteRequest()) {
           set(swapQuoteActionLockAtom(), (value) => ({
             ...value,
             actionLock: false,
@@ -1781,6 +2080,150 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapFromTokenAmountAtom(), { value: '', isInput: false });
     }
   });
+
+  resumeQuoteAction = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        slippageItem,
+        address,
+        accountId,
+        kind,
+        receivingAddress,
+        pausedQuoteRequestId,
+        incognito,
+      }: {
+        slippageItem: { key: ESwapSlippageSegmentKey; value: number };
+        address?: string;
+        accountId?: string;
+        kind: ESwapQuoteKind;
+        receivingAddress?: string;
+        pausedQuoteRequestId?: string;
+        incognito?: boolean;
+      },
+    ) => {
+      const request = get(swapQuoteActionLockAtom());
+      const selectedType = get(swapTypeSwitchAtom());
+      const proTradeType = get(swapProTradeTypeAtom());
+      const isNativeProMarket =
+        platformEnv.isNative &&
+        selectedType === ESwapTabSwitchType.LIMIT &&
+        proTradeType === ESwapProTradeType.MARKET;
+      const type = isNativeProMarket ? ESwapTabSwitchType.SWAP : selectedType;
+      let fromToken = get(swapSelectFromTokenAtom());
+      let toToken = get(swapSelectToTokenAtom());
+      if (
+        isNativeProMarket ||
+        (type === ESwapTabSwitchType.LIMIT &&
+          proTradeType === ESwapProTradeType.LIMIT)
+      ) {
+        const isBuy = get(swapProDirectionAtom()) === ESwapDirection.BUY;
+        fromToken = get(
+          isBuy ? swapProUseSelectBuyTokenAtom() : swapProSelectTokenAtom(),
+        );
+        toToken = get(
+          isBuy ? swapProSelectTokenAtom() : swapProSellToTokenAtom(),
+        );
+      }
+      if (
+        isNativeProMarket &&
+        (!fromToken || !toToken || fromToken.networkId !== toToken.networkId)
+      ) {
+        this.cleanQuoteInterval.call(set);
+        await this.resetQuoteAction.call(set);
+        return;
+      }
+      const fromAmount = isNativeProMarket
+        ? get(swapProInputAmountAtom())
+        : get(swapFromTokenAmountAtom()).value;
+      const toAmount = get(swapToTokenAmountAtom()).value;
+      const effectiveIncognito =
+        isNativeProMarket ||
+        type === ESwapTabSwitchType.STOCK ||
+        type === ESwapTabSwitchType.LIMIT
+          ? false
+          : incognito;
+      const isSameInput =
+        Boolean(request.quoteRequestId) &&
+        (request.incognito === undefined ||
+          request.incognito === effectiveIncognito) &&
+        isSwapQuoteRequestForCurrentInput({
+          currentAccountId: accountId,
+          currentAddress: address,
+          currentReceivingAddress: receivingAddress,
+          currentSwapType: type,
+          fromAmount,
+          fromToken,
+          quoteKind: kind,
+          quoteRequest: request,
+          toAmount,
+          toToken,
+        }) &&
+        (!request.slippageItem ||
+          (request.slippageItem.key === slippageItem.key &&
+            (slippageItem.key !== ESwapSlippageSegmentKey.CUSTOM ||
+              request.slippageItem.value === slippageItem.value)));
+      // An input effect or another visibility callback may already have resumed.
+      if (
+        isSameInput &&
+        (request.actionLock ||
+          get(swapQuoteAutoRefreshTimerAtom()) !== undefined ||
+          (pausedQuoteRequestId !== undefined &&
+            pausedQuoteRequestId !== request.quoteRequestId))
+      ) {
+        return;
+      }
+      if (isSameInput) {
+        const quoteError = get(swapQuoteEventErrorAtom());
+        if (quoteError?.isStock && quoteError.isMarketOpen === false) {
+          return;
+        }
+        if (get(swapShouldRefreshQuoteAtom())) {
+          this.requireManualQuoteRefresh.call(set);
+          return;
+        }
+      }
+      const preserveRefreshBudget =
+        isSameInput &&
+        (isSwapOrBridgeQuoteType(type) || type === ESwapTabSwitchType.STOCK);
+      if (preserveRefreshBudget) {
+        const refresh = resolveSwapQuoteRefreshAction({
+          automaticRefreshCount: get(swapQuoteIntervalCountAtom()),
+          maxAutomaticRefreshCount: swapQuoteIntervalMaxCount,
+        });
+        if (refresh.action === ESwapQuoteRefreshAction.RequireManualRefresh) {
+          this.requireManualQuoteRefresh.call(set);
+          return;
+        }
+        set(swapQuoteIntervalCountAtom(), refresh.nextAutomaticRefreshCount);
+      }
+      await this.quoteAction.call(
+        set,
+        slippageItem,
+        address,
+        accountId,
+        undefined,
+        preserveRefreshBudget,
+        kind,
+        undefined,
+        receivingAddress,
+        effectiveIncognito,
+        (preserveRefreshBudget || isNativeProMarket) && fromToken && toToken
+          ? {
+              type,
+              fromToken,
+              toToken,
+              fromTokenAmount: fromAmount,
+              toTokenAmount: toAmount,
+              source: isNativeProMarket
+                ? ESwapQuoteSource.MARKET
+                : request.source,
+            }
+          : undefined,
+      );
+    },
+  );
 
   quoteAction = contextAtomMethod(
     async (
@@ -1912,6 +2355,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         receivingAddress,
         quoteRequestId,
         manualRefresh: quoteOverride?.manualRefresh ?? false,
+        slippageItem: { ...slippageItem },
+        incognito,
       }));
       void this.runQuoteEvent.call(
         set,
@@ -2707,6 +3152,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     set(swapWarningRequestIdAtom(), get(swapWarningRequestIdAtom()) + 1);
   });
 
+  requestSelectedTokenBalanceRefresh = contextAtomMethod((get, set) => {
+    const swapType = get(swapTypeSwitchAtom());
+    if (
+      swapType === ESwapTabSwitchType.STOCK ||
+      (platformEnv.isNative && swapType === ESwapTabSwitchType.LIMIT)
+    ) {
+      return;
+    }
+    set(swapSelectedTokenBalanceRefreshRequestedAtom(), {
+      from: Boolean(get(swapSelectFromTokenAtom())),
+      to: Boolean(get(swapSelectToTokenAtom())),
+    });
+  });
+
   loadSwapSelectTokenDetail = contextAtomMethod(
     async (
       get,
@@ -2727,6 +3186,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
       const requestId = get(swapSelectTokenDetailRequestIdAtom())[type] + 1;
+      const priceRevision = get(swapSelectTokenPriceRevisionAtom())[type];
       // Replacing a refresh must not fall back to its previously cached balance.
       const shouldFetchBalance =
         fetchBalance || get(swapSelectTokenDetailFetchingAtom())[type];
@@ -2897,14 +3357,26 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 logoURI?: string;
                 currency?: string;
               } = {};
-              if (detailInfo[0].price) {
-                condition.price = detailInfo[0].price;
-              }
-              if (detailInfo[0].fiatValue) {
-                condition.fiatValue = detailInfo[0].fiatValue;
-              }
-              if (condition.price || condition.fiatValue) {
-                condition.currency = USD_CURRENCY_ID;
+              const newToken =
+                type === ESwapDirectionType.FROM
+                  ? get(swapSelectFromTokenAtom())
+                  : get(swapSelectToTokenAtom());
+              // A balance request may finish after a quote refreshed the price.
+              if (
+                get(swapSelectTokenPriceRevisionAtom())[type] ===
+                  priceRevision &&
+                newToken?.price === token.price &&
+                newToken?.currency === token.currency
+              ) {
+                if (detailInfo[0].price) {
+                  condition.price = detailInfo[0].price;
+                }
+                if (detailInfo[0].fiatValue) {
+                  condition.fiatValue = detailInfo[0].fiatValue;
+                }
+                if (condition.price || condition.fiatValue) {
+                  condition.currency = USD_CURRENCY_ID;
+                }
               }
               if (detailInfo[0].balanceParsed) {
                 condition.balanceParsed = detailInfo[0].balanceParsed;
@@ -2915,10 +3387,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               if (detailInfo[0].logoURI) {
                 condition.logoURI = detailInfo[0].logoURI;
               }
-              const newToken =
-                type === ESwapDirectionType.FROM
-                  ? get(swapSelectFromTokenAtom())
-                  : get(swapSelectToTokenAtom());
               if (
                 equalTokenNoCaseSensitive({
                   token1: newToken,
@@ -3052,76 +3520,54 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       protocol: ESwapTabSwitchType,
       accountId?: string,
       accountAddress?: string,
-      isFirstFetch?: boolean,
-      allNetAccountId?: string,
       lpToken?: boolean,
       currency?: string,
+      options?: ISwapTokenSelectorLoadOptions,
     ) => {
-      const shouldFetchOnlyAccountTokens = !isStockProtocol(protocol);
-      const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
+      if (
+        (platformEnv.isDesktop || platformEnv.isWeb) &&
+        !isStockProtocol(protocol)
+      ) {
+        const network = get(swapNetworks()).find(
+          (item) => item.networkId === accountNetworkId,
+        );
+        const params = buildSwapAccountTokenListParams({
+          network,
+          accountNetworkId,
+          protocol,
+          accountAddress,
+          accountId,
+          lpToken,
+          currency,
+        });
+        const result = await this.tokenListFetchAction.call(set, params, {
+          background: true,
+          throwOnError: true,
+          policy: options?.policy,
+        });
+        // The complete chain list also powers selection. Aggregate only held
+        // assets into the sidebar instead of fetching a second, sparse list.
+        return (
+          result?.filter((token) =>
+            new BigNumber(token.balanceParsed ?? 0).gt(0),
+          ) ?? []
+        );
+      }
+      return backgroundApiProxy.serviceSwap.fetchSwapTokens({
         networkId: accountNetworkId,
         accountNetworkId,
         accountAddress,
         accountId,
-        onlyAccountTokens: shouldFetchOnlyAccountTokens,
+        onlyAccountTokens: !isStockProtocol(protocol),
         isAllNetworkFetchAccountTokens: true,
         protocol,
         lpToken,
         currency,
-        // The service defaults failures to [], which would look like a valid
-        // empty network during a stale-while-revalidate refresh.
         throwOnError: true,
         ...(isStockProtocol(protocol)
           ? { limit: swapStockTokenListMaxCount }
           : {}),
       });
-      if (result?.length) {
-        if (isFirstFetch && allNetAccountId) {
-          set(swapAllNetworkTokenListMapAtom(), (v) => {
-            const oldTokens = v[allNetAccountId] ?? [];
-            const newTokens =
-              result.filter(
-                (t) =>
-                  !oldTokens?.find((tk) =>
-                    equalTokenNoCaseSensitive({
-                      token1: tk,
-                      token2: t,
-                    }),
-                  ),
-              ) ?? [];
-            const needUpdateTokens =
-              result.filter(
-                (t) =>
-                  !newTokens.find((tk) =>
-                    equalTokenNoCaseSensitive({
-                      token1: tk,
-                      token2: t,
-                    }),
-                  ),
-              ) ?? [];
-            const filterTokens =
-              oldTokens?.filter(
-                (tk) =>
-                  !needUpdateTokens.find((t) =>
-                    equalTokenNoCaseSensitive({
-                      token1: tk,
-                      token2: t,
-                    }),
-                  ),
-              ) ?? [];
-            return {
-              ...v,
-              [allNetAccountId]: [
-                ...filterTokens,
-                ...needUpdateTokens,
-                ...newTokens,
-              ],
-            };
-          });
-        } else {
-          return result;
-        }
-      }
     },
   );
 
@@ -3133,8 +3579,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       otherWalletTypeAccountId?: string,
       lpToken?: boolean,
       currency?: string,
-      forceRefresh?: boolean,
-    ) => {
+      options?: ISwapTokenSelectorLoadOptions,
+    ): Promise<void> => {
+      const cacheStore = getSwapTokenSelectorStore();
+      if (
+        isSwapTokenSelectorAccountRemoved({
+          indexedAccountId,
+          accountId: otherWalletTypeAccountId,
+        })
+      )
+        return;
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
         accountId:
@@ -3164,58 +3618,183 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             )
           : currentTypeSupportNetworks;
         return {
-          requestKey: buildSwapNetworkReadyKey(tokenListSupportNetworks),
+          requestKey: JSON.stringify([
+            buildSwapNetworkReadyKey(tokenListSupportNetworks),
+            getSwapTokenSelectorCacheEpoch(),
+          ]),
+          epoch: getSwapTokenSelectorCacheEpoch(),
           tokenListSupportNetworks,
         };
       };
       let requestContext = buildRequestContext();
-      const currentLock = get(swapAllNetworkActionLockAtom())[
+      const getAccountSnapshots = (
+        accounts: {
+          networkId: string;
+          accountId?: string;
+          apiAddress?: string;
+        }[],
+      ) => {
+        const tokenCatch = cacheStore.get(swapTokenMapAtom()).tokenCatch;
+        const networks = get(swapNetworks());
+        return accounts.map(
+          ({ networkId, apiAddress, accountId }) =>
+            tokenCatch?.[
+              buildSwapTokenListCacheKey(
+                buildSwapAccountTokenListParams({
+                  network: networks.find(
+                    (network) => network.networkId === networkId,
+                  ),
+                  accountNetworkId: networkId,
+                  protocol: swapTypeSwitchValue,
+                  accountAddress: apiAddress,
+                  accountId,
+                  lpToken,
+                  currency,
+                }),
+              )
+            ],
+        );
+      };
+      const preload = options?.policy === 'preload';
+      let checkedAccounts:
+        | Awaited<
+            ReturnType<
+              typeof backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts
+            >
+          >
+        | undefined;
+      if (
+        preload &&
+        (platformEnv.isDesktop || platformEnv.isWeb) &&
+        !isStockProtocol(swapTypeSwitchValue) &&
+        !cacheStore.get(swapAllNetworkActionLockAtom())[tokenListCacheKey]
+      ) {
+        // Inspect complete per-chain snapshots without taking the refresh lock:
+        // a modal must never join a cache-only operation as its opening refresh.
+        const contextBeforeCheck = requestContext;
+        const accounts =
+          await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
+            indexedAccountId,
+            otherWalletTypeAccountId,
+            swapSupportNetworks: contextBeforeCheck.tokenListSupportNetworks,
+          });
+        if (
+          isSwapTokenSelectorAccountRemoved({
+            indexedAccountId,
+            accountId: otherWalletTypeAccountId,
+          })
+        )
+          return;
+        requestContext = buildRequestContext();
+        if (requestContext.requestKey === contextBeforeCheck.requestKey)
+          checkedAccounts = accounts;
+        if (
+          !accounts.supportAccountsFetchFailed &&
+          requestContext.requestKey === contextBeforeCheck.requestKey &&
+          !cacheStore.get(swapAllNetworkActionLockAtom())[tokenListCacheKey]
+        ) {
+          const snapshots = getAccountSnapshots(
+            dedupeTokenSelectorNetworkAccounts(
+              accounts.swapSupportAccounts,
+            ).filter(
+              (account) =>
+                !networkUtils.isAllNetwork({ networkId: account.networkId }),
+            ),
+          );
+          const now = Date.now();
+          if (
+            snapshots.every((snapshot) =>
+              isSwapTokenSelectorSnapshotFreshForPreload(snapshot, now),
+            )
+          ) {
+            const previousStatus = cacheStore.get(
+              swapAllNetworkTokenListStatusAtom(),
+            )[tokenListCacheKey];
+            if (
+              cacheStore.get(swapAllNetworkTokenListMapAtom())[
+                tokenListCacheKey
+              ] === undefined ||
+              previousStatus?.identityVersion !== requestContext.epoch.identity
+            ) {
+              const tokens = snapshots
+                .flatMap((snapshot) => snapshot?.data ?? [])
+                .filter((token) =>
+                  new BigNumber(token.balanceParsed ?? 0).gt(0),
+                );
+              cacheStore.set(swapAllNetworkTokenListMapAtom(), (value) => ({
+                ...value,
+                [tokenListCacheKey]: tokens,
+              }));
+              cacheStore.set(swapAllNetworkTokenListStatusAtom(), (value) => ({
+                ...value,
+                [tokenListCacheKey]: {
+                  requestKey: requestContext.requestKey,
+                  status: 'partial',
+                  updatedAt: 0,
+                  identityVersion: requestContext.epoch.identity,
+                  refreshVersion: requestContext.epoch.refresh,
+                },
+              }));
+            }
+            return;
+          }
+        }
+      }
+      let currentLock = cacheStore.get(swapAllNetworkActionLockAtom())[
         tokenListCacheKey
       ];
-      if (currentLock) {
-        // A forced refresh (balance-changing event) must not reuse an
-        // in-flight request that may predate the event: it falls through and
-        // queues one more run of the same scope after the active one.
+      while (currentLock) {
+        const lock = currentLock;
+        const statusBeforeWait = cacheStore.get(
+          swapAllNetworkTokenListStatusAtom(),
+        )[tokenListCacheKey];
+        const joinedSamePlan =
+          lock.activeRequestKey === requestContext.requestKey;
+        // A shared load owns one captured network plan. Other entries wait and
+        // then run their own plan if that load did not satisfy it.
+        const pendingRequestKey = joinedSamePlan
+          ? undefined
+          : requestContext.requestKey;
+        if (lock.pendingRequestKey !== pendingRequestKey) {
+          cacheStore.set(swapAllNetworkActionLockAtom(), (value) => ({
+            ...value,
+            [tokenListCacheKey]: { ...lock, pendingRequestKey },
+          }));
+        }
+        await lock.completionPromise;
+        const nextContext = buildRequestContext();
+        const latestStatus = cacheStore.get(
+          swapAllNetworkTokenListStatusAtom(),
+        )[tokenListCacheKey];
         if (
-          !forceRefresh &&
-          currentLock.activeRequestKey === requestContext.requestKey
-        ) {
-          // Drop a pending request for another scope, but keep a same-scope
-          // pending key: that is a forced rerun and must survive.
-          if (
-            currentLock.pendingRequestKey &&
-            currentLock.pendingRequestKey !== currentLock.activeRequestKey
-          ) {
-            set(swapAllNetworkActionLockAtom(), (value) => ({
-              ...value,
-              [tokenListCacheKey]: {
-                ...currentLock,
-                pendingRequestKey: undefined,
-              },
-            }));
-          }
-          await currentLock.completionPromise;
+          (joinedSamePlan &&
+            nextContext.requestKey === requestContext.requestKey) ||
+          (latestStatus !== statusBeforeWait &&
+            latestStatus?.requestKey === nextContext.requestKey)
+        )
           return;
-        }
-        if (currentLock.pendingRequestKey === requestContext.requestKey) {
-          await currentLock.completionPromise;
-          return;
-        }
-        set(swapAllNetworkActionLockAtom(), (value) => ({
-          ...value,
-          [tokenListCacheKey]: {
-            ...currentLock,
-            pendingRequestKey: requestContext.requestKey,
-          },
-        }));
-        await currentLock.completionPromise;
-        return;
+        requestContext = nextContext;
+        checkedAccounts = undefined;
+        currentLock = cacheStore.get(swapAllNetworkActionLockAtom())[
+          tokenListCacheKey
+        ];
       }
+      const cachedStatus = cacheStore.get(swapAllNetworkTokenListStatusAtom())[
+        tokenListCacheKey
+      ];
+      if (
+        !preload &&
+        options?.policy !== 'revalidate' &&
+        cachedStatus?.status === 'success' &&
+        cachedStatus.requestKey === requestContext.requestKey &&
+        isSwapTokenSelectorSnapshotCurrent(cachedStatus)
+      )
+        return;
       let resolveCompletionPromise: (() => void) | undefined;
       const completionPromise = new Promise<void>((resolve) => {
         resolveCompletionPromise = resolve;
       });
-      set(swapAllNetworkActionLockAtom(), (value) => ({
+      cacheStore.set(swapAllNetworkActionLockAtom(), (value) => ({
         ...value,
         [tokenListCacheKey]: {
           activeRequestKey: requestContext.requestKey,
@@ -3223,122 +3802,232 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         },
       }));
       let activeRequestKey = requestContext.requestKey;
+      let runOptions = preload
+        ? { ...options, policy: 'revalidate' as const }
+        : options;
       try {
         for (;;) {
+          const runContext = requestContext;
+          const requestOptions = runOptions;
           let requestError: unknown;
           try {
             const { swapSupportAccounts, supportAccountsFetchFailed } =
-              await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
+              checkedAccounts ??
+              (await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
                 indexedAccountId,
                 otherWalletTypeAccountId,
                 swapSupportNetworks: requestContext.tokenListSupportNetworks,
+              }));
+            checkedAccounts = undefined;
+            const isCurrentIdentity = () =>
+              getSwapTokenSelectorCacheEpoch().identity ===
+                runContext.epoch.identity &&
+              !isSwapTokenSelectorAccountRemoved({
+                indexedAccountId,
+                accountId: otherWalletTypeAccountId,
               });
-            if (supportAccountsFetchFailed) {
-              // An account-discovery failure is not an empty account set. Keep
-              // the last-good snapshot and let the next invocation retry.
-            } else if (swapSupportAccounts.length > 0) {
-              const currentSwapAllNetworkTokenList = get(
-                swapAllNetworkTokenListMapAtom(),
-              )[tokenListCacheKey];
+            const isCurrentRun = () =>
+              isCurrentIdentity() &&
+              getSwapTokenSelectorCacheEpoch().refresh ===
+                runContext.epoch.refresh &&
+              !cacheStore.get(swapAllNetworkActionLockAtom())[tokenListCacheKey]
+                ?.pendingRequestKey;
+            const previousStatus = cacheStore.get(
+              swapAllNetworkTokenListStatusAtom(),
+            )[tokenListCacheKey];
+            let dataIdentityVersion = previousStatus?.identityVersion ?? 0;
+            let status: 'success' | 'partial' | 'error' = 'error';
+            if (!supportAccountsFetchFailed && isCurrentIdentity()) {
+              let previousTokens =
+                previousStatus?.identityVersion === runContext.epoch.identity ||
+                (!previousStatus && runContext.epoch.identity === 0)
+                  ? cacheStore.get(swapAllNetworkTokenListMapAtom())[
+                      tokenListCacheKey
+                    ]
+                  : undefined;
               const accountAddressList = dedupeTokenSelectorNetworkAccounts(
                 swapSupportAccounts,
               ).filter(
                 (item) =>
                   !networkUtils.isAllNetwork({ networkId: item.networkId }),
               );
-
-              // Create tasks as functions to delay execution until batched
-              const tasks: Array<() => Promise<ISwapToken[] | undefined>> =
-                accountAddressList.map((networkDataString) => {
-                  const {
-                    apiAddress,
-                    networkId: accountNetworkId,
-                    accountId,
-                  } = networkDataString;
-                  return () =>
-                    this.updateAllNetworkTokenList.call(
+              const parallelDesktop =
+                platformEnv.isDesktop || platformEnv.isWeb;
+              if (
+                parallelDesktop &&
+                !isStockProtocol(swapTypeSwitchValue) &&
+                previousTokens === undefined &&
+                isCurrentRun()
+              ) {
+                const snapshots = getAccountSnapshots(accountAddressList);
+                // Verify every current account address before deriving the wallet
+                // projection. A holdings-only list is never a complete chain snapshot.
+                if (
+                  snapshots.every(
+                    (snapshot) =>
+                      snapshot?.identityVersion === runContext.epoch.identity,
+                  )
+                ) {
+                  previousTokens = snapshots
+                    .flatMap((snapshot) => snapshot?.data ?? [])
+                    .filter((token) =>
+                      new BigNumber(token.balanceParsed ?? 0).gt(0),
+                    );
+                  dataIdentityVersion = runContext.epoch.identity;
+                  const seededTokens = previousTokens;
+                  cacheStore.set(swapAllNetworkTokenListMapAtom(), (value) => ({
+                    ...value,
+                    [tokenListCacheKey]: seededTokens,
+                  }));
+                  cacheStore.set(
+                    swapAllNetworkTokenListStatusAtom(),
+                    (value) => ({
+                      ...value,
+                      [tokenListCacheKey]: {
+                        requestKey: runContext.requestKey,
+                        status: 'partial',
+                        updatedAt: 0,
+                        identityVersion: runContext.epoch.identity,
+                        refreshVersion: runContext.epoch.refresh,
+                      },
+                    }),
+                  );
+                }
+              }
+              const previousSnapshotTokens = previousTokens;
+              const tasks = accountAddressList.map(
+                ({ apiAddress, networkId, accountId }) =>
+                  async () => {
+                    const tokens = await this.updateAllNetworkTokenList.call(
                       set,
-                      accountNetworkId,
+                      networkId,
                       swapTypeSwitchValue,
                       accountId,
                       apiAddress,
-                      !currentSwapAllNetworkTokenList,
-                      tokenListCacheKey,
                       lpToken,
                       currency,
+                      requestOptions,
                     );
-                });
-
-              // Execute requests in batches of 3 to prevent UI thread blocking
-              const results = await this.executeBatched(tasks, 3);
-
-              if (!currentSwapAllNetworkTokenList) {
-                set(swapAllNetworkTokenListMapAtom(), (value) => {
-                  if (value[tokenListCacheKey] !== undefined) {
-                    return value;
-                  }
-                  return {
-                    ...value,
-                    [tokenListCacheKey]: [],
-                  };
-                });
-              } else {
-                // Subsequent fetches: collect results and update atom
-                const failedNetworkIds = new Set(
-                  accountAddressList.flatMap((account, index) =>
-                    results[index]?.status === 'rejected'
-                      ? [account.networkId]
-                      : [],
-                  ),
+                    // Native retains progressive cold-start loading while its
+                    // bounded batches run. Desktop publishes one stable group.
+                    if (
+                      !parallelDesktop &&
+                      tokens.length > 0 &&
+                      previousSnapshotTokens === undefined &&
+                      isCurrentRun()
+                    ) {
+                      cacheStore.set(
+                        swapAllNetworkTokenListMapAtom(),
+                        (value) => {
+                          const snapshotIdentity =
+                            cacheStore.get(swapAllNetworkTokenListStatusAtom())[
+                              tokenListCacheKey
+                            ]?.identityVersion ?? 0;
+                          const previous =
+                            snapshotIdentity === runContext.epoch.identity
+                              ? (value[tokenListCacheKey] ?? [])
+                              : [];
+                          return {
+                            ...value,
+                            [tokenListCacheKey]: [
+                              ...previous.filter(
+                                (token) =>
+                                  !tokens.some((next) =>
+                                    equalTokenNoCaseSensitive({
+                                      token1: token,
+                                      token2: next,
+                                    }),
+                                  ),
+                              ),
+                              ...tokens,
+                            ],
+                          };
+                        },
+                      );
+                      cacheStore.set(
+                        swapAllNetworkTokenListStatusAtom(),
+                        (value) => ({
+                          ...value,
+                          [tokenListCacheKey]: {
+                            requestKey: runContext.requestKey,
+                            status: 'partial',
+                            updatedAt: Date.now(),
+                            identityVersion: runContext.epoch.identity,
+                            refreshVersion: runContext.epoch.refresh,
+                          },
+                        }),
+                      );
+                    }
+                    return tokens;
+                  },
+              );
+              const results = parallelDesktop
+                ? await Promise.allSettled(tasks.map((task) => task()))
+                : await this.executeBatched(tasks, 3);
+              const failedNetworkIds = new Set(
+                accountAddressList.flatMap((account, index) =>
+                  results[index]?.status === 'rejected'
+                    ? [account.networkId]
+                    : [],
+                ),
+              );
+              const successful =
+                results.length === 0 ||
+                results.some((result) => result.status === 'fulfilled');
+              if (failedNetworkIds.size === 0) status = 'success';
+              else if (successful) status = 'partial';
+              if (successful && isCurrentRun()) {
+                dataIdentityVersion = runContext.epoch.identity;
+                const refreshedTokens = results.flatMap((result, index) =>
+                  result.status === 'fulfilled' &&
+                  !failedNetworkIds.has(accountAddressList[index].networkId)
+                    ? (result.value ?? [])
+                    : [],
                 );
-                if (
-                  results.length === 0 ||
-                  results.some((result) => result.status === 'fulfilled')
-                ) {
-                  // A network can have multiple account tasks. If any fails,
-                  // retain its old slice once instead of mixing account snapshots.
-                  const refreshedTokens = results.flatMap((result, index) =>
-                    result.status === 'fulfilled' &&
-                    !failedNetworkIds.has(accountAddressList[index].networkId)
-                      ? (result.value ?? [])
-                      : [],
-                  );
-                  const allTokensResult = [
-                    ...currentSwapAllNetworkTokenList.filter((token) =>
+                // Publish one snapshot, including the first load. Partial
+                // progress must not repeatedly grow and reorder the sidebar.
+                cacheStore.set(swapAllNetworkTokenListMapAtom(), (value) => ({
+                  ...value,
+                  [tokenListCacheKey]: [
+                    ...(previousSnapshotTokens ?? []).filter((token) =>
                       failedNetworkIds.has(token.networkId),
                     ),
                     ...refreshedTokens,
-                  ];
-                  set(swapAllNetworkTokenListMapAtom(), (value) => ({
-                    ...value,
-                    [tokenListCacheKey]: allTokensResult,
-                  }));
-                }
+                  ],
+                }));
               }
-            } else {
-              // A successful empty account discovery is authoritative and must
-              // clear assets from accounts that no longer exist.
-              set(swapAllNetworkTokenListMapAtom(), (value) => ({
+            }
+            if (isCurrentRun()) {
+              cacheStore.set(swapAllNetworkTokenListStatusAtom(), (value) => ({
                 ...value,
-                [tokenListCacheKey]: [],
+                [tokenListCacheKey]: {
+                  requestKey: runContext.requestKey,
+                  status,
+                  updatedAt: Date.now(),
+                  identityVersion: dataIdentityVersion,
+                  refreshVersion: runContext.epoch.refresh,
+                },
               }));
             }
           } catch (error) {
             requestError = error;
           }
 
-          const latestLock = get(swapAllNetworkActionLockAtom())[
+          const latestLock = cacheStore.get(swapAllNetworkActionLockAtom())[
             tokenListCacheKey
           ];
+          const nextRequestContext = buildRequestContext();
           if (
             latestLock?.activeRequestKey === activeRequestKey &&
-            latestLock.pendingRequestKey
+            nextRequestContext.requestKey !== activeRequestKey
           ) {
-            const nextRequestContext = buildRequestContext();
             const nextActiveRequestKey = nextRequestContext.requestKey;
             requestContext = nextRequestContext;
             activeRequestKey = nextActiveRequestKey;
-            set(swapAllNetworkActionLockAtom(), (value) => ({
+            // Single-chain requests already revalidate on an epoch change.
+            // Reuse those completed results instead of refreshing them twice.
+            runOptions = { ...options, policy: 'snapshot' };
+            cacheStore.set(swapAllNetworkActionLockAtom(), (value) => ({
               ...value,
               [tokenListCacheKey]: {
                 ...latestLock,
@@ -3356,7 +4045,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
         }
       } finally {
-        set(swapAllNetworkActionLockAtom(), (value) => {
+        cacheStore.set(swapAllNetworkActionLockAtom(), (value) => {
           if (value[tokenListCacheKey]?.activeRequestKey !== activeRequestKey) {
             return value;
           }
@@ -3485,6 +4174,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
       if (normalizedType !== oldVisibleType) {
+        set(swapSelectedTokenBalanceRefreshRequestedAtom(), {
+          from: false,
+          to: false,
+        });
         set(swapSelectedTokensColdStartContextAtom(), (context) =>
           context?.defaultTokenSeed
             ? { ...context, defaultTokenSeed: undefined }
@@ -4133,12 +4826,15 @@ export const useSwapActions = () => {
   const syncNetworksSort = actions.syncNetworksSort.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   const quoteAction = actions.quoteAction.use();
+  const resumeQuoteAction = actions.resumeQuoteAction.use();
   const requireManualQuoteRefresh = actions.requireManualQuoteRefresh.use();
   const checkSwapWarning = actions.checkSwapWarning.use();
   const invalidateSwapWarningCheck = actions.invalidateSwapWarningCheck.use();
   const tokenListFetchAction = actions.tokenListFetchAction.use();
   const quoteEventHandler = actions.quoteEventHandler.use();
   const loadSwapSelectTokenDetail = actions.loadSwapSelectTokenDetail.use();
+  const requestSelectedTokenBalanceRefresh =
+    actions.requestSelectedTokenBalanceRefresh.use();
   const swapLoadAllNetworkTokenList = actions.swapLoadAllNetworkTokenList.use();
   const swapTypeSwitchAction = actions.swapTypeSwitchAction.use();
   const limitOrderMarketPriceIntervalAction =
@@ -4176,6 +4872,7 @@ export const useSwapActions = () => {
   return useRef({
     selectFromToken,
     quoteAction,
+    resumeQuoteAction,
     requireManualQuoteRefresh,
     selectToToken,
     selectStockExecutionTokens,
@@ -4187,6 +4884,7 @@ export const useSwapActions = () => {
     checkSwapWarning,
     invalidateSwapWarningCheck,
     loadSwapSelectTokenDetail,
+    requestSelectedTokenBalanceRefresh,
     quoteEventHandler,
     swapLoadAllNetworkTokenList,
     closeQuoteEvent,

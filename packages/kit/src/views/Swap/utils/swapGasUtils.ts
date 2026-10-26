@@ -1,4 +1,8 @@
+import BigNumber from 'bignumber.js';
+
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
+  IFetchBuildTxResponse,
   IFetchQuoteResult,
   ISwapGasInfo,
   ISwapTxInfo,
@@ -24,6 +28,63 @@ export function isSwapGasSponsored(gasInfo?: ISwapGasInfo) {
   return Boolean(
     isSwapGasAccountSponsored(gasInfo) || isSwapMegafuelSponsored(gasInfo),
   );
+}
+
+export function getEvmThorSwapGasLimit({
+  networkId,
+  buildTx,
+  isSponsored,
+}: {
+  networkId: string;
+  buildTx?: IFetchBuildTxResponse;
+  isSponsored: boolean;
+}) {
+  const gasLimit = buildTx?.result.gasLimit;
+  if (
+    !networkUtils.isEvmNetwork({ networkId }) ||
+    !buildTx?.thorSwapCallData ||
+    typeof gasLimit !== 'number' ||
+    !Number.isSafeInteger(gasLimit) ||
+    gasLimit <= 0 ||
+    isSponsored
+  ) {
+    return undefined;
+  }
+  return String(gasLimit);
+}
+
+export function applyEvmThorSwapGasLimit<T extends ISwapGasInfo>({
+  networkId,
+  buildTx,
+  gasInfo,
+  isSponsored = isSwapGasSponsored(gasInfo),
+}: {
+  networkId: string;
+  buildTx?: IFetchBuildTxResponse;
+  gasInfo: T;
+  isSponsored?: boolean;
+}): T {
+  const gasLimit = getEvmThorSwapGasLimit({ networkId, buildTx, isSponsored });
+  if (!gasLimit) {
+    return gasInfo;
+  }
+
+  // The build-tx limit already includes the provider's safety margin.
+  const applyGasLimit = <G extends { gasLimit: string }>(gas?: G) => {
+    if (!gas || new BigNumber(gas.gasLimit).gte(gasLimit)) {
+      return gas;
+    }
+    return {
+      ...gas,
+      gasLimit: String(gasLimit),
+      gasLimitForDisplay: String(gasLimit),
+    };
+  };
+  return {
+    ...gasInfo,
+    gas: applyGasLimit(gasInfo.gas),
+    gasEIP1559: applyGasLimit(gasInfo.gasEIP1559),
+  };
 }
 
 /**

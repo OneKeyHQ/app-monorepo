@@ -53,7 +53,6 @@ import {
   type ISwapStep,
   type ISwapTips,
   type ISwapToken,
-  type ISwapTokenCatch,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
 } from '@onekeyhq/shared/types/swap/types';
@@ -77,6 +76,21 @@ const {
   useContextData,
 } = createJotaiContext();
 export { ProviderJotaiContextSwap, contextAtomMethod };
+
+export {
+  swapAllNetworkActionLockAtom,
+  swapAllNetworkTokenListMapAtom,
+  swapAllNetworkTokenListStatusAtom,
+  swapTokenFetchingAtom,
+  swapTokenListRequestsAtom,
+  swapTokenMapAtom,
+  useSwapAllNetworkActionLockAtom,
+  useSwapAllNetworkTokenListMapAtom,
+  useSwapAllNetworkTokenListStatusAtom,
+  useSwapTokenFetchingAtom,
+  useSwapTokenListRequestsAtom,
+  useSwapTokenMapAtom,
+} from './tokenSelectorData';
 
 export function useSwapColdStartScopeKey() {
   const { store } = useContextData();
@@ -137,21 +151,6 @@ const sanitizeSwapProSelectedTokenColdStartSnapshot = memoizeSnapshotTransform(
 const sanitizeSwapStockPayTokenColdStartSnapshot = memoizeSnapshotTransform(
   sanitizeSwapStockPayTokenDisplaySnapshot,
 );
-
-const SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES = 3;
-const SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS = 200;
-
-const sanitizeSwapAllNetworkTokenListMapColdStartSnapshot =
-  memoizeSnapshotTransform((value: Record<string, ISwapToken[]>) =>
-    Object.fromEntries(
-      Object.entries(value)
-        .slice(-SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES)
-        .map(([cacheKey, tokens]) => [
-          cacheKey,
-          tokens.slice(0, SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS),
-        ]),
-    ),
-  );
 
 export type ISwapQuoteEventErrorState = {
   message: string;
@@ -214,17 +213,6 @@ export const {
   };
   return [allNetwork, ...networks];
 });
-
-export const { atom: swapTokenMapAtom, use: useSwapTokenMapAtom } =
-  contextAtom<{
-    updatedAt: number;
-    tokenCatch?: Record<string, ISwapTokenCatch>;
-  }>({
-    updatedAt: 0,
-  });
-
-export const { atom: swapTokenFetchingAtom, use: useSwapTokenFetchingAtom } =
-  contextAtom<boolean>(false);
 
 // swap account
 export const {
@@ -420,34 +408,6 @@ export const {
   use: useSwapSelectedToTokenBalanceAtom,
 } = contextAtom('');
 
-export const {
-  atom: swapAllNetworkTokenListMapAtom,
-  use: useSwapAllNetworkTokenListMapAtom,
-} = contextAtom<Record<string, ISwapToken[]>>(
-  {},
-  {
-    coldStartCache: true,
-    coldStartCacheKey:
-      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
-    coldStartCacheTransform:
-      sanitizeSwapAllNetworkTokenListMapColdStartSnapshot,
-  },
-);
-
-export const {
-  atom: swapAllNetworkActionLockAtom,
-  use: useSwapAllNetworkActionLockAtom,
-} = contextAtom<
-  Record<
-    string,
-    {
-      activeRequestKey: string;
-      completionPromise: Promise<void>;
-      pendingRequestKey?: string;
-    }
-  >
->({});
-
 // swap quote
 export const {
   atom: swapManualSelectQuoteProvidersAtom,
@@ -477,6 +437,8 @@ export const {
   receivingAddress?: string;
   quoteRequestId?: string;
   manualRefresh?: boolean;
+  slippageItem?: { key: ESwapSlippageSegmentKey; value: number };
+  incognito?: boolean;
 }>({ actionLock: false });
 
 export const {
@@ -601,6 +563,14 @@ export const {
   to: false,
 });
 
+export const {
+  atom: swapSelectedTokenBalanceRefreshRequestedAtom,
+  use: useSwapSelectedTokenBalanceRefreshRequestedAtom,
+} = contextAtom<Record<ESwapDirectionType, boolean>>({
+  from: false,
+  to: false,
+});
+
 // Bookkeeping for the stored From/To balance: which token + account it was
 // fetched for (see buildSwapBalanceOwner in swapBalanceOwnerUtils), and whether
 // the stored figure is only a fallback (the fetch failed, or the response
@@ -631,6 +601,10 @@ export const {
 });
 
 export const { atom: swapSelectTokenDetailRequestIdAtom } = contextAtom<
+  Record<ESwapDirectionType, number>
+>({ from: 0, to: 0 });
+
+export const { atom: swapSelectTokenPriceRevisionAtom } = contextAtom<
   Record<ESwapDirectionType, number>
 >({ from: 0, to: 0 });
 

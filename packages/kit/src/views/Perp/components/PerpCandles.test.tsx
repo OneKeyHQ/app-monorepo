@@ -14,6 +14,7 @@ let mockAccountAddress: string | undefined;
 let mockCoin = 'ETH';
 const mockChartMount = jest.fn();
 const mockChartUnmount = jest.fn();
+const mockChartUserAddress = jest.fn();
 const mockSetLayoutState = jest.fn();
 let mockCustomSettings: Pick<
   IPerpsCustomSettings,
@@ -124,6 +125,7 @@ jest.mock(
     return {
       TradingViewPerpsV2: (props: ITradingViewPerpsV2Props) => {
         mockTradingViewChart(props);
+        mockChartUserAddress(props.userAddress);
         useEffect(() => {
           mockChartMount();
           return () => {
@@ -147,54 +149,18 @@ beforeEach(() => {
   mockCustomSettings = { showChartLines: false };
 });
 
-describe('PerpCandles TradingView account isolation', () => {
-  it('discards the chart and all of its symbol caches when the account changes', () => {
+describe('PerpCandles account switch', () => {
+  it('leaves the rebuild decision to the chart instead of remounting it', () => {
     const { rerender } = renderTradingViewCandles();
-    mockCoin = 'BTC';
-    rerender(<PerpCandles />);
-    expect(mockChartMount).toHaveBeenCalledTimes(1);
-
     mockAccountAddress = '0xDEF';
     rerender(<PerpCandles />);
-    expect(mockChartUnmount).toHaveBeenCalledTimes(1);
-    expect(mockChartMount).toHaveBeenCalledTimes(2);
-
-    mockCoin = 'ETH';
-    rerender(<PerpCandles />);
-    expect(mockChartMount).toHaveBeenCalledTimes(2);
-  });
-
-  it('clears account marks on disconnect and reuses the anonymous chart on reconnect', () => {
-    const { rerender } = renderTradingViewCandles();
     mockAccountAddress = undefined;
     rerender(<PerpCandles />);
-    expect(mockChartUnmount).toHaveBeenCalledTimes(1);
-    mockAccountAddress = '0xABC';
-    rerender(<PerpCandles />);
-    expect(mockChartUnmount).toHaveBeenCalledTimes(1);
-    expect(mockChartMount).toHaveBeenCalledTimes(2);
-  });
 
-  it('keeps the cold-start chart when the first account resolves, then isolates switches', () => {
-    mockAccountAddress = undefined;
-    const { rerender } = renderTradingViewCandles();
-    mockAccountAddress = '0xABC';
-    rerender(<PerpCandles />);
     expect(mockChartMount).toHaveBeenCalledTimes(1);
     expect(mockChartUnmount).not.toHaveBeenCalled();
-
-    mockAccountAddress = '0xDEF';
-    rerender(<PerpCandles />);
-    expect(mockChartMount).toHaveBeenCalledTimes(2);
-    expect(mockChartUnmount).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps the chart when only the address casing changes', () => {
-    const { rerender } = renderTradingViewCandles();
-    mockAccountAddress = '0xabc';
-    rerender(<PerpCandles />);
-    expect(mockChartUnmount).not.toHaveBeenCalled();
-    expect(mockChartMount).toHaveBeenCalledTimes(1);
+    expect(mockChartUserAddress).toHaveBeenLastCalledWith(undefined);
+    expect(mockChartUserAddress).toHaveBeenCalledWith('0xDEF');
   });
 });
 

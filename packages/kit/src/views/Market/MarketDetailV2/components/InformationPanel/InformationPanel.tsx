@@ -174,7 +174,7 @@ export function InformationPanel({
     networkId: networkId ?? '',
   });
 
-  if (isMobileLayout && isStockToken) {
+  if (isMobileLayout && (isStockToken || mobileDetailKind === 'stock')) {
     return <StockMobilePriceHeader />;
   }
 

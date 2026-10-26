@@ -18,6 +18,7 @@ import type {
   IElement,
   IInputProps,
   IInputRef,
+  ISizableTextProps,
   IXStackProps,
 } from '@onekeyhq/components';
 import {
@@ -544,6 +545,7 @@ export interface IColumnConfig {
   flex?: number;
   align?: 'left' | 'center' | 'right';
   headerRightPadding?: number;
+  headerHoverStyle?: ISizableTextProps['hoverStyle'];
   onPress?: () => void;
   fixed?: boolean;
 }
@@ -1077,6 +1079,7 @@ export function CommonTableListView<T>({
             <SizableText
               size="$bodySmMedium"
               mr={column.headerRightPadding}
+              hoverStyle={column.headerHoverStyle}
               borderBottomWidth="$px"
               borderTopWidth={0}
               borderLeftWidth={0}
@@ -1096,6 +1099,7 @@ export function CommonTableListView<T>({
         <SizableText
           size="$bodySmMedium"
           mr={column.headerRightPadding}
+          hoverStyle={column.headerHoverStyle}
           borderBottomWidth="$px"
           borderBottomColor="transparent"
           cursor={column.onPress ? 'pointer' : 'default'}

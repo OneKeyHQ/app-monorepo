@@ -48,6 +48,7 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
+import { HERO_BALANCE_FIT_PROPS } from '../../../components/NumberSizeableTextWrapper/heroBalanceFit';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
@@ -1246,6 +1247,7 @@ function HomeOverviewContainer() {
                 // Large hero balance reads better with the font's natural
                 // proportional figures than equal-width tabular ones.
                 fontVariant={PROPORTIONAL_NUMS}
+                {...HERO_BALANCE_FIT_PROPS}
                 {...numberFormatter}
               >
                 {renderedBalanceStringDisplay ?? '0'}

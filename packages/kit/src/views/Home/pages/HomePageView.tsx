@@ -69,6 +69,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
+import { useTabDoublePress } from '../../../hooks/useTabDoublePress';
 import {
   buildOverviewOwnerKey,
   useAccountOverviewActions,
@@ -1060,6 +1061,11 @@ export function HomePageView({
     homeTabsScrollToTopRef.current?.();
   }, [homeScrollOwnerKey]);
 
+  // Double-pressing the Home tab scrolls the focused pane back to the top.
+  useTabDoublePress(() => {
+    homeTabsScrollToTopRef.current?.();
+  });
+
   const stickyHeaderCtx = useMemo(
     () => ({
       portalTarget,
@@ -1233,15 +1239,28 @@ export function HomePageView({
           // Native page offsets have no reset command; reset only for a new owner.
           key={homeScrollOwnerKey}
           ref={tabsRef}
-          tabs={pagerTabConfigs.map((tab) => ({
-            ...tab,
-            component:
-              tab.id === EHomeWalletTab.Portfolio ||
-              activeTabId === tab.id ||
-              mountedHomeTabIds.has(tab.id)
-                ? tab.component
-                : null,
-          }))}
+          tabs={pagerTabConfigs.map((tab) => {
+            if (tab.id === EHomeWalletTab.Portfolio) {
+              return {
+                ...tab,
+                component: (
+                  <>
+                    <HomeTabsScrollToTopBridge
+                      scrollToTopRef={homeTabsScrollToTopRef}
+                    />
+                    {tab.component}
+                  </>
+                ),
+              };
+            }
+            return {
+              ...tab,
+              component:
+                activeTabId === tab.id || mountedHomeTabIds.has(tab.id)
+                  ? tab.component
+                  : null,
+            };
+          })}
           initialTabName={seedTabName}
           headerHeightHint={nativeHeaderHeightHint}
           topOverlayHeightHint={tabPageHeight}

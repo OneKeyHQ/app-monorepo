@@ -2,10 +2,12 @@ import { Fragment, memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty, Tabs, YStack, useMedia } from '@onekeyhq/components';
+import { Empty, YStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
+
+import { MarketDetailList } from '../../layout/MarketDetailScroll';
 
 import { PortfolioSkeleton } from './components/PortfolioSkeleton';
 import { PortfolioHeaderNormal } from './layout/PortfolioHeaderNormal';
@@ -105,7 +107,7 @@ function PortfolioBase({
   }
 
   return (
-    <Tabs.FlatList<IMarketAccountPortfolioDisplayItem>
+    <MarketDetailList<IMarketAccountPortfolioDisplayItem>
       testID="market-detail-portfolio-list"
       showsVerticalScrollIndicator={false}
       scrollEnabled={scrollEnabled}

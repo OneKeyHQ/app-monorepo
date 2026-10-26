@@ -3,10 +3,12 @@ import { useMemo } from 'react';
 import { isValid, parseISO } from 'date-fns';
 
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
+import {
+  formatDateFns,
+  getDateFormatTemplate,
+} from '@onekeyhq/shared/src/utils/dateUtils';
 
-// Month and day in the locale's own order and words: "Nov 10", "11月10日",
-// "10 Nov". A date-fns pattern such as 'MMM d' fixes the order and drops
-// suffixes like 日. Keeps the raw value if it is not a date.
+// Keep the raw value if the server sends a label instead of a date.
 export function formatNextDistributionLabel(
   value: string,
   locale: string,
@@ -15,17 +17,7 @@ export function formatNextDistributionLabel(
   if (!isValid(date)) {
     return value;
   }
-  try {
-    return new Intl.DateTimeFormat(locale, {
-      month: 'short',
-      day: 'numeric',
-    }).format(date);
-  } catch {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-    }).format(date);
-  }
+  return formatDateFns(date, getDateFormatTemplate(locale, { hideYear: true }));
 }
 
 export function useNextDistributionLabel(value: string | null | undefined) {

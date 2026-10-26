@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { generateSwapHistoryItemForContext } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapTxHistory';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IDustSweepNetwork,
-  IDustSweepQuoteFailure,
   IDustSweepSnapshot,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 
@@ -13,6 +14,7 @@ import {
   getDustSweepTotals,
   initialDustSweepState,
 } from '../stateMachine';
+import { DustSweepError } from '../utils/DustSweepError';
 import {
   DustSweepPaused,
   DustSweepRetryableError,
@@ -20,11 +22,19 @@ import {
   DustSweepUserCanceled,
   executeDustSweepItem,
 } from '../utils/execution';
-import { DustSweepSkip } from '../utils/quote';
+
+import type { IDustSweepState } from '../stateMachine';
 
 let sessionSequence = 0;
 
-export function useDustSweepSession(networks: IDustSweepNetwork[]) {
+// A sweep that settles instantly (e.g. one token with no quote) reads as if
+// nothing was submitted, so the final result waits until this has passed.
+export const DUST_SWEEP_MIN_RUN_MS = 1500;
+
+export function useDustSweepSession(
+  networks: IDustSweepNetwork[],
+  { minRunMs = DUST_SWEEP_MIN_RUN_MS }: { minRunMs?: number } = {},
+) {
   const [state, setState] = useState(initialDustSweepState);
   const stateRef = useRef(state);
   const mounted = useRef(true);
@@ -33,6 +43,9 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
   const pauseRevision = useRef(0);
   const started = useRef(0);
   const reported = useRef(false);
+  const releaseHold = useRef<(() => void) | undefined>(undefined);
+  const stoppingRef = useRef(false);
+  const [stopping, setStopping] = useState(false);
   const send = useCallback((action: Parameters<typeof dustSweepReducer>[1]) => {
     stateRef.current = dustSweepReducer(stateRef.current, action);
     if (mounted.current) setState(stateRef.current);
@@ -43,13 +56,33 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
       if (!current.snapshot || reported.current) return;
       reported.current = true;
       const totals = getDustSweepTotals(current.items);
+      // A missing receipt or an unsettled submission has no known final amount.
+      const receiptAvailable =
+        !totals.receiptUnavailable &&
+        !totals.receivedAmountEstimated &&
+        !current.items.some(
+          (item) =>
+            ['broadcasted', 'unknown'].includes(item.status) ||
+            (item.status === 'skipped' && Boolean(item.txId)),
+        );
+      const receivedAmount = receiptAvailable
+        ? new BigNumber(totals.receivedAmount)
+        : undefined;
+      const nativePrice = new BigNumber(
+        current.snapshot.nativeToken.price ?? '',
+      );
       defaultLogger.dex.dustSweep.dustSweepResult({
         network: current.snapshot.networkId,
         totalCount: current.items.length,
         successCount: totals.successCount,
         skippedCount: totals.skippedCount,
         failedCount: totals.failedCount,
-        receiptAvailable: !totals.receiptUnavailable,
+        receiptAvailable,
+        receivedAmount: receivedAmount?.toNumber() ?? null,
+        receivedUsd:
+          receivedAmount && nativePrice.isFinite() && nativePrice.gt(0)
+            ? receivedAmount.times(nativePrice).toNumber()
+            : null,
         durationSec: Math.floor((Date.now() - started.current) / 1000),
         endReason,
       });
@@ -62,6 +95,26 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
     const snapshot = stateRef.current.snapshot;
     const signal = controller.current?.signal;
     if (!snapshot || !signal || signal.aborted) return;
+    // Before the last token settles, hold until the sweep has run minRunMs.
+    const holdBeforeLastResult = async () => {
+      if (stateRef.current.items.some((entry) => entry.status === 'waiting'))
+        return;
+      const wait = started.current + minRunMs - Date.now();
+      if (wait <= 0) return;
+      // Stop releases the hold and Leave aborts the signal; don't keep either
+      // waiting on it. The listener goes away with this session's signal.
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(() => releaseHold.current?.(), wait);
+        releaseHold.current = () => {
+          clearTimeout(timer);
+          releaseHold.current = undefined;
+          resolve();
+        };
+        signal.addEventListener('abort', () => releaseHold.current?.(), {
+          once: true,
+        });
+      });
+    };
     const task = async () => {
       while (!signal.aborted && stateRef.current.phase === 'running') {
         const item = stateRef.current.items.find(
@@ -96,6 +149,14 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
               }),
             onBroadcast: (txId) =>
               send({ ...identity, status: 'broadcasted', txId }),
+            onSubmissionError: (message, localError, context) =>
+              send({
+                ...identity,
+                type: 'submissionError',
+                message,
+                localError,
+                ...context,
+              }),
             generateSwapHistoryItem: (params) =>
               generateSwapHistoryItemForContext(params, {
                 swapNetworks: networks.map((entry) => entry.network),
@@ -103,27 +164,42 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
               }),
           });
           if (signal.aborted) break;
+          // Already settled, so record it even if Stop / Leave cut the hold.
+          await holdBeforeLastResult();
           send({
             ...identity,
             status: result.status,
             receivedAmount:
               result.status === 'success' ? result.receivedAmount : undefined,
+            receivedAmountEstimated:
+              result.status === 'success'
+                ? result.receivedAmountEstimated
+                : undefined,
             receiptUnavailable:
               result.status === 'success'
                 ? result.receiptUnavailable
                 : undefined,
             reason: result.status === 'failed' ? 'txFailed' : undefined,
             message: result.status === 'failed' ? result.message : undefined,
+            providerErrorMessage:
+              result.status === 'failed' ? result.message : undefined,
           });
           defaultLogger.dex.dustSweep.dustSweepItemResult({
             network: snapshot.networkId,
             tokenSymbol: item.token.symbol,
+            tokenValueUsd: new BigNumber(item.token.valueUsd).toNumber(),
             status: result.status,
             reason: result.status === 'failed' ? 'txFailed' : '',
           });
         } catch (error) {
           if (error instanceof DustSweepUnknownSubmission) {
-            send({ ...identity, status: 'unknown', reason: 'unknown' });
+            send({
+              ...identity,
+              status: 'unknown',
+              reason: 'unknown',
+              submissionErrorMessage: error.submissionErrorMessage,
+              localError: error.localError,
+            });
             break;
           }
           if (signal.aborted) break;
@@ -146,27 +222,35 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
                 error instanceof DustSweepRetryableError
                   ? error.message
                   : undefined,
+              providerErrorMessage:
+                error instanceof DustSweepRetryableError
+                  ? error.providerErrorMessage
+                  : undefined,
+              localError:
+                error instanceof DustSweepRetryableError
+                  ? error.localError
+                  : undefined,
             });
             send({ type: 'pause' });
             break;
           }
-          const reason =
-            error instanceof DustSweepSkip ? error.reason : 'unknown';
+          const failure = DustSweepError.from(error);
+          // Record the finished attempt even if Stop / Leave cut the hold.
+          await holdBeforeLastResult();
           send({
             ...identity,
             status: 'skipped',
-            reason,
-            message: error instanceof Error ? error.message : undefined,
-            providerErrorMessage:
-              error instanceof DustSweepSkip
-                ? error.providerErrorMessage
-                : undefined,
+            reason: failure.reason,
+            message: failure.message,
+            providerErrorMessage: failure.providerErrorMessage,
+            localError: failure.localError,
           });
           defaultLogger.dex.dustSweep.dustSweepItemResult({
             network: snapshot.networkId,
             tokenSymbol: item.token.symbol,
+            tokenValueUsd: new BigNumber(item.token.valueUsd).toNumber(),
             status: 'skipped',
-            reason,
+            reason: failure.reason,
           });
         }
       }
@@ -184,18 +268,18 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
         run();
     });
     running.current = ownedTask;
-  }, [networks, reportResult, send]);
+  }, [networks, reportResult, send, minRunMs]);
 
   const start = useCallback(
     (
       input: IDustSweepSnapshot,
-      unavailable?: Record<string, IDustSweepQuoteFailure>,
+      { hiddenTokenCount = 0 }: { hiddenTokenCount?: number } = {},
     ) => {
       if (
         !mounted.current ||
         stateRef.current.phase !== 'selecting' ||
         running.current ||
-        !input.tokens.some((token) => !unavailable?.[token.key])
+        !input.tokens.length
       )
         return;
       sessionSequence += 1;
@@ -203,16 +287,19 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
       controller.current = new AbortController();
       started.current = Date.now();
       reported.current = false;
-      send({ type: 'start', snapshot, unavailable });
+      send({ type: 'start', snapshot });
       defaultLogger.dex.dustSweep.dustSweepStart({
         network: snapshot.networkId,
         tokenCount: snapshot.tokens.length,
+        totalUsd: snapshot.tokens
+          .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
+          .toNumber(),
         slippage: snapshot.slippage,
       });
       defaultLogger.dex.dustSweep.dustSweepPageVisited({
         page: 'progress',
         tokenCount: snapshot.tokens.length,
-        hiddenTokenCount: 0,
+        hiddenTokenCount,
       });
       run();
       return snapshot.id;
@@ -221,6 +308,7 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
   );
 
   const resume = useCallback(() => {
+    if (stoppingRef.current) return;
     send({ type: 'resume' });
     run();
   }, [run, send]);
@@ -233,6 +321,33 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
   const reset = useCallback(() => {
     send({ type: 'reset' });
   }, [send]);
+  const stop = useCallback(
+    async (onStopped?: (batch: IDustSweepState) => void) => {
+      if (stateRef.current.phase !== 'paused' || stoppingRef.current)
+        return false;
+      stoppingRef.current = true;
+      setStopping(true);
+      try {
+        // Don't abort: a broadcast swap or approval must settle before the
+        // balances reload, or the same token could be submitted again. Paused,
+        // the worker signs nothing new and exits once its current item settles.
+        releaseHold.current?.();
+        await running.current;
+        controller.current?.abort();
+      } finally {
+        stoppingRef.current = false;
+        if (mounted.current) setStopping(false);
+      }
+      // An unconfirmed submission moves the session to blocked; keep it there.
+      if (!mounted.current || stateRef.current.phase !== 'paused') return false;
+      reportResult('stopped');
+      // Expose settled items before reset so their owner can refresh balances.
+      onStopped?.(stateRef.current);
+      send({ type: 'stop' });
+      return true;
+    },
+    [reportResult, send],
+  );
   const leave = useCallback(async () => {
     const alreadyUnknown = stateRef.current.items.some(
       (item) => item.status === 'unknown',
@@ -257,7 +372,8 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      send({ type: 'leave' });
+      // Effect reconnection preserves selection state; there is no run to leave.
+      if (stateRef.current.phase !== 'selecting') send({ type: 'leave' });
       controller.current?.abort();
       reportResult('left');
     };
@@ -268,6 +384,8 @@ export function useDustSweepSession(networks: IDustSweepNetwork[]) {
     start,
     pause,
     resume,
+    stop,
+    stopping,
     reset,
     leave,
     leaving: state.phase === 'leaving',

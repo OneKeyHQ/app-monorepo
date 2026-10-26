@@ -32,7 +32,7 @@ export function formatStockLastUpdateTime(value?: string): string | undefined {
   }
   const date = new Date(timestamp);
   // A price frozen over a weekend or holiday would read as today's without
-  // the date. Month/day matches the Perps timestamps (`LL/dd, HH:mm`).
+  // the date. Keep the local month/day order and omit the year.
   const dateTime = formatDate(date, { hideYear: true, hideSeconds: true });
   return `${dateTime} ${formatUtcOffsetLabel(date)}`;
 }

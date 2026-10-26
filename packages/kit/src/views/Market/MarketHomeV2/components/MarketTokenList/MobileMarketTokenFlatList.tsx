@@ -75,8 +75,7 @@ function MobileMarketTokenFlatListBase({
     refetch,
   } = useMarketTokenList({
     networkId,
-    initialSortBy: 'v24hUSD',
-    initialSortType: 'desc',
+    useApiDefaultSort: true,
     pageSize: 20,
     type: selectedCategory,
     category: stockCategory,

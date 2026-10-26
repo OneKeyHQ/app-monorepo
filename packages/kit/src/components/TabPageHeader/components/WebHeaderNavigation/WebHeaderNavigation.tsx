@@ -204,6 +204,10 @@ function useWebHeaderNavigation({
         key: 'market',
         label: intl.formatMessage({ id: ETranslations.global_market }),
       },
+      {
+        key: 'swap',
+        label: intl.formatMessage({ id: ETranslations.global_trade }),
+      },
       ...(!perpDisabled
         ? [
             {
@@ -215,10 +219,6 @@ function useWebHeaderNavigation({
       {
         key: 'defi',
         label: intl.formatMessage({ id: ETranslations.global_earn }),
-      },
-      {
-        key: 'swap',
-        label: intl.formatMessage({ id: ETranslations.global_trade }),
       },
       {
         key: 'commission',
