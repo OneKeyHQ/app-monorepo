@@ -22358,7 +22358,6 @@
     "packages/kit-bg/src/vaults/impls/zcash/settings.ts": 2732,
     "packages/kit-bg/src/vaults/impls/zcash/signTransparentTransaction.ts": 1954,
     "packages/kit-bg/src/vaults/impls/zcash/transactionReview.ts": 9400,
-    "packages/kit-bg/src/vaults/impls/zcash/transparentExpiry.ts": 21705,
     "packages/kit-bg/src/vaults/impls/zcash/types.ts": 1991,
     "packages/kit-bg/src/vaults/impls/zcash/vaultBalance.ts": 19995,
     "packages/kit-bg/src/vaults/impls/zcash/vaultHistory.ts": 16845,

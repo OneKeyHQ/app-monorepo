@@ -623,8 +623,12 @@ export async function fetchAccountHistoryFromLocal(
         error: e instanceof Error ? e.message : String(e),
       });
     }
-    // With no recent account block, the RPC path can still prove expiry.
-    if (cacheSaved && publicSnapshotIsComplete) {
+    // No backend tip or an incomplete snapshot is no evidence; keep the send pending.
+    if (
+      cacheSaved &&
+      publicSnapshotIsComplete &&
+      publicTipHeight !== undefined
+    ) {
       try {
         await vault.zcashDropExpiredTransparentSends({
           accountId,
