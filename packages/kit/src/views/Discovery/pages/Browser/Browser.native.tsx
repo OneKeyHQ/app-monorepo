@@ -504,16 +504,6 @@ function MobileBrowser() {
     },
     [navigation],
   );
-  const browserChrome = useMemo(
-    () => ({
-      progress: chromeProgress,
-      layoutExpanded,
-      onExpand: expandBrowserChrome,
-      onSearchBarPress: handleSearchBarPress,
-    }),
-    [chromeProgress, layoutExpanded, expandBrowserChrome, handleSearchBarPress],
-  );
-
   const { top } = useSafeAreaInsets();
   // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
   // matches the Wallet header's glass search bar) and is nudged down so its
@@ -541,6 +531,23 @@ function MobileBrowser() {
       showTabBar();
     });
   }, [takeScreenshot, setDisplayHomePage, activeTabId]);
+
+  const browserChrome = useMemo(
+    () => ({
+      progress: chromeProgress,
+      layoutExpanded,
+      onExpand: expandBrowserChrome,
+      onSearchBarPress: handleSearchBarPress,
+      onMinimize: handleGoBackHome,
+    }),
+    [
+      chromeProgress,
+      layoutExpanded,
+      expandBrowserChrome,
+      handleSearchBarPress,
+      handleGoBackHome,
+    ],
+  );
 
   useAndroidHardwareBack({
     displayHomePage,
@@ -638,7 +645,7 @@ function MobileBrowser() {
       ) : (
         <MobileBrowserHeader
           chrome={browserChrome}
-          onGoBackHome={handleGoBackHome}
+          onCloseTab={closeCurrentWebTab}
         />
       )}
       <Page.Body>

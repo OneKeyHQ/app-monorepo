@@ -25,6 +25,8 @@ export interface IMobileBrowserChrome {
   layoutExpanded: SharedValue<number>;
   onExpand: () => void;
   onSearchBarPress: (url: string) => void;
+  // Back to Explore keeping the tab, with a fresh thumbnail for the tab list.
+  onMinimize: () => void;
 }
 
 const isAndroid = platformEnv.isNativeAndroid;

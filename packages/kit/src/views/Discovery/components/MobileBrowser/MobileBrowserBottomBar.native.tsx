@@ -345,7 +345,6 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     displayHomePage,
     handleBookmarkPress,
     handlePinTab,
-    handleCloseTab,
     onShare,
     onCopyUrl,
     handleDisconnect,
@@ -362,7 +361,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     handleTranslateTestAIError,
   } = useMobileBrowserBottomBarData({ id });
 
-  const { progress, onExpand, onSearchBarPress } = chrome;
+  const { progress, onExpand, onSearchBarPress, onMinimize } = chrome;
   // Match the page's light/dark look (glass, icons, text), like Safari.
   const { pageColor, pageThemeName } = usePageTheme(id);
   const appThemeName = useThemeName();
@@ -435,7 +434,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     isPinned: tab?.isPinned ?? false,
     onPinnedPress: handlePinTab,
     onBrowserOpen: handleBrowserOpen,
-    onCloseTab: handleCloseTab,
+    onMinimize,
     displayDisconnectOption: hasConnectedAccount,
     onDisconnect: handleDisconnect,
     siteMode: tab?.siteMode,
