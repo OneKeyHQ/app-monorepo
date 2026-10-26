@@ -75,18 +75,62 @@ export async function sniRequest(
   }
 }
 
+const DESKTOP_SNI_UPLOAD_FILE_NOT_FOUND_RE =
+  /callRemoteApiMethod not found:\s*desktopApi\.sniRequest\.uploadFile\(\)/;
+
 /**
- * SNI file upload is native-only; desktop uploads use the domain path.
+ * Upload a local file over the pinned-IP/SNI transport in the main process.
+ * Returns null when the desktop API is unavailable or predates `uploadFile`,
+ * so callers keep the domain upload path.
  */
 export async function sniUploadFile(
-  _config: ISniUploadFileConfig,
-  _options?: ISniRequestOptions,
+  config: ISniUploadFileConfig,
+  options?: ISniRequestOptions,
 ): Promise<ISniResponse | null> {
-  return null;
+  if (!platformEnv.isDesktop) {
+    return null;
+  }
+  const sniRequestProxy = globalThis.desktopApiProxy?.sniRequest;
+  if (typeof sniRequestProxy?.uploadFile !== 'function') {
+    logAdapterCapability('warn', {
+      adapter: 'desktop',
+      capability: 'upload_file',
+      available: false,
+      decision: 'null',
+      hostname: config.hostname,
+      ipHash: hashForLog(config.ip),
+    });
+    return null;
+  }
+
+  try {
+    return await executeSniRequestWithAbort<ISniUploadFileConfig, ISniResponse>(
+      config,
+      options,
+      (requestConfig) => sniRequestProxy.uploadFile(requestConfig),
+      (requestId) => sniRequestProxy.cancelRequest(requestId),
+    );
+  } catch (error) {
+    if (DESKTOP_SNI_UPLOAD_FILE_NOT_FOUND_RE.test(getErrorMessage(error))) {
+      logAdapterCapability('warn', {
+        adapter: 'desktop',
+        capability: 'upload_file',
+        available: false,
+        decision: 'null',
+        hostname: config.hostname,
+        ipHash: hashForLog(config.ip),
+        errorMessage: getErrorMessage(error),
+      });
+      return null;
+    }
+    // Unlike request(), upload failures are surfaced so the caller can tell
+    // a timeout (no domain retry) from other failures.
+    throw error;
+  }
 }
 
 export function isSniUploadFileSupported(): boolean {
-  return false;
+  return isSniSupported();
 }
 
 /**

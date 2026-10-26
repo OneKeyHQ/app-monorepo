@@ -140,9 +140,10 @@ class ServiceLogger extends ServiceBase {
   }
 
   /**
-   * Upload a native log archive over the IP table's pinned-IP/SNI route. Runs
-   * in bg because only bg holds the IP table config on split-runtime targets;
-   * the native SNI module and the archive file are shared with main.
+   * Upload a log archive over the IP table's pinned-IP/SNI route. Runs in bg
+   * because only bg holds the IP table config on split-runtime targets; the
+   * native SNI module and the archive file are shared with main. On desktop
+   * (single runtime) the transport is the Electron main-process SNI API.
    */
   @backgroundMethod()
   async uploadLogFileViaIpTable(params: {
@@ -153,8 +154,8 @@ class ServiceLogger extends ServiceBase {
     timeoutMs: number;
   }): Promise<ILogUploadViaIpTableResult> {
     const { uploadToken, filePath, mimeType, sizeBytes, timeoutMs } = params;
-    if (!platformEnv.isNative) {
-      return { route: 'skipped', reason: 'not_native' };
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      return { route: 'skipped', reason: 'unsupported_platform' };
     }
     if (!uploadToken || sizeBytes <= 0) {
       throw new OneKeyLocalError('Invalid log upload params');
