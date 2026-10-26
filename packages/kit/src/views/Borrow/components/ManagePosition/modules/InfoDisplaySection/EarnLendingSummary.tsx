@@ -99,8 +99,14 @@ export function EarnLendingSummary({
   const lastConfirmationRef = useRef<
     IBorrowTransactionConfirmation | undefined
   >(undefined);
+  // Their projections (My Supply's new value, the health factor after) are
+  // for an amount the box has let go of (it went to dashes) until the market
+  // answers again: a new amount waits for its own with placeholders, as it
+  // does once the market has answered for the empty box
+  const isKeptForEmptiedRef = useRef(false);
   if (transactionConfirmation) {
     lastConfirmationRef.current = transactionConfirmation;
+    isKeptForEmptiedRef.current = false;
   }
   const confirmation = transactionConfirmation ?? lastConfirmationRef.current;
   const typedBN = new BigNumber(amountValue);
@@ -126,6 +132,7 @@ export function EarnLendingSummary({
     }
     const timer = setTimeout(() => {
       isEmptiedRef.current = false;
+      isKeptForEmptiedRef.current = true;
       setSettleTick((tick) => tick + 1);
     }, EMPTY_SETTLE_MS);
     return () => clearTimeout(timer);
@@ -141,6 +148,9 @@ export function EarnLendingSummary({
     : typedBN;
   const isPositiveAmount = !amountBN.isNaN() && amountBN.gt(0);
   const isWaiting = Boolean(isAmountComing) || isEmptySettling;
+  const showsProjections =
+    isPositiveAmount &&
+    (Boolean(transactionConfirmation) || !isKeptForEmptiedRef.current);
 
   // Worked out here from the supply rate, so it follows the typing at once
   const apy = new BigNumber(confirmation?.apyDetail?.apy ?? '');
@@ -187,7 +197,7 @@ export function EarnLendingSummary({
           <BeforeAfter
             current={confirmation.mySupply.current?.title}
             latest={
-              isPositiveAmount ? confirmation.mySupply.latest?.title : undefined
+              showsProjections ? confirmation.mySupply.latest?.title : undefined
             }
           />
         }
@@ -197,7 +207,7 @@ export function EarnLendingSummary({
   // With loans the row is there from the first frame: the server gives the
   // liquidation line for an empty amount (only with loans) and the factor
   // once there is an amount, so a dash holds its place until then
-  const healthFactor = isPositiveAmount
+  const healthFactor = showsProjections
     ? confirmation?.healthFactor
     : undefined;
   const hasLoans = Boolean(
