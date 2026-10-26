@@ -241,8 +241,8 @@ describe('normalizeZcashBackendHistoryTx', () => {
     key: 'k',
   } as unknown as IOnChainHistoryTx;
 
-  it('names the shielded source of a transparent receive', () => {
-    const tx = normalizeZcashBackendHistoryTx({
+  it('shows a receive that lists no sender as the backend wrote it', () => {
+    const row = {
       ...base,
       type: EOnChainHistoryTxType.Receive,
       sends: [],
@@ -258,14 +258,8 @@ describe('normalizeZcashBackendHistoryTx', () => {
           isOwn: true,
         },
       ],
-    });
-    expect(tx.from).toBe('');
-    expect(tx.shieldedCounterparty).toBe('from');
-    expect(tx.sends).toHaveLength(1);
-    expect(tx.sends[0].type).toBe(EOnChainHistoryTransferType.Shielded);
-    expect(tx.sends[0]).toMatchObject({ address: '', label: '' });
-    expect(tx.sends[0].amount).toBe('0.028112');
-    expect(tx.receives).toHaveLength(1);
+    };
+    expect(normalizeZcashBackendHistoryTx(row)).toBe(row);
   });
 
   it('does not infer a shielded sender when a sparse receive names a public sender', () => {
