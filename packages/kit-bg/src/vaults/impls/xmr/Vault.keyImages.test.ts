@@ -100,12 +100,17 @@ describe('xmr key images', () => {
     ).resolves.toBe(true);
   });
 
-  it('reports a state change when importing uncovers spends made elsewhere', async () => {
+  // An imported key image turns a password-locked output spendable even when
+  // it uncovers no spend made elsewhere, so the balance changes either way.
+  it('reports a state change whenever key images are imported', async () => {
     await expect(
       createVault(2, 1).vault.localWalletDoPasswordWork({ password: 'pw' }),
     ).resolves.toBe(true);
     await expect(
       createVault(2, 0).vault.localWalletDoPasswordWork({ password: 'pw' }),
+    ).resolves.toBe(true);
+    await expect(
+      createVault(0, 0).vault.localWalletDoPasswordWork({ password: 'pw' }),
     ).resolves.toBe(false);
   });
 });
