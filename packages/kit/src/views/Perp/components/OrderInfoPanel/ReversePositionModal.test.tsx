@@ -170,6 +170,31 @@ describe('reverse position confirmation', () => {
       },
     }));
   });
+  it('formats WLD API noise at the coin size precision before doubling', () => {
+    const snapshot = {
+      ...mockSnapshot,
+      coin: 'WLD',
+      positionSize: '-3965060.8999999999',
+    };
+    mockPosition = { ...mockPosition, coin: 'WLD', szi: snapshot.positionSize };
+    mockTarget.symbolMeta = {
+      ...mockTarget.symbolMeta,
+      coin: 'WLD',
+      universe: { szDecimals: 1, maxLeverage: 10 },
+    };
+    const view = render(
+      <ReversePositionContent snapshot={snapshot} onClose={mockClose} />,
+    );
+    expect(view.getByText(/7,930,121.8 WLD/)).toBeTruthy();
+    expect(view.container.textContent).not.toContain('999999');
+    mockTarget.symbolMeta = {
+      coin: 'ETH',
+      assetId: 1,
+      isSpot: false,
+      universe: { szDecimals: 3, maxLeverage: 20 },
+    };
+  });
+
   it('submits one market order, never cancels orders, and prevents duplicate submission', async () => {
     const pending = deferred();
     mockPlaceOrder.mockReturnValueOnce(pending.promise);

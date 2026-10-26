@@ -14,6 +14,21 @@ export interface IReversePositionSnapshot {
   positionSize: string;
 }
 
+export function getReversePositionSize(
+  positionSize: string,
+  szDecimals: number,
+) {
+  const size = new BigNumber(positionSize);
+  if (!size.isFinite() || size.isZero()) return null;
+  const rounded = size.decimalPlaces(szDecimals, BigNumber.ROUND_HALF_UP);
+  // The API can serialize binary floating-point noise (e.g. WLD 3965060.8999999999).
+  // Only absorb that noise; a genuinely off-step position must still be rejected.
+  return !rounded.isZero() &&
+    size.minus(rounded).abs().lte(size.abs().multipliedBy(Number.EPSILON))
+    ? rounded
+    : null;
+}
+
 export function isReversePositionScopeValid({
   snapshot,
   accountAddress,
@@ -48,7 +63,11 @@ export function buildReversePositionOrder({
 }):
   | { params: IPlaceOrderByCoinParams; error?: undefined }
   | { params?: undefined; error: IAddPositionValidationError } {
-  const positionSize = new BigNumber(snapshot.positionSize);
+  const positionSize = getReversePositionSize(
+    snapshot.positionSize,
+    szDecimals,
+  );
+  if (!positionSize) return { error: 'invalidSize' };
   const size = positionSize.abs().multipliedBy(2).toFixed();
   const validation = validateAddPositionOrder({
     size,
@@ -59,7 +78,7 @@ export function buildReversePositionOrder({
   if (validation.error) {
     return { error: validation.error };
   }
-  // Reversal must preserve the exact position size, never silently round it.
+  // Reversal must preserve the normalized position size.
   if (!new BigNumber(validation.size).eq(size)) {
     return { error: 'invalidSize' };
   }

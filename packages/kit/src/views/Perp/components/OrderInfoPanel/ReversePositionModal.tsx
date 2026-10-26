@@ -43,6 +43,7 @@ import {
 } from './utils/addPosition';
 import {
   buildReversePositionOrder,
+  getReversePositionSize,
   isReversePositionScopeValid,
 } from './utils/reversePosition';
 
@@ -130,7 +131,11 @@ export function ReversePositionContent({
     snapshot,
     ...liveScopeRef.current,
   });
-  const size = new BigNumber(snapshot.positionSize).abs();
+  const szDecimals = target?.symbolMeta.universe?.szDecimals;
+  const size =
+    szDecimals === undefined
+      ? null
+      : getReversePositionSize(snapshot.positionSize, szDecimals)?.abs();
   const isBuy = new BigNumber(snapshot.positionSize).lt(0);
   const side = isBuy ? 'long' : 'short';
   const symbol = parseDexCoin(snapshot.coin).displayName;
@@ -138,10 +143,10 @@ export function ReversePositionContent({
     snapshot.coin,
   );
   const liquidationPrice = useMemo(() => {
-    if (!target || !position || !isScopeValid) return null;
+    if (!target || !position || !isScopeValid || !size) return null;
     return estimateLiquidationPrice({
       side,
-      orderSize: new BigNumber(snapshot.positionSize).abs().multipliedBy(2),
+      orderSize: size.multipliedBy(2),
       priceMode: 'market',
       orderPrice: new BigNumber(target.price),
       markPrice: new BigNumber(target.assetData.markPx),
@@ -161,7 +166,7 @@ export function ReversePositionContent({
     isScopeValid,
     position,
     side,
-    snapshot.positionSize,
+    size,
     target,
   ]);
 
@@ -255,7 +260,9 @@ export function ReversePositionContent({
     snapshot,
   ]);
 
-  const formattedSize = `${formatLocalizedNumberString(size.toFixed())} ${symbol}`;
+  const formattedSize = size
+    ? `${formatLocalizedNumberString(size.toFixed())} ${symbol}`
+    : '--';
   const currentSideLabel = intl.formatMessage({
     id: isBuy ? ETranslations.perp_short : ETranslations.perp_long,
   });
@@ -267,7 +274,9 @@ export function ReversePositionContent({
       label: intl.formatMessage({
         id: ETranslations.perp_market_order_size__title,
       }),
-      value: `${intl.formatMessage({ id: isBuy ? ETranslations.global_buy : ETranslations.global_sell })} ${formatLocalizedNumberString(size.multipliedBy(2).toFixed())} ${symbol}`,
+      value: size
+        ? `${intl.formatMessage({ id: isBuy ? ETranslations.global_buy : ETranslations.global_sell })} ${formatLocalizedNumberString(size.multipliedBy(2).toFixed())} ${symbol}`
+        : '--',
     },
     {
       label: intl.formatMessage({
@@ -373,7 +382,7 @@ export function ReversePositionContent({
             testID={PerpTestIDs.ReversePositionConfirmButton}
             size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
-            disabled={!target || !isScopeValid || isSubmitting}
+            disabled={!target || !size || !isScopeValid || isSubmitting}
             loading={isSubmitting}
             onPress={handleSubmit}
           >

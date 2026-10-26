@@ -3,6 +3,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
   buildReversePositionOrder,
+  getReversePositionSize,
   isReversePositionScopeValid,
 } from './reversePosition';
 
@@ -45,6 +46,23 @@ describe('reverse position', () => {
         tpTriggerPx: undefined,
         slTriggerPx: undefined,
       });
+    },
+  );
+
+  it.each(['3965060.8999999999', '-3965060.8999999999'])(
+    'normalizes API floating-point noise before validating the reversal: %s',
+    (positionSize) => {
+      expect(getReversePositionSize(positionSize, 1)?.abs().toFixed()).toBe(
+        '3965060.9',
+      );
+      expect(
+        buildReversePositionOrder({
+          snapshot: { ...snapshot, coin: 'WLD', positionSize },
+          price: '0.44',
+          maxSize: '8000000',
+          szDecimals: 1,
+        }).params?.size,
+      ).toBe('7930121.8');
     },
   );
 
