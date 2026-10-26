@@ -1423,10 +1423,12 @@ export function UniversalStake({
       );
       if (!isOverflowDecimals) {
         setAmountValue(value);
-        // For the amount the form takes ("1." is 1), so the fee matches it
-        void debouncedFetchEstimateFeeResp(
-          value.endsWith('.') ? value.slice(0, -1) : value,
-        );
+        // For the amount the form takes ("1." is 1), so the fee matches it,
+        // and asked again only when that amount changes
+        const amount = value.endsWith('.') ? value.slice(0, -1) : value;
+        if (amount !== transactionConfirmationAmountRef.current) {
+          void debouncedFetchEstimateFeeResp(amount);
+        }
       }
     },
     [decimals, debouncedFetchEstimateFeeResp],

@@ -104,11 +104,6 @@ export function EarnLendingSummary({
   // answers again: a new amount waits for its own with placeholders, as it
   // does once the market has answered for the empty box
   const isKeptForEmptiedRef = useRef(false);
-  if (transactionConfirmation) {
-    lastConfirmationRef.current = transactionConfirmation;
-    isKeptForEmptiedRef.current = false;
-  }
-  const confirmation = transactionConfirmation ?? lastConfirmationRef.current;
   const typedBN = new BigNumber(amountValue);
   const isTypedPositive = !typedBN.isNaN() && typedBN.gt(0);
   // Emptied with figures on screen: the last amount's stay a moment, dimmed;
@@ -138,6 +133,17 @@ export function EarnLendingSummary({
     return () => clearTimeout(timer);
   }, [isTypedPositive, amountValue]);
   const isEmptySettling = !isTypedPositive && isEmptiedRef.current;
+  // The market's answer for the emptied box doesn't replace the figures it
+  // keeps while keys are still coming: they stay until the box settles on
+  // empty (dashes), or until the amount typed has its own
+  const freshConfirmation = isEmptySettling
+    ? undefined
+    : transactionConfirmation;
+  if (freshConfirmation) {
+    lastConfirmationRef.current = freshConfirmation;
+    isKeptForEmptiedRef.current = false;
+  }
+  const confirmation = freshConfirmation ?? lastConfirmationRef.current;
   if (isTypedPositive) {
     lastPositiveAmountRef.current = amountValue;
   } else if (!isEmptySettling) {
@@ -150,7 +156,7 @@ export function EarnLendingSummary({
   const isWaiting = Boolean(isAmountComing) || isEmptySettling;
   const showsProjections =
     isPositiveAmount &&
-    (Boolean(transactionConfirmation) || !isKeptForEmptiedRef.current);
+    (Boolean(freshConfirmation) || !isKeptForEmptiedRef.current);
 
   // Worked out here from the supply rate, so it follows the typing at once
   const apy = new BigNumber(confirmation?.apyDetail?.apy ?? '');

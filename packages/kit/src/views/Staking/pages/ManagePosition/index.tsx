@@ -314,11 +314,12 @@ const ManagePositionPage = () => {
   );
   // The figure the form showed for the amount, read as the deposit lands
   const sideOutcomeCarry = useMemo<{ current?: IEarnOutcome }>(() => ({}), []);
-  // An emptied box (also a pick in Pay with, which empties it) has no
-  // figures to carry to the next form, as in the deposit modal
+  // A box with no amount left (emptied, also by a pick in Pay with, or "0."
+  // after a Backspace) has no figures to carry to the next form, as in the
+  // deposit modal
   const handleSideAmountChange = useCallback(
     (value: string) => {
-      if (!value) {
+      if (!new BigNumber(value).gt(0)) {
         sideOutcomeCarry.current = undefined;
       }
     },

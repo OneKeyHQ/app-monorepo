@@ -1,6 +1,7 @@
 import type { ReactNode, RefObject } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
@@ -508,8 +509,9 @@ export function EarnOffersDeposit({
   const handleAmountChange = useCallback(
     (value: string) => {
       typedAmountRef.current = value;
-      // An emptied box has no figures to carry to the next protocol
-      if (!value) {
+      // A box with no amount left (emptied, or "0." after a Backspace) has
+      // no figures to carry to the next protocol, nor to the next amount
+      if (!new BigNumber(value).gt(0)) {
         outcomeCarry.current = undefined;
       }
       onAmountChange?.(value);
