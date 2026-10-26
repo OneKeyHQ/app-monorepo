@@ -202,7 +202,7 @@ index 44392b6..d1dbe7f 100755
                                                    final String transactionId,
                                                    final String subscriptionType,
 diff --git a/node_modules/react-native-ble-plx/ios/BlePlx.m b/node_modules/react-native-ble-plx/ios/BlePlx.m
-index 8e0da36..b046c6d 100644
+index 8e0da36..b8d0ada 100644
 --- a/node_modules/react-native-ble-plx/ios/BlePlx.m
 +++ b/node_modules/react-native-ble-plx/ios/BlePlx.m
 @@ -9,6 +9,59 @@
@@ -290,7 +290,7 @@ index 8e0da36..b046c6d 100644
      [_manager invalidate];
      _manager = nil;
  }
-@@ -340,6 +398,245 @@ - (void)invalidate {
+@@ -340,6 +398,309 @@ - (void)invalidate {
                             reject:reject];
  }
  
@@ -327,8 +327,8 @@ index 8e0da36..b046c6d 100644
 +        return;
 +    }
 +
-+    // Keep packetSize within the link's maximumWriteValueLength(.withoutResponse); the SDK passes
-+    // min(244, mtu - 3). CoreBluetooth does not report an oversized response-less write.
++    // packetSize is also checked against the link's write-without-response limit once the first packet
++    // names the device (checkFramePacketSize).
 +    double requestedPacketSize = packetSize.doubleValue;
 +    if (!(requestedPacketSize >= 1) ||
 +        requestedPacketSize > BlePlxFrameMaxPacketSize ||
@@ -433,8 +433,72 @@ index 8e0da36..b046c6d 100644
 +                             error:nil];
 +            return;
 +        }
++        NSString* deviceID = BlePlxStringOrNil(characteristic[@"deviceID"]);
++        if (deviceID != nil) {
++            [self checkFramePacketSize:frameWrite
++                        characteristic:characteristic
++                              deviceID:deviceID
++                           afterPacket:packetTransactionId];
++            return;
++        }
 +    }
 +
++    [self continueFrameWrite:frameWrite afterPacket:packetTransactionId];
++}
++
++// The adapter does not expose a characteristic's write-without-response limit, but the first packet's result
++// names the device, whose live MTU it does expose. CoreBluetooth does not report an oversized response-less
++// write, so reject the frame before its remaining packets go out instead of resolving a frame the device never
++// received intact. An unavailable limit keeps the previous behaviour.
++- (void)checkFramePacketSize:(BlePlxFrameWrite*)frameWrite
++              characteristic:(NSDictionary*)characteristic
++                    deviceID:(NSString*)deviceID
++                 afterPacket:(NSString*)packetTransactionId {
++    __weak BlePlx* weakSelf = self;
++    dispatch_queue_t methodQueue = self.methodQueue;
++    [frameWrite.manager devices:@[deviceID]
++                        resolve:^(id value) {
++        NSArray* devices = [value isKindOfClass:[NSArray class]] ? value : nil;
++        NSDictionary* device = [devices.firstObject isKindOfClass:[NSDictionary class]] ? devices.firstObject : nil;
++        id mtu = device[@"mtu"];
++        NSInteger limit = [mtu isKindOfClass:[NSNumber class]] ? [mtu integerValue] - 3 : 0;
++        dispatch_async(methodQueue, ^{
++            BlePlx* strongSelf = weakSelf;
++            if (strongSelf == nil) {
++                return;
++            }
++            // The first packet is the longest one the frame produces.
++            NSUInteger firstPacketLength = MIN(frameWrite.packetSize, frameWrite.frame.length);
++            if (!frameWrite.settled && limit > 0 && firstPacketLength > (NSUInteger)limit) {
++                [strongSelf releaseFramePacketTransaction:packetTransactionId manager:frameWrite.manager];
++                NSString* reason = [NSString stringWithFormat:
++                                    @"Frame packet of %lu bytes exceeds the write-without-response limit %ld",
++                                    (unsigned long)firstPacketLength, (long)limit];
++                [strongSelf settleFrameWrite:frameWrite
++                                  rejectCode:nil
++                                     message:BlePlxBleErrorJSON(BlePlxErrorCharacteristicInvalidDataFormat,
++                                                                reason,
++                                                                deviceID,
++                                                                BlePlxStringOrNil(characteristic[@"serviceUUID"]),
++                                                                BlePlxStringOrNil(characteristic[@"uuid"]))
++                                       error:nil];
++                return;
++            }
++            [strongSelf continueFrameWrite:frameWrite afterPacket:packetTransactionId];
++        });
++    }
++                         reject:^(NSString* code, NSString* message, NSError* error) {
++        dispatch_async(methodQueue, ^{
++            [weakSelf continueFrameWrite:frameWrite afterPacket:packetTransactionId];
++        });
++    }];
++}
++
++- (void)continueFrameWrite:(BlePlxFrameWrite*)frameWrite afterPacket:(NSString*)packetTransactionId {
++    if (frameWrite.settled) {
++        [self releaseFramePacketTransaction:packetTransactionId manager:frameWrite.manager];
++        return;
++    }
 +    if (frameWrite.nextOffset >= frameWrite.frame.length) {
 +        [self releaseFramePacketTransaction:packetTransactionId manager:frameWrite.manager];
 +        [self settleFrameWrite:frameWrite resolveValue:nil];
@@ -536,7 +600,7 @@ index 8e0da36..b046c6d 100644
  RCT_EXPORT_METHOD(monitorCharacteristicForDevice:(NSString*)deviceIdentifier
                                       serviceUUID:(NSString*)serviceUUID
                                characteristicUUID:(NSString*)characteristicUUID
-@@ -494,6 +791,11 @@ - (void)invalidate {
+@@ -494,6 +855,11 @@ - (void)invalidate {
  // Mark: Other operations ----------------------------------------------------------------------------------------------
  
  RCT_EXPORT_METHOD(cancelTransaction:(NSString*)transactionId) {
