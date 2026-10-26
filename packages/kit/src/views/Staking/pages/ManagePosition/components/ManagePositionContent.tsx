@@ -38,6 +38,8 @@ import { StakingAmountResultLine } from '../../../components/StakingAmountResult
 import {
   EarnFormRow,
   EarnFormSummary,
+  buildResultLinesKey,
+  readResultLines,
 } from '../../../components/UniversalStake/EarnFormSummary';
 import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
 import { shouldBlockManagePageAction } from '../hooks/useManagePage.utils';
@@ -173,9 +175,12 @@ export const ManageSectionShell = ({
   hasPayWith,
   offerSwitch,
   liftsHeaderControls,
+  resultLinesKey,
 }: {
   type: EManagePositionType;
   symbol: string;
+  // The offer, so the result holds as many lines as its last figures had
+  resultLinesKey?: string;
   defaultTab?: 'deposit' | 'withdraw';
   // As the loaded form: Pay with leaves out the "Not enough X?" row
   hasPayWith?: boolean;
@@ -445,6 +450,7 @@ export const ManageSectionShell = ({
               label: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
               values: [],
               isEarning: true,
+              reservedLines: readResultLines(resultLinesKey),
             }}
             rows={
               borrowAction
@@ -1111,6 +1117,12 @@ export function ManagePositionContent({
         hasPayWith={Boolean(payWith)}
         offerSwitch={offerSwitch}
         liftsHeaderControls={Boolean(onHeaderRightChange)}
+        resultLinesKey={buildResultLinesKey({
+          networkId,
+          provider,
+          vault,
+          symbol,
+        })}
       />
     );
   }

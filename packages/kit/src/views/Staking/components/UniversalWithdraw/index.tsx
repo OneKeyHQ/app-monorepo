@@ -1191,6 +1191,15 @@ export function UniversalWithdraw({
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
+  // A new amount's quote (Pendle's, which expires) is on its way from that
+  // amount's own frame, not only once the effect below asks for it
+  const [quoteAskAmount, setQuoteAskAmount] = useState(amountValue);
+  if (isPendleProvider && quoteAskAmount !== amountValue) {
+    setQuoteAskAmount(amountValue);
+    setTransactionConfirmationLoading(
+      !isInvalidAmount(amountValue) && new BigNumber(amountValue).gt(0),
+    );
+  }
 
   const isWithdrawPathReady = earnUtils.isEarnWithdrawPathReady({
     providerName: providerName ?? '',
@@ -1782,8 +1791,11 @@ export function UniversalWithdraw({
   });
 
   // During approve/submit flow, don't show expired refresh — the transaction is in progress.
+  // Nor while a new answer for the amount in the box is on its way: the
+  // expired quote is being replaced, so the button keeps its look
   const isTransacting = approving || loading;
-  const effectiveShowExpiredRefresh = showExpiredRefresh && !isTransacting;
+  const effectiveShowExpiredRefresh =
+    showExpiredRefresh && !isTransacting && !quoteLoading;
 
   const amountInputDisabled = useMemo(() => {
     return isDisabled || initialAmount !== undefined || isCancelWithdrawal;

@@ -1,4 +1,11 @@
-import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -67,6 +74,11 @@ export function ActionFooter({
   } = approval;
 
   const isInModalContext = isInModalContextProp ?? isInModalContextState;
+  // In the Earn forms the button keeps its look while the amount is checked
+  // (no spinner, no grey that comes and goes with each keystroke), as the
+  // staking forms' does; a press in that moment goes once the check is in
+  const keepsLookWhileChecking = Boolean(isEarnForm);
+  const [isPressWaitingCheck, setIsPressWaitingCheck] = useState(false);
 
   const businessActionLabel = useMemo(
     () =>
@@ -83,7 +95,7 @@ export function ActionFooter({
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isCheckAmountMessageError ||
       checkAmountResult === false ||
-      checkAmountLoading;
+      (checkAmountLoading && !keepsLookWhileChecking);
 
     // Borrow doesn't need to check wallet balance
     if (action === 'borrow') {
@@ -100,6 +112,7 @@ export function ActionFooter({
     isCheckAmountMessageError,
     checkAmountResult,
     checkAmountLoading,
+    keepsLookWhileChecking,
   ]);
 
   const confirmBorrowLiquidationRisk = useCallback(async () => {
@@ -142,6 +155,10 @@ export function ActionFooter({
     if (isSwitchingOffer) {
       return;
     }
+    if (keepsLookWhileChecking && checkAmountLoading) {
+      setIsPressWaitingCheck(true);
+      return;
+    }
     if (shouldApprove) {
       Keyboard.dismiss();
       const confirmed = await confirmBorrowLiquidationRisk();
@@ -153,18 +170,34 @@ export function ActionFooter({
     }
     await handleSubmit();
   }, [
+    checkAmountLoading,
     confirmBorrowLiquidationRisk,
     handleSubmit,
     isSwitchingOffer,
+    keepsLookWhileChecking,
     onApprove,
     shouldApprove,
   ]);
 
+  const isBusy = submitting || loadingAllowance || isFormInteractionLocked;
   const isConfirmLoading =
-    submitting ||
-    checkAmountLoading ||
-    loadingAllowance ||
-    isFormInteractionLocked;
+    isBusy ||
+    (keepsLookWhileChecking ? isPressWaitingCheck : checkAmountLoading);
+  useEffect(() => {
+    if (!isPressWaitingCheck || checkAmountLoading) {
+      return;
+    }
+    setIsPressWaitingCheck(false);
+    if (!isButtonDisabled && !isBusy) {
+      void handleConfirm();
+    }
+  }, [
+    checkAmountLoading,
+    handleConfirm,
+    isBusy,
+    isButtonDisabled,
+    isPressWaitingCheck,
+  ]);
   const autoSubmittedKeyRef = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (

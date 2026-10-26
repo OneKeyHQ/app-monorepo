@@ -70,6 +70,7 @@ import {
   EarnFormSummary,
   EarnFormSwitchingContext,
   buildOutcomeValueFromText,
+  buildResultLinesKey,
   buildRewardNoteRows,
   buildRewardsOutcome,
   buildRowKeys,
@@ -129,6 +130,8 @@ const QUOTE_DEBOUNCE_MS = 500;
 // A box emptied keeps its figures this long (dimmed), as the provider forms
 // do: a digit deleted and typed again reads as a change, not a blink
 const EMPTY_SETTLE_MS = 350;
+// How long after the box was emptied its quote can still be taken back
+const TAKE_BACK_MS = 3000;
 
 /**
  * What the provider's own deposit form asks the server for its card: a
@@ -591,11 +594,13 @@ export function EarnRouterSwapDepositForm({
   quoteStateRef.current = quoteState;
   // The quote in hand when the box was emptied: the same amount typed again
   // while the emptied box keeps its figures takes it back as it was, so every
-  // figure returns at once. Left empty, it goes. The press asks for a fresh
-  // quote anyway
+  // figure returns at once, also through the other amounts on the way to it
+  // ("1" and "1." before "1.5"). Left empty, it goes. The press asks for a
+  // fresh quote anyway
   const emptiedQuoteRef = useRef<{
     amount: string;
     quote: IFetchQuoteResult;
+    at: number;
   }>(undefined);
   const canQuote = hasAmount && isSwappable;
   useEffect(() => {
@@ -604,17 +609,22 @@ export function EarnRouterSwapDepositForm({
       return;
     }
     if (!canQuote) {
+      // Keys that keep the box empty (the zeros of "0.0003") keep the quote
+      // it was emptied of
       const shown = quoteStateRef.current;
-      emptiedQuoteRef.current =
-        shown.quote && shown.amount
-          ? { amount: shown.amount, quote: shown.quote }
-          : undefined;
+      if (shown.quote && shown.amount) {
+        emptiedQuoteRef.current = {
+          amount: shown.amount,
+          quote: shown.quote,
+          at: Date.now(),
+        };
+      }
       setQuoteState(NO_QUOTE);
       return;
     }
     const emptied = emptiedQuoteRef.current;
-    emptiedQuoteRef.current = undefined;
-    if (emptied?.amount === amount) {
+    if (emptied?.amount === amount && Date.now() - emptied.at <= TAKE_BACK_MS) {
+      emptiedQuoteRef.current = undefined;
       setQuoteState({ amount, quote: emptied.quote, isLoading: false });
       return;
     }
@@ -650,9 +660,12 @@ export function EarnRouterSwapDepositForm({
     };
   }, [account, amount, canQuote, fromToken, isIdle, toToken]);
   // The emptied box's quote, taken back as the same amount is typed again
+  const emptiedQuote = emptiedQuoteRef.current;
   const takenBackQuote =
-    hasAmount && emptiedQuoteRef.current?.amount === amount
-      ? emptiedQuoteRef.current.quote
+    hasAmount &&
+    emptiedQuote?.amount === amount &&
+    Date.now() - emptiedQuote.at <= TAKE_BACK_MS
+      ? emptiedQuote.quote
       : undefined;
   const quote =
     quoteState.amount === amount ? quoteState.quote : takenBackQuote;
@@ -1257,6 +1270,12 @@ export function EarnRouterSwapDepositForm({
             transactionConfirmation: stakingSummary,
             placeholderLabel: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
             withoutValues: isSummaryPlaceholder,
+            linesKey: buildResultLinesKey({
+              networkId,
+              provider: summaryRequest.provider,
+              vault: summaryRequest.vault,
+              symbol: summaryRequest.symbol,
+            }),
           })
         : {
             label: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,

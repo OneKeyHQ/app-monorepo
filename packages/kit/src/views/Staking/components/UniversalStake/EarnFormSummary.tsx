@@ -50,12 +50,20 @@ const VISIBLE_ROW_LIMIT = 4;
 export const SHOWN_ROWS_WHEN_FOLDED = VISIBLE_ROW_LIMIT - 1;
 // When a row comes or goes, the rows below move in this long
 const ROWS_HEIGHT_MS = 200;
+// The room beside a result's label that its figure and "(in …)" are sure
+// to fit in on one line (up to four digits before the point)
+const STACKED_SUFFIX_BELOW_PX = 200;
 // A figure being worked out again stays at this opacity until the new one
 const STALE_OPACITY = 0.4;
 const DETAILS_KEY = 'earn-form-details';
-// Once open: the accordion measures, then opens over 'fast' (200 ms), and
-// the modal follows it, about 420 ms in all
-const DETAILS_UNFOLD_MS = 600;
+// The accordion opens or folds over 'fast' (200 ms) and the modal follows it
+// a frame behind; the rest is room for slow frames
+const DETAILS_UNFOLD_MS = 450;
+// Folded, a scroll the shorter form can't keep comes down within this, from
+// the fold's first frame
+const DETAILS_FOLD_SCROLL_MS = 150;
+const easeInOut = (progress: number) =>
+  progress < 0.5 ? 2 * progress * progress : 1 - (-2 * progress + 2) ** 2 / 2;
 
 // The modal's scroll area holding a node, once its content is taller than it
 function findScrollArea(node: HTMLElement): HTMLElement | null {
@@ -93,7 +101,34 @@ export type IEarnOutcome = {
   // The figure comes with a note line under it (Pendle's gain): the line's
   // room is kept while there is no figure, so the rows below stay put
   hasNoteLine?: boolean;
+  // The figures this offer's last result had (Spark Savings pays in two
+  // tokens): as many lines are kept while there are none
+  reservedLines?: number;
 };
+
+// How many figures an offer's last result had, by offer, for this session.
+// Its answer for an empty amount can list fewer (Spark Savings: one token,
+// two once there is an amount), so the empty form holds the last count: a
+// clear doesn't pull the rows below up, nor the next figures push them down
+const resultLinesByOffer = new Map<string, number>();
+export function buildResultLinesKey({
+  networkId,
+  provider,
+  vault,
+  symbol,
+}: {
+  networkId?: string;
+  provider?: string;
+  vault?: string;
+  symbol?: string;
+}): string {
+  return [networkId ?? '', provider ?? '', vault || symbol || '']
+    .join('|')
+    .toLowerCase();
+}
+export function readResultLines(key?: string): number | undefined {
+  return key ? resultLinesByOffer.get(key) : undefined;
+}
 
 // Kept by the deposit modal across a protocol switch, which builds a new
 // form: the new one shows the last figures, dimmed, until its own come in,
@@ -212,11 +247,14 @@ export function buildRewardsOutcome({
   transactionConfirmation,
   placeholderLabel,
   withoutValues,
+  linesKey,
 }: {
   transactionConfirmation?: IStakeTransactionConfirmation;
   placeholderLabel: string;
   // No amount yet: the label stays, the figures wait
   withoutValues?: boolean;
+  // The offer, so its count of figures is kept for its empty form
+  linesKey?: string;
 }): IEarnOutcome {
   const rewards = withoutValues
     ? []
@@ -224,7 +262,11 @@ export function buildRewardsOutcome({
         (reward) =>
           Boolean(reward.title?.text?.trim()) && isAmountReward(reward),
       );
+  if (linesKey && rewards.length > 0) {
+    resultLinesByOffer.set(linesKey, rewards.length);
+  }
   return {
+    reservedLines: readResultLines(linesKey),
     label: transactionConfirmation?.title?.text?.trim() || placeholderLabel,
     tooltip: transactionConfirmation?.tooltip,
     values: rewards.map((reward) => ({
@@ -394,6 +436,7 @@ function OutcomeValues({
   isLoading,
   isDimmed = isLoading,
   fadesIn = true,
+  stacksSuffix = false,
 }: {
   outcome: IEarnOutcome;
   isLoading?: boolean;
@@ -402,6 +445,8 @@ function OutcomeValues({
   // Off for figures already on screen as the form mounts (the last
   // protocol's, carried): only figures that come later fade in
   fadesIn?: boolean;
+  // "(in sUSDe)" on a line of its own, whatever the figure's length
+  stacksSuffix?: boolean;
 }) {
   const hasValues = outcome.values.length > 0;
   // Decided as the figures appear and kept while they stay, as a row's
@@ -419,18 +464,33 @@ function OutcomeValues({
         {' '}
       </SizableText>
     ) : null;
+  // And the "(in …)" line's, where it has a line of its own
+  const suffixRoom =
+    stacksSuffix &&
+    outcome.hasNoteLine &&
+    !outcome.values.some((value) => value.suffix) ? (
+      <SizableText size="$bodyMd" opacity={0} aria-hidden>
+        {' '}
+      </SizableText>
+    ) : null;
   // One tree in every state, so the placeholder (on the figure's first
   // line) fades out as the figures fade in. Figures that replace figures
   // change in place: the dimmed last ones brighten into the new ones, with
   // no blank between
+  const lineCount = Math.max(1, outcome.reservedLines ?? 1);
   return (
     <YStack position="relative" ai="flex-end">
       <EarnFadingPlaceholder
         visible={!hasValues && Boolean(isLoading)}
         leavesAtOnce={!hasValues}
-        height="$6"
+        ai="flex-end"
+        gap="$1"
       >
-        <Skeleton.BodyLg w={96} />
+        {Array.from({ length: lineCount }, (_, index) => (
+          <YStack key={index} h="$6" jc="center">
+            <Skeleton.BodyLg w={96} />
+          </YStack>
+        ))}
       </EarnFadingPlaceholder>
       {hasValues ? (
         <YStack
@@ -443,53 +503,77 @@ function OutcomeValues({
           animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={valuesFadeInRef.current ? FADE_IN : undefined}
         >
-          {outcome.values.map((value, index) => (
-            <YStack key={index} ai="flex-end">
-              <XStack
-                columnGap="$1.5"
-                ai="center"
-                jc="flex-end"
-                flexWrap="wrap"
+          {outcome.values.map((value, index) => {
+            const main = (
+              <EarnAmountText
+                size="$bodyLgMedium"
+                color={outcome.isEarning ? '$textSuccess' : '$text'}
+                fontVariant={TABULAR_NUMS}
+                textAlign="right"
               >
-                <EarnAmountText
-                  size="$bodyLgMedium"
-                  color={outcome.isEarning ? '$textSuccess' : '$text'}
-                  fontVariant={TABULAR_NUMS}
-                  textAlign="right"
-                >
-                  {value.main}
-                </EarnAmountText>
-                {value.suffix ? (
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    fontVariant={TABULAR_NUMS}
+                {value.main}
+              </EarnAmountText>
+            );
+            const suffix = value.suffix ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                fontVariant={TABULAR_NUMS}
+              >
+                {padCents(value.suffix)}
+              </SizableText>
+            ) : null;
+            const tooltip = value.tooltip ? (
+              <EarnTooltip title={value.main} tooltip={value.tooltip} />
+            ) : null;
+            return (
+              <YStack key={index} ai="flex-end">
+                {stacksSuffix ? (
+                  <>
+                    <XStack columnGap="$1.5" ai="center" jc="flex-end">
+                      {main}
+                      {tooltip}
+                    </XStack>
+                    {suffix}
+                  </>
+                ) : (
+                  <XStack
+                    columnGap="$1.5"
+                    ai="center"
+                    jc="flex-end"
+                    flexWrap="wrap"
                   >
-                    {padCents(value.suffix)}
+                    {main}
+                    {suffix}
+                    {tooltip}
+                  </XStack>
+                )}
+                {value.note ? (
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {value.note}
                   </SizableText>
                 ) : null}
-                {value.tooltip ? (
-                  <EarnTooltip title={value.main} tooltip={value.tooltip} />
-                ) : null}
-              </XStack>
-              {value.note ? (
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {value.note}
-                </SizableText>
-              ) : null}
-            </YStack>
-          ))}
+              </YStack>
+            );
+          })}
+          {suffixRoom}
           {noteRoom}
         </YStack>
       ) : (
         <YStack key="empty" ai="flex-end">
-          <YStack minHeight="$6" jc="center" ai="flex-end">
-            {isLoading ? null : (
-              <SizableText size="$bodyLgMedium" color="$textDisabled">
-                –
-              </SizableText>
-            )}
+          <YStack ai="flex-end" gap="$1">
+            <YStack minHeight="$6" jc="center" ai="flex-end">
+              {isLoading ? null : (
+                <SizableText size="$bodyLgMedium" color="$textDisabled">
+                  –
+                </SizableText>
+              )}
+            </YStack>
+            {Array.from({ length: lineCount - 1 }, (_, index) => (
+              <YStack key={index} h="$6" aria-hidden />
+            ))}
           </YStack>
+          {suffixRoom}
           {noteRoom}
         </YStack>
       )}
@@ -509,6 +593,9 @@ function RowLabel({
   // The label keeps its line and the figures beside it make room
   keepsOneLine?: boolean;
 }) {
+  // An (i) that comes after its label (with the first quote, which says
+  // what the row means) fades in, as the figures beside it do
+  const hasTooltipFromStartRef = useRef(Boolean(tooltip));
   return (
     <XStack
       ai="center"
@@ -523,7 +610,15 @@ function RowLabel({
       >
         {label}
       </SizableText>
-      {tooltip ? <EarnTooltip title={label} tooltip={tooltip} /> : null}
+      {tooltip ? (
+        <YStack
+          transition="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
+          enterStyle={hasTooltipFromStartRef.current ? undefined : FADE_IN}
+        >
+          <EarnTooltip title={label} tooltip={tooltip} />
+        </YStack>
+      ) : null}
     </XStack>
   );
 }
@@ -541,10 +636,45 @@ export function EarnOutcomeRow({
   fadesIn?: boolean;
   testID?: string;
 }) {
+  // A result with a note line (Pendle's "1.2597 USDe (in sUSDe)" over
+  // "0.74% Gain") with too little room beside its label (a phone) puts its
+  // "(in …)" on a line of its own whatever the figure: a figure a digit
+  // longer then doesn't push the rows below down a line, nor a shorter one
+  // pull them back up. Measured before the first paint, and again as the
+  // width changes
+  const rowRef = useRef<IElement>(null);
+  const [stacksSuffix, setStacksSuffix] = useState(false);
+  const watchesRoom =
+    Boolean(outcome.hasNoteLine) && platformEnv.isRuntimeBrowser;
+  useLayoutEffect(() => {
+    const row = rowRef.current as unknown as HTMLElement | null;
+    const label = row?.firstElementChild;
+    if (!watchesRoom || !row || !label) {
+      return undefined;
+    }
+    const measure = () => {
+      const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+      const room =
+        row.getBoundingClientRect().width -
+        label.getBoundingClientRect().width -
+        gap;
+      setStacksSuffix(room < STACKED_SUFFIX_BELOW_PX);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [watchesRoom]);
   return (
     // A long result (rewards of 100 a year and more on a narrow form) puts
     // its money value under the amount; the label stays on its line
-    <XStack testID={testID} jc="space-between" ai="flex-start" gap="$3">
+    <XStack
+      ref={rowRef}
+      testID={testID}
+      jc="space-between"
+      ai="flex-start"
+      gap="$3"
+    >
       <RowLabel
         label={outcome.label}
         tooltip={outcome.tooltip}
@@ -563,6 +693,7 @@ export function EarnOutcomeRow({
           isLoading={isLoading}
           isDimmed={isDimmed}
           fadesIn={fadesIn}
+          stacksSuffix={stacksSuffix}
         />
       </YStack>
     </XStack>
@@ -640,33 +771,103 @@ function EarnFormDetails({ rows }: { rows: ReactElement[] }) {
   const intl = useIntl();
   // Opened at the bottom of a modal at its full height (Pendle's route), the
   // rows it folds would go under the edge: the form scrolls with them as they
-  // unfold, each frame the least that keeps their bottom in view, so it is
-  // one movement rather than a scroll once they are open. A scroll of the
-  // user's own stops it
-  const contentRef = useRef<IElement>(null);
+  // unfold, each frame the least that keeps their drawn bottom (the edge of
+  // the height animating open) in view, so it is one movement rather than a
+  // scroll once they are open. Whatever was under the edge before the press
+  // comes into view in step with the unfold. Folded again, a scroll the
+  // shorter form can't keep comes back down in step with the fold, rather
+  // than in the frames where the fold reaches it. A scroll of the user's own
+  // stops it
+  const animatorRef = useRef<IElement>(null);
   const unfoldFrameRef = useRef(0);
   useEffect(() => () => cancelAnimationFrame(unfoldFrameRef.current), []);
   const handleValueChange = useCallback((value: string) => {
     cancelAnimationFrame(unfoldFrameRef.current);
-    if (value !== DETAILS_KEY || !platformEnv.isRuntimeBrowser) {
+    if (!platformEnv.isRuntimeBrowser) {
       return;
     }
+    const isOpening = value === DETAILS_KEY;
     const startedAt = performance.now();
     let scrolledTo: number | undefined;
+    let underAtStart: number | undefined;
+    let foldFrom: { top: number; extra: number; height: number } | undefined;
+    let foldStartedAt: number | undefined;
+    let lastArea: HTMLElement | null = null;
+    let lastAreaHeight = 0;
     const follow = () => {
-      const node = contentRef.current as unknown as HTMLElement | null;
-      const area = node ? findScrollArea(node) : null;
-      if (node && area) {
-        if (scrolledTo !== undefined && area.scrollTop !== scrolledTo) {
+      const animator = animatorRef.current as unknown as HTMLElement | null;
+      const area = animator ? findScrollArea(animator) : null;
+      if (animator && area) {
+        // Where it was left, or as far as the shorter content allows
+        if (
+          scrolledTo !== undefined &&
+          Math.abs(
+            area.scrollTop -
+              Math.min(scrolledTo, area.scrollHeight - area.clientHeight),
+          ) > 0.5
+        ) {
           return;
         }
-        const visibleBottom =
-          area.getBoundingClientRect().top + area.clientHeight;
-        const under = node.getBoundingClientRect().bottom - visibleBottom;
-        if (under > 0.5) {
-          area.scrollTop += under;
-          scrolledTo = area.scrollTop;
+        const drawn = animator.getBoundingClientRect();
+        // A modal still growing to fit (it follows a frame behind) takes the
+        // rows itself: scrolled now, it would be clamped back as it grows
+        const isAreaGrowing =
+          area !== lastArea || area.clientHeight > lastAreaHeight + 0.5;
+        lastArea = area;
+        lastAreaHeight = area.clientHeight;
+        if (isOpening) {
+          const visibleBottom =
+            area.getBoundingClientRect().top + area.clientHeight;
+          const under = drawn.bottom - visibleBottom;
+          const full =
+            animator.firstElementChild?.getBoundingClientRect().height ?? 0;
+          const unfolded = full > 0 ? Math.min(1, drawn.height / full) : 0;
+          underAtStart ??= Math.max(0, under);
+          const stillUnder = underAtStart * (1 - unfolded);
+          if (!isAreaGrowing && under - stillUnder > 0.5) {
+            area.scrollTop += under - stillUnder;
+          }
+        } else {
+          foldFrom ??= {
+            top: area.scrollTop,
+            extra: area.scrollHeight - area.clientHeight,
+            height: drawn.height,
+          };
+          // Where the scroll ends once they are folded: where it is, unless
+          // the shorter content can't keep it there
+          const settled = Math.min(
+            foldFrom.top,
+            Math.max(0, foldFrom.extra - foldFrom.height),
+          );
+          if (foldFrom.top - settled > 0.5 && foldFrom.height > 0) {
+            const folded = Math.max(0, 1 - drawn.height / foldFrom.height);
+            if (folded > 0) {
+              foldStartedAt ??= performance.now();
+            }
+            // In step with the fold, there by the point the content would
+            // push it there, and no later than an even curve from the fold's
+            // first frame: the fold speeds up, and would otherwise take most
+            // of it in a frame or two
+            const pushedAt = (foldFrom.extra - settled) / foldFrom.height;
+            const inStep = pushedAt > 0 ? Math.min(1, folded / pushedAt) : 1;
+            const inTime =
+              foldStartedAt === undefined
+                ? 0
+                : easeInOut(
+                    Math.min(
+                      1,
+                      (performance.now() - foldStartedAt) /
+                        DETAILS_FOLD_SCROLL_MS,
+                    ),
+                  );
+            area.scrollTop =
+              foldFrom.top -
+              (foldFrom.top - settled) * Math.max(inStep, inTime);
+          }
         }
+        scrolledTo = area.scrollTop;
+      } else {
+        lastArea = null;
       }
       if (performance.now() - startedAt < DETAILS_UNFOLD_MS) {
         unfoldFrameRef.current = requestAnimationFrame(follow);
@@ -716,7 +917,7 @@ function EarnFormDetails({ rows }: { rows: ReactElement[] }) {
             </>
           )}
         </Accordion.Trigger>
-        <Accordion.HeightAnimator transition="fast">
+        <Accordion.HeightAnimator ref={animatorRef} transition="fast">
           <Accordion.Content
             transition="fast"
             animateOnly={ANIMATE_ONLY_OPACITY}
@@ -725,9 +926,7 @@ function EarnFormDetails({ rows }: { rows: ReactElement[] }) {
             pb={0}
             pt="$3"
           >
-            <YStack ref={contentRef} gap="$3">
-              {rows}
-            </YStack>
+            <YStack gap="$3">{rows}</YStack>
           </Accordion.Content>
         </Accordion.HeightAnimator>
       </Accordion.Item>
@@ -853,12 +1052,12 @@ export function EarnFormSummary({
           below, taken back by the margin, keep a focus ring on a row's (i)
           whole */}
       <YStack my={rows.length ? '$-1' : undefined}>
-        <HeightTransition
-          duration={ROWS_HEIGHT_MS}
-          skipInitialAnimation={hasRowsFromStart}
-        >
-          {rows.length ? (
-            <EarnFormQuotingContext.Provider value={rowsQuoting}>
+        <EarnFormQuotingContext.Provider value={rowsQuoting}>
+          <HeightTransition
+            duration={ROWS_HEIGHT_MS}
+            skipInitialAnimation={hasRowsFromStart}
+          >
+            {rows.length ? (
               <YStack pt={shownOutcome ? '$4' : '$1'} pb="$1" gap="$3">
                 {visibleRows.map((row, index) => (
                   <EarnFormRowEntry
@@ -868,16 +1067,22 @@ export function EarnFormSummary({
                     {row}
                   </EarnFormRowEntry>
                 ))}
-                {foldedRows.length ? (
-                  <EarnFormDetails rows={foldedRows} />
-                ) : null}
-                {detailsPlaceholder && !foldedRows.length ? (
-                  <EarnFormDetailsPlaceholder />
-                ) : null}
               </YStack>
-            </EarnFormQuotingContext.Provider>
+            ) : null}
+          </HeightTransition>
+          {/* "Details" opens and folds with its own animation only: inside
+              the block, the block's height would chase the unfold and show
+              the rows late, the fold leaving their space to close after */}
+          {rows.length && (foldedRows.length || detailsPlaceholder) ? (
+            <YStack pt="$2" pb="$1">
+              {foldedRows.length ? (
+                <EarnFormDetails rows={foldedRows} />
+              ) : (
+                <EarnFormDetailsPlaceholder />
+              )}
+            </YStack>
           ) : null}
-        </HeightTransition>
+        </EarnFormQuotingContext.Provider>
       </YStack>
       {footnote ? <YStack pt="$3">{footnote}</YStack> : null}
     </YStack>

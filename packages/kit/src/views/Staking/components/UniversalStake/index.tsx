@@ -128,6 +128,7 @@ import {
   EarnFormSwitchingContext,
   SHOWN_ROWS_WHEN_FOLDED,
   buildOutcomeValueFromText,
+  buildResultLinesKey,
   buildRewardNoteRows,
   buildRewardsOutcome,
   buildRowKeys,
@@ -933,6 +934,15 @@ export function UniversalStake({
 
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
+  // A new amount's quote is on its way from that amount's own frame, not
+  // only once the effect below asks for it
+  const [quoteAskAmount, setQuoteAskAmount] = useState(amountValue);
+  if (quoteAskAmount !== amountValue) {
+    setQuoteAskAmount(amountValue);
+    setTransactionConfirmationLoading(
+      !isInvalidAmount(amountValue) && new BigNumber(amountValue).gt(0),
+    );
+  }
   // What the rows show: the latest quote for an amount, kept (dimmed) while
   // the next amount's is fetched, so the rows swap figures in place
   const [shownQuote, setShownQuote] = useState<IShownQuote>(EMPTY_SHOWN_QUOTE);
@@ -1245,6 +1255,7 @@ export function UniversalStake({
     }
     prevShouldApproveRef.current = shouldApprove;
     if (!isInvalidAmount(amountValue) && amountValueBN.isGreaterThan(0)) {
+      setTransactionConfirmationLoading(true);
       void debouncedFetchTransactionConfirmation(amountValue);
     } else {
       debouncedFetchTransactionConfirmation.cancel();
@@ -2221,7 +2232,6 @@ export function UniversalStake({
   // During approve/submit flow, don't show expired refresh — the transaction is in progress.
   // After swap completes, onQuoteReset will restart the countdown.
   const isTransacting = approving || submitting;
-  const effectiveShowExpiredRefresh = showExpiredRefresh && !isTransacting;
 
   const isPositiveAmount = useMemo(() => {
     const amountBN = new BigNumber(amountValue);
@@ -2263,6 +2273,10 @@ export function UniversalStake({
   const isQuoteUpdating =
     (isPositiveAmount ? amountValue : '') !== shownQuote.amount ||
     isEmptiedHolding;
+  // Nor from a keystroke until that amount's quote is in: the expired quote
+  // is being replaced, so the button keeps its look
+  const effectiveShowExpiredRefresh =
+    showExpiredRefresh && !isTransacting && !quoteLoading && !isQuoteUpdating;
 
   const pendleRows = useMemo(
     () =>
@@ -2345,6 +2359,12 @@ export function UniversalStake({
       transactionConfirmation: rowsConfirmation,
       placeholderLabel: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
       withoutValues: isRowsPlaceholder,
+      linesKey: buildResultLinesKey({
+        networkId,
+        provider: providerName,
+        vault: protocolInfo?.vault,
+        symbol: actionSymbol,
+      }),
     });
   }
 

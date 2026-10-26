@@ -72,6 +72,26 @@ function createEmptyBorrowTransactionConfirmationState({
   };
 }
 
+// As long as an emptied box keeps its figures (EarnLendingSummary)
+const EMPTIED_HOLD_MS = 350;
+// How long after the box was emptied its answer can still be taken back
+const TAKE_BACK_MS = 3000;
+
+type IEmptiedAnswer = {
+  requestKey: string;
+  transactionConfirmation: IBorrowTransactionConfirmation;
+  at: number;
+  // Typed into while it still kept its figures
+  refilled: boolean;
+};
+const canTakeBack = (
+  emptied: IEmptiedAnswer | undefined,
+  requestKey: string,
+): emptied is IEmptiedAnswer =>
+  emptied?.requestKey === requestKey &&
+  Date.now() - emptied.at <= TAKE_BACK_MS &&
+  (emptied.refilled || Date.now() - emptied.at <= EMPTIED_HOLD_MS);
+
 export function resolveBorrowTransactionConfirmationStateForRequest({
   requestKey,
   shouldFetch,
@@ -171,6 +191,14 @@ export function useUniversalBorrowAction({
   const transactionConfirmationRequestNonceRef = useRef(0);
   const estimateFeeRequestNonceRef = useRef(0);
   const checkAmountRequestNonceRef = useRef(0);
+  // The answer on screen when the box was emptied. The same amount typed
+  // again while the emptied box still keeps its figures takes it back at
+  // once, also through the other amounts on the way to it ("1" and "1."
+  // before "1.5"), rather than waiting for the market to say it again
+  const transactionConfirmationStateRef = useRef(transactionConfirmationState);
+  transactionConfirmationStateRef.current = transactionConfirmationState;
+  const emptiedAnswerRef = useRef<IEmptiedAnswer | undefined>(undefined);
+  const lastNormalizedAmountRef = useRef('0');
 
   const isReady = useMemo(
     () =>
@@ -344,6 +372,46 @@ export function useUniversalBorrowAction({
     debouncedFetchTransactionConfirmation.cancel();
     transactionConfirmationRequestNonceRef.current += 1;
     const requestNonce = transactionConfirmationRequestNonceRef.current;
+    const previousState = transactionConfirmationStateRef.current;
+    const previousAmount = lastNormalizedAmountRef.current;
+    lastNormalizedAmountRef.current = normalizedAmount;
+    if (
+      normalizedAmount === '0' &&
+      previousAmount !== '0' &&
+      previousState.transactionConfirmation
+    ) {
+      emptiedAnswerRef.current = {
+        requestKey: previousState.requestKey,
+        transactionConfirmation: previousState.transactionConfirmation,
+        at: Date.now(),
+        refilled: false,
+      };
+    } else if (
+      normalizedAmount !== '0' &&
+      previousAmount === '0' &&
+      emptiedAnswerRef.current &&
+      !emptiedAnswerRef.current.refilled
+    ) {
+      // Typed into after it had gone to dashes: nothing to take back
+      if (Date.now() - emptiedAnswerRef.current.at <= EMPTIED_HOLD_MS) {
+        emptiedAnswerRef.current.refilled = true;
+      } else {
+        emptiedAnswerRef.current = undefined;
+      }
+    }
+    const emptiedAnswer = emptiedAnswerRef.current;
+    if (
+      shouldFetchTransactionConfirmation &&
+      canTakeBack(emptiedAnswer, transactionConfirmationRequestKey)
+    ) {
+      emptiedAnswerRef.current = undefined;
+      setTransactionConfirmationState({
+        requestKey: transactionConfirmationRequestKey,
+        transactionConfirmation: emptiedAnswer.transactionConfirmation,
+        transactionConfirmationLoading: false,
+      });
+      return;
+    }
     setTransactionConfirmationState((currentState) =>
       resolveBorrowTransactionConfirmationStateForRequest({
         requestKey: transactionConfirmationRequestKey,
@@ -583,12 +651,23 @@ export function useUniversalBorrowAction({
     state: checkAmountState,
   });
 
+  // Taken back from the frame the amount is typed again in
+  const emptiedAnswer = emptiedAnswerRef.current;
   const effectiveTransactionConfirmationState =
-    resolveBorrowTransactionConfirmationStateForRequest({
-      requestKey: transactionConfirmationRequestKey,
-      shouldFetch: shouldFetchTransactionConfirmation,
-      state: transactionConfirmationState,
-    });
+    shouldFetchTransactionConfirmation &&
+    transactionConfirmationState.requestKey !==
+      transactionConfirmationRequestKey &&
+    canTakeBack(emptiedAnswer, transactionConfirmationRequestKey)
+      ? {
+          requestKey: transactionConfirmationRequestKey,
+          transactionConfirmation: emptiedAnswer.transactionConfirmation,
+          transactionConfirmationLoading: false,
+        }
+      : resolveBorrowTransactionConfirmationStateForRequest({
+          requestKey: transactionConfirmationRequestKey,
+          shouldFetch: shouldFetchTransactionConfirmation,
+          state: transactionConfirmationState,
+        });
 
   const isCheckAmountMessageError = useMemo(
     () => amount.length > 0 && !!effectiveCheckAmountState.checkAmountMessage,

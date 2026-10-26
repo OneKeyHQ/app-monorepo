@@ -267,15 +267,31 @@ export function useFitModalHeight(enabled = true) {
       const containerHeight = container.clientHeight;
       // Centered in its container (top = (container - height + margin) / 2),
       // a taller modal would also move up by half the difference; as top
-      // margin, the same difference keeps its top still, unless that would
-      // take its bottom past the window's edge
-      const marginTop =
-        anchorHeight === undefined
-          ? 0
-          : Math.min(
-              shown - anchorHeight,
-              containerHeight - shown - 2 * containerHeight * MODAL_EDGE_SHARE,
-            );
+      // margin, the same difference keeps its top still. Where growing to its
+      // largest would take its bottom into the clearance above the window's
+      // edge, its top rises by what that needs, spread evenly over the
+      // growth, so it doesn't start moving with a jolt where the bottom
+      // meets the clearance
+      let marginTop = 0;
+      if (anchorHeight !== undefined) {
+        const largest = Math.min(
+          containerHeight * MODAL_MAX_WINDOW_SHARE,
+          MODAL_MAX_HEIGHT,
+        );
+        const anchoredTop = (containerHeight - anchorHeight) / 2;
+        const riseAtLargest = Math.max(
+          0,
+          anchoredTop + largest - containerHeight * (1 - MODAL_EDGE_SHARE),
+        );
+        const grown =
+          largest > anchorHeight
+            ? Math.min(
+                1,
+                Math.max(0, (shown - anchorHeight) / (largest - anchorHeight)),
+              )
+            : 0;
+        marginTop = shown - anchorHeight - 2 * riseAtLargest * grown;
+      }
       modal.style.height = `${shown}px`;
       modal.style.marginTop = `${marginTop}px`;
     };

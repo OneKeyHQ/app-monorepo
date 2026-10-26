@@ -178,6 +178,93 @@ describe('useUniversalBorrowAction', () => {
     });
   });
 
+  describe('the same amount typed again after the box was emptied', () => {
+    const answerForTyped = { canBeCollateral: true };
+    const answerForOthers = { canBeCollateral: false };
+    const fetchMock = () =>
+      backgroundMock.serviceStaking.getBorrowTransactionConfirmation;
+    const callsFor = (amount: string) =>
+      fetchMock().mock.calls.filter(
+        ([params]: [{ amount: string }]) => params.amount === amount,
+      ).length;
+
+    const renderAnswered = async () => {
+      fetchMock().mockImplementation(({ amount }: { amount: string }) =>
+        Promise.resolve(amount === '1.5' ? answerForTyped : answerForOthers),
+      );
+      const hook = renderHook(
+        ({ amount }: { amount: string }) =>
+          useUniversalBorrowAction({
+            ...baseParams,
+            reserveAddress: 'reserve-a',
+            amount,
+          }),
+        { initialProps: { amount: '1.5' } },
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+        await Promise.resolve();
+      });
+      expect(hook.result.current.transactionConfirmation).toBe(answerForTyped);
+      return hook;
+    };
+
+    it('takes the answer back at once, through the amounts on the way to it', async () => {
+      const { result, rerender } = await renderAnswered();
+      rerender({ amount: '' });
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      rerender({ amount: '1' });
+      rerender({ amount: '1.' });
+      rerender({ amount: '1.5' });
+
+      expect(result.current.transactionConfirmation).toBe(answerForTyped);
+      expect(result.current.transactionConfirmationLoading).toBe(false);
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+        await Promise.resolve();
+      });
+      expect(callsFor('1.5')).toBe(1);
+      expect(result.current.transactionConfirmation).toBe(answerForTyped);
+    });
+
+    it('asks again once the emptied box has gone to dashes', async () => {
+      const { result, rerender } = await renderAnswered();
+      rerender({ amount: '' });
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+        await Promise.resolve();
+      });
+      rerender({ amount: '1.5' });
+
+      expect(result.current.transactionConfirmation).toBeUndefined();
+      expect(result.current.transactionConfirmationLoading).toBe(true);
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+        await Promise.resolve();
+      });
+      expect(callsFor('1.5')).toBe(2);
+    });
+
+    it('asks again when the amount comes back too late', async () => {
+      const { result, rerender } = await renderAnswered();
+      rerender({ amount: '' });
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      rerender({ amount: '1' });
+      await act(async () => {
+        jest.advanceTimersByTime(3100);
+        await Promise.resolve();
+      });
+      rerender({ amount: '1.5' });
+
+      expect(result.current.transactionConfirmationLoading).toBe(true);
+      expect(result.current.transactionConfirmation).toBeUndefined();
+    });
+  });
+
   it('clears confirmation content when the request changes', () => {
     const currentConfirmation = { canBeCollateral: true };
     const currentState = {
