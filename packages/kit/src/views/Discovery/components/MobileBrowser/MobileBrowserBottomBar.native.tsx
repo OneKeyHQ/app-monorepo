@@ -18,6 +18,7 @@ import Animated, {
 
 import {
   BlurView,
+  GlassContainer,
   IconButton,
   LinearGradient,
   SizableText,
@@ -107,6 +108,11 @@ const styles = StyleSheet.create({
   morphBackground: { height: '100%' },
   glassFill: { flex: 1, borderRadius: PILL_RADIUS },
 });
+
+// Glass shapes closer than this merge in the bar's glass container (Telegram's
+// spacing); the capsules' resting gap is wider, so they only merge while the
+// bar draws into the pill.
+const GLASS_MERGE_SPACING = 7;
 
 // Grows the 30pt pill's tap area to the bar capsule's height, and over its
 // side padding.
@@ -538,127 +544,138 @@ function MobileBrowserBottomBar({
             <PageBottomColorFill tabId={id} style={StyleSheet.absoluteFill} />
           )}
         </BarBackdrop>
-        <MorphingAddressBackground
-          progress={progress}
-          capsuleWidth={capsuleWidth}
-          pillWidth={pillWidth}
-          capsuleBottom={capsuleBottom}
-          pillBottom={pillBottom}
-        />
-        {/* The hidden layer only fades its contents, so its buttons stay in
-          the accessibility tree unless removed here. */}
-        <Animated.View
-          pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
-          accessibilityElementsHidden={isChromeCollapsed}
-          importantForAccessibility={
-            isChromeCollapsed ? 'no-hide-descendants' : 'auto'
-          }
-          style={[styles.bar, { bottom: capsuleBottom }]}
+        {/* One glass container for the address background and the side
+          capsules, like Telegram's bars: the glass renders as one material
+          instead of each piece adapting to what is behind it on its own
+          (mismatched mid-morph over page content), and the side capsules
+          merge into the address as they draw in. */}
+        <GlassContainer
+          spacing={GLASS_MERGE_SPACING}
+          pointerEvents="box-none"
+          style={StyleSheet.absoluteFill}
         >
-          <XStack
-            h={BROWSER_CHROME_CAPSULE_HEIGHT}
-            px={BROWSER_CHROME_SIDE_PADDING}
-            gap="$2"
-            alignItems="center"
+          <MorphingAddressBackground
+            progress={progress}
+            capsuleWidth={capsuleWidth}
+            pillWidth={pillWidth}
+            capsuleBottom={capsuleBottom}
+            pillBottom={pillBottom}
+          />
+          {/* The hidden layer only fades its contents, so its buttons stay in
+          the accessibility tree unless removed here. */}
+          <Animated.View
+            pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
+            accessibilityElementsHidden={isChromeCollapsed}
+            importantForAccessibility={
+              isChromeCollapsed ? 'no-hide-descendants' : 'auto'
+            }
+            style={[styles.bar, { bottom: capsuleBottom }]}
           >
-            {/* Wallet-browser layout: tabs on the left, page navigation in
+            <XStack
+              h={BROWSER_CHROME_CAPSULE_HEIGHT}
+              px={BROWSER_CHROME_SIDE_PADDING}
+              gap="$2"
+              alignItems="center"
+            >
+              {/* Wallet-browser layout: tabs on the left, page navigation in
               the address capsule (back · site badge · domain · refresh), the
               page menu on the right. Account and exit live in the header. */}
-            <Animated.View style={leftStyle}>
-              <BrowserChromeCapsule fade={sideFade}>
-                <TabCountButton
-                  testID={DiscoveryTestIDs.tabListButton}
-                  onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
-                />
-              </BrowserChromeCapsule>
-            </Animated.View>
-            <Animated.View
-              style={[styles.capsule, capsuleStyle]}
-              onLayout={(e) =>
-                setCapsuleWidth(Math.round(e.nativeEvent.layout.width))
-              }
-            >
-              <BrowserChromeCapsule flex={1} px="$2" background={false}>
-                {/* Kept in place (dimmed) when there is no history, so the
+              <Animated.View style={leftStyle}>
+                <BrowserChromeCapsule fade={sideFade}>
+                  <TabCountButton
+                    testID={DiscoveryTestIDs.tabListButton}
+                    onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
+                  />
+                </BrowserChromeCapsule>
+              </Animated.View>
+              <Animated.View
+                style={[styles.capsule, capsuleStyle]}
+                onLayout={(e) =>
+                  setCapsuleWidth(Math.round(e.nativeEvent.layout.width))
+                }
+              >
+                <BrowserChromeCapsule flex={1} px="$2" background={false}>
+                  {/* Kept in place (dimmed) when there is no history, so the
                   domain doesn't shift. */}
-                <Animated.View style={capsuleContentStyle}>
+                  <Animated.View style={capsuleContentStyle}>
+                    <ChromePressable
+                      onPress={() => {
+                        logBrowserChromeAction('back', 'toolbar');
+                        handleGoBack();
+                      }}
+                      disabled={disabledGoBack}
+                      hitSlop={CAPSULE_BUTTON_HIT_SLOP}
+                      accessibilityLabel={intl.formatMessage({
+                        id: ETranslations.global_back,
+                      })}
+                    >
+                      <IconButton
+                        variant="tertiary"
+                        icon="ChevronLeftOutline"
+                        iconSize="$5"
+                        // The narrow chevron left a wider gap to the site badge
+                        // than to the capsule edge; pull it in.
+                        mr={-CAPSULE_BACK_BUTTON_PULL}
+                        disabled={disabledGoBack}
+                        accessible={!disabledGoBack}
+                        testID={DiscoveryTestIDs.browserBackButton}
+                      />
+                    </ChromePressable>
+                  </Animated.View>
+                  <TranslatePopoverTrigger
+                    isTranslated={isTranslated}
+                    onTranslate={handleTranslate}
+                    onRetranslate={handleRetranslate}
+                    onTestAITranslateError={handleTranslateTestAIError}
+                    open={translateOpen}
+                    onOpenChange={setTranslateOpen}
+                    trigger={translatePopoverAnchor}
+                  />
+                  <AddressCapsuleTitle
+                    url={currentUrl}
+                    onPress={handleAddressPress}
+                    badgeStyle={capsuleContentStyle}
+                    domainStyle={capsuleDomainStyle}
+                    capsuleWidth={capsuleWidth}
+                    onDomainCenterOffset={handleDomainCenterOffset}
+                    onDomainFontSize={setDomainFontSize}
+                  />
+                  <Animated.View style={capsuleContentStyle}>
+                    <RefreshButton
+                      iconSize="$5"
+                      onRefresh={() => {
+                        logBrowserChromeAction('refresh', 'toolbar');
+                        handleRefresh();
+                      }}
+                    />
+                  </Animated.View>
+                </BrowserChromeCapsule>
+              </Animated.View>
+              <Animated.View style={rightStyle}>
+                <BrowserChromeCapsule fade={sideFade}>
                   <ChromePressable
                     onPress={() => {
-                      logBrowserChromeAction('back', 'toolbar');
-                      handleGoBack();
+                      logBrowserChromeAction('menu', 'toolbar');
+                      showOptions();
                     }}
-                    disabled={disabledGoBack}
+                    disabled={displayHomePage}
                     hitSlop={CAPSULE_BUTTON_HIT_SLOP}
                     accessibilityLabel={intl.formatMessage({
-                      id: ETranslations.global_back,
+                      id: ETranslations.explore_options,
                     })}
                   >
                     <IconButton
                       variant="tertiary"
-                      icon="ChevronLeftOutline"
-                      iconSize="$5"
-                      // The narrow chevron left a wider gap to the site badge
-                      // than to the capsule edge; pull it in.
-                      mr={-CAPSULE_BACK_BUTTON_PULL}
-                      disabled={disabledGoBack}
-                      accessible={!disabledGoBack}
-                      testID={DiscoveryTestIDs.browserBackButton}
+                      icon="DotHorOutline"
+                      disabled={displayHomePage}
+                      testID="browser-bar-options"
                     />
                   </ChromePressable>
-                </Animated.View>
-                <TranslatePopoverTrigger
-                  isTranslated={isTranslated}
-                  onTranslate={handleTranslate}
-                  onRetranslate={handleRetranslate}
-                  onTestAITranslateError={handleTranslateTestAIError}
-                  open={translateOpen}
-                  onOpenChange={setTranslateOpen}
-                  trigger={translatePopoverAnchor}
-                />
-                <AddressCapsuleTitle
-                  url={currentUrl}
-                  onPress={handleAddressPress}
-                  badgeStyle={capsuleContentStyle}
-                  domainStyle={capsuleDomainStyle}
-                  capsuleWidth={capsuleWidth}
-                  onDomainCenterOffset={handleDomainCenterOffset}
-                  onDomainFontSize={setDomainFontSize}
-                />
-                <Animated.View style={capsuleContentStyle}>
-                  <RefreshButton
-                    iconSize="$5"
-                    onRefresh={() => {
-                      logBrowserChromeAction('refresh', 'toolbar');
-                      handleRefresh();
-                    }}
-                  />
-                </Animated.View>
-              </BrowserChromeCapsule>
-            </Animated.View>
-            <Animated.View style={rightStyle}>
-              <BrowserChromeCapsule fade={sideFade}>
-                <ChromePressable
-                  onPress={() => {
-                    logBrowserChromeAction('menu', 'toolbar');
-                    showOptions();
-                  }}
-                  disabled={displayHomePage}
-                  hitSlop={CAPSULE_BUTTON_HIT_SLOP}
-                  accessibilityLabel={intl.formatMessage({
-                    id: ETranslations.explore_options,
-                  })}
-                >
-                  <IconButton
-                    variant="tertiary"
-                    icon="DotHorOutline"
-                    disabled={displayHomePage}
-                    testID="browser-bar-options"
-                  />
-                </ChromePressable>
-              </BrowserChromeCapsule>
-            </Animated.View>
-          </XStack>
-        </Animated.View>
+                </BrowserChromeCapsule>
+              </Animated.View>
+            </XStack>
+          </Animated.View>
+        </GlassContainer>
         <Animated.View
           pointerEvents={isChromeCollapsed ? 'box-none' : 'none'}
           accessibilityElementsHidden={!isChromeCollapsed}

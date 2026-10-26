@@ -17,6 +17,11 @@ import type { GlassViewProps } from 'expo-glass-effect';
 
 export { isLiquidGlassAvailable } from 'expo-glass-effect';
 
+// Glass views inside render together: one look for neighbouring glass (each
+// glass otherwise adapts to what is behind it on its own), and shapes closer
+// than `spacing` merge, like the system bars.
+export { GlassContainer } from 'expo-glass-effect';
+
 // With the default 'auto' scheme the glass picks its light/dark variant from
 // the content behind it, and every time the view is shown again (a tab switch,
 // or the iPad split-view main pane returning after full-screen onboarding) it
