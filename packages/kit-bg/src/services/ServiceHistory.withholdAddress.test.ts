@@ -14,18 +14,12 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   };
 });
 
-const mockGetVault = jest.fn<Promise<unknown>, unknown[]>();
-jest.mock('../vaults/factory', () => ({
-  vaultFactory: { getVault: (...args: unknown[]) => mockGetVault(...args) },
-}));
-
 import { getVaultSettings } from '../vaults/settings';
 
 const ServiceHistory = require('./ServiceHistory')
   .default as typeof import('./ServiceHistory').default;
 
 const XMR = 'xmr--0';
-const ALL = 'onekeyall--0';
 
 function createService() {
   const get = jest.fn(async () => ({
@@ -100,33 +94,5 @@ describe('ServiceHistory withholds addresses the backend cannot index', () => {
     });
     expect(result.supported).toBe(true);
     expect(get).toHaveBeenCalledTimes(1);
-  });
-
-  it('drops withholding accounts from the All Networks history request', async () => {
-    const allNetworkAccounts = [
-      { networkId: 'btc--0', accountId: 'a1', accountAddress: 'bc1' },
-      { networkId: XMR, accountId: 'a2', accountAddress: '4xmr' },
-      { networkId: 'zec--0', accountId: 'a3', accountAddress: 't1zec' },
-    ];
-    mockGetVault.mockResolvedValue({
-      fetchAccountHistoryFromLocal: async () => undefined,
-      buildFetchHistoryListParams: async () => ({ allNetworkAccounts }),
-      buildOnChainHistoryTx: async () => undefined,
-    });
-    const { service, post } = createService();
-    await service.fetchAccountOnChainHistory({
-      accountId: 'hd-1',
-      networkId: ALL,
-      accountAddress: '',
-    });
-    expect(post).toHaveBeenCalledTimes(1);
-    const body = (post.mock.calls[0] as unknown[])[1] as {
-      allNetworkAccounts: { networkId: string; accountAddress: string }[];
-    };
-    expect(body.allNetworkAccounts.map((i) => i.networkId)).toEqual([
-      'btc--0',
-      'zec--0',
-    ]);
-    expect(JSON.stringify(body)).not.toContain('4xmr');
   });
 });

@@ -51,7 +51,10 @@ import {
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { mergeClaimedUtxos } from '../vaults/impls/btc/sdkBtc/findAddressUtils';
-import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import {
+  isAddressWithheldFromBackend,
+  isLocalWalletNetwork,
+} from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 
@@ -270,7 +273,10 @@ class ServiceAccountProfile extends ServiceBase {
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
       });
-    if (isCustomNetwork) {
+    if (
+      isCustomNetwork ||
+      (await isAddressWithheldFromBackend({ networkId }))
+    ) {
       return emptyAccountBadgeResult();
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);

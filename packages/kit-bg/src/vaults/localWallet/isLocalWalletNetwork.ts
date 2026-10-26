@@ -15,6 +15,22 @@ export async function isLocalWalletNetwork({
   }
 }
 
+// Such a chain's addresses never reach address-scoped backend endpoints.
+export async function isAddressWithheldFromBackend({
+  networkId,
+}: {
+  networkId: string;
+}): Promise<boolean> {
+  try {
+    return (
+      (await getVaultSettings({ networkId })).localWallet
+        ?.withholdAddressFromBackend === true
+    );
+  } catch {
+    return false;
+  }
+}
+
 // False only when the chain declares an address shape the input cannot have.
 export async function mayBeLocalWalletAddress({
   networkId,
