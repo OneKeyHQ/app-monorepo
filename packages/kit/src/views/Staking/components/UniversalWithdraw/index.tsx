@@ -2255,7 +2255,9 @@ export function UniversalWithdraw({
             }
             fiatSymbol={symbol}
             payFiatValue={currentValue}
-            loading={quoteLoading}
+            // Through the moment an emptied box keeps its figures it waits
+            // as for a changed amount, with the rows
+            loading={quoteLoading || (!isPositiveAmount && isQuoteUpdating)}
           />
         </YStack>
         {showReceiveInput ? (

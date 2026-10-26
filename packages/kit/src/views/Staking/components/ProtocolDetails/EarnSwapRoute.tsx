@@ -33,6 +33,9 @@ type IEarnSwapRouteProps = {
 
 // The rows' figures dim to this while a new amount's are on their way
 const STALE_OPACITY = 0.4;
+// An empty line keeps its height: a plain space collapses in a one-line text
+// on web, and the route would move what is under it as a quote comes and goes
+const NO_TEXT = '\u00A0';
 
 function ConnectorDashedLine() {
   const theme = useTheme();
@@ -148,7 +151,7 @@ export const EarnSwapRoute: FC<IEarnSwapRouteProps> = ({
                   textAlign="center"
                   numberOfLines={1}
                 >
-                  {item.connectorName || ' '}
+                  {item.connectorName || NO_TEXT}
                 </SizableText>
                 <YStack
                   opacity={isDimmed ? STALE_OPACITY : 1}
@@ -161,7 +164,8 @@ export const EarnSwapRoute: FC<IEarnSwapRouteProps> = ({
                     textAlign="center"
                     numberOfLines={1}
                   >
-                    {(isPlaceholder ? undefined : item.connectorImpact) || ' '}
+                    {(isPlaceholder ? undefined : item.connectorImpact) ||
+                      NO_TEXT}
                   </SizableText>
                 </YStack>
               </YStack>
