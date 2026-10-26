@@ -217,7 +217,6 @@ export const LOCAL_WALLET_LIFECYCLE: Record<
       runtimeRows: 'rebuild',
       memoryCaches: 'restartScan',
       genericStorage: 'delete',
-      localHistory: 'delete',
     },
     notify: true,
   },

@@ -100,7 +100,7 @@ const DESIGN: Record<
     runtimeRows: 'rebuild',
     memoryCaches: 'restartScan',
     genericStorage: D,
-    localHistory: D,
+    localHistory: K,
     walletState: K,
     deviceState: K,
   },
