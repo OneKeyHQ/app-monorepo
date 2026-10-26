@@ -201,6 +201,9 @@ class AppDelegate: ExpoAppDelegate {
   }
 
   var window: UIWindow?
+#if targetEnvironment(macCatalyst)
+  private var catalystLaunchOptions: [UIApplication.LaunchOptionsKey: Any]?
+#endif
   @objc var reactHost: AnyObject?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
@@ -211,6 +214,9 @@ class AppDelegate: ExpoAppDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     let didFinishLaunchingStartAt = CFAbsoluteTimeGetCurrent()
+#if targetEnvironment(macCatalyst)
+    catalystLaunchOptions = launchOptions
+#endif
     initializeNativeSentry()
     NitroModuleBridge.logInfo(
       "StartupTiming",
@@ -303,7 +309,7 @@ class AppDelegate: ExpoAppDelegate {
     reactNativeDelegate = delegate
     reactNativeFactory = factory
     RCTI18nUtil.sharedInstance().allowRTL(true)
-#if os(iOS) || os(tvOS)
+#if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
     window = UIWindow(frame: UIScreen.main.bounds)
     factory.startReactNative(
       withModuleName: "main",
@@ -343,6 +349,36 @@ class AppDelegate: ExpoAppDelegate {
     )
     return result
   }
+
+#if targetEnvironment(macCatalyst)
+  func connectCatalystScene(_ windowScene: UIWindowScene, options: UIScene.ConnectionOptions) {
+    if let window {
+      window.windowScene = windowScene
+      window.makeKeyAndVisible()
+      return
+    }
+    var launchOptions = catalystLaunchOptions ?? [:]
+    if let context = options.urlContexts.first {
+      launchOptions[.url] = context.url
+      if let source = context.options.sourceApplication {
+        launchOptions[.sourceApplication] = source
+      }
+    }
+    if let activity = options.userActivities.first {
+      launchOptions[.userActivityDictionary] = [
+        UIApplication.LaunchOptionsKey.userActivityType.rawValue: activity.activityType,
+        "UIApplicationLaunchOptionsUserActivityKey": activity
+      ]
+    }
+    let sceneWindow = UIWindow(windowScene: windowScene)
+    window = sceneWindow
+    NitroModuleBridge.launchOptionsStore()?.setValue(launchOptions, forKey: "launchOptions")
+    reactNativeFactory?.startReactNative(
+      withModuleName: "main",
+      in: sceneWindow,
+      launchOptions: launchOptions)
+  }
+#endif
 
   // Reset crash counter on graceful exit so normal close is not mistaken for a crash.
   // Skip reset when in recovery mode (count >= 3) so recovery is still offered
@@ -427,6 +463,46 @@ class AppDelegate: ExpoAppDelegate {
     completionHandler(.newData)
   }
 }
+
+
+#if targetEnvironment(macCatalyst)
+class CatalystSceneDelegate: UIResponder, UIWindowSceneDelegate {
+  private var appDelegate: AppDelegate? { UIApplication.shared.delegate as? AppDelegate }
+
+  func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+    guard let windowScene = scene as? UIWindowScene else { return }
+    appDelegate?.connectCatalystScene(windowScene, options: connectionOptions)
+  }
+
+  func sceneDidBecomeActive(_ scene: UIScene) {
+    appDelegate?.applicationDidBecomeActive(UIApplication.shared)
+  }
+
+  func sceneWillResignActive(_ scene: UIScene) {
+    appDelegate?.applicationWillResignActive(UIApplication.shared)
+  }
+
+  func sceneWillEnterForeground(_ scene: UIScene) {
+    appDelegate?.applicationWillEnterForeground(UIApplication.shared)
+  }
+
+  func sceneDidEnterBackground(_ scene: UIScene) {
+    appDelegate?.applicationDidEnterBackground(UIApplication.shared)
+  }
+
+  func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
+    for context in contexts {
+      var options: [UIApplication.OpenURLOptionsKey: Any] = [.openInPlace: context.options.openInPlace]
+      if let source = context.options.sourceApplication { options[.sourceApplication] = source }
+      _ = appDelegate?.application(UIApplication.shared, open: context.url, options: options)
+    }
+  }
+
+  func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    _ = appDelegate?.application(UIApplication.shared, continue: userActivity, restorationHandler: { _ in })
+  }
+}
+#endif
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins

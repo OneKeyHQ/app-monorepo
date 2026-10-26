@@ -1,3 +1,5 @@
+const path = require('path');
+
 const isMacCatalystBuild = process.env.ONEKEY_MAC_CATALYST === '1';
 
 const macCatalystExcludedDependencies = [
@@ -35,6 +37,13 @@ if (isMacCatalystBuild) {
       },
     };
   });
+  // React Native code generation matches the published name instead of its Yarn alias.
+  dependencies['@onekeyfe/react-native-network-info'] = {
+    root: path.dirname(
+      require.resolve('react-native-network-info/package.json'),
+    ),
+    platforms: { ios: null },
+  };
 }
 
 module.exports = {

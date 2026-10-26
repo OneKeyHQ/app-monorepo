@@ -33,7 +33,7 @@
 		A1C000000000000000000007 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000027 /* PrivacyInfo.xcprivacy */; };
 		A1C000000000000000000008 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000028 /* Localizable.xcstrings */; };
 		A1C000000000000000000009 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
-		A1C00000000000000000000A /* OneKeyAppClip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = A1C00000000000000000002A /* OneKeyAppClip.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A1C00000000000000000000A /* OneKeyAppClip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = A1C00000000000000000002A /* OneKeyAppClip.app */; platformFilter = ios; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A1C00000000000000000000B /* AppClipAttributionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000029 /* AppClipAttributionStore.swift */; };
 		A1C00000000000000000000C /* AppClipAttributionModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C00000000000000000002B /* AppClipAttributionModule.swift */; };
 		A1C00000000000000000000D /* AppClipAttributionModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1C00000000000000000002C /* AppClipAttributionModule.m */; };
@@ -814,6 +814,7 @@
 /* Begin PBXTargetDependency section */
 		A1C000000000000000000070 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilter = ios;
 			target = A1C000000000000000000050 /* OneKeyAppClip */;
 			targetProxy = A1C000000000000000000010 /* PBXContainerItemProxy */;
 		};

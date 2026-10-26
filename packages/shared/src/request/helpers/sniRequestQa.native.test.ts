@@ -3,7 +3,14 @@ import {
   getDebugSnapshot,
 } from '@onekeyfe/react-native-sni-connect';
 
+import { OneKeyLocalError } from '../../errors';
+
 import { sniRequestQaAdapter } from './sniRequestQa.native';
+
+jest.mock('../../platformEnv', () => ({
+  __esModule: true,
+  default: { isNativeIOSMacCatalyst: false },
+}));
 
 jest.mock('@onekeyfe/react-native-sni-connect', () => ({
   clearDNSCache: jest.fn(),
@@ -58,5 +65,25 @@ describe('sniRequestQaAdapter.native', () => {
       hostname: 'wallet.onekeytest.com',
       ip: '104.18.31.39',
     });
+  });
+});
+
+test('does not load native SNI diagnostics on Catalyst', async () => {
+  jest.resetModules();
+  jest.doMock('../../platformEnv', () => ({
+    __esModule: true,
+    default: { isNativeIOSMacCatalyst: true },
+  }));
+  jest.doMock('@onekeyfe/react-native-sni-connect', () => {
+    throw new OneKeyLocalError('Catalyst must not initialize SniConnect');
+  });
+  await jest.isolateModulesAsync(async () => {
+    const {
+      sniRequestQaAdapter: adapter,
+    }: typeof import('./sniRequestQa.native') = require('./sniRequestQa.native');
+    expect(adapter.transportLabel).toBe('Unsupported transport');
+    await expect(adapter.clearDNSCache()).rejects.toThrow(
+      'SNI QA transport diagnostics are unavailable',
+    );
   });
 });

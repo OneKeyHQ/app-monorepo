@@ -972,6 +972,16 @@ describe('devVendor', () => {
       process.env.ONEKEY_MAC_CATALYST = '1';
       jest.isolateModules(() => {
         const catalystVendor = require('../devVendor');
+        const catalystConfig = require('../../react-native.config');
+        const { findDisabledLibrariesByPlatform } = require(
+          path.join(
+            repoRoot,
+            'node_modules/react-native/scripts/codegen/generate-artifacts-executor/utils',
+          ),
+        );
+        expect(
+          findDisabledLibrariesByPlatform(catalystConfig, 'ios'),
+        ).toContain('@onekeyfe/react-native-network-info');
         const descriptor = catalystVendor.getNativeContractDescriptor(
           'ios',
           fixture.repoRoot,

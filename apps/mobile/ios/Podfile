@@ -178,8 +178,35 @@ target 'OneKeyWallet' do
     main_group = user_project.main_group.find_subpath('OneKeyWallet', false)
     fonts_group = main_group.find_subpath('Fonts', false) || main_group.new_group('Fonts', 'OneKeyWallet/Fonts')
 
+    catalyst_entitlements = 'build/maccatalyst-config/OneKeyWallet.entitlements'
+    catalyst_info_plist = 'build/maccatalyst-config/Info.plist'
+    if mac_catalyst_enabled
+      entitlements = Xcodeproj::Plist.read_from_path(File.join(__dir__, 'OneKeyWallet/OneKeyWallet.entitlements'))
+      entitlements.delete('com.apple.developer.associated-appclip-app-identifiers')
+      FileUtils.mkdir_p(File.dirname(File.join(__dir__, catalyst_entitlements)))
+      Xcodeproj::Plist.write_to_path(entitlements, File.join(__dir__, catalyst_entitlements))
+      info = Xcodeproj::Plist.read_from_path(File.join(__dir__, 'OneKeyWallet/Info.plist'))
+      info['UIApplicationSceneManifest'] = {
+        'UIApplicationSupportsMultipleScenes' => false,
+        'UISceneConfigurations' => {
+          'UIWindowSceneSessionRoleApplication' => [{
+            'UISceneConfigurationName' => 'OneKeyCatalyst',
+            'UISceneDelegateClassName' => '$(PRODUCT_MODULE_NAME).CatalystSceneDelegate'
+          }]
+        }
+      }
+      Xcodeproj::Plist.write_to_path(info, File.join(__dir__, catalyst_info_plist))
+    end
+
     main_target.build_configurations.each do |build_configuration|
       build_configuration.build_settings['SUPPORTS_MACCATALYST'] = mac_catalyst_enabled ? 'YES' : 'NO'
+      if mac_catalyst_enabled
+        build_configuration.build_settings['CODE_SIGN_ENTITLEMENTS[sdk=macosx*]'] = catalyst_entitlements
+        build_configuration.build_settings['INFOPLIST_FILE[sdk=macosx*]'] = catalyst_info_plist
+      else
+        build_configuration.build_settings.delete('CODE_SIGN_ENTITLEMENTS[sdk=macosx*]')
+        build_configuration.build_settings.delete('INFOPLIST_FILE[sdk=macosx*]')
+      end
     end
 
     font_files.map { |f| File.basename(f) }.each do |f|
@@ -227,7 +254,10 @@ target 'OneKeyWallet' do
       framework_resources = File.join(react_native_dependencies_framework, 'Resources')
       framework_current_version = File.join(react_native_dependencies_framework, 'Versions', 'Current')
 
-      unless File.symlink?(framework_binary) && File.symlink?(framework_resources) && File.symlink?(framework_current_version)
+      framework_version = File.join(react_native_dependencies_framework, 'Versions', 'A')
+      has_nested_versions = File.directory?(File.join(framework_version, 'Versions'))
+      has_misplaced_bundles = !Dir.glob(File.join(framework_version, '*.bundle')).empty?
+      unless File.symlink?(framework_binary) && File.symlink?(framework_resources) && File.symlink?(framework_current_version) && !has_nested_versions && !has_misplaced_bundles
         binary_source = [
           framework_binary,
           File.join(react_native_dependencies_framework, 'Versions', 'A', 'ReactNativeDependencies')
@@ -248,17 +278,11 @@ target 'OneKeyWallet' do
         repaired_resources = File.join(repaired_version, 'Resources')
 
         FileUtils.rm_rf([repaired_framework, backup_framework])
-        FileUtils.mkdir_p(File.join(repaired_framework, 'Versions'))
-        FileUtils.cp_r(
-          react_native_dependencies_framework,
-          repaired_version,
-          preserve: true
-        )
         FileUtils.mkdir_p(repaired_resources)
         FileUtils.cp(binary_source, File.join(repaired_version, 'ReactNativeDependencies'), preserve: true)
         FileUtils.cp(info_plist_source, File.join(repaired_resources, 'Info.plist'), preserve: true)
 
-        %w[Headers Modules PrivateHeaders _CodeSignature].each do |entry|
+        %w[Headers Modules PrivateHeaders].each do |entry|
           entry_source = [
             File.join(react_native_dependencies_framework, entry),
             File.join(react_native_dependencies_framework, 'Versions', 'A', entry)
@@ -270,7 +294,10 @@ target 'OneKeyWallet' do
           FileUtils.cp_r(entry_source, entry_destination, preserve: true)
         end
 
-        Dir.glob(File.join(react_native_dependencies_framework, '*.bundle')).each do |bundle|
+        resource_bundles = Dir.glob(File.join(framework_resources, '*.bundle')) +
+          Dir.glob(File.join(framework_version, '*.bundle')) +
+          Dir.glob(File.join(react_native_dependencies_framework, '*.bundle'))
+        resource_bundles.uniq { |bundle| File.basename(bundle) }.each do |bundle|
           FileUtils.cp_r(bundle, repaired_resources, preserve: true)
         end
 
