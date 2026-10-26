@@ -1244,36 +1244,38 @@ function BasePerpTokenSelectorContent() {
           const action = currentFavorites.favorites.includes(coin)
             ? 'remove'
             : 'add';
-          const updateFavorites = (favorites: string[]) =>
-            updateTokenSelectorFavoriteCoins({ favorites, coin, action })
-              .favorites;
-          if (isSpot) {
-            setSpotFavorites((prev) => ({
-              ...prev,
-              favorites: updateFavorites(prev.favorites),
-            }));
-          } else {
-            setPerpFavorites((prev) => ({
-              ...prev,
-              favorites: updateFavorites(prev.favorites),
+          if (!platformEnv.isExtensionUi) {
+            const updateFavorites = (favorites: string[]) =>
+              updateTokenSelectorFavoriteCoins({ favorites, coin, action })
+                .favorites;
+            if (isSpot) {
+              setSpotFavorites((prev) => ({
+                ...prev,
+                favorites: updateFavorites(prev.favorites),
+              }));
+            } else {
+              setPerpFavorites((prev) => ({
+                ...prev,
+                favorites: updateFavorites(prev.favorites),
+              }));
+            }
+            setFavoritesOrder((prev) => ({
+              sequence: reconcileTokenSelectorFavoritesOrder({
+                sequence: prev.sequence,
+                perpFavorites: isSpot
+                  ? perpFavorites.favorites
+                  : updateFavorites(perpFavorites.favorites),
+                spotFavorites: isSpot
+                  ? updateFavorites(spotFavorites.favorites)
+                  : spotFavorites.favorites,
+              }),
             }));
           }
-          setFavoritesOrder((prev) => ({
-            sequence: reconcileTokenSelectorFavoritesOrder({
-              sequence: prev.sequence,
-              perpFavorites: isSpot
-                ? perpFavorites.favorites
-                : updateFavorites(perpFavorites.favorites),
-              spotFavorites: isSpot
-                ? updateFavorites(spotFavorites.favorites)
-                : spotFavorites.favorites,
-            }),
-          }));
           void backgroundApiProxy.serviceHyperliquid
             .updateTokenSelectorFavorite({
               mode: isSpot ? 'spot' : 'perp',
               coin,
-              action,
+              action: platformEnv.isExtensionUi ? 'toggle' : action,
             })
             .catch((error) => {
               console.error('Failed to update token favorite:', error);

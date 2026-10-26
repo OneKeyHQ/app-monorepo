@@ -40,6 +40,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -242,6 +243,14 @@ export const FavoriteButton = memo(
 
     const handleToggle = useCallback(() => {
       const mode = isSpot ? 'spot' : 'perp';
+      if (platformEnv.isExtensionUi) {
+        void backgroundApiProxy.serviceHyperliquid.updateTokenSelectorFavorite({
+          mode,
+          coin,
+          action: 'toggle',
+        });
+        return;
+      }
       const action = isFavorite ? 'remove' : 'add';
       const updateFavorites = (favorites: string[]) =>
         updateTokenSelectorFavoriteCoins({
