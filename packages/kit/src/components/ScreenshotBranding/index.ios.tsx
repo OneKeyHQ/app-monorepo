@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, Stack, useThemeName } from '@onekeyhq/components';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
+import { useIsTradingViewNativeFullscreenActive } from '../TradingView/TradingViewNative/tradingViewNativeFullscreenState';
+
 const LOGO_WIDTH = 70;
 const LOGO_HEIGHT = 22;
 // Above dialogs and sheets (it is part of every screenshot), below the lock
@@ -36,12 +38,15 @@ export function ScreenshotBranding() {
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
+  const isChartFullscreen = useIsTradingViewNativeFullscreenActive();
 
   // Only render on iOS Notch & Dynamic Island devices (insets.top >= 44)
   const isNotchOrDynamicIsland =
     Platform.OS === 'ios' && insets.top >= NOTCH_THRESHOLD;
 
-  if (!isNotchOrDynamicIsland || isTravelMode) {
+  // The fullscreen chart rotates natively before the landscape insets reach
+  // JS, so hide when it opens instead of waiting for them.
+  if (!isNotchOrDynamicIsland || isTravelMode || isChartFullscreen) {
     return null;
   }
 
