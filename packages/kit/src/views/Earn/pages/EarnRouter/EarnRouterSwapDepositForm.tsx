@@ -125,6 +125,9 @@ const SUMMARY_DEBOUNCE_MS = 350;
 const DEPOSIT_LINE_MS = 200;
 // Typing settles before the swap service is asked
 const QUOTE_DEBOUNCE_MS = 500;
+// A box emptied keeps its figures this long (dimmed), as the provider forms
+// do: a digit deleted and typed again reads as a change, not a blink
+const EMPTY_SETTLE_MS = 350;
 
 /**
  * What the provider's own deposit form asks the server for its card: a
@@ -168,6 +171,8 @@ type IDepositSummary = {
   // The amount the staking summary answers for ("0" for none)
   stakingAmount?: string;
   lending?: IBorrowTransactionConfirmation;
+  // The amount the lending summary answers for
+  lendingAmount?: string;
   lendingLoading: boolean;
 };
 
@@ -246,7 +251,11 @@ function useDepositSummary({
                 },
               );
             if (isCurrent) {
-              setSummary({ lending, lendingLoading: false });
+              setSummary({
+                lending,
+                lendingAmount: requestAmount,
+                lendingLoading: false,
+              });
             }
             return;
           }
@@ -290,6 +299,8 @@ function useDepositSummary({
               ...prev,
               staking: request.kind === 'pendle' ? undefined : prev.staking,
               stakingAmount: requestAmount,
+              lendingAmount:
+                request.kind === 'lending' ? requestAmount : prev.lendingAmount,
               lendingLoading: false,
             }));
           }
@@ -594,9 +605,29 @@ export function EarnRouterSwapDepositForm({
   // The last estimate stays (dimmed) while the next amount is quoted, and the
   // rows keep its figures until the new ones are in
   const lastDepositRef = useRef('');
+  // Emptied with figures on screen: they stay a moment, dimmed; left empty,
+  // dashes, and the next amount starts from placeholders
+  const wasAmountRef = useRef(hasAmount);
+  const isEmptiedRef = useRef(false);
+  if (wasAmountRef.current !== hasAmount) {
+    wasAmountRef.current = hasAmount;
+    isEmptiedRef.current = !hasAmount && Boolean(lastDepositRef.current);
+  }
+  const [, setSettleTick] = useState(0);
+  useEffect(() => {
+    if (hasAmount || !isEmptiedRef.current) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      isEmptiedRef.current = false;
+      setSettleTick((tick) => tick + 1);
+    }, EMPTY_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [hasAmount]);
+  const isEmptySettling = !hasAmount && isEmptiedRef.current;
   if (depositAmount) {
     lastDepositRef.current = depositAmount;
-  } else if (!isQuoting) {
+  } else if (!isQuoting && !isEmptySettling) {
     lastDepositRef.current = '';
   }
   const shownDeposit = depositAmount || lastDepositRef.current;
@@ -611,17 +642,18 @@ export function EarnRouterSwapDepositForm({
   });
 
   // With no card to ask for: a year at the provider's rate, in the token
-  // deposited and in money
+  // deposited and in money. For the estimate shown, so the last one's stays
+  // (dimmed) while the next amount is quoted, as the other figures do
   const rewards = useMemo(() => {
-    if (summaryRequest || !depositAmount || !apr || apr <= 0) {
+    if (summaryRequest || !shownDeposit || !apr || apr <= 0) {
       return undefined;
     }
-    const tokens = new BigNumber(depositAmount).times(apr).div(100);
+    const tokens = new BigNumber(shownDeposit).times(apr).div(100);
     return {
       amount: tokens.toFixed(),
       fiat: toFiat(tokens.times(depositToken.priceUsd).toFixed()),
     };
-  }, [apr, depositAmount, depositToken.priceUsd, summaryRequest, toFiat]);
+  }, [apr, depositToken.priceUsd, shownDeposit, summaryRequest, toFiat]);
 
   // The wallet's confirm for the swap, as the Swap page sends one (with an
   // approval in the same confirm): what went out, nothing when rejected
@@ -920,7 +952,7 @@ export function EarnRouterSwapDepositForm({
   // No figures yet: nothing typed, no route, the rows still the empty
   // amount's (the first estimate's are on their way), or no Pendle quote
   const isSummaryPlaceholder =
-    !hasAmount ||
+    (!hasAmount && !isEmptySettling) ||
     hasNoRoute ||
     !shownDeposit ||
     (summaryRequest?.kind === 'staking' &&
@@ -981,7 +1013,17 @@ export function EarnRouterSwapDepositForm({
         price={depositToken.priceUsd}
         currencySymbol={currencyInfo.symbol}
         transactionConfirmation={depositSummary.lending}
-        transactionConfirmationLoading={depositSummary.lendingLoading}
+        // From the swap's new estimate until the market's answer for it
+        transactionConfirmationLoading={
+          depositSummary.lendingLoading ||
+          (Boolean(shownDeposit) &&
+            depositSummary.lendingAmount !== shownDeposit)
+        }
+        // The amount supplied comes with the swap's estimate: until then
+        // the figures wait (dimmed, or placeholders), as the line does
+        isAmountComing={isQuoting || isEmptySettling}
+        // The estimate itself stays a moment through an emptied box
+        keepsFiguresWhenEmptied={false}
       />
     );
   } else if (isPendle) {
@@ -1037,7 +1079,7 @@ export function EarnRouterSwapDepositForm({
     summary = isDisabled ? null : (
       <EarnFormSummary
         outcome={outcome}
-        isLoading={isQuoting || isSummaryUpdating}
+        isLoading={isQuoting || isSummaryUpdating || isEmptySettling}
         rows={rows}
       />
     );
@@ -1097,7 +1139,7 @@ export function EarnRouterSwapDepositForm({
     summary = isDisabled ? null : (
       <EarnFormSummary
         outcome={outcome}
-        isLoading={isQuoting || isSummaryUpdating}
+        isLoading={isQuoting || isSummaryUpdating || isEmptySettling}
         rows={rows}
       />
     );
@@ -1204,7 +1246,11 @@ export function EarnRouterSwapDepositForm({
                 label={depositLineLabel}
                 value={depositLine}
                 isPlaceholder={isDepositLinePlaceholder}
-                loading={isQuoting || (isPendle && isSummaryUpdating)}
+                loading={
+                  isQuoting ||
+                  isEmptySettling ||
+                  (isPendle && isSummaryUpdating)
+                }
               />
             )}
           </YStack>

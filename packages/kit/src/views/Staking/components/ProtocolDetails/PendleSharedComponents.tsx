@@ -324,7 +324,13 @@ export function usePendleTransactionDetails({
       if (detailItems.length > 0) {
         items.push(<Divider key="swap-route-divider" />);
       }
-      items.push(<EarnSwapRoute key="swap-route" routes={swapRouteItems} />);
+      items.push(
+        <EarnSwapRoute
+          key="swap-route"
+          routes={swapRouteItems}
+          isPlaceholder={placeholder}
+        />,
+      );
     }
 
     return items;

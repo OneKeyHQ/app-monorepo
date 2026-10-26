@@ -66,6 +66,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
+  IEarnAssetsList,
   IEarnSelectField,
   IEarnTokenInfo,
   IEarnTokenItem,
@@ -242,8 +243,15 @@ export const StakeSection = ({
     };
   }, [accountId, borrowApiCtx, networkId, protocolInfo?.borrowAllowance]);
 
+  // The tokens Pendle's and a native provider's forms take, read once the
+  // form's data is in
+  const needsStakeAssets =
+    hasRequiredData &&
+    (isPendleProvider || isNativeProvider) &&
+    Boolean(accountId) &&
+    Boolean(stakeAssetsSymbol);
   const { result: stakeAssetsList } = usePromiseResult(
-    async () => {
+    async (): Promise<IEarnAssetsList | undefined> => {
       if (
         !hasRequiredData ||
         !(isPendleProvider || isNativeProvider) ||
@@ -252,14 +260,19 @@ export const StakeSection = ({
       ) {
         return undefined;
       }
-      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
-        accountId,
-        networkId,
-        provider: providerName,
-        symbol: stakeAssetsSymbol,
-        vault: protocolInfo?.vault || undefined,
-        action: 'stake',
-      });
+      try {
+        return await backgroundApiProxy.serviceStaking.getEarnAssetsList({
+          accountId,
+          networkId,
+          provider: providerName,
+          symbol: stakeAssetsSymbol,
+          vault: protocolInfo?.vault || undefined,
+          action: 'stake',
+        });
+      } catch {
+        // Without the list the form starts on its own token
+        return { assets: [] };
+      }
     },
     [
       hasRequiredData,
@@ -1351,10 +1364,18 @@ export const StakeSection = ({
 
   // If no required data, render placeholder to maintain layout. With Pay
   // with it also waits for the wallet, so the form doesn't change kind once
-  // the token it starts on is known
+  // the token it starts on is known; and where the form buys with one of
+  // the tokens it takes (Pendle), for that list and the pick from it: the
+  // form is keyed by that token, so starting on its own token and changing
+  // a moment later would build it again, restarting what it shows
+  const isStakeAssetComing =
+    needsStakeAssets &&
+    (!stakeAssetsList ||
+      (selectableStakeAssets.length > 0 && !selectedStakeAsset));
   if (
     !hasRequiredData ||
-    (canPayWith && Boolean(depositSymbol) && !pay.isLoaded)
+    (canPayWith &&
+      ((Boolean(depositSymbol) && !pay.isLoaded) || isStakeAssetComing))
   ) {
     if (
       useBorrowApi &&

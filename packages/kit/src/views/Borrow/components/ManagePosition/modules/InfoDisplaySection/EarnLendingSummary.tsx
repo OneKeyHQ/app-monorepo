@@ -1,16 +1,15 @@
 import type { ReactElement } from 'react';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Icon, XStack, YStack } from '@onekeyhq/components';
+import { Icon, XStack } from '@onekeyhq/components';
 import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import {
   EarnFormRow,
   EarnFormSummary,
-  EarnFormValue,
 } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
 import type { IEarnOutcome } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -22,6 +21,10 @@ import type {
 
 import { CollateralInfo } from './CollateralInfo';
 import { FeeInfo } from './FeeInfo';
+
+// A box emptied keeps its figures this long (dimmed), as the other Earn
+// forms do: a digit deleted and typed again reads as a change, not a blink
+const EMPTY_SETTLE_MS = 350;
 
 // The server sizes these for its own card; a row keeps the rows' size
 const rowText = (text?: IEarnText): IEarnText | undefined => {
@@ -75,6 +78,8 @@ export function EarnLendingSummary({
   currencySymbol,
   transactionConfirmation,
   transactionConfirmationLoading,
+  isAmountComing,
+  keepsFiguresWhenEmptied = true,
 }: {
   amountValue: string;
   tokenSymbol?: string;
@@ -82,6 +87,12 @@ export function EarnLendingSummary({
   currencySymbol: string;
   transactionConfirmation?: IBorrowTransactionConfirmation;
   transactionConfirmationLoading?: boolean;
+  // The amount supplied is still being worked out (a swap's estimate): the
+  // figures wait, dimmed, or placeholders where there are none yet
+  isAmountComing?: boolean;
+  // Off where the amount given already stays a moment through an emptied
+  // box (a swap's estimate), so the figures don't wait twice
+  keepsFiguresWhenEmptied?: boolean;
 }) {
   const intl = useIntl();
   // While a new amount's rows load, the last ones stay in place
@@ -92,8 +103,42 @@ export function EarnLendingSummary({
     lastConfirmationRef.current = transactionConfirmation;
   }
   const confirmation = transactionConfirmation ?? lastConfirmationRef.current;
-  const amountBN = new BigNumber(amountValue);
+  const typedBN = new BigNumber(amountValue);
+  const isTypedPositive = !typedBN.isNaN() && typedBN.gt(0);
+  // Emptied with figures on screen: the last amount's stay a moment, dimmed;
+  // left empty, dashes
+  const lastPositiveAmountRef = useRef('');
+  const wasPositiveRef = useRef(isTypedPositive);
+  const isEmptiedRef = useRef(false);
+  if (wasPositiveRef.current !== isTypedPositive) {
+    wasPositiveRef.current = isTypedPositive;
+    isEmptiedRef.current =
+      keepsFiguresWhenEmptied &&
+      !isTypedPositive &&
+      Boolean(lastPositiveAmountRef.current);
+  }
+  const [, setSettleTick] = useState(0);
+  useEffect(() => {
+    if (isTypedPositive || !isEmptiedRef.current) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      isEmptiedRef.current = false;
+      setSettleTick((tick) => tick + 1);
+    }, EMPTY_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [isTypedPositive]);
+  const isEmptySettling = !isTypedPositive && isEmptiedRef.current;
+  if (isTypedPositive) {
+    lastPositiveAmountRef.current = amountValue;
+  } else if (!isEmptySettling) {
+    lastPositiveAmountRef.current = '';
+  }
+  const amountBN = isEmptySettling
+    ? new BigNumber(lastPositiveAmountRef.current)
+    : typedBN;
   const isPositiveAmount = !amountBN.isNaN() && amountBN.gt(0);
+  const isWaiting = Boolean(isAmountComing) || isEmptySettling;
 
   // Worked out here from the supply rate, so it follows the typing at once
   const apy = new BigNumber(confirmation?.apyDetail?.apy ?? '');
@@ -162,27 +207,27 @@ export function EarnLendingSummary({
         key="health-factor"
         label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
         value={
-          <YStack ai="flex-end">
-            {healthFactor ? (
-              <BeforeAfter
-                current={healthFactor.current?.title}
-                latest={healthFactor.latest?.title}
-              />
-            ) : (
-              <EarnFormValue />
-            )}
-            <EarnText
-              text={
-                confirmation.liquidationAt?.description ?? {
-                  text: intl.formatMessage({
-                    id: ETranslations.defi_liquidation_at_less_than_1_00,
-                  }),
-                }
-              }
-              size="$bodySm"
-              color="$textSubdued"
+          healthFactor ? (
+            <BeforeAfter
+              current={healthFactor.current?.title}
+              latest={healthFactor.latest?.title}
             />
-          </YStack>
+          ) : undefined
+        }
+        // The same for every amount, so it stays as it is while the factor
+        // above it changes
+        note={
+          <EarnText
+            text={
+              confirmation.liquidationAt?.description ?? {
+                text: intl.formatMessage({
+                  id: ETranslations.defi_liquidation_at_less_than_1_00,
+                }),
+              }
+            }
+            size="$bodySm"
+            color="$textSubdued"
+          />
         }
       />,
     );
@@ -218,8 +263,11 @@ export function EarnLendingSummary({
       outcome={outcome}
       // Worked out here once the supply rate is in (the first answer); the
       // rows wait for each amount's answer
-      isOutcomeLoading={isPositiveAmount && !apy.gt(0)}
-      isLoading={isPositiveAmount && Boolean(transactionConfirmationLoading)}
+      isOutcomeLoading={(isPositiveAmount && !apy.gt(0)) || isWaiting}
+      isLoading={
+        (isPositiveAmount && Boolean(transactionConfirmationLoading)) ||
+        isWaiting
+      }
       rows={rows}
     />
   );

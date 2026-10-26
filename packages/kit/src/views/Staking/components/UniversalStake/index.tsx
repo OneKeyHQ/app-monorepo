@@ -132,6 +132,7 @@ import {
   buildRewardsOutcome,
   buildRowKeys,
   splitPendleRewardRows,
+  useEarnFeeFigure,
 } from './EarnFormSummary';
 import { hasStakingRewardsSummary } from './StakingConfirmationSummary';
 
@@ -767,6 +768,8 @@ export function UniversalStake({
   const [estimateFeeResp, setEstimateFeeResp] = useState<
     undefined | IEarnEstimateFeeResp
   >();
+  // The amount that estimate is for ('' for none)
+  const [estimateFeeAmount, setEstimateFeeAmount] = useState('');
 
   const { getPermitSignature } = useEarnPermitApprove();
   const signPersonalMessage = useEarnSignMessageWithoutVerify();
@@ -1083,6 +1086,7 @@ export function UniversalStake({
     async (amount?: string) => {
       const resp = await fetchEstimateFeeResp(amount);
       setEstimateFeeResp(resp);
+      setEstimateFeeAmount(amount ?? '');
     },
     350,
   );
@@ -2088,6 +2092,7 @@ export function UniversalStake({
 
           const freshFee = await fetchEstimateFeeResp(amountValue);
           setEstimateFeeResp(freshFee);
+          setEstimateFeeAmount(amountValue);
 
           await onSubmit();
           setApproving(false);
@@ -2134,6 +2139,7 @@ export function UniversalStake({
             }
             const freshFee = await fetchEstimateFeeResp(amountValue);
             setEstimateFeeResp(freshFee);
+            setEstimateFeeAmount(amountValue);
             await onSubmit();
           } finally {
             setApproving(false);
@@ -2317,6 +2323,14 @@ export function UniversalStake({
     });
   }
 
+  const { shownFee, isFeeLoading } = useEarnFeeFigure({
+    fee: estimateFeeResp,
+    feeAmount: estimateFeeAmount,
+    amountValue,
+    isPositiveAmount,
+    hasShownFigures: shownQuote.amount !== '',
+  });
+
   const summaryRows = useMemo(() => {
     const items: ReactElement[] = [];
     if (isPendleRowsReserved) {
@@ -2388,17 +2402,14 @@ export function UniversalStake({
       );
     }
     // A zero estimate counts as none
-    if (
-      estimateFeeResp &&
-      Number(estimateFeeResp.feeFiatValue) > 0 &&
-      isPositiveAmount
-    ) {
+    if (shownFee) {
       items.push(
         <EarnFormRow
           key="network-fee"
           label={intl.formatMessage({
             id: ETranslations.global_est_network_fee,
           })}
+          isLoading={isFeeLoading}
           value={
             <XStack
               ai="center"
@@ -2407,7 +2418,7 @@ export function UniversalStake({
               onPress={() => {
                 showEstimateGasAlert({
                   daysConsumed: daysSpent,
-                  estFiatValue: estimateFeeResp.feeFiatValue,
+                  estFiatValue: shownFee.feeFiatValue,
                 });
               }}
             >
@@ -2416,7 +2427,7 @@ export function UniversalStake({
                 formatter="value"
                 formatterOptions={{ currency: currencySymbol }}
               >
-                {estimateFeeResp.feeFiatValue}
+                {shownFee.feeFiatValue}
               </NumberSizeableText>
               <Icon
                 name="ChevronRightSmallOutline"
@@ -2438,6 +2449,7 @@ export function UniversalStake({
           label={intl.formatMessage({
             id: ETranslations.global_est_network_fee,
           })}
+          isLoading={isFeeLoading}
         />,
       );
     }
@@ -2445,12 +2457,12 @@ export function UniversalStake({
   }, [
     currencySymbol,
     daysSpent,
-    estimateFeeResp,
+    shownFee,
+    isFeeLoading,
     intl,
     usePermit2Approve,
     isPendleLikeLayout,
     isPendleRowsReserved,
-    isPositiveAmount,
     isRowsPlaceholder,
     pendleDetailRows,
     pendleRows.detailRows,
@@ -2693,12 +2705,17 @@ export function UniversalStake({
   ) : null;
 
   // What the amount buys (Pendle's Buy): nothing before an amount, a
-  // skeleton until a quote for this very amount is in, a dash without one
+  // skeleton until a quote for this very amount is in, a dash without one.
+  // A box emptied keeps the last figure a moment (dimmed), as the rows do
   const receiveSymbol = effectiveReceiveInputConfig?.tokenSymbol ?? '';
+  const isReceiveSettling =
+    !isPositiveAmount && new BigNumber(receiveQuote?.amount ?? '').gt(0);
   const isReceiveQuoting =
-    isPositiveAmount && (quoteLoading || receiveQuote?.amount !== amountValue);
+    (isPositiveAmount &&
+      (quoteLoading || receiveQuote?.amount !== amountValue)) ||
+    isReceiveSettling;
   let receiveLine = '–';
-  if (isPositiveAmount) {
+  if (isPositiveAmount || isReceiveSettling) {
     const bought = earnUtils.extractAmountFromText(receiveQuote?.description);
     receiveLine = new BigNumber(bought).gt(0)
       ? `≈ ${numberFormat(bought, { formatter: 'balance' })} ${receiveSymbol}`
@@ -2791,32 +2808,49 @@ export function UniversalStake({
         {closesDepositLineRoom ? (
           <ClosingRoom height={DEPOSIT_LINE_HEIGHT} />
         ) : null}
-        <HeightTransition duration={AMOUNT_LINE_MS}>
-          {amountErrorText ? (
-            <YStack pt="$2" px="$3.5">
-              <SizableText
-                testID="earn-amount-error"
-                size="$bodyMd"
-                color="$textCritical"
-              >
-                {amountErrorText}
-              </SizableText>
+        {showReceiveInput ? (
+          // Pendle's line, and in its place what is wrong with the amount,
+          // as on the swap path: the line keeps its room, so nothing under
+          // it moves; a longer message opens the room for its second line
+          <HeightTransition duration={AMOUNT_LINE_MS} skipInitialAnimation>
+            <YStack pt="$2">
+              {amountErrorText ? (
+                <SizableText
+                  testID="earn-amount-error"
+                  px="$3.5"
+                  size="$bodyMd"
+                  color="$textCritical"
+                >
+                  {amountErrorText}
+                </SizableText>
+              ) : (
+                <StakingAmountResultLine
+                  testID="earn-pendle-receive-amount"
+                  label={intl.formatMessage({
+                    id: ETranslations.swap_review_you_receive,
+                  })}
+                  value={receiveLine}
+                  isPlaceholder={isReceiveLinePlaceholder}
+                  loading={isReceiveQuoting}
+                />
+              )}
             </YStack>
-          ) : null}
-        </HeightTransition>
-        {showReceiveInput && !amountErrorText ? (
-          <YStack pt="$2">
-            <StakingAmountResultLine
-              testID="earn-pendle-receive-amount"
-              label={intl.formatMessage({
-                id: ETranslations.swap_review_you_receive,
-              })}
-              value={receiveLine}
-              isPlaceholder={isReceiveLinePlaceholder}
-              loading={isReceiveQuoting}
-            />
-          </YStack>
-        ) : null}
+          </HeightTransition>
+        ) : (
+          <HeightTransition duration={AMOUNT_LINE_MS}>
+            {amountErrorText ? (
+              <YStack pt="$2" px="$3.5">
+                <SizableText
+                  testID="earn-amount-error"
+                  size="$bodyMd"
+                  color="$textCritical"
+                >
+                  {amountErrorText}
+                </SizableText>
+              </YStack>
+            ) : null}
+          </HeightTransition>
+        )}
       </YStack>
       {/* Where it goes: the protocol, and a validator where there is one */}
       {protocolSwitchConfig ? (

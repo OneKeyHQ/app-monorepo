@@ -30,6 +30,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
+  IEarnEstimateFeeResp,
   IEarnText,
   IEarnTooltip,
   IStakeTransactionConfirmation,
@@ -100,6 +101,47 @@ const EarnFormQuotingContext = createContext({
   isQuoting: false,
   isDimmed: false,
 });
+
+/** Whether the rows' figures are on their way, for parts that aren't rows */
+export function useEarnFormQuoting() {
+  return useContext(EarnFormQuotingContext);
+}
+
+/**
+ * The network fee row's figure, which has an answer of its own that comes
+ * before or after the rest: this amount's estimate once it is in; until
+ * then the figure on screen stays, dimmed, or a placeholder holds the place
+ * where there was none. Through a moment's empty box it stays with the
+ * other figures; left empty, a dash, and the next amount starts from a
+ * placeholder. A zero estimate counts as none
+ */
+export function useEarnFeeFigure({
+  fee,
+  feeAmount,
+  amountValue,
+  isPositiveAmount,
+  hasShownFigures,
+}: {
+  fee?: IEarnEstimateFeeResp;
+  // The amount that estimate is for ('' for none)
+  feeAmount?: string;
+  amountValue: string;
+  isPositiveAmount: boolean;
+  // The other figures are on screen (this amount's, or dimmed, the last's)
+  hasShownFigures: boolean;
+}) {
+  const shownRef = useRef<IEarnEstimateFeeResp | undefined>(undefined);
+  let shownFee: IEarnEstimateFeeResp | undefined;
+  let isFeeLoading = false;
+  if (isPositiveAmount && feeAmount === amountValue) {
+    shownFee = fee && Number(fee.feeFiatValue) > 0 ? fee : undefined;
+  } else if (isPositiveAmount || hasShownFigures) {
+    shownFee = shownRef.current;
+    isFeeLoading = true;
+  }
+  shownRef.current = shownFee;
+  return { shownFee, isFeeLoading };
+}
 
 const stripParens = (text?: string) =>
   text?.trim().replace(/^\((.*)\)$/, '$1') || undefined;
@@ -264,8 +306,20 @@ const VALUE_PLACEHOLDER_WIDTH = 64;
  * placeholder the size of a value while one is coming; the value fades in
  * as the placeholder fades out, as the result and the line under the box do
  */
-export function EarnFormValue({ children }: { children?: ReactNode }) {
-  const { isQuoting, isDimmed } = useContext(EarnFormQuotingContext);
+export function EarnFormValue({
+  children,
+  isLoading,
+}: {
+  children?: ReactNode;
+  // A figure with an answer of its own (the network fee) waits for that
+  // answer rather than the form's
+  isLoading?: boolean;
+}) {
+  const quoting = useContext(EarnFormQuotingContext);
+  const isSwitching = useContext(EarnFormSwitchingContext);
+  const isQuoting = isLoading ?? quoting.isQuoting;
+  const isDimmed =
+    isLoading === undefined ? quoting.isDimmed : isLoading || isSwitching;
   // A value there as the row mounts shows at once; one that comes later
   // fades in
   const isMountedRef = useRef(false);
@@ -486,22 +540,59 @@ export function EarnFormRow({
   label,
   tooltip,
   value,
+  note,
+  isLoading,
   testID,
 }: {
   label: string;
   tooltip?: IEarnTooltip;
   value?: ReactNode;
+  // A line under the value that doesn't change with the amount (Health
+  // Factor's liquidation line): it never dims
+  note?: ReactNode;
+  // The value's own answer on its way, where it has one
+  isLoading?: boolean;
   testID?: string;
 }) {
+  const valueLine = (
+    <XStack flexShrink={1} jc="flex-end" ai="center">
+      <EarnFormValue isLoading={isLoading}>{value}</EarnFormValue>
+    </XStack>
+  );
   // Top-aligned, so a value with a second line keeps its first line level
   // with the label
   return (
     <XStack testID={testID} jc="space-between" ai="flex-start" gap="$3">
       <RowLabel label={label} tooltip={tooltip} />
-      <XStack flexShrink={1} jc="flex-end" ai="center">
-        <EarnFormValue>{value}</EarnFormValue>
-      </XStack>
+      {note ? (
+        <YStack flexShrink={1} ai="flex-end">
+          {valueLine}
+          {note}
+        </YStack>
+      ) : (
+        valueLine
+      )}
     </XStack>
+  );
+}
+
+// A row that comes after the first frame (a market's Health Factor once its
+// answer is in) fades in as the block opens for it
+function EarnFormRowEntry({
+  fadesIn,
+  children,
+}: {
+  fadesIn: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <YStack
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
+      enterStyle={fadesIn ? FADE_IN : undefined}
+    >
+      {children}
+    </YStack>
   );
 }
 
@@ -688,14 +779,24 @@ export function EarnFormSummary({
   // (or is still opening) leaves no gap
   return (
     <YStack px="$3.5">
+      {/* A result that takes more lines once its figures are in (a second
+          reward, a wrap on a narrow form) opens for them, and the rows under
+          it move down with the form rather than in one frame; the room
+          around it keeps a focus ring on its (i) whole, as the rows' does */}
       {shownOutcome ? (
-        <EarnOutcomeRow
-          testID="earn-form-outcome"
-          outcome={shownOutcome}
-          isLoading={isOutcomeLoading}
-          isDimmed={Boolean(isOutcomeLoading) || isSwitching}
-          fadesIn={!isFirstRenderRef.current}
-        />
+        <YStack my="$-1">
+          <HeightTransition duration={ROWS_HEIGHT_MS} skipInitialAnimation>
+            <YStack py="$1">
+              <EarnOutcomeRow
+                testID="earn-form-outcome"
+                outcome={shownOutcome}
+                isLoading={isOutcomeLoading}
+                isDimmed={Boolean(isOutcomeLoading) || isSwitching}
+                fadesIn={!isFirstRenderRef.current}
+              />
+            </YStack>
+          </HeightTransition>
+        </YStack>
       ) : null}
       {/* The block clips while it opens and closes; 4 px of room above and
           below, taken back by the margin, keep a focus ring on a row's (i)
@@ -708,7 +809,14 @@ export function EarnFormSummary({
           {rows.length ? (
             <EarnFormQuotingContext.Provider value={rowsQuoting}>
               <YStack pt={shownOutcome ? '$4' : '$1'} pb="$1" gap="$3">
-                {visibleRows}
+                {visibleRows.map((row, index) => (
+                  <EarnFormRowEntry
+                    key={row.key ?? index}
+                    fadesIn={!isFirstRenderRef.current}
+                  >
+                    {row}
+                  </EarnFormRowEntry>
+                ))}
                 {foldedRows.length ? (
                   <EarnFormDetails rows={foldedRows} />
                 ) : null}

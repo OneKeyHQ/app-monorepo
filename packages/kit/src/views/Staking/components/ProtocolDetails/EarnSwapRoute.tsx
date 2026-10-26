@@ -11,7 +11,10 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
+
+import { useEarnFormQuoting } from '../UniversalStake/EarnFormSummary';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -23,7 +26,13 @@ type ISwapRouteItem = NonNullable<
 
 type IEarnSwapRouteProps = {
   routes: ISwapRouteItem[];
+  // The last quote's route holding its place with no amount: the ways it
+  // went stay, the figures for that amount don't
+  isPlaceholder?: boolean;
 };
+
+// The rows' figures dim to this while a new amount's are on their way
+const STALE_OPACITY = 0.4;
 
 function ConnectorDashedLine() {
   const theme = useTheme();
@@ -93,7 +102,11 @@ function parseConnectorDisplay({
   };
 }
 
-export const EarnSwapRoute: FC<IEarnSwapRouteProps> = ({ routes }) => {
+export const EarnSwapRoute: FC<IEarnSwapRouteProps> = ({
+  routes,
+  isPlaceholder,
+}) => {
+  const { isDimmed } = useEarnFormQuoting();
   const routeDisplayData = useMemo(
     () =>
       routes.map((route, index) => {
@@ -137,14 +150,20 @@ export const EarnSwapRoute: FC<IEarnSwapRouteProps> = ({ routes }) => {
                 >
                   {item.connectorName || ' '}
                 </SizableText>
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  textAlign="center"
-                  numberOfLines={1}
+                <YStack
+                  opacity={isDimmed ? STALE_OPACITY : 1}
+                  transition="quick"
+                  animateOnly={ANIMATE_ONLY_OPACITY}
                 >
-                  {item.connectorImpact || ' '}
-                </SizableText>
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    textAlign="center"
+                    numberOfLines={1}
+                  >
+                    {(isPlaceholder ? undefined : item.connectorImpact) || ' '}
+                  </SizableText>
+                </YStack>
               </YStack>
             </YStack>
           ) : null}

@@ -95,6 +95,7 @@ import {
   EarnFormSummary,
   buildRewardNoteRows,
   buildRewardsOutcome,
+  useEarnFeeFigure,
 } from '../UniversalStake/EarnFormSummary';
 
 import {
@@ -923,7 +924,8 @@ export function UniversalWithdraw({
     ICheckAmountAlert[]
   >([]);
 
-  const { result: estimateFeeResp } = usePromiseResult(async () => {
+  // With the amount it is for, so the fee's figure waits for its own answer
+  const { result: estimateFee } = usePromiseResult(async () => {
     if (
       !accountId ||
       !networkId ||
@@ -960,7 +962,7 @@ export function UniversalWithdraw({
       outputTokenAddress: transactionOutputTokenAddress,
       withdrawType: selectedWithdrawType,
     });
-    return resp;
+    return { amount: isCancelWithdrawal ? '' : amountValue, resp };
   }, [
     amountValue,
     accountId,
@@ -1824,6 +1826,23 @@ export function UniversalWithdraw({
   const isLidoWithdraw = earnUtils.isLidoProvider({
     providerName: providerName ?? '',
   });
+  const feeFigure = useEarnFeeFigure({
+    fee: estimateFee?.resp,
+    feeAmount: estimateFee?.amount,
+    amountValue,
+    isPositiveAmount,
+    hasShownFigures: shownQuote.amount !== '',
+  });
+  // Cancelling a queued withdrawal has no amount: its fee shows as it is
+  let shownFee = feeFigure.shownFee;
+  let isFeeLoading: boolean | undefined = feeFigure.isFeeLoading;
+  if (isCancelWithdrawal) {
+    const cancelFee = estimateFee?.resp;
+    shownFee =
+      cancelFee && Number(cancelFee.feeFiatValue) > 0 ? cancelFee : undefined;
+    isFeeLoading = undefined;
+  }
+
   const summaryRows = useMemo(() => {
     const items: ReactElement[] = [];
     if (isPendleLikeLayout) {
@@ -1936,24 +1955,21 @@ export function UniversalWithdraw({
       );
     }
     // A zero estimate counts as none
-    if (
-      estimateFeeResp &&
-      Number(estimateFeeResp.feeFiatValue) > 0 &&
-      (isCancelWithdrawal || isPositiveAmount)
-    ) {
+    if (shownFee) {
       items.push(
         <EarnFormRow
           key="network-fee"
           label={intl.formatMessage({
             id: ETranslations.global_est_network_fee,
           })}
+          isLoading={isFeeLoading}
           value={
             <NumberSizeableText
               size="$bodyMdMedium"
               formatter="value"
               formatterOptions={{ currency: symbol }}
             >
-              {estimateFeeResp.feeFiatValue}
+              {shownFee.feeFiatValue}
             </NumberSizeableText>
           }
         />,
@@ -1968,18 +1984,18 @@ export function UniversalWithdraw({
           label={intl.formatMessage({
             id: ETranslations.global_est_network_fee,
           })}
+          isLoading={isFeeLoading}
         />,
       );
     }
     return items;
   }, [
-    estimateFeeResp,
+    shownFee,
+    isFeeLoading,
     intl,
     symbol,
     isLidoWithdraw,
-    isCancelWithdrawal,
     isPendleLikeLayout,
-    isPositiveAmount,
     pendleDetailRows,
     rowsConfirmation,
     selectedWithdrawPath,
@@ -2224,7 +2240,9 @@ export function UniversalWithdraw({
             </HeightTransition>
           </YStack>
           <ManagePageV2ReceiveInput
-            receive={transactionConfirmation?.receive}
+            // The shown answer's, as the rows: an emptied box empties it
+            // once they go back to dashes
+            receive={shownConfirmation?.receive}
             // One name before and after the quote; the server's would
             // replace it once a quote is in
             config={

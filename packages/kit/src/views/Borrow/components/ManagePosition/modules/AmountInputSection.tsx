@@ -136,6 +136,19 @@ export function AmountInputSection({
     }
   }
 
+  // A warning that says what the red line already says (the server's own
+  // check of the balance) would say it twice, and push the form down as it
+  // comes in a moment later
+  const lineText = amountErrorText?.trim().toLowerCase();
+  const shownAlerts = lineText
+    ? checkAmountAlerts.filter(
+        (alert) =>
+          ![alert.title?.text, alert.text?.text, alert.description?.text].some(
+            (text) => text?.trim().toLowerCase() === lineText,
+          ),
+      )
+    : checkAmountAlerts;
+
   // Max amount text
   const maxAmountText = useMemo(
     () => intl.formatMessage({ id: ETranslations.global_max }),
@@ -204,9 +217,9 @@ export function AmountInputSection({
       ) : null}
 
       {/* Warning Alerts */}
-      {checkAmountAlerts.length > 0 ? (
+      {shownAlerts.length > 0 ? (
         <>
-          {checkAmountAlerts.map((alert, index) => (
+          {shownAlerts.map((alert, index) => (
             <Alert
               key={index}
               type="warning"
