@@ -44,7 +44,6 @@ export function applyZcashBalanceToBackendTokenList({
   response.data.data.tokens.map[nativeToken.$key] = {
     ...nativeFiat,
     balance: balance.total,
-    balanceStatus: balance.balanceStatus,
     balanceParsed,
     frozenBalance: balance.frozen,
     frozenBalanceParsed,
@@ -82,7 +81,6 @@ export function applyZcashBalanceToBackendTokenDetails({
   const price = nativeToken.price || 0;
   Object.assign(nativeToken, {
     balance: balance.spendable,
-    balanceStatus: balance.balanceStatus,
     balanceParsed: spendableParsed,
     frozenBalance: balance.frozen,
     frozenBalanceParsed,

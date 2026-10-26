@@ -340,10 +340,7 @@ describe('xmr syncGroup turns', () => {
       mockBusy = true;
       await expect(
         capability().getAccountBalance({ accountId: 'acc' }),
-      ).resolves.toMatchObject({
-        total: '2000000000000',
-        balanceStatus: 'partial',
-      });
+      ).resolves.toMatchObject({ total: '2000000000000' });
     } finally {
       mockBusy = false;
       runtime.balance = balance;
@@ -448,13 +445,13 @@ describe('xmr UI reads while a scan step is in flight', () => {
     ).resolves.toBeNull();
   });
 
-  // Seen before on this device: shown, but not as current.
-  it('answers balance with the saved one, marked not current', async () => {
+  // Seen before on this device: the saved one is shown while busy.
+  it('answers balance with the saved one while busy', async () => {
     const live = await capability().getAccountBalance({ accountId: 'acc' });
     mockBusy = true;
     await expect(
       capability().getAccountBalance({ accountId: 'acc' }),
-    ).resolves.toEqual({ ...live, balanceStatus: 'partial' });
+    ).resolves.toEqual(live);
   });
 
   it('answers progress with an honest syncing placeholder', async () => {

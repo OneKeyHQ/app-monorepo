@@ -511,14 +511,10 @@ export async function getLocalWalletAccountBalance(
 
   const transparentSpendable = transparent.spendable;
   const transparentTotal = transparent.total;
-  const transparentStatus = transparent.stale ? 'partial' : 'complete';
   const transparentFrozen =
     transparentTotal && transparentSpendable
       ? frozenPart('confirming', transparentTotal.minus(transparentSpendable))
       : [];
-  const knownPrivateStatus = balance?.isComplete ? 'complete' : 'partial';
-  const incompleteStatus =
-    balance || transparentTotal !== undefined ? 'partial' : 'unavailable';
   const privatePool = (
     key: IZcashSpendSource,
     total: string | undefined,
@@ -526,7 +522,6 @@ export async function getLocalWalletAccountBalance(
     extraHints: string[],
   ): ILocalWalletPoolBalance => ({
     key,
-    balanceStatus: balance ? knownPrivateStatus : 'unavailable',
     total,
     totalParsed: total === undefined ? undefined : parsed(total),
     spendable: detail?.spendable,
@@ -546,8 +541,6 @@ export async function getLocalWalletAccountBalance(
   const pools: ILocalWalletPoolBalance[] = [
     {
       key: 'transparent',
-      balanceStatus:
-        transparentTotal === undefined ? 'unavailable' : transparentStatus,
       total: transparentTotal?.toFixed(0),
       totalParsed:
         transparentTotal === undefined
@@ -586,12 +579,6 @@ export async function getLocalWalletAccountBalance(
     ),
   ];
   return {
-    balanceStatus:
-      balance?.isComplete &&
-      transparentTotal !== undefined &&
-      !transparent.stale
-        ? 'complete'
-        : incompleteStatus,
     total: balance?.isComplete
       ? transparentTotal?.plus(balance.shielded).toFixed(0)
       : undefined,
@@ -812,7 +799,6 @@ export async function fetchTokenList(
       price24h: 0,
       balance: total,
       balanceParsed,
-      balanceStatus: balance.balanceStatus,
       fiatValue: total === '0' ? '0' : '',
     },
   };
@@ -1021,7 +1007,6 @@ export async function fetchTokenDetails(
           price: 0,
           price24h: 0,
           balance: balance.spendable,
-          balanceStatus: balance.balanceStatus,
           balanceParsed: toParsed(spendable),
           frozenBalance: balance.frozen,
           frozenBalanceParsed: toParsed(frozen),

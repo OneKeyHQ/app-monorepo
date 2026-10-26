@@ -238,7 +238,6 @@ describe('Zcash private balance when the runtime read fails', () => {
       });
       for (const key of ['ironwood', 'orchard']) {
         expect(balance?.pools.find((item) => item.key === key)).toMatchObject({
-          balanceStatus: 'unavailable',
           total: undefined,
           spendable: undefined,
           move: { enabled: false },

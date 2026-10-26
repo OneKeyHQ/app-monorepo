@@ -209,19 +209,12 @@ describe('Zcash independent transparent balance availability', () => {
       const result = await vault.getLocalWalletAccountBalance({
         accountId: 'account',
       });
-      expect(result).toMatchObject({
-        total: undefined,
-        balanceStatus: 'partial',
-      });
+      expect(result).toMatchObject({ total: undefined });
       expect(result?.pools[0]).toMatchObject({ total: '80', spendable: '50' });
-      expect(result?.pools[1].balanceStatus).toBe(
-        privateBalance ? 'partial' : 'unavailable',
-      );
       // Mid-backfill the home total is what was found so far plus the public
       // side, marked partial; with no private figure, the public side alone.
       expect(await vault.zcashGetComposedBalanceSafe('80')).toMatchObject({
         total: privateBalance ? '180' : '80',
-        balanceStatus: 'partial',
       });
     },
   );
@@ -298,7 +291,6 @@ describe('Zcash independent transparent balance availability', () => {
       total: '180',
       spendable: '',
       frozen: '',
-      balanceStatus: 'complete',
     });
   });
 });
@@ -802,11 +794,9 @@ describe('Zcash transparent balance saved for the next open', () => {
     });
     expect(result?.pools[0]).toMatchObject({
       key: 'transparent',
-      balanceStatus: 'partial',
       total: '80',
       spendable: '50',
     });
-    expect(result?.balanceStatus).toBe('partial');
   });
 
   // Shield sweeps the UTXOs it fetches itself, but it is only offered on a
@@ -837,7 +827,6 @@ describe('Zcash transparent balance saved for the next open', () => {
     const after = await vault.getLocalWalletAccountBalance({
       accountId: 'cached-shield',
     });
-    expect(after?.pools[0]).toMatchObject({ balanceStatus: 'complete' });
     expect(after?.pools[0].move).toMatchObject({
       type: 'shield',
       enabled: true,

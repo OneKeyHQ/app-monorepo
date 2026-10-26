@@ -1,7 +1,5 @@
 import BigNumber from 'bignumber.js';
 
-import type { IBalanceStatus } from '../../types/token';
-
 // Indexer total is not availability (never feeds a selected-pool Max).
 // Public half has no local-scan fallback; unreachable means incomplete, not a shrunk total.
 
@@ -10,7 +8,6 @@ export type IPrivacyChainComposedBalance = {
   total: string;
   spendable: string;
   frozen: string;
-  balanceStatus?: IBalanceStatus;
 };
 
 export function composePrivacyChainBalance({
@@ -47,19 +44,10 @@ export function composePrivacyChainBalance({
   // Independently spendable public funds aren't frozen just because the
   // private scanner hasn't seen them.
   const frozen = BigNumber.max(total.minus(spendableValue), 0);
-  let balanceStatus: IPrivacyChainComposedBalance['balanceStatus'] =
-    'unavailable';
-  if (hasTotal) {
-    balanceStatus = 'complete';
-  } else if (knownSides.length > 0) {
-    balanceStatus = 'partial';
-  }
   return {
-    // A still-backfilling or unreachable side still shows the other side's
-    // figure, marked partial rather than blank.
+    // A still-backfilling or unreachable side still shows the other side's figure.
     total: knownSides.length > 0 ? total.toFixed() : '',
     spendable: spendableValue.isFinite() ? spendableValue.toFixed() : '',
     frozen: hasTotal && frozen.isFinite() ? frozen.toFixed() : '',
-    balanceStatus,
   };
 }
