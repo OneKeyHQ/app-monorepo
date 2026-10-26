@@ -26,6 +26,7 @@ export function ActivityShortcutCard({
   subtitle,
   leadingContent,
   iconName,
+  iconBadge,
   lottieSrc,
   showIconBackground = false,
   menuLayout = false,
@@ -38,6 +39,7 @@ export function ActivityShortcutCard({
   subtitle?: string;
   leadingContent?: ReactNode;
   iconName?: IButtonProps['icon'];
+  iconBadge?: ReactNode;
   lottieSrc?: object;
   showIconBackground?: boolean;
   menuLayout?: boolean;
@@ -122,6 +124,7 @@ export function ActivityShortcutCard({
         bg={showIconBackground ? iconBackground : undefined}
         ai="center"
         jc="center"
+        position="relative"
       >
         {iconName ? (
           <Icon
@@ -132,6 +135,11 @@ export function ActivityShortcutCard({
         ) : null}
         {lottieSrc ? (
           <LottieView width={32} height={32} source={lottieSrc} />
+        ) : null}
+        {iconBadge ? (
+          <Stack position="absolute" top="$1" right="$1" pointerEvents="none">
+            {iconBadge}
+          </Stack>
         ) : null}
       </Stack>
       <SizableText

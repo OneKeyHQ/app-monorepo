@@ -4,6 +4,10 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render } from '@testing-library/react';
 
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+
+import { PerpTestIDs } from '../testIDs';
+
 import { PerpMenu } from './PerpMenu';
 import { PerpSettingsButton } from './PerpSettingsButton';
 
@@ -19,6 +23,8 @@ jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
 const mockShowPerpSettingsDialog = jest.fn();
 const mockPerpSettingsPopover = jest.fn();
 const mockSettingsTourVisited = jest.fn();
+const mockLayoutTourVisited = jest.fn();
+let mockLayoutIsFirstVisit = true;
 let mockMedia = { gtMd: false, gtXl: false };
 let mockSettingsIsFirstVisit = true;
 
@@ -105,11 +111,17 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/components/Spotlight', () => ({
-  useSpotlight: () => ({
-    isFirstVisit: mockSettingsIsFirstVisit,
-    tourTimes: mockSettingsIsFirstVisit ? 0 : 1,
-    tourVisited: mockSettingsTourVisited,
-  }),
+  useSpotlight: (tour: ESpotlightTour) =>
+    tour === ESpotlightTour.perpLayoutSettings
+      ? {
+          isFirstVisit: mockLayoutIsFirstVisit,
+          tourVisited: mockLayoutTourVisited,
+        }
+      : {
+          isFirstVisit: mockSettingsIsFirstVisit,
+          tourTimes: mockSettingsIsFirstVisit ? 0 : 1,
+          tourVisited: mockSettingsTourVisited,
+        },
 }));
 
 jest.mock('../hooks/useShowGuide', () => ({
@@ -181,6 +193,43 @@ describe('PerpSettingsButton', () => {
 });
 
 describe('Perps mobile flat menu', () => {
+  beforeEach(() => {
+    mockLayoutIsFirstVisit = true;
+    mockLayoutTourVisited.mockReset();
+  });
+
+  it.each([true, false])(
+    'preserves the layout spotlight lifecycle when first visit is %s',
+    (isFirstVisit) => {
+      mockLayoutIsFirstVisit = isFirstVisit;
+      const view = render(
+        <PerpMenu
+          layoutSettings={{
+            renderContent: () => <span>Layout settings</span>,
+            positionActionsContent: null,
+          }}
+          onOpenHistory={jest.fn()}
+          settingsContent={<span>Preferences</span>}
+        />,
+      );
+
+      expect(
+        Boolean(view.queryByTestId(PerpTestIDs.MobileLayoutSettingsFeatureDot)),
+      ).toBe(isFirstVisit);
+      fireEvent.click(view.getByTestId('perp-mobile-menu-shortcut-history'));
+      expect(mockLayoutTourVisited).not.toHaveBeenCalled();
+      fireEvent.click(view.getByTestId('perp-mobile-menu-shortcut-layout'));
+      expect(view.getByText('Layout settings')).toBeTruthy();
+      expect(mockLayoutTourVisited).toHaveBeenCalledTimes(isFirstVisit ? 1 : 0);
+
+      mockLayoutIsFirstVisit = false;
+      fireEvent.click(view.getByTestId('perp-mobile-menu-back'));
+      expect(
+        view.queryByTestId(PerpTestIDs.MobileLayoutSettingsFeatureDot),
+      ).toBeNull();
+    },
+  );
+
   it('shows settings directly above campaigns in the desktop popover', () => {
     const view = render(
       <PerpMenu
@@ -197,6 +246,10 @@ describe('Perps mobile flat menu', () => {
     expect(view.queryByTestId('perp-mobile-menu-shortcut-settings')).toBeNull();
     expect(view.queryByTestId('perp-mobile-menu-shortcut-history')).toBeNull();
     expect(view.queryByTestId('perp-mobile-menu-back')).toBeNull();
+    expect(
+      view.queryByTestId(PerpTestIDs.MobileLayoutSettingsFeatureDot),
+    ).toBeNull();
+    expect(mockLayoutTourVisited).not.toHaveBeenCalled();
   });
 
   it('shows shortcuts and campaigns together and returns from preferences', () => {

@@ -16,7 +16,13 @@ import {
   ActivityShortcutCard,
   MENU_SHORTCUT_GRID_PROPS,
 } from '@onekeyhq/kit/src/components/ActivityHub/ActivityShortcutCard';
+import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+
+import { PerpTestIDs } from '../testIDs';
+
+import { PerpFeatureDot } from './PerpFeatureDot';
 
 type IMenuPage = 'preferences' | 'layout' | 'positionActions';
 
@@ -46,6 +52,10 @@ export function PerpMenu({
   const { height } = useWindowDimensions();
   const [page, setPage] = useState<IMenuPage>();
   const [contentHeight, setContentHeight] = useState(0);
+  const {
+    isFirstVisit: isLayoutSettingsFirstVisit,
+    tourVisited: markLayoutSettingsVisited,
+  } = useSpotlight(ESpotlightTour.perpLayoutSettings);
   const shortcuts: {
     id: string;
     label: ETranslations;
@@ -62,7 +72,14 @@ export function PerpMenu({
       id: 'layout',
       label: ETranslations.perps_layout_settings__title,
       icon: 'LayoutDashboardOutline',
-      onPress: layoutSettings ? () => setPage('layout') : undefined,
+      onPress: layoutSettings
+        ? () => {
+            if (isLayoutSettingsFirstVisit) {
+              void markLayoutSettingsVisited();
+            }
+            setPage('layout');
+          }
+        : undefined,
     },
     {
       id: 'history',
@@ -110,6 +127,13 @@ export function PerpMenu({
         testID={`perp-mobile-menu-shortcut-${item.id}`}
         title={intl.formatMessage({ id: item.label })}
         iconName={item.icon}
+        iconBadge={
+          item.id === 'layout' && isLayoutSettingsFirstVisit ? (
+            <PerpFeatureDot
+              testID={PerpTestIDs.MobileLayoutSettingsFeatureDot}
+            />
+          ) : undefined
+        }
         flexBasis={isPopover ? '33.333333%' : '25%'}
         showIconBackground
         menuLayout
