@@ -17,9 +17,10 @@ import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketD
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
-import { resolveMarketAssetRouteIdentity } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import {
   buildReplacedMarketDetailParams,
+  canReuseMarketDetailRoute,
+  openOrReplaceMarketDetailRoute,
   prepareMarketDetailTabBarTransition,
 } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
@@ -80,10 +81,6 @@ interface IUseToDetailPageOptions {
    * A different detail route is replaced, while the same route is updated in place.
    */
   replaceCurrentDetail?: boolean;
-  /**
-   * Resolves a search/watchlist token to its canonical Asset route identity.
-   */
-  resolveMarketAsset?: boolean;
 }
 
 // All entry rows navigate the same UI router. A newer selection must also
@@ -94,7 +91,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
-  const { name: currentRouteName, key: currentRouteKey } = useRoute();
+  const { name: currentRouteName } = useRoute();
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
   const media = useMedia();
@@ -191,43 +188,10 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           }
         }
       }
-      let shouldResolveMarketAsset = Boolean(
-        options?.resolveMarketAsset && !item.marketTokenId && !item.stock,
-      );
       const stockId = resolveMarketStockId({
         stockId: item.stockId,
         stock: item.stock,
       });
-      if (
-        shouldResolveMarketAsset &&
-        options?.replaceCurrentDetail &&
-        !platformEnv.isNative &&
-        !stockId
-      ) {
-        // Keep the current detail mounted while choosing the destination layout.
-        // Updating the route first would unmount its chart and trade panel.
-        const identity = await resolveMarketAssetRouteIdentity({
-          networkId: item.networkId,
-          tokenAddress: item.tokenAddress,
-          symbol: item.symbol,
-          isNative: item.isNative,
-        });
-        if (navigationGenerationRef.current !== navigationGeneration) return;
-        if (
-          rootNavigationRef.current?.getCurrentRoute()?.key !== currentRouteKey
-        ) {
-          return;
-        }
-        if (identity) {
-          item = {
-            ...item,
-            ...identity,
-            assetId: identity.marketTokenId,
-            address: identity.tokenAddress,
-          };
-          shouldResolveMarketAsset = false;
-        }
-      }
       const resolvedItem = item;
       const marketTokenCategory = item.assetId
         ? MARKET_TOP_COINS_CATEGORY_ID
@@ -256,12 +220,6 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           : undefined),
         ...(resolvedItem.marketVariantId
           ? { marketVariantId: resolvedItem.marketVariantId }
-          : undefined),
-        ...(shouldResolveMarketAsset
-          ? {
-              resolveMarketAsset: true,
-              marketTokenSymbol: resolvedItem.symbol,
-            }
           : undefined),
         ...(resolvedItem.skipMarketDataFetch
           ? { skipMarketDataFetch: true }
@@ -311,11 +269,12 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const detailRouteName = stockId
         ? ETabMarketRoutes.MarketStockDetail
         : ETabMarketRoutes.MarketDetailV2;
-      const shouldReplaceCurrentDetail = Boolean(
-        options?.replaceCurrentDetail && currentRouteName !== detailRouteName,
-      );
       const shouldUpdateCurrentDetail = Boolean(
-        options?.replaceCurrentDetail && currentRouteName === detailRouteName,
+        options?.replaceCurrentDetail &&
+        canReuseMarketDetailRoute(currentRouteName, detailRouteName),
+      );
+      const shouldReplaceCurrentDetail = Boolean(
+        options?.replaceCurrentDetail && !shouldUpdateCurrentDetail,
       );
 
       // Check if in extension popup/side panel
@@ -433,6 +392,16 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             return;
           }
         }
+        if (
+          shouldReplaceCurrentDetail &&
+          !platformEnv.isNative &&
+          openOrReplaceMarketDetailRoute({
+            routeName: detailRouteName,
+            params: params as Record<string, unknown>,
+          })
+        ) {
+          return;
+        }
         if (shouldUpdateCurrentDetail) {
           navigation.setParams(
             buildReplacedMarketDetailParams(params as Record<string, unknown>),
@@ -455,7 +424,6 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     },
     [
       currentRouteName,
-      currentRouteKey,
       intl,
       navigation,
       buildPreviewTokenDetail,
@@ -463,7 +431,6 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       options?.from,
       options?.marketTokenCategory,
       options?.replaceCurrentDetail,
-      options?.resolveMarketAsset,
       options?.showFavoriteButton,
       preloadLayout,
       splitViewType,
