@@ -1686,10 +1686,10 @@ index 1c84484..976b44f 100644
  
  #if !TARGET_OS_TV
 diff --git a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
-index fd6f70d..38e71da 100644
+index fd6f70d..bb01cec 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
-@@ -2,6 +2,87 @@
+@@ -2,6 +2,92 @@
  #import "RNSScreenContainer.h"
  #import "RNSScreenStack.h"
  
@@ -1717,6 +1717,11 @@ index fd6f70d..38e71da 100644
 +
 ++ (void)suppressForScene:(UIWindowScene *)scene orientationMask:(UIInterfaceOrientationMask)mask
 +{
++  if ((1 << scene.effectiveGeometry.interfaceOrientation) & mask) {
++    // Nothing to rotate: the geometry may never change, which would keep
++    // animations off until the timeout.
++    return;
++  }
 +  if (RNSActiveSceneRotationSuppressor != nil) {
 +    // Restore the state captured by the first request, not our own NO.
 +    [RNSActiveSceneRotationSuppressor finish];
@@ -1777,7 +1782,7 @@ index fd6f70d..38e71da 100644
  @implementation RNSScreenWindowTraits
  
  #if !TARGET_OS_TV && !TARGET_OS_VISION
-@@ -148,9 +229,6 @@ + (void)enforceDesiredDeviceOrientation
+@@ -148,9 +234,6 @@ + (void)enforceDesiredDeviceOrientation
  
          UIWindowSceneGeometryPreferencesIOS *geometryPreferences =
              [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:orientationMask];
@@ -1787,7 +1792,7 @@ index fd6f70d..38e71da 100644
  
          // `attemptRotationToDeviceOrientation` is deprecated for modern OS versions
          // so we need to use `setNeedsUpdateOfSupportedInterfaceOrientations`
-@@ -159,7 +237,47 @@ + (void)enforceDesiredDeviceOrientation
+@@ -159,7 +242,47 @@ + (void)enforceDesiredDeviceOrientation
            topController = topController.presentedViewController;
          }
  
