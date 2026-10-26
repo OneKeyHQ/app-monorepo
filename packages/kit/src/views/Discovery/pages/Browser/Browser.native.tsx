@@ -140,8 +140,14 @@ const BrowserPageBackdrop = memo(
   ({ tabId }: { tabId: string | null | undefined }) => {
     const baseColor = usePageBaseColor(tabId);
     return (
+      // Not `fullscreen`: on native, Stack is core's View, which lacks that
+      // variant (only YStack/XStack have it), so it would collapse to 0 high.
       <Stack
-        fullscreen
+        position="absolute"
+        top={0}
+        right={0}
+        bottom={0}
+        left={0}
         bg="$bgApp"
         style={baseColor ? { backgroundColor: baseColor } : undefined}
       />
