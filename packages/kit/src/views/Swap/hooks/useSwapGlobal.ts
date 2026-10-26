@@ -1116,15 +1116,28 @@ export function useSwapInit(params?: ISwapInitParams) {
       const cachedNetwork = swapNetworksRef.current.find(
         (network) => network.networkId === params.importFromToken?.networkId,
       );
-      const provisionalToToken = getSwapEntryDefaultToToken({
-        fromToken: params.importFromToken,
-        swapNetworks:
-          defaultConfigStatusRef.current === 'failed'
-            ? []
-            : swapNetworksRef.current,
-        isSupportSwap: cachedNetwork?.supportSingleSwap,
-        isSupportCrossChain: cachedNetwork?.supportCrossChainSwap,
-      });
+      const cachedToToken =
+        params.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+        toTokenRef.current?.networkId === params.importFromToken.networkId &&
+        !equalTokenNoCaseSensitive({
+          token1: toTokenRef.current,
+          token2: params.importFromToken,
+        })
+          ? toTokenRef.current
+          : undefined;
+      const provisionalToToken =
+        cachedToToken ??
+        (defaultConfigStatusRef.current === 'pending'
+          ? undefined
+          : getSwapEntryDefaultToToken({
+              fromToken: params.importFromToken,
+              swapNetworks:
+                defaultConfigStatusRef.current === 'failed'
+                  ? []
+                  : swapNetworksRef.current,
+              isSupportSwap: cachedNetwork?.supportSingleSwap,
+              isSupportCrossChain: cachedNetwork?.supportCrossChainSwap,
+            }));
       fromTokenRef.current = params.importFromToken;
       toTokenRef.current = provisionalToToken;
       setSwapFromToken(params.importFromToken);
@@ -1419,7 +1432,8 @@ export function useSwapInit(params?: ISwapInitParams) {
       );
       const importToToken: ISwapToken | undefined =
         isAssetCounterpartEntry && params?.importFromToken
-          ? getSwapEntryDefaultToToken({
+          ? (deferredImportedTokensRef.current?.toToken ??
+            getSwapEntryDefaultToToken({
               fromToken: params.importFromToken,
               swapNetworks:
                 defaultConfigStatusRef.current === 'failed'
@@ -1427,7 +1441,7 @@ export function useSwapInit(params?: ISwapInitParams) {
                   : swapNetworksRef.current,
               isSupportSwap: assetNetwork?.supportSingleSwap,
               isSupportCrossChain: assetNetwork?.supportCrossChainSwap,
-            })
+            }))
           : params?.importToToken;
       const hasImportTokenNetwork =
         Boolean(
@@ -1843,6 +1857,15 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (initialSelectedTokensSyncedRef.current) {
       return;
     }
+    const deferredImport = deferredImportedTokensRef.current;
+    if (
+      deferredImport &&
+      deferredImport.key === swapInitParamsConsumptionKey &&
+      consumedSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey
+    ) {
+      // The entry owns completion until its counterpart is applied or resolved empty.
+      return;
+    }
     const hasSelectedTokens = Boolean(
       fromTokenRef.current || toTokenRef.current,
     );
@@ -1875,6 +1898,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapActiveAccount.network?.id,
     validateSelectedTokensColdStartContext,
     markInitialSelectedTokensSynced,
+    swapInitParamsConsumptionKey,
   ]);
 
   useEffect(() => {
@@ -1955,6 +1979,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   }, [fetchSyncSwapProviderManager]);
 
   useEffect(() => {
+    let isActive = true;
     void (async () => {
       const importNetworkId = params?.importNetworkId;
       const currentNetworkId = swapAddressInfoRef.current?.networkId;
@@ -1970,15 +1995,32 @@ export function useSwapInit(params?: ISwapInitParams) {
       ) {
         return;
       }
-      appliedImportNetworkIdRef.current = importNetworkId;
+      if (
+        params?.swapSource === ESwapSource.WALLET_HOME &&
+        !params.importFromToken &&
+        !params.importToToken
+      ) {
+        // Establish the automatic pair's owner before announcing its network.
+        const homeSync = await syncSwapSelectedAccountFromLatestHomeStorage();
+        if (!isActive || homeSync.cancelled) {
+          return;
+        }
+      }
       if (importNetworkId !== currentNetworkId) {
         await updateSelectedAccountNetwork({
           num: 0,
           networkId: importNetworkId,
           reason: 'swapImportNetworkSync',
+          shouldCommit: () => isActive,
         });
       }
+      if (isActive) {
+        appliedImportNetworkIdRef.current = importNetworkId;
+      }
     })();
+    return () => {
+      isActive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isFocused,

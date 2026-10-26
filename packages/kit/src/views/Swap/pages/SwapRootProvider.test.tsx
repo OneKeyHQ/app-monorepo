@@ -2,11 +2,17 @@
 
 import { act, render } from '@testing-library/react';
 
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { purgeOldColdStartRuntimeKeys } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -25,15 +31,17 @@ import {
 } from '../../../states/jotai/contexts/swap/tokenSelectorData';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 
-import { SwapRootProvider } from './SwapRootProvider';
+import { SwapModalRootProvider, SwapRootProvider } from './SwapRootProvider';
 
 let mockSnapshotRaw: string | undefined;
 
-const mockHomeSelectedAccount = {
+const mockHomeSelectedAccount: IAccountSelectorSelectedAccount = {
   walletId: 'wallet-1',
   indexedAccountId: 'account-1',
   deriveType: 'default',
   networkId: 'evm--1',
+  focusedWallet: 'wallet-1',
+  othersWalletAccountId: undefined,
 };
 
 jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({
@@ -71,6 +79,8 @@ function setSnapshot(context: ISwapSelectedTokensColdStartContext) {
   };
   const snapshot = {
     [`store:accountSelector@home::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom}`]:
+      { 0: mockHomeSelectedAccount },
+    [`store:accountSelector@swap::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom}`]:
       { 0: mockHomeSelectedAccount },
     [`store:swap::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom}`]:
       fromToken,
@@ -211,10 +221,10 @@ describe.each(['native main', 'desktop single runtime'])(
           await Promise.resolve();
         });
         expect(store.get(swapSelectFromTokenAtom())?.symbol).toBe(
-          automatic ? 'BTC' : 'ETH',
+          automatic ? undefined : 'ETH',
         );
         expect(store.get(swapSelectToTokenAtom())?.symbol).toBe(
-          automatic ? 'ETH' : 'USDC',
+          automatic ? undefined : 'USDC',
         );
         view.unmount();
       },
@@ -242,6 +252,105 @@ describe.each(['native main', 'desktop single runtime'])(
       );
       view.unmount();
     });
+
+    it('keeps automatic ownership when account initialization announces the same selection', async () => {
+      setSnapshot(automaticContext);
+      const view = render(<SwapRootProvider />);
+      const store = jotaiContextStore.getOrCreateStore({
+        storeName: EJotaiContextStoreNames.swap,
+      });
+      await act(async () => {
+        appEventBus.emit(
+          EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+          {
+            sceneName: EAccountSelectorSceneName.swap,
+            num: 0,
+            selectedAccount: { ...mockHomeSelectedAccount },
+            selectedAccountUpdatedAt: undefined,
+            trigger: 'selection-effect',
+          },
+        );
+      });
+      expect(
+        store.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
+      ).toEqual(automaticContext.defaultTokenSeed);
+      view.unmount();
+    });
+
+    it.each([undefined, 999])(
+      'ignores an initialization or older account save announced after a modal seed was created (revision=%s)',
+      async (revision) => {
+        const store = jotaiContextStore.getOrCreateStore({
+          storeName: EJotaiContextStoreNames.swapModal,
+        });
+        store.set(swapSelectFromTokenAtom(), fromToken);
+        store.set(swapSelectToTokenAtom(), toToken);
+        store.set(swapSelectedTokensColdStartContextAtom(), {
+          ...automaticContext,
+          updatedAt: 1000,
+        });
+        const view = render(<SwapModalRootProvider />);
+        const event = {
+          sceneName: EAccountSelectorSceneName.swap,
+          num: 0,
+          selectedAccount: { ...mockHomeSelectedAccount, networkId: 'btc--0' },
+          selectedAccountUpdatedAt: revision,
+          trigger: 'selection-effect',
+        };
+        await act(async () => {
+          appEventBus.emit(
+            EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+            event,
+          );
+        });
+        expect(
+          store.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
+        ).toEqual(automaticContext.defaultTokenSeed);
+        await act(async () => {
+          appEventBus.emit(
+            EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+            {
+              ...event,
+              selectedAccountUpdatedAt: 1001,
+            },
+          );
+        });
+        expect(
+          store.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
+        ).toBeUndefined();
+        view.unmount();
+      },
+    );
+
+    it.each([
+      { indexedAccountId: 'another-account' },
+      { networkId: 'btc--0' },
+      { deriveType: 'BIP44' as const },
+    ])(
+      'releases automatic ownership for a changed user account selection: %j',
+      async (change) => {
+        setSnapshot(automaticContext);
+        const view = render(<SwapRootProvider />);
+        const store = jotaiContextStore.getOrCreateStore({
+          storeName: EJotaiContextStoreNames.swap,
+        });
+        await act(async () => {
+          appEventBus.emit(
+            EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
+            {
+              sceneName: EAccountSelectorSceneName.swap,
+              num: 0,
+              selectedAccount: { ...mockHomeSelectedAccount, ...change },
+              selectedAccountUpdatedAt: Date.now(),
+            },
+          );
+        });
+        expect(
+          store.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
+        ).toBeUndefined();
+        view.unmount();
+      },
+    );
 
     it('preserves a pair and amount already entered in the current store', async () => {
       setSnapshot(automaticContext);

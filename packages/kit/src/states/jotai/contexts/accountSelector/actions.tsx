@@ -2032,12 +2032,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num: number;
         networkId: string;
         reason?: string;
+        shouldCommit?: () => boolean;
       },
     ) => {
-      const { num, networkId, reason } = payload;
+      const { num, networkId, reason, shouldCommit } = payload;
       await this.updateSelectedAccount.call(set, {
         num,
         reason: reason || 'updateSelectedAccountNetwork',
+        shouldCommit,
         builder: (v) => ({
           ...v,
           networkId,
