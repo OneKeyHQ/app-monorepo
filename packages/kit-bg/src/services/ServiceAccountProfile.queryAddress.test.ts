@@ -80,6 +80,7 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
 jest.mock('../vaults/localWallet/isLocalWalletNetwork', () => ({
   isLocalWalletNetwork: async ({ networkId }: { networkId: string }) =>
     networkId === 'zec--0',
+  isAddressWithheldFromBackend: async () => false,
 }));
 jest.mock('../vaults/factory', () => ({
   vaultFactory: {},

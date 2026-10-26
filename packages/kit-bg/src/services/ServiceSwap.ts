@@ -142,6 +142,7 @@ import {
   swapLimitOrdersLoadingAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import { isAddressWithheldFromBackend } from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -1326,6 +1327,7 @@ export default class ServiceSwap extends ServiceBase {
     accountAddress: string;
     accountId: string;
   }): Promise<boolean> {
+    if (await isAddressWithheldFromBackend({ networkId })) return false;
     return this.checkTokenPrivateSendSupportedMemo(
       networkId,
       contractAddress,

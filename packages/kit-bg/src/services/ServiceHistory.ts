@@ -90,6 +90,7 @@ import { perpsDepositOrderAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { mergeZcashLocalTransparentPayment } from '../vaults/impls/zcash/backendHistory';
 import { getLocalWalletHistoryAddressGate } from '../vaults/localWallet/historyAddressGate';
+import { isAddressWithheldFromBackend } from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -2703,15 +2704,12 @@ class ServiceHistory extends ServiceBase {
       extraParams = await this.buildFetchHistoryListParams(params);
       let extraRequestParams = extraParams;
       if (networkId === getNetworkIdsMap().onekeyall) {
-        const requestAccounts = await this.excludeAddressWithheldAccounts(
-          (
+        extraRequestParams = {
+          allNetworkAccounts: (
             extraParams as unknown as {
               allNetworkAccounts: IAllNetworkHistoryExtraItem[];
             }
-          ).allNetworkAccounts,
-        );
-        extraRequestParams = {
-          allNetworkAccounts: requestAccounts.map((i) => ({
+          ).allNetworkAccounts.map((i) => ({
             networkId: i.networkId,
             accountAddress: i.accountAddress,
             xpub: i.accountXpub,
@@ -2967,26 +2965,6 @@ class ServiceHistory extends ServiceBase {
     return isBackendOnly ? poolIds[0] : undefined;
   }
 
-  private async isAddressWithheldFromBackend(networkId: string) {
-    const { localWallet } =
-      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-    return localWallet?.withholdAddressFromBackend === true;
-  }
-
-  private async excludeAddressWithheldAccounts<T extends { networkId: string }>(
-    accounts: T[],
-  ): Promise<T[]> {
-    const withheldNetworkIds = new Set<string>();
-    await Promise.all(
-      uniq(accounts.map((i) => i.networkId)).map(async (id) => {
-        if (await this.isAddressWithheldFromBackend(id)) {
-          withheldNetworkIds.add(id);
-        }
-      }),
-    );
-    return accounts.filter((i) => !withheldNetworkIds.has(i.networkId));
-  }
-
   @backgroundMethod()
   public async fetchTransferRecipients(params: {
     accountId: string;
@@ -3004,7 +2982,7 @@ class ServiceHistory extends ServiceBase {
 
     // Same shape as a server "unsupported" answer: the UI falls back to its
     // locally stored recipients and never retries.
-    if (await this.isAddressWithheldFromBackend(networkId)) {
+    if (await isAddressWithheldFromBackend({ networkId })) {
       return { supported: false, data: [] };
     }
 
