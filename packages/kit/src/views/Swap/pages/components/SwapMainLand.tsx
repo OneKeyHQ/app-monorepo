@@ -1520,6 +1520,7 @@ const SwapMainLoad = ({
   });
   useSwapQuote({
     isMarketEmbeddedSwap,
+    storeName,
   });
 
   const [hasSwitchedSwapType, setHasSwitchedSwapType] = useState(false);
