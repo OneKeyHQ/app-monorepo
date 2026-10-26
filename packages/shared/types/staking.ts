@@ -2523,11 +2523,19 @@ export interface IEarnSummaryV2 {
     title: IEarnText;
     token: IEarnToken;
     button: IEarnHistoryActionIcon;
+    /** Token quantity at full precision. Absent on older responses. */
+    amount?: string | null;
+    /** USD value. Null when the server has no price. Absent on older responses. */
+    usdValue?: string | null;
   }[];
   undistributed: {
     title: IEarnText;
     description: IEarnText;
     token: IEarnToken;
+    /** Token quantity at full precision. Absent on older responses. */
+    amount?: string | null;
+    /** USD value. Null when the server has no price. Absent on older responses. */
+    usdValue?: string | null;
   }[];
 }
 
