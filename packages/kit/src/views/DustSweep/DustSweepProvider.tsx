@@ -193,6 +193,9 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     [current, visibleNetworks],
   );
   const currentNetworkId = current?.network.networkId;
+  const assetsUnavailable =
+    data.loadFailed ||
+    !!(currentNetworkId && data.failedNetworkIds?.includes(currentNetworkId));
   const currentOwner = current ? getDustSweepNetworkOwner(current) : undefined;
   const selection =
     selectionState?.scope === loadParams &&
@@ -205,9 +208,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     ? reconciliation.entries[getDustSweepNetworkOwner(current)]
     : undefined;
   const assetStatus = currentReconciliation?.status ?? 'ready';
-  // Background discovery can use stale data. A post-transaction owner refresh
-  // retains its own barrier and successful-token exclusions.
-  const assetsReady = !!current && assetStatus === 'ready';
+  // Cached assets remain usable while their first refresh is pending. A
+  // post-transaction owner refresh retains its own barrier and exclusions.
+  const assetsReady =
+    !!current && assetStatus === 'ready' && !assetsUnavailable;
   const sweptKeys = currentReconciliation?.sweptKeys;
   useEffect(() => {
     if (!selecting || !currentNetworkId || currentNetworkId === networkId)
@@ -217,11 +221,11 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   const { visible, hidden } = useMemo(
     () =>
       filterDustSweepCandidates(
-        current?.tokens ?? [],
+        assetsUnavailable ? [] : (current?.tokens ?? []),
         threshold,
         includeHidden,
       ),
-    [current, threshold, includeHidden],
+    [assetsUnavailable, current, threshold, includeHidden],
   );
   const selected = useMemo(
     () =>
@@ -234,7 +238,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   );
   useEffect(() => {
     // Freeze each displayed selection before background reads can add tokens.
-    if (selecting && current && !selection)
+    if (selecting && current && !selection && !assetsUnavailable)
       setSelection({
         scope: loadParams,
         owner: currentOwner,
@@ -242,6 +246,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
         keys: new Set(selected.map((token) => token.key)),
       });
   }, [
+    assetsUnavailable,
     current,
     currentOwner,
     loadParams,
