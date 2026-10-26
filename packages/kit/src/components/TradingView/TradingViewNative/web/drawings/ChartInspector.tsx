@@ -1,5 +1,7 @@
 import type { MouseEventHandler, ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   ButtonFrame,
   ScrollView,
@@ -9,6 +11,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DrawingIcon } from './DrawingToolbar';
 import { DRAWING_TOOLS } from './model';
@@ -138,6 +141,7 @@ export function ChartInspector({
 }: {
   controller: IChartDrawingsController;
 }) {
+  const intl = useIntl();
   const theme = useTheme();
   const { state } = controller;
   const selected = state.history.present.find(
@@ -154,9 +158,12 @@ export function ChartInspector({
     <YStack
       render="section"
       testID="chart-inspector-panel"
-      aria-label={
-        state.panel === 'objects' ? 'Object Tree panel' : 'Data Window panel'
-      }
+      aria-label={intl.formatMessage({
+        id:
+          state.panel === 'objects'
+            ? ETranslations.market_drawing_object_tree_panel__title
+            : ETranslations.market_drawing_data_window_panel__title,
+      })}
       width={265}
       minHeight={0}
       flexShrink={0}
@@ -173,11 +180,18 @@ export function ChartInspector({
         borderColor="$borderSubdued"
       >
         <SizableText fontSize={13} fontWeight="600">
-          {state.panel === 'objects' ? 'Object Tree' : 'Data Window'}
+          {intl.formatMessage({
+            id:
+              state.panel === 'objects'
+                ? ETranslations.market_drawing_object_tree__title
+                : ETranslations.market_drawing_data_window__title,
+          })}
         </SizableText>
         <InspectorButton
-          label="Collapse chart panel"
-          title="Collapse"
+          label={intl.formatMessage({
+            id: ETranslations.market_drawing_collapse_panel__action,
+          })}
+          title={intl.formatMessage({ id: ETranslations.global_collapse })}
           width={24}
           height={26}
           onPress={() => controller.togglePanel(state.panel ?? 'objects')}
@@ -189,13 +203,17 @@ export function ChartInspector({
         {state.panel === 'objects' ? (
           <YStack
             render="ul"
-            aria-label="Drawing objects"
+            aria-label={intl.formatMessage({
+              id: ETranslations.market_drawing_drawing_objects__title,
+            })}
             margin={0}
             paddingHorizontal={0}
             paddingVertical={5}
           >
             {[...state.history.present].toReversed().map((drawing) => {
-              const label = drawing.name || DRAWING_TOOLS[drawing.tool].label;
+              const label =
+                drawing.name ||
+                intl.formatMessage({ id: DRAWING_TOOLS[drawing.tool].labelId });
               const isSelected = state.selectedIds.includes(drawing.id);
               const isHidden = drawing.hidden || state.hidden;
               return (
@@ -216,7 +234,10 @@ export function ChartInspector({
                   backgroundColor={isSelected ? '$bgActive' : '$transparent'}
                 >
                   <InspectorButton
-                    label={`Select ${label}`}
+                    label={intl.formatMessage(
+                      { id: ETranslations.market_drawing_select_name__action },
+                      { name: label },
+                    )}
                     title={label}
                     active={isSelected}
                     flex={1}
@@ -247,8 +268,19 @@ export function ChartInspector({
                     </SizableText>
                   </InspectorButton>
                   <InspectorButton
-                    label={`${drawing.hidden ? 'Show' : 'Hide'} ${label}`}
-                    title={drawing.hidden ? 'Show' : 'Hide'}
+                    label={intl.formatMessage(
+                      {
+                        id: drawing.hidden
+                          ? ETranslations.market_drawing_show_name__action
+                          : ETranslations.market_drawing_hide_name__action,
+                      },
+                      { name: label },
+                    )}
+                    title={intl.formatMessage({
+                      id: drawing.hidden
+                        ? ETranslations.market_drawing_show__action
+                        : ETranslations.market_drawing_hide__action,
+                    })}
                     width={25}
                     height={28}
                     onPress={() =>
@@ -263,8 +295,19 @@ export function ChartInspector({
                     />
                   </InspectorButton>
                   <InspectorButton
-                    label={`${drawing.locked ? 'Unlock' : 'Lock'} ${label}`}
-                    title={drawing.locked ? 'Unlock' : 'Lock'}
+                    label={intl.formatMessage(
+                      {
+                        id: drawing.locked
+                          ? ETranslations.market_drawing_unlock_name__action
+                          : ETranslations.market_drawing_lock_name__action,
+                      },
+                      { name: label },
+                    )}
+                    title={intl.formatMessage({
+                      id: drawing.locked
+                        ? ETranslations.global_unlock
+                        : ETranslations.market_drawing_lock__action,
+                    })}
                     width={25}
                     height={28}
                     disabled={state.locked}
@@ -280,8 +323,13 @@ export function ChartInspector({
                     />
                   </InspectorButton>
                   <InspectorButton
-                    label={`Delete ${label}`}
-                    title="Delete"
+                    label={intl.formatMessage(
+                      { id: ETranslations.market_drawing_delete_name__action },
+                      { name: label },
+                    )}
+                    title={intl.formatMessage({
+                      id: ETranslations.global_delete,
+                    })}
                     width={25}
                     height={28}
                     disabled={drawing.locked || state.locked}
@@ -302,7 +350,9 @@ export function ChartInspector({
                 fontSize={12}
                 lineHeight={20}
               >
-                Drawings on this chart will appear here.
+                {intl.formatMessage({
+                  id: ETranslations.market_drawing_objects_empty__desc,
+                })}
               </SizableText>
             ) : null}
           </YStack>
@@ -310,21 +360,44 @@ export function ChartInspector({
         {state.panel === 'data' && data ? (
           <>
             <DataSection
-              title={data.historical ? 'Selected bar' : 'Latest bar'}
+              title={intl.formatMessage({
+                id: data.historical
+                  ? ETranslations.market_drawing_selected_bar__title
+                  : ETranslations.market_drawing_latest_bar__title,
+              })}
             >
-              <DataRow label="Date" testID="chart-data-date">
+              <DataRow
+                label={intl.formatMessage({ id: ETranslations.global_date })}
+                testID="chart-data-date"
+              >
                 {date?.slice(0, 10)}
               </DataRow>
-              <DataRow label="Time (UTC)" testID="chart-data-time">
+              <DataRow
+                label={intl.formatMessage({
+                  id: ETranslations.market_drawing_time_utc__title,
+                })}
+                testID="chart-data-time"
+              >
                 {date?.slice(11, 19)}
               </DataRow>
             </DataSection>
             {data.groups.map((group, index) => (
-              <DataSection title={group.name} key={`${group.name}-${index}`}>
+              <DataSection
+                title={
+                  group.labelId
+                    ? intl.formatMessage({ id: group.labelId })
+                    : group.name
+                }
+                key={`${group.name}-${index}`}
+              >
                 {group.rows.map((row) => (
                   <DataRow
                     key={row.name}
-                    label={row.name}
+                    label={
+                      row.labelId
+                        ? intl.formatMessage({ id: row.labelId })
+                        : row.name
+                    }
                     testID={`chart-data-${row.name}`}
                     title={String(row.value ?? '')}
                   >
@@ -347,22 +420,33 @@ export function ChartInspector({
             fontSize={12}
             lineHeight={20}
           >
-            Waiting for chart data…
+            {intl.formatMessage({
+              id: ETranslations.market_drawing_data_loading__desc,
+            })}
           </SizableText>
         ) : null}
       </ScrollView>
       {state.panel === 'objects' && selected ? (
         <YStack padding={10} borderTopWidth={1} borderColor="$borderSubdued">
           <XStack render="label" alignItems="center" gap={8}>
-            <SizableText fontSize={12}>Name</SizableText>
+            <SizableText fontSize={12}>
+              {intl.formatMessage({
+                id: ETranslations.market_drawing_object_name__title,
+              })}
+            </SizableText>
             <SizableText
               key={`${selected.id}-${selected.name ?? ''}`}
               render={
                 <input
-                  aria-label="Object name"
+                  aria-label={intl.formatMessage({
+                    id: ETranslations.market_drawing_object_name__title,
+                  })}
                   maxLength={100}
                   defaultValue={
-                    selected.name ?? DRAWING_TOOLS[selected.tool].label
+                    selected.name ??
+                    intl.formatMessage({
+                      id: DRAWING_TOOLS[selected.tool].labelId,
+                    })
                   }
                   disabled={selected.locked || state.locked}
                   onBlur={(event) => {
@@ -395,7 +479,9 @@ export function ChartInspector({
           </XStack>
           <XStack gap={8} marginTop={8}>
             <InspectorButton
-              label="Bring drawing forward"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_bring_drawing_forward__action,
+              })}
               flex={1}
               gap={8}
               padding={6}
@@ -409,11 +495,15 @@ export function ChartInspector({
               onPress={() => controller.reorderDrawing(selected.id, 1)}
             >
               <SizableText fontSize={12} lineHeight={16}>
-                Bring forward
+                {intl.formatMessage({
+                  id: ETranslations.market_drawing_bring_forward__action,
+                })}
               </SizableText>
             </InspectorButton>
             <InspectorButton
-              label="Send drawing backward"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_send_drawing_backward__action,
+              })}
               flex={1}
               gap={8}
               padding={6}
@@ -423,7 +513,9 @@ export function ChartInspector({
               onPress={() => controller.reorderDrawing(selected.id, -1)}
             >
               <SizableText fontSize={12} lineHeight={16}>
-                Send backward
+                {intl.formatMessage({
+                  id: ETranslations.market_drawing_send_backward__action,
+                })}
               </SizableText>
             </InspectorButton>
           </XStack>
