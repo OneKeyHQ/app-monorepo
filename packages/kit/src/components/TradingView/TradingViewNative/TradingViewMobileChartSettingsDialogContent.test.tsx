@@ -34,6 +34,7 @@ const mockSelect = jest.fn<null, [ISelectProps]>(() => null);
 const mockChartModeSelect = jest.fn<null, [IChartModeSelectProps]>(() => null);
 type ISwitchProps = {
   testID?: string;
+  accessibilityLabel?: string;
   value?: boolean;
   onChange?: (value: boolean) => void;
 };
@@ -158,6 +159,9 @@ describe('TradingViewMobileChartSettingsDialogContent', () => {
         'trading-view-native-chart-settings-dialog-option-yAxis',
     )?.[0];
     expect(yAxisProps?.value).toBe(true);
+    expect(yAxisProps?.accessibilityLabel).toBe(
+      'market.chart_settings__y_axis',
+    );
 
     act(() => {
       yAxisProps?.onChange?.(false);

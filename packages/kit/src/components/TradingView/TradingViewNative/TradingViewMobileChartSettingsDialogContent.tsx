@@ -224,6 +224,7 @@ function QuickSettingOption({
     <SettingsListRow label={label}>
       <Switch
         testID={`trading-view-native-chart-settings-dialog-option-${option}`}
+        accessibilityLabel={label}
         size={ESwitchSize.small}
         value={value}
         onChange={(checked) => onChange(Boolean(checked))}
