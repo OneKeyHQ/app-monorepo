@@ -6,8 +6,9 @@
 //
 // Never fade glass through a parent's opacity: glass whose ancestor animates
 // to opacity 0 stops rendering and can leave later glass broken
-// (expo/expo#50097, #41024, #51575). Animate glassEffectStyle to 'none'
-// instead (see the mobile browser's BrowserChromeCapsule).
+// (expo/expo#50097, #41024, #51575). Shrink it away with a transform, or
+// animate glassEffectStyle to 'none', instead (the mobile browser's
+// BrowserChromeCapsule shrinks its glass).
 import { GlassView as ExpoGlassView } from 'expo-glass-effect';
 
 import { useThemeName } from '../../hooks/useStyle';

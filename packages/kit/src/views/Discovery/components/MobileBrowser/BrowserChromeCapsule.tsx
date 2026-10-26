@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import Animated, {
   interpolate,
@@ -42,32 +42,30 @@ export function PageBaseColorFill({
   );
 }
 
-// How a capsule fades in over `range` of `progress` (or out, with `reverse`).
+// How a capsule fades in over `range` of `progress`.
 export interface ICapsuleFade {
   progress: SharedValue<number>;
   range: [number, number];
-  reverse?: boolean;
+}
+
+// How far along its fade a capsule is: 0 hidden, 1 shown.
+function getFadeAmount(progress: number, [start, end]: [number, number]) {
+  'worklet';
+
+  return interpolate(progress, [start, end], [0, 1], 'clamp');
 }
 
 // Opacity of a capsule's contents along its fade. Callers that fade some
 // children differently (the address capsule's domain) apply it per child.
 export function useCapsuleFadeStyle(fade: ICapsuleFade | undefined) {
   const progress = fade?.progress;
-  const [start, end] = fade?.range ?? [0, 0];
-  const reverse = !!fade?.reverse;
-  return useAnimatedStyle(() => {
-    if (!progress) {
-      return { opacity: 1 };
-    }
-    return {
-      opacity: interpolate(
-        progress.value,
-        [start, end],
-        reverse ? [1, 0] : [0, 1],
-        'clamp',
-      ),
-    };
-  }, [progress, start, end, reverse]);
+  const range = fade?.range;
+  return useAnimatedStyle(
+    () => ({
+      opacity: progress && range ? getFadeAmount(progress.value, range) : 1,
+    }),
+    [progress, range],
+  );
 }
 
 // A glass capsule shrinks to this along its fade (contents fading too), like
@@ -78,33 +76,27 @@ const GLASS_COLLAPSED_SCALE = 0.001;
 
 function useCapsuleShrinkStyle(fade: ICapsuleFade | undefined) {
   const progress = fade?.progress;
-  const [start, end] = fade?.range ?? [0, 0];
-  const reverse = !!fade?.reverse;
+  const range = fade?.range;
   return useAnimatedStyle(() => {
-    if (!progress) {
+    if (!progress || !range) {
       return {};
     }
+    const amount = getFadeAmount(progress.value, range);
     return {
-      transform: [
-        {
-          scale: interpolate(
-            progress.value,
-            [start, end],
-            reverse ? [1, GLASS_COLLAPSED_SCALE] : [GLASS_COLLAPSED_SCALE, 1],
-            'clamp',
-          ),
-        },
-      ],
+      transform: [{ scale: Math.max(amount, GLASS_COLLAPSED_SCALE) }],
     };
-  }, [progress, start, end, reverse]);
+  }, [progress, range]);
 }
 
-// Telegram's panel glass tint: a faint white, so icons and text keep their
-// contrast over busy page content passing behind the glass.
-export function useChromeGlassTint() {
-  return useThemeName() === 'dark'
-    ? 'rgba(255,255,255,0.025)'
-    : 'rgba(255,255,255,0.1)';
+// Browser chrome glass, with Telegram's panel tint: a faint white, so icons
+// and text keep their contrast over busy page content passing behind it.
+// Not in the shared GlassView, which would tint glass across the app.
+export function ChromeGlassView(props: ComponentProps<typeof GlassView>) {
+  const tintColor =
+    useThemeName() === 'dark'
+      ? 'rgba(255,255,255,0.025)'
+      : 'rgba(255,255,255,0.1)';
+  return <GlassView tintColor={tintColor} {...props} />;
 }
 
 type IBrowserChromeCapsuleProps = PropsWithChildren<{
@@ -142,7 +134,6 @@ export function BrowserChromeCapsule({
   const isGlass = isLiquidGlassAvailable();
   const fadeStyle = useCapsuleFadeStyle(fade);
   const shrinkStyle = useCapsuleShrinkStyle(isGlass ? fade : undefined);
-  const glassTint = useChromeGlassTint();
   const row = (
     <XStack
       h={height}
@@ -164,15 +155,11 @@ export function BrowserChromeCapsule({
   }
   if (isGlass) {
     const glass = (
-      <GlassView
-        isInteractive
-        tintColor={glassTint}
-        style={{ borderRadius, flex }}
-      >
+      <ChromeGlassView isInteractive style={{ borderRadius, flex }}>
         <GlassHeaderProvider>
           {fade ? <Animated.View style={fadeStyle}>{row}</Animated.View> : row}
         </GlassHeaderProvider>
-      </GlassView>
+      </ChromeGlassView>
     );
     return fade ? (
       <Animated.View style={[{ flex }, shrinkStyle]}>{glass}</Animated.View>

@@ -3,6 +3,8 @@
 export const MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE = 108;
 // Mobile browser chrome collapse/expand (spring settle time).
 export const DISPLAY_BOTTOM_BAR_DURATION = 450;
+// iPhone chrome settling after following the finger (Telegram's 250ms).
+export const BROWSER_CHROME_SETTLE_DURATION = 250;
 // Mobile browser header (below the safe-area top inset); it collapses fully
 // while scrolling down, the address stays visible in the bottom pill.
 export const BROWSER_HEADER_HEIGHT = 46;

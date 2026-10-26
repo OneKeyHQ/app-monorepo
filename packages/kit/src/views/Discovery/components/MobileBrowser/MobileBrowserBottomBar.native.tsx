@@ -18,7 +18,6 @@ import Animated, {
 
 import {
   BlurView,
-  GlassView,
   IconButton,
   LinearGradient,
   SizableText,
@@ -60,10 +59,10 @@ import {
 } from './browserChrome';
 import {
   BrowserChromeCapsule,
+  ChromeGlassView,
   PILL_RADIUS,
   PageBaseColorFill,
   useCapsuleFadeStyle,
-  useChromeGlassTint,
 } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
 import RefreshButton from './RefreshButton';
@@ -315,7 +314,6 @@ function MorphingAddressBackground({
   capsuleBottom: number;
   pillBottom: number;
 }) {
-  const glassTint = useChromeGlassTint();
   const rowStyle = useAnimatedStyle(() => ({
     bottom: interpolate(progress.value, [0, 1], [pillBottom, capsuleBottom]),
     height: interpolate(
@@ -331,7 +329,7 @@ function MorphingAddressBackground({
     <Animated.View pointerEvents="none" style={[styles.morphRow, rowStyle]}>
       <Animated.View style={[styles.morphBackground, widthStyle]}>
         {isLiquidGlassAvailable() ? (
-          <GlassView style={styles.glassFill} tintColor={glassTint} />
+          <ChromeGlassView style={styles.glassFill} />
         ) : (
           <Stack flex={1} bg="$bgStrong" borderRadius={PILL_RADIUS} />
         )}

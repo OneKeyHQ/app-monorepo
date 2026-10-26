@@ -35,6 +35,13 @@ const isAndroid = platformEnv.isNativeAndroid;
 // an opaque strip. The page's base color fills in below its last content.
 export const PAGE_DRAWS_UNDER_BROWSER_BAR = !!platformEnv.isNativeIOSPhone;
 
+// Also iPhone, like Telegram: while a finger (or its fling) drives the page,
+// the chrome follows the scroll one to one instead of playing a preset
+// animation, and settles to the nearer state when the scroll ends (see
+// useMobileBrowserChromeAnimation). A separate switch from drawing under the
+// bar, though both are the same platform choice today.
+export const CHROME_FOLLOWS_SCROLL = !!platformEnv.isNativeIOSPhone;
+
 // How far the capsule's back button is pulled toward the site badge: its
 // narrow chevron leaves a wider gap there than to the capsule edge. Measured
 // per platform (solid Android capsule vs iOS glass) so both gaps match.
@@ -95,24 +102,16 @@ export function getDisplayHostname(url?: string) {
 export function useIsProgressPast(
   progress: SharedValue<number> | undefined,
   edge: number,
-  direction: 'below' | 'above' = 'below',
 ) {
   const [isPast, setIsPast] = useState(false);
   useAnimatedReaction(
-    () => {
-      if (!progress) {
-        return false;
-      }
-      return direction === 'below'
-        ? progress.value < edge
-        : progress.value > edge;
-    },
+    () => (progress ? progress.value < edge : false),
     (past, previous) => {
       if (past !== previous) {
         runOnJS(setIsPast)(past);
       }
     },
-    [progress, edge, direction],
+    [progress, edge],
   );
   return isPast;
 }

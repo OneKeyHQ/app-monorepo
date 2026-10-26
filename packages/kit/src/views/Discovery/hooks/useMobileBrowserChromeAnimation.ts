@@ -10,13 +10,15 @@ import {
 
 import { useSafeAreaInsets } from '@onekeyhq/components';
 import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  CHROME_FOLLOWS_SCROLL,
   getBarReservedHeight,
   getCollapsedReservedHeight,
 } from '../components/MobileBrowser/browserChrome';
 import {
+  BROWSER_CHROME_CROSSFADE_POINT,
+  BROWSER_CHROME_SETTLE_DURATION,
   BROWSER_HEADER_HEIGHT,
   DISPLAY_BOTTOM_BAR_DURATION,
   MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE,
@@ -38,16 +40,16 @@ const springConfig = {
   overshootClamping: true,
 };
 
-// iPhone, like Telegram's in-app browser: while a finger (or its fling)
-// drives the page, the chrome follows the scroll one to one instead of
-// playing a preset animation, and settles to the nearer state when the
-// scroll ends. Needs the WebView's isInteracting (patched in on iOS); other
-// scroll sources (the Explore dashboard) keep the direction trigger below.
-const CHROME_FOLLOWS_SCROLL = !!platformEnv.isNativeIOSPhone;
+// Following the finger (CHROME_FOLLOWS_SCROLL) needs the WebView's
+// isInteracting (patched in on iOS); other scroll sources (the Explore
+// dashboard) keep the direction trigger below.
 // Scrolling this far collapses (or expands) the chrome while following.
 const FOLLOW_DISTANCE = BROWSER_HEADER_HEIGHT;
 // Telegram's settle curve.
-const settleTiming = { duration: 250, easing: Easing.inOut(Easing.ease) };
+const settleTiming = {
+  duration: BROWSER_CHROME_SETTLE_DURATION,
+  easing: Easing.inOut(Easing.ease),
+};
 
 // Drives the mobile browser chrome (header + bottom bar) from WebView scroll:
 // scrolling down collapses both; scrolling up, reaching an edge of the page,
@@ -77,6 +79,17 @@ function useMobileBrowserChromeAnimation() {
   // Whether targetRef was reached by an animation (or is one's target), as
   // opposed to set by following, where the layout may still need to settle.
   const isSettledRef = useRef(true);
+  // Whether this side last set the WebView's collapsed layout, so following
+  // writes it once per gesture rather than on every event. Cleared when an
+  // expand is requested (its end restores the expanded layout on the UI
+  // thread), at worst costing one repeated write.
+  const layoutCollapsedRef = useRef(false);
+  const setLayoutCollapsed = useCallback(() => {
+    if (!layoutCollapsedRef.current) {
+      layoutCollapsedRef.current = true;
+      layoutExpanded.value = COLLAPSED;
+    }
+  }, [layoutExpanded]);
   // Room the collapsed pill needs when the bar is laid out in-flow (tablets).
   const collapsedBarHeight = getCollapsedReservedHeight(bottomInset);
 
@@ -88,7 +101,9 @@ function useMobileBrowserChromeAnimation() {
       targetRef.current = target;
       isSettledRef.current = true;
       if (target === COLLAPSED) {
-        layoutExpanded.value = COLLAPSED;
+        setLayoutCollapsed();
+      } else {
+        layoutCollapsedRef.current = false;
       }
       const onEnd = (finished?: boolean) => {
         'worklet';
@@ -102,7 +117,7 @@ function useMobileBrowserChromeAnimation() {
           ? withTiming(target, settleTiming, onEnd)
           : withSpring(target, springConfig, onEnd);
     },
-    [chromeProgress, layoutExpanded],
+    [chromeProgress, layoutExpanded, setLayoutCollapsed],
   );
 
   // Follows the finger (see CHROME_FOLLOWS_SCROLL). The WebView takes its
@@ -110,17 +125,12 @@ function useMobileBrowserChromeAnimation() {
   // smaller one only once the chrome settles fully expanded, so it resizes
   // at most twice per gesture rather than on every frame.
   const followScroll = useCallback(
-    ({
-      scrollY,
-      maxScrollY,
-      topInset,
-      isInteracting,
-    }: {
-      scrollY: number;
-      maxScrollY: number;
-      topInset: number;
-      isInteracting: boolean;
-    }) => {
+    (
+      scrollY: number,
+      maxScrollY: number,
+      topInset: number,
+      isInteracting: boolean,
+    ) => {
       const lastY = lastScrollYRef.current;
       lastScrollYRef.current = scrollY;
       let next = targetRef.current;
@@ -138,7 +148,10 @@ function useMobileBrowserChromeAnimation() {
       }
       next = Math.min(EXPANDED, Math.max(COLLAPSED, next));
       if (!isInteracting) {
-        animateTo(next < 0.5 ? COLLAPSED : EXPANDED, 'settle');
+        animateTo(
+          next < BROWSER_CHROME_CROSSFADE_POINT ? COLLAPSED : EXPANDED,
+          'settle',
+        );
         return;
       }
       if (next === targetRef.current) {
@@ -147,12 +160,12 @@ function useMobileBrowserChromeAnimation() {
       targetRef.current = next;
       isSettledRef.current = false;
       if (next < EXPANDED) {
-        layoutExpanded.value = COLLAPSED;
+        setLayoutCollapsed();
       }
       // Replaces any running animation.
       chromeProgress.value = next;
     },
-    [animateTo, chromeProgress, fullBarHeight, layoutExpanded],
+    [animateTo, chromeProgress, fullBarHeight, setLayoutCollapsed],
   );
 
   const handleScroll = useCallback(
@@ -183,12 +196,12 @@ function useMobileBrowserChromeAnimation() {
           animateTo(EXPANDED);
           return;
         }
-        followScroll({
-          scrollY: contentOffsetY,
-          maxScrollY: maxOffsetY,
-          topInset: contentInset.top,
+        followScroll(
+          contentOffsetY,
+          maxOffsetY,
+          contentInset.top,
           isInteracting,
-        });
+        );
         return;
       }
 
