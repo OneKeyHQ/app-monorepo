@@ -824,8 +824,9 @@ class ServicePrivacyChain extends ServiceBase {
     const state = await capability.getAccountState({ accountId });
     if (!state.enabled) return;
     await this.assertNotTempWalletAccount(accountId);
-    // An explicit refresh checks even an unchanged tip. It also resumes a
-    // manual pause through the same path as the floating control.
+    // A paused chain stays paused; the caller re-reads the stored balance.
+    if (this.boostPausedByNetwork[networkId]) return;
+    // An explicit refresh checks even an unchanged tip.
     for (const key of this.runtimeSyncState.keys()) {
       if (key.startsWith(`${networkId}|`)) this.runtimeSyncState.delete(key);
     }

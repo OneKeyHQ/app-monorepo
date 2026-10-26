@@ -100,6 +100,7 @@ async function createHarness() {
         ['zec--0|main', { accountSignature: accountId, lastChainTip: 200 }],
         ['xmr--0|main', { accountSignature: 'other', lastChainTip: 300 }],
       ]),
+      boostPausedByNetwork: {},
     },
   );
   const epoch = (await state.getAccountEpoch({ accountId }))!;
@@ -244,6 +245,17 @@ it('schedules an explicit refresh through Resume and forces a check even at an u
   expect(service.runtimeSyncState.has('zec--0|main')).toBe(false);
   expect(service.runtimeSyncState.has('xmr--0|main')).toBe(true);
   expect(await service.getLocalWalletLastSyncedAt(params)).toBeUndefined();
+});
+
+it('leaves a paused chain paused when the balance is refreshed', async () => {
+  const { service } = await createHarness();
+  service.boostPausedByNetwork[networkId] = true;
+  const start = jest
+    .spyOn(service, 'startForegroundBoost')
+    .mockResolvedValue(undefined);
+  await service.refreshLocalWalletAccount(params);
+  expect(start).not.toHaveBeenCalled();
+  expect(service.boostPausedByNetwork[networkId]).toBe(true);
 });
 
 it('does not use stale display progress to establish success, and does not lose authoritative success to a failed display read', async () => {
