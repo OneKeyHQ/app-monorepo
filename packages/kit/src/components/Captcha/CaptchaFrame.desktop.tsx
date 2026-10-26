@@ -12,7 +12,7 @@ import {
   parseCaptchaMessage,
 } from '@onekeyhq/shared/src/utils/captchaMessage';
 
-import type { ICaptchaFrameProps } from './captchaMessage';
+import type { ICaptchaFrameProps, ICaptchaFrameResult } from './captchaMessage';
 import type {
   DidFailLoadEvent,
   DidFrameNavigateEvent,
@@ -31,12 +31,15 @@ function DesktopCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
   const [failed, setFailed] = useState(false);
   const lifecycle = useRef({ active: false, failed: false });
   const deadline = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const failRef = useRef<() => void>(() => {});
+  const failRef = useRef<(message?: ICaptchaFrameResult) => void>(() => {});
 
   useEffect(() => {
     const current = lifecycle.current;
     current.active = true;
-    const fail = () => {
+    const fail = (
+      message?: ICaptchaFrameResult,
+      source: 'host_load_error' | 'host_watchdog' = 'host_load_error',
+    ) => {
       if (!current.active || current.failed) return;
       current.failed = true;
       clearTimeout(deadline.current);
@@ -46,12 +49,17 @@ function DesktopCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
         type: 'onekey-test-captcha',
         requestId,
         status: 'load-error',
+        code: message?.code,
+        source: message ? 'provider_message' : source,
       });
     };
     failRef.current = fail;
     // Include preload acquisition and silent HTTP error documents in the
     // deadline. Only a validated page message can complete startup.
-    deadline.current = setTimeout(fail, 30_000);
+    deadline.current = setTimeout(
+      () => fail(undefined, 'host_watchdog'),
+      30_000,
+    );
     if (!isDesktopCaptchaPage(url)) {
       fail();
     } else {
@@ -60,7 +68,7 @@ function DesktopCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
         .then((path) => {
           if (current.active && !current.failed) setPreload(path);
         })
-        .catch(fail);
+        .catch(() => fail());
     }
     return () => {
       current.active = false;
@@ -104,7 +112,7 @@ function DesktopCaptchaFrame({ url, requestId, onResult }: ICaptchaFrameProps) {
       const message = parseCaptchaMessage(envelope.message, requestId);
       if (!message) return;
       if (message.status === 'load-error') {
-        fail();
+        failRef.current(message);
         return;
       }
       clearTimeout(deadline.current);
