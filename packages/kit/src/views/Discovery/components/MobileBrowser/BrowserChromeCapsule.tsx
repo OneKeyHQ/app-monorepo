@@ -114,6 +114,10 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
   // Defaults to a full pill; a chip hosting a square-ish item (the account
   // avatar) uses a concentric radius instead.
   borderRadius?: number;
+  // The edge a glass capsule shrinks into along its fade (default: its
+  // center). Header capsules shrink outwards, into their screen corners,
+  // like Telegram's navigation bar items.
+  shrinkTowards?: 'left' | 'right';
 }>;
 
 // A pill (or circle, with a single child) hosting browser chrome buttons.
@@ -134,6 +138,7 @@ export function BrowserChromeCapsule({
   fade,
   background = true,
   borderRadius = PILL_RADIUS,
+  shrinkTowards,
 }: IBrowserChromeCapsuleProps) {
   const isGlass = isLiquidGlassAvailable();
   const fadeStyle = useCapsuleFadeStyle(fade);
@@ -166,7 +171,15 @@ export function BrowserChromeCapsule({
       </ChromeGlassView>
     );
     return fade ? (
-      <Animated.View style={[{ flex }, shrinkStyle]}>{glass}</Animated.View>
+      <Animated.View
+        style={[
+          { flex },
+          shrinkTowards && { transformOrigin: `${shrinkTowards} center` },
+          shrinkStyle,
+        ]}
+      >
+        {glass}
+      </Animated.View>
     ) : (
       glass
     );

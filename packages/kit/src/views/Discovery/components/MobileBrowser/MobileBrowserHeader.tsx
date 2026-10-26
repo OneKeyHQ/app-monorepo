@@ -143,12 +143,14 @@ function HeaderChip({
   px,
   bg,
   chip,
+  shrinkTowards,
   children,
 }: PropsWithChildren<{
   fade?: ICapsuleFade;
   px?: IXStackProps['px'];
   bg?: string;
   chip?: boolean;
+  shrinkTowards: 'left' | 'right';
 }>) {
   if (fade) {
     return (
@@ -157,6 +159,7 @@ function HeaderChip({
         px={px}
         fade={fade}
         borderRadius={chip ? ACCOUNT_CHIP_RADIUS : undefined}
+        shrinkTowards={shrinkTowards}
       >
         {children}
       </BrowserChromeCapsule>
@@ -285,7 +288,11 @@ function MobileBrowserHeader({
           >
             {/* No padding: the 36pt button alone fills the 36pt capsule, so
                 the glass is a circle. */}
-            <HeaderChip fade={isGlass ? fade : undefined} px="$0">
+            <HeaderChip
+              fade={isGlass ? fade : undefined}
+              px="$0"
+              shrinkTowards="left"
+            >
               {closeButton}
             </HeaderChip>
             {/* One compact chip for every account state (connected,
@@ -296,6 +303,7 @@ function MobileBrowserHeader({
               px="$1"
               bg={accountChipBg}
               chip
+              shrinkTowards="right"
             >
               {accountToolbar}
             </HeaderChip>
