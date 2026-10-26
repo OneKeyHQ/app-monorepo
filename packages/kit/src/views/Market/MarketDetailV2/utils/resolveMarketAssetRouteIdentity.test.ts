@@ -132,7 +132,7 @@ describe('resolveMarketAssetRouteIdentity', () => {
         symbol: 'BTC',
         isNative: false,
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBeNull();
   });
 
   it('matches a native Asset by network even when search returns a placeholder address', async () => {
@@ -150,6 +150,41 @@ describe('resolveMarketAssetRouteIdentity', () => {
       networkId: 'btc--0',
       tokenAddress: '',
     });
+  });
+
+  it('finishes resolution when the token is absent from Top Coins', async () => {
+    serviceMarket.fetchMarketAssetList.mockResolvedValueOnce({
+      list: [],
+      total: 0,
+    });
+    await expect(
+      resolveMarketAssetRouteIdentity({
+        networkId: 'evm--1',
+        tokenAddress: '0xtoken',
+        symbol: 'TOKEN',
+        isNative: false,
+      }),
+    ).resolves.toBeNull();
+    expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toHaveLength(0);
+  });
+
+  it('does not report a definitive miss when a candidate lookup fails', async () => {
+    serviceMarket.fetchMarketAssetList.mockResolvedValueOnce({
+      list: [bitcoin, { ...bitcoin, assetId: 'other-bitcoin' }],
+      total: 2,
+    });
+    serviceMarket.fetchMarketAssetDetail.mockRejectedValueOnce(
+      new Error('offline'),
+    );
+    await expect(
+      resolveMarketAssetRouteIdentity({
+        networkId: 'sol--101',
+        tokenAddress: 'DifferentBitcoinToken',
+        symbol: 'BTC',
+        isNative: false,
+      }),
+    ).resolves.toBeUndefined();
+    expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toHaveLength(2);
   });
 
   it('falls back without throwing when Asset lookup is unavailable', async () => {

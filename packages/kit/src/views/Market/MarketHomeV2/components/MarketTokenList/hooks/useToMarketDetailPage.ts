@@ -218,6 +218,16 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         ) {
           return;
         }
+        if (identity === undefined) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+          return;
+        }
+        // A completed miss uses the token layout without another blocking lookup.
+        shouldResolveMarketAsset = false;
         if (identity) {
           item = {
             ...item,
@@ -225,7 +235,6 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             assetId: identity.marketTokenId,
             address: identity.tokenAddress,
           };
-          shouldResolveMarketAsset = false;
         }
       }
       const resolvedItem = item;

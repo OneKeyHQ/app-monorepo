@@ -964,7 +964,7 @@ describe('useToDetailPage', () => {
   });
 
   it.each([true, false])(
-    'waits for desktop preflight and preserves route resolution when inconclusive (asset=%s)',
+    'finishes desktop preflight before navigation (asset=%s)',
     async (matchesAsset) => {
       Object.assign(platformEnv, {
         isExtensionUiPopup: false,
@@ -977,7 +977,7 @@ describe('useToDetailPage', () => {
         tokenAddress: '0xbtc',
         isNative: false,
       };
-      const pending = deferred<typeof identity | undefined>();
+      const pending = deferred<typeof identity | null>();
       jest
         .mocked(resolveMarketAssetRouteIdentity)
         .mockReturnValueOnce(pending.promise);
@@ -1003,15 +1003,15 @@ describe('useToDetailPage', () => {
       expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
 
       await act(async () => {
-        pending.resolve(matchesAsset ? identity : undefined);
+        pending.resolve(matchesAsset ? identity : null);
         await navigation;
       });
       expect(mockNavigationSetParams).toHaveBeenCalledTimes(1);
       expect(mockNavigationSetParams).toHaveBeenCalledWith(
         expect.objectContaining({
           tokenAddress: '0xbtc',
-          resolveMarketAsset: matchesAsset ? undefined : true,
-          marketTokenSymbol: matchesAsset ? undefined : 'BTC',
+          resolveMarketAsset: undefined,
+          marketTokenSymbol: undefined,
           marketTokenId: matchesAsset ? 'bitcoin' : undefined,
           marketTokenCategory: matchesAsset ? 'top_coins' : undefined,
           legacyTokenPreview: expect.objectContaining({ symbol: 'BTC' }),
@@ -1019,6 +1019,25 @@ describe('useToDetailPage', () => {
       );
     },
   );
+
+  it('keeps the current desktop detail when sidebar preflight fails', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: false });
+    jest
+      .mocked(resolveMarketAssetRouteIdentity)
+      .mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() =>
+      useToDetailPage({ replaceCurrentDetail: true, resolveMarketAsset: true }),
+    );
+    await act(async () => {
+      await result.current(tokenItem);
+    });
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+    expect(mockNavigationSetParams).not.toHaveBeenCalled();
+    expect(mockNavigationPush).not.toHaveBeenCalled();
+    expect(mockNavigationReplace).not.toHaveBeenCalled();
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockClearTokenDetail).not.toHaveBeenCalled();
+  });
 
   it.each([false, true])(
     'ignores desktop preflight after the source route leaves focus (unmount=%s)',
@@ -1067,11 +1086,11 @@ describe('useToDetailPage', () => {
 
   it('ignores an older sidebar selection when its identity resolves last', async () => {
     Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: false });
-    const pending = deferred<undefined>();
+    const pending = deferred<null>();
     jest
       .mocked(resolveMarketAssetRouteIdentity)
       .mockReturnValueOnce(pending.promise)
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce(null);
     const { result } = renderHook(() =>
       useToDetailPage({ replaceCurrentDetail: true, resolveMarketAsset: true }),
     );
@@ -1085,7 +1104,7 @@ describe('useToDetailPage', () => {
         tokenAddress: '0xsecond',
         symbol: 'SECOND',
       });
-      pending.resolve(undefined);
+      pending.resolve(null);
       await first;
     });
     expect(mockNavigationSetParams).toHaveBeenCalledTimes(1);

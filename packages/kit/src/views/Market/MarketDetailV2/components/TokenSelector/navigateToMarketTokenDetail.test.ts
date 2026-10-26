@@ -254,7 +254,7 @@ describe('navigateToMarketTokenDetail', () => {
   });
 
   it.each([true, false])(
-    'waits for desktop selector preflight and preserves route resolution when inconclusive (asset=%s)',
+    'finishes desktop selector resolution before navigation (asset=%s)',
     async (matchesAsset) => {
       getCurrentRouteMock.mockReturnValue({
         name: 'MarketDetailV2',
@@ -275,7 +275,7 @@ describe('navigateToMarketTokenDetail', () => {
         tokenAddress: '0xtoken',
         isNative: false,
       };
-      let resolve!: (value: typeof identity | undefined) => void;
+      let resolve!: (value: typeof identity | null) => void;
       jest.mocked(resolveMarketAssetRouteIdentity).mockReturnValueOnce(
         new Promise((done) => {
           resolve = done;
@@ -291,7 +291,7 @@ describe('navigateToMarketTokenDetail', () => {
       expect(dispatchMock).not.toHaveBeenCalled();
       expect(changeActiveTokenMock).not.toHaveBeenCalled();
       expect(beforeNavigate).not.toHaveBeenCalled();
-      resolve(matchesAsset ? identity : undefined);
+      resolve(matchesAsset ? identity : null);
       await pending;
       expect(beforeNavigate).toHaveBeenCalledTimes(1);
       expect(changeActiveTokenMock).not.toHaveBeenCalled();
@@ -304,8 +304,8 @@ describe('navigateToMarketTokenDetail', () => {
           payload: {
             params: expect.objectContaining({
               tokenAddress: '0xtoken',
-              resolveMarketAsset: matchesAsset ? undefined : true,
-              marketTokenSymbol: matchesAsset ? undefined : preview.symbol,
+              resolveMarketAsset: undefined,
+              marketTokenSymbol: undefined,
               legacyTokenPreview: preview,
               marketTokenId: matchesAsset ? 'token' : undefined,
               marketTokenCategory: matchesAsset ? 'top_coins' : undefined,
@@ -315,6 +315,43 @@ describe('navigateToMarketTokenDetail', () => {
       );
     },
   );
+
+  it('keeps the current desktop detail when preflight fails', async () => {
+    getCurrentRouteMock.mockReturnValue({
+      name: 'MarketDetailV2',
+      key: 'detail',
+    });
+    jest
+      .mocked(resolveMarketAssetRouteIdentity)
+      .mockResolvedValueOnce(undefined);
+    const beforeNavigate = jest.fn();
+    const onError = jest.fn();
+    await navigateToMarketTokenDetail(
+      { address: '0xtoken', networkId: 'evm--1' },
+      {
+        tokenDetailActions,
+        resolveMarketAsset: true,
+        tokenDetailPreview: {
+          address: '0xtoken',
+          networkId: 'evm--1',
+          symbol: 'TOKEN',
+          name: 'Token',
+          decimals: 18,
+          selectedAt: 1,
+        },
+        beforeNavigate,
+        onError,
+      },
+    );
+    jest.runAllTimers();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(beforeNavigate).not.toHaveBeenCalled();
+    expect(dispatchMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
+    expect(prepareTokenDetailPreviewMock).not.toHaveBeenCalled();
+    expect(clearTokenDetailMock).not.toHaveBeenCalled();
+    expect(changeActiveTokenMock).not.toHaveBeenCalled();
+  });
 
   it('does not close or navigate an obsolete desktop selector request', async () => {
     getCurrentRouteMock.mockReturnValue({

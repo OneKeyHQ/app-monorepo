@@ -112,6 +112,12 @@ export async function navigateToMarketTokenDetail(
       isNative: token.isNative,
     });
     if (!isCurrentRequest()) return;
+    if (identity === undefined) {
+      opts.onError?.();
+      return;
+    }
+    // Reuse completed misses too; resolving again would unmount the detail.
+    shouldResolveMarketAsset = false;
     if (identity) {
       token = {
         ...token,
@@ -121,7 +127,6 @@ export async function navigateToMarketTokenDetail(
         isNative: identity.isNative,
       };
       marketVariantId = identity.marketVariantId;
-      shouldResolveMarketAsset = false;
     }
   }
   const shortCode = networkUtils.getNetworkShortCode({

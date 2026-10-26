@@ -86,7 +86,13 @@ export function useResolvedMarketAssetRouteIdentity({
       isNative,
     }).then((identity) => {
       if (isActive) {
-        setResult({ tokenAddress, networkId, symbol, isNative, identity });
+        setResult({
+          tokenAddress,
+          networkId,
+          symbol,
+          isNative,
+          identity: identity ?? undefined,
+        });
       }
     });
 

@@ -23,7 +23,7 @@ export async function resolveMarketAssetRouteIdentity({
   symbol,
   isNative,
 }: IResolveMarketAssetRouteIdentityParams): Promise<
-  IMarketAssetRouteIdentity | undefined
+  IMarketAssetRouteIdentity | null | undefined
 > {
   const normalizedSymbol = symbol.trim().toUpperCase();
   if (!networkId || !normalizedSymbol || (!tokenAddress && !isNative)) {
@@ -42,6 +42,7 @@ export async function resolveMarketAssetRouteIdentity({
       (asset) => asset.symbol.trim().toUpperCase() === normalizedSymbol,
     );
 
+    let hasFailedCandidate = false;
     for (const candidate of candidates) {
       try {
         const detail =
@@ -67,8 +68,11 @@ export async function resolveMarketAssetRouteIdentity({
         }
       } catch {
         // Continue checking same-symbol assets when one detail request fails.
+        hasFailedCandidate = true;
       }
     }
+    // null is a completed lookup with no match; undefined remains retryable.
+    return hasFailedCandidate ? undefined : null;
   } catch {
     // Keep the existing token-detail route when Asset identity is unavailable.
   }
