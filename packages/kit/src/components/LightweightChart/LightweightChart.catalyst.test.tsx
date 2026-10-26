@@ -45,10 +45,12 @@ jest.mock('react-native-webview', () => {
 });
 
 test('Catalyst bypasses Skia and updates the ready WebView without reloading its document', () => {
-  jest.doMock('./LightweightChart', () => {
+  jest.doMock('./LightweightChart.native', () => {
     throw new OneKeyLocalError('Catalyst must not initialize the Skia chart');
   });
-  const { LightweightChart }: typeof import('./index') = require('./index');
+  const {
+    LightweightChart,
+  }: typeof import('./index.native') = require('./index.native');
   const onHover = jest.fn();
   const { rerender } = render(
     <LightweightChart data={[[100, 1]]} height={200} onHover={onHover} />,
@@ -83,3 +85,52 @@ test('Catalyst bypasses Skia and updates the ready WebView without reloading its
     y: 0,
   });
 });
+
+test('the shared entry loads the original chart without evaluating native implementations', () => {
+  jest.isolateModules(() => {
+    const originalChart = () => null;
+    jest.doMock('./LightweightChart', () => ({
+      LightweightChart: originalChart,
+    }));
+    jest.doMock('./LightweightChart.native', () => {
+      throw new OneKeyLocalError('The shared entry must not load Skia');
+    });
+    jest.doMock('./LightweightChart.catalyst', () => {
+      throw new OneKeyLocalError('The shared entry must not load Catalyst');
+    });
+
+    const { LightweightChart }: typeof import('./index') = require('./index');
+    expect(LightweightChart).toBe(originalChart);
+  });
+});
+
+test.each(['ios', 'android'])(
+  'the native entry preserves the original Skia chart on ordinary %s',
+  (platform) => {
+    jest.resetModules();
+    jest.isolateModules(() => {
+      const originalChart = () => null;
+      jest.doMock('@onekeyhq/shared/src/platformEnv', () => ({
+        __esModule: true,
+        default: {
+          isNativeIOSMacCatalyst: false,
+          isNativeIOS: platform === 'ios',
+          isNativeAndroid: platform === 'android',
+        },
+      }));
+      jest.doMock('./LightweightChart.native', () => ({
+        LightweightChart: originalChart,
+      }));
+      jest.doMock('./LightweightChart.catalyst', () => {
+        throw new OneKeyLocalError(
+          'Ordinary native apps must not load Catalyst',
+        );
+      });
+
+      const {
+        LightweightChart,
+      }: typeof import('./index.native') = require('./index.native');
+      expect(LightweightChart).toBe(originalChart);
+    });
+  },
+);

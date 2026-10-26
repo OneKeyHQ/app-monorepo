@@ -22183,6 +22183,7 @@
     "packages/kit/src/components/LightweightChart/LightweightChart.catalyst.tsx": 19227,
     "packages/kit/src/components/LightweightChart/LightweightChart.native.tsx": 11890,
     "packages/kit/src/components/LightweightChart/hooks/useChartConfig.ts": 20777,
+    "packages/kit/src/components/LightweightChart/index.native.ts": 660,
     "packages/kit/src/components/LightweightChart/index.ts": 5810,
     "packages/kit/src/components/LightweightChart/native/chartScene.ts": 5752,
     "packages/kit/src/components/LightweightChart/native/useChartTypeface.ts": 23453,

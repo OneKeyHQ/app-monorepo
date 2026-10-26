@@ -1,11 +1,4 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-export const LightweightChart = platformEnv.isNativeIOSMacCatalyst
-  ? (
-      require('./LightweightChart.catalyst') as typeof import('./LightweightChart.catalyst')
-    ).LightweightChart
-  : (require('./LightweightChart') as typeof import('./LightweightChart'))
-      .LightweightChart;
+export { LightweightChart } from './LightweightChart';
 export type {
   ILightweightChartLineType,
   ILightweightChartPriceScalePosition,
