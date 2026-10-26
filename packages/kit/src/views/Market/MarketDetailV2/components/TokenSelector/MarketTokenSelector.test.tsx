@@ -555,7 +555,7 @@ describe('MarketTokenSelector stock default category', () => {
     );
   });
 
-  it.each([false])(
+  it.each([false, true])(
     'keeps an explicit mobile search chain even when the result has assetId (native token: %s)',
     (isNative) => {
       const address = isNative ? '' : 'SolanaUsdc';
@@ -582,7 +582,7 @@ describe('MarketTokenSelector stock default category', () => {
       fireEvent.click(screen.getByTestId('mobile-search-result'));
       expect(mockNavigateToMarketTokenDetail).toHaveBeenCalledWith(
         expect.objectContaining({
-          assetId: isNative ? 'solana' : 'usd-coin',
+          assetId: isNative ? 'solana' : undefined,
           networkId: 'sol--101',
           address,
           isNative,

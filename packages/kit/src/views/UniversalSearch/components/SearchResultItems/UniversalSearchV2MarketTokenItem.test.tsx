@@ -366,7 +366,7 @@ describe('UniversalSearchV2MarketTokenItem', () => {
     );
   });
 
-  it('preserves the backend asset id and selected chain for a contract token', () => {
+  it('opens a contract token with its chain identity even when an asset id is returned', () => {
     const item: IUniversalSearchV2MarketToken = {
       type: EUniversalSearchType.V2MarketToken,
       payload: {
@@ -399,7 +399,7 @@ describe('UniversalSearchV2MarketTokenItem', () => {
 
     expect(mockToMarketDetailPage).toHaveBeenCalledWith(
       expect.objectContaining({
-        assetId: 'ethereum',
+        assetId: undefined,
         tokenAddress: '0xweth',
         networkId: 'evm--1',
       }),
