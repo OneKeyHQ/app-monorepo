@@ -129,7 +129,6 @@ import {
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
 import {
-  type IKeyboardFavoriteRegistration,
   MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT,
   PerpTokenSelectorRow,
   SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT,
@@ -383,24 +382,18 @@ function BasePerpTokenSelectorContent() {
   const inputQueryRef = useRef(searchQuery);
   const keyboardSubmitPending = useRef(false);
   const keyboardRowRefs = useRef(new Map<string, HTMLElement>());
-  const keyboardFavoriteActions = useRef(
-    new Map<string, () => Promise<unknown> | void>(),
-  );
   const keyboardFavoritesPending = useRef(new Set<string>());
-  const registerKeyboardFavorite = useCallback<IKeyboardFavoriteRegistration>(
-    (coin, toggle) => {
-      keyboardFavoriteActions.current.set(coin, toggle);
-      return () => {
-        if (keyboardFavoriteActions.current.get(coin) === toggle) {
-          keyboardFavoriteActions.current.delete(coin);
-        }
-      };
-    },
-    [],
-  );
+  const pendingKeyboardScroll = useRef<string | undefined>(undefined);
+  const cancelPendingKeyboardScroll = useCallback(() => {
+    pendingKeyboardScroll.current = undefined;
+  }, []);
   const registerKeyboardRow = useCallback((coin: string, node: unknown) => {
     if (typeof HTMLElement !== 'undefined' && node instanceof HTMLElement) {
       keyboardRowRefs.current.set(coin, node);
+      if (pendingKeyboardScroll.current === coin) {
+        pendingKeyboardScroll.current = undefined;
+        node.scrollIntoView({ block: 'nearest' });
+      }
     } else {
       keyboardRowRefs.current.delete(coin);
     }
@@ -515,6 +508,7 @@ function BasePerpTokenSelectorContent() {
   );
   const setActiveTab = useCallback(
     (tab: string) => {
+      pendingKeyboardScroll.current = undefined;
       setKeyboardSelection(undefined);
       defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
         tab,
@@ -530,6 +524,7 @@ function BasePerpTokenSelectorContent() {
       if (tab === displayPrimaryTab) {
         return;
       }
+      pendingKeyboardScroll.current = undefined;
       setKeyboardSelection(undefined);
       defaultLogger.perp.tokenSelector.perpTokenSelectorPrimaryTabClick({
         tab,
@@ -1158,11 +1153,13 @@ function BasePerpTokenSelectorContent() {
     NonNullable<IInputProps['onChange']>
   >((event) => {
     inputQueryRef.current = event.nativeEvent.text.trim().slice(0, 64);
+    pendingKeyboardScroll.current = undefined;
     setKeyboardSelection(undefined);
   }, []);
   const handleSearchQueryChange = useCallback(
     (query: string) => {
       inputQueryRef.current = query.trim().slice(0, 64);
+      pendingKeyboardScroll.current = undefined;
       setKeyboardSelection(undefined);
       setSearchQuery(query);
     },
@@ -1202,12 +1199,14 @@ function BasePerpTokenSelectorContent() {
         }
         const item = activeTabData[keyboardSelectedIndex];
         const coin = item?.spotUniverse?.name ?? item?.tokenName;
-        const toggle = coin
-          ? keyboardFavoriteActions.current.get(coin)
-          : undefined;
-        if (coin && toggle && !keyboardFavoritesPending.current.has(coin)) {
+        if (coin && !keyboardFavoritesPending.current.has(coin)) {
           keyboardFavoritesPending.current.add(coin);
-          void Promise.resolve(toggle())
+          void backgroundApiProxy.serviceHyperliquid
+            .updateTokenSelectorFavorite({
+              mode: item.spotUniverse ? 'spot' : 'perp',
+              coin,
+              action: 'toggle',
+            })
             .catch((error) => {
               console.error('Failed to update token favorite:', error);
             })
@@ -1285,9 +1284,11 @@ function BasePerpTokenSelectorContent() {
       });
       const coin = nextItem.spotUniverse?.name ?? nextItem.tokenName;
       const row = coin ? keyboardRowRefs.current.get(coin) : undefined;
+      pendingKeyboardScroll.current = undefined;
       if (row) {
         row.scrollIntoView({ block: 'nearest' });
       } else {
+        pendingKeyboardScroll.current = coin;
         // Mount virtualized targets before their actual bounds are scrolled.
         listRef.current?.scrollToOffset?.({
           offset: Math.max(
@@ -1376,7 +1377,6 @@ function BasePerpTokenSelectorContent() {
         desktopLayout={getRowDesktopLayout(mockedToken)}
         isKeyboardSelected={keyExtractor(mockedToken) === keyboardSelectedKey}
         registerKeyboardRow={registerKeyboardRow}
-        registerKeyboardFavorite={registerKeyboardFavorite}
       />
     ),
     [
@@ -1385,7 +1385,6 @@ function BasePerpTokenSelectorContent() {
       keyExtractor,
       keyboardSelectedKey,
       registerKeyboardRow,
-      registerKeyboardFavorite,
     ],
   );
 
@@ -1443,7 +1442,10 @@ function BasePerpTokenSelectorContent() {
     <YStack
       {...(platformEnv.isNative
         ? undefined
-        : { onKeyDownCapture: handleFavoriteShortcut })}
+        : {
+            onKeyDownCapture: handleFavoriteShortcut,
+            onWheelCapture: cancelPendingKeyboardScroll,
+          })}
     >
       <YStack gap="$1">
         <XStack px="$2" pt="$2">

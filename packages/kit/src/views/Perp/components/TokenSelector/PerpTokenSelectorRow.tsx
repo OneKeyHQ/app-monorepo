@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
 } from 'react';
 
 import { useAtomValue } from 'jotai';
@@ -66,11 +65,6 @@ import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 import { PerpTestIDs } from '../../testIDs';
 
-export type IKeyboardFavoriteRegistration = (
-  coin: string,
-  toggle: () => Promise<unknown> | void,
-) => () => void;
-
 interface IPerpTokenSelectorRowProps {
   mockedToken: {
     index: number;
@@ -87,13 +81,11 @@ interface IPerpTokenSelectorRowProps {
   desktopLayout?: 'perp' | 'spot' | 'mixed';
   isKeyboardSelected?: boolean;
   registerKeyboardRow?: (coin: string, node: unknown) => void;
-  registerKeyboardFavorite?: IKeyboardFavoriteRegistration;
 }
 
 interface ITokenSelectorRowContextValue {
   isKeyboardSelected?: boolean;
   registerKeyboardRow?: (coin: string, node: unknown) => void;
-  registerKeyboardFavorite?: IKeyboardFavoriteRegistration;
   isSpot?: boolean;
   desktopLayout?: 'perp' | 'spot' | 'mixed';
   // Spot favorite key — the HL pair id ("PURR/USDC", "@149"), distinct from
@@ -235,13 +227,11 @@ export const FavoriteButton = memo(
     isMobile,
     iconSize,
     isSpot,
-    registerKeyboardFavorite,
   }: {
     coin: string;
     isMobile?: boolean;
     iconSize?: string;
     isSpot?: boolean;
-    registerKeyboardFavorite?: IKeyboardFavoriteRegistration;
   }) => {
     const [perpFavs, setPerpFavs] = usePerpTokenFavoritesPersistAtom();
     const [spotFavs, setSpotFavs] = useSpotTokenFavoritesPersistAtom();
@@ -286,7 +276,7 @@ export const FavoriteButton = memo(
         }),
       }));
 
-      return backgroundApiProxy.serviceHyperliquid.updateTokenSelectorFavorite({
+      void backgroundApiProxy.serviceHyperliquid.updateTokenSelectorFavorite({
         mode,
         coin,
         action,
@@ -301,11 +291,6 @@ export const FavoriteButton = memo(
       setSpotFavs,
       spotFavs.favorites,
     ]);
-
-    useEffect(
-      () => registerKeyboardFavorite?.(coin, handleToggle),
-      [coin, handleToggle, registerKeyboardFavorite],
-    );
 
     return (
       <IconButton
@@ -365,7 +350,7 @@ TradingModeBadge.displayName = 'TradingModeBadge';
 
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
-  const { token, isSpot, pairCoin, desktopLayout, registerKeyboardFavorite } =
+  const { token, isSpot, pairCoin, desktopLayout } =
     useTokenSelectorRowContext();
   const useFlexibleLayout = isSpot || desktopLayout === 'mixed';
   const columnLayout = getFlexibleDesktopColumnLayout(desktopLayout);
@@ -387,11 +372,7 @@ const TokenInfoCellDesktop = memo(() => {
           gap="$1.5"
           alignItems="center"
         >
-          <FavoriteButton
-            coin={pairCoin ?? token.name}
-            isSpot={isSpot}
-            registerKeyboardFavorite={registerKeyboardFavorite}
-          />
+          <FavoriteButton coin={pairCoin ?? token.name} isSpot={isSpot} />
           <XStack
             gap="$1.5"
             alignItems="center"
@@ -457,7 +438,6 @@ const TokenInfoCellDesktop = memo(() => {
       pairCoin,
       useFlexibleLayout,
       columnLayout.asset.flex,
-      registerKeyboardFavorite,
     ],
   );
   return content;
@@ -807,21 +787,12 @@ const TokenSelectorRowDesktop = memo(() => {
     isKeyboardSelected,
     registerKeyboardRow,
   } = useTokenSelectorRowContext();
-  const rowRef = useRef<HTMLElement | null>(null);
   const setRowRef = useCallback(
     (node: unknown) => {
-      rowRef.current =
-        typeof HTMLElement !== 'undefined' && node instanceof HTMLElement
-          ? node
-          : null;
       registerKeyboardRow?.(pairCoin ?? token.name, node);
     },
     [pairCoin, registerKeyboardRow, token.name],
   );
-  useEffect(() => {
-    if (isKeyboardSelected)
-      rowRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [isKeyboardSelected]);
 
   const content = useMemo(
     () => (
@@ -1122,7 +1093,6 @@ const SpotTokenSelectorRowInner = memo(
     desktopLayout,
     isKeyboardSelected,
     registerKeyboardRow,
-    registerKeyboardFavorite,
   }: {
     spotUniverse: ISpotUniverse;
     onPress: (name: string) => void;
@@ -1130,7 +1100,6 @@ const SpotTokenSelectorRowInner = memo(
     desktopLayout?: 'perp' | 'spot' | 'mixed';
     isKeyboardSelected?: boolean;
     registerKeyboardRow?: (coin: string, node: unknown) => void;
-    registerKeyboardFavorite?: IKeyboardFavoriteRegistration;
   }) => {
     // Use pair name (@107 or PURR/USDC) as key — matches universe.name
     const ctx = useSpotAssetCtxByPair(spotUniverse.name);
@@ -1195,7 +1164,6 @@ const SpotTokenSelectorRowInner = memo(
         desktopLayout,
         isKeyboardSelected,
         registerKeyboardRow,
-        registerKeyboardFavorite,
         pairCoin: spotUniverse.name,
         token: {
           name: getSpotTokenDisplayName(spotUniverse.baseName),
@@ -1229,7 +1197,6 @@ const SpotTokenSelectorRowInner = memo(
         desktopLayout,
         isKeyboardSelected,
         registerKeyboardRow,
-        registerKeyboardFavorite,
       ],
     );
 
@@ -1251,7 +1218,6 @@ const PerpTokenSelectorRowPerps = memo(
     desktopLayout,
     isKeyboardSelected,
     registerKeyboardRow,
-    registerKeyboardFavorite,
   }: IPerpTokenSelectorRowProps) => {
     // Static token data is pre-computed in the parent list and passed via mockedToken.
     // This avoids subscribing to usePerpsAllAssetsFilteredAtom (150+ subscriptions).
@@ -1280,7 +1246,6 @@ const PerpTokenSelectorRowPerps = memo(
         desktopLayout,
         isKeyboardSelected,
         registerKeyboardRow,
-        registerKeyboardFavorite,
         token: {
           name: tokenName,
           displayName: parsed.displayName,
@@ -1313,7 +1278,6 @@ const PerpTokenSelectorRowPerps = memo(
         desktopLayout,
         isKeyboardSelected,
         registerKeyboardRow,
-        registerKeyboardFavorite,
       ],
     );
 
@@ -1348,7 +1312,6 @@ const PerpTokenSelectorRow = memo(
     desktopLayout,
     isKeyboardSelected,
     registerKeyboardRow,
-    registerKeyboardFavorite,
   }: IPerpTokenSelectorRowProps) => {
     // Spot path: render from spotUniverse data
     if (mockedToken.spotUniverse) {
@@ -1360,7 +1323,6 @@ const PerpTokenSelectorRow = memo(
           desktopLayout={desktopLayout}
           isKeyboardSelected={isKeyboardSelected}
           registerKeyboardRow={registerKeyboardRow}
-          registerKeyboardFavorite={registerKeyboardFavorite}
         />
       );
     }
@@ -1375,7 +1337,6 @@ const PerpTokenSelectorRow = memo(
         desktopLayout={desktopLayout}
         isKeyboardSelected={isKeyboardSelected}
         registerKeyboardRow={registerKeyboardRow}
-        registerKeyboardFavorite={registerKeyboardFavorite}
       />
     );
   },
