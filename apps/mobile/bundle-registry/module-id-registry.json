@@ -26866,6 +26866,7 @@
     "packages/shared/src/polyfills/index.ts": 8423,
     "packages/shared/src/polyfills/intlShim/index.js": 12769,
     "packages/shared/src/polyfills/polyfillsPlatform.js": 8913,
+    "packages/shared/src/polyfills/processNextTickShim.ts": 11172,
     "packages/shared/src/polyfills/reactCreateElementShim.ts": 21425,
     "packages/shared/src/polyfills/requestIdleCallbackShim.ts": 1902,
     "packages/shared/src/polyfills/runtimeCapabilities.ts": 15709,

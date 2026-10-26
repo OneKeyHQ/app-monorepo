@@ -116,6 +116,7 @@ import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
+  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -613,8 +614,7 @@ export default class VaultBtc extends VaultBase {
         .toFixed();
     }
     // Clear the UTXO cache to ensure fresh UTXOs are fetched
-    this._collectUTXOsInfoByApiWithCache.clear();
-    this._collectClaimedUtxosWithCache.clear();
+    this.clearUtxoCaches();
     const encodedTx = await this._buildEncodedTxFromBatchTransfer({
       transfersInfo: unsignedTx.transfersInfo,
       specifiedFeeRate,
@@ -1727,6 +1727,24 @@ export default class VaultBtc extends VaultBase {
       responseTime: Math.floor(performance.now() - start),
       bestBlockNumber: result.bestBlockNumber,
     };
+  }
+
+  // The UTXO pool is memoized for 30s. A broadcast attempt (successful or not)
+  // means part of that pool can no longer be trusted, so the next build must
+  // refetch instead of reusing the snapshot and signing an already spent input.
+  clearUtxoCaches() {
+    this._collectUTXOsInfoByApiWithCache.clear();
+    this._collectClaimedUtxosWithCache.clear();
+  }
+
+  override async broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    try {
+      return await super.broadcastTransaction(params);
+    } finally {
+      this.clearUtxoCaches();
+    }
   }
 
   override async broadcastTransactionFromCustomRpc(
