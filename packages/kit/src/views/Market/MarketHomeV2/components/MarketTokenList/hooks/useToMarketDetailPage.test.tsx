@@ -171,7 +171,7 @@ describe('useToDetailPage', () => {
     jest
       .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
       .mockReset();
-    Object.assign(platformEnv, { isNative: false });
+    Object.assign(platformEnv, { isNative: false, isDesktop: false });
     jest.useFakeTimers();
     mockCurrentRouteName = 'MarketDetailV2';
     mockGetRootState.mockReturnValue(undefined);

@@ -16,6 +16,7 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketStockDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import {
+  buildReplacedMarketDetailParams,
   getCurrentMarketStockDetailRoute,
   openOrReplaceMarketDetailRoute,
   prepareMarketDetailTabBarTransition,
@@ -169,9 +170,7 @@ export function useToMarketStockDetailPage(
           : undefined;
       const currentStockDetailParams = readMarketStockDetailParams(
         getCurrentMarketStockDetailRoute() ??
-          (currentRouteName === ETabMarketRoutes.MarketStockDetail
-            ? currentRoute.params
-            : undefined),
+          (currentStockId ? currentRoute.params : undefined),
       );
       const currentStockDetailId =
         currentStockDetailParams?.stockId ?? currentStockId;
@@ -196,6 +195,18 @@ export function useToMarketStockDetailPage(
       }
 
       if (!isCurrentRequest()) return false;
+
+      if (
+        platformEnv.isNative &&
+        options?.replaceCurrentDetail &&
+        isModalPage
+      ) {
+        // Dismiss the root overlay before updating its child stack, so its
+        // captured navigation state cannot restore the previous detail route.
+        request?.onNavigationStart?.();
+        await switchTabAsync(ETabRoutes.Market);
+        if (!isCurrentRequest()) return false;
+      }
 
       if (!shouldKeepCurrentStockTokenDetail) {
         tokenDetailActions.current.prepareStockTokenDetail({
@@ -258,9 +269,10 @@ export function useToMarketStockDetailPage(
             routeName: ETabMarketRoutes.MarketStockDetail,
             params: stockDetailParams,
           });
-          // Switching tabs dismisses the selector; this is no longer a user cancellation.
-          request?.onNavigationStart?.();
-          await switchTabAsync(marketTab);
+          if (!platformEnv.isNative) {
+            request?.onNavigationStart?.();
+            await switchTabAsync(marketTab);
+          }
           if (replacedCurrentDetail) return true;
           if (!isCurrentRequest()) return false;
           if (
@@ -295,19 +307,9 @@ export function useToMarketStockDetailPage(
             (platformEnv.isDesktop || platformEnv.isWeb) &&
             currentRouteName === ETabMarketRoutes.MarketStockDetail
           ) {
-            navigation.setParams({
-              stockId,
-              from: undefined,
-              disableTrade: undefined,
-              showFavoriteButton: undefined,
-              tokenAddress: stockTokenParams?.tokenAddress,
-              network: stockTokenParams?.network,
-              isNative: stockTokenParams?.isNative,
-              stockPreviewSymbol: stockPreview?.symbol,
-              stockPreviewName: stockPreview?.name,
-              stockPreviewLogoUrl: stockPreview?.logoUrl,
-              stockPreviewQuote,
-            });
+            navigation.setParams(
+              buildReplacedMarketDetailParams(stockDetailParams),
+            );
           } else {
             // Reset the tab stack so returning from the selected stock does not
             // reveal a previously viewed non-stock detail.

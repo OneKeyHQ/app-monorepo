@@ -20,6 +20,7 @@ import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetai
 import { resolveMarketAssetRouteIdentity } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import {
   buildReplacedMarketDetailParams,
+  canReuseMarketDetailRoute,
   openOrReplaceMarketDetailRoute,
   prepareMarketDetailTabBarTransition,
 } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
@@ -321,11 +322,12 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const detailRouteName = stockId
         ? ETabMarketRoutes.MarketStockDetail
         : ETabMarketRoutes.MarketDetailV2;
-      const shouldReplaceCurrentDetail = Boolean(
-        options?.replaceCurrentDetail && currentRouteName !== detailRouteName,
-      );
       const shouldUpdateCurrentDetail = Boolean(
-        options?.replaceCurrentDetail && currentRouteName === detailRouteName,
+        options?.replaceCurrentDetail &&
+        canReuseMarketDetailRoute(currentRouteName, detailRouteName),
+      );
+      const shouldReplaceCurrentDetail = Boolean(
+        options?.replaceCurrentDetail && !shouldUpdateCurrentDetail,
       );
 
       // Check if in extension popup/side panel
