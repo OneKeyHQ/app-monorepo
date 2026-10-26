@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
   ESwapProJumpTokenDirection,
@@ -1914,15 +1915,19 @@ export function useSwapProPositionsListFilter(
   sourceTokenList: ISwapToken[] = [],
   isStockPositions?: boolean,
 ) {
+  const currencyInfo = useCurrency();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const filterMinValueTokenList = useMemo(() => {
     return sourceTokenList.filter((token) =>
       isTradePositionVisible({
         balance: token.balanceParsed,
         fiatValue: token.fiatValue,
         isStock: isStockPositions,
+        currency: token.currency || currencyInfo.id,
+        currencyMap,
       }),
     );
-  }, [sourceTokenList, isStockPositions]);
+  }, [sourceTokenList, isStockPositions, currencyInfo.id, currencyMap]);
 
   const finallyTokenList = useMemo(
     () =>

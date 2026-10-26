@@ -300,13 +300,22 @@ describe('useSwapStockPortfolioData', () => {
     );
   });
 
-  it('lists every positive holding largest first, including dust', async () => {
+  it('hides dust from display while retaining raw balances and resolution', async () => {
     const { result } = renderHook(() => useSwapStockPortfolioData());
 
     await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
 
     expect(result.current.positionListData.map((item) => item.tokenId)).toEqual(
-      ['aapl-xstocks-solana', 'aapl-ondo-ethereum', 'aapl-ondo-bsc'],
+      ['aapl-xstocks-solana', 'aapl-ondo-ethereum'],
+    );
+    expect(result.current.portfolioData).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tokenId: 'aapl-ondo-bsc',
+          amount: '0.00000001',
+          totalPrice: '0',
+        }),
+      ]),
     );
     expect(result.current.resolvedVariantKeys).toHaveLength(3);
   });

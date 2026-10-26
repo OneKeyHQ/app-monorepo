@@ -1,8 +1,9 @@
-import { Fragment, memo, useCallback } from 'react';
+import { Fragment, memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Empty, YStack, useMedia } from '@onekeyhq/components';
+import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
@@ -89,7 +90,15 @@ function PortfolioBase({
       />
     );
 
-  const data = canShowPortfolio ? portfolioData : [];
+  const data = useMemo(
+    () =>
+      canShowPortfolio
+        ? portfolioData.filter((item) =>
+            isTradePositionVisible({ fiatValue: item.totalPrice }),
+          )
+        : [],
+    [canShowPortfolio, portfolioData],
+  );
 
   if (standalone) {
     return (

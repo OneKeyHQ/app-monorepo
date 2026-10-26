@@ -5,7 +5,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
-import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
+import { hasTradePositionBalance } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -161,7 +161,7 @@ export async function fetchStockPortfolioData({
                   contractAddress: variant.contractAddress,
                 },
               }) &&
-              isTradePositionVisible({ balance: item.amount, isStock: true }),
+              hasTradePositionBalance(item.amount),
           )
           .map<IMarketAccountPortfolioDisplayItem>((item) => ({
             ...item,

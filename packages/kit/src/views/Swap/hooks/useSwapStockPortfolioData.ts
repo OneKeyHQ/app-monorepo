@@ -250,12 +250,16 @@ export function useSwapStockPortfolioData() {
     () => displayPortfolioResult?.items ?? [],
     [displayPortfolioResult],
   );
-  // Keep every held variant, largest holding first.
+  // Keep execution balances intact and apply the USD floor only to display rows.
   const positionListData = useMemo(
     () =>
       portfolioData
         .filter((item) =>
-          isTradePositionVisible({ balance: item.amount, isStock: true }),
+          isTradePositionVisible({
+            balance: item.amount,
+            fiatValue: item.totalPrice,
+            isStock: true,
+          }),
         )
         .toSorted((left, right) =>
           new BigNumber(right.totalPrice ?? '0').comparedTo(

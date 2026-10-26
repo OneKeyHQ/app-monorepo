@@ -32,7 +32,7 @@ import {
   compareSwapProPositionNetworkIds,
 } from './swapProPositionsKeyUtils';
 import { buildStockPositionTokens } from './swapStockPositionsUtils';
-import { isTradePositionVisible } from './tradePositionUtils';
+import { hasTradePositionBalance } from './tradePositionUtils';
 
 export type ISwapProPositionsLoadOptions = {
   forceRefresh?: boolean;
@@ -295,10 +295,7 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
         if (stockNetworkIds.has(accountNetworkId)) {
           try {
             const stockCandidateTokens = tokens.filter((token) =>
-              isTradePositionVisible({
-                balance: token.balanceParsed,
-                isStock: true,
-              }),
+              hasTradePositionBalance(token.balanceParsed),
             );
             if (stockCandidateTokens.length === 0) {
               stockTokens = [];
