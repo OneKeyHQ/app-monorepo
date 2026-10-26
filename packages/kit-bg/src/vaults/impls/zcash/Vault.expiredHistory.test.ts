@@ -282,7 +282,7 @@ describe('expired transparent send reconciliation', () => {
     ]);
   });
 
-  it('keeps the accepted send but releases an unsigned reservation when pending transactions are cleared', async () => {
+  it('releases the accepted send and an unsigned reservation when pending transactions are cleared', async () => {
     const { journalDb, inUse } = await fixture();
     await journalDb.reserveTransparentOutpoints({
       accountId,
@@ -292,20 +292,9 @@ describe('expired transparent send reconciliation', () => {
       expiryHeight: 1000,
     });
     expect((await inUse()).size).toBe(2);
+    // No tip is known here, as on an account with no later transactions.
     await journalDb.clearTransparentPendingSends({
       accountId,
-      scope: 'pending',
-    });
-    expect(
-      await journalDb.listTransparentPendingTxs({ accountId }),
-    ).toHaveLength(1);
-    expect(await inUse()).toEqual(
-      new Set([`${spentOutpoint.txid}:${spentOutpoint.vout}`]),
-    );
-    // Once the accepted send can no longer be mined, it is released too.
-    await journalDb.clearTransparentPendingSends({
-      accountId,
-      expiredBeforeHeight: expiryHeight + 1,
       scope: 'pending',
     });
     expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(

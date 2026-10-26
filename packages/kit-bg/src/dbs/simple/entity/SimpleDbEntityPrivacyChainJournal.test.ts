@@ -277,63 +277,48 @@ describe('privacy chain journal: clear pending sends', () => {
     ).resolves.toEqual(new Set(['b1:0', 'b2:1']));
   });
 
-  // An unknown outcome may have reached the node: releasing its inputs
-  // could pay twice.
-  it('keeps every send that can still be mined, with its input locks, accepted or unknown', async () => {
-    const { entity } = createEntity();
-    const accepted = pendingTx({ txid: 'accepted', expiryHeight: 300 });
-    const expired = pendingTx({ txid: 'expired', expiryHeight: 150 });
-    const unknown = pendingTx({ txid: 'unknown', expiryHeight: 300 });
-    for (const tx of [accepted, expired, unknown]) {
-      await seedSend(entity, 'account', tx);
-    }
-    await entity.reserveTransparentOutpoints({
-      accountId: 'account',
-      ownerId: 'signing',
-      outpoints: [{ txid: 'bare', vout: 0 }],
-      currentHeight: 100,
-      expiryHeight: 300,
-    });
-    await entity.markTransparentPendingTxAccepted({
-      accountId: 'account',
-      txid: 'accepted',
-    });
-    await entity.markTransparentPendingTxAccepted({
-      accountId: 'account',
-      txid: 'expired',
-    });
-
-    await entity.clearTransparentPendingSends({
-      accountId: 'account',
-      expiredBeforeHeight: 151,
-      scope: 'pending',
-    });
-
-    await expect(
-      entity.listTransparentPendingTxs({ accountId: 'account' }),
-    ).resolves.toEqual([{ ...accepted, broadcastState: 'accepted' }, unknown]);
-    // The bare signing lock goes, as BTC keeps none.
-    await expect(
-      entity.listTransparentOutpointsInUse({
+  // The user's explicit clear works like BTC's: nothing local stays locked,
+  // even with no known tip (an account with no later transactions has none).
+  it.each([151, undefined])(
+    'releases every send and lock on an explicit clear (tip below=%s)',
+    async (expiredBeforeHeight) => {
+      const { entity } = createEntity();
+      const accepted = pendingTx({ txid: 'accepted', expiryHeight: 300 });
+      const unknown = pendingTx({ txid: 'unknown', expiryHeight: 300 });
+      for (const tx of [accepted, unknown]) {
+        await seedSend(entity, 'account', tx);
+      }
+      await entity.reserveTransparentOutpoints({
         accountId: 'account',
+        ownerId: 'signing',
+        outpoints: [{ txid: 'bare', vout: 0 }],
         currentHeight: 100,
-      }),
-    ).resolves.toEqual(new Set(['accepted:0', 'unknown:0']));
-    // The kept sends' reservations survive too, so a new selection is refused.
-    for (const txid of ['accepted', 'unknown']) {
-      await expect(
-        entity.reserveTransparentOutpoints({
-          accountId: 'account',
-          ownerId: 'new',
-          outpoints: [{ txid, vout: 0 }],
-          currentHeight: 100,
-          expiryHeight: 300,
-        }),
-      ).rejects.toMatchObject({ code: 'UTXO_ALREADY_RESERVED' });
-    }
-  });
+        expiryHeight: 300,
+      });
+      await entity.markTransparentPendingTxAccepted({
+        accountId: 'account',
+        txid: 'accepted',
+      });
 
-  it('treats no send as expired without a known tip', async () => {
+      await entity.clearTransparentPendingSends({
+        accountId: 'account',
+        expiredBeforeHeight,
+        scope: 'pending',
+      });
+
+      await expect(
+        entity.listTransparentPendingTxs({ accountId: 'account' }),
+      ).resolves.toEqual([]);
+      await expect(
+        entity.listTransparentOutpointsInUse({
+          accountId: 'account',
+          currentHeight: 100,
+        }),
+      ).resolves.toEqual(new Set());
+    },
+  );
+
+  it('treats no send as expired without a known tip when dropping expired sends', async () => {
     const { entity } = createEntity();
     await seedSend(
       entity,
@@ -352,7 +337,7 @@ describe('privacy chain journal: clear pending sends', () => {
 
     await entity.clearTransparentPendingSends({
       accountId: 'account',
-      scope: 'pending',
+      scope: 'expired',
     });
 
     await expect(
