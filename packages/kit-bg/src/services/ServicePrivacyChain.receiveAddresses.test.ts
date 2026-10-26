@@ -103,6 +103,10 @@ describe('Local wallet send readiness', () => {
   function createService(
     progress: unknown,
     syncPolicy: { sendMaxBlocksLeft?: number } = { sendMaxBlocksLeft: 100 },
+    accountState: { enabled: boolean; paused: boolean } = {
+      enabled: true,
+      paused: false,
+    },
   ) {
     mockGetVaultSettings.mockResolvedValue({ localWallet: {} });
     mockGetChainOnlyVault.mockResolvedValue({
@@ -117,7 +121,10 @@ describe('Local wallet send readiness', () => {
           { blocksLeft: number | null; canSend: boolean } | undefined
         >;
       },
-      { getLocalWalletSyncProgress: async () => progress },
+      {
+        getLocalWalletSyncProgress: async () => progress,
+        getLocalWalletAccountState: async () => accountState,
+      },
     );
   }
 
@@ -155,12 +162,22 @@ describe('Local wallet send readiness', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('says nothing for an account that is not scanning', async () => {
+  it('says nothing for an account that never scanned', async () => {
     await expect(
-      createService(undefined).getLocalWalletSendReadiness({
-        networkId,
-        accountId,
-      }),
+      createService(undefined, undefined, {
+        enabled: false,
+        paused: false,
+      }).getLocalWalletSendReadiness({ networkId, accountId }),
     ).resolves.toBeUndefined();
+  });
+
+  // A paused scan reports no progress and cannot vouch for the balance.
+  it('blocks sending while the account is paused', async () => {
+    await expect(
+      createService(undefined, undefined, {
+        enabled: false,
+        paused: true,
+      }).getLocalWalletSendReadiness({ networkId, accountId }),
+    ).resolves.toEqual({ blocksLeft: null, canSend: false });
   });
 });

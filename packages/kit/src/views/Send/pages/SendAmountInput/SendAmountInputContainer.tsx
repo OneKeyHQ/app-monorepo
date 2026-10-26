@@ -4193,7 +4193,8 @@ function SendAmountInputContainer() {
       );
     }
 
-    if (isWaitingForSync) {
+    // A paused scan already says so above.
+    if (isWaitingForSync && !isPrivacyPaused) {
       addons.push(
         <SizableText
           key="send-waiting-sync"

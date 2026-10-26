@@ -3641,7 +3641,14 @@ class ServicePrivacyChain extends ServiceBase {
       networkId,
       accountId,
     }).catch(() => undefined);
-    if (!progress) return undefined;
+    if (!progress) {
+      // A paused scan reports no progress and cannot vouch for the balance.
+      const state = await this.getLocalWalletAccountState({
+        networkId,
+        accountId,
+      }).catch(() => undefined);
+      return state?.paused ? { blocksLeft: null, canSend: false } : undefined;
+    }
     const blocksLeft = getPrivacyChainBlocksLeft(progress);
     return {
       blocksLeft,
