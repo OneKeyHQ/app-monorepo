@@ -50,7 +50,8 @@ export function estimateZcashBirthdayHeight({
   now: number;
   chainTip: number | null | undefined;
 }): number {
-  const tip = chainTip ?? estimateZcashChainTipFromClock(now);
+  // Both are at or below the real tip, so the higher one is closer.
+  const tip = Math.max(chainTip ?? 0, estimateZcashChainTipFromClock(now));
   const elapsedDays = Math.max(
     0,
     Math.ceil((now - birthdayTimestamp) / (24 * 60 * 60 * 1000)),

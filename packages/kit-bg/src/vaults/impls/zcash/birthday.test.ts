@@ -11,7 +11,8 @@ import {
 
 describe('estimateZcashBirthdayHeight', () => {
   const now = Date.UTC(2026, 7, 21);
-  const chainTip = 3_000_000;
+  // A live tip is always above the conservative clock estimate.
+  const chainTip = estimateZcashChainTipFromClock(now) + 10_000;
 
   it('keeps one day of safety margin for a current-month restore', () => {
     expect(
@@ -53,6 +54,16 @@ describe('estimateZcashBirthdayHeight', () => {
         chainTip: null,
       }),
     ).toBe(clockTip - ZCASH_BIRTHDAY_SAFETY_BLOCKS);
+  });
+
+  it('ignores a stale saved tip below the clock estimate', () => {
+    expect(
+      estimateZcashBirthdayHeight({
+        birthdayTimestamp: now,
+        now,
+        chainTip: 3_000_000,
+      }),
+    ).toBe(estimateZcashChainTipFromClock(now) - ZCASH_BIRTHDAY_SAFETY_BLOCKS);
   });
 
   it('keeps the product floor above the unsupported Sapling era', () => {

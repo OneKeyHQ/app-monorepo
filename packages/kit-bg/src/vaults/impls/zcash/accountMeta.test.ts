@@ -7,6 +7,7 @@ import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprin
 import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
+import { estimateZcashBirthdayHeight } from './birthday';
 import {
   isZcashSetupIncompleteError,
   zcashIdentityMismatchAccountIds,
@@ -58,6 +59,40 @@ function createContext() {
 }
 
 describe('Zcash viewing metadata derivation lifecycle', () => {
+  it('estimates a dated birthday from the last tip a sync saw', async () => {
+    const { account, backgroundApi, zcash, derived } = createContext();
+    const now = 1_790_000_000_000;
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    const birthdayTimestamp = now - 10 * 24 * 60 * 60 * 1000;
+    Object.assign(backgroundApi.simpleDb, {
+      privacyChainCache: { getChainTip: async () => 3_400_000 },
+    });
+    await zcash.beginZcashPrivacyModeEnable({
+      networkId,
+      accountId: account.id,
+      birthdayTimestamp,
+    });
+
+    await resolveAndSaveZcashAccountMeta({
+      account,
+      backgroundApi,
+      networkId,
+      derive: async () => ({ ...derived, chainTip: null }),
+    });
+
+    expect(
+      (await zcash.getZcashAccountMeta({ accountId: account.id }))
+        ?.birthdayHeight,
+    ).toBe(
+      estimateZcashBirthdayHeight({
+        birthdayTimestamp,
+        chainTip: 3_400_000,
+        now,
+      }),
+    );
+    clock.mockRestore();
+  });
+
   it('does not recreate state deleted while viewing-key derivation is pending', async () => {
     const { account, backgroundApi, zcash, derived } = createContext();
     await zcash.beginZcashPrivacyModeEnable({
