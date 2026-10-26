@@ -356,6 +356,41 @@ describe('navigateToMarketTokenDetail', () => {
     },
   );
 
+  it.each([undefined, 'btc-native'])(
+    'preserves the current Asset request when reselecting variant %s',
+    async (marketVariantId) => {
+      mockFetchAssetDetail.mockReturnValue(new Promise(() => undefined));
+      getCurrentRouteMock.mockReturnValue({
+        key: 'detail-current',
+        name: 'MarketDetailV2',
+        params: {
+          marketTokenId: 'bitcoin',
+          marketVariantId,
+          marketTokenCategory: 'top_coins',
+        },
+      });
+      await navigateToMarketTokenDetail(
+        { address: '', networkId: '', assetId: 'bitcoin', marketVariantId },
+        { tokenDetailActions },
+      );
+      jest.runAllTimers();
+      expect(clearTokenDetailMock).not.toHaveBeenCalled();
+      expect(changeActiveTokenMock).not.toHaveBeenCalled();
+      expect(dispatchMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'SET_PARAMS',
+          source: 'detail-current',
+          payload: expect.objectContaining({
+            params: expect.objectContaining({
+              marketTokenId: 'bitcoin',
+              marketVariantId,
+            }),
+          }),
+        }),
+      );
+    },
+  );
+
   it('opens an Asset route while the detail prefetch is pending', async () => {
     mockFetchAssetDetail.mockReturnValue(new Promise(() => undefined));
     const beforeNavigate = jest.fn();

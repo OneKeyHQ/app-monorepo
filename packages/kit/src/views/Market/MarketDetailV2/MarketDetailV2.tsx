@@ -17,6 +17,7 @@ import {
   Page,
   SizableText,
   YStack,
+  rootNavigationRef,
   useIsModalPage,
   useMedia,
   usePreventRemove,
@@ -50,7 +51,10 @@ import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight'
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
-import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
+import {
+  finishMarketDetailTabBarTransition,
+  isFocusedMarketDetailRouteName,
+} from '../utils/marketDetailNavigation';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import {
@@ -165,7 +169,12 @@ function MarketDetail({
   } else if (rootRoutersLength <= focusedRootRoutersLengthRef.current) {
     ownsEmbeddedSwapRef.current = false;
   }
+  const focusedRoute = rootNavigationRef.current?.getCurrentRoute();
+  const hasAnotherFocusedDetail =
+    focusedRoute?.key !== route.key &&
+    isFocusedMarketDetailRouteName(focusedRoute?.name);
   const shouldKeepEmbeddedSwapMounted =
+    !hasAnotherFocusedDetail &&
     !isRouteFocused &&
     rootRoutersLength > focusedRootRoutersLengthRef.current &&
     ownsEmbeddedSwapRef.current;
@@ -173,9 +182,7 @@ function MarketDetail({
     platformEnv.isDesktop || platformEnv.isWeb,
   );
   const shouldOwnSharedMarketDetailState =
-    !usesRetainedMarketDetailRoutes ||
-    isRouteFocused ||
-    shouldKeepEmbeddedSwapMounted;
+    isRouteFocused || shouldKeepEmbeddedSwapMounted;
   const routeNetwork = ('network' in params ? params.network : '') ?? '';
   const routeNetworkId =
     networkUtils.getNetworkIdFromShortCode({ shortCode: routeNetwork }) ||
@@ -267,6 +274,12 @@ function MarketDetail({
     marketVariantId: requestMarketVariantId,
     marketTokenCategory: requestMarketTokenCategory,
   });
+  useEffect(() => {
+    if (assetIdentityError && isChartFullscreen) {
+      onChartFullscreenChange(false);
+    }
+  }, [assetIdentityError, isChartFullscreen, onChartFullscreenChange]);
+
   const resolvedMarketAssetIdentity =
     assetOnlyResolvedIdentity ?? symbolResolvedMarketAssetIdentity;
   const networkId = resolvedMarketAssetIdentity?.networkId ?? requestNetworkId;

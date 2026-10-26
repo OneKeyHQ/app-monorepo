@@ -87,9 +87,7 @@ export async function navigateToMarketTokenDetail(
     } else {
       opts.tokenDetailActions.current.clearTokenDetail();
     }
-  } else if (token.assetId) {
-    opts.tokenDetailActions.current.clearTokenDetail();
-  } else {
+  } else if (!token.assetId) {
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
       networkId: token.networkId,

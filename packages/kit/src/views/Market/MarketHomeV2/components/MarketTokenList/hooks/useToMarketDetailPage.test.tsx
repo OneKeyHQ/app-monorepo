@@ -807,6 +807,41 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
+  it.each(['isDesktop', 'isWeb'])(
+    'waits for the Asset shell on %s while its data request stays pending',
+    async (platform) => {
+      Object.assign(platformEnv, {
+        isDesktop: platform === 'isDesktop',
+        isWeb: platform === 'isWeb',
+        isExtensionUiPopup: false,
+      });
+      const shell = deferred<void>();
+      jest.mocked(preloadMarketDetailV2Page).mockReturnValueOnce(shell.promise);
+      jest
+        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+        .mockReturnValueOnce(new Promise(() => undefined));
+      const navigate = jest.spyOn(rootNavigationRef.current!, 'navigate');
+      const { result } = renderHook(() =>
+        useToDetailPage({ switchToMarketTabFirst: true }),
+      );
+      const navigation = result.current(assetItem);
+      expect(navigate).not.toHaveBeenCalled();
+      await act(async () => {
+        shell.resolve();
+        await navigation;
+      });
+      expect(navigate).toHaveBeenCalledWith(
+        'main',
+        expect.objectContaining({
+          params: expect.objectContaining({
+            params: expect.objectContaining({ marketTokenId: 'bitcoin' }),
+          }),
+        }),
+      );
+      Object.assign(platformEnv, { isDesktop: false, isWeb: false });
+    },
+  );
+
   it('keeps Asset entry controls while detail prefetch never resolves', async () => {
     Object.assign(platformEnv, { isExtensionUiPopup: false });
     const fetchMarketAssetDetail = jest

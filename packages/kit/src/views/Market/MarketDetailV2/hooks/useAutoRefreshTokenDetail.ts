@@ -397,6 +397,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
                   tokenDetailRequestKey,
             });
             if (
+              requestScopeRef.current.generation !== requestGeneration ||
               currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
             ) {
               return;
@@ -416,6 +417,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
             return requestResult;
           } catch (_error) {
             if (
+              requestScopeRef.current.generation !== requestGeneration ||
               currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
             ) {
               return;

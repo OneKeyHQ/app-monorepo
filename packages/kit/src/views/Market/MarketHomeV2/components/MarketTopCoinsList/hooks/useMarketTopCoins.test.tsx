@@ -11,7 +11,10 @@ import type {
   IMarketAssetListItem,
 } from '@onekeyhq/shared/types/market';
 
-import { useMarketTopCoins } from './useMarketTopCoins';
+import {
+  resolveMarketTopCoinNavigationTarget,
+  useMarketTopCoins,
+} from './useMarketTopCoins';
 
 const mockToMarketDetailPage = jest.fn();
 const mockUseToDetailPage = jest.fn(
@@ -123,6 +126,24 @@ describe('useMarketTopCoins', () => {
       info: { decimals: 8 },
     } as Awaited<ReturnType<typeof serviceToken.fetchTokenInfoOnly>>);
     mockToMarketDetailPage.mockResolvedValue(undefined);
+  });
+
+  it('resolves the Home navigation target while metadata never settles', async () => {
+    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce(bitcoinDetail);
+    serviceToken.fetchTokenInfoOnly.mockReturnValueOnce(
+      new Promise(() => undefined),
+    );
+
+    await expect(
+      resolveMarketTopCoinNavigationTarget(bitcoin),
+    ).resolves.toMatchObject({
+      networkId: 'evm--1',
+      tokenAddress: '0xbtc',
+      marketTokenId: 'btc',
+      marketVariantId: 'btc-evm--1-0xbtc',
+      decimals: undefined,
+    });
+    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(0);
   });
 
   it('hands the Asset list item to detail navigation before detail resolves', async () => {

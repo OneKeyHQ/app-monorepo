@@ -471,6 +471,51 @@ describe('useAutoRefreshTokenDetail', () => {
     });
   });
 
+  it.each(['resolve', 'reject'])(
+    'ignores an old A request that %ss after A -> B -> A',
+    async (outcome) => {
+      let resolveOld: (value: IMarketAssetDetailData) => void = () => undefined;
+      let rejectOld: (error: Error) => void = () => undefined;
+      mockFetchAssetTokenDetail.mockReturnValueOnce(
+        new Promise<IMarketAssetDetailData>((resolve, reject) => {
+          resolveOld = resolve;
+          rejectOld = reject;
+        }),
+      );
+      const input = {
+        tokenAddress: '',
+        networkId: '',
+        isNative: false,
+        marketTokenId: 'bitcoin',
+        marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+      };
+      const { result, rerender } = renderHook(
+        (props) => useAutoRefreshTokenDetail(props),
+        { initialProps: input },
+      );
+      const oldRequest = promiseFactory?.();
+      rerender({ ...input, marketTokenId: 'doge' });
+      rerender(input);
+      const currentRequest = promiseFactory;
+      await act(async () => {
+        if (outcome === 'resolve') resolveOld(initialAssetDetail);
+        else rejectOld(new Error('Stale market asset detail request'));
+        await expect(oldRequest).resolves.toBeUndefined();
+      });
+      expect(result.current.hasAssetError).toBe(false);
+      expect(result.current.isInitialTokenDetailPending).toBe(true);
+      expect(result.current.marketAssetDetail).toBeUndefined();
+
+      mockFetchAssetTokenDetail.mockResolvedValueOnce(initialAssetDetail);
+      await act(async () => {
+        await currentRequest?.();
+      });
+      expect(result.current.marketAssetDetail).toBe(initialAssetDetail);
+      expect(result.current.hasAssetError).toBe(false);
+      expect(result.current.isInitialTokenDetailPending).toBe(false);
+    },
+  );
+
   it('clears loading when market fetching is skipped', () => {
     renderHook(() =>
       useAutoRefreshTokenDetail({

@@ -341,9 +341,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           ? ETabRoutes.Discovery
           : ETabRoutes.Market;
 
-        if (!isAssetEntry) {
-          await marketDetailShellPreloadPromise;
-        }
+        await marketDetailShellPreloadPromise;
         if (navigationGenerationRef.current !== navigationGeneration) {
           return;
         }
