@@ -2,10 +2,6 @@ import type { IEncodedTxZcash } from '@onekeyhq/kit-bg/src/vaults/impls/zcash/ty
 import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm';
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 
-export type IZcashConfirmFrom =
-  | { kind: 'addresses'; addresses: string[] }
-  | { kind: 'pool'; label: string };
-
 export function getZcashEncodedTx(
   encodedTx: unknown,
 ): IEncodedTxZcash | undefined {
@@ -19,30 +15,15 @@ export function isZcashShieldedSpend(encodedTx: unknown): boolean {
   return getZcashEncodedTx(encodedTx)?.zcashMode === 'privacy';
 }
 
-export function getZcashConfirmFrom(
+// The pool a shielded spend draws from. A transparent send adds nothing:
+// the account row already shows its address, as on BTC.
+export function getZcashConfirmFromPool(
   tx: IEncodedTxZcash,
-  displayedAccountAddress?: string,
-): IZcashConfirmFrom | undefined {
-  if (tx.zcashMode === 'transparent') {
-    const addresses = [
-      ...new Set(
-        (tx.inputs ?? []).map((input) => input.address).filter(Boolean),
-      ),
-    ];
-    if (addresses.length === 1 && addresses[0] === displayedAccountAddress) {
-      return undefined;
-    }
-    return addresses.length
-      ? { kind: 'addresses', addresses }
-      : { kind: 'pool', label: 'Transparent' };
-  }
-  if (tx.zcashSpendSource === 'ironwood') {
-    return { kind: 'pool', label: 'Ironwood' };
-  }
-  if (tx.zcashSpendSource === 'orchard') {
-    return { kind: 'pool', label: 'Orchard' };
-  }
-  return { kind: 'pool', label: 'Shielded' };
+): string | undefined {
+  if (tx.zcashMode === 'transparent') return undefined;
+  if (tx.zcashSpendSource === 'ironwood') return 'Ironwood';
+  if (tx.zcashSpendSource === 'orchard') return 'Orchard';
+  return 'Shielded';
 }
 
 // The account row is the first Address component, built from the signer.

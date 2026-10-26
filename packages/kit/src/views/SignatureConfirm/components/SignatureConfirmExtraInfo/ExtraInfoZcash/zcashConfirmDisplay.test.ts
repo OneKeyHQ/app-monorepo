@@ -3,7 +3,7 @@ import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm'
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 
 import {
-  getZcashConfirmFrom,
+  getZcashConfirmFromPool,
   getZcashEncodedTx,
   isZcashShieldedSpend,
   replaceAccountAddressComponent,
@@ -32,62 +32,26 @@ function input(address: string, vout: number) {
   return { txid: 'aa'.repeat(32), vout, value: '5000', address, path: '' };
 }
 
-describe('getZcashConfirmFrom', () => {
-  it('lists deduplicated spending t1 addresses for transparent sends', () => {
-    const tx = buildTx({
-      zcashMode: 'transparent',
-      inputs: [input(T1_A, 0), input(T1_B, 1), input(T1_A, 2)],
-    });
-    expect(getZcashConfirmFrom(tx)).toEqual({
-      kind: 'addresses',
-      addresses: [T1_A, T1_B],
-    });
-  });
-
-  it('falls back to the pool label when inputs carry no address', () => {
-    const tx = buildTx({ zcashMode: 'transparent', inputs: [input('', 0)] });
-    expect(getZcashConfirmFrom(tx)).toEqual({
-      kind: 'pool',
-      label: 'Transparent',
-    });
-  });
-
-  it('omits a single spending address already shown by the account row', () => {
-    const tx = buildTx({
-      zcashMode: 'transparent',
-      inputs: [input(T1_A, 0), input(T1_A, 1)],
-    });
-    expect(getZcashConfirmFrom(tx, T1_A)).toBeUndefined();
-  });
-
-  it('keeps distinct or multiple spending addresses visible', () => {
-    const tx = buildTx({
-      zcashMode: 'transparent',
-      inputs: [input(T1_B, 0)],
-    });
-    expect(getZcashConfirmFrom(tx, T1_A)).toEqual({
-      kind: 'addresses',
-      addresses: [T1_B],
-    });
+describe('getZcashConfirmFromPool', () => {
+  it('adds no source for transparent sends, whatever their inputs', () => {
     expect(
-      getZcashConfirmFrom(
-        { ...tx, inputs: [input(T1_A, 0), input(T1_B, 1)] },
-        T1_A,
+      getZcashConfirmFromPool(
+        buildTx({
+          zcashMode: 'transparent',
+          inputs: [input(T1_A, 0), input(T1_B, 1)],
+        }),
       ),
-    ).toEqual({ kind: 'addresses', addresses: [T1_A, T1_B] });
+    ).toBeUndefined();
   });
 
   it('shows the shielded pool name', () => {
     expect(
-      getZcashConfirmFrom(buildTx({ zcashSpendSource: 'ironwood' })),
-    ).toEqual({ kind: 'pool', label: 'Ironwood' });
+      getZcashConfirmFromPool(buildTx({ zcashSpendSource: 'ironwood' })),
+    ).toBe('Ironwood');
     expect(
-      getZcashConfirmFrom(buildTx({ zcashSpendSource: 'orchard' })),
-    ).toEqual({ kind: 'pool', label: 'Orchard' });
-    expect(getZcashConfirmFrom(buildTx({}))).toEqual({
-      kind: 'pool',
-      label: 'Shielded',
-    });
+      getZcashConfirmFromPool(buildTx({ zcashSpendSource: 'orchard' })),
+    ).toBe('Orchard');
+    expect(getZcashConfirmFromPool(buildTx({}))).toBe('Shielded');
   });
 });
 
