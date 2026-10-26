@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -72,6 +73,7 @@ import {
   listWithPayTokens,
   matchesPayTokenKeyword,
 } from '../EarnRouter/earnRouter.utils';
+import { PAY_WITH_TRIGGER_TEST_ID } from '../EarnRouter/EarnRouterPayWith';
 
 import type { FlatList } from 'react-native';
 
@@ -91,6 +93,19 @@ const NO_TOKENS: ISwapToken[] = [];
 const NO_NETWORK_IDS: string[] = [];
 const NO_ASSET_NETWORKS: [] = [];
 const noop = () => {};
+
+// The token search: the hidden network column's comes first
+const findPickerSearch = (screen?: HTMLElement) =>
+  Array.from(screen?.querySelectorAll('input') ?? []).find(
+    (input) => input.offsetParent !== null,
+  );
+
+const focusPickerSearch = (screen?: HTMLElement) => {
+  findPickerSearch(screen)?.focus({ preventScroll: true });
+};
+
+const isFocusOnPage = () =>
+  !document.activeElement || document.activeElement === document.body;
 
 function ListSkeleton() {
   return (
@@ -281,9 +296,9 @@ function EarnPayWithTokenSelectPage() {
     if (!heldDeFiRequest || heldDeFiKey === undefined) {
       return undefined;
     }
-    const tokens = await readPayWithPickerHeldDeFiTokens(
-      heldDeFiRequest,
-    ).catch(() => payWithPickerHeldDeFiLists.get(heldDeFiKey) ?? NO_TOKENS);
+    const tokens = await readPayWithPickerHeldDeFiTokens(heldDeFiRequest).catch(
+      () => payWithPickerHeldDeFiLists.get(heldDeFiKey) ?? NO_TOKENS,
+    );
     return { heldDeFiKey, tokens };
   }, [heldDeFiKey, heldDeFiRequest]);
   let heldDeFiTokens: ISwapToken[] | undefined = NO_TOKENS;
@@ -371,6 +386,7 @@ function EarnPayWithTokenSelectPage() {
     platformEnv.isRuntimeBrowser ? document.activeElement : null,
   );
   const focusesSearchRef = useRef(useDesktopTokenSelector);
+  const ownScreenRef = useRef<HTMLElement | undefined>(undefined);
   useEffect(() => {
     if (!platformEnv.isRuntimeBrowser) {
       return undefined;
@@ -380,7 +396,13 @@ function EarnPayWithTokenSelectPage() {
       document.querySelectorAll<HTMLElement>(MODAL_SCREEN_SELECTOR),
     );
     const ownScreen = screens[screens.length - 1];
+    ownScreenRef.current = ownScreen;
     const opener = openerRef.current;
+    // Where the chip is: a pick draws the form again, with a new chip
+    const openerScope =
+      opener instanceof HTMLElement
+        ? opener.closest<HTMLElement>(MODAL_SCREEN_SELECTOR)
+        : null;
     // Under it: beside its own branch, under the element it shares with the
     // chip that opened it (the page, and the modal the form is in). Opened
     // some other way, the modals before it
@@ -419,10 +441,7 @@ function EarnPayWithTokenSelectPage() {
       frame = requestAnimationFrame(() => {
         const active = document.activeElement;
         if (focusesSearchRef.current && !ownScreen?.contains(active)) {
-          // The token search: the hidden network column's comes first
-          Array.from(ownScreen?.querySelectorAll('input') ?? [])
-            .find((input) => input.offsetParent !== null)
-            ?.focus({ preventScroll: true });
+          focusPickerSearch(ownScreen);
         }
       });
     });
@@ -431,15 +450,62 @@ function EarnPayWithTokenSelectPage() {
       covered.forEach((element) => {
         element.inert = false;
       });
-      if (
-        opener instanceof HTMLElement &&
-        opener.isConnected &&
-        (!document.activeElement || document.activeElement === document.body)
-      ) {
-        opener.focus({ preventScroll: true });
+      if (!isFocusOnPage()) {
+        return;
       }
+      if (opener instanceof HTMLElement && opener.isConnected) {
+        opener.focus({ preventScroll: true });
+        return;
+      }
+      // After a pick of another token: the form's new chip, once drawn
+      requestAnimationFrame(() => {
+        const scope = openerScope?.isConnected ? openerScope : document;
+        const chip = Array.from(
+          scope.querySelectorAll<HTMLElement>(
+            `[data-testid="${PAY_WITH_TRIGGER_TEST_ID}"]`,
+          ),
+        ).find((element) => element.offsetParent !== null);
+        if (chip && isFocusOnPage()) {
+          chip.focus({ preventScroll: true });
+        }
+      });
     };
   }, []);
+  // Back from the risk reminder (its Cancel or back arrow), the search takes
+  // the cursor again, as when the picker opened. The reminder's button that
+  // was pressed slides away with the focus in it
+  const isFocused = useIsFocused();
+  const wasFocusedRef = useRef(isFocused);
+  useEffect(() => {
+    const wasFocused = wasFocusedRef.current;
+    wasFocusedRef.current = isFocused;
+    if (
+      !platformEnv.isRuntimeBrowser ||
+      !isFocused ||
+      wasFocused ||
+      !focusesSearchRef.current
+    ) {
+      return undefined;
+    }
+    let tries = 0;
+    let frame = 0;
+    const focusSearch = () => {
+      const search = findPickerSearch(ownScreenRef.current);
+      if (search) {
+        if (document.activeElement !== search) {
+          search.focus({ preventScroll: true });
+        }
+        return;
+      }
+      // The list slides back in: its search shows within a few frames
+      tries += 1;
+      if (tries < 10) {
+        frame = requestAnimationFrame(focusSearch);
+      }
+    };
+    frame = requestAnimationFrame(focusSearch);
+    return () => cancelAnimationFrame(frame);
+  }, [isFocused]);
 
   const checkRiskToken = useSwapTokenRiskCheck();
   const handleSelectToken = useCallback(
@@ -465,12 +531,13 @@ function EarnPayWithTokenSelectPage() {
           storeName: EJotaiContextStoreNames.swap,
           token,
           onConfirm: commit,
+          modalHeight,
         });
         return;
       }
       commit();
     },
-    [checkRiskToken, intl, navigation, onSelect],
+    [checkRiskToken, intl, modalHeight, navigation, onSelect],
   );
 
   const renderItem = useCallback(

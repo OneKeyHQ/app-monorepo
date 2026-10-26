@@ -261,20 +261,21 @@ const preloadedLogos = new Set<string>();
 
 // The logos of the first rows and of the Popular token chips, at the sizes
 // they are drawn at (a row's token at its size, a chip's image at its own),
-// so they are in the first frame with the rows rather than a moment after
+// so they are in the first frame with the rows rather than a moment after.
+// The chips are known at once, the rows once the list is in
 function preloadPayWithPickerLogos({
   networkId,
   tokens,
   isWide,
 }: {
   networkId: string;
-  tokens: ISwapToken[];
+  tokens?: ISwapToken[];
   isWide: boolean;
 }) {
   const rowResizeWidth = getTokenImageResizeWidth('lg');
   const chipSize = getTokenValue(isWide ? '$5' : '$4.5', 'size');
   const sources = [
-    ...tokens
+    ...(tokens ?? [])
       .slice(0, PRELOADED_ROW_LOGOS)
       .filter((token) => token.logoURI)
       .map((token) => ({ uri: token.logoURI, resizeWidth: rowResizeWidth })),
@@ -320,6 +321,7 @@ export async function warmPayWithPickerTokens({
   // Pay with's own tokens, which the picker lists also where Swap doesn't
   payTokenAddresses: string[];
 }) {
+  preloadPayWithPickerLogos({ networkId, isWide });
   try {
     const [network, accountAddress] = await Promise.all([
       readPayWithPickerNetwork(networkId),

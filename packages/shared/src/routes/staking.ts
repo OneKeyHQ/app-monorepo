@@ -148,7 +148,10 @@ export type IModalStakingParamList = {
     // Called with the pick after the picker closes
     onSelect: (token: ISwapToken) => void;
   };
-  [EModalStakingRoutes.EarnPayWithTokenRisk]: IModalSwapParamList[EModalSwapRoutes.TokenRiskReminder];
+  [EModalStakingRoutes.EarnPayWithTokenRisk]: IModalSwapParamList[EModalSwapRoutes.TokenRiskReminder] & {
+    // The picker's height, which the reminder keeps (see the picker's)
+    modalHeight?: number;
+  };
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;

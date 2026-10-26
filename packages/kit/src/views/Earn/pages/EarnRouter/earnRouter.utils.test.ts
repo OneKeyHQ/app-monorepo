@@ -556,8 +556,7 @@ describe("Pay with's own tokens in the picker's list", () => {
     USDT,
     STETH,
   ].map((address) => address.toLowerCase());
-  const symbols = (tokens: ISwapToken[]) =>
-    tokens.map((item) => item.symbol);
+  const symbols = (tokens: ISwapToken[]) => tokens.map((item) => item.symbol);
 
   it("adds Pay with's tokens that Swap files under DeFi tokens, among the wallet's by value", () => {
     expect(
@@ -626,10 +625,7 @@ describe("Pay with's own tokens in the picker's list", () => {
     it('matches the typed letters in the symbol or the name, in any case', () => {
       expect(matchesPayTokenKeyword(susde, 'SUSD')).toBe(true);
       expect(
-        matchesPayTokenKeyword(
-          { ...susde, name: 'Staked USDe' },
-          ' staked ',
-        ),
+        matchesPayTokenKeyword({ ...susde, name: 'Staked USDe' }, ' staked '),
       ).toBe(true);
       expect(matchesPayTokenKeyword(susde, 'usd3')).toBe(false);
     });

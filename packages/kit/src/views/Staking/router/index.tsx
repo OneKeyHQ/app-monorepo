@@ -194,6 +194,17 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.EarnPayWithTokenRisk,
     component: EarnPayWithTokenRisk,
+    // Pushed in the picker's modal, it keeps the picker's size: the modal
+    // stays one size, and over the guide only the guide's edge shows
+    modalContentMaxWidth: EARN_PAY_WITH_PICKER_SIZE.width,
+    options: ({ route }) => ({
+      modalContentMaxHeight:
+        (
+          route.params as
+            | IModalStakingParamList[EModalStakingRoutes.EarnPayWithTokenRisk]
+            | undefined
+        )?.modalHeight ?? EARN_PAY_WITH_PICKER_SIZE.height,
+    }),
   },
   {
     name: EModalStakingRoutes.BorrowEModeSwitch,
