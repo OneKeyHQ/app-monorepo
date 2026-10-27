@@ -3,92 +3,94 @@ import type { MouseEvent, PointerEvent, RefObject } from 'react';
 
 import { useTheme } from '@onekeyhq/components';
 
-import {
-  getTradingViewNativePriceAtY,
-  getTradingViewNativePriceY,
-} from '../utils/chartLayout';
+import { getTradingViewNativePriceAtY } from '../utils/chartLayout';
 
 import type { IDrawingProjection } from '../drawings/model';
 import type { ITradingViewNativePriceSelection } from '../types';
 
 const CONTROL_DISPLAY = 'flex';
+const MENU_SELECTOR =
+  '[data-testid="popover-panel"], [data-testid="TMPopover-ScrollView"], [role="menu"], [role="dialog"]';
+
+function forwardPointerMove(
+  canvas: HTMLCanvasElement,
+  event: Pick<
+    globalThis.PointerEvent,
+    | 'buttons'
+    | 'clientX'
+    | 'clientY'
+    | 'isPrimary'
+    | 'pointerId'
+    | 'pointerType'
+    | 'screenX'
+    | 'screenY'
+  >,
+) {
+  if (typeof globalThis.PointerEvent !== 'function') return;
+  canvas.dispatchEvent(
+    new globalThis.PointerEvent('pointermove', {
+      bubbles: true,
+      cancelable: true,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      screenX: event.screenX,
+      screenY: event.screenY,
+      buttons: event.buttons,
+      pointerId: event.pointerId,
+      pointerType: event.pointerType,
+      isPrimary: event.isPrimary,
+    }),
+  );
+}
 
 export function useChartPriceSelection({
   canvasRef,
   enabled,
   label,
   onSelect,
+  pointerLeaveRef,
   projectionRef,
-  redrawRef,
   scopeKey,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   enabled: boolean;
   label?: string;
   onSelect?: (selection: ITradingViewNativePriceSelection) => void;
+  // The chart's own pointer-leave handling.
+  pointerLeaveRef: RefObject<() => void>;
   projectionRef: RefObject<IDrawingProjection | null>;
-  redrawRef: RefObject<() => void>;
   scopeKey?: string;
 }) {
   const theme = useTheme();
   const button = useRef<HTMLButtonElement>(null);
   const selectedY = useRef<number | null>(null);
-  const pinned = useRef<{ price: number; x: number } | null>(null);
-  const hide = useCallback((force = false) => {
-    if (pinned.current && !force) return;
-    pinned.current = null;
+  const openMenu = useRef<object | null>(null);
+  const hide = useCallback(() => {
     selectedY.current = null;
     if (button.current) button.current.style.display = 'none';
   }, []);
+  const reset = useCallback(() => {
+    openMenu.current = null;
+    hide();
+  }, [hide]);
   useEffect(() => {
-    hide(true);
-    redrawRef.current();
-    return () => hide(true);
-  }, [enabled, hide, onSelect, redrawRef, scopeKey]);
-  const getCrosshair = useCallback(() => {
-    const selection = pinned.current;
-    const layout = projectionRef.current?.layout;
-    if (!selection || !layout) return undefined;
-    const y = getTradingViewNativePriceY(selection.price, layout);
-    return { visible: true, x: selection.x, y, price: selection.price };
-  }, [projectionRef]);
-  const updateControl = useCallback(() => {
-    if (!pinned.current) return;
-    const crosshair = getCrosshair();
-    const layout = projectionRef.current?.layout;
-    if (button.current) {
-      if (
-        !crosshair ||
-        !layout ||
-        crosshair.price < layout.minPrice ||
-        crosshair.price > layout.maxPrice
-      ) {
-        button.current.style.display = 'none';
-        return;
-      }
-      button.current.style.display = CONTROL_DISPLAY;
-      button.current.style.left = `${Math.max(0, layout.priceAxisX - 24)}px`;
-      button.current.style.top = `${Math.max(0, crosshair.y - 11)}px`;
-    }
-  }, [getCrosshair, projectionRef]);
+    reset();
+    return reset;
+  }, [enabled, onSelect, reset, scopeKey]);
   const select = useCallback(
-    (price: number, x: number, screenX: number, screenY: number) => {
-      const selection = { price, x };
-      pinned.current = selection;
-      updateControl();
+    (price: number, screenX: number, screenY: number) => {
+      const menu = {};
+      openMenu.current = menu;
       onSelect?.({
         price,
         screenX,
         screenY,
         onClose: () => {
-          if (pinned.current !== selection) return;
-          hide(true);
-          redrawRef.current();
+          if (openMenu.current === menu) openMenu.current = null;
         },
       });
-      redrawRef.current();
     },
-    [updateControl, hide, onSelect, redrawRef],
+    [onSelect],
   );
   const getPrice = useCallback(
     ({ clientX, clientY }: { clientX: number; clientY: number }) => {
@@ -101,7 +103,7 @@ export function useChartPriceSelection({
       if (x < 0 || x > projection.layout.priceAxisX) return null;
       const price = getTradingViewNativePriceAtY({ ...projection.layout, y });
       return price !== null && Number.isFinite(price) && price > 0
-        ? { price, x, y, layout: projection.layout }
+        ? { price, y, layout: projection.layout }
         : null;
     },
     [canvasRef, enabled, onSelect, projectionRef],
@@ -109,12 +111,10 @@ export function useChartPriceSelection({
   useEffect(() => {
     if (!enabled || !onSelect) return;
     const onContextMenu = (event: globalThis.MouseEvent) => {
-      if (!pinned.current) return;
+      if (!openMenu.current) return;
       if (
         event.target instanceof Element &&
-        event.target.closest(
-          '[data-testid="TMPopover-ScrollView"], [role="menu"], [role="dialog"]',
-        )
+        event.target.closest(MENU_SELECTOR)
       )
         return;
       const selection = getPrice(event);
@@ -122,15 +122,56 @@ export function useChartPriceSelection({
       // The open menu's backdrop covers the canvas, so handle repeated right-clicks here.
       event.preventDefault();
       event.stopPropagation();
-      select(selection.price, selection.x, event.clientX, event.clientY);
+      select(selection.price, event.clientX, event.clientY);
+    };
+    const onPointerMove = (event: globalThis.PointerEvent) => {
+      const canvas = canvasRef.current;
+      const layout = projectionRef.current?.layout;
+      const { target } = event;
+      if (
+        !openMenu.current ||
+        !canvas ||
+        !layout ||
+        !(target instanceof Element) ||
+        canvas.parentElement?.contains(target) ||
+        event.pointerType !== 'mouse' ||
+        event.buttons !== 0
+      )
+        return;
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      // The backdrop also swallows hover, so pass plot hovers through it; over
+      // the menu or anywhere else the pointer has left the chart.
+      if (
+        !target.closest(MENU_SELECTOR) &&
+        x >= 0 &&
+        x <= layout.priceAxisX &&
+        y >= 0 &&
+        y <= layout.timeAxisY
+      ) {
+        forwardPointerMove(canvas, event);
+      } else {
+        pointerLeaveRef.current();
+      }
     };
     document.addEventListener('contextmenu', onContextMenu, true);
-    return () =>
+    document.addEventListener('pointermove', onPointerMove, true);
+    return () => {
       document.removeEventListener('contextmenu', onContextMenu, true);
-  }, [enabled, getPrice, onSelect, select]);
+      document.removeEventListener('pointermove', onPointerMove, true);
+    };
+  }, [
+    canvasRef,
+    enabled,
+    getPrice,
+    onSelect,
+    pointerLeaveRef,
+    projectionRef,
+    select,
+  ]);
   const onPointerMove = useCallback(
     (event: PointerEvent<HTMLCanvasElement>) => {
-      if (pinned.current) return;
       if (event.pointerType !== 'mouse' || event.buttons !== 0) {
         hide();
         return;
@@ -153,7 +194,7 @@ export function useChartPriceSelection({
       const selection = getPrice(event);
       if (!selection) return;
       event.preventDefault();
-      select(selection.price, selection.x, event.clientX, event.clientY);
+      select(selection.price, event.clientX, event.clientY);
     },
     [getPrice, select],
   );
@@ -167,31 +208,18 @@ export function useChartPriceSelection({
         });
         const rect = event.currentTarget.getBoundingClientRect();
         if (price !== null && Number.isFinite(price) && price > 0)
-          select(price, layout.priceAxisX - 24, rect.left, rect.bottom);
+          select(price, rect.left, rect.bottom);
       }
     },
     [enabled, projectionRef, select],
   );
   const onControlPointerMove = useCallback(
     (event: PointerEvent<HTMLButtonElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas || typeof globalThis.PointerEvent !== 'function') return;
       // The control covers the canvas; forward hover moves so the crosshair,
       // price axis label and the control itself keep tracking the pointer.
-      canvas.dispatchEvent(
-        new globalThis.PointerEvent('pointermove', {
-          bubbles: true,
-          cancelable: true,
-          clientX: event.clientX,
-          clientY: event.clientY,
-          screenX: event.screenX,
-          screenY: event.screenY,
-          buttons: event.buttons,
-          pointerId: event.pointerId,
-          pointerType: event.pointerType,
-          isPrimary: event.isPrimary,
-        }),
-      );
+      // A pressed move would hide the control before its click lands.
+      if (canvasRef.current && event.buttons === 0)
+        forwardPointerMove(canvasRef.current, event);
     },
     [canvasRef],
   );
@@ -243,7 +271,5 @@ export function useChartPriceSelection({
     onContextMenu,
     onPointerMove,
     hide,
-    getCrosshair,
-    updateControl,
   };
 }

@@ -224,6 +224,7 @@ export const TradingViewNativeChart = memo(
     const drawingProjectionRef = useRef<IDrawingProjection | null>(null);
     const drawingText = useDrawingCanvasText();
     const drawingRedrawRef = useRef<() => void>(() => undefined);
+    const priceSelectionLeaveRef = useRef<() => void>(() => undefined);
     const referenceLineHitRegionsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion[]
     >([]);
@@ -271,14 +272,11 @@ export const TradingViewNativeChart = memo(
         !drawingController.state.draft,
       label: priceSelectionLabel,
       onSelect: onPriceSelect,
+      pointerLeaveRef: priceSelectionLeaveRef,
       projectionRef: drawingProjectionRef,
-      redrawRef: drawingRedrawRef,
       scopeKey: drawingStorageKey,
     });
-    const {
-      getCrosshair: getPriceSelectionCrosshair,
-      updateControl: updatePriceSelectionControl,
-    } = priceSelection;
+    const { hide: hidePriceSelection } = priceSelection;
     const drawingInteraction =
       drawingsEnabled &&
       (drawingController.state.tool !== 'cursor' ||
@@ -577,11 +575,7 @@ export const TradingViewNativeChart = memo(
           priceScaleMode:
             referenceLinePriceRange?.priceScaleMode ??
             priceScaleModelRef.current.mode,
-          runtimeState: {
-            ...nextRuntimeState,
-            crosshair:
-              getPriceSelectionCrosshair() ?? nextRuntimeState.crosshair,
-          },
+          runtimeState: nextRuntimeState,
           showLegend,
           subIndicatorPanes: scaledSubIndicatorPanes,
           timeAxisFontSize,
@@ -616,7 +610,6 @@ export const TradingViewNativeChart = memo(
                 text: drawingText,
               }
             : null;
-        updatePriceSelectionControl();
         if (drawingsEnabled)
           updateData(
             getDataWindowSnapshot({
@@ -669,8 +662,6 @@ export const TradingViewNativeChart = memo(
         line,
         candleLabels,
         points,
-        getPriceSelectionCrosshair,
-        updatePriceSelectionControl,
         priceAxisFontSize,
         priceAxisLabels,
         priceAxisTickCount,
@@ -1526,6 +1517,14 @@ export const TradingViewNativeChart = memo(
         container.removeEventListener('pointermove', updateNavigationHotZone);
       };
     }, [measuredChartWidth, showNavigationControls, timeAxisHeight]);
+    const handleChartMouseLeave = useCallback(() => {
+      setIsNavigationHotZoneHovered(false);
+      hidePriceSelection();
+      handlePointerLeave();
+    }, [handlePointerLeave, hidePriceSelection]);
+    useLayoutEffect(() => {
+      priceSelectionLeaveRef.current = handleChartMouseLeave;
+    }, [handleChartMouseLeave]);
     const handleNavigationAction = useCallback(
       (action: ITradingViewNativeNavigationAction) => {
         const canvas = canvasRef.current;
@@ -1603,11 +1602,7 @@ export const TradingViewNativeChart = memo(
           minHeight={0}
           minWidth={0}
           position="relative"
-          onMouseLeave={() => {
-            setIsNavigationHotZoneHovered(false);
-            priceSelection.hide();
-            handlePointerLeave();
-          }}
+          onMouseLeave={handleChartMouseLeave}
           opacity={isSwitchingInterval ? SWITCHING_INTERVAL_OPACITY : 1}
         >
           <IndicatorPaneHandles
