@@ -648,8 +648,23 @@ export async function broadcastTransaction(
         rawTx: signedTx.rawTx,
       },
     );
-    // Propagate transport errors through the BTC send error flow; the journal retains input locks.
-    const broadcast = await vault.zcashBroadcastTransparentViaBackend(params);
+    let broadcast: ISignedTxPro;
+    try {
+      broadcast = await vault.zcashBroadcastTransparentViaBackend(params);
+    } catch (error) {
+      // Like BTC, a failed broadcast keeps no input lock; a retry reuses the inputs and the node rejects a real double spend.
+      await vault.backgroundApi.simpleDb.privacyChainJournal
+        .settleTransparentPendingTx({
+          accountId: vault.accountId,
+          txid: expectedTxid,
+        })
+        .catch((releaseError) => {
+          console.error('[zcash] transparent input release failed', {
+            ...zcashDescribeError(releaseError),
+          });
+        });
+      throw error;
+    }
     if (broadcast.txid.toLowerCase() !== expectedTxid.toLowerCase()) {
       throw zcashTransparentError(
         'TXID_MISMATCH',

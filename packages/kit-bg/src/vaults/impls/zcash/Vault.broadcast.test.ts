@@ -53,6 +53,13 @@ async function createVault(broadcastAuthorized?: boolean) {
     broadcastState: 'unknown',
     ...(broadcastAuthorized === undefined ? {} : { broadcastAuthorized }),
   };
+  await journalDb.reserveTransparentOutpoints({
+    accountId,
+    ownerId: tx.ownerId,
+    outpoints: tx.spentOutpoints,
+    currentHeight: 1,
+    expiryHeight: tx.expiryHeight,
+  });
   await journalDb.saveTransparentPendingTx({ accountId, tx });
   const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
     accountId,
@@ -95,10 +102,13 @@ describe('Zcash transparent broadcast authorization', () => {
       broadcastState: 'accepted',
       createdAt: 1,
     });
+    expect(
+      await journalDb.listTransparentOutpointsInUse({ accountId }),
+    ).toEqual(new Set([`${'22'.repeat(32)}:0`]));
   });
 
   it.each(['transport timeout', 'node rejected'])(
-    'propagates %s through the BTC error flow while retaining input holds',
+    'releases the journal entry and input holds when the broadcast fails with %s',
     async (message) => {
       const { vault, journalDb } = await createVault(false);
       const error = Object.assign(new OneKeyLocalError(message), {
@@ -111,19 +121,30 @@ describe('Zcash transparent broadcast authorization', () => {
         .mockResolvedValue(signedTx);
 
       await expect(vault.broadcastTransaction(params)).rejects.toBe(error);
-      const [pending] = await journalDb.listTransparentPendingTxs({
-        accountId,
-      });
-      expect(pending).toMatchObject({
-        broadcastAuthorized: true,
-        broadcastState: 'unknown',
-      });
       expect(transport).toHaveBeenCalledTimes(1);
+      expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
+        [],
+      );
       expect(
         await journalDb.listTransparentOutpointsInUse({ accountId }),
-      ).toEqual(new Set([`${'22'.repeat(32)}:0`]));
+      ).toEqual(new Set());
     },
   );
+
+  it('rethrows the broadcast error when releasing the journal entry fails', async () => {
+    const { vault, journalDb } = await createVault(false);
+    const error = new OneKeyLocalError('node rejected');
+    jest
+      .spyOn(VaultBtc.prototype, 'broadcastTransaction')
+      .mockRejectedValueOnce(error);
+    const release = jest
+      .spyOn(journalDb, 'settleTransparentPendingTx')
+      .mockRejectedValueOnce(new OneKeyLocalError('storage unavailable'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(vault.broadcastTransaction(params)).rejects.toBe(error);
+    expect(release).toHaveBeenCalledWith({ accountId, txid });
+  });
 
   it('does not broadcast when authorization cannot be saved', async () => {
     const { vault, journalDb } = await createVault(false);
