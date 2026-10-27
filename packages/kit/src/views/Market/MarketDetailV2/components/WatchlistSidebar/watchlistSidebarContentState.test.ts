@@ -74,3 +74,16 @@ it('keeps the recommendations under the Spot filter', () => {
     'recommendations',
   );
 });
+
+it('keeps a loaded empty state through a background refresh', () => {
+  expect(getWatchlistSidebarContentState({ ...base, isLoading: true })).toBe(
+    'recommendations',
+  );
+  expect(
+    getWatchlistSidebarContentState({
+      ...base,
+      isLoading: true,
+      filter: 'stocks',
+    }),
+  ).toBe('noResults');
+});

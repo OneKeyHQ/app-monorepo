@@ -43,7 +43,10 @@ export function getWatchlistSidebarContentState({
   if (rowCount > 0) {
     return 'rows';
   }
-  if (isLoading) {
+  // A background refresh (polling, focus) flips loading on while the loaded
+  // result stays current; keep the settled empty state instead of remounting
+  // it, which would also reset the recommendation checkboxes.
+  if (isLoading && !hasLoadedAllSources) {
     return 'skeleton';
   }
   if (isError || !hasLoadedAllSources) {
