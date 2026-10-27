@@ -46,6 +46,10 @@ const mockDisable = jest.fn<
 >();
 const mockRepair = jest.fn(async (_params: unknown) => undefined);
 const mockAdmission = jest.fn(async (_params: unknown) => undefined);
+const mockTwinBirthday = jest.fn(
+  async (_params: unknown): Promise<{ birthdayHeight: number } | undefined> =>
+    undefined,
+);
 const mockShowSlotsFull = jest.fn((_params: unknown) => undefined);
 jest.mock('@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog', () => ({
   showPrivacyChainSlotsFullDialog: (params: unknown) =>
@@ -149,6 +153,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       }) => mockEnable(params),
       assertLocalWalletAccountAdmission: (params: unknown) =>
         mockAdmission(params),
+      getLocalWalletTwinBirthday: (params: unknown) => mockTwinBirthday(params),
       disableLocalWalletAccount: (params: {
         accountId: string;
         networkId: string;

@@ -3065,6 +3065,84 @@ class ServicePrivacyChain extends ServiceBase {
     await this.assertNetworkAccountCeiling(params);
   }
 
+  // Asked before the birthday form: an account whose twin already holds the
+  // scan data starts where the twin does, so it asks for nothing again.
+  @backgroundMethod()
+  async getLocalWalletTwinBirthday({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<
+    { birthdayHeight: number; birthdayTimestamp?: number } | undefined
+  > {
+    const [twinId] = await this.listLocalWalletAccountTwins({
+      networkId,
+      accountId,
+    });
+    if (!twinId) return undefined;
+    const capability = await this.requireAccountCapability(networkId);
+    const twin = await capability.getAccountState({ accountId: twinId });
+    if (typeof twin.birthdayHeight !== 'number') return undefined;
+    return {
+      birthdayHeight: twin.birthdayHeight,
+      birthdayTimestamp: twin.birthdayTimestamp,
+    };
+  }
+
+  private async listLocalWalletAccountTwins({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<string[]> {
+    const stateDb = this.backgroundApi.simpleDb.privacyChainState;
+    const [holders, identity] = await Promise.all([
+      stateDb.listNetworkDataHolders({ networkId }),
+      stateDb.getAccountVkFp({ networkId, accountId }),
+    ]);
+    return this.findLocalWalletAccountTwins({ accountId, identity, holders });
+  }
+
+  // Other accounts holding this one's scan identity. A first-time alias
+  // (e.g. the hardware twin of a software account) has no key yet; the same
+  // address says it shares a holder's identity.
+  private async findLocalWalletAccountTwins({
+    accountId,
+    identity,
+    holders,
+  }: {
+    accountId: string;
+    identity: string | undefined;
+    holders: { accountId: string; identity: string }[];
+  }): Promise<string[]> {
+    const others = holders.filter((holder) => holder.accountId !== accountId);
+    if (identity !== undefined) {
+      return others
+        .filter((holder) => holder.identity === identity)
+        .map((holder) => holder.accountId);
+    }
+    const { serviceAccount } = this.backgroundApi;
+    const address = (await serviceAccount.getDBAccountSafe({ accountId }))
+      ?.address;
+    if (!address) return [];
+    const otherAddresses = await Promise.all(
+      others.map(
+        async (holder) =>
+          (
+            await serviceAccount.getDBAccountSafe({
+              accountId: holder.accountId,
+            })
+          )?.address,
+      ),
+    );
+    return others
+      .filter((_holder, index) => otherAddresses[index] === address)
+      .map((holder) => holder.accountId);
+  }
+
   // Only deleting an account's local data makes room; the page explains that.
   private async assertNetworkAccountCeiling({
     networkId,
@@ -3079,25 +3157,12 @@ class ServicePrivacyChain extends ServiceBase {
       stateDb.getAccountVkFp({ networkId, accountId }),
     ]);
     if (canAdmitNetworkAccount({ holders, accountId, identity })) return;
-    // A first-time alias (e.g. the hardware twin of a software account) has no
-    // key yet; the same address says it shares a holder's identity.
-    if (identity === undefined) {
-      const { serviceAccount } = this.backgroundApi;
-      const address = (await serviceAccount.getDBAccountSafe({ accountId }))
-        ?.address;
-      for (const holder of address ? holders : []) {
-        if (
-          // eslint-disable-next-line no-await-in-loop
-          (
-            await serviceAccount.getDBAccountSafe({
-              accountId: holder.accountId,
-            })
-          )?.address === address
-        ) {
-          return;
-        }
-      }
-    }
+    const twins = await this.findLocalWalletAccountTwins({
+      accountId,
+      identity,
+      holders,
+    });
+    if (twins.length > 0) return;
     throw new OneKeyLocalError({
       key: ETranslations.privacy_slots_delete__desc,
       message: localWalletText(ETranslations.privacy_slots_delete__desc),
@@ -3288,13 +3353,30 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<void> {
-    await this.getEnableMutex(networkId).runExclusive(async () =>
-      this.disableLocalWalletAccountUnlocked({
+    await this.getEnableMutex(networkId).runExclusive(async () => {
+      const capability = await this.requireAccountCapability(networkId);
+      // Twins share one scan, so turning one off turns all of them off.
+      const twins = await this.listLocalWalletAccountTwins({
         networkId,
         accountId,
-        capability: await this.requireAccountCapability(networkId),
-      }),
-    );
+      });
+      const twinStates = await Promise.all(
+        twins.map((twinId) =>
+          capability.getAccountState({ accountId: twinId }),
+        ),
+      );
+      const enabledTwins = twins.filter(
+        (_twinId, index) => twinStates[index].enabled,
+      );
+      for (const id of [accountId, ...enabledTwins]) {
+        // eslint-disable-next-line no-await-in-loop
+        await this.disableLocalWalletAccountUnlocked({
+          networkId,
+          accountId: id,
+          capability,
+        });
+      }
+    });
   }
 
   private async disableLocalWalletAccountUnlocked({

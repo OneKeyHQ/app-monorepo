@@ -117,6 +117,15 @@ export function LocalWalletPoolStatus({
         return false;
       });
     if (!admitted) return;
+    const twinBirthday =
+      await backgroundApiProxy.servicePrivacyChain.getLocalWalletTwinBirthday({
+        networkId,
+        accountId,
+      });
+    if (twinBirthday) {
+      await lw.enableAccount(twinBirthday).catch(showSlotsFullOr('enable'));
+      return;
+    }
     const hintTimestamp = lw.state?.birthdayHintTimestamp;
     const earliestBirthday = lw.settings?.accountSetup.earliestBirthday;
     const formRef = createEnableBirthdayForm(hintTimestamp);

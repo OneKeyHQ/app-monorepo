@@ -30,12 +30,17 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 }));
 
 const mockAssertAdmission = jest.fn(async (_params: unknown) => undefined);
+const mockTwinBirthday = jest.fn(
+  async (_params: unknown): Promise<{ birthdayHeight: number } | undefined> =>
+    undefined,
+);
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrivacyChain: {
       assertLocalWalletAccountAdmission: (params: unknown) =>
         mockAssertAdmission(params),
+      getLocalWalletTwinBirthday: (params: unknown) => mockTwinBirthday(params),
     },
   },
 }));
@@ -334,6 +339,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
   beforeEach(() => {
     Dialog.confirm.mockReset();
     mockAssertAdmission.mockReset().mockResolvedValue(undefined);
+    mockTwinBirthday.mockReset().mockResolvedValue(undefined);
     mockShowSlotsFull.mockClear();
     mockPushModal.mockClear();
     mockBirthday = { birthdayTimestamp: 1_700_000_000_000 };
@@ -448,6 +454,31 @@ describe('LocalWalletPoolStatus enable failure', () => {
       }
     },
   );
+
+  it('turns a twin of a scanning account on at its start without asking', async () => {
+    mockTwinBirthday.mockResolvedValue({ birthdayHeight: 3_400_000 });
+    const enableAccount = jest.fn(async () => undefined);
+    render(
+      <LocalWalletPoolStatus
+        networkId="xmr--0"
+        accountId="hw-1--0"
+        pool={pool({
+          enableAccount,
+          settings: { accountSetup: { requiresBirthday: true } },
+        } as unknown as Partial<ILocalWalletPool>)}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
+    });
+
+    expect(mockTwinBirthday).toHaveBeenCalledWith({
+      networkId: 'xmr--0',
+      accountId: 'hw-1--0',
+    });
+    expect(enableAccount).toHaveBeenCalledWith({ birthdayHeight: 3_400_000 });
+    expect(Dialog.confirm).not.toHaveBeenCalled();
+  });
 
   it('lets a rejected enable reach the user and keeps the dialog open', async () => {
     const failure = Object.assign(new Error('runtime unavailable'), {

@@ -551,6 +551,36 @@ export default function PrivacyNetworkSettings({
         showPrivacyChainSlotsFullDialog({ intl });
         return;
       }
+      const enableWith = async (birthday: {
+        birthdayHeight?: number;
+        birthdayTimestamp?: number;
+      }) => {
+        setBusyAccountId(entry.accountId);
+        try {
+          await backgroundApiProxy.servicePrivacyChain.enableLocalWalletAccount(
+            {
+              networkId: entry.networkId,
+              accountId: entry.accountId,
+              ...birthday,
+            },
+          );
+          await refreshEntries();
+        } catch (error) {
+          // Other failures keep this dialog open; the limit gets its own.
+          if (!isLocalWalletSlotsFullError(error)) throw error;
+          showPrivacyChainSlotsFullDialog({ intl });
+        } finally {
+          setBusyAccountId(undefined);
+        }
+      };
+      const twinBirthday =
+        await backgroundApiProxy.servicePrivacyChain.getLocalWalletTwinBirthday(
+          { networkId: entry.networkId, accountId: entry.accountId },
+        );
+      if (twinBirthday) {
+        await enableWith(twinBirthday);
+        return;
+      }
       const earliestBirthday = await getEarliestBirthday(entry.networkId);
       const formRef = createEnableBirthdayForm(entry.birthdayHintTimestamp);
       Dialog.confirm({
@@ -586,23 +616,7 @@ export default function PrivacyNetworkSettings({
             preventClose();
             return;
           }
-          setBusyAccountId(entry.accountId);
-          try {
-            await backgroundApiProxy.servicePrivacyChain.enableLocalWalletAccount(
-              {
-                networkId: entry.networkId,
-                accountId: entry.accountId,
-                ...birthday,
-              },
-            );
-            await refreshEntries();
-          } catch (error) {
-            // Other failures keep this dialog open; the limit gets its own.
-            if (!isLocalWalletSlotsFullError(error)) throw error;
-            showPrivacyChainSlotsFullDialog({ intl });
-          } finally {
-            setBusyAccountId(undefined);
-          }
+          await enableWith(birthday);
         },
       });
     },

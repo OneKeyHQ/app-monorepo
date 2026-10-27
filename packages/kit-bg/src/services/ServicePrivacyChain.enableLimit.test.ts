@@ -40,6 +40,16 @@ type ITestService = {
     accountId: string;
   }) => Promise<void>;
   resumePendingLocalWalletOperations: () => Promise<void>;
+  disableLocalWalletAccount: (params: {
+    networkId: string;
+    accountId: string;
+  }) => Promise<void>;
+  getLocalWalletTwinBirthday: (params: {
+    networkId: string;
+    accountId: string;
+  }) => Promise<
+    { birthdayHeight: number; birthdayTimestamp?: number } | undefined
+  >;
 };
 
 const account = (
@@ -62,6 +72,7 @@ function createService({
   pausedAccountIds = [],
   keylessAccountIds = [],
   addresses = {},
+  birthdays = {},
 }: {
   accountsByNetwork: Record<string, ILocalWalletAccount[]>;
   times?: Record<string, ISlotTimes>;
@@ -76,6 +87,10 @@ function createService({
   // Never enabled, so no identity is known before the key is derived.
   keylessAccountIds?: string[];
   addresses?: Record<string, string>;
+  birthdays?: Record<
+    string,
+    { birthdayHeight: number; birthdayTimestamp?: number }
+  >;
 }) {
   const find = (networkId: string, accountId: string) =>
     accountsByNetwork[networkId]?.find((item) => item.accountId === accountId);
@@ -115,6 +130,7 @@ function createService({
         getAccountState: async ({ accountId }) => ({
           enabled: !!find(networkId, accountId)?.syncEnabled,
           paused: false,
+          ...birthdays[accountId],
         }),
       }),
     }),
@@ -566,5 +582,100 @@ describe('Privacy Mode accounts per network', () => {
     });
 
     expect(enableAccount).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Privacy Mode twin of a scanning account', () => {
+  const twinSetup = (keylessAccountIds: string[] = []) =>
+    createService({
+      accountsByNetwork: {
+        [XMR]: [
+          account('hd-x1', 'key-x1'),
+          account('hw-x1', 'key-x1', false),
+          account('hd-x2', 'key-x2', false),
+        ],
+      },
+      keylessAccountIds,
+      addresses: { 'hd-x1': '4shared', 'hw-x1': '4shared' },
+      birthdays: {
+        'hd-x1': { birthdayHeight: 3_400_000, birthdayTimestamp: 1_700_000 },
+      },
+    });
+
+  it('starts a first-time hardware twin where its software twin starts', async () => {
+    const { service } = twinSetup(['hw-x1']);
+
+    await expect(
+      service.getLocalWalletTwinBirthday({
+        networkId: XMR,
+        accountId: 'hw-x1',
+      }),
+    ).resolves.toEqual({
+      birthdayHeight: 3_400_000,
+      birthdayTimestamp: 1_700_000,
+    });
+  });
+
+  it('finds a twin by its viewing key once the account has one', async () => {
+    const { service } = twinSetup();
+
+    await expect(
+      service.getLocalWalletTwinBirthday({
+        networkId: XMR,
+        accountId: 'hw-x1',
+      }),
+    ).resolves.toEqual({
+      birthdayHeight: 3_400_000,
+      birthdayTimestamp: 1_700_000,
+    });
+  });
+
+  it('asks for a start when no account shares its key', async () => {
+    const { service } = twinSetup(['hd-x2']);
+
+    await expect(
+      service.getLocalWalletTwinBirthday({
+        networkId: XMR,
+        accountId: 'hd-x2',
+      }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe('Privacy Mode turning twins off', () => {
+  it('turns every twin of the account off with it, and no other account', async () => {
+    const { service, disabled, syncing } = createService({
+      accountsByNetwork: {
+        [XMR]: [
+          account('hd-x1', 'key-x1'),
+          account('hw-x1', 'key-x1'),
+          account('hd-x2', 'key-x2'),
+        ],
+      },
+    });
+
+    await service.disableLocalWalletAccount({
+      networkId: XMR,
+      accountId: 'hd-x1',
+    });
+
+    expect(disabled).toEqual(['hd-x1', 'hw-x1']);
+    expect(syncing()).toEqual(['hd-x2']);
+  });
+
+  it('leaves a twin that is already paused as it is', async () => {
+    const { service, disabled } = createService({
+      accountsByNetwork: {
+        [XMR]: [account('hd-x1', 'key-x1'), account('hw-x1', 'key-x1', false)],
+      },
+      pausedAccountIds: ['hw-x1'],
+    });
+
+    await service.disableLocalWalletAccount({
+      networkId: XMR,
+      accountId: 'hd-x1',
+    });
+
+    expect(disabled).toEqual(['hd-x1']);
   });
 });
