@@ -1,7 +1,7 @@
 // Shortcut tiles sit in a 4-column grid because the campaign cards underneath
-// are what set the panel width. A panel without campaign cards shrinks to the
-// two tiles, so the basis has to grow by the same factor to keep the tile size —
-// hence the paired values.
+// are what set the panel width. A panel without campaign cards shrinks to two
+// tile columns, so the basis has to grow by the same factor to keep the tile
+// size — hence the paired values.
 export const ACTIVITY_HUB_SHORTCUT_ROW_PADDING = 32;
 
 export type IActivityHubShortcutBasis = `${number}%`;

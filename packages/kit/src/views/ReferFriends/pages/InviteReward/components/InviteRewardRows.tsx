@@ -369,6 +369,7 @@ export function InviteRewardRows({
     () => getInviteRewardRows(summaryInfo, summaryInfo.rebateConfig.configs),
     [summaryInfo],
   );
+  const hasAnyData = rows.some((row) => row.hasData);
   const { copyLink } = useReferralCodeCard({
     inviteUrl: summaryInfo.inviteUrl,
     inviteCode: summaryInfo.inviteCode,
@@ -403,7 +404,6 @@ export function InviteRewardRows({
   });
 
   if (!md) {
-    const hasAnyData = rows.visibleRows.length > 0;
     const desktopLabels: IDesktopRewardLabels = {
       product: intl.formatMessage({
         id: ETranslations.referral_product__title,
@@ -413,8 +413,8 @@ export function InviteRewardRows({
       pending: pendingLabel,
     };
     const desktopColumns: IDesktopRewardColumns = {
-      monthly: rows.visibleRows.some((row) => row.monthlySalesFiatValue),
-      pending: rows.visibleRows.some((row) => row.pending),
+      monthly: rows.some((row) => row.hasData && row.monthlySalesFiatValue),
+      pending: rows.some((row) => row.hasData && row.pending),
     };
     return (
       // A wider gap splits the overview cards from the per-product
@@ -431,9 +431,7 @@ export function InviteRewardRows({
               labels={desktopLabels}
               columns={desktopColumns}
             />
-            {/* Products without rewards are listed after the rest, never
-                folded: an icon-less folded row reads as a missing icon. */}
-            {[...rows.visibleRows, ...rows.foldedRows].map((row) => (
+            {rows.map((row) => (
               <DesktopRewardRow
                 key={row.subject}
                 row={row}
@@ -465,7 +463,7 @@ export function InviteRewardRows({
     </SizableText>
   );
 
-  if (rows.visibleRows.length === 0) {
+  if (!hasAnyData) {
     return (
       <YStack gap="$2">
         {compactTitle}
@@ -492,9 +490,7 @@ export function InviteRewardRows({
       {/* In a card like the blocks above, so the row text lines up with
           theirs. */}
       <YStack px="$4" py="$1" {...cardStyle}>
-        {rows.visibleRows.map(renderRow)}
-        {/* Like desktop, products without rewards keep their own rows. */}
-        {rows.foldedRows.map(renderRow)}
+        {rows.map(renderRow)}
       </YStack>
     </YStack>
   );

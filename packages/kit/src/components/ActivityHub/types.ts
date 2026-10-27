@@ -1,5 +1,3 @@
-import type { IReferralShareSource } from '@onekeyhq/shared/src/config/appConfig';
-
 export type IActivityHubCampaign = {
   id: string;
   imageUrl?: string;
@@ -9,4 +7,4 @@ export type IActivityHubCampaign = {
   url: string;
 };
 
-export type IActivityHubSource = IReferralShareSource;
+export type IActivityHubSource = 'Earn' | 'Perps' | 'Swap';

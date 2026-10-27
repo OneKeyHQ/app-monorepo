@@ -66,14 +66,19 @@ export function formatInviteeDiscountText(discount?: number) {
   return shouldShowInviteeDiscount(discount) ? `${discount}%` : '-';
 }
 
-export function formatCommissionRateText({
+// The two halves of a "you / invitee" rate, so a table can line them up on
+// the slash. `invitee` is unset when invitees get no discount.
+export function getCommissionRateParts({
   rebate,
   discount,
 }: {
   rebate: number;
   discount?: number;
-}) {
-  return `${rebate}% / ${formatInviteeDiscountText(discount)}`;
+}): { you: string; invitee?: string } {
+  return {
+    you: `${rebate}%`,
+    invitee: shouldShowInviteeDiscount(discount) ? `${discount}%` : undefined,
+  };
 }
 
 export function sortCommissionRateItems<T extends { subject: string }>(

@@ -127,13 +127,12 @@ export function isInviteRewardSubjectEnabled(
   );
 }
 
+// Products with rewards come first, then the ones without, each group in the
+// canonical product order.
 export function getInviteRewardRows(
   summary?: IInviteRewardRowsInput | null,
   configs?: Record<string, { enabled?: boolean }>,
-): {
-  visibleRows: IInviteRewardRow[];
-  foldedRows: IInviteRewardRow[];
-} {
+): IInviteRewardRow[] {
   const rows: IInviteRewardRow[] = [
     buildHardwareRow(summary?.HardwareSales),
     buildAmountRow('perps', summary?.Perp?.available),
@@ -144,8 +143,8 @@ export function getInviteRewardRows(
     (row) => row.hasData || isInviteRewardSubjectEnabled(row.subject, configs),
   );
 
-  return {
-    visibleRows: rows.filter((row) => row.hasData),
-    foldedRows: rows.filter((row) => !row.hasData),
-  };
+  return [
+    ...rows.filter((row) => row.hasData),
+    ...rows.filter((row) => !row.hasData),
+  ];
 }

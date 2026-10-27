@@ -7,26 +7,37 @@ import { resolveReferralPageTab } from './referralPageTab';
 
 import type { IReferralPageTab } from './referralPageTab';
 
+// Desktop reads and writes sync storage over blocking IPC, so the stored tab
+// is read once per JS runtime and cached here.
+let cachedLastTab: string | undefined;
+let hasReadLastTab = false;
+
 // Read back through resolveReferralPageTab, so an unknown value falls back to
 // the invite tab.
 function readLastReferralPageTab(): string | undefined {
-  try {
-    return appStorage.syncStorage.getString(
-      EAppSyncStorageKeys.onekey_referral_last_page_tab,
-    );
-  } catch {
-    return undefined;
+  if (!hasReadLastTab) {
+    hasReadLastTab = true;
+    try {
+      cachedLastTab = appStorage.syncStorage.getString(
+        EAppSyncStorageKeys.onekey_referral_last_page_tab,
+      );
+    } catch {
+      cachedLastTab = undefined;
+    }
   }
+  return cachedLastTab;
 }
 
 function saveLastReferralPageTab(tab: IReferralPageTab) {
+  if (readLastReferralPageTab() === tab) {
+    return;
+  }
+  cachedLastTab = tab;
   try {
-    void Promise.resolve(
-      appStorage.syncStorage.set(
-        EAppSyncStorageKeys.onekey_referral_last_page_tab,
-        tab,
-      ),
-    ).catch(() => undefined);
+    appStorage.syncStorage.set(
+      EAppSyncStorageKeys.onekey_referral_last_page_tab,
+      tab,
+    );
   } catch {
     // The page still works without the remembered tab.
   }
@@ -47,4 +58,10 @@ export function useReferralPageTab(routeTab?: string | null): IReferralPageTab {
     saveLastReferralPageTab(activeTab);
   }, [activeTab]);
   return activeTab;
+}
+
+// Test-only: forget the cached tab so each test reads storage afresh.
+export function resetReferralPageTabCacheForTest() {
+  cachedLastTab = undefined;
+  hasReadLastTab = false;
 }

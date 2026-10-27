@@ -22,8 +22,8 @@ import {
   PRESSABLE_SURFACE_PROPS,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import {
+  getCommissionRateParts,
   getDisplayLabel,
-  shouldShowInviteeDiscount,
   sortCommissionRateItems,
 } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -61,12 +61,9 @@ interface ILevelRuleRow {
   rate?: ILevelRuleRate;
 }
 
-// Kept as two parts so the rate column can line up on its slash.
-interface ILevelRuleRate {
-  you: string;
-  // Unset when invitees get no discount; the cell then reads as a quiet "–".
-  invitee?: string;
-}
+// Kept as two parts so the rate column can line up on its slash. A missing
+// invitee part reads as a quiet "–".
+type ILevelRuleRate = ReturnType<typeof getCommissionRateParts>;
 
 // A level's icon (or emoji) at header size, so each column names the level
 // it is about without spelling it out.
@@ -77,42 +74,34 @@ function LevelGlyph({ icon, emoji }: { icon?: string; emoji?: string }) {
   return emoji ? <SizableText size="$bodySm">{emoji}</SizableText> : null;
 }
 
-// One figure column, laid out top to bottom so it takes the width of its
+// Each figure column is laid out top to bottom so it takes the width of its
 // widest value: currency symbols and localized figures vary in length
 // ("$8K", "Rp15,6M"), and a figure must never be cut off. Fixed-height
-// cells keep the columns' rows aligned with the label column.
-function RuleColumn({
-  header,
-  glyph,
-  values,
-}: {
-  header: string;
-  glyph?: ReactNode;
-  values: (string | undefined)[];
-}) {
+// cells keep the columns' rows aligned with the label column. A column
+// starts at its widest value and takes an equal share of any spare width,
+// so the figures spread across the row instead of bunching on the right; it
+// never shrinks below its content.
+const RULE_COLUMN_PROPS = {
+  flexGrow: 1,
+  flexShrink: 0,
+  flexBasis: 'auto',
+  ai: 'flex-end',
+} as const;
+
+function RuleHeader({ header, glyph }: { header: string; glyph?: ReactNode }) {
   return (
-    // Starts at its widest value and takes an equal share of any spare
-    // width, so the figures spread across the row instead of bunching on
-    // the right; it never shrinks below its content.
-    <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-end">
-      <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end" gap="$1">
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          textAlign="right"
-          numberOfLines={2}
-          maxWidth={RULE_HEADER_MAX_WIDTH}
-        >
-          {header}
-        </SizableText>
-        {glyph}
-      </XStack>
-      {values.map((value, index) => (
-        <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
-          <RuleCell value={value} />
-        </XStack>
-      ))}
-    </YStack>
+    <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end" gap="$1">
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        textAlign="right"
+        numberOfLines={2}
+        maxWidth={RULE_HEADER_MAX_WIDTH}
+      >
+        {header}
+      </SizableText>
+      {glyph}
+    </XStack>
   );
 }
 
@@ -132,8 +121,51 @@ function RuleCell({
   );
 }
 
+// One fixed-height cell per row, stacked so the stack takes the width of
+// its widest cell.
+function RuleCells<T>({
+  values,
+  renderCell,
+  ai,
+}: {
+  values: T[];
+  renderCell: (value: T) => ReactNode;
+  ai?: 'flex-start' | 'flex-end';
+}) {
+  return (
+    <YStack ai={ai}>
+      {values.map((value, index) => (
+        <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
+          {renderCell(value)}
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
+function RuleColumn({
+  header,
+  glyph,
+  values,
+}: {
+  header: string;
+  glyph?: ReactNode;
+  values: (string | undefined)[];
+}) {
+  return (
+    <YStack {...RULE_COLUMN_PROPS}>
+      <RuleHeader header={header} glyph={glyph} />
+      <RuleCells
+        values={values}
+        ai="flex-end"
+        renderCell={(value) => <RuleCell value={value} />}
+      />
+    </YStack>
+  );
+}
+
 // The rate column reads "you / invitee". Right-aligning the whole text
-// staggered its slashes whenever a part was "-" or a different width, so the
+// staggered its slashes whenever a part was "–" or a different width, so the
 // two parts sit in their own sub-columns: yours flush right, the invitee's
 // flush left, and every row's slash lands at the same spot.
 function RateColumn({
@@ -144,40 +176,27 @@ function RateColumn({
   values: (ILevelRuleRate | undefined)[];
 }) {
   return (
-    <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-end">
-      <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end">
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          textAlign="right"
-          numberOfLines={2}
-          maxWidth={RULE_HEADER_MAX_WIDTH}
-        >
-          {header}
-        </SizableText>
-      </XStack>
+    <YStack {...RULE_COLUMN_PROPS}>
+      <RuleHeader header={header} />
       <XStack>
-        <YStack ai="flex-end">
-          {values.map((value, index) => (
-            <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
-              <RuleCell value={value?.you} />
-            </XStack>
-          ))}
-        </YStack>
-        <YStack>
-          {values.map((value, index) => (
-            <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
-              {value ? <RuleCell value="/" px="$1" /> : null}
-            </XStack>
-          ))}
-        </YStack>
-        <YStack ai="flex-start">
-          {values.map((value, index) => (
-            <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
-              {value ? <RuleCell value={value.invitee} /> : null}
-            </XStack>
-          ))}
-        </YStack>
+        <RuleCells
+          values={values}
+          ai="flex-end"
+          renderCell={(value) => <RuleCell value={value?.you} />}
+        />
+        <RuleCells
+          values={values}
+          renderCell={(value) =>
+            value ? <RuleCell value="/" px="$1" /> : null
+          }
+        />
+        <RuleCells
+          values={values}
+          ai="flex-start"
+          renderCell={(value) =>
+            value ? <RuleCell value={value.invitee} /> : null
+          }
+        />
       </XStack>
     </YStack>
   );
@@ -362,12 +381,10 @@ export function LevelAccordionItem({
         subject || `${index}`,
         getCommissionRateLabel(intl, subject, rate),
       );
-      row.rate = {
-        you: `${rate.rebate}%`,
-        invitee: shouldShowInviteeDiscount(rate.discount)
-          ? `${rate.discount ?? 0}%`
-          : undefined,
-      };
+      row.rate = getCommissionRateParts({
+        rebate: rate.rebate,
+        discount: rate.discount,
+      });
     });
     // Earn and Onchain share the DeFi name: fold them into one row, the first
     // one's figures leading and the other filling any cell the first lacks,

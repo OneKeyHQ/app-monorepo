@@ -19,19 +19,31 @@ jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
 
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
-import { useReferralPageTab } from './useReferralPageTab';
+import {
+  resetReferralPageTabCacheForTest,
+  useReferralPageTab,
+} from './useReferralPageTab';
 
 const KEY = EAppSyncStorageKeys.onekey_referral_last_page_tab;
 
 describe('useReferralPageTab', () => {
   beforeEach(() => {
     mockStore.clear();
+    resetReferralPageTabCacheForTest();
   });
 
   it('opens the invite tab the first time', () => {
     const { result } = renderHook(() => useReferralPageTab(undefined));
     expect(result.current).toBe('invite');
     expect(mockStore.get(KEY)).toBe('invite');
+  });
+
+  it('does not write back a tab that is already stored', () => {
+    mockStore.set(KEY, 'benefits');
+    const setSpy = jest.spyOn(mockStore, 'set');
+    renderHook(() => useReferralPageTab(undefined));
+    expect(setSpy).not.toHaveBeenCalled();
+    setSpy.mockRestore();
   });
 
   it('reopens the last tab when the route names none', () => {
