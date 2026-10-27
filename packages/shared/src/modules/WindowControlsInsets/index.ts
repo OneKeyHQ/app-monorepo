@@ -8,3 +8,7 @@ export type { IWindowControlsInsets } from './types';
 export function useWindowControlsInsets(): IWindowControlsInsets {
   return ZERO_WINDOW_CONTROLS_INSETS;
 }
+
+export function useWindowControlsLeadingOffset(_contentPadding: number) {
+  return 0;
+}

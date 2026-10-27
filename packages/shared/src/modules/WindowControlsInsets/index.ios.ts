@@ -51,3 +51,11 @@ export function useWindowControlsInsets(): IWindowControlsInsets {
   }, []);
   return insets;
 }
+
+// Extra leading offset for content that already keeps `contentPadding` from
+// the window edge. The insets also cover the rounded window corners (about
+// 9pt even in full screen), which existing padding already clears.
+export function useWindowControlsLeadingOffset(contentPadding: number) {
+  const { left } = useWindowControlsInsets();
+  return Math.max(0, left - contentPadding);
+}

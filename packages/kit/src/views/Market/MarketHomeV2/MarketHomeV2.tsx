@@ -21,7 +21,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IMarketCategoryToSelectResult } from '@onekeyhq/shared/src/logger/scopes/market/scenes/navigation';
-import { useWindowControlsInsets } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
+import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -422,7 +422,8 @@ function BaseMarketHome() {
   const isFocused = useRouteIsFocused();
   const { top } = useSafeAreaInsets();
   // The search row sits beside the iPadOS window controls.
-  const { left: windowControlsLeft } = useWindowControlsInsets();
+  // The row already keeps 20pt ($5 / $pagePadding) from the window edge.
+  const windowControlsOffset = useWindowControlsLeadingOffset(20);
   const searchGlassActive = isLiquidGlassAvailable();
   const scrollEdgeHeaderEnabled = Boolean(
     platformEnv.isNativeIOS && searchGlassActive,
@@ -483,7 +484,7 @@ function BaseMarketHome() {
             px="$5"
             width="100%"
           >
-            <YStack pl={windowControlsLeft}>
+            <YStack pl={windowControlsOffset}>
               <LegacyUniversalSearchInput
                 size="medium"
                 glass

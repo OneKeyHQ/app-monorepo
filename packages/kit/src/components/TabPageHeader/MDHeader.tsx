@@ -9,7 +9,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useWindowControlsInsets } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
+import { useWindowControlsLeadingOffset } from '@onekeyhq/shared/src/modules/WindowControlsInsets';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -99,7 +99,8 @@ export function MDHeader({
 }) {
   const { top } = useSafeAreaInsets();
   // The first header row sits beside the iPadOS window controls.
-  const { left: windowControlsLeft } = useWindowControlsInsets();
+  // The row already keeps 20pt ($5 / $pagePadding) from the window edge.
+  const windowControlsOffset = useWindowControlsLeadingOffset(20);
   const isHomeTab =
     tabRoute === ETabRoutes.Home &&
     sceneName !== EAccountSelectorSceneName.homeUrlAccount;
@@ -150,7 +151,7 @@ export function MDHeader({
               <XStack
                 alignItems="center"
                 px={headerPx}
-                ml={windowControlsLeft}
+                ml={windowControlsOffset}
                 h={56}
                 gap={headerGlassActive || usePlainHomeHeader ? '$3' : '$6'}
                 {...(top || platformEnv.isNativeAndroid
@@ -207,7 +208,7 @@ export function MDHeader({
                 alignItems="center"
                 justifyContent="space-between"
                 px={headerPx}
-                ml={windowControlsLeft}
+                ml={windowControlsOffset}
                 h={44}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
