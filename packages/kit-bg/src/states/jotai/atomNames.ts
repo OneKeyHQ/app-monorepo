@@ -28,6 +28,7 @@ export enum EAtomNames {
   thirdPartyBleBindingAtom = 'thirdPartyBleBindingAtom',
   thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
   thirdPartyBatchInstallAtom = 'thirdPartyBatchInstallAtom',
+  thirdPartyLiveConnectionAtom = 'thirdPartyLiveConnectionAtom',
   hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
   // firmwareUpdatesDetectStatusAtom is reserved for firmwareUpdatesDetectStatusPersistAtom
   firmwareUpdatesDetectStatusPersistAtom = 'firmwareUpdatesDetectStatusPersistAtom', // persist

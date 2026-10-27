@@ -70,6 +70,7 @@ export class LedgerAdapter
       hw: this.hw,
       vendor: this.vendor,
     });
+    this.trackLiveConnection();
 
     this.hw.on('ui-event', (event) => {
       const eventType = (event as { type?: string }).type ?? 'unknown';

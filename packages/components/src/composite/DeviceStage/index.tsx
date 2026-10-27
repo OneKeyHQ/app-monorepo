@@ -70,6 +70,7 @@ import {
 import { AuthChecklist, AuthFailureCard } from './AuthPanels';
 import { BluetoothBadge } from './BluetoothBadge';
 import { CardValue } from './CardValue';
+import { ChannelCornerBadge } from './ChannelCornerBadge';
 import {
   COMPACT_DEVICE_WIDTH,
   COMPACT_PORT_HEIGHT,
@@ -2361,6 +2362,9 @@ export function DeviceStage({
               height={CAPSULE_ROW.thumbBox}
             />
           ) : null}
+          {capsuleGlyph === 'device' && vendorImageSource && connectionType ? (
+            <ChannelCornerBadge connectionType={connectionType} />
+          ) : null}
         </Stack>
         <YStack maxWidth={CAPSULE_TEXT_MAX_WIDTH}>
           {/* The sweep rests with the capsule: hidden poses neither pay
@@ -2378,7 +2382,14 @@ export function DeviceStage({
         </YStack>
       </XStack>
     ),
-    [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
+    [
+      bluetoothBadgePaused,
+      capsuleGlyph,
+      capsuleText,
+      connectionType,
+      pose,
+      vendorImageSource,
+    ],
   );
 
   const dismissLabel = useMemo(

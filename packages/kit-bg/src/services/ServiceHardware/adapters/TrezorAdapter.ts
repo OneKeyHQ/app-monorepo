@@ -189,6 +189,7 @@ export class TrezorAdapter
         }
       },
     });
+    this.trackLiveConnection();
     this._disposeSdkEvents = disposeSdkEvents;
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Trezor] adapter created');
 

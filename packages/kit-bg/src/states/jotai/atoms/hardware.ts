@@ -463,6 +463,21 @@ export const {
   name: EAtomNames.thirdPartyBatchInstallAtom,
 });
 
+/** The channel the SDK last connected a third-party device over; cleared when that device disconnects. */
+export type IThirdPartyLiveConnectionState = {
+  vendor: EHardwareVendor;
+  connectId: string;
+  connectionType: 'usb' | 'ble';
+};
+
+export const {
+  target: thirdPartyLiveConnectionAtom,
+  use: useThirdPartyLiveConnectionAtom,
+} = globalAtom<IThirdPartyLiveConnectionState | undefined>({
+  initialValue: undefined,
+  name: EAtomNames.thirdPartyLiveConnectionAtom,
+});
+
 // firmware update ----------------------------------------------
 
 export const {

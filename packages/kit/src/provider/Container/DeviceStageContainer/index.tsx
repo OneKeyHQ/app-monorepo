@@ -22,6 +22,7 @@ import {
   useDevSettingsPersistAtom,
   useDeviceStageAtom,
   useSettingsPersistAtom,
+  useThirdPartyLiveConnectionAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDeviceStageState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -131,6 +132,14 @@ function DeviceStageContainerCmp() {
       settings.hardwareTransportType === EHardwareTransportType.DesktopWebBle)
       ? 'bluetooth'
       : 'usb';
+  // A third-party device's channel is the one its SDK connected over, never
+  // the OneKey setting above; unknown leaves the badge off.
+  const [liveVendorConnection] = useThirdPartyLiveConnectionAtom();
+  let vendorConnectionType: IDeviceStageConnectionType | undefined;
+  if (stage?.vendor && liveVendorConnection?.vendor === stage.vendor) {
+    vendorConnectionType =
+      liveVendorConnection.connectionType === 'ble' ? 'bluetooth' : 'usb';
+  }
 
   // The exit policy's clocks, and the wait report that rides out of them
   // with the numbers the grant saw.
@@ -592,7 +601,7 @@ function DeviceStageContainerCmp() {
       deviceType={toStageDeviceType(stage?.deviceType)}
       deviceColor={stage?.deviceColor}
       deviceName={stage?.deviceName}
-      connectionType={connectionType}
+      connectionType={stage?.vendor ? vendorConnectionType : connectionType}
       waitStalled={stalled}
       vendor={toStageVendor(stage?.vendor)}
       vendorModel={stage?.vendorModel}
