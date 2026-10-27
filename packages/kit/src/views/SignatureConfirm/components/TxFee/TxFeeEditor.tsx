@@ -943,15 +943,15 @@ function TxFeeEditor(props: IProps) {
             setCurrentFeeIndex(Number(v));
             setCurrentFeeType(feeType);
           }}
-          options={feeSelectorItems.map((item, index) => ({
+          options={feeSelectorItems.map((item) => ({
             ...item,
-            label: (
+            label: ({ color }) => (
               <YStack>
                 {/* <SizableText size="$bodyMdMedium" textAlign="center">
                   {item.icon}
                 </SizableText> */}
                 <SizableText
-                  color={currentFeeIndex === index ? '$text' : '$textSubdued'}
+                  color={color}
                   size="$bodyMdMedium"
                   textAlign="center"
                 >
