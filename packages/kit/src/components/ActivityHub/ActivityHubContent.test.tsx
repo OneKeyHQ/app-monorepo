@@ -271,36 +271,31 @@ describe('ActivityHubContent', () => {
     });
   });
 
-  it.each([
-    { platform: 'pointer layouts', isNative: false, panel: true },
-    { platform: 'native', isNative: true, panel: false },
-  ])(
-    'shows the same entry in the Perps menu as in the gift on $platform',
-    ({ isNative, panel }) => {
-      platformEnv.isNative = isNative;
-      render(
-        <ActivityHubContent
-          source="Perps"
-          closePopover={jest.fn()}
-          onOpenReferral={jest.fn()}
-          showTitle={false}
-          menuLayout
-        />,
-      );
+  it('opens the invite panel dialog from the Perps menu row on pointer layouts', async () => {
+    const onOpenReferral = jest.fn();
+    const onOpenInvitePanel = jest.fn();
+    render(
+      <ActivityHubContent
+        source="Perps"
+        closePopover={() => Promise.resolve()}
+        onOpenReferral={onOpenReferral}
+        onOpenInvitePanel={onOpenInvitePanel}
+        showTitle={false}
+        menuLayout
+      />,
+    );
 
-      expect(Boolean(screen.queryByTestId('activity-hub-open-perks'))).toBe(
-        panel,
-      );
-      expect(Boolean(screen.queryByTestId('activity-hub-referral'))).toBe(
-        !panel,
-      );
-      expect(mockHubShown).toHaveBeenCalledWith({
-        source: 'Perps',
-        layout: 'menu',
-        campaignCount: 0,
-      });
-    },
-  );
+    // The menu keeps its Referral row instead of the inline panel.
+    expect(screen.queryByTestId('activity-hub-open-perks')).toBeNull();
+    fireEvent.click(screen.getByTestId('activity-hub-referral'));
+
+    await waitFor(() => expect(onOpenInvitePanel).toHaveBeenCalledTimes(1));
+    expect(onOpenReferral).not.toHaveBeenCalled();
+    expect(mockHubActionPressed).toHaveBeenCalledWith({
+      source: 'Perps',
+      action: 'open_invite_panel',
+    });
+  });
 
   it('opens the referral page from the native gift when there are no campaigns', () => {
     platformEnv.isNative = true;

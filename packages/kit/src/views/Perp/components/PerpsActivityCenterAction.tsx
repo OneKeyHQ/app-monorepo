@@ -1,13 +1,15 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
   ActivityHubAction,
   ActivityHubContent,
+  useShowActivityHub,
 } from '@onekeyhq/kit/src/components/ActivityHub';
 import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpsCampaignIllustration } from './PerpsCampaignIllustration';
 
@@ -35,6 +37,12 @@ export function PerpsActivityCenterContent({
   menuPopoverLayout?: boolean;
 }) {
   const { campaigns, handleOpenReferral } = usePerpsActivityHubProps();
+  const showActivityHub = useShowActivityHub();
+  // The menu already lists the campaigns, so the dialog holds only the
+  // invite panel.
+  const openInvitePanel = useCallback(() => {
+    showActivityHub({ source: 'Perps', onOpenReferral: handleOpenReferral });
+  }, [handleOpenReferral, showActivityHub]);
 
   return (
     <ActivityHubContent
@@ -47,6 +55,9 @@ export function PerpsActivityCenterContent({
         menuLayout ? <PerpsCampaignIllustration trimmed /> : undefined
       }
       onOpenReferral={handleOpenReferral}
+      onOpenInvitePanel={
+        menuLayout && !platformEnv.isNative ? openInvitePanel : undefined
+      }
       campaigns={campaigns}
     />
   );
