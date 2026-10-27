@@ -23585,6 +23585,7 @@
     "packages/kit/src/utils/passphraseUtils.ts": 4864,
     "packages/kit/src/utils/passwordUtils.ts": 4082,
     "packages/kit/src/utils/privacyChainEndpointLabel.ts": 16749,
+    "packages/kit/src/utils/privacyChainSlotsFullDialog.tsx": 17151,
     "packages/kit/src/utils/privacyChainSyncDisplay.ts": 23025,
     "packages/kit/src/utils/requestNodeHostPermission.ext.ts": 18515,
     "packages/kit/src/utils/requestNodeHostPermission.ts": 2550,
