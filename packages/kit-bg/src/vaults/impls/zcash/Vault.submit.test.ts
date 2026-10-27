@@ -73,27 +73,21 @@ describe('Zcash private send submission', () => {
     );
   });
 
-  it('reports an uncertain runtime broadcast as an error instead of a successful send', async () => {
-    const { vault, params } = createVault({
-      txid: 'tx1',
-      broadcastState: 'unknown',
-      broadcastError: { code: 'NETWORK_ERROR', params: {} },
-    });
+  // Not "node unreachable": that would send the user to resend elsewhere.
+  it.each([{ code: 'NETWORK_ERROR', params: {} }, undefined])(
+    'reports an uncertain broadcast as of unknown outcome (%o)',
+    async (broadcastError) => {
+      const { vault, params } = createVault({
+        txid: 'tx1',
+        broadcastState: 'unknown',
+        broadcastError,
+      });
 
-    await expect(
-      vault.broadcastTransaction(params as never),
-    ).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
-  });
-
-  it('uses the existing network error when an uncertain result has no error detail', async () => {
-    const { vault, params } = createVault({
-      txid: 'tx1',
-      broadcastState: 'unknown',
-    });
-    await expect(
-      vault.broadcastTransaction(params as never),
-    ).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
-  });
+      await expect(
+        vault.broadcastTransaction(params as never),
+      ).rejects.toMatchObject({ code: 'BROADCAST_OUTCOME_UNKNOWN' });
+    },
+  );
 
   it('reports a runtime failure before the node is contacted', async () => {
     const { vault, params } = createVault(

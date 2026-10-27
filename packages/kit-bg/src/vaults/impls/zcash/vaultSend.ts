@@ -717,15 +717,22 @@ export async function broadcastTransaction(
   });
   const { txid, broadcastState, broadcastError } = sendResult;
   if (broadcastState !== 'accepted') {
-    const rejected = broadcastError ?? {
-      code:
-        broadcastState === 'rejected' ? 'BROADCAST_REJECTED' : 'NETWORK_ERROR',
-      params: {},
-    };
+    // An unknown outcome may still reach the chain: the runtime holds the tx
+    // as pending until mined or expired, so the user checks history first.
+    const failure =
+      broadcastState === 'unknown'
+        ? { code: 'BROADCAST_OUTCOME_UNKNOWN', params: {} }
+        : (broadcastError ?? { code: 'BROADCAST_REJECTED', params: {} });
+    if (broadcastState === 'unknown') {
+      console.error('[zcash] broadcast outcome unknown', {
+        txid,
+        code: broadcastError?.code,
+      });
+    }
     throw toUserFacingZcashError(
-      Object.assign(new OneKeyLocalError(rejected.code), {
-        ...rejected,
-        payload: rejected,
+      Object.assign(new OneKeyLocalError(failure.code), {
+        ...failure,
+        payload: failure,
       }),
     );
   }
