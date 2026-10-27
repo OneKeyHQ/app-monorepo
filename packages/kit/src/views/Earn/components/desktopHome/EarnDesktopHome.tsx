@@ -54,7 +54,10 @@ import {
   useEarnDesktopWalletHoldings,
 } from './useEarnDesktopHomeData';
 
-import type { IEarnDesktopHoldRow } from './earnDesktopHome.utils';
+import type {
+  IEarnDesktopHoldRow,
+  IEarnDesktopLoanPair,
+} from './earnDesktopHome.utils';
 import type { IUseEarnPortfolioReturn } from '../../hooks/useEarnPortfolio';
 
 type IHomeTab = 'earn' | 'loans';
@@ -494,6 +497,17 @@ export function EarnDesktopHome({
     },
     [navigation],
   );
+  // A Loans row: the pair in the Loans router, on the row's market
+  const handleOpenLoanPair = useCallback(
+    (pair: IEarnDesktopLoanPair) => {
+      EarnNavigation.pushToEarnLoanRouter(navigation, {
+        collateral: pair.collateral.symbol,
+        borrow: pair.borrow.symbol,
+        routeKey: pair.key,
+      });
+    },
+    [navigation],
+  );
 
   const bannerCount = bannerList.filter(
     (banner) =>
@@ -656,7 +670,7 @@ export function EarnDesktopHome({
                 markets={markets}
                 isLoaded={isMarketsLoaded}
                 walletNetworkGroups={wallet.networkGroups}
-                onOpenMarket={handleOpenBorrow}
+                onOpenPair={handleOpenLoanPair}
               />
             </YStack>
           ) : null}

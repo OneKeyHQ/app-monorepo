@@ -28,7 +28,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
-import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
@@ -307,15 +306,15 @@ function PairIcons({ pair }: { pair: IEarnDesktopLoanPair }) {
 function BasicPairRow({
   pair,
   isWide,
-  onOpenMarket,
+  onOpenPair,
 }: {
   pair: IEarnDesktopLoanPair;
   isWide: boolean;
-  onOpenMarket: (market: IBorrowMarketItem) => void;
+  onOpenPair: (pair: IEarnDesktopLoanPair) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const { collateral, borrow, market } = pair;
-  const onPress = () => onOpenMarket(market);
+  const onPress = () => onOpenPair(pair);
   const moreCount = pair.moreCollateral.length;
   return (
     <ListItem
@@ -478,12 +477,13 @@ function BasicEarnDesktopBorrowTab({
   markets,
   isLoaded,
   walletNetworkGroups,
-  onOpenMarket,
+  onOpenPair,
 }: {
   markets: IEarnDesktopMarketReserves[];
   isLoaded: boolean;
   walletNetworkGroups: IEarnDesktopWalletNetworkGroup[];
-  onOpenMarket: (market: IBorrowMarketItem) => void;
+  // A row opens the Loans router on its pair, on the market it shows
+  onOpenPair: (pair: IEarnDesktopLoanPair) => void;
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -652,7 +652,7 @@ function BasicEarnDesktopBorrowTab({
         key={pair.key}
         pair={pair}
         isWide={isWide}
-        onOpenMarket={onOpenMarket}
+        onOpenPair={onOpenPair}
       />
     ));
   }

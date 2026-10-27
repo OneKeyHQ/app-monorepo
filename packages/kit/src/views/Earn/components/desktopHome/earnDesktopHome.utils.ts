@@ -1056,13 +1056,13 @@ export function getLoanNetApy({
 }
 
 // Aave writes the liquidation LTV as a percent, Kamino as a fraction
-const toLtvFraction = (value?: string) => {
+export const toLtvFraction = (value?: string) => {
   const ltv = toNumber(value);
   return ltv > 1 ? ltv / 100 : ltv;
 };
 
 // ETH and WETH, BTC and WBTC: one asset, so never a pair
-const isSameLoanAsset = (a: string, b: string) => {
+export const isSameLoanAsset = (a: string, b: string) => {
   const upperA = a.toUpperCase();
   const upperB = b.toUpperCase();
   return (
@@ -1072,7 +1072,7 @@ const isSameLoanAsset = (a: string, b: string) => {
 
 // Aave lists ETH beside WETH, one reserve twice; the wallet holds ETH, so it
 // stands for both
-const dropWrappedTwins = <T extends { token: { symbol: string } }>(
+export const dropWrappedTwins = <T extends { token: { symbol: string } }>(
   assets: T[],
 ) => {
   const symbols = new Set(

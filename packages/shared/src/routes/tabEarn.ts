@@ -10,6 +10,7 @@ export enum ETabEarnRoutes {
   EarnProtocolDetails = 'EarnProtocolDetails',
   EarnProtocolDetailsShare = 'EarnProtocolDetailsShare',
   EarnLendingDetails = 'EarnLendingDetails',
+  EarnLoanRouter = 'EarnLoanRouter',
   BorrowReserveDetails = 'BorrowReserveDetails',
   BorrowReserveDetailsShare = 'BorrowReserveDetailsShare',
 }
@@ -78,6 +79,14 @@ export type ITabEarnParamList = {
     logoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
+  };
+  // A collateral and a loan, and every market that takes the pair, opened
+  // from a Loans row on the desktop DeFi home (demo 10-27). routeKey is the
+  // row's pair key, the market it showed
+  [ETabEarnRoutes.EarnLoanRouter]: {
+    collateral: string;
+    borrow: string;
+    routeKey?: string;
   };
   [ETabEarnRoutes.BorrowReserveDetails]: {
     networkId: string;

@@ -146,7 +146,8 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnProtocols ||
     route === ETabEarnRoutes.EarnProtocolDetails ||
     route === ETabEarnRoutes.EarnProtocolDetailsShare ||
-    route === ETabEarnRoutes.EarnLendingDetails;
+    route === ETabEarnRoutes.EarnLendingDetails ||
+    route === ETabEarnRoutes.EarnLoanRouter;
   if (shouldSwitchToEarnMode) {
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
   }
@@ -596,6 +597,14 @@ export const EarnNavigation = {
       ETabEarnRoutes.EarnLendingDetails,
       params,
     );
+  },
+
+  // A collateral and a loan, and every market that takes them (demo 10-27)
+  pushToEarnLoanRouter(
+    navigation: IAppNavigation,
+    params: ITabEarnParamList[ETabEarnRoutes.EarnLoanRouter],
+  ) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnLoanRouter, params);
   },
 
   pushToEarnProtocolDetailsShare(

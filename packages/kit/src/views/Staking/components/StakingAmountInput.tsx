@@ -104,6 +104,7 @@ export function StakingAmountInput({
   bottomContent,
   boxTestID,
   onRefreshBalance,
+  stagesLabel,
   ...props
 }: IAmountInputFormItemProps & {
   title: string;
@@ -115,6 +116,9 @@ export function StakingAmountInput({
   // With it, a balance read as zero gets Swap's refresh in place of Max, as
   // on the Swap page: Pay with can pick a token the wallet doesn't hold yet
   onRefreshBalance?: () => Promise<unknown> | void;
+  // Before the chips, what they are a share of when it isn't the balance
+  // (the Loans router's loan: "LTV", of the collateral's value)
+  stagesLabel?: string;
 }) {
   const boxRef = useRef<IElement>(null);
   useHoldAutoFocus(boxRef, Boolean(inputProps?.autoFocus) && !disabled);
@@ -248,11 +252,17 @@ export function StakingAmountInput({
                 opacity: 0,
                 x: 4,
               }}
+              ai={stagesLabel ? 'center' : undefined}
               gap="$0.5"
               // The last chip's text ends where Max and the token below end;
               // its fill keeps the chip's own padding past that edge
               mr="$-1.5"
             >
+              {stagesLabel ? (
+                <SizableText size="$bodyMd" color="$textSubdued" mr="$1">
+                  {stagesLabel}
+                </SizableText>
+              ) : null}
               {StakingPercentageInputStage.map((stage) => (
                 <SwapPercentageStageBadge
                   key={`swap-percentage-input-stage-${stage}`}

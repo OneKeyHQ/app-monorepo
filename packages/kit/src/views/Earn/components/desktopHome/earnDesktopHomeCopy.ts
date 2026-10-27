@@ -85,4 +85,25 @@ export const EARN_DESKTOP_DEMO_COPY = {
   guideDoneBody:
     'Your deposit is on the positions page, with Redeem on its row.',
   guideGoToPosition: 'Go to position',
+  // The Loans router: a collateral and a loan, and the markets that take them
+  supplyAndBorrow: 'Supply and Borrow',
+  loanLtv: 'LTV',
+  loanLiquidationPrice: 'Liquidation Price',
+  loanBelowNow: (percent: string) => `${percent} below now`,
+  loanNoAccount: (network: string) => `This account can't use ${network}`,
+  loanNotLent: (symbol: string, eMode?: string) =>
+    eMode
+      ? `Your E-Mode here (${eMode}) doesn't lend ${symbol}`
+      : `This market doesn't lend ${symbol} to this account`,
+  loanLiquidity: (amount: string) => `Only ${amount} left to borrow`,
+  loanMaxLtv: (ltv: string) => `Max LTV here is ${ltv}`,
+  loanNoMarket: (collateral: string, borrow: string) =>
+    `No market lends ${borrow} against ${collateral}`,
+  loanLanding: 'Supply sent. The loan follows once it is confirmed.',
+  loanSupplied: (amount: string, market: string) =>
+    `${amount} is supplied to ${market}. Borrow when you're ready.`,
+  loanDone: (borrowed: string, market: string, supplied?: string) =>
+    supplied
+      ? `${supplied} supplied and ${borrowed} borrowed on ${market}`
+      : `${borrowed} borrowed on ${market}`,
 };
