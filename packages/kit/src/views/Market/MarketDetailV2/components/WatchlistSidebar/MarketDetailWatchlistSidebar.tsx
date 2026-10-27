@@ -44,7 +44,10 @@ import {
   MARKET_HOME_WS_MAX_SUBSCRIPTIONS,
   useMarketHomeTokenListWebSocket,
 } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
-import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import {
+  type IMarketWatchlistDataCache,
+  useMarketWatchlistTokenList,
+} from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
 import { getMarketWatchlistRowKind } from '../../../MarketHomeV2/components/MarketTokenList/utils/marketWatchlistRowKind';
@@ -75,6 +78,14 @@ const SIDEBAR_DIVIDER_INSET = 24;
 
 // The filter menu only holds four short labels and a check mark.
 const FILTER_MENU_WIDTH = 160;
+
+// Closing the sidebar unmounts it, and leaving the detail page (a perps jump,
+// a tab switch) unmounts the page as well, so the fetched rows are parked at
+// module scope and painted again on remount while polling refreshes them in
+// the background (OK-65700, OK-65703).
+const watchlistSidebarDataCacheRef: {
+  current: IMarketWatchlistDataCache | undefined;
+} = { current: undefined };
 
 // The detail headers start 20px down and center a 28px symbol over a 20px name
 // in their 72px row, so the symbol line is centered 46px from the top. Lifting
@@ -281,6 +292,7 @@ function MarketDetailWatchlistSidebarImpl({
     watchlist: watchListData ?? [],
     pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
+    dataCacheRef: watchlistSidebarDataCacheRef,
   });
   // A star in the search modal changes favorites while this page sits under
   // the modal. The list skips fetching while its page is unfocused, and every
