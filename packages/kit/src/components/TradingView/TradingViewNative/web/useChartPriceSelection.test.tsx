@@ -158,10 +158,10 @@ describe('chart price selection', () => {
       );
       hook.result.current.updateControl();
     });
-    expect(hook.button.style.display).toBe('block');
+    expect(hook.button.style.display).toBe('flex');
     hook.selectPrice();
     expect(hook.selections).toHaveLength(1);
-    expect(hook.button.style.display).toBe('block');
+    expect(hook.button.style.display).toBe('flex');
     expect(hook.result.current.getCrosshair()).toMatchObject({
       visible: true,
       x: 120,
@@ -173,7 +173,7 @@ describe('chart price selection', () => {
         hook.event(200) as unknown as PointerEvent<HTMLCanvasElement>,
       );
     });
-    expect(hook.button.style.display).toBe('block');
+    expect(hook.button.style.display).toBe('flex');
     expect(hook.result.current.getCrosshair()?.y).toBeCloseTo(100);
     const projection = hook.options.projectionRef.current;
     projection.layout = { ...projection.layout, minPrice: 80, maxPrice: 140 };
@@ -185,6 +185,39 @@ describe('chart price selection', () => {
     act(() => hook.selections[0].onClose?.());
     expect(hook.button.style.display).toBe('none');
     expect(hook.result.current.getCrosshair()).toBeUndefined();
+  });
+
+  it('forwards hover moves over the control to the canvas', () => {
+    const originalPointerEvent = globalThis.PointerEvent;
+    // jsdom does not implement PointerEvent.
+    class TestPointerEvent extends globalThis.MouseEvent {
+      pointerType: string;
+
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerType = init.pointerType ?? '';
+      }
+    }
+    globalThis.PointerEvent =
+      TestPointerEvent as unknown as typeof globalThis.PointerEvent;
+    const hook = setup();
+    const canvas = hook.options.canvasRef.current;
+    const moves: Array<{ clientX: number; clientY: number }> = [];
+    canvas.addEventListener('pointermove', (event) =>
+      moves.push({ clientX: event.clientX, clientY: event.clientY }),
+    );
+    act(() => {
+      hook.button.dispatchEvent(
+        new globalThis.PointerEvent('pointermove', {
+          bubbles: true,
+          clientX: 130,
+          clientY: 140,
+          pointerType: 'mouse',
+        }),
+      );
+    });
+    expect(moves).toEqual([{ clientX: 130, clientY: 140 }]);
+    globalThis.PointerEvent = originalPointerEvent;
   });
 
   it('clears the selection when the symbol changes or selection is disabled', () => {

@@ -11,6 +11,8 @@ import {
 import type { IDrawingProjection } from '../drawings/model';
 import type { ITradingViewNativePriceSelection } from '../types';
 
+const CONTROL_DISPLAY = 'flex';
+
 export function useChartPriceSelection({
   canvasRef,
   enabled,
@@ -64,7 +66,7 @@ export function useChartPriceSelection({
         button.current.style.display = 'none';
         return;
       }
-      button.current.style.display = 'block';
+      button.current.style.display = CONTROL_DISPLAY;
       button.current.style.left = `${Math.max(0, layout.priceAxisX - 24)}px`;
       button.current.style.top = `${Math.max(0, crosshair.y - 11)}px`;
     }
@@ -140,7 +142,7 @@ export function useChartPriceSelection({
       }
       selectedY.current = selection.y;
       // Update only the floating control; pointer movement must not rerender the chart.
-      button.current.style.display = 'block';
+      button.current.style.display = CONTROL_DISPLAY;
       button.current.style.left = `${Math.max(0, selection.layout.priceAxisX - 24)}px`;
       button.current.style.top = `${Math.max(0, selection.y - 11)}px`;
     },
@@ -170,6 +172,29 @@ export function useChartPriceSelection({
     },
     [enabled, projectionRef, select],
   );
+  const onControlPointerMove = useCallback(
+    (event: PointerEvent<HTMLButtonElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas || typeof globalThis.PointerEvent !== 'function') return;
+      // The control covers the canvas; forward hover moves so the crosshair,
+      // price axis label and the control itself keep tracking the pointer.
+      canvas.dispatchEvent(
+        new globalThis.PointerEvent('pointermove', {
+          bubbles: true,
+          cancelable: true,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          screenX: event.screenX,
+          screenY: event.screenY,
+          buttons: event.buttons,
+          pointerId: event.pointerId,
+          pointerType: event.pointerType,
+          isPrimary: event.isPrimary,
+        }),
+      );
+    },
+    [canvasRef],
+  );
   const control =
     enabled && onSelect ? (
       <button
@@ -179,8 +204,12 @@ export function useChartPriceSelection({
         title={label}
         data-testid="trading-view-native-price-action"
         onClick={onClick}
+        onPointerMove={onControlPointerMove}
         style={{
           display: 'none',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxSizing: 'border-box',
           position: 'absolute',
           width: 22,
           height: 22,
@@ -190,11 +219,23 @@ export function useChartPriceSelection({
           color: theme.text.val,
           background: theme.bgApp.val,
           cursor: 'pointer',
-          fontSize: 18,
-          lineHeight: '18px',
         }}
       >
-        +
+        <svg
+          width={12}
+          height={12}
+          viewBox="0 0 12 12"
+          fill="none"
+          aria-hidden="true"
+          style={{ display: 'block' }}
+        >
+          <path
+            d="M6 1.5v9M1.5 6h9"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+        </svg>
       </button>
     ) : null;
   return {
