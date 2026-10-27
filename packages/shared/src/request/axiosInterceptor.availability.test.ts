@@ -1,4 +1,8 @@
+import platformEnv from '../platformEnv';
+
+import { DESKTOP_CUSTOM_UA_HEADER } from './customUA';
 import { AVAILABILITY_COUNTED_FETCH_OPTION } from './requestConst';
+import requestHelper from './requestHelper';
 
 import type { IAvailabilityOutcome } from './availabilityAggregator';
 import type {
@@ -17,7 +21,13 @@ jest.mock('./availabilityAggregator', () => ({
 
 jest.mock('./requestHelper', () => ({
   __esModule: true,
-  default: { checkIsOneKeyDomain: jest.fn(async () => true) },
+  default: {
+    checkIsOneKeyDomain: jest.fn(async () => true),
+    getDevSettingsPersistAtom: jest.fn(async () => ({
+      enabled: false,
+      settings: {},
+    })),
+  },
 }));
 
 jest.mock('./Interceptor', () => ({
@@ -48,7 +58,10 @@ jest.mock('../utils/systemTimeUtils', () => ({
 jest.mock('../modules/NetworkThrottle', () => ({
   __esModule: true,
   NATIVE_SLOW_4G_LATENCY_MS: 0,
-  default: { getNetworkThrottle: jest.fn(), setNetworkThrottle: jest.fn() },
+  default: {
+    getNetworkThrottle: jest.fn(async () => ({ enabled: false })),
+    setNetworkThrottle: jest.fn(),
+  },
   getNetworkThrottleRuntimeConfig: () => ({ enabled: false }),
 }));
 
@@ -237,5 +250,154 @@ describe('API availability counting in request interceptors', () => {
         },
       }),
     ]);
+  });
+
+  describe('custom UA on ordinary domain requests', () => {
+    const originalPlatform = { ...platformEnv };
+
+    beforeEach(() => {
+      Object.assign(platformEnv, {
+        isDesktop: false,
+        isNative: true,
+        appPlatform: 'android',
+        version: '6.7.0',
+        isDesktopMac: false,
+      });
+      jest.mocked(requestHelper.checkIsOneKeyDomain).mockResolvedValue(true);
+      jest.mocked(requestHelper.getDevSettingsPersistAtom).mockResolvedValue({
+        enabled: false,
+        settings: {},
+      });
+    });
+
+    afterEach(() => {
+      Object.assign(platformEnv, originalPlatform);
+    });
+
+    function createDomainClient() {
+      return axios.create({
+        baseURL: 'https://wallet.onekeycn.com',
+        adapter: adapterOf((config) => ({
+          config,
+          data: { code: 0 },
+          headers: {},
+          status: 200,
+          statusText: 'OK',
+        })),
+      });
+    }
+
+    it.each([
+      ['ios', 'iOS'],
+      ['android', 'Android'],
+    ] as const)(
+      'adds UA to %s axios domain requests',
+      async (platform, label) => {
+        platformEnv.appPlatform = platform;
+        const response = await createDomainClient().get(
+          '/wallet/v1/network/list',
+        );
+        expect(response.config.headers.get('User-Agent')).toBe(
+          `OneKey ${label} 6.7.0`,
+        );
+        expect(response.config.headers.has(DESKTOP_CUSTOM_UA_HEADER)).toBe(
+          false,
+        );
+      },
+    );
+
+    it('adds a desktop bridge header to axios domain requests', async () => {
+      platformEnv.isDesktop = true;
+      platformEnv.isNative = false;
+      platformEnv.isDesktopMac = true;
+      const response = await createDomainClient().get(
+        '/wallet/v1/network/list',
+      );
+      expect(response.config.headers.get(DESKTOP_CUSTOM_UA_HEADER)).toBe(
+        JSON.stringify(['https://wallet.onekeycn.com', 'OneKey macOS 6.7.0']),
+      );
+    });
+
+    it('preserves axios caller UA and explicit false opt-out', async () => {
+      const client = createDomainClient();
+      const explicit = await client.get(WALLET_URL, {
+        headers: { 'uSeR-aGeNt': 'caller-explicit' },
+      });
+      expect(explicit.config.headers.get('User-Agent')).toBe('caller-explicit');
+      const disabled = await client.get(WALLET_URL, {
+        headers: { 'User-Agent': false },
+      });
+      expect(disabled.config.headers.get('User-Agent')).toBe(false);
+    });
+
+    it('honors the developer disable switch for axios and fetch', async () => {
+      jest.mocked(requestHelper.getDevSettingsPersistAtom).mockResolvedValue({
+        enabled: true,
+        settings: { disableCustomUA: true },
+      });
+      const response = await createDomainClient().get(WALLET_URL);
+      expect(response.config.headers.has('User-Agent')).toBe(false);
+      await globalThis.fetch(WALLET_URL);
+      expect(
+        new Headers(stubFetch.mock.calls[0][1]?.headers).has('User-Agent'),
+      ).toBe(false);
+    });
+
+    it('adds UA to native fetch domain requests', async () => {
+      await globalThis.fetch(WALLET_URL);
+      expect(
+        new Headers(stubFetch.mock.calls[0][1]?.headers).get('User-Agent'),
+      ).toBe('OneKey Android 6.7.0');
+    });
+
+    it.each([
+      { 'uSeR-aGeNt': 'caller-explicit' },
+      new Headers({ 'User-Agent': 'caller-explicit' }),
+      [['User-Agent', 'caller-explicit']],
+    ] as HeadersInit[])(
+      'preserves explicit fetch UA in header form %#',
+      async (headers) => {
+        await globalThis.fetch(WALLET_URL, { headers });
+        expect(
+          new Headers(stubFetch.mock.calls[0][1]?.headers).get('User-Agent'),
+        ).toBe('caller-explicit');
+      },
+    );
+
+    it('preserves Request headers and gives explicit fetch options priority', async () => {
+      await globalThis.fetch(
+        new Request(WALLET_URL, {
+          headers: { 'User-Agent': 'request-UA', 'X-Test': 'keep' },
+        }),
+        { headers: new Headers({ 'user-agent': 'options-UA' }) },
+      );
+      const headers = new Headers(stubFetch.mock.calls[0][1]?.headers);
+      expect(headers.get('User-Agent')).toBe('options-UA');
+      expect(headers.get('X-Test')).toBe('keep');
+    });
+
+    it('leaves non-whitelisted requests without custom UA', async () => {
+      jest.mocked(requestHelper.checkIsOneKeyDomain).mockResolvedValue(false);
+      const response = await createDomainClient().get('https://example.com/x');
+      expect(response.config.headers.has('User-Agent')).toBe(false);
+      await globalThis.fetch('https://example.com/x');
+      expect(
+        new Headers(stubFetch.mock.calls[0][1]?.headers).has('User-Agent'),
+      ).toBe(false);
+    });
+
+    it.each(['web', 'extension'] as const)(
+      'leaves %s default UA unchanged',
+      async (platform) => {
+        platformEnv.isNative = false;
+        platformEnv.appPlatform = platform;
+        const response = await createDomainClient().get(WALLET_URL);
+        expect(response.config.headers.has('User-Agent')).toBe(false);
+        await globalThis.fetch(WALLET_URL);
+        expect(
+          new Headers(stubFetch.mock.calls[0][1]?.headers).has('User-Agent'),
+        ).toBe(false);
+      },
+    );
   });
 });

@@ -12,6 +12,9 @@ export type ICustomUARuntime =
 
 const ONEKEY_OFFICIAL_HOST = /\.onekey(cn|test)\.com$/i;
 const USER_AGENT_HEADER = 'User-Agent';
+// Chromium drops User-Agent set by XHR/fetch. The default-session hook consumes
+// this internal header before sending the request to the network.
+export const DESKTOP_CUSTOM_UA_HEADER = 'X-Onekey-Custom-User-Agent';
 
 let runtimeOverride: ICustomUARuntime | null = null;
 
@@ -126,15 +129,71 @@ function logCallerConflict(url: string, existing: string): void {
 export async function withCustomUAHeaders(
   url: string,
   headers: Record<string, string> = {},
+  options: { browserTransport?: boolean } = {},
 ): Promise<Record<string, string>> {
   const next = { ...headers };
+  for (const key of Object.keys(next)) {
+    if (key.toLowerCase() === DESKTOP_CUSTOM_UA_HEADER.toLowerCase()) {
+      delete next[key];
+    }
+  }
   if (!(await shouldInjectUAForUrl(url))) return next;
+  const ua = await buildCustomUA();
   if (hasUserAgent(next)) {
     const existing = next[USER_AGENT_HEADER] ?? next['user-agent'] ?? 'unknown';
-    logCallerConflict(url, existing);
-    return next;
+    if (existing !== ua) logCallerConflict(url, existing);
+  } else if (ua) {
+    next[USER_AGENT_HEADER] = ua;
   }
-  const ua = await buildCustomUA();
-  if (ua) next[USER_AGENT_HEADER] = ua;
+  if (options.browserTransport && platformEnv.isDesktop) {
+    const key = Object.keys(next).find(
+      (name) => name.toLowerCase() === USER_AGENT_HEADER.toLowerCase(),
+    );
+    if (key) {
+      next[DESKTOP_CUSTOM_UA_HEADER] = JSON.stringify([
+        new URL(url).origin,
+        next[key],
+      ]);
+    }
+  }
+  return next;
+}
+
+export function resolveDesktopCustomUAHeaders(
+  url: string,
+  headers: Record<string, string>,
+): Record<string, string> {
+  const next = { ...headers };
+  let bridge: string | undefined;
+  for (const key of Object.keys(next)) {
+    if (key.toLowerCase() === DESKTOP_CUSTOM_UA_HEADER.toLowerCase()) {
+      bridge = next[key];
+      delete next[key];
+    }
+  }
+  if (!bridge) return next;
+  try {
+    const value: unknown = JSON.parse(bridge);
+    // The renderer already checked its endpoint whitelist and dev setting.
+    // Bind that decision to its origin so redirects cannot broaden it.
+    if (
+      !Array.isArray(value) ||
+      value.length !== 2 ||
+      value[0] !== new URL(url).origin ||
+      typeof value[1] !== 'string' ||
+      !value[1] ||
+      /[^\t\x20-\x7E\x80-\xFF]/.test(value[1])
+    ) {
+      return next;
+    }
+    for (const key of Object.keys(next)) {
+      if (key.toLowerCase() === USER_AGENT_HEADER.toLowerCase()) {
+        delete next[key];
+      }
+    }
+    next[USER_AGENT_HEADER] = value[1];
+  } catch {
+    // Malformed internal headers must not prevent the original request.
+  }
   return next;
 }

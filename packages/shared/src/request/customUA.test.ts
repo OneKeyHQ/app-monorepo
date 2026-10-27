@@ -2,9 +2,11 @@ import { OneKeyLocalError } from '../errors';
 import platformEnv from '../platformEnv';
 
 import {
+  DESKTOP_CUSTOM_UA_HEADER,
   __resetCustomUARuntimeForTest,
   __setCustomUARuntimeForTest,
   buildCustomUA,
+  resolveDesktopCustomUAHeaders,
   shouldInjectUAForUrl,
   withCustomUAHeaders,
 } from './customUA';
@@ -280,6 +282,81 @@ describe('withCustomUAHeaders', () => {
     expect(out['User-Agent']).toBe('caller-explicit');
   });
 
+  it('bridges the UA only for desktop browser transports', async () => {
+    checkIsOneKeyDomainMock.mockResolvedValue(true);
+    expect(
+      await withCustomUAHeaders(
+        'https://wallet.onekeycn.com/x',
+        {},
+        {
+          browserTransport: true,
+        },
+      ),
+    ).toEqual({
+      'User-Agent': 'OneKey macOS 6.3.0',
+      [DESKTOP_CUSTOM_UA_HEADER]: JSON.stringify([
+        'https://wallet.onekeycn.com',
+        'OneKey macOS 6.3.0',
+      ]),
+    });
+    platformEnv.isDesktop = false;
+    platformEnv.isNative = true;
+    platformEnv.appPlatform = 'ios';
+    expect(
+      await withCustomUAHeaders(
+        'https://wallet.onekeycn.com/x',
+        {},
+        {
+          browserTransport: true,
+        },
+      ),
+    ).toEqual({ 'User-Agent': 'OneKey iOS 6.3.0' });
+  });
+
+  it('preserves an explicit mixed-case UA through the desktop bridge', async () => {
+    checkIsOneKeyDomainMock.mockResolvedValue(true);
+    expect(
+      await withCustomUAHeaders(
+        'https://wallet.onekeycn.com/x',
+        { 'uSeR-aGeNt': 'caller-explicit' },
+        { browserTransport: true },
+      ),
+    ).toEqual({
+      'uSeR-aGeNt': 'caller-explicit',
+      [DESKTOP_CUSTOM_UA_HEADER]: JSON.stringify([
+        'https://wallet.onekeycn.com',
+        'caller-explicit',
+      ]),
+    });
+  });
+
+  it('does not add a bridge header when custom UA is disabled', async () => {
+    checkIsOneKeyDomainMock.mockResolvedValue(true);
+    getDevSettingsPersistAtomMock.mockResolvedValue({
+      enabled: true,
+      settings: { disableCustomUA: true },
+    });
+    expect(
+      await withCustomUAHeaders(
+        'https://wallet.onekeycn.com/x',
+        {},
+        {
+          browserTransport: true,
+        },
+      ),
+    ).toEqual({});
+  });
+
+  it('removes the internal desktop header before direct SNI transport', async () => {
+    checkIsOneKeyDomainMock.mockResolvedValue(true);
+    expect(
+      await withCustomUAHeaders('https://wallet.onekeycn.com/x', {
+        'User-Agent': 'caller-explicit',
+        [DESKTOP_CUSTOM_UA_HEADER]: 'caller-explicit',
+      }),
+    ).toEqual({ 'User-Agent': 'caller-explicit' });
+  });
+
   it('writes UA via fallback regex when requestHelper is not wired (CLI)', async () => {
     __setCustomUARuntimeForTest('cli-node');
     (platformEnv as any).version = undefined; // CLI bundle reality
@@ -291,4 +368,72 @@ describe('withCustomUAHeaders', () => {
     );
     expect(out['User-Agent']).toBe('OneKey CLI 1');
   });
+});
+
+describe('resolveDesktopCustomUAHeaders', () => {
+  it('replaces Chromium UA and strips the bridge header on allowed requests', () => {
+    const headers = {
+      'User-Agent': 'Chromium default',
+      [DESKTOP_CUSTOM_UA_HEADER.toLowerCase()]: JSON.stringify([
+        'https://wallet.onekeycn.com',
+        'OneKey macOS 6.3.0',
+      ]),
+      'X-Onekey-Request-ID': 'test-id',
+    };
+    expect(
+      resolveDesktopCustomUAHeaders('https://wallet.onekeycn.com/x', headers),
+    ).toEqual({
+      'User-Agent': 'OneKey macOS 6.3.0',
+      'X-Onekey-Request-ID': 'test-id',
+    });
+    expect(headers[DESKTOP_CUSTOM_UA_HEADER.toLowerCase()]).toBeDefined();
+  });
+
+  it('strips the bridge header without changing UA on cross-origin redirects', () => {
+    expect(
+      resolveDesktopCustomUAHeaders('https://example.com/redirected', {
+        'User-Agent': 'Chromium default',
+        [DESKTOP_CUSTOM_UA_HEADER]: JSON.stringify([
+          'https://wallet.onekeycn.com',
+          'OneKey macOS 6.3.0',
+        ]),
+      }),
+    ).toEqual({ 'User-Agent': 'Chromium default' });
+  });
+
+  it('leaves browser and DApp requests without a bridge header unchanged', () => {
+    expect(
+      resolveDesktopCustomUAHeaders('https://wallet.onekeycn.com/x', {
+        'User-Agent': 'Chromium default',
+      }),
+    ).toEqual({ 'User-Agent': 'Chromium default' });
+    expect(checkIsOneKeyDomainMock).not.toHaveBeenCalled();
+  });
+
+  it('honors a custom endpoint approved by the renderer whitelist', () => {
+    expect(
+      resolveDesktopCustomUAHeaders('https://custom.example.com/api', {
+        [DESKTOP_CUSTOM_UA_HEADER]: JSON.stringify([
+          'https://custom.example.com',
+          'OneKey macOS 6.3.0',
+        ]),
+      }),
+    ).toEqual({ 'User-Agent': 'OneKey macOS 6.3.0' });
+  });
+
+  it.each([
+    'not JSON',
+    JSON.stringify(['https://wallet.onekeycn.com', '']),
+    JSON.stringify(['https://wallet.onekeycn.com', 'invalid\r\nUA']),
+  ])(
+    'strips malformed bridge header %# and preserves the default UA',
+    (bridge) => {
+      expect(
+        resolveDesktopCustomUAHeaders('https://wallet.onekeycn.com/x', {
+          'User-Agent': 'Chromium default',
+          [DESKTOP_CUSTOM_UA_HEADER]: bridge,
+        }),
+      ).toEqual({ 'User-Agent': 'Chromium default' });
+    },
+  );
 });

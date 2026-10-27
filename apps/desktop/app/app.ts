@@ -52,6 +52,7 @@ import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/d
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import { resolveDesktopCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
@@ -1532,11 +1533,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
 
   const filter = {
-    urls: [
-      'http://127.0.0.1:21320/*',
-      'http://localhost:21320/*',
-      'https://mainnet.optimism.io/*',
-    ],
+    urls: ['http://*/*', 'https://*/*'],
   };
 
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
@@ -1662,7 +1659,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn';
       }
 
-      callback({ cancel: false, requestHeaders: details.requestHeaders });
+      callback({
+        cancel: false,
+        requestHeaders: resolveDesktopCustomUAHeaders(
+          url,
+          details.requestHeaders,
+        ),
+      });
     },
   );
 
@@ -2564,8 +2567,8 @@ function startWebviewMemoryMonitoring() {
 // `OneKey Wallet/<electronVer>` (with the space from APP_NAME above) — and
 // some packaging paths can also surface the no-space `OneKeyWallet/` form.
 // Match both, and normalize to the no-space `OneKeyWallet/<APP_VERSION>` so the
-// chromium UA carries the real app version. The non-browser call sites use
-// buildCustomUA()'s `OneKey <platform> <version>` form instead.
+// Chromium's default UA carries the real app version. OneKey API requests
+// use buildCustomUA()'s `OneKey <platform> <version>` via the request hook.
 // Run synchronously at module load (before `ready` fires) so the very first
 // webContents created in the ready handler already sees the patched UA —
 // `app.userAgentFallback` is readable/writable before `ready`.
