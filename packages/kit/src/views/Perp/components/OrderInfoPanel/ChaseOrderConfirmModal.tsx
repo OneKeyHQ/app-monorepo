@@ -18,6 +18,8 @@ import {
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { getTifLabel } from '../../utils/timeInForce';
+
 import { getOrderAssetDisplayName } from './utils';
 
 import type { IntlShape } from 'react-intl';
@@ -122,6 +124,12 @@ function ChaseOrderConfirmContent({
             id: ETranslations.perp_chase_unfilled_size__title,
           })}
           value={sizeDisplay}
+        />
+        <ChaseOrderConfirmRow
+          label={intl.formatMessage({
+            id: ETranslations.perp_time_in_force__title,
+          })}
+          value={getTifLabel('Alo') ?? 'ALO'}
         />
         <ChaseOrderConfirmRow
           label={intl.formatMessage({
