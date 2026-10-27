@@ -31,6 +31,10 @@ describe('zcash vault settings invariants', () => {
     expect(settings.supportedThirdPartyVendors).toBeUndefined();
   });
 
+  it('offers hardware accounts only on devices whose firmware has Zcash', () => {
+    expect(settings.supportedDeviceTypes).toEqual(['pro2', 'neo']);
+  });
+
   it('only offers a custom node while both custom-RPC hooks exist', () => {
     expect(settings.customRpcEnabled).toBe(true);
     expect(typeof Vault.prototype.getCustomRpcEndpointStatus).toBe('function');

@@ -1,5 +1,7 @@
 /* cspell:ignore xprvs */
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   ZCASH_CURRENT_SHIELDED_POOL,
   ZCASH_LIGHTWALLETD_MAINNET,
@@ -20,6 +22,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { NEO_DEVICE_TYPE } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 
 import settingsBtc from '../btc/settings';
 
@@ -40,6 +43,8 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
 const settings: IVaultSettings = {
   ...settingsBtc,
   supportedThirdPartyVendors: undefined,
+  // Only Pro 2 and Neo firmware has the Zcash app.
+  supportedDeviceTypes: [EDeviceType.Pro2, NEO_DEVICE_TYPE],
   accountDeriveInfo,
   impl: IMPL_ZCASH,
   coinTypeDefault: COINTYPE_ZCASH,
