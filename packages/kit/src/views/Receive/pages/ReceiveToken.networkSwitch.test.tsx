@@ -826,55 +826,121 @@ describe('ReceiveToken network switch', () => {
     );
   });
 
-  it('opens Zcash on transparent and verifies the selected address form', async () => {
-    mockRouteParams = {
-      networkId: 'zec--0',
-      accountId: 'hw-1--zec',
-      walletId: 'hw-1',
-      indexedAccountId: 'hw-1--0',
-      localWalletAddressForm: 'private',
-    };
-    mockVerifyHWAccountAddresses.mockResolvedValueOnce(['t1Transparent']);
-    const { getByTestId, queryByTestId } = render(<ReceiveToken />);
-    await waitFor(() =>
+  const zcashHardwareParams = {
+    networkId: 'zec--0',
+    accountId: 'hw-1--zec',
+    walletId: 'hw-1',
+    indexedAccountId: 'hw-1--0',
+  };
+  const expectAddressForm = async (
+    getByTestId: (id: string) => HTMLElement,
+    form: 'public' | 'private',
+  ) =>
+    waitFor(() =>
       expect(
         (
           getByTestId(
             'receive-local-wallet-address-form-select',
           ) as HTMLSelectElement
         ).value,
-      ).toBe('public'),
+      ).toBe(form),
     );
+  // The private address is read after mount; a press before it lands is a
+  // no-op, so press until the device is asked.
+  const pressVerifyOnDevice = async (
+    getByTestId: (id: string) => HTMLElement,
+  ) =>
+    waitFor(() => {
+      fireEvent.click(getByTestId('receive-verify-on-device-button'));
+      expect(mockVerifyHWAccountAddresses).toHaveBeenCalled();
+    });
+
+  it.each([
+    ['receive', undefined],
+    ['copy address', 'copyAddress'],
+  ])(
+    'opens Zcash on the private form from a private tab %s entry and verifies it',
+    async (_entry, source) => {
+      mockRouteParams = {
+        ...zcashHardwareParams,
+        localWalletAddressForm: 'private',
+        source,
+      };
+      mockVerifyHWAccountAddresses.mockResolvedValueOnce(['u1Private']);
+      const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+      await expectAddressForm(getByTestId, 'private');
+      expect(queryByTestId('qr-value')).toBeNull();
+      await pressVerifyOnDevice(getByTestId);
+      await waitFor(() =>
+        expect(mockVerifyHWAccountAddresses).toHaveBeenCalledWith(
+          expect.objectContaining({
+            expectedAddress: 'u1Private',
+            localWalletAddressForm: 'private',
+          }),
+        ),
+      );
+      await waitFor(() =>
+        expect(getByTestId('qr-value').textContent).toBe('u1Private'),
+      );
+      expect(mockVerifyHWAccountAddresses).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([
+    ['a public tab', 'public'],
+    ['an entry without a form', undefined],
+  ])(
+    'opens Zcash on the public form from %s and verifies it',
+    async (_entry, localWalletAddressForm) => {
+      mockRouteParams = { ...zcashHardwareParams, localWalletAddressForm };
+      mockVerifyHWAccountAddresses.mockResolvedValueOnce(['t1Transparent']);
+      const { getByTestId } = render(<ReceiveToken />);
+      await expectAddressForm(getByTestId, 'public');
+      await pressVerifyOnDevice(getByTestId);
+      await waitFor(() =>
+        expect(mockVerifyHWAccountAddresses).toHaveBeenCalledWith(
+          expect.objectContaining({
+            expectedAddress: 't1Transparent',
+            localWalletAddressForm: 'public',
+            customReceiveAddressPath: "m/44'/133'/0'/0/0",
+          }),
+        ),
+      );
+      await waitFor(() =>
+        expect(getByTestId('qr-value').textContent).toBe('t1Transparent'),
+      );
+    },
+  );
+
+  it('switches the address form opened from the private tab and verifies the shown one', async () => {
+    mockRouteParams = {
+      ...zcashHardwareParams,
+      localWalletAddressForm: 'private',
+    };
+    mockVerifyHWAccountAddresses.mockResolvedValueOnce(['u1Private']);
+    const { getByTestId, queryByTestId } = render(<ReceiveToken />);
+    await pressVerifyOnDevice(getByTestId);
+    await waitFor(() =>
+      expect(getByTestId('qr-value').textContent).toBe('u1Private'),
+    );
+
+    fireEvent.change(getByTestId('receive-local-wallet-address-form-select'), {
+      target: { value: 'public' },
+    });
+    await expectAddressForm(getByTestId, 'public');
+    expect(queryByTestId('qr-value')).toBeNull();
+    mockVerifyHWAccountAddresses.mockResolvedValueOnce(['t1Transparent']);
     fireEvent.click(getByTestId('receive-verify-on-device-button'));
     await waitFor(() =>
-      expect(mockVerifyHWAccountAddresses).toHaveBeenCalledWith(
+      expect(mockVerifyHWAccountAddresses).toHaveBeenLastCalledWith(
         expect.objectContaining({
           expectedAddress: 't1Transparent',
           localWalletAddressForm: 'public',
-          customReceiveAddressPath: "m/44'/133'/0'/0/0",
         }),
       ),
     );
     await waitFor(() =>
       expect(getByTestId('qr-value').textContent).toBe('t1Transparent'),
-    );
-
-    fireEvent.change(getByTestId('receive-local-wallet-address-form-select'), {
-      target: { value: 'private' },
-    });
-    expect(queryByTestId('qr-value')).toBeNull();
-    mockVerifyHWAccountAddresses.mockResolvedValueOnce(['u1Private']);
-    fireEvent.click(getByTestId('receive-verify-on-device-button'));
-    await waitFor(() =>
-      expect(mockVerifyHWAccountAddresses).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          expectedAddress: 'u1Private',
-          localWalletAddressForm: 'private',
-        }),
-      ),
-    );
-    await waitFor(() =>
-      expect(getByTestId('qr-value').textContent).toBe('u1Private'),
     );
   });
 
@@ -920,6 +986,8 @@ describe('ReceiveToken network switch', () => {
       accountId: 'hd-1--xmr',
       walletId: 'hd-1',
       indexedAccountId: 'hd-1--0',
+      // Monero has no public form, so a public entry still receives privately.
+      localWalletAddressForm: 'public',
     };
     const { getByTestId, queryByTestId } = render(<ReceiveToken />);
     await waitFor(() =>

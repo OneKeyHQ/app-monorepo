@@ -127,6 +127,7 @@ function ReceiveToken() {
     btcUsedAddress,
     btcUsedAddressPath,
     exchangeSource,
+    localWalletAddressForm,
     switchEntry,
     allowAddressTypeMenu,
     source: routeSource,
@@ -360,9 +361,10 @@ function ReceiveToken() {
       }
     }, [localWalletAddressForms, network?.id, currentAccount?.id]);
   const localWalletAddresses = localWalletAddressRead?.addresses;
+  // Opens on the form of the entry (token details pool tab, its Copy).
   const [requestedAddressForm, setReceiveAddressForm] = useState<
     'public' | 'private'
-  >('public');
+  >(localWalletAddressForm === 'private' ? 'private' : 'public');
   const localWalletPrivateAddress = localWalletAddresses?.privateAddress;
   // A chain with only a private form (Monero) always receives privately, from
   // whichever entry the page was opened.
