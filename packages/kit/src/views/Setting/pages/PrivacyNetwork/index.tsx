@@ -27,8 +27,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
 import {
+  formatPrivacyChainPercent,
   formatPrivacyChainSyncError,
-  formatPrivacyChainSyncProgress,
   getPrivacyChainNetworkSyncDisplay,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { AccountManagerTestIDs } from '@onekeyhq/kit/src/views/AccountManagerStacks/testIDs';
@@ -315,7 +315,18 @@ type IPrivacyAccountEntry = {
   earliestBirthdayHeight?: number;
   // Never scannable: privacy cannot be enabled for a temporary wallet.
   walletIsTemp: boolean;
+  deriveLabel?: string;
 };
+
+// One group per derive type, in list order.
+function groupByDeriveLabel(entries: IPrivacyAccountEntry[]) {
+  const groups = new Map<string, IPrivacyAccountEntry[]>();
+  entries.forEach((entry) => {
+    const label = entry.deriveLabel ?? '';
+    groups.set(label, [...(groups.get(label) ?? []), entry]);
+  });
+  return Array.from(groups, ([label, items]) => ({ label, items }));
+}
 
 function formatShownBirthday(
   entry: Pick<
@@ -369,7 +380,7 @@ function PrivacyChainSettingsProgress({
       (entry.enabled || entry.paused),
   );
   if (!accounts.length) return null;
-  const { entry, labelId, isStorageUnsupported, syncError } =
+  const { entry, labelId, isCaughtUp, isStorageUnsupported, syncError } =
     getPrivacyChainNetworkSyncDisplay({
       state,
       networkId,
@@ -381,28 +392,35 @@ function PrivacyChainSettingsProgress({
       })
     : formatPrivacyChainSyncError(syncError, intl);
   const label = intl.formatMessage({ id: labelId });
-  const figures =
-    !error && entry
-      ? formatPrivacyChainSyncProgress({
-          scanned: entry.backfillScannedHeight,
-          target: entry.backfillTargetHeight,
-          progress: entry.backfillProgress,
-        })
-      : '';
+  const progress = entry?.backfillProgress;
+  const scanned = entry?.backfillScannedHeight;
+  // A percentage while behind, as the sync light shows; once caught up, the
+  // height reached, so "synced" does not read as finished.
+  let title = label;
+  if (!error && isCaughtUp && typeof scanned === 'number') {
+    title = `${label} · ${intl.formatMessage({
+      id: ETranslations.global_block_height,
+    })} ${scanned.toLocaleString('en-US')}`;
+  } else if (
+    !error &&
+    typeof progress === 'number' &&
+    Number.isFinite(progress)
+  ) {
+    title = `${label} ${formatPrivacyChainPercent(progress)}`;
+  }
   return (
-    <YStack testID="privacy-sync-progress" px="$5" py="$3" gap="$1">
-      <SizableText
-        size="$bodySm"
-        color={error ? '$textCaution' : '$textSubdued'}
-      >
-        {[label, figures].filter(Boolean).join(' · ')}
-      </SizableText>
-      {error ? (
-        <SizableText size="$bodyXs" color="$textCaution">
-          {error}
-        </SizableText>
-      ) : null}
-    </YStack>
+    <>
+      <SectionTitle>
+        {intl.formatMessage({ id: ETranslations.global_status })}
+      </SectionTitle>
+      <ListItem
+        testID="privacy-sync-progress"
+        icon="RefreshCcwOutline"
+        title={title}
+        subtitle={error}
+        subtitleProps={error ? { color: '$textCaution' } : undefined}
+      />
+    </>
   );
 }
 
@@ -472,6 +490,7 @@ export default function PrivacyNetworkSettings({
               birthdayHeight: state.birthdayHeight,
               earliestBirthdayHeight: earliestBirthday?.height,
               walletIsTemp: account.walletIsTemp,
+              deriveLabel: account.deriveLabel,
             };
           }),
       );
@@ -499,6 +518,10 @@ export default function PrivacyNetworkSettings({
     entries.every((e) => e.networkId === entries[0].networkId)
       ? entries[0].networkId
       : undefined);
+  // Only one chain is listed, so a derive-type header cannot be mistaken for a chain.
+  const deriveGroups =
+    soleNetworkId && entries ? groupByDeriveLabel(entries) : [];
+  const showDeriveGroups = deriveGroups.some((group) => group.label);
 
   const { result: networkInfo, run: refreshNetworkInfo } = usePromiseResult(
     async () => {
@@ -712,7 +735,10 @@ export default function PrivacyNetworkSettings({
     [intl, refreshEntries],
   );
 
-  const renderAccount = (entry: IPrivacyAccountEntry) => {
+  const renderAccount = (
+    entry: IPrivacyAccountEntry,
+    showDeriveLabel: boolean,
+  ) => {
     const busy = busyAccountId !== undefined;
     const statusId: ETranslations = entry.enabled
       ? ETranslations.global_enabled
@@ -738,7 +764,13 @@ export default function PrivacyNetworkSettings({
           testID={AccountManagerTestIDs.privacyNetworkAccount(entry.accountId)}
           icon="ShieldOutline"
           title={entry.accountName}
-          subtitle={[entry.walletName, status].filter(Boolean).join(' · ')}
+          subtitle={[
+            entry.walletName,
+            showDeriveLabel ? entry.deriveLabel : undefined,
+            status,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         >
           {!entry.walletIsTemp && (entry.enabled || entry.paused) ? (
             <Button
@@ -873,7 +905,23 @@ export default function PrivacyNetworkSettings({
                 </SizableText>
               </Stack>
             ) : (
-              entries.map(renderAccount)
+              <>
+                {showDeriveGroups
+                  ? deriveGroups.map(({ label, items }) => (
+                      <YStack
+                        key={label}
+                        testID={`privacy-network-derive-group-${label}`}
+                      >
+                        {label ? (
+                          <SizableText px="$5" pb="$2" size="$bodyMdMedium">
+                            {label}
+                          </SizableText>
+                        ) : null}
+                        {items.map((entry) => renderAccount(entry, false))}
+                      </YStack>
+                    ))
+                  : entries.map((entry) => renderAccount(entry, true))}
+              </>
             )}
             {devSettings.enabled && soleNetworkId ? (
               <PrivacyChainStorageSection

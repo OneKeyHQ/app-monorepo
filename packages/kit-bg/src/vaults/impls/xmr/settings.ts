@@ -43,7 +43,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapXmr = {
   // Cake Wallet: secp256k1 BIP-32, m/44'/128'/a'/0/0.
   cake: {
     namePrefix: 'XMR Cake',
-    label: 'Cake Wallet compatible',
+    label: 'Cake Wallet',
     template: `m/44'/${COINTYPE_XMR}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_XMR,
     desc: 'Same addresses as Cake Wallet.',

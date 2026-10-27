@@ -265,6 +265,14 @@ function listItem(
   };
 }
 
+// Title and subtitle of the status row, joined the way the old one-line status read.
+function progressText(row: HTMLElement) {
+  return Array.from(row.querySelectorAll('span'))
+    .map((span) => span.textContent)
+    .filter(Boolean)
+    .join(' · ');
+}
+
 describe('Privacy network settings for a temp wallet', () => {
   beforeEach(() => {
     mockAccountStates = {};
@@ -310,7 +318,7 @@ describe('Privacy network settings for a temp wallet', () => {
   });
 
   it('offers an explicit Enable action to a saved wallet', async () => {
-    mockAccounts[0].deriveLabel = 'Cake Wallet compatible';
+    mockAccounts[0].deriveLabel = 'Cake Wallet';
     render(<PrivacyNetworkSettings />);
 
     await waitFor(() =>
@@ -321,7 +329,38 @@ describe('Privacy network settings for a temp wallet', () => {
     ).toBeNull();
     expect(screen.queryByTestId('privacy-network-pause-hd-1--0')).toBeNull();
     expect(screen.queryByTestId('privacy-sync-progress')).toBeNull();
-    expect(screen.queryByText(/Cake Wallet compatible/)).toBeNull();
+    // Two chains listed: no derive headers, the label rides in the subtitle.
+    expect(
+      screen.queryByTestId('privacy-network-derive-group-Cake Wallet'),
+    ).toBeNull();
+    expect(
+      screen.getByTestId('account-manager-privacy-network-account-hd-1--0')
+        .textContent,
+    ).toContain('Wallet 1 · Cake Wallet · global.disabled');
+  });
+
+  it('groups one chain by derive type under its label', async () => {
+    mockAccounts = [
+      listItem({ networkId: 'xmr--0', deriveLabel: 'OneKey' }),
+      listItem({
+        accountId: 'hd-1--cake',
+        networkId: 'xmr--0',
+        deriveLabel: 'Cake Wallet',
+      }),
+    ];
+    render(<PrivacyNetworkSettings networkId="xmr--0" />);
+
+    const cake = await screen.findByTestId(
+      'privacy-network-derive-group-Cake Wallet',
+    );
+    expect(cake.textContent).toContain('Cake Wallet');
+    expect(
+      screen.getByTestId('privacy-network-derive-group-OneKey').textContent,
+    ).toContain('OneKey');
+    expect(
+      screen.getByTestId('account-manager-privacy-network-account-hd-1--cake')
+        .textContent,
+    ).toContain('Wallet 1 · global.disabled');
   });
 
   it('pauses only the selected account and resumes without changing its birthday', async () => {
@@ -461,8 +500,8 @@ describe('Privacy network settings for a temp wallet', () => {
     };
     const { rerender } = render(<PrivacyNetworkSettings networkId="zec--0" />);
     expect(
-      (await screen.findByTestId('privacy-sync-progress')).textContent,
-    ).toBe('global.syncing · 43 / 100 · 43.9%');
+      progressText(await screen.findByTestId('privacy-sync-progress')),
+    ).toBe('global.syncing 43.9%');
     mockProgress['zec--0:waiting'] = {
       ...complete,
       backfillScannedHeight: null,
@@ -470,12 +509,12 @@ describe('Privacy network settings for a temp wallet', () => {
       backfillProgress: 0,
     };
     rerender(<PrivacyNetworkSettings networkId="zec--0" />);
-    expect(screen.getByTestId('privacy-sync-progress').textContent).toBe(
-      'global.syncing · 43 / 100 · 43.9%',
+    expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
+      'global.syncing 43.9%',
     );
     mockPausedNetworks = ['zec--0'];
     rerender(<PrivacyNetworkSettings networkId="zec--0" />);
-    expect(screen.getByTestId('privacy-sync-progress').textContent).toContain(
+    expect(progressText(screen.getByTestId('privacy-sync-progress'))).toContain(
       'syncing_paused__title',
     );
     expect(mockDisable).not.toHaveBeenCalled();
@@ -484,8 +523,14 @@ describe('Privacy network settings for a temp wallet', () => {
     delete mockProgress['zec--0:waiting'];
     mockBoostingNetworks = ['zec--0'];
     rerender(<PrivacyNetworkSettings networkId="zec--0" />);
-    expect(screen.getByTestId('privacy-sync-progress').textContent).toBe(
+    expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
       'global.syncing',
+    );
+    // Caught up: the height reached, never a bare "synced".
+    mockBoostingNetworks = [];
+    rerender(<PrivacyNetworkSettings networkId="zec--0" />);
+    expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
+      'global.synced · global.block_height 100',
     );
   });
 
