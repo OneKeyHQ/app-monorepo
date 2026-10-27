@@ -1,7 +1,6 @@
 import { isZcashTexAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { readZcashRuntimeError } from '@onekeyhq/core/src/chains/zcash/sdkZcash/runtimeError';
 import type {
-  IZcashHistoryItem,
   IZcashSpendSource,
   IZcashTransparentOutpoint,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
@@ -61,15 +60,6 @@ export function isTerminalTransparentHistoryStatus(
 
 // Max wait for a Worker-only reset before the WebEmbed is treated as unresponsive.
 export const ZCASH_WORKER_RESET_TIMEOUT_MS = 10_000;
-
-// The first page of each account's private history, under the account epoch
-// it was read in (see privacyChainState). Memory only: a failed runtime read
-// falls back to it instead of blanking private history; the full list is
-// always paged from the runtime.
-export const zcashLastPrivateHistory = new Map<
-  string,
-  { epoch: string | undefined; items: IZcashHistoryItem[] }
->();
 
 // Accounts whose re-derived viewing key named another identity than their
 // state. Background repair stops deriving from the seed for them until

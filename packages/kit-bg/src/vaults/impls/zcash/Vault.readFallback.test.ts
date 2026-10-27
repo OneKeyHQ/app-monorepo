@@ -14,18 +14,22 @@ jest.mock('./localHistory', () => ({
   findZcashLocalHistoryItem: jest.fn(),
 }));
 
-import { HISTORY_PAGE_SIZE } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 
 import Vault from './Vault';
-import { zcashLastPrivateHistory } from './vaultUtils';
+import { createZcashSetupIncompleteError } from './vaultUtils';
 
-// Private rows are never cached outside the runtime, so a failed runtime read
-// falls back to the last rows read in this process instead of none.
+// Like a failed backend fetch on other chains: a failed runtime read throws,
+// so the page keeps the rows it has instead of showing none.
 describe('Zcash private history when the runtime read fails', () => {
-  function createVault(getHistory: jest.Mock): Vault {
+  function createVault(
+    getHistory: jest.Mock,
+    getSyncProgress: jest.Mock = jest
+      .fn()
+      .mockResolvedValue({ isBackfillComplete: true }),
+  ): Vault {
     return Object.assign(Object.create(Vault.prototype) as object, {
       accountId: 'acc',
       networkId: 'zec--0',
@@ -47,10 +51,7 @@ describe('Zcash private history when the runtime read fails', () => {
       },
       getAccount: async () => ({ address: 't1-own' }),
       zcashGetWalletAccount: async () => ({ ufvk: 'uview-history-test' }),
-      zcashGetApi: async () => ({
-        getHistory,
-        getSyncProgress: async () => ({ isBackfillComplete: true }),
-      }),
+      zcashGetApi: async () => ({ getHistory, getSyncProgress }),
       zcashFetchTransparentHistory: async () => {
         throw new OneKeyLocalError('indexer down');
       },
@@ -63,7 +64,6 @@ describe('Zcash private history when the runtime read fails', () => {
   };
 
   it('returns empty pending history without rejecting while registration is pending', async () => {
-    zcashLastPrivateHistory.delete('acc');
     const missing = Object.assign(new Error('ACCOUNT_NOT_FOUND'), {
       code: 'ACCOUNT_NOT_FOUND',
     });
@@ -73,10 +73,23 @@ describe('Zcash private history when the runtime read fails', () => {
       [],
     );
     expect(getHistory).toHaveBeenCalledTimes(1);
-    expect(zcashLastPrivateHistory.has('acc')).toBe(false);
   });
 
-  it('keeps the last private rows read', async () => {
+  it('returns empty history while the account setup is unfinished', async () => {
+    const getHistory = jest.fn();
+    const vault = createVault(getHistory);
+    Object.assign(vault, {
+      zcashGetWalletAccount: async () => {
+        throw createZcashSetupIncompleteError();
+      },
+    });
+    await expect(vault.fetchAccountHistoryFromLocal(params)).resolves.toEqual(
+      [],
+    );
+    expect(getHistory).not.toHaveBeenCalled();
+  });
+
+  it('throws when the runtime read fails, never answering from an old page', async () => {
     const getHistory = jest
       .fn()
       .mockResolvedValueOnce([{ txid: 'tx-private' }])
@@ -84,11 +97,20 @@ describe('Zcash private history when the runtime read fails', () => {
     const vault = createVault(getHistory);
 
     await vault.fetchAccountHistoryFromLocal(params);
-    const afterFailure = await vault.fetchAccountHistoryFromLocal(params);
+    await expect(vault.fetchAccountHistoryFromLocal(params)).rejects.toThrow(
+      'runtime down',
+    );
+  });
 
-    expect(afterFailure?.map((tx) => tx.decodedTx.txid)).toEqual([
-      'tx-private',
-    ]);
+  // The tip only dates confirmations; it is not worth losing the history.
+  it('still returns history when the tip read fails', async () => {
+    const getHistory = jest.fn().mockResolvedValue([{ txid: 'tx-private' }]);
+    const vault = createVault(
+      getHistory,
+      jest.fn().mockRejectedValue(new Error('tip down')),
+    );
+    const rows = await vault.fetchAccountHistoryFromLocal(params);
+    expect(rows?.map((tx) => tx.decodedTx.txid)).toEqual(['tx-private']);
   });
 
   it.each([true, false])(
@@ -111,46 +133,6 @@ describe('Zcash private history when the runtime read fails', () => {
       expect(getHistory).toHaveBeenCalledTimes(paused ? 1 : 0);
     },
   );
-
-  // The full list always comes from the runtime; memory holds one page.
-  it('keeps only the first page for the fallback', async () => {
-    const rows = Array.from({ length: HISTORY_PAGE_SIZE + 5 }, (_, index) => ({
-      txid: `tx-${index}`,
-    }));
-    const getHistory = jest
-      .fn()
-      .mockResolvedValueOnce(rows)
-      .mockRejectedValueOnce(new Error('runtime down'));
-    const vault = createVault(getHistory);
-
-    const live = await vault.fetchAccountHistoryFromLocal(params);
-    expect(live).toHaveLength(rows.length);
-    expect(zcashLastPrivateHistory.get('acc')?.items).toHaveLength(
-      HISTORY_PAGE_SIZE,
-    );
-    const afterFailure = await vault.fetchAccountHistoryFromLocal(params);
-    expect(afterFailure?.map((tx) => tx.decodedTx.txid)).toEqual(
-      rows.slice(0, HISTORY_PAGE_SIZE).map(({ txid }) => txid),
-    );
-  });
-
-  // Rows remembered for scanned data since destroyed are not shown again.
-  it('does not fall back to rows read under an older epoch', async () => {
-    const getHistory = jest
-      .fn()
-      .mockResolvedValueOnce([{ txid: 'tx-before-delete' }])
-      .mockRejectedValueOnce(new Error('runtime down'));
-    const vault = createVault(getHistory);
-    const getAccountEpoch = vault.backgroundApi.simpleDb.privacyChainState
-      .getAccountEpoch as jest.Mock;
-    getAccountEpoch.mockResolvedValue('aaaaaaaaaaaaaaaa');
-
-    await vault.fetchAccountHistoryFromLocal(params);
-    getAccountEpoch.mockResolvedValue('bbbbbbbbbbbbbbbb');
-    const afterFailure = await vault.fetchAccountHistoryFromLocal(params);
-
-    expect(afterFailure?.map((tx) => tx.decodedTx.txid)).toEqual([]);
-  });
 });
 
 describe('Zcash private balance when the runtime read fails', () => {

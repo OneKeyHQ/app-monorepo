@@ -1,10 +1,10 @@
 import { zatoshiToZec } from '@onekeyhq/core/src/chains/zcash/sdkZcash/amount';
 import { ZCASH_POOL_IDS } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { readZcashRuntimeError } from '@onekeyhq/core/src/chains/zcash/sdkZcash/runtimeError';
 import type {
   IZcashHistoryItem,
   IZcashTxDetails,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
-import { HISTORY_PAGE_SIZE } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -47,8 +47,8 @@ import { ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS } from './vaultTransparent';
 import {
   canReadZcashPrivateData,
   isTerminalTransparentHistoryStatus,
+  isZcashSetupIncompleteError,
   zcashDescribeError,
-  zcashLastPrivateHistory,
 } from './vaultUtils';
 
 import type { IEncodedTxZcash } from './types';
@@ -434,37 +434,26 @@ export async function fetchAccountHistoryFromLocal(
     );
   // A paused account keeps its runtime rows; deletion clears its resume position.
   if (canReadZcashPrivateData(privacyModeState)) {
-    const epoch = await readLocalWalletCacheEpoch({
-      backgroundApi: vault.backgroundApi,
-      accountId,
-    });
     try {
       const account = await vault.zcashGetWalletAccount({ accountId });
       const api = await vault.zcashGetApi();
       const maxItems = 20_000;
       items = await api.getHistory(account, { limit: maxItems, offset: 0 });
+      chainTip = (await api.getSyncProgress(account).catch(() => undefined))
+        ?.chainTip;
+    } catch (error) {
+      // Not registered or set up yet: there is no private history to show.
       if (
-        await isLocalWalletCacheEpochCurrent({
-          backgroundApi: vault.backgroundApi,
-          accountId,
-          epoch,
-        })
+        readZcashRuntimeError(error)?.code !== 'ACCOUNT_NOT_FOUND' &&
+        !isZcashSetupIncompleteError(error)
       ) {
-        zcashLastPrivateHistory.set(accountId, {
-          epoch,
-          items: items.slice(0, HISTORY_PAGE_SIZE),
-        });
+        // As a failed backend fetch does, so the page keeps the rows it has.
+        throw error;
       }
-      const progress = await api.getSyncProgress(account);
-      chainTip = progress.chainTip;
-    } catch {
-      // Scanner failure isn't evidence of empty history; keep the last first page.
-      const last = zcashLastPrivateHistory.get(accountId);
-      items = last && last.epoch === epoch ? last.items : [];
+      items = [];
     }
   } else {
     // Transparent Mode must not initialize the wallet runtime; the backend stays the only source until privacy is enabled.
-    zcashLastPrivateHistory.delete(accountId);
     items = [];
   }
   const account = await vault.getAccount();

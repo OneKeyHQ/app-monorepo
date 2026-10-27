@@ -19,9 +19,10 @@ import Vault from './Vault';
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
 const ADDRESS = '4-synthetic-primary-address';
 
-// undefined would send the address to the server history API.
+// undefined would send the address to the server history API, and an empty
+// list would blank the page; a throw keeps the rows it shows, as on BTC.
 describe('xmr history when the runtime cannot answer', () => {
-  it('returns an empty list instead of undefined', async () => {
+  it('throws instead of answering empty or undefined', async () => {
     const vault: Vault = Object.assign(Object.create(Vault.prototype), {
       accountId: ACCOUNT_ID,
       networkId: 'xmr--0',
@@ -35,7 +36,7 @@ describe('xmr history when the runtime cannot answer', () => {
         networkId: 'xmr--0',
         accountAddress: ADDRESS,
       }),
-    ).resolves.toEqual([]);
+    ).rejects.toThrow('xmr: history unavailable');
   });
 });
 
@@ -176,7 +177,7 @@ describe('xmr history for an account that never enabled scanning', () => {
     ],
   ])('still reads the runtime when %s', async (_label, getAccountState) => {
     const { vault } = createVault(getAccountState);
-    await expect(read(vault)).resolves.toEqual([]);
+    await expect(read(vault)).rejects.toThrow('xmr: history unavailable');
     expect(localRuntime).toHaveBeenCalledTimes(1);
   });
 });
