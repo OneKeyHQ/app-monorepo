@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
 import {
   type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
   memo,
   startTransition,
   useCallback,
@@ -403,18 +402,15 @@ function BasePerpTokenSelectorContent() {
     },
     [],
   );
-  const focusSearchInput = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (
-        refocusSearchOnClick.current &&
-        event.target !== searchInputRef.current
-      ) {
-        searchInputRef.current?.focus({ preventScroll: true });
-      }
-      refocusSearchOnClick.current = false;
-    },
-    [],
-  );
+  const focusSearchInput = useCallback((event: { target: unknown }) => {
+    if (
+      refocusSearchOnClick.current &&
+      event.target !== searchInputRef.current
+    ) {
+      searchInputRef.current?.focus({ preventScroll: true });
+    }
+    refocusSearchOnClick.current = false;
+  }, []);
   const keyboardSubmitPending = useRef(false);
   const keyboardRowRefs = useRef(new Map<string, HTMLElement>());
   const keyboardFavoritesPending = useRef(new Set<string>());
@@ -1534,7 +1530,10 @@ function BasePerpTokenSelectorContent() {
         : {
             onPointerDownCapture: handlePointerDown,
             onClickCapture: focusSearchInput,
-            onKeyDownCapture: handleFavoriteShortcut,
+            // Tamagui types this as a native event, but this branch receives DOM events.
+            onKeyDownCapture: handleFavoriteShortcut as unknown as NonNullable<
+              IStackProps['onKeyDownCapture']
+            >,
             onWheelCapture: cancelPendingKeyboardScroll,
           })}
     >
