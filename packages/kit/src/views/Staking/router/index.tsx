@@ -173,6 +173,9 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.EarnPayWithTokenSelect,
     component: EarnPayWithTokenSelect,
+    // It covers the deposit form it opens over: it opens as a modal over a
+    // page does, and the form under it stays still (no grow, no peek)
+    disableStackAnimation: true,
     // Declared on the route, as Swap's picker does: the navigator grows a
     // modal out of the one under it only when it knows the size as it
     // opens. The size goes here, as the navigator sets it over the options.

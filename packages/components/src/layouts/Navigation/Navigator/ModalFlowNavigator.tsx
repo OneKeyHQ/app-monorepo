@@ -46,6 +46,11 @@ export interface IModalFlowNavigatorConfig<
    * once, for a screen that draws its own way in and out. Ignored on native.
    */
   disableEnterExitAnimation?: boolean;
+  /**
+   * Web-only, wide windows: opened over another modal, this one opens as
+   * over a page, and the one under it stays as it is. Ignored on native.
+   */
+  disableStackAnimation?: boolean;
 }
 
 interface IModalFlowNavigatorProps<
@@ -160,6 +165,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             modalContentMaxWidth,
             disableEnterScaleAnimation,
             disableEnterExitAnimation,
+            disableStackAnimation,
           }) => {
             const staticOptions: IModalNavigationOptions = {
               ...(typeof options === 'function' ? {} : options),
@@ -169,6 +175,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
               modalContentMaxWidth,
               disableEnterScaleAnimation,
               disableEnterExitAnimation,
+              disableStackAnimation,
               title: translationId
                 ? intl.formatMessage({
                     id: translationId as ETranslations,

@@ -57,6 +57,11 @@ const MODAL_DISABLE_SCALE_LIST: boolean[] = [];
 // modal and the backdrop show and hide at once on wide windows. Driven by
 // the route option `disableEnterExitAnimation`.
 const MODAL_INSTANT_LIST: boolean[] = [];
+// Parallel to MODAL_ANIMATED_VIEW_REF_LIST. When the slot value is true, the
+// modal opened over another opens and closes as over a page, and adds no
+// depth to the modals under it (they neither grow into it nor peek). Driven
+// by the route option `disableStackAnimation`.
+const MODAL_PLAIN_STACK_LIST: boolean[] = [];
 let MODAL_ANIMATED_BACKDROP_VIEW_REF: TamaguiElement | null;
 let ROOT_NAVIGATION_INDEX_LISTENER: (() => void) | undefined;
 
@@ -118,6 +123,16 @@ const dragRegionStyle = {
 // `transition` value.
 const modalSizeTransition =
   'max-width .25s cubic-bezier(0.4, 0, 0.2, 1), max-height .25s cubic-bezier(0.4, 0, 0.2, 1)';
+// A modal under one opened as over a page dims, as a page under the backdrop
+// does: quickly and deeply while that one fades in, so the two don't show
+// through each other, and back on the backdrop's timing as that one fades
+// out. Appended to every transition string assigned to the container, as
+// the size transition is
+const modalDimInTransition = 'filter .12s cubic-bezier(0, 0, 0.2, 1)';
+const modalDimOutTransition = 'filter .25s cubic-bezier(0.4, 0, 0.2, 1)';
+const MODAL_DIMMED_FILTER = 'brightness(0.2)';
+const modalBounceInTransition = `opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), ${modalSizeTransition}`;
+const modalEaseOutTransition = `opacity .2s cubic-bezier(0, 0, 0.2, 1), transform .2s cubic-bezier(0, 0, 0.2, 1), ${modalSizeTransition}`;
 
 // MODAL_ANIMATED_VIEW_REF_LIST is indexed by root route and never cleared on
 // unmount, and the root route below may not be a modal at all (FullScreenPush,
@@ -146,7 +161,7 @@ const setStyleAtOnce = (
 };
 
 const modalStyleGtMd = {
-  transition: `opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), ${modalSizeTransition}`,
+  transition: `${modalBounceInTransition}, ${modalDimOutTransition}`,
   willChange: 'opacity, transform',
 };
 
@@ -307,9 +322,6 @@ function WebModalNavigator({
           }
         }
 
-        const bounceIn = `opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), ${modalSizeTransition}`;
-        const easeOut = `opacity .2s cubic-bezier(0, 0, 0.2, 1), transform .2s cubic-bezier(0, 0, 0.2, 1), ${modalSizeTransition}`;
-
         MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
           const isHidden = newIndex < index;
           const noScale = MODAL_DISABLE_SCALE_LIST[index];
@@ -318,13 +330,28 @@ function WebModalNavigator({
             (element as unknown as HTMLElement).style.transform = '';
             setStyleAtOnce(element, 'opacity', '0');
           } else if (media.gtMd) {
+            // A modal that opens as over a page covers the ones under it:
+            // it adds no depth to them, and they dim as a page would
+            let depth = newIndex - index;
+            let isUnderPlainModal = false;
+            for (let above = index + 1; above <= newIndex; above += 1) {
+              if (MODAL_PLAIN_STACK_LIST[above]) {
+                depth -= 1;
+                isUnderPlainModal = true;
+              }
+            }
+            const isDimmed = !isHidden && isUnderPlainModal;
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            element.style.transition = isHidden ? easeOut : bounceIn;
+            element.style.transition = `${
+              isHidden ? modalEaseOutTransition : modalBounceInTransition
+            }, ${isDimmed ? modalDimInTransition : modalDimOutTransition}`;
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             element.style.opacity = isHidden ? '0' : '1';
-            const depth = newIndex - index;
+            (element as unknown as HTMLElement).style.filter = isDimmed
+              ? MODAL_DIMMED_FILTER
+              : '';
             const peekTransform = `translateY(${-30 * depth}px) scale(${1 - 0.05 * depth})`;
             let nextTransform: string;
             if (noScale) {
@@ -346,7 +373,11 @@ function WebModalNavigator({
             // Clear the override when the modal is visible again (pop back).
             const underlying = MODAL_ANIMATED_VIEW_REF_LIST[index - 1];
             const htmlElement = element as unknown as HTMLElement;
-            if (isHidden && canMorphFrom(underlying)) {
+            if (
+              isHidden &&
+              !MODAL_PLAIN_STACK_LIST[index] &&
+              canMorphFrom(underlying)
+            ) {
               const underlyingEl = underlying as unknown as HTMLElement;
               htmlElement.style.maxWidth = `${underlyingEl.offsetWidth}px`;
               htmlElement.style.maxHeight = `${underlyingEl.offsetHeight}px`;
@@ -382,6 +413,10 @@ function WebModalNavigator({
   // Hoisted the same way: the whole stack shows and hides at once
   const disableEnterExitAnimation = state.routes.some(
     (route) => !!descriptors[route.key]?.options?.disableEnterExitAnimation,
+  );
+  // And the same way: the whole stack opens over another modal as over a page
+  const disableStackAnimation = state.routes.some(
+    (route) => !!descriptors[route.key]?.options?.disableStackAnimation,
   );
   const hasCustomContentSize =
     !!descriptor.options.modalContentMaxHeight ||
@@ -433,8 +468,23 @@ function WebModalNavigator({
     const morphFromUnderlying =
       media.gtMd &&
       hasCustomContentSize &&
+      !disableStackAnimation &&
       canMorphFrom(underlying) &&
       underlying !== element;
+    // Opened as over a page: the modal under it stays where it is and dims
+    // as a page would, also when the root state came before this modal's
+    // ref and peeked it
+    if (
+      media.gtMd &&
+      disableStackAnimation &&
+      canMorphFrom(underlying) &&
+      underlying !== element
+    ) {
+      const underlyingEl = underlying as unknown as HTMLElement;
+      underlyingEl.style.transition = `${modalBounceInTransition}, ${modalDimInTransition}`;
+      setStyleAtOnce(underlying, 'transform', '');
+      underlyingEl.style.filter = MODAL_DIMMED_FILTER;
+    }
     if (media.gtMd) {
       el.style.opacity = '0';
       el.style.transform = disableEnterScaleAnimation ? '' : 'scale(0.95)';
@@ -562,9 +612,15 @@ function WebModalNavigator({
         MODAL_DISABLE_SCALE_LIST[currentRouteIndex] =
           disableEnterScaleAnimation;
         MODAL_INSTANT_LIST[currentRouteIndex] = disableEnterExitAnimation;
+        MODAL_PLAIN_STACK_LIST[currentRouteIndex] = disableStackAnimation;
       }
     },
-    [currentRouteIndex, disableEnterScaleAnimation, disableEnterExitAnimation],
+    [
+      currentRouteIndex,
+      disableEnterScaleAnimation,
+      disableEnterExitAnimation,
+      disableStackAnimation,
+    ],
   );
 
   state.routes.forEach((route, routeIndex) => {

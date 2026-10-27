@@ -50,6 +50,18 @@ export type IModalNavigationOptions = IStackNavigationOptions & {
    * stack, like `disableEnterScaleAnimation`.
    */
   disableEnterExitAnimation?: boolean;
+  /**
+   * Web-only, wide windows. Opened over another modal, this one opens and
+   * closes as a modal over a page does: at its own size, with the usual
+   * fade and scale. The modal under it neither grows into it nor peeks
+   * behind it, and dims as a page under the backdrop does (quickly and
+   * deeply as this one fades in, so the two don't show through each
+   * other), for a modal
+   * that covers the one under it (Earn's Pay with token picker over the
+   * deposit form). Hoisted to the whole inner stack, like
+   * `disableEnterScaleAnimation`.
+   */
+  disableStackAnimation?: boolean;
 };
 
 export type IModalNavigationEventMap = {
