@@ -25,6 +25,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
 import {
   formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
@@ -44,6 +45,7 @@ import {
   useDevSettingsPersistAtom,
   usePrivacyChainAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isLocalWalletSlotsFullError } from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -556,6 +558,14 @@ export default function PrivacyNetworkSettings({
               },
             );
             await refreshEntries();
+          } catch (error) {
+            // Other failures keep this dialog open; the limit closes it for its own.
+            if (!isLocalWalletSlotsFullError(error)) throw error;
+            void showPrivacyChainSlotsFullDialog({
+              intl,
+              networkId: entry.networkId,
+              accountName: entry.accountName,
+            });
           } finally {
             setBusyAccountId(undefined);
           }
@@ -586,12 +596,20 @@ export default function PrivacyNetworkSettings({
         }
         await refreshEntries();
       } catch (error) {
-        console.error('[privacyChain] account sync control failed', error);
+        if (isLocalWalletSlotsFullError(error)) {
+          void showPrivacyChainSlotsFullDialog({
+            intl,
+            networkId: entry.networkId,
+            accountName: entry.accountName,
+          });
+        } else {
+          console.error('[privacyChain] account sync control failed', error);
+        }
       } finally {
         setBusyAccountId(undefined);
       }
     },
-    [refreshEntries],
+    [intl, refreshEntries],
   );
 
   const editBirthday = useCallback(

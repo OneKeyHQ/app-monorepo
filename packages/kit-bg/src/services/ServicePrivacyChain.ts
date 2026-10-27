@@ -3077,9 +3077,11 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     if (enabledKeys.size >= limit) {
+      // The page shows its own dialog for this (see isLocalWalletSlotsFullError).
       throw new OneKeyLocalError({
+        key: ETranslations.privacy_slots_delete__desc,
         message: localWalletText(ETranslations.privacy_slots_delete__desc),
-        autoToast: true,
+        autoToast: false,
       });
     }
   }

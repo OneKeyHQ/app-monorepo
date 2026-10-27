@@ -36,6 +36,11 @@ const mockDelete = jest.fn<
   Promise<void>,
   [{ accountId: string; networkId: string }]
 >();
+const mockShowSlotsFull = jest.fn(async (_params: unknown) => undefined);
+jest.mock('@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog', () => ({
+  showPrivacyChainSlotsFullDialog: (params: unknown) =>
+    mockShowSlotsFull(params),
+}));
 const mockEnable = jest.fn<
   Promise<void>,
   [{ accountId: string; networkId: string }]
@@ -365,6 +370,31 @@ describe('Privacy network settings for a temp wallet', () => {
     expect(mockAccountStates['hd-1--0'].birthdayHeight).toBe(2_500_000);
     expect(mockDelete).not.toHaveBeenCalled();
     expect(mockRepair).not.toHaveBeenCalled();
+  });
+
+  it('explains a full sync limit when an account is resumed here', async () => {
+    mockAccounts = [listItem({})];
+    mockAccountStates = {
+      'hd-1--0': { enabled: false, paused: true },
+    };
+    mockEnable.mockRejectedValue(
+      Object.assign(new Error('full'), {
+        key: ETranslations.privacy_slots_delete__desc,
+        autoToast: false,
+      }),
+    );
+    render(<PrivacyNetworkSettings networkId="zec--0" />);
+    fireEvent.click(
+      await screen.findByTestId('privacy-network-resume-hd-1--0'),
+    );
+    await waitFor(() => expect(mockShowSlotsFull).toHaveBeenCalledTimes(1));
+    const params = mockShowSlotsFull.mock.calls[0][0] as {
+      networkId: string;
+      onOpenSettings?: () => void;
+    };
+    expect(params.networkId).toBe('zec--0');
+    // Already on the page that lists the accounts to turn off.
+    expect(params.onOpenSettings).toBeUndefined();
   });
 
   it('does not show a pause as successful before it is saved, or when it fails', async () => {
