@@ -124,24 +124,23 @@ function isDarkColor(color: string) {
 
 // The page's color and the light/dark theme the chrome should use on top of
 // it; no page color means the chrome keeps the app theme.
+function themeNameOf(color: string | undefined): 'light' | 'dark' | undefined {
+  if (!color) {
+    return undefined;
+  }
+  return isDarkColor(color) ? 'dark' : 'light';
+}
+
 export function usePageTheme(tabId: string | null | undefined) {
   const pageColor = usePageThemeColor(tabId);
-  let pageThemeName: 'light' | 'dark' | undefined;
-  if (pageColor) {
-    pageThemeName = isDarkColor(pageColor) ? 'dark' : 'light';
-  }
-  return { pageColor, pageThemeName };
+  return { pageColor, pageThemeName: themeNameOf(pageColor) };
 }
 
 // The light/dark theme for chrome laid over the bottom of the page (the
 // bottom bar), from the color there: a page can be dark at the top and light
 // at the bottom, or the other way round.
 export function usePageBottomThemeName(tabId: string | null | undefined) {
-  const bottomColor = usePageBottomColor(tabId);
-  if (!bottomColor) {
-    return undefined;
-  }
-  return isDarkColor(bottomColor) ? 'dark' : 'light';
+  return themeNameOf(usePageBottomColor(tabId));
 }
 
 // Applies the cached color of the page's origin, if any; otherwise the
@@ -211,9 +210,17 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     // so those are drawn on a 1px canvas and read back. An unparsable value
     // leaves the transparent fill and reads as no color.
     var ctx;
+    // Canvas conversions cached per value: a page has only a few distinct
+    // backgrounds, and each read checks several of them.
+    var rgbCache = {};
     var toRgb = function (value) {
       if (!value || value === 'transparent') return '';
       if (/^rgba?\\(/.test(value)) return value;
+      if (rgbCache[value] !== undefined) return rgbCache[value];
+      rgbCache[value] = canvasRgb(value);
+      return rgbCache[value];
+    };
+    var canvasRgb = function (value) {
       try {
         if (!ctx) {
           var canvas = document.createElement('canvas');
@@ -253,9 +260,6 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     // (a frosted bottom nav over a white body reads dark, a dimming backdrop
     // over the page reads as the dimmed page).
     var colorAt = function (x, y) {
-      if (!document.elementsFromPoint) {
-        return backgroundOf(document.elementFromPoint(x, y));
-      }
       var elements = document.elementsFromPoint(x, y);
       var layers = [];
       for (var i = 0; i < elements.length; i++) {
@@ -346,8 +350,18 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
         read();
       }, 300);
     };
-    // What sits at the bottom of the viewport changes as the page scrolls.
-    window.addEventListener('scroll', schedule, { passive: true });
+    // What sits at the bottom of the viewport changes as the page scrolls:
+    // read once the scroll settles, not during it (each read makes the page
+    // compute styles and hit-test).
+    var scrollTimer;
+    window.addEventListener(
+      'scroll',
+      function () {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(read, 150);
+      },
+      { passive: true },
+    );
     var isThemeMeta = function (node) {
       return (
         node &&

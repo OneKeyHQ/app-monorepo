@@ -109,11 +109,6 @@ const styles = StyleSheet.create({
   glassFill: { flex: 1, borderRadius: PILL_RADIUS },
 });
 
-// Glass shapes closer than this merge in the bar's glass container (Telegram's
-// spacing); the capsules' gap is wider and the side ones shrink in place, so
-// they stay apart.
-const GLASS_MERGE_SPACING = 7;
-
 // Grows the 30pt pill's tap area to the bar capsule's height, and over its
 // side padding.
 const PILL_HIT_SLOP = {
@@ -142,18 +137,6 @@ function getCapsuleCollapsedScale(domainFontSize: number) {
   return PILL_DOMAIN_FONT_SIZE / domainFontSize;
 }
 
-// A side button's move: down with the bar. Nothing more: its capsule's glass
-// shrinks away and its contents fade on their own (BrowserChromeCapsule).
-function useSideMorphStyle(progress: SharedValue<number>, travelY: number) {
-  return useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
-      },
-    ],
-  }));
-}
-
 // The capsule layer's scale along the morph. The pill layer is always this
 // over the collapsed scale, so the two domains match on every frame.
 function getCapsuleMorphScale(progress: number, collapsedScale: number) {
@@ -163,24 +146,26 @@ function getCapsuleMorphScale(progress: number, collapsedScale: number) {
 }
 
 // Morphs the address capsule into the collapsed pill (and back), like
-// Safari: the capsule shrinks and slides down to the pill's spot while the
-// pill grows out of it; the side buttons shrink away where they are. The
-// address capsule and the pill share
-// one background (MorphingAddressBackground); these are transforms only, as
-// a parent opacity would break Liquid Glass.
+// Safari: the bar's row slides down to the pill's spot while the capsule
+// shrinks and the pill grows out of it; the side buttons shrink away where
+// they are (their glass and contents, see BrowserChromeCapsule). The address
+// capsule and the pill share one background (MorphingAddressBackground);
+// these are transforms only, as a parent opacity would break Liquid Glass.
 function useBarMorphStyles(
   progress: SharedValue<number>,
   travelY: number,
   domainCenterOffset: SharedValue<number>,
   collapsedScale: number,
 ) {
-  const leftStyle = useSideMorphStyle(progress, travelY);
-  const rightStyle = useSideMorphStyle(progress, travelY);
-  const capsuleStyle = useAnimatedStyle(() => ({
+  const rowStyle = useAnimatedStyle(() => ({
     transform: [
       {
         translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
       },
+    ],
+  }));
+  const capsuleStyle = useAnimatedStyle(() => ({
+    transform: [
       { scale: getCapsuleMorphScale(progress.value, collapsedScale) },
     ],
   }));
@@ -219,8 +204,7 @@ function useBarMorphStyles(
     ],
   }));
   return {
-    leftStyle,
-    rightStyle,
+    rowStyle,
     capsuleStyle,
     pillStyle,
     capsuleDomainStyle,
@@ -463,8 +447,7 @@ function MobileBrowserBottomBar({
     BROWSER_CHROME_CAPSULE_HEIGHT / 2 -
     (pillBottom + BROWSER_COLLAPSED_PILL_HEIGHT / 2);
   const {
-    leftStyle,
-    rightStyle,
+    rowStyle,
     capsuleStyle,
     pillStyle,
     capsuleDomainStyle,
@@ -526,7 +509,6 @@ function MobileBrowserBottomBar({
           instead of each piece adapting to what is behind it on its own
           (mismatched mid-morph over page content). */}
         <GlassContainer
-          spacing={GLASS_MERGE_SPACING}
           pointerEvents="box-none"
           style={StyleSheet.absoluteFill}
         >
@@ -545,7 +527,7 @@ function MobileBrowserBottomBar({
             importantForAccessibility={
               isChromeCollapsed ? 'no-hide-descendants' : 'auto'
             }
-            style={[styles.bar, { bottom: capsuleBottom }]}
+            style={[styles.bar, { bottom: capsuleBottom }, rowStyle]}
           >
             <XStack
               h={BROWSER_CHROME_CAPSULE_HEIGHT}
@@ -556,14 +538,12 @@ function MobileBrowserBottomBar({
               {/* Wallet-browser layout: tabs on the left, page navigation in
               the address capsule (back · site badge · domain · refresh), the
               page menu on the right. Account and exit live in the header. */}
-              <Animated.View style={leftStyle}>
-                <BrowserChromeCapsule fade={sideFade}>
-                  <TabCountButton
-                    testID={DiscoveryTestIDs.tabListButton}
-                    onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
-                  />
-                </BrowserChromeCapsule>
-              </Animated.View>
+              <BrowserChromeCapsule fade={sideFade}>
+                <TabCountButton
+                  testID={DiscoveryTestIDs.tabListButton}
+                  onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
+                />
+              </BrowserChromeCapsule>
               <Animated.View
                 style={[styles.capsule, capsuleStyle]}
                 onLayout={(e) =>
@@ -627,28 +607,26 @@ function MobileBrowserBottomBar({
                   </Animated.View>
                 </BrowserChromeCapsule>
               </Animated.View>
-              <Animated.View style={rightStyle}>
-                <BrowserChromeCapsule fade={sideFade}>
-                  <ChromePressable
-                    onPress={() => {
-                      logBrowserChromeAction('menu', 'toolbar');
-                      showOptions();
-                    }}
+              <BrowserChromeCapsule fade={sideFade}>
+                <ChromePressable
+                  onPress={() => {
+                    logBrowserChromeAction('menu', 'toolbar');
+                    showOptions();
+                  }}
+                  disabled={displayHomePage}
+                  hitSlop={CAPSULE_BUTTON_HIT_SLOP}
+                  accessibilityLabel={intl.formatMessage({
+                    id: ETranslations.explore_options,
+                  })}
+                >
+                  <IconButton
+                    variant="tertiary"
+                    icon="DotHorOutline"
                     disabled={displayHomePage}
-                    hitSlop={CAPSULE_BUTTON_HIT_SLOP}
-                    accessibilityLabel={intl.formatMessage({
-                      id: ETranslations.explore_options,
-                    })}
-                  >
-                    <IconButton
-                      variant="tertiary"
-                      icon="DotHorOutline"
-                      disabled={displayHomePage}
-                      testID="browser-bar-options"
-                    />
-                  </ChromePressable>
-                </BrowserChromeCapsule>
-              </Animated.View>
+                    testID="browser-bar-options"
+                  />
+                </ChromePressable>
+              </BrowserChromeCapsule>
             </XStack>
           </Animated.View>
         </GlassContainer>

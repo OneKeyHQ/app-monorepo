@@ -1,6 +1,5 @@
 import type { ComponentProps, PropsWithChildren } from 'react';
 
-import { StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -36,17 +35,10 @@ export function PageBottomColorFill({
   style: StyleProp<ViewStyle>;
 }) {
   const bottomColor = usePageBottomColor(tabId);
-  return (
-    <Stack
-      bg="$bgApp"
-      // Flattened: Tamagui merges only one level of a style array, so a
-      // caller's array nested in this one would lose its position and size.
-      style={[
-        StyleSheet.flatten(style),
-        bottomColor ? { backgroundColor: bottomColor } : undefined,
-      ]}
-    />
-  );
+  // The color goes in through bg, so the caller's style passes through as
+  // is: Tamagui merges only one level of a style array, and wrapping the
+  // caller's (itself possibly an array) would drop its position and size.
+  return <Stack bg={bottomColor ?? '$bgApp'} style={style} />;
 }
 
 // How a capsule fades in over `range` of `progress`.

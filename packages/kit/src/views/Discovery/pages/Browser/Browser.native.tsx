@@ -111,8 +111,8 @@ const styles = StyleSheet.create({
   },
   // Under the iPhone bottom bar, behind the WebView (whose scroll view draws
   // past its frame there): the page's bottom color shows where the page has
-  // no more content to draw (its end, or a short or app-like page). Only the bar's area: the
-  // WebView covers the rest. Height set from the safe area.
+  // no more content to draw (its end, or a short or app-like page). Only the
+  // bar's area: the WebView covers the rest. Height set from the safe area.
   iosPageBackdrop: {
     position: 'absolute',
     right: 0,
