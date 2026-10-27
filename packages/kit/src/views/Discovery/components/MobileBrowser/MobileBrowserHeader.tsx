@@ -38,7 +38,7 @@ import type { ICapsuleFade } from './BrowserChromeCapsule';
 
 const HEADER_EDGE_INSET = 16;
 // IconButton's medium padding ($1.5), so the glyph itself sits at the inset.
-const MINIMIZE_BUTTON_PADDING = 6;
+const CLOSE_BUTTON_PADDING = 6;
 const ACCOUNT_CHIP_HEIGHT = 36;
 const CLOSE_BUTTON_HIT_SLOP = { top: 5, bottom: 5, left: 8, right: 8 };
 const CLOSE_ICON_PROPS = { color: '$icon' } as const;
@@ -70,7 +70,7 @@ const accountToolbar = <HeaderRightToolBar variant="mobileBrowser" />;
 
 interface IMobileBrowserHeaderProps {
   chrome: IMobileBrowserChrome;
-  onGoBackHome: () => void;
+  onCloseTab: () => void;
 }
 
 const STATUS_BAR_REASSERT_DELAY_MS = 400;
@@ -143,12 +143,14 @@ function HeaderChip({
   px,
   bg,
   chip,
+  shrinkTowards,
   children,
 }: PropsWithChildren<{
   fade?: ICapsuleFade;
   px?: IXStackProps['px'];
   bg?: string;
   chip?: boolean;
+  shrinkTowards: 'left' | 'right';
 }>) {
   if (fade) {
     return (
@@ -157,6 +159,7 @@ function HeaderChip({
         px={px}
         fade={fade}
         borderRadius={chip ? ACCOUNT_CHIP_RADIUS : undefined}
+        shrinkTowards={shrinkTowards}
       >
         {children}
       </BrowserChromeCapsule>
@@ -177,15 +180,15 @@ function HeaderChip({
   );
 }
 
-// The address lives in the bottom bar, so the header only keeps exit (back to
-// the wallet, tabs kept) and the account. It collapses fully on scroll down.
+// The address lives in the bottom bar, so the header only keeps close tab and
+// the account. It collapses fully on scroll down.
 // Once settled the page starts below it, not under it: dApps commonly pin a
 // fixed header with their Connect button at the top. While it moves, the row
 // is an overlay that only slides; its room in the layout follows
 // layoutExpanded (see useMobileBrowserChromeAnimation).
 function MobileBrowserHeader({
   chrome,
-  onGoBackHome,
+  onCloseTab,
 }: IMobileBrowserHeaderProps) {
   const { top } = useSafeAreaInsets();
   const { progress, layoutExpanded } = chrome;
@@ -193,8 +196,8 @@ function MobileBrowserHeader({
   // The row fades out in the first half of a collapse while it slides up
   // under the status bar. iOS 26: the exit button and the account chip are
   // Liquid Glass capsules, like the bottom bar; glass must not sit under a
-  // fading parent, so there the row only slides and each capsule fades its
-  // own glass and contents (same range).
+  // fading parent, so there the row only slides and each capsule shrinks its
+  // glass away and fades its contents (same range).
   const isGlass = isLiquidGlassAvailable();
   const fade = useMemo<ICapsuleFade>(
     () => ({ progress, range: [BROWSER_CHROME_CROSSFADE_POINT, 1] }),
@@ -228,18 +231,18 @@ function MobileBrowserHeader({
     <IconButton
       variant="tertiary"
       m={0}
-      // Leaves the browser for the wallet; tabs stay open.
+      // Closes the tab (it can be reopened from Recently closed). Minimize,
+      // which keeps the tab, lives in the bottom bar's menu.
       icon="CrossedLargeOutline"
       // 36pt button: extend to the 46pt header row and a bit sideways for an
       // easier target.
       hitSlop={CLOSE_BUTTON_HIT_SLOP}
       iconProps={CLOSE_ICON_PROPS}
       onPress={() => {
-        // 'minimize' kept for analytics continuity.
-        logBrowserChromeAction('minimize', 'header');
-        onGoBackHome();
+        logBrowserChromeAction('closeTab', 'header');
+        onCloseTab();
       }}
-      testID={DiscoveryTestIDs.browserMinimizeButton}
+      testID={DiscoveryTestIDs.browserCloseTabButton}
     />
   );
 
@@ -277,7 +280,7 @@ function MobileBrowserHeader({
             pl={
               isGlass
                 ? HEADER_EDGE_INSET
-                : HEADER_EDGE_INSET - MINIMIZE_BUTTON_PADDING
+                : HEADER_EDGE_INSET - CLOSE_BUTTON_PADDING
             }
             pr={HEADER_EDGE_INSET}
             alignItems="center"
@@ -285,7 +288,11 @@ function MobileBrowserHeader({
           >
             {/* No padding: the 36pt button alone fills the 36pt capsule, so
                 the glass is a circle. */}
-            <HeaderChip fade={isGlass ? fade : undefined} px="$0">
+            <HeaderChip
+              fade={isGlass ? fade : undefined}
+              px="$0"
+              shrinkTowards="left"
+            >
               {closeButton}
             </HeaderChip>
             {/* One compact chip for every account state (connected,
@@ -296,6 +303,7 @@ function MobileBrowserHeader({
               px="$1"
               bg={accountChipBg}
               chip
+              shrinkTowards="right"
             >
               {accountToolbar}
             </HeaderChip>

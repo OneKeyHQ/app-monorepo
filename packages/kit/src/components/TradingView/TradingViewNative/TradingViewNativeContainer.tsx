@@ -257,6 +257,7 @@ const TradingViewNativeContent = memo(
     enablePreviousClose = false,
     enableNativeChartSettings,
     enableDrawings = false,
+    enableNavigationControls = false,
     prioritizePageScroll = false,
     nativeChartSettingsInToolbar = false,
     mobileToolbarExtra,
@@ -1082,6 +1083,9 @@ const TradingViewNativeContent = memo(
             enableNativeChartSettings={enableNativeChartSettings}
             mobileSettingsControl={mobileSettingsControl}
             enablePreviousClose={enablePreviousClose}
+            enableNavigationButtons={
+              enableNavigationControls && !isCompactDisplayMode
+            }
             intervalConfig={intervalConfig}
             activeIndicatorValues={activeIndicatorValues}
             maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
@@ -1113,6 +1117,9 @@ const TradingViewNativeContent = memo(
                 enableDrawings &&
                 !isCompactDisplayMode &&
                 storageNamespace !== 'swap'
+              }
+              enableNavigationControls={
+                enableNavigationControls && !isCompactDisplayMode
               }
               drawingStorageKey={drawingSourceKey}
               loadDrawingHistory={loadDrawingHistory}

@@ -55,8 +55,10 @@ export interface IEstimateLiquidationPriceParams {
   side: 'long' | 'short';
   orderSize: BigNumber;
   priceMode: IPerpsLiquidationPriceMode;
-  // Limit price; market orders are priced at mark.
+  // Limit price used as the liquidation reference.
   orderPrice?: BigNumber;
+  // Optional execution boundary for resulting-position notional only.
+  estimatedClearingPrice?: BigNumber;
   markPrice: BigNumber;
   reduceOnly?: boolean;
   marginMode: 'cross' | 'isolated';
@@ -1172,8 +1174,8 @@ function solveLiquidationPrice({
 
 /**
  * Pre-trade liquidation price, following Hyperliquid's order ticket estimate:
- * the resulting position is priced at mark (or a resting limit price) with
- * equity measured at mark, so the entry price never enters the formula.
+ * equity uses the reference price, while an optional execution boundary prices
+ * the resulting-position notional. Existing callers keep reference-price notional.
  */
 function estimateLiquidationPrice(
   params: IEstimateLiquidationPriceParams,
@@ -1183,6 +1185,7 @@ function estimateLiquidationPrice(
     orderSize,
     priceMode,
     orderPrice,
+    estimatedClearingPrice,
     markPrice,
     reduceOnly = false,
     marginMode,
@@ -1226,7 +1229,9 @@ function estimateLiquidationPrice(
   }
   const safeLeverage = leverage > 0 ? leverage : maxLeverage;
   const tiers = resolveMarginTiers(marginTiers, maxLeverage);
-  const notional = price.multipliedBy(resultingSize.abs());
+  const notionalPrice = estimatedClearingPrice ?? price;
+  if (!notionalPrice.isFinite() || notionalPrice.lte(0)) return null;
+  const notional = notionalPrice.multipliedBy(resultingSize.abs());
 
   if (marginMode === 'isolated') {
     const hasExistingPosition = !existingPositionSize.isZero();
