@@ -3,6 +3,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { withMemoryStorage as memoryEntity } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainState } from '../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -19,20 +20,6 @@ import {
 } from './privacyChainCacheStore';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-
-function memoryEntity<T extends object>(entity: T): T {
-  let saved: unknown = null;
-  (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
-    removeItem: jest.fn(async () => {
-      saved = null;
-    }),
-  };
-  return entity;
-}
 
 function createBackgroundApi() {
   return {

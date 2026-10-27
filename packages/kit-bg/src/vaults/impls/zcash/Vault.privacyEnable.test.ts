@@ -1,10 +1,8 @@
 /* eslint-disable import/first */
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
@@ -15,13 +13,11 @@ it.each([false, true])(
   async (interrupt) => {
     const accountId = 'account';
     const networkId = 'zec--0';
-    let saved: unknown = null;
+    const storage = createUntrackedMemoryStorage(null);
     const entity = new SimpleDbEntityPrivacyChainState();
     (entity as { appStorage: unknown }).appStorage = {
-      getItem: async () => saved,
-      setItem: async (_key: string, value: unknown) => {
-        saved = value;
-      },
+      getItem: storage.getItem,
+      setItem: storage.setItem,
     };
     await entity.beginZcashPrivacyModeEnable({
       networkId,

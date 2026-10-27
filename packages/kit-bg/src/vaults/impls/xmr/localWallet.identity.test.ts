@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { withMemoryStorage as memoryEntity } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainKeys } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
@@ -149,20 +150,6 @@ jest.mock('./runtime', () => ({
   getXmrLastKnownChainTip: async () => TIP,
   isXmrRuntimeBusy: () => mockBusy,
 }));
-
-function memoryEntity<T>(entity: T): T {
-  let saved: unknown = null;
-  (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
-    removeItem: jest.fn(async () => {
-      saved = null;
-    }),
-  };
-  return entity;
-}
 
 type IScanStateKind = 'on' | 'paused' | 'enabling' | 'deleted-data';
 

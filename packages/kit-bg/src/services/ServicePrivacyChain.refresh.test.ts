@@ -1,22 +1,12 @@
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
+
 import { SimpleDbEntityPrivacyChainCache } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 import type { IPrivacyChainScanState } from '../states/jotai/atoms';
 import type { ILocalWalletSyncProgress } from '../vaults/localWallet/types';
 
-jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
-  const actual = jest.requireActual<
-    typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
-  >('@onekeyhq/shared/src/background/backgroundDecorators');
-  const passthrough =
-    () => (_target: unknown, _key?: string, descriptor?: PropertyDescriptor) =>
-      descriptor;
-  return {
-    ...actual,
-    backgroundClass: passthrough,
-    backgroundMethod: passthrough,
-  };
-});
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 const mockGetChainOnlyVault = jest.fn();
 jest.mock('../vaults/factory', () => ({
   vaultFactory: { getChainOnlyVault: mockGetChainOnlyVault },
@@ -48,16 +38,8 @@ async function createHarness() {
   const state = new SimpleDbEntityPrivacyChainState();
   const cache = new SimpleDbEntityPrivacyChainCache();
   for (const entity of [state, cache]) {
-    let saved: unknown = null;
-    Reflect.set(entity, 'appStorage', {
-      getItem: async () => saved,
-      setItem: async (_key: string, value: unknown) => {
-        saved = value;
-      },
-      removeItem: async () => {
-        saved = null;
-      },
-    });
+    const storage = createUntrackedMemoryStorage(null);
+    Reflect.set(entity, 'appStorage', storage);
   }
   await state.beginZcashPrivacyModeEnable({ ...params, birthdayHeight: 100 });
   await state.saveZcashAccountMeta({

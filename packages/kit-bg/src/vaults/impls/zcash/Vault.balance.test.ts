@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { withMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
@@ -15,10 +16,7 @@ import VaultBtc from '../btc/Vault';
 import Vault from './Vault';
 import { zcashReadTransparentForDisplay } from './vaultBalance';
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 const pool = (amount: string) => ({
   spendable: amount,
@@ -44,18 +42,7 @@ const balance: IZcashBalance = {
 };
 
 function memoryCache() {
-  let saved: unknown = null;
-  const entity = new SimpleDbEntityPrivacyChainCache();
-  (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
-    removeItem: jest.fn(async () => {
-      saved = null;
-    }),
-  };
-  return entity;
+  return withMemoryStorage(new SimpleDbEntityPrivacyChainCache());
 }
 
 describe('Zcash independent transparent balance availability', () => {

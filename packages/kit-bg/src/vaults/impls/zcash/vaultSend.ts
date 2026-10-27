@@ -483,7 +483,7 @@ export async function buildUnsignedTx(
   if (encodedTx.zcashMode !== 'privacy' || !vault.accountId) {
     return unsignedTx;
   }
-  const withPczt = await vault.zcashAttachPczt(encodedTx);
+  const withPczt = await zcashAttachPczt(vault, encodedTx);
   return { ...unsignedTx, encodedTx: withPczt };
 }
 
@@ -516,7 +516,7 @@ export async function zcashAttachPczt(
         'Enable Zcash Privacy Mode before using a shielded pool',
       );
     }
-    const created = await vault.zcashCreatePczt({
+    const created = await zcashCreatePczt(vault, {
       accountId,
       toAddress: encodedTx.zcashTo,
       memoHex: encodedTx.zcashMemoHex,

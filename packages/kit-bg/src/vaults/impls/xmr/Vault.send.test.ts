@@ -1,10 +1,7 @@
 // cspell:ignore piconero
 /* eslint-disable import/first */
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';

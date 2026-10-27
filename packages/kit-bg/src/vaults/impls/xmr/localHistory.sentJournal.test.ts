@@ -1,3 +1,5 @@
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
+
 import { SimpleDbEntityPrivacyChainXmrSent } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainXmrSent';
 
 import { buildXmrLocalHistoryTx, toXmrSentAmount } from './localHistory';
@@ -118,13 +120,11 @@ describe('xmr history rows from the merged sent journal', () => {
     try {
       const legacy = recordLegacy(RECORD_CALLS);
 
-      let saved: unknown = null;
+      const storage = createUntrackedMemoryStorage(null);
       const journal = new SimpleDbEntityPrivacyChainXmrSent();
       Reflect.set(journal, 'appStorage', {
-        getItem: async () => saved,
-        setItem: async (_key: string, value: unknown) => {
-          saved = value;
-        },
+        getItem: storage.getItem,
+        setItem: storage.setItem,
       });
       for (const call of RECORD_CALLS) {
         await journal.recordXmrSent({

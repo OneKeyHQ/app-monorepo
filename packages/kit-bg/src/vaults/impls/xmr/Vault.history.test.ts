@@ -1,9 +1,6 @@
 /* eslint-disable import/first */
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 jest.mock('./runtime', () => ({
   ...jest.requireActual<typeof import('./runtime')>('./runtime'),
   getXmrLocalRuntime: jest.fn(),

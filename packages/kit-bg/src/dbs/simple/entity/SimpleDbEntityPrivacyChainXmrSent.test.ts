@@ -1,22 +1,19 @@
+import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
+
 import { SimpleDbEntityPrivacyChainXmrSent } from './SimpleDbEntityPrivacyChainXmrSent';
 
 import type { IPrivacyChainXmrSentDB } from './SimpleDbEntityPrivacyChainXmrSent';
 
 function createEntity(initial?: IPrivacyChainXmrSentDB) {
-  let saved: unknown = initial ? { data: initial, updatedAt: 1 } : null;
+  const storage = createMemoryStorage(
+    initial ? { data: initial, updatedAt: 1 } : null,
+  );
   const entity = new SimpleDbEntityPrivacyChainXmrSent();
-  const storage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
-    removeItem: jest.fn(async () => {
-      saved = null;
-    }),
-  };
   Reflect.set(entity, 'appStorage', storage);
   const readSaved = (): unknown =>
-    typeof saved === 'string' ? JSON.parse(saved) : saved;
+    typeof storage.value === 'string'
+      ? JSON.parse(storage.value)
+      : storage.value;
   return { entity, storage, readSaved };
 }
 

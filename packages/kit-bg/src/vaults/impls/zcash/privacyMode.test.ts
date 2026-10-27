@@ -6,10 +6,7 @@ import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprin
 import type VaultZcash from './Vault';
 import type { IZcashPrivacyModeStateView } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 jest.mock('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/carrier', () => ({
   ...jest.requireActual<
     typeof import('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/carrier')

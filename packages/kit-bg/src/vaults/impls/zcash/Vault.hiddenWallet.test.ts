@@ -1,9 +1,8 @@
 /* cspell:ignore Ufvks */
 /* eslint-disable import/first */
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
+
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
@@ -107,13 +106,11 @@ describe('Zcash scanning follows hidden-wallet visibility', () => {
 it.each([true, false])(
   'recovers hidden scan exclusions after restart (progress available: %s)',
   async (hasProgress) => {
-    let saved: unknown = null;
+    const storage = createUntrackedMemoryStorage(null);
     const entity = new SimpleDbEntityPrivacyChainState();
     (entity as { appStorage: unknown }).appStorage = {
-      getItem: async () => saved,
-      setItem: async (_key: string, value: unknown) => {
-        saved = value;
-      },
+      getItem: storage.getItem,
+      setItem: storage.setItem,
     };
     for (const id of ['a', 'b']) {
       await entity.beginZcashPrivacyModeEnable({
@@ -222,10 +219,14 @@ it.each([true, false])(
       });
       return vault;
     };
-    await makeVault().syncLocalWalletGroup({ accountIds: ['b'] });
+    await makeVault()
+      .getLocalWalletCapability()
+      .syncGroup({ accountIds: ['b'] });
     expect(scannedKeys).toEqual([['b']]);
     hidden = false;
-    await makeVault().syncLocalWalletGroup({ accountIds: ['a', 'b'] });
+    await makeVault()
+      .getLocalWalletCapability()
+      .syncGroup({ accountIds: ['a', 'b'] });
     expect(scannedKeys[1]).toEqual(['a', 'b']);
     expect(foundNote).toBe(true);
     expect(
@@ -238,13 +239,11 @@ it.each([true, false])(
 it.each([false, true])(
   'recovers by viewing identity while an alias remains hidden (existing exclusion: %s)',
   async (existingExclusion) => {
-    let saved: unknown = null;
+    const storage = createUntrackedMemoryStorage(null);
     const entity = new SimpleDbEntityPrivacyChainState();
     (entity as { appStorage: unknown }).appStorage = {
-      getItem: async () => saved,
-      setItem: async (_key: string, value: unknown) => {
-        saved = value;
-      },
+      getItem: storage.getItem,
+      setItem: storage.setItem,
     };
     for (const accountId of ['hidden', 'visible']) {
       await entity.beginZcashPrivacyModeEnable({
@@ -306,7 +305,9 @@ it.each([false, true])(
       getLocalWalletSyncProgress: progress,
       queueLocalWalletRescanFrom: queueRescan,
     });
-    await vault.syncLocalWalletGroup({ accountIds: ['visible'] });
+    await vault
+      .getLocalWalletCapability()
+      .syncGroup({ accountIds: ['visible'] });
     expect(readState).toHaveBeenCalledTimes(2);
     expect(prepareAccounts).toHaveBeenCalledWith({
       accountIds: ['visible'],
@@ -332,7 +333,9 @@ it.each([false, true])(
     ).toBeUndefined();
     queueRescan.mockClear();
     reveal = true;
-    await vault.syncLocalWalletGroup({ accountIds: ['hidden', 'visible'] });
+    await vault
+      .getLocalWalletCapability()
+      .syncGroup({ accountIds: ['hidden', 'visible'] });
     expect(queueRescan).not.toHaveBeenCalled();
   },
 );

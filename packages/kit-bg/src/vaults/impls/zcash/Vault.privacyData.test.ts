@@ -1,9 +1,6 @@
 /* eslint-disable import/first */
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 jest.mock(
   '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
   () => ({
@@ -16,6 +13,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
@@ -148,7 +146,7 @@ describe('Zcash local privacy data deletion', () => {
       const { purgeWallet, vault } = createVault(state);
 
       await expect(
-        vault.zcashDeleteRuntimeAccount({ accountId }),
+        vault.getLocalWalletCapability().deleteRuntimeAccount({ accountId }),
       ).resolves.toEqual({ orphaned: false });
 
       expect(purgeWallet).not.toHaveBeenCalled();
@@ -162,7 +160,7 @@ describe('Zcash local privacy data deletion', () => {
       resumeFromHeight: 2_100_000,
     });
 
-    await vault.zcashDeleteRuntimeAccount({ accountId });
+    await vault.getLocalWalletCapability().deleteRuntimeAccount({ accountId });
 
     expect(purgeWallet).not.toHaveBeenCalled();
   });
@@ -174,7 +172,7 @@ describe('Zcash local privacy data deletion', () => {
       });
 
     await expect(
-      vault.zcashDeleteRuntimeAccount({ accountId }),
+      vault.getLocalWalletCapability().deleteRuntimeAccount({ accountId }),
     ).resolves.toEqual({ orphaned: false });
 
     expect(purgeWallet).toHaveBeenCalledTimes(1);
@@ -193,7 +191,7 @@ describe('Zcash local privacy data deletion', () => {
     ).mockResolvedValue(undefined);
 
     await expect(
-      vault.zcashDeleteRuntimeAccount({ accountId }),
+      vault.getLocalWalletCapability().deleteRuntimeAccount({ accountId }),
     ).resolves.toEqual({ orphaned: true });
 
     expect(purgeWallet).not.toHaveBeenCalled();
@@ -218,10 +216,13 @@ describe('Zcash web timeout recovery', () => {
       .spyOn(vault, 'resetLocalWalletCarrier')
       .mockReturnValue(reset);
     let recovered = false;
-    const recovery = vault.recoverLocalWalletFromTimeout().then((result) => {
-      recovered = result;
-      return result;
-    });
+    const recovery = vault
+      .getLocalWalletCapability()
+      .recoverFromTimeout()
+      .then((result) => {
+        recovered = result;
+        return result;
+      });
     await Promise.resolve();
     expect(resetCarrier).toHaveBeenCalledTimes(1);
     expect(recovered).toBe(false);
@@ -238,9 +239,9 @@ describe('Zcash web timeout recovery', () => {
       .spyOn(vault, 'resetLocalWalletCarrier')
       .mockRejectedValue(new Error('reset failed'));
 
-    await expect(vault.recoverLocalWalletFromTimeout()).rejects.toThrow(
-      'reset failed',
-    );
+    await expect(
+      vault.getLocalWalletCapability().recoverFromTimeout(),
+    ).rejects.toThrow('reset failed');
   });
 });
 
@@ -256,7 +257,9 @@ describe('Zcash native timeout recovery', () => {
     jest.spyOn(vault, 'resetLocalWalletCarrier').mockResolvedValue();
     const emit = jest.spyOn(appEventBus, 'emit');
 
-    await expect(vault.recoverLocalWalletFromTimeout()).resolves.toBe(true);
+    await expect(
+      vault.getLocalWalletCapability().recoverFromTimeout(),
+    ).resolves.toBe(true);
     expect(emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.LoadWebEmbedWebView,
       undefined,
@@ -289,7 +292,9 @@ describe('Zcash native timeout recovery', () => {
       return true;
     }) as never);
 
-    await expect(vault.recoverLocalWalletFromTimeout()).resolves.toBe(true);
+    await expect(
+      vault.getLocalWalletCapability().recoverFromTimeout(),
+    ).resolves.toBe(true);
     expect(emit).toHaveBeenCalledWith(
       EAppEventBusNames.LoadWebEmbedWebView,
       undefined,
@@ -314,7 +319,7 @@ describe('Zcash queued rescan deletion boundary', () => {
       birthdaySource: 'manual-height',
       requestedAt: 2,
     };
-    let saved: unknown = {
+    const storage = createUntrackedMemoryStorage({
       data: {
         wallets: {
           [accountId]: {
@@ -351,13 +356,11 @@ describe('Zcash queued rescan deletion boundary', () => {
         },
       },
       updatedAt: 1,
-    };
+    });
     const zcash = new SimpleDbEntityPrivacyChainState();
     (zcash as { appStorage: unknown }).appStorage = {
-      getItem: async () => saved,
-      setItem: async (_key: string, value: unknown) => {
-        saved = value;
-      },
+      getItem: storage.getItem,
+      setItem: storage.setItem,
     };
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: 'zec--0',

@@ -1,4 +1,5 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -59,13 +60,11 @@ describe('local wallet history persistence boundary', () => {
 
 describe('pending history timestamps', () => {
   it('preserves submission time across refreshes and restores an older journal time', async () => {
-    let stored: unknown = null;
+    const storage = createUntrackedMemoryStorage(null);
     const entity = new SimpleDbEntityLocalHistory();
     (entity as { appStorage: unknown }).appStorage = {
-      getItem: async () => stored,
-      setItem: async (_key: string, value: unknown) => {
-        stored = value;
-      },
+      getItem: storage.getItem,
+      setItem: storage.setItem,
     };
     const params = {
       networkId: getNetworkIdsMap().zec,

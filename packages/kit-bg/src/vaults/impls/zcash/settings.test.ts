@@ -1,10 +1,7 @@
 /* cspell:ignore xprvs */
 /* eslint-disable import/first */
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 import {
   ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET,

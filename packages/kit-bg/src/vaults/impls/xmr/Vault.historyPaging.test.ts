@@ -1,9 +1,6 @@
 /* eslint-disable import/first */
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 jest.mock('./runtime', () => ({
   getXmrIdentityId: async () => '7',
   getXmrLocalRuntime: (vault: { getXmrRuntimeApi: () => Promise<unknown> }) =>

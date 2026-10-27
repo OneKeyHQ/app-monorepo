@@ -9,11 +9,8 @@ import {
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import type {
   IZcashBalance,
-  IZcashCreatedPczt,
   IZcashParsedTransparentTransaction,
-  IZcashSpendSource,
   IZcashSyncProgress,
-  IZcashTransparentOutpoint,
   IZcashTransparentTxRequest,
   IZcashWalletAccount,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
@@ -98,7 +95,6 @@ import type { IEncodedTxZcash } from './types';
 import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type {
   IZcashAccountMeta,
-  IZcashBirthdaySource,
   IZcashPendingRescan,
 } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -334,16 +330,6 @@ export default class Vault extends VaultBtc {
     };
   }
 
-  async zcashCreatePczt(params: {
-    accountId: string;
-    toAddress: string;
-    valueZat: string;
-    spendSource: IZcashSpendSource;
-    memoHex?: string;
-  }): Promise<IZcashCreatedPczt> {
-    return zcashSend.zcashCreatePczt(this, params);
-  }
-
   async zcashProvePczt(params: {
     accountId: string;
     pcztHex: string;
@@ -369,18 +355,6 @@ export default class Vault extends VaultBtc {
       accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isHwAccount({ accountId })
     );
-  }
-
-  async onPrivacyWalletCreated(params: {
-    walletId: string;
-    isFreshlyGeneratedMnemonic: boolean;
-    createdAt: number;
-  }): Promise<void> {
-    return zcashLifecycle.onPrivacyWalletCreated(this, params);
-  }
-
-  async resumePendingPrivacyOperations(): Promise<void> {
-    return zcashLifecycle.resumePendingPrivacyOperations(this);
   }
 
   async listLocalWalletAccounts(): Promise<{
@@ -423,10 +397,6 @@ export default class Vault extends VaultBtc {
     await api.resetCarrier();
   }
 
-  async recoverLocalWalletFromTimeout(): Promise<boolean> {
-    return zcashLifecycle.recoverLocalWalletFromTimeout(this);
-  }
-
   // Runtime first; falls back to a direct background fetch when the native file:// carrier can't reach lightwalletd.
   async getLocalWalletChainTip(): Promise<number | null> {
     const api = await this.zcashGetApi();
@@ -445,24 +415,6 @@ export default class Vault extends VaultBtc {
     toAddress: string;
   }): Promise<void> {
     return zcashLifecycle.prewarmLocalWalletSend(this, params);
-  }
-
-  async syncLocalWalletGroup(params: {
-    accountIds: string[];
-    rescanFrom?: { accountId: string; fromHeight: number };
-    chainTip?: number | null;
-  }): Promise<{
-    synced: boolean;
-    stateChanged?: boolean;
-    chainTip?: number | null;
-    backfillRemaining?: boolean;
-    caughtUpAccountIds?: string[];
-  }> {
-    return zcashLifecycle.syncLocalWalletGroup(this, params);
-  }
-
-  async zcashRebuildRuntimeDatabase(): Promise<void> {
-    return zcashLifecycle.zcashRebuildRuntimeDatabase(this);
   }
 
   async zcashPreparePrivacyModeAccount(params: {
@@ -501,17 +453,6 @@ export default class Vault extends VaultBtc {
     const account = await this.zcashGetWalletAccount({ accountId });
     const api = await this.zcashGetApi();
     return api.queueRescanFrom(account, { fromHeight });
-  }
-
-  async zcashRewindAccount(params: { accountId: string }): Promise<void> {
-    return zcashLifecycle.zcashRewindAccount(this, params);
-  }
-
-  async zcashDeleteRuntimeAccount(params: {
-    accountId: string;
-    deletionRequestId?: string;
-  }): Promise<{ orphaned: boolean }> {
-    return zcashLifecycle.zcashDeleteRuntimeAccount(this, params);
   }
 
   async zcashRetryLocalWalletSetup(params: {
@@ -583,16 +524,6 @@ export default class Vault extends VaultBtc {
     return zcashLifecycle.zcashResumePendingRescans(this, requiredAccountId);
   }
 
-  async zcashRescanFromHeight(params: {
-    accountId: string;
-    birthdayHeight: number;
-    birthdaySource: IZcashBirthdaySource;
-    birthdayTimestamp?: number;
-    deferApply?: boolean;
-  }): Promise<void> {
-    return zcashLifecycle.zcashRescanFromHeight(this, params);
-  }
-
   async rescanLocalWallet(params: {
     accountId: string;
     from: IRescanLocalWalletFrom;
@@ -626,12 +557,6 @@ export default class Vault extends VaultBtc {
     coinbase?: BigNumber;
   }> {
     return zcashBalance.zcashGetIndexerTransparentBalance(this, params);
-  }
-
-  async zcashFetchTransparentTokenDetails(
-    params: IFetchServerTokenDetailParams,
-  ): Promise<IFetchServerTokenDetailResponse> {
-    return zcashBalance.zcashFetchTransparentTokenDetails(this, params);
   }
 
   override async fetchTokenDetails(
@@ -718,17 +643,6 @@ export default class Vault extends VaultBtc {
     return zcashHistory.zcashFetchTransparentHistory(this, params);
   }
 
-  zcashTransparentAccountIndex(account: IDBUtxoAccount): number {
-    return zcashTransparent.zcashTransparentAccountIndex(this, account);
-  }
-
-  zcashNormalizeTransparentPath(params: {
-    path: string;
-    accountIndex: number;
-  }): { derivationPath: string; internal: boolean } | undefined {
-    return zcashTransparent.zcashNormalizeTransparentPath(this, params);
-  }
-
   zcashPreviousTransactionsCache?: LRUCache<
     string,
     IZcashParsedTransparentTransaction
@@ -753,20 +667,6 @@ export default class Vault extends VaultBtc {
     accountIndex: number;
   }): Promise<{ address: string; derivationPath: string }> {
     return zcashTransparent.zcashTransparentChange(this, params);
-  }
-
-  zcashTransparentRequest(params: {
-    accountIndex: number;
-    targetHeight: number;
-    utxos: IZcashTransparentTxRequest['utxos'];
-    selectedOutpoints: IZcashTransparentOutpoint[];
-    toAddress: string;
-    amountZat: string;
-    memoHex?: string;
-    sendMax: boolean;
-    change?: IZcashTransparentTxRequest['change'];
-  }): IZcashTransparentTxRequest {
-    return zcashTransparent.zcashTransparentRequest(this, params);
   }
 
   async zcashBuildTransparentEncodedTx(params: {
@@ -878,10 +778,6 @@ export default class Vault extends VaultBtc {
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     return zcashSend.buildUnsignedTx(this, params);
-  }
-
-  async zcashAttachPczt(encodedTx: IEncodedTxZcash): Promise<IEncodedTxZcash> {
-    return zcashSend.zcashAttachPczt(this, encodedTx);
   }
 
   async zcashPreparePcztForSigning(params: {

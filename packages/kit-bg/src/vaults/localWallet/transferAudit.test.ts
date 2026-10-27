@@ -1,8 +1,5 @@
 /* eslint-disable import/first */
-jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDbInstance');
 
 import type { IEncodedTxXmr } from '@onekeyhq/core/src/chains/xmr/types';
 import type { VaultBase } from '@onekeyhq/kit-bg/src/vaults/base/VaultBase';

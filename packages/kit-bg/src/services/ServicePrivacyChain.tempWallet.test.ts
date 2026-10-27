@@ -9,19 +9,7 @@ import type {
 } from '../vaults/localWallet/types';
 import type { Mutex } from 'async-mutex';
 
-jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
-  const actual = jest.requireActual<
-    typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
-  >('@onekeyhq/shared/src/background/backgroundDecorators');
-  const passthrough =
-    () => (_target: unknown, _key?: string, descriptor?: PropertyDescriptor) =>
-      descriptor;
-  return {
-    ...actual,
-    backgroundClass: passthrough,
-    backgroundMethod: passthrough,
-  };
-});
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 
 const mockGetChainOnlyVault = jest.fn();
 const mockGetVault = jest.fn();

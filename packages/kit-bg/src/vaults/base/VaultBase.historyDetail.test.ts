@@ -1,8 +1,5 @@
 /* eslint-disable import/first */
-jest.mock('../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../dbs/local/localDbInstance');
 
 import { VaultBase } from './VaultBase';
 

@@ -1,8 +1,5 @@
 /* eslint-disable import/first */
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 import type { IZcashParsedTransparentTransaction } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';

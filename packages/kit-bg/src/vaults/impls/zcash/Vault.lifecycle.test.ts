@@ -4,12 +4,12 @@ import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/Simp
 
 import { getZcashSyncMutex } from './lifecycle';
 import Vault from './Vault';
-import { zcashRebuildRuntimeDatabase } from './vaultLifecycle';
+import {
+  zcashRebuildRuntimeDatabase,
+  zcashRescanFromHeight,
+} from './vaultLifecycle';
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 describe('Zcash local lifecycle operations do not depend on pending history', () => {
   function fixture(historyState: 'pending' | 'unreadable') {
@@ -93,9 +93,13 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       const f = fixture(historyState);
 
       await expect(
-        f.vault.zcashDeleteRuntimeAccount({ accountId: f.accountId }),
+        f.vault
+          .getLocalWalletCapability()
+          .deleteRuntimeAccount({ accountId: f.accountId }),
       ).resolves.toEqual({ orphaned: false });
-      await f.vault.zcashRewindAccount({ accountId: f.accountId });
+      await f.vault
+        .getLocalWalletCapability()
+        .rewindAccount({ accountId: f.accountId });
       await f.vault.applyPendingRescan({
         accountId: f.accountId,
         repair: f.repair,
@@ -134,7 +138,9 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     f.purgeWallet.mockRejectedValueOnce(error);
 
     await expect(
-      f.vault.zcashDeleteRuntimeAccount({ accountId: f.accountId }),
+      f.vault
+        .getLocalWalletCapability()
+        .deleteRuntimeAccount({ accountId: f.accountId }),
     ).rejects.toBe(error);
     expect(f.clearAccountScanData).not.toHaveBeenCalled();
   });
@@ -185,7 +191,9 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
         },
       ],
     });
-    await f.vault.zcashRewindAccount({ accountId: f.accountId });
+    await f.vault
+      .getLocalWalletCapability()
+      .rewindAccount({ accountId: f.accountId });
     await f.vault.applyPendingRescan({
       accountId: f.accountId,
       repair: f.repair,
@@ -232,7 +240,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     });
     jest.spyOn(f.vault, 'applyPendingRescan').mockResolvedValue(undefined);
 
-    await f.vault.zcashRescanFromHeight({
+    await zcashRescanFromHeight(f.vault, {
       accountId: f.accountId,
       birthdayHeight: 2_500_000,
       birthdaySource: 'manual-height',
@@ -280,7 +288,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       release = resolve;
     });
     const scanning = getZcashSyncMutex('main').runExclusive(() => step);
-    const deleting = f.vault.zcashDeleteRuntimeAccount({
+    const deleting = f.vault.getLocalWalletCapability().deleteRuntimeAccount({
       accountId: f.accountId,
     });
     await Promise.resolve();
@@ -313,11 +321,13 @@ describe('Zcash automatic database recovery', () => {
       const rebuild = jest.fn(async () => undefined);
       const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
         syncLocalWalletGroupImpl: jest.fn().mockRejectedValue(error),
-        zcashRebuildRuntimeDatabase: rebuild,
+        zcashGetApi: async () => ({ dropWalletDatabase: rebuild }),
       });
 
       await expect(
-        vault.syncLocalWalletGroup({ accountIds: ['synthetic-account'] }),
+        vault
+          .getLocalWalletCapability()
+          .syncGroup({ accountIds: ['synthetic-account'] }),
       ).rejects.toBe(error);
       expect(rebuild).not.toHaveBeenCalled();
     },

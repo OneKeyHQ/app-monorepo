@@ -1,8 +1,5 @@
 /* eslint-disable import/first */
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 jest.mock('./vaultHistory', () => ({
   ...jest.requireActual<typeof import('./vaultHistory')>('./vaultHistory'),
   fetchAccountHistoryFromLocal: jest.fn(),

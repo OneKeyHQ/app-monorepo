@@ -1,8 +1,5 @@
 /* eslint-disable import/first */
-jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDbInstance');
 
 import type { IZcashTxDetails } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import Vault from '@onekeyhq/kit-bg/src/vaults/impls/zcash/Vault';

@@ -122,7 +122,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
 // eslint-disable-next-line no-var, vars-on-top
 var mockWalletSupport: ILocalWalletAccountSupport = 'supported';
 // eslint-disable-next-line no-var, vars-on-top
-var mockLocalWalletSettings: Record<string, unknown> = {
+var mockLocalWalletSettings: Record<string, unknown> | undefined = {
   balanceShape: 'pooled',
   pools: [
     {
@@ -864,40 +864,34 @@ describe('a chain with one kind of balance still gets its local wallet UI', () =
     mockLocalWalletSettings = POOLED;
   });
 
-  it('shows the private UI for a single-balance chain', () => {
-    mockLocalWalletSettings = SINGLE;
+  it.each([
+    {
+      title: 'shows the private UI for a single-balance chain',
+      settings: SINGLE,
+      networkId: 'xmr--0',
+      poolId: 1,
+      expected: true,
+    },
+    {
+      title: 'still shows it for a pooled chain',
+      settings: POOLED,
+      networkId: 'zec--0',
+      poolId: 4,
+      expected: true,
+    },
+    {
+      title: 'shows nothing for a chain with no local wallet',
+      settings: undefined,
+      networkId: 'eth--1',
+      poolId: undefined,
+      expected: false,
+    },
+  ])('$title', ({ settings, networkId, poolId, expected }) => {
+    mockLocalWalletSettings = settings;
     const { result } = renderHook(() =>
-      useLocalWalletPool({
-        networkId: 'xmr--0',
-        accountId: 'account-a',
-        poolId: 1,
-      }),
+      useLocalWalletPool({ networkId, accountId: 'account-a', poolId }),
     );
-    expect(result.current.hasPooledBalance).toBe(true);
-  });
-
-  it('still shows it for a pooled chain', () => {
-    mockLocalWalletSettings = POOLED;
-    const { result } = renderHook(() =>
-      useLocalWalletPool({
-        networkId: 'zec--0',
-        accountId: 'account-a',
-        poolId: 4,
-      }),
-    );
-    expect(result.current.hasPooledBalance).toBe(true);
-  });
-
-  it('shows nothing for a chain with no local wallet', () => {
-    mockLocalWalletSettings = undefined as never;
-    const { result } = renderHook(() =>
-      useLocalWalletPool({
-        networkId: 'eth--1',
-        accountId: 'account-a',
-        poolId: undefined,
-      }),
-    );
-    expect(result.current.hasPooledBalance).toBe(false);
+    expect(result.current.hasPooledBalance).toBe(expected);
   });
 });
 

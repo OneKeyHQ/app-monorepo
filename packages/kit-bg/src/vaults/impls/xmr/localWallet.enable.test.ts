@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
@@ -38,12 +39,10 @@ const timestamp = Date.UTC(2024, 0, 1);
 
 function build() {
   const state = new SimpleDbEntityPrivacyChainState();
-  let stored: unknown = null;
+  const storage = createUntrackedMemoryStorage(null);
   (state as { appStorage: unknown }).appStorage = {
-    getItem: async () => stored,
-    setItem: async (_key: string, value: unknown) => {
-      stored = value;
-    },
+    getItem: storage.getItem,
+    setItem: storage.setItem,
   };
   const notify = jest.fn(async () => undefined);
   const vault = {

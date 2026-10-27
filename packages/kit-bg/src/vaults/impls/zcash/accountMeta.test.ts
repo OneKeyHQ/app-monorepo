@@ -1,5 +1,6 @@
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainKeys } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -19,12 +20,10 @@ import type { IDBAccount } from '../../../dbs/local/types';
 const networkId = 'zec--0';
 
 function withMemoryStorage<T extends object>(entity: T): T {
-  let saved: unknown = null;
+  const storage = createMemoryStorage(null);
   (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
+    getItem: storage.getItem,
+    setItem: storage.setItem,
   };
   return entity;
 }

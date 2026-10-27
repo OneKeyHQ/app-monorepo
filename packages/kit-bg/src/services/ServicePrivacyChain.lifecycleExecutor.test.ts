@@ -3,6 +3,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 
@@ -25,19 +26,7 @@ import type {
 } from '../vaults/localWallet/lifecycle';
 import type { ILocalWalletCapability } from '../vaults/localWallet/types';
 
-jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
-  const actual = jest.requireActual<
-    typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
-  >('@onekeyhq/shared/src/background/backgroundDecorators');
-  const passthrough =
-    () => (_target: unknown, _key?: string, descriptor?: PropertyDescriptor) =>
-      descriptor;
-  return {
-    ...actual,
-    backgroundClass: passthrough,
-    backgroundMethod: passthrough,
-  };
-});
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 const mockGetChainOnlyVault = jest.fn();
 jest.mock('../vaults/factory', () => ({
   vaultFactory: { getChainOnlyVault: mockGetChainOnlyVault },
@@ -513,16 +502,8 @@ describe('privacy chain lifecycle executor: failures, timers and Travel Mode', (
 
 describe('privacy chain cache write-back racing a delete', () => {
   function memoryStorage() {
-    let saved: unknown = null;
-    return {
-      getItem: jest.fn(async () => saved),
-      setItem: jest.fn(async (_key: string, value: unknown) => {
-        saved = value;
-      }),
-      removeItem: jest.fn(async () => {
-        saved = null;
-      }),
-    };
+    const storage = createMemoryStorage(null);
+    return storage;
   }
 
   function createRealHarness() {

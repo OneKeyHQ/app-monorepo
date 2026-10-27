@@ -1,6 +1,7 @@
 import { Mutex } from 'async-mutex';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 
@@ -9,19 +10,7 @@ import { SimpleDbEntityPrivacyChainKeys } from '../dbs/simple/entity/SimpleDbEnt
 import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import { SimpleDbEntityPrivacyChainXmrSent } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainXmrSent';
 
-jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
-  const actual = jest.requireActual<
-    typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
-  >('@onekeyhq/shared/src/background/backgroundDecorators');
-  const passthrough =
-    () => (_target: unknown, _key?: string, descriptor?: PropertyDescriptor) =>
-      descriptor;
-  return {
-    ...actual,
-    backgroundClass: passthrough,
-    backgroundMethod: passthrough,
-  };
-});
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 const mockGetChainOnlyVault = jest.fn();
 jest.mock('../vaults/factory', () => ({
   vaultFactory: { getChainOnlyVault: mockGetChainOnlyVault },
@@ -51,19 +40,17 @@ function accountRow(id: string) {
 }
 
 function createPrivacyChainDb(initial?: unknown) {
-  let saved: unknown = initial ?? null;
+  const storage = createMemoryStorage(initial ?? null);
   const entity = new SimpleDbEntityPrivacyChainState();
   (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
+    getItem: storage.getItem,
+    setItem: storage.setItem,
   };
   return entity;
 }
 
 function createKeysDb(accountIds: string[]) {
-  let saved: unknown = {
+  const storage = createMemoryStorage({
     data: {
       keys: Object.fromEntries(
         accountIds.map((id) => [
@@ -77,28 +64,18 @@ function createKeysDb(accountIds: string[]) {
       ),
     },
     updatedAt: 1,
-  };
+  });
   const entity = new SimpleDbEntityPrivacyChainKeys();
   (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
+    getItem: storage.getItem,
+    setItem: storage.setItem,
   };
   return entity;
 }
 
 function memoryStorage(initial: unknown) {
-  let saved: unknown = initial;
-  return {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
-    removeItem: jest.fn(async () => {
-      saved = null;
-    }),
-  };
+  const storage = createMemoryStorage(initial);
+  return storage;
 }
 
 function createJournalDb(accountIds: string[] = []) {

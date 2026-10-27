@@ -3,10 +3,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import Vault from './Vault';
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 describe('Zcash private send submission', () => {
   function createVault(result: IZcashSendResult | Error) {

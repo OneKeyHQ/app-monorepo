@@ -1,6 +1,4 @@
 import BigNumber from 'bignumber.js';
-import { md5 } from 'js-md5';
-import { isEmpty } from 'lodash';
 
 import {
   isShieldedAddress,
@@ -38,7 +36,6 @@ import type {
   IFetchServerTokenListParams,
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
-import type { ITokenData, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { sumLocalWalletFrozen } from '../../localWallet/frozen';
 import {
@@ -48,6 +45,7 @@ import {
   readLocalWalletCacheEpoch,
   saveLastLocalWalletPublicBalance,
 } from '../../localWallet/privacyChainCacheStore';
+import { buildLocalWalletNativeTokenList } from '../../localWallet/tokenList';
 
 import {
   applyZcashBalanceToBackendTokenDetails,
@@ -588,6 +586,12 @@ function zcashBalanceFromRead(
   return result.stale ? { ...result.value, isComplete: false } : result.value;
 }
 
+async function readZcashRuntimeBalance(vault: Vault, accountId: string) {
+  const account = await vault.zcashGetWalletAccount({ accountId });
+  const api = await vault.zcashGetApi();
+  return api.getBalance(account);
+}
+
 export async function getLocalWalletBalance(
   vault: Vault,
   {
@@ -609,9 +613,7 @@ export async function getLocalWalletBalance(
       liveWaitMs: fresh ? undefined : liveWaitMs,
       read: async () => {
         try {
-          const account = await vault.zcashGetWalletAccount({ accountId });
-          const api = await vault.zcashGetApi();
-          return await api.getBalance(account);
+          return await readZcashRuntimeBalance(vault, accountId);
         } catch (e) {
           if (readZcashRuntimeError(e)?.code !== 'ACCOUNT_NOT_FOUND') {
             console.error('[zcash] getLocalWalletBalance failed', {
@@ -647,11 +649,7 @@ export async function zcashGetBalanceSafe(
     return null;
   }
   try {
-    const account = await vault.zcashGetWalletAccount({
-      accountId: vault.accountId,
-    });
-    const api = await vault.zcashGetApi();
-    return await api.getBalance(account);
+    return await readZcashRuntimeBalance(vault, vault.accountId);
   } catch (e) {
     // Self-heal missing shielded meta here, since every trigger lands in this catch; no-op if locked.
     const code = readZcashRuntimeError(e)?.code;
@@ -663,11 +661,7 @@ export async function zcashGetBalanceSafe(
       (await vault.zcashTryAutoRepairLocalWalletSetupIfUnlocked());
     if (repaired) {
       try {
-        const account = await vault.zcashGetWalletAccount({
-          accountId: vault.accountId,
-        });
-        const api = await vault.zcashGetApi();
-        return await api.getBalance(account);
+        return await readZcashRuntimeBalance(vault, vault.accountId);
       } catch (e2) {
         const retryCode = readZcashRuntimeError(e2)?.code;
         if (retryCode === 'NOT_SYNCED' || retryCode === 'ACCOUNT_NOT_FOUND')
@@ -777,53 +771,12 @@ export async function fetchTokenList(
     return serverResponse;
   }
 
-  const { networkId, accountAddress, xpub } = params.requestApiParams;
-  const key = `${networkId}_${xpub ?? accountAddress}_`;
-  const map: Record<string, ITokenFiat> = {
-    [key]: {
-      price: 0,
-      price24h: 0,
-      balance: total,
-      balanceParsed,
-      fiatValue: total === '0' ? '0' : '',
-    },
-  };
-  const data = [
-    {
-      '$key': key,
-      'decimals': network.decimals,
-      'name': network.name,
-      'symbol': network.symbol,
-      'address': '',
-      'logoURI': network.logoURI,
-      'isNative': true,
-    },
-  ];
-  const tokens: ITokenData = {
-    data,
-    map,
-    keys: md5(
-      `${networkId}__${
-        isEmpty(map) ? '' : Object.keys(map).join(',')
-      }__${JSON.stringify(data)}`,
-    ),
-    fiatValue: undefined,
-  };
-  const emptyTokenData = (): ITokenData => ({
-    data: [],
-    map: {},
-    keys: md5(`${networkId}__empty`),
-    fiatValue: undefined,
+  return buildLocalWalletNativeTokenList({
+    network,
+    ...params.requestApiParams,
+    balance: total,
+    balanceParsed,
   });
-  return {
-    data: {
-      data: {
-        tokens,
-        riskTokens: emptyTokenData(),
-        smallBalanceTokens: emptyTokenData(),
-      },
-    },
-  };
 }
 
 // The only transparent balance source: indexer total, plus the eligible UTXO sum as spendable.
@@ -941,7 +894,7 @@ export async function fetchTokenDetails(
       },
     );
   if (!canReadZcashPrivateData(privacyModeState)) {
-    return vault.zcashFetchTransparentTokenDetails(params);
+    return zcashFetchTransparentTokenDetails(vault, params);
   }
   const network = await vault.getNetwork();
   let serverResponse: IFetchServerTokenDetailResponse | undefined;

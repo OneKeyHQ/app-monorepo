@@ -143,7 +143,7 @@ export async function zcashFetchFreshTransparentUtxos(
 }> {
   const account =
     options?.account ?? ((await vault.getAccount()) as IDBUtxoAccount);
-  const accountIndex = vault.zcashTransparentAccountIndex(account);
+  const accountIndex = zcashTransparentAccountIndex(vault, account);
   const response = await vault.baseFetchAccountDetails({
     networkId: vault.networkId,
     accountId: account.id,
@@ -275,7 +275,7 @@ export async function zcashFetchFreshTransparentUtxos(
         // A malformed value is already excluded from every other total.
       }
     }
-    const normalizedPath = vault.zcashNormalizeTransparentPath({
+    const normalizedPath = zcashNormalizeTransparentPath(vault, {
       path: utxo.path ?? '',
       accountIndex,
     });
@@ -492,7 +492,7 @@ export async function zcashBuildTransparentEncodedTx(
       txid,
       vout,
     }));
-    const candidateRequest = vault.zcashTransparentRequest({
+    const candidateRequest = zcashTransparentRequest(vault, {
       accountIndex: fresh.accountIndex,
       targetHeight: fresh.targetHeight,
       // Explicit outpoints make unselected catalog entries irrelevant; don't serialize the whole wallet on every attempt.
@@ -597,7 +597,7 @@ export async function zcashPrepareFreshTransparentRequest(
       );
     }
   }
-  const request = vault.zcashTransparentRequest({
+  const request = zcashTransparentRequest(vault, {
     accountIndex: fresh.accountIndex,
     targetHeight: fresh.targetHeight,
     utxos: fresh.utxos,

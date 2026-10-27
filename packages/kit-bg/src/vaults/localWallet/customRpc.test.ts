@@ -1,9 +1,6 @@
 /* eslint-disable import/first */
 // cspell:ignore lightd stagenet
-jest.mock('../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../dbs/local/localDbInstance');
 jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch', () => ({
   xmrHostFetch: jest.fn(),
 }));

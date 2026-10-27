@@ -1,9 +1,6 @@
 /* eslint-disable import/first */
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';

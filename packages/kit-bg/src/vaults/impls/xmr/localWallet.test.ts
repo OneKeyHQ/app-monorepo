@@ -3,6 +3,7 @@ import {
   XMR_SYNC_STEP_BLOCKS,
 } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { withMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { getPrivacyChainBlocksLeft } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
@@ -104,18 +105,7 @@ const mockPublish = jest.fn(async () => undefined);
 let mockHasAnyAccountState = true;
 
 function memoryCache() {
-  let saved: unknown = null;
-  const entity = new SimpleDbEntityPrivacyChainCache();
-  (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
-    removeItem: jest.fn(async () => {
-      saved = null;
-    }),
-  };
-  return entity;
+  return withMemoryStorage(new SimpleDbEntityPrivacyChainCache());
 }
 let privacyChainCache = memoryCache();
 beforeEach(() => {

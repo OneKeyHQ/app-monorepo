@@ -6,10 +6,7 @@ import {
   zcashPurgeRuntimeOrphans,
 } from './vaultLifecycle';
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 const LIVE = 'hd-1--0';
 const PAUSED = 'hd-1--1';

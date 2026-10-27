@@ -1,4 +1,5 @@
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
@@ -19,7 +20,7 @@ function createContext(metaOverrides: Partial<IZcashAccountMeta> = {}) {
     createdAt: 1,
     ...metaOverrides,
   };
-  let saved: unknown = {
+  const storage = createUntrackedMemoryStorage({
     data: {
       device: { allowCellularSync: true },
       wallets: {
@@ -56,13 +57,11 @@ function createContext(metaOverrides: Partial<IZcashAccountMeta> = {}) {
       futureField: 'dropped',
     },
     updatedAt: 1,
-  };
+  });
   const store = new SimpleDbEntityPrivacyChainState();
   Reflect.set(store, 'appStorage', {
-    getItem: async () => saved,
-    setItem: async (_key: string, value: unknown) => {
-      saved = value;
-    },
+    getItem: storage.getItem,
+    setItem: storage.setItem,
   });
   const derived = {
     unifiedAddress: 'synthetic-current-private-address',

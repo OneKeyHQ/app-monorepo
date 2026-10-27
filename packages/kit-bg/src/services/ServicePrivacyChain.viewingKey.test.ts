@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainKeys } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -12,19 +13,7 @@ import {
 
 import type VaultXmr from '../vaults/impls/xmr/Vault';
 
-jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
-  const actual = jest.requireActual<
-    typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
-  >('@onekeyhq/shared/src/background/backgroundDecorators');
-  const passthrough =
-    () => (_target: unknown, _key?: string, descriptor?: PropertyDescriptor) =>
-      descriptor;
-  return {
-    ...actual,
-    backgroundClass: passthrough,
-    backgroundMethod: passthrough,
-  };
-});
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 
 const mockGetVault = jest.fn();
 jest.mock('../vaults/factory', () => ({
@@ -53,29 +42,19 @@ const networkId = 'xmr--0';
 const hdAccountId = 'hd-1--0';
 
 function createStateDb() {
-  let saved: unknown = null;
+  const storage = createMemoryStorage(null);
   const entity = new SimpleDbEntityPrivacyChainState();
   (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
+    getItem: storage.getItem,
+    setItem: storage.setItem,
   };
   return entity;
 }
 
 function createKeysDb() {
-  let saved: unknown = null;
+  const storage = createMemoryStorage(null);
   const entity = new SimpleDbEntityPrivacyChainKeys();
-  (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
-    removeItem: jest.fn(async () => {
-      saved = null;
-    }),
-  };
+  (entity as { appStorage: unknown }).appStorage = storage;
   return entity;
 }
 

@@ -1,9 +1,6 @@
 /* eslint-disable import/first */
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 import {
   forgetIdleZcashLifecycleMutexes,
@@ -78,85 +75,69 @@ describe('Zcash runtime deletion of an account', () => {
     forgetIdleZcashLifecycleMutexes();
   });
 
-  it('removes its runtime data even with a transaction in flight', async () => {
-    const { vault, purgeWallet } = createVault();
-
+  it.each<{
+    title: string;
+    options?: Parameters<typeof createVault>[0];
+    accountId?: string;
+    orphaned: boolean;
+    purge: boolean;
+  }>([
+    {
+      title: 'removes its runtime data even with a transaction in flight',
+      orphaned: false,
+      purge: true,
+    },
+    {
+      title:
+        'keeps runtime data another live account with the same key still scans',
+      options: { otherAccountStillExists: true },
+      orphaned: false,
+      purge: false,
+    },
+    {
+      title: 'does not keep data for an alias that holds no scan data',
+      options: { otherAccountStillExists: true, otherHoldsScanData: false },
+      orphaned: false,
+      purge: true,
+    },
+    {
+      title: 'does not keep data for an alias whose app account is gone',
+      orphaned: false,
+      purge: true,
+    },
+    {
+      title: 'reports possible orphans when its key can no longer be read',
+      options: { keyReadable: false },
+      orphaned: true,
+      purge: false,
+    },
+    {
+      title:
+        'keeps the data and reports possible orphans when holders are unknown',
+      options: { scanListReadable: false },
+      orphaned: true,
+      purge: false,
+    },
+    {
+      title:
+        'keeps the data while another record that holds scan data is unreadable',
+      options: { malformedHolder: true },
+      orphaned: true,
+      purge: false,
+    },
+    {
+      title: 'names nothing in the runtime when setup never stored metadata',
+      accountId: 'never-set-up',
+      orphaned: false,
+      purge: false,
+    },
+  ])('$title', async ({ options, accountId = 'deleted', orphaned, purge }) => {
+    const { vault, purgeWallet } = createVault(options);
     await expect(
-      vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),
-    ).resolves.toEqual({ orphaned: false });
-
-    expect(purgeWallet).toHaveBeenCalledWith({ ufvk });
-  });
-
-  it('keeps runtime data another live account with the same key still scans', async () => {
-    const { vault, purgeWallet } = createVault({
-      otherAccountStillExists: true,
-    });
-
-    await expect(
-      vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),
-    ).resolves.toEqual({ orphaned: false });
-
-    expect(purgeWallet).not.toHaveBeenCalled();
-  });
-
-  it('does not keep data for an alias that holds no scan data', async () => {
-    const { vault, purgeWallet } = createVault({
-      otherAccountStillExists: true,
-      otherHoldsScanData: false,
-    });
-
-    await vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' });
-
-    expect(purgeWallet).toHaveBeenCalledWith({ ufvk });
-  });
-
-  it('does not keep data for an alias whose app account is gone', async () => {
-    const { vault, purgeWallet } = createVault();
-
-    await vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' });
-
-    expect(purgeWallet).toHaveBeenCalledWith({ ufvk });
-  });
-
-  it('reports possible orphans when its key can no longer be read', async () => {
-    const { vault, purgeWallet } = createVault({ keyReadable: false });
-
-    await expect(
-      vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),
-    ).resolves.toEqual({ orphaned: true });
-
-    expect(purgeWallet).not.toHaveBeenCalled();
-  });
-
-  it('keeps the data and reports possible orphans when holders are unknown', async () => {
-    const { vault, purgeWallet } = createVault({ scanListReadable: false });
-
-    await expect(
-      vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),
-    ).resolves.toEqual({ orphaned: true });
-
-    expect(purgeWallet).not.toHaveBeenCalled();
-  });
-
-  it('keeps the data while another record that holds scan data is unreadable', async () => {
-    const { vault, purgeWallet } = createVault({ malformedHolder: true });
-
-    await expect(
-      vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),
-    ).resolves.toEqual({ orphaned: true });
-
-    expect(purgeWallet).not.toHaveBeenCalled();
-  });
-
-  it('names nothing in the runtime when setup never stored metadata', async () => {
-    const { vault, purgeWallet } = createVault();
-
-    await expect(
-      vault.zcashDeleteRuntimeAccount({ accountId: 'never-set-up' }),
-    ).resolves.toEqual({ orphaned: false });
-
-    expect(purgeWallet).not.toHaveBeenCalled();
+      vault.getLocalWalletCapability().deleteRuntimeAccount({ accountId }),
+    ).resolves.toEqual({ orphaned });
+    if (purge) expect(purgeWallet).toHaveBeenCalledWith({ ufvk });
+    else expect(purgeWallet).not.toHaveBeenCalled();
   });
 });
 

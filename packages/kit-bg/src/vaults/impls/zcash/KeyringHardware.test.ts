@@ -1,4 +1,5 @@
 import addressFixtures from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAddress.fixtures.json';
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
@@ -92,13 +93,11 @@ function createSeedFingerprintStore(initial: Record<string, string> = {}) {
 }
 
 function createKeysStore() {
-  let saved: unknown = null;
+  const storage = createUntrackedMemoryStorage(null);
   const entity = new SimpleDbEntityPrivacyChainKeys();
   (entity as { appStorage: unknown }).appStorage = {
-    getItem: async () => saved,
-    setItem: async (_key: string, value: unknown) => {
-      saved = value;
-    },
+    getItem: storage.getItem,
+    setItem: storage.setItem,
   };
   return entity;
 }

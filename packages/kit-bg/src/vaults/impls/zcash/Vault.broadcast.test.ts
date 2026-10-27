@@ -1,10 +1,8 @@
 /* eslint-disable import/first */
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 import VaultBtc from '../btc/Vault';
@@ -39,13 +37,11 @@ const params = {
 };
 
 async function createVault(broadcastAuthorized?: boolean) {
-  let saved: unknown = null;
+  const storage = createUntrackedMemoryStorage(null);
   const journalDb = new SimpleDbEntityPrivacyChainJournal();
   (journalDb as { appStorage: unknown }).appStorage = {
-    getItem: async () => saved,
-    setItem: async (_key: string, value: unknown) => {
-      saved = value;
-    },
+    getItem: storage.getItem,
+    setItem: storage.setItem,
   };
   const tx: IZcashTransparentPendingTx = {
     txid,

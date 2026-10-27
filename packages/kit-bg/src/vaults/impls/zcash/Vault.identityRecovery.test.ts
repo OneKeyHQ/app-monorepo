@@ -1,27 +1,13 @@
 /* eslint-disable import/first */
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
-jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
-  const actual = jest.requireActual<
-    typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
-  >('@onekeyhq/shared/src/background/backgroundDecorators');
-  const passthrough =
-    () => (_target: unknown, _key?: string, descriptor?: PropertyDescriptor) =>
-      descriptor;
-  return {
-    ...actual,
-    backgroundClass: passthrough,
-    backgroundMethod: passthrough,
-  };
-});
+jest.mock('../../../dbs/local/localDbInstance');
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 jest.mock('../../../states/jotai/atoms', () => ({
   privacyChainAtom: { set: jest.fn(async () => undefined) },
 }));
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { withMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
@@ -40,20 +26,6 @@ import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { IDBAccount } from '../../../dbs/local/types';
 
 const networkId = 'zec--0';
-
-function withMemoryStorage<T extends object>(entity: T): T {
-  let saved: unknown = null;
-  (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
-    removeItem: jest.fn(async () => {
-      saved = null;
-    }),
-  };
-  return entity;
-}
 
 // An account whose re-derived key no longer matches its identity is recovered by: turn off, delete local data, turn on.
 describe('Zcash identity mismatch recovery', () => {

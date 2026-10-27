@@ -1,6 +1,7 @@
 import { Mutex } from 'async-mutex';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -10,19 +11,7 @@ import { getViewingKeyFingerprint } from '../vaults/localWallet/viewingKeyFinger
 
 import type { ILocalWalletRetainedIdentity } from '../vaults/localWallet/types';
 
-jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
-  const actual = jest.requireActual<
-    typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
-  >('@onekeyhq/shared/src/background/backgroundDecorators');
-  const passthrough =
-    () => (_target: unknown, _key?: string, descriptor?: PropertyDescriptor) =>
-      descriptor;
-  return {
-    ...actual,
-    backgroundClass: passthrough,
-    backgroundMethod: passthrough,
-  };
-});
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 jest.mock('../vaults/factory', () => ({
   vaultFactory: { getChainOnlyVault: jest.fn() },
 }));
@@ -49,7 +38,7 @@ function vkFpOf(accountId: string) {
 }
 
 function createKeysDb(accountIds: string[]) {
-  let saved: unknown = {
+  const storage = createMemoryStorage({
     data: {
       keys: Object.fromEntries(
         accountIds.map((id) => [
@@ -63,13 +52,11 @@ function createKeysDb(accountIds: string[]) {
       ),
     },
     updatedAt: 1,
-  };
+  });
   const entity = new SimpleDbEntityPrivacyChainKeys();
   (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
+    getItem: storage.getItem,
+    setItem: storage.setItem,
   };
   return entity;
 }

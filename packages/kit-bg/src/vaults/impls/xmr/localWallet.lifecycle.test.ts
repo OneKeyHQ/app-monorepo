@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/kit-bg/src/vaults/impls/xmr/runtime';
 import type Vault from '@onekeyhq/kit-bg/src/vaults/impls/xmr/Vault';
 import { saveLocalWalletViewingKey } from '@onekeyhq/kit-bg/src/vaults/localWallet/viewingKeyStore';
+import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/install', () => ({
   installXmrCarrier: () => undefined,
@@ -51,13 +52,8 @@ const networkId = 'xmr--0';
 const tip = 3_767_827;
 const timestamp = Date.UTC(2024, 0, 1);
 function memory<T extends { appStorage: unknown }>(entity: T): T {
-  let saved: unknown = null;
-  entity.appStorage = {
-    getItem: async () => saved,
-    setItem: async (_key: string, value: unknown) => {
-      saved = value;
-    },
-  };
+  const storage = createUntrackedMemoryStorage(null);
+  entity.appStorage = { getItem: storage.getItem, setItem: storage.setItem };
   return entity;
 }
 

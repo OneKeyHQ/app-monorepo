@@ -2,19 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IPrivacyChainScanState } from '../states/jotai/atoms';
 
-jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
-  const actual = jest.requireActual<
-    typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
-  >('@onekeyhq/shared/src/background/backgroundDecorators');
-  const passthrough =
-    () => (_target: unknown, _key?: string, descriptor?: PropertyDescriptor) =>
-      descriptor;
-  return {
-    ...actual,
-    backgroundClass: passthrough,
-    backgroundMethod: passthrough,
-  };
-});
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 
 const mockEmptyState = (): IPrivacyChainScanState => ({
   progress: {},

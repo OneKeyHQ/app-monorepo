@@ -84,7 +84,6 @@ import type {
   ILocalWalletAccountState,
   ILocalWalletAccountSupport,
   ILocalWalletCapability,
-  ILocalWalletPoolDescriptor,
   ILocalWalletRetainedIdentity,
   ILocalWalletReviewedTransaction,
   ILocalWalletSendPool,
@@ -626,20 +625,6 @@ class ServicePrivacyChain extends ServiceBase {
     this.scheduleBackgroundSync(0);
   }
 
-  @backgroundMethod()
-  async stopForegroundBoost({
-    networkId,
-  }: {
-    networkId: string;
-  }): Promise<void> {
-    if (!this.foregroundBoostRequestedByNetwork[networkId]) {
-      return;
-    }
-    delete this.foregroundBoostRequestedByNetwork[networkId];
-    await this.setNetworkPreparing(networkId, false);
-    await this.publishBoostingNetworks();
-  }
-
   // A pause outlasts page visits and only Sync clears it. A paused network does no scanning.
   @backgroundMethod()
   @toastLocalWalletError()
@@ -718,21 +703,6 @@ class ServicePrivacyChain extends ServiceBase {
   @toastLocalWalletError()
   async setAllowCellularSync({ allow }: { allow: boolean }): Promise<void> {
     await this.setAllowPrivacySyncOnCellular({ allow });
-  }
-
-  @backgroundMethod()
-  async getForegroundSyncState({ networkId }: { networkId: string }): Promise<{
-    isHot: boolean;
-    isBlockedByData: boolean;
-    isCellular: boolean;
-    allowCellularSync: boolean;
-  }> {
-    return {
-      isHot: this.isNetworkForegroundHot(networkId),
-      isBlockedByData: this.isNetworkBoostBlockedByData(networkId),
-      isCellular: this.deviceIsCellular === true,
-      allowCellularSync: await this.isPrivacySyncOnCellularAllowed(),
-    };
   }
 
   // Requested but blocked by gate two; the banner reads this to offer the metered-data toggle.
@@ -2777,16 +2747,6 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getLocalWalletPools({
-    networkId,
-  }: {
-    networkId: string;
-  }): Promise<ILocalWalletPoolDescriptor[]> {
-    const settings = await getVaultSettings({ networkId });
-    return settings.localWallet?.pools ?? [];
-  }
-
-  @backgroundMethod()
   async getLocalWalletAccountState({
     networkId,
     accountId,
@@ -3921,25 +3881,6 @@ class ServicePrivacyChain extends ServiceBase {
       accountId,
       mode: 'days',
       daysAgo,
-    });
-  }
-
-  @backgroundMethod()
-  @toastLocalWalletError()
-  async rescanFromHeight({
-    networkId,
-    accountId,
-    birthdayHeight,
-  }: {
-    networkId: string;
-    accountId: string;
-    birthdayHeight: number;
-  }): Promise<void> {
-    await this.repairLocalChainDataImpl({
-      networkId,
-      accountId,
-      mode: 'height',
-      birthdayHeight,
     });
   }
 }

@@ -1,19 +1,7 @@
+import { withMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
+
 import { SimpleDbEntityAccountValue } from './SimpleDbEntityAccountValue';
 import { SimpleDbEntityLocalTokens } from './SimpleDbEntityLocalTokens';
-
-function withMemoryStorage<T extends object>(entity: T) {
-  let saved: unknown = null;
-  (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem: jest.fn(async (_key: string, value: unknown) => {
-      saved = value;
-    }),
-    removeItem: jest.fn(async () => {
-      saved = null;
-    }),
-  };
-  return entity;
-}
 
 const token = (value: string) => ({
   hasAssets: true,

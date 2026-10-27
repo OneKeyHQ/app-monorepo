@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { withMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import {
   SimpleDbEntityPrivacyChainState,
@@ -15,19 +16,10 @@ const XMR = 'xmr--0';
 const SEED_FP = 'ab'.repeat(32);
 
 function createEntity(initial?: IPrivacyChainStateDB) {
-  let saved: unknown = initial ? { data: initial, updatedAt: 1 } : null;
-  const entity = new SimpleDbEntityPrivacyChainState();
-  const setItem = jest.fn(async (_key: string, value: unknown) => {
-    saved = value;
-  });
-  (entity as { appStorage: unknown }).appStorage = {
-    getItem: jest.fn(async () => saved),
-    setItem,
-    removeItem: jest.fn(async () => {
-      saved = null;
-    }),
-  };
-  return entity;
+  return withMemoryStorage(
+    new SimpleDbEntityPrivacyChainState(),
+    initial ? { data: initial, updatedAt: 1 } : null,
+  );
 }
 
 function zcashMeta(overrides: Partial<IZcashAccountMeta> = {}) {

@@ -1,9 +1,6 @@
 /* eslint-disable import/first */
 
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 jest.mock('./localHistory', () => ({
   buildZcashLocalHistoryTx: async ({ item }: { item: { txid: string } }) => ({
     id: item.txid,
@@ -15,6 +12,7 @@ jest.mock('./localHistory', () => ({
 }));
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { withMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 
@@ -134,18 +132,7 @@ describe('Zcash private history when the runtime read fails', () => {
 
 describe('Zcash private balance when the runtime read fails', () => {
   function memoryCache() {
-    let saved: unknown = null;
-    const entity = new SimpleDbEntityPrivacyChainCache();
-    (entity as { appStorage: unknown }).appStorage = {
-      getItem: jest.fn(async () => saved),
-      setItem: jest.fn(async (_key: string, value: unknown) => {
-        saved = value;
-      }),
-      removeItem: jest.fn(async () => {
-        saved = null;
-      }),
-    };
-    return entity;
+    return withMemoryStorage(new SimpleDbEntityPrivacyChainCache());
   }
   function createVault(
     getBalance: jest.Mock,

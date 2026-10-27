@@ -2,10 +2,7 @@ import { z } from 'zod';
 
 import type { IZcashPcztReviewRequest } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  getPrivacyTransactionReviewDigest,
-  zPrivacyHex,
-} from '@onekeyhq/shared/src/utils/privacyTransactionReview';
+import { zPrivacyHex } from '@onekeyhq/shared/src/utils/privacyTransactionReview';
 
 import type { IEncodedTxZcash } from './types';
 
@@ -45,18 +42,4 @@ export function getZcashPcztReviewRequest(
     throw new OneKeyLocalError('zcash: invalid transaction review');
   }
   return parsed.data;
-}
-
-export function getZcashPcztReviewDigest(params: {
-  accountId: string;
-  networkId: string;
-  encodedTx: IEncodedTxZcash;
-  ufvk: string;
-}): string {
-  return getPrivacyTransactionReviewDigest({
-    accountId: params.accountId,
-    networkId: params.networkId,
-    proposalHex: params.encodedTx.pcztHex ?? '',
-    intent: getZcashPcztReviewRequest(params.encodedTx, params.ufvk),
-  });
 }

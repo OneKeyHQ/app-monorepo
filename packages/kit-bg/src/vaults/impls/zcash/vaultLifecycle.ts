@@ -269,13 +269,13 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       }
       return tip;
     },
-    onWalletCreated: (params) => vault.onPrivacyWalletCreated(params),
-    resumePendingOperations: () => vault.resumePendingPrivacyOperations(),
-    syncGroup: (params) => vault.syncLocalWalletGroup(params),
+    onWalletCreated: (params) => onPrivacyWalletCreated(vault, params),
+    resumePendingOperations: () => resumePendingPrivacyOperations(vault),
+    syncGroup: (params) => syncLocalWalletGroup(vault, params),
     syncCompletionIsAuthoritative:
       !platformEnv.isNative && !platformEnv.isExtension,
-    rewindAccount: (params) => vault.zcashRewindAccount(params),
-    deleteRuntimeAccount: (params) => vault.zcashDeleteRuntimeAccount(params),
+    rewindAccount: (params) => zcashRewindAccount(vault, params),
+    deleteRuntimeAccount: (params) => zcashDeleteRuntimeAccount(vault, params),
     forgetMemoryCaches: async ({ accountIds }) => {
       forgetZcashMemoryCaches(vault, accountIds);
       forgetIdleZcashLifecycleMutexes();
@@ -283,7 +283,7 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
         zcashLastSavedChainTip.clear();
       }
     },
-    recoverFromTimeout: () => vault.recoverLocalWalletFromTimeout(),
+    recoverFromTimeout: () => recoverLocalWalletFromTimeout(vault),
     isUserOperationActive: zcashUserOperationsActive,
     getStorageUsage: async () => {
       // Diagnostics checks existence first, so this can't create a database for an account that never enabled privacy.
@@ -875,7 +875,7 @@ export async function syncLocalWalletGroup(
     console.error('[zcash] runtime database unusable, rebuilding', {
       ...zcashDescribeError(e),
     });
-    await vault.zcashRebuildRuntimeDatabase();
+    await zcashRebuildRuntimeDatabase(vault);
     return { synced: false };
   }
 }
@@ -1557,7 +1557,7 @@ export async function rescanLocalWallet(
     });
   }
   if (!dryRun) {
-    await vault.zcashRescanFromHeight({
+    await zcashRescanFromHeight(vault, {
       accountId,
       birthdayHeight,
       birthdaySource,

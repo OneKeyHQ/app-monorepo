@@ -1,9 +1,6 @@
 /* cspell:ignore Ufvks */
 /* eslint-disable import/first */
-jest.mock('../../../dbs/local/localDbInstance', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('../../../dbs/local/localDbInstance');
 
 import * as runtime from 'onekey-zcash-runtime';
 
@@ -70,7 +67,7 @@ it.each([false, true])(
     const vault = Object.assign(
       Object.create(Vault.prototype) as Pick<
         Vault,
-        'syncLocalWalletGroup' | 'zcashPreparePrivacyModeAccount'
+        'getLocalWalletCapability' | 'zcashPreparePrivacyModeAccount'
       >,
       {
         backgroundApi: {
@@ -104,10 +101,14 @@ it.each([false, true])(
         queueLocalWalletRescanFrom,
       },
     );
-    const first = vault.syncLocalWalletGroup({ accountIds: ['a'] });
+    const first = vault
+      .getLocalWalletCapability()
+      .syncGroup({ accountIds: ['a'] });
     await started;
     if (pausePeer) states.a = { intent: 'off', resumeFromHeight: 2_100_000 };
-    const staleScheduler = vault.syncLocalWalletGroup({ accountIds: ['a'] });
+    const staleScheduler = vault
+      .getLocalWalletCapability()
+      .syncGroup({ accountIds: ['a'] });
     states.b = { intent: 'off', operation: { type: 'enable', requestedAt: 1 } };
     const enable = vault.zcashPreparePrivacyModeAccount({
       accountId: 'b',
@@ -129,7 +130,7 @@ it.each([false, true])(
       queueLocalWalletRescanFrom.mock.invocationCallOrder[0],
     ).toBeGreaterThan(syncWallet.mock.invocationCallOrder[pausePeer ? 0 : 1]);
     states.b = { intent: 'on' };
-    await vault.syncLocalWalletGroup({ accountIds: ['a'] });
+    await vault.getLocalWalletCapability().syncGroup({ accountIds: ['a'] });
     expect(syncWallet.mock.calls[pausePeer ? 1 : 2][1].activeUfvks).toEqual(
       pausePeer ? ['b'] : ['a', 'b'],
     );
@@ -149,7 +150,7 @@ it('does not open the scanner when cellular permission is unavailable', async ()
     zcashGetApi,
   });
   await expect(
-    vault.syncLocalWalletGroup({ accountIds: ['a'] }),
+    vault.getLocalWalletCapability().syncGroup({ accountIds: ['a'] }),
   ).resolves.toEqual({ synced: false });
   expect(zcashGetApi).not.toHaveBeenCalled();
 });
@@ -223,7 +224,9 @@ it('keeps a queued peer scan behind recovery admission until the recovering key 
     },
   });
   await admitted;
-  const peer = vault.syncLocalWalletGroup({ accountIds: ['b'] });
+  const peer = vault
+    .getLocalWalletCapability()
+    .syncGroup({ accountIds: ['b'] });
   await Promise.resolve();
   expect(syncWallet).not.toHaveBeenCalled();
   finishAdmission?.();
@@ -281,7 +284,7 @@ it('scans without an account whose viewing key cannot be read', async () => {
   });
 
   await expect(
-    vault.syncLocalWalletGroup({ accountIds: ['a', 'lost'] }),
+    vault.getLocalWalletCapability().syncGroup({ accountIds: ['a', 'lost'] }),
   ).resolves.toMatchObject({ synced: true });
 
   expect(zcashPrepareAccounts).toHaveBeenCalledWith({
@@ -401,7 +404,9 @@ describe('runtime registration during background group sync', () => {
     const { vault, scan, syncWallet, rotateAccountEpochs } =
       await createVault();
     const params = { accountIds: ['pending', 'healthy'], chainTip: 3_000_000 };
-    await expect(vault.syncLocalWalletGroup(params)).resolves.toMatchObject({
+    await expect(
+      vault.getLocalWalletCapability().syncGroup(params),
+    ).resolves.toMatchObject({
       synced: true,
       stateChanged: false,
     });
@@ -410,18 +415,20 @@ describe('runtime registration during background group sync', () => {
       { activeUfvks: ['healthy'], chainTip: 3_000_000 },
     );
     expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(2);
-    await vault.syncLocalWalletGroup(params);
+    await vault.getLocalWalletCapability().syncGroup(params);
     expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(2);
 
     scan.remaining = 1;
-    await expect(vault.syncLocalWalletGroup(params)).resolves.toMatchObject({
+    await expect(
+      vault.getLocalWalletCapability().syncGroup(params),
+    ).resolves.toMatchObject({
       synced: true,
       stateChanged: true,
       backfillRemaining: true,
     });
     expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(2);
     scan.allowPending = true;
-    await vault.syncLocalWalletGroup(params);
+    await vault.getLocalWalletCapability().syncGroup(params);
     expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(3);
     expect(syncWallet).toHaveBeenLastCalledWith(
       expect.objectContaining({ ufvk: 'pending' }),
@@ -442,7 +449,7 @@ describe('runtime registration during background group sync', () => {
       throw corruption;
     });
     await expect(
-      vault.syncLocalWalletGroup({
+      vault.getLocalWalletCapability().syncGroup({
         accountIds: ['pending', 'healthy'],
         chainTip: 3_000_000,
       }),
@@ -468,7 +475,9 @@ describe('runtime registration during background group sync', () => {
     });
     jest.mocked(runtime.openWallet).mockRejectedValueOnce(locked);
     await expect(
-      vault.syncLocalWalletGroup({ accountIds: ['pending', 'healthy'] }),
+      vault
+        .getLocalWalletCapability()
+        .syncGroup({ accountIds: ['pending', 'healthy'] }),
     ).rejects.toBe(locked);
     expect(runtime.deleteWallet).not.toHaveBeenCalled();
     expect(rotateAccountEpochs).not.toHaveBeenCalled();
@@ -509,7 +518,7 @@ it('excludes a stale deletion candidate without blocking a healthy account', asy
     zcashGetApi: async () => ({ syncWallet }),
   });
   await expect(
-    vault.syncLocalWalletGroup({ accountIds: ['a', 'b'] }),
+    vault.getLocalWalletCapability().syncGroup({ accountIds: ['a', 'b'] }),
   ).resolves.toMatchObject({ synced: true });
   expect(zcashPrepareAccounts).toHaveBeenCalledWith(
     expect.objectContaining({ accountIds: ['b'] }),
@@ -556,7 +565,7 @@ it.each([false, true])(
         }),
       }),
     });
-    const result = await vault.syncLocalWalletGroup({
+    const result = await vault.getLocalWalletCapability().syncGroup({
       accountIds: ['ready', 'not-registered'],
       chainTip: 100,
     });
