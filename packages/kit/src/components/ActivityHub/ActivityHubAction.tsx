@@ -12,8 +12,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   ACTIVITY_HUB_PANEL_WIDTH,
-  shouldShowActivityHubInvitePanel,
   getActivityHubTitleId,
+  shouldShowActivityHubInvitePanel,
 } from './layout';
 
 import type {
@@ -114,9 +114,7 @@ export function ActivityHubAction({
               dismissOnSnapToBottom: true,
             }
       }
-      renderTrigger={
-        renderTrigger ?? <HeaderIconButton {...giftButtonProps} />
-      }
+      renderTrigger={renderTrigger ?? <HeaderIconButton {...giftButtonProps} />}
       renderContent={({ closePopover }) => (
         <LazyActivityHubContent
           source={source}

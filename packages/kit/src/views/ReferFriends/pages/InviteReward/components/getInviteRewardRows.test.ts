@@ -1,7 +1,6 @@
 import { getInviteRewardRows } from './getInviteRewardRows';
 
 import type { IInviteRewardRow } from './getInviteRewardRows';
-
 import type { IRewardSummaryItem } from './shared/getRewardSummary';
 
 const token = {

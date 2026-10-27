@@ -23,15 +23,15 @@ import type { IActivityHubLayout } from '@onekeyhq/shared/src/logger/scopes/refe
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { ActivityHubInvitePanel } from './ActivityHubInvitePanel';
 import {
   ActivityShortcutCard,
   MENU_SHORTCUT_GRID_PROPS,
 } from './ActivityShortcutCard';
-import { ActivityHubInvitePanel } from './ActivityHubInvitePanel';
 import {
   ACTIVITY_HUB_SHORTCUT_BASIS,
-  shouldShowActivityHubInvitePanel,
   getActivityHubTitleId,
+  shouldShowActivityHubInvitePanel,
 } from './layout';
 
 import type {
