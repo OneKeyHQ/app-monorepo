@@ -3578,6 +3578,9 @@ export function useSwapBuildTx({
             orderId: data.quoteId ?? '',
           },
         };
+        // Wrapped sends skip the build log, so bind the pick here for the
+        // shared success path to release it.
+        bindRecentTokenPairAttribution(swapInfo.swapBuildResData);
 
         const sendTxRes = await sendTxActions(
           false,
@@ -3625,6 +3628,7 @@ export function useSwapBuildTx({
       sendTxActions,
       syncRecentTokenPairs,
       onBuildTxSuccess,
+      bindRecentTokenPairAttribution,
     ],
   );
 

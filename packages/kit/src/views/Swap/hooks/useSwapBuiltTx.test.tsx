@@ -520,6 +520,23 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
 
+  it('releases a Recent trades pick after a wrapped send', async () => {
+    const { result, store } = renderExecutionReview({
+      steps: [{ type: ESwapStepType.WRAP_TX, status: ESwapStepStatus.READY }],
+    });
+    await act(async () => {
+      store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+      store.set(swapQuoteListAtom(), [quote]);
+      store.set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+    });
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(mockFetchBuildTx).not.toHaveBeenCalled();
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
   it('releases the pick of an order identified only by its provider id', async () => {
     mockFetchBuildTx.mockReset().mockResolvedValue({
       ...buildResponse('120'),
