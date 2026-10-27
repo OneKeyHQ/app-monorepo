@@ -23,6 +23,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { getChartColorWithAlpha } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartColor';
+import { RollingNumberText } from '@onekeyhq/kit/src/components/RollingNumberText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -667,17 +668,19 @@ export default function PerpSimpleLayout() {
                 }}
                 onPress={toggleAssetVisibility}
               >
-                <SizableText
+                <RollingNumberText
+                  key={address}
                   size="$heading4xl"
                   numberOfLines={1}
                   adjustsFontSizeToFit
                   flexShrink={1}
                 >
                   {hideValue ? '****' : accountValue}
-                </SizableText>
+                </RollingNumberText>
               </XStack>
               <XStack gap="$1" alignItems="baseline">
-                <SizableText
+                <RollingNumberText
+                  key={address}
                   size="$bodySmMedium"
                   y={hideValue ? 2 : 0}
                   color={hideValue ? '$textSubdued' : pnlColor}
@@ -685,10 +688,19 @@ export default function PerpSimpleLayout() {
                   flexShrink={1}
                   adjustsFontSizeToFit
                 >
-                  {hideValue
-                    ? '****'
-                    : `${pnlAmount}${pnlPercent ? ` (${pnlPercent})` : ''}`}
-                </SizableText>
+                  {hideValue ? '****' : pnlAmount}
+                </RollingNumberText>
+                {!hideValue && pnlPercent ? (
+                  <SizableText
+                    size="$bodySmMedium"
+                    color={pnlColor}
+                    numberOfLines={1}
+                    flexShrink={1}
+                    adjustsFontSizeToFit
+                  >
+                    {`(${pnlPercent})`}
+                  </SizableText>
+                ) : null}
                 <Select
                   testID="perps-simple-pnl-period"
                   title={intl.formatMessage({
@@ -903,7 +915,7 @@ export default function PerpSimpleLayout() {
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.global_market })}
         </SizableText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView horizontal mr="$-5" showsHorizontalScrollIndicator={false}>
           <XStack gap="$3" py="$1">
             {categoryTabs.map((tab) => (
               <Button
@@ -938,6 +950,7 @@ export default function PerpSimpleLayout() {
           <ScrollView
             key={selectedMarketTab.tabId}
             horizontal
+            mr="$-5"
             showsHorizontalScrollIndicator={false}
           >
             <XStack gap="$3">

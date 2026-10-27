@@ -4,6 +4,7 @@ import { type ReactNode, useState } from 'react';
 
 import { fireEvent, render } from '@testing-library/react';
 
+import type { ISegmentControlProps } from '@onekeyhq/components';
 import type { ILightweightChartProps } from '@onekeyhq/kit/src/components/LightweightChart/types';
 import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { MobileSimpleChartFrame } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/MobileSimpleChartFrame';
@@ -29,6 +30,17 @@ let mockSeries:
       error: boolean;
     }
   | undefined;
+
+jest.mock('@onekeyhq/kit/src/components/RollingNumberText', () => ({
+  RollingNumberText: (
+    props: import('@onekeyhq/components').ISizableTextProps,
+  ) => {
+    const { SizableText } = jest.requireMock(
+      '@onekeyhq/components',
+    ) as typeof import('@onekeyhq/components');
+    return <SizableText {...props} />;
+  },
+}));
 
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
 jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
@@ -104,6 +116,26 @@ jest.mock('@onekeyhq/components', () => {
     );
   return {
     Button: Box,
+    SegmentControl: ({
+      value,
+      options,
+      onChange,
+      testID,
+    }: ISegmentControlProps) => (
+      <div data-testid={testID}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            data-testid={option.testID}
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    ),
     Icon: Box,
     SizableText: Box,
     NumberSizeableText: Box,
@@ -286,12 +318,115 @@ function PriceHeader({
   );
 }
 
+it('does not report unchanged display prices after quote or history refreshes', () => {
+  const onPriceChange = jest.fn();
+  const { rerender } = render(
+    <SimpleMarketChart
+      coin="BTC"
+      active
+      livePrice="120"
+      onPriceChange={onPriceChange}
+    />,
+  );
+  expect(onPriceChange).toHaveBeenCalledTimes(1);
+  rerender(
+    <SimpleMarketChart
+      coin="BTC"
+      active
+      livePrice="121"
+      onPriceChange={onPriceChange}
+    />,
+  );
+  expect(onPriceChange).toHaveBeenCalledTimes(1);
+
+  mockSeries = {
+    coin: 'BTC',
+    range: '1D',
+    data: [
+      [1000, 100],
+      [2000, 120],
+    ],
+    error: false,
+  };
+  rerender(
+    <SimpleMarketChart coin="BTC" active onPriceChange={onPriceChange} />,
+  );
+  expect(onPriceChange).toHaveBeenCalledTimes(2);
+  mockSeries = {
+    ...mockSeries,
+    data: [
+      [1000, 100],
+      [2000, 120],
+    ],
+  };
+  rerender(
+    <SimpleMarketChart coin="BTC" active onPriceChange={onPriceChange} />,
+  );
+  expect(onPriceChange).toHaveBeenCalledTimes(2);
+
+  mockSeries = {
+    ...mockSeries,
+    data: [
+      [1000, 100],
+      [2000, 130],
+    ],
+  };
+  rerender(
+    <SimpleMarketChart coin="BTC" active onPriceChange={onPriceChange} />,
+  );
+  expect(onPriceChange).toHaveBeenCalledTimes(3);
+  expect(onPriceChange).toHaveBeenLastCalledWith({
+    coin: 'BTC',
+    range: '1D',
+    price: 130,
+    change: '30',
+    changePercent: 30,
+  });
+});
+
+it('keeps a held price when the parent replaces its callback and clears only on unmount', () => {
+  mockSeries = {
+    coin: 'BTC',
+    range: '1D',
+    data: [
+      [1000, 100],
+      [2000, 110],
+      [3000, 120],
+    ],
+    error: false,
+  };
+  const firstCallback = jest.fn();
+  const nextCallback = jest.fn();
+  const { getByTestId, rerender, unmount } = render(
+    <SimpleMarketChart coin="BTC" active onPriceChange={firstCallback} />,
+  );
+  fireEvent.pointerDown(getByTestId('perps-simple-price-line-chart'));
+  fireEvent.click(getByTestId('scrub-price'));
+  expect(firstCallback).toHaveBeenLastCalledWith(
+    expect.objectContaining({ price: 110, isScrubbing: true }),
+  );
+  firstCallback.mockClear();
+  rerender(
+    <SimpleMarketChart coin="BTC" active onPriceChange={nextCallback} />,
+  );
+  expect(firstCallback).not.toHaveBeenCalled();
+  expect(nextCallback).not.toHaveBeenCalled();
+  fireEvent.touchEnd(getByTestId('perps-simple-price-line-chart'));
+  expect(nextCallback).toHaveBeenCalledTimes(1);
+  expect(nextCallback).toHaveBeenLastCalledWith(
+    expect.objectContaining({ price: 120 }),
+  );
+  unmount();
+  expect(nextCallback).toHaveBeenCalledTimes(2);
+  expect(nextCallback).toHaveBeenLastCalledWith(undefined);
+});
+
 it.each([
   { isNative: false, isNativeAndroid: false },
   { isNative: true, isNativeAndroid: false },
   { isNative: true, isNativeAndroid: true },
 ])(
-  'links the header to the selected range and restores its latest price on release (%j)',
+  'links the header to the selected point and restores the latest price on release (%j)',
   (platform) => {
     Object.assign(platformEnv, platform);
     mockSeries = {
@@ -326,7 +461,7 @@ it.each([
     fireEvent.pointerDown(chart);
     fireEvent.click(getByTestId('scrub-price'));
     expect(getByTestId('price-header').textContent).toBe(
-      '{"coin":"BTC","range":"1D","price":110,"change":"10","changePercent":10}',
+      '{"coin":"BTC","range":"1D","price":110,"change":"10","changePercent":10,"isScrubbing":true}',
     );
     fireEvent.touchEnd(chart);
     expect(getByTestId('price-header').textContent).toBe(
@@ -436,7 +571,7 @@ it('shows a change skeleton only while unavailable history is loading', () => {
   );
 });
 
-it('retains a held historical point during live updates and releases to the new latest price', () => {
+it('retains a held historical point during live updates and releases to the latest price', () => {
   mockSeries = {
     coin: 'BTC',
     range: '1D',
@@ -451,6 +586,9 @@ it('retains a held historical point during live updates and releases to the new 
   const chart = getByTestId('perps-simple-price-line-chart');
   fireEvent.pointerDown(chart);
   fireEvent.click(getByTestId('scrub-price'));
+  expect(getByTestId('price-header').textContent).toBe(
+    '{"coin":"BTC","range":"1D","price":110,"change":"10","changePercent":10,"isScrubbing":true}',
+  );
   mockSeries = {
     ...mockSeries,
     data: [
@@ -461,7 +599,7 @@ it('retains a held historical point during live updates and releases to the new 
   };
   rerender(<PriceHeader />);
   expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"BTC","range":"1D","price":110,"change":"10","changePercent":10}',
+    '{"coin":"BTC","range":"1D","price":110,"change":"10","changePercent":10,"isScrubbing":true}',
   );
   fireEvent.pointerCancel(chart);
   expect(getByTestId('price-header').textContent).toBe(
@@ -512,6 +650,34 @@ it.each([true, false])(
     expect(mockUnsubscribe).toHaveBeenCalledTimes(2);
   },
 );
+
+it('keeps the selected range when switching chart modes', () => {
+  const { getByTestId } = render(<SimpleMarketChart coin="BTC" active />);
+  expect(getByTestId('perps-simple-market-chart-range-selector')).toBeTruthy();
+  expect(
+    getByTestId('perps-simple-market-chart-range-1D').getAttribute(
+      'aria-pressed',
+    ),
+  ).toBe('true');
+  fireEvent.click(getByTestId('perps-simple-market-chart-range-1H'));
+  expect(
+    getByTestId('perps-simple-market-chart-range-1H').getAttribute(
+      'aria-pressed',
+    ),
+  ).toBe('true');
+  expect(
+    getByTestId('perps-simple-market-chart-range-1D').getAttribute(
+      'aria-pressed',
+    ),
+  ).toBe('false');
+  fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
+  fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
+  expect(
+    getByTestId('perps-simple-market-chart-range-1H').getAttribute(
+      'aria-pressed',
+    ),
+  ).toBe('true');
+});
 
 it('preserves the extracted frame height and range selection', () => {
   const onRangeChange = jest.fn();

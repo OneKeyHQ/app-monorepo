@@ -16,6 +16,8 @@ const route = {
   params: { coin: 'BTC', side: 'long' },
 };
 const submitOrder = jest.fn().mockResolvedValue(undefined);
+const showDepositWithdrawModal = jest.fn();
+let inputAmount = '100';
 const showOrderConfirmDialog = jest.fn(() => ({ close: jest.fn() }));
 const getWarning = jest.fn<
   IAggressiveLimitPriceWarning | undefined,
@@ -44,10 +46,12 @@ const Box = ({
   testID,
   onPress,
   disabled,
+  variant,
 }: PropsWithChildren<{
   testID?: string;
   onPress?: () => void;
   disabled?: boolean;
+  variant?: string;
 }>) =>
   onPress ? (
     <button
@@ -55,6 +59,7 @@ const Box = ({
       data-testid={testID}
       onClick={onPress}
       disabled={disabled}
+      data-variant={variant}
     >
       {children}
     </button>
@@ -133,9 +138,9 @@ const mocks = {
     usePerpsSimpleDraftAtom: () => [
       {
         scope: 'account-a:BTC',
-        side: 'long',
+        side: route.params.side,
         source: 'manual',
-        inputAmount: '100',
+        inputAmount,
         inputUnit: 'usd',
       },
       jest.fn(),
@@ -212,7 +217,10 @@ const mocks = {
     getCurrentPerpsMarketDataFreshness: () => ({ isReady: true }),
   },
   '../hooks/useShowDepositWithdrawModal': {
-    useShowDepositWithdrawModal: () => ({}),
+    useShowDepositWithdrawModal: () => ({
+      showDepositWithdrawModal,
+      isDepositDisabled: false,
+    }),
   },
   '../hooks/useTradingPrice': {
     useTradingPrice: () => ({
@@ -234,11 +242,29 @@ const { default: PerpSimpleOrder } =
 beforeEach(() => {
   jest.clearAllMocks();
   skipOrderConfirm = false;
+  inputAmount = '100';
+  route.params.side = 'long';
   focused = true;
   instrument.coin = 'BTC';
   sourcePage.ownerKey = undefined;
   getWarning.mockReturnValue(undefined);
 });
+
+it.each(['long', 'short'])(
+  'uses a primary deposit action when %s exceeds available margin',
+  (side) => {
+    route.params.side = side;
+    inputAmount = '555555555555';
+    const { getByTestId } = render(<PerpSimpleOrder />);
+    const button = getByTestId('perps-simple-validation');
+
+    expect(button.getAttribute('data-variant')).toBe('primary');
+    fireEvent.click(button);
+    expect(showDepositWithdrawModal).toHaveBeenCalledWith('deposit');
+    expect(submitOrder).not.toHaveBeenCalled();
+    expect(showOrderConfirmDialog).not.toHaveBeenCalled();
+  },
+);
 
 it('opens confirmation with the order route owner even without an inherited owner', () => {
   const { getByTestId } = render(<PerpSimpleOrder />);

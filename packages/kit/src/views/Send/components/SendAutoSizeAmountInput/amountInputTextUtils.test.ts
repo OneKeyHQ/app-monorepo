@@ -1,4 +1,8 @@
-import { sanitizeAmountInputText } from './amountInputTextUtils';
+import {
+  createAmountInputCharacters,
+  sanitizeAmountInputText,
+  updateAmountInputCharacters,
+} from './amountInputTextUtils';
 
 const SANITIZE_CASES: Array<[string, string, string]> = [
   ['empty input', '', ''],
@@ -48,5 +52,60 @@ describe('sanitizeAmountInputText', () => {
       '1.2',
       '1.23',
     ]);
+  });
+});
+
+describe('amount input character identity', () => {
+  it('does not animate the initial amount', () => {
+    const state = createAmountInputCharacters('123.00');
+    expect(state.characters.every((character) => !character.entering)).toBe(
+      true,
+    );
+  });
+
+  it('only introduces the new character when appending digits or a decimal point', () => {
+    let state = createAmountInputCharacters('1');
+    for (const text of ['12', '12.', '12.0', '12.00']) {
+      const next = updateAmountInputCharacters(state, text);
+      expect(next.characters.slice(0, -1)).toEqual(state.characters);
+      expect(next.characters.at(-1)?.entering).toBe(true);
+      state = next;
+    }
+  });
+
+  it('keeps the untouched suffix when inserting in the middle', () => {
+    const initial = createAmountInputCharacters('12.34');
+    const next = updateAmountInputCharacters(initial, '192.34');
+    expect(next.characters[0]).toBe(initial.characters[0]);
+    expect(next.characters.slice(2)).toEqual(initial.characters.slice(1));
+    expect(next.characters[1]).toMatchObject({ char: '9', entering: true });
+  });
+
+  it('only replaces the selected digit', () => {
+    const initial = createAmountInputCharacters('123.45');
+    const next = updateAmountInputCharacters(initial, '193.45');
+    expect(next.characters[0]).toBe(initial.characters[0]);
+    expect(next.characters[1].id).not.toBe(initial.characters[1].id);
+    expect(next.characters.slice(2)).toEqual(initial.characters.slice(2));
+  });
+
+  it('never reuses a deleted character during fast backspace and retyping', () => {
+    const initial = createAmountInputCharacters('123');
+    const deleted = updateAmountInputCharacters(initial, '12');
+    const retyped = updateAmountInputCharacters(deleted, '123');
+    expect(deleted.characters).toEqual(initial.characters.slice(0, 2));
+    expect(retyped.characters[2].id).toBeGreaterThan(initial.characters[2].id);
+    expect(updateAmountInputCharacters(retyped, '').characters).toEqual([]);
+  });
+
+  it('preserves exact strings when pasting a large token amount', () => {
+    const text = '12345678901234567890.000012300';
+    const next = updateAmountInputCharacters(
+      createAmountInputCharacters(''),
+      text,
+    );
+    expect(next.text).toBe(text);
+    expect(next.characters.map(({ char }) => char).join('')).toBe(text);
+    expect(new Set(next.characters.map(({ id }) => id)).size).toBe(text.length);
   });
 });
