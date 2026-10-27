@@ -1,0 +1,58 @@
+import { getWatchlistSidebarContentState } from './watchlistSidebarContentState';
+
+const base = {
+  isMounted: true,
+  storedCount: 2,
+  isLoading: false,
+  isError: false,
+  hasLoadedAllSources: true,
+  rowCount: 0,
+};
+
+it('waits on the skeleton until favorites storage is ready', () => {
+  expect(getWatchlistSidebarContentState({ ...base, isMounted: false })).toBe(
+    'skeleton',
+  );
+});
+
+it('shows recommendations when nothing is stored', () => {
+  expect(
+    getWatchlistSidebarContentState({
+      ...base,
+      storedCount: 0,
+      hasLoadedAllSources: false,
+    }),
+  ).toBe('recommendations');
+});
+
+it('shows rows whenever any resolved, including cached rows while loading', () => {
+  expect(
+    getWatchlistSidebarContentState({ ...base, rowCount: 3, isLoading: true }),
+  ).toBe('rows');
+});
+
+it('keeps the skeleton while stored favorites are still loading', () => {
+  expect(
+    getWatchlistSidebarContentState({
+      ...base,
+      isLoading: true,
+      hasLoadedAllSources: false,
+    }),
+  ).toBe('skeleton');
+});
+
+it('offers a retry when a desktop or web request failed without isError', () => {
+  expect(
+    getWatchlistSidebarContentState({ ...base, hasLoadedAllSources: false }),
+  ).toBe('loadFailed');
+});
+
+it('offers a retry when the request reports an error', () => {
+  expect(getWatchlistSidebarContentState({ ...base, isError: true })).toBe(
+    'loadFailed',
+  );
+});
+
+it('shows recommendations when every source loaded but no favorite resolved', () => {
+  expect(getWatchlistSidebarContentState(base)).toBe('recommendations');
+});

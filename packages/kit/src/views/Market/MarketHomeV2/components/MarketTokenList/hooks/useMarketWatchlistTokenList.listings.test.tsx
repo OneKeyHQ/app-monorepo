@@ -59,12 +59,20 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
         // before the request resolves. The flag stays false on the render
         // that changed the deps.
         setLoading(true);
-        void methodRef.current().then((value) => {
-          if (active) {
-            setResult(value);
-            setLoading(false);
-          }
-        });
+        void methodRef.current().then(
+          (value) => {
+            if (active) {
+              setResult(value);
+              setLoading(false);
+            }
+          },
+          () => {
+            // A rejected request keeps the previous result and stops loading.
+            if (active) {
+              setLoading(false);
+            }
+          },
+        );
         return () => {
           active = false;
         };
@@ -612,4 +620,34 @@ it('keeps cached rows and holds back only the uncovered listing', async () => {
   expect(second.result.current.data).toEqual([
     expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
   ]);
+});
+it('reports a failed spot request as not loaded rather than an empty watchlist', async () => {
+  mockBatch.mockRejectedValue(new Error('network'));
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist: [
+        { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 0 },
+      ],
+      pollingInterval: 0,
+    }),
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toEqual([]);
+  // Desktop and web leave `isError` to native; the missing result is the signal.
+  expect(result.current.isError).toBe(false);
+  expect(result.current.hasLoadedAllSources).toBe(false);
+});
+it('reports loaded sources when a successful batch drops every favorite', async () => {
+  mockBatch.mockResolvedValue({ list: [] });
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist: [
+        { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 0 },
+      ],
+      pollingInterval: 0,
+    }),
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toEqual([]);
+  expect(result.current.hasLoadedAllSources).toBe(true);
 });

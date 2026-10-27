@@ -436,6 +436,15 @@ export function useMarketWatchlistTokenList({
     perpsResult?.failed || (!perpsResult && dataCacheRef)
       ? lastPerpsResultRef.current
       : perpsResult;
+  // Every source this watchlist needs holds a successful result, fresh or
+  // cached. Desktop and web report a failed request only as a missing result
+  // (`isError` is native-only), so an empty list with this false is a failed
+  // load rather than favorites that resolve to no rows.
+  const hasLoadedAllSources =
+    (spotItems.length === 0 || Boolean(apiResult?.list && !apiResult.failed)) &&
+    (listingItems.length === 0 || Boolean(listingResult)) &&
+    (perpsItems.length === 0 ||
+      Boolean(perpsApiResult?.tokenListData && !perpsApiResult.failed));
 
   // Combined loading state
   const isLoading =
@@ -755,6 +764,7 @@ export function useMarketWatchlistTokenList({
     data: paginatedData,
     isLoading: isLoading || isHoldingWatchlistFirstPaint,
     isError,
+    hasLoadedAllSources,
     isLoadingMore,
     isNetworkSwitching: false,
     canLoadMore: hasMore,

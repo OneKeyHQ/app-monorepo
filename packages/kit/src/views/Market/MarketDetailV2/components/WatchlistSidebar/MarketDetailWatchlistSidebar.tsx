@@ -61,6 +61,7 @@ import {
 import { SelectorWatchlistRecommendations } from '../TokenSelector/SelectorWatchlistRecommendations';
 
 import { getWatchlistSidebarPriceChange } from './filterWatchlistTokens';
+import { getWatchlistSidebarContentState } from './watchlistSidebarContentState';
 import {
   WATCHLIST_SIDEBAR_ROW_HEIGHT,
   WatchlistSidebarRow,
@@ -288,12 +289,13 @@ function MarketDetailWatchlistSidebarImpl({
       appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, refresh);
     };
   }, [watchListActions]);
-  const { data, isLoading, isError, refetchAll } = useMarketWatchlistTokenList({
-    watchlist: watchListData ?? [],
-    pageSize: Math.max(watchListData?.length ?? 0, 1),
-    pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
-    dataCacheRef: watchlistSidebarDataCacheRef,
-  });
+  const { data, isLoading, isError, hasLoadedAllSources, refetchAll } =
+    useMarketWatchlistTokenList({
+      watchlist: watchListData ?? [],
+      pageSize: Math.max(watchListData?.length ?? 0, 1),
+      pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
+      dataCacheRef: watchlistSidebarDataCacheRef,
+    });
   // A star in the search modal changes favorites while this page sits under
   // the modal. The list skips fetching while its page is unfocused, and every
   // favorites rewrite then cancels any request still in flight, so a one-off
@@ -444,16 +446,14 @@ function MarketDetailWatchlistSidebarImpl({
     [assetId, handleItemPress, networkId, stockId, tokenAddress],
   );
 
-  // Favorites that are stored but no longer resolve to a row (a delisted perp,
-  // a token the batch API drops) leave nothing the user can see or remove, so
-  // a settled empty result falls back to the recommendations like the token
-  // selector's Favorites tab does (OK-65655).
-  const storedCount = watchListData?.length ?? 0;
-  const isWatchlistEmpty =
-    isMounted &&
-    (storedCount === 0 || (!isLoading && !isError && data.length === 0));
-  const showSkeleton = !isMounted || (isLoading && data.length === 0);
-  const isLoadFailed = isError && data.length === 0;
+  const contentState = getWatchlistSidebarContentState({
+    isMounted,
+    storedCount: watchListData?.length ?? 0,
+    isLoading,
+    isError,
+    hasLoadedAllSources,
+    rowCount: data.length,
+  });
 
   const tableHeader = (
     <XStack
@@ -497,9 +497,9 @@ function MarketDetailWatchlistSidebarImpl({
   );
 
   let content;
-  if (isWatchlistEmpty) {
+  if (contentState === 'recommendations') {
     content = <SelectorWatchlistRecommendations compact />;
-  } else if (showSkeleton) {
+  } else if (contentState === 'skeleton') {
     content = (
       <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>
         {tableHeader}
@@ -508,7 +508,7 @@ function MarketDetailWatchlistSidebarImpl({
         ))}
       </YStack>
     );
-  } else if (isLoadFailed) {
+  } else if (contentState === 'loadFailed') {
     content = (
       <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
         <SizableText color="$textSubdued">
