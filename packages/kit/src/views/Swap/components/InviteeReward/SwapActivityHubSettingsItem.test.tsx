@@ -97,9 +97,7 @@ describe('SwapActivityHubSettingsItem', () => {
     const close = getCloseMock();
     const onOpenReferral = jest.fn();
 
-    render(
-      <SwapActivityHubSettingsItem onOpenReferral={onOpenReferral} />,
-    );
+    render(<SwapActivityHubSettingsItem onOpenReferral={onOpenReferral} />);
 
     const entry = screen.getByTestId(SwapTestIDs.activityHubSettingsItem);
     expect(entry.textContent).toBe(ETranslations.sidebar_refer_a_friend);
