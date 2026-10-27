@@ -1,8 +1,10 @@
 import { useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   IconButton,
   SizableText,
   Stack,
@@ -92,10 +94,14 @@ function ReferralLinkItem({
 
 interface IReferralLinkPopoverContentProps {
   inviteUrl: string;
+  // Below the links, under a hairline: settings about what the invite pages
+  // show, which the invite card's menu carries.
+  footer?: ReactNode;
 }
 
 export function ReferralLinkPopoverContent({
   inviteUrl,
+  footer,
 }: IReferralLinkPopoverContentProps) {
   const intl = useIntl();
   const { copyUrl } = useClipboard();
@@ -133,6 +139,14 @@ export function ReferralLinkPopoverContent({
           onCopy={() => handleCopyLink(link.url)}
         />
       ))}
+      {footer ? (
+        <>
+          <Divider mx="$4" my="$1" />
+          <YStack px="$4" py="$3">
+            {footer}
+          </YStack>
+        </>
+      ) : null}
     </YStack>
   );
 }

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { IconButton, Popover, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { InviteProfilePublicSwitch } from './InviteProfilePublicSwitch';
 import {
   REFERRAL_LINK_POPOVER_WIDTH,
   ReferralLinkPopoverContent,
@@ -26,8 +27,15 @@ export function ReferralLinkDropdown({
     [],
   );
 
+  // Whether the invite pages show the user's nickname and avatar sits with
+  // the pages it affects, rather than behind a page-level settings button.
   const renderContent = useCallback(
-    () => <ReferralLinkPopoverContent inviteUrl={inviteUrl} />,
+    () => (
+      <ReferralLinkPopoverContent
+        inviteUrl={inviteUrl}
+        footer={<InviteProfilePublicSwitch />}
+      />
+    ),
     [inviteUrl],
   );
 
