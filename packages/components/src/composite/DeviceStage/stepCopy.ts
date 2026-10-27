@@ -2,7 +2,10 @@ import type { ComponentProps } from 'react';
 
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
+import type {
+  IDeviceStageErrorI18n,
+  IDeviceStageQrFallbackReasonValue,
+} from '@onekeyhq/shared/types/deviceStage';
 
 import type {
   IAuthFailureReason,
@@ -355,6 +358,43 @@ export function resolveBtcHighIndexSub(
     { id: ETranslations.hardware_third_party_btc_high_index_confirm_desc },
     { accountIndex: accountIndex ?? '', path: path ?? '' },
   );
+}
+
+/** `qrFallback` for a connected Keystone the wallet cannot use: what is
+ * wrong, then retry or QR. An oversized request keeps the step's words. */
+const QR_FALLBACK_UNUSABLE_USB_TEXT: Record<
+  Exclude<IDeviceStageQrFallbackReasonValue, 'payload-too-large'>,
+  { title: ETranslations; sub: ETranslations }
+> = {
+  'wallet-mismatch': {
+    title: ETranslations.hardware_third_party_device_mismatch,
+    sub: ETranslations.hardware_third_party_qr_fallback_wallet_mismatch__desc,
+  },
+  'device-locked': {
+    title: ETranslations.hardware_third_party_device_locked,
+    sub: ETranslations.hardware_third_party_qr_fallback_device_locked__desc,
+  },
+  'usb-unavailable': {
+    title: ETranslations.settings_unable_to_connect,
+    sub: ETranslations.hardware_third_party_qr_fallback_usb_unavailable__desc,
+  },
+};
+
+export function resolveQrFallbackText(
+  intl: IntlShape,
+  reason?: IDeviceStageQrFallbackReasonValue,
+): { title: string; sub: string } {
+  if (!reason || reason === 'payload-too-large') {
+    return {
+      title: intl.formatMessage({ id: STEP_TEXT.qrFallback.title }),
+      sub: resolveStepSub(intl, 'qrFallback'),
+    };
+  }
+  const text = QR_FALLBACK_UNUSABLE_USB_TEXT[reason];
+  return {
+    title: intl.formatMessage({ id: text.title }),
+    sub: intl.formatMessage({ id: text.sub }),
+  };
 }
 
 /** The install steps' words around the app's name. Without a name the

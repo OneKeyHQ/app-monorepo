@@ -531,6 +531,11 @@ function DeviceStageContainerCmp() {
     void serviceHardwareUI.deviceStageNoteInputSubmitted();
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
+  const handleQrFallbackRetry = useCallback(() => {
+    sendVendorUiResponse(false, { retry: true });
+    void serviceHardwareUI.deviceStageNoteInputSubmitted();
+  }, [sendVendorUiResponse, serviceHardwareUI]);
+
   const handleInstallConfirm = useCallback(() => {
     const current = stageRef.current;
     if (!current?.vendor) {
@@ -598,6 +603,7 @@ function DeviceStageContainerCmp() {
       installActiveIndex={stage?.installActiveIndex}
       btcHighIndexPath={stage?.btcHighIndexPath}
       btcHighIndexAccountIndex={stage?.btcHighIndexAccountIndex}
+      qrFallbackReason={stage?.qrFallbackReason}
       errorReason={stage?.errorReason}
       errorMessage={stage?.errorMessage}
       errorI18n={stage?.errorI18n}
@@ -691,6 +697,7 @@ function DeviceStageContainerCmp() {
       }
       onBtcHighIndexConfirm={handleBtcHighIndexConfirm}
       onQrFallbackConfirm={handleQrFallbackConfirm}
+      onQrFallbackRetry={handleQrFallbackRetry}
       onInstallConfirm={handleInstallConfirm}
     />
   );

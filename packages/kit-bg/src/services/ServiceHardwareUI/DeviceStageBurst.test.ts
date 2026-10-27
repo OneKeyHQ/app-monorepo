@@ -1065,6 +1065,45 @@ describe('DeviceStageBurstScope', () => {
     await scope.endExplicit({ token });
   });
 
+  it('carries the QR fallback reason the card knows, and only on its own ask', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.keystone,
+    });
+    for (const [reason, expected] of [
+      ['wallet-mismatch', 'wallet-mismatch'],
+      ['device-locked', 'device-locked'],
+      ['usb-unavailable', 'usb-unavailable'],
+      ['payload-too-large', 'payload-too-large'],
+      ['something-new', undefined],
+      [undefined, undefined],
+    ] as const) {
+      await scope.onThirdPartyState({
+        ui: {
+          vendor: EHardwareVendor.keystone,
+          action: EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+          payload: { requestId: 'fallback', reason },
+        },
+        install: undefined,
+        batch: undefined,
+      });
+      expect(stage?.step).toBe('qrFallback');
+      expect(stage?.qrFallbackReason).toBe(expected);
+    }
+    // Another ask's reason (e.g. a reconnect request) never reaches the card.
+    await scope.onThirdPartyState({
+      ui: {
+        vendor: EHardwareVendor.keystone,
+        action: EThirdPartyHardwareUiAction.requestDeviceNotFound,
+        payload: { reason: 'wallet-mismatch' },
+      },
+      install: undefined,
+      batch: undefined,
+    });
+    expect(stage?.qrFallbackReason).toBeUndefined();
+    await scope.endExplicit({ token });
+  });
+
   it('carries only the current QR fallback request id through the stage', async () => {
     const scope = new DeviceStageBurstScope();
     const token = await scope.beginExplicit({

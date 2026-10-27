@@ -4,6 +4,7 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type {
   IDeviceStageConnectionTypeValue,
   IDeviceStageErrorI18n,
+  IDeviceStageQrFallbackReasonValue,
 } from '@onekeyhq/shared/types/deviceStage';
 
 import type {
@@ -223,6 +224,8 @@ export interface IDeviceStageProps {
   btcHighIndexPath?: string;
   /** The account index parsed from that path. */
   btcHighIndexAccountIndex?: number;
+  /** Why `qrFallback` asks; picks its words and whether it offers a retry. */
+  qrFallbackReason?: IDeviceStageQrFallbackReasonValue;
   /** The `pairingCode` entry, confirmed — the code the person copied
    * off the device's screen. Empty is refused inline before this fires. */
   onPairingSubmit?: (code: string) => void;
@@ -239,9 +242,13 @@ export interface IDeviceStageProps {
   /** `btcHighIndex`'s single action — proceed with the non-standard
    * index, one device confirmation per path. Omitted, no button. */
   onBtcHighIndexConfirm?: () => void;
-  /** `qrFallback`'s single action — sign by QR the request too large for
-   * USB. Omitted, no button. */
+  /** `qrFallback`'s QR action — send the request by QR instead of USB.
+   * Omitted, no button. */
   onQrFallbackConfirm?: () => void;
+  /** `qrFallback`'s retry — look for the USB device again, offered only
+   * when a connected device could not serve the wallet. Omitted, no
+   * button. */
+  onQrFallbackRetry?: () => void;
   /** `installConfirm`'s single action — install the missing app. The
    * driver answers by moving to `installing`. Omitted, no button. */
   onInstallConfirm?: () => void;

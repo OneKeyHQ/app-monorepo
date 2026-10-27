@@ -64,6 +64,15 @@ export type IDeviceStageExitViaValue =
 /** The transport a burst rides — what the capsule's channel badge reads. */
 export type IDeviceStageConnectionTypeValue = 'bluetooth' | 'usb';
 
+/** Why a Keystone request is offered as a QR (the SDK's QrFallbackReason).
+ * Every reason but payload-too-large comes from a connected device the
+ * wallet cannot use, so the card also offers a retry. */
+export type IDeviceStageQrFallbackReasonValue =
+  | 'payload-too-large'
+  | 'wallet-mismatch'
+  | 'device-locked'
+  | 'usb-unavailable';
+
 export type IDeviceStageErrorReasonValue =
   | 'rejected'
   | 'pinInvalid'

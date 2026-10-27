@@ -47,6 +47,7 @@ import type {
 import type {
   IDeviceStageConfirmContent,
   IDeviceStageErrorReasonValue,
+  IDeviceStageQrFallbackReasonValue,
   IDeviceStageStepValue,
 } from '@onekeyhq/shared/types/deviceStage';
 
@@ -189,6 +190,25 @@ const THIRD_PARTY_ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'btcHighIndex',
   'qrFallback',
 ]);
+
+const QR_FALLBACK_REASONS: readonly IDeviceStageQrFallbackReasonValue[] = [
+  'payload-too-large',
+  'wallet-mismatch',
+  'device-locked',
+  'usb-unavailable',
+];
+
+/** The Keystone QR-fallback ask's reason, when it is one the card knows. */
+function qrFallbackReasonOf(
+  ui: IThirdPartyHardwareUiState,
+): IDeviceStageQrFallbackReasonValue | undefined {
+  if (
+    ui.action !== EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm
+  ) {
+    return undefined;
+  }
+  return QR_FALLBACK_REASONS.find((reason) => reason === ui.payload?.reason);
+}
 
 /** How long the ✓ `done` beat rests before the exit. */
 const DONE_HOLD_MS = 1600;
@@ -1564,6 +1584,7 @@ export class DeviceStageBurstScope {
         thirdPartyRequestId: ui.payload?.requestId,
         btcHighIndexPath: ui.payload?.path,
         btcHighIndexAccountIndex: ui.payload?.accountIndex,
+        qrFallbackReason: qrFallbackReasonOf(ui),
       });
       return;
     }
@@ -2101,6 +2122,7 @@ export class DeviceStageBurstScope {
       installActiveIndex?: number;
       btcHighIndexPath?: string;
       btcHighIndexAccountIndex?: number;
+      qrFallbackReason?: IDeviceStageQrFallbackReasonValue;
       qrValueUr?: IDeviceStageState['qrValueUr'];
       qrSessionId?: number;
       qrDiagnostic?: IDeviceStageState['qrDiagnostic'];
@@ -2200,6 +2222,7 @@ export class DeviceStageBurstScope {
         installActiveIndex: mergedExtras.installActiveIndex,
         btcHighIndexPath: mergedExtras.btcHighIndexPath,
         btcHighIndexAccountIndex: mergedExtras.btcHighIndexAccountIndex,
+        qrFallbackReason: mergedExtras.qrFallbackReason,
         // The checklist survives the whole authenticity run (the ask, the
         // wait, the landing, the unofficial-firmware failure card).
         authChecklist: AUTH_STEPS.has(step)

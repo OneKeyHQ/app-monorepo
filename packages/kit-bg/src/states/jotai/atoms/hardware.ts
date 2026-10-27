@@ -22,6 +22,7 @@ import type {
   IDeviceStageConfirmDetail,
   IDeviceStageErrorI18n,
   IDeviceStageErrorReasonValue,
+  IDeviceStageQrFallbackReasonValue,
   IDeviceStageStepValue,
 } from '@onekeyhq/shared/types/deviceStage';
 import type { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
@@ -230,6 +231,8 @@ export type IDeviceStageState = {
   installActiveIndex?: number;
   btcHighIndexPath?: string;
   btcHighIndexAccountIndex?: number;
+  /** Why the Keystone request is offered as a QR (qrFallback step). */
+  qrFallbackReason?: IDeviceStageQrFallbackReasonValue;
   /** Authenticity flow: the per-component checklist and what ended it. */
   authChecklist?: IDeviceStageAuthChecklistItem[];
   authFailureReason?: IDeviceStageAuthFailureReasonValue;

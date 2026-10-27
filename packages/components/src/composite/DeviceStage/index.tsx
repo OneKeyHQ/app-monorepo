@@ -97,6 +97,7 @@ import {
   resolveInstallText,
   resolvePairingCodeText,
   resolvePassphrasePanelText,
+  resolveQrFallbackText,
   resolveStageText,
   resolveStepSub,
 } from './stepCopy';
@@ -590,12 +591,14 @@ export function DeviceStage({
   installActiveIndex,
   btcHighIndexPath,
   btcHighIndexAccountIndex,
+  qrFallbackReason,
   onPairingSubmit,
   onDeviceNotFoundRetry,
   onDeviceNotFoundTroubleshoot,
   onDeviceNotFoundSupport,
   onBtcHighIndexConfirm,
   onQrFallbackConfirm,
+  onQrFallbackRetry,
   onInstallConfirm,
 }: IDeviceStageProps) {
   const intl = useIntl();
@@ -1362,6 +1365,10 @@ export function DeviceStage({
       resolveBtcHighIndexSub(intl, btcHighIndexPath, btcHighIndexAccountIndex),
     [btcHighIndexAccountIndex, btcHighIndexPath, intl],
   );
+  const qrFallbackText = useMemo(
+    () => resolveQrFallbackText(intl, qrFallbackReason),
+    [intl, qrFallbackReason],
+  );
   const installConfirmText = useMemo(
     () => resolveInstallText(intl, 'installConfirm', appName),
     [appName, intl],
@@ -2044,18 +2051,45 @@ export function DeviceStage({
     ),
     [btcHighIndexSub, intl, onBtcHighIndexConfirm, panelMeasureHandlers],
   );
+  // Only a connected device the wallet cannot use can be fixed and
+  // retried; an oversized request stays oversized.
+  const isQrFallbackRetryable =
+    !!qrFallbackReason && qrFallbackReason !== 'payload-too-large';
   const qrFallbackPanel = useMemo(
     () => (
       <YStack>
         <View onLayout={panelMeasureHandlers.qrFallback.words}>
           <StepText
-            title={intl.formatMessage({ id: STEP_TEXT.qrFallback.title })}
-            sub={resolveStepSub(intl, 'qrFallback')}
+            title={qrFallbackText.title}
+            sub={qrFallbackText.sub}
             animated={false}
           />
         </View>
         <View onLayout={panelMeasureHandlers.qrFallback.tail}>
-          {onQrFallbackConfirm ? (
+          {isQrFallbackRetryable ? (
+            <YStack gap="$2">
+              {onQrFallbackRetry ? (
+                <Button
+                  testID="device-stage-qr-fallback-retry"
+                  variant="primary"
+                  size="large"
+                  onPress={onQrFallbackRetry}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+              ) : null}
+              {onQrFallbackConfirm ? (
+                <Button
+                  testID="device-stage-qr-fallback-confirm"
+                  size="large"
+                  onPress={onQrFallbackConfirm}
+                >
+                  {intl.formatMessage({ id: ETranslations.qr_connection_cta })}
+                </Button>
+              ) : null}
+            </YStack>
+          ) : null}
+          {!isQrFallbackRetryable && onQrFallbackConfirm ? (
             <Button
               testID="device-stage-qr-fallback-confirm"
               variant="primary"
@@ -2068,7 +2102,14 @@ export function DeviceStage({
         </View>
       </YStack>
     ),
-    [intl, onQrFallbackConfirm, panelMeasureHandlers],
+    [
+      intl,
+      isQrFallbackRetryable,
+      onQrFallbackConfirm,
+      onQrFallbackRetry,
+      panelMeasureHandlers,
+      qrFallbackText,
+    ],
   );
   const installConfirmPanel = useMemo(
     () => (
