@@ -21,6 +21,7 @@ const mockEmptyState = (): IPrivacyChainScanState => ({
   boostingNetworkIds: [],
   dataBlockedNetworkIds: [],
   pausedNetworkIds: [],
+  preparingNetworkIds: [],
   storageUnsupportedNetworkIds: [],
   syncErrorByNetworkId: {},
 });

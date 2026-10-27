@@ -12,6 +12,8 @@ export type IPrivacyChainScanState = {
   // Networks that want the foreground pace but wait for metered-data consent.
   dataBlockedNetworkIds: string[];
   pausedNetworkIds: string[];
+  // Networks started by the user (Sync, enable) that have not published a position since.
+  preparingNetworkIds: string[];
   // Networks whose runtime cannot store its database here (outdated WebView);
   // not retried this session.
   storageUnsupportedNetworkIds: string[];
@@ -27,6 +29,7 @@ export const { target: privacyChainAtom, use: usePrivacyChainAtom } =
       boostingNetworkIds: [],
       dataBlockedNetworkIds: [],
       pausedNetworkIds: [],
+      preparingNetworkIds: [],
       storageUnsupportedNetworkIds: [],
       syncErrorByNetworkId: {},
     },

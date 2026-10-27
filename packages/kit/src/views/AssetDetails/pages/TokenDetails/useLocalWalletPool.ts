@@ -650,6 +650,19 @@ export function useLocalWalletPool({
       }),
     [accountId, networkId, runBusy],
   );
+  // Resumes a chain paused from the sync light, as the light's Sync did.
+  const resumeNetworkSync = useCallback(
+    () =>
+      runBusy(async () => {
+        await backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
+          networkId,
+          accountId,
+          trigger: 'manual-sync',
+        });
+        refreshRef.current();
+      }),
+    [accountId, networkId, runBusy],
+  );
   const deleteLocalData = useCallback(
     () =>
       runBusy(async () => {
@@ -689,6 +702,7 @@ export function useLocalWalletPool({
     syncStatusText,
     isPreparing,
     isSyncPaused,
+    isNetworkPaused: networkPaused,
     hasSyncError,
     hasAttemptedBalance,
     busy,
@@ -696,6 +710,7 @@ export function useLocalWalletPool({
     isTempWallet: accountSupport === 'tempWallet',
     refresh,
     refreshBalanceNow,
+    resumeNetworkSync,
     enableAccount,
     deleteLocalData,
   };

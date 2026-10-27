@@ -153,9 +153,17 @@ export function getPrivacyChainNetworkSyncDisplay({
   );
   const backfilling =
     isRunning || entries.some(([, value]) => !value.isBackfillComplete);
-  const entry =
-    getPrivacyChainBackfillProgress(known, networkId) ??
-    (backfilling ? undefined : Object.values(known)[0]);
+  // An explicit start shows no figures until this chain publishes again; a pause outranks it.
+  const isStarting = !isPaused && state.preparingNetworkIds.includes(networkId);
+  const entry = isStarting
+    ? undefined
+    : (getPrivacyChainBackfillProgress(known, networkId) ??
+      (backfilling ? undefined : Object.values(known)[0]));
+  // Only the tip is left to follow: scanning never finishes, so no "done" state.
+  const isCaughtUp =
+    !isStarting &&
+    entries.length > 0 &&
+    entries.every(([, value]) => value.isBackfillComplete);
   const syncError =
     isPaused || isHeldByData
       ? undefined
@@ -166,12 +174,13 @@ export function getPrivacyChainNetworkSyncDisplay({
     : getPrivacyChainSyncLabel({
         paused: isPaused,
         held: isHeldByData,
-        preparing: Object.keys(known).length === 0,
+        preparing: isStarting || Object.keys(known).length === 0,
         backfilling,
       });
   return {
     entry,
     labelId,
+    isCaughtUp,
     isRunning,
     isPaused,
     isHeldByData,

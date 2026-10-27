@@ -1,6 +1,7 @@
 import { SimpleDbEntityPrivacyChainCache } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
+import type { IPrivacyChainScanState } from '../states/jotai/atoms';
 import type { ILocalWalletSyncProgress } from '../vaults/localWallet/types';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
@@ -101,6 +102,7 @@ async function createHarness() {
         ['xmr--0|main', { accountSignature: 'other', lastChainTip: 300 }],
       ]),
       boostPausedByNetwork: {},
+      syncFailureBackoff: new Map(),
     },
   );
   const epoch = (await state.getAccountEpoch({ accountId }))!;
@@ -120,6 +122,41 @@ afterEach(() => {
   jest.restoreAllMocks();
   jest.clearAllMocks();
 });
+
+// What the UI would read after every publish so far.
+function publishedState(): IPrivacyChainScanState {
+  return mockPublish.mock.calls.reduce(
+    (state, [updater]) =>
+      (updater as (value: IPrivacyChainScanState) => IPrivacyChainScanState)(
+        state,
+      ),
+    {
+      progress: {},
+      boostingNetworkIds: [],
+      dataBlockedNetworkIds: [],
+      pausedNetworkIds: [],
+      preparingNetworkIds: [],
+      storageUnsupportedNetworkIds: [],
+      syncErrorByNetworkId: {},
+    } as IPrivacyChainScanState,
+  );
+}
+
+function stubScheduling(service: object) {
+  Object.assign(service, {
+    getLocalWalletNetworkIds: async () => [networkId],
+    init: async () => undefined,
+    scheduleBackgroundSync: jest.fn(),
+    markLocalWalletOrphanCleanupDue: () => undefined,
+    orphanCleanupGeneration: new Map(),
+    backfillActiveByAccount: {},
+    foregroundBoostRequestedByNetwork: {},
+    syncFailureBackoff: new Map(),
+    deviceIsCellular: false,
+    serviceBootAt: 0,
+    earliestTickAt: 60_000,
+  });
+}
 
 it('records completed syncs even when the balance is unchanged, and never records a UI-only progress read', async () => {
   const { service, cache, epoch, candidate } = await createHarness();
@@ -235,13 +272,18 @@ it.each(['account', 'network', 'all'])(
   },
 );
 
-it('schedules an explicit refresh through Resume and forces a check even at an unchanged tip', async () => {
+// The indicator lights only for a large catch-up, like any automatic start.
+it('schedules a refresh without a manual sync and forces a check even at an unchanged tip', async () => {
   const { service } = await createHarness();
   const start = jest
     .spyOn(service, 'startForegroundBoost')
     .mockResolvedValue(undefined);
+  const wake = jest
+    .spyOn(service, 'wakeLocalWalletSync')
+    .mockResolvedValue(undefined);
   await service.refreshLocalWalletAccount(params);
-  expect(start).toHaveBeenCalledWith({ ...params, trigger: 'manual-sync' });
+  expect(start).toHaveBeenCalledWith({ ...params, trigger: 'auto-backfill' });
+  expect(wake).toHaveBeenCalledTimes(1);
   expect(service.runtimeSyncState.has('zec--0|main')).toBe(false);
   expect(service.runtimeSyncState.has('xmr--0|main')).toBe(true);
   expect(await service.getLocalWalletLastSyncedAt(params)).toBeUndefined();
@@ -253,8 +295,33 @@ it('leaves a paused chain paused when the balance is refreshed', async () => {
   const start = jest
     .spyOn(service, 'startForegroundBoost')
     .mockResolvedValue(undefined);
+  const wake = jest
+    .spyOn(service, 'wakeLocalWalletSync')
+    .mockResolvedValue(undefined);
   await service.refreshLocalWalletAccount(params);
   expect(start).not.toHaveBeenCalled();
+  expect(wake).not.toHaveBeenCalled();
+});
+
+it('marks a chain preparing on an explicit sync until its next published position', async () => {
+  const { service, candidate } = await createHarness();
+  stubScheduling(service);
+  await service.startForegroundBoost({ networkId, trigger: 'manual-sync' });
+  expect(publishedState().preparingNetworkIds).toEqual([networkId]);
+  await service.publishScanProgress(candidate);
+  expect(publishedState().preparingNetworkIds).toEqual([]);
+});
+
+it('marks a chain preparing when an account is enabled, and starts it as soon as a Sync press would', async () => {
+  const { service } = await createHarness();
+  stubScheduling(service);
+  await service.onLocalWalletAccountsChanged({
+    networkId,
+    accountIds: [accountId],
+    backfillActive: true,
+  });
+  expect(publishedState().preparingNetworkIds).toEqual([networkId]);
+  expect(service.earliestTickAt).toBe(30_000);
 });
 
 it('does not use stale display progress to establish success, and does not lose authoritative success to a failed display read', async () => {

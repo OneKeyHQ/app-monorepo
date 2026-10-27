@@ -103,6 +103,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   const privacyChainAtomValue = atom({
     storageUnsupportedNetworkIds: [] as string[],
     pausedNetworkIds: [] as string[],
+    preparingNetworkIds: [] as string[],
     dataBlockedNetworkIds: [] as string[],
     syncErrorByNetworkId: {} as Record<string, string>,
   });
@@ -499,6 +500,7 @@ const setPublishedScanState = (state: Partial<IPrivacyChainScanState>) =>
   getDefaultStore().set(privacyChainAtom.atom(), {
     storageUnsupportedNetworkIds: [],
     pausedNetworkIds: [],
+    preparingNetworkIds: [],
     dataBlockedNetworkIds: [],
     syncErrorByNetworkId: {},
     ...state,

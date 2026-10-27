@@ -468,6 +468,30 @@ describe('LocalWalletSyncRow balance refresh', () => {
     expect(screen.queryByTestId('local-wallet-disabled-card')).toBeNull();
   });
 
+  // The light closes on pause, so the token page is where a paused chain resumes.
+  it('offers Resume for a paused chain and resumes it', async () => {
+    const resumeNetworkSync = jest.fn(async () => undefined);
+    const refreshBalanceNow = jest.fn(async () => undefined);
+    render(
+      <LocalWalletSyncRow
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pool({
+          enabled: true,
+          state: { enabled: true, paused: false },
+          isNetworkPaused: true,
+          resumeNetworkSync,
+          refreshBalanceNow,
+        })}
+      />,
+    );
+    const button = screen.getByTestId('local-wallet-refresh-balance-btn');
+    expect(button.textContent).toBe('global.resume');
+    await act(async () => fireEvent.click(button));
+    expect(resumeNetworkSync).toHaveBeenCalledTimes(1);
+    expect(refreshBalanceNow).not.toHaveBeenCalled();
+  });
+
   it('does not invent a successful update while a refresh is being scheduled', async () => {
     const refreshBalanceNow = jest.fn(async () => undefined);
     render(

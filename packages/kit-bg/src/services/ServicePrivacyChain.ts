@@ -605,6 +605,9 @@ class ServicePrivacyChain extends ServiceBase {
     }
     delete this.boostPausedByNetwork[networkId];
     this.foregroundBoostRequestedByNetwork[networkId] = true;
+    if (trigger === 'manual-sync') {
+      await this.setNetworkPreparing(networkId, true);
+    }
     // Publish before gate two can return early, so the UI can offer the data toggle.
     await this.publishBoostingNetworks();
     if (
@@ -615,11 +618,7 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     await this.init();
-    // A waiting user shortens the startup quiet window to its 30s floor.
-    this.earliestTickAt = Math.min(
-      this.earliestTickAt,
-      this.serviceBootAt + timerUtils.getTimeDurationMs({ seconds: 30 }),
-    );
+    this.shortenStartupQuietWindow();
     this.scheduleBackgroundSync(0);
   }
 
@@ -633,6 +632,7 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     delete this.foregroundBoostRequestedByNetwork[networkId];
+    await this.setNetworkPreparing(networkId, false);
     await this.publishBoostingNetworks();
   }
 
@@ -791,11 +791,16 @@ class ServicePrivacyChain extends ServiceBase {
     for (const key of this.runtimeSyncState.keys()) {
       if (key.startsWith(`${networkId}|`)) this.runtimeSyncState.delete(key);
     }
+    this.clearSyncFailureBackoff(networkId);
+    await this.publishSyncError(networkId, undefined);
+    // Lights the indicator only for a large catch-up, like any automatic start.
     await this.startForegroundBoost({
       networkId,
       accountId,
-      trigger: 'manual-sync',
+      trigger: 'auto-backfill',
     });
+    this.shortenStartupQuietWindow();
+    await this.wakeLocalWalletSync();
   }
 
   @backgroundMethod()
@@ -868,7 +873,9 @@ class ServicePrivacyChain extends ServiceBase {
       // An explicit enable needs a visible progress/consent control before the first scanned block
       // is published.
       this.foregroundBoostRequestedByNetwork[networkId] = true;
+      await this.setNetworkPreparing(networkId, true);
       await this.publishBoostingNetworks();
+      this.shortenStartupQuietWindow();
     }
     await this.init();
     this.scheduleBackgroundSync(0);
@@ -3741,7 +3748,13 @@ class ServicePrivacyChain extends ServiceBase {
             progress[key] = value;
           }
         }
-        return { ...v, progress };
+        return {
+          ...v,
+          progress,
+          preparingNetworkIds: v.preparingNetworkIds.filter(
+            (id) => id !== networkId,
+          ),
+        };
       });
     } catch (e) {
       // Publishing is best-effort: a failure leaves subscribers on the last
@@ -3751,6 +3764,29 @@ class ServicePrivacyChain extends ServiceBase {
         error: e instanceof Error ? e.message : String(e),
       });
     }
+  }
+
+  // From an explicit start (Sync, enable) until the chain's next published position.
+  async setNetworkPreparing(networkId: string, preparing: boolean) {
+    await privacyChainAtom.set((value) => {
+      if (value.preparingNetworkIds.includes(networkId) === preparing) {
+        return value;
+      }
+      return {
+        ...value,
+        preparingNetworkIds: preparing
+          ? [...value.preparingNetworkIds, networkId]
+          : value.preparingNetworkIds.filter((id) => id !== networkId),
+      };
+    });
+  }
+
+  // A waiting user shortens the startup quiet window to its 30s floor.
+  shortenStartupQuietWindow() {
+    this.earliestTickAt = Math.min(
+      this.earliestTickAt,
+      this.serviceBootAt + timerUtils.getTimeDurationMs({ seconds: 30 }),
+    );
   }
 
   // Two published lists: a wanted-but-refused boost is actionable (offers
