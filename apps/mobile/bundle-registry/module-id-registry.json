@@ -5154,10 +5154,13 @@
     "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-CQM2P5IG.js": 44961,
     "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-FT3SZP2W.js": 26944,
     "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-H7BZ2C6J.js": 31232,
+    "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-PY5FNLTS.js": 41169,
     "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-S7X2HM7P.js": 55248,
     "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-SK7ZF33J.js": 36705,
     "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-SZZF623R.js": 52568,
     "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-T5HIQPNG.js": 42211,
+    "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-UFNTICCX.js": 25685,
+    "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-VVAN3W2C.js": 27010,
     "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-WUIWRX56.js": 47436,
     "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-YLCHSNXO.js": 30972,
     "node_modules/@onekeyfe/hwk-adapter-core/dist/chunk-Z3IH25KV.js": 46248,
@@ -27351,6 +27354,7 @@
     "packages/kit/src/views/Discovery/hooks/useMobileBottomBarAnimation.ts": 12237,
     "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
     "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapPayTokens.ts": 4476,
-    "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969
+    "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969,
+    "packages/kit/src/views/Onboardingv2/pages/connectKeystoneUsbOrCreateQrWallet.ts": 9801
   }
 }

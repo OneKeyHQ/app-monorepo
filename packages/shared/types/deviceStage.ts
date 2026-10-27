@@ -43,6 +43,7 @@ export type IDeviceStageStepValue =
   | 'pairingCode'
   | 'deviceNotFound'
   | 'btcHighIndex'
+  | 'qrFallback'
   | 'installConfirm'
   | 'installing'
   | 'installBatch';
