@@ -65,6 +65,8 @@ describe('TradingViewNative Hyperliquid candle utilities', () => {
 });
 
 describe('Hyperliquid calendar history', () => {
+  const normalizeMainnet = (candle: ICandle) =>
+    normalizeHyperliquidHistoryCandle(candle, 'mainnet');
   const boundaryCandle = buildCandle({
     s: '@142',
     i: '1d',
@@ -76,9 +78,7 @@ describe('Hyperliquid calendar history', () => {
     c: '97578',
   });
   it('retains the boundary day with Hyperliquid chart prices', () => {
-    expect(
-      normalizeHyperliquidHistoryCandle(boundaryCandle, 'mainnet'),
-    ).toEqual({
+    expect(normalizeMainnet(boundaryCandle)).toEqual({
       t: boundaryCandle.t / 1000,
       o: 98_998,
       h: 98_998,
@@ -89,10 +89,7 @@ describe('Hyperliquid calendar history', () => {
   });
   it('keeps boundary OHLC valid when all original prices exceed the cap', () => {
     expect(
-      normalizeHyperliquidHistoryCandle(
-        { ...boundaryCandle, l: '120000', c: '200000' },
-        'mainnet',
-      ),
+      normalizeMainnet({ ...boundaryCandle, l: '120000', c: '200000' }),
     ).toMatchObject({
       o: 98_998,
       h: 98_998,
@@ -102,21 +99,15 @@ describe('Hyperliquid calendar history', () => {
   });
   it('excludes wholly earlier candles but retains a candle ending at the boundary', () => {
     expect(
-      normalizeHyperliquidHistoryCandle(
-        { ...boundaryCandle, T: 1_739_556_000_000 - 1 },
-        'mainnet',
-      ),
+      normalizeMainnet({ ...boundaryCandle, T: 1_739_556_000_000 - 1 }),
     ).toBeNull();
     expect(
-      normalizeHyperliquidHistoryCandle(
-        { ...boundaryCandle, T: 1_739_556_000_000 },
-        'mainnet',
-      ),
+      normalizeMainnet({ ...boundaryCandle, T: 1_739_556_000_000 }),
     ).not.toBeNull();
   });
   it.each(['BTC', 'ETH', '@234'])('does not filter or cap %s', (s) => {
     const candle = { ...boundaryCandle, s };
-    expect(normalizeHyperliquidHistoryCandle(candle, 'mainnet')).toEqual(
+    expect(normalizeMainnet(candle)).toEqual(
       normalizeHyperliquidCandle(candle),
     );
   });
@@ -125,7 +116,7 @@ describe('Hyperliquid calendar history', () => {
       normalizeHyperliquidHistoryCandle(boundaryCandle, 'testnet'),
     ).toEqual(normalizeHyperliquidCandle(boundaryCandle));
     const candle = { ...boundaryCandle, t: 1_739_556_000_000 };
-    expect(normalizeHyperliquidHistoryCandle(candle, 'mainnet')).toEqual(
+    expect(normalizeMainnet(candle)).toEqual(
       normalizeHyperliquidCandle(candle),
     );
   });
@@ -143,7 +134,7 @@ describe('Hyperliquid calendar history', () => {
       v: '441.1893',
       n: 2385,
     });
-    expect(normalizeHyperliquidHistoryCandle(candle, 'mainnet')).toEqual({
+    expect(normalizeMainnet(candle)).toEqual({
       t: 1_743_033_600,
       o: 2021,
       h: 2021,
@@ -155,14 +146,11 @@ describe('Hyperliquid calendar history', () => {
       normalizeHyperliquidCandle(candle),
     );
     const laterCandle = { ...candle, t: 1_743_085_980_000 };
-    expect(normalizeHyperliquidHistoryCandle(laterCandle, 'mainnet')).toEqual(
+    expect(normalizeMainnet(laterCandle)).toEqual(
       normalizeHyperliquidCandle(laterCandle),
     );
     expect(
-      normalizeHyperliquidHistoryCandle(
-        { ...candle, T: 1_743_085_980_000 - 1 },
-        'mainnet',
-      ),
+      normalizeMainnet({ ...candle, T: 1_743_085_980_000 - 1 }),
     ).toBeNull();
   });
   it.each([
@@ -236,7 +224,7 @@ describe('Hyperliquid calendar history', () => {
   it('matches the first calendar week and month from the public BTC spot sample', () => {
     const points = dailySnapshot
       .map(([t, o, h, l, c, v]) =>
-        normalizeHyperliquidHistoryCandle(
+        normalizeMainnet(
           buildCandle({
             s: '@142',
             i: '1d',
@@ -248,7 +236,6 @@ describe('Hyperliquid calendar history', () => {
             c: String(c),
             v: String(v),
           }),
-          'mainnet',
         ),
       )
       .filter((point) => point !== null);

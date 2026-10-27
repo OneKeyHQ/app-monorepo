@@ -44,6 +44,8 @@ const response = (points: IMarketTokenKLineDataPoint[]) => ({
   points,
   total: points.length,
 });
+const mockHistory = (...points: IMarketTokenKLineDataPoint[]) =>
+  gateway.fetchCandles.mockResolvedValueOnce(response(points));
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 function deferred<T>() {
@@ -220,12 +222,10 @@ describe('Hyperliquid native calendar provider', () => {
   ])(
     'applies late daily corrections within the current %s bucket',
     async (value, start, previousBucketDay) => {
-      gateway.fetchCandles.mockResolvedValueOnce(
-        response([
-          point('2026-10-05'),
-          point('2026-10-08'),
-          point('2026-10-09'),
-        ]),
+      mockHistory(
+        point('2026-10-05'),
+        point('2026-10-08'),
+        point('2026-10-09'),
       );
       const { onPoint, promise } = subscribe(value);
       await promise;
@@ -243,9 +243,7 @@ describe('Hyperliquid native calendar provider', () => {
   it('keeps the day-transition frame when the refill returns an older snapshot', async () => {
     const { onPoint, promise } = subscribe();
     await promise;
-    gateway.fetchCandles.mockResolvedValueOnce(
-      response([point('2026-10-05'), point('2026-10-09'), point('2026-10-10')]),
-    );
+    mockHistory(point('2026-10-05'), point('2026-10-09'), point('2026-10-10'));
     listener(point('2026-10-10', { h: 180, c: 170, v: 30 }));
     await flush();
     expect(onPoint).toHaveBeenLastCalledWith(
@@ -269,9 +267,7 @@ describe('Hyperliquid native calendar provider', () => {
     expect(onPoint).not.toHaveBeenCalled();
 
     jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-09T12:00:05Z'));
-    gateway.fetchCandles.mockResolvedValueOnce(
-      response([point('2026-10-05'), point('2026-10-09'), point('2026-10-10')]),
-    );
+    mockHistory(point('2026-10-05'), point('2026-10-09'), point('2026-10-10'));
     listener(point('2026-10-10', { c: 125, v: 25 }));
     await flush();
     expect(gateway.fetchCandles.mock.calls).toHaveLength(3);
@@ -283,13 +279,11 @@ describe('Hyperliquid native calendar provider', () => {
   it('backfills missed days before publishing after a day gap', async () => {
     const { onPoint, promise } = subscribe();
     await promise;
-    gateway.fetchCandles.mockResolvedValueOnce(
-      response([
-        point('2026-10-05'),
-        point('2026-10-09'),
-        point('2026-10-10', { h: 150 }),
-        point('2026-10-11', { c: 120, v: 15 }),
-      ]),
+    mockHistory(
+      point('2026-10-05'),
+      point('2026-10-09'),
+      point('2026-10-10', { h: 150 }),
+      point('2026-10-11', { c: 120, v: 15 }),
     );
     listener(point('2026-10-11', { c: 120, v: 15 }));
     await flush();
@@ -305,7 +299,7 @@ describe('Hyperliquid native calendar provider', () => {
     const { onPoint, promise } = subscribe(value);
     await promise;
     const nextPoint = point(nextDay, { o: 200, h: 220, l: 190, c: 210, v: 7 });
-    gateway.fetchCandles.mockResolvedValueOnce(response([nextPoint]));
+    mockHistory(nextPoint);
     listener(nextPoint);
     await flush();
     expect(onPoint).toHaveBeenLastCalledWith(nextPoint);
