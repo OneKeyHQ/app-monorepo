@@ -244,6 +244,25 @@ it('names our transparent change output by pool', async () => {
   expect(result.getByText(OWN_T)).toBeTruthy();
 });
 
+// A shielded change note names no address; its pool stands in for it.
+it('marks shielded change under its pool name', async () => {
+  mockDetails = {
+    inputOutputSource: 'account',
+    sends: [entry({ poolId: 4, isOwn: true })],
+    receives: [
+      entry({ poolId: 4, isOwn: false, address: RECIPIENT, to: RECIPIENT }),
+      entry({ poolId: 4, isOwn: true, isChange: true }),
+    ],
+  };
+  const result = await renderPage();
+  const badges = result.getAllByText('wallet.change_address');
+  expect(badges).toHaveLength(1);
+  // Badge text -> badge -> the change row, which names the pool.
+  const changeRow = badges[0].parentElement?.parentElement;
+  expect(changeRow?.textContent).toContain('Ironwood pool');
+  expect(changeRow?.textContent).not.toContain(RECIPIENT);
+});
+
 it('leaves non-privacy chains as they were', async () => {
   mockNetworkId = 'btc--0';
   mockDetails = {
