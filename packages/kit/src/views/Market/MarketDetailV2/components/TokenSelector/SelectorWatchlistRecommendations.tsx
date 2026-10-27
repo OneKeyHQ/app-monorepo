@@ -6,9 +6,16 @@ import { MarketRecommendList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { TOKEN_SELECTOR_TABLE_PADDING } from './constants';
 import { useSelectorListMeasurements } from './useSelectorSwipeKeyboardDismiss';
 
-export function SelectorWatchlistRecommendations() {
+export function SelectorWatchlistRecommendations({
+  compact = false,
+}: {
+  // For a narrow column on a wide window: small-screen cards, edges aligned
+  // with the list rows.
+  compact?: boolean;
+} = {}) {
   const intl = useIntl();
   const { recommendedTokens, isLoading } = useMarketBasicConfig();
   const listMeasurementProps = useSelectorListMeasurements(
@@ -43,7 +50,12 @@ export function SelectorWatchlistRecommendations() {
       <MarketRecommendList
         recommendedTokens={recommendedTokens}
         maxSize={platformEnv.isExtensionUiPopup ? 6 : 8}
-        containerProps={{ pt: '$2.5', pb: '$5' }}
+        containerProps={{
+          pt: '$2.5',
+          pb: '$5',
+          ...(compact ? { px: TOKEN_SELECTOR_TABLE_PADDING } : undefined),
+        }}
+        compact={compact}
       />
     </ScrollView>
   );

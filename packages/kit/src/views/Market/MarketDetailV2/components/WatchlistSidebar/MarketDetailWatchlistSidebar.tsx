@@ -444,14 +444,16 @@ function MarketDetailWatchlistSidebarImpl({
     [assetId, handleItemPress, networkId, stockId, tokenAddress],
   );
 
-  // Empty means nothing is stored, not nothing loaded: on desktop and web a
-  // failed request leaves the hook without rows and without `isError`, so
-  // favorites that are stored but came back with no rows read as a failed
-  // load rather than an empty watchlist.
+  // Favorites that are stored but no longer resolve to a row (a delisted perp,
+  // a token the batch API drops) leave nothing the user can see or remove, so
+  // a settled empty result falls back to the recommendations like the token
+  // selector's Favorites tab does (OK-65655).
   const storedCount = watchListData?.length ?? 0;
-  const isWatchlistEmpty = isMounted && storedCount === 0;
+  const isWatchlistEmpty =
+    isMounted &&
+    (storedCount === 0 || (!isLoading && !isError && data.length === 0));
   const showSkeleton = !isMounted || (isLoading && data.length === 0);
-  const isLoadFailed = data.length === 0 && (isError || storedCount > 0);
+  const isLoadFailed = isError && data.length === 0;
 
   const tableHeader = (
     <XStack
@@ -496,7 +498,7 @@ function MarketDetailWatchlistSidebarImpl({
 
   let content;
   if (isWatchlistEmpty) {
-    content = <SelectorWatchlistRecommendations />;
+    content = <SelectorWatchlistRecommendations compact />;
   } else if (showSkeleton) {
     content = (
       <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>
@@ -507,16 +509,11 @@ function MarketDetailWatchlistSidebarImpl({
       </YStack>
     );
   } else if (isLoadFailed) {
-    // Without `isError` the empty result may also be favorites that are no
-    // longer available (a delisted perp), so it reads as no results with a
-    // retry rather than claiming a connection error.
     content = (
       <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
         <SizableText color="$textSubdued">
           {intl.formatMessage({
-            id: isError
-              ? ETranslations.global_connet_error_try_again
-              : ETranslations.global_no_results,
+            id: ETranslations.global_connet_error_try_again,
           })}
         </SizableText>
         <Button
