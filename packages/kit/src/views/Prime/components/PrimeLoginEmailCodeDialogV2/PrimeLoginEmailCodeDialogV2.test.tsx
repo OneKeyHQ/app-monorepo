@@ -405,6 +405,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     prime: {
       subscription: {
+        emailOtpCaptchaDiagnostic: jest.fn(),
         onekeyIdLoginFailedReason: (...args: unknown[]) => {
           mockOneKeyIdLoginFailedReason(...args);
         },
