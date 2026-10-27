@@ -271,6 +271,37 @@ describe('ActivityHubContent', () => {
     });
   });
 
+  it.each([
+    { platform: 'pointer layouts', isNative: false, panel: true },
+    { platform: 'native', isNative: true, panel: false },
+  ])(
+    'shows the same entry in the Perps menu as in the gift on $platform',
+    ({ isNative, panel }) => {
+      platformEnv.isNative = isNative;
+      render(
+        <ActivityHubContent
+          source="Perps"
+          closePopover={jest.fn()}
+          onOpenReferral={jest.fn()}
+          showTitle={false}
+          menuLayout
+        />,
+      );
+
+      expect(Boolean(screen.queryByTestId('activity-hub-open-perks'))).toBe(
+        panel,
+      );
+      expect(Boolean(screen.queryByTestId('activity-hub-referral'))).toBe(
+        !panel,
+      );
+      expect(mockHubShown).toHaveBeenCalledWith({
+        source: 'Perps',
+        layout: 'menu',
+        campaignCount: 0,
+      });
+    },
+  );
+
   it('opens the referral page from the native gift when there are no campaigns', () => {
     platformEnv.isNative = true;
     const onOpenReferral = jest.fn();

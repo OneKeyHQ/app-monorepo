@@ -6,7 +6,8 @@ export type IActivityHubLogSource = 'Earn' | 'Perps' | 'Swap';
 
 // invite_panel: pointer layouts, with the code and link to copy.
 // shortcut: native sheets, with the Referral tile.
-// menu: the Perps menu's campaign section.
+// menu: the Perps menu's campaign section (the invite panel on pointer
+// layouts, the Referral row on native).
 export type IActivityHubLayout = 'invite_panel' | 'shortcut' | 'menu';
 
 export type IActivityHubAction =

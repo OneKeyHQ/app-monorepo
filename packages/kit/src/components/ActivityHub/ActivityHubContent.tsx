@@ -213,9 +213,9 @@ export function ActivityHubContent({
   const campaignCount = campaignItems.length;
   const hasCampaigns = campaignCount > 0;
   // Native has no Referral tab, so its hub links to the page; pointer layouts
-  // have one in the sidebar and show the code and link to copy instead. The
-  // Perps menu lists the entry like its other menu items.
-  const showInvitePanel = !platformEnv.isNative && !menuLayout;
+  // have one in the sidebar and show the code and link to copy instead,
+  // in the Perps menu too, so every product's hub reads the same.
+  const showInvitePanel = !platformEnv.isNative;
   const hubTitle = intl.formatMessage({
     id: getActivityHubTitleId({ hasCampaigns, showInvitePanel }),
   });
@@ -250,7 +250,14 @@ export function ActivityHubContent({
         pb={menuLayout ? '$0' : '$3.5'}
       >
         {showInvitePanel ? (
-          <YStack gap="$2.5">
+          // In the Perps menu the panel lines up with the menu's 20px text
+          // inset, like the campaign list below it.
+          <YStack
+            gap="$2.5"
+            px={menuLayout ? '$5' : undefined}
+            pt={menuLayout ? '$2.5' : undefined}
+            pb={menuLayout ? '$3' : undefined}
+          >
             {/* Under the activity hub title the invite part names itself,
                 like the campaign list below it. */}
             {hasCampaigns ? (
