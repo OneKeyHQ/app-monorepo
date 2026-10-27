@@ -128,11 +128,12 @@ const CAPSULE_CONTENT_FADE_START = 0.7;
 // Same point where touches move from the bar to the pill.
 const DOMAIN_SWAP_POINT = BROWSER_CHROME_CROSSFADE_POINT;
 
-// How close two pieces of glass inside the bottom bar's GlassContainer have to be
-// before they merge into one shape. Zero lets the address background and the
-// side capsules affect each other as soon as they touch, which is what makes them
-// read as a single material. Passing it at all is what matters: the native
-// container only builds its effect inside setSpacing.
+// Must be passed for the container's material to exist at all: the native
+// container only builds its UIGlassContainerEffect inside setSpacing, and that
+// skips a nil-to-nil change, so omitting the prop leaves the container inert.
+// The value itself is below the gap between the capsules (8pt), so they stay
+// separate shapes: what unifies their look is being in the container, not
+// merging them. Anything at 8 or more would fuse them into one blob.
 const SPACING_GLASS_CONTAINER = 0;
 
 // The pill's domain text size.

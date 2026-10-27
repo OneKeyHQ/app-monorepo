@@ -223,10 +223,28 @@ describe('useMobileBrowserChromeAnimation finger tracking', () => {
     const { result } = renderChrome();
     const { handleScroll, chromeProgress, layoutExpanded } = result.current;
 
+    // Collapse mid-page first, so the layout has somewhere to collapse from.
     act(() => {
-      handleScroll(scrollEvent(MAX_SCROLL_Y - 4, true));
+      handleScroll(scrollEvent(300, true));
+      handleScroll(scrollEvent(400, true));
+    });
+    expect(layoutExpanded.value).toBe(0);
+
+    // Arriving in the bottom zone forces the chrome open without collapsing the
+    // layout any further, and a second event confirms it stays that way.
+    act(() => {
+      handleScroll(
+        scrollEvent(MAX_SCROLL_Y - 4, true, COLLAPSED_VIEWPORT_HEIGHT),
+      );
     });
     expect(chromeProgress.value).toBe(1);
-    expect(layoutExpanded.value).toBe(1);
+
+    act(() => {
+      handleScroll(
+        scrollEvent(MAX_SCROLL_Y - 2, true, COLLAPSED_VIEWPORT_HEIGHT),
+      );
+    });
+    expect(chromeProgress.value).toBe(1);
+    expect(layoutExpanded.value).toBe(0);
   });
 });

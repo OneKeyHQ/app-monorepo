@@ -167,9 +167,19 @@ function useMobileBrowserChromeAnimation() {
       // fully at the edge itself, like Telegram.
       const toBottom = Math.max(0, maxScrollY - scrollY);
       const toTop = Math.max(0, scrollY + contentTopInset);
-      const isNearBottom = toBottom < fullBarHeight;
+      // The bottom zone is measured on the frame change, not on the bar height:
+      // collapsing the layout moves the page's bottom edge up by
+      // layoutHeightDelta, so anything less than that from the bottom would
+      // become an overscroll and spring back. On an iPhone with no bottom inset
+      // the frame change (66) is larger than the bar (62), so a bar-sized zone
+      // would leave a gap where the loop survives.
+      const bottomZone = Math.max(fullBarHeight, layoutHeightDelta);
+      const isNearBottom = toBottom < bottomZone;
       if (isNearBottom) {
-        next = Math.max(next, 1 - toBottom / fullBarHeight);
+        // Hold the chrome open here: the frame cannot shrink, and a chrome drawn
+        // under 1 against an expanded frame would lift the page and the bar's
+        // backdrop away from the screen bottom.
+        next = EXPANDED;
       } else if (toTop < followDistance) {
         next = Math.max(next, 1 - toTop / followDistance);
       }
@@ -186,13 +196,7 @@ function useMobileBrowserChromeAnimation() {
       }
       targetRef.current = next;
       isSettledRef.current = false;
-      // Never collapse the layout near the bottom: the collapsed frame is
-      // layoutHeightDelta taller, so its bottom edge moves up by that much and
-      // the offset that was at the bottom becomes an overscroll. That would
-      // force the chrome back to expanded, restore the shorter frame, and leave
-      // the page's last stretch permanently out of reach. The chrome still
-      // follows down here, it just keeps the frame it already has.
-      if (next < EXPANDED && !isNearBottom) {
+      if (next < EXPANDED) {
         setLayoutCollapsed();
       }
       // Replaces any running animation.
@@ -203,6 +207,7 @@ function useMobileBrowserChromeAnimation() {
       chromeProgress,
       followDistance,
       fullBarHeight,
+      layoutHeightDelta,
       setLayoutCollapsed,
     ],
   );
