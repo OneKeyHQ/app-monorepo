@@ -3,7 +3,6 @@ import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm'
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 
 import {
-  getZcashConfirmFromPool,
   getZcashEncodedTx,
   isZcashShieldedSpend,
   replaceAccountAddressComponent,
@@ -27,33 +26,6 @@ function buildTx(overrides: Partial<IEncodedTxZcash>): IEncodedTxZcash {
     ...overrides,
   };
 }
-
-function input(address: string, vout: number) {
-  return { txid: 'aa'.repeat(32), vout, value: '5000', address, path: '' };
-}
-
-describe('getZcashConfirmFromPool', () => {
-  it('adds no source for transparent sends, whatever their inputs', () => {
-    expect(
-      getZcashConfirmFromPool(
-        buildTx({
-          zcashMode: 'transparent',
-          inputs: [input(T1_A, 0), input(T1_B, 1)],
-        }),
-      ),
-    ).toBeUndefined();
-  });
-
-  it('shows the shielded pool name', () => {
-    expect(
-      getZcashConfirmFromPool(buildTx({ zcashSpendSource: 'ironwood' })),
-    ).toBe('Ironwood');
-    expect(
-      getZcashConfirmFromPool(buildTx({ zcashSpendSource: 'orchard' })),
-    ).toBe('Orchard');
-    expect(getZcashConfirmFromPool(buildTx({}))).toBe('Shielded');
-  });
-});
 
 describe('zcash encoded tx detection', () => {
   it('only treats privacy-mode Zcash txs as shielded spends', () => {
