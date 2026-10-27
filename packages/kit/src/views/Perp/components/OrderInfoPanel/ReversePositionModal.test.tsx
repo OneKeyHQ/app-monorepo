@@ -9,7 +9,12 @@ import {
   waitFor,
 } from '@testing-library/react';
 
-import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
+import type {
+  IButtonProps,
+  IDialogInstance,
+  IDialogShowProps,
+} from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { getPerpsMarketDataFreshness } from '../../utils/perpsMarketDataFreshness';
 
@@ -98,12 +103,14 @@ jest.mock('@onekeyhq/components', () => {
       disabled,
       loading,
       testID,
+      variant,
     }: {
       children?: ReactNode;
       onPress?: () => void;
       disabled?: boolean;
       loading?: boolean;
       testID?: string;
+      variant?: IButtonProps['variant'];
     }) => (
       <button
         type="button"
@@ -111,12 +118,14 @@ jest.mock('@onekeyhq/components', () => {
         disabled={disabled}
         aria-busy={loading ?? false}
         data-testid={testID}
+        data-variant={variant}
       >
         {children}
       </button>
     ),
     Dialog: { show: (props: IDialogShowProps) => mockDialogShow(props) },
     Divider: () => <hr />,
+    Icon: () => null,
     SizableText: Stack,
     XStack: Stack,
     YStack: Stack,
@@ -502,6 +511,33 @@ describe('reverse position confirmation', () => {
     expect(view.container.textContent).not.toContain('999999');
   });
 
+  it.each([
+    {
+      positionSize: '1',
+      expectedVariant: 'destructive',
+      expectedLabel: ETranslations.perp_trade_short,
+    },
+    {
+      positionSize: '-1',
+      expectedVariant: 'accent',
+      expectedLabel: ETranslations.perp_trade_long,
+    },
+  ])(
+    'shows the target direction and color for position size $positionSize',
+    ({ positionSize, expectedVariant, expectedLabel }) => {
+      mockPosition = { ...mockPosition, szi: positionSize };
+      const view = render(
+        <ReversePositionContent
+          snapshot={{ ...mockSnapshot, positionSize }}
+          onClose={mockClose}
+        />,
+      );
+      const confirm = view.getByTestId('perp-reverse-position-confirm-button');
+
+      expect(confirm.textContent).toBe(expectedLabel);
+      expect(confirm.getAttribute('data-variant')).toBe(expectedVariant);
+    },
+  );
   it('submits one market order, never cancels orders, and prevents duplicate submission', async () => {
     const pending = deferred();
     mockPlaceOrder.mockReturnValueOnce(pending.promise);

@@ -68,6 +68,10 @@ const baseResolve = ({ platform, configName, basePath }) => ({
       'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
     'react-native/Libraries/EventEmitter/NativeEventEmitter$':
       'react-native-web/dist/vendor/react-native/NativeEventEmitter',
+    'react-native/Libraries/Image/AssetRegistry$':
+      'react-native-web/dist/modules/AssetRegistry',
+    '@react-native/assets-registry/registry$':
+      'react-native-web/dist/modules/AssetRegistry',
     '@react-aria/focus': path.join(
       basePath,
       '../../node_modules/@react-aria/focus/src/index.ts',

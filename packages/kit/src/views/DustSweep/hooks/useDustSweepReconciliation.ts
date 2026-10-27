@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 
+import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 import type {
   IDustSweepNetwork,
   IDustSweepRouteParams,
   IDustSweepSnapshot,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 
+import { EDustSweepPhase } from '../stateMachine';
 import { refreshDustSweepNetwork } from '../utils/loadNetworks';
 
 import type { IDustSweepState } from '../stateMachine';
@@ -201,8 +203,8 @@ export function useDustSweepReconciliation({
     ) => {
       if (activeScope.current !== scope || !batch.snapshot) return;
       if (
-        batch.phase !== 'completed' &&
-        !(isStopped && batch.phase === 'paused')
+        batch.phase !== EDustSweepPhase.Completed &&
+        !(isStopped && batch.phase === EDustSweepPhase.Paused)
       )
         return;
       if (scope.history.processed.has(batch.snapshot.id)) return;
@@ -218,7 +220,7 @@ export function useDustSweepReconciliation({
         refresh(
           entry,
           batch.items
-            .filter((item) => item.status === 'success')
+            .filter((item) => item.status === EDustSweepItemStatus.Success)
             .map((item) => item.token.key),
         );
     },

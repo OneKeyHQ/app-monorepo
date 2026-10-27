@@ -40,8 +40,14 @@ function isKeystoneDeviceCall(method: string): boolean {
 
 type IQrDisplayEvent = {
   payload?: {
+    operationId?: string;
     device?: unknown;
-    data?: { urType?: string; urData?: string; animated?: boolean };
+    data?: {
+      urType?: string;
+      urData?: string;
+      animated?: boolean;
+      allowAccountExport?: boolean;
+    };
   };
 };
 
@@ -92,7 +98,8 @@ export class KeystoneAdapter
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Keystone] adapter created');
 
     this.hw.on(UI_REQUEST.REQUEST_QR_DISPLAY, (event) => {
-      const data = (event as IQrDisplayEvent).payload?.data;
+      const payload = (event as IQrDisplayEvent).payload;
+      const data = payload?.data;
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Keystone] REQUEST_QR_DISPLAY urType=${
           data?.urType ?? '-'
@@ -101,21 +108,48 @@ export class KeystoneAdapter
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestKeystoneQrDisplay,
+        ...(payload?.operationId ? { operationId: payload.operationId } : {}),
         payload: {
           urType: data?.urType,
           urData: data?.urData,
           animated: data?.animated,
+          ...(data?.allowAccountExport ? { allowAccountExport: true } : {}),
         },
       });
     });
 
-    this.hw.on(UI_REQUEST.REQUEST_QR_SCAN, () => {
+    this.hw.on(UI_REQUEST.REQUEST_QR_SCAN, (event) => {
       defaultLogger.hardware.sdkLog.log(
         '[3rdPartyHW][Keystone] REQUEST_QR_SCAN',
       );
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestKeystoneQrScan,
+        ...(event.payload?.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
+      });
+    });
+
+    this.hw.on(UI_REQUEST.REQUEST_QR_FALLBACK_CONFIRM, (event) => {
+      defaultLogger.hardware.sdkLog.log(
+        '[3rdPartyHW][Keystone] REQUEST_QR_FALLBACK_CONFIRM',
+      );
+      const requestId =
+        'requestId' in event.payload &&
+        typeof event.payload.requestId === 'string'
+          ? event.payload.requestId
+          : undefined;
+      this.emitUiEvent({
+        kind: 'request',
+        type: EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+        ...(event.payload.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
+        payload: {
+          vendor: event.payload.vendor,
+          ...(requestId ? { requestId } : {}),
+        },
       });
     });
 
@@ -125,6 +159,7 @@ export class KeystoneAdapter
       const typed = event as {
         type?: string;
         payload?: { sessionId?: string };
+        operationId?: string;
       };
       switch (typed.type) {
         case EConnectorInteraction.ConfirmOnDevice:
@@ -132,12 +167,16 @@ export class KeystoneAdapter
             {
               action: EThirdPartyHardwareUiAction.confirmOnDevice,
               vendor: EHardwareVendor.keystone,
+              ...(typed.operationId ? { operationId: typed.operationId } : {}),
             },
             typed.payload?.sessionId,
           );
           break;
         case EConnectorInteraction.InteractionComplete:
-          this.clearOrRestoreProcessing(typed.payload?.sessionId);
+          this.clearOrRestoreProcessing(
+            typed.payload?.sessionId,
+            typed.operationId,
+          );
           break;
         default:
           break;
@@ -151,7 +190,7 @@ export class KeystoneAdapter
       this.emitConnectionStateChange({ type: 'disconnected', operationId });
       if (this.activeOperationId !== operationId) return;
       void (async () => {
-        await this.clearUiState();
+        await this.clearUiState(undefined, operationId);
         if (this.activeOperationId === operationId) {
           this.activeOperationId = undefined;
         }
@@ -163,6 +202,7 @@ export class KeystoneAdapter
         void this.publishUiState({
           action: event.type as EThirdPartyHardwareUiAction,
           vendor: EHardwareVendor.keystone,
+          ...(event.operationId ? { operationId: event.operationId } : {}),
           payload: event.payload as IThirdPartyHardwareUiState['payload'],
         });
       }
@@ -209,15 +249,19 @@ export class KeystoneAdapter
     }
   }
 
-  private clearOrRestoreProcessing(sessionId?: string): void {
+  private clearOrRestoreProcessing(
+    sessionId?: string,
+    operationId?: string,
+  ): void {
     if (this.processingDepth > 0) {
       void this.restoreProcessingUiState(
         EThirdPartyHardwareUiAction.processing,
         sessionId,
+        operationId,
       );
       return;
     }
-    void this.clearUiState(sessionId);
+    void this.clearUiState(sessionId, operationId);
   }
 
   async searchDevices(

@@ -221,6 +221,8 @@ export type IDeviceStageState = {
   /** The original third-party action — the container builds UI responses
    * from it without reverse-mapping steps. */
   thirdPartyAction?: EThirdPartyHardwareUiAction;
+  /** SDK request identifier for the current third-party prompt. */
+  thirdPartyRequestId?: string;
   /** Install steps: coin app name, real SDK progress (0–100), batch queue. */
   appName?: string;
   installProgress?: number;
@@ -307,6 +309,8 @@ export enum EThirdPartyHardwareUiAction {
   // Keystone QR: the device is already showing its own export/response QR,
   // so there's no display step, the app just scans.
   requestKeystoneQrScan = 'request-keystone-qr-scan',
+  // Keystone: the request is too large for USB; ask whether to sign it by QR.
+  requestKeystoneQrFallbackConfirm = 'request-keystone-qr-fallback-confirm',
   // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',
@@ -345,9 +349,13 @@ export function isThirdPartyConfirmOnDevice(
 export type IThirdPartyHardwareUiState = {
   /** Runtime-only publication id; stable across serialization and independent of SDK request ids. */
   uiRequestId?: string;
+  /** Supplied by the current SDK call; an independent request has no operation owner. */
+  operationId?: string;
   action: EThirdPartyHardwareUiAction;
   vendor: EHardwareVendor;
   payload?: {
+    /** SDK request id echoed by the QR fallback consent response. */
+    requestId?: string;
     message?: string;
     chain?: string;
     /** SDK request reason used for UI copy. */
@@ -375,6 +383,8 @@ export type IThirdPartyHardwareUiState = {
     urData?: string;
     /** Keystone QR: hints the display payload needs multi-frame animated rendering. */
     animated?: boolean;
+    /** The current QR requests public accounts and accepts a device export instead. */
+    allowAccountExport?: boolean;
   };
 };
 
@@ -416,6 +426,7 @@ export async function publishThirdPartyHardwareUiState(
 
 export type IThirdPartyAppInstallState = {
   vendor: EHardwareVendor;
+  operationId?: string;
   appName: string;
   progress?: number;
 };

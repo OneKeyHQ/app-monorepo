@@ -16,6 +16,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { yieldDeviceStageToDialog } from '../DeviceStageContainer/waitForDeviceStageExit';
@@ -32,7 +33,13 @@ const mockCancel = jest.fn(async () => undefined);
 const mockUiResponse = jest.fn(async (_params: unknown) => undefined);
 const mockClearUiState = jest.fn(async (_params: unknown) => true);
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
-const mockStartScan = jest.fn(() => new Promise<never>(() => undefined));
+const mockStartScan = jest.fn<Promise<{ raw: string }>, [unknown]>(
+  () => new Promise(() => undefined),
+);
+const mockDecodeUr = jest.fn(async (_raw: string) => ({
+  type: 'crypto-multi-accounts',
+  cbor: Buffer.from('a0', 'hex'),
+}));
 const mockScanHook = { start: mockStartScan };
 
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
@@ -71,7 +78,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
     thirdPartyHardwareUiStateAtom: { get: async () => mockUiState },
   };
 });
-jest.mock('@onekeyhq/qr-wallet-sdk', () => ({ airGapUrUtils: {} }));
+jest.mock('@onekeyhq/qr-wallet-sdk', () => ({
+  airGapUrUtils: { qrcodeToUr: (raw: string) => mockDecodeUr(raw) },
+}));
 jest.mock('../../../components/Hardware/Hardware', () => ({
   EnterPhase: () => null,
 }));
@@ -300,6 +309,103 @@ it('waits before showing the Keystone QR so the stage cannot cover it', async ()
   expect(mockStartScan).not.toHaveBeenCalled();
   await releaseScan();
   expect(mockStartScan).toHaveBeenCalledTimes(1);
+});
+
+it('opens the explicit export scanner before any device response or error', async () => {
+  mockUiState = {
+    ...qrState(true),
+    payload: {
+      urType: 'qr-hardware-call',
+      urData: 'a0',
+      allowAccountExport: true,
+    },
+  };
+  mockStartScan.mockResolvedValueOnce({ raw: 'fixture-account-export' });
+  render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  const props = jest.mocked(SecureQRToast.show).mock.calls[0][0];
+  expect(props.title).toBe(ETranslations.device_stage_connect_vendor__title);
+  expect(props.message).toBe(ETranslations.device_stage_show_qr__title);
+  expect(props.extraAction?.title).toBe(
+    ETranslations.keystone_specialized_firmware__title,
+  );
+  expect(props.extraAction?.description).toBe(
+    ETranslations.keystone_account_export__desc,
+  );
+  expect(props.extraAction?.label).toBe(
+    ETranslations.keystone_scan_account_export__action,
+  );
+  expect(props.extraAction?.testID).toBe('keystone-scan-account-export-btn');
+  expect(mockStartScan).not.toHaveBeenCalled();
+  expect(mockUiResponse).not.toHaveBeenCalled();
+  await act(async () => {
+    await props.extraAction?.onPress();
+  });
+  expect(mockStartScan).toHaveBeenCalledTimes(1);
+  expect(mockUiResponse).toHaveBeenCalledWith({
+    vendor: EHardwareVendor.keystone,
+    response: {
+      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+      payload: {
+        urType: 'crypto-multi-accounts',
+        urData: 'a0',
+        accountExport: true,
+      },
+    },
+  });
+  expect(mockCancel).not.toHaveBeenCalled();
+});
+
+it('keeps signing QR scans on the normal response path', async () => {
+  mockUiState = qrState(true);
+  mockStartScan.mockResolvedValueOnce({ raw: 'fixture-signature' });
+  mockDecodeUr.mockResolvedValueOnce({
+    type: 'eth-signature',
+    cbor: Buffer.from('a1', 'hex'),
+  });
+  render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  const props = jest.mocked(SecureQRToast.show).mock.calls[0][0];
+  expect(props.title).toBeUndefined();
+  expect(props.extraAction).toBeUndefined();
+  await act(async () => {
+    props.onConfirm?.();
+  });
+  expect(mockUiResponse).toHaveBeenCalledWith({
+    vendor: EHardwareVendor.keystone,
+    response: {
+      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+      payload: { urType: 'eth-signature', urData: 'a1' },
+    },
+  });
+});
+
+it('reports undecodable export data to the SDK instead of treating it as cancellation', async () => {
+  mockUiState = {
+    ...qrState(true),
+    payload: {
+      urType: 'qr-hardware-call',
+      urData: 'a0',
+      allowAccountExport: true,
+    },
+  };
+  mockStartScan.mockResolvedValueOnce({ raw: 'not-an-account-code' });
+  mockDecodeUr.mockRejectedValueOnce(new Error('Cannot decode code'));
+  render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  await act(async () => {
+    await jest
+      .mocked(SecureQRToast.show)
+      .mock.calls[0][0].extraAction?.onPress();
+  });
+  expect(mockUiResponse).toHaveBeenCalledWith({
+    vendor: EHardwareVendor.keystone,
+    response: {
+      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+      payload: { urType: '', urData: '', accountExport: true },
+    },
+  });
+  expect(mockCancel).not.toHaveBeenCalled();
 });
 
 it('does not open the scanner after its QR request was cancelled during the exit', async () => {

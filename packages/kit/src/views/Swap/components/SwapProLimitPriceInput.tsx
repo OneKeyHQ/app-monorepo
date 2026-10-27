@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
-import { InputAccessoryView, type TextInput } from 'react-native';
+import { InputAccessoryView, type TextInputInstance } from 'react-native';
 
 import { Input, SizableText, YStack } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
@@ -33,7 +33,7 @@ const SwapProLimitPriceInput = ({
   onSelectPercentageStage,
 }: ISwapProLimitPriceInputProps) => {
   const intl = useIntl();
-  const inputRef = useRef<IInputRef & TextInput>(null);
+  const inputRef = useRef<IInputRef & TextInputInstance>(null);
   const isFocusedRef = useRef(false);
   const [swapProDirection] = useSwapProDirectionAtom();
   const stageList = useMemo(() => {

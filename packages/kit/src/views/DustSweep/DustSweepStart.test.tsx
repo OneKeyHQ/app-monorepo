@@ -153,7 +153,14 @@ it.each(['success', 'approval'] as const)(
     jest
       .mocked(executeDustSweepItem)
       .mockImplementationOnce(
-        async ({ onSigning, onBroadcast, onApprovalBroadcast, onPrepared }) => {
+        async ({
+          onBuilding,
+          onSigning,
+          onBroadcast,
+          onApprovalBroadcast,
+          onPrepared,
+        }) => {
+          onBuilding();
           onSigning();
           if (outcome === 'success') onBroadcast('tx-confirming');
           else {
@@ -190,7 +197,7 @@ it.each(['success', 'approval'] as const)(
     });
     expect(refreshDustSweepNetwork).not.toHaveBeenCalled();
     expect(result.current.session.state.items[0].status).toBe(
-      outcome === 'success' ? 'broadcasted' : 'preparing',
+      outcome === 'success' ? 'broadcasted' : 'building',
     );
     await act(async () => {
       settle();
