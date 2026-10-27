@@ -38,7 +38,7 @@ export function useMobileStockSelectorNavigation({
         requestIdRef.current === requestId &&
         (mountedRef.current || navigationStarted);
       dismissMobileTokenSelectorKeyboard();
-      // Replace the detail while the selector still exposes the tab stack.
+      // Keep the request current when navigation dismisses the selector.
       void navigate(stock, {
         isCurrentRequest,
         onNavigationStart: () => {
