@@ -52,6 +52,7 @@ import {
   useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapRecentTokenPairSelectionAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -312,6 +313,8 @@ const SwapMainLoad = ({
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
+  const [, setSwapRecentTokenPairSelection] =
+    useSwapRecentTokenPairSelectionAtom();
   const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const { cleanQuoteInterval, quoteAction, selectFromToken, selectToToken } =
     useSwapActions().current;
@@ -757,6 +760,10 @@ const SwapMainLoad = ({
       });
       void selectFromToken(fromTokenPair, true, undefined, skipCheckEqualToken);
       void selectToToken(toTokenPair, undefined, skipCheckEqualToken);
+      setSwapRecentTokenPairSelection({
+        fromToken: fromTokenPair,
+        toToken: toTokenPair,
+      });
       defaultLogger.swap.selectToken.selectToken({
         selectFrom: ESwapSelectTokenSource.RECENT_SELECT,
         tokenListType: getSwapAnalyticsTokenListType({
@@ -764,7 +771,12 @@ const SwapMainLoad = ({
         }),
       });
     },
-    [selectFromToken, selectToToken, swapTypeSwitch],
+    [
+      selectFromToken,
+      selectToToken,
+      setSwapRecentTokenPairSelection,
+      swapTypeSwitch,
+    ],
   );
   const onOpenProviderList = useCallback(() => {
     dismissKeyboard();

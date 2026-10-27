@@ -18,6 +18,7 @@ import {
   getSwapAnalyticsCategoryFromSwapType,
   getSwapAnalyticsEnterFrom,
   getSwapTradeSource,
+  isRecentTokenPairOrder,
 } from './swapStockAnalytics';
 
 const payToken = {
@@ -156,5 +157,45 @@ describe('swapStockAnalytics', () => {
       stockTokenAddress: stockToken.contractAddress,
       network: stockToken.networkId,
     });
+  });
+});
+
+describe('isRecentTokenPairOrder', () => {
+  const eth = { networkId: 'evm--1', contractAddress: '' };
+  const usdc = { networkId: 'evm--1', contractAddress: '0xA0b8' };
+  const bnb = { networkId: 'evm--56', contractAddress: '' };
+
+  it('flags an order that trades the picked recent pair', () => {
+    expect(
+      isRecentTokenPairOrder({
+        recentSelection: { fromToken: eth, toToken: usdc },
+        fromToken: eth,
+        toToken: { ...usdc, contractAddress: '0xa0b8' },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not flag orders without a recent pick', () => {
+    expect(
+      isRecentTokenPairOrder({
+        recentSelection: undefined,
+        fromToken: eth,
+        toToken: usdc,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not flag orders after the pair was reversed or changed', () => {
+    const recentSelection = { fromToken: eth, toToken: usdc };
+    expect(
+      isRecentTokenPairOrder({
+        recentSelection,
+        fromToken: usdc,
+        toToken: eth,
+      }),
+    ).toBe(false);
+    expect(
+      isRecentTokenPairOrder({ recentSelection, fromToken: eth, toToken: bnb }),
+    ).toBe(false);
   });
 });

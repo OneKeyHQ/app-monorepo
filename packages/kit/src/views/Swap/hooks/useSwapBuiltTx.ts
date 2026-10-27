@@ -123,6 +123,7 @@ import {
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
+  useSwapRecentTokenPairSelectionAtom,
   useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
@@ -181,6 +182,7 @@ import {
   getStockTradeAnalyticsPayload,
   getSwapAnalyticsCategoryFromSwapType,
   getSwapTradeSource,
+  isRecentTokenPairOrder,
 } from '../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
@@ -343,6 +345,7 @@ export function useSwapBuildTx({
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapRecentTokenPairSelection] = useSwapRecentTokenPairSelectionAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapProAccount = useSwapProAccount();
@@ -2458,6 +2461,11 @@ export function useSwapBuildTx({
             isSwapPro: focusSwapPro,
             isModalPage,
           }),
+          fromRecentTokenPair: isRecentTokenPairOrder({
+            recentSelection: swapRecentTokenPairSelection,
+            fromToken: buildSwapRes.result?.fromTokenInfo,
+            toToken: buildSwapRes.result?.toTokenInfo,
+          }),
           orderId: buildSwapRes?.orderId ?? '',
           orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
           ...getStockTradeAnalyticsPayload({
@@ -2478,6 +2486,7 @@ export function useSwapBuildTx({
       isFirstTimeSwap,
       focusSwapPro,
       isModalPage,
+      swapRecentTokenPairSelection,
     ],
   );
 
@@ -2661,6 +2670,11 @@ export function useSwapBuildTx({
               createFrom: getSwapCreateFrom({
                 isSwapPro: focusSwapPro,
                 isModalPage,
+              }),
+              fromRecentTokenPair: isRecentTokenPairOrder({
+                recentSelection: swapRecentTokenPairSelection,
+                fromToken: data?.fromTokenInfo,
+                toToken: data?.toTokenInfo,
               }),
               orderId: buildSwapRes?.orderId ?? '',
               orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
@@ -3058,6 +3072,7 @@ export function useSwapBuildTx({
       toAccountId,
       swapBuildFinish,
       logSwapBuildResult,
+      swapRecentTokenPairSelection,
       intl,
       persistSettings.currencyInfo.id,
       currencyMap,

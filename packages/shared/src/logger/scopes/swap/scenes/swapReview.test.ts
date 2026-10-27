@@ -121,6 +121,7 @@ describe('Swap Review server events', () => {
         feeType: '0',
         isFirstTime: false,
         createFrom: 'swapPage',
+        fromRecentTokenPair: false,
         walletType: 'hd',
         deviceType: undefined,
       });
