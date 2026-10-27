@@ -1,7 +1,5 @@
 import { useRef } from 'react';
 
-import { TextInput } from 'react-native';
-
 import {
   styled,
   useComposedRefs,
@@ -11,7 +9,11 @@ import {
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import TextInput from '../Input/TextInput';
+
 import { inputSizeVariant } from './sizeVariant';
+
+import type { TextInput as RNTextInput } from 'react-native';
 
 const isWeb = !platformEnv.isNative;
 
@@ -86,7 +88,7 @@ export const InputFrame = styled(
 
 // const x = <InputFrame selectionColor="" />
 
-export type IInput = TextInput;
+export type IInput = RNTextInput;
 
 export type IInputFrameProps = GetProps<typeof InputFrame>;
 
@@ -111,12 +113,26 @@ export function useInputProps(props: IInputProps, ref: any) {
     theme[placeholderColorProp as any]?.get() ??
     placeholderColorProp ??
     theme.placeholderColor?.get();
+  const selectionColorProp = props.selectionColor;
+  const selectionColor =
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    theme[selectionColorProp as any]?.get() ?? selectionColorProp;
+  const style = (
+    isWeb && selectionColor
+      ? [
+          ...(Array.isArray(props.style) ? props.style : [props.style]),
+          { '--t_selectionColor': selectionColor },
+        ]
+      : props.style
+  ) as IInputProps['style'];
 
   return {
     ref: combinedRef,
     readOnly: props.disabled,
     ...props,
     placeholderTextColor,
+    selectionColor,
+    style,
     onChangeText,
   };
 }

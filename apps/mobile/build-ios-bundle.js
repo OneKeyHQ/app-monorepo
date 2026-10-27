@@ -1,6 +1,6 @@
 /* eslint-disable onekey/no-raw-error */
 /* cspell:ignore debugid */
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 
 const fs = require('fs-extra');
@@ -70,10 +70,15 @@ const buildIOSBundle = async () => {
   });
 
   log('build ios bundle hbc');
-  execSync(
-    `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${buildIOSOutputAssetPath(
-      'main.jsbundle.hbc',
-    )} ${buildIOSOutputAssetPath('main.jsbundle')}`,
+  execFileSync(
+    HERMES_COMMAND,
+    [
+      '-O',
+      '-emit-binary',
+      '-output-source-map',
+      `-out=${buildIOSOutputAssetPath('main.jsbundle.hbc')}`,
+      buildIOSOutputAssetPath('main.jsbundle'),
+    ],
     { stdio: 'inherit' },
   );
   log('build ios bundle hbc done');
@@ -114,8 +119,15 @@ const buildIOSBundle = async () => {
     const commonBundleMapPath = buildIOSOutputAssetPath('common.jsbundle.map');
 
     log('build ios common bundle compress to hbc');
-    execSync(
-      `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${commonBundleHbcPath} ${commonBundleJsPath}`,
+    execFileSync(
+      HERMES_COMMAND,
+      [
+        '-O',
+        '-emit-binary',
+        '-output-source-map',
+        `-out=${commonBundleHbcPath}`,
+        commonBundleJsPath,
+      ],
       { stdio: 'inherit' },
     );
     log('build ios common bundle compress to hbc done');
@@ -170,8 +182,15 @@ const buildIOSBundle = async () => {
     );
 
     log('build ios background bundle compress to hbc');
-    execSync(
-      `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${backgroundBundleHbcPath} ${backgroundBundleJsPath}`,
+    execFileSync(
+      HERMES_COMMAND,
+      [
+        '-O',
+        '-emit-binary',
+        '-output-source-map',
+        `-out=${backgroundBundleHbcPath}`,
+        backgroundBundleJsPath,
+      ],
       { stdio: 'inherit' },
     );
     log('build ios background bundle compress to hbc done');
@@ -270,15 +289,18 @@ const buildIOSBundle = async () => {
   if (!fs.existsSync(webEmbedIOSPath)) {
     fs.mkdirSync(webEmbedIOSPath, { recursive: true });
   }
-  execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${webEmbedIOSPath}/`, {
-    stdio: 'inherit',
-  });
+  execFileSync(
+    'rsync',
+    ['-r', '-c', '-v', `${webEmbedOutputPath}/`, `${webEmbedIOSPath}/`],
+    { stdio: 'inherit' },
+  );
   copyModuleIdMapToPlatformDist(distPath);
   generateMetadataJson(distPath, {
     requiresBackgroundBundle: 'true',
     backgroundProtocolVersion,
   });
-  execSync(`cd ${distPath} && zip -r dist.zip .`, {
+  execFileSync('zip', ['-r', 'dist.zip', '.'], {
+    cwd: distPath,
     stdio: 'inherit',
   });
 

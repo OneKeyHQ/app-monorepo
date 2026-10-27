@@ -29,16 +29,56 @@ describe('getSwapOrderProgressSteps', () => {
     ]);
   });
 
-  it.each([ESwapTxHistoryStatus.FAILED, ESwapTxHistoryStatus.CANCELED])(
-    'renders the three-step failed state for %s',
-    (status) => {
-      expect(getSwapOrderProgressSteps({ status })).toEqual([
-        { label: 'submitted', status: 'done' },
-        { label: 'failed', status: 'error' },
-        { label: 'done', status: 'todo' },
-      ]);
+  it.each([
+    ESwapTxHistoryStatus.FAILED,
+    ESwapTxHistoryStatus.EXPIRED,
+    ESwapTxHistoryStatus.CANCELED,
+  ])('renders the three-step failed state for %s', (status) => {
+    expect(getSwapOrderProgressSteps({ status })).toEqual([
+      { label: 'submitted', status: 'done' },
+      { label: 'failed', status: 'error' },
+      { label: 'done', status: 'todo' },
+    ]);
+  });
+
+  it.each(Object.values(ESwapCrossChainStatus))(
+    'prioritizes expired over stale cross-chain status %s',
+    (crossChainStatus) => {
+      expect(
+        getSwapOrderProgressSteps({
+          status: ESwapTxHistoryStatus.EXPIRED,
+          crossChainStatus,
+        }),
+      ).toEqual(
+        getSwapOrderProgressSteps({ status: ESwapTxHistoryStatus.EXPIRED }),
+      );
     },
   );
+
+  it('renders a same-chain refunded state without cross-chain steps', () => {
+    expect(
+      getSwapOrderProgressSteps({
+        status: ESwapTxHistoryStatus.REFUNDED,
+      }),
+    ).toEqual([
+      { label: 'submitted', status: 'done' },
+      { label: 'failed', status: 'error' },
+      { label: 'refund', status: 'done' },
+    ]);
+  });
+
+  it('prioritizes refunded over a stale cross-chain pending state', () => {
+    expect(
+      getSwapOrderProgressSteps({
+        status: ESwapTxHistoryStatus.REFUNDED,
+        crossChainStatus: ESwapCrossChainStatus.FROM_PENDING,
+      }),
+    ).toEqual([
+      { label: 'submitted', status: 'done' },
+      { label: 'failed', status: 'error' },
+      { label: 'refund', status: 'done' },
+    ]);
+  });
 
   it.each([
     ESwapCrossChainStatus.FROM_SUCCESS,

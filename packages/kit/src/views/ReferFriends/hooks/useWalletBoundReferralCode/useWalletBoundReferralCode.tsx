@@ -18,6 +18,10 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  IReferralBindErrorType,
+  IReferralBindSource,
+} from '@onekeyhq/shared/src/logger/scopes/referral/scenes/page';
 import type { ICheckWalletBindStatusResponse } from '@onekeyhq/shared/src/referralCode/type';
 import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -31,8 +35,9 @@ import { InviteCodeDialog } from './InviteCodeDialog';
 import {
   type IReferralBindDisplayStatus,
   getReferralBindDisplayStatus,
+  isBindWindowExpiredError,
 } from './referralBindStatusUtils';
-import { useGetReferralCodeWalletInfo } from './useGetReferralCodeWalletInfo';
+import { lookupReferralCodeWallet } from './useGetReferralCodeWalletInfo';
 
 import type { IReferralCodeWalletInfo } from './types';
 
@@ -47,7 +52,6 @@ export function useWalletBoundReferralCode({
   const [shouldBondReferralCode, setShouldBondReferralCode] = useState<
     boolean | undefined
   >(undefined);
-  const getReferralCodeWalletInfo = useGetReferralCodeWalletInfo();
 
   const getReferralCodeBindDisplayStatus = useCallback(
     async ({
@@ -58,14 +62,25 @@ export function useWalletBoundReferralCode({
       skipIfTimeout?: boolean;
     }): Promise<IReferralBindDisplayStatus> => {
       if (mnemonicType === EMnemonicType.TON) {
-        return 'unknown';
+        return 'unsupported';
       }
 
-      const walletInfo = await getReferralCodeWalletInfo(walletId);
-      if (!walletInfo) {
+      // A wallet or account that cannot be read yet is not a wallet that
+      // can never take a code. Only the latter is unsupported. A failed
+      // lookup stays unknown so Perks can still offer Enter Code.
+      let lookup: Awaited<ReturnType<typeof lookupReferralCodeWallet>>;
+      try {
+        lookup = await lookupReferralCodeWallet(walletId);
+      } catch {
         return 'unknown';
       }
-      const { address, networkId } = walletInfo;
+      if (lookup.status === 'unsupported') {
+        return 'unsupported';
+      }
+      if (lookup.status !== 'ready') {
+        return 'unknown';
+      }
+      const { address, networkId } = lookup.walletInfo;
 
       let serverStatus: ICheckWalletBindStatusResponse | undefined;
       let isTimeout = false;
@@ -120,7 +135,7 @@ export function useWalletBoundReferralCode({
 
       return getReferralBindDisplayStatus(bindStatus);
     },
-    [mnemonicType, getReferralCodeWalletInfo],
+    [mnemonicType],
   );
 
   const getReferralCodeBondStatus = useCallback(
@@ -161,7 +176,7 @@ export function useWalletBoundReferralCode({
        * referralBindingCompleted analytics event so the caller doesn't have
        * to re-log it (which would cause a double-fire).
        */
-      source?: 'onboarding_dialog' | 'home_block' | 'settings';
+      source?: IReferralBindSource;
       /**
        * If true, do not show the default success Toast on bind success.
        * Use this when the caller renders its own success feedback (e.g. an
@@ -294,10 +309,18 @@ export function useWalletBoundReferralCode({
         >;
         const isServerApiError =
           err?.className === EOneKeyErrorClassNames.OneKeyServerApiError;
-        const isBindWindowExpired =
-          err?.data?.messageId === 'exceeded_bind_window' ||
-          err?.data?.message === 'exceeded_bind_window' ||
-          err?.message === 'exceeded_bind_window';
+        const isBindWindowExpired = isBindWindowExpiredError(err);
+        let errorType: IReferralBindErrorType = 'client_error';
+        if (isBindWindowExpired) {
+          errorType = 'bind_window_expired';
+        } else if (isServerApiError) {
+          errorType = 'server_rejected';
+        }
+        defaultLogger.referral.page.referralBindFailed({
+          source,
+          errorType,
+          serverMessageId: isServerApiError ? err.data?.messageId : undefined,
+        });
 
         // Suppress toast when:
         //   - caller opts out unconditionally (suppressErrorToast), or
@@ -332,14 +355,18 @@ export function useWalletBoundReferralCode({
   const bindWalletInviteCode = useCallback(
     ({
       wallet,
+      preferredWalletId,
       onSuccess,
       onClose,
       defaultReferralCode,
+      source,
     }: {
       wallet?: IDBWallet;
+      preferredWalletId?: string;
       onSuccess?: () => void;
       onClose?: () => void;
       defaultReferralCode?: string;
+      source?: IReferralBindSource;
     }) => {
       dialog.show({
         showExitButton: true,
@@ -350,9 +377,11 @@ export function useWalletBoundReferralCode({
         renderContent: (
           <InviteCodeDialog
             wallet={wallet}
+            preferredWalletId={preferredWalletId}
             onSuccess={onSuccess}
             confirmBindReferralCode={confirmBindReferralCode}
             defaultReferralCode={defaultReferralCode}
+            source={source}
           />
         ),
       });

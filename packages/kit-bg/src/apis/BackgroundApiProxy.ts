@@ -19,7 +19,9 @@ import type ServiceAppCleanup from '../services/ServiceAppCleanup';
 import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
+import type ServiceBatchTxSign from '../services/ServiceBatchTxSign';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceBulkSend from '../services/ServiceBulkSend';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceCloudBackupV2 from '../services/ServiceCloudBackupV2';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
@@ -72,6 +74,7 @@ import type ServicePassword from '../services/ServicePassword';
 import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
+import type ServicePrimeFreeTrial from '../services/ServicePrimeFreeTrial';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
@@ -90,12 +93,14 @@ import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardwar
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
+import type ServiceTravelMode from '../services/ServiceTravelMode';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWalletConnectPay from '../services/ServiceWalletConnectPay';
 import type ServiceWalletStatus from '../services/ServiceWalletStatus';
 import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 
@@ -146,6 +151,10 @@ class BackgroundApiProxy
     return this.getProxyService<ServicePassword>('servicePassword');
   }
 
+  get serviceTravelMode(): ServiceTravelMode {
+    return this.getProxyService<ServiceTravelMode>('serviceTravelMode');
+  }
+
   get serviceWebviewPerp(): ServiceWebviewPerp {
     return this.getProxyService<ServiceWebviewPerp>('serviceWebviewPerp');
   }
@@ -184,6 +193,10 @@ class BackgroundApiProxy
 
   get serviceSend(): ServiceSend {
     return this.getProxyService<ServiceSend>('serviceSend');
+  }
+
+  get serviceBatchTxSign(): ServiceBatchTxSign {
+    return this.getProxyService<ServiceBatchTxSign>('serviceBatchTxSign');
   }
 
   get serviceSwap(): ServiceSwap {
@@ -272,6 +285,12 @@ class BackgroundApiProxy
     return this.getProxyService<ServiceDappSide>('serviceDappSide');
   }
 
+  get serviceWalletConnectPay(): ServiceWalletConnectPay {
+    return this.getProxyService<ServiceWalletConnectPay>(
+      'serviceWalletConnectPay',
+    );
+  }
+
   get serviceWalletConnect(): ServiceWalletConnect {
     return this.getProxyService<ServiceWalletConnect>('serviceWalletConnect');
   }
@@ -294,6 +313,10 @@ class BackgroundApiProxy
 
   get servicePrimeCloudSync(): ServicePrimeCloudSync {
     return this.getProxyService<ServicePrimeCloudSync>('servicePrimeCloudSync');
+  }
+
+  get servicePrimeFreeTrial(): ServicePrimeFreeTrial {
+    return this.getProxyService<ServicePrimeFreeTrial>('servicePrimeFreeTrial');
   }
 
   get serviceHardwarePortfolioSync(): ServiceHardwarePortfolioSync {
@@ -402,6 +425,10 @@ class BackgroundApiProxy
 
   get serviceContextMenu(): ServiceContextMenu {
     return this.getProxyService<ServiceContextMenu>('serviceContextMenu');
+  }
+
+  get serviceBulkSend(): ServiceBulkSend {
+    return this.getProxyService<ServiceBulkSend>('serviceBulkSend');
   }
 
   get serviceFiatCrypto(): ServiceFiatCrypto {

@@ -1,5 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { fetchFirmwareConfig } from '@onekeyhq/shared/src/hardware/firmwareConfigProvider';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
@@ -43,14 +45,27 @@ async function refreshFirmwareManifestSnapshot({
     // Keep using the last known-good remote snapshot below.
   }
 
-  if (allowStaleFallback && cached) {
+  // Check freshness after the request, since the snapshot may expire in flight.
+  const isCacheFresh = cached !== undefined && cached.expiresAt > Date.now();
+  if (cached && (isCacheFresh || allowStaleFallback)) {
     defaultLogger.ipTable.request.info({
-      info: '[FirmwareManifest] config_fetch route=cache outcome=stale_fallback',
+      info: `[FirmwareManifest] config_fetch route=cache outcome=${
+        isCacheFresh ? 'fresh_fallback' : 'stale_fallback'
+      }`,
     });
     return cached.config;
   }
 
-  throw new OneKeyLocalError('Firmware manifest is unavailable');
+  // The thrown message is localized, so keep a stable marker for log triage.
+  defaultLogger.ipTable.request.info({
+    info: '[FirmwareManifest] config_fetch route=none outcome=unavailable',
+  });
+  throw new OneKeyLocalError({
+    message: appLocale.intl.formatMessage({
+      id: ETranslations.firmware_info_unavailable__msg,
+    }),
+    key: ETranslations.firmware_info_unavailable__msg,
+  });
 }
 
 export async function getFirmwareManifestSnapshot({

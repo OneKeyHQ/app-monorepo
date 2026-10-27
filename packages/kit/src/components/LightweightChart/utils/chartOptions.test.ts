@@ -14,6 +14,36 @@ const theme = {
 };
 
 describe('createChartOptions', () => {
+  it('locks the right edge with no gap by default', () => {
+    const options = createChartOptions(theme);
+
+    expect(options.timeScale).toMatchObject({ fixRightEdge: true });
+    expect(options.timeScale).not.toHaveProperty('rightOffsetPixels');
+  });
+
+  it('opens a pixel gap after the last point when asked', () => {
+    const options = createChartOptions(
+      theme,
+      true,
+      11,
+      undefined,
+      true,
+      false,
+      false,
+      undefined,
+      'right',
+      undefined,
+      undefined,
+      undefined,
+      16,
+    );
+
+    expect(options.timeScale).toMatchObject({
+      fixRightEdge: false,
+      rightOffsetPixels: 16,
+    });
+  });
+
   it('reserves the requested price scale width on the first layout', () => {
     const options = createChartOptions(
       theme,
@@ -36,6 +66,37 @@ describe('createChartOptions', () => {
     const options = createChartOptions(theme);
 
     expect(options.rightPriceScale).not.toHaveProperty('minimumWidth');
+  });
+
+  it('keeps the shared faint crosshair when no override is passed', () => {
+    const options = createChartOptions(theme);
+
+    expect(options.crosshair?.vertLine).toMatchObject({
+      color: 'rgba(150, 150, 150, 0.4)',
+      style: 3,
+    });
+  });
+
+  it('applies the caller crosshair overrides', () => {
+    const options = createChartOptions(
+      theme,
+      true,
+      11,
+      undefined,
+      true,
+      false,
+      false,
+      undefined,
+      'right',
+      undefined,
+      undefined,
+      { color: '#0000009b', style: 2 },
+    );
+
+    expect(options.crosshair?.vertLine).toMatchObject({
+      color: '#0000009b',
+      style: 2,
+    });
   });
 
   it('places the visible price scale and reserved width on the left', () => {
@@ -71,5 +132,66 @@ describe('createChartOptions', () => {
         locale: 'en-US',
       }),
     ).toBe(expected);
+  });
+
+  it.each(['en', 'zh-CN', 'bn', 'id', 'th-TH', 'ko-KR'])(
+    'uses Latin digits and colon-separated midnight for %s',
+    (locale) => {
+      expect(
+        formatChartTickMarkInTimeZone({
+          time: (Date.UTC(2026, 9, 14, 0, 5) / 1000) as UTCTimestamp,
+          tickMarkType: 3,
+          timeZone: 'UTC',
+          locale,
+        }),
+      ).toBe('00:05');
+      expect(
+        formatChartTickMarkInTimeZone({
+          time: (Date.UTC(2026, 9, 14) / 1000) as UTCTimestamp,
+          tickMarkType: 0,
+          timeZone: 'UTC',
+          locale,
+        }),
+      ).toBe('2026');
+    },
+  );
+
+  it.each([
+    ['en', 'Nov'],
+    ['zh-CN', '11月'],
+    ['fr-FR', 'nov.'],
+    ['de', 'Nov'],
+    ['ko-KR', '11월'],
+  ])('distinguishes month boundaries from day ticks in %s', (locale, month) => {
+    const options = {
+      time: (Date.UTC(2026, 10, 1) / 1000) as UTCTimestamp,
+      timeZone: 'UTC',
+      locale,
+    };
+    expect(formatChartTickMarkInTimeZone({ ...options, tickMarkType: 1 })).toBe(
+      month,
+    );
+    expect(formatChartTickMarkInTimeZone({ ...options, tickMarkType: 2 })).toBe(
+      '01',
+    );
+  });
+
+  it('uses the month in the chart timezone and preserves business-day values', () => {
+    expect(
+      formatChartTickMarkInTimeZone({
+        time: (Date.UTC(2026, 9, 31, 16) / 1000) as UTCTimestamp,
+        tickMarkType: 1,
+        timeZone: 'Asia/Shanghai',
+        locale: 'en',
+      }),
+    ).toBe('Nov');
+    expect(
+      formatChartTickMarkInTimeZone({
+        time: '2026-11-01',
+        tickMarkType: 1,
+        timeZone: 'America/New_York',
+        locale: 'en',
+      }),
+    ).toBe('Nov');
   });
 });

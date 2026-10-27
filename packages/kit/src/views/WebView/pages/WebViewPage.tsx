@@ -42,7 +42,7 @@ function WebViewPageContent() {
   const route = useRoute();
   const navigation = useNavigation();
   const params = (route.params ?? {}) as IWebViewPageParams;
-  // All known entry points (openWebView, parseWebViewDeepLink, notification
+  // All known entry points (openWebView, notification
   // handlers) gate `url` through isAllowedWebViewUrl before navigating here,
   // so this is normally a no-op. The defensive re-check covers the case where
   // future code (or a regression) calls `navigation.navigate(ERootRoutes.WebView, …)`
@@ -328,7 +328,8 @@ function WebViewPageContent() {
   // browser (matching normal `_blank` semantics).
   const onOpenWindow = useCallback((event: WebViewOpenWindowEvent) => {
     const targetUrl = event?.nativeEvent?.targetUrl;
-    if (!isAllowedWebViewUrl(targetUrl)) return;
+    const isAllowed = isAllowedWebViewUrl(targetUrl);
+    if (!isAllowed) return;
     openUrlExternal(targetUrl, { useSystemBrowser: true });
   }, []);
 

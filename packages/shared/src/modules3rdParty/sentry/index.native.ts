@@ -10,8 +10,13 @@ import {
 
 import appGlobals from '../../appGlobals';
 
-import { buildBasicOptions } from './basicOptions';
+import {
+  buildBasicOptions,
+  sanitizeNavigationBreadcrumbsForLocalLog,
+  sanitizeSentryEvent,
+} from './basicOptions';
 
+import type { ISentrySanitizationErrorHandler } from './basicOptions';
 import type { FallbackRender } from '@sentry/react';
 
 // oxlint-disable-next-line import/export -- re-export from third-party module
@@ -32,39 +37,64 @@ export const initSentry = () => {
   // regardless of `enableAutoPerformanceTracing: false`. Removing the key makes
   // hasTracingEnabled=false so none of them are installed. profilesSampleRate is
   // likewise stripped to keep hermesProfilingIntegration off.
+  const onError: ISentrySanitizationErrorHandler = (
+    errorMessage,
+    stacktrace,
+  ) => {
+    appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
+  };
   const {
     tracesSampleRate: _tracesSampleRate,
     profilesSampleRate: _profilesSampleRate,
     ...basicOptions
   } = buildBasicOptions({
-    onError: (errorMessage, stacktrace) => {
-      appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
-    },
+    onError,
   });
-
+  type INativeSentryOptions = Parameters<typeof init>[0];
+  const nativeBeforeSend: NonNullable<INativeSentryOptions['beforeSend']> = (
+    event,
+  ) => {
+    const navigationBreadcrumbs = sanitizeNavigationBreadcrumbsForLocalLog(
+      event.breadcrumbs,
+    );
+    if (navigationBreadcrumbs.length > 0) {
+      const breadcrumbText = navigationBreadcrumbs
+        .map(({ message, from, to }) =>
+          [message, from ? `from=${from}` : '', to ? `to=${to}` : '']
+            .filter(Boolean)
+            .join(' '),
+        )
+        .filter(Boolean)
+        .join(' | ');
+      if (breadcrumbText) {
+        appGlobals.$defaultLogger?.app.error.log(
+          `[SentryNavigationBreadcrumbs] ${breadcrumbText}`,
+        );
+      }
+    }
+    const sanitizedEvent = sanitizeSentryEvent(event, onError);
+    if (sanitizedEvent) {
+      sanitizedEvent.breadcrumbs = [];
+    }
+    return sanitizedEvent;
+  };
+  const nativeBasicOptions = {
+    enabled: basicOptions.enabled,
+    maxBreadcrumbs: basicOptions.maxBreadcrumbs,
+    beforeSend: nativeBeforeSend,
+  };
   init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
-    ...basicOptions,
-    maxCacheItems: 60,
-    enableAppHangTracking: true,
-    appHangTimeoutInterval: 5,
+    ...nativeBasicOptions,
+    attachScreenshot: false,
+    attachViewHierarchy: false,
+    sendDefaultPii: false,
+    autoInitializeNativeSdk: false,
     // Performance tracing fully disabled on native — tracesSampleRate is
     // stripped above so the SDK installs none of its default tracing
     // integrations; error reporting + breadcrumbs are unaffected.
     integrations: [],
     enableAutoPerformanceTracing: false,
-    // Disable Hermes profiling on React Native. With multiple Hermes runtimes
-    // in the iOS release smoke test, native stopProfiling can throw on a
-    // background queue and crash during TurboModule error conversion.
-    // Disable options that may include sensitive memory context or visual data.
-    // enableNativeCrashHandling and enableNdk are kept enabled because they only
-    // collect stack traces and thread stack memory (not Hermes JS
-    // heap), which is safe for privacy and essential for diagnosing native crashes.
-    enableNativeCrashHandling: true,
-    enableNdk: true,
-    enableWatchdogTerminationTracking: false,
-    attachScreenshot: false,
-    attachViewHierarchy: false,
   });
 };
 

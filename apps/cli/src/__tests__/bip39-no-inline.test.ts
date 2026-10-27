@@ -45,6 +45,10 @@ function getDisallowedMnemonicPhrases(): string[] {
 }
 
 describe('BIP-39 test fixture isolation', () => {
+  // Exempt from the test-integrity source-text rule, see
+  // development/lint/test-integrity.allowlist.json. Whether a real mnemonic
+  // appears in checked-in test source is a property of the source set, not of
+  // any module's behavior, so there is nothing to execute in its place.
   it('keeps real mnemonic phrases out of TypeScript test source', () => {
     const phrases = getDisallowedMnemonicPhrases();
     const hits = walk(SRC_ROOT)

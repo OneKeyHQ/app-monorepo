@@ -25,7 +25,9 @@ import {
   useTheme,
   useThemeName,
 } from '../../../hooks';
+import { BottomTabBarVisibilityContext } from '../../Page/BottomTabBarVisibilityContext';
 import { createNativeBottomTabNavigator } from '../BottomTabs';
+import { ANDROID_TAB_BAR_STYLE } from '../BottomTabs/tabBarOverlay';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -95,13 +97,14 @@ const extraScreenOptions = {
 };
 
 const nativeTabScreenOptions = {
-  // iOS: disable freezeOnBlur to prevent react-freeze from suspending tab
+  // Keep root tab content mounted so native tab selection can display an
+  // already-loaded scene without waiting for a JS unfreeze commit.
+  // iOS also needs this to prevent react-freeze from suspending tab
   // content when a modal is on top. When frozen, Jotai/React state updates
   // (e.g. network switch) don't commit until the tab regains focus — but
   // the unfreeze path on iOS can fail to flush pending commits, leaving
   // the UI visually stale until a touch forces re-layout.
-  // Android keeps freeze enabled (no observed issue).
-  freezeOnBlur: !platformEnv.isNativeIOS,
+  freezeOnBlur: false,
   preventsDefault: false,
   lazy: true,
 };
@@ -174,6 +177,7 @@ export function TabStackNavigator<RouteName extends string>({
           // while react-native-bottom-tabs expects SFSymbol type from sf-symbols-typescript
           tabBarIcon: nativeTabBarIcon as any,
           tabBarLabel: intl.formatMessage({ id: translationId }),
+          tabBarButtonTestID: `bottom-tab-${name}`,
         };
 
         // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
@@ -241,7 +245,7 @@ export function TabStackNavigator<RouteName extends string>({
     () =>
       // On iOS 26+ omit backgroundColor so UITabBar renders the system
       // Liquid Glass material via configureWithDefaultBackground. Setting
-      // appearance.backgroundColor in @onekeyfe/react-native-tab-view would
+      // appearance.backgroundColor in @onekeyfe/react-native-bottom-tabs would
       // overwrite the glass material with an opaque fill.
       platformEnv.isNativeIOS26Plus
         ? undefined
@@ -250,19 +254,21 @@ export function TabStackNavigator<RouteName extends string>({
   );
 
   return (
-    <NativeTab.Navigator
-      labeled
-      hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
-      disablePageAnimations
-      ignoreBottomInsets
-      sidebarAdaptable={false}
-      tabBarHidden={hidden}
-      tabBarActiveTintColor={theme.iconActive.val}
-      tabBarInactiveTintColor={theme.iconSubdued.val}
-      tabBarStyle={tabBarStyle}
-      screenOptions={nativeTabScreenOptions}
-    >
-      {tabScreens}
-    </NativeTab.Navigator>
+    <BottomTabBarVisibilityContext.Provider value={!hidden}>
+      <NativeTab.Navigator
+        labeled
+        hapticFeedbackEnabled={hapticFeedbackEnabled !== false}
+        disablePageAnimations
+        sidebarAdaptable={false}
+        androidTabBarStyle={ANDROID_TAB_BAR_STYLE}
+        tabBarHidden={hidden}
+        tabBarActiveTintColor={theme.iconActive.val}
+        tabBarInactiveTintColor={theme.iconSubdued.val}
+        tabBarStyle={tabBarStyle}
+        screenOptions={nativeTabScreenOptions}
+      >
+        {tabScreens}
+      </NativeTab.Navigator>
+    </BottomTabBarVisibilityContext.Provider>
   );
 }

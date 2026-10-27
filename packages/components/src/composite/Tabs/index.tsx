@@ -6,6 +6,7 @@ import { TabBar, TabBarItem } from './TabBar';
 
 import type { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 
+/** @deprecated Use CollapsiblePagerView and NativeScroller from react-native-pager-view. */
 export const Tabs = {
   Container,
   Tab,
@@ -30,6 +31,10 @@ export type { IGetWebRowHeight, IWebRowHeightInfo } from './List';
 export * from './hooks';
 
 export { startViewTransition } from './utils';
-export { CollapsibleTabContext } from './CollapsibleTabContext';
+export {
+  CollapsibleTabContext,
+  CollapsibleTabNameContext,
+} from './CollapsibleTabContext';
 export { HeaderScrollGestureWrapper } from './HeaderScrollGestureWrapper';
+export { HeaderScrollGestureContext } from './HeaderScrollGestureContext';
 export { useFocusedTab } from './useFocusedTab';

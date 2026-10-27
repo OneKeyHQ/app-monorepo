@@ -1,4 +1,7 @@
-import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenBatchRequestParams,
+  IMarketTokenListResponse,
+} from '@onekeyhq/shared/types/marketV2';
 
 type IMarketTokenListRequestParams = {
   networkId: string;
@@ -24,6 +27,7 @@ type IFetchMarketTokenListForPlatformOptions = {
 
 export type {
   IFetchMarketTokenListForPlatformOptions,
+  IMarketTokenBatchRequestParams,
   IMarketTokenListRequestParams,
   IMarketTokenListResponseWithSource,
 };

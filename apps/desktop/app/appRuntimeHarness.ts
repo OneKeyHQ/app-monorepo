@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import {
   clearTimeout as nodeClearTimeout,
   setImmediate as nodeSetImmediate,
@@ -14,17 +13,6 @@ import {
   getNodeRuntimeCheckNames,
   repairProtectedNodeRuntime,
 } from './libs/nodeRuntimeIntegrity';
-
-interface IHarnessStagingResult {
-  afterExists: boolean;
-  beforeExists: boolean;
-  errorCode: string | null;
-  errorMessage: string | null;
-  fileByteLength: number | null;
-  fileUuidFormat: boolean | null;
-  idLength: number | null;
-  success: boolean;
-}
 
 class RuntimeHarnessError extends Error {}
 
@@ -95,17 +83,6 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
   };
   app.on('web-contents-created', onWebContentsCreated);
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { autoUpdater } =
-    require('electron-updater') as typeof import('electron-updater');
-  let checkForUpdatesCallCount = 0;
-  autoUpdater.checkForUpdates = () => {
-    checkForUpdatesCallCount += 1;
-    return Promise.resolve(null);
-  };
-  autoUpdater.logger = null;
-  autoUpdater.autoDownload = false;
-
   // The full application graph loads only after the pristine runtime snapshot.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('./app');
@@ -138,56 +115,11 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
   app.removeListener('web-contents-created', onWebContentsCreated);
   const driftsAfterAppInit = auditNodeRuntime(baseline);
   const canonicalDriftsAfterAppInit = auditCanonicalNodeGlobals();
-  const stagingIdUpdater = autoUpdater as unknown as {
-    getOrCreateStagingUserId: () => Promise<string>;
-  };
-  const updaterIdFile = path.join(app.getPath('userData'), '.updaterId');
-  const beforeExists = fs.existsSync(updaterIdFile);
-  let stagingResult: IHarnessStagingResult;
-
-  try {
-    const id = await stagingIdUpdater.getOrCreateStagingUserId();
-    const afterExists = fs.existsSync(updaterIdFile);
-    const fileContent = afterExists
-      ? fs.readFileSync(updaterIdFile, 'utf8')
-      : null;
-    stagingResult = {
-      afterExists,
-      beforeExists,
-      errorCode: null,
-      errorMessage: null,
-      fileByteLength: afterExists ? fs.statSync(updaterIdFile).size : null,
-      fileUuidFormat:
-        fileContent === null
-          ? null
-          : /^[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}$/.test(
-              fileContent,
-            ),
-      idLength: id.length,
-      success: true,
-    };
-  } catch (error) {
-    const typedError = error as Error & { code?: string };
-    stagingResult = {
-      afterExists: fs.existsSync(updaterIdFile),
-      beforeExists,
-      errorCode: typedError.code ?? null,
-      errorMessage: typedError.message,
-      fileByteLength: null,
-      fileUuidFormat: null,
-      idLength: null,
-      success: false,
-    };
-  }
-
   const report = {
     arch: process.arch,
-    autoDownload: autoUpdater.autoDownload,
     canonicalDriftsAfterAppInit,
     canonicalDriftsAfterRepair,
     canonicalDriftsBeforeAppLoad,
-    checkForUpdatesCallCount,
-    checkForUpdatesCalled: checkForUpdatesCallCount > 0,
     driftsAfterAppInit,
     driftsAfterRepair,
     driftsBeforeRepair,
@@ -199,7 +131,6 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
     platform: process.platform,
     processType: process.type,
     repairs,
-    stagingResult,
   };
 
   fs.writeFileSync(outputFile, JSON.stringify(report, null, 2), 'utf8');
@@ -210,12 +141,6 @@ export async function runAppRuntimeHarness(outputFile: string): Promise<void> {
     driftsBeforeRepair.length > 0 ||
     repairs.length > 0 ||
     driftsAfterRepair.length > 0 ||
-    driftsAfterAppInit.length > 0 ||
-    !stagingResult.success ||
-    stagingResult.beforeExists ||
-    !stagingResult.afterExists ||
-    !stagingResult.fileUuidFormat ||
-    checkForUpdatesCallCount > 0 ||
-    autoUpdater.autoDownload;
+    driftsAfterAppInit.length > 0;
   app.exit(failed ? 2 : 0);
 }

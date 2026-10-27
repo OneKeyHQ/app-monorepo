@@ -38,6 +38,7 @@ export enum EDeviceMemoryClass {
 
 export type IDevicePerformanceProfileSource =
   | 'iosModelId'
+  | 'iosModelIdNewerThanCatalog'
   | 'androidModel'
   | 'browserHardwareConcurrency'
   | 'desktopLogicalProcessorCount'

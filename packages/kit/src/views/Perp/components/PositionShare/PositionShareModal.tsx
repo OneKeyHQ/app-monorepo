@@ -249,7 +249,8 @@ export function showPositionShareDialog(
   intl: IntlShape,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
-  const DialogInstance = dialog ?? Dialog;
+  // The iOS native navigation header sits outside the page's dialog portal.
+  const DialogInstance = platformEnv.isNativeIOS ? Dialog : (dialog ?? Dialog);
 
   const dialogInstance = DialogInstance.show({
     title: intl.formatMessage({

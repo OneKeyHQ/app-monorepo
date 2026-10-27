@@ -4,9 +4,15 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import { EPageType } from '@onekeyhq/components';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import SwapHeaderContainer from './SwapHeaderContainer';
 
@@ -72,7 +78,33 @@ jest.mock('@onekeyhq/components', () => {
       children,
     );
   return {
-    SegmentControl: Container,
+    EPageType: { modal: 'modal' },
+    SegmentControl: ({
+      options,
+      onChange,
+    }: {
+      options?: Array<{
+        label: ReactNode;
+        testID?: string;
+        value: string | number;
+      }>;
+      onChange?: (value: string | number) => void;
+    }) =>
+      createElement(
+        'div',
+        null,
+        options?.map((option) =>
+          createElement(
+            'button',
+            {
+              key: String(option.value),
+              'data-testid': option.testID,
+              onClick: () => onChange?.(option.value),
+            },
+            option.label,
+          ),
+        ),
+      ),
     SizableText: Container,
     Stack: Container,
     XStack: Container,
@@ -122,9 +154,101 @@ jest.mock('../../hooks/useSwapAccount', () => ({
 jest.mock('../../hooks/useSwapProTokenCarry', () => ({
   useSwapProTokenCarryOptions: () => mockSwapProTokenCarryOptions,
 }));
-jest.mock('./SwapHeaderRightActionContainer', () => () => null);
+jest.mock('./SwapHeaderRightActionContainer', () => {
+  const { createElement } = jest.requireActual<typeof import('react')>('react');
+  return ({ storeName }: { storeName?: EJotaiContextStoreNames }) =>
+    createElement('div', {
+      'data-testid': 'swap-header-right-actions',
+      'data-store': storeName,
+    });
+});
 
 describe('SwapHeaderContainer', () => {
+  it.each([ESwapSource.WALLET_HOME_TOKEN_LIST, ESwapSource.TOKEN_DETAIL])(
+    'leaves imported asset defaults to the init owner for %s',
+    async (enterFrom) => {
+      jest.clearAllMocks();
+      jest.useFakeTimers();
+      try {
+        const view = render(
+          <SwapHeaderContainer
+            pageType={EPageType.modal}
+            defaultSwapType={ESwapTabSwitchType.SWAP}
+            enterFrom={enterFrom}
+          />,
+        );
+        await act(async () => {
+          jest.advanceTimersByTime(100);
+        });
+        expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+        view.unmount();
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  it('keeps the seeded Market Stock modal out of default type initialization', async () => {
+    jest.useFakeTimers();
+    try {
+      const view = render(
+        <SwapHeaderContainer
+          storeName={EJotaiContextStoreNames.swapModal}
+          pageType={EPageType.modal}
+          defaultSwapType={ESwapTabSwitchType.STOCK}
+          enterFrom={ESwapSource.MARKET}
+          showSwapPro
+        />,
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+      view.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('still initializes the default type for an ordinary Stock modal', async () => {
+    jest.useFakeTimers();
+    try {
+      const view = render(
+        <SwapHeaderContainer
+          pageType={EPageType.modal}
+          defaultSwapType={ESwapTabSwitchType.STOCK}
+        />,
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      expect(mockSwapTypeSwitchAction).toHaveBeenCalledWith(
+        ESwapTabSwitchType.STOCK,
+        mockFromToken.networkId,
+      );
+      view.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it.each([true, false])(
+    'forwards the Market store through the header (single: %s)',
+    (singleSwapBridgeTab) => {
+      const view = render(
+        <SwapHeaderContainer
+          storeName={EJotaiContextStoreNames.marketSwap}
+          singleSwapBridgeTab={singleSwapBridgeTab}
+        />,
+      );
+      expect(
+        view
+          .getByTestId('swap-header-right-actions')
+          .getAttribute('data-store'),
+      ).toBe(EJotaiContextStoreNames.marketSwap);
+    },
+  );
+
   beforeEach(() => {
     platformEnv.isNative = true;
     jest.clearAllMocks();
@@ -169,6 +293,7 @@ describe('SwapHeaderContainer', () => {
       expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledWith({
         num: 0,
         networkId: mockFromToken.networkId,
+        reason: 'swapTypeNetworkSync',
       });
     });
   });
@@ -186,11 +311,41 @@ describe('SwapHeaderContainer', () => {
       expect(mockUpdateSelectedAccountNetwork).toHaveBeenCalledWith({
         num: 0,
         networkId: mockProToken.networkId,
+        reason: 'swapTypeNetworkSync',
       });
     });
     expect(mockUpdateSelectedAccountNetwork).not.toHaveBeenCalledWith({
       num: 0,
       networkId: mockFromToken.networkId,
+      reason: 'swapTypeNetworkSync',
     });
+  });
+
+  it('notifies the content before switching the active Swap type', () => {
+    const onSwapTypeSwitch = jest.fn();
+    const { getByTestId } = render(
+      <SwapHeaderContainer
+        showSwapPro
+        hideRightActions
+        onSwapTypeSwitch={onSwapTypeSwitch}
+      />,
+    );
+
+    fireEvent.click(getByTestId(`swap-type-tab-${ESwapTabSwitchType.SWAP}`));
+
+    expect(onSwapTypeSwitch).toHaveBeenCalledWith(ESwapTabSwitchType.SWAP);
+  });
+
+  it('hides the Swap & Bridge title in the Market embedded header', () => {
+    const { getByTestId, queryByText } = render(
+      <SwapHeaderContainer
+        singleSwapBridgeTab
+        enterFrom={ESwapSource.MARKET}
+      />,
+    );
+
+    // OK-62956: the Market detail trade panel keeps only the right actions.
+    expect(queryByText(ETranslations.swap_history_title)).toBeNull();
+    expect(getByTestId('swap-header-right-actions')).toBeTruthy();
   });
 });

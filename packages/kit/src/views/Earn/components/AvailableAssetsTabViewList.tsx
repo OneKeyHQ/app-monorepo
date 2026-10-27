@@ -30,6 +30,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
@@ -43,6 +44,15 @@ import { EarnMobileSortControl } from './EarnMobileSortControl';
 import { NetworkFilterControl } from './NetworkFilterControl';
 
 import type { IEarnSortDirection } from './EarnMobileSortControl';
+
+// Earn's outer and inner tab bars share a scroll context on non-native
+// surfaces. Keep the inner category bar in normal flow so it cannot compete
+// with the outer sticky tab bar.
+const ASSET_TAB_BAR_CONTAINER_STYLE = {
+  px: '$0',
+  position: 'relative' as const,
+  zIndex: 0,
+} as const;
 
 export function AvailableAssetsTabViewList({
   isActive = true,
@@ -143,7 +153,7 @@ export function AvailableAssetsTabViewList({
     const query = searchText.toLowerCase();
     return source.filter(
       (a) =>
-        a.symbol.toLowerCase().includes(query) ||
+        earnUtils.matchesSymbolKeyword(a, query) ||
         a.name.toLowerCase().includes(query),
     );
   }, [
@@ -272,7 +282,9 @@ export function AvailableAssetsTabViewList({
               tokenImageUri={asset.logoURI}
               borderRadius="$full"
             />
-            <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+            <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+              {earnUtils.getDisplaySymbol(asset)}
+            </SizableText>
             <XStack gap="$1">
               {asset.badges?.map((badge) => (
                 <Badge
@@ -352,14 +364,6 @@ export function AvailableAssetsTabViewList({
     [navigateToAsset, selectedTabType],
   );
 
-  const totalLiquidityLabel = useMemo(
-    () =>
-      intl.formatMessage({
-        id: ETranslations.dexmarket_details_liquidity_change_total,
-      }),
-    [intl],
-  );
-
   // Mobile custom renderer
   const mobileRenderItem = useCallback(
     (asset: IEarnAvailableAsset) => {
@@ -381,7 +385,13 @@ export function AvailableAssetsTabViewList({
             flex={1}
             primary={
               <XStack gap="$2" ai="center">
-                <SizableText size="$bodyLgMedium">{asset.symbol}</SizableText>
+                <SizableText
+                  size="$bodyLgMedium"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {earnUtils.getDisplaySymbol(asset)}
+                </SizableText>
                 <XStack gap="$1">
                   {asset.badges?.map((badge) => (
                     <Badge
@@ -403,7 +413,7 @@ export function AvailableAssetsTabViewList({
                   color="$textSubdued"
                   numberOfLines={1}
                 >
-                  {`${totalLiquidityLabel} ${asset.liquidity ?? ''}`}
+                  {asset.liquidity}
                 </SizableText>
               ) : undefined
             }
@@ -417,7 +427,7 @@ export function AvailableAssetsTabViewList({
         </ListItem>
       );
     },
-    [handleRowPress, isFixedRateTab, totalLiquidityLabel],
+    [handleRowPress, isFixedRateTab],
   );
 
   // Memoize keyExtractor for TableList
@@ -590,7 +600,7 @@ export function AvailableAssetsTabViewList({
       </XStack>
       <XStack ai="center" jc="space-between" px="$pagePadding">
         <Tabs.TabBar
-          containerStyle={{ px: '$0' }}
+          containerStyle={ASSET_TAB_BAR_CONTAINER_STYLE}
           divider={false}
           onTabPress={handleTabChange}
           tabNames={TabNames}

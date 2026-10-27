@@ -1,40 +1,17 @@
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  getSwapBridgeDefaultToToken,
-  swapDefaultSetTokens,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-type ITokenActionSwapSupport = {
-  isSupportCrossChain?: boolean;
-  isSupportSwap?: boolean;
-};
-
-type IOwnedAggregateTokenListMap = Record<
-  string,
-  {
-    tokens: IAccountToken[];
-  }
->;
-
 export function buildTokenActionSwapFromToken({
-  accountAddress,
-  balanceParsed,
   token,
   networkId,
   networkLogoURI,
 }: {
-  accountAddress?: string;
-  balanceParsed?: string;
   token: IAccountToken;
   networkId: string;
   networkLogoURI?: string;
 }): ISwapToken {
+  // Home owns the token selection intent; Swap resolves address-scoped balance.
   return {
-    accountAddress,
-    balanceParsed,
     contractAddress: token.isNative ? '' : token.address,
     symbol: token.symbol,
     networkId,
@@ -45,63 +22,6 @@ export function buildTokenActionSwapFromToken({
     networkLogoURI,
     balanceMultiplier: token.balanceMultiplier,
   };
-}
-
-export function getTokenActionSameNetworkSwapToToken({
-  fromToken,
-}: {
-  fromToken: ISwapToken;
-}) {
-  const defaultTokens = swapDefaultSetTokens[fromToken.networkId];
-  if (!defaultTokens) {
-    return undefined;
-  }
-  if (
-    fromToken.isNative &&
-    defaultTokens.toToken &&
-    !defaultTokens.toToken.isNative &&
-    !equalTokenNoCaseSensitive({
-      token1: fromToken,
-      token2: defaultTokens.toToken,
-    })
-  ) {
-    return defaultTokens.toToken;
-  }
-  if (
-    !fromToken.isNative &&
-    defaultTokens.fromToken &&
-    defaultTokens.fromToken.isNative &&
-    !equalTokenNoCaseSensitive({
-      token1: fromToken,
-      token2: defaultTokens.fromToken,
-    })
-  ) {
-    return defaultTokens.fromToken;
-  }
-  return undefined;
-}
-
-export function findTokenActionAggregateKey({
-  ownedAggregateTokenListMap,
-  targetToken,
-}: {
-  ownedAggregateTokenListMap?: IOwnedAggregateTokenListMap;
-  targetToken?: ISwapToken;
-}) {
-  if (!ownedAggregateTokenListMap || !targetToken) {
-    return undefined;
-  }
-  return Object.entries(ownedAggregateTokenListMap).find(([, entry]) =>
-    entry.tokens.some((token) =>
-      equalTokenNoCaseSensitive({
-        token1: {
-          networkId: token.networkId,
-          contractAddress: token.isNative ? '' : token.address,
-        },
-        token2: targetToken,
-      }),
-    ),
-  )?.[0];
 }
 
 export function getResolvedTokenActionToken({
@@ -155,30 +75,4 @@ export function isResolvedTokenActionReady({
   return (
     !resolvedToken.accountId || resolvedToken.accountId === resolvedAccountId
   );
-}
-
-export function getTokenActionSwapToToken({
-  fromToken,
-  swapSupport,
-}: {
-  fromToken: ISwapToken;
-  swapSupport?: ITokenActionSwapSupport;
-}) {
-  const isBtcNativeToken =
-    fromToken.networkId === getNetworkIdsMap().btc &&
-    fromToken.isNative &&
-    fromToken.symbol.toUpperCase() === 'BTC';
-
-  if (
-    isBtcNativeToken ||
-    (!swapSupport?.isSupportSwap && swapSupport?.isSupportCrossChain)
-  ) {
-    return getSwapBridgeDefaultToToken(fromToken);
-  }
-
-  if (swapSupport?.isSupportSwap) {
-    return getTokenActionSameNetworkSwapToToken({ fromToken });
-  }
-
-  return undefined;
 }

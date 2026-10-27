@@ -1,6 +1,7 @@
 import wordLists from 'bip39/src/wordlists/english.json';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { PRIME_PURCHASE_COMPLETE_PATH } from '@onekeyhq/shared/src/routes/tabHome';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
@@ -8,6 +9,8 @@ import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
 import type { BrowserOptions, Stacktrace } from '@sentry/browser';
 
 export { navigationIntegration } from './navigationIntegration';
+
+// cspell:ignore Sanitizable
 
 // Check for common private key formats
 const PRIVATE_KEY_PATTERNS = [
@@ -29,59 +32,81 @@ const lazyLoadWordSet = memoizee(() => new Set(wordLists));
 // Minimum consecutive mnemonic words to trigger redaction (12-word mnemonic could partially leak)
 const MIN_MNEMONIC_SEQUENCE_LENGTH = 3;
 
-// Check if text contains mnemonic phrases and redact them
+const redactMnemonicSequences = (text: string): string => {
+  const wordSet = lazyLoadWordSet();
+  const parts = text.split(/([\s,]+)/);
+  let mnemonicPartIndexes: number[] = [];
+  const flushMnemonicSequence = () => {
+    if (mnemonicPartIndexes.length >= MIN_MNEMONIC_SEQUENCE_LENGTH) {
+      for (const index of mnemonicPartIndexes) {
+        parts[index] = parts[index].replace(/[A-Za-z]+/, '****');
+      }
+    }
+    mnemonicPartIndexes = [];
+  };
+  for (let index = 0; index <= parts.length; index += 1) {
+    const part = parts[index];
+    if (part && !/^[\s,]+$/.test(part)) {
+      if (/^[A-Za-z]+$/.test(part) && wordSet.has(part.toLowerCase())) {
+        mnemonicPartIndexes.push(index);
+      } else {
+        flushMnemonicSequence();
+      }
+    }
+  }
+  flushMnemonicSequence();
+  return parts.join('');
+};
+
 const checkAndRedactMnemonicWords = (words: string[]): string[] => {
   if (!Array.isArray(words) || words.length === 0) {
     return words;
   }
-
-  const wordSet = lazyLoadWordSet();
-  const result = words.slice();
-
-  let sequenceStart = -1;
-  let consecutiveCount = 0;
-
-  // Find and redact all mnemonic sequences
-  for (let i = 0; i <= words.length; i += 1) {
-    const isLastIteration = i === words.length;
-    const isMnemonicWord =
-      !isLastIteration && wordSet.has(words[i].toLowerCase());
-
-    if (isMnemonicWord) {
-      if (sequenceStart === -1) {
-        sequenceStart = i; // Mark start of new sequence
-      }
-      consecutiveCount += 1;
-    } else {
-      // End of sequence (or end of array) - check if we need to redact
-      if (consecutiveCount >= MIN_MNEMONIC_SEQUENCE_LENGTH) {
-        // Redact the entire sequence
-        for (
-          let j = sequenceStart;
-          j < sequenceStart + consecutiveCount;
-          j += 1
-        ) {
-          result[j] = '****';
-        }
-      }
-      // Reset for next potential sequence
-      sequenceStart = -1;
-      consecutiveCount = 0;
-    }
-  }
-
-  return result;
+  return redactMnemonicSequences(words.join(' ')).split(' ');
 };
 
 // Maximum word length before redacting (long strings may contain sensitive data)
 const MAX_WORD_LENGTH = 20;
+
+const SENSITIVE_INLINE_PATTERNS: [RegExp, string][] = [
+  [/(\bbearer\s+)[A-Za-z0-9._~+/-]+=*/giu, '$1****'],
+  [
+    /(["']?(?:password|passwd|passphrase|secret|token|authorization|cookie|session(?:id)?|api[-_]?key|private[-_]?key|mnemonic|seed(?:[-_ ]?phrase)?|recovery(?:[-_ ]?phrase)?|credential)["']?\s*[=:]\s*)[[{][\s\S]*/giu,
+    '$1****',
+  ],
+  [
+    /(["']?(?:password|passwd|passphrase|secret|token|authorization|cookie|session(?:id)?|api[-_]?key|private[-_]?key|mnemonic|seed(?:[-_ ]?phrase)?|recovery(?:[-_ ]?phrase)?|credential)["']?\s*[=:]\s*)"[^"]*"/giu,
+    '$1"****"',
+  ],
+  [
+    /(["']?(?:password|passwd|passphrase|secret|token|authorization|cookie|session(?:id)?|api[-_]?key|private[-_]?key|mnemonic|seed(?:[-_ ]?phrase)?|recovery(?:[-_ ]?phrase)?|credential)["']?\s*[=:]\s*)'[^']*'/giu,
+    "$1'****'",
+  ],
+  [
+    /(["']?(?:password|passwd|passphrase|secret|token|authorization|cookie|session(?:id)?|api[-_]?key|private[-_]?key|mnemonic|seed(?:[-_ ]?phrase)?|recovery(?:[-_ ]?phrase)?|credential)["']?\s*[=:]\s*)[^"'\s,;}]+/giu,
+    '$1****',
+  ],
+  [/\b(?:https?|wss?):\/\/[^\s]+/giu, '****'],
+  [/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/giu, '****'],
+  [/\b0x[0-9a-f]{40,64}\b/giu, '****'],
+  [/\b[0-9a-f]{64}\b/giu, '****'],
+  [/\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/gu, '****'],
+  [/\b[xyz](?:prv|pub)[1-9A-HJ-NP-Za-km-z]{107,108}\b/giu, '****'],
+  [/\b(?:[a-z0-9]{1,20}1)[a-z0-9]{20,90}\b/giu, '****'],
+  [/\b[1-9A-HJ-NP-Za-km-z]{32,128}\b/gu, '****'],
+  [/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/gu, '****'],
+];
 
 // Sanitize a single text string (check for private keys, long words, and mnemonics)
 const sanitizeText = (text: string): string => {
   if (typeof text !== 'string' || !text) {
     return text;
   }
-  let words = text.split(' ');
+  let result = redactMnemonicSequences(text);
+  for (const [pattern, replacement] of SENSITIVE_INLINE_PATTERNS) {
+    result = result.replace(pattern, replacement);
+  }
+  const words = result.split(' ');
   // Check for private keys and long words
   for (let i = 0; i < words.length; i += 1) {
     if (checkPrivateKey(words[i])) {
@@ -92,12 +117,97 @@ const sanitizeText = (text: string): string => {
     }
   }
   // Check for mnemonic sequences
-  words = checkAndRedactMnemonicWords(words);
   return words.join(' ');
 };
 
+export interface ISentrySanitizableStackFrame {
+  vars?: Record<string, unknown>;
+  context_line?: string;
+  pre_context?: string[];
+  post_context?: string[];
+}
+
+export type ISentrySanitizableStacktrace = Stacktrace & {
+  frames?: ISentrySanitizableStackFrame[];
+};
+
+export interface ISentrySanitizableEvent {
+  exception?: {
+    values?: {
+      type?: string;
+      value?: string;
+      stacktrace?: ISentrySanitizableStacktrace;
+    }[];
+  };
+  breadcrumbs?: {
+    category?: string;
+    level?: string;
+    message?: string;
+    data?: Record<string, unknown>;
+  }[];
+}
+
+export const sanitizeNavigationBreadcrumbsForLocalLog = (
+  breadcrumbs?: ISentrySanitizableEvent['breadcrumbs'],
+) =>
+  (breadcrumbs ?? [])
+    .filter((breadcrumb) => breadcrumb.category === 'navigation')
+    .slice(-20)
+    .map((breadcrumb) => ({
+      category: 'navigation',
+      ...(breadcrumb.message
+        ? { message: sanitizeText(breadcrumb.message) }
+        : {}),
+      ...(typeof breadcrumb.data?.from === 'string'
+        ? { from: sanitizeText(breadcrumb.data.from) }
+        : {}),
+      ...(typeof breadcrumb.data?.to === 'string'
+        ? { to: sanitizeText(breadcrumb.data.to) }
+        : {}),
+    }));
+
+// Web routes whose query carries user identifiers, e.g. the RevenueCat hosted
+// checkout redirect appends ?app_user_id=<OneKey ID>.
+const QUERY_REDACTED_NAVIGATION_PATHS = new Set([PRIME_PURCHASE_COMPLETE_PATH]);
+
+function redactSensitiveNavigationUrl(url: unknown): unknown {
+  if (typeof url !== 'string') {
+    return url;
+  }
+  const [urlWithoutQuery] = url.split(/[?#]/);
+  const path = urlWithoutQuery
+    .replace(/^[a-z][a-z\d+.-]*:\/\/[^/]+/i, '')
+    .replace(/\/+$/, '');
+  return QUERY_REDACTED_NAVIGATION_PATHS.has(path) ? urlWithoutQuery : url;
+}
+
+export const sanitizeSensitiveNavigationBreadcrumb = <
+  T extends { category?: string; data?: Record<string, unknown> },
+>(
+  breadcrumb: T,
+): T => {
+  if (breadcrumb.category !== 'navigation' || !breadcrumb.data) {
+    return breadcrumb;
+  }
+  return {
+    ...breadcrumb,
+    data: {
+      ...breadcrumb.data,
+      from: redactSensitiveNavigationUrl(breadcrumb.data.from),
+      to: redactSensitiveNavigationUrl(breadcrumb.data.to),
+    },
+  };
+};
+
+export type ISentrySanitizationErrorHandler = (
+  errorMessage: string,
+  stacktrace?: ISentrySanitizableStacktrace,
+) => void;
+
 // Sanitize stacktrace frames (local variables may contain sensitive data)
-const sanitizeStacktrace = (stacktrace?: Stacktrace): void => {
+const sanitizeStacktrace = (
+  stacktrace?: ISentrySanitizableStacktrace,
+): void => {
   if (!stacktrace?.frames) {
     return;
   }
@@ -206,10 +316,59 @@ const isFilterErrorAndSkipSentry = (error?: {
   return false;
 };
 
+export const sanitizeSentryEvent = <T extends ISentrySanitizableEvent>(
+  event: T,
+  onError: ISentrySanitizationErrorHandler,
+): T | null => {
+  if (Array.isArray(event.exception?.values)) {
+    for (let index = 0; index < event.exception.values.length; index += 1) {
+      const exceptionValue = event.exception.values[index];
+      const { type: originalType, value: originalValue } = exceptionValue;
+      try {
+        sanitizeStacktrace(exceptionValue.stacktrace);
+        // Sanitize error message
+        if (exceptionValue.value) {
+          const newErrorText = sanitizeText(exceptionValue.value);
+          // Save error message locally
+          onError(newErrorText, exceptionValue.stacktrace);
+          exceptionValue.value = newErrorText;
+        }
+        // WebEmbed forwards exceptions to the host through onError; do not also
+        // send them directly to Sentry from the embedded runtime.
+        // TODO: Remove the WebEmbed Sentry runtime dependency. Replace it with
+        // a small global error/unhandled rejection bridge that sanitizes and
+        // forwards errors through postMessage, then remove the WebEmbed Sentry
+        // entry and its vendor-transpilation allowlist.
+        if (platformEnv.isWebEmbed) {
+          return null;
+        }
+        // Sanitize stacktrace (local variables, context lines)
+        if (
+          isFilterErrorAndSkipSentry({
+            type: originalType,
+            value: originalValue,
+          })
+        ) {
+          return null;
+        }
+      } catch {
+        // Do nothing
+      }
+    }
+  }
+  // Filter out duplicate error messages
+  if (Array.isArray(event.breadcrumbs)) {
+    event.breadcrumbs = event.breadcrumbs.filter(
+      (e) => e.category !== 'sentry.event' && e.level !== 'error',
+    );
+  }
+  return event;
+};
+
 export const buildBasicOptions = ({
   onError,
 }: {
-  onError: (errorMessage: string, stacktrace?: Stacktrace) => void;
+  onError: ISentrySanitizationErrorHandler;
 }) =>
   ({
     enabled: true,
@@ -222,47 +381,8 @@ export const buildBasicOptions = ({
     // zeroing the sample rate alone does NOT stop span creation.
     tracesSampleRate: 0,
     profilesSampleRate: 0,
-    beforeSend: (event) => {
-      if (Array.isArray(event.exception?.values)) {
-        for (let index = 0; index < event.exception.values.length; index += 1) {
-          const exceptionValue = event.exception.values[index];
-          const { type: originalType, value: originalValue } = exceptionValue;
-          try {
-            // Sanitize error message
-            if (exceptionValue.value) {
-              const newErrorText = sanitizeText(exceptionValue.value);
-              // Save error message locally
-              onError(newErrorText, exceptionValue.stacktrace);
-              exceptionValue.value = newErrorText;
-            }
-            // In webEmbed environment, network requests cannot be sent, so abort subsequent operations
-            if (platformEnv.isWebEmbed) {
-              return;
-            }
-            // Sanitize stacktrace (local variables, context lines)
-            sanitizeStacktrace(exceptionValue.stacktrace);
-            if (
-              isFilterErrorAndSkipSentry({
-                type: originalType,
-                value: originalValue,
-              })
-            ) {
-              return null;
-            }
-          } catch {
-            // Do nothing
-          }
-        }
-      }
-      // Filter out duplicate error messages
-      if (Array.isArray(event.breadcrumbs)) {
-        event.breadcrumbs = event.breadcrumbs.filter(
-          (e) => e.category !== 'sentry.event' && e.level !== 'error',
-        );
-      }
-      return event;
-    },
-  }) as BrowserOptions;
+    beforeSend: (event, _hint) => sanitizeSentryEvent(event, onError),
+  }) satisfies BrowserOptions;
 
 type ISentryTransportBuilder = Pick<
   typeof import('@sentry/react'),

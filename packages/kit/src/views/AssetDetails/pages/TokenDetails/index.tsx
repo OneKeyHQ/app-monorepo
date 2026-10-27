@@ -41,6 +41,10 @@ import {
 } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import {
+  canDeriveTypesCollapse,
+  useDeriveTypesCollapseState,
+} from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type {
@@ -57,7 +61,7 @@ import type {
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
@@ -79,6 +83,7 @@ import {
   useTokenDetailsContext,
 } from './TokenDetailsContext';
 import TokenDetailsFooter from './TokenDetailsFooter';
+import { enableNetworkInAllNetworksOnce } from './tokenDetailsNetworkAutoEnable';
 import TokenDetailsOverview from './TokenDetailsOverview';
 import TokenDetailsTabToolbar from './TokenDetailsTabToolbar';
 import TokenDetailsViews from './TokenDetailsView';
@@ -153,11 +158,12 @@ function TokenDetailsView() {
   } = usePromiseResult(
     async () => {
       if (tokenInfo.isAggregateToken) {
-        // getAllAggregateTokenInfo() filters members by getListedNetworkMap()
-        // (bundled preset networks only): a stale aggregate-token cache
-        // persisted by an older app version may still reference delisted
-        // networks, and getNetworkSafe() cannot detect them because the
-        // server/custom network caches may still mark them as LISTED.
+        // getAllAggregateTokenInfo() filters members by the merged network
+        // registry (presets + server-delivered chains, delisted dropped): a
+        // stale aggregate-token cache persisted by an older app version may
+        // still reference delisted networks, and getNetworkSafe() cannot
+        // detect them because the custom network cache may still mark them
+        // as LISTED.
         const { allAggregateTokenMap } =
           await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
         const aggregateTokens: IAccountToken[] = [];
@@ -447,10 +453,6 @@ function TokenDetailsView() {
           title={intl.formatMessage({
             id: ETranslations.global_contract_address,
           })}
-          sheetProps={{
-            snapPoints: [92],
-            snapPointsMode: 'percent',
-          }}
           renderTrigger={
             <HeaderIconButton
               testID={AssetDetailsTestIDs.headerInfoBtn}
@@ -542,6 +544,57 @@ function TokenDetailsView() {
       watchLoading: true,
     },
   );
+
+  // A collapsed account shows its default address type alone. The route's
+  // accountId is whichever derive type the merged Home row happened to carry,
+  // so the default type's account is used instead. An entry that passes no
+  // indexed account never gets one here, so it is never collapsed.
+  const collapseNetworkId = tokenInfo.networkId ?? networkId;
+  const [collapseRevision, setCollapseRevision] = useState(0);
+  const {
+    isReady: isCollapseStateReady,
+    defaultNetworkAccount: collapsedNetworkAccount,
+  } = useDeriveTypesCollapseState({
+    networkId: collapseNetworkId,
+    walletId,
+    indexedAccountId,
+    enabled: !!indexedAccountId,
+    revision: collapseRevision,
+  });
+  // The default address type can change while this page is open, e.g. from
+  // the address type menu of the receive page above it. Whether the account
+  // collapses depends on that default, so the page decides again on every
+  // change, collapsed or not, even while the previous decision is pending.
+  const followsDefaultType =
+    !!indexedAccountId &&
+    canDeriveTypesCollapse({ networkId: collapseNetworkId, walletId });
+  useEffect(() => {
+    if (!followsDefaultType) {
+      return;
+    }
+    const networkImpl = networkUtils.getNetworkImpl({
+      networkId: collapseNetworkId,
+    });
+    const onGlobalDeriveTypeUpdate = ({
+      networkImpl: updatedImpl,
+    }: {
+      networkImpl: string;
+    }) => {
+      if (updatedImpl === networkImpl) {
+        setCollapseRevision((revision) => revision + 1);
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.GlobalDeriveTypeUpdate,
+      onGlobalDeriveTypeUpdate,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.GlobalDeriveTypeUpdate,
+        onGlobalDeriveTypeUpdate,
+      );
+    };
+  }, [followsDefaultType, collapseNetworkId]);
 
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
 
@@ -753,50 +806,58 @@ function TokenDetailsView() {
 
   const pageWidth = useTabletModalPageWidth();
 
+  // The native Tabs container captures onIndexChange once, so read the tab
+  // list through a ref instead of trusting the closure to stay current.
+  const aggregateTabsRef = useRef(aggregateTabs);
+  aggregateTabsRef.current = aggregateTabs;
+  const enablingNetworkIdsRef = useRef<Set<string>>(new Set());
+
   const handleTabIndexChange = useCallback(
     async (index: number) => {
       setActiveTabIndex(index);
 
       // The Overview descriptor has no token, so only member tabs can trigger
       // the auto-enable below.
-      const activeToken = aggregateTabs?.[index]?.token;
-      if (
-        isAllNetworks &&
-        activeToken?.accountId &&
-        activeToken.networkId &&
-        !isEnabledNetworksInAllNetworks({
-          networkId: activeToken.networkId,
-          disabledNetworks: allNetworksState.disabledNetworks,
-          enabledNetworks: allNetworksState.enabledNetworks,
-          isTestnet: false,
-        })
-      ) {
-        await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-          enabledNetworks: { [activeToken.networkId]: true },
-        });
-        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.network_also_enabled,
-          }),
-        });
-        void refreshAllNetworkState();
+      const activeToken = aggregateTabsRef.current?.[index]?.token;
+      const activeNetworkId = activeToken?.networkId;
+      if (!isAllNetworks || !activeToken?.accountId || !activeNetworkId) {
+        return;
       }
+      // OK-61863: decide against the live All-Networks state rather than the
+      // render snapshot, so a network enabled by an earlier tab switch is
+      // never enabled (and toasted) a second time.
+      const enabled = await enableNetworkInAllNetworksOnce({
+        networkId: activeNetworkId,
+        inFlightNetworkIds: enablingNetworkIdsRef.current,
+        getAllNetworksState: () =>
+          backgroundApiProxy.serviceAllNetwork.getAllNetworksState(),
+        enableNetwork: async (targetNetworkId) => {
+          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+            enabledNetworks: { [targetNetworkId]: true },
+          });
+        },
+      });
+      if (!enabled) {
+        return;
+      }
+      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.network_also_enabled,
+        }),
+      });
+      void refreshAllNetworkState();
     },
-    [
-      isAllNetworks,
-      aggregateTabs,
-      allNetworksState.disabledNetworks,
-      allNetworksState.enabledNetworks,
-      intl,
-      refreshAllNetworkState,
-    ],
+    [isAllNetworks, intl, refreshAllNetworkState],
   );
 
   const tokenDetailsViewElement = useMemo(() => {
     if (
-      isLoading ||
+      // That loader only builds the type Tabs, which a collapsed account
+      // never shows, so the single view does not wait for it.
+      (isLoading && !collapsedNetworkAccount) ||
       isLoadingTokens ||
+      !isCollapseStateReady ||
       // Keep aggregate tokens on the spinner until the group is resolved so
       // the aggregate descriptor never reaches the single-token fallback.
       (tokenInfo.isAggregateToken && isLoadingTokens !== false)
@@ -825,6 +886,25 @@ function TokenDetailsView() {
             })}
           />
         </Stack>
+      );
+    }
+    if (collapsedNetworkAccount) {
+      return (
+        <TokenDetailsViews
+          // A new default type is another account: start its views fresh.
+          key={collapsedNetworkAccount.account.id}
+          accountId={collapsedNetworkAccount.account.id}
+          networkId={tokenInfo.networkId ?? networkId}
+          walletId={walletId}
+          deriveInfo={collapsedNetworkAccount.deriveInfo}
+          deriveType={collapsedNetworkAccount.deriveType}
+          tokenInfo={tokenInfo}
+          tokenMap={tokenMap}
+          allowTokenMapAsInitialDetails={false}
+          isAllNetworks={isAllNetworks}
+          indexedAccountId={indexedAccountId}
+          listViewContentContainerStyle={listViewContentContainerStyle}
+        />
       );
     }
     if (
@@ -873,6 +953,8 @@ function TokenDetailsView() {
   }, [
     isLoading,
     isLoadingTokens,
+    isCollapseStateReady,
+    collapsedNetworkAccount,
     isAggregateTokenUnavailable,
     walletId,
     vaultSettings?.mergeDeriveAssetsEnabled,
@@ -892,6 +974,8 @@ function TokenDetailsView() {
     intl,
   ]);
 
+  const tokenSymbol =
+    tokenInfo.commonSymbol ?? tokenInfo.symbol ?? tokenInfo.name ?? '';
   const headerTitle = useCallback(() => {
     return (
       <XStack alignItems="center" gap="$2">
@@ -904,7 +988,7 @@ function TokenDetailsView() {
           networkId={networkId}
         />
         <SizableText size="$headingLg" numberOfLines={1}>
-          {tokenInfo.commonSymbol ?? tokenInfo.symbol ?? tokenInfo.name ?? ''}
+          {tokenSymbol}
         </SizableText>
         {!isLoadingTokens &&
         !isLoading &&
@@ -919,9 +1003,7 @@ function TokenDetailsView() {
     );
   }, [
     tokenInfo.logoURI,
-    tokenInfo.commonSymbol,
-    tokenInfo.symbol,
-    tokenInfo.name,
+    tokenSymbol,
     tokenInfo.isAggregateToken,
     effectiveTokenInfo.networkName,
     isAggregateTokenUnavailable,
@@ -957,16 +1039,18 @@ function TokenDetailsView() {
   }, [tokens, tokenMap, accountId, networkId, batchUpdateTokenDetails]);
 
   return (
-    <Page lazyLoad safeAreaEnabled={false}>
+    <Page safeAreaEnabled={false}>
       <Page.Header headerRight={headerRight} headerTitle={headerTitle} />
       <Page.Body>{tokenDetailsViewElement}</Page.Body>
       <TokenDetailsFooter
         isNative={activeFooterToken?.isNative}
+        isAggregateToken={activeFooterToken?.isAggregateToken}
         networkId={activeFooterNetworkId}
         networkName={activeFooterToken?.networkName}
         symbol={activeFooterToken?.symbol}
         tokenAddress={activeFooterToken?.address}
         tokenImageUri={activeFooterToken?.logoURI}
+        tokenSymbol={tokenSymbol}
       />
     </Page>
   );

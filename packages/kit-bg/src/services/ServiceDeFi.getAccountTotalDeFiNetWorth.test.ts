@@ -2,6 +2,8 @@
 yarn test packages/kit-bg/src/services/ServiceDeFi.getAccountTotalDeFiNetWorth.test.ts
 */
 
+import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
+
 // --- mocks MUST be defined before the import of ServiceDeFi below ---
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -60,7 +62,81 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 }));
 
 // eslint-disable-next-line import/first
-import ServiceDeFi from './ServiceDeFi';
+import ServiceDeFi, { buildVisibleDeFiOverview } from './ServiceDeFi';
+
+describe('buildVisibleDeFiOverview', () => {
+  test('excludes totals from protocols hidden by the low-value filter', () => {
+    const overview = {
+      totalValue: 0.01,
+      totalDebt: 0,
+      totalReward: 0.01,
+      netWorth: 0.02,
+      chains: ['polygon'],
+      protocolCount: 1,
+      positionCount: 1,
+    };
+
+    expect(
+      buildVisibleDeFiOverview({
+        overview,
+        protocolMap: {},
+        protocols: [],
+      }),
+    ).toEqual({
+      totalValue: 0,
+      totalDebt: 0,
+      totalReward: 0,
+      netWorth: 0,
+      chains: [],
+      protocolCount: 0,
+      positionCount: 0,
+    });
+  });
+
+  test('sums only retained protocol summaries', () => {
+    const retainedProtocol = {
+      protocol: 'aave-v3',
+      networkId: 'evm--137',
+    } as IDeFiProtocol;
+    expect(
+      buildVisibleDeFiOverview({
+        overview: {
+          totalValue: 11.01,
+          totalDebt: 2,
+          totalReward: 1.01,
+          netWorth: 10.02,
+          chains: ['polygon'],
+          protocolCount: 2,
+          positionCount: 2,
+        },
+        protocols: [retainedProtocol],
+        protocolMap: {
+          'evm--137-aave-v3': {
+            protocol: 'aave-v3',
+            protocolName: 'Aave V3',
+            totalValue: 11,
+            totalDebt: 2,
+            totalReward: 1,
+            netWorth: 10,
+            networkIds: ['evm--137'],
+            positionCount: 1,
+            positionIndices: [],
+            protocolLogo: '',
+            protocolUrl: '',
+          },
+        },
+      }),
+    ).toEqual({
+      totalValue: 11,
+      totalDebt: 2,
+      totalReward: 1,
+      netWorth: 10,
+      chains: ['polygon'],
+      protocolCount: 1,
+      positionCount: 1,
+    });
+  });
+});
 
 function makeService(overrides: {
   getRawData?: jest.Mock;
@@ -107,7 +183,11 @@ describe('getAccountTotalDeFiNetWorth', () => {
       targetCurrency: 'usd',
     });
 
-    expect(result).toEqual({ netWorth: '0', hasCache: false });
+    expect(result).toEqual({
+      hasCache: false,
+      netWorth: '0',
+      networkIds: [],
+    });
   });
 
   test('single-network entry, same currency → returns raw netWorth', async () => {
@@ -134,7 +214,11 @@ describe('getAccountTotalDeFiNetWorth', () => {
       targetCurrency: 'usd',
     });
 
-    expect(result).toEqual({ netWorth: '1000', hasCache: true });
+    expect(result).toEqual({
+      hasCache: true,
+      netWorth: '1000',
+      networkIds: ['evm--1'],
+    });
   });
 
   test('single-network entry, different currency (usd→cny) → converts', async () => {
@@ -158,7 +242,11 @@ describe('getAccountTotalDeFiNetWorth', () => {
       targetCurrency: 'cny',
     });
 
-    expect(result).toEqual({ netWorth: '7200', hasCache: true });
+    expect(result).toEqual({
+      hasCache: true,
+      netWorth: '7200',
+      networkIds: ['evm--1'],
+    });
   });
 
   test('All-Networks: sums across multiple child addresses and networks', async () => {
@@ -189,7 +277,11 @@ describe('getAccountTotalDeFiNetWorth', () => {
       targetCurrency: 'usd',
     });
 
-    expect(result).toEqual({ netWorth: '1000', hasCache: true });
+    expect(result).toEqual({
+      hasCache: true,
+      netWorth: '1000',
+      networkIds: ['btc--0', 'evm--1', 'evm--56'],
+    });
   });
 
   test('All-Networks: filters DeFi net worth to enabled networks when provided', async () => {
@@ -221,7 +313,11 @@ describe('getAccountTotalDeFiNetWorth', () => {
       enabledNetworkIds: ['evm--1', 'btc--0'],
     });
 
-    expect(result).toEqual({ netWorth: '800', hasCache: true });
+    expect(result).toEqual({
+      hasCache: true,
+      netWorth: '800',
+      networkIds: ['btc--0', 'evm--1'],
+    });
   });
 
   test('missing target currency → falls back to USD', async () => {
@@ -242,6 +338,10 @@ describe('getAccountTotalDeFiNetWorth', () => {
       targetCurrency: 'xxx-not-a-real-code',
     });
 
-    expect(result).toEqual({ netWorth: '1000', hasCache: true });
+    expect(result).toEqual({
+      hasCache: true,
+      netWorth: '1000',
+      networkIds: ['evm--1'],
+    });
   });
 });

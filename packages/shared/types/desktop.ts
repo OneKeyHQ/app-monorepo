@@ -70,6 +70,8 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
     func: (...args: any[]) => any,
   ) => IDesktopEventUnSubscribe | undefined;
   logDirectory: string;
+  claimStartupTiming: (stage: 'jsReadyTime' | 'uiVisibleTime') => boolean;
+  releaseStartupTiming: (stage: 'jsReadyTime' | 'uiVisibleTime') => void;
   ready: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   isFocused: () => boolean;

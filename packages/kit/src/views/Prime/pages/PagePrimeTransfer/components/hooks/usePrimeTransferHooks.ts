@@ -28,35 +28,51 @@ export function useModalExitPrevent({
   message,
   shouldPreventRemove = true,
   onConfirm,
+  isExitCurrent,
 }: {
   title: string;
   message: string;
   shouldPreventRemove?: boolean;
-  onConfirm?: () => Promise<void> | void;
+  onConfirm?: () => Promise<boolean | void> | boolean | void;
+  isExitCurrent?: () => Promise<boolean> | boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isFocused = useRouteIsFocused();
   const [isNavExitConfirmed, setIsNavExitConfirmed] = useState(false);
-  const confirmedRemoveActionRef = useRef<INavigationRemoveAction | undefined>(
-    undefined,
-  );
+  const confirmedRemoveActionRef = useRef<
+    | {
+        action: INavigationRemoveAction;
+        isExitCurrent?: () => Promise<boolean> | boolean;
+      }
+    | undefined
+  >(undefined);
 
   useEffect(() => {
     if (!isNavExitConfirmed) {
       return;
     }
+    let cancelled = false;
     const replayTimer = setTimeout(() => {
-      const action = confirmedRemoveActionRef.current;
+      const confirmation = confirmedRemoveActionRef.current;
       confirmedRemoveActionRef.current = undefined;
-      if (action) {
-        rootNavigationRef.current?.dispatch(action);
-      }
+      if (!confirmation) return;
+      void (async () => {
+        if ((await confirmation.isExitCurrent?.()) === false || cancelled) {
+          if (!cancelled) setIsNavExitConfirmed(false);
+          return;
+        }
+        rootNavigationRef.current?.dispatch(confirmation.action);
+      })().catch((error: unknown) => {
+        if (!cancelled) setIsNavExitConfirmed(false);
+        console.error('Failed to confirm transfer navigation exit', error);
+      });
     });
     const timer = setTimeout(() => {
       setIsNavExitConfirmed(false);
     }, 1000);
     return () => {
+      cancelled = true;
       clearTimeout(replayTimer);
       clearTimeout(timer);
     };
@@ -83,11 +99,17 @@ export function useModalExitPrevent({
         title,
         description: message,
         onConfirmText: intl.formatMessage({ id: ETranslations.global_quit }),
-        onConfirm: () => {
+        disableDrag: true,
+        dismissOnOverlayPress: false,
+        onConfirm: async () => {
+          const confirmed = await onConfirm?.();
           isNavExitConfirmShow = false;
-          confirmedRemoveActionRef.current = data.action;
+          if (confirmed === false) return;
+          confirmedRemoveActionRef.current = {
+            action: data.action,
+            isExitCurrent,
+          };
           setIsNavExitConfirmed(true);
-          void onConfirm?.();
         },
         onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
         onClose: () => {
@@ -95,7 +117,7 @@ export function useModalExitPrevent({
         },
       });
     },
-    [message, navigation, title, intl, onConfirm],
+    [message, navigation, title, intl, onConfirm, isExitCurrent],
   );
   usePreventRemove(
     shouldPreventRemove && !isNavExitConfirmed && isFocused,
@@ -108,11 +130,13 @@ export function useAppExitPrevent({
   title,
   shouldPreventExitOnAndroid = true,
   onConfirm,
+  isExitCurrent,
 }: {
   message: string;
   title: string;
   shouldPreventExitOnAndroid?: boolean;
-  onConfirm?: () => Promise<void> | void;
+  onConfirm?: () => Promise<boolean | void> | boolean | void;
+  isExitCurrent?: () => Promise<boolean> | boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -152,7 +176,8 @@ export function useAppExitPrevent({
           {
             text: intl.formatMessage({ id: ETranslations.global_quit }),
             onPress: async () => {
-              await onConfirm?.();
+              if ((await onConfirm?.()) === false) return;
+              if ((await isExitCurrent?.()) === false) return;
               isAppExitConfirmed = true;
               navigation.popStack();
               setTimeout(() => {
@@ -173,5 +198,13 @@ export function useAppExitPrevent({
     );
 
     return () => backHandler.remove();
-  }, [message, title, intl, shouldPreventExitOnAndroid, navigation, onConfirm]);
+  }, [
+    message,
+    title,
+    intl,
+    shouldPreventExitOnAndroid,
+    navigation,
+    onConfirm,
+    isExitCurrent,
+  ]);
 }

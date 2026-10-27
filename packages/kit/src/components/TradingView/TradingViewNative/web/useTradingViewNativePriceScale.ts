@@ -10,11 +10,14 @@ import { getTradingViewNativePriceRangeScaleAfterDrag } from '../utils/priceAxis
 import { getTradingViewNativeWheelPriceRangeScale } from './chartWheel';
 
 import type { ITradingViewNativePriceScaleMode } from '../types';
+import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 
 const PRICE_AXIS_DRAG_ACTIVATION_DISTANCE = 4;
 
 export interface ITradingViewNativeWebPriceScaleModel {
+  autoPriceRange: ITradingViewNativePriceRange | null;
   mode: ITradingViewNativePriceScaleMode;
+  pinnedPriceRange: ITradingViewNativePriceRange | null;
   rangeScale: number;
 }
 
@@ -28,9 +31,20 @@ interface IPriceAxisPointerDragState {
 
 export function createTradingViewNativeWebPriceScaleModel(): ITradingViewNativeWebPriceScaleModel {
   return {
+    autoPriceRange: null,
     mode: 'linear',
+    pinnedPriceRange: null,
     rangeScale: 1,
   };
+}
+
+function pinTradingViewNativeWebPriceRange(
+  model: ITradingViewNativeWebPriceScaleModel,
+) {
+  if (!model.pinnedPriceRange && model.autoPriceRange) {
+    model.pinnedPriceRange = { ...model.autoPriceRange };
+  }
+  return Boolean(model.pinnedPriceRange);
 }
 
 export function useTradingViewNativePriceScale({
@@ -46,7 +60,9 @@ export function useTradingViewNativePriceScale({
 }) {
   const pointerDragStateRef = useRef<IPriceAxisPointerDragState | null>(null);
   const isHoveredRef = useRef(false);
-  const [isAutoScale, setIsAutoScale] = useState(true);
+  const [isAutoScale, setIsAutoScale] = useState(
+    () => modelRef.current.pinnedPriceRange === null,
+  );
   const [isHovered, setIsHovered] = useState(false);
   const [mode, setMode] = useState<ITradingViewNativePriceScaleMode>(
     modelRef.current.mode,
@@ -70,10 +86,16 @@ export function useTradingViewNativePriceScale({
   }, [isLogScaleAvailable, modelRef, renderWithCrosshairHidden]);
 
   const handleAutoScalePress = useCallback(() => {
-    modelRef.current.rangeScale = 1;
-    setIsAutoScale(true);
+    const nextIsAutoScale = !isAutoScale;
+    if (nextIsAutoScale) {
+      modelRef.current.pinnedPriceRange = null;
+      modelRef.current.rangeScale = 1;
+    } else if (!pinTradingViewNativeWebPriceRange(modelRef.current)) {
+      return;
+    }
+    setIsAutoScale(nextIsAutoScale);
     renderWithCrosshairHidden();
-  }, [modelRef, renderWithCrosshairHidden]);
+  }, [isAutoScale, modelRef, renderWithCrosshairHidden]);
 
   const handleLogScalePress = useCallback(() => {
     if (!isLogScaleAvailable) {
@@ -128,6 +150,9 @@ export function useTradingViewNativePriceScale({
         return;
       }
       if (!dragState.isActive) {
+        if (!pinTradingViewNativeWebPriceRange(modelRef.current)) {
+          return;
+        }
         dragState.isActive = true;
         setIsAutoScale(false);
       }
@@ -166,6 +191,7 @@ export function useTradingViewNativePriceScale({
   const handleDoubleClick = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       event.preventDefault();
+      modelRef.current.pinnedPriceRange = null;
       modelRef.current.rangeScale = 1;
       setIsAutoScale(true);
       updateHovered(true);
@@ -177,6 +203,9 @@ export function useTradingViewNativePriceScale({
   const handleWheel = useCallback(
     (deltaY: number) => {
       if (deltaY === 0) {
+        return;
+      }
+      if (!pinTradingViewNativeWebPriceRange(modelRef.current)) {
         return;
       }
       modelRef.current.rangeScale = getTradingViewNativeWheelPriceRangeScale({
@@ -206,7 +235,16 @@ export function useTradingViewNativePriceScale({
     [],
   );
 
+  const handlePriceRangePan = useCallback(
+    (priceRange: ITradingViewNativePriceRange) => {
+      modelRef.current.pinnedPriceRange = priceRange;
+      setIsAutoScale(false);
+    },
+    [modelRef],
+  );
+
   return {
+    handlePriceRangePan,
     finishPointerDrag,
     handleAutoScalePress,
     handleDoubleClick,

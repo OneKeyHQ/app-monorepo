@@ -8,6 +8,7 @@ import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 import { useSignatureConfirm } from './useSignatureConfirm';
 
 const mockPush = jest.fn();
+const mockPushModal = jest.fn();
 const mockPreActionsBeforeConfirm = jest.fn(
   async (_params: unknown): Promise<Record<string, never>> => ({}),
 );
@@ -22,6 +23,7 @@ jest.mock('./useAppNavigation', () => ({
   __esModule: true,
   default: () => ({
     push: mockPush,
+    pushModal: mockPushModal,
   }),
 }));
 
@@ -94,4 +96,40 @@ describe('useSignatureConfirm', () => {
       }),
     );
   });
+
+  it.each([true, false])(
+    'does not open a stale confirmation after async preparation (sameModal=%s)',
+    async (sameModal) => {
+      let resolvePreparation!: (value: Record<string, never>) => void;
+      mockPreActionsBeforeConfirm.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolvePreparation = resolve;
+          }),
+      );
+      let active = true;
+      const { result } = renderHook(() =>
+        useSignatureConfirm({
+          accountId: 'account-id',
+          networkId: 'network-id',
+        }),
+      );
+      let navigation!: Promise<void>;
+      await act(async () => {
+        navigation = result.current.normalizeTxConfirm({
+          unsignedTxs: [unsignedTx],
+          sameModal,
+          isInternalSwap: true,
+          isNavigationCurrent: () => active,
+        });
+      });
+      await act(async () => {
+        active = false;
+        resolvePreparation({});
+        await navigation;
+      });
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockPushModal).not.toHaveBeenCalled();
+    },
+  );
 });

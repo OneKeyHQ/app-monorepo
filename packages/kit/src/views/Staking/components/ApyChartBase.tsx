@@ -14,7 +14,12 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
+import {
+  APY_PRICE_SCALE_MARGINS,
+  LightweightChart,
+} from '@onekeyhq/kit/src/components/LightweightChart';
+import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import type { IApyHistoryItem } from '@onekeyhq/shared/types/staking';
 
 import type { UTCTimestamp } from 'lightweight-charts';
@@ -47,6 +52,8 @@ const ApyChartBaseComponent = ({
   tooltipLabel = 'APY',
 }: IApyChartBaseProps) => {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
+  const timeZone = useDeviceTimeZone();
   const chartHeight = 200;
   const POPUP_WIDTH = 160;
   const [hoverData, setHoverData] = useState<{
@@ -113,15 +120,9 @@ const ApyChartBaseComponent = ({
   const formatPopoverDate = useCallback(
     (timestamp: number) => {
       const date = new Date(timestamp * 1000);
-      return intl.formatDate(date, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      return formatDate(date, { hideSeconds: true });
     },
-    [intl],
+    [formatDate],
   );
 
   const chartData = useMemo(() => {
@@ -152,7 +153,7 @@ const ApyChartBaseComponent = ({
           height={chartHeight}
           position="relative"
           overflow="hidden"
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           enterStyle={{ opacity: 0 }}
         >
@@ -173,7 +174,7 @@ const ApyChartBaseComponent = ({
       {chartData && !isLoading ? (
         <YStack
           position="relative"
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
           enterStyle={{ opacity: 0, scale: 0.98 }}
           exitStyle={{ opacity: 0, scale: 0.98 }}
@@ -244,7 +245,16 @@ const ApyChartBaseComponent = ({
             lineWidth={lineWidth}
             showHorzGridLines={showHorzGridLines}
             showPriceScale={showPriceScale}
+            priceScaleEntireTextOnly={showPriceScale}
+            priceScaleMargins={
+              showPriceScale ? APY_PRICE_SCALE_MARGINS : undefined
+            }
             onHover={handleHover}
+            // The wrapper only localizes the time axis when both are given;
+            // otherwise lightweight-charts labels it in the system language,
+            // not the app language (OK-63219).
+            timeZone={timeZone}
+            locale={intl.locale}
           />
           {showDivider ? <Divider mt="$8" /> : null}
         </YStack>

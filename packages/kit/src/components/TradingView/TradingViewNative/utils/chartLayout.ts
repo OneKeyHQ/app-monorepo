@@ -1,3 +1,8 @@
+import {
+  formatDateTimeParts,
+  getDateTimeParts,
+  omitDateFormatFields,
+} from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -5,6 +10,7 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HORIZONTAL_PADDING,
+  TRADING_VIEW_NATIVE_MOBILE_WATERMARK_WIDTH_RATIO,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_RIGHT_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING,
@@ -19,7 +25,6 @@ import {
   TRADING_VIEW_NATIVE_VOLUME_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
   TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
-  TRADING_VIEW_NATIVE_WATERMARK_MIN_WIDTH,
   TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO,
 } from '../chartConstants';
 
@@ -86,6 +91,8 @@ export interface ITradingViewNativeWatermarkLayout {
 }
 
 export interface ITradingViewNativeChartLayout {
+  dateFormatTemplate?: string;
+  autoPriceRange: ITradingViewNativePriceRange;
   mainChartBottom: number;
   maxPrice: number;
   maxVolume: number;
@@ -116,7 +123,7 @@ const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 const VOLUME_HEIGHT_RATIO = 0.2;
 const PRICE_INTEGER_FRACTION_DIGITS = 2;
 const PRICE_SIGNIFICANT_FRACTION_DIGITS = 4;
-const PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 4;
+const PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD = 3;
 const PRICE_PLAIN_DECIMAL_MIN_ABSOLUTE_VALUE =
   10 ** -(PRICE_LEADING_ZERO_SUBSCRIPT_THRESHOLD + 1);
 const PRICE_SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
@@ -228,11 +235,83 @@ function compactTradingViewNativePriceLeadingZeros(value: string) {
   )}${value.slice(firstSignificantDigitIndex)}`;
 }
 
-export function formatTradingViewNativePriceTick(price: number) {
+function roundTradingViewNativeSubOnePrice(
+  price: number,
+  significantDigits: number,
+) {
+  'worklet';
+
+  // `toFixed` rounds the binary double, so 0.0012345 — stored as 0.00123449… —
+  // rounds down, while the page header rounds the decimal string half-up
+  // through BigNumber and reaches 0.001235. `toExponential()` returns the
+  // shortest round-trip decimal, so rounding its digit string keeps the chart
+  // and the header on the same number.
+  const exponentialParts = Math.abs(price).toExponential().split('e');
+  let digits = exponentialParts[0].replace('.', '');
+  let exponent = Number(exponentialParts[1]);
+  if (digits.length > significantDigits) {
+    const kept = digits.slice(0, significantDigits);
+    if (digits.charAt(significantDigits) >= '5') {
+      const bumped = String(Number(kept) + 1);
+      if (bumped.length > kept.length) {
+        // 9999 -> 10000: one more integer digit, so the decimal point moves.
+        digits = bumped.slice(0, significantDigits);
+        exponent += 1;
+      } else {
+        digits = bumped;
+      }
+    } else {
+      digits = kept;
+    }
+  }
+  let digitsEndIndex = digits.length;
+  while (digitsEndIndex > 1 && digits[digitsEndIndex - 1] === '0') {
+    digitsEndIndex -= 1;
+  }
+  digits = digits.slice(0, digitsEndIndex);
+
+  const sign = price < 0 ? '-' : '';
+  if (exponent >= 0) {
+    // Rounding carried the value up to at least 1.
+    const integerLength = exponent + 1;
+    return digits.length > integerLength
+      ? `${sign}${digits.slice(0, integerLength)}.${digits.slice(
+          integerLength,
+        )}`
+      : `${sign}${digits}${'0'.repeat(integerLength - digits.length)}`;
+  }
+  return `${sign}0.${'0'.repeat(-exponent - 1)}${digits}`;
+}
+
+export function formatTradingViewNativePriceTick(
+  price: number,
+  // Worklet default parameters cannot read captured constants before __closure is initialized.
+  // Keep this literal in sync manually with PRICE_SIGNIFICANT_FRACTION_DIGITS.
+  significantFractionDigits: 4 | 6 = 4,
+  priceDecimalPlaces?: number,
+) {
   'worklet';
 
   if (!Number.isFinite(price)) {
     return '--';
+  }
+
+  if (priceDecimalPlaces !== undefined && Number.isFinite(priceDecimalPlaces)) {
+    const decimals = Math.max(0, Math.min(12, Math.floor(priceDecimalPlaces)));
+    if (price === 0) return price.toFixed(decimals);
+    const magnitude = Math.abs(price);
+    const exponent = Number(magnitude.toExponential().split('e')[1]);
+    const significantDigits = exponent + 1 + decimals;
+    // Round the decimal representation before padding, as in the shared price labels.
+    let rounded = 0;
+    if (significantDigits > 0) {
+      rounded = Number(
+        roundTradingViewNativeSubOnePrice(price, significantDigits),
+      );
+    } else if (magnitude >= 5 * 10 ** (-decimals - 1)) {
+      rounded = Math.sign(price) * 10 ** -decimals;
+    }
+    return rounded.toFixed(decimals);
   }
 
   const absolutePrice = Math.abs(price);
@@ -247,14 +326,15 @@ export function formatTradingViewNativePriceTick(price: number) {
     -Math.floor(Math.log10(absolutePrice)) - 1,
     0,
   );
-  const fractionDigits = leadingZeroCount + PRICE_SIGNIFICANT_FRACTION_DIGITS;
+  const fractionDigits = leadingZeroCount + significantFractionDigits;
   if (fractionDigits > MAX_TO_FIXED_FRACTION_DIGITS) {
-    return Number(
-      price.toPrecision(PRICE_SIGNIFICANT_FRACTION_DIGITS),
-    ).toString();
+    return Number(price.toPrecision(significantFractionDigits)).toString();
   }
 
-  const fixedPrice = price.toFixed(fractionDigits);
+  const fixedPrice = roundTradingViewNativeSubOnePrice(
+    price,
+    significantFractionDigits,
+  );
   const roundedPrice = Number(fixedPrice);
   if (Math.abs(roundedPrice) >= 1) {
     return roundedPrice.toFixed(PRICE_INTEGER_FRACTION_DIGITS);
@@ -333,6 +413,7 @@ function getTradingViewNativePlainDecimalPriceAxisLabel(isNegative: boolean) {
 
 export function getTradingViewNativePriceAxisLabel(
   points: IMarketTokenKLineDataPoint[],
+  priceDecimalPlaces?: number,
 ) {
   'worklet';
 
@@ -373,6 +454,22 @@ export function getTradingViewNativePriceAxisLabel(
         }
       }
     }
+  }
+
+  if (priceDecimalPlaces !== undefined) {
+    const positive = formatTradingViewNativePriceTick(
+      largestNonNegativePrice,
+      4,
+      priceDecimalPlaces,
+    );
+    const negative = formatTradingViewNativePriceTick(
+      largestNegativePrice,
+      4,
+      priceDecimalPlaces,
+    );
+    return getTradingViewNativeWidestDigitLabel(
+      positive.length >= negative.length ? positive : negative,
+    );
   }
 
   if (!hasFinitePrice) {
@@ -428,11 +525,13 @@ export function getTradingViewNativePriceAxisLabel(
 export function getTradingViewNativeScaledPriceAxisLabel({
   autoPriceRange,
   baseLabel = '',
+  priceDecimalPlaces,
   priceRangeScale,
   priceScaleMode,
 }: {
   autoPriceRange: ITradingViewNativePriceRange;
   baseLabel?: string;
+  priceDecimalPlaces?: number;
   priceRangeScale: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
 }) {
@@ -443,6 +542,19 @@ export function getTradingViewNativeScaledPriceAxisLabel({
     rangeScale: priceRangeScale,
     requestedMode: priceScaleMode,
   });
+  if (priceDecimalPlaces !== undefined) {
+    const candidates = [
+      baseLabel,
+      formatTradingViewNativePriceTick(minPrice, 4, priceDecimalPlaces),
+      formatTradingViewNativePriceTick(maxPrice, 4, priceDecimalPlaces),
+    ];
+    return getTradingViewNativeWidestDigitLabel(
+      candidates.reduce(
+        (longest, label) => (label.length > longest.length ? label : longest),
+        baseLabel,
+      ),
+    );
+  }
   let longestLabel = getTradingViewNativeLongerPriceAxisLabel(
     baseLabel,
     minPrice,
@@ -476,12 +588,13 @@ export function getTradingViewNativeScaledPriceAxisLabel({
 
 export function getTradingViewNativeCurrentPriceLabel(
   points: IMarketTokenKLineDataPoint[],
+  priceDecimalPlaces?: number,
 ) {
   'worklet';
 
   const currentPrice = points[points.length - 1]?.c;
   return typeof currentPrice === 'number' && Number.isFinite(currentPrice)
-    ? formatTradingViewNativePriceTick(currentPrice)
+    ? formatTradingViewNativePriceTick(currentPrice, 4, priceDecimalPlaces)
     : '';
 }
 
@@ -570,43 +683,40 @@ export function getTradingViewNativePriceExtremumHorizontalLayout({
 }
 
 export function getTradingViewNativeWatermarkLayout({
-  height,
-  width,
+  canvasWidth,
+  isMobileLayout = false,
+  mainChartBottom,
 }: {
-  height: number;
-  width: number;
+  canvasWidth: number;
+  isMobileLayout?: boolean;
+  mainChartBottom: number;
 }): ITradingViewNativeWatermarkLayout | null {
   'worklet';
 
   if (
-    !Number.isFinite(height) ||
-    !Number.isFinite(width) ||
-    height <= 0 ||
-    width <= 0
+    !Number.isFinite(canvasWidth) ||
+    !Number.isFinite(mainChartBottom) ||
+    canvasWidth <= 0 ||
+    mainChartBottom <= 0
   ) {
     return null;
   }
 
-  const preferredWidth = Math.min(
-    Math.max(
-      width * TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO,
-      TRADING_VIEW_NATIVE_WATERMARK_MIN_WIDTH,
-    ),
-    TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
-  );
+  const watermarkWidthRatio = isMobileLayout
+    ? TRADING_VIEW_NATIVE_MOBILE_WATERMARK_WIDTH_RATIO
+    : TRADING_VIEW_NATIVE_WATERMARK_WIDTH_RATIO;
   const watermarkWidth = Math.min(
-    preferredWidth,
-    width,
-    height * TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
+    canvasWidth * watermarkWidthRatio,
+    TRADING_VIEW_NATIVE_WATERMARK_MAX_WIDTH,
+    mainChartBottom * TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO,
   );
   const watermarkHeight =
     watermarkWidth / TRADING_VIEW_NATIVE_WATERMARK_ASPECT_RATIO;
-
   return {
     height: watermarkHeight,
     width: watermarkWidth,
-    x: (width - watermarkWidth) / 2,
-    y: (height - watermarkHeight) / 2,
+    x: (canvasWidth - watermarkWidth) / 2,
+    y: (mainChartBottom - watermarkHeight) / 2,
   };
 }
 
@@ -671,6 +781,7 @@ function padTimeAxisValue(value: number) {
 export function formatTradingViewNativeCrosshairTime(
   timestamp: number,
   candleIntervalSeconds: number,
+  dateFormatTemplate?: string,
 ) {
   'worklet';
 
@@ -678,7 +789,9 @@ export function formatTradingViewNativeCrosshairTime(
   const year = date.getFullYear();
   const month = padTimeAxisValue(date.getMonth() + 1);
   const day = padTimeAxisValue(date.getDate());
-  const dateLabel = `${year}-${month}-${day}`;
+  const dateLabel = dateFormatTemplate
+    ? formatDateTimeParts(getDateTimeParts(date), dateFormatTemplate)
+    : `${year}-${month}-${day}`;
 
   if (candleIntervalSeconds >= SECONDS_PER_DAY) {
     return dateLabel;
@@ -693,6 +806,7 @@ function formatTradingViewNativeTimeTick(
   timestamp: number,
   unit: ITradingViewNativeTimeAxisUnit,
   previousTimestamp?: number,
+  dateFormatTemplate?: string,
 ) {
   'worklet';
 
@@ -702,6 +816,12 @@ function formatTradingViewNativeTimeTick(
   const day = padTimeAxisValue(date.getDate());
   const hour = padTimeAxisValue(date.getHours());
   const minute = padTimeAxisValue(date.getMinutes());
+  const monthDay = dateFormatTemplate
+    ? formatDateTimeParts(
+        getDateTimeParts(date),
+        omitDateFormatFields(dateFormatTemplate, { hideYear: true }),
+      )
+    : `${month}/${day}`;
 
   if (unit === 'minute' || unit === 'hour') {
     const previousDate =
@@ -715,14 +835,19 @@ function formatTradingViewNativeTimeTick(
         date.getDate() !== previousDate.getDate()),
     );
     return startsNewLocalDay || (hour === '00' && minute === '00')
-      ? `${month}/${day}`
+      ? monthDay
       : `${hour}:${minute}`;
   }
   if (unit === 'day') {
-    return month === '01' && day === '01' ? year.toString() : `${month}/${day}`;
+    return month === '01' && day === '01' ? year.toString() : monthDay;
   }
   if (unit === 'month') {
-    return `${year}-${month}`;
+    return dateFormatTemplate
+      ? formatDateTimeParts(
+          getDateTimeParts(date),
+          omitDateFormatFields(dateFormatTemplate, { hideDay: true }),
+        )
+      : `${year}-${month}`;
   }
   return year.toString();
 }
@@ -800,6 +925,7 @@ export function getTradingViewNativeTimeTickMinimumIndexSpacing(
 }
 
 export function getTradingViewNativeTimeAxisLayout({
+  dateFormatTemplate,
   candleIntervalSeconds,
   chartWidth,
   endIndex,
@@ -813,6 +939,7 @@ export function getTradingViewNativeTimeAxisLayout({
   minimumIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
   startIndex: number;
+  dateFormatTemplate?: string;
 }): ITradingViewNativeTimeAxisLayout {
   'worklet';
 
@@ -902,6 +1029,7 @@ export function getTradingViewNativeTimeAxisLayout({
               timestamp,
               interval.unit,
               previousTick?.timestamp,
+              dateFormatTemplate,
             ),
             timestamp,
           };
@@ -916,7 +1044,9 @@ export function getTradingViewNativeTimeAxisLayout({
 }
 
 export function getTradingViewNativeChartLayout({
+  dateFormatTemplate,
   additionalPriceRange,
+  autoScalePointRange,
   candleIntervalSeconds,
   chartType = 'candlestick',
   contentBottomInset = 0,
@@ -924,7 +1054,10 @@ export function getTradingViewNativeChartLayout({
   height,
   minimumTimeTickIndexSpacing,
   points,
+  pinnedPriceRange,
   priceAxisWidth,
+  priceAxisTickCount,
+  timeAxisHeight,
   priceRangeScale = 1,
   priceScaleMode = 'linear',
   visiblePointRange,
@@ -934,6 +1067,7 @@ export function getTradingViewNativeChartLayout({
     maxPrice: number;
     minPrice: number;
   } | null;
+  autoScalePointRange?: ITradingViewNativeVisiblePointRange;
   candleIntervalSeconds: number;
   chartType?: ITradingViewNativeChartType;
   contentBottomInset?: number;
@@ -941,17 +1075,27 @@ export function getTradingViewNativeChartLayout({
   height: number;
   minimumTimeTickIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
+  pinnedPriceRange?: ITradingViewNativePriceRange | null;
   priceAxisWidth: number;
+  priceAxisTickCount?: number;
+  timeAxisHeight?: number;
   priceRangeScale?: number;
   priceScaleMode?: ITradingViewNativePriceScaleMode;
   visiblePointRange: ITradingViewNativeVisiblePointRange;
   width: number;
+  dateFormatTemplate?: string;
 }): ITradingViewNativeChartLayout | null {
   'worklet';
 
+  // Imported constants used in default parameters are not captured by the
+  // Native worklet serializer. Resolve them inside the worklet body instead.
+  const resolvedPriceAxisTickCount =
+    priceAxisTickCount ?? TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT;
+  const resolvedTimeAxisHeight =
+    timeAxisHeight ?? TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
   const chartWidth = getTradingViewNativeChartWidth(width, priceAxisWidth);
   const priceAxisX = TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING + chartWidth;
-  const timeAxisY = height - TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT;
+  const timeAxisY = height - resolvedTimeAxisHeight;
   const normalizedContentBottomInset = Number.isFinite(contentBottomInset)
     ? Math.max(contentBottomInset, 0)
     : 0;
@@ -967,8 +1111,9 @@ export function getTradingViewNativeChartLayout({
     return null;
   }
 
+  const scalePointRange = autoScalePointRange ?? visiblePointRange;
   const visiblePointPriceRange = getTradingViewNativePriceRange({
-    ...visiblePointRange,
+    ...scalePointRange,
     chartType,
     points,
   });
@@ -986,7 +1131,7 @@ export function getTradingViewNativeChartLayout({
     minPrice,
     mode: resolvedPriceScaleMode,
   } = resolveTradingViewNativePriceRange({
-    autoPriceRange,
+    autoPriceRange: pinnedPriceRange ?? autoPriceRange,
     rangeScale: priceRangeScale,
     requestedMode: priceScaleMode,
   });
@@ -1005,6 +1150,10 @@ export function getTradingViewNativeChartLayout({
     mainChartBottom - TRADING_VIEW_NATIVE_CHART_BOTTOM_PADDING;
   const volumeTop = volumeBottom - volumeHeight;
   const priceRange = maxPrice - minPrice;
+  const normalizedPriceAxisTickCount = Math.max(
+    Math.floor(resolvedPriceAxisTickCount),
+    1,
+  );
   const priceTickCount =
     priceRange === 0
       ? 1
@@ -1016,7 +1165,7 @@ export function getTradingViewNativeChartLayout({
             ) + 1,
             1,
           ),
-          TRADING_VIEW_NATIVE_PRICE_AXIS_TICK_COUNT,
+          normalizedPriceAxisTickCount,
         );
   const priceTicks = Array.from(
     { length: priceTickCount },
@@ -1035,7 +1184,7 @@ export function getTradingViewNativeChartLayout({
     },
   );
   const maxVolume = getTradingViewNativeMaxVolume({
-    ...visiblePointRange,
+    ...scalePointRange,
     points,
   });
   const volumeTickCount =
@@ -1062,6 +1211,7 @@ export function getTradingViewNativeChartLayout({
   );
 
   const timeTicks = getTradingViewNativeTimeAxisLayout({
+    dateFormatTemplate,
     candleIntervalSeconds,
     chartWidth,
     ...visiblePointRange,
@@ -1070,6 +1220,8 @@ export function getTradingViewNativeChartLayout({
   }).ticks;
 
   return {
+    autoPriceRange,
+    ...(dateFormatTemplate ? { dateFormatTemplate } : {}),
     mainChartBottom,
     maxPrice,
     maxVolume,
@@ -1116,12 +1268,14 @@ export function getTradingViewNativePriceY(
 }
 
 export function getTradingViewNativePriceAtY({
+  allowOutsideChart = false,
   maxPrice,
   minPrice,
   priceChartHeight,
   priceScaleMode = 'linear',
   y,
 }: {
+  allowOutsideChart?: boolean;
   maxPrice: number;
   minPrice: number;
   priceChartHeight: number;
@@ -1136,8 +1290,8 @@ export function getTradingViewNativePriceAtY({
     !Number.isFinite(minPrice) ||
     !Number.isFinite(y) ||
     priceChartHeight <= 0 ||
-    y < TRADING_VIEW_NATIVE_CHART_TOP_PADDING ||
-    y > chartBottom
+    (!allowOutsideChart &&
+      (y < TRADING_VIEW_NATIVE_CHART_TOP_PADDING || y > chartBottom))
   ) {
     return null;
   }
@@ -1235,4 +1389,92 @@ export function getTradingViewNativeCurrentPriceLayout({
     ),
     lineY,
   };
+}
+
+export function getTradingViewNativePriceLabelPositions({
+  labels,
+  anchorId,
+  labelHeight,
+  minTop,
+  maxBottom,
+}: {
+  labels: readonly { id: string; price: number; top: number }[];
+  anchorId?: string;
+  labelHeight: number;
+  minTop: number;
+  maxBottom: number;
+}): Record<string, number> {
+  'worklet';
+
+  const positions: Record<string, number> = {};
+  if (
+    !Number.isFinite(labelHeight) ||
+    !Number.isFinite(minTop) ||
+    !Number.isFinite(maxBottom) ||
+    labelHeight <= 0 ||
+    maxBottom < minTop
+  ) {
+    return positions;
+  }
+  const orderedLabels = labels.filter(
+    ({ price, top }) => Number.isFinite(price) && Number.isFinite(top),
+  );
+  orderedLabels.sort((left, right) => {
+    if (left.price !== right.price) return right.price - left.price;
+    if (left.id === right.id) return 0;
+    // Keep the anchor below equal-price references, as with Prev close.
+    if (left.id === anchorId) return 1;
+    if (right.id === anchorId) return -1;
+    return left.id < right.id ? -1 : 1;
+  });
+  if (orderedLabels.length === 0) return positions;
+
+  const maxTop = Math.max(minTop, maxBottom - labelHeight);
+  const spacing =
+    orderedLabels.length > 1
+      ? Math.min(labelHeight, (maxTop - minTop) / (orderedLabels.length - 1))
+      : 0;
+  const maxOffset = Math.max(
+    minTop,
+    maxTop - (orderedLabels.length - 1) * spacing,
+  );
+  const blocks: {
+    startIndex: number;
+    endIndex: number;
+    totalOffset: number;
+    anchorOffset?: number;
+    offset: number;
+  }[] = [];
+
+  orderedLabels.forEach((label, index) => {
+    // Removing each slot's spacing reduces collision avoidance to ordered offsets.
+    const targetOffset = label.top - index * spacing;
+    blocks.push({
+      startIndex: index,
+      endIndex: index,
+      totalOffset: targetOffset,
+      anchorOffset: label.id === anchorId ? targetOffset : undefined,
+      offset: Math.min(Math.max(targetOffset, minTop), maxOffset),
+    });
+    while (blocks.length > 1) {
+      const previous = blocks[blocks.length - 2];
+      const current = blocks[blocks.length - 1];
+      if (previous.offset <= current.offset) break;
+      previous.endIndex = current.endIndex;
+      previous.totalOffset += current.totalOffset;
+      previous.anchorOffset ??= current.anchorOffset;
+      // Colliding neighbors move together; the current-price anchor takes priority.
+      const preferredOffset =
+        previous.anchorOffset ??
+        previous.totalOffset / (previous.endIndex - previous.startIndex + 1);
+      previous.offset = Math.min(Math.max(preferredOffset, minTop), maxOffset);
+      blocks.pop();
+    }
+  });
+  blocks.forEach(({ startIndex, endIndex, offset }) => {
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      positions[orderedLabels[index].id] = offset + index * spacing;
+    }
+  });
+  return positions;
 }

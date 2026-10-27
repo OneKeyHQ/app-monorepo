@@ -13,7 +13,6 @@ import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Portal } from '../../../hocs';
 import { useBackHandler } from '../../../hooks';
 import {
   ModalNavigatorContext,
@@ -242,7 +241,6 @@ function OnBoardingModalNavigator({
               />
             </Stack>
           </Stack>
-          <Portal.Container name={contextValue.portalId} />
         </>
       </ModalNavigatorContext.Provider>
     </NavigationContent>

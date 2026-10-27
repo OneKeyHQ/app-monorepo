@@ -19,6 +19,7 @@ import type {
 } from '@onekeyhq/shared/src/IndexedDBPromised';
 import { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -27,6 +28,7 @@ import { localDbOpenErrorAtom } from '../../../states/jotai/atoms/localDb';
 import { INDEXED_DB_VERSION, storeNameSupportCreatedAt } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
+import { maskedLocalDbAgent } from '../MaskedLocalDbAgent';
 import {
   EIndexedDBBucketNames,
   INDEXED_BUCKET_NAME_BACKUP_PREFIX,
@@ -40,15 +42,32 @@ import type {
   IDBWalletIdSingleton,
   IIndexedBucketsMap,
   IIndexedDBSchemaMap,
+  ILocalDBAgent,
 } from '../types';
 
 export abstract class LocalDbIndexedBase extends LocalDbBase {
-  constructor() {
-    super();
-    this.readyDb = this._openDb();
+  private realDbPromise: Promise<IndexedDBAgent> | undefined;
+
+  override get readyDb(): Promise<ILocalDBAgent> {
+    return this.getReadyDb();
   }
 
-  override readyDb: Promise<IndexedDBAgent>;
+  private async getReadyDb(): Promise<ILocalDBAgent> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: () => this.getRealDb(),
+      onBlocked: () => maskedLocalDbAgent,
+    });
+  }
+
+  protected override getReadyDbForAdmittedOperation(): Promise<ILocalDBAgent> {
+    return this.getRealDb();
+  }
+
+  private getRealDb(): Promise<IndexedDBAgent> {
+    this.realDbPromise ??= this._openDb();
+    return this.realDbPromise;
+  }
 
   // ---------------------------------------------- private methods
 
@@ -420,35 +439,41 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
   // ---------------------------------------------- public methods
 
   async deleteIndexedDb() {
-    const db = await this.readyDb;
-    const bucketNames = Object.values(EIndexedDBBucketNames);
-    await Promise.all(
-      bucketNames.map(async (bucketName) => {
-        try {
-          const indexedDb = db.getIndexedByBucketName(bucketName);
-          indexedDb.close();
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: async () => {
+        const db = await this.getRealDb();
+        const bucketNames = Object.values(EIndexedDBBucketNames);
+        await Promise.all(
+          bucketNames.map(async (bucketName) => {
+            try {
+              const indexedDb = db.getIndexedByBucketName(bucketName);
+              indexedDb.close();
 
-          await timerUtils.wait(100);
+              await timerUtils.wait(100);
 
-          // // import { deleteDB, openDB } from 'idb';
-          //
-          // await deleteDB(INDEXED_DB_NAME);
-          await IndexedDBPromised.deleteDatabase({
-            bucketName,
-            name: indexedDBUtils.buildDbName(bucketName),
-          });
+              // // import { deleteDB, openDB } from 'idb';
+              //
+              // await deleteDB(INDEXED_DB_NAME);
+              await IndexedDBPromised.deleteDatabase({
+                bucketName,
+                name: indexedDBUtils.buildDbName(bucketName),
+              });
 
-          await timerUtils.wait(100);
+              await timerUtils.wait(100);
 
-          const storageBuckets = (globalThis.navigator as INavigator)
-            .storageBuckets;
-          await storageBuckets?.delete(bucketName);
+              const storageBuckets = (globalThis.navigator as INavigator)
+                .storageBuckets;
+              await storageBuckets?.delete(bucketName);
 
-          await timerUtils.wait(100);
-        } catch (error) {
-          console.error(error);
-        }
-      }),
-    );
+              await timerUtils.wait(100);
+            } catch (error) {
+              console.error(error);
+            }
+          }),
+        );
+      },
+      onBlocked: () => undefined,
+    });
   }
 }

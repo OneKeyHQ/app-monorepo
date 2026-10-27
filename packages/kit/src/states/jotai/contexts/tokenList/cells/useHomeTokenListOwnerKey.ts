@@ -22,23 +22,27 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useActiveAccount } from '../../accountSelector';
 
+import type { IAccountSelectorActiveAccountInfo } from '../../accountSelector';
+
 /**
- * The home token-list BG per-owner key, byte-for-byte identical on the
- * `ingestRound` WRITE side and the snapshot PULL READ side. `num` selects the
- * account-selector slot (defaults to the home slot 0). Returns `''` when the
- * owner identity is not yet resolvable (no owner accountId or no network id).
+ * Pure form of `useHomeTokenListOwnerKey` for callers that already hold the
+ * active-account info (or read it straight off the account-selector store
+ * outside React). Same string, same `''` when unresolvable.
  */
-export function useHomeTokenListOwnerKey(num = 0): string {
+export function getHomeTokenListOwnerKey(
+  activeAccount: IAccountSelectorActiveAccountInfo | undefined,
+): string {
+  if (!activeAccount) {
+    return '';
+  }
   const {
-    activeAccount: {
-      account,
-      indexedAccount,
-      network,
-      wallet,
-      deriveInfoItems,
-      vaultSettings,
-    },
-  } = useActiveAccount({ num });
+    account,
+    indexedAccount,
+    network,
+    wallet,
+    deriveInfoItems,
+    vaultSettings,
+  } = activeAccount;
 
   // Mirror of TokenListBlock.tsx:270-273 — keep these in lock-step.
   const mergeDeriveAddressData =
@@ -55,4 +59,15 @@ export function useHomeTokenListOwnerKey(num = 0): string {
   return ownerAccountId && network?.id
     ? `${ownerAccountId}__${network.id}`
     : '';
+}
+
+/**
+ * The home token-list BG per-owner key, byte-for-byte identical on the
+ * `ingestRound` WRITE side and the snapshot PULL READ side. `num` selects the
+ * account-selector slot (defaults to the home slot 0). Returns `''` when the
+ * owner identity is not yet resolvable (no owner accountId or no network id).
+ */
+export function useHomeTokenListOwnerKey(num = 0): string {
+  const { activeAccount } = useActiveAccount({ num });
+  return getHomeTokenListOwnerKey(activeAccount);
 }

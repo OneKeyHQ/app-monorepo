@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { resolveSharedBalanceExcludedKeys } from '@onekeyhq/shared/src/utils/sharedBalanceUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { sortTokensByOrder } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { isValidNumberValue } from '@onekeyhq/shared/src/utils/tokenValueUtils';
@@ -125,20 +126,42 @@ export function useAggregateTokenDetails({
       ({ token, tokenDetail }) => ({ token, tokenDetail }),
     );
 
+    // Shared-balance members (Arc native USDC + ERC-20 0x3600…, OK-63633)
+    // read ONE balance: skip the marked member in the header totals when its
+    // primary is among the summed members, otherwise count it once.
+    const sharedBalanceExcludedKeys = resolveSharedBalanceExcludedKeys(
+      sortedEntries.map(({ token, tokenDetail }) => {
+        const info = tokenDetail?.info ?? token;
+        return {
+          key: token.$key,
+          networkId: token.networkId,
+          address: info.address,
+          sharedBalanceExcluded: info.sharedBalanceExcluded,
+          sharedBalanceWith: info.sharedBalanceWith,
+          price: tokenDetail?.price,
+          fiatValue: tokenDetail?.fiatValue,
+        };
+      }),
+    );
+
     let totalFiatValue = new BigNumber(0);
     let totalBalance = new BigNumber(0);
     let hasFiatValue = false;
     let hasBalanceData = false;
     let currency: string | undefined;
 
-    for (const { tokenDetail } of sortedEntries) {
+    for (const { token, tokenDetail } of sortedEntries) {
       if (tokenDetail) {
         hasBalanceData = true;
-        if (isValidNumberValue(tokenDetail.fiatValue)) {
+        const isExcludedFromTotal = sharedBalanceExcludedKeys.has(token.$key);
+        if (!isExcludedFromTotal && isValidNumberValue(tokenDetail.fiatValue)) {
           totalFiatValue = totalFiatValue.plus(tokenDetail.fiatValue);
           hasFiatValue = true;
         }
-        if (isValidNumberValue(tokenDetail.balanceParsed)) {
+        if (
+          !isExcludedFromTotal &&
+          isValidNumberValue(tokenDetail.balanceParsed)
+        ) {
           // Each member's raw balance is scaled by ITS OWN multiplier before
           // summing — cross-network multipliers for the same aggregate token
           // can differ, so the sum must happen on the display basis.

@@ -5,13 +5,8 @@ import { act, renderHook } from '@testing-library/react';
 import { rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import type { IMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
   ERootRoutes,
-  ETabDiscoveryRoutes,
+  ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
@@ -19,6 +14,14 @@ import { isMarketNavigationTargetApplied } from './marketNavigationTarget';
 import { useNavigateToMarketTab } from './useNavigateToMarketTab';
 
 const mockSetMarketSelectedTab = jest.fn();
+const mockNavigationLogger = {
+  navigateToMarketTab: jest.fn<void, [{ navigationId: number }]>(),
+  pendingNavigationCancelled: jest.fn(),
+  performNavigationStart: jest.fn(),
+  performNavigationDispatched: jest.fn(),
+  performNavigationComplete: jest.fn(),
+  performNavigationFailed: jest.fn(),
+};
 let mockMarketSelectedTab: IMarketSelectedTabAtom = { tab: 'trending' };
 
 jest.mock('@onekeyhq/components', () => ({
@@ -37,12 +40,14 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   ],
 }));
 
-jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: {
-    SwitchDiscoveryTabInNative: 'SwitchDiscoveryTabInNative',
-  },
-  appEventBus: {
-    emit: jest.fn(),
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    market: {
+      // Lazy: jest.mock factories run before module-scope mocks initialize.
+      get navigation() {
+        return mockNavigationLogger;
+      },
+    },
   },
 }));
 
@@ -72,9 +77,6 @@ const mockRootNavigationRef = rootNavigationRef as typeof rootNavigationRef & {
 const mockSwitchTabAsync = switchTabAsync as jest.MockedFunction<
   typeof switchTabAsync
 >;
-const mockAppEventBus = appEventBus as typeof appEventBus & {
-  emit: jest.Mock;
-};
 
 describe('useNavigateToMarketTab', () => {
   beforeEach(() => {
@@ -101,6 +103,13 @@ describe('useNavigateToMarketTab', () => {
 
     expect(mockSetMarketSelectedTab).toHaveBeenCalledTimes(1);
     expect(mockSwitchTabAsync).not.toHaveBeenCalled();
+    expect(mockNavigationLogger.navigateToMarketTab).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({ tab: 'watchlist' }),
+        selection: { tab: 'trending' },
+        waitForSelection: true,
+      }),
+    );
 
     act(() => {
       jest.advanceTimersByTime(300);
@@ -113,34 +122,44 @@ describe('useNavigateToMarketTab', () => {
       await Promise.resolve();
     });
 
-    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Market);
     expect(mockRootNavigationRef.current.navigate).toHaveBeenCalledWith(
       ERootRoutes.Main,
       {
-        screen: ETabRoutes.Discovery,
+        screen: ETabRoutes.Market,
         params: {
-          screen: ETabDiscoveryRoutes.TabDiscovery,
-          params: {
-            defaultTab: ETranslations.global_market,
-          },
+          screen: ETabMarketRoutes.TabMarket,
         },
       },
     );
     expect(onNavigationComplete).not.toHaveBeenCalled();
+    expect(mockNavigationLogger.performNavigationStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: 'selectionApplied',
+        platform: 'native',
+      }),
+    );
+    expect(
+      mockNavigationLogger.performNavigationDispatched,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ hasRootNavigationRef: true }),
+    );
 
     act(() => {
       jest.advanceTimersByTime(149);
     });
     expect(onNavigationComplete).not.toHaveBeenCalled();
+    expect(
+      mockNavigationLogger.performNavigationComplete,
+    ).not.toHaveBeenCalled();
 
     act(() => {
       jest.advanceTimersByTime(1);
     });
-    expect(mockAppEventBus.emit).toHaveBeenCalledWith(
-      EAppEventBusNames.SwitchDiscoveryTabInNative,
-      { tab: ETranslations.global_market },
-    );
     expect(onNavigationComplete).toHaveBeenCalledTimes(1);
+    expect(
+      mockNavigationLogger.performNavigationComplete,
+    ).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       rerender();
@@ -174,6 +193,9 @@ describe('useNavigateToMarketTab', () => {
 
     expect(mockSwitchTabAsync).toHaveBeenCalledTimes(1);
     expect(onNavigationComplete).not.toHaveBeenCalled();
+    expect(mockNavigationLogger.performNavigationStart).toHaveBeenCalledWith(
+      expect.objectContaining({ trigger: 'timeout' }),
+    );
 
     act(() => {
       jest.advanceTimersByTime(150);
@@ -222,6 +244,23 @@ describe('useNavigateToMarketTab', () => {
     expect(mockSwitchTabAsync).toHaveBeenCalledTimes(1);
     expect(firstOnNavigationComplete).not.toHaveBeenCalled();
     expect(secondOnNavigationComplete).toHaveBeenCalledTimes(1);
+
+    const [[firstRequestLog], [secondRequestLog]] =
+      mockNavigationLogger.navigateToMarketTab.mock.calls;
+    expect(
+      mockNavigationLogger.pendingNavigationCancelled,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        navigationId: firstRequestLog.navigationId,
+        reason: 'superseded',
+      }),
+    );
+    expect(mockNavigationLogger.performNavigationStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        navigationId: secondRequestLog.navigationId,
+        trigger: 'timeout',
+      }),
+    );
   });
 
   it('cancels pending navigation when the hook unmounts', async () => {
@@ -244,6 +283,10 @@ describe('useNavigateToMarketTab', () => {
     expect(mockSwitchTabAsync).not.toHaveBeenCalled();
     expect(mockRootNavigationRef.current.navigate).not.toHaveBeenCalled();
     expect(onNavigationComplete).not.toHaveBeenCalled();
+    expect(
+      mockNavigationLogger.pendingNavigationCancelled,
+    ).toHaveBeenCalledWith(expect.objectContaining({ reason: 'unmount' }));
+    expect(mockNavigationLogger.performNavigationStart).not.toHaveBeenCalled();
   });
 });
 

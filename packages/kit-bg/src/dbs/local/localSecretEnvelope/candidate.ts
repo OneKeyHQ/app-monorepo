@@ -131,13 +131,13 @@ export function classifyLocalSecretEnvelopeMigrationCandidate({
 
 export function shouldDeferHyperLiquidPlaintextLseMigration({
   candidate,
-  isNative,
+  usePasswordEncryption,
 }: {
   candidate: ILocalSecretEnvelopeCandidateResult;
-  isNative: boolean;
+  usePasswordEncryption: boolean;
 }): boolean {
   return Boolean(
-    !isNative &&
+    usePasswordEncryption &&
     candidate.canMigrate &&
     candidate.innerPrefix ===
       LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hyperLiquidAgentCredential,

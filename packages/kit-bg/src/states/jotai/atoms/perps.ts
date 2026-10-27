@@ -3,6 +3,8 @@ import BigNumber from 'bignumber.js';
 
 import { PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { computePerpsCrossMarginRatio } from '@onekeyhq/shared/src/utils/perpsMarginRatioUtils';
+import type { IPerpsCrossMarginRatio } from '@onekeyhq/shared/src/utils/perpsMarginRatioUtils';
 import type {
   IFill,
   IHex,
@@ -12,6 +14,7 @@ import type {
   IPerpTokenSelectorConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
+  IPerpsDexCrossMargin,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
@@ -20,8 +23,18 @@ import {
   EPerpUserType,
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_USDC_WITHDRAW_DESTINATION_ID,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  type ITradingViewNativeChartSettings,
+  type ITradingViewNativeIndicatorSettings,
+  createTradingViewNativeChartSettings,
+  createTradingViewNativeIndicatorSettings,
+} from '@onekeyhq/shared/types/tradingViewNative';
 import type {
   IUnifoldDepositExecution,
   IUnifoldExecutionStatus,
@@ -30,8 +43,43 @@ import type {
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
+import { hyperLiquidAgentPasswordStatusAtom } from './passwordLock';
+
 import type { IPerpDynamicTab } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IAccountDeriveTypes } from '../../../vaults/types';
+
+export const {
+  target: perpsTradingViewChartSettingsPersistAtom,
+  use: usePerpsTradingViewChartSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeChartSettings>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewChartSettingsPersistAtom,
+  initialValue: createTradingViewNativeChartSettings(),
+});
+
+export const {
+  target: perpsTradingViewIndicatorSettingsPersistAtom,
+  use: usePerpsTradingViewIndicatorSettingsPersistAtom,
+} = globalAtom<ITradingViewNativeIndicatorSettings>({
+  persist: true,
+  name: EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom,
+  initialValue: createTradingViewNativeIndicatorSettings(),
+});
+
+// Shared by Market entries and Web Perps, including expanded extension windows.
+export type IWebviewPerpTradeTarget = {
+  coin?: string;
+  revision: number;
+  requestId?: string;
+};
+
+export const {
+  target: webviewPerpTradeTargetAtom,
+  use: useWebviewPerpTradeTargetAtom,
+} = globalAtom<IWebviewPerpTradeTarget>({
+  name: EAtomNames.webviewPerpTradeTargetAtom,
+  initialValue: { revision: 0 },
+});
 
 // #region Active Account
 export interface IPerpsActiveAccountAtom {
@@ -71,6 +119,7 @@ export type IPerpsActiveAccountSummaryAtom =
       totalMarginUsed: string | undefined;
       crossAccountValue: string | undefined;
       crossMaintenanceMarginUsed: string | undefined;
+      isolatedMarginUsed: string | undefined;
       totalNtlPos: string | undefined;
       totalRawUsd: string | undefined;
       withdrawable: string | undefined;
@@ -89,6 +138,7 @@ export interface IPerpsAccountDisplaySnapshotEntry {
   account: IPerpsActiveAccountAtom;
   accountValue: string | undefined;
   withdrawable: string | undefined;
+  isAccountValuePartial?: boolean;
   activeAsset:
     | {
         coin: string;
@@ -192,17 +242,18 @@ export function getPerpsAccountDisplaySnapshotEntry({
 // #region Abstraction Mode
 export type IPerpsAbstractionModeSource = 'live' | 'cache';
 
-export const {
-  target: perpsAbstractionModeAtom,
-  use: usePerpsAbstractionModeAtom,
-} = globalAtom<
+export type IPerpsAbstractionModeAtom =
   | {
       accountAddress: IHex | undefined;
       mode: EHyperLiquidAbstractionMode | undefined;
       source?: IPerpsAbstractionModeSource;
     }
-  | undefined
->({
+  | undefined;
+
+export const {
+  target: perpsAbstractionModeAtom,
+  use: usePerpsAbstractionModeAtom,
+} = globalAtom<IPerpsAbstractionModeAtom>({
   name: EAtomNames.perpsAbstractionModeAtom,
   initialValue: undefined,
 });
@@ -305,12 +356,33 @@ export const { target: perpsSpotBalancesAtom, use: usePerpsSpotBalancesAtom } =
         accountAddress: IHex | undefined;
         balances: ISpotBalanceItem[];
         spotTotalUsd: string | undefined;
+        hasUnsupportedBalances?: boolean;
       }
     | undefined
   >({
     name: EAtomNames.perpsSpotBalancesAtom,
     initialValue: undefined,
   });
+// #endregion
+
+// #region Liquidation Risk Inputs
+// Live-only: never hydrated from the display cache, so a pre-trade liquidation
+// estimate cannot be computed from a stale or different account's snapshot.
+export type IPerpsLiquidationRiskInputsAtom =
+  | {
+      accountAddress: IHex;
+      abstractionMode: EHyperLiquidAbstractionMode;
+      tokenToAvailableAfterMaintenance?: Record<number, string>;
+      crossMarginByDex?: Record<string, IPerpsDexCrossMargin>;
+    }
+  | undefined;
+export const {
+  target: perpsLiquidationRiskInputsAtom,
+  use: usePerpsLiquidationRiskInputsAtom,
+} = globalAtom<IPerpsLiquidationRiskInputsAtom>({
+  name: EAtomNames.perpsLiquidationRiskInputsAtom,
+  initialValue: undefined,
+});
 // #endregion
 
 export type IPerpsActiveAccountStatusDetails = {
@@ -343,6 +415,7 @@ export const {
   accountValue: string | undefined;
   withdrawable: string | undefined;
   isLoading: boolean;
+  isAccountValuePartial?: boolean;
 }>({
   read: (get) => {
     const account = get(perpsActiveAccountAtom.atom());
@@ -415,6 +488,7 @@ export const {
         : '0';
       return {
         accountValue: activeSpotData.spotTotalUsd,
+        isAccountValuePartial: activeSpotData.hasUnsupportedBalances,
         withdrawable: usdcWithdrawable,
         isLoading: false,
       };
@@ -425,6 +499,7 @@ export const {
     const spotValue = new BigNumber(activeSpotData?.spotTotalUsd || '0');
     return {
       accountValue: spotValue.plus(perpsValue).toFixed(),
+      isAccountValuePartial: activeSpotData?.hasUnsupportedBalances,
       withdrawable: activeSummary?.withdrawable,
       isLoading: activeSpotData?.spotTotalUsd === undefined,
     };
@@ -434,29 +509,41 @@ export const {
 export const {
   target: perpsActiveAccountMmrAtom,
   use: usePerpsActiveAccountMmrAtom,
-} = globalAtomComputedR<{ mmr: string | null; mmrPercent: string | null }>({
+} = globalAtomComputedR<IPerpsCrossMarginRatio>({
   read: (get) => {
-    const accountSummary = get(perpsActiveAccountSummaryAtom.atom());
+    const account = get(perpsActiveAccountAtom.atom());
+    const modeData = get(perpsAbstractionModeAtom.atom());
+    const summary = get(perpsActiveAccountSummaryAtom.atom());
+    const spotData = get(perpsSpotBalancesAtom.atom());
 
-    if (
-      !accountSummary?.crossMaintenanceMarginUsed ||
-      !accountSummary?.crossAccountValue
-    ) {
-      return { mmr: null, mmrPercent: null };
+    const activeAddress = account?.accountAddress?.toLowerCase();
+    if (!activeAddress) {
+      return { status: 'ready', mmr: null, mmrPercent: null };
     }
+    const isForActiveAccount = (address: string | null | undefined) =>
+      address?.toLowerCase() === activeAddress;
 
-    const maintenanceMarginUsed = new BigNumber(
-      accountSummary.crossMaintenanceMarginUsed,
-    );
-    const accountValue = new BigNumber(accountSummary.crossAccountValue);
+    const activeSummary = isForActiveAccount(summary?.accountAddress)
+      ? summary
+      : undefined;
+    const activeSpotData = isForActiveAccount(spotData?.accountAddress)
+      ? spotData
+      : undefined;
+    // Every supported DEX is collateralized by USDC (spot token 0).
+    const usdcBalance = activeSpotData?.balances?.find((b) => b.token === 0);
 
-    // Avoid division by zero
-    if (accountValue.isZero()) {
-      return { mmr: null, mmrPercent: null };
-    }
-
-    const mmr = maintenanceMarginUsed.dividedBy(accountValue);
-    return { mmr: mmr.toFixed(), mmrPercent: mmr.multipliedBy(100).toFixed(2) };
+    return computePerpsCrossMarginRatio({
+      mode: isForActiveAccount(modeData?.accountAddress)
+        ? modeData?.mode
+        : undefined,
+      crossMaintenanceMarginUsed: activeSummary?.crossMaintenanceMarginUsed,
+      crossAccountValue: activeSummary?.crossAccountValue,
+      isolatedMarginUsed: activeSummary?.isolatedMarginUsed,
+      spotCollateralTotal:
+        activeSpotData?.spotTotalUsd === undefined
+          ? undefined
+          : (usdcBalance?.total ?? '0'),
+    });
   },
 });
 
@@ -571,6 +658,9 @@ export const {
 }>({
   read: (get) => {
     const account = get(perpsActiveAccountAtom.atom());
+    const { requiresPasswordSetupOrVerify } = get(
+      hyperLiquidAgentPasswordStatusAtom.atom(),
+    );
 
     const accountId = account.accountId ?? account.indexedAccountId;
 
@@ -589,15 +679,17 @@ export const {
       accountUtils.isImportedAccount({ accountId });
     const isHardwareAccount = accountUtils.isHwAccount({ accountId });
     const shouldUseOrderPanelEnableTradingDialog =
-      isHardwareAccount || !isSoftwareAccount;
+      isHardwareAccount || !isSoftwareAccount || requiresPasswordSetupOrVerify;
 
     return {
       isSoftwareAccount,
       isHardwareAccount,
-      canAutoEnableInOrderPanel: isSoftwareAccount,
+      canAutoEnableInOrderPanel:
+        isSoftwareAccount && !requiresPasswordSetupOrVerify,
       requiresEnableTradingDialogInOrderPanel:
         shouldUseOrderPanelEnableTradingDialog,
-      requiresExplicitEnableTrading: !isSoftwareAccount,
+      requiresExplicitEnableTrading:
+        !isSoftwareAccount || requiresPasswordSetupOrVerify,
     };
   },
 });
@@ -787,6 +879,21 @@ export const {
   name: EAtomNames.perpsActiveAssetDataAtom,
   initialValue: undefined,
 });
+
+const twapMarkPriceAtom = globalAtomComputedR<string | undefined>({
+  read: (get) =>
+    get(perpsActiveAssetCtxAtom.atom())?.ctx?.markPrice ??
+    get(perpsActiveAssetDataAtom.atom())?.markPx,
+});
+const disabledTwapMarkPriceAtom = globalAtomComputedR<string | undefined>({
+  read: () => undefined,
+});
+
+export function usePerpsTwapMarkPrice(enabled: boolean): string | undefined {
+  const { use } = enabled ? twapMarkPriceAtom : disabledTwapMarkPriceAtom;
+  const [markPrice] = use();
+  return markPrice;
+}
 
 // #region Trading Mode
 export type ITradingMode = 'perp' | 'spot';
@@ -1069,13 +1176,21 @@ export const {
 
 export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 
+export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
+
 export interface IPerpsCustomSettings {
+  positionActionVisibility?: Partial<
+    Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
+  >;
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
+  chartPosition?: IPerpsChartPosition;
+  chartMode?: 'native' | 'tradingView';
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
+  lastUsdcWithdrawDestinationId: IUsdcWithdrawDestinationId;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -1087,9 +1202,12 @@ export const {
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
+    chartPosition: 'bottom',
+    chartMode: 'tradingView',
     hideSmallSpotHoldings: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
     lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
+    lastUsdcWithdrawDestinationId: DEFAULT_USDC_WITHDRAW_DESTINATION_ID,
   },
 });
 
@@ -1216,6 +1334,7 @@ export interface IPerpsLayoutState {
   orderBook?: {
     visible: boolean;
   };
+  chartHeight?: number;
   chartExpanded?: boolean;
   resetAt?: number;
 }

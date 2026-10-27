@@ -13,6 +13,7 @@ import {
   useDeviceMetaStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { PrimeGiftOffer } from '@onekeyhq/kit/src/views/Prime/components/PrimeGiftOffer';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
@@ -216,26 +217,28 @@ function DeviceDetailsModalV2Cmp({
           <XStack bg="$bgApp" gap="$8" alignItems="flex-start">
             <YStack gap="$8" flex={1}>
               {/* DeviceBasicInfo self-manages its skeleton; sections gate on
-                  their own hasLoadedDevice. */}
-              <DeviceBasicInfo
-                showFirmwareVersion={Boolean(
-                  vendorProfile?.supportsFirmwareVersionDisplay,
-                )}
-                showDeviceVerification={Boolean(
-                  vendorProfile?.supportsFirmwareVerify,
-                )}
-              />
+                  their own hasLoadedDevice. The offer shares this slot so a
+                  0-height entrance does not consume the column gap. */}
+              <YStack w="100%">
+                <DeviceBasicInfo
+                  showFirmwareVersion={Boolean(
+                    vendorProfile?.firmware.showVersion,
+                  )}
+                  showDeviceVerification={Boolean(
+                    vendorProfile?.firmware.verify,
+                  )}
+                />
+                {device && !isQrWallet ? (
+                  <PrimeGiftOffer device={device} source="deviceDetails" />
+                ) : null}
+              </YStack>
               {isQrWallet ? <DeviceSectionQrInfo /> : null}
               {showFirmwareActions ? <DeviceUpdateAlert type="bottom" /> : null}
               {showDeviceSupport ? (
                 <DeviceSectionSupport
                   onPressCheckForUpdates={onPressCheckForUpdates}
-                  showFirmwareVerify={Boolean(
-                    vendorProfile?.supportsFirmwareVerify,
-                  )}
-                  showFirmwareUpdate={Boolean(
-                    vendorProfile?.supportsFirmwareUpdate,
-                  )}
+                  showFirmwareVerify={Boolean(vendorProfile?.firmware.verify)}
+                  showFirmwareUpdate={Boolean(vendorProfile?.firmware.update)}
                 />
               ) : null}
               {showDeviceSettings && showInteractiveSections ? (

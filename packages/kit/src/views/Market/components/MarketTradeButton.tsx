@@ -14,7 +14,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketPreferredToken,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorTrigger } from '../../../components/AccountSelector/hooks/useAccountSelectorTrigger';
@@ -31,20 +34,22 @@ export function MarketTradeButton({
   coinGeckoId,
   token,
   accountId,
+  preferredToken,
 }: {
   coinGeckoId: string;
   token: IMarketTokenDetail;
   accountId: string;
+  preferredToken?: IMarketPreferredToken;
 }) {
   const intl = useIntl();
 
   const { onSwap, onStaking, onBuy, onSell, canStaking } =
-    useMarketTradeActions(token);
+    useMarketTradeActions(token, preferredToken);
   const { showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
     showConnectWalletModalInDappMode: true,
   });
-  const network = useMarketTradeNetwork(token);
+  const network = useMarketTradeNetwork(token, preferredToken);
   const networkId = useMarketTradeNetworkId(network, token.symbol);
 
   const { tokenAddress: realContractAddress = '' } = network || {};

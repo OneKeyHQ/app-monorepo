@@ -1,3 +1,10 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
+import { ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   checkBLEPermissions,
   checkBLEState,
@@ -21,6 +28,7 @@ import ServiceHardware from './ServiceHardware';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice, IDBWallet } from '../../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
+import type { IInstallOneKeyUdevRulesResult } from '../../desktopApis/DesktopApiSystem';
 import type {
   Features,
   SearchDevice,
@@ -44,6 +52,8 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     SyncDeviceLabelToWalletName: 'SyncDeviceLabelToWalletName',
     UpdateWalletAvatarByDeviceSerialNo: 'UpdateWalletAvatarByDeviceSerialNo',
+    ShowLinuxBundleUdevGuide: 'ShowLinuxBundleUdevGuide',
+    RequestHardwareUIDialog: 'RequestHardwareUIDialog',
   },
   appEventBus: {
     on: jest.fn(),
@@ -102,7 +112,12 @@ jest.mock('../../dbs/simple/simpleDb', () => ({
 }));
 
 jest.mock('../../states/jotai/atoms', () => ({
-  EHardwareUiStateAction: {},
+  // The real enum: the service builds its skipped/dialog event sets at
+  // module scope, so an empty stub collapses both into Set{undefined}
+  // and every event-routing assertion below stops proving anything.
+  EHardwareUiStateAction: jest.requireActual(
+    '@onekeyhq/shared/types/hardwareUi',
+  ).EHardwareUiStateAction,
   hardwareForceTransportAtom: {
     get: jest.fn(async () => ({ forceTransportType: undefined })),
   },
@@ -149,6 +164,153 @@ function buildDevice({
 }
 
 describe('ServiceHardware.connect WebUSB reuse', () => {
+  it('keeps powered-off SDK events silent so user-call errors own the settings dialog', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const coreSdk = await jest
+      .requireActual<typeof hardwareInstance>(
+        '@onekeyhq/shared/src/hardware/instance',
+      )
+      .CoreSDKLoader();
+    jest.mocked(hardwareInstance.CoreSDKLoader).mockResolvedValueOnce(coreSdk);
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const on = jest.fn();
+    await service.registerSdkEvents({
+      on,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    const uiListener = on.mock.calls.find(
+      ([event]) => event === coreSdk.UI_EVENT,
+    )?.[1] as (event: { type: string; payload: object }) => Promise<void>;
+    expect(uiListener).toEqual(expect.any(Function));
+    await uiListener({ type: 'ui-bluetooth_powered_off', payload: {} });
+    expect(emit).not.toHaveBeenCalled();
+  });
+  it('recovers Linux permission errors by code, including converted SDK responses', async () => {
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      isLinuxWebUsbAccessDeniedError(error: unknown): boolean;
+      isDesktopLinuxRuntime(): boolean;
+      ensureLinuxUdevRules(): Promise<boolean>;
+      isDesktopLinuxSnapRuntime(): boolean;
+    };
+    const classified = {
+      code: HardwareErrorCode.BridgeNeedsPermission,
+      error: 'USB unavailable',
+    };
+    expect(internals.isLinuxWebUsbAccessDeniedError(classified)).toBe(true);
+    expect(
+      internals.isLinuxWebUsbAccessDeniedError({ payload: classified }),
+    ).toBe(true);
+    expect(
+      internals.isLinuxWebUsbAccessDeniedError({
+        payload: { params: { nativeErrorMessage: 'LIBUSB_ERROR_ACCESS' } },
+      }),
+    ).toBe(true);
+    expect(
+      internals.isLinuxWebUsbAccessDeniedError({
+        code: ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+        error: 'Unable to claim interface',
+      }),
+    ).toBe(false);
+    jest.spyOn(internals, 'isDesktopLinuxRuntime').mockReturnValue(true);
+    jest.spyOn(internals, 'isDesktopLinuxSnapRuntime').mockReturnValue(true);
+    jest.spyOn(internals, 'ensureLinuxUdevRules').mockResolvedValue(false);
+    await service.handleLinuxWebUsbAccessDeniedError({
+      error: { payload: classified },
+    });
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowLinuxBundleUdevGuide,
+      { reason: 'snap' },
+    );
+  });
+  it.each([
+    ['failed', 'webusb-access-denied'],
+    ['missing result', 'webusb-access-denied'],
+    ['exception', 'failed'],
+    ['cancelled', undefined],
+  ] as const)(
+    'handles the first Linux udev installation %s without repeated guidance',
+    async (outcome, expectedReason) => {
+      const originalDescriptor = Object.getOwnPropertyDescriptor(
+        globalThis,
+        'desktopApiProxy',
+      );
+      const installOneKeyUdevRules = jest.fn(
+        async (): Promise<IInstallOneKeyUdevRulesResult | undefined> =>
+          undefined,
+      );
+      if (outcome === 'exception') {
+        installOneKeyUdevRules.mockRejectedValue(
+          new Error('installation failed'),
+        );
+      } else if (outcome !== 'missing result') {
+        installOneKeyUdevRules.mockResolvedValue({
+          supported: true,
+          installed: false,
+          needsManualInstall: false,
+          skippedReason: outcome,
+        });
+      }
+      Object.defineProperty(globalThis, 'desktopApiProxy', {
+        configurable: true,
+        value: { system: { installOneKeyUdevRules } },
+      });
+      jest.useFakeTimers({ doNotFake: ['performance'] });
+      try {
+        const emit = jest.spyOn(appEventBus, 'emit');
+        const service = new ServiceHardware({
+          backgroundApi: {} as IBackgroundApi,
+        });
+        const internals = service as unknown as {
+          isDesktopLinuxRuntime(): boolean;
+          isDesktopLinuxSnapRuntime(): boolean;
+          isDesktopLinuxFlatpakRuntime(): boolean;
+        };
+        jest.spyOn(internals, 'isDesktopLinuxRuntime').mockReturnValue(true);
+        jest
+          .spyOn(internals, 'isDesktopLinuxSnapRuntime')
+          .mockReturnValue(false);
+        jest
+          .spyOn(internals, 'isDesktopLinuxFlatpakRuntime')
+          .mockReturnValue(false);
+        const params = {
+          error: { code: HardwareErrorCode.BridgeNeedsPermission },
+        };
+        await expect(
+          service.handleLinuxWebUsbAccessDeniedError(params),
+        ).resolves.toBe(false);
+        if (expectedReason) {
+          expect(emit).toHaveBeenCalledWith(
+            EAppEventBusNames.ShowLinuxBundleUdevGuide,
+            { reason: expectedReason },
+          );
+        } else {
+          expect(emit).not.toHaveBeenCalled();
+        }
+        await service.handleLinuxWebUsbAccessDeniedError(params);
+        expect(installOneKeyUdevRules).toHaveBeenCalledTimes(1);
+        jest.advanceTimersByTime(5001);
+        await service.handleLinuxWebUsbAccessDeniedError(params);
+        expect(installOneKeyUdevRules).toHaveBeenCalledTimes(2);
+        expect(emit).toHaveBeenCalledTimes(expectedReason ? 1 : 0);
+      } finally {
+        jest.useRealTimers();
+        if (originalDescriptor) {
+          Object.defineProperty(
+            globalThis,
+            'desktopApiProxy',
+            originalDescriptor,
+          );
+        } else {
+          Reflect.deleteProperty(globalThis, 'desktopApiProxy');
+        }
+      }
+    },
+  );
   beforeEach(() => {
     jest.clearAllMocks();
     HardwareConnectionManager.resetInstance();
@@ -180,6 +342,94 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     mockedHardwareForceTransportAtomGet.mockResolvedValue({
       forceTransportType: undefined,
     });
+  });
+
+  it.each([true, false])(
+    'refreshes the V2 name on reconnect, unlocked=%s',
+    async (unlocked) => {
+      const service = new ServiceHardware({
+        backgroundApi: {} as IBackgroundApi,
+      });
+      jest.spyOn(service, 'getFeaturesWithoutCache').mockResolvedValue({
+        protocol: 'V2',
+        mode: 'normal',
+        unlocked,
+        label: 'Old label',
+        bleName: 'Old Bluetooth name',
+      } as Features);
+      const getDeviceState = jest
+        .spyOn(service, 'getDeviceState')
+        .mockResolvedValue({
+          protocol: 'V2',
+          identity: {
+            deviceType: 'pro2',
+            label: unlocked ? 'New label' : null,
+            bleName: 'Pro2 6136',
+          },
+          status: { mode: 'normal', unlocked },
+          versions: {},
+          settings: {},
+        } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>);
+      const options = {
+        connectId: 'PRO2_BLE',
+        hardwareTransportType: EHardwareTransportType.BLE,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        params: {
+          connectProtocol: 'V2' as const,
+          forceProtocolDetection: true,
+        },
+      };
+
+      const features = await service.connectDevice(options);
+
+      expect(getDeviceState).toHaveBeenCalledWith({
+        ...options,
+        params: {
+          connectProtocol: 'V2',
+          forceProtocolDetection: false,
+          scope: unlocked ? 'settings' : 'runtime',
+          initSession: true,
+        },
+      });
+      expect(features.label).toBe(unlocked ? 'New label' : null);
+      expect(features.bleName).toBe('Pro2 6136');
+    },
+  );
+
+  it.each([
+    { protocol: 'V1' as const, mode: 'normal' as const, unlocked: true },
+    { protocol: 'V2' as const, mode: 'bootloader' as const, unlocked: true },
+    { protocol: 'V2' as const, mode: 'romloader' as const, unlocked: true },
+  ])('preserves the connection path for %j', async (features) => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'getFeaturesWithoutCache')
+      .mockResolvedValue(features as Features);
+    const getDeviceState = jest.spyOn(service, 'getDeviceState');
+
+    expect(await service.connectDevice({ connectId: 'DEVICE' })).toBe(features);
+    expect(getDeviceState).not.toHaveBeenCalled();
+  });
+
+  it('preserves BLE connection-only calls without reading settings', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    jest.spyOn(service, 'getFeaturesWithoutCache').mockResolvedValue({
+      protocol: 'V2',
+      mode: 'normal',
+      unlocked: true,
+    } as Features);
+    const getDeviceState = jest.spyOn(service, 'getDeviceState');
+
+    await service.connectDevice({
+      connectId: 'PRO2_BLE',
+      params: { onlyConnectBleDevice: true },
+    });
+
+    expect(getDeviceState).not.toHaveBeenCalled();
   });
 
   it('Protocol V2 硬件调用边界不再固定等待', async () => {
@@ -620,6 +870,48 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     });
   });
 
+  it('后台 device-state probe 不持久化临时 transport', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const connectId = 'PRO2_CONNECT_ID';
+    const getDeviceState = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        protocol: 'V2',
+        status: { unlocked: true },
+      },
+    });
+    const getSDKInstance = jest
+      .spyOn(service, 'getSDKInstance')
+      .mockResolvedValue({
+        getDeviceState,
+      } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    (
+      service as unknown as {
+        deviceProtocolByConnectId: Map<string, 'V1' | 'V2'>;
+      }
+    ).deviceProtocolByConnectId.set(connectId, 'V2');
+
+    await service._getDeviceStateLowLevel({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+      persistTransportType: false,
+      params: { scope: 'runtime' },
+      silentMode: true,
+    });
+
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId,
+      connectProtocol: 'V2',
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareTransportType: EHardwareTransportType.WEBUSB,
+      persistTransportType: false,
+    });
+  });
+
   it.each([
     {
       platformName: 'iOS',
@@ -1039,7 +1331,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
   });
 
-  it('桌面后台显式 transport 优先于遗留的 BLE force transport', async () => {
+  it('桌面后台显式 transport 可跳过持久化用户偏好', async () => {
     mutablePlatformEnv.isSupportDesktopBle = true;
     mockedHardwareForceTransportAtomGet.mockResolvedValue({
       forceTransportType: EHardwareTransportType.DesktopWebBle,
@@ -1079,6 +1371,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
         connectId: undefined,
         hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
         hardwareTransportType: EHardwareTransportType.WEBUSB,
+        persistTransportType: false,
       }),
     ).resolves.toBe(sdkInstance);
 
@@ -1087,10 +1380,59 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
         hardwareTransportType: EHardwareTransportType.WEBUSB,
       }),
     );
-    expect(setCurrentTransportType).toHaveBeenCalledWith(
-      EHardwareTransportType.WEBUSB,
-    );
+    expect(setCurrentTransportType).not.toHaveBeenCalled();
     expect(hardwareInstance.resetHardwareSDKInstance).not.toHaveBeenCalled();
+  });
+
+  it('后台 transport 探测不会改写用户持久化设置', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const getTransportTypeForChannel = jest
+      .spyOn(service.connectionManager, 'getTransportTypeForChannel')
+      .mockResolvedValue(EHardwareTransportType.WEBUSB);
+    const shouldSwitchTransportType = jest
+      .spyOn(service.connectionManager, 'shouldSwitchTransportType')
+      .mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+    const resolveTransportType = jest.spyOn(
+      service.connectionManager,
+      'resolveTransportType',
+    );
+    const setCurrentTransportType = jest.spyOn(
+      service.connectionManager,
+      'setCurrentTransportType',
+    );
+
+    await expect(
+      service.prepareHardwareTransport({
+        connectId: 'PRO2_CONNECT_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        persistTransportType: false,
+        requestedTransportType: 'usb',
+      }),
+    ).resolves.toBe(EHardwareTransportType.WEBUSB);
+    await expect(
+      service.prepareHardwareTransport({
+        connectId: 'PRO2_CONNECT_ID',
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+        persistTransportType: false,
+      }),
+    ).resolves.toBe(EHardwareTransportType.DesktopWebBle);
+
+    expect(getTransportTypeForChannel).toHaveBeenCalledWith({
+      connectProtocol: undefined,
+      transportType: 'usb',
+    });
+    expect(shouldSwitchTransportType).toHaveBeenCalledWith({
+      connectId: 'PRO2_CONNECT_ID',
+      connectProtocol: undefined,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+    });
+    expect(resolveTransportType).not.toHaveBeenCalled();
+    expect(setCurrentTransportType).not.toHaveBeenCalled();
   });
 
   it('Passphrase 回包直接发送给当前 SDK，不重新执行传输选择', async () => {

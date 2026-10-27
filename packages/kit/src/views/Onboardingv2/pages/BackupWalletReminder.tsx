@@ -36,7 +36,7 @@ import {
 import type { RouteProp } from '@react-navigation/core';
 
 const ANIMATED_STACK_PROPS = {
-  animation: 'quick' as const,
+  transition: 'quick' as const,
   animateOnly: ANIMATE_ONLY_OPACITY_TRANSFORM,
   enterStyle: { scale: 0.8, opacity: 0 },
 };

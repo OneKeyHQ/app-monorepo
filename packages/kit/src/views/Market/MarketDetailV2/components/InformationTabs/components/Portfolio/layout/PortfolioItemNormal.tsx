@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import {
   NumberSizeableText,
@@ -9,23 +9,26 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
-import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
+import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
 
+import { PORTFOLIO_TOKEN_COLUMN_WIDTH } from './portfolioColumnConstants';
+
 interface IPortfolioItemNormalProps {
-  item: IMarketAccountPortfolioItem;
+  item: IMarketAccountPortfolioDisplayItem;
   tokenLogoUrl?: string;
-  columnWidth: number;
+  onPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
 }
 
 function PortfolioItemNormalBase({
   item,
   tokenLogoUrl,
-  columnWidth,
+  onPress,
 }: IPortfolioItemNormalProps) {
   const pnl = item.pnl;
   const isPnlSupported = pnl?.isPnlSupported ?? false;
+  const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
 
   return (
     <XStack
@@ -36,19 +39,32 @@ function PortfolioItemNormalBase({
       px="$3"
       py="$2.5"
       borderRadius="$3"
-      cursor="default"
+      onPress={onPress ? handlePress : undefined}
+      cursor={onPress ? 'pointer' : 'default'}
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
-      <XStack gap="$2" alignItems="center" w={100}>
-        <Token size="xs" tokenImageUri={tokenLogoUrl} />
-        <SizableText size="$bodyMd" color="$text" numberOfLines={1}>
+      <XStack gap="$2.5" alignItems="center" w={PORTFOLIO_TOKEN_COLUMN_WIDTH}>
+        <Token
+          size="md"
+          tokenImageUri={item.tokenLogoUrl ?? tokenLogoUrl}
+          networkImageUri={item.networkLogoUrl}
+          networkId={item.networkId}
+          showNetworkIcon={Boolean(item.networkId)}
+        />
+        <SizableText size="$bodyLgMedium" color="$text" numberOfLines={1}>
           {item.symbol}
         </SizableText>
       </XStack>
 
-      <YStack w={columnWidth} alignItems="flex-end">
+      <YStack
+        flex={1}
+        flexBasis={0}
+        minWidth={0}
+        gap="$0.5"
+        alignItems="flex-end"
+      >
         <Currency
-          size="$bodySm"
+          size="$bodyMd"
           color="$text"
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
@@ -70,14 +86,16 @@ function PortfolioItemNormalBase({
         usdValue={pnl?.unrealizedPnlUsd ?? '0'}
         percent={pnl?.unrealizedPnlPercent ?? '0'}
         isSupported={isPnlSupported}
-        columnWidth={columnWidth}
+        flex={1}
+        emphasizedText
       />
 
       <PnlCell
         usdValue={pnl?.totalPnlUsd ?? '0'}
         percent={pnl?.totalPnlPercent ?? '0'}
         isSupported={isPnlSupported}
-        columnWidth={columnWidth}
+        flex={1}
+        emphasizedText
       />
     </XStack>
   );

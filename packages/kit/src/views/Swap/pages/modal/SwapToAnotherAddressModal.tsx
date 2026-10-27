@@ -128,6 +128,7 @@ const SwapToAnotherAddressPage = () => {
       }
       form.setValue('address', {
         raw: selectedAddress,
+        pending: true,
       } as IAddressInputValue);
     },
     [form, networkId],

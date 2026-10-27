@@ -53,6 +53,10 @@ export type ISwapSelectedTokensColdStartContext = {
   networkId: string;
   swapType?: ESwapTabSwitchType;
   updatedAt: number;
+  defaultTokenSeed?: {
+    fromToken?: { networkId: string; contractAddress: string };
+    toToken?: { networkId: string; contractAddress: string };
+  };
 };
 
 // All-network selected accounts use the `onekeyall--*` sentinel network id. This

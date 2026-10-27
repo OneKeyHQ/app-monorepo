@@ -1,6 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 
+// Exempt from the test-integrity source-text rule, see
+// development/lint/test-integrity.allowlist.json. On iOS, Android and the
+// extension, main and bg are isolated JS runtimes and hardware resources cross
+// between them as JSON. A binary codec anywhere on that path breaks the
+// crossing, and that is a property of the module graph rather than of any
+// single call, so no invocation can demonstrate its absence.
 describe('hardware resource Base64 startup graph', () => {
   test.each([
     ['ServiceHardware.ts', ['imageJpegBase64', 'packageBase64']],

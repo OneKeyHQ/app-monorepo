@@ -9,11 +9,11 @@ import {
   getOneKeyIdOAuthProviderIcon,
 } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 
-interface IOneKeyIdAvatarProps {
+type IOneKeyIdAvatarProps = Omit<IImageProps, 'size' | 'source'> & {
   size?: IImageProps['width'];
   source?: IImageProps['source'];
   showSocialBadge?: boolean;
-}
+};
 
 function getSocialBadgeMetrics(size: IImageProps['width']) {
   if (size === '$20') {
@@ -47,7 +47,7 @@ function BasicOneKeyIdAvatar({
   source: sourceOverride,
   showSocialBadge = true,
   ...rest
-}: IOneKeyIdAvatarProps & IImageProps) {
+}: IOneKeyIdAvatarProps) {
   const { user, isLoggedIn } = useOneKeyAuth();
   const avatarUrl = user.avatar;
   const source =

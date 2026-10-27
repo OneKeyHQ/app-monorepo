@@ -162,6 +162,9 @@ export function createDesktopConfig({
         createProductionConfig({ platform, basePath }),
         commonDesktopConfig,
         {
+          optimization: {
+            runtimeChunk: 'single',
+          },
           output: {
             crossOriginLoading: 'anonymous',
           },
@@ -185,6 +188,11 @@ export function createDesktopConfig({
           devtool: 'cheap-module-source-map',
           devServer: {
             open: false,
+            historyApiFallback: {
+              rewrites: [
+                { from: /^\/market\/stock\/[^/]+\/?$/, to: '/index.html' },
+              ],
+            },
           },
         },
       );

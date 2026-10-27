@@ -53,6 +53,20 @@ class DesktopApiSecurity {
     | IDesktopHyperLiquidAgentSessionPayload
     | undefined;
 
+  // Electron main-process memory survives renderer reloads but resets on restart.
+  private appSessionUnlocked: boolean | undefined;
+
+  async setAppSessionUnlocked(unlocked: boolean): Promise<void> {
+    if (typeof unlocked !== 'boolean') {
+      throw new OneKeyLocalError('Invalid Desktop app session state');
+    }
+    this.appSessionUnlocked = unlocked;
+  }
+
+  async getAppSessionUnlocked(): Promise<boolean | undefined> {
+    return this.appSessionUnlocked;
+  }
+
   async setHyperLiquidAgentSession(
     payload: IDesktopHyperLiquidAgentSessionPayload,
   ): Promise<void> {
@@ -94,13 +108,7 @@ class DesktopApiSecurity {
     if (!isMac) {
       return false;
     }
-    try {
-      const result = await checkBiometricAuthChanged();
-      return result;
-    } catch (error) {
-      logger.error('[CHECK_BIOMETRIC_AUTH_CHANGED] Error:', error);
-      return false;
-    }
+    return checkBiometricAuthChanged();
   }
 
   // Blanks the window in screenshots/recordings/screen shares while sensitive
@@ -123,6 +131,9 @@ class DesktopApiSecurity {
     if (isWin) {
       logger.info('[TOUCH_ID_PROMPT] Windows requestVerificationAsync');
       try {
+        if (!(await this.canPromptTouchID())) {
+          return { success: false, isSupport: false };
+        }
         const { success, error } = await requestVerificationAsync(msg);
         if (error) {
           logger.info(

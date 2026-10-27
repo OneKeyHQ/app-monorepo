@@ -532,9 +532,12 @@ export default function PrimeInfiniSubscription() {
       return (
         <Stack flex={1} alignItems="center" justifyContent="center" p="$5">
           <Empty
-            icon="CreditCardOutline"
+            illustration="SearchDocument"
             title={intl.formatMessage({
               id: ETranslations.prime_no_crypto_subscription__title,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.prime_no_crypto_subscription__desc,
             })}
           />
         </Stack>

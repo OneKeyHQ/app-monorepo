@@ -1,16 +1,8 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MESSAGE_TYPES } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/constants/messageTypes';
+import { fetchAccountTransactionMarks } from '@onekeyhq/kit/src/components/TradingView/utils/accountTransactionMarks';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import {
-  formatBalance,
-  formatDisplayNumber,
-} from '@onekeyhq/shared/src/utils/numberUtils';
-import type {
-  IMarketAccountTokenTransaction,
-  IMarketTokenKLineResponse,
-} from '@onekeyhq/shared/types/marketV2';
+import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
 
 import { fetchTradingViewV2DataWithSlicing } from '../hooks';
 
@@ -18,7 +10,11 @@ import { sendVolumeVisibilityUpdate } from './volumeVisibilityHandler';
 
 import type { IMessageHandlerContext, IMessageHandlerParams } from './types';
 
-const MAX_MARKS_COUNT = 60;
+export {
+  buildTransactionMarks,
+  fetchAccountTransactionMarks,
+} from '@onekeyhq/kit/src/components/TradingView/utils/accountTransactionMarks';
+
 export const DEFAULT_TRADING_VIEW_KLINE_RESOLUTION = '1m';
 
 export function normalizeTradingViewKLineInterval(
@@ -96,83 +92,6 @@ function getKLineErrorMessage(error: unknown) {
     return error;
   }
   return undefined;
-}
-
-function formatAmount(amount: string) {
-  const result = formatDisplayNumber(formatBalance(amount));
-  return typeof result === 'string' ? result : amount;
-}
-
-export function buildTransactionMarks({
-  transactions,
-}: {
-  transactions: IMarketAccountTokenTransaction[];
-}) {
-  const limitedList = transactions
-    .slice()
-    .filter((tx) => tx.to?.amount && tx.to?.symbol)
-    .toSorted((a, b) => a.timestamp - b.timestamp)
-    .slice(-MAX_MARKS_COUNT);
-
-  return limitedList.map((tx, index) => {
-    const isBuy = tx.type === 'buy';
-    const label = isBuy ? 'B' : 'S';
-    const displayAmount = tx.to.amount;
-    const displaySymbol = tx.to.symbol;
-    // eslint-disable-next-line onekey/no-app-locale-main-thread
-    const text = appLocale.intl.formatMessage(
-      {
-        id: isBuy
-          ? ETranslations.dexmarket_point_buy
-          : ETranslations.dexmarket_point_sell,
-      },
-      {
-        Amount: formatAmount(displayAmount),
-        From_Token: displaySymbol,
-        to_Token: displaySymbol,
-      },
-    );
-    return {
-      id: `${tx.hash}-${isBuy ? 'buy' : 'sell'}-${index}`,
-      time: Math.floor(tx.timestamp),
-      text,
-      label,
-      color: isBuy ? '#0A7AFF' : '#FF4D4F',
-    };
-  });
-}
-
-export async function fetchAccountTransactionMarks({
-  accountAddress,
-  tokenAddress,
-  networkId,
-  from,
-  to,
-}: {
-  accountAddress?: string;
-  tokenAddress: string;
-  networkId: string;
-  from: number;
-  to: number;
-}) {
-  if (!accountAddress) {
-    return [];
-  }
-
-  const accountTransactions =
-    await backgroundApiProxy.serviceMarketV2.fetchMarketAccountTokenTransactions(
-      {
-        accountAddress,
-        tokenAddress,
-        networkId,
-        timeFrom: from,
-        timeTo: to,
-      },
-    );
-
-  return buildTransactionMarks({
-    transactions: accountTransactions.list ?? [],
-  });
 }
 
 export async function fetchAndSendAccountMarks({

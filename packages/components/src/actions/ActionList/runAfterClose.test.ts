@@ -1,0 +1,172 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { OverlayCloseCancelledError } from '../../shared/overlayCloseCancellation';
+
+import { runAfterActionListClose } from './runAfterClose';
+
+jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
+  __esModule: true,
+  default: {
+    wait: jest.fn(),
+  },
+}));
+
+const mockWait = jest.mocked(timerUtils.wait);
+
+describe('runAfterActionListClose', () => {
+  beforeEach(() => {
+    mockWait.mockReset();
+  });
+
+  it('closes and waits before running an asynchronous callback', async () => {
+    const order: string[] = [];
+    let finishWait: (() => void) | undefined;
+    mockWait.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWait = resolve;
+        }),
+    );
+    const close = jest.fn(() => {
+      order.push('close');
+    });
+    const callback = jest.fn(async () => {
+      order.push('callback');
+      return 'result';
+    });
+
+    const resultPromise = runAfterActionListClose(close, callback);
+
+    expect(order).toEqual(['close']);
+    await Promise.resolve();
+    expect(mockWait).toHaveBeenCalledWith(150);
+    expect(callback).not.toHaveBeenCalled();
+
+    finishWait?.();
+
+    await expect(resultPromise).resolves.toBe('result');
+    expect(order).toEqual(['close', 'callback']);
+  });
+
+  it('runs a native follow-up only after the close completion resolves', async () => {
+    const wasNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      let finishClose: (() => void) | undefined;
+      const close = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishClose = resolve;
+          }),
+      );
+      const callback = jest.fn();
+      const result = runAfterActionListClose(close, callback);
+
+      await Promise.resolve();
+      expect(callback).not.toHaveBeenCalled();
+      expect(mockWait).not.toHaveBeenCalled();
+      finishClose?.();
+      await result;
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(mockWait).not.toHaveBeenCalled();
+    } finally {
+      platformEnv.isNative = wasNative;
+    }
+  });
+
+  it('keeps the historical wait for a native void close', async () => {
+    const wasNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      let finishWait: (() => void) | undefined;
+      mockWait.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            finishWait = resolve;
+          }),
+      );
+      const callback = jest.fn();
+      const result = runAfterActionListClose(() => undefined, callback);
+
+      await Promise.resolve();
+      expect(mockWait).toHaveBeenCalledWith(150);
+      expect(callback).not.toHaveBeenCalled();
+      finishWait?.();
+      await result;
+      expect(callback).toHaveBeenCalledTimes(1);
+    } finally {
+      platformEnv.isNative = wasNative;
+    }
+  });
+
+  it('skips the follow-up when the close is canceled', async () => {
+    const callback = jest.fn();
+    const cancellation = new OverlayCloseCancelledError('reopened');
+
+    await expect(
+      runAfterActionListClose(() => Promise.reject(cancellation), callback),
+    ).resolves.toBeUndefined();
+    expect(callback).not.toHaveBeenCalled();
+    expect(mockWait).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the callback throws synchronously', async () => {
+    mockWait.mockResolvedValue(undefined);
+    const error = new Error('sync failure');
+
+    await expect(
+      runAfterActionListClose(jest.fn(), () => {
+        throw error;
+      }),
+    ).rejects.toBe(error);
+  });
+
+  it('runs immediately after closing when no animation wait is needed', async () => {
+    const order: string[] = [];
+
+    await runAfterActionListClose(
+      () => {
+        order.push('close');
+      },
+      () => {
+        order.push('callback');
+      },
+      { waitForAnimation: false },
+    );
+
+    expect(mockWait).not.toHaveBeenCalled();
+    expect(order).toEqual(['close', 'callback']);
+  });
+
+  it('preserves an asynchronous callback rejection', async () => {
+    mockWait.mockResolvedValue(undefined);
+    const error = new Error('async failure');
+
+    await expect(
+      runAfterActionListClose(jest.fn(), () => Promise.reject(error)),
+    ).rejects.toBe(error);
+  });
+
+  it('does not suppress a cancellation error thrown by the callback', async () => {
+    const error = new OverlayCloseCancelledError('callback failed');
+
+    await expect(
+      runAfterActionListClose(
+        () => Promise.resolve(),
+        () => Promise.reject(error),
+      ),
+    ).rejects.toBe(error);
+  });
+
+  it('does not run the callback when closing rejects', async () => {
+    const error = new Error('close failure');
+    const callback = jest.fn();
+
+    await expect(
+      runAfterActionListClose(() => Promise.reject(error), callback),
+    ).rejects.toBe(error);
+    expect(mockWait).not.toHaveBeenCalled();
+    expect(callback).not.toHaveBeenCalled();
+  });
+});

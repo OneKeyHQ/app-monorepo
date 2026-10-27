@@ -18,11 +18,22 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 const PRIVATE_SEND_FAILED_DISPLAY_STATUSES = new Set<ESwapTxHistoryStatus>([
   ESwapTxHistoryStatus.FAILED,
+  ESwapTxHistoryStatus.REFUNDED,
+  ESwapTxHistoryStatus.EXPIRED,
   ESwapTxHistoryStatus.CANCELED,
 ]);
 
 const PRIVATE_SEND_SUCCESS_DISPLAY_STATUSES = new Set<ESwapTxHistoryStatus>([
   ESwapTxHistoryStatus.SUCCESS,
+]);
+
+const SWAP_HISTORY_TERMINAL_STATUSES = new Set<ESwapTxHistoryStatus>([
+  ESwapTxHistoryStatus.SUCCESS,
+  ESwapTxHistoryStatus.FAILED,
+  ESwapTxHistoryStatus.REFUNDED,
+  ESwapTxHistoryStatus.EXPIRED,
+  ESwapTxHistoryStatus.CANCELED,
+  ESwapTxHistoryStatus.PARTIALLY_FILLED,
 ]);
 
 const PRIVATE_SEND_FAILED_EXTRA_STATUSES = new Set<ESwapExtraStatus>([
@@ -40,6 +51,10 @@ const PRIVATE_SEND_FAILED_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>(
 );
 
 export const SWAP_HISTORY_LONG_PENDING_WARNING_THRESHOLD_MS = 90 * 60 * 1000;
+
+export function isSwapHistoryTerminalStatus(status?: ESwapTxHistoryStatus) {
+  return status ? SWAP_HISTORY_TERMINAL_STATUSES.has(status) : false;
+}
 
 export type ISwapOrderLongPendingWarningPayload = {
   orderId: string;

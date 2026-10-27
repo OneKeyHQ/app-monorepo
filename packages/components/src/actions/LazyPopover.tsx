@@ -1,8 +1,10 @@
+/* cspell:ignore hoverable */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { SizableText, YStack } from '../primitives';
+import { assertOverlayProps } from '../shared/assertOverlayProps';
 
 import { IconButton } from './IconButton';
 import { runPopoverOpenSideEffects } from './Popover/popoverSideEffects';
@@ -47,6 +49,7 @@ export function preloadLazyPopover() {
 }
 
 function LazyPopoverFrame(props: IPopoverProps) {
+  assertOverlayProps('LazyPopover', props);
   const { renderTrigger, open, onOpenChange, trackID } = props;
   const [PopoverComponent, setPopoverComponent] = useState<
     ILazyPopoverComponent | undefined
@@ -100,6 +103,12 @@ function LazyPopoverFrame(props: IPopoverProps) {
       ensureLoaded();
     }
   }, [actualOpen, ensureLoaded, PopoverComponent]);
+
+  useEffect(() => {
+    if (props.hoverable && !PopoverComponent) {
+      ensureLoaded();
+    }
+  }, [ensureLoaded, PopoverComponent, props.hoverable]);
 
   const handleTriggerPress = useCallback(() => {
     if (PopoverComponent) {

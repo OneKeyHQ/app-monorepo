@@ -1,16 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
   Button,
+  Icon,
   Illustration,
   LottieView,
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import type { ILottieViewHandle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -28,6 +31,58 @@ interface IPreSwapConfirmResultProps {
   onConfirm?: () => void;
 }
 
+export function SwapTransactionResultStatus({
+  status,
+  size = 110,
+  animated = true,
+  paused = false,
+}: {
+  status: 'success' | 'failed' | 'pending';
+  size?: number;
+  animated?: boolean;
+  // Holds the pending hourglass on its current frame (a paused dust sweep);
+  // clearing it continues from there.
+  paused?: boolean;
+}) {
+  const lottieRef = useRef<ILottieViewHandle>(null);
+  const wasPausedRef = useRef(false);
+  useEffect(() => {
+    if (paused) {
+      wasPausedRef.current = true;
+      lottieRef.current?.pause();
+    } else if (wasPausedRef.current) {
+      wasPausedRef.current = false;
+      lottieRef.current?.resume();
+    }
+  }, [paused, status]);
+  if (status === 'failed') return <Illustration size={size} name="XMark" />;
+  if (!animated)
+    return (
+      <Icon
+        name={
+          status === 'success' ? 'CheckRadioSolid' : 'ClockTimeHistoryOutline'
+        }
+        color={status === 'success' ? '$iconSuccess' : '$iconSubdued'}
+        width={size}
+        height={size}
+      />
+    );
+  return (
+    <LottieView
+      ref={lottieRef}
+      source={
+        status === 'success'
+          ? require('@onekeyhq/kit/assets/animations/lottie-swap-done.json')
+          : require('@onekeyhq/kit/assets/animations/swap_order_pending.json')
+      }
+      width={size}
+      height={size}
+      autoPlay
+      loop={status === 'pending'}
+    />
+  );
+}
+
 const PreSwapConfirmResult = ({
   lastStep,
   fromToken,
@@ -36,6 +91,8 @@ const PreSwapConfirmResult = ({
 }: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
+  const { md } = useMedia();
+  const buttonSize = md ? 'large' : 'medium';
   useEffect(() => {
     const fetchExplorerUrl = async () => {
       if (!lastStep.txHash || !fromToken?.networkId) {
@@ -65,10 +122,21 @@ const PreSwapConfirmResult = ({
     }
   }, [explorerUrl]);
 
+  // A result-unknown sponsored send (OK-64746): the tx may already be on
+  // chain, so this is neither a failure to retry nor a confirmed submit.
+  const submitResultUnknown = Boolean(lastStep.submitResultUnknown);
+  const isRetryableFailure =
+    lastStep.status === ESwapStepStatus.FAILED && !submitResultUnknown;
+
   const statusText = useMemo(() => {
     if (lastStep.status === ESwapStepStatus.SUCCESS) {
       return intl.formatMessage({
         id: ETranslations.swap_review_transaction_succeeded,
+      });
+    }
+    if (submitResultUnknown) {
+      return intl.formatMessage({
+        id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
       });
     }
     if (lastStep.status === ESwapStepStatus.FAILED) {
@@ -79,45 +147,36 @@ const PreSwapConfirmResult = ({
     return intl.formatMessage({
       id: ETranslations.feedback_transaction_submitted,
     });
-  }, [lastStep.status, intl]);
+  }, [lastStep.status, submitResultUnknown, intl]);
   return (
     <YStack alignItems="center" justifyContent="flex-end" h={300} flex={1}>
       <YStack justifyContent="center" alignItems="center" gap="$4" flex={1}>
         <AnimatePresence>
           {lastStep.status === ESwapStepStatus.SUCCESS ? (
-            <LottieView
+            <SwapTransactionResultStatus
               key={lastStep.status}
-              source={require('@onekeyhq/kit/assets/animations/lottie-swap-done.json')}
-              width={110}
-              height={110}
-              autoPlay
-              loop={false}
+              status="success"
             />
           ) : null}
         </AnimatePresence>
         {lastStep.status !== ESwapStepStatus.SUCCESS ? (
           <>
-            {lastStep.status === ESwapStepStatus.FAILED ? (
+            {isRetryableFailure ? (
               <YStack key={lastStep.status}>
-                <Illustration key={lastStep.status} size={110} name="XMark" />
+                <SwapTransactionResultStatus status="failed" />
               </YStack>
             ) : (
               <YStack key={lastStep.status}>
-                <LottieView
-                  source={require('@onekeyhq/kit/assets/animations/swap_order_pending.json')}
-                  width={110}
-                  height={110}
-                  autoPlay
-                />
+                <SwapTransactionResultStatus status="pending" />
               </YStack>
             )}
           </>
         ) : null}
         <YStack gap="$2" alignItems="center" justifyContent="center">
-          <SizableText size="$headingLg" color="$text">
+          <SizableText size="$headingLg" color="$text" textAlign="center">
             {statusText}
           </SizableText>
-          {lastStep.status === ESwapStepStatus.FAILED ? (
+          {isRetryableFailure ? (
             <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
               {lastStep.errorMessage ?? ''}
             </SizableText>
@@ -154,6 +213,7 @@ const PreSwapConfirmResult = ({
             flexGrow={1}
             flexBasis={0}
             variant="secondary"
+            size={buttonSize}
             onPress={() => {
               if (supportUrl?.includes(SUPPORT_URL)) {
                 void showIntercom();
@@ -171,13 +231,12 @@ const PreSwapConfirmResult = ({
           flexBasis={0}
           variant="primary"
           onPress={onConfirm}
-          size="medium"
+          size={buttonSize}
         >
           {intl.formatMessage({
-            id:
-              lastStep.status === ESwapStepStatus.FAILED
-                ? ETranslations.global_retry
-                : ETranslations.global_done,
+            id: isRetryableFailure
+              ? ETranslations.global_retry
+              : ETranslations.global_done,
           })}
         </Button>
       </XStack>

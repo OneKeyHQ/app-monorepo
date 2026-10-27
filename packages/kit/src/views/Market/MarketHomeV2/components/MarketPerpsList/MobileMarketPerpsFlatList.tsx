@@ -13,6 +13,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
+import { buildPerpsMarketRow } from '../MarketNativeList/marketNativeListRows';
+import { WebMarketCompactList } from '../MarketNativeList/WebMarketCompactList';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
 import { useMarketPerpsTokenList } from './hooks/useMarketPerpsTokenList';
@@ -90,6 +92,23 @@ function MobileMarketPerpsFlatListImpl({
 
   const tabBarHeight = useScrollContentTabBarOffset();
 
+  const handleWebItemPress = useCallback(
+    (item: IMarketPerpsToken) => handleTokenPress(item.name),
+    [handleTokenPress],
+  );
+  if (!platformEnv.isNative) {
+    return (
+      <WebMarketCompactList<IMarketPerpsToken>
+        data={showSkeleton ? EMPTY_DATA : tokens}
+        buildRow={buildPerpsMarketRow}
+        onPress={handleWebItemPress}
+        empty={ListEmptyComponent}
+        contentPaddingBottom={tabBarHeight}
+        footer={ListFooterComponent}
+      />
+    );
+  }
+
   return (
     <Tabs.FlatList<IMarketPerpsToken>
       showsVerticalScrollIndicator={false}
@@ -103,7 +122,8 @@ function MobileMarketPerpsFlatListImpl({
       ListEmptyComponent={ListEmptyComponent}
       ListFooterComponent={ListFooterComponent}
       contentContainerStyle={{
-        ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
+        // Same 4px lead under the column header as the other mobile home lists.
+        ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

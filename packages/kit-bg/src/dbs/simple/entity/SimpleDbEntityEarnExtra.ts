@@ -1,5 +1,8 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IEarnPageBannerListItem } from '@onekeyhq/shared/types/earn';
+import type {
+  IEarnBannerTheme,
+  IEarnPageBannerListItem,
+} from '@onekeyhq/shared/types/earn';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -10,12 +13,19 @@ export interface IEarnExtraData {
   // Hyperliquid terms flag) — once accepted, the dialog never shows again.
   riskDisclaimerAccepted?: boolean;
   /**
-   * Last banner list the Earn home successfully fetched. Persisted so a cold
-   * start can paint the banner at its real height instead of occupying 0pt and
-   * expanding once the network answers (OK-60299).
+   * Legacy unscoped banner cache. New writes use pageBannerListByTheme so a
+   * cold start can never paint a banner for the opposite color scheme.
    */
   pageBannerList?: IEarnPageBannerListItem[];
+  pageBannerListByTheme?: Partial<
+    Record<IEarnBannerTheme, IEarnPageBannerListItem[]>
+  >;
 }
+
+type IEarnPageBannerListCache = {
+  list: IEarnPageBannerListItem[];
+  isThemeScoped: boolean;
+};
 
 export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> {
   entityName = 'earnExtraData';
@@ -56,17 +66,46 @@ export class SimpleDbEntityEarnExtra extends SimpleDbEntityBase<IEarnExtraData> 
     }));
   }
 
-  @backgroundMethod()
-  async getPageBannerList(): Promise<IEarnPageBannerListItem[]> {
+  async getPageBannerListCache(
+    theme: IEarnBannerTheme,
+  ): Promise<IEarnPageBannerListCache> {
     const data = await this.getRawData();
-    return data?.pageBannerList ?? [];
+    const themeScopedList = data?.pageBannerListByTheme?.[theme];
+    if (themeScopedList) {
+      return { list: themeScopedList, isThemeScoped: true };
+    }
+
+    // Existing installations may still have the pre-theme-key cache. Retain
+    // only entries that explicitly match the active theme.
+    return {
+      list: (data?.pageBannerList ?? []).filter(
+        (banner) => banner.theme === theme,
+      ),
+      isThemeScoped: false,
+    };
   }
 
   @backgroundMethod()
-  async setPageBannerList(pageBannerList: IEarnPageBannerListItem[]) {
+  async getPageBannerList(
+    theme: IEarnBannerTheme,
+  ): Promise<IEarnPageBannerListItem[]> {
+    return (await this.getPageBannerListCache(theme)).list;
+  }
+
+  @backgroundMethod()
+  async setPageBannerList({
+    theme,
+    pageBannerList,
+  }: {
+    theme: IEarnBannerTheme;
+    pageBannerList: IEarnPageBannerListItem[];
+  }) {
     await this.setRawData((v) => ({
       ...v,
-      pageBannerList,
+      pageBannerListByTheme: {
+        ...v?.pageBannerListByTheme,
+        [theme]: pageBannerList,
+      },
     }));
   }
 

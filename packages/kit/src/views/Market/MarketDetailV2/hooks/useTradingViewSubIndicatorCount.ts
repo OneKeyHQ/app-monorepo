@@ -109,7 +109,8 @@ export function useTradingViewSubIndicatorCount({
         return;
       }
 
-      if (supportsLayoutRestoredRef.current) {
+      // Native charts can report before the parent effect clears the WebView marker.
+      if (stabilizeInitialCount && supportsLayoutRestoredRef.current) {
         return;
       }
 

@@ -1,7 +1,6 @@
 import axios from 'axios';
 
 import { defaultLogger } from '../logger/logger';
-import { DEFAULT_IP_TABLE_CONFIG } from '../request/constants/ipTableDefaults';
 import {
   getMappedDomainForIpLookup,
   isIpTableTransportError,
@@ -15,11 +14,13 @@ import {
   sniRequest,
 } from '../request/helpers/sniRequest';
 import requestHelper from '../request/requestHelper';
-import { getOrderedIpTableCandidates } from '../utils/ipTableUtils';
+import { getSharedDomainIpTableCandidates } from '../utils/ipTableUtils';
 
 import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
 
-const CONFIG_FETCH_TIMEOUT_MS = 7000;
+// Budget for the domain and three SNI attempts, plus preflight overhead.
+const CONFIG_FETCH_TIMEOUT_MS = 10_000;
+const CONFIG_FETCH_TOTAL_TIMEOUT_MS = 45_000;
 const CONFIG_FETCH_MAX_SNI_CANDIDATES = 3;
 const STABLE_CONFIG_URL = 'https://data.onekey.so/config.json';
 const PRE_RELEASE_CONFIG_URL = 'https://data.onekey.so/pre-config.json';
@@ -80,37 +81,28 @@ async function getConfigSniCandidates(options: {
   } catch {
     activeConfig = null;
   }
-  const activeEndpoints =
-    activeConfig?.config.domains[configKey]?.endpoints ?? [];
-  const endorsedIps = new Set(activeEndpoints.map((endpoint) => endpoint.ip));
-  const preferredCandidates = [
-    activeConfig?.runtime?.selections?.[configKey],
-    activeConfig?.runtime?.lastBestIp?.[configKey],
-  ].filter(
-    (candidate): candidate is string =>
-      typeof candidate === 'string' &&
-      candidate.length > 0 &&
-      endorsedIps.has(candidate),
-  );
-  const builtinCandidates = getOrderedIpTableCandidates({
+  // The shared table is ranked against the API hosts. The firmware config
+  // host resolves to the CN CDN providers, so Cloudflare endpoints are skipped.
+  return getSharedDomainIpTableCandidates({
     hostname,
     configKey,
-    configWithRuntime: {
-      config: DEFAULT_IP_TABLE_CONFIG,
-      runtime: undefined,
-    },
+    activeConfig,
+    maxCandidates: CONFIG_FETCH_MAX_SNI_CANDIDATES,
   });
-  return [...new Set([...preferredCandidates, ...builtinCandidates])].slice(
-    0,
-    CONFIG_FETCH_MAX_SNI_CANDIDATES,
-  );
 }
 
-export async function fetchFirmwareConfig({
+async function fetchFirmwareConfigWithinDeadline({
   preRelease,
+  startedAt,
+  signal,
 }: {
   preRelease: boolean;
+  startedAt: number;
+  signal: AbortSignal;
 }): Promise<RemoteConfigResponse | null> {
+  const deadlineAt = startedAt + CONFIG_FETCH_TOTAL_TIMEOUT_MS;
+  const isExpired = () => signal.aborted || Date.now() >= deadlineAt;
+
   try {
     const { isSupportIpTablePlatform } = await import('../utils/ipTableUtils');
     if (!isSupportIpTablePlatform()) {
@@ -120,18 +112,24 @@ export async function fetchFirmwareConfig({
     return null;
   }
 
-  const startedAt = Date.now();
   const configUrl = preRelease ? PRE_RELEASE_CONFIG_URL : STABLE_CONFIG_URL;
   const parsedUrl = new URL(`${configUrl}?noCache=${Date.now().toString()}`);
   const rootDomain = parsedUrl.hostname.split('.').slice(-2).join('.');
   const configKey =
     (await getMappedDomainForIpLookup(rootDomain)) ?? rootDomain;
+  if (isExpired()) {
+    return null;
+  }
   const plainAxios = axios.create();
   const domainRequestSequence = nextIpTableRequestSequence();
   try {
     const response = await plainAxios.get<unknown>(parsedUrl.toString(), {
-      timeout: CONFIG_FETCH_TIMEOUT_MS,
+      timeout: Math.min(CONFIG_FETCH_TIMEOUT_MS, deadlineAt - Date.now()),
+      signal,
     });
+    if (isExpired()) {
+      return null;
+    }
     reportIpTableRequestSuccess({
       domain: configKey,
       requestType: 'domain',
@@ -146,6 +144,9 @@ export async function fetchFirmwareConfig({
     });
     return config;
   } catch (error) {
+    if (isExpired()) {
+      return null;
+    }
     if (
       error &&
       typeof error === 'object' &&
@@ -185,6 +186,9 @@ export async function fetchFirmwareConfig({
     // Firmware config keeps one direct fallback when proxy routing is unknown.
     sniCandidateLimit = 1;
   }
+  if (isExpired()) {
+    return null;
+  }
 
   const candidates = (
     await getConfigSniCandidates({
@@ -193,6 +197,9 @@ export async function fetchFirmwareConfig({
     })
   ).slice(0, sniCandidateLimit);
   for (const [candidateIndex, ip] of candidates.entries()) {
+    if (isExpired()) {
+      return null;
+    }
     const requestSequence = nextIpTableRequestSequence();
     try {
       const response = await sniRequest({
@@ -202,8 +209,11 @@ export async function fetchFirmwareConfig({
         method: 'GET',
         headers: {},
         body: null,
-        timeout: CONFIG_FETCH_TIMEOUT_MS,
+        timeout: Math.min(CONFIG_FETCH_TIMEOUT_MS, deadlineAt - Date.now()),
       });
+      if (isExpired()) {
+        return null;
+      }
       if (response) {
         reportIpTableRequestSuccess({
           domain: configKey,
@@ -226,6 +236,9 @@ export async function fetchFirmwareConfig({
         }
       }
     } catch (error) {
+      if (isExpired()) {
+        return null;
+      }
       if (!isIpTableTransportError(error)) {
         return null;
       }
@@ -239,4 +252,40 @@ export async function fetchFirmwareConfig({
     }
   }
   return null;
+}
+
+export async function fetchFirmwareConfig({
+  preRelease,
+}: {
+  preRelease: boolean;
+}): Promise<RemoteConfigResponse | null> {
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+      defaultLogger.ipTable.request.info({
+        info: `[FirmwareManifest] config_fetch outcome=total_timeout durationMs=${
+          Date.now() - startedAt
+        }`,
+      });
+      resolve(null);
+    }, CONFIG_FETCH_TOTAL_TIMEOUT_MS);
+  });
+
+  try {
+    // Bound preflight and native calls too; late results cannot start retries
+    // or publish a successful snapshot after the caller has timed out.
+    return await Promise.race([
+      fetchFirmwareConfigWithinDeadline({
+        preRelease,
+        startedAt,
+        signal: controller.signal,
+      }),
+      timeout,
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

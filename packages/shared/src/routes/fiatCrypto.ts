@@ -1,3 +1,4 @@
+import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import type { IDeriveTypesAddressParams } from './walletAddress';
@@ -5,6 +6,10 @@ import type { IDeriveTypesAddressParams } from './walletAddress';
 export enum EModalFiatCryptoRoutes {
   BuyModal = 'Buy',
   DeriveTypesAddress = 'DeriveTypesAddress',
+  HeadlessBuy = 'HeadlessBuy',
+  HeadlessBuyTokenSelector = 'HeadlessBuyTokenSelector',
+  HeadlessBuyOrders = 'HeadlessBuyOrders',
+  HeadlessBuyOrderDetail = 'HeadlessBuyOrderDetail',
 }
 
 export type IModalFiatCryptoParamList = {
@@ -16,4 +21,37 @@ export type IModalFiatCryptoParamList = {
     defaultTab?: 'buy' | 'sell';
   };
   [EModalFiatCryptoRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
+  // Buy-only by design — sell always stays on the web widget, so the page
+  // carries no `type` param.
+  [EModalFiatCryptoRoutes.HeadlessBuy]: {
+    networkId: string;
+    accountId?: string;
+    tokenAddress: string;
+    // Full token object when navigating from the token list; direct-buy entry
+    // points pass only tokenAddress and the page resolves the rest.
+    token?: IFiatCryptoToken;
+    // Launching surface (EHeadlessBuyEntry) — analytics only.
+    entryFrom?: string;
+  };
+  [EModalFiatCryptoRoutes.HeadlessBuyTokenSelector]: {
+    networkId: string;
+    accountId?: string;
+    // Invoked with the picked token before the selector pops itself.
+    // realAccountId may differ from accountId on merge-derive networks
+    // (address-type selection happens inside the list rows).
+    onSelected: (params: {
+      token: IFiatCryptoToken;
+      realAccountId?: string;
+    }) => void;
+  };
+  // Device-local list of native buy orders (all accounts).
+  [EModalFiatCryptoRoutes.HeadlessBuyOrders]: undefined;
+  // One order. `fromCheckout` = reached via CommonActions.reset right after
+  // the `completed` event (the spent buy flow is wiped from the stack — the
+  // consumed native pay button must be unreachable via back — so the page
+  // shows a Done footer); otherwise pushed from the list / banner / reminder.
+  [EModalFiatCryptoRoutes.HeadlessBuyOrderDetail]: {
+    transactionId: string;
+    fromCheckout?: boolean;
+  };
 };

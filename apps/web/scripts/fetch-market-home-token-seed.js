@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const webDir = path.resolve(__dirname, '..');
+const envVersionFile = path.resolve(webDir, '../..', '.env.version');
 const defaultBootstrapDataOutFile = path.join(
   webDir,
   '.generated/bootstrap-data.json',
@@ -15,8 +16,6 @@ const MARKET_HOME_TOKEN_SEED_ENV_ORIGINS = {
 };
 const MARKET_HOME_TOKEN_SEED_QUERY = {
   networkId: '',
-  sortBy: 'v24hUSD',
-  sortType: 'desc',
   page: '1',
   limit: '20',
   minLiquidity: '5000',
@@ -45,6 +44,20 @@ const maxBootstrapDataBytes = Number(
 );
 
 class MarketHomeTokenSeedError extends Error {}
+
+function readAppVersion() {
+  const envVersion = fs.readFileSync(envVersionFile, 'utf8');
+  const versionLine = envVersion
+    .split(/\r?\n/)
+    .find((line) => line.trim().startsWith('VERSION='));
+  const version = versionLine?.slice(versionLine.indexOf('=') + 1).trim();
+  if (!version) {
+    throw new MarketHomeTokenSeedError(
+      `VERSION is missing from ${envVersionFile}.`,
+    );
+  }
+  return version;
+}
 
 const TOKEN_STRING_FIELDS = [
   'address',
@@ -366,10 +379,21 @@ async function fetchJson(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const appVersion = readAppVersion();
+    const automationToken =
+      new URL(url).origin === MARKET_HOME_TOKEN_SEED_ENV_ORIGINS.production
+        ? process.env.ONEKEY_AUTOMATION_TOKEN?.trim()
+        : undefined;
     const response = await fetch(url, {
       headers: {
         Accept: 'application/json',
+        'X-Onekey-Request-Version': appVersion,
+        ...(automationToken
+          ? { 'X-Onekey-Automation-Token': automationToken }
+          : {}),
       },
+      // Fetch preserves custom headers across origins when following redirects.
+      ...(automationToken ? { redirect: 'error' } : {}),
       signal: controller.signal,
     });
     if (!response.ok) {
@@ -421,13 +445,21 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  removeGeneratedBootstrapData();
-  const message = error instanceof Error ? error.message : String(error);
-  if (seedRequired) {
-    console.error(`[fetch-market-home-token-seed] failed: ${message}`);
-    process.exitCode = 1;
-    return;
-  }
-  warnAndSkip(message);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    removeGeneratedBootstrapData();
+    const message = error instanceof Error ? error.message : String(error);
+    if (seedRequired) {
+      console.error(`[fetch-market-home-token-seed] failed: ${message}`);
+      process.exitCode = 1;
+      return;
+    }
+    warnAndSkip(message);
+  });
+}
+
+module.exports = {
+  createSeedUrl,
+  fetchJson,
+  readAppVersion,
+};

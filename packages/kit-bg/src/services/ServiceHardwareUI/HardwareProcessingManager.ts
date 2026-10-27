@@ -1,10 +1,12 @@
 import { E_ALREADY_LOCKED, Semaphore, tryAcquire } from 'async-mutex';
 
 import { UserCancelFromOutside } from '@onekeyhq/shared/src/errors';
+import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 export type IOneKeyHardwareOperationLease = {
   readonly deviceKey: string | undefined;
   readonly owner: symbol;
+  readonly signal?: AbortSignal;
 };
 
 export type ITryRunExclusiveOneKeyOperationResult<T> =
@@ -23,6 +25,55 @@ export class HardwareProcessingManager {
 
   private activeOneKeyOperationLease: IOneKeyHardwareOperationLease | undefined;
 
+  private activeAbortController: AbortController | undefined;
+
+  private activeCleanup: Promise<void> | undefined;
+
+  private oneKeyOperationGeneration = 0;
+
+  private activeOneKeyOperationTransport: EHardwareTransportType | undefined;
+
+  getOneKeyOperationGeneration() {
+    return this.activeOneKeyOperationLease
+      ? this.oneKeyOperationGeneration
+      : undefined;
+  }
+
+  getOneKeyOperationTransport() {
+    return this.activeOneKeyOperationTransport;
+  }
+
+  rememberOneKeyOperationTransport(
+    transport: EHardwareTransportType,
+    lease: IOneKeyHardwareOperationLease | undefined,
+  ) {
+    if (
+      lease &&
+      lease === this.activeOneKeyOperationLease &&
+      !lease.signal?.aborted
+    )
+      this.activeOneKeyOperationTransport = transport;
+  }
+
+  getActiveOneKeyOperationLease() {
+    return this.activeOneKeyOperationLease;
+  }
+
+  cancelOneKeyOperation(lease: IOneKeyHardwareOperationLease) {
+    if (lease === this.activeOneKeyOperationLease) {
+      this.activeAbortController?.abort();
+    }
+  }
+
+  runOneKeyOperationCleanup(
+    lease: IOneKeyHardwareOperationLease,
+    cleanup: () => Promise<void>,
+  ) {
+    if (lease !== this.activeOneKeyOperationLease) return Promise.resolve();
+    this.activeCleanup ??= Promise.resolve().then(cleanup);
+    return this.activeCleanup;
+  }
+
   private async runWithNewOneKeyOperationLease<T>({
     deviceKey,
     operation,
@@ -30,16 +81,29 @@ export class HardwareProcessingManager {
     deviceKey?: string;
     operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>;
   }): Promise<T> {
+    const controller = new AbortController();
     const acquiredLease: IOneKeyHardwareOperationLease = Object.freeze({
       deviceKey,
       owner: Symbol('onekey-hardware-operation'),
+      signal: controller.signal,
     });
     this.activeOneKeyOperationLease = acquiredLease;
+    this.oneKeyOperationGeneration += 1;
+    this.activeAbortController = controller;
     try {
       return await operation(acquiredLease);
     } finally {
-      if (this.activeOneKeyOperationLease === acquiredLease) {
-        this.activeOneKeyOperationLease = undefined;
+      try {
+        // Dispatch cancellation before handing the lease to the next caller.
+        // The SDK then waits for the old device request to drain before acquire.
+        await this.activeCleanup;
+      } finally {
+        if (this.activeOneKeyOperationLease === acquiredLease) {
+          this.activeOneKeyOperationLease = undefined;
+          this.activeAbortController = undefined;
+          this.activeCleanup = undefined;
+          this.activeOneKeyOperationTransport = undefined;
+        }
       }
     }
   }
@@ -54,6 +118,8 @@ export class HardwareProcessingManager {
     operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>;
   }): Promise<T> {
     if (lease && lease === this.activeOneKeyOperationLease) {
+      if (lease.signal?.aborted)
+        return Promise.reject(new UserCancelFromOutside());
       return operation(lease);
     }
 
@@ -75,6 +141,7 @@ export class HardwareProcessingManager {
     operation: (lease: IOneKeyHardwareOperationLease) => Promise<T>;
   }): Promise<ITryRunExclusiveOneKeyOperationResult<T>> {
     if (lease && lease === this.activeOneKeyOperationLease) {
+      if (lease.signal?.aborted) throw new UserCancelFromOutside();
       return {
         acquired: true,
         result: await operation(lease),

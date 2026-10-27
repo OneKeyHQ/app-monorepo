@@ -7,20 +7,16 @@ import type {
   SetStateAction,
 } from 'react';
 
-import type {
-  DialogContentProps as TMDialogContentProps,
-  DialogProps as TMDialogProps,
-  SheetProps as TMSheetProps,
-} from '@onekeyhq/components/src/shared/tamagui';
-
+import type { IOverlayDialogCardProps } from './OverlayDialogPresentation';
 import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
+import type { ISheetOptions } from '../../hocs/NativeSheetPresentation/types';
 import type {
   IButtonProps,
   IKeyOfIcons,
   IStackProps,
   IXStackProps,
-  IYStackProps,
 } from '../../primitives';
+import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
 import type { UseFormProps, useForm } from 'react-hook-form';
 
 export type IDialogContextType = {
@@ -56,6 +52,8 @@ export interface IDialogFooterProps extends PropsWithChildren {
   cancelButtonProps?: IDialogButtonProps;
   onConfirm?: IOnDialogConfirm;
   onCancel?: () => void;
+  /** Content rendered before the footer buttons, on the same row. */
+  leadingContent?: ReactNode;
   /** Content rendered below the footer buttons */
   extraContent?: ReactNode;
 }
@@ -73,12 +71,38 @@ export interface IDialogHeaderContextType {
   headerProps: IDialogHeaderProps;
   setHeaderProps: Dispatch<SetStateAction<IDialogHeaderProps>>;
 }
-interface IBasicDialogProps extends TMDialogProps {
+/** Runs when the dialog moves focus in (open) or back (close) on web. */
+export type IDialogAutoFocusHandler = (event: Event) => void;
+
+/** Styles the centered dialog card (wide windows). */
+export type IDialogFloatingPanelProps = IOverlayDialogCardProps & {
+  onOpenAutoFocus?: IDialogAutoFocusHandler;
+  onCloseAutoFocus?: IDialogAutoFocusHandler;
+  trapFocus?: boolean;
+};
+
+interface IBasicDialogProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  children?: ReactNode;
   /* If true, the content will be rendered later and fit content height. */
   isAsync?: boolean;
+  /**
+   * Renders the dialog in the native overlay at this level (sheet on narrow
+   * windows, centered card otherwise) instead of a Tamagui portal.
+   */
+  overlayLevel?: IOverlayLevel;
+  /** Centers and bounds native dialogs on phone screens. */
+  nativeCentered?: boolean;
   onOpen?: () => void;
+  /** Controls initial focus for both the floating panel and sheet on web. */
+  onOpenAutoFocus?: IDialogAutoFocusHandler;
   onHeaderCloseButtonPress?: () => void;
+  /** Runs when dismissal starts, before the close animation. */
+  onCloseRequested?: () => void;
   onClose: (extra?: { flag?: string }) => Promise<void>;
+  /** Return false to keep the dialog open before any dismissal or cleanup. */
+  onBeforeClose?: (extra?: { flag?: string }) => boolean | Promise<boolean>;
   isExist?: () => boolean;
   icon?: IKeyOfIcons;
   renderIcon?: ReactElement;
@@ -89,12 +113,17 @@ interface IBasicDialogProps extends TMDialogProps {
   estimatedContentHeight?: number;
   renderContent?: ReactNode;
   // Close on overlay or backdrop press
-  dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
-  sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
-  sheetOverlayProps?: IYStackProps;
-  floatingPanelProps?: TMDialogContentProps;
+  dismissOnOverlayPress?: boolean;
+  sheetProps?: Omit<ISheetOptions, 'dismissOnOverlayPress'>;
+  floatingPanelProps?: IDialogFloatingPanelProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean; // Disable drag gesture to close
+  // Where a swipe can drag the phone sheet away. 'sheet' (default) is the
+  // whole sheet, which is what Tamagui does; 'header' limits it to the grabber and the
+  // title row, so a scrollable body never competes with the sheet for the
+  // vertical drag (OK-61140). No effect on the floating dialog or with
+  // disableDrag.
+  sheetDragArea?: 'sheet' | 'header';
   // When true, system-level close paths (Android hardware back, Escape) do
   // not trigger onClose. Use for blocking dialogs (force-update, etc.) that
   // already opt out of dismissOnOverlayPress + disableDrag.
@@ -111,6 +140,20 @@ interface IBasicDialogProps extends TMDialogProps {
   forceMount?: boolean;
   /** Fall back to the initial window bottom inset when the current safe-area inset is zero. */
   useInitialSafeAreaBottomInsetFallback?: boolean;
+  /**
+   * Native-only opt-in: cap the sheet to the usable viewport above the
+   * keyboard, scroll overflowing content (including a tall header), and keep
+   * the close button fixed. No effect on web, desktop, or extension.
+   */
+  boundedSheetLayout?: boolean;
+  /**
+   * Binds the dialog to the page it was opened from: it renders in that
+   * page's root-route overlay host and hides while the page is covered.
+   * Set by `useInPageDialog`.
+   */
+  overlayPage?: { hostKey: string; ownerKey: string };
+  /** Internal: the exit animation finished (`Dialog.show` cleanup). */
+  onExited?: () => void;
 }
 
 export type IDialogProps = IBasicDialogProps &
@@ -133,13 +176,8 @@ export interface IDialogShowProps extends Omit<
   'name' | 'onClose'
 > {
   portalContainer?: EPortalContainerConstantName;
-  /**
-   * If true, the dialog will be rendered on top of all views.
-   * On web, it will be rendered to document.body, on iOS, it will be rendered to Window Overlay top layer.
-   * Default is false.
-   * @platform iOS, Web
-   */
-  isOverTopAllViews?: boolean;
+  /** Runs synchronously when closing starts, before the exit animation. */
+  onCloseStart?: () => void;
   /* Run it after dialog is closed */
   onClose?: (extra?: { flag?: string }) => void | Promise<void>;
 }
@@ -154,12 +192,21 @@ export type IDialogCancelProps = Omit<
   'onConfirm' | 'onConfirmText' | 'ConfirmButtonProps' | 'showFooter'
 >;
 
-type IDialogForm = ReturnType<typeof useForm>;
+export type IDialogForm = ReturnType<typeof useForm>;
 
 export interface IDialogInstanceRef {
   close: (extra?: { flag?: string }) => Promise<void>;
   ref: MutableRefObject<IDialogForm | undefined>;
   isExist: () => boolean;
+  /**
+   * Announce the form `Dialog.Form` has just mounted onto this dialog. It is
+   * lazy, so it registers after the rest of the dialog has rendered and
+   * registers again whenever it remounts; anything reading `ref` needs to hear
+   * about that rather than keep whatever it saw first.
+   */
+  registerForm?: (form: IDialogForm | undefined) => void;
+  /** Subscribe to `registerForm`. Returns the unsubscribe function. */
+  subscribeFormChange?: (listener: () => void) => () => void;
 }
 
 export interface IDialogInstance {
@@ -175,5 +222,6 @@ export type IDialogFormProps = PropsWithChildren<{
 export type IRenderToContainer = (
   container: EPortalContainerConstantName,
   element: ReactElement,
-  isOverTopAllViews?: boolean,
+  page?: { hostKey: string; ownerKey: string },
+  onPageUnavailable?: () => void,
 ) => IPortalManager;

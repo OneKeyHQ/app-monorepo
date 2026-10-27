@@ -1,0 +1,22 @@
+diff --git a/node_modules/@aptos-labs/script-composer-pack/dist/react-native.js b/node_modules/@aptos-labs/script-composer-pack/dist/react-native.js
+new file mode 100644
+index 0000000..5338f28
+--- /dev/null
++++ b/node_modules/@aptos-labs/script-composer-pack/dist/react-native.js
+@@ -0,0 +1,16 @@
++"use strict";
++
++// OneKey patch: Aptos script composition is unused on native and its WASM payload adds over 11 MB to Hermes bytecode.
++function unavailable() {
++  throw new Error("Aptos script composition is unavailable on React Native");
++}
++
++exports.ScriptComposerWasm = {
++  isInitialized: false,
++  init: unavailable,
++  wasm: undefined,
++};
++exports.TransactionComposer = {
++  single_signer: unavailable,
++};
++exports.initSync = unavailable;

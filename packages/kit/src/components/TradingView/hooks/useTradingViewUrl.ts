@@ -29,7 +29,6 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions) {
   const localTradingViewUrl = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
-
   const baseUrl = useMemo(
     () => getTradingViewBaseUrl({ devSettings, localTradingViewUrl }),
     [devSettings, localTradingViewUrl],

@@ -13,6 +13,15 @@ import { useScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableF
 
 const ICON_FALLBACK = <Stack w="$4.5" h="$4.5" />;
 
+// The native Stocks sub-header draws its chips as pills (half the chip height)
+// with a 44pt minimum width. The Market mobile selectors beside it (Favorites,
+// Perps, and Stocks off native) pass this frame so switching tabs keeps the
+// chip shape.
+export const MARKET_MOBILE_CATEGORY_CHIP_PROPS = {
+  borderRadius: '$full',
+  minWidth: 44,
+} as const satisfies IXStackProps;
+
 export const CategoryFilterItem = memo(
   ({
     name,

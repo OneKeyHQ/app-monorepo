@@ -4,12 +4,35 @@ import { act, renderHook } from '@testing-library/react-native';
 
 import type { IPerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+type IMockEnableTradingResult = {
+  shouldContinue: boolean;
+  status: IPerpsActiveAccountStatusAtom | undefined;
+};
+
+type IMockShowEnableTradingStepsDialogParams = {
+  accountStatus: IPerpsActiveAccountStatusAtom;
+  onConfirm: (context: {
+    closeDialog: () => void;
+  }) => Promise<IMockEnableTradingResult | undefined>;
+};
+
 const mockEnableTrading = jest.fn<
   Promise<IPerpsActiveAccountStatusAtom | undefined>,
   []
 >();
 const mockCheckPerpsAccountStatus = jest.fn<Promise<void>, []>();
+const mockRefreshHyperLiquidAgentPasswordStatus = jest.fn<
+  Promise<{
+    isPasswordSet: boolean;
+    requiresPasswordSetupOrVerify: boolean;
+  }>,
+  []
+>();
 const mockShowDepositWithdrawModal = jest.fn();
+const mockShowEnableTradingStepsDialog = jest.fn<
+  Promise<IMockEnableTradingResult | undefined>,
+  [IMockShowEnableTradingStepsDialogParams]
+>();
 const mockShowHyperliquidTermsDialog = jest.fn<Promise<boolean>, []>();
 let mockLatestPerpsAccountStatus: IPerpsActiveAccountStatusAtom | undefined;
 let mockPerpsAccount = {
@@ -40,6 +63,10 @@ function buildPerpsAccountStatus(
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    servicePassword: {
+      refreshHyperLiquidAgentPasswordStatus: () =>
+        mockRefreshHyperLiquidAgentPasswordStatus(),
+    },
     serviceHyperliquid: {
       enableTrading: () => mockEnableTrading(),
       checkPerpsAccountStatus: () => mockCheckPerpsAccountStatus(),
@@ -65,6 +92,12 @@ jest.mock('../components/HyperliquidTerms', () => ({
   showHyperliquidTermsDialog: () => mockShowHyperliquidTermsDialog(),
 }));
 
+jest.mock('../components/TradingPanel/modals/EnableTradingStepsDialog', () => ({
+  showEnableTradingStepsDialog: (
+    params: IMockShowEnableTradingStepsDialogParams,
+  ) => mockShowEnableTradingStepsDialog(params),
+}));
+
 jest.mock('./useShowDepositWithdrawModal', () => ({
   useShowDepositWithdrawModal: () => ({
     showDepositWithdrawModal: mockShowDepositWithdrawModal,
@@ -72,6 +105,7 @@ jest.mock('./useShowDepositWithdrawModal', () => ({
 }));
 
 import {
+  useEnableTradingWithDepositFallback,
   useFirstDepositAction,
   useRequestEnableTradingWithDepositFallback,
 } from './useEnableTradingWithDepositFallback';
@@ -88,6 +122,10 @@ describe('useRequestEnableTradingWithDepositFallback', () => {
     mockCheckPerpsAccountStatus.mockResolvedValue(undefined);
     mockShowDepositWithdrawModal.mockResolvedValue(undefined);
     mockShowHyperliquidTermsDialog.mockResolvedValue(true);
+    mockRefreshHyperLiquidAgentPasswordStatus.mockResolvedValue({
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: false,
+    });
   });
 
   it('reuses the in-flight request and opens the deposit flow once', async () => {
@@ -178,6 +216,49 @@ describe('useRequestEnableTradingWithDepositFallback', () => {
   });
 });
 
+describe('useEnableTradingWithDepositFallback', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockLatestPerpsAccountStatus = {
+      ...buildPerpsAccountStatus(true),
+      canTrade: false,
+      details: {
+        activatedOk: true,
+        agentOk: false,
+        referralCodeOk: true,
+        builderFeeOk: true,
+        internalRebateBoundOk: true,
+        abstractionOk: true,
+      },
+    };
+    mockShowHyperliquidTermsDialog.mockResolvedValue(true);
+    mockRefreshHyperLiquidAgentPasswordStatus.mockResolvedValue({
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: true,
+    });
+    mockShowEnableTradingStepsDialog.mockResolvedValue({
+      shouldContinue: false,
+      status: mockLatestPerpsAccountStatus,
+    });
+  });
+
+  it('shows the enable-trading steps dialog when password verification is required', async () => {
+    const { result } = renderHook(() => useEnableTradingWithDepositFallback());
+
+    await act(async () => {
+      await result.current();
+    });
+
+    expect(mockShowEnableTradingStepsDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountStatus: mockLatestPerpsAccountStatus,
+      }),
+    );
+    expect(mockShowHyperliquidTermsDialog).not.toHaveBeenCalled();
+    expect(mockEnableTrading).not.toHaveBeenCalled();
+  });
+});
+
 describe('useFirstDepositAction', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -189,6 +270,10 @@ describe('useFirstDepositAction', () => {
     mockCheckPerpsAccountStatus.mockResolvedValue(undefined);
     mockShowDepositWithdrawModal.mockResolvedValue(undefined);
     mockShowHyperliquidTermsDialog.mockResolvedValue(true);
+    mockRefreshHyperLiquidAgentPasswordStatus.mockResolvedValue({
+      isPasswordSet: true,
+      requiresPasswordSetupOrVerify: false,
+    });
   });
 
   it('opens deposit without waiting for the background status refresh', async () => {

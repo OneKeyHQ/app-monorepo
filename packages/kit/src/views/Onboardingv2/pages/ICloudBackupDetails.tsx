@@ -13,11 +13,13 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EOnboardingPagesV2,
@@ -32,6 +34,7 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
+import { useIsMounted } from '../../../hooks/useIsMounted';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
@@ -48,26 +51,49 @@ export default function ICloudBackupDetails({
   IOnboardingParamListV2,
   EOnboardingPagesV2.ICloudBackupDetails
 >) {
+  const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
   const { gtMd } = useMedia();
   const _backupTime = route.params?.backupTime;
   const actionType = route.params?.actionType;
   const hideRestoreButton = route.params?.hideRestoreButton;
+  const isMountedRef = useIsMounted();
+  const [accountRefreshNonce, setAccountRefreshNonce] = useState(0);
   const {
     doBackup,
+    prepareBackup,
     doDeleteBackup,
     doRestoreBackup,
     checkLoading,
     goToPageBackupList,
   } = useCloudBackup();
 
-  const { result: backupData, isLoading: fetchLoading } = usePromiseResult<
+  const {
+    result: backupData,
+    isLoading: fetchLoading,
+    run: reloadBackupData,
+  } = usePromiseResult<
     IPrimeTransferData | IBackupDataEncryptedPayload | undefined
   >(
     async () => {
       await timerUtils.wait(300);
       if (actionType === 'backup') {
-        return backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+        if (!isMountedRef.current) return undefined;
+        try {
+          const data = await prepareBackup();
+          if (!isMountedRef.current) return undefined;
+          if (data) setAccountRefreshNonce((nonce) => nonce + 1);
+          return data;
+        } catch (error) {
+          if (!isMountedRef.current) return undefined;
+          if (!errorToastUtils.isUserCancelStyleError(error)) {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+          }
+          // Settle both automatic loading and Retry into the retryable empty
+          // result. User cancellation must not escape as an unhandled rejection.
+          return undefined;
+        }
       }
       if (actionType === 'restore') {
         if (!route.params?.backupId) {
@@ -83,7 +109,7 @@ export default function ICloudBackupDetails({
       }
       return undefined;
     },
-    [actionType, route.params?.backupId],
+    [actionType, route.params?.backupId, prepareBackup, isMountedRef],
     {
       watchLoading: true,
     },
@@ -117,8 +143,9 @@ export default function ICloudBackupDetails({
   const handleImport = useCallback(async () => {
     await doRestoreBackup({
       payload: backupData as IBackupDataEncryptedPayload,
+      recordId: route.params?.backupId,
     });
-  }, [backupData, doRestoreBackup]);
+  }, [backupData, doRestoreBackup, route.params?.backupId]);
 
   const handleBackup = useCallback(async () => {
     if (!backupData) {
@@ -181,6 +208,16 @@ export default function ICloudBackupDetails({
   const renderContent = () => {
     if (fetchLoading) {
       return <CloudBackupLoadingSkeleton />;
+    }
+    if (actionType === 'backup' && !backupData) {
+      return (
+        <Button
+          testID={OnboardingTestIDs.iCloudBackupDetailsRetryBtn}
+          onPress={() => reloadBackupData()}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      );
     }
     if (!walletData?.length) {
       return <CloudBackupDetailsEmptyView />;
@@ -265,9 +302,17 @@ export default function ICloudBackupDetails({
       safeAreaEnabled={false}
       scrollable
       headerTitle={formattedDate}
-      contentContainerProps={{ maxWidth: 480, gap: '$3', paddingVertical: 20 }}
+      contentContainerProps={{
+        maxWidth: 480,
+        gap: '$3',
+        paddingTop: 20,
+        // TODO: Move this content-owned inset into OnboardingPage. This page
+        // opts out of Page safe-area handling, so merge the native inset with
+        // the existing design padding locally instead of stacking both values.
+        paddingBottom: Math.max(bottom, 20),
+      }}
     >
-      <CloudAccountBar />
+      <CloudAccountBar refreshNonce={accountRefreshNonce} />
       {renderContent()}
       <MultipleClickStack
         h="$10"
@@ -336,7 +381,7 @@ export default function ICloudBackupDetails({
         }
       />
       <YStack {...(!gtMd && { mt: 'auto' })} gap="$3">
-        <KeylessWalletBackupInfo />
+        <KeylessWalletBackupInfo backupRecordId={route.params?.backupId} />
         {actionButtons}
       </YStack>
     </OnboardingPage>

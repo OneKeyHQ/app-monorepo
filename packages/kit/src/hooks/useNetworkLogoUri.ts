@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -32,17 +33,28 @@ const fetchNetworkLogo = memoizee(
 /**
  * Hook to get network logo URI with async fallback.
  * If logoUri is provided, returns it directly.
- * If logoUri is empty but networkId exists, fetches the network info asynchronously.
+ * If logoUri is empty but networkId exists, fetches asynchronously unless skipFetch is set.
  * Fetched logos are cached to avoid repeated API calls.
  */
 export function useNetworkLogoUri({
   logoUri,
   networkId,
+  skipFetch = false,
 }: {
   logoUri?: string;
   networkId?: string;
+  // Hosts that own metadata resolution can retain local logos without extra RPC.
+  skipFetch?: boolean;
 }): string {
-  const shouldFetch = !logoUri && !!networkId;
+  const localLogoUri = useMemo(
+    () =>
+      logoUri ||
+      (networkId
+        ? networkUtils.getLocalNetworkInfo(networkId)?.logoURI
+        : undefined),
+    [logoUri, networkId],
+  );
+  const shouldFetch = !skipFetch && !localLogoUri && !!networkId;
 
   const { result: fetchedLogo } = usePromiseResult(
     async (): Promise<IFetchedNetworkLogo> => {
@@ -64,7 +76,8 @@ export function useNetworkLogoUri({
   // A result fetched for the previous network must never be shown beside the
   // new network identity while its request is still pending.
   return useMemo(
-    () => resolveNetworkLogoUri({ fetchedLogo, logoUri, networkId }),
-    [fetchedLogo, logoUri, networkId],
+    () =>
+      resolveNetworkLogoUri({ fetchedLogo, logoUri: localLogoUri, networkId }),
+    [fetchedLogo, localLogoUri, networkId],
   );
 }

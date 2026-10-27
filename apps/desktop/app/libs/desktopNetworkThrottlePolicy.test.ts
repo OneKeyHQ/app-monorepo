@@ -63,7 +63,7 @@ describe('desktopNetworkThrottlePolicy', () => {
       'https://app.uniswap.org/',
       'https://mainnet.infura.io/v3/key',
       'https://api.hyperliquid.xyz/info',
-      'wss://relay.walletconnect.com/',
+      'wss://relay.walletconnect.org/',
       // the local dev server is not a OneKey origin either
       'http://localhost:8081/index.bundle',
       'http://127.0.0.1:3001/main.js',

@@ -7,6 +7,7 @@ import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 import { EAppUpdateStatus, EUpdateFileType, EUpdateStrategy } from './type';
 
 import type { IAppUpdateInfo, IResolvedUpdateDecision } from './type';
+import type { IDownloadProgressScope } from '../modules3rdParty/auto-update/type';
 
 export * from './utils';
 export * from './type';
@@ -199,6 +200,16 @@ export const getUpdateFileType: (
   return EUpdateFileType.appShell;
 };
 
+export function getAppUpdateProgressScope(
+  info: Pick<IAppUpdateInfo, 'latestVersion' | 'jsBundleVersion'>,
+): IDownloadProgressScope | undefined {
+  if (getUpdateFileType(info) !== EUpdateFileType.jsBundle) return undefined;
+  return {
+    latestVersion: info.latestVersion,
+    bundleVersion: info.jsBundleVersion,
+  };
+}
+
 export const gtVersion = (appVersion?: string, bundleVersion?: string) => {
   const decision = resolveUpdateDecision({
     currentAppVersion: APP_VERSION,
@@ -312,13 +323,15 @@ export const isWhatsNewShown = (): boolean => {
   return data.bundleVersions.map(String).includes(String(APP_BUNDLE_VERSION));
 };
 
-export const markWhatsNewShown = (isJsBundleUpdate?: boolean): void => {
+export const markWhatsNewShown = async (
+  isJsBundleUpdate?: boolean,
+): Promise<void> => {
   const bundleVersion = String(APP_BUNDLE_VERSION);
   const data = syncStorage.getObject<IWhatsNewShownData>(
     EAppSyncStorageKeys.onekey_whats_new_shown,
   );
   if (!data || data.appVersion !== APP_VERSION) {
-    syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
+    await syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
       appVersion: APP_VERSION,
       bundleVersions: [bundleVersion],
       isJsBundleUpdate,
@@ -331,7 +344,7 @@ export const markWhatsNewShown = (isJsBundleUpdate?: boolean): void => {
   if (!versions.includes(bundleVersion)) {
     versions.push(bundleVersion);
   }
-  syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
+  await syncStorage.setObject(EAppSyncStorageKeys.onekey_whats_new_shown, {
     ...data,
     bundleVersions: versions,
     isJsBundleUpdate,
@@ -342,8 +355,8 @@ export const markWhatsNewShown = (isJsBundleUpdate?: boolean): void => {
 // changelog dialog can be re-triggered on the next launch without bumping the
 // app version. Production code never calls this — the marker is meant to be
 // sticky per version/bundle.
-export const clearWhatsNewShown = (): void => {
-  syncStorage.delete(EAppSyncStorageKeys.onekey_whats_new_shown);
+export const clearWhatsNewShown = async (): Promise<void> => {
+  await syncStorage.delete(EAppSyncStorageKeys.onekey_whats_new_shown);
 };
 
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {

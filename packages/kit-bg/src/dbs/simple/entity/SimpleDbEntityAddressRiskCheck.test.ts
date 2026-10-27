@@ -163,6 +163,40 @@ describe('SimpleDbEntityAddressRiskCheck.addCheck', () => {
   });
 });
 
+describe('SimpleDbEntityAddressRiskCheck.getCheck', () => {
+  test('returns the stored full result, matching EVM addresses regardless of casing', async () => {
+    const { entity } = setupEntity();
+    const result = {
+      networkId: 'evm--1',
+      address: '0xAbC',
+      provider: 'misttrack',
+      level: EKytRiskLevel.High,
+      checkedAt: 100,
+      cached: false,
+      reasons: [],
+    };
+
+    await entity.addCheck({
+      ...recentItem({
+        networkId: 'evm--1',
+        address: '0xAbC',
+        level: EKytRiskLevel.High,
+        checkedAt: 100,
+      }),
+      result,
+    });
+
+    const item = await entity.getCheck({
+      networkId: 'evm--1',
+      address: '0xabc',
+    });
+    expect(item?.result).toEqual(result);
+    expect(
+      await entity.getCheck({ networkId: 'evm--1', address: '0xdef' }),
+    ).toBeUndefined();
+  });
+});
+
 describe('SimpleDbEntityAddressRiskCheck.deleteCheck / clearChecks', () => {
   test('deleteCheck removes the matching EVM record regardless of casing', async () => {
     const { entity, getStore } = setupEntity({

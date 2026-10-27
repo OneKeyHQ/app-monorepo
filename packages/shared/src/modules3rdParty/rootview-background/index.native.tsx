@@ -14,6 +14,16 @@ export const updateRootViewBackgroundColor: IUpdateRootViewBackgroundColor = (
   const { r, g, b, a } = parsedColor.toRgb();
   ReactNativeDeviceUtils.changeBackgroundColor(r, g, b, Math.round(a * 255));
 
+  if (platformEnv.isNativeAndroid) {
+    ReactNativeDeviceUtils.setNavigationBarAppearance(
+      r,
+      g,
+      b,
+      Math.round(a * 255),
+      themeVariant === 'light',
+    );
+  }
+
   if (platformEnv.isNativeIOS) {
     // If the user picked "System/Auto", stop overriding iOS UI style so
     // `Appearance.getColorScheme()` reflects the real system setting.

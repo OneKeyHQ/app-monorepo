@@ -9,8 +9,13 @@ import type {
   ITradingViewIndicatorSettingsProps,
   ITradingViewIndicatorSettingsValue,
 } from '../TradingViewChartControls/chartSettings';
+import type { ITradingViewSettingsDialogRef } from '../TradingViewChartControls/chartSettings/TradingViewSettingsDialog';
 
 type IDialogConfig = {
+  dialogContainer?: (props: {
+    ref: ITradingViewSettingsDialogRef;
+  }) => ReactElement<ITradingViewIndicatorSettingsProps>;
+  onOpenAutoFocus?: (event: Event) => void;
   floatingPanelProps: {
     maxWidth: number | string;
     width: number | string;
@@ -38,6 +43,37 @@ jest.mock('../TradingViewChartControls/chartSettings', () => ({
 describe('showTradingViewNativeIndicatorSettingsDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('moves opening focus to the container and leaves inputs available for manual focus', () => {
+    showTradingViewNativeIndicatorSettingsDialog({
+      displayMode: 'focused',
+      intl: { formatMessage: ({ id }) => id },
+      onConfirm: jest.fn(),
+      value: { indicators: [], schemaVersion: 1 },
+    });
+    const { onOpenAutoFocus } = mockShowDialog.mock.calls[0][0];
+    const trigger = document.createElement('button');
+    const container = document.createElement('div');
+    const input = document.createElement('input');
+    container.append(input);
+    document.body.append(trigger, container);
+    trigger.focus();
+
+    const event = new Event('dialog-open', { cancelable: true });
+    container.addEventListener('dialog-open', (openEvent) =>
+      onOpenAutoFocus?.(openEvent),
+    );
+    container.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(container);
+    expect(container.tabIndex).toBe(-1);
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    container.remove();
+    trigger.remove();
   });
 
   it('closes only after the child has committed a successful confirmation', async () => {
@@ -71,5 +107,19 @@ describe('showTradingViewNativeIndicatorSettingsDialog', () => {
 
     await props.onConfirmSuccess?.();
     expect(mockCloseDialog).toHaveBeenCalledTimes(1);
+  });
+
+  it('mounts the full editor through the common dialog container', () => {
+    showTradingViewNativeIndicatorSettingsDialog({
+      intl: { formatMessage: ({ id }) => id },
+      onConfirm: jest.fn(),
+      value: { indicators: [], schemaVersion: 1 },
+    });
+    const dialogRef: ITradingViewSettingsDialogRef = { current: null };
+    const props = mockShowDialog.mock.calls[0][0].dialogContainer?.({
+      ref: dialogRef,
+    }).props;
+    expect(props?.displayMode).toBe('full');
+    expect(props?.dialogRef).toBe(dialogRef);
   });
 });

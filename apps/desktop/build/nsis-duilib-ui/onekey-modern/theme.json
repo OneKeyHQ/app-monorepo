@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "onekey-modern",
+  "name": "OneKey Modern",
+  "minEngineVersion": "0.1.0",
+  "window": {
+    "width": 900,
+    "height": 560,
+    "radius": 18
+  },
+  "pages": {
+    "scope": "pages/scope.xml",
+    "upgradeScope": "pages/upgrade-scope.xml",
+    "welcome": "pages/welcome.xml",
+    "upgrade": "pages/upgrade.xml",
+    "options": "pages/options.xml",
+    "installing": "pages/installing.xml",
+    "confirmExit": "pages/confirm-exit.xml",
+    "finish": "pages/finish.xml",
+    "uninstallWelcome": "pages/uninstall-welcome.xml",
+    "uninstalling": "pages/uninstalling.xml",
+    "uninstallFinish": "pages/uninstall-finish.xml",
+    "uninstallError": "pages/uninstall-error.xml",
+    "error": "pages/error.xml"
+  },
+  "tokens": "tokens.json",
+  "content": "content.json",
+  "locales": {
+    "bn": "locales/bn.json",
+    "de": "locales/de.json",
+    "en": "locales/en-US.json",
+    "en-US": "locales/en-US.json",
+    "es": "locales/es.json",
+    "fr-FR": "locales/fr-FR.json",
+    "hi-IN": "locales/hi-IN.json",
+    "id": "locales/id.json",
+    "it-IT": "locales/it-IT.json",
+    "ja-JP": "locales/ja-JP.json",
+    "ko-KR": "locales/ko-KR.json",
+    "pt": "locales/pt.json",
+    "pt-BR": "locales/pt-BR.json",
+    "ru": "locales/ru.json",
+    "th-TH": "locales/th-TH.json",
+    "uk-UA": "locales/uk-UA.json",
+    "vi": "locales/vi.json",
+    "zh-CN": "locales/zh-CN.json",
+    "zh-HK": "locales/zh-HK.json",
+    "zh-TW": "locales/zh-TW.json"
+  }
+}

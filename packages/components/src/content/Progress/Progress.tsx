@@ -86,7 +86,7 @@ const ProgressIndicator = ProgressIndicatorFrame.styleable<
     props: IProgressIndicatorProps & { __scopeProgress?: any },
     forwardedRef: any,
   ) => {
-    const { __scopeProgress, animation, ...indicatorProps } = props;
+    const { __scopeProgress, transition, ...indicatorProps } = props;
     const context = useProgressContext(INDICATOR_NAME, __scopeProgress);
     const pct = context.max - (context.value ?? 0);
     // default somewhat far off
@@ -106,7 +106,7 @@ const ProgressIndicator = ProgressIndicatorFrame.styleable<
         {...indicatorProps}
         ref={forwardedRef}
         // avoid animation on first render so the progress doesn't bounce to initial location
-        animation={!context.width ? null : animation}
+        transition={!context.width ? null : transition}
       />
     );
   },

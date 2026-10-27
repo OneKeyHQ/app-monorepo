@@ -22,8 +22,12 @@ import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { useSpecifiedTokenSelectorBalances } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -38,6 +42,7 @@ const ALL_NETWORKS_FILTER_ID = 'prime-infini-all-networks';
 export default function PrimeInfiniPaymentAssetSelector() {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap = {} }] = useCurrencyPersistAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IAssetSelectorParamList>>();
   const route = useAppRoute<
@@ -170,8 +175,18 @@ export default function PrimeInfiniPaymentAssetSelector() {
       const network = listedNetworkMap[item.networkId];
       const displayState = assetDisplayStateMap?.[item.key];
       const detail = displayState?.detail;
+      const displayDetail = detail
+        ? convertTokenFiatToCurrency({
+            tokenFiat: detail,
+            targetCurrency: settings.currencyInfo.id,
+            currencyMap,
+          })
+        : undefined;
       const hasFiatValue =
-        detail?.fiatValue && !new BigNumber(detail.fiatValue).isZero();
+        displayDetail?.fiatValue &&
+        (!displayDetail.currency ||
+          displayDetail.currency === settings.currencyInfo.id) &&
+        !new BigNumber(displayDetail.fiatValue).isZero();
       return (
         <TokenListItem
           testID={`prime-infini-asset-option-${item.key}`}
@@ -194,7 +209,7 @@ export default function PrimeInfiniPaymentAssetSelector() {
           valueProps={
             hasFiatValue
               ? {
-                  value: detail.fiatValue,
+                  value: displayDetail.fiatValue,
                   currency: settings.currencyInfo.symbol,
                 }
               : undefined
@@ -207,10 +222,12 @@ export default function PrimeInfiniPaymentAssetSelector() {
     },
     [
       assetDisplayStateMap,
+      currencyMap,
       handleSelectAsset,
       isLoading,
       selectedAssetKey,
       selectedNetworkId,
+      settings.currencyInfo.id,
       settings.currencyInfo.symbol,
     ],
   );

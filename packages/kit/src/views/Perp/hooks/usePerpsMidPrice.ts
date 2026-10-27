@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { atom, useAtomValue } from 'jotai';
 
 import {
+  perpsActiveAssetCtxAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxMidPriceBySource,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -20,10 +22,12 @@ export function usePerpsMidPrice({
   coin,
   source = 'live',
   szDecimals,
+  allowActiveAssetFallback = false,
 }: {
   coin: string;
   source?: IPerpsMidPriceSource;
   szDecimals?: number;
+  allowActiveAssetFallback?: boolean;
 }): {
   mid: string | undefined;
   midFormattedByDecimals: string | undefined;
@@ -34,6 +38,23 @@ export function usePerpsMidPrice({
   const liveMid = usePerpsMidByCoin(shouldUseDisplayMid ? '' : coin);
   const displayMid = usePerpsActiveAssetCtxMidPriceBySource(
     shouldUseDisplayMid ? 'display' : 'disabled',
+  );
+  const fallbackMid = useAtomValue(
+    useMemo(
+      () =>
+        atom((get) => {
+          if (
+            !allowActiveAssetFallback ||
+            source !== 'live' ||
+            activeAsset.coin !== coin
+          ) {
+            return undefined;
+          }
+          const assetCtx = get(perpsActiveAssetCtxAtom.atom());
+          return assetCtx?.coin === coin ? assetCtx.ctx.midPrice : undefined;
+        }),
+      [activeAsset.coin, allowActiveAssetFallback, coin, source],
+    ),
   );
   const activeAssetSzDecimals =
     activeAsset.coin === coin ? activeAsset.universe?.szDecimals : undefined;
@@ -55,11 +76,14 @@ export function usePerpsMidPrice({
   );
   const effectiveSzDecimals =
     requestedSzDecimals ?? cachedSzDecimals ?? undefined;
-  const mid = shouldUseDisplayMid ? displayMid : liveMid;
+  const primaryMid = shouldUseDisplayMid ? displayMid : liveMid;
 
   return useMemo(() => {
+    const primaryValue = new BigNumber(primaryMid || '');
+    const mid =
+      primaryValue.isFinite() && primaryValue.gt(0) ? primaryMid : fallbackMid;
     const midValue = new BigNumber(mid || '');
-    if (midValue.isNaN() || midValue.isLessThanOrEqualTo(0)) {
+    if (!midValue.isFinite() || midValue.isLessThanOrEqualTo(0)) {
       return { mid: undefined, midFormattedByDecimals: undefined };
     }
 
@@ -70,5 +94,5 @@ export function usePerpsMidPrice({
         effectiveSzDecimals,
       ),
     };
-  }, [effectiveSzDecimals, mid]);
+  }, [effectiveSzDecimals, primaryMid, fallbackMid]);
 }

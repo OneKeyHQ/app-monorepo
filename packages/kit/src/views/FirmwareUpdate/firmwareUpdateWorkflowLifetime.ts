@@ -1,3 +1,5 @@
+import { EFirmwareUpdateSteps } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
 const FIRMWARE_UPDATE_PAGE_LEAVE_DELAY_MS = 500;
 
 let alivePages = 0;
@@ -47,4 +49,14 @@ export function releaseFirmwareUpdateWorkflowPage(
 
 export function getFirmwareUpdateWorkflowAlivePageCountForTest() {
   return alivePages;
+}
+
+export async function shouldCancelDeviceWhenLeavingFirmwareUpdate(
+  isExtension: boolean,
+  getCurrentStep: () => Promise<EFirmwareUpdateSteps>,
+) {
+  if (!isExtension) {
+    return true;
+  }
+  return (await getCurrentStep()) !== EFirmwareUpdateSteps.updateDone;
 }

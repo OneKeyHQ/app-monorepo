@@ -7,6 +7,7 @@ let orderBookOptionsWriteQueue = Promise.resolve();
 export type ISubscriptionRecoveryProofSource =
   | 'route-focused'
   | 'token-selector'
+  | 'trade-history-details'
   | 'notification-navigation';
 
 export interface ISubscriptionRecoveryProof {

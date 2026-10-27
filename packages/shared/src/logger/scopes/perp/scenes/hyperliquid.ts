@@ -27,6 +27,8 @@ import type {
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
+
 export interface IHyperLiquidAccountContext {
   accountAddress: string | null;
   exchangeAccountAddress: string | null;
@@ -48,6 +50,7 @@ export interface IHyperLiquidLogParams<TRequest, TResponse>
   error?: Record<string, unknown>;
   extra?: Record<string, unknown>;
   isFirstTime?: boolean;
+  deviceType?: IDeviceType;
 }
 
 export type IHyperLiquidApiFailureEndpoint = 'info' | 'exchange';
@@ -62,13 +65,54 @@ export interface IHyperLiquidApiFailureLogParams extends Partial<IHyperLiquidAcc
   extra?: Record<string, unknown>;
 }
 
-function stripSensitiveFields<TRequest, TResponse>(
+const SENSITIVE_ACCOUNT_KEYS = new Set([
+  'accountAddress',
+  'exchangeAccountAddress',
+  'expectedAccountAddress',
+]);
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value) as unknown;
+  return proto === Object.prototype || proto === null;
+}
+
+function omitSensitiveAccountKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(omitSensitiveAccountKeys);
+  }
+  if (!isPlainObject(value)) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !SENSITIVE_ACCOUNT_KEYS.has(key))
+      .map(([key, nested]) => [key, omitSensitiveAccountKeys(nested)]),
+  );
+}
+
+export type IHyperLiquidServerLogPayload<TRequest, TResponse> = Omit<
+  IHyperLiquidLogParams<TRequest, TResponse>,
+  'accountAddress' | 'exchangeAccountAddress'
+>;
+
+export function stripSensitiveFields<TRequest, TResponse>(
   params: IHyperLiquidLogParams<TRequest, TResponse>,
-) {
-  const { accountAddress, exchangeAccountAddress, ...rest } = params;
+): IHyperLiquidServerLogPayload<TRequest, TResponse> {
+  const { accountAddress, exchangeAccountAddress, extra, ...rest } = params;
   void accountAddress;
   void exchangeAccountAddress;
-  return rest;
+  if (!extra) {
+    return rest;
+  }
+  // Callers forward their raw params as extra.originalParams, so wallet
+  // addresses nested there would otherwise bypass the top-level strip.
+  return {
+    ...rest,
+    extra: omitSensitiveAccountKeys(extra) as Record<string, unknown>,
+  };
 }
 
 export interface IHyperLiquidOrderRequestPayload {
@@ -83,6 +127,16 @@ export interface IHyperLiquidOrderRequestPayload {
 export class HyperLiquidScene extends BaseScene {
   @LogToLocal({ level: 'error' })
   public apiRequestFailure(params: IHyperLiquidApiFailureLogParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'error' })
+  public preTransferCheckFailure(params: {
+    reason: 'requestFailed' | 'invalidResponse' | 'restricted';
+    httpStatus?: number;
+    fallbackApplied: boolean;
+  }) {
     return params;
   }
 
@@ -279,7 +333,9 @@ export class HyperLiquidScene extends BaseScene {
   @LogToServer()
   public withdraw(
     params: IHyperLiquidLogParams<
-      IWithdrawParams,
+      // The two new branch points: rails fail differently and charge
+      // differently, and neither choice is visible anywhere else.
+      IWithdrawParams & { route?: string; sourceDex?: string },
       { success: true } | IApiErrorResponse
     >,
   ) {

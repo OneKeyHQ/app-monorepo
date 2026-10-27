@@ -1,6 +1,32 @@
-// iOS only: re-export the real expo-glass-effect primitives. This is the single
+// iOS only: wraps the real expo-glass-effect primitives. This is the single
 // file that references the iOS-only native module; every other platform resolves
 // the passthrough in index.tsx, so expo-glass-effect never enters a non-iOS
 // bundle. Callers must gate rendering on isLiquidGlassAvailable() (true only on
 // iOS 26+ with the Liquid Glass material).
-export { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+//
+// Never fade glass through a parent's opacity: glass whose ancestor animates
+// to opacity 0 stops rendering and can leave later glass broken
+// (expo/expo#50097, #41024, #51575). Animate glassEffectStyle to 'none'
+// instead (see the mobile browser's BrowserChromeCapsule).
+import { GlassView as ExpoGlassView } from 'expo-glass-effect';
+
+import { useThemeName } from '../../hooks/useStyle';
+
+import type { GlassViewProps } from 'expo-glass-effect';
+
+export { isLiquidGlassAvailable } from 'expo-glass-effect';
+
+// With the default 'auto' scheme the glass picks its light/dark variant from
+// the content behind it, and every time the view is shown again (a tab switch,
+// or the iPad split-view main pane returning after full-screen onboarding) it
+// starts from the dark variant and fades to light ~0.5 s later. The glass hosts
+// theme-colored content, so pin it to the app theme like BlurView's tint.
+export function GlassView({ colorScheme, ...props }: GlassViewProps) {
+  const themeName = useThemeName();
+  return (
+    <ExpoGlassView
+      colorScheme={colorScheme ?? (themeName === 'dark' ? 'dark' : 'light')}
+      {...props}
+    />
+  );
+}

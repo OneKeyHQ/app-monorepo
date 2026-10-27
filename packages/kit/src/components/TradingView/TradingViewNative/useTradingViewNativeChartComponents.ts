@@ -1,5 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { TRADING_VIEW_NATIVE_PREVIOUS_CLOSE_REFERENCE_LINE_ID as PREVIOUS_CLOSE_REFERENCE_LINE_ID } from './chartConstants';
 import { flattenTradingViewNativeChartComponentTree } from './utils/chartComponentTree';
 
 import type {
@@ -10,76 +15,56 @@ import type {
 
 const EMPTY_CHART_COMPONENTS: readonly ITradingViewNativeChartComponentNode[] =
   [];
-const INITIAL_PRICE_REFERENCE_LINE_ID = 'system.initialPriceReferenceLine';
-
-interface ICapturedInitialPrice {
-  dataProviderKey: string;
-  price: number | null;
-}
 
 export function useTradingViewNativeChartComponents({
   chartComponents = EMPTY_CHART_COMPONENTS,
-  dataProviderKey,
-  latestPrice,
+  previousClose,
   referenceLineColor,
+  showPreviousClose,
 }: {
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
-  dataProviderKey: string;
-  latestPrice?: number;
+  // Reported previous session close. The line carries the `Prev close` label,
+  // so it is only drawn from this figure: no live price stands in for it.
+  previousClose?: number;
   referenceLineColor: string;
+  showPreviousClose: boolean;
 }): readonly ITradingViewNativeChartLeafComponent[] {
-  const finiteLatestPrice =
-    latestPrice !== undefined && Number.isFinite(latestPrice)
-      ? latestPrice
+  const intl = useIntl();
+  const previousCloseLabel = intl.formatMessage({
+    id: ETranslations.market_prev_close,
+  });
+  const finitePreviousClose =
+    previousClose !== undefined && Number.isFinite(previousClose)
+      ? previousClose
       : undefined;
-  const [capturedInitialPrice, setCapturedInitialPrice] =
-    useState<ICapturedInitialPrice>(() => ({
-      dataProviderKey,
-      price: finiteLatestPrice ?? null,
-    }));
-  const currentCapturedPrice =
-    capturedInitialPrice.dataProviderKey === dataProviderKey
-      ? capturedInitialPrice.price
-      : null;
-  const isCurrentSourceCaptured = currentCapturedPrice !== null;
-  const initialPrice = currentCapturedPrice ?? finiteLatestPrice;
-  const uncapturedPrice = isCurrentSourceCaptured
-    ? undefined
-    : finiteLatestPrice;
-
-  useEffect(() => {
-    if (isCurrentSourceCaptured) {
-      return;
-    }
-    setCapturedInitialPrice((currentPrice) =>
-      currentPrice.dataProviderKey === dataProviderKey &&
-      (currentPrice.price !== null || uncapturedPrice === undefined)
-        ? currentPrice
-        : { dataProviderKey, price: uncapturedPrice ?? null },
-    );
-  }, [dataProviderKey, isCurrentSourceCaptured, uncapturedPrice]);
 
   return useMemo(() => {
-    const initialPriceReferenceLine:
+    const previousCloseReferenceLine:
       | ITradingViewNativeReferenceLineComponent
       | undefined =
-      initialPrice === undefined
+      !showPreviousClose || finitePreviousClose === undefined
         ? undefined
         : {
-            id: INITIAL_PRICE_REFERENCE_LINE_ID,
+            id: PREVIOUS_CLOSE_REFERENCE_LINE_ID,
             props: {
-              anchor: { price: initialPrice, type: 'price' },
+              anchor: { price: finitePreviousClose, type: 'price' },
               color: referenceLineColor,
               interactive: false,
               style: 'dashed',
-              title: 'Prev close',
+              title: previousCloseLabel,
             },
             type: 'referenceLine',
           };
 
     return flattenTradingViewNativeChartComponentTree([
-      ...(initialPriceReferenceLine ? [initialPriceReferenceLine] : []),
+      ...(previousCloseReferenceLine ? [previousCloseReferenceLine] : []),
       ...chartComponents,
     ]);
-  }, [chartComponents, initialPrice, referenceLineColor]);
+  }, [
+    chartComponents,
+    finitePreviousClose,
+    previousCloseLabel,
+    referenceLineColor,
+    showPreviousClose,
+  ]);
 }

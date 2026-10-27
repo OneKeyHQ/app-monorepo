@@ -1,3 +1,5 @@
+import type { IToken } from './token';
+
 export enum EBulkSendMode {
   OneToMany = 'oneToMany',
   ManyToOne = 'manyToOne',
@@ -72,4 +74,39 @@ export type IBulkSendTxStatus = {
   feeFiat?: string;
   feeNative?: string;
   feeSymbol?: string;
+};
+
+// Everything the bulk send addresses page needs to paint its first frame,
+// resolved by the background in a single round trip (OK-61587).
+export type IBulkSendAddressesInputSeedParams = {
+  networkId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
+  tokenInfo?: IToken;
+  bulkSendMode: EBulkSendMode;
+};
+
+export type IBulkSendAddressesInputSeedNetwork = {
+  id: string;
+  name: string;
+  logoURI: string;
+  isCustomNetwork?: boolean;
+};
+
+export type IBulkSendAddressesInputSeedSender = {
+  address: string;
+  accountName?: string;
+  walletName?: string;
+};
+
+export type IBulkSendAddressesInputSeed = {
+  accountId?: string;
+  indexedAccountId?: string;
+  networkId?: string;
+  isSupportedNetwork: boolean;
+  token?: IToken;
+  network?: IBulkSendAddressesInputSeedNetwork;
+  // OneToMany only: the seeded sender address plus the wallet / account
+  // names used for the address badge.
+  sender?: IBulkSendAddressesInputSeedSender;
 };

@@ -16,10 +16,14 @@ import type {
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
-import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type {
+  IOneKeyErrorI18nInfo,
+  IOneKeyHardwareErrorPayload,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
+import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
@@ -28,13 +32,18 @@ import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import { EAppEventBusNames } from './appEventBusNames';
 
-import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
+import type {
+  EAccountSelectorSceneName,
+  EHomeTab,
+  IServerNetwork,
+} from '../../types';
 import type {
   IDeFiProtocol,
   IFetchAccountDeFiPositionsResp,
   IProtocolSummary,
 } from '../../types/defi';
 import type { EHardwareVendor } from '../../types/device';
+import type { IDeviceStageWalletTypeValue } from '../../types/deviceStage';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type { ESubscriptionType } from '../../types/hyperliquid/types';
 import type { IMarketWsDataUpdatePayload } from '../../types/marketV2';
@@ -58,6 +67,9 @@ import type { EDecodedTxStatus } from '../../types/tx';
 import type { EHomeWalletTab } from '../../types/wallet';
 import type { IOneKeyError } from '../errors/types/errorTypes';
 import type { EModalRoutes, ETabRoutes, IWebViewPageParams } from '../routes';
+import type { INativeStorageContractViolation } from '../storage/nativeStorageTypes';
+import type { IStorageFullDiagnostics } from '../storageChecker/types';
+import type { IPortfolioCategoryFiat } from '../utils/portfolioPayload';
 import type { IWalletConnectSession } from '../walletConnect/types';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
 import type { FuseResult } from 'fuse.js';
@@ -98,11 +110,13 @@ export type IEventBusPayloadShowToast = {
   errorCode?: number | string;
   errorClassName?: string;
   errorName?: string;
+  isHardwareError?: boolean;
   // hardware device the error came from, when the error carries one
   connectId?: string;
   httpStatusCode?: number;
   toastId?: string;
   i18nKey?: ETranslations;
+  i18nInfo?: IOneKeyErrorI18nInfo;
   requestId?: string;
   diagnosticText?: string;
 };
@@ -133,6 +147,13 @@ export type IEventBusPayloadAccountDataUpdate =
       refreshSource?: 'home-header' | 'pull-to-refresh';
     };
 
+export type IEventBusPayloadAccountUpdate = {
+  /** Whether account-scoped network data changed. */
+  isAccountDataChanged?: boolean;
+  /** Indexed owners that were committed by an explicit creation operation. */
+  createdIndexedAccountIds?: string[];
+};
+
 // The item shape is owned by kit's settings config; it stays opaque here so
 // shared never depends on kit types or its search-results presentation.
 export type ISettingsSearchResultItem = FuseResult<unknown>;
@@ -146,6 +167,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
   [EAppEventBusNames.LocalSystemTimeStatusChanged]: {
     status: 'VALID' | 'INVALID' | 'UNKNOWN';
+    isTimeErrorConfirmed: boolean;
   };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
@@ -168,15 +190,21 @@ export interface IAppEventBusPayload {
     fromAmount: string;
     toAmount: string;
   };
-  [EAppEventBusNames.SwapStockTokenSelected]: ISwapToken;
+  [EAppEventBusNames.SwapStockTokenSelected]: {
+    token: ISwapToken;
+    /** Identifies the Swap provider instance that opened the selector. */
+    storeName: string;
+  };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;
   };
   [EAppEventBusNames.WalletRename]: {
     walletId: string;
   };
-  [EAppEventBusNames.AccountUpdate]: undefined;
-  [EAppEventBusNames.AccountRemove]: undefined;
+  [EAppEventBusNames.AccountUpdate]: IEventBusPayloadAccountUpdate | undefined;
+  [EAppEventBusNames.AccountRemove]:
+    | { accountId?: string; indexedAccountId?: string }
+    | undefined;
   [EAppEventBusNames.AddDBAccountsToWallet]: {
     walletId: string;
     accounts: IDBAccount[];
@@ -187,7 +215,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CloseCurrentBrowserTab]: undefined;
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
   [EAppEventBusNames.DAppLastFocusUrlUpdate]: undefined;
-  [EAppEventBusNames.GlobalDeriveTypeUpdate]: undefined;
+  [EAppEventBusNames.GlobalDeriveTypeUpdate]: {
+    networkImpl: string;
+  };
   [EAppEventBusNames.NetworkDeriveTypeChanged]: undefined;
   [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
     selectedAccount: IAccountSelectorSelectedAccount;
@@ -195,6 +225,10 @@ export interface IAppEventBusPayload {
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;
+    sourceOperationId?: number;
+    sourceRuntimeId?: string;
+    sourceTransitionId?: number;
+    trigger?: string;
   };
   [EAppEventBusNames.OnSwitchDAppNetwork]: {
     state: 'switching' | 'completed';
@@ -207,6 +241,8 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.FinalizeWalletSetupStep]: {
     step: EFinalizeWalletSetupSteps;
+    walletId?: string;
+    dbDeviceId?: string;
   };
   [EAppEventBusNames.FinalizeWalletSetupError]: {
     error: IOneKeyError | undefined;
@@ -223,6 +259,7 @@ export interface IAppEventBusPayload {
         attemptId?: number;
       }
     | undefined;
+  [EAppEventBusNames.WalletConnectCloseConnectionProgress]: undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
     attemptId?: number;
@@ -236,6 +273,7 @@ export interface IAppEventBusPayload {
     attemptId?: number;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
+  [EAppEventBusNames.NativeStorageContractViolation]: INativeStorageContractViolation;
   [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
@@ -279,9 +317,30 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.BeginFirmwareUpdate]: undefined;
   [EAppEventBusNames.FinishFirmwareUpdate]: undefined;
+  [EAppEventBusNames.FirmwareUpdateDetectStatusChanged]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
+  // The authenticity card's exits, from the DeviceStage driver back to
+  // whoever is running the check (OK-59934).
+  [EAppEventBusNames.DeviceStageAuthAction]: {
+    action: 'retry' | 'support' | 'continueAnyway';
+  };
+  // The passphrase teach card's Continue, from the DeviceStage driver
+  // back to the flow that primed the card before its hardware call
+  // (the account selector's Add-hidden-wallet, OK-59934).
+  [EAppEventBusNames.DeviceStagePassphraseIntroContinue]: undefined;
+  // The wallet-creation fork's answer, from the DeviceStage driver back to
+  // the flow that put the selectWalletType card on stage (onboarding's
+  // hardware wallet creation, OK-59934).
+  [EAppEventBusNames.DeviceStageWalletTypeSelected]: {
+    walletType: IDeviceStageWalletTypeValue;
+  };
+  // The stage left — by any route, the person's close included. A flow
+  // awaiting a card's answer ends its wait on this: a card that is gone
+  // can never be answered (OK-59934). `burstId` names the burst whose
+  // stage left (OK-64696).
+  [EAppEventBusNames.DeviceStageOff]: { burstId?: number } | undefined;
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
@@ -320,6 +379,7 @@ export interface IAppEventBusPayload {
     protocols: IDeFiProtocol[];
     protocolMap: Record<string, IProtocolSummary>;
   };
+  [EAppEventBusNames.DeFiEnabledNetworksChanged]: undefined;
   [EAppEventBusNames.EstimateTxFeeRetry]: undefined;
   [EAppEventBusNames.GasAccountSubmitRetryScheduled]: {
     attempt: number;
@@ -328,6 +388,11 @@ export interface IAppEventBusPayload {
     scheduledAt: number;
   };
   [EAppEventBusNames.GasAccountSubmitRetryCleared]: undefined;
+  [EAppEventBusNames.BatchSignTxProgress]: {
+    progressEventId: string;
+    // 1-based index of the tx in the batch
+    current: number;
+  };
   // TokenList cells Phase-2 BG frame transport (D2=A). The structure event
   // carries the FULL idempotent structure snapshot for an owner (generation is
   // monotonic); the valuation event carries the FULL current fiat map for an
@@ -370,6 +435,8 @@ export interface IAppEventBusPayload {
     networkId?: string;
     ownerAccountId?: string;
     ownerNetworkId?: string;
+    homeTotalFiatUsd?: string;
+    homeCategoryFiatUsd?: IPortfolioCategoryFiat;
     totalFiat: string;
     totalFiatCurrency: string;
     totalTokenCount: number;
@@ -384,18 +451,7 @@ export interface IAppEventBusPayload {
         accounts: {
           accountId: string;
           networkId: string;
-          // Stable across network switches for HD accounts; forwarded so a
-          // frozen token list (whose own `indexedAccount` closure may be
-          // stale) resolves aggregate hidden/custom tokens against the right
-          // indexed account. Undefined for Others (imported/watch-only).
-          indexedAccountId?: string;
         }[];
-        // When true, the home token list refreshes strictly against the
-        // provided account/network instead of its own active account. Used by
-        // emitters from a different home tab right after a network switch,
-        // when the (inactive) token list is frozen and its closures still
-        // point at the previous network.
-        refreshByProvidedAccounts?: boolean;
       };
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
@@ -432,7 +488,9 @@ export interface IAppEventBusPayload {
         };
       };
   [EAppEventBusNames.SwapQuoteEvent]: ISwapQuoteEventPayload;
-  [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
+  [EAppEventBusNames.ShowSystemDiskFullWarning]:
+    | IStorageFullDiagnostics
+    | undefined;
   [EAppEventBusNames.ShowLinuxBundleUdevGuide]: IEventBusPayloadShowLinuxUdevGuide;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
     status: ESwapTxHistoryStatus;
@@ -441,12 +499,20 @@ export interface IAppEventBusPayload {
     toToken?: ISwapToken;
   };
   [EAppEventBusNames.RefreshSwapHistoryList]: undefined;
+  [EAppEventBusNames.HeadlessBuyOrdersChanged]: undefined;
   // De-facto "network list changed, refresh" signal. Emitted not only when a
   // custom network is added/removed, but also after a server-network sync that
   // changes the set (e.g. a network delisted to TRASH). All network selectors
   // listen to it to re-pull their network list.
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
+  // Emitted by bg whenever a network is recorded as recently used, so the
+  // UI can keep its selector cache slot exact for writers it does not see.
+  [EAppEventBusNames.RecentNetworkRecorded]: { network: IServerNetwork };
+  // Emitted by bg when the recently-used list is cleared, so UI cache writers
+  // can drop results of lookups that were still in flight.
+  [EAppEventBusNames.RecentNetworksCleared]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
+    expectedSelectedAccount: IAccountSelectorSelectedAccount;
     selectedAccount: IAccountSelectorSelectedAccount;
   };
   [EAppEventBusNames.ShowFindInWebPage]: {
@@ -500,6 +566,10 @@ export interface IAppEventBusPayload {
     // state, preventing another Extension Home runtime from winning the race.
     claimId?: string;
   };
+  // Emitted by the extension background when the hosted card checkout page
+  // returns, so the waiting surface re-checks RevenueCat immediately.
+  [EAppEventBusNames.PrimeWebCheckoutReturned]: { checkoutId: string };
+  [EAppEventBusNames.PrimeGiftRedeemed]: { serialNo: string };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: {
     operationId: string;
@@ -517,6 +587,15 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.CheckAddressBeforeSending]: {
     promiseId: number;
     type: 'scam' | 'contract';
+  };
+  // One chunk of a batch send left the device. The batch call rejects with
+  // no partial result when a later chunk fails, so this is how the confirm
+  // page learns which chunks are already on chain before the user retries.
+  [EAppEventBusNames.BatchSendTxBroadcasted]: {
+    uuid: string;
+    txid: string;
+    networkId: string;
+    accountId: string;
   };
   [EAppEventBusNames.HideTabBar]: boolean;
   [EAppEventBusNames.RequestHardwareUIDialog]: {
@@ -570,6 +649,7 @@ export interface IAppEventBusPayload {
     subType: ESubscriptionType;
     data: unknown;
   };
+  [EAppEventBusNames.PerpsReferralBound]: { userAddress: string };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
     symbol: string;
@@ -610,6 +690,7 @@ export interface IAppEventBusPayload {
     decision: string;
   };
   [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
+  [EAppEventBusNames.BundleUpdateRestartFailed]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;
@@ -634,14 +715,21 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
   [EAppEventBusNames.BtcFindAddressUpdated]: undefined;
+  [EAppEventBusNames.DevLargeWalletDataCreationProgress]: {
+    isRunning: boolean;
+    walletIndex: number;
+    walletsCreated: number;
+    walletsTotal: number;
+    accountsCreatedInWallet: number;
+    accountsPerWallet: number;
+    accountsCreated: number;
+    accountsTotal: number;
+  };
   [EAppEventBusNames.ClientLogUploadProgress]: {
     stage: ELogUploadStage;
     progressPercent?: number;
     retry?: number;
     message?: string;
-  };
-  [EAppEventBusNames.EarnHomeBannerDragStateChanged]: {
-    dragging: boolean;
   };
   [EAppEventBusNames.SwitchDiscoveryTabInNative]: {
     tab:
@@ -706,6 +794,12 @@ export interface IAppEventBusPayload {
     /** Wall-clock timestamp (ms since unix epoch). */
     timestamp: number;
   };
+  /**
+   * A fresh invite post-config was fetched and cached. Carries the config
+   * itself so listeners never re-read through `getPostConfig()`: with a cache
+   * present that read schedules another refresh, which would emit again.
+   */
+  [EAppEventBusNames.ReferralPostConfigUpdated]: IInvitePostConfig;
 }
 
 /**

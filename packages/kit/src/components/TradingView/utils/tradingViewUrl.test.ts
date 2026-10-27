@@ -8,26 +8,12 @@ import { getTradingViewBaseUrl } from './tradingViewUrl';
 const localTradingViewUrl = 'http://localhost:5173/';
 
 describe('getTradingViewBaseUrl', () => {
-  it('uses the production URL when developer mode is enabled by default', () => {
+  it('uses the test URL when developer mode is enabled', () => {
     expect(
       getTradingViewBaseUrl({
         devSettings: {
           enabled: true,
           settings: {},
-        },
-        localTradingViewUrl,
-      }),
-    ).toBe(TRADING_VIEW_URL);
-  });
-
-  it('uses the test URL only when its switch is enabled', () => {
-    expect(
-      getTradingViewBaseUrl({
-        devSettings: {
-          enabled: true,
-          settings: {
-            useTradingViewTestUrl: true,
-          },
         },
         localTradingViewUrl,
       }),
@@ -41,7 +27,6 @@ describe('getTradingViewBaseUrl', () => {
           enabled: true,
           settings: {
             useLocalTradingViewUrl: true,
-            useTradingViewTestUrl: true,
           },
         },
         localTradingViewUrl,
@@ -49,14 +34,13 @@ describe('getTradingViewBaseUrl', () => {
     ).toBe(localTradingViewUrl);
   });
 
-  it('ignores persisted URL switches when developer mode is disabled', () => {
+  it('ignores the persisted local URL switch when developer mode is disabled', () => {
     expect(
       getTradingViewBaseUrl({
         devSettings: {
           enabled: false,
           settings: {
             useLocalTradingViewUrl: true,
-            useTradingViewTestUrl: true,
           },
         },
         localTradingViewUrl,

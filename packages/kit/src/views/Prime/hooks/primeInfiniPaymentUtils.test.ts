@@ -44,8 +44,100 @@ const buildInfiniSubscription = (currentPeriodEnd: number) => ({
   plan: 'monthly' as const,
   currentPeriodEnd,
 });
+const statusOnlyInfiniSubscription = {
+  subscriptionId: 'subscription-id',
+  status: 'active',
+  plan: 'monthly' as const,
+};
 
 describe('primeInfiniPaymentUtils', () => {
+  it.each([
+    { chain: 'ETHEREUM', networkId: networkIdsMap.eth, token: 'ETH' },
+    { chain: 'BASE', networkId: networkIdsMap.base, token: 'ETH' },
+    { chain: 'BSC', networkId: networkIdsMap.bsc, token: 'BNB' },
+    { chain: 'SOLANA', networkId: networkIdsMap.sol, token: 'SOL' },
+    { chain: 'TRON', networkId: networkIdsMap.trx, token: 'TRX' },
+  ])(
+    'keeps the native $token payment asset on $chain',
+    ({ chain, networkId, token }) => {
+      const asset = {
+        chain,
+        networkId,
+        token,
+        contractAddress: '',
+      };
+      const canonicalAsset = {
+        ...asset,
+        key: getPrimeInfiniPaymentAssetKey(asset),
+      };
+
+      expect(
+        getPrimeInfiniPaymentAssets([
+          { chain, networkId, tokens: [{ symbol: token, contract: '' }] },
+        ]),
+      ).toEqual([canonicalAsset]);
+      expect(getCanonicalPrimeInfiniPaymentAsset(canonicalAsset)).toEqual(
+        canonicalAsset,
+      );
+    },
+  );
+
+  it.each([
+    { chain: 'ETHEREUM', networkId: networkIdsMap.eth, token: 'USDC' },
+    { chain: 'BSC', networkId: networkIdsMap.bsc, token: 'ETH' },
+    { chain: 'BSC', networkId: networkIdsMap.eth, token: 'ETH' },
+    { chain: 'UNKNOWN', networkId: 'unknown--1', token: 'ETH' },
+    { chain: 'ALL', networkId: networkIdsMap.onekeyall, token: 'ALL NETWORKS' },
+  ])(
+    'rejects invalid empty-contract $token metadata on $chain ($networkId)',
+    ({ chain, networkId, token }) => {
+      expect(
+        getPrimeInfiniPaymentAssets([
+          { chain, networkId, tokens: [{ symbol: token, contract: '' }] },
+        ]),
+      ).toEqual([]);
+    },
+  );
+
+  it('builds a native ETH transfer without substituting a token contract', () => {
+    const asset = {
+      key: 'ethereum-eth',
+      chain: 'ETHEREUM',
+      token: 'ETH',
+      networkId: networkIdsMap.eth,
+      contractAddress: '',
+    };
+    const nativePayment = { ...payment, token: 'ETH', amountDue: '0.01' };
+    const { transferInfo, transferPayload } =
+      buildPrimeInfiniPaymentTransferIntent({
+        accountId: 'hd-1--0',
+        accountAddress: '0xpayer',
+        asset,
+        payment: nativePayment,
+        tokenInfo: {
+          decimals: 18,
+          name: 'Ethereum',
+          symbol: 'ETH',
+          address: '',
+          isNative: true,
+        },
+      });
+
+    expect(transferInfo).toMatchObject({
+      from: '0xpayer',
+      to: nativePayment.address,
+      amount: '0.01',
+      tokenInfo: { address: '', isNative: true, decimals: 18, symbol: 'ETH' },
+    });
+    expect(transferPayload).toMatchObject({
+      amountToSend: '0.01',
+      isMaxSend: false,
+      isNFT: false,
+      originalRecipient: nativePayment.address,
+    });
+    expect(transferPayload.tokenInfo).toBe(transferInfo.tokenInfo);
+  });
+
   it('builds an explicit non-EVM transfer intent from the displayed payment', () => {
     const asset = {
       key: 'tron-usdt',
@@ -606,24 +698,84 @@ describe('primeInfiniPaymentUtils', () => {
     );
   });
 
-  it('confirms initial purchases only from fresh Prime state', () => {
+  it('confirms initial purchases only from fresh Prime and Infini state', () => {
     expect(
       isPrimeInfiniPurchaseCompleted({
         baseline: { wasPrimeActive: false },
-        primeSubscription: { isActive: true, expiresAt: 3000 },
+        primeSubscription: {
+          isActive: true,
+          expiresAt: 3000,
+          subscriptions: [{ channel: 'infini' }],
+        },
         infiniSubscription: undefined,
       }),
     ).toBe(true);
     expect(
       isPrimeInfiniPurchaseCompleted({
         baseline: { wasPrimeActive: false },
+        primeSubscription: {
+          isActive: true,
+          expiresAt: 3000,
+          subscriptions: [{ channel: 'redemption' }],
+        },
+        infiniSubscription: undefined,
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: { wasPrimeActive: false, infiniPeriodEnd: 0 },
+        primeSubscription: { isActive: true, expiresAt: 3000 },
+        infiniSubscription: buildInfiniSubscription(3000),
+      }),
+    ).toBe(true);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: { wasPrimeActive: false },
+        primeSubscription: { isActive: true, expiresAt: 3000 },
+        infiniSubscription: buildInfiniSubscription(3000),
+      }),
+    ).toBe(true);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: { wasPrimeActive: false },
+        primeSubscription: { isActive: true, expiresAt: 3000 },
+        infiniSubscription: statusOnlyInfiniSubscription,
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: {
+          wasPrimeActive: false,
+          infiniSubscriptionId: null,
+        },
+        primeSubscription: { isActive: true, expiresAt: 3000 },
+        infiniSubscription: statusOnlyInfiniSubscription,
+      }),
+    ).toBe(true);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: {
+          wasPrimeActive: false,
+          infiniSubscriptionId: statusOnlyInfiniSubscription.subscriptionId,
+        },
+        primeSubscription: {
+          isActive: true,
+          expiresAt: 3000,
+          subscriptions: [{ channel: 'redemption' }],
+        },
+        infiniSubscription: statusOnlyInfiniSubscription,
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: { wasPrimeActive: false, infiniPeriodEnd: 0 },
         primeSubscription: undefined,
         infiniSubscription: buildInfiniSubscription(3000),
       }),
     ).toBe(false);
   });
 
-  it('confirms renewals from either the merged or Infini expiry baseline', () => {
+  it('confirms renewals only from a newer Infini period', () => {
     const baseline = {
       wasPrimeActive: true,
       primeExpiresAt: 5000,
@@ -633,10 +785,14 @@ describe('primeInfiniPaymentUtils', () => {
     expect(
       isPrimeInfiniPurchaseCompleted({
         baseline,
-        primeSubscription: { isActive: true, expiresAt: 5001 },
-        infiniSubscription: undefined,
+        primeSubscription: {
+          isActive: true,
+          expiresAt: 5001,
+          subscriptions: [{ channel: 'infini' }],
+        },
+        infiniSubscription: buildInfiniSubscription(3000),
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isPrimeInfiniPurchaseCompleted({
         baseline,
@@ -649,6 +805,23 @@ describe('primeInfiniPaymentUtils', () => {
         baseline,
         primeSubscription: { isActive: true, expiresAt: 5000 },
         infiniSubscription: buildInfiniSubscription(3000),
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline: {
+          wasPrimeActive: true,
+          primeExpiresAt: 5000,
+        },
+        primeSubscription: { isActive: true, expiresAt: 5001 },
+        infiniSubscription: buildInfiniSubscription(3001),
+      }),
+    ).toBe(false);
+    expect(
+      isPrimeInfiniPurchaseCompleted({
+        baseline,
+        primeSubscription: { isActive: true, expiresAt: 5001 },
+        infiniSubscription: statusOnlyInfiniSubscription,
       }),
     ).toBe(false);
   });

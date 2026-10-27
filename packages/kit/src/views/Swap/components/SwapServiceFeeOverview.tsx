@@ -1,10 +1,51 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Icon, Popover, Stack } from '@onekeyhq/components';
+import {
+  Icon,
+  Popover,
+  Stack,
+  runAfterActionListClose,
+  usePopoverContext,
+} from '@onekeyhq/components';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+function SwapServiceFeePopoverContent({ content }: { content: string }) {
+  const { closePopover } = usePopoverContext();
+  const handleAction = useCallback(
+    (url: string) => {
+      void runAfterActionListClose(
+        () => closePopover?.(),
+        () => openUrlExternal(url),
+        { waitForAnimation: false },
+      );
+    },
+    [closePopover],
+  );
+
+  return (
+    <Stack p="$4">
+      <FormatHyperlinkText
+        autoExecuteParsedAction={false}
+        onAction={handleAction}
+        size="$bodyMd"
+        color="$textSubdued"
+        urlTextProps={{
+          color: '$textInfo',
+        }}
+        underlineTextProps={{
+          color: '$textInfo',
+        }}
+      >
+        {content}
+      </FormatHyperlinkText>
+    </Stack>
+  );
+}
 
 export function SwapServiceFeeOverview(_props: {
   percentageFee?: number;
@@ -32,24 +73,7 @@ export function SwapServiceFeeOverview(_props: {
           color="$iconSubdued"
         />
       }
-      renderContent={
-        <Stack p="$4">
-          <FormatHyperlinkText
-            autoExecuteParsedAction={false}
-            onAction={openUrlExternal}
-            size="$bodyMd"
-            color="$textSubdued"
-            urlTextProps={{
-              color: '$textInfo',
-            }}
-            underlineTextProps={{
-              color: '$textInfo',
-            }}
-          >
-            {content}
-          </FormatHyperlinkText>
-        </Stack>
-      }
+      renderContent={<SwapServiceFeePopoverContent content={content} />}
     />
   );
 }

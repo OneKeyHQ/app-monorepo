@@ -3,14 +3,14 @@ import localforage from 'localforage';
 
 import appGlobals from '../appGlobals';
 
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 import type {
-  Callback,
-  CallbackWithResult,
-  KeyValuePair,
-  MultiCallback,
-  MultiGetCallback,
-} from '@react-native-async-storage/async-storage/lib/typescript/types';
+  AsyncStorageStatic,
+  IAsyncStorageCallback as Callback,
+  IAsyncStorageCallbackWithResult as CallbackWithResult,
+  IAsyncStorageKeyValuePair as KeyValuePair,
+  IAsyncStorageMultiCallback as MultiCallback,
+  IAsyncStorageMultiGetCallback as MultiGetCallback,
+} from './appStorageTypes';
 
 localforage.config({
   name: 'OneKeyStorage',

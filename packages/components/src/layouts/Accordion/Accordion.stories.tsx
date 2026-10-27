@@ -64,7 +64,7 @@ function FaqItem({
             >
               {question}
             </SizableText>
-            <Stack animation="quick" rotate={open ? '-180deg' : '0deg'}>
+            <Stack transition="quick" rotate={open ? '-180deg' : '0deg'}>
               <Icon
                 name="ChevronDownSmallOutline"
                 size="$5"
@@ -74,10 +74,10 @@ function FaqItem({
           </>
         )}
       </Accordion.Trigger>
-      <Accordion.HeightAnimator animation="quick">
+      <Accordion.HeightAnimator transition="quick">
         <Accordion.Content
           unstyled
-          animation="quick"
+          transition="quick"
           enterStyle={CONTENT_HIDDEN_STYLE}
           exitStyle={CONTENT_HIDDEN_STYLE}
         >

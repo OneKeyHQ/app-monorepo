@@ -16,6 +16,7 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 }));
 
 const currentAppVersion = platformEnv.version ?? '';
+const currentBundleVersion = platformEnv.bundleVersion ?? '';
 const oneDayMs = timerUtils.getTimeDurationMs({ day: 1 });
 
 function buildService(rawData: ISimpleDBAggregateToken | null) {
@@ -58,6 +59,7 @@ describe('ServiceSetting.syncWalletConfigIfNeeded', () => {
       aggregateTokenConfigMap: {},
       configSyncMeta: {
         appVersion: 'stale-app-version',
+        bundleVersion: currentBundleVersion,
         syncedAt: Date.now(),
       },
     });
@@ -72,6 +74,7 @@ describe('ServiceSetting.syncWalletConfigIfNeeded', () => {
       aggregateTokenConfigMap: {},
       configSyncMeta: {
         appVersion: currentAppVersion,
+        bundleVersion: currentBundleVersion,
         syncedAt: Date.now() - oneDayMs - 1,
       },
     });
@@ -86,6 +89,7 @@ describe('ServiceSetting.syncWalletConfigIfNeeded', () => {
       aggregateTokenConfigMap: {},
       configSyncMeta: {
         appVersion: currentAppVersion,
+        bundleVersion: currentBundleVersion,
         syncedAt: Date.now(),
       },
     });
@@ -104,5 +108,49 @@ describe('ServiceSetting.syncWalletConfigIfNeeded', () => {
     ]);
 
     expect(syncSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('syncs when the hot-update bundle version changed since the last sync', async () => {
+    const { service, syncSpy } = buildService({
+      aggregateTokenConfigMap: {},
+      configSyncMeta: {
+        appVersion: currentAppVersion,
+        bundleVersion: 'stale-bundle-version',
+        syncedAt: Date.now(),
+      },
+    });
+
+    await service.syncWalletConfigIfNeeded();
+
+    expect(syncSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a cache without bundle version as stale only when the build has one', async () => {
+    const originalBundleVersion = platformEnv.bundleVersion;
+    try {
+      platformEnv.bundleVersion = 'hot-update-1';
+      const stale = buildService({
+        aggregateTokenConfigMap: {},
+        configSyncMeta: {
+          appVersion: currentAppVersion,
+          syncedAt: Date.now(),
+        },
+      });
+      await stale.service.syncWalletConfigIfNeeded();
+      expect(stale.syncSpy).toHaveBeenCalledTimes(1);
+
+      platformEnv.bundleVersion = undefined;
+      const fresh = buildService({
+        aggregateTokenConfigMap: {},
+        configSyncMeta: {
+          appVersion: currentAppVersion,
+          syncedAt: Date.now(),
+        },
+      });
+      await fresh.service.syncWalletConfigIfNeeded();
+      expect(fresh.syncSpy).not.toHaveBeenCalled();
+    } finally {
+      platformEnv.bundleVersion = originalBundleVersion;
+    }
   });
 });

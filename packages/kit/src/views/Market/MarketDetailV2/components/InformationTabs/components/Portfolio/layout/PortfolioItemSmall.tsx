@@ -1,22 +1,32 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
-import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
+import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
 
 interface IPortfolioItemSmallProps {
-  item: IMarketAccountPortfolioItem;
+  item: IMarketAccountPortfolioDisplayItem;
+  onPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
 }
 
-function PortfolioItemSmallBase({ item }: IPortfolioItemSmallProps) {
+function PortfolioItemSmallBase({ item, onPress }: IPortfolioItemSmallProps) {
   const pnl = item.pnl;
   const isPnlSupported = pnl?.isPnlSupported ?? false;
+  const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
 
   return (
-    <XStack mx="$2" px="$3" py="$2.5" borderRadius="$3" alignItems="center">
+    <XStack
+      mx="$2"
+      px="$3"
+      py="$2.5"
+      borderRadius="$3"
+      alignItems="center"
+      onPress={onPress ? handlePress : undefined}
+      cursor={onPress ? 'pointer' : undefined}
+    >
       <YStack w={100} minWidth={0} alignItems="flex-start">
         <Currency
           size="$bodySm"

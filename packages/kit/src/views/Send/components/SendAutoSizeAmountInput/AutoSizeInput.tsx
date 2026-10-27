@@ -71,6 +71,18 @@ const measureInlineTextWidthPx = (
 
 const INLINE_WIDTH_SAFETY_PX = 8;
 
+// containerProps.minWidth beats width and maxWidth in CSS, so the box never
+// renders narrower than this. Budgeting without the floor under-counts a
+// narrow amount and lets the suffix symbol overflow (OK-63548).
+const getInlineAmountBoxWidthPx = (
+  measuredAmountWidthPx: number,
+  fontSize: number,
+) =>
+  Math.max(
+    Math.ceil(measuredAmountWidthPx + Math.max(18, Math.round(fontSize * 0.5))),
+    Math.ceil(fontSize * 1.2),
+  );
+
 function getInlineContentWidthPx({
   text,
   fontSize,
@@ -88,10 +100,10 @@ function getInlineContentWidthPx({
   inlineSuffixGapPx: number;
   measurementRevision: number;
 }) {
-  const amountWidthPx =
-    Math.ceil(
-      measureInlineTextWidthPx(text, fontSize, 500, measurementRevision),
-    ) + Math.max(18, Math.round(fontSize * 0.5));
+  const amountWidthPx = getInlineAmountBoxWidthPx(
+    measureInlineTextWidthPx(text, fontSize, 500, measurementRevision),
+    fontSize,
+  );
   const prefixWidthPx = currencyLabel
     ? Math.ceil(
         measureInlineTextWidthPx(
@@ -177,6 +189,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       fontSize,
       minFontSize,
       availableInlineWidth,
+      isInlineWidthMeasured = true,
       inlineTextAlignMode = 'auto',
       currencyLabel,
       inlineTokenSymbol,
@@ -285,9 +298,12 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           ),
         )
       : 0;
-    const inlineInputWidthPx = Math.max(
-      inlineAmountTextWidthPx,
-      Math.ceil(effectiveFontSize * 1.05),
+    // Same floor as containerProps.minWidth below: min-width beats width in
+    // CSS, so the trailing-space math must use the width the box renders at.
+    const inlineInputMinWidthPx = Math.ceil(effectiveFontSize * 1.2);
+    const inlineInputWidthPx = getInlineAmountBoxWidthPx(
+      inlineMeasuredAmountWidthPx,
+      effectiveFontSize,
     );
     const inlineInputSlackPx = Math.max(
       inlineInputWidthPx - inlineAmountTextWidthPx,
@@ -313,18 +329,39 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     );
     const hasPrefix = !!currencyLabel;
     const hasSuffix = !!inlineTokenSymbol;
-    let desktopAmountTextAlign: 'center' | 'left' | 'right' = 'center';
-    if (hasPrefix) {
-      desktopAmountTextAlign = 'left';
-    } else if (hasSuffix) {
-      desktopAmountTextAlign = 'right';
-    }
+    // Keep the caret on the left of the placeholder in both token and fiat
+    // mode (OK-63413): a right-aligned suffix layout parked the empty-state
+    // caret after the "0" while the fiat prefix layout parked it before.
+    const desktopAmountTextAlign: 'center' | 'left' =
+      hasPrefix || hasSuffix ? 'left' : 'center';
+
+    // The input box keeps a trailing caret/measurement buffer after the
+    // digits. With the amount left-aligned that buffer would sit between the
+    // digits and the suffix symbol, so pull the suffix back over it to keep
+    // the visual gap at inlineSuffixGapPx. Skip this when maxWidth shrinks the
+    // input below its natural width: the digits then scroll inside the box and
+    // a negative margin would overlap them.
+    const inlineInputTrailingSpacePx = Math.max(
+      inlineInputWidthPx - Math.ceil(inlineMeasuredAmountWidthPx),
+      0,
+    );
+    // Until the container is measured, availableInlineWidth is only the
+    // window width, so treat the box as possibly clamped by maxWidth.
+    const isInlineInputShrunk =
+      !isInlineWidthMeasured ||
+      (availableInlineWidth > 0 &&
+        inlineInputWidthPx >
+          availableInlineWidth - desktopInlineReservedWidthPx);
+    const desktopSuffixMarginLeftPx =
+      hasSuffix && !isInlineInputShrunk
+        ? inlineSuffixGapPx - inlineInputTrailingSpacePx
+        : inlineSuffixGapPx;
 
     let desktopInlineRowOffsetPx = 0;
-    if (inlineTextAlignMode === 'center') {
+    if (inlineTextAlignMode === 'center' || hasSuffix) {
+      // Suffix mode already folds the trailing buffer into the suffix margin,
+      // so the row's box matches its visible content and centers as-is.
       desktopInlineRowOffsetPx = 0;
-    } else if (desktopAmountTextAlign === 'right') {
-      desktopInlineRowOffsetPx = Math.round(-inlineInputSlackPx / 2);
     } else if (desktopAmountTextAlign === 'left') {
       desktopInlineRowOffsetPx = Math.round(inlineInputSlackPx / 2);
     }
@@ -387,7 +424,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           containerProps={{
             width: inlineInputWidthPx,
             flexShrink: 1,
-            minWidth: Math.ceil(effectiveFontSize * 1.2),
+            minWidth: inlineInputMinWidthPx,
             maxWidth: inlineInputMaxWidth,
             borderWidth: 0,
             bg: 'transparent',
@@ -433,7 +470,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
             style={{
               fontFamily,
               fontSize: effectiveFontSize,
-              marginLeft: inlineSuffixGapPx,
+              marginLeft: desktopSuffixMarginLeftPx,
             }}
             mt={desktopInlineSymbolOffset}
             numberOfLines={1}

@@ -158,6 +158,7 @@ function WalletActionExchange(props?: {
               token: selectedToken,
               indexedAccountId,
               exchangeSource: config.id,
+              source: 'exchange',
             });
           },
         });

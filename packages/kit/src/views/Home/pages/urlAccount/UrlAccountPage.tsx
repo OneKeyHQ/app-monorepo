@@ -10,7 +10,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { ProviderJotaiContextAccountOverview } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import { useAccountSelectorLazyAction } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actionsLazy';
 import { useJotaiContextRootStore } from '@onekeyhq/kit/src/states/jotai/utils/useJotaiContextRootStore';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -58,7 +58,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
   const routeParams = route.params as
     | { address: string; networkId?: string }
     | undefined;
-  const actions = useAccountSelectorActions();
+  const runAccountSelectorAction = useAccountSelectorLazyAction();
   const [urlAccountStatus, setUrlAccountStatus] = useState<
     'ok' | 'invalid' | undefined
   >();
@@ -176,12 +176,15 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
             console.log(
               'URLAccountMount: updateSelectedAccountForSingletonAccount',
             );
-            return actions.current.updateSelectedAccountForSingletonAccount({
-              num: 0,
-              networkId,
-              walletId: WALLET_TYPE_WATCHING,
-              othersWalletAccountId: r?.accounts?.[0]?.id,
-            });
+            return runAccountSelectorAction(
+              'updateSelectedAccountForSingletonAccount',
+              {
+                num: 0,
+                networkId,
+                walletId: WALLET_TYPE_WATCHING,
+                othersWalletAccountId: r?.accounts?.[0]?.id,
+              },
+            );
           };
           await updateSelectedAccount();
           // en: Especially on mobile devices, especially Android, when performance is insufficient, the order of UI refresh and data update may be problematic, delay the update again to ensure data update
@@ -214,10 +217,10 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
     }, 0);
   }, [
     intl,
-    actions,
     navigation,
     redirectMode,
     isCurrentSelectedAccountNotUrlAccount,
+    runAccountSelectorAction,
   ]);
 
   if (urlAccountStatus === 'invalid') {

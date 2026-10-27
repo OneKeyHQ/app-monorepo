@@ -29,16 +29,17 @@ describe('buildStackedBarSegments', () => {
     expect(out[1]).toMatchObject({ key: 'b', flexBasis: 40 });
   });
 
-  it('formats the legend label as integer percent (no decimal)', () => {
+  it('uses the same one-decimal percentage as the tooltip', () => {
     const out = buildStackedBarSegments([slice('a', 12.7)]);
-    expect(out[0].label).toBe('13%');
+    expect(out[0].label).toBe('12.7%');
   });
 
-  it('rounds half-down values toward the nearest integer', () => {
-    const out = buildStackedBarSegments([slice('a', 12.4), slice('b', 12.5)]);
-    expect(out[0].label).toBe('12%');
-    // Math.round behavior: .5 rounds up.
-    expect(out[1].label).toBe('13%');
+  it('preserves small non-zero allocation labels', () => {
+    const out = buildStackedBarSegments([
+      slice('main', 99.8),
+      slice('others', 0.2, '$gray9', 0.04),
+    ]);
+    expect(out.map((segment) => segment.label)).toEqual(['99.8%', '0.2%']);
   });
 
   it('exposes colorToken and netWorth on the segment', () => {

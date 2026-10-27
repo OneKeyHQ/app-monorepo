@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import type {
   IInputProps,
+  IKeyOfIcons,
   IStackProps,
   IXStackProps,
 } from '@onekeyhq/components';
@@ -27,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { LetterAvatar } from '../LetterAvatar';
+import { SpinningIcon } from '../SpinningIcon';
 
 export type ITokenSelectorPopoverProps = {
   title: string;
@@ -64,12 +66,18 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       hideIcon?: boolean;
       tokenSymbol?: string;
       testID?: string;
+      // Replaces the Max label with an icon, e.g. a refresh action while the
+      // balance is empty and there is nothing to max out.
+      actionIconName?: IKeyOfIcons;
+      // Spins the action icon in place while its request runs.
+      actionLoading?: boolean;
     };
     balanceHelperProps?: {
       onPress?: () => void;
     };
     tokenSelectorTriggerProps?: {
       selectedTokenImageUri?: string;
+      selectedTokenImageRecyclingKey?: string;
       /**
        * Skeleton just the token image while its URI is still being resolved,
        * keeping the symbol readable. `loading` above blanks the whole trigger;
@@ -88,7 +96,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       popover?: ITokenSelectorPopoverProps;
     } & IXStackProps;
     reversible?: boolean;
-  } & IStackProps
+  } & Omit<IStackProps, 'onChange'>
 >;
 
 export function AmountInput({
@@ -211,6 +219,7 @@ export function AmountInput({
     const {
       popover: popoverProps,
       selectedTokenImageUri,
+      selectedTokenImageRecyclingKey,
       selectedTokenImageLoading,
       selectedNetworkImageUri,
       selectedTokenSymbol,
@@ -268,9 +277,9 @@ export function AmountInput({
             <Image
               size="$7"
               borderRadius="$full"
-              source={{
-                uri: selectedTokenImageUri,
-              }}
+              src={selectedTokenImageUri}
+              recyclingKey={selectedTokenImageRecyclingKey}
+              placeholder={<Stack width="100%" height="100%" />}
               fallback={
                 <Image.Fallback
                   borderRadius="$full"
@@ -301,9 +310,8 @@ export function AmountInput({
               <Image
                 size="$3"
                 borderRadius="$full"
-                source={{
-                  uri: selectedNetworkImageUri,
-                }}
+                src={selectedNetworkImageUri}
+                placeholder={<Stack width="100%" height="100%" />}
                 fallback={
                   <Image.Fallback bg="$gray5" delayMs={1000}>
                     <Icon
@@ -393,6 +401,14 @@ export function AmountInput({
           <Icon name="WalletOutline" size="$4" color="$iconSubdued" mr="$1" />
         );
       }
+      // Presses are ignored while the action's request is in flight, so a
+      // refresh cannot be queued twice; the tint still reads as actionable.
+      const balanceActionPress = balanceProps.actionLoading
+        ? undefined
+        : balanceProps.onPress;
+      const balanceActionColor = balanceProps.onPress
+        ? '$textInteractive'
+        : '$textPlaceholder';
       const contentComponent = (
         <XStack
           alignItems="center"
@@ -400,9 +416,9 @@ export function AmountInput({
           px="$2.5"
           py="$1"
           borderRadius={6}
-          onPress={balanceProps.onPress}
+          onPress={balanceActionPress}
           testID={balanceProps.testID}
-          {...(enableMaxAmount && balanceProps.onPress
+          {...(enableMaxAmount && balanceActionPress
             ? {
                 userSelect: 'none',
                 hoverStyle: {
@@ -433,13 +449,20 @@ export function AmountInput({
               {balanceProps.tokenSymbol}
             </SizableText>
           ) : null}
-          {enableMaxAmount ? (
+          {enableMaxAmount && balanceProps.actionIconName ? (
+            <Stack ml="$1">
+              <SpinningIcon
+                name={balanceProps.actionIconName}
+                spinning={!!balanceProps.actionLoading}
+                color={balanceActionColor}
+              />
+            </Stack>
+          ) : null}
+          {enableMaxAmount && !balanceProps.actionIconName ? (
             <SizableText
               pl="$1"
               size="$bodySmMedium"
-              color={
-                balanceProps.onPress ? '$textInteractive' : '$textPlaceholder'
-              }
+              color={balanceActionColor}
             >
               {maxAmountText ??
                 intl.formatMessage({ id: ETranslations.send_max })}

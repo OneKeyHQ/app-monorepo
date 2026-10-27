@@ -27,6 +27,7 @@ import type {
   EHardwareVendor,
   IDeviceHomeScreen,
   IHardwareGetPubOrAddressExtraInfo,
+  IHardwareOperationContext,
   IOneKeyDeviceFeatures,
   IOneKeyDeviceState,
   IQrWalletDevice,
@@ -219,6 +220,8 @@ export type IDBCreateHwWalletParamsBase = {
   isMockedStandardHwWallet?: boolean;
   isAttachPinMode?: boolean;
   vendor?: EHardwareVendor;
+  /** Runtime-only hardware context. Never persisted to the local database. */
+  hardwareOperationContext?: IHardwareOperationContext;
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
@@ -399,6 +402,9 @@ export type IDBDeviceSettings = {
   inputPinOnSoftware?: boolean;
   inputPinOnSoftwareSupport?: boolean;
   chainFingerprints?: Record<string, string>;
+  // Keystone account keys first seen per `network:accountPath`. Exports are unsigned, so a later
+  // export that differs is refused instead of trusted.
+  keystoneAccountKeys?: Record<string, string>;
   // Trezor THP pairing credentials for THIS device (autoconnect without
   // re-pairing). Lives here so "forget device" clears it automatically.
   thpCredentials?: ITrezorThpCredential[];
@@ -459,6 +465,12 @@ export type IDBDevice = IDBBaseObjectWithName & {
 export type IDBUpdateDeviceSettingsParams = {
   dbDeviceId: string;
   settings: IDBDeviceSettings;
+};
+export type IDBUpdateDeviceSettingsInPlaceParams = {
+  dbDeviceId: string;
+  /** Receives the settings as stored at write time; returns the settings
+   * to store, or undefined to leave the record untouched. */
+  updater: (settings: IDBDeviceSettings) => IDBDeviceSettings | undefined;
 };
 export type IDBUpdateFirmwareVerifiedParams = {
   device: IDBDevice;
@@ -705,7 +717,7 @@ export interface ILocalDBTransaction {
 export type ILocalDBRecord<T extends ELocalDBStoreNames> = ILocalDBSchemaMap[T];
 
 export type ILocalDBRecordPair<T extends ELocalDBStoreNames> = [
-  ILocalDBRecord<T>,
+  ILocalDBRecord<T> | null | undefined,
   IRealmDBSchemaMap[T] | null,
 ];
 
@@ -735,7 +747,9 @@ export interface ILocalDBGetRecordByIdParams<T extends ELocalDBStoreNames> {
   id: string;
 }
 export type ILocalDBGetRecordByIdResult<T extends ELocalDBStoreNames> =
-  ILocalDBRecord<T>;
+  | ILocalDBRecord<T>
+  | null
+  | undefined;
 
 // GetRecordIds
 export interface ILocalDBGetRecordIdsParams<T extends ELocalDBStoreNames> {
@@ -840,6 +854,13 @@ export type ILocalDBWithTransactionTask<T> = (
 ) => Promise<T>;
 export type ILocalDBWithTransactionOptions = {
   readOnly?: boolean;
+  /**
+   * Let the transaction run while the disk-full guard is raised. Set it for
+   * space-freeing work (record removal, store clearing): deleting local data is
+   * the main way a user recovers from exhausted storage, so blocking it would
+   * turn a recoverable state into a dead end.
+   */
+  allowWhenStorageFull?: boolean;
 };
 
 export interface ILocalDBAgent {

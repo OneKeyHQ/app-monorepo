@@ -134,6 +134,16 @@ export function useDappAccountSwitch({
     if (typeof result?.connectedAccountsInfo?.[0].num !== 'number') {
       return;
     }
+    // Switching a live connection onto the home account must respect the
+    // same backup gate as connecting (OK-63750); otherwise it bypasses the
+    // ConnectionModal check.
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
     setIsSwitching(true);
     setHideAccountSelectorTrigger(true);
     if (!accountExist && result?.connectedAccountsInfo?.[0].deriveType) {

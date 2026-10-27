@@ -7,15 +7,33 @@
  */
 const path = require('path');
 
+// This must run before Metro dependencies load the Babel/environment config.
+// oxlint-disable-next-line import-js/order
+const devVendorConfig = require('./dev-vendor.config');
+
+if (process.env.ONEKEY_DEV_VENDOR === 'true') {
+  devVendorConfig.applyTransformationEnvironment(process.env);
+}
+
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const { withRozenite } = require('@rozenite/metro');
 const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 const {
   withStorybook,
 } = require('@storybook/react-native/metro/withStorybook');
-const connect = require('connect');
 const fs = require('fs-extra');
 const { resolve } = require('metro-resolver');
+
+const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
+
+const splitCodePlugin = require('./plugins');
+const {
+  applyDevVendorConfig,
+  isDevVendorEnabled,
+} = require('./plugins/devVendor');
+const {
+  getThirdPartyMMKVImportError,
+} = require('./scripts/native-storage-metro-policy');
 // const { withRozeniteExpoAtlasPlugin } = require('@rozenite/expo-atlas-plugin'); // Uncomment if needed
 
 const projectRoot = __dirname;
@@ -29,6 +47,17 @@ const defaultConfig = getDefaultConfig(projectRoot);
 // Use Sentry Expo's Metro config as a base, merged with the RN default config
 const sentryConfig = getSentryExpoConfig(projectRoot);
 const config = mergeConfig(defaultConfig, sentryConfig);
+
+// Expo CLI normally injects this polyfill around Metro. Our native release and
+// union builders call Metro directly, so include it in the shared config too.
+const originalGetPolyfills = config.serializer.getPolyfills;
+config.serializer.getPolyfills = (options) =>
+  Array.from(
+    new Set([
+      ...originalGetPolyfills(options),
+      require.resolve('expo/virtual/streams.js'),
+    ]),
+  );
 
 config.projectRoot = projectRoot;
 config.watchFolders = Array.from(
@@ -53,6 +82,17 @@ if (process.env.RN_HARNESS === 'true') {
   config.server.unstable_serverRoot = monorepoRoot;
   const expoRewrite = config.server.rewriteRequestUrl || ((url) => url);
   config.server.rewriteRequestUrl = (url) => {
+    if (
+      process.env.RN_HARNESS_NATIVE_STORAGE_BACKGROUND === 'true' &&
+      /^\/(?:apps\/mobile\/)?background\.bundle(?:\?|$)/u.test(url)
+    ) {
+      return expoRewrite(
+        url.replace(
+          /^\/(?:apps\/mobile\/)?background\.bundle/u,
+          '/apps/mobile/harness/nativeStorageBackgroundEntry.bundle',
+        ),
+      );
+    }
     // Handle Expo virtual entry first (before the general rewrite)
     if (url.includes('/.expo/.virtual-metro-entry.bundle')) {
       // oxlint-disable-next-line no-param-reassign
@@ -94,8 +134,11 @@ config.resolver.sourceExts = [
 ];
 
 // Configure SVG transformer for .svgx files (used by react-native-bottom-tabs)
-config.resolver.assetExts = (config.resolver.assetExts || []).filter(
-  (ext) => ext !== 'svgx',
+config.resolver.assetExts = Array.from(
+  new Set([
+    ...(config.resolver.assetExts || []).filter((ext) => ext !== 'svgx'),
+    'txt',
+  ]),
 );
 config.transformer = config.transformer || {};
 config.transformer.babelTransformerPath =
@@ -122,22 +165,17 @@ config.resolver.unstable_enablePackageExports = false;
 // Manual alias for a subpath export when package exports are disabled.
 const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
 
-// OneKey HWK SDK sub-path aliases. With
-// `unstable_enablePackageExports=false` above, Metro can't read the `exports`
-// map in the SDK packages, so each sub-path consumer apps import (e.g.
-// `@onekeyfe/hwk-adapter-core/errors`) needs an explicit redirect. We
-// `require.resolve` here in Node-land where the `exports` map IS honored, so
-// the target file path is correct.
-//
-// When the SDK adds new sub-paths (or `unstable_enablePackageExports` becomes
-// safe to enable globally), append/remove entries from this array.
-const HWK_SUBPATH_ALIASES = [
+// Sub-path aliases for packages whose `exports` map Metro can't read with
+// `unstable_enablePackageExports=false`; resolved via Node's `require.resolve()`, which does honor it. Update this array when packages add new sub-paths.
+const SUBPATH_EXPORT_ALIASES = [
   '@onekeyfe/hwk-adapter-core/errors',
   '@onekeyfe/hwk-adapter-core/ui-events',
   '@onekeyfe/hwk-trezor-connector-webusb/constants',
+  'bitcoinjs-lib/src/bufferutils',
+  'bitcoinjs-lib/src/payments/bip341',
 ];
-const hwkSubpathAliasMap = new Map(
-  HWK_SUBPATH_ALIASES.map((spec) => [spec, require.resolve(spec)]),
+const subpathExportAliasMap = new Map(
+  SUBPATH_EXPORT_ALIASES.map((spec) => [spec, require.resolve(spec)]),
 );
 
 // @mysten/sui 2.x only exposes package exports; Metro package exports are disabled above.
@@ -158,6 +196,18 @@ const revenueCatBrowserMappingsStub = path.resolve(
   projectRoot,
   'shims/revenueCatBrowserMappings.js',
 );
+// Aptos SDK 1.39 statically imports an unused script composer whose generated
+// WASM byte array expands to more than 11 MB in Hermes bytecode.
+const aptosScriptComposerNativeStub = path.resolve(
+  monorepoRoot,
+  'node_modules/@aptos-labs/script-composer-pack/dist/react-native.js',
+);
+// The OneKey pager package publishes a `browser` entry, which Metro otherwise
+// prefers even for native bundles. Pin native resolution to its native entry.
+const nativePagerViewEntry = path.resolve(
+  monorepoRoot,
+  'node_modules/react-native-pager-view/lib/module/index.native.js',
+);
 
 // Ledger DMK packages only declare `exports` (no `main`). With
 // unstable_enablePackageExports=false above, Metro can't find the entry
@@ -166,6 +216,8 @@ const LEDGER_CJS_ENTRY_PACKAGES = [
   '@ledgerhq/device-management-kit',
   '@ledgerhq/device-signer-kit-ethereum',
   '@ledgerhq/device-signer-kit-solana',
+  '@ledgerhq/device-signer-kit-tron',
+  '@ledgerhq/device-signer-kit-zcash',
   '@ledgerhq/device-transport-kit-react-native-ble',
   '@ledgerhq/context-module',
   '@ledgerhq/signer-utils',
@@ -183,6 +235,24 @@ const ledgerCjsByPackage = new Map(
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (
     (platform === 'ios' || platform === 'android') &&
+    moduleName === 'react-native-pager-view'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: nativePagerViewEntry,
+    };
+  }
+  if (
+    (platform === 'ios' || platform === 'android') &&
+    moduleName === '@aptos-labs/script-composer-pack'
+  ) {
+    return {
+      type: 'sourceFile',
+      filePath: aptosScriptComposerNativeStub,
+    };
+  }
+  if (
+    (platform === 'ios' || platform === 'android') &&
     moduleName === '@revenuecat/purchases-js-hybrid-mappings'
   ) {
     return {
@@ -196,12 +266,12 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       filePath: hyperliquidSigningPath,
     };
   }
-  // OneKey HWK SDK sub-path resolution (see HWK_SUBPATH_ALIASES above).
-  const hwkAliasPath = hwkSubpathAliasMap.get(moduleName);
-  if (hwkAliasPath) {
+  // Resolve only the explicitly listed sub-path exports above.
+  const subpathAliasPath = subpathExportAliasMap.get(moduleName);
+  if (subpathAliasPath) {
     return {
       type: 'sourceFile',
-      filePath: hwkAliasPath,
+      filePath: subpathAliasPath,
     };
   }
   if (
@@ -215,9 +285,10 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       // noop
     }
   }
-  // Strip Developer/Gallery from production union builds
+  // Strip Developer/Gallery from all production builds.
   if (
-    (process.env.UNION_BUILD === 'true' ||
+    (process.env.NODE_ENV === 'production' ||
+      process.env.UNION_BUILD === 'true' ||
       process.env.SPLIT_BUNDLE_SEGMENTS === 'true') &&
     context.originModulePath &&
     (moduleName.includes('/Developer/router') ||
@@ -354,13 +425,15 @@ if (process.env.RN_HARNESS === 'true') {
   };
 }
 
-const buildTimeEnv = require('@onekeyhq/shared/src/buildTimeEnv');
 // Metro does not include environment variables read by Babel plugins in its
 // transform cache key. Keep bundles compiled with different runtime layouts
 // in separate cache namespaces.
 config.cacheVersion = `${config.cacheVersion || 'default'}:native-bg-${
   buildTimeEnv.enableNativeBackgroundThread ? 'enabled' : 'disabled'
 }`;
+if (isDevVendorEnabled()) {
+  config.cacheVersion = `${config.cacheVersion}:dev-vendor-v1`;
+}
 
 if (buildTimeEnv.isDev && buildTimeEnv.enableNativeBackgroundThread) {
   const configuredMaxWorkers = Number.parseInt(
@@ -379,6 +452,45 @@ const getMetroRuntimeTarget = (context) =>
   context.customResolverOptions?.runtimeTarget ||
   process.env.METRO_RUNTIME_TARGET ||
   'main';
+
+// Native storage ownership is enforced at bundle resolution as well as at
+// runtime. This redirects application and third-party AsyncStorage imports to
+// the compatible bg proxy without patching dependencies. Deep imports are
+// rejected because they could bypass the adapter.
+//
+// MMKV stays closed to third-party packages — that is what the policy check
+// below enforces, in either runtime. First-party code may use it from main:
+// the UI-layer caches (SWR records, the cold-start snapshot) are main-owned so
+// the first frame can read them instead of waiting for bg to answer. Stores
+// that are a source of truth stay bg-owned by convention, and Travel Mode is
+// applied where those caches are created rather than at resolution.
+{
+  const previousResolveRequest = config.resolver.resolveRequest;
+  const asyncStorageAdapter = path.resolve(
+    monorepoRoot,
+    'packages/shared/src/storage/instance/nativeAsyncStorageInstance.ts',
+  );
+  config.resolver.resolveRequest = (context, moduleName, platform) => {
+    const thirdPartyMMKVImportError = getThirdPartyMMKVImportError({
+      moduleName,
+      originModulePath: context.originModulePath,
+    });
+    if (thirdPartyMMKVImportError) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(thirdPartyMMKVImportError);
+    }
+    if (moduleName === '@react-native-async-storage/async-storage') {
+      return { type: 'sourceFile', filePath: asyncStorageAdapter };
+    }
+    if (moduleName.startsWith('@react-native-async-storage/async-storage/')) {
+      // eslint-disable-next-line onekey/no-raw-error -- Metro config runs in Node before app error classes are available.
+      throw new Error(
+        `AsyncStorage deep import bypasses the native bg proxy: ${moduleName}`,
+      );
+    }
+    return previousResolveRequest(context, moduleName, platform);
+  };
+}
 
 // --- Native background thread: prefer `.native-ui` in the main runtime ---
 // In native background-thread mode, main-thread JS should prefer the
@@ -473,12 +585,31 @@ config.server.rewriteRequestUrl = (url) => {
     }resolver.runtimeTarget=${runtimeTarget}`;
   }
 
+  if (
+    isDevVendorEnabled() &&
+    !rewrittenUrl.includes('dev=false') &&
+    !rewrittenUrl.includes('resolver.devVendor=') &&
+    /\.(?:bundle|map)(?:\?|$)/.test(rewrittenUrl)
+  ) {
+    rewrittenUrl = `${rewrittenUrl}${
+      rewrittenUrl.includes('?') ? '&' : '?'
+    }resolver.devVendor=true`;
+  }
+  if (
+    isDevVendorEnabled() &&
+    !rewrittenUrl.includes('dev=false') &&
+    !rewrittenUrl.includes('unstable_transformProfile=') &&
+    /\.(?:bundle|map)(?:\?|$)/.test(rewrittenUrl)
+  ) {
+    rewrittenUrl = `${rewrittenUrl}${
+      rewrittenUrl.includes('?') ? '&' : '?'
+    }unstable_transformProfile=hermes-stable`;
+  }
+
   return rewrittenUrl;
 };
 
 // Apply split code plugin, then wrap with Rozenite plugin
-const splitCodePlugin = require('./plugins');
-
 const GET_TOP_DIR_SYMBOL = 'relative_dir_symbol';
 const buildRelativeDirPath = (url, depth = 2) => {
   const symbols = Array.from({ length: depth }, () => GET_TOP_DIR_SYMBOL).join(
@@ -493,6 +624,59 @@ const AssetsPaths = [
   '/node_modules/@expo-google-fonts',
   '/packages/kit/assets',
 ];
+
+const DEV_SESSION_WEB_EMBED_PREFIX = '/onekey-dev-session/web-embed/';
+const DEV_SESSION_WEB_EMBED_ROOT = path.join(
+  monorepoRoot,
+  'apps/web-embed/web-build',
+);
+const DEV_SESSION_WEB_EMBED_CONTENT_TYPES = new Map([
+  ['.css', 'text/css; charset=utf-8'],
+  ['.html', 'text/html; charset=utf-8'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.json', 'application/json; charset=utf-8'],
+  ['.png', 'image/png'],
+  ['.svg', 'image/svg+xml'],
+  ['.wasm', 'application/wasm'],
+]);
+
+const serveDevSessionWebEmbed = (req, res, next) => {
+  if (
+    !process.env.ONEKEY_DEV_SESSION_ID ||
+    !req.url.startsWith(DEV_SESSION_WEB_EMBED_PREFIX)
+  ) {
+    return next();
+  }
+  let relativePath;
+  try {
+    relativePath = decodeURIComponent(
+      req.url.slice(DEV_SESSION_WEB_EMBED_PREFIX.length).split('?', 1)[0],
+    );
+  } catch {
+    res.statusCode = 400;
+    res.end('Invalid web-embed path.');
+    return undefined;
+  }
+  const filePath = path.resolve(DEV_SESSION_WEB_EMBED_ROOT, relativePath);
+  if (
+    !relativePath ||
+    !filePath.startsWith(`${DEV_SESSION_WEB_EMBED_ROOT}${path.sep}`) ||
+    !fs.existsSync(filePath) ||
+    !fs.statSync(filePath).isFile()
+  ) {
+    res.statusCode = 404;
+    res.end('Web-embed asset not found.');
+    return undefined;
+  }
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader(
+    'Content-Type',
+    DEV_SESSION_WEB_EMBED_CONTENT_TYPES.get(path.extname(filePath)) ||
+      'application/octet-stream',
+  );
+  fs.createReadStream(filePath).pipe(res);
+  return undefined;
+};
 
 const applyFixImageAssetsMiddleware = (middleware) => {
   return (req, res, next) => {
@@ -529,8 +713,11 @@ const applyFixImageAssetsMiddleware = (middleware) => {
   };
 };
 
-config.server.enhanceMiddleware = (metroMiddleware, _metroServer) =>
-  connect().use(applyFixImageAssetsMiddleware(metroMiddleware));
+config.server.enhanceMiddleware = (metroMiddleware, _metroServer) => {
+  const assetMiddleware = applyFixImageAssetsMiddleware(metroMiddleware);
+  return (req, res, next) =>
+    serveDevSessionWebEmbed(req, res, () => assetMiddleware(req, res, next));
+};
 
 // STORYBOOK_ENABLED gates the app entry via babel env inlining, which Metro's
 // transform-cache key cannot see — flipping modes would serve stale transforms
@@ -543,11 +730,16 @@ config.cacheVersion = [
   .filter(Boolean)
   .join('-');
 
+const metroConfigWithPlugins = applyDevVendorConfig(
+  splitCodePlugin(config, projectRoot),
+  projectRoot,
+);
+
 module.exports = withRozenite(
   // On-device Storybook workbench. When STORYBOOK_ENABLED is unset the wrapper
   // strips every storybook module from the bundle via its resolver, so normal
   // and production builds are unaffected.
-  withStorybook(splitCodePlugin(config, projectRoot), {
+  withStorybook(metroConfigWithPlugins, {
     enabled: process.env.STORYBOOK_ENABLED === 'true',
     configPath: path.resolve(projectRoot, './.rnstorybook'),
     // Explicit localhost keeps the generated storybook.requires.ts stable —

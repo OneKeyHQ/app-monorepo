@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import BigNumber from 'bignumber.js';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { ESwapDirection } from './hooks/useTradeType';
 import {
   type ISwapPanelContentProps,
@@ -17,12 +19,41 @@ const setSlippageSettingMock = jest.fn();
 const resetAnalyticsMock = jest.fn();
 const logSwapActionMock = jest.fn();
 const tokenInputSectionMock = jest.fn();
+const swapProviderInfoItemMock = jest.fn();
+const swapRateDifferenceTextMock = jest.fn();
+const swapActionsStateMock = jest.fn();
+const swapQuoteResultMock = jest.fn();
+const swapStockHeaderRightActionContainerMock = jest.fn();
 
 jest.mock('@onekeyhq/components', () => ({
+  Icon: () => <span data-testid="icon" />,
+  NumberSizeableText: ({ children }: { children?: ReactNode }) => (
+    <span>{children}</span>
+  ),
   SizableText: ({ children }: { children?: ReactNode }) => (
     <div>{children}</div>
   ),
-  YStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Skeleton: () => <span data-testid="skeleton" />,
+  XStack: ({
+    children,
+    height,
+    pb,
+    pt,
+    testID,
+  }: {
+    children?: ReactNode;
+    height?: number | string;
+    pb?: number | string;
+    pt?: number | string;
+    testID?: string;
+  }) => (
+    <div data-height={height} data-pb={pb} data-pt={pt} data-testid={testID}>
+      {children}
+    </div>
+  ),
+  YStack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
+    <div data-testid={testID}>{children}</div>
+  ),
   Toast: {
     message: jest.fn(),
   },
@@ -38,7 +69,54 @@ jest.mock(
   '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem',
   () => ({
     __esModule: true,
-    default: () => <div data-testid="provider-info" />,
+    default: (props: { testID?: string }) => {
+      swapProviderInfoItemMock(props);
+      return <div data-testid={props.testID ?? 'provider-info'} />;
+    },
+  }),
+);
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Swap/components/SwapRateDifferenceText',
+  () => ({
+    SwapRateDifferenceText: (props: { rateDifference?: { value: string } }) => {
+      swapRateDifferenceTextMock(props);
+      return (
+        <span data-testid="rate-difference">{props.rateDifference?.value}</span>
+      );
+    },
+  }),
+);
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Swap/pages/components/SwapActionsState',
+  () => ({
+    __esModule: true,
+    default: (props: unknown) => {
+      swapActionsStateMock(props);
+      return <div data-testid="swap-actions-state" />;
+    },
+  }),
+);
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteResult',
+  () => ({
+    __esModule: true,
+    default: (props: unknown) => {
+      swapQuoteResultMock(props);
+      return <div data-testid="swap-quote-result" />;
+    },
+  }),
+);
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Swap/pages/components/SwapHeaderRightActionContainer',
+  () => ({
+    SwapStockHeaderRightActionContainer: (props: unknown) => {
+      swapStockHeaderRightActionContainerMock(props);
+      return <div data-testid="stock-header-actions" />;
+    },
   }),
 );
 
@@ -55,6 +133,20 @@ jest.mock('./components/TradeTypeSelector', () => ({
   TradeTypeSelector: () => <div data-testid="trade-type" />,
 }));
 
+jest.mock('../TokenSelector/StockTokenVariantSelector', () => ({
+  StockTokenVariantSelector: () => (
+    <div data-testid="stock-token-variant-selector" />
+  ),
+}));
+
+jest.mock('../StockTokenInfo/StockTokenInfoPopover', () => ({
+  StockTokenInfoPopover: () => <div data-testid="stock-token-info-popover" />,
+}));
+
+jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
+  BaseMarketTokenPrice: () => <div data-testid="market-token-price" />,
+}));
+
 jest.mock('./components/SwapPanelTop', () => ({
   __esModule: true,
   default: () => <div data-testid="panel-top" />,
@@ -67,8 +159,14 @@ jest.mock('./components/TokenInputSection', () => ({
       (
         {
           tradeType,
+          stockDetailDesktopLayout,
+          selectedToken,
+          selectedTokenLoading,
         }: {
           tradeType: ESwapDirection;
+          stockDetailDesktopLayout?: boolean;
+          selectedToken?: ISwapPanelContentProps['paymentTokenDisplay'];
+          selectedTokenLoading?: boolean;
         },
         ref,
       ) => {
@@ -77,7 +175,13 @@ jest.mock('./components/TokenInputSection', () => ({
         React.useImperativeHandle(ref, () => ({
           setValue,
         }));
-        tokenInputSectionMock({ tradeType, setValue });
+        tokenInputSectionMock({
+          tradeType,
+          stockDetailDesktopLayout,
+          selectedToken,
+          selectedTokenLoading,
+          setValue,
+        });
         return <div data-testid="token-input" />;
       },
     ),
@@ -87,9 +191,8 @@ jest.mock('./components/RateDisplay', () => ({
   RateDisplay: () => <div data-testid="rate-display" />,
 }));
 
-jest.mock('./components/SellForSelector', () => ({
-  __esModule: true,
-  default: () => <div data-testid="sell-selector" />,
+jest.mock('./components/TokenInputSection/TokenSelectorPopover', () => ({
+  TokenSelectorPopover: () => null,
 }));
 
 jest.mock('./components/SlippageSetting', () => ({
@@ -170,7 +273,10 @@ function createProps(): ISwapPanelContentProps {
       speedSwapDefaultAmount: [],
     },
     onSwap: jest.fn(),
+    onOpenRecipientAddress: jest.fn(),
     onWrappedSwap: jest.fn(),
+    onRefreshQuote: jest.fn(),
+    onForceRefreshQuote: jest.fn(),
     swapMevNetConfig: [],
     swapNativeTokenReserveGas: [],
     isWrapped: false,
@@ -189,6 +295,36 @@ function createProps(): ISwapPanelContentProps {
   };
 }
 
+function createLegacyStockProps(tradeType = ESwapDirection.BUY) {
+  const props = createProps();
+  const stockToken = {
+    ...props.currentMarketToken!,
+    symbol: 'AAPLB',
+    isStock: true,
+  };
+  props.currentMarketToken = stockToken;
+  props.balanceToken = { ...stockToken, speedSwapDefaultAmount: [] };
+  props.swapPanel.tradeType = tradeType;
+  props.swapPanel.paymentAmount = new BigNumber(100);
+  props.swapPanel.sellAmount = new BigNumber('0.5');
+  props.stockTokenToAssetRatio = '0.9985';
+  props.stockUnderlyingSymbol = 'AAPL';
+  props.quoteResult = {
+    info: { provider: 'liquidMesh', providerName: 'liquidMesh' },
+    fromTokenInfo:
+      tradeType === ESwapDirection.BUY
+        ? props.swapPanel.paymentToken!
+        : stockToken,
+    toTokenInfo:
+      tradeType === ESwapDirection.BUY
+        ? stockToken
+        : props.swapPanel.paymentToken!,
+    fromAmount: tradeType === ESwapDirection.BUY ? '100' : '0.5',
+    toAmount: tradeType === ESwapDirection.BUY ? '0.3219' : '50',
+  };
+  return props;
+}
+
 describe('SwapPanelContent', () => {
   beforeEach(() => {
     actionButtonMock.mockReset();
@@ -197,6 +333,57 @@ describe('SwapPanelContent', () => {
     resetAnalyticsMock.mockReset();
     logSwapActionMock.mockReset();
     tokenInputSectionMock.mockReset();
+    swapProviderInfoItemMock.mockReset();
+    swapRateDifferenceTextMock.mockReset();
+    swapActionsStateMock.mockReset();
+    swapQuoteResultMock.mockReset();
+    swapStockHeaderRightActionContainerMock.mockReset();
+  });
+
+  it('passes pending payment selection to Buy and displays the resolved default immediately', () => {
+    const props = createProps();
+    const cachedToken = props.swapPanel.paymentToken;
+    props.swapPanel.paymentToken = undefined;
+    props.paymentTokenDisplayLoading = true;
+    const { rerender } = render(<SwapPanelContent {...props} />);
+    expect(tokenInputSectionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tradeType: ESwapDirection.BUY,
+        selectedToken: undefined,
+        selectedTokenLoading: true,
+      }),
+    );
+    props.paymentTokenDisplay = cachedToken;
+    props.paymentTokenDisplayLoading = false;
+    tokenInputSectionMock.mockClear();
+    rerender(<SwapPanelContent {...props} />);
+    expect(tokenInputSectionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tradeType: ESwapDirection.BUY,
+        selectedToken: cachedToken,
+        selectedTokenLoading: false,
+      }),
+    );
+  });
+
+  it('shows Sell payment loading only until a token is available', () => {
+    const props = createProps();
+    props.swapPanel.tradeType = ESwapDirection.SELL;
+    const cachedToken = props.swapPanel.paymentToken;
+    props.swapPanel.paymentToken = undefined;
+    props.paymentTokenDisplayLoading = true;
+    const { rerender } = render(<SwapPanelContent {...props} />);
+    let sellRow = screen.getByText(
+      ETranslations.promode_limit_sell_for,
+    ).parentElement;
+    expect(sellRow?.querySelector('[data-testid="skeleton"]')).not.toBeNull();
+    props.paymentTokenDisplay = cachedToken;
+    rerender(<SwapPanelContent {...props} />);
+    sellRow = screen.getByText(
+      ETranslations.promode_limit_sell_for,
+    ).parentElement;
+    expect(sellRow?.querySelector('[data-testid="skeleton"]')).toBeNull();
+    expect(sellRow?.textContent).toContain('USDC');
   });
 
   it('routes the main action button to the review swap handler', () => {
@@ -223,6 +410,275 @@ describe('SwapPanelContent', () => {
       paymentToken: props.swapPanel.paymentToken,
       marketToken: props.currentMarketToken,
     });
+  });
+
+  it('uses the dedicated Figma trading ticket on stock desktop detail', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(screen.getByTestId('stock-trade-target')).toBeTruthy();
+    expect(screen.getByTestId('stock-trade-estimated-received')).toBeTruthy();
+    expect(screen.queryByTestId('market-token-selector')).toBeNull();
+    expect(screen.queryByTestId('panel-top')).toBeNull();
+    expect(screen.queryByTestId('rate-display')).toBeNull();
+    expect(screen.queryByTestId('stock-trade-estimated-shares')).toBeNull();
+    expect(screen.getByTestId('swap-quote-result')).toBeTruthy();
+    expect(screen.getByTestId('stock-header-actions')).toBeTruthy();
+    expect(swapStockHeaderRightActionContainerMock).toHaveBeenCalledWith({
+      storeName: 'marketSwap',
+    });
+    expect(
+      screen
+        .getByTestId('stock-trade-estimated-received')
+        .querySelector('[data-testid="icon"]'),
+    ).toBeNull();
+
+    expect(tokenInputSectionMock).toHaveBeenCalledTimes(2);
+    expect(tokenInputSectionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ stockDetailDesktopLayout: true }),
+    );
+    expect(actionButtonMock).not.toHaveBeenCalled();
+    expect(swapActionsStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onOpenRecipientAddress: props.onOpenRecipientAddress,
+        onRefreshQuote: expect.any(Function),
+        onPreSwap: expect.any(Function),
+      }),
+    );
+  });
+
+  it('routes the shared Trade review action through the Market review flow', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+
+    render(<SwapPanelContent {...props} />);
+
+    const actionProps = swapActionsStateMock.mock.lastCall?.[0] as {
+      onPreSwap: () => void;
+      onRefreshQuote: () => void;
+    };
+    actionProps.onPreSwap();
+    actionProps.onRefreshQuote();
+
+    expect(props.onSwap).toHaveBeenCalledTimes(1);
+    expect(props.onRefreshQuote).toHaveBeenCalledWith(true);
+    expect(logSwapActionMock).toHaveBeenCalledWith({
+      tradeType: props.swapPanel.tradeType,
+      networkId: props.swapPanel.networkId,
+      paymentToken: props.swapPanel.paymentToken,
+      marketToken: props.currentMarketToken,
+    });
+  });
+
+  it('renders live stock quote values and delegates rate and provider details to Swap', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+    props.swapPanel.paymentAmount = new BigNumber(100);
+    props.stockTokenToAssetRatio = '0.9985';
+    props.stockUnderlyingSymbol = 'AAPL';
+    props.quoteListLength = 2;
+    props.stockQuoteDisplay = {
+      currencySymbol: '$',
+      receiveFiatValue: '99.789',
+      rateDifference: {
+        value: '-0.21%',
+        unit: 'negative' as never,
+      },
+    };
+    props.quoteResult = {
+      info: {
+        provider: 'liquidMesh',
+        providerLogo: 'https://example.com/provider.png',
+        providerName: 'liquidMesh',
+      },
+      isBest: true,
+      fromAmount: '100',
+      toAmount: '0.3219',
+      fromTokenInfo: {
+        networkId: 'evm--1',
+        contractAddress: '0xpay',
+        symbol: 'USDC',
+        decimals: 6,
+      },
+      toTokenInfo: {
+        networkId: 'evm--1',
+        contractAddress: '0xmarket',
+        symbol: 'AAPLon',
+        decimals: 18,
+      },
+    };
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(screen.getByText('0.3219')).toBeTruthy();
+    expect(screen.getByText('AAPLon')).toBeTruthy();
+    expect(screen.getByText('99.789')).toBeTruthy();
+    expect(screen.getByText('-0.21%')).toBeTruthy();
+    expect(screen.getByText('0.32141715')).toBeTruthy();
+    expect(screen.getByText('AAPL')).toBeTruthy();
+    const estimatedSharesRow = screen.getByTestId(
+      'stock-trade-estimated-shares',
+    );
+    expect(estimatedSharesRow.getAttribute('data-pb')).toBe('$2');
+    expect(estimatedSharesRow.getAttribute('data-pt')).toBe('$0');
+    expect(estimatedSharesRow.hasAttribute('data-height')).toBe(false);
+    expect(swapQuoteResultMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onOpenProviderList: props.onOpenProviderList,
+        quoteResult: props.quoteResult,
+        refreshAction: props.onForceRefreshQuote,
+      }),
+    );
+    expect(swapProviderInfoItemMock).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    'hides unavailable ratios in stock layout (desktop=%p)',
+    (stockDetailDesktopLayout) => {
+      for (const ratio of [
+        undefined,
+        '',
+        '  ',
+        '0',
+        '-1',
+        'NaN',
+        'Infinity',
+        'invalid',
+      ]) {
+        const props = createLegacyStockProps();
+        props.stockDetailDesktopLayout = stockDetailDesktopLayout;
+        props.stockTokenToAssetRatio = ratio;
+
+        const { unmount } = render(<SwapPanelContent {...props} />);
+
+        expect(screen.queryByTestId('stock-trade-estimated-shares')).toBeNull();
+        unmount();
+      }
+    },
+  );
+
+  it.each([
+    [true, false],
+    [true, true],
+    [false, false],
+    [false, true],
+  ])(
+    'keeps valid-ratio shares visible before a quote (desktop=%p, loading=%p)',
+    (stockDetailDesktopLayout, quoteLoading) => {
+      const props = createLegacyStockProps();
+      props.stockDetailDesktopLayout = stockDetailDesktopLayout;
+      props.stockTokenToAssetRatio = ' 0.9985 ';
+      props.quoteLoading = quoteLoading;
+      props.quoteResult = undefined;
+
+      render(<SwapPanelContent {...props} />);
+
+      const row = screen.getByTestId('stock-trade-estimated-shares');
+      if (quoteLoading) {
+        expect(row.querySelector('[data-testid="skeleton"]')).not.toBeNull();
+      } else {
+        expect(row.textContent).toContain('--');
+      }
+    },
+  );
+
+  it.each([
+    [ESwapDirection.BUY, '0.32141715'],
+    [ESwapDirection.SELL, '0.49925'],
+  ] as const)(
+    'shows estimated shares in the narrow Market layout for %s',
+    (tradeType, shares) => {
+      render(<SwapPanelContent {...createLegacyStockProps(tradeType)} />);
+      const row = screen.getByTestId('stock-trade-estimated-shares');
+      expect(row.textContent).toContain(shares);
+      expect(row.textContent).toContain('AAPL');
+      expect(screen.getByTestId('rate-display')).toBeTruthy();
+      expect(screen.getByTestId('action-button')).toBeTruthy();
+      expect(screen.queryByTestId('stock-trade-target')).toBeNull();
+    },
+  );
+
+  it.each(['amount', 'send token', 'receive token'])(
+    'hides shares from an old quote after changing the %s',
+    (changed) => {
+      const props = createLegacyStockProps();
+      if (changed === 'amount') {
+        props.swapPanel.paymentAmount = new BigNumber(200);
+      } else if (changed === 'send token') {
+        props.swapPanel.paymentToken = {
+          ...props.swapPanel.paymentToken!,
+          contractAddress: '0xother',
+        };
+      } else {
+        props.currentMarketToken = {
+          ...props.currentMarketToken!,
+          contractAddress: '0xother',
+        };
+      }
+      render(<SwapPanelContent {...props} />);
+      expect(
+        screen.getByTestId('stock-trade-estimated-shares').textContent,
+      ).toContain('--');
+    },
+  );
+
+  it('keeps the shares row out of ordinary token Market trades', () => {
+    const props = createProps();
+    props.stockTokenToAssetRatio = '1';
+    render(<SwapPanelContent {...props} />);
+    expect(screen.queryByTestId('stock-trade-estimated-shares')).toBeNull();
+  });
+
+  it('keeps the shared Connect wallet action enabled without an account', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+    props.activeAccount = {} as never;
+    props.isActionDisabled = true;
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(swapActionsStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        forceNoConnectWallet: true,
+        disabled: false,
+        forceQuoteActionLoading: false,
+      }),
+    );
+  });
+
+  it('preserves the full Swap fallback when speed swap is unsupported', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+    props.supportSpeedSwap.enabled = false;
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(swapActionsStateMock).not.toHaveBeenCalled();
+    expect(actionButtonMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        supportSpeedSwap: false,
+        isAccountNetworkSupported: true,
+      }),
+    );
+  });
+
+  it('disables stock trading until a token variant identity is available', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+    expect(props.currentMarketToken).toBeDefined();
+    if (!props.currentMarketToken) {
+      return;
+    }
+    props.currentMarketToken.networkId = '';
+    props.currentMarketToken.contractAddress = '';
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(swapActionsStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ disabled: true }),
+    );
   });
 
   it('routes wrapped pairs through the wrapped review handler', () => {
@@ -358,6 +814,22 @@ describe('SwapPanelContent', () => {
     render(<SwapPanelContent {...props} />);
 
     expect(screen.getByTestId('market-preset-selector')).toBeTruthy();
+    expect(screen.queryByTestId('slippage')).toBeNull();
+  });
+
+  it('uses Trade-Stock settings and history instead of Market presets on stock desktop', () => {
+    const props = createProps();
+    props.stockDetailDesktopLayout = true;
+    props.marketPresetSettings = {
+      enabled: true,
+      isLoading: false,
+      presets: [],
+    } as never;
+
+    render(<SwapPanelContent {...props} />);
+
+    expect(screen.getByTestId('stock-header-actions')).toBeTruthy();
+    expect(screen.queryByTestId('market-preset-selector')).toBeNull();
     expect(screen.queryByTestId('slippage')).toBeNull();
   });
 

@@ -26,7 +26,9 @@ export const HomeTestIDs = {
   buyButton: 'home-buy-button',
   stakingButton: 'home-staking-button',
   moreButton: 'home-more-button',
+  portfolioUpdateAction: 'home-update-portfolio-action',
   addMoneyButton: 'home-add-money-button',
+  walletActionsLoading: 'home-wallet-actions-loading',
 
   // Wallet overview
   walletOverview: 'home-wallet-overview',
@@ -38,7 +40,6 @@ export const HomeTestIDs = {
     `home-token-item-${networkId}-${symbol}`,
 
   // Risk approval
-  riskApprovalAlert: 'home-risk-approval-alert',
   approvalListEmpty: 'Wallet-Approval-Unsupported-Empty', // preserve existing
 
   // Referral web landing steps
@@ -50,6 +51,14 @@ export const HomeTestIDs = {
     'home-redeem-bitcoin-voucher-open-app-fallback-btn',
   redeemBitcoinVoucherDownloadFallbackBtn:
     'home-redeem-bitcoin-voucher-download-fallback-btn',
+  primeSubscriptionOpenAppFallbackBtn:
+    'home-prime-subscription-open-app-fallback-btn',
+  primeSubscriptionDownloadFallbackBtn:
+    'home-prime-subscription-download-fallback-btn',
+  primePurchaseCompleteOpenAppFallbackBtn:
+    'home-prime-purchase-complete-open-app-fallback-btn',
+  primePurchaseCompleteDownloadFallbackBtn:
+    'home-prime-purchase-complete-download-fallback-btn',
 
   // Zero-gas continue confirmation
   walletActionsZeroGasContinueBtn: 'home-wallet-actions-zero-gas-continue-btn',

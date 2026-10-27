@@ -1,0 +1,191 @@
+import type { ComponentType } from 'react';
+
+import { StyleSheet, View } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
+
+import { ClassicDevice } from '../ClassicDevice';
+import { MiniDevice } from '../MiniDevice';
+import { Pro2Device } from '../Pro2Device';
+import { ProDevice } from '../ProDevice';
+import { TouchDevice } from '../TouchDevice';
+
+import type { IClassicDeviceScene } from '../ClassicDevice';
+import type { IMiniDeviceScene } from '../MiniDevice';
+import type { IPro2DeviceScene } from '../Pro2Device';
+import type { IProDeviceScene } from '../ProDevice';
+import type { ITouchDeviceScene } from '../TouchDevice';
+
+export type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
+
+/**
+ * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
+ * ../MiniDevice, ../ProDevice, ../TouchDevice and ../Pro2Device are the
+ * per-model drawings behind it, not a second way in. Call sites hold the
+ * model at runtime and fix the scenario at build time:
+ *
+ *   <HardwareDevice deviceType={deviceType} animation="confirm" />
+ *
+ * It owns the two mappings that would otherwise be copied to every call site:
+ * the Classic family collapsing onto one replica, and models without a
+ * replica rendering nothing.
+ *
+ * Only the routing is shared. The shells stay apart because they draw
+ * different objects - the Classic carries noise, blurs, four physical keys
+ * and a 256x128 OLED; the Mini is a white slab with a near-square OLED and
+ * four engraved membrane keys (its screens are the Classic's, re-laid);
+ * the Pro has none of that and a 288x484 touchscreen; the Touch is a
+ * slab with a wide bezel whose screen window runs the Pro's screens,
+ * scaled; the
+ * Pro 2 is an edge-to-edge glass slab in a blurred-stroke metal frame -
+ * and what they genuinely have in common already lives in ../deviceScene.
+ * Live screen content, when something needs it, attaches per model at
+ * that layer, where the canvas and the key presses are known.
+ */
+
+/**
+ * Every value of the hardware SDK's EDeviceType, as plain strings. Declared
+ * here rather than imported so @onekeyhq/components stays clear of the
+ * hardware SDK; the enum's members assign to these literals, so callers pass
+ * their `deviceType` straight through.
+ */
+export type IHardwareDeviceType =
+  | 'unknown'
+  | 'classic'
+  | 'classic1s'
+  | 'classicpure'
+  | 'mini'
+  | 'touch'
+  | 'pro'
+  | 'pro2'
+  | 'neo';
+
+/**
+ * The scenes every replica implements. Intersecting the per-device unions
+ * keeps this honest without a second list to maintain: a scene added to
+ * only one device drops out of the shared set instead of being wrongly
+ * offered. A device may implement a scene as a dark screen when that is
+ * what the physical device shows at that moment.
+ */
+export type IHardwareDeviceScene = IClassicDeviceScene &
+  IMiniDeviceScene &
+  IProDeviceScene &
+  ITouchDeviceScene &
+  IPro2DeviceScene;
+
+export interface IHardwareDeviceProps {
+  /**
+   * Model of the connected device. A model with no replica (unknown)
+   * renders nothing, as does a missing device.
+   */
+  deviceType?: IHardwareDeviceType | null;
+  /** Built-in scene. Omitted: a static device with a dark screen. */
+  animation?: IHardwareDeviceScene;
+  /** Rendered width in points; height follows each model's aspect ratio. */
+  width?: number;
+  /**
+   * The next entry arrives already lit — granted per arrival by presenters
+   * that carry the entrance themselves (see ../deviceSceneHost).
+   */
+  instantEntry?: boolean;
+  /**
+   * The scene's clock stands down at its opening still, and clearing the
+   * flag restarts the loop from 0. For instances a presenter keeps mounted
+   * but hidden: a parked screen neither animates unseen nor gets caught
+   * mid-loop by its reveal.
+   */
+  paused?: boolean;
+  /**
+   * The troupe grant: every listed scene stays built on the glass, parked
+   * hidden, and `animation` names the visible one — a crossing is an
+   * opacity flip, never a build. Presenters grow the list over idle beats
+   * and carry the fades themselves; while the list is non-empty it
+   * replaces the single-scene swap grammar (see ../deviceSceneHost).
+   */
+  warmScenes?: readonly IHardwareDeviceScene[];
+  /**
+   * Soft drop shadow under the replica. It follows the drawn silhouette
+   * rather than the frame: the frame is wider than the body (the side
+   * button sits inside it and each model's chrome differs), so a box
+   * shadow would spill past the shell.
+   */
+  shadow?: boolean;
+  /**
+   * The device's finish, as its serial number names it (see
+   * shared/utils/hardwareDeviceColors). Classic 1s / Pure support transparent
+   * shells, and Pro 2 supports its colored shells. Omitted or unknown:
+   * the model's default, black.
+   */
+  color?: IHardwareDeviceColor;
+}
+
+/** What the router hands every replica: its own props minus the model. */
+type IReplicaProps = Omit<IHardwareDeviceProps, 'deviceType'>;
+
+const SHADOW_OPACITY = 0.35;
+const SHADOW_BLUR = 10;
+const SHADOW_DROP = 8;
+
+const styles = StyleSheet.create({
+  shadow: platformEnv.isNative
+    ? {
+        shadowColor: '#000000',
+        shadowOpacity: SHADOW_OPACITY,
+        shadowRadius: SHADOW_BLUR,
+        shadowOffset: { width: 0, height: SHADOW_DROP },
+      }
+    : {
+        filter: `drop-shadow(0 ${SHADOW_DROP}px ${SHADOW_BLUR}px rgba(0,0,0,${SHADOW_OPACITY}))`,
+      },
+});
+
+/**
+ * The routing table: which models draw which replica. The Classic family
+ * collapses onto one; a model missing here (unknown) has no replica
+ * and renders nothing, so "has a replica" is stated exactly once.
+ */
+const REPLICAS: Partial<
+  Record<IHardwareDeviceType, ComponentType<IReplicaProps>>
+> = {
+  classic: ClassicDevice,
+  classic1s: ClassicDevice,
+  classicpure: ClassicDevice,
+  mini: MiniDevice,
+  pro: ProDevice,
+  touch: TouchDevice,
+  pro2: Pro2Device,
+  // A model without a drawing of its own yet stands on the Pro replica.
+  neo: ProDevice,
+};
+
+export function HardwareDevice({
+  deviceType,
+  animation,
+  width,
+  instantEntry,
+  paused,
+  warmScenes,
+  shadow,
+  color,
+}: IHardwareDeviceProps) {
+  const Replica = deviceType ? REPLICAS[deviceType] : undefined;
+  if (!Replica) return null;
+  const replicaColor =
+    color === 'Transparent' &&
+    deviceType !== 'classic1s' &&
+    deviceType !== 'classicpure'
+      ? undefined
+      : color;
+  const replica = (
+    <Replica
+      width={width}
+      animation={animation}
+      instantEntry={instantEntry}
+      paused={paused}
+      warmScenes={warmScenes}
+      color={replicaColor}
+    />
+  );
+  return shadow ? <View style={styles.shadow}>{replica}</View> : replica;
+}

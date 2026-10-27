@@ -612,6 +612,18 @@ class ServiceIdentityExit extends ServiceBase {
             'The account was deleted, but local identity cleanup is pending recovery.',
           );
         }
+        if (user.onekeyUserId) {
+          // Pending free-trial usage reports belong to the deleted account
+          // (confirmed or unknown outcome alike: the local identity is gone).
+          // Best effort: it must never block the deletion flow.
+          try {
+            await this.backgroundApi.servicePrimeFreeTrial.clearUserData({
+              onekeyUserId: user.onekeyUserId,
+            });
+          } catch {
+            // clearUserData logs its own failures
+          }
+        }
         journal = {
           ...journal,
           status: 'localStateCommitted',

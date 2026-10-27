@@ -28,14 +28,11 @@ import {
   useIsSplitDetailActive,
   usePageWidth,
   useSafeAreaInsets,
+  useTheme,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -44,6 +41,11 @@ import {
   EModalPerpRoutes,
   type IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
@@ -277,6 +279,11 @@ function MobilePerpCandlesStatic({
 }
 
 function MobilePerpMarket() {
+  const theme = useTheme();
+  const chartHeaderStyle = useMemo(
+    () => ({ backgroundColor: theme.bgApp.val }),
+    [theme.bgApp.val],
+  );
   const route = useAppRoute<
     IModalPerpParamList,
     EModalPerpRoutes.MobilePerpMarket
@@ -436,7 +443,7 @@ function MobilePerpMarket() {
       >
         <SizableText size="$headingMd">{pairLabel}</SizableText>
         <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
-        <PerpDexBadge dexLabel={dexLabel} />
+        <PerpDexBadge dexLabel={dexLabel} interactive={isSplitDetailActive} />
         {isSplitDetailActive ? null : (
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         )}
@@ -444,10 +451,11 @@ function MobilePerpMarket() {
     );
   }, [dexLabel, displayName, isSplitDetailActive, mode, onPressTokenSelector]);
   useEffect(() => {
-    appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+    const ownerId = createHideTabBarOwnerId('perp-market');
+    requestHideTabBar(ownerId);
 
     return () => {
-      appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+      releaseHideTabBar(ownerId);
     };
   }, []);
 
@@ -732,6 +740,7 @@ function MobilePerpMarket() {
               ) : platformEnv.isNativeIOS ? (
                 <Tabs.Container
                   initialTabName="orderbook"
+                  headerContainerStyle={chartHeaderStyle}
                   renderHeader={() => (
                     <MobilePerpCandlesHeader
                       isInteractionOverlayOpen={

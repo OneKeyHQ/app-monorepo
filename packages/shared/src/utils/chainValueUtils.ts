@@ -145,6 +145,27 @@ function fixNativeTokenMaxSendAmount({
   return fixedAmountBN.toFixed();
 }
 
+/**
+ * Floor a native token amount to the precision the network can represent.
+ *
+ * Fee totals on some chains resolve to fractional base units (e.g. Cosmos
+ * `gasPrice × gasLimit`), so a max-send preview of `balance - fee` can carry
+ * more decimals than the native token has. Vaults floor the broadcast amount
+ * to the network decimals; applying the same floor here keeps the confirm page
+ * equal to what the device signs.
+ */
+function floorNativeTokenAmount({
+  amount,
+  network,
+}: {
+  amount: string | BigNumber;
+  network: IServerNetwork;
+}) {
+  return new BigNumber(amount)
+    .dp(network.decimals, BigNumber.ROUND_FLOOR)
+    .toFixed();
+}
+
 const SATS_PER_BTC = 100_000_000; // 1 BTC = 100,000,000 sats
 
 function convertBtcToSats(btc: string | number): string {
@@ -186,6 +207,7 @@ export default {
   convertTokenChainValueToAmount,
   convertTokenAmountToChainValue,
   fixNativeTokenMaxSendAmount,
+  floorNativeTokenAmount,
   convertBtcToSats,
   convertSatsToBtc,
   getLightningAmountDecimals,

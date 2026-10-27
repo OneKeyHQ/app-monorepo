@@ -31,7 +31,13 @@ import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
+import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
@@ -64,6 +70,7 @@ import type {
   IDBAccount,
   IDBContext,
   IDBCreateHDWalletParams,
+  IDBCreateHwWalletParams,
   IDBCredentialBase,
   IDBWallet,
   ILocalDBGetRecordByIdParams,
@@ -375,7 +382,7 @@ class TestLocalDb extends LocalDbBase {
         credential: IDBCredentialBase,
       ) => IDBCredentialBase | Promise<IDBCredentialBase>;
       const recordPairIds =
-        recordPairs?.map((pair) => pair[0].id).filter(Boolean) ?? [];
+        recordPairs?.map((pair) => pair[0]?.id).filter(Boolean) ?? [];
       const targetIds = ids.length ? ids : recordPairIds;
       this.credentials = await Promise.all(
         this.credentials.map(async (credential) => {
@@ -394,7 +401,10 @@ class TestLocalDb extends LocalDbBase {
     ids = [],
     recordPairs = [],
   }: ILocalDBTxRemoveRecordsParams<T>): Promise<void> {
-    const targetIds = [...ids, ...recordPairs.map(([record]) => record.id)];
+    const targetIds = [
+      ...ids,
+      ...recordPairs.map(([record]) => record?.id).filter(Boolean),
+    ];
     if (name === ELocalDBStoreNames.Wallet) {
       this.wallets = this.wallets.filter(
         (wallet) => !targetIds.includes(wallet.id),
@@ -699,6 +709,113 @@ describe('LocalDbBase.createHDWallet', () => {
 });
 
 describe('LocalDbBase.createHwWallet', () => {
+  it.each([
+    [EHardwareVendor.trezor, undefined],
+    [EHardwareVendor.trezor, EHardwareTransportType.WEBUSB],
+    [EHardwareVendor.trezor, EHardwareTransportType.BLE],
+    [EHardwareVendor.ledger, EHardwareTransportType.WEBUSB],
+    [EHardwareVendor.ledger, EHardwareTransportType.BLE],
+  ] as const)(
+    'persists %s transport columns without a legacy locator (%s)',
+    async (vendor, transportType) => {
+      const db = new TestLocalDb();
+      jest.spyOn(db, 'buildHwWalletId').mockResolvedValue({
+        dbDeviceId: 'saved-device',
+        dbWalletId: 'hw-saved',
+        deviceUUID: '',
+        rawDeviceId: 'saved-identity',
+      });
+      jest.spyOn(db, 'timeNow').mockResolvedValue(1);
+      const addDevice = jest.spyOn(db, 'txAddDbDevice');
+      const device = {
+        connectId: '',
+        uuid: '',
+        deviceId: 'saved-identity',
+        usbConnectId: 'saved-usb',
+        bleConnectId: 'saved-ble',
+        deviceType: EDeviceType.Unknown,
+        name: vendor,
+      };
+      await db.createHwWallet({
+        device,
+        features: {} as IDBCreateHwWalletParams['features'],
+        vendor,
+        transportType,
+      });
+      expect(addDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          device: expect.objectContaining({
+            connectId: '',
+            uuid: '',
+            usbConnectId: 'saved-usb',
+            bleConnectId: 'saved-ble',
+          }),
+        }),
+      );
+    },
+  );
+
+  it('still rejects onekey without its primary id', async () => {
+    const db = new TestLocalDb();
+    const transaction = jest.spyOn(db, 'withTransaction');
+    await expect(
+      db.createHwWallet({
+        vendor: EHardwareVendor.onekey,
+        features: {} as IDBCreateHwWalletParams['features'],
+        device: {
+          connectId: '',
+          uuid: '',
+          deviceId: 'identity',
+          name: EHardwareVendor.onekey,
+          deviceType: EDeviceType.Unknown,
+        },
+      }),
+    ).rejects.toThrow('connectId is required');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['usb', 'keystone-usb-serial', 'keystone-usb-serial'],
+    ['qr', undefined, undefined],
+  ] as const)(
+    'persists a %s Keystone keyed by deviceId with an empty connectId',
+    async (connectionType, usbConnectId, expectedUsbConnectId) => {
+      const db = new TestLocalDb();
+      jest.spyOn(db, 'buildHwWalletId').mockResolvedValue({
+        dbDeviceId: 'keystone-device',
+        dbWalletId: 'hw-keystone',
+        deviceUUID: '',
+        rawDeviceId: 'a1b2c3d4',
+      });
+      jest.spyOn(db, 'timeNow').mockResolvedValue(1);
+      const addDevice = jest.spyOn(db, 'txAddDbDevice');
+      await db.createHwWallet({
+        vendor: EHardwareVendor.keystone,
+        features: {} as IDBCreateHwWalletParams['features'],
+        transportType: EHardwareTransportType.WEBUSB,
+        device: {
+          connectId: null,
+          uuid: '',
+          deviceId: 'a1b2c3d4',
+          usbConnectId,
+          name: 'Keystone',
+          deviceType: EDeviceType.Unknown,
+          raw: { connectionType },
+        } as unknown as IDBCreateHwWalletParams['device'],
+      });
+      expect(addDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          device: expect.objectContaining({
+            connectId: '',
+            deviceId: 'a1b2c3d4',
+            usbConnectId: expectedUsbConnectId,
+            bleConnectId: undefined,
+          }),
+        }),
+      );
+    },
+  );
+
   it('returns the persisted wallet before refill for label synchronization', async () => {
     const db = new TestLocalDb();
     db.wallets = [
@@ -779,6 +896,38 @@ describe('LocalDbBase local secret envelope credentials', () => {
 
   afterAll(() => {
     jest.restoreAllMocks();
+  });
+
+  it('verifies the portable control-plane verifier without reading LocalDB in Travel Mode', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    const verifyString = await encryptVerifyString({ password });
+    const maskedEnvironment = RuntimeEnvironment.create(
+      getTravelModeRuntimeProfile(true),
+    );
+    const environmentSpy = jest
+      .spyOn(travelModeManager, 'getRuntimeEnvironment')
+      .mockResolvedValue(maskedEnvironment);
+    const verifierSpy = jest
+      .spyOn(travelModeManager, 'getVerifyString')
+      .mockResolvedValue(verifyString);
+    const getContextSpy = jest.spyOn(db, 'getContext');
+    const postVerifySpy = jest.spyOn(db, 'runPostPasswordVerifiedLazyUpgrade');
+
+    try {
+      await expect(
+        db.verifyPassword({ password, skipLazyUpgrade: true }),
+      ).resolves.toBeUndefined();
+
+      expect(verifierSpy).toHaveBeenCalledTimes(1);
+      expect(getContextSpy).not.toHaveBeenCalled();
+      expect(postVerifySpy).not.toHaveBeenCalled();
+    } finally {
+      environmentSpy.mockRestore();
+      verifierSpy.mockRestore();
+      getContextSpy.mockRestore();
+      postVerifySpy.mockRestore();
+    }
   });
 
   it('starts post-password lazy upgrade after getContext verifies the password', async () => {
@@ -2709,6 +2858,55 @@ describe('LocalDbBase local secret envelope credentials', () => {
     );
   });
 
+  it('wraps online HLP credentials directly in LSE in Web DApp mode', async () => {
+    const originalIsWebDappMode = platformEnv.isWebDappMode;
+    platformEnv.isWebDappMode = true;
+    try {
+      const db = new TestLocalDb();
+      db.context.localPasswordKdfUpgraded = true;
+      db.context.localPasswordKdfUpgradedTargetIterations =
+        PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+      db.context.localSecretEnvelopeCredentialMigrated = true;
+      db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 1;
+      const credential = {
+        userAddress: '0x1111111111111111111111111111111111111111',
+        agentName: EHyperLiquidAgentName.OneKeyAgent1,
+        privateKey:
+          '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        agentAddress: '0x2222222222222222222222222222222222222222',
+        validUntil: 1_900_000_000_000,
+      };
+      const credentialId = accountUtils.buildHyperLiquidAgentCredentialId({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      });
+      db.credentials = [
+        {
+          id: credentialId,
+          credential: encryptHyperLiquidAgentCredential({ credential }),
+        },
+      ];
+      const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+      jest
+        .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+        .mockResolvedValue({
+          layerAdapters: [adapter],
+          strength: 'profile-bound',
+        });
+
+      await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
+
+      expect(isLocalSecretEnvelopeString(db.credentials[0].credential)).toBe(
+        true,
+      );
+      expect(
+        parseLocalSecretEnvelopeV1(db.credentials[0].credential).innerPrefix,
+      ).toBe('|HLP|');
+    } finally {
+      platformEnv.isWebDappMode = originalIsWebDappMode;
+    }
+  });
+
   it('does not scan LSE credentials after the persistent migration marker is set', async () => {
     const db = new TestLocalDb();
     db.context.localPasswordKdfUpgraded = true;
@@ -2726,8 +2924,63 @@ describe('LocalDbBase local secret envelope credentials', () => {
 });
 
 describe('LocalDbBase HyperLiquid agent password session', () => {
+  const originalIsWebDappMode = platformEnv.isWebDappMode;
+
   afterEach(async () => {
+    platformEnv.isWebDappMode = originalIsWebDappMode;
     await hyperLiquidAgentSecretSession.clear();
+  });
+
+  it('stores and reads Web DApp credentials as LSE(HLP) without a password session', async () => {
+    platformEnv.isWebDappMode = true;
+    const db = new TestLocalDb();
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+    const sessionEncryptSpy = jest.spyOn(
+      hyperLiquidAgentSecretSession,
+      'encryptCredential',
+    );
+    const credential = {
+      userAddress: '0x3333333333333333333333333333333333333333',
+      agentName: EHyperLiquidAgentName.OneKeyAgent1,
+      privateKey:
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      agentAddress: '0x4444444444444444444444444444444444444444',
+      validUntil: 2_000_000_000_000,
+    };
+
+    try {
+      const { credentialId } = await db.addHyperLiquidAgentCredential({
+        credential,
+      });
+      const storedCredential = await db.getCredentialRaw(credentialId);
+      const updateSpy = jest.spyOn(db, 'updateHyperLiquidAgentCredential');
+
+      expect(isLocalSecretEnvelopeString(storedCredential.credential)).toBe(
+        true,
+      );
+      expect(
+        parseLocalSecretEnvelopeV1(storedCredential.credential).innerPrefix,
+      ).toBe('|HLP|');
+      expect(storedCredential.credential).not.toContain(credential.privateKey);
+      expect(sessionEncryptSpy).not.toHaveBeenCalled();
+      expect(db.getCachedPasswordMock).not.toHaveBeenCalled();
+      expect(hyperLiquidAgentSecretSession.isReady()).toBe(false);
+      await expect(
+        db.getHyperLiquidAgentCredential({
+          userAddress: credential.userAddress,
+          agentName: credential.agentName,
+        }),
+      ).resolves.toEqual(credential);
+      expect(updateSpy).not.toHaveBeenCalled();
+    } finally {
+      sessionEncryptSpy.mockRestore();
+    }
   });
 
   it('migrates an online HLP credential directly to LSE(HLE) on unlock', async () => {

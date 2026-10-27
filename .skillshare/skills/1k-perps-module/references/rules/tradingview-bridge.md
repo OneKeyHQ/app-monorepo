@@ -1,48 +1,39 @@
-# TradingView and K-line Bridge
+# Perps TradingView Bridge
 
-Open this for Perps chart, K-line, TradingView iframe, chart lines, offline recovery, or symbol switching.
+Use for Perps candles, readiness, chart lines, order intents and recovery. Generic bridge protocols also use `$1k-tradingview-communication`; layout/scroll work can start with [layout and interaction](layout-interactions.md).
 
-## Code anchors
+## Current owners
 
-- `packages/kit/src/views/Perp/components/PerpCandles.tsx` - Perps chart surface.
-- `packages/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2.tsx` - Perps TradingView bridge; `SYMBOL_CHANGE` and chart-line messages live here.
-- `packages/kit/src/components/TradingView/TradingViewPerpsV2/constants/messageTypes.ts` - message type constants (`tradingview_perpsReady`, `tradingview_chartReady`).
-- `packages/shared/src/utils/perpsUtils.ts` - price scale and display helpers.
-- Use `/1k-tradingview-communication` for shared TradingView message contracts.
+- Entry: `packages/kit/src/views/Perp/components/PerpCandles.tsx`.
+- Wrapper: `packages/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2.tsx`.
+- Messages: `packages/kit/src/components/TradingView/TradingViewPerpsV2/messageHandlers/usePerpsTradingViewMessageHandler.ts` and `packages/kit/src/components/TradingView/TradingViewPerpsV2/constants/messageTypes.ts`.
+- App order UI: `packages/kit/src/views/Perp/components/OrderInfoPanel/` and `packages/kit/src/states/jotai/contexts/hyperliquid/actions.ts`.
+- Parent scroll/overlay: `packages/kit/src/views/Perp/pages/MobilePerpMarket.tsx` and `packages/kit/src/views/Perp/utils/mobilePerpMarketScrollState.ts`.
 
-## Readiness states
+Follow the component actually mounted by Perps. The existence of `TradingViewNative` does not mean this entry uses it. Do not confuse chart messages with the separate Hyperliquid signing WebView protocol.
 
-- `chartReady` is not enough for Perps iframe readiness.
-- `tradingview_perpsReady` / chart-lines readiness represent deeper iframe readiness.
-- Already-ready chart should recover without unnecessary reload.
-- Not-ready chart after network recovery may need local reload/remount.
-- Native WebView initial offline failure can need key remount; plain `reload()` may not recover.
+## Readiness and recovery
 
-## Symbol switching
+WebView load, chart readiness, Perps readiness and line synchronization are different states. A new WebView instance needs its own readiness transition. A visible container or `onLoadEnd` does not prove that candles for the target symbol are rendered.
 
-- Symbol-only changes should go through `SYMBOL_CHANGE` when the bridge supports it.
-- Do not rebuild the whole chart for every symbol change if a bridge message is sufficient.
-- Asset switch must align chart symbol, orderbook target, ticker data, and active order form asset.
-- Old chart lines for the previous symbol must not survive into the next symbol.
+Select the relevant phase: offline at first load, disconnect before readiness, disconnect after readiness, or native WebView remount. Trace message delivery and readiness before changing reload behavior. Bound retries and preserve the existing native recovery fallback when modifying that flow. Global market-data WS recovery is not proof that the chart is ready.
 
-## Chart lines
+## Symbol and platform behavior
 
-- Position/order/TWAP/trigger lines must be scoped by account, dex, symbol, and order type.
-- Drag-to-modify must use the owning order contract; do not reuse normal limit modify behavior for TWAP.
-- Line recovery should wait for chart-lines readiness, not just WebView load.
-- Missing chart lines after reload are not fixed by ticker/orderbook recovery; inspect bridge messages.
+The shared bridge supports `SYMBOL_CHANGE` with a stable URL. Current `PerpCandles` explicitly passes `reloadOnSymbolChange={platformEnv.isNativeAndroid}`; Android therefore follows a symbol-specific remount/reload path. Inspect the key, URL, background, loading mask and ready messages before applying a generic message-only switching recommendation.
 
-## Offline and recovery
+Current desktop trading-UI mode is captured on mount. Treat it as current behavior to consider when changing resize/remount logic, not a permanent ban on a supported design change. If changing either platform strategy, establish the intended behavior and verify its rendering, recovery and intent consequences.
 
-- K-line recovery must not be coupled to global Hyperliquid websocket recovery.
-- Global WS recovery can restore ticker/orderbook while the iframe remains dead.
-- Recovery path should distinguish initial offline load, reconnect after ready, and reconnect before ready.
-- Avoid reload loops: guard by readiness, network state, and last attempted recovery.
+## Lines and order intents
 
-## Validation focus
+Keep account, dex/coin, order identity and order type aligned when syncing lines. After switching or receiving a delayed message, reject stale intent/line data rather than applying it to the new form. [Order contracts](order-contracts.md) cover quantity, precision and execution semantics when those paths change.
 
-- Symbol switch: BTC -> ETH -> BTC; no stale lines, no old candle data, order form matches symbol.
-- Offline before chart ready: reconnect should recover K-line.
-- Offline after chart ready: reconnect should not force destructive reload unless needed.
-- Native WebView: verify reload/remount behavior on iOS/Android if changed.
-- Drag/edit lines: verify payload and visible result for limit/trigger/position line types separately.
+`onChartOrderIntent` routes to the app's order dialogs and actions. The legacy draft callback is intentionally non-submitting; do not turn it into an exchange submission just because its name resembles a trading action. Preserve confirmation/guard behavior used by the actual intent route.
+
+The `tradingview_interactionOverlay` message updates parent interaction state. Follow its handling and `MobilePerpMarket` scroll state through overlay release, symbol change and unmount when investigating a stuck page. Fixing an overlay lifecycle should not require unrelated subscription changes.
+
+## Select validation
+
+Read `packages/kit/src/components/TradingView/TradingViewPerpsV2/messageHandlers/usePerpsTradingViewMessageHandler.test.ts` and `packages/kit/src/views/Perp/utils/mobilePerpMarketScrollState.test.ts` when their behavior changes.
+
+Choose scenarios that match the diff: actual target candles/lines ready, symbol switch, relevant offline recovery phase, stale account/order intent, overlay scroll release, or Android transition background/mask. Verify real WebView content and bridge state on the affected platform. Extend to desktop, native or extension variants when the shared behavior changes; this is not an all-device checklist for every chart edit.

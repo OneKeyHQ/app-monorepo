@@ -1,7 +1,7 @@
+import type { AsyncStorageStatic } from '@onekeyhq/shared/src/storage/appStorageTypes';
+
 import { SimpleDbEntityBase } from '../../../dbs/simple/base/SimpleDbEntityBase';
 import { v4appStorage } from '../v4appStorage';
-
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 const SIMPLE_DB_KEY_PREFIX_V4 = 'simple_db';
 

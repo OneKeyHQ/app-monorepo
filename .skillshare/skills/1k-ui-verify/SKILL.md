@@ -23,7 +23,7 @@ agent-device is an external CLI/MCP — see its rule file for setup.
 
 ```
 - [ ] 1. Confirm platform + expected vs actual (ask the user if a visual bug — per CLAUDE.md)
-- [ ] 2. Launch the app for that platform (desktop: yarn app:desktop; RN: build/run the dev app)
+- [ ] 2. Launch the app for that platform (desktop: yarn app:desktop; RN: use the Mobile DevSession workflow in `/1k-dev-commands`)
 - [ ] 3. Connect the backend (CDP connectOverCDP / agent-device open)
 - [ ] 4. Navigate to the target screen, capture a BEFORE screenshot if comparing
 - [ ] 5. Reproduce the interaction, capture AFTER screenshot + console/logs
@@ -88,5 +88,5 @@ marked VERIFY — confirm against `agent-device snapshot --json` on a live devic
 
 - `/verify` — generic "run the app and confirm a change" harness (this skill is the OneKey-specific how)
 - `/run` — launch/screenshot the app
-- `/1k-dev-commands` — `yarn app:desktop` / `yarn app:ios` / `yarn app:android`
+- `/1k-dev-commands` — default RN DevSession workflow, desktop launch, and direct native rebuild commands
 - `/1k-cross-platform` — platform-specific behavior to verify separately

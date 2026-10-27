@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -9,6 +10,7 @@ import {
   Page,
   Stack,
   Toast,
+  rootNavigationRef,
   usePageUnMounted,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -21,6 +23,7 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useScopedAcknowledgement } from '@onekeyhq/kit/src/hooks/useScopedAcknowledgement';
 import useShouldRejectDappAction from '@onekeyhq/kit/src/hooks/useShouldRejectDappAction';
 import {
   useCustomRpcStatusAtom,
@@ -28,6 +31,7 @@ import {
   useDecodedTxsInitAtom,
   useEffectiveFeePayerAtom,
   useGasAccountUiStateAtom,
+  useIsGasAccountSubmitResultUnknown,
   useMegafuelEligibleAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -46,6 +50,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
+  EGasAccountRequestStage,
   getGasAccountErrorCode,
   isGasAccountSubmitCancelledError,
 } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
@@ -59,16 +64,19 @@ import type {
   IGasAccountActionParams,
   IGasAccountAnalyticsContext,
 } from '@onekeyhq/shared/src/logger/scopes/transaction/types';
+import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
+import type { IWcPayPreBroadcastRecord } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
+import type { IPrimeFreeTrialBroadcastUsage } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
@@ -79,13 +87,15 @@ import {
 
 import {
   EGasAccountErrorStrategy,
-  getGasAccountErrorEntry,
+  getGasAccountErrorEntryForError,
 } from '../../constants/gasAccountErrorCodes';
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { SignatureConfirmTestIDs } from '../../testIDs';
 import { isGasSponsoredAnalyticsContext } from '../../utils/gasAccountAnalytics';
 import { showCustomHexDataAlert } from '../CustomHexDataAlert';
 import TxFeeInfo from '../TxFee';
+
+import type { ISecurityCheckConfirmation } from '../SecurityCheckCard';
 
 function muteHandledErrorToast(error: unknown) {
   const e = error as IOneKeyError | undefined;
@@ -103,19 +113,25 @@ type IProps = {
   onBeforeSend?: () => void | Promise<void>;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
+  freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
+  wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
   transferPayload?: ITransferPayload;
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   popStack?: boolean;
+  // Review-only: hide the confirm action entirely (batch psbt drill-down
+  // for an already-signed item — re-signing must not be offered).
+  readOnly?: boolean;
+  // Label the cancel button "Back" when the page was pushed onto a stack
+  // that cancel simply returns to.
+  cancelAsBack?: boolean;
   isQueueMode?: boolean;
   unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
   gasAccountScenario?: IGasAccountScenario;
-  // External risk signal (e.g. WalletConnect verify-api downgrade). Forces
-  // the take-risk checkbox on top of the decodedTx-level signal so a spoofed
-  // peer can't push through an `eth_sendTransaction` without acknowledgement.
-  forceTakeRiskAlert?: boolean;
+  securityCheckConfirmation: ISecurityCheckConfirmation;
+  securityCheckAcknowledgementKey: string;
 };
 
 type IGasAccountActionDetails = Omit<
@@ -133,22 +149,25 @@ function TxConfirmActions(props: IProps) {
     onBeforeSend,
     broadcastDeadline,
     beforeBroadcastAction,
+    freeTrialUsage,
+    wcPayPreBroadcastRecord,
     sourceInfo,
     signOnly,
     transferPayload,
     useFeeInTx,
     feeInfoEditable,
     popStack = true,
+    readOnly,
+    cancelAsBack,
     isQueueMode,
     unsignedTxQueue,
     gasAccountScenario,
-    forceTakeRiskAlert,
+    securityCheckConfirmation,
+    securityCheckAcknowledgementKey,
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
-  const [riskAcceptedForUnsignedTxs, setRiskAcceptedForUnsignedTxs] = useState<
-    IUnsignedTxPro[] | null
-  >(null);
+  const isExitHandledRef = useRef(false);
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -159,9 +178,11 @@ function TxConfirmActions(props: IProps) {
   const [gasAccountUiState] = useGasAccountUiStateAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
-  // Risk acknowledgement belongs to the exact transaction revision. Editing
-  // an approval or other payload replaces this array and requires a new check.
-  const continueOperate = riskAcceptedForUnsignedTxs === unsignedTxs;
+  const gasAccountSubmitResultUnknown = useIsGasAccountSubmitResultUnknown(
+    unsignedTxs[0]?.uuid,
+  );
+  const { isAccepted: continueOperate, setAccepted: setSecurityCheckAccepted } =
+    useScopedAcknowledgement(securityCheckAcknowledgementKey);
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
@@ -172,6 +193,7 @@ function TxConfirmActions(props: IProps) {
     updateEffectiveFeePayer,
     updateGasAccountTemporarilyDisabled,
     resetGasAccountTemporarilyDisabled,
+    markGasAccountSubmitResultUnknown,
     updateGasAccountUiState,
     resetGasAccountUiState,
     updateSendFeeStatus,
@@ -179,7 +201,7 @@ function TxConfirmActions(props: IProps) {
     updateTxFeeInfoInit,
     updateUnsignedTxs,
   } = useSignatureConfirmActions().current;
-  const successfullySentTxs = useRef<string[]>([]);
+  const [sentTxsTrackingId] = useState(() => generateUUID());
   // Identifies the current submit attempt so the background retry loop can be
   // aborted from the cancel handler. Rotated on every fresh submit; cleared
   // once the attempt has terminated (success / failure / cancel).
@@ -299,7 +321,12 @@ function TxConfirmActions(props: IProps) {
       }
 
       const code = getGasAccountErrorCode(error);
-      const entry = getGasAccountErrorEntry(code);
+      // Only send-transaction runs under this handler: the estimate poll has
+      // its own classifier in TxFeeInfo.
+      const entry = getGasAccountErrorEntryForError(
+        error,
+        EGasAccountRequestStage.Send,
+      );
       if (!entry) {
         if (typeof code === 'number') {
           // Unknown-but-numeric code — surface in dev so contract drift
@@ -359,6 +386,14 @@ function TxConfirmActions(props: IProps) {
       // caller still invoke onFail / dappApprove.reject — the current attempt
       // is terminal and the dApp needs to know. Entries flagged suppressToast
       // skip the user-facing copy entirely while preserving the reject path.
+      if (entry.resultUnknown) {
+        // The tx may already be on chain (OK-64746). Latch this tx for the
+        // rest of the page: the confirm button stays disabled and TxFeeInfo
+        // stops re-estimating it, so neither a poll tick nor a second tap can
+        // move on to a new nonce / quote and send a second tx. Queue
+        // navigation to another tx and back keeps the latch.
+        markGasAccountSubmitResultUnknown(unsignedTx?.uuid);
+      }
       muteHandledErrorToast(error);
       if (!entry.suppressToast) {
         Toast.warning({ title: message });
@@ -372,6 +407,8 @@ function TxConfirmActions(props: IProps) {
       resetGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
       updateEffectiveFeePayer,
+      markGasAccountSubmitResultUnknown,
+      unsignedTx?.uuid,
       updateGasAccountTemporarilyDisabled,
       updateGasAccountUiState,
       updateSendFeeStatus,
@@ -396,19 +433,41 @@ function TxConfirmActions(props: IProps) {
       }
     }
 
+    if (gasAccountSubmitIdRef.current || isExitHandledRef.current) {
+      return;
+    }
     updateSendTxStatus({ isSubmitting: true });
     // Rotate the submit token so the background retry loop knows which
     // attempt this is and the cancel handler can target it precisely.
     const submitId = generateUUID();
     gasAccountSubmitIdRef.current = submitId;
+    const handleInfiniFailureExit = (error: unknown) => {
+      if (gasAccountSubmitIdRef.current !== submitId) return true;
+      if (beforeBroadcastAction?.type !== 'primeInfiniPayment') return false;
+      // Recovery owns the payment state, including ambiguous send outcomes.
+      // Mark exit before notifying it so a late unmount cannot cancel recovery.
+      isExitHandledRef.current = true;
+      updateSendTxStatus({ isSubmitting: false });
+      isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
+      onFail?.(error as Error);
+      if (popStack) {
+        navigation.popStack();
+      } else {
+        navigation.pop();
+      }
+      return true;
+    };
     // Pre-check before submit
 
-    const accountAddress =
-      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      });
+    let accountAddress: string;
     try {
+      accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+      if (gasAccountSubmitIdRef.current !== submitId) return;
       if (
         unsignedTx?.isInternalTransfer &&
         networkId &&
@@ -434,6 +493,7 @@ function TxConfirmActions(props: IProps) {
         feeInfos: sendSelectedFeeInfo?.feeInfos,
       });
     } catch (e: any) {
+      if (handleInfiniFailureExit(e)) return;
       logGasAccountSubmitFailed(e, 'precheck');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
@@ -443,6 +503,7 @@ function TxConfirmActions(props: IProps) {
       throw e;
     }
 
+    if (gasAccountSubmitIdRef.current !== submitId) return;
     try {
       const resp =
         await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending(
@@ -454,10 +515,19 @@ function TxConfirmActions(props: IProps) {
           },
         );
 
-      if (resp?.preSendTx && accountUtils.isQrAccount({ accountId })) {
+      if (gasAccountSubmitIdRef.current !== submitId) return;
+      // DeviceStage owns its overlay lifecycle. Only the legacy QR scanner
+      // needs this navigation handoff; popping the confirm page cancels sending.
+      if (
+        resp?.preSendTx &&
+        accountUtils.isQrAccount({ accountId }) &&
+        rootNavigationRef.current?.getCurrentRoute()?.name ===
+          EScanQrCodeModalPages.ScanQrCodeStack
+      ) {
         navigation.popStack();
       }
     } catch (e: any) {
+      if (handleInfiniFailureExit(e)) return;
       logGasAccountSubmitFailed(e, 'prepare');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
@@ -467,20 +537,22 @@ function TxConfirmActions(props: IProps) {
       throw e;
     }
 
+    if (gasAccountSubmitIdRef.current !== submitId) return;
     let newUnsignedTxs: IUnsignedTxPro[];
     let nonceInfo: undefined | { nonce: number };
 
-    if (isUndefined(unsignedTxs[0].nonce) && vaultSettings?.nonceRequired) {
-      nonceInfo = {
-        nonce: await serviceSend.getNextNonce({
-          accountId,
-          networkId,
-          accountAddress,
-        }),
-      };
-    }
-
     try {
+      if (isUndefined(unsignedTxs[0].nonce) && vaultSettings?.nonceRequired) {
+        nonceInfo = {
+          nonce: await serviceSend.getNextNonce({
+            accountId,
+            networkId,
+            accountAddress,
+          }),
+        };
+      }
+
+      if (gasAccountSubmitIdRef.current !== submitId) return;
       newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
         accountId,
         networkId,
@@ -498,6 +570,7 @@ function TxConfirmActions(props: IProps) {
         tronResourceRentalInfo,
       });
     } catch (e: any) {
+      if (handleInfiniFailureExit(e)) return;
       logGasAccountSubmitFailed(e, 'prepare');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
@@ -507,35 +580,43 @@ function TxConfirmActions(props: IProps) {
       throw e;
     }
 
-    // fee info pre-check
-    if (
-      sendSelectedFeeInfo &&
-      gasAccountUiState.selectedPayer !== 'gasAccount'
-    ) {
-      const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
-        accountId,
-        networkId,
-        feeAmount: sendSelectedFeeInfo.feeInfos?.[0]?.totalNative,
-        feeSymbol:
-          sendSelectedFeeInfo.feeInfos?.[0]?.feeInfo?.common?.nativeSymbol,
-        encodedTx: newUnsignedTxs[0].encodedTx,
-      });
+    if (gasAccountSubmitIdRef.current !== submitId) return;
+    try {
+      // fee info pre-check
+      if (
+        sendSelectedFeeInfo &&
+        gasAccountUiState.selectedPayer !== 'gasAccount'
+      ) {
+        const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
+          accountId,
+          networkId,
+          feeAmount: sendSelectedFeeInfo.feeInfos?.[0]?.totalNative,
+          feeSymbol:
+            sendSelectedFeeInfo.feeInfos?.[0]?.feeInfo?.common?.nativeSymbol,
+          encodedTx: newUnsignedTxs[0].encodedTx,
+        });
 
-      if (isFeeInfoOverflow) {
-        const isConfirmed = await showFeeInfoOverflowConfirm();
-        if (!isConfirmed) {
-          isSubmitted.current = false;
-          gasAccountSubmitIdRef.current = null;
-          updateSendTxStatus({ isSubmitting: false });
-          return;
+        if (isFeeInfoOverflow) {
+          const isConfirmed = await showFeeInfoOverflowConfirm();
+          if (!isConfirmed) {
+            isSubmitted.current = false;
+            gasAccountSubmitIdRef.current = null;
+            updateSendTxStatus({ isSubmitting: false });
+            return;
+          }
         }
       }
+    } catch (error) {
+      if (handleInfiniFailureExit(error)) return;
+      throw error;
     }
 
+    if (gasAccountSubmitIdRef.current !== submitId) return;
     let transactionSubmitted = false;
     try {
       await onBeforeSend?.();
     } catch (error) {
+      if (handleInfiniFailureExit(error)) return;
       const sendError = error as Error;
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(sendError);
@@ -545,6 +626,7 @@ function TxConfirmActions(props: IProps) {
       throw error;
     }
 
+    if (gasAccountSubmitIdRef.current !== submitId) return;
     try {
       let replaceTxInfo: IReplaceTxInfo | undefined;
       if (
@@ -585,12 +667,14 @@ function TxConfirmActions(props: IProps) {
           sourceInfo,
           replaceTxInfo,
           transferPayload,
-          successfullySentTxs: successfullySentTxs.current,
+          sentTxsTrackingId,
           tronResourceRentalInfo,
           gasAccountUiState,
           gasAccountSubmitId: submitId,
           broadcastDeadline,
           beforeBroadcastAction,
+          freeTrialUsage,
+          wcPayPreBroadcastRecord,
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
 
@@ -626,7 +710,16 @@ function TxConfirmActions(props: IProps) {
       const swapInfo = newUnsignedTxs?.[0].swapInfo;
       const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
       const isTronNetwork = networkUtils.isTronNetworkByNetworkId(networkId);
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const [wallet, device] = await Promise.all([
+        serviceAccount.getWallet({ walletId }).catch(() => undefined),
+        serviceAccount
+          .getAccountDeviceSafe({ accountId })
+          .catch(() => undefined),
+      ]);
       defaultLogger.transaction.send.sendConfirm({
+        walletType: wallet?.type ?? 'unknown',
+        deviceType: device?.deviceType,
         network: networkId,
         txnType: getTxnType({
           actions: result?.[0].decodedTx.actions,
@@ -762,14 +855,17 @@ function TxConfirmActions(props: IProps) {
         gasAccountSubmitIdRef.current = null;
         return;
       }
+      // Cancellation or another completed exit owns the UI now. A late RPC
+      // rejection must not report a second failure or close a newer screen.
+      if (!transactionSubmitted && gasAccountSubmitIdRef.current !== submitId) {
+        return;
+      }
       if (!transactionSubmitted) {
         logGasAccountSubmitFailed(e, 'submit');
       }
       const gasAccountStrategy = handleGasAccountSubmitError(e);
-      // Refresh and Fallback both keep the user on the confirm page with a
-      // fresh estimate in flight, so the dApp caller should also keep waiting.
-      // Hint is terminal for this attempt — propagate to onFail / dApp reject
-      // so callers aren't left pending indefinitely.
+      if (!transactionSubmitted && handleInfiniFailureExit(e)) return;
+      // Ordinary sends can retry after fee refresh or payer fallback.
       if (
         gasAccountStrategy === EGasAccountErrorStrategy.Refresh ||
         gasAccountStrategy === EGasAccountErrorStrategy.Fallback
@@ -813,6 +909,8 @@ function TxConfirmActions(props: IProps) {
     onBeforeSend,
     broadcastDeadline,
     beforeBroadcastAction,
+    freeTrialUsage,
+    wcPayPreBroadcastRecord,
     onFail,
     dappApprove,
     tronResourceRentalInfo,
@@ -823,6 +921,7 @@ function TxConfirmActions(props: IProps) {
     showFeeInfoOverflowConfirm,
     signOnly,
     transferPayload,
+    sentTxsTrackingId,
     handleGasAccountSubmitError,
     logGasAccountAction,
     logGasAccountSubmitFailed,
@@ -859,7 +958,6 @@ function TxConfirmActions(props: IProps) {
     transferPayload?.originalRecipient,
   ]);
 
-  const cancelCalledRef = useRef(false);
   // If a 90212 retry loop is in flight, tear it down before the flow
   // unwinds. Otherwise the background would keep sleeping/broadcasting
   // after the user already chose to abandon — with Prime idempotency it
@@ -877,10 +975,10 @@ function TxConfirmActions(props: IProps) {
     }
   }, []);
   const onCancelOnce = useCallback(() => {
-    if (cancelCalledRef.current) {
+    if (isExitHandledRef.current) {
       return;
     }
-    cancelCalledRef.current = true;
+    isExitHandledRef.current = true;
     if (!isSubmitted.current) {
       logGasAccountAction({ action: 'exited' });
     }
@@ -901,7 +999,11 @@ function TxConfirmActions(props: IProps) {
       abortPendingGasAccountSubmit();
 
       dappApprove.reject();
-      if (!sourceInfo) {
+      // A page pushed onto an existing stack (popStack: false — batch psbt
+      // drill-down, BulkSend/Swap sequential confirms) must pop back to that
+      // stack on cancel, matching the success path above, instead of tearing
+      // the whole modal down.
+      if (!sourceInfo && popStack) {
         closePageStack();
       } else {
         close();
@@ -913,17 +1015,15 @@ function TxConfirmActions(props: IProps) {
       dappApprove,
       isQueueMode,
       onCancelOnce,
+      popStack,
       sourceInfo,
       unsignedTxQueue,
       updateUnsignedTxs,
     ],
   );
 
-  const showTakeRiskAlert = useMemo(() => {
-    if (decodedTxs?.some((tx) => tx.isConfirmationRequired)) return true;
-    if (forceTakeRiskAlert) return true;
-    return false;
-  }, [decodedTxs, forceTakeRiskAlert]);
+  const isSecurityCheckPending = securityCheckConfirmation === 'pending';
+  const showTakeRiskAlert = securityCheckConfirmation === 'risk';
 
   const isGasAccountQuoteExpired = useMemo(() => {
     if (gasAccountUiState.selectedPayer !== 'gasAccount') {
@@ -1033,6 +1133,9 @@ function TxConfirmActions(props: IProps) {
   // indefinitely. The ref gates this to a single shot per expiry transition.
   const quoteExpiredHandledRef = useRef(false);
   useEffect(() => {
+    // After a result-unknown send the quote is the record of what was
+    // attempted; expiring it would re-estimate onto a new nonce / quote.
+    if (gasAccountSubmitResultUnknown) return;
     if (isGasAccountQuoteExpired) {
       if (quoteExpiredHandledRef.current) return;
       quoteExpiredHandledRef.current = true;
@@ -1050,6 +1153,7 @@ function TxConfirmActions(props: IProps) {
       quoteExpiredHandledRef.current = false;
     }
   }, [
+    gasAccountSubmitResultUnknown,
     isGasAccountQuoteExpired,
     logGasAccountAction,
     resetGasAccountUiState,
@@ -1064,9 +1168,14 @@ function TxConfirmActions(props: IProps) {
   const isSubmitDisabled = useMemo(() => {
     if (!txFeeInfoInit || !decodedTxsInit) return true;
 
+    if (isSecurityCheckPending) return true;
+
     if (showTakeRiskAlert && !continueOperate) return true;
 
     if (sendTxStatus.isSubmitting) return true;
+    // A result-unknown Gas Account send may already be on chain: never allow
+    // a second attempt from this page.
+    if (gasAccountSubmitResultUnknown) return true;
     if (
       nativeTokenInfo.isLoading ||
       sendTxStatus.isInsufficientNativeBalance ||
@@ -1089,9 +1198,11 @@ function TxConfirmActions(props: IProps) {
   }, [
     txFeeInfoInit,
     decodedTxsInit,
+    isSecurityCheckPending,
     showTakeRiskAlert,
     continueOperate,
     sendTxStatus.isSubmitting,
+    gasAccountSubmitResultUnknown,
     sendTxStatus.isInsufficientNativeBalance,
     sendTxStatus.isInsufficientTokenBalance,
     nativeTokenInfo.isLoading,
@@ -1154,15 +1265,23 @@ function TxConfirmActions(props: IProps) {
   return (
     <Page.Footer
       disableKeyboardAnimation
+      safeAreaBottomMode="content"
       testID={SignatureConfirmTestIDs.TxConfirmFooter}
     >
       <Page.FooterActions
         testID={SignatureConfirmTestIDs.TxConfirmActions}
-        confirmButtonProps={{
-          disabled: isSubmitDisabled,
-          loading: sendTxStatus.isSubmitting || isConfirmInitializing,
-          variant: showTakeRiskAlert ? 'destructive' : 'primary',
-        }}
+        // readOnly: omit both confirm props so FooterActions renders no
+        // confirm button at all (an already-signed batch item must not offer
+        // signing again).
+        confirmButtonProps={
+          readOnly
+            ? undefined
+            : {
+                disabled: isSubmitDisabled,
+                loading: sendTxStatus.isSubmitting || isConfirmInitializing,
+                variant: showTakeRiskAlert ? 'destructive' : 'primary',
+              }
+        }
         cancelButtonProps={{
           // Keep Cancel enabled during the 90212 retry wait so the user can
           // abandon the flow instead of being parked on a disabled screen for
@@ -1172,7 +1291,12 @@ function TxConfirmActions(props: IProps) {
           disabled: sendTxStatus.isSubmitting && gasAccountRetryState === null,
         }}
         onConfirmText={confirmText}
-        onConfirm={handleOnConfirm}
+        onConfirm={readOnly ? undefined : handleOnConfirm}
+        onCancelText={
+          cancelAsBack
+            ? intl.formatMessage({ id: ETranslations.global_back })
+            : undefined
+        }
         onCancel={handleOnCancel}
         $gtMd={{
           flexDirection: 'row',
@@ -1197,7 +1321,9 @@ function TxConfirmActions(props: IProps) {
             transferPayload={transferPayload}
             gasAccountScenario={gasAccountScenario}
           />
-          {showTakeRiskAlert ? (
+          {/* The checkbox only gates the confirm action, which readOnly
+              removes entirely. */}
+          {showTakeRiskAlert && !readOnly ? (
             <Checkbox
               testID={SignatureConfirmTestIDs.TxConfirmRiskCheckbox}
               label={intl.formatMessage({
@@ -1205,7 +1331,7 @@ function TxConfirmActions(props: IProps) {
               })}
               value={continueOperate}
               onChange={(checked) => {
-                setRiskAcceptedForUnsignedTxs(checked ? unsignedTxs : null);
+                setSecurityCheckAccepted(Boolean(checked));
               }}
             />
           ) : null}

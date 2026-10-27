@@ -40,14 +40,17 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 
   const shouldOpenStore =
     updateFileType === EUpdateFileType.appShell &&
-    !!appUpdateInfo.data?.storeUrl;
+    !!appUpdateInfo.data?.storeUrl?.startsWith('https://');
 
   const handleToUpdate: IPageFooterProps['onConfirm'] = useCallback(() => {
     if (appUpdateInfo.data) {
       defaultLogger.app.appUpdate.changelogUpdateClicked({
         action: shouldOpenStore ? 'store' : 'download',
       });
-      if (shouldOpenStore && appUpdateInfo.data.storeUrl) {
+      if (
+        shouldOpenStore &&
+        appUpdateInfo.data.storeUrl?.startsWith('https://')
+      ) {
         // Server-driven store URL must reach the store app via the system
         // browser; in-app browsers never trigger universal links.
         openUrlExternal(appUpdateInfo.data.storeUrl, {

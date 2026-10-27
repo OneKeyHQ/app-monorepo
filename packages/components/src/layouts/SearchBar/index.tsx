@@ -6,6 +6,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useImeCompositionLock } from '@onekeyhq/shared/src/utils/imeUtils';
 
 import { Input } from '../../forms/Input';
 
@@ -28,10 +29,11 @@ export function SearchBar({
   debounceInterval = 300, // debounce works only if value is undefined
   autoFocus,
   selectTextOnFocus,
+  onSubmitEditing,
   ...rest
 }: ISearchBarProps) {
   const [internalValue, setInternalValue] = useState('');
-  const compositionLockRef = useRef(false);
+  const compositionLock = useImeCompositionLock();
   const searchTextRef = useRef('');
   const inputRef = useRef<IInputRef | null>(null);
 
@@ -60,7 +62,7 @@ export function SearchBar({
       if (platformEnv.isNative) {
         onSearchTextChange?.(text.replaceAll(NATIVE_COMPOSITION_SPACE, ''));
       } else {
-        if (compositionLockRef.current) {
+        if (compositionLock.isLocked()) {
           if (controlledValue !== undefined && !onChangeText) {
             onSearchTextChange?.(text);
           }
@@ -70,7 +72,7 @@ export function SearchBar({
         onSearchTextChange?.(text);
       }
     },
-    [onChangeText, onSearchTextChange, controlledValue],
+    [onChangeText, onSearchTextChange, controlledValue, compositionLock],
   );
   const onChangeTextDebounced = useDebouncedCallback(
     onChangeTextCallback,
@@ -102,19 +104,29 @@ export function SearchBar({
     handleChange('');
   }, [handleChange]);
 
-  const handleCompositionStart = useCallback(() => {
-    compositionLockRef.current = true;
-  }, []);
-
   const handleCompositionEnd = useCallback(
     (e: CompositionEvent) => {
-      compositionLockRef.current = false;
       const target = e.target as HTMLInputElement;
       const finalValue = target?.value || '';
       searchTextRef.current = finalValue;
       onSearchTextChange?.(finalValue);
+      compositionLock.end();
     },
-    [onSearchTextChange],
+    [compositionLock, onSearchTextChange],
+  );
+
+  const handleSubmitEditing = useCallback<
+    NonNullable<IInputProps['onSubmitEditing']>
+  >(
+    (event) => {
+      // RN-web already drops composing/229 Enter before onSubmitEditing.
+      // The lock covers the confirm key that arrives after compositionend.
+      if (compositionLock.isLocked()) {
+        return;
+      }
+      onSubmitEditing?.(event);
+    },
+    [compositionLock, onSubmitEditing],
   );
   const intl = useIntl();
 
@@ -163,8 +175,12 @@ export function SearchBar({
         !rest.addOns?.length && {
           addOns: clearAddOns,
         })}
-      onCompositionStart={handleCompositionStart}
+      onCompositionStart={compositionLock.start}
       onCompositionEnd={handleCompositionEnd}
+      onSubmitEditing={handleSubmitEditing}
+      {...(!platformEnv.isNative
+        ? { blurOnSubmit: rest.blurOnSubmit ?? false }
+        : null)}
       containerProps={resolvedContainerProps}
     />
   );

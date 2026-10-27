@@ -17,6 +17,8 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ICurrencyItem } from '@onekeyhq/shared/types';
 
+import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
 type ISectionItem = {
   title: string;
   data: ICurrencyItem[];
@@ -102,7 +104,7 @@ export default function SettingCurrencyModal() {
           id: ETranslations.settings_default_currency,
         })}
       />
-      <Page.Body>
+      <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <XStack px="$5" w="100%">
           <SearchBar
             containerProps={{

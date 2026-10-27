@@ -38,6 +38,24 @@ class ServiceGas extends ServiceBase {
     }
   }
 
+  // Headers for the Gas Account estimate/send endpoints: the wallet-type
+  // header plus the OneKey ID login token (OK-64746). The token lets the
+  // Wallet BFF resolve the member identity for sponsorship; it is read per
+  // request from the current session, so a logged-out user sends none and an
+  // account switch picks up the new session on the next request. Only the
+  // single request is authenticated — never the shared Wallet client.
+  async getGasAccountRequestHeaders(params: {
+    accountId: string;
+  }): Promise<Record<string, string>> {
+    const { accountId } = params;
+    return {
+      ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+        accountId,
+      })),
+      ...(await this.getOneKeyIdAuthHeaders()),
+    };
+  }
+
   @backgroundMethod()
   async batchEstimateFee(params: IBatchEstimateFeeParams) {
     const controller = new AbortController();
@@ -54,10 +72,7 @@ class ServiceGas extends ServiceBase {
       },
       {
         signal: controller.signal,
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
+        headers: await this.getGasAccountRequestHeaders({ accountId }),
       },
     );
 
@@ -169,6 +184,7 @@ class ServiceGas extends ServiceBase {
       gasAccountEligible: feeInfo.gasAccountEligible,
       gasAccountQuote: feeInfo.gasAccountQuote,
       gasAccountScenarioReason: feeInfo.gasAccountScenarioReason,
+      gasAccountSkipReason: feeInfo.gasAccountSkipReason,
     };
 
     // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic

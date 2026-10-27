@@ -18,13 +18,13 @@ function PerpTradingSetup({ onConnect }: IPerpTradingSetupProps) {
       justifyContent="center"
       alignItems="center"
       p="$6"
-      space="$4"
+      gap="$4"
     >
       {/* Setup Icon */}
       <Icon name="WalletOutline" size="$16" color="$iconSubdued" />
 
       {/* Setup Content */}
-      <YStack alignItems="center" space="$3" maxWidth={320}>
+      <YStack alignItems="center" gap="$3" maxWidth={320}>
         <SizableText size="$headingMd" fontWeight="600" textAlign="center">
           Connect Wallet to Trade
         </SizableText>
@@ -34,14 +34,14 @@ function PerpTradingSetup({ onConnect }: IPerpTradingSetupProps) {
         </SizableText>
 
         {/* Features List */}
-        <YStack space="$2" alignSelf="stretch">
+        <YStack gap="$2" alignSelf="stretch">
           {[
             'Open long and short positions',
             'Leverage up to 100x',
             'Real-time portfolio tracking',
             'Advanced order types',
           ].map((feature, index) => (
-            <XStack key={index} alignItems="center" space="$2">
+            <XStack key={index} alignItems="center" gap="$2">
               <Icon name="XCircleOutline" size="$4" color="$iconSuccess" />
               <SizableText size="$bodySm" color="$textSecondary">
                 {feature}
@@ -52,7 +52,7 @@ function PerpTradingSetup({ onConnect }: IPerpTradingSetupProps) {
       </YStack>
 
       {/* Action Buttons */}
-      <YStack space="$3" alignSelf="stretch" maxWidth={320}>
+      <YStack gap="$3" alignSelf="stretch" maxWidth={320}>
         <Button
           size="large"
           onPress={onConnect}

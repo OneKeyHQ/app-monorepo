@@ -2,11 +2,21 @@ export const PerpTestIDs = {
   // -- Settings --
   HeaderSettingsButton: 'perp-header-settings-button',
   MobileSettingsButton: 'perp-mobile-settings-button',
+  MobileSettingsFeatureDot: 'perp-mobile-settings-feature-dot',
+  MobileChartPositionSetting: 'perp-mobile-chart-position-setting',
+  MobileChartPositionControl: 'perp-mobile-chart-position-control',
+  MobileLayoutSettingsButton: 'perp-mobile-layout-settings-button',
+  MobileLayoutSettingsFeatureDot: 'perp-mobile-layout-settings-feature-dot',
+  MobileLayoutSettingsPage: 'perp-mobile-layout-settings-page',
+  MobileChartPositionOption: (position: string) =>
+    `perp-mobile-chart-position-option-${position}`,
 
   // -- Market selector --
   TokenSelector: 'perp-token-selector',
   TokenSelectorMobile: 'perp-token-selector-mobile',
   TokenSelectorSearch: 'perp-token-selector-search',
+  TokenSelectorRow: (coin: string) =>
+    `perp-token-selector-row-${coin.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`,
   ActiveDexBadge: 'perp-active-dex-badge',
   TokenSelectorDexBadge: (coin: string) =>
     `perp-token-selector-${coin.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-dex-badge`,
@@ -58,6 +68,10 @@ export const PerpTestIDs = {
   TradesHistoryTab: 'perp-trades-history-tab',
   AccountTab: 'perp-account-tab',
 
+  // -- Account overview --
+  MarginRatioRiskButton: 'perp-margin-ratio-risk-button',
+  MarginRatioRiskDialog: 'perp-margin-ratio-risk-dialog',
+
   // -- Positions list --
   PositionRow: 'perp-position-row',
   PositionCloseMarketButton: 'perp-position-close-market-button',
@@ -66,6 +80,13 @@ export const PerpTestIDs = {
   PositionShareButton: 'perp-position-share-button',
   PositionShareRetryButton: 'perp-position-share-retry-button',
   PositionAdjustMarginButton: 'perp-position-adjust-margin-button',
+  PositionReverseButton: 'perp-position-reverse-button',
+  ReversePositionDialog: 'perp-reverse-position-dialog',
+  ReversePositionConfirmButton: 'perp-reverse-position-confirm-button',
+  PositionActionsSettingsButton: 'perp-position-actions-settings-button',
+  PositionActionsSettingsDialog: 'perp-position-actions-settings-dialog',
+  PositionActionSwitch: (action: string) =>
+    `perp-position-action-switch-${action}`,
   PositionAddButton: 'perp-position-add-button',
   CloseAllPositionsButton: 'perp-close-all-positions-button',
 
@@ -107,6 +128,19 @@ export const PerpTestIDs = {
 
   // -- Mobile candle chart button --
   CandleChartButton: 'perp-candle-chart-button',
+  DesktopSplitRoot: 'perp-desktop-split-root',
+  DesktopChartSplit: 'perp-desktop-chart-split',
+  DesktopChartBoundary: 'perp-desktop-chart-boundary',
+  DesktopAccountBoundary: 'perp-desktop-account-boundary',
+  DesktopChartDragShield: 'perp-desktop-chart-drag-shield',
+  ResetLayoutButton: 'perp-reset-layout-button',
+  MobileChart: 'perp-mobile-chart',
+  MobileChartOverlay: 'perp-mobile-chart-overlay',
+  MobileChartCornerBorder: 'perp-mobile-chart-corner-border',
+  MobileChartToggle: 'perp-mobile-chart-toggle',
+  MobileChartContent: 'perp-mobile-chart-content',
+  MobileTopChartToggle: 'perp-mobile-top-chart-toggle',
+  MobileTopChartContent: 'perp-mobile-top-chart-content',
 
   // -- Portfolio --
   PortfolioButton: 'perp-portfolio-button',

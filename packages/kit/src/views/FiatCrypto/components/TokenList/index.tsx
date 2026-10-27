@@ -1,4 +1,5 @@
-import { useCallback, useContext, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
+import { memo, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -21,7 +22,6 @@ import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/Ac
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -32,8 +32,8 @@ import type {
 } from '@onekeyhq/shared/types/fiatCrypto';
 
 import { FiatCryptoTestIDs } from '../../testIDs';
-import { useGetNetwork } from '../NetworkContainer';
 import { TokenDataContext } from '../TokenDataContainer';
+import { useGetNetwork, useTokenListMeta } from '../TokenListMeta';
 
 type ITokenListProps = {
   items: IFiatCryptoToken[];
@@ -43,13 +43,16 @@ type ITokenListProps = {
     token: IFiatCryptoToken;
     realAccountId?: string;
   }) => void;
+  // Rendered as the list's first row (scrolls with it; the search bar stays
+  // fixed). Hidden while a search query is active.
+  listHeader?: ReactElement;
 };
 
 function keyExtractor(item: IFiatCryptoToken): string {
   return `${item.name}-${item.networkId}--${item.address || 'main'}`;
 }
 
-const ListItemFiatToken = ({
+function ListItemFiatTokenBase({
   item,
   type,
   onPress,
@@ -60,12 +63,14 @@ const ListItemFiatToken = ({
     token: IFiatCryptoToken;
     realAccountId?: string;
   }) => void;
-}) => {
+}) {
   const intl = useIntl();
   const { networkId, accountId } = useContext(TokenDataContext);
   const { createAddress } = useAccountSelectorCreateAddress();
   const [loading, setLoading] = useState(false);
-  const { account } = useAccountData({ networkId, accountId });
+  // Account and merge-derive info are resolved once at list level and arrive
+  // together with the token list; rows never fetch on their own.
+  const { account, isMergeDeriveAssetsNetwork } = useTokenListMeta();
   const network = useGetNetwork({ networkId: item.networkId });
 
   const [
@@ -78,8 +83,6 @@ const ListItemFiatToken = ({
     () => accountUtils.getWalletIdFromAccountId({ accountId: accountId ?? '' }),
     [accountId],
   );
-
-  const { vaultSettings } = useAccountData({ networkId: item.networkId });
 
   const handlePress = useCallback(async () => {
     if (
@@ -197,11 +200,13 @@ const ListItemFiatToken = ({
             primary={
               <XStack alignItems="center">
                 <SizableText size="$bodyLgMedium">{item.symbol}</SizableText>
-                <Stack ml="$2">
-                  <Badge badgeType="default" badgeSize="sm">
-                    {network?.name}
-                  </Badge>
-                </Stack>
+                {network?.name ? (
+                  <Stack ml="$2">
+                    <Badge badgeType="default" badgeSize="sm">
+                      {network.name}
+                    </Badge>
+                  </Stack>
+                ) : null}
               </XStack>
             }
             secondary={item.name}
@@ -214,11 +219,12 @@ const ListItemFiatToken = ({
   );
 
   if (
-    vaultSettings?.mergeDeriveAssetsEnabled &&
+    isMergeDeriveAssetsNetwork(item.networkId) &&
     !accountUtils.isOthersWallet({ walletId })
   ) {
     return (
       <AddressTypeSelector
+        whenCollapsed="skip"
         walletId={walletId}
         networkId={item.networkId}
         indexedAccountId={account?.indexedAccountId || ''}
@@ -235,13 +241,16 @@ const ListItemFiatToken = ({
   }
 
   return renderItem({});
-};
+}
+
+const ListItemFiatToken = memo(ListItemFiatTokenBase);
 
 export function TokenList({
   items,
   type,
   isLoading,
   onPress,
+  listHeader,
 }: ITokenListProps) {
   const [text, setText] = useState('');
   const onChangeText = useCallback((value: string) => {
@@ -258,6 +267,12 @@ export function TokenList({
   }, [items, text]);
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
+  // `isLoading` is undefined until the list request reports its first state;
+  // treat that as loading so the page never flashes the empty state before
+  // the skeleton. Items that are already present (SWR snapshot from a previous
+  // open) stay on screen while the request revalidates instead of being
+  // replaced by the skeleton.
+  const showSkeleton = (isLoading ?? true) && items.length === 0;
 
   return (
     <Stack flex={1}>
@@ -272,7 +287,7 @@ export function TokenList({
         />
       </Stack>
       <Stack flex={1}>
-        {isLoading ? (
+        {showSkeleton ? (
           Array.from({ length: 5 }).map((_, index) => (
             <ListItem key={index}>
               <Skeleton w="$10" h="$10" borderRadius="$full" />
@@ -292,6 +307,22 @@ export function TokenList({
               <ListItemFiatToken item={item} type={type} onPress={onPress} />
             )}
             keyExtractor={keyExtractor}
+            // The header element stays mounted and only its content toggles:
+            // FlashList keeps the first visible row in place when content is
+            // prepended (maintainVisibleContentPosition), which would leave a
+            // header swapped in from null scrolled out of view. With the
+            // autoscroll threshold, a list resting at the top follows the
+            // banner back up instead.
+            ListHeaderComponent={
+              listHeader ? <Stack>{text ? null : listHeader}</Stack> : null
+            }
+            // minIndexForVisible only satisfies the FlatList-shaped prop type;
+            // FlashList reads the threshold alone.
+            maintainVisibleContentPosition={
+              listHeader
+                ? { minIndexForVisible: 0, autoscrollToTopThreshold: 80 }
+                : undefined
+            }
             ListFooterComponent={<Stack h={bottom || '$2'} />}
             ListEmptyComponent={
               <Empty

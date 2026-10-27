@@ -1,3 +1,5 @@
+import { formatPortfolioPercent } from './formatPortfolioPercent';
+
 import type { IPortfolioSlice } from './DeFiPortfolioStats';
 
 export type IStackedBarSegment = {
@@ -6,8 +8,7 @@ export type IStackedBarSegment = {
    * the source of truth for the tooltip's one-decimal percent string. */
   flexBasis: number;
   colorToken: string;
-  /** Integer-percent label for legend use, e.g. "13%". Tooltip uses
-   * one-decimal precision via formatPortfolioPercent instead. */
+  /** Display label shared with the tooltip, e.g. "12.7%". */
   label: string;
   /** Source slice label, exposed for tooltips. */
   sliceLabel: string;
@@ -18,12 +19,6 @@ export type IStackedBarSegment = {
   networkIds: string[];
 };
 
-function formatLegendPercentLabel(p: number): string {
-  // Integer percent for legend density. The tooltip carries the
-  // one-decimal precision.
-  return `${Math.round(p)}%`;
-}
-
 export function buildStackedBarSegments(
   slices: IPortfolioSlice[],
 ): IStackedBarSegment[] {
@@ -31,7 +26,7 @@ export function buildStackedBarSegments(
     key: s.key,
     flexBasis: s.percent,
     colorToken: s.colorToken,
-    label: formatLegendPercentLabel(s.percent),
+    label: formatPortfolioPercent(s.percent, s.netWorth),
     sliceLabel: s.label,
     netWorth: s.netWorth,
     networkIds: s.networkIds,

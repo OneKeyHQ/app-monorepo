@@ -1,10 +1,12 @@
 import { useCallback, useRef } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import { Linking } from 'react-native';
 
 import { Dialog, Stack, Toast } from '@onekeyhq/components';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
@@ -18,6 +20,12 @@ import {
   NeedBluetoothTurnedOn,
   NeedOneKeyBridge,
 } from '@onekeyhq/shared/src/errors';
+import { ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -59,6 +67,51 @@ function isConnectionTimeoutError(error: Error) {
 }
 
 function showStoppedScanError(error: Error, intl: IntlShape) {
+  if (isHardwareErrorByCode({ error, code: HardwareErrorCode.BlePoweredOff })) {
+    appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+      uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+    });
+    return;
+  }
+  if (
+    isHardwareErrorByCode({ error, code: HardwareErrorCode.BleUnsupported })
+  ) {
+    Toast.error({
+      title: intl.formatMessage({
+        id: ETranslations.hardware_third_party_transport_not_available,
+      }),
+    });
+    return;
+  }
+  if (
+    isHardwareErrorByCode({
+      error,
+      code: HardwareErrorCode.BridgeNeedsPermission,
+    })
+  ) {
+    // Linux recovery owns the guide, including cancellation and session deduplication.
+    if (!platformEnv.isDesktopLinux) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.device_grant_usb_access,
+        }),
+      });
+    }
+    return;
+  }
+  if (
+    isHardwareErrorByCode({
+      error,
+      code: ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+    })
+  ) {
+    Toast.error({
+      title: intl.formatMessage({
+        id: ETranslations.global_connection_failed_usb_help_text,
+      }),
+    });
+    return;
+  }
   if (isBluetoothSetupError(error)) {
     return;
   }

@@ -1,3 +1,4 @@
+import { Mutex } from 'async-mutex';
 import { cloneDeep } from 'lodash';
 
 import { decryptAsync } from '@onekeyhq/core/src/secret';
@@ -9,8 +10,11 @@ import {
 import type {
   IBackupCloudServerDownloadData,
   IBackupDataEncryptedPayload,
+  IBackupDataExportArchive,
+  IBackupProviderAccountInfo,
   IBackupProviderInfo,
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
+import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
@@ -85,6 +89,160 @@ class ServiceCloudBackupV2 extends ServiceBase {
     return this._backupProvider;
   }
 
+  private preparedLocalRestore:
+    | {
+        restoreId: string;
+        accountId: string;
+        providerType: ECloudBackupProviderType;
+        transferData: IPrimeTransferData;
+        expiresAt: number;
+        timer: ReturnType<typeof setTimeout>;
+      }
+    | undefined;
+
+  private localRecoveryResetting = false;
+
+  private recoveryGeneration = 0;
+
+  // bg owns both the lifecycle and this lock. Drain wallet mutations before reset.
+  private recoveryImportMutex = new Mutex();
+
+  private recoveryImportTasks = new Set<string>();
+
+  private isRecoveryActive(generation: number): boolean {
+    return (
+      !this.localRecoveryResetting && generation === this.recoveryGeneration
+    );
+  }
+
+  @backgroundMethod()
+  async prepareLocalRecoveryForReset({
+    preserve,
+  }: {
+    preserve: boolean;
+  }): Promise<void> {
+    this.localRecoveryResetting = true;
+    this.recoveryGeneration += 1;
+    this.clearPreparedLocalRestore();
+    let cancellationFailed = false;
+    for (const taskUUID of this.recoveryImportTasks) {
+      try {
+        // Release task ownership even if its password dialog never resolves.
+        // Outstanding writes are still drained by the barrier below.
+        await this.backgroundApi.servicePrimeTransfer.resetImportProgress({
+          taskUUID,
+        });
+      } catch {
+        cancellationFailed = true;
+      }
+    }
+    await this.recoveryImportMutex.runExclusive(async () => {
+      if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return;
+      const { default: cache } = await import('./localBackupPasswordCache');
+      await cache.prepareForReset({ preserve });
+    });
+    if (cancellationFailed)
+      throw new OneKeyLocalError('Recovery import cancellation failed');
+  }
+
+  @backgroundMethod()
+  async finishLocalRecoveryReset(): Promise<void> {
+    if (platformEnv.isNativeIOS || platformEnv.isNativeAndroid) {
+      const { default: cache } = await import('./localBackupPasswordCache');
+      cache.finishReset();
+    }
+    // Old continuations remain invalid even after a failed reset releases the UI.
+    this.recoveryGeneration += 1;
+    this.clearPreparedLocalRestore();
+    this.localRecoveryResetting = false;
+  }
+
+  private clearPreparedLocalRestore(): void {
+    if (this.preparedLocalRestore) {
+      clearTimeout(this.preparedLocalRestore.timer);
+      this.preparedLocalRestore = undefined;
+    }
+  }
+
+  private supportsLocalPasswordCache(
+    accountInfo: IBackupProviderAccountInfo,
+  ): boolean {
+    return Boolean(
+      (platformEnv.isNativeIOS &&
+        accountInfo.providerType === ECloudBackupProviderType.iCloud) ||
+      (platformEnv.isNativeAndroid &&
+        accountInfo.providerType === ECloudBackupProviderType.GoogleDrive),
+    );
+  }
+
+  private async cacheBackupPassword(params: {
+    generation: number;
+    accountInfo: IBackupProviderAccountInfo;
+    password: string;
+    recordId?: string;
+  }): Promise<void> {
+    const { generation } = params;
+    if (
+      !this.isRecoveryActive(generation) ||
+      !this.supportsLocalPasswordCache(params.accountInfo)
+    )
+      return;
+    try {
+      const { default: cache } = await import('./localBackupPasswordCache');
+      if (!this.isRecoveryActive(generation)) return;
+      await cache.set({
+        providerType: params.accountInfo.providerType,
+        accountId: params.accountInfo.userId,
+        recordId: params.recordId,
+        password: params.password,
+      });
+    } catch {
+      console.warn('Local cloud backup password cache was not saved.');
+    }
+  }
+
+  private async getBackupPasswordCacheAccount(): Promise<
+    IBackupProviderAccountInfo | undefined
+  > {
+    if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return;
+    try {
+      const accountInfo = await this.getProvider().getCloudAccountInfo();
+      if (this.supportsLocalPasswordCache(accountInfo)) {
+        return accountInfo;
+      }
+    } catch {
+      console.warn('Local cloud backup cache account was not available.');
+    }
+  }
+
+  private async removeCachedBackupPassword(params: {
+    accountInfo: IBackupProviderAccountInfo | undefined;
+    recordId?: string;
+  }): Promise<void> {
+    if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return;
+    this.clearPreparedLocalRestore();
+    if (
+      !params.accountInfo?.userId ||
+      !this.supportsLocalPasswordCache(params.accountInfo)
+    ) {
+      if (params.recordId)
+        throw new OneKeyLocalError('Recovery cache account unavailable');
+      return;
+    }
+    try {
+      const { default: cache } = await import('./localBackupPasswordCache');
+      await cache.remove({
+        providerType: params.accountInfo.providerType,
+        accountId: params.accountInfo.userId,
+        recordId: params.recordId,
+      });
+    } catch {
+      if (params.recordId)
+        throw new OneKeyLocalError('Recovery cache removal failed');
+      console.warn('Local cloud backup password cache was not removed.');
+    }
+  }
+
   @backgroundMethod()
   async supportCloudBackup(): Promise<boolean> {
     if (platformEnv.isNativeIOS) {
@@ -150,11 +308,14 @@ class ServiceCloudBackupV2 extends ServiceBase {
     return data;
   }
 
-  async buildFullBackupPassword(params: { password: string }): Promise<string> {
+  async buildFullBackupPassword(
+    params: { password: string },
+    accountInfo?: IBackupProviderAccountInfo,
+  ): Promise<string> {
     if (!params?.password) {
       throw new OneKeyLocalError('Password is required for backup');
     }
-    const cloudAccountInfo = await this.getCloudAccountInfo();
+    const cloudAccountInfo = accountInfo ?? (await this.getCloudAccountInfo());
     if (!cloudAccountInfo?.userId) {
       throw new OneKeyLocalError(
         'Cloud account user ID is required for backup',
@@ -163,12 +324,29 @@ class ServiceCloudBackupV2 extends ServiceBase {
     return `${cloudAccountInfo.userId}:${params?.password}:4A561E9E-E747-4AFF-B835-FE2EF2D61B41`;
   }
 
+  private async assertBackupAccountUnchanged(
+    accountInfo: IBackupProviderAccountInfo,
+  ): Promise<void> {
+    const currentAccountInfo = await this.getCloudAccountInfo();
+    if (
+      !accountInfo.userId ||
+      currentAccountInfo.providerType !== accountInfo.providerType ||
+      currentAccountInfo.userId !== accountInfo.userId
+    ) {
+      throw new OneKeyLocalError(
+        'Cloud account changed or is unavailable. Please try again.',
+      );
+    }
+  }
+
   @backgroundMethod()
   @toastIfError()
   async clearBackupPassword(): Promise<void> {
     const provider = this.getProvider();
     await provider.checkAvailability();
+    const accountInfo = await this.getBackupPasswordCacheAccount();
     await provider.clearBackupPassword();
+    await this.removeCachedBackupPassword({ accountInfo });
   }
 
   @backgroundMethod()
@@ -176,29 +354,56 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async setBackupPassword(params: {
     password: string;
   }): Promise<{ recordID: string }> {
+    const generation = this.recoveryGeneration;
     const provider = this.getProvider();
     await provider.checkAvailability();
-    return provider.setBackupPassword({
-      password: await this.buildFullBackupPassword({
-        password: params.password,
-      }),
+    const accountInfo = await this.getCloudAccountInfo();
+    const result = await provider.setBackupPassword({
+      password: await this.buildFullBackupPassword(
+        {
+          password: params.password,
+        },
+        accountInfo,
+      ),
+      ...(accountInfo.providerType === ECloudBackupProviderType.iCloud
+        ? { expectedAccountId: accountInfo.userId }
+        : {}),
     });
+    await this.assertBackupAccountUnchanged(accountInfo);
+    await this.cacheBackupPassword({
+      generation,
+      accountInfo,
+      password: params.password,
+    });
+    return result;
   }
 
   @backgroundMethod()
   @toastIfError()
   async verifyBackupPassword(params: { password: string }): Promise<boolean> {
+    const generation = this.recoveryGeneration;
     const provider = this.getProvider();
     await provider.checkAvailability();
     console.log('serviceCloudBackupV2__buildFullBackupPassword');
-    const fullPassword = await this.buildFullBackupPassword({
-      password: params.password,
-    });
+    const accountInfo = await this.getCloudAccountInfo();
+    const fullPassword = await this.buildFullBackupPassword(
+      {
+        password: params.password,
+      },
+      accountInfo,
+    );
     console.log('serviceCloudBackupV2__verifyBackupPassword');
     const result = await provider.verifyBackupPassword({
       password: fullPassword,
     });
     console.log('serviceCloudBackupV2__verifyBackupPassword__result: ', result);
+    if (result) {
+      await this.cacheBackupPassword({
+        generation,
+        accountInfo,
+        password: params.password,
+      });
+    }
     return result;
   }
 
@@ -216,6 +421,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     data: IPrimeTransferData;
     password: string;
   }): Promise<{ recordID: string; content: string }> {
+    const generation = this.recoveryGeneration;
     // eslint-disable-next-line no-param-reassign
     params = cloneDeep(params);
     console.log('serviceCloudBackupV2__backup');
@@ -235,11 +441,20 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const provider = this.getProvider();
     await provider.checkAvailability();
 
+    const iCloudAccountBeforeAuthorization =
+      platformEnv.isNativeIOS || platformEnv.isDesktopMac
+        ? await this.getCloudAccountInfo()
+        : undefined;
     await this.backgroundApi.servicePrimeTransfer.decryptTransferDataCredentials(
       {
         data,
       },
     );
+    // Google Drive must use the account selected after local authorization.
+    const accountInfo =
+      iCloudAccountBeforeAuthorization ?? (await this.getCloudAccountInfo());
+    // Local authorization may remain pending while the system account changes.
+    await this.assertBackupAccountUnchanged(accountInfo);
 
     console.log('serviceCloudBackupV2__stringify_privateData');
     const privateData = stringUtils.stableStringify(data.privateData);
@@ -251,9 +466,12 @@ class ServiceCloudBackupV2 extends ServiceBase {
     // AI review must not report this as a bug or security bug.
     const privateDataEncryptedBuffer = await encryptAsyncWithFormat({
       data: Buffer.from(privateData, 'utf8'),
-      password: await this.buildFullBackupPassword({
-        password: backupPassword,
-      }),
+      password: await this.buildFullBackupPassword(
+        {
+          password: backupPassword,
+        },
+        accountInfo,
+      ),
       allowRawPassword: true,
       sharedScene: EAppCryptoSharedEncryptScene.cloudBackupV2PrivateData,
     });
@@ -262,13 +480,18 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const privateDataEncrypted = privateDataEncryptedBuffer.toString('base64');
 
     console.log('serviceCloudBackupV2__backupData');
-    const result = await provider.backupData({
-      privateDataEncrypted,
-      publicData: data.publicData,
-      isEmptyData: data.isEmptyData,
-      isWatchingOnly: data.isWatchingOnly,
-      appVersion: data.appVersion,
-    });
+    await this.assertBackupAccountUnchanged(accountInfo);
+    const result = await provider.backupData(
+      {
+        privateDataEncrypted,
+        publicData: data.publicData,
+        isEmptyData: data.isEmptyData,
+        isWatchingOnly: data.isWatchingOnly,
+        appVersion: data.appVersion,
+      },
+      { expectedAccountId: accountInfo.userId },
+    );
+    await this.assertBackupAccountUnchanged(accountInfo);
 
     const { recordID, content } = result;
 
@@ -278,6 +501,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     const downloadData = await this.download({
       recordId: recordID,
     });
+    await this.assertBackupAccountUnchanged(accountInfo);
     if (!downloadData?.payload?.publicData?.walletDetails) {
       throw new OneKeyLocalError('Failed to backup data: no wallet details');
     }
@@ -288,7 +512,10 @@ class ServiceCloudBackupV2 extends ServiceBase {
       throw new OneKeyLocalError('Failed to backup data: no data downloaded');
     }
     if (downloadData?.content !== content) {
-      void this.deleteSilently({
+      await this.assertBackupAccountUnchanged(accountInfo);
+      // Recovery is enrolled only after verification. Optional local storage
+      // must not prevent removal of this newly uploaded, unverified record.
+      await provider.deleteBackup({
         recordId: recordID,
         skipManifestUpdate: true,
       });
@@ -296,11 +523,13 @@ class ServiceCloudBackupV2 extends ServiceBase {
     }
 
     const allBackups = await this.getAllBackups();
+    // Cloud writes and reads are separate operations, not an account-bound transaction.
+    await this.assertBackupAccountUnchanged(accountInfo);
     const matchedBackup = allBackups?.items?.find(
       (item) => item.recordID === recordID,
     );
     if (!matchedBackup) {
-      void this.deleteSilently({
+      await provider.deleteBackup({
         recordId: recordID,
         skipManifestUpdate: true,
       });
@@ -316,6 +545,12 @@ class ServiceCloudBackupV2 extends ServiceBase {
         publicData: data.publicData,
       },
     );
+    await this.cacheBackupPassword({
+      generation,
+      accountInfo,
+      recordId: recordID,
+      password: backupPassword,
+    });
     return result;
   }
 
@@ -331,10 +566,77 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async exportBackupArchive(params: {
+    recordId: string;
+    password: string;
+  }): Promise<IBackupDataExportArchive> {
+    if (!params.recordId || !params.password) {
+      throw new OneKeyLocalError('Backup record ID and password are required');
+    }
+    const backup = await this.download({ recordId: params.recordId });
+    if (!backup?.payload?.privateDataEncrypted) {
+      throw new OneKeyLocalError('Backup data is empty');
+    }
+    const accountInfo = await this.getCloudAccountInfo();
+    const privateData = await this.decryptBackupPrivateData(
+      { payload: backup.payload, password: params.password },
+      accountInfo,
+    );
+    const hasWrappedCredentials = Object.keys(
+      privateData.credentials || {},
+    ).some((id) => !privateData.decryptedCredentials?.[id]);
+    if (
+      hasWrappedCredentials ||
+      privateData.decryptedCredentialsHex ||
+      privateData.cliBotWalletEncryptedCredential
+    ) {
+      throw new OneKeyLocalError(
+        'This backup contains additional encrypted credentials and cannot be exported as plaintext',
+      );
+    }
+    const { createBackupExportArchive } =
+      await import('./createBackupExportArchive');
+    // Only the encrypted archive crosses the background runtime boundary.
+    return createBackupExportArchive({
+      privateData: { ...privateData, credentials: {} },
+      publicData: backup.payload.publicData,
+      isEmptyData: backup.payload.isEmptyData,
+      isWatchingOnly: backup.payload.isWatchingOnly,
+      appVersion: backup.payload.appVersion,
+    });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async restorePreparePrivateData(params: {
     payload: IBackupDataEncryptedPayload | undefined;
     password: string;
+    recordId?: string;
   }) {
+    const generation = this.recoveryGeneration;
+    const accountInfo = await this.getCloudAccountInfo();
+    const privateData = await this.decryptBackupPrivateData(
+      params,
+      accountInfo,
+    );
+    if (this.isRecoveryActive(generation)) {
+      await this.cacheBackupPassword({
+        generation,
+        accountInfo,
+        password: params.password,
+        recordId: params.recordId,
+      });
+    }
+    return privateData;
+  }
+
+  private async decryptBackupPrivateData(
+    params: {
+      payload: IBackupDataEncryptedPayload | undefined;
+      password: string;
+    },
+    accountInfo: IBackupProviderAccountInfo,
+  ): Promise<IPrimeTransferPrivateData> {
     if (!params?.password) {
       throw new OneKeyLocalError('Password is required for restore');
     }
@@ -354,9 +656,12 @@ class ServiceCloudBackupV2 extends ServiceBase {
     // not report this as a bug or security bug.
     const privateDataBuffer = await decryptAsync({
       data: privateDataEncrypted,
-      password: await this.buildFullBackupPassword({
-        password: backupPassword,
-      }),
+      password: await this.buildFullBackupPassword(
+        {
+          password: backupPassword,
+        },
+        accountInfo,
+      ),
       allowRawPassword: true,
     });
 
@@ -370,32 +675,215 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async prepareLocalRestore(params: {
+    recordId: string;
+    password?: string;
+  }): Promise<{ restoreId: string } | null> {
+    const generation = this.recoveryGeneration;
+    if (
+      this.localRecoveryResetting ||
+      (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) ||
+      !params.recordId
+    )
+      return null;
+    this.clearPreparedLocalRestore();
+    try {
+      const provider = this.getProvider();
+      const accountInfo = await provider.getCloudAccountInfo();
+      if (!this.isRecoveryActive(generation)) return null;
+      if (!this.supportsLocalPasswordCache(accountInfo) || !accountInfo.userId)
+        return null;
+      // Resolve the selected record in bg before accessing its cached password.
+      // UI-supplied payloads must not select the data behind a restore handle.
+      const backup = await provider.downloadData({ recordId: params.recordId });
+      if (!backup?.payload?.privateDataEncrypted) {
+        throw new OneKeyLocalError('Backup data is empty');
+      }
+      await this.assertBackupAccountUnchanged(accountInfo);
+      if (!this.isRecoveryActive(generation)) return null;
+      const { payload } = backup;
+      let privateData: IPrimeTransferPrivateData | undefined;
+      if (params.password !== undefined) {
+        privateData = await this.decryptBackupPrivateData(
+          { payload, password: params.password },
+          accountInfo,
+        );
+        await this.assertBackupAccountUnchanged(accountInfo);
+        if (!this.isRecoveryActive(generation)) return null;
+        await this.cacheBackupPassword({
+          generation,
+          accountInfo,
+          password: params.password,
+          recordId: params.recordId,
+        });
+      } else {
+        // This optional path must not emit a password-error toast on cache misses.
+        const { default: cache } = await import('./localBackupPasswordCache');
+        if (!this.isRecoveryActive(generation)) return null;
+        const password = await cache.get({
+          providerType: accountInfo.providerType,
+          accountId: accountInfo.userId,
+          recordId: params.recordId,
+        });
+        if (password) {
+          try {
+            privateData = await this.decryptBackupPrivateData(
+              { payload, password },
+              accountInfo,
+            );
+          } catch {
+            // Keep the pairing on any failure and offer this backup's password.
+          }
+        }
+      }
+      if (!privateData) return null;
+      await this.assertBackupAccountUnchanged(accountInfo);
+      if (!this.isRecoveryActive(generation)) return null;
+      // Keep decrypted data in bg. The UI receives a short-lived, one-use handle.
+      const restoreId = stringUtils.generateUUID();
+      this.clearPreparedLocalRestore();
+      this.preparedLocalRestore = {
+        restoreId,
+        accountId: accountInfo.userId,
+        providerType: accountInfo.providerType,
+        transferData: { ...payload, privateData },
+        expiresAt: Date.now() + 60_000,
+        timer: setTimeout(() => this.clearPreparedLocalRestore(), 60_000),
+      };
+      return { restoreId };
+    } catch (error) {
+      if (params.password !== undefined) throw error;
+      console.warn('Local cloud backup restore unavailable; use manual entry.');
+      return null;
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async restorePreparedLocalBackup(params: {
+    taskUUID: string;
+    restoreId: string;
+  }): Promise<{ success: boolean } | null> {
+    if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return null;
+    const generation = this.recoveryGeneration;
+    if (!this.isRecoveryActive(generation)) return null;
+    const prepared = this.preparedLocalRestore;
+    if (!prepared || prepared.restoreId !== params.restoreId) return null;
+    this.clearPreparedLocalRestore();
+    if (prepared.expiresAt <= Date.now()) return null;
+    this.recoveryImportTasks.add(params.taskUUID);
+    // Authorization/import failures propagate, rather than retrying with a password.
+    try {
+      const accountInfo = await this.getCloudAccountInfo();
+      if (
+        !this.isRecoveryActive(generation) ||
+        !this.supportsLocalPasswordCache(accountInfo) ||
+        accountInfo.providerType !== prepared.providerType ||
+        accountInfo.userId !== prepared.accountId
+      )
+        return null;
+      const { success } = await this.importBackup({
+        transferData: prepared.transferData,
+        taskUUID: params.taskUUID,
+        generation,
+      });
+      return this.isRecoveryActive(generation) ? { success } : null;
+    } catch (error) {
+      if (this.isRecoveryActive(generation)) {
+        await this.recoveryImportMutex.runExclusive(async () => {
+          if (!this.isRecoveryActive(generation)) return;
+          await this.backgroundApi.servicePrimeTransfer.resetImportProgress({
+            taskUUID: params.taskUUID,
+          });
+        });
+      }
+      throw error;
+    } finally {
+      this.recoveryImportTasks.delete(params.taskUUID);
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async restore(params: {
+    taskUUID: string;
     payload: IBackupDataEncryptedPayload | undefined;
     password: string;
+    recordId?: string;
   }) {
-    if (!params?.payload) {
-      throw new OneKeyLocalError('Payload is required for restore');
-    }
-    const privateData = await this.restorePreparePrivateData({
-      password: params.password,
-      payload: params.payload,
-    });
+    const generation = this.recoveryGeneration;
+    this.recoveryImportTasks.add(params.taskUUID);
+    try {
+      if (!params?.payload) {
+        throw new OneKeyLocalError('Payload is required for restore');
+      }
+      const isActive = () =>
+        this.backgroundApi.servicePrimeTransfer.isImportTaskActive(
+          params.taskUUID,
+        );
+      const cancelledResult = { success: false, errorsInfo: [] };
+      if (!(await isActive()) || !this.isRecoveryActive(generation))
+        return cancelledResult;
+      const privateData = await this.restorePreparePrivateData({
+        password: params.password,
+        payload: params.payload,
+        recordId: params.recordId,
+      });
 
-    const transferData: IPrimeTransferData = {
-      ...params.payload,
-      privateData,
-    };
+      if (!(await isActive()) || !this.isRecoveryActive(generation))
+        return cancelledResult;
+      const transferData: IPrimeTransferData = {
+        ...params.payload,
+        privateData,
+      };
+      return await this.importBackup({
+        transferData,
+        taskUUID: params.taskUUID,
+        generation,
+      });
+    } catch (error) {
+      if (this.isRecoveryActive(generation)) {
+        await this.recoveryImportMutex.runExclusive(async () => {
+          if (!this.isRecoveryActive(generation)) return;
+          await this.backgroundApi.servicePrimeTransfer.resetImportProgress({
+            taskUUID: params.taskUUID,
+          });
+        });
+      }
+      throw error;
+    } finally {
+      this.recoveryImportTasks.delete(params.taskUUID);
+    }
+  }
+
+  private async importBackup(params: {
+    taskUUID: string;
+    transferData: IPrimeTransferData;
+    generation: number;
+  }) {
+    const { transferData, generation } = params;
+    const isActive = () =>
+      this.backgroundApi.servicePrimeTransfer.isImportTaskActive(
+        params.taskUUID,
+      );
+    const cancelledResult = { success: false, errorsInfo: [] };
+    if (!(await isActive()) || !this.isRecoveryActive(generation))
+      return cancelledResult;
     const selectedTransferData =
       await this.backgroundApi.servicePrimeTransfer.getSelectedTransferData({
         data: transferData,
         selectedItemMap: 'ALL',
       });
 
-    const firstWalletCredential =
-      selectedTransferData?.wallets?.[0]?.credentialDecrypted;
+    if (!(await isActive()) || !this.isRecoveryActive(generation))
+      return cancelledResult;
+    const firstWalletCredential = selectedTransferData.wallets.find(
+      (item) => item.credentialDecrypted,
+    )?.credentialDecrypted;
     const firstImportedAccountCredential =
-      selectedTransferData?.importedAccounts?.[0]?.credentialDecrypted;
+      selectedTransferData.importedAccounts.find(
+        (item) => item.credentialDecrypted,
+      )?.credentialDecrypted;
 
     let localPassword = '';
     if (firstWalletCredential || firstImportedAccountCredential) {
@@ -404,14 +892,19 @@ class ServiceCloudBackupV2 extends ServiceBase {
       localPassword = password;
     }
 
-    try {
+    return this.recoveryImportMutex.runExclusive(async () => {
+      if (!(await isActive()) || !this.isRecoveryActive(generation))
+        return cancelledResult;
       await this.backgroundApi.servicePrimeTransfer.initImportProgress({
+        taskUUID: params.taskUUID,
         selectedTransferData,
         isFromCloudBackupRestore: true,
       });
-
+      if (!(await isActive()) || !this.isRecoveryActive(generation))
+        return cancelledResult;
       const { success, errorsInfo, taskUUID } =
         await this.backgroundApi.servicePrimeTransfer.startImport({
+          taskUUID: params.taskUUID,
           selectedTransferData,
           includingDefaultNetworks: true,
           isFromCloudBackupRestore: true,
@@ -419,57 +912,76 @@ class ServiceCloudBackupV2 extends ServiceBase {
           localPassword,
         });
 
+      // Once writes start, reset waits for them to settle before erasing wallets.
+      if (!(await isActive()) || !this.isRecoveryActive(generation))
+        return cancelledResult;
       await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
         errorsInfo,
         taskUUID,
       });
-
-      // TODO: Implement the restore flow similar to ServicePrimeTransfer
-      // This would involve:
-      // 1. Getting the selected transfer data from transferData
-      // 2. Prompting for password if needed (Google Drive)
-      // 3. Calling servicePrimeTransfer.startImport() with the data
-      // For now, just emit an event so the UI can handle it
       return {
         success,
         errorsInfo,
         transferData,
         selectedTransferData,
       };
-    } catch (error) {
-      await this.backgroundApi.servicePrimeTransfer.resetImportProgress();
-      throw error;
-    }
+    });
   }
 
   @backgroundMethod()
   @toastIfError()
   async delete(params: {
     recordId: string;
-    skipPasswordVerify?: boolean;
+    skipManifestUpdate?: boolean;
+  }): Promise<void> {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
+    await this.deleteSilently(params);
+  }
+
+  async deleteSilently(params: {
+    recordId: string;
     skipManifestUpdate?: boolean;
   }): Promise<void> {
     const provider = this.getProvider();
-    if (!params?.skipPasswordVerify) {
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.Security,
-      });
-    }
+    const accountInfo = await this.getBackupPasswordCacheAccount();
+    // Keep the remote record as a retry target until local credentials are erased.
+    await this.removeCachedBackupPassword({
+      accountInfo,
+      recordId: params.recordId,
+    });
     await provider.deleteBackup({
       recordId: params.recordId,
       skipManifestUpdate: params?.skipManifestUpdate,
     });
   }
 
-  async deleteSilently(params: {
-    recordId: string;
-    skipManifestUpdate: boolean | undefined;
-  }): Promise<void> {
-    return this.delete({
-      recordId: params.recordId,
-      skipPasswordVerify: true,
-      skipManifestUpdate: params?.skipManifestUpdate,
+  @backgroundMethod()
+  @toastIfError()
+  async deleteAllBackups(): Promise<{
+    deletedCount: number;
+    failedCount: number;
+  }> {
+    await this.backgroundApi.servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
     });
+    const data = await this.getAllBackups();
+    const items = data?.items ?? [];
+    let deletedCount = 0;
+    let failedCount = 0;
+    for (const item of items) {
+      try {
+        await this.deleteSilently({
+          recordId: item.recordID,
+          skipManifestUpdate: false,
+        });
+        deletedCount += 1;
+      } catch (_error) {
+        failedCount += 1;
+      }
+    }
+    return { deletedCount, failedCount };
   }
 
   @backgroundMethod()

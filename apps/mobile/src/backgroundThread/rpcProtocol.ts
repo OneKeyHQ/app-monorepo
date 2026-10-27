@@ -1,4 +1,8 @@
 import {
+  BROADCAST_TX_CONTEXT_DATA_FIELD,
+  getBroadcastTxContextFromData,
+} from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorData';
+import {
   type ILocalSecretEnvelopeCredentialErrorData,
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
@@ -103,9 +107,10 @@ export type IBackgroundThreadResponseErrorPayload = {
   key?: string;
   requestId?: string;
   httpStatusCode?: number;
-  constructorName?: string;
   data?: unknown;
+  info?: unknown;
   payload?: unknown;
+  reconnect?: boolean;
 };
 
 export type IBackgroundThreadResponsePayload = {
@@ -132,7 +137,7 @@ export const WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX = 'onekey:webembed:resp:';
 // SharedStore key holding main's latched capability advertisement (+ doubling
 // as the "main is up" liveness signal). Read synchronously by bg via
 // `sharedStore.get`.
-export const BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY = 'onekey:bg:main-caps';
+export { BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 // SharedRPC content-less wake ping fired after main updates its latched
 // capabilities in SharedStore (SharedStore has no notify). Edge-wakes bg to
 // re-read the capabilities key. Value is irrelevant.
@@ -141,6 +146,7 @@ export const BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY =
 
 export type IBackgroundThreadMainCapabilitiesPayload = {
   jotaiStateBatch?: boolean;
+  mainRuntimeId?: string;
 };
 
 export function serializeBackgroundThreadMainCapabilitiesPayload(
@@ -277,6 +283,7 @@ export function serializeBackgroundThreadResponse(
 }
 
 export function buildSafeBackgroundThreadErrorData(data: unknown) {
+  const broadcastTxContext = getBroadcastTxContextFromData(data);
   if (
     data &&
     typeof data === 'object' &&
@@ -288,9 +295,15 @@ export function buildSafeBackgroundThreadErrorData(data: unknown) {
     return {
       [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
         LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+      ...(broadcastTxContext
+        ? { [BROADCAST_TX_CONTEXT_DATA_FIELD]: broadcastTxContext }
+        : {}),
     };
   }
 
+  if (broadcastTxContext) {
+    return { [BROADCAST_TX_CONTEXT_DATA_FIELD]: broadcastTxContext };
+  }
   return undefined;
 }
 

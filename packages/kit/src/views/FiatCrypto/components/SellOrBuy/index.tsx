@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -5,28 +6,35 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
-import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { useGetTokensListWithNetworks } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import type {
   IFiatCryptoToken,
   IFiatCryptoType,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
-import { NetworkContainer } from '../NetworkContainer';
 import { useTokenDataContext } from '../TokenDataContainer';
+import { TokenListMetaContainer } from '../TokenListMeta';
 
 type ISellOrBuyContentProps = {
   type: IFiatCryptoType;
   networkId: string;
   accountId?: string;
+  // First row of the token list (see TokenList.listHeader).
+  listHeader?: ReactElement;
 };
 
 export const SellOrBuyContent = memo(
-  ({ type, networkId, accountId }: ISellOrBuyContentProps) => {
-    const { result: tokens, isLoading } = useGetTokensList({
+  ({ type, networkId, accountId, listHeader }: ISellOrBuyContentProps) => {
+    const {
+      result: { tokens, networksMap, mergeDeriveAssetsNetworkIds },
+      isLoading,
+    } = useGetTokensListWithNetworks({
       networkId,
       accountId,
       type,
@@ -90,6 +98,18 @@ export const SellOrBuyContent = memo(
             networkID: token.networkId,
           });
         }
+        if (
+          type === 'buy' &&
+          (await tryOpenHeadlessBuy({
+            networkId: token.networkId,
+            tokenAddress: token.address,
+            accountId: realAccountId,
+            token,
+            entryFrom: EHeadlessBuyEntry.BuyTokenList,
+          }))
+        ) {
+          return;
+        }
         const { url } =
           await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
             networkId: token.networkId,
@@ -103,20 +123,20 @@ export const SellOrBuyContent = memo(
       [type],
     );
 
-    const networkIds = useMemo(
-      () => Array.from(new Set(fiatValueTokens.map((o) => o.networkId))),
-      [fiatValueTokens],
-    );
-
     return (
-      <NetworkContainer networkIds={networkIds}>
+      <TokenListMetaContainer
+        networksMap={networksMap}
+        mergeDeriveAssetsNetworkIds={mergeDeriveAssetsNetworkIds}
+        account={account}
+      >
         <TokenList
           items={fiatValueTokens}
           type={type}
           isLoading={isLoading}
           onPress={onPress}
+          listHeader={listHeader}
         />
-      </NetworkContainer>
+      </TokenListMetaContainer>
     );
   },
 );

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { collectLogDigest, exportLogs, uploadLogBundle } from '.';
+import {
+  collectLogDigest,
+  disposeLogDigest,
+  exportLogs,
+  uploadLogBundle,
+} from '.';
 
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
@@ -9,8 +14,8 @@ import {
   Button,
   Dialog,
   Icon,
-  Portal,
   Progress,
+  Radio,
   SizableText,
   Stack,
   Toast,
@@ -20,13 +25,25 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { inAppStateLockStyle } from '@onekeyhq/kit/src/views/Setting/hooks';
+import { inAppStateLockDialogProps } from '@onekeyhq/kit/src/views/Setting/hooks';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
+import {
+  BROWSER_LOG_MAX_BYTES,
+  ELogUploadStage,
+  RECENT_LOG_EXPORT_BYTES,
+} from '@onekeyhq/shared/src/logger/types';
+import type {
+  ILogDigest,
+  ILogExportScope,
+} from '@onekeyhq/shared/src/logger/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { downloadLogDigest } from './downloadLogDigest';
 
 const MAX_RETRIES = 3;
+const usesBrowserLogExport = platformEnv.isExtension || platformEnv.isWeb;
 
 // Internal UI states (combining backend stages for better UX)
 type IDialogStage =
@@ -50,6 +67,7 @@ function UploadLogsDialogContent({
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [instanceId, setInstanceId] = useState<string | undefined>();
   const [instanceIdCopied, setInstanceIdCopied] = useState(false);
+  const [exportScope, setExportScope] = useState<ILogExportScope>('recent');
   const isActiveRef = useRef(false);
   const fileBaseNameRef = useRef<string>('');
 
@@ -119,9 +137,12 @@ function UploadLogsDialogContent({
   }, []);
 
   const handleManualExport = useCallback(async () => {
+    if (isActiveRef.current) return;
+    isActiveRef.current = true;
+    setDialogStage('fallback_exporting');
     const fileBaseName = generateFileBaseName();
     try {
-      await exportLogs(fileBaseName);
+      await exportLogs(fileBaseName, exportScope);
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.settings_log_file_exported_successfully,
@@ -129,13 +150,16 @@ function UploadLogsDialogContent({
       });
       void dialog.close();
     } catch (_error) {
+      setDialogStage('idle');
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.settings_export_logs_failed_title,
         }),
       });
+    } finally {
+      isActiveRef.current = false;
     }
-  }, [generateFileBaseName, intl, dialog]);
+  }, [generateFileBaseName, intl, dialog, exportScope]);
 
   const handleUpload = useCallback(
     async ({ preventClose }: { preventClose: () => void }) => {
@@ -156,20 +180,27 @@ function UploadLogsDialogContent({
 
       const fileBaseName = generateFileBaseName();
       fileBaseNameRef.current = fileBaseName;
+      let browserDigest: ILogDigest | undefined;
 
       const attemptUpload = async () => {
-        const digest = await collectLogDigest(fileBaseName);
-        const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
-          {
-            sizeBytes: digest.sizeBytes,
-            sha256: digest.sha256,
-          },
-        );
-        const { result } = await uploadLogBundle({
-          uploadToken: token.uploadToken,
-          digest,
-        });
-        return result.objectKey;
+        if (usesBrowserLogExport && !browserDigest) {
+          browserDigest = await collectLogDigest(fileBaseName, exportScope);
+        }
+        const digest = browserDigest ?? (await collectLogDigest(fileBaseName));
+        try {
+          const token =
+            await backgroundApiProxy.serviceLogger.requestUploadToken({
+              sizeBytes: digest.sizeBytes,
+              sha256: digest.sha256,
+            });
+          const { result } = await uploadLogBundle({
+            uploadToken: token.uploadToken,
+            digest,
+          });
+          return result.objectKey;
+        } finally {
+          if (!usesBrowserLogExport) await disposeLogDigest(digest);
+        }
       };
 
       try {
@@ -221,7 +252,8 @@ function UploadLogsDialogContent({
         setProgressPercent(0);
 
         try {
-          await exportLogs(fileBaseName);
+          if (browserDigest) downloadLogDigest(browserDigest);
+          else await exportLogs(fileBaseName, exportScope);
 
           // Export succeeded
           console.log('[Log Upload] Export succeeded');
@@ -241,10 +273,18 @@ function UploadLogsDialogContent({
           );
         }
       } finally {
+        if (browserDigest) await disposeLogDigest(browserDigest);
         isActiveRef.current = false;
       }
     },
-    [dialogStage, resolveError, intl, generateFileBaseName, inAppStateLock],
+    [
+      dialogStage,
+      resolveError,
+      intl,
+      generateFileBaseName,
+      inAppStateLock,
+      exportScope,
+    ],
   );
 
   const handleConfirmAction = useCallback(
@@ -259,7 +299,31 @@ function UploadLogsDialogContent({
     switch (dialogStage) {
       case 'idle':
         return (
-          <Stack>
+          <Stack gap="$4">
+            {usesBrowserLogExport && !inAppStateLock ? (
+              <Radio
+                testID="log-export-scope"
+                value={exportScope}
+                onChange={(value) => {
+                  if (value === 'recent' || value === 'full')
+                    setExportScope(value);
+                }}
+                options={[
+                  {
+                    value: 'recent',
+                    label: intl.formatMessage({
+                      id: ETranslations.global_recents,
+                    }),
+                    description: `≤ ${RECENT_LOG_EXPORT_BYTES / 1024 / 1024} MiB`,
+                  },
+                  {
+                    value: 'full',
+                    label: intl.formatMessage({ id: ETranslations.global_all }),
+                    description: `≤ ${BROWSER_LOG_MAX_BYTES / 1024 / 1024} MiB`,
+                  },
+                ]}
+              />
+            ) : null}
             {inAppStateLock ? (
               // Lock screen: keep the privacy reassurance but hide the inline
               // "manually export logs" action, since file export / share sheet
@@ -485,12 +549,6 @@ export function showExportLogsDialog({
     title,
     showFooter: false,
     renderContent: <UploadLogsDialogContent inAppStateLock={inAppStateLock} />,
-    ...(inAppStateLock
-      ? {
-          ...inAppStateLockStyle,
-          isOverTopAllViews: true,
-          portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
-        }
-      : undefined),
+    ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
   });
 }

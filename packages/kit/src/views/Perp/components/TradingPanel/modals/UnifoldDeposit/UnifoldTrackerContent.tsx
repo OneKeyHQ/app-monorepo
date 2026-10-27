@@ -23,6 +23,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { PerpDesktopEmptyState } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/Components/PerpDesktopEmptyState';
+import { PerpMobileEmptyState } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/Components/PerpMobileEmptyState';
 import {
   UNIFOLD_ARBITRUM_CHAIN_ID,
   UNIFOLD_HELP_URL,
@@ -620,6 +622,7 @@ export function UnifoldExecutionDetail({
 
 export function UnifoldTrackerContent({
   recipientAddress,
+  isMobile = false,
   listHeight,
   useDialogHeader = false,
   useExternalHeader = false,
@@ -630,6 +633,7 @@ export function UnifoldTrackerContent({
   onBackPress,
 }: {
   recipientAddress: string | null;
+  isMobile?: boolean;
   listHeight?: number;
   useDialogHeader?: boolean;
   useExternalHeader?: boolean;
@@ -945,17 +949,21 @@ export function UnifoldTrackerContent({
       >
         <YStack flex={1} gap="$3">
           <TrackerIntroCard onDepositPress={onDepositPress} />
-          <YStack flex={1} py="$8" alignItems="center" gap="$2">
-            <Empty
-              icon="ClockTimeHistoryOutline"
+          {isMobile ? (
+            <PerpMobileEmptyState
+              contentOffsetY={-96}
               title={intl.formatMessage({
                 id: ETranslations.perp_unifold_no_deposits__title,
               })}
-              description={intl.formatMessage({
-                id: ETranslations.perp_unifold_history_appears_here__desc,
+            />
+          ) : (
+            <PerpDesktopEmptyState
+              contentOffsetY={-96}
+              title={intl.formatMessage({
+                id: ETranslations.perp_unifold_no_deposits__title,
               })}
             />
-          </YStack>
+          )}
         </YStack>
       </YStack>,
     );

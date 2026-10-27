@@ -1,22 +1,25 @@
-/* eslint-disable import-js/order */
-// import { clearIntervalAsync, setIntervalAsync } from 'set-interval-async';
+/* eslint-disable import-js/order, @typescript-eslint/no-require-imports */
+// Start timing before the first dependency while guarding unpatched hosts.
+if (
+  process.env.NODE_ENV !== 'production' &&
+  typeof globalThis !== 'undefined' &&
+  typeof performance !== 'undefined'
+) {
+  const runtimeScope = globalThis as typeof globalThis & {
+    $$debugT0?: number;
+  };
+  runtimeScope.$$debugT0 = runtimeScope.$$debugT0 ?? performance.now();
+}
 
-// walletconnect react-native-compat polyfill
-import './walletConnectCompact';
-import './polyfillsPlatform';
-import './reactCreateElementShim';
+// Runtime primitives must precede adapters and third-party modules.
+require('./polyfillsPlatform');
+require('./walletConnectCompact');
+require('./reactCreateElementShim');
 
-import '../modules3rdParty/cross-crypto/verify';
-import '../request';
+require('../modules3rdParty/cross-crypto/verify');
+require('../request');
 
-// import { normalizeRequestLibs } from '../request/normalize';
-import timerUtils from '../utils/timerUtils';
-// @ts-ignore
-// global.setInterval = setIntervalAsync;
-// // @ts-ignore
-// global.clearInterval = clearIntervalAsync;
-// import { interceptConsoleErrorWithExtraInfo } from '../errors/utils/errorUtils';
-
-// normalizeRequestLibs();
+const timerUtils = (
+  require('../utils/timerUtils') as typeof import('../utils/timerUtils')
+).default;
 timerUtils.interceptTimerWithDisable();
-// interceptConsoleErrorWithExtraInfo();

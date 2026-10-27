@@ -164,6 +164,7 @@ export function AdaManageContent({
         accountId: earnAccount.accountId,
         walletId: earnAccount.walletId,
         token,
+        source: 'earn',
       },
     });
   }, [appNavigation, networkId, earnAccount, token]);

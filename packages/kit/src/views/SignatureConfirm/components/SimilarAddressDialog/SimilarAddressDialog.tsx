@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IOnDialogConfirm } from '@onekeyhq/components/src/composite/Dialog/type';
 import type { CheckedState } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -107,12 +108,10 @@ function SimilarAddressContent({
   similarAddress,
   currentAddress,
   onConfirm,
-  onCancel,
 }: {
   similarAddress: string;
   currentAddress: string;
-  onConfirm: () => void;
-  onCancel: () => void;
+  onConfirm: IOnDialogConfirm;
 }) {
   const intl = useIntl();
   const diffResult = useMemo(
@@ -202,7 +201,6 @@ function SimilarAddressContent({
         />
         <Dialog.Footer
           onConfirm={onConfirm}
-          onCancel={onCancel}
           onConfirmText={intl.formatMessage({
             id: ETranslations.global_continue,
           })}
@@ -225,8 +223,21 @@ export const showSimilarAddressDialog = async ({
   similarAddress: string;
   currentAddress: string;
 }) => {
-  return new Promise((resolve, reject) => {
-    const dialog = Dialog.show({
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const settle = (confirmed: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (confirmed) {
+        resolve();
+      } else {
+        reject(new OneKeyLocalError('User canceled'));
+      }
+    };
+
+    Dialog.show({
       // eslint-disable-next-line onekey/no-app-locale-main-thread
       title: appLocale.intl.formatMessage({
         id: ETranslations.wallet_high_risk_address_detected,
@@ -235,17 +246,18 @@ export const showSimilarAddressDialog = async ({
       tone: 'warning',
       showConfirmButton: false,
       showCancelButton: false,
+      onCancel: (close) => {
+        void close();
+      },
+      onClose: (extra) => {
+        settle(extra?.flag === 'confirm');
+      },
       renderContent: (
         <SimilarAddressContent
           similarAddress={similarAddress}
           currentAddress={currentAddress}
-          onConfirm={() => {
-            resolve(true);
-            void dialog.close();
-          }}
-          onCancel={() => {
-            reject(new OneKeyLocalError('User canceled'));
-            void dialog.close();
+          onConfirm={async ({ close }) => {
+            await close({ flag: 'confirm' });
           }}
         />
       ),

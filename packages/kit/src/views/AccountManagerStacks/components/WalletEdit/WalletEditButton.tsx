@@ -26,7 +26,7 @@ import {
 import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -69,16 +69,15 @@ function WalletEditButtonView({
   const [devSettings] = useDevSettingsPersistAtom();
 
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user, isPrimeActive } = useOneKeyAuth();
+  const { isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
   const { goToOneKeyIDLoginPageForKeylessWallet } = useKeylessWallet();
   const { verifyKeylessPinChecking } = useVerifyKeylessPinChecking();
 
   const [isResetPinLoading, setIsResetPinLoading] = useState(false);
   const [isVerifyPinLoading, _setIsVerifyPinLoading] = useState(false);
-
-  const isPrimeUser = useMemo(() => {
-    return isPrimeActive && user?.onekeyUserId;
-  }, [isPrimeActive, user?.onekeyUserId]);
+  // Only drives the Prime badge; access (incl. free trial) is checked by the
+  // button itself.
+  const isPrimeUser = Boolean(isPrimeSubscriptionActive);
 
   // True when the wallet is bound to a third-party hardware vendor.
   // Used only for entries that are still third-party-wide exclusions. Device
@@ -147,21 +146,13 @@ function WalletEditButtonView({
     });
   }, [wallet, isKeyless]);
 
-  const showBulkCopyAddressesButton = useMemo(() => {
-    // if (isKeyless) return false;
-    if (!isPrimeAvailable) {
-      return false;
-    }
-
-    if (wallet?.deprecated || !wallet?.backuped) {
-      return false;
-    }
-
-    return (
-      accountUtils.isHdWallet({ walletId: wallet?.id }) ||
-      accountUtils.isHwWallet({ walletId: wallet?.id })
-    );
-  }, [wallet, isPrimeAvailable]);
+  const showMockedWalletBulkCopyAddressesButton = Boolean(
+    wallet?.isMocked &&
+    isPrimeAvailable &&
+    !wallet.deprecated &&
+    wallet.backuped &&
+    accountUtils.isHwWallet({ walletId: wallet.id }),
+  );
 
   const isBotWalletFeatureEnabled = useMemo(
     () =>
@@ -223,11 +214,7 @@ function WalletEditButtonView({
   );
 
   const renderItems = useCallback(
-    async ({
-      handleActionListClose,
-    }: {
-      handleActionListClose: () => void;
-    }) => {
+    ({ handleActionListClose }: { handleActionListClose: () => void }) => {
       if (!config) {
         return null;
       }
@@ -291,13 +278,14 @@ function WalletEditButtonView({
             </>
           ) : null}
 
-          {showBulkCopyAddressesButton ? (
+          {showMockedWalletBulkCopyAddressesButton ? (
             <BulkCopyAddressesButton
               wallet={wallet}
               networkId={network?.id || ''}
               isPrimeActive={isPrimeActive}
-              isPrimeUser={!!isPrimeUser}
+              isPrimeUser={isPrimeUser}
               onClose={handleActionListClose}
+              entryPoint="walletEdit"
             />
           ) : null}
 
@@ -339,7 +327,7 @@ function WalletEditButtonView({
           {isKeyless ||
           showDeviceManagementButton ||
           showAddHiddenWalletButton ||
-          showBulkCopyAddressesButton ? (
+          showMockedWalletBulkCopyAddressesButton ? (
             <Divider mx="$2" my="$1" />
           ) : null}
 
@@ -370,7 +358,7 @@ function WalletEditButtonView({
       devSettings.enabled,
       showBackupButton,
       showDeviceManagementButton,
-      showBulkCopyAddressesButton,
+      showMockedWalletBulkCopyAddressesButton,
       showBotWalletManagerButton,
       network?.id,
       isPrimeActive,
@@ -398,7 +386,7 @@ function WalletEditButtonView({
           icon="DotHorOutline"
         />
       }
-      renderItemsAsync={renderItems}
+      renderItems={renderItems}
       floatingPanelProps={{
         width: '$72',
       }}

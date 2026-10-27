@@ -21,11 +21,12 @@
   self.contentHandler = contentHandler;
   self.bestAttemptContent = [request.content mutableCopy];
 //  self.bestAttemptContent.title = [NSString stringWithFormat:@"[NotificationService]: %@",self.bestAttemptContent.title];
-  NSString * image = self.bestAttemptContent.userInfo[@"image"];
-  //if exist
-  if (image) {
-    //download
-    NSURL *imageURL = [NSURL URLWithString:image];
+  // The push payload can carry `"image": null`, which arrives as NSNull.
+  id image = self.bestAttemptContent.userInfo[@"image"];
+  NSURL *imageURL = [image isKindOfClass:[NSString class]] && [image length] > 0
+    ? [NSURL URLWithString:image]
+    : nil;
+  if (imageURL) {
     [self downloadAndSave:imageURL handler:^(NSString *localPath) {
       if (localPath) {
         NSError *error = nil;

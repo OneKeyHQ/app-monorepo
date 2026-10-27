@@ -72,6 +72,7 @@ function HomePageContainer() {
         bg={isDesktopModeUI ? '$bgSubdued' : '$bgApp'}
       >
         <AccountSelectorProviderMirror
+          perfDebugName="home-page"
           config={{
             sceneName,
             sceneUrl: '',

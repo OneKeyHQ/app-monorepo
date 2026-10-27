@@ -25,7 +25,7 @@ import type { IModalNetworkDoctorParamList } from './networkDoctor';
 import type { IModalNotificationsParamList } from './notifications';
 import type { IOnboardingParamList } from './onboarding';
 import type { IModalPerpParamList } from './perp';
-import type { IPrimeParamList } from './prime';
+import type { IPrimeGiftParamList, IPrimeParamList } from './prime';
 import type { IModalReceiveParamList } from './receive';
 import type { IModalReferFriendsParamList } from './referFriends';
 import type { IModalRewardCenterParamList } from './rewardCenter';
@@ -37,10 +37,12 @@ import type { IModalSignAndVerifyParamList } from './signAndVerify';
 import type { IModalSignatureConfirmParamList } from './signatureConfirm';
 import type { IModalStakingParamList } from './staking';
 import type { IModalSwapParamList } from './swap';
+import type { ITabDeveloperParamList } from './tabDeveloper';
 import type { ITabHomeUrlAccountParamList } from './tabHome';
 import type { ITestModalPagesParam } from './testModal';
 import type { IUniversalSearchParamList } from './universalSearch';
 import type { IModalWalletAddressParamList } from './walletAddress';
+import type { IModalWalletConnectPayParamList } from './walletConnectPay';
 import type { IModalWebViewParamList } from './webView';
 
 export enum EModalRoutes {
@@ -48,12 +50,14 @@ export enum EModalRoutes {
   DiscoveryModal = 'DiscoveryModal',
   SettingModal = 'SettingModal',
   TestModal = 'TestModal',
+  DeveloperModal = 'DeveloperModal',
   SwapModal = 'SwapModal',
   PerpModal = 'PerpModal',
   MarketModal = 'MarketModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
   PrimeModal = 'PrimeModal',
+  PrimeGiftModal = 'PrimeGiftModal',
   FirmwareUpdateModal = 'FirmwareUpdateModal',
   AssetSelectorModal = 'AssetSelectorModal',
   ChainSelectorModal = 'ChainSelectorModal',
@@ -72,6 +76,7 @@ export enum EModalRoutes {
   UniversalSearchModal = 'UniversalSearchModal',
   StakingModal = 'StakingModal',
   WalletAddress = 'WalletAddress',
+  WalletConnectPayModal = 'WalletConnectPayModal',
   NotificationsModal = 'NotificationsModal',
   ShortcutsModal = 'ShortcutsModal',
   SignatureConfirmModal = 'SignatureConfirmModal',
@@ -96,6 +101,7 @@ export type IModalParamList = {
   [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
   [EModalRoutes.DeviceManagementModal]: IModalDeviceManagementParamList;
   [EModalRoutes.DiscoveryModal]: IDiscoveryModalParamList;
+  [EModalRoutes.DeveloperModal]: ITabDeveloperParamList;
   [EModalRoutes.FiatCryptoModal]: IModalFiatCryptoParamList;
   [EModalRoutes.FirmwareUpdateModal]: IModalFirmwareUpdateParamList;
   [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;
@@ -109,6 +115,7 @@ export type IModalParamList = {
   [EModalRoutes.NotificationsModal]: IModalNotificationsParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
   [EModalRoutes.PrimeModal]: IPrimeParamList;
+  [EModalRoutes.PrimeGiftModal]: IPrimeGiftParamList;
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
   [EModalRoutes.ReferFriendsModal]: IModalReferFriendsParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
@@ -121,6 +128,7 @@ export type IModalParamList = {
   [EModalRoutes.TestModal]: ITestModalPagesParam;
   [EModalRoutes.UniversalSearchModal]: IUniversalSearchParamList;
   [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
+  [EModalRoutes.WalletConnectPayModal]: IModalWalletConnectPayParamList;
   [EModalRoutes.WebViewModal]: IModalWebViewParamList;
   [EModalRoutes.BulkCopyAddressesModal]: IModalBulkCopyAddressesParamList;
   [EModalRoutes.BulkExportHistoryModal]: IModalBulkExportHistoryParamList;

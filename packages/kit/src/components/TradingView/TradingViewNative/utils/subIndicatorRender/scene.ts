@@ -2,8 +2,10 @@ import {
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
+  TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET,
 } from '../../chartConstants';
+import { getTradingViewNativePriceAtProgress } from '../priceScale';
 
 import {
   formatTradingViewNativeSubIndicatorValue,
@@ -574,6 +576,57 @@ function getSceneItems(
   return items;
 }
 
+function getNonOverlappingBandTickValues({
+  layout,
+  values,
+}: {
+  layout: ITradingViewNativeSubIndicatorPaneLayout;
+  values: readonly number[];
+}) {
+  'worklet';
+
+  if (!layout.range || values.length <= 1) {
+    return [...values];
+  }
+  const range = layout.range;
+  const firstValue = values[0];
+  const lastValue = values[values.length - 1];
+  if (firstValue === undefined || lastValue === undefined) {
+    return [];
+  }
+  const getY = (value: number) =>
+    getTradingViewNativeSubIndicatorY({
+      bottom: layout.plotBottom,
+      range,
+      top: layout.plotTop,
+      value,
+    });
+  const firstY = getY(firstValue);
+  const lastY = getY(lastValue);
+  if (lastY - firstY < TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING) {
+    return [firstValue];
+  }
+
+  // Keep the upper and lower references before fitting interior labels.
+  const selectedValues = [firstValue];
+  let previousY = firstY;
+  for (let index = 1; index < values.length - 1; index += 1) {
+    const value = values[index];
+    if (value !== undefined) {
+      const y = getY(value);
+      if (
+        y - previousY >= TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING &&
+        lastY - y >= TRADING_VIEW_NATIVE_PRICE_AXIS_MIN_TICK_SPACING
+      ) {
+        selectedValues.push(value);
+        previousY = y;
+      }
+    }
+  }
+  selectedValues.push(lastValue);
+  return selectedValues;
+}
+
 function appendAxisCommands({
   commands,
   layout,
@@ -588,22 +641,57 @@ function appendAxisCommands({
   if (!layout.range || layout.height < TRADING_VIEW_NATIVE_AXIS_FONT_SIZE + 4) {
     return;
   }
-  let tickCount = 1;
-  if (layout.height >= 84) {
-    tickCount = 3;
-  } else if (layout.height >= 36) {
-    tickCount = 2;
-  }
-  for (let index = 0; index < tickCount; index += 1) {
-    let progress = 0.5;
-    if (tickCount === 2) {
-      progress = 0.25 + index * 0.5;
-    } else if (tickCount === 3) {
-      progress = index / 2;
+
+  let isUsingBandTicks = false;
+  let tickValues: number[] = [];
+  if (layout.pane.indicator === 'RSI') {
+    for (const band of layout.pane.bands) {
+      const value = band.style.value;
+      if (
+        band.style.visible &&
+        Number.isFinite(value) &&
+        value >= layout.range.minValue &&
+        value <= layout.range.maxValue &&
+        !tickValues.includes(value)
+      ) {
+        tickValues.push(value);
+      }
     }
-    const value =
-      layout.range.maxValue -
-      (layout.range.maxValue - layout.range.minValue) * progress;
+    tickValues.sort((left, right) => right - left);
+    if (tickValues.length) {
+      isUsingBandTicks = true;
+      tickValues = getNonOverlappingBandTickValues({
+        layout,
+        values: tickValues,
+      });
+    }
+  }
+  if (!tickValues.length) {
+    let tickCount = 1;
+    if (layout.height >= 84) {
+      tickCount = 3;
+    } else if (layout.height >= 36) {
+      tickCount = 2;
+    }
+    for (let index = 0; index < tickCount; index += 1) {
+      let progress = 0.5;
+      if (tickCount === 2) {
+        progress = 0.25 + index * 0.5;
+      } else if (tickCount === 3) {
+        progress = index / 2;
+      }
+      tickValues.push(
+        getTradingViewNativePriceAtProgress({
+          maxPrice: layout.range.maxValue,
+          minPrice: layout.range.minValue,
+          mode: layout.range.mode ?? 'linear',
+          progress,
+        }),
+      );
+    }
+  }
+
+  for (const value of tickValues) {
     const y = getTradingViewNativeSubIndicatorY({
       bottom: layout.plotBottom,
       range: layout.range,
@@ -614,7 +702,9 @@ function appendAxisCommands({
       {
         kind: 'line',
         paint: 'gridLine',
-        x1: TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
+        x1: isUsingBandTicks
+          ? priceAxisX
+          : TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING,
         x2: priceAxisX + 4,
         y1: y,
         y2: y,
@@ -628,10 +718,15 @@ function appendAxisCommands({
           layout.pane.format,
         ),
         x: priceAxisX + TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
-        y:
-          y +
-          TRADING_VIEW_NATIVE_AXIS_FONT_SIZE / 2 +
-          TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET,
+        y: Math.min(
+          Math.max(
+            y +
+              TRADING_VIEW_NATIVE_AXIS_FONT_SIZE / 2 +
+              TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET,
+            layout.top + TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
+          ),
+          layout.bottom - 2,
+        ),
       },
     );
   }
@@ -723,14 +818,14 @@ export function appendTradingViewNativeSubIndicatorLegendCommands({
     priceAxisX,
   });
   for (const legendLayout of legendLayouts) {
-    commands.push(
-      { kind: 'clip', rect: legendLayout.clipRect },
-      {
+    commands.push({ kind: 'clip', rect: legendLayout.clipRect });
+    if (legendLayout.paneLayout.pane.indicator !== 'MACD') {
+      commands.push({
         ...legendLayout.backgroundRect,
         kind: 'rect',
         paint: 'legendBackground',
-      },
-    );
+      });
+    }
     for (const { segment, series } of legendLayout.textEntries) {
       const textBaselineY = segment.textBaselineY ?? legendLayout.textBaselineY;
       if (!series) {

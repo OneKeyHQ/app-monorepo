@@ -59,6 +59,7 @@ export type IModalSendParamList = {
     amount?: string;
     isInvoiceAmountLocked?: boolean;
     isAllNetworks?: boolean;
+    hasAcknowledgedCexDepositWarning?: boolean;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;

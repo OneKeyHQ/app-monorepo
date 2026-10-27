@@ -1,0 +1,790 @@
+/** @jest-environment jsdom */
+import { act, renderHook } from '@testing-library/react';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IDustSweepSnapshot } from '@onekeyhq/shared/types/swap/dustSweep';
+
+import { DustSweepError } from '../utils/DustSweepError';
+import {
+  DustSweepPaused,
+  DustSweepRetryableError,
+  DustSweepUnknownSubmission,
+  DustSweepUserCanceled,
+  executeDustSweepItem,
+} from '../utils/execution';
+
+import { useDustSweepSession } from './useDustSweepSession';
+
+jest.mock('@onekeyhq/kit/src/views/Swap/hooks/useSwapTxHistory', () => ({
+  generateSwapHistoryItemForContext: jest.fn(),
+}));
+const mockResultLog = jest.fn();
+const mockItemLog = jest.fn();
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    dex: {
+      dustSweep: {
+        dustSweepResult: (params: unknown) => {
+          mockResultLog(params);
+        },
+        dustSweepStart: jest.fn(),
+        dustSweepPageVisited: jest.fn(),
+        dustSweepItemResult: (params: unknown) => {
+          mockItemLog(params);
+        },
+      },
+    },
+  },
+}));
+jest.mock('../utils/execution', () => ({
+  executeDustSweepItem: jest.fn(),
+  DustSweepUnknownSubmission: jest.fn(),
+  DustSweepUserCanceled: jest.fn(),
+  DustSweepRetryableError: jest.requireActual<
+    typeof import('../utils/DustSweepRetryableError')
+  >('../utils/DustSweepRetryableError').DustSweepRetryableError,
+  DustSweepPaused: jest.fn(),
+}));
+
+const snapshot: IDustSweepSnapshot = {
+  id: 'session',
+  accountId: 'account',
+  address: 'address',
+  networkId: 'evm--1',
+  slippage: 5,
+  nativeToken: {
+    networkId: 'evm--1',
+    contractAddress: '',
+    symbol: 'ETH',
+    decimals: 18,
+    isNative: true,
+    price: '2000',
+  },
+  tokens: ['a', 'b'].map((key) => ({
+    key,
+    networkId: 'evm--1',
+    contractAddress: key,
+    symbol: key,
+    decimals: 6,
+    amount: '1',
+    valueUsd: '1',
+    suspicious: false,
+  })),
+};
+const execute = jest.mocked(executeDustSweepItem);
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+type IResult = Awaited<ReturnType<typeof executeDustSweepItem>>;
+const success: IResult = {
+  status: 'success',
+  receivedAmount: '0.01',
+  receiptUnavailable: false,
+};
+
+beforeEach(() => jest.clearAllMocks());
+
+it('starts exactly once after selection effects reconnect', async () => {
+  const first = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-a');
+    return first.promise;
+  });
+  const { result } = renderHook(
+    () => useDustSweepSession([], { minRunMs: 0 }),
+    { reactStrictMode: true },
+  );
+  let sessionId: string | undefined;
+  act(() => {
+    sessionId = result.current.start({
+      ...snapshot,
+      tokens: [snapshot.tokens[0]],
+    });
+    expect(result.current.start(snapshot)).toBeUndefined();
+  });
+  expect(sessionId).toBeDefined();
+  expect(result.current.state.phase).toBe('running');
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
+  await act(async () => first.resolve(success));
+  expect(result.current.state.phase).toBe('completed');
+  expect(mockResultLog).toHaveBeenCalledTimes(1);
+});
+
+it('preserves an existing localized App error through the session without exposing its diagnostic message', async () => {
+  execute.mockRejectedValueOnce({
+    className: 'OneKeyAppError',
+    key: ETranslations.swap_page_toast_insufficient_balance_title,
+    info: { token: 'DUST' },
+    message: 'Internal balance diagnostic',
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () =>
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
+  );
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'skipped',
+    localError: {
+      key: ETranslations.swap_page_toast_insufficient_balance_title,
+      values: { token: 'DUST' },
+    },
+  });
+  expect(result.current.state.items[0].providerErrorMessage).toBeUndefined();
+});
+
+it('pauses immediately while retaining the broadcast worker and its eventual result', async () => {
+  const first = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-a');
+    return first.promise;
+  });
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-b');
+    return success;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  act(() => result.current.pause());
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'broadcasted',
+    txId: 'tx-a',
+  });
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
+  expect(execute).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    first.resolve(success);
+  });
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items.map((item) => item.status)).toEqual([
+    'success',
+    'waiting',
+  ]);
+  expect(mockResultLog).not.toHaveBeenCalled();
+  await act(async () => result.current.resume());
+  expect(result.current.state.phase).toBe('completed');
+  expect(execute).toHaveBeenCalledTimes(2);
+  expect(mockResultLog).toHaveBeenCalledTimes(1);
+});
+
+it('does not duplicate an active broadcast when resuming before it settles', async () => {
+  const first = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-a');
+    return first.promise;
+  });
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-b');
+    return success;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  act(() => {
+    result.current.pause();
+    result.current.resume();
+    result.current.pause();
+    result.current.resume();
+  });
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(result.current.state.items[0].txId).toBe('tx-a');
+  await act(async () => first.resolve(success));
+  expect(execute).toHaveBeenCalledTimes(2);
+  expect(result.current.state.phase).toBe('completed');
+});
+
+it('invalidates old preparation even after a quick stop and resume', async () => {
+  const preparation = deferred<void>();
+  const signed = jest.fn();
+  execute.mockImplementationOnce(async ({ shouldContinue }) => {
+    await preparation.promise;
+    if (!shouldContinue?.()) throw new DustSweepPaused();
+    signed();
+    return success;
+  });
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('fresh-tx');
+    return success;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] });
+  });
+  act(() => {
+    result.current.pause();
+    result.current.resume();
+  });
+  await act(async () => preparation.resolve());
+  expect(signed).not.toHaveBeenCalled();
+  expect(execute).toHaveBeenCalledTimes(2);
+  expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items[0].txId).toBe('fresh-tx');
+});
+
+it('preserves a late broadcast from signing after stop without starting the next item', async () => {
+  const signature = deferred<void>();
+  const settled = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    await signature.promise;
+    onBroadcast('late-tx');
+    return settled.promise;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  act(() => result.current.pause());
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items[0].status).toBe('signing');
+  await act(async () => signature.resolve());
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'broadcasted',
+    txId: 'late-tx',
+  });
+  await act(async () => settled.resolve(success));
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items[1].status).toBe('waiting');
+  expect(execute).toHaveBeenCalledTimes(1);
+});
+
+it('blocks an uncertain SDK result after stopping instead of retrying the item', async () => {
+  const signature = deferred<void>();
+  execute.mockImplementationOnce(async ({ onSigning }) => {
+    onSigning();
+    await signature.promise;
+    throw new DustSweepUnknownSubmission();
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  act(() => result.current.pause());
+  await act(async () => signature.resolve());
+  expect(result.current.state.phase).toBe('blocked');
+  expect(result.current.state.items[0].status).toBe('unknown');
+  act(() => result.current.resume());
+  expect(execute).toHaveBeenCalledTimes(1);
+});
+it('waits for a background signing return on leave and never begins the next item', async () => {
+  const first = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    const completed = await first.promise;
+    onBroadcast('tx-a');
+    return completed;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  let leave: Promise<boolean> | undefined;
+  act(() => {
+    leave = result.current.leave();
+  });
+  expect(result.current.leaving).toBe(true);
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(true);
+  await act(async () => {
+    first.resolve(success);
+    await leave;
+  });
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(result.current.state.items[1].status).toBe('waiting');
+  expect(mockResultLog).toHaveBeenCalledWith(
+    expect.objectContaining({ endReason: 'left' }),
+  );
+});
+
+it('reports leaving separately from stopping after a paused session', async () => {
+  const first = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-a');
+    return first.promise;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  act(() => result.current.pause());
+  await act(async () => {
+    first.resolve(success);
+    await first.promise;
+  });
+  expect(result.current.state.phase).toBe('paused');
+
+  await act(async () => result.current.leave());
+  expect(mockResultLog).toHaveBeenCalledWith(
+    expect.objectContaining({ endReason: 'left' }),
+  );
+});
+it('shows a broadcast error until the exact transaction settles, then clears it', async () => {
+  const pending = deferred<IResult>();
+  execute.mockImplementationOnce(
+    async ({ onSigning, onBroadcast, onSubmissionError }) => {
+      onSigning();
+      onBroadcast('signed-hash');
+      onSubmissionError?.('Nonce already used');
+      return pending.promise;
+    },
+  );
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () =>
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
+  );
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'broadcasted',
+    txId: 'signed-hash',
+    submissionErrorMessage: 'Nonce already used',
+  });
+  await act(async () => pending.resolve(success));
+  expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items[0].submissionErrorMessage).toBeUndefined();
+  expect(execute).toHaveBeenCalledTimes(1);
+});
+
+it('never retries a submission whose broadcast status is unknown', async () => {
+  execute.mockImplementationOnce(async ({ onSigning }) => {
+    onSigning();
+    throw new DustSweepUnknownSubmission();
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  await act(async () => result.current.resume());
+  expect(result.current.state.phase).toBe('blocked');
+  expect(result.current.state.items[0].status).toBe('unknown');
+  expect(execute).toHaveBeenCalledTimes(1);
+});
+it('pauses a canceled password prompt with its item waiting for explicit retry', async () => {
+  execute.mockImplementationOnce(async ({ onSigning, onPrepared }) => {
+    onSigning();
+    onPrepared();
+    throw new DustSweepUserCanceled();
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items[0].status).toBe('waiting');
+  expect(mockItemLog).not.toHaveBeenCalled();
+});
+it('does not report a partial receipt as the complete amount', async () => {
+  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx');
+    return { status: 'success', receiptUnavailable: true };
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.phase).toBe('completed');
+  expect(mockResultLog).toHaveBeenCalledWith(
+    expect.objectContaining({
+      receiptAvailable: false,
+      successCount: 2,
+    }),
+  );
+});
+
+it('pauses a retryable preparation failure with approval identity intact', async () => {
+  execute.mockImplementationOnce(
+    async ({ onSigning, onApprovalBroadcast, onPrepared }) => {
+      onSigning();
+      onApprovalBroadcast?.(['approval-known']);
+      onPrepared();
+      throw new DustSweepRetryableError('History failed', 'API rebuild error');
+    },
+  );
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'waiting',
+    approvalTxIds: ['approval-known'],
+    providerErrorMessage: 'API rebuild error',
+  });
+});
+
+it('submits every token, keeps execution quote failures and rejects duplicate starts', async () => {
+  const providerFailure = new DustSweepError('noQuote', {
+    providerErrorMessage: 'Execution provider error',
+  });
+  execute.mockRejectedValueOnce(providerFailure);
+  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx');
+    return success;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  let acceptedId: string | undefined;
+  let duplicateId: string | undefined;
+  await act(async () => {
+    acceptedId = result.current.start({
+      ...snapshot,
+      tokens: [...snapshot.tokens, { ...snapshot.tokens[0], key: 'c' }],
+    });
+    duplicateId = result.current.start(snapshot);
+  });
+  expect(acceptedId).toBe(result.current.state.snapshot?.id);
+  expect(acceptedId).toBeTruthy();
+  expect(duplicateId).toBeUndefined();
+  expect(execute.mock.calls.map(([{ token }]) => token.key)).toEqual([
+    'a',
+    'b',
+    'c',
+  ]);
+  expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'skipped',
+    reason: 'noQuote',
+    providerErrorMessage: 'Execution provider error',
+  });
+  expect(result.current.state.items[1].status).toBe('success');
+});
+
+it('consumes normalized domain errors without losing the reason or exposing diagnostics', async () => {
+  execute.mockRejectedValueOnce(
+    new DustSweepError('valueDrop', {
+      message: 'Internal quote diagnostics',
+      providerErrorMessage: 'API risk title\nAPI risk detail',
+    }),
+  );
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () =>
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
+  );
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'skipped',
+    reason: 'valueDrop',
+    message: 'Internal quote diagnostics',
+    providerErrorMessage: 'API risk title\nAPI risk detail',
+  });
+});
+
+it.each([
+  [
+    { className: 'OneKeyServerApiError', message: 'API preparation error' },
+    'API preparation error',
+  ],
+  [new OneKeyLocalError('Internal preparation error'), undefined],
+  [{ message: 'Transport diagnostics' }, undefined],
+] as const)(
+  'preserves only trusted API text from preparation failures (%j)',
+  async (error, providerErrorMessage) => {
+    execute.mockRejectedValueOnce(error);
+    const { result } = renderHook(() =>
+      useDustSweepSession([], { minRunMs: 0 }),
+    );
+    await act(async () =>
+      result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
+    );
+    expect(result.current.state.items[0]).toMatchObject({
+      status: 'skipped',
+      reason: 'unknown',
+    });
+    expect(result.current.state.items[0].providerErrorMessage).toBe(
+      providerErrorMessage,
+    );
+  },
+);
+
+it('isolates late callbacks even when a later run uses the same caller id', async () => {
+  let oldBroadcast: ((txId: string) => void) | undefined;
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    oldBroadcast = onBroadcast;
+    onSigning();
+    onBroadcast('first');
+    return success;
+  });
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('second');
+    return success;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  const single = { ...snapshot, tokens: [snapshot.tokens[0]] };
+  await act(async () => result.current.start(single));
+  const firstId = result.current.state.snapshot?.id;
+  act(() => result.current.reset());
+  await act(async () => result.current.start(single));
+  expect(result.current.state.snapshot?.id).not.toBe(firstId);
+  act(() => oldBroadcast?.('obsolete'));
+  expect(result.current.state.items[0].txId).toBe('second');
+});
+
+it('retains a submission that becomes unknown while leaving before allowing a second explicit leave', async () => {
+  const settle = deferred<void>();
+  execute.mockImplementationOnce(async ({ onSigning }) => {
+    onSigning();
+    await settle.promise;
+    throw new DustSweepUnknownSubmission();
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  let left: boolean | undefined;
+  await act(async () => {
+    const leaving = result.current.leave();
+    settle.resolve();
+    left = await leaving;
+  });
+  expect(left).toBe(false);
+  expect(result.current.state.phase).toBe('blocked');
+  expect(result.current.state.items[0].status).toBe('unknown');
+  act(() => result.current.resume());
+  expect(execute).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    left = await result.current.leave();
+  });
+  expect(left).toBe(true);
+  expect(result.current.state.phase).toBe('left');
+});
+
+it('stops a paused session after its in-flight item and returns to selection', async () => {
+  const signature = deferred<void>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    await signature.promise;
+    onBroadcast('tx-a');
+    return success;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  act(() => result.current.pause());
+  let stop: Promise<boolean> | undefined;
+  act(() => {
+    stop = result.current.stop();
+  });
+  expect(result.current.stopping).toBe(true);
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
+  // Continue is ignored while the stop waits for the signing call.
+  act(() => result.current.resume());
+  expect(result.current.state.phase).toBe('paused');
+  let stopped: boolean | undefined;
+  await act(async () => {
+    signature.resolve();
+    stopped = await stop;
+  });
+  expect(stopped).toBe(true);
+  expect(result.current.stopping).toBe(false);
+  expect(result.current.state).toEqual({ phase: 'selecting', items: [] });
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(mockResultLog).toHaveBeenCalledWith(
+    expect.objectContaining({ endReason: 'stopped' }),
+  );
+});
+
+it('waits for a broadcast swap to settle before Stop resets the session', async () => {
+  const settled = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast, signal }) => {
+    onSigning();
+    onBroadcast('tx-a');
+    const outcome = await settled.promise;
+    // The real confirmation loop gives up once its signal aborts.
+    if (signal.aborted) throw new OneKeyLocalError('Dust Sweep cancelled');
+    return outcome;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  act(() => result.current.pause());
+  const onStopped = jest.fn();
+  let stop: Promise<boolean> | undefined;
+  act(() => {
+    stop = result.current.stop(onStopped);
+  });
+  // Still broadcast and polling; the session must not reset under it.
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
+  expect(result.current.state.items[0].status).toBe('broadcasted');
+  expect(onStopped).not.toHaveBeenCalled();
+  let stopped: boolean | undefined;
+  await act(async () => {
+    settled.resolve(success);
+    stopped = await stop;
+  });
+  expect(stopped).toBe(true);
+  expect(onStopped).toHaveBeenCalledTimes(1);
+  expect(onStopped.mock.calls[0][0]).toMatchObject({
+    phase: 'paused',
+    items: [{ status: 'success', txId: 'tx-a' }, { status: 'waiting' }],
+  });
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(mockItemLog).toHaveBeenCalledWith(
+    expect.objectContaining({ tokenSymbol: 'a', status: 'success' }),
+  );
+  expect(result.current.state).toEqual({ phase: 'selecting', items: [] });
+});
+
+it('keeps an unconfirmed submission blocked instead of stopping', async () => {
+  const signature = deferred<void>();
+  execute.mockImplementationOnce(async ({ onSigning }) => {
+    onSigning();
+    await signature.promise;
+    throw new DustSweepUnknownSubmission();
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  act(() => result.current.pause());
+  const onStopped = jest.fn();
+  let stopped: boolean | undefined;
+  await act(async () => {
+    const stop = result.current.stop(onStopped);
+    signature.resolve();
+    stopped = await stop;
+  });
+  expect(stopped).toBe(false);
+  expect(onStopped).not.toHaveBeenCalled();
+  expect(result.current.state.phase).toBe('blocked');
+  expect(mockResultLog).not.toHaveBeenCalled();
+});
+
+it('finishes Stop as blocked when recovered-hash verification remains unknown', async () => {
+  const verification = deferred<void>();
+  const message = 'Nonce already used; signed transaction is unconfirmed';
+  execute.mockImplementationOnce(async ({ onSigning }) => {
+    onSigning();
+    await verification.promise;
+    throw Object.assign(new DustSweepUnknownSubmission(message), {
+      submissionErrorMessage: message,
+    });
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  const activeSnapshot = result.current.state.snapshot;
+  act(() => result.current.pause());
+  const onStopped = jest.fn();
+  let stop: Promise<boolean> | undefined;
+  let stopSettled = false;
+  act(() => {
+    stop = result.current.stop(onStopped);
+    void stop.then(() => {
+      stopSettled = true;
+    });
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(result.current.stopping).toBe(true);
+  expect(stopSettled).toBe(false);
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items.map((item) => item.status)).toEqual([
+    'signing',
+    'waiting',
+  ]);
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
+  expect(onStopped).not.toHaveBeenCalled();
+  act(() => {
+    result.current.resume();
+    result.current.start(snapshot);
+  });
+  expect(execute).toHaveBeenCalledTimes(1);
+
+  let stopped: boolean | undefined;
+  await act(async () => {
+    verification.resolve();
+    stopped = await stop;
+  });
+
+  expect(stopped).toBe(false);
+  expect(stopSettled).toBe(true);
+  expect(result.current.stopping).toBe(false);
+  expect(result.current.state.phase).toBe('blocked');
+  expect(result.current.state.snapshot).toBe(activeSnapshot);
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'unknown',
+    submissionErrorMessage: message,
+  });
+  expect(result.current.state.items[0].txId).toBeUndefined();
+  expect(result.current.state.items[0].approvalTxIds).toBeUndefined();
+  expect(result.current.state.items[1].status).toBe('waiting');
+  expect(onStopped).not.toHaveBeenCalled();
+  expect(mockResultLog).not.toHaveBeenCalled();
+  act(() => {
+    result.current.resume();
+    result.current.reset();
+    result.current.start(snapshot);
+  });
+  expect(result.current.state.phase).toBe('blocked');
+  expect(execute).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    expect(await result.current.stop(onStopped)).toBe(false);
+  });
+  expect(result.current.stopping).toBe(false);
+  expect(onStopped).not.toHaveBeenCalled();
+});
+
+it('only stops a paused session', async () => {
+  execute.mockImplementation(() => new Promise<IResult>(() => {}));
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  let stopped: boolean | undefined;
+  await act(async () => {
+    stopped = await result.current.stop();
+  });
+  expect(stopped).toBe(false);
+  expect(result.current.state.phase).toBe('running');
+  execute.mockReset();
+});
+
+it('keeps a settled last result when Stop cuts the minimum run hold short', async () => {
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-a');
+    return success;
+  });
+  const { result } = renderHook(() =>
+    useDustSweepSession([], { minRunMs: 60_000 }),
+  );
+  await act(async () => {
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] });
+  });
+  // The swap has settled but the hold keeps the result back.
+  expect(result.current.state.items[0].status).toBe('broadcasted');
+  act(() => result.current.pause());
+  let stopped: boolean | undefined;
+  await act(async () => {
+    stopped = await result.current.stop();
+  });
+  // Stop returns at once and the success is recorded, so the sweep completes.
+  expect(stopped).toBe(false);
+  expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'success',
+    txId: 'tx-a',
+  });
+});
+
+it('keeps API copy as the single display source when an API error also has a local key', () => {
+  const error = DustSweepError.from({
+    className: 'OneKeyServerApiError',
+    message: 'Original API message',
+    key: ETranslations.swap_page_toast_insufficient_balance_title,
+    info: { token: 'SOL' },
+  });
+  expect(error.providerErrorMessage).toBe('Original API message');
+  expect(error.localError).toBeUndefined();
+});

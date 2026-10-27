@@ -83,6 +83,15 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('@tamagui/themes', () => ({
+  colorTokens: {
+    dark: {
+      green: { green3: '#0F291E' },
+      red: { red3: '#3C181A' },
+    },
+  },
+}));
+
 jest.mock('@onekeyhq/kit/src/components/LightweightChart', () => ({
   LightweightChart: (props: IMockLightweightChartProps) =>
     mockLightweightChart(props),
@@ -102,6 +111,10 @@ jest.mock('@onekeyhq/kit/src/components/InfoIcon', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useDeviceTimeZone', () => ({
   useDeviceTimeZone: () => 'Asia/Shanghai',
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
 }));
 
 jest.mock('react-intl', () => ({

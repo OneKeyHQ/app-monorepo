@@ -9,6 +9,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useMarketNetworks } from '../../../hooks/useMarketNetworks';
+import { MarketTestIDs } from '../../../testIDs';
 import { MoreButton } from '../MarketTokenListNetworkSelector/MoreButton';
 
 const QUICK_CHAIN_COUNT = 4;
@@ -97,6 +98,7 @@ function CompactNetworkSelector({
 
   return (
     <XStack
+      testID={MarketTestIDs.compactNetworkSelector}
       bg="$bgStrong"
       borderRadius="$full"
       p="$0.5"
@@ -104,6 +106,7 @@ function CompactNetworkSelector({
       alignItems="center"
     >
       <Stack
+        testID={MarketTestIDs.networkOption(allNetwork?.id ?? 'all')}
         px="$2"
         py="$1"
         borderRadius="$full"
@@ -128,6 +131,7 @@ function CompactNetworkSelector({
         return (
           <Stack
             key={network.id}
+            testID={MarketTestIDs.networkOption(network.id)}
             p="$1"
             borderRadius="$full"
             bg={isSelected ? '$neutral6' : '$transparent'}

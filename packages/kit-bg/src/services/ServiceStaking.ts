@@ -27,10 +27,12 @@ import type {
   EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
   IEarnAvailableAssetV2,
+  IEarnBannerTheme,
   IEarnPageBannerListItem,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
 import { getEarnNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -71,6 +73,8 @@ import type {
   IEarnManagePageResponse,
   IEarnPermit2ApproveSignData,
   IEarnRegisterSignMessageResponse,
+  IEarnRewardsPortfolioResponse,
+  IEarnRewardsPortfolioStage,
   IEarnStakeType,
   IEarnSummary,
   IEarnSummaryV2,
@@ -99,7 +103,7 @@ import {
   EApproveType,
   EStakeProtocolGroupEnum,
 } from '@onekeyhq/shared/types/staking';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
@@ -325,6 +329,7 @@ class ServiceStaking extends ServiceBase {
         o,
       ): o is IAccountHistoryTx &
         Required<Pick<IAccountHistoryTx, 'stakingInfo'>> =>
+        o.replacedType !== EReplaceTxType.Cancel &&
         Boolean(o.stakingInfo && o.stakingInfo.tags.includes(stakeTag)),
     );
 
@@ -1301,6 +1306,60 @@ class ServiceStaking extends ServiceBase {
     return uniqueAccountParams;
   }
 
+  /**
+   * Phone positions page, Rewards tab: one stage of the wallet's ledger
+   * rewards across every earn account and protocol (OK-61377). Ledger only —
+   * the protocol rewards a position accrues on chain come from the
+   * investment detail the page already holds, and on this page the response
+   * replaces the ledger rows /v1/investment/airdrop-detail used to carry.
+   */
+  @backgroundMethod()
+  async getRewardsPortfolio(params: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+    stage: IEarnRewardsPortfolioStage;
+    cursor?: string;
+    limit?: number;
+    /** the page's network filter; the server pages the filtered groups */
+    networkIds?: string[];
+  }): Promise<IEarnRewardsPortfolioResponse> {
+    const {
+      accountId,
+      networkId,
+      indexedAccountId,
+      stage,
+      cursor,
+      limit,
+      networkIds,
+    } = params;
+    const accounts = await this.getEarnAvailableAccountsParams({
+      accountId,
+      networkId,
+      indexedAccountId,
+    });
+    if (accounts.length === 0) {
+      return {
+        asOf: Date.now(),
+        stage,
+        totals: { claimable: '0', pending: '0', rewards: '0' },
+        groups: [],
+      };
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.post<{ data: IEarnRewardsPortfolioResponse }>(
+      '/earn/v1/rewards/portfolio',
+      {
+        accounts,
+        stage,
+        ...(cursor ? { cursor } : {}),
+        ...(limit ? { limit } : {}),
+        ...(networkIds?.length ? { networkIds } : {}),
+      },
+    );
+    return resp.data.data;
+  }
+
   @backgroundMethod()
   async fetchAccountOverview(params: {
     accountId: string;
@@ -1464,6 +1523,44 @@ class ServiceStaking extends ServiceBase {
     return response.data.data;
   }
 
+  /**
+   * Phone positions page (OK-61377): one provider's positions on one network
+   * for one account, in the wallet DeFi Portfolio contract. Same scope and
+   * headers as the batch investment detail, so the server caches per client.
+   */
+  @backgroundMethod()
+  async getPortfolioPositions(params: {
+    accountId: string;
+    accountAddress: string;
+    networkId: string;
+    provider: string;
+    publicKey?: string;
+  }): Promise<IEarnPortfolioPositionsResponse> {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const { accountId, accountAddress, networkId, provider, publicKey } =
+      params;
+    // Explicit body: the server rejects unknown fields, and callers pass
+    // richer request objects.
+    const body = {
+      accountAddress,
+      networkId,
+      provider,
+      ...(publicKey ? { publicKey } : {}),
+      // Spark's and Native's ledger rewards on their holdings, marked
+      // `source: 'ledger'`; the Rewards totals leave those rows out.
+      withLedgerRewards: true,
+    };
+    const response = await client.post<{
+      data: IEarnPortfolioPositionsResponse;
+    }>('/earn/v1/portfolio/positions', body, {
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
+    });
+    return response.data.data;
+  }
+
   @backgroundMethod()
   async fetchInvestmentBatchDetail(params: {
     publicKey?: string | undefined;
@@ -1551,12 +1648,19 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnPageBannerList(): Promise<IEarnPageBannerListItem[]> {
+  async getEarnPageBannerList({
+    theme,
+  }: {
+    theme: IEarnBannerTheme;
+  }): Promise<IEarnPageBannerListItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const response = await client.get<{
       data: IEarnPageBannerListItem[];
     }>('/earn/v1/banner/list');
-    const list = response.data.data;
+    // The common request interceptor sends the same active theme to the
+    // server. Keep this local guard as well so a malformed or stale response
+    // cannot be rendered or persisted under the current theme cache key.
+    const list = response.data.data.filter((banner) => banner.theme === theme);
     // Persist so the next cold start paints at the right height instead of
     // expanding once this request lands (OK-60299).
     //
@@ -1575,14 +1679,20 @@ class ServiceStaking extends ServiceBase {
     void (async () => {
       try {
         const previous =
-          await this.backgroundApi.simpleDb.earnExtra.getPageBannerList();
+          await this.backgroundApi.simpleDb.earnExtra.getPageBannerListCache(
+            theme,
+          );
         if (
-          stringUtils.stableStringify(previous) ===
-          stringUtils.stableStringify(list)
+          previous.isThemeScoped &&
+          stringUtils.stableStringify(previous.list) ===
+            stringUtils.stableStringify(list)
         ) {
           return;
         }
-        await this.backgroundApi.simpleDb.earnExtra.setPageBannerList(list);
+        await this.backgroundApi.simpleDb.earnExtra.setPageBannerList({
+          theme,
+          pageBannerList: list,
+        });
       } catch {
         // A cache write must never surface to the caller.
       }
@@ -1591,8 +1701,20 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEarnPageBannerListFromCache(): Promise<IEarnPageBannerListItem[]> {
-    return this.backgroundApi.simpleDb.earnExtra.getPageBannerList();
+  async getEarnPageBannerListFromCache({
+    theme,
+  }: {
+    theme: IEarnBannerTheme;
+  }): Promise<{
+    list: IEarnPageBannerListItem[];
+    isCacheHit: boolean;
+  }> {
+    const cache =
+      await this.backgroundApi.simpleDb.earnExtra.getPageBannerListCache(theme);
+    return {
+      list: cache.list,
+      isCacheHit: cache.isThemeScoped || cache.list.length > 0,
+    };
   }
 
   @backgroundMethod()

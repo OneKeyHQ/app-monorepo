@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   Popover,
   SizableText,
   Skeleton,
@@ -20,7 +22,15 @@ import {
   NetworkSelectorTriggerBrowserSingle,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerBrowserSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { useNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useNetworkSelectorTrigger';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useActiveAccount,
+  useIsAccountSelectorSyncLoading,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAppEventBusNames,
@@ -28,6 +38,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -36,6 +47,7 @@ import { useHandleDiscoveryAccountChanged } from '../../../DAppConnection/hooks/
 import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
+import { logBrowserChromeAction } from '../MobileBrowser/browserChrome';
 import { SyncDappAccountToHomeProvider } from '../SyncDappAccountToHomeProvider';
 
 import { ShortcutsActionButton } from './ShortcutsActionButton';
@@ -59,29 +71,59 @@ function HeaderRightToolBarSkeleton() {
   );
 }
 
+// The dApp-scene account selector for one connected account. Shared by the
+// header chip and the bottom bar's network switch so both read and write the
+// same selector state.
+export function ConnectedAccountSelectorMirror({
+  origin,
+  account,
+  children,
+}: PropsWithChildren<{
+  origin: string;
+  account: IConnectionAccountInfoWithNum;
+}>) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: origin,
+      }}
+      enabledNum={[account.num]}
+      availableNetworksMap={{
+        [account.num]: { networkIds: account.availableNetworkIds },
+      }}
+    >
+      {children}
+    </AccountSelectorProviderMirror>
+  );
+}
+
 export function SingleAccountAndNetworkSelectorTrigger({
   origin,
   num,
   account,
   afterChangeAccount,
+  compact,
 }: {
   origin: string;
   num: number;
   account: IConnectionAccountInfoWithNum;
   afterChangeAccount: () => void;
+  // Mobile browser header chip: the account with its network as a badge (the
+  // network switch lives in the bottom bar menu).
+  compact?: boolean;
 }) {
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   const handleAccountChanged = useCallback(
-    async (accountChangedParams: IHandleAccountChangedParams) => {
-      await handleAccountInfoChanged({
+    async (accountChangedParams: IHandleAccountChangedParams) =>
+      handleAccountInfoChanged({
         origin,
         accountSelectorNum: num,
         prevAccountInfo: account,
         accountChangedParams,
         storageType: account.storageType,
         afterUpdate: afterChangeAccount,
-      });
-    },
+      }),
     [num, account, afterChangeAccount, handleAccountInfoChanged, origin],
   );
 
@@ -89,12 +131,11 @@ export function SingleAccountAndNetworkSelectorTrigger({
     num,
     handleAccountChanged,
   });
+  if (compact) {
+    return <CompactConnectedAccountTrigger num={num} />;
+  }
   return (
-    <XStack
-      gap="$6"
-      alignItems="center"
-      $platform-native={{ gap: '$2', pl: '$3' }}
-    >
+    <XStack gap="$6" alignItems="center" $platform-native={{ gap: '$2' }}>
       <NetworkSelectorTriggerBrowserSingle
         num={num}
         recordNetworkHistoryEnabled
@@ -104,10 +145,220 @@ export function SingleAccountAndNetworkSelectorTrigger({
   );
 }
 
+// The chevron that closes every header chip. Nudged down: a "v" carries its
+// weight at the top, so a geometrically centered one reads high; next to
+// badged avatars (badges hang 4pt below the avatar) it follows their lower
+// visual center too.
+function ChipChevron({ badged }: { badged?: boolean }) {
+  return (
+    <Icon
+      name="ChevronDownSmallOutline"
+      color="$iconSubdued"
+      size="$4"
+      y={badged ? 2 : 1}
+    />
+  );
+}
+
+// The avatar + name + chevron chip shared by the header's account states.
+// With a networkId the avatar carries the chain badge (connected sites).
+function HeaderAccountChip({
+  account,
+  indexedAccount,
+  networkId,
+  name,
+  onPress,
+  onNetworkPress,
+  testID,
+}: Pick<
+  ComponentProps<typeof AccountAvatar>,
+  'account' | 'indexedAccount' | 'networkId'
+> & {
+  name: string;
+  onPress: () => void;
+  // Makes the chain badge its own tap target (multi-chain dApps).
+  onNetworkPress?: () => void;
+  testID: string;
+}) {
+  // The badge sits inside the chip, so one tap must not reach both handlers
+  // (on web the press bubbles; the time check covers any native path too).
+  const networkPressAtRef = useRef(0);
+  return (
+    <XStack
+      role="button"
+      gap="$1.5"
+      pl="$0.5"
+      pr="$1"
+      alignItems="center"
+      // 36pt chip: extend to the 46pt header row.
+      hitSlop={{ top: 5, bottom: 5 }}
+      onPress={() => {
+        if (Date.now() - networkPressAtRef.current < 500) {
+          return;
+        }
+        logBrowserChromeAction('account', 'header');
+        onPress();
+      }}
+      testID={testID}
+    >
+      <Stack>
+        <AccountAvatar
+          size="small"
+          account={account}
+          indexedAccount={indexedAccount}
+          networkId={networkId}
+        />
+        {onNetworkPress ? (
+          // Over the small avatar's bottom-right badge; the slop gives it a
+          // ~36pt target without covering the rest of the chip.
+          <Stack
+            position="absolute"
+            top={8}
+            left={8}
+            w={24}
+            h={24}
+            hitSlop={6}
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              networkPressAtRef.current = Date.now();
+              logBrowserChromeAction('switchNetwork', 'header');
+              onNetworkPress();
+            }}
+            testID="browser-header-network-badge"
+          />
+        ) : null}
+      </Stack>
+      <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={130}>
+        {name}
+      </SizableText>
+      <ChipChevron badged={!!networkId} />
+    </XStack>
+  );
+}
+
+// The connected account in the mobile browser header chip: avatar, name and
+// chevron, the same shape as the not-connected chip. The network badge on the
+// avatar is what marks the site as connected (a connection is always on a
+// chain; the not-connected chip has no badge). Opens the dApp account
+// selector (same options as AccountSelectorTriggerBrowserSingle); on
+// multi-chain dApps the badge itself opens the network picker.
+function CompactConnectedAccountTrigger({ num }: { num: number }) {
+  const intl = useIntl();
+  const {
+    activeAccount: { account, indexedAccount, network },
+    showAccountSelector,
+  } = useAccountSelectorTrigger({
+    num,
+    linkNetwork: true,
+    hideNonBackedUpWallet: true,
+  });
+  const { networkIds, showChainSelector } = useNetworkSelectorTrigger({ num });
+  const canSwitchNetwork = (networkIds?.length ?? 0) > 1;
+  const accountName =
+    account?.name ||
+    intl.formatMessage({ id: ETranslations.wallet_no_address });
+  return (
+    <HeaderAccountChip
+      account={account}
+      indexedAccount={indexedAccount}
+      networkId={network?.id}
+      name={accountName}
+      onPress={showAccountSelector}
+      onNetworkPress={
+        canSwitchNetwork
+          ? () => showChainSelector({ recordNetworkHistoryEnabled: true })
+          : undefined
+      }
+      testID="browser-header-connected-account"
+    />
+  );
+}
+
+// Compact version of the home account trigger for the browser header chip:
+// avatar + account name. Opens the same home-scene account selector.
+function CompactWalletAccountTrigger() {
+  const intl = useIntl();
+  const {
+    activeAccount: { account, indexedAccount, network },
+  } = useActiveAccount({ num: 0 });
+  const linkNetwork = !network?.isAllNetworks;
+  const { showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    editable: true,
+    keepAllOtherAccounts: true,
+    allowSelectEmptyAccount: true,
+    hideAddress: true,
+    linkNetwork,
+    linkNetworkId: linkNetwork ? network?.id : undefined,
+  });
+  const accountName =
+    indexedAccount?.name ||
+    account?.name ||
+    intl.formatMessage({ id: ETranslations.no_account });
+
+  return (
+    <HeaderAccountChip
+      account={account}
+      indexedAccount={indexedAccount}
+      name={accountName}
+      onPress={showAccountSelector}
+      testID="browser-header-account"
+    />
+  );
+}
+
+// Mobile, site not connected: the active wallet account, or an onboarding
+// entry when there is no usable wallet yet.
+function WalletAccountOrOnboardingEntry() {
+  const intl = useIntl();
+  const {
+    activeAccount: { wallet, account },
+  } = useActiveAccount({ num: 0 });
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
+  const toOnBoardingPage = useToOnBoardingPage();
+
+  if (!accountUtils.hasNoUsableWallet({ wallet, account })) {
+    return <CompactWalletAccountTrigger />;
+  }
+  if (isSyncLoading) {
+    return <Spinner size="small" />;
+  }
+  const disabled = shouldRedirectOnboardingToTravelMode();
+  return (
+    <XStack
+      role="button"
+      gap="$1.5"
+      px="$1.5"
+      alignItems="center"
+      opacity={disabled ? 0.5 : 1}
+      onPress={
+        disabled
+          ? undefined
+          : () => {
+              logBrowserChromeAction('createWallet', 'header');
+              void toOnBoardingPage();
+            }
+      }
+      testID="browser-header-create-wallet"
+    >
+      <Icon name="WalletOutline" size="$5" color="$text" />
+      <SizableText size="$bodyMdMedium" numberOfLines={1}>
+        {intl.formatMessage({
+          id: ETranslations.onboarding_create_or_import_wallet,
+        })}
+      </SizableText>
+    </XStack>
+  );
+}
+
 function AvatarStackTrigger({
   accountsInfo,
+  compact,
 }: {
   accountsInfo: IConnectionAccountInfoWithNum[];
+  // Mobile browser header chip: avatars side by side (an app-background ring
+  // would clash with the page-tinted chip) and a chevron for the popover.
+  compact?: boolean;
 }) {
   const { result: accounts } = usePromiseResult(() => {
     const promises = accountsInfo.map(async (accountInfo) => {
@@ -129,13 +380,20 @@ function AvatarStackTrigger({
 
   return (
     <XStack gap="$4" alignItems="center">
-      <XStack role="button" testID="multi-avatar">
+      <XStack
+        role="button"
+        testID="multi-avatar"
+        alignItems="center"
+        gap={compact ? '$0.5' : undefined}
+        pl={compact ? '$0.5' : undefined}
+        pr={compact ? '$1' : undefined}
+      >
         {accounts?.slice(0, 2).map((account, index) => (
           <Stack
             key={index}
-            borderWidth={2}
+            borderWidth={compact ? 0 : 2}
             borderColor="$bgApp"
-            ml="$-0.5"
+            ml={compact ? undefined : '$-0.5'}
             {...(index === 0 && {
               zIndex: 1,
             })}
@@ -157,13 +415,19 @@ function AvatarStackTrigger({
             px="$1"
             bg="$bgStrong"
             borderRadius="$2"
-            ml="$-1"
+            ml={compact ? undefined : '$-1'}
             alignItems="center"
+            justifyContent="center"
           >
             <SizableText size="$bodyMd" color="$text">
               +{accountsInfo.length - 2}
             </SizableText>
           </XStack>
+        ) : null}
+        {compact ? (
+          <Stack ml="$1">
+            <ChipChevron badged />
+          </Stack>
         ) : null}
       </XStack>
       <ShortcutsActionButton />
@@ -211,23 +475,26 @@ function AccountSelectorPopoverContent({
       enabledNum={accountsInfo.map((account) => account.num)}
       availableNetworksMap={availableNetworksMap}
     >
-      <YStack p="$5" gap="$2">
+      {/* On native the popover is always a sheet whose header already pads
+          20pt below the title; skip the top padding so the list doesn't sit
+          40pt under it. */}
+      <YStack p="$5" $platform-native={{ pt: '$0' }} gap="$2">
         {accountsInfo.map((account) => (
           <DAppAccountListItem
             key={account.num}
             num={account.num}
             // compressionUiMode
             beforeShowTrigger={beforeShowTrigger}
-            handleAccountChanged={async (accountChangedParams) => {
-              await handleAccountInfoChanged({
+            handleAccountChanged={(accountChangedParams) =>
+              handleAccountInfoChanged({
                 origin,
                 accountSelectorNum: account.num,
                 prevAccountInfo: account,
                 accountChangedParams,
                 storageType: account.storageType,
                 afterUpdate: afterChangeAccount,
-              });
-            }}
+              })
+            }
           />
         ))}
       </YStack>
@@ -235,7 +502,15 @@ function AccountSelectorPopoverContent({
   );
 }
 
-function HeaderRightToolBar() {
+interface IHeaderRightToolBarProps {
+  // Mobile browser header chip: when the site has no connected account,
+  // still show the active wallet account (from the surrounding home-scene
+  // account selector); connected accounts carry their network as a badge.
+  variant?: 'mobileBrowser';
+}
+
+function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
+  const isMobileBrowser = variant === 'mobileBrowser';
   const [isOpen, setIsOpen] = useState(false);
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
@@ -291,9 +566,12 @@ function HeaderRightToolBar() {
 
   const handleOpenChange = useCallback(
     (value: boolean) => {
+      if (value && isMobileBrowser) {
+        logBrowserChromeAction('account', 'header');
+      }
       setIsOpen(value);
     },
-    [setIsOpen],
+    [setIsOpen, isMobileBrowser],
   );
 
   const renderPopoverContent = useCallback(() => {
@@ -321,7 +599,10 @@ function HeaderRightToolBar() {
     if (isLoading) {
       return <Spinner />;
     }
-    if (!connectedAccountsInfo || !origin) {
+    if (!connectedAccountsInfo?.length || !origin) {
+      if (isMobileBrowser) {
+        return <WalletAccountOrOnboardingEntry />;
+      }
       return <ShortcutsActionButton />;
     }
 
@@ -341,26 +622,19 @@ function HeaderRightToolBar() {
             origin={origin}
           />
           {connectedAccountsInfo.map((accountInfo, index) => (
-            <AccountSelectorProviderMirror
+            <ConnectedAccountSelectorMirror
               key={index}
-              config={{
-                sceneName: EAccountSelectorSceneName.discover,
-                sceneUrl: origin ?? '',
-              }}
-              enabledNum={[accountInfo.num]}
-              availableNetworksMap={{
-                [accountInfo.num]: {
-                  networkIds: accountInfo.availableNetworkIds,
-                },
-              }}
+              origin={origin}
+              account={accountInfo}
             >
               <SingleAccountAndNetworkSelectorTrigger
                 origin={origin}
                 num={accountInfo.num}
                 account={accountInfo}
                 afterChangeAccount={afterChangeAccount}
+                compact={isMobileBrowser}
               />
-            </AccountSelectorProviderMirror>
+            </ConnectedAccountSelectorMirror>
           ))}
         </Stack>
       );
@@ -378,7 +652,10 @@ function HeaderRightToolBar() {
           open={isOpen}
           onOpenChange={handleOpenChange}
           renderTrigger={
-            <AvatarStackTrigger accountsInfo={connectedAccountsInfo} />
+            <AvatarStackTrigger
+              accountsInfo={connectedAccountsInfo}
+              compact={isMobileBrowser}
+            />
           }
           renderContent={renderPopoverContent}
         />
@@ -393,12 +670,13 @@ function HeaderRightToolBar() {
     handleOpenChange,
     renderPopoverContent,
     afterChangeAccount,
+    isMobileBrowser,
   ]);
 
-  return <>{content}</>;
+  return content;
 }
 
-function HeaderRightToolBarWrapper() {
+function HeaderRightToolBarWrapper(props: IHeaderRightToolBarProps) {
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
 
   useEffect(() => {
@@ -415,7 +693,9 @@ function HeaderRightToolBarWrapper() {
     return <HeaderRightToolBarSkeleton />;
   }
 
-  return <HeaderRightToolBar />;
+  return <HeaderRightToolBar {...props} />;
 }
 
-export default withBrowserProvider(HeaderRightToolBarWrapper);
+export default withBrowserProvider<IHeaderRightToolBarProps>(
+  HeaderRightToolBarWrapper,
+);

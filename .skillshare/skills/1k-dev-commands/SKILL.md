@@ -27,19 +27,33 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
   - **Common issues**: Manifest v3 validation errors, permission issues
   - **Troubleshooting**: Check extension manifest validity, verify content security policy
 
-- `yarn app:ios` - Start iOS mobile development
+- [Mobile DevSession launcher](references/mobile-dev-shell.md) - Default path
+  for normal iOS/Android React Native development. Read this guide before
+  starting the app, restoring shell/vendor resources, or attaching UI tooling.
+
+- [Mobile dependency setup](references/mobile-dependencies.md) - CocoaPods,
+  Pods installation, and missing injected assets.
+
+- `yarn app:ios` - Start iOS development through the Mobile DevSession launcher
   - **Runtime**: 1-2 minutes (includes Metro bundler)
   - **Common issues**: Xcode setup, simulator issues, pod install failures
   - **Prerequisites**: Xcode installed, iOS simulator available
 
-- `yarn app:android` - Start Android mobile development
+- `yarn app:android` - Start Android development through the Mobile DevSession launcher
   - **Runtime**: 1-2 minutes (includes Metro bundler)
   - **Common issues**: Android SDK path, emulator setup, gradle build failures
   - **Prerequisites**: Android Studio, SDK tools, emulator configured
 
+- Direct local native builds: `yarn workspace @onekeyhq/mobile ios` and
+  `yarn workspace @onekeyhq/mobile android`. Use them only when explicitly
+  requested or when diagnosing the launcher.
+
 - `yarn app:web-embed` - Start embeddable components development
   - **Runtime**: 15-30 seconds
   - **Usage**: For developing standalone wallet components
+
+- `yarn app:native-bundle` - Prepare iOS/Android development vendor bundles,
+  then start Metro. Wait for `Dev server ready`; this does not install the app.
 
 ## Build Commands
 
@@ -63,12 +77,6 @@ For branch naming, commit format, rebasing, and PR conventions, read [git-workfl
   - **Common issues**: Bundle size limits, missing environment variables
   - **Verification**: Serve built files and test functionality
 
-- `yarn app:native-bundle` - Bundle React Native app
-  - **Runtime**: 3-5 minutes
-  - **Output**: Platform-specific bundles
-  - **Common issues**: Native module linking, Metro bundler errors
-  - **Prerequisites**: Platform development environment properly configured
-
 ## Development Tools & Quality Assurance
 
 ### Pre-commit Commands (Local Development)
@@ -87,10 +95,13 @@ yarn agent:check --profile commit && git commit -m "your message"
 
 **These run in CI pipeline or for comprehensive validation:**
 
-- `yarn lint` - Comprehensive linting (TypeScript, ESLint, folder structure, i18n)
+- `yarn lint` - Comprehensive linting (TypeScript, oxlint, folder structure, i18n)
   - **Expected runtime**: ~1 minute
   - **Zero tolerance**: ALL warnings and errors MUST be fixed
   - **Use case**: CI pipeline and comprehensive pre-PR checks
+- Do not run `yarn eslint`, `npx eslint`, or `node_modules/.bin/eslint`.
+  ESLint entries are legacy compatibility remnants; active lint validation uses
+  oxlint through `agent:check` or `yarn lint`.
 - `yarn test` - Jest test execution
   - **Use case**: CI pipeline and test validation
 

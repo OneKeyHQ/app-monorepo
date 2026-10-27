@@ -1,3 +1,8 @@
+import {
+  getDesktopIpcCallContext,
+  isUnwrappedIpcError,
+} from '../errors/utils/electronIpcError';
+
 const MAX_SANITIZED_ERROR_MESSAGE_LENGTH = 200;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -6,6 +11,15 @@ export type IOneKeyIdAuthFailureLogSource =
   | 'sessionPersist'
   | 'fallbackToast'
   | 'throwSite';
+
+// Which hop of a OneKey ID login failed: the identity provider (Google /
+// Apple) or the Supabase auth service. Omitted when the hop is not known.
+export type IOneKeyIdAuthFailureStep = 'provider' | 'auth';
+
+// What started the failing work: a user action (login, OAuth, OTP, bind) or
+// a passive check (provider mount, session read, background prompt check).
+// Passive failures are not login attempts and must not count as such.
+export type IOneKeyIdAuthFailureTrigger = 'interactive' | 'passive';
 
 export type IOneKeyIdAuthFailureCategory =
   | 'alreadyLoggedIn'
@@ -42,6 +56,31 @@ export function scrubSensitiveErrorMessageText(text: string): string {
     scrubbed = `${scrubbed.slice(0, MAX_SANITIZED_ERROR_MESSAGE_LENGTH)}...`;
   }
   return scrubbed;
+}
+
+const MAX_AUTH_FAILURE_SITE_LENGTH = 120;
+
+// Call sites write a reason as `<where it failed>: <error details>`, or put
+// the sanitized `name=... message=...` details right after the location;
+// the location must be code-authored text. Only that location is sent to
+// the server: error details can echo user input (OTP codes, PINs, recovery
+// words) that no scrubber reliably recognizes, so they stay in local logs.
+// A reason without that delimiter yields no location (fails closed). Digit
+// runs are masked in case a location interpolates a value.
+export function getOneKeyIdAuthFailureSite(reason: string): string | undefined {
+  const detailsStart = reason.search(/:\s|(?:^|\s)name=/);
+  if (detailsStart < 0) {
+    return undefined;
+  }
+  const site = scrubSensitiveErrorMessageText(
+    reason.slice(0, detailsStart).replace(/\d{4,}/g, '#'),
+  ).trim();
+  if (!site) {
+    return undefined;
+  }
+  return site.length > MAX_AUTH_FAILURE_SITE_LENGTH
+    ? `${site.slice(0, MAX_AUTH_FAILURE_SITE_LENGTH)}...`
+    : site;
 }
 
 export function getSanitizedErrorLogText(error: unknown): string {
@@ -119,34 +158,50 @@ function getLastSafeLabeledValue({
   return value;
 }
 
-// Server telemetry uses only this strict allowlist. The scrubbed free-form
-// reason stays in local logs and never becomes a server event property.
-export function getOneKeyIdAuthFailureServerParams({
-  reason,
-  source,
-}: {
-  reason: string;
+export type IOneKeyIdAuthFailureServerParams = {
   source: IOneKeyIdAuthFailureLogSource;
-}): {
-  source: IOneKeyIdAuthFailureLogSource;
+  step?: IOneKeyIdAuthFailureStep;
   category: IOneKeyIdAuthFailureCategory;
   errorName?: string;
   errorCode?: string;
   httpStatusCode?: number;
   requestId?: string;
-} {
+  // Desktop API call that rejected, read from the error object (never from
+  // the reason text). Absent for non-IPC failures.
+  ipcModule?: string;
+  ipcMethod?: string;
+  // The failure crossed Desktop API IPC but its call context was lost.
+  ipcContextMissing?: true;
+};
+
+// Structured fields shared by the OneKey ID auth failure server events; each
+// event decides separately whether it also sends the scrubbed reason.
+// `error`, when given, is only read for its Desktop API IPC call context.
+export function getOneKeyIdAuthFailureServerParams({
+  reason,
+  source,
+  step,
+  error,
+}: {
+  reason: string;
+  source: IOneKeyIdAuthFailureLogSource;
+  step?: IOneKeyIdAuthFailureStep;
+  error?: unknown;
+}): IOneKeyIdAuthFailureServerParams {
   const status = getLastSafeLabeledValue({
     reason,
     label: 'status',
   });
   const parsedStatus = status && /^\d{3}$/.test(status) ? Number(status) : null;
-  return {
+  const errorName = getLastSafeLabeledValue({
+    reason,
+    label: 'name',
+  });
+  const params: IOneKeyIdAuthFailureServerParams = {
     source,
+    step,
     category: getOneKeyIdAuthFailureCategory(reason),
-    errorName: getLastSafeLabeledValue({
-      reason,
-      label: 'name',
-    }),
+    errorName,
     errorCode: getLastSafeLabeledValue({
       reason,
       label: 'code',
@@ -157,4 +212,41 @@ export function getOneKeyIdAuthFailureServerParams({
       label: 'requestId',
     }),
   };
+  const ipcCallContext = getDesktopIpcCallContext(error);
+  if (ipcCallContext) {
+    params.ipcModule = ipcCallContext.ipcModule;
+    params.ipcMethod = ipcCallContext.ipcMethod;
+  } else if (isUnwrappedIpcError(error) || errorName === 'UnwrappedIpcError') {
+    params.ipcContextMissing = true;
+  }
+  return params;
+}
+
+/** Swap telemetry emits fixed categories only, never matched error text. */
+export function getSwapErrorMessage(error: unknown): string {
+  let message = '';
+  if (typeof error === 'string') {
+    message = error;
+  } else if (
+    error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    message = error.message;
+  }
+  if (message === 'Empty build response') return 'Empty build response';
+  if (
+    /insufficient|余额不足|checkLatestFromTokenBalance|checkLatestNativeTokenBalance|checkOtherFee|checkQuoteBalances/i.test(
+      message,
+    )
+  ) {
+    return 'Insufficient balance';
+  }
+  if (/reject|cancel/i.test(message)) return 'Transaction rejected';
+  if (/timeout|timed out/i.test(message)) return 'Request timed out';
+  if (/network|rpc|fetch|connection|service unavailable/i.test(message)) {
+    return 'Network error';
+  }
+  return 'Unknown error';
 }

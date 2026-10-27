@@ -14,6 +14,7 @@ import PrimeLoginOAuthDialog from './PrimeLoginOAuthDialog';
 
 const mockEmailDialogMount = jest.fn();
 const mockEmailDialogUnmount = jest.fn();
+let mockDevSettingsEnabled = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -32,8 +33,20 @@ jest.mock('@onekeyhq/components', () => {
   });
   const AccordionItemContext = React.createContext('');
 
-  function Container({ children }: { children?: import('react').ReactNode }) {
-    return React.createElement('div', null, children);
+  function Container({
+    children,
+    onPress,
+    testID,
+  }: {
+    children?: import('react').ReactNode;
+    onPress?: () => void;
+    testID?: string;
+  }) {
+    return React.createElement(
+      'div',
+      { 'data-testid': testID, onClick: onPress },
+      children,
+    );
   }
 
   function AccordionHeightAnimator({
@@ -264,6 +277,7 @@ jest.mock(
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   const platformEnv = {
+    isDev: false,
     isNative: false,
     isNativeIOS: false,
   };
@@ -273,6 +287,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
     default: platformEnv,
   };
 });
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useDevSettingsPersistAtom: () => [{ enabled: mockDevSettingsEnabled }],
+}));
 
 jest.mock('../oneKeyIdLoginToastUtils', () => ({
   getSanitizedAuthErrorText: jest.fn(),
@@ -285,7 +303,11 @@ jest.mock('../oneKeyIdLoginToastUtils', () => ({
 jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
   const React = jest.requireActual('react') as typeof import('react');
 
-  function MockPrimeLoginEmailDialog() {
+  function MockPrimeLoginEmailDialog({
+    debugPanelOpenCount = 0,
+  }: {
+    debugPanelOpenCount?: number;
+  }) {
     React.useEffect(() => {
       mockEmailDialogMount();
       return () => {
@@ -294,6 +316,7 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
     }, []);
     return React.createElement('div', {
       'data-testid': 'mock-prime-login-email-dialog',
+      'data-debug-panel-open-count': String(debugPanelOpenCount),
     });
   }
 
@@ -330,6 +353,7 @@ jest.mock('../useOneKeyIdLocalKeylessOAuth', () => {
 
 function getPlatformEnvMock() {
   return jest.requireMock('@onekeyhq/shared/src/platformEnv').__platformEnv as {
+    isDev: boolean;
     isNative: boolean;
     isNativeIOS: boolean;
   };
@@ -353,11 +377,93 @@ function getBackgroundApiMocks() {
 describe('PrimeLoginOAuthDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDevSettingsEnabled = true;
     const platformEnv = getPlatformEnvMock();
+    platformEnv.isDev = false;
     platformEnv.isNative = false;
     platformEnv.isNativeIOS = false;
     getOAuthMocks().getOAuthAccessToken.mockReset();
     getBackgroundApiMocks().apiOAuthLogin.mockReset();
+  });
+
+  test.each([
+    { isDev: true, clickCount: 3 },
+    { isDev: false, clickCount: 10 },
+  ])(
+    'uses the shared $clickCount-click threshold with isDev=$isDev only while expanded',
+    ({ isDev, clickCount }) => {
+      getPlatformEnvMock().isDev = isDev;
+      render(
+        <PrimeLoginOAuthDialog
+          onComplete={jest.fn().mockResolvedValue(undefined)}
+        />,
+      );
+      const clickTitle = (count: number) => {
+        for (let index = 0; index < count; index += 1) {
+          fireEvent.click(screen.getByTestId('prime-login-title'));
+        }
+      };
+      const openCount = () =>
+        screen
+          .getByTestId('mock-prime-login-email-dialog')
+          .getAttribute('data-debug-panel-open-count');
+
+      clickTitle(clickCount);
+      expect(openCount()).toBe('0');
+      fireEvent.click(screen.getByTestId('prime-login-more-methods-trigger'));
+      clickTitle(clickCount - 1);
+      expect(openCount()).toBe('0');
+      clickTitle(1);
+      expect(openCount()).toBe('1');
+      clickTitle(clickCount - 1);
+      expect(openCount()).toBe('1');
+      clickTitle(1);
+      expect(openCount()).toBe('2');
+      expect(getOAuthMocks().getOAuthAccessToken).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([true, false])(
+    'does not open OTP debug controls with developer mode disabled (isDev=%s)',
+    (isDev) => {
+      getPlatformEnvMock().isDev = isDev;
+      mockDevSettingsEnabled = false;
+      render(
+        <PrimeLoginOAuthDialog
+          onComplete={jest.fn().mockResolvedValue(undefined)}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('prime-login-more-methods-trigger'));
+      for (let index = 0; index < 20; index += 1) {
+        fireEvent.click(screen.getByTestId('prime-login-title'));
+      }
+      expect(
+        screen
+          .getByTestId('mock-prime-login-email-dialog')
+          .getAttribute('data-debug-panel-open-count'),
+      ).toBe('0');
+    },
+  );
+
+  test('resets an incomplete title click sequence when email is collapsed', () => {
+    render(
+      <PrimeLoginOAuthDialog
+        onComplete={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+    const trigger = screen.getByTestId('prime-login-more-methods-trigger');
+    fireEvent.click(trigger);
+    for (let index = 0; index < 9; index += 1) {
+      fireEvent.click(screen.getByTestId('prime-login-title'));
+    }
+    fireEvent.click(trigger);
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByTestId('prime-login-title'));
+    expect(
+      screen
+        .getByTestId('mock-prime-login-email-dialog')
+        .getAttribute('data-debug-panel-open-count'),
+    ).toBe('0');
   });
 
   test('completes native Google OAuth after closing the iOS dialog', async () => {

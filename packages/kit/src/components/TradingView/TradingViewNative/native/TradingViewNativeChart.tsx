@@ -1,16 +1,26 @@
 import {
   memo,
   useCallback,
+  useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 
-import { Canvas, Picture, useFont, useSVG } from '@shopify/react-native-skia';
-import { GestureDetector } from 'react-native-gesture-handler';
+import {
+  Canvas,
+  FontWeight,
+  Picture,
+  useSVG,
+  useTypeface,
+} from '@shopify/react-native-skia';
+import { Image } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   cancelAnimation,
+  makeMutable,
   useAnimatedReaction,
   useDerivedValue,
   useSharedValue,
@@ -19,14 +29,22 @@ import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getDateFormatTemplate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import {
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
+  TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
+  TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+  TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE,
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
+import { useIndicatorPanes } from '../indicatorPanes/useIndicatorPanes';
+import { TradingViewNativeChartActiveContext } from '../TradingViewNativeChartActiveContext';
+import { TradingViewNativeChartReadyContext } from '../TradingViewNativeChartReadyContext';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from '../utils/chartComponentTree';
 import { getTradingViewNativeIndicatorPriceAxisLabel } from '../utils/chartIndicators';
 import {
@@ -54,13 +72,19 @@ import {
   getTradingViewNativePriceScaleControlsMinimumAxisWidth,
 } from '../utils/priceScaleControls';
 import {
+  applyTradingViewNativeSubIndicatorPriceScales,
+  getTradingViewNativeScaledSubIndicatorAxisLabel,
+} from '../utils/subIndicatorPriceScale';
+import {
   type ITradingViewNativeSubIndicatorRenderPane,
   getTradingViewNativeSubIndicatorAxisLabel,
+  getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from '../utils/subIndicatorRender';
 
 import {
   type ITradingViewNativeChartSize,
   createTradingViewNativeChartRuntime,
+  resizeTradingViewNativeChartRuntime,
 } from './chartRuntime';
 import {
   applyTradingViewNativeSubIndicatorLatestPaneValues,
@@ -70,10 +94,18 @@ import {
   shouldReplaceTradingViewNativeIndicatorSeries,
 } from './chartRuntimeData';
 import {
+  createTradingViewNativeSkiaFontForText,
   createTradingViewNativeSkiaPicture,
   createTradingViewNativeSkiaResources,
+  getTradingViewNativeSkiaLegendText,
 } from './chartSkiaRenderer';
+import {
+  getTradingViewNativeSkiaDigitWidth,
+  getTradingViewNativeSkiaPriceAxisLabelWidth,
+} from './chartSkiaText';
+import { NativeDrawingToolbar } from './NativeDrawingToolbar';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
+import { useNativeChartDrawings } from './useNativeChartDrawings';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
 
@@ -84,38 +116,71 @@ const SYSTEM_FONT_FAMILY = platformEnv.isNativeAndroid
   ? 'sans-serif'
   : 'System';
 const PRICE_AXIS_FONT_SOURCE =
-  require('@onekeyhq/components/src/hocs/Provider/fonts/GeistMono-Regular.ttf') as number;
+  require('@onekeyhq/components/src/hocs/Provider/fonts/fallback/Inter-Regular.ttf') as number;
 const ONEKEY_WATERMARK_SOURCE =
   require('@onekeyhq/components/svg/illus/logo.svg') as number;
+const PRICE_AXIS_FONT_URI = Image.resolveAssetSource(
+  PRICE_AXIS_FONT_SOURCE,
+)?.uri;
+const ONEKEY_WATERMARK_URI = Image.resolveAssetSource(
+  ONEKEY_WATERMARK_SOURCE,
+)?.uri;
 const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPane[] =
   [];
 export const TradingViewNativeChart = memo(
   ({
+    drawingStorageKey,
+    loadDrawingHistory,
+    enableDrawings = false,
+    prioritizePageScroll = false,
     candleIntervalSeconds,
+    candleTimeMode = 'calendar',
     chartComponents,
+    onInteractionChange,
     chartSettings,
     chartType,
     chartPictureVersion,
+    extendTimeAxisBorderToCanvasEdge = false,
     currentPriceLabel,
+    priceDecimalPlaces,
     hasVolume,
     indicatorSeries,
     indicatorSeriesSettingsKey,
     initialRightOffset,
+    isMobileLayout = false,
+    resizesWithSubIndicatorPanes = false,
     isSwitchingInterval,
+    locale,
+    priceAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
+    priceAxisTickCount,
+    showLegend = true,
+    timeAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
+    timeAxisHeight = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
+    timeAxisBorderWidth,
     onChartWidthChange,
     onSubIndicatorSettingsPress,
     onViewportRequestApplied,
     onVisiblePointRangeChange,
     candleLabels,
     points,
-    subIndicatorPanes = EMPTY_SUB_INDICATOR_PANES,
+    subIndicatorPanes: inputSubIndicatorPanes = EMPTY_SUB_INDICATOR_PANES,
     testID,
     viewportRequest,
+    runtimeRef,
   }: ITradingViewNativeChartProps) => {
+    const dateFormatTemplate = getDateFormatTemplate(locale);
+    const indicatorPanes = useIndicatorPanes(
+      inputSubIndicatorPanes,
+      drawingStorageKey,
+    );
+    const { panes: subIndicatorPanes } = indicatorPanes;
     const [chartSize, setChartSize] = useState<ITradingViewNativeChartSize>({
       height: 0,
       width: 0,
     });
+    const canvasSize = useSharedValue({ width: 0, height: 0 });
+    const isActive = useContext(TradingViewNativeChartActiveContext);
+    const onChartReady = useContext(TradingViewNativeChartReadyContext);
     const [chartWidth, setChartWidth] = useState(0);
     const subIndicatorPanesStructureKey =
       getTradingViewNativeSubIndicatorPanesStructureKey(subIndicatorPanes);
@@ -123,28 +188,138 @@ export const TradingViewNativeChart = memo(
       chartPictureVersion,
       chartType,
     });
-    const chartRuntime = useSharedValue(
-      createTradingViewNativeChartRuntime({
-        candleIntervalSeconds,
-        chartComponents,
-        chartSettings,
-        chartType,
-        currentPriceLabel,
-        hasVolume,
-        indicatorSeries,
-        initialRightOffset,
-        points,
-        subIndicatorPanes,
-      }),
+    const [chartSession] = useState(() => {
+      const previousSession = runtimeRef?.current;
+      const runtime = makeMutable(
+        createTradingViewNativeChartRuntime({
+          candleIntervalSeconds,
+          candleTimeMode,
+          chartComponents,
+          chartSettings,
+          chartType,
+          currentPriceLabel,
+          hasVolume,
+          indicatorSeries,
+          initialRightOffset,
+          points,
+          subIndicatorPanes,
+        }),
+      );
+      const session = { runtime, decayOffset: makeMutable(0) };
+      if (previousSession) {
+        // The fullscreen layer keeps the inline canvas mounted underneath.
+        // Keep their sizes independent and transfer the viewport on the UI
+        // runtime without deserializing the candle history back into JS.
+        scheduleOnUI(() => {
+          'worklet';
+          runtime.value = {
+            ...previousSession.runtime.value,
+            size: { width: 0, height: 0 },
+          };
+          session.decayOffset.value = previousSession.decayOffset.value;
+        });
+      }
+      if (runtimeRef) {
+        runtimeRef.current = session;
+      }
+      return session;
+    });
+    const { runtime: chartRuntime, decayOffset } = chartSession;
+    useLayoutEffect(() => {
+      if (!isActive || !runtimeRef || runtimeRef.current === chartSession)
+        return;
+      const previous = runtimeRef.current;
+      runtimeRef.current = chartSession;
+      if (!previous) return;
+      // Returning to the retained inline canvas must not paint an empty frame.
+      scheduleOnUI(() => {
+        'worklet';
+        const size = chartRuntime.value.size;
+        chartRuntime.value = { ...previous.runtime.value, size };
+        decayOffset.value = previous.decayOffset.value;
+      });
+    }, [chartRuntime, chartSession, decayOffset, isActive, runtimeRef]);
+    const {
+      controller: drawingController,
+      drawings,
+      drawingText,
+      projection: drawingProjection,
+      gesture: drawingGesture,
+      pointerId: drawingPointerId,
+    } = useNativeChartDrawings({
+      enabled: enableDrawings,
+      points,
+      indicatorSeries,
+      subIndicatorPanes,
+      storageKey: drawingStorageKey,
+      loadHistory: loadDrawingHistory,
+      candleIntervalSeconds,
+      priceDecimalPlaces,
+      chartRuntime,
+      decayOffset,
+    });
+    const interactionMounted = useRef(true);
+    const interactionState = useRef({
+      gestures: false,
+      drawings: false,
+      drawingTool: false,
+      priceScale: false,
+    });
+    const reportInteraction = useCallback(
+      (
+        source: 'gestures' | 'drawings' | 'drawingTool' | 'priceScale',
+        active: boolean,
+      ) => {
+        if (!interactionMounted.current) return;
+        interactionState.current[source] = active;
+        onInteractionChange?.(
+          Object.values(interactionState.current).some(Boolean),
+        );
+      },
+      [onInteractionChange],
     );
-    const decayOffset = useSharedValue(0);
+    const handleGestureInteraction = useCallback(
+      (active: boolean) => reportInteraction('gestures', active),
+      [reportInteraction],
+    );
+    const handleDrawingInteraction = useCallback(
+      (active: boolean) => reportInteraction('drawings', active),
+      [reportInteraction],
+    );
+    const handlePriceScaleInteraction = useCallback(
+      (active: boolean) => reportInteraction('priceScale', active),
+      [reportInteraction],
+    );
+    useAnimatedReaction(
+      () => drawingPointerId.value !== null,
+      (active, previous) => {
+        if (onInteractionChange && active !== previous)
+          scheduleOnRN(handleDrawingInteraction, active);
+      },
+      [drawingPointerId, handleDrawingInteraction, onInteractionChange],
+    );
+    useEffect(() => {
+      interactionMounted.current = true;
+      return () => {
+        interactionMounted.current = false;
+        onInteractionChange?.(false);
+      };
+    }, [onInteractionChange]);
+    useEffect(() => {
+      reportInteraction(
+        'drawingTool',
+        enableDrawings && drawingController.state.tool !== 'cursor',
+      );
+    }, [enableDrawings, drawingController.state.tool, reportInteraction]);
+    useEffect(() => () => cancelAnimation(decayOffset), [decayOffset]);
     const previousLatestTimestampRef = useRef<number | undefined>(
       points[points.length - 1]?.t,
     );
     const previousPictureInputRef = useRef({
       indicatorSeriesKey: indicatorSeries.map((series) => series.key).join('|'),
       indicatorSeriesSettingsKey,
-      pointCount: points.length,
+      // A remounted canvas reconciles all data while retaining the shared viewport.
+      pointCount: -1,
       renderDataRevision,
       subIndicatorPanesStructureKey,
     });
@@ -154,13 +329,13 @@ export const TradingViewNativeChart = memo(
     });
     const theme = useTheme();
     const themeName = useThemeName();
-    const priceAxisFont = useFont(
-      PRICE_AXIS_FONT_SOURCE,
-      TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
-    );
-    const watermarkSvg = useSVG(ONEKEY_WATERMARK_SOURCE);
+    const priceAxisTypeface = useTypeface(PRICE_AXIS_FONT_URI ?? null);
+    const watermarkSvg = useSVG(ONEKEY_WATERMARK_URI ?? null);
     const background = chartSettings.background.colors[0];
     const grid = chartSettings.grid.horizontalColor;
+    const timeAxisBorder = extendTimeAxisBorderToCanvasEdge
+      ? theme.border.val
+      : undefined;
     const axisText = theme.textSubdued.val;
     const line = theme.text.val;
     const pointCount = points.length;
@@ -178,12 +353,16 @@ export const TradingViewNativeChart = memo(
     const isLogScaleAvailable =
       isTradingViewNativeLogPriceScaleAvailable(autoPriceRange);
     const widestPriceLabel = useMemo(
-      () => getTradingViewNativePriceAxisLabel(points),
-      [points],
+      () => getTradingViewNativePriceAxisLabel(points, priceDecimalPlaces),
+      [points, priceDecimalPlaces],
     );
     const widestChartComponentPriceLabel = useMemo(
-      () => getTradingViewNativeChartComponentPriceAxisLabel(chartComponents),
-      [chartComponents],
+      () =>
+        getTradingViewNativeChartComponentPriceAxisLabel(
+          chartComponents,
+          priceDecimalPlaces,
+        ),
+      [chartComponents, priceDecimalPlaces],
     );
     const widestIndicatorPriceLabel = useMemo(
       () => getTradingViewNativeIndicatorPriceAxisLabel(indicatorSeries),
@@ -199,6 +378,34 @@ export const TradingViewNativeChart = memo(
     );
     const watermarkOpacity =
       themeName === 'dark' ? WATERMARK_DARK_OPACITY : WATERMARK_LIGHT_OPACITY;
+    const legendText = useMemo(
+      () =>
+        getTradingViewNativeSkiaLegendText({ candleLabels, chartComponents }),
+      [candleLabels, chartComponents],
+    );
+    const legendFont = useMemo(
+      () =>
+        createTradingViewNativeSkiaFontForText({
+          fontFamily: SYSTEM_FONT_FAMILY,
+          fontSize: TRADING_VIEW_NATIVE_LEGEND_FONT_SIZE,
+          locale,
+          requiredText: legendText,
+        }),
+      [legendText, locale],
+    );
+    // Resolve a real semibold face; native Skia's setEmbolden reads a number
+    // despite its boolean TypeScript signature.
+    const tradingLineLabelFont = useMemo(
+      () =>
+        createTradingViewNativeSkiaFontForText({
+          fontFamily: SYSTEM_FONT_FAMILY,
+          fontSize: TRADING_VIEW_NATIVE_TRADING_LINE_LABEL_FONT_SIZE,
+          fontWeight: FontWeight.SemiBold,
+          locale,
+          requiredText: legendText,
+        }),
+      [legendText, locale],
+    );
     const resources = useDerivedValue(
       () =>
         createTradingViewNativeSkiaResources({
@@ -208,10 +415,16 @@ export const TradingViewNativeChart = memo(
             down: chartSettings.candles.body.downColor,
             grid,
             line,
+            timeAxisBorder,
             up: chartSettings.candles.body.upColor,
           },
           fontFamily: SYSTEM_FONT_FAMILY,
-          priceAxisFont,
+          legendFont,
+          priceAxisTypeface,
+          priceAxisFontSize,
+          timeAxisFontSize,
+          timeAxisBorderWidth,
+          tradingLineLabelFont,
           watermarkSvg,
         }),
       [
@@ -220,10 +433,19 @@ export const TradingViewNativeChart = memo(
         chartSettings.candles.body.downColor,
         chartSettings.candles.body.upColor,
         grid,
+        legendFont,
         line,
-        priceAxisFont,
+        priceAxisTypeface,
+        priceAxisFontSize,
+        timeAxisFontSize,
+        timeAxisBorder,
+        timeAxisBorderWidth,
+        tradingLineLabelFont,
         watermarkSvg,
       ],
+    );
+    const priceAxisDigitWidth = useDerivedValue(() =>
+      getTradingViewNativeSkiaDigitWidth(resources.value.fonts.priceAxis),
     );
     const priceAxisWidth = useDerivedValue(() => {
       if (!chartSettings.options.yAxis) {
@@ -233,27 +455,32 @@ export const TradingViewNativeChart = memo(
       const currentPriceLabelBounds = measuredPriceAxisFont.measureText(
         chartSettings.options.latestPrice ? currentPriceLabel : '',
       );
-      const widestPriceLabelBounds =
-        measuredPriceAxisFont.measureText(widestPriceLabel);
-      const widestChartComponentPriceLabelBounds =
-        measuredPriceAxisFont.measureText(widestChartComponentPriceLabel);
-      const scaledPriceLabelBounds = measuredPriceAxisFont.measureText(
-        autoPriceRange
+      const measureCandidateLabel = (label: string) => {
+        'worklet';
+
+        return getTradingViewNativeSkiaPriceAxisLabelWidth(
+          label,
+          measuredPriceAxisFont,
+          priceAxisDigitWidth.value,
+        );
+      };
+      const priceRange = chartRuntime.value.pinnedPriceRange ?? autoPriceRange;
+      const scaledPriceLabelWidth = measureCandidateLabel(
+        priceRange
           ? getTradingViewNativeScaledPriceAxisLabel({
-              autoPriceRange,
+              autoPriceRange: priceRange,
               baseLabel: widestPriceLabel,
+              priceDecimalPlaces,
               priceRangeScale: chartRuntime.value.priceRangeScale,
               priceScaleMode: chartRuntime.value.priceScaleMode,
             })
           : widestPriceLabel,
       );
-      const widestIndicatorPriceLabelBounds = measuredPriceAxisFont.measureText(
-        widestIndicatorPriceLabel,
-      );
-      const widestVolumeLabelBounds =
-        measuredPriceAxisFont.measureText(widestVolumeLabel);
-      const widestSubIndicatorLabelBounds = measuredPriceAxisFont.measureText(
-        widestSubIndicatorLabel,
+      const scaledSubIndicatorLabelWidth = measureCandidateLabel(
+        getTradingViewNativeScaledSubIndicatorAxisLabel(
+          chartRuntime.value.subIndicatorPanes,
+          chartRuntime.value.subIndicatorPriceScales,
+        ),
       );
       return getTradingViewNativePriceAxisWidth({
         currentPriceLabelWidth: Math.max(
@@ -264,19 +491,15 @@ export const TradingViewNativeChart = memo(
           PRICE_SCALE_CONTROL_NATIVE_SIZING,
         ),
         widestPriceLabelWidth: Math.max(
-          widestPriceLabelBounds.x + widestPriceLabelBounds.width,
-          widestChartComponentPriceLabelBounds.x +
-            widestChartComponentPriceLabelBounds.width,
-          scaledPriceLabelBounds.x + scaledPriceLabelBounds.width,
-          widestIndicatorPriceLabelBounds.x +
-            widestIndicatorPriceLabelBounds.width,
-          widestSubIndicatorLabelBounds.x + widestSubIndicatorLabelBounds.width,
+          measureCandidateLabel(widestPriceLabel),
+          measureCandidateLabel(widestChartComponentPriceLabel),
+          scaledPriceLabelWidth,
+          measureCandidateLabel(widestIndicatorPriceLabel),
+          measureCandidateLabel(widestSubIndicatorLabel),
+          scaledSubIndicatorLabelWidth,
           0,
         ),
-        widestVolumeLabelWidth: Math.max(
-          widestVolumeLabelBounds.x + widestVolumeLabelBounds.width,
-          0,
-        ),
+        widestVolumeLabelWidth: measureCandidateLabel(widestVolumeLabel),
       });
     }, [
       autoPriceRange,
@@ -284,6 +507,8 @@ export const TradingViewNativeChart = memo(
       chartSettings.options.latestPrice,
       chartSettings.options.yAxis,
       currentPriceLabel,
+      priceAxisDigitWidth,
+      priceDecimalPlaces,
       resources,
       widestChartComponentPriceLabel,
       widestIndicatorPriceLabel,
@@ -293,29 +518,107 @@ export const TradingViewNativeChart = memo(
     ]);
 
     const picture = useDerivedValue(() => {
-      const runtime = chartRuntime.value;
+      // Draw against this frame's canvas bounds, before the gesture runtime's
+      // resize reaction catches up. Otherwise rotation exposes an old-sized scene.
+      const runtime = resizeTradingViewNativeChartRuntime(
+        chartRuntime.value,
+        {
+          width: Math.round(canvasSize.value.width),
+          height: Math.round(canvasSize.value.height),
+        },
+        priceAxisWidth.value,
+      );
       return createTradingViewNativeSkiaPicture({
+        dateFormatTemplate,
+        drawings: enableDrawings ? drawings.value : undefined,
+        drawingText,
+        onScene: (scene) => {
+          if (!enableDrawings) return;
+          drawingProjection.value = {
+            layout: scene.layout ?? null,
+            viewport: scene.viewport,
+            pointIndex: scene.crosshairPointIndex,
+          };
+        },
         candleIntervalSeconds: runtime.candleIntervalSeconds,
+        candleTimeMode: runtime.candleTimeMode,
         chartComponents: runtime.chartComponents,
         chartSettings: runtime.chartSettings,
         chartType: runtime.chartType,
         crosshair: runtime.crosshair,
+        extendTimeAxisBorderToCanvasEdge,
         currentPriceLabel: runtime.currentPriceLabel,
+        priceDecimalPlaces,
         hasVolume: runtime.hasVolume,
         height: runtime.size.height,
         candleLabels,
         indicatorSeries: runtime.indicatorSeries,
+        isMobileLayout,
+        pinnedPriceRange: runtime.pinnedPriceRange,
         points: runtime.points,
         priceAxisWidth: priceAxisWidth.value,
+        priceAxisTickCount,
+        priceAxisFontSize,
         priceRangeScale: runtime.priceRangeScale,
         priceScaleMode: runtime.priceScaleMode,
         resources: resources.value,
-        subIndicatorPanes: runtime.subIndicatorPanes,
+        showLegend,
+        subIndicatorPanes: applyTradingViewNativeSubIndicatorPriceScales(
+          runtime.subIndicatorPanes,
+          runtime.subIndicatorPriceScales,
+        ),
+        timeAxisFontSize,
+        timeAxisHeight,
         viewport: runtime.viewport,
         watermarkOpacity,
         width: runtime.size.width,
       });
-    }, [candleLabels, priceAxisWidth, resources, watermarkOpacity]);
+    }, [
+      candleLabels,
+      dateFormatTemplate,
+      priceDecimalPlaces,
+      enableDrawings,
+      drawingText,
+      extendTimeAxisBorderToCanvasEdge,
+      isMobileLayout,
+      priceAxisFontSize,
+      priceAxisTickCount,
+      priceAxisWidth,
+      resources,
+      showLegend,
+      timeAxisFontSize,
+      timeAxisHeight,
+      watermarkOpacity,
+    ]);
+
+    useAnimatedReaction(
+      () =>
+        onChartReady
+          ? { size: canvasSize.value, picture: picture.value }
+          : null,
+      (current, previous) => {
+        if (
+          !onChartReady ||
+          !current ||
+          current.size.width <= 0 ||
+          current.size.height <= 0 ||
+          (previous?.size.width === current.size.width &&
+            previous.size.height === current.size.height)
+        ) {
+          return;
+        }
+        // Let Skia submit the picture before revealing the native screen.
+        requestAnimationFrame(() => {
+          if (
+            canvasSize.value.width === current.size.width &&
+            canvasSize.value.height === current.size.height
+          ) {
+            scheduleOnRN(onChartReady);
+          }
+        });
+      },
+      [onChartReady],
+    );
 
     const handleChartWidthChange = useCallback((nextChartWidth: number) => {
       setChartWidth((currentChartWidth) =>
@@ -418,8 +721,8 @@ export const TradingViewNativeChart = memo(
     );
 
     useLayoutEffect(() => {
-      onChartWidthChange?.(chartWidth);
-    }, [chartWidth, onChartWidthChange]);
+      if (isActive && chartWidth > 0) onChartWidthChange?.(chartWidth);
+    }, [chartWidth, isActive, onChartWidthChange]);
 
     useLayoutEffect(() => {
       const dataUpdateMetadata = getTradingViewNativeDataUpdateMetadata({
@@ -477,7 +780,6 @@ export const TradingViewNativeChart = memo(
         renderDataRevision,
         subIndicatorPanesStructureKey: subIndicatorPanesUpdate.structureKey,
       };
-      const nextSize = chartSize;
       const replacementPoints = shouldReplaceAllPoints ? points : null;
       const replacementIndicatorSeries = shouldReplaceAllIndicatorSeries
         ? indicatorSeries
@@ -496,13 +798,6 @@ export const TradingViewNativeChart = memo(
         'worklet';
 
         const runtime = chartRuntime.value;
-        const runtimeAfterInitialMeasure = {
-          ...runtime,
-          ...reduceTradingViewNativeChartRuntime(runtime, {
-            type: 'initialWidthMeasured',
-            width: nextSize.width,
-          }),
-        };
         const nextPoints =
           replacementPoints ??
           (latestPoint ? [...runtime.points.slice(0, -1), latestPoint] : []);
@@ -528,25 +823,22 @@ export const TradingViewNativeChart = memo(
             panes: runtime.subIndicatorPanes,
           });
         const nextChartWidth = getTradingViewNativeChartWidth(
-          nextSize.width,
+          runtime.size.width,
           priceAxisWidth.value,
         );
-        const nextRuntimeState = reduceTradingViewNativeChartRuntime(
-          runtimeAfterInitialMeasure,
-          {
-            appendedPointCount: dataUpdateMetadata.appendedPointCount,
-            chartWidth: nextChartWidth,
-            pointCount: nextPoints.length,
-            type: 'dataUpdated',
-          },
-        );
+        const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
+          appendedPointCount: dataUpdateMetadata.appendedPointCount,
+          chartWidth: nextChartWidth,
+          pointCount: nextPoints.length,
+          type: 'dataUpdated',
+        });
         const nextOffset = nextRuntimeState.viewport.offset;
         const offsetDelta = nextOffset - runtime.viewport.offset;
-        decayOffset.value = nextOffset;
-        chartRuntime.value = {
+        const nextRuntime = {
           ...runtime,
           ...nextRuntimeState,
           candleIntervalSeconds,
+          candleTimeMode,
           chartType,
           hasVolume,
           indicatorSeries: nextIndicatorSeries,
@@ -569,19 +861,61 @@ export const TradingViewNativeChart = memo(
             }),
           },
           points: nextPoints,
-          size: nextSize,
           subIndicatorPanes: nextSubIndicatorPanes,
+          subIndicatorPriceScales: Object.fromEntries(
+            Object.entries(runtime.subIndicatorPriceScales).filter(([id]) =>
+              nextSubIndicatorPanes.some((pane) => pane.instanceId === id),
+            ),
+          ),
+          timeAxisScaleGesture: {
+            ...runtime.timeAxisScaleGesture,
+            startOffset: getTradingViewNativeGestureStartOffsetAfterDataUpdate({
+              currentZoomScale: runtime.viewport.zoomScale,
+              offsetDelta,
+              startOffset: runtime.timeAxisScaleGesture.startOffset,
+              startZoomScale: runtime.timeAxisScaleGesture.startZoomScale,
+            }),
+          },
         };
+        const previousPaneCount =
+          getTradingViewNativeVisibleSubIndicatorPaneCount(
+            runtime.subIndicatorPanes,
+          );
+        const nextPaneCount = getTradingViewNativeVisibleSubIndicatorPaneCount(
+          nextSubIndicatorPanes,
+        );
+        // The mobile container changes height with the pane count. Resize the
+        // picture in the same UI update, before Skia reports its new canvas size.
+        const nextChartHeight =
+          resizesWithSubIndicatorPanes &&
+          chartSize.height > 0 &&
+          previousPaneCount !== nextPaneCount
+            ? chartSize.height +
+              (nextPaneCount - previousPaneCount) *
+                TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT
+            : 0;
+        const sizedRuntime =
+          nextChartHeight > 0
+            ? resizeTradingViewNativeChartRuntime(
+                nextRuntime,
+                { height: nextChartHeight, width: runtime.size.width },
+                priceAxisWidth.value,
+              )
+            : nextRuntime;
+        decayOffset.value = sizedRuntime.viewport.offset;
+        chartRuntime.value = sizedRuntime;
       });
     }, [
       candleIntervalSeconds,
+      candleTimeMode,
+      chartSize.height,
       chartType,
       chartRuntime,
-      chartSize,
       decayOffset,
       hasVolume,
       indicatorSeries,
       indicatorSeriesSettingsKey,
+      resizesWithSubIndicatorPanes,
       points,
       priceAxisWidth,
       renderDataRevision,
@@ -654,6 +988,15 @@ export const TradingViewNativeChart = memo(
             startOffset: nextViewport.offset,
             startZoomScale: nextViewport.zoomScale,
           },
+          timeAxisScaleGesture: {
+            ...runtime.timeAxisScaleGesture,
+            chartWidth,
+            startOffset: nextViewport.offset,
+            startX: runtime.timeAxisScaleGesture.isActive
+              ? runtime.timeAxisScaleGesture.currentX
+              : runtime.timeAxisScaleGesture.startX,
+            startZoomScale: nextViewport.zoomScale,
+          },
         };
         if (onViewportRequestApplied) {
           scheduleOnRN(onViewportRequestApplied, requestId);
@@ -670,14 +1013,16 @@ export const TradingViewNativeChart = memo(
     ]);
 
     const {
+      activePaneId: priceScalePaneId,
+      controlsBottomInset: priceScaleControlsBottomInset,
       handleAutoScalePress: handlePriceScaleAutoPress,
       handleLogScalePress: handlePriceScaleLogPress,
       handlePointerLeave: handleChartPointerLeave,
       handlePointerMove: handleChartPointerMove,
       handleTouchStart: handleChartTouchStart,
       isAutoScale: isPriceScaleAuto,
+      isLogScaleAvailable: isActiveLogScaleAvailable,
       isVisible: isPriceScaleControlsVisible,
-      mainPriceAxisLayout,
       mode: priceScaleMode,
       priceAxisControlWidth,
       resetGesture: priceAxisResetGesture,
@@ -689,27 +1034,65 @@ export const TradingViewNativeChart = memo(
       decayOffset,
       isEnabled: chartSettings.options.yAxis,
       isLogScaleAvailable,
+      onInteractionChange: onInteractionChange
+        ? handlePriceScaleInteraction
+        : undefined,
       priceAxisWidth,
       subIndicatorPanes,
+      timeAxisHeight,
     });
 
     const chartGestures = useTradingViewNativeChartGestures({
+      prioritizePageScroll,
       chartRuntime,
       decayOffset,
       isClickInteractionEnabled: chartSettings.options.clickInteraction,
       isCrosshairEnabled: chartSettings.options.crossLine,
+      onInteractionChange: onInteractionChange
+        ? handleGestureInteraction
+        : undefined,
       onSubIndicatorSettingsPress,
       priceAxisResetGesture,
       priceAxisScaleGesture,
       priceAxisWidth,
       resources,
+      timeAxisHeight,
     });
+    const combinedGestures = useMemo(
+      () =>
+        enableDrawings
+          ? Gesture.Exclusive(drawingGesture, chartGestures)
+          : chartGestures,
+      [enableDrawings, drawingGesture, chartGestures],
+    );
+    useAnimatedReaction(
+      () => ({
+        width: Math.round(canvasSize.value.width),
+        height: Math.round(canvasSize.value.height),
+      }),
+      (nextSize) => {
+        const runtime = chartRuntime.value;
+        const nextRuntime = resizeTradingViewNativeChartRuntime(
+          runtime,
+          nextSize,
+          priceAxisWidth.value,
+        );
+        if (nextRuntime !== runtime) {
+          cancelAnimation(decayOffset);
+          decayOffset.value = nextRuntime.viewport.offset;
+          chartRuntime.value = nextRuntime;
+        }
+      },
+    );
     const handleChartLayout = useCallback((event: LayoutChangeEvent) => {
       const { height, width } = event.nativeEvent.layout;
       const nextSize = {
         height: Math.round(height),
         width: Math.round(width),
       };
+      if (nextSize.width <= 0 || nextSize.height <= 0) {
+        return;
+      }
       setChartSize((currentSize) =>
         currentSize.height === nextSize.height &&
         currentSize.width === nextSize.width
@@ -719,37 +1102,47 @@ export const TradingViewNativeChart = memo(
     }, []);
 
     return (
-      <Stack
-        flex={1}
-        minHeight={0}
-        onLayout={handleChartLayout}
-        onPointerLeave={handleChartPointerLeave}
-        opacity={isSwitchingInterval ? SWITCHING_INTERVAL_OPACITY : 1}
-      >
-        <GestureDetector gesture={chartGestures}>
-          <Canvas
-            testID={testID}
-            style={{ flex: 1 }}
-            onPointerMove={handleChartPointerMove}
-            onTouchStart={handleChartTouchStart}
-          >
-            <Picture picture={picture} />
-          </Canvas>
-        </GestureDetector>
-        {chartSettings.options.yAxis && priceAxisControlWidth > 0 ? (
-          <TradingViewNativePriceScaleControls
-            backgroundColor={background}
-            isAutoScale={isPriceScaleAuto}
-            isLogScaleAvailable={isLogScaleAvailable}
-            isVisible={isPriceScaleControlsVisible}
-            mainChartBottomInset={mainPriceAxisLayout.bottomInset}
-            onAutoScalePress={handlePriceScaleAutoPress}
-            onLogScalePress={handlePriceScaleLogPress}
-            priceAxisWidth={priceAxisControlWidth}
-            priceScaleMode={priceScaleMode}
-            testID={testID}
-          />
+      <Stack flex={1} minHeight={0} flexDirection="row" position="relative">
+        {enableDrawings ? (
+          <NativeDrawingToolbar controller={drawingController} />
         ) : null}
+        <Stack
+          flex={1}
+          minHeight={0}
+          onLayout={handleChartLayout}
+          onPointerLeave={handleChartPointerLeave}
+          opacity={isSwitchingInterval ? SWITCHING_INTERVAL_OPACITY : 1}
+        >
+          <GestureDetector gesture={combinedGestures}>
+            <Canvas
+              testID={testID}
+              onSize={canvasSize}
+              style={{ flex: 1 }}
+              onPointerMove={handleChartPointerMove}
+              onTouchStart={handleChartTouchStart}
+            >
+              <Picture picture={picture} />
+            </Canvas>
+          </GestureDetector>
+          {chartSettings.options.yAxis && priceAxisControlWidth > 0 ? (
+            <TradingViewNativePriceScaleControls
+              backgroundColor={background}
+              isAutoScale={isPriceScaleAuto}
+              isLogScaleAvailable={isActiveLogScaleAvailable}
+              isVisible={isPriceScaleControlsVisible}
+              mainChartBottomInset={priceScaleControlsBottomInset}
+              onAutoScalePress={handlePriceScaleAutoPress}
+              onLogScalePress={handlePriceScaleLogPress}
+              priceAxisWidth={priceAxisControlWidth}
+              priceScaleMode={priceScaleMode}
+              testID={
+                priceScalePaneId === null
+                  ? testID
+                  : `${testID ?? 'trading-view-native-canvas'}-indicator-price-axis-${priceScalePaneId}`
+              }
+            />
+          ) : null}
+        </Stack>
       </Stack>
     );
   },

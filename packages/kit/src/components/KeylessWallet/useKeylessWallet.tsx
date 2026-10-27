@@ -228,6 +228,7 @@ export async function getKeylessOnboardingSameEmailAccountStatus(): Promise<IKey
         error,
       )}`,
       error,
+      { trigger: 'interactive' },
     );
     return {
       isSameEmailAccountAtOldVersion: false,
@@ -276,6 +277,7 @@ async function shouldPromoteKeylessOnboardingSameEmailRetryProviderAfterRateLimi
         statusError,
       )}`,
       statusError,
+      { trigger: 'interactive' },
     );
     return false;
   }
@@ -307,6 +309,7 @@ async function syncKeylessOnboardingSameEmailRetryProviderAfterRateLimit({
         syncError,
       )}`,
       syncError,
+      { trigger: 'interactive' },
     );
   }
 }
@@ -552,6 +555,7 @@ export function useKeylessWallet() {
               error,
             )}`,
             error,
+            { trigger: 'interactive' },
           );
           markOneKeyIdFailureServerLogged(error);
           showOneKeyIdLoginFailedToast({ error, intl });
@@ -1261,7 +1265,7 @@ export function useKeylessWallet() {
         throwLocalizedOneKeyIdLoginError({
           intl,
           key: ETranslations.keyless_wallet_data_unavailable__desc,
-          reason: `Unable to identify the local Keyless wallet for recovery. ${
+          reason: `Unable to identify the local Keyless wallet for recovery: ${
             prepareResult.errorMessage || ''
           }`,
         });
@@ -1344,6 +1348,7 @@ export function useKeylessWallet() {
               error,
             )}`,
             error,
+            { trigger: 'interactive' },
           );
           // Continue to OAuth navigation when the local wallet cannot be read.
         }
@@ -1368,6 +1373,7 @@ export function useKeylessWallet() {
                 error,
               )}`,
               error,
+              { trigger: 'interactive' },
             );
             // A missing or unusable session falls through to real OAuth.
           }
@@ -1554,6 +1560,7 @@ export function useKeylessWallet() {
       if (!action) {
         defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
           reason: 'Keyless wallet finalization failed: action is missing',
+          trigger: 'interactive',
         });
         Dialog.show({
           title: intl.formatMessage({
@@ -1888,6 +1895,7 @@ export function useVerifyKeylessPinChecking() {
               error,
             )}`,
             error,
+            { trigger: 'passive' },
           );
           return undefined;
         }
@@ -2038,6 +2046,7 @@ export function useVerifyKeylessPinChecking() {
                         error,
                       )}`,
                       error,
+                      { trigger: 'passive' },
                     );
                   }
                 }
@@ -2102,6 +2111,7 @@ export function useVerifyKeylessPinChecking() {
                         innerError,
                       )}`,
                       innerError,
+                      { trigger: 'interactive' },
                     );
                     errorToastUtils.toastIfError(innerError);
                   } finally {
@@ -2124,6 +2134,7 @@ export function useVerifyKeylessPinChecking() {
                         error,
                       )}`,
                       error,
+                      { trigger: 'interactive' },
                     );
                   }
                 }

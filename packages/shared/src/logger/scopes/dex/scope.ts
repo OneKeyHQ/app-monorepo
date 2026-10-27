@@ -3,6 +3,7 @@ import { EScopeName } from '../../types';
 
 import { ActionsScene } from './scenes/actions';
 import { BannerScene } from './scenes/banner';
+import { DustSweepScene } from './scenes/dustSweep';
 import { EnterScene } from './scenes/enter';
 import { ListScene } from './scenes/list';
 import { SwapScene } from './scenes/swap';
@@ -10,6 +11,7 @@ import { TradingViewScene } from './scenes/tradingview';
 import { WatchlistScene } from './scenes/watchlist';
 
 export class DexScope extends BaseScope {
+  dustSweep = this.createScene('dustSweep', DustSweepScene);
   protected override scopeName = EScopeName.dex;
 
   banner = this.createScene('banner', BannerScene);

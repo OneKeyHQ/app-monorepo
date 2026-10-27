@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -33,6 +33,7 @@ import openUrlUtils, {
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -47,6 +48,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useExchangeAppDetection } from '../../../hooks/useExchangeAppDetection';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { tryOpenHeadlessBuy } from '../../FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
@@ -129,13 +131,55 @@ function ReceiveSelectorContent() {
   const networkId = route.params?.networkId ?? network?.id;
   const walletId = route.params?.walletId ?? wallet?.id;
   const indexedAccountId = route.params?.indexedAccountId ?? indexedAccount?.id;
-  const { token, onClose, showSwapEntry } = route.params ?? {};
+  const { token, onClose, showSwapEntry, showDoneButton } = route.params ?? {};
 
   // Exchanges cannot withdraw to Lightning invoices, so the
   // "receive from exchange" section is hidden on Lightning networks
   const isLightningNetwork = networkUtils.isLightningNetworkByNetworkId(
     token?.networkId ?? networkId,
   );
+
+  const titleNetworkId = token?.networkId ?? networkId;
+
+  // Preset networks resolve synchronously so the title is complete on the
+  // first frame; custom and server-delivered networks need a background lookup.
+  const presetNetworkName = useMemo(
+    () =>
+      titleNetworkId
+        ? networkUtils.getLocalNetworkInfo(titleNetworkId)?.name
+        : undefined,
+    [titleNetworkId],
+  );
+
+  const { result: resolvedNetworkName } = usePromiseResult(
+    async () => {
+      if (!token?.symbol || !titleNetworkId || presetNetworkName) {
+        return presetNetworkName;
+      }
+      const titleNetwork =
+        await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+          networkId: titleNetworkId,
+        });
+      return titleNetwork?.name;
+    },
+    [token?.symbol, titleNetworkId, presetNetworkName],
+    { initResult: presetNetworkName },
+  );
+
+  // With a token param the selector is scoped to one asset, so the title
+  // names it together with its chain, e.g. "Receive BNB (BNB Chain)".
+  const pageTitle = useMemo(() => {
+    if (!token?.symbol) {
+      return intl.formatMessage({ id: ETranslations.global_receive });
+    }
+    const networkName = resolvedNetworkName ?? presetNetworkName;
+    return intl.formatMessage(
+      { id: ETranslations.receive_token__title },
+      {
+        token: networkName ? `${token.symbol} (${networkName})` : token.symbol,
+      },
+    );
+  }, [intl, token?.symbol, resolvedNetworkName, presetNetworkName]);
 
   const navigation = useAppNavigation();
 
@@ -176,17 +220,37 @@ function ReceiveSelectorContent() {
           token,
           indexedAccountId,
           disableSelector: true,
+          source: 'receiveSelector',
+          showDoneButton,
         });
       } else {
         onPress();
       }
     },
-    [token, accountId, networkId, walletId, indexedAccountId, navigation],
+    [
+      token,
+      accountId,
+      networkId,
+      walletId,
+      indexedAccountId,
+      navigation,
+      showDoneButton,
+    ],
   );
 
   const handleBuyOnPress = useCallback(
-    ({ onPress }: { onPress: () => void }) => {
+    async ({ onPress }: { onPress: () => void }) => {
       if (token && isSupported && url) {
+        if (
+          await tryOpenHeadlessBuy({
+            networkId: networkId ?? '',
+            tokenAddress: token.address,
+            accountId,
+            entryFrom: EHeadlessBuyEntry.ReceiveSelector,
+          })
+        ) {
+          return;
+        }
         if (platformEnv.isDesktop || platformEnv.isNative) {
           openFiatCryptoUrl(url);
         } else {
@@ -196,7 +260,7 @@ function ReceiveSelectorContent() {
         onPress();
       }
     },
-    [token, isSupported, url],
+    [token, isSupported, url, networkId, accountId],
   );
 
   const handleSwapOnPress = useCallback(() => {
@@ -234,7 +298,7 @@ function ReceiveSelectorContent() {
         accountId,
         indexedAccountId,
         closeAfterSelect: false,
-        showDeFiTokenSwitch: true,
+        hideDeFiTokens: true,
         aggregateTokenSelectorScreen:
           EModalReceiveRoutes.ReceiveSelectAggregateToken,
         exchangeFilter: {
@@ -244,7 +308,14 @@ function ReceiveSelectorContent() {
         onSelect: async (selectedToken: IToken) => {
           try {
             const tokenNetworkId = selectedToken.networkId ?? networkId ?? '';
-            const tokenAccountId = selectedToken.accountId ?? accountId ?? '';
+            const tokenAccountId =
+              await backgroundApiProxy.serviceToken.getDefaultDeriveTypeAccountId(
+                {
+                  networkId: tokenNetworkId,
+                  indexedAccountId,
+                  accountId: selectedToken.accountId ?? accountId ?? '',
+                },
+              );
             const accountAddress =
               await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
                 accountId: tokenAccountId,
@@ -326,12 +397,19 @@ function ReceiveSelectorContent() {
           accountId,
           indexedAccountId,
           closeAfterSelect: false,
-          showDeFiTokenSwitch: true,
+          hideDeFiTokens: true,
           aggregateTokenSelectorScreen:
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
             const tokenNetworkId = selectedToken.networkId ?? networkId ?? '';
-            const tokenAccountId = selectedToken.accountId ?? accountId ?? '';
+            const tokenAccountId =
+              await backgroundApiProxy.serviceToken.getDefaultDeriveTypeAccountId(
+                {
+                  networkId: tokenNetworkId,
+                  indexedAccountId,
+                  accountId: selectedToken.accountId ?? accountId ?? '',
+                },
+              );
             const isHardware =
               accountUtils.isHwWallet({ walletId }) ||
               accountUtils.isQrWallet({ walletId });
@@ -344,6 +422,8 @@ function ReceiveSelectorContent() {
                 token: selectedToken,
                 indexedAccountId,
                 exchangeSource: config.id,
+                source: 'exchange',
+                showDoneButton,
               });
             } else {
               try {
@@ -389,6 +469,7 @@ function ReceiveSelectorContent() {
       indexedAccountId,
       walletId,
       wallet?.type,
+      showDoneButton,
     ],
   );
 
@@ -406,9 +487,7 @@ function ReceiveSelectorContent() {
           : undefined
       }
     >
-      <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_receive })}
-      />
+      <Page.Header title={pageTitle} />
       <Page.Body pb={showSwapEntry ? '$5' : undefined}>
         <YStack gap="$5" px="$5" pt="$px">
           {showBuyAction ? (
@@ -416,6 +495,9 @@ function ReceiveSelectorContent() {
               sameModal
               onClose={() => {}}
               source="receiveSelector"
+              // This row buys the given token itself; the Home account's
+              // address type step would start a second purchase after it.
+              withAddressTypeStep={!token}
               renderTrigger={({ onPress, disabled }) => (
                 <ReceiveOptions
                   testID={ReceiveTestIDs.BuyCryptoOption}

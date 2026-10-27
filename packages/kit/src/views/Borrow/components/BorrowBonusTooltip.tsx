@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { differenceInDays } from 'date-fns';
 import { isEmpty } from 'lodash';
@@ -43,9 +43,18 @@ export const BorrowBonusTooltip = ({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [open, setOpen] = useState(false);
+  const pendingExternalUrlRef = useRef<string | undefined>(undefined);
   const platformBonusLabel = intl.formatMessage({
     id: ETranslations.defi_platform_bonus,
   });
+
+  useEffect(() => {
+    if (open || !pendingExternalUrlRef.current) return;
+
+    const link = pendingExternalUrlRef.current;
+    pendingExternalUrlRef.current = undefined;
+    void openUrlExternal(link);
+  }, [open]);
 
   const handleHistoryClick = useCallback(() => {
     if (!accountId || !networkId || !provider || !marketAddress) return;
@@ -97,6 +106,14 @@ export const BorrowBonusTooltip = ({
 
     return String(Math.max(0, days));
   }, [data?.data?.endsIn]);
+
+  const handleOpenPlatformBonusLink = useCallback(() => {
+    const link = data?.data?.button?.data?.link;
+    if (!link) return;
+
+    pendingExternalUrlRef.current = link;
+    setOpen(false);
+  }, [data?.data?.button?.data?.link]);
 
   if (!data) {
     return null;
@@ -334,7 +351,7 @@ export const BorrowBonusTooltip = ({
                   <XStack
                     gap="$0.5"
                     cursor="pointer"
-                    onPress={() => openUrlExternal(data.data.button.data.link)}
+                    onPress={handleOpenPlatformBonusLink}
                   >
                     <EarnText
                       text={data.data.button.text}

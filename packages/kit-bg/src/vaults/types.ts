@@ -17,10 +17,12 @@ import type {
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
 import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   ETranslations,
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
+import type { IWcPayPreBroadcastRecord } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type {
@@ -43,6 +45,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IPrimeFreeTrialBroadcastUsage } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -80,6 +83,18 @@ import type { HDNodeType } from '@onekeyfe/hd-transport';
 import type { ChainForFingerprint } from '@onekeyfe/hwk-adapter-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
+
+// Whether a signed payload that left this runtime can still execute on chain
+// (OK-65147).
+export enum ESignedTxBroadcastStatus {
+  // The chain has seen the signature: it executed or is about to.
+  Broadcast = 'broadcast',
+  // The chain will never execute this payload: it was never seen and its
+  // validity expired, or it executed with an error.
+  NotBroadcast = 'notBroadcast',
+  // The vault cannot tell.
+  Unknown = 'unknown',
+}
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
@@ -322,6 +337,11 @@ export type IVaultSettings = {
   enabledInternalSignAndVerify?: boolean;
 
   nativeBatchTransferEnabled?: boolean;
+
+  // Max recipients per OneToMany bulk send tx (contract call or native batch).
+  // Larger lists are split into multiple txs to stay under per-tx limits.
+  // Leave unset when the vault splits by other means (e.g. SOL tx size).
+  bulkSendMaxTransfersPerTx?: number;
 };
 
 export type IVaultFactoryOptions = {
@@ -449,7 +469,10 @@ export type INormalizeGetMultiAccountsPathParams = {
 
 export type IHwSdkNetwork = AllNetworkAddressParams['network'];
 
-type IHwAllNetworkPrepareAccountsItemErrorPayload = {
+type IHwAllNetworkPrepareAccountsItemErrorPayload = Pick<
+  IOneKeyHardwareErrorPayload,
+  'appName' | 'recovery'
+> & {
   error: string;
   code: number;
   errorCode: string | number; // TODO use code instead
@@ -472,6 +495,13 @@ export type IHwAllNetworkPrepareAccountsItem =
       address?: string;
       path?: string;
       rootFingerprint?: number;
+      /** Keystone: the unsigned account-level key the address was derived from. */
+      accountKey?: {
+        path: string;
+        publicKey: string;
+        chainCode?: string;
+        xpub?: string;
+      };
       deviceIdentity?:
         | {
             vendor: 'ledger';
@@ -482,6 +512,11 @@ export type IHwAllNetworkPrepareAccountsItem =
         | {
             vendor: 'trezor';
             type: 'deviceId';
+            value: string;
+          }
+        | {
+            vendor: 'keystone';
+            type: 'walletId';
             value: string;
           };
       chainFingerprint?: string;
@@ -685,6 +720,13 @@ export interface IBuildUnsignedTxParams {
   stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
   prevNonce?: number;
+  prefetchedOnChainNonce?: {
+    nonce: number;
+    fetchedAt: number;
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+  };
   feeInfo?: IFeeInfoUnit;
   transferPayload?: ITransferPayload;
   isInternalSwap?: boolean;
@@ -744,6 +786,16 @@ export interface ISignTransactionParamsBase {
   useDefaultRpc?: boolean;
 }
 
+// Credentials collected once by a caller that signs several transactions in a
+// row (batch psbt signing): passing them into signTransaction skips its
+// per-call password prompt, so the no-re-prompt window stays bounded by that
+// caller's own loop instead of a global password security session that
+// unrelated transactions could piggyback on.
+export type ISignTransactionPrefetchedCredentials = {
+  password: string;
+  deviceParams: IDeviceSharedCallParams | undefined;
+};
+
 export type ISignAndSendTransactionParams = ISignTransactionParams;
 export type ISignTransactionParams = ISignTransactionParamsBase & {
   password: string;
@@ -760,7 +812,12 @@ export interface IBatchSignTransactionParamsBase {
   sourceInfo?: IDappSourceInfo;
   replaceTxInfo?: IReplaceTxInfo;
   transferPayload: ITransferPayload | undefined;
-  successfullySentTxs?: string[];
+  // UI-generated id, stable across retries of one confirm screen. The
+  // background records broadcast tx uuids under it so a retry never broadcasts
+  // them again. It is an id rather than a mutable array because params are
+  // serialized on split runtimes (extension, native background thread), where
+  // background-side mutations never reach the UI.
+  sentTxsTrackingId?: string;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   gasAccountUiState?: IGasAccountUiState;
   // UI-generated token that identifies a single submit attempt. The background
@@ -769,7 +826,17 @@ export interface IBatchSignTransactionParamsBase {
   gasAccountSubmitId?: string;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
+  // WalletConnect Pay only: identity of the durable progress slot the
+  // background writes the txid into between signing and broadcast
+  // (duplicate-payment boundary, see ServiceSend.signAndSendTransaction)
+  wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
   useDefaultRpc?: boolean;
+  // Free-trial usage of a bulk tool; ServiceSend marks it consumed right
+  // after a broadcast succeeds. Omitted for Prime users and other callers.
+  freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
+  // When set, emits BatchSignTxProgress before signing each tx so the UI can
+  // show which tx of the batch is being signed.
+  progressEventId?: string;
 }
 
 export interface ISignMessageParams extends IPbkdf2KdfParams {

@@ -1,8 +1,12 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
+import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
+
 import { emptyMetaState } from './atoms';
 import {
   buildDeviceMetaStateFromState,
+  getDeviceManagementWallets,
   getDeviceMetaStaticDataFromState,
   getDeviceSecondaryIdentifier,
   getDeviceStateSnapshotFromEvent,
@@ -30,7 +34,7 @@ describe('device reset wallet isolation', () => {
     EDeviceType.Neo,
   ];
 
-  it('does not expose a deprecated hardware wallet to device details', () => {
+  it('keeps a deprecated hardware wallet available in device details', () => {
     expect(
       resolveUsableWalletWithDevice({
         wallet: {
@@ -45,7 +49,7 @@ describe('device reset wallet isolation', () => {
           },
         },
       } as never),
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
   it('keeps an active mocked standard wallet as the hidden-only device proxy', () => {
@@ -69,7 +73,7 @@ describe('device reset wallet isolation', () => {
     );
   });
 
-  it('does not expose a deprecated mocked wallet after a firmware switch', () => {
+  it('keeps a deprecated mocked wallet after a firmware switch', () => {
     expect(
       resolveUsableWalletWithDevice({
         wallet: {
@@ -86,11 +90,11 @@ describe('device reset wallet isolation', () => {
           },
         },
       } as never),
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
   it.each(firmwareTypeSwitchDeviceTypes)(
-    'does not expose a deprecated %s wallet after switching firmware type',
+    'keeps a deprecated %s wallet after switching firmware type',
     (deviceType) => {
       const walletWithDevice = {
         wallet: {
@@ -110,12 +114,12 @@ describe('device reset wallet isolation', () => {
 
       expect(
         resolveUsableWalletWithDevice(walletWithDevice as never),
-      ).toBeUndefined();
+      ).toBeDefined();
     },
   );
 
   it.each(unsupportedDeviceTypes)(
-    'does not expose a deprecated %s wallet without a firmware type switch action',
+    'keeps a deprecated %s wallet without a firmware type switch action',
     (deviceType) => {
       const walletWithDevice = {
         wallet: {
@@ -137,11 +141,11 @@ describe('device reset wallet isolation', () => {
 
       expect(
         resolveUsableWalletWithDevice(walletWithDevice as never),
-      ).toBeUndefined();
+      ).toBeDefined();
     },
   );
 
-  it('does not expose a deprecated Bitcoin-only wallet after switching back to Universal firmware', () => {
+  it('keeps a deprecated Bitcoin-only wallet after switching back to Universal firmware', () => {
     const walletWithDevice = {
       wallet: {
         id: 'hw-wallet-1',
@@ -159,10 +163,10 @@ describe('device reset wallet isolation', () => {
 
     expect(
       resolveUsableWalletWithDevice(walletWithDevice as never),
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
-  it('does not revive a deprecated Protocol V1 wallet from normalized firmwareType', () => {
+  it('keeps a deprecated Protocol V1 wallet from normalized firmwareType', () => {
     const walletWithDevice = {
       wallet: {
         id: 'legacy-classic1s-wallet',
@@ -181,10 +185,10 @@ describe('device reset wallet isolation', () => {
 
     expect(
       resolveUsableWalletWithDevice(walletWithDevice as never),
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
-  it('does not expose a deprecated legacy wallet without firmwareTypeAtCreated', () => {
+  it('keeps a deprecated legacy wallet without firmwareTypeAtCreated', () => {
     const walletWithDevice = {
       wallet: {
         id: 'legacy-hw-wallet-1',
@@ -203,7 +207,107 @@ describe('device reset wallet isolation', () => {
 
     expect(
       resolveUsableWalletWithDevice(walletWithDevice as never),
-    ).toBeUndefined();
+    ).toBeDefined();
+  });
+});
+
+describe('device management after a wallet reset', () => {
+  const oldWallet = {
+    wallet: { id: 'hw-old', deprecated: true },
+    device: {
+      id: 'db-old',
+      uuid: 'SERIAL',
+      deviceId: 'old-seed',
+      connectId: '',
+    },
+  } as IHwQrWalletWithDevice;
+  const currentWallet = {
+    wallet: { id: 'hw-current', deprecated: false },
+    device: {
+      id: 'db-current',
+      uuid: 'SERIAL',
+      deviceId: 'new-seed',
+      connectId: 'BLE-ID',
+    },
+  } as IHwQrWalletWithDevice;
+  const otherWallet = {
+    wallet: { id: 'hw-other' },
+    device: {
+      id: 'db-other',
+      uuid: 'OTHER',
+      deviceId: 'other-seed',
+      connectId: 'BLE-ID',
+    },
+  } as IHwQrWalletWithDevice;
+
+  it('opens the current device from a deprecated wallet without reviving it', () => {
+    expect(
+      resolveUsableWalletWithDevice(oldWallet, [
+        oldWallet,
+        otherWallet,
+        currentWallet,
+      ]),
+    ).toBe(currentWallet);
+    expect(oldWallet.wallet.deprecated).toBe(true);
+  });
+
+  it('lists one entry per physical device and prefers the current wallet', () => {
+    expect(
+      getDeviceManagementWallets([oldWallet, otherWallet, currentWallet]),
+    ).toEqual([currentWallet, otherWallet]);
+  });
+
+  it('retains the device when only a deprecated wallet remains', () => {
+    expect(getDeviceManagementWallets([oldWallet, otherWallet])).toEqual([
+      oldWallet,
+      otherWallet,
+    ]);
+    expect(
+      resolveUsableWalletWithDevice(oldWallet, [oldWallet, otherWallet]),
+    ).toBe(oldWallet);
+  });
+
+  it('preserves separate QR entries and the mocked standard proxy for hidden wallets', () => {
+    const qrWallet = {
+      ...currentWallet,
+      wallet: { ...currentWallet.wallet, id: 'qr-current' },
+    };
+    const mockedWallet = {
+      ...currentWallet,
+      wallet: { ...currentWallet.wallet, isMocked: true },
+    };
+    const hiddenWallet = {
+      ...currentWallet,
+      wallet: {
+        ...currentWallet.wallet,
+        id: 'hw-hidden',
+        passphraseState: 'hidden',
+      },
+    };
+    expect(
+      getDeviceManagementWallets([
+        oldWallet,
+        hiddenWallet,
+        mockedWallet,
+        qrWallet,
+      ]),
+    ).toEqual([mockedWallet, qrWallet]);
+    expect(
+      resolveUsableWalletWithDevice(hiddenWallet, [
+        oldWallet,
+        hiddenWallet,
+        mockedWallet,
+      ]),
+    ).toBe(mockedWallet);
+  });
+
+  it('does not create management entries for missing wallets or devices', () => {
+    expect(resolveUsableWalletWithDevice(undefined)).toBeUndefined();
+    expect(
+      getDeviceManagementWallets([
+        { wallet: oldWallet.wallet, device: undefined },
+      ]),
+    ).toEqual([]);
   });
 });
 
@@ -535,6 +639,175 @@ describe('getDeviceStateSnapshotFromEvent', () => {
     ).toBeUndefined();
   });
 
+  it.each(['V1', 'V2'] as const)(
+    'applies equal-metadata %s device-info versions from a hardware read-back',
+    (protocol) => {
+      const currentState = {
+        protocol,
+        revision: 4,
+        updatedAt: 400,
+        identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+        status: { mode: 'normal' },
+        settings: { language: 'en-US' },
+        versions: {
+          firmware: '4.16.1',
+          ble: '2.3.4',
+          bootloader: '2.8.2',
+        },
+      };
+
+      const snapshot = getDeviceStateSnapshotFromEvent({
+        device: { connectId: 'CLASSIC_USB', uuid: 'SERIAL' },
+        currentState,
+        event: {
+          connectId: 'CLASSIC_USB',
+          revision: 4,
+          source: 'device-info',
+          changedKeys: [
+            'versions.firmware',
+            'versions.ble',
+            'versions.bootloader',
+          ],
+          state: {
+            ...currentState,
+            versions: {
+              firmware: '4.21.0',
+              ble: '2.3.7',
+              bootloader: '2.8.4',
+            },
+          },
+        },
+      } as never);
+
+      expect(snapshot?.state.versions).toEqual({
+        firmware: '4.21.0',
+        ble: '2.3.7',
+        bootloader: '2.8.4',
+      });
+    },
+  );
+
+  it.each([
+    { revision: 10, updatedAt: 300, accepted: true },
+    { revision: 9, updatedAt: 200, accepted: true },
+    { revision: 8, updatedAt: 200, accepted: false },
+    { revision: 10, updatedAt: 100, accepted: false },
+  ])(
+    'repairs missing V1 UI settings at $revision / $updatedAt without accepting older read-backs',
+    ({ revision, updatedAt, accepted }) => {
+      const currentState = {
+        protocol: 'V1',
+        revision: 9,
+        updatedAt: 200,
+        identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+        status: { mode: 'normal' },
+        settings: {
+          language: null,
+          autoLockDelayMs: 60_000,
+          autoShutdownDelayMs: null,
+        },
+        versions: { firmware: '4.21.0' },
+      } as IOneKeyDeviceState;
+      const device = { connectId: 'PRO_BLE', uuid: 'SERIAL' };
+      const event = {
+        connectId: 'PRO_BLE',
+        revision,
+        source: 'device-info' as const,
+        changedKeys: ['versions.firmware'],
+        state: {
+          ...currentState,
+          revision,
+          updatedAt,
+          settings: {
+            ...currentState.settings,
+            language: 'ja',
+            autoLockDelayMs: 300_000,
+            autoShutdownDelayMs: 120_000,
+          },
+        },
+      };
+      const snapshot = getDeviceStateSnapshotFromEvent({
+        device,
+        currentState,
+        event,
+      });
+
+      if (!accepted) {
+        expect(snapshot).toBeUndefined();
+        return;
+      }
+      expect(snapshot?.state.settings).toMatchObject({
+        language: 'ja',
+        autoLockDelayMs: 60_000,
+        autoShutdownDelayMs: 120_000,
+      });
+      expect(
+        getDeviceStateSnapshotFromEvent({
+          device,
+          currentState: snapshot?.state,
+          event,
+        }),
+      ).toBeUndefined();
+    },
+  );
+
+  it('keeps V1 UI settings through bootloader and normal firmware read-back', () => {
+    const currentState = {
+      protocol: 'V1',
+      revision: 8,
+      updatedAt: 100,
+      identity: { deviceId: 'DEVICE_ID', serialNo: 'SERIAL' },
+      status: { mode: 'normal' },
+      settings: {
+        language: 'ja',
+        autoLockDelayMs: 60_000,
+        autoShutdownDelayMs: 120_000,
+      },
+      versions: { firmware: '4.21.0' },
+    } as IOneKeyDeviceState;
+    const device = { connectId: 'PRO_BLE', uuid: 'SERIAL' };
+    const loaderSnapshot = getDeviceStateSnapshotFromEvent({
+      device,
+      currentState,
+      event: {
+        connectId: 'PRO_BLE',
+        revision: 9,
+        source: 'initialize',
+        changedKeys: [
+          'status.mode',
+          'settings.language',
+          'settings.autoLockDelayMs',
+          'settings.autoShutdownDelayMs',
+        ],
+        state: {
+          ...currentState,
+          revision: 9,
+          updatedAt: 200,
+          status: { ...currentState.status, mode: 'bootloader' },
+          settings: {
+            ...currentState.settings,
+            language: null,
+            autoLockDelayMs: null,
+            autoShutdownDelayMs: null,
+          },
+        },
+      },
+    });
+    expect(loaderSnapshot?.state.settings).toEqual(currentState.settings);
+    const normalSnapshot = getDeviceStateSnapshotFromEvent({
+      device,
+      currentState: loaderSnapshot?.state,
+      event: {
+        connectId: 'PRO_BLE',
+        revision: 10,
+        source: 'device-info',
+        changedKeys: ['versions.firmware'],
+        state: { ...currentState, revision: 10, updatedAt: 300 },
+      },
+    });
+    expect(normalSnapshot?.state.settings).toEqual(currentState.settings);
+  });
+
   it('rejects a new wallet identity even when the physical serial still matches', () => {
     expect(
       getDeviceStateSnapshotFromEvent({
@@ -590,31 +863,40 @@ describe('DeviceState metadata projection', () => {
     });
   });
 
-  it('uses the BLE name as the Pro2 secondary identifier', () => {
-    expect(
-      getDeviceSecondaryIdentifier({
-        deviceType: EDeviceType.Pro2,
-        bleName: 'Pro2 6136',
-        serialNo: 'P2D33C0005B',
-      }),
-    ).toBe('Pro2 6136');
+  it.each<[EDeviceType, string]>([
+    [EDeviceType.Pro2, 'Pro2 6136'],
+    [EDeviceType.Pro, 'Pro 6136'],
+    [EDeviceType.Classic, 'Classic 6136'],
+    [EDeviceType.Classic1s, 'Classic 1S 6136'],
+    [EDeviceType.Touch, 'Touch 6136'],
+    [EDeviceType.Neo, 'Neo 6136'],
+  ])(
+    'uses the BLE name as the %s secondary identifier',
+    (deviceType, bleName) => {
+      expect(
+        getDeviceSecondaryIdentifier({
+          deviceType,
+          bleName,
+          serialNo: 'SERIAL',
+        }),
+      ).toBe(bleName);
+    },
+  );
 
-    expect(
-      getDeviceSecondaryIdentifier({
-        deviceType: EDeviceType.Pro2,
-        bleName: '',
-        serialNo: 'P2D33C0005B',
-      }),
-    ).toBe('P2D33C0005B');
-
-    expect(
-      getDeviceSecondaryIdentifier({
-        deviceType: EDeviceType.Pro,
-        bleName: 'Pro 6136',
-        serialNo: 'SERIAL',
-      }),
-    ).toBe('SERIAL');
-  });
+  it.each([EDeviceType.Pro2, EDeviceType.Pro, EDeviceType.ClassicPure])(
+    'does not use the %s serial number when the BLE name is unavailable',
+    (deviceType) => {
+      for (const bleName of ['', undefined]) {
+        expect(
+          getDeviceSecondaryIdentifier({
+            deviceType,
+            bleName,
+            serialNo: 'SERIAL',
+          }),
+        ).toBe(bleName);
+      }
+    },
+  );
 
   it('uses canonical state fields while retaining the V1 software-PIN preference', () => {
     expect(

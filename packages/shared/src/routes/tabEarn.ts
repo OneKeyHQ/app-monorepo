@@ -49,6 +49,9 @@ export type ITabEarnParamList = {
     // otherwise has no logo until getProtocolDetailsV2 resolves and renders
     // the placeholder icon in the meantime.
     logoURI?: string;
+    // OK-61377: the phone positions page's Manage lands on the position, so
+    // the page scrolls its Portfolio tab into view once it has loaded.
+    scrollToPortfolio?: boolean;
   };
   [ETabEarnRoutes.EarnProtocolDetailsShare]: {
     network: string; // network name, like 'ethereum', 'bitcoin'

@@ -98,13 +98,30 @@ import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 // eslint-disable-next-line import-js/order, import/first
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
-import { InvoiceExpiredError } from '@onekeyhq/shared/src/errors';
+import {
+  InvoiceExpiredError,
+  JsonRPCResponseError,
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
+// eslint-disable-next-line import-js/order, import/first
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+// eslint-disable-next-line import-js/order, import/first
+import { getBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
+// eslint-disable-next-line import-js/order, import/first
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+// eslint-disable-next-line import-js/order, import/first
+import { getPrimeInfiniPaymentWarningsFingerprint } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
 // eslint-disable-next-line import-js/order, import/first
 import type { IGasAccountUiState } from '@onekeyhq/shared/types/fee';
 // eslint-disable-next-line import-js/order, import/first
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 // eslint-disable-next-line import-js/order, import/first
-import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+  EReplaceTxType,
+} from '@onekeyhq/shared/types/tx';
 // eslint-disable-next-line import-js/order, import/first
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 // eslint-disable-next-line import-js/order, import/first
@@ -176,6 +193,30 @@ const decodedTx = {
   outputActions: [],
 } as unknown as IDecodedTx;
 
+function createNativePaymentFixture() {
+  return {
+    paymentCacheKey: { ...paymentCacheKey, contractAddress: '' },
+    payment: { ...latestPayment, token: 'ETH', amountDue: '0.01' },
+    decodedTx: {
+      ...decodedTx,
+      actions: decodedTx.actions.map((action) => ({
+        ...action,
+        assetTransfer: action.assetTransfer
+          ? {
+              ...action.assetTransfer,
+              sends: action.assetTransfer.sends.map((transfer) => ({
+                ...transfer,
+                tokenIdOnNetwork: '',
+                isNative: true,
+                amount: '0.01',
+              })),
+            }
+          : undefined,
+      })),
+    },
+  };
+}
+
 function buildTronEncodedTx(contractCount: number): IEncodedTxTron {
   return {
     raw_data: {
@@ -194,22 +235,39 @@ function buildTronEncodedTx(contractCount: number): IEncodedTxTron {
 }
 
 function makeService() {
+  const blockedHistoryIds = new Set<string>();
+  const reservedNonces = new Set<number>();
   const vault = {
     signTransaction: jest.fn().mockResolvedValue(signedTx),
     buildDecodedTx: jest.fn().mockResolvedValue(decodedTx),
     broadcastTransaction: jest.fn().mockResolvedValue({ txid: '0xtxid' }),
     checkShouldRetryBroadcastTx: jest.fn().mockResolvedValue(false),
+    fetchAccountDetailsByRpc: jest
+      .fn()
+      .mockResolvedValue({ data: { data: { nonce: 99 } } }),
+    checkSignedTxBroadcastStatus: jest.fn().mockResolvedValue('unknown'),
+    isSignedTxRejectedByBroadcast: jest.fn().mockResolvedValue(false),
     refreshUnsignedTxBeforeBatchSign: jest.fn((tx: IUnsignedTxPro) =>
+      Promise.resolve(tx),
+    ),
+    refreshUnsignedTxBeforeSign: jest.fn((tx: IUnsignedTxPro) =>
       Promise.resolve(tx),
     ),
   };
   (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue(vault);
 
   const backgroundApi = {
+    serviceCustomRpc: {
+      getCustomRpcForNetwork: jest.fn().mockResolvedValue(undefined),
+    },
+    serviceAccountProfile: {
+      fetchAccountDetails: jest.fn().mockResolvedValue({ nonce: 0 }),
+    },
     serviceAccount: {
       getAccountAddressForApi: jest.fn().mockResolvedValue('0xaccount'),
     },
     servicePassword: {
+      decryptByInstanceId: jest.fn(),
       promptPasswordVerifyByAccount: jest.fn().mockResolvedValue({
         password: 'password',
         deviceParams: undefined,
@@ -224,6 +282,7 @@ function makeService() {
       getDevSetting: jest.fn().mockResolvedValue({}),
     },
     serviceNetwork: {
+      getNetworkSafe: jest.fn().mockResolvedValue({ backendIndex: true }),
       getVaultSettings: jest.fn().mockResolvedValue({
         maxRetryBroadcastTxCount: 1,
         minRetryBroadcastTxInterval: 0,
@@ -234,6 +293,8 @@ function makeService() {
     },
     serviceHistory: {
       saveSendConfirmHistoryTxs: jest.fn().mockResolvedValue(undefined),
+      getLocalHistoryTxById: jest.fn(),
+      clearLocalHistoryPendingTxByTxId: jest.fn().mockResolvedValue(true),
     },
     servicePrime: {
       getLocalUserInfo: jest.fn().mockResolvedValue({
@@ -246,7 +307,38 @@ function makeService() {
       }),
     },
     simpleDb: {
+      localHistory: {
+        getMaxPendingNonce: jest.fn().mockResolvedValue(null),
+        getPendingNonceList: jest.fn().mockResolvedValue([]),
+      },
       prime: {
+        getInfiniReservedNonces: jest.fn(async () =>
+          Array.from(reservedNonces),
+        ),
+        pruneInfiniConsumedNonces: jest.fn(
+          async ({ confirmedNonce }: { confirmedNonce: number }) => {
+            for (const nonce of reservedNonces) {
+              if (nonce < confirmedNonce) reservedNonces.delete(nonce);
+            }
+          },
+        ),
+        findInfiniPaymentForTransfer: jest.fn().mockResolvedValue(undefined),
+        isInfiniReplacementBlocked: jest.fn(
+          async ({ historyId }: { historyId: string }) =>
+            blockedHistoryIds.has(historyId),
+        ),
+        blockInfiniReplacement: jest.fn(
+          async ({
+            historyId,
+            nonce,
+          }: {
+            historyId: string;
+            nonce: number;
+          }) => {
+            blockedHistoryIds.add(historyId);
+            reservedNonces.add(nonce);
+          },
+        ),
         markInfiniPendingPaymentSessionSendStarted: jest
           .fn()
           .mockResolvedValue({
@@ -261,6 +353,7 @@ function makeService() {
   return {
     service: new Ctor({ backgroundApi }),
     vault,
+    backgroundApi,
   };
 }
 
@@ -271,6 +364,7 @@ function signAndSend(
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     gasAccountUiState?: IGasAccountUiState;
     transferPayload?: ITransferPayload;
+    preserveBroadcastTxIdOnError?: boolean;
   } = {},
 ) {
   return service.signAndSendTransaction({
@@ -297,6 +391,306 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     jest.restoreAllMocks();
   });
 
+  test.each([40_024, 40_026, 40_034, 40_049])(
+    'does not retain a signed hash for a definite broadcast rejection (%s)',
+    async (code) => {
+      const { service, vault } = makeService();
+      const rejection = new OneKeyServerApiError({
+        code,
+        message: 'Node rejected transaction',
+      });
+      vault.signTransaction.mockResolvedValue({
+        ...signedTx,
+        txid: `0x${'a'.repeat(64)}`,
+      });
+      vault.broadcastTransaction.mockRejectedValue(rejection);
+
+      await expect(
+        signAndSend(service, { preserveBroadcastTxIdOnError: true }),
+      ).rejects.toBe(rejection);
+      expect(getBroadcastTxContext(rejection, networkId)).toBeUndefined();
+      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('does not retain a signed hash for a custom RPC nonce rejection', async () => {
+    const { service, vault } = makeService();
+    const rejection = new JsonRPCResponseError('nonce too low');
+    vault.signTransaction.mockResolvedValue({
+      ...signedTx,
+      txid: `0x${'a'.repeat(64)}`,
+    });
+    vault.broadcastTransaction.mockRejectedValue(rejection);
+    await expect(
+      signAndSend(service, { preserveBroadcastTxIdOnError: true }),
+    ).rejects.toBe(rejection);
+    expect(getBroadcastTxContext(rejection, networkId)).toBeUndefined();
+  });
+
+  test('preserves a locally signed hash when the broadcast result is uncertain', async () => {
+    const { service, vault } = makeService();
+    const txId = `0x${'a'.repeat(64)}`;
+    const rejection = new OneKeyServerApiError({
+      code: 40_000,
+      message: 'Broadcast response unavailable',
+      requestId: 'request-1',
+    });
+    vault.signTransaction.mockResolvedValue({ ...signedTx, txid: txId });
+    vault.broadcastTransaction.mockRejectedValue(rejection);
+
+    const error = await signAndSend(service, {
+      preserveBroadcastTxIdOnError: true,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      code: rejection.code,
+      className: rejection.className,
+      message: rejection.message,
+      requestId: rejection.requestId,
+    });
+    expect(getBroadcastTxContext(error, networkId)).toEqual({
+      networkId,
+      txId,
+    });
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('retains an uncertain attempt when a later retry rejects the nonce', async () => {
+    const { service, vault } = makeService();
+    const txId = `0x${'a'.repeat(64)}`;
+    const uncertain = new OneKeyServerApiError({
+      code: 40_001,
+      message: 'Service unavailable',
+    });
+    const rejected = new OneKeyServerApiError({
+      code: 40_024,
+      message: 'Nonce already used',
+    });
+    vault.signTransaction.mockResolvedValue({ ...signedTx, txid: txId });
+    vault.broadcastTransaction
+      .mockRejectedValueOnce(uncertain)
+      .mockRejectedValueOnce(rejected);
+    vault.checkShouldRetryBroadcastTx
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+
+    const error = await signAndSend(service, {
+      preserveBroadcastTxIdOnError: true,
+    }).catch((caught: unknown) => caught);
+    expect(error).toBe(rejected);
+    expect(getBroadcastTxContext(error, networkId)).toEqual({
+      networkId,
+      txId,
+    });
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(2);
+  });
+
+  test('leaves a default caller broadcast rejection unchanged', async () => {
+    const { service, vault } = makeService();
+    const rejection = new OneKeyServerApiError('Nonce already used');
+    vault.signTransaction.mockResolvedValue({
+      ...signedTx,
+      txid: `0x${'a'.repeat(64)}`,
+    });
+    vault.broadcastTransaction.mockRejectedValue(rejection);
+
+    await expect(signAndSend(service)).rejects.toBe(rejection);
+    expect(getBroadcastTxContext(rejection, networkId)).toBeUndefined();
+  });
+
+  test.each([
+    { sendNetworkId: networkId, txid: '' },
+    { sendNetworkId: 'tron--0x2b6653dc', txid: `0x${'a'.repeat(64)}` },
+  ])(
+    'does not recover an ineligible signed identity: $sendNetworkId / $txid',
+    async ({ sendNetworkId, txid }) => {
+      const { service, vault } = makeService();
+      const rejection = new OneKeyServerApiError('Broadcast rejected');
+      vault.signTransaction.mockResolvedValue({ ...signedTx, txid });
+      vault.broadcastTransaction.mockRejectedValue(rejection);
+
+      await expect(
+        service.signAndSendTransaction({
+          accountId,
+          networkId: sendNetworkId,
+          unsignedTx,
+          signOnly: false,
+          preserveBroadcastTxIdOnError: true,
+        }),
+      ).rejects.toBe(rejection);
+    },
+  );
+
+  test('does not attach a hash when the deadline prevents the first broadcast', async () => {
+    const { service, vault } = makeService();
+    vault.signTransaction.mockResolvedValue({
+      ...signedTx,
+      txid: `0x${'a'.repeat(64)}`,
+    });
+
+    const error = await signAndSend(service, {
+      preserveBroadcastTxIdOnError: true,
+      broadcastDeadline: Date.now() - 1,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(InvoiceExpiredError);
+    expect(getBroadcastTxContext(error, networkId)).toBeUndefined();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('does not recover a local hash for a Gas Account relay rejection', async () => {
+    const { service, vault } = makeService();
+    const rejection = new OneKeyServerApiError('Relay rejected');
+    vault.signTransaction.mockResolvedValue({
+      ...signedTx,
+      txid: `0x${'a'.repeat(64)}`,
+    });
+    vault.broadcastTransaction.mockRejectedValue(rejection);
+
+    await expect(
+      signAndSend(service, {
+        preserveBroadcastTxIdOnError: true,
+        gasAccountUiState: {
+          selectedPayer: 'gasAccount',
+          gasAccountQuote: { quoteId: 'quote-1' },
+        } as IGasAccountUiState,
+      }),
+    ).rejects.toBe(rejection);
+    expect(getBroadcastTxContext(rejection, networkId)).toBeUndefined();
+  });
+
+  test('verifies and durably claims a native ETH payment before broadcasting', async () => {
+    const { service, vault, backgroundApi } = makeService();
+    const native = createNativePaymentFixture();
+    vault.buildDecodedTx.mockResolvedValue(native.decodedTx);
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: native.payment,
+        purchaseStatusSnapshot,
+      },
+    );
+
+    await expect(
+      signAndSend(service, {
+        beforeBroadcastAction: {
+          ...beforeBroadcastAction,
+          paymentCacheKey: native.paymentCacheKey,
+        },
+      }),
+    ).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paymentCacheKey: native.paymentCacheKey,
+        transferClaim: expect.objectContaining({
+          contractAddress: '',
+          amount: '0.01',
+          toAddress: native.payment.address,
+        }),
+      }),
+    );
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted
+        .mock.invocationCallOrder[0],
+    ).toBeLessThan(vault.broadcastTransaction.mock.invocationCallOrder[0]);
+  });
+
+  test.each([
+    { label: 'a token transfer', changes: { isNative: false } },
+    { label: 'a missing native flag', changes: { isNative: undefined } },
+    { label: 'a nonempty contract', changes: { tokenIdOnNetwork: '0xtoken' } },
+    { label: 'a whitespace contract', changes: { tokenIdOnNetwork: ' ' } },
+    { label: 'an NFT transfer', changes: { isNFT: true } },
+  ])(
+    'rejects $label for a native invoice before claiming or broadcasting',
+    async ({ changes }) => {
+      const { service, vault, backgroundApi } = makeService();
+      const native = createNativePaymentFixture();
+      const transfer = native.decodedTx.actions[0].assetTransfer?.sends[0];
+      if (!transfer) {
+        throw new OneKeyLocalError('Missing native transfer fixture');
+      }
+      Object.assign(transfer, changes);
+      vault.buildDecodedTx.mockResolvedValue(native.decodedTx);
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: native.payment,
+          purchaseStatusSnapshot,
+        },
+      );
+
+      await expect(
+        signAndSend(service, {
+          beforeBroadcastAction: {
+            ...beforeBroadcastAction,
+            paymentCacheKey: native.paymentCacheKey,
+          },
+        }),
+      ).rejects.toThrow('Infini payment transaction cannot be verified');
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([
+    { label: 'token symbol', changes: { token: 'USDC' } },
+    { label: 'chain', changes: { chain: 'BSC' } },
+    { label: 'recipient', changes: { address: '0xotherrecipient' } },
+    { label: 'amount', changes: { amountDue: '0.02' } },
+  ])(
+    'rejects a native payment with a changed $label before claiming or broadcasting',
+    async ({ changes }) => {
+      const { service, vault, backgroundApi } = makeService();
+      const native = createNativePaymentFixture();
+      vault.buildDecodedTx.mockResolvedValue(native.decodedTx);
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: { ...native.payment, ...changes },
+          purchaseStatusSnapshot,
+        },
+      );
+
+      await expect(
+        signAndSend(service, {
+          beforeBroadcastAction: {
+            ...beforeBroadcastAction,
+            paymentCacheKey: native.paymentCacheKey,
+          },
+        }),
+      ).rejects.toThrow();
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not substitute a native transfer for a token invoice', async () => {
+    const { service, vault, backgroundApi } = makeService();
+    const native = createNativePaymentFixture();
+    vault.buildDecodedTx.mockResolvedValue(native.decodedTx);
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, amountDue: native.payment.amountDue },
+        purchaseStatusSnapshot,
+      },
+    );
+
+    await expect(
+      signAndSend(service, { beforeBroadcastAction }),
+    ).rejects.toThrow('Infini payment transaction cannot be verified');
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
   test('keeps existing callers unchanged when deadline is omitted', async () => {
     const { service, vault } = makeService();
 
@@ -304,6 +698,260 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
       txid: '0xtxid',
     });
     expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('signs the vault-refreshed tx when the wallet broadcasts', async () => {
+    const { service, vault } = makeService();
+    const refreshedUnsignedTx = {
+      ...unsignedTx,
+      encodedTx: { refreshed: true },
+    } as IUnsignedTxPro;
+    vault.refreshUnsignedTxBeforeSign.mockResolvedValue(refreshedUnsignedTx);
+
+    await signAndSend(service);
+
+    expect(vault.refreshUnsignedTxBeforeSign).toHaveBeenCalledWith(unsignedTx);
+    expect(vault.signTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ unsignedTx: refreshedUnsignedTx }),
+    );
+  });
+
+  test('leaves a sign-only tx untouched before signing', async () => {
+    const { service, vault } = makeService();
+
+    await service.signTransaction({
+      accountId,
+      networkId,
+      unsignedTx,
+      signOnly: true,
+    });
+
+    expect(vault.refreshUnsignedTxBeforeSign).not.toHaveBeenCalled();
+    expect(vault.signTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ unsignedTx, signOnly: true }),
+    );
+  });
+
+  test.each([
+    [{ code: 'ETIMEDOUT' }, 'failed'],
+    [{ className: 'PasswordPromptDialogCancel' }, 'cancelled'],
+  ])(
+    'finishes with the refreshed Solana context when signing fails: %j',
+    async (error, status) => {
+      const { service, vault } = makeService();
+      Object.assign(vault, {
+        getTxDiagnosticContext: (tx: IUnsignedTxPro) => tx.solanaTxDiagnostic,
+      });
+      const logSpy = jest
+        .spyOn(defaultLogger.transaction.send, 'solanaTxDiagnostic')
+        .mockImplementation((event) => event);
+      vault.refreshUnsignedTxBeforeSign.mockImplementation(
+        async (tx: IUnsignedTxPro) => {
+          if (!tx.solanaTxDiagnostic)
+            throw new OneKeyLocalError('Missing diagnostic context');
+          return {
+            ...tx,
+            solanaTxDiagnostic: {
+              ...tx.solanaTxDiagnostic,
+              recentBlockhash: '11111111111111111111111111111111',
+              lastValidBlockHeight: 999,
+              blockhashFetchedAt: 2000,
+            },
+          };
+        },
+      );
+      vault.signTransaction.mockRejectedValue(error);
+      await expect(
+        service.signAndSendTransaction({
+          accountId,
+          networkId: 'sol--101',
+          unsignedTx,
+          signOnly: false,
+        }),
+      ).rejects.toBe(error);
+      const summaries = logSpy.mock.calls
+        .map(([event]) => event)
+        .filter((event) => event.stage === 'finished');
+      expect(summaries).toEqual([
+        expect.objectContaining({
+          status,
+          recentBlockhash: '11111111111111111111111111111111',
+          lastValidBlockHeight: 999,
+          blockhashFetchedAt: 2000,
+          attempts: 0,
+        }),
+      ]);
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test('rejects and logs when dev sign-only would skip a Prime broadcast', async () => {
+    const logSpy = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => params);
+    const { service, vault, backgroundApi } = makeService();
+    backgroundApi.serviceDevSetting.getDevSetting.mockResolvedValueOnce({
+      enabled: true,
+      settings: { alwaysSignOnlySendTx: true },
+    });
+
+    await expect(
+      signAndSend(service, { beforeBroadcastAction }),
+    ).rejects.toThrow('Prime Infini payment requires a real broadcast');
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'broadcast',
+        status: 'blocked',
+        reason: 'primeBroadcastDiagV1:pathDecision',
+        failureReason: 'alwaysSignOnlySendTx',
+        hasBeforeBroadcastAction: true,
+        isDevModeEnabled: true,
+        isAlwaysSignOnlySendTxConfigured: true,
+        isSignOnlyRequested: false,
+        isExternalAccount: false,
+        hasCompletedBeforeBroadcastAction: false,
+        hasAttemptedBroadcast: false,
+      }),
+    );
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(vault.signTransaction.mock.invocationCallOrder[0]).toBeLessThan(
+      backgroundApi.serviceDevSetting.getDevSetting.mock.invocationCallOrder[0],
+    );
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('rejects when dev sign-only would skip a WalletConnect Pay broadcast', async () => {
+    // a skipped broadcast would hand WalletConnect Pay a txid that was
+    // neither recorded at the pre-broadcast boundary nor sent
+    const { service, vault, backgroundApi } = makeService();
+    const recordPreBroadcastTxid = jest.fn().mockResolvedValue(undefined);
+    (
+      backgroundApi as unknown as {
+        serviceWalletConnectPay: { recordPreBroadcastTxid: jest.Mock };
+      }
+    ).serviceWalletConnectPay = { recordPreBroadcastTxid };
+    backgroundApi.serviceDevSetting.getDevSetting.mockResolvedValueOnce({
+      enabled: true,
+      settings: { alwaysSignOnlySendTx: true },
+    });
+
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTx,
+        signOnly: false,
+        wcPayPreBroadcastRecord: {
+          paymentId: 'pay-1',
+          optionId: 'opt-1',
+          accountKey: accountId,
+          action: {
+            walletRpc: {
+              chainId: 'eip155:1',
+              method: 'eth_sendTransaction',
+              params: '[{}]',
+            },
+          } as never,
+          index: 0,
+        },
+      }),
+    ).rejects.toThrow('WalletConnect Pay requires a real broadcast');
+
+    expect(recordPreBroadcastTxid).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('ignores a stale sign-only flag when Dev mode is disabled', async () => {
+    const logSpy = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => params);
+    const { service, vault, backgroundApi } = makeService();
+    backgroundApi.serviceDevSetting.getDevSetting.mockResolvedValueOnce({
+      enabled: false,
+      settings: { alwaysSignOnlySendTx: true },
+    });
+
+    await expect(
+      signAndSend(service, { beforeBroadcastAction }),
+    ).resolves.toMatchObject({ txid: '0xtxid' });
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'broadcast',
+        status: 'started',
+        reason: 'primeBroadcastDiagV1:pathDecision',
+        isDevModeEnabled: false,
+        isAlwaysSignOnlySendTxConfigured: true,
+        hasAttemptedBroadcast: false,
+      }),
+    );
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects a Prime external account before it can send while signing', async () => {
+    const logSpy = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => params);
+    const { service, vault, backgroundApi } = makeService();
+
+    await expect(
+      service.signAndSendTransaction({
+        accountId: 'external--60--injected--wallet',
+        networkId,
+        unsignedTx,
+        signOnly: false,
+        beforeBroadcastAction,
+      }),
+    ).rejects.toThrow('Prime Infini payment requires a real broadcast');
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'broadcast',
+        status: 'blocked',
+        reason: 'primeBroadcastDiagV1:pathDecision',
+        failureReason: 'externalAccount',
+        isExternalAccount: true,
+        hasAttemptedBroadcast: false,
+      }),
+    );
+    expect(
+      backgroundApi.serviceDevSetting.getDevSetting,
+    ).not.toHaveBeenCalled();
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('logs when a broadcast succeeds on a network without txid results', async () => {
+    const logSpy = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => params);
+    const { service, vault, backgroundApi } = makeService();
+    backgroundApi.serviceNetwork.getVaultSettings.mockResolvedValueOnce({
+      maxRetryBroadcastTxCount: 1,
+      minRetryBroadcastTxInterval: 0,
+      withoutBroadcastTxId: true,
+    });
+    vault.broadcastTransaction.mockResolvedValueOnce({ txid: '' });
+
+    await expect(
+      signAndSend(service, { beforeBroadcastAction }),
+    ).resolves.toMatchObject({ txid: '' });
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'broadcast',
+        status: 'succeeded',
+        reason: 'primeBroadcastDiagV1:vaultBroadcastResult',
+        hasAttemptedBroadcast: true,
+        hasBroadcastTxId: false,
+        isWithoutBroadcastTxIdAllowed: true,
+      }),
+    );
   });
 
   test('rejects at the exact deadline after signing but before broadcast', async () => {
@@ -327,6 +975,41 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
   });
 
+  test('logs a deadline block before the vault broadcast as not attempted', async () => {
+    let now = 999;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    const logSpy = jest
+      .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
+      .mockImplementation((params) => {
+        if (
+          params.reason ===
+          'primeBroadcastDiagV1:beforeBroadcastActionCompleted'
+        ) {
+          now = 1000;
+        }
+        return params;
+      });
+    const { service, vault } = makeService();
+
+    await expect(
+      signAndSend(service, {
+        broadcastDeadline: 1000,
+        beforeBroadcastAction,
+      }),
+    ).rejects.toBeInstanceOf(InvoiceExpiredError);
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stage: 'broadcast',
+        status: 'failed',
+        reason: 'primeBroadcastDiagV1:vaultBroadcastResult',
+        failureReason: 'broadcastNotAttempted',
+        hasAttemptedBroadcast: false,
+      }),
+    );
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
   test('durably marks the Infini session after signing and before broadcast', async () => {
     const { service, vault } = makeService();
     const backgroundApi = service.backgroundApi as unknown as {
@@ -344,6 +1027,7 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     const mark =
       backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted;
     expect(mark).toHaveBeenCalledWith({
+      mode: 'initial',
       onekeyUserId: 'user-1',
       paymentCacheKey,
       transferClaim: {
@@ -837,6 +1521,11 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
           'message',
           expect.stringContaining('session is unavailable'),
         );
+        if (_label === 'changed') {
+          expect(sendOutcome.reason).toMatchObject({
+            data: { paymentValidationFailure: 'transferSnapshotChanged' },
+          });
+        }
       }
       expect(
         backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
@@ -844,6 +1533,81 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
       expect(vault.broadcastTransaction).not.toHaveBeenCalled();
     },
   );
+
+  test.each([0, 1, 29_999, 30_000])(
+    'does not claim or broadcast a latest quote with %i ms remaining',
+    async (remainingMs) => {
+      const now = 1_800_000_000_000;
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+      const { service, vault, backgroundApi } = makeService();
+      const snapshot =
+        backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot;
+      snapshot.mockResolvedValue({
+        payment: { ...latestPayment, expiresAt: now + remainingMs },
+        purchaseStatusSnapshot,
+      });
+      await expect(
+        signAndSend(service, { beforeBroadcastAction }),
+      ).rejects.toMatchObject({
+        data: {
+          paymentValidationFailure:
+            remainingMs === 0 ? 'quoteExpired' : 'quoteValidityTooShort',
+        },
+      });
+      expect(
+        service.backgroundApi.simpleDb.prime
+          .markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test('blocks a newly added server warning before the durable send claim', async () => {
+    const { service, vault, backgroundApi } = makeService();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: {
+          ...latestPayment,
+          warningMessages: ['Additional warning from the latest response'],
+        },
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(
+      signAndSend(service, { beforeBroadcastAction }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'transferSnapshotChanged' },
+    });
+    expect(
+      service.backgroundApi.simpleDb.prime
+        .markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('broadcasts when the latest warnings match the user-confirmed fingerprint', async () => {
+    const { service, vault, backgroundApi } = makeService();
+    const paymentWithWarnings = {
+      ...latestPayment,
+      warningMessages: ['First warning', 'Second warning'],
+    };
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: paymentWithWarnings,
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(
+      signAndSend(service, {
+        beforeBroadcastAction: {
+          ...beforeBroadcastAction,
+          confirmedWarningsFingerprint:
+            getPrimeInfiniPaymentWarningsFingerprint(paymentWithWarnings),
+        },
+      }),
+    ).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
 
   test('does not broadcast when the Prime user changes during the claim', async () => {
     const { service, vault } = makeService();
@@ -876,12 +1640,40 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     expect(vault.broadcastTransaction).not.toHaveBeenCalled();
   });
 
+  test.each([31_001, 60_000, undefined])(
+    'broadcasts after the claim crosses the safety window with deadline %s',
+    async (broadcastDeadline) => {
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(1000);
+      const { service, vault, backgroundApi } = makeService();
+      const payment = { ...latestPayment, expiresAt: 31_001 };
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment,
+          purchaseStatusSnapshot,
+        },
+      );
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted.mockImplementation(
+        async () => {
+          clock.mockReturnValue(1002);
+          return { payment };
+        },
+      );
+
+      await expect(
+        signAndSend(service, {
+          broadcastDeadline,
+          beforeBroadcastAction,
+        }),
+      ).resolves.toMatchObject({ txid: '0xtxid' });
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).toHaveBeenCalledTimes(1);
+      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+    },
+  );
+
   test('re-checks the deadline after the durable marker write', async () => {
-    jest
-      .spyOn(Date, 'now')
-      .mockReturnValueOnce(999)
-      .mockReturnValueOnce(999)
-      .mockReturnValue(1000);
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(999);
     const { service, vault } = makeService();
     const backgroundApi = service.backgroundApi as unknown as {
       simpleDb: {
@@ -890,6 +1682,13 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
         };
       };
     };
+
+    backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted.mockImplementation(
+      async () => {
+        clock.mockReturnValue(1000);
+        return { payment: latestPayment };
+      },
+    );
 
     await expect(
       signAndSend(service, {
@@ -961,6 +1760,41 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     ).rejects.toBeInstanceOf(InvoiceExpiredError);
     expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
     expect(vault.checkShouldRetryBroadcastTx).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries a claimed Infini transaction inside the safety window without claiming again', async () => {
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    const { service, vault, backgroundApi } = makeService();
+    const payment = { ...latestPayment, expiresAt: 31_001 };
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment,
+        purchaseStatusSnapshot,
+      },
+    );
+    backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted.mockResolvedValue(
+      {
+        payment,
+      },
+    );
+    vault.broadcastTransaction
+      .mockImplementationOnce(async () => {
+        clock.mockReturnValue(1002);
+        throw new OneKeyLocalError('retry');
+      })
+      .mockResolvedValueOnce({ txid: '0xtxid' });
+    vault.checkShouldRetryBroadcastTx.mockResolvedValue(true);
+
+    await expect(
+      signAndSend(service, {
+        broadcastDeadline: payment.expiresAt,
+        beforeBroadcastAction,
+      }),
+    ).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(2);
   });
 
   test('re-checks the deadline before a Gas Account retry', async () => {
@@ -1106,4 +1940,958 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     expect(vault.signTransaction).not.toHaveBeenCalled();
     expect(vault.broadcastTransaction).not.toHaveBeenCalled();
   });
+
+  test('rejects an Infini sign-only batch through the shared broadcast guard', async () => {
+    const { service, vault, backgroundApi } = makeService();
+
+    await expect(
+      service.batchSignAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTxs: [unsignedTx],
+        signOnly: true,
+        transferPayload: undefined,
+        beforeBroadcastAction,
+      }),
+    ).rejects.toThrow('Prime Infini payment requires a real broadcast');
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('Infini Speed Up broadcast validation', () => {
+  const encodedTx = {
+    from: '0xaccount',
+    to: '0xtoken',
+    value: '0x0',
+    data: '0xtransfer',
+    nonce: 0,
+  };
+
+  function makeReplacement() {
+    const fixture = makeService();
+    fixture.backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue(
+      {
+        id: 'history-1',
+        isLocalCreated: true,
+        primeInfiniPayment: beforeBroadcastAction,
+        decodedTx: {
+          ...decodedTx,
+          txid: '0xoriginal',
+          nonce: 0,
+          status: EDecodedTxStatus.Pending,
+          encodedTx,
+        },
+      },
+    );
+    fixture.vault.signTransaction.mockResolvedValue({ ...signedTx, encodedTx });
+    return fixture;
+  }
+
+  function speedUp(service: ServiceSend) {
+    return service.signAndSendTransaction({
+      accountId,
+      networkId,
+      unsignedTx: { ...unsignedTx, encodedTx, nonce: 0 },
+      signOnly: false,
+      replaceTxInfo: {
+        replaceHistoryId: 'history-1',
+        replaceType: EReplaceTxType.SpeedUp,
+      },
+    });
+  }
+
+  test.each([false, true])(
+    'verifies a reserved-nonce Cancel is zero-to-self, afterSigning=%s',
+    async (afterSigning) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      await backgroundApi.simpleDb.prime.blockInfiniReplacement({
+        historyId: 'history-1',
+        nonce: 0,
+      });
+      const cancelTx = {
+        ...encodedTx,
+        to: encodedTx.from,
+        value: '0x0',
+        data: '0x',
+      };
+      const invalidTx = { ...cancelTx, to: '0xinvoice', value: '0x1' };
+      vault.signTransaction.mockResolvedValue({
+        ...signedTx,
+        encodedTx: afterSigning ? invalidTx : cancelTx,
+      });
+      await expect(
+        service.signAndSendTransaction({
+          accountId,
+          networkId,
+          signOnly: false,
+          unsignedTx: {
+            ...unsignedTx,
+            encodedTx: afterSigning ? cancelTx : invalidTx,
+            nonce: 0,
+          },
+          replaceTxInfo: {
+            replaceHistoryId: 'history-1',
+            replaceType: EReplaceTxType.Cancel,
+          },
+        }),
+      ).rejects.toThrow();
+      expect(vault.signTransaction).toHaveBeenCalledTimes(afterSigning ? 1 : 0);
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(['expired', 'failed', 'cancelled'])(
+    'never broadcasts a replacement for a %s invoice',
+    async (status) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: { ...latestPayment, status },
+          purchaseStatusSnapshot,
+        },
+      );
+      await expect(speedUp(service)).rejects.toThrow();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).toHaveBeenCalledWith({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+        txid: '0xoriginal',
+      });
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(['timeout', 'invalid', 'differentInvoice', 'differentAddress'])(
+    'preserves local history for %s validation results',
+    async (scenario) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      const api =
+        backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot;
+      if (scenario === 'timeout') {
+        api.mockRejectedValue(new Error('Request timeout'));
+      } else {
+        api.mockResolvedValue({
+          payment: {
+            ...latestPayment,
+            status: 'expired',
+            ...(scenario === 'invalid' ? { amountDue: 'invalid' } : {}),
+            ...(scenario === 'differentInvoice' ? { paymentId: 'other' } : {}),
+            ...(scenario === 'differentAddress' ? { address: '0xother' } : {}),
+          },
+          purchaseStatusSnapshot,
+        });
+      }
+      await expect(speedUp(service)).rejects.toThrow();
+      expect(vault.signTransaction).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  test('still reports expiry if removing local history fails', async () => {
+    const { service, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId.mockRejectedValue(
+      new Error('Storage unavailable'),
+    );
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(speedUp(service)).rejects.toMatchObject({
+      autoToast: true,
+      data: { paymentValidationFailure: 'quoteExpired' },
+    });
+  });
+
+  test.each(['expired', 'failed'])(
+    'blocks a second speed-up after deleting a %s invoice history',
+    async (status) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: { ...latestPayment, status, amountConfirming: '1' },
+          purchaseStatusSnapshot,
+        },
+      );
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId.mockImplementation(
+        async () => {
+          backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue(
+            undefined,
+          );
+          return true;
+        },
+      );
+      await expect(speedUp(service)).rejects.toThrow();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).toHaveBeenCalledTimes(1);
+      await expect(speedUp(service)).rejects.toMatchObject({ autoToast: true });
+      expect(vault.signTransaction).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test('allows an ordinary transfer speed-up with missing local history', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue(
+      undefined,
+    );
+    await expect(speedUp(service)).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(
+      backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer,
+    ).toHaveBeenCalledWith({
+      transferClaim: expect.objectContaining({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+      }),
+    });
+    expect(vault.buildDecodedTx).toHaveBeenCalledWith({
+      unsignedTx: expect.objectContaining({ encodedTx }),
+    });
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    'matched',
+    'ambiguous',
+    'decodeFailure',
+    'lookupFailure',
+    'fenceFailure',
+    'unknownShape',
+  ])('rejects missing history safely for %s', async (reason) => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue(
+      undefined,
+    );
+    if (reason === 'matched')
+      backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer.mockResolvedValue(
+        { paymentCacheKey },
+      );
+    if (reason === 'ambiguous' || reason === 'lookupFailure')
+      backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer.mockRejectedValue(
+        new Error(reason),
+      );
+    if (reason === 'decodeFailure')
+      vault.buildDecodedTx.mockRejectedValue(new Error(reason));
+    if (reason === 'fenceFailure')
+      backgroundApi.simpleDb.prime.isInfiniReplacementBlocked.mockRejectedValue(
+        new Error(reason),
+      );
+    if (reason === 'unknownShape')
+      vault.buildDecodedTx.mockResolvedValue({ ...decodedTx, actions: [] });
+    await expect(speedUp(service)).rejects.toThrow();
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('retains original history if the durable block cannot be persisted', async () => {
+    const { service, backgroundApi } = makeReplacement();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    backgroundApi.simpleDb.prime.blockInfiniReplacement.mockRejectedValue(
+      new Error('Storage failed'),
+    );
+    await expect(speedUp(service)).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'quoteExpired' },
+    });
+    expect(
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+    ).not.toHaveBeenCalled();
+  });
+
+  test.each(
+    ['failed', 'cancelled', 'expired'].flatMap((status) =>
+      [false, true].flatMap((withWarning) =>
+        ['none', 'fence', 'history'].map((cleanupFailure) => ({
+          status,
+          withWarning,
+          cleanupFailure,
+        })),
+      ),
+    ),
+  )(
+    'shows terminal $status feedback with warning=$withWarning and cleanup=$cleanupFailure',
+    async ({ status, withWarning, cleanupFailure }) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: {
+            ...latestPayment,
+            status,
+            warningMessages: withWarning ? ['New warning'] : [],
+          },
+          purchaseStatusSnapshot,
+        },
+      );
+      if (cleanupFailure === 'fence') {
+        backgroundApi.simpleDb.prime.blockInfiniReplacement.mockRejectedValue(
+          new Error('Fence write failed'),
+        );
+      }
+      if (cleanupFailure === 'history') {
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId.mockRejectedValue(
+          new Error('History write failed'),
+        );
+      }
+      await expect(speedUp(service)).rejects.toMatchObject(
+        status === 'expired'
+          ? {
+              autoToast: true,
+              data: { paymentValidationFailure: 'quoteExpired' },
+            }
+          : {
+              autoToast: true,
+              key: ETranslations.prime_close_and_try_again__desc,
+            },
+      );
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      if (cleanupFailure === 'fence') {
+        expect(
+          backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+        ).not.toHaveBeenCalled();
+      } else {
+        expect(
+          backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+        ).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
+  test('hides terminal history without freeing its pending nonce', async () => {
+    const { service, backgroundApi, vault } = makeReplacement();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(speedUp(service)).rejects.toThrow();
+    expect(
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+    ).toHaveBeenCalledTimes(1);
+    await expect(
+      service.getNextNonce({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTx: { ...unsignedTx, encodedTx, nonce: 0 },
+        signOnly: false,
+      }),
+    ).rejects.toMatchObject({ autoToast: true });
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    backgroundApi.serviceAccountProfile.fetchAccountDetails.mockResolvedValue({
+      nonce: 1,
+    });
+    await expect(
+      service.getNextNonce({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+      }),
+    ).resolves.toBe(1);
+  });
+
+  test.each([
+    { useDefaultRpc: true, afterSigning: false },
+    { useDefaultRpc: true, afterSigning: true },
+    { useDefaultRpc: false, afterSigning: false },
+    { useDefaultRpc: false, afterSigning: true },
+  ])(
+    'preserves hidden nonce signing guards with useDefaultRpc=$useDefaultRpc, afterSigning=$afterSigning',
+    async ({ useDefaultRpc, afterSigning }) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: { ...latestPayment, status: 'expired' },
+          purchaseStatusSnapshot,
+        },
+      );
+      await expect(speedUp(service)).rejects.toThrow();
+      backgroundApi.serviceCustomRpc.getCustomRpcForNetwork.mockResolvedValue({
+        rpc: 'https://custom.example',
+        enabled: true,
+      });
+      await expect(
+        service.getNextNonce({
+          accountId,
+          networkId,
+          accountAddress: '0xaccount',
+        }),
+      ).resolves.toBe(1);
+      expect(
+        backgroundApi.simpleDb.prime.pruneInfiniConsumedNonces,
+      ).not.toHaveBeenCalled();
+      expect(vault.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
+      vault.signTransaction.mockClear();
+      vault.signTransaction.mockResolvedValue({ ...signedTx, encodedTx });
+      await expect(
+        service.signAndSendTransaction({
+          accountId,
+          networkId,
+          useDefaultRpc,
+          unsignedTx: {
+            ...unsignedTx,
+            encodedTx: { ...encodedTx, nonce: afterSigning ? 1 : 0 },
+            nonce: afterSigning ? 1 : 0,
+          },
+          signOnly: false,
+        }),
+      ).rejects.toMatchObject({ autoToast: true });
+      expect(vault.signTransaction).toHaveBeenCalledTimes(afterSigning ? 1 : 0);
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      await expect(
+        backgroundApi.simpleDb.prime.getInfiniReservedNonces(),
+      ).resolves.toEqual([0]);
+      await expect(
+        backgroundApi.simpleDb.prime.isInfiniReplacementBlocked({
+          historyId: 'history-1',
+        }),
+      ).resolves.toBe(true);
+    },
+  );
+
+  test('blocks an ordinary transfer explicitly reusing a hidden payment nonce', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.simpleDb.prime.getInfiniReservedNonces.mockResolvedValue([0]);
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTx: { ...unsignedTx, encodedTx, nonce: 0 },
+        signOnly: false,
+      }),
+    ).rejects.toMatchObject({ autoToast: true });
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test.each(['status', 'deadline'])(
+    'rejects pre-sign expiry from %s through the shared error toast',
+    async (source) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: {
+            ...latestPayment,
+            ...(source === 'status'
+              ? { status: 'expired' }
+              : { expiresAt: Date.now() - 1 }),
+          },
+          purchaseStatusSnapshot,
+        },
+      );
+      const attempt = speedUp(service);
+      await expect(attempt).rejects.toBeInstanceOf(InvoiceExpiredError);
+      await expect(attempt).rejects.toMatchObject({
+        key: ETranslations.send_the_invoice_has_expired,
+        autoToast: true,
+        data: { paymentValidationFailure: 'quoteExpired' },
+      });
+      expect(
+        backgroundApi.servicePassword.promptPasswordVerifyByAccount,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceHardwareUI.withHardwareProcessing,
+      ).not.toHaveBeenCalled();
+      expect(vault.signTransaction).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.blockInfiniReplacement,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test.each(['status', 'deadline'])(
+    'rechecks expiry from %s after signing and cleans up only once',
+    async (source) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      const api =
+        backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot;
+      vault.signTransaction.mockImplementation(async () => {
+        api.mockResolvedValue({
+          payment: {
+            ...latestPayment,
+            ...(source === 'status'
+              ? { status: 'expired' }
+              : { expiresAt: Date.now() - 1 }),
+          },
+          purchaseStatusSnapshot,
+        });
+        return { ...signedTx, encodedTx };
+      });
+      const attempt = speedUp(service);
+      await expect(attempt).rejects.toBeInstanceOf(InvoiceExpiredError);
+      await expect(attempt).rejects.toMatchObject({
+        autoToast: true,
+        data: { paymentValidationFailure: 'quoteExpired' },
+      });
+      expect(api).toHaveBeenCalledTimes(2);
+      expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.blockInfiniReplacement,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('rejects an existing replacement fence before requesting a snapshot or signing', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    await backgroundApi.simpleDb.prime.blockInfiniReplacement({
+      historyId: 'history-1',
+      nonce: 0,
+    });
+    await expect(speedUp(service)).rejects.toMatchObject({ autoToast: true });
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerifyByAccount,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+    ).not.toHaveBeenCalled();
+  });
+
+  test.each(['request', 'decode', 'amount', 'address', 'paymentId'])(
+    'fails safely on preflight %s failure without signing or state writes',
+    async (failure) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      const api =
+        backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot;
+      if (failure === 'request') {
+        api.mockRejectedValue(new Error('Request timeout'));
+      } else if (failure === 'decode') {
+        vault.buildDecodedTx.mockRejectedValue(new Error('Decode failed'));
+      } else {
+        api.mockResolvedValue({
+          payment: {
+            ...latestPayment,
+            ...(failure === 'amount' ? { amountDue: '10' } : {}),
+            ...(failure === 'address' ? { address: '0xother' } : {}),
+            ...(failure === 'paymentId' ? { paymentId: 'other' } : {}),
+          },
+          purchaseStatusSnapshot,
+        });
+      }
+      await expect(speedUp(service)).rejects.toThrow();
+      expect(vault.signTransaction).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.servicePassword.promptPasswordVerifyByAccount,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.blockInfiniReplacement,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not admit a payment when the user cancels signing after preflight', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    const error = new OneKeyLocalError('Signing cancelled');
+    vault.signTransaction.mockRejectedValue(error);
+    await expect(speedUp(service)).rejects.toBe(error);
+    expect(
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.simpleDb.prime.blockInfiniReplacement,
+    ).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test.each(['request', 'amount', 'admission'])(
+    'retains the post-sign %s failure boundary after a valid preflight',
+    async (failure) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      vault.signTransaction.mockImplementation(async () => {
+        const api =
+          backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot;
+        if (failure === 'request') {
+          api.mockRejectedValue(new Error('Request timeout'));
+        } else if (failure === 'amount') {
+          api.mockResolvedValue({
+            payment: { ...latestPayment, amountDue: '10' },
+            purchaseStatusSnapshot,
+          });
+        } else {
+          backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted.mockRejectedValue(
+            new OneKeyLocalError('Payment session changed during signing'),
+          );
+        }
+        return { ...signedTx, encodedTx };
+      });
+      await expect(speedUp(service)).rejects.toThrow();
+      expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.blockInfiniReplacement,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).toHaveBeenCalledTimes(failure === 'admission' ? 1 : 0);
+    },
+  );
+
+  test('rechecks the payment user after the asynchronous preflight', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockImplementation(
+      async () => {
+        backgroundApi.servicePrime.getLocalUserInfo.mockResolvedValue({
+          isLoggedIn: true,
+          onekeyUserId: 'other',
+        });
+        return { payment: latestPayment, purchaseStatusSnapshot };
+      },
+    );
+    await expect(speedUp(service)).rejects.toThrow('user changed');
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('validates an active invoice using replacement admission and preserves its history binding', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    const api =
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot;
+    const markSession =
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted;
+    vault.signTransaction.mockImplementation(async () => {
+      expect(api).toHaveBeenCalledTimes(1);
+      expect(markSession).not.toHaveBeenCalled();
+      return { ...signedTx, encodedTx };
+    });
+    await expect(speedUp(service)).resolves.toMatchObject({
+      txid: '0xtxid',
+      primeInfiniPayment: beforeBroadcastAction,
+    });
+    expect(
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentId: paymentCacheKey.paymentId }),
+    );
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).toHaveBeenCalledWith(expect.objectContaining({ mode: 'speedUp' }));
+    expect(api).toHaveBeenCalledTimes(2);
+    expect(markSession).toHaveBeenCalledTimes(1);
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundApi.simpleDb.prime.blockInfiniReplacement,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('threads the replacement through batch send and persists the invoice on the new history', async () => {
+    const { service, backgroundApi } = makeReplacement();
+    jest
+      .spyOn(service, 'precheckReplaceTxNonceConsumed')
+      .mockResolvedValue({ consumed: false });
+    await service.batchSignAndSendTransaction({
+      accountId,
+      networkId,
+      unsignedTxs: [{ ...unsignedTx, encodedTx, nonce: 0 }],
+      transferPayload: undefined,
+      replaceTxInfo: {
+        replaceHistoryId: 'history-1',
+        replaceType: EReplaceTxType.SpeedUp,
+      },
+    });
+    expect(
+      backgroundApi.serviceHistory.saveSendConfirmHistoryTxs,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        primeInfiniPayment: beforeBroadcastAction,
+        replaceTxInfo: {
+          replaceHistoryId: 'history-1',
+          replaceType: EReplaceTxType.SpeedUp,
+        },
+      }),
+    );
+    expect(
+      backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+    ).toHaveBeenCalledWith(expect.objectContaining({ mode: 'speedUp' }));
+  });
+
+  test('persists the invoice binding after the first payment', async () => {
+    const { service, backgroundApi } = makeService();
+    await service.batchSignAndSendTransaction({
+      accountId,
+      networkId,
+      unsignedTxs: [unsignedTx],
+      beforeBroadcastAction,
+      transferPayload: undefined,
+    });
+    expect(
+      backgroundApi.serviceHistory.saveSendConfirmHistoryTxs,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ primeInfiniPayment: beforeBroadcastAction }),
+    );
+  });
+
+  test.each([
+    { field: 'nonce', change: { nonce: 1 } },
+    { field: 'recipient', change: { to: '0xother' } },
+    { field: 'value', change: { value: '0x1' } },
+    { field: 'calldata', change: { data: '0xother' } },
+    { field: 'sender', change: { from: '0xother' } },
+  ])(
+    'rejects a signed replacement with different $field',
+    async ({ change }) => {
+      const { service, vault } = makeReplacement();
+      vault.signTransaction.mockResolvedValue({
+        ...signedTx,
+        encodedTx: { ...encodedTx, ...change },
+      });
+      await expect(speedUp(service)).rejects.toThrow(
+        'must preserve the original transfer and nonce',
+      );
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test('allows fee changes without changing the transfer', async () => {
+    const { service, vault } = makeReplacement();
+    vault.signTransaction.mockResolvedValue({
+      ...signedTx,
+      encodedTx: { ...encodedTx, gasPrice: '0x100' },
+    });
+    await expect(speedUp(service)).resolves.toMatchObject({ txid: '0xtxid' });
+  });
+
+  test('does not broadcast after the payment user changes', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.servicePrime.getLocalUserInfo.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-2',
+    });
+    await expect(speedUp(service)).rejects.toThrow('user changed');
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('checks expiry again after replacement admission', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted.mockResolvedValue(
+      { payment: { expiresAt: Date.now() - 1 } },
+    );
+    await expect(speedUp(service)).rejects.toBeInstanceOf(InvoiceExpiredError);
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('recovers an old history binding from the original transfer', async () => {
+    const { service, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue({
+      id: 'history-1',
+      decodedTx: {
+        ...decodedTx,
+        nonce: 0,
+        encodedTx,
+        status: EDecodedTxStatus.Pending,
+      },
+    });
+    backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer.mockResolvedValue(
+      { paymentCacheKey },
+    );
+    await expect(speedUp(service)).resolves.toMatchObject({
+      primeInfiniPayment: beforeBroadcastAction,
+    });
+    expect(
+      backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transferClaim: expect.objectContaining({
+          accountId,
+          networkId,
+          toAddress: latestPayment.address,
+          amount: latestPayment.amountDue,
+        }),
+      }),
+    );
+  });
+
+  test('uses the encrypted original transfer when the displayed payload differs', async () => {
+    const { service, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue({
+      id: 'history-1',
+      primeInfiniPayment: beforeBroadcastAction,
+      decodedTx: {
+        ...decodedTx,
+        nonce: 0,
+        encodedTx: { ...encodedTx, data: '0xtruncated' },
+        encodedTxEncrypted: 'encrypted-fixture',
+        status: EDecodedTxStatus.Pending,
+      },
+    });
+    backgroundApi.servicePassword.decryptByInstanceId.mockResolvedValue(
+      JSON.stringify(encodedTx),
+    );
+    await expect(speedUp(service)).resolves.toMatchObject({ txid: '0xtxid' });
+  });
+
+  test.each([EReplaceTxType.Cancel, EReplaceTxType.SpeedUp])(
+    'keeps cancellation replacement outside invoice validation: %s',
+    async (replaceType) => {
+      const { service, backgroundApi } = makeReplacement();
+      backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue({
+        replacedType: EReplaceTxType.Cancel,
+        primeInfiniPayment: beforeBroadcastAction,
+      });
+      await expect(
+        service.signAndSendTransaction({
+          accountId,
+          networkId,
+          unsignedTx,
+          signOnly: false,
+          replaceTxInfo: { replaceHistoryId: 'history-1', replaceType },
+        }),
+      ).resolves.toMatchObject({ txid: '0xtxid' });
+      expect(
+        backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  test('leaves ordinary speed-ups without a matching invoice unchanged', async () => {
+    const { service, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue({
+      id: 'history-1',
+      decodedTx,
+    });
+    await expect(speedUp(service)).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot,
+    ).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    { replaceType: EReplaceTxType.SpeedUp, signOnly: false },
+    { replaceType: EReplaceTxType.Cancel, signOnly: false },
+    { replaceType: EReplaceTxType.SpeedUp, signOnly: true },
+    { replaceType: EReplaceTxType.Cancel, signOnly: true },
+  ])(
+    'allows an ordinary $replaceType batch with signOnly=$signOnly',
+    async ({ replaceType, signOnly }) => {
+      const { service, vault, backgroundApi } = makeService();
+      backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue({
+        id: 'history-1',
+        decodedTx,
+      });
+
+      await service.batchSignAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTxs: [unsignedTx, unsignedTx],
+        signOnly,
+        transferPayload: undefined,
+        replaceTxInfo: { replaceHistoryId: 'history-1', replaceType },
+      });
+
+      expect(vault.signTransaction).toHaveBeenCalledTimes(2);
+      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(
+        signOnly ? 0 : 2,
+      );
+      expect(
+        backgroundApi.serviceHistory.saveSendConfirmHistoryTxs,
+      ).toHaveBeenCalledTimes(signOnly ? 0 : 2);
+      expect(
+        backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(['history', 'session'])(
+    'rejects an Infini replacement batch bound through %s before signing',
+    async (bindingSource) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      if (bindingSource === 'session') {
+        backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue({
+          id: 'history-1',
+          decodedTx: {
+            ...decodedTx,
+            nonce: 0,
+            encodedTx,
+            status: EDecodedTxStatus.Pending,
+          },
+        });
+        backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer.mockResolvedValue(
+          { paymentCacheKey },
+        );
+      }
+
+      await expect(
+        service.batchSignAndSendTransaction({
+          accountId,
+          networkId,
+          unsignedTxs: [
+            { ...unsignedTx, encodedTx, nonce: 0 },
+            { ...unsignedTx, encodedTx, nonce: 0 },
+          ],
+          transferPayload: undefined,
+          replaceTxInfo: {
+            replaceHistoryId: 'history-1',
+            replaceType: EReplaceTxType.SpeedUp,
+          },
+        }),
+      ).rejects.toThrow('exactly one transaction');
+      expect(vault.signTransaction).not.toHaveBeenCalled();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
 });

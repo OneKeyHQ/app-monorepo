@@ -1,10 +1,17 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Icon,
+  IconButton,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { swapSlippageWillAheadMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
@@ -16,29 +23,52 @@ export interface ISlippageSettingProps {
   autoDefaultValue?: number;
   isMEV?: boolean;
   onSlippageChange?: (item: ISwapSlippageSegmentItem) => void;
+  variant?: 'default' | 'header';
 }
 
 export function SlippageSetting({
   isMEV = false,
   autoDefaultValue = 0.5,
   onSlippageChange,
+  variant = 'default',
 }: ISlippageSettingProps) {
   const intl = useIntl();
-  const [slippageItem, setSlippageItem] = useState<ISwapSlippageSegmentItem>({
-    key: ESwapSlippageSegmentKey.AUTO,
-    value: autoDefaultValue,
-  });
+  const [
+    { swapSlippagePercentageCustomValue, swapSlippagePercentageMode },
+    setSettings,
+  ] = useSettingsAtom();
+  const slippageItem = useMemo<ISwapSlippageSegmentItem>(
+    () => ({
+      key: swapSlippagePercentageMode,
+      value:
+        swapSlippagePercentageMode === ESwapSlippageSegmentKey.CUSTOM
+          ? swapSlippagePercentageCustomValue
+          : autoDefaultValue,
+    }),
+    [
+      autoDefaultValue,
+      swapSlippagePercentageCustomValue,
+      swapSlippagePercentageMode,
+    ],
+  );
 
   const slippageOnSave = useCallback(
     (item: ISwapSlippageSegmentItem, closeFn?: IDialogInstance['close']) => {
       console.log('Slippage saved:', item);
-      setSlippageItem(item);
+      setSettings((prev) => ({
+        ...prev,
+        swapSlippagePercentageMode: item.key,
+        swapSlippagePercentageCustomValue:
+          item.key === ESwapSlippageSegmentKey.CUSTOM
+            ? item.value
+            : prev.swapSlippagePercentageCustomValue,
+      }));
       onSlippageChange?.(item);
       if (closeFn) {
         void closeFn({ flag: 'save' });
       }
     },
-    [onSlippageChange],
+    [onSlippageChange, setSettings],
   );
 
   const onSlippageHandleClick = useCallback(() => {
@@ -69,6 +99,21 @@ export function SlippageSetting({
     }
     return `${slippageItem.value}%`;
   }, [slippageItem, intl, autoDefaultValue]);
+
+  if (variant === 'header') {
+    // Figma 25672:54914 - the trading widget header action is an icon-only
+    // button: 20 glyph, circular hover background, layout box tight to the
+    // glyph. `Button` pads it out to 40x28 with an 18 glyph, so use IconButton.
+    return (
+      <IconButton
+        testID="market-stock-trade-settings"
+        size="small"
+        variant="tertiary"
+        icon="SliderHorOutline"
+        onPress={onSlippageHandleClick}
+      />
+    );
+  }
 
   return (
     <XStack

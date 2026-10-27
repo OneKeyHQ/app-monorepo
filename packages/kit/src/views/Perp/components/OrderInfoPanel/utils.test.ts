@@ -1,3 +1,6 @@
+import { createIntl, createIntlCache } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
@@ -5,13 +8,105 @@ import {
   canChasePerpsOrder,
   filterSpotHoldingBalances,
   formatSpotHoldingPnlText,
+  getFillDirectionDisplayInfo,
   getOrderAssetDisplayName,
   getOrderSizeDisplayName,
+  getPerpFillDirectionType,
   getTwapHistoryEventTimeMs,
   getVisibleSpotHoldingsCount,
   isSpotHoldingStableCoin,
   normalizeEpochMs,
 } from './utils';
+
+describe('fill direction translations', () => {
+  const messages: Record<string, string> = {
+    [ETranslations.perp_trade_settlement__title]: '结算',
+    [ETranslations.perp_long]: '做多',
+    [ETranslations.perp_short]: '做空',
+    [ETranslations.perp_order_close_long]: '平多',
+    [ETranslations.perp_order_close_short]: '平空',
+    [ETranslations.perp_trade_long_to_short__title]: '多转空',
+    [ETranslations.perp_trade_short_to_long__title]: '空转多',
+    [ETranslations.global_buy]: '买入',
+    [ETranslations.global_sell]: '卖出',
+  };
+  const intl = createIntl(
+    {
+      locale: 'zh-CN',
+      messages,
+    },
+    createIntlCache(),
+  );
+
+  it.each(['Settlement', ' settlement '])(
+    'localizes %s without changing the side color',
+    (dir) => {
+      expect(
+        getFillDirectionDisplayInfo({
+          fill: { coin: 'TON', dir, side: 'A' },
+          intl,
+        }),
+      ).toEqual({ text: '结算', color: '$red11' });
+    },
+  );
+
+  it('preserves unrecognized directions', () => {
+    expect(
+      getFillDirectionDisplayInfo({
+        fill: { coin: 'TON', dir: 'Unknown event', side: 'B' },
+        intl,
+      }),
+    ).toEqual({ text: 'Unknown event', color: '$green11' });
+  });
+
+  it.each([
+    ['Open Long', 'B', '做多', '$green11'],
+    ['Open Short', 'A', '做空', '$red11'],
+    ['Close Long', 'A', '平多', '$red11'],
+    ['Close Short', 'B', '平空', '$green11'],
+    [' open LONG ', 'B', '做多', '$green11'],
+  ])('localizes the standard direction %s', (dir, side, text, color) => {
+    expect(
+      getFillDirectionDisplayInfo({ fill: { coin: 'SOL', dir, side }, intl }),
+    ).toEqual({ text, color });
+  });
+
+  it.each([
+    ['Long > Short', 'A', '多转空', '$red11'],
+    ['Short > Long', 'B', '空转多', '$green11'],
+    [' long > SHORT ', 'A', '多转空', '$red11'],
+    [' short > LONG ', 'B', '空转多', '$green11'],
+  ])(
+    'localizes the reversal %s without reclassifying it',
+    (dir, side, text, color) => {
+      expect(
+        getFillDirectionDisplayInfo({ fill: { coin: 'SOL', dir, side }, intl }),
+      ).toEqual({ text, color });
+      expect(getPerpFillDirectionType(dir)).toBe('unknown');
+    },
+  );
+
+  it.each([
+    ['Long > Short', 'A', '卖出', '$red11'],
+    ['Short > Long', 'B', '买入', '$green11'],
+  ])('preserves spot buy/sell display for %s', (dir, side, text, color) => {
+    expect(
+      getFillDirectionDisplayInfo({ fill: { coin: '@107', dir, side }, intl }),
+    ).toEqual({ text, color });
+  });
+
+  it.each([
+    ['Liquidated Cross Long', 'A', '$red11'],
+    ['Liquidated Isolated Long', 'A', '$red11'],
+    ['Liquidated Cross Short', 'B', '$green11'],
+    ['Liquidated Isolated Short', 'B', '$green11'],
+    ['Unknown close long event', 'A', '$red11'],
+  ])('preserves the complete nonstandard direction %s', (dir, side, color) => {
+    expect(
+      getFillDirectionDisplayInfo({ fill: { coin: 'SOL', dir, side }, intl }),
+    ).toEqual({ text: dir, color });
+  });
+});
 
 type ISpotHoldingFilterTestItem = {
   rawCoin: string;

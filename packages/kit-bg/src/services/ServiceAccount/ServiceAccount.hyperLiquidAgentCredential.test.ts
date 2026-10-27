@@ -16,8 +16,15 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
+    getAccountSafe: jest.fn(),
+    getAddressByNetworkImpl: jest.fn(),
+    getAllHyperLiquidAgentCredentials: jest.fn(),
     getCredentialSafe: jest.fn(),
     getHyperLiquidAgentCredential: jest.fn(),
+    getIndexedAccountSafe: jest.fn(),
+    getWalletSafe: jest.fn(),
+    isTempWalletRemoved: jest.fn(() => false),
+    removeCredentials: jest.fn(),
   },
 }));
 
@@ -34,12 +41,16 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
 import { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import ServiceAccount from './ServiceAccount';
 
 const localDbMock = (
   jest.requireMock('../../dbs/local/localDb') as {
     default: {
+      getAccountSafe: jest.Mock;
+      getAddressByNetworkImpl: jest.Mock;
+      getAllHyperLiquidAgentCredentials: jest.Mock;
       getCredentialSafe: jest.MockedFunction<
         (credentialId: string) => Promise<unknown>
       >;
@@ -49,6 +60,10 @@ const localDbMock = (
           agentName: EHyperLiquidAgentName;
         }) => Promise<ICoreHyperLiquidAgentCredential | undefined>
       >;
+      getIndexedAccountSafe: jest.Mock;
+      getWalletSafe: jest.Mock;
+      isTempWalletRemoved: jest.Mock;
+      removeCredentials: jest.Mock;
     };
   }
 ).default;
@@ -56,6 +71,9 @@ const localDbMock = (
 const mockGetCredentialSafe = localDbMock.getCredentialSafe;
 const mockGetHyperLiquidAgentCredential =
   localDbMock.getHyperLiquidAgentCredential;
+const mockGetAllHyperLiquidAgentCredentials =
+  localDbMock.getAllHyperLiquidAgentCredentials;
+const mockRemoveCredentials = localDbMock.removeCredentials;
 
 const mockAppErrorLog = (
   jest.requireMock('@onekeyhq/shared/src/logger/logger') as {
@@ -174,5 +192,118 @@ describe('ServiceAccount getHyperLiquidAgentCredentialInfo', () => {
       }),
     ).resolves.toBeUndefined();
     expect(mockAppErrorLog).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceAccount HyperLiquid agent credential cleanup', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localDbMock.isTempWalletRemoved.mockReturnValue(false);
+  });
+
+  it('removes every Agent credential for the requested user addresses', async () => {
+    const service = new ServiceAccount({ backgroundApi: {} as never });
+    const secondCredential = {
+      ...credential,
+      agentName: EHyperLiquidAgentName.OneKeyAgent2,
+    };
+    const otherCredential = {
+      ...credential,
+      userAddress: '0x9999999999999999999999999999999999999999',
+    };
+    const storedCredentials = [
+      credential,
+      secondCredential,
+      otherCredential,
+    ].map((item) => ({
+      id: accountUtils.buildHyperLiquidAgentCredentialId({
+        userAddress: item.userAddress,
+        agentName: item.agentName,
+      }),
+      credential: 'lse-credential',
+    }));
+    mockGetAllHyperLiquidAgentCredentials.mockResolvedValue([
+      ...storedCredentials,
+      {
+        id: 'hyperliquid-agent-backup--invalid',
+        credential: 'unrelated-credential',
+      },
+    ]);
+
+    await expect(
+      service.removeHyperLiquidAgentCredentialsByUserAddresses({
+        userAddresses: [credential.userAddress.toUpperCase()],
+      }),
+    ).resolves.toBe(2);
+    expect(mockRemoveCredentials).toHaveBeenCalledWith({
+      credentials: storedCredentials.slice(0, 2),
+    });
+  });
+
+  it('keeps a shared Agent credential while another account still owns the address', async () => {
+    const service = new ServiceAccount({ backgroundApi: {} as never });
+    const storedCredential = {
+      id: accountUtils.buildHyperLiquidAgentCredentialId({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      }),
+      credential: 'lse-credential',
+    };
+    mockGetAllHyperLiquidAgentCredentials.mockResolvedValue([storedCredential]);
+    localDbMock.getAddressByNetworkImpl.mockResolvedValue({
+      id: `evm--${credential.userAddress.toLowerCase()}`,
+      wallets: {
+        external: 'external--removed',
+        'hd-1': 'hd-1--0',
+      },
+    });
+    localDbMock.getWalletSafe.mockResolvedValue({
+      id: 'hd-1',
+      type: 'hd',
+    });
+    localDbMock.getAccountSafe.mockResolvedValue(undefined);
+    localDbMock.getIndexedAccountSafe.mockResolvedValue({ id: 'hd-1--0' });
+    const waitSpy = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    try {
+      await service.cleanupOrphanedHyperLiquidAgentCredentials({
+        accountId: 'external--removed',
+      });
+    } finally {
+      waitSpy.mockRestore();
+    }
+
+    expect(mockRemoveCredentials).not.toHaveBeenCalled();
+  });
+
+  it('removes an Agent credential after its last owning account is deleted', async () => {
+    const service = new ServiceAccount({ backgroundApi: {} as never });
+    const storedCredential = {
+      id: accountUtils.buildHyperLiquidAgentCredentialId({
+        userAddress: credential.userAddress,
+        agentName: credential.agentName,
+      }),
+      credential: 'lse-credential',
+    };
+    mockGetAllHyperLiquidAgentCredentials.mockResolvedValue([storedCredential]);
+    localDbMock.getAddressByNetworkImpl.mockResolvedValue({
+      id: `evm--${credential.userAddress.toLowerCase()}`,
+      wallets: {
+        external: 'external--removed',
+      },
+    });
+    const waitSpy = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    try {
+      await service.cleanupOrphanedHyperLiquidAgentCredentials({
+        accountId: 'external--removed',
+      });
+    } finally {
+      waitSpy.mockRestore();
+    }
+
+    expect(mockRemoveCredentials).toHaveBeenCalledWith({
+      credentials: [storedCredential],
+    });
   });
 });

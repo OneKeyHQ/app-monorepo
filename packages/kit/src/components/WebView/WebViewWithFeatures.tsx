@@ -12,10 +12,19 @@ import type { IWebViewRef } from './types';
 export function WebViewWithFeatures(
   props: IWebViewProps & {
     features?: { notifyChangedEventsToDappOnFocus?: boolean };
+    /**
+     * Live URL of the page, when it can navigate away from `src`. The dApp
+     * notifications are addressed by origin, so after a cross-origin hop the
+     * initial `src` would target an origin that is no longer loaded and the
+     * page would never hear about an account or network switch. Kept separate
+     * from `src` on purpose: `src` is controlled, and moving it would reload
+     * the WebView on every navigation.
+     */
+    currentUrl?: string;
   },
 ) {
   const webviewRef = useRef<IWebViewRef | null>(null);
-  const { features, ...webviewProps } = props;
+  const { features, currentUrl, ...webviewProps } = props;
   const { onWebViewRef, src } = webviewProps;
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
@@ -36,7 +45,7 @@ export function WebViewWithFeatures(
   useDAppNotifyChangesBase({
     getWebviewRef,
     isFocused,
-    url: src,
+    url: currentUrl || src,
     shouldSkipNotify,
   });
 

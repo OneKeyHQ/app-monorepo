@@ -238,7 +238,7 @@ export function DefaultLoadingNode({
             fontSize={12}
             lineHeight={24}
             fontWeight="600"
-            textTransform="uppercase"
+            textTransform="none"
             letterSpacing={0.8}
             w="100%"
             textAlign="left"
@@ -252,7 +252,7 @@ export function DefaultLoadingNode({
             fontSize={12}
             lineHeight={24}
             fontWeight="600"
-            textTransform="uppercase"
+            textTransform="none"
             letterSpacing={0.8}
             w="100%"
             textAlign="right"
@@ -266,7 +266,7 @@ export function DefaultLoadingNode({
             fontSize={12}
             lineHeight={24}
             fontWeight="600"
-            textTransform="uppercase"
+            textTransform="none"
             letterSpacing={0.8}
             w="100%"
             textAlign="right"

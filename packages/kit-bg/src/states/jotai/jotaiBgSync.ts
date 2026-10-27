@@ -2,19 +2,51 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { jotaiInitFromUi } from './jotaiInitFromUi';
-import {
-  MMKV_MIGRATION_COMPLETE_KEY,
-  globalJotaiStorageReadyHandler,
-} from './jotaiStorage';
 
 import type { EAtomNames } from './atomNames';
 import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
 
+const UI_ATOM_WRITE_CENSUS_WINDOW_MS = 30_000;
+const UI_ATOM_WRITE_CENSUS_TOP = 8;
+
 export class JotaiBgSync {
   backgroundApiProxy!: BackgroundApiProxy;
+
+  // Every UI-side write of a global atom is a request to bg plus a broadcast
+  // back, and the request log carries no atom name. Counting per window shows
+  // which atoms are worth batching or guarding without logging each write.
+  private uiAtomWriteCounts = new Map<string, number>();
+
+  private uiAtomWriteCensusTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private countUiAtomWrite(name: EAtomNames) {
+    this.uiAtomWriteCounts.set(
+      name,
+      (this.uiAtomWriteCounts.get(name) ?? 0) + 1,
+    );
+    if (this.uiAtomWriteCensusTimer !== undefined) {
+      return;
+    }
+    this.uiAtomWriteCensusTimer = setTimeout(() => {
+      this.uiAtomWriteCensusTimer = undefined;
+      const counts = [...this.uiAtomWriteCounts].toSorted(
+        (left, right) => right[1] - left[1],
+      );
+      this.uiAtomWriteCounts = new Map();
+      defaultLogger.app.perf.uiAtomWriteCensus({
+        windowMs: UI_ATOM_WRITE_CENSUS_WINDOW_MS,
+        total: counts.reduce((sum, [, count]) => sum + count, 0),
+        atomCount: counts.length,
+        byAtom: counts
+          .slice(0, UI_ATOM_WRITE_CENSUS_TOP)
+          .map(([atom, count]) => ({ atom, count })),
+      });
+    }, UI_ATOM_WRITE_CENSUS_WINDOW_MS);
+  }
 
   // Batch broadcast: when paused, broadcasts are collected and flushed once.
   private broadcastPaused = false;
@@ -148,6 +180,7 @@ export class JotaiBgSync {
     if (!this.shouldSyncFromUiToBg) {
       return;
     }
+    this.countUiAtomWrite(name);
     return this.backgroundApi.setAtomValue(name, payload);
   }
 
@@ -178,37 +211,15 @@ export class JotaiBgSync {
     const jsEntry: number =
       (globalThis as any).__ONEKEY_MAIN_ENTRY_START__ || Date.now();
 
-    // Native dual-thread: MMKV per-key is always available.
-    // crossAtomBuilder reads directly from MMKV — no snapshot blob needed.
-    // Resolve ready immediately so GlobalJotaiReady can render.
-    if (
-      platformEnv.isNativeMainThread &&
-      platformEnv.enableNativeBackgroundThread
-    ) {
-      this.syncLog(
-        `native MMKV per-key: resolving ready immediately, +${Date.now() - jsEntry}ms from JS entry`,
-      );
-      // Signal SplashProvider: check if MMKV per-key data exists (not first install).
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { default: jotaiMMKV } =
-          require('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/jotaiMMKVStorageInstance');
-        if (jotaiMMKV.getString(MMKV_MIGRATION_COMPLETE_KEY) === '1') {
-          (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT_USED__ = true;
-        }
-      } catch {
-        /* noop */
-      }
-      globalJotaiStorageReadyHandler.resolveReady(true);
-      return;
-    }
-
-    // Extension UI: keep existing RPC path (unchanged)
+    // Native main and extension UI hydrate from the owning background runtime.
     const rpcStart = Date.now();
     this.syncLog(
       `getAtomStates RPC start at +${rpcStart - jsEntry}ms from JS entry`,
     );
     const { states } = await this.backgroundApi.getAtomStates();
+    if (Object.keys(states).length > 0) {
+      (globalThis as any).__ONEKEY_JOTAI_SNAPSHOT_USED__ = true;
+    }
     const rpcEnd = Date.now();
     this.syncLog(
       `getAtomStates RPC done in ${rpcEnd - rpcStart}ms, ${Object.keys(states).length} keys, +${rpcEnd - jsEntry}ms from JS entry`,

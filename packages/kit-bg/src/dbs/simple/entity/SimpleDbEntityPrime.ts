@@ -1,7 +1,9 @@
 /* cspell:ignore Infini infini INFINI */
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   buildPrimeInfiniPaymentCacheKey,
   getPrimeInfiniPaymentAssetKey,
@@ -9,27 +11,38 @@ import {
   isPrimeInfiniPaymentCacheKeyForContext,
   isPrimeInfiniPaymentClosedUnpaidSnapshot,
   isPrimeInfiniPaymentForAssetSnapshot,
+  isPrimeInfiniPaymentObsoleteBeforeBroadcastSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isPrimeInfiniPaymentTransferClaimForSession,
-  isPrimeInfiniPurchaseCompletedSnapshot,
   isSamePrimeInfiniNetworkAddress,
   isSamePrimeInfiniPaymentAssetIdentity,
   isSamePrimeInfiniPaymentCacheKey,
   isSamePrimeInfiniPaymentTransferSnapshot,
+  isValidPrimeInfiniPaymentContract,
   mergePrimeInfiniPaymentProgressSnapshot,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import {
+  createPrimeInfiniPaymentValidationError,
+  getPrimeInfiniPaymentValidationFailure,
+  toPrimeInfiniPaymentPersistenceError,
+} from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IExplicitLocalOneKeyIdLogoutProjection } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import {
   EPrimeAuthSessionSource,
   type IPrimeInfiniPayment,
   type IPrimeInfiniPaymentCacheIdentity,
   type IPrimeInfiniPaymentCacheKey,
+  type IPrimeInfiniPaymentFlowContext,
   type IPrimeInfiniPaymentTransferClaim,
   type IPrimeInfiniPendingPaymentSession,
   type IPrimeInfiniPendingPaymentSessionInput,
   type IPrimeInfiniPurchaseStatusSnapshot,
+  type IPrimeWebCheckoutExtensionContext,
+  type IPrimeWebCheckoutPendingSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   clearAuthSessionBySessionSource,
@@ -95,7 +108,30 @@ type IPrimeInfiniSupersededPaymentSession =
     supersededReason: 'user-forced-replacement';
   };
 
+type IInfiniBlockedReplacement = {
+  accountId: string;
+  networkId: string;
+  historyId: string;
+};
+
+type IInfiniPendingTransactionRecovery = {
+  accountAddress: string;
+  nonce: number;
+  historyTx: IAccountHistoryTx;
+};
+
+const MAX_INFINI_REPLACEMENT_FENCES = 100;
+const MAX_INFINI_REPLACEMENT_PROTECTION_SIZE = 512 * 1024;
+
 export interface ISimpleDBPrime {
+  // Independent of expiring payment sessions: stale confirmations must remain
+  // blocked after their original pending history has been removed.
+  infiniBlockedReplacements?: Record<
+    string,
+    true | IInfiniPendingTransactionRecovery
+  >;
+  // Hidden transactions may still occupy a nonce on-chain. No age-based pruning.
+  infiniReservedNonces?: Record<string, number[]>;
   // Deprecated token copy. Supabase/OAuth session storage is the source of truth.
   authToken?: string;
   authSessionSource?: EPrimeAuthSessionSource;
@@ -152,6 +188,11 @@ export interface ISimpleDBPrime {
     IPrimeInfiniSupersededPaymentSession[]
   >;
   identityLinkReportedAtByUserId?: Record<string, number>;
+  // One hosted card checkout per OneKey ID; a new checkout replaces the old.
+  webCheckoutPendingSessionByUserId?: Record<
+    string,
+    IPrimeWebCheckoutPendingSession
+  >;
   analyticsPrimeProfileReport?: {
     isOneKeyIdLoggedIn: boolean;
     isPrimeActive: boolean;
@@ -161,6 +202,34 @@ export interface ISimpleDBPrime {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isValidWebCheckoutPendingSession(
+  session: IPrimeWebCheckoutPendingSession | undefined,
+  { onekeyUserId, now }: { onekeyUserId: string; now: number },
+): session is IPrimeWebCheckoutPendingSession {
+  return Boolean(
+    session &&
+    session.onekeyUserId === onekeyUserId &&
+    isNonEmptyString(session.checkoutId) &&
+    isNonEmptyString(session.checkoutUrl) &&
+    Number.isFinite(session.startedAt) &&
+    session.startedAt <= now + 60_000 &&
+    now - session.startedAt < PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS,
+  );
+}
+
+function pruneWebCheckoutPendingSessions(
+  sessions: ISimpleDBPrime['webCheckoutPendingSessionByUserId'],
+  now: number,
+): Record<string, IPrimeWebCheckoutPendingSession> {
+  const nextSessions: Record<string, IPrimeWebCheckoutPendingSession> = {};
+  Object.entries(sessions ?? {}).forEach(([onekeyUserId, session]) => {
+    if (isValidWebCheckoutPendingSession(session, { onekeyUserId, now })) {
+      nextSessions[onekeyUserId] = session;
+    }
+  });
+  return nextSessions;
 }
 
 function isOptionalFiniteNumber(value: unknown) {
@@ -176,7 +245,8 @@ function isValidInfiniPaymentCacheIdentity(
     identity &&
     isNonEmptyString(identity.paymentId) &&
     isNonEmptyString(identity.networkId) &&
-    isNonEmptyString(identity.contractAddress),
+    (identity.contractAddress === '' ||
+      isNonEmptyString(identity.contractAddress)),
   );
 }
 
@@ -305,7 +375,7 @@ function isValidInfiniPendingPaymentSession(
     !isNonEmptyString(session.asset?.chain) ||
     !isNonEmptyString(session.asset?.token) ||
     !isNonEmptyString(session.asset?.networkId) ||
-    !isNonEmptyString(session.asset?.contractAddress) ||
+    !isValidPrimeInfiniPaymentContract(session.asset) ||
     !isNonEmptyString(session.payment?.paymentId) ||
     !isNonEmptyString(session.payment?.address) ||
     !isNonEmptyString(session.payment?.chain) ||
@@ -313,17 +383,17 @@ function isValidInfiniPendingPaymentSession(
     !isNonEmptyString(session.payment?.amountDue) ||
     !isNonEmptyString(session.payerAccountId) ||
     !isNonEmptyString(session.payerAddress) ||
-    !isNonEmptyString(session.paymentCacheKey?.paymentId) ||
-    !isNonEmptyString(session.paymentCacheKey?.bindingId) ||
-    !isNonEmptyString(session.paymentCacheKey?.networkId) ||
-    !isNonEmptyString(session.paymentCacheKey?.contractAddress) ||
-    !isNonEmptyString(session.paymentCacheKey?.onekeyUserId) ||
-    !isNonEmptyString(session.paymentCacheKey?.payerAccountId) ||
-    !isNonEmptyString(session.paymentCacheKey?.payerAddress) ||
+    !isValidInfiniPaymentCacheKey(session.paymentCacheKey) ||
     !Number.isFinite(session.payment?.expiresAt) ||
     !Number.isFinite(session.updatedAt) ||
+    !isOptionalFiniteNumber(session.createdAt) ||
+    !isOptionalFiniteNumber(session.lastValidatedAt) ||
+    !isOptionalFiniteNumber(session.localRetentionDeadline) ||
     !isOptionalFiniteNumber(session.baseline.primeExpiresAt) ||
     !isOptionalFiniteNumber(session.baseline.infiniPeriodEnd) ||
+    (session.baseline.infiniSubscriptionId !== undefined &&
+      session.baseline.infiniSubscriptionId !== null &&
+      !isNonEmptyString(session.baseline.infiniSubscriptionId)) ||
     (session.plan !== 'monthly' && session.plan !== 'yearly') ||
     (session.selectedSubscriptionPeriod !== 'P1M' &&
       session.selectedSubscriptionPeriod !== 'P1Y') ||
@@ -364,16 +434,42 @@ function isValidInfiniPendingPaymentSession(
     return false;
   }
   const age = now - session.updatedAt;
+  const lifecycle = getInfiniPaymentSessionLifecycle(session);
+  if (
+    lifecycle.createdAt >
+      session.updatedAt + INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS ||
+    lifecycle.lastValidatedAt >
+      now + INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS ||
+    lifecycle.localRetentionDeadline < lifecycle.createdAt ||
+    lifecycle.localRetentionDeadline >
+      lifecycle.createdAt + INFINI_UNSENT_PAYMENT_SESSION_MAX_AGE_MS
+  ) {
+    return false;
+  }
   // Sent sessions fence funds that may still be in flight, so they age out on
   // the long bound; only an unsent invoice may expire on the short one.
-  const maxAge =
+  const isTracking =
     session.sendStarted ||
-    hasPrimeInfiniPaymentProgressSnapshot(session.payment)
-      ? INFINI_SENT_PAYMENT_SESSION_MAX_AGE_MS
-      : INFINI_UNSENT_PAYMENT_SESSION_MAX_AGE_MS;
+    hasPrimeInfiniPaymentProgressSnapshot(session.payment);
   return (
-    age >= -INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS && age <= maxAge
+    age >= -INFINI_PENDING_PAYMENT_SESSION_MAX_CLOCK_SKEW_MS &&
+    (isTracking
+      ? age <= INFINI_SENT_PAYMENT_SESSION_MAX_AGE_MS
+      : now < lifecycle.localRetentionDeadline)
   );
+}
+
+function getInfiniPaymentSessionLifecycle(
+  session: IPrimeInfiniPendingPaymentSession,
+) {
+  const createdAt = session.createdAt ?? session.updatedAt;
+  return {
+    createdAt,
+    lastValidatedAt: session.lastValidatedAt ?? session.updatedAt,
+    localRetentionDeadline:
+      session.localRetentionDeadline ??
+      createdAt + INFINI_UNSENT_PAYMENT_SESSION_MAX_AGE_MS,
+  };
 }
 
 export type IIdentityExitJournalEntry = {
@@ -381,6 +477,7 @@ export type IIdentityExitJournalEntry = {
   planId: string;
   intentType:
     | 'logoutOneKeyId'
+    | 'switchEnvironment'
     | 'switchOneKeyIdAccount'
     | 'removeKeyless'
     | 'switchOAuth'
@@ -536,6 +633,12 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
 
   override enableCache = true;
 
+  // Tombstone + monotonic epoch: deleting an unreadable record is not
+  // equivalent to "never written". getRawData() null lets
+  // persistMigratedLegacyAuthSessionSourceIfUnset rebuild loggedIn from a
+  // leftover Supabase session, and authStateGeneration rolls back to 0.
+  protected override readonly enableUnreadableRecordSelfHeal = false;
+
   @backgroundMethod()
   async getActiveAuthToken(): Promise<string> {
     const authSessionSource = await this.getEffectiveAuthSessionSource();
@@ -680,7 +783,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       ...data,
       identityLifecycleRevision: (data?.identityLifecycleRevision ?? 0) + 1,
     }));
-    return rawData.identityLifecycleRevision ?? 0;
+    return rawData?.identityLifecycleRevision ?? 0;
   }
 
   async isIdentityLinkDue({
@@ -1458,8 +1561,10 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   @backgroundMethod()
   async getInfiniPendingPaymentSession({
     onekeyUserId,
+    flowContext,
   }: {
     onekeyUserId: string;
+    flowContext?: IPrimeInfiniPaymentFlowContext;
   }): Promise<IPrimeInfiniPendingPaymentSession | undefined> {
     if (!onekeyUserId) {
       return undefined;
@@ -1467,14 +1572,46 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     const rawData = await this.getRawData();
     const session =
       rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
-    if (
-      session &&
-      isValidInfiniPendingPaymentSession(session, {
-        onekeyUserId,
-        now: Date.now(),
-      })
-    ) {
-      return session;
+    const now = Date.now();
+    const isValidSession = isValidInfiniPendingPaymentSession(session, {
+      onekeyUserId,
+      now,
+    });
+    const validatedSession = isValidSession ? session : undefined;
+    const hasPaymentProgress = validatedSession
+      ? hasPrimeInfiniPaymentProgressSnapshot(validatedSession.payment)
+      : false;
+    if (flowContext) {
+      let status: 'restored' | 'succeeded' | 'blocked' = 'succeeded';
+      if (session) {
+        status = isValidSession ? 'restored' : 'blocked';
+      }
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...flowContext,
+        stage: 'sessionLoad',
+        paymentSource: 'localPendingSession',
+        status,
+        reason:
+          session && !isValidSession
+            ? 'invalidOrExpiredLocalSession'
+            : undefined,
+        paymentId: validatedSession?.payment.paymentId,
+        sessionAgeMs: validatedSession
+          ? now - (validatedSession.createdAt ?? validatedSession.updatedAt)
+          : undefined,
+        remainingMs: validatedSession
+          ? validatedSession.payment.expiresAt - now
+          : undefined,
+        sendStarted: validatedSession?.sendStarted,
+        hasPaymentProgress,
+        sessionMode:
+          validatedSession?.sendStarted || hasPaymentProgress
+            ? 'tracking'
+            : 'quote',
+      });
+    }
+    if (validatedSession) {
+      return validatedSession;
     }
     if (session) {
       await this.setRawData((latestRawData) => {
@@ -1506,6 +1643,50 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       });
     }
     return undefined;
+  }
+
+  @backgroundMethod()
+  async recordInfiniPaymentValidation({
+    onekeyUserId,
+    payment,
+    flowId,
+  }: {
+    onekeyUserId: string;
+    payment: IPrimeInfiniPayment;
+    flowId: string;
+  }): Promise<void> {
+    await this.setRawData((rawData) => {
+      const current =
+        rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
+      const now = Date.now();
+      if (
+        !current ||
+        !isValidInfiniPendingPaymentSession(current, { onekeyUserId, now }) ||
+        !isSamePrimeInfiniPaymentTransferSnapshot({
+          first: current.payment,
+          second: payment,
+          networkId: current.asset.networkId,
+        }) ||
+        !isPrimeInfiniPaymentForAssetSnapshot({ payment, asset: current.asset })
+      ) {
+        return rawData ?? {};
+      }
+      return {
+        ...rawData,
+        infiniPendingPaymentSessionByUserId: {
+          ...rawData?.infiniPendingPaymentSessionByUserId,
+          [onekeyUserId]: {
+            ...current,
+            ...getInfiniPaymentSessionLifecycle(current),
+            lastValidatedAt: now,
+            flowId,
+          },
+        },
+      };
+    }).catch(() => {
+      this.clearRawDataCache();
+      throw createPrimeInfiniPaymentValidationError('localPersistenceFailed');
+    });
   }
 
   @backgroundMethod()
@@ -1564,6 +1745,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       ) {
         throw new OneKeyLocalError({
           message: 'Infini payment asset identity changed',
+          data: { paymentValidationFailure: 'assetMismatch' },
           autoToast: false,
         });
       }
@@ -1591,6 +1773,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       ) {
         throw new OneKeyLocalError({
           message: 'Infini payment transfer snapshot changed',
+          data: { paymentValidationFailure: 'transferSnapshotChanged' },
           autoToast: false,
         });
       }
@@ -1604,6 +1787,18 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       const nextSession: IPrimeInfiniPendingPaymentSession = {
         ...session,
         schemaVersion: 2,
+        ...(currentSession?.payment?.paymentId === session.payment.paymentId
+          ? getInfiniPaymentSessionLifecycle(currentSession)
+          : {
+              createdAt: now,
+              localRetentionDeadline:
+                now + INFINI_UNSENT_PAYMENT_SESSION_MAX_AGE_MS,
+            }),
+        lastValidatedAt: now,
+        flowId:
+          currentSession?.payment?.paymentId === session.payment.paymentId
+            ? (session.flowId ?? currentSession.flowId)
+            : session.flowId,
         payment: nextPayment,
         sendStarted: Boolean(
           session.sendStarted ||
@@ -1613,7 +1808,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
             (currentSession.sendStarted ||
               hasPrimeInfiniPaymentProgressSnapshot(currentSession.payment))),
         ),
-        updatedAt: Date.now(),
+        updatedAt: now,
       };
       if (
         !isValidInfiniPendingPaymentSession(nextSession, {
@@ -1634,6 +1829,9 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           [onekeyUserId]: persistedSession,
         },
       };
+    }).catch((error: unknown) => {
+      this.clearRawDataCache();
+      throw toPrimeInfiniPaymentPersistenceError(error);
     });
     if (!persistedSession) {
       throw new OneKeyLocalError({
@@ -1716,6 +1914,8 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       });
       const nextSession: IPrimeInfiniPendingPaymentSession = {
         ...currentSession,
+        ...getInfiniPaymentSessionLifecycle(currentSession),
+        lastValidatedAt: now,
         payerAccountId,
         payerAddress: paymentCacheKey.payerAddress,
         paymentCacheKey,
@@ -1877,10 +2077,11 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }: {
     onekeyUserId: string;
     expectedPaymentCacheIdentity?: IPrimeInfiniPaymentCacheKey;
-  }) {
+  }): Promise<boolean> {
     if (!onekeyUserId) {
-      return;
+      return false;
     }
+    let didClear = false;
     await this.setRawData((rawData) => {
       const currentSession =
         rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
@@ -1896,11 +2097,14 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           ),
         );
       let nextRawData = rawData ?? {};
-      if (currentSession && currentMatchesExpected) {
+      if (!currentSession) {
+        didClear = true;
+      } else if (currentMatchesExpected) {
         const nextSessions = {
           ...rawData?.infiniPendingPaymentSessionByUserId,
         };
         delete nextSessions[onekeyUserId];
+        didClear = true;
         nextRawData = {
           ...rawData,
           infiniPendingPaymentSessionByUserId: nextSessions,
@@ -1915,6 +2119,7 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           })
         : nextRawData;
     });
+    return didClear;
   }
 
   @backgroundMethod()
@@ -2145,6 +2350,8 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       }
       latchedSession = {
         ...currentSession,
+        ...getInfiniPaymentSessionLifecycle(currentSession),
+        lastValidatedAt: now,
         payment: paymentWithDurableProgress,
         sendStarted,
         updatedAt: now,
@@ -2161,42 +2368,239 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
+  async blockInfiniReplacement({
+    accountAddress,
+    nonce,
+    historyTx,
+    ...identity
+  }: IInfiniBlockedReplacement & IInfiniPendingTransactionRecovery) {
+    if (
+      !accountAddress ||
+      !Number.isSafeInteger(nonce) ||
+      nonce < 0 ||
+      historyTx.id !== identity.historyId ||
+      historyTx.decodedTx.accountId !== identity.accountId ||
+      historyTx.decodedTx.networkId !== identity.networkId ||
+      historyTx.decodedTx.nonce !== nonce ||
+      historyTx.decodedTx.status !== EDecodedTxStatus.Pending ||
+      historyTx.decodedTx.signer.toLowerCase() !==
+        accountAddress.toLowerCase() ||
+      !historyTx.decodedTx.txid ||
+      !historyTx.decodedTx.encodedTx ||
+      historyTx.replacedNextId
+    ) {
+      throw new OneKeyLocalError('Invalid Infini nonce reservation');
+    }
+    const key = stringUtils.stableStringify(identity);
+    const nonceKey = stringUtils.stableStringify({
+      networkId: identity.networkId,
+      accountAddress: accountAddress.toLowerCase(),
+    });
+    await this.setRawData((rawData) => {
+      const infiniBlockedReplacements = {
+        ...rawData?.infiniBlockedReplacements,
+        [key]: {
+          accountAddress: accountAddress.toLowerCase(),
+          nonce,
+          historyTx,
+        },
+      };
+      const infiniReservedNonces = {
+        ...rawData?.infiniReservedNonces,
+        [nonceKey]: Array.from(
+          new Set([
+            ...(rawData?.infiniReservedNonces?.[nonceKey] ?? []),
+            nonce,
+          ]),
+        ),
+      };
+      // Refuse new hides at capacity. Never evict live protection to make room;
+      // the caller retains visible history if this atomic write fails.
+      if (
+        Object.keys(infiniBlockedReplacements).length >
+          MAX_INFINI_REPLACEMENT_FENCES ||
+        stringUtils.stableStringify({
+          infiniBlockedReplacements,
+          infiniReservedNonces,
+        }).length > MAX_INFINI_REPLACEMENT_PROTECTION_SIZE
+      ) {
+        throw new OneKeyLocalError('Infini replacement protection is full');
+      }
+      return { ...rawData, infiniBlockedReplacements, infiniReservedNonces };
+    });
+  }
+
+  @backgroundMethod()
+  async getInfiniPendingTransactionRecoveries(): Promise<
+    IInfiniPendingTransactionRecovery[]
+  > {
+    const rawData = await this.getRawData();
+    return Object.values(rawData?.infiniBlockedReplacements ?? {}).filter(
+      (entry): entry is IInfiniPendingTransactionRecovery => entry !== true,
+    );
+  }
+
+  @backgroundMethod()
+  async pruneInfiniConsumedNonces({
+    networkId,
+    accountAddress,
+    confirmedNonce,
+  }: {
+    networkId: string;
+    accountAddress: string;
+    confirmedNonce: number;
+  }) {
+    if (
+      !accountAddress ||
+      !Number.isSafeInteger(confirmedNonce) ||
+      confirmedNonce < 0
+    ) {
+      throw new OneKeyLocalError('Invalid confirmed Infini nonce');
+    }
+    const nonceKey = stringUtils.stableStringify({
+      networkId,
+      accountAddress: accountAddress.toLowerCase(),
+    });
+    await this.setRawData((rawData) => {
+      const infiniBlockedReplacements = {
+        ...rawData?.infiniBlockedReplacements,
+      };
+      for (const [key, entry] of Object.entries(infiniBlockedReplacements)) {
+        // Legacy boolean fences lack an address/nonce binding and stay closed.
+        if (
+          entry !== true &&
+          entry.historyTx.decodedTx.networkId === networkId &&
+          entry.accountAddress.toLowerCase() === accountAddress.toLowerCase() &&
+          entry.nonce < confirmedNonce
+        ) {
+          delete infiniBlockedReplacements[key];
+        }
+      }
+      const infiniReservedNonces = { ...rawData?.infiniReservedNonces };
+      const remaining = (infiniReservedNonces[nonceKey] ?? []).filter(
+        (nonce) => nonce >= confirmedNonce,
+      );
+      if (remaining.length) infiniReservedNonces[nonceKey] = remaining;
+      else delete infiniReservedNonces[nonceKey];
+      return { ...rawData, infiniBlockedReplacements, infiniReservedNonces };
+    });
+  }
+
+  @backgroundMethod()
+  async getInfiniReservedNonces({
+    networkId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountAddress: string;
+  }): Promise<number[]> {
+    const rawData = await this.getRawData();
+    const key = stringUtils.stableStringify({
+      networkId,
+      accountAddress: accountAddress.toLowerCase(),
+    });
+    return rawData?.infiniReservedNonces?.[key] ?? [];
+  }
+
+  @backgroundMethod()
+  async isInfiniReplacementBlocked({
+    accountId,
+    networkId,
+    historyId,
+  }: IInfiniBlockedReplacement) {
+    const rawData = await this.getRawData();
+    return Boolean(
+      rawData?.infiniBlockedReplacements?.[
+        stringUtils.stableStringify({ accountId, networkId, historyId })
+      ],
+    );
+  }
+
+  @backgroundMethod()
+  async findInfiniPaymentForTransfer({
+    transferClaim,
+  }: {
+    transferClaim: IPrimeInfiniPaymentTransferClaim;
+  }): Promise<IPrimeInfiniPendingPaymentSession | undefined> {
+    const rawData = await this.getRawData();
+    // Legacy history has no invoice binding. Include expired and superseded
+    // sessions so an old payment cannot silently fall back to an ordinary send.
+    const sessions = [
+      ...Object.values(rawData?.infiniPendingPaymentSessionByUserId ?? {}),
+      ...Object.values(
+        rawData?.infiniSupersededPaymentSessionsByUserId ?? {},
+      ).flat(),
+    ];
+    const matches = sessions.filter((session) =>
+      isPrimeInfiniPaymentTransferClaimForSession({ session, transferClaim }),
+    );
+    if (
+      matches.some(
+        (session) =>
+          !isSamePrimeInfiniPaymentCacheKey(
+            session.paymentCacheKey,
+            matches[0]?.paymentCacheKey,
+          ),
+      )
+    ) {
+      throw new OneKeyLocalError({
+        message: 'Infini replacement payment binding is ambiguous',
+        autoToast: false,
+      });
+    }
+    return matches[0];
+  }
+
+  @backgroundMethod()
   async markInfiniPendingPaymentSessionSendStarted({
     onekeyUserId,
     paymentCacheKey,
     transferClaim,
     latestPayment,
     purchaseStatusSnapshot,
+    mode = 'initial',
   }: {
     onekeyUserId: string;
     paymentCacheKey: IPrimeInfiniPaymentCacheKey;
     transferClaim: IPrimeInfiniPaymentTransferClaim;
     latestPayment: IPrimeInfiniPayment;
     purchaseStatusSnapshot: IPrimeInfiniPurchaseStatusSnapshot;
+    mode?: 'initial' | 'speedUp';
   }): Promise<IPrimeInfiniPendingPaymentSession> {
     let markedSession: IPrimeInfiniPendingPaymentSession | undefined;
     await this.setRawData((rawData) => {
       const now = Date.now();
       const currentSession =
         rawData?.infiniPendingPaymentSessionByUserId?.[onekeyUserId];
-      const paymentWithDurableProgress = currentSession
-        ? mergePrimeInfiniPaymentProgressSnapshot({
-            previous: currentSession.payment,
-            latest: latestPayment,
-          })
-        : latestPayment;
+      const isCurrentSessionValid = isValidInfiniPendingPaymentSession(
+        currentSession,
+        { onekeyUserId, now },
+      );
+      const validationFailure =
+        isCurrentSessionValid && currentSession
+          ? getPrimeInfiniPaymentValidationFailure({
+              payment: latestPayment,
+              previousPayment: currentSession.payment,
+              asset: currentSession.asset,
+              now,
+            })
+          : undefined;
+      const paymentWithDurableProgress =
+        isCurrentSessionValid && currentSession
+          ? mergePrimeInfiniPaymentProgressSnapshot({
+              previous: currentSession.payment,
+              latest: latestPayment,
+            })
+          : latestPayment;
       if (
         !currentSession ||
-        !isValidInfiniPendingPaymentSession(currentSession, {
-          onekeyUserId,
-          now,
-        }) ||
+        !isCurrentSessionValid ||
         !isSamePrimeInfiniPaymentCacheKey(
           paymentCacheKey,
           currentSession.paymentCacheKey,
         ) ||
         purchaseStatusSnapshot.onekeyUserId !== onekeyUserId ||
-        isPrimeInfiniPurchaseCompletedSnapshot({
+        isPrimeInfiniPaymentObsoleteBeforeBroadcastSnapshot({
           baseline: currentSession.baseline,
           purchaseStatusSnapshot,
         }) ||
@@ -2219,18 +2623,30 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           session: currentSession,
           transferClaim,
         }) ||
-        currentSession.sendStarted
+        // A fee replacement belongs to the already-claimed payment. Never
+        // clear that latch or let replacement admission claim an unsent invoice.
+        currentSession.sendStarted !== (mode === 'speedUp')
       ) {
         throw new OneKeyLocalError({
           message: 'Infini payment session is unavailable before broadcast',
+          data: validationFailure
+            ? { paymentValidationFailure: validationFailure }
+            : undefined,
           autoToast: false,
         });
       }
       markedSession = {
         ...currentSession,
+        ...getInfiniPaymentSessionLifecycle(currentSession),
+        lastValidatedAt: now,
         payment: paymentWithDurableProgress,
         sendStarted: true,
-        updatedAt: now,
+        // Replacement leaves sendStarted true. Advance the revision even in
+        // the same millisecond so a stale terminal discard cannot erase it.
+        updatedAt:
+          mode === 'speedUp'
+            ? Math.max(now, currentSession.updatedAt + 1)
+            : now,
       };
       return {
         ...rawData,
@@ -2239,6 +2655,12 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
           [onekeyUserId]: markedSession,
         },
       };
+    }).catch((error: unknown) => {
+      this.clearRawDataCache();
+      if (!markedSession) {
+        throw error;
+      }
+      throw toPrimeInfiniPaymentPersistenceError(error);
     });
     if (!markedSession) {
       throw new OneKeyLocalError({
@@ -2247,6 +2669,146 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       });
     }
     return markedSession;
+  }
+
+  @backgroundMethod()
+  async getWebCheckoutPendingSession({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string;
+  }): Promise<IPrimeWebCheckoutPendingSession | undefined> {
+    if (!onekeyUserId) {
+      return undefined;
+    }
+    const rawData = await this.getRawData();
+    const session = rawData?.webCheckoutPendingSessionByUserId?.[onekeyUserId];
+    return isValidWebCheckoutPendingSession(session, {
+      onekeyUserId,
+      now: Date.now(),
+    })
+      ? session
+      : undefined;
+  }
+
+  // The read and write share the entity mutex, including across extension UIs.
+  @backgroundMethod()
+  async acquireWebCheckoutPendingSession({
+    session,
+  }: {
+    session: IPrimeWebCheckoutPendingSession;
+  }): Promise<{
+    session: IPrimeWebCheckoutPendingSession;
+    reused: boolean;
+    replacedSession?: IPrimeWebCheckoutPendingSession;
+  }> {
+    const now = Date.now();
+    if (
+      !isValidWebCheckoutPendingSession(session, {
+        onekeyUserId: session.onekeyUserId,
+        now,
+      })
+    ) {
+      throw new OneKeyLocalError('Invalid Prime web checkout session');
+    }
+    let acquisition:
+      | {
+          session: IPrimeWebCheckoutPendingSession;
+          reused: boolean;
+          replacedSession?: IPrimeWebCheckoutPendingSession;
+        }
+      | undefined;
+    await this.setRawData((rawData) => {
+      const sessions = pruneWebCheckoutPendingSessions(
+        rawData?.webCheckoutPendingSessionByUserId,
+        Date.now(),
+      );
+      const previousSession = sessions[session.onekeyUserId];
+      if (
+        previousSession?.platform === session.platform &&
+        previousSession.isSandbox === session.isSandbox
+      ) {
+        acquisition = { session: previousSession, reused: true };
+        return rawData ?? {};
+      }
+      acquisition = {
+        session,
+        reused: false,
+        replacedSession: previousSession,
+      };
+      return {
+        ...rawData,
+        webCheckoutPendingSessionByUserId: {
+          ...sessions,
+          [session.onekeyUserId]: session,
+        },
+      };
+    });
+    if (!acquisition) {
+      throw new OneKeyLocalError('Prime web checkout session was not acquired');
+    }
+    return acquisition;
+  }
+
+  // Records the extension tabs after the checkout tab exists. Ignored when
+  // another checkout replaced the session in the meantime.
+  @backgroundMethod()
+  async updateWebCheckoutPendingSessionExtensionContext({
+    onekeyUserId,
+    checkoutId,
+    extension,
+  }: {
+    onekeyUserId: string;
+    checkoutId: string;
+    extension: IPrimeWebCheckoutExtensionContext;
+  }): Promise<boolean> {
+    let didUpdate = false;
+    await this.setRawData((rawData) => {
+      const current =
+        rawData?.webCheckoutPendingSessionByUserId?.[onekeyUserId];
+      if (current?.checkoutId !== checkoutId) {
+        return rawData ?? {};
+      }
+      didUpdate = true;
+      return {
+        ...rawData,
+        webCheckoutPendingSessionByUserId: {
+          ...rawData?.webCheckoutPendingSessionByUserId,
+          [onekeyUserId]: { ...current, extension },
+        },
+      };
+    });
+    return didUpdate;
+  }
+
+  // Compare-and-clear: only the caller that removes the matching session may
+  // report the purchase result, so a checkout is never completed twice.
+  @backgroundMethod()
+  async clearWebCheckoutPendingSession({
+    onekeyUserId,
+    expectedCheckoutId,
+  }: {
+    onekeyUserId: string;
+    expectedCheckoutId: string;
+  }): Promise<boolean> {
+    if (!onekeyUserId || !expectedCheckoutId) {
+      return false;
+    }
+    let didClear = false;
+    await this.setRawData((rawData) => {
+      const current =
+        rawData?.webCheckoutPendingSessionByUserId?.[onekeyUserId];
+      if (current?.checkoutId !== expectedCheckoutId) {
+        return rawData ?? {};
+      }
+      const nextSessions = { ...rawData?.webCheckoutPendingSessionByUserId };
+      delete nextSessions[onekeyUserId];
+      didClear = true;
+      return {
+        ...rawData,
+        webCheckoutPendingSessionByUserId: nextSessions,
+      };
+    });
+    return didClear;
   }
 
   @backgroundMethod()

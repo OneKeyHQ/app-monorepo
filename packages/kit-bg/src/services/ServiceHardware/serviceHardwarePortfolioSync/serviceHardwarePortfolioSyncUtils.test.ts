@@ -1,6 +1,8 @@
 /*
 yarn test packages/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/serviceHardwarePortfolioSyncUtils.test.ts
 */
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import type {
   EAppEventBusNames,
   IAppEventBusPayload,
@@ -12,6 +14,7 @@ import {
   PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
   buildPortfolioSyncArtifacts,
   getPortfolioDisplayTimestamp,
+  getPortfolioSchemaVersion,
   getPortfolioSyncCooldownRemainingMs,
 } from './serviceHardwarePortfolioSyncUtils';
 
@@ -56,6 +59,59 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
 }
 
 describe('serviceHardwarePortfolioSyncUtils', () => {
+  test.each([
+    [undefined, undefined, 1],
+    ['1.0.2', undefined, 1],
+    ['1.0.1', EDeviceType.Neo, 1],
+    ['1.0.2', EDeviceType.Neo, 2],
+    ['1.0.1', EDeviceType.Pro2, 1],
+    ['1.0.2-beta.1', EDeviceType.Pro2, 1],
+    ['1.0.3-dev', EDeviceType.Pro2, 1],
+    ['1.0.2', EDeviceType.Pro2, 2],
+    ['1.1.0', EDeviceType.Pro2, 2],
+  ] as const)('selects schema %s %s => %s', (version, deviceType, expected) => {
+    expect(getPortfolioSchemaVersion(version, deviceType)).toBe(expected);
+  });
+
+  test('submits v2 categories and the account ordinal with existing server metadata', () => {
+    const artifacts = buildPortfolioSyncArtifacts({
+      schemaVersion: 2,
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      timestamp: 1_789_380_000_000,
+      eventPayload: {
+        indexedAccountIndex: 1,
+        indexedAccountName: 'Account #2',
+        aggregateTokenMap: {},
+        homeTotalFiatUsd: '125',
+        homeCategoryFiatUsd: { defiFiat: '20', perpsFiat: '30' },
+        totalFiat: '100',
+        totalFiatCurrency: 'usd',
+        totalTokenCount: 1,
+        tokenMap: { eth: buildFiat({ fiatValue: '100' }) },
+        tokens: [
+          buildToken({
+            $key: 'eth',
+            networkId: 'evm--1',
+            logoURI: 'https://example.com/eth.png',
+          }),
+        ],
+      },
+    });
+    expect(JSON.parse(artifacts.portfolioJsonText)).toMatchObject({
+      v: 2,
+      ts: 1_789_380_000_000,
+      account: { label: '2' },
+      tokensFiat: '$100.00',
+      defiFiat: '$20.00',
+      perpsFiat: '$30.00',
+      totalFiat: '$125.00',
+      tokens: [{ iconName: null, logoURI: 'https://example.com/eth.png' }],
+    });
+    expect(artifacts.portfolio.tokens[0]).not.toHaveProperty('color');
+    expect(artifacts.portfolio.otherTokens).not.toHaveProperty('color');
+  });
+
   test('converts a Unix timestamp to the App local display time', () => {
     expect(
       getPortfolioDisplayTimestamp({
@@ -295,6 +351,19 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     expect(artifacts.portfolio.account).toEqual({
       addressMasked: 'Account #3',
       label: 'Custom Account',
+    });
+
+    expect(
+      buildPortfolioSyncArtifacts({
+        currencyMap,
+        displayCurrency: { id: 'usd', symbol: '$' },
+        eventPayload: payload,
+        schemaVersion: 2,
+        timestamp: 1_780_900_000,
+      }).portfolio.account,
+    ).toEqual({
+      addressMasked: 'Account #3',
+      label: '3',
     });
   });
 

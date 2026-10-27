@@ -1,10 +1,15 @@
 /* cspell:ignore Infini infini */
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getPrimeInfiniPaymentAssetKey } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EPrimeAuthSessionSource,
   type IPrimeInfiniPendingPaymentSession,
+  type IPrimeWebCheckoutPendingSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   type IIdentityExitJournalEntry,
@@ -42,6 +47,35 @@ describe('SimpleDbEntityPrime.getEffectiveAuthSessionSource', () => {
     await expect(
       entity.getEffectiveAuthSessionSource(),
     ).resolves.toBeUndefined();
+    expect(legacyProbe).not.toHaveBeenCalled();
+  });
+
+  test('unreadable prime record stays loud-fail so a leftover session cannot rebuild loggedIn', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const error = new Error('Failed to read large IndexedDB value');
+    error.name = 'UnknownError';
+    const getItem = jest.fn(async () => {
+      throw error;
+    });
+    const setItem = jest.fn();
+    const removeItem = jest.fn();
+    (entity as { appStorage: unknown }).appStorage = {
+      getItem,
+      setItem,
+      removeItem,
+    };
+    const setRawData = jest.spyOn(entity, 'setRawData');
+    const legacyProbe = jest
+      .spyOn(entity, 'getSupabaseAuthToken')
+      .mockResolvedValue('stale-legacy-token');
+
+    await expect(entity.getEffectiveAuthSessionSource()).rejects.toThrow(
+      'Failed to read large IndexedDB value',
+    );
+    expect(getItem).toHaveBeenCalledTimes(1);
+    expect(removeItem).not.toHaveBeenCalled();
+    expect(setItem).not.toHaveBeenCalled();
+    expect(setRawData).not.toHaveBeenCalled();
     expect(legacyProbe).not.toHaveBeenCalled();
   });
 
@@ -1272,6 +1306,322 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     infiniSubscription: undefined,
   };
 
+  function createSessionStore(initial: ISimpleDBPrime = {}) {
+    const entity = new SimpleDbEntityPrime();
+    let stored = initial;
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => stored);
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      stored = typeof updater === 'function' ? await updater(stored) : updater;
+      return stored;
+    });
+    return { entity, read: () => stored };
+  }
+
+  function createNativePaymentSession() {
+    const asset = { ...session.asset, token: 'ETH', contractAddress: '' };
+    asset.key = getPrimeInfiniPaymentAssetKey(asset);
+    return {
+      ...session,
+      asset,
+      paymentCacheKey: { ...session.paymentCacheKey, contractAddress: '' },
+      payment: {
+        ...session.payment,
+        token: 'ETH',
+        amountDue: '0.01',
+        expiresAt: Date.now() + 60_000,
+      },
+    };
+  }
+
+  test('persists, restores, and claims a native payment without permitting replacement after sending', async () => {
+    const { entity } = createSessionStore();
+    const nativeSession = createNativePaymentSession();
+    const saved = await entity.setInfiniPendingPaymentSession({
+      onekeyUserId: 'user-1',
+      session: nativeSession,
+    });
+    await expect(
+      entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+    ).resolves.toEqual(saved);
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: saved.paymentCacheKey,
+        transferClaim: {
+          ...transferClaim,
+          contractAddress: '',
+          amount: '0.01',
+        },
+        latestPayment: nativeSession.payment,
+        purchaseStatusSnapshot,
+      }),
+    ).resolves.toMatchObject({ sendStarted: true });
+    await expect(
+      entity.discardUnsentInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: saved.paymentCacheKey,
+      }),
+    ).resolves.toBe(false);
+  });
+
+  test('discards an unsent native payment and prevents a stale writer from restoring it', async () => {
+    const { entity } = createSessionStore();
+    const nativeSession = createNativePaymentSession();
+    const saved = await entity.setInfiniPendingPaymentSession({
+      onekeyUserId: 'user-1',
+      session: nativeSession,
+    });
+    await expect(
+      entity.discardUnsentInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: saved.paymentCacheKey,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+    ).resolves.toBeUndefined();
+    await expect(
+      entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session: nativeSession,
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('does not treat a token with a missing contract as a native payment', async () => {
+    const { entity } = createSessionStore();
+    const nativeSession = createNativePaymentSession();
+    nativeSession.asset.token = 'USDC';
+    nativeSession.asset.key = getPrimeInfiniPaymentAssetKey(
+      nativeSession.asset,
+    );
+    nativeSession.payment.token = 'USDC';
+
+    await expect(
+      entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session: nativeSession,
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('rejects a native payment whose chain conflicts with its network', async () => {
+    const { entity } = createSessionStore();
+    const nativeSession = createNativePaymentSession();
+    nativeSession.asset.chain = 'BSC';
+    nativeSession.asset.key = getPrimeInfiniPaymentAssetKey(
+      nativeSession.asset,
+    );
+    nativeSession.payment.chain = 'BSC';
+
+    await expect(
+      entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session: nativeSession,
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('anchors legacy lifecycle fields before a validation refresh and never renews retention', async () => {
+    const createdAt = Date.now();
+    const { entity, read } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': { ...session, schemaVersion: 2, updatedAt: createdAt },
+      },
+    });
+    const clock = jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(createdAt + 23 * 60 * 60 * 1000);
+    try {
+      await entity.recordInfiniPaymentValidation({
+        onekeyUserId: 'user-1',
+        payment: session.payment,
+        flowId: 'restored-flow',
+      });
+      expect(
+        read().infiniPendingPaymentSessionByUserId?.['user-1'],
+      ).toMatchObject({
+        createdAt,
+        updatedAt: createdAt,
+        lastValidatedAt: Date.now(),
+        localRetentionDeadline: createdAt + 24 * 60 * 60 * 1000,
+        flowId: 'restored-flow',
+      });
+      clock.mockReturnValue(createdAt + 24 * 60 * 60 * 1000);
+      await expect(
+        entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+      ).resolves.toBeUndefined();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test.each([true, false])(
+    'keeps the longer tracking retention for sendStarted=%s with payment progress',
+    async (sendStarted) => {
+      const createdAt = Date.now();
+      const trackedPayment = {
+        ...session.payment,
+        amountConfirming: sendStarted ? '0' : '1',
+      };
+      const { entity } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': {
+            ...session,
+            schemaVersion: 2,
+            payment: trackedPayment,
+            sendStarted,
+            updatedAt: createdAt,
+          },
+        },
+      });
+      const clock = jest
+        .spyOn(Date, 'now')
+        .mockReturnValue(createdAt + 6 * 24 * 60 * 60 * 1000);
+      try {
+        await entity.recordInfiniPaymentValidation({
+          onekeyUserId: 'user-1',
+          payment: trackedPayment,
+          flowId: 'tracking-flow',
+        });
+        await expect(
+          entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+        ).resolves.toBeDefined();
+        clock.mockReturnValue(createdAt + 7 * 24 * 60 * 60 * 1000 + 1);
+        await expect(
+          entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+        ).resolves.toBeUndefined();
+      } finally {
+        clock.mockRestore();
+      }
+    },
+  );
+
+  test('a stale writer cannot revive an unsent quote after its deadline', async () => {
+    const { entity } = createSessionStore();
+    const createdAt = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(createdAt);
+    try {
+      await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session,
+      });
+      clock.mockReturnValue(createdAt + 25 * 60 * 60 * 1000);
+      await expect(
+        entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session,
+        }),
+      ).rejects.toMatchObject({
+        data: { paymentValidationFailure: 'localPersistenceFailed' },
+      });
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test.each([5000, 24 * 60 * 60 * 1000])(
+    'preserves a refreshed session after a clock rollback of %i ms',
+    async (rollbackMs) => {
+      const { entity } = createSessionStore();
+      const createdAt = Date.now();
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(createdAt);
+      try {
+        const saved = await entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session,
+        });
+        clock.mockReturnValue(createdAt - rollbackMs);
+        const refreshed = await entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session: {
+            ...saved,
+            payment: { ...saved.payment, amountConfirming: '1' },
+          },
+        });
+
+        expect(refreshed).toMatchObject({
+          createdAt: saved.createdAt,
+          localRetentionDeadline: saved.localRetentionDeadline,
+          payment: { amountConfirming: '1' },
+        });
+        await expect(
+          entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+        ).resolves.toEqual(refreshed);
+      } finally {
+        clock.mockRestore();
+      }
+    },
+  );
+
+  test('rejects a refresh when clock rollback exceeds the allowed skew', async () => {
+    const { entity } = createSessionStore();
+    const createdAt = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(createdAt);
+    try {
+      const saved = await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session,
+      });
+      clock.mockReturnValue(createdAt - 24 * 60 * 60 * 1000 - 1);
+      await expect(
+        entity.setInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          session: saved,
+        }),
+      ).rejects.toMatchObject({
+        data: { paymentValidationFailure: 'localPersistenceFailed' },
+      });
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test('reports a failed lifecycle write separately from a remote payment failure', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'setRawData').mockRejectedValue(new Error('disk full'));
+    await expect(
+      entity.recordInfiniPaymentValidation({
+        onekeyUserId: 'user-1',
+        payment: session.payment,
+        flowId: 'flow-1',
+      }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'localPersistenceFailed' },
+    });
+  });
+
+  test('refreshing an unsent quote does not extend its absolute retention deadline', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const createdAt = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(createdAt);
+    let persisted: ISimpleDBPrime = {};
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+    try {
+      await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session,
+      });
+      clock.mockReturnValue(createdAt + 23 * 60 * 60 * 1000);
+      await entity.setInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        session,
+      });
+      clock.mockReturnValue(createdAt + 24 * 60 * 60 * 1000 + 1);
+      await expect(
+        entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
+      ).resolves.toBeUndefined();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   test('persists a versioned session without clobbering Prime auth data', async () => {
     const entity = new SimpleDbEntityPrime();
     let persisted: Record<string, unknown> = {
@@ -1292,6 +1642,11 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     expect(result.schemaVersion).toBe(2);
     expect(result.payerAccountId).toBe('hd-1--0--sol');
     expect(result.updatedAt).toEqual(expect.any(Number));
+    expect(result.createdAt).toBe(result.updatedAt);
+    expect(result.lastValidatedAt).toBe(result.updatedAt);
+    expect(result.localRetentionDeadline).toBe(
+      result.updatedAt + 24 * 60 * 60 * 1000,
+    );
     expect(persisted.authStateGeneration).toBe(3);
     expect(
       (
@@ -1708,32 +2063,31 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     );
   });
 
-  test('self-heals a corrupted persisted session without a payment', async () => {
-    const entity = new SimpleDbEntityPrime();
-    let persisted = {
-      authStateGeneration: 4,
-      infiniPendingPaymentSessionByUserId: {
-        'user-1': {
-          schemaVersion: 2,
-          updatedAt: Date.now(),
+  test.each([undefined, 'restore-flow'])(
+    'self-heals a corrupted persisted session without a payment (flowId=%s)',
+    async (flowId) => {
+      const corruptedData = {
+        authStateGeneration: 4,
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': {
+            schemaVersion: 2,
+            updatedAt: Date.now(),
+          },
         },
-      },
-    } as unknown as ISimpleDBPrime;
-    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
-    jest.spyOn(entity, 'setRawData').mockImplementation((async (
-      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
-    ) => {
-      persisted = updater(persisted);
-      return persisted;
-    }) as never);
+      } as unknown as ISimpleDBPrime;
+      const { entity, read } = createSessionStore(corruptedData);
 
-    await expect(
-      entity.getInfiniPendingPaymentSession({ onekeyUserId: 'user-1' }),
-    ).resolves.toBeUndefined();
-    expect(
-      persisted.infiniPendingPaymentSessionByUserId?.['user-1'],
-    ).toBeUndefined();
-  });
+      await expect(
+        entity.getInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          flowContext: flowId ? { flowId } : undefined,
+        }),
+      ).resolves.toBeUndefined();
+      expect(
+        read().infiniPendingPaymentSessionByUserId?.['user-1'],
+      ).toBeUndefined();
+    },
+  );
 
   test('does not clear a newer replacement session', async () => {
     const entity = new SimpleDbEntityPrime();
@@ -1759,14 +2113,47 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
       return persisted;
     }) as never);
 
-    await entity.clearInfiniPendingPaymentSession({
-      onekeyUserId: 'user-1',
-      expectedPaymentCacheIdentity: session.paymentCacheKey,
-    });
+    await expect(
+      entity.clearInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+      }),
+    ).resolves.toBe(false);
 
     expect(persisted.infiniPendingPaymentSessionByUserId['user-1']).toEqual(
       replacement,
     );
+  });
+
+  test('atomically clears the matching payment session', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const persistedSession = {
+      ...session,
+      schemaVersion: 2 as const,
+      updatedAt: Date.now(),
+    };
+    let persisted: ISimpleDBPrime = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': persistedSession,
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation((async (
+      updater: (rawData: ISimpleDBPrime) => ISimpleDBPrime,
+    ) => {
+      persisted = updater(persisted);
+      return persisted;
+    }) as never);
+
+    await expect(
+      entity.clearInfiniPendingPaymentSession({
+        onekeyUserId: 'user-1',
+        expectedPaymentCacheIdentity: session.paymentCacheKey,
+      }),
+    ).resolves.toBe(true);
+
+    expect(
+      persisted.infiniPendingPaymentSessionByUserId?.['user-1'],
+    ).toBeUndefined();
   });
 
   test('atomically discards the matching unsent payment session', async () => {
@@ -2650,6 +3037,59 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     ]);
   });
 
+  test.each([
+    { override: { chain: 'SOLANA' }, failure: 'assetMismatch' },
+    { override: { amountDue: '10.00' }, failure: 'transferSnapshotChanged' },
+  ])(
+    'classifies $failure while refusing a changed broadcast snapshot',
+    async ({ override, failure }) => {
+      const { entity, read } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': { ...session, schemaVersion: 2, updatedAt: Date.now() },
+        },
+      });
+      await expect(
+        entity.markInfiniPendingPaymentSessionSendStarted({
+          onekeyUserId: 'user-1',
+          paymentCacheKey: session.paymentCacheKey,
+          transferClaim,
+          latestPayment: { ...session.payment, ...override },
+          purchaseStatusSnapshot,
+        }),
+      ).rejects.toMatchObject({ data: { paymentValidationFailure: failure } });
+      expect(
+        read().infiniPendingPaymentSessionByUserId?.['user-1']?.sendStarted,
+      ).toBe(false);
+    },
+  );
+
+  test('classifies a failed durable send claim as localPersistenceFailed', async () => {
+    const entity = new SimpleDbEntityPrime();
+    const stored: ISimpleDBPrime = {
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': { ...session, schemaVersion: 2, updatedAt: Date.now() },
+      },
+    };
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      if (typeof updater === 'function') await updater(stored);
+      throw new OneKeyLocalError('Storage write failed');
+    });
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: session.paymentCacheKey,
+        transferClaim,
+        latestPayment: session.payment,
+        purchaseStatusSnapshot,
+      }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'localPersistenceFailed' },
+    });
+    expect(
+      stored.infiniPendingPaymentSessionByUserId?.['user-1']?.sendStarted,
+    ).toBe(false);
+  });
+
   test('atomically marks the matching session before transaction broadcast', async () => {
     const entity = new SimpleDbEntityPrime();
     const persistedSession = {
@@ -2681,6 +3121,240 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     expect(
       persisted.infiniPendingPaymentSessionByUserId['user-1'].sendStarted,
     ).toBe(true);
+  });
+
+  test('admits a fee replacement without reopening the original send claim', async () => {
+    const { entity, read } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': {
+          ...session,
+          sendStarted: true,
+          schemaVersion: 2,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    const args = {
+      onekeyUserId: 'user-1',
+      paymentCacheKey: session.paymentCacheKey,
+      transferClaim,
+      latestPayment: session.payment,
+      purchaseStatusSnapshot,
+    };
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted(args),
+    ).rejects.toThrow('unavailable before broadcast');
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        ...args,
+        mode: 'speedUp',
+      }),
+    ).resolves.toMatchObject({ sendStarted: true });
+    expect(
+      read().infiniPendingPaymentSessionByUserId?.['user-1']?.sendStarted,
+    ).toBe(true);
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted(args),
+    ).rejects.toThrow('unavailable before broadcast');
+  });
+
+  test('replacement admission cannot claim an unsent invoice', async () => {
+    const { entity, read } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': { ...session, schemaVersion: 2, updatedAt: Date.now() },
+      },
+    });
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: session.paymentCacheKey,
+        transferClaim,
+        latestPayment: session.payment,
+        purchaseStatusSnapshot,
+        mode: 'speedUp',
+      }),
+    ).rejects.toThrow('unavailable before broadcast');
+    expect(
+      read().infiniPendingPaymentSessionByUserId?.['user-1']?.sendStarted,
+    ).toBe(false);
+  });
+
+  test('rejects a replacement when the same invoice changes from ETHEREUM to POLYGON without overwriting its snapshot', async () => {
+    const originalSession = {
+      ...session,
+      sendStarted: true,
+      schemaVersion: 2 as const,
+      updatedAt: Date.now(),
+    };
+    const { entity, read } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: { 'user-1': originalSession },
+    });
+    expect(originalSession.payment.chain).toBe('ETHEREUM');
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: session.paymentCacheKey,
+        transferClaim,
+        latestPayment: { ...session.payment, chain: 'POLYGON' },
+        purchaseStatusSnapshot,
+        mode: 'speedUp',
+      }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'assetMismatch' },
+    });
+    expect(read().infiniPendingPaymentSessionByUserId?.['user-1']).toEqual(
+      originalSession,
+    );
+  });
+
+  test('replacement admission invalidates a terminal discard captured in the same millisecond', async () => {
+    const now = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      const { entity } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': {
+            ...session,
+            sendStarted: true,
+            schemaVersion: 2,
+            updatedAt: now,
+          },
+        },
+      });
+      await entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: session.paymentCacheKey,
+        transferClaim,
+        latestPayment: session.payment,
+        purchaseStatusSnapshot,
+        mode: 'speedUp',
+      });
+      await expect(
+        entity.discardTerminalInfiniPendingPaymentSession({
+          onekeyUserId: 'user-1',
+          expectedPaymentCacheIdentity: session.paymentCacheKey,
+          expectedUpdatedAt: now,
+          expectedSendStarted: true,
+          latestPayment: { ...session.payment, status: 'expired' },
+        }),
+      ).resolves.toBe(false);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  test.each([
+    { name: 'expired', payment: { ...session.payment, expiresAt: 0 } },
+    { name: 'failed', payment: { ...session.payment, status: 'failed' } },
+    {
+      name: 'recipient changed',
+      payment: { ...session.payment, address: '0xother' },
+    },
+    {
+      name: 'amount changed',
+      payment: { ...session.payment, amountDue: '20' },
+    },
+    {
+      name: 'confirming',
+      payment: { ...session.payment, amountConfirming: '1' },
+    },
+  ])(
+    'applies the shared invoice checks to speed-up: $name',
+    async ({ payment }) => {
+      const { entity } = createSessionStore({
+        infiniPendingPaymentSessionByUserId: {
+          'user-1': {
+            ...session,
+            sendStarted: true,
+            schemaVersion: 2,
+            updatedAt: Date.now(),
+          },
+        },
+      });
+      await expect(
+        entity.markInfiniPendingPaymentSessionSendStarted({
+          onekeyUserId: 'user-1',
+          paymentCacheKey: session.paymentCacheKey,
+          transferClaim,
+          latestPayment: payment,
+          purchaseStatusSnapshot,
+          mode: 'speedUp',
+        }),
+      ).rejects.toThrow('unavailable before broadcast');
+    },
+  );
+
+  test('rejects a replacement when the payment binding or purchase entitlement changed', async () => {
+    const { entity } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: {
+        'user-1': {
+          ...session,
+          sendStarted: true,
+          schemaVersion: 2,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    const args = {
+      onekeyUserId: 'user-1',
+      paymentCacheKey: session.paymentCacheKey,
+      transferClaim,
+      latestPayment: session.payment,
+      purchaseStatusSnapshot,
+      mode: 'speedUp' as const,
+    };
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        ...args,
+        paymentCacheKey: {
+          ...session.paymentCacheKey,
+          bindingId: 'another-binding',
+        },
+      }),
+    ).rejects.toThrow('unavailable before broadcast');
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        ...args,
+        purchaseStatusSnapshot: {
+          ...purchaseStatusSnapshot,
+          primeSubscription: { isActive: true, expiresAt: Date.now() + 60_000 },
+        },
+      }),
+    ).rejects.toThrow('unavailable before broadcast');
+  });
+
+  test('finds legacy payment bindings in expired and superseded records without retiring them', async () => {
+    const oldSession: IPrimeInfiniPendingPaymentSession = {
+      ...session,
+      sendStarted: true,
+      schemaVersion: 2,
+      updatedAt: 0,
+    };
+    for (const stored of [
+      { infiniPendingPaymentSessionByUserId: { 'user-1': oldSession } },
+      {
+        infiniSupersededPaymentSessionsByUserId: {
+          'user-1': [
+            {
+              ...oldSession,
+              supersededAt: 1,
+              supersededReason: 'user-forced-replacement' as const,
+            },
+          ],
+        },
+      },
+    ]) {
+      const { entity, read } = createSessionStore(stored);
+      await expect(
+        entity.findInfiniPaymentForTransfer({ transferClaim }),
+      ).resolves.toMatchObject({ paymentCacheKey: session.paymentCacheKey });
+      await expect(
+        entity.findInfiniPaymentForTransfer({
+          transferClaim: { ...transferClaim, toAddress: '0xother' },
+        }),
+      ).resolves.toBeUndefined();
+      expect(read()).toEqual(stored);
+    }
   });
 
   test.each([
@@ -3171,4 +3845,403 @@ describe('SimpleDbEntityPrime prime-profile analytics TTL', () => {
       }),
     ).resolves.toBe(true);
   });
+});
+
+describe('Infini replacement history fence', () => {
+  test('survives session cleanup and reload without blocking another account or history', async () => {
+    let persisted: ISimpleDBPrime = {};
+    const writer = new SimpleDbEntityPrime();
+    jest.spyOn(writer, 'setRawData').mockImplementation(async (updater) => {
+      persisted =
+        typeof updater === 'function' ? await updater(persisted) : updater;
+      return persisted;
+    });
+    const identity = {
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      historyId: 'history-1',
+    };
+    const historyTx: IAccountHistoryTx = {
+      id: identity.historyId,
+      decodedTx: {
+        accountId: identity.accountId,
+        networkId: identity.networkId,
+        txid: '0xoriginal',
+        signer: '0xabc',
+        owner: '0xabc',
+        nonce: 5,
+        status: EDecodedTxStatus.Pending,
+        actions: [],
+        extraInfo: null,
+        encodedTx: { from: '0xabc', to: '0xinvoice', value: '0x1', nonce: 5 },
+      },
+    };
+    await writer.blockInfiniReplacement({
+      ...identity,
+      accountAddress: '0xABC',
+      nonce: 5,
+      historyTx,
+    });
+    await writer.blockInfiniReplacement({
+      ...identity,
+      accountAddress: '0xabc',
+      nonce: 5,
+      historyTx,
+    });
+    persisted.infiniPendingPaymentSessionByUserId = {};
+    persisted.infiniSupersededPaymentSessionsByUserId = {};
+    const reader = new SimpleDbEntityPrime();
+    jest.spyOn(reader, 'getRawData').mockImplementation(async () => persisted);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--1',
+        accountAddress: '0xabc',
+      }),
+    ).resolves.toEqual([5]);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--10',
+        accountAddress: '0xabc',
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--1',
+        accountAddress: '0xother',
+      }),
+    ).resolves.toEqual([]);
+    await expect(reader.isInfiniReplacementBlocked(identity)).resolves.toBe(
+      true,
+    );
+    await expect(
+      reader.isInfiniReplacementBlocked({ ...identity, historyId: 'other' }),
+    ).resolves.toBe(false);
+    await expect(
+      reader.isInfiniReplacementBlocked({ ...identity, accountId: 'other' }),
+    ).resolves.toBe(false);
+    await expect(
+      reader.isInfiniReplacementBlocked({ ...identity, networkId: 'evm--10' }),
+    ).resolves.toBe(false);
+  });
+
+  test('does not turn unreadable storage into an unblocked transaction', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockRejectedValue(new Error('Unreadable'));
+    await expect(
+      entity.isInfiniReplacementBlocked({
+        accountId: 'a',
+        networkId: 'n',
+        historyId: 'h',
+      }),
+    ).rejects.toThrow('Unreadable');
+  });
+});
+
+describe('SimpleDbEntityPrime web checkout pending session', () => {
+  const buildSession = (
+    overrides: Partial<IPrimeWebCheckoutPendingSession> = {},
+  ): IPrimeWebCheckoutPendingSession => ({
+    checkoutId: 'checkout-1',
+    onekeyUserId: 'user-1',
+    subscriptionPeriod: 'P1Y',
+    packageId: '$rc_annual',
+    offeringId: 'Sandbox_testing',
+    amount: 99,
+    currency: 'USD',
+    isSandbox: true,
+    platform: 'extension',
+    checkoutUrl: 'https://pay.rev.cat/sandbox/abc/user-1?package_id=x',
+    startedAt: Date.now(),
+    ...overrides,
+  });
+
+  test('preserves the payable session per user and drops expired ones', async () => {
+    const expired = buildSession({
+      checkoutId: 'old',
+      onekeyUserId: 'user-2',
+      startedAt: Date.now() - PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS - 1,
+    });
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-2': expired },
+    });
+
+    await entity.acquireWebCheckoutPendingSession({ session: buildSession() });
+    const reused = await entity.acquireWebCheckoutPendingSession({
+      session: buildSession({ checkoutId: 'checkout-2' }),
+    });
+
+    expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
+      'user-1': buildSession({
+        checkoutId: 'checkout-1',
+        startedAt: expect.any(Number),
+      }),
+    });
+    expect(reused.reused).toBe(true);
+    expect(reused.session.checkoutId).toBe('checkout-1');
+    await expect(
+      entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-2' }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('atomically gives concurrent plans the same pending session', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
+    const annual = buildSession();
+    const monthly = buildSession({
+      checkoutId: 'checkout-2',
+      subscriptionPeriod: 'P1M',
+      packageId: '$rc_monthly',
+      amount: 12,
+      checkoutUrl: 'https://pay.rev.cat/sandbox/abc/user-1?package_id=monthly',
+    });
+
+    const acquisitions = await Promise.all([
+      entity.acquireWebCheckoutPendingSession({ session: annual }),
+      entity.acquireWebCheckoutPendingSession({ session: monthly }),
+    ]);
+
+    expect(acquisitions).toEqual([
+      { session: annual, reused: false, replacedSession: undefined },
+      { session: annual, reused: true },
+    ]);
+    expect(
+      getPersisted().webCheckoutPendingSessionByUserId?.['user-1'],
+    ).toEqual(annual);
+  });
+
+  test('keeps different accounts independent and only replaces a different environment', async () => {
+    const original = buildSession();
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': original },
+    });
+    const otherUser = buildSession({ onekeyUserId: 'user-2' });
+    const production = buildSession({
+      checkoutId: 'production',
+      isSandbox: false,
+    });
+
+    await entity.acquireWebCheckoutPendingSession({ session: otherUser });
+    await expect(
+      entity.acquireWebCheckoutPendingSession({ session: production }),
+    ).resolves.toEqual({
+      session: production,
+      reused: false,
+      replacedSession: original,
+    });
+    expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
+      'user-1': production,
+      'user-2': otherUser,
+    });
+  });
+
+  test('ignores an expired or foreign session on read', async () => {
+    const { entity } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: {
+        'user-1': buildSession({ onekeyUserId: 'user-3' }),
+        'user-2': buildSession({
+          onekeyUserId: 'user-2',
+          startedAt: Date.now() - PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS,
+        }),
+      },
+    });
+
+    await expect(
+      entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-1' }),
+    ).resolves.toBeUndefined();
+    await expect(
+      entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-2' }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('only the caller that clears the matching checkout wins', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': buildSession() },
+    });
+
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: 'checkout-other',
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: 'checkout-1',
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: 'checkout-1',
+      }),
+    ).resolves.toBe(false);
+    expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({});
+  });
+
+  test('records extension tabs only for the current checkout', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': buildSession() },
+    });
+    const extension = {
+      initiatorKind: 'tab' as const,
+      initiatorTabId: 1,
+      checkoutTabId: 2,
+    };
+
+    await expect(
+      entity.updateWebCheckoutPendingSessionExtensionContext({
+        onekeyUserId: 'user-1',
+        checkoutId: 'checkout-other',
+        extension,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      entity.updateWebCheckoutPendingSessionExtensionContext({
+        onekeyUserId: 'user-1',
+        checkoutId: 'checkout-1',
+        extension,
+      }),
+    ).resolves.toBe(true);
+    expect(
+      getPersisted().webCheckoutPendingSessionByUserId?.['user-1']?.extension,
+    ).toEqual(extension);
+  });
+});
+
+describe('Infini recoverable replacement protection', () => {
+  const historyTx: IAccountHistoryTx = {
+    id: 'hidden-history',
+    decodedTx: {
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      txid: '0xoriginal',
+      signer: '0xabc',
+      owner: '0xabc',
+      nonce: 5,
+      status: EDecodedTxStatus.Pending,
+      actions: [],
+      extraInfo: null,
+      encodedTx: { from: '0xabc', to: '0xinvoice', value: '0x1', nonce: 5 },
+    },
+  };
+  function makeStore() {
+    let persisted: ISimpleDBPrime = {};
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      persisted =
+        typeof updater === 'function' ? await updater(persisted) : updater;
+      return persisted;
+    });
+    return { entity, getPersisted: () => persisted };
+  }
+  const block = {
+    accountId: 'account-1',
+    networkId: 'evm--1',
+    historyId: historyTx.id,
+    accountAddress: '0xABC',
+    nonce: 5,
+    historyTx,
+  };
+
+  test('persists an original recovery snapshot atomically with the nonce and fence, across session cleanup', async () => {
+    const { entity, getPersisted } = makeStore();
+    await entity.blockInfiniReplacement(block);
+    const persisted = getPersisted();
+    persisted.infiniPendingPaymentSessionByUserId = {};
+    persisted.infiniSupersededPaymentSessionsByUserId = {};
+    const reloaded = new SimpleDbEntityPrime();
+    jest.spyOn(reloaded, 'getRawData').mockResolvedValue(persisted);
+    await expect(
+      reloaded.getInfiniPendingTransactionRecoveries(),
+    ).resolves.toEqual([{ accountAddress: '0xabc', nonce: 5, historyTx }]);
+    await expect(reloaded.isInfiniReplacementBlocked(block)).resolves.toBe(
+      true,
+    );
+    await expect(reloaded.getInfiniReservedNonces(block)).resolves.toEqual([5]);
+  });
+
+  test('bounds admission without evicting any live fence or reservation', async () => {
+    const { entity, getPersisted } = makeStore();
+    for (let n = 0; n < 100; n += 1) {
+      const tx = {
+        ...historyTx,
+        id: `history-${n}`,
+        decodedTx: { ...historyTx.decodedTx, nonce: n },
+      };
+      await entity.blockInfiniReplacement({
+        ...block,
+        historyId: tx.id,
+        nonce: n,
+        historyTx: tx,
+      });
+    }
+    await expect(
+      entity.blockInfiniReplacement({
+        ...block,
+        historyId: 'overflow',
+        historyTx: { ...historyTx, id: 'overflow' },
+      }),
+    ).rejects.toThrow('Infini replacement protection is full');
+    expect(
+      Object.keys(getPersisted().infiniBlockedReplacements ?? {}),
+    ).toHaveLength(100);
+    expect(await entity.getInfiniReservedNonces(block)).toHaveLength(100);
+    // Idempotent retries still succeed at capacity.
+    await expect(
+      entity.blockInfiniReplacement({
+        ...block,
+        historyId: 'history-5',
+        historyTx: { ...historyTx, id: 'history-5' },
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('compacts only consumed nonces for the same chain/address and retains legacy fences', async () => {
+    const { entity, getPersisted } = makeStore();
+    await entity.blockInfiniReplacement(block);
+    await entity.blockInfiniReplacement({
+      ...block,
+      historyId: 'next',
+      nonce: 6,
+      historyTx: {
+        ...historyTx,
+        id: 'next',
+        decodedTx: { ...historyTx.decodedTx, nonce: 6 },
+      },
+    });
+    getPersisted().infiniBlockedReplacements = {
+      ...getPersisted().infiniBlockedReplacements,
+      legacy: true,
+    };
+    await entity.pruneInfiniConsumedNonces({
+      ...block,
+      networkId: 'evm--10',
+      confirmedNonce: 99,
+    });
+    await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(true);
+    await entity.pruneInfiniConsumedNonces({ ...block, confirmedNonce: 5 });
+    await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(true);
+    await entity.pruneInfiniConsumedNonces({ ...block, confirmedNonce: 6 });
+    await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(false);
+    await expect(
+      entity.isInfiniReplacementBlocked({ ...block, historyId: 'next' }),
+    ).resolves.toBe(true);
+    await expect(entity.getInfiniReservedNonces(block)).resolves.toEqual([6]);
+    expect(getPersisted().infiniBlockedReplacements?.legacy).toBe(true);
+  });
+
+  test.each([NaN, Infinity, -1, 1.1])(
+    'rejects invalid chain evidence %s without discarding protection',
+    async (confirmedNonce) => {
+      const { entity } = makeStore();
+      await entity.blockInfiniReplacement(block);
+      await expect(
+        entity.pruneInfiniConsumedNonces({ ...block, confirmedNonce }),
+      ).rejects.toThrow();
+      await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(
+        true,
+      );
+    },
+  );
 });

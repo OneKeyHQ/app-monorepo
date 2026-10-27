@@ -1,5 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
@@ -26,6 +27,9 @@ const SettingClearAppCacheModal = LazyLoadPage(
 const SettingProtectionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Protection'),
 );
+const SettingTravelModeModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/TravelMode'),
+);
 const SettingReceiveRiskSupportedAssetsModal = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Protection/ReceiveRiskSupportedAssets'),
@@ -45,6 +49,10 @@ const SettingCustomNetworkModal = LazyLoadPage(
 
 const SettingSignatureRecordModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SignatureRecord'),
+);
+
+const SettingDAppConnectionListModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/DAppConnection/pages/ConnectionList'),
 );
 
 const FloatingIconModal = LazyLoadPage(
@@ -77,6 +85,11 @@ const DevSesHardenRuntimeCheck = LazyLoadPage(
 const DesktopApiProxyTestDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopApiProxyTestDevSettings'),
+);
+
+const SniRequestQa = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/SniRequestQa'),
 );
 
 const PerpGallery = LazyLoadPage(
@@ -196,6 +209,11 @@ const DevDrawingOrderStress = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/DevDrawingOrderStress'),
 );
 
+const DevLargeWalletDataCreation = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevLargeWalletDataCreation'),
+);
+
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -234,6 +252,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     rewrite: '/protection',
   },
   {
+    name: EModalSettingRoutes.SettingTravelModeModal,
+    component: SettingTravelModeModal,
+  },
+  {
     name: EModalSettingRoutes.SettingReceiveRiskSupportedAssets,
     component: SettingReceiveRiskSupportedAssetsModal,
   },
@@ -244,6 +266,11 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingSignatureRecordModal,
     component: SettingSignatureRecordModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingDAppConnectionList,
+    component: SettingDAppConnectionListModal,
+    rewrite: '/dapp-connections',
   },
   {
     name: EModalSettingRoutes.SettingDevFirmwareUpdateModal,
@@ -274,29 +301,37 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     component: DesktopApiProxyTestDevSettings,
   },
   {
-    name: EModalSettingRoutes.SettingDevPerpGalleryModal,
-    component: PerpGallery,
+    name: EModalSettingRoutes.SettingDevSniRequestQa,
+    component: SniRequestQa,
   },
-  {
-    name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
-    component: CryptoGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
-    component: CloudBackupGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevAuthGalleryModal,
-    component: AuthGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevKeylessWalletGallery,
-    component: KeylessWalletGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevStorageGalleryModal,
-    component: StorageGallery,
-  },
+  ...(process.env.NODE_ENV !== 'production' && platformEnv.isDev
+    ? [
+        {
+          name: EModalSettingRoutes.SettingDevPerpGalleryModal,
+          component: PerpGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
+          component: CryptoGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
+          component: CloudBackupGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevAuthGalleryModal,
+          component: AuthGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevKeylessWalletGallery,
+          component: KeylessWalletGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevStorageGalleryModal,
+          component: StorageGallery,
+        },
+      ]
+    : []),
   {
     name: EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
     component: LocalSecretEnvelopeSelfTest,
@@ -369,6 +404,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevDrawingOrderStressModal,
     component: DevDrawingOrderStress,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevLargeWalletDataCreation,
+    component: DevLargeWalletDataCreation,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

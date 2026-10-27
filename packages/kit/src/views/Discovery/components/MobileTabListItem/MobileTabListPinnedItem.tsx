@@ -32,7 +32,7 @@ function MobileTabListPinnedItem({
       onLongPress={() => {
         onLongPress(id);
       }}
-      animation="quick"
+      transition="quick"
       animateOnly={ANIMATE_ONLY_TRANSFORM}
       pressStyle={{
         scale: 0.95,

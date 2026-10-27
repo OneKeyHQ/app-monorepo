@@ -6,11 +6,14 @@ export {
 export type {
   ITradingViewNativeChartComponentGroup,
   ITradingViewNativeChartComponentNode,
+  ITradingViewNativeChartDisplayMode,
   ITradingViewNativeDataState,
   ITradingViewNativeIntervalChangeData,
   ITradingViewNativePriceChartAnchor,
   ITradingViewNativePriceUpdateData,
   ITradingViewNativeProps,
   ITradingViewNativeReferenceLineComponent,
+  ITradingViewNativeReferenceLineAction,
+  ITradingViewNativeTradeMarksComponent,
   ITradingViewNativeSource,
 } from './types';

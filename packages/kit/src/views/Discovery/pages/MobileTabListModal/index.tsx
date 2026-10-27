@@ -465,7 +465,7 @@ function MobileTabListModal() {
   }, [pinnedData, renderPinnedItem, pinInitialScrollIndex]);
 
   return (
-    <Page lazyLoad>
+    <Page>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.explore_tabs_count },
@@ -490,7 +490,7 @@ function MobileTabListModal() {
         />
         {renderPinnedList}
       </Page.Body>
-      <Page.Footer>
+      <Page.Footer safeAreaBottomMode="content">
         <TabToolBar
           closeAllDisabled={data.length <= 0}
           onAddTab={handleAddNewTab}

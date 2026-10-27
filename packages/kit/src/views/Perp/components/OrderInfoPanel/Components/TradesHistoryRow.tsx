@@ -1,11 +1,11 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   DashText,
   Divider,
+  Icon,
   IconButton,
   Popover,
   SizableText,
@@ -14,12 +14,15 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  getHyperliquidTokenImageUris,
+  getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
   isSpotInstrument,
   parseDexCoin,
@@ -31,8 +34,13 @@ import {
   getColumnStyle,
   getFillDirectionDisplayInfo,
 } from '../utils';
+import {
+  PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
+  PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
+} from '../utils/tableLayout';
 
 import {
+  canShareTradeFill,
   getTradeFillClosePnlBN,
   getTradeFillDisplayInfo,
 } from './tradeFillDisplay';
@@ -47,6 +55,7 @@ export type ITradesHistoryRowProps = {
   isMobile?: boolean;
   index: number;
   onShare?: (fill: IFill) => void;
+  onPress?: (fill: IFill) => void;
   renderMode?: IRenderMode;
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
@@ -61,20 +70,13 @@ const TradesHistoryRow = memo(
     isMobile,
     index,
     onShare,
+    onPress,
     renderMode = 'full',
     isHovered,
     onHoverChange,
     builderFeeRate,
   }: ITradesHistoryRowProps) => {
-    const canShare = useMemo(() => {
-      return Boolean(
-        fill.closedPnl &&
-        !new BigNumber(fill.closedPnl).isZero() &&
-        !isSpotInstrument(fill.coin) &&
-        !fill.liquidation &&
-        onShare,
-      );
-    }, [fill.closedPnl, fill.coin, fill.liquidation, onShare]);
+    const canShare = Boolean(onShare) && canShareTradeFill(fill);
     const actions = useHyperliquidActions();
     const intl = useIntl();
     const [spotDisplayMap] = useSpotPairDisplayMapAtom();
@@ -101,9 +103,7 @@ const TradesHistoryRow = memo(
     }, [actions, rawCoin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(fill.time);
-      const date = formatTime(timeDate, {
-        formatTemplate: 'yyyy-LL-dd',
-      });
+      const date = formatDate(timeDate, { hideTimeForever: true });
       const time = formatTime(timeDate, {
         formatTemplate: 'HH:mm:ss',
       });
@@ -204,6 +204,66 @@ const TradesHistoryRow = memo(
     const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
     const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
 
+    if (isMobile && onPress) {
+      return (
+        <ListItem
+          mx="$5"
+          my="$2"
+          p="$4"
+          pr="$3"
+          gap="$3"
+          backgroundColor="$bgSubdued"
+          borderRadius="$3"
+          onPress={() => onPress(fill)}
+          testID="perps-trade-history-card"
+          accessibilityRole="button"
+          accessibilityLabel={`${assetSymbol}, ${directionInfo.directionStr}, ${dateInfo.date} ${dateInfo.time}, ${intl.formatMessage({ id: ETranslations.perp_trades_close_pnl })} ${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
+        >
+          <Token
+            size="lg"
+            borderRadius="$full"
+            {...(isSpotInstrument(fill.coin)
+              ? { tokenImageUri: getHyperliquidTokenImageUrl(assetSymbol) }
+              : { tokenImageUris: getHyperliquidTokenImageUris(fill.coin) })}
+            fallbackIcon="CryptoCoinOutline"
+          />
+          <YStack flex={1} minWidth={0} gap="$1">
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <SizableText size="$bodyMdMedium" flexShrink={1}>
+                {assetSymbol}
+              </SizableText>
+              <SizableText
+                size="$bodyMdMedium"
+                color={closePnlInfo.closePnlColor}
+              >
+                {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
+              </SizableText>
+            </XStack>
+            <XStack justifyContent="space-between" alignItems="center" gap="$2">
+              <SizableText
+                size="$bodySm"
+                color={directionInfo.directionColor}
+                flexShrink={1}
+                minWidth={0}
+                numberOfLines={1}
+              >
+                {directionInfo.directionStr}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
+                {dateInfo.date} {dateInfo.time}
+              </SizableText>
+            </XStack>
+          </YStack>
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+            flexShrink={0}
+          />
+        </ListItem>
+      );
+    }
+
     if (isMobile) {
       return (
         <ListItem
@@ -223,13 +283,14 @@ const TradesHistoryRow = memo(
             width="100%"
           >
             <YStack gap="$1">
-              <XStack
-                gap="$2"
-                alignItems="center"
-                onPress={handleSwitchInstrument}
-                cursor="pointer"
-              >
-                <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+              <XStack gap="$2" alignItems="center">
+                <SizableText
+                  size="$bodyMdMedium"
+                  onPress={handleSwitchInstrument}
+                  cursor="pointer"
+                >
+                  {assetSymbol}
+                </SizableText>
                 <SizableText
                   size="$bodySm"
                   color={directionInfo.directionColor}
@@ -294,7 +355,7 @@ const TradesHistoryRow = memo(
             <YStack gap="$1" flex={1} alignItems="flex-start">
               <SizableText size="$bodySm" color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.perp_position_position_size,
+                  id: ETranslations.perp_executed_size__title,
                 })}
               </SizableText>
               <SizableText size="$bodySm">{tradeBaseInfo.size}</SizableText>
@@ -312,12 +373,12 @@ const TradesHistoryRow = memo(
             <YStack gap="$1" flex={1} alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.perp_trades_history_fee,
+                  id: ETranslations.perp_fee__title,
                 })}
               </SizableText>
               <Popover
                 title={intl.formatMessage({
-                  id: ETranslations.perp_trades_history_fee,
+                  id: ETranslations.perp_fee__title,
                 })}
                 placement="top"
                 renderTrigger={
@@ -345,8 +406,8 @@ const TradesHistoryRow = memo(
       <XStack
         flex={1}
         py="$1.5"
-        pl="$5"
-        pr="$3"
+        pl={PERP_DESKTOP_TABLE_ROW_PADDING_LEFT}
+        pr={PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT}
         alignItems="center"
         backgroundColor={bgColor}
         onHoverIn={() => onHoverChange?.(index)}
@@ -382,13 +443,14 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[1])}
               justifyContent={calcCellAlign(columnConfigs[1].align)}
               alignItems="center"
-              onPress={handleSwitchInstrument}
-              cursor="pointer"
             >
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySmMedium"
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
               >
                 {assetSymbol}
               </SizableText>
@@ -399,7 +461,6 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[2])}
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
-              minWidth={0}
             >
               <XStack gap="$1.5" alignItems="center" width="100%" minWidth={0}>
                 <SizableText
@@ -465,14 +526,18 @@ const TradesHistoryRow = memo(
             >
               <Tooltip
                 placement="top"
+                triggerAsChild="except-style"
                 renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    dashThickness={0.3}
-                  >
-                    {tradeBaseInfo.feeFormatted}
-                  </DashText>
+                  <XStack cursor="help">
+                    <DashText
+                      size="$bodySm"
+                      color="$text"
+                      dashThickness={0.3}
+                      dashOverlay
+                    >
+                      {tradeBaseInfo.feeFormatted}
+                    </DashText>
+                  </XStack>
                 }
                 renderContent={feeTooltipContent}
               />

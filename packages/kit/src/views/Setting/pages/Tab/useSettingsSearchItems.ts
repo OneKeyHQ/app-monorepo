@@ -1,21 +1,13 @@
 import { useMemo } from 'react';
 
-import type { ESettingsTabNames } from '@onekeyhq/shared/src/routes';
-
 import { useSettingsConfig } from './config';
-import {
-  getSettingsDisplayIcon,
-  getSettingsDisplayTitle,
-} from './settingsDisplay';
+import { flattenSettingsSearchItems } from './settingsSearchItems';
 import { useSettingsLayout } from './useIsTabNavigator';
 
-import type { ISettingsConfig, ISubSettingConfig } from './config';
+import type { IFlatSettingsSearchItem } from './settingsSearchItems';
 
-export type IFlatSettingsSearchItem = ISubSettingConfig & {
-  sectionName: ESettingsTabNames;
-  sectionTitle: string;
-  sectionIcon: string;
-};
+export { flattenSettingsSearchItems } from './settingsSearchItems';
+export type { IFlatSettingsSearchItem } from './settingsSearchItems';
 
 /**
  * Settings items flattened for search, each carrying its category's display
@@ -25,23 +17,6 @@ export type IFlatSettingsSearchItem = ISubSettingConfig & {
  * drift. Callers that already hold a `useSettingsConfig` instance should use
  * the pure function to avoid mounting a second config hook.
  */
-export function flattenSettingsSearchItems(
-  settingsConfig: ISettingsConfig,
-  preferMobileNaming: boolean,
-): IFlatSettingsSearchItem[] {
-  return settingsConfig.filter(Boolean).flatMap((config) =>
-    config.configs
-      .flat()
-      .filter((item): item is ISubSettingConfig => Boolean(item))
-      .map((item) => ({
-        ...item,
-        sectionName: config.name,
-        sectionTitle: getSettingsDisplayTitle(config, preferMobileNaming),
-        sectionIcon: getSettingsDisplayIcon(config, preferMobileNaming),
-      })),
-  );
-}
-
 export function useFlatSettingsSearchItems(): IFlatSettingsSearchItem[] {
   const settingsConfig = useSettingsConfig();
   const { preferMobileNaming } = useSettingsLayout();

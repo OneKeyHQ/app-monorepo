@@ -1,16 +1,31 @@
+import { BRAND_FONT_WEB_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
+import {
+  formatDateTimeParts,
+  getDateFormatTemplate,
+  getDateTimePartsInTimeZone,
+} from '@onekeyhq/shared/src/utils/dateUtils';
+
 import type {
   ILightweightChartPriceScalePosition,
   ILightweightChartTheme,
 } from '../types';
 import type {
   AreaSeriesPartialOptions,
+  AutoscaleInfoProvider,
   ChartOptions,
   DeepPartial,
+  SeriesOptionsCommon,
   TickMarkFormatter,
 } from 'lightweight-charts';
 
-const CHART_FONT_FAMILY =
-  'Roobert, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+// cspell:disable-next-line
+const CHART_FONT_FAMILY = `${BRAND_FONT_WEB_FAMILY}, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+
+// Shared crosshair defaults. Every chart that does not opt into an override
+// keeps exactly these values.
+const DEFAULT_CROSSHAIR_VERT_LINE_COLOR = 'rgba(150, 150, 150, 0.4)';
+// lightweight-charts `LineStyle.LargeDashed`.
+const DEFAULT_CROSSHAIR_VERT_LINE_STYLE = 3;
 
 const CHART_TICK_MARK_TYPE = {
   Year: 0,
@@ -20,7 +35,7 @@ const CHART_TICK_MARK_TYPE = {
   TimeWithSeconds: 4,
 } as const;
 
-const timeScaleFormatterCache = new Map<string, Intl.DateTimeFormat>();
+const monthLabelFormatters = new Map<string, Intl.DateTimeFormat>();
 
 function padTimePart(value: number) {
   return value.toString().padStart(2, '0');
@@ -72,9 +87,10 @@ function getDatePartsFromChartTime(time: Parameters<TickMarkFormatter>[0]) {
   };
 }
 
-const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
+export const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
   time,
   tickMarkType,
+  locale,
 ) => {
   const dateParts = getDatePartsFromChartTime(time);
   if (
@@ -101,35 +117,28 @@ const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
         dateParts.minutes,
       )}:${padTimePart(dateParts.seconds)}`;
     default:
-      return `${padTimePart(dateParts.month)}/${padTimePart(dateParts.day)}`;
+      return formatDateTimeParts(
+        { ...dateParts, milliseconds: 0 },
+        getDateFormatTemplate(locale, { hideYear: true }),
+      );
   }
 };
 
-function getTimeScaleFormatOptions(
+function getTimeScaleTemplate(
   tickMarkType: Parameters<TickMarkFormatter>[1],
-): Intl.DateTimeFormatOptions {
+  locale?: string,
+) {
   switch (tickMarkType) {
     case CHART_TICK_MARK_TYPE.Year:
-      return { year: 'numeric' };
-    case CHART_TICK_MARK_TYPE.Month:
-      return { month: 'short' };
+      return 'yyyy';
     case CHART_TICK_MARK_TYPE.DayOfMonth:
-      return { day: 'numeric' };
+      return 'dd';
     case CHART_TICK_MARK_TYPE.Time:
-      return {
-        hour: '2-digit',
-        minute: '2-digit',
-        hourCycle: 'h23',
-      };
+      return 'HH:mm';
     case CHART_TICK_MARK_TYPE.TimeWithSeconds:
-      return {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hourCycle: 'h23',
-      };
+      return 'HH:mm:ss';
     default:
-      return { month: 'short', day: 'numeric' };
+      return getDateFormatTemplate(locale, { hideYear: true });
   }
 }
 
@@ -172,16 +181,25 @@ export function formatChartTickMarkInTimeZone({
     return null;
   }
 
-  const formatterKey = `${locale ?? ''}|${formatterTimeZone}|${tickMarkType}`;
-  let formatter = timeScaleFormatterCache.get(formatterKey);
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat(locale, {
-      ...getTimeScaleFormatOptions(tickMarkType),
-      timeZone: formatterTimeZone,
-    });
-    timeScaleFormatterCache.set(formatterKey, formatter);
+  if (tickMarkType === CHART_TICK_MARK_TYPE.Month) {
+    const key = `${locale ?? 'en'}:${formatterTimeZone}`;
+    let formatter = monthLabelFormatters.get(key);
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat(locale ?? 'en', {
+        month: 'short',
+        calendar: 'gregory',
+        numberingSystem: 'latn',
+        timeZone: formatterTimeZone,
+      });
+      monthLabelFormatters.set(key, formatter);
+    }
+    return formatter.format(date);
   }
-  return formatter.format(date);
+
+  return formatDateTimeParts(
+    getDateTimePartsInTimeZone(date, formatterTimeZone),
+    getTimeScaleTemplate(tickMarkType, locale),
+  );
 }
 
 export function createChartOptions(
@@ -196,6 +214,10 @@ export function createChartOptions(
   priceScalePosition: ILightweightChartPriceScalePosition = 'right',
   timeZone?: string,
   locale?: string,
+  // Opt-in crosshair overrides. Charts that pass nothing keep the faint default
+  // line below.
+  crosshairVertLine?: { color?: string; style?: number },
+  timeScaleRightOffsetPixels?: number,
 ): DeepPartial<ChartOptions> {
   const priceScaleOptions = {
     visible: showPriceScale,
@@ -216,7 +238,8 @@ export function createChartOptions(
         locale,
       });
   } else if (useTimeScaleTickMarkWithoutUnit) {
-    tickMarkFormatter = formatChartTickMarkWithoutUnit;
+    tickMarkFormatter = (time, tickMarkType) =>
+      formatChartTickMarkWithoutUnit(time, tickMarkType, locale ?? 'en');
   }
 
   return {
@@ -230,9 +253,9 @@ export function createChartOptions(
     crosshair: {
       mode: 1, // CrosshairMode.Normal
       vertLine: {
-        color: 'rgba(150, 150, 150, 0.4)',
+        color: crosshairVertLine?.color ?? DEFAULT_CROSSHAIR_VERT_LINE_COLOR,
         width: 1,
-        style: 3,
+        style: crosshairVertLine?.style ?? DEFAULT_CROSSHAIR_VERT_LINE_STYLE,
         labelVisible: false,
       },
       horzLine: {
@@ -248,7 +271,11 @@ export function createChartOptions(
       timeVisible: true,
       secondsVisible: false,
       fixLeftEdge: true,
-      fixRightEdge: true,
+      // `fixRightEdge` clamps any right offset back to zero. Scrolling and
+      // scaling are off below, so the lock can go when a tail gap is asked for.
+      ...(timeScaleRightOffsetPixels && timeScaleRightOffsetPixels > 0
+        ? { fixRightEdge: false, rightOffsetPixels: timeScaleRightOffsetPixels }
+        : { fixRightEdge: true }),
       lockVisibleTimeRangeOnResize: true,
       ...(tickMarkFormatter ? { tickMarkFormatter } : {}),
     },
@@ -278,6 +305,49 @@ export function createChartOptions(
       touch: false,
       mouse: false,
     },
+  };
+}
+
+export function createLastValueSeriesOptions({
+  showLastValue,
+  showLastValuePriceLine,
+  lastValueLabelColor,
+}: {
+  showLastValue?: boolean;
+  showLastValuePriceLine?: boolean;
+  lastValueLabelColor?: string;
+}): Pick<
+  SeriesOptionsCommon,
+  'lastValueVisible' | 'priceLineVisible' | 'priceLineColor'
+> {
+  const lastValueVisible = !!showLastValue;
+  return {
+    lastValueVisible,
+    priceLineVisible: lastValueVisible && showLastValuePriceLine !== false,
+    // lightweight-charts paints the last-value axis label with the price line
+    // color, so the label can be re-tinted even while the line stays hidden.
+    // An empty string restores the series color.
+    priceLineColor: lastValueLabelColor ?? '',
+  };
+}
+
+// Widens the series' own autoscale range so a reference price that the data
+// never touches still lands inside the visible price scale.
+export function createReferenceLineAutoscaleInfoProvider(
+  price: number,
+): AutoscaleInfoProvider {
+  return (baseImplementation) => {
+    const autoscaleInfo = baseImplementation();
+    if (!autoscaleInfo?.priceRange || !Number.isFinite(price)) {
+      return autoscaleInfo;
+    }
+    return {
+      ...autoscaleInfo,
+      priceRange: {
+        minValue: Math.min(autoscaleInfo.priceRange.minValue, price),
+        maxValue: Math.max(autoscaleInfo.priceRange.maxValue, price),
+      },
+    };
   };
 }
 

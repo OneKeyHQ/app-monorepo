@@ -1,0 +1,958 @@
+import { useContext, useEffect, useMemo, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { SvgXml } from 'react-native-svg';
+
+import {
+  Button,
+  HeaderScrollGestureContext,
+  Input,
+  ScrollGuard,
+  ScrollGuardDirection,
+  ScrollView,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+  useTheme,
+} from '@onekeyhq/components';
+import type { IScrollViewProps } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import {
+  DrawingAnchorFields,
+  DrawingStyleOptions,
+} from '../drawings/DrawingStyleOptions';
+import { TRADING_VIEW_DRAWING_ICONS } from '../drawings/icons';
+import {
+  DEFAULT_DRAWING_FONT_SIZE,
+  DRAWING_DASH_LABEL_IDS,
+  DRAWING_FONT_SIZES,
+  DRAWING_TOOLBAR_GROUPS,
+  DRAWING_TOOLBAR_GROUP_LABEL_IDS,
+  DRAWING_TOOLS,
+  getDrawingToolbarGroup,
+  isFreehandTool,
+  isPathTool,
+  isTextDrawingTool,
+} from '../drawings/model';
+
+import type { IDrawingTool, IDrawingToolbarGroup } from '../drawings/model';
+import type { IChartDrawingsController } from '../drawings/useChartDrawings';
+
+type IIconName = keyof typeof TRADING_VIEW_DRAWING_ICONS;
+function DrawingScrollView(props: IScrollViewProps) {
+  const { gestures: headerScrollGestures } = useContext(
+    HeaderScrollGestureContext,
+  );
+  const scrollGesture = useMemo(
+    () =>
+      Gesture.Native()
+        .shouldCancelWhenOutside(false)
+        .disallowInterruption(true)
+        .blocksExternalGesture(...headerScrollGestures),
+    [headerScrollGestures],
+  );
+  const scrollView = (
+    <GestureDetector gesture={scrollGesture}>
+      <ScrollView flex={1} {...props} />
+    </GestureDetector>
+  );
+  // Android's ancestor native ScrollView can intercept before RNGH activates.
+  return platformEnv.isNativeAndroid ? (
+    <ScrollGuard direction={ScrollGuardDirection.VERTICAL} style={{ flex: 1 }}>
+      {scrollView}
+    </ScrollGuard>
+  ) : (
+    scrollView
+  );
+}
+
+function DrawingIcon({ name, active }: { name: IIconName; active?: boolean }) {
+  const theme = useTheme();
+  return (
+    <SvgXml
+      xml={TRADING_VIEW_DRAWING_ICONS[name]}
+      width={name === 'chevron' ? 8 : 24}
+      height={name === 'chevron' ? 14 : 24}
+      color={active ? '#2962ff' : theme.text.val}
+    />
+  );
+}
+function DrawingButton({
+  icon,
+  label,
+  testID,
+  active,
+  disabled,
+  onPress,
+}: {
+  icon: IIconName;
+  label: string;
+  testID: string;
+  active?: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Stack
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active, disabled }}
+      width={40}
+      minHeight={40}
+      alignItems="center"
+      justifyContent="center"
+      borderRadius="$2"
+      bg={active ? '$bgActive' : undefined}
+      opacity={disabled ? 0.3 : 1}
+      onPress={disabled ? undefined : onPress}
+    >
+      <DrawingIcon name={icon} active={active} />
+    </Stack>
+  );
+}
+
+function EditField({
+  label,
+  value,
+  onSave,
+  disabled,
+  testID,
+  multiline = false,
+}: {
+  label: string;
+  value: string;
+  onSave: (value: string) => void;
+  disabled: boolean;
+  testID: string;
+  multiline?: boolean;
+}) {
+  const [text, setText] = useState(value);
+  return (
+    <YStack gap="$1">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {label}
+      </SizableText>
+      <Input
+        testID={testID}
+        accessibilityLabel={label}
+        value={text}
+        onChangeText={setText}
+        disabled={disabled}
+        multiline={multiline}
+        maxLength={multiline ? 500 : undefined}
+        minHeight={multiline ? 96 : undefined}
+        textAlignVertical={multiline ? 'top' : undefined}
+        autoCorrect={false}
+        autoCapitalize="none"
+        onEndEditing={() => {
+          if (text !== value) onSave(text);
+        }}
+      />
+    </YStack>
+  );
+}
+
+export function NativeDrawingToolbar({
+  controller,
+}: {
+  controller: IChartDrawingsController;
+}) {
+  const intl = useIntl();
+  const { state } = controller;
+  const [collapsed, setCollapsed] = useState(false);
+  const [group, setGroup] = useState<IDrawingToolbarGroup | null>(null);
+  const [settings, setSettings] = useState(false);
+  useEffect(() => {
+    if (state.editingCoordinates) setSettings(true);
+  }, [state.editingCoordinates, state.selectedId]);
+  const selected = state.history.present.find(
+    (drawing) => drawing.id === state.selectedId,
+  );
+  const selectedIndex = state.history.present.findIndex(
+    (drawing) => drawing.id === state.selectedId,
+  );
+  const style = selected ?? state.style;
+  const activeTool = selected?.tool ?? state.tool;
+  const hasText = isTextDrawingTool(activeTool);
+  const hasLine = activeTool !== 'text' && activeTool !== 'priceLabel';
+  const disabled =
+    !state.ready || Boolean(selected && (selected.locked || state.locked));
+  const groups = DRAWING_TOOLBAR_GROUPS;
+  const open = Boolean(group || state.panel || settings);
+  const close = () => {
+    setGroup(null);
+    setSettings(false);
+    if (state.panel) controller.togglePanel(state.panel);
+  };
+  const toolLabel = (tool: IDrawingTool) =>
+    intl.formatMessage({ id: DRAWING_TOOLS[tool].labelId });
+  const groupLabel = (name: IDrawingToolbarGroup) =>
+    intl.formatMessage({ id: DRAWING_TOOLBAR_GROUP_LABEL_IDS[name] });
+  let panelTitle = intl.formatMessage({
+    id:
+      state.panel === 'objects'
+        ? ETranslations.market_drawing_object_tree__title
+        : ETranslations.market_drawing_data_window__title,
+  });
+  if (settings)
+    panelTitle = intl.formatMessage({
+      id: ETranslations.market_drawing_drawing_settings__title,
+    });
+  if (group) panelTitle = groupLabel(group);
+  const data = state.data;
+  const date = data ? new Date(data.time * 1000).toISOString() : null;
+  return (
+    <>
+      <YStack
+        width={collapsed ? 24 : 42}
+        minHeight={0}
+        bg="$bgApp"
+        borderRightWidth={1}
+        borderColor="$borderSubdued"
+        testID="native-drawing-toolbar"
+      >
+        {!collapsed ? (
+          <DrawingScrollView
+            testID="native-drawing-toolbar-scroll"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ alignItems: 'center' }}
+          >
+            <DrawingButton
+              icon="cursor"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_cursor__title,
+              })}
+              testID="native-drawing-cursor"
+              active={state.tool === 'cursor'}
+              onPress={() => {
+                controller.selectTool('cursor');
+                close();
+              }}
+            />
+            {groups.map((name) => {
+              const tool =
+                (Object.keys(DRAWING_TOOLS) as IDrawingTool[]).find(
+                  (key) => getDrawingToolbarGroup(key) === name,
+                ) ?? 'trend';
+              return (
+                <DrawingButton
+                  key={name}
+                  icon={tool}
+                  label={groupLabel(name)}
+                  testID={`native-drawing-group-${name}`}
+                  active={
+                    state.tool !== 'cursor' &&
+                    getDrawingToolbarGroup(state.tool) === name
+                  }
+                  disabled={!state.ready}
+                  onPress={() => {
+                    close();
+                    setGroup(name);
+                  }}
+                />
+              );
+            })}
+            <DrawingButton
+              icon="objects"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_object_tree__title,
+              })}
+              testID="native-drawing-objects"
+              active={state.panel === 'objects'}
+              onPress={() => {
+                setGroup(null);
+                setSettings(false);
+                controller.togglePanel('objects');
+              }}
+            />
+            <DrawingButton
+              icon="data"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_data_window__title,
+              })}
+              testID="native-drawing-data"
+              active={state.panel === 'data'}
+              onPress={() => {
+                setGroup(null);
+                setSettings(false);
+                controller.togglePanel('data');
+              }}
+            />
+            <DrawingButton
+              icon="magnet"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_magnet_mode__title,
+              })}
+              testID="native-drawing-magnet"
+              active={state.magnet}
+              onPress={() => controller.toggle('magnet')}
+            />
+            <DrawingButton
+              icon="stay"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_stay_in_drawing_mode__title,
+              })}
+              testID="native-drawing-stay"
+              active={state.stayInDrawingMode}
+              onPress={() => controller.toggle('stayInDrawingMode')}
+            />
+            <DrawingButton
+              icon={state.locked ? 'lock' : 'unlock'}
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_lock_all_drawings__action,
+              })}
+              testID="native-drawing-lock-all"
+              active={state.locked}
+              onPress={() => controller.toggle('locked')}
+            />
+            <DrawingButton
+              icon={state.hidden ? 'show' : 'hide'}
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_hide_drawings__action,
+              })}
+              testID="native-drawing-hide-all"
+              active={state.hidden}
+              onPress={() => controller.toggle('hidden')}
+            />
+            <DrawingButton
+              icon="undo"
+              label={intl.formatMessage({ id: ETranslations.menu_undo })}
+              testID="native-drawing-undo"
+              disabled={!state.history.past.length}
+              onPress={() => controller.historyAction('undo')}
+            />
+            <DrawingButton
+              icon="redo"
+              label={intl.formatMessage({ id: ETranslations.menu_redo })}
+              testID="native-drawing-redo"
+              disabled={!state.history.future.length}
+              onPress={() => controller.historyAction('redo')}
+            />
+            <DrawingButton
+              icon="delete"
+              label={intl.formatMessage({
+                id: ETranslations.market_drawing_remove_unlocked_drawings__action,
+              })}
+              testID="native-drawing-clear"
+              disabled={
+                state.locked ||
+                !state.history.present.some((drawing) => !drawing.locked)
+              }
+              onPress={controller.clear}
+            />
+          </DrawingScrollView>
+        ) : (
+          <Stack flex={1} />
+        )}
+        <Stack
+          testID="native-drawing-collapse"
+          accessibilityRole="button"
+          accessibilityLabel={intl.formatMessage({
+            id: collapsed
+              ? ETranslations.global_expand
+              : ETranslations.global_collapse,
+          })}
+          alignItems="center"
+          justifyContent="center"
+          height={40}
+          onPress={() => {
+            setCollapsed(!collapsed);
+            close();
+          }}
+        >
+          <Stack rotate={collapsed ? '0deg' : '180deg'}>
+            <DrawingIcon name="chevron" />
+          </Stack>
+        </Stack>
+      </YStack>
+      {!open && (selected || state.tool !== 'cursor') && !state.hidden ? (
+        <XStack
+          position="absolute"
+          top={4}
+          left={collapsed ? 28 : 46}
+          right={4}
+          zIndex={5}
+          bg="$bgApp"
+          borderWidth={1}
+          borderColor="$borderSubdued"
+          borderRadius="$2"
+          alignItems="center"
+          px="$1"
+        >
+          <Button
+            testID="native-drawing-settings"
+            size="small"
+            variant="tertiary"
+            flex={1}
+            onPress={() => setSettings(true)}
+          >
+            {intl.formatMessage({ id: ETranslations.global_settings })}
+          </Button>
+          {selected ? (
+            <>
+              <DrawingButton
+                icon={selected.locked ? 'lock' : 'unlock'}
+                label={intl.formatMessage({
+                  id: selected.locked
+                    ? ETranslations.market_drawing_unlock_drawing__action
+                    : ETranslations.market_drawing_lock_drawing__action,
+                })}
+                testID="native-drawing-lock"
+                active={selected.locked}
+                disabled={state.locked}
+                onPress={controller.toggleSelectedLock}
+              />
+              <DrawingButton
+                icon="delete"
+                label={intl.formatMessage({
+                  id: ETranslations.market_drawing_delete_drawing__action,
+                })}
+                testID="native-drawing-delete"
+                disabled={disabled}
+                onPress={controller.removeSelected}
+              />
+            </>
+          ) : null}
+          <Button
+            testID="native-drawing-done"
+            size="small"
+            variant="tertiary"
+            onPress={() => controller.selectTool('cursor')}
+          >
+            {intl.formatMessage({ id: ETranslations.global_done })}
+          </Button>
+        </XStack>
+      ) : null}
+      {open ? (
+        <YStack
+          position="absolute"
+          top={!group && !settings && state.panel === 'data' ? '50%' : 4}
+          left={collapsed ? 28 : 46}
+          right={4}
+          bottom={4}
+          zIndex={10}
+          bg="$bgApp"
+          borderWidth={1}
+          borderColor="$borderSubdued"
+          borderRadius="$3"
+          testID="native-drawing-panel"
+        >
+          <XStack
+            alignItems="center"
+            justifyContent="space-between"
+            px="$3"
+            minHeight={44}
+            borderBottomWidth={1}
+            borderColor="$borderSubdued"
+          >
+            <SizableText size="$bodyMdMedium">{panelTitle}</SizableText>
+            <Button
+              testID="native-drawing-panel-close"
+              size="small"
+              variant="tertiary"
+              onPress={close}
+            >
+              {intl.formatMessage({ id: ETranslations.global_done })}
+            </Button>
+          </XStack>
+          <DrawingScrollView
+            testID="native-drawing-panel-scroll"
+            keyboardShouldPersistTaps="handled"
+          >
+            {group ? (
+              <YStack p="$2">
+                {(Object.keys(DRAWING_TOOLS) as IDrawingTool[])
+                  .filter((tool) => getDrawingToolbarGroup(tool) === group)
+                  .map((tool) => (
+                    <XStack
+                      key={tool}
+                      testID={`native-drawing-tool-${tool}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={toolLabel(tool)}
+                      accessibilityState={{ selected: state.tool === tool }}
+                      minHeight={44}
+                      px="$2"
+                      gap="$3"
+                      alignItems="center"
+                      bg={state.tool === tool ? '$bgActive' : undefined}
+                      onPress={() => {
+                        controller.selectTool(tool);
+                        setGroup(null);
+                      }}
+                    >
+                      <DrawingIcon name={tool} active={state.tool === tool} />
+                      <SizableText size="$bodyMd">
+                        {toolLabel(tool)}
+                      </SizableText>
+                    </XStack>
+                  ))}
+              </YStack>
+            ) : null}
+            {!group && !settings && state.panel === 'objects' ? (
+              <YStack p="$2" gap="$1">
+                {[...state.history.present].toReversed().map((drawing) => (
+                  <XStack
+                    key={drawing.id}
+                    alignItems="center"
+                    bg={
+                      state.selectedIds.includes(drawing.id)
+                        ? '$bgActive'
+                        : undefined
+                    }
+                  >
+                    <XStack
+                      testID={`native-drawing-object-${drawing.id}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={intl.formatMessage(
+                        {
+                          id: ETranslations.market_drawing_select_name__action,
+                        },
+                        { name: drawing.name ?? toolLabel(drawing.tool) },
+                      )}
+                      flex={1}
+                      minWidth={0}
+                      minHeight={44}
+                      gap="$2"
+                      alignItems="center"
+                      onPress={() => controller.selectDrawing(drawing.id)}
+                    >
+                      <DrawingIcon name={drawing.tool} />
+                      <SizableText
+                        numberOfLines={1}
+                        size="$bodySm"
+                        flex={1}
+                        opacity={drawing.hidden ? 0.5 : 1}
+                      >
+                        {drawing.name || toolLabel(drawing.tool)}
+                      </SizableText>
+                    </XStack>
+                    <DrawingButton
+                      icon={drawing.hidden ? 'show' : 'hide'}
+                      label={intl.formatMessage({
+                        id: ETranslations.market_drawing_toggle_visibility__action,
+                      })}
+                      testID={`native-drawing-visibility-${drawing.id}`}
+                      onPress={() =>
+                        controller.updateDrawing(drawing.id, {
+                          hidden: !drawing.hidden,
+                        })
+                      }
+                    />
+                    <DrawingButton
+                      icon={drawing.locked ? 'lock' : 'unlock'}
+                      label={intl.formatMessage({
+                        id: ETranslations.market_drawing_toggle_lock__action,
+                      })}
+                      testID={`native-drawing-lock-${drawing.id}`}
+                      disabled={state.locked}
+                      onPress={() =>
+                        controller.updateDrawing(drawing.id, {
+                          locked: !drawing.locked,
+                        })
+                      }
+                    />
+                  </XStack>
+                ))}
+                {!state.history.present.length ? (
+                  <SizableText p="$3" size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.market_drawing_objects_empty__desc,
+                    })}
+                  </SizableText>
+                ) : null}
+                {selected ? (
+                  <YStack p="$2" gap="$2">
+                    <EditField
+                      key={`${selected.id}-name`}
+                      label={intl.formatMessage({
+                        id: ETranslations.market_drawing_object_name__title,
+                      })}
+                      value={selected.name ?? toolLabel(selected.tool)}
+                      testID="native-drawing-object-name"
+                      disabled={disabled}
+                      onSave={(name) =>
+                        controller.updateDrawing(selected.id, {
+                          name: name.slice(0, 100),
+                        })
+                      }
+                    />
+                    <XStack gap="$2">
+                      <Button
+                        testID="native-drawing-forward"
+                        size="small"
+                        flex={1}
+                        disabled={
+                          disabled ||
+                          selectedIndex === state.history.present.length - 1
+                        }
+                        onPress={() =>
+                          controller.reorderDrawing(selected.id, 1)
+                        }
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.market_drawing_bring_forward__action,
+                        })}
+                      </Button>
+                      <Button
+                        testID="native-drawing-backward"
+                        size="small"
+                        flex={1}
+                        disabled={disabled || selectedIndex === 0}
+                        onPress={() =>
+                          controller.reorderDrawing(selected.id, -1)
+                        }
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.market_drawing_send_backward__action,
+                        })}
+                      </Button>
+                    </XStack>
+                    <XStack gap="$2">
+                      <Button
+                        testID="native-drawing-object-edit"
+                        size="small"
+                        flex={1}
+                        onPress={() => {
+                          controller.togglePanel('objects');
+                          setSettings(true);
+                        }}
+                      >
+                        {intl.formatMessage({ id: ETranslations.global_edit })}
+                      </Button>
+                      <Button
+                        testID="native-drawing-object-delete"
+                        size="small"
+                        flex={1}
+                        disabled={disabled}
+                        onPress={controller.removeSelected}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_delete,
+                        })}
+                      </Button>
+                    </XStack>
+                  </YStack>
+                ) : null}
+              </YStack>
+            ) : null}
+            {!group && !settings && state.panel === 'data' ? (
+              <YStack p="$3" gap="$3">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {date
+                    ? `${date.slice(0, 10)} ${date.slice(11, 19)} UTC`
+                    : intl.formatMessage({
+                        id: ETranslations.market_drawing_data_loading__desc,
+                      })}
+                </SizableText>
+                {data?.groups.map((section, index) => (
+                  <YStack key={`${section.name}-${index}`} gap="$1">
+                    <SizableText size="$bodySmMedium">
+                      {section.labelId
+                        ? intl.formatMessage({ id: section.labelId })
+                        : section.name}
+                    </SizableText>
+                    {section.rows.map((row) => (
+                      <XStack
+                        key={row.name}
+                        justifyContent="space-between"
+                        gap="$2"
+                      >
+                        <SizableText size="$bodySm" color="$textSubdued">
+                          {row.labelId
+                            ? intl.formatMessage({ id: row.labelId })
+                            : row.name}
+                        </SizableText>
+                        <SizableText
+                          testID={`native-drawing-data-${row.name}`}
+                          size="$bodySm"
+                        >
+                          {row.value !== null && Number.isFinite(row.value)
+                            ? Number(row.value.toPrecision(10)).toString()
+                            : '—'}
+                        </SizableText>
+                      </XStack>
+                    ))}
+                  </YStack>
+                ))}
+              </YStack>
+            ) : null}
+            {settings ? (
+              <YStack p="$3" gap="$3">
+                {selected &&
+                isTextDrawingTool(selected.tool) &&
+                selected.tool !== 'priceLabel' ? (
+                  <EditField
+                    key={`${selected.id}-text-${selected.text ?? ''}`}
+                    label={intl.formatMessage({
+                      id: ETranslations.market_drawing_content__title,
+                    })}
+                    value={
+                      selected.text ??
+                      intl.formatMessage({
+                        id: ETranslations.market_drawing_tool_text__title,
+                      })
+                    }
+                    testID="native-drawing-text"
+                    disabled={disabled}
+                    multiline
+                    onSave={(text) =>
+                      controller.changeStyle({ text: text.slice(0, 500) })
+                    }
+                  />
+                ) : null}
+                <SizableText size="$bodySmMedium">
+                  {intl.formatMessage({
+                    id: hasText
+                      ? ETranslations.market_drawing_text_color__title
+                      : ETranslations.market_drawing_color__title,
+                  })}
+                </SizableText>
+                <XStack flexWrap="wrap" gap="$2">
+                  {[
+                    '#2962FF',
+                    '#F23645',
+                    '#089981',
+                    '#FF9800',
+                    '#9C27B0',
+                    '#787B86',
+                    '#000000',
+                    '#FFFFFF',
+                  ].map((color) => (
+                    <Stack
+                      key={color}
+                      testID={`native-drawing-color-${color.slice(1)}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={color}
+                      width={32}
+                      height={32}
+                      borderRadius="$2"
+                      bg={color}
+                      borderWidth={
+                        (hasText
+                          ? (style.textColor ??
+                            (activeTool === 'text' ? style.color : '#FFFFFF'))
+                          : style.color) === color
+                          ? 3
+                          : 1
+                      }
+                      borderColor="$borderStrong"
+                      opacity={disabled ? 0.3 : 1}
+                      onPress={
+                        disabled
+                          ? undefined
+                          : () =>
+                              controller.changeStyle(
+                                hasText ? { textColor: color } : { color },
+                              )
+                      }
+                    />
+                  ))}
+                </XStack>
+                {hasText ? (
+                  <>
+                    <SizableText size="$bodySmMedium">
+                      {intl.formatMessage({
+                        id: ETranslations.market_drawing_font_size__title,
+                      })}
+                    </SizableText>
+                    <XStack gap="$2" flexWrap="wrap">
+                      {DRAWING_FONT_SIZES.map((fontSize) => (
+                        <Button
+                          key={fontSize}
+                          testID={`native-drawing-font-size-${fontSize}`}
+                          accessibilityLabel={intl.formatMessage(
+                            {
+                              id: ETranslations.market_drawing_font_size_size__title,
+                            },
+                            { size: fontSize },
+                          )}
+                          accessibilityState={{
+                            selected:
+                              (style.fontSize ?? DEFAULT_DRAWING_FONT_SIZE) ===
+                              fontSize,
+                            disabled,
+                          }}
+                          size="small"
+                          variant={
+                            (style.fontSize ?? DEFAULT_DRAWING_FONT_SIZE) ===
+                            fontSize
+                              ? 'primary'
+                              : 'secondary'
+                          }
+                          disabled={disabled}
+                          onPress={() => controller.changeStyle({ fontSize })}
+                        >
+                          {fontSize}
+                        </Button>
+                      ))}
+                    </XStack>
+                  </>
+                ) : null}
+                {hasLine ? (
+                  <>
+                    <SizableText size="$bodySmMedium">
+                      {intl.formatMessage({
+                        id: hasText
+                          ? ETranslations.market_drawing_border_width__title
+                          : ETranslations.market_drawing_line_width__title,
+                      })}
+                    </SizableText>
+                    <XStack gap="$2">
+                      {[1, 2, 3, 4].map((width) => (
+                        <Button
+                          key={width}
+                          testID={`native-drawing-width-${width}`}
+                          flex={1}
+                          size="small"
+                          variant={
+                            style.width === width ? 'primary' : 'secondary'
+                          }
+                          disabled={disabled}
+                          onPress={() => controller.changeStyle({ width })}
+                        >
+                          {width}
+                        </Button>
+                      ))}
+                    </XStack>
+                    <XStack gap="$2">
+                      {(['solid', 'dashed', 'dotted'] as const).map((dash) => (
+                        <Button
+                          key={dash}
+                          testID={`native-drawing-style-${dash}`}
+                          flex={1}
+                          size="small"
+                          variant={
+                            style.dash === dash ? 'primary' : 'secondary'
+                          }
+                          disabled={disabled}
+                          onPress={() => controller.changeStyle({ dash })}
+                        >
+                          {intl.formatMessage({
+                            id: DRAWING_DASH_LABEL_IDS[dash],
+                          })}
+                        </Button>
+                      ))}
+                    </XStack>
+                  </>
+                ) : null}
+                <DrawingStyleOptions
+                  tool={activeTool}
+                  style={style}
+                  disabled={disabled}
+                  onChange={controller.changeStyle}
+                />
+                {hasText && selected ? (
+                  <SizableText
+                    size="$bodySmMedium"
+                    borderTopWidth={1}
+                    borderColor="$borderSubdued"
+                    pt="$3"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.market_drawing_position__title,
+                    })}
+                  </SizableText>
+                ) : null}
+                {selected?.anchor ? (
+                  <DrawingAnchorFields
+                    anchor={selected.anchor}
+                    disabled={disabled}
+                    onChange={controller.editAnchor}
+                  />
+                ) : null}
+                {selected?.points
+                  .map((point, index) => ({ point, index }))
+                  .filter(
+                    ({ index }) =>
+                      !selected.anchor &&
+                      (!isFreehandTool(selected.tool) ||
+                        index === 0 ||
+                        index === selected.points.length - 1),
+                  )
+                  .map(({ point, index }) => (
+                    <YStack key={`${selected.id}-${index}`} gap="$2">
+                      <EditField
+                        key={point.price}
+                        label={intl.formatMessage(
+                          {
+                            id: ETranslations.market_drawing_point_index_price__title,
+                          },
+                          { index: index + 1 },
+                        )}
+                        value={String(point.price)}
+                        testID={`native-drawing-price-${index}`}
+                        disabled={disabled}
+                        onSave={(price) => {
+                          if (price.trim())
+                            controller.editPoint(index, {
+                              price: Number(price),
+                            });
+                        }}
+                      />
+                      <EditField
+                        key={point.time}
+                        label={intl.formatMessage(
+                          {
+                            id: ETranslations.market_drawing_point_index_time_utc__title,
+                          },
+                          { index: index + 1 },
+                        )}
+                        value={new Date(point.time * 1000).toISOString()}
+                        testID={`native-drawing-time-${index}`}
+                        disabled={disabled}
+                        onSave={(time) =>
+                          controller.editPoint(index, {
+                            time: Date.parse(time) / 1000,
+                          })
+                        }
+                      />
+                    </YStack>
+                  ))}
+              </YStack>
+            ) : null}
+          </DrawingScrollView>
+        </YStack>
+      ) : null}
+      {state.saveFailed ? (
+        <Stack
+          position="absolute"
+          left={46}
+          right={4}
+          bottom={30}
+          zIndex={5}
+          bg="$bgApp"
+          p="$2"
+        >
+          <SizableText size="$bodySm" color="$textCritical">
+            {intl.formatMessage({
+              id: ETranslations.market_drawing_save_failed__msg,
+            })}
+          </SizableText>
+        </Stack>
+      ) : null}
+      {state.draft && isPathTool(state.draft.drawing.tool) ? (
+        <Button
+          testID="native-drawing-finish"
+          position="absolute"
+          left={48}
+          bottom={52}
+          size="small"
+          onPress={controller.finishPath}
+          disabled={
+            state.draft.anchors.length <
+            DRAWING_TOOLS[state.draft.drawing.tool].points
+          }
+        >
+          {intl.formatMessage({
+            id: ETranslations.market_drawing_finish_drawing__action,
+          })}
+        </Button>
+      ) : null}
+    </>
+  );
+}

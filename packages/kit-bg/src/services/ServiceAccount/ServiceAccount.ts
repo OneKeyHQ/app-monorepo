@@ -88,14 +88,22 @@ import {
   DeviceNotOpenedPassphrase,
   DeviceNotSame,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
-import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ThirdPartyDeviceMismatch } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyHardwareErrorPayload,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  canBuildHwWalletXfp,
+  getVendorProfile,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -123,14 +131,8 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import {
-  prefixOf,
-  swrCacheNamespaces,
-  swrCacheUtils,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
@@ -142,6 +144,7 @@ import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 import type { IBotWalletMetadata } from '@onekeyhq/shared/types/botWallet';
 import type {
   IDeviceSharedCallParams,
+  IHardwareOperationContext,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 import {
@@ -197,7 +200,14 @@ import {
   indexedAccountAddressCreationStateAtom,
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
-import { verifySeedMatch as verifyLedgerSeedMatch } from '../../vaults/base/ledgerFingerprintUtils';
+import {
+  hasStoredLedgerChainFingerprint,
+  verifySeedMatch as verifyLedgerSeedMatch,
+} from '../../vaults/base/ledgerFingerprintUtils';
+import {
+  thirdPartyConnectionContextFromDevice,
+  withHardwareOperationContext,
+} from '../../vaults/base/thirdPartyHardwareCommonParams';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -264,6 +274,7 @@ export type IAddHDOrHWAccountsParams = {
   hdCredentialCacheScopeId?: string;
   // auto multi-network fill scene flag (business derived from it, not passed in)
   isAutoCreateMultiNetwork?: boolean;
+  hardwareOperationContext?: IHardwareOperationContext;
   oneKeyOperationLease?: IOneKeyHardwareOperationLease;
 
   // purpose?: number;
@@ -320,7 +331,8 @@ class ServiceAccount extends ServiceBase {
         : undefined;
     const featureVendor =
       rawFeatureVendor === EHardwareVendor.ledger ||
-      rawFeatureVendor === EHardwareVendor.trezor
+      rawFeatureVendor === EHardwareVendor.trezor ||
+      rawFeatureVendor === EHardwareVendor.keystone
         ? rawFeatureVendor
         : undefined;
     const resolvedVendor = vendor ?? featureVendor ?? EHardwareVendor.onekey;
@@ -337,75 +349,34 @@ class ServiceAccount extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
 
-    // SWR cache invalidation. Mutation events have no payload, so we drop
-    // every entry in the affected namespace by prefix. Subsequent UI mounts
-    // read an empty MMKV slot and the fetcher repopulates with fresh data —
-    // avoids painting deleted wallets / stale section data when the mutation
-    // happened while the consumer wasn't mounted.
-    //
-    // flushNow forces the cleared snapshot into MMKV synchronously instead
-    // of waiting on scheduleFlush's 2s debounce. Mutations are low-frequency
-    // and the extra write is worth it: a force-kill (task-manager swipe,
-    // watchdog) between the bg drop and AppState's background flush would
-    // otherwise leave deleted wallets in the MMKV blob and resurrect them
-    // on the next cold open.
-    const dropWalletListSwr = () =>
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.walletListSideBar),
-      );
-    const dropAccountSelectorListSwr = () =>
-      swrCacheUtils.removeByPrefix(
-        prefixOf(swrCacheNamespaces.accountSelectorList),
-      );
-
+    // SWR cache invalidation is NOT done here. These namespaces hold what a
+    // screen last displayed, they are written by the UI runtime's hooks, and
+    // that runtime receives the same mutation events — so it drops them
+    // itself (`kit/src/utils/swrCacheMutationInvalidation.ts`). Dropping them
+    // from bg made one namespace's file have two writers with no lock between
+    // the runtimes, and the announcement bg had to send so the UI would stop
+    // serving the value could be answered by the runtime that performed the
+    // delete, which with two foregrounds open looped between them.
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
       void this.clearAccountCache();
-      // sidebar also depends on accounts via ignoreEmptySingletonWalletAccounts
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
       void this.clearAccountCache();
-      // sidebar doesn't show account names, only the right-panel sectionData does
-      dropAccountSelectorListSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      swrCacheUtils.flushNow();
     });
-    // Defensive WalletClear handler. ServiceE2E.clearWalletsAndAccounts
-    // currently calls swrCacheUtils.clearAll() before emitting this event,
-    // so the drop here is redundant for the existing emitter — but it makes
-    // the contract explicit, so future emitters (logout flow, alternative
-    // reset paths) inherit the invalidation without having to remember the
-    // call-site dance.
     appEventBus.on(EAppEventBusNames.WalletClear, () => {
       void this.clearAccountCache();
-      dropWalletListSwr();
-      dropAccountSelectorListSwr();
-      swrCacheUtils.flushNow();
     });
     // Drop derived-address / xpub memoizee caches on critical memory
     // pressure. These caches are the cheapest to rebuild (one BIP32
@@ -721,6 +692,12 @@ class ServiceAccount extends ServiceBase {
     let allDevices: IDBDevice[] | undefined;
     if (params.refillWalletInfo) {
       allDevices = (await this.getAllDevices()).devices;
+      // Keep newer-version records in storage while hiding hardware vendors
+      // that this app cannot safely refill or operate.
+      wallets = localDb.filterWalletsByHardwareVendorSupport({
+        wallets,
+        allDevices,
+      });
       const refilledWalletsCache: {
         [walletId: string]: IDBWallet;
       } = {};
@@ -1157,6 +1134,7 @@ class ServiceAccount extends ServiceBase {
     customReceiveAddressPath,
     hdCredentialCacheScopeId,
     isAutoCreateMultiNetwork,
+    hardwareOperationContext,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -1170,6 +1148,7 @@ class ServiceAccount extends ServiceBase {
     customReceiveAddressPath?: string;
     hdCredentialCacheScopeId?: string;
     isAutoCreateMultiNetwork?: boolean;
+    hardwareOperationContext?: IHardwareOperationContext;
   }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
@@ -1228,11 +1207,15 @@ class ServiceAccount extends ServiceBase {
       | IPrepareHdAccountsParams
       | IPrepareHardwareAccountsParams;
     if (isHardware) {
+      const checkedDeviceParams = checkIsDefined(deviceParams);
       const hwParams: IPrepareHardwareAccountsParams = {
-        deviceParams: {
-          ...checkIsDefined(deviceParams),
-          confirmOnDevice,
-        },
+        deviceParams: withHardwareOperationContext(
+          {
+            ...checkedDeviceParams,
+            confirmOnDevice,
+          },
+          hardwareOperationContext,
+        ),
 
         indexes: usedIndexes,
         names,
@@ -1988,25 +1971,78 @@ class ServiceAccount extends ServiceBase {
       return false;
     }
 
-    // Check if the deleted wallet is in the address record's wallets
-    if (deletedInfo.walletId && addressRecord.wallets[deletedInfo.walletId]) {
-      return true;
+    const addressOwners = Object.entries(addressRecord.wallets);
+    const isDeletedOwner = ([walletId, accountOrIndexedAccountId]: [
+      string,
+      string,
+    ]) =>
+      Boolean(
+        (deletedInfo.walletId && walletId === deletedInfo.walletId) ||
+        (deletedInfo.accountId &&
+          accountOrIndexedAccountId === deletedInfo.accountId) ||
+        (deletedInfo.indexedAccountId &&
+          accountOrIndexedAccountId === deletedInfo.indexedAccountId),
+      );
+
+    if (!addressOwners.some(isDeletedOwner)) {
+      return false;
     }
 
-    // Check if any of the wallet values match deleted account/indexedAccount IDs
-    if (deletedInfo.accountId || deletedInfo.indexedAccountId) {
-      const walletValues = Object.values(addressRecord.wallets);
+    for (const [walletId, accountOrIndexedAccountId] of addressOwners) {
+      if (isDeletedOwner([walletId, accountOrIndexedAccountId])) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const wallet = await localDb.getWalletSafe({ walletId });
       if (
-        (deletedInfo.accountId &&
-          walletValues.includes(deletedInfo.accountId)) ||
-        (deletedInfo.indexedAccountId &&
-          walletValues.includes(deletedInfo.indexedAccountId))
+        !wallet ||
+        localDb.isTempWalletRemoved({ wallet }) ||
+        accountUtils.isWalletDeprecatedOrMocked(wallet)
       ) {
-        return true;
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const [account, indexedAccount] = await Promise.all([
+        localDb.getAccountSafe({ accountId: accountOrIndexedAccountId }),
+        localDb.getIndexedAccountSafe({ id: accountOrIndexedAccountId }),
+      ]);
+      if (account || indexedAccount) {
+        return false;
       }
     }
 
-    return false;
+    return true;
+  }
+
+  @backgroundMethod()
+  async removeHyperLiquidAgentCredentialsByUserAddresses({
+    userAddresses,
+  }: {
+    userAddresses: string[];
+  }): Promise<number> {
+    const normalizedUserAddresses = new Set(
+      userAddresses
+        .map((address) => address.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    if (!normalizedUserAddresses.size) {
+      return 0;
+    }
+
+    const allCredentials = await localDb.getAllHyperLiquidAgentCredentials();
+    const credentialsToDelete = allCredentials.filter((credential) => {
+      try {
+        return normalizedUserAddresses.has(
+          this.extractUserAddressFromCredentialId(credential.id).toLowerCase(),
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (credentialsToDelete.length) {
+      await localDb.removeCredentials({ credentials: credentialsToDelete });
+    }
+    return credentialsToDelete.length;
   }
 
   @backgroundMethod()
@@ -3298,7 +3334,9 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
     const result = await localDb.addHDNextIndexedAccount({ walletId });
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+      createdIndexedAccountIds: [result.indexedAccountId],
+    });
     return result;
   }
 
@@ -3346,7 +3384,9 @@ class ServiceAccount extends ServiceBase {
 
     if (!params.applyRestoreSyncPolicy) {
       if (!params.skipEventEmit) {
-        appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+        appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+          isAccountDataChanged: false,
+        });
       }
 
       if (oldName && name && oldName !== name) {
@@ -3385,7 +3425,9 @@ class ServiceAccount extends ServiceBase {
     const isNameChanged = oldName && latestName && oldName !== latestName;
 
     if (!params.skipEventEmit && isNameChanged) {
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+        isAccountDataChanged: false,
+      });
     }
 
     if (isNameChanged) {
@@ -3473,7 +3515,9 @@ class ServiceAccount extends ServiceBase {
       }
     }
     if (!params.skipEventEmit && isAccountNameChanged) {
-      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+        isAccountDataChanged: false,
+      });
     }
   }
 
@@ -3500,8 +3544,8 @@ class ServiceAccount extends ServiceBase {
     }
     const dbDevice = await this.getWalletDevice({ walletId });
 
-    // Ensure connectId is compatible for the current transport type
-    if (dbDevice.connectId) {
+    // Only OneKey resolves its transport through the legacy compatibility path.
+    if (dbDevice.connectId && !getVendorProfile(dbDevice.vendor).isThirdParty) {
       try {
         dbDevice.connectId =
           await this.backgroundApi.serviceHardware.getCompatibleConnectId({
@@ -3554,22 +3598,96 @@ class ServiceAccount extends ServiceBase {
   private async getFeaturesForHwWalletCreate({
     dbDevice,
     compatibleConnectId,
+    hardwareOperationContext,
   }: {
-    dbDevice: IDBDevice;
+    dbDevice: Pick<
+      IDBDevice,
+      'vendor' | 'deviceId' | 'deviceStateInfo' | 'featuresInfo'
+    >;
     compatibleConnectId: string;
+    hardwareOperationContext?: IHardwareOperationContext;
   }): Promise<IOneKeyDeviceFeatures> {
     let features: IOneKeyDeviceFeatures | undefined;
     const vendorProfile = getVendorProfile(
       dbDevice.vendor ?? EHardwareVendor.onekey,
     );
-    if (dbDevice.vendor && vendorProfile.isThirdParty) {
-      const connected =
-        await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
+    if (dbDevice.vendor === EHardwareVendor.trezor) {
+      const adapter =
+        await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
+          dbDevice.vendor,
+        );
+      if (!adapter?.hw.getFeatures) {
+        throw new OneKeyLocalError('Trezor device features are unavailable');
+      }
+      if (!dbDevice.deviceId) {
+        throw new ThirdPartyDeviceMismatch({
           vendor: dbDevice.vendor,
-          connectId: compatibleConnectId,
+          payload: {},
         });
-      if (connected.success) {
-        features = connected.payload.features as IOneKeyDeviceFeatures;
+      }
+      const operationId = hardwareOperationContext?.operationId;
+      const storedDevice = operationId
+        ? undefined
+        : await localDb.getDeviceByQuery({
+            featuresDeviceId: dbDevice.deviceId,
+            vendor: dbDevice.vendor,
+          });
+      // A selected operation owns its channel and lifetime. Without one, let
+      // the SDK discover and verify the device using the saved channel hints.
+      const result = await adapter.hw.getFeatures(
+        operationId || compatibleConnectId,
+        {
+          ...(operationId
+            ? { operationId }
+            : thirdPartyConnectionContextFromDevice(storedDevice ?? dbDevice)),
+          expectedDeviceIdentity: {
+            vendor: dbDevice.vendor,
+            type: 'deviceId',
+            value: dbDevice.deviceId,
+          },
+        },
+      );
+      if (!result.success) {
+        throw convertDeviceError(
+          result.payload as IOneKeyHardwareErrorPayload,
+          {
+            vendor: dbDevice.vendor,
+          },
+        );
+      }
+      if (result.payload.device_id !== dbDevice.deviceId) {
+        throw new ThirdPartyDeviceMismatch({
+          vendor: dbDevice.vendor,
+          payload: {},
+        });
+      }
+      features = result.payload as IOneKeyDeviceFeatures;
+    } else if (dbDevice.vendor && vendorProfile.isThirdParty) {
+      let operationId: string | undefined;
+      try {
+        const connected =
+          await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
+            vendor: dbDevice.vendor,
+            searchTargetId: compatibleConnectId,
+            deviceId: dbDevice.deviceId,
+          });
+        // Claim the interaction before any rejection below, so a mismatch
+        // throw cannot leave it held.
+        if (connected.success) {
+          operationId = connected.payload.operationId;
+        }
+        if (connected.success) {
+          features = connected.payload.features as IOneKeyDeviceFeatures;
+        }
+      } finally {
+        if (operationId) {
+          await this.backgroundApi.serviceThirdPartyHardware
+            .releaseOperation({
+              vendor: dbDevice.vendor,
+              operationId,
+            })
+            .catch(() => undefined);
+        }
       }
     } else {
       const persistedState = dbDevice.deviceStateInfo;
@@ -3645,13 +3763,15 @@ class ServiceAccount extends ServiceBase {
       storedConnectProtocol === 'V1' || storedConnectProtocol === 'V2'
         ? storedConnectProtocol
         : undefined;
-    const compatibleConnectId =
-      await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-        connectId,
-        featuresDeviceId: dbDevice.deviceId,
-        vendor: dbDevice.vendor,
-        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-      });
+    const hiddenWalletVendorProfile = getVendorProfile(dbDevice.vendor);
+    const compatibleConnectId = hiddenWalletVendorProfile.isThirdParty
+      ? connectId
+      : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+          connectId,
+          featuresDeviceId: dbDevice.deviceId,
+          vendor: dbDevice.vendor,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
 
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -3670,9 +3790,6 @@ class ServiceAccount extends ServiceBase {
         // since the protocol field was introduced.
         let seededDbDevice = dbDevice;
         let seededConnectProtocol = connectProtocol;
-        const hiddenWalletVendorProfile = getVendorProfile(
-          dbDevice.vendor ?? EHardwareVendor.onekey,
-        );
         if (
           !seededDbDevice.deviceStateInfo &&
           !hiddenWalletVendorProfile.isThirdParty &&
@@ -3709,6 +3826,15 @@ class ServiceAccount extends ServiceBase {
             seededConnectProtocol = seededState.protocol;
           }
         }
+
+        // Check identity before requesting the passphrase.
+        const trezorFeatures =
+          dbDevice.vendor === EHardwareVendor.trezor
+            ? await this.getFeaturesForHwWalletCreate({
+                dbDevice,
+                compatibleConnectId,
+              })
+            : undefined;
 
         const passphraseState = await getHwHiddenWalletPassphraseState({
           vendor: dbDevice.vendor,
@@ -3753,6 +3879,7 @@ class ServiceAccount extends ServiceBase {
           const postUnlockDbDevice =
             await this.backgroundApi.serviceHardware.getDeviceByConnectId({
               connectId,
+              featuresDeviceId: dbDevice.deviceId,
             });
           if (postUnlockDbDevice?.deviceStateInfo) {
             seededDbDevice = {
@@ -3763,10 +3890,12 @@ class ServiceAccount extends ServiceBase {
         }
 
         // TODO save remember states
-        const resolvedFeatures = await this.getFeaturesForHwWalletCreate({
-          dbDevice: seededDbDevice,
-          compatibleConnectId,
-        });
+        const resolvedFeatures =
+          trezorFeatures ||
+          (await this.getFeaturesForHwWalletCreate({
+            dbDevice: seededDbDevice,
+            compatibleConnectId,
+          }));
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(seededDbDevice),
           features: resolvedFeatures,
@@ -3816,6 +3945,7 @@ class ServiceAccount extends ServiceBase {
             const latestDbDevice =
               await this.backgroundApi.serviceHardware.getDeviceByConnectId({
                 connectId,
+                featuresDeviceId: dbDevice.deviceId,
               });
             const latestUnlockedAttachPin =
               latestDbDevice?.deviceStateInfo?.status?.unlockedAttachPin;
@@ -3869,7 +3999,7 @@ class ServiceAccount extends ServiceBase {
 
     // Persist the endpoint selected from the fused scan. The global setting is
     // only a fallback when the selected device has no transport metadata.
-    const transportType = resolveHwWalletTransportType({
+    const resolvedTransportType = resolveHwWalletTransportType({
       globalTransportType,
       deviceConnectionType: (
         params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
@@ -3879,6 +4009,7 @@ class ServiceAccount extends ServiceBase {
       isNative: !!platformEnv.isNative,
     });
 
+    const transportType = resolvedTransportType;
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.createHWWalletBase({
@@ -3887,9 +4018,19 @@ class ServiceAccount extends ServiceBase {
           transportType,
         }),
       {
-        deviceParams: {
-          dbDevice: params.device as IDBDevice,
-        },
+        deviceParams: withHardwareOperationContext(
+          {
+            dbDevice: {
+              ...params.device,
+              vendor: params.vendor ?? (params.device as IDBDevice).vendor,
+            } as IDBDevice,
+            deviceCommonParams: {
+              passphraseState: undefined,
+              useEmptyPassphrase: true,
+            },
+          },
+          params.hardwareOperationContext,
+        ),
         skipDeviceCancel: params.skipDeviceCancel,
         hideCheckingDeviceLoading: params.hideCheckingDeviceLoading,
         debugMethodName: 'createHWWalletBase',
@@ -3924,36 +4065,40 @@ class ServiceAccount extends ServiceBase {
         | EHardwareVendor
         | undefined);
     const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
-    const isUsbTransport =
-      transportType === EHardwareTransportType.WEBUSB ||
-      transportType === EHardwareTransportType.Bridge;
-    if (
-      vendorProfile?.isThirdParty &&
-      !params.device.connectId &&
-      !isUsbTransport
-    ) {
-      throw new OneKeyLocalError(
-        'createHWWalletBase ERROR: connectId is required for non-USB third-party hardware',
-      );
-    }
-
-    // Skip compatibility lookup for vendors without persistent USB connectId.
-    const compatibleConnectId =
-      vendorProfile?.isThirdParty &&
-      !vendorProfile.hasPersistentConnectId('usb')
-        ? (params.device.connectId ?? '')
-        : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
-            connectId: params.device.connectId ?? '',
-            featuresDeviceId: params.device.deviceId ?? '',
-            vendor,
-            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-          });
+    // Third-party adapters resolve transport hints and verify identity themselves.
+    // A saved device may only have per-transport locators, or none at all.
+    const compatibleConnectId = vendorProfile?.isThirdParty
+      ? (params.device.connectId ?? '')
+      : await this.backgroundApi.serviceHardware.getCompatibleConnectId({
+          connectId: params.device.connectId ?? '',
+          featuresDeviceId: params.device.deviceId ?? '',
+          vendor,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
+    const hardwareCallConnectId =
+      params.hardwareOperationContext?.operationId || compatibleConnectId;
 
     let deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
       features,
       isThirdParty: vendorProfile?.isThirdParty,
     });
+
+    if (
+      vendor === EHardwareVendor.trezor &&
+      !passphraseState &&
+      !isMockedStandardHwWallet
+    ) {
+      await this.getFeaturesForHwWalletCreate({
+        dbDevice: {
+          vendor,
+          deviceId: params.device.deviceId || deviceId,
+          featuresInfo: features,
+        },
+        compatibleConnectId,
+        hardwareOperationContext: params.hardwareOperationContext,
+      });
+    }
 
     const getDeviceStateForHwWalletCreate = (
       connectId: string,
@@ -4012,7 +4157,7 @@ class ServiceAccount extends ServiceBase {
     let xfp: string | undefined;
     if (fillingXfpByCallingSdk && !isMockedStandardHwWallet) {
       xfp = await this.backgroundApi.serviceHardware.buildHwWalletXfp({
-        connectId: compatibleConnectId,
+        connectId: hardwareCallConnectId,
         deviceId,
         passphraseState,
         throwError: true,
@@ -4034,32 +4179,39 @@ class ServiceAccount extends ServiceBase {
           error instanceof Error ? error.message : 'Unknown error',
         ),
     });
+    const {
+      hardwareOperationContext: _hardwareOperationContext,
+      ...localDbCreateParams
+    } = params;
     const result = await localDb.createHwWallet({
-      ...params,
+      ...localDbCreateParams,
       deviceState,
       vendor,
       xfp,
       passphraseState: passphraseState || '',
       getFirstEvmAddressFn: async (): Promise<string | null> => {
         return this.getFirstEvmAddressForHwWalletCreate({
-          compatibleConnectId,
+          compatibleConnectId: hardwareCallConnectId,
           deviceId,
           passphraseState,
           vendor,
           isMockedStandardHwWallet,
         });
       },
-      // Gated by vendor capability, not `vendor === ledger`, so a future vendor
-      // with the same non-persistent-identity connectId opts in via its profile
-      // instead of a new branch here.
-      verifySeedMatchFn: vendorProfile?.requiresSeedVerifyOnConnectIdMatch
-        ? async (matchedDevice) =>
-            verifyLedgerSeedMatch(
-              this.backgroundApi,
-              matchedDevice,
-              compatibleConnectId,
-            )
-        : undefined,
+      // Ledger's chain fingerprint is a vendor-specific identity check. A
+      // record with no fingerprint has nothing to compare, so it is reused.
+      verifySeedMatchFn:
+        vendorProfile?.identity.connectIdMatchVerification ===
+        'ledgerChainFingerprint'
+          ? async (matchedDevice) =>
+              hasStoredLedgerChainFingerprint(matchedDevice.settingsRaw)
+                ? verifyLedgerSeedMatch(
+                    this.backgroundApi,
+                    matchedDevice,
+                    hardwareCallConnectId,
+                  )
+                : 'match'
+          : undefined,
       transportType,
     });
     const deviceLabel = getStandardHwWalletLabelForNameSync({
@@ -5384,7 +5536,10 @@ class ServiceAccount extends ServiceBase {
     }
 
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-    appEventBus.emit(EAppEventBusNames.AccountRemove, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountRemove, {
+      accountId: account?.id,
+      indexedAccountId: indexedAccount?.id,
+    });
 
     // Cleanup orphaned HyperLiquid agent credentials
     void this.cleanupOrphanedHyperLiquidAgentCredentials({
@@ -5416,7 +5571,8 @@ class ServiceAccount extends ServiceBase {
     walletId,
     skipBackupWalletRemove,
     isRemoveToMocked,
-  }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>) {
+    removeSameDeviceWallets,
+  }: IDBRemoveWalletParams & { removeSameDeviceWallets?: boolean }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
     }
@@ -5426,26 +5582,51 @@ class ServiceAccount extends ServiceBase {
       );
     }
 
-    let wallet = await this.getWalletSafe({ walletId });
-    assertWalletCanUseGenericRemoval(wallet);
-
-    const shouldSkipUnavailableHardwareCheck =
-      accountUtils.isHwWallet({ walletId }) &&
-      accountUtils.isWalletDeprecatedOrMocked(wallet);
-    if (!shouldSkipUnavailableHardwareCheck) {
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
-        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+    let relatedWalletIds: string[] | undefined;
+    if (removeSameDeviceWallets) {
+      if (!accountUtils.isHwWallet({ walletId }) || isRemoveToMocked) {
+        throw new OneKeyLocalError('Only hardware wallets can forget a device');
+      }
+      const wallets = await this.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: true,
+        filterQrWallet: true,
       });
+      const device = wallets[walletId]?.device;
+      if (!device) {
+        throw new OneKeyLocalError('Hardware wallet device not found');
+      }
+      relatedWalletIds = Object.values(wallets)
+        .filter((item) => deviceUtils.isSamePhysicalDevice(item.device, device))
+        .map((item) => item.wallet.id)
+        .filter((id) => id !== walletId);
     }
 
-    wallet = await this.getWalletSafe({ walletId });
-    assertWalletCanUseGenericRemoval(wallet);
+    const walletIds = [walletId, ...(relatedWalletIds ?? [])];
+    // Complete every device/password check before starting the DB transaction.
+    for (const id of walletIds) {
+      const wallet = await this.getWalletSafe({ walletId: id });
+      assertWalletCanUseGenericRemoval(wallet);
+      const shouldSkipUnavailableHardwareCheck =
+        accountUtils.isHwWallet({ walletId: id }) &&
+        accountUtils.isWalletDeprecatedOrMocked(wallet);
+      if (!shouldSkipUnavailableHardwareCheck) {
+        await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+          walletId: id,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        });
+      }
+    }
+    for (const id of walletIds) {
+      assertWalletCanUseGenericRemoval(
+        await this.getWalletSafe({ walletId: id }),
+      );
+    }
 
     return this.removeWalletCore({
       walletId,
       skipBackupWalletRemove,
       isRemoveToMocked,
+      relatedWalletIds,
     });
   }
 
@@ -5586,7 +5767,8 @@ class ServiceAccount extends ServiceBase {
     walletId,
     skipBackupWalletRemove,
     isRemoveToMocked,
-  }: Omit<IDBRemoveWalletParams, 'password' | 'isHardware'>): Promise<void> {
+    relatedWalletIds,
+  }: IDBRemoveWalletParams & { relatedWalletIds?: string[] }): Promise<void> {
     const isBotWallet = accountUtils.isBotWallet({ walletId });
     // OK-53558: capture bot wallet metadata before localDb.removeWallet so we
     // can push a deletion tombstone with the original payload after removal.
@@ -5594,10 +5776,10 @@ class ServiceAccount extends ServiceBase {
       ? await simpleDb.botWallet.getMetadata(walletId)
       : undefined;
 
-    const result = await localDb.removeWallet({
-      walletId,
-      isRemoveToMocked,
-    });
+    const walletIds = [walletId, ...(relatedWalletIds ?? [])];
+    const result = relatedWalletIds?.length
+      ? await localDb.removeWallets({ walletIds, isRemoveToMocked })
+      : await localDb.removeWallet({ walletId, isRemoveToMocked });
     if (isBotWallet) {
       await this.cleanupRemovedBotWalletCloudSyncState({
         walletId,
@@ -5612,19 +5794,31 @@ class ServiceAccount extends ServiceBase {
       await timerUtils.wait(1500);
     }
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-    await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
-      walletId,
-    });
+    for (const id of walletIds) {
+      try {
+        await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove(
+          {
+            walletId: id,
+          },
+        );
+      } catch (error) {
+        // Wallet deletion has committed; continue the remaining cleanup.
+        console.error(
+          'Failed to cleanup DApp connections after wallet removal:',
+          error,
+        );
+      }
 
-    // Cleanup orphaned HyperLiquid agent credentials
-    void this.cleanupOrphanedHyperLiquidAgentCredentials({
-      walletId,
-    });
-
-    if (!skipBackupWalletRemove) {
-      void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
-        walletId,
+      // Cleanup orphaned HyperLiquid agent credentials
+      void this.cleanupOrphanedHyperLiquidAgentCredentials({
+        walletId: id,
       });
+
+      if (!skipBackupWalletRemove) {
+        void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
+          walletId: id,
+        });
+      }
     }
     return result;
   }
@@ -6014,6 +6208,9 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
     customReceiveAddressPath?: string;
+    /** DeviceStage confirm channel: the address the person expects, shown
+     * on the confirm card to check against the device screen. */
+    expectedAddress?: string;
   }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
@@ -6027,11 +6224,9 @@ class ServiceAccount extends ServiceBase {
 
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-    // getHWAccountAddresses
-    // Third-party vendors (Ledger) don't use OneKey SDK's hardware UI flow
     const deviceVendor =
       deviceParams?.dbDevice?.vendor ?? EHardwareVendor.onekey;
-    const isThirdPartyVendor = getVendorProfile(deviceVendor).isThirdParty;
+    const { addressVerification } = getVendorProfile(deviceVendor);
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async (oneKeyOperationLease) => {
@@ -6077,9 +6272,25 @@ class ServiceAccount extends ServiceBase {
       },
       {
         deviceParams,
-        hideCheckingDeviceLoading: isThirdPartyVendor,
+        hideCheckingDeviceLoading:
+          addressVerification.confirmationEvent !== 'buttonRequest',
         skipDeviceCancelAtFirst: true,
         debugMethodName: 'verifyHWAccountAddresses.prepareAccounts',
+        stageConfirmContent: params.expectedAddress
+          ? {
+              details: [
+                {
+                  label: appLocale.intl.formatMessage({
+                    id: ETranslations.global_address,
+                  }),
+                  value: params.expectedAddress,
+                  highlightEnds: true,
+                },
+              ],
+            }
+          : // Blank registration, not undefined: within a grace-window burst
+            // an undefined would leave the previous call's card standing.
+            {},
       },
     );
   }
@@ -7206,6 +7417,11 @@ class ServiceAccount extends ServiceBase {
       if (!device) {
         throw new OneKeyLocalError('wallet associated device not found');
       }
+      // Nothing to ask an xfp-less vendor's device for; opening the hardware
+      // flow would only flash the device stage and wait.
+      if (!canBuildHwWalletXfp(device.vendor)) {
+        return;
+      }
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
           await timerUtils.wait(1000);
@@ -7223,6 +7439,8 @@ class ServiceAccount extends ServiceBase {
           deviceParams: {
             dbDevice: device,
           },
+          debugMethodName:
+            'serviceAccount.generateWalletsMissingMetaWithUserInteraction',
         },
       );
     }
@@ -8048,6 +8266,7 @@ class ServiceAccount extends ServiceBase {
     networkId,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    onError,
     deriveTypes: presetDeriveTypes,
     skipAddressDeriveTypeLookup,
     skipInputDeriveTypesFallback,
@@ -8059,105 +8278,102 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    onError: (params: { stage: string; error: unknown }) => void;
     deriveTypes?: IAccountDeriveTypes[];
     skipAddressDeriveTypeLookup?: boolean;
     skipInputDeriveTypesFallback?: boolean;
   }) {
     const addedAccounts: IDBAccount[] = [];
-    try {
-      const { serviceAccount, serviceNetwork, servicePassword } =
-        this.backgroundApi;
+    const { serviceAccount, serviceNetwork, servicePassword } =
+      this.backgroundApi;
 
-      let deriveTypes: IAccountDeriveTypes[] = [...(presetDeriveTypes || [])];
-      if (
-        !deriveTypes?.length &&
-        !skipAddressDeriveTypeLookup &&
-        importedAccount?.address
-      ) {
-        try {
-          const deriveType = await this.withImportedAccountTrace({
-            stage: 'resolveImportedAccountDeriveTypeByAddress',
-            networkId,
-            task: () =>
-              serviceNetwork.getDeriveTypeByAddress({
-                networkId,
-                address: importedAccount.address,
-              }),
-          });
-          if (deriveType) {
-            deriveTypes.push(deriveType);
-          }
-        } catch (e) {
-          console.error('getDeriveTypeByAddress error', e);
-        }
-      }
-
-      if (!deriveTypes?.length && !skipInputDeriveTypesFallback) {
-        try {
-          const isUtxoImportedAccount =
-            importedAccount.type === EDBAccountType.UTXO;
-          const sensitiveInput = await this.withImportedAccountTrace({
-            stage: 'encodeImportedAccountFallbackInput',
-            targetType: 'credential',
-            networkId,
-            task: () =>
-              servicePassword.encodeSensitiveText({
-                text: input,
-              }),
-          });
-          deriveTypes = await this.withImportedAccountTrace({
-            stage: 'resolveImportedAccountDeriveTypesByInput',
-            networkId,
-            task: () =>
-              serviceNetwork.getAccountImportingDeriveTypes({
-                accountId: importedAccount.id,
-                networkId,
-                input: sensitiveInput,
-                validatePrivateKey: !isUtxoImportedAccount,
-                validateXprvt: isUtxoImportedAccount,
-                template: importedAccount.template,
-              }),
-          });
-        } catch (e) {
-          console.error('getAccountImportingDeriveTypes error', e);
-        }
-      }
-
-      if (!deriveTypes?.length) {
-        deriveTypes = ['default'];
-      }
-
-      const skipAddIfNotEqualToAddress =
-        importedAccount.address &&
-        (deriveTypes.length > 1 || presetDeriveTypes?.length)
-          ? importedAccount.address
-          : undefined;
-      let privateKeyRawForCredential = privateKey;
+    let deriveTypes: IAccountDeriveTypes[] = [...(presetDeriveTypes || [])];
+    if (
+      !deriveTypes?.length &&
+      !skipAddressDeriveTypeLookup &&
+      importedAccount?.address
+    ) {
       try {
-        for (const deriveType of deriveTypes) {
-          try {
-            const { accounts } =
-              await serviceAccount.addImportedAccountWithCredentialBase({
-                skipEventEmit,
-                credentialRaw: privateKeyRawForCredential,
-                password,
-                fallbackName: importedAccount.name,
-                networkId,
-                name: importedAccount.name,
-                deriveType,
-                skipAddIfNotEqualToAddress,
-                applyRestoreSyncPolicy,
-              });
-            addedAccounts.push(...(accounts || []));
-          } catch (e) {
-            console.error('addImportedAccountByInput error', e);
-          }
+        const deriveType = await this.withImportedAccountTrace({
+          stage: 'resolveImportedAccountDeriveTypeByAddress',
+          networkId,
+          task: () =>
+            serviceNetwork.getDeriveTypeByAddress({
+              networkId,
+              address: importedAccount.address,
+            }),
+        });
+        if (deriveType) {
+          deriveTypes.push(deriveType);
         }
-      } finally {
-        privateKeyRawForCredential = '';
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypeByAddress', error: e });
       }
-    } catch (e) {
-      console.error('addImportedAccountByInput error', e);
+    }
+
+    if (!deriveTypes?.length && !skipInputDeriveTypesFallback) {
+      try {
+        const isUtxoImportedAccount =
+          importedAccount.type === EDBAccountType.UTXO;
+        const sensitiveInput = await this.withImportedAccountTrace({
+          stage: 'encodeImportedAccountFallbackInput',
+          targetType: 'credential',
+          networkId,
+          task: () =>
+            servicePassword.encodeSensitiveText({
+              text: input,
+            }),
+        });
+        deriveTypes = await this.withImportedAccountTrace({
+          stage: 'resolveImportedAccountDeriveTypesByInput',
+          networkId,
+          task: () =>
+            serviceNetwork.getAccountImportingDeriveTypes({
+              accountId: importedAccount.id,
+              networkId,
+              input: sensitiveInput,
+              validatePrivateKey: !isUtxoImportedAccount,
+              validateXprvt: isUtxoImportedAccount,
+              template: importedAccount.template,
+            }),
+        });
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypesByInput', error: e });
+      }
+    }
+
+    if (!deriveTypes?.length) {
+      deriveTypes = ['default'];
+    }
+
+    const skipAddIfNotEqualToAddress =
+      importedAccount.address &&
+      (deriveTypes.length > 1 || presetDeriveTypes?.length)
+        ? importedAccount.address
+        : undefined;
+    let privateKeyRawForCredential = privateKey;
+    try {
+      for (const deriveType of deriveTypes) {
+        try {
+          const { accounts } =
+            await serviceAccount.addImportedAccountWithCredentialBase({
+              skipEventEmit,
+              credentialRaw: privateKeyRawForCredential,
+              password,
+              fallbackName: importedAccount.name,
+              networkId,
+              name: importedAccount.name,
+              deriveType,
+              skipAddIfNotEqualToAddress,
+              applyRestoreSyncPolicy,
+            });
+          addedAccounts.push(...(accounts || []));
+        } catch (e) {
+          onError({ stage: 'addImportedAccountWithCredential', error: e });
+        }
+      }
+    } finally {
+      privateKeyRawForCredential = '';
     }
     return { addedAccounts };
   }
@@ -8168,78 +8384,76 @@ class ServiceAccount extends ServiceBase {
     networkId,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    onError,
   }: {
     watchingAccount: IPrimeTransferAccount;
     input: string;
     networkId: string;
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    onError: (params: { stage: string; error: unknown }) => void;
   }): Promise<{
     addedAccounts: IDBAccount[];
   }> {
     const addedAccounts: IDBAccount[] = [];
-    try {
-      const { serviceAccount, serviceNetwork, servicePassword } =
-        this.backgroundApi;
+    const { serviceAccount, serviceNetwork, servicePassword } =
+      this.backgroundApi;
 
-      let deriveTypes: IAccountDeriveTypes[] = [];
-      if (watchingAccount?.address) {
-        try {
-          const deriveType = await serviceNetwork.getDeriveTypeByAddress({
-            networkId,
-            address: watchingAccount.address,
-          });
-          if (deriveType) {
-            deriveTypes.push(deriveType);
-          }
-        } catch (e) {
-          console.error('getDeriveTypeByAddress error', e);
+    let deriveTypes: IAccountDeriveTypes[] = [];
+    if (watchingAccount?.address) {
+      try {
+        const deriveType = await serviceNetwork.getDeriveTypeByAddress({
+          networkId,
+          address: watchingAccount.address,
+        });
+        if (deriveType) {
+          deriveTypes.push(deriveType);
         }
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypeByAddress', error: e });
       }
+    }
 
-      if (!deriveTypes?.length) {
-        try {
-          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-            accountId: watchingAccount.id,
-            networkId: networkId || '',
-            input: await servicePassword.encodeSensitiveText({
-              text: input,
-            }),
-            validateAddress: true,
-            validateXpub: true,
-            template: watchingAccount.template,
-          });
-        } catch (e) {
-          console.error('getAccountImportingDeriveTypes error', e);
-        }
+    if (!deriveTypes?.length) {
+      try {
+        deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
+          accountId: watchingAccount.id,
+          networkId: networkId || '',
+          input: await servicePassword.encodeSensitiveText({
+            text: input,
+          }),
+          validateAddress: true,
+          validateXpub: true,
+          template: watchingAccount.template,
+        });
+      } catch (e) {
+        onError({ stage: 'resolveRestoreDeriveTypesByInput', error: e });
       }
+    }
 
-      if (!deriveTypes?.length) {
-        deriveTypes = ['default'];
-      }
+    if (!deriveTypes?.length) {
+      deriveTypes = ['default'];
+    }
 
-      const skipAddIfNotEqualToAddress =
-        deriveTypes.length > 1 ? watchingAccount.address : undefined;
-      for (const deriveType of deriveTypes) {
-        try {
-          const { accounts } = await serviceAccount.addWatchingAccount({
-            skipEventEmit,
-            input,
-            fallbackName: watchingAccount.name,
-            networkId: networkId || '',
-            name: watchingAccount.name,
-            deriveType,
-            isUrlAccount: false,
-            skipAddIfNotEqualToAddress,
-            applyRestoreSyncPolicy,
-          });
-          addedAccounts.push(...(accounts || []));
-        } catch (e) {
-          console.error('addWatchingAccountByInput error', e);
-        }
+    const skipAddIfNotEqualToAddress =
+      deriveTypes.length > 1 ? watchingAccount.address : undefined;
+    for (const deriveType of deriveTypes) {
+      try {
+        const { accounts } = await serviceAccount.addWatchingAccount({
+          skipEventEmit,
+          input,
+          fallbackName: watchingAccount.name,
+          networkId: networkId || '',
+          name: watchingAccount.name,
+          deriveType,
+          isUrlAccount: false,
+          skipAddIfNotEqualToAddress,
+          applyRestoreSyncPolicy,
+        });
+        addedAccounts.push(...(accounts || []));
+      } catch (e) {
+        onError({ stage: 'addWatchingAccount', error: e });
       }
-    } catch (e) {
-      console.error('addWatchingAccountByInput error', e);
     }
     return { addedAccounts };
   }

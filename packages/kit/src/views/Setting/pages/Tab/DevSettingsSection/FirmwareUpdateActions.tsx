@@ -3,10 +3,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
-import {
-  useFirmwareUpdateRetryAtom,
-  useFirmwareUpdatesDetectStatusPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useFirmwareUpdateRetryAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -70,11 +67,10 @@ function BootloaderModeUpdateButton() {
 }
 
 function ClearUpdateInfoDetectCacheButton() {
-  const [, setDetectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
   return (
     <Button
       onPress={() => {
-        setDetectStatus(undefined);
+        void backgroundApiProxy.serviceFirmwareUpdate.clearFirmwareUpdateDetectStatusCache();
       }}
     >
       ClearUpdateInfoDetectCache

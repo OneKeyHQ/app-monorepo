@@ -46,27 +46,27 @@ export function useNotificationHelperCta() {
   const reloadPermission = useCallback(() => {
     void run();
   }, [run]);
-  const isNativeIOS = !!platformEnv.isNativeIOS;
-  useHandleAppStateActive(isNativeIOS ? reloadPermission : undefined);
+  const isNative = !!platformEnv.isNative;
+  useHandleAppStateActive(isNative ? reloadPermission : undefined);
 
   const isFocused = useRouteIsFocused();
   const wasFocusedRef = useRef(isFocused);
   useEffect(() => {
     const wasFocused = wasFocusedRef.current;
     wasFocusedRef.current = isFocused;
-    if (isNativeIOS && isFocused && !wasFocused) {
+    if (isNative && isFocused && !wasFocused) {
       reloadPermission();
     }
-  }, [isFocused, isNativeIOS, reloadPermission]);
+  }, [isFocused, isNative, reloadPermission]);
 
   const isPending = isOsNotificationPermissionPending({
     permission,
     isLoading,
-    isNativeIOS,
+    isNative,
   });
   const action = resolveOsNotificationPermissionAction({
     permission,
-    isNativeIOS,
+    isNative,
   });
 
   const sendTestNotification = useCallback(async () => {

@@ -191,4 +191,59 @@ describe('earnUtils borrow address normalization', () => {
       ).toEqual({ networkId: 'evm--1' });
     });
   });
+
+  describe('getDisplaySymbol', () => {
+    it('prefers the server relabel when one is present', () => {
+      expect(
+        earnUtils.getDisplaySymbol({
+          symbol: 'vbUSDC',
+          displaySymbol: 'USDC for Katana (vbUSDC)',
+        }),
+      ).toBe('USDC for Katana (vbUSDC)');
+    });
+
+    it('falls back to symbol for the tokens that carry no relabel', () => {
+      expect(earnUtils.getDisplaySymbol({ symbol: 'USDC' })).toBe('USDC');
+      expect(
+        earnUtils.getDisplaySymbol({ symbol: 'USDC', displaySymbol: '' }),
+      ).toBe('USDC');
+    });
+
+    it('returns an empty string rather than throwing on a missing token', () => {
+      expect(earnUtils.getDisplaySymbol(undefined)).toBe('');
+      expect(earnUtils.getDisplaySymbol(null)).toBe('');
+      expect(earnUtils.getDisplaySymbol({})).toBe('');
+    });
+  });
+
+  describe('matchesSymbolKeyword', () => {
+    const token = {
+      symbol: 'vbUSDC',
+      displaySymbol: 'USDC for Katana (vbUSDC)',
+    };
+
+    it('still finds a relabelled token by the symbol users already know', () => {
+      expect(earnUtils.matchesSymbolKeyword(token, 'vbusdc')).toBe(true);
+    });
+
+    it('matches against the relabel too', () => {
+      expect(earnUtils.matchesSymbolKeyword(token, 'katana')).toBe(true);
+      expect(earnUtils.matchesSymbolKeyword(token, 'USDC FOR')).toBe(true);
+    });
+
+    it('does not match an unrelated keyword', () => {
+      expect(earnUtils.matchesSymbolKeyword(token, 'weth')).toBe(false);
+    });
+
+    it('treats a blank keyword as no filter', () => {
+      expect(earnUtils.matchesSymbolKeyword(token, '')).toBe(true);
+      expect(earnUtils.matchesSymbolKeyword(token, '   ')).toBe(true);
+      expect(earnUtils.matchesSymbolKeyword(undefined, '')).toBe(true);
+    });
+
+    it('does not match when the token has no labels', () => {
+      expect(earnUtils.matchesSymbolKeyword(undefined, 'usdc')).toBe(false);
+      expect(earnUtils.matchesSymbolKeyword({}, 'usdc')).toBe(false);
+    });
+  });
 });

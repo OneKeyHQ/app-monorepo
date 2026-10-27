@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { TradingViewChartSettings } from './TradingViewChartSettings';
 import { createTradingViewChartSettingsValue } from './TradingViewSettingsMockState';
@@ -39,7 +39,26 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Button: View,
-    Checkbox: ({ label }: { label?: ReactNode }) => <div>{label}</div>,
+    Checkbox: ({
+      label,
+      onChange,
+      testID,
+      value,
+    }: {
+      label?: ReactNode;
+      onChange?: (value: boolean) => void;
+      testID?: string;
+      value?: boolean;
+    }) => (
+      <button
+        data-testid={testID}
+        data-value={String(value)}
+        onClick={() => onChange?.(!value)}
+        type="button"
+      >
+        {label}
+      </button>
+    ),
     ColorPicker: ({
       disabled,
       onChange,
@@ -75,10 +94,53 @@ jest.mock('@onekeyhq/components', () => {
       Footer: View,
       FooterActions: View,
     },
-    Popover: ({ renderTrigger }: { renderTrigger?: ReactNode }) => (
-      <>{renderTrigger}</>
+    Popover: ({
+      renderContent,
+      renderTrigger,
+    }: {
+      renderContent?: (props: { closePopover: () => void }) => ReactNode;
+      renderTrigger?: ReactNode;
+    }) => (
+      <>
+        {renderTrigger}
+        {renderContent?.({ closePopover: jest.fn() })}
+      </>
     ),
     ScrollView: View,
+    Select: ({
+      defaultTriggerInputProps,
+      items,
+      onChange,
+      testID,
+      value,
+    }: {
+      defaultTriggerInputProps?: { leftIconName?: string };
+      items: {
+        label: string;
+        value: string;
+        leading?: { props: { name?: string } };
+      }[];
+      onChange: (value: string) => void;
+      testID: string;
+      value: string;
+    }) => (
+      <select
+        data-testid={testID}
+        data-left-icon={defaultTriggerInputProps?.leftIconName}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {items.map((item) => (
+          <option
+            key={item.value}
+            value={item.value}
+            data-icon={item.leading?.props.name}
+          >
+            {item.label}
+          </option>
+        ))}
+      </select>
+    ),
     SizableText: View,
     XStack: View,
     YStack: View,
@@ -129,5 +191,107 @@ describe('TradingViewChartSettings', () => {
       upColor: '#123456',
       downColor: '#654321',
     });
+  });
+
+  it('shows the previous-close option disabled by default and updates it', () => {
+    const initialValue = createTradingViewChartSettingsValue();
+    const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={initialValue}
+        mobileLayout
+        onChange={onChange}
+      />,
+    );
+
+    const previousCloseCheckbox = screen.getByTestId(
+      'trading-view-settings-checkbox-previous-close',
+    );
+    expect(previousCloseCheckbox.textContent).toBe('market.prev_close');
+    expect(previousCloseCheckbox.getAttribute('data-value')).toBe('false');
+
+    fireEvent.click(previousCloseCheckbox);
+
+    const nextValue = onChange.mock.calls.at(-1)?.[0];
+    expect(nextValue?.options.previousClose).toBe(true);
+  });
+
+  it('lets the chart display leading row confirm pending edits', async () => {
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () => Promise.resolve(),
+    );
+    let confirmDraft: (() => Promise<boolean>) | undefined;
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={createTradingViewChartSettingsValue()}
+        mobileLayout
+        showChartType
+        onConfirm={onConfirm}
+        renderChartDisplayLeadingRow={(helpers) => {
+          confirmDraft = helpers.confirmDraft;
+          return null;
+        }}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByTestId('trading-view-settings-select-chart-type'),
+      { target: { value: 'line' } },
+    );
+
+    let confirmed = false;
+    await act(async () => {
+      confirmed = (await confirmDraft?.()) ?? false;
+    });
+
+    expect(confirmed).toBe(true);
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ chartType: 'line' }),
+    );
+  });
+
+  it('shows native chart types in settings and updates the preference', () => {
+    const initialValue = createTradingViewChartSettingsValue();
+    const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={initialValue}
+        mobileLayout
+        showChartType
+        onChange={onChange}
+      />,
+    );
+
+    const chartTypeSelect = screen.getByTestId(
+      'trading-view-settings-select-chart-type',
+    );
+    expect(chartTypeSelect.textContent).toContain('global.auto');
+    expect(chartTypeSelect.getAttribute('data-left-icon')).toBe(
+      'MagicStickOutline',
+    );
+    expect(
+      Array.from(chartTypeSelect.querySelectorAll('option')).map((option) => [
+        option.value,
+        option.getAttribute('data-icon'),
+      ]),
+    ).toEqual([
+      ['auto', 'MagicStickOutline'],
+      ['candlestick', 'TradingViewCandlesOutline'],
+      ['heikinAshi', 'TradingViewBarsOutline'],
+      ['bars', 'TradingViewCandlesHlcOutline'],
+      ['line', 'TradingViewLineOutline'],
+      ['area', 'ChartTrending2Outline'],
+    ]);
+
+    fireEvent.change(
+      screen.getByTestId('trading-view-settings-select-chart-type'),
+      { target: { value: 'line' } },
+    );
+
+    const nextValue = onChange.mock.calls.at(-1)?.[0];
+    expect(nextValue?.chartType).toBe('line');
   });
 });

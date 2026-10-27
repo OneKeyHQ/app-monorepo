@@ -16,7 +16,10 @@ import {
 import { DAppConnectionTestIDs } from '../../testIDs';
 import { DAppAccountListItem } from '../DAppAccountList';
 
-import type { IHandleAccountChangedParams } from '../../hooks/useHandleAccountChanged';
+import type {
+  IHandleAccountChangedParams,
+  IHandleAccountChangedResult,
+} from '../../hooks/useHandleAccountChanged';
 
 function ConnectionListItem({
   item,
@@ -33,7 +36,7 @@ function ConnectionListItem({
     num: number;
     origin: string;
     prevAccountInfo: IConnectionAccountInfoWithNum;
-  }) => void;
+  }) => IHandleAccountChangedResult | Promise<IHandleAccountChangedResult>;
 }) {
   const [settings] = useSettingsPersistAtom();
   // Switching accounts in Algo is not supported because no dApps listen for the walletconnect updateSession event
@@ -117,6 +120,7 @@ function ConnectionListItem({
           sceneUrl: item.origin,
         }}
         enabledNum={Object.keys(item.connectionMap).map((num) => Number(num))}
+        perfDebugName={`dapp-connection-list:${item.origin}`}
         availableNetworksMap={item.availableNetworksMap}
       >
         <YStack gap="$2">
@@ -124,7 +128,7 @@ function ConnectionListItem({
             <DAppAccountListItem
               key={num}
               num={Number(num)}
-              handleAccountChanged={(handleAccountChangedParams) => {
+              handleAccountChanged={(handleAccountChangedParams) =>
                 handleAccountChanged({
                   handleAccountChangedParams,
                   num: Number(num),
@@ -134,8 +138,8 @@ function ConnectionListItem({
                     num: Number(num),
                     storageType: item.storageType,
                   },
-                });
-              }}
+                })
+              }
               readonly={getReadonly(item.connectionMap[Number(num)])}
             />
           ))}

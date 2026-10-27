@@ -84,6 +84,10 @@ describe('no silent migration from legacy wallet:default keychain entries', () =
     ).rejects.toMatchObject({ code: 'NOT_AUTHENTICATED' });
   });
 
+  // Exempt from the test-integrity source-text rule, see
+  // development/lint/test-integrity.allowlist.json. It pins the legacy mnemonic
+  // cleanup to one production file, so a second call site fails; running the
+  // code only exercises the call site that exists today.
   it('only references legacy mnemonic cleanup in auth cleanup production code', () => {
     const srcRoot = path.resolve(__dirname, '..');
     const matches = [

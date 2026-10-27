@@ -29,6 +29,22 @@ type IListAllExternalWalletsResult = {
     [impl: string]: IExternalWalletInfo[];
   };
 };
+
+function getExternalEvmUserAddresses(account: IDBExternalAccount): string[] {
+  const addressValues = [
+    ...Object.values(account.connectedAddresses ?? {}),
+    account.address,
+  ];
+  return Array.from(
+    new Set(
+      addressValues
+        .flatMap((value) => value?.split(',') ?? [])
+        .map((address) => address.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
 @backgroundClass()
 class ServiceDappSide extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -101,6 +117,9 @@ class ServiceDappSide extends ServiceBase {
       (await this.backgroundApi.serviceAccount.getDBAccount({
         accountId: accountId || '',
       }));
+    if (!account) {
+      return;
+    }
     const externalAccount = account as IDBExternalAccount;
 
     const connectionInfo = externalAccount.connectionInfo;
@@ -125,6 +144,14 @@ class ServiceDappSide extends ServiceBase {
           //
         }
       }
+    }
+
+    if (platformEnv.isWebDappMode) {
+      await this.backgroundApi.serviceAccount.removeHyperLiquidAgentCredentialsByUserAddresses(
+        {
+          userAddresses: getExternalEvmUserAddresses(externalAccount),
+        },
+      );
     }
   }
 

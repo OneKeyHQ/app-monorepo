@@ -1,11 +1,11 @@
+import type { AsyncStorageStatic } from '@onekeyhq/shared/src/storage/appStorageTypes';
+
 import { createLazyServiceProxy } from '../../../apis/lazyServiceProxy';
 
 import {
   getSimpleDbEntityKey,
   getXpubOrAddressFromAccountKey,
 } from './simpleDbFacadeCompatibility';
-
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
 export class SimpleDb {
   // Lazy load entities using getters
@@ -31,6 +31,32 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'primeTransfer', { value });
+    return value;
+  }
+
+  get primeFreeTrial() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@primeFreeTrial',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrimeFreeTrial').then(
+          ({ SimpleDbEntityPrimeFreeTrial }) =>
+            new SimpleDbEntityPrimeFreeTrial(),
+        ),
+    });
+    Object.defineProperty(this, 'primeFreeTrial', { value });
+    return value;
+  }
+
+  get cloudBackupPasswordCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@cloudBackupPasswordCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityCloudBackupPasswordCache').then(
+          ({ SimpleDbEntityCloudBackupPasswordCache }) =>
+            new SimpleDbEntityCloudBackupPasswordCache(),
+        ),
+    });
+    Object.defineProperty(this, 'cloudBackupPasswordCache', { value });
     return value;
   }
 
@@ -311,6 +337,19 @@ export class SimpleDb {
     return value;
   }
 
+  get broadcastRecords() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@broadcastRecords',
+      loader: () =>
+        import('../entity/SimpleDbEntityBroadcastRecords').then(
+          ({ SimpleDbEntityBroadcastRecords }) =>
+            new SimpleDbEntityBroadcastRecords(),
+        ),
+    });
+    Object.defineProperty(this, 'broadcastRecords', { value });
+    return value;
+  }
+
   get marketWatchList() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@marketWatchList',
@@ -409,6 +448,19 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'earnOrders', { value });
+    return value;
+  }
+
+  get headlessBuyOrders() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@headlessBuyOrders',
+      loader: () =>
+        import('../entity/SimpleDbEntityHeadlessBuyOrders').then(
+          ({ SimpleDbEntityHeadlessBuyOrders }) =>
+            new SimpleDbEntityHeadlessBuyOrders(),
+        ),
+    });
+    Object.defineProperty(this, 'headlessBuyOrders', { value });
     return value;
   }
 
@@ -668,6 +720,19 @@ export class SimpleDb {
     return value;
   }
 
+  get transferRecipientsCache() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@transferRecipientsCache',
+      loader: () =>
+        import('../entity/SimpleDbEntityTransferRecipientsCache').then(
+          ({ SimpleDbEntityTransferRecipientsCache }) =>
+            new SimpleDbEntityTransferRecipientsCache(),
+        ),
+    });
+    Object.defineProperty(this, 'transferRecipientsCache', { value });
+    return value;
+  }
+
   get riskTokenManagement() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@riskTokenManagement',
@@ -840,6 +905,19 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'rookieGuide', { value });
+    return value;
+  }
+
+  get walletConnectPay() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@walletConnectPay',
+      loader: () =>
+        import('../entity/SimpleDbEntityWalletConnectPay').then(
+          ({ SimpleDbEntityWalletConnectPay }) =>
+            new SimpleDbEntityWalletConnectPay(),
+        ),
+    });
+    Object.defineProperty(this, 'walletConnectPay', { value });
     return value;
   }
 }

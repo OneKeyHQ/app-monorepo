@@ -9,6 +9,8 @@ import { parseFormattedLiquidityValue } from '../utils/availableAssetsUtils';
 
 export type IEarnProtocolTokenRow = {
   symbol: string;
+  /** Display relabel of `symbol`; rows fall back to `symbol` when absent. */
+  displaySymbol?: string;
   item: IStakeProtocolListItem;
   tvlValue: number;
 };
@@ -82,16 +84,25 @@ function mergeItemIntoProviderMap(
   providerMap: Map<string, IEarnAggregatedProvider>,
   symbol: string,
   item: IStakeProtocolListItem,
+  // Fan-out rows carry the relabel on the v2 asset rather than on the protocol
+  // row, so callers on that path pass it explicitly.
+  displaySymbolOverride?: string,
 ) {
   const providerKey = item.provider.name?.toLowerCase();
   if (!providerKey) {
     return;
   }
   const tvlValue = getItemTvlValue(item);
+  const row: IEarnProtocolTokenRow = {
+    symbol,
+    displaySymbol: displaySymbolOverride ?? item.displaySymbol,
+    item,
+    tvlValue,
+  };
   const existing = providerMap.get(providerKey);
   if (existing) {
     existing.tvlValue += tvlValue;
-    existing.tokens.push({ symbol, item, tvlValue });
+    existing.tokens.push(row);
   } else {
     providerMap.set(providerKey, {
       provider: providerKey,
@@ -99,7 +110,7 @@ function mergeItemIntoProviderMap(
       providerName: getEarnProviderDisplayName(item.provider.name),
       logoURI: item.provider.logoURI,
       tvlValue,
-      tokens: [{ symbol, item, tvlValue }],
+      tokens: [row],
     });
   }
 }
@@ -112,20 +123,30 @@ function mergeItemIntoProviderMap(
 async function fetchAggregatedByFanOut(): Promise<IEarnAggregatedProvider[]> {
   const v2Assets =
     await backgroundApiProxy.serviceStaking.getAvailableAssetsV2();
+  const normalAssets = v2Assets.filter((asset) => asset.type === 'normal');
   const symbols = Array.from(
-    new Set(
-      v2Assets
-        .filter((asset) => asset.type === 'normal')
-        .map((asset) => asset.symbol),
-    ),
+    new Set(normalAssets.map((asset) => asset.symbol)),
   );
+  // The protocol rows this path merges have no relabel of their own, so keep
+  // the one the v2 assets carry, keyed by the symbol they were fetched under.
+  const displaySymbolBySymbol = new Map<string, string>();
+  for (const asset of normalAssets) {
+    if (asset.displaySymbol && !displaySymbolBySymbol.has(asset.symbol)) {
+      displaySymbolBySymbol.set(asset.symbol, asset.displaySymbol);
+    }
+  }
 
   const listsBySymbol = await fetchListsBySymbol(symbols);
 
   const providerMap = new Map<string, IEarnAggregatedProvider>();
   for (const [symbol, items] of listsBySymbol.entries()) {
     for (const item of items) {
-      mergeItemIntoProviderMap(providerMap, symbol, item);
+      mergeItemIntoProviderMap(
+        providerMap,
+        symbol,
+        item,
+        displaySymbolBySymbol.get(symbol),
+      );
     }
   }
   return Array.from(providerMap.values());

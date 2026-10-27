@@ -1,3 +1,4 @@
+import { Keyboard } from 'react-native';
 import { KeyboardController } from 'react-native-keyboard-controller';
 
 // Do NOT use RN's `Keyboard.dismiss()` here — on both iOS and Android it is
@@ -15,6 +16,13 @@ import { KeyboardController } from 'react-native-keyboard-controller';
 // regardless of whether RN tracks the input.
 export const dismissKeyboard = () => {
   void KeyboardController.dismiss();
+};
+
+// Blur the RN-focused TextInput. Prefer this when the next screen still
+// autoFocuses an input: Android `hideSoftInputFromWindow` (used by
+// `dismissKeyboard`) can block that programmatic focus from showing the IME.
+export const blurFocusedInput = () => {
+  Keyboard.dismiss();
 };
 
 export const dismissKeyboardWithDelay = async (delayMs = 80) => {

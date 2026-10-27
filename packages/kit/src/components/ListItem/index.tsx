@@ -30,6 +30,7 @@ import type {
   ISizableTextProps,
   IStackProps,
 } from '@onekeyhq/components/src/primitives';
+import { OverlayCloseCancelledError } from '@onekeyhq/components/src/shared/overlayCloseCancellation';
 import type {
   IDBAccount,
   IDBIndexedAccount,
@@ -131,7 +132,7 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
 };
 
 /* Text */
-interface IListItemTextProps extends IStackProps {
+export interface IListItemTextProps extends IStackProps {
   primary?: string | React.ReactNode;
   secondary?: string | React.ReactNode;
   align?: 'left' | 'center' | 'right';
@@ -329,7 +330,11 @@ const ListItemComponent = Stack.styleable<IListItemProps, any, any>(
 
     const handleItemPress = useCallback(async () => {
       if (props.disabled) return;
-      await onPress?.();
+      try {
+        await onPress?.();
+      } catch (error) {
+        if (!(error instanceof OverlayCloseCancelledError)) throw error;
+      }
     }, [onPress, props.disabled]);
 
     const hasPressHandler = !!onPress && !props.disabled;

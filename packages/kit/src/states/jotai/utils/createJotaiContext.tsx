@@ -22,14 +22,16 @@ import type { WritableAtom } from 'jotai';
 export { atom };
 
 export type IJotaiContextStore = ReturnType<typeof createStore>;
-type IContextAtomOptions =
+type IContextAtomOptions<Value> =
   | {
       coldStartCache?: false | undefined;
       coldStartCacheKey?: never;
+      coldStartCacheTransform?: never;
     }
   | {
       coldStartCache: true;
       coldStartCacheKey: IContextAtomColdStartCacheKey;
+      coldStartCacheTransform?: (value: Value) => Value;
     };
 
 export function createJotaiContext<TContextConfig = undefined>() {
@@ -113,13 +115,14 @@ export function createJotaiContext<TContextConfig = undefined>() {
 
   function contextAtom<Value>(
     initialValue: Value,
-    options?: IContextAtomOptions,
+    options?: IContextAtomOptions<Value>,
   ) {
     return contextAtomBase({
       useContextAtom,
       initialValue,
       coldStartCache: options?.coldStartCache,
       coldStartCacheKey: options?.coldStartCacheKey,
+      coldStartCacheTransform: options?.coldStartCacheTransform,
       useColdStartScopeKey,
     });
   }

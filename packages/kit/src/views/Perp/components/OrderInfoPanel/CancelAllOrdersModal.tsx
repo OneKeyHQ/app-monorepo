@@ -15,7 +15,9 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -41,6 +43,7 @@ function CancelAllOrdersContent({
   scopedAccountAddress,
 }: ICancelAllOrdersContentProps) {
   const actions = useHyperliquidActions();
+  const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const currentScopedAccountAddress = usePerpsAccountScopedCacheAddress();
@@ -91,7 +94,7 @@ function CancelAllOrdersContent({
 
     setIsSubmitting(true);
     try {
-      await actions.current.ensureTradingEnabled();
+      await ensureTradingEnabled();
       const symbolsMetaMap =
         await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
           coins: ordersToProcess.map((o) => o.coin),
@@ -123,7 +126,14 @@ function CancelAllOrdersContent({
     } finally {
       setIsSubmitting(false);
     }
-  }, [actions, canSubmit, isSubmitting, onClose, ordersToProcess]);
+  }, [
+    actions,
+    canSubmit,
+    ensureTradingEnabled,
+    isSubmitting,
+    onClose,
+    ordersToProcess,
+  ]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -145,18 +155,22 @@ function CancelAllOrdersContent({
         })}
       </SizableText>
 
-      <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
-        <Button
-          testID="perp-button-text-btn"
-          variant="primary"
-          size={PERP_DIALOG_BUTTON_SIZE}
-          disabled={isSubmitting || !canSubmit || ordersToProcess.length === 0}
-          loading={isSubmitting}
-          onPress={handleConfirm}
-        >
-          {buttonText}
-        </Button>
-      </TradingGuardWrapper>
+      <YStack pt={platformEnv.isNative ? '$4' : 0}>
+        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+          <Button
+            testID="perp-button-text-btn"
+            variant="primary"
+            size={PERP_DIALOG_BUTTON_SIZE}
+            disabled={
+              isSubmitting || !canSubmit || ordersToProcess.length === 0
+            }
+            loading={isSubmitting}
+            onPress={handleConfirm}
+          >
+            {buttonText}
+          </Button>
+        </TradingGuardWrapper>
+      </YStack>
     </YStack>
   );
 }

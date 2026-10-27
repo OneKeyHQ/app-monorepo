@@ -89,6 +89,25 @@ function SessionProposalModal() {
         });
         return;
       }
+      // Same gate as the injected-provider ConnectionModal: never attach a
+      // WalletConnect session to an HD wallet that has not been backed up
+      // (OK-63750). Check each distinct wallet once; the first un-backed-up
+      // wallet shows the backup dialog and keeps the proposal pending.
+      const walletIdsToCheck = new Set<string>();
+      for (const { activeAccount } of accountChangedParamsValues) {
+        if (activeAccount.wallet?.id) {
+          walletIdsToCheck.add(activeAccount.wallet.id);
+        }
+      }
+      for (const walletId of walletIdsToCheck) {
+        if (
+          await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+            walletId,
+          })
+        ) {
+          return;
+        }
+      }
       const accountsInfo = [];
       for (const accountChangedParams of accountChangedParamsValues) {
         const { activeAccount, selectedAccount } = accountChangedParams;

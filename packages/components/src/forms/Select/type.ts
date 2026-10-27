@@ -1,17 +1,16 @@
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 
-import type {
-  ListItemProps,
-  SheetProps,
-} from '@onekeyhq/components/src/shared/tamagui';
+import type { ListItemProps } from '@onekeyhq/components/src/shared/tamagui';
 
 import type { IPopoverProps } from '../../actions';
+import type { ISheetOptions } from '../../hocs/NativeSheetPresentation/types';
 import type { IInputProps } from '../Input';
 import type { GestureResponderEvent } from 'react-native';
 
 export interface ISelectRenderTriggerProps {
   value?: string | number | boolean;
   label?: string;
+  labelComponent?: ReactNode;
   placeholder?: string;
   disabled?: boolean;
   onPress?: (event: GestureResponderEvent) => void;
@@ -23,6 +22,8 @@ export interface ISelectTriggerProps {
 
 export interface ISelectItem {
   label: string;
+  /** Visual label for the trigger and options; label remains accessible text. */
+  labelComponent?: ReactNode;
   value: string | number | boolean | undefined;
   leading?: ListItemProps['icon'];
   description?: string;
@@ -50,12 +51,14 @@ export type ISelectProps<
   title: string;
   value?: T;
   open?: boolean;
-  onChange?: (value: T) => void;
+  onChange?: (value: T) => void | Promise<void>;
+  /** Keep the selector open until an asynchronous selection is ready to show. */
+  waitForChangeBeforeClose?: boolean;
   onOpenChange?: (isOpen: boolean) => void;
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
   defaultTriggerInputProps?: IInputProps;
   disabled?: boolean;
-  sheetProps?: SheetProps;
+  sheetProps?: ISheetOptions;
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
   testID?: string;

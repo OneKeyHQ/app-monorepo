@@ -12,7 +12,14 @@ import {
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
-const sections = [
+type IShortcutItem = {
+  titleId?: ETranslations;
+  titleIds?: ETranslations[];
+  keys?: string[];
+  shortcutKey?: EShortcutEvents;
+};
+
+const sections: { titleId: ETranslations; items: IShortcutItem[] }[] = [
   {
     titleId: ETranslations.global_general,
     items: [
@@ -31,13 +38,6 @@ const sections = [
       {
         titleId: ETranslations.settings_settings,
         keys: [shortcutsKeys.CmdOrCtrl, ','],
-      },
-      {
-        titleIds: [
-          ETranslations.shortcut_show_sidebar,
-          ETranslations.shortcut_hide_sidebar,
-        ],
-        shortcutKey: EShortcutEvents.SideBar,
       },
       {
         titleId: ETranslations.shortcuts_go_to_wallet_tab,
@@ -134,17 +134,7 @@ const sections = [
   },
 ];
 
-function ShortcutItem({
-  titleId,
-  titleIds,
-  keys,
-  shortcutKey,
-}: {
-  titleId?: ETranslations;
-  titleIds?: ETranslations[];
-  keys?: string[];
-  shortcutKey?: EShortcutEvents;
-}) {
+function ShortcutItem({ titleId, titleIds, keys, shortcutKey }: IShortcutItem) {
   const intl = useIntl();
   const title = useMemo(
     () =>

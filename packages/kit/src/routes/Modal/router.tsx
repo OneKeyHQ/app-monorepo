@@ -36,7 +36,7 @@ import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
 import { ModalPerpStack } from '../../views/Perp/router';
-import { PrimeRouter } from '../../views/Prime/router';
+import { PrimeGiftRouter, PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ReferFriendsRouter } from '../../views/ReferFriends/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
@@ -49,6 +49,7 @@ import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
 import { UniversalSearchRouter } from '../../views/UniversalSearch/router';
 import { WalletAddressModalRouter } from '../../views/WalletAddress/router';
+import { WalletConnectPayModalRouter } from '../../views/WalletConnectPay/router';
 import { ModalWebViewStack } from '../../views/WebView/router';
 
 import { ModalMainStack } from './Main';
@@ -119,6 +120,11 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     onUnmounted() {
       void backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
     },
+  },
+  {
+    name: EModalRoutes.PrimeGiftModal,
+    children: PrimeGiftRouter,
+    theme: 'dark',
   },
   {
     name: EModalRoutes.FirmwareUpdateModal,
@@ -198,6 +204,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: WalletAddressModalRouter,
   },
   {
+    name: EModalRoutes.WalletConnectPayModal,
+    children: WalletConnectPayModalRouter,
+  },
+  {
     name: EModalRoutes.NotificationsModal,
     children: ModalNotificationsRouter,
   },
@@ -244,6 +254,19 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
 ];
 
 // Pages in Dev Mode
+if (
+  process.env.NODE_ENV !== 'production' &&
+  platformEnv.isDev &&
+  (platformEnv.isNative || platformEnv.isDesktop || platformEnv.isExtension)
+) {
+  router.push({
+    name: EModalRoutes.DeveloperModal,
+    children: (
+      require('../../views/Developer/router') as typeof import('../../views/Developer/router')
+    ).developerRouters,
+  });
+}
+
 if (platformEnv.isDev) {
   router.push({
     name: EModalRoutes.TestModal,

@@ -14,10 +14,10 @@ import {
   useIsWebHorizontalLayout,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -37,6 +37,7 @@ export function LegacyUniversalSearchInput({
   filterTypes,
   glass = false,
   tabRoute,
+  allowInTravelMode = false,
 }: {
   containerProps?: IStackStyle;
   size?: 'large' | 'medium' | 'small';
@@ -44,10 +45,19 @@ export function LegacyUniversalSearchInput({
   filterTypes?: EUniversalSearchType[];
   glass?: boolean;
   tabRoute: ETabRoutes;
+  allowInTravelMode?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
+    if (
+      !allowInTravelMode &&
+      tabRoute !== ETabRoutes.Home &&
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode'
+    ) {
+      return;
+    }
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
       params: {
@@ -56,7 +66,7 @@ export function LegacyUniversalSearchInput({
         ...(filterTypes ? { filterTypes } : {}),
       },
     });
-  }, [filterTypes, initialTab, navigation, tabRoute]);
+  }, [allowInTravelMode, filterTypes, initialTab, navigation, tabRoute]);
 
   // iOS 26 only: host the search bar inside a Liquid Glass capsule. Off iOS 26
   // (and every other platform) isLiquidGlassAvailable() is false, so this stays

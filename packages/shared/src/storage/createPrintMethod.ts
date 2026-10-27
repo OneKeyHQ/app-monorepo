@@ -1,4 +1,4 @@
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
+import type { AsyncStorageStatic } from './appStorageTypes';
 
 export function createPrintMethod({
   storage,

@@ -1,8 +1,12 @@
+import testIDValues from './testIDValues.json';
+
+const { recipientItemPrefix, ...staticTestIDs } = testIDValues;
+
 export const SendTestIDs = {
+  ...staticTestIDs,
+  recipientItem: (address: string) => `${recipientItemPrefix}${address}`,
+
   // Send data input
-  dataInputPage: 'send-recipient-amount-form', // preserve existing
-  recipientInput: 'send-recipient-input',
-  amountInput: 'send-amount-input',
   memoInput: 'send-memo-input',
   maxButton: 'send-max-button',
   tokenSelector: 'send-token-selector',
@@ -12,6 +16,7 @@ export const SendTestIDs = {
   addressBookButton: 'send-address-book-button',
   scanQRButton: 'send-scan-qr-button',
   pasteButton: 'send-paste-button',
+  addressRiskCheckButton: 'send-address-risk-check-button',
 
   // Send confirm
   confirmPage: 'tx-confirmation-body', // preserve existing (shared with SignatureConfirm)

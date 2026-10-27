@@ -11,13 +11,27 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { PUBLIC_KEY } from './constant/gpg';
 import { ElectronTranslations } from './i18n';
+import { assertSafeBundleVersion, resolveBundlePath } from './libs/bundlePaths';
 import {
   clearUpdateBundleData,
+  getDevSettingsEnabled,
   getNativeBuildNumber,
   getNativeVersion,
+  getSkipGPGVerification,
+  setNativeVersion,
 } from './libs/store';
 
-const readMetadataFileSha256 = async (signature: string) => {
+export const readMetadataFileSha256 = async (
+  signature: string,
+  expected?: { appVersion?: string; bundleVersion?: string },
+) => {
+  let json: {
+    fileName?: unknown;
+    sha256?: unknown;
+    appVersion?: unknown;
+    bundleVersion?: unknown;
+    appType?: unknown;
+  };
   try {
     const ascFileMessage = signature;
     if (!ascFileMessage) {
@@ -33,19 +47,14 @@ const readMetadataFileSha256 = async (signature: string) => {
     // Get result (validity of the signature)
     const valid = await result[0].verified;
     logger.info('auto-updater', `file valid: ${String(valid)}`);
-    if (valid) {
-      const text = signedMessage.getText();
-      logger.info('auto-updater', `text: ${text}`);
-      const json = JSON.parse(text) as {
-        sha256: string;
-      };
-      const sha256 = json.sha256;
-      logger.info('auto-updater', `getSha256 from asc file: ${sha256}`);
-      return sha256;
+    if (!valid) {
+      throw new OneKeyLocalError(
+        ElectronTranslations.update_signature_verification_failed_alert_text,
+      );
     }
-    throw new OneKeyLocalError(
-      ElectronTranslations.update_signature_verification_failed_alert_text,
-    );
+    const text = signedMessage.getText();
+    logger.info('auto-updater', `text: ${text}`);
+    json = JSON.parse(text) as typeof json;
   } catch (error) {
     logger.error(
       'auto-updater',
@@ -54,7 +63,7 @@ const readMetadataFileSha256 = async (signature: string) => {
     );
     const { message } = error as { message: string };
 
-    const lowerCaseMessage = message.toLowerCase();
+    const lowerCaseMessage = (message ?? '').toLowerCase();
     const isInValid =
       lowerCaseMessage.includes('signed digest did not match') ||
       lowerCaseMessage.includes('misformed armored text') ||
@@ -65,6 +74,39 @@ const readMetadataFileSha256 = async (signature: string) => {
         : ElectronTranslations.update_installation_package_possibly_compromised,
     );
   }
+
+  if (typeof json?.sha256 !== 'string' || !json.sha256) {
+    throw new OneKeyLocalError('Invalid signed metadata sha256');
+  }
+  if (
+    (expected !== undefined || json.fileName !== undefined) &&
+    json.fileName !== 'metadata.json'
+  ) {
+    throw new OneKeyLocalError('Invalid signed metadata fileName');
+  }
+  if (
+    (expected !== undefined || json.appType !== undefined) &&
+    json.appType !== 'electron'
+  ) {
+    throw new OneKeyLocalError('Invalid signed metadata appType');
+  }
+  if (
+    expected?.appVersion &&
+    (json.appVersion === undefined ||
+      String(json.appVersion) !== String(expected.appVersion))
+  ) {
+    throw new OneKeyLocalError('Signed metadata appVersion mismatch');
+  }
+  if (
+    expected?.bundleVersion &&
+    (json.bundleVersion === undefined ||
+      String(json.bundleVersion) !== String(expected.bundleVersion))
+  ) {
+    throw new OneKeyLocalError('Signed metadata bundleVersion mismatch');
+  }
+  const { sha256 } = json;
+  logger.info('auto-updater', `getSha256 from asc file: ${sha256}`);
+  return sha256;
 };
 
 // Side-channel reason from the most recent SHA256 operation.
@@ -194,8 +236,12 @@ export const getBundleExtractDir = ({
   appVersion: string;
   bundleVersion: string;
 }) => {
-  const bundleDir = getBundleDirName();
-  return path.join(bundleDir, `${appVersion}-${bundleVersion}`);
+  assertSafeBundleVersion(appVersion);
+  assertSafeBundleVersion(bundleVersion);
+  return resolveBundlePath(
+    getBundleDirName(),
+    `${appVersion}-${bundleVersion}`,
+  );
 };
 
 export const getBundleIndexHtmlPath = ({
@@ -206,6 +252,14 @@ export const getBundleIndexHtmlPath = ({
   bundleVersion: string;
 }) => {
   if (!appVersion || !bundleVersion) {
+    return undefined;
+  }
+  try {
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+  } catch {
+    // A legacy persisted pointer must not prevent starting the built-in bundle.
+    clearUpdateBundleData();
     return undefined;
   }
   const prevNativeVersion = getNativeVersion();
@@ -223,8 +277,14 @@ export const getBundleIndexHtmlPath = ({
     currentBuildNumber,
     prevBuildNumber,
   );
-  if (!semver.eq(currentAppVersion, prevNativeVersion)) {
+  if (
+    !semver.valid(prevNativeVersion) ||
+    !semver.eq(currentAppVersion, prevNativeVersion) ||
+    !semver.valid(appVersion) ||
+    !semver.eq(currentAppVersion, appVersion)
+  ) {
     clearUpdateBundleData();
+    setNativeVersion?.(currentAppVersion);
     return undefined;
   }
   if (
@@ -241,8 +301,8 @@ export const getBundleIndexHtmlPath = ({
     return undefined;
   }
   const extractDir = getBundleExtractDir({
-    appVersion: appVersion || '1.0.0',
-    bundleVersion: bundleVersion || '1',
+    appVersion,
+    bundleVersion,
   });
   if (!fs.existsSync(extractDir)) {
     return undefined;
@@ -253,9 +313,13 @@ export const getBundleIndexHtmlPath = ({
 };
 
 export const checkFileSha512 = (filePath: string, sha512: string) => {
-  const file = fs.readFileSync(filePath);
-  const hash = crypto.createHash('sha512').update(file).digest('hex');
-  return hash === sha512;
+  try {
+    const file = fs.readFileSync(filePath);
+    const hash = crypto.createHash('sha512').update(file).digest('hex');
+    return hash === sha512;
+  } catch {
+    return false;
+  }
 };
 
 const getMetadataFilePath = ({
@@ -266,18 +330,20 @@ const getMetadataFilePath = ({
   bundleVersion: string;
 }) => {
   const bundleDir = getBundleExtractDir({
-    appVersion: appVersion || '1.0.0',
-    bundleVersion: bundleVersion || '1',
+    appVersion,
+    bundleVersion,
   });
   return path.join(bundleDir, 'metadata.json');
 };
 
 export const verifyMetadataFileSha256 = async ({
   appVersion,
+  expectedAppVersion,
   bundleVersion,
   signature,
 }: {
   appVersion: string;
+  expectedAppVersion?: string;
   bundleVersion: string;
   signature: string;
 }) => {
@@ -286,7 +352,11 @@ export const verifyMetadataFileSha256 = async ({
     bundleVersion,
   });
   logger.info('bundle-verifyBundleASC', metadataFilePath);
-  const metadataFilesSha256 = await readMetadataFileSha256(signature);
+  const targetAppVersion = expectedAppVersion ?? appVersion;
+  const metadataFilesSha256 = await readMetadataFileSha256(signature, {
+    appVersion: targetAppVersion,
+    bundleVersion,
+  });
   const isVerified = verifySha256(metadataFilePath, metadataFilesSha256);
   if (!isVerified) {
     throw new OneKeyLocalError('Invalid asc file');
@@ -306,12 +376,16 @@ export const getMetadata = async ({
   signature: string;
 }): Promise<Record<string, string>> => {
   const metadataPath = path.join(bundleDir, '..', 'metadata.json');
-  // Intentionally global in QA skip-gpg builds: startup metadata verification
-  // follows build-time policy rather than per-request runtime toggles.
   const allowSkipGPG =
-    String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) === 'true';
+    String(process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION) === 'true' &&
+    Boolean(getDevSettingsEnabled?.() && getSkipGPGVerification?.());
   if (!allowSkipGPG) {
-    await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+    await verifyMetadataFileSha256({
+      appVersion,
+      expectedAppVersion: app.getVersion(),
+      bundleVersion,
+      signature,
+    });
   }
   const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
     string,
@@ -320,7 +394,7 @@ export const getMetadata = async ({
   return metadata;
 };
 
-const TEST_SIGNATURE = `
+export const TEST_SIGNATURE = `
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
 
@@ -359,7 +433,14 @@ export const testExtractedSha256FromVerifyAscFile = async () => {
   );
 };
 
+let isShowingUnmatchedFileDialog = false;
+
 const unmatchedFileDialog = (): void => {
+  clearUpdateBundleData();
+  if (isShowingUnmatchedFileDialog) {
+    return;
+  }
+  isShowingUnmatchedFileDialog = true;
   setTimeout(() => {
     void dialog
       .showMessageBox({
@@ -369,9 +450,14 @@ const unmatchedFileDialog = (): void => {
         buttons: ['exit it'],
       })
       .then((selection) => {
+        isShowingUnmatchedFileDialog = false;
         if (selection.response === 0) {
+          clearUpdateBundleData();
           app.exit();
         }
+      })
+      .catch(() => {
+        isShowingUnmatchedFileDialog = false;
       });
   });
 };
@@ -387,6 +473,18 @@ export const getDriveLetter = () => {
   const appPath = app.getAppPath();
   return isWin ? appPath.substring(0, 3) : '';
 };
+
+function getOwnMetadataHash(
+  map: Record<string, string> | undefined,
+  k: string,
+): string | undefined {
+  return map &&
+    Object.prototype.hasOwnProperty.call(map, k) &&
+    typeof map[k] === 'string'
+    ? map[k]
+    : undefined;
+}
+
 export const checkFileHash = ({
   bundleDirPath,
   metadata,
@@ -402,28 +500,29 @@ export const checkFileHash = ({
     throw new OneKeyLocalError('Bundle directory path not found');
   }
   const replacedKey = url.replace(/^\/+/, '').trim();
-  let key = replacedKey || 'index.html';
-  // Handle Windows path separators
-  if (isWin) {
-    key = key
-      .replace(/\\/g, '/')
-      .replace(bundleDirPath.replace(/\\/g, '/'), '')
-      .replace(driveLetter, '')
-      .replace('C:/', '');
-
-    // Remove leading slash if present
-    if (key.startsWith('/')) {
-      key = key.replace(/^\/+/, '').trim();
-    }
-  }
-  if (!metadata[key]) {
+  const normalizedBundleDir = bundleDirPath.replace(/\\/g, '/');
+  const normalizedDrive = driveLetter.replace(/\\/g, '/');
+  let key = (replacedKey || 'index.html')
+    .replace(/\\/g, '/')
+    .replace(normalizedBundleDir, '')
+    .replace(normalizedDrive, '')
+    .replace(/^[A-Za-z]:\//, '')
+    .replace(/^\/+/, '')
+    .trim();
+  key = key || 'index.html';
+  if (!getOwnMetadataHash(metadata, key)) {
     logger.info(
       `${key}: File ${url} ${bundleDirPath} not found in metadata.json`,
     );
     key = 'index.html';
   }
-  const sha512 = metadata[key];
-  const filePath = path.join(bundleDirPath, key);
+  const sha512 = getOwnMetadataHash(metadata, key);
+  const resolvedBundleDir = path.resolve(bundleDirPath);
+  const filePath = path.resolve(resolvedBundleDir, key);
+  if (!filePath.startsWith(`${resolvedBundleDir}${path.sep}`)) {
+    unmatchedFileDialog();
+    throw new OneKeyLocalError(`File ${url} is outside bundle directory`);
+  }
   if (!sha512) {
     logger.info(
       'checkFileHash error:',

@@ -1,4 +1,5 @@
 import { buildLocalSecretEnvelopeAesGcmLayerAdapter } from './aesGcmLayerAdapter';
+import { DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF } from './consts';
 import mmkvProfileKeyStorage from './mmkvProfileKeyStorage';
 
 import type { ILocalSecretEnvelopeAesGcmKeyStorage } from './aesGcmLayerAdapter';
@@ -7,8 +8,7 @@ import type {
   ILocalSecretEnvelopeLayerCapabilities,
 } from './types';
 
-export const DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF =
-  'onekey_lse_mmkv_profile_key_v1';
+export { DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF } from './consts';
 
 const MMKV_PROFILE_KEY_LSE_LAYER_KIND = 'mmkv-profile-key';
 

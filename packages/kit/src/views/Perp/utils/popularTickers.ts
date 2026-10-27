@@ -1,5 +1,3 @@
-const POPULAR_TICKER_COUNT = 10;
-
 export interface IPopularTickerItem {
   mode: 'perp' | 'spot';
   coinName: string;
@@ -35,14 +33,11 @@ export function pickPopularPerpTickers({
           b.hotScore - a.hotScore,
       );
     if (hotTabItems.length) {
-      return hotTabItems.slice(0, POPULAR_TICKER_COUNT);
+      return hotTabItems;
     }
   }
 
   return items
     .filter((item) => item.hotScore > 0)
-    .toSorted((a, b) => b.hotScore - a.hotScore)
-    .slice(0, POPULAR_TICKER_COUNT);
+    .toSorted((a, b) => b.hotScore - a.hotScore);
 }
-
-export { POPULAR_TICKER_COUNT };

@@ -16,7 +16,6 @@ import type { ICheckedState } from '@onekeyhq/components';
 import {
   Checkbox,
   Dialog,
-  HeaderScrollGestureWrapper,
   Icon,
   IconButton,
   Image,
@@ -39,16 +38,26 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldBlockBotWalletReceive } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
+import { WALLET_BANNER_IMAGE_SIZE } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   HYPERLIQUID_REFERRAL_CODE,
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
+
+import { HomeHeaderGesture } from '../HomeHeaderGesture';
 
 const PERPS_REFERRAL_BANNER_ID = 'local-perps-referral';
 
@@ -117,8 +126,12 @@ function BannerItem({
         gap="$3"
       >
         {item.src ? (
-          <YStack w={56} h={56} flexShrink={0}>
-            <Image size={56} source={{ uri: item.src }} />
+          <YStack
+            w={WALLET_BANNER_IMAGE_SIZE}
+            h={WALLET_BANNER_IMAGE_SIZE}
+            flexShrink={0}
+          >
+            <Image size={WALLET_BANNER_IMAGE_SIZE} source={{ uri: item.src }} />
           </YStack>
         ) : null}
         {/* The decorative icon is bottom-anchored (right/bottom "$4", 24pt), so
@@ -275,8 +288,22 @@ function NativeBannerScroller({
     [handleBannerOnPress],
   );
 
+  const bannerItems = (
+    <>
+      {leadingContent}
+      {banners.map((item) => (
+        <BannerItem
+          key={item.id}
+          item={item}
+          onPress={wrappedHandleBannerOnPress}
+          onDismiss={handleDismiss}
+        />
+      ))}
+    </>
+  );
+
   return (
-    <HeaderScrollGestureWrapper>
+    <HomeHeaderGesture>
       <YStack
         bg="$bgApp"
         overflow="hidden"
@@ -284,30 +311,38 @@ function NativeBannerScroller({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
       >
-        <GestureDetector gesture={panGesture}>
-          <Animated.View
-            style={[
-              {
-                flexDirection: 'row',
-                paddingHorizontal: BANNER_PADDING_H,
-                gap: BANNER_GAP,
-              },
-              animatedStyle,
-            ]}
+        {platformEnv.isNativeAndroid ? (
+          // The native pager recognizes horizontal scroll owners in its shared header.
+          <ScrollView
+            testID="home-wallet-banner-scroll"
+            horizontal
+            flexGrow={0}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: BANNER_PADDING_H,
+              gap: BANNER_GAP,
+            }}
           >
-            {leadingContent}
-            {banners.map((item) => (
-              <BannerItem
-                key={item.id}
-                item={item}
-                onPress={wrappedHandleBannerOnPress}
-                onDismiss={handleDismiss}
-              />
-            ))}
-          </Animated.View>
-        </GestureDetector>
+            {bannerItems}
+          </ScrollView>
+        ) : (
+          <GestureDetector gesture={panGesture}>
+            <Animated.View
+              style={[
+                {
+                  flexDirection: 'row',
+                  paddingHorizontal: BANNER_PADDING_H,
+                  gap: BANNER_GAP,
+                },
+                animatedStyle,
+              ]}
+            >
+              {bannerItems}
+            </Animated.View>
+          </GestureDetector>
+        )}
       </YStack>
-    </HeaderScrollGestureWrapper>
+    </HomeHeaderGesture>
   );
 }
 
@@ -415,7 +450,7 @@ function WebBannerScroller({
           pr="$4"
           opacity={showLeftArrow ? 1 : 0}
           pointerEvents={showLeftArrow ? 'auto' : 'none'}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           // Web-only: `background` and `linear-gradient` are CSS properties.
           // This component only renders on web (WebBannerScroller).
@@ -451,7 +486,7 @@ function WebBannerScroller({
           pl="$4"
           opacity={showRightArrow ? 1 : 0}
           pointerEvents={showRightArrow ? 'auto' : 'none'}
-          animation="quick"
+          transition="quick"
           animateOnly={ANIMATE_ONLY_OPACITY}
           // Web-only: `background` and `linear-gradient` are CSS properties.
           // This component only renders on web (WebBannerScroller).
@@ -546,29 +581,135 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
   });
 
   // --- Perps Referral Banner ---
-  const [referralBannerHiddenForAccount, setReferralBannerHiddenForAccount] =
-    useState<string | null>(null);
+  const [referralBannerHiddenForAccounts, setReferralBannerHiddenForAccounts] =
+    useState<Record<string, boolean>>({});
+  const hideReferralBanner = useCallback((userAddress: string) => {
+    setReferralBannerHiddenForAccounts((prev) => ({
+      ...prev,
+      [userAddress.toLowerCase()]: true,
+    }));
+  }, []);
 
-  const { result: referralEligibility } = usePromiseResult(async () => {
-    if (!account?.id) {
-      return null;
-    }
-    // Use the global EVM deriveType for PERPS_NETWORK_ID, not the scene-local
-    // deriveType. Home may currently be on a non-EVM network (e.g. BTC with
-    // 'native_segwit'), in which case the scene deriveType cannot resolve the
-    // Arbitrum account.
-    const globalEvmDeriveType =
-      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-        networkId: PERPS_NETWORK_ID,
-      });
-    return backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
-      {
-        accountId: account.id,
-        indexedAccountId: indexedAccount?.id || undefined,
-        deriveType: globalEvmDeriveType,
-      },
+  // A global EVM deriveType change resolves a different Arbitrum address under
+  // the same account/indexedAccount ids, so it must invalidate the scope too.
+  // GlobalDeriveTypeUpdate carries no networkId, so skip the bump only when
+  // both the landed result and the latest check's read already use the current
+  // Perps deriveType. The store mutates ~100ms before emitting, so a check can
+  // read a value no event has reported yet (A→B while A is landed), or a value
+  // the store has already reverted (A→B→A, landing B after both events saw A).
+  // Either mismatch, or a read still pending, must bump.
+  const [perpsDeriveTypeRevision, setPerpsDeriveTypeRevision] = useState(0);
+  const landedPerpsDeriveTypeRef = useRef<IAccountDeriveTypes | undefined>(
+    undefined,
+  );
+  // undefined while the latest check's read is pending. A failed read restores
+  // the previous value: the run cannot land, so it must not arm every later
+  // event with a permanent mismatch.
+  const latestReadPerpsDeriveTypeRef = useRef<IAccountDeriveTypes | undefined>(
+    undefined,
+  );
+  const referralCheckIdRef = useRef(0);
+  useEffect(() => {
+    const syncPerpsDeriveType = async () => {
+      // A failed read yields undefined, which invalidates conservatively.
+      const deriveType = await backgroundApiProxy.serviceNetwork
+        .getGlobalDeriveTypeOfNetwork({ networkId: PERPS_NETWORK_ID })
+        .catch(() => undefined);
+      if (
+        deriveType &&
+        deriveType === landedPerpsDeriveTypeRef.current &&
+        deriveType === latestReadPerpsDeriveTypeRef.current
+      ) {
+        return;
+      }
+      setPerpsDeriveTypeRevision((value) => value + 1);
+    };
+    const onGlobalDeriveTypeUpdate = () => {
+      void syncPerpsDeriveType();
+    };
+    appEventBus.on(
+      EAppEventBusNames.GlobalDeriveTypeUpdate,
+      onGlobalDeriveTypeUpdate,
     );
-  }, [account?.id, indexedAccount?.id]);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.GlobalDeriveTypeUpdate,
+        onGlobalDeriveTypeUpdate,
+      );
+    };
+  }, []);
+
+  const referralAccountScope = `${account?.id ?? ''}:${indexedAccount?.id ?? ''}:${perpsDeriveTypeRevision}`;
+
+  const { result: scopedReferralEligibility } = usePromiseResult(
+    async () => {
+      if (!account?.id) {
+        return null;
+      }
+      const scope = `${account.id}:${indexedAccount?.id ?? ''}:${perpsDeriveTypeRevision}`;
+      referralCheckIdRef.current += 1;
+      const checkId = referralCheckIdRef.current;
+      const previousReadPerpsDeriveType = latestReadPerpsDeriveTypeRef.current;
+      latestReadPerpsDeriveTypeRef.current = undefined;
+      // Use the global EVM deriveType for PERPS_NETWORK_ID, not the scene-local
+      // deriveType. Home may currently be on a non-EVM network (e.g. BTC with
+      // 'native_segwit'), in which case the scene deriveType cannot resolve the
+      // Arbitrum account.
+      const globalEvmDeriveType = await backgroundApiProxy.serviceNetwork
+        .getGlobalDeriveTypeOfNetwork({ networkId: PERPS_NETWORK_ID })
+        .catch((error: unknown) => {
+          // usePromiseResult neither lands nor retries a rejected run, so a
+          // pending marker left behind would make every later
+          // GlobalDeriveTypeUpdate bump the scope until the next successful
+          // revalidation. Only the run still owning the ref may restore it.
+          if (checkId === referralCheckIdRef.current) {
+            latestReadPerpsDeriveTypeRef.current = previousReadPerpsDeriveType;
+          }
+          throw error;
+        });
+      // usePromiseResult only lands the latest run, so an older read resolving
+      // late must not overwrite the newer one.
+      if (checkId === referralCheckIdRef.current) {
+        latestReadPerpsDeriveTypeRef.current = globalEvmDeriveType;
+      }
+      const eligibility =
+        await backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
+          {
+            accountId: account.id,
+            indexedAccountId: indexedAccount?.id || undefined,
+            deriveType: globalEvmDeriveType,
+          },
+        );
+      return { scope, deriveType: globalEvmDeriveType, eligibility };
+    },
+    [account?.id, indexedAccount?.id, perpsDeriveTypeRevision],
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    },
+  );
+  // Keep the last result while a focus/reconnect revalidation is in flight:
+  // the eligible path always hits the network (~1s), and clearing the result
+  // meanwhile drops the banner and re-inserts it at index 0 on every tab
+  // switch. A result from a previous account or deriveType is never shown.
+  const landedReferralResult =
+    scopedReferralEligibility?.scope === referralAccountScope
+      ? scopedReferralEligibility
+      : undefined;
+  const referralEligibility = landedReferralResult?.eligibility;
+  landedPerpsDeriveTypeRef.current = landedReferralResult?.deriveType;
+
+  const referralAccountScopeRef = useRef(referralAccountScope);
+  referralAccountScopeRef.current = referralAccountScope;
+
+  useEffect(() => {
+    const onBound = ({ userAddress }: { userAddress: string }) =>
+      hideReferralBanner(userAddress);
+    appEventBus.on(EAppEventBusNames.PerpsReferralBound, onBound);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PerpsReferralBound, onBound);
+    };
+  }, [hideReferralBanner]);
 
   const handleReferralBind = useCallback(async () => {
     // Guard against eligibility flipping mid-signing (race condition).
@@ -579,13 +720,52 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
     )
       return;
     const { resolvedAccountId, resolvedAddress } = referralEligibility;
+    const isCurrentAccount = () =>
+      referralAccountScopeRef.current === referralAccountScope;
+    if (!isCurrentAccount()) return;
+    const handleAlreadyBound = () => {
+      hideReferralBanner(resolvedAddress);
+      Toast.message({
+        title: intl.formatMessage({
+          id: ETranslations.perps__referral_already_bound__msg,
+        }),
+      });
+    };
 
     try {
+      const eligibility =
+        await backgroundApiProxy.serviceHyperliquidReferral.checkBannerReferralEligibility(
+          { accountId: resolvedAccountId, forceRefresh: true },
+        );
+      if (!isCurrentAccount()) return;
+      if (
+        eligibility.resolvedAddress &&
+        eligibility.resolvedAddress !== resolvedAddress
+      ) {
+        throw new OneKeyLocalError('Referral account changed');
+      }
+      if (eligibility.reason === 'already_has_referrer') {
+        await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
+          { userAddress: resolvedAddress },
+        );
+        handleAlreadyBound();
+        return;
+      }
+      if (
+        !eligibility.shouldShow ||
+        eligibility.resolvedAddress !== resolvedAddress
+      ) {
+        throw new OneKeyLocalError(
+          'Referral eligibility could not be confirmed',
+        );
+      }
+
       const { typedData, action, nonce } =
         await backgroundApiProxy.serviceHyperliquidReferral.buildSetReferrerTypedData(
           { code: HYPERLIQUID_REFERRAL_CODE },
         );
 
+      if (!isCurrentAccount()) return;
       const signatureHex = await backgroundApiProxy.serviceSend.signMessage({
         unsignedMessage: {
           type: EMessageTypesEth.TYPED_DATA_V4,
@@ -596,7 +776,12 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         networkId: PERPS_NETWORK_ID,
       });
 
-      if (!signatureHex || typeof signatureHex !== 'string') return;
+      if (
+        !isCurrentAccount() ||
+        !signatureHex ||
+        typeof signatureHex !== 'string'
+      )
+        return;
 
       const submitResult =
         await backgroundApiProxy.serviceHyperliquidReferral.submitSetReferrerWithSignature(
@@ -607,10 +792,11 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         await backgroundApiProxy.serviceHyperliquidReferral.invalidateBannerCache(
           { userAddress: resolvedAddress },
         );
+        if (!isCurrentAccount()) return;
         void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
           ERookieTaskType.HYPERLIQUID_REFERRAL,
         );
-        setReferralBannerHiddenForAccount(resolvedAddress);
+        hideReferralBanner(resolvedAddress);
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.perps__fee_discount_activated__msg,
@@ -618,22 +804,36 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         });
       }
     } catch (e) {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.perps__claim_failed__msg,
-        }),
-      });
+      const alreadySet = (e as { data?: { referralAlreadySet?: boolean } })
+        ?.data?.referralAlreadySet;
+      if (alreadySet) {
+        const isBound = await backgroundApiProxy.serviceHyperliquidReferral
+          .refreshReferralBinding({ userAddress: resolvedAddress })
+          .catch(() => false);
+        if (isBound && isCurrentAccount()) {
+          handleAlreadyBound();
+          return;
+        }
+      }
+      errorToastUtils.showToastOfError(e);
+      if (!errorToastUtils.wasAutoToastShown(e)) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.perps__claim_failed__msg,
+          }),
+        });
+      }
       throw e;
     }
-  }, [referralEligibility, intl]);
+  }, [referralEligibility, referralAccountScope, hideReferralBanner, intl]);
 
   const handleSnoozeReferralBanner = useCallback(async () => {
     if (!referralEligibility?.resolvedAddress) return;
     await backgroundApiProxy.serviceHyperliquidReferral.snoozeReferralBanner({
       userAddress: referralEligibility.resolvedAddress,
     });
-    setReferralBannerHiddenForAccount(referralEligibility.resolvedAddress);
-  }, [referralEligibility]);
+    hideReferralBanner(referralEligibility.resolvedAddress);
+  }, [referralEligibility, hideReferralBanner]);
 
   const handleReferralBannerPress = useCallback(() => {
     let snoozed = false;
@@ -662,7 +862,9 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
 
   const referralBannerItem: IWalletBanner | null = useMemo(() => {
     if (
-      referralBannerHiddenForAccount === referralEligibility?.resolvedAddress ||
+      referralBannerHiddenForAccounts[
+        referralEligibility?.resolvedAddress ?? ''
+      ] ||
       !referralEligibility?.shouldShow
     )
       return null;
@@ -686,7 +888,7 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
       icon: 'GiftSolid',
     };
   }, [
-    referralBannerHiddenForAccount,
+    referralBannerHiddenForAccounts,
     referralEligibility?.resolvedAddress,
     referralEligibility?.shouldShow,
     intl,

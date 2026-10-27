@@ -1,6 +1,9 @@
+// cspell:ignore tickmarks
 import { useEffect, useRef, useState } from 'react';
+import type { Ref } from 'react';
 
 import { Stack } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 
 import { useChartConfig } from './hooks/useChartConfig';
@@ -8,17 +11,27 @@ import { LightweightChartPulseDot } from './LightweightChartPulseDot';
 import {
   createAreaSeriesOptions,
   createChartOptions,
+  createLastValueSeriesOptions,
+  createReferenceLineAutoscaleInfoProvider,
 } from './utils/chartOptions';
 import {
   createDottedAreaSeriesOptions,
   createDottedAreaSeriesPaneView,
 } from './utils/dottedAreaSeries';
+import {
+  createHistogramSeriesOptions,
+  createHistogramSeriesPaneView,
+} from './utils/histogramSeries';
 
 import type { ILightweightChartProps } from './types';
 import type {
   IDottedAreaData,
   IDottedAreaSeriesOptions,
 } from './utils/dottedAreaSeries';
+import type {
+  IHistogramData,
+  IHistogramSeriesOptions,
+} from './utils/histogramSeries';
 import type {
   IChartApi,
   ISeriesApi,
@@ -37,10 +50,40 @@ type IDottedAreaSeriesApi = ISeriesApi<
   SeriesPartialOptions<IDottedAreaSeriesOptions>
 >;
 
+type IHistogramSeriesApi = ISeriesApi<
+  'Custom',
+  Time,
+  IHistogramData | WhitespaceData<Time>,
+  IHistogramSeriesOptions,
+  SeriesPartialOptions<IHistogramSeriesOptions>
+>;
+
 type IPrimarySeriesApi =
   | ISeriesApi<'Area'>
   | ISeriesApi<'Baseline'>
+  | IHistogramSeriesApi
   | IDottedAreaSeriesApi;
+
+// Layered on top of whatever formatter each series type was created with, so
+// every type picks up the tick formatter and the price base the same way.
+function applyPriceFormatOverrides(
+  series: IPrimarySeriesApi,
+  {
+    priceFormatBase,
+    priceTickFormatter,
+  }: Pick<ILightweightChartProps, 'priceFormatBase' | 'priceTickFormatter'>,
+) {
+  if (priceFormatBase === undefined && !priceTickFormatter) return;
+  const currentPriceFormat = series.options().priceFormat;
+  if (currentPriceFormat.type !== 'custom') return;
+  series.applyOptions({
+    priceFormat: {
+      ...currentPriceFormat,
+      base: priceFormatBase,
+      tickmarksFormatter: priceTickFormatter,
+    },
+  });
+}
 
 function getSeriesValue(seriesData: unknown): number | undefined {
   if (seriesData && typeof seriesData === 'object' && 'value' in seriesData) {
@@ -63,19 +106,32 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  horzLineColor,
+  horzLineStyle,
   priceScalePosition,
   priceScaleMargins,
   priceScaleEntireTextOnly,
   priceScaleMinimumWidth,
+  crosshairVertLineColor,
+  crosshairVertLineStyle,
+  patternColor,
+  pulseLastPointColor,
   priceFormatter,
+  priceTickFormatter,
+  priceFormatBase,
   fontSize,
   seriesType,
   lineType,
   baselineOptions,
+  histogramOptions,
+  referenceLine,
   showLastValue,
+  showLastValuePriceLine,
+  lastValueLabelColor,
   showLastPointMarker,
   showTimeScale,
   useTimeScaleTickMarkWithoutUnit,
+  timeScaleRightOffsetPixels,
   timeZone,
   locale,
   pulseLastPoint,
@@ -86,6 +142,9 @@ export function LightweightChart({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<IPrimarySeriesApi | null>(null);
   const secondarySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const secondaryPointSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const heightRef = useRef(height);
+  heightRef.current = height;
   // Pixel position of the last data point (relative to the chart container's
   // top-left), kept in sync so the pulse-dot overlay tracks the chart tail.
   const [lastPointPosition, setLastPointPosition] = useState<{
@@ -105,18 +164,31 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    horzLineColor,
+    horzLineStyle,
     priceScalePosition,
     priceScaleMargins,
     priceScaleEntireTextOnly,
+    crosshairVertLineColor,
+    crosshairVertLineStyle,
+    patternColor,
+    pulseLastPointColor,
     priceFormatter,
+    priceTickFormatter,
+    priceFormatBase,
     fontSize,
     seriesType,
     lineType,
     baselineOptions,
+    histogramOptions,
+    referenceLine,
     showLastValue,
+    showLastValuePriceLine,
+    lastValueLabelColor,
     showLastPointMarker,
     showTimeScale,
     useTimeScaleTickMarkWithoutUnit,
+    timeScaleRightOffsetPixels,
     timeZone,
     locale,
   });
@@ -156,7 +228,14 @@ export function LightweightChart({
     setLastPointPosition(null);
 
     void getChartLib().then(
-      ({ AreaSeries, BaselineSeries, LineSeries, LineType, createChart }) => {
+      ({
+        AreaSeries,
+        BaselineSeries,
+        LineSeries,
+        LineStyle,
+        LineType,
+        createChart,
+      }) => {
         if (cancelled) return;
 
         const currentChartConfig = chartConfigRef.current;
@@ -172,6 +251,11 @@ export function LightweightChart({
           currentChartConfig.priceScalePosition,
           currentChartConfig.timeZone,
           currentChartConfig.locale,
+          {
+            color: currentChartConfig.crosshairVertLineColor,
+            style: currentChartConfig.crosshairVertLineStyle,
+          },
+          currentChartConfig.timeScaleRightOffsetPixels,
         );
         const gridOptions = {
           vertLines: { visible: false },
@@ -188,11 +272,17 @@ export function LightweightChart({
           ...baseOptions,
           grid: gridOptions,
           width: container.clientWidth,
-          height,
+          height: container.clientHeight || heightRef.current,
         });
 
         const isBaseline = currentChartConfig.seriesType === 'baseline';
         const isDottedArea = currentChartConfig.seriesType === 'dotted-area';
+        const isHistogram = currentChartConfig.seriesType === 'histogram';
+        const lastValueSeriesOptions = createLastValueSeriesOptions({
+          showLastValue,
+          showLastValuePriceLine: currentChartConfig.showLastValuePriceLine,
+          lastValueLabelColor: currentChartConfig.lastValueLabelColor,
+        });
         let series: IPrimarySeriesApi;
         if (isDottedArea) {
           series = chart.addCustomSeries(
@@ -201,7 +291,10 @@ export function LightweightChart({
               theme: currentChartConfig.theme,
               lineWidth: currentChartConfig.lineWidth,
               showLastValue,
+              showLastValuePriceLine: currentChartConfig.showLastValuePriceLine,
+              lastValueLabelColor: currentChartConfig.lastValueLabelColor,
               showLastPointMarker: currentChartConfig.showLastPointMarker,
+              patternColor: currentChartConfig.patternColor,
               priceFormatter: currentChartConfig.priceFormatter,
             }),
           );
@@ -220,8 +313,7 @@ export function LightweightChart({
               4,
               Math.max(1, Math.round(currentChartConfig.lineWidth)),
             ) as 1 | 2 | 3 | 4,
-            lastValueVisible: !!showLastValue,
-            priceLineVisible: !!showLastValue,
+            ...lastValueSeriesOptions,
             crosshairMarkerRadius: 5,
             priceFormat: {
               type: 'custom',
@@ -229,6 +321,19 @@ export function LightweightChart({
                 currentChartConfig.priceFormatter ??
                 ((price: number) => `$${price.toFixed(2)}`),
             },
+          });
+        } else if (isHistogram) {
+          series = chart.addCustomSeries(createHistogramSeriesPaneView(), {
+            ...createHistogramSeriesOptions({
+              theme: currentChartConfig.theme,
+              histogramOptions: currentChartConfig.histogramOptions,
+              showLastValue,
+              priceFormatter: currentChartConfig.priceFormatter,
+            }),
+            ...lastValueSeriesOptions,
+          });
+          series.applyOptions({
+            priceScaleId: currentChartConfig.priceScalePosition,
           });
         } else {
           series = chart.addSeries(AreaSeries, {
@@ -238,13 +343,50 @@ export function LightweightChart({
               currentChartConfig.lineWidth,
               currentChartConfig.priceFormatter,
             ),
-            ...(showLastValue && {
-              lastValueVisible: true,
-              priceLineVisible: true,
-            }),
+            ...lastValueSeriesOptions,
+          });
+        }
+        applyPriceFormatOverrides(series, currentChartConfig);
+        if (currentChartConfig.referenceLine?.includeInAutoscale) {
+          series.applyOptions({
+            autoscaleInfoProvider: createReferenceLineAutoscaleInfoProvider(
+              currentChartConfig.referenceLine.price,
+            ),
           });
         }
         series.setData(currentChartConfig.data);
+
+        if (currentChartConfig.referenceLine) {
+          const referenceLineStyle = {
+            solid: LineStyle.Solid,
+            dotted: LineStyle.Dotted,
+            dashed: LineStyle.Dashed,
+            'large-dashed': LineStyle.LargeDashed,
+            'sparse-dotted': LineStyle.SparseDotted,
+          }[currentChartConfig.referenceLine.lineStyle ?? 'solid'];
+          series.createPriceLine({
+            price: currentChartConfig.referenceLine.price,
+            color: currentChartConfig.referenceLine.color,
+            lineWidth: currentChartConfig.referenceLine.lineWidth ?? 1,
+            lineStyle: referenceLineStyle,
+            lineVisible: true,
+            axisLabelVisible:
+              currentChartConfig.referenceLine.axisLabelVisible ?? false,
+            title: currentChartConfig.referenceLine.title ?? '',
+            ...(currentChartConfig.referenceLine.axisLabelColor
+              ? {
+                  axisLabelColor:
+                    currentChartConfig.referenceLine.axisLabelColor,
+                }
+              : {}),
+            ...(currentChartConfig.referenceLine.axisLabelTextColor
+              ? {
+                  axisLabelTextColor:
+                    currentChartConfig.referenceLine.axisLabelTextColor,
+                }
+              : {}),
+          });
+        }
 
         if (
           Array.isArray(currentChartConfig.secondaryLineData) &&
@@ -264,6 +406,23 @@ export function LightweightChart({
           });
           secondarySeries.setData(currentChartConfig.secondaryLineData);
           secondarySeriesRef.current = secondarySeries;
+
+          // Points cut off by gaps on both sides draw no segment; a dot-only
+          // series in the same color keeps them visible.
+          if (currentChartConfig.secondaryPointData?.length) {
+            const secondaryPointSeries = chart.addSeries(LineSeries, {
+              priceScaleId: currentChartConfig.priceScalePosition,
+              color: currentChartConfig.secondaryLineColor ?? '#0177E5',
+              lineVisible: false,
+              pointMarkersVisible: true,
+              pointMarkersRadius: normalizedSecondaryLineWidth + 1,
+              priceLineVisible: false,
+              lastValueVisible: false,
+              crosshairMarkerVisible: false,
+            });
+            secondaryPointSeries.setData(currentChartConfig.secondaryPointData);
+            secondaryPointSeriesRef.current = secondaryPointSeries;
+          }
         }
 
         chartRef.current = chart;
@@ -368,14 +527,13 @@ export function LightweightChart({
         // Handle resize
         resizeObserver = new ResizeObserver((entries) => {
           if (entries.length === 0 || entries[0].target !== container) return;
-          const { width: newWidth } = entries[0].contentRect;
-          chart?.applyOptions({ width: newWidth });
-          // applyOptions relays out the chart (bar spacing / right-edge anchor)
-          // on the next paint frame; reading coordinates synchronously here
-          // returns the pre-resize layout, so the pulse dot would freeze at its
-          // old x. lockVisibleTimeRangeOnResize also means the visible-range
-          // subscription never fires on resize to correct it. Recompute after
-          // the frame settles, mirroring the init path's rAF fallback.
+          const { height: newHeight, width: newWidth } = entries[0].contentRect;
+          chart?.applyOptions({ height: newHeight, width: newWidth });
+          // Scrolling/scaling are disabled; keep the full series fitted after
+          // resize rather than carrying the old right offset into the new width.
+          chart?.timeScale().fitContent();
+          // Layout and the full-range fit settle on the next chart frame.
+          // Refresh the pulse overlay after that frame, using the new coordinates.
           if (resizeRafId !== undefined) {
             cancelAnimationFrame(resizeRafId);
           }
@@ -407,24 +565,33 @@ export function LightweightChart({
       chartRef.current = null;
       seriesRef.current = null;
       secondarySeriesRef.current = null;
+      secondaryPointSeriesRef.current = null;
       lastPointPositionUpdaterRef.current = undefined;
     };
   }, [
     chartConfig.baselineOptions,
+    chartConfig.crosshairVertLineColor,
+    chartConfig.crosshairVertLineStyle,
     chartConfig.fontSize,
     chartConfig.horzLineColor,
     chartConfig.horzLineStyle,
+    chartConfig.histogramOptions,
+    chartConfig.lastValueLabelColor,
     chartConfig.lineWidth,
     chartConfig.lineType,
+    chartConfig.patternColor,
     chartConfig.priceFormatter,
+    chartConfig.priceTickFormatter,
     chartConfig.priceScalePosition,
     chartConfig.priceScaleEntireTextOnly,
     chartConfig.priceScaleMargins,
+    chartConfig.referenceLine,
     chartConfig.secondaryLineColor,
     chartConfig.secondaryLineWidth,
     chartConfig.seriesType,
     chartConfig.showHorzGridLines,
     chartConfig.showLastPointMarker,
+    chartConfig.showLastValuePriceLine,
     chartConfig.showPriceScale,
     chartConfig.showTimeScale,
     chartConfig.theme.bgColor,
@@ -432,12 +599,12 @@ export function LightweightChart({
     chartConfig.theme.lineColor,
     chartConfig.theme.textSubduedColor,
     chartConfig.theme.topColor,
+    chartConfig.timeScaleRightOffsetPixels,
     chartConfig.timeZone,
     chartConfig.useTimeScaleTickMarkWithoutUnit,
     chartConfig.locale,
     chartDataCreateDependency,
     hasSecondaryLineData,
-    height,
     onHover,
     preserveChartInstanceOnDataChange,
     priceScaleMinimumWidth,
@@ -462,8 +629,9 @@ export function LightweightChart({
     canPublishLastPointPositionRef.current = false;
     setLastPointPosition(null);
 
+    // A new range can sit at a different magnitude, so the tick step follows.
+    applyPriceFormatOverrides(currentSeries, chartConfigRef.current);
     currentSeries.setData(chartConfig.data);
-    secondarySeriesRef.current?.setData(chartConfig.secondaryLineData ?? []);
     currentChart.timeScale().fitContent();
 
     const lastPointRafId = requestAnimationFrame(() => {
@@ -485,20 +653,38 @@ export function LightweightChart({
         canPublishLastPointPositionRef.current = false;
       }
     };
+  }, [chartConfig.data, preserveChartInstanceOnDataChange]);
+
+  // The overlay series is re-cut on every crosshair step by charts that dim the
+  // part of the line past the cursor, so it gets its own update path: replacing
+  // its data must not re-fit the time scale or drop the pulse-dot anchor, or
+  // scrubbing would make the chart strobe.
+  useEffect(() => {
+    if (!preserveChartInstanceOnDataChange) {
+      return;
+    }
+    secondarySeriesRef.current?.setData(chartConfig.secondaryLineData ?? []);
+    secondaryPointSeriesRef.current?.setData(
+      chartConfig.secondaryPointData ?? [],
+    );
   }, [
-    chartConfig.data,
     chartConfig.secondaryLineData,
+    chartConfig.secondaryPointData,
     preserveChartInstanceOnDataChange,
   ]);
 
   return (
     <Stack position="relative" width="100%" height={height}>
-      <Stack ref={chartContainerRef} position="absolute" inset={0} />
+      <Stack
+        ref={chartContainerRef as unknown as Ref<IElement>}
+        position="absolute"
+        inset={0}
+      />
       {pulseLastPoint && lastPointPosition ? (
         <LightweightChartPulseDot
           x={lastPointPosition.x}
           y={lastPointPosition.y}
-          color={chartConfig.theme.lineColor}
+          color={chartConfig.pulseLastPointColor ?? chartConfig.theme.lineColor}
         />
       ) : null}
     </Stack>

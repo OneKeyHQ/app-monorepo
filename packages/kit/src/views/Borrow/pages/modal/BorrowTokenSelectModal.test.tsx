@@ -254,6 +254,24 @@ describe('BorrowTokenSelectModal selection navigation', () => {
     expect(navigationMock.pop).not.toHaveBeenCalled();
   });
 
+  it('returns to Manage Position when the current asset is selected again', () => {
+    const onSelect = jest.fn();
+    routeMock.current = {
+      params: {
+        ...baseParams,
+        currentReserveAddress: asset.reserveAddress,
+        onSelect,
+      },
+    };
+
+    render(<BorrowTokenSelectModal />);
+    pressAsset();
+
+    expect(onSelect).toHaveBeenCalledWith(asset);
+    expect(navigationMock.pop).toHaveBeenCalledTimes(1);
+    expect(navigationMock.push).not.toHaveBeenCalled();
+  });
+
   it.each([
     [
       'mobile',

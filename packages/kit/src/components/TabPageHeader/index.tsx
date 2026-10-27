@@ -114,7 +114,11 @@ function BaseDesktopTabPageHeader({
     ) {
       return (
         <>
-          {customHeaderRightItems}
+          {platformEnv.isDesktop && tabRoute === ETabRoutes.Swap ? (
+            <XStack alignItems="center">{customHeaderRightItems}</XStack>
+          ) : (
+            customHeaderRightItems
+          )}
           <XStack pl="$5" alignItems="center">
             <HeaderUpdateButton />
             <HeaderNotificationIconButton testID="header-right-notification" />
@@ -128,7 +132,10 @@ function BaseDesktopTabPageHeader({
           <WalletConnectionForWeb tabRoute={tabRoute} />
         ) : null}
         {tabRoute === ETabRoutes.Earn ? (
-          <XStack px="$5">
+          <XStack
+            px="$5"
+            alignItems={platformEnv.isDesktop ? 'center' : undefined}
+          >
             <GiftAction copyAsUrl />
           </XStack>
         ) : null}
@@ -181,6 +188,7 @@ export function TabPageHeader({
   customToolbarItems,
   hideSearch = false,
   hideHeaderLeft = false,
+  disableHomeHeaderGlass = false,
   headerPx,
   pageScrollPosition,
 }: ITabPageHeaderProp) {
@@ -213,6 +221,7 @@ export function TabPageHeader({
         customHeaderRightItems={customHeaderRightItems}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         headerPx={headerPx}
+        disableHomeHeaderGlass={disableHomeHeaderGlass}
         pageScrollPosition={pageScrollPosition}
       />
     );

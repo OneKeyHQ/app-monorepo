@@ -17,7 +17,12 @@ interface IRoomManager {
     appBuildNumber: string;
     appPlatform: string;
     appDeviceName: string;
-  }): Promise<{ roomId: string; userId: string }>;
+  }): Promise<{
+    roomId: string;
+    userId: string;
+    chunkedTransferVersion?: number;
+    maxMessageSize?: number;
+  }>;
 
   joinRoomAfterCreate(params: {
     roomId: string;
@@ -26,7 +31,12 @@ interface IRoomManager {
     appBuildNumber: string;
     appPlatform: string;
     appDeviceName: string;
-  }): Promise<{ roomId: string; userId: string }>;
+  }): Promise<{
+    roomId: string;
+    userId: string;
+    chunkedTransferVersion?: number;
+    maxMessageSize?: number;
+  }>;
 
   leaveRoom(params: {
     roomId: string;

@@ -188,6 +188,12 @@ jest.mock('@onekeyhq/shared/src/utils/numberUtils', () => ({
   formatDisplayNumber: (value: string) => value,
 }));
 
+jest.mock('../../../hooks/useMarketDetailPositionTab', () => ({
+  useMarketDetailPositionTab: () => ({
+    preferPosition: false,
+    recordTabChange: jest.fn(),
+  }),
+}));
 jest.mock('../../../hooks/useTokenDetail', () => ({
   useTokenDetail: () => mockTokenDetailState,
 }));

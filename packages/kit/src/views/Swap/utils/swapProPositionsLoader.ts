@@ -5,10 +5,8 @@ import type {
   IJotaiGetter,
   IJotaiSetter,
 } from '@onekeyhq/kit-bg/src/states/jotai/types';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { swapProStockPositionsListMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapNetwork,
   ISwapToken,
@@ -34,6 +32,7 @@ import {
   compareSwapProPositionNetworkIds,
 } from './swapProPositionsKeyUtils';
 import { buildStockPositionTokens } from './swapStockPositionsUtils';
+import { isTradePositionVisible } from './tradePositionUtils';
 
 export type ISwapProPositionsLoadOptions = {
   forceRefresh?: boolean;
@@ -142,11 +141,17 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
   set(swapProPositionsRuntimeDataAtom(), (currentEntries) => {
     let nextEntries = currentEntries;
     for (const scope of scopesToLoad) {
+      const currentEntry = nextEntries[scope.ownerKey];
+      const isBackgroundRefresh = Boolean(
+        currentEntry?.status === 'success' ||
+        currentEntry?.status === 'refreshing' ||
+        currentEntry?.tokens.length,
+      );
       nextEntries = upsertSwapProPositionsRuntimeEntry({
         entries: nextEntries,
         entry: {
-          status: 'loading',
-          tokens: [],
+          status: isBackgroundRefresh ? 'refreshing' : 'loading',
+          tokens: currentEntry?.tokens ?? [],
           updatedAt: requestStartedAt,
         },
         ownerKey: scope.ownerKey,
@@ -156,6 +161,7 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
   });
   const isLatestScopeRequest = (ownerKey: string) =>
     get(swapProPositionsRequestIdsAtom())[ownerKey] === requestId;
+  const refreshedNetworkIdsByOwner = new Map<string, Set<string>>();
   const sortPositionTokens = (tokens: ISwapToken[]) =>
     tokens.toSorted((left, right) =>
       new BigNumber(right.fiatValue ?? '0').comparedTo(
@@ -174,6 +180,10 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
     if (!isLatestScopeRequest(scope.ownerKey)) {
       return;
     }
+    const refreshedNetworkIds =
+      refreshedNetworkIdsByOwner.get(scope.ownerKey) ?? new Set<string>();
+    refreshedNetworkIds.add(networkId);
+    refreshedNetworkIdsByOwner.set(scope.ownerKey, refreshedNetworkIds);
     set(swapProPositionsRuntimeDataAtom(), (currentEntries) => {
       const currentEntry = currentEntries[scope.ownerKey];
       if (!currentEntry) {
@@ -182,7 +192,8 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
       return upsertSwapProPositionsRuntimeEntry({
         entries: currentEntries,
         entry: {
-          status: 'loading',
+          status:
+            currentEntry.status === 'refreshing' ? 'refreshing' : 'loading',
           tokens: sortPositionTokens([
             ...currentEntry.tokens.filter(
               (token) => token.networkId !== networkId,
@@ -216,12 +227,11 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
         let nextEntries = currentEntries;
         for (const scope of scopesToLoad) {
           if (isLatestScopeRequest(scope.ownerKey)) {
-            const currentEntry = nextEntries[scope.ownerKey];
             nextEntries = upsertSwapProPositionsRuntimeEntry({
               entries: nextEntries,
               entry: {
                 status: 'error',
-                tokens: currentEntry?.tokens ?? [],
+                tokens: [],
                 updatedAt: Date.now(),
               },
               ownerKey: scope.ownerKey,
@@ -285,9 +295,10 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
         if (stockNetworkIds.has(accountNetworkId)) {
           try {
             const stockCandidateTokens = tokens.filter((token) =>
-              new BigNumber(token.fiatValue ?? '0').gt(
-                swapProStockPositionsListMinValue,
-              ),
+              isTradePositionVisible({
+                balance: token.balanceParsed,
+                isStock: true,
+              }),
             );
             if (stockCandidateTokens.length === 0) {
               stockTokens = [];
@@ -307,11 +318,6 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
                 marketItems: response.list ?? [],
                 tokens: stockCandidateTokens,
               });
-              if (!stockTokens) {
-                throw new OneKeyLocalError(
-                  'Incomplete market metadata response for Stock positions',
-                );
-              }
             }
             for (const scope of scopesToLoad) {
               if (scope.stockOnly && scope.networkIds.has(accountNetworkId)) {
@@ -391,11 +397,15 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
       for (const scope of scopesToLoad) {
         if (isLatestScopeRequest(scope.ownerKey)) {
           const currentEntry = nextEntries[scope.ownerKey];
+          const refreshedNetworkIds =
+            refreshedNetworkIdsByOwner.get(scope.ownerKey) ?? new Set<string>();
           nextEntries = upsertSwapProPositionsRuntimeEntry({
             entries: nextEntries,
             entry: {
               status: 'error',
-              tokens: currentEntry?.tokens ?? [],
+              tokens: (currentEntry?.tokens ?? []).filter((token) =>
+                refreshedNetworkIds.has(token.networkId),
+              ),
               updatedAt: Date.now(),
             },
             ownerKey: scope.ownerKey,

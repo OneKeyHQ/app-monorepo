@@ -127,7 +127,7 @@ function FaqInfo({
                       {question}
                     </SizableText>
                     <Stack
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_TRANSFORM}
                       rotate={open ? '180deg' : '0deg'}
                     >
@@ -140,12 +140,12 @@ function FaqInfo({
                   </>
                 )}
               </Accordion.Trigger>
-              <Accordion.HeightAnimator animation="quick">
+              <Accordion.HeightAnimator transition="quick">
                 <Accordion.Content
                   unstyled
                   pt="$2"
                   pb="$5"
-                  animation="100ms"
+                  transition="100ms"
                   animateOnly={ANIMATE_ONLY_OPACITY}
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}

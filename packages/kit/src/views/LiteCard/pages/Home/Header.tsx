@@ -30,13 +30,13 @@ export function Header() {
     >
       <XStack fullscreen borderRadius="$3" overflow="hidden">
         <Image
+          resizeMode="cover"
           style={{
             position: 'absolute',
             right: 0,
             top: 0,
             width: 240,
             height: '100%',
-            resizeMode: 'cover',
           }}
           source={require('@onekeyhq/kit/assets/litecard/home_buy.png')}
         />

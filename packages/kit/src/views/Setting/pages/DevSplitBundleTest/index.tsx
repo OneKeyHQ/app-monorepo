@@ -11,6 +11,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { SettingTestIDs } from '@onekeyhq/kit/src/views/Setting/testIDs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -216,7 +217,9 @@ function TransportStateSection() {
           <InfoRow label="bootId" value={info.readyPayload.bootId} />
           <InfoRow
             label="ready at"
-            value={new Date(info.readyPayload.ts).toLocaleTimeString()}
+            value={formatTime(new Date(info.readyPayload.ts), {
+              hideMilliseconds: true,
+            })}
           />
           <InfoRow
             label="protocolVersion"

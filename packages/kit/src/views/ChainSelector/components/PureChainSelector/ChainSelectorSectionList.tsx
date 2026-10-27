@@ -127,8 +127,6 @@ const ChainSelectorSectionListContent = ({
               NETWORK_SHOW_VALUE_THRESHOLD_USD,
             ));
 
-        console.log('accountNetworkValues', accountNetworkValues);
-        console.log('item.id', item.id);
         return (
           <ListItem
             h={48}
@@ -194,6 +192,9 @@ type IChainSelectorSectionListProps = {
   accountNetworkValues?: Record<string, string>;
   accountNetworkValueCurrency?: string;
   hideLowValueNetworkValue?: boolean;
+  // Lift networks above the value threshold into a top "Networks with assets"
+  // section, like the wallet network selector. Opt-in per caller.
+  groupByNetworkValue?: boolean;
 };
 
 const usePending = () => {
@@ -232,6 +233,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   accountNetworkValues,
   accountNetworkValueCurrency,
   hideLowValueNetworkValue,
+  groupByNetworkValue,
 }) => {
   const [text, setText] = useState('');
   const intl = useIntl();
@@ -272,6 +274,9 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     networks,
     searchKey: text,
     unavailableNetworks: unavailable,
+    accountNetworkValues: groupByNetworkValue
+      ? accountNetworkValues
+      : undefined,
   });
 
   const layoutList = useMemo(() => {

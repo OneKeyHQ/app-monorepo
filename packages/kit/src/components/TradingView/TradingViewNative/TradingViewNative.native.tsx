@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { noop } from 'lodash';
@@ -29,9 +29,6 @@ function shouldUseCurrentAndroidWindowForFullscreen() {
 }
 
 function getDefaultOrientationLock(shouldUseCurrentAndroidWindow: boolean) {
-  if (platformEnv.isNativeIOSPad) {
-    return ScreenOrientation.OrientationLock.ALL;
-  }
   if (shouldUseCurrentAndroidWindow) {
     return ScreenOrientation.OrientationLock.DEFAULT;
   }
@@ -47,6 +44,10 @@ function lockScreenOrientation(
 export function TradingViewNative(props: ITradingViewNativeProps) {
   const isFullscreen = Boolean(props.isNativeChartFullscreen);
   const { onNativeChartFullscreenChange } = props;
+  const onFullscreenChangeRef = useRef(onNativeChartFullscreenChange);
+  useLayoutEffect(() => {
+    onFullscreenChangeRef.current = onNativeChartFullscreenChange;
+  }, [onNativeChartFullscreenChange]);
   const { height, width } = useWindowDimensions();
   const isAndroid = platformEnv.isNativeAndroid === true;
   const shouldHideStatusBar = shouldHideTradingViewNativeStatusBar({
@@ -56,21 +57,22 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     isSpanningWindow: isAndroid && isSpanning(),
     width,
   });
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isFullscreen) {
       return;
     }
 
     let isActive = true;
+    // The iOS fullscreen page owns its orientation through native-stack.
+    const shouldManageOrientation = platformEnv.isNativeAndroid;
     const shouldUseCurrentAndroidWindow =
       shouldUseCurrentAndroidWindowForFullscreen();
-    if (!shouldUseCurrentAndroidWindow) {
+    if (shouldManageOrientation && !shouldUseCurrentAndroidWindow) {
       void ScreenOrientation.lockAsync(
         ScreenOrientation.OrientationLock.LANDSCAPE,
       ).catch(() => {
         if (isActive) {
-          onNativeChartFullscreenChange?.(false);
+          onFullscreenChangeRef.current?.(false);
         }
       });
     }
@@ -79,7 +81,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
       'change',
       (nextState) => {
         if (nextState === 'background') {
-          onNativeChartFullscreenChange?.(false);
+          onFullscreenChangeRef.current?.(false);
         }
       },
     );
@@ -87,11 +89,13 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     return () => {
       isActive = false;
       appStateSubscription.remove();
-      lockScreenOrientation(
-        getDefaultOrientationLock(shouldUseCurrentAndroidWindow),
-      );
+      if (shouldManageOrientation) {
+        lockScreenOrientation(
+          getDefaultOrientationLock(shouldUseCurrentAndroidWindow),
+        );
+      }
     };
-  }, [isFullscreen, onNativeChartFullscreenChange]);
+  }, [isFullscreen]);
 
   return (
     <>

@@ -1,49 +1,47 @@
 ---
 name: 1k-defi-module-integration
-description: Navigate and implement OneKey App Earn, Borrow, Staking, and DeFi Portfolio flows. Use for protocol data, portfolio actions, transactions, pending/history, refresh, and Earn routes.
+description: Implement and debug OneKey Earn, Borrow, Staking, and DeFi Portfolio flows, including protocol actions, approval, positions, settlement, and refresh.
 ---
 
 # Earn / DeFi
 
-Use this skill as a map to the owning surface and service contract. Derive
-product behavior from current code, server data, and the real runtime.
+Use this skill for decisions specific to protocol positions and operations.
+The current route, service contract, and chain result determine the behavior;
+a similar-looking product is a useful comparison only if those semantics match.
 
-## Quick Start
+## Start With The Failing Step
 
-1. Reproduce the real entry and affected platform.
-2. Trace `entry -> data/position -> action -> transaction -> status -> refresh`.
-3. Find the first owner whose identity, capability, or transition is wrong.
-4. Reuse a nearby pattern only when its protocol and operation semantics match;
-   then verify the changed path and a relevant sibling.
+Trace the actual entry through:
 
-## Find The Owner
+`position/data -> capability -> setup -> business action -> settlement -> refresh`
 
-| Task | Start here | Read next |
-| --- | --- | --- |
-| Earn home, list, recommendation, or detail | Earn view/state and its service request | [Architecture](references/app-architecture.md), [Code map](references/code-map.md) |
-| Borrow, staking, claim, withdraw, repay, or status | Operation owner and current service contract | [Operation flow](references/operation-flow.md) |
-| Portfolio position or action | Position data, supported action, transaction builder | [Portfolio actions](references/portfolio-actions-guide.md) |
-| Native route, modal, event, or account switch | Discovery host and runtime owner | [Architecture](references/app-architecture.md) |
-| External protocol website | Discovery/browser until an App-owned RPC begins | [Architecture](references/app-architecture.md) |
-| Funding handoff to Swap | DeFi prefill before quote; Swap execution afterward | `$1k-trade-swap-market` |
+Find the first step whose input or result is wrong. Search by the action,
+request endpoint, or refresh event and follow its caller and consumer. An Earn
+page and a wallet DeFi tab can show the same investment through different data
+owners; do not choose an owner from the screen label alone.
 
-## Load Detail As Needed
+Before changing behavior, establish the affected platform, account/product
+scope, expected transition, and the evidence that would distinguish the bug
+from a slow or unavailable dependency. For a presentation-only change, keep
+verification on the affected layout and interaction; do not expand it into a
+transaction audit.
 
-- [Architecture](references/app-architecture.md) explains surfaces, hosts,
-  runtimes, and cross-module boundaries.
-- [Code map](references/code-map.md) gives stable directories and search anchors.
-- [Operation flow](references/operation-flow.md) covers operation identity,
-  setup, transaction, status, and refresh.
-- [Portfolio actions](references/portfolio-actions-guide.md) covers how visible
-  positions, supported actions, and transaction building join.
-- [Validation](references/validation.md) helps choose focused tests and runtime
-  evidence for the changed layer.
+## Read Only What The Task Needs
 
-## Finish
+| Question | Reference |
+| --- | --- |
+| Which surface owns the data, navigation, or loading state? | [Architecture](references/app-architecture.md) |
+| How should approval, setup, confirmation, or funding continue? | [Operation flow](references/operation-flow.md) |
+| Which position may be displayed or acted on, and how is it refreshed? | [Portfolio actions](references/portfolio-actions-guide.md) |
+| Which checks can prove this particular change? | [Validation](references/validation.md) |
 
-State the owning surface/service and the identities that matter. Run nearby
-tests and repository-required checks, then prove the affected route reaches the
-intended terminal and refresh state. Report unavailable runtime or server proof.
+Keep domain rules here and follow repository `AGENTS.md` for package boundaries,
+runtime topology, and delivery checks. Use `$1k-trade-swap-market` for quoting
+and trade execution after a funding handoff; DeFi still owns the return action.
 
-Related skills: `$1k-trade-swap-market`, `$1k-state-management`,
-`$1k-cross-platform`, `$1k-coding-patterns`.
+## Handoff
+
+Explain the changed contract, the owner that enforces it, and the observed
+result. Separate source tracing, automated tests, and real platform/provider
+proof. A submitted transaction or successful request alone does not prove that
+the position and available actions have settled.

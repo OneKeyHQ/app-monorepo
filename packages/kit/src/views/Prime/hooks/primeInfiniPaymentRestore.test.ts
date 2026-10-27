@@ -1,5 +1,10 @@
 /* cspell:ignore Infini */
+import { createIntl } from 'react-intl';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enUS from '@onekeyhq/shared/src/locale/json/en_US.json';
+import zhCN from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import {
   buildPrimeInfiniPaymentCacheKey,
   getPrimeInfiniPaymentAssetKey,
@@ -10,7 +15,18 @@ import type {
   IPrimeInfiniPendingPaymentSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { showPrimeInfiniPaymentErrorToast } from '../primeInfiniPaymentError';
+
 import { resolvePrimeInfiniPaymentRestore } from './primeInfiniPaymentRestore';
+
+const mockToastError = jest.fn();
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    error: (...args: unknown[]) => {
+      mockToastError(...args);
+    },
+  },
+}));
 
 const asset: IPrimeInfiniPaymentAsset = {
   key: getPrimeInfiniPaymentAssetKey({
@@ -71,6 +87,7 @@ function buildSession({
 }
 
 const baseParams = {
+  sessionChangedMessage: 'Close this window and try again.',
   supportedAssets: [asset],
   paymentOptionsLoaded: true,
   createNewPayment: false,
@@ -81,12 +98,186 @@ const baseParams = {
     primeSubscription: undefined,
     infiniSubscription: undefined,
   }),
-  clearCompletedPaymentSession: async () => undefined,
+  discardTerminalPaymentSession: async () => true,
+  clearCompletedPaymentSession: async () => true,
   persistRestoredSession: async (session: IPrimeInfiniPendingPaymentSession) =>
     session,
 };
 
 describe('resolvePrimeInfiniPaymentRestore', () => {
+  it.each(['failed', 'cancelled'])(
+    'releases a server-confirmed unpaid %s invoice after a send claim',
+    async (status) => {
+      const latestPayment = { ...payment, status };
+      const discardTerminalPaymentSession = jest.fn(async () => true);
+      const persistRestoredSession = jest.fn();
+      await expect(
+        resolvePrimeInfiniPaymentRestore({
+          ...baseParams,
+          session: buildSession({ sendStarted: true }),
+          fetchLatestPayment: async () => latestPayment,
+          discardPaymentSession: jest.fn(),
+          discardTerminalPaymentSession,
+          persistRestoredSession,
+        }),
+      ).resolves.toEqual({ type: 'discarded' });
+      expect(discardTerminalPaymentSession).toHaveBeenCalledWith(latestPayment);
+      expect(persistRestoredSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { status: 'pending' },
+    { status: 'unknown' },
+    { status: 'expired' },
+    { status: 'failed', infiniStatus: 'expired' },
+    { status: 'confirmed' },
+    { status: 'expired', amountConfirming: '0.1' },
+    { status: 'failed', amountConfirmed: '0.1' },
+  ])(
+    'retains claimed payments with nonterminal status or progress: %j',
+    async (override) => {
+      const discardTerminalPaymentSession = jest.fn(async () => true);
+      await expect(
+        resolvePrimeInfiniPaymentRestore({
+          ...baseParams,
+          session: buildSession({ sendStarted: true }),
+          fetchLatestPayment: async () => ({ ...payment, ...override }),
+          discardPaymentSession: jest.fn(),
+          discardTerminalPaymentSession,
+        }),
+      ).resolves.toMatchObject({
+        type: 'restore',
+        session: { sendStarted: true },
+      });
+      expect(discardTerminalPaymentSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not release confirmed funds when the server reports failed with zero amounts', async () => {
+    const discardTerminalPaymentSession = jest.fn(async () => true);
+    await expect(
+      resolvePrimeInfiniPaymentRestore({
+        ...baseParams,
+        session: buildSession({
+          sendStarted: true,
+          paymentOverride: { amountConfirmed: '0.1' },
+        }),
+        fetchLatestPayment: async () => ({
+          ...payment,
+          status: 'failed',
+          amountConfirmed: '0',
+        }),
+        discardPaymentSession: jest.fn(),
+        discardTerminalPaymentSession,
+      }),
+    ).resolves.toMatchObject({
+      type: 'restore',
+      session: { sendStarted: true },
+    });
+    expect(discardTerminalPaymentSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { locale: 'zh-CN', messages: zhCN, expected: '关闭此窗口后重试。' },
+    {
+      locale: 'en-US',
+      messages: enUS,
+      expected: 'Close this window and try again.',
+    },
+  ])(
+    'shows a localized recovery error for a concurrent claim in $locale',
+    async ({ locale, messages, expected }) => {
+      const intl = createIntl({
+        locale,
+        messages: messages as Record<string, string>,
+      });
+      const persistRestoredSession = jest.fn();
+      mockToastError.mockClear();
+      const error = await resolvePrimeInfiniPaymentRestore({
+        ...baseParams,
+        sessionChangedMessage: intl.formatMessage({
+          id: ETranslations.prime_close_and_try_again__desc,
+        }),
+        session: buildSession({ sendStarted: true }),
+        fetchLatestPayment: async () => ({ ...payment, status: 'failed' }),
+        discardPaymentSession: jest.fn(),
+        discardTerminalPaymentSession: async () => false,
+        persistRestoredSession,
+      }).catch((reason: unknown) => reason);
+      expect(error).toBeInstanceOf(OneKeyLocalError);
+      expect(error).toMatchObject({
+        key: ETranslations.prime_close_and_try_again__desc,
+        message: expected,
+      });
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: 'Fallback must not be used',
+      });
+      expect(mockToastError).toHaveBeenCalledWith({ title: expected });
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+      expect(persistRestoredSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it('preserves the claim on a payment status timeout', async () => {
+    const discardTerminalPaymentSession = jest.fn(async () => true);
+    await expect(
+      resolvePrimeInfiniPaymentRestore({
+        ...baseParams,
+        session: buildSession({ sendStarted: true }),
+        fetchLatestPayment: async () => {
+          throw new OneKeyLocalError('timeout');
+        },
+        discardPaymentSession: jest.fn(),
+        discardTerminalPaymentSession,
+      }),
+    ).rejects.toThrow('timeout');
+    expect(discardTerminalPaymentSession).not.toHaveBeenCalled();
+  });
+
+  it.each([-1, 1, 30_000])(
+    "keeps this flow's unusable replacement (%i ms) instead of repeatedly consuming create intent",
+    async (remainingMs) => {
+      const session = {
+        ...buildSession({
+          paymentOverride: { expiresAt: Date.now() + remainingMs },
+        }),
+        flowId: 'retry-flow',
+      };
+      const discardPaymentSession = jest.fn(async () => true);
+      const result = await resolvePrimeInfiniPaymentRestore({
+        ...baseParams,
+        session,
+        flowId: 'retry-flow',
+        createNewPayment: true,
+        fetchLatestPayment: async () => session.payment,
+        discardPaymentSession,
+      });
+      expect(result.type).toBe('restore');
+      expect(discardPaymentSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it('can discard an old unsent quote once for a new flow', async () => {
+    const session = {
+      ...buildSession({ paymentOverride: { expiresAt: Date.now() - 1 } }),
+      flowId: 'old-flow',
+    };
+    const discardPaymentSession = jest.fn(async () => true);
+    await expect(
+      resolvePrimeInfiniPaymentRestore({
+        ...baseParams,
+        session,
+        flowId: 'new-flow',
+        createNewPayment: true,
+        fetchLatestPayment: async () => session.payment,
+        discardPaymentSession,
+      }),
+    ).resolves.toEqual({ type: 'discarded' });
+    expect(discardPaymentSession).toHaveBeenCalledTimes(1);
+  });
+
   it('discards an unsent cache when the server amount differs', async () => {
     const session = buildSession();
     const discardPaymentSession = jest.fn(async () => true);
@@ -125,7 +316,7 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
 
   it('does not expose a restored amount after fresh status proves activation', async () => {
     const fetchLatestPayment = jest.fn(async () => payment);
-    const clearCompletedPaymentSession = jest.fn(async () => undefined);
+    const clearCompletedPaymentSession = jest.fn(async () => true);
     const persistRestoredSession = jest.fn(
       async (nextSession: IPrimeInfiniPendingPaymentSession) => nextSession,
     );
@@ -140,6 +331,7 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
           primeSubscription: {
             isActive: true,
             expiresAt: 1_800_000_000_000,
+            subscriptions: [{ channel: 'infini' }],
           },
           infiniSubscription: undefined,
         }),
@@ -153,6 +345,27 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
       buildSession().paymentCacheKey,
     );
     expect(persistRestoredSession).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when completion races a replacement session', async () => {
+    await expect(
+      resolvePrimeInfiniPaymentRestore({
+        ...baseParams,
+        session: buildSession(),
+        fetchLatestPayment: async () => payment,
+        fetchPurchaseStatusSnapshot: async () => ({
+          onekeyUserId: 'user-1',
+          primeSubscription: {
+            isActive: true,
+            expiresAt: 1_800_000_000_000,
+            subscriptions: [{ channel: 'infini' }],
+          },
+          infiniSubscription: undefined,
+        }),
+        clearCompletedPaymentSession: async () => false,
+        discardPaymentSession: async () => true,
+      }),
+    ).rejects.toThrow('Infini payment session changed during restore');
   });
 
   // Writing on every restore refreshed updatedAt, and sendStarted only ever

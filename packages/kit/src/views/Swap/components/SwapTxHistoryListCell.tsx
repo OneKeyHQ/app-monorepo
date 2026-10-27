@@ -20,6 +20,7 @@ import {
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
+import { getSwapHistoryStatusTextProps } from '../utils/utils';
 
 import { SwapHistoryPendingDot } from './SwapHistoryPendingDot';
 
@@ -89,6 +90,24 @@ const SwapTxHistoryListCell = ({
         </Badge>
       );
     }
+    if (item.status === ESwapTxHistoryStatus.EXPIRED) {
+      const { key, color } = getSwapHistoryStatusTextProps(item.status);
+      return (
+        <Badge badgeType="critical" badgeSize="lg" borderRadius="$4">
+          <SizableText size="$bodySm" color={color}>
+            {intl.formatMessage({ id: key })}
+          </SizableText>
+        </Badge>
+      );
+    }
+    if (item.status === ESwapTxHistoryStatus.REFUNDED) {
+      const { key } = getSwapHistoryStatusTextProps(item.status);
+      return (
+        <Badge badgeType="success" badgeSize="lg">
+          {intl.formatMessage({ id: key })}
+        </Badge>
+      );
+    }
     if (item.status === ESwapTxHistoryStatus.CANCELED) {
       return (
         <Badge badgeType="warning" badgeSize="lg">
@@ -139,10 +158,19 @@ const SwapTxHistoryListCell = ({
         </Badge>
       );
     }
-    if (kind === 'failed') {
+    if (kind === 'failed' || kind === 'expired') {
+      const { key } = getSwapHistoryStatusTextProps(item.status);
       return (
         <Badge badgeType="critical" badgeSize="sm">
-          {intl.formatMessage({ id: ETranslations.swap_history_status_failed })}
+          {intl.formatMessage({ id: key })}
+        </Badge>
+      );
+    }
+    if (kind === 'refunded') {
+      const { key } = getSwapHistoryStatusTextProps(item.status);
+      return (
+        <Badge badgeType="success" badgeSize="sm">
+          {intl.formatMessage({ id: key })}
         </Badge>
       );
     }

@@ -1,9 +1,14 @@
 import {
   EDeviceType,
   EFirmwareType,
+  HardwareErrorCode,
+  ONEKEY_WEBUSB_FILTER,
+  isKnownTrezorWebUsbDevice,
   isSameOnekeyBleName,
+  resolveOneKeyUsbDevicePath,
 } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
+import axios from 'axios';
 import { uniq } from 'lodash';
 import semver from 'semver';
 
@@ -16,7 +21,10 @@ import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUt
 import { HARDWARE_SDK_VERSION } from '@onekeyhq/shared/src/config/appConfig';
 import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  UserCancelFromOutside,
+} from '@onekeyhq/shared/src/errors';
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import type {
@@ -34,14 +42,21 @@ import {
 import {
   DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS,
   DESKTOP_BLE_SILENT_BIND_CONNECTION_TIMEOUT_MS,
-} from '@onekeyhq/shared/src/hardware/connectionTimeouts';
-import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+} from '@onekeyhq/shared/src/hardware/config/connectionTimeouts';
+import {
+  canBuildHwWalletXfp,
+  getVendorProfile,
+} from '@onekeyhq/shared/src/hardware/config/vendorProfile';
+import {
+  getValidDeviceStateVersionKeys,
+  projectLegacyDeviceFeaturesFromState,
+} from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { probeUsbDeviceIdentities as probeDesktopUsbDeviceIdentities } from '@onekeyhq/shared/src/hardware/sdk-loader';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   LogLevel,
@@ -103,6 +118,7 @@ import {
 import { copyWalletSessionUiMetadata } from './hardwareUiPayloadUtils';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
 import serviceHardwareUtils from './serviceHardwareUtils';
+import { mapThirdPartySearchTargetToSearchDevice } from './thirdPartyDeviceMapping';
 
 import type {
   IAdapterUiResponse,
@@ -130,7 +146,7 @@ import type {
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
 import type { IHardwareHomeScreenResponse } from './ServerType';
-import type { IDBDevice } from '../../dbs/local/types';
+import type { IDBDevice, IDBDeviceSettings } from '../../dbs/local/types';
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IOffscreenEventMap,
@@ -159,6 +175,7 @@ import type {
   SearchDevice,
   UiEvent,
   UiResponseEvent,
+  UsbDeviceIdentity,
 } from '@onekeyfe/hd-core';
 import type { HardwareConnectProtocol } from '@onekeyfe/hd-shared';
 import type { DeviceSessionPinType } from '@onekeyfe/hd-transport';
@@ -219,6 +236,7 @@ type IGetSDKInstanceOptions = {
   forceProtocolDetection?: boolean;
   hardwareCallContext?: EHardwareCallContext;
   hardwareTransportType?: EHardwareTransportType;
+  persistTransportType?: boolean;
   forceFirmwareManifestRefresh?: boolean;
 };
 
@@ -251,6 +269,8 @@ export type IDeviceGetStateOptions = Omit<
 > & {
   /** Reuse an existing desktop BLE link without scanning or reconnecting. */
   desktopBleReuseConnectedOnly?: boolean;
+  /** Avoid changing the user's preferred transport for background probes. */
+  persistTransportType?: boolean;
   params?: GetDeviceStateParams & {
     allowEmptyConnectId?: boolean;
   };
@@ -404,6 +424,50 @@ class ServiceHardware extends ServiceBase {
       tasks = queueKeys
         .map((key) => this.deviceStateSyncQueues.get(key))
         .filter((task): task is Promise<void> => Boolean(task));
+    }
+  }
+
+  private async persistFirmwareSnapshot({
+    connectId,
+    state,
+  }: {
+    connectId: string | undefined;
+    state: IOneKeyDeviceState;
+  }) {
+    const changedKeys = getValidDeviceStateVersionKeys(state);
+    if (!connectId || changedKeys.length === 0) {
+      return;
+    }
+    const syncConnectIds = [
+      connectId,
+      state.identity.serialNo,
+      state.identity.deviceId,
+    ];
+    await this.waitForDeviceStateSync({ connectIds: syncConnectIds });
+    const event: DeviceStateEvent = {
+      changedKeys,
+      connectId,
+      revision: state.revision,
+      source: 'device-info',
+      state,
+    };
+    try {
+      const persistResult = await localDb.updateDeviceState(event);
+      await this.waitForDeviceStateSync({ connectIds: syncConnectIds });
+      serviceHardwareUtils.hardwareLog('firmware read-back', {
+        kind: persistResult.kind,
+        protocol: state.protocol,
+        revision: state.revision,
+        firmwareVersion: state.versions.firmware,
+      });
+      if (persistResult.kind === 'updated') {
+        appEventBus.emit(EAppEventBusNames.HardwareDeviceStateUpdate, event);
+      }
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'firmware read-back failed',
+        devOnlyData(error instanceof Error ? error.message : error),
+      );
     }
   }
 
@@ -575,7 +639,9 @@ class ServiceHardware extends ServiceBase {
     );
     serviceHardwareUtils.hardwareLog(
       'migrated existing device connect protocols',
-      { migratedCount: migrations.length },
+      {
+        migratedCount: migrations.length,
+      },
     );
   }
 
@@ -889,6 +955,8 @@ class ServiceHardware extends ServiceBase {
 
   private connectedDeviceTracked = new Set<string>();
 
+  private reportedBleMtuReadySignatures = new Set<string>();
+
   private connectedDeviceIdentityKeysByConnection = new Map<
     string,
     Set<string>
@@ -1024,9 +1092,59 @@ class ServiceHardware extends ServiceBase {
   }
 
   async getSDKInstance(options: IGetSDKInstanceOptions) {
-    return this.sdkInstanceMutex.runExclusive(() =>
-      this.getSDKInstanceWithLifecycleLock(options),
-    );
+    await this.assertOneKeySdkConnectId(options?.connectId);
+    const autoSelectTransport =
+      platformEnv.isSupportDesktopBle &&
+      options.hardwareTransportType === undefined;
+    const hardwareCallContext =
+      options.hardwareCallContext ?? EHardwareCallContext.USER_INTERACTION;
+    const connectProtocol =
+      !autoSelectTransport || options.forceProtocolDetection
+        ? undefined
+        : (options.connectProtocol ??
+          (await this.getKnownDeviceProtocol(options.connectId)));
+    if (
+      autoSelectTransport &&
+      options.connectId &&
+      !connectProtocol &&
+      options.forceProtocolDetection !== true
+    ) {
+      throw new OneKeyLocalError(HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE);
+    }
+    const getInstance = (bluetoothPermissionResult?: boolean) =>
+      this.sdkInstanceMutex.runExclusive(async () => {
+        let resolvedOptions = options;
+        if (autoSelectTransport) {
+          // Resolve after acquiring the lock, without waiting for permission UI.
+          const { targetType } =
+            await this.connectionManager.shouldSwitchTransportType({
+              connectId: options.connectId,
+              connectProtocol,
+              hardwareCallContext,
+              allowBluetoothPermissionPrompt: false,
+              bluetoothPermissionResult,
+            });
+          resolvedOptions = { ...options, hardwareTransportType: targetType };
+        }
+        return this.getSDKInstanceWithLifecycleLock(resolvedOptions);
+      });
+    try {
+      return await getInstance();
+    } catch (error) {
+      if (
+        !autoSelectTransport ||
+        !(error instanceof deviceErrors.NeedBluetoothPermissions)
+      ) {
+        throw error;
+      }
+      // Only the permission interaction runs outside the lifecycle lock.
+      const permissionResult =
+        await this.connectionManager.detectBluetoothAvailability(
+          hardwareCallContext,
+        );
+      // USB connections can change during permission UI; select again.
+      return getInstance(permissionResult);
+    }
   }
 
   private async getSDKInstanceWithLifecycleLock(
@@ -1047,7 +1165,6 @@ class ServiceHardware extends ServiceBase {
     const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
       options || {};
     this.checkSdkVersionValid();
-    await this.assertOneKeySdkConnectId(options?.connectId);
 
     // 只有搜索/onboarding 可以显式重新探测；普通业务调用必须恢复已确认协议。
     const resolvedConnectProtocol = options.forceProtocolDetection
@@ -1128,27 +1245,10 @@ class ServiceHardware extends ServiceBase {
       isDesktopBackgroundCall && options.hardwareTransportType
         ? undefined
         : normalizedForceTransportType;
-    let hardwareTransportType =
+    const hardwareTransportType =
       effectiveForceTransportType ??
       options.hardwareTransportType ??
       currentTransportType;
-    let shouldSwitch = false;
-
-    // Desktop Auto switch transport type
-    if (
-      platformEnv.isSupportDesktopBle &&
-      effectiveForceTransportType === undefined &&
-      options.hardwareTransportType === undefined
-    ) {
-      // Check if we should switch transport type based on optimal connection strategy
-      const result = await this.connectionManager.shouldSwitchTransportType({
-        connectId: options?.connectId,
-        connectProtocol: resolvedConnectProtocol,
-        hardwareCallContext,
-      });
-      shouldSwitch = result.shouldSwitch;
-      hardwareTransportType = result.targetType;
-    }
 
     // connectionManager 会在 UI 展示前提交选路结果，因此不能再用它的
     // currentTransportType 判断 SDK 是否需要重建。单独记录实际 SDK transport，
@@ -1156,7 +1256,7 @@ class ServiceHardware extends ServiceBase {
     const sdkTransportChanged =
       this.activeHardwareTransportType !== undefined &&
       this.activeHardwareTransportType !== hardwareTransportType;
-    if (shouldSwitch || sdkTransportChanged) {
+    if (sdkTransportChanged) {
       console.log(
         `🔄 TRANSPORT SWITCH: ${
           this.activeHardwareTransportType ?? currentTransportType ?? 'null'
@@ -1171,7 +1271,11 @@ class ServiceHardware extends ServiceBase {
     }
 
     // Update the connection manager's current transport type AFTER switch logic
-    await this.connectionManager.setCurrentTransportType(hardwareTransportType);
+    if (options.persistTransportType !== false) {
+      await this.connectionManager.setCurrentTransportType(
+        hardwareTransportType,
+      );
+    }
 
     try {
       const instance = await getHardwareSDKInstance({
@@ -1313,14 +1417,31 @@ class ServiceHardware extends ServiceBase {
         const inputPinOnSoftware = features
           ? supportInputPinOnSoftwareSdk(features)
           : { support: false };
+        // On-device entry is the default (OK-61489): only an explicit
+        // opt-in (`true`, via the stage's switch entry or device
+        // settings) routes PIN input to the app keyboard.
         const supportInputPinOnSoftware =
-          dbDevice?.settings?.inputPinOnSoftware !== false &&
+          dbDevice?.settings?.inputPinOnSoftware === true &&
           inputPinOnSoftware.support;
 
         const isAttachPin = type === 'PinMatrixRequestType_AttachToPin';
         newPayload.requestPinType = isAttachPin ? 'AttachPin' : undefined;
 
         if (!supportInputPinOnSoftware && isCurrent()) {
+          // Offer the stage's switch-to-app entry (OK-61489) only when
+          // the opt-in would actually take: a stored device record to
+          // write (first-connect has none yet), a button device whose
+          // firmware supports app entry, and a plain PIN request. The
+          // app-pad hop reuses the REQUEST_PIN payload, so it never
+          // carries this flag.
+          newPayload.pinSwitchToAppAvailable =
+            Boolean(dbDevice) &&
+            !isAttachPin &&
+            Boolean(
+              requestDeviceType &&
+              deviceUtils.checkInputPinOnSoftwareSupport(requestDeviceType),
+            ) &&
+            inputPinOnSoftware.support;
           await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice({
             responseCorrelation: newPayload.uiResponseCorrelation,
           });
@@ -1334,8 +1455,38 @@ class ServiceHardware extends ServiceBase {
     }
 
     if (originEvent.type === EHardwareUiStateAction.FIRMWARE_PROGRESS) {
-      newPayload.firmwareProgress = originEvent.payload.progress;
-      newPayload.firmwareProgressType = originEvent.payload.progressType;
+      const firmwareProgressPayload =
+        originEvent.payload as typeof originEvent.payload & {
+          installTargetId?: number;
+          installPhase?: 'prepare' | 'install' | 'verify';
+          installPhaseProgress?: number;
+          transferredBytes?: number;
+          totalBytes?: number;
+          rateBytesPerSecond?: number;
+          elapsedMs?: number;
+        };
+      newPayload.firmwareProgress = firmwareProgressPayload.progress;
+      newPayload.firmwareProgressType = firmwareProgressPayload.progressType;
+      newPayload.firmwareInstallTargetId =
+        firmwareProgressPayload.installTargetId;
+      newPayload.firmwareInstallPhase = firmwareProgressPayload.installPhase;
+      newPayload.firmwareInstallPhaseProgress =
+        firmwareProgressPayload.installPhaseProgress;
+      if (
+        [
+          firmwareProgressPayload.transferredBytes,
+          firmwareProgressPayload.totalBytes,
+          firmwareProgressPayload.rateBytesPerSecond,
+          firmwareProgressPayload.elapsedMs,
+        ].some((value) => typeof value === 'number')
+      ) {
+        newPayload.firmwareTransferMetrics = {
+          transferredBytes: firmwareProgressPayload.transferredBytes,
+          totalBytes: firmwareProgressPayload.totalBytes,
+          rateBytesPerSecond: firmwareProgressPayload.rateBytesPerSecond,
+          elapsedMs: firmwareProgressPayload.elapsedMs,
+        };
+      }
     }
 
     if (originEvent.type === EHardwareUiStateAction.DEVICE_PROGRESS) {
@@ -1381,6 +1532,7 @@ class ServiceHardware extends ServiceBase {
 
     if (!this.registeredEvents) {
       this.resetHardwareUiEventQueue();
+      this.reportedBleMtuReadySignatures.clear();
       this.registeredEvents = true;
       this.registeredSdkEventsInstance = instance;
       this.registeredSdkDebugLogging = showSdkDebugLogs;
@@ -1543,12 +1695,15 @@ class ServiceHardware extends ServiceBase {
                     if (
                       isSameFirmwareDevice &&
                       appliedUiRequestType ===
-                        EHardwareUiStateAction.FIRMWARE_PROGRESS &&
-                      previousState?.payload?.firmwareTipData
+                        EHardwareUiStateAction.FIRMWARE_PROGRESS
                     ) {
                       firmwarePayload = {
                         ...appliedPayload,
-                        firmwareTipData: previousState.payload.firmwareTipData,
+                        firmwareTipData:
+                          previousState?.payload?.firmwareTipData,
+                        firmwareTransferMetrics:
+                          appliedPayload.firmwareTransferMetrics ??
+                          previousState?.payload?.firmwareTransferMetrics,
                       };
                     } else if (
                       isSameFirmwareDevice &&
@@ -1561,6 +1716,14 @@ class ServiceHardware extends ServiceBase {
                           previousState?.payload?.firmwareProgress,
                         firmwareProgressType:
                           previousState?.payload?.firmwareProgressType,
+                        firmwareInstallTargetId:
+                          previousState?.payload?.firmwareInstallTargetId,
+                        firmwareInstallPhase:
+                          previousState?.payload?.firmwareInstallPhase,
+                        firmwareInstallPhaseProgress:
+                          previousState?.payload?.firmwareInstallPhaseProgress,
+                        firmwareTransferMetrics:
+                          previousState?.payload?.firmwareTransferMetrics,
                       };
                     }
                     return {
@@ -1578,11 +1741,38 @@ class ServiceHardware extends ServiceBase {
             if (!isCurrent()) {
               return;
             }
-            await hardwareUiStateCompletedAtom.set({
+            await hardwareUiStateCompletedAtom.set((previousState) => ({
               action: appliedUiRequestType,
               connectId: appliedConnectId,
-              payload: appliedPayload,
-            });
+              payload: {
+                ...appliedPayload,
+                firmwareTransferMetrics:
+                  appliedPayload.firmwareTransferMetrics ??
+                  (previousState?.connectId === appliedConnectId
+                    ? previousState.payload?.firmwareTransferMetrics
+                    : undefined),
+              },
+            }));
+            // OK-59934: feed the DeviceStage burst scope. It ignores events
+            // while disabled; call-end closes morph to processing inside a
+            // burst instead of exiting the stage.
+            // Awaited, not voided: the stage write is the handler's last
+            // statement, and awaiting it puts its rejection into the catch
+            // below instead of letting it escape as an unhandled rejection
+            // in the bg runtime — deviceStageAtom.set does reject when the
+            // native jotai bridge or bridgeExtBg is not ready yet. The cost
+            // is a handful of microtasks; the chain touches only in-memory
+            // atoms, never the queue, the legacy atom or the SDK, so it
+            // cannot deadlock the queue it runs inside.
+            await this.backgroundApi.serviceHardwareUI.deviceStageBurst.onHardwareUiEvent(
+              {
+                action: appliedUiRequestType,
+                connectId: appliedConnectId,
+                payload: appliedPayload,
+                shouldClearUiState: Boolean(reduction.shouldClearUiState),
+                askCompleted: Boolean(reduction.askCompleted),
+              },
+            );
           })
           .catch((error: unknown) => {
             defaultLogger.hardware.sdkLog.log(
@@ -1600,13 +1790,8 @@ class ServiceHardware extends ServiceBase {
           revision: event.revision,
           source: event.source,
           changedKeys: event.changedKeys,
-          // Device identifiers must stay masked in persisted logs (see the
-          // PRO2_SERIAL contract in ServiceHardware.pro2DeviceManagement
-          // tests); the suffix is enough to correlate multi-device sessions.
-          connectId: serviceHardwareUtils.maskLogIdentifier(event.connectId),
-          serialNo: serviceHardwareUtils.maskLogIdentifier(
-            event.state?.identity?.serialNo,
-          ),
+          connectId: event.connectId,
+          serialNo: event.state?.identity?.serialNo,
           // The device-reported language is the key evidence for language
           // sync issues (OK-60121); keep it visible in persisted logs.
           language: event.state?.settings?.language,
@@ -1774,21 +1959,9 @@ class ServiceHardware extends ServiceBase {
 
         void (async () => {
           try {
-            // Short-circuit for devices already fully processed
-            if (this.connectedDeviceTracked.has(deviceId)) return;
-
             const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
               features,
             });
-            if (
-              deviceType !== EDeviceType.Pro &&
-              deviceType !== EDeviceType.Classic1s &&
-              deviceType !== EDeviceType.ClassicPure
-            ) {
-              // Mark ineligible devices to avoid repeated async checks on reconnect
-              this.connectedDeviceTracked.add(deviceId);
-              return;
-            }
             const firmwareType = await deviceUtils.getFirmwareType({
               features,
             });
@@ -1796,12 +1969,19 @@ class ServiceHardware extends ServiceBase {
               firmwareType === EFirmwareType.BitcoinOnly
                 ? 'btconly'
                 : 'universal';
+            const { firmwareVersion } = await deviceUtils.getDeviceVersion({
+              device: { ...message.device, deviceType },
+              features,
+            });
             const trackingKey = `${deviceId}_${firmwareTypeStr}`;
             if (this.connectedDeviceTracked.has(trackingKey)) return;
             defaultLogger.hardware.connection.hwDeviceConnected({
               deviceType,
               firmwareType: firmwareTypeStr,
               deviceId,
+              serialNo: deviceUtils.getDeviceSerialNoFromFeatures(features),
+              firmwareVersion: firmwareVersion || undefined,
+              transportType: message.device.commType ?? undefined,
             });
             this.connectedDeviceTracked.add(trackingKey);
           } catch (_e) {
@@ -1811,6 +1991,9 @@ class ServiceHardware extends ServiceBase {
       });
 
       instance.on(DEVICE.DISCONNECT, (message: { device: KnownDevice }) => {
+        if (message.device?.commType === 'ble') {
+          this.reportedBleMtuReadySignatures.clear();
+        }
         // A disconnect ends the "connected and OS-paired right now" proof:
         // factory reset and OS-level unpair both surface as a disconnect
         // first, so the silent BLE bind probe must not trust this endpoint
@@ -1907,12 +2090,39 @@ class ServiceHardware extends ServiceBase {
             }
           }
 
+          // Method logs are noisy, but FirmwareUpdateV4 ones carry the failed
+          // install target and per-file transfer timing.
+          const isFirmwareUpdateLog =
+            messageType === '[Method]' &&
+            typeof messages.payload[1] === 'string' &&
+            messages.payload[1].startsWith('[FirmwareUpdateV4]');
           if (
             messageType.includes('@onekey/hd-core') ||
             messageType.includes('@onekey/hd-transport') ||
-            messageType.includes('@onekey/hd-ble-transport')
+            messageType.includes('@onekey/hd-ble-transport') ||
+            isFirmwareUpdateLog
           ) {
             defaultLogger.hardware.sdkLog.log(messages.event, message);
+          }
+
+          if (messageType.includes('@onekey/hd-ble-transport')) {
+            const mtuTelemetry =
+              serviceHardwareUtils.parseBleMtuReadyLogPayload(messages.payload);
+            if (
+              mtuTelemetry &&
+              serviceHardwareUtils.shouldReportBleMtuReadyTelemetry(
+                this.reportedBleMtuReadySignatures,
+                mtuTelemetry,
+              )
+            ) {
+              defaultLogger.hardware.connection.bleMtuReady({
+                transportType: mtuTelemetry.transportType,
+                blePlatform: mtuTelemetry.blePlatform,
+                requestedMtu: mtuTelemetry.requestedMtu,
+                actualMtu: mtuTelemetry.actualMtu,
+                isDefaultMtu: mtuTelemetry.isDefaultMtu,
+              });
+            }
           }
         },
       );
@@ -1964,9 +2174,16 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getDeviceByConnectId({ connectId }: { connectId: string }) {
+  async getDeviceByConnectId({
+    connectId,
+    featuresDeviceId,
+  }: {
+    connectId: string;
+    featuresDeviceId?: string;
+  }) {
     return localDb.getDeviceByQuery({
       connectId,
+      featuresDeviceId,
     });
   }
 
@@ -2108,6 +2325,7 @@ class ServiceHardware extends ServiceBase {
     resetSession?: boolean;
     waitForAllTransports?: boolean;
     transportType?: 'usb' | 'ble';
+    discoveryMethod?: 'searchDevices' | 'searchDeviceTargets';
   }) {
     this.deviceSearchInProgressCount += 1;
     try {
@@ -2115,7 +2333,28 @@ class ServiceHardware extends ServiceBase {
         ? getVendorProfile(params.vendor)
         : undefined;
       if (params?.vendor && vendorProfile?.isThirdParty) {
-        // Third-party (Trezor / Ledger) discovery lives in ServiceThirdPartyHardware.
+        if (params.discoveryMethod === 'searchDeviceTargets') {
+          const targets =
+            await this.backgroundApi.serviceThirdPartyHardware.searchDeviceTargets(
+              {
+                vendor: params.vendor,
+                resetSession: params.resetSession,
+                waitForAllTransports: params.waitForAllTransports,
+                transportType: params.transportType,
+              },
+            );
+          if (!targets.success) return targets;
+          return {
+            success: true as const,
+            payload: targets.payload.map((target) =>
+              mapThirdPartySearchTargetToSearchDevice({
+                target,
+                defaultDeviceName: vendorProfile.presentation.defaultName,
+              }),
+            ),
+          };
+        }
+        // Existing third-party consumers keep the legacy discovery contract.
         return await this.backgroundApi.serviceThirdPartyHardware.searchDevices(
           {
             vendor: params.vendor,
@@ -2148,6 +2387,18 @@ class ServiceHardware extends ServiceBase {
         'searchDevices response: ',
         JSON.stringify(response),
       );
+      if (response?.success) {
+        for (const device of response.payload) {
+          if (deviceUtils.isBluetoothSearchDevice(device)) {
+            defaultLogger.hardware.sdkLog.bleSearchDevicesColor({
+              connectId: device.connectId,
+              name: device.name,
+              deviceType: device.deviceType,
+              bleColorCode: device.bleColorCode,
+            });
+          }
+        }
+      }
 
       // Linux may surface missing udev rules either through libusb or Chromium
       // WebUSB errors, depending on the active transport path.
@@ -2295,12 +2546,19 @@ class ServiceHardware extends ServiceBase {
       const errorRecord = error as Record<string, unknown>;
       append(errorRecord.message);
       append(errorRecord.error);
+      const appendNativeError = (params: unknown) => {
+        if (params && typeof params === 'object') {
+          append((params as Record<string, unknown>).nativeErrorMessage);
+        }
+      };
+      appendNativeError(errorRecord.params);
 
       const payload = errorRecord.payload;
       if (payload && typeof payload === 'object') {
         const payloadRecord = payload as Record<string, unknown>;
         append(payloadRecord.message);
         append(payloadRecord.error);
+        appendNativeError(payloadRecord.params);
       }
     }
 
@@ -2308,6 +2566,17 @@ class ServiceHardware extends ServiceBase {
   }
 
   private isLinuxWebUsbAccessDeniedError(error: unknown) {
+    if (error && typeof error === 'object') {
+      const record = error as Record<string, unknown>;
+      const payload = record.payload as Record<string, unknown> | undefined;
+      if (
+        [record.code, record.errorCode, payload?.code].includes(
+          HardwareErrorCode.BridgeNeedsPermission,
+        )
+      ) {
+        return true;
+      }
+    }
     const message = this.getErrorText(error);
     const lowerMessage = message.toLowerCase();
     return (
@@ -2343,21 +2612,17 @@ class ServiceHardware extends ServiceBase {
             Date.now() + LINUX_UDEV_RULES_INSTALL_RETRY_DELAY_MS;
           return false;
         }
-        const shouldShowManualGuide =
-          this.markLinuxUdevRulesInstallFailed() ||
-          result.needsManualInstall ||
-          result.skippedReason === 'missing-pkexec';
-        if (shouldShowManualGuide) {
-          this.notifyLinuxUdevManualInstallIfNeeded({
-            force: true,
-            reason:
-              result.needsManualInstall ||
-              result.skippedReason === 'missing-pkexec'
-                ? result.skippedReason
-                : 'webusb-access-denied',
-          });
-        }
-      } else if (this.markLinuxUdevRulesInstallFailed()) {
+        this.markLinuxUdevRulesInstallFailed();
+        this.notifyLinuxUdevManualInstallIfNeeded({
+          force: true,
+          reason:
+            result.needsManualInstall ||
+            result.skippedReason === 'missing-pkexec'
+              ? result.skippedReason
+              : 'webusb-access-denied',
+        });
+      } else {
+        this.markLinuxUdevRulesInstallFailed();
         this.notifyLinuxUdevManualInstallIfNeeded({
           force: true,
           reason: 'webusb-access-denied',
@@ -2368,12 +2633,11 @@ class ServiceHardware extends ServiceBase {
         '[LinuxWebUSB] Failed to install OneKey udev rules',
         error instanceof Error ? error.message : String(error),
       );
-      if (this.markLinuxUdevRulesInstallFailed()) {
-        this.notifyLinuxUdevManualInstallIfNeeded({
-          force: true,
-          reason: 'failed',
-        });
-      }
+      this.markLinuxUdevRulesInstallFailed();
+      this.notifyLinuxUdevManualInstallIfNeeded({
+        force: true,
+        reason: 'failed',
+      });
     }
     return false;
   }
@@ -2434,7 +2698,26 @@ class ServiceHardware extends ServiceBase {
           `background/vault layer should call serviceHardware.getAdapterForVendor(vendor) and use the adapter directly.`,
       );
     }
-    return this.getFeaturesWithoutCache(params);
+    const features = await this.getFeaturesWithoutCache(params);
+    if (
+      features?.protocol !== 'V2' ||
+      features.mode !== EOneKeyDeviceMode.normal ||
+      params.params?.onlyConnectBleDevice
+    ) {
+      return features;
+    }
+    // Explicit reconnects must refresh DeviceInfo and DeviceSettings, rather
+    // than reuse the SDK's runtime snapshot from before a reset or rename.
+    const state = await this.getDeviceState({
+      ...params,
+      params: {
+        ...params.params,
+        forceProtocolDetection: false,
+        scope: features.unlocked === true ? 'settings' : 'runtime',
+        initSession: true,
+      },
+    });
+    return projectLegacyDeviceFeaturesFromState(state);
   }
 
   @backgroundMethod()
@@ -2465,8 +2748,11 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     refreshInfo?: boolean;
   }): Promise<IDeviceManagementSnapshot> {
-    const hardwareCallContext =
-      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    // The post-update refresh may run while USB is still re-enumerating.
+    // Keep it on the current transport without raising BLE pairing errors.
+    const hardwareCallContext = refreshInfo
+      ? EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
+      : EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
       hardwareCallContext,
@@ -2668,22 +2954,38 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     pinType?: DeviceSessionPinType;
   }) {
-    const hardwareSDK = await this.getSDKInstance({
+    const lease =
+      this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease();
+    if (lease?.signal?.aborted) throw new UserCancelFromOutside();
+    const resolvedTransport = await this.resolveHardwareTransport({
       connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId,
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: resolvedTransport.connectId,
+      hardwareTransportType: resolvedTransport.transportType,
       hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
     });
     const unlockParams: CommonParams & {
       pinType?: DeviceSessionPinType;
     } = pinType === undefined ? {} : { pinType };
-    return convertDeviceResponse(() =>
-      hardwareSDK?.deviceUnlock(compatibleConnectId, unlockParams),
-    );
+    return convertDeviceResponse(() => {
+      if (lease?.signal?.aborted) throw new UserCancelFromOutside();
+      return hardwareSDK?.deviceUnlock(
+        resolvedTransport.connectId,
+        unlockParams,
+      );
+    });
   }
 
   cancelTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private cancelGeneration = 0;
+
+  invalidatePendingCancel() {
+    this.cancelGeneration += 1;
+    clearTimeout(this.cancelTimer);
+  }
 
   lastCancelAt: Record<string, number> = {};
 
@@ -2701,14 +3003,24 @@ class ServiceHardware extends ServiceBase {
     connectId,
     walletId,
     immediate,
+    oneKeyOperationLease,
   }: {
     connectId?: string;
     walletId?: string;
     forceDeviceResetToHome?: boolean;
     immediate?: boolean;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
     deviceType?: string;
   }) {
-    // TODO skip cancel if device is canceling, save last cancel time
+    const manager =
+      this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager;
+    const lease =
+      oneKeyOperationLease ?? manager?.getActiveOneKeyOperationLease();
+    const generation = this.cancelGeneration;
+    const isCurrent = () =>
+      lease
+        ? lease === manager?.getActiveOneKeyOperationLease()
+        : generation === this.cancelGeneration;
 
     try {
       if (!connectId && walletId && accountUtils.isHwWallet({ walletId })) {
@@ -2726,16 +3038,21 @@ class ServiceHardware extends ServiceBase {
     }
 
     const fn = async () => {
-      // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
-      const sdk = await this.getSDKInstance({
-        connectId,
-        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
-      });
-      // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
-
-      // cancel the hardware process
-      // (cancel not working on enter pin on device mode, use getFeatures() later)
+      if (!isCurrent()) return;
       try {
+        // For cancel operations, skip transport detection to avoid unnecessary /enumerate calls
+        const sdk =
+          immediate && !connectId && this.activeHardwareSDKInstance
+            ? this.activeHardwareSDKInstance
+            : await this.getSDKInstance({
+                connectId,
+                hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+              });
+        if (!isCurrent()) return;
+        // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
+
+        // cancel the hardware process
+        // (cancel not working on enter pin on device mode, use getFeatures() later)
         // For cancel operations, use getCompatibleConnectId but skip transport detection
         // to avoid unnecessary /enumerate calls while still getting the correct connectId
         const compatibleConnectId = connectId
@@ -2744,16 +3061,25 @@ class ServiceHardware extends ServiceBase {
               hardwareCallContext: EHardwareCallContext.SILENT_CALL,
             })
           : undefined;
+        if (!isCurrent()) return;
         sdk.cancel(compatibleConnectId);
       } catch (e: any) {
         const { message } = e || {};
         console.log('sdk.cancel error: ', message);
       }
-
-      console.log('sdk.cancel device: ', connectId);
     };
 
     clearTimeout(this.cancelTimer);
+    // Firmware retries share a lease. Each explicit global cancel must reach
+    // the active SDK instead of joining a previous attempt's settled cleanup.
+    if (immediate && !connectId) {
+      await fn();
+      return;
+    }
+    if (lease && manager) {
+      await manager.runOneKeyOperationCleanup(lease, fn);
+      return;
+    }
     if (immediate) {
       await fn();
       return;
@@ -2960,7 +3286,13 @@ class ServiceHardware extends ServiceBase {
     },
   );
 
-  _getDeviceStateLowLevel = async (options: IDeviceGetStateOptions) => {
+  _getDeviceStateLowLevel = async (
+    options: IDeviceGetStateOptions & {
+      oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+    },
+  ) => {
+    const { oneKeyOperationLease: lease } = options;
+    if (lease?.signal?.aborted) throw new UserCancelFromOutside();
     const {
       connectId,
       desktopBleReuseConnectedOnly,
@@ -2968,6 +3300,7 @@ class ServiceHardware extends ServiceBase {
       silentMode,
       hardwareCallContext,
       hardwareTransportType,
+      persistTransportType,
     } = options;
     const { allowEmptyConnectId, ...sdkParams } = params ?? {};
     serviceHardwareUtils.hardwareLog('call getDeviceState()', connectId);
@@ -2994,14 +3327,20 @@ class ServiceHardware extends ServiceBase {
       connectProtocol: knownProtocol,
       hardwareCallContext,
       hardwareTransportType,
+      persistTransportType,
     });
     const state = await this.runInDesktopBleConnectedOnlyScope({
       connectId,
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
         convertDeviceResponse(
-          () => hardwareSDK.getDeviceState(connectId, normalizedSdkParams),
-          { silentMode },
+          () => {
+            if (lease?.signal?.aborted) throw new UserCancelFromOutside();
+            return hardwareSDK.getDeviceState(connectId, normalizedSdkParams);
+          },
+          {
+            silentMode,
+          },
         ),
     });
     await this.rememberDeviceProtocol({
@@ -3019,6 +3358,7 @@ class ServiceHardware extends ServiceBase {
       if (options.connectId) {
         void this.cancel({
           connectId: options.connectId,
+          oneKeyOperationLease: options.oneKeyOperationLease,
           immediate: true,
         });
       }
@@ -3026,7 +3366,9 @@ class ServiceHardware extends ServiceBase {
   });
 
   _getDeviceStateWithMutex = async (
-    options: IDeviceGetStateOptions,
+    options: IDeviceGetStateOptions & {
+      oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+    },
   ): Promise<IOneKeyDeviceState> =>
     this.getFeaturesMutex.runExclusive(async () =>
       this._getDeviceStateWithTimeout(options),
@@ -3037,6 +3379,13 @@ class ServiceHardware extends ServiceBase {
     const hardwareCallContext =
       options.hardwareCallContext ??
       EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG;
+    const lease = [
+      EHardwareCallContext.USER_INTERACTION,
+      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+    ].includes(hardwareCallContext)
+      ? this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease()
+      : undefined;
+    if (lease?.signal?.aborted) throw new UserCancelFromOutside();
     const compatibleConnectId = options.connectId
       ? await this.getCompatibleConnectId({
           connectId: options.connectId,
@@ -3044,11 +3393,19 @@ class ServiceHardware extends ServiceBase {
           hardwareTransportType: options.hardwareTransportType,
         })
       : options.connectId;
-    return this._getDeviceStateWithMutex({
+    const state = await this._getDeviceStateWithMutex({
       ...options,
+      oneKeyOperationLease: lease,
       connectId: compatibleConnectId,
       hardwareCallContext,
     });
+    if (options.params?.scope === 'firmware') {
+      await this.persistFirmwareSnapshot({
+        connectId: compatibleConnectId,
+        state,
+      });
+    }
+    return state;
   }
 
   @backgroundMethod()
@@ -3152,37 +3509,24 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
-  /** @deprecated Use getDeviceState and request the required scope. */
   @backgroundMethod()
-  async getAboutDeviceFeatures(params: { connectId: string }) {
-    const dbDevice = await localDb.getDeviceByQuery({
-      connectId: params.connectId,
-    });
-    if (!dbDevice) {
-      throw new OneKeyLocalError('device not found');
-    }
-    const compatibleConnectId = await this.getCompatibleConnectId({
-      connectId: params.connectId,
-      featuresDeviceId: dbDevice.deviceId,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-    });
-    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      () =>
-        this.getFeaturesWithoutCache({
-          connectId: compatibleConnectId,
-          params: { retryCount: 1 },
-        }),
-      {
-        deviceParams: {
-          dbDevice,
+  async checkDeviceReachableForFirmwareUpdate(params: {
+    connectId: string;
+    features?: IOneKeyDeviceFeatures;
+  }) {
+    if (platformEnv.isDesktop) {
+      return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+        async () => {
+          const transport = await this.resolveHardwareTransport({
+            connectId: params.connectId,
+            features: params.features,
+            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+          });
+          return transport.connectId;
         },
-        hideCheckingDeviceLoading: true,
-      },
-    );
-  }
-
-  @backgroundMethod()
-  async checkDeviceReachableForFirmwareUpdate(params: { connectId: string }) {
+        { deviceKey: params.connectId },
+      );
+    }
     const dbDevice = await localDb.getDeviceByQuery({
       connectId: params.connectId,
     });
@@ -3194,19 +3538,19 @@ class ServiceHardware extends ServiceBase {
     const resolvedTransport = await this.resolveHardwareTransport({
       connectId: params.connectId,
       featuresDeviceId: dbDevice.deviceId,
-      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      // Check the reachable device before the update page asks the user to connect USB.
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
     });
     const { connectId: compatibleConnectId, transportType } = resolvedTransport;
-    const forceProtocolDetection =
-      transportType === EHardwareTransportType.DesktopWebBle;
+    const isDesktopBle = transportType === EHardwareTransportType.DesktopWebBle;
     await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
         this.getFeaturesWithoutCache({
           connectId: compatibleConnectId,
           params: {
             retryCount: 1,
-            forceProtocolDetection,
-            ...(forceProtocolDetection
+            // Update checks reuse the protocol confirmed during connection.
+            ...(isDesktopBle
               ? { timeout: DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS }
               : {}),
           },
@@ -3257,11 +3601,17 @@ class ServiceHardware extends ServiceBase {
           'Protocol V2 wallet session API is unavailable in the loaded hardware SDK',
         );
       }
+      const walletSessionParams = useEmptyPassphrase
+        ? { mode: 'standard' as const }
+        : { mode: 'select-hidden' as const };
       const walletSession = await convertDeviceResponse(() =>
-        useEmptyPassphrase
-          ? openWalletSession(connectId, { mode: 'standard' })
-          : openWalletSession(connectId, { mode: 'select-hidden' }),
+        openWalletSession(connectId, walletSessionParams),
       );
+      serviceHardwareUtils.hardwareLog('openWalletSession', {
+        protocol,
+        mode: walletSessionParams.mode,
+        resumed: walletSession.resumed,
+      });
       const expectedWalletType = useEmptyPassphrase ? 'standard' : 'hidden';
       if (walletSession.walletType !== expectedWalletType) {
         throw new OneKeyLocalError(
@@ -3297,7 +3647,6 @@ class ServiceHardware extends ServiceBase {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
         connectProtocol: protocol,
-        // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
       }),
     );
   }
@@ -3305,6 +3654,14 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async setInputPinOnSoftware(p: ISetInputPinOnSoftwareParams) {
     return this.deviceSettingsManager.setInputPinOnSoftware(p);
+  }
+
+  @backgroundMethod()
+  async setInputPinOnSoftwareByConnectId(p: {
+    connectId: string;
+    inputPinOnSoftware: boolean;
+  }) {
+    return this.deviceSettingsManager.setInputPinOnSoftwareByConnectId(p);
   }
 
   @backgroundMethod()
@@ -3370,24 +3727,25 @@ class ServiceHardware extends ServiceBase {
   @toastIfError()
   async setDeviceLabel(p: ISetDeviceLabelParams) {
     const result = await this.deviceSettingsManager.setDeviceLabel(p);
-    if (result.message) {
-      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
-        walletId: p.walletId,
+    // Protocol V2 Success.message is optional and defaults to "". A successful
+    // SDK call already passed convertDeviceResponse, so always write the
+    // confirmed label back; gating on a truthy message left Pro2/Neo names stale.
+    const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+      walletId: p.walletId,
+    });
+    const walletName = wallet?.name;
+    const dbDeviceId = wallet?.associatedDevice;
+    if (dbDeviceId) {
+      await this.writeBackProtocolV2DeviceLabel({
+        dbDeviceId,
+        label: result.label,
       });
-      const walletName = wallet?.name;
-      const dbDeviceId = wallet?.associatedDevice;
-      if (dbDeviceId) {
-        await this.writeBackProtocolV2DeviceLabel({
-          dbDeviceId,
-          label: p.label,
-        });
-        await this.handleHardwareLabelChanged({
-          walletId: p.walletId,
-          dbDeviceId,
-          label: p.label,
-          walletName,
-        });
-      }
+      await this.handleHardwareLabelChanged({
+        walletId: p.walletId,
+        dbDeviceId,
+        label: result.label,
+        walletName,
+      });
     }
     return result;
   }
@@ -3429,6 +3787,52 @@ class ServiceHardware extends ServiceBase {
       (v): ISimpleDBAppStatus => ({
         ...v,
         removeDeviceHomeScreenMigrated: true,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async migrateClassicPinInputDefault() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.classicPinInputDefaultMigrated) {
+      return;
+    }
+
+    // One-time default flip (OK-61489): button devices (Classic / 1S /
+    // Mini) now enter PIN on the device by default. `inputPinOnSoftwareSupport`
+    // is only ever written by setInputPinOnSoftware, the user-driven enable
+    // path whose firmware capability probe passed — record creation never
+    // writes it. So a stored `true` carrying that marker is a deliberate
+    // opt-in and is kept; a stored `true` without it is the legacy creation
+    // default nobody chose, and that is what flips.
+    const { devices } = await localDb.getAllDevices();
+    const isLegacyDefault = (settings: IDBDeviceSettings | undefined) =>
+      settings?.inputPinOnSoftware === true &&
+      settings?.inputPinOnSoftwareSupport !== true;
+    for (const device of devices) {
+      if (
+        (device.vendor ?? EHardwareVendor.onekey) === EHardwareVendor.onekey &&
+        deviceUtils.checkInputPinOnSoftwareSupport(device.deviceType) &&
+        isLegacyDefault(device.settings)
+      ) {
+        // Decided again on the settings as stored at write time: the
+        // stage's PIN-entry switch can land between the snapshot above and
+        // this write, and the snapshot written back whole would erase both
+        // the choice and its marker.
+        await localDb.updateDeviceDbSettingsInPlace({
+          dbDeviceId: device.id,
+          updater: (settings) =>
+            isLegacyDefault(settings)
+              ? { ...settings, inputPinOnSoftware: false }
+              : undefined,
+        });
+      }
+    }
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        classicPinInputDefaultMigrated: true,
       }),
     );
   }
@@ -3573,12 +3977,19 @@ class ServiceHardware extends ServiceBase {
     desktopBleReuseConnectedOnly,
     hardwareTransportType,
     packageBase64,
+    uiMode = 'silent',
   }: {
     connectId: string;
     desktopBleReuseConnectedOnly?: boolean;
     hardwareTransportType?: EHardwareTransportType;
     packageBase64: string;
+    uiMode?: 'silent' | 'progress';
   }) {
+    const lease =
+      uiMode === 'progress'
+        ? this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getActiveOneKeyOperationLease()
+        : undefined;
+    if (lease?.signal?.aborted) throw new UserCancelFromOutside();
     if (
       desktopBleReuseConnectedOnly &&
       hardwareTransportType !== EHardwareTransportType.DesktopWebBle
@@ -3587,14 +3998,19 @@ class ServiceHardware extends ServiceBase {
         'Desktop BLE connected-only reuse requires a pinned BLE transport',
       );
     }
+    const hardwareCallContext =
+      uiMode === 'progress'
+        ? EHardwareCallContext.USER_INTERACTION
+        : EHardwareCallContext.BACKGROUND_NON_INTERACTIVE;
     const compatibleConnectId = await this.getCompatibleConnectId({
       connectId,
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareCallContext,
       ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
     const hardwareSDK = await this.getSDKInstance({
       connectId: compatibleConnectId,
-      hardwareCallContext: EHardwareCallContext.BACKGROUND_NON_INTERACTIVE,
+      hardwareCallContext,
+      ...(uiMode === 'silent' ? { persistTransportType: false } : {}),
       ...(hardwareTransportType ? { hardwareTransportType } : {}),
     });
     return this.runInDesktopBleConnectedOnlyScope({
@@ -3602,11 +4018,14 @@ class ServiceHardware extends ServiceBase {
       enabled: desktopBleReuseConnectedOnly,
       task: () =>
         convertDeviceResponse(
-          () =>
-            hardwareSDK.uploadPortfolio(compatibleConnectId, {
+          () => {
+            if (lease?.signal?.aborted) throw new UserCancelFromOutside();
+            return hardwareSDK.uploadPortfolio(compatibleConnectId, {
               packageBase64,
-            }),
-          { silentMode: true },
+              ...(uiMode === 'progress' ? { uiMode } : {}),
+            });
+          },
+          uiMode === 'silent' ? { silentMode: true } : undefined,
         ),
     });
   }
@@ -3728,6 +4147,19 @@ class ServiceHardware extends ServiceBase {
     });
     if (!dbDevice || !connectId) {
       return;
+    }
+    try {
+      await this.getDeviceState({
+        connectId,
+        params: { scope: 'firmware' },
+        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+        silentMode: true,
+      });
+    } catch (error) {
+      serviceHardwareUtils.hardwareLog(
+        'refresh firmware state after update ERROR',
+        error,
+      );
     }
     const versionInfo: IDeviceVersionCacheInfo = {
       firmwareVersion: undefined,
@@ -4007,20 +4439,20 @@ class ServiceHardware extends ServiceBase {
     withUserInteraction: boolean;
     vendor?: EHardwareVendor;
   }): Promise<string | undefined> {
-    if (!connectId) {
+    if (!connectId && !(vendor === EHardwareVendor.trezor && deviceId)) {
       return;
     }
     const xfpProfile = vendor ? getVendorProfile(vendor) : undefined;
     if (xfpProfile?.isThirdParty) {
       // Trezor can supply XFP via its adapter (master fingerprint + taproot
-      // xpub). Other third-party vendors (e.g. Ledger) stay XFP-less for now.
-      if (vendor !== EHardwareVendor.trezor) {
+      // xpub); see canBuildHwWalletXfp.
+      if (!vendor || !canBuildHwWalletXfp(vendor)) {
         return undefined;
       }
       try {
         return await this.backgroundApi.serviceThirdPartyHardware.buildHwWalletXfp(
           {
-            connectId,
+            connectId: connectId || '',
             deviceId: deviceId || '',
             vendor,
             passphraseState,
@@ -4036,6 +4468,7 @@ class ServiceHardware extends ServiceBase {
         return undefined;
       }
     }
+    if (!connectId) return;
     let compatibleConnectId = connectId;
     try {
       compatibleConnectId = await this.getCompatibleConnectId({
@@ -4247,6 +4680,8 @@ class ServiceHardware extends ServiceBase {
       return;
     }
 
+    // The dialog requested right before each throw is the one notice for
+    // that cause; the error itself stays quiet (no toast) — OK-62113.
     const hasBlePermission = !!(await checkBLEPermissions());
     if (!hasBlePermission) {
       appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
@@ -4254,6 +4689,7 @@ class ServiceHardware extends ServiceBase {
       });
       throw new deviceErrors.NeedBluetoothPermissions({
         payload: { connectId },
+        autoToast: false,
       });
     }
 
@@ -4264,6 +4700,7 @@ class ServiceHardware extends ServiceBase {
       });
       throw new deviceErrors.NeedBluetoothTurnedOn({
         payload: { connectId },
+        autoToast: false,
       });
     }
   }
@@ -4272,11 +4709,77 @@ class ServiceHardware extends ServiceBase {
   async detectUSBDeviceAvailability(params?: {
     connectId?: string;
     connectProtocol?: HardwareConnectProtocol;
+    bootloaderRecoveryDeviceType?: IDeviceType;
+    expectedDeviceId?: string;
   }) {
+    if (platformEnv.isDesktop) {
+      try {
+        await this.getSingleFirmwareUsbDevice(params?.connectProtocol);
+      } catch (error) {
+        if (error instanceof deviceErrors.FirmwareUpdateLimitOneDevice)
+          throw error;
+        return false;
+      }
+    }
+    // Preserve the selected target at the upgrade entry; the workflow checks
+    // its live USB identity again before preparing artifacts or flashing.
     return this.connectionManager.detectUSBDeviceAvailability(
       params?.connectId,
       params?.connectProtocol,
+      params?.bootloaderRecoveryDeviceType,
+      params?.expectedDeviceId,
     );
+  }
+
+  private async getSingleFirmwareUsbDevice(
+    connectProtocol?: HardwareConnectProtocol,
+  ) {
+    const transportType =
+      await this.connectionManager.getTransportTypeForChannel({
+        transportType: 'usb',
+        connectProtocol,
+      });
+    const usbDevices =
+      (await globalThis.navigator?.usb?.getDevices?.())?.filter(
+        (device) =>
+          ONEKEY_WEBUSB_FILTER.some(
+            (filter) =>
+              device.vendorId === filter.vendorId &&
+              device.productId === filter.productId,
+          ) && !isKnownTrezorWebUsbDevice(device),
+      ) ?? [];
+    if (usbDevices.length > 1)
+      throw new deviceErrors.FirmwareUpdateLimitOneDevice();
+    if (transportType === EHardwareTransportType.Bridge) {
+      const { data } = await axios.post<unknown>(
+        'http://localhost:21320/enumerate',
+        null,
+        { timeout: 3000 },
+      );
+      if (!Array.isArray(data))
+        throw new deviceErrors.FirmwareUpdateRequiresUsbTransport();
+      if (data.length > 1)
+        throw new deviceErrors.FirmwareUpdateLimitOneDevice();
+      const descriptor = data[0] as { path?: unknown } | undefined;
+      if (typeof descriptor?.path !== 'string' || !descriptor.path) {
+        throw new deviceErrors.FirmwareUpdateRequiresUsbTransport();
+      }
+      return { path: descriptor.path, transportType, device: undefined };
+    }
+    const [device] = usbDevices;
+    const path = device && resolveOneKeyUsbDevicePath(device);
+    if (!path) throw new deviceErrors.FirmwareUpdateRequiresUsbTransport();
+    return { path, transportType, device };
+  }
+
+  @backgroundMethod()
+  async probeUsbDeviceIdentities({
+    commType,
+  }: {
+    commType: UsbDeviceIdentity['commType'];
+  }): Promise<UsbDeviceIdentity[]> {
+    if (!platformEnv.isDesktop) return [];
+    return probeDesktopUsbDeviceIdentities({ commType });
   }
 
   @backgroundMethod()
@@ -4425,32 +4928,6 @@ class ServiceHardware extends ServiceBase {
   // probe answers "is any OneKey USB / Bridge device present", which can be true
   // while THIS Trezor is BLE-only, routing its calls to the USB handle and
   // burning a BLE connect timeout before the fallback ladder recovers.
-  private async resolveTrezorPreferredBleConnectId({
-    device,
-    bleConnectId,
-    targetType,
-  }: {
-    device: { vendor?: string };
-    bleConnectId?: string;
-    targetType: EHardwareTransportType;
-  }): Promise<string | undefined> {
-    if (!bleConnectId) {
-      return undefined;
-    }
-    if (targetType === EHardwareTransportType.DesktopWebBle) {
-      return bleConnectId;
-    }
-    if (device.vendor !== EHardwareVendor.trezor) {
-      return undefined;
-    }
-    const trezorUsbPresent =
-      await this.connectionManager.detectTrezorUSBDeviceAvailability();
-    if (trezorUsbPresent) {
-      return undefined;
-    }
-    return bleConnectId;
-  }
-
   // connectId (lowercased) -> timestamp of the last DEVICE.STATE /
   // DEVICE.CONNECT event observed on it. Real traffic implies the endpoint
   // is connected and OS-paired at that moment; DEVICE.DISCONNECT deletes
@@ -4648,6 +5125,12 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('connectId is required');
     }
 
+    // Third-party ids belong to hwk adapters, including fresh discovery handles
+    // that have no database record. Never probe them with OneKey transports.
+    if (vendor && getVendorProfile(vendor).isThirdParty) {
+      return connectId;
+    }
+
     // A transport connect ID is a precise device key only while it is unique:
     // a device wipe keeps the serial-based connectId on the stale record, so
     // an identity-qualified match must win over the connectId-only match —
@@ -4680,41 +5163,11 @@ class ServiceHardware extends ServiceBase {
     const persistedDesktopBleConnectId =
       getPersistedDesktopBleConnectId(device);
 
-    // Third-party devices keep USB as the primary connectId, but Trezor can
-    // have a bound BLE connectId after USB->BLE pairing. Prefer the bound BLE
-    // handle only when the active target transport is DesktopWebBle; do not
-    // fall through to OneKey's generic BLE pairing dialog for unbound devices.
+    // Legacy callers may omit vendor but resolve an existing third-party row.
     if (device?.vendor) {
       const vp = getVendorProfile(device.vendor);
       if (vp.isThirdParty) {
-        if (!platformEnv.isSupportDesktopBle) {
-          return device.connectId || connectId;
-        }
-        if (
-          hardwareCallContext === EHardwareCallContext.BACKGROUND_TASK ||
-          hardwareCallContext ===
-            EHardwareCallContext.BACKGROUND_NON_INTERACTIVE
-        ) {
-          const currentTransportType =
-            hardwareTransportType ?? (await this.getCurrentTransportType());
-          const preferredBle = await this.resolveTrezorPreferredBleConnectId({
-            device,
-            bleConnectId: persistedDesktopBleConnectId,
-            targetType: currentTransportType,
-          });
-          return preferredBle || device.connectId || connectId;
-        }
-
-        const result = await this.connectionManager.resolveTransportType({
-          connectId: device.connectId || connectId,
-          hardwareCallContext,
-        });
-        const preferredBle = await this.resolveTrezorPreferredBleConnectId({
-          device,
-          bleConnectId: persistedDesktopBleConnectId,
-          targetType: result.targetType,
-        });
-        return preferredBle || device.connectId || connectId;
+        return connectId;
       }
     }
 
@@ -4749,6 +5202,13 @@ class ServiceHardware extends ServiceBase {
         if (persistedDesktopBleConnectId) {
           return persistedDesktopBleConnectId;
         }
+      }
+      if (
+        (hardwareTransportType === EHardwareTransportType.WEBUSB ||
+          hardwareTransportType === EHardwareTransportType.Bridge) &&
+        device?.usbConnectId?.toLowerCase() === connectId.toLowerCase()
+      ) {
+        return connectId;
       }
       // 后台任务不能发起 BLE 配对，也不应把缺少 BLE 绑定误判为设备离线。
       // 移除硬件钱包等纯本地操作仍需要读取设备参数，因此沿用已持久化的
@@ -4862,6 +5322,128 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     transportType: EHardwareTransportType;
   }> {
+    if (
+      platformEnv.isDesktop &&
+      params.hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE
+    ) {
+      const device = params.connectId
+        ? await localDb.getDeviceByQuery({ connectId: params.connectId })
+        : undefined;
+      const connectProtocol =
+        (await this.getKnownDeviceProtocol(params.connectId)) ??
+        (params.features?.protocol === 'V1' ||
+        params.features?.protocol === 'V2'
+          ? params.features.protocol
+          : undefined);
+      const usb = await this.getSingleFirmwareUsbDevice(connectProtocol);
+      const identities = await this.probeUsbDeviceIdentities({
+        commType:
+          usb.transportType === EHardwareTransportType.Bridge
+            ? 'bridge'
+            : 'webusb',
+      });
+      if (identities.length > 1)
+        throw new deviceErrors.FirmwareUpdateLimitOneDevice();
+      const candidate = identities.find(
+        (identity) =>
+          identity.path === usb.path &&
+          identity.commType ===
+            (usb.transportType === EHardwareTransportType.Bridge
+              ? 'bridge'
+              : 'webusb'),
+      );
+      if (!candidate)
+        throw new deviceErrors.FirmwareUpdateRequiresUsbTransport();
+      const normalize = (value?: string | null) => {
+        const id = value?.trim().toLowerCase();
+        return id && !/^0+$/.test(id) ? id : undefined;
+      };
+      const target = normalize(params.connectId);
+      const isUsbEndpoint =
+        Boolean(params.connectId) &&
+        params.connectId?.trim().toLowerCase() ===
+          candidate.path.trim().toLowerCase();
+      const expectedType = params.features?.deviceType ?? device?.deviceType;
+      const expectedSerial =
+        normalize(deviceUtils.getDeviceSerialNoFromFeatures(params.features)) ||
+        normalize(deviceUtils.getDeviceSerialNoFromDbDevice(device)) ||
+        (isUsbEndpoint ? normalize(candidate.serialNo) : undefined);
+      const expectedId =
+        normalize(params.features?.deviceId) ||
+        normalize(params.features?.device_id) ||
+        normalize(device?.deviceStateInfo?.identity.deviceId) ||
+        normalize(device?.deviceId) ||
+        (isUsbEndpoint ? normalize(candidate.deviceId) : undefined);
+      const matchesIdentity = (identity: {
+        serialNo: string | null;
+        deviceId: string | null;
+      }) => {
+        if (expectedSerial)
+          return normalize(identity.serialNo) === expectedSerial;
+        if (expectedId) return normalize(identity.deviceId) === expectedId;
+        return (
+          !target ||
+          normalize(identity.serialNo) === target ||
+          normalize(identity.deviceId) === target
+        );
+      };
+      if (
+        (connectProtocol && candidate.connectProtocol !== connectProtocol) ||
+        (expectedType &&
+          expectedType !== EDeviceType.Unknown &&
+          candidate.deviceType !== expectedType) ||
+        ((normalize(candidate.serialNo) || normalize(candidate.deviceId)) &&
+          !matchesIdentity(candidate)) ||
+        (!normalize(candidate.serialNo) &&
+          !normalize(candidate.deviceId) &&
+          target &&
+          !isUsbEndpoint &&
+          (!expectedType || expectedType === EDeviceType.Unknown))
+      ) {
+        throw new deviceErrors.DeviceNotSame();
+      }
+      // SDK device lookup uses the verified business serial when available.
+      // Devices without a serial use the path, which also anchors USB rechecks.
+      const sdkConnectId =
+        candidate.serialNo && normalize(candidate.serialNo)
+          ? candidate.serialNo
+          : candidate.path;
+      await this.rememberDeviceProtocol({
+        connectIds: [candidate.path, sdkConnectId],
+        protocol: candidate.connectProtocol,
+      });
+      await this.connectionManager.setCurrentTransportType(usb.transportType);
+      const state = await this._getDeviceStateWithMutex({
+        connectId: sdkConnectId,
+        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+        hardwareTransportType: usb.transportType,
+        silentMode: true,
+        params: {
+          scope: 'firmware',
+          connectProtocol: candidate.connectProtocol,
+          retryCount: 0,
+          skipWebDevicePrompt: true,
+        },
+      });
+      const hasIdentity =
+        normalize(state.identity.serialNo) ||
+        normalize(state.identity.deviceId);
+      const isLoader = ['bootloader', 'romloader'].includes(state.status.mode);
+      if (
+        state.protocol !== candidate.connectProtocol ||
+        state.identity.deviceType !== candidate.deviceType ||
+        (hasIdentity ? !matchesIdentity(state.identity) : !isLoader)
+      ) {
+        throw new deviceErrors.DeviceNotSame();
+      }
+      const currentUsb = await this.getSingleFirmwareUsbDevice(
+        candidate.connectProtocol,
+      );
+      if (currentUsb.path !== usb.path || currentUsb.device !== usb.device) {
+        throw new deviceErrors.DeviceNotSame();
+      }
+      return { connectId: sdkConnectId, transportType: usb.transportType };
+    }
     const resolvedConnectId = await this.getCompatibleConnectId(params);
     return {
       connectId: resolvedConnectId,
@@ -4878,7 +5460,9 @@ class ServiceHardware extends ServiceBase {
     connectId?: string;
     connectProtocol?: HardwareConnectProtocol;
     hardwareCallContext: EHardwareCallContext;
+    persistTransportType?: boolean;
     requestedTransportType?: 'usb' | 'ble';
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }): Promise<EHardwareTransportType> {
     const connectProtocol =
       params.connectProtocol ??
@@ -4889,14 +5473,27 @@ class ServiceHardware extends ServiceBase {
           transportType: params.requestedTransportType,
           connectProtocol,
         });
-      await this.connectionManager.setCurrentTransportType(targetType);
+      if (params.persistTransportType !== false) {
+        await this.connectionManager.setCurrentTransportType(targetType);
+        this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.rememberOneKeyOperationTransport(
+          targetType,
+          params.oneKeyOperationLease,
+        );
+      }
       return targetType;
     }
-    const result = await this.connectionManager.resolveTransportType({
+    const transportParams = {
       connectId: params.connectId,
       hardwareCallContext: params.hardwareCallContext,
       connectProtocol,
-    });
+      oneKeyOperationLease: params.oneKeyOperationLease,
+    };
+    const result =
+      params.persistTransportType === false
+        ? await this.connectionManager.shouldSwitchTransportType(
+            transportParams,
+          )
+        : await this.connectionManager.resolveTransportType(transportParams);
     return result.targetType;
   }
 

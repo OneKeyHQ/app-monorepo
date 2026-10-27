@@ -9,7 +9,7 @@ import { calculateTradingViewNativeSimpleMovingAverage } from './ma';
 
 import type { ITradingViewNativeIndicatorValues } from './subIndicatorTypes';
 
-const DEFAULT_OBV_MOVING_AVERAGE_PERIOD = 9;
+const DEFAULT_OBV_MOVING_AVERAGE_PERIOD = 30;
 
 export interface ITradingViewNativeObvResult {
   movingAverage: ITradingViewNativeIndicatorValues;

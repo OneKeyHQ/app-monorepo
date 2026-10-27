@@ -1,0 +1,814 @@
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
+index 07f73fd..f808b15 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebChromeClient.java
+@@ -14,6 +14,7 @@ import android.webkit.ConsoleMessage;
+ import android.webkit.GeolocationPermissions;
+ import android.webkit.PermissionRequest;
+ import android.webkit.ValueCallback;
++import android.webkit.JsPromptResult;
+ import android.webkit.WebChromeClient;
+ import android.webkit.WebView;
+ import android.webkit.WebViewClient;
+@@ -32,9 +33,14 @@ import com.facebook.react.uimanager.UIManagerHelper;
+ import com.reactnativecommunity.webview.events.TopLoadingProgressEvent;
+ import com.reactnativecommunity.webview.events.TopOpenWindowEvent;
+ 
++import java.net.URI;
++import java.net.URISyntaxException;
+ import java.util.ArrayList;
+ import java.util.Collections;
++import java.util.HashSet;
+ import java.util.List;
++import java.util.Locale;
++import java.util.Set;
+ 
+ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEventListener {
+     protected static final FrameLayout.LayoutParams FULLSCREEN_LAYOUT_PARAMS = new FrameLayout.LayoutParams(
+@@ -50,6 +56,68 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+ 
+     protected static final int COMMON_PERMISSION_REQUEST = 3;
+ 
++    // OneKey patch: compare exact requesting origins for media permissions.
++    static String normalizeMediaPermissionOrigin(String origin) {
++        if (origin == null) {
++            return null;
++        }
++        try {
++            URI uri = new URI(origin);
++            String scheme = uri.getScheme();
++            String host = uri.getHost();
++            String path = uri.getRawPath();
++            if (scheme == null || host == null || host.isEmpty()
++                    || uri.getRawUserInfo() != null || uri.getRawQuery() != null
++                    || uri.getRawFragment() != null
++                    || (path != null && !path.isEmpty() && !"/".equals(path))
++                    || uri.getRawAuthority().endsWith(":")) {
++                return null;
++            }
++            String normalizedScheme = scheme.toLowerCase(Locale.ROOT);
++            if (!"https".equals(normalizedScheme) && !"http".equals(normalizedScheme)) {
++                return null;
++            }
++            int port = uri.getPort();
++            if (port == 0 || port > 65535) {
++                return null;
++            }
++            int effectivePort = port == -1 ? ("https".equals(normalizedScheme) ? 443 : 80) : port;
++            return normalizedScheme + "://" + host.toLowerCase(Locale.ROOT) + ":" + effectivePort;
++        } catch (URISyntaxException ignored) {
++            return null;
++        }
++    }
++
++    static Set<String> buildMediaPermissionWhitelistOrigins(Set<String> origins) {
++        Set<String> whitelist = new HashSet<>();
++        for (String origin : origins) {
++            String normalizedOrigin = normalizeMediaPermissionOrigin(origin);
++            if (normalizedOrigin != null) {
++                whitelist.add(normalizedOrigin);
++            }
++        }
++        return whitelist;
++    }
++
++    private boolean isWhitelistedMediaOrigin(String requestingOrigin) {
++        if (mWebView == null) {
++            return false;
++        }
++        Set<String> whitelist = mWebView.getMediaPermissionWhitelist();
++        if (whitelist == null) {
++            return false;
++        }
++        String normalizedOrigin = normalizeMediaPermissionOrigin(requestingOrigin);
++        return normalizedOrigin != null && whitelist.contains(normalizedOrigin);
++    }
++
++    @Override
++    public boolean onJsPrompt(WebView view, String url, String message, String defaultValue, JsPromptResult result) {
++        android.util.Log.w("RNCWebView", "[Security] Blocked prompt() from: " + url);
++        result.cancel();
++        return true;
++    }
++
+     protected RNCWebView mWebView;
+ 
+     protected View mVideoView;
+@@ -146,15 +214,35 @@ public class RNCWebChromeClient extends WebChromeClient implements LifecycleEven
+     public void onPermissionRequest(final PermissionRequest request) {
+ 
+         grantedPermissions = new ArrayList<>();
++        boolean hasMediaPermissionWhitelist =
++                mWebView != null && mWebView.hasMediaPermissionWhitelist();
++        String requestingOrigin = hasMediaPermissionWhitelist && request.getOrigin() != null
++                ? request.getOrigin().toString() : null;
+ 
+         ArrayList<String> requestedAndroidPermissions = new ArrayList<>();
+         for (String requestedResource : request.getResources()) {
+             String androidPermission = null;
+ 
+             if (requestedResource.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+-                androidPermission = Manifest.permission.RECORD_AUDIO;
++                if (!hasMediaPermissionWhitelist) {
++                    androidPermission = Manifest.permission.RECORD_AUDIO;
++                } else {
++                    if (isWhitelistedMediaOrigin(requestingOrigin)) {
++                        androidPermission = Manifest.permission.RECORD_AUDIO;
++                    } else {
++                        continue;
++                    }
++                }
+             } else if (requestedResource.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+-                androidPermission = Manifest.permission.CAMERA;
++                if (!hasMediaPermissionWhitelist) {
++                    androidPermission = Manifest.permission.CAMERA;
++                } else {
++                    if (isWhitelistedMediaOrigin(requestingOrigin)) {
++                        androidPermission = Manifest.permission.CAMERA;
++                    } else {
++                        continue;
++                    }
++                }
+             } else if(requestedResource.equals(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) {
+                 if (mAllowsProtectedMedia) {
+                   grantedPermissions.add(requestedResource);
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
+index 80c6803..911a0b9 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
+@@ -78,6 +78,21 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+     protected boolean hasScrollEvent = false;
+     protected boolean nestedScrollEnabled = false;
+     protected ProgressChangedFilter progressChangedFilter;
++    protected @Nullable Set<String> mediaPermissionWhitelist;
++    // OneKey patch: deduplicate wrapped injected scripts and guard WebView lifecycle/onRenderProcessGone
++    private static @Nullable String sCachedInjectedJSRaw;
++    private static @Nullable String sCachedInjectedJSWrapped;
++    private static @Nullable String sCachedInjectedJSBeforeRaw;
++    private static @Nullable String sCachedInjectedJSBeforeWrapped;
++    protected boolean isRenderProcessGone = false;
++    protected boolean isDestroyed = false;
++
++    private static final WebViewClient sSafeNoOpWebViewClient = new WebViewClient() {
++        @Override
++        public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
++            return true;
++        }
++    };
+ 
+     /**
+      * WebView must be created with an context of the current activity
+@@ -87,10 +102,15 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+      */
+     public RNCWebView(ThemedReactContext reactContext) {
+         super(reactContext);
++        super.setWebViewClient(sSafeNoOpWebViewClient);
+         mMessagingJSModule = ((ThemedReactContext) this.getContext()).getReactApplicationContext().getJSModule(RNCWebViewMessagingModule.class);
+         progressChangedFilter = new ProgressChangedFilter();
+     }
+ 
++    public void onRenderProcessGone() {
++        this.isRenderProcessGone = true;
++    }
++
+     public void setBasicAuthCredential(RNCBasicAuthCredential credential) {
+         mRNCWebViewClient.setBasicAuthCredential(credential);
+     }
+@@ -107,6 +127,22 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+         this.nestedScrollEnabled = nestedScrollEnabled;
+     }
+ 
++    public void setMediaPermissionWhitelist(@Nullable Set<String> origins) {
++        if (origins == null) {
++            mediaPermissionWhitelist = null;
++            return;
++        }
++        mediaPermissionWhitelist = RNCWebChromeClient.buildMediaPermissionWhitelistOrigins(origins);
++    }
++
++    public boolean hasMediaPermissionWhitelist() {
++        return mediaPermissionWhitelist != null;
++    }
++
++    public @Nullable Set<String> getMediaPermissionWhitelist() {
++        return mediaPermissionWhitelist;
++    }
++
+     @Override
+     public void onHostResume() {
+         // do nothing
+@@ -296,14 +332,41 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+     }
+ 
+     protected void evaluateJavascriptWithFallback(String script) {
+-        evaluateJavascript(script, null);
++        // OneKey patch: skip JS evaluation after destroy/renderer crash and guard against OOM
++        if (isDestroyed || isRenderProcessGone) {
++            return;
++        }
++        try {
++            evaluateJavascript(script, null);
++        } catch (OutOfMemoryError | IllegalStateException e) {
++            FLog.w("RNCWebView", "Failed to evaluateJavascript", e);
++        }
+     }
+ 
+     public void callInjectedJavaScript() {
+         if (getSettings().getJavaScriptEnabled() &&
+                 injectedJS != null &&
+                 !TextUtils.isEmpty(injectedJS)) {
+-            evaluateJavascriptWithFallback("(function() {\n" + injectedJS + ";\n})();");
++            // OneKey patch: reuse wrapped IIFE string across navigations and WebView instances
++            // evaluateJavascriptWithFallback("(function() {\n" + injectedJS + ";\n})();");
++            String wrapped = null;
++            try {
++                synchronized (RNCWebView.class) {
++                    if (injectedJS.equals(sCachedInjectedJSRaw) && sCachedInjectedJSWrapped != null) {
++                        injectedJS = sCachedInjectedJSRaw;
++                        wrapped = sCachedInjectedJSWrapped;
++                    } else {
++                        wrapped = "(function() {\n" + injectedJS + ";\n})();";
++                        sCachedInjectedJSRaw = injectedJS;
++                        sCachedInjectedJSWrapped = wrapped;
++                    }
++                }
++            } catch (OutOfMemoryError e) {
++                FLog.w("RNCWebView", "OOM wrapping injectedJS", e);
++            }
++            if (wrapped != null) {
++                evaluateJavascriptWithFallback(wrapped);
++            }
+             injectJavascriptObject(); // re-inject the Javascript object in case it has been overwritten.
+         }
+     }
+@@ -312,7 +375,26 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+         if (getSettings().getJavaScriptEnabled() &&
+                 injectedJSBeforeContentLoaded != null &&
+                 !TextUtils.isEmpty(injectedJSBeforeContentLoaded)) {
+-            evaluateJavascriptWithFallback("(function() {\n" + injectedJSBeforeContentLoaded + ";\n})();");
++            // OneKey patch: reuse wrapped IIFE string across navigations and WebView instances
++            // evaluateJavascriptWithFallback("(function() {\n" + injectedJSBeforeContentLoaded + ";\n})();");
++            String wrapped = null;
++            try {
++                synchronized (RNCWebView.class) {
++                    if (injectedJSBeforeContentLoaded.equals(sCachedInjectedJSBeforeRaw) && sCachedInjectedJSBeforeWrapped != null) {
++                        injectedJSBeforeContentLoaded = sCachedInjectedJSBeforeRaw;
++                        wrapped = sCachedInjectedJSBeforeWrapped;
++                    } else {
++                        wrapped = "(function() {\n" + injectedJSBeforeContentLoaded + ";\n})();";
++                        sCachedInjectedJSBeforeRaw = injectedJSBeforeContentLoaded;
++                        sCachedInjectedJSBeforeWrapped = wrapped;
++                    }
++                }
++            } catch (OutOfMemoryError e) {
++                FLog.w("RNCWebView", "OOM wrapping injectedJSBeforeContentLoaded", e);
++            }
++            if (wrapped != null) {
++                evaluateJavascriptWithFallback(wrapped);
++            }
+             injectJavascriptObject();  // re-inject the Javascript object in case it has been overwritten.
+         }
+     }
+@@ -406,11 +488,26 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+     protected void dispatchEvent(WebView webView, Event event) {
+         ThemedReactContext reactContext = getThemedReactContext();
+         int reactTag = RNCWebViewWrapper.getReactTagFromWebView(webView);
+-        UIManagerHelper.getEventDispatcherForReactTag(reactContext, reactTag).dispatchEvent(event);
++        if (reactTag == -1) {
++            return;
++        }
++        com.facebook.react.uimanager.events.EventDispatcher dispatcher =
++                UIManagerHelper.getEventDispatcherForReactTag(reactContext, reactTag);
++        if (dispatcher != null) {
++            dispatcher.dispatchEvent(event);
++        }
+     }
+ 
+     protected void cleanupCallbacksAndDestroy() {
+-        setWebViewClient(null);
++        // OneKey patch: keep a safe WebViewClient that returns true from onRenderProcessGone
++        // instead of null (which resets to default WebViewClient and triggers Chromium SIGTRAP).
++        // setWebViewClient(null);
++        isDestroyed = true;
++        mRNCWebViewClient = null;
++        injectedJS = null;
++        injectedJSBeforeContentLoaded = null;
++        injectedJavaScriptObject = null;
++        super.setWebViewClient(sSafeNoOpWebViewClient);
+         destroy();
+     }
+ 
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+index 0287e1c..9d5465d 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+@@ -297,10 +297,24 @@ public class RNCWebViewClient extends WebViewClient {
+             return true;
+         }
+ 
+-        WritableMap event = createWebViewEvent(webView, webView.getUrl());
+-        event.putBoolean("didCrash", detail.didCrash());
+-        int reactTag = RNCWebViewWrapper.getReactTagFromWebView(webView);
+-        UIManagerHelper.getEventDispatcherForReactTag((ReactContext) webView.getContext(), reactTag).dispatchEvent(new TopRenderProcessGoneEvent(reactTag, event));
++        // OneKey patch: mark RNCWebView as render-process-gone and guard event dispatch
++        if (webView instanceof RNCWebView) {
++            ((RNCWebView) webView).onRenderProcessGone();
++        }
++        try {
++            WritableMap event = createWebViewEvent(webView, webView.getUrl());
++            event.putBoolean("didCrash", detail.didCrash());
++            int reactTag = RNCWebViewWrapper.getReactTagFromWebView(webView);
++            if (reactTag != -1) {
++                com.facebook.react.uimanager.events.EventDispatcher dispatcher =
++                        UIManagerHelper.getEventDispatcherForReactTag((ReactContext) webView.getContext(), reactTag);
++                if (dispatcher != null) {
++                    dispatcher.dispatchEvent(new TopRenderProcessGoneEvent(reactTag, event));
++                }
++            }
++        } catch (Throwable t) {
++            Log.w(TAG, "Failed to dispatch TopRenderProcessGoneEvent", t);
++        }
+ 
+         // returning false would crash the app.
+         return true;
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
+index f83033b..e0b3c40 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
+@@ -27,6 +27,7 @@ import org.json.JSONObject
+ import java.io.UnsupportedEncodingException
+ import java.net.MalformedURLException
+ import java.net.URL
++import java.util.HashSet
+ import java.util.Locale
+ 
+ val invalidCharRegex = "[\\\\/%\"]".toRegex()
+@@ -34,6 +35,17 @@ val invalidCharRegex = "[\\\\/%\"]".toRegex()
+ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+     companion object {
+         const val NAME = "RNCWebView"
++        private val defaultVideoPoster: Bitmap by lazy {
++            Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
++        }
++
++        fun safeDefaultVideoPoster(): Bitmap {
++            return if (defaultVideoPoster.isRecycled) {
++                Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
++            } else {
++                defaultVideoPoster
++            }
++        }
+     }
+ 
+     private val TAG = "RNCWebViewManagerImpl"
+@@ -147,7 +159,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+             val webChromeClient: RNCWebChromeClient =
+                 object : RNCWebChromeClient(webView) {
+                     override fun getDefaultVideoPoster(): Bitmap? {
+-                        return Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
++                        return safeDefaultVideoPoster()
+                     }
+ 
+                     override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+@@ -214,7 +226,7 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+             webChromeClient?.onHideCustomView()
+             webChromeClient = object : RNCWebChromeClient(webView) {
+                 override fun getDefaultVideoPoster(): Bitmap? {
+-                    return Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888)
++                    return safeDefaultVideoPoster()
+                 }
+             }
+             webChromeClient.setAllowsProtectedMedia(mAllowsProtectedMedia);
+@@ -721,4 +733,19 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+             WebSettingsCompat.setPaymentRequestEnabled(view.settings, enabled)
+         }
+     }
++
++    fun setMediaPermissionWhitelist(
++        viewWrapper: RNCWebViewWrapper,
++        origins: ReadableArray?,
++    ) {
++        if (origins == null) {
++            viewWrapper.webView.setMediaPermissionWhitelist(null)
++            return
++        }
++        val whitelist = HashSet<String>()
++        for (i in 0 until origins.size()) {
++            origins.getString(i)?.let { whitelist.add(it) }
++        }
++        viewWrapper.webView.setMediaPermissionWhitelist(whitelist)
++    }
+ }
+diff --git a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
+index 4709e28..e4d48a1 100644
+--- a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
++++ b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
+@@ -338,6 +338,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
+         mRNCWebViewManagerImpl.setPaymentRequestEnabled(view, value);
+     }
+ 
++    @ReactProp(name = "mediaPermissionWhitelist")
++    public void setMediaPermissionWhitelist(RNCWebViewWrapper view, @Nullable ReadableArray value) {
++        mRNCWebViewManagerImpl.setMediaPermissionWhitelist(view, value);
++    }
++
+     /* iOS PROPS - no implemented here */
+     @Override
+     public void setAllowingReadAccessToURL(RNCWebViewWrapper view, @Nullable String value) {}
+diff --git a/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
+index 974337f..d4f774d 100644
+--- a/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
++++ b/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
+@@ -279,6 +279,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper> {
+         mRNCWebViewManagerImpl.setPaymentRequestEnabled(view, value);
+     }
+ 
++    @ReactProp(name = "mediaPermissionWhitelist")
++    public void setMediaPermissionWhitelist(RNCWebViewWrapper view, @Nullable ReadableArray value) {
++        mRNCWebViewManagerImpl.setMediaPermissionWhitelist(view, value);
++    }
++
+     @Override
+     protected void addEventEmitters(@NonNull ThemedReactContext reactContext, RNCWebViewWrapper viewWrapper) {
+         // Do not register default touch emitter and let WebView implementation handle touches
+diff --git a/node_modules/react-native-webview/apple/RNCWebView.mm b/node_modules/react-native-webview/apple/RNCWebView.mm
+index c0816b6..3a32f01 100644
+--- a/node_modules/react-native-webview/apple/RNCWebView.mm
++++ b/node_modules/react-native-webview/apple/RNCWebView.mm
+@@ -65,6 +65,7 @@ @interface RNCWebView () <RCTRNCWebViewViewProtocol>
+ 
+ @implementation RNCWebView {
+     RNCWebViewImpl * _view;
++    NSDictionary * _sourceFromProps;
+ }
+ 
+ + (ComponentDescriptorProvider)componentDescriptorProvider
+@@ -76,6 +77,7 @@ + (ComponentDescriptorProvider)componentDescriptorProvider
+ // Reproduce the idea from here: https://github.com/facebook/react-native/blob/8bd3edec88148d0ab1f225d2119435681fbbba33/React/Fabric/Mounting/ComponentViews/InputAccessory/RCTInputAccessoryComponentView.mm#L142
+ - (void)prepareForRecycle {
+     [super prepareForRecycle];
++    _sourceFromProps = nil;
+     [_view destroyWebView];
+ }
+ #endif // !TARGET_OS_OSX
+@@ -512,7 +514,11 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+     if (!newViewProps.newSource.method.empty()) {
+         [source setValue:RCTNSStringFromString(newViewProps.newSource.method) forKey:@"method"];
+     }
+-    [_view setSource:source];
++    // Keep imperative navigation from being reset by unrelated prop updates.
++    if (![_sourceFromProps isEqualToDictionary:source]) {
++        _sourceFromProps = [source copy];
++        [_view setSource:source];
++    }
+ 
+     [super updateProps:props oldProps:oldProps];
+ }
+@@ -540,7 +546,7 @@ - (void)injectJavaScript:(nonnull NSString *)javascript {
+ }
+ 
+ - (void)loadUrl:(nonnull NSString *)url {
+-    // android only
++    [_view setSource:@{@"uri": url}];
+ }
+ 
+ - (void)postMessage:(nonnull NSString *)data {
+diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.h b/node_modules/react-native-webview/apple/RNCWebViewImpl.h
+index 1f6bbfd..e4c9cd7 100644
+--- a/node_modules/react-native-webview/apple/RNCWebViewImpl.h
++++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.h
+@@ -112,6 +112,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
+ @property (nonatomic, assign) BOOL enableApplePay;
+ @property (nonatomic, copy) NSArray<NSDictionary *> * _Nullable menuItems;
+ @property (nonatomic, copy) NSArray<NSString *> * _Nullable suppressMenuItems;
++@property (nonatomic, copy) NSArray<NSString *> * _Nullable mediaPermissionWhitelist;
+ @property (nonatomic, copy) RCTDirectEventBlock onCustomMenuSelection;
+ #if !TARGET_OS_OSX
+ @property (nonatomic, assign) WKDataDetectorTypes dataDetectorTypes;
+diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
+index 7f5c24d..10d922d 100644
+--- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
++++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
+@@ -23,6 +23,61 @@
+ static NSURLCredential* clientAuthenticationCredential;
+ static NSDictionary* customCertificatesForHost;
+ 
++// OneKey patch: grant media capture only to the exact requesting origin.
++static NSString *OKCanonicalMediaPermissionOrigin(NSString *scheme, NSString *host, NSInteger port) {
++  if (scheme.length == 0 || host.length == 0 || port < 0 || port > 65535) {
++    return nil;
++  }
++  NSString *normalizedScheme = scheme.lowercaseString;
++  if (![normalizedScheme isEqualToString:@"https"] && ![normalizedScheme isEqualToString:@"http"]) {
++    return nil;
++  }
++  NSString *normalizedHost = host.lowercaseString;
++  if ([normalizedHost containsString:@":"] && ![normalizedHost hasPrefix:@"["]) {
++    normalizedHost = [NSString stringWithFormat:@"[%@]", normalizedHost];
++  }
++  NSInteger effectivePort = port == 0 ? ([normalizedScheme isEqualToString:@"https"] ? 443 : 80) : port;
++  return [NSString stringWithFormat:@"%@://%@:%ld", normalizedScheme, normalizedHost, (long)effectivePort];
++}
++
++static NSString *OKCanonicalWhitelistedMediaOrigin(NSString *origin) {
++  if (![origin isKindOfClass:[NSString class]]) {
++    return nil;
++  }
++  NSURLComponents *components = [NSURLComponents componentsWithString:origin];
++  NSString *path = components.percentEncodedPath;
++  NSRange schemeSeparator = [origin rangeOfString:@"://"];
++  if (schemeSeparator.location == NSNotFound || components.host.length == 0
++      || components.user != nil || components.password != nil
++      || components.query != nil || components.fragment != nil
++      || (path.length > 0 && ![path isEqualToString:@"/"])) {
++    return nil;
++  }
++  NSString *authorityAndPath = [origin substringFromIndex:NSMaxRange(schemeSeparator)];
++  NSRange authorityEnd = [authorityAndPath rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"/?#"]];
++  NSString *authority = authorityEnd.location == NSNotFound
++      ? authorityAndPath : [authorityAndPath substringToIndex:authorityEnd.location];
++  if ([authority hasSuffix:@":"]) {
++    return nil;
++  }
++  NSNumber *port = components.port;
++  if (port != nil && (port.integerValue <= 0 || port.integerValue > 65535)) {
++    return nil;
++  }
++  return OKCanonicalMediaPermissionOrigin(components.scheme, components.host, port ? port.integerValue : 0);
++}
++
++static NSSet<NSString *> *OKBuildMediaPermissionWhitelist(NSArray<NSString *> *origins) {
++  NSMutableSet<NSString *> *whitelist = [NSMutableSet set];
++  for (NSString *origin in origins) {
++    NSString *normalizedOrigin = OKCanonicalWhitelistedMediaOrigin(origin);
++    if (normalizedOrigin != nil) {
++      [whitelist addObject:normalizedOrigin];
++    }
++  }
++  return [whitelist copy];
++}
++
+ NSString *const CUSTOM_SELECTOR = @"_CUSTOM_SELECTOR_";
+ 
+ #if TARGET_OS_IOS
+@@ -126,6 +181,7 @@ @interface RNCWebViewImpl () <WKUIDelegate, WKNavigationDelegate, WKScriptMessag
+ @property (nonatomic, strong) WKUserScript *injectedObjectJsonScript;
+ @property (nonatomic, strong) WKUserScript *atStartScript;
+ @property (nonatomic, strong) WKUserScript *atEndScript;
++@property (nonatomic, copy, nullable) NSSet<NSString *> *mediaPermissionWhitelistSet;
+ @end
+ 
+ @implementation RNCWebViewImpl
+@@ -874,7 +930,7 @@ - (void)visitSource
+       [webView loadHTMLString:@"" baseURL:nil];
+       return;
+     }
+-    if (request.URL.host) {
++    if (request.URL.host || [request.URL.absoluteString isEqualToString:@"about:blank"]) {
+       [webView loadRequest:request];
+     }
+     else {
+@@ -1149,6 +1205,11 @@ + (void)setCustomCertificatesForHost:(nullable NSDictionary*)certificates {
+   customCertificatesForHost = certificates;
+ }
+ 
++- (void)setMediaPermissionWhitelist:(NSArray<NSString *> *)origins {
++  _mediaPermissionWhitelist = [origins copy];
++  _mediaPermissionWhitelistSet = origins ? OKBuildMediaPermissionWhitelist(origins) : nil;
++}
++
+ - (void)                    webView:(WKWebView *)webView
+   didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
+                   completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential * _Nullable))completionHandler
+@@ -1245,44 +1306,8 @@ - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSStr
+  * prompt
+  */
+ - (void)webView:(WKWebView *)webView runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString *))completionHandler{
+-#if !TARGET_OS_OSX
+-  UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"" message:prompt preferredStyle:UIAlertControllerStyleAlert];
+-  [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+-    textField.text = defaultText;
+-  }];
+-  UIAlertAction *okAction = [UIAlertAction actionWithTitle:@"Ok" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+-    completionHandler([[alert.textFields lastObject] text]);
+-  }];
+-  [alert addAction:okAction];
+-  UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) {
++    NSLog(@"[Security] Blocked prompt() from: %@", frame.request.URL);
+     completionHandler(nil);
+-  }];
+-  [alert addAction:cancelAction];
+-  alert.preferredAction = okAction;
+-  [[self topViewController] presentViewController:alert animated:YES completion:NULL];
+-#else
+-  NSAlert *alert = [[NSAlert alloc] init];
+-  [alert setMessageText:prompt];
+-
+-  const NSRect RCTSingleTextFieldFrame = NSMakeRect(0.0, 0.0, 275.0, 22.0);
+-  NSTextField *textField = [[NSTextField alloc] initWithFrame:RCTSingleTextFieldFrame];
+-  textField.cell.scrollable = YES;
+-  if (@available(macOS 10.11, *)) {
+-    textField.maximumNumberOfLines = 1;
+-  }
+-  textField.stringValue = defaultText;
+-  [alert setAccessoryView:textField];
+-
+-  [alert addButtonWithTitle:NSLocalizedString(@"OK", @"OK button")];
+-  [alert addButtonWithTitle:NSLocalizedString(@"Cancel", @"Cancel button")];
+-  [alert beginSheetModalForWindow:[NSApp keyWindow] completionHandler:^(NSModalResponse response) {
+-    if (response == NSAlertFirstButtonReturn) {
+-      completionHandler([textField stringValue]);
+-    } else {
+-      completionHandler(nil);
+-    }
+-  }];
+-#endif // !TARGET_OS_OSX
+ }
+ 
+ #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000 /* iOS 15 */
+@@ -1294,6 +1319,12 @@ - (void)                         webView:(WKWebView *)webView
+                         initiatedByFrame:(WKFrameInfo *)frame
+                                     type:(WKMediaCaptureType)type
+                          decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler {
++  if (_mediaPermissionWhitelistSet != nil) {
++    NSString *requestingOrigin = OKCanonicalMediaPermissionOrigin(origin.protocol, origin.host, origin.port);
++    decisionHandler(requestingOrigin != nil && [_mediaPermissionWhitelistSet containsObject:requestingOrigin]
++        ? WKPermissionDecisionGrant : WKPermissionDecisionDeny);
++    return;
++  }
+   if (_mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElsePrompt || _mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElseDeny) {
+     if ([origin.host isEqualToString:webView.URL.host]) {
+       decisionHandler(WKPermissionDecisionGrant);
+diff --git a/node_modules/react-native-webview/apple/RNCWebViewManager.mm b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
+index f8f375f..a83678d 100644
+--- a/node_modules/react-native-webview/apple/RNCWebViewManager.mm
++++ b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
+@@ -102,6 +102,9 @@ - (RNCView *)view
+ #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000 /* iOS 15 */
+ RCT_EXPORT_VIEW_PROPERTY(mediaCapturePermissionGrantType, RNCWebViewPermissionGrantType)
+ #endif
++RCT_CUSTOM_VIEW_PROPERTY(mediaPermissionWhitelist, NSArray, RNCWebViewImpl) {
++  view.mediaPermissionWhitelist = json == nil ? nil : [RCTConvert NSStringArray:json];
++}
+ 
+ #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000 /* iOS 13 */
+ RCT_EXPORT_VIEW_PROPERTY(fraudulentWebsiteWarningEnabled, BOOL)
+@@ -206,6 +209,19 @@ - (RNCView *)view
+   }];                                                                                                                                   \
+ }
+ 
++RCT_EXPORT_METHOD(loadUrl:(nonnull NSNumber *)reactTag url:(NSString *)url)
++{
++  [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, BASE_VIEW_PER_OS() *> *viewRegistry) {
++    RNCWebViewImpl *view = (RNCWebViewImpl *)viewRegistry[reactTag];
++    if (![view isKindOfClass:[RNCWebViewImpl class]]) {
++      RCTLogError(@"Invalid view returned from registry, expecting RNCWebViewImpl, got: %@", view);
++    } else {
++      NSDictionary *source = [NSDictionary dictionaryWithObjectsAndKeys:url,@"uri",nil];
++      [view setSource:source];
++    }
++  }];
++}
++
+ QUICK_RCT_EXPORT_COMMAND_METHOD(reload)
+ QUICK_RCT_EXPORT_COMMAND_METHOD(goBack)
+ QUICK_RCT_EXPORT_COMMAND_METHOD(goForward)
+diff --git a/node_modules/react-native-webview/index.d.ts b/node_modules/react-native-webview/index.d.ts
+index a3eef13..b7c14a1 100644
+--- a/node_modules/react-native-webview/index.d.ts
++++ b/node_modules/react-native-webview/index.d.ts
+@@ -27,6 +27,11 @@ declare class WebView<P = {}> extends Component<WebViewProps & P> {
+      */
+     stopLoading(): void;
+ 
++    /**
++     * Loads the url.
++     */
++    loadUrl: (url: string) => void;
++
+     /**
+      * Executes the JavaScript string.
+      */
+diff --git a/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts b/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
+index 8dd6cef..af2e239 100644
+--- a/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
++++ b/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
+@@ -226,6 +226,7 @@ export interface NativeProps extends ViewProps {
+     userAgent?: string;
+     injectedJavaScriptObject?: string;
+     paymentRequestEnabled?: boolean;
++    mediaPermissionWhitelist?: ReadonlyArray<string>;
+ }
+ export interface NativeCommands {
+     goBack: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
+diff --git a/node_modules/react-native-webview/lib/WebViewTypes.d.ts b/node_modules/react-native-webview/lib/WebViewTypes.d.ts
+index 998cc88..59407fc 100644
+--- a/node_modules/react-native-webview/lib/WebViewTypes.d.ts
++++ b/node_modules/react-native-webview/lib/WebViewTypes.d.ts
+@@ -1113,5 +1113,11 @@ export interface WebViewSharedProps extends ViewProps {
+      * Enables support for the Payment Request API for the WebView
+      */
+     paymentRequestEnabled?: boolean;
++    /**
++     * Whitelisted origins that may request camera or microphone access for this WebView instance.
++     * When provided as an empty array, all media capture requests are denied.
++     * @platform ios, android
++     */
++    mediaPermissionWhitelist?: string[];
+ }
+ export {};
+diff --git a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
+index 7f4e6c4..e9a75a2 100644
+--- a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
++++ b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
+@@ -295,6 +295,7 @@ export interface NativeProps extends ViewProps {
+   userAgent?: string;
+   injectedJavaScriptObject?: string;
+   paymentRequestEnabled?: boolean;
++  mediaPermissionWhitelist?: ReadonlyArray<string>;
+ }
+ 
+ export interface NativeCommands {
+diff --git a/node_modules/react-native-webview/src/WebView.android.tsx b/node_modules/react-native-webview/src/WebView.android.tsx
+index 6497a8b..233bb7a 100644
+--- a/node_modules/react-native-webview/src/WebView.android.tsx
++++ b/node_modules/react-native-webview/src/WebView.android.tsx
+@@ -168,6 +168,8 @@ const WebViewComponent = forwardRef<{}, AndroidWebViewProps>(
+         },
+         stopLoading: () =>
+           webViewRef.current && Commands.stopLoading(webViewRef.current),
++        loadUrl: (url: string) =>
++          webViewRef.current && Commands.loadUrl(webViewRef.current, url),
+         postMessage: (data: string) =>
+           webViewRef.current && Commands.postMessage(webViewRef.current, data),
+         injectJavaScript: (data: string) =>
+diff --git a/node_modules/react-native-webview/src/WebView.ios.tsx b/node_modules/react-native-webview/src/WebView.ios.tsx
+index deb179b..40385db 100644
+--- a/node_modules/react-native-webview/src/WebView.ios.tsx
++++ b/node_modules/react-native-webview/src/WebView.ios.tsx
+@@ -149,6 +149,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
+         },
+         stopLoading: () =>
+           webViewRef.current && Commands.stopLoading(webViewRef.current),
++        loadUrl: (url: string) =>
++          webViewRef.current && Commands.loadUrl(webViewRef.current, url),
+         postMessage: (data: string) =>
+           webViewRef.current && Commands.postMessage(webViewRef.current, data),
+         injectJavaScript: (data: string) =>
+diff --git a/node_modules/react-native-webview/src/WebViewShared.tsx b/node_modules/react-native-webview/src/WebViewShared.tsx
+index 3b0a38b..52e4bce 100644
+--- a/node_modules/react-native-webview/src/WebViewShared.tsx
++++ b/node_modules/react-native-webview/src/WebViewShared.tsx
+@@ -19,6 +19,10 @@ import styles from './WebView.styles';
+ 
+ const defaultOriginWhitelist = ['http://*', 'https://*'] as const;
+ 
++export const ERROR_CODE = {
++  CONNECTION_FAILED: -1001000,
++};
++
+ const extractOrigin = (url: string): string => {
+   const result = /^[A-Za-z][A-Za-z0-9+\-.]+:(\/\/)?[^/]*/.exec(url);
+   return result === null ? '' : result[0];
+@@ -243,9 +247,22 @@ export const useWebViewLogic = ({
+       } = event;
+       // patch for Android only
+       if (Platform.OS === 'android' && progress === 1) {
+-        setViewState((prevViewState) =>
+-          prevViewState === 'LOADING' ? 'IDLE' : prevViewState
+-        );
++         // redirection between different domains may cause failure on Android
++        if (event.nativeEvent.url === null) {
++          setViewState('ERROR');
++          setLastErrorEvent({
++            url: event.nativeEvent.url,
++            loading: event.nativeEvent.loading,
++            title: event.nativeEvent.title,
++            canGoBack: event.nativeEvent.canGoBack,
++            canGoForward: event.nativeEvent.canGoForward,
++            lockIdentifier: event.nativeEvent.lockIdentifier,
++            code: ERROR_CODE.CONNECTION_FAILED,
++            description: 'connection failed',
++          });
++        } else {
++          setViewState(prevViewState => prevViewState === 'LOADING' ? 'IDLE' : prevViewState);
++        }
+       }
+       // !patch for Android only
+       onLoadProgress?.(event);
+diff --git a/node_modules/react-native-webview/src/WebViewTypes.ts b/node_modules/react-native-webview/src/WebViewTypes.ts
+index eca8141..7387db3 100644
+--- a/node_modules/react-native-webview/src/WebViewTypes.ts
++++ b/node_modules/react-native-webview/src/WebViewTypes.ts
+@@ -1357,4 +1357,11 @@ export interface WebViewSharedProps extends ViewProps {
+    * Enables support for the Payment Request API for the WebView
+    */
+   paymentRequestEnabled?: boolean;
++
++  /**
++   * Whitelisted origins that may request camera or microphone access for this WebView instance.
++   * When provided as an empty array, all media capture requests are denied.
++   * @platform ios, android
++   */
++  mediaPermissionWhitelist?: string[];
+ }

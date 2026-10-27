@@ -2,13 +2,13 @@
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable import/first */
 /* oxlint-disable import-js/order */
+import '@onekeyhq/shared/src/polyfills';
+
 import '@onekeyhq/shared/src/performance/init';
 
 if (typeof window !== 'undefined') {
   window.$$onekeyJsReadyAt = Date.now();
 }
-
-import '@onekeyhq/shared/src/polyfills';
 
 // Cold-start hydration: fires IndexedDB read promise + populates globalThis
 // vars before React mounts. Must run after polyfills, before any jotai

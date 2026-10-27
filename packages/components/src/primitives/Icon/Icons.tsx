@@ -470,6 +470,7 @@ const icons = {
   ChartLine2Outline: () => import('./react/outline/ChartLine2'),
   ChartPieDashboardOutline: () => import('./react/outline/ChartPieDashboard'),
   ChartPieDashboard2Outline: () => import('./react/outline/ChartPieDashboard2'),
+  ChartPositionOutline: () => import('./react/outline/ChartPosition'),
   ChartTrendingOutline: () => import('./react/outline/ChartTrending'),
   ChartTrending2Outline: () => import('./react/outline/ChartTrending2'),
   ChartTrendingUpOutline: () => import('./react/outline/ChartTrendingUp'),
@@ -2181,6 +2182,7 @@ const icons = {
   ZipSolid: () => import('./react/solid/Zip'),
   ZoomInSolid: () => import('./react/solid/ZoomIn'),
   ZoomOutSolid: () => import('./react/solid/ZoomOut'),
+  StarListOutline: () => import('./react/outline/StarList'),
 };
 export type IKeyOfIcons = keyof typeof icons;
 export default icons;

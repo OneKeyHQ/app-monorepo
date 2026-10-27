@@ -39,7 +39,6 @@ export type IPortfolioPayloadToken = {
 };
 
 export type IPortfolioPayload = {
-  v: 1;
   ts: number;
   account: {
     label: string;
@@ -53,6 +52,19 @@ export type IPortfolioPayload = {
     fiat: string;
     portfolioPercentage: number;
   };
+} & (
+  | { v: 1 }
+  | {
+      v: 2;
+      tokensFiat: string;
+      defiFiat: string;
+      perpsFiat: string;
+    }
+);
+
+export type IPortfolioCategoryFiat = {
+  defiFiat?: string;
+  perpsFiat?: string;
 };
 
 export type IBuildPortfolioPayloadParams = {
@@ -60,6 +72,12 @@ export type IBuildPortfolioPayloadParams = {
   aggregateTokenMap?: Record<string, ITokenFiat>;
   currencyMap: Record<string, ICurrencyItem>;
   displayCurrency: IPortfolioDisplayCurrency;
+  // Category net worth uses USD for the same account/network scope.
+  categoryFiat?: IPortfolioCategoryFiat;
+  // Home's rendered total can differ from the token subtotal while a category
+  // is loading or the balance header is holding its last confirmed value.
+  homeTotalFiatUsd?: string;
+  schemaVersion?: 1 | 2;
   totalFiat: string;
   totalFiatCurrency: string;
   totalTokenCount: number;
@@ -86,6 +104,10 @@ const PORTFOLIO_NATIVE_TOKEN_CONTRACT_NETWORK_IMPLS = new Set(['aptos', 'sui']);
 const PORTFOLIO_TOKEN_LIMIT = 5;
 // Firmware uses char symbol[16], reserving one byte for the trailing null.
 const PORTFOLIO_TOKEN_SYMBOL_MAX_BYTES = 15;
+// Firmware uses char name[48], reserving one byte for the trailing null.
+const PORTFOLIO_TOKEN_NAME_MAX_BYTES = 47;
+// Firmware uses char account_label[48], reserving one byte for the trailing null.
+const PORTFOLIO_ACCOUNT_LABEL_MAX_BYTES = 47;
 // Token symbols must not carry contact details, URLs, or advertising copy.
 const PORTFOLIO_ADVERTISING_SYMBOL_PATTERN = /[\s@]|:\/\/|www\./iu;
 const PORTFOLIO_PERCENTAGE_DECIMAL_PLACES = 2;
@@ -123,20 +145,29 @@ function isPortfolioFirmwareFontSupported(value: string): boolean {
   });
 }
 
-function truncatePortfolioTokenSymbol(value: string): string {
+function truncatePortfolioTokenText(
+  value: string,
+  maxBytes: number,
+  suffix = '',
+): string {
+  if (Buffer.byteLength(value, 'utf8') <= maxBytes) {
+    return value;
+  }
+
+  const contentMaxBytes = maxBytes - Buffer.byteLength(suffix, 'utf8');
   let bytesLength = 0;
   let result = '';
 
   for (const character of value) {
     const characterBytesLength = Buffer.byteLength(character, 'utf8');
-    if (bytesLength + characterBytesLength > PORTFOLIO_TOKEN_SYMBOL_MAX_BYTES) {
+    if (bytesLength + characterBytesLength > contentMaxBytes) {
       break;
     }
     result += character;
     bytesLength += characterBytesLength;
   }
 
-  return result;
+  return `${result}${suffix}`;
 }
 
 function isPortfolioTokenSymbolEligible(value: string): boolean {
@@ -263,6 +294,24 @@ function formatPortfolioTotalFiat(
     formatPro2PortfolioTotalFiat(value, currencyPrefix),
     'totalFiat',
   );
+}
+
+function formatPortfolioNetWorth(
+  value: BigNumber,
+  currencyPrefix: string,
+  format: (amount: BigNumber, prefix: string) => string,
+): string {
+  const formatted = format(value.abs(), currencyPrefix);
+  if (!value.isNegative()) {
+    return formatted;
+  }
+  if (formatted.startsWith('< ')) {
+    return `> -${formatted.slice(2)}`;
+  }
+  if (formatted.startsWith('> ')) {
+    return `< -${formatted.slice(2)}`;
+  }
+  return `-${formatted}`;
 }
 
 function calculatePortfolioPercentages(values: BigNumber[]): number[] {
@@ -402,8 +451,11 @@ function getPortfolioTokenContractAddress({
 export function buildPortfolioPayload({
   account,
   aggregateTokenMap,
+  categoryFiat,
   currencyMap,
   displayCurrency,
+  homeTotalFiatUsd,
+  schemaVersion = 1,
   totalFiat: rawTotalFiat,
   totalFiatCurrency,
   totalTokenCount,
@@ -435,7 +487,10 @@ export function buildPortfolioPayload({
     const isAllNetworks = Boolean(token.isAggregateToken);
     const isNative = isAllNetworks ? false : Boolean(token.isNative);
     const networkId = isAllNetworks ? '' : (token.networkId ?? '');
-    const symbol = truncatePortfolioTokenSymbol(sourceSymbol);
+    const symbol = truncatePortfolioTokenText(
+      sourceSymbol,
+      PORTFOLIO_TOKEN_SYMBOL_MAX_BYTES,
+    );
     const contractAddress = getPortfolioTokenContractAddress({
       isAllNetworks,
       isNative,
@@ -466,7 +521,11 @@ export function buildPortfolioPayload({
         iconName,
         isAllNetworks,
         isNative,
-        name: iconName ? getPortfolioTokenCanonicalName(iconName) : token.name,
+        name: truncatePortfolioTokenText(
+          iconName ? getPortfolioTokenCanonicalName(iconName) : token.name,
+          PORTFOLIO_TOKEN_NAME_MAX_BYTES,
+          '...',
+        ),
         networkId,
         portfolioPercentage: 0,
         symbol,
@@ -509,8 +568,15 @@ export function buildPortfolioPayload({
     portfolioPercentage: percentages[index],
   }));
 
-  return {
-    account,
+  const payload = {
+    account: {
+      ...account,
+      label: truncatePortfolioTokenText(
+        account.label,
+        PORTFOLIO_ACCOUNT_LABEL_MAX_BYTES,
+        '...',
+      ),
+    },
     tokenCount: payloadTokens.length,
     tokens: payloadTokens,
     otherTokens: {
@@ -524,7 +590,88 @@ export function buildPortfolioPayload({
     },
     totalFiat,
     ts: timestamp,
-    v: 1,
+  };
+  if (schemaVersion === 1) {
+    return { ...payload, v: 1 };
+  }
+
+  const defi = convertFiatStrictToDisplayCurrency({
+    currencyMap,
+    sourceCurrency: 'usd',
+    targetCurrency: displayCurrency.id,
+    value: categoryFiat?.defiFiat,
+  }).value;
+  const perps = convertFiatStrictToDisplayCurrency({
+    currencyMap,
+    sourceCurrency: 'usd',
+    targetCurrency: displayCurrency.id,
+    value: categoryFiat?.perpsFiat,
+  }).value;
+  const homeTotal =
+    homeTotalFiatUsd === undefined
+      ? undefined
+      : convertFiatStrictToDisplayCurrency({
+          currencyMap,
+          sourceCurrency: 'usd',
+          targetCurrency: displayCurrency.id,
+          value: homeTotalFiatUsd,
+        }).value;
+  if (homeTotal === null) {
+    throw new OneKeyLocalError('Unable to convert Home Portfolio total');
+  }
+  const formatCategory = (value: string | null, field: string) =>
+    value === null
+      ? '—'
+      : validatePortfolioDisplayAmount(
+          formatPortfolioNetWorth(
+            new BigNumber(value),
+            currencyPrefix,
+            field === 'defiFiat'
+              ? (amount, prefix) =>
+                  formatPro2PortfolioFiat(
+                    amount.decimalPlaces(2, BigNumber.ROUND_HALF_UP),
+                    prefix,
+                  )
+              : formatPro2PortfolioFiat,
+          ),
+          field,
+        );
+
+  let v2TotalFiat = totalFiat;
+  if (homeTotal !== undefined) {
+    v2TotalFiat = validatePortfolioDisplayBytes(
+      formatPortfolioNetWorth(
+        new BigNumber(homeTotal),
+        currencyPrefix,
+        formatPro2PortfolioTotalFiat,
+      ),
+      'totalFiat',
+    );
+  } else if (categoryFiat !== undefined) {
+    v2TotalFiat =
+      defi === null || perps === null
+        ? '—'
+        : validatePortfolioDisplayBytes(
+            formatPortfolioNetWorth(
+              totalFiatValue.plus(defi).plus(perps),
+              currencyPrefix,
+              formatPro2PortfolioTotalFiat,
+            ),
+            'totalFiat',
+          );
+  }
+
+  return {
+    ...payload,
+    v: 2,
+    tokensFiat: formatPortfolioFiat(
+      totalFiatValue,
+      currencyPrefix,
+      'tokensFiat',
+    ),
+    defiFiat: formatCategory(defi, 'defiFiat'),
+    perpsFiat: formatCategory(perps, 'perpsFiat'),
+    totalFiat: v2TotalFiat,
   };
 }
 

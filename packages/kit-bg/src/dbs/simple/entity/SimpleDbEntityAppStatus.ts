@@ -34,6 +34,8 @@ export interface ISimpleDBAppStatus {
   fixHardwareLtcXPubMigrated?: boolean;
   btcFreshAddressSettingMigrated?: boolean;
   removeDeviceHomeScreenMigrated?: boolean;
+  /** One-time flip of button-device PIN entry to the on-device default (OK-61489). */
+  classicPinInputDefaultMigrated?: boolean;
   /** Version of the one-time connect protocol backfill for existing devices. */
   hardwareConnectProtocolMigrationVersion?: number;
   lastWalletProfileAnalyticsAt?: number;

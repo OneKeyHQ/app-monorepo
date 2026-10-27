@@ -2,11 +2,13 @@ import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
 } from '@onekeyhq/shared/types/swap/types';
+import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildMarketReviewShouldFallback,
   mergeMarketBuildResultWithQuote,
   resolveMarketQuoteActionState,
+  resolveMarketSelectedQuoteSlippage,
 } from './marketSwapBuildUtils';
 
 function createQuoteResult(
@@ -56,6 +58,38 @@ function createBuildRes(
 }
 
 describe('marketSwapBuildUtils', () => {
+  it('keeps token risk in review when the build response omits quote-only flags', () => {
+    const buildRes = createBuildRes();
+    const quoteResult = createQuoteResult({
+      honeypot: true,
+      lowLiquidity: true,
+    });
+    expect(
+      mergeMarketBuildResultWithQuote({ buildRes, quoteResult }).result,
+    ).toEqual(expect.objectContaining({ honeypot: true, lowLiquidity: true }));
+    expect(buildRes.result.honeypot).toBeUndefined();
+    const differentPair = createQuoteResult({
+      honeypot: true,
+      toTokenInfo: { ...quoteResult.toTokenInfo, contractAddress: '0xother' },
+    });
+    expect(
+      mergeMarketBuildResultWithQuote({ buildRes, quoteResult: differentPair })
+        .result.honeypot,
+    ).toBeUndefined();
+    const authoritativeBuild = createBuildRes({
+      result: {
+        ...buildRes.result,
+        honeypot: false,
+        lowLiquidity: false,
+      },
+    });
+    expect(
+      mergeMarketBuildResultWithQuote({
+        buildRes: authoritativeBuild,
+        quoteResult,
+      }).result.honeypot,
+    ).toBe(false);
+  });
   it('only allows review for a settled quote matching the current input', () => {
     expect(
       resolveMarketQuoteActionState({
@@ -134,6 +168,36 @@ describe('marketSwapBuildUtils', () => {
       isRefreshAction: true,
       isLoading: true,
     });
+  });
+
+  it('uses the server auto suggestion for an automatic Market quote', () => {
+    expect(
+      resolveMarketSelectedQuoteSlippage({
+        quoteResult: createQuoteResult({
+          autoSuggestedSlippage: 1,
+          slippage: 0.5,
+        }),
+        slippageItem: {
+          key: ESwapSlippageSegmentKey.AUTO,
+          value: 0.5,
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('keeps the fixed value for a custom Market quote', () => {
+    expect(
+      resolveMarketSelectedQuoteSlippage({
+        quoteResult: createQuoteResult({
+          autoSuggestedSlippage: 1,
+          slippage: 2,
+        }),
+        slippageItem: {
+          key: ESwapSlippageSegmentKey.CUSTOM,
+          value: 0.5,
+        },
+      }),
+    ).toBe(0.5);
   });
 
   it('aligns Market fallback logic with Swap fallback networks', () => {

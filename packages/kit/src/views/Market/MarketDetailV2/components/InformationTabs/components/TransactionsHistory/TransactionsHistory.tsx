@@ -5,24 +5,24 @@ import { useIntl } from 'react-intl';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
-import {
-  SizableText,
-  Spinner,
-  Stack,
-  Tabs,
-  useCurrentTabScrollY,
-  useMedia,
-} from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
+import { SizableText, Spinner, Stack, useMedia } from '@onekeyhq/components';
+import type { IGetWebRowHeight } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EMPTY_MARKET_TRANSACTIONS_REALTIME_PAUSE_STATE,
+  useIsNativeAtom,
   useMarketTransactionsRealtimePauseAtom,
+  useTokenDetailWebsocketAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  MarketDetailList,
+  useMarketDetailFocusedTab,
+  useMarketDetailScrollY,
+} from '../../layout/MarketDetailScroll';
 
 import { TransactionsRelativeTimeProvider } from './components/TransactionRelativeTime';
 import { TransactionsSkeleton } from './components/TransactionsSkeleton';
@@ -71,7 +71,7 @@ function getScrollableParent(element: HTMLElement | null) {
 
 const useScrollEnd = platformEnv.isNative
   ? (onScrollEnd: () => void) => {
-      const scrollY = useCurrentTabScrollY();
+      const scrollY = useMarketDetailScrollY();
 
       const debouncedOnScrollEnd = useDebouncedCallback(onScrollEnd, 150);
       useAnimatedReaction(
@@ -93,8 +93,10 @@ export function TransactionsHistoryBase({
   scrollEnabled = true,
   isTabFocused = true,
 }: ITransactionsHistoryBaseProps) {
-  const { websocketConfig, isNative } = useTokenDetail();
-  const isVisible = useRouteIsFocused();
+  const [websocketConfig] = useTokenDetailWebsocketAtom();
+  const [isNative] = useIsNativeAtom();
+  const isRouteFocused = useRouteIsFocused();
+  const isVisible = isRouteFocused && isTabFocused;
   const { gtXl } = useMedia();
   const [, setRealtimePauseState] = useMarketTransactionsRealtimePauseAtom();
   const transactionsListRootRef = useRef<HTMLElement | null>(null);
@@ -116,6 +118,7 @@ export function TransactionsHistoryBase({
   const {
     transactions,
     isRefreshing,
+    isInitialPending,
     isLoadingMore,
     hasMore,
     loadMore,
@@ -132,6 +135,7 @@ export function TransactionsHistoryBase({
     tokenAddress,
     networkId,
     normalMode,
+    isTabFocused,
     enableRealtimePause,
   });
 
@@ -347,13 +351,22 @@ export function TransactionsHistoryBase({
     [],
   );
 
+  const getWebRowHeight = useCallback<
+    IGetWebRowHeight<IMarketTokenTransaction>
+  >(
+    ({ type }) => {
+      if (type !== 'item') return undefined;
+      return gtXl ? 48 : 60;
+    },
+    [gtXl],
+  );
+
   const handleEndReached = useCallback(() => {
-    if (hasMore && !isLoadingMore) {
+    if (isVisible && hasMore && !isLoadingMore) {
       void loadMore();
     }
-  }, [hasMore, isLoadingMore, loadMore]);
-  const isRelativeTimeTickingEnabled =
-    isVisible && isTabFocused && transactions.length > 0;
+  }, [hasMore, isLoadingMore, isVisible, loadMore]);
+  const isRelativeTimeTickingEnabled = isVisible && transactions.length > 0;
 
   useScrollEnd(onScrollEnd ?? noop);
 
@@ -362,7 +375,7 @@ export function TransactionsHistoryBase({
       isTickingEnabled={isRelativeTimeTickingEnabled}
     >
       <Stack ref={transactionsListRootRef as any} flex={1}>
-        <Tabs.FlatList<IMarketTokenTransaction>
+        <MarketDetailList<IMarketTokenTransaction>
           showsVerticalScrollIndicator={false}
           scrollEnabled={scrollEnabled}
           key={listKey}
@@ -372,6 +385,9 @@ export function TransactionsHistoryBase({
           data={transactions}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
+          {...(!platformEnv.isNative
+            ? { getWebRowHeight, webOverscanRowCount: 4 }
+            : undefined)}
           {...(enableHoverRealtimePause
             ? {
                 onMouseEnter: handleRealtimePauseHoverIn,
@@ -391,7 +407,7 @@ export function TransactionsHistoryBase({
               }
             : undefined)}
           ListEmptyComponent={
-            isRefreshing ? (
+            isRefreshing || isInitialPending ? (
               <TransactionsSkeleton />
             ) : (
               <Stack
@@ -426,7 +442,7 @@ export function TransactionsHistoryBase({
 
 export function TransactionsHistory(props: ITransactionsHistoryProps) {
   const intl = useIntl();
-  const focusedTab = useFocusedTab();
+  const focusedTab = useMarketDetailFocusedTab();
   const transactionsTabName = useMemo(() => {
     return intl.formatMessage({
       id: ETranslations.dexmarket_details_transactions,

@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { isEmpty, unionBy, uniqBy } from 'lodash';
 
@@ -6,7 +14,6 @@ import {
   onVisibilityStateChange,
   useMedia,
   useScrollContentTabBarOffset,
-  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
@@ -38,7 +45,6 @@ import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
-import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
@@ -54,14 +60,13 @@ import {
 } from '../../../states/jotai/contexts/historyList';
 import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendHistory';
+import { HomeHistoryListView } from '../components/HomeHistoryListView';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import { useTabIsRefreshingFocused } from '../hooks/useHomeTab';
 
 import { buildTokenRefreshPlanAfterHistory } from './historyTokenRefreshGate';
-import {
-  FrozenTopHistoryScrollObserver,
-  useFrozenTopHistoryData,
-} from './hooks/useFrozenTopHistoryData';
+import { useFrozenTopHistoryData } from './hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from './hooks/useHistoryListLoadMore';
 
 type ITokenRefreshAccount = {
@@ -350,6 +355,27 @@ function TxHistoryListContainer(
       wallet?.id,
     ],
   );
+
+  // `Tabs.Container` no longer remounts on an account switch (OK-63873), so
+  // `historyData` survives it and would render the previous identity's rows
+  // until `initHistoryState`'s local DB read returns. Drop them in the same
+  // commit the identity changes (layout effect, before paint) so the skeleton
+  // shows instead; the init effect below re-seeds from the new identity's
+  // local cache. Same-identity reruns (filter / currency) are left alone.
+  const prevIdentityKeyRef = useRef(identityKey);
+  useLayoutEffect(() => {
+    if (prevIdentityKeyRef.current === identityKey) {
+      return;
+    }
+    prevIdentityKeyRef.current = identityKey;
+    setHistoryData((prev) => (prev.length === 0 ? prev : []));
+    setHistoryState({
+      initialized: false,
+      isRefreshing: true,
+    });
+    // Appended load-more pages are merged into the rows; drop them now too.
+    resetLoadMore();
+  }, [identityKey, resetLoadMore]);
 
   // Monotonic request id; bumped on identity change AND at the start of every
   // `run()` body (before any early return) so older in-flight fetches can't
@@ -855,13 +881,11 @@ function TxHistoryListContainer(
 
   return (
     <>
-      {isFrozenTopTabScenario ? (
-        <FrozenTopHistoryScrollObserver
-          enabled={frozenTopEnabled}
-          onAwayFromTopChange={onAwayFromTopChange}
-        />
-      ) : null}
-      <TxHistoryListView
+      <HomeHistoryListView
+        frozenTopEnabled={frozenTopEnabled}
+        frozenTopIdentityKey={frozenTopIdentityKey}
+        onAwayFromTopChange={onAwayFromTopChange}
+        observeFrozenTop={isFrozenTopTabScenario}
         plainMode={plainMode}
         isTabFocused={isFocused}
         showIcon

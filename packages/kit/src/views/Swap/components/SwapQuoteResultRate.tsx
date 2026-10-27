@@ -37,6 +37,7 @@ interface ISwapQuoteResultRateProps {
   providerName?: string;
   quoting?: boolean;
   isLoading?: boolean;
+  showLoadingText?: boolean;
   showNoProvider?: boolean;
   canOpenResult?: boolean;
   refreshAction: (manual?: boolean) => void;
@@ -54,6 +55,7 @@ const SwapQuoteResultRate = ({
   toToken,
   providerIcon,
   isLoading,
+  showLoadingText = true,
   showNoProvider,
   canOpenResult,
   openResult,
@@ -145,13 +147,15 @@ const SwapQuoteResultRate = ({
       width={shouldUseInlineSlippageLayout ? '100%' : undefined}
     >
       {isLoading ? (
-        <XStack gap="$2">
-          <SizableText size="$bodyMd" color="$text">
-            {intl.formatMessage({
-              id: ETranslations.swap_loading_content,
-            })}
-          </SizableText>
-        </XStack>
+        showLoadingText && (
+          <XStack gap="$2">
+            <SizableText size="$bodyMd" color="$text">
+              {intl.formatMessage({
+                id: ETranslations.swap_loading_content,
+              })}
+            </SizableText>
+          </XStack>
+        )
       ) : (
         <XStack
           gap="$1"
@@ -172,7 +176,11 @@ const SwapQuoteResultRate = ({
         alignItems="center"
         userSelect="none"
         gap="$1"
-        flex={shouldUseInlineSlippageLayout ? undefined : 1}
+        flex={
+          shouldUseInlineSlippageLayout || (isLoading && !showLoadingText)
+            ? undefined
+            : 1
+        }
         flexShrink={shouldUseInlineSlippageLayout ? 0 : undefined}
       >
         {!providerIcon ||
@@ -188,7 +196,7 @@ const SwapQuoteResultRate = ({
             justifyContent={
               shouldUseInlineSlippageLayout ? undefined : 'flex-end'
             }
-            animation="popoverQuick"
+            transition="popoverQuick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             y={openResult ? '$1' : '$0'}
             opacity={openResult ? 0 : 1}
@@ -247,7 +255,7 @@ const SwapQuoteResultRate = ({
         )}
         {!quoting && canOpenResult ? (
           <Stack
-            animation="popoverQuick"
+            transition="popoverQuick"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={openResult ? '180deg' : '0deg'}
           >
@@ -276,7 +284,7 @@ const SwapQuoteResultRate = ({
             ) : null}
             {canOpenResult ? (
               <Stack
-                animation="popoverQuick"
+                transition="popoverQuick"
                 animateOnly={ANIMATE_ONLY_TRANSFORM}
                 rotate={openResult ? '180deg' : '0deg'}
               >

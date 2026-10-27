@@ -26,8 +26,8 @@ function getWebEmbedConfig(): IWebEmbedConfig | undefined {
   // };
 }
 
-function setWebEmbedConfig(config: IWebEmbedConfig) {
-  appStorage.syncStorage.setObject(
+async function setWebEmbedConfig(config: IWebEmbedConfig) {
+  await appStorage.syncStorage.setObject(
     EAppSyncStorageKeys.onekey_webembed_config,
     config,
   );

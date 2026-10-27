@@ -79,7 +79,7 @@ function BaseFAQContent({
                     {question}
                   </SizableText>
                   <Stack
-                    animation="quick"
+                    transition="quick"
                     animateOnly={ANIMATE_ONLY_TRANSFORM}
                     rotate={open ? '180deg' : '0deg'}
                   >
@@ -92,14 +92,14 @@ function BaseFAQContent({
                 </>
               )}
             </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick" overflow="hidden">
+            <Accordion.HeightAnimator transition="quick" overflow="hidden">
               <Accordion.Content
                 unstyled
                 p={0}
                 pt="$1"
                 pb="$5"
                 pr="$8"
-                animation="100ms"
+                transition="100ms"
                 animateOnly={ANIMATE_ONLY_OPACITY}
                 enterStyle={{ opacity: 0 }}
                 exitStyle={{ opacity: 0 }}

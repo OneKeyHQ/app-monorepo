@@ -2,37 +2,54 @@ import { Semaphore } from 'async-mutex';
 import { isFunction, isNil, isString } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
+import type { ITravelModeAwareAsyncStorage } from '@onekeyhq/shared/src/storage/appStorageTypes';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
+import {
+  type IUnreadableSelfHealLogger,
+  getStorageErrorMeta,
+  retryUnreadableStorageRead,
+} from './retryUnreadableStorageRead';
 import { getSimpleDbEntityKey } from './simpleDbFacadeCompatibility';
-
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
+import { isUnreadableStorageValueError } from './unreadableStorageValueError';
 
 type ISimpleDbEntitySavedData<T> = {
   data: T;
   updatedAt: number;
 };
 
-// Chromium rejects reads with exactly this signature when a value's external
-// blob file is corrupted (e.g. crash mid-write); the record then stays
-// unreadable forever. Match nothing broader: UnknownError without this
-// message and NotReadableError both cover transient IO conditions where
-// deleting would lose recoverable data (OK-59997).
-function isUnreadableStorageValueError(error: unknown): boolean {
-  const { name, message } = (error ?? {}) as {
-    name?: string;
-    message?: string;
+function buildSimpleDbRollbackError({
+  firstRestoreError,
+  originalError,
+  retryError,
+}: {
+  firstRestoreError: unknown;
+  originalError?: unknown;
+  retryError: unknown;
+}) {
+  const error = new Error(
+    `Failed to restore SimpleDB data after retry: ${
+      (retryError as Error | undefined)?.message ?? String(retryError)
+    }`,
+  ) as Error & {
+    cause: {
+      firstRestoreError: unknown;
+      originalError?: unknown;
+      retryError: unknown;
+    };
   };
-  return (
-    name === 'UnknownError' &&
-    Boolean(message?.includes('Failed to read large IndexedDB value'))
-  );
+  error.name = 'SimpleDbRollbackError';
+  error.cause = { firstRestoreError, originalError, retryError };
+  return error;
 }
+
 abstract class SimpleDbEntityBase<T> {
   // Do not use appStorageInstance directly, use this.appStorage instead
-  appStorage: AsyncStorageStatic =
+  appStorage: ITravelModeAwareAsyncStorage =
     storageHub.$webStorageSimpleDB || storageHub.appStorage;
 
   mutex = new Semaphore(1);
@@ -41,10 +58,12 @@ abstract class SimpleDbEntityBase<T> {
 
   abstract readonly enableCache: boolean;
 
-  // Deleting an unreadable record is only safe for entities whose data can be
-  // fully rebuilt (OK-59997's perp cache); user-authored entities must keep
-  // failing loudly instead, so self-heal is opt-in per entity.
-  protected readonly enableUnreadableRecordSelfHeal: boolean = false;
+  // Default on: this Chromium signature means the record is already
+  // unreadable, and builder setRawData cannot repair it. Leaving the dead
+  // key blocks the whole entity (and often the app). Matcher + 50/500/1000ms
+  // retries + write-overlap veto still avoid transient-IO deletes
+  // (OK-59997 / OK-61648). Opt out only for diagnostic loud-fail entities.
+  protected readonly enableUnreadableRecordSelfHeal: boolean = true;
 
   get entityKey() {
     return getSimpleDbEntityKey(this.entityName);
@@ -57,6 +76,8 @@ abstract class SimpleDbEntityBase<T> {
     | Promise<T | undefined | null>
     | undefined
     | null = null;
+
+  private transactionReadSnapshot: { data: T | undefined | null } | undefined;
 
   updatedAt = 0;
 
@@ -81,8 +102,44 @@ abstract class SimpleDbEntityBase<T> {
     this.cachedRawDataPromise = null;
   }
 
+  private logUnreadableSelfHeal: IUnreadableSelfHealLogger = (params) => {
+    try {
+      defaultLogger.app.storage.simpleDbUnreadableSelfHeal({
+        entityName: this.entityName,
+        entityKey: this.entityKey,
+        ...params,
+      });
+    } catch (error) {
+      // Logging must never block self-heal (e.g. desktopApi not ready yet).
+      console.error(
+        '[simpleDb self-heal log failed]',
+        this.entityName,
+        params.phase,
+        error,
+      );
+    }
+  };
+
   @backgroundMethod()
   async getRawData(): Promise<T | undefined | null> {
+    const readAdmissionSnapshot = {
+      pendingWrites: this.pendingWrites,
+      writeSeq: this.writeSeq,
+    };
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: () => this.getRawDataInner(readAdmissionSnapshot),
+      onBlocked: () => null,
+    });
+  }
+
+  private async getRawDataInner(readAdmissionSnapshot?: {
+    pendingWrites: number;
+    writeSeq: number;
+  }): Promise<T | undefined | null> {
+    if (this.transactionReadSnapshot) {
+      return Promise.resolve(this.transactionReadSnapshot.data);
+    }
     if (this.enableCache && !isNil(this.cachedRawData)) {
       return Promise.resolve(this.cachedRawData);
     }
@@ -91,8 +148,9 @@ abstract class SimpleDbEntityBase<T> {
     }
     this.cachedRawDataPromise = (async () => {
       dbPerfMonitor.logSimpleDbCall('getRawData', this.entityName);
-      const writeSeqBefore = this.writeSeq;
-      const pendingWritesBefore = this.pendingWrites;
+      const writeSeqBefore = readAdmissionSnapshot?.writeSeq ?? this.writeSeq;
+      const pendingWritesBefore =
+        readAdmissionSnapshot?.pendingWrites ?? this.pendingWrites;
       const readGenerationBefore = this.readGeneration;
       let savedDataStr: string | null = null;
       try {
@@ -104,30 +162,31 @@ abstract class SimpleDbEntityBase<T> {
         ) {
           throw error;
         }
-        try {
-          // One retry separates transient IO failures from true corruption.
-          savedDataStr = await this.appStorage.getItem(this.entityKey);
-        } catch (retryError) {
-          if (!isUnreadableStorageValueError(retryError)) {
-            throw retryError;
-          }
-          console.error(retryError);
-          // Drop the dead record so builder-based setRawData can rebuild it;
-          // use appStorage directly — clearRawData() would deadlock on the
-          // shared mutex. Any write overlapping this read vetoes the delete:
-          // pending at read start, still pending now, or started since. (A
-          // write starting after this check wins anyway — same-store ops keep
-          // issue order, so its setItem lands after this removeItem.)
-          if (
+        const meta = getStorageErrorMeta(error);
+        this.logUnreadableSelfHeal({
+          phase: 'detected',
+          errorName: meta.errorName,
+          errorMessage: meta.errorMessage,
+        });
+        // Backoff retries, then drop the dead record so builder-based
+        // setRawData can rebuild it. Use appStorage directly — clearRawData()
+        // would deadlock on the shared mutex. Any write overlapping this read
+        // vetoes the delete: pending at read start, still pending now, or
+        // started since.
+        savedDataStr = await retryUnreadableStorageRead({
+          read: () => this.appStorage.getItem(this.entityKey),
+          shouldDelete: () =>
             pendingWritesBefore === 0 &&
             this.pendingWrites === 0 &&
-            this.writeSeq === writeSeqBefore
-          ) {
+            this.writeSeq === writeSeqBefore,
+          onDelete: async () => {
             await this.appStorage
               .removeItem(this.entityKey)
               .catch(() => undefined);
-          }
-        }
+          },
+          errorMeta: meta,
+          log: (entry) => this.logUnreadableSelfHeal(entry),
+        });
       }
       let updatedAt = 0;
       // @ts-ignore
@@ -178,49 +237,238 @@ abstract class SimpleDbEntityBase<T> {
       | T
       | ((rawData: T | null | undefined) => T)
       | ((rawData: T | null | undefined) => Promise<T>),
-  ) {
-    return this.mutex.runExclusive(async () => {
-      const updatedAt = Date.now();
-      let data: T | undefined;
+  ): Promise<T | undefined> {
+    return this.setRawDataWithCommitGuard(dataOrBuilder);
+  }
 
-      if (isFunction(dataOrBuilder)) {
-        const rawData = await this.getRawData();
-        data = await dataOrBuilder(rawData);
-      } else {
-        data = dataOrBuilder;
-      }
+  protected async setRawDataWithCommitGuard(
+    dataOrBuilder:
+      | T
+      | ((rawData: T | null | undefined) => T)
+      | ((rawData: T | null | undefined) => Promise<T>),
+    assertCanCommit?: () => void,
+    // Runs under the entity mutex only after storage accepted the write.
+    onCommitted?: (data: T) => void,
+  ): Promise<T | undefined> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: () =>
+        this.mutex.runExclusive(async () => {
+          assertCanCommit?.();
+          const updatedAt = Date.now();
+          let data: T | undefined;
 
-      if (this.enableCache) {
-        this.cachedRawData = data;
-      }
-      this.cachedRawDataPromise = null;
-      const savedData: ISimpleDbEntitySavedData<T> = {
-        data,
-        updatedAt,
-      };
+          if (isFunction(dataOrBuilder)) {
+            const rawData = await this.getRawDataInner();
+            assertCanCommit?.();
+            data = await dataOrBuilder(rawData);
+          } else {
+            data = dataOrBuilder;
+          }
 
-      dbPerfMonitor.logSimpleDbCall('setRawData', this.entityName);
-      this.writeSeq += 1;
-      this.readGeneration += 1;
-      this.pendingWrites += 1;
-      try {
-        await this.appStorage.setItem(
-          this.entityKey,
-          appStorageUtils.canSaveAsObject() && !isString(savedData)
-            ? (savedData as any)
-            : JSON.stringify(savedData),
-        );
-      } finally {
-        this.pendingWrites -= 1;
-      }
+          // The lock, read and builder can all yield after the caller's check.
+          // Admit the write only while its owner is still current.
+          assertCanCommit?.();
+          if (this.enableCache) {
+            this.cachedRawData = data;
+          }
+          this.cachedRawDataPromise = null;
+          const savedData: ISimpleDbEntitySavedData<T> = {
+            data,
+            updatedAt,
+          };
 
-      this.updatedAt = updatedAt;
-      return data;
+          dbPerfMonitor.logSimpleDbCall('setRawData', this.entityName);
+          this.writeSeq += 1;
+          this.readGeneration += 1;
+          this.pendingWrites += 1;
+          try {
+            await this.appStorage.setItem(
+              this.entityKey,
+              appStorageUtils.canSaveAsObject() && !isString(savedData)
+                ? (savedData as any)
+                : JSON.stringify(savedData),
+            );
+          } finally {
+            this.pendingWrites -= 1;
+          }
+
+          this.updatedAt = updatedAt;
+          onCommitted?.(data);
+          return data;
+        }),
+      onBlocked: () => undefined,
+    });
+  }
+
+  protected async setRawDataTransaction({
+    afterPublish,
+    beforePublish,
+    build,
+    shouldCommit,
+  }: {
+    afterPublish?: (data: T) => boolean;
+    beforePublish?: (data: T) => Promise<boolean> | boolean;
+    build: (
+      rawData: T | null | undefined,
+    ) => Promise<{ data: T } | undefined> | { data: T } | undefined;
+    shouldCommit: () => boolean;
+  }): Promise<{
+    committed: boolean;
+    data: T | null | undefined;
+    previousData: T | null | undefined;
+  }> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      onBlocked: () => ({ committed: false, data: null, previousData: null }),
+      operation: () =>
+        this.mutex.runExclusive(async () => {
+          const previousData = await this.getRawDataInner();
+          const previousUpdatedAt = this.updatedAt;
+          const next = await build(previousData);
+          if (!next || !shouldCommit()) {
+            return {
+              committed: false,
+              data: previousData,
+              previousData,
+            };
+          }
+
+          const updatedAt = Date.now();
+          const savedData: ISimpleDbEntitySavedData<T> = {
+            data: next.data,
+            updatedAt,
+          };
+          const previousSavedData: ISimpleDbEntitySavedData<T> | undefined =
+            !isNil(previousData)
+              ? {
+                  data: previousData as T,
+                  updatedAt: previousUpdatedAt,
+                }
+              : undefined;
+          const serializeSavedData = (
+            value: ISimpleDbEntitySavedData<T>,
+          ): string =>
+            appStorageUtils.canSaveAsObject() && !isString(value)
+              ? (value as unknown as string)
+              : JSON.stringify(value);
+          let restoreCompleted = false;
+          let restoreStarted = false;
+          let writeAttempted = false;
+          const restorePreviousData = async () => {
+            this.transactionReadSnapshot = { data: previousData };
+            if (this.enableCache) {
+              this.cachedRawData = previousData;
+            }
+            this.cachedRawDataPromise = null;
+            this.updatedAt = previousUpdatedAt;
+            this.writeSeq += 1;
+            this.readGeneration += 1;
+            if (previousSavedData) {
+              await this.appStorage.setItem(
+                this.entityKey,
+                serializeSavedData(previousSavedData),
+              );
+            } else {
+              await this.appStorage.removeItem(this.entityKey);
+            }
+            restoreCompleted = true;
+          };
+          const restorePreviousDataWithRetry = async (
+            originalError?: unknown,
+          ) => {
+            restoreStarted = true;
+            try {
+              await restorePreviousData();
+            } catch (firstRestoreError) {
+              try {
+                await restorePreviousData();
+              } catch (retryError) {
+                // The rejected value may still be on disk. Drop the optimistic
+                // rollback cache so the next read observes persistent truth.
+                this.clearRawDataCache();
+                throw buildSimpleDbRollbackError({
+                  firstRestoreError,
+                  originalError,
+                  retryError,
+                });
+              }
+            }
+          };
+          const buildRejectedResult = () => ({
+            committed: false,
+            data: previousData,
+            previousData,
+          });
+
+          // Keep readers on the pre-transaction snapshot until both persistence
+          // and the caller's cancellation check have completed.
+          this.transactionReadSnapshot = { data: previousData };
+          this.cachedRawDataPromise = null;
+          dbPerfMonitor.logSimpleDbCall('setRawData', this.entityName);
+          this.writeSeq += 1;
+          this.readGeneration += 1;
+          this.pendingWrites += 1;
+          try {
+            writeAttempted = true;
+            await this.appStorage.setItem(
+              this.entityKey,
+              serializeSavedData(savedData),
+            );
+
+            // A background RPC that arrived while setItem was pending runs on a
+            // task, not a promise microtask. Yield one task before the final guard
+            // so its synchronous cancellation intent is observable here.
+            await new Promise<void>((resolve) => {
+              setTimeout(resolve, 0);
+            });
+
+            if (!shouldCommit()) {
+              await restorePreviousDataWithRetry();
+              return buildRejectedResult();
+            }
+            if (beforePublish && !(await beforePublish(next.data))) {
+              await restorePreviousDataWithRetry();
+              return buildRejectedResult();
+            }
+            if (!shouldCommit()) {
+              await restorePreviousDataWithRetry();
+              return buildRejectedResult();
+            }
+
+            if (this.enableCache) {
+              this.cachedRawData = next.data;
+            }
+            this.cachedRawDataPromise = null;
+            this.updatedAt = updatedAt;
+            this.transactionReadSnapshot = undefined;
+            if (afterPublish && !afterPublish(next.data)) {
+              await restorePreviousDataWithRetry();
+              return buildRejectedResult();
+            }
+            return {
+              committed: true,
+              data: next.data,
+              previousData,
+            };
+          } catch (error) {
+            // A rollback invoked from the guarded path is still inside this try.
+            // If its first storage write fails, retry it here instead of treating
+            // the attempted rollback as complete and leaving rejected data on disk.
+            if (writeAttempted && !restoreCompleted && !restoreStarted) {
+              await restorePreviousDataWithRetry(error);
+            }
+            throw error;
+          } finally {
+            this.pendingWrites -= 1;
+            this.transactionReadSnapshot = undefined;
+          }
+        }),
     });
   }
 
   @backgroundMethod()
-  async clearRawData() {
+  async clearRawData(): Promise<void> {
     // Share the entity mutex with setRawData so a "Clear cache" can't interleave
     // with an in-flight setRawData. Without it, a setRawData builder that already
     // captured the old rawData would still setItem() AFTER this removeItem(),
@@ -230,11 +478,16 @@ abstract class SimpleDbEntityBase<T> {
     // clear either fully precedes a setRawData (its builder then reads empty) or
     // fully follows it (it removes what was just written). Safe from re-entrancy —
     // nothing inside calls setRawData/clearRawData.
-    return this.mutex.runExclusive(async () => {
-      if (this.enableCache) {
-        this.clearRawDataCache();
-      }
-      return this.appStorage.removeItem(this.entityKey);
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: () =>
+        this.mutex.runExclusive(async () => {
+          if (this.enableCache) {
+            this.clearRawDataCache();
+          }
+          return this.appStorage.removeItem(this.entityKey);
+        }),
+      onBlocked: () => undefined,
     });
   }
 }

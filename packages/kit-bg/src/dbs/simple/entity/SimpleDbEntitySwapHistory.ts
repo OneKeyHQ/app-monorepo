@@ -1,14 +1,12 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { normalizeSwapHistoryNetworkInfo } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
-import {
-  isSwapHistoryTerminalStatus,
-  markUnreadTerminalAsRead,
-} from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import { markUnreadTerminalAsRead } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
   isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
+  isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
@@ -81,6 +79,48 @@ function findSwapHistoryItemIndex(
     );
   }
   return histories.findIndex((history) => isSameSwapHistoryItem(history, item));
+}
+
+type ISwapHistoryFeeUpdate = Pick<
+  ISwapTxHistory['txInfo'],
+  'gasFeeInNative' | 'gasFeeFiatValue'
+>;
+
+function mergePrivateSendHistoryFees(
+  existing: ISwapTxHistory,
+  incoming: ISwapTxHistory,
+  feeUpdate?: ISwapHistoryFeeUpdate,
+): ISwapTxHistory {
+  if (
+    !isPrivateSendSwapHistoryItem(existing) ||
+    !isPrivateSendSwapHistoryItem(incoming) ||
+    !incoming.txInfo.txId ||
+    incoming.txInfo.txId !== existing.txInfo.txId ||
+    incoming.baseInfo.fromToken.networkId !==
+      existing.baseInfo.fromToken.networkId
+  ) {
+    return incoming;
+  }
+  const sameCurrency =
+    (incoming.currencyId ?? incoming.currency) ===
+    (existing.currencyId ?? existing.currency);
+  // A poll owns only the fees returned by its response, not those captured
+  // in its old request snapshot. Merge against the current row atomically.
+  const incomingFees = feeUpdate ?? incoming.txInfo;
+  return {
+    ...incoming,
+    txInfo: {
+      ...incoming.txInfo,
+      gasFeeInNative:
+        incomingFees.gasFeeInNative ??
+        existing.txInfo.gasFeeInNative ??
+        incoming.txInfo.gasFeeInNative,
+      gasFeeFiatValue:
+        incomingFees.gasFeeFiatValue ??
+        (sameCurrency ? existing.txInfo.gasFeeFiatValue : undefined) ??
+        incoming.txInfo.gasFeeFiatValue,
+    },
+  };
 }
 
 function addSwapHistoryToList(
@@ -176,7 +216,11 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   }
 
   @backgroundMethod()
-  async updateSwapHistoryItem(item: ISwapTxHistory, oldTxId?: string) {
+  async updateSwapHistoryItem(
+    item: ISwapTxHistory,
+    oldTxId?: string,
+    feeUpdate?: ISwapHistoryFeeUpdate,
+  ): Promise<ISwapTxHistory | undefined> {
     const snapshot = await this.getRawData();
     const snapshotHistories = snapshot?.histories ?? [];
     const snapshotPendingWrites = snapshot?.pendingWrites ?? [];
@@ -187,6 +231,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
       return;
     }
 
+    let updatedItem: ISwapTxHistory | undefined;
     await this.setRawData((currentData) => {
       let histories = [...(currentData?.histories ?? [])];
       const pendingWrites = [...(currentData?.pendingWrites ?? [])];
@@ -197,9 +242,19 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         oldTxId,
       );
       if (historyIndex !== -1) {
-        histories[historyIndex] = item;
+        updatedItem = mergePrivateSendHistoryFees(
+          histories[historyIndex],
+          item,
+          feeUpdate,
+        );
+        histories[historyIndex] = updatedItem;
       } else if (pendingIndex !== -1) {
-        histories = addSwapHistoryToList(histories, item);
+        updatedItem = mergePrivateSendHistoryFees(
+          pendingWrites[pendingIndex],
+          item,
+          feeUpdate,
+        );
+        histories = addSwapHistoryToList(histories, updatedItem);
       }
       if (pendingIndex !== -1) {
         pendingWrites.splice(pendingIndex, 1);
@@ -210,6 +265,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         pendingWrites,
       };
     });
+    return updatedItem;
   }
 
   @backgroundMethod()
@@ -292,7 +348,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         ? { ...currentData, histories: repaired.histories }
         : (currentData ?? { histories: [] });
     });
-    return { histories: repairedData.histories, changed };
+    return { histories: repairedData?.histories ?? [], changed };
   }
 
   @backgroundMethod()

@@ -86,6 +86,20 @@ export function getSwapHistoryStatusTextProps(
     };
   }
 
+  if (status === ESwapTxHistoryStatus.REFUNDED) {
+    return {
+      key: ETranslations.swap_history_detail_badge_refunded,
+      color: '$textSuccess',
+    };
+  }
+
+  if (status === ESwapTxHistoryStatus.EXPIRED) {
+    return {
+      key: ETranslations.swap_history_detail_badge_expired,
+      color: '$textCritical',
+    };
+  }
+
   if (status === ESwapTxHistoryStatus.CANCELING) {
     return {
       key: ETranslations.swap_history_status_cancelling,

@@ -55,6 +55,18 @@ export class SimpleDbEntityAddressRiskCheck extends SimpleDbEntityBase<IAddressR
   }
 
   @backgroundMethod()
+  async getCheck({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<IAddressRiskCheckRecentItem | undefined> {
+    const rawData = await this.getRawData();
+    return rawData?.recentChecks?.[buildKey({ networkId, address })];
+  }
+
+  @backgroundMethod()
   async addCheck(item: Omit<IAddressRiskCheckRecentItem, 'updatedAt'>) {
     // Stamp the local write time for deterministic tie-breaking and migration
     // compatibility. The list is primarily ordered by the server check time.

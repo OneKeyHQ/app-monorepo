@@ -45,3 +45,28 @@ export function shouldSkipAmountInputForNFT({
 }) {
   return !!(isNFT && nft && nft.collectionType !== ENFTType.ERC1155);
 }
+
+export function getSendAddressRiskCheckButtonState({
+  currentNetworkId,
+  supportNetworkId,
+  isSupported,
+  canRunCheck,
+  resolvedAddress,
+  isPending,
+}: {
+  currentNetworkId: string;
+  supportNetworkId: string;
+  isSupported: boolean;
+  // Prime, a logged-in free user with the feature open (uses left or not), or
+  // a logged-out user who logs in on the press: the press checks the address.
+  // Otherwise the press opens the dashboard and the button stays enabled.
+  canRunCheck: boolean;
+  resolvedAddress?: string;
+  isPending?: boolean;
+}) {
+  if (supportNetworkId !== currentNetworkId) return 'loading';
+  if (!isSupported) return 'hidden';
+  if (!canRunCheck) return 'enabled';
+  if (!resolvedAddress?.trim() || isPending) return 'disabled';
+  return 'enabled';
+}

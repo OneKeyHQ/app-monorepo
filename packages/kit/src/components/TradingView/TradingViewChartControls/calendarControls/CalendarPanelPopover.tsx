@@ -9,9 +9,11 @@ import {
   Popover,
   SizableText,
   Stack,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
@@ -204,13 +206,13 @@ function DateField({
   testID,
 }: {
   value: Date;
-  dateFormatter: Intl.DateTimeFormat;
+  dateFormatter: (date: Date) => string;
   isActive?: boolean;
   onPress?: () => void;
   testID: string;
 }) {
   const formattedDate = useMemo(
-    () => dateFormatter.format(value),
+    () => dateFormatter(value),
     [dateFormatter, value],
   );
 
@@ -329,7 +331,7 @@ function CalendarGrid({
   goToDate: Date;
   rangeStartDate: Date;
   rangeEndDate: Date;
-  monthYearFormatter: Intl.DateTimeFormat;
+  monthYearFormatter: (date: Date) => string;
   weekdayLabels: readonly string[];
   onDatePress: (date: Date) => void;
   onMonthChange: (date: Date) => void;
@@ -338,7 +340,7 @@ function CalendarGrid({
   const rangeStartTime = startOfDay(rangeStartDate).getTime();
   const rangeEndTime = startOfDay(rangeEndDate).getTime();
   const monthYearLabel = useMemo(
-    () => monthYearFormatter.format(monthDate),
+    () => monthYearFormatter(monthDate),
     [monthDate, monthYearFormatter],
   );
   const previousMonthDate = addMonths(monthDate, -1);
@@ -477,6 +479,7 @@ export function CalendarPanelPopover({
   onControlInteraction?: () => void;
 }) {
   const intl = useIntl();
+  const { formatDate, formatMonth } = useFormatDate();
   const rangeMaximumTimestamp = availableTimeRange?.to;
   const rangeMinimumTimestamp = availableTimeRange?.from;
   const [calendarNowTimestamp, setCalendarNowTimestamp] = useState(() =>
@@ -499,24 +502,15 @@ export function CalendarPanelPopover({
   );
   const dateFormatters = useMemo(
     () => ({
-      date: createDateTimeFormatter(intl.locale, {
-        ...CALENDAR_DISPLAY_SYSTEM_OPTIONS,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
-      monthYear: createDateTimeFormatter(intl.locale, {
-        ...CALENDAR_DISPLAY_SYSTEM_OPTIONS,
-        year: 'numeric',
-        month: 'long',
-      }),
+      date: (date: Date) => formatDate(date, { hideTimeForever: true }),
+      monthYear: (date: Date) => formatMonth(date),
       weekday: createDateTimeFormatter(intl.locale, {
         calendar: CALENDAR_DISPLAY_SYSTEM_OPTIONS.calendar,
         weekday: 'short',
         timeZone: 'UTC',
       }),
     }),
-    [intl.locale],
+    [intl.locale, formatDate, formatMonth],
   );
   const weekdayLabels = useMemo(
     () =>
@@ -750,31 +744,24 @@ export function CalendarPanelPopover({
   const renderContent = useCallback(
     ({ closePopover }: { closePopover: () => void }) => (
       <YStack width={328}>
-        <XStack borderBottomWidth="$px" borderBottomColor="$borderSubdued">
-          {panelOptions.map(([value, label]) => {
-            const isActive = activePanel === value;
-            return (
-              <YStack
-                key={value}
-                testID={`trading-view-calendar-panel-${value}`}
-                px="$5"
-                pt="$3"
-                gap="$2"
-                cursor="pointer"
-                onPress={() => {
-                  setActivePanel(value);
-                }}
-              >
-                <SizableText
-                  size="$bodyLgMedium"
-                  color={isActive ? '$text' : '$textSubdued'}
-                >
-                  {label}
-                </SizableText>
-                <Stack h="$0.5" bg={isActive ? '$text' : '$transparent'} />
-              </YStack>
-            );
-          })}
+        {/* Same underline tabs as the indicator dialog (Figma 26652:31723). */}
+        <XStack px="$5" gap="$5">
+          {panelOptions.map(([value, label], index) => (
+            <Tabs.TabBarItem
+              key={value}
+              testID={`trading-view-calendar-panel-${value}`}
+              name={value}
+              label={label}
+              index={index}
+              isFocused={activePanel === value}
+              textSize="$bodyLgMedium"
+              // Drop the item's page-padding offset (the row sets its own inset) and
+              // keep the arrow cursor and unselectable label the full TabBar
+              // container gives its items.
+              tabItemStyle={{ ml: '$0', cursor: 'default', userSelect: 'none' }}
+              onPress={() => setActivePanel(value)}
+            />
+          ))}
         </XStack>
 
         <YStack p="$5" gap="$5">

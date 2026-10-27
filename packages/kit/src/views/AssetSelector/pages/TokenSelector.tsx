@@ -1,13 +1,30 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
-import { uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Icon, Page, SizableText, Toast, XStack } from '@onekeyhq/components';
+import {
+  type IElement,
+  Icon,
+  Page,
+  SearchBar,
+  SegmentControl,
+  SizableText,
+  Stack,
+  Toast,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
@@ -37,7 +54,11 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  IAggregateTokenSelectContext,
+  IAssetSelectorParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
@@ -48,6 +69,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   extractCrossNetworkSearchQuery,
+  isAddressLikeTokenSearchKeywords,
   tokenizeTokenSearchKeywords,
 } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import {
@@ -59,6 +81,7 @@ import {
 import {
   buildSelectorTokenListFromResponses,
   checkIsOnlyOneTokenHasBalance,
+  mergeAggregateTokenMembers,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -72,11 +95,73 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { filterTokensByAccountNetworkCompatibility } from '../../../utils/tokenSelectorAccountCompatibility';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
+import {
+  resolveSearchTokenListForKeywords,
+  shouldApplySearchResponse,
+} from '../utils/tokenSelectorSearchUtils';
 
+import type { ITokenSelectorSearchTokenList } from '../utils/tokenSelectorSearchUtils';
 import type { RouteProp } from '@react-navigation/core';
-import type { TextInputFocusEventData } from 'react-native';
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  TextInputFocusEventData,
+  View,
+} from 'react-native';
 
 const num = 0;
+
+// `onLayout` answers after the first paint (react-native-web waits for a
+// ResizeObserver tick plus a timer; native sends an async event), so anything
+// positioned from a measured height paints once in the wrong place. A node is
+// already laid out when its ref attaches, and a state update made there lands
+// before that first paint.
+function readMountedHeight(node: IElement): number | undefined {
+  if (platformEnv.isNative) {
+    let height: number | undefined;
+    // Fabric answers measure() synchronously during the commit.
+    (node as View).measure((_x, _y, _width, measuredHeight) => {
+      height = measuredHeight;
+    });
+    return height;
+  }
+  // Same source react-native-web's onLayout reads; unlike
+  // getBoundingClientRect() it ignores the modal's entry scale.
+  return (node as HTMLElement).offsetHeight;
+}
+
+const SEGMENT_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
+
+// Frame for the list of one segment. It mounts anew on every segment switch
+// (the caller keys it by segment), so `fadeIn` plays an opacity-only entrance
+// like the segmented forms in onboarding: no slide, which would promise a
+// swipe, and no exit, which would need both lists mounted at once. A selector
+// without segments gets its list unwrapped.
+function SegmentContent({
+  segmented,
+  fadeIn,
+  children,
+}: {
+  segmented: boolean;
+  fadeIn: boolean;
+  children: ReactNode;
+}) {
+  if (!segmented) {
+    return children;
+  }
+  return (
+    <YStack
+      flex={1}
+      overflow="hidden"
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
+      enterStyle={fadeIn ? SEGMENT_CONTENT_ENTER_STYLE : undefined}
+    >
+      {children}
+    </YStack>
+  );
+}
 
 type ISelectorTokenListRequestContext = {
   accountId: string;
@@ -112,6 +197,9 @@ type ITokenSelectorScopedViewSnapshot = {
 };
 
 const TOKEN_SELECTOR_VIEW_CACHE_MAX_TOKEN_ROWS = 300;
+// Stable identity: an inline object would re-render the memoized list on
+// every page render.
+const TOKEN_SELECTOR_EMPTY_PROPS = { mt: '18%' } as const;
 
 type ITokenSelectorHeaderRightProps = {
   showDeFiTokenSwitch?: boolean;
@@ -388,6 +476,8 @@ function TokenSelector() {
     hideBalanceAndValue,
     onSwitchNetwork,
     showDeFiTokenSwitch,
+    hideDeFiTokens,
+    secondaryTab,
   } = route.params;
 
   const {
@@ -400,6 +490,10 @@ function TokenSelector() {
   });
 
   const [searchKey, setSearchKey] = useState('');
+  // Secondary body segment (see ITokenSelectorSecondaryTab). The search box
+  // stays mounted across segments, so its text carries over.
+  const [isSecondaryTabActive, setIsSecondaryTabActive] = useState(false);
+  const showSecondaryTab = !!secondaryTab && isSecondaryTabActive;
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
   // Derive all-networks mode synchronously from the networkId: `network` loads
@@ -410,7 +504,11 @@ function TokenSelector() {
     isAllNetworks,
     networkId,
   });
-  const isDeFiEnabled = useIsDeFiEnabled(network?.id, !!showDeFiTokenSwitch);
+  const isDeFiTokenFilterRequested = !!showDeFiTokenSwitch || !!hideDeFiTokens;
+  const isDeFiEnabled = useIsDeFiEnabled(
+    network?.id,
+    isDeFiTokenFilterRequested,
+  );
   // `network` loads async, but the filter support check short-circuits on
   // `isAllNetworks` alone, so probe with a synchronous stand-in in all-networks
   // mode: otherwise `showLpTokensOnly` flips after mount and the normal
@@ -433,12 +531,16 @@ function TokenSelector() {
     };
   }
   const showTokenSelectorFilter =
-    !!showDeFiTokenSwitch &&
+    isDeFiTokenFilterRequested &&
     isTokenSelectorDappTokenFilterSupportedNetwork({
       network: filterProbeNetwork,
       isDeFiEnabled,
     });
-  const showLpTokensOnly = showTokenSelectorFilter
+  // `hideDeFiTokens` pins the wallet-token side: no switch, and the persisted
+  // DeFi-only preference (shared with Send) is never read.
+  const showDeFiTokenFilterSwitch =
+    showTokenSelectorFilter && !!showDeFiTokenSwitch;
+  const showLpTokensOnly = showDeFiTokenFilterSwitch
     ? tokenSelectorFilter.sendTokenShowLpTokensOnly
     : false;
   // Cross-network search (main Receive): under a single-network scope, search
@@ -462,11 +564,20 @@ function TokenSelector() {
   const allNetworksCrossSearchEnabled =
     !!searchAll && isSelectorAllNetworks && !showLpTokensOnly;
   // Others (imported / watch-only / external) accounts hold one credential on
-  // one impl, so cross-network results must be narrowed to the networks that
-  // credential can actually derive an address on. HD/HW accounts are unfiltered
-  // — they can create an account on any network.
+  // one impl, so cross-network results — single-network cross mode and the
+  // onekeyall search in All Networks alike — must be narrowed to the networks
+  // that credential can actually derive an address on. Same rule as the
+  // All-Networks account fan-out, so every row left is selectable. HD/HW
+  // accounts are unfiltered — they can create an account on any network.
+  // Keyed on whether the request itself is cross-network, not on the
+  // keyword-stripping gates above: the All-Networks selector sends its own
+  // onekeyall networkId regardless of the LP filter, so with LP on
+  // `allNetworksCrossSearchEnabled` is false while the backend still answers
+  // across networks.
+  const isCrossNetworkSearchRequest =
+    crossNetworkSearchEnabled || (!!searchAll && !!isSelectorAllNetworks);
   const othersAccountForNetworkFilter =
-    crossNetworkSearchEnabled &&
+    isCrossNetworkSearchRequest &&
     account &&
     accountId &&
     accountUtils.isOthersAccount({ accountId })
@@ -649,12 +760,17 @@ function TokenSelector() {
   }>({
     isSearching: false,
   });
-  const [searchTokenList, setSearchTokenList] = useState<{
-    tokens: IAccountToken[];
-    searchKey: string;
-    filterContext: ITokenSelectorSearchFilterContext;
-  }>({ tokens: [], searchKey: '', filterContext: 'all-token' });
+  const [searchTokenList, setSearchTokenList] = useState<
+    ITokenSelectorSearchTokenList<ITokenSelectorSearchFilterContext>
+  >({ tokens: [], searchKey: '', filterContext: 'all-token' });
   const latestSearchRequestContextRef = useRef('');
+  // Mirrors the input text synchronously — written from onChangeText, ahead
+  // of the 200 ms `searchKey` debounce — so an in-flight response can only
+  // apply while the input still reads the keywords it was fetched for (see
+  // shouldApplySearchResponse). Reading the debounced `searchKey` here instead
+  // would leave a 200 ms window after each keystroke where a response for the
+  // previous query still passes.
+  const liveSearchKeyRef = useRef('');
   const lastTokenSelectorErrorToastAtRef = useRef(0);
 
   const showFetchTokenListErrorToast = useCallback(() => {
@@ -731,7 +847,10 @@ function TokenSelector() {
   );
 
   const executeOnSelect = useCallback(
-    async (selectedToken: IAccountToken) => {
+    async (
+      selectedToken: IAccountToken,
+      selectContext?: IAggregateTokenSelectContext,
+    ) => {
       if (!onSelect) return;
       if (exchangeFilter) {
         updateProcessingTokenState({
@@ -739,7 +858,7 @@ function TokenSelector() {
           token: selectedToken,
         });
         try {
-          await onSelect(selectedToken);
+          await onSelect(selectedToken, selectContext);
         } finally {
           updateProcessingTokenState({
             isProcessing: false,
@@ -747,7 +866,7 @@ function TokenSelector() {
           });
         }
       } else {
-        void onSelect(selectedToken);
+        void onSelect(selectedToken, selectContext);
       }
 
       if (enableNetworkAfterSelect && selectedToken.networkId) {
@@ -785,27 +904,36 @@ function TokenSelector() {
   const handleTokenOnPress = useCallback(
     async (pressedToken: IAccountToken) => {
       let token = pressedToken;
+      // Multi-chain members ride along with the selection so the Receive
+      // page can offer its in-page network switch on every aggregate path
+      // (single member, single chain with balance, picked on the network
+      // page), not only when the network page was shown.
+      let selectContext: IAggregateTokenSelectContext | undefined;
       if (token.isAggregateToken) {
         const allAggregateTokenList =
           allAggregateTokenMap?.[token.$key]?.tokens ?? [];
         const aggregateTokenList =
           selectorAggregateTokenListMap[token.$key]?.tokens ?? [];
+        selectContext = {
+          aggregateToken: pressedToken,
+          aggregateSubTokenList: aggregateTokenList,
+          allAggregateTokenList,
+        };
         // Merge owned members with global config members before branching:
         // a stale cache filtered by listed networks can leave a single
         // survivor in either list (e.g. one global member with no owned
         // copy), and neither per-list length check would catch it — the tap
         // would fall through and keep the `aggregate--0` descriptor for
-        // account lookup and onSelect. Dedupe by networkId with owned tokens
-        // first, matching AggregateTokenSelector's merge.
-        const mergedAggregateTokenList = uniqBy(
-          [...aggregateTokenList, ...allAggregateTokenList],
-          (t) => t.networkId,
-        );
+        // account lookup and onSelect. Same merge as AggregateTokenSelector.
+        const mergedAggregateTokenList = mergeAggregateTokenMembers({
+          aggregateSubTokenList: aggregateTokenList,
+          allAggregateTokenList,
+        });
         if (mergedAggregateTokenList.length === 1) {
           const singleAggregateToken = mergedAggregateTokenList[0];
           // An owned survivor already carries its accountId.
           if (singleAggregateToken.accountId) {
-            await executeOnSelect(singleAggregateToken);
+            await executeOnSelect(singleAggregateToken, selectContext);
             return;
           }
           // A lone survivor sourced from the global wallet config has no
@@ -831,7 +959,7 @@ function TokenSelector() {
             });
 
           if (tokenHasBalance && tokenHasBalanceCount === 1) {
-            await executeOnSelect(tokenHasBalance);
+            await executeOnSelect(tokenHasBalance, selectContext);
             return;
           }
 
@@ -961,10 +1089,13 @@ function TokenSelector() {
         );
 
         if (matchedAccount?.accountId) {
-          await executeOnSelect({
-            ...token,
-            accountId: matchedAccount.accountId,
-          });
+          await executeOnSelect(
+            {
+              ...token,
+              accountId: matchedAccount.accountId,
+            },
+            selectContext,
+          );
         } else if (account) {
           // Key the creating-address indicator to the pressed row: for the
           // aggregate fall-through above, `token` is the member while the
@@ -1005,10 +1136,13 @@ function TokenSelector() {
             });
 
             if (resp) {
-              await executeOnSelect({
-                ...token,
-                accountId: resp.accounts[0]?.id,
-              });
+              await executeOnSelect(
+                {
+                  ...token,
+                  accountId: resp.accounts[0]?.id,
+                },
+                selectContext,
+              );
             }
           } catch (_e) {
             updateCreateAccountState({
@@ -1017,10 +1151,10 @@ function TokenSelector() {
             });
           }
         } else if (vaultSettings?.mergeDeriveAssetsEnabled) {
-          await executeOnSelect(token);
+          await executeOnSelect(token, selectContext);
         }
       } else {
-        await executeOnSelect(token);
+        await executeOnSelect(token, selectContext);
       }
 
       if (closeAfterSelect) {
@@ -1052,10 +1186,15 @@ function TokenSelector() {
     ],
   );
 
-  const debounceUpdateSearchKey = useDebouncedCallback(
-    setSearchKey,
-    searchAll ? 1000 : 200,
-  );
+  // Two-stage search debounce. `searchKey` (list + local filter) follows the
+  // input at 200 ms; in `searchAll` mode the backend request waits a further
+  // 800 ms (`debounceSearchTokensBySearchKey` below), so the onekeyall search
+  // still fires 1 s after the last keystroke and its load is unchanged.
+  const debounceUpdateSearchKey = useDebouncedCallback(setSearchKey, 200);
+  const clearSearchKey = useCallback(() => {
+    liveSearchKeyRef.current = '';
+    setSearchKey('');
+  }, []);
 
   const headerSearchBarOptions = useMemo(
     () => ({
@@ -1069,6 +1208,7 @@ function TokenSelector() {
       }: {
         nativeEvent: TextInputFocusEventData;
       }) => {
+        liveSearchKeyRef.current = nativeEvent.text;
         debounceUpdateSearchKey(nativeEvent.text);
       },
     }),
@@ -1077,12 +1217,14 @@ function TokenSelector() {
 
   const headerRight = useMemo(() => {
     const shouldShowNetworkSwitch = !!onSwitchNetwork && !!network?.name;
-    if (!showTokenSelectorFilter && !shouldShowNetworkSwitch) return undefined;
+    if (!showDeFiTokenFilterSwitch && !shouldShowNetworkSwitch) {
+      return undefined;
+    }
 
     return function RenderTokenSelectorHeaderRight() {
       return (
         <TokenSelectorHeaderRight
-          showDeFiTokenSwitch={showTokenSelectorFilter}
+          showDeFiTokenSwitch={showDeFiTokenFilterSwitch}
           loading={isLpTokenSwitchLoading}
           onLpTokenFilterChange={handleLpTokenFilterChange}
           onSwitchNetwork={onSwitchNetwork}
@@ -1097,7 +1239,7 @@ function TokenSelector() {
     handleLpTokenFilterChange,
     isLpTokenSwitchLoading,
     onSwitchNetwork,
-    showTokenSelectorFilter,
+    showDeFiTokenFilterSwitch,
     network?.name,
     network?.shortname,
     network?.logoURI,
@@ -1121,21 +1263,27 @@ function TokenSelector() {
         networkId ?? '',
         tokenSelectorSearchFilterContext,
         searchScopeMode,
+        // `account` resolves after `accountId`: the run before it lands is
+        // unfiltered, the run after is narrowed, and they must not share an
+        // identity or the earlier response could overwrite the later one.
+        othersAccountForNetworkFilter ? 'others-filtered' : 'unfiltered',
         keywords,
       ].join('__');
       latestSearchRequestContextRef.current = requestContext;
       const isLatest = () =>
-        latestSearchRequestContextRef.current === requestContext;
+        shouldApplySearchResponse({
+          requestContext,
+          latestRequestContext: latestSearchRequestContextRef.current,
+          keywords,
+          liveSearchKey: liveSearchKeyRef.current,
+        });
       setSearchTokenState({ isSearching: true });
       setSearchTokenList((prev) =>
-        prev.searchKey === keywords &&
-        prev.filterContext === tokenSelectorSearchFilterContext
-          ? prev
-          : {
-              tokens: [],
-              searchKey: '',
-              filterContext: tokenSelectorSearchFilterContext,
-            },
+        resolveSearchTokenListForKeywords({
+          prev,
+          keywords,
+          filterContext: tokenSelectorSearchFilterContext,
+        }),
       );
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       let searchFailed = false;
@@ -1152,11 +1300,9 @@ function TokenSelector() {
         // fetched here rather than on mount (getAllNetworks is memoized in the
         // background service).
         const trimmedKeywords = keywords.trim();
-        const isAddressLikeKeywords =
-          trimmedKeywords.length >= 20 && !/\s/.test(trimmedKeywords);
         const keywordStrippingEnabled =
           (crossNetworkSearchEnabled || allNetworksCrossSearchEnabled) &&
-          !isAddressLikeKeywords &&
+          !isAddressLikeTokenSearchKeywords(trimmedKeywords) &&
           tokenizeTokenSearchKeywords(trimmedKeywords).length >= 2;
         const crossNetworkQuery = keywordStrippingEnabled
           ? extractCrossNetworkSearchQuery({
@@ -1190,7 +1336,10 @@ function TokenSelector() {
               tokens: result,
             });
         }
-        if (showTokenSelectorFilter) {
+        // Search follows the switch only where the switch exists. Under
+        // `hideDeFiTokens` there is no other way to reach a DeFi token, so
+        // search matches every token.
+        if (showDeFiTokenFilterSwitch) {
           result = filterTokenSelectorTokensByDappTokenFilterParams({
             tokens: result,
             tokenSelectorFilterParams,
@@ -1231,8 +1380,8 @@ function TokenSelector() {
       isSelectorAllNetworks,
       networkId,
       othersAccountForNetworkFilter,
+      showDeFiTokenFilterSwitch,
       showLpTokensOnly,
-      showTokenSelectorFilter,
       tokenSelectorFilterParams,
       tokenSelectorSearchFilterContext,
     ],
@@ -1606,7 +1755,10 @@ function TokenSelector() {
             valueAccountId = activeAccountId;
           }
         }
-        if (valueAccountId && activeNetworkId) {
+        // A filtered selector response is only a token subset (wallet-only or
+        // dApp-only). It must not be persisted as the canonical network total;
+        // otherwise opening the selector can overwrite Home with a partial sum.
+        if (valueAccountId && activeNetworkId && !showTokenSelectorFilter) {
           const valueKey = accountUtils.buildAccountValueKey({
             accountId: activeAccountId,
             networkId: activeNetworkId,
@@ -1651,6 +1803,7 @@ function TokenSelector() {
     networkId,
     showActiveAccountTokenList,
     showLpTokensOnly,
+    showTokenSelectorFilter,
     showFetchTokenListErrorToast,
     tokenSelectorFilterParams,
     useSelectorFilteredTokenList,
@@ -1901,10 +2054,71 @@ function TokenSelector() {
     useSelectorFilteredTokenList,
   ]);
 
+  // Backend stage of the two-stage search debounce (see
+  // debounceUpdateSearchKey). Scheduled on every live-key change, so editing
+  // back to the previous keywords within the wait still re-runs the request;
+  // use-debounce invokes the latest callback, so the closure never goes stale.
+  const debounceSearchTokensBySearchKey = useDebouncedCallback(
+    (keywords: string) => {
+      void searchTokensBySearchKey(keywords);
+    },
+    800,
+  );
+  // Key the backend stage was last scheduled for. The effect below also
+  // re-runs when a scope gate or the filter context flips (`network` /
+  // `account` resolving, the LP toggle); those are not keystrokes and must
+  // not sit out the typing debounce — the pre-split effect fired at once.
+  const scheduledSearchKeyRef = useRef('');
+
+  // Secondary segment: the token search neither runs nor clears. Returning
+  // to the token list re-runs the effect, but only re-requests when the key
+  // changed meanwhile (results for the current key are still held).
+  const wasSecondaryTabActiveRef = useRef(false);
+  // Key of the results currently held, read through a ref: as a dependency
+  // it would re-run the effect on the effect's own results and send the same
+  // request again, past the debounce.
+  const heldSearchResultKeyRef = useRef(searchTokenList.searchKey);
+  heldSearchResultKeyRef.current = searchTokenList.searchKey;
   useEffect(() => {
+    const returnedFromSecondaryTab =
+      wasSecondaryTabActiveRef.current && !showSecondaryTab;
+    wasSecondaryTabActiveRef.current = showSecondaryTab;
+    if (showSecondaryTab) {
+      return;
+    }
+    if (
+      returnedFromSecondaryTab &&
+      heldSearchResultKeyRef.current === searchKey
+    ) {
+      return;
+    }
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
-      void searchTokensBySearchKey(searchKey);
+      // The list re-filters on the live key right away: drop results that
+      // belong to another query and show the trailing loader until the
+      // request for this key lands. Without this, a slower response for an
+      // intermediate query ("usd" while editing "usdt" into "sol") used to
+      // land after the input had moved on and show the wrong list until the
+      // next debounce fired (OK-61484).
+      setSearchTokenList((prev) =>
+        resolveSearchTokenListForKeywords({
+          prev,
+          keywords: searchKey,
+          filterContext: tokenSelectorSearchFilterContext,
+        }),
+      );
+      setSearchTokenState((prev) =>
+        prev.isSearching ? prev : { isSearching: true },
+      );
+      if (scheduledSearchKeyRef.current === searchKey) {
+        debounceSearchTokensBySearchKey.cancel();
+        void searchTokensBySearchKey(searchKey);
+      } else {
+        scheduledSearchKeyRef.current = searchKey;
+        debounceSearchTokensBySearchKey(searchKey);
+      }
     } else {
+      scheduledSearchKeyRef.current = '';
+      debounceSearchTokensBySearchKey.cancel();
       latestSearchRequestContextRef.current = '';
       setSearchTokenState({ isSearching: false });
       setSearchTokenList({
@@ -1915,19 +2129,111 @@ function TokenSelector() {
       void backgroundApiProxy.serviceToken.abortSearchTokens();
     }
   }, [
+    debounceSearchTokensBySearchKey,
+    showSecondaryTab,
     searchAll,
     searchKey,
+    // Identity changes when the scope gates flip (e.g. `network` resolves
+    // after the first keystrokes); re-run so the request carries the right
+    // scope, as the pre-split effect did.
     searchTokensBySearchKey,
     tokenSelectorSearchFilterContext,
   ]);
 
+  // Body search box (secondary-tab layout): same two-stage debounce as the
+  // header search bar, uncontrolled so a keystroke does not re-render the
+  // page.
+  const handleBodySearchTextChange = useCallback(
+    (text: string) => {
+      liveSearchKeyRef.current = text;
+      debounceUpdateSearchKey(text);
+    },
+    [debounceUpdateSearchKey],
+  );
+
+  // Collapsing header for the secondary-tab layout: the segment scrolls away
+  // with the list while the search box stays pinned. The header floats over
+  // the list (which starts below it) and translates up by at most the
+  // segment block's height as the list scrolls; each segment's list starts
+  // at offset 0, so the header expands again on a switch.
+  const collapsingScrollY = useSharedValue(0);
+  const [collapsingHeaderHeight, setCollapsingHeaderHeight] = useState(0);
+  const [collapsibleSegmentHeight, setCollapsibleSegmentHeight] = useState(0);
+  const handleCollapsingHeaderLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      setCollapsingHeaderHeight(event.nativeEvent.layout.height);
+    },
+    [],
+  );
+  // Seeds the height before the first paint; `onLayout` above only follows
+  // later size changes. Without it the list paints one frame under the
+  // header and then drops by the header's height.
+  const handleCollapsingHeaderRef = useCallback((node: IElement | null) => {
+    const height = node ? readMountedHeight(node) : undefined;
+    if (height) {
+      setCollapsingHeaderHeight(height);
+    }
+  }, []);
+  const handleCollapsibleSegmentLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      setCollapsibleSegmentHeight(event.nativeEvent.layout.height);
+    },
+    [],
+  );
+  const handleCollapsingListScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      collapsingScrollY.value = Math.max(0, event.nativeEvent.contentOffset.y);
+    },
+    [collapsingScrollY],
+  );
+  const collapsingHeaderStyle = useAnimatedStyle(
+    () => ({
+      transform: [
+        {
+          translateY: -Math.min(
+            Math.max(collapsingScrollY.value, 0),
+            collapsibleSegmentHeight,
+          ),
+        },
+      ],
+    }),
+    [collapsibleSegmentHeight],
+  );
+  const collapsingListProps = useMemo(
+    () => ({
+      onScroll: handleCollapsingListScroll,
+      // react-native-web drops scroll ticks that arrive within the throttle
+      // window instead of deferring them, so anything above 1 makes the
+      // header move in visible steps with a touchpad; native batches per
+      // frame at 16.
+      scrollEventThrottle: platformEnv.isNative ? 16 : 1,
+      contentContainerStyle: { pt: collapsingHeaderHeight },
+    }),
+    [collapsingHeaderHeight, handleCollapsingListScroll],
+  );
+
+  // A segment's list fades in only when the user switches to it: the first
+  // list arrives with the page's own entrance.
+  const [hasSwitchedSegment, setHasSwitchedSegment] = useState(false);
+  const reducedMotion = useReducedMotion();
+  const fadeInSegmentContent = hasSwitchedSegment && !reducedMotion;
+
+  const handleSegmentChange = useCallback(
+    (value: string | number) => {
+      const toSecondary = value === 'secondary';
+      if (toSecondary === isSecondaryTabActive) {
+        return;
+      }
+      secondaryTab?.onTabChange?.({ toSecondary });
+      collapsingScrollY.value = 0;
+      setHasSwitchedSegment(true);
+      setIsSecondaryTabActive(toSecondary);
+    },
+    [collapsingScrollY, isSecondaryTabActive, secondaryTab],
+  );
+
   return (
-    <Page
-      lazyLoad
-      safeAreaEnabled={false}
-      onClose={() => setSearchKey('')}
-      onUnmounted={() => setSearchKey('')}
-    >
+    <Page onClose={clearSearchKey} onUnmounted={clearSearchKey}>
       <Page.Header
         title={
           title ??
@@ -1935,53 +2241,140 @@ function TokenSelector() {
             id: ETranslations.global_select_crypto,
           })
         }
-        headerSearchBarOptions={headerSearchBarOptions}
+        headerSearchBarOptions={
+          secondaryTab ? undefined : headerSearchBarOptions
+        }
         headerRight={headerRight}
         headerRightNoGlass
       />
       <Page.Body>
-        <TokenListView
-          testID={AssetSelectorTestIDs.tokenSelectorList}
-          tokenItemTestIDPrefix={
-            AssetSelectorTestIDs.tokenSelectorItemTestIDPrefix
-          }
-          accountId={accountId}
-          networkId={networkId}
-          indexedAccountId={indexedAccountId}
-          showActiveAccountTokenList={effectiveShowActiveAccountTokenList}
-          scopedActiveAccountTokenList={scopedActiveTokenList}
-          scopedActiveAccountTokenListState={scopedActiveTokenListState}
-          scopedActiveAccountTokenListMap={scopedActiveTokenListMap}
-          tokenSelectorTokenList={selectorTokenList}
-          tokenSelectorTokenListMap={selectorTokenListMap}
-          tokenSelectorAggregateTokenListMap={selectorAggregateTokenListMap}
-          tokenSelectorAggregateTokenFiatMap={selectorAggregateTokenFiatMap}
-          tokenSelectorInitialized={selectorInitialized}
-          onPressToken={handleTokenOnPress}
-          isAllNetworks={isSelectorAllNetworks}
-          withNetwork={isSelectorAllNetworks}
-          searchAll={searchAll}
-          footerTipText={footerTipText}
-          isTokenSelector
-          tokenSelectorSearchKey={searchKey}
-          tokenSelectorSearchTokenState={searchTokenState}
-          tokenSelectorSearchTokenList={searchTokenList}
-          crossNetworkSearchEnabled={crossNetworkSearchEnabled}
-          onSearchTokensRetry={retrySearchTokens}
-          browseEmptyTitle={browseEmptyTitle}
-          allAggregateTokenMap={allAggregateTokenMap}
-          hideZeroBalanceTokens={effectiveHideZeroBalanceTokens}
-          hideDeFiMarkedTokens={
-            showTokenSelectorFilter ? !showLpTokensOnly : undefined
-          }
-          keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
-          showNetworkIcon={isSelectorAllNetworks}
-          exchangeFilter={exchangeFilter}
-          hideBalanceAndValue={hideBalanceAndValue}
-          emptyProps={{
-            mt: '18%',
-          }}
-        />
+        {/* Clips the segment as it slides up under the navigation header. */}
+        <Stack flex={1} overflow="hidden">
+          {secondaryTab ? (
+            <Animated.View
+              style={[
+                { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1 },
+                collapsingHeaderStyle,
+              ]}
+              onLayout={handleCollapsingHeaderLayout}
+            >
+              <YStack ref={handleCollapsingHeaderRef} bg="$bgApp">
+                <Stack
+                  px="$5"
+                  pb="$3"
+                  onLayout={handleCollapsibleSegmentLayout}
+                >
+                  <SegmentControl
+                    testID={secondaryTab.testIDs?.segment}
+                    fullWidth
+                    value={isSecondaryTabActive ? 'secondary' : 'tokens'}
+                    onChange={handleSegmentChange}
+                    options={[
+                      {
+                        label: secondaryTab.tokensTabLabel,
+                        value: 'tokens',
+                        testID: secondaryTab.testIDs?.tokensTab,
+                      },
+                      {
+                        label: secondaryTab.label,
+                        value: 'secondary',
+                        testID: secondaryTab.testIDs?.secondaryTab,
+                      },
+                    ]}
+                  />
+                </Stack>
+                <Stack px="$5" pb="$3">
+                  <SearchBar
+                    testID={secondaryTab.testIDs?.searchBar}
+                    // Same sizing rule as the header search bar: large on
+                    // native, default elsewhere.
+                    size={platformEnv.isNative ? 'large' : undefined}
+                    placeholder={
+                      isSecondaryTabActive
+                        ? secondaryTab.searchPlaceholder
+                        : (searchPlaceholder ??
+                          intl.formatMessage({
+                            id: ETranslations.send_token_selector_search_placeholder,
+                          }))
+                    }
+                    onChangeText={handleBodySearchTextChange}
+                  />
+                </Stack>
+              </YStack>
+            </Animated.View>
+          ) : null}
+          {showSecondaryTab ? (
+            <SegmentContent
+              key="secondary"
+              segmented
+              fadeIn={fadeInSegmentContent}
+            >
+              {secondaryTab.renderContent(searchKey, collapsingListProps)}
+            </SegmentContent>
+          ) : (
+            <SegmentContent
+              key="tokens"
+              segmented={!!secondaryTab}
+              fadeIn={fadeInSegmentContent}
+            >
+              <TokenListView
+                testID={AssetSelectorTestIDs.tokenSelectorList}
+                tokenItemTestIDPrefix={
+                  AssetSelectorTestIDs.tokenSelectorItemTestIDPrefix
+                }
+                accountId={accountId}
+                networkId={networkId}
+                indexedAccountId={indexedAccountId}
+                showActiveAccountTokenList={effectiveShowActiveAccountTokenList}
+                scopedActiveAccountTokenList={scopedActiveTokenList}
+                scopedActiveAccountTokenListState={scopedActiveTokenListState}
+                scopedActiveAccountTokenListMap={scopedActiveTokenListMap}
+                tokenSelectorTokenList={selectorTokenList}
+                tokenSelectorTokenListMap={selectorTokenListMap}
+                tokenSelectorAggregateTokenListMap={
+                  selectorAggregateTokenListMap
+                }
+                tokenSelectorAggregateTokenFiatMap={
+                  selectorAggregateTokenFiatMap
+                }
+                tokenSelectorInitialized={selectorInitialized}
+                onPressToken={handleTokenOnPress}
+                isAllNetworks={isSelectorAllNetworks}
+                withNetwork={isSelectorAllNetworks}
+                searchAll={searchAll}
+                footerTipText={footerTipText}
+                isTokenSelector
+                tokenSelectorSearchKey={searchKey}
+                tokenSelectorSearchTokenState={searchTokenState}
+                tokenSelectorSearchTokenList={searchTokenList}
+                crossNetworkSearchEnabled={crossNetworkSearchEnabled}
+                onSearchTokensRetry={retrySearchTokens}
+                browseEmptyTitle={browseEmptyTitle}
+                allAggregateTokenMap={allAggregateTokenMap}
+                hideZeroBalanceTokens={effectiveHideZeroBalanceTokens}
+                hideDeFiMarkedTokens={
+                  showTokenSelectorFilter ? !showLpTokensOnly : undefined
+                }
+                keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
+                showNetworkIcon={isSelectorAllNetworks}
+                exchangeFilter={exchangeFilter}
+                hideBalanceAndValue={hideBalanceAndValue}
+                emptyProps={TOKEN_SELECTOR_EMPTY_PROPS}
+                {...(secondaryTab
+                  ? {
+                      onScroll: collapsingListProps.onScroll,
+                      scrollEventThrottle:
+                        collapsingListProps.scrollEventThrottle,
+                      listViewStyleProps: {
+                        contentContainerStyle:
+                          collapsingListProps.contentContainerStyle,
+                      },
+                    }
+                  : undefined)}
+              />
+            </SegmentContent>
+          )}
+        </Stack>
       </Page.Body>
     </Page>
   );

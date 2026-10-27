@@ -1,6 +1,13 @@
-import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
+import {
+  EDeviceType,
+  EFirmwareType,
+  HardwareErrorCode,
+} from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { checkBLEState } from '@onekeyhq/shared/src/hardware/blePermissions';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -10,6 +17,7 @@ import {
   EHardwareCallContext,
   EHardwareVendor,
   type IBleFirmwareReleasePayload,
+  type IBleFirmwareUpdateInfo,
   type IBootloaderReleasePayload,
   type ICheckAllFirmwareReleaseResult,
   type IFirmwareUpdateInfo,
@@ -21,17 +29,24 @@ import {
   firmwareUpdateRetryAtom,
   firmwareUpdateStepInfoAtom,
   firmwareUpdateWorkflowRunningAtom,
+  firmwareUpdatesDetectStatusPersistAtom,
+  hardwareUiStateAtom,
   hardwareUiStateCompletedAtom,
 } from '../../states/jotai/atoms';
+import { HardwareConnectionManager } from '../ServiceHardware/HardwareConnectionManager';
+import ServiceHardware from '../ServiceHardware/ServiceHardware';
 
 import ServiceFirmwareUpdate, {
   buildPro2TargetsToUpdate,
   buildProtocolV2FirmwareVersionInfo,
   buildProtocolV2PlanForceTargets,
+  estimateFirmwareUpdateTransferBytes,
+  getResourceFullRefreshVersion,
   shouldForceProtocolV2ResourceUpdate,
   supportsFirmwareUpdateWorkflowV2,
 } from './ServiceFirmwareUpdate';
 
+import type { IUpdateFirmwareWorkflowParams } from './ServiceFirmwareUpdate';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
 
@@ -50,10 +65,13 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
+    ShowHardwareErrorDialog: 'ShowHardwareErrorDialog',
+    FirmwareUpdateDetectStatusChanged: 'FirmwareUpdateDetectStatusChanged',
     ShowFirmwareUpdateFromBootloaderMode:
       'ShowFirmwareUpdateFromBootloaderMode',
   },
   appEventBus: {
+    on: jest.fn(),
     emit: jest.fn(),
   },
 }));
@@ -73,9 +91,22 @@ jest.mock('@onekeyhq/shared/src/hardware/instance', () => ({
   CoreSDKLoader: jest.fn(),
 }));
 
+jest.mock('@onekeyhq/shared/src/hardware/blePermissions', () => ({
+  checkBLEPermissions: jest.fn(),
+  checkBLEState: jest.fn(),
+}));
+
+jest.mock('@onekeyhq/shared/src/utils/deviceHomeScreenUtils', () => ({
+  __esModule: true,
+  DEFAULT_T1_HOME_SCREEN_INFORMATION: {},
+  T1_HOME_SCREEN_DEFAULT_IMAGES: [],
+  default: {},
+}));
+
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
+    getAllDevices: jest.fn(),
     getDeviceByQuery: jest.fn(),
   },
 }));
@@ -85,8 +116,15 @@ jest.mock('../../states/jotai/atoms', () => ({
     init: 'init',
     installing: 'installing',
     updateStart: 'updateStart',
+    error: 'error',
+    updateDone: 'updateDone',
   },
-  EHardwareUiStateAction: {},
+  // The real enum: the service builds its skipped/dialog event sets at
+  // module scope, so an empty stub collapses both into Set{undefined}
+  // and every event-routing assertion below stops proving anything.
+  EHardwareUiStateAction: jest.requireActual(
+    '@onekeyhq/shared/types/hardwareUi',
+  ).EHardwareUiStateAction,
   firmwareUpdateResultVerifyAtom: {
     set: jest.fn(),
   },
@@ -109,11 +147,19 @@ jest.mock('../../states/jotai/atoms', () => ({
     set: jest.fn(),
   },
   hardwareUiStateAtom: {
+    get: jest.fn(),
     set: jest.fn(),
   },
   hardwareUiStateCompletedAtom: {
+    get: jest.fn(),
     set: jest.fn(),
   },
+}));
+
+const mockGetFirmwareManifestSnapshot = jest.fn<Promise<unknown>, [unknown]>();
+jest.mock('./FirmwareManifestProvider', () => ({
+  getFirmwareManifestSnapshot: (params: unknown) =>
+    mockGetFirmwareManifestSnapshot(params),
 }));
 
 jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
@@ -124,6 +170,292 @@ jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
 }));
 
 const mockedLocalDb = jest.mocked(localDb);
+
+describe('ServiceFirmwareUpdate desktop USB target validation', () => {
+  const createFixture = (
+    transportType = EHardwareTransportType.WEBUSB,
+    deviceType = EDeviceType.Classic1s,
+  ) => {
+    const getDeviceState = jest.fn().mockResolvedValue({
+      identity: {
+        deviceType,
+        serialNo: 'TARGET_SERIAL',
+        deviceId: 'TARGET_WALLET',
+      },
+      status: { mode: 'normal' },
+    });
+    const backgroundApi = {
+      serviceHardware: {
+        getCurrentTransportType: jest.fn().mockResolvedValue(transportType),
+        getDeviceState,
+        resolveHardwareTransport: jest.fn().mockResolvedValue({
+          connectId: 'USB_DESCRIPTOR_PATH',
+          transportType,
+        }),
+      },
+    } as unknown as IBackgroundApi;
+    const service = new ServiceFirmwareUpdate({ backgroundApi });
+    const params: IUpdateFirmwareWorkflowParams = {
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        deviceType,
+        deviceUUID: 'TARGET_SERIAL',
+        originalConnectId: 'BLE_ENDPOINT',
+        features: { serialNo: 'TARGET_SERIAL', device_id: 'TARGET_WALLET' },
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    };
+    return { service, params, getDeviceState, backgroundApi };
+  };
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each(
+    [EHardwareTransportType.WEBUSB, EHardwareTransportType.Bridge].flatMap(
+      (transportType) =>
+        [
+          EDeviceType.Classic,
+          EDeviceType.Classic1s,
+          EDeviceType.ClassicPure,
+          EDeviceType.Mini,
+          EDeviceType.Touch,
+          EDeviceType.Pro,
+          EDeviceType.Pro2,
+          EDeviceType.Neo,
+        ].map((deviceType) => ({ transportType, deviceType })),
+    ),
+  )(
+    'reads the selected $deviceType target over $transportType',
+    async ({ transportType, deviceType }) => {
+      const { service, params, getDeviceState } = createFixture(
+        transportType,
+        deviceType,
+      );
+      await expect(
+        service.validateUSBConnection(params),
+      ).resolves.toBeUndefined();
+      expect(getDeviceState).toHaveBeenCalledWith({
+        connectId: 'USB_DESCRIPTOR_PATH',
+        hardwareTransportType: transportType,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        params: {
+          scope: 'firmware',
+          retryCount: 0,
+          skipWebDevicePrompt: true,
+          connectProtocol: [EDeviceType.Pro2, EDeviceType.Neo].includes(
+            deviceType,
+          )
+            ? 'V2'
+            : 'V1',
+        },
+      });
+    },
+  );
+
+  it.each(['OTHER_SERIAL', undefined])(
+    'rejects a USB target reporting serial %s despite a successful presence check',
+    async (serialNo) => {
+      const { service, params, getDeviceState } = createFixture();
+      getDeviceState.mockResolvedValue({
+        identity: {
+          deviceType: params.releaseResult.deviceType,
+          serialNo,
+          deviceId: 'TARGET_WALLET',
+        },
+        status: { mode: 'normal' },
+      });
+      await expect(service.validateUSBConnection(params)).rejects.toMatchObject(
+        { code: HardwareErrorCode.DeviceCheckDeviceIdError },
+      );
+    },
+  );
+
+  it.each([true, false])(
+    'validates the wallet identity of a legacy device without a serial (matches: %s)',
+    async (matches) => {
+      const { service, params, getDeviceState } = createFixture();
+      params.releaseResult.deviceUUID = '';
+      params.releaseResult.features = {
+        device_id: 'TARGET_WALLET',
+      } as IOneKeyDeviceFeatures;
+      getDeviceState.mockResolvedValue({
+        identity: {
+          deviceType: params.releaseResult.deviceType,
+          serialNo: '',
+          deviceId: matches ? 'TARGET_WALLET' : 'OTHER_WALLET',
+        },
+        status: { mode: 'normal' },
+      });
+      if (matches)
+        await expect(
+          service.validateUSBConnection(params),
+        ).resolves.toBeUndefined();
+      else
+        await expect(
+          service.validateUSBConnection(params),
+        ).rejects.toMatchObject({
+          code: HardwareErrorCode.DeviceCheckDeviceIdError,
+        });
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({ connectId: 'USB_DESCRIPTOR_PATH' }),
+      );
+    },
+  );
+
+  it.each([true, false])(
+    'validates canonical wallet identity despite zero-filled legacy fields (matches: %s)',
+    async (matches) => {
+      const { service, params, getDeviceState } = createFixture();
+      params.releaseResult.deviceUUID = '000000';
+      params.releaseResult.features = {
+        serialNo: '000000',
+        device_id: '000000',
+        deviceId: 'TARGET_WALLET',
+      } as IOneKeyDeviceFeatures;
+      getDeviceState.mockResolvedValue({
+        identity: {
+          deviceType: params.releaseResult.deviceType,
+          deviceId: matches ? 'TARGET_WALLET' : 'OTHER_WALLET',
+        },
+        status: { mode: 'normal' },
+      });
+      if (matches)
+        await expect(
+          service.validateUSBConnection(params),
+        ).resolves.toBeUndefined();
+      else
+        await expect(
+          service.validateUSBConnection(params),
+        ).rejects.toMatchObject({
+          code: HardwareErrorCode.DeviceCheckDeviceIdError,
+        });
+    },
+  );
+
+  it.each(
+    (['bootloader', 'romloader', 'normal'] as const).flatMap((mode) =>
+      ['', '000000000000000000000000'].map((identity) => ({ mode, identity })),
+    ),
+  )(
+    'requires loader mode for identity-less recovery ($mode, $identity)',
+    async ({ mode, identity }) => {
+      const { service, params, getDeviceState } = createFixture();
+      params.releaseResult.deviceUUID = identity;
+      params.releaseResult.features = {
+        serialNo: identity,
+        device_id: identity,
+        deviceId: identity,
+      } as IOneKeyDeviceFeatures;
+      params.releaseResult.isBootloaderMode = true;
+      getDeviceState.mockResolvedValue({
+        identity: {
+          deviceType: params.releaseResult.deviceType,
+          serialNo: identity,
+          deviceId: identity,
+        },
+        status: { mode },
+      });
+      if (mode === 'normal')
+        await expect(
+          service.validateUSBConnection(params),
+        ).rejects.toMatchObject({
+          code: HardwareErrorCode.DeviceCheckDeviceIdError,
+        });
+      else
+        await expect(
+          service.validateUSBConnection(params),
+        ).resolves.toBeUndefined();
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({ connectId: 'USB_DESCRIPTOR_PATH' }),
+      );
+    },
+  );
+
+  it('rejects a different model even if it reports the expected serial', async () => {
+    const { service, params, getDeviceState } = createFixture();
+    getDeviceState.mockResolvedValue({
+      identity: { deviceType: EDeviceType.Pro, serialNo: 'TARGET_SERIAL' },
+      status: { mode: 'normal' },
+    });
+    await expect(service.validateUSBConnection(params)).rejects.toMatchObject({
+      code: HardwareErrorCode.DeviceCheckDeviceIdError,
+    });
+  });
+
+  it('rejects an identity-less normal target without acquiring a device', async () => {
+    const { service, params, getDeviceState } = createFixture();
+    params.releaseResult.deviceUUID = '';
+    params.releaseResult.features = undefined;
+    await expect(service.validateUSBConnection(params)).rejects.toMatchObject({
+      code: HardwareErrorCode.DeviceCheckDeviceIdError,
+    });
+    expect(getDeviceState).not.toHaveBeenCalled();
+  });
+
+  it('does not accept Bluetooth as the locked firmware transport', async () => {
+    const { service, params, getDeviceState } = createFixture(
+      EHardwareTransportType.DesktopWebBle,
+    );
+    await expect(service.validateUSBConnection(params)).rejects.toThrow();
+    expect(getDeviceState).not.toHaveBeenCalled();
+  });
+
+  it('propagates a failed live USB read', async () => {
+    const { service, params, getDeviceState } = createFixture();
+    getDeviceState.mockRejectedValue(new Error('USB disconnected'));
+    await expect(service.validateUSBConnection(params)).rejects.toThrow(
+      'USB disconnected',
+    );
+  });
+
+  it('stops the upgrade before artifact preparation when another USB device is attached', async () => {
+    const { service, params, getDeviceState, backgroundApi } = createFixture();
+    getDeviceState.mockResolvedValue({
+      identity: {
+        deviceType: params.releaseResult.deviceType,
+        serialNo: 'OTHER_SERIAL',
+      },
+      status: { mode: 'normal' },
+    });
+    backgroundApi.serviceHardware.resolveHardwareTransport = jest
+      .fn()
+      .mockResolvedValue({
+        connectId: 'TARGET_SERIAL',
+        transportType: EHardwareTransportType.WEBUSB,
+      });
+    const setForceTransportType = jest.fn();
+    const clearForceTransportType = jest.fn();
+    backgroundApi.serviceHardware.setForceTransportType = setForceTransportType;
+    backgroundApi.serviceHardware.clearForceTransportType =
+      clearForceTransportType;
+    backgroundApi.serviceHardwareUI = {
+      withHardwareProcessing: jest.fn(async (callback: () => Promise<void>) =>
+        callback(),
+      ),
+    } as unknown as IBackgroundApi['serviceHardwareUI'];
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const runtime = jest.spyOn(
+      service as unknown as {
+        getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+      },
+      'getFirmwareUpdateRuntimeHost',
+    );
+    const update = jest.spyOn(
+      service,
+      'startUpdateFirmwareTaskForNewBootVersion',
+    );
+    await expect(service.runUpdateWorkflowV2(params, 1)).rejects.toMatchObject({
+      code: HardwareErrorCode.DeviceCheckDeviceIdError,
+    });
+    expect(runtime).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(setForceTransportType.mock.invocationCallOrder[0]).toBeLessThan(
+      getDeviceState.mock.invocationCallOrder[0],
+    );
+    expect(clearForceTransportType).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('ServiceFirmwareUpdate firmware manifest refresh', () => {
   it('forces an App-managed manifest refresh before a release check', async () => {
@@ -166,11 +498,479 @@ describe('ServiceFirmwareUpdate firmware manifest refresh', () => {
       }),
     );
   });
+
+  it('uses the cached manifest path for a background release check', async () => {
+    const checkAllFirmwareRelease = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { features: {} },
+    });
+    const getSDKInstance = jest.fn().mockResolvedValue({
+      checkAllFirmwareRelease,
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getSDKInstance,
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await service.baseCheckAllFirmwareRelease({
+      connectId: 'device-1',
+      firmwareType: undefined,
+      skipChangeTransportType: true,
+      forceFirmwareManifestRefresh: false,
+    });
+
+    expect(getSDKInstance).toHaveBeenCalledWith({
+      connectId: 'device-1',
+    });
+  });
+});
+
+describe('estimateFirmwareUpdateTransferBytes', () => {
+  const artifact = (
+    expectedSize: number | undefined,
+    role: 'component' | 'resourceBundle' | 'firmware' = 'component',
+  ) =>
+    ({
+      artifactId: `${role}:${String(expectedSize)}`,
+      role,
+      expectedSize,
+    }) as never;
+  // Pro 2 1.0.3: P1 + P2 components plus the resource archive.
+  const pro2Plan = {
+    artifacts: [
+      artifact(883_728),
+      artifact(1_605_842),
+      artifact(18_159_354, 'resourceBundle'),
+    ],
+  };
+  const everything = 20_648_924;
+  const componentsOnly = 2_489_570;
+
+  it.each([
+    [
+      'a device below the boundary gets the whole archive',
+      '1.0.3',
+      { applicationP1: '1.0.2' },
+      false,
+      everything,
+    ],
+    [
+      'a device at the boundary skips the archive',
+      '1.0.3',
+      { applicationP1: '1.0.3' },
+      false,
+      componentsOnly,
+    ],
+    [
+      'a device past the boundary skips the archive',
+      '1.0.3',
+      { applicationP1: '1.0.4' },
+      false,
+      componentsOnly,
+    ],
+    [
+      'a forced resource target re-sends the archive whatever the boundary',
+      '1.0.0',
+      { applicationP1: '1.0.3' },
+      true,
+      everything,
+    ],
+    [
+      'no boundary in the manifest counts the archive',
+      undefined,
+      { applicationP1: '1.0.3' },
+      false,
+      everything,
+    ],
+    [
+      'an unknown firmware version (bootloader mode) counts the archive',
+      '1.0.3',
+      { applicationP1: null, applicationP2: null, firmware: null },
+      false,
+      everything,
+    ],
+  ])(
+    '%s',
+    (
+      _label,
+      fullRefreshVersion,
+      currentVersions,
+      forceFullResourceRefresh,
+      expected,
+    ) => {
+      expect(
+        estimateFirmwareUpdateTransferBytes({
+          plan: pro2Plan,
+          fullRefreshVersion,
+          currentVersions,
+          forceFullResourceRefresh,
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  it('sums a Protocol V1 plan whose manifest carries sizes', () => {
+    expect(
+      estimateFirmwareUpdateTransferBytes({
+        plan: {
+          artifacts: [
+            artifact(4_148_736, 'firmware'),
+            artifact(3_830_005, 'firmware'),
+          ],
+        },
+        currentVersions: { firmware: '4.19.0' },
+      }),
+    ).toBe(7_978_741);
+  });
+
+  it.each([
+    ['no plan', undefined],
+    ['no artifacts', { artifacts: [] }],
+    [
+      'an artifact without a size',
+      { artifacts: [artifact(883_728), artifact(undefined)] },
+    ],
+    [
+      'an artifact with an invalid size',
+      { artifacts: [artifact(883_728), artifact(Number.NaN)] },
+    ],
+  ])('is unknown rather than a partial sum with %s', (_label, plan) => {
+    expect(estimateFirmwareUpdateTransferBytes({ plan })).toBeUndefined();
+  });
+});
+
+describe('getResourceFullRefreshVersion', () => {
+  const manifest = (neoResources: unknown, releases?: unknown[]) =>
+    ({
+      neo: {
+        'firmware-v1': releases ?? [
+          { version: [1, 0, 3], resources: neoResources },
+        ],
+      },
+    }) as never;
+
+  it('reads the boundary of the model from the raw manifest', () => {
+    expect(
+      getResourceFullRefreshVersion(
+        manifest({ source: {}, fullRefreshVersion: [1, 0, 0] }),
+        EDeviceType.Neo,
+      ),
+    ).toBe('1.0.0');
+  });
+
+  it('takes it from the latest release when the manifest lists several', () => {
+    expect(
+      getResourceFullRefreshVersion(
+        manifest(undefined, [
+          { version: [1, 0, 2], resources: { fullRefreshVersion: [1, 0, 1] } },
+          { version: [1, 0, 3], resources: { fullRefreshVersion: [1, 0, 3] } },
+        ]),
+        EDeviceType.Neo,
+      ),
+    ).toBe('1.0.3');
+  });
+
+  it.each([
+    ['a text version', '1.0.3'],
+    ['a number', 7],
+    ['a short array', [1, 0]],
+    ['a negative part', [1, 0, -1]],
+    ['a part beyond the safe integer range', [1, 0, 2 ** 53]],
+    ['a part that prints in exponent form', [1, 0, 1e21]],
+    ['a missing field', undefined],
+  ])('ignores %s', (_label, fullRefreshVersion) => {
+    expect(
+      getResourceFullRefreshVersion(
+        manifest({ source: {}, fullRefreshVersion }),
+        EDeviceType.Neo,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('is undefined for a model the manifest does not list or without a manifest', () => {
+    expect(
+      getResourceFullRefreshVersion(
+        manifest({ fullRefreshVersion: [1, 0, 3] }),
+        EDeviceType.Pro2,
+      ),
+    ).toBeUndefined();
+    expect(
+      getResourceFullRefreshVersion(undefined, EDeviceType.Neo),
+    ).toBeUndefined();
+  });
+});
+
+describe('ServiceFirmwareUpdate.baseCheckAllFirmwareRelease', () => {
+  // What the SDK really returns: it keeps only `resources.source` when it
+  // loads the manifest, so the release carries no fullRefreshVersion.
+  const sdkRelease = (deviceType: string, applicationP1: string) => ({
+    success: true,
+    payload: {
+      features: {},
+      deviceType,
+      targetsToUpdate: ['app_v2', 'resource'],
+      release: { version: [1, 0, 3], resources: { source: {} } },
+      currentVersions: { applicationP1 },
+      firmwareUpdatePlan: {
+        targetsToUpdate: ['app_v2', 'resource'],
+        artifacts: [
+          {
+            artifactId: 'component:app_v2',
+            role: 'component',
+            expectedSize: 1_605_842,
+          },
+          {
+            artifactId: 'resource:archive',
+            role: 'resourceBundle',
+            expectedSize: 18_159_354,
+          },
+        ],
+      },
+    },
+  });
+  const rawManifest = {
+    pro2: {
+      'firmware-v1': [
+        {
+          version: [1, 0, 3],
+          resources: { source: {}, fullRefreshVersion: [1, 0, 3] },
+        },
+      ],
+    },
+    neo: {
+      'firmware-v1': [
+        {
+          version: [1, 0, 3],
+          resources: { source: {}, fullRefreshVersion: [1, 0, 0] },
+        },
+      ],
+    },
+  };
+  const createService = (response: unknown, usePreReleaseConfig: boolean) =>
+    new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getSDKInstance: jest.fn().mockResolvedValue({
+            checkAllFirmwareRelease: jest.fn().mockResolvedValue(response),
+          }),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn(async (key: string) =>
+            key === 'usePreReleaseConfig' ? usePreReleaseConfig : undefined,
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+  const check = (service: ServiceFirmwareUpdate) =>
+    service.baseCheckAllFirmwareRelease({
+      connectId: 'device-1',
+      firmwareType: undefined,
+      skipChangeTransportType: true,
+    });
+
+  beforeEach(() => {
+    mockGetFirmwareManifestSnapshot.mockReset();
+    mockGetFirmwareManifestSnapshot.mockResolvedValue(rawManifest);
+  });
+
+  it('strips the plan but keeps its size, with the boundary read from the raw manifest', async () => {
+    // Pro 2 on 1.0.2, boundary 1.0.3: the whole archive is still needed.
+    const pro2 = await check(createService(sdkRelease('pro2', '1.0.2'), true));
+    expect(pro2.firmwareUpdatePlan).toBeUndefined();
+    expect(pro2.estimatedTransferBytes).toBe(19_765_196);
+    expect(mockGetFirmwareManifestSnapshot).toHaveBeenLastCalledWith({
+      preRelease: true,
+    });
+
+    // Neo on 1.0.1, boundary 1.0.0: only the component is transferred.
+    const neo = await check(createService(sdkRelease('neo', '1.0.1'), false));
+    expect(neo.estimatedTransferBytes).toBe(1_605_842);
+    expect(mockGetFirmwareManifestSnapshot).toHaveBeenLastCalledWith({
+      preRelease: false,
+    });
+  });
+
+  it('counts the archive in full when the manifest snapshot is unavailable', async () => {
+    mockGetFirmwareManifestSnapshot.mockRejectedValue(new Error('offline'));
+    const neo = await check(createService(sdkRelease('neo', '1.0.1'), false));
+    expect(neo.estimatedTransferBytes).toBe(19_765_196);
+  });
+
+  it('keeps the release check alive when the boundary is not a usable version', async () => {
+    // semver throws on such a version; the size hint must not fail the check.
+    mockGetFirmwareManifestSnapshot.mockResolvedValue({
+      neo: {
+        'firmware-v1': [
+          {
+            version: [1, 0, 3],
+            resources: { source: {}, fullRefreshVersion: [1, 0, 2 ** 53] },
+          },
+        ],
+      },
+    });
+    const neo = await check(createService(sdkRelease('neo', '1.0.1'), false));
+    expect(neo.estimatedTransferBytes).toBe(19_765_196);
+  });
 });
 
 describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it.each([
+    EHardwareTransportType.WEBUSB,
+    EHardwareTransportType.DesktopWebBle,
+  ])('reads firmware over %s', async (hardwareTransportType) => {
+    const getDeviceState = jest.fn().mockResolvedValue({
+      schemaVersion: 1,
+      protocol: 'V1',
+      protocolVersion: 1,
+      revision: 2,
+      updatedAt: 2,
+      identity: {
+        deviceType: EDeviceType.Pro,
+        serialNo: 'DEVICE_USB',
+      },
+      status: {
+        mode: 'normal',
+      },
+      settings: {},
+      versions: {
+        firmware: '4.21.0',
+        ble: '2.3.7',
+        bootloader: '2.8.4',
+      },
+      capabilities: [],
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getDeviceState,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    await expect(
+      service.checkDeviceIsBootloaderMode({
+        connectId: 'DEVICE_USB',
+        hardwareTransportType,
+      }),
+    ).resolves.toMatchObject({
+      isBootloaderMode: false,
+      features: {
+        onekey_firmware_version: '4.21.0',
+        onekey_ble_version: '2.3.7',
+        onekey_boot_version: '2.8.4',
+      },
+    });
+    expect(getDeviceState).toHaveBeenCalledWith({
+      connectId: 'DEVICE_USB',
+      params: {
+        scope: 'firmware',
+        retryCount: 0,
+        skipWebDevicePrompt: true,
+        ...(hardwareTransportType === EHardwareTransportType.DesktopWebBle
+          ? { timeout: 30_000 }
+          : {}),
+      },
+      silentMode: true,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      hardwareTransportType,
+    });
+  });
+
+  it('keeps a disconnected USB device without a BLE binding silent during detection', async () => {
+    HardwareConnectionManager.resetInstance();
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'ONEKEY_USB_ID',
+      usbConnectId: 'ONEKEY_USB_ID',
+      connectProtocol: 'V2',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    const backgroundApi = {
+      serviceSetting: {
+        getHardwareTransportType: jest
+          .fn()
+          .mockResolvedValue(EHardwareTransportType.WEBUSB),
+      },
+      serviceHardwareUI: {
+        tryRunExclusiveOneKeyOperation: jest.fn(
+          async (operation: () => Promise<unknown>) => ({
+            acquired: true,
+            result: await operation(),
+          }),
+        ),
+      },
+    } as unknown as IBackgroundApi;
+    const hardware = new ServiceHardware({ backgroundApi });
+    backgroundApi.serviceHardware = hardware;
+    const service = new ServiceFirmwareUpdate({ backgroundApi });
+    const checkDeviceIsBootloaderMode = jest.spyOn(
+      service,
+      'checkDeviceIsBootloaderMode',
+    );
+    const getDeviceState = jest.fn().mockResolvedValue({
+      success: false,
+      payload: { code: HardwareErrorCode.DeviceNotFound },
+    });
+    const resolveTransportType = jest
+      .spyOn(hardware.connectionManager, 'resolveTransportType')
+      .mockResolvedValue({
+        shouldSwitch: true,
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+    jest.spyOn(hardware, 'getSDKInstance').mockResolvedValue({
+      getDeviceState,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    jest.spyOn(service.detectMap, 'shouldDetect').mockReturnValue(true);
+    // Shared error constructors retain the real bus through their relative import.
+    const { appEventBus: hardwareEventBus } = jest.requireActual<
+      typeof import('@onekeyhq/shared/src/eventBus/appEventBus')
+    >('@onekeyhq/shared/src/eventBus/appEventBus');
+    const emitHardwareEvent = jest
+      .spyOn(hardwareEventBus, 'emit')
+      .mockReturnValue(false);
+
+    try {
+      await expect(
+        service.detectActiveAccountFirmwareUpdates({
+          connectId: 'ONEKEY_USB_ID',
+        }),
+      ).resolves.toEqual({ status: 'failed', retryAfterMs: 5000 });
+
+      await expect(
+        checkDeviceIsBootloaderMode.mock.results[0].value,
+      ).resolves.toMatchObject({
+        error: { code: HardwareErrorCode.DeviceNotFound },
+      });
+      expect(emitHardwareEvent).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ShowHardwareErrorDialog,
+        expect.anything(),
+      );
+      expect(resolveTransportType).not.toHaveBeenCalled();
+      expect(getDeviceState).toHaveBeenCalledWith(
+        'ONEKEY_USB_ID',
+        expect.objectContaining({ scope: 'firmware', retryCount: 0 }),
+      );
+    } finally {
+      jest.restoreAllMocks();
+      HardwareConnectionManager.resetInstance();
+    }
   });
 
   it.each([EHardwareVendor.trezor, EHardwareVendor.ledger])(
@@ -222,6 +1022,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId,
         },
         serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           tryRunExclusiveOneKeyOperation,
         },
       } as unknown as IBackgroundApi,
@@ -238,15 +1039,161 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
 
     expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
       expect.any(Function),
-      { deviceKey: 'db-device-1' },
+      {
+        deviceKey: 'db-device-1',
+      },
     );
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
 
-  it('returns the remaining throttle delay after the hardware channel becomes idle', async () => {
+  describe('native Bluetooth state precheck', () => {
+    const mutablePlatformEnv = platformEnv as unknown as {
+      isNative: boolean;
+      isNativeAndroid?: boolean;
+    };
+    const mockedCheckBLEState = jest.mocked(checkBLEState);
+
+    const createDetectService = ({
+      transportType,
+    }: {
+      transportType: EHardwareTransportType;
+    }) => {
+      mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+        id: 'db-device-1',
+        connectId: 'ONEKEY_BLE_ID',
+        bleConnectId: 'ONEKEY_BLE_ID',
+        vendor: EHardwareVendor.onekey,
+      } as IDBDevice);
+      const getCompatibleConnectId = jest
+        .fn()
+        .mockResolvedValue('ONEKEY_BLE_ID');
+      const service = new ServiceFirmwareUpdate({
+        backgroundApi: {
+          serviceHardware: {
+            getCompatibleConnectId,
+            getCurrentTransportType: jest.fn().mockResolvedValue(transportType),
+          },
+          serviceHardwareUI: {
+            tryRunExclusiveOneKeyOperation: jest.fn(
+              async (operation: () => Promise<unknown>) => ({
+                acquired: true,
+                result: await operation(),
+              }),
+            ),
+          },
+        } as unknown as IBackgroundApi,
+      });
+      jest.spyOn(service.detectMap, 'shouldDetect').mockReturnValue(true);
+      // No features and no error: the detection ends as a plain failure once
+      // it is allowed to reach the device.
+      const checkDeviceIsBootloaderMode = jest
+        .spyOn(service, 'checkDeviceIsBootloaderMode')
+        .mockResolvedValue({
+          isBootloaderMode: false,
+          state: undefined,
+          features: undefined,
+          error: undefined,
+        });
+      return { service, getCompatibleConnectId, checkDeviceIsBootloaderMode };
+    };
+
+    afterEach(() => {
+      Object.assign(mutablePlatformEnv, {
+        isNative: false,
+        isNativeAndroid: false,
+      });
+      jest.restoreAllMocks();
+    });
+
+    // iOS and Android share subscribeBleOn in the RN transport, so a
+    // Bluetooth-off call raises the same 701 on both.
+    it.each([
+      { platformName: 'Android', isNativeAndroid: true },
+      { platformName: 'iOS', isNativeAndroid: false },
+    ])(
+      'stays off the hardware path while $platformName Bluetooth is turned off',
+      async ({ isNativeAndroid }) => {
+        Object.assign(mutablePlatformEnv, {
+          isNative: true,
+          isNativeAndroid,
+        });
+        mockedCheckBLEState.mockResolvedValue(false);
+        const { service, getCompatibleConnectId, checkDeviceIsBootloaderMode } =
+          createDetectService({ transportType: EHardwareTransportType.BLE });
+
+        await expect(
+          service.detectActiveAccountFirmwareUpdates({
+            connectId: 'ONEKEY_BLE_ID',
+          }),
+        ).resolves.toEqual({ status: 'failed', retryAfterMs: 5000 });
+
+        // hd-ble-sdk raises the "Enable Bluetooth" dialog from the failed call
+        // itself, so never reaching the SDK is the only way to stay silent.
+        expect(getCompatibleConnectId).not.toHaveBeenCalled();
+        expect(checkDeviceIsBootloaderMode).not.toHaveBeenCalled();
+      },
+    );
+
+    it('keeps detecting while native Bluetooth is on', async () => {
+      Object.assign(mutablePlatformEnv, {
+        isNative: true,
+        isNativeAndroid: true,
+      });
+      mockedCheckBLEState.mockResolvedValue(true);
+      const { service, getCompatibleConnectId, checkDeviceIsBootloaderMode } =
+        createDetectService({ transportType: EHardwareTransportType.BLE });
+
+      await service.detectActiveAccountFirmwareUpdates({
+        connectId: 'ONEKEY_BLE_ID',
+      });
+
+      expect(getCompatibleConnectId).toHaveBeenCalledWith({
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        connectId: 'ONEKEY_BLE_ID',
+      });
+      expect(checkDeviceIsBootloaderMode).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      {
+        // Desktop reports 721/722, which ServiceHardware already skips.
+        name: 'a desktop platform',
+        isNative: false,
+        transportType: EHardwareTransportType.BLE,
+      },
+      {
+        name: 'a non-BLE transport',
+        isNative: true,
+        transportType: EHardwareTransportType.WEBUSB,
+      },
+    ])(
+      'does not read the Bluetooth state on $name',
+      async ({ isNative, transportType }) => {
+        Object.assign(mutablePlatformEnv, {
+          isNative,
+          isNativeAndroid: isNative,
+        });
+        mockedCheckBLEState.mockResolvedValue(false);
+        const { service, getCompatibleConnectId } = createDetectService({
+          transportType,
+        });
+
+        await service.detectActiveAccountFirmwareUpdates({
+          connectId: 'ONEKEY_BLE_ID',
+        });
+
+        expect(mockedCheckBLEState).not.toHaveBeenCalled();
+        expect(getCompatibleConnectId).toHaveBeenCalledTimes(1);
+      },
+    );
+  });
+
+  it('uses the DB connectId for throttling after transport resolution', async () => {
     mockedLocalDb.getDeviceByQuery.mockResolvedValue({
       id: 'db-device-1',
-      connectId: 'ONEKEY_BLE_ID',
+      connectId: 'ONEKEY_USB_ID',
+      usbConnectId: 'ONEKEY_USB_ID',
+      bleConnectId: 'ONEKEY_BLE_ID',
       vendor: EHardwareVendor.onekey,
     } as IDBDevice);
     const getCompatibleConnectId = jest.fn();
@@ -262,6 +1209,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId,
         },
         serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           tryRunExclusiveOneKeyOperation,
         },
         serviceFirmwareUpdate: {
@@ -269,6 +1217,11 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
         },
       } as unknown as IBackgroundApi,
     });
+    service.detectMap.firstDetectAt =
+      Date.now() - timerUtils.getTimeDurationMs({ minute: 2 });
+    service.detectMap.detectMapCache.ONEKEY_USB_ID = {
+      lastDetectAt: Date.now(),
+    };
 
     const result = await service.detectActiveAccountFirmwareUpdates({
       connectId: 'ONEKEY_BLE_ID',
@@ -277,11 +1230,13 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
     expect(result.status).toBe('throttled');
     if (result.status === 'throttled') {
       expect(result.retryAfterMs).toBeGreaterThan(0);
-      expect(result.retryAfterMs).toBeLessThanOrEqual(60_000);
+      expect(result.retryAfterMs).toBeLessThanOrEqual(5 * 60_000);
     }
     expect(tryRunExclusiveOneKeyOperation).toHaveBeenCalledWith(
       expect.any(Function),
-      { deviceKey: 'db-device-1' },
+      {
+        deviceKey: 'db-device-1',
+      },
     );
     expect(getCompatibleConnectId).not.toHaveBeenCalled();
   });
@@ -316,6 +1271,7 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
           getCompatibleConnectId,
         },
         serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           tryRunExclusiveOneKeyOperation,
         },
         serviceFirmwareUpdate: {
@@ -331,9 +1287,40 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
         expect(leaseActive).toBe(true);
         return {
           isBootloaderMode: false,
-          features: undefined,
+          state: undefined,
+          features: {} as IOneKeyDeviceFeatures,
           error: undefined,
         };
+      });
+    jest
+      .spyOn(deviceUtils, 'getFirmwareType')
+      .mockResolvedValue(EFirmwareType.Universal);
+    jest
+      .spyOn(deviceUtils, 'getDeviceTypeFromFeatures')
+      .mockResolvedValue(EDeviceType.Pro2);
+    const baseCheckAllFirmwareRelease = jest
+      .spyOn(service, 'baseCheckAllFirmwareRelease')
+      .mockImplementation(async () => {
+        expect(leaseActive).toBe(true);
+        return {
+          firmware: {},
+          ble: {},
+          currentVersions: { ble: '2.3.7' },
+          targetsToUpdate: ['resource'],
+          estimatedTransferBytes: 18_159_354,
+        } as never;
+      });
+    const checkFirmwareRelease = jest
+      .spyOn(service, 'checkFirmwareRelease')
+      .mockImplementation(async () => {
+        expect(leaseActive).toBe(true);
+        return { hasUpgrade: false } as IFirmwareUpdateInfo;
+      });
+    const checkBLEFirmwareRelease = jest
+      .spyOn(service, 'checkBLEFirmwareRelease')
+      .mockImplementation(async () => {
+        expect(leaseActive).toBe(true);
+        return { hasUpgrade: false } as IBleFirmwareUpdateInfo;
       });
 
     await expect(
@@ -346,7 +1333,673 @@ describe('ServiceFirmwareUpdate.detectActiveAccountFirmwareUpdates', () => {
       hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       connectId: 'ONEKEY_BLE_ID',
     });
+    expect(baseCheckAllFirmwareRelease).toHaveBeenCalledWith({
+      connectId: 'ONEKEY_COMPATIBLE_ID',
+      firmwareType: EFirmwareType.Universal,
+      forceFirmwareManifestRefresh: false,
+      retryCount: 0,
+      silentMode: true,
+      skipChangeTransportType: true,
+    });
+    expect(checkFirmwareRelease).toHaveBeenCalledTimes(1);
+    expect(checkFirmwareRelease).toHaveBeenCalledWith(
+      expect.objectContaining({ saveUpdateInfo: false }),
+    );
+    expect(checkBLEFirmwareRelease).toHaveBeenCalledTimes(1);
+    expect(checkBLEFirmwareRelease).toHaveBeenCalledWith(
+      expect.objectContaining({ saveUpdateInfo: false }),
+    );
+    expect(
+      service.detectMap.detectMapCache.ONEKEY_BLE_ID?.updateInfo
+        ?.targetsToUpdate,
+    ).toEqual(['resource']);
+    expect(
+      service.detectMap.getDetectStatus({ connectId: 'ONEKEY_BLE_ID' }),
+    ).toEqual(
+      expect.objectContaining({
+        resolved: true,
+        status: expect.objectContaining({
+          hasUpgrade: true,
+          // The banner reads it to size the update before the device is contacted.
+          estimatedTransferBytes: 18_159_354,
+        }),
+      }),
+    );
     expect(leaseActive).toBe(false);
+  });
+
+  it('does not consume the throttle when the release check fails', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'ONEKEY_USB_ID',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId: jest.fn().mockResolvedValue('ONEKEY_USB_ID'),
+        },
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+          tryRunExclusiveOneKeyOperation: jest.fn(
+            async (operation: () => Promise<unknown>) => ({
+              acquired: true as const,
+              result: await operation(),
+            }),
+          ),
+        },
+        serviceFirmwareUpdate: {
+          showAutoUpdateCheckDebugToast: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    service.detectMap.firstDetectAt =
+      Date.now() - timerUtils.getTimeDurationMs({ minute: 2 });
+    jest.spyOn(service, 'checkDeviceIsBootloaderMode').mockResolvedValue({
+      isBootloaderMode: false,
+      state: undefined,
+      features: {} as IOneKeyDeviceFeatures,
+      error: undefined,
+    });
+    jest
+      .spyOn(deviceUtils, 'getFirmwareType')
+      .mockResolvedValue(EFirmwareType.Universal);
+    jest
+      .spyOn(service, 'baseCheckAllFirmwareRelease')
+      .mockRejectedValue(new Error('Release request failed'));
+
+    await expect(
+      service.detectActiveAccountFirmwareUpdates({
+        connectId: 'ONEKEY_USB_ID',
+      }),
+    ).resolves.toEqual({ status: 'failed', retryAfterMs: 5000 });
+
+    expect(
+      service.detectMap.detectMapCache.ONEKEY_USB_ID?.lastDetectAt,
+    ).toBeUndefined();
+  });
+});
+
+describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.mocked(CoreSDKLoader).mockReset();
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    {
+      transportType: EHardwareTransportType.WEBUSB,
+      resolved: true,
+      retryRead: false,
+    },
+    {
+      transportType: EHardwareTransportType.DesktopWebBle,
+      resolved: true,
+      retryRead: false,
+    },
+    {
+      transportType: EHardwareTransportType.DesktopWebBle,
+      resolved: false,
+      retryRead: false,
+    },
+    {
+      transportType: EHardwareTransportType.DesktopWebBle,
+      resolved: true,
+      retryRead: true,
+    },
+    {
+      transportType: EHardwareTransportType.WEBUSB,
+      resolved: true,
+      retryRead: false,
+      unlocked: false,
+      cachedLabel: 'Cached Pro 2',
+      expectedDeviceName: 'Cached Pro 2',
+    },
+  ])('checks releases over $transportType', async (scenario) => {
+    const {
+      transportType,
+      resolved,
+      retryRead,
+      unlocked = true,
+      cachedLabel = null,
+      expectedDeviceName = 'My Pro 2',
+    } = scenario;
+    const features = {} as IOneKeyDeviceFeatures;
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_USB_ID',
+      vendor: EHardwareVendor.onekey,
+    } as IDBDevice);
+    jest.mocked(CoreSDKLoader).mockResolvedValue({
+      getDeviceSerialNo: jest.fn().mockReturnValue('PRO2_SERIAL'),
+    } as never);
+    const connectId =
+      transportType === EHardwareTransportType.DesktopWebBle
+        ? 'PRO2_BLE_ID'
+        : 'PRO2_USB_ID';
+    const resolveHardwareTransport = jest.fn().mockResolvedValue({
+      connectId,
+      transportType,
+    });
+    const getFeaturesWithoutCache = jest.fn().mockResolvedValue(features);
+    const getDeviceState = jest.fn().mockResolvedValue({
+      identity: { label: 'My Pro 2' },
+    });
+
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(undefined),
+          getFirmwareUpdateDevSettingsSnapshot: jest
+            .fn()
+            .mockResolvedValue(undefined),
+        },
+        serviceHardware: {
+          resolveHardwareTransport,
+          getDeviceState,
+          getFeaturesWithoutCache,
+          getSDKInstance: jest.fn().mockResolvedValue({
+            cancel: jest.fn(),
+          }),
+          hardwareVerifyManager: {
+            fetchFirmwareVerifyHash: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+          closeHardwareUiStateDialog: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const checkDeviceIsBootloaderMode = jest
+      .spyOn(service, 'checkDeviceIsBootloaderMode')
+      .mockResolvedValue({
+        isBootloaderMode: false,
+        state: {
+          identity: { label: cachedLabel },
+          status: { unlocked },
+        } as never,
+        features: retryRead ? undefined : features,
+        error: undefined,
+      });
+    jest
+      .spyOn(deviceUtils, 'getDeviceTypeFromFeatures')
+      .mockResolvedValue(EDeviceType.Pro2);
+    jest
+      .spyOn(deviceUtils, 'getFirmwareType')
+      .mockResolvedValue(EFirmwareType.Universal);
+    jest
+      .spyOn(deviceUtils, 'buildDeviceName')
+      .mockResolvedValue('OneKey Pro 2');
+    jest
+      .spyOn(deviceUtils, 'buildDeviceBleName')
+      .mockReturnValue('OneKey Pro 2');
+    jest
+      .spyOn(deviceUtils, 'getDeviceModeFromFeatures')
+      .mockResolvedValue('normal' as never);
+    jest
+      .spyOn(deviceUtils, 'getFixedUpdatingConnectId')
+      .mockReturnValue('PRO2_USB_ID');
+    jest
+      .spyOn(
+        service as unknown as {
+          loadBaseFirmwareRelease: () => Promise<unknown>;
+        },
+        'loadBaseFirmwareRelease',
+      )
+      .mockResolvedValue({
+        features,
+        firmware: {},
+        ble: {},
+        currentVersions: {
+          firmware: '1.0.0',
+          ble: '1.0.0',
+        },
+        targetsToUpdate: ['resource'],
+      });
+    jest.spyOn(service, 'checkFirmwareRelease').mockResolvedValue({
+      hasUpgrade: false,
+    } as IFirmwareUpdateInfo);
+    jest.spyOn(service, 'checkBLEFirmwareRelease').mockResolvedValue({
+      hasUpgrade: false,
+    } as IBleFirmwareUpdateInfo);
+    jest
+      .spyOn(
+        service as unknown as {
+          getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+        },
+        'getFirmwareUpdateRuntimeHost',
+      )
+      .mockResolvedValue({
+        artifacts: {
+          cachePlanDigestIfPreparedSupported: jest
+            .fn()
+            .mockResolvedValue(undefined),
+        },
+      });
+
+    const result = await service.checkAllFirmwareRelease({
+      connectId,
+      firmwareType: undefined,
+      skipCancel: true,
+      resolvedTransportType: resolved ? transportType : undefined,
+    });
+
+    expect(checkDeviceIsBootloaderMode).toHaveBeenCalledWith({
+      connectId,
+      allowEmptyConnectId: true,
+      hardwareTransportType: transportType,
+    });
+    if (!resolved) {
+      expect(resolveHardwareTransport).toHaveBeenCalledWith({
+        connectId,
+        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      });
+    }
+    if (retryRead) {
+      expect(getFeaturesWithoutCache).toHaveBeenCalledWith({
+        connectId,
+        params: { allowEmptyConnectId: true, timeout: 30_000 },
+        hardwareTransportType: transportType,
+      });
+    }
+
+    expect(result).toMatchObject({
+      deviceName: expectedDeviceName,
+      hasUpgrade: true,
+      pro2TargetsToUpdate: ['resource'],
+    });
+    if (unlocked) {
+      expect(getDeviceState).toHaveBeenCalledWith({
+        connectId,
+        params: {
+          scope: 'settings',
+          retryCount: 0,
+          skipWebDevicePrompt: true,
+          ...(transportType === EHardwareTransportType.DesktopWebBle
+            ? { timeout: 30_000 }
+            : {}),
+        },
+        silentMode: true,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        hardwareTransportType: transportType,
+      });
+    } else {
+      expect(getDeviceState).not.toHaveBeenCalled();
+    }
+    expect(deviceUtils.buildDeviceName).not.toHaveBeenCalled();
+    expect(
+      service.detectMap.getDetectStatus({ connectId: 'PRO2_USB_ID' }),
+    ).toEqual(
+      expect.objectContaining({
+        resolved: true,
+        status: expect.objectContaining({ hasUpgrade: true }),
+      }),
+    );
+  });
+});
+
+describe('ServiceFirmwareUpdate firmware detect status', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+  });
+
+  it('does not treat throttling metadata as a resolved no-update result', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    service.detectMap.detectMapCache.DEVICE_USB = {
+      lastDetectAt: Date.now(),
+      updateInfo: undefined,
+    };
+
+    await expect(
+      service.getFirmwareUpdateDetectStatus({ connectId: 'DEVICE_USB' }),
+    ).resolves.toEqual({
+      requestedConnectId: 'DEVICE_USB',
+      resolved: false,
+      status: undefined,
+    });
+  });
+
+  it('clears the canonical DB status when given a transport connectId', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'DEVICE_USB',
+      usbConnectId: 'DEVICE_USB',
+      bleConnectId: 'DEVICE_BLE',
+    } as IDBDevice);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const deleteUpdateInfo = jest
+      .spyOn(service.detectMap, 'deleteUpdateInfo')
+      .mockResolvedValue(undefined);
+
+    await (
+      service as unknown as {
+        deleteFirmwareUpdateDetectInfo: (connectId: string) => Promise<void>;
+      }
+    ).deleteFirmwareUpdateDetectInfo('DEVICE_BLE');
+
+    expect(deleteUpdateInfo).toHaveBeenCalledWith({
+      connectId: 'DEVICE_USB',
+      usbConnectId: 'DEVICE_USB',
+      bleConnectId: 'DEVICE_BLE',
+    });
+  });
+
+  it('removes a previous transport key when resolving the canonical key', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    service.detectMap.detectMapCache.DEVICE_USB = {
+      detectResultResolved: true,
+      updateInfo: {
+        firmware: {
+          connectId: 'DEVICE_USB',
+          hasUpgrade: true,
+          hasUpgradeForce: false,
+          fromVersion: '4.21.0',
+          toVersion: '4.22.0',
+          firmwareType: 'firmware',
+        } as IFirmwareUpdateInfo,
+      },
+    };
+
+    await service.detectMap.resolveUpdateInfo({
+      connectId: 'DEVICE_BLE',
+      usbConnectId: 'DEVICE_USB',
+      bleConnectId: 'DEVICE_BLE',
+    });
+
+    expect(service.detectMap.detectMapCache.DEVICE_USB).toBeUndefined();
+    expect(service.detectMap.detectMapCache.DEVICE_BLE).toMatchObject({
+      detectResultResolved: true,
+      updateInfo: undefined,
+    });
+    const updater = jest.mocked(firmwareUpdatesDetectStatusPersistAtom.set).mock
+      .calls[0][0] as (value: unknown) => unknown;
+    expect(
+      updater({
+        DEVICE_USB: { connectId: 'DEVICE_USB', hasUpgrade: true },
+        DEVICE_BLE: { connectId: 'DEVICE_BLE', hasUpgrade: true },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('returns the canonical bg update for a transport connectId', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'DEVICE_USB',
+      usbConnectId: 'DEVICE_USB',
+      bleConnectId: 'DEVICE_BLE',
+    } as IDBDevice);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    service.detectMap.detectMapCache.DEVICE_USB = {
+      detectResultResolved: true,
+      updateInfo: {
+        firmware: {
+          connectId: 'DEVICE_USB',
+          hasUpgrade: true,
+          hasUpgradeForce: false,
+          fromVersion: '4.21.0',
+          toVersion: '4.22.0',
+          firmwareType: 'firmware',
+        } as IFirmwareUpdateInfo,
+      },
+    };
+
+    await expect(
+      service.getFirmwareUpdateDetectStatus({ connectId: 'DEVICE_BLE' }),
+    ).resolves.toEqual({
+      requestedConnectId: 'DEVICE_BLE',
+      resolved: true,
+      status: {
+        connectId: 'DEVICE_USB',
+        hasUpgrade: true,
+        toVersion: '4.22.0',
+        toFirmwareType: undefined,
+        toVersionBle: undefined,
+      },
+    });
+  });
+
+  it('clears only the persisted update entry for the requested connectId', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    service.detectMap.detectMapCache.DEVICE_USB = {
+      lastDetectAt: Date.now(),
+    };
+
+    await service.detectMap.deleteUpdateInfo({
+      connectId: 'DEVICE_USB',
+    });
+
+    expect(service.detectMap.detectMapCache.DEVICE_USB).toMatchObject({
+      detectResultResolved: true,
+      updateInfo: undefined,
+    });
+    expect(
+      service.detectMap.getDetectStatus({
+        connectId: 'DEVICE_USB',
+      }),
+    ).toEqual({
+      requestedConnectId: 'DEVICE_USB',
+      resolved: true,
+      status: undefined,
+    });
+
+    const updater = jest.mocked(firmwareUpdatesDetectStatusPersistAtom.set).mock
+      .calls[0][0] as (value: unknown) => unknown;
+    expect(
+      updater({
+        DEVICE_USB: { connectId: 'DEVICE_USB', hasUpgrade: true },
+        OTHER_DEVICE: { connectId: 'OTHER_DEVICE', hasUpgrade: true },
+      }),
+    ).toEqual({
+      OTHER_DEVICE: { connectId: 'OTHER_DEVICE', hasUpgrade: true },
+    });
+  });
+
+  it('replaces the persisted update for the requested connectId', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    service.detectMap.detectMapCache.DEVICE_USB = {
+      detectResultResolved: true,
+      updateInfo: {
+        firmware: {
+          connectId: 'DEVICE_USB',
+          hasUpgrade: true,
+          hasUpgradeForce: false,
+          fromVersion: '4.21.0',
+          toVersion: '4.22.0',
+          firmwareType: 'firmware',
+        } as IFirmwareUpdateInfo,
+      },
+    };
+
+    await service.detectMap.updateDetectStatusAtom({
+      connectId: 'DEVICE_USB',
+    });
+
+    const updater = jest.mocked(firmwareUpdatesDetectStatusPersistAtom.set).mock
+      .calls[0][0] as (value: unknown) => Record<string, unknown>;
+    const updatedValue = updater({
+      DEVICE_USB: { connectId: 'DEVICE_USB', hasUpgrade: false },
+      OTHER_DEVICE: { connectId: 'OTHER_DEVICE', hasUpgrade: true },
+    });
+
+    expect(updatedValue).toMatchObject({
+      DEVICE_USB: {
+        connectId: 'DEVICE_USB',
+        hasUpgrade: true,
+        toVersion: '4.22.0',
+      },
+      OTHER_DEVICE: { connectId: 'OTHER_DEVICE', hasUpgrade: true },
+    });
+  });
+
+  it('removes a stale persisted update when firmware and BLE are current', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    await service.detectMap.resolveUpdateInfo({
+      connectId: 'DEVICE_USB',
+      firmware: {
+        hasUpgrade: false,
+      } as IFirmwareUpdateInfo,
+      ble: {
+        hasUpgrade: false,
+      } as IBleFirmwareUpdateInfo,
+    });
+
+    expect(
+      service.detectMap.getDetectStatus({
+        connectId: 'DEVICE_USB',
+      }),
+    ).toEqual({
+      requestedConnectId: 'DEVICE_USB',
+      resolved: true,
+      status: undefined,
+    });
+    const updater = jest.mocked(firmwareUpdatesDetectStatusPersistAtom.set).mock
+      .calls[0][0] as (value: unknown) => unknown;
+    expect(
+      updater({
+        DEVICE_USB: { connectId: 'DEVICE_USB', hasUpgrade: true },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps a Protocol V2 target-only update', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    await service.detectMap.resolveUpdateInfo({
+      connectId: 'PRO2_USB',
+      firmware: { hasUpgrade: false } as IFirmwareUpdateInfo,
+      ble: { hasUpgrade: false } as IBleFirmwareUpdateInfo,
+      targetsToUpdate: ['resource'],
+    });
+
+    expect(
+      service.detectMap.getDetectStatus({ connectId: 'PRO2_USB' }),
+    ).toEqual({
+      requestedConnectId: 'PRO2_USB',
+      resolved: true,
+      status: {
+        connectId: 'PRO2_USB',
+        hasUpgrade: true,
+        toVersion: undefined,
+        toFirmwareType: undefined,
+        toVersionBle: undefined,
+      },
+    });
+  });
+
+  it('keeps firmware and BLE component results for the same connectId', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceDevSetting: {
+          getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const firmware = {
+      connectId: 'DEVICE_USB',
+      hasUpgrade: true,
+      hasUpgradeForce: false,
+      fromVersion: '4.21.0',
+      toVersion: '4.23.0',
+      firmwareType: 'firmware',
+    } as IFirmwareUpdateInfo;
+    const ble = {
+      connectId: 'DEVICE_USB',
+      hasUpgrade: true,
+      hasUpgradeForce: false,
+      fromVersion: '2.3.7',
+      toVersion: '2.4.0',
+      firmwareType: 'ble',
+    } as IBleFirmwareUpdateInfo;
+
+    await service.detectMap.updateFirmwareUpdateInfo({
+      connectId: 'DEVICE_USB',
+      updateInfo: firmware,
+    });
+    await service.detectMap.updateBleFirmwareUpdateInfo({
+      connectId: 'DEVICE_USB',
+      updateInfo: ble,
+    });
+
+    expect(service.detectMap.detectMapCache.DEVICE_USB?.updateInfo).toEqual({
+      firmware,
+      ble,
+    });
+    expect(
+      service.detectMap.getDetectStatus({
+        connectId: 'DEVICE_USB',
+      }).status,
+    ).toMatchObject({
+      hasUpgrade: true,
+      toVersion: '4.23.0',
+      toVersionBle: '2.4.0',
+    });
+  });
+
+  it('preserves persisted status while a detect result is unresolved', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    service.detectMap.detectMapCache.DEVICE_USB = {
+      lastDetectAt: Date.now(),
+    };
+
+    await service.detectMap.updateDetectStatusAtom({
+      connectId: 'DEVICE_USB',
+    });
+
+    expect(firmwareUpdatesDetectStatusPersistAtom.set).not.toHaveBeenCalled();
+  });
+
+  it('returns snapshots for a batch of connectIds', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    service.detectMap.detectMapCache.DEVICE_USB = {
+      detectResultResolved: true,
+      updateInfo: undefined,
+    };
+
+    await expect(
+      service.getFirmwareUpdateDetectStatuses({
+        connectIds: ['DEVICE_USB', 'UNKNOWN_DEVICE'],
+      }),
+    ).resolves.toEqual({
+      DEVICE_USB: {
+        requestedConnectId: 'DEVICE_USB',
+        resolved: true,
+        status: undefined,
+      },
+      UNKNOWN_DEVICE: {
+        requestedConnectId: 'UNKNOWN_DEVICE',
+        resolved: false,
+        status: undefined,
+      },
+    });
+    expect(mockedLocalDb.getAllDevices.mock.calls).toHaveLength(0);
+    expect(mockedLocalDb.getDeviceByQuery.mock.calls).toHaveLength(2);
   });
 });
 
@@ -909,9 +2562,11 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     const withHardwareProcessing = jest
       .fn()
       .mockRejectedValue(new Error('hardware processing unavailable'));
+    const silenceForFirmwareWorkflow = jest.fn();
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: silenceForFirmwareWorkflow,
           withHardwareProcessing,
         },
       } as unknown as IBackgroundApi,
@@ -925,11 +2580,19 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
       } as never),
     ).rejects.toThrow('hardware processing unavailable');
 
+    expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
     expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenCalledWith(true);
-    expect(
-      jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mock
-        .invocationCallOrder[0],
-    ).toBeLessThan(withHardwareProcessing.mock.invocationCallOrder[0]);
+    const guardRaisedAt = jest.mocked(firmwareUpdateWorkflowRunningAtom.set)
+      .mock.invocationCallOrder[0];
+    expect(guardRaisedAt).toBeLessThan(
+      withHardwareProcessing.mock.invocationCallOrder[0],
+    );
+    // The stage is silenced only once the guard is up: an ask queued
+    // behind the silence must find the gate already closed, or it repaints
+    // the stage over the update page.
+    expect(guardRaisedAt).toBeLessThan(
+      silenceForFirmwareWorkflow.mock.invocationCallOrder[0],
+    );
     expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenLastCalledWith(
       false,
     );
@@ -946,6 +2609,7 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           withHardwareProcessing,
         },
         serviceHardware: {
@@ -975,6 +2639,155 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
     );
     expect(waitSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('resolves Desktop BLE to USB before locking the firmware transport', async () => {
+    const setForceTransportType = jest.fn().mockResolvedValue(undefined);
+    const clearForceTransportType = jest.fn().mockResolvedValue(undefined);
+    const resolveHardwareTransport = jest.fn().mockResolvedValue({
+      connectId: 'CLASSIC_USB_ID',
+      transportType: EHardwareTransportType.WEBUSB,
+    });
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+          withHardwareProcessing: jest.fn(
+            async (callback: () => Promise<void>) => callback(),
+          ),
+        },
+        serviceHardware: {
+          getCurrentTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.DesktopWebBle),
+          resolveHardwareTransport,
+          setForceTransportType,
+          clearForceTransportType,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateMnemonicBackuped')
+      .mockRejectedValue(new Error('stop after transport lock'));
+    const releaseResult = {
+      originalConnectId: 'CLASSIC_BLE_ID',
+      updatingConnectId: 'CLASSIC_BLE_ID',
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
+
+    await expect(
+      service.startUpdateWorkflow({
+        backuped: true,
+        usbConnected: true,
+        releaseResult,
+      }),
+    ).rejects.toThrow('stop after transport lock');
+
+    expect(resolveHardwareTransport).toHaveBeenCalledWith({
+      connectId: 'CLASSIC_BLE_ID',
+      features: releaseResult.features,
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+    });
+    expect(setForceTransportType).toHaveBeenCalledWith({
+      forceTransportType: EHardwareTransportType.WEBUSB,
+    });
+    expect(releaseResult.updatingConnectId).toBeUndefined();
+    expect(service.updateWorkflowTracking?.transportType).toBe(
+      EHardwareTransportType.WEBUSB,
+    );
+    expect(clearForceTransportType).toHaveBeenCalledTimes(1);
+  });
+
+  it('updates persisted version info after the device restarts', async () => {
+    jest.clearAllMocks();
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
+    jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(true);
+    const updateDeviceVersionAfterFirmwareUpdate = jest
+      .fn()
+      .mockResolvedValue(undefined);
+    const waitDeviceRestart = jest.fn().mockResolvedValue(undefined);
+    const withWorkflowArtifacts = jest.fn(
+      async (
+        _releaseResult: ICheckAllFirmwareReleaseResult,
+        execute: (artifacts: undefined) => Promise<void>,
+      ) => execute(undefined),
+    );
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+          withHardwareProcessing: jest.fn(
+            async (callback: () => Promise<void>) => callback(),
+          ),
+        },
+        serviceHardware: {
+          getCurrentTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          resolveHardwareTransport: jest.fn().mockResolvedValue({
+            connectId: 'CLASSIC_USB',
+            transportType: EHardwareTransportType.WEBUSB,
+          }),
+          setForceTransportType: jest.fn().mockResolvedValue(undefined),
+          clearForceTransportType: jest.fn().mockResolvedValue(undefined),
+          updateDeviceVersionAfterFirmwareUpdate,
+        },
+      } as unknown as IBackgroundApi,
+    });
+
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest
+      .spyOn(
+        service as unknown as {
+          getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+        },
+        'getFirmwareUpdateRuntimeHost',
+      )
+      .mockResolvedValue({ artifacts: { withWorkflowArtifacts } });
+    jest
+      .spyOn(service, 'validateMnemonicBackuped')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'validateUSBConnection').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateShouldUpdateFullResource')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateMinVersionAllowed')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'validateDeviceBattery').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'validateShouldUpdateBridge')
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'updateTasksClear').mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'waitDeviceRestart')
+      .mockImplementation(waitDeviceRestart);
+    jest
+      .spyOn(
+        service as unknown as {
+          deleteFirmwareUpdateDetectInfo: (connectId: string) => Promise<void>;
+        },
+        'deleteFirmwareUpdateDetectInfo',
+      )
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'clearOnceUpdateDevSettings')
+      .mockResolvedValue(undefined);
+
+    await service.startUpdateWorkflow({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        deviceType: EDeviceType.Classic,
+        originalConnectId: 'CLASSIC_USB',
+        updateInfos: {},
+      },
+    } as never);
+
+    expect(waitDeviceRestart.mock.invocationCallOrder[0]).toBeLessThan(
+      updateDeviceVersionAfterFirmwareUpdate.mock.invocationCallOrder[0],
+    );
+  });
 });
 
 describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
@@ -983,6 +2796,9 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
   });
 
   it('resolves Desktop BLE to USB before locking the firmware transport', async () => {
+    const startedSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateStarted')
+      .mockImplementation((params) => params);
     const setForceTransportType = jest.fn().mockResolvedValue(undefined);
     const clearForceTransportType = jest.fn().mockResolvedValue(undefined);
     const resolveHardwareTransport = jest.fn().mockResolvedValue({
@@ -992,6 +2808,7 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           withHardwareProcessing: jest.fn(
             async (callback: () => Promise<void>) => callback(),
           ),
@@ -1015,23 +2832,40 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
       updatingConnectId: 'PRO2_BLE_ID',
       updateInfos: {},
     } as ICheckAllFirmwareReleaseResult;
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult,
+    });
 
     await expect(
-      service.runUpdateWorkflowV2({
-        backuped: true,
-        usbConnected: true,
-        releaseResult,
-      }),
+      service.runUpdateWorkflowV2(
+        {
+          backuped: true,
+          usbConnected: true,
+          releaseResult,
+        },
+        workflowId,
+      ),
     ).rejects.toThrow('stop after transport lock');
 
     expect(resolveHardwareTransport).toHaveBeenCalledWith({
       connectId: 'PRO2_BLE_ID',
+      features: releaseResult.features,
       hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
     });
     expect(setForceTransportType).toHaveBeenCalledWith({
       forceTransportType: EHardwareTransportType.WEBUSB,
     });
     expect(releaseResult.updatingConnectId).toBeUndefined();
+    expect(startedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transportType: EHardwareTransportType.WEBUSB,
+        updateFlow: 'v2',
+      }),
+    );
+    expect(service.updateWorkflowTracking?.transportType).toBe(
+      EHardwareTransportType.WEBUSB,
+    );
     expect(clearForceTransportType).toHaveBeenCalledTimes(1);
   });
 });
@@ -1045,37 +2879,237 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     jest.restoreAllMocks();
   });
 
-  it('excludes time spent waiting for the user to retry', async () => {
-    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
+  it('does not write an error page after a V2 workflow has been exited', async () => {
     const service = new ServiceFirmwareUpdate({
-      backgroundApi: {} as IBackgroundApi,
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+        },
+        serviceSetting: {
+          getHardwareTransportType: jest
+            .fn()
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
+        },
+      } as unknown as IBackgroundApi,
     });
-
-    const workflowId = service.resetUpdateWorkflowTracking({
-      updateFlow: 'v1',
-      releaseResult: {} as ICheckAllFirmwareReleaseResult,
+    let rejectRun: ((error: Error) => void) | undefined;
+    jest.spyOn(service, 'runUpdateWorkflowV2').mockReturnValue(
+      new Promise<void>((_resolve, reject) => {
+        rejectRun = reject;
+      }),
+    );
+    await service.startUpdateWorkflowV2({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: { updateInfos: {} } as ICheckAllFirmwareReleaseResult,
     });
+    await service.exitUpdateWorkflow();
+    jest.mocked(firmwareUpdateStepInfoAtom.set).mockClear();
 
-    nowSpy.mockReturnValue(1600);
-    service.pauseUpdateWorkflowTracking(workflowId);
+    rejectRun?.(new Error('FirmwareUpdateTasksClear: exitUpdateWorkflow'));
+    await new Promise<void>((resolve) => setImmediate(resolve));
 
-    nowSpy.mockReturnValue(10_000);
-    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
-      retryCount: 0,
-      durationMs: 600,
-    });
-
-    service.resumeUpdateWorkflowTracking(workflowId);
-    nowSpy.mockReturnValue(10_300);
-    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
-      retryCount: 0,
-      durationMs: 900,
-    });
+    expect(firmwareUpdateStepInfoAtom.set).not.toHaveBeenCalled();
   });
 
-  it('tracks failed and successful attempts with one sequence', async () => {
-    const attemptResultSpy = jest
-      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
+  it.each(['success', 'failure'] as const)(
+    'ignores an older V2 workflow settling with %s after a newer workflow starts',
+    async (outcome) => {
+      const service = new ServiceFirmwareUpdate({
+        backgroundApi: {
+          serviceHardwareUI: {
+            silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+          },
+        } as unknown as IBackgroundApi,
+      });
+      let resolveRun: (() => void) | undefined;
+      let rejectRun: ((error: Error) => void) | undefined;
+      jest.spyOn(service, 'runUpdateWorkflowV2').mockReturnValue(
+        new Promise<void>((resolve, reject) => {
+          resolveRun = resolve;
+          rejectRun = reject;
+        }),
+      );
+      const complete = jest
+        .spyOn(service, 'completeUpdateWorkflow')
+        .mockResolvedValue(undefined);
+      const fail = jest
+        .spyOn(service, 'failUpdateWorkflow')
+        .mockResolvedValue(undefined);
+      const releaseResult = {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult;
+      await service.startUpdateWorkflowV2({
+        backuped: true,
+        usbConnected: true,
+        releaseResult,
+      });
+      service.resetUpdateWorkflowTracking({ updateFlow: 'v2', releaseResult });
+
+      if (outcome === 'success') {
+        resolveRun?.();
+      } else {
+        rejectRun?.(new Error('late failure'));
+      }
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(complete).not.toHaveBeenCalled();
+      expect(fail).not.toHaveBeenCalled();
+    },
+  );
+
+  it('clears stale transfer samples before starting a V2 workflow', async () => {
+    const silenceForFirmwareWorkflow = jest.fn();
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: silenceForFirmwareWorkflow,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'runUpdateWorkflowV2')
+      .mockReturnValue(new Promise(() => undefined));
+
+    await service.startUpdateWorkflowV2({
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+
+    expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
+    // Guard first, then silence — same order as the v1 start and the retry.
+    expect(
+      jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(silenceForFirmwareWorkflow.mock.invocationCallOrder[0]);
+  });
+
+  it('does not clear a newer workflow guard when the older V2 run finishes', async () => {
+    let rejectProcessing: ((error: Error) => void) | undefined;
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            () =>
+              new Promise<void>((_resolve, reject) => {
+                rejectProcessing = reject;
+              }),
+          ),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const releaseResult = { updateInfos: {} } as ICheckAllFirmwareReleaseResult;
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult,
+    });
+    const run = service.runUpdateWorkflowV2(
+      { backuped: true, usbConnected: true, releaseResult },
+      workflowId,
+    );
+    service.resetUpdateWorkflowTracking({ updateFlow: 'v2', releaseResult });
+    jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mockClear();
+
+    rejectProcessing?.(new Error('older workflow cancelled'));
+    await expect(run).rejects.toThrow('older workflow cancelled');
+
+    expect(firmwareUpdateWorkflowRunningAtom.set).not.toHaveBeenCalledWith(
+      false,
+    );
+  });
+
+  it('drops the guard again when silencing the stage fails before a V2 workflow starts', async () => {
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest
+            .fn()
+            .mockRejectedValue(new Error('stage bridge not ready')),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const run = jest.spyOn(service, 'runUpdateWorkflowV2');
+
+    await expect(
+      service.startUpdateWorkflowV2({
+        backuped: true,
+        usbConnected: true,
+        releaseResult: {
+          updateInfos: {},
+        } as ICheckAllFirmwareReleaseResult,
+      }),
+    ).rejects.toThrow('stage bridge not ready');
+
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenLastCalledWith(
+      false,
+    );
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('leaves the guard up for a newer start when an older start fails to silence the stage', async () => {
+    // Two starts overlap: the older one is still parked on its silence
+    // when the newer one takes the workflow over and raises the shared
+    // guard. The older failure must not drop that guard — hardware prompts
+    // would cover the newer update page.
+    let rejectOlderSilence: ((error: Error) => void) | undefined;
+    const silenceForFirmwareWorkflow = jest
+      .fn<Promise<void>, []>()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectOlderSilence = reject;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: silenceForFirmwareWorkflow,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'runUpdateWorkflowV2')
+      .mockReturnValue(new Promise(() => undefined));
+    const params = {
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    };
+
+    // Lets the older start run up to its parked silence: a few microtask
+    // turns, one per await between the guard and the silence.
+    const untilParkedOnSilence = async (turns: number): Promise<void> => {
+      if (rejectOlderSilence || turns === 0) {
+        return;
+      }
+      await Promise.resolve();
+      await untilParkedOnSilence(turns - 1);
+    };
+
+    const older = service.startUpdateWorkflowV2(params);
+    await untilParkedOnSilence(20);
+    expect(rejectOlderSilence).toBeDefined();
+
+    await service.startUpdateWorkflowV2(params);
+    jest.mocked(firmwareUpdateWorkflowRunningAtom.set).mockClear();
+
+    rejectOlderSilence?.(new Error('stage bridge not ready'));
+    await expect(older).rejects.toThrow('stage bridge not ready');
+
+    expect(firmwareUpdateWorkflowRunningAtom.set).not.toHaveBeenCalledWith(
+      false,
+    );
+  });
+
+  it('does not report a workflow that only ends in cancellation', async () => {
+    const resultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateResult')
       .mockImplementation((params) => params);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
@@ -1086,106 +3120,113 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
         },
       } as unknown as IBackgroundApi,
     });
-
+    const releaseResult = {
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
     const workflowId = service.resetUpdateWorkflowTracking({
-      updateFlow: 'v1',
-      releaseResult: {
-        updateInfos: {},
-      } as ICheckAllFirmwareReleaseResult,
+      updateFlow: 'v2',
+      releaseResult,
     });
-
-    await service.trackUpdateTaskAttemptResult({
+    service.recordUpdateWorkflowTransportType(
       workflowId,
-      status: 'failed',
-      error: new Error('first failure'),
-    });
-    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
-      expect.objectContaining({ retryCount: 0 }),
+      EHardwareTransportType.WEBUSB,
     );
 
-    service.recordUpdateWorkflowRetry(workflowId);
-    await service.trackUpdateTaskAttemptResult({
-      workflowId,
-      status: 'failed',
-      error: new Error('second failure'),
-    });
-    service.recordUpdateWorkflowRetry(workflowId);
-    await service.trackUpdateTaskAttemptResult({
-      workflowId,
-      status: 'success',
+    await service.failUpdateWorkflow({
+      params: {
+        backuped: true,
+        usbConnected: false,
+        releaseResult,
+      },
+      error: new Error('ARTIFACT_CANCELLED'),
     });
 
-    expect(attemptResultSpy).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ attempt: 1, status: 'failed' }),
-    );
-    expect(attemptResultSpy).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ attempt: 2, status: 'failed' }),
-    );
-    expect(attemptResultSpy).toHaveBeenNthCalledWith(
-      3,
-      expect.objectContaining({ attempt: 3, status: 'success' }),
-    );
-    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
-      expect.objectContaining({ retryCount: 2 }),
-    );
+    expect(resultSpy).not.toHaveBeenCalled();
   });
 
-  it('keeps attempt numbers stable when analytics resolves out of order', async () => {
-    let resolveFirstTransport!: (value: EHardwareTransportType) => void;
-    const firstTransport = new Promise<EHardwareTransportType>((resolve) => {
-      resolveFirstTransport = resolve;
-    });
-    const attemptResultSpy = jest
-      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
+  it('reports the last real failure when the user exits from retry', async () => {
+    const resultSpy = jest
+      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateResult')
       .mockImplementation((params) => params);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceSetting: {
           getHardwareTransportType: jest
             .fn()
-            .mockReturnValueOnce(firstTransport)
-            .mockResolvedValueOnce(EHardwareTransportType.BLE),
+            .mockResolvedValue(EHardwareTransportType.WEBUSB),
         },
       } as unknown as IBackgroundApi,
     });
+    const releaseResult = {
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult;
     const workflowId = service.resetUpdateWorkflowTracking({
-      updateFlow: 'v1',
-      releaseResult: {
-        updateInfos: {},
-      } as ICheckAllFirmwareReleaseResult,
+      updateFlow: 'v2',
+      releaseResult,
+    });
+    service.recordUpdateWorkflowFailure(
+      workflowId,
+      Object.assign(new Error('transfer failed'), {
+        code: HardwareErrorCode.EmmcFileWriteFirmwareError,
+      }),
+    );
+
+    await service.failUpdateWorkflow({
+      params: {
+        backuped: true,
+        usbConnected: false,
+        releaseResult,
+      },
+      error: new Error('ARTIFACT_CANCELLED'),
     });
 
-    const firstAttempt = service.trackUpdateTaskAttemptResult({
-      workflowId,
-      status: 'failed',
-      error: new Error('first failure'),
-    });
-    const secondAttempt = service.trackUpdateTaskAttemptResult({
-      workflowId,
-      status: 'success',
-    });
-    await secondAttempt;
-    resolveFirstTransport(EHardwareTransportType.BLE);
-    await firstAttempt;
+    expect(resultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'failed',
+        failureType: 'transfer',
+        errorCode: String(HardwareErrorCode.EmmcFileWriteFirmwareError),
+      }),
+    );
+  });
 
-    expect(attemptResultSpy).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ attempt: 2, status: 'success' }),
-    );
-    expect(attemptResultSpy).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ attempt: 1, status: 'failed' }),
-    );
+  it('reports distinct transfer and total workflow durations', async () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    jest.mocked(hardwareUiStateAtom.get).mockResolvedValue({
+      payload: {
+        firmwareTransferMetrics: {
+          transferredBytes: 2_440_562,
+          totalBytes: 2_440_562,
+          rateBytesPerSecond: 16_760,
+          elapsedMs: 145_620,
+        },
+      },
+    } as never);
+    jest.mocked(hardwareUiStateCompletedAtom.get).mockResolvedValue(undefined);
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    service.resetUpdateWorkflowTracking({
+      updateFlow: 'v2',
+      releaseResult: {} as ICheckAllFirmwareReleaseResult,
+    });
+    nowSpy.mockReturnValue(212_960);
+
+    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual({
+      retryCount: 0,
+      totalDurationMs: 211_960,
+      transferredBytes: 2_440_562,
+      totalBytes: 2_440_562,
+      averageTransferRateBytesPerSecond: 16_760,
+      transferDurationMs: 145_620,
+      lastFailureType: undefined,
+      lastErrorCode: undefined,
+    });
   });
 
   it('ignores a late task failure after a new workflow starts', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(true);
     jest.mocked(firmwareUpdateRetryAtom.get).mockResolvedValue(undefined);
-    const attemptResultSpy = jest
-      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
-      .mockImplementation((params) => params);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
@@ -1211,17 +3252,16 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
 
     await service.runUpdateTask({ id: 1 });
 
-    expect(attemptResultSpy).not.toHaveBeenCalled();
     expect(firmwareUpdateRetryAtom.set).toHaveBeenCalledTimes(1);
     expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
-      expect.objectContaining({ retryCount: 0 }),
+      expect.objectContaining({
+        retryCount: 0,
+        lastFailureType: undefined,
+      }),
     );
   });
 
   it('ignores task results after the user exits the workflow', async () => {
-    const attemptResultSpy = jest
-      .spyOn(defaultLogger.update.firmware, 'firmwareUpdateAttemptResult')
-      .mockImplementation((params) => params);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {} as IBackgroundApi,
     });
@@ -1233,21 +3273,28 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     });
 
     await service.exitUpdateWorkflow();
-    await service.trackUpdateTaskAttemptResult({
-      workflowId,
-      status: 'failed',
-      error: new Error('late hardware cancellation'),
-    });
+    expect(
+      service.recordUpdateWorkflowFailure(
+        workflowId,
+        new Error('late hardware cancellation'),
+      ),
+    ).toBe(false);
 
-    expect(attemptResultSpy).not.toHaveBeenCalled();
     expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
-      expect.objectContaining({ retryCount: 0 }),
+      expect.objectContaining({
+        retryCount: 0,
+        lastFailureType: undefined,
+      }),
     );
   });
 
   it('increments retryCount only when retryUpdateTask starts', async () => {
     const service = new ServiceFirmwareUpdate({
-      backgroundApi: {} as IBackgroundApi,
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
+        },
+      } as unknown as IBackgroundApi,
     });
     const workflowId = service.resetUpdateWorkflowTracking({
       updateFlow: 'v1',
@@ -1278,18 +3325,60 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     expect(hardwareUiStateCompletedAtom.set).toHaveBeenCalledWith(undefined);
   });
 
-  it('does not wait for attempt analytics before exposing retry state', async () => {
+  it('drops the guard again when silencing the stage fails during a retry', async () => {
+    // The guard also blocks automatic wallet locking. A retry whose
+    // silence rejects (the stage bridge not ready) used to leave it up for
+    // the rest of the session; the run never reached anything that would
+    // drop it.
+    const service = new ServiceFirmwareUpdate({
+      backgroundApi: {
+        serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest
+            .fn()
+            .mockRejectedValue(new Error('stage bridge not ready')),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const workflowId = service.resetUpdateWorkflowTracking({
+      updateFlow: 'v1',
+      releaseResult: {
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    });
+    service.updateTasks[1] = {
+      workflowId,
+      fn: jest.fn(),
+    };
+    const waitDeviceRestart = jest
+      .spyOn(service, 'waitDeviceRestart')
+      .mockResolvedValue(undefined);
+    const runUpdateTask = jest
+      .spyOn(service, 'runUpdateTask')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      service.retryUpdateTask({
+        id: 1,
+        connectId: undefined,
+        releaseResult: undefined,
+      }),
+    ).rejects.toThrow('stage bridge not ready');
+
+    expect(firmwareUpdateWorkflowRunningAtom.set).toHaveBeenLastCalledWith(
+      false,
+    );
+    expect(waitDeviceRestart).not.toHaveBeenCalled();
+    expect(runUpdateTask).not.toHaveBeenCalled();
+  });
+
+  it('records a task failure before exposing retry state', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(true);
     jest.mocked(firmwareUpdateRetryAtom.get).mockResolvedValue(undefined);
     const service = new ServiceFirmwareUpdate({
       backgroundApi: {
         serviceHardwareUI: {
+          silenceDeviceStageForFirmwareWorkflow: jest.fn(),
           closeHardwareUiStateDialog: jest.fn(),
-        },
-        serviceSetting: {
-          getHardwareTransportType: jest.fn(
-            () => new Promise<EHardwareTransportType>(() => undefined),
-          ),
         },
       } as unknown as IBackgroundApi,
     });
@@ -1312,6 +3401,9 @@ describe('ServiceFirmwareUpdate workflow tracking', () => {
     });
     expect(firmwareUpdateRetryAtom.set).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1 }),
+    );
+    expect(await service.getUpdateWorkflowTrackingInfo()).toEqual(
+      expect.objectContaining({ lastFailureType: 'unknown' }),
     );
   });
 });

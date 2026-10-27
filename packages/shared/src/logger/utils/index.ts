@@ -44,19 +44,23 @@ const consoleFunc = (msg: string) => {
 
 /** Flush any pending repeat summary to ServiceLogger before log export. */
 const flushPendingRepeat = async () => {
-  if (repeatCount > 0) {
-    await appGlobals?.$backgroundApiProxy?.serviceLogger.addMsg(
-      `[${repeatCount} repeat]\r\n`,
-    );
-    repeatCount = 0;
-  }
+  const count = repeatCount;
+  repeatCount = 0;
   prevMsg = undefined;
+  if (count > 0) {
+    await appGlobals?.$backgroundApiProxy?.serviceLogger.addMsg(
+      `[${count} repeat]\r\n`,
+    );
+  }
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getLogFilePath = async (filename: string) => {
   throw new OneKeyLocalError('Not implemented');
 };
+
+const removeLogFilePath = async () => {};
+const cleanupLogArchives = async (_createdBefore: number) => {};
 
 const getDeviceInfo = () =>
   [
@@ -71,6 +75,8 @@ const getDeviceInfo = () =>
 const utils: IUtilsType = {
   getDeviceInfo,
   getLogFilePath,
+  removeLogFilePath,
+  cleanupLogArchives,
   consoleFunc,
   flushPendingRepeat,
 };

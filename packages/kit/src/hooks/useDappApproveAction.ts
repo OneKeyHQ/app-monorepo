@@ -152,7 +152,22 @@ function useDappApproveAction({
   );
 
   const resolve = useCallback(
-    async ({ close, result }: { close?: () => void; result?: any } = {}) => {
+    async ({
+      close,
+      result,
+      awaitAck,
+    }: {
+      close?: () => void;
+      result?: any;
+      // Await the resolveCallback RPC ack on the non-standalone-window
+      // branch too (mobile / desktop / ext side panel), so a failed UI→bg
+      // bridge call rejects this resolve() instead of being fire-and-forgot
+      // — callers that keep retryable state alive on delivery failure
+      // (BatchTxConfirm's Done) depend on that rejection. Default stays
+      // fire-and-forget: existing flows close their page synchronously and
+      // must not pick up a new await in their close path.
+      awaitAck?: boolean;
+    } = {}) => {
       if (!id) return;
       if (
         isExtStandaloneWindow &&
@@ -194,10 +209,17 @@ function useDappApproveAction({
           if (isExtStandaloneWindow) {
             isHandledRef.current = true;
           }
-          void backgroundApiProxy.servicePromise.resolveCallback({
+          const ackPromise = backgroundApiProxy.servicePromise.resolveCallback({
             id,
             data,
           });
+          if (awaitAck) {
+            // A rejected ack throws past close?.() into the catch below —
+            // the page must stay open when the callback never reached bg.
+            await ackPromise;
+          } else {
+            void ackPromise;
+          }
           close?.();
         }
       } catch (error) {
@@ -213,6 +235,47 @@ function useDappApproveAction({
       }
     },
     [getResolveData, id, isExtStandaloneWindow, closeWindowAfterResolved],
+  );
+
+  const resolveByBackground = useCallback(
+    async ({
+      close,
+      resolveInBackground,
+    }: {
+      close?: () => void;
+      resolveInBackground: (id: number | string) => Promise<boolean>;
+    }) => {
+      if (
+        !id ||
+        isHandledRef.current ||
+        isResolvingRef.current ||
+        isForceRejectedRef.current
+      ) {
+        return false;
+      }
+      isResolvingRef.current = true;
+      try {
+        setRejectError(null);
+        const resolved = await resolveInBackground(id);
+        if (!resolved) {
+          return false;
+        }
+        if (isExtStandaloneWindow) {
+          coverExtStandaloneWindowUntilClose();
+          isHandledRef.current = true;
+          window.close();
+        } else {
+          close?.();
+        }
+        return true;
+      } catch (error) {
+        setRejectError(error as Error);
+        throw error;
+      } finally {
+        isResolvingRef.current = false;
+      }
+    },
+    [id, isExtStandaloneWindow],
   );
 
   useEffect(() => {
@@ -249,6 +312,7 @@ function useDappApproveAction({
   return {
     reject,
     resolve,
+    resolveByBackground,
   };
 }
 

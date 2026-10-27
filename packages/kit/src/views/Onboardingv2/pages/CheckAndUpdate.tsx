@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { PropsWithChildren } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import pRetry, { AbortError } from 'p-retry';
@@ -28,6 +29,7 @@ import {
   useInPageDialog,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { useDeviceStageBurst } from '@onekeyhq/kit/src/hooks/useDeviceStageBurst';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -85,12 +87,13 @@ const STEP_STATE_TONE: Partial<
   [ECheckAndUpdateStepState.Error]: 'critical',
 };
 
-// Watchdog budgets. Post-update rounds must outlast the reconnect loop in
+// Keep normal checks within 60s, including the 45s manifest fetch budget.
+// Post-update rounds must outlast the reconnect loop in
 // retryDeviceConnectionAfterUpdate (pRetry delays alone sum to ~63s — a
 // rebooting device after a firmware flash is expected to be away that long),
 // otherwise the watchdog would retire a round that is working as designed.
-const STEP_TIMEOUT_MS = 30 * 1000;
-const POST_UPDATE_STEP_TIMEOUT_MS = 90 * 1000;
+const STEP_TIMEOUT_MS = 60 * 1000;
+const POST_UPDATE_STEP_TIMEOUT_MS = 120 * 1000;
 
 const BootloaderDialogHostBridge = forwardRef<IBootloaderModeDialogHost>(
   function BootloaderDialogHostBridge(_props, ref) {
@@ -100,6 +103,48 @@ const BootloaderDialogHostBridge = forwardRef<IBootloaderModeDialogHost>(
   },
 );
 
+/**
+ * A step's status line with its buttons. Wrap layout: the status keeps its
+ * natural width, and when the buttons no longer fit beside it they drop to
+ * their own line, right-aligned. `flex={1}` (basis 0) left long
+ * translations a few characters per line (OK-63522).
+ */
+function StepActionRow({
+  color,
+  message,
+  children,
+}: PropsWithChildren<{
+  color: '$textInfo' | '$textCritical';
+  message: string;
+}>) {
+  return (
+    <XStack
+      gap="$2"
+      rowGap="$3"
+      flexWrap="wrap"
+      mt="$4"
+      pt="$4"
+      borderWidth={0}
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor="$borderSubdued"
+      alignItems="center"
+    >
+      <SizableText
+        size="$bodyMdMedium"
+        color={color}
+        flexGrow={1}
+        flexShrink={1}
+        textAlign="left"
+      >
+        {message}
+      </SizableText>
+      <XStack gap="$2" flexGrow={1} justifyContent="flex-end">
+        {children}
+      </XStack>
+    </XStack>
+  );
+}
+
 function CheckAndUpdatePage({
   route: routeParams,
 }: IPageScreenProps<
@@ -107,26 +152,30 @@ function CheckAndUpdatePage({
   EOnboardingPagesV2.CheckAndUpdate
 >) {
   const intl = useIntl();
+  const { ensureBurst, endBurst } = useDeviceStageBurst();
   const { connectProtocol, deviceData, tabValue } = routeParams?.params || {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
   const deviceFeaturesRef = useRef<Features | undefined>(undefined);
   const hasUpgradeForceRef = useRef(false);
+  // Sized by the firmware step's release check; read when "Update now" is
+  // tapped, so the state updates that drive the steps are not re-run for it.
+  const estimatedTransferBytesRef = useRef<number | undefined>(undefined);
   // Generation counter for checkFirmwareUpdate: each call claims a new id, so
   // a previous round that out-lived its watchdog (hung transport call) cannot
   // write its late result, error, or timeout over the state a newer retry
   // round owns — step state alone can't tell two rounds apart.
   const firmwareCheckRunIdRef = useRef(0);
   // One-shot timestamp for the focus-effect recheck after firmware runtime state
-  // changes. Clear it when the timer fires or the user explicitly skips; it only
+  // may change. Clear it when the timer fires or the user explicitly skips; it only
   // drives scheduling and delay calculations.
   const [firmwareRuntimeChangeTime, setFirmwareRuntimeChangeTime] = useState<
     number | null
   >(null);
   const firmwareRecheckCancelRef = useRef<(() => void) | null>(null);
   // Track "the device may still be rebooting" separately. Set it when an update
-  // succeeds, and clear it only after a check completes successfully.
+  // starts, and clear it only after a check completes successfully.
   // While set, every check, including manual retries, uses the patient reconnect path.
   const pendingPostUpdateReconnectRef = useRef(false);
   const bootloaderDialogHostRef = useRef<IBootloaderModeDialogHost>(null);
@@ -291,10 +340,18 @@ function CheckAndUpdatePage({
     // Original transport is stored in singleton, will be restored in useFocusEffect
     await actions.openChangeLogModal({
       connectId: usbPrepareResult.connectId,
+      // The firmware step has already found and sized the update, so the
+      // desktop USB suggestion comes before the changelog's own device
+      // check. The page host keeps the dark theme.
+      knownUpdate: {
+        deviceType: currentDevice?.deviceType,
+        estimatedTransferBytes: estimatedTransferBytesRef.current,
+      },
+      dialogHost: getBootloaderDialogHost(),
     });
-  }, [actions, currentDevice, prepareUSBConnect]);
+  }, [actions, currentDevice, prepareUSBConnect, getBootloaderDialogHost]);
 
-  // 30s watchdog for checkFirmwareUpdate. It targets the firmware step
+  // Watchdog for checkFirmwareUpdate. It targets the firmware step
   // explicitly — matching "whichever step is InProgress" could stamp the
   // genuine row when both steps are momentarily in progress. On firing it
   // retires the hung round BEFORE surfacing Retry, so that round's late
@@ -318,6 +375,12 @@ function CheckAndUpdatePage({
         if (connectId) {
           void backgroundApiProxy.serviceHardware.cancel({ connectId });
         }
+        // The hung call may never reach its own finally, so release the hold
+        // here — the staleness check above already proved this watchdog owns
+        // the live round. No error is passed: the row below is a Retry
+        // invitation, and end({ error }) would stack a second failure notice
+        // on the stage on top of it.
+        void endBurst();
         setSteps((prev) => {
           if (prev[1].state !== ECheckAndUpdateStepState.InProgress) {
             return prev;
@@ -335,7 +398,7 @@ function CheckAndUpdatePage({
       }, timeoutMs);
       return () => clearTimeout(timeout);
     },
-    [intl],
+    [endBurst, intl],
   );
 
   // Firmware check is done — hand off to the dedicated DeviceSetup page, which
@@ -347,7 +410,8 @@ function CheckAndUpdatePage({
     const activeDevice = (getActiveDevice() ??
       currentDevice ??
       deviceData.device) as SearchDevice;
-    const activeFeaturesProtocol = getActiveDeviceFeatures()?.protocol;
+    const activeFeatures = getActiveDeviceFeatures();
+    const activeFeaturesProtocol = activeFeatures?.protocol;
     const confirmedConnectProtocol =
       activeFeaturesProtocol === 'V1' || activeFeaturesProtocol === 'V2'
         ? activeFeaturesProtocol
@@ -363,6 +427,8 @@ function CheckAndUpdatePage({
       },
       tabValue,
       isFirmwareVerified: isFirmwareVerifiedRef.current,
+      connectedSerialNo:
+        deviceUtils.getDeviceSerialNoFromFeatures(activeFeatures),
     });
   }, [
     connectProtocol,
@@ -396,10 +462,13 @@ function CheckAndUpdatePage({
             const result = await rebindDeviceAfterFirmwareUpdate(
               previousDevice,
               onConnectId,
+              // Give rebooting devices the full patient window before offering
+              // recovery for an interrupted update that left bootloader running.
+              { allowBootloaderRecovery: attemptCount === 11 },
             );
 
             console.log('Device connection successful after firmware update');
-            return result.device;
+            return result;
           },
           {
             retries: 10,
@@ -504,13 +573,34 @@ function CheckAndUpdatePage({
         watchdogConnectId = baseDevice.connectId ?? undefined;
         let latestDevice: SearchDevice;
         if (checkAfterUpdate) {
-          latestDevice = await retryDeviceConnectionAfterUpdate(
+          const result = await retryDeviceConnectionAfterUpdate(
             baseDevice as SearchDevice,
             isStale,
             (connectId) => {
               watchdogConnectId = connectId;
             },
           );
+          if (isStale()) {
+            return;
+          }
+          latestDevice = result.device;
+          if (result.features.bootloader_mode) {
+            deviceFeaturesRef.current = result.features;
+            hasUpgradeForceRef.current = true;
+            estimatedTransferBytesRef.current = undefined;
+            // Keep the pending reconnect armed for the next update/Retry. A
+            // bootloader is recoverable, but cannot pass the application check.
+            setSteps((prev) => {
+              const newSteps = [...prev];
+              newSteps[1] = {
+                ...newSteps[1],
+                state: ECheckAndUpdateStepState.Warning,
+                errorMessage: undefined,
+              };
+              return newSteps;
+            });
+            return;
+          }
         } else {
           await ensureActiveConnection(baseDevice as SearchDevice);
           latestDevice = (getActiveDevice() ?? baseDevice) as SearchDevice;
@@ -555,6 +645,7 @@ function CheckAndUpdatePage({
             r.updateInfos?.firmware?.hasUpgradeForce ||
             r.updateInfos?.ble?.hasUpgradeForce ||
             false;
+          estimatedTransferBytesRef.current = r.estimatedTransferBytes;
           // Only the firmware step is written here — the genuine step's
           // terminal state (Success or Skipped) belongs to handleVerifyHardware
           // and must survive the firmware result.
@@ -606,10 +697,18 @@ function CheckAndUpdatePage({
         });
       } finally {
         cancelTimeout();
+        // The last hardware word of this page's run — but only while this
+        // round is still the live one. The holder keeps a single token ref,
+        // so a superseded round settling late would otherwise close the hold
+        // its successor (or the watchdog that retired it) now owns.
+        if (!isStale()) {
+          void endBurst();
+        }
       }
     },
     [
       createStepTimeout,
+      endBurst,
       ensureTransportType,
       getActiveDevice,
       currentDevice,
@@ -622,20 +721,29 @@ function CheckAndUpdatePage({
 
   const FIRMWARE_RECHECK_DELAY = 10_000; // 10 seconds
 
-  // Refresh the live runtime state after an update succeeds.
+  // A failed or cancelled update can still change the device's firmware.
+  // Arm the return-time recheck when it starts, even if no success event follows.
   useEffect(() => {
     const handleFirmwareRuntimeChanged = () => {
-      console.log('Firmware update runtime changed, recording timestamp...');
+      console.log('Firmware update attempt recorded for recheck...');
       setFirmwareRuntimeChangeTime(Date.now());
       pendingPostUpdateReconnectRef.current = true;
     };
 
+    appEventBus.on(
+      EAppEventBusNames.BeginFirmwareUpdate,
+      handleFirmwareRuntimeChanged,
+    );
     appEventBus.on(
       EAppEventBusNames.FinishFirmwareUpdate,
       handleFirmwareRuntimeChanged,
     );
 
     return () => {
+      appEventBus.off(
+        EAppEventBusNames.BeginFirmwareUpdate,
+        handleFirmwareRuntimeChanged,
+      );
       appEventBus.off(
         EAppEventBusNames.FinishFirmwareUpdate,
         handleFirmwareRuntimeChanged,
@@ -735,6 +843,18 @@ function CheckAndUpdatePage({
       // Double-check: ensure device scanning is fully stopped before starting verification
       await ensureStopScan();
       await ensureTransportType();
+      // One stage for the whole check: the genuine run and the firmware
+      // check that follows are one conversation with the device, and the
+      // seam between them must not show.
+      const burstDevice = (getActiveDevice() ??
+        currentDevice ??
+        deviceData.device) as SearchDevice | undefined;
+      await ensureBurst({
+        connectId: burstDevice?.connectId ?? undefined,
+        deviceType: burstDevice?.deviceType,
+        deviceName: burstDevice?.name ?? undefined,
+        deviceColor: deviceUtils.getDeviceColorFromSearchDevice(burstDevice),
+      });
 
       setSteps((prev) => {
         const newSteps = [...prev];
@@ -799,9 +919,15 @@ function CheckAndUpdatePage({
           setTimeout(() => {
             void checkFirmwareUpdate();
           }, 150);
+        } else {
+          // Nothing follows — the conversation is over, so the stage may go.
+          void endBurst();
         }
         isFirmwareVerifiedRef.current = !!result.verified;
       } catch (_error) {
+        // The run is over with no follow-up: release the hold, or the
+        // stage stands there forever after a cancelled check.
+        void endBurst();
         setSteps((prev) => {
           const newSteps = [...prev];
           newSteps[0] = {
@@ -815,6 +941,8 @@ function CheckAndUpdatePage({
     [
       ensureStopScan,
       ensureTransportType,
+      ensureBurst,
+      endBurst,
       verifyHardware,
       deviceData.device,
       tabValue,
@@ -1065,7 +1193,7 @@ function CheckAndUpdatePage({
               !isStepCollapsed &&
               step.state !== ECheckAndUpdateStepState.Idle ? (
                 <YStack
-                  animation="quick"
+                  transition="quick"
                   animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
                   enterStyle={{
                     opacity: 0,
@@ -1154,93 +1282,65 @@ function CheckAndUpdatePage({
               {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
               step.state === ECheckAndUpdateStepState.Warning &&
               !isFirmwareRecheckPending ? (
-                <XStack
-                  gap="$2"
-                  mt="$4"
-                  pt="$4"
-                  borderWidth={0}
-                  borderTopWidth={StyleSheet.hairlineWidth}
-                  borderTopColor="$borderSubdued"
-                  alignItems="center"
+                <StepActionRow
+                  color="$textInfo"
+                  message={intl.formatMessage({
+                    id: ETranslations.hardware_status_update_available,
+                  })}
                 >
-                  <SizableText
-                    size="$bodyMdMedium"
-                    color="$textInfo"
-                    flex={1}
-                    textAlign="left"
+                  <Button
+                    testID={OnboardingTestIDs.checkAndUpdateUpdateBtn}
+                    variant="primary"
+                    onPress={toFirmwareUpgradePage}
                   >
                     {intl.formatMessage({
-                      id: ETranslations.hardware_status_update_available,
+                      id: ETranslations.update_update_now,
                     })}
-                  </SizableText>
-                  <XStack gap="$2">
+                  </Button>
+                  {!hasUpgradeForceRef.current ? (
                     <Button
-                      testID={OnboardingTestIDs.checkAndUpdateUpdateBtn}
-                      variant="primary"
-                      onPress={toFirmwareUpgradePage}
+                      testID={OnboardingTestIDs.checkAndUpdateSkipUpdateBtn}
+                      onPress={handleSkipUpdate}
                     >
                       {intl.formatMessage({
-                        id: ETranslations.update_update_now,
+                        id: ETranslations.global_skip,
                       })}
                     </Button>
-                    {!hasUpgradeForceRef.current ? (
-                      <Button
-                        testID={OnboardingTestIDs.checkAndUpdateSkipUpdateBtn}
-                        onPress={handleSkipUpdate}
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_skip,
-                        })}
-                      </Button>
-                    ) : null}
-                  </XStack>
-                </XStack>
+                  ) : null}
+                </StepActionRow>
               ) : null}
               {/* fallback */}
               {step.state === ECheckAndUpdateStepState.Error ? (
-                <XStack
-                  gap="$2"
-                  mt="$4"
-                  pt="$4"
-                  borderWidth={0}
-                  borderTopWidth={StyleSheet.hairlineWidth}
-                  borderTopColor="$borderSubdued"
-                  alignItems="center"
+                <StepActionRow
+                  color="$textCritical"
+                  message={
+                    step.errorMessage ??
+                    intl.formatMessage({
+                      id: ETranslations.genuine_check_interrupt,
+                    })
+                  }
                 >
-                  <SizableText
-                    size="$bodyMdMedium"
-                    color="$textCritical"
-                    flex={1}
-                    textAlign="left"
+                  <Button
+                    testID={OnboardingTestIDs.checkAndUpdateRetryBtn}
+                    variant="primary"
+                    onPress={handleRetry}
+                    disabled={isAnyStepInProgress}
                   >
-                    {step.errorMessage ??
-                      intl.formatMessage({
-                        id: ETranslations.genuine_check_interrupt,
-                      })}
-                  </SizableText>
-                  <XStack gap="$2">
+                    {intl.formatMessage({
+                      id: ETranslations.global_retry,
+                    })}
+                  </Button>
+                  {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
                     <Button
-                      testID={OnboardingTestIDs.checkAndUpdateRetryBtn}
-                      variant="primary"
-                      onPress={handleRetry}
-                      disabled={isAnyStepInProgress}
+                      testID={OnboardingTestIDs.checkAndUpdateSkipStepBtn}
+                      onPress={handleSkipCurrentStep}
                     >
                       {intl.formatMessage({
-                        id: ETranslations.global_retry,
+                        id: ETranslations.global_skip,
                       })}
                     </Button>
-                    {step.id !== ECheckAndUpdateStepId.GenuineCheck ? (
-                      <Button
-                        testID={OnboardingTestIDs.checkAndUpdateSkipStepBtn}
-                        onPress={handleSkipCurrentStep}
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_skip,
-                        })}
-                      </Button>
-                    ) : null}
-                  </XStack>
-                </XStack>
+                  ) : null}
+                </StepActionRow>
               ) : null}
             </HeightTransition>
           </YStack>
@@ -1256,7 +1356,7 @@ function CheckAndUpdatePage({
           <Button
             key={bottomCta.key}
             testID={bottomCta.testID}
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             variant="primary"
             size="large"

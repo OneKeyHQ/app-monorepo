@@ -44,7 +44,9 @@ import type {
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
-import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
+import imageUtils, {
+  type IResizeImageResult,
+} from '@onekeyhq/shared/src/utils/imageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IDeviceHomeScreen } from '@onekeyhq/shared/types/device';
 
@@ -211,7 +213,7 @@ function HomeScreenImageItem({
             bottom="$1.5"
             zIndex={100}
             // backgroundColor="$bg"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={
               platformEnv.isNativeAndroid
@@ -244,7 +246,7 @@ function HomeScreenImageItem({
             zIndex={101}
             borderRadius="$full"
             backgroundColor="$bg"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             enterStyle={
               platformEnv.isNativeAndroid
@@ -468,22 +470,37 @@ function WallpaperCustomCategorySection({
 
     const imgBase64: string = data.data;
 
-    const img = await imageUtils.resizeImage({
-      uri: imgBase64,
+    let img: IResizeImageResult | undefined;
+    try {
+      img = await imageUtils.resizeImage({
+        uri: imgBase64,
 
-      width: config.size?.width,
-      height: config.size?.height,
+        width: config.size?.width,
+        height: config.size?.height,
 
-      originW,
-      originH,
-      isMonochrome,
-    });
+        originW,
+        originH,
+        isMonochrome,
+      });
+    } catch {
+      img = undefined;
+    }
+
+    // Reject failed conversions before they create empty cache entries.
+    if (!img?.base64) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.hardware_wallpaper_crop_failed__msg,
+        }),
+      });
+      return;
+    }
 
     const name = `${USER_UPLOAD_IMG_NAME_PREFIX}${generateUUID()}`;
 
     UploadedHomeScreenCache.saveCache(device.id, {
       deviceId: device.id,
-      imgBase64: img?.base64 ?? '',
+      imgBase64: img.base64,
       name,
     });
 
@@ -794,7 +811,14 @@ export default function HardwareHomeScreenModal({
           loading: isUploadLoading,
           testID: 'hardware-wallpaper-apply-button',
         }}
-        onConfirm={async (_close) => {
+        onConfirm={async (close) => {
+          const applyStartedAt = Date.now();
+          const isProtocolV2Wallpaper = isProtocolV2ProductType(
+            device?.deviceType,
+          );
+          let isCustomScreen = false;
+          let hardwareCallStartedAt: number | undefined;
+          let hardwareCallMs: number | undefined;
           try {
             if (!device?.id || !selectedItem) {
               return;
@@ -810,7 +834,7 @@ export default function HardwareHomeScreenModal({
               isUserUpload,
             } = selectedItem;
 
-            const isCustomScreen = resType === 'custom' || isUserUpload;
+            isCustomScreen = resType === 'custom' || !!isUserUpload;
 
             let buildCustomHexError: string | undefined = '';
 
@@ -868,6 +892,7 @@ export default function HardwareHomeScreenModal({
               throw new OneKeyLocalError(buildCustomHexError);
             }
 
+            hardwareCallStartedAt = Date.now();
             const response =
               await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
                 dbDeviceId: device?.id,
@@ -879,7 +904,10 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: finallyBlurScreenHex,
                 },
               });
-            // setSelectedItem(undefined);
+            hardwareCallMs = Date.now() - hardwareCallStartedAt;
+            if (device.deviceType !== EDeviceType.Pro) {
+              close();
+            }
             Toast.success({
               title: intl.formatMessage({
                 id: ETranslations.hardware_wallpaper_add_success,
@@ -890,9 +918,47 @@ export default function HardwareHomeScreenModal({
                     id: ETranslations.hardware_wallpaper_add_success_information,
                   }),
             });
-            // Do not close the current page, let the user switch wallpapers and preview them on the device
-            // close();
+            if (isProtocolV2Wallpaper) {
+              defaultLogger.hardware.homescreen.wallpaperApply({
+                deviceType: device.deviceType,
+                isCustomScreen,
+                status: 'success',
+                totalDurationMs: Date.now() - applyStartedAt,
+                hardwareCallMs,
+                uploadSizeBytes:
+                  'size' in response && typeof response.size === 'number'
+                    ? response.size
+                    : undefined,
+              });
+            }
           } catch (error) {
+            if (isProtocolV2Wallpaper && device?.id && selectedItem) {
+              if (
+                hardwareCallStartedAt !== undefined &&
+                hardwareCallMs === undefined
+              ) {
+                hardwareCallMs = Date.now() - hardwareCallStartedAt;
+              }
+              const errorValue = error as {
+                code?: unknown;
+                errorCode?: unknown;
+              };
+              const code = errorValue?.code ?? errorValue?.errorCode;
+              const errorCode =
+                typeof code === 'string' || typeof code === 'number'
+                  ? String(code)
+                  : undefined;
+              const errorName = error instanceof Error ? error.name : undefined;
+              defaultLogger.hardware.homescreen.wallpaperApply({
+                deviceType: device.deviceType,
+                isCustomScreen,
+                status: 'failed',
+                totalDurationMs: Date.now() - applyStartedAt,
+                hardwareCallMs,
+                errorCode,
+                errorName,
+              });
+            }
             errorToastUtils.toastIfError(error);
             throw error;
           } finally {

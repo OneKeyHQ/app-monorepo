@@ -2,19 +2,35 @@ import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
   BluetoothUnavailableWhileUsbConnectedError,
-  DeviceBondError,
   DeviceNotFound,
+  NotInBootLoaderMode,
+  OneKeyHardwareError,
   OneKeyLocalError,
   UserCancel,
+  UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
-import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms';
+import {
+  EHardwareUiStateAction as HardwareUiAction,
+  deviceStageAtom,
+  firmwareUpdateWorkflowRunningAtom,
+  hardwareUiStateAtom,
+} from '../../states/jotai/atoms';
 
 import ServiceHardwareUI from './ServiceHardwareUI';
 
+import type { IOneKeyHardwareOperationLease } from './HardwareProcessingManager';
+import type { IWithHardwareProcessingOptions } from './ServiceHardwareUI';
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IDeviceStageState } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -30,17 +46,20 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
       descriptor,
 }));
 
-jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: {
-    HardwareDeviceStateUpdate: 'HardwareDeviceStateUpdate',
-    HardwareFeaturesUpdate: 'HardwareFeaturesUpdate',
-  },
-  appEventBus: {
-    on: jest.fn(),
-    off: jest.fn(),
-    emit: jest.fn(),
-  },
-}));
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/eventBus/appEventBus')
+  >('@onekeyhq/shared/src/eventBus/appEventBus');
+  // Error constructors can load the bus before this service's mocks through
+  // the atom fixture. Observe that same emitter as well as service calls.
+  const emit = jest
+    .spyOn(actual.appEventBus, 'emit')
+    .mockImplementation(() => false);
+  return {
+    ...actual,
+    appEventBus: { on: jest.fn(), off: jest.fn(), emit },
+  };
+});
 
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: {
@@ -56,22 +75,44 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isDesktop: false, isJest: true, isNative: false },
 }));
 
-jest.mock('../../states/jotai/atoms', () => ({
-  EHardwareUiStateAction: {},
-  firmwareUpdateWorkflowRunningAtom: {
-    get: jest.fn(),
-  },
-  hardwareUiStateAtom: {
-    get: jest.fn(),
-    set: jest.fn(),
-  },
-  thirdPartyAppInstallAtom: {
-    set: jest.fn(),
-  },
-  thirdPartyHardwareUiStateAtom: {
-    set: jest.fn(),
-  },
-}));
+jest.mock('../../states/jotai/atoms', () => {
+  // Real enum objects: the burst scope builds its action-to-step maps at
+  // module scope, so stubbed members would collapse every key into a
+  // single "undefined" — or throw outright, which is what a missing enum
+  // did here.
+  const { EHardwareUiStateAction, EThirdPartyHardwareUiAction } =
+    jest.requireActual('../../states/jotai/atoms');
+  return {
+    EHardwareUiStateAction,
+    EThirdPartyHardwareUiAction,
+    firmwareUpdateWorkflowRunningAtom: {
+      get: jest.fn(),
+    },
+    hardwareUiStateAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+    },
+    deviceStageAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+    },
+    thirdPartyAppInstallAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+      sub: jest.fn(),
+    },
+    thirdPartyBatchInstallAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+      sub: jest.fn(),
+    },
+    thirdPartyHardwareUiStateAtom: {
+      get: jest.fn(),
+      set: jest.fn(),
+      sub: jest.fn(),
+    },
+  };
+});
 
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
@@ -115,6 +156,35 @@ describe('ServiceHardwareUI.sendUiResponse', () => {
   });
 });
 
+describe('ServiceHardwareUI Bluetooth permission cleanup', () => {
+  it('settles the pending permission callback after clearing the dialog', async () => {
+    jest.clearAllMocks();
+    jest.mocked(hardwareUiStateAtom.get).mockResolvedValue({
+      action: HardwareUiAction.DeviceChecking,
+      connectId: '',
+      payload: {
+        eventType: HardwareUiAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
+        promiseId: 'permission-request',
+      },
+    } as Awaited<ReturnType<typeof hardwareUiStateAtom.get>>);
+    const resolveCallback = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHardwareUI({
+      backgroundApi: { servicePromise: { resolveCallback } },
+    });
+
+    await service.cleanHardwareUiState();
+
+    expect(resolveCallback).toHaveBeenCalledWith({
+      id: 'permission-request',
+      data: false,
+    });
+    expect(
+      jest.mocked(hardwareUiStateAtom.set).mock.invocationCallOrder[0],
+    ).toBeLessThan(resolveCallback.mock.invocationCallOrder[0]);
+    jest.mocked(hardwareUiStateAtom.get).mockResolvedValue(undefined);
+  });
+});
+
 describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -131,6 +201,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       }),
     ).rejects.toMatchObject({
       message: 'Hardware is busy',
+      key: ETranslations.feedback_hardware_is_busy,
       autoToast: false,
     });
     expect(operation).not.toHaveBeenCalled();
@@ -154,6 +225,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
         }),
       ).rejects.toMatchObject({
         message: 'Hardware is busy',
+        key: ETranslations.feedback_hardware_is_busy,
         autoToast: false,
       });
       expect(operation).not.toHaveBeenCalled();
@@ -167,6 +239,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -199,6 +272,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -242,6 +316,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
 
     expect(observedRejection).toMatchObject({
       message: 'Hardware is busy',
+      key: ETranslations.feedback_hardware_is_busy,
       autoToast: false,
     });
     expect(regularOperation).not.toHaveBeenCalled();
@@ -266,6 +341,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -286,6 +362,7 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
       }),
     ).rejects.toMatchObject({
       message: 'Hardware is busy',
+      key: ETranslations.feedback_hardware_is_busy,
       autoToast: false,
     });
     expect(regularOperation).not.toHaveBeenCalled();
@@ -296,13 +373,581 @@ describe('ServiceHardwareUI.withHardwareProcessing firmware update guard', () =>
   });
 });
 
+describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
+  let stage: IDeviceStageState | undefined;
+  let service: ServiceHardwareUI;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    stage = { step: 'off', burstId: 0 };
+    jest.mocked(deviceStageAtom.get).mockImplementation(async () => stage);
+    jest.mocked(deviceStageAtom.set).mockImplementation(async (next) => {
+      stage = typeof next === 'function' ? next(stage) : next;
+    });
+    jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
+    service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceHardware: {
+          invalidatePendingCancel: jest.fn(),
+          getFeaturesMutex: {
+            isLocked: jest.fn(() => false),
+            waitForUnlock: jest.fn(),
+          },
+        },
+        serviceFirmwareUpdate: {
+          delayShouldDetectTimeCheckWithDelay: jest.fn(),
+          delayShouldDetectTimeCheck: jest.fn(),
+        },
+        serviceAccount: { generateHwWalletsMissingXfp: jest.fn() },
+      },
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.mocked(deviceStageAtom.get).mockReset();
+    jest.mocked(deviceStageAtom.set).mockReset();
+  });
+
+  it.each([
+    [EHardwareTransportType.WEBUSB, false],
+    [EHardwareTransportType.DesktopWebBle, false],
+    [EHardwareTransportType.WEBUSB, true],
+    [EHardwareTransportType.DesktopWebBle, true],
+  ] as const)(
+    'pins hidden desktop operations to %s across availability changes (cancel: %s)',
+    async (initialTransport, cancel) => {
+      const originalSupport = platformEnv.isSupportDesktopBle;
+      Object.assign(platformEnv, { isSupportDesktopBle: true });
+      let availableTransport: EHardwareTransportType = initialTransport;
+      const manager = service.hardwareProcessingManager;
+      const prepare = jest.fn(
+        async ({
+          oneKeyOperationLease,
+        }: {
+          oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+        }) => {
+          manager.rememberOneKeyOperationTransport(
+            availableTransport,
+            oneKeyOperationLease,
+          );
+          return availableTransport;
+        },
+      );
+      Object.assign(
+        (service as unknown as { backgroundApi: IBackgroundApi }).backgroundApi
+          .serviceHardware,
+        {
+          prepareHardwareTransport: prepare,
+        },
+      );
+      const dialog = jest
+        .spyOn(service, 'showCheckingDeviceDialog')
+        .mockResolvedValue(undefined);
+      const options: IWithHardwareProcessingOptions = {
+        hideCheckingDeviceLoading: true,
+        skipCloseHardwareUiStateDialog: true,
+        deviceParams: {
+          dbDevice: {
+            id: 'test-device',
+            name: 'Test device',
+            features: '',
+            connectId: 'DEVICE_ID',
+            uuid: 'test-device',
+            deviceId: 'test-device',
+            deviceType: EDeviceType.Pro,
+            connectProtocol: 'V1',
+            settingsRaw: '',
+            createdAt: 0,
+            updatedAt: 0,
+            vendor: EHardwareVendor.onekey,
+          },
+        },
+      };
+      try {
+        const operation = service.withHardwareProcessing(async (lease) => {
+          expect(manager.getOneKeyOperationTransport()).toBe(initialTransport);
+          availableTransport =
+            initialTransport === EHardwareTransportType.WEBUSB
+              ? EHardwareTransportType.DesktopWebBle
+              : EHardwareTransportType.WEBUSB;
+          await service.withHardwareProcessing(
+            async () => {
+              expect(manager.getOneKeyOperationTransport()).toBe(
+                initialTransport,
+              );
+            },
+            { ...options, oneKeyOperationLease: lease },
+          );
+          expect(prepare).toHaveBeenCalledTimes(1);
+          if (cancel && lease) manager.cancelOneKeyOperation(lease);
+        }, options);
+        if (cancel)
+          await expect(operation).rejects.toBeInstanceOf(UserCancelFromOutside);
+        else await operation;
+        expect(manager.getOneKeyOperationTransport()).toBeUndefined();
+        await service.withHardwareProcessing(async () => {
+          expect(manager.getOneKeyOperationTransport()).toBe(
+            availableTransport,
+          );
+        }, options);
+        expect(prepare).toHaveBeenCalledTimes(2);
+        expect(dialog).not.toHaveBeenCalled();
+        expect(manager.getOneKeyOperationTransport()).toBeUndefined();
+      } finally {
+        Object.assign(platformEnv, { isSupportDesktopBle: originalSupport });
+      }
+    },
+  );
+
+  it.each([
+    [EDeviceType.Pro, 'V1'],
+    [EDeviceType.Pro2, 'V2'],
+  ] as const)(
+    'lets the hidden %s firmware workflow select USB without interactive BLE preparation',
+    async (deviceType, connectProtocol) => {
+      const originalSupport = platformEnv.isSupportDesktopBle;
+      Object.assign(platformEnv, { isSupportDesktopBle: true });
+      const prepare = jest
+        .fn()
+        .mockRejectedValue(
+          new OneKeyLocalError('Bluetooth permission must not be requested'),
+        );
+      Object.assign(
+        (service as unknown as { backgroundApi: IBackgroundApi }).backgroundApi
+          .serviceHardware,
+        { prepareHardwareTransport: prepare },
+      );
+      const dialog = jest.spyOn(service, 'showCheckingDeviceDialog');
+      const workflow = jest.fn(async () => {
+        // The firmware callback owns USB resolution, target validation and transport locking.
+        expect(
+          service.hardwareProcessingManager.getOneKeyOperationTransport(),
+        ).toBeUndefined();
+        return 'usb-workflow';
+      });
+      try {
+        await expect(
+          service.withHardwareProcessing(workflow, {
+            allowDuringFirmwareUpdate: true,
+            hideCheckingDeviceLoading: true,
+            skipDeviceCancel: true,
+            skipCloseHardwareUiStateDialog: true,
+            deviceParams: {
+              dbDevice: {
+                id: 'firmware-device',
+                name: 'Firmware device',
+                features: '',
+                connectId: 'USB_LOADER_PATH',
+                uuid: 'firmware-device',
+                deviceId: 'firmware-device',
+                deviceType,
+                connectProtocol,
+                settingsRaw: '',
+                createdAt: 0,
+                updatedAt: 0,
+                vendor: EHardwareVendor.onekey,
+              },
+            },
+          }),
+        ).resolves.toBe('usb-workflow');
+        expect(workflow).toHaveBeenCalledTimes(1);
+        expect(prepare).not.toHaveBeenCalled();
+        expect(dialog).not.toHaveBeenCalled();
+      } finally {
+        Object.assign(platformEnv, { isSupportDesktopBle: originalSupport });
+      }
+    },
+  );
+
+  it.each([false, true])(
+    'keeps the stage off while a non-hardware operation waits (rejects: %s)',
+    async (rejects) => {
+      const error = new OneKeyLocalError(
+        'External wallet rejected the request',
+      );
+      const onFinally = jest.fn();
+      const operation = service.withHardwareProcessing(
+        async () => {
+          await jest.advanceTimersByTimeAsync(500);
+          expect(stage?.step).toBe('off');
+          if (rejects) throw error;
+          return 'signed';
+        },
+        { deviceParams: undefined, onFinally },
+      );
+
+      if (rejects) {
+        await expect(operation).rejects.toBe(error);
+      } else {
+        await expect(operation).resolves.toBe('signed');
+      }
+      await jest.advanceTimersByTimeAsync(500);
+      expect(stage?.step).toBe('off');
+      expect(onFinally).toHaveBeenCalledTimes(1);
+      expect(service.processingNestedNum).toBe(0);
+    },
+  );
+
+  it('does not close a QR burst owned by another flow', async () => {
+    await service.deviceStageBurst.begin({});
+    await service.deviceStageBurst.qrShowCode({
+      valueUr: { type: 'bytes', cbor: 'test' },
+      sessionId: 1,
+    });
+
+    await service.withHardwareProcessing(async () => undefined, {
+      deviceParams: undefined,
+    });
+    await jest.advanceTimersByTimeAsync(500);
+    expect(stage?.step).toBe('showQr');
+
+    await service.deviceStageBurst.end();
+    await jest.advanceTimersByTimeAsync(500);
+    expect(stage?.step).toBe('off');
+  });
+
+  it('lets the QR flow open and close its own stage inside the wrapper', async () => {
+    await service.withHardwareProcessing(
+      async () => {
+        expect(await service.deviceStageBurst.begin({})).toBe(true);
+        await service.deviceStageBurst.qrShowCode({
+          valueUr: { type: 'bytes', cbor: 'test' },
+          sessionId: 1,
+        });
+        await jest.advanceTimersByTimeAsync(500);
+        expect(stage?.step).toBe('showQr');
+        await service.deviceStageBurst.end();
+      },
+      { deviceParams: undefined },
+    );
+    await jest.advanceTimersByTimeAsync(500);
+    expect(stage?.step).toBe('off');
+  });
+
+  it('does not carry a superseded QR session diagnostic into a newer session', async () => {
+    const diagnostic = { correlationId: 'previous-trace', startedAt: 1 };
+    await service.deviceStageBurst.begin({});
+    await service.deviceStageBurst.qrShowCode({
+      valueUr: { type: 'bytes', cbor: 'first' },
+      sessionId: 1,
+      diagnostic,
+    });
+    await service.deviceStageBurst.qrProceedToScan();
+    expect(stage?.step).toBe('scanQr');
+    expect(stage?.qrDiagnostic).toBe(diagnostic);
+
+    // A newer request without a trace joins the same burst while the
+    // previous session's scan step is still on screen.
+    await service.deviceStageBurst.begin({});
+    await service.deviceStageBurst.qrShowCode({
+      valueUr: { type: 'bytes', cbor: 'second' },
+      sessionId: 2,
+    });
+    expect(stage?.step).toBe('showQr');
+    expect(stage?.qrSessionId).toBe(2);
+    expect(stage?.qrDiagnostic).toBeUndefined();
+
+    await service.deviceStageBurst.end();
+    await service.deviceStageBurst.end();
+  });
+
+  it('keeps a failed stage exit from replacing the result or skipping the wrapper bookkeeping', async () => {
+    const deviceParams: IWithHardwareProcessingOptions['deviceParams'] = {
+      dbDevice: {
+        id: 'test-device',
+        name: 'Test device',
+        features: '',
+        connectId: '',
+        uuid: 'test-device',
+        deviceId: 'test-device',
+        deviceType: EDeviceType.Pro,
+        settingsRaw: '',
+        createdAt: 0,
+        updatedAt: 0,
+        vendor: EHardwareVendor.onekey,
+      },
+    };
+    const onFinally = jest.fn();
+    const end = jest
+      .spyOn(service.deviceStageBurst, 'end')
+      .mockRejectedValueOnce(new Error('stage exit failed'));
+
+    await expect(
+      service.withHardwareProcessing(async () => 'signed', {
+        deviceParams,
+        skipCloseHardwareUiStateDialog: true,
+        onFinally,
+      }),
+    ).resolves.toBe('signed');
+    expect(end).toHaveBeenCalledTimes(1);
+    expect(onFinally).toHaveBeenCalledTimes(1);
+    expect(service.processingNestedNum).toBe(0);
+  });
+
+  it.each([EHardwareVendor.onekey, EHardwareVendor.trezor])(
+    'requests Bluetooth settings for a direct powered-off error from %s before the stage ends',
+    async (vendor) => {
+      const error = new OneKeyHardwareError({
+        code: HardwareErrorCode.BlePoweredOff,
+        payload: { code: HardwareErrorCode.BlePoweredOff },
+      });
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const end = jest
+        .spyOn(service.deviceStageBurst, 'end')
+        .mockResolvedValue();
+      await expect(
+        service.withHardwareProcessing(
+          async () => {
+            throw error;
+          },
+          {
+            deviceParams: {
+              dbDevice: {
+                id: 'test-device',
+                name: 'Test device',
+                features: '',
+                connectId: '',
+                uuid: 'test-device',
+                deviceId: 'test-device',
+                deviceType: EDeviceType.Pro,
+                settingsRaw: '',
+                createdAt: 0,
+                updatedAt: 0,
+                vendor,
+              },
+            },
+            skipCloseHardwareUiStateDialog: true,
+          },
+        ),
+      ).rejects.toBe(error);
+
+      const dialogCall = emit.mock.calls.findIndex(
+        ([event]) => event === EAppEventBusNames.RequestHardwareUIDialog,
+      );
+      if (vendor === EHardwareVendor.onekey) {
+        expect(emit).toHaveBeenCalledWith(
+          EAppEventBusNames.RequestHardwareUIDialog,
+          { uiRequestType: 'ui-bluetooth_permission' },
+        );
+        expect(
+          emit.mock.calls.filter(
+            ([event]) => event === EAppEventBusNames.RequestHardwareUIDialog,
+          ),
+        ).toHaveLength(1);
+        expect(emit.mock.invocationCallOrder[dialogCall]).toBeLessThan(
+          end.mock.invocationCallOrder[0],
+        );
+      } else {
+        expect(dialogCall).toBe(-1);
+      }
+    },
+  );
+
+  it.each([
+    { vendor: EHardwareVendor.onekey, externalPending: false },
+    { vendor: EHardwareVendor.ledger, externalPending: false },
+    { vendor: EHardwareVendor.trezor, externalPending: false },
+    { vendor: EHardwareVendor.ledger, externalPending: true },
+    { vendor: EHardwareVendor.trezor, externalPending: true },
+  ])(
+    'opens and closes $vendor hardware with externalPending=$externalPending',
+    async ({ vendor, externalPending }) => {
+      const deviceParams: IWithHardwareProcessingOptions['deviceParams'] = {
+        dbDevice: {
+          id: 'test-device',
+          name: 'Test device',
+          features: '',
+          connectId: '',
+          uuid: 'test-device',
+          deviceId: 'test-device',
+          deviceType: EDeviceType.Pro,
+          settingsRaw: '',
+          createdAt: 0,
+          updatedAt: 0,
+          vendor,
+        },
+      };
+      let releaseExternal: (() => void) | undefined;
+      const externalOperation = externalPending
+        ? service.withHardwareProcessing(
+            () =>
+              new Promise<void>((resolve) => {
+                releaseExternal = resolve;
+              }),
+            { deviceParams: undefined },
+          )
+        : undefined;
+      await jest.advanceTimersByTimeAsync(0);
+      try {
+        await service.withHardwareProcessing(
+          async () => {
+            await jest.advanceTimersByTimeAsync(500);
+            expect(stage?.step).toBe('connecting');
+          },
+          { deviceParams, skipCloseHardwareUiStateDialog: true },
+        );
+        await jest.advanceTimersByTimeAsync(3000);
+        expect(stage?.step).toBe('off');
+      } finally {
+        releaseExternal?.();
+        await externalOperation;
+      }
+    },
+  );
+});
+
+describe('ServiceHardwareUI bootloader recovery handoff', () => {
+  it.each([undefined, '', 'SDK_DEVICE_ID'])(
+    'notifies recovery once before leaving the stage with SDK connectId %p',
+    async (sdkConnectId) => {
+      jest.clearAllMocks();
+      const emit = jest.spyOn(appEventBus, 'emit');
+      jest
+        .mocked(firmwareUpdateWorkflowRunningAtom.get)
+        .mockResolvedValue(false);
+      const getStage = jest.spyOn(deviceStageAtom, 'get').mockResolvedValue({
+        step: 'processing',
+        burstId: 1,
+      });
+      const service = new ServiceHardwareUI({
+        backgroundApi: {
+          serviceHardware: {
+            cancelTimer: undefined,
+            invalidatePendingCancel: jest.fn(),
+            getFeaturesMutex: {
+              isLocked: jest.fn(() => false),
+              waitForUnlock: jest.fn(),
+            },
+          },
+          serviceAccount: { generateHwWalletsMissingXfp: jest.fn() },
+          serviceFirmwareUpdate: {
+            delayShouldDetectTimeCheck: jest.fn(),
+            delayShouldDetectTimeCheckWithDelay: jest.fn(),
+          },
+        },
+      });
+      jest
+        .spyOn(service, 'closeHardwareUiStateDialog')
+        .mockResolvedValue(undefined);
+      const serviceInternals = service as unknown as {
+        withHardwareProcessingInternal: (
+          operation: () => Promise<void>,
+          options: {
+            deviceParams: { dbDevice: { connectId: string } };
+            hideCheckingDeviceLoading: boolean;
+          },
+        ) => Promise<void>;
+      };
+      const options = {
+        deviceParams: { dbDevice: { connectId: 'CALL_DEVICE_ID' } },
+        hideCheckingDeviceLoading: true,
+      };
+      try {
+        // The inner catch can fill metadata before the same error reaches
+        // the outer catch. Both must share one recovery notification.
+        await expect(
+          serviceInternals.withHardwareProcessingInternal(
+            () =>
+              serviceInternals.withHardwareProcessingInternal(async () => {
+                const failure = new NotInBootLoaderMode({
+                  payload: {
+                    code: HardwareErrorCode.NotAllowInBootloaderMode,
+                    connectId: sdkConnectId,
+                  },
+                });
+                throw failure;
+              }, options),
+            options,
+          ),
+        ).rejects.toBeInstanceOf(NotInBootLoaderMode);
+
+        const notifications = emit.mock.calls.filter(
+          ([name]) =>
+            name === EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
+        );
+        expect(notifications).toEqual([
+          [
+            EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
+            {
+              connectId: sdkConnectId || 'CALL_DEVICE_ID',
+            },
+          ],
+        ]);
+        // The off is written through the atom's own update.
+        const writes = jest.mocked(deviceStageAtom.set).mock.calls;
+        const lastWrite = writes[writes.length - 1]?.[0];
+        const stageBefore = {
+          step: 'processing',
+          burstId: 1,
+        } as IDeviceStageState;
+        expect(
+          typeof lastWrite === 'function' ? lastWrite(stageBefore) : lastWrite,
+        ).toEqual(expect.objectContaining({ step: 'off' }));
+      } finally {
+        getStage.mockRestore();
+      }
+    },
+  );
+});
+
 describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => {
+  it('recovers Linux USB permissions after a failed operation without replaying it', async () => {
+    const previous = platformEnv.isDesktopLinux;
+    Object.assign(platformEnv, { isDesktopLinux: true });
+    const recovery = jest.fn().mockResolvedValue(true);
+    const error = new OneKeyHardwareError({
+      code: HardwareErrorCode.BridgeNeedsPermission,
+      payload: { code: HardwareErrorCode.BridgeNeedsPermission },
+    });
+    const operation = jest.fn().mockRejectedValue(error);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceHardware: {
+          invalidatePendingCancel: jest.fn(),
+          getFeaturesMutex: { isLocked: () => false, waitForUnlock: jest.fn() },
+          handleLinuxWebUsbAccessDeniedError: recovery,
+        },
+        serviceFirmwareUpdate: {
+          delayShouldDetectTimeCheckWithDelay: jest.fn(),
+          delayShouldDetectTimeCheck: jest.fn(),
+        },
+        serviceAccount: { generateHwWalletsMissingXfp: jest.fn() },
+      },
+    });
+    jest
+      .spyOn(service, 'closeHardwareUiStateDialog')
+      .mockResolvedValue(undefined);
+    const internals = service as unknown as {
+      withHardwareProcessingInternal(
+        operation: () => Promise<unknown>,
+        options: {
+          deviceParams: { dbDevice: { connectId: string } };
+          hideCheckingDeviceLoading: boolean;
+        },
+      ): Promise<unknown>;
+    };
+    try {
+      await expect(
+        internals.withHardwareProcessingInternal(operation, {
+          deviceParams: { dbDevice: { connectId: 'mock-usb' } },
+          hideCheckingDeviceLoading: true,
+        }),
+      ).rejects.toBe(error);
+      expect(recovery).toHaveBeenCalledWith({ error });
+      expect(operation).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.assign(platformEnv, { isDesktopLinux: previous });
+    }
+  });
   it('does not send a follow-up cancel after BLE is disabled by USB priority', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
     const service = new ServiceHardwareUI({
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -364,6 +1009,7 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -428,80 +1074,13 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
     });
   });
 
-  it('does not send a follow-up cancel after a BLE bond error', async () => {
+  it('does not send another cancel after a Pro2 request is already cancelled', async () => {
     jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
     const service = new ServiceHardwareUI({
       backgroundApi: {
         serviceHardware: {
           cancelTimer: undefined,
-          getFeaturesMutex: {
-            isLocked: jest.fn(() => false),
-            waitForUnlock: jest.fn(),
-          },
-        },
-        serviceAccount: {
-          generateHwWalletsMissingXfp: jest.fn(),
-        },
-        serviceFirmwareUpdate: {
-          delayShouldDetectTimeCheck: jest.fn(),
-          delayShouldDetectTimeCheckWithDelay: jest.fn(),
-        },
-      },
-    });
-    const closeHardwareUiStateDialog = jest
-      .spyOn(service, 'closeHardwareUiStateDialog')
-      .mockResolvedValue(undefined);
-    const serviceInternals = service as unknown as {
-      withHardwareProcessingInternal: <T>(
-        operation: () => Promise<T>,
-        options: {
-          deviceParams: {
-            dbDevice: {
-              connectId: string;
-              deviceType: EDeviceType;
-            };
-          };
-          hideCheckingDeviceLoading: boolean;
-        },
-      ) => Promise<T>;
-    };
-
-    await expect(
-      serviceInternals.withHardwareProcessingInternal(
-        async () => {
-          throw new DeviceBondError({
-            payload: {
-              connectId: 'PRO2_BLE_ID',
-              code: HardwareErrorCode.BleDeviceBondError,
-            },
-          });
-        },
-        {
-          deviceParams: {
-            dbDevice: {
-              connectId: 'PRO2_BLE_ID',
-              deviceType: EDeviceType.Pro2,
-            },
-          },
-          hideCheckingDeviceLoading: true,
-        },
-      ),
-    ).rejects.toBeInstanceOf(DeviceBondError);
-
-    expect(closeHardwareUiStateDialog).toHaveBeenCalledWith({
-      connectId: 'PRO2_BLE_ID',
-      deviceResetToHome: false,
-      skipDeviceCancel: true,
-      deviceType: EDeviceType.Pro2,
-    });
-  });
-
-  it('still sends cancel after the user dismisses a Pro2 hardware prompt', async () => {
-    jest.mocked(firmwareUpdateWorkflowRunningAtom.get).mockResolvedValue(false);
-    const service = new ServiceHardwareUI({
-      backgroundApi: {
-        serviceHardware: {
-          cancelTimer: undefined,
+          invalidatePendingCancel: jest.fn(),
           getFeaturesMutex: {
             isLocked: jest.fn(() => false),
             waitForUnlock: jest.fn(),
@@ -559,7 +1138,7 @@ describe('ServiceHardwareUI.withHardwareProcessing USB-priority cleanup', () => 
     expect(closeHardwareUiStateDialog).toHaveBeenCalledWith({
       connectId: 'PRO2_USB',
       deviceResetToHome: false,
-      skipDeviceCancel: false,
+      skipDeviceCancel: true,
       deviceType: EDeviceType.Pro2,
     });
   });
@@ -848,5 +1427,307 @@ describe('ServiceHardwareUI Portfolio BLE resume notification', () => {
     ).rejects.toThrow('outer failed');
 
     expect(notifyInteractiveHardwareOperationSucceeded).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceHardwareUI.deviceStageWaitForOff', () => {
+  const createService = () =>
+    new ServiceHardwareUI({ backgroundApi: {} as never });
+  // The bus is a jest.fn() pair here (see the module mock); spied rather
+  // than referenced, so the mock's calls are read without holding the
+  // unbound method.
+  const busOn = () => jest.spyOn(appEventBus, 'on');
+  const busOff = () => jest.spyOn(appEventBus, 'off');
+  const findOffListener = () =>
+    busOn().mock.calls.find(
+      ([name]) => name === EAppEventBusNames.DeviceStageOff,
+    )?.[1] as (() => void) | undefined;
+
+  beforeEach(() => {
+    busOn().mockClear();
+    busOff().mockClear();
+  });
+
+  it('does not miss an exit that lands while it reads the stage', async () => {
+    // The exit is a one-shot event: fired between the read and the
+    // subscription it used to be lost, and the caller sat out the full
+    // timeout for a stage that was already gone.
+    jest.useFakeTimers();
+    try {
+      const service = createService();
+      jest
+        .spyOn(service.deviceStageBurst, 'getLastOffAt')
+        .mockReturnValue(Date.now());
+      jest.mocked(deviceStageAtom.get).mockImplementation(async () => {
+        const onOff = findOffListener();
+        expect(onOff).toBeDefined();
+        onOff?.();
+        return { step: 'off', burstId: 1 } as never;
+      });
+      const waited = service.deviceStageWaitForOff({ timeoutMs: 4000 });
+      await jest.advanceTimersByTimeAsync(0);
+      await expect(waited).resolves.toBe(true);
+      expect(jest.getTimerCount()).toBe(0);
+      expect(busOff()).toHaveBeenCalledWith(
+        EAppEventBusNames.DeviceStageOff,
+        expect.any(Function),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('resolves on the exit event, not the timeout, and reports an old off as no wait', async () => {
+    jest.useFakeTimers();
+    try {
+      const service = createService();
+      jest
+        .mocked(deviceStageAtom.get)
+        .mockResolvedValue({ step: 'connecting', burstId: 1 } as never);
+      const waited = service.deviceStageWaitForOff({ timeoutMs: 4000 });
+      await jest.advanceTimersByTimeAsync(0);
+      findOffListener()?.();
+      await jest.advanceTimersByTimeAsync(0);
+      await expect(waited).resolves.toBe(true);
+      expect(jest.getTimerCount()).toBe(0);
+
+      // Off for a while already: nothing is leaving, no beat to keep.
+      jest.spyOn(service.deviceStageBurst, 'getLastOffAt').mockReturnValue(0);
+      jest
+        .mocked(deviceStageAtom.get)
+        .mockResolvedValue({ step: 'off', burstId: 1 } as never);
+      await expect(
+        service.deviceStageWaitForOff({ timeoutMs: 4000 }),
+      ).resolves.toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
+describe('ServiceHardwareUI.deviceStageUserClose', () => {
+  const createService = () => {
+    const cancelStageAirGapScan = jest.fn().mockResolvedValue(undefined);
+    const cancelDevice = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceHardware: { cancel: cancelDevice },
+        serviceQrWallet: { cancelStageAirGapScan },
+      } as never,
+    });
+    const userClose = jest
+      .spyOn(service.deviceStageBurst, 'userClose')
+      .mockResolvedValue();
+    const close = jest
+      .spyOn(service, 'closeHardwareUiStateDialogFn')
+      .mockResolvedValue(undefined);
+    return { service, close, cancelDevice, cancelStageAirGapScan, userClose };
+  };
+
+  beforeEach(() => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'connecting', burstId: 1 } as never);
+  });
+
+  it('skips the device half of the close when the stage never learned its device', async () => {
+    // A connectId-less sdk.cancel is the GLOBAL cancel: it cold-boots the
+    // SDK and interrupts every queued call on every connected device. A
+    // stage closed before the search resolved has nothing to cancel by.
+    const { service, close } = createService();
+
+    await service.deviceStageUserClose({ connectId: undefined });
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(close.mock.calls[0][0]).toMatchObject({
+      connectId: undefined,
+      skipDeviceCancel: true,
+    });
+  });
+
+  it('still cancels on the device the stage names', async () => {
+    const { service, close, cancelDevice } = createService();
+    const cancelOperation = jest.spyOn(
+      service.hardwareProcessingManager,
+      'cancelOperation',
+    );
+
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.deviceStageUserClose({
+          connectId: 'PRB09B0058A',
+          skipDeviceCancel: false,
+        });
+        expect(lease.signal?.aborted).toBe(true);
+      },
+    });
+
+    expect(close.mock.calls[0][0]).toMatchObject({
+      connectId: 'PRB09B0058A',
+      skipDeviceCancel: true,
+      immediateDeviceCancel: true,
+    });
+    expect(cancelOperation).toHaveBeenCalledTimes(1);
+    expect(cancelOperation).toHaveBeenCalledWith('PRB09B0058A');
+    expect(cancelDevice).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not cancel again after the stage has reached an error outcome', async () => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'error', burstId: 1 } as never);
+    const { service, close, cancelDevice } = createService();
+
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.deviceStageUserClose({ connectId: 'PRB09B0058A' });
+        expect(lease.signal?.aborted).toBe(false);
+      },
+    });
+
+    expect(close.mock.calls[0][0]).toMatchObject({
+      connectId: 'PRB09B0058A',
+      skipDeviceCancel: true,
+    });
+    expect(cancelDevice).not.toHaveBeenCalled();
+  });
+
+  it('retires the ✗ the person saw without taking the close path (OK-64696)', async () => {
+    // The notice's page is live: a close of the ✗ must not cancel, reset
+    // or announce anything a retry started from that page depends on.
+    const { service, close, cancelDevice, cancelStageAirGapScan, userClose } =
+      createService();
+    const retire = jest
+      .spyOn(service.deviceStageBurst, 'retireErrorOutcome')
+      .mockResolvedValue();
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.deviceStageRetireErrorOutcome({ outcomeKey: '3:7' });
+        expect(lease.signal?.aborted).toBe(false);
+      },
+    });
+
+    expect(retire).toHaveBeenCalledWith('3:7');
+    expect(cancelDevice).not.toHaveBeenCalled();
+    expect(userClose).not.toHaveBeenCalled();
+    expect(cancelStageAirGapScan).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceHardwareUI delayed close ownership', () => {
+  it('ignores a stale close after a newer burst acquired the lease', async () => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'connecting', burstId: 2 } as never);
+    const service = new ServiceHardwareUI({ backgroundApi: {} as never });
+    const close = jest
+      .spyOn(service, 'closeHardwareUiStateDialogFn')
+      .mockResolvedValue(undefined);
+
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.closeHardwareUiStateDialog({
+          connectId: 'same-device',
+          deviceStageBurstId: 1,
+          immediateDeviceCancel: true,
+        });
+        expect(lease.signal?.aborted).toBe(false);
+      },
+    });
+
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it('does not attach an unowned delayed close to a newly acquired lease', async () => {
+    jest.useFakeTimers({ doNotFake: ['performance'] });
+    try {
+      const service = new ServiceHardwareUI({ backgroundApi: {} as never });
+      const close = jest
+        .spyOn(service, 'closeHardwareUiStateDialogFn')
+        .mockResolvedValue(undefined);
+      await service.closeHardwareUiStateDialog({
+        connectId: undefined,
+        skipDeviceCancel: true,
+      });
+      await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+        operation: async () => {
+          await jest.advanceTimersByTimeAsync(600);
+          expect(close).toHaveBeenCalledTimes(1);
+        },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
+describe('ServiceHardwareUI.silenceDeviceStageForFirmwareWorkflow', () => {
+  const createService = () => {
+    const cancelStageAirGapScan = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHardwareUI({
+      backgroundApi: {
+        serviceQrWallet: { cancelStageAirGapScan },
+      } as never,
+    });
+    const silence = jest
+      .spyOn(service.deviceStageBurst, 'silence')
+      .mockResolvedValue(true);
+    return { service, silence, cancelStageAirGapScan };
+  };
+
+  it('rejects the air-gap scan the stage was hosting, naming the step it was on', async () => {
+    // The stage is that scan's only surface: silenced without this, the
+    // signing request waited invisibly for its 30-minute expiry while the
+    // update page ran.
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'scanQr', burstId: 1 } as never);
+    const { service, silence, cancelStageAirGapScan } = createService();
+
+    await service.silenceDeviceStageForFirmwareWorkflow();
+
+    expect(silence).toHaveBeenCalledTimes(1);
+    expect(cancelStageAirGapScan).toHaveBeenCalledWith({ scanning: true });
+  });
+
+  it('speaks the code-display cancel when the person was still on the code', async () => {
+    jest
+      .mocked(deviceStageAtom.get)
+      .mockResolvedValue({ step: 'showQr', burstId: 1 } as never);
+    const { service, cancelStageAirGapScan } = createService();
+
+    await service.silenceDeviceStageForFirmwareWorkflow();
+
+    expect(cancelStageAirGapScan).toHaveBeenCalledWith({ scanning: false });
+  });
+});
+
+describe('ServiceHardwareUI.showCheckingDeviceDialog', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('opens the checking beat in the finish the scan named', async () => {
+    const service = new ServiceHardwareUI({ backgroundApi: {} });
+    const noteStep = jest
+      .spyOn(service.deviceStageBurst, 'noteStep')
+      .mockResolvedValue(true);
+
+    await service.showCheckingDeviceDialog({
+      connectId: 'ble-peripheral-id',
+      deviceType: EDeviceType.Pro2,
+      deviceName: 'Pro 2 A1B2',
+      deviceColor: 'Orange',
+    });
+
+    expect(noteStep).toHaveBeenCalledWith(
+      'connecting',
+      expect.objectContaining({
+        connectId: 'ble-peripheral-id',
+        deviceType: EDeviceType.Pro2,
+        deviceColor: 'Orange',
+      }),
+    );
   });
 });

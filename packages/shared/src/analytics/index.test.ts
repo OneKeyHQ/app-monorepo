@@ -37,6 +37,7 @@ jest.mock('../platformEnv', () => ({
     isDev: false,
     isE2E: false,
     isNative: false,
+    isWeb: true,
     isWebEmbed: false,
     version: '1.0.0',
   },
@@ -107,6 +108,42 @@ describe('Analytics tier', () => {
       }),
     );
     expect(mockGetDeviceCpuTier).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends dedupe fields in the body and keeps other events unchanged', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.trackEventAsync('availabilitySnapshot', {
+      $insertId: 'snapshot-1',
+      $timestamp: 1_700_000_000_000,
+      api_wallet_ok: 3,
+    });
+
+    const [, body] = mockPost.mock.calls[0] as unknown as [
+      string,
+      {
+        insertId?: string;
+        timestamp?: number;
+        eventProps: Record<string, unknown>;
+      },
+    ];
+    expect(body.insertId).toBe('snapshot-1');
+    expect(body.timestamp).toBe(1_700_000_000_000);
+    expect(body.eventProps).toMatchObject({ api_wallet_ok: 3 });
+    expect(body.eventProps).not.toHaveProperty('$insertId');
+    expect(body.eventProps).not.toHaveProperty('$timestamp');
+
+    await analytics.trackEventAsync('testEvent', { foo: 'bar' });
+
+    const [, plainBody] = mockPost.mock.calls[1] as unknown as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(Object.keys(plainBody).toSorted()).toEqual([
+      'eventName',
+      'eventProps',
+    ]);
   });
 
   it('shares complete device info across concurrent first requests', async () => {
@@ -272,5 +309,69 @@ describe('Analytics tier', () => {
       '[Analytics] Failed to load device info:',
       expect.any(Error),
     );
+  });
+});
+
+describe('Analytics redemption URL privacy', () => {
+  const originalLocation = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'location',
+  );
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+
+  afterEach(() => {
+    for (const [key, descriptor] of [
+      ['location', originalLocation],
+      ['window', originalWindow],
+    ] as const) {
+      if (descriptor) {
+        Object.defineProperty(globalThis, key, descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, key);
+      }
+    }
+  });
+
+  it.each([
+    [
+      'https://app.onekey.so/prime/redeem?code=PRIVATE-CODE#PRIVATE-HASH',
+      'https://app.onekey.so/prime/redeem',
+    ],
+    [
+      'https://app.onekey.so/prime/redeem/?code=PRIVATE-CODE',
+      'https://app.onekey.so/prime/redeem/',
+    ],
+    [
+      'https://app.onekey.so/wallet?ref=email#section',
+      'https://app.onekey.so/wallet?ref=email#section',
+    ],
+  ])('serializes the analytics URL for %s', async (href, expected) => {
+    const location = new URL(href);
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: location,
+    });
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { location },
+    });
+    mockPost.mockClear();
+    mockPost.mockResolvedValue(undefined);
+    mockGetDeviceCpuTier.mockReturnValue('high');
+    mockGetDeviceInfo.mockResolvedValue({ deviceId: 'device-id' });
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.trackEventAsync('primeEvent');
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/utility/v1/track/event',
+      expect.objectContaining({
+        eventProps: expect.objectContaining({ currentUrl: expected }),
+      }),
+    );
+    expect(JSON.stringify(mockPost.mock.calls)).not.toContain('PRIVATE-CODE');
+    expect(JSON.stringify(mockPost.mock.calls)).not.toContain('PRIVATE-HASH');
+    expect(globalThis.location.href).toBe(href);
   });
 });

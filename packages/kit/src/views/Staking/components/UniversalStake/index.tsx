@@ -12,6 +12,7 @@ import {
   Alert,
   Dialog,
   Divider,
+  HeightTransition,
   Icon,
   IconButton,
   Image,
@@ -447,7 +448,11 @@ type IUniversalStakeProps = {
   currentAllowance?: string;
 
   approveType?: EApproveType;
-  onConfirm?: (params: IApproveConfirmFnParams) => Promise<void>;
+  // Resolves false when the flow never started (risk disclaimer rejected, a
+  // pre-flight check failed), so the form keeps the amount the user typed.
+  // Deliberately not `boolean | void`: a caller that forgets to return the
+  // hook's result would silently reset the form.
+  onConfirm?: (params: IApproveConfirmFnParams) => Promise<boolean>;
   onFeeRateChange?: (rate: string) => void;
 
   tokenInfo?: IEarnTokenInfo;
@@ -531,6 +536,8 @@ export function UniversalStake({
   const { handleOpenWebSite } = useBrowserAction().current;
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [amountValue, setAmountValue] = useState('');
+  const transactionConfirmationAmountRef = useRef(amountValue);
+  transactionConfirmationAmountRef.current = amountValue;
   const [approving, setApproving] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [selectedValidator, setSelectedValidator] = useState<
@@ -730,13 +737,17 @@ export function UniversalStake({
   // window: protocols whose response carries no summary would otherwise pulse
   // the skeleton on every amount edit, and a failed first request would leave
   // the skeleton stuck forever.
-  const transactionConfirmationSettledRef = useRef(false);
+  const [transactionConfirmationSettled, setTransactionConfirmationSettled] =
+    useState(false);
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
       setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
+        if (transactionConfirmationAmountRef.current !== amount) {
+          return;
+        }
         setTransactionConfirmation(resp);
         if (resp && amount && Number(amount) > 0) {
           onQuoteReset?.();
@@ -744,8 +755,10 @@ export function UniversalStake({
       } catch {
         // keep stale state
       } finally {
-        transactionConfirmationSettledRef.current = true;
-        setTransactionConfirmationLoading(false);
+        if (transactionConfirmationAmountRef.current === amount) {
+          setTransactionConfirmationSettled(true);
+          setTransactionConfirmationLoading(false);
+        }
       }
     },
     350,
@@ -974,8 +987,16 @@ export function UniversalStake({
       void debouncedFetchEstimateFeeResp(amountValue);
     }
     prevShouldApproveRef.current = shouldApprove;
-
-    void debouncedFetchTransactionConfirmation(amountValue);
+    if (!isInvalidAmount(amountValue) && amountValueBN.isGreaterThan(0)) {
+      void debouncedFetchTransactionConfirmation(amountValue);
+    } else {
+      debouncedFetchTransactionConfirmation.cancel();
+      setTransactionConfirmation(undefined);
+      setTransactionConfirmationLoading(false);
+    }
+    return () => {
+      debouncedFetchTransactionConfirmation.cancel();
+    };
   }, [
     shouldApprove,
     amountValue,
@@ -1306,22 +1327,28 @@ export function UniversalStake({
       }
     }
 
-    // OK-59196 (review P2): gate here, before submitting/wrap progress state
-    // transitions, so rejecting the risk dialog leaves the form untouched —
-    // the gate inside useUniversalStake would otherwise return void and the
-    // caller would resetAmount() as if the flow had completed
-    const earnRiskConfirmed = await showEarnRiskWarningDialog({
-      provider: providerName,
-      symbol: actionSymbol,
-      networkId,
-      title: intl.formatMessage({ id: ETranslations.global_warning }),
-    });
-    if (!earnRiskConfirmed) {
-      return;
+    // OK-59196: Stakefish signs a provider-facing message before any hook runs,
+    // so the disclaimer has to gate this pre-transaction step. Not a duplicate
+    // of the gate inside useUniversalStake — that one only covers the transaction
+    // itself, and once accepted this call resolves immediately. Only create-new
+    // validator stakes sign, so a top up never reaches this dialog.
+    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
+      const riskAcceptedBeforeSigning = await showEarnRiskWarningDialog({
+        provider: providerName,
+        symbol: actionSymbol,
+        networkId,
+        title: intl.formatMessage({ id: ETranslations.global_warning }),
+      });
+      if (!riskAcceptedBeforeSigning) {
+        return;
+      }
     }
 
-    // Stakefish ETH: sign before building the staking transaction.
-    if (isStakefishEthStake && !stakefishPermitSignatureRef.current) {
+    // Stakefish ETH: sign before building the staking transaction. Only the
+    // create-new-validator flow needs it; the Earn API routes a top up by
+    // publicKey (the selected validator) and the signature would take priority
+    // over it in the stake build, so signing a top up only blocks the build.
+    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
       setApproving(true);
       try {
         const { signature, message } = await signPersonalMessage({
@@ -1342,14 +1369,16 @@ export function UniversalStake({
       setApproving(false);
     }
 
-    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef
+    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef.
+    // Stakefish only attaches it for a new validator; a top up must stay
+    // signature-free so the Earn API routes it by publicKey.
     let finalPermitSignature: string | undefined;
     let finalMessage: string | undefined;
     let finalUnsignedMessage: IEarnPermit2ApproveSignData | undefined;
     if (usePermit2Approve) {
       finalPermitSignature = permitSignatureRef.current;
       finalUnsignedMessage = permit2DataRef.current;
-    } else if (isStakefishEthStake) {
+    } else if (isStakefishCreateNewValidator) {
       finalPermitSignature = stakefishPermitSignatureRef.current;
       finalMessage = stakefishPermitMessageRef.current;
     }
@@ -1393,7 +1422,7 @@ export function UniversalStake({
           setStakeProgressStep(EStakeProgressStep.approve);
         }
 
-        await onConfirm?.({
+        const started = await onConfirm?.({
           amount: amountValue,
           effectiveApy: transactionConfirmation?.effectiveApy,
           stakeType,
@@ -1401,6 +1430,9 @@ export function UniversalStake({
           ...permitSignatureParams,
           ...stakefishParams,
         });
+        if (started === false) {
+          return;
+        }
         resetAmount();
         // Auto-refresh quote countdown after swap completes
         onQuoteReset?.();
@@ -1466,7 +1498,6 @@ export function UniversalStake({
     showEstimateGasAlert,
     checkEstimateGasAlert,
     isStakefishProvider,
-    isStakefishEthStake,
     isPendleProvider,
     selectedValidator,
     isStakefishCreateNewValidator,
@@ -2258,16 +2289,6 @@ export function UniversalStake({
     />
   ) : null;
 
-  // When entering from the trending list, the protocol selector is rendered as a
-  // standalone (border-less) card above the summary card. The bordered summary
-  // card should then only render when it actually has body content, otherwise it
-  // would show up as an empty bordered box.
-  const summaryCardHasBodyContent = Boolean(
-    summaryContent ||
-    ongoingValidator ||
-    (!shouldShowPlatformBonus && tradeOrBuyContent),
-  );
-
   // The "Est. annual rewards" summary depends on a second request
   // (getTransactionConfirmation) that resolves after managePageData. Without a
   // placeholder it pops in on the second stage and shoves the rest of the card
@@ -2275,19 +2296,47 @@ export function UniversalStake({
   // window: once the quote settles (success or failure) never show it again,
   // so no-summary protocols don't pulse on amount edits and a failed request
   // doesn't leave the skeleton stuck.
+  // Stakefish's trending entry uses a compact colored "earn starts" row instead
+  // of the full title/value summary, so reserve the height of that row as well.
+  const shouldReserveCompactSummary =
+    Boolean(protocolSwitchConfig) && isStakefishProvider;
   const summaryPending =
     !hasSummarySection &&
     !isPendleLikeLayout &&
-    !protocolSwitchConfig &&
+    (!protocolSwitchConfig || shouldReserveCompactSummary) &&
     !isDisabled &&
-    !transactionConfirmationSettledRef.current;
+    isPositiveAmount &&
+    !transactionConfirmationSettled;
 
-  const summaryLoadingContent = summaryPending ? (
-    <YStack gap="$1.5">
-      <Skeleton.BodyMd w={96} />
-      <Skeleton.BodyLg w={140} />
-    </YStack>
-  ) : null;
+  const summaryLoadingContent = useMemo(() => {
+    if (!summaryPending) {
+      return null;
+    }
+    if (shouldReserveCompactSummary) {
+      return (
+        <YStack mt="$1.5">
+          <Skeleton.BodyLg w={160} />
+        </YStack>
+      );
+    }
+    return (
+      <YStack gap="$1.5">
+        <Skeleton.BodyMd w={96} />
+        <Skeleton.BodyLg w={140} />
+      </YStack>
+    );
+  }, [shouldReserveCompactSummary, summaryPending]);
+
+  // When entering from the trending list, the protocol selector is rendered as a
+  // standalone (border-less) card above the summary card. The bordered summary
+  // card should then only render when it actually has body content, otherwise it
+  // would show up as an empty bordered box.
+  const summaryCardHasBodyContent = Boolean(
+    summaryContent ||
+    summaryLoadingContent ||
+    ongoingValidator ||
+    (!shouldShowPlatformBonus && tradeOrBuyContent),
+  );
 
   return (
     <StakingFormWrapper>
@@ -2307,7 +2356,7 @@ export function UniversalStake({
               tokenSelectorTriggerProps={{
                 selectedTokenImageUri: tokenImageUri,
                 selectedTokenImageLoading: tokenImageLoading,
-                selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+                selectedTokenSymbol: tokenSymbol,
                 selectedNetworkImageUri: networkLogoURI,
                 ...tokenSelectorTriggerProps,
               }}
@@ -2454,9 +2503,15 @@ export function UniversalStake({
               />
             </XStack>
           ) : null}
-          {summaryContent}
-          {summaryLoadingContent}
-          {summaryContent || summaryLoadingContent ? <Divider my="$5" /> : null}
+          <HeightTransition>
+            {summaryContent || summaryLoadingContent ? (
+              <>
+                {summaryContent}
+                {summaryLoadingContent}
+                <Divider my="$5" />
+              </>
+            ) : null}
+          </HeightTransition>
           <YStack gap="$5">
             {ongoingValidator ? (
               <EarnValidatorSelect
@@ -2515,7 +2570,7 @@ export function UniversalStake({
                               </SizableText>
                             </XStack>
                             <YStack
-                              animation="quick"
+                              transition="quick"
                               animateOnly={ANIMATE_ONLY_TRANSFORM}
                               rotate={
                                 open && !isAccordionTriggerDisabled
@@ -2539,9 +2594,9 @@ export function UniversalStake({
                       </>
                     )}
                   </Accordion.Trigger>
-                  <Accordion.HeightAnimator animation="quick">
+                  <Accordion.HeightAnimator transition="quick">
                     <Accordion.Content
-                      animation="quick"
+                      transition="quick"
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                       px={0}

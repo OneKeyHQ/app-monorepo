@@ -10,6 +10,7 @@ import {
   ChartSettingsDialogContent,
   showTradingViewChartSettingsDialog,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
+import { TradingViewMobileChartSettingsDialogContent } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewMobileChartSettingsDialogContent';
 
 import { canToggleTradingViewNativeIndicatorOn } from '../indicatorControls/hooks/useNativeIndicatorActiveValues';
 
@@ -64,6 +65,7 @@ interface ITradingViewV2ChartControlsContainerProps {
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
   priceMarketCapControlMode?: ITradingViewNativePriceMarketCapControlMode;
   layoutMode?: ITradingViewNativeControlsLayoutMode;
+  mobileToolbarExtra?: ReactNode;
   chartTimezone: string;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -95,6 +97,7 @@ export const TradingViewV2ChartControlsContainer = memo(
     intervalControlMode = 'dialog',
     priceMarketCapControlMode = 'settings',
     layoutMode = 'mobile',
+    mobileToolbarExtra,
     chartTimezone,
     isFullscreen = false,
     fullscreenHeader,
@@ -247,6 +250,34 @@ export const TradingViewV2ChartControlsContainer = memo(
       showTradingViewChartSettingsDialog();
     }, [enableNativeChartSettings, onControlInteraction]);
 
+    const showMobileChartSettingsDialog = useCallback(() => {
+      if (!enableNativeChartSettings) {
+        return;
+      }
+
+      onControlInteraction?.();
+      Dialog.show({
+        title: chartSettingsTitle,
+        showFooter: false,
+        testID: 'trading-view-native-chart-settings-quick-dialog',
+        renderContent: (
+          <TradingViewMobileChartSettingsDialogContent
+            chartMode="tradingView"
+            onChartSwitch={onChartSwitch}
+            onOpenSettings={
+              onOpenChartSettings ?? showTradingViewChartSettingsDialog
+            }
+          />
+        ),
+      });
+    }, [
+      chartSettingsTitle,
+      enableNativeChartSettings,
+      onChartSwitch,
+      onControlInteraction,
+      onOpenChartSettings,
+    ]);
+
     const handleChartTypeToggle = useCallback(() => {
       if (nextChartType) {
         onControlInteraction?.();
@@ -270,24 +301,37 @@ export const TradingViewV2ChartControlsContainer = memo(
     }, [onControlInteraction, onRedo]);
 
     const handleSettingsPress = useCallback(() => {
-      if (enableNativeChartSettings) {
-        showNewChartSettingsDialog();
+      if (
+        enableNativeChartSettings &&
+        layoutMode === 'mobile' &&
+        onChartSwitch
+      ) {
+        showMobileChartSettingsDialog();
         return;
       }
 
       if (onOpenChartSettings) {
+        onControlInteraction?.();
         onOpenChartSettings();
+        return;
+      }
+
+      if (enableNativeChartSettings) {
+        showNewChartSettingsDialog();
         return;
       }
 
       showChartSettingsDialog();
     }, [
       enableNativeChartSettings,
+      layoutMode,
+      onChartSwitch,
+      onControlInteraction,
       onOpenChartSettings,
       showChartSettingsDialog,
+      showMobileChartSettingsDialog,
       showNewChartSettingsDialog,
     ]);
-
     return (
       <TradingViewChartControls
         intervalConfig={intervalConfig}
@@ -313,11 +357,12 @@ export const TradingViewV2ChartControlsContainer = memo(
         isControlsReady={isControlsReady}
         intervalControlMode={intervalControlMode}
         layoutMode={layoutMode}
+        rightControl={layoutMode === 'mobile' ? mobileToolbarExtra : undefined}
         chartTimezone={chartTimezone}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
-        chartMode="tradingView"
-        onChartSwitch={onChartSwitch}
+        chartMode={layoutMode === 'desktop' ? 'tradingView' : undefined}
+        onChartSwitch={layoutMode === 'desktop' ? onChartSwitch : undefined}
         onIntervalChange={onIntervalChange}
         onIndicatorPress={handleIndicatorPress}
         onShowIndicatorsDialog={showIndicatorsDialog}

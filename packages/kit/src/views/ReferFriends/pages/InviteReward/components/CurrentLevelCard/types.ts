@@ -6,15 +6,15 @@ export interface ICurrentLevelCardProps {
 }
 
 export interface IUseCurrentLevelCardReturn {
-  currentLevel: IInviteSummary['rebateConfig'];
-  levelIcon: string;
   levelLabel: string;
+  levelIcon: string;
   commissionRates: Array<{
     subject: string;
     rate: {
       you: number;
       invitee: number;
       label: string;
+      enabled: boolean;
     };
   }>;
 }

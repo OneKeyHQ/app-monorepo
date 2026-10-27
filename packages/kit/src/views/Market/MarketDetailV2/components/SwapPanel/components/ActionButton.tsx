@@ -24,14 +24,14 @@ import {
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapSource,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
-import { resolveMarketTradeActionState } from './ActionButton.utils';
+import {
+  resolveMarketTradeActionState,
+  resolveMarketTradeFallbackSwapType,
+} from './ActionButton.utils';
 
 import type { IToken } from '../types';
 import type { GestureResponderEvent } from 'react-native';
@@ -146,9 +146,10 @@ export function ActionButton({
           tradeType === ESwapDirection.BUY ? actionToken : actionOtherToken,
         importFromToken:
           tradeType === ESwapDirection.BUY ? actionOtherToken : actionToken,
-        swapTabSwitchType: onlySupportCrossChain
-          ? ESwapTabSwitchType.BRIDGE
-          : ESwapTabSwitchType.SWAP,
+        swapTabSwitchType: resolveMarketTradeFallbackSwapType({
+          isStock: actionToken?.isStock,
+          onlySupportCrossChain,
+        }),
         swapSource: ESwapSource.MARKET,
         marketPresetToken: actionToken
           ? {

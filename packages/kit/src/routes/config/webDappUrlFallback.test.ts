@@ -1,6 +1,20 @@
+import { getPathFromState, getStateFromPath } from '@react-navigation/core';
+
+import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+  PRIME_REDEEM_LANDING_PATH,
+  PRIME_SUBSCRIPTION_LANDING_PATH,
+} from '@onekeyhq/shared/src/routes';
+import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
+import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
+import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
+
 import {
   getWebDappAllowListRule,
   getWebDappUrlFallback,
+  normalizeMarketTokenDetailPath,
 } from './webDappUrlFallback';
 
 const allowList = {
@@ -12,6 +26,76 @@ const allowList = {
 const allowListKeys = Object.keys(allowList);
 
 describe('getWebDappAllowListRule', () => {
+  it('publishes banner detail URLs with the parameters needed to restore the page', () => {
+    const screens: IScreenPathConfig = {
+      [ERootRoutes.Main]: {
+        path: '/',
+        exact: false,
+        screens: {
+          [ETabRoutes.Market]: {
+            path: '/market',
+            exact: false,
+            initialRouteName: ETabMarketRoutes.TabMarket,
+            screens: {
+              [ETabMarketRoutes.TabMarket]: { path: '/', exact: false },
+              [ETabMarketRoutes.MarketBannerDetail]: {
+                path: '/banner/:tokenListId',
+                exact: false,
+              },
+            },
+          },
+        },
+      },
+    };
+    const params = {
+      tokenListId: 'stock-list',
+      title: 'Stocks & ETFs',
+      type: EMarketBannerType.StockPerps,
+      assetType: 'stock',
+    };
+    const path = getPathFromState(
+      {
+        routes: [
+          {
+            name: ERootRoutes.Main,
+            state: {
+              routes: [
+                {
+                  name: ETabRoutes.Market,
+                  state: {
+                    routes: [
+                      { name: ETabMarketRoutes.MarketBannerDetail, params },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      { screens },
+    );
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    try {
+      const bannerAllowList = buildAllowList(screens, true);
+      expect(path.split('?')[0]).toBe('/market/banner/stock-list');
+      expect(
+        getWebDappAllowListRule({
+          allowList: bannerAllowList,
+          allowListKeys: Object.keys(bannerAllowList),
+          path: path.split('?')[0],
+        }),
+      ).toEqual({ showUrl: true, showParams: true });
+      const restoredState = getStateFromPath(path, { screens });
+      expect(restoredState?.routes[0].state?.routes[0].state?.routes).toEqual([
+        { name: ETabMarketRoutes.TabMarket },
+        { name: ETabMarketRoutes.MarketBannerDetail, params, path },
+      ]);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it.each(['/modal/swap-settings', '/modal/token-selector?next=/swap'])(
     'does not authorize a non-public target containing an allowlist fragment: %s',
     (path) => {
@@ -42,6 +126,60 @@ describe('getWebDappUrlFallback', () => {
         currentSearch: '?tab=bridge',
       }),
     ).toBe('/swap?tab=bridge');
+  });
+
+  it('keeps the Prime redeem landing query', () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    try {
+      const primeRedeemAllowList = buildAllowList({}, true);
+
+      expect(primeRedeemAllowList[PRIME_REDEEM_LANDING_PATH]).toEqual({
+        showUrl: true,
+        showParams: true,
+      });
+      const slashStrippedKey = `/${PRIME_REDEEM_LANDING_PATH.replace(
+        /\//g,
+        '',
+      )}`;
+      expect(primeRedeemAllowList[slashStrippedKey]).toBeUndefined();
+      expect(
+        getWebDappUrlFallback({
+          allowList: primeRedeemAllowList,
+          allowListKeys: Object.keys(primeRedeemAllowList),
+          currentPath: PRIME_REDEEM_LANDING_PATH,
+          currentSearch: '?code=OKP-TEST',
+        }),
+      ).toBe(`${PRIME_REDEEM_LANDING_PATH}?code=OKP-TEST`);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('keeps the Prime subscription landing path', () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    try {
+      const primeLandingAllowList = buildAllowList({}, true);
+
+      expect(primeLandingAllowList[PRIME_SUBSCRIPTION_LANDING_PATH]).toEqual({
+        showUrl: true,
+        showParams: false,
+      });
+      const slashStrippedKey = `/${PRIME_SUBSCRIPTION_LANDING_PATH.replace(
+        /\//g,
+        '',
+      )}`;
+      expect(primeLandingAllowList[slashStrippedKey]).toBeUndefined();
+      expect(
+        getWebDappUrlFallback({
+          allowList: primeLandingAllowList,
+          allowListKeys: Object.keys(primeLandingAllowList),
+          currentPath: PRIME_SUBSCRIPTION_LANDING_PATH,
+          currentSearch: '?utm=test',
+        }),
+      ).toBe(PRIME_SUBSCRIPTION_LANDING_PATH);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('strips params when the current route does not expose them', () => {
@@ -124,4 +262,67 @@ describe('getWebDappUrlFallback', () => {
       ).toBe('/market');
     },
   );
+});
+
+describe('normalizeMarketTokenDetailPath', () => {
+  const config = {
+    screens: {
+      [ETabMarketRoutes.MarketDetailV2]: 'market/token/:network/:tokenAddress',
+      [ETabMarketRoutes.MarketNativeDetail]: 'market/token/:network',
+    },
+  };
+
+  it.each(['eth', 'sol'])(
+    'publishes a reloadable native %s URL after switching token identity',
+    (network) => {
+      const params = {
+        network,
+        tokenAddress: '',
+        isNative: true,
+        marketTokenId: network,
+        marketVariantId: `${network}-variant`,
+      };
+      const path = normalizeMarketTokenDetailPath(
+        getPathFromState(
+          { routes: [{ name: ETabMarketRoutes.MarketDetailV2, params }] },
+          config,
+        ),
+      );
+      const pathname = path.split('?')[0];
+      const nativeAllowList = {
+        '/market/token/.': { showUrl: true, showParams: true },
+      };
+
+      expect(pathname).toBe(`/market/token/${network}`);
+      expect(
+        getWebDappAllowListRule({
+          allowList: nativeAllowList,
+          allowListKeys: Object.keys(nativeAllowList),
+          path: pathname,
+        }),
+      ).toEqual({ showUrl: true, showParams: true });
+      expect(getStateFromPath(path, config)?.routes[0]).toEqual(
+        expect.objectContaining({
+          name: ETabMarketRoutes.MarketNativeDetail,
+          params: {
+            network,
+            isNative: 'true',
+            marketTokenId: network,
+            marketVariantId: `${network}-variant`,
+          },
+        }),
+      );
+    },
+  );
+
+  it.each([
+    '/market/token/eth/0xabc?isNative=false&next=/market/token/sol/',
+    '/market/token/eth?isNative=true',
+    '/market/stock/AAPL',
+    '/modal/token-selector?next=/market/token/eth/',
+    '/market/token/eth//0xabc?isNative=false',
+    '/',
+  ])('preserves other URLs and query values: %s', (path) => {
+    expect(normalizeMarketTokenDetailPath(path)).toBe(path);
+  });
 });

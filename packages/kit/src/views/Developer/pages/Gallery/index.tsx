@@ -38,6 +38,14 @@ const HardwareGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Hardware'),
 );
+const DeviceStageDriverGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DeviceStageDriverGallery'),
+);
+const FirmwareUpdateInstallGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/FirmwareUpdateInstallGallery'),
+);
 const LedgerAppOpsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LedgerAppOps'),
@@ -140,9 +148,19 @@ const AddressInputGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AddressInput'),
 );
 
+const NativeOverlayGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NativeOverlay'),
+);
+
 const PortalGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Portal'),
+);
+
+const Pro2PrimeGiftGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Pro2PrimeGift'),
 );
 
 const AmountInputGallery = LazyLoadPage(
@@ -315,6 +333,11 @@ const PlaygroundGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/playground/index'),
 );
 
+const HeadlessBuyGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HeadlessBuyGallery'),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -325,8 +348,16 @@ export const galleryScreenList: {
     component: TypographyGallery,
   },
   {
+    name: EGalleryRoutes.ComponentNativeOverlay,
+    component: NativeOverlayGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentPortal,
     component: PortalGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentPro2PrimeGift,
+    component: Pro2PrimeGiftGallery,
   },
   {
     name: EGalleryRoutes.ComponentToken,
@@ -427,6 +458,14 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentHardware,
     component: HardwareGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentDeviceStageDriver,
+    component: DeviceStageDriverGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentFirmwareUpdateInstall,
+    component: FirmwareUpdateInstallGallery,
   },
   {
     name: EGalleryRoutes.ComponentLedgerAppOps,
@@ -563,5 +602,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentStorage,
     component: StorageGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentHeadlessBuy,
+    component: HeadlessBuyGallery,
   },
 ];

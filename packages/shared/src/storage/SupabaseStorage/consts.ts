@@ -2,6 +2,7 @@
 
 import {
   KEYLESS_SUPABASE_PROJECT_URL,
+  ONEKEY_ID_AUTH_CONFIG,
   SUPABASE_PROJECT_URL,
 } from '../../consts/authConsts';
 import { OneKeyLocalError } from '../../errors';
@@ -20,6 +21,16 @@ function getSupabaseStorageProjectRef(projectUrl: string): string {
 export function getSupabaseAuthSessionKey(
   projectUrl = SUPABASE_PROJECT_URL,
 ): string {
+  const normalizedUrl = projectUrl.replace(/\/$/, '');
+  // Keep the production session, user and PKCE slots unchanged across OTA
+  // upgrades, regardless of the relay hostname.
+  if (normalizedUrl === SUPABASE_PROJECT_URL) {
+    return 'sb-bwgpgzbzdgkisozswlck-auth-token';
+  }
+  // Both relay hosts start with "prime"; give only test its own stable slot.
+  if (normalizedUrl === ONEKEY_ID_AUTH_CONFIG.test.projectUrl) {
+    return 'sb-onekey-test-auth-token';
+  }
   const projectRef = getSupabaseStorageProjectRef(projectUrl);
   if (!projectRef) {
     throw new OneKeyLocalError('Supabase project reference not found');

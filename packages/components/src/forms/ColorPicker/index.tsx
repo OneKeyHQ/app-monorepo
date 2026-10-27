@@ -5,11 +5,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Popover, Trigger } from '../../actions';
 import { DialogContainer } from '../../composite/Dialog';
-import { Portal } from '../../hocs';
 import { useMedia } from '../../hooks';
 import { Stack, XStack, YStack } from '../../primitives';
 
 import type { IPopoverContent, IPopoverProps } from '../../actions';
+import type { IDialogFloatingPanelProps } from '../../composite/Dialog/type';
 import type { IYStackProps } from '../../primitives';
 
 export interface IColorPickerOption {
@@ -635,6 +635,15 @@ export function ColorPicker({
     }),
     [floatingPanelProps],
   );
+  const dialogFloatingPanelProps = useMemo<IDialogFloatingPanelProps>(() => {
+    const { onCloseAutoFocus, ...panelProps } = mergedFloatingPanelProps;
+    return {
+      ...panelProps,
+      ...(typeof onCloseAutoFocus === 'function'
+        ? { onCloseAutoFocus }
+        : undefined),
+    };
+  }, [mergedFloatingPanelProps]);
 
   const renderPaletteContent = useCallback(
     (closeOverlay: () => void) => (
@@ -680,7 +689,7 @@ export function ColorPicker({
 
   const mobileDialog = useMemo(
     () => (
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+      <>
         <DialogContainer
           title="Color"
           showHeader={false}
@@ -690,16 +699,16 @@ export function ColorPicker({
           renderContent={dialogContent}
           contentContainerProps={defaultDialogContentContainerProps}
           sheetProps={sheetProps}
-          floatingPanelProps={mergedFloatingPanelProps}
+          floatingPanelProps={dialogFloatingPanelProps}
           testID={testID ? `${testID}-dialog` : undefined}
         />
-      </Portal.Body>
+      </>
     ),
     [
       dialogContent,
       effectiveOpen,
       handleDialogClose,
-      mergedFloatingPanelProps,
+      dialogFloatingPanelProps,
       sheetProps,
       testID,
     ],

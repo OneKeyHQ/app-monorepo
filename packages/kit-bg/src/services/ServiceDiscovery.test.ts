@@ -39,10 +39,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  swrCacheNamespaces,
-  swrCacheUtils,
-} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import ServiceDiscovery from './ServiceDiscovery';
 
@@ -91,7 +88,7 @@ describe('ServiceDiscovery', () => {
     expect(buildWebsiteIconUrl).not.toHaveBeenCalled();
   });
 
-  it('invalidates cached discovery home bookmarks after bookmark writes', async () => {
+  it('announces a bookmark write without touching the store', async () => {
     const emitSpy = jest.spyOn(appEventBus, 'emit');
     const addAndUpdateSyncItems = jest.fn(
       async ({ fn }: { fn: () => Promise<void> }) => {
@@ -137,10 +134,9 @@ describe('ServiceDiscovery', () => {
     expect(addAndUpdateSyncItems).toHaveBeenCalledWith(
       expect.objectContaining({ items: [] }),
     );
-    expect(swrCacheUtils.removeByPrefix).toHaveBeenCalledWith(
-      `${swrCacheNamespaces.discoveryHomeBookmarks}:`,
-    );
-    expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
+    // The namespace is dropped by the UI runtime on this event; bg owns none
+    // of these entries and no longer touches the store.
+    expect(swrCacheUtils.removeByPrefix).not.toHaveBeenCalled();
     expect(emitSpy).toHaveBeenCalledWith(
       EAppEventBusNames.InvalidateDiscoveryHomeBookmarksPrefetch,
       undefined,
@@ -151,7 +147,7 @@ describe('ServiceDiscovery', () => {
     );
   });
 
-  it('invalidates cached discovery home bookmarks after clearing discovery data', async () => {
+  it('announces a discovery data wipe without touching the store', async () => {
     const emitSpy = jest.spyOn(appEventBus, 'emit');
     const clearRawData = jest.fn().mockResolvedValue(undefined);
     const service = Object.assign(Object.create(ServiceDiscovery.prototype), {
@@ -182,10 +178,7 @@ describe('ServiceDiscovery', () => {
     await ServiceDiscovery.prototype.clearDiscoveryPageData.call(service);
 
     expect(clearRawData).toHaveBeenCalledTimes(5);
-    expect(swrCacheUtils.removeByPrefix).toHaveBeenCalledWith(
-      `${swrCacheNamespaces.discoveryHomeBookmarks}:`,
-    );
-    expect(swrCacheUtils.flushNow).toHaveBeenCalledTimes(1);
+    expect(swrCacheUtils.removeByPrefix).not.toHaveBeenCalled();
     expect(emitSpy).toHaveBeenCalledWith(
       EAppEventBusNames.RefreshBookmarkList,
       undefined,

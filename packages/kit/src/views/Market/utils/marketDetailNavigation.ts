@@ -1,0 +1,821 @@
+import {
+  CommonActions,
+  StackActions,
+  TabRouter,
+} from '@react-navigation/native';
+import { isEqual, omit } from 'lodash';
+
+import { rootNavigationRef } from '@onekeyhq/components';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  ETabRoutes,
+  IWebviewPerpTradeParamList,
+} from '@onekeyhq/shared/src/routes';
+import {
+  EModalSwapRoutes,
+  ERootRoutes,
+  ETabDiscoveryRoutes,
+  ETabMarketRoutes,
+} from '@onekeyhq/shared/src/routes';
+import {
+  createHideTabBarOwnerId,
+  releaseHideTabBar,
+  requestHideTabBar,
+} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
+
+import type {
+  NavigatorScreenParams,
+  ParamListBase,
+  TabNavigationState,
+} from '@react-navigation/native';
+
+// The request only bridges the gap between dispatching the navigation and
+// MarketDetailV2 claiming ownership in its focus effect, which is a couple of
+// frames. This hides the app wide tab bar, so the ceiling stays tight: a
+// navigation that never reaches a detail screen must not sit on it.
+const MARKET_DETAIL_TRANSITION_HIDE_TIMEOUT_MS = 1500;
+let marketDetailTransitionHideOwnerId: string | undefined;
+let marketDetailTransitionHideTimer: ReturnType<typeof setTimeout> | undefined;
+let marketDetailTransitionStateUnsubscribe: (() => void) | undefined;
+
+export function finishMarketDetailTabBarTransition() {
+  if (marketDetailTransitionHideTimer) {
+    clearTimeout(marketDetailTransitionHideTimer);
+    marketDetailTransitionHideTimer = undefined;
+  }
+  if (marketDetailTransitionStateUnsubscribe) {
+    marketDetailTransitionStateUnsubscribe();
+    marketDetailTransitionStateUnsubscribe = undefined;
+  }
+  if (marketDetailTransitionHideOwnerId) {
+    releaseHideTabBar(marketDetailTransitionHideOwnerId);
+    marketDetailTransitionHideOwnerId = undefined;
+  }
+}
+
+/**
+ * A pushed detail route enters the navigation state before its component
+ * mounts, so the request keeps waiting while the focused route still is one.
+ * A root level overlay is inconclusive: it covers the tab bar anyway and the
+ * detail route underneath still takes over once the overlay closes.
+ */
+function canMarketDetailTransitionStillLand(navigation: INavigationLike) {
+  const rootRoutes = navigation.getRootState?.()?.routes;
+  if (!rootRoutes?.length) {
+    return true;
+  }
+  const focusedRootRoute =
+    rootRoutes[navigation.getRootState?.()?.index ?? rootRoutes.length - 1];
+  if (focusedRootRoute?.name !== ERootRoutes.Main) {
+    return true;
+  }
+  return isFocusedMarketDetailRouteName(navigation.getCurrentRoute?.()?.name);
+}
+
+function watchMarketDetailTransitionTarget(navigation: INavigationLike) {
+  if (marketDetailTransitionStateUnsubscribe || !navigation.addListener) {
+    return;
+  }
+  // Do not evaluate the current route here: callers dispatch in the same
+  // synchronous tick, with no await/yield in between. The first `state` event
+  // arrives after React commits and therefore observes the navigation target.
+  marketDetailTransitionStateUnsubscribe = navigation.addListener(
+    'state',
+    () => {
+      if (canMarketDetailTransitionStillLand(navigation)) {
+        return;
+      }
+      finishMarketDetailTabBarTransition();
+    },
+  );
+}
+
+/**
+ * Call in the same synchronous tick as the paired navigation dispatch. There
+ * must be no await/yield between this call and that dispatch.
+ */
+export function prepareMarketDetailTabBarTransition() {
+  // Android only: its native tab bar reports the pre-hide scene height, so the
+  // hide has to land in the same commit as the navigation. iOS sizes scenes
+  // from the container bounds regardless of tab bar visibility and has not
+  // been measured for this, so it keeps releasing the tab bar on focus.
+  if (!platformEnv.isNativeAndroid) {
+    return;
+  }
+
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  if (!navigation) {
+    return;
+  }
+
+  if (!marketDetailTransitionHideOwnerId) {
+    marketDetailTransitionHideOwnerId = createHideTabBarOwnerId(
+      'market-detail-transition',
+    );
+  }
+  requestHideTabBar(marketDetailTransitionHideOwnerId);
+
+  watchMarketDetailTransitionTarget(navigation);
+
+  // Deadline from the first request of a burst. Re-arming per call would let
+  // back to back navigations extend the hidden window without bound.
+  if (!marketDetailTransitionHideTimer) {
+    marketDetailTransitionHideTimer = setTimeout(
+      finishMarketDetailTabBarTransition,
+      MARKET_DETAIL_TRANSITION_HIDE_TIMEOUT_MS,
+    );
+  }
+}
+
+const REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES = new Set<string>([
+  ETabMarketRoutes.MarketDetail,
+  ETabMarketRoutes.MarketDetailV2,
+  ETabMarketRoutes.MarketStockDetail,
+  ETabMarketRoutes.MarketNativeDetail,
+]);
+
+// These tab routes share the same MarketDetailV2 screen component.
+const MARKET_DETAIL_V2_ROUTE_NAMES = new Set<string>([
+  ETabMarketRoutes.MarketDetailV2,
+  ETabMarketRoutes.MarketStockDetail,
+  ETabMarketRoutes.MarketNativeDetail,
+]);
+
+const MARKET_HOST_ROUTE_NAMES = new Set<string>([
+  ...REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES,
+  ETabMarketRoutes.MarketBannerDetail,
+]);
+
+const DETAIL_ROUTE_PARAM_KEYS = [
+  'tokenAddress',
+  'network',
+  'isNative',
+  'marketTokenId',
+  'marketVariantId',
+  'marketTokenCategory',
+  'skipMarketDataFetch',
+  'legacyTokenPreview',
+  'marketTokenPreviewId',
+  'stockId',
+  'initialSection',
+  'stockPreviewSymbol',
+  'stockPreviewName',
+  'stockPreviewLogoUrl',
+  'stockPreviewQuote',
+  'from',
+  'disableTrade',
+  'showFavoriteButton',
+] as const;
+
+const SWAP_PRO_OWNED_PARAM_KEYS = [
+  'from',
+  'disableTrade',
+  'showFavoriteButton',
+] as const;
+
+export type INavigationRouteNode = {
+  key?: string;
+  name?: string;
+  params?: Record<string, unknown>;
+  state?: INavigationStateNode;
+};
+
+export type INavigationStateNode = {
+  type?: string;
+  key?: string;
+  index?: number;
+  routes?: INavigationRouteNode[];
+};
+
+export type IMarketDetailBackAction =
+  | { type: 'pop' }
+  | { type: 'popToTop' }
+  | { type: 'popAndSwitchMarket' }
+  // A Swap "view full data" detail that is its stack's only screen: reset the
+  // Market tab to its list, then return to Swap. Deeper stacks just pop and
+  // the detail page's beforeRemove listener does the switch.
+  | { type: 'resetAndSwitchSwap' }
+  | { type: 'reset'; name: string; params?: Record<string, unknown> };
+
+type INavigationLike = {
+  dispatch: (action: object) => void;
+  getRootState?: () => INavigationStateNode | undefined;
+  getCurrentRoute?: () => { name?: string; key?: string } | undefined;
+  addListener?: (type: 'state', callback: () => void) => () => void;
+};
+
+export function isReplaceableMarketDetailRouteName(name?: string) {
+  return Boolean(name && REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES.has(name));
+}
+
+export function isMarketHostRouteName(name?: string) {
+  return Boolean(name && MARKET_HOST_ROUTE_NAMES.has(name));
+}
+
+export function isFocusedMarketDetailRouteName(name?: string) {
+  return (
+    isReplaceableMarketDetailRouteName(name) ||
+    name === EModalSwapRoutes.SwapProMarketDetail
+  );
+}
+
+export function canReuseMarketDetailRoute(
+  currentName: string | undefined,
+  nextName: string,
+) {
+  // Native selectors keep the existing MarketDetailV2 route across asset types.
+  return (
+    currentName === nextName ||
+    (platformEnv.isNative &&
+      ((currentName === ETabMarketRoutes.MarketDetailV2 &&
+        nextName === ETabMarketRoutes.MarketStockDetail) ||
+        (currentName === ETabMarketRoutes.MarketStockDetail &&
+          nextName === ETabMarketRoutes.MarketDetailV2)))
+  );
+}
+
+export function getMarketListRootName() {
+  return ETabMarketRoutes.TabMarket;
+}
+
+export function getNativeMarketListResetParams():
+  | Record<string, unknown>
+  | undefined {
+  return undefined;
+}
+
+export function buildReplacedMarketDetailParams(
+  params: Record<string, unknown>,
+) {
+  const next: Record<string, unknown> = {};
+  for (const key of DETAIL_ROUTE_PARAM_KEYS) {
+    next[key] = key in params ? params[key] : undefined;
+  }
+  return next;
+}
+
+function omitSwapProOwnedParams(params: Record<string, unknown>) {
+  const next = { ...params };
+  for (const key of SWAP_PRO_OWNED_PARAM_KEYS) {
+    delete next[key];
+  }
+  return next;
+}
+
+function isMarketTabStack(state: INavigationStateNode) {
+  // Market is a standalone tab on every platform. A Discovery stack may still
+  // briefly hold a legacy Market route while it redirects, so never treat it
+  // as the Market stack; otherwise replacements land in the hidden Discovery
+  // stack instead of the Market tab.
+  if (
+    state.routes?.some(
+      (route) => route.name === ETabDiscoveryRoutes.TabDiscovery,
+    )
+  ) {
+    return false;
+  }
+  return Boolean(
+    state.key &&
+    state.routes?.some(
+      (route) =>
+        route.name === ETabMarketRoutes.TabMarket ||
+        isMarketHostRouteName(route.name),
+    ),
+  );
+}
+
+function collectMarketTabStacks(
+  state: INavigationStateNode | undefined,
+  stacks: INavigationStateNode[],
+) {
+  if (!state?.routes?.length) {
+    return;
+  }
+  if (isMarketTabStack(state)) {
+    stacks.push(state);
+  }
+  for (const route of state.routes) {
+    collectMarketTabStacks(route.state, stacks);
+  }
+}
+
+function getMarketTabStackScore(stack: INavigationStateNode) {
+  const routes = stack.routes ?? [];
+  if (routes.some((route) => isReplaceableMarketDetailRouteName(route.name))) {
+    return 3;
+  }
+  const listRootName = getMarketListRootName();
+  if (routes.some((route) => route.name === listRootName)) {
+    return 2;
+  }
+  return 1;
+}
+
+export function findMarketTabStack(state?: INavigationStateNode) {
+  const stacks: INavigationStateNode[] = [];
+  collectMarketTabStacks(state, stacks);
+  if (!stacks.length) {
+    return undefined;
+  }
+  return stacks.reduce((best, stack) =>
+    getMarketTabStackScore(stack) >= getMarketTabStackScore(best)
+      ? stack
+      : best,
+  );
+}
+
+export function getCurrentMarketStockDetailRoute() {
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  const stack = findMarketTabStack(navigation?.getRootState?.());
+  const routes = stack?.routes ?? [];
+  const current = routes[stack?.index ?? routes.length - 1];
+  if (
+    !canReuseMarketDetailRoute(
+      current?.name,
+      ETabMarketRoutes.MarketStockDetail,
+    ) ||
+    typeof current?.params?.stockId !== 'string'
+  ) {
+    return undefined;
+  }
+  return current.params;
+}
+
+export function getCurrentMarketStockDetailId() {
+  const stockId = getCurrentMarketStockDetailRoute()?.stockId;
+  return typeof stockId === 'string' ? stockId : undefined;
+}
+
+type ITabStackOwner = TabNavigationState<ParamListBase>;
+
+function findTabStackOwner(
+  state: INavigationStateNode | undefined,
+  stackKey: string,
+): ITabStackOwner | undefined {
+  if (!state?.routes) return undefined;
+  if (
+    state.type === 'tab' &&
+    state.key &&
+    state.routes.every((route) => route.key && route.name) &&
+    state.routes.some((route) => route.state?.key === stackKey)
+  ) {
+    return state as ITabStackOwner;
+  }
+  for (const route of state.routes) {
+    const owner = findTabStackOwner(route.state, stackKey);
+    if (owner) return owner;
+  }
+  return undefined;
+}
+
+export function dismissDiscoveryMarketDetailForTrade(
+  expectedRouteKey?: string,
+  targetTab?: ETabRoutes,
+  targetParams?: NavigatorScreenParams<IWebviewPerpTradeParamList>,
+): 'ready' | 'cancelled' {
+  if (!platformEnv.isNative) return 'ready';
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  if (!navigation) return 'ready';
+  const current = navigation?.getCurrentRoute?.();
+  if (expectedRouteKey !== undefined && current?.key !== expectedRouteKey) {
+    return 'cancelled';
+  }
+  if (!current?.key || !isReplaceableMarketDetailRouteName(current.name)) {
+    return 'ready';
+  }
+  const stack = findMarketTabStack(navigation?.getRootState?.());
+  const routes = stack?.routes;
+  const index = stack?.index ?? (routes?.length ?? 0) - 1;
+  if (
+    !stack?.key ||
+    !routes ||
+    index <= 0 ||
+    routes[index]?.key !== current.key
+  ) {
+    return 'ready';
+  }
+  let listIndex = index - 1;
+  while (
+    listIndex >= 0 &&
+    isReplaceableMarketDetailRouteName(routes[listIndex]?.name)
+  ) {
+    listIndex -= 1;
+  }
+  if (
+    routes[listIndex]?.name !== ETabMarketRoutes.TabMarket &&
+    routes[listIndex]?.name !== ETabMarketRoutes.MarketBannerDetail
+  ) {
+    return 'ready';
+  }
+  if (platformEnv.isNativeIOS) {
+    const tabs = findTabStackOwner(navigation.getRootState?.(), stack.key);
+    const targetIndex = tabs?.routes.findIndex(
+      (route) => route.name === targetTab,
+    );
+    if (!tabs || targetIndex === undefined || targetIndex < 0) {
+      return 'cancelled';
+    }
+    const sourceTab = tabs.routes.find(
+      (route) => route.state?.key === stack.key,
+    );
+    const sourceStack = sourceTab?.state;
+    if (!sourceTab || !sourceStack || sourceStack.stale !== false)
+      return 'cancelled';
+    const resetTabs: ITabStackOwner = {
+      ...tabs,
+      routes: tabs.routes.map((route) => {
+        if (route === sourceTab) {
+          return {
+            ...route,
+            state: {
+              ...sourceStack,
+              index: listIndex,
+              routes: sourceStack.routes.slice(0, listIndex + 1),
+            },
+          };
+        }
+        if (route.name === targetTab && targetParams) {
+          // Replace stale nested state before a cold tab builds its first route.
+          return { ...route, params: targetParams };
+        }
+        return route;
+      }),
+    };
+    // Select Perps and trim only its source stack in the same commit. Keep the
+    // tab and list keys so their components, loaded data and scroll state survive.
+    navigation.dispatch({
+      ...CommonActions.reset(
+        TabRouter({}).getStateForRouteFocus(
+          resetTabs,
+          tabs.routes[targetIndex].key,
+        ),
+      ),
+      target: tabs.key,
+    });
+    return 'ready';
+  }
+  navigation.dispatch({
+    ...StackActions.pop(index - listIndex),
+    source: current.key,
+    target: stack.key,
+  });
+  return 'ready';
+}
+
+function containsStack(
+  state: INavigationStateNode | undefined,
+  stackKey: string,
+): boolean {
+  if (!state) {
+    return false;
+  }
+  if (state.key === stackKey) {
+    return true;
+  }
+  return Boolean(
+    state.routes?.some((route) => containsStack(route.state, stackKey)),
+  );
+}
+
+function isBackgroundMainMarketStack(
+  root: INavigationStateNode | undefined,
+  stack: INavigationStateNode,
+) {
+  if (!root?.routes?.length || !stack.key) {
+    return false;
+  }
+  const focused = root.routes[root.index ?? root.routes.length - 1];
+  if (!focused?.name || focused.name === ERootRoutes.Main) {
+    return false;
+  }
+  const mainRoute = root.routes.find(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  return containsStack(mainRoute?.state, stack.key);
+}
+
+function stackOwnsFocusedRoute(stack: INavigationStateNode, routeKey?: string) {
+  return Boolean(
+    routeKey && stack.routes?.some((route) => route.key === routeKey),
+  );
+}
+
+function findRouteOwnerKey(
+  state: INavigationStateNode | undefined,
+  routeKey: string | undefined,
+): string | undefined {
+  if (!state || !routeKey) {
+    return undefined;
+  }
+  if (stackOwnsFocusedRoute(state, routeKey)) {
+    return state.key;
+  }
+  for (const route of state.routes ?? []) {
+    const ownerKey = findRouteOwnerKey(route.state, routeKey);
+    if (ownerKey) {
+      return ownerKey;
+    }
+  }
+  return undefined;
+}
+
+function shouldSkipUnfocusedMainMarketStack({
+  root,
+  stack,
+  focusedRoute,
+}: {
+  root?: INavigationStateNode;
+  stack: INavigationStateNode;
+  focusedRoute?: { name?: string; key?: string };
+}) {
+  if (!isBackgroundMainMarketStack(root, stack)) {
+    return false;
+  }
+  if (!isFocusedMarketDetailRouteName(focusedRoute?.name)) {
+    return false;
+  }
+  return !stackOwnsFocusedRoute(stack, focusedRoute?.key);
+}
+
+type IResetRoute = {
+  name: string;
+  key?: string;
+  params?: Record<string, unknown>;
+};
+
+function toResetRoute(route: INavigationRouteNode): IResetRoute {
+  return {
+    name: route.name ?? getMarketListRootName(),
+    ...(route.key ? { key: route.key } : {}),
+    ...(route.params ? { params: route.params } : {}),
+  };
+}
+
+function getPreservedHostRoutes(stack: INavigationStateNode): IResetRoute[] {
+  const preserved: IResetRoute[] = [];
+  for (const route of stack.routes ?? []) {
+    if (isReplaceableMarketDetailRouteName(route.name)) {
+      break;
+    }
+    preserved.push(toResetRoute(route));
+  }
+  if (preserved.length) {
+    return preserved;
+  }
+  return [toResetRoute({ name: getMarketListRootName() })];
+}
+
+function canUpdateCurrentDetailInPlace(
+  stack: INavigationStateNode,
+  routeName: string,
+) {
+  const routes = stack.routes ?? [];
+  const current = routes[stack.index ?? routes.length - 1];
+  const leftoverDetailCount = routes.filter((route) =>
+    isReplaceableMarketDetailRouteName(route.name),
+  ).length;
+  return Boolean(
+    current?.key &&
+    canReuseMarketDetailRoute(current.name, routeName) &&
+    leftoverDetailCount <= 1,
+  );
+}
+
+function dispatchResetToSingleDetail({
+  navigation,
+  stackKey,
+  hostRoutes,
+  routeName,
+  params,
+  currentRoute,
+}: {
+  navigation: INavigationLike;
+  stackKey: string;
+  hostRoutes: IResetRoute[];
+  routeName: string;
+  params: Record<string, unknown>;
+  currentRoute?: INavigationRouteNode;
+}) {
+  const shouldKeepRouteKey = Boolean(
+    !platformEnv.isNative &&
+    currentRoute?.name &&
+    MARKET_DETAIL_V2_ROUTE_NAMES.has(currentRoute.name) &&
+    MARKET_DETAIL_V2_ROUTE_NAMES.has(routeName),
+  );
+  navigation.dispatch({
+    ...CommonActions.reset({
+      index: hostRoutes.length,
+      routes: [
+        ...hostRoutes,
+        {
+          ...(shouldKeepRouteKey ? { key: currentRoute?.key } : undefined),
+          name: routeName,
+          params,
+        },
+      ],
+    }),
+    target: stackKey,
+  });
+}
+
+export function openOrReplaceMarketDetailRoute({
+  routeName,
+  params,
+}: {
+  routeName: string;
+  params: Record<string, unknown>;
+}): boolean {
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  const rootState = navigation?.getRootState?.();
+  const stack = findMarketTabStack(rootState);
+  if (!navigation || !stack?.key || !stack.routes?.length) {
+    return false;
+  }
+  if (
+    shouldSkipUnfocusedMainMarketStack({
+      root: rootState,
+      stack,
+      focusedRoute: navigation.getCurrentRoute?.(),
+    })
+  ) {
+    return false;
+  }
+
+  const nextParams = buildReplacedMarketDetailParams(params);
+  const current = stack.routes[stack.index ?? stack.routes.length - 1];
+  if (canUpdateCurrentDetailInPlace(stack, routeName) && current?.key) {
+    navigation.dispatch({
+      ...CommonActions.setParams(nextParams),
+      source: current.key,
+      target: stack.key,
+    });
+    return true;
+  }
+
+  prepareMarketDetailTabBarTransition();
+  dispatchResetToSingleDetail({
+    navigation,
+    stackKey: stack.key,
+    hostRoutes: getPreservedHostRoutes(stack),
+    routeName,
+    params: nextParams,
+    currentRoute: current,
+  });
+  return true;
+}
+
+export function replaceFocusedMarketDetailRoute({
+  routeName,
+  params,
+}: {
+  routeName: string;
+  params: Record<string, unknown>;
+}): boolean {
+  const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  const current = navigation?.getCurrentRoute?.();
+  if (!navigation || !isFocusedMarketDetailRouteName(current?.name)) {
+    return false;
+  }
+
+  const nextParams = buildReplacedMarketDetailParams(params);
+  const ownerKey = findRouteOwnerKey(navigation.getRootState?.(), current?.key);
+  if (current?.name === EModalSwapRoutes.SwapProMarketDetail) {
+    navigation.dispatch({
+      ...CommonActions.setParams(omitSwapProOwnedParams(nextParams)),
+      ...(current.key ? { source: current.key } : {}),
+      ...(ownerKey ? { target: ownerKey } : {}),
+    });
+    return true;
+  }
+  if (canReuseMarketDetailRoute(current?.name, routeName)) {
+    navigation.dispatch({
+      ...CommonActions.setParams(nextParams),
+      ...(current?.key ? { source: current.key } : {}),
+      ...(ownerKey ? { target: ownerKey } : {}),
+    });
+    return true;
+  }
+
+  prepareMarketDetailTabBarTransition();
+  navigation.dispatch(StackActions.replace(routeName, nextParams));
+  return true;
+}
+
+function buildNativeListResetAction(): IMarketDetailBackAction {
+  const params = getNativeMarketListResetParams();
+  return {
+    type: 'reset',
+    name: ETabMarketRoutes.TabMarket,
+    ...(params ? { params } : {}),
+  };
+}
+
+function resolveEntryBackAction({
+  isNative,
+  from,
+  routes,
+}: {
+  isNative: boolean;
+  from?: EEnterWay;
+  routes?: Array<{ name?: string }>;
+}): IMarketDetailBackAction | undefined {
+  if (isNative && from === EEnterWay.Search) {
+    if (!routes?.length || routes.length <= 1) {
+      return buildNativeListResetAction();
+    }
+    return { type: 'popAndSwitchMarket' };
+  }
+  if (from === EEnterWay.SwapPro || from === EEnterWay.BannerList) {
+    return { type: 'pop' };
+  }
+  // Swap's "view full data" switches tabs; the detail page sends a popped
+  // detail back to Swap itself, so only a detail-only stack needs more.
+  if (from === EEnterWay.SwapStock) {
+    return !routes?.length || routes.length <= 1
+      ? { type: 'resetAndSwitchSwap' }
+      : { type: 'pop' };
+  }
+  return undefined;
+}
+
+/**
+ * Runs once after the next paint, so a tab switch commits before the Market
+ * stack changes underneath it. Frames pause in a hidden window, so a short
+ * timeout makes sure the step still happens.
+ */
+/**
+ * Whether a params change only consumed the one-shot `initialSection` request.
+ * That is not a new entry: entry analytics and the Swap trip carry on.
+ */
+export function isInitialSectionConsumed(previous: unknown, next: unknown) {
+  const prev = previous as { initialSection?: unknown } | undefined;
+  const cur = next as { initialSection?: unknown } | undefined;
+  return Boolean(
+    prev?.initialSection !== undefined &&
+    cur?.initialSection === undefined &&
+    isEqual(omit(prev, 'initialSection'), omit(cur, 'initialSection')),
+  );
+}
+
+// Detail routes (by key) opened by Swap's "view full data" whose trip back to
+// Swap has ended: the user left the Market tab another way, so a later back
+// from that detail belongs to Market again. A new entry restarts the trip.
+const endedSwapStockTripRouteKeys = new Set<string>();
+
+export function setSwapStockTripEnded(routeKey: string, ended: boolean) {
+  if (ended) endedSwapStockTripRouteKeys.add(routeKey);
+  else endedSwapStockTripRouteKeys.delete(routeKey);
+}
+
+export function isSwapStockTripEnded(routeKey: string) {
+  return endedSwapStockTripRouteKeys.has(routeKey);
+}
+
+export function runAfterNextFrame(callback: () => void) {
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    callback();
+  };
+  requestAnimationFrame(run);
+  setTimeout(run, 300);
+}
+
+export function resolveMarketDetailBackAction({
+  isTabletDetailView,
+  isNative,
+  from,
+  routes,
+  index,
+}: {
+  isTabletDetailView: boolean;
+  isNative: boolean;
+  from?: EEnterWay;
+  routes?: Array<{ name?: string }>;
+  index?: number;
+}): IMarketDetailBackAction {
+  if (isTabletDetailView) {
+    return { type: 'pop' };
+  }
+
+  const fromAction = resolveEntryBackAction({ isNative, from, routes });
+  if (fromAction) {
+    return fromAction;
+  }
+
+  const listRootName = ETabMarketRoutes.TabMarket;
+  if (!routes?.length || routes.length <= 1) {
+    return isNative
+      ? buildNativeListResetAction()
+      : { type: 'reset', name: listRootName };
+  }
+
+  const currentIndex = index ?? routes.length - 1;
+  const previousRoute = currentIndex > 0 ? routes[currentIndex - 1] : undefined;
+  if (isReplaceableMarketDetailRouteName(previousRoute?.name)) {
+    return { type: 'popToTop' };
+  }
+  return { type: 'pop' };
+}

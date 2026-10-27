@@ -1,6 +1,9 @@
 /* eslint-disable no-restricted-syntax */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { unwrapElectronIpcError } from '@onekeyhq/shared/src/errors/utils/electronIpcError';
+import {
+  attachDesktopIpcCallContext,
+  unwrapElectronIpcError,
+} from '@onekeyhq/shared/src/errors/utils/electronIpcError';
 import platformEnvLite from '@onekeyhq/shared/src/platformEnvLite';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
@@ -53,8 +56,12 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
     } catch (e) {
       // Strip Electron's `"Error invoking remote method '...': <payload>"`
       // envelope so callers see the main-process error message verbatim
-      // (including i18n keys that downstream code formats via intl).
-      throw unwrapElectronIpcError(e);
+      // (including i18n keys that downstream code formats via intl), and
+      // keep which call failed for diagnostics.
+      throw attachDesktopIpcCallContext(unwrapElectronIpcError(e), {
+        module: module as string,
+        method,
+      });
     }
   }
 

@@ -1,6 +1,6 @@
-// Contract for the subset of `globalThis.desktopApi` fields used by
-// platformEnv and other shared code to identify the current desktop
-// runtime (platform, arch, store channel, etc.).
+// Contract for the subset of `globalThis.desktopApi` fields used by shared
+// code to identify the desktop runtime and read synchronous device capability
+// inputs (platform, arch, logical processors, physical memory, etc.).
 //
 // There are two writers that must both satisfy this contract:
 //   1. `apps/desktop/app/libs/registerInfoHandlers.ts` — provides the IPC
@@ -22,6 +22,8 @@ export interface IDesktopApiPlatformInfo {
   platform: string;
   arch: string;
   systemVersion: string;
+  logicalProcessorCount: number;
+  totalMemoryBytes: number;
   channel?: string;
   deskChannel: string;
   isMas: boolean;

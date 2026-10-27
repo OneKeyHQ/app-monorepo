@@ -21,6 +21,8 @@ type ITrayWatchlistSourceItem = {
   contractAddress?: string;
   isNative?: boolean;
   perpsCoin?: string;
+  assetId?: string;
+  stockId?: string;
 };
 
 type ITrayWatchlistResolvedItem = {
@@ -65,6 +67,48 @@ export function formatTrayUsdPrice(usdPrice: BigNumber.Value): string {
   return `$${new BigNumber(usdPrice || 0).toFormat(2)}`;
 }
 
+// Same placeholder the Market watchlist renders for a row without a quote.
+export const TRAY_QUOTE_PLACEHOLDER = '--';
+
+// Mirrors Market's normalizeStockMetadataValue: listing quotes may omit a
+// field or carry a non-numeric marker such as ' - ', and both mean "no data".
+function normalizeTrayQuoteValue(
+  value?: string | number | null,
+): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  const stringValue = typeof value === 'string' ? value.trim() : String(value);
+  if (!stringValue) {
+    return undefined;
+  }
+  if (!Number.isFinite(Number(stringValue))) {
+    return undefined;
+  }
+  return stringValue;
+}
+
+// A halted, delisted, or pre-market listing favorite legitimately has no
+// price/change. Keep that state visible instead of inventing `$0.00 / +0.00%`,
+// which is indistinguishable from an asset that really fell to zero.
+export function buildTrayListingQuoteDisplay({
+  price,
+  priceChange24hPercent,
+}: {
+  price?: string | number | null;
+  priceChange24hPercent?: string | number | null;
+}): Pick<ITrayWatchlistItem, 'price' | 'change24h'> {
+  const priceRaw = normalizeTrayQuoteValue(price);
+  const changeRaw = normalizeTrayQuoteValue(priceChange24hPercent);
+  return {
+    price:
+      priceRaw === undefined
+        ? TRAY_QUOTE_PLACEHOLDER
+        : formatTrayUsdPrice(priceRaw),
+    change24h: changeRaw === undefined ? undefined : Number(changeRaw),
+  };
+}
+
 export function getTrayWatchlistNativeInfo({
   isNative,
   contractAddress,
@@ -90,6 +134,12 @@ function getTrayWatchlistSourceKey(
 ): string | undefined {
   if (item.perpsCoin) {
     return `perps:${item.perpsCoin.toUpperCase()}`;
+  }
+  if (item.assetId) {
+    return `asset:${item.assetId}`;
+  }
+  if (item.stockId) {
+    return `stock:${item.stockId.toUpperCase()}`;
   }
   if (!item.chainId) return undefined;
   const { normalizedTokenAddress } = getTrayWatchlistNativeInfo({
@@ -147,9 +197,11 @@ export function getTrayMarketNavigationTarget({
       };
     }
   | undefined {
-  const resolvedIsNative = isNative || !tokenAddress;
-
-  if (resolvedIsNative) {
+  // Natives without an address (EVM/BTC/SOL) only resolve on the native
+  // route. Natives that do carry one (Move type tags such as `0x2::sui::SUI`)
+  // must keep it: the token route is what the Market list opens for them, and
+  // the detail identity check fails without the address (OK-63847).
+  if (!tokenAddress) {
     return {
       screen: ETabMarketRoutes.MarketNativeDetail,
       params: {
@@ -159,14 +211,12 @@ export function getTrayMarketNavigationTarget({
     };
   }
 
-  if (!tokenAddress) return undefined;
-
   return {
     screen: ETabMarketRoutes.MarketDetailV2,
     params: {
       tokenAddress,
       network,
-      isNative: false,
+      isNative: Boolean(isNative),
     },
   };
 }

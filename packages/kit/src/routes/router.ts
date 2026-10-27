@@ -1,11 +1,20 @@
 import { useMemo } from 'react';
 
+import type { IStackNavigationOptions } from '@onekeyhq/components';
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { OAUTH_CALLBACK_WEB_PATH } from '@onekeyhq/shared/src/consts/authConsts';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
+import {
+  FullScreenPushNavigator,
+  IOSFullScreenNavigator,
+  ModalNavigator,
+  OnboardingNavigator,
+  TradingViewNativeFullscreenPage,
+  WebViewNavigator,
+} from './LazyRootNavigators';
 import {
   fullModalRouterPathConfig,
   fullScreenPushRouterPathConfig,
@@ -15,33 +24,7 @@ import {
 } from './routerPathConfig';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
-
-const ModalNavigator = LazyLoad(async () => {
-  const { ModalNavigator: Component } = await import('./Modal/Navigator');
-  return { default: Component };
-});
-
-const IOSFullScreenNavigator = LazyLoad(async () => {
-  const { IOSFullScreenNavigator: Component } =
-    await import('./Modal/Navigator');
-  return { default: Component };
-});
-
-const FullScreenPushNavigator = LazyLoad(async () => {
-  const { FullScreenPushNavigator: Component } =
-    await import('./Modal/Navigator');
-  return { default: Component };
-});
-
-const OnboardingNavigator = LazyLoad(async () => {
-  const { OnboardingNavigator: Component } = await import('./Modal/Navigator');
-  return { default: Component };
-});
-
-const WebViewNavigator = LazyLoad(async () => {
-  const { WebViewNavigator: Component } = await import('./WebView/Navigator');
-  return { default: Component };
-});
+import { withOverlayPageHost } from './withOverlayPageHost';
 
 const buildPermissionRouter = () => {
   const PromptWebDeviceAccessPage = LazyLoad(
@@ -85,34 +68,58 @@ const buildOAuthCallbackWebRouter = () => {
 export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.Main,
-    component: TabNavigator,
+    component: withOverlayPageHost(TabNavigator),
     initialRoute: true,
   },
   {
     name: ERootRoutes.Onboarding,
-    component: OnboardingNavigator,
+    component: withOverlayPageHost(OnboardingNavigator),
     type: 'onboarding',
   },
   {
     name: ERootRoutes.Modal,
-    component: ModalNavigator,
+    component: withOverlayPageHost(ModalNavigator),
     type: 'modal',
+    options: ({ route }): IStackNavigationOptions =>
+      platformEnv.isNativeIOS &&
+      !platformEnv.isNativeIOSPad &&
+      route.params?.tradingViewFullscreen === true
+        ? { orientation: 'landscape' }
+        : {},
   },
   {
     name: ERootRoutes.iOSFullScreen,
-    component: IOSFullScreenNavigator,
+    component: withOverlayPageHost(IOSFullScreenNavigator),
     type: 'iOSFullScreen',
   },
   {
     name: ERootRoutes.FullScreenPush,
-    component: FullScreenPushNavigator,
+    component: withOverlayPageHost(FullScreenPushNavigator),
     type: 'fullScreenPush',
   },
   {
     name: ERootRoutes.WebView,
-    component: WebViewNavigator,
+    component: withOverlayPageHost(WebViewNavigator),
     type: 'webView',
   },
+  ...(platformEnv.isNativeIOS
+    ? [
+        {
+          name: ERootRoutes.TradingViewNativeFullscreen,
+          component: TradingViewNativeFullscreenPage,
+          options: (): IStackNavigationOptions => ({
+            headerShown: false,
+            // Keep the detail's native views laid out beneath the opaque chart.
+            presentation: 'transparentModal',
+            animation: 'none',
+            orientation: platformEnv.isNativeIOSPad ? 'default' : 'landscape',
+            orientationAnimated: false,
+            contentReady: false,
+            gestureEnabled: false,
+          }),
+        },
+      ]
+    : []),
   ...buildPermissionRouter(),
   ...buildOAuthCallbackWebRouter(),
 ];

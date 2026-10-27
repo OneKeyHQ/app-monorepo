@@ -22,6 +22,93 @@ describe('TradingViewNative Hyperliquid whitelist', () => {
     ]);
   });
 
+  it('maps native Ethereum independently for each configured branch', () => {
+    const token = {
+      isNative: true,
+      networkId: 'evm--1',
+      tokenAddress: '',
+    };
+
+    expect(
+      (['swap', 'market', 'wallet'] as const).map((branch) =>
+        getTradingViewNativeWhitelistedHyperliquidSource({
+          branch,
+          token,
+        }),
+      ),
+    ).toEqual([
+      { coin: 'ETH', type: 'hyperliquid' },
+      { coin: 'ETH', type: 'hyperliquid' },
+      { coin: 'ETH', type: 'hyperliquid' },
+    ]);
+  });
+
+  it('maps native BNB independently for each configured branch', () => {
+    const token = {
+      isNative: true,
+      networkId: 'evm--56',
+      tokenAddress: '',
+    };
+
+    expect(
+      (['swap', 'market', 'wallet'] as const).map((branch) =>
+        getTradingViewNativeWhitelistedHyperliquidSource({
+          branch,
+          token,
+        }),
+      ),
+    ).toEqual([
+      { coin: 'BNB', type: 'hyperliquid' },
+      { coin: 'BNB', type: 'hyperliquid' },
+      { coin: 'BNB', type: 'hyperliquid' },
+    ]);
+  });
+
+  describe.each(['market', 'swap', 'wallet'] as const)(
+    '%s SOL charts',
+    (branch) => {
+      it('maps native Solana to SOL candles', () => {
+        expect(
+          getTradingViewNativeWhitelistedHyperliquidSource({
+            branch,
+            token: {
+              isNative: true,
+              networkId: 'sol--101',
+              tokenAddress: '',
+            },
+          }),
+        ).toEqual({ coin: 'SOL', type: 'hyperliquid' });
+      });
+
+      it.each([
+        {
+          name: 'wrapped SOL',
+          isNative: false,
+          tokenAddress: 'So11111111111111111111111111111111111111112',
+        },
+        {
+          name: 'an SPL token without a native flag',
+          isNative: undefined,
+          tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        },
+      ])(
+        'does not map $name to native SOL candles',
+        ({ isNative, tokenAddress }) => {
+          expect(
+            getTradingViewNativeWhitelistedHyperliquidSource({
+              branch,
+              token: {
+                isNative,
+                networkId: 'sol--101',
+                tokenAddress,
+              },
+            }),
+          ).toBeUndefined();
+        },
+      );
+    },
+  );
+
   it('maps native HyperEVM HYPE to its preferred spot market', () => {
     expect(
       getTradingViewNativeWhitelistedHyperliquidSource({
@@ -51,7 +138,7 @@ describe('TradingViewNative Hyperliquid whitelist', () => {
         branch: 'market',
         token: {
           isNative: true,
-          networkId: 'evm--1',
+          networkId: 'evm--137',
           tokenAddress: '',
         },
       }),

@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AnimatePresence, Spinner, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
@@ -15,6 +15,8 @@ import {
 
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
+
+import type { View } from 'react-native';
 
 const passwordVerifyFallback = (
   <YStack h={46} justifyContent="center" alignItems="center">
@@ -139,30 +141,58 @@ export function AppStateLockContainer({
   }, []);
 
   const lockContainerRef = useWebLockCheck(isLocked);
+  const [lockElement, setLockElement] = useState<HTMLElement | null>(null);
+  const handleLockContainerRef = useCallback(
+    (node: View | null) => {
+      const element = node as unknown as HTMLElement | null;
+      lockContainerRef.current = element;
+      if (!platformEnv.isNative) setLockElement(element);
+    },
+    [lockContainerRef],
+  );
 
-  // When locked, set `inert` on all document.body children that don't contain
-  // the lock screen. This disables focus traps (FocusScope) in portaled Dialogs
-  // at the browser level, allowing the lock screen input to receive focus.
+  // When locked, keep all document.body children that don't contain the lock
+  // screen inert. This also covers portals mounted after the lock screen, so
+  // their focus traps cannot take focus away from the password input.
   useEffect(() => {
     if (platformEnv.isNative || !isLocked) return;
 
-    const lockEl = lockContainerRef.current;
+    const lockEl = lockElement;
     if (!lockEl) return;
 
-    const inertElements: HTMLElement[] = [];
+    const inertElements = new Map<HTMLElement, boolean>();
+    const makeElementInert = (element: HTMLElement) => {
+      if (!element.contains(lockEl)) {
+        if (!inertElements.has(element)) {
+          inertElements.set(element, element.inert);
+        }
+        element.inert = true;
+      }
+    };
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node instanceof HTMLElement) {
+            makeElementInert(node);
+          }
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true });
+
     for (const child of Array.from(document.body.children)) {
-      if (child instanceof HTMLElement && !child.contains(lockEl)) {
-        child.inert = true;
-        inertElements.push(child);
+      if (child instanceof HTMLElement) {
+        makeElementInert(child);
       }
     }
 
     return () => {
-      for (const el of inertElements) {
-        el.inert = false;
+      observer.disconnect();
+      for (const [el, wasInert] of inertElements) {
+        el.inert = wasInert;
       }
     };
-  }, [isLocked, lockContainerRef]);
+  }, [isLocked, lockElement]);
 
   return (
     <>
@@ -171,9 +201,9 @@ export function AppStateLockContainer({
       <AnimatePresence>
         {isLocked ? (
           <AppStateLock
-            lockContainerRef={lockContainerRef as any}
+            lockContainerRef={handleLockContainerRef}
             key="unlock-screen"
-            animation="quick"
+            transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY}
             enterStyle={{
               opacity: 1,
