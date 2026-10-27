@@ -38,6 +38,10 @@ const mockCreatePaint = jest.fn(() => ({
   setStyle: jest.fn(),
 }));
 const mockPath = {
+  dispose: jest.fn(),
+};
+const mockPathBuilder = {
+  build: jest.fn(() => mockPath),
   close: jest.fn(),
   dispose: jest.fn(),
   lineTo: jest.fn(),
@@ -46,9 +50,18 @@ const mockPath = {
 const mockMakeFromSVGString = jest.fn((svg: string) => ({
   svg,
   computeTightBounds: jest.fn(() => ({ x: 2, y: 3, width: 6, height: 10 })),
-  offset: jest.fn(),
-  transform: jest.fn(),
+  dispose: jest.fn(),
 }));
+const mockMakeBuilderFromPath = jest.fn((source: { svg: string }) => {
+  const builtPath = { svg: source.svg };
+  return {
+    builtPath,
+    build: jest.fn(() => builtPath),
+    dispose: jest.fn(),
+    offset: jest.fn(),
+    transform: jest.fn(),
+  };
+});
 const mockScaleMatrix = jest.fn((x: number, y: number) => ({ x, y }));
 const mockGradientShader = { dispose: jest.fn() };
 let mockFontGlyphsByFamily: Record<string, string> = {};
@@ -168,8 +181,12 @@ jest.mock('@shopify/react-native-skia', () => ({
     },
     Paint: () => mockCreatePaint(),
     Path: {
-      Make: () => mockPath,
       MakeFromSVGString: (svg: string) => mockMakeFromSVGString(svg),
+    },
+    PathBuilder: {
+      Make: () => mockPathBuilder,
+      MakeFromPath: (source: { svg: string }) =>
+        mockMakeBuilderFromPath(source),
     },
     PathEffect: { MakeDash: jest.fn() },
     Shader: { MakeLinearGradient: jest.fn(() => mockGradientShader) },
@@ -351,12 +368,17 @@ describe('TradingViewNative Skia scene renderer', () => {
           },
         }),
       );
-      const paths = mockMakeFromSVGString.mock.results.map(
-        (result) => result.value as ReturnType<typeof mockMakeFromSVGString>,
+      const builders = mockMakeBuilderFromPath.mock.results.map(
+        (result) => result.value as ReturnType<typeof mockMakeBuilderFromPath>,
       );
-      for (const path of paths) {
-        expect(path.offset).toHaveBeenCalledWith(-5, -8);
-        expect(path.transform).not.toHaveBeenCalled();
+      for (const builder of builders) {
+        expect(builder.offset).toHaveBeenCalledWith(-5, -8);
+        expect(builder.transform).not.toHaveBeenCalled();
+        expect(builder.dispose).toHaveBeenCalledTimes(1);
+      }
+      for (const result of mockMakeFromSVGString.mock.results) {
+        const source = result.value as ReturnType<typeof mockMakeFromSVGString>;
+        expect(source.dispose).toHaveBeenCalledTimes(1);
       }
       mockMakeFromSVGString.mockClear();
 
@@ -388,12 +410,14 @@ describe('TradingViewNative Skia scene renderer', () => {
       expect(mockMakeFromSVGString).toHaveBeenCalledTimes(2);
       expect(mockScaleMatrix).toHaveBeenCalledTimes(2);
       expect(mockScaleMatrix).toHaveBeenCalledWith(scale, scale);
-      for (const result of mockMakeFromSVGString.mock.results) {
-        const path = result.value as ReturnType<typeof mockMakeFromSVGString>;
-        expect(path.offset).toHaveBeenCalledWith(-5, -8);
-        expect(path.transform).toHaveBeenCalledWith({ x: scale, y: scale });
-        expect(path.offset.mock.invocationCallOrder[0]).toBeLessThan(
-          path.transform.mock.invocationCallOrder[0],
+      for (const result of mockMakeBuilderFromPath.mock.results) {
+        const builder = result.value as ReturnType<
+          typeof mockMakeBuilderFromPath
+        >;
+        expect(builder.offset).toHaveBeenCalledWith(-5, -8);
+        expect(builder.transform).toHaveBeenCalledWith({ x: scale, y: scale });
+        expect(builder.offset.mock.invocationCallOrder[0]).toBeLessThan(
+          builder.transform.mock.invocationCallOrder[0],
         );
       }
     },
@@ -425,6 +449,7 @@ describe('TradingViewNative Skia scene renderer', () => {
 
     expect(font).toEqual(expect.objectContaining({ fontFamily: 'System' }));
     expect(mockMatchFamilyStyleCharacter).toHaveBeenCalledTimes(4);
+    expect(mockCountFontFamilies).toHaveBeenCalledTimes(1);
     expect(mockFontDisposeByFamily.System).not.toHaveBeenCalled();
   });
 
@@ -569,6 +594,7 @@ describe('TradingViewNative Skia scene renderer', () => {
       expect(
         mockFallbackTypefaceDisposeByFamily[expectedFontFamily],
       ).toHaveBeenCalledTimes(1);
+      expect(mockCountFontFamilies).not.toHaveBeenCalled();
     },
   );
 
@@ -595,6 +621,49 @@ describe('TradingViewNative Skia scene renderer', () => {
     expect(mockFallbackTypefaceDisposeByFamily.Complete).toHaveBeenCalledTimes(
       1,
     );
+  });
+
+  it('scans system fonts when native character matches cannot cover mixed text', () => {
+    const requiredText = 'O开क';
+    mockFallbackFontFamilyByRequest['zh-CN:开'] = 'NativeCJK';
+    mockFallbackFontFamilyByRequest['zh-CN:क'] = 'NativeDevanagari';
+    mockFontGlyphsByFamily.NativeCJK = '开';
+    mockFontGlyphsByFamily.NativeDevanagari = 'क';
+    mockSystemFontFamilies = [
+      'System',
+      'PartialSystem',
+      'CompleteSystem',
+      'Later',
+    ];
+    mockFontGlyphsByFamily.PartialSystem = '开';
+    mockFontGlyphsByFamily.CompleteSystem = '开क';
+    mockFontGlyphsByFamily.Later = '开क';
+
+    const font = createTradingViewNativeSkiaFontForText({
+      fontFamily: 'System',
+      fontSize: 11,
+      locale: 'zh-CN',
+      requiredText,
+    });
+
+    expect(font).toEqual(
+      expect.objectContaining({ fontFamily: 'CompleteSystem' }),
+    );
+    expect(font.getGlyphIDs(requiredText)).not.toContain(0);
+    expect(mockCountFontFamilies).toHaveBeenCalledTimes(1);
+    expect(mockGetFontFamilyName).not.toHaveBeenCalledWith(3);
+    expect(mockFontDisposeByFamily.System).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.NativeCJK).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.NativeDevanagari).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.PartialSystem).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.CompleteSystem).not.toHaveBeenCalled();
+    expect(mockFontDisposeByFamily.Later).toBeUndefined();
+    expect(mockFallbackTypefaceDisposeByFamily.NativeCJK).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(
+      mockFallbackTypefaceDisposeByFamily.NativeDevanagari,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('builds resources with the resolved legend font without another lookup', () => {
@@ -875,10 +944,11 @@ describe('TradingViewNative Skia scene renderer', () => {
 
     createPicture(resources);
 
-    expect(mockPath.moveTo).toHaveBeenCalledWith(1, 2);
-    expect(mockPath.lineTo).toHaveBeenNthCalledWith(1, 3, 4);
-    expect(mockPath.lineTo).toHaveBeenNthCalledWith(2, 5, 2);
-    expect(mockPath.close).toHaveBeenCalledTimes(1);
+    expect(mockPathBuilder.moveTo).toHaveBeenCalledWith(1, 2);
+    expect(mockPathBuilder.lineTo).toHaveBeenNthCalledWith(1, 3, 4);
+    expect(mockPathBuilder.lineTo).toHaveBeenNthCalledWith(2, 5, 2);
+    expect(mockPathBuilder.close).toHaveBeenCalledTimes(1);
+    expect(mockPathBuilder.dispose).toHaveBeenCalledTimes(1);
     expect(mockCanvas.drawPath).toHaveBeenCalledWith(
       mockPath,
       resources.customPaints['pane.fill'],

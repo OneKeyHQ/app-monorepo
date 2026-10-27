@@ -184,7 +184,7 @@ private struct DevVendorBundleInfo {
 #endif
 
 @UIApplicationMain
-class AppDelegate: ExpoAppDelegate {
+class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
   /// The real app-launch anchor. Captured eagerly inside `init()`, which is
   /// invoked by `UIApplicationMain` just after dyld + `UIApplication.init`
   /// finish and before `application(_:didFinishLaunchingWithOptions:)` fires.
@@ -201,22 +201,19 @@ class AppDelegate: ExpoAppDelegate {
   }
 
   var window: UIWindow?
-#if targetEnvironment(macCatalyst)
-  private var catalystLaunchOptions: [UIApplication.LaunchOptionsKey: Any]?
-#endif
   @objc var reactHost: AnyObject?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
+  private(set) var launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+  private(set) var needsRecoveryWindow = false
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    self.launchOptions = launchOptions
     let didFinishLaunchingStartAt = CFAbsoluteTimeGetCurrent()
-#if targetEnvironment(macCatalyst)
-    catalystLaunchOptions = launchOptions
-#endif
     initializeNativeSentry()
     NitroModuleBridge.logInfo(
       "StartupTiming",
@@ -283,13 +280,9 @@ class AppDelegate: ExpoAppDelegate {
         }
       }
       if !rolledBack {
-        // Skip super.application() and React Native initialization entirely.
-        // Create our own window — this replaces the system launch storyboard.
-        // Do NOT call super here: ExpoAppDelegate.super would start the RN engine
-        // and show the Expo splash screen overlay, which would cover recovery UI.
-        window = UIWindow(frame: UIScreen.main.bounds)
-        window?.rootViewController = RecoveryViewController()
-        window?.makeKeyAndVisible()
+        // The scene owns the recovery window; skip Expo and React Native startup
+        // so the splash screen cannot cover the native recovery interface.
+        needsRecoveryWindow = true
         return true
       }
     }
@@ -309,15 +302,18 @@ class AppDelegate: ExpoAppDelegate {
     reactNativeDelegate = delegate
     reactNativeFactory = factory
     RCTI18nUtil.sharedInstance().allowRTL(true)
-#if (os(iOS) || os(tvOS)) && !targetEnvironment(macCatalyst)
-    window = UIWindow(frame: UIScreen.main.bounds)
-    factory.startReactNative(
-      withModuleName: "main",
-      in: window,
-      launchOptions: launchOptions)
-#endif
-
     store?.setValue(launchOptions, forKey: "launchOptions")
+
+#if !targetEnvironment(macCatalyst)
+    // Silent-push launches need the JS notification bootstrap even without a scene.
+    if application.applicationState == .background {
+      factory.rootViewFactory.initializeReactHost(
+        launchOptions: launchOptions,
+        bundleConfiguration: factory.bundleConfiguration,
+        devMenuConfiguration: factory.devMenuConfiguration ?? RCTDevMenuConfiguration.default()
+      )
+    }
+#endif
 
     #if !targetEnvironment(macCatalyst)
     // JPUSHService Register
@@ -349,36 +345,6 @@ class AppDelegate: ExpoAppDelegate {
     )
     return result
   }
-
-#if targetEnvironment(macCatalyst)
-  func connectCatalystScene(_ windowScene: UIWindowScene, options: UIScene.ConnectionOptions) {
-    if let window {
-      window.windowScene = windowScene
-      window.makeKeyAndVisible()
-      return
-    }
-    var launchOptions = catalystLaunchOptions ?? [:]
-    if let context = options.urlContexts.first {
-      launchOptions[.url] = context.url
-      if let source = context.options.sourceApplication {
-        launchOptions[.sourceApplication] = source
-      }
-    }
-    if let activity = options.userActivities.first {
-      launchOptions[.userActivityDictionary] = [
-        UIApplication.LaunchOptionsKey.userActivityType.rawValue: activity.activityType,
-        "UIApplicationLaunchOptionsUserActivityKey": activity
-      ]
-    }
-    let sceneWindow = UIWindow(windowScene: windowScene)
-    window = sceneWindow
-    NitroModuleBridge.launchOptionsStore()?.setValue(launchOptions, forKey: "launchOptions")
-    reactNativeFactory?.startReactNative(
-      withModuleName: "main",
-      in: sceneWindow,
-      launchOptions: launchOptions)
-  }
-#endif
 
   // Reset crash counter on graceful exit so normal close is not mistaken for a crash.
   // Skip reset when in recovery mode (count >= 3) so recovery is still offered
@@ -465,43 +431,87 @@ class AppDelegate: ExpoAppDelegate {
 }
 
 
-#if targetEnvironment(macCatalyst)
-class CatalystSceneDelegate: UIResponder, UIWindowSceneDelegate {
-  private var appDelegate: AppDelegate? { UIApplication.shared.delegate as? AppDelegate }
+class SceneDelegate: ExpoAppSceneDelegate {
+  override func scene(
+    _ scene: UIScene,
+    willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions
+  ) {
+    guard let windowScene = scene as? UIWindowScene,
+      let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+      return
+    }
 
-  func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
-    guard let windowScene = scene as? UIWindowScene else { return }
-    appDelegate?.connectCatalystScene(windowScene, options: connectionOptions)
-  }
+    let window = UIWindow(windowScene: windowScene)
+    self.window = window
+    appDelegate.window = window
 
-  func sceneDidBecomeActive(_ scene: UIScene) {
-    appDelegate?.applicationDidBecomeActive(UIApplication.shared)
-  }
+    if appDelegate.needsRecoveryWindow {
+      window.rootViewController = RecoveryViewController()
+      window.makeKeyAndVisible()
+      return
+    }
 
-  func sceneWillResignActive(_ scene: UIScene) {
-    appDelegate?.applicationWillResignActive(UIApplication.shared)
-  }
+    guard let factory = appDelegate.reactNativeFactory else {
+      fatalError("The app delegate must create the React Native factory before connecting its scene.")
+    }
 
-  func sceneWillEnterForeground(_ scene: UIScene) {
-    appDelegate?.applicationWillEnterForeground(UIApplication.shared)
-  }
+    // Preserve notification launch options alongside the scene-only link data.
+    var launchOptions = appDelegate.launchOptions ?? [:]
+    if let url = connectionOptions.urlContexts.first?.url {
+      launchOptions[UIApplication.LaunchOptionsKey(rawValue: "UIApplicationLaunchOptionsURLKey")] = url
+    }
+    if let sourceApplication = connectionOptions.urlContexts.first?.options.sourceApplication {
+      launchOptions[.sourceApplication] = sourceApplication
+    }
+    if let userActivity = connectionOptions.userActivities.first(where: {
+      $0.activityType == NSUserActivityTypeBrowsingWeb
+    }) {
+      launchOptions[UIApplication.LaunchOptionsKey(rawValue: "UIApplicationLaunchOptionsUserActivityDictionaryKey")] = [
+        "UIApplicationLaunchOptionsUserActivityTypeKey": userActivity.activityType,
+        "UIApplicationLaunchOptionsUserActivityKey": userActivity,
+      ]
+    }
+    if let response = connectionOptions.notificationResponse,
+      response.notification.request.trigger is UNPushNotificationTrigger {
+      launchOptions[.remoteNotification] = response.notification.request.content.userInfo
+    }
+    let mergedLaunchOptions = launchOptions.isEmpty ? nil : launchOptions
+    NitroModuleBridge.launchOptionsStore()?.setValue(mergedLaunchOptions, forKey: "launchOptions")
 
-  func sceneDidEnterBackground(_ scene: UIScene) {
-    appDelegate?.applicationDidEnterBackground(UIApplication.shared)
-  }
+    // Cold links reach Expo subscribers through app-delegate APIs; React Native
+    // reads the initial URL from launch options instead of receiving a warm event.
+    connectionOptions.urlContexts.forEach { context in
+      var options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+      if let sourceApplication = context.options.sourceApplication {
+        options[.sourceApplication] = sourceApplication
+      }
+      if let annotation = context.options.annotation {
+        options[.annotation] = annotation
+      }
+      options[.openInPlace] = context.options.openInPlace
+      _ = appDelegate.application(UIApplication.shared, open: context.url, options: options)
+    }
+    connectionOptions.userActivities.forEach { userActivity in
+      _ = appDelegate.application(
+        UIApplication.shared,
+        continue: userActivity,
+        restorationHandler: { _ in }
+      )
+    }
+    factory.startReactNative(
+      withModuleName: appDelegate.reactNativeFactoryModuleName,
+      in: window,
+      launchOptions: mergedLaunchOptions
+    )
 
-  func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
-    for context in contexts {
-      var options: [UIApplication.OpenURLOptionsKey: Any] = [.openInPlace: context.options.openInPlace]
-      if let source = context.options.sourceApplication { options[.sourceApplication] = source }
-      _ = appDelegate?.application(UIApplication.shared, open: context.url, options: options)
+    if let shortcutItem = connectionOptions.shortcutItem {
+      self.windowScene(windowScene, performActionFor: shortcutItem) { _ in }
     }
   }
-
-  func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-    _ = appDelegate?.application(UIApplication.shared, continue: userActivity, restorationHandler: { _ in })
-  }
 }
+#if targetEnvironment(macCatalyst)
+class CatalystSceneDelegate: SceneDelegate {}
 #endif
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {

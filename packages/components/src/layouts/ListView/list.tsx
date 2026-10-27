@@ -16,6 +16,7 @@ import type {
 
 import { DebugRenderTracker } from '../../utils/DebugRenderTracker';
 
+import type { IListSlotComponent } from './types';
 import type { IDebugRenderTrackerProps } from '../../utils/DebugRenderTracker';
 import type {
   FlatListProps,
@@ -32,6 +33,9 @@ export type IListViewProps<T> = Omit<
   | 'columnWrapperStyle'
   | 'ListHeaderComponentStyle'
   | 'ListFooterComponentStyle'
+  | 'ListHeaderComponent'
+  | 'ListFooterComponent'
+  | 'ListEmptyComponent'
   | 'data'
   | 'renderItem'
 > &
@@ -40,6 +44,9 @@ export type IListViewProps<T> = Omit<
     columnWrapperStyle?: StackStyle;
     ListHeaderComponentStyle?: StackStyle;
     ListFooterComponentStyle?: StackStyle;
+    ListHeaderComponent?: IListSlotComponent;
+    ListFooterComponent?: IListSlotComponent;
+    ListEmptyComponent?: IListSlotComponent;
   } & {
     useFlashList?: boolean;
     data: ArrayLike<T> | null | undefined;
