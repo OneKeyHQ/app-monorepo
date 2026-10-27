@@ -194,9 +194,15 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
   const swapInitParamsConsumptionKey =
     buildSwapInitParamsConsumptionKey(params);
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const swapColdStartScopeKey = useSwapColdStartScopeKey();
+  const rootSwapInitType =
+    swapColdStartScopeKey === `store:${EJotaiContextStoreNames.swap}`
+      ? swapTypeSwitch
+      : undefined;
   const { defaultConfigStatus, getDefaultConfigStatus } =
     useSwapDefaultConfigDecision({
-      intentKey: swapInitParamsConsumptionKey,
+      intentKey: swapInitParamsConsumptionKey ?? rootSwapInitType,
       initialStatusRef: initialDefaultConfigStatusRef,
       networkConfigStatus,
     });
@@ -217,7 +223,6 @@ export function useSwapInit(params?: ISwapInitParams) {
   const swapAddressInfoRef =
     useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
   const [, setInAppNotification] = useInAppNotificationAtom();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
   const [, setSwapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
@@ -226,7 +231,6 @@ export function useSwapInit(params?: ISwapInitParams) {
     useSwapSelectedTokensColdStartContextAtom();
   const [swapStockSelectedToken, setSwapStockSelectedToken] =
     useSwapStockSelectedTokenAtom();
-  const swapColdStartScopeKey = useSwapColdStartScopeKey();
   const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
     useSwapInitialSelectedTokensSyncedAtom();
   const fromToken = useMemo(() => {
@@ -308,10 +312,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       isNative: Boolean(platformEnv.isNative),
       swapType: swapTypeSwitch,
     });
-  const rootSwapInitType =
-    swapColdStartScopeKey === `store:${EJotaiContextStoreNames.swap}`
-      ? swapTypeSwitch
-      : undefined;
   const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
     fromTokenAmount,
   );

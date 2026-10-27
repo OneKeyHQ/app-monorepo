@@ -7,6 +7,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
@@ -1476,69 +1478,97 @@ describe('empty Swap bootstrap with a newer restored account revision', () => {
     },
   );
 
-  it('initializes a cold Stock exit on the Home network when only the mode changes', async () => {
-    const arbHomeInfo = {
-      ...homeInfo,
-      selectedAccount: { ...homeSelectedAccount, networkId: 'evm--42161' },
-    };
-    selectedAccount = { ...arbHomeInfo.selectedAccount };
-    const arbFrom = { ...marketToken, networkId: 'evm--42161', symbol: 'AAVE' };
-    const arbTo = {
-      ...configuredTo,
-      networkId: 'evm--42161',
-      contractAddress: '0xusdt',
-      symbol: 'USDT',
-    };
-    mockFetchNetworks.mockResolvedValue([
-      { ...cachedBsc, supportStock: true },
-      {
-        ...freshNetwork,
+  it.each([false, true])(
+    'initializes a cold Stock exit from Home config (recovered after timeout: %s)',
+    async (afterTimeout) => {
+      await writeContextAtomColdStartCacheValues({
+        entries: Object.values(CONTEXT_ATOM_COLD_START_CACHE_KEYS).map(
+          (coldStartCacheKey) => ({
+            coldStartScopeKey: 'store:swap',
+            coldStartCacheKey,
+            value: undefined,
+          }),
+        ),
+        flushImmediately: true,
+      });
+      if (afterTimeout) jest.useFakeTimers();
+      const arbHomeInfo = {
+        ...homeInfo,
+        selectedAccount: { ...homeSelectedAccount, networkId: 'evm--42161' },
+      };
+      selectedAccount = { ...arbHomeInfo.selectedAccount };
+      const arbFrom = {
+        ...marketToken,
         networkId: 'evm--42161',
-        defaultSelectTokenDetail: { from: arbFrom, to: arbTo },
-      },
-    ]);
-    jest
-      .mocked(getLatestHomeSelectedAccountInfo)
-      .mockResolvedValue(arbHomeInfo);
-    jest
-      .mocked(getHomeSelectedAccountInfoFromContextStore)
-      .mockReturnValue(arbHomeInfo);
-    mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
-    mockStore.set(swapSelectFromTokenAtom(), bnb);
-    mockStore.set(swapSelectToTokenAtom(), {
-      ...bnb,
-      contractAddress: '0xstock',
-      symbol: 'STOCK',
-      isStock: true,
-    });
-    mockStore.set(swapSelectedTokensColdStartContextAtom(), {
-      accountKey: 'bootstrap-account',
-      networkId: bnb.networkId,
-      swapType: ESwapTabSwitchType.STOCK,
-      updatedAt: 1,
-    });
-    mockStore.set(swapInitialSelectedTokensSyncedAtom(), true);
-    renderMarket({}, 'store:swap');
-    await waitFor(() =>
-      expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('success'),
-    );
-    await waitFor(() => expect(selectedAccount.networkId).toBe('evm--42161'));
+        symbol: 'AAVE',
+      };
+      const arbTo = {
+        ...configuredTo,
+        networkId: 'evm--42161',
+        contractAddress: '0xusdt',
+        symbol: 'USDT',
+      };
+      const networks = [
+        { ...cachedBsc, supportStock: true },
+        {
+          ...freshNetwork,
+          networkId: 'evm--42161',
+          defaultSelectTokenDetail: { from: arbFrom, to: arbTo },
+        },
+      ];
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      jest
+        .mocked(getLatestHomeSelectedAccountInfo)
+        .mockResolvedValue(arbHomeInfo);
+      jest
+        .mocked(getHomeSelectedAccountInfoFromContextStore)
+        .mockReturnValue(arbHomeInfo);
+      mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      mockStore.set(swapSelectFromTokenAtom(), bnb);
+      mockStore.set(swapSelectToTokenAtom(), {
+        ...bnb,
+        contractAddress: '0xstock',
+        symbol: 'STOCK',
+        isStock: true,
+      });
+      mockStore.set(swapSelectedTokensColdStartContextAtom(), {
+        accountKey: 'bootstrap-account',
+        networkId: bnb.networkId,
+        swapType: ESwapTabSwitchType.STOCK,
+        updatedAt: 1,
+      });
+      mockStore.set(swapInitialSelectedTokensSyncedAtom(), true);
+      const view = renderMarket({}, 'store:swap');
+      await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalled());
+      if (afterTimeout) {
+        await act(async () => jest.advanceTimersByTime(2001));
+        expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('failed');
+      }
+      await act(async () => request.resolve(networks));
+      await waitFor(() =>
+        expect(mockStore.get(swapNetworkConfigStatusAtom())).toBe('success'),
+      );
+      await waitFor(() => expect(selectedAccount.networkId).toBe('evm--42161'));
 
-    act(() => {
-      mockStore.set(swapSelectFromTokenAtom(), undefined);
-      mockStore.set(swapSelectToTokenAtom(), undefined);
-      mockStore.set(swapSelectedTokensColdStartContextAtom(), undefined);
-      mockStore.set(swapInitialSelectedTokensSyncedAtom(), false);
-      mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
-    });
+      act(() => {
+        mockStore.set(swapSelectFromTokenAtom(), undefined);
+        mockStore.set(swapSelectToTokenAtom(), undefined);
+        mockStore.set(swapSelectedTokensColdStartContextAtom(), undefined);
+        mockStore.set(swapInitialSelectedTokensSyncedAtom(), false);
+        mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        view.rerender({ swapTabSwitchType: ESwapTabSwitchType.SWAP });
+      });
 
-    await waitFor(() =>
-      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(arbFrom),
-    );
-    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(arbTo);
-    expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
-    expect(selectedAccount.networkId).toBe('evm--42161');
-  });
+      await waitFor(() =>
+        expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(arbFrom),
+      );
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(arbTo);
+      expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
+      expect(selectedAccount.networkId).toBe('evm--42161');
+      expect(mockFetchNetworks).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('keeps an explicit Stock modal exit outside the Home defaults owner', async () => {
     const stock = { ...marketToken, isStock: true };
