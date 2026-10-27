@@ -23778,6 +23778,8 @@
     "packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsOverview.tsx": 24454,
     "packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsTabToolbar.tsx": 2624,
     "packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsView.tsx": 14189,
+    "packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenPrivacyPanel.tsx": 10277,
+    "packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenPrivacyStatus.tsx": 9763,
     "packages/kit/src/views/AssetDetails/pages/TokenDetails/index.tsx": 24046,
     "packages/kit/src/views/AssetDetails/pages/TokenDetails/tokenDetailsMarketNavigation.ts": 13541,
     "packages/kit/src/views/AssetDetails/pages/TokenDetails/tokenDetailsNetworkAutoEnable.ts": 12837,
