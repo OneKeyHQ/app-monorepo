@@ -43,8 +43,8 @@ import {
   formatFiatCompact,
 } from './SubjectMilestoneCard';
 
-// Compact layouts read each level as two small tables, a row per product:
-// what keeps the level and what upgrades from it, then what it pays. The
+// Compact layouts read each level as one small table: a row per product
+// with what keeps the level, what upgrades from it, and what it pays. The
 // user's own progress lives in the status card above, so it is not repeated
 // per level.
 // Header labels wrap to a second line past this width instead of widening
@@ -127,35 +127,7 @@ function RuleColumn({
   );
 }
 
-// Product names down the left, then the figure columns. Spare width is
-// shared by the columns; only the product names give way when space runs out.
-function RuleTable({
-  rows,
-  children,
-}: {
-  rows: ILevelRuleRow[];
-  children: ReactNode;
-}) {
-  return (
-    <XStack gap="$3">
-      <YStack flexGrow={1} flexShrink={1} flexBasis="auto" minWidth={0}>
-        <Stack h={RULE_HEADER_HEIGHT} />
-        {rows.map((row) => (
-          <XStack key={row.subject} h={RULE_ROW_HEIGHT} ai="center">
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {row.label}
-            </SizableText>
-          </XStack>
-        ))}
-      </YStack>
-      {children}
-    </XStack>
-  );
-}
-
-// What keeps this level and what reaches the next; the headers name each
-// level by its icon.
-function LevelConditionTable({
+function LevelRuleTable({
   rows,
   level,
   nextLevel,
@@ -168,7 +140,21 @@ function LevelConditionTable({
   const hasKeep = rows.some((row) => row.keep);
   const hasUpgrade = rows.some((row) => row.upgrade);
   return (
-    <RuleTable rows={rows}>
+    // Headers name the level each column is about by its icon (keep this
+    // one, reach the next) and spell out whose rate is whose. Spare width is
+    // shared by all the columns; only the product names give way when space
+    // runs out.
+    <XStack gap="$3">
+      <YStack flexGrow={1} flexShrink={1} flexBasis="auto" minWidth={0}>
+        <Stack h={RULE_HEADER_HEIGHT} />
+        {rows.map((row) => (
+          <XStack key={row.subject} h={RULE_ROW_HEIGHT} ai="center">
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {row.label}
+            </SizableText>
+          </XStack>
+        ))}
+      </YStack>
       {hasKeep ? (
         <RuleColumn
           header={intl.formatMessage({
@@ -191,26 +177,30 @@ function LevelConditionTable({
           values={rows.map((row) => row.upgrade)}
         />
       ) : null}
-    </RuleTable>
-  );
-}
-
-// What this level pays: your rate and the invitee's, each in its own column.
-function LevelRateTable({ rows }: { rows: ILevelRuleRow[] }) {
-  const intl = useIntl();
-  return (
-    <RuleTable rows={rows}>
-      <RuleColumn
-        header={intl.formatMessage({ id: ETranslations.referral_upgrade_you })}
-        values={rows.map((row) => row.rate?.you)}
-      />
-      <RuleColumn
-        header={intl.formatMessage({
-          id: ETranslations.referral_upgrade_user,
-        })}
-        values={rows.map((row) => row.rate?.invitee)}
-      />
-    </RuleTable>
+      {/* Your rate and the invitee's in their own columns, each header
+          over its own figures. A wider gap before them sets the rates apart
+          from the thresholds without adding a row. */}
+      <XStack
+        flexGrow={2}
+        flexShrink={0}
+        flexBasis="auto"
+        gap="$3"
+        pl={hasKeep || hasUpgrade ? '$3' : undefined}
+      >
+        <RuleColumn
+          header={intl.formatMessage({
+            id: ETranslations.referral_upgrade_you,
+          })}
+          values={rows.map((row) => row.rate?.you)}
+        />
+        <RuleColumn
+          header={intl.formatMessage({
+            id: ETranslations.referral_upgrade_user,
+          })}
+          values={rows.map((row) => row.rate?.invitee)}
+        />
+      </XStack>
+    </XStack>
   );
 }
 
@@ -354,15 +344,6 @@ export function LevelAccordionItem({
     }
     return Array.from(byLabel.values());
   }, [commissionRateItems, currencySymbol, intl, md, subjectGroups]);
-  // Products without a threshold only list their rates.
-  const conditionRows = useMemo(
-    () => ruleRows.filter((row) => row.keep || row.upgrade),
-    [ruleRows],
-  );
-  const rateRows = useMemo(
-    () => ruleRows.filter((row) => row.rate),
-    [ruleRows],
-  );
   let headerNode: React.ReactNode = null;
   if (isMultiSubject) {
     headerNode = (
@@ -463,36 +444,23 @@ export function LevelAccordionItem({
           $md={{ px: 0, mx: '$4', pb: '$4' }}
         >
           {md ? (
-            // Like the pointer layout's condition and rate cards: what the
-            // level takes and what it pays read as two small tables, so the
-            // monthly rule only heads the conditions.
-            <YStack gap="$5">
-              {conditionRows.length > 0 ? (
-                <YStack gap="$2">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: isMultiSubject
-                        ? ETranslations.referral_table_rule__desc
-                        : ETranslations.referral_table_rule_single__desc,
-                    })}
-                  </SizableText>
-                  <LevelConditionTable
-                    rows={conditionRows}
-                    level={level}
-                    nextLevel={nextLevelGlyph}
-                  />
-                </YStack>
+            <YStack gap="$2">
+              {subjectGroups.length > 0 ? (
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {isMultiSubject
+                    ? intl.formatMessage({
+                        id: ETranslations.referral_table_rule__desc,
+                      })
+                    : intl.formatMessage({
+                        id: ETranslations.referral_table_rule_single__desc,
+                      })}
+                </SizableText>
               ) : null}
-              {rateRows.length > 0 ? (
-                <YStack gap="$2">
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.referral_rates__title,
-                    })}
-                  </SizableText>
-                  <LevelRateTable rows={rateRows} />
-                </YStack>
-              ) : null}
+              <LevelRuleTable
+                rows={ruleRows}
+                level={level}
+                nextLevel={nextLevelGlyph}
+              />
             </YStack>
           ) : (
             <YStack gap="$4">
