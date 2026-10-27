@@ -55,11 +55,12 @@ export function AddressInputWarnings({
     )
       return false;
     // Saved contacts skip the similarity checks, so an address that looks
-    // like another one is never one tap away from the address book.
+    // like another one is never one tap away from the address book: not
+    // under a similar-address warning, nor when it looks like an address the
+    // page lists.
     if (
-      isLookalikeAddress
-        ? isLookalikeAddress(resolvedAddress ?? '', queryResult?.similarAddress)
-        : queryResult?.similarAddress
+      queryResult?.similarAddress ||
+      isLookalikeAddress?.(resolvedAddress ?? '')
     )
       return false;
     // Show for transferred addresses (add to address book guidance)

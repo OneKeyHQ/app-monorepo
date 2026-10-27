@@ -175,8 +175,8 @@ type IAddressInputProps = Omit<
   onScanResult?: IScanPluginProps['onScanResult'];
   hasQuickSelectMatches?: boolean;
   tokenAddress?: string;
-  // Such an address is not offered for the address book. Without it, any
-  // address the query flags as similar counts.
+  // Such an address is not offered for the address book, the same as one
+  // the query flags as similar.
   isLookalikeAddress?: IAddressLookalikeCheck;
 };
 

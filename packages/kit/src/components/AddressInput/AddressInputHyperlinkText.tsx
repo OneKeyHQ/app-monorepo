@@ -58,12 +58,9 @@ export function AddressInputHyperlinkText({
           // The add button's rule: a new contact skips the similarity checks,
           // so a lookalike is never one tap away from the address book.
           const checkLookalike = contentValues.isLookalikeAddress;
-          const isLookalike = checkLookalike
-            ? checkLookalike(
-                toValue.resolved ?? address,
-                toValue.similarAddress,
-              )
-            : !!toValue.similarAddress;
+          const isLookalike =
+            !!toValue.similarAddress ||
+            !!checkLookalike?.(toValue.resolved ?? address);
           if (!addressBookId && isLookalike) {
             Toast.warning({
               title: intl.formatMessage({

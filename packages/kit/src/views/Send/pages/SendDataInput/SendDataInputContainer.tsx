@@ -243,13 +243,8 @@ function SendDataInputContainer() {
     [],
   );
   const isQuickSelectLookalike = useCallback(
-    (candidate: string, similarAddress?: string) =>
-      looksLikeListedAddress(
-        similarAddress
-          ? [...quickSelectAddresses, similarAddress]
-          : quickSelectAddresses,
-        candidate,
-      ),
+    (candidate: string) =>
+      looksLikeListedAddress(quickSelectAddresses, candidate),
     [quickSelectAddresses],
   );
   const [scannedAmount, setScannedAmount] = useState('');

@@ -129,23 +129,17 @@ describe('AddressInputWarnings', () => {
     const isLookalikeAddress = jest.fn(() => true);
     renderTransferredAddress({ isLookalikeAddress });
 
-    expect(isLookalikeAddress).toHaveBeenCalledWith(
-      TRANSFERRED_ADDRESS,
-      undefined,
-    );
+    expect(isLookalikeAddress).toHaveBeenCalledWith(TRANSFERRED_ADDRESS);
     expect(mockRenderedButtons).not.toContain(ADD_TO_ADDRESS_BOOK);
   });
 
-  it("leaves a flagged similar address to the page's own check", () => {
-    const similarAddress = '0x96223d67518AAedcBed163098fA4BC3fa2384F4f';
-    const isLookalikeAddress = jest.fn(() => false);
-    renderTransferredAddress({ similarAddress, isLookalikeAddress });
+  it('does not offer the address book under a similar-address warning', () => {
+    renderTransferredAddress({
+      similarAddress: '0x96223d67518AAedcBed163098fA4BC3fa2384F4f',
+      isLookalikeAddress: () => false,
+    });
 
-    expect(isLookalikeAddress).toHaveBeenCalledWith(
-      TRANSFERRED_ADDRESS,
-      similarAddress,
-    );
-    expect(mockRenderedButtons).toContain(ADD_TO_ADDRESS_BOOK);
+    expect(mockRenderedButtons).not.toContain(ADD_TO_ADDRESS_BOOK);
   });
 
   it('checks the address a name resolves to', () => {
@@ -157,10 +151,7 @@ describe('AddressInputWarnings', () => {
       isLookalikeAddress,
     });
 
-    expect(isLookalikeAddress).toHaveBeenCalledWith(
-      TRANSFERRED_ADDRESS,
-      undefined,
-    );
+    expect(isLookalikeAddress).toHaveBeenCalledWith(TRANSFERRED_ADDRESS);
   });
 
   it('does not offer the address book for an account the user signs with', () => {
