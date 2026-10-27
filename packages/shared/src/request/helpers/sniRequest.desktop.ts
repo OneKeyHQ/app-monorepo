@@ -10,6 +10,7 @@ import type {
   ISniRequestConfig,
   ISniRequestOptions,
   ISniResponse,
+  ISniUploadFileConfig,
 } from '../types/ipTable';
 
 const DESKTOP_SNI_PREFLIGHT_NOT_FOUND_RE =
@@ -45,7 +46,10 @@ export async function sniRequest(
     }
 
     // Call main process via proxy
-    const response = await executeSniRequestWithAbort<ISniResponse>(
+    const response = await executeSniRequestWithAbort<
+      ISniRequestConfig,
+      ISniResponse
+    >(
       config,
       options,
       (requestConfig) => desktopApiProxy.sniRequest.request(requestConfig),
@@ -69,6 +73,64 @@ export async function sniRequest(
 
     return null;
   }
+}
+
+const DESKTOP_SNI_UPLOAD_FILE_NOT_FOUND_RE =
+  /callRemoteApiMethod not found:\s*desktopApi\.sniRequest\.uploadFile\(\)/;
+
+/**
+ * Upload a local file over the pinned-IP/SNI transport in the main process.
+ * Returns null when the desktop API is unavailable or predates `uploadFile`,
+ * so callers keep the domain upload path.
+ */
+export async function sniUploadFile(
+  config: ISniUploadFileConfig,
+  options?: ISniRequestOptions,
+): Promise<ISniResponse | null> {
+  if (!platformEnv.isDesktop) {
+    return null;
+  }
+  const sniRequestProxy = globalThis.desktopApiProxy?.sniRequest;
+  if (typeof sniRequestProxy?.uploadFile !== 'function') {
+    logAdapterCapability('warn', {
+      adapter: 'desktop',
+      capability: 'upload_file',
+      available: false,
+      decision: 'null',
+      hostname: config.hostname,
+      ipHash: hashForLog(config.ip),
+    });
+    return null;
+  }
+
+  try {
+    return await executeSniRequestWithAbort<ISniUploadFileConfig, ISniResponse>(
+      config,
+      options,
+      (requestConfig) => sniRequestProxy.uploadFile(requestConfig),
+      (requestId) => sniRequestProxy.cancelRequest(requestId),
+    );
+  } catch (error) {
+    if (DESKTOP_SNI_UPLOAD_FILE_NOT_FOUND_RE.test(getErrorMessage(error))) {
+      logAdapterCapability('warn', {
+        adapter: 'desktop',
+        capability: 'upload_file',
+        available: false,
+        decision: 'null',
+        hostname: config.hostname,
+        ipHash: hashForLog(config.ip),
+        errorMessage: getErrorMessage(error),
+      });
+      return null;
+    }
+    // Unlike request(), upload failures are surfaced so the caller can tell
+    // a timeout (no domain retry) from other failures.
+    throw error;
+  }
+}
+
+export function isSniUploadFileSupported(): boolean {
+  return isSniSupported();
 }
 
 /**

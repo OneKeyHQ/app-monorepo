@@ -1,6 +1,10 @@
+import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import https from 'https';
+import * as nodePath from 'path';
+import { fileURLToPath } from 'url';
 
-import { session } from 'electron';
+import { app, session } from 'electron';
 import logger from 'electron-log/main';
 import ipaddr from 'ipaddr.js';
 
@@ -10,6 +14,7 @@ import type {
   ISniRequestConfig,
   ISniRequestDebugSnapshot,
   ISniResponse,
+  ISniUploadFileConfig,
 } from '@onekeyhq/shared/src/request/types/ipTable';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -20,6 +25,7 @@ const MAX_REQUEST_ID_BYTES = 128;
 const MAX_TIMEOUT_MS = 120_000;
 const MAX_PATH_BYTES = 8 * 1024;
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024;
+const MAX_UPLOAD_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_RESPONSE_BODY_BYTES = 10 * 1024 * 1024;
 const MAX_HEADER_COUNT = 64;
 const MAX_HEADER_NAME_BYTES = 128;
@@ -31,6 +37,8 @@ const MAX_FREE_SOCKETS = 32;
 const MAX_ACTIVE_REQUESTS = 64;
 const MAX_ACTIVE_REQUESTS_PER_PAIR = 16;
 const MAX_PENDING_REQUESTS = 256;
+
+const UPLOAD_FILE_METHODS = new Set(['POST', 'PUT']);
 
 const ALLOWED_METHODS = new Set([
   'GET',
@@ -69,6 +77,8 @@ type NormalizedSniRequestConfig = Omit<
   'body' | 'headers' | 'method' | 'path'
 > & {
   body: string | null;
+  // Set only by uploadFile(); the file is streamed instead of `body`.
+  bodyFile?: { filePath: string; sizeBytes: number };
   headers: Record<string, string>;
   method: string;
   path: string;
@@ -285,6 +295,125 @@ function validateBody(body: string | null): void {
   if (body !== null && byteSize(body) > MAX_REQUEST_BODY_BYTES) {
     invalidConfig('Request body too large');
   }
+}
+
+function getBodyBytes(config: NormalizedSniRequestConfig): number {
+  if (config.bodyFile) return config.bodyFile.sizeBytes;
+  return config.body ? byteSize(config.body) : 0;
+}
+
+function isPathInside(root: string, target: string): boolean {
+  const relative = nodePath.relative(root, target);
+  return (
+    !!relative && !relative.startsWith('..') && !nodePath.isAbsolute(relative)
+  );
+}
+
+// App-owned storage on desktop: userData, logs, temp, and the log archive
+// directory the dev API writes zips to (next to the log directory).
+async function getUploadFileRoots(): Promise<string[]> {
+  const candidates: string[] = [];
+  for (const name of ['userData', 'logs', 'temp'] as const) {
+    try {
+      candidates.push(app.getPath(name));
+    } catch {
+      // Some paths are unavailable on some platforms; skip them.
+    }
+  }
+  try {
+    candidates.push(
+      nodePath.join(
+        nodePath.dirname(
+          nodePath.dirname(logger.transports.file.getFile().path),
+        ),
+        'logs_zip',
+      ),
+    );
+  } catch {
+    // The logger file transport may be disabled.
+  }
+  const roots = await Promise.all(
+    candidates.map(async (candidate) => {
+      try {
+        return await fsPromises.realpath(candidate);
+      } catch {
+        return undefined;
+      }
+    }),
+  );
+  return roots.filter((root): root is string => !!root);
+}
+
+async function resolveUploadFile(
+  filePath: unknown,
+): Promise<{ filePath: string; sizeBytes: number }> {
+  if (typeof filePath !== 'string' || !filePath || hasControlChar(filePath)) {
+    invalidConfig('Invalid filePath');
+  }
+  let absolutePath = filePath;
+  if (filePath.startsWith('file://')) {
+    try {
+      absolutePath = fileURLToPath(filePath);
+    } catch {
+      invalidConfig('Invalid filePath');
+    }
+  }
+  if (!nodePath.isAbsolute(absolutePath)) {
+    invalidConfig('filePath must be absolute');
+  }
+
+  let realPath: string;
+  try {
+    realPath = await fsPromises.realpath(nodePath.resolve(absolutePath));
+  } catch {
+    invalidConfig('Upload file is not readable');
+  }
+  const roots = await getUploadFileRoots();
+  if (!roots.some((root) => isPathInside(root, realPath))) {
+    invalidConfig('Upload file is outside app storage');
+  }
+
+  let stat: fs.Stats;
+  try {
+    stat = await fsPromises.stat(realPath);
+    await fsPromises.access(realPath, fs.constants.R_OK);
+  } catch {
+    invalidConfig('Upload file is not readable');
+  }
+  if (!stat.isFile()) {
+    invalidConfig('Upload file is not a regular file');
+  }
+  if (stat.size < 1 || stat.size > MAX_UPLOAD_FILE_BYTES) {
+    invalidConfig(`Invalid upload file size: ${stat.size}`);
+  }
+  return { filePath: realPath, sizeBytes: stat.size };
+}
+
+export async function validateSniUploadFileConfig(
+  config: ISniUploadFileConfig,
+): Promise<NormalizedSniRequestConfig> {
+  if ((config as { body?: unknown }).body !== undefined) {
+    invalidConfig('uploadFile does not accept a body');
+  }
+  const method =
+    typeof config.method === 'string' ? config.method.trim().toUpperCase() : '';
+  if (!UPLOAD_FILE_METHODS.has(method)) {
+    invalidConfig(`Invalid upload method: ${String(config.method)}`);
+  }
+  const normalized = validateSniRequestConfig({
+    requestId: config.requestId,
+    ip: config.ip,
+    hostname: config.hostname,
+    path: config.path,
+    headers: config.headers,
+    method,
+    body: null,
+    timeout: config.timeout,
+  });
+  return {
+    ...normalized,
+    bodyFile: await resolveUploadFile(config.filePath),
+  };
 }
 
 function ipv6Bytes(address: ipaddr.IPv6): number[] {
@@ -512,7 +641,9 @@ export function buildSniRequestOptions(
     Host: config.hostname,
     'Accept-Encoding': 'identity',
   };
-  if (config.body !== null) {
+  if (config.bodyFile) {
+    headers['Content-Length'] = String(config.bodyFile.sizeBytes);
+  } else if (config.body !== null) {
     headers['Content-Length'] = String(Buffer.byteLength(config.body, 'utf8'));
   }
 
@@ -774,37 +905,77 @@ class DesktopApiSniRequest {
     }
   }
 
+  private logInvalidConfig(
+    config: Pick<
+      ISniRequestConfig,
+      'hostname' | 'ip' | 'method' | 'timeout' | 'path' | 'headers'
+    >,
+    bodyBytes: number,
+    error: unknown,
+    startedAt: number,
+  ): void {
+    writeNativeLog('error', 'desktop_sni_request_failed', {
+      code: getErrorCode(error) ?? 'SNI_INVALID_CONFIG',
+      failClosed: isSniFailClosedError(error),
+      hostname: config.hostname ?? 'unknown',
+      ipHash: shortHashForLog(config.ip),
+      ipFamily: config.ip ? getIpFamily(config.ip) : 'unknown',
+      method: config.method ?? 'GET',
+      timeout: config.timeout ?? 'unknown',
+      pathBytes: config.path ? byteSize(config.path) : 0,
+      bodyBytes,
+      headerCount: Object.keys(config.headers ?? {}).length,
+      activeRequests: this.requestLimiter.snapshot().activeRequests,
+      activeRequestsForPair: 0,
+      pendingRequests: this.requestLimiter.snapshot().pendingRequests,
+      pendingRequestsForPair: 0,
+      durationMs: Date.now() - startedAt,
+      errorMessage: getErrorMessage(error),
+    });
+  }
+
   async request(config: ISniRequestConfig): Promise<ISniResponse> {
     const startedAt = Date.now();
     let normalizedConfig: NormalizedSniRequestConfig;
     try {
       normalizedConfig = validateSniRequestConfig(config);
     } catch (error) {
-      writeNativeLog('error', 'desktop_sni_request_failed', {
-        code: getErrorCode(error) ?? 'SNI_INVALID_CONFIG',
-        failClosed: isSniFailClosedError(error),
-        hostname: config.hostname ?? 'unknown',
-        ipHash: shortHashForLog(config.ip),
-        ipFamily: config.ip ? getIpFamily(config.ip) : 'unknown',
-        method: config.method ?? 'GET',
-        timeout: config.timeout ?? 'unknown',
-        pathBytes: config.path ? byteSize(config.path) : 0,
-        bodyBytes: config.body ? byteSize(config.body) : 0,
-        headerCount: Object.keys(config.headers ?? {}).length,
-        activeRequests: this.requestLimiter.snapshot().activeRequests,
-        activeRequestsForPair: 0,
-        pendingRequests: this.requestLimiter.snapshot().pendingRequests,
-        pendingRequestsForPair: 0,
-        durationMs: Date.now() - startedAt,
-        errorMessage: getErrorMessage(error),
-      });
+      this.logInvalidConfig(
+        config,
+        config.body ? byteSize(config.body) : 0,
+        error,
+        startedAt,
+      );
       return Promise.reject(error);
     }
+    return this.execute(normalizedConfig, startedAt);
+  }
 
+  /**
+   * Stream a local file in app-owned storage as the request body over the
+   * same pinned destination, admission, timeout and cancel rules as request().
+   */
+  async uploadFile(config: ISniUploadFileConfig): Promise<ISniResponse> {
+    const startedAt = Date.now();
+    let normalizedConfig: NormalizedSniRequestConfig;
+    try {
+      normalizedConfig = await validateSniUploadFileConfig(config);
+    } catch (error) {
+      this.logInvalidConfig(config, 0, error, startedAt);
+      return Promise.reject(error);
+    }
+    return this.execute(normalizedConfig, startedAt);
+  }
+
+  private async execute(
+    normalizedConfig: NormalizedSniRequestConfig,
+    startedAt: number,
+  ): Promise<ISniResponse> {
     let releaseRequestSlot: (() => void) | undefined;
     let queueTimeoutId: ReturnType<typeof setTimeout> | undefined;
     let activeRequest: ClientRequest | undefined;
     let activeAgentState: SniAgentState | undefined;
+    let activeFileStream: fs.ReadStream | undefined;
     const abortController = new AbortController();
     const timeoutError = () =>
       new SniRequestError(
@@ -874,7 +1045,7 @@ class DesktopApiSniRequest {
         method: normalizedConfig.method,
         timeout: normalizedConfig.timeout,
         pathBytes: byteSize(normalizedConfig.path),
-        bodyBytes: normalizedConfig.body ? byteSize(normalizedConfig.body) : 0,
+        bodyBytes: getBodyBytes(normalizedConfig),
         headerCount: Object.keys(normalizedConfig.headers).length,
         activeRequests: stats.activeRequests,
         activeRequestsForPair: stats.activeRequestsForPair,
@@ -901,6 +1072,7 @@ class DesktopApiSniRequest {
       const releaseSlot = () => {
         releaseRequestSlot?.();
         releaseRequestSlot = undefined;
+        activeFileStream?.destroy();
       };
 
       const settleReject = (error: Error) => {
@@ -922,9 +1094,7 @@ class DesktopApiSniRequest {
           method: normalizedConfig.method,
           timeout: normalizedConfig.timeout,
           pathBytes: byteSize(normalizedConfig.path),
-          bodyBytes: normalizedConfig.body
-            ? byteSize(normalizedConfig.body)
-            : 0,
+          bodyBytes: getBodyBytes(normalizedConfig),
           headerCount: Object.keys(normalizedConfig.headers).length,
           activeRequests: stats.activeRequests,
           activeRequestsForPair: stats.activeRequestsForPair,
@@ -1040,9 +1210,7 @@ class DesktopApiSniRequest {
           method: normalizedConfig.method,
           timeout: normalizedConfig.timeout,
           pathBytes: byteSize(normalizedConfig.path),
-          bodyBytes: normalizedConfig.body
-            ? byteSize(normalizedConfig.body)
-            : 0,
+          bodyBytes: getBodyBytes(normalizedConfig),
           headerCount: Object.keys(normalizedConfig.headers).length,
           activeRequests: stats.activeRequests,
           activeRequestsForPair: stats.activeRequestsForPair,
@@ -1057,6 +1225,27 @@ class DesktopApiSniRequest {
         timeoutId = setTimeout(() => {
           request.destroy(timeoutError());
         }, remainingTimeout);
+
+        const { bodyFile } = normalizedConfig;
+        if (bodyFile) {
+          // Bounded to the validated size so a growing file cannot exceed
+          // the Content-Length that was already sent.
+          activeFileStream = fs.createReadStream(bodyFile.filePath, {
+            start: 0,
+            end: bodyFile.sizeBytes - 1,
+          });
+          activeFileStream.on('error', (error: Error) => {
+            request.destroy(
+              new SniRequestError(
+                'SNI_FILE_READ_FAILED',
+                `Upload file read failed: ${error.message}`,
+                true,
+              ),
+            );
+          });
+          activeFileStream.pipe(request);
+          return;
+        }
 
         if (normalizedConfig.body) {
           request.write(normalizedConfig.body);
