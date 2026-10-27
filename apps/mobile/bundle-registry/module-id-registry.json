@@ -22450,6 +22450,7 @@
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/geometricTools.ts": 11719,
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/geometry.ts": 20593,
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/ghostFeed.ts": 926,
+    "packages/kit/src/components/TradingView/TradingViewNative/drawings/iconPaths.ts": 2158,
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/icons.ts": 7729,
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/labelLayout.ts": 8714,
     "packages/kit/src/components/TradingView/TradingViewNative/drawings/measurement.ts": 16204,
