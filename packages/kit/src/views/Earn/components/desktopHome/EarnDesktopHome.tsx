@@ -484,6 +484,7 @@ export function EarnDesktopHome({
         networkId: row.networkId,
         logoURI: row.asset.logoURI || row.token.logoURI,
         offerKey: row.offers[0]?.key,
+        wide: row.offers.length > 1,
       }),
     [navigation],
   );

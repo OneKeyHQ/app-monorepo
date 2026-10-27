@@ -515,6 +515,8 @@ export const EarnNavigation = {
       amount?: string;
       // That offer alone, with none to switch to
       offerOnly?: boolean;
+      // More than one offer: the modal opens wide, the offers beside the form
+      wide?: boolean;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -530,6 +532,7 @@ export const EarnNavigation = {
           offerKey: params.offerKey,
           amount: params.amount,
           offerOnly: params.offerOnly,
+          wide: params.wide,
         },
       },
     });

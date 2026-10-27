@@ -10,6 +10,7 @@ import type {
 import { ModalAssetDetailsStack } from '../../AssetDetails/router';
 import { EARN_GUIDE_MODAL_SIZE } from '../../Earn/components/desktopHome/earnGuide.utils';
 import { EARN_PAY_WITH_PICKER_SIZE } from '../../Earn/pages/EarnRouter/earnPayWithPickerData';
+import { EARN_OFFERS_MODAL_WIDTH } from '../../Earn/pages/EarnRouter/earnRouter.utils';
 
 const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
@@ -147,6 +148,17 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.ManagePosition,
     component: ManagePosition,
     exact: true,
+    // Opened on a token's offers with more than one, the modal is wide for
+    // the offers beside the form, as the route says as it opens
+    options: ({ route }) => ({
+      modalContentMaxWidth: (
+        route.params as
+          | IModalStakingParamList[EModalStakingRoutes.ManagePosition]
+          | undefined
+      )?.earnOffers?.wide
+        ? EARN_OFFERS_MODAL_WIDTH
+        : undefined,
+    }),
   },
   {
     name: EModalStakingRoutes.BorrowManagePosition,

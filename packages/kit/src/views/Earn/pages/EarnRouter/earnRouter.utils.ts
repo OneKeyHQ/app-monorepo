@@ -20,6 +20,15 @@ import type {
   IEarnDesktopWalletTokenGroup,
 } from '../../components/desktopHome/earnDesktopHome.utils';
 
+// ---------- The deposit modal's size ----------
+
+// The deposit modal opened on a token's offers with more than one of them:
+// wide enough for the form and, beside it, every offer as a card (the Swap
+// page's routes). Modals are 640 otherwise
+export const EARN_OFFERS_MODAL_WIDTH = 920;
+// The offers' column beside the form, its right padding included
+export const EARN_OFFER_ROUTES_COLUMN_WIDTH = 420;
+
 // ---------- Pay with ----------
 
 export type IEarnRouterPayToken = {

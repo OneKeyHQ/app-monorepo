@@ -490,7 +490,9 @@ function LendingDetailsPartComponent({
             />
             {collateralItems.length ? (
               <LendingGridSection
-                title={intl.formatMessage({ id: ETranslations.defi_collateral })}
+                title={intl.formatMessage({
+                  id: ETranslations.defi_collateral,
+                })}
                 titleAfter={supplyBadge}
                 items={collateralItems}
               />

@@ -1,12 +1,26 @@
 import type { ReactNode, RefObject } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import type { IElement } from '@onekeyhq/components';
-import { Accordion, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Accordion,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -36,6 +50,11 @@ import {
   getListRowMotion,
 } from '../../utils/earnListMotion';
 
+import {
+  EARN_OFFER_OPTION_HEIGHT,
+  EarnOfferOptionCard,
+} from './EarnOfferOptionCard';
+import { EARN_OFFER_ROUTES_COLUMN_WIDTH } from './earnRouter.utils';
 import {
   buildOfferRowProps,
   getOfferTarget,
@@ -255,6 +274,50 @@ export function EarnOfferSwitcher({
   );
 }
 
+// Every offer for the token on this network, each a card in view, as the
+// Swap page lists its routes: a press picks it at once, and the form takes
+// it with what was typed. The pointer over a card reads its form ahead
+function EarnOfferRoutes({
+  offers,
+  selectedKey,
+  networkLogoURI,
+  onSelect,
+  onHoverIn,
+}: {
+  offers: IEarnDesktopHoldOffer[];
+  selectedKey?: string;
+  networkLogoURI?: string;
+  onSelect: (offer: IEarnDesktopHoldOffer) => void;
+  onHoverIn: (offer: IEarnDesktopHoldOffer) => void;
+}) {
+  const intl = useIntl();
+  return (
+    <YStack
+      testID="earn-offer-routes"
+      role="radiogroup"
+      aria-label={intl.formatMessage({ id: ETranslations.global_protocol })}
+      gap="$2"
+    >
+      {offers.map((offer) => (
+        <EarnOfferOptionCard
+          key={offer.key}
+          testID={`earn-offer-${offer.key}`}
+          offer={offer}
+          networkLogoURI={networkLogoURI}
+          isSelected={offer.key === selectedKey}
+          onSelect={onSelect}
+          onHoverIn={onHoverIn}
+        />
+      ))}
+    </YStack>
+  );
+}
+
+// Beside the form the offers' column stands in for the switcher: the slot
+// stays set, so the form keeps the deposit modal's ways (the amount carried
+// across a switch, the balance kept), and draws nothing
+const ROUTES_BESIDE_SLOT = <Fragment />;
+
 // The form a protocol fills, as ManagePositionContent picks it. A switch
 // within one form keeps it, typed amount and all: it shows the last
 // protocol's figures, its button waiting, until the new ones arrive. A
@@ -430,6 +493,8 @@ export function EarnOffersDeposit({
   logoURI,
   offerKey,
   offerOnly,
+  offersLayout = 'routes',
+  routesBeside = false,
   amount,
   onHeaderRightChange,
   onDeposited,
@@ -444,6 +509,12 @@ export function EarnOffersDeposit({
   offerKey?: string;
   // That offer alone, with none to switch to (a details page's own deposit)
   offerOnly?: boolean;
+  // How the other offers show: every one as a card in view (under the amount
+  // box, or beside the form in a wide modal), or folded under the chosen
+  // one's row (the guide, which chose the vault a step before)
+  offersLayout?: 'routes' | 'switcher';
+  // The modal opened wide for the offers' column beside the form
+  routesBeside?: boolean;
   // An amount of the token itself to start on (what a withdrawal took out)
   amount?: string;
   onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
@@ -597,18 +668,54 @@ export function EarnOffersDeposit({
     }, LIST_PICK_APPLY_MS);
   }, []);
 
-  const offerSwitch = shown ? (
-    <EarnOfferSwitcher
+  // Every offer in view: a pick goes to the form at once, with what was typed
+  const handleRoutePick = useCallback((offer: IEarnDesktopHoldOffer) => {
+    if (offer.key === selectedRef.current?.key) {
+      return;
+    }
+    setShownKey(offer.key);
+    easeModalHeightChanges();
+    setStartAmount(typedAmountRef.current || undefined);
+    setPickedKey(offer.key);
+  }, []);
+  const warmOffer = useCallback(
+    (offer: IEarnDesktopHoldOffer) => warmFormData(buildOfferParams(offer)),
+    [buildOfferParams],
+  );
+
+  const { gtLg } = useMedia();
+  const listsRoutes = offersLayout === 'routes' && offers.length > 1;
+  // Beside the form only where the modal is wide and the window holds it;
+  // under the amount box otherwise
+  const isRoutesBeside = listsRoutes && routesBeside && gtLg;
+  const routes = listsRoutes ? (
+    <EarnOfferRoutes
       offers={offers}
-      selected={shown}
+      selectedKey={selected?.key}
       networkLogoURI={network?.logoURI}
-      isOpen={isListOpen}
-      listedWithout={listedWithout}
-      shownRowKeyRef={shownRowKeyRef}
-      onOpenChange={handleListOpenChange}
-      onSelect={handleSelect}
+      onSelect={handleRoutePick}
+      onHoverIn={warmOffer}
     />
   ) : null;
+  let offerSwitch: ReactNode = null;
+  if (isRoutesBeside) {
+    offerSwitch = ROUTES_BESIDE_SLOT;
+  } else if (listsRoutes) {
+    offerSwitch = routes;
+  } else if (shown) {
+    offerSwitch = (
+      <EarnOfferSwitcher
+        offers={offers}
+        selected={shown}
+        networkLogoURI={network?.logoURI}
+        isOpen={isListOpen}
+        listedWithout={listedWithout}
+        shownRowKeyRef={shownRowKeyRef}
+        onOpenChange={handleListOpenChange}
+        onSelect={handleSelect}
+      />
+    );
+  }
 
   if (isLoaded && !offers.length) {
     return (
@@ -619,22 +726,54 @@ export function EarnOffersDeposit({
       </YStack>
     );
   }
+  // The form's place and the offers' column, as they will land
+  const besideForm = (form: ReactNode, column: ReactNode) => (
+    <XStack ai="flex-start">
+      <YStack flex={1} minWidth={0}>
+        {form}
+      </YStack>
+      <YStack
+        w={EARN_OFFER_ROUTES_COLUMN_WIDTH}
+        flexShrink={0}
+        pt="$2.5"
+        pb="$2.5"
+        pr="$5"
+      >
+        {column}
+      </YStack>
+    </XStack>
+  );
   if (!selected) {
-    return (
+    const shell = (
       <ManageSectionShell
         type={EManagePositionType.Staking}
         symbol={symbol}
         fallbackTokenImageUri={logoURI}
         isPendleProvider={false}
-        hasProtocolSwitch
+        hasProtocolSwitch={!(routesBeside && gtLg)}
         isInModalContext
         depositOnly
         hasPayWith
         liftsHeaderControls
       />
     );
+    return routesBeside && gtLg
+      ? besideForm(
+          shell,
+          <YStack gap="$2">
+            {[0, 1, 2].map((index) => (
+              <Skeleton
+                key={index}
+                h={EARN_OFFER_OPTION_HEIGHT}
+                w="100%"
+                borderRadius="$3"
+              />
+            ))}
+          </YStack>,
+        )
+      : shell;
   }
-  return (
+  const form = (
     <EarnFormSwitchingContext.Provider value={shown?.key !== selected.key}>
       <EarnOutcomeCarryContext.Provider value={outcomeCarry}>
         <OfferDepositForm
@@ -654,4 +793,5 @@ export function EarnOffersDeposit({
       </EarnOutcomeCarryContext.Provider>
     </EarnFormSwitchingContext.Provider>
   );
+  return isRoutesBeside ? besideForm(form, routes) : form;
 }

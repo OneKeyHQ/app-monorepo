@@ -131,8 +131,14 @@ export type IModalStakingParamList = {
     // Deposit only, choosing among the token's offers on this network (a row
     // of the desktop Earn home, demo 10-22): the offer to start on, the best
     // rate otherwise, and an amount of the token to start on. offerOnly keeps
-    // to that offer, with none to switch to (a details page's own deposit)
-    earnOffers?: { offerKey?: string; amount?: string; offerOnly?: boolean };
+    // to that offer, with none to switch to (a details page's own deposit);
+    // wide opens the modal wide, the offers beside the form (more than one)
+    earnOffers?: {
+      offerKey?: string;
+      amount?: string;
+      offerOnly?: boolean;
+      wide?: boolean;
+    };
     // Fires after a deposit/withdraw confirms, before this modal pops. The
     // inline wide-layout ManagePositionPart takes the same callback as a prop;
     // opened as a modal there is no other way back to the caller. Same shape as

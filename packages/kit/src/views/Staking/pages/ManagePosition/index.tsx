@@ -184,6 +184,7 @@ const ManagePositionPage = () => {
         offerKey?: string;
         amount?: string;
         offerOnly?: boolean;
+        wide?: boolean;
         tokenImageUri?: string;
       }
     | undefined
@@ -310,9 +311,20 @@ const ManagePositionPage = () => {
   // A deposit that went out: what went where shows in the form's place
   // until Done or My portfolio closes the modal
   const [depositDone, setDepositDone] = useState<IEarnDepositDoneInfo>();
+  // A modal opened wide for the offers beside the form goes back to the usual
+  // width with its done view, which is one centered column
+  const routeEarnOffers = route.params.earnOffers;
   const showDepositDone = useCallback(
-    (info: IEarnDepositDoneInfo) => leaveFormThen(() => setDepositDone(info)),
-    [leaveFormThen],
+    (info: IEarnDepositDoneInfo) =>
+      leaveFormThen(() => {
+        setDepositDone(info);
+        if (routeEarnOffers?.wide) {
+          navigation.setParams({
+            earnOffers: { ...routeEarnOffers, wide: false },
+          });
+        }
+      }),
+    [leaveFormThen, navigation, routeEarnOffers],
   );
   const handleOffersDeposited = useCallback(
     (_amount: string, info: IEarnDepositDoneInfo) => showDepositDone(info),
@@ -453,6 +465,7 @@ const ManagePositionPage = () => {
         logoURI={offersEntry.tokenImageUri ?? tokenImageUri}
         offerKey={offersEntry.offerKey}
         offerOnly={offersEntry.offerOnly}
+        routesBeside={offersEntry.wide}
         amount={offersEntry.amount}
         onHeaderRightChange={setHeaderControls}
         onDeposited={handleOffersDeposited}
