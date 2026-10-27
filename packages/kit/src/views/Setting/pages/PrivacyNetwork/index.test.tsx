@@ -501,9 +501,7 @@ describe('Privacy network settings for a temp wallet', () => {
     const { rerender } = render(<PrivacyNetworkSettings networkId="zec--0" />);
     expect(
       progressText(await screen.findByTestId('privacy-sync-progress')),
-    ).toBe(
-      'global.syncing · 43 / 100 · 43.9% · privacy_sync_blocks_remaining__msg',
-    );
+    ).toBe('global.syncing · 43 / 100 · 43.9%');
     mockProgress['zec--0:waiting'] = {
       ...complete,
       backfillScannedHeight: null,
@@ -512,7 +510,7 @@ describe('Privacy network settings for a temp wallet', () => {
     };
     rerender(<PrivacyNetworkSettings networkId="zec--0" />);
     expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
-      'global.syncing · 43 / 100 · 43.9% · privacy_sync_blocks_remaining__msg',
+      'global.syncing · 43 / 100 · 43.9%',
     );
     mockPausedNetworks = ['zec--0'];
     rerender(<PrivacyNetworkSettings networkId="zec--0" />);

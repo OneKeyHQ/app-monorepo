@@ -26,26 +26,18 @@ export function formatPrivacyChainDuration(
   );
 }
 
-// Time left at the published scan speed, else blocks left; a stopped scan has no speed to project.
+// Time left at the published scan speed; nothing until a speed is known or while the scan is stopped.
 export function formatPrivacyChainTimeLeft({
   progress,
   stopped = false,
-  intl,
 }: {
   progress: ILocalWalletSyncProgress;
   stopped?: boolean;
-  intl: Pick<IntlShape, 'formatMessage'>;
 }): string {
   const remaining = getPrivacyChainBackfillBlocksLeft(progress);
-  if (remaining === undefined || remaining <= 0) return '';
   const blocksPerSec = stopped ? undefined : progress.blocksPerSec;
-  if (blocksPerSec && blocksPerSec > 0) {
-    return `~${formatPrivacyChainDuration(remaining / blocksPerSec, false)}`;
-  }
-  return intl.formatMessage(
-    { id: ETranslations.privacy_sync_blocks_remaining__msg },
-    { count: remaining },
-  );
+  if (!remaining || !blocksPerSec || blocksPerSec <= 0) return '';
+  return `~${formatPrivacyChainDuration(remaining / blocksPerSec, false)}`;
 }
 
 export function getPrivacyChainSyncLabel({
@@ -241,7 +233,7 @@ export function getPrivacyChainScanRegionLabelId(
 
 type ILocalWalletSettings = NonNullable<IVaultSettings['localWallet']>;
 
-// Roomy surfaces: blocks, percentage and time (else blocks) left while backfilling; scanned and
+// Roomy surfaces: blocks, percentage and time left (when known) while backfilling; scanned and
 // chain heights once caught up.
 export function formatPrivacyChainSyncDetail({
   progress,
@@ -280,7 +272,7 @@ export function formatPrivacyChainSyncDetail({
         target: progress.backfillTargetHeight,
         progress: progress.backfillProgress,
       }),
-      formatPrivacyChainTimeLeft({ progress, stopped, intl }),
+      formatPrivacyChainTimeLeft({ progress, stopped }),
       regionLabelId ? intl.formatMessage({ id: regionLabelId }) : '',
     ]
       .filter(Boolean)
@@ -313,17 +305,15 @@ export function formatPrivacyChainSyncDetail({
       });
 }
 
-// Tight surfaces: the state, then while syncing its percentage and time (else blocks) left.
+// Tight surfaces: the state, then while syncing its percentage and time left (when known).
 export function formatPrivacyChainSyncSummary({
   label,
   progress,
   syncing,
-  intl,
 }: {
   label: string;
   progress: ILocalWalletSyncProgress | undefined;
   syncing: boolean;
-  intl: Pick<IntlShape, 'formatMessage'>;
 }): string {
   if (!syncing || !progress) return label;
   const percent =
@@ -333,7 +323,7 @@ export function formatPrivacyChainSyncSummary({
       : '';
   return [
     [label, percent].filter(Boolean).join(' '),
-    formatPrivacyChainTimeLeft({ progress, intl }),
+    formatPrivacyChainTimeLeft({ progress }),
   ]
     .filter(Boolean)
     .join(' · ');

@@ -146,7 +146,6 @@ function PrivacyChainSyncNetwork({
         label: stateLabel,
         progress: entry,
         syncing: labelId === ETranslations.global_syncing,
-        intl,
       });
   let lightIcon: IKeyOfIcons = 'RefreshCcwOutline';
   let lightIconColor: IIconProps['color'] = isRunning

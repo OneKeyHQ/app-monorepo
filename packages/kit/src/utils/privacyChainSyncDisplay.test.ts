@@ -273,15 +273,6 @@ describe('pickSlowestPrivacyChainNetwork', () => {
 });
 
 it('shows priority scan work advancing while the contiguous cursor stays still', () => {
-  const messages: Record<string, string> = {
-    [ETranslations.privacy_sync_blocks_remaining__msg]:
-      '{count, number} blocks remaining',
-  };
-  const intl = createIntl({
-    locale: 'en',
-    messages,
-    onError: () => undefined,
-  });
   const progress = {
     birthdayHeight: 0,
     backfillScannedHeight: 10,
@@ -302,26 +293,20 @@ it('shows priority scan work advancing while the contiguous cursor stays still',
     formatPrivacyChainTimeLeft({
       progress: { ...progress, ...overrides },
       stopped,
-      intl,
     });
-  expect(timeLeft({})).toBe('60 blocks remaining');
-  expect(timeLeft({ backfillRemainingBlocks: 20 })).toBe('20 blocks remaining');
-  // No count from the chain (Monero scans in order): target minus scanned.
-  expect(timeLeft({ backfillRemainingBlocks: undefined })).toBe(
-    '90 blocks remaining',
-  );
-  expect(timeLeft({ isBackfillComplete: true })).toBe('');
-  // The published speed turns blocks into time, unless the scan is stopped.
+  // No speed yet: nothing, not a block count.
+  expect(timeLeft({})).toBe('');
+  expect(timeLeft({ isBackfillComplete: true, blocksPerSec: 2 })).toBe('');
+  // The published speed turns blocks left into time, unless the scan is stopped.
   expect(timeLeft({ blocksPerSec: 2 })).toMatch(/^~/);
-  expect(timeLeft({ blocksPerSec: 2 }, true)).toBe('60 blocks remaining');
+  // Monero reports no count: target minus scanned is projected the same way.
+  expect(
+    timeLeft({ backfillRemainingBlocks: undefined, blocksPerSec: 2 }),
+  ).toMatch(/^~/);
+  expect(timeLeft({ blocksPerSec: 2 }, true)).toBe('');
 });
 
-it('falls back from time to blocks to percentage to the state alone', () => {
-  const messages: Record<string, string> = {
-    [ETranslations.privacy_sync_blocks_remaining__msg]:
-      '{count, number} blocks remaining',
-  };
-  const intl = createIntl({ locale: 'en', messages, onError: () => undefined });
+it('falls back from time to percentage to the state alone', () => {
   const syncing: ILocalWalletSyncProgress = {
     birthdayHeight: 0,
     backfillScannedHeight: 10,
@@ -343,12 +328,11 @@ it('falls back from time to blocks to percentage to the state alone', () => {
       label: 'Syncing',
       progress,
       syncing: isSyncing,
-      intl,
     });
   expect(summary({ ...syncing, blocksPerSec: 3 })).toMatch(
     /^Syncing 10\.0% · ~/,
   );
-  expect(summary(syncing)).toBe('Syncing 10.0% · 90 blocks remaining');
+  expect(summary(syncing)).toBe('Syncing 10.0%');
   expect(
     summary({
       ...syncing,

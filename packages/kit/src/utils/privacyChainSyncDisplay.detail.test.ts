@@ -37,23 +37,25 @@ describe('local wallet backfill remaining', () => {
     );
   });
 
-  it('shows the blocks left while no rate has been measured', () => {
+  it('shows no time until a rate has been measured', () => {
     const text = formatPrivacyChainSyncDetail({
       progress: backfilling,
       settings: undefined,
       intl,
     });
-    expect(text).toContain(ETranslations.privacy_sync_blocks_remaining__msg);
     expect(text).not.toContain('~');
+    expect(text).not.toContain(
+      ETranslations.privacy_sync_blocks_remaining__msg,
+    );
   });
 
-  it('shows the blocks left while the scan is stopped', () => {
+  it('shows no time while the scan is stopped', () => {
     const text = formatPrivacyChainSyncDetail({
       progress: { ...backfilling, blocksPerSec: 10 },
       settings: undefined,
       stopped: true,
       intl,
     });
-    expect(text).toContain(ETranslations.privacy_sync_blocks_remaining__msg);
+    expect(text).not.toContain('~');
   });
 });
