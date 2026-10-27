@@ -65,6 +65,8 @@ export type INobleBleApi = {
 };
 
 export type IDesktopApiLegacy = IDesktopApiGlobal & {
+  // Older binaries omit this capability and cannot consume UA bridge headers.
+  supportsCustomUserAgent?: boolean;
   on: (
     channel: string,
     func: (...args: any[]) => any,
