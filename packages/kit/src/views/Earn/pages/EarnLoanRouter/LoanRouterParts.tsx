@@ -22,6 +22,8 @@ import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 
+import { useLoanToneColors } from './loanToneColors';
+
 import type {
   ILoanRoute,
   ILoanRouteBlock,
@@ -295,6 +297,7 @@ function RouteRow({
   const { route, facts, metrics } = item;
   const { block } = metrics;
   const isBlocked = Boolean(block);
+  const toneText = useLoanToneColors().text;
   const select = () => onSelect(route.key);
   const pressProps = isBlocked
     ? {}
@@ -394,7 +397,7 @@ function RouteRow({
       {block ? (
         <SizableText
           size="$bodySm"
-          color="$textCaution"
+          style={{ color: toneText.caution }}
           pl={REASON_INDENT}
           testID={`earn-loan-route-block-${route.key}`}
         >

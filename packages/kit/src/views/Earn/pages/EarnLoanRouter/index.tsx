@@ -80,9 +80,11 @@ import {
   getLoanBlockText,
   isLendingClosed,
 } from './LoanRouterParts';
+import { useLoanToneColors } from './loanToneColors';
 import { useLoanRouterFacts } from './useLoanRouterFacts';
 import { useLoanRouterRun } from './useLoanRouterRun';
 
+import type { ILoanLtvTone } from './loanLtvBar.types';
 import type { ILoanPositionAsset } from './loanRouter.utils';
 import type { ILoanRouteItem } from './LoanRouterParts';
 import type { ILoanRunDone, ILoanRunPlan } from './useLoanRouterRun';
@@ -112,38 +114,19 @@ const shareOf = (balance: string, percent: number, decimals: number) =>
     .decimalPlaces(Math.min(decimals, 8), BigNumber.ROUND_DOWN)
     .toFixed();
 
-// A health factor's color, as the Borrow pages read one
-const healthColor = (value?: number) => {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value >= 2) {
-    return '$textSuccess' as const;
-  }
-  if (value >= 1.25) {
-    return '$textCaution' as const;
-  }
-  return '$textCritical' as const;
-};
-
 const formatHealth = (value: number) =>
   value >= 100 ? '>100' : new BigNumber(value).toFixed(2);
 
 const noop = () => undefined;
 
-// The same tiers as the health factor's colors
-type ILoanTone = 'success' | 'caution' | 'critical';
-const healthTone = (value?: number): ILoanTone => {
+// A health factor's tier, as the Borrow pages read one: 2 and up, 1.25 to 2,
+// under 1.25
+const healthTone = (value?: number): ILoanLtvTone => {
   if (value === undefined || value >= 2) {
     return 'success';
   }
   return value >= 1.25 ? 'caution' : 'critical';
 };
-const TONE_TEXT = {
-  success: '$textSuccess',
-  caution: '$textCaution',
-  critical: '$textCritical',
-} as const;
 
 const isSameSymbol = (a: string, b: string) =>
   a.toUpperCase() === b.toUpperCase();
@@ -162,13 +145,17 @@ const withAsset = (
 
 function RowValue({
   children,
-  color,
+  toneColor,
 }: {
   children: string;
-  color?: '$textSuccess' | '$textCaution' | '$textCritical' | '$textSubdued';
+  toneColor?: string;
 }) {
   return (
-    <SizableText size="$bodyMdMedium" color={color} textAlign="right">
+    <SizableText
+      size="$bodyMdMedium"
+      textAlign="right"
+      style={toneColor ? { color: toneColor } : undefined}
+    >
       {children}
     </SizableText>
   );
@@ -181,6 +168,7 @@ function HealthFactorValue({
   before?: number;
   after?: number;
 }) {
+  const toneText = useLoanToneColors().text;
   if (after === undefined) {
     return <RowValue>–</RowValue>;
   }
@@ -188,13 +176,18 @@ function HealthFactorValue({
     <XStack ai="center" gap="$1.5">
       {before !== undefined ? (
         <>
-          <SizableText size="$bodySm" color={healthColor(before)}>
+          <SizableText
+            size="$bodySm"
+            style={{ color: toneText[healthTone(before)] }}
+          >
             {formatHealth(before)}
           </SizableText>
           <Icon name="ArrowRightOutline" size="$4" color="$iconDisabled" />
         </>
       ) : null}
-      <RowValue color={healthColor(after)}>{formatHealth(after)}</RowValue>
+      <RowValue toneColor={toneText[healthTone(after)]}>
+        {formatHealth(after)}
+      </RowValue>
     </XStack>
   );
 }
@@ -209,7 +202,7 @@ function LtvValue({
   before?: number;
   after?: number;
   isChanging: boolean;
-  color?: '$textSuccess' | '$textCaution' | '$textCritical';
+  color?: string;
 }) {
   const shown = isChanging ? after : (before ?? after);
   if (shown === undefined) {
@@ -225,7 +218,7 @@ function LtvValue({
           <Icon name="ArrowRightOutline" size="$4" color="$iconDisabled" />
         </>
       ) : null}
-      <RowValue color={color}>{formatLoanLtv(shown)}</RowValue>
+      <RowValue toneColor={color}>{formatLoanLtv(shown)}</RowValue>
     </XStack>
   );
 }
@@ -312,6 +305,7 @@ function EarnLoanRouterPage() {
   // The market position's LTV the bar was dragged to. Until then the loan is
   // half the collateral's value, as the Loans list works its Net APY out
   const [draggedLtv, setDraggedLtv] = useState<number>();
+  const toneColors = useLoanToneColors();
   // While the bar is dragged the markets keep their order
   const [isSliding, setIsSliding] = useState(false);
   const slideOrderRef = useRef<string[]>([]);
@@ -800,7 +794,7 @@ function EarnLoanRouterPage() {
           }
           after={ltvBar?.value}
           isChanging={isChanging}
-          color={TONE_TEXT[barTone]}
+          color={toneColors.text[barTone]}
         />
       </XStack>
       <LoanLtvBar
@@ -1113,7 +1107,7 @@ function EarnLoanRouterPage() {
         <SizableText
           testID="earn-loan-block"
           size="$bodyMd"
-          color="$textCaution"
+          style={{ color: toneColors.text.caution }}
         >
           {blockText}
         </SizableText>
