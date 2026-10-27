@@ -24,7 +24,6 @@ import {
   useWebTabDataById,
 } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
-import { showTabBar } from '../../utils/tabBarUtils';
 
 import type { IMobileBrowserChrome } from './browserChrome';
 import type { ESiteMode } from '../../types';
@@ -34,6 +33,8 @@ export interface IMobileBrowserBottomBarProps {
   id: string;
   // Scroll-driven chrome state and address actions.
   chrome: IMobileBrowserChrome;
+  // Back to Explore keeping the tab, with a fresh thumbnail for the tab list.
+  onMinimize: () => void;
 }
 
 export function useMobileBrowserBottomBarData({ id }: { id: string }) {
@@ -60,8 +61,7 @@ export function useMobileBrowserBottomBarData({ id }: { id: string }) {
     }, [origin]);
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { setPinnedTab, closeWebTab, setSiteMode, setDisplayHomePage } =
-    useBrowserTabActions().current;
+  const { setPinnedTab, setSiteMode } = useBrowserTabActions().current;
 
   const {
     addOrUpdateBrowserBookmark: addBrowserBookmark,
@@ -113,12 +113,6 @@ export function useMobileBrowserBottomBarData({ id }: { id: string }) {
     },
     [setPinnedTab, id, intl],
   );
-
-  const handleCloseTab = useCallback(() => {
-    closeWebTab({ tabId: id, entry: 'Menu' });
-    setDisplayHomePage(true);
-    showTabBar();
-  }, [closeWebTab, id, setDisplayHomePage]);
 
   const onShare = useCallback(() => {
     handleShareUrl(tab?.displayUrl ?? tab?.url ?? '');
@@ -193,7 +187,6 @@ export function useMobileBrowserBottomBarData({ id }: { id: string }) {
     displayHomePage,
     handleBookmarkPress,
     handlePinTab,
-    handleCloseTab,
     onShare,
     onCopyUrl,
     handleDisconnect,
