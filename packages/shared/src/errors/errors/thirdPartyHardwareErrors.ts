@@ -8,6 +8,7 @@ import {
   appEventBus,
 } from '../../eventBus/appEventBus';
 import { ETranslations } from '../../locale';
+import platformEnv from '../../platformEnv';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
@@ -814,12 +815,24 @@ export class ThirdPartyPayloadTooLarge extends ThirdPartyHardwareError {
 /** One QR request would ask the device for more keys than it accepts; USB has no such limit. */
 export class ThirdPartyQrRequestTooLarge extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
+    // iOS and Android reach Keystone by QR only: the way out is a smaller
+    // request, at the limit the SDK reports, not USB.
+    const qrOnly = platformEnv.isNative;
     super(
-      normalizeErrorProps(props, {
-        defaultKey:
-          ETranslations.hardware_third_party_qr_request_too_large__msg,
-        defaultAutoToast: true,
-      }),
+      normalizeErrorProps(
+        qrOnly
+          ? {
+              ...props,
+              info: { ...props?.info, count: props?.payload?.params?.limit },
+            }
+          : props,
+        {
+          defaultKey: qrOnly
+            ? ETranslations.hardware_third_party_qr_request_too_large_no_usb__msg
+            : ETranslations.hardware_third_party_qr_request_too_large__msg,
+          defaultAutoToast: true,
+        },
+      ),
     );
   }
 

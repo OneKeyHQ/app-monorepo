@@ -11,6 +11,7 @@ import {
   getThirdPartyHardwareRetryAction,
 } from '../../hardware/thirdPartyHardwareRetry';
 import { ETranslations } from '../../locale';
+import platformEnv from '../../platformEnv';
 import {
   THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
   THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
@@ -126,6 +127,24 @@ describe('convertThirdPartyDeviceError', () => {
       ETranslations.hardware_third_party_qr_request_too_large__msg,
     );
     expect(error.payload?.recovery).toEqual({ scope: 'transport' });
+  });
+
+  it('asks for fewer accounts instead of USB where Keystone has no USB', () => {
+    const { isNative } = platformEnv;
+    Object.assign(platformEnv, { isNative: true });
+    try {
+      const error = convertThirdPartyDeviceError({
+        code: ThirdPartyHwErrorCode.QrRequestTooLarge,
+        error: 'Keystone QR requests take at most 10 account paths here',
+        params: { limit: 10, requested: 11 },
+      });
+      expect(error.key).toBe(
+        ETranslations.hardware_third_party_qr_request_too_large_no_usb__msg,
+      );
+      expect(error.info).toMatchObject({ count: 10 });
+    } finally {
+      Object.assign(platformEnv, { isNative });
+    }
   });
 
   it('maps invalid firmware metadata responses to network errors', () => {
