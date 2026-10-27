@@ -183,14 +183,11 @@ export async function buildZcashLocalHistoryTx({
   const isSent = item.txType === 'sent';
   // 'shielded' = internal move between own pools; both sides are us
   const isInternal = item.txType === 'shielded';
-  // A rescan may know only the same-pool fee delta, without payment outputs.
-  // That is missing payment information, not proof of a zero-value payment.
-  const nativeAmountIsUnknown =
-    (isSent && item.fee === null) ||
-    (isInternal && new BigNumber(item.valueZat).isZero());
-  const amount = nativeAmountIsUnknown
-    ? '0'
-    : new BigNumber(item.valueZat).abs().shiftedBy(-ZCASH_DECIMALS).toFixed();
+  // As in the official Zcash wallets, a send with no known fee shows the net spend.
+  const amount = new BigNumber(item.valueZat)
+    .abs()
+    .shiftedBy(-ZCASH_DECIMALS)
+    .toFixed();
   // Own address stands in for "this account" so buildTxActionDirection can
   // read direction from it. A shielded sender is unknowable; a shielded
   // recipient survives a rescan only if we recorded it.
@@ -284,7 +281,6 @@ export async function buildZcashLocalHistoryTx({
         ? Math.max(0, chainTip - item.minedHeight + 1)
         : undefined,
     nativeAmount: amount,
-    ...(nativeAmountIsUnknown ? { nativeAmountIsUnknown: true } : {}),
     createdAt: timestampMs,
     updatedAt: timestampMs,
   };

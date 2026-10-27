@@ -132,7 +132,6 @@ it.each([null, 100])(
       ),
     );
     expect(row.decodedTx.totalFeeInNative).toBe('0.00003');
-    expect(row.decodedTx.nativeAmountIsUnknown).toBe(false);
     expect(row.decodedTx.nativeAmount).toBe(encodedTx.amount);
   },
 );

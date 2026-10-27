@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -350,22 +349,13 @@ function UTXODetails() {
               }}
               mt="$1.5"
             >
-              {isLocalWalletHistory && !new BigNumber(utxo.balance).isFinite()
-                ? intl.formatMessage({ id: ETranslations.global_not_available })
-                : `${utxo.balance} ${network?.symbol ?? ''}`}
+              {`${utxo.balance} ${network?.symbol ?? ''}`}
             </SizableText>
           </YStack>
         ))}
       </Stack>
     ),
-    [
-      changeAddressSet,
-      intl,
-      isLocalWalletHistory,
-      network?.symbol,
-      ownAddresses,
-      renderUtxoEndpoint,
-    ],
+    [changeAddressSet, intl, network?.symbol, ownAddresses, renderUtxoEndpoint],
   );
 
   const renderUTXODetails = useCallback(() => {

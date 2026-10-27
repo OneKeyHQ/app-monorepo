@@ -78,7 +78,8 @@ describe('findZcashLocalHistoryItem', () => {
 });
 
 describe('buildZcashLocalHistoryTx', () => {
-  it('marks sent amount unavailable when fee is unknown and preserves pool deltas', async () => {
+  // Until the fee is known the row shows the net spend, fee included.
+  it('shows the net spend when the fee is unknown and preserves pool deltas', async () => {
     const item = {
       ...historyItem('sent'),
       valueZat: '-61',
@@ -107,9 +108,10 @@ describe('buildZcashLocalHistoryTx', () => {
 
     expect(tx.decodedTx.block).toBe(1);
     expect(tx.decodedTx.confirmations).toBe(10);
-    expect(tx.decodedTx.nativeAmount).toBe('0');
-    expect(tx.decodedTx.nativeAmountIsUnknown).toBe(true);
-    expect(tx.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe('0');
+    expect(tx.decodedTx.nativeAmount).toBe('0.00000061');
+    expect(tx.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '0.00000061',
+    );
     expect(tx.privacyChainHistoryPoolDeltas).toEqual({
       '0': '-0.000001',
       '4': '0.00000039',
@@ -208,7 +210,8 @@ describe('buildZcashLocalHistoryTx counterparties', () => {
     });
   });
 
-  it('does not claim a zero payment when a rescan only recovered the fee delta', async () => {
+  // Enhancement recovers the payment output later; until then only the fee is known.
+  it('shows a self-transfer without a recovered payment output as zero plus its fee', async () => {
     const tx = await build({
       ...historyItem('self-without-payment-output'),
       txType: 'shielded',
@@ -216,7 +219,7 @@ describe('buildZcashLocalHistoryTx counterparties', () => {
       valueZat: '0',
       perPoolBalanceDeltaZat: { '4': '-10000' },
     });
-    expect(tx.decodedTx.nativeAmountIsUnknown).toBe(true);
+    expect(tx.decodedTx.nativeAmount).toBe('0');
     expect(tx.decodedTx.totalFeeInNative).toBe('0.0001');
   });
 

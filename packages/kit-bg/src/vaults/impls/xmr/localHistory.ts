@@ -108,8 +108,9 @@ export async function buildXmrLocalHistoryTx({
 }): Promise<IAccountHistoryTx> {
   const isSent = item.direction === 'out';
 
-  // Amount sent = spent minus returned change. Until change is scanned that is
-  // the whole input set, so a send from this device uses the broadcast figure.
+  // Amount sent = spent minus returned change and the scanned fee. Until
+  // change is scanned that is the whole input set, so a send from this device
+  // uses the broadcast figure.
   let atomic = new BigNumber(item.receivedAtomic);
   if (isSent) {
     atomic = item.outgoingAtomic
@@ -118,8 +119,12 @@ export async function buildXmrLocalHistoryTx({
           new BigNumber(item.spentAtomic).minus(item.receivedAtomic),
           0,
         );
+    if (item.feeAtomic) {
+      atomic = BigNumber.max(atomic.minus(item.feeAtomic), 0);
+    }
   }
   const amount = atomic.shiftedBy(-XMR_DECIMALS).toFixed();
+  const feeAtomic = sentAmount?.feeAtomic ?? item.feeAtomic;
   const paymentAmount =
     isSent && sentAmount
       ? new BigNumber(sentAmount.amountAtomic)
@@ -194,11 +199,9 @@ export async function buildXmrLocalHistoryTx({
     accountId,
     extraInfo: null,
     nativeAmount: paymentAmount,
-    // Scanned net debit includes an unknown fee. Never label it as the payment.
-    nativeAmountIsUnknown: isSent && !sentAmount,
     totalFeeInNative:
-      isSent && sentAmount
-        ? new BigNumber(sentAmount.feeAtomic).shiftedBy(-XMR_DECIMALS).toFixed()
+      isSent && feeAtomic
+        ? new BigNumber(feeAtomic).shiftedBy(-XMR_DECIMALS).toFixed()
         : undefined,
     createdAt: timestampMs,
     updatedAt: timestampMs,

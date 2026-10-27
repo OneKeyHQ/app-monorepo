@@ -56,6 +56,8 @@ export type IXmrHistoryItem = {
   failed?: boolean;
   /** Amount plus fee, recorded when this device broadcast it. */
   outgoingAtomic?: string | null;
+  /** Network fee of a send, read from the scanned transaction. */
+  feeAtomic?: string | null;
 };
 
 // The wire shape lives with the chain, beside the runtime that produces it.

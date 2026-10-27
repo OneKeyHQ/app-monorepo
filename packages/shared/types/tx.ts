@@ -166,8 +166,6 @@ export type IDecodedTx = {
 
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
   nativeAmount?: string;
-  // The history source could not separate a sent amount from its unknown fee.
-  nativeAmountIsUnknown?: boolean;
   nativeAmountValue?: string;
   riskyLevel?: number;
   kytRiskLevel?: EKytRiskLevel;

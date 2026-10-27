@@ -103,16 +103,11 @@ export function projectPrivacyChainHistoryTxToPool({
   const isSend = deltaBN.isLessThan(0) || (isZero && !isReceive);
   // The pool that paid the fee sees it in its delta; the row lists the fee separately, like every other chain.
   const feeBN = new BigNumber(tx.decodedTx.totalFeeInNative ?? 0);
-  const nativeAmountIsUnknown =
-    isSend &&
-    tx.decodedTx.nativeAmountIsUnknown === true &&
-    tx.decodedTx.totalFeeInNative === undefined;
-  const amount = nativeAmountIsUnknown
-    ? '0'
-    : (isSend && feeBN.isFinite() && feeBN.gt(0) && deltaBN.abs().gte(feeBN)
-        ? deltaBN.abs().minus(feeBN)
-        : deltaBN.abs()
-      ).toFixed();
+  const amount = (
+    isSend && feeBN.isFinite() && feeBN.gt(0) && deltaBN.abs().gte(feeBN)
+      ? deltaBN.abs().minus(feeBN)
+      : deltaBN.abs()
+  ).toFixed();
   const template = isSend
     ? (transfer.sends[0] ?? transfer.receives[0])
     : (transfer.receives[0] ?? transfer.sends[0]);
@@ -146,7 +141,6 @@ export function projectPrivacyChainHistoryTxToPool({
     decodedTx: {
       ...tx.decodedTx,
       nativeAmount: amount,
-      nativeAmountIsUnknown,
       actions: [
         {
           ...action,

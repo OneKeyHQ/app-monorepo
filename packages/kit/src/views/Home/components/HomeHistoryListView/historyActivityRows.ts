@@ -118,14 +118,12 @@ function expandedAmounts({
   intl,
   currency,
   hideValue,
-  nativeAmountIsUnknown,
 }: {
   sends: IDecodedTxTransferInfo[];
   receives: IDecodedTxTransferInfo[];
   intl: IntlShape;
   currency: string;
   hideValue: boolean;
-  nativeAmountIsUnknown: boolean;
 }): IHistoryAmount[] {
   const transfers = [...sends, ...receives];
   const visibleCount =
@@ -136,16 +134,6 @@ function expandedAmounts({
     .slice(0, visibleCount)
     .map((transfer, index) => {
       const receive = index >= sends.length;
-      if (nativeAmountIsUnknown && transfer.isNative) {
-        return {
-          key: `${index}:${transfer.tokenIdOnNetwork}`,
-          text: hideValue
-            ? '****'
-            : intl.formatMessage({ id: ETranslations.global_not_available }),
-          leading: tokenVisual(transfer.icon, transfer.isNFT),
-          tone: 'primary',
-        };
-      }
       const fiat =
         transfer.price === undefined || transfer.price === null
           ? undefined
@@ -305,7 +293,7 @@ function buildHistoryActivityRowUnchecked({
         !!(info.sendNFTIcon || info.receiveNFTIcon),
       );
     }
-    if (tableLayout || decodedTx.nativeAmountIsUnknown) {
+    if (tableLayout) {
       if (sendOnly) receives = [];
       if (receiveOnly) sends = [];
       sends = groupTransfersByToken(sends);
@@ -335,14 +323,7 @@ function buildHistoryActivityRowUnchecked({
             },
           ];
       }
-      amounts = expandedAmounts({
-        sends,
-        receives,
-        intl,
-        currency,
-        hideValue,
-        nativeAmountIsUnknown: decodedTx.nativeAmountIsUnknown === true,
-      });
+      amounts = expandedAmounts({ sends, receives, intl, currency, hideValue });
     } else {
       const makeChange = (
         transfers: IDecodedTxTransferInfo[],

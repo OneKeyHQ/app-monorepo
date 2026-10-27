@@ -147,7 +147,6 @@ export function mergeZcashLocalTransparentPayment({
       to: encoded.zcashTo,
       nativeAmount: amount,
       nativeAmountValue: encoded.zcashAmountValue,
-      nativeAmountIsUnknown: false,
       totalFeeInNative: fee,
       totalFeeFiatValue:
         next.totalFeeInNative === fee ? next.totalFeeFiatValue : undefined,

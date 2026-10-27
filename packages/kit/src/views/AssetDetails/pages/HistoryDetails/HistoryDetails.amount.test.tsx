@@ -257,11 +257,7 @@ jest.mock('./components/TxKYTRiskCheck', () => ({
   TxKYTRiskCheck: () => null,
 }));
 
-function history(
-  networkId: string,
-  amount: string,
-  unknown: boolean,
-): IAccountHistoryTx {
+function history(networkId: string, amount: string): IAccountHistoryTx {
   return {
     id: 'synthetic-history',
     decodedTx: {
@@ -274,7 +270,6 @@ function history(
       accountId: 'synthetic-account',
       extraInfo: null,
       nativeAmount: amount,
-      nativeAmountIsUnknown: unknown,
       actions: [
         {
           type: EDecodedTxActionType.ASSET_TRANSFER,
@@ -303,24 +298,8 @@ function history(
   };
 }
 
-it.each([
-  ['xmr--0', '1.00003'],
-  ['zec--0', '0'],
-])(
-  'does not present the unknown %s payment or its fiat value as an exact amount',
-  (networkId, amount) => {
-    mockHistory = history(networkId, amount, true);
-    const result = render(<HistoryDetails />);
-    const assets = within(
-      result.getByTestId('history-details-what-assets-change'),
-    );
-    expect(assets.getByText(ETranslations.global_not_available)).toBeTruthy();
-    expect(assets.queryAllByTestId('formatted-number')).toHaveLength(0);
-  },
-);
-
 it('continues to show an exact known payment and its fiat value', () => {
-  mockHistory = history('xmr--0', '1', false);
+  mockHistory = history('xmr--0', '1');
   const result = render(<HistoryDetails />);
   const assets = within(
     result.getByTestId('history-details-what-assets-change'),
@@ -329,27 +308,8 @@ it('continues to show an exact known payment and its fiat value', () => {
   expect(assets.getByText('10')).toBeTruthy();
 });
 
-it('keeps unrelated token amounts visible when only the native payment is unknown', () => {
-  mockHistory = history('xmr--0', '1.00003', true);
-  const transfer = mockHistory.decodedTx.actions[0].assetTransfer;
-  if (!transfer) throw new OneKeyLocalError('missing transfer fixture');
-  transfer.sends.push({
-    ...transfer.sends[0],
-    tokenIdOnNetwork: 'token',
-    symbol: 'TOKEN',
-    amount: '7',
-    isNative: false,
-  });
-  const result = render(<HistoryDetails />);
-  const assets = within(
-    result.getByTestId('history-details-what-assets-change'),
-  );
-  expect(assets.getByText(ETranslations.global_not_available)).toBeTruthy();
-  expect(assets.getByText('-7')).toBeTruthy();
-});
-
 function setZcashFlow(from: string, to: string) {
-  mockHistory = history('zec--0', '1', false);
+  mockHistory = history('zec--0', '1');
   const transfer = mockHistory.decodedTx.actions[0].assetTransfer;
   if (!transfer) throw new OneKeyLocalError('missing transfer fixture');
   transfer.from = from;
@@ -696,7 +656,7 @@ it.each([
 ])(
   'renders a decrypted memo only for local-wallet history (%s)',
   (networkId, shown) => {
-    mockHistory = history(networkId, '1', false);
+    mockHistory = history(networkId, '1');
     mockTxDetails = { memo: 'memo text' };
     const result = render(<HistoryDetails />);
     expect(!!result.queryByTestId('history-details-memo')).toBe(shown);

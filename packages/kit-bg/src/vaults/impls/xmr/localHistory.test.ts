@@ -44,14 +44,26 @@ function build(item: Partial<IXmrHistoryItem>, recipient?: string) {
 
 describe('xmr history rows', () => {
   // Reporting the gross spend would show the whole input as sent.
-  it('nets the change out of an outgoing amount', async () => {
+  it('nets the change and the scanned fee out of an outgoing amount', async () => {
+    const row = await build({
+      direction: 'out',
+      spentAtomic: '5000000000000',
+      receivedAtomic: '4000000000000',
+      feeAtomic: '30000000',
+    });
+    expect(row.decodedTx.nativeAmount).toBe('0.99997');
+    expect(row.decodedTx.totalFeeInNative).toBe('0.00003');
+  });
+
+  // Without a fee the net spend still names a figure rather than none.
+  it('shows the net spend when no fee is known', async () => {
     const row = await build({
       direction: 'out',
       spentAtomic: '5000000000000',
       receivedAtomic: '4000000000000',
     });
     expect(row.decodedTx.nativeAmount).toBe('1');
-    expect(row.decodedTx.nativeAmountIsUnknown).toBe(true);
+    expect(row.decodedTx.totalFeeInNative).toBeUndefined();
   });
 
   // Before the change is scanned, spent minus received is the whole input set.
@@ -64,7 +76,6 @@ describe('xmr history rows', () => {
       outgoingAtomic: '1000000000000',
     });
     expect(row.decodedTx.nativeAmount).toBe('1');
-    expect(row.decodedTx.nativeAmountIsUnknown).toBe(true);
     expect(row.decodedTx.status).toBe(EDecodedTxStatus.Pending);
   });
 
