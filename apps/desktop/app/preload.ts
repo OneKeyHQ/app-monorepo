@@ -193,6 +193,7 @@ const desktopApi = {
     }
   },
   supportsShareImageFile: platformInfo.supportsShareImageFile,
+  supportsCustomUserAgent: true,
   isDev,
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),

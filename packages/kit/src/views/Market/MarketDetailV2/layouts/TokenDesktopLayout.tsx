@@ -22,6 +22,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TABS_MIN_HEIGHT,
   MARKET_DETAIL_TRADE_COLUMN_PROPS,
   MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET,
 } from '../../marketDesktopLayoutConstants';
@@ -41,7 +42,6 @@ const TOKEN_DETAIL_MAIN_COLUMN_WIDTH = 832;
 const TOKEN_DETAIL_COLUMN_GAP = 12;
 const TOKEN_DETAIL_HORIZONTAL_GUTTER = 20;
 const TOKEN_DETAIL_CHART_SECTION_MIN_HEIGHT = 848;
-const TOKEN_DETAIL_TABS_MIN_HEIGHT = 480;
 
 const MARKET_CHART_FULLSCREEN_STYLE = {
   position: 'fixed',
@@ -244,7 +244,7 @@ function TokenDesktopLayoutBase({
 
           {isBTCMainnet ? <TokenSupplementaryInfo variant="overview" /> : null}
 
-          <Stack minHeight={TOKEN_DETAIL_TABS_MIN_HEIGHT}>
+          <Stack minHeight={MARKET_DETAIL_TABS_MIN_HEIGHT}>
             <InformationTabsComponent
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}

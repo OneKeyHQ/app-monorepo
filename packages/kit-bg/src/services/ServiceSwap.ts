@@ -895,8 +895,6 @@ export default class ServiceSwap extends ServiceBase {
   private async fetchSwapTokensInternal(
     {
       networkId,
-      contractSearchNetworkId,
-      searchNetworks,
       keywords,
       limit = 50,
       accountAddress,
@@ -1012,15 +1010,13 @@ export default class ServiceSwap extends ServiceBase {
       };
       const requests = buildSwapTokenSearchRequests({
         params,
-        contractSearchNetworkId,
-        searchNetworks,
       });
       throwIfCanceled();
       const responses = await Promise.allSettled(
         requests.map(({ endpoint, params: requestParams }) => {
           const fetchTokens = () => {
             // A superseded search may have waited behind other requests. Never
-            // spend a newly available slot sending its remaining chain calls.
+            // spend a newly available slot sending its remaining requests.
             throwIfCanceled();
             return client.get<IFetchResponse<ISwapToken[]>>(endpoint, {
               ...requestConfig,

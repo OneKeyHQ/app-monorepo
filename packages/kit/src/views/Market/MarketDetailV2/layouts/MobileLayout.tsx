@@ -137,6 +137,8 @@ function ModuleLoadingFallback({ minHeight }: { minHeight?: number }) {
 
 // Large Button: 12pt vertical padding x2, 24pt line, 1pt border x2.
 const SWAP_PANEL_BUTTON_HEIGHT = 50;
+// Space between the chart (Simple or Pro) and the information tabs.
+const MOBILE_CHART_BOTTOM_SPACING = 20;
 
 // Stands in for the chart's interval row until the chart can mount, so that
 // row is not an empty band while the token identity resolves.
@@ -165,13 +167,13 @@ function SwapPanelFooterSkeleton() {
   return (
     <YStack testID="market-detail-swap-panel-skeleton">
       <Divider />
-      <XStack px="$5" pt="$2.5" gap="$2" alignItems="center">
-        <SizableText size="$bodySmMedium">
+      <XStack px="$5" pt="$3.5" pb="$1" gap="$1" alignItems="center">
+        <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_myposition,
           })}
         </SizableText>
-        <Skeleton.BodySm w={40} />
+        <Skeleton.BodyMd w={40} />
       </XStack>
       <XStack px="$5" pb={bottom || '$4'} pt="$2.5" gap="$2.5">
         <Stack flex={1}>
@@ -883,7 +885,10 @@ export function MobileLayout({
             </DelayedFreeze>
           </YStack>
         </MarketDetailHeaderGesture>
-        <Stack position="relative">
+        <Stack
+          position="relative"
+          pb={isChartFullscreen ? 0 : MOBILE_CHART_BOTTOM_SPACING}
+        >
           {isSimpleChart ? (
             <MarketDetailHeaderGesture
               disabled={isChartFullscreen}
@@ -1264,6 +1269,7 @@ export function MobileLayout({
                 detailKind === 'stock' && isSimpleChart
                   ? STOCK_MOBILE_PRICE_HEADER_HEIGHT +
                     MOBILE_SIMPLE_CHART_HEIGHT +
+                    MOBILE_CHART_BOTTOM_SPACING +
                     TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT
                   : undefined
               }
