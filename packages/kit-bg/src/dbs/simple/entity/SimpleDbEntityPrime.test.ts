@@ -3179,6 +3179,34 @@ describe('SimpleDbEntityPrime Infini pending payment session', () => {
     ).toBe(false);
   });
 
+  test('rejects a replacement when the same invoice changes from ETHEREUM to POLYGON without overwriting its snapshot', async () => {
+    const originalSession = {
+      ...session,
+      sendStarted: true,
+      schemaVersion: 2 as const,
+      updatedAt: Date.now(),
+    };
+    const { entity, read } = createSessionStore({
+      infiniPendingPaymentSessionByUserId: { 'user-1': originalSession },
+    });
+    expect(originalSession.payment.chain).toBe('ETHEREUM');
+    await expect(
+      entity.markInfiniPendingPaymentSessionSendStarted({
+        onekeyUserId: 'user-1',
+        paymentCacheKey: session.paymentCacheKey,
+        transferClaim,
+        latestPayment: { ...session.payment, chain: 'POLYGON' },
+        purchaseStatusSnapshot,
+        mode: 'speedUp',
+      }),
+    ).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'assetMismatch' },
+    });
+    expect(read().infiniPendingPaymentSessionByUserId?.['user-1']).toEqual(
+      originalSession,
+    );
+  });
+
   test('replacement admission invalidates a terminal discard captured in the same millisecond', async () => {
     const now = Date.now();
     const clock = jest.spyOn(Date, 'now').mockReturnValue(now);

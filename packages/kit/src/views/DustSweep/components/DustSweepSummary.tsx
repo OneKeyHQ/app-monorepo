@@ -44,7 +44,7 @@ import {
 
 import { useDustSweep } from '../DustSweepProvider';
 import { useDustSweepFiatFormatter } from '../hooks/useDustSweepFiatFormatter';
-import { getDustSweepPresentation } from '../stateMachine';
+import { EDustSweepPhase, getDustSweepPresentation } from '../stateMachine';
 
 import { DustSweepResultBreakdown } from './DustSweepResultBreakdown';
 import { DustSweepSlippage } from './DustSweepSlippage';
@@ -320,7 +320,7 @@ export function DustSweepResult({
     success: ETranslations.title_dust_swept,
   }[outcome];
   let title = intl.formatMessage({ id: resultTitleId });
-  const working = converting && state.phase !== 'paused';
+  const working = converting && state.phase !== EDustSweepPhase.Paused;
   if (working)
     title = intl.formatMessage({
       id: ETranslations.dust_sweep_converting__title,
@@ -373,7 +373,7 @@ export function DustSweepResult({
           >
             <SwapTransactionResultStatus
               status={graphicStatus}
-              paused={state.phase === 'paused'}
+              paused={state.phase === EDustSweepPhase.Paused}
             />
           </Animated.View>
           <XStack
@@ -555,7 +555,7 @@ export function DustSweepSummary({
   } else if (unknown) {
     label = intl.formatMessage({ id: ETranslations.global_details });
     onPress = onDetails;
-  } else if (state.phase === 'paused') {
+  } else if (state.phase === EDustSweepPhase.Paused) {
     label = intl.formatMessage({ id: ETranslations.global_continue });
     onPress = session.resume;
   } else if (assetSyncError) {
@@ -759,7 +759,7 @@ export function DustSweepSummary({
           </Button>
         ) : null}
         {/* Paused: Stop gives up the remaining tokens, Continue resumes. */}
-        {state.phase === 'paused' && !unknown ? (
+        {state.phase === EDustSweepPhase.Paused && !unknown ? (
           <Button
             testID="dust-sweep-stop"
             flex={1}
@@ -781,7 +781,9 @@ export function DustSweepSummary({
             // Pause stays quiet while tokens convert; every other step is the
             // primary action.
             variant={
-              converting && state.phase !== 'paused' ? 'secondary' : 'primary'
+              converting && state.phase !== EDustSweepPhase.Paused
+                ? 'secondary'
+                : 'primary'
             }
             loading={assetsLoading}
             childrenAsText={!assetsLoading}
@@ -794,7 +796,7 @@ export function DustSweepSummary({
               assetsLoading ||
               session.leaving ||
               model.stopping ||
-              state.phase === 'left' ||
+              state.phase === EDustSweepPhase.Left ||
               (selecting && loadStatus !== 'ready') ||
               (selecting && !canStart && !assetSyncError)
             }

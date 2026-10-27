@@ -321,6 +321,42 @@ it('does not duplicate a manual refresh when the existing 15-second deadline fir
   await settle(second);
 });
 
+it('keeps retrying a failed initial load on the existing timer until data recovers', async () => {
+  jest.useFakeTimers();
+  const first = deferred();
+  const second = deferred();
+  const third = deferred();
+  mockLoad
+    .mockReturnValueOnce(first.promise)
+    .mockReturnValueOnce(second.promise)
+    .mockReturnValueOnce(third.promise);
+  const { result } = renderHook(() => useModel());
+  await act(async () => {
+    first.reject(new Error('Offline'));
+    await first.promise.catch(() => undefined);
+  });
+  expect(result.current.hasData).toBe(false);
+  expect(result.current.loadFailed).toBe(true);
+  expect(result.current.timerActive).toBe(true);
+
+  await act(async () => jest.advanceTimersByTime(DUST_SWEEP_REFRESH_INTERVAL));
+  expect(mockLoad).toHaveBeenCalledTimes(2);
+  expect(result.current.loadFailed).toBe(true);
+  expect(result.current.loadStatus).toBe('error');
+  expect(result.current.timerActive).toBe(false);
+  await act(async () => {
+    second.reject(new Error('Still offline'));
+    await second.promise.catch(() => undefined);
+  });
+  expect(result.current.timerActive).toBe(true);
+  await act(async () => jest.advanceTimersByTime(DUST_SWEEP_REFRESH_INTERVAL));
+  expect(mockLoad).toHaveBeenCalledTimes(3);
+  await settle(third);
+  expect(result.current.loadFailed).toBe(false);
+  expect(result.current.networks).toEqual([network]);
+  expect(result.current.timerActive).toBe(true);
+});
+
 it('coalesces events during a pending request into one follow-up round', async () => {
   const first = deferred();
   const second = deferred();

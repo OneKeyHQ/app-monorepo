@@ -12,6 +12,7 @@ import {
   buildSwapDefaultSelectedTokensForNetwork,
   buildSwapDefaultSelectedTokensFromHomeAccount,
   buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount,
+  getSwapDefaultTokenConfigNetworkId,
   isSelectedAccountOwnerMatched,
   isSelectedAccountOwnerMatchedIgnoringDeriveType,
   isSwapColdStartAllNetworkContextNetworkId,
@@ -20,6 +21,7 @@ import {
   isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType,
   shouldResetSelectedTokensForAllNetworkHome,
   shouldSyncSwapAutomaticDefaultNetwork,
+  shouldSyncSwapAutomaticEmptyDefaults,
 } from './swapColdStartTokenCacheUtils';
 
 import type { ISwapDefaultConfigStatus } from './swapColdStartTokenCacheUtils';
@@ -126,6 +128,10 @@ export function getSwapBackendDefaultTokensForSeed({
   defaultConfigStatus?: ISwapDefaultConfigStatus;
 }) {
   const seed = cachedContext?.defaultTokenSeed;
+  const configNetworkId = getSwapDefaultTokenConfigNetworkId({
+    networkId: currentContext?.networkId,
+    swapType: cachedContext?.swapType,
+  });
   if (
     defaultConfigStatus !== 'success' ||
     !seed ||
@@ -144,9 +150,7 @@ export function getSwapBackendDefaultTokensForSeed({
     !equalTokenNoCaseSensitive({ token1: seed.fromToken, token2: fromToken }) ||
     !equalTokenNoCaseSensitive({ token1: seed.toToken, token2: toToken }) ||
     !getSwapNetworkDefaultTokenPair(
-      swapNetworks.find(
-        (network) => network.networkId === currentContext.networkId,
-      ),
+      swapNetworks.find((network) => network.networkId === configNetworkId),
     )
   ) {
     return undefined;
@@ -177,7 +181,15 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   swapType?: ESwapTabSwitchType;
 }) {
   if (!hasSelectedTokens) {
-    return false;
+    return (
+      !preserveSelectedTokens &&
+      shouldSyncSwapAutomaticEmptyDefaults({
+        cachedContext,
+        hasSelectedTokens,
+        selectedAccount: homeSelectedAccount,
+        swapType,
+      })
+    );
   }
 
   if (preserveSelectedTokens) {

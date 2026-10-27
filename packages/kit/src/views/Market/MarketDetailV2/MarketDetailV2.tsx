@@ -32,7 +32,6 @@ import {
   useTokenDetailPreviewAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
@@ -64,7 +63,6 @@ import {
   BtcMetadataProvider,
   StockDetailProvider,
   useAutoRefreshTokenDetail,
-  useResolvedMarketAssetRouteIdentity,
   useStockDetail,
 } from './hooks';
 import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDetail';
@@ -202,44 +200,17 @@ function MarketDetail({
     'isNative' in params ? params.isNative : false,
     false,
   );
-  const shouldResolveMarketAsset = normalizeRouteBooleanParam(
-    'resolveMarketAsset' in params ? params.resolveMarketAsset : false,
-    false,
-  );
-  const marketTokenSymbol =
-    'marketTokenSymbol' in params ? params.marketTokenSymbol : undefined;
-  const { identity: resolvedMarketAssetIdentity, shouldSkipMarketDataFetch } =
-    useResolvedMarketAssetRouteIdentity({
-      enabled: shouldResolveMarketAsset,
-      active: isRouteFocused,
-      tokenAddress: routeTokenAddress,
-      networkId: routeNetworkId,
-      symbol: marketTokenSymbol,
-      isNative: routeIsNative,
-    });
-  const networkId =
-    resolvedMarketAssetIdentity?.networkId ??
-    selectedTokenVariant?.networkId ??
-    routeNetworkId;
+  const networkId = selectedTokenVariant?.networkId ?? routeNetworkId;
   const tokenAddress =
-    resolvedMarketAssetIdentity?.tokenAddress ??
-    selectedTokenVariant?.contractAddress ??
-    routeTokenAddress;
-  const isNativeBoolean =
-    resolvedMarketAssetIdentity?.isNative ?? routeIsNative;
+    selectedTokenVariant?.contractAddress ?? routeTokenAddress;
+  const isNativeBoolean = routeIsNative;
   const disableTrade = params.disableTrade;
   const marketTokenId =
-    resolvedMarketAssetIdentity?.marketTokenId ??
-    ('marketTokenId' in params ? params.marketTokenId : undefined);
+    'marketTokenId' in params ? params.marketTokenId : undefined;
   const marketVariantId =
-    resolvedMarketAssetIdentity?.marketVariantId ??
-    ('marketVariantId' in params ? params.marketVariantId : undefined);
-  const routeMarketTokenCategory =
+    'marketVariantId' in params ? params.marketVariantId : undefined;
+  const marketTokenCategory =
     'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
-  const marketTokenCategory = resolvedMarketAssetIdentity
-    ? MARKET_TOP_COINS_CATEGORY_ID
-    : (routeMarketTokenCategory ??
-      (shouldSkipMarketDataFetch ? MARKET_TOP_COINS_CATEGORY_ID : undefined));
   const skipMarketDataFetch = normalizeRouteBooleanParam(
     'skipMarketDataFetch' in params ? params.skipMarketDataFetch : undefined,
     false,
@@ -274,25 +245,13 @@ function MarketDetail({
     () => parseTokenDetailPreviewParam(routeTokenDetailPreview),
     [routeTokenDetailPreview],
   );
-  const resolvedTokenDetailPreview = useMemo(
-    () =>
-      resolvedMarketAssetIdentity && tokenDetailPreview
-        ? {
-            ...tokenDetailPreview,
-            address: resolvedMarketAssetIdentity.tokenAddress,
-            networkId: resolvedMarketAssetIdentity.networkId,
-            isNative: resolvedMarketAssetIdentity.isNative,
-          }
-        : tokenDetailPreview,
-    [resolvedMarketAssetIdentity, tokenDetailPreview],
-  );
   // Stock navigation carries a separate stock preview instead of the token
   // preview atom. It already provides enough content for the native shell to
   // render while the stock variant and token detail requests settle.
   const hasValidInitialContentPreview = hasValidMarketDetailPreview({
     isStockRoute,
     stockPreview,
-    previews: [resolvedTokenDetailPreview, currentTokenDetailPreview],
+    previews: [tokenDetailPreview, currentTokenDetailPreview],
     tokenAddress,
     networkId,
   });
@@ -316,7 +275,7 @@ function MarketDetail({
     tokenAddress,
     networkId,
     isNative: isNativeBoolean,
-    skipMarketDataFetch: skipMarketDataFetch || shouldSkipMarketDataFetch,
+    skipMarketDataFetch,
     marketTokenId,
     marketVariantId,
     marketTokenCategory,
@@ -374,7 +333,7 @@ function MarketDetail({
       <MarketCurrentTokenLiveDataSync />
       <LegacyTokenPreviewInitializer
         active={shouldOwnSharedMarketDetailState}
-        preview={resolvedTokenDetailPreview}
+        preview={tokenDetailPreview}
         stockTarget={isStockRoute ? tokenDetailTarget : undefined}
         retainedTokenTarget={tokenDetailTarget}
       />
@@ -396,7 +355,6 @@ function MarketDetail({
         >
           <MarketDetailResponsiveLayout
             active={shouldOwnSharedMarketDetailState}
-            isLayoutPending={shouldSkipMarketDataFetch}
             disablePerpsBanner={skipMarketDataFetch}
             isInitialContentPending={
               !hasValidInitialContentPreview &&
