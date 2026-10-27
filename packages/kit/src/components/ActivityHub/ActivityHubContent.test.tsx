@@ -9,6 +9,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const mockOpenUrlExternal = jest.fn();
 const mockPopoverClose = jest.fn();
+const mockHubShown = jest.fn();
+const mockHubActionPressed = jest.fn();
 const mockPopoverFloatingPanelProps = jest.fn();
 let mockGtMd = true;
 
@@ -87,6 +89,18 @@ jest.mock('@onekeyhq/components/src/layouts/Navigation/Header', () => ({
       {title}
     </button>
   ),
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    referral: {
+      activityHub: {
+        activityHubShown: (...args: unknown[]) => mockHubShown(...args),
+        activityHubActionPressed: (...args: unknown[]) =>
+          mockHubActionPressed(...args),
+      },
+    },
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -190,6 +204,15 @@ describe('ActivityHubContent', () => {
 
     resolveClose?.();
     await waitFor(() => expect(onOpenReferral).toHaveBeenCalledTimes(1));
+    expect(mockHubShown).toHaveBeenCalledWith({
+      source: 'Swap',
+      layout: 'shortcut',
+      campaignCount: 0,
+    });
+    expect(mockHubActionPressed).toHaveBeenCalledWith({
+      source: 'Swap',
+      action: 'open_referral',
+    });
   });
 
   it('settles a canceled close without opening the referral page', async () => {
@@ -241,6 +264,11 @@ describe('ActivityHubContent', () => {
     await waitFor(() =>
       expect(onOpenReferral).toHaveBeenCalledWith('benefits'),
     );
+    expect(mockHubShown).toHaveBeenCalledWith({
+      source: 'Earn',
+      layout: 'invite_panel',
+      campaignCount: 0,
+    });
   });
 
   it('opens the referral page from the native gift when there are no campaigns', () => {
@@ -254,6 +282,10 @@ describe('ActivityHubContent', () => {
 
     fireEvent.click(gift);
     expect(onOpenReferral).toHaveBeenCalledTimes(1);
+    expect(mockHubActionPressed).toHaveBeenCalledWith({
+      source: 'Earn',
+      action: 'open_referral',
+    });
   });
 
   it.each([
@@ -325,6 +357,11 @@ describe('ActivityHubContent', () => {
     );
 
     fireEvent.click(getCampaignCard());
+    expect(mockHubActionPressed).toHaveBeenCalledWith({
+      source: 'Perps',
+      action: 'open_campaign',
+      campaignId: CAMPAIGNS[0].id,
+    });
 
     // Popup blockers only honour window.open while the tap holds user
     // activation, so the link must not wait for the still-pending close.

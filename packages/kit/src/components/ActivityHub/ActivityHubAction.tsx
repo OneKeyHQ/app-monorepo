@@ -7,9 +7,10 @@ import { Popover, useMedia } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { ACTIVITY_HUB_PANEL_WIDTH } from './layout';
+import { ACTIVITY_HUB_PANEL_WIDTH, getActivityHubTitleId } from './layout';
 
 import type {
   IActivityHubCampaign,
@@ -48,10 +49,20 @@ export function ActivityHubAction({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const activityCenterTitle = intl.formatMessage({
-    id: ETranslations.perps_activity_hub,
-  });
   const hasCampaigns = Boolean(campaigns?.length);
+  const hubTitle = intl.formatMessage({
+    id: getActivityHubTitleId({
+      hasCampaigns,
+      showInvitePanel: !platformEnv.isNative,
+    }),
+  });
+  // The gift's tooltip names where it leads: the referral page, or the
+  // activity hub once there are campaigns.
+  const triggerTitle = intl.formatMessage({
+    id: hasCampaigns
+      ? ETranslations.perps_activity_hub
+      : ETranslations.sidebar_refer_a_friend,
+  });
   // Native popovers always Adapt to a Sheet, so floatingPanelProps.width is a
   // no-op there.
   const isDesktopFloatingPanel = gtMd && !platformEnv.isNative;
@@ -62,12 +73,18 @@ export function ActivityHubAction({
   if (platformEnv.isNative && !hasCampaigns && !renderTrigger) {
     return (
       <HeaderIconButton
-        title={intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend })}
+        title={triggerTitle}
         icon="GiftOutline"
         size={size}
         testID={testID}
         {...triggerProps}
-        onPress={() => onOpenReferral()}
+        onPress={() => {
+          defaultLogger.referral.activityHub.activityHubActionPressed({
+            source,
+            action: 'open_referral',
+          });
+          onOpenReferral();
+        }}
       />
     );
   }
@@ -76,7 +93,7 @@ export function ActivityHubAction({
     <Popover
       open={open}
       onOpenChange={onOpenChange}
-      title={activityCenterTitle}
+      title={hubTitle}
       showHeader={!gtMd}
       placement="bottom-end"
       floatingPanelProps={{
@@ -92,7 +109,7 @@ export function ActivityHubAction({
       renderTrigger={
         renderTrigger ?? (
           <HeaderIconButton
-            title={activityCenterTitle}
+            title={triggerTitle}
             icon="GiftOutline"
             size={size}
             testID={testID}

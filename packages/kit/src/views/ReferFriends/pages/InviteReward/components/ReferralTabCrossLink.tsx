@@ -15,7 +15,7 @@ export function ReferralTabCrossLink({
   onPress: () => void;
   testID: string;
   // Space above the line; the default separates it from a tab's content.
-  pt?: '$8' | '$3';
+  pt?: '$8' | '$3' | '$0';
   // Hosts that already pad their content, like the activity hub, pass 0.
   px?: '$pagePadding' | '$0';
 }) {

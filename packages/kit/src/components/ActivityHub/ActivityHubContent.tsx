@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -17,6 +18,8 @@ import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dar
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IActivityHubLayout } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/activityHub';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -25,7 +28,10 @@ import {
   MENU_SHORTCUT_GRID_PROPS,
 } from './ActivityShortcutCard';
 import { ActivityHubInvitePanel } from './ActivityHubInvitePanel';
-import { ACTIVITY_HUB_SHORTCUT_BASIS } from './layout';
+import {
+  ACTIVITY_HUB_SHORTCUT_BASIS,
+  getActivityHubTitleId,
+} from './layout';
 
 import type {
   IActivityHubCampaign,
@@ -198,9 +204,6 @@ export function ActivityHubContent({
   const { gtMd } = useMedia();
   const isDesktop = gtMd;
   const themeVariant = useThemeVariant();
-  const activityCenterTitle = intl.formatMessage({
-    id: ETranslations.perps_activity_hub,
-  });
   const campaignItems = campaigns ?? EMPTY_ACTIVITY_HUB_CAMPAIGNS;
   const showIconBackground = menuLayout;
   const horizontalPadding = '$4';
@@ -213,13 +216,31 @@ export function ActivityHubContent({
   // have one in the sidebar and show the code and link to copy instead. The
   // Perps menu lists the entry like its other menu items.
   const showInvitePanel = !platformEnv.isNative && !menuLayout;
+  const hubTitle = intl.formatMessage({
+    id: getActivityHubTitleId({ hasCampaigns, showInvitePanel }),
+  });
+  let layout: IActivityHubLayout = 'shortcut';
+  if (menuLayout) {
+    layout = 'menu';
+  } else if (showInvitePanel) {
+    layout = 'invite_panel';
+  }
+  // Campaigns can load after the hub opens; the count at opening is enough.
+  const campaignCountRef = useRef(campaignCount);
+  useEffect(() => {
+    defaultLogger.referral.activityHub.activityHubShown({
+      source,
+      layout,
+      campaignCount: campaignCountRef.current,
+    });
+  }, [layout, source]);
 
   return (
     <YStack mb={menuLayout ? '$0' : '$2'}>
       {isDesktop && showTitle ? (
         <XStack px="$5" pt="$4" pb="$1">
           <SizableText size="$headingMd" color="$text" userSelect="none">
-            {activityCenterTitle}
+            {hubTitle}
           </SizableText>
         </XStack>
       ) : null}
@@ -229,12 +250,23 @@ export function ActivityHubContent({
         pb={menuLayout ? '$0' : '$3.5'}
       >
         {showInvitePanel ? (
-          <ActivityHubInvitePanel
-            source={source}
-            onOpenReferral={(tab) => {
-              closeThenRun(closePopover, () => onOpenReferral(tab));
-            }}
-          />
+          <YStack gap="$2.5">
+            {/* Under the activity hub title the invite part names itself,
+                like the campaign list below it. */}
+            {hasCampaigns ? (
+              <SizableText size="$headingXs" color="$text">
+                {intl.formatMessage({
+                  id: ETranslations.referral_home__title,
+                })}
+              </SizableText>
+            ) : null}
+            <ActivityHubInvitePanel
+              source={source}
+              onOpenReferral={(tab) => {
+                closeThenRun(closePopover, () => onOpenReferral(tab));
+              }}
+            />
+          </YStack>
         ) : (
           <XStack
             width="100%"
@@ -268,6 +300,10 @@ export function ActivityHubContent({
                 id: ETranslations.sidebar_refer_a_friend,
               })}
               onPress={() => {
+                defaultLogger.referral.activityHub.activityHubActionPressed({
+                  source,
+                  action: 'open_referral',
+                });
                 closeThenRun(closePopover, () => onOpenReferral());
               }}
             />
@@ -305,6 +341,13 @@ export function ActivityHubContent({
                   title={item.title}
                   subtitle={item.subtitle}
                   onPress={() => {
+                    defaultLogger.referral.activityHub.activityHubActionPressed(
+                      {
+                        source,
+                        action: 'open_campaign',
+                        campaignId: item.id,
+                      },
+                    );
                     openCampaignUrl(closePopover, item.url);
                   }}
                 />

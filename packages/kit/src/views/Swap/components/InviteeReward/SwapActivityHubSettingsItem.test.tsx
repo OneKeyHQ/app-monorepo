@@ -72,7 +72,7 @@ describe('SwapActivityHubSettingsItem', () => {
     render(<SwapActivityHubSettingsItem onOpenReferral={onOpenReferral} />);
 
     const entry = screen.getByTestId(SwapTestIDs.activityHubSettingsItem);
-    expect(entry.textContent).toBe(ETranslations.perps_activity_hub);
+    expect(entry.textContent).toBe(ETranslations.sidebar_refer_a_friend);
 
     fireEvent.click(entry);
 
