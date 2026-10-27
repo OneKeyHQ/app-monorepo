@@ -66,8 +66,8 @@ export function formatInviteeDiscountText(discount?: number) {
   return shouldShowInviteeDiscount(discount) ? `${discount}%` : '-';
 }
 
-// The two halves of a "you / invitee" rate, so a table can line them up on
-// the slash. `invitee` is unset when invitees get no discount.
+// Your rate and the invitee's, for tables that show them in separate
+// columns. `invitee` is unset when invitees get no discount.
 export function getCommissionRateParts({
   rebate,
   discount,

@@ -1,5 +1,5 @@
 import { Fragment, useMemo } from 'react';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
@@ -61,8 +61,7 @@ interface ILevelRuleRow {
   rate?: ILevelRuleRate;
 }
 
-// Kept as two parts so the rate column can line up on its slash. A missing
-// invitee part reads as a quiet "–".
+// Your rate and the invitee's, each shown in its own column.
 type ILevelRuleRate = ReturnType<typeof getCommissionRateParts>;
 
 // A level's icon (or emoji) at header size, so each column names the level
@@ -74,75 +73,11 @@ function LevelGlyph({ icon, emoji }: { icon?: string; emoji?: string }) {
   return emoji ? <SizableText size="$bodySm">{emoji}</SizableText> : null;
 }
 
-// Each figure column is laid out top to bottom so it takes the width of its
+// One figure column, laid out top to bottom so it takes the width of its
 // widest value: currency symbols and localized figures vary in length
 // ("$8K", "Rp15,6M"), and a figure must never be cut off. Fixed-height
-// cells keep the columns' rows aligned with the label column. A column
-// starts at its widest value and takes an equal share of any spare width,
-// so the figures spread across the row instead of bunching on the right; it
-// never shrinks below its content.
-const RULE_COLUMN_PROPS = {
-  flexGrow: 1,
-  flexShrink: 0,
-  flexBasis: 'auto',
-  ai: 'flex-end',
-} as const;
-
-function RuleHeader({ header, glyph }: { header: string; glyph?: ReactNode }) {
-  return (
-    <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end" gap="$1">
-      <SizableText
-        size="$bodySm"
-        color="$textSubdued"
-        textAlign="right"
-        numberOfLines={2}
-        maxWidth={RULE_HEADER_MAX_WIDTH}
-      >
-        {header}
-      </SizableText>
-      {glyph}
-    </XStack>
-  );
-}
-
-function RuleCell({
-  value,
-  ...rest
-}: { value?: string } & ComponentProps<typeof SizableText>) {
-  return (
-    <SizableText
-      size="$bodyMdMedium"
-      color={value ? '$text' : '$textSubdued'}
-      numberOfLines={1}
-      {...rest}
-    >
-      {value ?? '–'}
-    </SizableText>
-  );
-}
-
-// One fixed-height cell per row, stacked so the stack takes the width of
-// its widest cell.
-function RuleCells<T>({
-  values,
-  renderCell,
-  ai,
-}: {
-  values: T[];
-  renderCell: (value: T) => ReactNode;
-  ai?: 'flex-start' | 'flex-end';
-}) {
-  return (
-    <YStack ai={ai}>
-      {values.map((value, index) => (
-        <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
-          {renderCell(value)}
-        </XStack>
-      ))}
-    </YStack>
-  );
-}
-
+// cells keep the columns' rows aligned with the label column. A missing
+// figure reads as a quiet "–".
 function RuleColumn({
   header,
   glyph,
@@ -153,52 +88,33 @@ function RuleColumn({
   values: (string | undefined)[];
 }) {
   return (
-    <YStack {...RULE_COLUMN_PROPS}>
-      <RuleHeader header={header} glyph={glyph} />
-      <RuleCells
-        values={values}
-        ai="flex-end"
-        renderCell={(value) => <RuleCell value={value} />}
-      />
-    </YStack>
-  );
-}
-
-// The rate column reads "you / invitee". Right-aligning the whole text
-// staggered its slashes whenever a part was "–" or a different width, so the
-// two parts sit in their own sub-columns, both flush right like the other
-// figures: every row's slash lands at the same spot and the column keeps one
-// right edge under its header.
-function RateColumn({
-  header,
-  values,
-}: {
-  header: string;
-  values: (ILevelRuleRate | undefined)[];
-}) {
-  return (
-    <YStack {...RULE_COLUMN_PROPS}>
-      <RuleHeader header={header} />
-      <XStack>
-        <RuleCells
-          values={values}
-          ai="flex-end"
-          renderCell={(value) => <RuleCell value={value?.you} />}
-        />
-        <RuleCells
-          values={values}
-          renderCell={(value) =>
-            value ? <RuleCell value="/" px="$1" /> : null
-          }
-        />
-        <RuleCells
-          values={values}
-          ai="flex-end"
-          renderCell={(value) =>
-            value ? <RuleCell value={value.invitee} /> : null
-          }
-        />
+    // Starts at its widest value and takes an equal share of any spare
+    // width, so the figures spread across the row instead of bunching on
+    // the right; it never shrinks below its content.
+    <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-end">
+      <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end" gap="$1">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="right"
+          numberOfLines={2}
+          maxWidth={RULE_HEADER_MAX_WIDTH}
+        >
+          {header}
+        </SizableText>
+        {glyph}
       </XStack>
+      {values.map((value, index) => (
+        <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
+          <SizableText
+            size="$bodyMdMedium"
+            color={value ? '$text' : '$textSubdued'}
+            numberOfLines={1}
+          >
+            {value ?? '–'}
+          </SizableText>
+        </XStack>
+      ))}
     </YStack>
   );
 }
@@ -218,7 +134,7 @@ function LevelRuleTable({
   return (
     // Headers name the level each column is about by its icon (keep this
     // one, reach the next) and spell out whose rate is whose. Spare width is
-    // shared by all four columns; only the product names give way when space
+    // shared by all the columns; only the product names give way when space
     // runs out.
     <XStack gap="$3">
       <YStack flexGrow={1} flexShrink={1} flexBasis="auto" minWidth={0}>
@@ -253,11 +169,17 @@ function LevelRuleTable({
           values={rows.map((row) => row.upgrade)}
         />
       ) : null}
-      <RateColumn
+      {/* Your rate and the invitee's in their own columns, each header
+          over its own figures. */}
+      <RuleColumn
+        header={intl.formatMessage({ id: ETranslations.referral_upgrade_you })}
+        values={rows.map((row) => row.rate?.you)}
+      />
+      <RuleColumn
         header={intl.formatMessage({
-          id: ETranslations.referral_rate_column__title,
+          id: ETranslations.referral_upgrade_user,
         })}
-        values={rows.map((row) => row.rate)}
+        values={rows.map((row) => row.rate?.invitee)}
       />
     </XStack>
   );
