@@ -29,6 +29,7 @@ import type {
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { privacyChainAtom } from '../states/jotai/atoms';
@@ -446,24 +447,45 @@ class ServicePrivacyChain extends ServiceBase {
     });
     if (stored && !forceDerivation)
       return { value: stored.value, created: false };
-    if (!accountUtils.isHdAccount({ accountId })) return undefined;
+    const isHardware = accountUtils.isHwAccount({ accountId });
+    if (!isHardware && !accountUtils.isHdAccount({ accountId })) {
+      return undefined;
+    }
+    // The device asks for confirmation, so only the user's own enable may reach it.
+    if (isHardware && !promptForPassword) return undefined;
     if (await this.isTempWalletAccount({ accountId })) return undefined;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const derive = vault.getLocalWalletCapability()?.deriveViewingKey;
     if (!derive) return undefined;
-    let password =
-      (await this.backgroundApi.servicePassword.hasCachedPassword())
-        ? await this.backgroundApi.servicePassword.getCachedPassword()
-        : undefined;
-    if (!password && promptForPassword) {
-      ({ password } =
-        await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
-          accountId,
-          reason: EReasonForNeedPassword.CreateTransaction,
-        }));
+    let value: string;
+    if (isHardware) {
+      const deviceParams =
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
+      if (!deviceParams) return undefined;
+      value = await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        () => derive({ accountId, deviceParams }),
+        { deviceParams, debugMethodName: 'privacyChain.deriveViewingKey' },
+      );
+    } else {
+      let password =
+        (await this.backgroundApi.servicePassword.hasCachedPassword())
+          ? await this.backgroundApi.servicePassword.getCachedPassword()
+          : undefined;
+      if (!password && promptForPassword) {
+        ({ password } =
+          await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount(
+            {
+              accountId,
+              reason: EReasonForNeedPassword.CreateTransaction,
+            },
+          ));
+      }
+      if (!password) return undefined;
+      value = await derive({ accountId, password });
     }
-    if (!password) return undefined;
-    const value = await derive({ accountId, password });
     if (isCurrent && !(await isCurrent())) return undefined;
     // A derived key that differs from the stored identity stops here.
     await saveLocalWalletViewingKey({

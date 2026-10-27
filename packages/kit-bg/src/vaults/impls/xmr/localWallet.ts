@@ -32,6 +32,7 @@ import {
   estimateXmrBirthdayHeight,
   estimateXmrHeightDaysAgo,
 } from './birthday';
+import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { getXmrLifecycleMutex } from './lifecycle';
 import {
@@ -646,16 +647,18 @@ export function buildXmrLocalWalletCapability(
       };
     },
 
-    async deriveViewingKey({ accountId, password }) {
-      if (
-        vault.accountId !== accountId ||
-        !(vault.keyring instanceof KeyringHd)
-      ) {
-        throw new OneKeyLocalError(
-          'xmr: viewing key derivation needs this HD account',
-        );
+    async deriveViewingKey({ accountId, password, deviceParams }) {
+      if (vault.accountId === accountId) {
+        if (vault.keyring instanceof KeyringHardware && deviceParams) {
+          return vault.keyring.xmrGetViewingKeyFromDevice({ deviceParams });
+        }
+        if (vault.keyring instanceof KeyringHd && password) {
+          return vault.keyring.xmrDeriveViewingKey({ password });
+        }
       }
-      return vault.keyring.xmrDeriveViewingKey({ password });
+      throw new OneKeyLocalError(
+        'xmr: viewing key derivation needs this account and its password or device',
+      );
     },
 
     async deleteRuntimeAccount({ accountId, deletionRequestId }) {

@@ -79,6 +79,7 @@ import { buildLocalWalletNativeTokenList } from '../../localWallet/tokenList';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
+import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { getXmrLifecycleMutex } from './lifecycle';
 import {
@@ -206,9 +207,7 @@ export default class Vault extends VaultBase {
     // No watch-only: detecting spends needs key images, which need the spend key.
     watching: undefined,
     imported: undefined,
-    // Firmware has a Monero impl inherited from Trezor, but @onekeyfe/hd-core
-    // exposes no API for it yet.
-    hw: undefined,
+    hw: KeyringHardware,
     qr: undefined,
     external: undefined,
   };

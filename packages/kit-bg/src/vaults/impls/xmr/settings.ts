@@ -57,7 +57,7 @@ const settings: IVaultSettings = {
 
   importedAccountEnabled: false,
   watchingAccountEnabled: false,
-  hardwareAccountEnabled: false,
+  hardwareAccountEnabled: true,
   externalAccountEnabled: false,
   qrAccountEnabled: false,
   dappInteractionEnabled: false,

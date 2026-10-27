@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
 import { SimpleDbEntityPrivacyChainKeys } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -250,6 +251,48 @@ describe('Privacy chain viewing key store', () => {
 
     await expect(repairWithOwner(service, 'hw-1--0')).resolves.toBeUndefined();
     expect(mockGetVault).not.toHaveBeenCalled();
+  });
+
+  it("asks the device for a hardware account's viewing key on the user's own enable", async () => {
+    const deviceParams = { dbDevice: { connectId: 'c-1', deviceId: 'd-1' } };
+    const deriveViewingKey = jest.fn(async () => 'from-device');
+    mockGetVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({ deriveViewingKey }),
+    });
+    const { service, backgroundApi } = createService();
+    const getWalletDeviceParams = jest.fn(async () => deviceParams);
+    const withHardwareProcessing = jest.fn(async (fn: () => Promise<string>) =>
+      fn(),
+    );
+    Object.assign(backgroundApi.serviceAccount, { getWalletDeviceParams });
+    Object.assign(backgroundApi, {
+      serviceHardwareUI: { withHardwareProcessing },
+    });
+
+    const obtain = (
+      service as unknown as {
+        obtainLocalWalletViewingKey: (params: {
+          networkId: string;
+          accountId: string;
+          promptForPassword: boolean;
+        }) => Promise<{ value: string; created: boolean } | undefined>;
+      }
+    ).obtainLocalWalletViewingKey.bind(service);
+    await expect(
+      obtain({ networkId, accountId: 'hw-1--0', promptForPassword: true }),
+    ).resolves.toEqual({ value: 'from-device', created: true });
+    expect(getWalletDeviceParams).toHaveBeenCalledWith({
+      walletId: 'hw-1',
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    expect(deriveViewingKey).toHaveBeenCalledWith({
+      accountId: 'hw-1--0',
+      deviceParams,
+    });
+    expect(withHardwareProcessing).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ deviceParams }),
+    );
   });
 
   it('ignores a key stored for another network', async () => {

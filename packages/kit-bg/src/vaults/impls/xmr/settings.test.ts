@@ -60,8 +60,12 @@ describe('xmr vault settings', () => {
     expect(settings.hasFrozenBalance).toBe(true);
   });
 
+  it('offers hardware accounts and leaves device support to the device', () => {
+    expect(settings.hardwareAccountEnabled).toBe(true);
+    expect(settings.supportedDeviceTypes).toBeUndefined();
+  });
+
   it('does not offer flows Monero cannot support yet', () => {
-    expect(settings.hardwareAccountEnabled).toBe(false);
     expect(settings.watchingAccountEnabled).toBe(false);
     expect(settings.dappInteractionEnabled).toBe(false);
     expect(settings.supportExportedSecretKeys).toEqual([]);

@@ -1,6 +1,7 @@
 // cspell:ignore Zodl
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import type { IRescanLocalWalletFrom } from '../types';
 
@@ -227,11 +228,12 @@ export type ILocalWalletCapability = {
     accountId: string;
     deletionRequestId?: string;
   }) => Promise<{ orphaned: boolean }>;
-  // Rebuilds an HD account's viewing material from its mnemonic, for accounts
-  // that arrived without it (Prime transfer, cloud restore).
+  // Viewing material from the mnemonic (HD, with the password) or from the
+  // device (hardware); also rebuilds it for accounts that arrived without it.
   deriveViewingKey?: (params: {
     accountId: string;
-    password: string;
+    password?: string;
+    deviceParams?: IDeviceSharedCallParams;
   }) => Promise<string>;
   // Null when the account is enabled but the runtime cannot answer yet.
   getAccountBalance: (params: {
