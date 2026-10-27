@@ -41,6 +41,7 @@ import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 type IPositions = ReturnType<typeof useSwapProSupportNetworksTokenList> & {
   pnlMap: ReturnType<typeof useSwapProPositionsPnl>;
   portfolio: ReturnType<typeof useSwapStockPortfolioData>;
+  displayPortfolio: ReturnType<typeof useSwapStockPortfolioData>;
 };
 // The stock page has a single positions tab, so its title is not a switch.
 const ignoreTitlePress = () => undefined;
@@ -67,9 +68,19 @@ export function SwapStockPositionsProvider({
   );
   const pnlMap = useSwapProPositionsPnl(finallyTokenList);
   const portfolio = useSwapStockPortfolioData({ ...positions, pnlMap });
+  const selection = useSwapStockSelection();
+  const displayPortfolio = useSwapStockPortfolioData(
+    { ...positions, pnlMap },
+    selection
+      ? {
+          stockId: selection.displayStockId,
+          tokenVariants: selection.displayTokenVariants,
+        }
+      : undefined,
+  );
   const value = useMemo(
-    () => ({ ...positions, pnlMap, portfolio }),
-    [positions, pnlMap, portfolio],
+    () => ({ ...positions, pnlMap, portfolio, displayPortfolio }),
+    [positions, pnlMap, portfolio, displayPortfolio],
   );
   const isFocused = useRouteIsFocused();
   const { swapProLoadSupportNetworksTokenListRun } = positions;

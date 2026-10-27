@@ -14,6 +14,8 @@ import { SwapStockMyPosition } from './SwapStockPortfolio';
 
 let mockLargeLayout = true;
 let mockSelectionPending = false;
+let mockDisplayStockId = 'TSM';
+let mockDisplayVariants: IMarketStockTokenVariant[] | undefined;
 let mockItems: IMarketAccountPortfolioDisplayItem[] = [];
 let mockTokens: ISwapToken[] = [];
 let mockVariants: IMarketStockTokenVariant[] = [];
@@ -81,6 +83,11 @@ jest.mock('./SwapStockPositions', () => ({
       hasAccount: true,
       isRefreshing: false,
     },
+    displayPortfolio: {
+      positionListData: mockItems,
+      hasAccount: true,
+      isRefreshing: false,
+    },
   }),
 }));
 jest.mock('./SwapStockMarketProvider', () => ({
@@ -88,6 +95,8 @@ jest.mock('./SwapStockMarketProvider', () => ({
     selectToken: mockSelectToken,
     selectVariant: mockSelectVariant,
     stockSelectionPending: mockSelectionPending,
+    displayStockId: mockDisplayStockId,
+    displayTokenVariants: mockDisplayVariants ?? mockVariants,
   }),
 }));
 jest.mock('./SwapSmoothReveal', () => ({
@@ -132,6 +141,8 @@ describe('SwapStockMyPosition selection', () => {
   beforeEach(() => {
     mockLargeLayout = true;
     mockSelectionPending = false;
+    mockDisplayStockId = 'TSM';
+    mockDisplayVariants = undefined;
     mockItems = [item, { ...item, networkId: 'evm--1', amount: '3' }];
     mockTokens = [{ ...token, networkId: 'evm--1' }, token];
     mockVariants = [variant, { ...variant, networkId: 'evm--1' }];
@@ -139,11 +150,38 @@ describe('SwapStockMyPosition selection', () => {
     mockSelectVariant.mockReset().mockResolvedValue(true);
   });
 
-  it('does not show the committed company holdings under a pending company header', () => {
+  it('keeps the display-scoped holdings visible while the trade token is pending', () => {
     mockSelectionPending = true;
     const screen = renderPosition();
-    expect(screen.queryByText(item.amount)).toBeNull();
+    expect(screen.getAllByRole('button')).toHaveLength(2);
+  });
+
+  it('collapses a genuinely empty display portfolio while selection is pending', () => {
+    mockSelectionPending = true;
+    mockItems = [];
+    const screen = renderPosition();
     expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByText('dexmarket_details_myposition')).toBeNull();
+  });
+
+  it('never backfills the old company identity into a preview holding', () => {
+    mockSelectionPending = true;
+    mockDisplayStockId = 'GOOGL';
+    const google = { ...token, symbol: 'GOOGLB', contractAddress: '0xGOOGLE' };
+    mockTokens = [google];
+    mockItems = [
+      { ...item, symbol: google.symbol, tokenAddress: google.contractAddress },
+    ];
+    mockDisplayVariants = [
+      { ...variant, contractAddress: google.contractAddress },
+    ];
+    const screen = renderPosition();
+    fireEvent.click(screen.getAllByRole('button')[0]);
+    expect(mockSelectToken).toHaveBeenCalledWith({
+      ...google,
+      stock: { ...google.stock, stockId: 'GOOGL' },
+    });
+    expect(mockSelectVariant).not.toHaveBeenCalled();
   });
 
   it.each([true, false])(

@@ -24,7 +24,10 @@ import {
 const mockCommitToken = jest.fn();
 const mockPushModal = jest.fn();
 const mockRiskCheck = jest.fn().mockResolvedValue(false);
-const mockFetchSelection = jest.fn<Promise<ISwapToken>, []>();
+const mockFetchSelection = jest.fn<
+  Promise<ISwapToken>,
+  [((variants: IMarketStockTokenVariant[]) => void)?]
+>();
 const mockFetchIdentity = jest.fn<Promise<IMarketStockPublicItem>, []>();
 const mockFetchVariantToken = jest.fn<
   Promise<ISwapToken>,
@@ -39,6 +42,7 @@ let mockCachedParentId: string | undefined;
 let mockProviderStockId: string | undefined;
 let mockIdentityFetcher: () => Promise<unknown>;
 let mockSelection: ReturnType<typeof useSwapStockSelection>;
+let mockDisplayVariants: IMarketStockTokenVariant[] | undefined;
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -94,7 +98,14 @@ jest.mock('../../utils/swapStockMarketData', () => {
     getCachedSwapStockId: (token: ISwapToken) =>
       token.stock?.stockId ?? mockCachedParentId,
     getCachedSwapStockSelection: () => undefined,
-    fetchSwapStockSelection: () => mockFetchSelection(),
+    getCachedSwapStockDisplayVariants: () => mockDisplayVariants,
+    fetchSwapStockSelection: (
+      _stock: IMarketStockPublicItem,
+      _query: string | undefined,
+      _locale: string,
+      _issuer: string | undefined,
+      onVariantsResolved: (variants: IMarketStockTokenVariant[]) => void,
+    ) => mockFetchSelection(onVariantsResolved),
     fetchSwapStockTokenIdentity: () => mockFetchIdentity(),
     getCachedSwapStockVariantToken: () => undefined,
     fetchSwapStockVariantToken: (variant: IMarketStockTokenVariant) =>
@@ -145,11 +156,56 @@ beforeEach(() => {
     stock: { stockId: 'AAPL', subtitle: '', sourceLogoUri: '' },
   };
   mockStockId = 'AAPL';
+  mockDisplayVariants = [];
   mockVariantsPending = false;
   mockCachedParentId = undefined;
   mockFetchSelection.mockResolvedValue(targetToken);
+  mockRiskCheck.mockReset().mockResolvedValue(false);
   mockTokenVariants = [];
   mockVariantsFresh = false;
+});
+
+it('keeps the committed display until cold variant identity is ready, then switches before the trade token', async () => {
+  mockDisplayVariants = undefined;
+  let publishVariants: (variants: IMarketStockTokenVariant[]) => void = () =>
+    undefined;
+  let finishToken: (token: ISwapToken) => void = () => undefined;
+  mockFetchSelection.mockImplementationOnce(
+    (onVariantsResolved) =>
+      new Promise((resolve) => {
+        publishVariants = onVariantsResolved ?? (() => undefined);
+        finishToken = resolve;
+      }),
+  );
+  render(<Subject />);
+  let request: Promise<boolean> | undefined;
+  act(() => {
+    request = mockSelection?.selectStock(targetStock);
+  });
+  expect(mockSelection?.stockSelectionPending).toBe(true);
+  expect(mockSelection?.displayStockId).toBe('AAPL');
+  const variants: IMarketStockTokenVariant[] = [
+    {
+      tokenId: 'nvda-ethereum',
+      issuer: 'bStocks',
+      networkId: targetToken.networkId,
+      contractAddress: targetToken.contractAddress,
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    },
+  ];
+  act(() => publishVariants(variants));
+  expect(mockSelection?.displayStockId).toBe('NVDA');
+  expect(mockSelection?.displayTokenVariants).toBe(variants);
+  expect(mockSelection?.stockSelectionPending).toBe(true);
+  expect(mockCommitToken).not.toHaveBeenCalled();
+  await act(async () => {
+    finishToken(targetToken);
+    await request;
+  });
+  expect(mockSelection?.displayStockId).toBe('NVDA');
+  expect(mockSelection?.displayTokenVariants).toBe(variants);
 });
 
 it('retains the target preview through commit and confirms variants independently', async () => {
@@ -166,6 +222,7 @@ it('retains the target preview through commit and confirms variants independentl
   });
   expect(mockSelection?.pendingStock).toEqual(targetStock);
   expect(mockSelection?.stockSelectionPending).toBe(true);
+  expect(mockSelection?.displayStockId).toBe('NVDA');
 
   await act(async () => {
     resolveToken(targetToken);
@@ -177,12 +234,14 @@ it('retains the target preview through commit and confirms variants independentl
   // The trade context may commit on a later render than the selection operation.
   expect(mockSelection?.pendingStock).toEqual(targetStock);
   expect(mockSelection?.stockSelectionPending).toBe(true);
+  expect(mockSelection?.displayStockId).toBe('NVDA');
 
   mockCurrentToken = targetToken;
   mockStockId = 'NVDA';
   mockVariantsPending = true;
   rerender(<Subject />);
   expect(mockSelection?.stockSelectionPending).toBe(false);
+  expect(mockSelection?.displayStockId).toBe('NVDA');
   expect(mockSelection?.selectedStockPreview).toEqual(targetStock);
   expect(mockSelection?.loadingScopes).toEqual({
     stock: false,
@@ -190,6 +249,90 @@ it('retains the target preview through commit and confirms variants independentl
     amountInput: true,
   });
   expect(mockSelection?.availability).toBe('pending');
+});
+
+it('uses a known position identity before any company preview is cached', async () => {
+  let resolveRisk: (risk: boolean) => void = () => undefined;
+  mockRiskCheck.mockReturnValueOnce(
+    new Promise<boolean>((resolve) => {
+      resolveRisk = resolve;
+    }),
+  );
+  render(<Subject />);
+  let request: Promise<boolean> | undefined;
+  act(() => {
+    request = mockSelection?.selectToken(targetToken);
+  });
+  expect(mockSelection?.displayStockId).toBe('NVDA');
+  expect(mockSelection?.pendingStock).toBeUndefined();
+  await act(async () => {
+    resolveRisk(false);
+    await request;
+  });
+  expect(mockSelection?.displayStockId).toBe('NVDA');
+});
+
+it('restores the committed display on failure or cancellation and ignores obsolete requests', async () => {
+  let finishObsolete: (token: ISwapToken) => void = () => undefined;
+  mockFetchSelection.mockReturnValueOnce(
+    new Promise<ISwapToken>((resolve) => {
+      finishObsolete = resolve;
+    }),
+  );
+  render(<Subject />);
+  let obsolete: Promise<boolean> | undefined;
+  act(() => {
+    obsolete = mockSelection?.selectStock(targetStock);
+  });
+  expect(mockSelection?.displayStockId).toBe('NVDA');
+  act(() => mockSelection?.cancelSelection());
+  expect(mockSelection?.displayStockId).toBe('AAPL');
+
+  mockFetchSelection.mockRejectedValueOnce(new Error('Unavailable'));
+  await act(async () => {
+    await mockSelection?.selectStock({ ...targetStock, stockId: 'GOOGL' });
+  });
+  expect(mockSelection?.displayStockId).toBe('AAPL');
+  expect(mockSelection?.selectionError).toBe(true);
+  await act(async () => {
+    finishObsolete(targetToken);
+    await obsolete;
+  });
+  expect(mockSelection?.displayStockId).toBe('AAPL');
+  expect(mockCommitToken).not.toHaveBeenCalled();
+});
+
+it('keeps the newest company visible when an earlier ticker request completes later', async () => {
+  let finishFirst: (token: ISwapToken) => void = () => undefined;
+  mockFetchSelection.mockReturnValueOnce(
+    new Promise<ISwapToken>((resolve) => {
+      finishFirst = resolve;
+    }),
+  );
+  render(<Subject />);
+  let first: Promise<boolean> | undefined;
+  act(() => {
+    first = mockSelection?.selectStock(targetStock);
+  });
+  const googleToken = {
+    ...targetToken,
+    contractAddress: '0xgoogle',
+    stock: { ...targetToken.stock!, stockId: 'GOOGL' },
+  };
+  mockFetchSelection.mockResolvedValueOnce(googleToken);
+  await act(async () => {
+    await mockSelection?.selectStock({ ...targetStock, stockId: 'GOOGL' });
+  });
+  expect(mockSelection?.displayStockId).toBe('GOOGL');
+  await act(async () => {
+    finishFirst(targetToken);
+    await first;
+  });
+  expect(mockSelection?.displayStockId).toBe('GOOGL');
+  expect(mockCommitToken).toHaveBeenCalledTimes(1);
+  expect(mockCommitToken).toHaveBeenCalledWith(googleToken, {
+    resetReceiveAmount: true,
+  });
 });
 
 it('mounts the cached parent even when the selected child has no own metadata cache', async () => {

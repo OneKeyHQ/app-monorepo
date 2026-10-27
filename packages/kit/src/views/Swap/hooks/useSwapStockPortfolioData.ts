@@ -8,6 +8,7 @@ import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils
 import type {
   IMarketAccountPortfolioDisplayItem,
   IMarketAccountPortfolioPnl,
+  IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { useCurrency } from '../../../components/Currency';
@@ -20,8 +21,19 @@ type IStockPositions = Pick<
   'hasAccount' | 'positionTokenList' | 'positionLoading' | 'resolvedNetworkIds'
 > & { pnlMap: Map<string, IMarketAccountPortfolioPnl> };
 
-export function useSwapStockPortfolioData(positions?: IStockPositions) {
-  const { stockId, tokenVariants } = useStockDetail();
+export function useSwapStockPortfolioData(
+  positions?: IStockPositions,
+  displayScope?: {
+    stockId?: string;
+    tokenVariants: IMarketStockTokenVariant[];
+  },
+) {
+  const { stockId: committedStockId, tokenVariants: committedVariants } =
+    useStockDetail();
+  const stockId = displayScope ? displayScope.stockId : committedStockId;
+  const tokenVariants = displayScope
+    ? displayScope.tokenVariants
+    : committedVariants;
   const currencyInfo = useCurrency();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const hasAccount = Boolean(positions?.hasAccount);

@@ -21,10 +21,15 @@ export function useSwapStockPortfolio() {
 // current stock the account holds. Hidden until there is something to list.
 export function SwapStockMyPosition() {
   const intl = useIntl();
-  const portfolio = useSwapStockPortfolio();
   const positions = useSwapStockPositions();
+  const portfolio = positions?.displayPortfolio;
   const selection = useSwapStockSelection();
-  const { stockId, tokenVariants } = useStockDetail();
+  const { stockId: committedStockId, tokenVariants: committedVariants } =
+    useStockDetail();
+  const stockId = selection ? selection.displayStockId : committedStockId;
+  const tokenVariants = selection
+    ? selection.displayTokenVariants
+    : committedVariants;
   const selectPosition = useCallback(
     (item: IMarketAccountPortfolioDisplayItem) => {
       const identity = {
@@ -55,9 +60,7 @@ export function SwapStockMyPosition() {
     },
     [positions?.positionTokenList, selection, stockId, tokenVariants],
   );
-  const portfolioData = selection?.stockSelectionPending
-    ? []
-    : (portfolio?.positionListData ?? []);
+  const portfolioData = portfolio?.positionListData ?? [];
   return (
     // Include the table gutters inside the reveal's clipping boundary while
     // keeping the parent gap collapsed when there are no positions.

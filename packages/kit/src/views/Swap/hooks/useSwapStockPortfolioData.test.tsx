@@ -145,6 +145,73 @@ it('switches stocks by filtering the shared list without retaining the old compa
   ]);
 });
 
+it('projects two holdings directly to one preview holding before the trade identity commits', () => {
+  const google: ISwapToken = {
+    ...apple,
+    symbol: 'GOOGLon',
+    contractAddress: '0xCCDD',
+    stock: { ...apple.stock, stockId: 'GOOGL' },
+  };
+  const positions = buildPositions({
+    positionTokenList: [
+      apple,
+      { ...apple, symbol: 'AAPLB', contractAddress: '0xEEFF' },
+      google,
+    ],
+  });
+  const initialScope: { stockId?: string } = { stockId: 'AAPL' };
+  const { result, rerender } = renderHook(
+    ({ stockId }: { stockId?: string }) =>
+      useSwapStockPortfolioData(positions, {
+        stockId,
+        tokenVariants: stockId === mockStockId ? mockVariants : [],
+      }),
+    { initialProps: initialScope },
+  );
+  expect(result.current.positionListData.map((item) => item.symbol)).toEqual([
+    'AAPLon',
+    'AAPLB',
+  ]);
+  // The old variants are still in StockDetailContext during token resolution.
+  rerender({ stockId: 'GOOGL' });
+  expect(mockStockId).toBe('AAPL');
+  expect(result.current.positionListData.map((item) => item.symbol)).toEqual([
+    'GOOGLon',
+  ]);
+  expect(result.current.resolvedVariantKeys).toEqual([]);
+  rerender({ stockId: 'MSFT' });
+  expect(result.current.positionListData).toEqual([]);
+  rerender({ stockId: 'AAPL' });
+  expect(result.current.positionListData).toHaveLength(2);
+  rerender({ stockId: undefined });
+  expect(result.current.positionListData).toEqual([]);
+});
+
+it('classifies legacy holdings using only the display company variants', () => {
+  const legacyApple = { ...apple, stock: undefined };
+  const legacyGoogle = {
+    ...legacyApple,
+    symbol: 'GOOGLB',
+    contractAddress: '0xCCDD',
+  };
+  const googleVariants = [
+    { ...variant, contractAddress: legacyGoogle.contractAddress },
+  ];
+  const positions = buildPositions({
+    positionTokenList: [legacyApple, legacyGoogle],
+  });
+  const { result } = renderHook(() =>
+    useSwapStockPortfolioData(positions, {
+      stockId: 'GOOGL',
+      tokenVariants: googleVariants,
+    }),
+  );
+  expect(result.current.positionListData.map((item) => item.symbol)).toEqual([
+    'GOOGLB',
+  ]);
+  expect(result.current.positionListData[0].tokenId).toBe(variant.tokenId);
+});
+
 it('accepts an exact variant or underlying ticker when stock metadata omits its stock ID', () => {
   const withoutId = { ...apple, stock: undefined };
   const ticker = {
