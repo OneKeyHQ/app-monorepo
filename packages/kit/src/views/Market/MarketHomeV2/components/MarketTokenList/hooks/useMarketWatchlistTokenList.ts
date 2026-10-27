@@ -127,6 +127,11 @@ export interface IMarketWatchlistDataCache {
   };
 }
 
+// Shared by the native home and detail selector within the UI runtime.
+export const marketWatchlistDataCacheRef: RefObject<
+  IMarketWatchlistDataCache | undefined
+> = { current: undefined };
+
 function isWatchlistSpotItem(item: IMarketWatchListItemV2) {
   return (
     !item.perpsCoin && !item.assetId && !item.stockId && Boolean(item.chainId)

@@ -25,7 +25,10 @@ import { MarketStockStar } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/com
 import { parseMarketStockNumber } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/utils';
 import { applyMarketTokenListLiveOverrides } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
-import { useMarketWatchlistTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import {
+  marketWatchlistDataCacheRef,
+  useMarketWatchlistTokenList,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useWatchlistFilteredGroups } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
 import type { IMarketTokenListLiveOverride } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import { getMarketWatchlistRowKind } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/utils/marketWatchlistRowKind';
@@ -564,6 +567,7 @@ export function MobileSelectorWatchlistList({
   }, [watchListActions]);
   const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
     watchlist: watchListData ?? [],
+    dataCacheRef: marketWatchlistDataCacheRef,
     pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
   });

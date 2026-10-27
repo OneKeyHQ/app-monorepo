@@ -360,8 +360,16 @@ export function MobileInformationTabs({
     [detailKind, holdersTabLabel, holdersTabName],
   );
 
-  // Generate unique key based on tabs composition
-  const tabsKey = useMemo(() => tabKeys.join('-'), [tabKeys]);
+  // Reset native header and page offsets when switching tokens. Stock network
+  // hydration must not remount the chart for the same stock.
+  const tokenKey =
+    detailKind === 'stock'
+      ? `stock:${stockId ?? ''}`
+      : `${networkId}:${tokenAddress}:${isNative ? 'native' : 'token'}`;
+  const tabsKey = useMemo(
+    () => `${platformEnv.isNative ? `${tokenKey}:` : ''}${tabKeys.join('-')}`,
+    [tabKeys, tokenKey],
+  );
 
   // Stock tabs are independent of the selected token network. Other tab sets
   // wait for it so their header does not remount when the network resolves.

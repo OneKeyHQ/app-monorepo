@@ -7,10 +7,14 @@ import type {
   IMarketListingWatchlistQuote,
   IMarketWatchListItemV2,
 } from '@onekeyhq/shared/types/market';
-import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketPerpsTokenListData,
+  IMarketStockPublicItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   type IMarketWatchlistDataCache,
+  marketWatchlistDataCacheRef,
   useMarketWatchlistTokenList,
 } from './useMarketWatchlistTokenList';
 
@@ -27,6 +31,11 @@ const mockBatch = jest.fn<Promise<{ list: unknown[] }>, unknown[]>(
     list: [],
   }),
 );
+const mockPerps = jest.fn<Promise<IMarketPerpsTokenListData>, []>(async () => ({
+  tokens: [],
+  updatedAt: 0,
+}));
+const mockTokenSearchAliases = jest.fn(async () => ({}));
 const mockNetworks: [] = [];
 jest.mock('@onekeyhq/components', () => ({ useCarouselIndex: () => 0 }));
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
@@ -35,7 +44,11 @@ jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceHyperliquid: {
+      getTokenSearchAliases: () => mockTokenSearchAliases(),
+    },
     serviceMarketV2: {
+      fetchMarketPerpsTokenList: () => mockPerps(),
       fetchMarketListingWatchlistQuote: (...args: unknown[]) =>
         mockQuote(...args),
       fetchMarketStockBatch: (params: { stockIds: string[] }) =>
@@ -90,6 +103,8 @@ const stockItem = (
 beforeEach(() => {
   jest.clearAllMocks();
   mockStockBatch.mockResolvedValue([]);
+  mockPerps.mockResolvedValue({ tokens: [], updatedAt: 0 });
+  marketWatchlistDataCacheRef.current = undefined;
 });
 it('holds the first paint until spot and listing quotes have both settled', async () => {
   let resolveSpot: (value: { list: unknown[] }) => void = () => {};
@@ -612,4 +627,70 @@ it('keeps cached rows and holds back only the uncovered listing', async () => {
   expect(second.result.current.data).toEqual([
     expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
   ]);
+});
+
+it('reuses home quotes in the selector without restoring removed favorites', async () => {
+  mockStockBatch.mockResolvedValue([stockItem('AAPL'), stockItem('MSFT')]);
+  mockPerps.mockResolvedValue({
+    tokens: [
+      {
+        name: 'BTC',
+        displayName: 'BTC',
+        maxLeverage: 40,
+        tokenImageUrl: '',
+        markPrice: '100000',
+        prevDayPrice: '99000',
+        change24hPercent: 1,
+        volume24h: '1000000',
+        openInterest: '1000',
+        fundingRate: '0.0001',
+      },
+    ],
+    updatedAt: 0,
+  });
+  const watchlist = [
+    { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+    { stockId: 'MSFT', chainId: '', contractAddress: '', sortIndex: 1 },
+    { perpsCoin: 'BTC', chainId: '', contractAddress: '', sortIndex: 2 },
+  ];
+  const home = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist,
+      pollingInterval: 0,
+      dataCacheRef: marketWatchlistDataCacheRef,
+    }),
+  );
+  await waitFor(() => expect(home.result.current.data).toHaveLength(3));
+  home.unmount();
+
+  mockStockBatch.mockReturnValue(new Promise(() => {}));
+  mockPerps.mockReturnValue(new Promise(() => {}));
+  const selectorWatchlist = watchlist.filter((item) => item.stockId !== 'MSFT');
+  const selector = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist: selectorWatchlist,
+      pollingInterval: 0,
+      dataCacheRef: marketWatchlistDataCacheRef,
+    }),
+  );
+  expect(selector.result.current.data.map((item) => item.id)).toEqual([
+    'stock:AAPL',
+    'perps_BTC',
+  ]);
+  selector.unmount();
+
+  const reopenedSelector = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist: selectorWatchlist,
+      pollingInterval: 0,
+      dataCacheRef: marketWatchlistDataCacheRef,
+    }),
+  );
+  expect(reopenedSelector.result.current.data.map((item) => item.id)).toEqual([
+    'stock:AAPL',
+    'perps_BTC',
+  ]);
+  await act(async () => {
+    await Promise.resolve();
+  });
 });

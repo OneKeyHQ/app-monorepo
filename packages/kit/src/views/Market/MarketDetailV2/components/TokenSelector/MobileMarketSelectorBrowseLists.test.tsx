@@ -157,6 +157,7 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList',
   () => ({
+    marketWatchlistDataCacheRef: { current: undefined },
     useMarketWatchlistTokenList: ({ pageSize }: { pageSize: number }) => ({
       data: mockBrowseData.slice(0, pageSize),
       isLoading: mockIsWatchlistLoading,
