@@ -10,18 +10,21 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ReferFriendsTestIDs } from '@onekeyhq/kit/src/views/ReferFriends/testIDs';
+import { NATIVE_MEDIUM_ICON_HIT_SLOP } from '@onekeyhq/kit/src/views/ReferFriends/utils/touchTarget';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { InviteProfilePublicSwitch } from './InviteProfilePublicSwitch';
+import { INVITE_POPOVER_PANEL_PROPS } from './useInviteCardStyle';
 
+// Built like the Rules button beside it: an icon button in compact headers,
+// a small text button on pointer layouts, and the page's popover panel.
 export function InviteRewardSettingsButton() {
   const intl = useIntl();
   const { md } = useMedia();
   const label = intl.formatMessage({ id: ETranslations.global_settings });
   const renderContent = useCallback(
     () => (
-      <YStack px="$4" py="$3.5">
+      <YStack px="$5" py="$4">
         <InviteProfilePublicSwitch />
       </YStack>
     ),
@@ -34,6 +37,7 @@ export function InviteRewardSettingsButton() {
           testID={ReferFriendsTestIDs.inviteRewardSettingsBtn}
           variant="tertiary"
           icon="SettingsOutline"
+          hitSlop={NATIVE_MEDIUM_ICON_HIT_SLOP}
           title={label}
         />
       );
@@ -42,7 +46,7 @@ export function InviteRewardSettingsButton() {
       <Button
         testID={ReferFriendsTestIDs.inviteRewardSettingsBtn}
         variant="tertiary"
-        size={platformEnv.isWeb ? 'small' : undefined}
+        size="small"
         icon="SettingsOutline"
       >
         {label}
@@ -56,9 +60,7 @@ export function InviteRewardSettingsButton() {
       renderTrigger={renderTrigger}
       renderContent={renderContent}
       placement="bottom-end"
-      floatingPanelProps={{
-        width: 320,
-      }}
+      floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
     />
   );
 }
