@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   ScrollView,
+  SegmentControl,
+  SizableText,
   Stack,
   XStack,
   YStack,
@@ -42,6 +44,7 @@ export function MobileSimpleChartFrame<TRange extends IStockSimpleChartRange>({
   children,
   testID = 'market-mobile-simple-chart',
   controlsPaddingHorizontal = 8,
+  rangeControlVariant = 'buttons',
 }: {
   range: TRange;
   onRangeChange: (range: TRange) => void;
@@ -51,6 +54,7 @@ export function MobileSimpleChartFrame<TRange extends IStockSimpleChartRange>({
   children: ReactNode;
   testID?: string;
   controlsPaddingHorizontal?: IXStackProps['px'];
+  rangeControlVariant?: 'buttons' | 'segmented';
 }) {
   const intl = useIntl();
 
@@ -74,25 +78,62 @@ export function MobileSimpleChartFrame<TRange extends IStockSimpleChartRange>({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={RANGE_ROW_STYLE}
         >
-          {chartRanges.map((item) => (
-            <Button
-              key={item}
-              testID={`${testID === 'market-mobile-simple-chart' ? 'market-mobile-chart' : testID}-range-${item}`}
-              minWidth={RANGE_BUTTON_MIN_WIDTH}
-              height={RANGE_BUTTON_HEIGHT}
-              m="$0"
-              px="$2.5"
-              borderWidth={0}
-              size="small"
-              variant={range === item ? 'secondary' : 'tertiary'}
-              borderRadius="$full"
-              onPress={() => onRangeChange(item)}
-            >
-              {intl.formatMessage({
-                id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
-              })}
-            </Button>
-          ))}
+          {rangeControlVariant === 'segmented' ? (
+            <SegmentControl
+              testID={`${testID}-range-selector`}
+              h={26}
+              value={range}
+              onChange={(value) => {
+                const selectedRange = chartRanges.find(
+                  (item) => item === value,
+                );
+                if (selectedRange !== undefined) {
+                  onRangeChange(selectedRange);
+                }
+              }}
+              options={chartRanges.map((item) => ({
+                label: (
+                  <SizableText
+                    size="$bodySmMedium"
+                    color={range === item ? '$text' : '$textSubdued'}
+                    numberOfLines={1}
+                  >
+                    {intl.formatMessage({
+                      id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
+                    })}
+                  </SizableText>
+                ),
+                value: item,
+                testID: `${testID}-range-${item}`,
+              }))}
+              segmentControlItemStyleProps={{
+                px: '$2',
+                py: '$0',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            />
+          ) : (
+            chartRanges.map((item) => (
+              <Button
+                key={item}
+                testID={`${testID === 'market-mobile-simple-chart' ? 'market-mobile-chart' : testID}-range-${item}`}
+                minWidth={RANGE_BUTTON_MIN_WIDTH}
+                height={RANGE_BUTTON_HEIGHT}
+                m="$0"
+                px="$2.5"
+                borderWidth={0}
+                size="small"
+                variant={range === item ? 'secondary' : 'tertiary'}
+                borderRadius="$full"
+                onPress={() => onRangeChange(item)}
+              >
+                {intl.formatMessage({
+                  id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
+                })}
+              </Button>
+            ))
+          )}
         </ScrollView>
         {modeControl}
       </XStack>

@@ -41,6 +41,26 @@ jest.mock('@onekeyhq/components', () => ({
   }) => <span data-color={color}>{children}</span>,
 }));
 
+it('keeps the primary palette while a deposit action is disabled or loading', () => {
+  const { container } = render(
+    <PerpActionButton variant="primary" disabled loading>
+      Deposit
+    </PerpActionButton>,
+  );
+  expect(container.firstElementChild?.getAttribute('data-bg')).toBe(
+    '$bgPrimary',
+  );
+  expect(container.firstElementChild?.getAttribute('data-hover')).toBe(
+    '$bgPrimaryHover',
+  );
+  expect(container.firstElementChild?.getAttribute('data-press')).toBe(
+    '$bgPrimaryActive',
+  );
+  expect(container.querySelector('span')?.getAttribute('data-color')).toBe(
+    '$textInverse',
+  );
+});
+
 it('keeps background, interaction and label colors paired for accent and destructive actions', () => {
   const { container, rerender } = render(
     <PerpActionButton variant="accent">Long BTC</PerpActionButton>,

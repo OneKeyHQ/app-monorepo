@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -53,6 +53,7 @@ const LINE_CHART_HEIGHT =
 export type ISimpleMarketChartPrice = ISimpleChartPerformance & {
   price?: number;
   isLoading?: boolean;
+  isScrubbing?: boolean;
 };
 
 function SimpleMarketLineChart({
@@ -118,23 +119,51 @@ function SimpleMarketLineChart({
       }),
     [current, livePrice],
   );
+  const hasHistory = !!current && !current.error && data.length > 0;
+  const isScrubbing = !!hoverPoint;
+  const price = hasHistory
+    ? (hoverPoint?.price ?? data[data.length - 1][1])
+    : undefined;
+  const performance = useMemo(
+    () =>
+      price === undefined ? undefined : getSimpleChartPerformance(data, price),
+    [data, price],
+  );
+  const change = performance?.change;
+  const changePercent = performance?.changePercent;
+  const priceLoading = !current || (!hasHistory && !!isLoading);
+  // Report display values rather than history object identity to avoid
+  // feeding unchanged chart results back into the parent page's state.
   const displayPrice = useMemo<ISimpleMarketChartPrice | undefined>(() => {
     if (!active) return undefined;
-    if (!current || ((current.error || !data.length) && isLoading))
-      return { coin, range, isLoading: true };
-    if (current.error || !data.length) return { coin, range };
-    const price = hoverPoint?.price ?? data[data.length - 1][1];
+    if (priceLoading) return { coin, range, isLoading: true };
+    if (price === undefined) return { coin, range };
     return {
       coin,
       range,
       price,
-      ...getSimpleChartPerformance(data, price),
+      change,
+      changePercent,
+      ...(isScrubbing ? { isScrubbing: true } : {}),
     };
-  }, [active, coin, range, current, data, hoverPoint, isLoading]);
+  }, [
+    active,
+    coin,
+    range,
+    priceLoading,
+    price,
+    change,
+    changePercent,
+    isScrubbing,
+  ]);
+  // A parent render must not clear and re-report the held price just because
+  // its callback changed. Only release it when this chart actually unmounts.
+  const onPriceChangeRef = useRef(onPriceChange);
+  onPriceChangeRef.current = onPriceChange;
   useEffect(() => {
-    onPriceChange?.(displayPrice);
-  }, [displayPrice, onPriceChange]);
-  useEffect(() => () => onPriceChange?.(undefined), [onPriceChange]);
+    onPriceChangeRef.current?.(displayPrice);
+  }, [displayPrice]);
+  useEffect(() => () => onPriceChangeRef.current?.(undefined), []);
 
   if (!active || !current) {
     return <Skeleton width="100%" height="100%" />;
@@ -274,6 +303,7 @@ export function SimpleMarketChart({
         <MobileSimpleChartFrame
           testID="perps-simple-market-chart"
           controlsPaddingHorizontal={20}
+          rangeControlVariant="segmented"
           height={CHART_HEIGHT}
           range={range}
           chartRanges={TOKEN_SIMPLE_CHART_RANGES}

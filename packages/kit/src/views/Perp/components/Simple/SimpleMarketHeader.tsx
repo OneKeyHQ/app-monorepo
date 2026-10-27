@@ -6,6 +6,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components';
+import { RollingNumberText } from '@onekeyhq/kit/src/components/RollingNumberText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
@@ -17,6 +18,7 @@ export function SimpleMarketHeader({
   coin,
   width,
   price,
+  animatePrice = true,
   changeLabel,
   changeLoading,
   changeColor,
@@ -27,6 +29,7 @@ export function SimpleMarketHeader({
   coin: string;
   width: number;
   price: string;
+  animatePrice?: boolean;
   changeLabel: string;
   changeLoading?: boolean;
   changeColor: ISizableTextProps['color'];
@@ -93,14 +96,16 @@ export function SimpleMarketHeader({
           accessibilityElementsHidden={!showPrice}
           importantForAccessibility={showPrice ? 'auto' : 'no-hide-descendants'}
         >
-          <SizableText
+          <RollingNumberText
+            animated={animatePrice}
+            key={`${coin}-price`}
             size="$bodySm"
             color="$textSubdued"
             numberOfLines={1}
             flexShrink={1}
           >
             {price}
-          </SizableText>
+          </RollingNumberText>
           {changeLoading ? (
             <Skeleton width="$12" height="$4" />
           ) : (
