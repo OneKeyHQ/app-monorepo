@@ -322,6 +322,11 @@ export function useMarketWatchlistTokenList({
   // therefore checked per row below rather than trusting the batch as a whole.
   const listingResult = listingQuotes ?? lastListingQuotesRef.current;
 
+  // Identifies the spot items a result was fetched for. A failed request
+  // keeps the previous result in `usePromiseResult`, so a result counts as
+  // loaded only when it answers the current items.
+  const spotRequestKey = spotItems.map(getMarketWatchlistKey).join('\n');
+
   // ── Spot data fetching (existing logic) ──
   const {
     result: spotResult,
@@ -330,14 +335,16 @@ export function useMarketWatchlistTokenList({
   } = usePromiseResult(
     async () => {
       if (!isWatchlistReady) return undefined;
+      // Cached results carry no key, so the result type allows none.
+      const requestKey = spotRequestKey as string | undefined;
       if (!watchlist || watchlist.length === 0) {
         if (isInitialLoad) {
           await new Promise((resolve) => setTimeout(resolve, 300));
         }
-        return { list: [], failed: false } as const;
+        return { list: [], failed: false, requestKey } as const;
       }
       if (spotItems.length === 0) {
-        return { list: [], failed: false } as const;
+        return { list: [], failed: false, requestKey } as const;
       }
       const tokenAddressList = spotItems.map((item) => {
         const { isNative } = getNativeTokenInfo(
@@ -354,13 +361,13 @@ export function useMarketWatchlistTokenList({
         const response = await fetchMarketTokenListBatchForPlatform({
           tokenAddressList,
         });
-        return { ...response, failed: false };
+        return { ...response, failed: false, requestKey };
       } catch (error) {
         if (!platformEnv.isNative) throw error;
-        return { list: undefined, failed: true };
+        return { list: undefined, failed: true, requestKey };
       }
     },
-    [watchlist, spotItems, isInitialLoad, isWatchlistReady],
+    [watchlist, spotItems, spotRequestKey, isInitialLoad, isWatchlistReady],
     {
       pollingInterval,
       watchLoading: true,
@@ -407,7 +414,7 @@ export function useMarketWatchlistTokenList({
 
   const lastSpotResultRef = useRef<typeof spotResult>(
     dataCacheRef?.current?.spot
-      ? { ...dataCacheRef.current.spot, failed: false }
+      ? { ...dataCacheRef.current.spot, failed: false, requestKey: undefined }
       : undefined,
   );
   const lastPerpsResultRef = useRef<typeof perpsResult>(
@@ -452,6 +459,28 @@ export function useMarketWatchlistTokenList({
     perpsResult?.failed || (!perpsResult && dataCacheRef)
       ? lastPerpsResultRef.current
       : perpsResult;
+  // Every source this watchlist needs holds a successful result for its
+  // current items. Desktop and web report a failed request only as a missing
+  // or stale result (`isError` is native-only), so an empty list with this
+  // false is a failed load rather than favorites that resolve to no rows.
+  // Cached spot rows carry no request key and never count: when they hold
+  // rows the list shows them anyway.
+  const hasLoadedAllSources =
+    (spotItems.length === 0 ||
+      Boolean(
+        spotResult?.list &&
+        !spotResult.failed &&
+        spotResult.requestKey === spotRequestKey,
+      )) &&
+    // The previous batch stays in place while a newer one is in flight, so
+    // each current listing needs its own entry, not just any batch.
+    (listingItems.length === 0 ||
+      listingItems.every((item) => {
+        const key = getMarketWatchlistKey(item);
+        return Boolean(listingResult?.some((entry) => entry.key === key));
+      })) &&
+    (perpsItems.length === 0 ||
+      Boolean(perpsApiResult?.tokenListData && !perpsApiResult.failed));
 
   // Combined loading state
   const isLoading =
@@ -775,6 +804,10 @@ export function useMarketWatchlistTokenList({
     data: paginatedData,
     isLoading: !isWatchlistReady || isLoading || isHoldingWatchlistFirstPaint,
     isError,
+    // Rows held back for the first paint have not loaded yet, whatever the
+    // sources hold from an earlier watchlist.
+    hasLoadedAllSources:
+      isWatchlistReady && hasLoadedAllSources && !isHoldingWatchlistFirstPaint,
     isLoadingMore,
     isNetworkSwitching: false,
     canLoadMore: hasMore,

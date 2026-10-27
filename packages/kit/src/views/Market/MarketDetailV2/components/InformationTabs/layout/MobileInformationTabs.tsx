@@ -97,7 +97,7 @@ function MobileInformationTabsHeader({
           {...props}
           scrollable
           keepFocusedTabVisible
-          textSize="$bodyMdMedium"
+          textSize="$bodyLgMedium"
           onTabPress={handleTabPress}
           renderItem={renderTabBarItem}
         />

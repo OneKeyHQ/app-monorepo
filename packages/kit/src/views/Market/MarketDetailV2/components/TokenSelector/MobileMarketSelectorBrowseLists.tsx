@@ -565,30 +565,32 @@ export function MobileSelectorWatchlistList({
       appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, refresh);
     };
   }, [watchListActions]);
-  const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
-    watchlist: watchListData ?? [],
-    isWatchlistReady: isMounted,
-    dataCacheRef: marketWatchlistDataCacheRef,
-    pageSize: Math.max(watchListData?.length ?? 0, 1),
-    pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
-  });
+  const { data, isLoading, isError, hasLoadedAllSources, refetch } =
+    useMarketWatchlistTokenList({
+      watchlist: watchListData ?? [],
+      isWatchlistReady: isMounted,
+      dataCacheRef: marketWatchlistDataCacheRef,
+      pageSize: Math.max(watchListData?.length ?? 0, 1),
+      pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
+    });
   const groups = useWatchlistFilteredGroups(data);
   const rows = useLiveOverriddenTokens(
     groups[watchlistFilter],
     liveTokenOverride,
   );
-  // The hook merges cached quotes against the current watchlist, so fewer
-  // returned rows means some favorites still have no quote result.
+  // Delisted favorites can stay absent after a successful fetch. Missing rows
+  // only need loading feedback until the current sources have loaded.
   const hasMissingFavorites = data.length < (watchListData?.length ?? 0);
 
   if (
     !isMounted ||
     (isLoading &&
+      !hasLoadedAllSources &&
       (data.length === 0 || (hasMissingFavorites && rows.length === 0)))
   ) {
     return <CenteredSpinner />;
   }
-  if (isError && rows.length === 0) {
+  if (isError && !hasLoadedAllSources && rows.length === 0) {
     return (
       <LoadErrorMessage
         testID="mobile-market-token-selector-favorites-retry"
@@ -619,7 +621,7 @@ export function MobileSelectorWatchlistList({
       tokenSubtitle="name"
       onItemPress={onItemPress}
       footer={
-        hasMissingFavorites ? (
+        hasMissingFavorites && !hasLoadedAllSources ? (
           <LoadMoreFooter
             isLoading={isLoading}
             isError={isError}

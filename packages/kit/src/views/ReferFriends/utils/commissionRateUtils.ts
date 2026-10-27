@@ -66,14 +66,25 @@ export function formatInviteeDiscountText(discount?: number) {
   return shouldShowInviteeDiscount(discount) ? `${discount}%` : '-';
 }
 
-export function formatCommissionRateText({
+export interface ICommissionRateParts {
+  you: string;
+  // Unset when invitees get no discount.
+  invitee?: string;
+}
+
+// Your rate and the invitee's, for tables that show them in separate
+// columns.
+export function getCommissionRateParts({
   rebate,
   discount,
 }: {
   rebate: number;
   discount?: number;
-}) {
-  return `${rebate}% / ${formatInviteeDiscountText(discount)}`;
+}): ICommissionRateParts {
+  return {
+    you: `${rebate}%`,
+    invitee: shouldShowInviteeDiscount(discount) ? `${discount}%` : undefined,
+  };
 }
 
 export function sortCommissionRateItems<T extends { subject: string }>(

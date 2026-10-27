@@ -31,6 +31,7 @@ let mockIsLoadMoreError = false;
 let mockWatchlistCount = 0;
 let mockIsMounted = true;
 let mockIsWatchlistLoading = false;
+let mockHasLoadedAllSources = false;
 const mockEventHandlers = new Map<string, () => Promise<void>>();
 const mockOn = jest.fn((name: string, handler: () => Promise<void>) => {
   mockEventHandlers.set(name, handler);
@@ -161,6 +162,7 @@ jest.mock(
     useMarketWatchlistTokenList: ({ pageSize }: { pageSize: number }) => ({
       data: mockBrowseData.slice(0, pageSize),
       isLoading: mockIsWatchlistLoading,
+      hasLoadedAllSources: mockHasLoadedAllSources,
       isError: mockListState.isError,
       refetch: mockRefetch,
     }),
@@ -523,6 +525,48 @@ describe('mobile selector partial favorites', () => {
     expect(screen.queryByText('global.no_results')).toBeNull();
     expect(screen.queryByTestId('recommendations')).toBeNull();
   });
+});
+
+describe('mobile selector unavailable favorites', () => {
+  afterEach(() => {
+    mockHasLoadedAllSources = false;
+    mockIsWatchlistLoading = false;
+    mockBrowseData = [];
+    mockWatchlistCount = 0;
+  });
+
+  it.each(['all', 'stocks', 'perps'] as const)(
+    'keeps the settled %s view stable while unavailable favorites refresh',
+    (filter) => {
+      mockBrowseData = filter === 'perps' ? [] : [searchToken];
+      mockWatchlistCount = 2;
+      mockIsMounted = true;
+      mockListState = { isError: false };
+      mockHasLoadedAllSources = true;
+      mockIsWatchlistLoading = false;
+      const renderList = () => (
+        <MobileSelectorWatchlistList
+          watchlistFilter={filter}
+          onItemPress={jest.fn()}
+        />
+      );
+      const { rerender } = render(renderList());
+      const settledView =
+        filter === 'all'
+          ? screen.getByText('AAPLx')
+          : screen.getByText('global.no_results');
+
+      mockIsWatchlistLoading = true;
+      rerender(renderList());
+      expect(screen.queryByRole('progressbar')).toBeNull();
+      expect(settledView.isConnected).toBe(true);
+
+      // A newly added favorite starts a new unresolved request generation.
+      mockHasLoadedAllSources = false;
+      rerender(renderList());
+      expect(screen.getByRole('progressbar')).toBeTruthy();
+    },
+  );
 });
 
 describe('mobile selector recommendations', () => {
