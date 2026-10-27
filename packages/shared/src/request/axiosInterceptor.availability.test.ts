@@ -254,8 +254,13 @@ describe('API availability counting in request interceptors', () => {
 
   describe('custom UA on ordinary domain requests', () => {
     const originalPlatform = { ...platformEnv };
+    const originalDesktopApi = globalThis.desktopApi;
 
     beforeEach(() => {
+      globalThis.desktopApi = {
+        ...originalDesktopApi,
+        supportsCustomUserAgent: true,
+      };
       Object.assign(platformEnv, {
         isDesktop: false,
         isNative: true,
@@ -272,6 +277,7 @@ describe('API availability counting in request interceptors', () => {
 
     afterEach(() => {
       Object.assign(platformEnv, originalPlatform);
+      globalThis.desktopApi = originalDesktopApi;
     });
 
     function createDomainClient() {
@@ -316,6 +322,24 @@ describe('API availability counting in request interceptors', () => {
       expect(response.config.headers.get(DESKTOP_CUSTOM_UA_HEADER)).toBe(
         JSON.stringify(['https://wallet.onekeycn.com', 'OneKey macOS 6.7.0']),
       );
+    });
+
+    it('keeps axios and fetch compatible with older desktop shells', async () => {
+      platformEnv.isDesktop = true;
+      platformEnv.isNative = false;
+      globalThis.desktopApi = {
+        ...globalThis.desktopApi,
+        supportsCustomUserAgent: undefined,
+      };
+      const response = await createDomainClient().get(
+        '/wallet/v1/network/list',
+      );
+      expect(response.config.headers.has(DESKTOP_CUSTOM_UA_HEADER)).toBe(false);
+      expect(response.config.headers.has('User-Agent')).toBe(false);
+      await globalThis.fetch(WALLET_URL);
+      const headers = new Headers(stubFetch.mock.calls.at(-1)?.[1]?.headers);
+      expect(headers.has(DESKTOP_CUSTOM_UA_HEADER)).toBe(false);
+      expect(headers.has('User-Agent')).toBe(false);
     });
 
     it('preserves axios caller UA and explicit false opt-out', async () => {

@@ -91,6 +91,7 @@ export async function shouldInjectUAForUrl(url: string): Promise<boolean> {
   const parsed = uriUtils.safeParseURL(url);
   if (!parsed) return false;
   try {
+    // Sharing an IP-table route does not expand the API UA whitelist.
     return await requestHelper.checkIsOneKeyDomain(url);
   } catch {
     // CLI and the Electron main process never call updateInterceptorRequestHelper()
@@ -137,6 +138,15 @@ export async function withCustomUAHeaders(
       delete next[key];
     }
   }
+  // The preload ships with the binary; hot-updated JS can run on an older
+  // shell that cannot consume the bridge header.
+  if (
+    options.browserTransport &&
+    platformEnv.isDesktop &&
+    globalThis.desktopApi?.supportsCustomUserAgent !== true
+  ) {
+    return next;
+  }
   if (!(await shouldInjectUAForUrl(url))) return next;
   const ua = await buildCustomUA();
   if (hasUserAgent(next)) {
@@ -163,6 +173,13 @@ export function resolveDesktopCustomUAHeaders(
   url: string,
   headers: Record<string, string>,
 ): Record<string, string> {
+  if (
+    !Object.keys(headers).some(
+      (key) => key.toLowerCase() === DESKTOP_CUSTOM_UA_HEADER.toLowerCase(),
+    )
+  ) {
+    return headers;
+  }
   const next = { ...headers };
   let bridge: string | undefined;
   for (const key of Object.keys(next)) {

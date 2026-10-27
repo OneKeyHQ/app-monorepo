@@ -1551,8 +1551,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     }
   });
 
-  const filter = {
+  const filter: Electron.WebRequestFilter = {
     urls: ['http://*/*', 'https://*/*'],
+    // Only XHR/fetch carry the UA bridge. Keep every destination so Chromium's
+    // original bridge header is also removed after cross-origin redirects.
+    types: ['xhr'],
   };
 
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
@@ -1666,25 +1669,30 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     filter,
     (details, callback) => {
       const { url } = details;
+      let requestHeaders = resolveDesktopCustomUAHeaders(
+        url,
+        details.requestHeaders,
+      );
       if (
         url.startsWith('http://127.0.0.1:21320/') ||
         url.startsWith('http://localhost:21320/')
       ) {
         // resolve onekey bridge CORS error
-        details.requestHeaders.Origin = 'https://jssdk.onekey.so';
+        requestHeaders = {
+          ...requestHeaders,
+          Origin: 'https://jssdk.onekey.so',
+        };
       } else if (url.startsWith('https://mainnet.optimism.io/')) {
         // add metamask header to resolve rate-limit
-        details.requestHeaders.Origin =
-          'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn';
+        requestHeaders = {
+          ...requestHeaders,
+          Origin: 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn',
+        };
       }
 
-      callback({
-        cancel: false,
-        requestHeaders: resolveDesktopCustomUAHeaders(
-          url,
-          details.requestHeaders,
-        ),
-      });
+      callback(
+        requestHeaders === details.requestHeaders ? {} : { requestHeaders },
+      );
     },
   );
 

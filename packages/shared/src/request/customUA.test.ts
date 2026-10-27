@@ -37,6 +37,21 @@ jest.mock('../platformEnv', () => ({
 
 const checkIsOneKeyDomainMock = jest.fn();
 const getDevSettingsPersistAtomMock = jest.fn();
+const originalDesktopApi = globalThis.desktopApi;
+const mockCallerConflict = jest.fn<void, [unknown]>();
+
+jest.mock('../appGlobals', () => ({
+  __esModule: true,
+  default: {
+    $defaultLogger: {
+      app: {
+        customUA: {
+          callerConflict: (info: unknown) => mockCallerConflict(info),
+        },
+      },
+    },
+  },
+}));
 
 beforeAll(() => {
   // Replace requestHelper methods with mocks. The other three
@@ -62,6 +77,11 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  globalThis.desktopApi = {
+    ...originalDesktopApi,
+    supportsCustomUserAgent: true,
+  };
+  jest.clearAllMocks();
   __resetCustomUARuntimeForTest();
   (platformEnv as any).isDesktop = false;
   (platformEnv as any).isNative = false;
@@ -78,6 +98,10 @@ beforeEach(() => {
     enabled: false,
     settings: {},
   });
+});
+
+afterEach(() => {
+  globalThis.desktopApi = originalDesktopApi;
 });
 
 describe('buildCustomUA', () => {
@@ -280,6 +304,10 @@ describe('withCustomUAHeaders', () => {
       'User-Agent': 'caller-explicit',
     });
     expect(out['User-Agent']).toBe('caller-explicit');
+    expect(mockCallerConflict).toHaveBeenCalledWith({
+      url: 'https://wallet.onekeycn.com/x',
+      existing: 'caller-explicit',
+    });
   });
 
   it('bridges the UA only for desktop browser transports', async () => {
@@ -311,6 +339,39 @@ describe('withCustomUAHeaders', () => {
         },
       ),
     ).toEqual({ 'User-Agent': 'OneKey iOS 6.3.0' });
+  });
+
+  it.each([undefined, false])(
+    'leaves browser headers unchanged on a shell without UA support (%s)',
+    async (supportsCustomUserAgent) => {
+      globalThis.desktopApi = {
+        ...globalThis.desktopApi,
+        supportsCustomUserAgent,
+      };
+      checkIsOneKeyDomainMock.mockResolvedValue(true);
+      expect(
+        await withCustomUAHeaders(
+          'https://wallet.onekeycn.com/x',
+          { Accept: 'application/json' },
+          { browserTransport: true },
+        ),
+      ).toEqual({ Accept: 'application/json' });
+      expect(
+        await withCustomUAHeaders(
+          'https://wallet.onekeycn.com/x',
+          { 'User-Agent': 'caller-explicit' },
+          { browserTransport: true },
+        ),
+      ).toEqual({ 'User-Agent': 'caller-explicit' });
+    },
+  );
+
+  it('does not report a conflict when health probes apply the same UA twice', async () => {
+    checkIsOneKeyDomainMock.mockResolvedValue(true);
+    const url = 'https://wallet.onekeycn.com/health';
+    const headers = await withCustomUAHeaders(url);
+    expect(await withCustomUAHeaders(url, headers)).toEqual(headers);
+    expect(mockCallerConflict).not.toHaveBeenCalled();
   });
 
   it('preserves an explicit mixed-case UA through the desktop bridge', async () => {
@@ -402,6 +463,10 @@ describe('resolveDesktopCustomUAHeaders', () => {
   });
 
   it('leaves browser and DApp requests without a bridge header unchanged', () => {
+    const untouched = { 'User-Agent': 'Chromium default' };
+    expect(
+      resolveDesktopCustomUAHeaders('https://wallet.onekeycn.com/x', untouched),
+    ).toBe(untouched);
     expect(
       resolveDesktopCustomUAHeaders('https://wallet.onekeycn.com/x', {
         'User-Agent': 'Chromium default',

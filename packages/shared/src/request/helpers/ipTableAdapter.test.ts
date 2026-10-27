@@ -281,6 +281,40 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
     expect(fallbackAdapter).not.toHaveBeenCalled();
   });
 
+  test('aborts immediately while UA lookup is pending without starting a transport', async () => {
+    let finishHeaders: ((headers: Record<string, string>) => void) | undefined;
+    let lookupStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      lookupStarted = resolve;
+    });
+    mockedWithCustomUAHeaders.mockImplementationOnce(() => {
+      lookupStarted?.();
+      return new Promise<Record<string, string>>((resolve) => {
+        finishHeaders = resolve;
+      });
+    });
+    const controller = new AbortController();
+    const config = buildConfig('https://ua-pending.example.com/v1');
+    config.signal = controller.signal;
+    const outcome = createIpTableAdapter({})(config).then(
+      () => 'resolved',
+      (error: unknown) => error,
+    );
+    await started;
+    controller.abort();
+    const result = await Promise.race([
+      outcome,
+      new Promise<string>((resolve) => {
+        setTimeout(() => resolve('still pending'), 50);
+      }),
+    ]);
+    finishHeaders?.({});
+    await outcome;
+    expect(result).toMatchObject({ code: 'SNI_CANCELLED' });
+    expect(mockedSniRequest).not.toHaveBeenCalled();
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
+
   test('injects the OneKey User-Agent into SNI request headers', async () => {
     mockedWithCustomUAHeaders.mockImplementationOnce(
       async (_url: string, headers: Record<string, string>) => ({

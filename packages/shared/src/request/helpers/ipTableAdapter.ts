@@ -1594,9 +1594,10 @@ export function createIpTableAdapter(
     // nothing adds a User-Agent for them: desktop sent none and native sent
     // the library default. Inject the OneKey UA the other non-axios call sites
     // use; a caller-set UA wins.
-    const sniRequestHeaders = await withCustomUAHeaders(
-      `https://${hostname}${fullPath}`,
-      requestHeaders,
+    throwIfSniRequestAborted(config.signal);
+    const sniRequestHeaders = await raceSniRequestWithAbort(
+      withCustomUAHeaders(`https://${hostname}${fullPath}`, requestHeaders),
+      config.signal,
     );
 
     debugLog(
