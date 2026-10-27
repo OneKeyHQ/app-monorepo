@@ -319,7 +319,7 @@ it('waits before showing the Keystone QR so the stage cannot cover it', async ()
   expect(mockStartScan).toHaveBeenCalledTimes(1);
 });
 
-it('opens the explicit export scanner before any device response or error', async () => {
+it('answers Next with an account export where the request accepts one', async () => {
   mockUiState = {
     ...qrState(true),
     payload: {
@@ -334,21 +334,13 @@ it('opens the explicit export scanner before any device response or error', asyn
   const props = jest.mocked(SecureQRToast.show).mock.calls[0][0];
   expect(props.title).toBe(ETranslations.device_stage_connect_vendor__title);
   expect(props.message).toBe(ETranslations.device_stage_show_qr__title);
-  expect(props.extraAction?.title).toBe(
-    ETranslations.keystone_specialized_firmware__title,
-  );
-  expect(props.extraAction?.description).toBe(
-    ETranslations.keystone_account_export__desc,
-  );
-  expect(props.extraAction?.label).toBe(
-    ETranslations.keystone_scan_account_export__action,
-  );
-  expect(props.extraAction?.testID).toBe('keystone-scan-account-export-btn');
+  expect(props.notice).toBe(ETranslations.keystone_account_export__desc);
   expect(mockStartScan).not.toHaveBeenCalled();
   expect(mockUiResponse).not.toHaveBeenCalled();
   await act(async () => {
-    await props.extraAction?.onPress();
+    props.onConfirm?.();
   });
+  await flush();
   expect(mockStartScan).toHaveBeenCalledTimes(1);
   expect(mockUiResponse).toHaveBeenCalledWith({
     vendor: EHardwareVendor.keystone,
@@ -375,7 +367,7 @@ it('keeps signing QR scans on the normal response path', async () => {
   await flush();
   const props = jest.mocked(SecureQRToast.show).mock.calls[0][0];
   expect(props.title).toBeUndefined();
-  expect(props.extraAction).toBeUndefined();
+  expect(props.notice).toBeUndefined();
   await act(async () => {
     props.onConfirm?.();
   });
@@ -402,10 +394,9 @@ it('reports undecodable export data to the SDK instead of treating it as cancell
   render(<ThirdPartyHardwareUiStateContainer />);
   await flush();
   await act(async () => {
-    await jest
-      .mocked(SecureQRToast.show)
-      .mock.calls[0][0].extraAction?.onPress();
+    jest.mocked(SecureQRToast.show).mock.calls[0][0].onConfirm?.();
   });
+  await flush();
   expect(mockUiResponse).toHaveBeenCalledWith({
     vendor: EHardwareVendor.keystone,
     response: {

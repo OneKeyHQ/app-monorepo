@@ -1159,27 +1159,16 @@ function ThirdPartyHardwareUiStateContainerCmp() {
               message: intl.formatMessage({
                 id: ETranslations.device_stage_show_qr__title,
               }),
-              extraAction: {
-                title: intl.formatMessage({
-                  id: ETranslations.keystone_specialized_firmware__title,
-                }),
-                description: intl.formatMessage({
-                  id: ETranslations.keystone_account_export__desc,
-                }),
-                label: intl.formatMessage({
-                  id: ETranslations.keystone_scan_account_export__action,
-                }),
-                testID: 'keystone-scan-account-export-btn',
-                onPress: async () => {
-                  await toast?.close({ flag: 'skipReject' });
-                  await runScan(true);
-                },
-              },
+              notice: intl.formatMessage({
+                id: ETranslations.keystone_account_export__desc,
+              }),
             }
           : {}),
         onConfirm: async () => {
           await toast?.close({ flag: 'skipReject' });
-          await runScan();
+          // Where the request accepts a device export, the SDK reads either
+          // answer — this request's or a specialized firmware's own export.
+          await runScan(Boolean(uiState?.payload?.allowAccountExport));
         },
         onCancel: async () => {
           await toast?.close();
