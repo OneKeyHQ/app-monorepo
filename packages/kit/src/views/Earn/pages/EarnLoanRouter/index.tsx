@@ -303,7 +303,8 @@ function EarnLoanRouterPage() {
   const [collateralSymbol, setCollateralSymbol] = useState(routeCollateral);
   const [borrowSymbol, setBorrowSymbol] = useState(routeBorrow);
   const [collateralAmount, setCollateralAmount] = useState('');
-  // The loan typed by hand; otherwise it follows the LTV bar
+  // The loan typed by hand, an emptied box included; otherwise it follows
+  // the LTV bar
   const [typedBorrow, setTypedBorrow] = useState<string>();
   // The market position's LTV the bar was dragged to. Until then the loan is
   // half the collateral's value, as the Loans list works its Net APY out
@@ -406,7 +407,7 @@ function EarnLoanRouterPage() {
               facts,
               collateralAmount,
               borrowAmount,
-              ltvStage: typedBorrow === undefined ? previewLtv : undefined,
+              ltvStage: typedBorrow ? undefined : previewLtv,
             }),
           };
         }),
@@ -547,9 +548,10 @@ function EarnLoanRouterPage() {
     setTypedBorrow(undefined);
     setDraggedLtv(undefined);
   }, []);
-  // An emptied box follows the bar again
+  // An emptied box stays empty: no loan until one is typed or the bar is
+  // moved. Handed back to the bar, it filled itself again at once
   const handleBorrowChange = useCallback((value: string) => {
-    setTypedBorrow(value || undefined);
+    setTypedBorrow(value);
   }, []);
   // Where the bar starts (what is borrowed in the market already), read at
   // the press
