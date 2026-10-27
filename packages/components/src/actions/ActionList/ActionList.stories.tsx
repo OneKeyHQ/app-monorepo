@@ -8,7 +8,7 @@ import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { XStack } from '@onekeyhq/components/src/primitives/Stack';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
-import type { GestureResponderEvent, View } from 'react-native';
+import type { GestureResponderEvent, ViewInstance } from 'react-native';
 
 const ACCOUNT_ITEMS: IActionListProps['items'] = [
   { label: 'Rename', icon: 'PencilOutline', onPress: fn() },
@@ -80,7 +80,7 @@ function ContextMenuTrigger({ label, ...listProps }: IContextMenuTriggerProps) {
 }
 
 function TriggerRectMenu({ label, ...listProps }: IContextMenuTriggerProps) {
-  const triggerRef = useRef<View>(null);
+  const triggerRef = useRef<ViewInstance>(null);
   const handlePress = useCallback(() => {
     triggerRef.current?.measureInWindow((x, y, width, height) => {
       ActionList.show({

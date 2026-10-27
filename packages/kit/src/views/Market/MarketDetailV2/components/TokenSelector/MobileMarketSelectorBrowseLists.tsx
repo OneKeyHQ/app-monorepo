@@ -511,7 +511,7 @@ function TokenRowsList({
       windowSize={7}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.4}
-      ListFooterComponent={footer}
+      ListFooterComponent={footer ?? undefined}
       keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}
       keyboardShouldPersistTaps="handled"
       style={LIST_STYLE}

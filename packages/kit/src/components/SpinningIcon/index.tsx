@@ -29,7 +29,7 @@ export function SpinningIcon({
       Animated.timing(rotation, {
         toValue: 1,
         duration: SPIN_DURATION_MS,
-        easing: Easing.linear,
+        easing: (progress) => Easing.linear(progress),
         useNativeDriver: true,
       }),
     ).start();
@@ -38,7 +38,7 @@ export function SpinningIcon({
         Animated.timing(rotation, {
           toValue: 1,
           duration: (1 - value) * SPIN_DURATION_MS,
-          easing: Easing.linear,
+          easing: (progress) => Easing.linear(progress),
           useNativeDriver: true,
         }).start(({ finished }) => {
           // An interrupted finish means a new spin took over; leave it be.

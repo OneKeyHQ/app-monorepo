@@ -8,6 +8,7 @@ import {
   getSwapProAccountForCurrentScope,
   getSwapProDepositAccountInfo,
   getSwapProErrorAlertAction,
+  getSwapProPositionsAccountScope,
   resolveSwapProAccountIdentity,
   resolveSwapProAccountStatus,
   shouldSyncSwapProAccountNetwork,
@@ -385,5 +386,60 @@ describe('shouldSyncSwapProAccountNetwork', () => {
         isSingletonAccountCompatible: false,
       }),
     ).toBe(true);
+  });
+});
+
+describe('positions account scope', () => {
+  const activeAccount = {
+    ready: true,
+    deriveType: 'default',
+    indexedAccount: { id: 'indexed-a' },
+    network: { id: 'evm--1' },
+    account: { id: 'account-a', address: 'address-a' },
+  };
+  const inputs = {
+    indexedAccountId: 'indexed-a',
+    activeAccount,
+    selectedDeriveType: 'default',
+  };
+  it('changes scope when the same indexed account changes its address or derive type', () => {
+    const original = getSwapProPositionsAccountScope(inputs);
+    expect(original).toBeDefined();
+    expect(
+      getSwapProPositionsAccountScope({
+        ...inputs,
+        activeAccount: {
+          ...activeAccount,
+          account: { ...activeAccount.account, address: 'address-b' },
+        },
+      }),
+    ).not.toBe(original);
+    expect(
+      getSwapProPositionsAccountScope({
+        ...inputs,
+        selectedDeriveType: 'ledgerLive',
+        activeAccount: { ...activeAccount, deriveType: 'ledgerLive' },
+      }),
+    ).not.toBe(original);
+  });
+  it('waits for the selected account and derive type to synchronize', () => {
+    expect(
+      getSwapProPositionsAccountScope({
+        ...inputs,
+        indexedAccountId: 'indexed-b',
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapProPositionsAccountScope({
+        ...inputs,
+        selectedDeriveType: 'ledgerLive',
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapProPositionsAccountScope({
+        ...inputs,
+        activeAccount: { ...activeAccount, ready: false },
+      }),
+    ).toBeUndefined();
   });
 });

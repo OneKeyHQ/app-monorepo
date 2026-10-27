@@ -1,8 +1,19 @@
+import { useMemo, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Empty, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Button,
+  Empty,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IMarketAccountPortfolioPnl } from '@onekeyhq/shared/types/marketV2';
+import { swapProPositionsListMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { type ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
@@ -10,6 +21,8 @@ import SwapProPositionListFooter from '../../components/SwapProPositionListFoote
 import SwapProPositionListHeader from '../../components/SwapProPositionListHeader';
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
+
+const EMPTY_TOKENS: ISwapToken[] = [];
 
 function SwapProPositionItemSkeleton({
   stockLayout = false,
@@ -83,6 +96,7 @@ interface ISwapProPositionsListProps {
   stockOnly?: boolean;
   hideSearch?: boolean;
   stockLayout?: boolean;
+  pnlMap?: Map<string, IMarketAccountPortfolioPnl>;
 }
 
 const SwapProPositionsList = ({
@@ -96,16 +110,28 @@ const SwapProPositionsList = ({
   stockOnly,
   hideSearch,
   stockLayout = false,
+  pnlMap: sharedPnlMap,
 }: ISwapProPositionsListProps) => {
   const intl = useIntl();
+  const [isExpanded, setIsExpanded] = useState(false);
   const { finallyTokenList } = useSwapProPositionsListFilter(
     filterToken,
     positionTokenList,
     stockOnly,
   );
-  const displayTokenList = finallyTokenList;
+  const isOverflow = finallyTokenList.length > swapProPositionsListMaxCount;
+  const displayTokenList = useMemo(
+    () =>
+      isExpanded
+        ? finallyTokenList
+        : finallyTokenList.slice(0, swapProPositionsListMaxCount),
+    [finallyTokenList, isExpanded],
+  );
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
-  const pnlMap = useSwapProPositionsPnl(displayTokenList);
+  const localPnlMap = useSwapProPositionsPnl(
+    sharedPnlMap ? EMPTY_TOKENS : displayTokenList,
+  );
+  const pnlMap = sharedPnlMap ?? localPnlMap;
 
   if (positionLoading && displayTokenList.length === 0) {
     return (
@@ -135,7 +161,10 @@ const SwapProPositionsList = ({
     );
   }
   return (
-    <YStack gap={stockLayout ? '$3.5' : undefined}>
+    <YStack
+      testID="swap-pro-positions-list"
+      gap={stockLayout ? '$3.5' : undefined}
+    >
       <SwapProPositionListHeader stockLayout={stockLayout} />
       <YStack>
         {displayTokenList.length > 0 ? (
@@ -146,6 +175,9 @@ const SwapProPositionsList = ({
               onPress={onTokenPress}
               pnl={pnlMap.get(`${item.networkId}-${item.contractAddress}`)}
               stockLayout={stockLayout}
+              props={{
+                testID: `swap-pro-position-${item.networkId}-${item.contractAddress}`,
+              }}
             />
           ))
         ) : (
@@ -157,9 +189,31 @@ const SwapProPositionsList = ({
       </YStack>
       {SwapProCurrentSymbolEnable ||
       !onSearchClick ||
-      hideSearch ? undefined : (
+      hideSearch ||
+      (isOverflow && !isExpanded) ? undefined : (
         <SwapProPositionListFooter onSearchClick={onSearchClick} />
       )}
+      {isOverflow ? (
+        <XStack pt="$3" justifyContent="center" alignItems="center">
+          <Button
+            testID={
+              isExpanded
+                ? 'swap-pro-positions-show-less'
+                : 'swap-pro-positions-show-more'
+            }
+            size="medium"
+            variant="secondary"
+            flex={1}
+            onPress={() => setIsExpanded((value) => !value)}
+          >
+            {intl.formatMessage({
+              id: isExpanded
+                ? ETranslations.global_show_less
+                : ETranslations.global_show_more,
+            })}
+          </Button>
+        </XStack>
+      ) : null}
     </YStack>
   );
 };

@@ -53,7 +53,7 @@ import { useSplitViewDetailOffset } from '../../provider/Container/TableSplitVie
 import { useSpotlightAnchorVisibility } from './useSpotlightAnchorVisibility';
 
 import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
-import type { View as NativeView } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 export type ISpotlightViewProps = PropsWithChildren<{
   anchorRef?: RefObject<IElement | null>;
@@ -91,7 +91,7 @@ interface IFloatingPosition {
 }
 
 type ISpotlightContentEvent = ISpotlightViewProps & {
-  triggerRef: RefObject<NativeView>;
+  triggerRef: RefObject<ViewInstance>;
   floatingOffset: number;
   childrenPaddingVertical?: number;
   childrenPaddingHorizontal?: number;
@@ -557,7 +557,7 @@ export function SpotlightView({
         closeOnBackdropPress,
         matchTriggerSize,
         deferUntilIdle,
-        triggerRef: triggerRef as RefObject<NativeView>,
+        triggerRef: triggerRef as RefObject<ViewInstance>,
         floatingOffset,
         childrenPaddingVertical,
         childrenPaddingHorizontal,
@@ -642,7 +642,7 @@ export function SpotlightView({
             childrenPaddingHorizontal,
             showHighlightBackground,
             highlightBackgroundOpacity,
-            triggerRef: triggerRef as RefObject<NativeView>,
+            triggerRef: triggerRef as RefObject<ViewInstance>,
           }}
         />
       ) : null}

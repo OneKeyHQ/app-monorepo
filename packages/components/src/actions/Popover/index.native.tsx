@@ -41,7 +41,7 @@ import { useNativePortalLifecycle } from './useNativePortalLifecycle';
 
 import type { IPopoverProps, IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 const gtMdShFrameStyle = {
   minWidth: 400,
@@ -170,7 +170,7 @@ function RawPopover({
   const [sheetContentMeasurement, setSheetContentMeasurement] = useState<
     IStableContentHeightMeasurement | undefined
   >();
-  const sheetInnerViewRef = useRef<View>(null!);
+  const sheetInnerViewRef = useRef<ViewInstance>(null!);
   const sheetMeasureRequestRef = useRef(0);
   const previousRenderContentRef = useRef(renderContent);
   const renderContentGenerationRef = useRef(0);
