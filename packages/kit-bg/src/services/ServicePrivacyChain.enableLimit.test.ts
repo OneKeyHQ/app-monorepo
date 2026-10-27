@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { localWalletText } from '../vaults/localWallet/messages';
+import { getViewingKeyFingerprint } from '../vaults/localWallet/viewingKeyFingerprint';
 
 import type {
   ILocalWalletAccount,
@@ -73,6 +74,7 @@ function createService({
   keylessAccountIds = [],
   addresses = {},
   birthdays = {},
+  viewingKeys = {},
 }: {
   accountsByNetwork: Record<string, ILocalWalletAccount[]>;
   times?: Record<string, ISlotTimes>;
@@ -91,6 +93,8 @@ function createService({
     string,
     { birthdayHeight: number; birthdayTimestamp?: number }
   >;
+  // Stored viewing keys by account.
+  viewingKeys?: Record<string, string>;
 }) {
   const find = (networkId: string, accountId: string) =>
     accountsByNetwork[networkId]?.find((item) => item.accountId === accountId);
@@ -127,11 +131,14 @@ function createService({
           accounts: accountsByNetwork[networkId] ?? [],
           cleanupAccountIds: [],
         }),
-        getAccountState: async ({ accountId }) => ({
-          enabled: !!find(networkId, accountId)?.syncEnabled,
-          paused: false,
-          ...birthdays[accountId],
-        }),
+        getAccountState: async ({ accountId }) => {
+          const enabled = !!find(networkId, accountId)?.syncEnabled;
+          return {
+            enabled,
+            paused: !enabled && pausedAccountIds.includes(accountId),
+            ...birthdays[accountId],
+          };
+        },
       }),
     }),
   );
@@ -173,11 +180,32 @@ function createService({
       };
     },
   );
+  const promptPasswordVerifyByAccount = jest.fn();
+  const getWalletDeviceParams = jest.fn();
   const service = Object.assign(
     Object.create(ServicePrivacyChain.prototype) as ITestService,
     {
       backgroundApi: {
+        servicePassword: { promptPasswordVerifyByAccount },
         simpleDb: {
+          privacyChainKeys: {
+            getKey: async ({ accountId }: { accountId: string }) => {
+              const value = viewingKeys[accountId];
+              if (value === undefined) return undefined;
+              const networkId = Object.keys(accountsByNetwork).find(
+                (id) => !!find(id, accountId),
+              );
+              if (!networkId) return undefined;
+              return {
+                networkId,
+                vkFp: getViewingKeyFingerprint({
+                  networkId,
+                  viewingKey: value,
+                }),
+                sealed: { format: 'plain', value },
+              };
+            },
+          },
           privacyChainState: {
             listPendingAccountDeletions: async () => pendingDeletions,
             getAccountVkFp: async ({
@@ -200,6 +228,7 @@ function createService({
           },
         },
         serviceAccount: {
+          getWalletDeviceParams,
           getWalletSafe: async () => ({ isTemp: false }),
           getDBAccountSafe: async ({ accountId }: { accountId: string }) => ({
             address: addresses[accountId] ?? `address-${accountId}`,
@@ -226,6 +255,8 @@ function createService({
     disabled,
     syncing,
     touchAccountSyncSlot,
+    promptPasswordVerifyByAccount,
+    getWalletDeviceParams,
   };
 }
 
@@ -677,5 +708,91 @@ describe('Privacy Mode turning twins off', () => {
     });
 
     expect(disabled).toEqual(['hd-x1']);
+  });
+});
+
+describe('Privacy Mode resuming twins', () => {
+  const sharedKey = 'aa:bb';
+  const sharedIdentity = getViewingKeyFingerprint({
+    networkId: XMR,
+    viewingKey: sharedKey,
+  });
+  const pausedTwins = (viewingKeys: Record<string, string>) =>
+    createService({
+      accountsByNetwork: {
+        [XMR]: [
+          account('hd-x1', sharedIdentity, false),
+          account('hw-x1', sharedIdentity, false),
+          account('hd-x2', 'key-x2', false),
+        ],
+      },
+      pausedAccountIds: ['hd-x1', 'hw-x1', 'hd-x2'],
+      viewingKeys,
+    });
+
+  it('resumes a paused twin with the account, asking for nothing', async () => {
+    const {
+      service,
+      enableAccount,
+      syncing,
+      promptPasswordVerifyByAccount,
+      getWalletDeviceParams,
+    } = pausedTwins({ 'hd-x1': sharedKey, 'hw-x1': sharedKey });
+
+    await service.enableLocalWalletAccount({
+      networkId: XMR,
+      accountId: 'hd-x1',
+    });
+
+    expect(enableAccount.mock.calls).toEqual([
+      [{ accountId: 'hd-x1' }],
+      [{ accountId: 'hw-x1' }],
+    ]);
+    expect(syncing()).toEqual(['hd-x1', 'hw-x1']);
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+    expect(getWalletDeviceParams).not.toHaveBeenCalled();
+  });
+
+  it('leaves a twin without a stored viewing key paused', async () => {
+    const {
+      service,
+      enableAccount,
+      syncing,
+      promptPasswordVerifyByAccount,
+      getWalletDeviceParams,
+    } = pausedTwins({ 'hd-x1': sharedKey });
+
+    await service.enableLocalWalletAccount({
+      networkId: XMR,
+      accountId: 'hd-x1',
+    });
+
+    expect(enableAccount.mock.calls).toEqual([[{ accountId: 'hd-x1' }]]);
+    expect(syncing()).toEqual(['hd-x1']);
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+    expect(getWalletDeviceParams).not.toHaveBeenCalled();
+  });
+
+  it('keeps the account on when resuming a twin fails', async () => {
+    const { service, enableAccount, syncing } = pausedTwins({
+      'hd-x1': sharedKey,
+      'hw-x1': sharedKey,
+    });
+    const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const turnOn = enableAccount.getMockImplementation();
+    enableAccount.mockImplementation(async (params) => {
+      if (params.accountId === 'hw-x1') {
+        throw new OneKeyLocalError('device busy');
+      }
+      await turnOn?.(params);
+    });
+
+    await expect(
+      service.enableLocalWalletAccount({ networkId: XMR, accountId: 'hd-x1' }),
+    ).resolves.toBeUndefined();
+
+    expect(enableAccount).toHaveBeenCalledTimes(2);
+    expect(syncing()).toEqual(['hd-x1']);
+    logged.mockRestore();
   });
 });

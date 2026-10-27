@@ -307,7 +307,7 @@ export function buildXmrLocalWalletCapability(
   };
 
   // "alias": another account keeps this identity scan data; "maybe": that cannot be ruled out.
-  // Orphan cleanup settles "maybe" later.
+  // Orphan cleanup settles "maybe" later. An alias being deleted keeps nothing.
   const identityHeldByOtherAccount = async ({
     accountId,
     vkFp,
@@ -315,7 +315,10 @@ export function buildXmrLocalWalletCapability(
     accountId: string;
     vkFp: string;
   }): Promise<'no' | 'alias' | 'maybe'> => {
-    const holders = await stateDb().listScanDataAccountIds({ networkId });
+    const holders = await stateDb().listScanDataAccountIds({
+      networkId,
+      excludeDeleting: true,
+    });
     if (!holders) return 'maybe';
     let held: 'no' | 'maybe' = 'no';
     for (const otherId of holders) {

@@ -272,6 +272,78 @@ describe('privacy chain state: durable account deletion', () => {
   });
 });
 
+describe('privacy chain state: twins being deleted', () => {
+  const shared = 'a'.repeat(32);
+
+  async function enableXmr(
+    entity: SimpleDbEntityPrivacyChainState,
+    accountIds: string[],
+    vkFp = shared,
+  ) {
+    for (const accountId of accountIds) {
+      // eslint-disable-next-line no-await-in-loop
+      await entity.saveXmrEnabledAccount({
+        networkId: XMR,
+        accountId,
+        vkFp,
+        birthdayHeight: 100,
+      });
+    }
+  }
+
+  it('leaves an account being deleted out of the holders that keep an alias, not one re-enabled', async () => {
+    const entity = createEntity();
+    await enableXmr(entity, ['live', 'deleted', 'reenabled']);
+    await entity.requestAccountDeletion({
+      networkId: XMR,
+      accountId: 'deleted',
+    });
+    await entity.beginAccountReenable(
+      await entity.requestAccountDeletion({
+        networkId: XMR,
+        accountId: 'reenabled',
+      }),
+    );
+
+    await expect(
+      entity.listScanDataAccountIds({ networkId: XMR }),
+    ).resolves.toEqual(['live', 'deleted', 'reenabled']);
+    await expect(
+      entity.listScanDataAccountIds({ networkId: XMR, excludeDeleting: true }),
+    ).resolves.toEqual(['live', 'reenabled']);
+  });
+
+  it('lists the other accounts of an identity being deleted', async () => {
+    const entity = createEntity();
+    await enableXmr(entity, ['clicked', 'twin', 'reenabled']);
+    await enableXmr(entity, ['other'], 'b'.repeat(32));
+    const twin = await entity.requestAccountDeletion({
+      networkId: XMR,
+      accountId: 'twin',
+    });
+    await entity.beginAccountReenable(
+      await entity.requestAccountDeletion({
+        networkId: XMR,
+        accountId: 'reenabled',
+      }),
+    );
+    await entity.requestAccountDeletion({ networkId: XMR, accountId: 'other' });
+
+    await expect(
+      entity.listIdentityDeletions({ networkId: XMR, accountId: 'clicked' }),
+    ).resolves.toEqual([twin]);
+    await expect(
+      entity.listIdentityDeletions({ networkId: XMR, accountId: 'twin' }),
+    ).resolves.toEqual([]);
+    await expect(
+      entity.listIdentityDeletions({ networkId: ZEC, accountId: 'clicked' }),
+    ).resolves.toEqual([]);
+    await expect(
+      entity.listIdentityDeletions({ networkId: XMR, accountId: 'unknown' }),
+    ).resolves.toEqual([]);
+  });
+});
+
 describe('privacy chain state: xmr background preparation', () => {
   const pending = {
     networkId: XMR,

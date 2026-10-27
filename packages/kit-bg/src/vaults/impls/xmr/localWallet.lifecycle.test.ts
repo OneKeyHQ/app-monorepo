@@ -303,6 +303,76 @@ test('serializes deletion of two aliases through host cleanup before purging the
   expect(runtime.removeAccount).toHaveBeenCalledTimes(1);
 });
 
+async function setupTwins() {
+  const fixture = await setup();
+  const twin = 'hd-1--twin';
+  await fixture.keys.saveKey({
+    accountId: twin,
+    record: {
+      networkId,
+      vkFp: fixture.saved.vkFp,
+      sealed: { format: 'plain', value: 'synthetic-key-pair' },
+    },
+  });
+  await fixture.cap.enableAccount({ accountId, birthdayHeight: 3_000_000 });
+  await fixture.cap.enableAccount({
+    accountId: twin,
+    birthdayHeight: 3_000_000,
+  });
+  await fixture.cap.syncGroup({ accountIds: [accountId], chainTip: tip });
+  expect(fixture.rows.has(fixture.saved.vkFp)).toBe(true);
+  return { ...fixture, twin };
+}
+
+test('deleting one twin deletes the other and removes their shared runtime identity once', async () => {
+  const { state, keys, runtime, service, saved, rows, twin } =
+    await setupTwins();
+  await service.deleteLocalWalletAccountData({ networkId, accountId });
+  await service.resumePendingAccountDeletions();
+  expect(await state.listPendingAccountDeletions()).toEqual([]);
+  expect(await keys.listAccountIds()).toEqual([]);
+  expect(await state.getXmrAccountState({ accountId: twin })).toMatchObject({
+    intent: 'off',
+  });
+  expect(rows.has(saved.vkFp)).toBe(false);
+  expect(runtime.removeAccount).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  {
+    title: 'a twin being deleted does not keep the shared identity',
+    reenabled: false,
+    removed: true,
+  },
+  {
+    title: 'a twin re-enabled during its deletion keeps the shared identity',
+    reenabled: true,
+    removed: false,
+  },
+])('$title', async ({ reenabled, removed }) => {
+  const { cap, state, runtime, saved, rows, twin } = await setupTwins();
+  const twinRequest = await state.requestAccountDeletion({
+    networkId,
+    accountId: twin,
+  });
+  if (reenabled) {
+    await state.beginAccountReenable(twinRequest);
+    await cap.enableAccount({ accountId: twin, birthdayHeight: 3_000_000 });
+  }
+  const request = await state.requestAccountDeletion({
+    networkId,
+    accountId,
+  });
+  await expect(
+    cap.deleteRuntimeAccount({
+      accountId,
+      deletionRequestId: request.requestId,
+    }),
+  ).resolves.toEqual({ orphaned: false });
+  expect(rows.has(saved.vkFp)).toBe(!removed);
+  expect(runtime.removeAccount).toHaveBeenCalledTimes(removed ? 1 : 0);
+});
+
 test('a delayed obsolete deletion cannot remove an account authorized after a newer deletion', async () => {
   const { cap, state, runtime } = await setup();
   await cap.enableAccount({ accountId, birthdayHeight: 3_000_000 });

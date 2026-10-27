@@ -796,6 +796,115 @@ describe.each(['zec--0', 'xmr--0'])(
       expect(forgetCachedLocalWalletBalance).toHaveBeenCalledWith(params);
     });
 
+    describe('of twins sharing one scan', () => {
+      const twinIds = [liveAccountId, hiddenAccountId];
+
+      async function enableTwins(
+        privacyChainState: SimpleDbEntityPrivacyChainState,
+      ) {
+        for (const accountId of twinIds) {
+          // eslint-disable-next-line no-await-in-loop
+          await privacyChainState.saveXmrEnabledAccount({
+            networkId: chainNetworkId,
+            accountId,
+            vkFp: 'a'.repeat(32),
+            birthdayHeight: 100,
+          });
+        }
+      }
+
+      it.each(twinIds)(
+        'deletes every twin with %s and cleans their runtime data once',
+        async (clickedId) => {
+          const { service, capability, privacyChainState, privacyChainKeys } =
+            createDeleteHarness();
+          await enableTwins(privacyChainState);
+          const step = deferred();
+          capability.deleteRuntimeAccount.mockImplementationOnce(async () => {
+            await step.promise;
+            return { orphaned: false };
+          });
+
+          await service.deleteLocalWalletAccountData({
+            networkId: chainNetworkId,
+            accountId: clickedId,
+          });
+          expect(
+            (await privacyChainState.listPendingAccountDeletions()).map(
+              ({ accountId }) => accountId,
+            ),
+          ).toEqual(twinIds);
+          step.resolve();
+          await service.resumePendingAccountDeletions();
+
+          expect(capability.deleteRuntimeAccount).toHaveBeenCalledTimes(1);
+          expect(capability.deleteRuntimeAccount).toHaveBeenCalledWith(
+            expect.objectContaining({ accountId: clickedId }),
+          );
+          expect(await privacyChainState.listPendingAccountDeletions()).toEqual(
+            [],
+          );
+          expect(await privacyChainKeys.listAccountIds()).toEqual([]);
+          expect(
+            await privacyChainState.listScanDataAccountIds({
+              networkId: chainNetworkId,
+            }),
+          ).toEqual([]);
+        },
+      );
+
+      it('leaves a twin re-enabled during the cleanup to its own cleanup', async () => {
+        const { service, capability, privacyChainState, privacyChainKeys } =
+          createDeleteHarness();
+        await enableTwins(privacyChainState);
+        capability.enableAccount.mockImplementation(async () => {
+          await privacyChainState.saveXmrEnabledAccount({
+            networkId: chainNetworkId,
+            accountId: hiddenAccountId,
+            vkFp: 'a'.repeat(32),
+            birthdayHeight: 200,
+          });
+        });
+        const step = deferred();
+        const entered = deferred();
+        capability.deleteRuntimeAccount.mockImplementationOnce(async () => {
+          entered.resolve();
+          await step.promise;
+          return { orphaned: false };
+        });
+
+        await service.deleteLocalWalletAccountData(params);
+        await entered.promise;
+        await service.enableLocalWalletAccount({
+          networkId: chainNetworkId,
+          accountId: hiddenAccountId,
+        });
+        step.resolve();
+        await service.resumePendingAccountDeletions();
+
+        expect(capability.deleteRuntimeAccount).toHaveBeenCalledTimes(2);
+        expect(capability.deleteRuntimeAccount).toHaveBeenNthCalledWith(
+          1,
+          expect.objectContaining({ accountId: liveAccountId }),
+        );
+        expect(capability.deleteRuntimeAccount).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({ accountId: hiddenAccountId }),
+        );
+        expect(await privacyChainState.listPendingAccountDeletions()).toEqual(
+          [],
+        );
+        expect(await privacyChainKeys.listAccountIds()).toEqual([
+          hiddenAccountId,
+        ]);
+        expect(
+          await privacyChainState.getXmrAccountState({
+            accountId: hiddenAccountId,
+          }),
+        ).toMatchObject({ intent: 'on', birthdayHeight: 200 });
+      });
+    });
+
     it('marks orphan cleanup when the runtime identity cannot be named', async () => {
       const { service, capability, privacyChainState } = createDeleteHarness();
       capability.deleteRuntimeAccount.mockResolvedValueOnce({ orphaned: true });

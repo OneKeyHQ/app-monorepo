@@ -2887,57 +2887,85 @@ class ServicePrivacyChain extends ServiceBase {
   ): Promise<void> {
     if (resetUtils.getIsResetting() || (await this.isPersistenceMasked()))
       return;
+    const { networkId, accountId } = request;
     const stateDb = this.backgroundApi.simpleDb.privacyChainState;
     const readPending = async () =>
       (await stateDb.listPendingAccountDeletions()).find(
         (item) =>
-          item.accountId === request.accountId &&
-          item.networkId === request.networkId &&
+          item.accountId === accountId &&
+          item.networkId === networkId &&
           item.requestId === request.requestId,
       );
+    const readTwinDeletions = () =>
+      stateDb.listIdentityDeletions({ networkId, accountId });
     // Earlier authorization finishes before destructive work begins.
-    const pending = await this.getEnableMutex(request.networkId).runExclusive(
-      readPending,
+    const before = await this.getEnableMutex(networkId).runExclusive(
+      async () => ({
+        pending: await readPending(),
+        twinDeletions: await readTwinDeletions(),
+      }),
     );
-    if (!pending) return;
+    if (!before.pending) return;
     const capability =
-      providedCapability ??
-      (await this.requireAccountCapability(request.networkId));
+      providedCapability ?? (await this.requireAccountCapability(networkId));
     const { orphaned } = await capability.deleteRuntimeAccount({
-      accountId: request.accountId,
+      accountId,
       deletionRequestId: request.requestId,
     });
-    if (orphaned)
-      await stateDb.markRuntimeOrphans({ networkId: request.networkId });
-    await this.getEnableMutex(request.networkId).runExclusive(async () => {
+    if (orphaned) await stateDb.markRuntimeOrphans({ networkId });
+    await this.getEnableMutex(networkId).runExclusive(async () => {
       const current = await readPending();
       if (!current) return;
-      await this.runLocalWalletLifecycle({
-        event: 'deleteLocalData',
-        targets: [
-          {
-            scope: 'accounts',
-            networkId: request.networkId,
-            capability,
-            accountIds: [request.accountId],
-            runtimeAccountIds: [],
-            preserveAuthorization: current.reenabled,
-          },
-        ],
-      });
-      await stateDb.completeAccountDeletion(request);
-      void this.onLocalWalletAccountsChanged({
-        networkId: request.networkId,
-        accountIds: [request.accountId],
-        backfillActive: !!current.reenabled,
-      }).catch((error: unknown) => {
-        console.error(
-          '[privacy-chain] deletion completion notification failed',
-          {
-            ...describePrivacyChainError(error),
+      // Twins deleted since before the runtime step kept no data alive there,
+      // so it covered them. One re-enabled or deleted later runs its own.
+      const twins = (await readTwinDeletions()).filter((twin) =>
+        before.twinDeletions.some(
+          (earlier) =>
+            earlier.accountId === twin.accountId &&
+            earlier.requestId === twin.requestId,
+        ),
+      );
+      const twinIds = twins.map((twin) => twin.accountId);
+      const targets: ILocalWalletLifecycleTarget[] = [
+        {
+          scope: 'accounts',
+          networkId,
+          capability,
+          accountIds: [accountId],
+          runtimeAccountIds: [],
+          preserveAuthorization: current.reenabled,
+        },
+      ];
+      const notices = [
+        { accountIds: [accountId], backfillActive: !!current.reenabled },
+      ];
+      if (twinIds.length > 0) {
+        targets.push({
+          scope: 'accounts',
+          networkId,
+          capability,
+          accountIds: twinIds,
+          runtimeAccountIds: [],
+        });
+        notices.push({ accountIds: twinIds, backfillActive: false });
+      }
+      await this.runLocalWalletLifecycle({ event: 'deleteLocalData', targets });
+      for (const done of [request, ...twins]) {
+        // eslint-disable-next-line no-await-in-loop
+        await stateDb.completeAccountDeletion(done);
+      }
+      for (const notice of notices) {
+        void this.onLocalWalletAccountsChanged({ networkId, ...notice }).catch(
+          (error: unknown) => {
+            console.error(
+              '[privacy-chain] deletion completion notification failed',
+              {
+                ...describePrivacyChainError(error),
+              },
+            );
           },
         );
-      });
+      }
     });
   }
 
@@ -3119,6 +3147,7 @@ class ServicePrivacyChain extends ServiceBase {
     holders: { accountId: string; identity: string }[];
   }): Promise<string[]> {
     const others = holders.filter((holder) => holder.accountId !== accountId);
+    if (others.length === 0) return [];
     if (identity !== undefined) {
       return others
         .filter((holder) => holder.identity === identity)
@@ -3224,6 +3253,12 @@ class ServicePrivacyChain extends ServiceBase {
       await this.assertNotTempWalletAccount(accountId);
       // Before any key prompt: a refusal must not follow a password entry.
       await this.assertNetworkAccountCeiling({ networkId, accountId });
+      // Read before the enable below changes the account's state.
+      const twinIdsToResume = await this.listResumableLocalWalletTwins({
+        networkId,
+        accountId,
+        capability,
+      });
       const pendingDeletion = (
         await this.backgroundApi.simpleDb.privacyChainState.listPendingAccountDeletions()
       ).find(
@@ -3273,7 +3308,57 @@ class ServicePrivacyChain extends ServiceBase {
           capability,
         ).catch(() => undefined);
       }
+      for (const twinId of twinIdsToResume) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await capability.enableAccount({ accountId: twinId });
+        } catch (error) {
+          // The account itself is already on.
+          console.error('[privacy-chain] could not resume a twin', {
+            networkId,
+            ...describePrivacyChainError(error),
+          });
+        }
+      }
     });
+  }
+
+  // Resuming a paused account resumes its paused twins too. A twin keeps its
+  // own viewing key while paused, so this asks for nothing; one without it
+  // stays paused.
+  private async listResumableLocalWalletTwins({
+    networkId,
+    accountId,
+    capability,
+  }: {
+    networkId: string;
+    accountId: string;
+    capability: ILocalWalletCapability;
+  }): Promise<string[]> {
+    const twinIds = await this.listLocalWalletAccountTwins({
+      networkId,
+      accountId,
+    });
+    if (twinIds.length === 0) return [];
+    if (!(await capability.getAccountState({ accountId })).paused) return [];
+    const stateDb = this.backgroundApi.simpleDb.privacyChainState;
+    const resumable = await Promise.all(
+      twinIds.map(async (twinId) => {
+        const [state, key, identity, isTemp] = await Promise.all([
+          capability.getAccountState({ accountId: twinId }),
+          getLocalWalletViewingKey({
+            backgroundApi: this.backgroundApi,
+            networkId,
+            accountId: twinId,
+          }),
+          stateDb.getAccountVkFp({ networkId, accountId: twinId }),
+          this.isTempWalletAccount({ accountId: twinId }),
+        ]);
+        const hasOwnKey = key !== undefined && key.vkFp === identity;
+        return state.paused && hasOwnKey && !isTemp;
+      }),
+    );
+    return twinIds.filter((_twinId, index) => resumable[index]);
   }
 
   // An enable that never started leaves no key behind; one journaled as
@@ -3491,19 +3576,28 @@ class ServicePrivacyChain extends ServiceBase {
         'privacy-chain: local scan data cannot change in Travel Mode',
       );
     }
-    const request =
-      await this.backgroundApi.simpleDb.privacyChainState.requestAccountDeletion(
-        {
-          networkId,
-          accountId,
-        },
+    // Twins share the scan data, so deleting one deletes all of them.
+    const accountIds = [
+      accountId,
+      ...(await this.listLocalWalletAccountTwins({ networkId, accountId })),
+    ];
+    const requests: IPrivacyChainPendingAccountDeletion[] = [];
+    for (const id of accountIds) {
+      requests.push(
+        // eslint-disable-next-line no-await-in-loop
+        await this.backgroundApi.simpleDb.privacyChainState.requestAccountDeletion(
+          { networkId, accountId: id },
+        ),
       );
-    void this.processPendingAccountDeletion(request, capability).catch(
-      () => undefined,
-    );
+    }
+    for (const request of requests) {
+      void this.processPendingAccountDeletion(request, capability).catch(
+        () => undefined,
+      );
+    }
     void this.onLocalWalletAccountsChanged({
       networkId,
-      accountIds: [accountId],
+      accountIds,
       backfillActive: false,
     }).catch((error: unknown) => {
       console.error('[privacy-chain] deletion notification deferred', {

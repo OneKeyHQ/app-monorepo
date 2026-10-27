@@ -304,6 +304,11 @@ function holdsScanData(record: IPrivacyChainAccountRecord): boolean {
   );
 }
 
+// A requested deletion no re-enable took back: the account's data goes.
+function isBeingDeleted(record: IPrivacyChainAccountRecord): boolean {
+  return !!record.scan.deletion && !record.scan.deletion.reenable;
+}
+
 function isScanning(record: IPrivacyChainAccountRecord): boolean {
   return (
     record.scan.intent === 'on' &&
@@ -772,11 +777,14 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
   }
 
   // Accounts whose scan data the runtime keeps; undefined when nothing was read (no state, or masked by
-  // Travel Mode). [] is not proof the runtime holds nothing.
+  // Travel Mode). [] is not proof the runtime holds nothing. `excludeDeleting` leaves out accounts being
+  // deleted: their data stays only until their own deletion, so it keeps no alias's data alive.
   async listScanDataAccountIds({
     networkId,
+    excludeDeleting = false,
   }: {
     networkId: string;
+    excludeDeleting?: boolean;
   }): Promise<string[] | undefined> {
     const raw = await this.getRawData();
     if (!raw) return undefined;
@@ -784,9 +792,34 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       Object.entries(raw.accounts ?? {}).flatMap(([accountId, value]) => {
         if (!mayBelongToNetwork(value, networkId)) return [];
         const record = parseAccountRecord(value);
-        return !record || holdsScanData(record) ? [accountId] : [];
+        if (!record) return [accountId];
+        const skipped = excludeDeleting && isBeingDeleted(record);
+        return !skipped && holdsScanData(record) ? [accountId] : [];
       }),
     );
+  }
+
+  // Other accounts of this one's scan identity being deleted too: one
+  // runtime cleanup covers them all.
+  async listIdentityDeletions({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<IPrivacyChainPendingAccountDeletion[]> {
+    const records = await this.listNetworkRecords(networkId);
+    const vkFp = records.find((item) => item.accountId === accountId)?.record
+      .vkFp;
+    if (vkFp === undefined) return [];
+    return records.flatMap(({ accountId: otherId, record }) => {
+      const isTwin = otherId !== accountId && record.vkFp === vkFp;
+      const deleting = isTwin && isBeingDeleted(record);
+      const requestId = record.scan.deletion?.requestId;
+      return deleting && requestId !== undefined
+        ? [{ accountId: otherId, networkId, requestId }]
+        : [];
+    });
   }
 
   async removeAccount({ accountId }: { accountId: string }): Promise<void> {

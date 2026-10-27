@@ -1190,7 +1190,8 @@ export async function zcashRewindAccount(
   });
 }
 
-// Runtime data is keyed by the shared UFVK: another live account scanning under it keeps it.
+// Runtime data is keyed by the shared UFVK: another live account scanning under it keeps it;
+// one being deleted does not.
 export async function zcashDeleteRuntimeAccount(
   vault: Vault,
   {
@@ -1216,7 +1217,10 @@ export async function zcashDeleteRuntimeAccount(
       const [metas, metaAccountIds, holders] = await Promise.all([
         stateDb.listZcashAccountMetas({ networkId: vault.networkId }),
         stateDb.listZcashMetaAccountIds({ networkId: vault.networkId }),
-        stateDb.listScanDataAccountIds({ networkId: vault.networkId }),
+        stateDb.listScanDataAccountIds({
+          networkId: vault.networkId,
+          excludeDeleting: true,
+        }),
       ]);
       // An unreadable record may be an alias, so the data stays for the orphan pass.
       const readableIds = new Set(metas.map((item) => item.accountId));
