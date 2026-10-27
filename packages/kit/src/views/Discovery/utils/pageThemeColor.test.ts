@@ -207,4 +207,39 @@ describe('isNewDocumentLoad', () => {
     expect(result.current.top).toBe(page.top);
     expect(result.current.bottom).toBe(page.bottom);
   });
+
+  it('does not pull another tab origin cache into the current document', () => {
+    const OTHER_TAB = 'tab-2';
+    const { result } = renderColors();
+
+    act(() => {
+      // A dark page in this tab.
+      reportColors(page.top, page.bottom, PAGE);
+      // Another tab on the same origin reports a different color, which lands in
+      // the per-origin cache.
+      tryDispatchPageThemeMessage(
+        OTHER_TAB,
+        JSON.stringify({
+          type: '$onekeyPageThemeColor',
+          color: 'rgb(200, 200, 200)',
+          bottomColor: 'rgb(190, 190, 190)',
+        }),
+        PAGE,
+      );
+    });
+
+    act(() => {
+      // An anchor jump in the first tab must not adopt the other tab's color.
+      applyCachedPageThemeColor(TAB, `${PAGE}#section`, false);
+    });
+
+    expect(result.current.top).toBe(page.top);
+    expect(result.current.bottom).toBe(page.bottom);
+
+    // A real navigation does apply that origin's cache.
+    act(() => {
+      applyCachedPageThemeColor(TAB, PAGE);
+    });
+    expect(result.current.top).toBe('rgb(200, 200, 200)');
+  });
 });

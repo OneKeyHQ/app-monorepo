@@ -174,21 +174,23 @@ export function documentUrlOf(url: string) {
 // current tint stays until the page reports its own. A new document also drops
 // the bottom color: it described the page being left, the bar picks its icon
 // and glass theme from it, and keeping it would leave the controls on the
-// wrong contrast until the destination reports. Same-document navigations
-// (anchor links, hash routing, Android's history updates, which also arrive as
-// load-start) skip that, since the page already reported and would not report
-// again.
+// wrong contrast until the destination reports. A same-document navigation
+// (anchor link, hash routing, Android's history update, which also arrives as
+// load-start) changes nothing at all: the document keeps both colors, and
+// applying the origin's cache here could replace them with another tab's, as
+// the cache is shared per origin and this page would not report again.
 export function applyCachedPageThemeColor(
   tabId: string,
   url: string,
   isNewDocument = true,
 ) {
+  if (!isNewDocument) {
+    return;
+  }
   const origin = originOf(url);
   const cached = origin ? originColors.get(origin) : undefined;
   const colorChanged = cached ? storeColor(colors, tabId, cached) : false;
-  const bottomChanged = isNewDocument
-    ? storeColor(bottomColors, tabId, undefined)
-    : false;
+  const bottomChanged = storeColor(bottomColors, tabId, undefined);
   if (colorChanged || bottomChanged) {
     emit();
   }
