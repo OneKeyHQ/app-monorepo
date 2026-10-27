@@ -112,6 +112,7 @@ const nativeTabScreenOptions = {
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
+  sideAccessory,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
   const theme = useTheme();
@@ -266,6 +267,9 @@ export function TabStackNavigator<RouteName extends string>({
         tabBarInactiveTintColor={theme.iconSubdued.val}
         tabBarStyle={tabBarStyle}
         screenOptions={nativeTabScreenOptions}
+        sideAccessoryIcon={sideAccessory?.icon}
+        sideAccessoryLabel={sideAccessory?.label}
+        onSideAccessoryPress={sideAccessory?.onPress}
       >
         {tabScreens}
       </NativeTab.Navigator>

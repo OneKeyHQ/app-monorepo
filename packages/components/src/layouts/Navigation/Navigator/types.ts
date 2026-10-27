@@ -87,10 +87,19 @@ export interface ITabNavigatorExtraConfig<RouteName extends string> {
   freezeOnBlur?: boolean;
 }
 
+// A round button the native tab bar draws above itself while the system shows
+// it as a vertical bar (the iPhone Duo side strip). iOS only.
+export interface ITabBarSideAccessory {
+  icon: ImageSourcePropType;
+  label: string;
+  onPress: () => void;
+}
+
 export interface ITabNavigatorProps<RouteName extends string> {
   config: ITabNavigatorConfig<RouteName>[];
   extraConfig?: ITabNavigatorExtraConfig<RouteName>;
   showTabBar?: boolean;
   bottomMenu: ReactElement;
   webPageTabBar: ReactElement;
+  sideAccessory?: ITabBarSideAccessory;
 }
