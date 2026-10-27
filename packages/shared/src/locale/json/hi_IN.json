@@ -2379,7 +2379,7 @@
   "keyless_wallet_removed__desc": "आपका कीलेस वॉलेट हटा दिया गया था। सिंकिंग फिर से शुरू करने के लिए इसे पुनर्स्थापित करें।",
   "keyless_wallet_verify_pin_account_mismatch": "खाता मेल नहीं खा रहा है",
   "keyless_wallet_verify_pin_account_mismatch_desc": "लॉग‑इन किया हुआ अकाउंट इस कीलेस वॉलेट से जुड़े अकाउंट से मेल नहीं खाता है।",
-  "keystone_account_export__desc": "नॉन-स्टैंडर्ड फ़र्मवेयर (BTC-only, Cypherpunk आदि): अपने डिवाइस पर खाते का एक्सपोर्ट QR कोड खोलें, फिर अगला पर टैप करें।",
+  "keystone_account_export__desc": "नॉन-स्टैंडर्ड फ़र्मवेयर: अपने डिवाइस पर खाते का QR कोड खोलें, फिर अगला पर टैप करें।",
   "keytag_backup_short__title": "KeyTag पर बैकअप लें",
   "keytag_checksum_failed__msg": "ये शब्द BIP39 जाँच में उत्तीर्ण नहीं होते। अपनी KeyTag के साथ प्रत्येक पंक्ति की जाँच करें।",
   "keytag_checksum_terminal__msg": "आपके डॉट्स प्लेट से मेल खाते हैं, लेकिन जाँच फिर भी विफल हो रही है — हो सकता है प्लेट पर ही छेद गलत किए गए हों।",

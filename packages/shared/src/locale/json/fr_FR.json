@@ -2379,7 +2379,7 @@
   "keyless_wallet_removed__desc": "Votre portefeuille sans clé a été supprimé. Restaurez-le pour reprendre la synchronisation.",
   "keyless_wallet_verify_pin_account_mismatch": "Compte non correspondant",
   "keyless_wallet_verify_pin_account_mismatch_desc": "Le compte connecté ne correspond pas à celui lié à ce portefeuille sans clé.",
-  "keystone_account_export__desc": "Firmware non standard (BTC-only, Cypherpunk, etc.) : ouvrez le code QR d’exportation de comptes sur votre appareil, puis appuyez sur Suivant.",
+  "keystone_account_export__desc": "Firmware non standard : ouvrez le code QR du compte sur votre appareil, puis appuyez sur Suivant.",
   "keytag_backup_short__title": "Sauvegarder sur KeyTag",
   "keytag_checksum_failed__msg": "Ces mots ne passent pas la vérification BIP39. Vérifiez chaque ligne par rapport à votre KeyTag.",
   "keytag_checksum_terminal__msg": "Vos points correspondent à la plaque, mais la vérification échoue toujours — la plaque elle-même peut avoir été mal poinçonnée.",

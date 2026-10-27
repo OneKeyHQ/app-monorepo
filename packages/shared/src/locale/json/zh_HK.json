@@ -2379,7 +2379,7 @@
   "keyless_wallet_removed__desc": "你的無私鑰錢包已被移除。恢復後即可繼續同步。",
   "keyless_wallet_verify_pin_account_mismatch": "帳戶不匹配",
   "keyless_wallet_verify_pin_account_mismatch_desc": "登錄的帳戶與此無鑰匙錢包所鏈接的帳戶不匹配。",
-  "keystone_account_export__desc": "非通用韌體（BTC-only、Cypherpunk 等）：直接在裝置上開啟帳戶匯出二維碼，然後點擊下一步",
+  "keystone_account_export__desc": "非通用韌體：在裝置上開啟帳戶二維碼，再點下一步",
   "keytag_backup_short__title": "備份到 KeyTag",
   "keytag_checksum_failed__msg": "這些字詞未能通過 BIP39 檢查。請逐行對照你的 KeyTag。",
   "keytag_checksum_terminal__msg": "你的點陣與鋼板一致，但校驗仍然失敗 — 鋼板本身可能打孔有誤。",

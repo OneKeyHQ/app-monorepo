@@ -2379,7 +2379,7 @@
   "keyless_wallet_removed__desc": "키리스 지갑이 삭제되었습니다. 동기화를 재개하려면 복원하세요.",
   "keyless_wallet_verify_pin_account_mismatch": "계정 불일치",
   "keyless_wallet_verify_pin_account_mismatch_desc": "로그인한 계정이 이 키 없는 지갑에 연결된 계정과 일치하지 않습니다.",
-  "keystone_account_export__desc": "비표준 펌웨어(BTC-only, Cypherpunk 등): 기기에서 계정 내보내기 QR 코드를 표시한 다음 다음을 누르세요.",
+  "keystone_account_export__desc": "비표준 펌웨어: 기기에서 계정 QR 코드를 표시한 다음 다음을 누르세요.",
   "keytag_backup_short__title": "KeyTag에 백업",
   "keytag_checksum_failed__msg": "이 단어들은 BIP39 검사를 통과하지 못합니다. 각 행을 KeyTag와 대조하여 검토하세요.",
   "keytag_checksum_terminal__msg": "점은 판과 일치하지만, 검사는 여전히 실패합니다 — 판 자체가 잘못 펀칭되었을 수 있습니다.",

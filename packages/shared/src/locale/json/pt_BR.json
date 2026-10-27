@@ -2379,7 +2379,7 @@
   "keyless_wallet_removed__desc": "Seu wallet sem chave foi removido. Restaure-o para retomar a sincronização.",
   "keyless_wallet_verify_pin_account_mismatch": "Conta incompatível",
   "keyless_wallet_verify_pin_account_mismatch_desc": "A conta logada não corresponde àquela vinculada a esta carteira sem chave.",
-  "keystone_account_export__desc": "Firmware não padrão (BTC-only, Cypherpunk etc.): abra no dispositivo o código QR de exportação de contas e toque em Próximo.",
+  "keystone_account_export__desc": "Firmware não padrão: abra no dispositivo o código QR da conta e toque em Próximo.",
   "keytag_backup_short__title": "Fazer backup no KeyTag",
   "keytag_checksum_failed__msg": "Estas palavras não passam na verificação BIP39. Revise cada linha em relação ao seu KeyTag.",
   "keytag_checksum_terminal__msg": "Seus pontos correspondem à chapa, mas a verificação ainda falha — a própria chapa pode ter sido furada incorretamente.",
