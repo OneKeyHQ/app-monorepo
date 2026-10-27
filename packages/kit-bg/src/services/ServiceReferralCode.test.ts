@@ -8,8 +8,30 @@ import {
   EExportTimeRange,
 } from '@onekeyhq/shared/src/referralCode/type';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
+
+import { SimpleDbEntityReferralCode } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
 
 import ServiceReferralCode from './ServiceReferralCode';
+
+import type { IReferralCodeData } from '../dbs/simple/entity/SimpleDbEntityReferralCode';
+
+let mockPrimeUser: Pick<
+  IPrimeUserInfo,
+  'onekeyUserId' | 'isLoggedIn' | 'isLoggedInOnServer'
+>;
+
+beforeEach(() => {
+  mockPrimeUser = {
+    onekeyUserId: 'USER-A',
+    isLoggedIn: true,
+    isLoggedInOnServer: true,
+  };
+});
+
+jest.mock('../states/jotai/atoms/prime', () => ({
+  primePersistAtom: { get: async () => mockPrimeUser },
+}));
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: any) => target,
@@ -112,6 +134,123 @@ function createService() {
 
   return { service, backgroundApi };
 }
+
+function createReferralCache(initial: IReferralCodeData) {
+  const { service, backgroundApi } = createService();
+  const entity = new SimpleDbEntityReferralCode();
+  let stored: IReferralCodeData | undefined = initial;
+  jest.spyOn(entity, 'getRawData').mockImplementation(async () => stored);
+  jest.spyOn(entity, 'setRawData').mockImplementation(async (dataOrBuilder) => {
+    stored =
+      typeof dataOrBuilder === 'function'
+        ? await dataOrBuilder(stored)
+        : dataOrBuilder;
+    return stored;
+  });
+  backgroundApi.simpleDb.referralCode = entity;
+  return { service, entity, getStored: () => stored };
+}
+
+describe('ServiceReferralCode owned invite code', () => {
+  it('does not reuse the previous account code when a new login has no code', async () => {
+    const { service, getStored } = createReferralCache({
+      myReferralCode: 'LEGACY',
+    });
+    await expect(service.getCachedMyReferralCode()).resolves.toBe('');
+
+    await service.updateMyReferralCode('CODE-A', 'USER-A');
+    expect(getStored()?.myReferralCodeUserId).toBe('USER-A');
+    await expect(service.getCachedMyReferralCode()).resolves.toBe('CODE-A');
+
+    mockPrimeUser = { ...mockPrimeUser, onekeyUserId: 'USER-B' };
+
+    await expect(service.getCachedMyReferralCode()).resolves.toBe('');
+    await expect(
+      service.getCachedMyReferralCode({ onekeyUserId: 'USER-A' }),
+    ).resolves.toBe('');
+    await service.updateMyReferralCode('CODE-B', 'USER-B');
+    await expect(service.getCachedMyReferralCode()).resolves.toBe('CODE-B');
+  });
+
+  it('does not expose the cache after logout', async () => {
+    const { service, getStored } = createReferralCache({
+      myReferralCode: 'CODE-A',
+      myReferralCodeUserId: 'USER-A',
+    });
+    mockPrimeUser = {
+      onekeyUserId: undefined,
+      isLoggedIn: false,
+      isLoggedInOnServer: false,
+    };
+
+    await expect(service.getCachedMyReferralCode()).resolves.toBe('');
+    await service.updateMyReferralCode('UNOWNED', 'USER-A');
+    expect(getStored()?.myReferralCode).toBe('CODE-A');
+  });
+
+  it('rejects a code written for a different account', async () => {
+    const { service, getStored } = createReferralCache({
+      myReferralCode: 'CODE-A',
+      myReferralCodeUserId: 'USER-A',
+    });
+
+    await service.updateMyReferralCode('CODE-B', 'USER-B');
+
+    expect(getStored()).toEqual({
+      myReferralCode: 'CODE-A',
+      myReferralCodeUserId: 'USER-A',
+    });
+  });
+
+  it('discards a cache read if the account changes while storage is loading', async () => {
+    const initial = {
+      myReferralCode: 'CODE-A',
+      myReferralCodeUserId: 'USER-A',
+    };
+    const { service, entity } = createReferralCache(initial);
+    jest.spyOn(entity, 'getRawData').mockImplementationOnce(async () => {
+      mockPrimeUser = { ...mockPrimeUser, onekeyUserId: 'USER-B' };
+      return initial;
+    });
+
+    await expect(service.getCachedMyReferralCode()).resolves.toBe('');
+  });
+
+  it('does not overwrite the new account cache with a late summary response', async () => {
+    const { service, getStored } = createReferralCache({
+      myReferralCode: 'CODE-A',
+      myReferralCodeUserId: 'USER-A',
+    });
+    type ISummaryResponse = { data: { data: { inviteCode: string } } };
+    let resolveSummary!: (response: ISummaryResponse) => void;
+    let markRequestStarted!: () => void;
+    const response = new Promise<ISummaryResponse>((resolve) => {
+      resolveSummary = resolve;
+    });
+    const requestStarted = new Promise<void>((resolve) => {
+      markRequestStarted = resolve;
+    });
+    const get = jest.fn(() => {
+      markRequestStarted();
+      return response;
+    });
+    jest
+      .spyOn(service, 'getOneKeyIdClient')
+      .mockResolvedValue({ get } as unknown as Awaited<
+        ReturnType<ServiceReferralCode['getOneKeyIdClient']>
+      >);
+
+    const pending = service.getSummaryInfo();
+    await requestStarted;
+    mockPrimeUser = { ...mockPrimeUser, onekeyUserId: 'USER-B' };
+    await service.updateMyReferralCode('CODE-B', 'USER-B');
+    resolveSummary({ data: { data: { inviteCode: 'LATE-A' } } });
+    await pending;
+
+    expect(getStored()?.myReferralCode).toBe('CODE-B');
+    expect(getStored()?.myReferralCodeUserId).toBe('USER-B');
+  });
+});
 
 describe('ServiceReferralCode Swap rebate API', () => {
   beforeEach(() => {

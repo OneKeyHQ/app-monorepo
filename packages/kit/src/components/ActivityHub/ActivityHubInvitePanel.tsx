@@ -58,33 +58,36 @@ export function ActivityHubInvitePanel({
   const tabCopy = useReferralTabCopy();
   const [user] = usePrimePersistAtom();
   const isLoggedIn = Boolean(user.isLoggedIn && user.isLoggedInOnServer);
+  const onekeyUserId = isLoggedIn ? user.onekeyUserId : undefined;
   const webAppUrl = useReferralWebAppUrl();
   const {
-    result: code,
+    result: referralCode,
     isLoading,
     run: refreshCode,
   } = usePromiseResult(
     async () => {
-      if (!isLoggedIn) {
-        return '';
+      if (!onekeyUserId) {
+        return undefined;
       }
       try {
         const summary = await timerUtils.timeout(
           backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
           5000,
         );
-        return summary.inviteCode || '';
+        return { onekeyUserId, code: summary.inviteCode || '' };
       } catch (error) {
         // Keep offline copying available without starting another refresh.
         const cachedCode =
-          await backgroundApiProxy.serviceReferralCode.getCachedMyReferralCode();
+          await backgroundApiProxy.serviceReferralCode.getCachedMyReferralCode({
+            onekeyUserId,
+          });
         if (cachedCode) {
-          return cachedCode;
+          return { onekeyUserId, code: cachedCode };
         }
         throw error;
       }
     },
-    [isLoggedIn],
+    [onekeyUserId],
     {
       watchLoading: true,
       keepResultIfError: true,
@@ -92,6 +95,11 @@ export function ActivityHubInvitePanel({
       revalidateOnReconnect: true,
     },
   );
+  // A retained result must not remain copyable during an account switch.
+  const code =
+    onekeyUserId && referralCode?.onekeyUserId === onekeyUserId
+      ? referralCode.code
+      : undefined;
   // The same product link, and the same line about it, as the referral
   // page's link menu.
   const link = useMemo(

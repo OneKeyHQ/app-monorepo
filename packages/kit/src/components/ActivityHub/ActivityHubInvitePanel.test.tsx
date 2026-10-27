@@ -12,10 +12,14 @@ import {
 } from '@testing-library/react';
 
 const mockGetSummaryInfo = jest.fn<Promise<{ inviteCode: string }>, []>();
-const mockGetCachedMyReferralCode = jest.fn<Promise<string>, []>();
+const mockGetCachedMyReferralCode = jest.fn<
+  Promise<string>,
+  [{ onekeyUserId: string }]
+>();
 const mockCopyCode = jest.fn<void, [string]>();
 const mockCopyLink = jest.fn<void, [string]>();
 let mockIsLoggedIn = true;
+let mockOnekeyUserId = 'USER-A';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -79,7 +83,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceReferralCode: {
-      getCachedMyReferralCode: () => mockGetCachedMyReferralCode(),
+      getCachedMyReferralCode: (params: { onekeyUserId: string }) =>
+        mockGetCachedMyReferralCode(params),
       getSummaryInfo: () => mockGetSummaryInfo(),
     },
   },
@@ -87,7 +92,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
   usePrimePersistAtom: () => [
-    { isLoggedIn: mockIsLoggedIn, isLoggedInOnServer: mockIsLoggedIn },
+    {
+      isLoggedIn: mockIsLoggedIn,
+      isLoggedInOnServer: mockIsLoggedIn,
+      onekeyUserId: mockOnekeyUserId,
+    },
   ],
 }));
 
@@ -143,6 +152,7 @@ describe('ActivityHubInvitePanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsLoggedIn = true;
+    mockOnekeyUserId = 'USER-A';
     mockGetCachedMyReferralCode.mockReset().mockResolvedValue('OLD');
     mockGetSummaryInfo.mockReset().mockResolvedValue({ inviteCode: 'NEW' });
   });
@@ -240,5 +250,61 @@ describe('ActivityHubInvitePanel', () => {
 
     expect(onOpenReferral).toHaveBeenCalledWith('invite');
     expect(mockGetSummaryInfo).not.toHaveBeenCalled();
+  });
+
+  it('hides the previous account code while the new account request fails', async () => {
+    const { rerender } = render(
+      <ActivityHubInvitePanel source="Swap" onOpenReferral={jest.fn()} />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('activity-hub-copy-code').textContent,
+      ).toContain('NEW'),
+    );
+
+    mockOnekeyUserId = 'USER-B';
+    mockGetSummaryInfo.mockRejectedValueOnce(new Error('Offline'));
+    mockGetCachedMyReferralCode.mockResolvedValue('');
+    rerender(
+      <ActivityHubInvitePanel source="Swap" onOpenReferral={jest.fn()} />,
+    );
+
+    expect(
+      screen.queryByTestId('activity-hub-copy-code')?.textContent ?? '',
+    ).not.toContain('NEW');
+    await screen.findByTestId('activity-hub-retry');
+    expect(mockGetCachedMyReferralCode).toHaveBeenLastCalledWith({
+      onekeyUserId: 'USER-B',
+    });
+    expect(screen.queryByTestId('activity-hub-copy-link')).toBeNull();
+  });
+
+  it('ignores the previous account response after the new account is loaded', async () => {
+    let resolvePrevious!: (value: { inviteCode: string }) => void;
+    mockGetSummaryInfo.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolvePrevious = resolve;
+      }),
+    );
+    const { rerender } = render(
+      <ActivityHubInvitePanel source="Swap" onOpenReferral={jest.fn()} />,
+    );
+
+    mockOnekeyUserId = 'USER-B';
+    mockGetSummaryInfo.mockResolvedValue({ inviteCode: 'CODE-B' });
+    rerender(
+      <ActivityHubInvitePanel source="Swap" onOpenReferral={jest.fn()} />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('activity-hub-copy-code').textContent,
+      ).toContain('CODE-B'),
+    );
+    await act(async () => {
+      resolvePrevious({ inviteCode: 'CODE-A' });
+    });
+
+    fireEvent.click(screen.getByTestId('activity-hub-copy-code'));
+    expect(mockCopyCode).toHaveBeenCalledWith('CODE-B');
   });
 });
