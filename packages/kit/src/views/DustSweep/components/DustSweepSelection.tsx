@@ -12,9 +12,11 @@ import {
 } from '@onekeyhq/components';
 import { SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE } from '@onekeyhq/kit/src/views/Swap/utils/swapDesktopCardShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { useDustSweep } from '../DustSweepProvider';
 import { useDustSweepActiveItemScroll } from '../hooks/useDustSweepActiveItemScroll';
+import { EDustSweepPhase } from '../stateMachine';
 import { getDustSweepHiddenThreshold } from '../utils/candidates';
 
 import { DustSweepFilters } from './DustSweepFilters';
@@ -220,9 +222,10 @@ export function DustSweepSelection({
                   selected={selected.some((item) => item.key === token.key)}
                   item={selecting ? undefined : session.state.items[index]}
                   paused={
-                    session.state.phase === 'paused'
+                    session.state.phase === EDustSweepPhase.Paused
                       ? session.state.items.findIndex(
-                          (item) => item.status === 'waiting',
+                          (item) =>
+                            item.status === EDustSweepItemStatus.Waiting,
                         ) === index
                       : false
                   }
