@@ -178,8 +178,14 @@ function useMobileBrowserChromeAnimation() {
       if (isNearBottom) {
         // Hold the chrome open here: the frame cannot shrink, and a chrome drawn
         // under 1 against an expanded frame would lift the page and the bar's
-        // backdrop away from the screen bottom.
-        next = EXPANDED;
+        // backdrop away from the screen bottom. While the finger is still down
+        // and the layout is collapsed the frame is the taller one, so there is
+        // room to ease in with the distance left instead of snapping from 0 to 1
+        // (which also jumps the page by the header height).
+        next =
+          isInteracting && layoutCollapsedRef.current
+            ? Math.max(next, 1 - toBottom / bottomZone)
+            : EXPANDED;
       } else if (toTop < followDistance) {
         next = Math.max(next, 1 - toTop / followDistance);
       }

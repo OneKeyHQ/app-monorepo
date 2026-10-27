@@ -61,7 +61,7 @@ function scrollEvent(
   isInteracting: boolean | undefined,
   viewportHeight = EXPANDED_VIEWPORT_HEIGHT,
   contentSizeHeight = CONTENT_HEIGHT,
-) {
+): IWebViewOnScrollEvent {
   // The hook reads only these fields; the rest of the synthetic event is not
   // built here.
   return {
@@ -230,21 +230,69 @@ describe('useMobileBrowserChromeAnimation finger tracking', () => {
     });
     expect(layoutExpanded.value).toBe(0);
 
-    // Arriving in the bottom zone forces the chrome open without collapsing the
-    // layout any further, and a second event confirms it stays that way.
+    // Arriving in the bottom zone eases the chrome open without collapsing the
+    // layout any further: the frame is the taller collapsed one here, so there
+    // is room to ease in with the distance left rather than snap to 1.
     act(() => {
       handleScroll(
         scrollEvent(MAX_SCROLL_Y - 4, true, COLLAPSED_VIEWPORT_HEIGHT),
       );
     });
-    expect(chromeProgress.value).toBe(1);
+    expect(chromeProgress.value).toBeGreaterThan(0.9);
+    expect(chromeProgress.value).toBeLessThanOrEqual(1);
 
     act(() => {
       handleScroll(
         scrollEvent(MAX_SCROLL_Y - 2, true, COLLAPSED_VIEWPORT_HEIGHT),
       );
     });
-    expect(chromeProgress.value).toBe(1);
+    expect(chromeProgress.value).toBeGreaterThan(0.9);
+    expect(layoutExpanded.value).toBe(0);
+  });
+
+  it('eases into the bottom zone instead of snapping from collapsed', () => {
+    const { result } = renderChrome();
+    const { handleScroll, chromeProgress, layoutExpanded } = result.current;
+
+    // Collapse mid-page.
+    act(() => {
+      handleScroll(scrollEvent(300, true));
+      handleScroll(scrollEvent(400, true));
+    });
+    expect(chromeProgress.value).toBe(0);
+
+    // One step across the bottom-zone boundary. The chrome must not jump to 1:
+    // a 0 -> 1 change also shifts the page by the header height under the
+    // user's finger. With the collapsed frame the chrome eases in with the
+    // distance left instead.
+    const bottomZone = 88; // fullBarHeight in this test's mock
+    act(() => {
+      handleScroll(
+        scrollEvent(
+          MAX_SCROLL_Y - bottomZone - 6,
+          true,
+          COLLAPSED_VIEWPORT_HEIGHT,
+        ),
+      );
+    });
+    const outsideZone = chromeProgress.value;
+
+    act(() => {
+      handleScroll(
+        scrollEvent(
+          MAX_SCROLL_Y - bottomZone + 40,
+          true,
+          COLLAPSED_VIEWPORT_HEIGHT,
+        ),
+      );
+    });
+
+    // The exact value follows the distance left, and the finger's own delta
+    // only ever raises it, so it stays strictly between collapsed and expanded.
+    expect(chromeProgress.value).toBeLessThan(1);
+    expect(chromeProgress.value).toBeGreaterThan(0.4);
+    // Crossing the boundary is not a full flip in one event.
+    expect(chromeProgress.value - outsideZone).toBeLessThan(0.95);
     expect(layoutExpanded.value).toBe(0);
   });
 });
