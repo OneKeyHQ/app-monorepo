@@ -57,6 +57,7 @@ import {
 import type {
   IEarnDesktopHoldRow,
   IEarnDesktopLoanPair,
+  IEarnDesktopOpenRequest,
 } from './earnDesktopHome.utils';
 import type { IUseEarnPortfolioReturn } from '../../hooks/useEarnPortfolio';
 
@@ -229,6 +230,7 @@ export function EarnDesktopHome({
   onRegisterRefresh,
   onRegisterBorrowRefresh,
   onBorrowNetworksChange,
+  openRequest,
 }: {
   portfolioData: IUseEarnPortfolioReturn;
   displayTotalFiatValue?: string;
@@ -247,6 +249,8 @@ export function EarnDesktopHome({
   /** Asked once a Borrow transaction on one of these networks settles */
   onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
   onBorrowNetworksChange?: (networkIds: string[]) => void;
+  /** A token's breadcrumb on its pages: its row opens in the Earn tab */
+  openRequest?: IEarnDesktopOpenRequest;
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -478,6 +482,12 @@ export function EarnDesktopHome({
     setTab('earn');
     scrollToBrowse();
   }, [scrollToBrowse]);
+  // The row asked for is in the Earn tab
+  useEffect(() => {
+    if (openRequest) {
+      setTab('earn');
+    }
+  }, [openRequest]);
   // A held token opens the deposit modal with every way to earn on it, on
   // the network it sits on, and the offer whose rate the row showed chosen
   const handleOpenHoldRow = useCallback(
@@ -662,6 +672,7 @@ export function EarnDesktopHome({
               deposits={portfolioDeposits}
               lendingOffers={lendingOffers}
               walletHoldings={wallet.holdings}
+              openRequest={openRequest}
             />
           </YStack>
           {isLoansMounted ? (

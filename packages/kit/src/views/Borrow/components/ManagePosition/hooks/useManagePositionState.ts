@@ -81,7 +81,9 @@ export function useManagePositionState(props: IManagePositionProps): {
     return undefined;
   }, [amountValue, price]);
 
-  const isEarnForm = Boolean(props.isEarnForm) && props.action === 'supply';
+  const isEarnForm =
+    Boolean(props.isEarnForm) &&
+    (props.action === 'supply' || props.action === 'withdraw');
   // Validation: is amount invalid. In the Earn form "1." on the way to "1.5"
   // is the amount 1, as in the other Earn forms: the button keeps its look
   const isAmountInvalid = useMemo(

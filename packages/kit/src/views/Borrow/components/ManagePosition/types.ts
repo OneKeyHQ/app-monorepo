@@ -124,7 +124,8 @@ export interface IManagePositionProps {
   isInModalContext?: boolean;
   // The Earn deposit forms' layout for a supply: the result first ("Est.
   // annual rewards" at the supply rate), plain rows, "$0.00", an amount
-  // error as a line under the box, and the steps only once pressed
+  // error as a line under the box, and the steps only once pressed. A
+  // withdrawal's the same way, its result what arrives
   isEarnForm?: boolean;
 
   // Token selection (for withdraw/repay popover mode)

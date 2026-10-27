@@ -50,7 +50,6 @@ import { getBorrowMarketLabel } from '../../../Borrow/borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
 import { BorrowNavigation } from '../../../Borrow/borrowUtils';
 import { useBorrowMarkets } from '../../../Borrow/hooks/useBorrowMarkets';
-import { BorrowFAQSection } from '../../../Borrow/pages/ReserveDetails/components/BorrowFAQSection';
 import { PlatformBonusSection } from '../../../Borrow/pages/ReserveDetails/components/PlatformBonusSection';
 import { RiskSection } from '../../../Borrow/pages/ReserveDetails/components/RiskSection';
 import {
@@ -73,6 +72,7 @@ import {
   ManagePositionContent,
 } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
+import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
@@ -350,6 +350,20 @@ function LendingDetailsPartComponent({
     () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
     [networkId],
   );
+  // The market's own collateral figures, as Aave's reserve page shows them:
+  // read with the account, they are its E-Mode's where it has one
+  const { result: marketDetails } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceStaking
+        .getBorrowReserveDetails({
+          networkId,
+          provider,
+          marketAddress,
+          reserveAddress,
+        })
+        .catch(() => undefined),
+    [marketAddress, networkId, provider, reserveAddress],
+  );
 
   // The vault page's Intro: where the money goes, how much is there, how much
   // of it can leave now, and how much more the market takes
@@ -429,7 +443,8 @@ function LendingDetailsPartComponent({
     if (!details?.supply.canBeCollateral) {
       return [];
     }
-    const { maxLtv, liquidationLtv, softLiquidation } = details.supply;
+    const { maxLtv, liquidationLtv, softLiquidation } =
+      marketDetails?.supply ?? details.supply;
     const items: ILendingGridItem[] = [
       {
         key: 'max-ltv',
@@ -457,7 +472,7 @@ function LendingDetailsPartComponent({
       },
     ];
     return items.filter((item) => Boolean(item.description?.text));
-  }, [details, intl]);
+  }, [details, intl, marketDetails?.supply]);
 
   return (
     <YStack flex={6} gap="$5" px="$pagePadding">
@@ -498,7 +513,7 @@ function LendingDetailsPartComponent({
               />
             ) : null}
             <RiskSection risk={details.risk} />
-            <BorrowFAQSection
+            <LendingFAQSection
               networkId={networkId}
               provider={provider}
               marketAddress={marketAddress}
@@ -512,6 +527,49 @@ function LendingDetailsPartComponent({
 }
 
 const LendingDetailsPart = memo(LendingDetailsPartComponent);
+
+// The market's questions in the vault page's FAQ look
+function LendingFAQSection({
+  networkId,
+  provider,
+  marketAddress,
+  reserveAddress,
+}: {
+  networkId: string;
+  provider: string;
+  marketAddress: string;
+  reserveAddress: string;
+}) {
+  const intl = useIntl();
+  const { result: faqData } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceStaking
+        .getBorrowFaqList({
+          networkId,
+          provider,
+          marketAddress,
+          reserveAddress,
+        })
+        .catch(() => undefined),
+    [marketAddress, networkId, provider, reserveAddress],
+  );
+  const faqs = useMemo(
+    () =>
+      faqData?.list?.length
+        ? {
+            title: {
+              text: intl.formatMessage({ id: ETranslations.global_faqs }),
+            },
+            items: faqData.list.map((item) => ({
+              title: { text: item.question },
+              description: { text: item.answer },
+            })),
+          }
+        : undefined,
+    [faqData?.list, intl],
+  );
+  return <FAQSection faqs={faqs} />;
+}
 
 // A supplied balance the reserve shows as text ("2.903633 USDC")
 const hasSuppliedBalance = (details?: IBorrowReserveDetail) => {
@@ -598,6 +656,14 @@ const EarnLendingDetailsPage = () => {
         {
           label: symbol,
           onClick: () => {
+            // On web the desktop home lists every offer for the token, the
+            // lending markets with them, under its row
+            if (!platformEnv.isNative) {
+              void EarnNavigation.popToEarnHome(navigation, {
+                openSymbol: symbol,
+              });
+              return;
+            }
             EarnNavigation.pushToEarnProtocols(navigation, {
               symbol,
               logoURI: logoURI ? encodeURIComponent(logoURI) : undefined,
@@ -812,6 +878,7 @@ const EarnLendingDetailsPage = () => {
                   providerDisplayName={marketLabel}
                   providerLogoUri={market?.logoURI}
                   payWith={payWith}
+                  isEarnLending
                   onStakeWithdrawSuccess={refreshData}
                 />
               </YStack>

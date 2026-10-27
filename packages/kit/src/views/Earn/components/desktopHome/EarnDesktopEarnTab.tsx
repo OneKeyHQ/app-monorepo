@@ -4,7 +4,9 @@ import {
   memo,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -86,6 +88,7 @@ import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
   IEarnDesktopLendingOffer,
+  IEarnDesktopOpenRequest,
   IEarnDesktopPortfolioDeposits,
   IEarnDesktopWalletHolding,
 } from './earnDesktopHome.utils';
@@ -936,6 +939,7 @@ function BasicEarnDesktopEarnTab({
   deposits,
   lendingOffers,
   walletHoldings,
+  openRequest,
 }: {
   trendingAssets: IEarnAvailableAsset[];
   fixedRateAssets: IEarnAvailableAsset[];
@@ -943,6 +947,7 @@ function BasicEarnDesktopEarnTab({
   deposits: IEarnDesktopPortfolioDeposits;
   lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
   walletHoldings: Map<string, IEarnDesktopWalletHolding>;
+  openRequest?: IEarnDesktopOpenRequest;
 }) {
   const intl = useIntl();
   const [category, setCategory] = useState<ITokenCategory>('all');
@@ -1133,6 +1138,33 @@ function BasicEarnDesktopEarnTab({
   const handleToggle = useCallback((key: string) => {
     setOpenKey((current) => (current === key ? undefined : key));
   }, []);
+
+  // A token's breadcrumb on its pages comes back to its row, open, with
+  // every offer for it in view: the filters let go of it if they hid it
+  const handledOpenAtRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!openRequest || handledOpenAtRef.current === openRequest.at) {
+      return;
+    }
+    const symbol = openRequest.symbol.toLowerCase();
+    const row =
+      allRows.find((item) => item.key.toLowerCase() === `earn:${symbol}`) ??
+      allRows.find((item) => item.key.toLowerCase() === `fixed:${symbol}`);
+    if (!row) {
+      return;
+    }
+    handledOpenAtRef.current = openRequest.at;
+    setCategory('all');
+    setSearchText('');
+    setSelectedNetworkIds([]);
+    setOpenKey(row.key);
+    // Web and desktop only: the page scrolls as the document
+    setTimeout(() => {
+      globalThis.document
+        ?.querySelector(`[data-testid="earn-desktop-row-${row.key}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }, [allRows, openRequest]);
 
   const isFiltered = Boolean(
     searchText.trim() || selectedNetworkIds.length || category !== 'all',

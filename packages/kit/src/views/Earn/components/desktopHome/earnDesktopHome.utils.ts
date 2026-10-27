@@ -1056,6 +1056,9 @@ export function getLoanNetApy({
 }
 
 // Aave writes the liquidation LTV as a percent, Kamino as a fraction
+/** A token's breadcrumb on its pages: its row on the home opens */
+export type IEarnDesktopOpenRequest = { symbol: string; at: number };
+
 export const toLtvFraction = (value?: string) => {
   const ltv = toNumber(value);
   return ltv > 1 ? ltv / 100 : ltv;

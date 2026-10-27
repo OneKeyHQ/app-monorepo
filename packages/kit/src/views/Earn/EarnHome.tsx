@@ -693,6 +693,16 @@ function BasicEarnHome({
   // for them (notifications, the detail page's way back) open the pages.
   const requestedMode = route.params?.mode;
   const requestedTab = route.params?.tab;
+  // A token's breadcrumb asks for its row
+  const requestedOpenSymbol = route.params?.openSymbol;
+  const requestedOpenAt = route.params?.openAt;
+  const desktopOpenRequest = useMemo(
+    () =>
+      requestedOpenSymbol && requestedOpenAt
+        ? { symbol: requestedOpenSymbol, at: requestedOpenAt }
+        : undefined,
+    [requestedOpenAt, requestedOpenSymbol],
+  );
   useEffect(() => {
     if (!isDesktopHome) {
       return;
@@ -828,6 +838,7 @@ function BasicEarnHome({
             onRegisterRefresh={handleRegisterDesktopRefresh}
             onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
             onBorrowNetworksChange={handleBorrowNetworksChange}
+            openRequest={desktopOpenRequest}
           />
         </EarnPageContainer>
       </LazyPageContainer>

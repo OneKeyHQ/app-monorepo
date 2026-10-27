@@ -119,6 +119,7 @@ export const WithdrawSection = ({
   repayWithCollateralSetupReadyProgressKey,
   onRepayWithCollateralSetupReadyProgressKeyChange,
   offerSwitch,
+  isEarnLending,
 }: {
   accountId: string;
   networkId: string;
@@ -135,6 +136,9 @@ export const WithdrawSection = ({
   useBorrowApi?: boolean;
   borrowMarketAddress?: string;
   borrowReserveAddress?: string;
+  // The Earn lending details page's form: the withdrawal is of the page's
+  // asset alone, in the Earn forms' look
+  isEarnLending?: boolean;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
   defaultCollateralReserveAddress?: string;
   borrowActionLabel?: string;
@@ -1429,6 +1433,7 @@ export const WithdrawSection = ({
           actionLabel={borrowActionLabel}
           inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
           isInModalContext={isInModalContext}
+          isEarnForm={isEarnLending}
         />
       );
     }
@@ -1537,10 +1542,11 @@ export const WithdrawSection = ({
           showApyDetail={showApyDetail}
           actionLabel={borrowActionLabel}
           inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
-          selectableAssets={selectableBorrowAssets}
+          selectableAssets={isEarnLending ? undefined : selectableBorrowAssets}
           selectableAssetsLoading={assetsListLoading}
-          onTokenSelect={handleTokenSelect}
+          onTokenSelect={isEarnLending ? undefined : handleTokenSelect}
           isInModalContext={isInModalContext}
+          isEarnForm={isEarnLending}
         />
       );
     }

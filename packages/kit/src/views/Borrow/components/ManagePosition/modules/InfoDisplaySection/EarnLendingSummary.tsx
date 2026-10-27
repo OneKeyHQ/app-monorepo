@@ -62,13 +62,23 @@ function BeforeAfter({
   );
 }
 
+// A health factor the server can show as a number: an account without loans
+// gets none, or a sign that isn't one
+const isHealthFigure = (text?: IEarnText) => {
+  const value = Number((text?.text ?? '').replace(/[^\d.]/g, ''));
+  return Number.isFinite(value) && value > 0;
+};
+
 /**
  * A lending supply's part under the amount, as the Earn forms show it: what a
  * year at the supply rate earns on the amount, then the position's rows
  * (My Supply; where the account has loans on the market, Health Factor and
- * Use as Collateral). Supplying only, collateral isn't something to weigh
+ * Use as Collateral). Supplying only, collateral isn't something to weigh.
+ * A withdrawal's: what arrives, then My Supply and Health Factor
  */
 export function EarnLendingSummary({
+  action = 'supply',
+  currentHealthFactor,
   amountValue,
   tokenSymbol,
   price,
@@ -80,6 +90,10 @@ export function EarnLendingSummary({
   isDimmed = false,
   keepsFiguresWhenEmptied = true,
 }: {
+  action?: 'supply' | 'withdraw';
+  // The position's health factor now, from the market: shown until an
+  // amount has its own (the answer for an empty amount doesn't carry it)
+  currentHealthFactor?: IEarnText;
   amountValue: string;
   tokenSymbol?: string;
   price?: string;
@@ -187,14 +201,39 @@ export function EarnLendingSummary({
     !isHoldingDashes &&
     (Boolean(freshConfirmation) || !isKeptForEmptiedRef.current);
 
+  const isWithdraw = action === 'withdraw';
   // Worked out here from the supply rate, so it follows the typing at once
   const apy = new BigNumber(confirmation?.apyDetail?.apy ?? '');
-  const outcome: IEarnOutcome = {
-    label: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
-    values: [],
-    isEarning: true,
-  };
-  if (isPositiveAmount && apy.gt(0)) {
+  const outcome: IEarnOutcome = isWithdraw
+    ? {
+        label: intl.formatMessage({
+          id: ETranslations.swap_review_you_receive,
+        }),
+        values: [],
+        isEarning: false,
+      }
+    : {
+        label: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
+        values: [],
+        isEarning: true,
+      };
+  // A withdrawal hands back the amount itself
+  if (isWithdraw && isPositiveAmount) {
+    const fiat = Number(price) > 0 ? amountBN.times(price ?? '0') : null;
+    outcome.values = [
+      {
+        main: `${numberFormat(amountBN.toFixed(), {
+          formatter: 'balance',
+        })} ${tokenSymbol ?? ''}`.trim(),
+        suffix: fiat
+          ? numberFormat(fiat.toFixed(), {
+              formatter: 'value',
+              formatterOptions: { currency: currencySymbol },
+            })
+          : undefined,
+      },
+    ];
+  } else if (isPositiveAmount && apy.gt(0)) {
     const yearly = amountBN.times(apy).div(100);
     const yearlyFiat = Number(price) > 0 ? yearly.times(price ?? '0') : null;
     outcome.values = [
@@ -245,28 +284,33 @@ export function EarnLendingSummary({
   const healthFactor = showsProjections
     ? confirmation?.healthFactor
     : undefined;
-  const hasLoans = Boolean(
-    confirmation?.healthFactor || confirmation?.liquidationAt,
-  );
-  if (confirmation && hasLoans) {
+  const hasLoans =
+    Boolean(confirmation?.healthFactor || confirmation?.liquidationAt) ||
+    isHealthFigure(currentHealthFactor);
+  // Until an amount has its own, the factor as it is now
+  let healthValue: ReactElement | undefined;
+  if (healthFactor) {
+    healthValue = (
+      <BeforeAfter
+        current={healthFactor.current?.title}
+        latest={healthFactor.latest?.title}
+      />
+    );
+  } else if (isHealthFigure(currentHealthFactor)) {
+    healthValue = <BeforeAfter current={currentHealthFactor} />;
+  }
+  if (hasLoans) {
     rows.push(
       <EarnFormRow
         key="health-factor"
         label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
-        value={
-          healthFactor ? (
-            <BeforeAfter
-              current={healthFactor.current?.title}
-              latest={healthFactor.latest?.title}
-            />
-          ) : undefined
-        }
+        value={healthValue}
         // The same for every amount, so it stays as it is while the factor
         // above it changes
         note={
           <EarnText
             text={
-              confirmation.liquidationAt?.description ?? {
+              confirmation?.liquidationAt?.description ?? {
                 text: intl.formatMessage({
                   id: ETranslations.defi_liquidation_at_less_than_1_00,
                 }),
@@ -283,6 +327,7 @@ export function EarnLendingSummary({
   const usageAsCollateral = confirmation?.usageAsCollateral;
   // Older responses omit usageAsCollateral; the switch state isn't guessed
   if (
+    !isWithdraw &&
     hasLoans &&
     (canBeCollateral === false ||
       (canBeCollateral === true && usageAsCollateral !== undefined))
@@ -295,7 +340,7 @@ export function EarnLendingSummary({
       />,
     );
   }
-  if (confirmation?.refundableFee) {
+  if (!isWithdraw && confirmation?.refundableFee) {
     rows.push(
       <FeeInfo
         key="refundable-fee"
@@ -310,7 +355,9 @@ export function EarnLendingSummary({
       outcome={outcome}
       // Worked out here once the supply rate is in (the first answer); the
       // rows wait for each amount's answer
-      isOutcomeLoading={(isPositiveAmount && !apy.gt(0)) || isWaiting}
+      isOutcomeLoading={
+        (!isWithdraw && isPositiveAmount && !apy.gt(0)) || isWaiting
+      }
       // For the amount typed: the emptied box's own answer, on its way through
       // its moment, replaces nothing
       isLoading={

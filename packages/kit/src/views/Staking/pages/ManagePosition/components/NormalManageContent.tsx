@@ -210,6 +210,8 @@ interface INormalManageContentProps {
   depositOnly?: boolean;
   // A position's Withdraw, the other way round
   withdrawOnly?: boolean;
+  // The Earn lending details page's form: Withdraw keeps to its asset
+  isEarnLending?: boolean;
   payWith?: IManagePositionPayWith;
   initialAmount?: string;
   // The caller's own protocol selector, drawn where the form's switcher goes
@@ -257,6 +259,7 @@ export function NormalManageContent({
   preferManagePageActionText = false,
   depositOnly,
   withdrawOnly,
+  isEarnLending,
   payWith,
   initialAmount,
   offerSwitch,
@@ -928,6 +931,7 @@ export function NormalManageContent({
         setRepayWithCollateralSetupReadyProgressKey
       }
       offerSwitch={offerSwitch}
+      isEarnLending={isEarnLending}
     />
   );
 

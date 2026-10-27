@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 
 import { Divider, YStack } from '@onekeyhq/components';
+import { useBorrowHealthFactor } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowHealthFactor';
 
 import { useManagePositionContext } from '../../ManagePositionContext';
 
@@ -189,10 +190,21 @@ export function InfoDisplaySection({
   showSwapOrBridge = true,
 }: IInfoDisplaySectionProps) {
   const { state, actionResult } = useManagePositionContext();
+  // The Earn form shows the position's health factor before an amount: the
+  // market's answer for an empty amount doesn't carry it
+  const { healthFactorData } = useBorrowHealthFactor({
+    networkId: state.networkId,
+    provider: state.providerName,
+    marketAddress: state.borrowMarketAddress,
+    accountId: state.accountId,
+    enabled: state.isEarnForm,
+  });
 
   if (state.isEarnForm) {
     return (
       <EarnLendingSummary
+        action={state.action === 'withdraw' ? 'withdraw' : 'supply'}
+        currentHealthFactor={healthFactorData?.healthFactor?.text}
         amountValue={state.amountValue}
         tokenSymbol={state.tokenSymbol ?? state.token?.symbol}
         price={state.price}

@@ -21,6 +21,10 @@ export type ITabEarnParamList = {
     | {
         tab?: 'assets' | 'portfolio' | 'faqs';
         mode?: 'earn' | 'borrow';
+        // A token's breadcrumb on its pages (demo 10-27): its row on the
+        // desktop home opens; openAt tells one request from the next
+        openSymbol?: string;
+        openAt?: number;
       };
   [ETabEarnRoutes.BorrowHome]:
     | undefined

@@ -434,12 +434,17 @@ export const EarnNavigation = {
     params?: {
       tab?: IEarnHomeTab;
       mode?: 'earn' | 'borrow';
+      // The token whose row opens on the desktop home
+      openSymbol?: string;
     },
   ) {
     const targetEarnTab = params?.tab ?? DEFAULT_EARN_HOME_TAB;
     const earnHomeParams = {
       mode: params?.mode ?? ('earn' as const),
       tab: targetEarnTab,
+      ...(params?.openSymbol
+        ? { openSymbol: params.openSymbol, openAt: Date.now() }
+        : null),
     };
 
     if (platformEnv.isNative) {

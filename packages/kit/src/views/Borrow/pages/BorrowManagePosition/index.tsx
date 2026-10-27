@@ -160,6 +160,8 @@ const BorrowManagePosition = () => {
             marketAddress={marketAddress}
             defaultTab={defaultTab}
             withdrawOnly={withdrawOnly}
+            // Only the Earn lending details page opens it withdraw-only
+            isEarnLending={withdrawOnly}
             onHeaderRightChange={withdrawOnly ? setHeaderControls : undefined}
           />
         )}

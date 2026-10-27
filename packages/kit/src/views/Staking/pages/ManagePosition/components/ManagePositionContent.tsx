@@ -129,6 +129,9 @@ export interface IManagePositionContentProps {
   depositOnly?: boolean;
   // Only the withdraw side: no Deposit tab (a position's Withdraw)
   withdrawOnly?: boolean;
+  // The Earn lending details page's own form (demo 10-27): its Withdraw keeps
+  // to the page's asset and reads as the Earn forms do
+  isEarnLending?: boolean;
   payWith?: IManagePositionPayWith;
   // An amount to start the deposit on
   initialAmount?: string;
@@ -618,6 +621,7 @@ export function ManagePositionContent({
   suppressPlatformBonus,
   depositOnly,
   withdrawOnly,
+  isEarnLending,
   payWith,
   initialAmount,
   offerSwitch,
@@ -1274,6 +1278,7 @@ export function ManagePositionContent({
       managePageData={managePageData}
       depositOnly={depositOnly}
       withdrawOnly={withdrawOnly}
+      isEarnLending={isEarnLending}
       payWith={payWith}
       initialAmount={initialAmount}
       offerSwitch={offerSwitch}
