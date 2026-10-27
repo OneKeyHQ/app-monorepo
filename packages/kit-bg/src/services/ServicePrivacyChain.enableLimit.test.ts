@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { localWalletText } from '../vaults/localWallet/messages';
+import { isLocalWalletSlotsFullError } from '../vaults/localWallet/userFacingError';
 
 import type {
   ILocalWalletAccount,
@@ -188,6 +189,23 @@ describe('Privacy Mode enabled-account ceiling', () => {
       localWalletText(ETranslations.privacy_slots_delete__desc),
     );
     expect(enableAccount).not.toHaveBeenCalled();
+  });
+
+  // The page shows its own dialog with a way to free a slot, so no toast.
+  it('marks a full sync limit for the page instead of toasting it', async () => {
+    const { service } = createService({
+      maxEnabledAccounts: 5,
+      accounts: [0, 1, 2, 3, 4].map((i) => account(i, `key-${i}`, true)),
+    });
+    const error = await service
+      .enableLocalWalletAccount({
+        networkId,
+        accountId: "hd-1--m/44'/133'/9'",
+      })
+      .catch((e: unknown) => e);
+    expect(error).toMatchObject({ autoToast: false });
+    expect(isLocalWalletSlotsFullError(error)).toBe(true);
+    expect(isLocalWalletSlotsFullError(new Error('offline'))).toBe(false);
   });
 
   it('keeps hidden enabled identities in admission while scanning is paused', async () => {

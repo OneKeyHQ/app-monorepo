@@ -26,6 +26,16 @@ function readErrorMessage(error: unknown): string {
   return typeof message === 'string' ? message : '';
 }
 
+// Every sync slot is taken; the page explains it and offers a way to free one.
+export function isLocalWalletSlotsFullError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { key?: unknown }).key ===
+      ETranslations.privacy_slots_delete__desc
+  );
+}
+
 // A runtime call abandoned by a watchdog: the Worker is alive but stuck.
 export function isLocalWalletRuntimeTimeoutError(error: unknown): boolean {
   const message = readErrorMessage(error);

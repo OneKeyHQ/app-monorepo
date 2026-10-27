@@ -14,6 +14,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
+import { isLocalWalletSlotsFullError } from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
@@ -45,6 +47,42 @@ function logLocalWalletActionError(action: string) {
   };
 }
 
+// A full sync limit is not toasted: it gets a dialog that can lead to the settings page.
+function handleLocalWalletEnableError({
+  action,
+  onSlotsFull,
+}: {
+  action: string;
+  onSlotsFull: () => void;
+}) {
+  return (error: unknown) => {
+    if (isLocalWalletSlotsFullError(error)) {
+      onSlotsFull();
+      return;
+    }
+    logLocalWalletActionError(action)(error);
+  };
+}
+
+function useOpenPrivacyNetworkSettings({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  const navigation = useAppNavigation();
+  return useCallback(() => {
+    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
+      screen: EAccountManagerStacksRoutes.PrivacyNetworks,
+      params: {
+        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+        networkId,
+      },
+    });
+  }, [accountId, navigation, networkId]);
+}
+
 export function LocalWalletPoolStatus({
   networkId,
   accountId,
@@ -57,6 +95,16 @@ export function LocalWalletPoolStatus({
   settingsMode?: boolean;
 }) {
   const intl = useIntl();
+  const openSettings = useOpenPrivacyNetworkSettings({ accountId, networkId });
+  const showSlotsFull = useCallback(() => {
+    void showPrivacyChainSlotsFullDialog({
+      intl,
+      networkId,
+      accountName: lw.accountName,
+      // Already on the page that lists the accounts to turn off.
+      onOpenSettings: settingsMode ? undefined : openSettings,
+    });
+  }, [intl, lw.accountName, networkId, openSettings, settingsMode]);
   // No keyring for this wallet type (e.g. Monero hardware): withhold the toggle.
   const canEnable =
     !lw.isUnsupportedWallet &&
@@ -65,7 +113,12 @@ export function LocalWalletPoolStatus({
 
   const openEnable = useCallback(async () => {
     if (lw.state?.paused || !lw.settings?.accountSetup.requiresBirthday) {
-      await lw.enableAccount({}).catch(logLocalWalletActionError('enable'));
+      await lw.enableAccount({}).catch(
+        handleLocalWalletEnableError({
+          action: 'enable',
+          onSlotsFull: showSlotsFull,
+        }),
+      );
       return;
     }
     const hintTimestamp = lw.state?.birthdayHintTimestamp;
@@ -104,10 +157,16 @@ export function LocalWalletPoolStatus({
           preventClose();
           return;
         }
-        await lw.enableAccount(birthday);
+        try {
+          await lw.enableAccount(birthday);
+        } catch (error) {
+          // Other failures keep this dialog open; the limit closes it for its own.
+          if (!isLocalWalletSlotsFullError(error)) throw error;
+          showSlotsFull();
+        }
       },
     });
-  }, [intl, lw, networkId]);
+  }, [intl, lw, networkId, showSlotsFull]);
 
   // Guards against a second tap opening a second dialog in the gap before the first one opens.
   const openingEnableRef = useRef(false);
@@ -327,20 +386,10 @@ export function LocalWalletSyncRow({
   pool: ILocalWalletPool;
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const accountPaused = lw.state?.paused === true;
   // Paused here or from the sync light; either way this button resumes it.
   const canResume = accountPaused || lw.isNetworkPaused;
-
-  const openSettings = useCallback(() => {
-    navigation.pushModal(EModalRoutes.AccountManagerStacks, {
-      screen: EAccountManagerStacksRoutes.PrivacyNetworks,
-      params: {
-        walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
-        networkId,
-      },
-    });
-  }, [accountId, navigation, networkId]);
+  const openSettings = useOpenPrivacyNetworkSettings({ accountId, networkId });
 
   if (
     !lw.hasPooledBalance ||
@@ -407,7 +456,19 @@ export function LocalWalletSyncRow({
           } else if (lw.isNetworkPaused) {
             action = lw.resumeNetworkSync;
           }
-          void action().catch(logLocalWalletActionError('refresh'));
+          void action().catch(
+            handleLocalWalletEnableError({
+              action: 'refresh',
+              onSlotsFull: () => {
+                void showPrivacyChainSlotsFullDialog({
+                  intl,
+                  networkId,
+                  accountName: lw.accountName,
+                  onOpenSettings: openSettings,
+                });
+              },
+            }),
+          );
         }}
       >
         {intl.formatMessage({
