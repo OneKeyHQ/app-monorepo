@@ -101,18 +101,24 @@ describe('useMobileBrowserChromeAnimation finger tracking', () => {
 
     act(() => {
       handleScroll(scrollEvent(300, true));
-      handleScroll(scrollEvent(400, true));
+      // A short drag, so the progress stays between the two states instead of
+      // clamping to an endpoint where both sources would agree.
+      handleScroll(scrollEvent(310, true));
     });
+    const afterFirstDrag = chromeProgress.value;
+    expect(afterFirstDrag).toBeCloseTo(1 - 10 / FOLLOW_DISTANCE, 4);
 
     // A second event of the same gesture must not pay for another synchronous
-    // read of the shared value: it continues from what the first one wrote.
-    const afterFirstDrag = chromeProgress.value;
+    // read of the shared value: it continues from the target the first one
+    // wrote, not from wherever the value happens to be drawn.
+    chromeProgress.value = 0.05;
     act(() => {
-      handleScroll(scrollEvent(500, true));
+      handleScroll(scrollEvent(320, true));
     });
 
-    expect(chromeProgress.value).toBe(
-      Math.max(0, afterFirstDrag - 100 / FOLLOW_DISTANCE),
+    expect(chromeProgress.value).toBeCloseTo(
+      afterFirstDrag - 10 / FOLLOW_DISTANCE,
+      4,
     );
   });
 

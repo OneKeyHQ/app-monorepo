@@ -28,6 +28,8 @@ import {
   PAGE_THEME_COLOR_SCRIPT,
   applyCachedPageThemeColor,
   clearPageColors,
+  documentUrlOf,
+  isNewDocumentLoad,
   tryDispatchPageThemeMessage,
 } from '../../utils/pageThemeColor';
 import { showTabBar } from '../../utils/tabBarUtils';
@@ -107,13 +109,15 @@ function WebContent({
 
   const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {
     notifyTabNavigation(id);
-    // Hash-only changes, and Android's same-document history updates (reported
-    // with loading === false), reload nothing: the document keeps its colors.
-    const documentUrl = nativeEvent.url?.split('#')[0] ?? nativeEvent.url;
-    const isNewDocument =
-      documentUrl !== lastDocumentUrlRef.current &&
-      !(platformEnv.isNativeAndroid && nativeEvent.loading === false);
-    lastDocumentUrlRef.current = documentUrl;
+    // A hash change, or Android's same-document history update, reloads
+    // nothing: the document keeps its colors.
+    const isNewDocument = isNewDocumentLoad({
+      url: nativeEvent.url ?? '',
+      previousDocumentUrl: lastDocumentUrlRef.current,
+      loading: nativeEvent.loading,
+      isAndroid: !!platformEnv.isNativeAndroid,
+    });
+    lastDocumentUrlRef.current = documentUrlOf(nativeEvent.url ?? '');
     applyCachedPageThemeColor(id, nativeEvent.url, isNewDocument);
     // A full load runs the theme script itself (injectedJavaScript); only
     // SPA navigations need it injected again.

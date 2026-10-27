@@ -143,6 +143,33 @@ export function usePageBottomThemeName(tabId: string | null | undefined) {
   return themeNameOf(usePageBottomColor(tabId));
 }
 
+// Whether a load-start starts a new document, which is what makes the previous
+// page's bottom color stale (see applyCachedPageThemeColor). A load-start
+// without a new document is a hash change or, on Android, a same-document
+// history update, which the WebView reports with loading === false; the page
+// keeps its colors and does not report them again.
+export function isNewDocumentLoad({
+  url,
+  previousDocumentUrl,
+  loading,
+  isAndroid,
+}: {
+  url: string;
+  previousDocumentUrl: string;
+  loading?: boolean;
+  isAndroid: boolean;
+}) {
+  if (isAndroid && loading === false) {
+    return false;
+  }
+  return documentUrlOf(url) !== previousDocumentUrl;
+}
+
+// The URL without its hash, so an anchor jump reads as the same document.
+export function documentUrlOf(url: string) {
+  return url.split('#')[0];
+}
+
 // Applies the cached color of the page's origin, if any; otherwise the
 // current tint stays until the page reports its own. A new document also drops
 // the bottom color: it described the page being left, the bar picks its icon

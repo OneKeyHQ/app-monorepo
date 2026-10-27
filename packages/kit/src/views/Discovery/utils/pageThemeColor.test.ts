@@ -4,6 +4,8 @@ import { act, renderHook } from '@testing-library/react';
 import {
   applyCachedPageThemeColor,
   clearPageColors,
+  documentUrlOf,
+  isNewDocumentLoad,
   tryDispatchPageThemeMessage,
   usePageBottomColor,
   usePageTheme,
@@ -125,5 +127,84 @@ describe('applyCachedPageThemeColor', () => {
 
     expect(result.current.top).toBe('rgb(0, 0, 0)');
     expect(result.current.bottom).toBe('rgb(250, 250, 250)');
+  });
+});
+
+describe('isNewDocumentLoad', () => {
+  const DARK = 'rgb(0, 0, 0)';
+  const LIGHT = 'rgb(250, 250, 250)';
+  const PAGE = 'https://example.com/page';
+  const page = { top: DARK, bottom: LIGHT };
+
+  function decide({
+    url,
+    previousDocumentUrl = documentUrlOf(PAGE),
+    loading,
+    isAndroid = false,
+  }: {
+    url: string;
+    previousDocumentUrl?: string;
+    loading?: boolean;
+    isAndroid?: boolean;
+  }) {
+    return isNewDocumentLoad({ url, previousDocumentUrl, loading, isAndroid });
+  }
+
+  it('treats the first load as a new document', () => {
+    expect(decide({ url: PAGE, previousDocumentUrl: '' })).toBe(true);
+    expect(decide({ url: '', previousDocumentUrl: '' })).toBe(false);
+  });
+
+  it('treats a hash change as the same document', () => {
+    expect(decide({ url: `${PAGE}#section` })).toBe(false);
+    expect(decide({ url: `${PAGE}#`, previousDocumentUrl: PAGE })).toBe(false);
+  });
+
+  it('treats a different path as a new document', () => {
+    expect(decide({ url: `${PAGE}-2` })).toBe(true);
+    expect(decide({ url: 'https://example.com/other' })).toBe(true);
+    expect(decide({ url: 'https://other.example.com/page' })).toBe(true);
+  });
+
+  it('skips Android same-document history updates', () => {
+    // Android reports a same-document history update as a load-start with
+    // loading === false, and its URL can differ from the document's.
+    expect(
+      decide({
+        url: 'https://example.com/other',
+        loading: false,
+        isAndroid: true,
+      }),
+    ).toBe(false);
+    // A real Android navigation keeps loading true and counts as a new document.
+    expect(
+      decide({
+        url: 'https://example.com/other',
+        loading: true,
+        isAndroid: true,
+      }),
+    ).toBe(true);
+    // iOS has no such reporting, so loading is not consulted there.
+    expect(
+      decide({
+        url: 'https://example.com/other',
+        loading: false,
+        isAndroid: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the bottom color coherent with the retained top color', () => {
+    const { result } = renderColors();
+    act(() => {
+      reportColors(page.top, page.bottom, PAGE);
+    });
+
+    // Same document: both colors stay, so the bar keeps the page's own contrast.
+    act(() => {
+      applyCachedPageThemeColor(TAB, `${PAGE}#section`, false);
+    });
+    expect(result.current.top).toBe(page.top);
+    expect(result.current.bottom).toBe(page.bottom);
   });
 });
