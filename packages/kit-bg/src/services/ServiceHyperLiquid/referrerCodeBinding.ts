@@ -3,7 +3,7 @@ type IReferrerCodeBindingCache = {
   referrerCodeSetInFlight: Record<string, Promise<void>>;
 };
 
-export function isReferrerAlreadySetError(error: unknown): boolean {
+export function isReferrerBusinessError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false;
   }
@@ -14,8 +14,18 @@ export function isReferrerAlreadySetError(error: unknown): boolean {
   if (name !== 'ApiRequestError' || !response || typeof response !== 'object') {
     return false;
   }
-  const result = response as { status?: unknown; response?: unknown };
-  return result.status === 'err' && result.response === 'Referrer already set';
+  const result = response as { status?: unknown };
+  return result.status === 'err';
+}
+
+export function isReferrerAlreadySetError(error: unknown): boolean {
+  if (!isReferrerBusinessError(error)) {
+    return false;
+  }
+  const { response } = error as {
+    response?: { response?: unknown };
+  };
+  return response?.response === 'Referrer already set';
 }
 
 export function createStaleReferrerBindingError(): Error & {
@@ -93,6 +103,12 @@ export function scheduleReferrerCodeBinding({
     .catch(async (error: unknown) => {
       if (isStaleReferrerBindingError(error)) {
         return;
+      }
+      if (
+        isReferrerBusinessError(error) &&
+        cache.referrerCodeSetInFlight[cacheKey] === task
+      ) {
+        cache.referrerCodeSetDone[cacheKey] = true;
       }
       try {
         await onFailure(error);

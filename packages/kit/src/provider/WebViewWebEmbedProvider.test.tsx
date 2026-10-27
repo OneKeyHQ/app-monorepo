@@ -419,19 +419,39 @@ describe('WebEmbed API startup request', () => {
     await retry;
   });
 
-  it('preserves rebuilds for legacy Load events without request IDs', () => {
+  it('coalesces untagged Load events while a mount is pending and preserves rebuilds after completion or timeout', () => {
     render(<WebViewWebEmbedProvider />);
 
     act(() => {
       appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
     });
     expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    const firstMountId = mockCurrentMountId as string;
 
-    jest.setSystemTime(Date.now() + 1);
+    // Concurrent untagged load while mount is still pending should not remount
+    jest.setSystemTime(Date.now() + 100);
     act(() => {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(1);
+    expect(mockWebViewUnmount).not.toHaveBeenCalled();
+
+    // Once the mount completes, a subsequent untagged load rebuilds the WebView
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, {
+        mountId: firstMountId,
+      });
       appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
     });
     expect(mockWebViewMount).toHaveBeenCalledTimes(2);
     expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
+
+    // If a pending mount times out without completing, a retry after the window rebuilds
+    jest.setSystemTime(Date.now() + 30_000);
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    });
+    expect(mockWebViewMount).toHaveBeenCalledTimes(3);
+    expect(mockWebViewUnmount).toHaveBeenCalledTimes(2);
   });
 });

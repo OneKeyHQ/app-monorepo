@@ -183,4 +183,29 @@ describe('deferred Hyperliquid referrer binding', () => {
     expect(params.setReferrerCode).toHaveBeenCalledTimes(2);
     expect(params.cache.referrerCodeSetDone[params.cacheKey]).toBe(true);
   });
+
+  it('marks deterministic Hyperliquid ApiRequestError responses complete after reporting once', async () => {
+    const error = Object.assign(
+      new Error('Cannot set referrer after trading'),
+      {
+        name: 'ApiRequestError',
+        response: {
+          status: 'err',
+          response: 'Cannot set referrer after trading',
+        },
+      },
+    );
+    const params = createParams({
+      setReferrerCode: jest.fn().mockRejectedValue(error),
+    });
+
+    await scheduleReferrerCodeBinding(params);
+
+    expect(params.onFailure).toHaveBeenCalledTimes(1);
+    expect(params.onFailure).toHaveBeenCalledWith(error);
+    expect(params.onBound).not.toHaveBeenCalled();
+    expect(params.cache.referrerCodeSetDone[params.cacheKey]).toBe(true);
+    expect(scheduleReferrerCodeBinding(params)).toBeUndefined();
+    expect(params.setReferrerCode).toHaveBeenCalledTimes(1);
+  });
 });

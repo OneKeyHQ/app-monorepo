@@ -216,13 +216,23 @@ describe('CpuWatchdogController', () => {
     });
     expect(duringCooldown.fired).toHaveLength(0);
 
+    // Lower-severity mild sustained spike during the severe 30m cooldown is also suppressed
+    const mildDuringCooldown = feedSamples(controller, {
+      pid: 404,
+      effectivePct: 85,
+      count: CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES,
+      startTime: duringCooldown.now,
+      startCum: duringCooldown.cum,
+    });
+    expect(mildDuringCooldown.fired).toHaveLength(0);
+
     // Recover again and advance past 30m cooldown
     const secondRecovery = feedSamples(controller, {
       pid: 404,
       effectivePct: 5,
       count: CPU_WATCHDOG_RECOVERY_SUSTAINED_SAMPLES,
       startTime: firstEpisode.now + CPU_WATCHDOG_COOLDOWN_MS,
-      startCum: duringCooldown.cum,
+      startCum: mildDuringCooldown.cum,
     });
     const afterCooldown = feedSamples(controller, {
       pid: 404,

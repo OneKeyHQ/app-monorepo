@@ -27,6 +27,7 @@ const mockForward = jest
 let mockReceive:
   | ((payload: IJsBridgeMessagePayload, bridge: unknown) => Promise<unknown>)
   | undefined;
+let mockOnContentProcessDidTerminate: (() => void) | undefined;
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -101,8 +102,15 @@ jest.mock('../WebView/InpageProviderWebView', () => {
   return {
     __esModule: true,
     default: React.forwardRef(
-      (props: { receiveHandler: typeof mockReceive }, ref: Ref<unknown>) => {
+      (
+        props: {
+          receiveHandler: typeof mockReceive;
+          onContentProcessDidTerminate?: () => void;
+        },
+        ref: Ref<unknown>,
+      ) => {
         mockReceive = props.receiveHandler;
+        mockOnContentProcessDidTerminate = props.onContentProcessDidTerminate;
         React.useImperativeHandle(ref, () => ({
           jsBridge: { globalOnMessageEnabled: false },
         }));
@@ -117,6 +125,7 @@ describe('WebEmbed host mount ownership', () => {
     jest.clearAllMocks();
     mockActivate.mockResolvedValue(true);
     mockReceive = undefined;
+    mockOnContentProcessDidTerminate = undefined;
   });
 
   it('tags the actual host ready message and forwards it once without deactivating on rerender', async () => {
@@ -153,9 +162,18 @@ describe('WebEmbed host mount ownership', () => {
       />,
     );
     expect(mockDeactivate).not.toHaveBeenCalled();
+    expect(mockResetReady).not.toHaveBeenCalled();
+
+    act(() => {
+      mockOnContentProcessDidTerminate?.();
+    });
+    expect(mockResetReady).toHaveBeenCalledTimes(1);
+    expect(mockResetReady).toHaveBeenCalledWith('mount-a');
+
     view.unmount();
     await waitFor(() => expect(mockDeactivate).toHaveBeenCalledTimes(1));
     expect(mockDeactivate).toHaveBeenCalledWith('mount-a');
+    expect(mockResetReady).toHaveBeenCalledTimes(2);
   });
 
   it('ignores an old activation acknowledgement after a new host mounts', async () => {

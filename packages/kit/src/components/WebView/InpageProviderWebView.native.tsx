@@ -109,6 +109,8 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       allowingReadAccessToURL,
       onError,
       onHttpError,
+      onContentProcessDidTerminate,
+      onRenderProcessGone,
       disableBridge,
       injectedJavaScript,
     }: INativeInpageProviderWebViewProps,
@@ -318,6 +320,8 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           allowingReadAccessToURL={allowingReadAccessToURL}
           onError={onError}
           onHttpError={onHttpError}
+          onContentProcessDidTerminate={onContentProcessDidTerminate}
+          onRenderProcessGone={onRenderProcessGone}
         />
       </Stack>
     );

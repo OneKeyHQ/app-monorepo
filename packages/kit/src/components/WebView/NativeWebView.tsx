@@ -117,14 +117,13 @@ const NativeWebView = forwardRef(
       };
     }, [clearLoadTimeout]);
 
-    const jsBridge = useMemo(
-      () =>
-        new JsBridgeNativeHost({
-          webviewRef,
-          receiveHandler,
-        }),
-      [receiveHandler],
-    );
+    const jsBridge = useMemo(() => {
+      void webViewKey;
+      return new JsBridgeNativeHost({
+        webviewRef,
+        receiveHandler,
+      });
+    }, [receiveHandler, webViewKey]);
 
     const webviewOnMessage = useCallback(
       (event: WebViewMessageEvent) => {

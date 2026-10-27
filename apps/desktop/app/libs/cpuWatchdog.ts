@@ -287,7 +287,13 @@ export class CpuWatchdogController {
     }
 
     // Enforce cooldown for the same or higher severity rank on this PID
-    const lastRankFire = episode.lastFiredAtByRank[rank] ?? 0;
+    const lastRankFire = Object.entries(episode.lastFiredAtByRank).reduce(
+      (maxFiredAt, [firedRank, firedAt]) =>
+        Number(firedRank) >= rank && firedAt > maxFiredAt
+          ? firedAt
+          : maxFiredAt,
+      0,
+    );
     if (lastRankFire > 0 && now - lastRankFire < CPU_WATCHDOG_COOLDOWN_MS) {
       return null;
     }

@@ -8,6 +8,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { WebViewWebEmbedSingleton } from '../components/WebViewWebEmbed';
 
+const PENDING_MOUNT_COALESCE_WINDOW_MS = 30 * 1000;
 let webEmbedMountSequence = 0;
 
 function BasicWebViewWebEmbedProvider() {
@@ -20,6 +21,8 @@ function BasicWebViewWebEmbedProvider() {
     requestId?: string;
   }>();
   const currentMountIdRef = useRef<string | undefined>(undefined);
+  const isMountPendingRef = useRef(false);
+  const pendingMountStartedAtRef = useRef(0);
   const isCurrentMount = useCallback(
     (mountId: string) => currentMountIdRef.current === mountId,
     [],
@@ -30,6 +33,16 @@ function BasicWebViewWebEmbedProvider() {
       if (requestId && lastRequestIdRef.current === requestId) {
         return;
       }
+      if (
+        !requestId &&
+        isMountPendingRef.current &&
+        Date.now() - pendingMountStartedAtRef.current <
+          PENDING_MOUNT_COALESCE_WINDOW_MS
+      ) {
+        return;
+      }
+      isMountPendingRef.current = true;
+      pendingMountStartedAtRef.current = Date.now();
       lastRequestIdRef.current = requestId;
       webEmbedMountSequence += 1;
       const mountSequence = webEmbedMountSequence;
@@ -67,10 +80,20 @@ function BasicWebViewWebEmbedProvider() {
         requestId: payload?.requestId,
       });
     };
+    const onComplete = (payload?: { mountId?: string; requestId?: string }) => {
+      if (!payload?.mountId || payload.mountId === currentMountIdRef.current) {
+        isMountPendingRef.current = false;
+      }
+    };
     appEventBus.on(EAppEventBusNames.LoadWebEmbedWebView, fn);
+    appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, onComplete);
     appEventBus.emit(EAppEventBusNames.WebEmbedWebViewProviderReady, undefined);
     return () => {
       appEventBus.off(EAppEventBusNames.LoadWebEmbedWebView, fn);
+      appEventBus.off(
+        EAppEventBusNames.LoadWebEmbedWebViewComplete,
+        onComplete,
+      );
     };
   }, [showWebEmbedWebView]);
   return isShow && mount ? (
