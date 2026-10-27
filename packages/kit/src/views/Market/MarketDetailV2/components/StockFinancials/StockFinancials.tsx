@@ -83,16 +83,23 @@ function FinancialCard({
       testID={`stock-financials-${kind}`}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
-      {/* The period switch keeps its place at the right; a title that does
-          not fit (the narrow mobile overview, long translations) wraps within
-          its own column instead. */}
+      {/* The period switch keeps its place at the right; when the title and
+          next-earnings date do not fit beside it (the narrow mobile overview,
+          long translations), the date wraps under the title in its own
+          column instead. */}
       <XStack
         alignItems="center"
         justifyContent="space-between"
         gap="$2"
         minHeight="$10"
       >
-        <XStack alignItems="baseline" gap="$3" flex={1} minWidth={0}>
+        <XStack
+          alignItems="baseline"
+          flexWrap="wrap"
+          columnGap="$3"
+          flex={1}
+          minWidth={0}
+        >
           <SizableText size="$headingMd" flexShrink={1}>
             {labels[kind]}
           </SizableText>
@@ -101,7 +108,8 @@ function FinancialCard({
               size="$bodyXs"
               color="$textDisabled"
               numberOfLines={1}
-              flexShrink={0}
+              flexShrink={1}
+              minWidth={0}
             >{`${labels.next}: ${formatDate(new Date(nextTimestamp), { hideTimeForever: true, timeZone: 'UTC' })}`}</SizableText>
           ) : null}
         </XStack>
