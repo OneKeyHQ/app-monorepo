@@ -133,7 +133,7 @@ index 07f73fd..f808b15 100644
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
-index 80c6803..911a0b9 100644
+index 80c6803..57fa013 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 @@ -78,6 +78,21 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
@@ -400,10 +400,10 @@ index f83033b..e0b3c40 100644
 +    }
  }
 diff --git a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-index 4709e28..e4d48a1 100644
+index 4709e28..4f48dda 100644
 --- a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
 +++ b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-@@ -338,6 +338,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
+@@ -338,6 +338,16 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
          mRNCWebViewManagerImpl.setPaymentRequestEnabled(view, value);
      }
  
@@ -411,6 +411,11 @@ index 4709e28..e4d48a1 100644
 +    public void setMediaPermissionWhitelist(RNCWebViewWrapper view, @Nullable ReadableArray value) {
 +        mRNCWebViewManagerImpl.setMediaPermissionWhitelist(view, value);
 +    }
++
++    // OneKey patch: only iOS needs to distinguish omitted and empty Fabric arrays.
++    @Override
++    @ReactProp(name = "hasMediaPermissionWhitelist")
++    public void setHasMediaPermissionWhitelist(RNCWebViewWrapper view, boolean value) {}
 +
      /* iOS PROPS - no implemented here */
      @Override
@@ -432,7 +437,7 @@ index 974337f..d4f774d 100644
      protected void addEventEmitters(@NonNull ThemedReactContext reactContext, RNCWebViewWrapper viewWrapper) {
          // Do not register default touch emitter and let WebView implementation handle touches
 diff --git a/node_modules/react-native-webview/apple/RNCWebView.mm b/node_modules/react-native-webview/apple/RNCWebView.mm
-index c0816b6..3a32f01 100644
+index c0816b6..1eb80d1 100644
 --- a/node_modules/react-native-webview/apple/RNCWebView.mm
 +++ b/node_modules/react-native-webview/apple/RNCWebView.mm
 @@ -65,6 +65,7 @@ @interface RNCWebView () <RCTRNCWebViewViewProtocol>
@@ -451,7 +456,24 @@ index c0816b6..3a32f01 100644
      [_view destroyWebView];
  }
  #endif // !TARGET_OS_OSX
-@@ -512,7 +514,11 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+@@ -479,6 +481,16 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+         }
+     }
+ #endif
++    // OneKey patch: preserve omitted versus empty whitelists, including the first render.
++    NSMutableArray<NSString *> *mediaPermissionWhitelist = nil;
++    if (newViewProps.hasMediaPermissionWhitelist) {
++        mediaPermissionWhitelist = [NSMutableArray arrayWithCapacity:newViewProps.mediaPermissionWhitelist.size()];
++        for (const auto &origin : newViewProps.mediaPermissionWhitelist) {
++            [mediaPermissionWhitelist addObject:RCTNSStringFromString(origin)];
++        }
++    }
++    [_view setMediaPermissionWhitelist:mediaPermissionWhitelist];
++
+     if (oldViewProps.indicatorStyle != newViewProps.indicatorStyle) {
+         if (newViewProps.indicatorStyle == RNCWebViewIndicatorStyle::Black) {
+             [_view setIndicatorStyle:@"black"];
+@@ -512,7 +524,11 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
      if (!newViewProps.newSource.method.empty()) {
          [source setValue:RCTNSStringFromString(newViewProps.newSource.method) forKey:@"method"];
      }
@@ -464,7 +486,7 @@ index c0816b6..3a32f01 100644
  
      [super updateProps:props oldProps:oldProps];
  }
-@@ -540,7 +546,7 @@ - (void)injectJavaScript:(nonnull NSString *)javascript {
+@@ -540,7 +556,7 @@ - (void)injectJavaScript:(nonnull NSString *)javascript {
  }
  
  - (void)loadUrl:(nonnull NSString *)url {
@@ -690,14 +712,15 @@ index a3eef13..b7c14a1 100644
       * Executes the JavaScript string.
       */
 diff --git a/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts b/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
-index 8dd6cef..af2e239 100644
+index 8dd6cef..ff51131 100644
 --- a/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
 +++ b/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
-@@ -226,6 +226,7 @@ export interface NativeProps extends ViewProps {
+@@ -226,6 +226,8 @@ export interface NativeProps extends ViewProps {
      userAgent?: string;
      injectedJavaScriptObject?: string;
      paymentRequestEnabled?: boolean;
 +    mediaPermissionWhitelist?: ReadonlyArray<string>;
++    hasMediaPermissionWhitelist?: boolean;
  }
  export interface NativeCommands {
      goBack: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
@@ -718,14 +741,15 @@ index 998cc88..59407fc 100644
  }
  export {};
 diff --git a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
-index 7f4e6c4..e9a75a2 100644
+index 7f4e6c4..a5cea5f 100644
 --- a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
 +++ b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
-@@ -295,6 +295,7 @@ export interface NativeProps extends ViewProps {
+@@ -295,6 +295,8 @@ export interface NativeProps extends ViewProps {
    userAgent?: string;
    injectedJavaScriptObject?: string;
    paymentRequestEnabled?: boolean;
 +  mediaPermissionWhitelist?: ReadonlyArray<string>;
++  hasMediaPermissionWhitelist?: boolean;
  }
  
  export interface NativeCommands {
@@ -743,7 +767,7 @@ index 6497a8b..233bb7a 100644
            webViewRef.current && Commands.postMessage(webViewRef.current, data),
          injectJavaScript: (data: string) =>
 diff --git a/node_modules/react-native-webview/src/WebView.ios.tsx b/node_modules/react-native-webview/src/WebView.ios.tsx
-index deb179b..40385db 100644
+index deb179b..531e8f2 100644
 --- a/node_modules/react-native-webview/src/WebView.ios.tsx
 +++ b/node_modules/react-native-webview/src/WebView.ios.tsx
 @@ -149,6 +149,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
@@ -755,6 +779,14 @@ index deb179b..40385db 100644
          postMessage: (data: string) =>
            webViewRef.current && Commands.postMessage(webViewRef.current, data),
          injectJavaScript: (data: string) =>
+@@ -232,6 +234,7 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
+       <NativeWebView
+         key="webViewKey"
+         {...otherProps}
++        hasMediaPermissionWhitelist={otherProps.mediaPermissionWhitelist != null}
+         fraudulentWebsiteWarningEnabled={fraudulentWebsiteWarningEnabled}
+         javaScriptEnabled={javaScriptEnabled}
+         cacheEnabled={cacheEnabled}
 diff --git a/node_modules/react-native-webview/src/WebViewShared.tsx b/node_modules/react-native-webview/src/WebViewShared.tsx
 index 3b0a38b..52e4bce 100644
 --- a/node_modules/react-native-webview/src/WebViewShared.tsx
