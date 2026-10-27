@@ -1,4 +1,5 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { ESwapEventAPIStatus } from './swapEstimateFee';
 import { SwapSendTxScene } from './swapSendTx';
@@ -32,6 +33,12 @@ function reportSendTx(params: Parameters<SwapSendTxScene['swapSendTx']>[0]) {
 }
 
 describe('SwapSendTxScene', () => {
+  beforeAll(() => {
+    appLocale.setLocale('en-US', {
+      [ETranslations.swap_page_recent_trade]: 'Recent trade',
+    });
+  });
+
   it('reports the failure category and allowlisted error identifiers', () => {
     const payload = reportSendTx({
       ...base,

@@ -1,8 +1,15 @@
 import { ETranslations } from '../locale';
+import { appLocale } from '../locale/appLocale';
 
 import { getSafeErrorIdentifiers } from './sensitiveErrorMessageUtils';
 
 describe('getSafeErrorIdentifiers', () => {
+  beforeAll(() => {
+    appLocale.setLocale('en-US', {
+      [ETranslations.swap_page_recent_trade]: 'Recent trade',
+    });
+  });
+
   it('keeps an allowlisted OneKey class name, numeric code and known key', () => {
     expect(
       getSafeErrorIdentifiers({

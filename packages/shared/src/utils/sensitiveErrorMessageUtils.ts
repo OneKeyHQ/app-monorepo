@@ -3,7 +3,7 @@ import {
   getDesktopIpcCallContext,
   isUnwrappedIpcError,
 } from '../errors/utils/electronIpcError';
-import { isKnownTranslationKey } from '../locale';
+import { appLocale } from '../locale/appLocale';
 
 const MAX_SANITIZED_ERROR_MESSAGE_LENGTH = 200;
 const UUID_PATTERN =
@@ -225,8 +225,10 @@ export function getOneKeyIdAuthFailureServerParams({
 }
 
 // Each field comes from a closed set (an error class enum, a native `*Error`
-// name, a translation key) or is a short code, so free text such as
-// addresses, keys or amounts can never be reported.
+// name, a key of the loaded locale messages) or is a short code, so free text
+// such as addresses, keys or amounts can never be reported. The locale
+// messages stand in for the ETranslations enum, which must stay out of the
+// web startup graph.
 const ONEKEY_ERROR_CLASS_NAMES = new Set<string>(
   Object.values(EOneKeyErrorClassNames),
 );
@@ -234,6 +236,13 @@ const NATIVE_ERROR_NAME_PATTERN = /^[A-Z][A-Za-z]{0,42}Error$/;
 // A short integer, or an uppercase constant that is not a hex blob.
 const SAFE_ERROR_CODE_PATTERN =
   /^(?:-?\d{1,6}|(?![\dA-F]{8,}$)[A-Z][A-Z0-9_]{1,31})$/;
+
+function isLoadedTranslationKey(key: string) {
+  return Object.prototype.hasOwnProperty.call(
+    appLocale.intl.messages ?? {},
+    key,
+  );
+}
 
 function pickSafe(value: unknown, isSafe: (value: string) => boolean) {
   return typeof value === 'string' && isSafe(value) ? value : undefined;
@@ -250,7 +259,7 @@ export function getSafeErrorIdentifiers(error: unknown) {
       typeof code === 'number' && Number.isInteger(code) ? String(code) : code,
       (value) => SAFE_ERROR_CODE_PATTERN.test(value),
     ),
-    errorKey: pickSafe(key, isKnownTranslationKey),
+    errorKey: pickSafe(key, isLoadedTranslationKey),
   };
 }
 
