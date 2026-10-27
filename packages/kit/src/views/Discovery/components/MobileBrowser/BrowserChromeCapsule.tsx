@@ -1,5 +1,6 @@
 import type { ComponentProps, PropsWithChildren } from 'react';
 
+import { StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -38,8 +39,10 @@ export function PageBottomColorFill({
   return (
     <Stack
       bg="$bgApp"
+      // Flattened: Tamagui merges only one level of a style array, so a
+      // caller's array nested in this one would lose its position and size.
       style={[
-        style,
+        StyleSheet.flatten(style),
         bottomColor ? { backgroundColor: bottomColor } : undefined,
       ]}
     />
