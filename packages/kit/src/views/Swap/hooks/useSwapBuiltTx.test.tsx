@@ -2040,6 +2040,24 @@ describe('useSwapBuildTx Review analytics', () => {
     expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
   });
 
+  it('releases a Recent trades pick made after the cached build when it is sent', async () => {
+    const review = renderReview();
+    await review.prepare();
+    await act(async () => {
+      review.store.set(swapRecentTokenPairSelectionAtom(), {
+        fromToken: quote.fromTokenInfo,
+        toToken: quote.toTokenInfo,
+      });
+    });
+    await review.send();
+
+    expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(
+      review.store.get(swapRecentTokenPairSelectionAtom()),
+    ).toBeUndefined();
+  });
+
   it('reports one send success when confirming a cached build and gas estimate', async () => {
     const review = renderReview();
     await review.prepare();

@@ -628,6 +628,23 @@ export function useSwapBuildTx({
     }
   }, []);
 
+  // Binds the current "Recent trades" pick to the order built for it, so the
+  // pick is released when that order (fresh or cached) is sent.
+  const bindRecentTokenPairAttribution = useCallback(
+    (buildSwapRes: IFetchBuildTxResponse) => {
+      const pick = getRecentTokenPairSelectionFor({
+        fromToken: buildSwapRes.result?.fromTokenInfo,
+        toToken: buildSwapRes.result?.toTokenInfo,
+      });
+      const orderId = getSwapBuildOrderId(buildSwapRes);
+      if (pick && orderId) {
+        recentPairPickByOrderIdRef.current.set(orderId, pick);
+      }
+      return pick;
+    },
+    [getRecentTokenPairSelectionFor],
+  );
+
   const releaseRecentTokenPairAttribution = useCallback(
     (swapInfo: ISwapTxInfo) => {
       const orderId = getSwapBuildOrderId(swapInfo.swapBuildResData);
@@ -2454,17 +2471,7 @@ export function useSwapBuildTx({
           !buildRoutes?.length && quoteRoutes?.length
             ? quoteRoutes
             : buildRoutes;
-        const recentPairPick = getRecentTokenPairSelectionFor({
-          fromToken: buildSwapRes.result?.fromTokenInfo,
-          toToken: buildSwapRes.result?.toTokenInfo,
-        });
-        const recentPairOrderId = getSwapBuildOrderId(buildSwapRes);
-        if (recentPairPick && recentPairOrderId) {
-          recentPairPickByOrderIdRef.current.set(
-            recentPairOrderId,
-            recentPairPick,
-          );
-        }
+        const recentPairPick = bindRecentTokenPairAttribution(buildSwapRes);
         defaultLogger.swap.createSwapOrder.swapCreateOrder({
           ...reviewAnalyticsContext,
           quoteId: reviewAnalyticsContext?.quoteId ?? quoteResult?.quoteId,
@@ -2514,7 +2521,7 @@ export function useSwapBuildTx({
       isFirstTimeSwap,
       focusSwapPro,
       isModalPage,
-      getRecentTokenPairSelectionFor,
+      bindRecentTokenPairAttribution,
     ],
   );
 
@@ -2649,6 +2656,11 @@ export function useSwapBuildTx({
         ) {
           if (reviewPreparation) {
             reviewPreparation.timings.buildTxMs ??= 0;
+          }
+          if (cachedBuildResult.swapInfo) {
+            bindRecentTokenPairAttribution(
+              cachedBuildResult.swapInfo.swapBuildResData,
+            );
           }
           return {
             ...cachedBuildResult,
@@ -3091,6 +3103,7 @@ export function useSwapBuildTx({
       swapBuildFinish,
       logSwapBuildResult,
       getRecentTokenPairSelectionFor,
+      bindRecentTokenPairAttribution,
       intl,
       persistSettings.currencyInfo.id,
       currencyMap,
