@@ -205,14 +205,20 @@ describe('PerpLayoutSettings', () => {
 
     expect(view.getByText('交易页 K 线')).toBeTruthy();
     expect(top.getAttribute('aria-checked')).toBe('false');
-    expect(top.getAttribute('data-border-color')).toBe('$borderSubdued');
-    expect(within(top).queryByText('顶部')).toBeNull();
+    expect(top.firstElementChild?.getAttribute('data-border-color')).toBe(
+      '$borderSubdued',
+    );
+    expect(within(top).getByText('顶部')).toBeTruthy();
     expect(bottom.getAttribute('aria-checked')).toBe('true');
-    expect(bottom.getAttribute('data-border-width')).toBe('$px');
-    expect(bottom.getAttribute('data-border-color')).toBe('$borderActive');
+    expect(bottom.firstElementChild?.getAttribute('data-border-width')).toBe(
+      '$px',
+    );
+    expect(bottom.firstElementChild?.getAttribute('data-border-color')).toBe(
+      '$borderActive',
+    );
     expect(hidden.getAttribute('aria-checked')).toBe('false');
-    expect(within(bottom).queryByText('底部')).toBeNull();
-    expect(within(hidden).queryByText('不展示')).toBeNull();
+    expect(within(bottom).getByText('底部')).toBeTruthy();
+    expect(within(hidden).getByText('不展示')).toBeTruthy();
     expect(view.getByText('不展示')).toBeTruthy();
   });
 
@@ -224,7 +230,9 @@ describe('PerpLayoutSettings', () => {
 
     expect(top.getAttribute('aria-checked')).toBe('false');
     expect(bottom.getAttribute('aria-checked')).toBe('true');
-    expect(bottom.getAttribute('data-border-color')).toBe('$borderActive');
+    expect(bottom.firstElementChild?.getAttribute('data-border-color')).toBe(
+      '$borderActive',
+    );
   });
 
   it('persists the selected chart position', () => {

@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { act, render } from '@testing-library/react';
 
@@ -18,6 +18,11 @@ import MarketChartSettingsModal, {
 type IChartSettingsUpdater = (
   currentSettings: ITradingViewNativeChartSettings,
 ) => ITradingViewNativeChartSettings;
+type IChartSourceRowProps = {
+  chartMode: 'native' | 'tradingView';
+  isDisabled: boolean;
+  onChartSwitch: () => void;
+};
 type IGetNativeSettingsParams = {
   currentSettings: ITradingViewNativeChartSettings;
   value: ITradingViewChartSettingsValue;
@@ -41,7 +46,17 @@ const mockShowTradingViewChartSettingsDialog = jest.fn<
 let mockIsMobileLayout = false;
 let mockIsNative = false;
 let mockChartSettings = createTradingViewNativeChartSettings();
-let mockRouteParams: { showPreviousClose?: boolean } | undefined;
+const mockNavigationPop = jest.fn();
+const mockChartSourceRow = jest.fn<null, [IChartSourceRowProps]>(() => null);
+let mockRouteParams:
+  | {
+      showPreviousClose?: boolean;
+      showChartType?: boolean;
+      chartMode?: 'native' | 'tradingView';
+      isChartSwitchDisabled?: boolean;
+      onChartSwitch?: () => void;
+    }
+  | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -88,6 +103,15 @@ jest.mock(
       mockGetTradingViewNativeChartSettings(params),
   }),
 );
+
+jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => () => ({
+  pop: mockNavigationPop,
+}));
+
+jest.mock('./MarketChartSourceSettingsRow', () => ({
+  MarketChartSourceSettingsRow: (props: IChartSourceRowProps) =>
+    mockChartSourceRow(props),
+}));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppRoute', () => ({
   useAppRoute: () => ({ params: mockRouteParams }),
@@ -143,6 +167,86 @@ describe('MarketChartSettingsModal', () => {
       currentSettings: mockChartSettings,
       value: mockPanelValue,
     });
+  });
+
+  it('saves pending edits, then leaves settings before switching', async () => {
+    mockIsMobileLayout = true;
+    const handleChartSwitch = jest.fn();
+    const confirmDraft = jest.fn(() => Promise.resolve(true));
+    mockRouteParams = {
+      chartMode: 'native',
+      isChartSwitchDisabled: true,
+      onChartSwitch: handleChartSwitch,
+    };
+    render(<MarketChartSettingsModal />);
+
+    const row =
+      mockTradingViewChartSettings.mock.calls[0][0].renderChartDisplayLeadingRow?.(
+        {
+          confirmDraft,
+        },
+      ) as ReactElement<IChartSourceRowProps>;
+    expect(row.props).toEqual(
+      expect.objectContaining({ chartMode: 'native', isDisabled: true }),
+    );
+
+    await act(async () => {
+      row.props.onChartSwitch();
+    });
+
+    expect(confirmDraft).toHaveBeenCalledTimes(1);
+    expect(mockNavigationPop).toHaveBeenCalledTimes(1);
+    expect(handleChartSwitch).toHaveBeenCalledTimes(1);
+    expect(confirmDraft.mock.invocationCallOrder[0]).toBeLessThan(
+      mockNavigationPop.mock.invocationCallOrder[0],
+    );
+    expect(mockNavigationPop.mock.invocationCallOrder[0]).toBeLessThan(
+      handleChartSwitch.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('stays on settings when pending edits fail to save', async () => {
+    mockIsMobileLayout = false;
+    const handleChartSwitch = jest.fn();
+    mockRouteParams = {
+      chartMode: 'native',
+      onChartSwitch: handleChartSwitch,
+    };
+    render(<MarketChartSettingsModal />);
+
+    const row =
+      mockTradingViewChartSettings.mock.calls[0][0].renderChartDisplayLeadingRow?.(
+        {
+          confirmDraft: () => Promise.resolve(false),
+        },
+      ) as ReactElement<IChartSourceRowProps>;
+
+    await act(async () => {
+      row.props.onChartSwitch();
+    });
+
+    expect(mockNavigationPop).not.toHaveBeenCalled();
+    expect(handleChartSwitch).not.toHaveBeenCalled();
+  });
+
+  it('keeps chart style on wide native screens opened from the chart', () => {
+    mockIsMobileLayout = false;
+    mockRouteParams = { showChartType: true };
+    render(<MarketChartSettingsModal />);
+
+    const props = mockTradingViewChartSettings.mock.calls[0][0];
+    expect(props.mobileLayout).toBe(false);
+    expect(props.showChartType).toBe(true);
+  });
+
+  it('omits the chart switch when the chart cannot switch source', () => {
+    mockIsMobileLayout = true;
+    render(<MarketChartSettingsModal />);
+
+    expect(
+      mockTradingViewChartSettings.mock.calls[0][0]
+        .renderChartDisplayLeadingRow,
+    ).toBeUndefined();
   });
 
   it('persists mobile changes immediately when no footer is rendered', () => {

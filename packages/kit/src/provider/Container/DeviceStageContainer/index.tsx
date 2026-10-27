@@ -166,7 +166,7 @@ function DeviceStageContainerCmp() {
       const response = buildThirdPartyHardwareUiResponse(
         current.thirdPartyAction,
         confirmed,
-        extras,
+        { ...extras, requestId: current.thirdPartyRequestId },
       );
       if (response) {
         void serviceThirdPartyHardware
@@ -526,6 +526,11 @@ function DeviceStageContainerCmp() {
     void serviceHardwareUI.deviceStageNoteInputSubmitted();
   }, [sendVendorUiResponse, serviceHardwareUI]);
 
+  const handleQrFallbackConfirm = useCallback(() => {
+    sendVendorUiResponse(true);
+    void serviceHardwareUI.deviceStageNoteInputSubmitted();
+  }, [sendVendorUiResponse, serviceHardwareUI]);
+
   const handleInstallConfirm = useCallback(() => {
     const current = stageRef.current;
     if (!current?.vendor) {
@@ -685,6 +690,7 @@ function DeviceStageContainerCmp() {
         stage?.vendor ? undefined : handleDeviceNotFoundSupport
       }
       onBtcHighIndexConfirm={handleBtcHighIndexConfirm}
+      onQrFallbackConfirm={handleQrFallbackConfirm}
       onInstallConfirm={handleInstallConfirm}
     />
   );

@@ -13,9 +13,12 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
+
+import { CHART_TYPE_ICONS } from '../utils/NativeChartControlsShared';
 
 import { TradingViewSettingsDialog } from './TradingViewSettingsDialog';
 import {
@@ -24,6 +27,7 @@ import {
   updateTradingViewSettingsMockAppearanceItemColor,
 } from './TradingViewSettingsMockState';
 import {
+  CHART_DISPLAY_SELECT_WIDTH,
   SettingsCheckboxRow,
   SettingsColorField,
   SettingsColorPicker,
@@ -207,6 +211,14 @@ const CHART_TYPE_PREFERENCES = [
   'area',
 ] as const satisfies readonly ITradingViewChartSettingsValue['chartType'][];
 
+const CHART_TYPE_PREFERENCE_ICONS = {
+  auto: 'MagicStickOutline',
+  ...CHART_TYPE_ICONS,
+} as const satisfies Record<
+  ITradingViewChartSettingsValue['chartType'],
+  IKeyOfIcons
+>;
+
 export function TradingViewChartTypeSettingsRow({
   value,
   disabled = false,
@@ -226,6 +238,8 @@ export function TradingViewChartTypeSettingsRow({
         title={title}
         value={value}
         options={CHART_TYPE_PREFERENCES}
+        optionIcons={CHART_TYPE_PREFERENCE_ICONS}
+        width={CHART_DISPLAY_SELECT_WIDTH}
         disabled={disabled}
         onChange={onChange}
       />
@@ -353,6 +367,13 @@ export type ITradingViewChartSettingsProps = {
   mobileLayout?: boolean;
   /** Show native chart type preferences in the settings content. */
   showChartType?: boolean;
+  /**
+   * Renders the first row of the chart display group, such as a chart source
+   * switch. Call confirmDraft before leaving the page so pending edits persist.
+   */
+  renderChartDisplayLeadingRow?: (helpers: {
+    confirmDraft: () => Promise<boolean>;
+  }) => ReactNode;
   /** Hide sections that the consuming chart does not currently implement. */
   hiddenAppearanceSectionIds?: readonly ITradingViewSettingsMockAppearanceSectionId[];
   /** Hide options that the consuming chart does not currently implement. */
@@ -373,6 +394,7 @@ export function TradingViewChartSettings({
   usePageFooter = false,
   mobileLayout = false,
   showChartType = false,
+  renderChartDisplayLeadingRow,
   hiddenAppearanceSectionIds,
   hiddenOptionIds,
 }: ITradingViewChartSettingsProps) {
@@ -521,24 +543,31 @@ export function TradingViewChartSettings({
     return didConfirm;
   };
 
+  const chartDisplayLeadingRow = renderChartDisplayLeadingRow?.({
+    confirmDraft: handleConfirm,
+  });
+
   const renderCandleSettings = () => (
     <YStack>
-      {showChartType ? (
+      {showChartType || chartDisplayLeadingRow ? (
         <SettingsGroup
           title={intl.formatMessage({
             id: ETranslations.market_chart_settings__chart_display,
           })}
         >
-          <TradingViewChartTypeSettingsRow
-            value={settingsValue.chartType}
-            disabled={submitInProgress}
-            onChange={(chartType) => {
-              updateSettingsValue((currentValue) => ({
-                ...currentValue,
-                chartType,
-              }));
-            }}
-          />
+          {chartDisplayLeadingRow}
+          {showChartType ? (
+            <TradingViewChartTypeSettingsRow
+              value={settingsValue.chartType}
+              disabled={submitInProgress}
+              onChange={(chartType) => {
+                updateSettingsValue((currentValue) => ({
+                  ...currentValue,
+                  chartType,
+                }));
+              }}
+            />
+          ) : null}
         </SettingsGroup>
       ) : null}
 
@@ -632,27 +661,6 @@ export function TradingViewChartSettings({
                 flexShrink={1}
                 opacity={settingsValue.options.latestPrice ? 1 : 0.5}
               >
-                <SettingsSelect
-                  testID="latest-price-line-style"
-                  title={intl.formatMessage({
-                    id: ETranslations.market_chart_settings__line_style,
-                  })}
-                  value={settingsValue.latestPriceLine.style}
-                  options={LINE_STYLE_OPTIONS}
-                  disabled={
-                    submitInProgress || !settingsValue.options.latestPrice
-                  }
-                  showLinePreview
-                  onChange={(style) => {
-                    updateSettingsValue((currentValue) => ({
-                      ...currentValue,
-                      latestPriceLine: {
-                        ...currentValue.latestPriceLine,
-                        style,
-                      },
-                    }));
-                  }}
-                />
                 <SettingsColorField
                   label={intl.formatMessage({
                     id: ETranslations.market_chart_settings__up,

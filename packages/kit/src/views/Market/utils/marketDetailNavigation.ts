@@ -135,6 +135,13 @@ const REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES = new Set<string>([
   ETabMarketRoutes.MarketNativeDetail,
 ]);
 
+// These tab routes share the same MarketDetailV2 screen component.
+const MARKET_DETAIL_V2_ROUTE_NAMES = new Set<string>([
+  ETabMarketRoutes.MarketDetailV2,
+  ETabMarketRoutes.MarketStockDetail,
+  ETabMarketRoutes.MarketNativeDetail,
+]);
+
 const MARKET_HOST_ROUTE_NAMES = new Set<string>([
   ...REPLACEABLE_MARKET_DETAIL_ROUTE_NAMES,
   ETabMarketRoutes.MarketBannerDetail,
@@ -147,12 +154,11 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'marketTokenId',
   'marketVariantId',
   'marketTokenCategory',
-  'marketTokenSymbol',
-  'resolveMarketAsset',
   'skipMarketDataFetch',
   'legacyTokenPreview',
   'marketTokenPreviewId',
   'stockId',
+  'initialSection',
   'stockPreviewSymbol',
   'stockPreviewName',
   'stockPreviewLogoUrl',
@@ -211,6 +217,21 @@ export function isFocusedMarketDetailRouteName(name?: string) {
   return (
     isReplaceableMarketDetailRouteName(name) ||
     name === EModalSwapRoutes.SwapProMarketDetail
+  );
+}
+
+export function canReuseMarketDetailRoute(
+  currentName: string | undefined,
+  nextName: string,
+) {
+  // Native selectors keep the existing MarketDetailV2 route across asset types.
+  return (
+    currentName === nextName ||
+    (platformEnv.isNative &&
+      ((currentName === ETabMarketRoutes.MarketDetailV2 &&
+        nextName === ETabMarketRoutes.MarketStockDetail) ||
+        (currentName === ETabMarketRoutes.MarketStockDetail &&
+          nextName === ETabMarketRoutes.MarketDetailV2)))
   );
 }
 
@@ -309,7 +330,13 @@ export function getCurrentMarketStockDetailRoute() {
   const stack = findMarketTabStack(navigation?.getRootState?.());
   const routes = stack?.routes ?? [];
   const current = routes[stack?.index ?? routes.length - 1];
-  if (current?.name !== ETabMarketRoutes.MarketStockDetail) {
+  if (
+    !canReuseMarketDetailRoute(
+      current?.name,
+      ETabMarketRoutes.MarketStockDetail,
+    ) ||
+    typeof current?.params?.stockId !== 'string'
+  ) {
     return undefined;
   }
   return current.params;
@@ -549,7 +576,9 @@ function canUpdateCurrentDetailInPlace(
     isReplaceableMarketDetailRouteName(route.name),
   ).length;
   return Boolean(
-    current?.key && current.name === routeName && leftoverDetailCount <= 1,
+    current?.key &&
+    canReuseMarketDetailRoute(current.name, routeName) &&
+    leftoverDetailCount <= 1,
   );
 }
 
@@ -559,17 +588,32 @@ function dispatchResetToSingleDetail({
   hostRoutes,
   routeName,
   params,
+  currentRoute,
 }: {
   navigation: INavigationLike;
   stackKey: string;
   hostRoutes: IResetRoute[];
   routeName: string;
   params: Record<string, unknown>;
+  currentRoute?: INavigationRouteNode;
 }) {
+  const shouldKeepRouteKey = Boolean(
+    !platformEnv.isNative &&
+    currentRoute?.name &&
+    MARKET_DETAIL_V2_ROUTE_NAMES.has(currentRoute.name) &&
+    MARKET_DETAIL_V2_ROUTE_NAMES.has(routeName),
+  );
   navigation.dispatch({
     ...CommonActions.reset({
       index: hostRoutes.length,
-      routes: [...hostRoutes, { name: routeName, params }],
+      routes: [
+        ...hostRoutes,
+        {
+          ...(shouldKeepRouteKey ? { key: currentRoute?.key } : undefined),
+          name: routeName,
+          params,
+        },
+      ],
     }),
     target: stackKey,
   });
@@ -616,6 +660,7 @@ export function openOrReplaceMarketDetailRoute({
     hostRoutes: getPreservedHostRoutes(stack),
     routeName,
     params: nextParams,
+    currentRoute: current,
   });
   return true;
 }
@@ -643,10 +688,10 @@ export function replaceFocusedMarketDetailRoute({
     });
     return true;
   }
-  if (current?.name === routeName) {
+  if (canReuseMarketDetailRoute(current?.name, routeName)) {
     navigation.dispatch({
       ...CommonActions.setParams(nextParams),
-      ...(current.key ? { source: current.key } : {}),
+      ...(current?.key ? { source: current.key } : {}),
       ...(ownerKey ? { target: ownerKey } : {}),
     });
     return true;
