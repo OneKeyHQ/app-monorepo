@@ -136,30 +136,52 @@ export function ReversePositionContent({
     [snapshot.coin],
     { watchLoading: true, checkIsFocused: false, undefinedResultIfError: true },
   );
-  const { result: book } = usePromiseResult(
+  const bookRefreshInterval = PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS / 3;
+  const { result: bookSnapshot } = usePromiseResult(
     async () => {
       const cached =
         await backgroundApiProxy.serviceHyperliquid.getL2BookSnapshotCache({
           coin: snapshot.coin,
+          nSigFigs: null,
+          mantissa: null,
         });
       if (
         cached?.coin === snapshot.coin &&
-        Math.abs(Date.now() - cached.time) <=
-          PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS
+        cached.nSigFigs === null &&
+        cached.mantissa === null &&
+        Math.abs(Date.now() - cached.time) < bookRefreshInterval
       )
-        return cached;
-      return backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
-        coin: snapshot.coin,
-      });
+        return { book: cached, receivedAt: cached.time };
+      const book =
+        await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
+          coin: snapshot.coin,
+        });
+      // REST snapshots use local receipt time so server clock skew cannot
+      // invalidate a freshly fetched book. Keep the exchange timestamp intact.
+      return book ? { book, receivedAt: Date.now() } : undefined;
     },
-    [snapshot.coin],
+    [snapshot.coin, bookRefreshInterval],
     {
-      pollingInterval: PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS,
+      pollingInterval: bookRefreshInterval,
+      runImmediatelyOnMount: true,
       checkIsFocused: false,
       undefinedResultIfError: true,
-      undefinedResultIfReRun: true,
+      // Keep a still-fresh book visible while the next snapshot is loading.
     },
   );
+  const [bookExpired, setBookExpired] = useState(false);
+  useEffect(() => {
+    if (!bookSnapshot) return undefined;
+    const remaining =
+      bookSnapshot.receivedAt +
+      PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS -
+      Date.now();
+    setBookExpired(remaining < 0);
+    if (remaining < 0) return undefined;
+    // Expire retained depth even if neither prices nor the network update.
+    const timer = setTimeout(() => setBookExpired(true), remaining + 1);
+    return () => clearTimeout(timer);
+  }, [bookSnapshot]);
   const szDecimals = symbolMeta?.universe?.szDecimals;
   const { mid } = usePerpsMidPrice({ coin: snapshot.coin, szDecimals });
   const { assetCtx } = usePerpsAssetCtx({ assetId: symbolMeta?.assetId ?? -1 });
@@ -184,13 +206,22 @@ export function ReversePositionContent({
     snapshot.coin,
   );
   const liquidationPrice = useMemo(() => {
-    if (!symbolMeta || !markPrice || !position || !isScopeValid || !size)
+    if (
+      !symbolMeta ||
+      !markPrice ||
+      !position ||
+      !isScopeValid ||
+      !size ||
+      bookExpired
+    )
       return null;
     const estimatedClearingPrice =
       referencePrice && szDecimals !== undefined
         ? getReversePositionClearingPrice({
             coin: snapshot.coin,
-            book,
+            book: bookSnapshot
+              ? { ...bookSnapshot.book, time: bookSnapshot.receivedAt }
+              : undefined,
             referencePrice,
             positionSize: isBuy ? size.negated() : size,
             szDecimals,
@@ -215,7 +246,8 @@ export function ReversePositionContent({
       crossAvailableAfterMaintenance,
     });
   }, [
-    book,
+    bookSnapshot,
+    bookExpired,
     referencePrice,
     szDecimals,
     snapshot.coin,
@@ -439,13 +471,7 @@ export function ReversePositionContent({
             testID={PerpTestIDs.ReversePositionConfirmButton}
             size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
-            disabled={
-              !symbolMeta ||
-              !referencePrice ||
-              !size ||
-              !isScopeValid ||
-              isSubmitting
-            }
+            disabled={!symbolMeta || !size || !isScopeValid || isSubmitting}
             loading={isSubmitting}
             onPress={handleSubmit}
           >

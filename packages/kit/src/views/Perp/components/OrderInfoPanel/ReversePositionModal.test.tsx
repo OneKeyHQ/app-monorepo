@@ -1,7 +1,13 @@
 /** @jest-environment jsdom */
 import type { ReactNode } from 'react';
 
-import { act, fireEvent, render, waitFor } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from '@testing-library/react';
 
 import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
 
@@ -15,7 +21,8 @@ const mockSnapshot = {
   accountAddress: '0x1111',
   positionSize: '1',
 };
-let mockMid = '2000';
+let mockMid: string | undefined = '2000';
+let mockRealBookPolling = false;
 let mockMarkPrice = '2000';
 let mockBookLoader: () => Promise<unknown>;
 let mockBookPending = false;
@@ -75,6 +82,13 @@ jest.mock('@onekeyhq/components', () => {
     testID?: string;
   }) => <div data-testid={testID}>{children}</div>;
   return {
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => {},
+    useDeferredPromise: jest.requireActual<
+      typeof import('../../../../../../components/src/hooks/useDeferredPromise')
+    >('../../../../../../components/src/hooks/useDeferredPromise')
+      .useDeferredPromise,
+    useNetInfo: () => ({ isRawInternetReachable: true }),
     Button: ({
       children,
       onPress,
@@ -118,6 +132,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
   },
 }));
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocusedWhenEnabled: () => true,
+}));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (
     callback: () => Promise<unknown>,
@@ -126,12 +143,22 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   ) => {
     if (options.pollingInterval) {
       mockBookLoader = callback;
+      if (mockRealBookPolling) {
+        return jest
+          .requireActual<
+            typeof import('@onekeyhq/kit/src/hooks/usePromiseResult')
+          >('@onekeyhq/kit/src/hooks/usePromiseResult')
+          .usePromiseResult(callback, _deps, options);
+      }
       if (mockBookPending) return { result: undefined };
       return {
         result: {
-          coin: mockPreviewMeta.coin,
-          time: Date.now(),
-          levels: [[{ px: mockBookPrice ?? mockMid, sz: '100', n: 1 }], []],
+          receivedAt: Date.now(),
+          book: {
+            coin: mockPreviewMeta.coin,
+            time: Date.now(),
+            levels: [[{ px: mockBookPrice ?? mockMid, sz: '100', n: 1 }], []],
+          },
         },
       };
     }
@@ -191,6 +218,8 @@ describe('reverse position confirmation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockBookPending = false;
+    mockRealBookPolling = false;
+    mockTarget.price = '2000';
     mockBookPrice = undefined;
     mockGetBookCache.mockResolvedValue(undefined);
     mockFetchBook.mockResolvedValue(null);
@@ -212,6 +241,10 @@ describe('reverse position confirmation', () => {
         mockClose();
       },
     }));
+  });
+  afterEach(() => {
+    cleanup();
+    jest.useRealTimers();
   });
   it('loads preview without account-limit requests and updates with streamed prices', async () => {
     mockPosition.leverage.type = 'isolated';
@@ -255,9 +288,23 @@ describe('reverse position confirmation', () => {
     render(
       <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
     );
-    const fresh = { coin: 'ETH', time: Date.now(), levels: [[], []] };
+    const fresh = {
+      coin: 'ETH',
+      time: Date.now(),
+      nSigFigs: null,
+      mantissa: null,
+      levels: [[], []],
+    };
     mockGetBookCache.mockResolvedValue(fresh);
-    expect(await mockBookLoader()).toBe(fresh);
+    expect(await mockBookLoader()).toEqual({
+      book: fresh,
+      receivedAt: fresh.time,
+    });
+    expect(mockGetBookCache).toHaveBeenCalledWith({
+      coin: 'ETH',
+      nSigFigs: null,
+      mantissa: null,
+    });
     expect(mockFetchBook).not.toHaveBeenCalled();
     mockGetBookCache.mockResolvedValue({ ...fresh, coin: 'BTC' });
     await mockBookLoader();
@@ -268,6 +315,107 @@ describe('reverse position confirmation', () => {
     expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'ETH' });
     expect(mockFetchAsset).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { nSigFigs: 5, mantissa: null },
+    { nSigFigs: 2, mantissa: 5 },
+    { nSigFigs: undefined, mantissa: undefined },
+  ])(
+    'fetches raw depth instead of accepting aggregated or untagged cache %s',
+    async (precision) => {
+      render(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      mockGetBookCache.mockResolvedValue({
+        coin: 'ETH',
+        time: Date.now(),
+        levels: [[], []],
+        ...precision,
+      });
+      await mockBookLoader();
+      expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'ETH' });
+    },
+  );
+
+  it('refreshes an aging cache instead of waiting until its expiry', async () => {
+    render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    mockGetBookCache.mockResolvedValue({
+      coin: 'ETH',
+      time: Date.now() - 25_000,
+      nSigFigs: null,
+      mantissa: null,
+      levels: [[], []],
+    });
+    await mockBookLoader();
+    expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'ETH' });
+  });
+
+  it('retains fresh depth during refresh and expires it without another price tick', async () => {
+    jest.useFakeTimers();
+    mockRealBookPolling = true;
+    mockPosition.leverage.type = 'isolated';
+    const initialBook = {
+      coin: 'ETH',
+      time: Date.now() - 60_000,
+      levels: [[{ px: '2000', sz: '100', n: 1 }], []],
+    };
+    let resolveRefresh: (book: typeof initialBook) => void = () => {};
+    mockFetchBook.mockResolvedValueOnce(initialBook).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    const view = render(
+      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    // A fresh REST response is valid despite a skewed server clock.
+    expect(view.getByText('$2,146.3')).toBeTruthy();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+    expect(mockFetchBook).toHaveBeenCalledTimes(2);
+    expect(view.getByText('$2,146.3')).toBeTruthy();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(20_001);
+    });
+    expect(view.queryByText('$2,146.3')).toBeNull();
+    expect(view.getByText('--')).toBeTruthy();
+    await act(async () => {
+      resolveRefresh(initialBook);
+    });
+    expect(view.getByText('$2,146.3')).toBeTruthy();
+  });
+
+  it.each(['2000', ''])(
+    'validates the submit-time price when live mid is absent: %s',
+    async (submitPrice) => {
+      mockMid = undefined;
+      mockTarget.price = submitPrice;
+      const view = render(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      const confirm = view.getByTestId(
+        'perp-reverse-position-confirm-button',
+      ) as HTMLButtonElement;
+      expect(confirm.disabled).toBe(false);
+      fireEvent.click(confirm);
+      if (submitPrice) {
+        await waitFor(() => expect(mockPlaceOrder).toHaveBeenCalledTimes(1));
+        expect(mockPlaceOrder).toHaveBeenCalledWith(
+          expect.objectContaining({ price: '2000', coin: 'ETH' }),
+        );
+      } else {
+        await waitFor(() => expect(mockToastError).toHaveBeenCalledTimes(1));
+        expect(mockPlaceOrder).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   it('updates liquidation notional from the execution boundary while keeping the mark unchanged', () => {
     mockPosition.leverage.type = 'isolated';
