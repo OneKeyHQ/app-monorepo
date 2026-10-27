@@ -304,6 +304,106 @@ describe('Keystone default account creation', () => {
     expect(fixture.createHWWallet).not.toHaveBeenCalled();
   });
 
+  it('skips chains the firmware cannot use in a normal QR response', async () => {
+    const fixture = withDeviceExport(
+      false,
+      HardwareErrorCode.ChainNotSupported,
+    );
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+    ).resolves.toMatchObject(fixture.created);
+    expect(fixture.buildBatchNetworks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customNetworks: [
+          { networkId: getNetworkIdsMap().btc, deriveType: 'BIP84' },
+        ],
+        includingDefaultNetworks: false,
+      }),
+    );
+    expect(fixture.pin).toHaveBeenCalledWith({
+      dbDeviceId: 'export-device',
+      keys: { "btc:m/84'/0'/0'": '02aa:cc' },
+    });
+  });
+
+  function answerBundle(
+    fixture: ReturnType<typeof buildService>,
+    failureCodeFor: (network: string) => number | undefined,
+  ) {
+    fixture.allNetworkGetAddress.mockImplementation(
+      async (
+        _operationId: string,
+        _deviceId: string,
+        params: { bundle: { network: string; path: string }[] },
+      ) => ({
+        success: true,
+        payload: params.bundle.map((item) => {
+          const code = failureCodeFor(item.network);
+          return code === undefined
+            ? {
+                ...item,
+                success: true,
+                payload: {
+                  deviceIdentity: {
+                    type: 'walletId',
+                    value: fixture.walletIdentity,
+                  },
+                },
+              }
+            : {
+                ...item,
+                success: false,
+                payload: { code, error: 'Keystone item failed' },
+              };
+        }),
+      }),
+    );
+  }
+
+  it('still rejects a chain the device reports as unsupported over USB', async () => {
+    const fixture = buildService({ realAccountPlan: true });
+    answerBundle(fixture, (network) =>
+      network === 'tron' ? HardwareErrorCode.ChainNotSupported : undefined,
+    );
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({
+        usb: {
+          operationId: 'keystone-operation',
+          device: {
+            deviceId: fixture.walletIdentity,
+            connectId: 'keystone-connection',
+            name: 'Keystone',
+            deviceType: EDeviceType.Unknown,
+            uuid: '',
+          },
+        },
+      }),
+    ).rejects.toMatchObject({ code: HardwareErrorCode.ChainNotSupported });
+    expect(fixture.createHWWallet).not.toHaveBeenCalled();
+  });
+
+  it('does not skip other failures mixed with unsupported chains', async () => {
+    const fixture = buildService({ realAccountPlan: true });
+    answerBundle(fixture, (network) => {
+      if (network === 'tron') return HardwareErrorCode.ChainNotSupported;
+      if (network === 'sol') return HardwareErrorCode.DeviceMismatch;
+      return undefined;
+    });
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+    ).rejects.toMatchObject({ code: HardwareErrorCode.DeviceMismatch });
+    expect(fixture.createHWWallet).not.toHaveBeenCalled();
+  });
+
+  it('reports the unsupported chain when no account can be created', async () => {
+    const fixture = buildService({ realAccountPlan: true });
+    answerBundle(fixture, () => HardwareErrorCode.ChainNotSupported);
+    await expect(
+      fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+    ).rejects.toMatchObject({ code: HardwareErrorCode.ChainNotSupported });
+    expect(fixture.createHWWallet).not.toHaveBeenCalled();
+  });
+
   it('does not skip wallet mismatch errors in an account-export response', async () => {
     const fixture = withDeviceExport(true, HardwareErrorCode.DeviceMismatch);
     await expect(

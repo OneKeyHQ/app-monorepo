@@ -1071,15 +1071,23 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const accountExport = items.some(
       (item) => item.success && item.payload?.accountExport === true,
     );
+    // Accounts the device did not export, or whose chain its QR firmware cannot use.
+    const isUnavailableItem = (item: (typeof items)[number]) => {
+      if (item.success) return false;
+      const code = Number(item.payload?.code);
+      const notExported =
+        accountExport &&
+        code === ThirdPartyHwErrorCode.DevicePathForbidden &&
+        item.payload?.params?.reason === 'account-not-exported';
+      const qrChainNotSupported =
+        !usb && code === ThirdPartyHwErrorCode.ChainNotSupported;
+      return notExported || qrChainNotSupported;
+    };
+    // With nothing to create, the first failure is the reason.
+    const hasCreatableItem = items.some((item) => item.success);
     const failedItem = items.find(
       (item) =>
-        !item.success &&
-        !(
-          accountExport &&
-          Number(item.payload?.code) ===
-            ThirdPartyHwErrorCode.DevicePathForbidden &&
-          item.payload?.params?.reason === 'account-not-exported'
-        ),
+        !item.success && (!hasCreatableItem || !isUnavailableItem(item)),
     );
     if (failedItem) {
       throw convertThirdPartyDeviceError(
@@ -1093,8 +1101,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
     }
     let bundleForCreation = bundle;
     let networksForCreation = networks;
-    if (accountExport) {
-      // Missing export paths are explicitly unavailable; real failures still reject above.
+    if (accountExport || items.some(isUnavailableItem)) {
+      // Unavailable accounts are skipped; real failures still reject above.
       if (
         items.length !== bundle.length ||
         networks.length !== bundle.length ||
@@ -1105,7 +1113,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
         )
       ) {
         throw new OneKeyLocalError(
-          'Keystone account export does not match the requested account plan',
+          'Keystone response does not match the requested account plan',
         );
       }
       const selected = items.map((item) => item.success);
