@@ -2071,3 +2071,43 @@ describe('privacy chain state: A5 review follow-ups', () => {
     ).resolves.toBeUndefined();
   });
 });
+
+describe('privacy chain state: xmr alias birthday', () => {
+  const xmr = (accountId: string, vkFp: string) => ({
+    networkId: XMR,
+    accountId,
+    vkFp,
+    birthdayHeight: 100,
+  });
+
+  it('keeps an alias on the earliest birthday when it is enabled later', async () => {
+    const entity = createEntity();
+    await entity.saveXmrEnabledAccount(xmr('software', 'a'.repeat(32)));
+    await entity.saveXmrEnabledAccount({
+      ...xmr('hardware', 'a'.repeat(32)),
+      birthdayHeight: 500,
+    });
+
+    for (const accountId of ['software', 'hardware']) {
+      // eslint-disable-next-line no-await-in-loop
+      const state = await entity.getXmrAccountState({ accountId });
+      expect(state.birthdayHeight).toBe(100);
+    }
+  });
+
+  it('still moves the shared birthday on an explicit rescan', async () => {
+    const entity = createEntity();
+    await entity.saveXmrEnabledAccount(xmr('software', 'a'.repeat(32)));
+    await entity.saveXmrEnabledAccount(xmr('hardware', 'a'.repeat(32)));
+    await entity.saveXmrEnabledAccount({
+      ...xmr('hardware', 'a'.repeat(32)),
+      birthdayHeight: 500,
+      forceRescan: true,
+    });
+
+    const software = await entity.getXmrAccountState({
+      accountId: 'software',
+    });
+    expect(software.birthdayHeight).toBe(500);
+  });
+});

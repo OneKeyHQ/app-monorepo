@@ -1677,11 +1677,30 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         );
       }
       const epoch = createEpoch();
-      const birthday = {
+      let birthday: NonNullable<
+        IPrivacyChainAccountRecord['scan']['birthday']
+      > = {
         height: birthdayHeight,
         source: birthdaySource,
         timestamp: birthdayTimestamp,
       };
+      // Aliases share one runtime identity, and a later birthday drops what it
+      // already found. Enabling one keeps the earliest; only a rescan moves it.
+      if (!forceRescan) {
+        Object.keys(state.accounts).forEach((otherId) => {
+          if (otherId === accountId) return;
+          const other = readAccount(state, otherId);
+          if (
+            other?.networkId === networkId &&
+            other.vkFp === vkFp &&
+            other.scan.intent === 'on' &&
+            other.scan.birthday &&
+            other.scan.birthday.height < birthday.height
+          ) {
+            birthday = other.scan.birthday;
+          }
+        });
+      }
       const rescanRequired = forceRescan ?? record.scan.forceRescan;
       const alreadyApplied =
         !rescanRequired &&
