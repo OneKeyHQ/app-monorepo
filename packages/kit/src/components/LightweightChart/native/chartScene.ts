@@ -1055,6 +1055,7 @@ function drawCrosshairPlot(
   scene: INativeChartScene,
   point: IHoverPoint,
   commands: INativeChartScene['commands'],
+  crosshairX: number,
   scrub?: ILightweightChartConfig['nativeScrubOptions'],
 ) {
   'worklet';
@@ -1063,8 +1064,8 @@ function drawCrosshairPlot(
     kind: 'line',
     paint: 'crosshairLine',
     customPaintId: 'crosshair',
-    x1: point.x,
-    x2: point.x,
+    x1: crosshairX,
+    x2: crosshairX,
     y1: 0,
     y2: scene.plot.height,
   });
@@ -1220,7 +1221,7 @@ export function buildNativeChartCrosshair(
     customPaintStyles: buildCrosshairStyles(scene, point, scrub),
   };
   if (!point) return overlay;
-  drawCrosshairPlot(scene, point, overlay.commands, scrub);
+  drawCrosshairPlot(scene, point, overlay.commands, scrub ? x : point.x, scrub);
   drawCrosshairPrice(scene, point, overlay.commands);
   drawScrubTooltip(scene, point, x, y, overlay, scrub);
   return overlay;

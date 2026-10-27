@@ -213,6 +213,37 @@ it('draws a native scrub card and cuts only the solid overlay at the cursor', ()
   expect(buildNativeChartCrosshair(chart, -1, 20).commands).toHaveLength(0);
 });
 
+it.each(['left', 'right'] as const)(
+  'keeps the scrub guide under the finger on the %s price scale',
+  (priceScalePosition) => {
+    const chart = scene({ priceScalePosition, hideCrosshairPriceLabel: true });
+    const point = chart.hoverPoints[1];
+    const scrub = {
+      labels: { 200: { time: 'selected point', price: '$110.00' } },
+      backgroundColor: '#fff',
+      borderColor: '#ddd',
+      textColor: '#000',
+      timeColor: '#888',
+      largePrice: false,
+    };
+    for (const x of [point.x - 4, point.x + 4]) {
+      const overlay = buildNativeChartCrosshair(chart, x, 100, scrub);
+      expect(overlay.commands).toContainEqual(
+        expect.objectContaining({ kind: 'line', x1: x, x2: x }),
+      );
+      expect(overlay.commands).toContainEqual(
+        expect.objectContaining({ kind: 'circle', cx: point.x, cy: point.y }),
+      );
+      expect(overlay.commands).toContainEqual(
+        expect.objectContaining({ kind: 'text', text: '$110.00' }),
+      );
+      expect(buildNativeChartCrosshair(chart, x, 100).commands).toContainEqual(
+        expect.objectContaining({ kind: 'line', x1: point.x, x2: point.x }),
+      );
+    }
+  },
+);
+
 it('localizes axis dates in the configured timezone including year boundaries', () => {
   const chart = scene({
     data: [
