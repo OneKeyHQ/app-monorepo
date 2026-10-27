@@ -366,15 +366,7 @@ function BalanceRowDesktop({
             maxWidth="100%"
             pr="$3"
           >
-            {cell.key === 'total' || cell.key === 'available'
-              ? numberFormat(item[cell.key], {
-                  formatter: 'balance',
-                  formatterOptions: {
-                    tokenSymbol: item.coin,
-                    disableThousandSeparator: true,
-                  },
-                })
-              : cell.cellValue}
+            {cell.cellValue}
           </SizableText>
         }
       />
