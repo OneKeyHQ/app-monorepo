@@ -141,16 +141,11 @@ describe('Web TradingViewNativeNavigationControls', () => {
     renderControls();
 
     expect(
-      [
-        'zoomOut',
-        'zoomIn',
-        'scrollLeft',
-        'scrollRight',
-        'reset',
-      ].map((action) =>
-        screen
-          .getByTestId(`chart-navigation-${action}`)
-          .getAttribute('aria-label'),
+      ['zoomOut', 'zoomIn', 'scrollLeft', 'scrollRight', 'reset'].map(
+        (action) =>
+          screen
+            .getByTestId(`chart-navigation-${action}`)
+            .getAttribute('aria-label'),
       ),
     ).toEqual([
       'menu.zoom_out',
