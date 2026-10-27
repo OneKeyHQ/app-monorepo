@@ -73,6 +73,8 @@ function createService({
         privacyChainState: {
           listPendingAccountDeletions: async () => [],
           getAccountEpoch: async () => undefined,
+          listNetworkDataHolders: async () => [],
+          getAccountVkFp: async () => undefined,
         },
       },
       serviceAccount: {

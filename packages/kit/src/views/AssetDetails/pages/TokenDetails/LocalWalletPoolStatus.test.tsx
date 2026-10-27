@@ -28,13 +28,24 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ pushModal: mockPushModal }),
 }));
-const mockShowSlotsFull = jest.fn(async (_params: unknown) => undefined);
+
+const mockAssertAdmission = jest.fn(async (_params: unknown) => undefined);
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    servicePrivacyChain: {
+      assertLocalWalletAccountAdmission: (params: unknown) =>
+        mockAssertAdmission(params),
+    },
+  },
+}));
+const mockShowSlotsFull = jest.fn((_params: unknown) => undefined);
 jest.mock('@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog', () => ({
   showPrivacyChainSlotsFullDialog: (params: unknown) =>
     mockShowSlotsFull(params),
 }));
 
-// What the background throws when every sync slot is taken.
+// What the background throws when the network already holds its most accounts.
 const slotsFullError = Object.assign(new Error('full'), {
   key: ETranslations.privacy_slots_delete__desc,
   autoToast: false,
@@ -322,7 +333,67 @@ describe('LocalWalletPoolStatus enable failure', () => {
 
   beforeEach(() => {
     Dialog.confirm.mockReset();
+    mockAssertAdmission.mockReset().mockResolvedValue(undefined);
+    mockShowSlotsFull.mockClear();
+    mockPushModal.mockClear();
     mockBirthday = { birthdayTimestamp: 1_700_000_000_000 };
+  });
+
+  it.each([false, true])(
+    'explains a full network before the birthday form, offering settings unless already there (settingsMode=%s)',
+    async (settingsMode) => {
+      mockAssertAdmission.mockRejectedValue(slotsFullError);
+      const enableAccount = jest.fn(async () => undefined);
+      render(
+        <LocalWalletPoolStatus
+          networkId="zec--0"
+          accountId="hd-1--0"
+          settingsMode={settingsMode}
+          pool={pool({
+            enableAccount,
+            settings: { accountSetup: { requiresBirthday: true } },
+          } as unknown as Partial<ILocalWalletPool>)}
+        />,
+      );
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
+      });
+
+      expect(Dialog.confirm).not.toHaveBeenCalled();
+      expect(enableAccount).not.toHaveBeenCalled();
+      const params = mockShowSlotsFull.mock.calls[0][0] as {
+        onOpenSettings?: () => void;
+      };
+      if (settingsMode) {
+        expect(params.onOpenSettings).toBeUndefined();
+      } else {
+        params.onOpenSettings?.();
+        expect(mockPushModal).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
+  it('explains a network that filled up while the form was open', async () => {
+    const enableAccount = jest.fn().mockRejectedValue(slotsFullError);
+    render(
+      <LocalWalletPoolStatus
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pool({
+          enableAccount,
+          settings: { accountSetup: { requiresBirthday: true } },
+        } as unknown as Partial<ILocalWalletPool>)}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
+    });
+    // The limit closes this dialog and opens its own.
+    await act(async () => {
+      await lastDialog().onConfirm({ preventClose: jest.fn() });
+    });
+
+    expect(mockShowSlotsFull).toHaveBeenCalledTimes(1);
   });
 
   function lastDialog(): IConfirmArgs {
@@ -355,13 +426,15 @@ describe('LocalWalletPoolStatus enable failure', () => {
           presentation={presentation}
         />,
       );
-      fireEvent.click(
-        screen.getByTestId(
-          presentation === 'tokenDetails'
-            ? 'token-privacy-action'
-            : 'local-wallet-enable-button',
-        ),
-      );
+      await act(async () => {
+        fireEvent.click(
+          screen.getByTestId(
+            presentation === 'tokenDetails'
+              ? 'token-privacy-action'
+              : 'local-wallet-enable-button',
+          ),
+        );
+      });
       const preventClose = jest.fn();
       await act(async () => {
         await lastDialog().onConfirm({ preventClose });
@@ -376,49 +449,6 @@ describe('LocalWalletPoolStatus enable failure', () => {
     },
   );
 
-  it.each([false, true])(
-    'explains a full sync limit and offers the settings page unless already there (settingsMode=%s)',
-    async (settingsMode) => {
-      mockShowSlotsFull.mockClear();
-      mockPushModal.mockClear();
-      mockBirthday = { birthdayHeight: 2_500_000 };
-      const enableAccount = jest.fn().mockRejectedValue(slotsFullError);
-      render(
-        <LocalWalletPoolStatus
-          networkId="zec--0"
-          accountId="hd-1--0"
-          settingsMode={settingsMode}
-          pool={pool({
-            enableAccount,
-            accountName: 'Account #2',
-            settings: { accountSetup: { requiresBirthday: true } },
-          } as unknown as Partial<ILocalWalletPool>)}
-        />,
-      );
-      fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
-      // Resolving closes the enable dialog; the limit dialog takes over.
-      await act(async () => {
-        await lastDialog().onConfirm({ preventClose: jest.fn() });
-      });
-      const params = mockShowSlotsFull.mock.calls[0][0] as {
-        networkId: string;
-        accountName: string;
-        onOpenSettings?: () => void;
-      };
-      expect(params).toMatchObject({
-        networkId: 'zec--0',
-        accountName: 'Account #2',
-      });
-      if (settingsMode) {
-        expect(params.onOpenSettings).toBeUndefined();
-      } else {
-        params.onOpenSettings?.();
-        expect(mockPushModal).toHaveBeenCalledTimes(1);
-      }
-    },
-  );
-
-  // The rejection carries the toast (background autoToast); the dialog must not swallow it.
   it('lets a rejected enable reach the user and keeps the dialog open', async () => {
     const failure = Object.assign(new Error('runtime unavailable'), {
       autoToast: true,
@@ -435,7 +465,9 @@ describe('LocalWalletPoolStatus enable failure', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
+    });
     expect(Dialog.confirm).toHaveBeenCalledTimes(1);
 
     const preventClose = jest.fn();
@@ -460,14 +492,15 @@ describe('LocalWalletPoolStatus enable failure', () => {
     );
     const button = screen.getByTestId('local-wallet-enable-button');
 
-    fireEvent.click(button);
+    await act(async () => {
+      fireEvent.click(button);
+    });
     await lastDialog()
       .onConfirm({ preventClose: jest.fn() })
       .catch(() => undefined);
     await act(async () => {
-      await Promise.resolve();
+      fireEvent.click(button);
     });
-    fireEvent.click(button);
 
     expect(Dialog.confirm).toHaveBeenCalledTimes(2);
   });
@@ -582,31 +615,6 @@ describe('LocalWalletSyncRow balance refresh', () => {
     await act(async () => fireEvent.click(button));
     expect(resumeNetworkSync).toHaveBeenCalledTimes(1);
     expect(refreshBalanceNow).not.toHaveBeenCalled();
-  });
-
-  it('explains a full sync limit when a paused account is resumed', async () => {
-    mockShowSlotsFull.mockClear();
-    render(
-      <LocalWalletSyncRow
-        networkId="zec--0"
-        accountId="hd-1--0"
-        pool={pool({
-          enabled: true,
-          accountName: 'Account #2',
-          state: { enabled: false, paused: true },
-          enableAccount: jest.fn().mockRejectedValue(slotsFullError),
-        })}
-      />,
-    );
-    await act(async () =>
-      fireEvent.click(screen.getByTestId('local-wallet-refresh-balance-btn')),
-    );
-    expect(mockShowSlotsFull).toHaveBeenCalledWith(
-      expect.objectContaining({
-        networkId: 'zec--0',
-        accountName: 'Account #2',
-      }),
-    );
   });
 
   it('does not invent a successful update while a refresh is being scheduled', async () => {

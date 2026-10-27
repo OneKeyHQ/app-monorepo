@@ -22,23 +22,6 @@ export type ILocalWalletRetainedIdentity = {
   viewingKey: string;
 };
 
-// Counts viewing identities across every wallet, including ones this session
-// cannot see.
-export type ILocalWalletSlotUsage = {
-  used: number;
-  max?: number;
-  occupants: {
-    accountId: string;
-    accountName: string;
-    walletName: string;
-    // Visible accounts sharing this identity, and therefore its single slot.
-    aliasCount: number;
-  }[];
-  // Slots held by accounts no visible wallet owns right now (e.g. a locked
-  // passphrase wallet); they still count against the limit.
-  hiddenCount: number;
-};
-
 export type ILocalWalletSyncProgress = {
   birthdayHeight: number | null;
   backfillScannedHeight: number | null;

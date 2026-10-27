@@ -21597,6 +21597,7 @@
     "packages/kit-bg/src/providers/backgroundProviders.ts": 15105,
     "packages/kit-bg/src/runtime/RuntimeEnvironmentAdapter.ts": 1258,
     "packages/kit-bg/src/services/PrivacyChainSyncScheduler.ts": 18841,
+    "packages/kit-bg/src/services/PrivacyChainSyncSlots.ts": 4745,
     "packages/kit-bg/src/services/PrivacyModeState.ts": 5814,
     "packages/kit-bg/src/services/ServiceAccount/ServiceAccount.ts": 18211,
     "packages/kit-bg/src/services/ServiceAccount/analyticsWalletProfile.ts": 2600,

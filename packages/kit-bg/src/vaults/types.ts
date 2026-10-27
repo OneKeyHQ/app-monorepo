@@ -292,8 +292,6 @@ export type IVaultSettings = {
       toHeight: number;
       labelId: ETranslations;
     }[];
-    // Scan cost scales with active viewing keys; aliases sharing one count once.
-    maxEnabledAccounts?: number;
     // Fee is fixed by protocol (ZIP-317), so fee >= amount is not an overpay.
     feeSetByProtocol?: boolean;
     // Address-scoped backend endpoints never receive this chain's addresses.

@@ -62,7 +62,6 @@ function createService({
       onLocalWalletAccountsChanged: jest.fn(
         async (): Promise<void> => undefined,
       ),
-      assertEnabledAccountLimit: jest.fn(async () => undefined),
     },
     simpleDb: {
       privacyChainState: {
@@ -281,7 +280,7 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
     expect(zcashPreparePrivacyModeAccount).not.toHaveBeenCalled();
     expect(
       backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
-    ).toHaveBeenCalledWith({ accountId, maxEnabledAccounts: 5 });
+    ).toHaveBeenCalledWith({ accountId });
     expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
   });
 
@@ -574,7 +573,7 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     expect(zcashRetryLocalWalletSetup).not.toHaveBeenCalled();
     expect(
       backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
-    ).toHaveBeenCalledWith({ accountId, maxEnabledAccounts: 5 });
+    ).toHaveBeenCalledWith({ accountId });
   });
 
   it('derives the key again when a paused account lost it', async () => {

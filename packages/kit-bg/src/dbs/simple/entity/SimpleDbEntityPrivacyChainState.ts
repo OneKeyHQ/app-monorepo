@@ -2,8 +2,6 @@ import { isEqual, isPlainObject, uniq } from 'lodash';
 import { z } from 'zod';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -144,6 +142,9 @@ const accountRecordSchema = z.object({
         requestedAt: finiteNumber,
       })
       .optional(),
+    // Sync slot rotation order: the user's latest enable, and latest enable or refresh.
+    enabledAt: finiteNumber.optional(),
+    refreshedAt: finiteNumber.optional(),
   }),
   chain: z
     .object({
@@ -309,12 +310,6 @@ function isScanning(record: IPrivacyChainAccountRecord): boolean {
     record.scan.operation === undefined &&
     record.scan.deletion === undefined
   );
-}
-
-function zcashRecordVkFp(
-  record: IPrivacyChainAccountRecord | undefined,
-): string | undefined {
-  return record?.chain?.zcash ? record.vkFp : undefined;
 }
 
 function zcashWalletMonthHint(
@@ -1054,6 +1049,27 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     }
   }
 
+  // Accounts whose local data stays on disk: syncing, paused, mid-enable, or
+  // re-enabled during a deletion. Aliases share one identity.
+  async listNetworkDataHolders({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<{ accountId: string; identity: string }[]> {
+    return (await this.listNetworkRecords(networkId)).flatMap(
+      ({ accountId, record }) => {
+        const { scan } = record;
+        if (scan.deletion && !scan.deletion.reenable) return [];
+        const holds =
+          scan.intent === 'on' ||
+          scan.operation?.type === 'enable' ||
+          scan.resumeFromHeight !== undefined ||
+          !!scan.deletion?.reenable;
+        return holds ? [{ accountId, identity: record.vkFp ?? accountId }] : [];
+      },
+    );
+  }
+
   async getAccountVkFp({
     networkId,
     accountId,
@@ -1063,6 +1079,45 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
   }): Promise<string | undefined> {
     const record = (await this.readAccountRecord(accountId))?.record;
     return record?.networkId === networkId ? record.vkFp : undefined;
+  }
+
+  async touchAccountSyncSlot({
+    networkId,
+    accountId,
+    enabled = false,
+  }: {
+    networkId: string;
+    accountId: string;
+    enabled?: boolean;
+  }): Promise<void> {
+    const now = Date.now();
+    await this.update((state) => {
+      const record = readAccount(state, accountId);
+      if (record?.networkId !== networkId) return;
+      writeAccount(state, accountId, {
+        ...record,
+        scan: {
+          ...record.scan,
+          refreshedAt: now,
+          ...(enabled ? { enabledAt: now } : {}),
+        },
+      });
+    });
+  }
+
+  async getAccountSyncSlotTimes({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<{ enabledAt?: number; refreshedAt?: number }> {
+    const record = (await this.readAccountRecord(accountId))?.record;
+    if (record?.networkId !== networkId) return {};
+    return {
+      enabledAt: record.scan.enabledAt,
+      refreshedAt: record.scan.refreshedAt,
+    };
   }
 
   async getZcashPrivacyModeState({
@@ -1173,10 +1228,8 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
 
   async completeZcashPrivacyModeEnable({
     accountId,
-    maxEnabledAccounts,
   }: {
     accountId: string;
-    maxEnabledAccounts?: number;
   }): Promise<void> {
     const committed = await this.update((state) => {
       const current = readAccount(state, accountId);
@@ -1184,38 +1237,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         throw new OneKeyLocalError(
           'zcash: privacy enable operation is not pending',
         );
-      }
-      if (maxEnabledAccounts !== undefined) {
-        const targetKey = zcashRecordVkFp(current);
-        if (!targetKey) {
-          throw new OneKeyLocalError(
-            'zcash: viewing identity missing during enable',
-          );
-        }
-        const enabledKeys = new Set(
-          Object.values(state.accounts).flatMap((value) => {
-            const record = parseAccountRecord(value);
-            const vkFp = zcashRecordVkFp(record);
-            return record &&
-              record.networkId === current.networkId &&
-              record.scan.intent === 'on' &&
-              !record.scan.operation &&
-              vkFp
-              ? [vkFp]
-              : [];
-          }),
-        );
-        if (
-          !enabledKeys.has(targetKey) &&
-          enabledKeys.size >= maxEnabledAccounts
-        ) {
-          throw new OneKeyLocalError({
-            message: appLocale.intl.formatMessage({
-              id: ETranslations.privacy_slots_delete__desc,
-            }),
-            autoToast: true,
-          });
-        }
       }
       writeAccount(state, accountId, {
         ...current,

@@ -3,7 +3,6 @@ import {
   XMR_BUILT_IN_NODE_URLS,
   XMR_EARLIEST_SCAN_HEIGHT,
   XMR_EARLIEST_SCAN_TIMESTAMP_MS,
-  XMR_MAX_ENABLED_ACCOUNTS,
   XMR_TARGET_BLOCK_SECONDS,
   XMR_TIP_LAG_WARNING_BLOCKS,
 } from '@onekeyhq/shared/src/config/xmr';
@@ -128,7 +127,6 @@ const settings: IVaultSettings = {
     },
     hideAddressOnTokenDetails: true,
     blockTimeSeconds: XMR_TARGET_BLOCK_SECONDS,
-    maxEnabledAccounts: XMR_MAX_ENABLED_ACCOUNTS,
     withholdAddressFromBackend: true,
   },
 

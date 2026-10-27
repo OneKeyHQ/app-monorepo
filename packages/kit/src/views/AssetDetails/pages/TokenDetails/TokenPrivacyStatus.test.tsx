@@ -1,14 +1,9 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { getDefaultStore } from 'jotai';
 
-import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
 import type { ILocalWalletSyncProgress } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EAccountManagerStacksRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 
 import { useTokenPrivacyStatus } from './TokenPrivacyStatus';
 
@@ -30,10 +25,6 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   default: () => ({ pushModal: mockPushModal }),
 }));
 
-jest.mock('@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog', () => ({
-  showPrivacyChainSlotsFullDialog: jest.fn(async () => undefined),
-}));
-
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   const { atom } = jest.requireActual<typeof import('jotai')>('jotai');
   const testPrivacyChainAtom = atom({
@@ -52,7 +43,6 @@ const { testPrivacyChainAtom } = jest.requireMock<{
     preparingNetworkIds: string[];
   }>;
 }>('@onekeyhq/kit-bg/src/states/jotai/atoms');
-const showSlotsFull = jest.mocked(showPrivacyChainSlotsFullDialog);
 
 const completedProgress: ILocalWalletSyncProgress = {
   birthdayHeight: 100,
@@ -106,7 +96,6 @@ function renderStatus(value: ILocalWalletPool) {
   return renderHook(() =>
     useTokenPrivacyStatus({
       networkId: 'zec--0',
-      accountId: 'hd-1--0',
       pool: value,
     }),
   );
@@ -117,7 +106,6 @@ beforeEach(() => {
     dataBlockedNetworkIds: [],
     preparingNetworkIds: [],
   });
-  showSlotsFull.mockClear();
   mockPushModal.mockClear();
 });
 
@@ -307,42 +295,36 @@ describe('token privacy status', () => {
     }
   });
 
-  it('shows the shared slots-full dialog and correct settings destination when account resume exceeds the limit', async () => {
-    const enableAccount = jest.fn(async () => {
-      throw new OneKeyLocalError({
-        key: ETranslations.privacy_slots_delete__desc,
-        message: 'Slots full',
-        autoToast: false,
-      });
-    });
+  it('shows an account rotated out of the sync slots as synced up to its last catch-up', async () => {
+    const enableAccount = jest.fn(async () => undefined);
     const { result } = renderStatus(
       pool({
         state: { enabled: false, paused: true },
         isSyncPaused: true,
+        lastSyncedAt: 1_700_000_000_000,
         enableAccount,
       }),
     );
+
+    expect(result.current.state).toBe('synced');
 
     await act(async () => {
       result.current.onSync?.();
     });
 
-    expect(showSlotsFull).toHaveBeenCalledWith(
-      expect.objectContaining({
-        networkId: 'zec--0',
-        accountName: 'Account #1',
+    expect(enableAccount).toHaveBeenCalledWith({});
+  });
+
+  it('keeps a chain paused from the sync light stopped despite a last catch-up', () => {
+    const { result } = renderStatus(
+      pool({
+        isSyncPaused: true,
+        isNetworkPaused: true,
+        lastSyncedAt: 1_700_000_000_000,
       }),
     );
-    act(() => {
-      showSlotsFull.mock.calls[0]?.[0].onOpenSettings?.();
-    });
-    expect(mockPushModal).toHaveBeenCalledWith(
-      EModalRoutes.AccountManagerStacks,
-      {
-        screen: EAccountManagerStacksRoutes.PrivacyNetworks,
-        params: { walletId: 'hd-1', networkId: 'zec--0' },
-      },
-    );
+
+    expect(result.current.state).toBe('stopped');
   });
 
   it.each([false, true])(

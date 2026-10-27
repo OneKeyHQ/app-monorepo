@@ -146,7 +146,6 @@ async function setup() {
       backfillActiveByAccount: {},
       requireAccountCapability: async () => cap,
       assertNotTempWalletAccount: async () => undefined,
-      assertEnabledAccountLimit: async () => undefined,
       isPersistenceMasked: async () => false,
       scheduleBackgroundSync: jest.fn(),
       forgetCachedLocalWalletBalance: async () => undefined,

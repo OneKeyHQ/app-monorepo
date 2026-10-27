@@ -48,13 +48,6 @@ describe('xmr vault settings', () => {
     expect(localWallet?.accountSetup.requiresBirthday).toBe(true);
   });
 
-  // Scan cost scales per active viewing key; raise only with real-phone data.
-  it('caps concurrently scanning accounts conservatively', () => {
-    expect(localWallet?.maxEnabledAccounts).toBeDefined();
-    expect(localWallet?.maxEnabledAccounts).toBeLessThanOrEqual(3);
-    expect(localWallet?.maxEnabledAccounts).toBeGreaterThan(0);
-  });
-
   it('derives the tip lag warning from Monero block time', () => {
     expect(localWallet?.blockTimeSeconds).toBe(XMR_TARGET_BLOCK_SECONDS);
     const warningMinutes =

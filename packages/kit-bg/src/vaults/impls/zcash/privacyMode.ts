@@ -8,7 +8,6 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { getPrivacyModeResumeFromHeight } from '../../../services/PrivacyModeState';
 import { vaultFactory } from '../../factory';
-import { getVaultSettings } from '../../settings';
 
 import { hasZcashAccountViewingKey } from './accountMeta';
 import {
@@ -153,12 +152,6 @@ export class ZcashPrivacyMode {
         'zcash: select a privacy recovery month before enabling',
       );
     }
-    // Checked before anything is registered: direct callers bypass the generic pre-check.
-    await this.backgroundApi.servicePrivacyChain.assertEnabledAccountLimit({
-      networkId,
-      accountId,
-    });
-
     // Viewing keys need the seed (password) or the device; metadata already on
     // disk (e.g. resuming a paused account) needs neither prompt.
     const existingMeta =
@@ -289,13 +282,9 @@ export class ZcashPrivacyMode {
               };
       }
       const completeEnable = async () => {
-        const settings = await getVaultSettings({ networkId });
         await this.assertZcashAccountContext({ networkId, accountId });
         await this.backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable(
-          {
-            accountId,
-            maxEnabledAccounts: settings.localWallet?.maxEnabledAccounts,
-          },
+          { accountId },
         );
       };
       if (needsBirthdayUpdate) {

@@ -26,7 +26,7 @@ function readErrorMessage(error: unknown): string {
   return typeof message === 'string' ? message : '';
 }
 
-// Every sync slot is taken; the page explains it and offers a way to free one.
+// The network holds its most accounts with local data; the page explains how to free one.
 export function isLocalWalletSlotsFullError(error: unknown): boolean {
   return (
     typeof error === 'object' &&

@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
 import { isLocalWalletSlotsFullError } from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
@@ -45,23 +46,6 @@ function logLocalWalletActionError(action: string) {
     console.error(`[privacyChain] ${action} failed`, {
       error: error instanceof Error ? error.message : '',
     });
-  };
-}
-
-// A full sync limit is not toasted: it gets a dialog that can lead to the settings page.
-function handleLocalWalletEnableError({
-  action,
-  onSlotsFull,
-}: {
-  action: string;
-  onSlotsFull: () => void;
-}) {
-  return (error: unknown) => {
-    if (isLocalWalletSlotsFullError(error)) {
-      onSlotsFull();
-      return;
-    }
-    logLocalWalletActionError(action)(error);
   };
 }
 
@@ -99,15 +83,21 @@ export function LocalWalletPoolStatus({
 }) {
   const intl = useIntl();
   const openSettings = useOpenPrivacyNetworkSettings({ accountId, networkId });
-  const showSlotsFull = useCallback(() => {
-    void showPrivacyChainSlotsFullDialog({
-      intl,
-      networkId,
-      accountName: lw.accountName,
-      // Already on the page that lists the accounts to turn off.
-      onOpenSettings: settingsMode ? undefined : openSettings,
-    });
-  }, [intl, lw.accountName, networkId, openSettings, settingsMode]);
+  // A full network is not toasted: the dialog explains how to make room.
+  const showSlotsFullOr = useCallback(
+    (action: string) => (error: unknown) => {
+      if (!isLocalWalletSlotsFullError(error)) {
+        logLocalWalletActionError(action)(error);
+        return;
+      }
+      showPrivacyChainSlotsFullDialog({
+        intl,
+        // Already on the page that lists the accounts and their data.
+        onOpenSettings: settingsMode ? undefined : openSettings,
+      });
+    },
+    [intl, openSettings, settingsMode],
+  );
   // No keyring for this wallet type (e.g. Monero hardware): withhold the toggle.
   const canEnable =
     !lw.isUnsupportedWallet &&
@@ -116,14 +106,17 @@ export function LocalWalletPoolStatus({
 
   const openEnable = useCallback(async () => {
     if (lw.state?.paused || !lw.settings?.accountSetup.requiresBirthday) {
-      await lw.enableAccount({}).catch(
-        handleLocalWalletEnableError({
-          action: 'enable',
-          onSlotsFull: showSlotsFull,
-        }),
-      );
+      await lw.enableAccount({}).catch(showSlotsFullOr('enable'));
       return;
     }
+    const admitted = await backgroundApiProxy.servicePrivacyChain
+      .assertLocalWalletAccountAdmission({ networkId, accountId })
+      .then(() => true)
+      .catch((error: unknown) => {
+        showSlotsFullOr('enable')(error);
+        return false;
+      });
+    if (!admitted) return;
     const hintTimestamp = lw.state?.birthdayHintTimestamp;
     const earliestBirthday = lw.settings?.accountSetup.earliestBirthday;
     const formRef = createEnableBirthdayForm(hintTimestamp);
@@ -163,13 +156,13 @@ export function LocalWalletPoolStatus({
         try {
           await lw.enableAccount(birthday);
         } catch (error) {
-          // Other failures keep this dialog open; the limit closes it for its own.
+          // Other failures keep this dialog open; the limit gets its own.
           if (!isLocalWalletSlotsFullError(error)) throw error;
-          showSlotsFull();
+          showSlotsFullOr('enable')(error);
         }
       },
     });
-  }, [intl, lw, networkId, showSlotsFull]);
+  }, [accountId, intl, lw, networkId, showSlotsFullOr]);
 
   // Guards against a second tap opening a second dialog in the gap before the first one opens.
   const openingEnableRef = useRef(false);
@@ -498,19 +491,7 @@ export function LocalWalletSyncRow({
           } else if (lw.isNetworkPaused) {
             action = lw.resumeNetworkSync;
           }
-          void action().catch(
-            handleLocalWalletEnableError({
-              action: 'refresh',
-              onSlotsFull: () => {
-                void showPrivacyChainSlotsFullDialog({
-                  intl,
-                  networkId,
-                  accountName: lw.accountName,
-                  onOpenSettings: openSettings,
-                });
-              },
-            }),
-          );
+          void action().catch(logLocalWalletActionError('refresh'));
         }}
       >
         {intl.formatMessage({

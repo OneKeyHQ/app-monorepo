@@ -6,7 +6,6 @@ import { useSharedValue } from 'react-native-reanimated';
 import {
   Badge,
   Button,
-  Dialog,
   Divider,
   Icon,
   Page,
@@ -16,13 +15,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import TokenDetailsBalanceHero from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsBalanceHero';
 import { TokenPrivacyPanel } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/TokenPrivacyPanel';
 import type { ITokenPrivacyPanelState } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/TokenPrivacyPanel';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
-import { XMR_MAX_ENABLED_ACCOUNTS } from '@onekeyhq/shared/src/config/xmr';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IPreviewChain = 'zec' | 'xmr';
@@ -32,13 +29,11 @@ const PREVIEW_NETWORKS = {
     symbol: 'ZEC',
     name: 'Zcash',
     logoURI: 'https://uni.onekey-asset.com/static/chain/zcash.png',
-    maxAccounts: 5,
   },
   xmr: {
     symbol: 'XMR',
     name: 'Monero',
     logoURI: 'https://common.onekey-asset.com/chain/monero.png',
-    maxAccounts: XMR_MAX_ENABLED_ACCOUNTS,
   },
 };
 
@@ -52,49 +47,9 @@ const PREVIEW_STATES: {
   { value: 'synced', label: 'Synced' },
   { value: 'stopped', label: 'Paused' },
   { value: 'error', label: 'Error' },
-  { value: 'limitReached', label: 'Account limit' },
 ];
 
 const PREVIEW_TABS = ['Transparent', 'Private'];
-
-function PreviewAccountManager({
-  count,
-  onRelease,
-}: {
-  count: number;
-  onRelease: () => void;
-}) {
-  const intl = useIntl();
-  const [selected, setSelected] = useState<number>();
-
-  return (
-    <YStack gap="$4">
-      <SizableText size="$bodySm" color="$textSubdued">
-        Sample accounts only. Choose one to turn off privacy sync.
-      </SizableText>
-      <YStack>
-        {Array.from({ length: count }, (_, index) => (
-          <ListItem
-            key={index}
-            testID={`privacy-preview-slot-account-${index + 1}`}
-            title={`Account #${index + 1}`}
-            subtitle="Sample wallet"
-            checkMark={selected === index}
-            onPress={() => setSelected(index)}
-          />
-        ))}
-      </YStack>
-      <Button
-        testID="privacy-preview-release-slot"
-        variant="primary"
-        disabled={selected === undefined}
-        onPress={onRelease}
-      >
-        {intl.formatMessage({ id: ETranslations.global_disable_button })}
-      </Button>
-    </YStack>
-  );
-}
 
 function PrivacyTokenDetailsPreview() {
   const intl = useIntl();
@@ -131,26 +86,10 @@ function PrivacyTokenDetailsPreview() {
   const network = PREVIEW_NETWORKS[chain];
   const isPrivate = chain === 'xmr' || view === 'private';
   const isPrivateSynced = isPrivate && state === 'synced';
-  const isPrivateSetup =
-    isPrivate && (state === 'disabled' || state === 'limitReached');
+  const isPrivateSetup = isPrivate && state === 'disabled';
   const hasSampleBalance =
     !isPrivateSetup && (!isPrivate || state !== 'preparing');
   const sampleBalance = chain === 'zec' ? '1.2345' : '0.1234';
-  const handleManageAccounts = useCallback(() => {
-    const dialog = Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.global_manage_accounts }),
-      showFooter: false,
-      renderContent: (
-        <PreviewAccountManager
-          count={network.maxAccounts}
-          onRelease={() => {
-            setState('disabled');
-            void dialog.close();
-          }}
-        />
-      ),
-    });
-  }, [intl, network.maxAccounts]);
 
   return (
     <YStack gap="$5">
@@ -255,16 +194,6 @@ function PrivacyTokenDetailsPreview() {
               }
               onEnable={() => setState('preparing')}
               onSync={() => setState('syncing')}
-              accountLimit={
-                state === 'limitReached'
-                  ? {
-                      used: network.maxAccounts,
-                      max: network.maxAccounts,
-                      accountName: `Account #${network.maxAccounts + 1}`,
-                    }
-                  : undefined
-              }
-              onManageAccounts={handleManageAccounts}
             />
           ) : null}
 

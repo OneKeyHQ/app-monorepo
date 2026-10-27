@@ -64,6 +64,10 @@ import {
   getPrivacyChainSyncReason,
   pickPrivacyChainSyncCandidate,
 } from './PrivacyChainSyncScheduler';
+import {
+  canAdmitNetworkAccount,
+  pickSyncSlotsToRelease,
+} from './PrivacyChainSyncSlots';
 import { isPrivacySyncSchedulingAllowed } from './PrivacyModeState';
 import ServiceBase from './ServiceBase';
 
@@ -71,6 +75,7 @@ import type {
   IPrivacyChainRuntimeState,
   IPrivacyChainSyncReason,
 } from './PrivacyChainSyncScheduler';
+import type { IPrivacyChainSyncSlot } from './PrivacyChainSyncSlots';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { IPrivacyChainPendingAccountDeletion } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import type { VaultBaseChainOnly } from '../vaults/base/VaultBase';
@@ -87,7 +92,6 @@ import type {
   ILocalWalletRetainedIdentity,
   ILocalWalletReviewedTransaction,
   ILocalWalletSendPool,
-  ILocalWalletSlotUsage,
   ILocalWalletSyncErrorKind,
   ILocalWalletSyncProgress,
 } from '../vaults/localWallet/types';
@@ -284,6 +288,15 @@ class ServicePrivacyChain extends ServiceBase {
       );
     } catch (error) {
       console.error('[privacy-chain] resume pending operations failed', {
+        ...describePrivacyChainError(error),
+      });
+    }
+    // An enable finished by the resume above, or made under the old per-chain
+    // ceilings, still has to fit the shared one.
+    try {
+      await this.getSyncSlotMutex().runExclusive(() => this.releaseSyncSlots());
+    } catch (error) {
+      console.error('[privacy-chain] sync slot check failed', {
         ...describePrivacyChainError(error),
       });
     }
@@ -762,6 +775,10 @@ class ServicePrivacyChain extends ServiceBase {
     const state = await capability.getAccountState({ accountId });
     if (!state.enabled) return;
     await this.assertNotTempWalletAccount(accountId);
+    // An explicit refresh keeps the account from being the next to rotate out.
+    await this.backgroundApi.simpleDb.privacyChainState
+      .touchAccountSyncSlot({ networkId, accountId })
+      .catch(() => undefined);
     // A paused chain stays paused; the caller re-reads the stored balance.
     if (this.boostPausedByNetwork[networkId]) return;
     // An explicit refresh checks even an unchanged tip.
@@ -2895,9 +2912,199 @@ class ServicePrivacyChain extends ServiceBase {
     return mutex;
   }
 
+  // Rotation spans networks, so enables queue here before any network lock.
+  private syncSlotMutex?: Mutex;
+
+  private getSyncSlotMutex(): Mutex {
+    this.syncSlotMutex ??= new Mutex();
+    return this.syncSlotMutex;
+  }
+
+  // Past the shared ceiling, pauses the least recently used accounts; their
+  // data and resume position stay. Callers hold the sync slot mutex.
+  private async releaseSyncSlots({
+    keep,
+  }: {
+    keep?: { networkId: string; accountId: string };
+  } = {}): Promise<void> {
+    const stateDb = this.backgroundApi.simpleDb.privacyChainState;
+    const slots = new Map<string, IPrivacyChainSyncSlot>();
+    let keepKey: string | undefined;
+    for (const networkId of await this.getLocalWalletNetworkIds()) {
+      // eslint-disable-next-line no-await-in-loop
+      const capability = await this.requireAccountCapability(networkId);
+      // eslint-disable-next-line no-await-in-loop
+      const { accounts } = await capability.listAccounts();
+      for (const account of accounts) {
+        if (!(account.slotEnabled ?? account.syncEnabled)) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        const key = `${networkId}|${account.accountRuntimeKey}`;
+        if (
+          keep?.networkId === networkId &&
+          keep.accountId === account.accountId
+        ) {
+          keepKey = key;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        const times = await stateDb.getAccountSyncSlotTimes({
+          networkId,
+          accountId: account.accountId,
+        });
+        const slot = slots.get(key) ?? {
+          key,
+          networkId,
+          accountIds: [],
+          releasable: true,
+        };
+        slot.accountIds.push(account.accountId);
+        // Aliases share the slot, so it is as recent as its most recent alias.
+        slot.refreshedAt = Math.max(
+          slot.refreshedAt ?? 0,
+          times.refreshedAt ?? 0,
+        );
+        slot.enabledAt = Math.max(slot.enabledAt ?? 0, times.enabledAt ?? 0);
+        slots.set(key, slot);
+      }
+    }
+    // A re-enabled account holds its slot while old runtime cleanup finishes.
+    for (const request of await stateDb.listPendingAccountDeletions()) {
+      if (!request.reenabled) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const key = `${request.networkId}|${
+        // eslint-disable-next-line no-await-in-loop
+        (await stateDb.getAccountVkFp(request)) ?? request.accountId
+      }`;
+      const slot = slots.get(key);
+      if (slot) {
+        slot.releasable = false;
+      } else {
+        slots.set(key, {
+          key,
+          networkId: request.networkId,
+          accountIds: [],
+          releasable: false,
+        });
+      }
+    }
+    for (const slot of pickSyncSlotsToRelease({
+      slots: Array.from(slots.values()),
+      keepKey,
+    })) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await this.getEnableMutex(slot.networkId).runExclusive(async () => {
+          const capability = await this.requireAccountCapability(
+            slot.networkId,
+          );
+          for (const accountId of slot.accountIds) {
+            // eslint-disable-next-line no-await-in-loop
+            await this.disableLocalWalletAccountUnlocked({
+              networkId: slot.networkId,
+              accountId,
+              capability,
+            });
+          }
+        });
+      } catch (error) {
+        console.error('[privacy-chain] could not release a sync slot', {
+          networkId: slot.networkId,
+          ...describePrivacyChainError(error),
+        });
+      }
+    }
+  }
+
+  // Asked before the birthday form, so a full network refuses before any input.
+  @backgroundMethod()
+  async assertLocalWalletAccountAdmission(params: {
+    networkId: string;
+    accountId: string;
+  }): Promise<void> {
+    await this.assertNetworkAccountCeiling(params);
+  }
+
+  // Only deleting an account's local data makes room; the page explains that.
+  private async assertNetworkAccountCeiling({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<void> {
+    const stateDb = this.backgroundApi.simpleDb.privacyChainState;
+    const [holders, identity] = await Promise.all([
+      stateDb.listNetworkDataHolders({ networkId }),
+      stateDb.getAccountVkFp({ networkId, accountId }),
+    ]);
+    if (canAdmitNetworkAccount({ holders, accountId, identity })) return;
+    // A first-time alias (e.g. the hardware twin of a software account) has no
+    // key yet; the same address says it shares a holder's identity.
+    if (identity === undefined) {
+      const { serviceAccount } = this.backgroundApi;
+      const address = (await serviceAccount.getDBAccountSafe({ accountId }))
+        ?.address;
+      for (const holder of address ? holders : []) {
+        if (
+          // eslint-disable-next-line no-await-in-loop
+          (
+            await serviceAccount.getDBAccountSafe({
+              accountId: holder.accountId,
+            })
+          )?.address === address
+        ) {
+          return;
+        }
+      }
+    }
+    throw new OneKeyLocalError({
+      key: ETranslations.privacy_slots_delete__desc,
+      message: localWalletText(ETranslations.privacy_slots_delete__desc),
+      autoToast: false,
+    });
+  }
+
+  // The account is already on: a rotation failure must not report it as failed.
+  private async claimSyncSlot({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<void> {
+    try {
+      await this.backgroundApi.simpleDb.privacyChainState.touchAccountSyncSlot({
+        networkId,
+        accountId,
+        enabled: true,
+      });
+      await this.releaseSyncSlots({ keep: { networkId, accountId } });
+    } catch (error) {
+      console.error('[privacy-chain] sync slot rotation failed', {
+        networkId,
+        ...describePrivacyChainError(error),
+      });
+    }
+  }
+
   @backgroundMethod()
   @toastLocalWalletError()
-  async enableLocalWalletAccount({
+  async enableLocalWalletAccount(params: {
+    networkId: string;
+    accountId: string;
+    birthdayHeight?: number;
+    birthdayTimestamp?: number;
+  }): Promise<void> {
+    await this.getSyncSlotMutex().runExclusive(async () => {
+      await this.enableLocalWalletAccountInSlot(params);
+      await this.claimSyncSlot(params);
+    });
+  }
+
+  private async enableLocalWalletAccountInSlot({
     networkId,
     accountId,
     birthdayHeight,
@@ -2912,6 +3119,8 @@ class ServicePrivacyChain extends ServiceBase {
       await this.pendingLocalDataDropRetry;
       const capability = await this.requireAccountCapability(networkId);
       await this.assertNotTempWalletAccount(accountId);
+      // Before any key prompt: a refusal must not follow a password entry.
+      await this.assertNetworkAccountCeiling({ networkId, accountId });
       const pendingDeletion = (
         await this.backgroundApi.simpleDb.privacyChainState.listPendingAccountDeletions()
       ).find(
@@ -2923,11 +3132,6 @@ class ServicePrivacyChain extends ServiceBase {
           pendingDeletion,
         );
       }
-      await this.assertEnabledAccountLimit({
-        networkId,
-        accountId,
-        capability,
-      });
       // A chain whose key comes from the mnemonic stores it from enable on,
       // never for an account that was only derived.
       const viewingKey = capability.deriveViewingKey
@@ -2993,66 +3197,6 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
-  // Ceiling counts distinct viewing keys, not app accounts; aliases sharing a key are free. Public
-  // so direct callers can check first.
-  async assertEnabledAccountLimit({
-    networkId,
-    accountId,
-    capability,
-  }: {
-    networkId: string;
-    accountId: string;
-    capability?: ILocalWalletCapability;
-  }): Promise<void> {
-    const settings = await getVaultSettings({ networkId });
-    const limit = settings.localWallet?.maxEnabledAccounts;
-    if (limit === undefined) {
-      return;
-    }
-    const resolved =
-      capability ?? (await this.requireAccountCapability(networkId));
-    const { accounts } = await resolved.listAccounts();
-    const enabledKeys = new Set(
-      accounts
-        .filter((account) => account.slotEnabled ?? account.syncEnabled)
-        .map((account) => account.accountRuntimeKey),
-    );
-    const reenabled = (
-      await this.backgroundApi.simpleDb.privacyChainState.listPendingAccountDeletions()
-    ).filter((request) => request.networkId === networkId && request.reenabled);
-    for (const request of reenabled) {
-      // These authorizations occupy a slot while old runtime cleanup finishes.
-      // eslint-disable-next-line no-await-in-loop
-      const key =
-        await this.backgroundApi.simpleDb.privacyChainState.getAccountVkFp(
-          request,
-        );
-      enabledKeys.add(key ?? request.accountId);
-    }
-    // A never-enabled account has no runtime identity yet, so it falls
-    // through to the ceiling check -- enabling it does add a key.
-    const targetKey =
-      accounts.find((account) => account.accountId === accountId)
-        ?.accountRuntimeKey ??
-      (reenabled.some((request) => request.accountId === accountId)
-        ? await this.backgroundApi.simpleDb.privacyChainState.getAccountVkFp({
-            networkId,
-            accountId,
-          })
-        : undefined);
-    if (targetKey !== undefined && enabledKeys.has(targetKey)) {
-      return;
-    }
-    if (enabledKeys.size >= limit) {
-      // The page shows its own dialog for this (see isLocalWalletSlotsFullError).
-      throw new OneKeyLocalError({
-        key: ETranslations.privacy_slots_delete__desc,
-        message: localWalletText(ETranslations.privacy_slots_delete__desc),
-        autoToast: false,
-      });
-    }
-  }
-
   // Everything the sync settings page shows about a network: data footprint
   // and sync source. A chain that can't answer omits the row, not a false zero.
   @backgroundMethod()
@@ -3094,62 +3238,6 @@ class ServicePrivacyChain extends ServiceBase {
         endpoint?.health && endpoint.health.ok !== undefined
           ? endpoint.health
           : undefined,
-    };
-  }
-
-  @backgroundMethod()
-  async getLocalWalletSlotUsage({
-    networkId,
-  }: {
-    networkId: string;
-  }): Promise<ILocalWalletSlotUsage> {
-    const settings = await getVaultSettings({ networkId });
-    const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    const capability = requireLocalWalletCapability(vault);
-    const [{ accounts }, visibleAccounts] = await Promise.all([
-      capability.listAccounts(),
-      this.listLocalWalletAccounts(),
-    ]);
-    const visible = new Map(
-      visibleAccounts.map((account) => [account.accountId, account]),
-    );
-    type IOccupant = ILocalWalletSlotUsage['occupants'][number];
-    // Null marks an identity held only by wallets this session cannot see.
-    const byIdentity = new Map<string, IOccupant | null>();
-    for (const account of accounts) {
-      if (!(account.slotEnabled ?? account.syncEnabled)) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      const item = visible.get(account.accountId);
-      if (!item) {
-        if (!byIdentity.has(account.accountRuntimeKey)) {
-          byIdentity.set(account.accountRuntimeKey, null);
-        }
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      const occupant = byIdentity.get(account.accountRuntimeKey);
-      if (occupant) {
-        occupant.aliasCount += 1;
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      byIdentity.set(account.accountRuntimeKey, {
-        accountId: item.accountId,
-        accountName: item.accountName,
-        walletName: item.walletName,
-        aliasCount: 1,
-      });
-    }
-    const occupants = Array.from(byIdentity.values()).filter(
-      (occupant): occupant is IOccupant => occupant !== null,
-    );
-    return {
-      used: byIdentity.size,
-      max: settings.localWallet?.maxEnabledAccounts,
-      occupants,
-      hiddenCount: byIdentity.size - occupants.length,
     };
   }
 
@@ -3219,7 +3307,10 @@ class ServicePrivacyChain extends ServiceBase {
   }): Promise<void> {
     const capability = await this.requireAccountCapability(networkId);
     await this.assertNotTempWalletAccount(accountId);
-    await capability.retryAccountSetup({ accountId });
+    await this.getSyncSlotMutex().runExclusive(async () => {
+      await capability.retryAccountSetup({ accountId });
+      await this.claimSyncSlot({ networkId, accountId });
+    });
   }
 
   @backgroundMethod()

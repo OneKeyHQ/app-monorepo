@@ -103,9 +103,6 @@ const settings: IVaultSettings = {
         timestamp: ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS,
       },
     },
-    // Each account adds a trial-decryption key checked against every block
-    // (linear cost); 5 keeps low-end devices usable.
-    maxEnabledAccounts: 5,
     addressForms: {
       publicLabel: ETranslations.privacy_receive_transparent_address__title,
       privateLabel: ETranslations.privacy_receive_private_address__title,

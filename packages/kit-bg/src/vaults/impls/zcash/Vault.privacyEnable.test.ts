@@ -101,10 +101,7 @@ it.each([false, true])(
       },
     });
     const onPrepared = jest.fn(() =>
-      entity.completeZcashPrivacyModeEnable({
-        accountId,
-        maxEnabledAccounts: 5,
-      }),
+      entity.completeZcashPrivacyModeEnable({ accountId }),
     );
     const first = vault.zcashPreparePrivacyModeAccount({
       accountId,

@@ -633,29 +633,6 @@ describe('privacy chain state: zcash privacy mode', () => {
     ).resolves.toEqual({ intent: 'off' });
   });
 
-  it('counts enabled aliases of one viewing key once', async () => {
-    const entity = createEntity();
-    for (const accountId of ['account-1', 'account-2']) {
-      // eslint-disable-next-line no-await-in-loop
-      await entity.beginZcashPrivacyModeEnable({
-        networkId: ZEC,
-        accountId,
-        birthdayHeight: 2000,
-      });
-      // eslint-disable-next-line no-await-in-loop
-      await entity.saveZcashAccountMeta({ accountId, meta });
-      // eslint-disable-next-line no-await-in-loop
-      await entity.completeZcashPrivacyModeEnable({
-        accountId,
-        maxEnabledAccounts: 1,
-      });
-    }
-
-    await expect(
-      entity.listZcashEnabledAccountIds({ networkId: ZEC }),
-    ).resolves.toEqual(['account-1', 'account-2']);
-  });
-
   it('fails closed while disabling and retains birthday and resume height', async () => {
     const entity = createEntity();
     await enableZcash(entity, 'account', meta);
@@ -950,89 +927,79 @@ describe('privacy chain state: zcash atomic enable admission', () => {
       entity.isZcashPrivacyModeEnabled({ accountId: 'account' }),
     ).resolves.toBe(false);
   });
-  it('enforces the viewing-identity limit when concurrent retries complete', async () => {
-    const entity = createEntity();
-    for (let index = 0; index < 6; index += 1) {
-      const accountId = `account-${index}`;
-      await entity.beginZcashPrivacyModeEnable({
-        networkId: ZEC,
-        accountId,
-        birthdayHeight: 2_000_000,
-      });
-      await entity.saveZcashAccountMeta({
-        accountId,
-        meta: zcashMeta({
-          vkFp: String(index).repeat(32),
-          hdIndex: index,
-        }),
-      });
-      if (index < 4)
-        await entity.completeZcashPrivacyModeEnable({
-          accountId,
-          maxEnabledAccounts: 5,
-        });
-    }
+});
 
-    const outcomes = await Promise.allSettled(
-      [4, 5].map((index) =>
-        entity.completeZcashPrivacyModeEnable({
-          accountId: `account-${index}`,
-          maxEnabledAccounts: 5,
-        }),
-      ),
-    );
-
-    expect(outcomes.map(({ status }) => status)).toEqual([
-      'fulfilled',
-      'rejected',
-    ]);
-    expect(
-      await entity.listZcashEnabledAccountIds({ networkId: ZEC }),
-    ).toHaveLength(5);
-    await entity.beginZcashPrivacyModeEnable({
-      networkId: ZEC,
-      accountId: 'alias',
-      birthdayHeight: 2_000_000,
-    });
-    await entity.saveZcashAccountMeta({
-      accountId: 'alias',
-      meta: zcashMeta({ vkFp: '0'.repeat(32) }),
-    });
-    await expect(
-      entity.completeZcashPrivacyModeEnable({
-        accountId: 'alias',
-        maxEnabledAccounts: 5,
-      }),
-    ).resolves.toBeUndefined();
+describe('privacy chain state: sync slot times', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
-  it('counts only the network being enabled', async () => {
+  it('records an enable as a refresh too, and a refresh alone after it', async () => {
     const entity = createEntity();
-    await entity.beginXmrEnable({
-      networkId: XMR,
-      accountId: 'xmr-account',
-      birthdayHeight: 3_000_000,
-    });
-    await entity.completeXmrEnable({
-      accountId: 'xmr-account',
-      vkFp: '9'.repeat(32),
-    });
-    await entity.beginZcashPrivacyModeEnable({
+    await enableZcash(entity, 'account');
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1000);
+
+    await entity.touchAccountSyncSlot({
       networkId: ZEC,
       accountId: 'account',
-      birthdayHeight: 2000,
+      enabled: true,
     });
-    await entity.saveZcashAccountMeta({
-      accountId: 'account',
-      meta: zcashMeta(),
-    });
+    now.mockReturnValue(2000);
+    await entity.touchAccountSyncSlot({ networkId: ZEC, accountId: 'account' });
 
     await expect(
-      entity.completeZcashPrivacyModeEnable({
-        accountId: 'account',
-        maxEnabledAccounts: 1,
-      }),
-    ).resolves.toBeUndefined();
+      entity.getAccountSyncSlotTimes({ networkId: ZEC, accountId: 'account' }),
+    ).resolves.toEqual({ enabledAt: 1000, refreshedAt: 2000 });
+    await expect(
+      entity.isZcashPrivacyModeEnabled({ accountId: 'account' }),
+    ).resolves.toBe(true);
+  });
+
+  it('ignores an account of another network or with no record', async () => {
+    const entity = createEntity();
+    await enableZcash(entity, 'account');
+
+    await entity.touchAccountSyncSlot({ networkId: XMR, accountId: 'account' });
+    await entity.touchAccountSyncSlot({ networkId: ZEC, accountId: 'missing' });
+
+    await expect(
+      entity.getAccountSyncSlotTimes({ networkId: ZEC, accountId: 'account' }),
+    ).resolves.toEqual({ enabledAt: undefined, refreshedAt: undefined });
+    await expect(
+      entity.getAccountSyncSlotTimes({ networkId: ZEC, accountId: 'missing' }),
+    ).resolves.toEqual({});
+  });
+});
+
+describe('privacy chain state: network data holders', () => {
+  const xmr = (accountId: string, vkFp: string) => ({
+    networkId: XMR,
+    accountId,
+    vkFp,
+    birthdayHeight: 100,
+  });
+
+  it('counts syncing and paused accounts, not deleted data or other networks', async () => {
+    const entity = createEntity();
+    await entity.saveXmrEnabledAccount(xmr('syncing', 'a'.repeat(32)));
+    await entity.saveXmrEnabledAccount(xmr('paused', 'b'.repeat(32)));
+    await entity.saveXmrDisabledAccount({
+      accountId: 'paused',
+      resumeFromHeight: 200,
+    });
+    await entity.saveXmrEnabledAccount(xmr('deleting', 'c'.repeat(32)));
+    await entity.requestAccountDeletion({
+      networkId: XMR,
+      accountId: 'deleting',
+    });
+    await enableZcash(entity, 'zcash');
+
+    await expect(
+      entity.listNetworkDataHolders({ networkId: XMR }),
+    ).resolves.toEqual([
+      { accountId: 'syncing', identity: 'a'.repeat(32) },
+      { accountId: 'paused', identity: 'b'.repeat(32) },
+    ]);
   });
 });
 

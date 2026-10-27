@@ -305,7 +305,6 @@ function TokenDetailsHeaderContent({
   });
   const privacyStatus = useTokenPrivacyStatus({
     networkId,
-    accountId,
     pool: localWalletPool,
   });
   const isPrivateSynced = isPrivatePool && privacyStatus.state === 'synced';

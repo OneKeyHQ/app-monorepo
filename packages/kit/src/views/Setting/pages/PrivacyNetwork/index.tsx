@@ -541,6 +541,16 @@ export default function PrivacyNetworkSettings({
 
   const askBirthdayAndEnable = useCallback(
     async (entry: IPrivacyAccountEntry) => {
+      // A full network refuses before the birthday form asks for anything.
+      try {
+        await backgroundApiProxy.servicePrivacyChain.assertLocalWalletAccountAdmission(
+          { networkId: entry.networkId, accountId: entry.accountId },
+        );
+      } catch (error) {
+        if (!isLocalWalletSlotsFullError(error)) throw error;
+        showPrivacyChainSlotsFullDialog({ intl });
+        return;
+      }
       const earliestBirthday = await getEarliestBirthday(entry.networkId);
       const formRef = createEnableBirthdayForm(entry.birthdayHintTimestamp);
       Dialog.confirm({
@@ -587,13 +597,9 @@ export default function PrivacyNetworkSettings({
             );
             await refreshEntries();
           } catch (error) {
-            // Other failures keep this dialog open; the limit closes it for its own.
+            // Other failures keep this dialog open; the limit gets its own.
             if (!isLocalWalletSlotsFullError(error)) throw error;
-            void showPrivacyChainSlotsFullDialog({
-              intl,
-              networkId: entry.networkId,
-              accountName: entry.accountName,
-            });
+            showPrivacyChainSlotsFullDialog({ intl });
           } finally {
             setBusyAccountId(undefined);
           }
@@ -624,20 +630,12 @@ export default function PrivacyNetworkSettings({
         }
         await refreshEntries();
       } catch (error) {
-        if (isLocalWalletSlotsFullError(error)) {
-          void showPrivacyChainSlotsFullDialog({
-            intl,
-            networkId: entry.networkId,
-            accountName: entry.accountName,
-          });
-        } else {
-          console.error('[privacyChain] account sync control failed', error);
-        }
+        console.error('[privacyChain] account sync control failed', error);
       } finally {
         setBusyAccountId(undefined);
       }
     },
-    [intl, refreshEntries],
+    [refreshEntries],
   );
 
   const editBirthday = useCallback(

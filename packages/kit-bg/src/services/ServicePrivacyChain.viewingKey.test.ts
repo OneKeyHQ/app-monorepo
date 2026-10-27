@@ -134,7 +134,6 @@ function createService({
       scheduleBackgroundSync: jest.fn(),
       getLocalWalletNetworkIds: async () => [],
       forEachLocalWalletCapability: async () => undefined,
-      assertEnabledAccountLimit: async () => undefined,
       requireAccountCapability: async () => ({
         getAccountState: async ({ accountId }: { accountId: string }) => {
           const state = await privacyChainState.getXmrAccountState({

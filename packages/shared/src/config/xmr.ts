@@ -14,12 +14,6 @@ export const XMR_DECIMALS = 12;
 export const XMR_TIP_LAG_WARNING_BLOCKS = 30;
 
 /**
- * Ceiling on concurrently scanning accounts; trial decryption runs
- * single-threaded per viewing key per block.
- */
-export const XMR_MAX_ENABLED_ACCOUNTS = 2;
-
-/**
  * Sending is refused with this many blocks or more left to scan: an
  * unscanned block may already spend the outputs a send would pick.
  */
