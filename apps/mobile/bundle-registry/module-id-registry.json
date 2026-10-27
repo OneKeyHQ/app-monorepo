@@ -26478,6 +26478,7 @@
     "packages/kit/src/views/Swap/hooks/useSwapAccount.utils.ts": 12020,
     "packages/kit/src/views/Swap/hooks/useSwapBuiltTx.ts": 10544,
     "packages/kit/src/views/Swap/hooks/useSwapColdStartDisplayTokens.ts": 8709,
+    "packages/kit/src/views/Swap/hooks/useSwapDefaultConfigDecision.ts": 14748,
     "packages/kit/src/views/Swap/hooks/useSwapDepositEntry.ts": 18110,
     "packages/kit/src/views/Swap/hooks/useSwapGlobal.ts": 16493,
     "packages/kit/src/views/Swap/hooks/useSwapIncognitoRecipientInput.ts": 5369,
