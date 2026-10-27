@@ -250,7 +250,6 @@ export function FirmwareUpdateInstallPageContent({
     if (!retryInfo) {
       return;
     }
-    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
     setStepInfo({
       step: EFirmwareUpdateSteps.updateStart,
       payload: {

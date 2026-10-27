@@ -28,7 +28,11 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceFirmwareUpdate: {
       clearHardwareUiStateBeforeStartUpdateWorkflow: jest.fn(),
+      checkAllFirmwareRelease: jest.fn(),
       retryUpdateTask: jest.fn(),
+    },
+    serviceHardware: {
+      resolveHardwareTransport: jest.fn(),
     },
   },
 }));
@@ -99,6 +103,7 @@ jest.mock('../utils', () => ({
 const {
   clearHardwareUiStateBeforeStartUpdateWorkflow: mockClearHardwareUi,
   retryUpdateTask: mockRetryUpdateTask,
+  checkAllFirmwareRelease: mockCheckAllFirmwareRelease,
 } = jest.requireMock('../../../background/instance/backgroundApiProxy').default
   .serviceFirmwareUpdate as {
   clearHardwareUiStateBeforeStartUpdateWorkflow: jest.MockedFunction<
@@ -111,6 +116,9 @@ const {
       releaseResult: ICheckAllFirmwareReleaseResult | undefined;
     }) => Promise<void>
   >;
+  checkAllFirmwareRelease: jest.MockedFunction<
+    () => Promise<ICheckAllFirmwareReleaseResult>
+  >;
 };
 
 describe('FirmwareUpdateInstallPageContent device cancellation', () => {
@@ -118,6 +126,10 @@ describe('FirmwareUpdateInstallPageContent device cancellation', () => {
     jest.clearAllMocks();
     mockClearHardwareUi.mockResolvedValue(undefined);
     mockRetryUpdateTask.mockResolvedValue(undefined);
+    mockCheckAllFirmwareRelease.mockResolvedValue({
+      updatingConnectId: 'fresh-connect-id',
+      updateInfos: {},
+    } as ICheckAllFirmwareReleaseResult);
     jest
       .mocked(useFirmwareUpdateStepInfoAtom)
       .mockReturnValue([
@@ -126,6 +138,9 @@ describe('FirmwareUpdateInstallPageContent device cancellation', () => {
       ] as ReturnType<typeof useFirmwareUpdateStepInfoAtom>);
   });
   it('keeps cancellation and retry on the install page, including a second cancellation', async () => {
+    mockCheckAllFirmwareRelease.mockRejectedValue(
+      new Error('release unavailable'),
+    );
     const setStepInfo = jest.fn();
     jest
       .mocked(useFirmwareUpdateStepInfoAtom)
@@ -160,7 +175,8 @@ describe('FirmwareUpdateInstallPageContent device cancellation', () => {
       step: EFirmwareUpdateSteps.updateStart,
       payload: { startAtTime: expect.any(Number) },
     });
-    expect(mockClearHardwareUi).toHaveBeenCalledTimes(1);
+    expect(mockClearHardwareUi).not.toHaveBeenCalled();
+    expect(mockCheckAllFirmwareRelease).not.toHaveBeenCalled();
     expect(mockRetryUpdateTask).toHaveBeenCalledWith({
       id: retryInfo.id,
       connectId: result.updatingConnectId,

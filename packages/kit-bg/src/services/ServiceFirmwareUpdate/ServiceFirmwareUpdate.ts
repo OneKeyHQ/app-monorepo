@@ -400,6 +400,7 @@ export type IUpdateFirmwareTaskFn = ({
 type IUpdateFirmwareTask = {
   fn: IUpdateFirmwareTaskFn;
   workflowId: number | undefined;
+  attemptId: number;
 };
 
 interface IFirmwareUpdateResult {
@@ -2420,6 +2421,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     this.updateTasks[id] = {
       fn,
       workflowId: this.updateWorkflowTracking?.workflowId,
+      attemptId: 0,
     };
     return id;
   }
@@ -3189,30 +3191,53 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (!task || !this.isUpdateWorkflowCurrent(task.workflowId)) {
       return;
     }
+    const attemptId = task.attemptId;
+    const isCurrentAttempt = () =>
+      this.updateTasks[id] === task && task.attemptId === attemptId;
 
     try {
       await this.cancelUpdateWorkflowIfExit();
     } catch (error) {
-      await this.updateTasksReject({ id, error });
+      if (isCurrentAttempt()) {
+        await this.updateTasksReject({ id, error });
+      }
       return;
     }
 
     try {
+      if (
+        !this.isUpdateWorkflowCurrent(task.workflowId) ||
+        !isCurrentAttempt()
+      ) {
+        return;
+      }
       await firmwareUpdateRetryAtom.set(undefined);
 
+      if (!isCurrentAttempt()) {
+        return;
+      }
       await preFn?.();
-      if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
+      if (
+        !this.isUpdateWorkflowCurrent(task.workflowId) ||
+        !isCurrentAttempt()
+      ) {
         return;
       }
 
       const result = await task.fn({ id });
-      if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
+      if (
+        !this.isUpdateWorkflowCurrent(task.workflowId) ||
+        !isCurrentAttempt()
+      ) {
         return;
       }
       await this.updateTasksResolve({ id, data: result });
       serviceHardwareUtils.hardwareLog('runUpdateTask SUCCESS', result);
     } catch (error) {
-      if (!this.isUpdateWorkflowCurrent(task.workflowId)) {
+      if (
+        !this.isUpdateWorkflowCurrent(task.workflowId) ||
+        !isCurrentAttempt()
+      ) {
         return;
       }
       if (task.workflowId !== undefined) {
@@ -3223,6 +3248,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // never reject here, we should use retry
       // await servicePromise.rejectCallback({ id, error });
       const stepInfo = await firmwareUpdateStepInfoAtom.get();
+      if (
+        !this.isUpdateWorkflowCurrent(task.workflowId) ||
+        !isCurrentAttempt()
+      ) {
+        return;
+      }
       if (stepInfo.step === EFirmwareUpdateSteps.updateStart) {
         await firmwareUpdateStepInfoAtom.set({
           step: EFirmwareUpdateSteps.installing,
@@ -3243,17 +3274,23 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
       // TODO hide deviceCheckingLoading and confirm dialog
     } finally {
-      if (this.isUpdateWorkflowCurrent(task.workflowId)) {
+      if (this.isUpdateWorkflowCurrent(task.workflowId) && isCurrentAttempt()) {
         try {
           await this.cancelUpdateWorkflowIfExit();
           // Workflow is still alive (not exited by user), but in retry wait state
           // Allow lock screen since no active hardware communication is happening
           const retryInfo = await firmwareUpdateRetryAtom.get();
-          if (retryInfo) {
+          if (
+            retryInfo &&
+            this.isUpdateWorkflowCurrent(task.workflowId) &&
+            isCurrentAttempt()
+          ) {
             await firmwareUpdateWorkflowRunningAtom.set(false);
           }
         } catch (error2) {
-          await this.updateTasksReject({ id, error: error2 });
+          if (isCurrentAttempt()) {
+            await this.updateTasksReject({ id, error: error2 });
+          }
         }
       }
     }
@@ -3277,32 +3314,24 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (task.workflowId !== undefined) {
       this.recordUpdateWorkflowRetry(task.workflowId);
     }
-
     // Re-block lock screen before resuming hardware communication. Guard
     // first, then silence (see startUpdateWorkflow) — and a silence that
     // fails must not leave the guard, and with it the blocked lock screen,
     // up for the rest of the session. Dropped only while this workflow is
     // still the current one: a newer start owns the shared guard by then.
     await firmwareUpdateWorkflowRunningAtom.set(true);
-    try {
-      await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
-    } catch (error) {
-      if (this.isUpdateWorkflowCurrent(task.workflowId)) {
-        await firmwareUpdateWorkflowRunningAtom.set(false);
-      }
-      throw error;
-    }
-    await firmwareUpdateRetryAtom.set(undefined);
-
-    await this.waitDeviceRestart({
-      releaseResult,
-      actionType: 'retry',
-    });
-
+    task.attemptId += 1;
+    const attemptId = task.attemptId;
     await this.runUpdateTask({
       id,
       preFn: makeTimeoutPromise({
         asyncFunc: async () => {
+          // Preparation failures belong to this attempt and must expose Retry again.
+          await this.clearHardwareUiStateBeforeStartUpdateWorkflow();
+          await this.waitDeviceRestart({
+            releaseResult,
+            actionType: 'retry',
+          });
           // make sure device is ready after reboot
           // TODO move to fn and re-checking release \ device \ version matched
           try {
@@ -3318,6 +3347,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
               features,
             });
           } catch (error) {
+            if (
+              this.updateTasks[id] !== task ||
+              task.attemptId !== attemptId ||
+              !this.isUpdateWorkflowCurrent(task.workflowId)
+            ) {
+              throw error;
+            }
             await firmwareUpdateStepInfoAtom.set({
               step: EFirmwareUpdateSteps.installing,
               payload: {
