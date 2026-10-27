@@ -30,12 +30,18 @@ describe('xmr history detail', () => {
     rows,
     state = { intent: 'on' },
     chainTip = 3_100_009,
+    sent = {},
   }: {
     rows: IXmrHistoryItem[] | undefined;
     state?: Record<string, unknown>;
     chainTip?: number | null;
+    sent?: Record<string, { recipient: string }> | Error;
   }) {
     const xmrListHistoryItems = jest.fn(async () => rows);
+    const listXmrSent = jest.fn(async () => {
+      if (sent instanceof Error) throw sent;
+      return sent;
+    });
     const getClient = jest.fn(() => {
       throw new OneKeyLocalError('backend must not be called');
     });
@@ -46,6 +52,7 @@ describe('xmr history detail', () => {
       backgroundApi: {
         simpleDb: {
           privacyChainState: { getXmrAccountState: async () => state },
+          privacyChainXmrSent: { listXmrSent },
         },
         servicePrivacyChain: {
           getLocalWalletSyncProgress: async () => ({ chainTip }),
@@ -59,7 +66,7 @@ describe('xmr history detail', () => {
         networkId: 'xmr--0',
         txid: TXID,
       });
-    return { fetchDetail, xmrListHistoryItems, getClient };
+    return { fetchDetail, xmrListHistoryItems, getClient, listXmrSent };
   }
 
   it('reports a pending row as pending, without I/O', async () => {
@@ -125,5 +132,53 @@ describe('xmr history detail', () => {
     });
     await expect(fetchDetail()).rejects.toThrow('not found locally');
     expect(xmrListHistoryItems).not.toHaveBeenCalled();
+  });
+
+  describe('payment ID as the memo', () => {
+    // monero-address 0.1.0 test vectors: an address and it with payment ID b8963a57855cf73f.
+    const STANDARD =
+      '4B33mFPMq6mKi7Eiyd5XuyKRVMGVZz1Rqb9ZTyGApXW5d1aT7UBDZ89ewmnWFkzJ5wPd2SFbn313vCT8a4E2Qf4KQH4pNey';
+    const INTEGRATED =
+      '4Ljin4CrSNHKi7Eiyd5XuyKRVMGVZz1Rqb9ZTyGApXW5d1aT7UBDZ89ewmnWFkzJ5wPd2SFbn313vCT8a4E2Qf4KbaTH6MnpXSn88oBX35';
+
+    const memoOf = async (
+      fetchDetail: () => ReturnType<Vault['fetchAccountHistoryDetail']>,
+    ) => (await fetchDetail()).data.data.data.memo;
+
+    it("reads a send's payment ID from the integrated address it paid", async () => {
+      const { fetchDetail } = createVault({
+        rows: [item({})],
+        sent: { [TXID]: { recipient: INTEGRATED } },
+      });
+      await expect(memoOf(fetchDetail)).resolves.toBe('b8963a57855cf73f');
+    });
+
+    it.each([
+      ['a standard address', { [TXID]: { recipient: STANDARD } }],
+      ['no recorded recipient', {}],
+      ['an unreadable journal', new Error('unreadable')],
+    ])('has no memo for a send to %s', async (_label, sent) => {
+      const { fetchDetail } = createVault({ rows: [item({})], sent });
+      await expect(memoOf(fetchDetail)).resolves.toBeUndefined();
+    });
+
+    it('reports the payment ID the scan decrypted for a receive', async () => {
+      const { fetchDetail, listXmrSent } = createVault({
+        rows: [item({ direction: 'in', paymentId: '1234567890abcdef' })],
+        sent: { [TXID]: { recipient: INTEGRATED } },
+      });
+      await expect(memoOf(fetchDetail)).resolves.toBe('1234567890abcdef');
+      expect(listXmrSent).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['an older runtime', {}],
+      ['none on chain', { paymentId: null }],
+    ])('has no memo for a receive from %s', async (_label, patch) => {
+      const { fetchDetail } = createVault({
+        rows: [item({ direction: 'in', ...patch })],
+      });
+      await expect(memoOf(fetchDetail)).resolves.toBeUndefined();
+    });
   });
 });

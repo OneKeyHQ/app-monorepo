@@ -1,4 +1,5 @@
 import {
+  getXmrIntegratedAddressPaymentId,
   getXmrSpendPublicKeyFromAddress,
   parseXmrViewingKeyPair,
   serializeXmrViewingKeyPair,
@@ -56,5 +57,39 @@ describe('Monero spend public key from an address', () => {
 
   it('rejects text that is not a Monero address', () => {
     expect(() => getXmrSpendPublicKeyFromAddress('t1abc')).toThrow(/^xmr: /);
+  });
+});
+
+describe('Monero payment ID from an integrated address', () => {
+  // monero-address 0.1.0 src/tests.rs: the standard address and it with payment ID b8963a57855cf73f.
+  const standard =
+    '4B33mFPMq6mKi7Eiyd5XuyKRVMGVZz1Rqb9ZTyGApXW5d1aT7UBDZ89ewmnWFkzJ5wPd2SFbn313vCT8a4E2Qf4KQH4pNey';
+  const integrated =
+    '4Ljin4CrSNHKi7Eiyd5XuyKRVMGVZz1Rqb9ZTyGApXW5d1aT7UBDZ89ewmnWFkzJ5wPd2SFbn313vCT8a4E2Qf4KbaTH6MnpXSn88oBX35';
+  const subaddress =
+    '8C5zHM5ud8nGC4hC2ULiBLSWx9infi8JUUmWEat4fcTf8J4H38iWYVdFmPCA9UmfLTZxD43RsyKnGEdZkoGij6csDeUnbEB';
+  // The same address with an all-zero payment ID, encoded by monero-address.
+  const integratedWithZeroId =
+    '4Ljin4CrSNHKi7Eiyd5XuyKRVMGVZz1Rqb9ZTyGApXW5d1aT7UBDZ89ewmnWFkzJ5wPd2SFbn313vCT8a4E2Qf4KbTTZsHgcG7Z14bDEj2';
+
+  it('reads the payment ID of an integrated address', () => {
+    expect(getXmrIntegratedAddressPaymentId(integrated)).toBe(
+      'b8963a57855cf73f',
+    );
+  });
+
+  it.each([
+    ['a standard address', standard],
+    ['a subaddress', subaddress],
+    ['an all-zero payment ID', integratedWithZeroId],
+    ['text that is not a Monero address', 't1abc'],
+    ['an empty string', ''],
+  ])('has none for %s', (_name, address) => {
+    expect(getXmrIntegratedAddressPaymentId(address)).toBeUndefined();
+  });
+
+  it('has none for a corrupted integrated address', () => {
+    const corrupted = `${integrated.slice(0, 10)}${integrated[10] === 'a' ? 'b' : 'a'}${integrated.slice(11)}`;
+    expect(getXmrIntegratedAddressPaymentId(corrupted)).toBeUndefined();
   });
 });

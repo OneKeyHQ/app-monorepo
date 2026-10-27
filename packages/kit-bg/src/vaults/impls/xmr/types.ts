@@ -49,6 +49,8 @@ export type IXmrHistoryItem = {
   feeAtomic?: string | null;
   /** Paid to the account's primary address; absent from runtimes before alpha.11. */
   receivedOnPrimary?: boolean;
+  /** Hex payment ID a receive carried (receives only); absent from older runtimes. */
+  paymentId?: string | null;
 };
 
 export type {

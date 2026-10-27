@@ -1171,15 +1171,25 @@ export default class Vault extends VaultBase {
     if (!item) {
       throw new OneKeyLocalError('xmr: transaction not found locally');
     }
-    const progress = await this.backgroundApi.servicePrivacyChain
-      .getLocalWalletSyncProgress({ networkId: this.networkId, accountId })
-      .catch(() => undefined);
+    const [progress, recipient] = await Promise.all([
+      this.backgroundApi.servicePrivacyChain
+        .getLocalWalletSyncProgress({ networkId: this.networkId, accountId })
+        .catch(() => undefined),
+      // Only for its payment ID; the detail stands without it.
+      item.direction === 'out'
+        ? this.backgroundApi.simpleDb.privacyChainXmrSent
+            .listXmrSent({ accountId })
+            .then((records) => records[item.txid]?.recipient)
+            .catch(() => undefined)
+        : undefined,
+    ]);
     return {
       data: {
         data: {
           data: buildXmrLocalHistoryDetail({
             item,
             chainTip: progress?.chainTip,
+            recipient,
           }),
           tokens: {},
           nfts: {},

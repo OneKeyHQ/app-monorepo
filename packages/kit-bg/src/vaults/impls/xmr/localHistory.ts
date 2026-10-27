@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { getXmrIntegratedAddressPaymentId } from '@onekeyhq/core/src/chains/xmr/viewingKeys';
 import { XMR_DECIMALS } from '@onekeyhq/shared/src/config/xmr';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -39,12 +40,25 @@ function getXmrConfirmations(
     : undefined;
 }
 
+// Monero's closest thing to a memo. A send's comes from the integrated address we paid.
+function getXmrPaymentId(
+  item: IXmrHistoryItem,
+  recipient: string | undefined,
+): string | undefined {
+  if (item.direction === 'out') {
+    return recipient ? getXmrIntegratedAddressPaymentId(recipient) : undefined;
+  }
+  return item.paymentId || undefined;
+}
+
 export function buildXmrLocalHistoryDetail({
   item,
   chainTip,
+  recipient,
 }: {
   item: IXmrHistoryItem;
   chainTip?: number | null;
+  recipient?: string;
 }): IOnChainHistoryTx {
   const statusMap: Partial<Record<EDecodedTxStatus, EOnChainHistoryTxStatus>> =
     {
@@ -58,6 +72,7 @@ export function buildXmrLocalHistoryDetail({
     block: item.height ?? undefined,
     confirmations: getXmrConfirmations(item, chainTip),
     timestamp: item.timestamp ?? undefined,
+    memo: getXmrPaymentId(item, recipient),
   } as IOnChainHistoryTx;
 }
 
