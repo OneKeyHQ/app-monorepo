@@ -49,7 +49,9 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
-jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({ ListItem: () => null }));
+jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
+  ListItem: () => null,
+}));
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
 jest.mock('@onekeyhq/kit/src/utils/explorerUtils', () => ({
   openHyperLiquidTokenExplorerUrl: jest.fn(),
