@@ -429,6 +429,7 @@ export function EarnOffersDeposit({
   networkId,
   logoURI,
   offerKey,
+  offerOnly,
   amount,
   onHeaderRightChange,
   onDeposited,
@@ -441,6 +442,8 @@ export function EarnOffersDeposit({
   networkId: string;
   logoURI?: string;
   offerKey?: string;
+  // That offer alone, with none to switch to (a details page's own deposit)
+  offerOnly?: boolean;
   // An amount of the token itself to start on (what a withdrawal took out)
   amount?: string;
   onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
@@ -456,7 +459,17 @@ export function EarnOffersDeposit({
   payWithPickerHeight?: number;
 }) {
   const intl = useIntl();
-  const { offers, isLoaded } = useEarnRouterOffers({ symbol, networkId });
+  const { offers: allOffers, isLoaded } = useEarnRouterOffers({
+    symbol,
+    networkId,
+  });
+  const offers = useMemo(
+    () =>
+      offerOnly && offerKey
+        ? allOffers.filter((offer) => offer.key === offerKey)
+        : allOffers,
+    [allOffers, offerKey, offerOnly],
+  );
   const { result: network } = usePromiseResult(
     () => backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId }),
     [networkId],

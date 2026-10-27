@@ -9,6 +9,7 @@ export enum ETabEarnRoutes {
   EarnProtocols = 'EarnProtocols',
   EarnProtocolDetails = 'EarnProtocolDetails',
   EarnProtocolDetailsShare = 'EarnProtocolDetailsShare',
+  EarnLendingDetails = 'EarnLendingDetails',
   BorrowReserveDetails = 'BorrowReserveDetails',
   BorrowReserveDetailsShare = 'BorrowReserveDetailsShare',
 }
@@ -65,6 +66,18 @@ export type ITabEarnParamList = {
     symbol: string;
     provider: string;
     vault?: string;
+  };
+  // A lending market's supply side (Aave, Kamino) as an Earn details page,
+  // opened from the desktop Earn table (demo 10-27)
+  [ETabEarnRoutes.EarnLendingDetails]: {
+    networkId: string;
+    provider: string;
+    marketAddress: string;
+    reserveAddress: string;
+    symbol: string;
+    logoURI?: string;
+    accountId?: string;
+    indexedAccountId?: string;
   };
   [ETabEarnRoutes.BorrowReserveDetails]: {
     networkId: string;

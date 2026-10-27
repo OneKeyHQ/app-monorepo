@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,7 +18,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
+import { HeaderRightView } from '../../../Staking/pages/ManagePosition/components/HeaderRight';
 import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
+
+import type { IHeaderRightViewProps } from '../../../Staking/pages/ManagePosition/components/HeaderRight';
 
 const BorrowManagePosition = () => {
   const route = useAppRoute<
@@ -38,6 +41,7 @@ const BorrowManagePosition = () => {
     reserveAddress,
     marketAddress,
     type,
+    withdrawOnly,
   } = route.params;
   const intl = useIntl();
   const appNavigation = useAppNavigation();
@@ -90,7 +94,15 @@ const BorrowManagePosition = () => {
     indexedAccountId,
   ]);
 
+  // Withdraw alone (from the Earn lending details page) is a one-side modal
+  // as Earn's are: the form hands History up to the header, and there is no
+  // Reserve Info, the page it was opened from
+  const [headerControls, setHeaderControls] =
+    useState<IHeaderRightViewProps | null>(null);
   const headerRight = useCallback(() => {
+    if (withdrawOnly) {
+      return headerControls ? <HeaderRightView {...headerControls} /> : null;
+    }
     if (gtMd || !hasReserveAddress || !marketAddress) {
       return null;
     }
@@ -105,7 +117,15 @@ const BorrowManagePosition = () => {
         {intl.formatMessage({ id: ETranslations.defi_reserve_info })}
       </Button>
     );
-  }, [gtMd, hasReserveAddress, marketAddress, handleViewReserveDetails, intl]);
+  }, [
+    withdrawOnly,
+    headerControls,
+    gtMd,
+    hasReserveAddress,
+    marketAddress,
+    handleViewReserveDetails,
+    intl,
+  ]);
 
   return (
     <Page scrollEnabled>
@@ -139,6 +159,8 @@ const BorrowManagePosition = () => {
             reserveAddress={reserveAddress}
             marketAddress={marketAddress}
             defaultTab={defaultTab}
+            withdrawOnly={withdrawOnly}
+            onHeaderRightChange={withdrawOnly ? setHeaderControls : undefined}
           />
         )}
       </Page.Body>

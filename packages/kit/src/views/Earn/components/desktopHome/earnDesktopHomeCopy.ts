@@ -4,6 +4,9 @@ const PENDLE_RATE_ROW_TITLES = ['Effective Fixed APY', 'Market Reference APY'];
 
 export const EARN_DESKTOP_DEMO_COPY = {
   withdrawals: 'Withdrawals',
+  // A lending market's Earn details page names its first section as a
+  // vault's page does (the server's word there)
+  intro: 'Intro',
   aYear: 'a year',
   more: (count: number) => `${count} more`,
   // Pay with, and the swap-then-deposit path. The real deposit form takes

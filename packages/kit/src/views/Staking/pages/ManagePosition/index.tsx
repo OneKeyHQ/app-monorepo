@@ -180,7 +180,13 @@ const ManagePositionPage = () => {
   // Opened for the token's offers on a network (a home row), or switched to
   // them by a withdrawal's better rate
   const [offersEntry, setOffersEntry] = useState<
-    { offerKey?: string; amount?: string; tokenImageUri?: string } | undefined
+    | {
+        offerKey?: string;
+        amount?: string;
+        offerOnly?: boolean;
+        tokenImageUri?: string;
+      }
+    | undefined
   >(route.params.earnOffers);
   // A form showing one side hands its History and quote controls up here,
   // for the modal's header
@@ -446,6 +452,7 @@ const ManagePositionPage = () => {
         networkId={selectedProtocol.networkId}
         logoURI={offersEntry.tokenImageUri ?? tokenImageUri}
         offerKey={offersEntry.offerKey}
+        offerOnly={offersEntry.offerOnly}
         amount={offersEntry.amount}
         onHeaderRightChange={setHeaderControls}
         onDeposited={handleOffersDeposited}

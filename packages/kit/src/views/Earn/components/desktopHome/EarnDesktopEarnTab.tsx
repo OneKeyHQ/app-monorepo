@@ -49,7 +49,6 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
-import { BorrowNavigation } from '../../../Borrow/borrowUtils';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { EarnNavigation } from '../../earnUtils';
 import {
@@ -475,9 +474,11 @@ function TokenOffers({
     [asset.logoURI, asset.symbol, navigation],
   );
 
+  // A market's supply side opens as an Earn details page, its form a supply
+  // with Pay with, as a vault's row opens its own
   const handleLendingPress = useCallback(
     (offer: IEarnDesktopLendingOffer) => {
-      BorrowNavigation.pushToBorrowReserveDetails(navigation, {
+      EarnNavigation.pushToEarnLendingDetails(navigation, {
         networkId: offer.market.networkId,
         provider: offer.market.provider,
         marketAddress: offer.market.marketAddress,

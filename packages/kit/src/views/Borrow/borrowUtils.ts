@@ -177,6 +177,7 @@ export const BorrowNavigation = {
       providerDisplayName?: string;
       providerLogoURI?: string;
       type: EManagePositionType;
+      withdrawOnly?: boolean;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -193,6 +194,7 @@ export const BorrowNavigation = {
         providerDisplayName: params.providerDisplayName,
         providerLogoURI: params.providerLogoURI,
         type: params.type,
+        withdrawOnly: params.withdrawOnly,
       },
     });
   },

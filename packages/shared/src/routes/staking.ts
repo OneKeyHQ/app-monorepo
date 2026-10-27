@@ -68,6 +68,9 @@ type IBorrowManagePositionRouteParams = IBaseRouteParams & {
   providerDisplayName?: string;
   providerLogoURI?: string;
   type?: EManagePositionType;
+  // Withdraw alone, with no Supply tab (the Earn lending details page's own
+  // Withdraw, demo 10-27)
+  withdrawOnly?: boolean;
 };
 
 type IBorrowTokenSelectAction =
@@ -127,8 +130,9 @@ export type IModalStakingParamList = {
     enableProtocolSwitch?: boolean;
     // Deposit only, choosing among the token's offers on this network (a row
     // of the desktop Earn home, demo 10-22): the offer to start on, the best
-    // rate otherwise, and an amount of the token to start on
-    earnOffers?: { offerKey?: string; amount?: string };
+    // rate otherwise, and an amount of the token to start on. offerOnly keeps
+    // to that offer, with none to switch to (a details page's own deposit)
+    earnOffers?: { offerKey?: string; amount?: string; offerOnly?: boolean };
     // Fires after a deposit/withdraw confirms, before this modal pops. The
     // inline wide-layout ManagePositionPart takes the same callback as a prop;
     // opened as a modal there is no other way back to the caller. Same shape as

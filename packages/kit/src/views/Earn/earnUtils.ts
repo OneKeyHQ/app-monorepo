@@ -145,7 +145,8 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnProtocolTokens ||
     route === ETabEarnRoutes.EarnProtocols ||
     route === ETabEarnRoutes.EarnProtocolDetails ||
-    route === ETabEarnRoutes.EarnProtocolDetailsShare;
+    route === ETabEarnRoutes.EarnProtocolDetailsShare ||
+    route === ETabEarnRoutes.EarnLendingDetails;
   if (shouldSwitchToEarnMode) {
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
   }
@@ -512,6 +513,8 @@ export const EarnNavigation = {
       offerKey?: string;
       // An amount of the token to start on (what a withdrawal took out)
       amount?: string;
+      // That offer alone, with none to switch to
+      offerOnly?: boolean;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -523,7 +526,11 @@ export const EarnNavigation = {
         provider: '',
         tab: 'deposit',
         tokenImageUri: params.logoURI,
-        earnOffers: { offerKey: params.offerKey, amount: params.amount },
+        earnOffers: {
+          offerKey: params.offerKey,
+          amount: params.amount,
+          offerOnly: params.offerOnly,
+        },
       },
     });
   },
@@ -574,6 +581,18 @@ export const EarnNavigation = {
       logoURI: params.logoURI,
       ...(params.scrollToPortfolio ? { scrollToPortfolio: true } : {}),
     });
+  },
+
+  // A lending market's supply side as an Earn details page (demo 10-27)
+  pushToEarnLendingDetails(
+    navigation: IAppNavigation,
+    params: ITabEarnParamList[ETabEarnRoutes.EarnLendingDetails],
+  ) {
+    void safePushToEarnRoute(
+      navigation,
+      ETabEarnRoutes.EarnLendingDetails,
+      params,
+    );
   },
 
   pushToEarnProtocolDetailsShare(
