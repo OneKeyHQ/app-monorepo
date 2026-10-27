@@ -1104,19 +1104,31 @@ export function UniversalStake({
     ],
   );
 
-  const debouncedFetchEstimateFeeResp = useDebouncedCallback(
-    async (amount?: string) => {
-      const resp = await fetchEstimateFeeResp(amount);
-      setEstimateFeeResp(resp);
-      setEstimateFeeAmount(amount ?? '');
-    },
-    350,
-  );
   // The amount the network fee was last asked for (not the box's): a box
   // moving to the same amount ("1" to "1." or "1.0") asks nothing new, while
   // a form that mounts with its amount already in (carried over a protocol
   // switch) still asks for its first fee
   const feeAmountRef = useRef<string | undefined>(undefined);
+  const debouncedFetchEstimateFeeResp = useDebouncedCallback(
+    async (amount?: string) => {
+      let resp: IEarnEstimateFeeResp | undefined;
+      try {
+        resp = await fetchEstimateFeeResp(amount);
+      } catch {
+        // A failed estimate ends as no fee (a dash), as a failed figure
+        // does, rather than a placeholder for good
+        resp = undefined;
+      }
+      // An earlier amount's answer that comes after a later one was asked
+      // for stays out: it would hold the row on its placeholder
+      if ((amount ?? '') !== (feeAmountRef.current ?? '')) {
+        return;
+      }
+      setEstimateFeeResp(resp);
+      setEstimateFeeAmount(amount ?? '');
+    },
+    350,
+  );
 
   const checkEstimateGasAlert = useCallback(
     async (onNext: () => Promise<void> | undefined) => {

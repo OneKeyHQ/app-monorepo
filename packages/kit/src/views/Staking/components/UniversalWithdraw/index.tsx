@@ -972,29 +972,36 @@ export function UniversalWithdraw({
       return undefined;
     }
 
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
+    const amount = isCancelWithdrawal ? '' : amountValue;
+    try {
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
 
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: actionSymbol,
-      action: 'unstake',
-      amount: isCancelWithdrawal ? '0' : amountValue || balance || '1',
-      txId: earnUtils.isBabylonProvider({ providerName })
-        ? identity
-        : undefined,
-      protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
-      identity,
-      accountAddress: account.address,
-      withdrawAll: withdrawAllRef.current,
-      inputTokenAddress: transactionInputTokenAddress,
-      outputTokenAddress: transactionOutputTokenAddress,
-      withdrawType: selectedWithdrawType,
-    });
-    return { amount: isCancelWithdrawal ? '' : amountValue, resp };
+      const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+        networkId,
+        provider: providerName,
+        symbol: actionSymbol,
+        action: 'unstake',
+        amount: isCancelWithdrawal ? '0' : amountValue || balance || '1',
+        txId: earnUtils.isBabylonProvider({ providerName })
+          ? identity
+          : undefined,
+        protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
+        identity,
+        accountAddress: account.address,
+        withdrawAll: withdrawAllRef.current,
+        inputTokenAddress: transactionInputTokenAddress,
+        outputTokenAddress: transactionOutputTokenAddress,
+        withdrawType: selectedWithdrawType,
+      });
+      return { amount, resp };
+    } catch {
+      // A failed estimate ends as no fee for this amount (a dash), as a
+      // failed figure does, rather than the last one held dimmed for good
+      return { amount, resp: undefined };
+    }
   }, [
     amountValue,
     accountId,
