@@ -206,21 +206,32 @@ export function resolveSwapStockTokenSelectionKind(
     : 'token';
 }
 
-export type ISwapStockSelectionOperation =
+export type ISwapStockDisplayScope = {
+  stockId?: string;
+  tokenVariants: IMarketStockTokenVariant[];
+  stockPreview?: IMarketStockDetailPreview;
+};
+
+export type ISwapStockSelectionOperation = (
   | { phase: 'idle' }
   | { phase: 'checkingRisk'; kind: ISwapStockSelectionKind }
   | {
       phase: 'resolving';
       kind: ISwapStockSelectionKind;
+      targetStockId?: string;
+      tokenVariants?: IMarketStockTokenVariant[];
       stockPreview?: IMarketStockDetailPreview;
     }
   | {
       phase: 'applying';
       kind: ISwapStockSelectionKind;
       tokenKey: string;
+      targetStockId?: string;
+      tokenVariants?: IMarketStockTokenVariant[];
       stockPreview?: IMarketStockDetailPreview;
     }
-  | { phase: 'failed'; kind: ISwapStockSelectionKind };
+  | { phase: 'failed'; kind: ISwapStockSelectionKind }
+) & { previousDisplay?: ISwapStockDisplayScope };
 
 export function resolveSwapStockLoadingScopes({
   operation,
@@ -438,6 +449,22 @@ function buildSwapStockVariantToken(
   return { ...token, networkLogoURI: variant.networkLogoUrl };
 }
 
+// An aged list can establish display identity, never current trading status.
+export function getCachedSwapStockDisplayVariants(
+  stockId: string,
+  locale: string,
+) {
+  const normalizedStockId = stockId.trim().toUpperCase();
+  const cached = swrCacheUtils.get<IStockTokenVariantsRequestResult>(
+    swrKeys.marketStockTokenVariants({ stockId: normalizedStockId, locale }),
+  );
+  return cached &&
+    !cached.failed &&
+    resolveMarketStockId(cached) === normalizedStockId
+    ? cached.items
+    : undefined;
+}
+
 function getCachedSwapStockVariant(
   stock: IMarketStockPublicItem,
   query?: string,
@@ -489,6 +516,7 @@ export async function fetchSwapStockSelection(
   query?: string,
   locale?: string,
   preferredIssuer?: string,
+  onVariantsResolved?: (variants: IMarketStockTokenVariant[]) => void,
 ) {
   const cached = getCachedSwapStockVariant(
     stock,
@@ -496,11 +524,18 @@ export async function fetchSwapStockSelection(
     locale,
     preferredIssuer,
   );
-  if (cached) return fetchSwapStockVariantToken(cached, stock.stockId, locale);
+  if (cached) {
+    const variants = locale
+      ? getCachedSwapStockDisplayVariants(stock.stockId, locale)
+      : undefined;
+    if (variants) onVariantsResolved?.(variants);
+    return fetchSwapStockVariantToken(cached, stock.stockId, locale);
+  }
   const response =
     await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants({
       stockId: stock.stockId,
     });
+  onVariantsResolved?.(response.items);
   const variant = selectSwapStockVariant({
     ...response,
     query,

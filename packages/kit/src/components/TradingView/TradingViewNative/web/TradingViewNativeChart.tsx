@@ -38,6 +38,10 @@ import {
 } from '../utils/chartLayout';
 import { getTradingViewNativeVolumeAxisLabel } from '../utils/chartLegend';
 import {
+  getTradingViewNativeNavigationEvent,
+  isTradingViewNativeNavigationHotZone,
+} from '../utils/chartNavigation';
+import {
   type ITradingViewNativeChartRuntimeState,
   createTradingViewNativeChartRuntimeState,
   getTradingViewNativeChartRuntimeVisiblePointRange,
@@ -88,6 +92,7 @@ import { getDataWindowSnapshot } from './drawings/dataWindow';
 import { DrawingToolbar } from './drawings/DrawingToolbar';
 import { useChartDrawings } from './drawings/useChartDrawings';
 import { drawTradingViewNativeCanvasChart } from './drawTradingViewNativeCanvasChart';
+import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigationControls';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { TradingViewNativeSubIndicatorPriceAxis } from './TradingViewNativeSubIndicatorPriceAxis';
 import { useChartPriceSelection } from './useChartPriceSelection';
@@ -102,6 +107,7 @@ import type { IDrawingProjection } from './drawings/model';
 import type { ITradingViewNativeWebPriceScaleModel } from './useTradingViewNativePriceScale';
 import type { ITradingViewNativeChartProps } from '../TradingViewNativeChart.types';
 import type { ITradingViewNativeReferenceLineHitRegion } from '../utils/chartComponentScene';
+import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigation';
 import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorLegendHitRegion } from '../utils/subIndicatorRender';
 
@@ -145,6 +151,7 @@ export const TradingViewNativeChart = memo(
     drawingStorageKey,
     loadDrawingHistory,
     enableDrawings: drawingsEnabled = false,
+    enableNavigationControls = false,
     candleIntervalSeconds,
     candleTimeMode,
     chartComponents,
@@ -1489,6 +1496,86 @@ export const TradingViewNativeChart = memo(
       };
     }, [handleWheel]);
 
+    const showNavigationControls =
+      enableNavigationControls &&
+      !isMobileLayout &&
+      chartSettings.options.navigationButtons;
+    const [isNavigationHotZoneHovered, setIsNavigationHotZoneHovered] =
+      useState(false);
+    useEffect(() => {
+      const container = containerRef.current;
+      if (!container || !showNavigationControls) {
+        return undefined;
+      }
+      // Child overlays (axes, buttons) bubble here, so the bar stays visible
+      // while the pointer is on it.
+      const updateNavigationHotZone = (event: PointerEvent) => {
+        const rect = container.getBoundingClientRect();
+        setIsNavigationHotZoneHovered(
+          isTradingViewNativeNavigationHotZone({
+            chartWidth: measuredChartWidth,
+            height: rect.height,
+            timeAxisHeight,
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top,
+          }),
+        );
+      };
+      container.addEventListener('pointermove', updateNavigationHotZone);
+      return () => {
+        container.removeEventListener('pointermove', updateNavigationHotZone);
+      };
+    }, [measuredChartWidth, showNavigationControls, timeAxisHeight]);
+    const handleNavigationAction = useCallback(
+      (action: ITradingViewNativeNavigationAction) => {
+        const canvas = canvasRef.current;
+        if (!canvas) {
+          return;
+        }
+        const runtimeEvent = getTradingViewNativeNavigationEvent({
+          action,
+          chartWidth: getTradingViewNativeCanvasChartWidth(
+            canvas,
+            priceAxisLabels,
+            priceScaleModelRef.current,
+            priceAxisFontSize,
+          ),
+          pointCount,
+          viewport: runtimeStateRef.current.viewport,
+        });
+        if (!runtimeEvent) {
+          return;
+        }
+        const previousViewport = runtimeStateRef.current.viewport;
+        const nextRuntimeState = reduceTradingViewNativeChartRuntime(
+          runtimeStateRef.current,
+          runtimeEvent,
+        );
+        runtimeStateRef.current = nextRuntimeState;
+        if (
+          previousViewport.offset === nextRuntimeState.viewport.offset &&
+          previousViewport.zoomScale === nextRuntimeState.viewport.zoomScale
+        ) {
+          // A clamped or no-op action leaves viewport state unchanged, so
+          // redraw here to clear the crosshair the reducer hid.
+          renderChart();
+        } else {
+          setViewportState(nextRuntimeState.viewport);
+        }
+        if (action === 'reset' && !isAutoScale) {
+          handleAutoScalePress();
+        }
+      },
+      [
+        handleAutoScalePress,
+        isAutoScale,
+        pointCount,
+        priceAxisFontSize,
+        priceAxisLabels,
+        renderChart,
+      ],
+    );
+
     return (
       <div
         ref={drawingRootRef}
@@ -1517,6 +1604,7 @@ export const TradingViewNativeChart = memo(
           minWidth={0}
           position="relative"
           onMouseLeave={() => {
+            setIsNavigationHotZoneHovered(false);
             priceSelection.hide();
             handlePointerLeave();
           }}
@@ -1710,6 +1798,16 @@ export const TradingViewNativeChart = memo(
                 ) : null;
               })
             : null}
+          {showNavigationControls && measuredChartWidth > 0 ? (
+            <TradingViewNativeNavigationControls
+              backgroundColor={background}
+              chartWidth={measuredChartWidth}
+              isVisible={isNavigationHotZoneHovered && pointCount > 0}
+              onAction={handleNavigationAction}
+              timeAxisHeight={timeAxisHeight}
+              testID={testID}
+            />
+          ) : null}
           {chartSettings.options.yAxis && measuredPriceAxisWidth > 0 ? (
             <TradingViewNativePriceScaleControls
               backgroundColor={background}

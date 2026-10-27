@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { IDustSweepItem } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import {
@@ -29,11 +30,11 @@ function getStatusLabel(
   item: IDustSweepItem,
   intl: ReturnType<typeof useIntl>,
 ) {
-  if (item.status === 'success')
+  if (item.status === EDustSweepItemStatus.Success)
     return intl.formatMessage({ id: ETranslations.label_converted });
-  if (item.status === 'skipped')
+  if (item.status === EDustSweepItemStatus.Skipped)
     return intl.formatMessage({ id: ETranslations.label_skipped });
-  if (item.status === 'failed')
+  if (item.status === EDustSweepItemStatus.Failed)
     return intl.formatMessage({ id: ETranslations.global_failed });
   return intl.formatMessage({ id: ETranslations.global_pending });
 }
@@ -100,12 +101,13 @@ export function DustSweepDetails({
         <YStack>
           {state.items.map((item) => {
             let reason: string | undefined;
-            if (item.status === 'unknown' && !item.localError)
+            if (
+              item.status === EDustSweepItemStatus.Unknown &&
+              !item.localError
+            )
               reason = intl.formatMessage({
                 id: ETranslations.swap_review_tx_pending,
               });
-            else if (item.status === 'failed' && item.message?.trim())
-              reason = item.message;
             else if (item.reason)
               reason = getDustSweepReasonMessage(
                 intl,
@@ -178,7 +180,7 @@ export function DustSweepDetails({
                     <SizableText
                       size="$bodySm"
                       color={
-                        item.status === 'unknown'
+                        item.status === EDustSweepItemStatus.Unknown
                           ? '$textSubdued'
                           : '$textCritical'
                       }

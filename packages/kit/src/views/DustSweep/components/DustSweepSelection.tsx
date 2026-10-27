@@ -12,9 +12,11 @@ import {
 } from '@onekeyhq/components';
 import { SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE } from '@onekeyhq/kit/src/views/Swap/utils/swapDesktopCardShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { useDustSweep } from '../DustSweepProvider';
 import { useDustSweepActiveItemScroll } from '../hooks/useDustSweepActiveItemScroll';
+import { EDustSweepPhase } from '../stateMachine';
 import { getDustSweepHiddenThreshold } from '../utils/candidates';
 
 import { DustSweepFilters } from './DustSweepFilters';
@@ -47,12 +49,9 @@ export function DustSweepSelection({
     selecting,
     session,
     loadStatus,
-    partialError,
-    failedNetworks,
     toggle,
     toggleAll,
     addHidden,
-    retry,
   } = useDustSweep();
   const intl = useIntl();
   const rows = selecting
@@ -223,9 +222,10 @@ export function DustSweepSelection({
                   selected={selected.some((item) => item.key === token.key)}
                   item={selecting ? undefined : session.state.items[index]}
                   paused={
-                    session.state.phase === 'paused'
+                    session.state.phase === EDustSweepPhase.Paused
                       ? session.state.items.findIndex(
-                          (item) => item.status === 'waiting',
+                          (item) =>
+                            item.status === EDustSweepItemStatus.Waiting,
                         ) === index
                       : false
                   }
@@ -233,20 +233,7 @@ export function DustSweepSelection({
                 />
               ))}
         </YStack>
-        {selecting && !loading && (loadStatus === 'error' || partialError) ? (
-          <YStack testID="dust-sweep-load-error" p="$5" gap="$4">
-            <SizableText>
-              {failedNetworks?.length
-                ? `${failedNetworks.map((network) => network.name).join(', ')} · `
-                : ''}
-              {intl.formatMessage({ id: ETranslations.global_network_error })}
-            </SizableText>
-            <Button testID="dust-sweep-retry" onPress={retry}>
-              {intl.formatMessage({ id: ETranslations.global_retry })}
-            </Button>
-          </YStack>
-        ) : null}
-        {!loading && loadStatus === 'ready' && !partialError && !rows.length ? (
+        {selecting && !loading && !rows.length ? (
           <YStack height={330} justifyContent="center" px="$10" gap="$1">
             {/* Same illustration as the wallet's empty token list. */}
             <Illustration name="QuestionMark" alignSelf="center" mb="$2" />

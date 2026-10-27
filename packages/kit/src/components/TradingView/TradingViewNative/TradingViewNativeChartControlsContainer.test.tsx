@@ -308,6 +308,7 @@ describe('TradingViewNative chart controls', () => {
 
       expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledTimes(1);
       expect(mockShowMarketChartSettingsDialog).toHaveBeenCalledWith({
+        showNavigationButtons: false,
         showPreviousClose: false,
       });
       expect(mockPushModal).not.toHaveBeenCalled();

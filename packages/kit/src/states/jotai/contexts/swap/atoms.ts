@@ -182,10 +182,16 @@ export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
   ISwapNetwork[]
 >([]);
 
-// Cached networks make the selector usable before fresh default configuration arrives.
+// Automatic default-pair resolution settles once per entry; failed uses local defaults.
 export const {
   atom: swapDefaultConfigStatusAtom,
   use: useSwapDefaultConfigStatusAtom,
+} = contextAtom<ISwapDefaultConfigStatus>('pending');
+
+// Network refreshes continue after the automatic pair has chosen local defaults.
+export const {
+  atom: swapNetworkConfigStatusAtom,
+  use: useSwapNetworkConfigStatusAtom,
 } = contextAtom<ISwapDefaultConfigStatus>('pending');
 
 export const {
