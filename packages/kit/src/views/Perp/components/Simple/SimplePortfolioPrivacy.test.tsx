@@ -73,6 +73,17 @@ let mockTwapState: {
   accountAddress: string;
   twapOrders: { twapId: number; state: { coin: string } }[];
 } = { accountAddress: 'account-a', twapOrders: [] };
+jest.mock('@onekeyhq/kit/src/components/RollingNumberText', () => ({
+  RollingNumberText: (
+    props: import('@onekeyhq/components').ISizableTextProps,
+  ) => {
+    const { SizableText } = jest.requireMock(
+      '@onekeyhq/components',
+    ) as typeof import('@onekeyhq/components');
+    return <SizableText {...props} />;
+  },
+}));
+
 jest.mock('@onekeyhq/components', () => {
   const Box = ({
     children,

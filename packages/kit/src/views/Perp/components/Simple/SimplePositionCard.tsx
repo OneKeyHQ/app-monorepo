@@ -8,6 +8,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { RollingNumberText } from '@onekeyhq/kit/src/components/RollingNumberText';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -122,7 +123,7 @@ export function SimplePositionCard({ item }: { item: IPerpsAssetPosition }) {
               >
                 {simpleUsd(position.positionValue)}
               </SizableText>
-              <SizableText
+              <RollingNumberText
                 flex={1}
                 textAlign="right"
                 size="$heading2xl"
@@ -134,7 +135,7 @@ export function SimplePositionCard({ item }: { item: IPerpsAssetPosition }) {
                 adjustsFontSizeToFit
               >
                 {`${pnl.gt(0) ? '+' : ''}${simpleUsd(position.unrealizedPnl)}`}
-              </SizableText>
+              </RollingNumberText>
             </XStack>
             <XStack
               alignItems="baseline"
@@ -301,13 +302,13 @@ export function SimplePositionSummary({
               </SizableText>
               <SimpleLeverageBadge leverage={position.leverage.value} />
             </XStack>
-            <SizableText
+            <RollingNumberText
               size="$bodyMdMedium"
               color={hideValue ? '$textSubdued' : pnlColor}
               flexShrink={0}
             >
               {hideValue ? '****' : pnlDisplay}
-            </SizableText>
+            </RollingNumberText>
           </XStack>
           <XStack gap="$2" alignItems="baseline" justifyContent="space-between">
             <XStack

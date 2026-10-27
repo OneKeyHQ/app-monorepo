@@ -91,6 +91,7 @@ import {
   getSimpleSliderAmount,
   validateSimpleAmountInput,
 } from '../utils/simpleTrading';
+import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 import type { ISimpleOrderType } from '../components/Simple/SimpleOrderTypeDialog';
 import type { ISimpleOrderError } from '../utils/simpleTrading';
@@ -470,6 +471,7 @@ function SimpleOrderContent() {
   });
   const canSubmit = ready && !preview.error && !submitting;
   const showDeposit = ready && preview.error === 'insufficientMargin';
+  const tradeButtonVariant = side === 'long' ? 'accent' : 'destructive';
   const depositLabel = showDeposit
     ? `${validationMessage} · ${intl.formatMessage({ id: ETranslations.perp_trade_deposit })}`
     : undefined;
@@ -655,10 +657,13 @@ function SimpleOrderContent() {
       },
     });
   };
+  const { textColor: leverageTextColor, ...leverageButtonStyles } =
+    getTradingButtonStyleProps(side);
   const leverageControl = (
     <Button
       testID="perps-simple-leverage"
-      variant="accent"
+      variant={side === 'long' ? 'accent' : 'destructive'}
+      {...leverageButtonStyles}
       borderRadius="$full"
       size="small"
       minHeight={28}
@@ -686,13 +691,13 @@ function SimpleOrderContent() {
       }}
       childrenAsText={false}
     >
-      <SizableText size="$bodyMdMedium" color="$textInverse">
+      <SizableText size="$bodyMdMedium" color={leverageTextColor}>
         {mode && leverage > 0 ? `${marginModeLabel} ${leverage}×` : '--'}
       </SizableText>
       <Icon
         name="ChevronTriangleDownSmallSolid"
         size="$3"
-        color="$iconInverse"
+        color={leverageTextColor}
         ml="$1"
       />
     </Button>
@@ -738,6 +743,9 @@ function SimpleOrderContent() {
               <SendAutoSizeAmountInput
                 ref={amountInputRef}
                 testID="perps-simple-amount"
+                inputAnimation={
+                  scopedDraft?.source === 'percent' ? 'instant' : 'typing'
+                }
                 inlineTextAlignMode="center"
                 value={platformEnv.isNative ? displayedAmount : amount}
                 maxFontSize={
@@ -882,9 +890,7 @@ function SimpleOrderContent() {
                 size="medium"
                 height={48}
                 minHeight={48}
-                variant={
-                  showDeposit || side === 'long' ? 'accent' : 'destructive'
-                }
+                variant={showDeposit ? 'primary' : tradeButtonVariant}
                 borderRadius="$full"
                 disabled={
                   showDeposit ? submitting || isDepositDisabled : !canSubmit

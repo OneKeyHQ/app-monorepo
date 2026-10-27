@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -29,6 +29,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ColorTokens } from '@onekeyhq/components';
+import { RollingDigit } from '@onekeyhq/kit/src/components/RollingNumberText/RollingDigit';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { SwapTransactionResultStatus } from '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult';
 import SwapCommonInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapCommonInfoItem';
@@ -68,7 +69,6 @@ const AMOUNT_TEXT_PROPS = {
   height: AMOUNT_LINE_HEIGHT,
 } as const;
 const SUBSCRIPT_FONT_SIZE = Math.ceil(AMOUNT_TEXT_PROPS.fontSize * 0.6);
-const DIGITS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const AMOUNT_FLASH_STYLE = {
   position: 'absolute',
   top: -4,
@@ -76,45 +76,6 @@ const AMOUNT_FLASH_STYLE = {
   left: -12,
   right: -12,
 } as const;
-
-// One odometer column: the 0-9 strip slides to the current digit. Memoized so
-// unchanged columns skip re-rendering their ten digits on every sweep update.
-const DustSweepRollingDigit = memo(function DustSweepRollingDigit({
-  digit,
-  color,
-}: {
-  digit: number;
-  color?: ColorTokens;
-}) {
-  const reducedMotion = useReducedMotion();
-  // New columns (the total gaining digits) roll up from 0 like the others.
-  const offset = useSharedValue(0);
-  useEffect(() => {
-    const target = -digit * AMOUNT_LINE_HEIGHT;
-    offset.value = reducedMotion
-      ? target
-      : withTiming(target, { duration: 900, easing: Easing.out(Easing.cubic) });
-  }, [digit, offset, reducedMotion]);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: offset.value }],
-  }));
-  return (
-    <Stack height={AMOUNT_LINE_HEIGHT} overflow="hidden">
-      <Animated.View style={style}>
-        {DIGITS.map((item) => (
-          <SizableText
-            key={item}
-            {...AMOUNT_TEXT_PROPS}
-            color={color}
-            textAlign="center"
-          >
-            {item}
-          </SizableText>
-        ))}
-      </Animated.View>
-    </Stack>
-  );
-});
 
 type IRollingSegment =
   | { kind: 'char'; char: string }
@@ -252,9 +213,11 @@ function DustSweepRollingAmount({
               </SizableText>
             );
           return /\d/.test(segment.char) ? (
-            <DustSweepRollingDigit
+            <RollingDigit
               key={key}
               digit={Number(segment.char)}
+              textProps={AMOUNT_TEXT_PROPS}
+              lineHeight={AMOUNT_LINE_HEIGHT}
               color={color}
             />
           ) : (

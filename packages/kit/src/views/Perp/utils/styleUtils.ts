@@ -1,7 +1,7 @@
 import type { ColorTokens } from 'tamagui';
 
 export type ITradeSide = 'long' | 'short';
-export type IPerpActionButtonVariant = 'accent' | 'destructive';
+export type IPerpActionButtonVariant = 'primary' | 'accent' | 'destructive';
 
 interface IPerpActionButtonStyleProps {
   bg: ColorTokens;
@@ -10,12 +10,17 @@ interface IPerpActionButtonStyleProps {
   textColor: ColorTokens;
 }
 
-// Accent is shared by Long and Deposit; destructive is used for Short.
 // Keep references stable for memoized native button consumers.
 const ACTION_BUTTON_STYLE_PROPS: Record<
   IPerpActionButtonVariant,
   IPerpActionButtonStyleProps
 > = {
+  primary: {
+    bg: '$bgPrimary',
+    hoverStyle: { bg: '$bgPrimaryHover' },
+    pressStyle: { bg: '$bgPrimaryActive' },
+    textColor: '$textInverse',
+  },
   accent: {
     bg: '$bgAccent',
     hoverStyle: { bg: '$bgAccentHover' },

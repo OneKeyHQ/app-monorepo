@@ -17,6 +17,7 @@ export type IAutoSizeInputProps = {
   // the real width rather than the window-width seed.
   isInlineWidthMeasured?: boolean;
   inlineTextAlignMode?: 'auto' | 'center';
+  inputAnimation?: 'typing' | 'instant';
   currencyLabel?: string;
   inlineTokenSymbol?: string;
   inlinePrefixGapPx: number;

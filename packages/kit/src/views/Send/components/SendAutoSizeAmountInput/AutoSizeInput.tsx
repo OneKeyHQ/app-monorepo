@@ -6,9 +6,13 @@ import {
   useState,
 } from 'react';
 
-import { Input, SizableText, XStack } from '@onekeyhq/components';
+import { useReducedMotion } from 'react-native-reanimated';
+
+import { Input, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
+
+import { AnimatedAmountText } from './AnimatedAmountText';
 
 import type {
   IAutoSizeInputProps,
@@ -49,6 +53,7 @@ const measureInlineTextWidthPx = (
   fontSize: number,
   fontWeight = 500,
   measurementRevision = 0,
+  advanceOnly = false,
 ) => {
   void measurementRevision;
   if (typeof document !== 'undefined') {
@@ -57,6 +62,7 @@ const measureInlineTextWidthPx = (
     if (context) {
       context.font = `${fontWeight} ${fontSize}px ${webFontFamily}`;
       const metrics = context.measureText(text);
+      if (advanceOnly) return metrics.width;
       const visualWidth =
         metrics.actualBoundingBoxLeft !== undefined &&
         metrics.actualBoundingBoxRight !== undefined
@@ -191,6 +197,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       availableInlineWidth,
       isInlineWidthMeasured = true,
       inlineTextAlignMode = 'auto',
+      inputAnimation,
       currencyLabel,
       inlineTokenSymbol,
       inlinePrefixGapPx,
@@ -209,6 +216,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     ref,
   ) => {
     const inputRef = useRef<TextInput>(null);
+    const reducedMotion = useReducedMotion();
 
     useImperativeHandle(
       ref,
@@ -370,6 +378,93 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       availableInlineWidth > 0 &&
       availableInlineWidth < Math.ceil(effectiveFontSize);
 
+    const showAnimatedInput = Boolean(inputAnimation) && !isInlineInputShrunk;
+    const animatedCharacterWidths = showAnimatedInput
+      ? Object.fromEntries(
+          Array.from(new Set(value || placeholder || '0'), (char) => [
+            char,
+            measureInlineTextWidthPx(
+              char,
+              effectiveFontSize,
+              500,
+              webFontMeasureVersion,
+              true,
+            ),
+          ]),
+        )
+      : undefined;
+    const amountInput = (
+      <Input
+        testID={SendTestIDs.amountInput}
+        ref={inputRef}
+        keyboardType={keyboardType ?? 'decimal-pad'}
+        editable={editable}
+        fontSize={effectiveFontSize}
+        fontWeight="500"
+        fontFamily={fontFamily}
+        color={showAnimatedInput ? 'transparent' : '$text'}
+        unstyled
+        borderWidth={0}
+        bg="transparent"
+        p="$0"
+        px="$0"
+        pl="$0"
+        pr="$0"
+        h={Math.ceil(effectiveFontSize * 1.4)}
+        size="large"
+        focusVisibleStyle={undefined}
+        placeholder={placeholder ?? '0'}
+        placeholderTextColor={
+          showAnimatedInput
+            ? 'transparent'
+            : (placeholderColor ?? '$textDisabled')
+        }
+        value={value}
+        onChangeText={onChangeText}
+        textAlign={desktopAmountTextAlign}
+        containerProps={{
+          width: showAnimatedInput ? '100%' : inlineInputWidthPx,
+          flexShrink: 1,
+          minWidth: inlineInputMinWidthPx,
+          maxWidth: showAnimatedInput ? '100%' : inlineInputMaxWidth,
+          borderWidth: 0,
+          bg: 'transparent',
+        }}
+        selectionColor={selectionColor}
+        cursorColor={selectionColor}
+        caretColor={selectionColor}
+        {...({
+          onFocus: (event: { target: HTMLInputElement }) => {
+            onFocus?.(event as never);
+            if (value === '0') {
+              const { target } = event;
+              requestAnimationFrame(() => {
+                target.setSelectionRange(1, 1);
+              });
+            }
+          },
+          onBlur: (event: { target: HTMLInputElement }) => {
+            onBlur?.(event as never);
+          },
+          onClick: (e: { target: HTMLInputElement }) => {
+            if (value === '0') {
+              e.target.setSelectionRange(1, 1);
+            }
+          },
+          onKeyUp: (e: { target: HTMLInputElement }) => {
+            if (value === '0') {
+              e.target.setSelectionRange(1, 1);
+            }
+          },
+          onSelect: (e: { target: HTMLInputElement }) => {
+            if (value === '0' && e.target.selectionStart !== 1) {
+              e.target.setSelectionRange(1, 1);
+            }
+          },
+        } as any)}
+      />
+    );
+
     return (
       <XStack
         width="100%"
@@ -397,71 +492,48 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
             {currencyLabel}
           </SizableText>
         ) : null}
-        <Input
-          testID={SendTestIDs.amountInput}
-          ref={inputRef}
-          keyboardType={keyboardType ?? 'decimal-pad'}
-          editable={editable}
-          fontSize={effectiveFontSize}
-          fontWeight="500"
-          fontFamily={fontFamily}
-          color="$text"
-          unstyled
-          borderWidth={0}
-          bg="transparent"
-          p="$0"
-          px="$0"
-          pl="$0"
-          pr="$0"
-          h={Math.ceil(effectiveFontSize * 1.4)}
-          size="large"
-          focusVisibleStyle={undefined}
-          placeholder={placeholder ?? '0'}
-          placeholderTextColor={placeholderColor ?? '$textDisabled'}
-          value={value}
-          onChangeText={onChangeText}
-          textAlign={desktopAmountTextAlign}
-          containerProps={{
-            width: inlineInputWidthPx,
-            flexShrink: 1,
-            minWidth: inlineInputMinWidthPx,
-            maxWidth: inlineInputMaxWidth,
-            borderWidth: 0,
-            bg: 'transparent',
-          }}
-          selectionColor={selectionColor}
-          cursorColor={selectionColor}
-          caretColor={selectionColor}
-          {...({
-            onFocus: (event: { target: HTMLInputElement }) => {
-              onFocus?.(event as never);
-              if (value === '0') {
-                const { target } = event;
-                requestAnimationFrame(() => {
-                  target.setSelectionRange(1, 1);
-                });
-              }
-            },
-            onBlur: (event: { target: HTMLInputElement }) => {
-              onBlur?.(event as never);
-            },
-            onClick: (e: { target: HTMLInputElement }) => {
-              if (value === '0') {
-                e.target.setSelectionRange(1, 1);
-              }
-            },
-            onKeyUp: (e: { target: HTMLInputElement }) => {
-              if (value === '0') {
-                e.target.setSelectionRange(1, 1);
-              }
-            },
-            onSelect: (e: { target: HTMLInputElement }) => {
-              if (value === '0' && e.target.selectionStart !== 1) {
-                e.target.setSelectionRange(1, 1);
-              }
-            },
-          } as any)}
-        />
+        {showAnimatedInput ? (
+          <div
+            style={{
+              position: 'relative',
+              width: inlineInputWidthPx,
+              flexShrink: 1,
+              minWidth: inlineInputMinWidthPx,
+              maxWidth: inlineInputMaxWidth,
+              transition:
+                inputAnimation === 'typing' && !reducedMotion
+                  ? 'width 200ms cubic-bezier(0.215, 0.61, 0.355, 1)'
+                  : undefined,
+            }}
+          >
+            {amountInput}
+            <Stack
+              position="absolute"
+              top={0}
+              bottom={0}
+              left={0}
+              right={0}
+              pointerEvents="none"
+              aria-hidden
+            >
+              <AnimatedAmountText
+                value={value}
+                animated={inputAnimation === 'typing'}
+                fontFamily={fontFamily}
+                maxFontSize={effectiveFontSize}
+                minFontSize={effectiveFontSize}
+                availableWidth={inlineInputWidthPx}
+                height={Math.ceil(effectiveFontSize * 1.4)}
+                lineHeight={Math.ceil(effectiveFontSize * 1.4)}
+                align={desktopAmountTextAlign}
+                characterWidths={animatedCharacterWidths}
+                placeholder={placeholder}
+              />
+            </Stack>
+          </div>
+        ) : (
+          amountInput
+        )}
         {inlineTokenSymbol ? (
           <SizableText
             color="$text"
