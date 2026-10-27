@@ -263,6 +263,23 @@ describe('runtime polyfill bootstrap contract', () => {
     );
   });
 
+  // The npm `process` polyfill drives nextTick through a setTimeout captured
+  // at load time, which never fires on the Android background runtime. Modules
+  // that capture `process.nextTick` by reference while loading (memoizee via
+  // `next-tick`) keep whatever is installed at that moment, so the working
+  // replacement must be the very next dependency after the process polyfill.
+  it('polyfillsPlatform installs the background nextTick shim right after the process polyfill', () => {
+    const source = readFileSync(
+      path.join(repoRoot, 'packages/shared/src/polyfills/polyfillsPlatform.js'),
+      'utf8',
+    );
+    const events = collectTopLevelBootstrapEvents(source);
+    const processIndex = events.indexOf('require:process');
+
+    expect(processIndex).toBeGreaterThan(-1);
+    expect(events[processIndex + 1]).toBe('require:./processNextTickShim');
+  });
+
   it.each(fullRuntimeEntries)(
     '%s loads the complete polyfill bootstrap before any other dependency',
     (relativePath) => {
