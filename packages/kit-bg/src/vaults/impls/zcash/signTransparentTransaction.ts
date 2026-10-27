@@ -25,6 +25,8 @@ function outputsMatchReview(
   const unmatched = [...outputs];
   for (const recipient of request.recipients) {
     const script = zcashTransparentScriptForAddress(recipient.address);
+    // A u1 recipient is an Ironwood output: the keys runtime signs only when
+    // it pays this request's recipient and amount.
     if (script) {
       const index = unmatched.findIndex(
         (output) =>
