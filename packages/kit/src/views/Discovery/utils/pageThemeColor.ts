@@ -398,15 +398,33 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     // compute styles and hit-test). Captured, because a scroll inside an
     // element does not bubble: dApp panels and lists scroll their own
     // containers, and the bottom of the viewport changes all the same.
+    // The max wait keeps a scroller that never stops (a script-driven ticker)
+    // from resetting the timer forever and starving every read, which would
+    // leave the color stale even after the user scrolls the page itself. It
+    // reads straight away rather than through a 0ms timer, which the next
+    // frame's event would clear.
+    var SCROLL_SETTLE_MS = 150;
+    var SCROLL_MAX_WAIT_MS = 1000;
     var scrollTimer;
-    window.addEventListener(
-      'scroll',
-      function () {
-        clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(read, 150);
-      },
-      { passive: true, capture: true },
-    );
+    var scrollBurstStartedAt;
+    var onScroll = function () {
+      var now = Date.now();
+      if (scrollBurstStartedAt === undefined) {
+        scrollBurstStartedAt = now;
+      }
+      clearTimeout(scrollTimer);
+      if (now - scrollBurstStartedAt >= SCROLL_MAX_WAIT_MS) {
+        scrollTimer = undefined;
+        scrollBurstStartedAt = undefined;
+        read();
+        return;
+      }
+      scrollTimer = setTimeout(read, SCROLL_SETTLE_MS);
+    };
+    window.addEventListener('scroll', onScroll, {
+      passive: true,
+      capture: true,
+    });
     var isThemeMeta = function (node) {
       return (
         node &&
