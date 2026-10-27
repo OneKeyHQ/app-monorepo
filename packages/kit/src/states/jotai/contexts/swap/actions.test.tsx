@@ -10190,16 +10190,25 @@ describe('Recent trades attribution', () => {
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
 
-  it('records the pair selected for execution for Stock picks', () => {
+  it('records a Stock pick only while its sync is current', () => {
     const { store, actions } = renderActions();
     act(() => {
       store.set(swapSelectFromTokenAtom(), usdcToken);
       store.set(swapSelectToTokenAtom(), usdtToken);
-      actions.markRecentTokenPairSelection();
+      store.set(swapStockExecutionTokenSyncIdAtom(), 2);
+      actions.markRecentTokenPairSelection({ syncId: 1 });
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+    act(() => {
+      actions.markRecentTokenPairSelection({ syncId: 2 });
     });
     expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual({
       fromToken: usdcToken,
       toToken: usdtToken,
     });
+    act(() => {
+      actions.endRecentTokenPairAttribution();
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
 });

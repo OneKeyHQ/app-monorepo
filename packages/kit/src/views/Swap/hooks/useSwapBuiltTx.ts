@@ -159,6 +159,7 @@ import {
   isSwapGasSponsored,
   shouldRequestSwapGasAccount,
 } from '../utils/swapGasUtils';
+import { getSwapBuildOrderId } from '../utils/swapHistoryIdentity';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 import {
   type ISwapReviewAnalytics,
@@ -629,7 +630,7 @@ export function useSwapBuildTx({
 
   const releaseRecentTokenPairAttribution = useCallback(
     (swapInfo: ISwapTxInfo) => {
-      const { orderId } = swapInfo.swapBuildResData;
+      const orderId = getSwapBuildOrderId(swapInfo.swapBuildResData);
       const pick = orderId
         ? recentPairPickByOrderIdRef.current.get(orderId)
         : undefined;
@@ -2457,9 +2458,10 @@ export function useSwapBuildTx({
           fromToken: buildSwapRes.result?.fromTokenInfo,
           toToken: buildSwapRes.result?.toTokenInfo,
         });
-        if (recentPairPick && buildSwapRes.orderId) {
+        const recentPairOrderId = getSwapBuildOrderId(buildSwapRes);
+        if (recentPairPick && recentPairOrderId) {
           recentPairPickByOrderIdRef.current.set(
-            buildSwapRes.orderId,
+            recentPairOrderId,
             recentPairPick,
           );
         }
@@ -2998,16 +3000,7 @@ export function useSwapBuildTx({
               },
             },
           };
-          const orderId =
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx?.cowSwapOrderId ??
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx?.oneInchFusionOrderHash ??
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx?.changeHeroOrderId ??
-            buildSwapRes.orderId ??
-            buildSwapRes.result.quoteId ??
-            '';
+          const orderId = getSwapBuildOrderId(buildSwapRes);
           // A signed-order build may already have submitted the order. Keep
           // its history even after closing, while guarded UI writes stay inert.
           if (!canExecuteSwapReview(reviewGuard) && !skipSendTransAction) {

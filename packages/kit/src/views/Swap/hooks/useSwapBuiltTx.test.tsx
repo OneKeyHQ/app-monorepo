@@ -520,6 +520,24 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
 
+  it('releases the pick of an order identified only by its provider id', async () => {
+    mockFetchBuildTx.mockReset().mockResolvedValue({
+      ...buildResponse('120'),
+      orderId: undefined,
+      ctx: { changeHeroOrderId: 'changehero-order' },
+    });
+    const { result, store } = renderExecutionReview();
+    await act(async () => {
+      store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+      store.set(swapQuoteListAtom(), [quote]);
+      store.set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+    });
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
   it.each([
     ['the reversed pair', () => ({ fromToken: toToken, toToken: fromToken })],
     ['the same pair again', () => ({ fromToken, toToken })],

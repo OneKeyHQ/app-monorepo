@@ -1178,14 +1178,27 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  // Records the pair now selected for execution; Stock normalizes the picked
-  // tokens, so it records after syncing instead of passing the chip pair.
-  markRecentTokenPairSelection = contextAtomMethod((get, set) => {
-    const fromToken = get(swapSelectFromTokenAtom());
-    const toToken = get(swapSelectToTokenAtom());
-    if (fromToken && toToken) {
-      set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
-    }
+  // Records the pair a Stock "Recent trades" sync applied. Stock normalizes the
+  // picked tokens, so it records after syncing, and only if no newer sync
+  // (a manual pick) has replaced it meanwhile.
+  markRecentTokenPairSelection = contextAtomMethod(
+    (get, set, { syncId }: { syncId: number }) => {
+      const fromToken = get(swapSelectFromTokenAtom());
+      const toToken = get(swapSelectToTokenAtom());
+      if (
+        get(swapStockExecutionTokenSyncIdAtom()) === syncId &&
+        fromToken &&
+        toToken
+      ) {
+        set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+      }
+    },
+  );
+
+  // Stock picks go through selectStockExecutionTokens, which also runs for
+  // automatic syncs, so manual Stock picks end the attribution explicitly.
+  endRecentTokenPairAttribution = contextAtomMethod((get, set) => {
+    set(swapRecentTokenPairSelectionAtom(), undefined);
   });
 
   getRecentTokenPairSelectionFor = contextAtomMethod(
@@ -4931,6 +4944,8 @@ export const useSwapActions = () => {
   const selectRecentTokenPair = actions.selectRecentTokenPair.use();
   const markRecentTokenPairSelection =
     actions.markRecentTokenPairSelection.use();
+  const endRecentTokenPairAttribution =
+    actions.endRecentTokenPairAttribution.use();
   const selectStockExecutionTokens = actions.selectStockExecutionTokens.use();
   const alternationToken = actions.alternationToken.use();
   const syncNetworksSort = actions.syncNetworksSort.use();
@@ -4987,6 +5002,7 @@ export const useSwapActions = () => {
     selectToToken,
     selectRecentTokenPair,
     markRecentTokenPairSelection,
+    endRecentTokenPairAttribution,
     selectStockExecutionTokens,
     alternationToken,
     syncNetworksSort,

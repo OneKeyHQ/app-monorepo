@@ -106,8 +106,11 @@ export function useSwapStockChannel(
     useSwapStockSelectedTokenAtom();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const { selectStockExecutionTokens, markRecentTokenPairSelection } =
-    useSwapActions().current;
+  const {
+    selectStockExecutionTokens,
+    markRecentTokenPairSelection,
+    endRecentTokenPairAttribution,
+  } = useSwapActions().current;
   const { spotCategories, isLoading: marketBasicConfigLoading } =
     useMarketBasicConfig();
   const [swapFromMarketJumpToken] = useSwapFromMarketJumpTokenAtom();
@@ -318,6 +321,7 @@ export function useSwapStockChannel(
           ? flaggedStockToken
           : nextPayToken;
 
+      const syncId = nextStockExecutionTokenSyncId();
       await selectStockExecutionTokens({
         fromToken: nextFromToken,
         toToken: nextToToken,
@@ -325,8 +329,9 @@ export function useSwapStockChannel(
           nextTradeSide === ESwapStockTradeSide.Buy && !nextPayToken,
         clearToToken:
           nextTradeSide === ESwapStockTradeSide.Sell && !nextPayToken,
-        syncId: nextStockExecutionTokenSyncId(),
+        syncId,
       });
+      return syncId;
     },
     [
       currentStockToken,
@@ -539,6 +544,7 @@ export function useSwapStockChannel(
         tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
         tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
       });
+      endRecentTokenPairAttribution();
       selectStockSwapToken(token, { resetReceiveAmount: true });
     };
     appEventBus.on(
@@ -551,7 +557,7 @@ export function useSwapStockChannel(
         handleSwapStockTokenSelected,
       );
     };
-  }, [selectStockSwapToken, storeName]);
+  }, [endRecentTokenPairAttribution, selectStockSwapToken, storeName]);
 
   const {
     defaultStockTokenLoading,
@@ -589,6 +595,7 @@ export function useSwapStockChannel(
   const selectPayToken = useCallback(
     (token: IToken, manual = true) => {
       if (manual) {
+        endRecentTokenPairAttribution();
         manualStockPayTokenKeyRef.current = getTokenIdentityKey(token);
         defaultLogger.swap.selectToken.selectToken({
           selectFrom: ESwapSelectTokenSource.NORMAL_SELECT,
@@ -603,7 +610,7 @@ export function useSwapStockChannel(
         payToken: nextPayToken,
       });
     },
-    [syncStockExecutionTokens],
+    [endRecentTokenPairAttribution, syncStockExecutionTokens],
   );
 
   const syncPayTokenDetail = useCallback((token: IToken) => {
@@ -650,9 +657,10 @@ export function useSwapStockChannel(
         tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
         tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
       });
+      endRecentTokenPairAttribution();
       selectStockSwapToken(nextSwapToken, { resetReceiveAmount: true });
     },
-    [selectStockSwapToken],
+    [endRecentTokenPairAttribution, selectStockSwapToken],
   );
 
   const switchTradeSide = useCallback(
@@ -660,6 +668,7 @@ export function useSwapStockChannel(
       if (nextTradeSide === tradeSide) {
         return;
       }
+      endRecentTokenPairAttribution();
       const executionTokensForSwitch =
         resolveStockExecutionTokensForTradeSideSwitch({
           stockToken: stockTokenSnapshotRef.current ?? currentStockToken,
@@ -677,6 +686,7 @@ export function useSwapStockChannel(
     },
     [
       currentStockToken,
+      endRecentTokenPairAttribution,
       payToken,
       resetStockTradeAmounts,
       syncStockExecutionTokens,
@@ -716,12 +726,12 @@ export function useSwapStockChannel(
       manualStockPayTokenKeyRef.current = getTokenIdentityKey(nextPayToken);
       setPayTokenState(nextPayToken);
       payTokenSnapshotRef.current = nextPayToken;
-      await syncStockExecutionTokens({
+      const syncId = await syncStockExecutionTokens({
         nextTradeSide,
         stockToken: nextStockToken,
         payToken: nextPayToken,
       });
-      markRecentTokenPairSelection();
+      markRecentTokenPairSelection({ syncId });
     },
     [
       markRecentTokenPairSelection,
