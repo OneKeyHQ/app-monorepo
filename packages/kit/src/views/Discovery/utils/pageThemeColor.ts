@@ -402,11 +402,20 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     // from resetting the timer forever and starving every read, which would
     // leave the color stale even after the user scrolls the page itself. It
     // reads straight away rather than through a 0ms timer, which the next
-    // frame's event would clear.
+    // frame's event would clear, and still schedules the trailing read: this
+    // listener is a capture one on window, so it runs before the page's own
+    // scroll handlers, and a read taken here could see an older layout.
     var SCROLL_SETTLE_MS = 150;
     var SCROLL_MAX_WAIT_MS = 1000;
     var scrollTimer;
     var scrollBurstStartedAt;
+    var scheduleRead = function (delay) {
+      scrollTimer = setTimeout(function () {
+        scrollTimer = undefined;
+        scrollBurstStartedAt = undefined;
+        read();
+      }, delay);
+    };
     var onScroll = function () {
       var now = Date.now();
       if (scrollBurstStartedAt === undefined) {
@@ -414,12 +423,10 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       }
       clearTimeout(scrollTimer);
       if (now - scrollBurstStartedAt >= SCROLL_MAX_WAIT_MS) {
-        scrollTimer = undefined;
-        scrollBurstStartedAt = undefined;
+        scrollBurstStartedAt = now;
         read();
-        return;
       }
-      scrollTimer = setTimeout(read, SCROLL_SETTLE_MS);
+      scheduleRead(SCROLL_SETTLE_MS);
     };
     window.addEventListener('scroll', onScroll, {
       passive: true,

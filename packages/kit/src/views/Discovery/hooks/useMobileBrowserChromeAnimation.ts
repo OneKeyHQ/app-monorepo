@@ -192,7 +192,12 @@ function useMobileBrowserChromeAnimation() {
       next = Math.min(EXPANDED, Math.max(COLLAPSED, next));
       if (!isInteracting) {
         animateTo(
-          next < BROWSER_CHROME_CROSSFADE_POINT ? COLLAPSED : EXPANDED,
+          // The top zone holds the chrome part-way open, so settling to
+          // collapsed there would leave the resting state below the bound and
+          // the next touch would pop it back up in one frame.
+          toTop < followDistance || next >= BROWSER_CHROME_CROSSFADE_POINT
+            ? EXPANDED
+            : COLLAPSED,
           'settle',
         );
         return;

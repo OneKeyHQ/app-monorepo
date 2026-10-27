@@ -162,6 +162,34 @@ describe('useMobileBrowserChromeAnimation finger tracking', () => {
     expect(chromeProgress.value).toBe(1);
   });
 
+  it('stays expanded when released inside the top zone', () => {
+    const { result } = renderChrome();
+    const { handleScroll, chromeProgress } = result.current;
+
+    // At scrollY 70 the top zone's bound holds the chrome around 0.25, below the
+    // crossfade point. Settling to collapsed there would leave the resting state
+    // under the bound, and the next touch would pop it back up in one frame.
+    act(() => {
+      handleScroll(scrollEvent(0, true));
+      handleScroll(scrollEvent(70, true));
+    });
+    const held = chromeProgress.value;
+    expect(held).toBeLessThan(0.5);
+    expect(held).toBeGreaterThan(0);
+
+    act(() => {
+      handleScroll(scrollEvent(70, false));
+    });
+    expect(chromeProgress.value).toBe(1);
+
+    // The next gesture therefore starts from 1 and cannot jump: it continues
+    // from there instead of being lifted off 0.
+    act(() => {
+      handleScroll(scrollEvent(72, true));
+    });
+    expect(chromeProgress.value).toBeGreaterThan(0.9);
+  });
+
   it('expands fully at the bottom of the page', () => {
     const { result } = renderChrome();
     const { handleScroll, chromeProgress } = result.current;
