@@ -60,10 +60,10 @@ describe('SwapActivityHubSettingsItem', () => {
 
   it('closes the settings sheet before opening the activity hub', async () => {
     const close = getCloseMock();
-    const onOpenInviteeReward = jest.fn();
+    const onOpenReferral = jest.fn();
 
     render(
-      <SwapActivityHubSettingsItem onOpenInviteeReward={onOpenInviteeReward} />,
+      <SwapActivityHubSettingsItem onOpenReferral={onOpenReferral} />,
     );
 
     const entry = screen.getByTestId(SwapTestIDs.activityHubSettingsItem);
@@ -76,8 +76,7 @@ describe('SwapActivityHubSettingsItem', () => {
     });
     expect(mockShowActivityHub).toHaveBeenCalledWith({
       source: 'Swap',
-      copyAsUrl: true,
-      onOpenInviteeReward,
+      onOpenReferral,
     });
     expect(close).toHaveBeenCalledTimes(1);
     expect(close.mock.invocationCallOrder[0]).toBeLessThan(

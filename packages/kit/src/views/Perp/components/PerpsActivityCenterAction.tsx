@@ -6,7 +6,7 @@ import {
   ActivityHubAction,
   ActivityHubContent,
 } from '@onekeyhq/kit/src/components/ActivityHub';
-import { useOpenPerksTab } from '@onekeyhq/kit/src/hooks/useReferFriends';
+import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { PerpsCampaignIllustration } from './PerpsCampaignIllustration';
@@ -18,30 +18,27 @@ function usePerpsActivityHubProps() {
     [perpConfigCommon?.activityCards],
   );
 
-  const handleOpenInviteeReward = useOpenPerksTab();
+  const handleOpenReferral = useOpenReferralPage();
 
-  return { campaigns, handleOpenInviteeReward };
+  return { campaigns, handleOpenReferral };
 }
 
 export function PerpsActivityCenterContent({
-  copyAsUrl = false,
   closePopover,
   showTitle = true,
   menuLayout = false,
   menuPopoverLayout = false,
 }: {
-  copyAsUrl?: boolean;
   closePopover: () => void;
   showTitle?: boolean;
   menuLayout?: boolean;
   menuPopoverLayout?: boolean;
 }) {
-  const { campaigns, handleOpenInviteeReward } = usePerpsActivityHubProps();
+  const { campaigns, handleOpenReferral } = usePerpsActivityHubProps();
 
   return (
     <ActivityHubContent
       source="Perps"
-      copyAsUrl={copyAsUrl}
       closePopover={closePopover}
       showTitle={showTitle}
       menuLayout={menuLayout}
@@ -49,7 +46,7 @@ export function PerpsActivityCenterContent({
       campaignFallbackIllustration={
         menuLayout ? <PerpsCampaignIllustration trimmed /> : undefined
       }
-      onOpenInviteeReward={handleOpenInviteeReward}
+      onOpenReferral={handleOpenReferral}
       campaigns={campaigns}
     />
   );
@@ -57,28 +54,25 @@ export function PerpsActivityCenterContent({
 
 export function PerpsActivityCenterAction({
   size = 'medium',
-  copyAsUrl = false,
   renderTrigger,
   open,
   onOpenChange,
 }: {
   size?: IButtonProps['size'];
-  copyAsUrl?: boolean;
   renderTrigger?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const { campaigns, handleOpenInviteeReward } = usePerpsActivityHubProps();
+  const { campaigns, handleOpenReferral } = usePerpsActivityHubProps();
 
   return (
     <ActivityHubAction
       source="Perps"
       size={size}
-      copyAsUrl={copyAsUrl}
       renderTrigger={renderTrigger}
       open={open}
       onOpenChange={onOpenChange}
-      onOpenInviteeReward={handleOpenInviteeReward}
+      onOpenReferral={handleOpenReferral}
       campaigns={campaigns}
     />
   );

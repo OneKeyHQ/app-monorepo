@@ -12,15 +12,13 @@ import type { IActivityHubCampaign, IActivityHubSource } from './types';
 
 type IShowActivityHubParams = {
   source: IActivityHubSource;
-  copyAsUrl?: boolean;
-  onOpenInviteeReward: () => void;
+  onOpenReferral: () => void;
   campaigns?: IActivityHubCampaign[];
 };
 
 function ActivityHubDialogContent({
   source,
-  copyAsUrl,
-  onOpenInviteeReward,
+  onOpenReferral,
   campaigns,
   isCompactPanel,
 }: IShowActivityHubParams & { isCompactPanel: boolean }) {
@@ -29,11 +27,10 @@ function ActivityHubDialogContent({
   return (
     <ActivityHubContent
       source={source}
-      copyAsUrl={copyAsUrl}
       showTitle={false}
       isCompactPanel={isCompactPanel}
       closePopover={() => dialog.close()}
-      onOpenInviteeReward={onOpenInviteeReward}
+      onOpenReferral={onOpenReferral}
       campaigns={campaigns}
     />
   );

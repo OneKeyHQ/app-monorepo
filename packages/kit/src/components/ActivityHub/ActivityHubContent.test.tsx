@@ -7,7 +7,6 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-const mockShareReferRewards = jest.fn();
 const mockOpenUrlExternal = jest.fn();
 const mockPopoverClose = jest.fn();
 const mockPopoverFloatingPanelProps = jest.fn();
@@ -81,12 +80,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/useReferFriends', () => ({
-  useReferFriends: () => ({
-    shareReferRewards: mockShareReferRewards,
-  }),
-}));
-
 jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
 }));
@@ -127,7 +120,7 @@ const getCampaignCard = () =>
   screen.getByRole('button', { name: /campaign title/ });
 
 const getShortcutBasis = () =>
-  screen.getByTestId('activity-hub-invite').getAttribute('data-flex-basis');
+  screen.getByTestId('activity-hub-referral').getAttribute('data-flex-basis');
 
 describe('ActivityHubContent', () => {
   beforeEach(() => {
@@ -136,7 +129,7 @@ describe('ActivityHubContent', () => {
     platformEnv.isNative = false;
   });
 
-  it('opens invite share and invitee rewards after the host closes', async () => {
+  it('opens the referral page after the host closes', async () => {
     let resolveClose: (() => void) | undefined;
     const closePopover = jest.fn(
       () =>
@@ -144,59 +137,47 @@ describe('ActivityHubContent', () => {
           resolveClose = resolve;
         }),
     );
-    const onOpenInviteeReward = jest.fn();
+    const onOpenReferral = jest.fn();
 
     render(
       <ActivityHubContent
         source="Swap"
-        copyAsUrl
         closePopover={closePopover}
-        onOpenInviteeReward={onOpenInviteeReward}
+        onOpenReferral={onOpenReferral}
       />,
     );
 
-    fireEvent.click(screen.getByTestId('activity-hub-invite'));
+    expect(screen.queryByTestId('activity-hub-invite')).toBeNull();
+    expect(screen.queryByTestId('activity-hub-my-rewards')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('activity-hub-referral'));
     expect(closePopover).toHaveBeenCalledTimes(1);
-    expect(mockShareReferRewards).not.toHaveBeenCalled();
+    expect(onOpenReferral).not.toHaveBeenCalled();
 
     resolveClose?.();
-    await waitFor(() =>
-      expect(mockShareReferRewards).toHaveBeenCalledWith(
-        undefined,
-        undefined,
-        'Swap',
-        true,
-      ),
-    );
-
-    fireEvent.click(screen.getByTestId('activity-hub-my-rewards'));
-    expect(closePopover).toHaveBeenCalledTimes(2);
-    expect(onOpenInviteeReward).not.toHaveBeenCalled();
-
-    resolveClose?.();
-    await waitFor(() => expect(onOpenInviteeReward).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onOpenReferral).toHaveBeenCalledTimes(1));
   });
 
-  it('settles a canceled close without opening invitee rewards', async () => {
+  it('settles a canceled close without opening the referral page', async () => {
     const { OverlayCloseCancelledError } = jest.requireActual<
       typeof import('../../../../components/src/shared/overlayCloseCancellation')
     >('../../../../components/src/shared/overlayCloseCancellation');
     const closePopover = jest.fn(() =>
       Promise.reject(new OverlayCloseCancelledError('reopened')),
     );
-    const onOpenInviteeReward = jest.fn();
+    const onOpenReferral = jest.fn();
     render(
       <ActivityHubContent
         source="Swap"
         closePopover={closePopover}
-        onOpenInviteeReward={onOpenInviteeReward}
+        onOpenReferral={onOpenReferral}
       />,
     );
 
-    fireEvent.click(screen.getByTestId('activity-hub-my-rewards'));
+    fireEvent.click(screen.getByTestId('activity-hub-referral'));
     await waitFor(() => expect(closePopover).toHaveBeenCalledTimes(1));
     await Promise.resolve();
-    expect(onOpenInviteeReward).not.toHaveBeenCalled();
+    expect(onOpenReferral).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -231,7 +212,7 @@ describe('ActivityHubContent', () => {
       render(
         <ActivityHubAction
           source="Perps"
-          onOpenInviteeReward={jest.fn()}
+          onOpenReferral={jest.fn()}
           renderTrigger={<div />}
           campaigns={campaigns}
         />,
@@ -246,7 +227,7 @@ describe('ActivityHubContent', () => {
     const props = {
       source: 'Earn',
       closePopover: jest.fn(),
-      onOpenInviteeReward: jest.fn(),
+      onOpenReferral: jest.fn(),
     } as const;
     const { rerender } = render(<ActivityHubContent {...props} />);
 
@@ -270,7 +251,7 @@ describe('ActivityHubContent', () => {
       <ActivityHubContent
         source="Perps"
         closePopover={closePopover}
-        onOpenInviteeReward={jest.fn()}
+        onOpenReferral={jest.fn()}
         campaigns={CAMPAIGNS}
       />,
     );
@@ -300,7 +281,7 @@ describe('ActivityHubContent', () => {
       <ActivityHubContent
         source="Perps"
         closePopover={closePopover}
-        onOpenInviteeReward={jest.fn()}
+        onOpenReferral={jest.fn()}
         campaigns={CAMPAIGNS}
       />,
     );

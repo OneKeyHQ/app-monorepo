@@ -49,8 +49,7 @@ function showHub(campaigns?: IActivityHubCampaign[]) {
 
   result.current({
     source: 'Swap',
-    copyAsUrl: true,
-    onOpenInviteeReward: jest.fn(),
+    onOpenReferral: jest.fn(),
     campaigns,
   });
 

@@ -21,8 +21,7 @@ const LazyActivityHubContent = LazyLoad(async () => {
 export function ActivityHubAction({
   source,
   size = 'medium',
-  copyAsUrl = false,
-  onOpenInviteeReward,
+  onOpenReferral,
   campaigns,
   renderTrigger,
   open,
@@ -32,8 +31,7 @@ export function ActivityHubAction({
 }: {
   source: IActivityHubSource;
   size?: IButtonProps['size'];
-  copyAsUrl?: boolean;
-  onOpenInviteeReward: () => void;
+  onOpenReferral: () => void;
   campaigns?: IActivityHubCampaign[];
   renderTrigger?: ReactNode;
   open?: boolean;
@@ -87,10 +85,9 @@ export function ActivityHubAction({
       renderContent={({ closePopover }) => (
         <LazyActivityHubContent
           source={source}
-          copyAsUrl={copyAsUrl}
           closePopover={closePopover}
           isCompactPanel={isCompactPanel}
-          onOpenInviteeReward={onOpenInviteeReward}
+          onOpenReferral={onOpenReferral}
           campaigns={campaigns}
         />
       )}

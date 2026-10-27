@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
-import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -173,18 +172,16 @@ function openCampaignUrl(
 
 export function ActivityHubContent({
   source,
-  copyAsUrl = false,
   closePopover,
   showTitle = true,
   isCompactPanel = false,
   menuLayout = false,
   menuPopoverLayout = false,
   campaignFallbackIllustration,
-  onOpenInviteeReward,
+  onOpenReferral,
   campaigns,
 }: {
   source: IActivityHubSource;
-  copyAsUrl?: boolean;
   closePopover: () => void | Promise<void>;
   showTitle?: boolean;
   // True only for a 208px floating popover/dialog. Sheets and in-panel embeds
@@ -193,14 +190,13 @@ export function ActivityHubContent({
   menuLayout?: boolean;
   menuPopoverLayout?: boolean;
   campaignFallbackIllustration?: ReactNode;
-  onOpenInviteeReward: () => void;
+  onOpenReferral: () => void;
   campaigns?: IActivityHubCampaign[];
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
   const isDesktop = gtMd;
   const themeVariant = useThemeVariant();
-  const { shareReferRewards } = useReferFriends();
   const activityCenterTitle = intl.formatMessage({
     id: ETranslations.perps_activity_hub,
   });
@@ -246,8 +242,10 @@ export function ActivityHubContent({
               }
             : {})}
         >
+          {/* One entry for both sides of referrals, named like the page it
+              opens; the page reopens whichever tab was used last. */}
           <ActivityShortcutCard
-            testID="activity-hub-invite"
+            testID="activity-hub-referral"
             flexBasis={
               menuLayout && menuPopoverLayout ? '33.333333%' : shortcutBasis
             }
@@ -257,28 +255,10 @@ export function ActivityHubContent({
             iconName={menuLayout ? 'GiftOutline' : undefined}
             lottieSrc={menuLayout ? undefined : giftAnimation}
             title={intl.formatMessage({
-              id: ETranslations.activity_hub_invite__action,
+              id: ETranslations.sidebar_refer_a_friend,
             })}
             onPress={() => {
-              closeThenRun(closePopover, () => {
-                void shareReferRewards(undefined, undefined, source, copyAsUrl);
-              });
-            }}
-          />
-          <ActivityShortcutCard
-            testID="activity-hub-my-rewards"
-            flexBasis={
-              menuLayout && menuPopoverLayout ? '33.333333%' : shortcutBasis
-            }
-            showIconBackground={showIconBackground}
-            menuLayout={menuLayout}
-            listLayout={menuLayout && menuPopoverLayout}
-            iconName="HandCoinsOutline"
-            title={intl.formatMessage({
-              id: ETranslations.activity_hub_my_rewards__action,
-            })}
-            onPress={() => {
-              closeThenRun(closePopover, onOpenInviteeReward);
+              closeThenRun(closePopover, onOpenReferral);
             }}
           />
         </XStack>

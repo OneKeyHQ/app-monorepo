@@ -10,9 +10,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { SwapTestIDs } from '../../testIDs';
 
 export function SwapActivityHubSettingsItem({
-  onOpenInviteeReward,
+  onOpenReferral,
 }: {
-  onOpenInviteeReward: () => void;
+  onOpenReferral: () => void;
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
@@ -25,10 +25,9 @@ export function SwapActivityHubSettingsItem({
     await dialog.close();
     showActivityHub({
       source: 'Swap',
-      copyAsUrl: true,
-      onOpenInviteeReward,
+      onOpenReferral,
     });
-  }, [dialog, onOpenInviteeReward, showActivityHub]);
+  }, [dialog, onOpenReferral, showActivityHub]);
 
   return (
     <ListItem

@@ -119,7 +119,7 @@ export function HeaderRight({
 
     const earnItems = (
       <>
-        <GiftAction copyAsUrl />
+        <GiftAction />
         {fixedItems}
       </>
     );
@@ -156,7 +156,7 @@ export function HeaderRight({
         if (selectedHeaderTab === ETranslations.global_earn) {
           return (
             <>
-              <GiftAction copyAsUrl />
+              <GiftAction />
             </>
           );
         }

@@ -48,8 +48,8 @@ import {
   EReferralPageTab,
   type IReferralPageTab,
   IS_BENEFITS_TAB_ENABLED,
-  resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
+import { useReferralPageTab } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/useReferralPageTab';
 import { useReferralTabSwitch } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/useReferralTabSwitch';
 import {
   getInviteCodeStepImageHeight,
@@ -412,7 +412,7 @@ function InviteRewardPage() {
     params?: IInviteRewardRouteParams;
   }>();
   const isCompactHeader = platformEnv.isNative || md;
-  const activeTab = resolveReferralPageTab(route.params?.tab);
+  const activeTab = useReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
   const { setActiveTab, openPerks, openInvite } =
     useReferralTabSwitch(activeTab);
