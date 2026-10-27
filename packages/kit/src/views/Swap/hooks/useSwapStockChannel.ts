@@ -89,6 +89,9 @@ function normalizeSelectedStockSwapToken(token: ISwapToken) {
 type ISelectStockSwapTokenOptions = {
   resetReceiveAmount?: boolean;
   tradeSide?: ESwapStockTradeSide;
+  // A user pick, as opposed to a default or detail sync; it ends any
+  // "Recent trades" attribution.
+  manual?: boolean;
 };
 
 export function useSwapStockChannel(
@@ -368,6 +371,9 @@ export function useSwapStockChannel(
 
   const selectStockSwapToken = useCallback(
     (token: ISwapToken, options?: ISelectStockSwapTokenOptions) => {
+      if (options?.manual) {
+        endRecentTokenPairAttribution();
+      }
       const nextStockToken = normalizeSelectedStockSwapToken(token);
       if (
         shouldResetStockTradeReceiveAmount({
@@ -388,6 +394,7 @@ export function useSwapStockChannel(
       });
     },
     [
+      endRecentTokenPairAttribution,
       resetStockTradeReceiveAmount,
       setStockSelectedToken,
       syncStockExecutionTokens,
@@ -544,8 +551,7 @@ export function useSwapStockChannel(
         tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
         tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
       });
-      endRecentTokenPairAttribution();
-      selectStockSwapToken(token, { resetReceiveAmount: true });
+      selectStockSwapToken(token, { resetReceiveAmount: true, manual: true });
     };
     appEventBus.on(
       EAppEventBusNames.SwapStockTokenSelected,
@@ -557,7 +563,7 @@ export function useSwapStockChannel(
         handleSwapStockTokenSelected,
       );
     };
-  }, [endRecentTokenPairAttribution, selectStockSwapToken, storeName]);
+  }, [selectStockSwapToken, storeName]);
 
   const {
     defaultStockTokenLoading,
@@ -657,10 +663,12 @@ export function useSwapStockChannel(
         tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
         tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
       });
-      endRecentTokenPairAttribution();
-      selectStockSwapToken(nextSwapToken, { resetReceiveAmount: true });
+      selectStockSwapToken(nextSwapToken, {
+        resetReceiveAmount: true,
+        manual: true,
+      });
     },
-    [endRecentTokenPairAttribution, selectStockSwapToken],
+    [selectStockSwapToken],
   );
 
   const switchTradeSide = useCallback(
