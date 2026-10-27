@@ -1,4 +1,6 @@
 // cspell:ignore piconero unshield
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   XMR_BUILT_IN_NODE_URLS,
   XMR_EARLIEST_SCAN_HEIGHT,
@@ -58,6 +60,8 @@ const settings: IVaultSettings = {
   importedAccountEnabled: false,
   watchingAccountEnabled: false,
   hardwareAccountEnabled: true,
+  // Only Pro and Touch firmware has the Monero app.
+  supportedDeviceTypes: [EDeviceType.Touch, EDeviceType.Pro],
   externalAccountEnabled: false,
   qrAccountEnabled: false,
   dappInteractionEnabled: false,
