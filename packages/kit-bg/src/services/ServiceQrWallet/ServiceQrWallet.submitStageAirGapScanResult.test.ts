@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorScanQrCodeCancel,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 
 import ServiceQrWallet from './ServiceQrWallet';
@@ -294,4 +297,104 @@ describe('ServiceQrWallet.startTwoWayAirGapScanUr stage bracket', () => {
       expect(JSON.stringify(responses)).not.toContain('synthetic-private');
     },
   );
+});
+
+describe('ServiceQrWallet.scanAirGapOnStage', () => {
+  const createScanOnlyService = ({ isEnabled }: { isEnabled: boolean }) => {
+    const callbacks = new Map<
+      number,
+      { resolve: (value: unknown) => void; reject: (error: unknown) => void }
+    >();
+    let nextCallbackId = 0;
+    const deviceStageBurst = {
+      isEnabled: jest.fn(async () => isEnabled),
+      begin: jest.fn(async () => true),
+      qrStartScan: jest.fn<Promise<void>, [{ sessionId: number }]>(
+        async () => undefined,
+      ),
+      qrNoteScanCompleted: jest.fn(async () => undefined),
+      end: jest.fn<Promise<void>, [{ error?: unknown }]>(async () => undefined),
+    };
+    const service = new ServiceQrWallet({
+      backgroundApi: {
+        serviceHardwareUI: { deviceStageBurst },
+        servicePromise: {
+          createCallback: (handlers: {
+            resolve: (value: unknown) => void;
+            reject: (error: unknown) => void;
+          }) => {
+            nextCallbackId += 1;
+            callbacks.set(nextCallbackId, handlers);
+            return nextCallbackId;
+          },
+          resolveCallback: async ({
+            id,
+            data,
+          }: {
+            id: number;
+            data: unknown;
+          }) => callbacks.get(id)?.resolve(data),
+          rejectCallback: async ({
+            id,
+            error,
+          }: {
+            id: number;
+            error: unknown;
+          }) => callbacks.get(id)?.reject(error),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const scanStarted = () =>
+      new Promise<number>((resolve) => {
+        deviceStageBurst.qrStartScan.mockImplementation(
+          async ({ sessionId }) => {
+            resolve(sessionId);
+          },
+        );
+      });
+    return { service, deviceStageBurst, scanStarted };
+  };
+
+  it('leaves the scan to the page when the stage is unavailable', async () => {
+    const { service, deviceStageBurst } = createScanOnlyService({
+      isEnabled: false,
+    });
+
+    await expect(service.scanAirGapOnStage()).resolves.toBeUndefined();
+    expect(deviceStageBurst.begin).not.toHaveBeenCalled();
+    expect(deviceStageBurst.qrStartScan).not.toHaveBeenCalled();
+  });
+
+  it("answers with the stage camera's scan and releases the stage", async () => {
+    const { service, deviceStageBurst, scanStarted } = createScanOnlyService({
+      isEnabled: true,
+    });
+    const started = scanStarted();
+
+    const scan = service.scanAirGapOnStage();
+    const sessionId = await started;
+    await service.submitStageAirGapScanResult({
+      result: scanResult,
+      sessionId,
+    });
+
+    await expect(scan).resolves.toBe(scanResult);
+    expect(deviceStageBurst.end).toHaveBeenCalledWith({ error: undefined });
+  });
+
+  it('rejects like the scan page when the stage is closed on the camera', async () => {
+    const { service, deviceStageBurst, scanStarted } = createScanOnlyService({
+      isEnabled: true,
+    });
+    const started = scanStarted();
+
+    const scan = service.scanAirGapOnStage();
+    await started;
+    await service.cancelStageAirGapScan({ scanning: true });
+
+    await expect(scan).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+    expect(deviceStageBurst.end).toHaveBeenCalledWith({
+      error: expect.any(OneKeyErrorScanQrCodeCancel),
+    });
+  });
 });

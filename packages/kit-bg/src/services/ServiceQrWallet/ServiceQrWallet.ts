@@ -175,6 +175,52 @@ class ServiceQrWallet extends ServiceBase {
     );
   }
 
+  /**
+   * A scan-only stage session for a flow that shows its own code (the
+   * Keystone QR toast): the stage's camera sits above any dialog the flow
+   * keeps open, where the scan page would sit under it. Undefined when the
+   * stage is unavailable, so the caller falls back to the scan page; a
+   * stage close rejects like the scan page's cancel.
+   */
+  @backgroundMethod()
+  async scanAirGapOnStage(): Promise<
+    IQRCodeHandlerParseResult<IAnimationValue> | undefined
+  > {
+    const { deviceStageBurst } = this.backgroundApi.serviceHardwareUI;
+    if (!(await deviceStageBurst.isEnabled())) {
+      return undefined;
+    }
+    await this.rejectStageAirGapSession(new SecureQRCodeDialogCancel());
+    if (!(await deviceStageBurst.begin({}))) {
+      return undefined;
+    }
+    let promiseId = 0;
+    const scanPromise = new Promise<IQRCodeHandlerParseResult<IAnimationValue>>(
+      (resolve, reject) => {
+        promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+      },
+    );
+    this.stageAirGapSessionSeq += 1;
+    const sessionId = this.stageAirGapSessionSeq;
+    this.stageAirGapSession = { promiseId, sessionId };
+    let stageError: unknown;
+    try {
+      await deviceStageBurst.qrStartScan({ sessionId });
+      return await scanPromise;
+    } catch (error) {
+      stageError = error;
+      throw error;
+    } finally {
+      if (this.stageAirGapSession?.promiseId === promiseId) {
+        this.stageAirGapSession = undefined;
+      }
+      await deviceStageBurst.end({ error: stageError });
+    }
+  }
+
   async startTwoWayAirGapScanUr({
     requestUr,
     appQrCodeModalTitle,

@@ -1229,6 +1229,49 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('done');
   });
 
+  it('reclaims a stage that yielded to the Keystone code toast for its camera', async () => {
+    // The code toast made the stage step aside; the scan that follows is
+    // the person's next ask, so the camera rises over any open dialog,
+    // and the processing stragglers behind the yield stay off until then.
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.keystone,
+    });
+    const processing = () =>
+      scope.onThirdPartyState({
+        ui: {
+          action: EThirdPartyHardwareUiAction.processing,
+          vendor: EHardwareVendor.keystone,
+        },
+        install: undefined,
+        batch: undefined,
+      });
+    await processing();
+    expect(stage?.step).toBe('processing');
+    await scope.silence();
+    await processing();
+    expect(stage?.step).toBe('off');
+
+    await scope.qrStartScan({ sessionId: 9 });
+    expect(stage?.step).toBe('scanQr');
+    expect(stage?.qrSessionId).toBe(9);
+    expect(stage?.qrValueUr).toBeUndefined();
+
+    await scope.qrNoteScanCompleted();
+    expect(stage?.step).toBe('processing');
+    // Lifted for good: the rail's own beats paint again.
+    await scope.onThirdPartyState({
+      ui: {
+        action: EThirdPartyHardwareUiAction.done,
+        vendor: EHardwareVendor.keystone,
+      },
+      install: undefined,
+      batch: undefined,
+    });
+    expect(stage?.step).toBe('done');
+    await scope.endExplicit({ token });
+  });
+
   it('leaves on a call-end close during the firmware workflow even behind a foreign hold', async () => {
     // Onboarding holds across the update page. Its hold must not turn the
     // update's call-end closes into a processing capsule over the page,

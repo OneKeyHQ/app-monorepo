@@ -1087,21 +1087,31 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const runScan = async (accountExport = false) => {
       if (isSettled || scanStarted) return;
       scanStarted = true;
-      let result: Awaited<ReturnType<typeof startKeystoneQrScan>>;
+      let raw: string;
       try {
-        await yieldDeviceStageToDialog();
-        if (isSettled) return;
-        result = await startKeystoneQrScan({
-          handlers: [EQRCodeHandlerNames.animation],
-          qrWalletScene: true,
-          autoExecuteParsedAction: false,
-        });
+        // The stage's camera sits above a dialog the flow keeps open (the
+        // batch-create progress); the scan page would sit under it.
+        const stageResult =
+          await backgroundApiProxy.serviceQrWallet.scanAirGapOnStage();
+        if (stageResult) {
+          raw = stageResult.data?.fullData || stageResult.raw || '';
+        } else {
+          await yieldDeviceStageToDialog();
+          if (isSettled) return;
+          const result = await startKeystoneQrScan({
+            handlers: [EQRCodeHandlerNames.animation],
+            qrWalletScene: true,
+            autoExecuteParsedAction: false,
+          });
+          raw = result.raw;
+        }
       } catch {
         await sendResponse(null);
         return;
       }
+      if (isSettled) return;
       try {
-        const ur = await airGapUrUtils.qrcodeToUr(result.raw);
+        const ur = await airGapUrUtils.qrcodeToUr(raw);
         await sendResponse({
           urType: ur.type,
           urData: ur.cbor.toString('hex'),

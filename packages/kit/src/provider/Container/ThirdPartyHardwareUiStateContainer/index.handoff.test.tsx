@@ -41,6 +41,11 @@ const mockDecodeUr = jest.fn(async (_raw: string) => ({
   cbor: Buffer.from('a0', 'hex'),
 }));
 const mockScanHook = { start: mockStartScan };
+// Undefined: the stage is unavailable and the scan page takes over.
+const mockScanOnStage = jest.fn<
+  Promise<{ raw: string; data?: { fullData?: string } } | undefined>,
+  []
+>();
 
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 jest.mock('@onekeyhq/components', () => ({
@@ -55,6 +60,7 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceQrWallet: { scanAirGapOnStage: () => mockScanOnStage() },
     serviceThirdPartyHardware: {
       thirdPartyHardwareUiResponse: (params: unknown) => mockUiResponse(params),
       thirdPartyHardwareCancel: () => mockCancel(),
@@ -180,6 +186,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUiState = undefined;
   jest.mocked(yieldDeviceStageToDialog).mockResolvedValue(false);
+  mockScanOnStage.mockResolvedValue(undefined);
 });
 
 it.each([
@@ -286,6 +293,7 @@ it('waits before opening the Keystone scanner', async () => {
   mockUiState = qrState(false);
   const release = holdExit();
   render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
   expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(1);
   expect(mockStartScan).not.toHaveBeenCalled();
   await release();
@@ -406,6 +414,39 @@ it('reports undecodable export data to the SDK instead of treating it as cancell
     },
   });
   expect(mockCancel).not.toHaveBeenCalled();
+});
+
+it('scans on the stage camera when the stage can host it', async () => {
+  mockUiState = qrState(false);
+  mockScanOnStage.mockResolvedValueOnce({
+    raw: 'last-frame',
+    data: { fullData: 'fixture-full-ur' },
+  });
+  render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  await flush();
+  expect(mockScanOnStage).toHaveBeenCalledTimes(1);
+  expect(mockDecodeUr).toHaveBeenCalledWith('fixture-full-ur');
+  expect(mockUiResponse).toHaveBeenCalledWith({
+    vendor: EHardwareVendor.keystone,
+    response: {
+      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+      payload: { urType: 'crypto-multi-accounts', urData: 'a0' },
+    },
+  });
+  expect(yieldDeviceStageToDialog).not.toHaveBeenCalled();
+  expect(mockStartScan).not.toHaveBeenCalled();
+});
+
+it('ends the request when the stage camera is closed', async () => {
+  mockUiState = qrState(false);
+  mockScanOnStage.mockRejectedValueOnce(new Error('scan cancelled'));
+  render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  await flush();
+  expect(mockCancel).toHaveBeenCalledTimes(1);
+  expect(mockUiResponse).not.toHaveBeenCalled();
+  expect(mockStartScan).not.toHaveBeenCalled();
 });
 
 it('does not open the scanner after its QR request was cancelled during the exit', async () => {

@@ -1820,6 +1820,15 @@ export class DeviceStageBurstScope {
     });
   }
 
+  /** A flow that shows its own code (the Keystone QR toast) hands only its
+   * camera to the stage: straight to scanQr, reclaiming a stage that
+   * yielded to that toast. */
+  async qrStartScan({ sessionId }: { sessionId: number }) {
+    this.clearOffTimer();
+    this.yieldedToDialog = false;
+    await this.setStep('scanQr', { qrSessionId: sessionId });
+  }
+
   /** The escape hatch for a premature handoff: back to presenting the
    * code — the carried UR re-presents itself. Never a reject (the legacy
    * container's skipReject, in stage form). */

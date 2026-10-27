@@ -659,7 +659,9 @@ function DeviceStageContainerCmp() {
       }
       onQrNext={handleQrNext}
       onQrRenderReady={handleQrRenderReady}
-      onQrBack={handleQrBack}
+      // A scan-only session (Keystone shows its code in its own toast) has
+      // no code on stage to go back to.
+      onQrBack={stage?.qrValueUr ? handleQrBack : undefined}
       onClose={closable ? handleClose : undefined}
       onErrorNoticeExpire={retireErrorOutcome}
       errorNoticeKey={
