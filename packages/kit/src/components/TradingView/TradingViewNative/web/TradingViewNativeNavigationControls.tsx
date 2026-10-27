@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import type { FocusEvent, KeyboardEvent } from 'react';
+
 import { Stack, XStack, useTheme } from '@onekeyhq/components';
 
 import {
@@ -46,6 +49,11 @@ export function TradingViewNativeNavigationControls({
 }: ITradingViewNativeNavigationControlsProps) {
   const theme = useTheme();
   const iconColor = theme.text.val;
+  // Keyboard focus reveals the bar; pointer focus after a click must not keep
+  // it visible outside the hot zone.
+  const [keyboardFocusedAction, setKeyboardFocusedAction] =
+    useState<ITradingViewNativeNavigationAction | null>(null);
+  const isShown = isVisible || keyboardFocusedAction !== null;
   const testIDPrefix = testID
     ? `${testID}-navigation`
     : 'trading-view-native-navigation';
@@ -60,32 +68,52 @@ export function TradingViewNativeNavigationControls({
       zIndex={2}
       justifyContent="center"
       gap={TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_GAP}
-      opacity={isVisible ? 1 : 0}
-      pointerEvents={isVisible ? 'box-none' : 'none'}
-      aria-hidden={!isVisible}
+      opacity={isShown ? 1 : 0}
+      pointerEvents={isShown ? 'box-none' : 'none'}
     >
       {TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS.map((action) => {
         const { label, path } = NAVIGATION_BUTTONS[action];
+        const updateKeyboardFocus = (
+          event: FocusEvent<HTMLElement> | KeyboardEvent<HTMLElement>,
+        ) => {
+          setKeyboardFocusedAction(
+            event.currentTarget.matches(':focus-visible') ? action : null,
+          );
+        };
         return (
           <Stack
             key={action}
+            render={<button type="button" aria-label={label} />}
             testID={`${testIDPrefix}-${action}`}
-            role="button"
             aria-label={label}
-            tabIndex={isVisible ? 0 : -1}
             alignItems="center"
             justifyContent="center"
             width={TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_SIZE}
             height={TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_SIZE}
+            padding={0}
             borderRadius={TRADING_VIEW_NATIVE_NAVIGATION_BUTTON_RADIUS}
             borderCurve="continuous"
             borderWidth="$px"
             borderColor="$borderStrong"
             backgroundColor={backgroundColor}
             cursor="pointer"
-            pointerEvents={isVisible ? 'auto' : 'none'}
+            pointerEvents={isShown ? 'auto' : 'none'}
             hoverStyle={{ opacity: 0.86 }}
             pressStyle={{ opacity: 0.72 }}
+            focusVisibleStyle={{
+              outlineColor: '$iconActive',
+              outlineWidth: 2,
+              outlineStyle: 'solid',
+              outlineOffset: -2,
+            }}
+            onFocus={updateKeyboardFocus}
+            onKeyDown={updateKeyboardFocus}
+            onBlur={() =>
+              setKeyboardFocusedAction((currentAction) =>
+                currentAction === action ? null : currentAction,
+              )
+            }
+            onPointerDown={() => setKeyboardFocusedAction(null)}
             onPress={() => onAction(action)}
           >
             <svg

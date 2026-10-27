@@ -1546,17 +1546,22 @@ export const TradingViewNativeChart = memo(
         if (!runtimeEvent) {
           return;
         }
+        const previousViewport = runtimeStateRef.current.viewport;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(
           runtimeStateRef.current,
           runtimeEvent,
         );
         runtimeStateRef.current = nextRuntimeState;
-        setViewportState((currentState) =>
-          currentState.offset === nextRuntimeState.viewport.offset &&
-          currentState.zoomScale === nextRuntimeState.viewport.zoomScale
-            ? currentState
-            : nextRuntimeState.viewport,
-        );
+        if (
+          previousViewport.offset === nextRuntimeState.viewport.offset &&
+          previousViewport.zoomScale === nextRuntimeState.viewport.zoomScale
+        ) {
+          // A clamped or no-op action leaves viewport state unchanged, so
+          // redraw here to clear the crosshair the reducer hid.
+          renderChart();
+        } else {
+          setViewportState(nextRuntimeState.viewport);
+        }
         if (action === 'reset' && !isAutoScale) {
           handleAutoScalePress();
         }
@@ -1567,6 +1572,7 @@ export const TradingViewNativeChart = memo(
         pointCount,
         priceAxisFontSize,
         priceAxisLabels,
+        renderChart,
       ],
     );
 
