@@ -65,7 +65,11 @@ import {
   getPrivacyChainPublicDisplayFlow,
 } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import type { IPrivacyChainEndpointItem } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  swrCacheNamespaces,
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   collectDecodedTxInvolvedAddresses,
   getStakingActionLabel,
@@ -423,6 +427,16 @@ function HistoryDetails() {
   });
 
   const isLocalWalletHistory = !!vaultSettings?.localWallet;
+  useEffect(() => {
+    if (!isLocalWalletHistory) return;
+    // Detail snapshots can contain decrypted memos and private recipients,
+    // including one that landed before vault settings resolved.
+    // Keep these facts in wallet-owned storage, not the shared display cache.
+    swrCacheUtils.removeByPrefix(
+      `${swrCacheNamespaces.historyTxDetail}:v1:${networkId}:`,
+    );
+    swrCacheUtils.flushNow();
+  }, [isLocalWalletHistory, networkId]);
   const accountAddress = route.params?.accountAddress || account?.address;
   const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
   const isInitialPrivateSendHistory = historyTxParam
@@ -561,6 +575,7 @@ function HistoryDetails() {
       swrKey: txid
         ? swrKeys.historyTxDetail({ networkId, accountAddress, txid })
         : undefined,
+      swrShouldPersist: () => !isLocalWalletHistory,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         !privateSendSwapDetailOpened.current &&
