@@ -11,6 +11,8 @@ import {
 
 import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
 
+import { getPerpsMarketDataFreshness } from '../../utils/perpsMarketDataFreshness';
+
 import {
   ReversePositionContent,
   showReversePositionDialog,
@@ -23,6 +25,7 @@ const mockSnapshot = {
 };
 let mockMid: string | undefined = '2000';
 let mockRealBookPolling = false;
+let mockMarketDataReady = true;
 let mockMarkPrice = '2000';
 let mockBookLoader: () => Promise<unknown>;
 let mockBookPending = false;
@@ -174,6 +177,9 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsActiveAccountAtom: () => [mockAccount],
 }));
+jest.mock('../../hooks/usePerpsMarketDataFreshness', () => ({
+  usePerpsMarketDataFreshness: () => ({ isReady: mockMarketDataReady }),
+}));
 jest.mock('../../hooks/usePerpsMidPrice', () => ({
   usePerpsMidPrice: () => ({ mid: mockMid }),
 }));
@@ -219,6 +225,7 @@ describe('reverse position confirmation', () => {
     jest.clearAllMocks();
     mockBookPending = false;
     mockRealBookPolling = false;
+    mockMarketDataReady = true;
     mockTarget.price = '2000';
     mockBookPrice = undefined;
     mockGetBookCache.mockResolvedValue(undefined);
@@ -352,45 +359,93 @@ describe('reverse position confirmation', () => {
     expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'ETH' });
   });
 
-  it('retains fresh depth during refresh and expires it without another price tick', async () => {
-    jest.useFakeTimers();
-    mockRealBookPolling = true;
-    mockPosition.leverage.type = 'isolated';
-    const initialBook = {
-      coin: 'ETH',
-      time: Date.now() - 60_000,
-      levels: [[{ px: '2000', sz: '100', n: 1 }], []],
-    };
-    let resolveRefresh: (book: typeof initialBook) => void = () => {};
-    mockFetchBook.mockResolvedValueOnce(initialBook).mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveRefresh = resolve;
-        }),
-    );
-    const view = render(
-      <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
-    );
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(0);
-    });
-    // A fresh REST response is valid despite a skewed server clock.
-    expect(view.getByText('$2,146.3')).toBeTruthy();
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(10_000);
-    });
-    expect(mockFetchBook).toHaveBeenCalledTimes(2);
-    expect(view.getByText('$2,146.3')).toBeTruthy();
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(20_001);
-    });
-    expect(view.queryByText('$2,146.3')).toBeNull();
-    expect(view.getByText('--')).toBeTruthy();
-    await act(async () => {
-      resolveRefresh(initialBook);
-    });
-    expect(view.getByText('$2,146.3')).toBeTruthy();
-  });
+  it.each(['pending', 'failed'] as const)(
+    'retains fresh depth during a %s refresh, expires, and recovers',
+    async (refreshState) => {
+      jest.useFakeTimers();
+      mockRealBookPolling = true;
+      mockPosition.leverage.type = 'isolated';
+      const initialBook = {
+        coin: 'ETH',
+        time: Date.now() - 60_000,
+        levels: [[{ px: '2000', sz: '100', n: 1 }], []],
+      };
+      let resolveRefresh: (book: typeof initialBook) => void = () => {};
+      mockFetchBook.mockResolvedValueOnce(initialBook);
+      if (refreshState === 'failed') {
+        mockFetchBook.mockRejectedValueOnce(
+          new Error('Network request failed'),
+        );
+      }
+      mockFetchBook.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRefresh = resolve;
+          }),
+      );
+      const view = render(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      // A fresh REST response is valid despite a skewed server clock.
+      expect(view.getByText('$2,146.3')).toBeTruthy();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
+      expect(mockFetchBook).toHaveBeenCalledTimes(2);
+      expect(view.getByText('$2,146.3')).toBeTruthy();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(20_001);
+      });
+      expect(mockFetchBook).toHaveBeenCalledTimes(
+        refreshState === 'failed' ? 3 : 2,
+      );
+      expect(view.queryByText('$2,146.3')).toBeNull();
+      expect(view.getByText('--')).toBeTruthy();
+      await act(async () => {
+        resolveRefresh(initialBook);
+      });
+      expect(view.getByText('$2,146.3')).toBeTruthy();
+    },
+  );
+
+  it.each(['socket', 'network', 'stale'] as const)(
+    'hides retained prices when market data is %s and restores the fresh preview',
+    (reason) => {
+      mockPosition.leverage.type = 'isolated';
+      const view = render(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      expect(view.getByText('$2,146.3')).toBeTruthy();
+      mockMarketDataReady = getPerpsMarketDataFreshness({
+        isWebSocketConnected: reason !== 'socket',
+        networkConnected: reason !== 'network',
+        lastMessageAt: reason === 'stale' ? Date.now() - 6000 : Date.now(),
+      }).isReady;
+      view.rerender(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      expect(view.queryByText('$2,146.3')).toBeNull();
+      expect(view.getByText('--')).toBeTruthy();
+      // Preview availability must not bypass or prevent submit-time validation.
+      expect(
+        (
+          view.getByTestId(
+            'perp-reverse-position-confirm-button',
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false);
+      mockMarketDataReady = true;
+      mockMid = '2100';
+      mockMarkPrice = '2100';
+      view.rerender(
+        <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
+      );
+      expect(view.getByText('$2,253.6')).toBeTruthy();
+    },
+  );
 
   it.each(['2000', ''])(
     'validates the submit-time price when live mid is absent: %s',

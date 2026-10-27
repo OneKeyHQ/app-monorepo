@@ -32,6 +32,7 @@ import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDeposit
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 import { usePerpsCrossAvailableAfterMaintenance } from '../../hooks/usePerpsCrossAvailableAfterMaintenance';
+import { usePerpsMarketDataFreshness } from '../../hooks/usePerpsMarketDataFreshness';
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -165,8 +166,7 @@ export function ReversePositionContent({
       pollingInterval: bookRefreshInterval,
       runImmediatelyOnMount: true,
       checkIsFocused: false,
-      undefinedResultIfError: true,
-      // Keep a still-fresh book visible while the next snapshot is loading.
+      keepResultIfError: true,
     },
   );
   const [bookExpired, setBookExpired] = useState(false);
@@ -187,6 +187,7 @@ export function ReversePositionContent({
   const { assetCtx } = usePerpsAssetCtx({ assetId: symbolMeta?.assetId ?? -1 });
   // Preview uses coin-scoped streaming data. Account limits are fetched again
   // on submit, so a slow activeAssetData request cannot block the preview.
+  const { isReady: isMarketDataReady } = usePerpsMarketDataFreshness();
   const referencePrice = getValidPerpsPrice(mid);
   const markPrice = symbolMeta
     ? getValidPerpsPrice(assetCtx.markPrice)
@@ -208,6 +209,7 @@ export function ReversePositionContent({
   const liquidationPrice = useMemo(() => {
     if (
       !symbolMeta ||
+      !isMarketDataReady ||
       !markPrice ||
       !position ||
       !isScopeValid ||
@@ -248,6 +250,7 @@ export function ReversePositionContent({
   }, [
     bookSnapshot,
     bookExpired,
+    isMarketDataReady,
     referencePrice,
     szDecimals,
     snapshot.coin,
