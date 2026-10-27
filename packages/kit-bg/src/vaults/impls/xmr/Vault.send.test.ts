@@ -191,6 +191,20 @@ describe('xmr send: building', () => {
     ).rejects.toThrow(/address_invalid|Invalid address/);
   });
 
+  it.each([{ memo: '=:ETH.ETH:0xabc' }, { opReturn: '=:ETH.ETH:0xabc' }])(
+    'refuses a swap route instruction it cannot carry (%o)',
+    async (instruction) => {
+      const { vault } = createVault();
+      await expect(
+        vault.buildEncodedTx({
+          transfersInfo: [
+            { from: PRIMARY, to: RECIPIENT, amount: '1', ...instruction },
+          ],
+        } as never),
+      ).rejects.toThrow(/route instructions are not supported/);
+    },
+  );
+
   it('refuses a batch rather than silently sending only the first transfer', async () => {
     const { vault } = createVault();
     await expect(

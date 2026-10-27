@@ -371,6 +371,12 @@ export default class Vault extends VaultBase {
         'Monero transaction messages are not supported',
       );
     }
+    // A swap route instruction cannot be carried; never pay without it.
+    if (transferInfo.memo || transferInfo.opReturn) {
+      throw new OneKeyLocalError(
+        'Monero swap route instructions are not supported',
+      );
+    }
     if (!transferInfo.to) {
       throw new OneKeyLocalError(
         'buildEncodedTx ERROR: transferInfo.to is missing',
