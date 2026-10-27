@@ -94,6 +94,41 @@ export type ILogUploadResponse = {
   durationMs: number;
 };
 
+export type ILogUploadPath = 'sni' | 'upload_task' | 'fetch_fallback';
+
+export type ILogUploadViaIpTableResult =
+  | { route: 'sni'; httpStatus: number; body: string; ipHash: string }
+  | { route: 'skipped'; reason: string }
+  | { route: 'failed'; errorCode: string; errorMessage: string };
+
+export type ILogUploadAttemptLog = {
+  path: ILogUploadPath;
+  hostname: string;
+  sizeBytes: number;
+  timeoutMs: number;
+  skipReason?: string;
+};
+
+export type ILogUploadResultLog = {
+  path: ILogUploadPath;
+  hostname: string;
+  sizeBytes: number;
+  elapsedMs: number;
+  httpStatus?: number;
+  serverCode?: number;
+  sentBytes?: number;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
+export type ILogUploadFlowLog = {
+  attempt: number;
+  tokenReused: boolean;
+  retryable?: boolean;
+  errorCode?: string;
+  errorMessage?: string;
+};
+
 export enum ELogUploadStage {
   Collecting = 'collecting',
   Uploading = 'uploading',

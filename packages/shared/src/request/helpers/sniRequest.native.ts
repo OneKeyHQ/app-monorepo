@@ -4,6 +4,7 @@ import {
   type SniConnectOptionalBodyMethod,
   type SniConnectRequest,
   type SniConnectRequiredBodyMethod,
+  type SniConnectResponse,
   isProxyActiveForUrl as nativeIsProxyActiveForUrl,
   request as nativeSniRequest,
 } from '@onekeyfe/react-native-sni-connect';
@@ -19,6 +20,7 @@ import type {
   ISniRequestConfig,
   ISniRequestOptions,
   ISniResponse,
+  ISniUploadFileConfig,
 } from '../types/ipTable';
 
 const SNI_CONNECT_NO_BODY_METHODS = [
@@ -74,6 +76,44 @@ export async function sniRequest(
     (requestConfig) => nativeSniRequest(buildNativeSniRequest(requestConfig)),
     (requestId) => cancelNativeSniRequest(requestId, config.hostname),
   );
+  return toSniResponse(response);
+}
+
+/**
+ * Upload a local file over the pinned-IP/SNI transport.
+ * Returns null when the installed native binary predates `uploadFile`, so OTA
+ * JS can keep the domain upload path on older apps.
+ */
+export async function sniUploadFile(
+  config: ISniUploadFileConfig,
+  options?: ISniRequestOptions,
+): Promise<ISniResponse | null> {
+  const nativeModule = getSniConnectNativeModule();
+  const uploadFile = nativeModule?.uploadFile;
+  if (typeof uploadFile !== 'function') {
+    logAdapterCapability('warn', {
+      adapter: 'native',
+      capability: 'upload_file',
+      available: false,
+      decision: 'null',
+      hostname: config.hostname,
+    });
+    return null;
+  }
+  const response = await executeSniRequestWithAbort(
+    config,
+    options,
+    (requestConfig) => uploadFile.call(nativeModule, requestConfig),
+    (requestId) => cancelNativeSniRequest(requestId, config.hostname),
+  );
+  return toSniResponse(response);
+}
+
+export function isSniUploadFileSupported(): boolean {
+  return typeof getSniConnectNativeModule()?.uploadFile === 'function';
+}
+
+function toSniResponse(response: SniConnectResponse): ISniResponse {
   const multiValueHeaders = (
     response as typeof response & {
       multiValueHeaders?: Record<string, string[]>;
@@ -93,6 +133,9 @@ export async function sniRequest(
 
 type SniConnectNativeModule = {
   cancelRequest?: (requestId: string) => Promise<{ success: boolean }>;
+  // Added in @onekeyfe/react-native-sni-connect with file upload support;
+  // older native binaries do not expose it.
+  uploadFile?: (config: ISniUploadFileConfig) => Promise<SniConnectResponse>;
 };
 
 function getSniConnectNativeModule(): SniConnectNativeModule | null {
