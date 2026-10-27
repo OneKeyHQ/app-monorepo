@@ -1064,3 +1064,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Elements above the canvas swallow its pointer events: the absolutely positioned button and the anchored Popover's full-screen transparent backdrop. `useChartPriceSelection` also pinned the crosshair while the menu was open.
 **Fix**: The button forwards hover moves to the canvas, only with no buttons pressed (a pressed move hits the canvas handler's hide and swallows the click). While the menu is open, a document `pointermove` listener re-dispatches plot hovers on the backdrop to the canvas and runs the chart's mouse-leave handler elsewhere. Removed the pinned crosshair; the visible button is realigned with the price axis on every redraw.
 **Catchable by**: NEW — not covered (an overlay or transparent backdrop above a canvas blocks its hover events)
+
+## Case: Native chart "+" price action button lingered over the axes
+**Date**: 2026-10-27 | **Platforms**: Desktop, Web (native chart web renderer)
+**Symptom**: Moving the pointer from the plot onto the price axis, the time axis or a pane handle hid the crosshair but left the "+" button at its last position.
+**Root Cause**: Those overlays are siblings above the canvas. Their pointer-enter handlers hide only the crosshair, and the canvas handler that hides the button stops receiving moves.
+**Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
+**Catchable by**: NEW — not covered (same pattern as the previous case: overlays above a canvas take its pointer events)

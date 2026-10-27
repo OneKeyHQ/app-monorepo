@@ -257,6 +257,36 @@ describe('chart price selection', () => {
     expect(hook.canvasMoves).toEqual([{ clientX: 130, clientY: 140 }]);
   });
 
+  it('hides the control when the pointer leaves for another chart overlay', () => {
+    const hook = setup();
+    const canvas = hook.options.canvasRef.current;
+    const leaveCanvasFor = (relatedTarget: Element) =>
+      act(() =>
+        hook.result.current.onPointerLeave({
+          nativeEvent: { relatedTarget },
+        } as unknown as PointerEvent<HTMLElement>),
+      );
+    const leaveControlFor = (relatedTarget: Element) =>
+      act(() => {
+        hook.button.dispatchEvent(
+          new globalThis.PointerEvent('pointerout', {
+            bubbles: true,
+            relatedTarget,
+          }),
+        );
+      });
+    hook.hoverCanvas();
+    leaveCanvasFor(hook.button);
+    leaveControlFor(canvas);
+    expect(hook.button.style.display).toBe('flex');
+    // Axis and pane overlays take the pointer without reaching the canvas.
+    leaveCanvasFor(hook.overlay);
+    expect(hook.button.style.display).toBe('none');
+    hook.hoverCanvas();
+    leaveControlFor(hook.overlay);
+    expect(hook.button.style.display).toBe('none');
+  });
+
   it('forgets the open menu when the symbol changes or selection is disabled', () => {
     const hook = setup();
     hook.hoverCanvas();

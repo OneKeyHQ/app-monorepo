@@ -229,6 +229,20 @@ export function useChartPriceSelection({
     },
     [canvasRef],
   );
+  // Axis and pane overlays next to the canvas take the pointer without reaching
+  // the canvas handler, so leaving for anything but each other hides the control.
+  const onPointerLeave = useCallback(
+    (event: PointerEvent<HTMLElement>) => {
+      const next = event.nativeEvent.relatedTarget;
+      if (
+        next instanceof Node &&
+        (next === canvasRef.current || button.current?.contains(next))
+      )
+        return;
+      hide();
+    },
+    [canvasRef, hide],
+  );
   const control =
     enabled && onSelect ? (
       <button
@@ -238,6 +252,7 @@ export function useChartPriceSelection({
         title={label}
         data-testid="trading-view-native-price-action"
         onClick={onClick}
+        onPointerLeave={onPointerLeave}
         onPointerMove={onControlPointerMove}
         style={{
           display: 'none',
@@ -275,6 +290,7 @@ export function useChartPriceSelection({
   return {
     control,
     onContextMenu,
+    onPointerLeave,
     onPointerMove,
     hide,
     updateControl,

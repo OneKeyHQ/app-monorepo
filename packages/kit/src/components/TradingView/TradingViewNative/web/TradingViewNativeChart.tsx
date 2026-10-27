@@ -1663,6 +1663,7 @@ export const TradingViewNativeChart = memo(
               if (!drawingController.onPointerMove(event))
                 handlePointerMove(event);
             }}
+            onPointerLeave={priceSelection.onPointerLeave}
             onPointerMove={(event) => {
               priceSelection.onPointerMove(event);
               if (
