@@ -493,6 +493,8 @@ export type IHwAllNetworkPrepareAccountsItem =
 
     payload?: IHwAllNetworkPrepareAccountsItemErrorPayload & {
       address?: string;
+      /** Keystone account selected from an explicit device-export scan. */
+      accountExport?: boolean;
       path?: string;
       rootFingerprint?: number;
       /** Keystone: the unsigned account-level key the address was derived from. */

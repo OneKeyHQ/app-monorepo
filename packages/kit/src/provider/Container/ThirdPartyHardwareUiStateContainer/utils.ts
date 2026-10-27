@@ -10,6 +10,7 @@ import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 export function createThirdPartyDeviceSelectionDialogCallbacks({
   vendor,
   requestId,
+  operationId,
   dialogInstanceRef,
   settledRef,
   uiResponse,
@@ -18,13 +19,17 @@ export function createThirdPartyDeviceSelectionDialogCallbacks({
 }: {
   vendor: EHardwareVendor;
   requestId?: string;
+  operationId?: string;
   dialogInstanceRef: { current: unknown | null };
   settledRef: { current: boolean };
   uiResponse: (params: {
     vendor: EHardwareVendor;
     response: IAdapterUiResponse;
   }) => Promise<void>;
-  cancel: (params: { vendor: EHardwareVendor }) => Promise<void>;
+  cancel: (params: {
+    vendor: EHardwareVendor;
+    connectId?: string;
+  }) => Promise<void>;
   clearState: () => Promise<void>;
 }) {
   return {
@@ -51,7 +56,11 @@ export function createThirdPartyDeviceSelectionDialogCallbacks({
               payload: { requestId, cancelled: true },
             },
           });
-        } else await cancel({ vendor });
+        } else
+          await cancel({
+            vendor,
+            ...(operationId ? { connectId: operationId } : {}),
+          });
       } finally {
         await clearState();
       }
@@ -72,7 +81,11 @@ export function createThirdPartyDeviceSelectionDialogCallbacks({
               payload: { requestId, cancelled: true },
             },
           });
-        } else await cancel({ vendor });
+        } else
+          await cancel({
+            vendor,
+            ...(operationId ? { connectId: operationId } : {}),
+          });
       } finally {
         await clearState();
       }
@@ -84,12 +97,13 @@ export function buildThirdPartyHardwareUiResponse(
   action: EThirdPartyHardwareUiAction | undefined,
   confirmed: boolean,
   extras?: {
+    requestId?: string;
     tag?: string;
     passphrase?: string;
     passphraseOnDevice?: boolean;
     save?: boolean;
     pin?: string;
-    qrResponse?: { urType: string; urData: string };
+    qrResponse?: { urType: string; urData: string; accountExport?: boolean };
   },
 ): IAdapterUiResponse | null {
   switch (action) {
@@ -102,6 +116,14 @@ export function buildThirdPartyHardwareUiResponse(
       return {
         type: UI_RESPONSE.RECEIVE_BTC_HIGH_INDEX_CONFIRM,
         payload: { confirmed },
+      };
+    case EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm:
+      return {
+        type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
+        payload: {
+          confirmed,
+          ...(extras?.requestId ? { requestId: extras.requestId } : {}),
+        },
       };
     case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
       // No confirm/deny — the response IS the pairing tag the user typed
@@ -167,18 +189,26 @@ export async function cancelThirdPartyHardwareUiRequest({
     vendor: EHardwareVendor;
     response: IAdapterUiResponse;
   }) => Promise<void>;
-  cancel: (params: { vendor: EHardwareVendor }) => Promise<void>;
+  cancel: (params: {
+    vendor: EHardwareVendor;
+    connectId?: string;
+  }) => Promise<void>;
   clearState: () => Promise<void>;
 }) {
   const vendor = state?.vendor;
   const action = state?.action;
   try {
     if (vendor) {
-      const response = buildThirdPartyHardwareUiResponse(action, false);
+      const response = buildThirdPartyHardwareUiResponse(action, false, {
+        requestId: state?.payload?.requestId,
+      });
       if (response) {
         await uiResponse({ vendor, response });
       } else {
-        await cancel({ vendor });
+        await cancel({
+          vendor,
+          ...(state?.operationId ? { connectId: state.operationId } : {}),
+        });
       }
     }
   } finally {
