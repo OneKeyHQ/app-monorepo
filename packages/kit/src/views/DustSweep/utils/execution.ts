@@ -29,6 +29,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import { getBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 import type {
   IDustSweepSnapshot,
   IDustSweepToken,
@@ -69,6 +70,7 @@ type IExecutionOptions = {
   snapshot: IDustSweepSnapshot;
   token: IDustSweepToken;
   signal: AbortSignal;
+  onBuilding: () => void;
   onSigning: () => void;
   onPrepared: () => void;
   onApprovalBroadcast?: (txIds: string[]) => void;
@@ -387,6 +389,7 @@ async function prepareDustSweepItem(
     if (risk) throw getDustSweepQuoteError(risk, quote, token, snapshot);
     await checkInputAndOtherFeeBalances(quote, options);
     assertCanSubmit(options);
+    options.onBuilding();
     const buildRes: IFetchBuildTxResponse = {
       result: quote,
       orderId: quote.quoteId,
@@ -431,6 +434,7 @@ async function prepareDustSweepItem(
   }
   await checkInputAndOtherFeeBalances(quote, options);
   assertCanSubmit(options);
+  options.onBuilding();
   const buildRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
     fromToken: token,
     toToken: snapshot.nativeToken,
@@ -885,7 +889,7 @@ export async function executeDustSweepItem(options: IExecutionOptions): Promise<
           .times('0.95')
           .decimalPlaces(snapshot.nativeToken.decimals, BigNumber.ROUND_DOWN);
       return {
-        status: 'success',
+        status: EDustSweepItemStatus.Success,
         receivedAmount: received?.toFixed(),
         receiptUnavailable: !received,
         ...(!hasActual && received ? { receivedAmountEstimated: true } : {}),
@@ -899,7 +903,10 @@ export async function executeDustSweepItem(options: IExecutionOptions): Promise<
         ESwapTxHistoryStatus.EXPIRED,
       ].includes(result.state)
     )
-      return { status: 'failed', message: result.stateDetail };
+      return {
+        status: EDustSweepItemStatus.Failed,
+        message: result.stateDetail,
+      };
     await waitDustSweepPoll(signal);
   }
   throw new OneKeyLocalError('Dust Sweep cancelled');

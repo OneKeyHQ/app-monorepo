@@ -76,7 +76,7 @@ import type {
   RowModel,
   ValueTextSegment,
 } from '@onekeyfe/react-native-native-list';
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 type IProps = {
   accountId: string;
@@ -133,7 +133,7 @@ function TokenDetailsOverview(props: IProps) {
   const [settingsValue] = useSettingsValuePersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const listRef = useRef<NativeListRef>(null);
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const activeTooltipToken = useRef<string | undefined>(undefined);
   const [detailTooltip, setDetailTooltip] = useState<{
     anchor: NativeListActionAnchor;

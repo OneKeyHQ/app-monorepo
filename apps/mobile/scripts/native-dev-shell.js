@@ -1223,16 +1223,25 @@ async function resolveTargetDevice({
       'Applications',
       'Simulator.app',
     );
+    const xcodeSimulatorApp = path.resolve(
+      selectedDeveloperDirectory,
+      '..',
+      'Applications',
+      'Simulator.app',
+    );
     const deviceHubApp = path.resolve(
       selectedDeveloperDirectory,
       '..',
       'Applications',
       'DeviceHub.app',
     );
-    if (fileSystem.existsSync(simulatorApp)) {
+    const selectedSimulatorApp = [simulatorApp, xcodeSimulatorApp].find(
+      (appPath) => fileSystem.existsSync(appPath),
+    );
+    if (selectedSimulatorApp) {
       runCheckedCommand('open', [
         '-a',
-        simulatorApp,
+        selectedSimulatorApp,
         '--args',
         '-CurrentDeviceUDID',
         selected.id,

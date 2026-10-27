@@ -1065,6 +1065,36 @@ describe('DeviceStageBurstScope', () => {
     await scope.endExplicit({ token });
   });
 
+  it('carries only the current QR fallback request id through the stage', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.keystone,
+    });
+    for (const requestId of ['fallback-first', 'fallback-next', undefined]) {
+      await scope.onThirdPartyState({
+        ui: {
+          vendor: EHardwareVendor.keystone,
+          action: EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+          payload: requestId ? { requestId } : undefined,
+        },
+        install: undefined,
+        batch: undefined,
+      });
+      expect(stage?.step).toBe('qrFallback');
+      expect(stage?.thirdPartyRequestId).toBe(requestId);
+    }
+    await scope.onThirdPartyState({
+      ui: {
+        vendor: EHardwareVendor.keystone,
+        action: EThirdPartyHardwareUiAction.processing,
+      },
+      install: undefined,
+      batch: undefined,
+    });
+    expect(stage?.thirdPartyRequestId).toBeUndefined();
+    await scope.endExplicit({ token });
+  });
+
   it('keeps a yielded stage off the Trezor BLE binding list until the device asks', async () => {
     // OK-63224: the flow's SDK call waits on the binding list, the stage
     // yields to it, and neither the probe's own waits (connecting,

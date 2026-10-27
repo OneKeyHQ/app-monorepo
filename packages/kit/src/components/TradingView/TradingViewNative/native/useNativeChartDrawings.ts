@@ -20,6 +20,7 @@ import { getDataWindowSnapshot } from '../drawings/dataWindow';
 import { hitTestDrawings } from '../drawings/geometry';
 import { isInDrawingPane } from '../drawings/model';
 import { useChartDrawings } from '../drawings/useChartDrawings';
+import { useDrawingCanvasText } from '../drawings/useDrawingCanvasText';
 
 import type { ITradingViewNativeChartRuntime } from './chartRuntime';
 import type { IDrawingHistoryLoader } from '../drawings/drawingHistory';
@@ -67,6 +68,7 @@ export function useNativeChartDrawings({
   priceDecimalPlaces?: number;
 }) {
   const projectionRef = useRef<IDrawingProjection | null>(null);
+  const drawingText = useDrawingCanvasText();
   const redrawRef = useRef<() => void>(() => undefined);
   const controller = useChartDrawings({
     enabled,
@@ -121,6 +123,7 @@ export function useNativeChartDrawings({
         points: pointsRef.current,
         interval,
         priceDecimalPlaces,
+        text: drawingText,
       };
       const event = {
         type,
@@ -138,7 +141,7 @@ export function useNativeChartDrawings({
       else if (type === 'pointermove') model.onPointerMove(event);
       else model.onPointerUp(event);
     },
-    [priceDecimalPlaces],
+    [drawingText, priceDecimalPlaces],
   );
   const cancel = useCallback(() => controllerRef.current.cancel(), []);
   const gesture = useMemo(
@@ -172,6 +175,7 @@ export function useNativeChartDrawings({
             points: runtime.points,
             interval: runtime.candleIntervalSeconds,
             priceDecimalPlaces,
+            text: drawingText,
           };
           if (!isInDrawingPane(point, drawingProjection)) {
             manager.fail();
@@ -261,6 +265,7 @@ export function useNativeChartDrawings({
       cancel,
       chartRuntime,
       decayOffset,
+      drawingText,
       drawings,
       enabled,
       handlePointer,
@@ -292,5 +297,5 @@ export function useNativeChartDrawings({
   useEffect(() => {
     updateDataIndex(dataIndex.current);
   }, [points, indicatorSeries, subIndicatorPanes, updateDataIndex]);
-  return { controller, drawings, projection, gesture, pointerId };
+  return { controller, drawings, drawingText, projection, gesture, pointerId };
 }

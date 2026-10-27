@@ -104,15 +104,15 @@ import { useWebDappRecipientOptions } from './useWebDappRecipientOptions';
 
 import type { IRecipientQuickSelectTab } from './recipientQuickSelectTabUtils';
 import type { RouteProp } from '@react-navigation/core';
-import type { TextInput, View } from 'react-native';
+import type { TextInputInstance, ViewInstance } from 'react-native';
 
 type IFocusVisibilityRequest = (
-  field: Pick<View, 'measureInWindow'> | null,
+  field: Pick<ViewInstance, 'measureInWindow'> | null,
 ) => void;
 
 function getFocusedInputMeasurement(
   target: unknown,
-): Pick<View, 'measureInWindow'> | null {
+): Pick<ViewInstance, 'measureInWindow'> | null {
   if (!target || typeof target !== 'object') {
     return null;
   }
@@ -120,7 +120,7 @@ function getFocusedInputMeasurement(
     'measureInWindow' in target &&
     typeof target.measureInWindow === 'function'
   ) {
-    return target as Pick<View, 'measureInWindow'>;
+    return target as Pick<ViewInstance, 'measureInWindow'>;
   }
   if (
     'getBoundingClientRect' in target &&
@@ -180,9 +180,9 @@ function SendDataInputContainer() {
     useAppNavigation<IPageNavigationProp<ISendInputFlowParamList>>();
 
   const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
-  const memoInputRef = useRef<TextInput>(null);
-  const paymentIdInputRef = useRef<TextInput>(null);
-  const noteInputRef = useRef<TextInput>(null);
+  const memoInputRef = useRef<TextInputInstance>(null);
+  const paymentIdInputRef = useRef<TextInputInstance>(null);
+  const noteInputRef = useRef<TextInputInstance>(null);
   const isNavigatingRef = useRef(false);
   const addressRiskContinuePendingRef = useRef(false);
   const navigateToAmountInputRef = useRef<(() => Promise<void>) | undefined>(

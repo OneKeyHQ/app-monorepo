@@ -84,11 +84,8 @@ import type {
   VisualOverlay,
 } from '@onekeyfe/react-native-native-list';
 import type { RouteProp } from '@react-navigation/core';
-import type {
-  NativeSyntheticEvent,
-  TextInputFocusEventData,
-  View,
-} from 'react-native';
+import type { NativeSyntheticEvent, ViewInstance } from 'react-native';
+import type { SearchBarTextEventData } from 'react-native-screens';
 
 type ITokenListParams =
   IModalAssetListParamList[EModalAssetListRoutes.TokenList];
@@ -134,7 +131,7 @@ function TokenListContent({ params }: { params: ITokenListParams }) {
   const [settingsValue] = useSettingsValuePersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const listRef = useRef<NativeListRef>(null);
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const activeTooltipToken = useRef<string | undefined>(undefined);
   const [gasTooltip, setGasTooltip] = useState<{
     anchor: NativeListActionAnchor;
@@ -725,7 +722,7 @@ function TokenListContent({ params }: { params: ITokenListParams }) {
           tokens.length >= ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH
             ? {
                 onChangeText: debounce(
-                  (e: NativeSyntheticEvent<TextInputFocusEventData>) =>
+                  (e: NativeSyntheticEvent<SearchBarTextEventData>) =>
                     updateSearchKey(e.nativeEvent.text),
                   SEARCH_DEBOUNCE_INTERVAL,
                 ),

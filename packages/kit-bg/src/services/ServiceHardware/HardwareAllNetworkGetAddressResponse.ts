@@ -10,6 +10,7 @@ import { isThirdPartyPassphraseAlwaysOnDeviceErrorCode } from '@onekeyhq/shared/
 import type { PromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type {
   IHwAllNetworkPrepareAccountsItem,
@@ -24,6 +25,9 @@ export class HardwareAllNetworkGetAddressResponse {
   private respondedKeys = new Set<string>();
 
   private appFailureErrors = new WeakSet<object>();
+
+  /** The wallet's vendor, so a refused item reads in that vendor's own words. */
+  vendor: EHardwareVendor | string | undefined;
 
   isCompletedAppFailure(error: unknown): boolean {
     // These errors are created and consumed within bg. Identity prevents a
@@ -65,15 +69,18 @@ export class HardwareAllNetworkGetAddressResponse {
       promiseTarget.resolveTarget(item);
       return;
     }
-    const error = convertDeviceError({
-      code: item.payload?.code,
-      error: item.payload?.error,
-      params: item.payload?.params,
-      appName: item.payload?.appName,
-      recovery: item.payload?.recovery,
-      connectId: item.payload?.connectId,
-      deviceId: item.payload?.deviceId,
-    });
+    const error = convertDeviceError(
+      {
+        code: item.payload?.code,
+        error: item.payload?.error,
+        params: item.payload?.params,
+        appName: item.payload?.appName,
+        recovery: item.payload?.recovery,
+        connectId: item.payload?.connectId,
+        deviceId: item.payload?.deviceId,
+      },
+      { vendor: this.vendor },
+    );
     if (
       isHardwareErrorByCode({
         error,

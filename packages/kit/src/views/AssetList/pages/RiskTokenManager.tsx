@@ -59,11 +59,8 @@ import type {
   VisualOverlay,
 } from '@onekeyfe/react-native-native-list';
 import type { RouteProp } from '@react-navigation/core';
-import type {
-  NativeSyntheticEvent,
-  TextInputFocusEventData,
-  View,
-} from 'react-native';
+import type { NativeSyntheticEvent, ViewInstance } from 'react-native';
+import type { SearchBarTextEventData } from 'react-native-screens';
 
 type IRiskToken = IAccountToken & { isBlocked: boolean };
 type IRiskSection = {
@@ -133,7 +130,7 @@ export function RiskNativeList({
   const intl = useIntl();
   const { networksMap, networkMetadataProvided } = useTokenListViewContext();
   const listRef = useRef<NativeListRef>(null);
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const activeTooltipToken = useRef<string | undefined>(undefined);
   const isMountedRef = useRef(true);
   const [nativeTokenTooltip, setNativeTokenTooltip] = useState<{
@@ -855,7 +852,7 @@ function RiskTokenManager() {
         headerRight={headerRight}
         headerSearchBarOptions={{
           onChangeText: debounce(
-            (e: NativeSyntheticEvent<TextInputFocusEventData>) =>
+            (e: NativeSyntheticEvent<SearchBarTextEventData>) =>
               setSearchKey(e.nativeEvent.text),
             SEARCH_DEBOUNCE_INTERVAL,
           ),

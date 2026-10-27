@@ -88,9 +88,9 @@ import {
 import { useStableItemPress } from './useStableItemPress';
 
 import type { IdentityRow } from '@onekeyfe/react-native-native-list';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
-type IFocusMeasurable = Pick<View, 'measureInWindow'>;
+type IFocusMeasurable = Pick<ViewInstance, 'measureInWindow'>;
 type IFocusVisibilityRequest = (field: IFocusMeasurable | null) => void;
 
 function DeriveTypeLabelWithTooltip({
@@ -1297,7 +1297,7 @@ function RecipientQuickSelect({
   const pagerMode = pagerHeader !== undefined;
   const nativeSegmentedTabs = pagerMode && platformEnv.isNative;
   const pagerRef = useRef<CollapsiblePagerView>(null);
-  const pagerViewportRef = useRef<View>(null);
+  const pagerViewportRef = useRef<ViewInstance>(null);
   const focusedFieldRef = useRef<IFocusMeasurable | null>(null);
   const keyboardTopRef = useRef<number | null>(null);
   const focusGenerationRef = useRef(0);

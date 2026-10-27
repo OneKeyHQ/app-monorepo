@@ -35,8 +35,39 @@ export type ISwapProPositionsCache = {
 export type ISwapProPositionsRuntimeEntry = {
   status: 'loading' | 'refreshing' | 'success' | 'error';
   tokens: ISwapToken[];
+  resolvedNetworkIds?: string[];
+  accountScope?: string;
+  networkAccounts?: Record<string, { accountId: string; apiAddress: string }>;
+  // Leaving a non-default override changes the effective account set.
+  overriddenNetworkId?: string;
   updatedAt: number;
 };
+
+export function isSwapProPositionsAccountMatch({
+  entry,
+  accountScope,
+  networkAccount,
+  accountPending,
+}: {
+  entry?: ISwapProPositionsRuntimeEntry;
+  accountScope?: string;
+  networkAccount?: { networkId: string; accountId: string; apiAddress: string };
+  accountPending?: boolean;
+}) {
+  if (!entry || entry.accountScope !== accountScope) return false;
+  if (accountPending) return true;
+  if (
+    entry.overriddenNetworkId &&
+    entry.overriddenNetworkId !== networkAccount?.networkId
+  )
+    return false;
+  if (!networkAccount) return true;
+  const previousAccount = entry.networkAccounts?.[networkAccount.networkId];
+  return (
+    previousAccount?.accountId === networkAccount.accountId &&
+    previousAccount.apiAddress === networkAccount.apiAddress
+  );
+}
 
 export type ISwapProPositionsRuntimeData = Record<
   string,

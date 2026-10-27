@@ -64,6 +64,7 @@ it('shows settled transaction details while keeping internal errors behind local
       txId: 'failed-transaction',
       reason: 'txFailed',
       message: 'Provider transaction failure detail',
+      providerErrorMessage: 'Provider transaction failure detail',
     },
     {
       token: { ...token, key: 'risk-detail' },

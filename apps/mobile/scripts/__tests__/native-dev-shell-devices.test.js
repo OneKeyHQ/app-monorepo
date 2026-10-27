@@ -107,6 +107,50 @@ describe('iOS simulator selection', () => {
     expect(options.fileSystem.existsSync).toHaveBeenCalledTimes(1);
   });
 
+  it('opens Simulator in the selected Xcode Applications directory', async () => {
+    const options = createResolution([createSimulator('A')], {
+      fileSystem: {
+        existsSync: jest.fn((filePath) =>
+          filePath.endsWith('/Contents/Applications/Simulator.app'),
+        ),
+      },
+    });
+
+    await resolveTargetDevice(options);
+    expect(options.runCheckedCommand).toHaveBeenLastCalledWith('open', [
+      '-a',
+      '/Applications/Xcode.app/Contents/Applications/Simulator.app',
+      '--args',
+      '-CurrentDeviceUDID',
+      'A',
+    ]);
+  });
+
+  it('propagates an existing Simulator app open failure', async () => {
+    const openError = new Error('Simulator could not open');
+    const options = createResolution([createSimulator('A')]);
+    options.runCheckedCommand.mockImplementation((command) => {
+      if (command === 'open') throw openError;
+    });
+
+    await expect(resolveTargetDevice(options)).rejects.toBe(openError);
+    expect(options.runCheckedCommand).toHaveBeenCalledTimes(2);
+  });
+
+  it('propagates a DeviceHub open failure', async () => {
+    const deviceHubError = new Error('DeviceHub could not open');
+    const options = createResolution([createSimulator('A')], {
+      fileSystem: {
+        existsSync: jest.fn((filePath) => filePath.endsWith('/DeviceHub.app')),
+      },
+    });
+    options.runCheckedCommand.mockImplementation((command) => {
+      if (command === 'open') throw deviceHubError;
+    });
+
+    await expect(resolveTargetDevice(options)).rejects.toBe(deviceHubError);
+  });
+
   it('uses xcode-select only when DEVELOPER_DIR is absent', async () => {
     const options = createResolution([createSimulator('A')], {
       developerDirectory: '',

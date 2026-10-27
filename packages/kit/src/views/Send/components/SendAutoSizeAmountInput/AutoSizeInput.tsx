@@ -14,7 +14,7 @@ import type {
   IAutoSizeInputProps,
   IAutoSizeInputRef,
 } from './AutoSizeInput.types';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 const estimateInlineTextWidthPx = (text: string, fontSize: number) => {
   let width = 0;
@@ -208,7 +208,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     }: IAutoSizeInputProps,
     ref,
   ) => {
-    const inputRef = useRef<TextInput>(null);
+    const inputRef = useRef<TextInputInstance>(null);
 
     useImperativeHandle(
       ref,
