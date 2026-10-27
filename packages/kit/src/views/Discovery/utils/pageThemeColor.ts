@@ -144,11 +144,16 @@ export function usePageBottomThemeName(tabId: string | null | undefined) {
 }
 
 // Applies the cached color of the page's origin, if any; otherwise the
-// current tint stays until the page reports its own.
+// current tint stays until the page reports its own. The bottom color is
+// dropped either way: it described the page that is being left, and the bar
+// picks its icon and glass theme from it, so keeping it until the next page
+// reports would leave the controls on the wrong contrast.
 export function applyCachedPageThemeColor(tabId: string, url: string) {
   const origin = originOf(url);
   const cached = origin ? originColors.get(origin) : undefined;
-  if (cached && storeColor(colors, tabId, cached)) {
+  const colorChanged = cached ? storeColor(colors, tabId, cached) : false;
+  const bottomChanged = storeColor(bottomColors, tabId, undefined);
+  if (colorChanged || bottomChanged) {
     emit();
   }
 }
