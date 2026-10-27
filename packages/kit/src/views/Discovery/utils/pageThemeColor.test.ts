@@ -194,6 +194,20 @@ describe('isNewDocumentLoad', () => {
     ).toBe(true);
   });
 
+  it('treats a hash change as the same document after an SPA route change', () => {
+    // iOS reports a pushState route change as a load-finish, which syncs the
+    // baseline; the anchor jump that follows is then the same document.
+    const routeB = 'https://example.com/b';
+    expect(
+      decide({ url: `${routeB}#section`, previousDocumentUrl: routeB }),
+    ).toBe(false);
+    // Before the baseline was synced, the same jump compared against the old
+    // route and looked like a new document.
+    expect(
+      decide({ url: `${routeB}#section`, previousDocumentUrl: PAGE }),
+    ).toBe(true);
+  });
+
   it('keeps the bottom color coherent with the retained top color', () => {
     const { result } = renderColors();
     act(() => {

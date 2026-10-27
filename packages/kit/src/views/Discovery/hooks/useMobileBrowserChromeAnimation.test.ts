@@ -18,26 +18,48 @@ jest.mock('@onekeyhq/components', () => ({
 
 // A shared value is a plain box here, so a test can put it mid-animation; the
 // animations resolve to their target, and the hook's own state is what decides
-// where the next event starts from.
+// where the next event starts from. The end callbacks run, so the layout side
+// effects (layoutExpanded) happen as they do on device.
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
   Easing: { inOut: () => (t: number) => t, ease: (t: number) => t },
   useSharedValue: (initial: number) => ({ value: initial }),
-  withSpring: (target: number) => target,
-  withTiming: (target: number) => target,
+  withSpring: (
+    target: number,
+    _cfg?: unknown,
+    cb?: (done: boolean) => void,
+  ) => {
+    cb?.(true);
+    return target;
+  },
+  withTiming: (
+    target: number,
+    _cfg?: unknown,
+    cb?: (done: boolean) => void,
+  ) => {
+    cb?.(true);
+    return target;
+  },
   useAnimatedStyle: (factory: () => unknown) => factory(),
 }));
 
 const CONTENT_HEIGHT = 3000;
-const VIEWPORT_HEIGHT = 800;
-// contentSize.height - layoutMeasurement.height, with no contentInset.
-const MAX_SCROLL_Y = CONTENT_HEIGHT - VIEWPORT_HEIGHT;
+// Screen 800pt. The frame is this minus the chrome: expanded it loses the header
+// spacer (46) and the full bar (100); collapsed it only loses the collapsed pill
+// strip (60), so the collapsed frame is taller by 86pt. That delta is what the
+// hook's layoutHeightDelta works out to, and why the frame moves when it flips.
+const SCREEN_HEIGHT = 800;
+const COLLAPSED_VIEWPORT_HEIGHT = SCREEN_HEIGHT - 60; // 740
+const EXPANDED_VIEWPORT_HEIGHT = SCREEN_HEIGHT - (46 + 100); // 654
+// contentSize - the largest (collapsed) frame: the offset at the real bottom.
+const MAX_SCROLL_Y = CONTENT_HEIGHT - COLLAPSED_VIEWPORT_HEIGHT;
 // BROWSER_HEADER_HEIGHT (46) plus the 47pt top inset mocked above.
 const FOLLOW_DISTANCE = 93;
 
 function scrollEvent(
   y: number,
   isInteracting: boolean | undefined,
+  viewportHeight = EXPANDED_VIEWPORT_HEIGHT,
   contentSizeHeight = CONTENT_HEIGHT,
 ) {
   // The hook reads only these fields; the rest of the synthetic event is not
@@ -47,7 +69,7 @@ function scrollEvent(
       contentOffset: { y, x: 0 },
       contentSize: { height: contentSizeHeight, width: 400 },
       contentInset: { top: 0, bottom: 0, left: 0, right: 0 },
-      layoutMeasurement: { height: VIEWPORT_HEIGHT, width: 400 },
+      layoutMeasurement: { height: viewportHeight, width: 400 },
       isInteracting,
     },
   } as unknown as IWebViewOnScrollEvent;
@@ -151,9 +173,60 @@ describe('useMobileBrowserChromeAnimation finger tracking', () => {
     expect(chromeProgress.value).toBe(0);
 
     act(() => {
-      handleScroll(scrollEvent(MAX_SCROLL_Y, true));
+      // At the bottom of the collapsed frame, which is what the finger reaches.
+      handleScroll(scrollEvent(MAX_SCROLL_Y, true, COLLAPSED_VIEWPORT_HEIGHT));
     });
 
     expect(chromeProgress.value).toBe(1);
+  });
+
+  it('keeps the frame from shrinking above the page bottom', () => {
+    const { result } = renderChrome();
+    const { handleScroll, chromeProgress, layoutExpanded } = result.current;
+
+    // Reach the bottom of the collapsed frame, then release: the chrome settles
+    // expanded and the frame shrinks by the layout delta, leaving a further
+    // stretch of the page below the offset.
+    act(() => {
+      handleScroll(scrollEvent(300, true));
+      handleScroll(scrollEvent(400, true));
+      handleScroll(scrollEvent(MAX_SCROLL_Y, true, COLLAPSED_VIEWPORT_HEIGHT));
+      handleScroll(scrollEvent(MAX_SCROLL_Y, false, COLLAPSED_VIEWPORT_HEIGHT));
+    });
+    expect(chromeProgress.value).toBe(1);
+    expect(layoutExpanded.value).toBe(1);
+
+    const expandedMaxScrollY = CONTENT_HEIGHT - EXPANDED_VIEWPORT_HEIGHT;
+    expect(expandedMaxScrollY).toBeGreaterThan(MAX_SCROLL_Y);
+
+    // Dragging down from here is what used to loop: collapsing the layout made
+    // the frame grow again, so the offset turned into an overscroll and sprang
+    // back, and the remaining stretch stayed unreachable. The frame must stay as
+    // it is, which keeps the offset legal and lets it travel on.
+    act(() => {
+      handleScroll(
+        scrollEvent(MAX_SCROLL_Y + 10, true, EXPANDED_VIEWPORT_HEIGHT),
+      );
+    });
+    expect(layoutExpanded.value).toBe(1);
+
+    act(() => {
+      handleScroll(
+        scrollEvent(expandedMaxScrollY, true, EXPANDED_VIEWPORT_HEIGHT),
+      );
+    });
+    expect(chromeProgress.value).toBe(1);
+    expect(layoutExpanded.value).toBe(1);
+  });
+
+  it('does not collapse the layout while the chrome sits at the bottom', () => {
+    const { result } = renderChrome();
+    const { handleScroll, chromeProgress, layoutExpanded } = result.current;
+
+    act(() => {
+      handleScroll(scrollEvent(MAX_SCROLL_Y - 4, true));
+    });
+    expect(chromeProgress.value).toBe(1);
+    expect(layoutExpanded.value).toBe(1);
   });
 });

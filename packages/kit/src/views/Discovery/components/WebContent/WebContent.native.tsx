@@ -183,6 +183,12 @@ function WebContent({
       });
       // In-page (SPA) navigations don't fire onLoadEnd.
       if (!loading) {
+        // iOS reports pushState/replaceState through the history shim as a
+        // load-finish, so no load-start ever updated the document baseline. Sync
+        // it here, or a later anchor jump on this route compares its URL with
+        // the previous route's and counts as a new document, dropping the bottom
+        // color for good.
+        lastDocumentUrlRef.current = documentUrlOf(navUrl ?? '');
         requestPageThemeColor(navUrl);
       }
     },

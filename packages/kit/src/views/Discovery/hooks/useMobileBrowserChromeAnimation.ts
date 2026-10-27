@@ -55,6 +55,14 @@ const settleTiming = {
 function useMobileBrowserChromeAnimation() {
   const { top: safeTop, bottom: bottomInset } = useSafeAreaInsets();
   const fullBarHeight = getBarReservedHeight(bottomInset);
+  // How much taller the WebView's frame is while the chrome is collapsed: the
+  // header gives up its spacer and the bar gives up the room the collapsed pill
+  // needs. The frame changes by this much whenever layoutExpanded flips, so
+  // anything that reasons about the scrollable range has to pick one layout and
+  // stay on it, or the target keeps moving under the chrome.
+  const layoutHeightDelta =
+    BROWSER_HEADER_HEIGHT +
+    (fullBarHeight - getCollapsedReservedHeight(bottomInset));
   // Scrolling this far collapses (or expands) the chrome while following:
   // the header's full height with the status bar above it, as Telegram uses
   // its navigation height (~100pt on notched iPhones), so the chrome doesn't
@@ -159,7 +167,8 @@ function useMobileBrowserChromeAnimation() {
       // fully at the edge itself, like Telegram.
       const toBottom = Math.max(0, maxScrollY - scrollY);
       const toTop = Math.max(0, scrollY + contentTopInset);
-      if (toBottom < fullBarHeight) {
+      const isNearBottom = toBottom < fullBarHeight;
+      if (isNearBottom) {
         next = Math.max(next, 1 - toBottom / fullBarHeight);
       } else if (toTop < followDistance) {
         next = Math.max(next, 1 - toTop / followDistance);
@@ -177,7 +186,13 @@ function useMobileBrowserChromeAnimation() {
       }
       targetRef.current = next;
       isSettledRef.current = false;
-      if (next < EXPANDED) {
+      // Never collapse the layout near the bottom: the collapsed frame is
+      // layoutHeightDelta taller, so its bottom edge moves up by that much and
+      // the offset that was at the bottom becomes an overscroll. That would
+      // force the chrome back to expanded, restore the shorter frame, and leave
+      // the page's last stretch permanently out of reach. The chrome still
+      // follows down here, it just keeps the frame it already has.
+      if (next < EXPANDED && !isNearBottom) {
         setLayoutCollapsed();
       }
       // Replaces any running animation.
@@ -209,9 +224,16 @@ function useMobileBrowserChromeAnimation() {
       const isOutOfBounds =
         contentOffsetY < -contentInset.top ||
         Math.round(contentOffsetY) > Math.round(maxOffsetY);
+      // Measured against the expanded frame: the collapsed frame is
+      // layoutHeightDelta taller, so a page that only just scrolls while
+      // collapsed would read as not scrollable and flip the layout back and
+      // forth (each flip resizes the WebView, so the chrome would oscillate).
+      const scrollableViewportHeight =
+        layoutMeasurement.height +
+        (layoutCollapsedRef.current ? -layoutHeightDelta : 0);
       const canScroll =
         Math.round(contentSize.height) >
-        Math.round(layoutMeasurement.height) +
+        Math.round(scrollableViewportHeight) +
           MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE;
 
       if (CHROME_FOLLOWS_SCROLL && isInteracting !== undefined) {
@@ -268,7 +290,7 @@ function useMobileBrowserChromeAnimation() {
       }
       animateTo(distanceOffsetY < 0 ? EXPANDED : COLLAPSED);
     },
-    [animateTo, followScroll],
+    [animateTo, followScroll, layoutHeightDelta],
   );
 
   const expandBrowserChrome = useCallback(() => {
