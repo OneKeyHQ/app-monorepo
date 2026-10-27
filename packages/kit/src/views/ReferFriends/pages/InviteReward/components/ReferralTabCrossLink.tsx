@@ -8,20 +8,17 @@ export function ReferralTabCrossLink({
   onPress,
   testID,
   pt = '$8',
-  px = '$pagePadding',
 }: {
   prompt: string;
   action: string;
   onPress: () => void;
   testID: string;
   // Space above the line; the default separates it from a tab's content.
-  pt?: '$8' | '$3' | '$0';
-  // Hosts that already pad their content, like the activity hub, pass 0.
-  px?: '$pagePadding' | '$0';
+  pt?: '$8' | '$3';
 }) {
   return (
     <XStack
-      px={px}
+      px="$pagePadding"
       pt={pt}
       // In a page-filling column this pushes the line to the bottom; it
       // stays right after the content once the page scrolls.

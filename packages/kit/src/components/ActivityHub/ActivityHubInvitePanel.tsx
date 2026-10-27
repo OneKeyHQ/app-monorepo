@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Divider,
   Icon,
@@ -15,7 +16,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ReferralTabCrossLink } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralTabCrossLink';
 import {
   INVITE_CARD_BORDER_COLOR,
   PRESSABLE_SURFACE_PROPS,
@@ -33,6 +33,14 @@ import type { IActivityHubSource } from './types';
 
 const SUMMARY_TIMEOUT_MS = 5000;
 
+// Named like the products on the referral page, so the badge says whose
+// landing page the link opens.
+const SOURCE_PRODUCT_TITLE: Record<IActivityHubSource, ETranslations> = {
+  Earn: ETranslations.referral_referred_type_2,
+  Perps: ETranslations.perps_perps,
+  Swap: ETranslations.global_swap,
+};
+
 // The summary holds the current code; a slow or failed request falls back to
 // the code cached from the last summary.
 async function fetchMyReferralCode() {
@@ -49,8 +57,8 @@ async function fetchMyReferralCode() {
 
 // Pointer layouts already list Referral in the sidebar, so their gift opens
 // what the sidebar cannot: the link and code to copy on the spot, laid out
-// like the invite card on the referral page, plus a way to the Perks tab for
-// people who joined with someone else's code. Signed out, Join opens the
+// like the invite card on the referral page, plus the Perks tab, named and
+// described as in the referral page's tab switch. Signed out, Join opens the
 // referral intro, which carries the sign-in.
 export function ActivityHubInvitePanel({
   source,
@@ -104,14 +112,24 @@ export function ActivityHubInvitePanel({
     <YStack gap="$3">
       {isLoggedIn ? (
         <YStack gap="$2">
+          <XStack ai="center" jc="space-between" gap="$2">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.referral_referral_link,
+              })}
+            </SizableText>
+            <Badge badgeSize="sm">
+              {intl.formatMessage({ id: SOURCE_PRODUCT_TITLE[source] })}
+            </Badge>
+          </XStack>
           {/* The link and its Copy button read as one pill, like the invite
-              card's link field. */}
+              card's link field; the button sits 8px from every edge. */}
           <XStack
             minHeight={44}
             ai="center"
             gap="$2"
             pl="$4"
-            pr="$1"
+            pr="$2"
             borderRadius="$full"
             bg="$bgStrong"
           >
@@ -186,17 +204,30 @@ export function ActivityHubInvitePanel({
         </Button>
       )}
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
-      <ReferralTabCrossLink
+      <XStack
         testID="activity-hub-open-perks"
-        px="$0"
-        pt="$0"
-        prompt={tabCopy.toPerksPrompt}
-        action={tabCopy.toPerksAction}
+        ai="center"
+        gap="$3"
+        mx="$-2"
+        px="$2"
+        py="$1.5"
+        borderRadius="$2"
+        {...PRESSABLE_SURFACE_PROPS}
         onPress={() => {
           logAction('open_perks');
           onOpenReferral('benefits');
         }}
-      />
+      >
+        <YStack flex={1} minWidth={0} gap="$0.5">
+          <SizableText size="$bodyMdMedium">
+            {intl.formatMessage({ id: ETranslations.referral_perks__title })}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {tabCopy.perksIntro}
+          </SizableText>
+        </YStack>
+        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
+      </XStack>
     </YStack>
   );
 }
