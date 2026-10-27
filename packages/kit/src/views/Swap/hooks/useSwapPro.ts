@@ -97,6 +97,7 @@ import {
   resolveSwapProAccountStatus,
   shouldSyncSwapProAccountNetwork,
 } from '../utils/swapProAccountUtils';
+import { isSwapProPositionsAccountMatch } from '../utils/swapProPositionsCacheUtils';
 import { buildSwapProPositionsNetworkIdsKey } from '../utils/swapProPositionsKeyUtils';
 import { loadSwapProPositions } from '../utils/swapProPositionsLoader';
 import {
@@ -1649,13 +1650,13 @@ export function useSwapProPositionAccountIdentity() {
       activeIndexedAccountId: activeAccount.indexedAccount?.id,
       activeAccountId: activeAccount.account?.id ?? activeAccount.dbAccount?.id,
     });
-    const accountScope = getSwapProPositionsAccountScope({
+    const activeAccountScope = getSwapProPositionsAccountScope({
       ...identity,
       activeAccount,
       selectedDeriveType: selectedAccount.deriveType,
     });
     const networkAccount =
-      accountScope &&
+      activeAccountScope &&
       activeAccount.account?.address &&
       activeAccount.network?.id &&
       !networkUtils.isAllNetwork({ networkId: activeAccount.network.id })
@@ -1665,7 +1666,19 @@ export function useSwapProPositionAccountIdentity() {
             apiAddress: activeAccount.account.address,
           }
         : undefined;
-    return { ...identity, accountScope, networkAccount };
+    return {
+      ...identity,
+      accountScope: identity.indexedAccountId ?? identity.accountId,
+      networkAccount,
+      pendingAccountNetworkId: activeAccountScope
+        ? undefined
+        : selectedAccount.networkId,
+      isDeriveTypePending: Boolean(
+        selectedAccount.networkId === activeAccount.network?.id &&
+        selectedAccount.deriveType &&
+        selectedAccount.deriveType !== (activeAccount.deriveType ?? 'default'),
+      ),
+    };
   }, [
     activeAccount,
     isAccountSelectorStorageInitDone,
@@ -1708,6 +1721,8 @@ export function useSwapPositionsSupportTokenListAction() {
         {
           forceRefresh: options?.forceRefresh,
           accountScope: positionAccountIdentity.accountScope,
+          pendingAccountNetworkId:
+            positionAccountIdentity.pendingAccountNetworkId,
           networkAccount: positionAccountIdentity.networkAccount,
           positionLoader: loadSwapProPositions,
           stockOnly: options?.stockOnly,
@@ -1780,9 +1795,40 @@ export function useSwapProSupportNetworksTokenList(
   const scopedEntry = positionOwnerKey
     ? swapProPositionsRuntimeData[positionOwnerKey]
     : undefined;
+  const relevantNetworkAccount =
+    options?.stockOnly &&
+    positionAccountIdentity.networkAccount &&
+    networkList.some(
+      (network) =>
+        network.networkId === positionAccountIdentity.networkAccount?.networkId,
+    )
+      ? positionAccountIdentity.networkAccount
+      : undefined;
+  const isRelevantDeriveTypePending =
+    options?.stockOnly &&
+    positionAccountIdentity.isDeriveTypePending &&
+    networkList.some(
+      (network) =>
+        network.networkId === positionAccountIdentity.pendingAccountNetworkId,
+    );
   const positionRuntimeEntry =
-    positionAccountIdentity.accountScope &&
-    scopedEntry?.accountScope === positionAccountIdentity.accountScope
+    !isRelevantDeriveTypePending &&
+    isSwapProPositionsAccountMatch({
+      entry: scopedEntry,
+      accountScope: options?.stockOnly
+        ? positionAccountIdentity.accountScope
+        : undefined,
+      networkAccount: relevantNetworkAccount,
+      accountPending: Boolean(
+        options?.stockOnly &&
+        positionAccountIdentity.pendingAccountNetworkId &&
+        networkList.some(
+          (network) =>
+            network.networkId ===
+            positionAccountIdentity.pendingAccountNetworkId,
+        ),
+      ),
+    })
       ? scopedEntry
       : undefined;
   const hasPositionOwner =
