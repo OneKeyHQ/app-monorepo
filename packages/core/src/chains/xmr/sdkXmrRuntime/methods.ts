@@ -33,6 +33,8 @@ export const XMR_RUNTIME_METHODS = [
   'importDeviceKeyImages',
   'prepareTransaction',
   'signTransactionWithBip32Key',
+  'prepareDeviceTransaction',
+  'assembleDeviceTransaction',
   'verifyTransaction',
   'verifySignedTransaction',
   'broadcastTransaction',
@@ -58,6 +60,7 @@ export const XMR_RUNTIME_U64_ARGS: Partial<
   exportKeyImageSyncData: [0],
   importDeviceKeyImages: [0],
   prepareTransaction: [0, 3],
+  prepareDeviceTransaction: [0, 3],
   broadcastTransaction: [0, 2],
 };
 

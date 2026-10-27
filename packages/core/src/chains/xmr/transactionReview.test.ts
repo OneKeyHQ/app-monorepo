@@ -1,4 +1,5 @@
 import {
+  parseXmrPreparedDeviceTransaction,
   parseXmrPreparedTransaction,
   parseXmrTransaction,
 } from './transactionReview';
@@ -56,5 +57,47 @@ describe('Monero transaction review boundary', () => {
     original.amountAtomic = '1';
     expect(snapshot.to).toBe('recipient');
     expect(snapshot.amountAtomic).toBe('18446744073709551615');
+  });
+});
+
+describe('Monero hardware transaction review boundary', () => {
+  const devicePlanJson = '{"version":1}';
+  function deviceTransaction() {
+    const { signableHex: _signableHex, ...rest } = transaction();
+    return { ...rest, devicePlanJson };
+  }
+
+  it('carries the runtime device plan as devicePlanJson', () => {
+    const prepared = parseXmrPreparedDeviceTransaction({
+      devicePlan: devicePlanJson,
+      amountAtomic: '1000',
+      feeAtomic: '30',
+      changeAtomic: '0',
+      inputCount: 1,
+    });
+    expect(prepared).toEqual({
+      devicePlanJson,
+      amountAtomic: '1000',
+      feeAtomic: '30',
+      changeAtomic: '0',
+      inputCount: 1,
+    });
+    expect(prepared).not.toHaveProperty('signableHex');
+  });
+
+  it('accepts a reviewed transaction carrying only the device plan', () => {
+    expect(parseXmrTransaction(deviceTransaction()).devicePlanJson).toBe(
+      devicePlanJson,
+    );
+  });
+
+  it('refuses a transaction carrying both or neither of plan and signable', () => {
+    const { devicePlanJson: _plan, ...neither } = deviceTransaction();
+    expect(() =>
+      parseXmrTransaction({ ...deviceTransaction(), signableHex: 'aabb' }),
+    ).toThrow('invalid transaction review');
+    expect(() => parseXmrTransaction(neither)).toThrow(
+      'invalid transaction review',
+    );
   });
 });

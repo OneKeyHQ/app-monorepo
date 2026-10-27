@@ -20,7 +20,12 @@ export type IEncodedTxXmr = {
    * (change output), so it may only cross a trust boundary the view key may cross.
    */
   signableHex?: string;
-  /** Piconero. Exact once `signableHex` is set. */
+  /**
+   * A hardware account's signing plan (JSON), in place of `signableHex`. It holds the real ring
+   * members, masks and amounts: same handling as `signableHex`, never into history or logs.
+   */
+  devicePlanJson?: string;
+  /** Piconero. Exact once `signableHex` or `devicePlanJson` is set. */
   feeAtomic?: string;
   inputCount?: number;
   /** Piconero returned to this account's own primary address. */

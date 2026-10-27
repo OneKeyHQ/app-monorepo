@@ -65,6 +65,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         'xmr: transaction sender does not match the signing account',
       );
     }
+    if (encodedTx.signableHex === undefined) {
+      throw new OneKeyLocalError(
+        'xmr: this transaction was built for a hardware device',
+      );
+    }
     const signer = await this.baseGetSingleSigner({
       payload,
       curve: getXmrCurveForPath(payload.account.path),

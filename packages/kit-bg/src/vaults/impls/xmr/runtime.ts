@@ -50,6 +50,7 @@ const NODE_METHODS = new Set<(typeof XMR_RUNTIME_METHODS)[number]>([
   'chainTip',
   'syncStep',
   'prepareTransaction',
+  'prepareDeviceTransaction',
   'broadcastTransaction',
 ]);
 

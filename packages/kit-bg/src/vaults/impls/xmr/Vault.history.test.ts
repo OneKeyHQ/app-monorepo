@@ -108,18 +108,21 @@ describe('xmr history stays on the device', () => {
     });
   }
 
-  it('tags a locally built row as private', async () => {
-    const row = await createVault().buildHistoryTx({
-      decodedTx: {
-        txid: 'tx1',
-        accountId: ACCOUNT_ID,
-        networkId: 'xmr--0',
-        encodedTx: { signableHex: 'secret' },
-      },
-      signedTx: { txid: 'tx1' },
-    } as never);
-    expect(row.privacyChainHistorySide).toBe('private');
-  });
+  it.each([{ signableHex: 'secret' }, { devicePlanJson: '{"secret":1}' }])(
+    'tags a locally built row as private (%o)',
+    async (encodedTx) => {
+      const row = await createVault().buildHistoryTx({
+        decodedTx: {
+          txid: 'tx1',
+          accountId: ACCOUNT_ID,
+          networkId: 'xmr--0',
+          encodedTx,
+        },
+        signedTx: { txid: 'tx1' },
+      } as never);
+      expect(row.privacyChainHistorySide).toBe('private');
+    },
+  );
 });
 
 describe('xmr history for an account that never enabled scanning', () => {

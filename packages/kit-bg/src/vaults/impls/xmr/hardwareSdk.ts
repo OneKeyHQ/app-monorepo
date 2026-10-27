@@ -1,6 +1,11 @@
+// cspell:ignore vinis rsig
 import { z } from 'zod';
 
+import type { IXmrDevicePlan } from '@onekeyhq/core/src/chains/xmr/deviceSigning';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+const hexBytes = z.string().regex(/^(?:[0-9a-fA-F]{2})+$/);
+const hex32 = z.string().regex(/^[0-9a-fA-F]{64}$/);
 
 const addressSchema = z.object({
   path: z.string().min(1),
@@ -18,6 +23,27 @@ const keyImageSyncSchema = z.object({
     }),
   ),
 });
+// Per-input arrays are in key-image sorted order, per-output ones in the
+// order of tsxData.outputs; `signatures` are sealed until `openingKey`.
+const signTransactionSchema = z.object({
+  origIndices: z.array(z.number().int().nonnegative()),
+  vinis: z.array(hexBytes),
+  pseudoOuts: z.array(hex32),
+  signatures: z.array(hexBytes),
+  txOuts: z.array(hexBytes),
+  outPks: z.array(z.string().regex(/^[0-9a-fA-F]{128}$/)),
+  ecdhInfos: z.array(z.string().regex(/^[0-9a-fA-F]{16}$/)),
+  rsig: hexBytes,
+  extra: hexBytes,
+  txPrefixHash: hex32,
+  fullMessageHash: hex32,
+  rv: z.object({
+    txnFee: z.string().regex(/^(0|[1-9][0-9]*)$/),
+    message: hexBytes,
+    rvType: z.number().int().nonnegative(),
+  }),
+  openingKey: hex32,
+});
 const responseSchema = z.object({ success: z.boolean(), payload: z.unknown() });
 const errorSchema = z.object({
   code: z.union([z.number(), z.string()]).optional(),
@@ -32,6 +58,9 @@ const errorSchema = z.object({
 export type IXmrHardwareAddress = z.infer<typeof addressSchema>;
 export type IXmrHardwareWatchKey = z.infer<typeof watchKeySchema>;
 export type IXmrHardwareKeyImageSync = z.infer<typeof keyImageSyncSchema>;
+export type IXmrHardwareSignedTransaction = z.infer<
+  typeof signTransactionSchema
+>;
 type IResponse<T> =
   | { success: true; payload: T }
   | { success: false; payload: z.infer<typeof errorSchema> };
@@ -53,7 +82,35 @@ type IRawSdk = {
     deviceId: string,
     params: IParams,
   ) => Promise<unknown>;
+  // Newer SDKs only.
+  moneroSignTransaction?: (
+    connectId: string,
+    deviceId: string,
+    params: IParams,
+  ) => Promise<unknown>;
 };
+
+function matchesSigningRequest(
+  signed: IXmrHardwareSignedTransaction,
+  inputCount: number,
+  outputCount: number,
+): boolean {
+  const perInput = [
+    signed.origIndices,
+    signed.vinis,
+    signed.pseudoOuts,
+    signed.signatures,
+  ];
+  const perOutput = [signed.txOuts, signed.outPks, signed.ecdhInfos];
+  const hasEveryInputOnce =
+    new Set(signed.origIndices).size === inputCount &&
+    signed.origIndices.every((index) => index < inputCount);
+  return (
+    perInput.every((items) => items.length === inputCount) &&
+    perOutput.every((items) => items.length === outputCount) &&
+    hasEveryInputOnce
+  );
+}
 
 function supportsMonero(sdk: unknown): sdk is IRawSdk {
   return (
@@ -148,6 +205,37 @@ export function getXmrHardwareSdk(sdk: unknown) {
           item.data.keyImages.length !== params.transfers.length
         )
           throw new OneKeyLocalError('xmr: malformed hardware key image sync');
+        return item.data;
+      });
+    },
+    async moneroSignTransaction(
+      connectId: string,
+      deviceId: string,
+      params: IParams & Pick<IXmrDevicePlan, 'tsxData' | 'inputs'>,
+    ): Promise<IResponse<IXmrHardwareSignedTransaction>> {
+      if (typeof supportedSdk.moneroSignTransaction !== 'function') {
+        throw new OneKeyLocalError(
+          'This app version cannot sign Monero hardware transactions. Update the app before continuing.',
+        );
+      }
+      const result = await supportedSdk.moneroSignTransaction(
+        connectId,
+        deviceId,
+        params,
+      );
+      return parseResponse(result, (value) => {
+        const item = signTransactionSchema.safeParse(value);
+        if (
+          !item.success ||
+          !matchesSigningRequest(
+            item.data,
+            params.inputs.length,
+            params.tsxData.outputs.length,
+          )
+        )
+          throw new OneKeyLocalError(
+            'xmr: malformed hardware signed transaction',
+          );
         return item.data;
       });
     },

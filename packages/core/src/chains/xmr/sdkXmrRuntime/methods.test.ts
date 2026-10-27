@@ -117,6 +117,15 @@ describe('xmr runtime u64 coercion', () => {
       ]),
     ).toEqual([7n, '[]', false, 100n, 'normal']);
     expect(
+      coerceXmrU64Args('prepareDeviceTransaction', [
+        '7',
+        '[]',
+        false,
+        '100',
+        'normal',
+      ]),
+    ).toEqual([7n, '[]', false, 100n, 'normal']);
+    expect(
       coerceXmrU64Args('broadcastTransaction', ['7', '00ff', '100', '5', '1']),
     ).toEqual([7n, '00ff', 100n, '5', '1']);
   });

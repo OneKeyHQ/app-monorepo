@@ -9,6 +9,7 @@ import { xmrHostFetch } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/ho
 import type { IXmrNetwork } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/types';
 import {
   getXmrReviewRequest,
+  parseXmrPreparedDeviceTransaction,
   parseXmrPreparedTransaction,
   parseXmrSendRequest,
   parseXmrTransaction,
@@ -29,6 +30,8 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import { getPrivacyChainBlocksLeft } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
@@ -47,6 +50,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IEstimateGasParams,
@@ -459,22 +463,29 @@ export default class Vault extends VaultBase {
     await this.xmrEnsureKeyImages({ api, identityId });
     const chainTip = await getXmrChainTip(api);
 
+    // A hardware account gets a plan instead: the device builds the outputs.
+    const isDevice = this.keyring instanceof KeyringHardware;
+    const prepareArgs = [
+      identityId,
+      stringUtils.stableStringify([
+        { address: encodedTx.to, amountAtomic: encodedTx.amountAtomic },
+      ]),
+      encodedTx.isMaxSend === true,
+      String(chainTip),
+      encodedTx.priority,
+    ] as const;
     let raw: string;
     try {
-      raw = await api.prepareTransaction(
-        identityId,
-        stringUtils.stableStringify([
-          { address: encodedTx.to, amountAtomic: encodedTx.amountAtomic },
-        ]),
-        encodedTx.isMaxSend === true,
-        String(chainTip),
-        encodedTx.priority,
-      );
+      raw = isDevice
+        ? await api.prepareDeviceTransaction(...prepareArgs)
+        : await api.prepareTransaction(...prepareArgs);
     } catch (error) {
       throw toXmrUserFacingError(error);
     }
 
-    const result = parseXmrPreparedTransaction(JSON.parse(raw));
+    const result = isDevice
+      ? parseXmrPreparedDeviceTransaction(JSON.parse(raw))
+      : parseXmrPreparedTransaction(JSON.parse(raw));
     if ((await this.xmrPreparedEpoch()) !== privacyEpoch) {
       throw new OneKeyLocalError(
         localWalletText(ETranslations.privacy_error_review_expired__msg),
@@ -625,8 +636,24 @@ export default class Vault extends VaultBase {
     api: IXmrRuntimeApi;
     identityId: string;
   }): Promise<void> {
-    if (!(this.keyring instanceof KeyringHd)) return;
+    const isHardware = this.keyring instanceof KeyringHardware;
+    if (!(this.keyring instanceof KeyringHd) && !isHardware) return;
     if (!(await this.xmrCountOutputsWithoutKeyImage({ api, identityId }))) {
+      return;
+    }
+    if (isHardware) {
+      const deviceParams = checkIsDefined(
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId: accountUtils.getWalletIdFromAccountId({
+            accountId: this.accountId,
+          }),
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        }),
+      );
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        () => this.xmrImportKeyImagesFromDevice({ deviceParams }),
+        { deviceParams, debugMethodName: 'xmr.syncKeyImagesBeforeSend' },
+      );
       return;
     }
     const { password } =
@@ -752,13 +779,22 @@ export default class Vault extends VaultBase {
   ): Promise<ISignedTxPro> {
     const { signedTx } = params;
     const encodedTx = signedTx.encodedTx as IEncodedTxXmr | undefined;
-    if (!encodedTx?.signableHex || !signedTx.rawTx) {
+    const wasBuilt = Boolean(
+      encodedTx?.signableHex || encodedTx?.devicePlanJson,
+    );
+    if (!encodedTx || !wasBuilt || !signedTx.rawTx) {
       throw new OneKeyLocalError(
         localWalletText(ETranslations.privacy_error_review_expired__msg),
       );
     }
 
     const reviewed = parseXmrTransaction(encodedTx);
+    // A device-built transaction is verified against its plan: the device
+    // drew its own output keys, so they cannot be re-derived from a signable.
+    const signable =
+      reviewed.devicePlanJson === undefined
+        ? reviewed.signableHex
+        : reviewed.devicePlanJson;
     const reviewJson = stringUtils.stableStringify(
       getXmrReviewRequest(reviewed, await this.getXmrNetwork()),
     );
@@ -766,7 +802,7 @@ export default class Vault extends VaultBase {
     let verifiedTxid: string;
     try {
       verifiedTxid = await api.verifySignedTransaction(
-        reviewed.signableHex,
+        signable,
         reviewJson,
         signedTx.rawTx,
       );
@@ -800,7 +836,7 @@ export default class Vault extends VaultBase {
               .plus(reviewed.feeAtomic)
               .toFixed(),
             reviewed.changeAtomic,
-            reviewed.signableHex,
+            signable,
             reviewJson,
           );
         } catch (error) {

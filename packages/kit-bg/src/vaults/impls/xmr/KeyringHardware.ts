@@ -1,8 +1,17 @@
+// cspell:ignore clsags
+import { isEqual } from 'lodash';
+
 import { openXmrDeviceKeyImages } from '@onekeyhq/core/src/chains/xmr/deviceKeyImages';
 import type {
   IXmrDeviceKeyImage,
   IXmrKeyImageTransfer,
 } from '@onekeyhq/core/src/chains/xmr/deviceKeyImages';
+import {
+  openXmrDeviceSignatures,
+  parseXmrAssembledTransaction,
+  parseXmrDevicePlan,
+} from '@onekeyhq/core/src/chains/xmr/deviceSigning';
+import { parseXmrTransaction } from '@onekeyhq/core/src/chains/xmr/transactionReview';
 import {
   getXmrSpendPublicKeyFromAddress,
   serializeXmrViewingKeyPair,
@@ -16,6 +25,8 @@ import type {
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -191,11 +202,69 @@ export class KeyringHardware extends KeyringHardwareBase {
     return openXmrDeviceKeyImages(response.payload);
   }
 
+  // The device shows the payment and builds the outputs; the runtime then
+  // assembles the transaction and verifies it against the plan.
   override async signTransaction(
-    _params: ISignTransactionParams,
+    params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    // Device signing is the next stage of Monero hardware support.
-    throw new NotImplemented();
+    const encodedTx = parseXmrTransaction(params.unsignedTx.encodedTx);
+    if (encodedTx.devicePlanJson === undefined) {
+      throw new OneKeyLocalError(
+        'xmr: this transaction was not built for a hardware device',
+      );
+    }
+    const account = await this.vault.getAccount();
+    if (encodedTx.from !== account.address) {
+      throw new OneKeyLocalError(
+        'xmr: transaction sender does not match the signing account',
+      );
+    }
+    const networkType = await this.getNetworkType();
+    const plan = parseXmrDevicePlan(encodedTx.devicePlanJson);
+    const planned = {
+      networkType: plan.networkType,
+      fee: plan.expected.fee,
+      amount: plan.expected.recipientAmount,
+      change: plan.expected.changeAmount,
+    };
+    const reviewed = {
+      networkType,
+      fee: encodedTx.feeAtomic,
+      amount: encodedTx.amountAtomic,
+      change: encodedTx.changeAtomic,
+    };
+    if (!isEqual(planned, reviewed)) {
+      throw new OneKeyLocalError(
+        'xmr: the device signing plan does not match the review',
+      );
+    }
+
+    const { dbDevice, deviceCommonParams } = checkIsDefined(
+      params.deviceParams,
+    );
+    const { connectId, deviceId } = dbDevice;
+    const sdk = await this.getXmrSdk({ connectId });
+    const response = await sdk.moneroSignTransaction(connectId, deviceId, {
+      ...deviceCommonParams,
+      path: account.path,
+      networkType,
+      tsxData: plan.tsxData,
+      inputs: plan.inputs,
+    });
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+    // The opening key stops here; only the opened signatures go on.
+    const { signatures, openingKey, ...parts } = response.payload;
+    const clsags = openXmrDeviceSignatures({ openingKey, signatures });
+    const api = await (this.vault as Vault).getXmrRuntimeApi();
+    const assembled = parseXmrAssembledTransaction(
+      await api.assembleDeviceTransaction(
+        encodedTx.devicePlanJson,
+        stringUtils.stableStringify({ ...parts, clsags }),
+      ),
+    );
+    return { txid: assembled.txid, rawTx: assembled.rawHex, encodedTx };
   }
 
   override async signMessage(

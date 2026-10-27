@@ -1,7 +1,10 @@
+// cspell:ignore clsag clsags subaddr rsig vinis
 import { chacha20poly1305 } from '@noble/ciphers/chacha';
+import { keccak_256 as keccak256 } from '@noble/hashes/sha3';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -30,9 +33,11 @@ const deviceParams = {
 function createKeyring({
   sdk,
   network = 'mainnet',
+  runtime = {},
 }: {
   sdk: Record<string, unknown>;
   network?: 'mainnet' | 'testnet';
+  runtime?: Record<string, unknown>;
 }) {
   jest
     .spyOn(KeyringHardwareBase.prototype, 'getHardwareSDKInstance')
@@ -42,6 +47,7 @@ function createKeyring({
     vault: {
       getXmrNetwork: async () => network,
       getAccount: async () => ({ path: "m/44'/128'/0'", address: ADDRESS }),
+      getXmrRuntimeApi: async () => runtime,
     },
   }) as KeyringHardware;
 }
@@ -346,6 +352,305 @@ describe('Monero KeyringHardware', () => {
           transfers: [transfer],
         } as never),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('signing', () => {
+    const change = {
+      amount: '500000000000',
+      addr: {
+        spend_public_key: 'cc'.repeat(32),
+        view_public_key: 'cd'.repeat(32),
+      },
+      is_subaddress: false,
+      is_integrated: false,
+    };
+    const REAL_MASK = '22'.repeat(32);
+    const plan = {
+      version: 1,
+      networkType: 0,
+      tsxData: {
+        version: 1,
+        client_version: 3,
+        hard_fork: 16,
+        unlock_time: 0,
+        num_inputs: 1,
+        mixin: 15,
+        fee: '30000000',
+        account: 0,
+        minor_indices: [0],
+        outputs: [
+          {
+            amount: '1000000000000',
+            addr: {
+              spend_public_key: 'aa'.repeat(32),
+              view_public_key: 'ab'.repeat(32),
+            },
+            is_subaddress: false,
+            is_integrated: false,
+          },
+          change,
+        ],
+        change_dts: change,
+        rsig_data: { rsig_type: 3, bp_version: 4, grouping: [2] },
+        integrated_indices: [],
+      },
+      inputs: [
+        {
+          outputs: Array.from({ length: 16 }, (_, index) => ({
+            idx: 9_000_000 + index,
+            key: { dest: 'dd'.repeat(32), commitment: 'de'.repeat(32) },
+          })),
+          real_output: 3,
+          real_out_tx_key: '11'.repeat(32),
+          real_out_additional_tx_keys: [],
+          real_output_in_tx_index: 1,
+          amount: '1500030000000',
+          rct: true,
+          mask: REAL_MASK,
+          subaddr_minor: 0,
+        },
+      ],
+      expected: {
+        keyImages: ['33'.repeat(32)],
+        fee: '30000000',
+        recipientAmount: '1000000000000',
+        changeAmount: '500000000000',
+      },
+    };
+    const encodedTx = {
+      from: ADDRESS,
+      to: '4recipient',
+      amount: '1',
+      amountAtomic: '1000000000000',
+      feeAtomic: '30000000',
+      changeAtomic: '500000000000',
+      priority: 'normal',
+      chainTip: 3_767_827,
+      inputCount: 1,
+      devicePlanJson: JSON.stringify(plan),
+    };
+    const openingKey = new Uint8Array(32).fill(3);
+    const clsag = Uint8Array.from([16, ...new Array<number>(32 * 18).fill(9)]);
+
+    // Index 0 of wallet2 compute_sealing_key, written out for the test.
+    function sealForIndexZero(plain: Uint8Array, key: Uint8Array) {
+      const derive = (domain: string) =>
+        keccak256(
+          keccak256(
+            Uint8Array.from([
+              ...key,
+              ...Array.from(domain, (char) => char.charCodeAt(0)),
+              ...new Array<number>(12 - domain.length).fill(0),
+              0,
+              0,
+              0,
+              0,
+            ]),
+          ),
+        );
+      return bufferUtils.bytesToHex(
+        chacha20poly1305(
+          derive('sig-key'),
+          derive('sig-iv').subarray(0, 12),
+        ).encrypt(plain),
+      );
+    }
+    const SEALED = sealForIndexZero(clsag, openingKey);
+
+    const parts = {
+      origIndices: [0],
+      vinis: [`02${'00'.repeat(20)}${'33'.repeat(32)}`],
+      pseudoOuts: ['44'.repeat(32)],
+      txOuts: ['0003'.padEnd(68, '5'), '0003'.padEnd(68, '6')],
+      outPks: ['55'.repeat(64), '56'.repeat(64)],
+      ecdhInfos: ['66'.repeat(8), '67'.repeat(8)],
+      rsig: '77'.repeat(40),
+      extra: `01${'88'.repeat(32)}`,
+      txPrefixHash: '99'.repeat(32),
+      fullMessageHash: 'a9'.repeat(32),
+      rv: { txnFee: '30000000', message: '99'.repeat(32), rvType: 6 },
+    };
+    function signedPayload(overrides: Record<string, unknown> = {}) {
+      return {
+        success: true,
+        payload: {
+          ...parts,
+          signatures: [SEALED],
+          openingKey: bufferUtils.bytesToHex(openingKey),
+          // Not in the contract: must not reach the runtime.
+          txEncKeys: 'ee'.repeat(48),
+          ...overrides,
+        },
+      };
+    }
+
+    function createSigningKeyring({
+      sign,
+      network,
+    }: {
+      sign?: jest.Mock;
+      network?: 'mainnet' | 'testnet';
+    } = {}) {
+      const assembleDeviceTransaction = jest.fn(async () =>
+        JSON.stringify({ txid: 'ab'.repeat(32), rawHex: '0200' }),
+      );
+      const moneroSignTransaction =
+        sign ?? jest.fn().mockResolvedValue(signedPayload());
+      const keyring = createKeyring({
+        sdk: {
+          moneroGetAddress: jest.fn(),
+          moneroGetWatchKey: jest.fn(),
+          moneroSignTransaction,
+        },
+        network,
+        runtime: { assembleDeviceTransaction },
+      });
+      return { keyring, moneroSignTransaction, assembleDeviceTransaction };
+    }
+
+    function signParams(tx: Record<string, unknown> = encodedTx) {
+      return {
+        unsignedTx: { encodedTx: tx },
+        password: '',
+        deviceParams,
+      } as never;
+    }
+
+    it('signs on the device, opens the signatures and has the runtime assemble them', async () => {
+      const { keyring, moneroSignTransaction, assembleDeviceTransaction } =
+        createSigningKeyring();
+
+      await expect(keyring.signTransaction(signParams())).resolves.toEqual({
+        txid: 'ab'.repeat(32),
+        rawTx: '0200',
+        encodedTx,
+      });
+
+      expect(moneroSignTransaction).toHaveBeenCalledWith(
+        'connect-1',
+        'device-1',
+        {
+          passphraseState: 'pp',
+          path: "m/44'/128'/0'",
+          networkType: 0,
+          tsxData: plan.tsxData,
+          inputs: plan.inputs,
+        },
+      );
+      expect(assembleDeviceTransaction).toHaveBeenCalledWith(
+        encodedTx.devicePlanJson,
+        stringUtils.stableStringify({
+          ...parts,
+          clsags: [bufferUtils.bytesToHex(clsag)],
+        }),
+      );
+      expect(moneroSignTransaction.mock.invocationCallOrder[0]).toBeLessThan(
+        assembleDeviceTransaction.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('surfaces a device rejection and assembles nothing', async () => {
+      const { keyring, assembleDeviceTransaction } = createSigningKeyring({
+        sign: jest.fn().mockResolvedValue({
+          success: false,
+          payload: { error: 'Action cancelled by user', code: 803 },
+        }),
+      });
+
+      await expect(keyring.signTransaction(signParams())).rejects.toThrow();
+      expect(assembleDeviceTransaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses signatures that do not open and assembles nothing', async () => {
+      const { keyring, assembleDeviceTransaction } = createSigningKeyring({
+        sign: jest
+          .fn()
+          .mockResolvedValue(signedPayload({ openingKey: '04'.repeat(32) })),
+      });
+
+      await expect(keyring.signTransaction(signParams())).rejects.toThrow(
+        'signature from the device does not open',
+      );
+      expect(assembleDeviceTransaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses a device reply that does not answer the request', async () => {
+      const { keyring, assembleDeviceTransaction } = createSigningKeyring({
+        sign: jest.fn().mockResolvedValue(signedPayload({ origIndices: [1] })),
+      });
+
+      await expect(keyring.signTransaction(signParams())).rejects.toThrow(
+        'malformed hardware signed transaction',
+      );
+      expect(assembleDeviceTransaction).not.toHaveBeenCalled();
+    });
+
+    it('asks for an app update on an SDK that cannot sign', async () => {
+      const assembleDeviceTransaction = jest.fn();
+      const keyring = createKeyring({
+        sdk: { moneroGetAddress: jest.fn(), moneroGetWatchKey: jest.fn() },
+        runtime: { assembleDeviceTransaction },
+      });
+
+      await expect(keyring.signTransaction(signParams())).rejects.toThrow(
+        'cannot sign Monero hardware transactions',
+      );
+      expect(assembleDeviceTransaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses a plan that does not match the review before reaching the device', async () => {
+      const { keyring, moneroSignTransaction } = createSigningKeyring();
+      await expect(
+        keyring.signTransaction(
+          signParams({ ...encodedTx, feeAtomic: '1', amount: '1' }),
+        ),
+      ).rejects.toThrow('does not match the review');
+
+      const testnet = createSigningKeyring({ network: 'testnet' });
+      await expect(
+        testnet.keyring.signTransaction(signParams()),
+      ).rejects.toThrow('does not match the review');
+
+      expect(moneroSignTransaction).not.toHaveBeenCalled();
+      expect(testnet.moneroSignTransaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses a transaction built for software signing', async () => {
+      const { keyring, moneroSignTransaction } = createSigningKeyring();
+      const { devicePlanJson: _plan, ...rest } = encodedTx;
+
+      await expect(
+        keyring.signTransaction(signParams({ ...rest, signableHex: 'aabb' })),
+      ).rejects.toThrow('not built for a hardware device');
+      expect(moneroSignTransaction).not.toHaveBeenCalled();
+    });
+
+    it('logs neither the plan nor the signatures nor the opening key', async () => {
+      const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map(
+        (level) => jest.spyOn(console, level).mockImplementation(() => {}),
+      );
+      await createSigningKeyring().keyring.signTransaction(signParams());
+      await createSigningKeyring({
+        sign: jest
+          .fn()
+          .mockResolvedValue(signedPayload({ openingKey: '04'.repeat(32) })),
+      })
+        .keyring.signTransaction(signParams())
+        .catch(() => undefined);
+
+      const logged = spies
+        .flatMap((spy) => spy.mock.calls)
+        .map((args) => stringUtils.stableStringify(args))
+        .join('\n');
+      for (const secret of [
+        REAL_MASK,
+        SEALED,
+        bufferUtils.bytesToHex(openingKey),
+        bufferUtils.bytesToHex(clsag),
+      ]) {
+        expect(logged).not.toContain(secret);
+      }
     });
   });
 });

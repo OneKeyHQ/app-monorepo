@@ -69,7 +69,8 @@ export type IXmrRuntimeApi = {
   ) => Promise<string>;
   verifyTransaction: (signableHex: string, reviewJson: string) => Promise<void>;
   verifySignedTransaction: (
-    signableHex: string,
+    /** `signableHex`, or the device plan of a hardware send. */
+    signableHexOrDevicePlan: string,
     reviewJson: string,
     rawHex: string,
   ) => Promise<string>;
@@ -87,6 +88,19 @@ export type IXmrRuntimeApi = {
     bip32PrivateKeyHex: string,
     reviewJson: string,
   ) => Promise<string>;
+  /** `prepareTransaction` for a hardware account: returns `devicePlan` (JSON) instead of `signableHex`. The plan holds the real ring members, masks and amounts. */
+  prepareDeviceTransaction: (
+    accountId: string,
+    recipientsJson: string,
+    maxSend: boolean,
+    chainTip: string,
+    priority: IXmrFeePriority,
+  ) => Promise<string>;
+  /** Builds and verifies the device's transaction against its plan; returns `{ txid, rawHex }`. */
+  assembleDeviceTransaction: (
+    devicePlanJson: string,
+    signedJson: string,
+  ) => Promise<string>;
   broadcastTransaction: (
     accountId: string,
     rawHex: string,
@@ -94,7 +108,8 @@ export type IXmrRuntimeApi = {
     outgoingAtomic: string | undefined,
     /** Change, counted in the total (locked) until the send is mined. */
     changeAtomic: string | undefined,
-    signableHex: string,
+    /** `signableHex`, or the device plan of a hardware send. */
+    signableHexOrDevicePlan: string,
     reviewJson: string,
   ) => Promise<string>;
 
