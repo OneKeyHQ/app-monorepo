@@ -188,8 +188,12 @@ it('expands both networks, and pausing closes the light at once', async () => {
     screen.getByTestId('privacy-chain-sync-network-xmr--0').textContent,
   ).toContain('Monero');
   expect(
-    screen.getByTestId('privacy-chain-sync-light-detail-xmr--0').textContent,
+    screen.getByTestId('privacy-chain-sync-network-xmr--0').textContent,
   ).toContain('40.0%');
+  // The summary already shows the percentage; the detail line adds the blocks.
+  expect(
+    screen.getByTestId('privacy-chain-sync-light-detail-xmr--0').textContent,
+  ).not.toContain('40.0%');
   await act(async () => {
     fireEvent.click(screen.getByTestId('privacy-chain-sync-light-pause-btn'));
   });
@@ -261,7 +265,7 @@ it('keeps detailed progress collapsed and expands it on demand', async () => {
   });
   expect(
     screen.getByTestId('privacy-chain-sync-light-detail').textContent,
-  ).toContain('10.7%');
+  ).toBe('107 / 1,000');
   fireEvent.click(screen.getByTestId('privacy-chain-sync-light-pause-btn'));
   expect(mockPause).toHaveBeenCalledWith({ networkId: 'zec--0' });
 });

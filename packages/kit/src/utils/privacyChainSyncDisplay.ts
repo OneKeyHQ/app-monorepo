@@ -234,16 +234,18 @@ export function getPrivacyChainScanRegionLabelId(
 type ILocalWalletSettings = NonNullable<IVaultSettings['localWallet']>;
 
 // Roomy surfaces: blocks, percentage and time left (when known) while backfilling; scanned and
-// chain heights once caught up.
+// chain heights once caught up. `blocksOnly` leaves out what a summary line above already shows.
 export function formatPrivacyChainSyncDetail({
   progress,
   settings,
   stopped = false,
+  blocksOnly = false,
   intl,
 }: {
   progress: ILocalWalletSyncProgress | null | undefined;
   settings: ILocalWalletSettings | undefined;
   stopped?: boolean;
+  blocksOnly?: boolean;
   intl: Pick<IntlShape, 'formatMessage'>;
 }): string | null {
   if (!progress) return null;
@@ -270,9 +272,9 @@ export function formatPrivacyChainSyncDetail({
       formatPrivacyChainSyncProgress({
         scanned,
         target: progress.backfillTargetHeight,
-        progress: progress.backfillProgress,
+        progress: blocksOnly ? undefined : progress.backfillProgress,
       }),
-      formatPrivacyChainTimeLeft({ progress, stopped }),
+      blocksOnly ? '' : formatPrivacyChainTimeLeft({ progress, stopped }),
       regionLabelId ? intl.formatMessage({ id: regionLabelId }) : '',
     ]
       .filter(Boolean)

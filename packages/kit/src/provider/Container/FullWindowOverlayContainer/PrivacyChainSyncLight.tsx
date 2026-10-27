@@ -127,6 +127,7 @@ function PrivacyChainSyncNetwork({
           id: ETranslations.privacy_sync_on_mobile_data__msg,
         })
       : '';
+  const isSyncing = labelId === ETranslations.global_syncing;
   const detailLine =
     syncErrorText ??
     [
@@ -134,6 +135,8 @@ function PrivacyChainSyncNetwork({
         progress: entry,
         settings: localWalletSettings,
         stopped: isPaused || isHeldByData,
+        // The summary line already shows the percentage and time left.
+        blocksOnly: isSyncing,
         intl,
       }),
       connection,
@@ -145,7 +148,7 @@ function PrivacyChainSyncNetwork({
     : formatPrivacyChainSyncSummary({
         label: stateLabel,
         progress: entry,
-        syncing: labelId === ETranslations.global_syncing,
+        syncing: isSyncing,
       });
   let lightIcon: IKeyOfIcons = 'RefreshCcwOutline';
   let lightIconColor: IIconProps['color'] = isRunning
