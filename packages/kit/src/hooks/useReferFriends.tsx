@@ -251,11 +251,14 @@ export const useReferFriends = () => {
   );
 };
 
-// The activity hub's one referral entry names no tab, so the page reopens
-// the tab the user last left: invite for sharing, Perks for rewards.
+// Opens the referral page from an activity hub. Without a tab the page
+// reopens the one the user last left.
 export function useOpenReferralPage() {
   const { toReferFriendsPage } = useReferFriends();
-  return useCallback(() => {
-    void toReferFriendsPage({ perksEntry: 'activity_hub' });
-  }, [toReferFriendsPage]);
+  return useCallback(
+    (tab?: IReferralPageTab) => {
+      void toReferFriendsPage({ tab, perksEntry: 'activity_hub' });
+    },
+    [toReferFriendsPage],
+  );
 }

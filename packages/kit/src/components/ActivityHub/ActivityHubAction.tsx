@@ -9,9 +9,13 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { getActivityHubLayout } from './layout';
+import { ACTIVITY_HUB_PANEL_WIDTH } from './layout';
 
-import type { IActivityHubCampaign, IActivityHubSource } from './types';
+import type {
+  IActivityHubCampaign,
+  IActivityHubOpenReferral,
+  IActivityHubSource,
+} from './types';
 
 const LazyActivityHubContent = LazyLoad(async () => {
   const { ActivityHubContent } = await import('./ActivityHubContent');
@@ -31,7 +35,7 @@ export function ActivityHubAction({
 }: {
   source: IActivityHubSource;
   size?: IButtonProps['size'];
-  onOpenReferral: () => void;
+  onOpenReferral: IActivityHubOpenReferral;
   campaigns?: IActivityHubCampaign[];
   renderTrigger?: ReactNode;
   open?: boolean;
@@ -49,14 +53,13 @@ export function ActivityHubAction({
   });
   const hasCampaigns = Boolean(campaigns?.length);
   // Native popovers always Adapt to a Sheet, so floatingPanelProps.width is a
-  // no-op there. Compact tiles belong only to the desktop 208px floating panel.
+  // no-op there.
   const isDesktopFloatingPanel = gtMd && !platformEnv.isNative;
-  const isCompactPanel = isDesktopFloatingPanel && !hasCampaigns;
-  const { panelWidth } = getActivityHubLayout(hasCampaigns);
 
-  // Without campaigns the hub would hold only the referral entry, so the
-  // gift opens the referral page itself instead of a one-item popover.
-  if (!hasCampaigns && !renderTrigger) {
+  // A native hub without campaigns would hold only the referral entry, so the
+  // gift opens the referral page itself instead of a one-item sheet. Pointer
+  // layouts keep the popover: it holds the code and link to copy.
+  if (platformEnv.isNative && !hasCampaigns && !renderTrigger) {
     return (
       <HeaderIconButton
         title={intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend })}
@@ -64,7 +67,7 @@ export function ActivityHubAction({
         size={size}
         testID={testID}
         {...triggerProps}
-        onPress={onOpenReferral}
+        onPress={() => onOpenReferral()}
       />
     );
   }
@@ -77,7 +80,7 @@ export function ActivityHubAction({
       showHeader={!gtMd}
       placement="bottom-end"
       floatingPanelProps={{
-        width: isDesktopFloatingPanel ? panelWidth : undefined,
+        width: isDesktopFloatingPanel ? ACTIVITY_HUB_PANEL_WIDTH : undefined,
       }}
       sheetProps={
         gtMd
@@ -101,7 +104,6 @@ export function ActivityHubAction({
         <LazyActivityHubContent
           source={source}
           closePopover={closePopover}
-          isCompactPanel={isCompactPanel}
           onOpenReferral={onOpenReferral}
           campaigns={campaigns}
         />

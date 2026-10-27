@@ -40,6 +40,7 @@ import {
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
@@ -379,7 +380,7 @@ const SwapSettingsDialogContent = ({
   swapType,
 }: {
   activityHubAction?: {
-    onOpenReferral: () => void;
+    onOpenReferral: IActivityHubOpenReferral;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
   swapType?: ESwapTabSwitchType;
@@ -875,7 +876,7 @@ type ISwapSettingsHeaderButtonProps = {
   compact?: boolean;
   showCustomSlippageValue?: boolean;
   activityHubAction?: {
-    onOpenReferral: () => void;
+    onOpenReferral: IActivityHubOpenReferral;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
 };

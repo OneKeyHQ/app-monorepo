@@ -90,6 +90,27 @@ export function getOneKeyWebUrl(env: IEndpointEnv): string {
   return env === 'prod' ? ONEKEY_URL : ONEKEY_TEST_URL;
 }
 
+export type IReferralShareSource = 'Earn' | 'Perps' | 'Swap';
+
+const REFERRAL_LANDING_PATH: Record<IReferralShareSource, string> = {
+  Earn: '/app/defi',
+  Perps: '/app/perps',
+  Swap: '/app/swap',
+};
+
+export function buildReferralUrl({
+  code,
+  source,
+  env = 'prod',
+}: {
+  code: string;
+  source: IReferralShareSource;
+  env?: IEndpointEnv;
+}): string {
+  const baseUrl = getWebAppUrl(env);
+  return `${baseUrl}/r/${code}${REFERRAL_LANDING_PATH[source]}`;
+}
+
 export const APP_STORE_APP_ID = '1609559473';
 const APP_STORE_BASE_LINK = `itms-apps://apps.apple.com/app/id${APP_STORE_APP_ID}`;
 export const APP_STORE_LINK = `${APP_STORE_BASE_LINK}?action=write-review`;

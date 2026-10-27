@@ -21,6 +21,17 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+const mockShowActivityHub = jest.fn();
+
+jest.mock('@onekeyhq/kit/src/components/ActivityHub', () => ({
+  useShowActivityHub: () => mockShowActivityHub,
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false },
+}));
+
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
   ListItem: ({
     onPress,
@@ -38,6 +49,7 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
 }));
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SwapTestIDs } from '../../testIDs';
 
@@ -50,9 +62,34 @@ function getCloseMock() {
 describe('SwapActivityHubSettingsItem', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    platformEnv.isNative = false;
   });
 
-  it('closes the settings sheet before opening the referral page', async () => {
+  it('closes the settings sheet before opening the hub on pointer layouts', async () => {
+    const close = getCloseMock();
+    const onOpenReferral = jest.fn();
+
+    render(<SwapActivityHubSettingsItem onOpenReferral={onOpenReferral} />);
+
+    const entry = screen.getByTestId(SwapTestIDs.activityHubSettingsItem);
+    expect(entry.textContent).toBe(ETranslations.perps_activity_hub);
+
+    fireEvent.click(entry);
+
+    await waitFor(() => {
+      expect(mockShowActivityHub).toHaveBeenCalledWith({
+        source: 'Swap',
+        onOpenReferral,
+      });
+    });
+    expect(close.mock.invocationCallOrder[0]).toBeLessThan(
+      mockShowActivityHub.mock.invocationCallOrder[0],
+    );
+    expect(onOpenReferral).not.toHaveBeenCalled();
+  });
+
+  it('closes the settings sheet before opening the referral page on native', async () => {
+    platformEnv.isNative = true;
     const close = getCloseMock();
     const onOpenReferral = jest.fn();
 
@@ -68,6 +105,7 @@ describe('SwapActivityHubSettingsItem', () => {
     await waitFor(() => {
       expect(onOpenReferral).toHaveBeenCalledTimes(1);
     });
+    expect(mockShowActivityHub).not.toHaveBeenCalled();
     expect(close).toHaveBeenCalledTimes(1);
     expect(close.mock.invocationCallOrder[0]).toBeLessThan(
       onOpenReferral.mock.invocationCallOrder[0],

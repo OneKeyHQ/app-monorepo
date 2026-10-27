@@ -106,6 +106,22 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   },
 }));
 
+jest.mock('./ActivityHubInvitePanel', () => ({
+  ActivityHubInvitePanel: ({
+    onOpenReferral,
+  }: {
+    onOpenReferral: (tab: 'invite' | 'benefits') => void;
+  }) => (
+    <button
+      data-testid="activity-hub-open-perks"
+      onClick={() => onOpenReferral('benefits')}
+      type="button"
+    >
+      perks
+    </button>
+  ),
+}));
+
 jest.mock(
   '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json',
   () => ({}),
@@ -120,7 +136,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ActivityHubAction } from './ActivityHubAction';
 import { ActivityHubContent } from './ActivityHubContent';
-import { getActivityHubLayout } from './layout';
+import { ACTIVITY_HUB_PANEL_WIDTH, ACTIVITY_HUB_SHORTCUT_BASIS } from './layout';
 
 import type { IActivityHubCampaign } from './types';
 
@@ -146,7 +162,8 @@ describe('ActivityHubContent', () => {
     platformEnv.isNative = false;
   });
 
-  it('opens the referral page after the host closes', async () => {
+  it('opens the referral page from the native tile after the host closes', async () => {
+    platformEnv.isNative = true;
     let resolveClose: (() => void) | undefined;
     const closePopover = jest.fn(
       () =>
@@ -183,6 +200,7 @@ describe('ActivityHubContent', () => {
       Promise.reject(new OverlayCloseCancelledError('reopened')),
     );
     const onOpenReferral = jest.fn();
+    platformEnv.isNative = true;
     render(
       <ActivityHubContent
         source="Swap"
@@ -197,7 +215,36 @@ describe('ActivityHubContent', () => {
     expect(onOpenReferral).not.toHaveBeenCalled();
   });
 
-  it('opens the referral page from the gift when there are no campaigns', () => {
+  it('shows the invite panel instead of the tile on pointer layouts', async () => {
+    let resolveClose: (() => void) | undefined;
+    const closePopover = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveClose = resolve;
+        }),
+    );
+    const onOpenReferral = jest.fn();
+    render(
+      <ActivityHubContent
+        source="Earn"
+        closePopover={closePopover}
+        onOpenReferral={onOpenReferral}
+      />,
+    );
+
+    expect(screen.queryByTestId('activity-hub-referral')).toBeNull();
+    fireEvent.click(screen.getByTestId('activity-hub-open-perks'));
+    expect(closePopover).toHaveBeenCalledTimes(1);
+    expect(onOpenReferral).not.toHaveBeenCalled();
+
+    resolveClose?.();
+    await waitFor(() =>
+      expect(onOpenReferral).toHaveBeenCalledWith('benefits'),
+    );
+  });
+
+  it('opens the referral page from the native gift when there are no campaigns', () => {
+    platformEnv.isNative = true;
     const onOpenReferral = jest.fn();
     render(<ActivityHubAction source="Earn" onOpenReferral={onOpenReferral} />);
 
@@ -209,7 +256,43 @@ describe('ActivityHubContent', () => {
     expect(onOpenReferral).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the popover when there are campaigns', () => {
+  it.each([
+    {
+      host: 'the desktop popover without campaigns',
+      isNative: false,
+      campaigns: undefined,
+      width: ACTIVITY_HUB_PANEL_WIDTH,
+    },
+    {
+      host: 'the desktop popover with campaign cards',
+      isNative: false,
+      campaigns: CAMPAIGNS,
+      width: ACTIVITY_HUB_PANEL_WIDTH,
+    },
+    {
+      // Native popovers always Adapt to a Sheet that no floatingPanelProps
+      // width can narrow.
+      host: 'the native sheet with campaign cards',
+      isNative: true,
+      campaigns: CAMPAIGNS,
+      width: undefined,
+    },
+  ])('opens $host', ({ isNative, campaigns, width }) => {
+    platformEnv.isNative = isNative;
+
+    render(
+      <ActivityHubAction
+        source="Perps"
+        onOpenReferral={jest.fn()}
+        campaigns={campaigns}
+      />,
+    );
+
+    expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({ width });
+  });
+
+  it('keeps the native tiles four to a row', async () => {
+    platformEnv.isNative = true;
     render(
       <ActivityHubAction
         source="Perps"
@@ -217,65 +300,10 @@ describe('ActivityHubContent', () => {
         campaigns={CAMPAIGNS}
       />,
     );
-    expect(mockPopoverFloatingPanelProps).toHaveBeenCalled();
-  });
 
-  it.each([
-    {
-      host: 'the shortcut-only popover',
-      isNative: false,
-      campaigns: undefined,
-      width: getActivityHubLayout(false).panelWidth,
-      basis: getActivityHubLayout(false).shortcutBasis,
-    },
-    {
-      host: 'the popover with campaign cards',
-      isNative: false,
-      campaigns: CAMPAIGNS,
-      width: getActivityHubLayout(true).panelWidth,
-      basis: getActivityHubLayout(true).shortcutBasis,
-    },
-    {
-      // Native popovers always Adapt to a Sheet that no floatingPanelProps
-      // width can narrow, so the tiles have to keep the wide-panel basis.
-      host: 'the native sheet',
-      isNative: true,
-      campaigns: undefined,
-      width: undefined,
-      basis: getActivityHubLayout(true).shortcutBasis,
-    },
-  ])(
-    'pairs the width and tile basis of $host',
-    async ({ isNative, campaigns, width, basis }) => {
-      platformEnv.isNative = isNative;
-
-      render(
-        <ActivityHubAction
-          source="Perps"
-          onOpenReferral={jest.fn()}
-          renderTrigger={<div />}
-          campaigns={campaigns}
-        />,
-      );
-
-      expect(mockPopoverFloatingPanelProps).toHaveBeenLastCalledWith({ width });
-      await waitFor(() => expect(getShortcutBasis()).toBe(basis));
-    },
-  );
-
-  it('narrows the tile basis only when the host marks the panel compact', () => {
-    const props = {
-      source: 'Earn',
-      closePopover: jest.fn(),
-      onOpenReferral: jest.fn(),
-    } as const;
-    const { rerender } = render(<ActivityHubContent {...props} />);
-
-    expect(getShortcutBasis()).toBe(getActivityHubLayout(true).shortcutBasis);
-
-    rerender(<ActivityHubContent {...props} isCompactPanel />);
-
-    expect(getShortcutBasis()).toBe(getActivityHubLayout(false).shortcutBasis);
+    await waitFor(() =>
+      expect(getShortcutBasis()).toBe(ACTIVITY_HUB_SHORTCUT_BASIS),
+    );
   });
 
   it('opens a campaign link without waiting for the close outside native', async () => {

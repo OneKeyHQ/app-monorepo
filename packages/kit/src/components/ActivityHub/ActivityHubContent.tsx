@@ -24,9 +24,14 @@ import {
   ActivityShortcutCard,
   MENU_SHORTCUT_GRID_PROPS,
 } from './ActivityShortcutCard';
-import { getActivityHubLayout } from './layout';
+import { ActivityHubInvitePanel } from './ActivityHubInvitePanel';
+import { ACTIVITY_HUB_SHORTCUT_BASIS } from './layout';
 
-import type { IActivityHubCampaign, IActivityHubSource } from './types';
+import type {
+  IActivityHubCampaign,
+  IActivityHubOpenReferral,
+  IActivityHubSource,
+} from './types';
 
 const EMPTY_ACTIVITY_HUB_CAMPAIGNS: IActivityHubCampaign[] = [];
 
@@ -174,7 +179,6 @@ export function ActivityHubContent({
   source,
   closePopover,
   showTitle = true,
-  isCompactPanel = false,
   menuLayout = false,
   menuPopoverLayout = false,
   campaignFallbackIllustration,
@@ -184,13 +188,10 @@ export function ActivityHubContent({
   source: IActivityHubSource;
   closePopover: () => void | Promise<void>;
   showTitle?: boolean;
-  // True only for a 208px floating popover/dialog. Sheets and in-panel embeds
-  // leave this unset so tiles keep the 25% basis.
-  isCompactPanel?: boolean;
   menuLayout?: boolean;
   menuPopoverLayout?: boolean;
   campaignFallbackIllustration?: ReactNode;
-  onOpenReferral: () => void;
+  onOpenReferral: IActivityHubOpenReferral;
   campaigns?: IActivityHubCampaign[];
 }) {
   const intl = useIntl();
@@ -208,11 +209,10 @@ export function ActivityHubContent({
     themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark;
   const campaignCount = campaignItems.length;
   const hasCampaigns = campaignCount > 0;
-  // Campaigns still force the 4-column row. Compact is an explicit host signal,
-  // not gtMd: native popovers are sheets and Perps embeds sit in a wide panel.
-  const { shortcutBasis } = getActivityHubLayout(
-    hasCampaigns || !isCompactPanel,
-  );
+  // Native has no Referral tab, so its hub links to the page; pointer layouts
+  // have one in the sidebar and show the code and link to copy instead. The
+  // Perps menu lists the entry like its other menu items.
+  const showInvitePanel = !platformEnv.isNative && !menuLayout;
 
   return (
     <YStack mb={menuLayout ? '$0' : '$2'}>
@@ -228,40 +228,51 @@ export function ActivityHubContent({
         pt={menuLayout ? '$0' : topPadding}
         pb={menuLayout ? '$0' : '$3.5'}
       >
-        <XStack
-          width="100%"
-          flexWrap="nowrap"
-          {...(menuLayout ? MENU_SHORTCUT_GRID_PROPS : {})}
-          {...(menuLayout && menuPopoverLayout
-            ? {
-                px: '$2',
-                pt: '$2.5',
-                flexDirection: 'column',
-                flexWrap: 'nowrap',
-                alignItems: 'stretch',
-              }
-            : {})}
-        >
-          {/* One entry for both sides of referrals, named like the page it
-              opens; the page reopens whichever tab was used last. */}
-          <ActivityShortcutCard
-            testID="activity-hub-referral"
-            flexBasis={
-              menuLayout && menuPopoverLayout ? '33.333333%' : shortcutBasis
-            }
-            showIconBackground={showIconBackground}
-            menuLayout={menuLayout}
-            listLayout={menuLayout && menuPopoverLayout}
-            iconName={menuLayout ? 'GiftOutline' : undefined}
-            lottieSrc={menuLayout ? undefined : giftAnimation}
-            title={intl.formatMessage({
-              id: ETranslations.sidebar_refer_a_friend,
-            })}
-            onPress={() => {
-              closeThenRun(closePopover, onOpenReferral);
+        {showInvitePanel ? (
+          <ActivityHubInvitePanel
+            source={source}
+            onOpenReferral={(tab) => {
+              closeThenRun(closePopover, () => onOpenReferral(tab));
             }}
           />
-        </XStack>
+        ) : (
+          <XStack
+            width="100%"
+            flexWrap="nowrap"
+            {...(menuLayout ? MENU_SHORTCUT_GRID_PROPS : {})}
+            {...(menuLayout && menuPopoverLayout
+              ? {
+                  px: '$2',
+                  pt: '$2.5',
+                  flexDirection: 'column',
+                  flexWrap: 'nowrap',
+                  alignItems: 'stretch',
+                }
+              : {})}
+          >
+            {/* One entry for both sides of referrals, named like the page it
+                opens; the page reopens whichever tab was used last. */}
+            <ActivityShortcutCard
+              testID="activity-hub-referral"
+              flexBasis={
+                menuLayout && menuPopoverLayout
+                  ? '33.333333%'
+                  : ACTIVITY_HUB_SHORTCUT_BASIS
+              }
+              showIconBackground={showIconBackground}
+              menuLayout={menuLayout}
+              listLayout={menuLayout && menuPopoverLayout}
+              iconName={menuLayout ? 'GiftOutline' : undefined}
+              lottieSrc={menuLayout ? undefined : giftAnimation}
+              title={intl.formatMessage({
+                id: ETranslations.sidebar_refer_a_friend,
+              })}
+              onPress={() => {
+                closeThenRun(closePopover, () => onOpenReferral());
+              }}
+            />
+          </XStack>
+        )}
         {hasCampaigns ? (
           <YStack
             gap="$2.5"
