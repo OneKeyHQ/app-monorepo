@@ -18,7 +18,6 @@ import type { IXStackProps } from '@onekeyhq/components';
 import { BROWSER_CHROME_CAPSULE_HEIGHT } from '../../config/Animation.constants';
 import { usePageBottomColor } from '../../utils/pageThemeColor';
 
-import type { StyleProp, ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 export const PILL_RADIUS = 9999;
@@ -32,7 +31,10 @@ export function PageBottomColorFill({
   style,
 }: {
   tabId: string | null | undefined;
-  style: StyleProp<ViewStyle>;
+  // Derived from Stack itself, so React Native's own StyleProp (which since
+  // 0.88 also allows `void`, unlike Tamagui's copy) can't widen it past what
+  // the component accepts.
+  style: ComponentProps<typeof Stack>['style'];
 }) {
   const bottomColor = usePageBottomColor(tabId);
   // The color goes in through bg, so the caller's style passes through as
