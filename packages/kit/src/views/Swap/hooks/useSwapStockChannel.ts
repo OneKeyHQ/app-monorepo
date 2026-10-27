@@ -111,6 +111,7 @@ export function useSwapStockChannel(
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const {
     selectStockExecutionTokens,
+    beginStockRecentTokenPairPick,
     markRecentTokenPairSelection,
     endRecentTokenPairAttribution,
   } = useSwapActions().current;
@@ -324,7 +325,6 @@ export function useSwapStockChannel(
           ? flaggedStockToken
           : nextPayToken;
 
-      const syncId = nextStockExecutionTokenSyncId();
       await selectStockExecutionTokens({
         fromToken: nextFromToken,
         toToken: nextToToken,
@@ -332,9 +332,8 @@ export function useSwapStockChannel(
           nextTradeSide === ESwapStockTradeSide.Buy && !nextPayToken,
         clearToToken:
           nextTradeSide === ESwapStockTradeSide.Sell && !nextPayToken,
-        syncId,
+        syncId: nextStockExecutionTokenSyncId(),
       });
-      return syncId;
     },
     [
       currentStockToken,
@@ -710,6 +709,7 @@ export function useSwapStockChannel(
       fromToken: ISwapToken;
       toToken: ISwapToken;
     }) => {
+      const generation = beginStockRecentTokenPairPick();
       const isFromTokenPayToken =
         filterStockPayTokenCandidates([pairFromToken]).length > 0;
       const isToTokenPayToken =
@@ -734,14 +734,15 @@ export function useSwapStockChannel(
       manualStockPayTokenKeyRef.current = getTokenIdentityKey(nextPayToken);
       setPayTokenState(nextPayToken);
       payTokenSnapshotRef.current = nextPayToken;
-      const syncId = await syncStockExecutionTokens({
+      await syncStockExecutionTokens({
         nextTradeSide,
         stockToken: nextStockToken,
         payToken: nextPayToken,
       });
-      markRecentTokenPairSelection({ syncId });
+      markRecentTokenPairSelection({ generation });
     },
     [
+      beginStockRecentTokenPairPick,
       markRecentTokenPairSelection,
       resetStockTradeAmounts,
       setStockSelectedToken,

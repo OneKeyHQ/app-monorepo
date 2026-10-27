@@ -174,6 +174,7 @@ import {
   swapQuoteFetchingAtom,
   swapQuoteIntervalCountAtom,
   swapQuoteListAtom,
+  swapRecentTokenPairPickGenerationAtom,
   swapRecentTokenPairSelectionAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
@@ -1178,15 +1179,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  // Records the pair a Stock "Recent trades" sync applied. Stock normalizes the
-  // picked tokens, so it records after syncing, and only if no newer sync
-  // (a manual pick) has replaced it meanwhile.
+  // A Stock "Recent trades" pick claims a generation before it syncs, and
+  // records the synced execution pair afterwards (Stock normalizes the picked
+  // tokens) only if no user pick has claimed a newer generation meanwhile.
+  beginStockRecentTokenPairPick = contextAtomMethod((get, set) => {
+    const generation = get(swapRecentTokenPairPickGenerationAtom()) + 1;
+    set(swapRecentTokenPairPickGenerationAtom(), generation);
+    return generation;
+  });
+
   markRecentTokenPairSelection = contextAtomMethod(
-    (get, set, { syncId }: { syncId: number }) => {
+    (get, set, { generation }: { generation: number }) => {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       if (
-        get(swapStockExecutionTokenSyncIdAtom()) === syncId &&
+        get(swapRecentTokenPairPickGenerationAtom()) === generation &&
         fromToken &&
         toToken
       ) {
@@ -1198,6 +1205,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   // Stock picks go through selectStockExecutionTokens, which also runs for
   // automatic syncs, so manual Stock picks end the attribution explicitly.
   endRecentTokenPairAttribution = contextAtomMethod((get, set) => {
+    set(
+      swapRecentTokenPairPickGenerationAtom(),
+      get(swapRecentTokenPairPickGenerationAtom()) + 1,
+    );
     set(swapRecentTokenPairSelectionAtom(), undefined);
   });
 
@@ -4944,6 +4955,8 @@ export const useSwapActions = () => {
   const selectFromToken = actions.selectFromToken.use();
   const selectToToken = actions.selectToToken.use();
   const selectRecentTokenPair = actions.selectRecentTokenPair.use();
+  const beginStockRecentTokenPairPick =
+    actions.beginStockRecentTokenPairPick.use();
   const markRecentTokenPairSelection =
     actions.markRecentTokenPairSelection.use();
   const endRecentTokenPairAttribution =
@@ -5003,6 +5016,7 @@ export const useSwapActions = () => {
     requireManualQuoteRefresh,
     selectToToken,
     selectRecentTokenPair,
+    beginStockRecentTokenPairPick,
     markRecentTokenPairSelection,
     endRecentTokenPairAttribution,
     selectStockExecutionTokens,

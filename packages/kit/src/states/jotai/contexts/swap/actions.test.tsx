@@ -10190,27 +10190,33 @@ describe('Recent trades attribution', () => {
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
 
-  it('records a Stock pick only while its sync is current', () => {
+  it('records a Stock pick unless a user pick superseded it', () => {
     const { store, actions } = renderActions();
     act(() => {
       store.set(swapSelectFromTokenAtom(), usdcToken);
       store.set(swapSelectToTokenAtom(), usdtToken);
-      store.set(swapStockExecutionTokenSyncIdAtom(), 2);
-      actions.markRecentTokenPairSelection({ syncId: 1 });
     });
-    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+
+    let generation = 0;
     act(() => {
-      actions.markRecentTokenPairSelection({ syncId: 2 });
+      generation = actions.beginStockRecentTokenPairPick();
+      // An automatic sync landing meanwhile does not supersede the pick.
+      store.set(swapStockExecutionTokenSyncIdAtom(), 99);
+      actions.markRecentTokenPairSelection({ generation });
     });
     expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual({
       fromToken: usdcToken,
       toToken: usdtToken,
     });
+
     act(() => {
+      generation = actions.beginStockRecentTokenPairPick();
       actions.endRecentTokenPairAttribution();
+      actions.markRecentTokenPairSelection({ generation });
     });
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
+
   it('ends the attribution when switching tabs away and back', async () => {
     const { store, Wrapper } = createWrapperWithStore((instance) => {
       instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);

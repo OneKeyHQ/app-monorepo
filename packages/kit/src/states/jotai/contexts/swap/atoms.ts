@@ -253,6 +253,11 @@ export const { atom: swapRecentTokenPairSelectionAtom } = contextAtom<
   ISwapTokenPair | undefined
 >(undefined);
 
+// Bumped by every user token pick (not by automatic syncs), so a Stock
+// "Recent trades" pick still waiting on its sync knows if it was superseded.
+export const { atom: swapRecentTokenPairPickGenerationAtom } =
+  contextAtom<number>(0);
+
 export const {
   atom: swapLastNonLimitSelectedTokensAtom,
   use: useSwapLastNonLimitSelectedTokensAtom,
