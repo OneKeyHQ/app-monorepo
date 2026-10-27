@@ -13,33 +13,25 @@ import {
   usePrivacyChainPoolDisplayAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/privacyChainPool';
 import {
-  formatPrivacyChainRemainingBlocks,
+  formatPrivacyChainSyncDetail,
   formatPrivacyChainSyncError,
-  formatPrivacyChainSyncProgress,
-  getPrivacyChainScanRegionLabelId,
-  getPrivacyChainSyncLabel,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ILocalWalletAccountAddresses,
   ILocalWalletAccountState,
   ILocalWalletPoolBalance,
-  ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDistanceStrict } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getLocalWalletPoolDisplayAddress } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import {
   PRIVACY_CHAIN_SYNC_POLL_MS,
   PRIVACY_CHAIN_TIP_POLL_MS,
-  isTipLagWorthMentioning,
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-
-import type { IntlShape } from 'react-intl';
 
 type ILocalWalletSettings = NonNullable<IVaultSettings['localWallet']>;
 
@@ -73,108 +65,6 @@ export function resolveSelectedPoolId({
   const pool =
     settings.pools.find((item) => item.isDefaultPrivate) ?? settings.pools[0];
   return pool?.id;
-}
-
-function formatSeconds(seconds: number, addSuffix: boolean): string {
-  const now = Date.now();
-  return formatDistanceStrict(
-    now + seconds * 1000,
-    now,
-    addSuffix,
-    addSuffix ? 'round' : 'ceil',
-  );
-}
-
-function formatEtaSuffix(
-  remainingBlocks: number,
-  blocksPerSec: number | null,
-): string {
-  if (!blocksPerSec || blocksPerSec <= 0 || remainingBlocks <= 0) return '';
-  return ` · ~${formatSeconds(remainingBlocks / blocksPerSec, false)}`;
-}
-
-function formatBehind(lagBlocks: number, blockTimeSeconds: number): string {
-  return formatSeconds(-lagBlocks * blockTimeSeconds, true);
-}
-
-export function buildLocalWalletSyncStatusText({
-  syncProgress,
-  settings,
-  scanRatePerSec,
-  intl,
-}: {
-  syncProgress: ILocalWalletSyncProgress | null | undefined;
-  settings: ILocalWalletSettings | undefined;
-  scanRatePerSec: number | null;
-  intl: IntlShape;
-}): string | null {
-  if (!syncProgress) return null;
-  const heightsPresent = [
-    syncProgress.backfillScannedHeight,
-    syncProgress.backfillTargetHeight,
-    syncProgress.tipScannedHeight,
-    syncProgress.chainTip,
-  ].some((height) => typeof height === 'number');
-  if (!heightsPresent) {
-    return syncProgress.isSyncing
-      ? intl.formatMessage({ id: ETranslations.global_preparing })
-      : null;
-  }
-
-  // A chain has no finish line; only backfill does, so only backfill shows a percentage/ETA.
-  if (!syncProgress.isBackfillComplete) {
-    const scanned = syncProgress.backfillScannedHeight;
-    const target = syncProgress.backfillTargetHeight;
-    const hasHeights =
-      typeof scanned === 'number' && typeof target === 'number';
-    const remaining =
-      syncProgress.backfillRemainingBlocks ??
-      (hasHeights ? Math.max(0, target - scanned) : 0);
-    const regionLabelId = getPrivacyChainScanRegionLabelId(
-      settings?.scanRegionHints,
-      scanned,
-    );
-    const regionText = regionLabelId
-      ? ` · ${intl.formatMessage({ id: regionLabelId })}`
-      : '';
-    const eta = formatEtaSuffix(remaining, scanRatePerSec);
-    const remainingText = eta
-      ? ''
-      : formatPrivacyChainRemainingBlocks(syncProgress, intl);
-    const line =
-      formatPrivacyChainSyncProgress({
-        scanned,
-        target,
-        progress: syncProgress.backfillProgress,
-      }) +
-      (remainingText ? ` · ${remainingText}` : '') +
-      regionText +
-      eta;
-    return (
-      line ||
-      intl.formatMessage({
-        id: getPrivacyChainSyncLabel({ backfilling: true }),
-      })
-    );
-  }
-  // Caught up, not finished: a chain never says "up to date". Heights are safe to show here,
-  // since every account sits at the same tip once backfill is done.
-  const at = syncProgress.tipScannedHeight;
-  const tip = syncProgress.chainTip;
-  const heights = formatPrivacyChainSyncProgress({ scanned: at, target: tip });
-  const lag = syncProgress.tipLag;
-  const behind =
-    isTipLagWorthMentioning(
-      lag,
-      settings?.tipLagWarningBlocks ?? Number.MAX_SAFE_INTEGER,
-    ) && settings
-      ? ` · ${formatBehind(lag ?? 0, settings.blockTimeSeconds)}`
-      : '';
-  return heights
-    ? `${heights}${behind}`
-    : intl.formatMessage({
-        id: getPrivacyChainSyncLabel({ backfilling: false }),
-      });
 }
 
 // Everything the token/settings pages need for one local-wallet account, optionally for one pool.
@@ -399,9 +289,6 @@ export function useLocalWalletPool({
     });
   }, [freshAddresses, freshState, lastSeenKey]);
 
-  // Refs on purpose: feed a label derived at render time and must not cause renders.
-  const scanRateSampleRef = useRef<{ height: number; at: number } | null>(null);
-  const scanRatePerSecRef = useRef<number | null>(null);
   const { result: progressResult, run: refreshSyncProgress } = usePromiseResult(
     async () => {
       if (!canRead) return null;
@@ -409,22 +296,6 @@ export function useLocalWalletPool({
         await backgroundApiProxy.servicePrivacyChain.getLocalWalletSyncProgress(
           { networkId, accountId },
         );
-      const scanned = progress?.backfillScannedHeight;
-      if (readScopeRef.current === readScope && typeof scanned === 'number') {
-        const now = Date.now();
-        const prev = scanRateSampleRef.current;
-        if (!prev || scanned < prev.height) {
-          scanRatePerSecRef.current = null;
-          scanRateSampleRef.current = { height: scanned, at: now };
-        } else if (scanned > prev.height && now > prev.at) {
-          const instantaneous =
-            ((scanned - prev.height) * 1000) / (now - prev.at);
-          const ema = scanRatePerSecRef.current;
-          scanRatePerSecRef.current =
-            ema === null ? instantaneous : ema * 0.7 + instantaneous * 0.3;
-          scanRateSampleRef.current = { height: scanned, at: now };
-        }
-      }
       return { scope: readScope, progress };
     },
     [readScope, canRead, accountId, networkId],
@@ -490,11 +361,6 @@ export function useLocalWalletPool({
   const handleActionDone = useCallback(() => {
     refreshRef.current();
   }, []);
-
-  useEffect(() => {
-    scanRateSampleRef.current = null;
-    scanRatePerSecRef.current = null;
-  }, [readScope]);
 
   const syncStateAtom = useMemo(
     () =>
@@ -607,10 +473,9 @@ export function useLocalWalletPool({
   } else {
     syncStatusText =
       formatPrivacyChainSyncError(syncError, intl) ??
-      buildLocalWalletSyncStatusText({
-        syncProgress,
+      formatPrivacyChainSyncDetail({
+        progress: syncProgress,
         settings,
-        scanRatePerSec: scanRatePerSecRef.current,
         intl,
       }) ??
       (enabled

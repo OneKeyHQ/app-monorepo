@@ -166,7 +166,12 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   __esModule: true,
-  default: { wait: (delay: number) => mockTimerWait(delay) },
+  default: {
+    ...jest.requireActual<{ default: object }>(
+      '@onekeyhq/shared/src/utils/timerUtils',
+    ).default,
+    wait: (delay: number) => mockTimerWait(delay),
+  },
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -174,13 +179,22 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/kit/src/utils/privacyChainSyncDisplay', () => ({
   formatPrivacyChainSyncError: (kind?: string) =>
     kind ? `sync-error:${kind}` : undefined,
-  formatPrivacyChainRemainingBlocks: () => '',
-  formatPrivacyChainSyncProgress: () => 'scan-progress',
-  getPrivacyChainScanRegionLabelId: () => undefined,
-  getPrivacyChainSyncLabel: () => 'syncing',
+  formatPrivacyChainSyncDetail: (
+    ...args: Parameters<
+      typeof import('@onekeyhq/kit/src/utils/privacyChainSyncDisplay').formatPrivacyChainSyncDetail
+    >
+  ) =>
+    jest
+      .requireActual<
+        typeof import('@onekeyhq/kit/src/utils/privacyChainSyncDisplay')
+      >('@onekeyhq/kit/src/utils/privacyChainSyncDisplay')
+      .formatPrivacyChainSyncDetail(...args),
 }));
 jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({}));
 jest.mock('@onekeyhq/shared/src/utils/privacyChainSyncPolicy', () => ({
+  ...jest.requireActual<object>(
+    '@onekeyhq/shared/src/utils/privacyChainSyncPolicy',
+  ),
   PRIVACY_CHAIN_SYNC_POLL_MS: 8000,
   PRIVACY_CHAIN_TIP_POLL_MS: 300_000,
   isTipLagWorthMentioning: () => false,

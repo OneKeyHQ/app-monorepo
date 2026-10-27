@@ -20,9 +20,13 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   PRIVACY_CHAIN_TIP_POLL_MS,
   getPrivacyChainBlocksLeft,
+  nextPrivacyChainScanRate,
   shouldStartBoost,
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
-import type { IPrivacyChainBoostTrigger } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
+import type {
+  IPrivacyChainBoostTrigger,
+  IPrivacyChainScanRateSample,
+} from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -659,6 +663,9 @@ class ServicePrivacyChain extends ServiceBase {
 
   // Persisted cellular-data consent, mirrored so the synchronous tick can answer gate two.
   private allowCellularSyncCache = false;
+
+  // Last published scan position per `networkId:accountId`, for the speed added to progress.
+  private scanRateSamples?: Map<string, IPrivacyChainScanRateSample>;
 
   async isPrivacySyncOnCellularAllowed(): Promise<boolean> {
     this.allowCellularSyncCache =
@@ -3731,6 +3738,29 @@ class ServicePrivacyChain extends ServiceBase {
           return [`${networkId}:${accountId}`, progress] as const;
         }),
       );
+      // The one place speed is measured, so every surface shows the same time left.
+      const now = Date.now();
+      this.scanRateSamples ??= new Map();
+      const samples = this.scanRateSamples;
+      const rated = entries.map(([key, progress]) => {
+        if (!progress) return [key, progress] as const;
+        const sample = nextPrivacyChainScanRate({
+          previous: samples.get(key),
+          progress,
+          now,
+        });
+        if (!sample) {
+          samples.delete(key);
+          return [key, progress] as const;
+        }
+        samples.set(key, sample);
+        return [
+          key,
+          sample.blocksPerSec === null
+            ? progress
+            : { ...progress, blocksPerSec: sample.blocksPerSec },
+        ] as const;
+      });
       await privacyChainAtom.set((v) => {
         const progress = { ...v.progress };
         const liveKeys = new Set(
@@ -3745,7 +3775,7 @@ class ServicePrivacyChain extends ServiceBase {
             delete progress[key];
           }
         }
-        for (const [key, value] of entries) {
+        for (const [key, value] of rated) {
           if (value) {
             progress[key] = value;
           }

@@ -51,6 +51,8 @@ export type ILocalWalletSyncProgress = {
   tipLag: number | null;
   isTipCaughtUp: boolean;
   isSyncing: boolean;
+  // Smoothed scan speed, added when progress is published; absent until the scan has advanced.
+  blocksPerSec?: number;
 };
 
 // Why a network's last background sync failed, for the status row and light.

@@ -1,14 +1,9 @@
 import type { ILocalWalletSyncProgress } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { buildLocalWalletSyncStatusText } from './useLocalWalletPool';
+import { formatPrivacyChainSyncDetail } from './privacyChainSyncDisplay';
 
 import type { IntlShape } from 'react-intl';
-
-jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: {},
-}));
 
 const intl = {
   formatMessage: ({ id }: { id: string }, values?: Record<string, unknown>) =>
@@ -31,10 +26,9 @@ const backfilling: ILocalWalletSyncProgress = {
 
 describe('local wallet backfill remaining', () => {
   it('shows the time left once the scan rate is known', () => {
-    const text = buildLocalWalletSyncStatusText({
-      syncProgress: backfilling,
+    const text = formatPrivacyChainSyncDetail({
+      progress: { ...backfilling, blocksPerSec: 10 },
       settings: undefined,
-      scanRatePerSec: 10,
       intl,
     });
     expect(text).toContain('~');
@@ -44,13 +38,22 @@ describe('local wallet backfill remaining', () => {
   });
 
   it('shows the blocks left while no rate has been measured', () => {
-    const text = buildLocalWalletSyncStatusText({
-      syncProgress: backfilling,
+    const text = formatPrivacyChainSyncDetail({
+      progress: backfilling,
       settings: undefined,
-      scanRatePerSec: null,
       intl,
     });
     expect(text).toContain(ETranslations.privacy_sync_blocks_remaining__msg);
     expect(text).not.toContain('~');
+  });
+
+  it('shows the blocks left while the scan is stopped', () => {
+    const text = formatPrivacyChainSyncDetail({
+      progress: { ...backfilling, blocksPerSec: 10 },
+      settings: undefined,
+      stopped: true,
+      intl,
+    });
+    expect(text).toContain(ETranslations.privacy_sync_blocks_remaining__msg);
   });
 });

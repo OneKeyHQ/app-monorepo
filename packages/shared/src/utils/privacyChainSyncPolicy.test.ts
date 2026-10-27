@@ -1,8 +1,10 @@
 import {
   PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT,
   PRIVACY_CHAIN_TIP_POLL_MS,
+  getPrivacyChainBackfillBlocksLeft,
   getPrivacyChainBlocksLeft,
   isTipLagWorthMentioning as isTipLagWorthMentioningWithPolicy,
+  nextPrivacyChainScanRate,
   shouldStartBoost,
 } from './privacyChainSyncPolicy';
 
@@ -171,5 +173,103 @@ describe('shouldStartBoost — user pause', () => {
         pausedByUser: false,
       }),
     ).toBe(true);
+  });
+});
+
+type IProgress = Parameters<typeof nextPrivacyChainScanRate>[0]['progress'];
+
+const scanPosition = (overrides: Partial<IProgress>): IProgress => ({
+  backfillScannedHeight: 100,
+  backfillTargetHeight: 1000,
+  isBackfillComplete: false,
+  ...overrides,
+});
+
+describe('getPrivacyChainBackfillBlocksLeft', () => {
+  it('prefers the count the chain reports', () => {
+    expect(
+      getPrivacyChainBackfillBlocksLeft(
+        scanPosition({ backfillRemainingBlocks: 40 }),
+      ),
+    ).toBe(40);
+  });
+
+  it('falls back to target minus scanned', () => {
+    expect(getPrivacyChainBackfillBlocksLeft(scanPosition({}))).toBe(900);
+  });
+
+  it('has nothing left once backfill is complete', () => {
+    expect(
+      getPrivacyChainBackfillBlocksLeft(
+        scanPosition({ isBackfillComplete: true }),
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe('nextPrivacyChainScanRate', () => {
+  it('needs the scan to advance before it reports a speed', () => {
+    const first = nextPrivacyChainScanRate({
+      previous: undefined,
+      progress: scanPosition({}),
+      now: 0,
+    });
+    expect(first?.blocksPerSec).toBeNull();
+    const second = nextPrivacyChainScanRate({
+      previous: first,
+      progress: scanPosition({ backfillScannedHeight: 120 }),
+      now: 2000,
+    });
+    expect(second?.blocksPerSec).toBe(10);
+  });
+
+  it('measures out-of-order scans by blocks left, not the contiguous cursor', () => {
+    const first = nextPrivacyChainScanRate({
+      previous: undefined,
+      progress: scanPosition({ backfillRemainingBlocks: 900 }),
+      now: 0,
+    });
+    // The cursor stays put while priority ranges get scanned.
+    const second = nextPrivacyChainScanRate({
+      previous: first,
+      progress: scanPosition({ backfillRemainingBlocks: 880 }),
+      now: 1000,
+    });
+    expect(second?.blocksPerSec).toBe(20);
+  });
+
+  it('ignores a new tip, which adds to both target and blocks left', () => {
+    const first = nextPrivacyChainScanRate({
+      previous: undefined,
+      progress: scanPosition({ backfillRemainingBlocks: 900 }),
+      now: 0,
+    });
+    const second = nextPrivacyChainScanRate({
+      previous: first,
+      progress: scanPosition({
+        backfillTargetHeight: 1001,
+        backfillRemainingBlocks: 901,
+      }),
+      now: 1000,
+    });
+    expect(second).toBe(first);
+  });
+
+  it('starts over after a rewind or a long gap', () => {
+    const measured = { done: 500, at: 0, blocksPerSec: 10 };
+    expect(
+      nextPrivacyChainScanRate({
+        previous: measured,
+        progress: scanPosition({ backfillScannedHeight: 50 }),
+        now: 1000,
+      })?.blocksPerSec,
+    ).toBeNull();
+    expect(
+      nextPrivacyChainScanRate({
+        previous: measured,
+        progress: scanPosition({ backfillScannedHeight: 600 }),
+        now: 10 * 60 * 1000,
+      })?.blocksPerSec,
+    ).toBeNull();
   });
 });

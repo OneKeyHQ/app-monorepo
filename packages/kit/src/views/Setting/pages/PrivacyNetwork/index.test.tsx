@@ -501,7 +501,9 @@ describe('Privacy network settings for a temp wallet', () => {
     const { rerender } = render(<PrivacyNetworkSettings networkId="zec--0" />);
     expect(
       progressText(await screen.findByTestId('privacy-sync-progress')),
-    ).toBe('global.syncing 43.9%');
+    ).toBe(
+      'global.syncing · 43 / 100 · 43.9% · privacy_sync_blocks_remaining__msg',
+    );
     mockProgress['zec--0:waiting'] = {
       ...complete,
       backfillScannedHeight: null,
@@ -510,7 +512,7 @@ describe('Privacy network settings for a temp wallet', () => {
     };
     rerender(<PrivacyNetworkSettings networkId="zec--0" />);
     expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
-      'global.syncing 43.9%',
+      'global.syncing · 43 / 100 · 43.9% · privacy_sync_blocks_remaining__msg',
     );
     mockPausedNetworks = ['zec--0'];
     rerender(<PrivacyNetworkSettings networkId="zec--0" />);
@@ -526,11 +528,11 @@ describe('Privacy network settings for a temp wallet', () => {
     expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
       'global.syncing',
     );
-    // Caught up: the height reached, never a bare "synced".
+    // Caught up: scanned and chain heights, never a bare "synced".
     mockBoostingNetworks = [];
     rerender(<PrivacyNetworkSettings networkId="zec--0" />);
     expect(progressText(screen.getByTestId('privacy-sync-progress'))).toBe(
-      'global.synced · global.block_height 100',
+      'global.synced · 100 / 100',
     );
   });
 

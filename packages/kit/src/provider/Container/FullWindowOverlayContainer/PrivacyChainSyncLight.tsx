@@ -22,11 +22,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useIsCellularNetwork } from '@onekeyhq/kit/src/hooks/useIsCellularNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
-  formatPrivacyChainPercent,
+  formatPrivacyChainSyncDetail,
   formatPrivacyChainSyncError,
-  formatPrivacyChainSyncProgress,
+  formatPrivacyChainSyncSummary,
   getPrivacyChainNetworkSyncDisplay,
-  getPrivacyChainScanRegionLabelId,
   pickSlowestPrivacyChainNetwork,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { usePrivacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -89,19 +88,21 @@ function PrivacyChainSyncNetwork({
   );
   const networkName =
     metadata?.networkId === networkId ? metadata.name : undefined;
-  const { result: regionHints } = usePromiseResult(
+  const { result: settingsResult } = usePromiseResult(
     async () => {
       if (!expanded) return undefined;
       const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings(
         { networkId },
       );
-      return { networkId, hints: settings.localWallet?.scanRegionHints };
+      return { networkId, localWallet: settings.localWallet };
     },
     [networkId, expanded],
     { checkIsFocused: false },
   );
-  const scanRegionHints =
-    regionHints?.networkId === networkId ? regionHints.hints : undefined;
+  const localWalletSettings =
+    settingsResult?.networkId === networkId
+      ? settingsResult.localWallet
+      : undefined;
   const {
     entry,
     labelId,
@@ -120,10 +121,6 @@ function PrivacyChainSyncNetwork({
   } else {
     syncErrorText = formatPrivacyChainSyncError(syncError, intl);
   }
-  const regionLabelId = getPrivacyChainScanRegionLabelId(
-    scanRegionHints,
-    entry?.backfillScannedHeight,
-  );
   const connection =
     platformEnv.isNative && isCellular
       ? intl.formatMessage({
@@ -132,27 +129,25 @@ function PrivacyChainSyncNetwork({
       : '';
   const detailLine =
     syncErrorText ??
-    (entry
-      ? [
-          formatPrivacyChainSyncProgress({
-            scanned: entry.backfillScannedHeight,
-            target: entry.backfillTargetHeight,
-            progress: entry.backfillProgress,
-          }),
-          regionLabelId ? intl.formatMessage({ id: regionLabelId }) : '',
-          connection,
-        ]
-          .filter(Boolean)
-          .join(' · ')
-      : connection);
-  const summaryLabel =
-    entry &&
-    isRunning &&
-    !syncErrorText &&
-    typeof entry.backfillProgress === 'number' &&
-    Number.isFinite(entry.backfillProgress)
-      ? `${stateLabel} ${formatPrivacyChainPercent(entry.backfillProgress)}`
-      : stateLabel;
+    [
+      formatPrivacyChainSyncDetail({
+        progress: entry,
+        settings: localWalletSettings,
+        stopped: isPaused || isHeldByData,
+        intl,
+      }),
+      connection,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  const summaryLabel = syncErrorText
+    ? stateLabel
+    : formatPrivacyChainSyncSummary({
+        label: stateLabel,
+        progress: entry,
+        syncing: labelId === ETranslations.global_syncing,
+        intl,
+      });
   let lightIcon: IKeyOfIcons = 'RefreshCcwOutline';
   let lightIconColor: IIconProps['color'] = isRunning
     ? '$iconInfo'

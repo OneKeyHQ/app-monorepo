@@ -27,7 +27,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { showPrivacyChainSlotsFullDialog } from '@onekeyhq/kit/src/utils/privacyChainSlotsFullDialog';
 import {
-  formatPrivacyChainPercent,
+  formatPrivacyChainSyncDetail,
   formatPrivacyChainSyncError,
   getPrivacyChainNetworkSyncDisplay,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
@@ -373,41 +373,46 @@ function PrivacyChainSettingsProgress({
 }) {
   const intl = useIntl();
   const [state] = usePrivacyChainAtom();
+  const { result: localWalletSettings } = usePromiseResult(
+    async () =>
+      (await backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }))
+        .localWallet,
+    [networkId],
+  );
   const accounts = entries.filter(
     (entry) =>
       entry.networkId === networkId &&
       !entry.walletIsTemp &&
       (entry.enabled || entry.paused),
   );
+  const {
+    entry,
+    labelId,
+    isPaused,
+    isHeldByData,
+    isStorageUnsupported,
+    syncError,
+  } = getPrivacyChainNetworkSyncDisplay({
+    state,
+    networkId,
+    accountPaused:
+      accounts.length > 0 && accounts.every((account) => account.paused),
+  });
   if (!accounts.length) return null;
-  const { entry, labelId, isCaughtUp, isStorageUnsupported, syncError } =
-    getPrivacyChainNetworkSyncDisplay({
-      state,
-      networkId,
-      accountPaused: accounts.every((account) => account.paused),
-    });
   const error = isStorageUnsupported
     ? intl.formatMessage({
         id: ETranslations.privacy_error_webview_outdated__msg,
       })
     : formatPrivacyChainSyncError(syncError, intl);
-  const label = intl.formatMessage({ id: labelId });
-  const progress = entry?.backfillProgress;
-  const scanned = entry?.backfillScannedHeight;
-  // A percentage while behind, as the sync light shows; once caught up, the
-  // height reached, so "synced" does not read as finished.
-  let title = label;
-  if (!error && isCaughtUp && typeof scanned === 'number') {
-    title = `${label} · ${intl.formatMessage({
-      id: ETranslations.global_block_height,
-    })} ${scanned.toLocaleString('en-US')}`;
-  } else if (
-    !error &&
-    typeof progress === 'number' &&
-    Number.isFinite(progress)
-  ) {
-    title = `${label} ${formatPrivacyChainPercent(progress)}`;
-  }
+  const detail =
+    error ??
+    formatPrivacyChainSyncDetail({
+      progress: entry,
+      settings: localWalletSettings,
+      stopped: isPaused || isHeldByData,
+      intl,
+    }) ??
+    undefined;
   return (
     <>
       <SectionTitle>
@@ -416,8 +421,8 @@ function PrivacyChainSettingsProgress({
       <ListItem
         testID="privacy-sync-progress"
         icon="RefreshCcwOutline"
-        title={title}
-        subtitle={error}
+        title={intl.formatMessage({ id: labelId })}
+        subtitle={detail}
         subtitleProps={error ? { color: '$textCaution' } : undefined}
       />
     </>

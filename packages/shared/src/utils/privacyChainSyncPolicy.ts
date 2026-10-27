@@ -37,6 +37,75 @@ export function getPrivacyChainBlocksLeft(
   return backfillLeft + Math.max(0, progress.tipLag ?? 0);
 }
 
+type IPrivacyChainBackfillPosition = {
+  isBackfillComplete: boolean;
+  backfillScannedHeight: number | null;
+  backfillTargetHeight: number | null;
+  backfillRemainingBlocks?: number;
+};
+
+// Backfill blocks left: the chain's own count when it reports one (Zcash scans out of order),
+// else target minus scanned.
+export function getPrivacyChainBackfillBlocksLeft(
+  progress: IPrivacyChainBackfillPosition,
+): number | undefined {
+  if (progress.isBackfillComplete) return undefined;
+  const reported = progress.backfillRemainingBlocks;
+  if (reported !== undefined) {
+    return Number.isSafeInteger(reported) && reported >= 0
+      ? reported
+      : undefined;
+  }
+  const scanned = progress.backfillScannedHeight;
+  const target = progress.backfillTargetHeight;
+  return typeof scanned === 'number' && typeof target === 'number'
+    ? Math.max(0, target - scanned)
+    : undefined;
+}
+
+export type IPrivacyChainScanRateSample = {
+  done: number;
+  at: number;
+  blocksPerSec: number | null;
+};
+
+// A gap this long means the scan stopped in between; its average says nothing about now.
+const SCAN_RATE_STALE_MS = 5 * 60 * 1000;
+
+// Smoothed blocks per second between publishes. Work done is target minus blocks left, so a new
+// tip moves neither; work going backwards (rewind, rebuilt scan) starts over.
+export function nextPrivacyChainScanRate({
+  previous,
+  progress,
+  now,
+}: {
+  previous: IPrivacyChainScanRateSample | undefined;
+  progress: IPrivacyChainBackfillPosition;
+  now: number;
+}): IPrivacyChainScanRateSample | undefined {
+  const left = getPrivacyChainBackfillBlocksLeft(progress);
+  const target = progress.backfillTargetHeight;
+  if (left === undefined || typeof target !== 'number') return undefined;
+  const done = target - left;
+  if (
+    !previous ||
+    done < previous.done ||
+    now - previous.at > SCAN_RATE_STALE_MS
+  ) {
+    return { done, at: now, blocksPerSec: null };
+  }
+  if (done === previous.done || now <= previous.at) return previous;
+  const instantaneous = ((done - previous.done) * 1000) / (now - previous.at);
+  return {
+    done,
+    at: now,
+    blocksPerSec:
+      previous.blocksPerSec === null
+        ? instantaneous
+        : previous.blocksPerSec * 0.7 + instantaneous * 0.3,
+  };
+}
+
 // Floating light only shows for a long wait; shorter catch-ups finish
 // silently in the background.
 export const PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT = 10_000;

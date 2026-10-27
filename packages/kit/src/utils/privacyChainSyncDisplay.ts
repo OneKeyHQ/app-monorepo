@@ -5,25 +5,45 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatDistanceStrict } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  getPrivacyChainBackfillBlocksLeft,
+  isTipLagWorthMentioning,
+} from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
 import type { IntlShape } from 'react-intl';
 
-export function formatPrivacyChainRemainingBlocks(
-  progress: ILocalWalletSyncProgress,
-  intl: Pick<IntlShape, 'formatMessage'>,
+export function formatPrivacyChainDuration(
+  seconds: number,
+  addSuffix: boolean,
 ): string {
-  const remaining = progress.backfillRemainingBlocks;
-  if (
-    remaining === undefined ||
-    !Number.isSafeInteger(remaining) ||
-    remaining < 0 ||
-    progress.isBackfillComplete
-  )
-    return '';
+  const now = Date.now();
+  return formatDistanceStrict(
+    now + seconds * 1000,
+    now,
+    addSuffix,
+    addSuffix ? 'round' : 'ceil',
+  );
+}
+
+// Time left at the published scan speed, else blocks left; a stopped scan has no speed to project.
+export function formatPrivacyChainTimeLeft({
+  progress,
+  stopped = false,
+  intl,
+}: {
+  progress: ILocalWalletSyncProgress;
+  stopped?: boolean;
+  intl: Pick<IntlShape, 'formatMessage'>;
+}): string {
+  const remaining = getPrivacyChainBackfillBlocksLeft(progress);
+  if (remaining === undefined || remaining <= 0) return '';
+  const blocksPerSec = stopped ? undefined : progress.blocksPerSec;
+  if (blocksPerSec && blocksPerSec > 0) {
+    return `~${formatPrivacyChainDuration(remaining / blocksPerSec, false)}`;
+  }
   return intl.formatMessage(
-    {
-      id: ETranslations.privacy_sync_blocks_remaining__msg,
-    },
+    { id: ETranslations.privacy_sync_blocks_remaining__msg },
     { count: remaining },
   );
 }
@@ -217,4 +237,104 @@ export function getPrivacyChainScanRegionLabelId(
     (hint) =>
       scannedHeight >= hint.fromHeight && scannedHeight <= hint.toHeight,
   )?.labelId;
+}
+
+type ILocalWalletSettings = NonNullable<IVaultSettings['localWallet']>;
+
+// Roomy surfaces: blocks, percentage and time (else blocks) left while backfilling; scanned and
+// chain heights once caught up.
+export function formatPrivacyChainSyncDetail({
+  progress,
+  settings,
+  stopped = false,
+  intl,
+}: {
+  progress: ILocalWalletSyncProgress | null | undefined;
+  settings: ILocalWalletSettings | undefined;
+  stopped?: boolean;
+  intl: Pick<IntlShape, 'formatMessage'>;
+}): string | null {
+  if (!progress) return null;
+  const heightsPresent = [
+    progress.backfillScannedHeight,
+    progress.backfillTargetHeight,
+    progress.tipScannedHeight,
+    progress.chainTip,
+  ].some((height) => typeof height === 'number');
+  if (!heightsPresent) {
+    return progress.isSyncing
+      ? intl.formatMessage({ id: ETranslations.global_preparing })
+      : null;
+  }
+
+  // A chain has no finish line; only backfill does, so only backfill shows a percentage/ETA.
+  if (!progress.isBackfillComplete) {
+    const scanned = progress.backfillScannedHeight;
+    const regionLabelId = getPrivacyChainScanRegionLabelId(
+      settings?.scanRegionHints,
+      scanned,
+    );
+    const line = [
+      formatPrivacyChainSyncProgress({
+        scanned,
+        target: progress.backfillTargetHeight,
+        progress: progress.backfillProgress,
+      }),
+      formatPrivacyChainTimeLeft({ progress, stopped, intl }),
+      regionLabelId ? intl.formatMessage({ id: regionLabelId }) : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    return (
+      line ||
+      intl.formatMessage({
+        id: getPrivacyChainSyncLabel({ backfilling: true }),
+      })
+    );
+  }
+  // Caught up, not finished: a chain never says "up to date". Heights are safe to show here,
+  // since every account sits at the same tip once backfill is done.
+  const heights = formatPrivacyChainSyncProgress({
+    scanned: progress.tipScannedHeight,
+    target: progress.chainTip,
+  });
+  const lag = progress.tipLag;
+  const behind =
+    isTipLagWorthMentioning(
+      lag,
+      settings?.tipLagWarningBlocks ?? Number.MAX_SAFE_INTEGER,
+    ) && settings
+      ? ` · ${formatPrivacyChainDuration(-(lag ?? 0) * settings.blockTimeSeconds, true)}`
+      : '';
+  return heights
+    ? `${heights}${behind}`
+    : intl.formatMessage({
+        id: getPrivacyChainSyncLabel({ backfilling: false }),
+      });
+}
+
+// Tight surfaces: the state, then while syncing its percentage and time (else blocks) left.
+export function formatPrivacyChainSyncSummary({
+  label,
+  progress,
+  syncing,
+  intl,
+}: {
+  label: string;
+  progress: ILocalWalletSyncProgress | undefined;
+  syncing: boolean;
+  intl: Pick<IntlShape, 'formatMessage'>;
+}): string {
+  if (!syncing || !progress) return label;
+  const percent =
+    typeof progress.backfillProgress === 'number' &&
+    Number.isFinite(progress.backfillProgress)
+      ? formatPrivacyChainPercent(progress.backfillProgress)
+      : '';
+  return [
+    [label, percent].filter(Boolean).join(' '),
+    formatPrivacyChainTimeLeft({ progress, intl }),
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }

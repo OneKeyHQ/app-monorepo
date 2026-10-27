@@ -5,9 +5,10 @@ import type { ILocalWalletSyncProgress } from '@onekeyhq/kit-bg/src/vaults/local
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
-  formatPrivacyChainRemainingBlocks,
   formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
+  formatPrivacyChainSyncSummary,
+  formatPrivacyChainTimeLeft,
   getPrivacyChainBackfillProgress,
   getPrivacyChainNetworkSyncDisplay,
   getPrivacyChainSyncLabel,
@@ -294,21 +295,77 @@ it('shows priority scan work advancing while the contiguous cursor stays still',
     isSyncing: true,
     backfillRemainingBlocks: 60,
   };
-  expect(formatPrivacyChainRemainingBlocks(progress, intl)).toBe(
-    '60 blocks remaining',
+  const timeLeft = (
+    overrides: Partial<ILocalWalletSyncProgress>,
+    stopped = false,
+  ) =>
+    formatPrivacyChainTimeLeft({
+      progress: { ...progress, ...overrides },
+      stopped,
+      intl,
+    });
+  expect(timeLeft({})).toBe('60 blocks remaining');
+  expect(timeLeft({ backfillRemainingBlocks: 20 })).toBe('20 blocks remaining');
+  // No count from the chain (Monero scans in order): target minus scanned.
+  expect(timeLeft({ backfillRemainingBlocks: undefined })).toBe(
+    '90 blocks remaining',
   );
-  expect(
-    formatPrivacyChainRemainingBlocks(
-      { ...progress, backfillRemainingBlocks: 20 },
+  expect(timeLeft({ isBackfillComplete: true })).toBe('');
+  // The published speed turns blocks into time, unless the scan is stopped.
+  expect(timeLeft({ blocksPerSec: 2 })).toMatch(/^~/);
+  expect(timeLeft({ blocksPerSec: 2 }, true)).toBe('60 blocks remaining');
+});
+
+it('falls back from time to blocks to percentage to the state alone', () => {
+  const messages: Record<string, string> = {
+    [ETranslations.privacy_sync_blocks_remaining__msg]:
+      '{count, number} blocks remaining',
+  };
+  const intl = createIntl({ locale: 'en', messages, onError: () => undefined });
+  const syncing: ILocalWalletSyncProgress = {
+    birthdayHeight: 0,
+    backfillScannedHeight: 10,
+    backfillTargetHeight: 100,
+    backfillProgress: 0.1,
+    backfillRemainingBlocks: 90,
+    isBackfillComplete: false,
+    tipScannedHeight: 10,
+    chainTip: 100,
+    tipLag: 90,
+    isTipCaughtUp: false,
+    isSyncing: true,
+  };
+  const summary = (
+    progress: ILocalWalletSyncProgress | undefined,
+    isSyncing = true,
+  ) =>
+    formatPrivacyChainSyncSummary({
+      label: 'Syncing',
+      progress,
+      syncing: isSyncing,
       intl,
-    ),
-  ).toBe('20 blocks remaining');
+    });
+  expect(summary({ ...syncing, blocksPerSec: 3 })).toMatch(
+    /^Syncing 10\.0% · ~/,
+  );
+  expect(summary(syncing)).toBe('Syncing 10.0% · 90 blocks remaining');
   expect(
-    formatPrivacyChainRemainingBlocks(
-      { ...progress, isBackfillComplete: true },
-      intl,
-    ),
-  ).toBe('');
+    summary({
+      ...syncing,
+      backfillRemainingBlocks: undefined,
+      backfillScannedHeight: null,
+    }),
+  ).toBe('Syncing 10.0%');
+  expect(
+    summary({
+      ...syncing,
+      backfillRemainingBlocks: undefined,
+      backfillScannedHeight: null,
+      backfillProgress: null,
+    }),
+  ).toBe('Syncing');
+  expect(summary(undefined)).toBe('Syncing');
+  expect(summary(syncing, false)).toBe('Syncing');
 });
 
 describe('formatPrivacyChainSyncError', () => {
