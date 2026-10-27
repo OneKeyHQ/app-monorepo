@@ -590,7 +590,8 @@ export function MobileSelectorWatchlistList({
   ) {
     return <CenteredSpinner />;
   }
-  if (isError && !hasLoadedAllSources && rows.length === 0) {
+  // A failed refresh can retain successfully loaded cached sources.
+  if (isError && rows.length === 0) {
     return (
       <LoadErrorMessage
         testID="mobile-market-token-selector-favorites-retry"
@@ -621,7 +622,7 @@ export function MobileSelectorWatchlistList({
       tokenSubtitle="name"
       onItemPress={onItemPress}
       footer={
-        hasMissingFavorites && !hasLoadedAllSources ? (
+        hasMissingFavorites && (!hasLoadedAllSources || isError) ? (
           <LoadMoreFooter
             isLoading={isLoading}
             isError={isError}

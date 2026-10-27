@@ -533,7 +533,46 @@ describe('mobile selector unavailable favorites', () => {
     mockIsWatchlistLoading = false;
     mockBrowseData = [];
     mockWatchlistCount = 0;
+    mockListState = { isError: false };
   });
+
+  it.each([false, true])(
+    'offers retry after a successful fetch followed by failure, cached rows=%s',
+    (hasCachedRows) => {
+      mockBrowseData = hasCachedRows ? [searchToken] : [];
+      mockWatchlistCount = 2;
+      mockIsMounted = true;
+      mockListState = { isError: false };
+      mockHasLoadedAllSources = true;
+      mockIsWatchlistLoading = false;
+      mockRefetch.mockClear();
+      const renderList = () => (
+        <MobileSelectorWatchlistList onItemPress={jest.fn()} />
+      );
+      const { rerender } = render(renderList());
+      expect(
+        screen.queryByTestId('mobile-market-token-selector-favorites-retry'),
+      ).toBeNull();
+
+      mockListState = { isError: true };
+      rerender(renderList());
+      expect(screen.queryByTestId('recommendations')).toBeNull();
+      if (hasCachedRows) {
+        expect(screen.getByText('AAPLx')).toBeTruthy();
+      }
+      fireEvent.click(
+        screen.getByTestId('mobile-market-token-selector-favorites-retry'),
+      );
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+
+      mockListState = { isError: false };
+      rerender(renderList());
+      expect(
+        screen.queryByTestId('mobile-market-token-selector-favorites-retry'),
+      ).toBeNull();
+      expect(screen.queryByRole('progressbar')).toBeNull();
+    },
+  );
 
   it.each(['all', 'stocks', 'perps'] as const)(
     'keeps the settled %s view stable while unavailable favorites refresh',
