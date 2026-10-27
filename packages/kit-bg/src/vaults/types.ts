@@ -252,6 +252,8 @@ export type IVaultSettings = {
   localWallet?: {
     // 'account-opt-in': scanning is costly, so each account enables it.
     activation: 'always' | 'account-opt-in';
+    // Prices the native coin by its market id when no network-scoped quote exists.
+    marketCoingeckoId?: string;
     balanceShape: 'single' | 'pooled';
     // In this chain's blocks; block time differs per chain.
     tipLagWarningBlocks: number;

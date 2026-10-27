@@ -91,6 +91,11 @@ import { vaultFactory } from '../vaults/factory';
 import { mergeZcashLocalTransparentPayment } from '../vaults/impls/zcash/backendHistory';
 import { getLocalWalletHistoryAddressGate } from '../vaults/localWallet/historyAddressGate';
 import { isAddressWithheldFromBackend } from '../vaults/localWallet/isLocalWalletNetwork';
+import {
+  applyLocalWalletNativePriceToHistoryTx,
+  fetchLocalWalletNativeTokenPrice,
+  isLocalWalletHistoryTxUnpriced,
+} from '../vaults/localWallet/nativeTokenPrice';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -2626,6 +2631,42 @@ class ServiceHistory extends ServiceBase {
     return resp.data.data;
   }
 
+  // Local-wallet rows arrive unpriced; quote the native asset by itself, in
+  // the history's display currency, so they show fiat like server rows.
+  private async attachLocalWalletNativePrices({
+    txs,
+    networkId,
+    currency,
+  }: {
+    txs: IAccountHistoryTx[];
+    networkId: string;
+    currency?: string;
+  }): Promise<IAccountHistoryTx[]> {
+    if (!txs.some(isLocalWalletHistoryTxUnpriced)) {
+      return txs;
+    }
+    try {
+      const network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId,
+      });
+      const price = await fetchLocalWalletNativeTokenPrice({
+        backgroundApi: this.backgroundApi,
+        networkId,
+        backendIndex: network.backendIndex,
+        requestCurrency: currency,
+      });
+      if (price === undefined) {
+        return txs;
+      }
+      return txs.map((tx) =>
+        applyLocalWalletNativePriceToHistoryTx({ tx, price }),
+      );
+    } catch {
+      // Best effort: an unpriced row shows no fiat, as before.
+      return txs;
+    }
+  }
+
   @backgroundMethod()
   public async fetchAccountOnChainHistory(
     params: IFetchAccountHistoryParams & {
@@ -2678,7 +2719,11 @@ class ServiceHistory extends ServiceBase {
     });
     if (localTxs) {
       return {
-        txs: localTxs,
+        txs: await this.attachLocalWalletNativePrices({
+          txs: localTxs,
+          networkId,
+          currency: params.sourceCurrency,
+        }),
         addressMap: {},
         hasMore: false,
         next: undefined as string | undefined,

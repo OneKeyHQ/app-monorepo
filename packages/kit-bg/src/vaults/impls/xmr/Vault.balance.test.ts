@@ -136,3 +136,81 @@ describe('xmr token details for the send page', () => {
     });
   });
 });
+
+// Priced like other chains, from a quote that names only the asset.
+describe('xmr fiat value', () => {
+  const ownAddress =
+    '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A';
+
+  function createPricedVault(
+    quote: () => Promise<{ stats: { currentPrice: string } }>,
+  ) {
+    const fetchMarketTokenDetail = jest.fn(quote);
+    const vault = Object.assign(
+      createVault({
+        enabled: true,
+        balance: async () => ({
+          total: '3000000000000',
+          totalParsed: '3',
+          spendable: '1000000000000',
+          pools: [],
+        }),
+      }),
+      {
+        backgroundApi: {
+          serviceMarket: { fetchMarketTokenDetail },
+        },
+      },
+    );
+    return { vault, fetchMarketTokenDetail };
+  }
+
+  it('values the home row and the token details at the market price', async () => {
+    const { vault, fetchMarketTokenDetail } = createPricedVault(async () => ({
+      stats: { currentPrice: '150' },
+    }));
+    const list = await vault.fetchTokenList({
+      requestApiParams: { networkId: 'xmr--0', accountAddress: ownAddress },
+      requestCurrency: 'usd',
+    } as never);
+    expect(Object.values(list.data.data.tokens.map)[0]).toMatchObject({
+      price: 150,
+      fiatValue: '450',
+    });
+    const details = await vault.fetchTokenDetails({
+      networkId: 'xmr--0',
+      accountAddress: ownAddress,
+      contractList: [''],
+      requestCurrency: 'usd',
+    } as never);
+    expect(details.data.data[0]).toMatchObject({
+      price: 150,
+      fiatValue: '150',
+      frozenBalanceFiatValue: '300',
+      totalBalanceFiatValue: '450',
+    });
+    expect(fetchMarketTokenDetail.mock.calls).toEqual([
+      ['monero', false, 'usd'],
+      ['monero', false, 'usd'],
+    ]);
+    expect(JSON.stringify(fetchMarketTokenDetail.mock.calls)).not.toContain(
+      ownAddress,
+    );
+  });
+
+  it('leaves fiat unknown while the quote is unavailable', async () => {
+    const { vault } = createPricedVault(() =>
+      Promise.reject(new Error('30011')),
+    );
+    await expect(readTokenFiat(vault)).resolves.toMatchObject({
+      price: 0,
+      fiatValue: '',
+    });
+    const details = await vault.fetchTokenDetails({} as never);
+    expect(details.data.data[0]).toMatchObject({
+      price: 0,
+      fiatValue: '',
+      totalBalanceFiatValue: '',
+    });
+  });
+});

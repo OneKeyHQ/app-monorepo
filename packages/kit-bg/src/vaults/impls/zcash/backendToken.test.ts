@@ -101,6 +101,16 @@ describe('Zcash backend token composition', () => {
     expect(response.data.data.tokens.keys).not.toBe('server-keys');
   });
 
+  it('counts the composed balance in the group total that cached worth reads', () => {
+    const response = tokenListResponse();
+    // Another row in the group keeps its share of the total.
+    response.data.data.tokens.fiatValue = '5';
+
+    applyZcashBalanceToBackendTokenList({ response, balance, decimals: 8 });
+
+    expect(response.data.data.tokens.fiatValue).toBe('9');
+  });
+
   it('uses runtime spendability but keeps backend pricing for send details', () => {
     const response = tokenDetailResponse();
 

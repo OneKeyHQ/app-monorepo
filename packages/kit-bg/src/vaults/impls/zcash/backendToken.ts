@@ -41,6 +41,18 @@ export function applyZcashBalanceToBackendTokenList({
   const price = nativeFiat.price || 0;
   const fiatValue = fiatValueOf(balanceParsed, price);
   const frozenBalanceFiatValue = fiatValueOf(frozenBalanceParsed, price);
+  // The group total feeds cached account worth: count the composed balance
+  // there too, not the backend's transparent-only figure.
+  const backendNativeFiat = new BigNumber(nativeFiat.fiatValue || 0);
+  const groupFiat = new BigNumber(response.data.data.tokens.fiatValue || 0);
+  const canRecountGroup =
+    fiatValue !== '' && backendNativeFiat.isFinite() && groupFiat.isFinite();
+  if (canRecountGroup) {
+    response.data.data.tokens.fiatValue = groupFiat
+      .minus(backendNativeFiat)
+      .plus(fiatValue)
+      .toFixed();
+  }
   response.data.data.tokens.map[nativeToken.$key] = {
     ...nativeFiat,
     balance: balance.total,

@@ -73,11 +73,15 @@ import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { VaultBase } from '../../base/VaultBase';
 import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddressGate';
 import { localWalletText } from '../../localWallet/messages';
+import { fetchLocalWalletNativeTokenPrice } from '../../localWallet/nativeTokenPrice';
 import {
   isLocalWalletCacheEpochCurrent,
   readLocalWalletCacheEpoch,
 } from '../../localWallet/privacyChainCacheStore';
-import { buildLocalWalletNativeTokenList } from '../../localWallet/tokenList';
+import {
+  buildLocalWalletNativeTokenList,
+  getLocalWalletFiatValue,
+} from '../../localWallet/tokenList';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
@@ -939,7 +943,10 @@ export default class Vault extends VaultBase {
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
     const network = await this.getNetwork();
-    const { total, totalParsed } = await this.xmrGetBalanceForDisplay();
+    const [{ total, totalParsed }, price] = await Promise.all([
+      this.xmrGetBalanceForDisplay(),
+      this.xmrGetNativeTokenPrice(params.requestCurrency),
+    ]);
     const { networkId, accountAddress } = params.requestApiParams;
     return buildLocalWalletNativeTokenList({
       network,
@@ -947,18 +954,38 @@ export default class Vault extends VaultBase {
       accountAddress,
       balance: total,
       balanceParsed: totalParsed,
+      price,
+    });
+  }
+
+  // Never through an account-scoped endpoint: the address stays on device.
+  private async xmrGetNativeTokenPrice(
+    requestCurrency?: string,
+  ): Promise<number | undefined> {
+    const network = await this.getNetwork();
+    return fetchLocalWalletNativeTokenPrice({
+      backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
+      backendIndex: network.backendIndex,
+      requestCurrency,
     });
   }
 
   override async fetchTokenDetails(
-    _params: IFetchServerTokenDetailParams,
+    params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
     const network = await this.getNetwork();
-    const { total, totalParsed, spendable, spendableParsed } =
-      await this.xmrGetBalanceForDisplay();
+    const [{ total, totalParsed, spendable, spendableParsed }, price] =
+      await Promise.all([
+        this.xmrGetBalanceForDisplay(),
+        this.xmrGetNativeTokenPrice(params.requestCurrency),
+      ]);
     const known = total !== '' && spendable !== '';
     const frozen = known
       ? BigNumber.max(new BigNumber(total).minus(spendable), 0).toFixed()
+      : '';
+    const frozenParsed = known
+      ? new BigNumber(frozen).shiftedBy(-XMR_DECIMALS).toFixed()
       : '';
     return {
       data: {
@@ -975,14 +1002,23 @@ export default class Vault extends VaultBase {
             balance: spendable,
             balanceParsed: spendableParsed,
             frozenBalance: frozen,
-            frozenBalanceParsed: known
-              ? new BigNumber(frozen).shiftedBy(-XMR_DECIMALS).toFixed()
-              : '',
+            frozenBalanceParsed: frozenParsed,
             totalBalance: total,
             totalBalanceParsed: totalParsed,
-            price: 0,
+            price: price ?? 0,
             price24h: 0,
-            fiatValue: spendable === '0' ? '0' : '',
+            fiatValue: getLocalWalletFiatValue({
+              amountParsed: spendableParsed,
+              price,
+            }),
+            frozenBalanceFiatValue: getLocalWalletFiatValue({
+              amountParsed: frozenParsed,
+              price,
+            }),
+            totalBalanceFiatValue: getLocalWalletFiatValue({
+              amountParsed: totalParsed,
+              price,
+            }),
           },
         ],
       },

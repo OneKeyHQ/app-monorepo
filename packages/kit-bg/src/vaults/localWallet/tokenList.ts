@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty } from 'lodash';
 
@@ -6,10 +7,27 @@ import type { IFetchServerTokenListResponse } from '@onekeyhq/shared/types/serve
 import type { ITokenData, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 /**
+ * Fiat for a locally known amount. Only a confirmed zero is worth 0; an
+ * unknown amount (`''`) or a missing quote is unknown (`''`), not $0.00.
+ */
+export function getLocalWalletFiatValue({
+  amountParsed,
+  price,
+}: {
+  amountParsed: string;
+  price?: number;
+}): string {
+  const amount = new BigNumber(amountParsed);
+  if (!amount.isFinite()) return '';
+  if (amount.isZero()) return '0';
+  return price === undefined ? '' : amount.multipliedBy(price).toFixed();
+}
+
+/**
  * A native-token list synthesized from a locally scanned balance, for chains
  * the backend index cannot fully see. `$key` must match how the app keys token
  * fiat, and `keys` must change with the content or the UI caches a stale row.
- * `price: 0` means no quote: fiat is left blank, not shown as $0.00.
+ * `price` is in the request currency; without it fiat is left blank.
  */
 export function buildLocalWalletNativeTokenList(params: {
   network: IServerNetwork;
@@ -19,19 +37,30 @@ export function buildLocalWalletNativeTokenList(params: {
   /** Smallest-unit string. `''` means "not known", not "zero". */
   balance: string;
   balanceParsed: string;
+  price?: number;
 }): IFetchServerTokenListResponse {
-  const { network, networkId, accountAddress, xpub, balance, balanceParsed } =
-    params;
+  const {
+    network,
+    networkId,
+    accountAddress,
+    xpub,
+    balance,
+    balanceParsed,
+    price,
+  } = params;
 
   const key = `${networkId}_${xpub ?? accountAddress}_`;
+  const fiatValue = getLocalWalletFiatValue({
+    amountParsed: balanceParsed,
+    price,
+  });
   const map: Record<string, ITokenFiat> = {
     [key]: {
-      price: 0,
+      price: price ?? 0,
       price24h: 0,
       balance,
       balanceParsed,
-      // Only a confirmed zero balance is worth 0; anything else is unknown.
-      fiatValue: balance === '0' ? '0' : '',
+      fiatValue,
     },
   };
   const data = [
@@ -53,7 +82,8 @@ export function buildLocalWalletNativeTokenList(params: {
         isEmpty(map) ? '' : Object.keys(map).join(',')
       }__${JSON.stringify(data)}`,
     ),
-    fiatValue: undefined,
+    // The group total that cached account worth is read from.
+    fiatValue: fiatValue || undefined,
   };
 
   const emptyTokenData = (): ITokenData => ({

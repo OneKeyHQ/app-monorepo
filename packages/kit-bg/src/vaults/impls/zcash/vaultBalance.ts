@@ -38,6 +38,7 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 
 import { sumLocalWalletFrozen } from '../../localWallet/frozen';
+import { fetchLocalWalletNativeTokenPrice } from '../../localWallet/nativeTokenPrice';
 import {
   LOCAL_WALLET_DISPLAY_WAIT_MS,
   readLastLocalWalletPublicBalance,
@@ -45,7 +46,10 @@ import {
   readLocalWalletCacheEpoch,
   saveLastLocalWalletPublicBalance,
 } from '../../localWallet/privacyChainCacheStore';
-import { buildLocalWalletNativeTokenList } from '../../localWallet/tokenList';
+import {
+  buildLocalWalletNativeTokenList,
+  getLocalWalletFiatValue,
+} from '../../localWallet/tokenList';
 
 import {
   applyZcashBalanceToBackendTokenDetails,
@@ -776,6 +780,21 @@ export async function fetchTokenList(
     ...params.requestApiParams,
     balance: total,
     balanceParsed,
+    price: await zcashFetchNativeTokenPrice(vault, params.requestCurrency),
+  });
+}
+
+// For when no backend row carries a quote; the request has no address.
+async function zcashFetchNativeTokenPrice(
+  vault: Vault,
+  requestCurrency?: string,
+): Promise<number | undefined> {
+  const network = await vault.getNetwork();
+  return fetchLocalWalletNativeTokenPrice({
+    backgroundApi: vault.backgroundApi,
+    networkId: vault.networkId,
+    backendIndex: network.backendIndex,
+    requestCurrency,
   });
 }
 
@@ -928,9 +947,7 @@ export async function fetchTokenDetails(
   ) {
     return serverResponse;
   }
-  const spendableFiatValue = spendable.isZero() ? '0' : '';
-  const frozenFiatValue = frozen.isZero() ? '0' : '';
-  const totalFiatValue = total.isZero() ? '0' : '';
+  const price = await zcashFetchNativeTokenPrice(vault, params.requestCurrency);
   return {
     data: {
       data: [
@@ -943,7 +960,7 @@ export async function fetchTokenDetails(
             logoURI: network.logoURI,
             isNative: true,
           },
-          price: 0,
+          price: price ?? 0,
           price24h: 0,
           balance: balance.spendable,
           balanceParsed: toParsed(spendable),
@@ -951,9 +968,18 @@ export async function fetchTokenDetails(
           frozenBalanceParsed: toParsed(frozen),
           totalBalance: balance.total,
           totalBalanceParsed: totalParsed,
-          fiatValue: spendableFiatValue,
-          frozenBalanceFiatValue: frozenFiatValue,
-          totalBalanceFiatValue: totalFiatValue,
+          fiatValue: getLocalWalletFiatValue({
+            amountParsed: toParsed(spendable),
+            price,
+          }),
+          frozenBalanceFiatValue: getLocalWalletFiatValue({
+            amountParsed: toParsed(frozen),
+            price,
+          }),
+          totalBalanceFiatValue: getLocalWalletFiatValue({
+            amountParsed: totalParsed,
+            price,
+          }),
         },
       ],
     },

@@ -20,6 +20,7 @@ import { settingsPersistAtom } from '../states/jotai/atoms/settings';
 import { vaultFactory } from '../vaults/factory';
 import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
 import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import { fetchLocalWalletNativeTokenPrice } from '../vaults/localWallet/nativeTokenPrice';
 
 import ServiceBase from './ServiceBase';
 
@@ -137,37 +138,12 @@ class ServiceGas extends ServiceBase {
       (await isLocalWalletNetwork({ networkId: params.networkId }))
     ) {
       const network = await vault.getNetwork();
-      const quotePrice = network.backendIndex
-        ? await (async () => {
-            const chainVault = await vaultFactory.getChainOnlyVault({
-              networkId: params.networkId,
-            });
-            const tokenAddress =
-              await this.backgroundApi.serviceToken.getNativeTokenAddress({
-                networkId: params.networkId,
-              });
-            const quote = await chainVault.fetchTokenDetails({
-              networkId: params.networkId,
-              contractList: [tokenAddress],
-              requestCurrency: currencyInfo?.id ?? 'usd',
-            });
-            return quote.data.data.find(
-              (token) => token.info.address === tokenAddress,
-            )?.price;
-          })().catch(() => undefined)
-        : await this.backgroundApi.serviceMarketV2
-            .fetchMarketTokenDetailByTokenAddress('', params.networkId, {
-              autoHandleError: false,
-            })
-            .then(
-              (quote) =>
-                quote?.data?.token?.priceConverted ?? quote?.data?.token?.price,
-            )
-            .catch(() => undefined);
-      const price = new BigNumber(quotePrice ?? '');
-      if (price.isFinite() && price.gt(0)) {
-        nativeTokenPrice = price.toNumber();
-      }
+      nativeTokenPrice = await fetchLocalWalletNativeTokenPrice({
+        backgroundApi: this.backgroundApi,
+        networkId: params.networkId,
+        backendIndex: network.backendIndex,
+        requestCurrency: currencyInfo?.id ?? 'usd',
+      });
     }
 
     const feeResult = {
