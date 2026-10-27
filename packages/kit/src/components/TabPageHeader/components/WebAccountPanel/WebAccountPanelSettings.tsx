@@ -17,6 +17,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { ISegmentControlLabelState } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -70,40 +71,40 @@ function ThemeRow() {
   const options = useMemo(
     () => [
       {
-        label: (
+        label: ({ active, hovered }: ISegmentControlLabelState) => (
           <Icon
             my="$0.5"
             name="LaptopOutline"
             size="$4"
-            color={theme === 'system' ? '$iconStrong' : '$icon'}
+            color={active || hovered ? '$iconStrong' : '$icon'}
           />
         ),
         value: 'system' as const,
       },
       {
-        label: (
+        label: ({ active, hovered }: ISegmentControlLabelState) => (
           <Icon
             my="$0.5"
             name="SunOutline"
             size="$4"
-            color={theme === 'light' ? '$iconStrong' : '$icon'}
+            color={active || hovered ? '$iconStrong' : '$icon'}
           />
         ),
         value: 'light' as const,
       },
       {
-        label: (
+        label: ({ active, hovered }: ISegmentControlLabelState) => (
           <Icon
             my="$0.5"
             name="MoonOutline"
             size="$4"
-            color={theme === 'dark' ? '$iconStrong' : '$icon'}
+            color={active || hovered ? '$iconStrong' : '$icon'}
           />
         ),
         value: 'dark' as const,
       },
     ],
-    [theme],
+    [],
   );
   const handleChange = useCallback(async (value: unknown) => {
     await backgroundApiProxy.serviceSetting.setTheme(
