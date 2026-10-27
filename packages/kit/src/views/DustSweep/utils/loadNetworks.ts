@@ -308,10 +308,11 @@ export function refreshDustSweepNetwork(
 }
 
 async function loadDustSweepNetworkContexts(params: IDustSweepRouteParams) {
+  const { accountId } = params;
   if (
-    !params.accountId ||
-    accountUtils.isWatchingAccount({ accountId: params.accountId }) ||
-    accountUtils.isExternalAccount({ accountId: params.accountId })
+    !accountId ||
+    accountUtils.isWatchingAccount({ accountId }) ||
+    accountUtils.isExternalAccount({ accountId })
   )
     throw new OneKeyLocalError('Account is unavailable');
   const [
@@ -321,23 +322,33 @@ async function loadDustSweepNetworkContexts(params: IDustSweepRouteParams) {
     providerSupportedNetworks,
     savedProviders,
   ] = await Promise.all([
-    backgroundApiProxy.serviceSwap.fetchSwapNetworks(),
-    backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-      accountId: params.accountId,
-      indexedAccountId: params.indexedAccountId,
-      networkId: getNetworkIdsMap().onekeyall,
-      // A single-network entry must resolve that network even when the user
-      // disabled it in the All Networks aggregate view.
-      networksEnabledOnly: !params.networkId,
-      excludeTestNetwork: true,
-      includingNonExistingAccount: false,
-      includingNotEqualGlobalDeriveTypeAccount: Boolean(params.networkId),
-    }),
-    backgroundApiProxy.serviceSwap.getSwapProviderManager(),
-    backgroundApiProxy.serviceSwap.fetchSwapProviderSupportNetworks({
-      provider: DUST_SWEEP_PROVIDER,
-    }),
-    backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager(),
+    loadQuietly(() =>
+      backgroundApiProxy.serviceSwap.fetchSwapNetworks({
+        autoHandleError: false,
+      }),
+    ),
+    loadQuietly(() =>
+      backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+        accountId,
+        indexedAccountId: params.indexedAccountId,
+        networkId: getNetworkIdsMap().onekeyall,
+        // A single-network entry must resolve that network even when the user
+        // disabled it in the All Networks aggregate view.
+        networksEnabledOnly: !params.networkId,
+        excludeTestNetwork: true,
+        includingNonExistingAccount: false,
+        includingNotEqualGlobalDeriveTypeAccount: Boolean(params.networkId),
+      }),
+    ),
+    loadQuietly(() => backgroundApiProxy.serviceSwap.getSwapProviderManager()),
+    loadQuietly(() =>
+      backgroundApiProxy.serviceSwap.fetchSwapProviderSupportNetworks({
+        provider: DUST_SWEEP_PROVIDER,
+      }),
+    ),
+    loadQuietly(() =>
+      backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager(),
+    ),
   ]);
   const provider = providers.find(
     (item) => item.providerInfo.provider === DUST_SWEEP_PROVIDER,
