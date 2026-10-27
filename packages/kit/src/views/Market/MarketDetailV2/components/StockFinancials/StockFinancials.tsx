@@ -83,17 +83,16 @@ function FinancialCard({
       testID={`stock-financials-${kind}`}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
-      {/* When the title and the period switch cannot share a row (the narrow
-          mobile overview, long translations), the switch wraps onto its own
-          line, starting from the left. */}
+      {/* The period switch keeps its place at the right; a title that does
+          not fit (the narrow mobile overview, long translations) wraps within
+          its own column instead. */}
       <XStack
         alignItems="center"
         justifyContent="space-between"
-        flexWrap="wrap"
         gap="$2"
         minHeight="$10"
       >
-        <XStack alignItems="baseline" gap="$3" flexShrink={1}>
+        <XStack alignItems="baseline" gap="$3" flex={1} minWidth={0}>
           <SizableText size="$headingMd" flexShrink={1}>
             {labels[kind]}
           </SizableText>
@@ -203,10 +202,13 @@ export function StockFinancials({
   stockId,
   labels: labelsOverride,
   withHorizontalPadding = true,
+  showTitle = true,
 }: {
   stockId: string;
   withHorizontalPadding?: boolean;
   labels?: IStockFinancialLabels;
+  /** Off where a tab already names the section. */
+  showTitle?: boolean;
 }) {
   const translatedLabels = useStockFinancialLabels();
   const labels = labelsOverride ?? translatedLabels;
@@ -220,11 +222,15 @@ export function StockFinancials({
     <YStack
       testID="stock-financials"
       px={withHorizontalPadding ? '$5' : '$0'}
-      py="$2"
+      // Without the title, cards start 32pt below the tabs like Overview.
+      pt={showTitle ? '$2' : '$8'}
+      pb="$2"
     >
-      <SizableText size="$headingXl" pt="$6" pb="$6">
-        {labels.financials}
-      </SizableText>
+      {showTitle ? (
+        <SizableText size="$headingXl" pt="$6" pb="$6">
+          {labels.financials}
+        </SizableText>
+      ) : null}
       <XStack
         flexWrap="wrap"
         columnGap={CARD_COLUMN_GAP}

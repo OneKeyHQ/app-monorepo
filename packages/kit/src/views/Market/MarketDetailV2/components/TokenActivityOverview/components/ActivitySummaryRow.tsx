@@ -72,7 +72,8 @@ export function ActivitySummaryRow({
     <XStack
       testID="market-token-activity-summary-row"
       px={stacked ? undefined : '$0.5'}
-      gap={stacked ? '$4' : '$2.5'}
+      rowGap={stacked ? '$6' : undefined}
+      columnGap="$2.5"
       alignItems={stacked ? 'flex-start' : 'center'}
       flexWrap={stacked ? 'wrap' : undefined}
     >
