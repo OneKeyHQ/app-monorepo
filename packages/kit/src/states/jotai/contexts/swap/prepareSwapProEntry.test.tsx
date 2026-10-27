@@ -3,6 +3,10 @@
 import { render } from '@testing-library/react';
 
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import {
+  getTokenIdentityKey,
+  isSwapStockTokenKeySettled,
+} from '@onekeyhq/kit/src/views/Swap/hooks/swapStockChannelUtils';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -282,6 +286,18 @@ describe('prepareStockSwapEntry', () => {
     jotaiContextStore.storeResetRequests.clear();
     delete (globalThis as IGlobalColdStartSnapshot)
       .__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  });
+
+  it('keeps the Market-picked stock variant out of the default issuer correction', () => {
+    const stockToken: ISwapToken = {
+      ...proToken,
+      contractAddress: '0xmarket-picked-variant',
+      isStock: true,
+    };
+    const key = getTokenIdentityKey(stockToken);
+    expect(isSwapStockTokenKeySettled(key)).toBe(false);
+    prepareStockSwapEntry({ token: stockToken });
+    expect(isSwapStockTokenKeySettled(key)).toBe(true);
   });
 
   it('opens a stock sell with a same-network receive token and clears buy amounts', () => {

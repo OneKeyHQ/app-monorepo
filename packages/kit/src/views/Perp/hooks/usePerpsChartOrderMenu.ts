@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
 
 import {
@@ -31,6 +32,7 @@ import { usePerpsMidPrice } from './usePerpsMidPrice';
 
 export function usePerpsChartOrderMenu(enabled: boolean) {
   const intl = useIntl();
+  const sourcePage = useOverlayPageScope();
   const [instrument] = useActiveTradeInstrumentAtom();
   const [account] = usePerpsActiveAccountAtom();
   const [loading] = usePerpsAccountLoadingInfoAtom();
@@ -132,6 +134,7 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
         if (!isCurrent()) return;
         close();
         dialog.current = showLimitOrderDialog({
+          sourcePage,
           symbol: scope.coin,
           price,
           displayPair: displayName,
@@ -205,7 +208,16 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
         ],
       });
     },
-    [scope, instrument, szDecimals, displayName, baseName, intl, close],
+    [
+      scope,
+      instrument,
+      szDecimals,
+      displayName,
+      baseName,
+      intl,
+      close,
+      sourcePage,
+    ],
   );
 
   return {

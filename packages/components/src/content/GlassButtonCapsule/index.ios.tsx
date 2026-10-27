@@ -26,7 +26,10 @@ const glassPillStyle = {
 //
 // Gated on isLiquidGlassAvailable() (true only on iOS 26+ with the material);
 // older iOS falls back to the plain buttons, no glass and no bare-ify.
-export function GlassButtonCapsule({ children }: PropsWithChildren) {
+export function GlassButtonCapsule({
+  children,
+  circular = false,
+}: PropsWithChildren<{ circular?: boolean }>) {
   if (!isLiquidGlassAvailable()) {
     return <>{children}</>;
   }
@@ -39,7 +42,12 @@ export function GlassButtonCapsule({ children }: PropsWithChildren) {
             more, so add room around the row. These are the tuning knobs —
             py ≈ capsule height / vertical inset, px ≈ horizontal end inset,
             gap ≈ space between the two icons. */}
-        <XStack alignItems="center" py="$1" px="$1.5" gap="$2.5">
+        <XStack
+          alignItems="center"
+          py="$1"
+          px={circular ? '$1' : '$1.5'}
+          gap="$2.5"
+        >
           {children}
         </XStack>
       </GlassHeaderProvider>

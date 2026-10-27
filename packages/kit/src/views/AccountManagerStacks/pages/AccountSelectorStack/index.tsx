@@ -26,7 +26,7 @@ export function AccountSelectorStack({
   });
 
   return (
-    <Page lazyLoad safeAreaEnabled={false}>
+    <Page safeAreaEnabled={false}>
       <Page.Body>
         <XStack flex={1}>
           {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}

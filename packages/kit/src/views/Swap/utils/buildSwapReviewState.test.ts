@@ -15,6 +15,11 @@ import {
   buildSwapReviewState,
   resolveSwapReviewTokenAmounts,
 } from './buildSwapReviewState';
+import {
+  buildSwapStockReviewDisplay,
+  calculateSwapStockEstimatedShares,
+  resolveSwapStockReviewToken,
+} from './swapStockReviewUtils';
 
 const fromToken: ISwapToken = {
   networkId: 'evm--1',
@@ -59,6 +64,155 @@ function createQuoteResult(
     ...overrides,
   };
 }
+
+describe('stock review metadata snapshot', () => {
+  const stockToken: ISwapToken = {
+    ...toToken,
+    symbol: 'AAPLB',
+    isStock: true,
+    price: '100',
+    stock: {
+      subtitle: 'Apple',
+      sourceLogoUri: '',
+      tokenToAssetRatio: '0.9',
+      underlyingAssetTicker: 'cached',
+    },
+  };
+
+  it.each([true, false])(
+    'carries the ticket ratio into Preview without changing execution tokens (buy=%p)',
+    (isBuy) => {
+      const stockReviewToken = resolveSwapStockReviewToken({
+        stockToken,
+        selectedTokenVariant: { ...stockToken, tokenToAssetRatio: '1' },
+        tokenDetail: { address: stockToken.contractAddress },
+        underlyingSymbol: 'AAPL',
+      });
+      const sendToken = isBuy ? fromToken : stockToken;
+      const receiveToken = isBuy ? stockToken : fromToken;
+      const fromAmount = isBuy ? '100' : '0.5';
+      const toAmount = isBuy ? '0.5' : '100';
+      const { preSwapData } = buildSwapReviewState({
+        fromToken: sendToken,
+        toToken: receiveToken,
+        stockReviewToken,
+        fromTokenAmount: fromAmount,
+        toTokenAmount: toAmount,
+        quoteResult: createQuoteResult({
+          protocol: EProtocolOfExchange.STOCK,
+          fromTokenInfo: sendToken,
+          toTokenInfo: receiveToken,
+          fromAmount,
+          toAmount,
+        }),
+        swapType: ESwapTabSwitchType.STOCK,
+        supportPreBuild: true,
+        texts,
+      });
+      const display = buildSwapStockReviewDisplay({
+        fromToken: preSwapData.fromToken,
+        toToken: preSwapData.toToken,
+        fromAmount: preSwapData.fromTokenAmount!,
+        toAmount: preSwapData.toTokenAmount!,
+        currencyMap: {},
+        targetCurrency: 'usd',
+      });
+      const ticketShares = calculateSwapStockEstimatedShares({
+        stockTokenAmount: '0.5',
+        tokenToAssetRatio: stockReviewToken?.stock?.tokenToAssetRatio,
+      });
+      expect(display?.estimatedShares).toBe(ticketShares);
+      expect(display?.estimatedShares).toBe('0.5');
+      expect(display?.underlyingSymbol).toBe('AAPL');
+      expect(isBuy ? preSwapData.fromToken : preSwapData.toToken).toBe(
+        fromToken,
+      );
+      const snapshotStock = isBuy ? preSwapData.toToken : preSwapData.fromToken;
+      expect(snapshotStock).toEqual({
+        ...stockToken,
+        stock: {
+          ...stockToken.stock,
+          tokenToAssetRatio: '1',
+          underlyingAssetTicker: 'AAPL',
+        },
+      });
+      expect(snapshotStock?.stock).not.toBe(stockReviewToken?.stock);
+      expect(stockToken.stock?.tokenToAssetRatio).toBe('0.9');
+    },
+  );
+
+  it('uses ratio arrival, updates and removal for the next snapshot while preserving open reviews', () => {
+    const snapshots = [undefined, '1', '1.02', undefined].map((ratio) => {
+      const stockReviewToken = resolveSwapStockReviewToken({
+        stockToken,
+        selectedTokenVariant: { ...stockToken, tokenToAssetRatio: ratio },
+        tokenDetail: { address: stockToken.contractAddress },
+      });
+      return buildSwapReviewState({
+        fromToken,
+        toToken: stockToken,
+        stockReviewToken,
+        fromTokenAmount: '100',
+        toTokenAmount: '0.5',
+        swapType: ESwapTabSwitchType.STOCK,
+        supportPreBuild: true,
+        texts,
+      }).preSwapData;
+    });
+    const displays = snapshots.map((snapshot) =>
+      buildSwapStockReviewDisplay({
+        fromToken: snapshot.fromToken,
+        toToken: snapshot.toToken,
+        fromAmount: snapshot.fromTokenAmount!,
+        toAmount: snapshot.toTokenAmount!,
+        currencyMap: {},
+        targetCurrency: 'usd',
+      }),
+    );
+    expect(displays.map((display) => display?.estimatedShares)).toEqual([
+      undefined,
+      '0.5',
+      '0.51',
+      undefined,
+    ]);
+    expect(snapshots[1].toToken?.stock?.tokenToAssetRatio).toBe('1');
+    expect(snapshots[3].toToken?.stock).toHaveProperty(
+      'tokenToAssetRatio',
+      undefined,
+    );
+    // A rebuilt quote changes amounts while keeping the open review's ratio.
+    expect(
+      buildSwapStockReviewDisplay({
+        fromToken: snapshots[1].fromToken,
+        toToken: snapshots[1].toToken,
+        fromAmount: '120',
+        toAmount: '0.6',
+        currencyMap: {},
+        targetCurrency: 'usd',
+      })?.estimatedShares,
+    ).toBe('0.6');
+  });
+
+  it.each([
+    { ...stockToken, networkId: 'evm--56' },
+    { ...stockToken, contractAddress: '0xother' },
+    { ...stockToken, isStock: false },
+  ])(
+    'ignores metadata for another execution identity: %o',
+    (stockReviewToken) => {
+      const { preSwapData } = buildSwapReviewState({
+        fromToken,
+        toToken: stockToken,
+        stockReviewToken,
+        swapType: ESwapTabSwitchType.STOCK,
+        supportPreBuild: true,
+        texts,
+      });
+      expect(preSwapData.fromToken).toBe(fromToken);
+      expect(preSwapData.toToken).toBe(stockToken);
+    },
+  );
+});
 
 describe('buildSwapBatchTransferType', () => {
   it.each(['evm--1', 'evm--56', 'evm--137', 'evm--42161'])(

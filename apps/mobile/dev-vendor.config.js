@@ -74,7 +74,6 @@ const nativeContractDependencies = {
   ],
   ios: [
     '@onramper/onramper-react-native',
-    'burnt',
     'expo-apple-authentication',
     'expo-glass-effect',
     'expo-modules-jsi',
@@ -102,7 +101,7 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-lite-card',
     '@onekeyfe/react-native-native-list',
     '@onekeyfe/react-native-native-logger',
-    '@onekeyfe/react-native-native-sheet',
+    '@onekeyfe/react-native-native-overlay',
     '@onekeyfe/react-native-network-throttle',
     '@onekeyfe/react-native-perf-memory',
     '@onekeyfe/react-native-perf-stats',
@@ -216,6 +215,7 @@ const shellInputDirectories = {
     'apps/mobile/android/app/src',
     'apps/mobile/android/app-update-noop/src',
     'apps/mobile/android/build-logic',
+    'apps/mobile/android/mmkv',
   ],
   ios: [
     'apps/mobile/ios/OneKeyLogo.icon',
@@ -280,9 +280,12 @@ const shellInputFiles = {
     'apps/mobile/scripts/mobile-dev-shell-resource.js',
   ],
   shared: [
+    'apps/mobile/native/mmkv/checked-sync.patch',
+    'apps/mobile/native/mmkv/source.lock.json',
     'apps/mobile/package.json',
     'apps/mobile/react-native.config.js',
     'apps/mobile/scripts/build-mobile-dev-shell.js',
+    'development/scripts/prepare-mmkv-source.js',
     'yarn.lock',
   ],
 };

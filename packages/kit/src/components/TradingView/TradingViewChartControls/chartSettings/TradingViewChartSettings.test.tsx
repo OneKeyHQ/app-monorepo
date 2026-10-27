@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { TradingViewChartSettings } from './TradingViewChartSettings';
 import { createTradingViewChartSettingsValue } from './TradingViewSettingsMockState';
@@ -107,6 +107,40 @@ jest.mock('@onekeyhq/components', () => {
       </>
     ),
     ScrollView: View,
+    Select: ({
+      defaultTriggerInputProps,
+      items,
+      onChange,
+      testID,
+      value,
+    }: {
+      defaultTriggerInputProps?: { leftIconName?: string };
+      items: {
+        label: string;
+        value: string;
+        leading?: { props: { name?: string } };
+      }[];
+      onChange: (value: string) => void;
+      testID: string;
+      value: string;
+    }) => (
+      <select
+        data-testid={testID}
+        data-left-icon={defaultTriggerInputProps?.leftIconName}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {items.map((item) => (
+          <option
+            key={item.value}
+            value={item.value}
+            data-icon={item.leading?.props.name}
+          >
+            {item.label}
+          </option>
+        ))}
+      </select>
+    ),
     SizableText: View,
     XStack: View,
     YStack: View,
@@ -183,6 +217,41 @@ describe('TradingViewChartSettings', () => {
     expect(nextValue?.options.previousClose).toBe(true);
   });
 
+  it('lets the chart display leading row confirm pending edits', async () => {
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () => Promise.resolve(),
+    );
+    let confirmDraft: (() => Promise<boolean>) | undefined;
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={createTradingViewChartSettingsValue()}
+        mobileLayout
+        showChartType
+        onConfirm={onConfirm}
+        renderChartDisplayLeadingRow={(helpers) => {
+          confirmDraft = helpers.confirmDraft;
+          return null;
+        }}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByTestId('trading-view-settings-select-chart-type'),
+      { target: { value: 'line' } },
+    );
+
+    let confirmed = false;
+    await act(async () => {
+      confirmed = (await confirmDraft?.()) ?? false;
+    });
+
+    expect(confirmed).toBe(true);
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ chartType: 'line' }),
+    );
+  });
+
   it('shows native chart types in settings and updates the preference', () => {
     const initialValue = createTradingViewChartSettingsValue();
     const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();
@@ -196,12 +265,30 @@ describe('TradingViewChartSettings', () => {
       />,
     );
 
+    const chartTypeSelect = screen.getByTestId(
+      'trading-view-settings-select-chart-type',
+    );
+    expect(chartTypeSelect.textContent).toContain('global.auto');
+    expect(chartTypeSelect.getAttribute('data-left-icon')).toBe(
+      'MagicStickOutline',
+    );
     expect(
-      screen.getByTestId('trading-view-settings-select-chart-type').textContent,
-    ).toContain('global.auto');
+      Array.from(chartTypeSelect.querySelectorAll('option')).map((option) => [
+        option.value,
+        option.getAttribute('data-icon'),
+      ]),
+    ).toEqual([
+      ['auto', 'MagicStickOutline'],
+      ['candlestick', 'TradingViewCandlesOutline'],
+      ['heikinAshi', 'TradingViewBarsOutline'],
+      ['bars', 'TradingViewCandlesHlcOutline'],
+      ['line', 'TradingViewLineOutline'],
+      ['area', 'ChartTrending2Outline'],
+    ]);
 
-    fireEvent.click(
-      screen.getByTestId('trading-view-settings-select-chart-type-line'),
+    fireEvent.change(
+      screen.getByTestId('trading-view-settings-select-chart-type'),
+      { target: { value: 'line' } },
     );
 
     const nextValue = onChange.mock.calls.at(-1)?.[0];

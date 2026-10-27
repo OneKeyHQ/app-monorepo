@@ -159,6 +159,8 @@ export default function WebAccountPanelPopoverContent({
             copyAsUrl
             closePopover={closePopover}
             showTitle={false}
+            menuLayout
+            menuPopoverLayout
           />
         </YStack>
       );

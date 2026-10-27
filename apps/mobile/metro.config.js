@@ -82,6 +82,17 @@ if (process.env.RN_HARNESS === 'true') {
   config.server.unstable_serverRoot = monorepoRoot;
   const expoRewrite = config.server.rewriteRequestUrl || ((url) => url);
   config.server.rewriteRequestUrl = (url) => {
+    if (
+      process.env.RN_HARNESS_NATIVE_STORAGE_BACKGROUND === 'true' &&
+      /^\/(?:apps\/mobile\/)?background\.bundle(?:\?|$)/u.test(url)
+    ) {
+      return expoRewrite(
+        url.replace(
+          /^\/(?:apps\/mobile\/)?background\.bundle/u,
+          '/apps/mobile/harness/nativeStorageBackgroundEntry.bundle',
+        ),
+      );
+    }
     // Handle Expo virtual entry first (before the general rewrite)
     if (url.includes('/.expo/.virtual-metro-entry.bundle')) {
       // oxlint-disable-next-line no-param-reassign
@@ -162,6 +173,11 @@ const SUBPATH_EXPORT_ALIASES = [
   '@onekeyfe/hwk-trezor-connector-webusb/constants',
   'bitcoinjs-lib/src/bufferutils',
   'bitcoinjs-lib/src/payments/bip341',
+  // React Native 0.88 renderer shims import these export-only sub-paths.
+  'react-native/asset-registry',
+  'react-native/react-private-interface',
+  'react-native/setup-env',
+  'react-native/unstable-internals-do-not-use',
 ];
 const subpathExportAliasMap = new Map(
   SUBPATH_EXPORT_ALIASES.map((spec) => [spec, require.resolve(spec)]),
@@ -274,9 +290,10 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       // noop
     }
   }
-  // Strip Developer/Gallery from production union builds
+  // Strip Developer/Gallery from all production builds.
   if (
-    (process.env.UNION_BUILD === 'true' ||
+    (process.env.NODE_ENV === 'production' ||
+      process.env.UNION_BUILD === 'true' ||
       process.env.SPLIT_BUNDLE_SEGMENTS === 'true') &&
     context.originModulePath &&
     (moduleName.includes('/Developer/router') ||
@@ -302,7 +319,22 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       filePath: ledgerCjs,
     };
   }
-  return resolve(context, moduleName, platform);
+  try {
+    return resolve(context, moduleName, platform);
+  } catch (error) {
+    // React Native 0.88 ships some @react-native/* packages (for example
+    // asset-utils) with only an `exports` map and no `main`. Let Node, which
+    // honors `exports`, resolve them when Metro cannot.
+    if (!moduleName.startsWith('@react-native/')) {
+      throw error;
+    }
+    return {
+      type: 'sourceFile',
+      filePath: require.resolve(moduleName, {
+        paths: [path.dirname(context.originModulePath), monorepoRoot],
+      }),
+    };
+  }
 };
 
 // When running under React Native Harness, manually resolve subpath exports

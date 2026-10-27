@@ -2090,10 +2090,17 @@ class ServiceHardware extends ServiceBase {
             }
           }
 
+          // Method logs are noisy, but FirmwareUpdateV4 ones carry the failed
+          // install target and per-file transfer timing.
+          const isFirmwareUpdateLog =
+            messageType === '[Method]' &&
+            typeof messages.payload[1] === 'string' &&
+            messages.payload[1].startsWith('[FirmwareUpdateV4]');
           if (
             messageType.includes('@onekey/hd-core') ||
             messageType.includes('@onekey/hd-transport') ||
-            messageType.includes('@onekey/hd-ble-transport')
+            messageType.includes('@onekey/hd-ble-transport') ||
+            isFirmwareUpdateLog
           ) {
             defaultLogger.hardware.sdkLog.log(messages.event, message);
           }
@@ -2380,6 +2387,18 @@ class ServiceHardware extends ServiceBase {
         'searchDevices response: ',
         JSON.stringify(response),
       );
+      if (response?.success) {
+        for (const device of response.payload) {
+          if (deviceUtils.isBluetoothSearchDevice(device)) {
+            defaultLogger.hardware.sdkLog.bleSearchDevicesColor({
+              connectId: device.connectId,
+              name: device.name,
+              deviceType: device.deviceType,
+              bleColorCode: device.bleColorCode,
+            });
+          }
+        }
+      }
 
       // Linux may surface missing udev rules either through libusb or Chromium
       // WebUSB errors, depending on the active transport path.

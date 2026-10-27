@@ -30,6 +30,8 @@ export const useTakeScreenshot = (id?: string | null) => {
         format: 'jpg',
         quality: 0.2,
       });
+      // Awaited: the tab list opens right after this resolves and shows the
+      // tab's thumbnail, so it must already point at this capture.
       const manipulateValue = await manipulateAsync(imageUri, [
         {
           crop: {

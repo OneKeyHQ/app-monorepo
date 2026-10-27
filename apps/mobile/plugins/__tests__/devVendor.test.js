@@ -139,8 +139,12 @@ function loadResolveAssetSource(scriptURL) {
       if (request === './AssetUtils') {
         return { pickScale: () => 1 };
       }
-      if (request === '@react-native/assets-registry/registry') {
-        return { getAssetByID: () => ({ name: 'test', type: 'png' }) };
+      if (request === '../../src/private/assets/AssetRegistry') {
+        return {
+          AssetRegistry: {
+            getAssetByID: () => ({ name: 'test', type: 'png' }),
+          },
+        };
       }
       if (request === '../Core/Devtools/getDevServer') {
         return { __esModule: true, default: getDevServer };
@@ -252,6 +256,24 @@ function createTemporaryRuntimeFixture() {
     const destination = path.join(temporaryRepoRoot, relativePath);
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.copyFileSync(path.join(repoRoot, relativePath), destination);
+  }
+  // ABI inputs from workspace packages need the same installed links as Yarn.
+  for (const name of nativeDependencies) {
+    const packageRoot = path.dirname(
+      require.resolve(`${name}/package.json`, {
+        paths: [path.join(repoRoot, 'apps/mobile'), repoRoot],
+      }),
+    );
+    const relativePackageRoot = path.relative(repoRoot, packageRoot);
+    if (relativePackageRoot.startsWith(`packages${path.sep}`)) {
+      const installedPath = path.join(temporaryRepoRoot, 'node_modules', name);
+      fs.mkdirSync(path.dirname(installedPath), { recursive: true });
+      fs.symlinkSync(
+        path.join(temporaryRepoRoot, relativePackageRoot),
+        installedPath,
+        'junction',
+      );
+    }
   }
   const modulePath = 'apps/mobile/index.ts';
   const moduleSourcePath = path.join(temporaryRepoRoot, modulePath);
@@ -581,6 +603,41 @@ describe('devVendor', () => {
     }
   });
 
+  it('invalidates both exact shells when the checked MMKV source inputs change', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      for (const relativePath of [
+        'apps/mobile/native/mmkv/checked-sync.patch',
+        'apps/mobile/native/mmkv/source.lock.json',
+        'development/scripts/prepare-mmkv-source.js',
+      ]) {
+        const file = path.join(fixture.repoRoot, relativePath);
+        const original = fs.readFileSync(file);
+        const baselines = Object.fromEntries(
+          ['android', 'ios'].map((platform) => [
+            platform,
+            hashShellInputFiles(
+              getShellInputPaths(platform, fixture.repoRoot),
+              fixture.repoRoot,
+            ),
+          ]),
+        );
+        fs.appendFileSync(file, '\nchanged MMKV source input\n');
+        for (const platform of ['android', 'ios']) {
+          expect(
+            hashShellInputFiles(
+              getShellInputPaths(platform, fixture.repoRoot),
+              fixture.repoRoot,
+            ),
+          ).not.toBe(baselines[platform]);
+        }
+        fs.writeFileSync(file, original);
+      }
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
   it('keeps shell input keys stable for non-ABI shell and web changes', () => {
     const fixture = createTemporaryRuntimeFixture();
     try {
@@ -720,7 +777,7 @@ describe('devVendor', () => {
       );
 
       const changedPodResolution = podLock.replace(
-        /^(  SPAlert: )[0-9a-f]{40}$/mu,
+        /^(  AppAuth: )[0-9a-f]{40}$/mu,
         `$1${'f'.repeat(40)}`,
       );
       expect(changedPodResolution).not.toBe(podLock);
@@ -763,7 +820,7 @@ describe('devVendor', () => {
       const yarnLockPath = path.join(fixture.repoRoot, 'yarn.lock');
       const yarnLock = fs.readFileSync(yarnLockPath, 'utf8');
       const changedYarnLock = yarnLock.replace(
-        /("react-native@npm:0\.86\.2":[\s\S]*?\n  checksum: )[^\n]+/u,
+        /("react-native@npm:0\.88\.0":[\s\S]*?\n  checksum: )[^\n]+/u,
         `$1${`10/${'a'.repeat(128)}`}`,
       );
       expect(changedYarnLock).not.toBe(yarnLock);
@@ -878,6 +935,97 @@ describe('devVendor', () => {
         iosBaseline,
       );
     } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('excludes Catalyst-disabled modules while retaining required ABI checks', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    const previousMode = process.env.ONEKEY_MAC_CATALYST;
+    const lockPath = path.join(
+      fixture.repoRoot,
+      'apps/mobile/ios/Podfile.lock',
+    );
+    const excluded = [
+      '@onekeyfe/react-native-lite-card',
+      '@onekeyfe/react-native-sni-connect',
+      '@onramper/onramper-react-native',
+      '@phantom/react-native-juicebox-sdk',
+      '@shopify/react-native-skia',
+      '@walletconnect/react-native-compat',
+      'jcore-react-native',
+      'jpush-react-native',
+    ];
+    const androidBaseline = computeNativeContractKey(
+      'android',
+      fixture.repoRoot,
+    );
+    const catalystLock = fs
+      .readFileSync(lockPath, 'utf8')
+      .split('\n')
+      .filter(
+        (line) =>
+          !excluded.some((name) => line.includes(`node_modules/${name}`)),
+      )
+      .join('\n');
+    fs.writeFileSync(lockPath, catalystLock);
+    try {
+      process.env.ONEKEY_MAC_CATALYST = '1';
+      jest.isolateModules(() => {
+        const catalystVendor = require('../devVendor');
+        const catalystConfig = require('../../react-native.config');
+        const { findDisabledLibrariesByPlatform } = require(
+          path.join(
+            repoRoot,
+            'node_modules/react-native/scripts/codegen/generate-artifacts-executor/utils',
+          ),
+        );
+        const disabled = findDisabledLibrariesByPlatform(catalystConfig, 'ios');
+        for (const supported of [
+          '@onekeyfe/react-native-cloud-kit-module',
+          '@onekeyfe/react-native-network-info',
+          'expo-camera',
+        ]) {
+          expect(disabled).not.toContain(supported);
+        }
+        const descriptor = catalystVendor.getNativeContractDescriptor(
+          'ios',
+          fixture.repoRoot,
+        );
+        const names = descriptor.dependencies.map(({ name }) => name);
+        expect(names).toContain('@onekeyfe/react-native-bundle-crypto');
+        expect(names).toContain('@onekeyfe/react-native-cloud-kit-module');
+        expect(names).toContain('react-native-network-info');
+        for (const name of excluded) {
+          expect(names).not.toContain(name);
+        }
+        expect(
+          catalystVendor.computeNativeContractKey('android', fixture.repoRoot),
+        ).toBe(androidBaseline);
+        fs.writeFileSync(
+          lockPath,
+          catalystLock
+            .split('\n')
+            .filter(
+              (line) =>
+                !line.includes(
+                  'node_modules/@onekeyfe/react-native-bundle-crypto',
+                ),
+            )
+            .join('\n'),
+        );
+        expect(() =>
+          catalystVendor.getNativeContractDescriptor('ios', fixture.repoRoot),
+        ).toThrow(
+          'Native ABI dependency is missing from Podfile.lock: @onekeyfe/react-native-bundle-crypto',
+        );
+      });
+    } finally {
+      if (previousMode === undefined) {
+        delete process.env.ONEKEY_MAC_CATALYST;
+      } else {
+        process.env.ONEKEY_MAC_CATALYST = previousMode;
+      }
       fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
     }
   });

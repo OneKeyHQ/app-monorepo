@@ -42,6 +42,7 @@ import { buildStockInfoFromPublicDetail } from '@onekeyhq/kit/src/views/Market/M
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
 import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SwapTestIDs } from '../../testIDs';
@@ -181,6 +182,7 @@ function StockPrice({
           <MarketTooltipLabel
             testID="swap-stock-price-tooltip-trigger"
             hovering
+            placement="bottom"
             alignSelf="baseline"
             tooltip={intl.formatMessage({
               id:
@@ -314,6 +316,9 @@ export function SwapStockMobileHeader() {
           )}
           onRetry={retryStockDetail}
           status={status}
+          // Mobile trade quotes the token only, so the share price's
+          // last-update note does not apply; show the token's countdown.
+          showLastUpdate={false}
         />
       </Stack>
     </YStack>
@@ -354,7 +359,8 @@ export function SwapStockVariantSelector() {
             onOpenChange={(open) => {
               if (open) selection?.cancelSelection();
             }}
-            onSelect={selection?.selectVariant}
+            // Remembers the picked issuer only once the switch commits.
+            onSelect={selection?.pickVariant}
             portfolioData={portfolio?.portfolioData}
             resolvedVariantKeys={portfolio?.resolvedVariantKeys}
           />
@@ -490,6 +496,7 @@ export function SwapStockMarketPanel() {
       <YStack gap="$4">
         <SwapStockTickerSelector />
         <XStack
+          mt="$4"
           alignItems="flex-start"
           justifyContent="space-between"
           gap="$2"
@@ -644,7 +651,9 @@ export function SwapStockMarketPanel() {
         </YStack>
       </YStack>
       <SwapStockMyPosition />
-      <SwapStockMarketDataGrid tokenDetail={marketData} />
+      <SwapStockMarketDataGrid
+        tokenDetail={selection?.stockSelectionPending ? undefined : marketData}
+      />
       <SwapStockTokenDetails
         summary
         tokenDetail={tokenDetail}
@@ -667,6 +676,11 @@ export function SwapStockMarketPanel() {
                 logoUrl: stockDetail?.logoUrl ?? '',
                 networkId: currentStockToken?.networkId,
                 tokenAddress: currentStockToken?.contractAddress,
+                // This panel already shows the chart; landing on the same
+                // chart reads as if nothing happened (OK-64089).
+                initialSection: 'overview',
+                // Back on that detail returns here instead of the Market list.
+                from: EEnterWay.SwapStock,
               });
           }}
         >

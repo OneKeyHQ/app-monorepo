@@ -984,9 +984,13 @@ describe('TradingViewNative data providers', () => {
     });
     const interval = getInterval('1M');
     expect(provider.getHistoryRequestCandleCount(interval)).toBe(5000);
+    expect(provider.getInitialHistoryRequestCandleCount?.(interval)).toBe(500);
     expect(
       provider.hasMoreHistory({ interval, receivedPointCount: 5000 }),
     ).toBe(true);
+    expect(provider.hasMoreHistory({ interval, receivedPointCount: 499 })).toBe(
+      false,
+    );
     const abortController = new AbortController();
 
     await provider.fetchHistory({

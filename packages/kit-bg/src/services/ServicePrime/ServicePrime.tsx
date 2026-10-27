@@ -502,6 +502,23 @@ export type IOneKeyIdAuthSnapshot = {
   authStateGeneration: number;
 };
 
+// A non-boolean is not a decision. GET /user/info turns an omitted field
+// into false before this runs; other payloads keep the same user's value.
+function resolveInviteProfilePublic({
+  incoming,
+  previous,
+  isSameUser,
+}: {
+  incoming: unknown;
+  previous: boolean | undefined;
+  isSameUser: boolean;
+}): boolean | undefined {
+  if (typeof incoming === 'boolean') {
+    return incoming;
+  }
+  return isSameUser ? previous : undefined;
+}
+
 class ServicePrime extends ServiceBase {
   private primeGiftMutex = new Semaphore(1);
 
@@ -736,6 +753,13 @@ class ServicePrime extends ServiceBase {
   private createInfiniPurchaseUserChangedError() {
     return new OneKeyLocalError({
       message: 'Prime purchase user changed',
+      autoToast: false,
+    });
+  }
+
+  private createInviteProfilePublicUserChangedError() {
+    return new OneKeyLocalError({
+      message: 'Invite profile consent user changed',
       autoToast: false,
     });
   }
@@ -4655,14 +4679,22 @@ class ServicePrime extends ServiceBase {
     }
 
     if (serverUserInfo) {
-      return this.mergeDefinedPrimeServerUserInfo({
-        serverUserInfo,
-        profile,
-      });
+      return {
+        ...this.mergeDefinedPrimeServerUserInfo({
+          serverUserInfo,
+          profile,
+        }),
+        // Only this response decides consent. An omitted field is off, and
+        // a profile value must not replace it.
+        inviteProfilePublic: serverUserInfo.inviteProfilePublic === true,
+      };
     }
 
     if (this.isCompletePrimeServerUserInfo(profile)) {
-      return profile;
+      return {
+        ...profile,
+        inviteProfilePublic: undefined,
+      };
     }
 
     if (serverUserInfoResult.status === 'rejected') {
@@ -4766,6 +4798,16 @@ class ServicePrime extends ServiceBase {
         ...v,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
+        // Only a boolean is a decision. GET /user/info already normalized an
+        // omitted field to false; other callers leave a non-boolean untouched.
+        inviteProfilePublic: resolveInviteProfilePublic({
+          incoming: serverUserInfo?.inviteProfilePublic,
+          previous: v.inviteProfilePublic,
+          isSameUser:
+            Boolean(serverUserId) &&
+            (v.onekeyUserId === serverUserId ||
+              v.onekeyAccount?.onekeyUserId === serverUserId),
+        }),
         email: userEmail,
         displayEmail,
         onekeyUserId: serverUserId,
@@ -4853,6 +4895,11 @@ class ServicePrime extends ServiceBase {
         avatar: loginResponse.avatar ?? (isSameUser ? v.avatar : undefined),
         nickname:
           loginResponse.nickname ?? (isSameUser ? v.nickname : undefined),
+        inviteProfilePublic: resolveInviteProfilePublic({
+          incoming: loginResponse.inviteProfilePublic,
+          previous: v.inviteProfilePublic,
+          isSameUser,
+        }),
         email: userEmail,
         displayEmail,
         onekeyUserId: onekeyAccount.onekeyUserId,
@@ -6379,6 +6426,55 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  @toastIfError()
+  async apiRemovePrimeForTest(
+    params: IBackgroundMethodWithDevOnlyPassword,
+    { expectedOneKeyUserId }: { expectedOneKeyUserId: string },
+  ): Promise<void> {
+    checkDevOnlyPassword(params, 'apiRemovePrimeForTest');
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError('Developer mode is required');
+    }
+    const createStateChangedError = () =>
+      new OneKeyLocalError('OneKey ID changed; reopen the confirmation');
+    const snapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const client = await this.getPrimeClient();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    // The server enforces the test environment and email allowlist. Use the
+    // configured Prime client so authentication and API errors stay standard.
+    await client.post(
+      '/prime/v1/user/test/remove-prime',
+      undefined,
+      this.getOneKeyIdAuthSnapshotRequestConfig(snapshot),
+    );
+    this.clearPrimeUserInfoCache();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    const { serverUserInfo, primeSubscription } =
+      await this.apiFetchPrimeUserInfo({
+        forceRefresh: true,
+      });
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    if (!serverUserInfo || primeSubscription?.isActive) {
+      throw new OneKeyLocalError(
+        'Removal requested, but Prime removal could not be confirmed. Refresh the account and try again.',
+      );
+    }
+  }
+
   // Intentionally @backgroundMethod() and not @backgroundMethodForDev(): this
   // entry is reachable from a production build, so a dev-only decorator would
   // be a wrong description of it. Its password wrapper also only guards the
@@ -6451,6 +6547,56 @@ class ServicePrime extends ServiceBase {
       void this.apiFetchPrimeUserInfo();
     });
     return result.data.code === 0;
+  }
+
+  @backgroundMethod()
+  async updateInviteProfilePublic({
+    enabled,
+    expectedOneKeyUserId,
+  }: {
+    enabled: boolean;
+    expectedOneKeyUserId: string;
+  }) {
+    const createStateChangedError = () =>
+      this.createInviteProfilePublicUserChangedError();
+    const authSnapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const client = await this.getPrimeClient();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError,
+    });
+    // Send only this field. Omitted avatar and nickname stay unchanged.
+    const result = await client.put<IApiClientResponse<{ success: boolean }>>(
+      `/prime/v1/user/info`,
+      {
+        inviteProfilePublic: enabled,
+      },
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot),
+    );
+    if (result.data.code !== 0) {
+      return false;
+    }
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError,
+    });
+    await primePersistAtom.set((current) => {
+      if (current.onekeyUserId !== expectedOneKeyUserId) {
+        return current;
+      }
+      return {
+        ...current,
+        inviteProfilePublic: enabled,
+      };
+    });
+    this.clearPrimeUserInfoCache();
+    setTimeout(() => {
+      void this.apiFetchPrimeUserInfo();
+    });
+    return true;
   }
 }
 

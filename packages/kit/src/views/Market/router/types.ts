@@ -1,5 +1,9 @@
+import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
-import type { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
+import type {
+  EMarketBannerType,
+  IMarketStockDetailPreview,
+} from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeAnyIndicatorId } from '@onekeyhq/shared/types/tradingViewNative';
 
 export enum EModalMarketRoutes {
@@ -18,6 +22,7 @@ export type IModalMarketParamList = {
     stockPreviewSymbol?: string;
     stockPreviewName?: string;
     stockPreviewLogoUrl?: string;
+    stockPreviewQuote?: IMarketStockDetailPreview['quote'];
     isNative?: boolean;
     showFavoriteButton?: boolean;
   };
@@ -37,6 +42,13 @@ export type IModalMarketParamList = {
         // Only stock detail charts can offer Prev close.
         showPreviousClose?: boolean;
         storageNamespace?: ITradingViewNativeStorageNamespace;
+        // Native toolbars hide the chart type select, so their settings must
+        // offer chart style at every width.
+        showChartType?: boolean;
+        // Charts that can switch source expose the switch on this page.
+        chartMode?: ITradingViewChartMode;
+        isChartSwitchDisabled?: boolean;
+        onChartSwitch?: () => void;
       }
     | undefined;
   [EModalMarketRoutes.MarketIndicatorSettings]: {

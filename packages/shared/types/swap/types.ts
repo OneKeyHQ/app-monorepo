@@ -8,6 +8,7 @@ import type {
   IAccountDeriveTypes,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IOneKeyErrorI18nInfo } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IEventSourceCloseEvent,
   IEventSourceDoneEvent,
@@ -17,6 +18,7 @@ import type {
   IEventSourceOpenEvent,
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { ISwapReviewAnalyticsContext } from './reviewAnalytics';
 import type {
@@ -39,6 +41,12 @@ import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+export type ISwapErrorMessage = {
+  key: ETranslations;
+  values?: IOneKeyErrorI18nInfo;
+  detail?: { key: ETranslations; values?: IOneKeyErrorI18nInfo };
+};
 
 export enum EWrappedType {
   DEPOSIT = 'deposit',
@@ -294,7 +302,16 @@ export interface ISwapToken extends ISwapTokenBase {
 export interface ISwapTokenCatch {
   data: ISwapToken[];
   updatedAt: number;
+  refreshVersion?: number;
+  identityVersion?: number;
+  persisted?: boolean;
 }
+
+export type ISwapTokenListSnapshotMap = {
+  version?: number;
+  updatedAt: number;
+  tokenCatch?: Record<string, ISwapTokenCatch>;
+};
 
 interface IFetchSwapQuoteBaseParams {
   fromNetworkId: string;
@@ -305,9 +322,17 @@ interface IFetchSwapQuoteBaseParams {
   protocol: string;
 }
 
+export type ISwapTokenSearchNetwork = {
+  networkId: string;
+  lpToken?: boolean;
+};
+
 export interface IFetchTokensParams {
   protocol?: string;
   networkId?: string;
+  contractSearchNetworkId?: string;
+  searchNetworks?: ISwapTokenSearchNetwork[];
+  searchRequestId?: string;
   keywords?: string;
   limit?: number;
   accountAddress?: string;
@@ -317,6 +342,8 @@ export interface IFetchTokensParams {
   onlySwapTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
   throwOnError?: boolean;
+  isTokenListPrefetch?: boolean;
+  tokenListPriority?: 'foreground' | 'background';
   lpToken?: boolean;
   currency?: string;
 }
@@ -579,6 +606,9 @@ export interface ISwapStep {
   orderId?: string;
   errorMessage?: string;
   canRetry?: boolean;
+  // Set when a sponsored direct send ended result-unknown (OK-64746): the tx
+  // may already be on chain, so this review must not retry or confirm again.
+  submitResultUnknown?: boolean;
   shouldWaitApproved?: boolean;
   isResetApprove?: boolean;
   skipSendTransAction?: boolean;
@@ -616,6 +646,7 @@ export interface ISwapGasInfo {
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
   gasAccountScenarioReason?: string;
+  gasAccountSkipReason?: string;
   // Raw megafuel eligibility kept for the external-wallet promo hint
   // (OK-61254). The effective sponsor state above is stripped at the estimate
   // source for external-wallet accounts — they always pay the real fee — but

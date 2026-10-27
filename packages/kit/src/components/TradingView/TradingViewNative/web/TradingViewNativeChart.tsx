@@ -14,6 +14,7 @@ import { isEqual } from 'lodash';
 import { Spinner, Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import type { IElement } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getDateFormatTemplate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import {
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE as AXIS_FONT_SIZE,
@@ -23,6 +24,7 @@ import {
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
+import { useDrawingCanvasText } from '../drawings/useDrawingCanvasText';
 import { IndicatorPaneHandles } from '../indicatorPanes/IndicatorPaneHandles';
 import { useIndicatorPanes } from '../indicatorPanes/useIndicatorPanes';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from '../utils/chartComponentTree';
@@ -139,7 +141,9 @@ interface ITimeAxisPointerDragState {
 
 export const TradingViewNativeChart = memo(
   ({
+    locale,
     drawingStorageKey,
+    loadDrawingHistory,
     enableDrawings: drawingsEnabled = false,
     candleIntervalSeconds,
     candleTimeMode,
@@ -174,6 +178,7 @@ export const TradingViewNativeChart = memo(
     testID,
     viewportRequest,
   }: ITradingViewNativeChartProps) => {
+    const dateFormatTemplate = getDateFormatTemplate(locale);
     const indicatorPanes = useIndicatorPanes(
       inputSubIndicatorPanes,
       drawingStorageKey,
@@ -210,6 +215,7 @@ export const TradingViewNativeChart = memo(
     const containerRef = useRef<HTMLDivElement>(null);
     const drawingRootRef = useRef<HTMLDivElement>(null);
     const drawingProjectionRef = useRef<IDrawingProjection | null>(null);
+    const drawingText = useDrawingCanvasText();
     const drawingRedrawRef = useRef<() => void>(() => undefined);
     const referenceLineHitRegionsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion[]
@@ -235,6 +241,8 @@ export const TradingViewNativeChart = memo(
       projectionRef: drawingProjectionRef,
       redrawRef: drawingRedrawRef,
       storageKey: drawingStorageKey,
+      loadHistory: loadDrawingHistory,
+      historyContext: { points, interval: candleIntervalSeconds },
       rootRef: drawingRootRef,
     });
     const {
@@ -522,6 +530,7 @@ export const TradingViewNativeChart = memo(
         }
         const referenceLinePriceRange = getReferenceLinePriceRange();
         const scene = drawTradingViewNativeCanvasChart({
+          dateFormatTemplate,
           autoScalePointRange,
           candleIntervalSeconds,
           candleTimeMode,
@@ -591,6 +600,13 @@ export const TradingViewNativeChart = memo(
                 viewport: scene.viewport,
                 points,
                 interval: candleIntervalSeconds,
+                priceDecimalPlaces,
+                size: {
+                  width: canvas.clientWidth,
+                  height: canvas.clientHeight,
+                },
+                showPriceAxis: chartSettings.options.yAxis,
+                text: drawingText,
               }
             : null;
         updatePriceSelectionControl();
@@ -624,6 +640,7 @@ export const TradingViewNativeChart = memo(
       [
         axisText,
         background,
+        dateFormatTemplate,
         candleIntervalSeconds,
         candleTimeMode,
         getInteractiveChartComponents,
@@ -635,6 +652,7 @@ export const TradingViewNativeChart = memo(
         priceDecimalPlaces,
         drawDrawings,
         drawingsEnabled,
+        drawingText,
         updateData,
         extendTimeAxisBorderToCanvasEdge,
         grid,

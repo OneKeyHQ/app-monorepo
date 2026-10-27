@@ -10,6 +10,7 @@ import {
   ScrollView,
   SearchBar,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
@@ -90,7 +91,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
       <Stack px="$4" pt="$4" pb="$4">
         <SearchBar
           testID="swap-stock-ticker-search"
-          autoFocus
+          autoFocus={!platformEnv.isNative}
           placeholder={intl.formatMessage({
             id: ETranslations.placeholder_stock_search,
           })}
@@ -101,6 +102,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
         />
       </Stack>
       <ScrollView
+        nestedScrollEnabled
         flex={isSheet ? 1 : undefined}
         maxHeight={isSheet ? undefined : 604}
         keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}
@@ -265,40 +267,51 @@ export function SwapStockTickerSelector() {
   // and the Market Home list may be older than the cache window. Opening the
   // sheet then renders rows immediately instead of flashing a loading state.
   useMarketStockSelectorList({ query: '' });
-  const { stockDetail, stockPreview, stockId } = useStockDetail();
+  const { stockDetail, stockPreview, stockId, isStockDetailError } =
+    useStockDetail();
   const { currentStockToken } = useSwapStockTradeContext();
-  const stock = stockDetail ?? stockPreview;
+  const stock = selection?.stockSelectionPending
+    ? undefined
+    : (stockDetail ?? stockPreview);
   const selectedStockPreview = selection?.selectedStockPreview;
-  const listPreview =
-    selection?.pendingStock ??
-    (selection?.stockSelectionPending ||
+  const committedPreview =
     selectedStockPreview?.stockId.toUpperCase() === stockId?.toUpperCase()
       ? selectedStockPreview
-      : undefined);
-  const stockTokenMatches = Boolean(
-    currentStockToken &&
-    (!stockId || resolveMarketStockId(currentStockToken) === stockId),
-  );
-  const fallbackStock = stockTokenMatches
-    ? currentStockToken?.stock
-    : undefined;
+      : undefined;
+  const listPreview = selection?.stockSelectionPending
+    ? selection.pendingStock
+    : committedPreview;
   // The list item already carries the underlying stock's brand icon. Keep it
   // through the token and stock-detail transition instead of showing the old
   // stock or the issuer token's artwork.
-  const tokenImageUri = listPreview?.logoUrl ?? stock?.logoUrl;
-  const tokenSymbol =
-    listPreview?.symbol ??
-    stock?.symbol ??
-    fallbackStock?.underlyingAssetTicker ??
-    stockId ??
-    currentStockToken?.symbol;
-  const tokenName =
-    listPreview?.name ??
-    stock?.name ??
-    (fallbackStock || currentStockToken?.name
+  const stockLogoUri = listPreview?.logoUrl || stock?.logoUrl;
+  // Once asset detail or the token's stock identity has failed nothing more
+  // will arrive: fall back to the committed token's own stock metadata
+  // instead of skeletons forever. Never while a selection is pending, so a
+  // switch never shows the old stock.
+  const fallbackToken =
+    (isStockDetailError || selection?.identityResolutionError) &&
+    !selection?.stockSelectionPending &&
+    !stock &&
+    currentStockToken &&
+    (!stockId || resolveMarketStockId(currentStockToken) === stockId)
+      ? currentStockToken
+      : undefined;
+  const stockSymbol =
+    listPreview?.symbol ||
+    stock?.symbol ||
+    (fallbackToken
+      ? fallbackToken.stock?.underlyingAssetTicker ||
+        stockId ||
+        fallbackToken.symbol
+      : undefined);
+  const stockName =
+    listPreview?.name ||
+    stock?.name ||
+    (fallbackToken
       ? getSwapStockTokenDisplayName({
-          stock: fallbackStock,
-          tokenName: currentStockToken?.name,
+          stock: fallbackToken.stock,
+          tokenName: fallbackToken.name,
         })
       : undefined);
   const trigger = (
@@ -318,18 +331,34 @@ export function SwapStockTickerSelector() {
       cursor="pointer"
       hoverStyle={{ bg: '$bgHover' }}
     >
-      <Token size="xl" tokenImageUri={tokenImageUri} />
+      {stockLogoUri || fallbackToken ? (
+        // The fallback keeps the default icon rather than issuer artwork.
+        <Token size="xl" tokenImageUri={stockLogoUri} />
+      ) : (
+        <Skeleton width="$12" height="$12" borderRadius="$full" />
+      )}
       <YStack minWidth={0} flexShrink={1}>
-        <SizableText size={md ? '$headingLg' : '$headingXl'} numberOfLines={1}>
-          {tokenSymbol ?? '--'}
-        </SizableText>
-        <SizableText
-          size={md ? '$bodyMd' : '$bodyMdMedium'}
-          color="$textSubdued"
-          numberOfLines={1}
-        >
-          {tokenName ?? '--'}
-        </SizableText>
+        {stockSymbol ? (
+          <SizableText
+            size={md ? '$headingLg' : '$headingXl'}
+            numberOfLines={1}
+          >
+            {stockSymbol}
+          </SizableText>
+        ) : (
+          <Skeleton width="$20" height="$6" mb="$1" />
+        )}
+        {stockName ? (
+          <SizableText
+            size={md ? '$bodyMd' : '$bodyMdMedium'}
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {stockName}
+          </SizableText>
+        ) : (
+          <Skeleton width="$24" height="$4" />
+        )}
       </YStack>
       <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
     </XStack>

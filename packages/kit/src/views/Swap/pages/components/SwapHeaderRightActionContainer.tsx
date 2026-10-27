@@ -40,6 +40,7 @@ import {
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useOpenPerksTab } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useSwapActions,
@@ -90,7 +91,6 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapInviteeRewardAction } from '../../components/InviteeReward/hooks/useSwapInviteeRewardAction';
 import { SwapActivityHubSettingsItem } from '../../components/InviteeReward/SwapActivityHubSettingsItem';
 import { useSwapActivityHubPendingRouteSwapType } from '../../components/InviteeReward/useSwapActivityHubActionPlacement';
 import { getSwapActivityHubActionPlacement } from '../../components/InviteeReward/utils';
@@ -1005,17 +1005,17 @@ export function SwapSettingsHeaderButton({
   );
 }
 
-// The reward action needs the active account, so it is resolved here in the page
-// tree and handed to the settings dialog, which renders outside of it.
+// The reward action is resolved here in the page tree and handed to the
+// settings dialog, which renders outside of it.
 function SwapSettingsHeaderButtonWithActivityHub(
   props: Omit<ISwapSettingsHeaderButtonProps, 'activityHubAction'>,
 ) {
-  const { showSwapInviteeReward } = useSwapInviteeRewardAction();
+  const openPerksTab = useOpenPerksTab();
   const activityHubAction = useMemo(
     () => ({
-      onOpenInviteeReward: showSwapInviteeReward,
+      onOpenInviteeReward: openPerksTab,
     }),
-    [showSwapInviteeReward],
+    [openPerksTab],
   );
 
   return (
@@ -1263,7 +1263,10 @@ const SwapHeaderRightActionContainer = ({
     // iOS 26: the header actions share one Liquid Glass capsule (like the Wallet
     // header's notification/menu capsule). Passthrough off iOS 26 / non-native.
     <GlassButtonCapsule>
-      <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
+      <HeaderButtonGroup
+        gap={compact && platformEnv.isNativeIOS ? '$2' : '$4'}
+        flexShrink={0}
+      >
         {kLineButton}
         {showActivityHubInSettings ? (
           <SwapSettingsHeaderButtonWithActivityHub

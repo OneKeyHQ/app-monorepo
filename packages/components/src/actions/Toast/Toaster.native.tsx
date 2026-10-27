@@ -10,7 +10,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { TOAST_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import { useReanimatedKeyboardAnimation } from '../../hooks/useKeyboardController';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
@@ -30,11 +29,9 @@ const TOASTS_TOP_PAD = 16;
 // One element for every render: a shift re-renders this wrapper only, and
 // React bails out of the library's list on the identical child.
 const toasts = <Toasts />;
-// The app's toast overlay owns iOS native window ordering; elsewhere the
-// z-index keeps the toasts over everything.
-const wrapperBaseStyle = platformEnv.isNativeIOS
-  ? StyleSheet.absoluteFill
-  : [StyleSheet.absoluteFill, { zIndex: TOAST_Z_INDEX }];
+// The toaster is hosted in the native overlay `toast` level, which owns the
+// ordering.
+const wrapperBaseStyle = [StyleSheet.absoluteFill];
 const isAndroid = Boolean(platformEnv.isNativeAndroid);
 
 // The hardware stage hangs from the top, where the toasts land: while it

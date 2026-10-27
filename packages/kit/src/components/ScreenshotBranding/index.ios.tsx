@@ -1,11 +1,17 @@
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, Stack, useThemeName } from '@onekeyhq/components';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
+import { useIsTradingViewNativeFullscreenActive } from '../TradingView/TradingViewNative/tradingViewNativeFullscreenState';
+
 const LOGO_WIDTH = 70;
 const LOGO_HEIGHT = 22;
+// Above dialogs and sheets (it is part of every screenshot), below the lock
+// screen; never animated.
+const BRANDING_ANIMATION = { enter: { type: 'none' } } as const;
 
 // Device thresholds based on insets.top values
 // iPhone X/XS/11 Pro: 44pt, iPhone 12/13/14: 47pt, Dynamic Island: 59-68pt
@@ -32,12 +38,15 @@ export function ScreenshotBranding() {
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
+  const isChartFullscreen = useIsTradingViewNativeFullscreenActive();
 
   // Only render on iOS Notch & Dynamic Island devices (insets.top >= 44)
   const isNotchOrDynamicIsland =
     Platform.OS === 'ios' && insets.top >= NOTCH_THRESHOLD;
 
-  if (!isNotchOrDynamicIsland || isTravelMode) {
+  // The fullscreen chart rotates natively before the landscape insets reach
+  // JS, so hide when it opens instead of waiting for them.
+  if (!isNotchOrDynamicIsland || isTravelMode || isChartFullscreen) {
     return null;
   }
 
@@ -47,17 +56,26 @@ export function ScreenshotBranding() {
       : 'OnekeyBrandingPillIllus';
 
   return (
-    <Stack
-      testID="screenshot-branding"
-      pointerEvents="none"
-      position="absolute"
-      top={getLogoTop(insets.top)}
-      left={0}
-      right={0}
-      alignItems="center"
-      zIndex={9999}
+    <OverlayView
+      visible
+      level="toast"
+      presentation="fullscreen"
+      blocking={false}
+      backdrop={false}
+      dismissOnBackPress={false}
+      animation={BRANDING_ANIMATION}
     >
-      <Icon name={iconName} width={LOGO_WIDTH} height={LOGO_HEIGHT} />
-    </Stack>
+      <Stack
+        testID="screenshot-branding"
+        pointerEvents="none"
+        position="absolute"
+        top={getLogoTop(insets.top)}
+        left={0}
+        right={0}
+        alignItems="center"
+      >
+        <Icon name={iconName} width={LOGO_WIDTH} height={LOGO_HEIGHT} />
+      </Stack>
+    </OverlayView>
   );
 }

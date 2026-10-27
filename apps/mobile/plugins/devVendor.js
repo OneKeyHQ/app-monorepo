@@ -947,10 +947,18 @@ function getNativeContractDescriptor(platform, repoRoot = REPO_ROOT) {
   if (!SUPPORTED_PLATFORMS.has(platform)) {
     throw new Error(`[devVendor] Unsupported native platform: ${platform}`);
   }
-  const dependencyNames = [
+  let dependencyNames = [
     ...devVendorConfig.nativeContractDependencies.shared,
     ...devVendorConfig.nativeContractDependencies[platform],
   ].toSorted();
+  if (platform === 'ios' && process.env.ONEKEY_MAC_CATALYST === '1') {
+    const { dependencies } = require(
+      path.join(repoRoot, 'apps/mobile/react-native.config.js'),
+    );
+    dependencyNames = dependencyNames.filter(
+      (name) => dependencies[name]?.platforms?.ios !== null,
+    );
+  }
   let engine;
   if (platform === 'android') {
     const properties = readKeyValueProperties(

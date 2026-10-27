@@ -9,7 +9,7 @@ import {
   type Route,
   type TabNavigationState,
 } from '@react-navigation/native';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   scene: {
     flex: 1,
   },
-  androidHiddenTabBarScene: {
+  hiddenTabBarScene: {
     width: '100%',
     height: '100%',
   },
@@ -247,12 +247,9 @@ export function NativeBottomTabView({
   const getSceneStyle = useCallback(
     ({ route }: { route: Route<string> }) => [
       descriptors[route.key]?.options.sceneStyle,
-      // Android can report the old scene height once after its native tab bar
-      // becomes GONE. Fill the expanded holder immediately so a screen pushed
-      // during that frame does not inherit the stale tab-bar viewport.
-      Platform.OS === 'android' && tabBarHidden
-        ? styles.androidHiddenTabBarScene
-        : undefined,
+      // Hidden-tab scenes follow the native holder through bar changes and
+      // rotation without waiting for JS to receive its new dimensions.
+      tabBarHidden ? styles.hiddenTabBarScene : undefined,
     ],
     [descriptors, tabBarHidden],
   );

@@ -27,6 +27,7 @@ import {
   ThirdPartyNetworkError,
   ThirdPartySecureChannelError,
 } from '../errors/thirdPartyHardwareErrors';
+import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
 import { convertDeviceError } from './deviceErrorUtils';
 import { toPlainErrorObject } from './errorUtils';
@@ -41,6 +42,35 @@ import {
 } from './thirdPartyDeviceErrorUtils';
 
 describe('convertThirdPartyDeviceError', () => {
+  it('shows system Bluetooth removal guidance for a stale Ledger pairing', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.BleBondInvalid,
+        error: 'Ledger Bluetooth pairing is no longer valid',
+        recovery: { scope: 'search-target' },
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.BleBondInvalid);
+    expect(error.key).toBe(ETranslations.trezor_ble_bond_invalid__msg);
+    expect(error.autoToast).toBe(true);
+    expect(error.payload?.recovery).toEqual({ scope: 'search-target' });
+  });
+
+  it('keeps ordinary Ledger pairing failures apart from stale system pairings', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.BlePairingTimeout,
+        error: 'Ledger Bluetooth pairing failed',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.BlePairingTimeout);
+    expect(error.key).toBe(ETranslations.hardware_bluetooth_pairing_failed);
+  });
+
   it.each([
     [
       ThirdPartyHwErrorCode.SolanaBlindSigningRequired,
@@ -80,6 +110,20 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.code).toBe(ThirdPartyHwErrorCode.PayloadTooLarge);
     expect(error.key).toBe(
       ETranslations.hardware_third_party_payload_too_large__msg,
+    );
+    expect(error.payload?.recovery).toEqual({ scope: 'transport' });
+  });
+
+  it('points a QR request with too many accounts to USB', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.QrRequestTooLarge,
+      error: 'Keystone accepts at most 24 account paths per QR request',
+      params: { limit: 24, requested: 25 },
+      recovery: { scope: 'transport' },
+    });
+    expect(error.code).toBe(ThirdPartyHwErrorCode.QrRequestTooLarge);
+    expect(error.key).toBe(
+      ETranslations.hardware_third_party_qr_request_too_large__msg,
     );
     expect(error.payload?.recovery).toEqual({ scope: 'transport' });
   });
@@ -400,10 +444,11 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.autoToast).toBe(true);
   });
 
-  it('explains a Keystone path refusal as the account #1 Bitcoin limit', () => {
+  it('explains an explicitly marked Keystone Bitcoin account limit', () => {
     const payload = {
       code: THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
       error: 'forbidden',
+      params: { reason: 'btc-account-limit' },
     };
     expect(
       convertThirdPartyDeviceError(payload, { vendor: 'Keystone' }).key,
@@ -415,6 +460,24 @@ describe('convertThirdPartyDeviceError', () => {
         .key,
     ).toBe(ETranslations.hardware_third_party_path_not_supported__msg);
   });
+
+  it.each([undefined, 'account-not-exported', 'other-path'])(
+    'does not infer a Bitcoin account limit from path refusal reason %s',
+    (reason) => {
+      const error = convertThirdPartyDeviceError(
+        {
+          code: THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
+          error: 'Requested account is not included in this export',
+          ...(reason ? { params: { reason } } : {}),
+        },
+        { vendor: 'Keystone' },
+      );
+      expect(error.key).toBe(
+        ETranslations.hardware_third_party_path_not_supported__msg,
+      );
+      expect(error.payload?.params?.reason).toBe(reason);
+    },
+  );
 
   it('keeps Bluetooth wording out of Keystone connection errors', () => {
     const cases: Array<[number, ETranslations, ETranslations]> = [
@@ -549,6 +612,63 @@ describe('convertDeviceError', () => {
 });
 
 describe('classifyThirdPartyHwCreateFailures', () => {
+  const keystoneBtcAccountLimit = {
+    networkId: 'btc--0',
+    error: {
+      code: ThirdPartyHwErrorCode.DevicePathForbidden,
+      key: ETranslations.hardware_third_party_keystone_btc_account_one_only__msg,
+    },
+  };
+  const otherPathForbidden = {
+    networkId: 'btc--0',
+    error: {
+      code: ThirdPartyHwErrorCode.DevicePathForbidden,
+      key: ETranslations.hardware_third_party_path_not_supported__msg,
+    },
+  };
+
+  it('quiets the Keystone Bitcoin account limit while other chains were added', () => {
+    expect(
+      classifyThirdPartyHwCreateFailures({
+        addedCount: 3,
+        failedAccounts: [keystoneBtcAccountLimit, otherPathForbidden],
+      }).genuineFailures,
+    ).toEqual([otherPathForbidden]);
+    expect(
+      classifyThirdPartyHwCreateFailures({
+        addedCount: 0,
+        failedAccounts: [keystoneBtcAccountLimit],
+      }).genuineFailures,
+    ).toEqual([keystoneBtcAccountLimit]);
+  });
+
+  it.each([0, 1])(
+    'keeps an unavailable exported account visible only when none succeeded (added=%s)',
+    (addedCount) => {
+      const unavailable = {
+        networkId: 'evm--1',
+        error: convertThirdPartyDeviceError(
+          {
+            code: ThirdPartyHwErrorCode.DevicePathForbidden,
+            error: 'Scanned export does not include the requested account',
+            params: { reason: 'account-not-exported' },
+          },
+          { vendor: 'Keystone' },
+        ),
+      };
+      expect(
+        classifyThirdPartyHwCreateFailures({
+          addedCount,
+          failedAccounts: [unavailable, otherPathForbidden],
+        }).genuineFailures,
+      ).toEqual(
+        addedCount > 0
+          ? [otherPathForbidden]
+          : [unavailable, otherPathForbidden],
+      );
+    },
+  );
+
   it('keeps device out-of-memory failures when at least one account succeeded', () => {
     const failedAccount = {
       error: {
@@ -691,6 +811,22 @@ describe('filterThirdPartyHwCreateFailureToasts', () => {
 
     expect(filterThirdPartyHwCreateFailureToasts([first, muted])).toEqual([
       first,
+    ]);
+  });
+
+  it('keeps a hardware failure whose autoToast the device stage cleared', () => {
+    const pathForbidden = {
+      error: {
+        code: ThirdPartyHwErrorCode.DevicePathForbidden,
+        className: EOneKeyErrorClassNames.OneKeyHardwareError,
+        $isHardwareError: true,
+        message: 'Path not supported',
+        autoToast: false,
+      },
+    };
+
+    expect(filterThirdPartyHwCreateFailureToasts([pathForbidden])).toEqual([
+      pathForbidden,
     ]);
   });
 

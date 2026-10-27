@@ -66,6 +66,12 @@ it('shows settled transaction details while keeping internal errors behind local
       message: 'Provider transaction failure detail',
     },
     {
+      token: { ...token, key: 'risk-detail' },
+      status: 'skipped',
+      reason: 'valueDrop',
+      providerErrorMessage: 'API risk title\nAPI risk detail',
+    },
+    {
       token: { ...token, key: 'failed-missing' },
       status: 'failed',
       txId: 'missing-detail-transaction',
@@ -89,6 +95,7 @@ it('shows settled transaction details while keeping internal errors behind local
       status: 'unknown',
       reason: 'unknown',
       message: 'Internal submission error',
+      submissionErrorMessage: 'Nonce (265) has already been used',
     },
   ];
 
@@ -101,11 +108,13 @@ it('shows settled transaction details while keeping internal errors behind local
   );
 
   expect(screen.getByText('Provider transaction failure detail')).toBeTruthy();
+  expect(screen.getByText('API risk title API risk detail')).toBeTruthy();
   expect(
     screen.getAllByText(ETranslations.swap_review_transaction_failed),
   ).toHaveLength(2);
   expect(screen.getByText(ETranslations.global_unknown_error)).toBeTruthy();
   expect(screen.getByText(ETranslations.swap_review_tx_pending)).toBeTruthy();
+  expect(screen.getByText('Nonce (265) has already been used')).toBeTruthy();
   expect(screen.queryByText('Internal preparation error')).toBeNull();
   expect(screen.queryByText('Internal submission error')).toBeNull();
 });

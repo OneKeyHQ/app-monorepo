@@ -82,7 +82,6 @@ jest.mock('@onekeyhq/components', () => {
     Stack: React.forwardRef<HTMLDivElement, { children?: React.ReactNode }>(
       ({ children }, ref) => React.createElement('div', { ref }, children),
     ),
-    useOverlayZIndex: jest.fn(() => 1),
   };
 });
 
@@ -174,7 +173,15 @@ jest.mock(
 );
 
 jest.mock('../hooks/StockDetailContext', () => ({
-  useStockDetail: jest.fn(() => mockStockDetailState),
+  useStockDetail: jest.fn(() => ({
+    ...mockStockDetailState,
+    priceSource: {
+      priceMode:
+        mockStockDetailState.stockId && !mockStockDetailState.isStockDetailError
+          ? mockMarketPriceSource
+          : 'token',
+    },
+  })),
 }));
 
 jest.mock('../hooks/useMarketDetailDisplayData', () => ({

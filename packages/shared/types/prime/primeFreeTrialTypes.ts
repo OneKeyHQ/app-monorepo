@@ -206,6 +206,8 @@ export type IPrimeFreeTrialStartResult =
 export type IPrimeFreeTrialBroadcastUsage = {
   featureId: IPrimeFreeTrialBroadcastFeatureId;
   usageId: string;
+  // A user retry reuses the charged usage, but gets its own analytics result.
+  analyticsRetryAttemptId?: string;
 };
 
 // Durable record of a usage whose result still has to be reported, keyed by
@@ -214,6 +216,10 @@ export type IPrimeFreeTrialUsageRecord = {
   onekeyUserId: string;
   featureId: IPrimeFreeTrialUsageFeatureId;
   usageId: string;
+  // Client analytics correlation only; never sent to the metering endpoint.
+  analyticsAttemptId?: string;
+  // Actual client outcome may outlive an already accepted metering result.
+  analyticsResult?: IPrimeFreeTrialUsageResult;
   // Local time of the start request
   startedAt: number;
   // Server reservation expiry; undefined when the start result is unknown

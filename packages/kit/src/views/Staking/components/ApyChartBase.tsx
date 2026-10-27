@@ -19,6 +19,7 @@ import {
   LightweightChart,
 } from '@onekeyhq/kit/src/components/LightweightChart';
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import type { IApyHistoryItem } from '@onekeyhq/shared/types/staking';
 
 import type { UTCTimestamp } from 'lightweight-charts';
@@ -51,6 +52,7 @@ const ApyChartBaseComponent = ({
   tooltipLabel = 'APY',
 }: IApyChartBaseProps) => {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const timeZone = useDeviceTimeZone();
   const chartHeight = 200;
   const POPUP_WIDTH = 160;
@@ -118,15 +120,9 @@ const ApyChartBaseComponent = ({
   const formatPopoverDate = useCallback(
     (timestamp: number) => {
       const date = new Date(timestamp * 1000);
-      return intl.formatDate(date, {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      return formatDate(date, { hideSeconds: true });
     },
-    [intl],
+    [formatDate],
   );
 
   const chartData = useMemo(() => {

@@ -31,6 +31,7 @@ import {
   YStack,
   glassBarItem,
   rootNavigationRef,
+  runAfterActionListClose,
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
   useMedia,
@@ -63,7 +64,7 @@ import {
   EModalSettingRoutes,
   ERootRoutes,
   ESettingsTabNames,
-  ETabRoutes,
+  ETabDeveloperRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
@@ -445,7 +446,7 @@ function MoreActionAboutCard({
     },
   );
 
-  const handleAbout = useCallback(async () => {
+  const handleAbout = useCallback(() => {
     if (isTravelMode) {
       return;
     }
@@ -456,13 +457,18 @@ function MoreActionAboutCard({
       category: ESettingsTabNames.About,
       source: 'moreActions',
     });
-    await closePopover?.();
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.About,
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.SettingModal, {
+          screen: EModalSettingRoutes.SettingListSubModal,
+          params: {
+            name: ESettingsTabNames.About,
+          },
+        });
       },
-    });
+      { waitForAnimation: false },
+    );
   }, [closePopover, isTravelMode, navigation]);
 
   return (
@@ -546,15 +552,16 @@ function MoreActionContentGridItem({
 }) {
   const { closePopover } = usePopoverContext();
 
-  const handlePress = useCallback(async () => {
+  const handlePress = useCallback(() => {
     if (ignorePress) {
       return;
     }
     defaultLogger.ui.button.click({
       trackId: trackID,
     });
-    await closePopover?.();
-    onPress();
+    return runAfterActionListClose(() => closePopover?.(), onPress, {
+      waitForAnimation: false,
+    });
   }, [closePopover, ignorePress, onPress, trackID]);
 
   const { user, isPrimeActive } = useOneKeyAuth();
@@ -756,14 +763,19 @@ function MoreActionOneKeyId() {
 
   const navigation = useAppNavigation();
 
-  const handleNavigateToOneKeyId = useCallback(async () => {
-    await closePopover?.();
-    navigation.pushModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.OneKeyId,
-    });
+  const handleNavigateToOneKeyId = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.PrimeModal, {
+          screen: EPrimePages.OneKeyId,
+        });
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover, navigation]);
 
-  const handlePress = useCallback(async () => {
+  const handlePress = useCallback(() => {
     if (isTravelMode && !isLoggedIn) {
       return;
     }
@@ -771,13 +783,16 @@ function MoreActionOneKeyId() {
       trackId: 'wallet-onekey-id',
     });
     if (isLoggedIn) {
-      await handleNavigateToOneKeyId();
-    } else {
-      await closePopover?.();
-      await loginOneKeyId({
-        toOneKeyIdPageOnLoginSuccess: false,
-      });
+      return handleNavigateToOneKeyId();
     }
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () =>
+        loginOneKeyId({
+          toOneKeyIdPageOnLoginSuccess: false,
+        }),
+      { waitForAnimation: false },
+    );
   }, [
     isTravelMode,
     isLoggedIn,
@@ -1478,11 +1493,8 @@ const MoreActionWalletGrid = () => {
   );
 };
 
-// Ext popup/side panel hides the bottom tab bar, so the Developer tab loses its
-// only entry point there; surface it in this More menu in dev builds instead.
-const showDevModeEntryInMoreMenu =
-  platformEnv.isDev &&
-  (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel);
+// Native development opens Developer from this More menu.
+const showDevModeEntryInMoreMenu = platformEnv.isDev && platformEnv.isNative;
 
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
@@ -1498,16 +1510,28 @@ const MoreActionMoreGrid = () => {
     void toReferFriendsPage();
   }, [toReferFriendsPage]);
 
-  const handleRedeem = useCallback(async () => {
-    await closePopover?.();
-    const { showRedemptionCenterDialog } =
-      await import('../../views/Redemption/components/RedemptionCenterDialog');
-    showRedemptionCenterDialog({ source: 'more_action' });
+  const handleRedeem = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      async () => {
+        const { showRedemptionCenterDialog } =
+          await import('../../views/Redemption/components/RedemptionCenterDialog');
+        showRedemptionCenterDialog({ source: 'more_action' });
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover]);
 
-  const handleDevMode = useCallback(async () => {
-    await closePopover?.();
-    navigation.switchTab(ETabRoutes.Developer);
+  const handleDevMode = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.DeveloperModal, {
+          screen: ETabDeveloperRoutes.TabDeveloper,
+        });
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover, navigation]);
 
   const items = useMemo(() => {
@@ -1542,6 +1566,7 @@ const MoreActionMoreGrid = () => {
             {
               title: intl.formatMessage({ id: ETranslations.global_dev_mode }),
               icon: 'CodeBracketsOutline' as const,
+              testID: 'more-action-dev-mode' as const,
               onPress: handleDevMode,
               trackID: 'wallet-dev-mode',
             },

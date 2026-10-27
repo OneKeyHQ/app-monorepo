@@ -59,7 +59,7 @@ describe('evaluateIdentityExitPolicy', () => {
       },
     ],
   ] satisfies [string, IIdentityExitSnapshot][])(
-    'always prepares the combined confirmation for environment switching: %s',
+    'requires Keyless acknowledgement only when environment switching removes Keyless: %s',
     (_state, snapshot) => {
       expect(
         evaluateIdentityExitPolicy({
@@ -69,7 +69,10 @@ describe('evaluateIdentityExitPolicy', () => {
       ).toEqual({
         status: 'ready',
         presentation: { type: 'switchEnvironment' },
-        confirmation: { type: 'keylessRemovalAcknowledgement' },
+        confirmation:
+          snapshot.keyless.type === 'present'
+            ? { type: 'keylessRemovalAcknowledgement' }
+            : { type: 'normal' },
         target: {
           logoutOneKeyId: snapshot.oneKeyId.type === 'loggedIn',
           removeKeyless: snapshot.keyless.type === 'present',

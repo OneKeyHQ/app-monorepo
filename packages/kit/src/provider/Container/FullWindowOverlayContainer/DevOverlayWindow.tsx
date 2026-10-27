@@ -23,7 +23,6 @@ import {
   usePerpsCandlesWebviewMountedAtom,
   usePerpsWebSocketDataUpdateTimesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import {
   EModalRoutes,
   EModalSettingRoutes,
@@ -338,7 +337,6 @@ function DevOverlayWindow() {
       left={positionInfo.align === 'left' ? 0 : undefined}
       right={positionInfo.align === 'right' ? 0 : undefined}
       top={`${positionInfo.top > 95 ? 95 : positionInfo.top}%`}
-      zIndex={DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX}
     >
       <IconButton
         size="small"

@@ -21,6 +21,7 @@ type IPureChainSelectorProps = {
   accountNetworkValues?: Record<string, string>;
   accountNetworkValueCurrency?: string;
   hideLowValueNetworkValue?: boolean;
+  groupByNetworkValue?: boolean;
   featuredNetwork?: IChainSelectorParams['featuredNetwork'];
 };
 
@@ -35,12 +36,13 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
   accountNetworkValues,
   accountNetworkValueCurrency,
   hideLowValueNetworkValue,
+  groupByNetworkValue,
   featuredNetwork,
 }) => {
   const intl = useIntl();
 
   return (
-    <Page lazyLoad safeAreaEnabled={false}>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         title={
           title || intl.formatMessage({ id: ETranslations.global_networks })
@@ -57,6 +59,7 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
             accountNetworkValues={accountNetworkValues}
             accountNetworkValueCurrency={accountNetworkValueCurrency}
             hideLowValueNetworkValue={hideLowValueNetworkValue}
+            groupByNetworkValue={groupByNetworkValue}
           />
         ) : (
           <ChainSelectorListView

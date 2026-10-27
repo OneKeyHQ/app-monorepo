@@ -9,14 +9,12 @@ import { DialogContainer } from '.';
 
 import { act, render } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { IDialogContainerProps } from './type';
 
-// System close — the Android hardware back press, and Escape on web and
-// desktop, which the web useBackHandler maps onto the same callback — reaches
-// a dialog through the handler DialogFrame registers with useBackHandler.
-// The mock captures that handler; the Tamagui primitives around it are
-// stubbed as in Dialog.focus.test.tsx.
-const mockUseBackHandler = jest.fn();
+// Exercise Dialog's close guard through the overlay host's dismissal contract.
+const mockOverlayPresentation = jest.fn();
 const mockBody = <span>body</span>;
 
 jest.mock('@onekeyhq/components', () => {
@@ -26,12 +24,6 @@ jest.mock('@onekeyhq/components', () => {
   return {
     useMedia: () => ({ md: false }),
     AnimatePresence: Wrapper,
-    Sheet: Object.assign(Wrapper, { Frame: Wrapper, Overlay: () => null }),
-    TMDialog: Object.assign(Wrapper, {
-      Content: Wrapper,
-      Overlay: () => null,
-      Title: () => null,
-    }),
   };
 });
 
@@ -68,12 +60,24 @@ jest.mock('../../content/Keyboard', () => ({
 jest.mock('../../content/SheetGrabber', () => ({ SheetGrabber: () => null }));
 jest.mock('../../hocs', () => ({}));
 jest.mock('../../hooks', () => ({
-  useBackHandler: (callback: () => boolean) => {
-    mockUseBackHandler(callback);
-  },
   useKeyboardEventWithoutNavigation: jest.fn(),
-  useOverlayZIndex: () => 1,
-  useSafeAreaInsets: () => ({ bottom: 0 }),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
+}));
+jest.mock('@react-navigation/native', () => ({
+  NavigationRouteContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+}));
+
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useNestedOverlayLevel: () => 'modal',
+  useOverlayPageScope: () => ({}),
+}));
+jest.mock('./OverlayDialogPresentation', () => ({
+  OverlayDialogPresentation: (props: { children?: ReactNode }) => {
+    mockOverlayPresentation(props);
+    return props.children;
+  },
 }));
 jest.mock('../../layouts/Page/PageContext', () => ({}));
 jest.mock('../../layouts/ScrollView', () => ({}));
@@ -106,20 +110,24 @@ async function pressSystemClose(
       {...props}
     />,
   );
-  const handleBackPress = mockUseBackHandler.mock.calls.at(-1)?.[0] as
-    | (() => boolean)
-    | undefined;
-  expect(handleBackPress).toBeDefined();
-  let consumed: boolean | undefined;
+  const presentation = mockOverlayPresentation.mock.calls.at(-1)?.[0] as {
+    open: boolean;
+    dismissOnBackPress: boolean;
+    onRequestClose: () => void;
+  };
+  let consumed = false;
   await act(async () => {
-    consumed = handleBackPress?.();
+    consumed = presentation.open;
+    if (consumed && platformEnv.isNative && presentation.dismissOnBackPress)
+      presentation.onRequestClose();
   });
   return consumed;
 }
 
-describe('Dialog system close (Android back, Escape on web and desktop)', () => {
+describe('Dialog system close through the overlay host', () => {
   beforeEach(() => {
-    mockUseBackHandler.mockClear();
+    mockOverlayPresentation.mockClear();
+    platformEnv.isNative = true;
   });
 
   it('closes an open dialog through onClose', async () => {
@@ -151,6 +159,12 @@ describe('Dialog system close (Android back, Escape on web and desktop)', () => 
     const onClose = jest.fn(() => Promise.resolve());
 
     expect(await pressSystemClose({ onClose, open: false })).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+  it('keeps desktop Escape from closing an open dialog', async () => {
+    platformEnv.isNative = false;
+    const onClose = jest.fn(() => Promise.resolve());
+    expect(await pressSystemClose({ onClose })).toBe(true);
     expect(onClose).not.toHaveBeenCalled();
   });
 });

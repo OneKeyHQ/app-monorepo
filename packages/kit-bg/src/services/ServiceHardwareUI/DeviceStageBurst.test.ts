@@ -34,6 +34,7 @@ import {
 import {
   DeviceStageBurstScope,
   createLatestStateFeed,
+  pickDeviceColor,
   pickDeviceType,
   pickErrorMessage,
   pickIdentityText,
@@ -100,6 +101,38 @@ describe('pickDeviceType', () => {
     expect(pickDeviceType(EDeviceType.Unknown, undefined)).toBe(
       EDeviceType.Unknown,
     );
+  });
+});
+
+describe('pickDeviceColor', () => {
+  it('takes a named finish', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'NEXT', deviceColor: 'Silver' },
+        { connectId: 'PREV', deviceColor: 'Orange' },
+      ),
+    ).toBe('Silver');
+  });
+
+  it('keeps the finish while the news is about the same device', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'SAME' },
+        { connectId: 'SAME', deviceColor: 'Orange' },
+      ),
+    ).toBe('Orange');
+    expect(
+      pickDeviceColor({}, { connectId: 'SAME', deviceColor: 'Orange' }),
+    ).toBe('Orange');
+  });
+
+  it('does not lend a finish to another device', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'NEXT' },
+        { connectId: 'PREV', deviceColor: 'Orange' },
+      ),
+    ).toBeUndefined();
   });
 });
 
@@ -698,6 +731,102 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.deviceColor).toBe('Silver');
   });
 
+  it('opens in the finish a Bluetooth scan named and keeps it when features name none', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // A later beat for the same device that names no finish keeps it.
+    await scope.noteStep('connecting', {
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // Features without a serial name no finish; the scan's stays.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+      payload: {
+        rawPayload: { device: { features: { protocol: 'V2' } } },
+      } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    expect(stage?.deviceColor).toBe('Orange');
+  });
+
+  it("drops the last device's finish when an identity refresh switches devices on stage", async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: 'FIRST_DEVICE',
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // A refresh for the same device keeps its finish.
+    await scope.mergeDeviceIdentity({
+      connectId: 'FIRST_DEVICE',
+      deviceName: 'Pro 2 A1B2',
+    });
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // The refresh lands before the second device's connecting step.
+    await scope.mergeDeviceIdentity({
+      connectId: 'SECOND_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.connectId).toBe('SECOND_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
+
+    await scope.noteStep('connecting', {
+      connectId: 'SECOND_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.deviceColor).toBeUndefined();
+  });
+
+  it("drops the last device's finish when an identity refresh switches devices before the opening paints", async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: 'FIRST_DEVICE',
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await scope.mergeDeviceIdentity({ connectId: 'SECOND_DEVICE' });
+    await paintOpeningBeat();
+
+    expect(stage?.connectId).toBe('SECOND_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
+  });
+
+  it('does not lend a finish to the next device when its scan names none', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    await scope.end();
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+
+    // Checking beat outside any burst, as the legacy connect page sends it.
+    await scope.noteStep('connecting', {
+      connectId: 'OTHER_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.connectId).toBe('OTHER_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
+  });
+
   it('refreshes a V2 auth narrative name without dismissing an unanswered PIN', async () => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID, deviceName: 'Pro2 Old' });
@@ -933,6 +1062,36 @@ describe('DeviceStageBurstScope', () => {
     });
     await expect(scope.silence()).resolves.toBe(true);
     expect(stage?.step).toBe('off');
+    await scope.endExplicit({ token });
+  });
+
+  it('carries only the current QR fallback request id through the stage', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.keystone,
+    });
+    for (const requestId of ['fallback-first', 'fallback-next', undefined]) {
+      await scope.onThirdPartyState({
+        ui: {
+          vendor: EHardwareVendor.keystone,
+          action: EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+          payload: requestId ? { requestId } : undefined,
+        },
+        install: undefined,
+        batch: undefined,
+      });
+      expect(stage?.step).toBe('qrFallback');
+      expect(stage?.thirdPartyRequestId).toBe(requestId);
+    }
+    await scope.onThirdPartyState({
+      ui: {
+        vendor: EHardwareVendor.keystone,
+        action: EThirdPartyHardwareUiAction.processing,
+      },
+      install: undefined,
+      batch: undefined,
+    });
+    expect(stage?.thirdPartyRequestId).toBeUndefined();
     await scope.endExplicit({ token });
   });
 

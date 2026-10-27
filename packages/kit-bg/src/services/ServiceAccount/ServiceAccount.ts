@@ -3334,7 +3334,9 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
     const result = await localDb.addHDNextIndexedAccount({ walletId });
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, {
+      createdIndexedAccountIds: [result.indexedAccountId],
+    });
     return result;
   }
 
@@ -5534,7 +5536,10 @@ class ServiceAccount extends ServiceBase {
     }
 
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-    appEventBus.emit(EAppEventBusNames.AccountRemove, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountRemove, {
+      accountId: account?.id,
+      indexedAccountId: indexedAccount?.id,
+    });
 
     // Cleanup orphaned HyperLiquid agent credentials
     void this.cleanupOrphanedHyperLiquidAgentCredentials({

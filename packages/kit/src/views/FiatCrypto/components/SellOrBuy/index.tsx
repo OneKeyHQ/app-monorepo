@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -24,10 +25,12 @@ type ISellOrBuyContentProps = {
   type: IFiatCryptoType;
   networkId: string;
   accountId?: string;
+  // First row of the token list (see TokenList.listHeader).
+  listHeader?: ReactElement;
 };
 
 export const SellOrBuyContent = memo(
-  ({ type, networkId, accountId }: ISellOrBuyContentProps) => {
+  ({ type, networkId, accountId, listHeader }: ISellOrBuyContentProps) => {
     const {
       result: { tokens, networksMap, mergeDeriveAssetsNetworkIds },
       isLoading,
@@ -131,6 +134,7 @@ export const SellOrBuyContent = memo(
           type={type}
           isLoading={isLoading}
           onPress={onPress}
+          listHeader={listHeader}
         />
       </TokenListMetaContainer>
     );
