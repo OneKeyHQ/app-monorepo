@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import {
   Easing,
@@ -52,7 +52,7 @@ const settleTiming = {
 // Drives the mobile browser chrome (header + bottom bar) from WebView scroll:
 // scrolling down collapses both; scrolling up, reaching an edge of the page,
 // or a non-scrollable page brings them back.
-function useMobileBrowserChromeAnimation(activeTabId?: string | null) {
+function useMobileBrowserChromeAnimation() {
   const { top: safeTop, bottom: bottomInset } = useSafeAreaInsets();
   const fullBarHeight = getBarReservedHeight(bottomInset);
   // Scrolling this far collapses (or expands) the chrome while following:
@@ -272,19 +272,13 @@ function useMobileBrowserChromeAnimation(activeTabId?: string | null) {
   );
 
   const expandBrowserChrome = useCallback(() => {
+    // Also the per-tab reset: Browser.native expands the chrome when the
+    // active tab or its URL changes, so the next tab starts from a fresh
+    // scroll baseline instead of the previous tab's offsets.
     lastScrollYRef.current = undefined;
     lastTurnScrollYRef.current = undefined;
     animateTo(EXPANDED);
   }, [animateTo]);
-
-  // Every tab's WebView shares this handler, so the scroll baseline of the
-  // previous tab would be compared with the new tab's offsets and could throw
-  // the chrome to an endpoint on its first gesture.
-  useEffect(() => {
-    lastScrollYRef.current = undefined;
-    lastTurnScrollYRef.current = undefined;
-    isFollowingRef.current = false;
-  }, [activeTabId]);
 
   // In-flow bar container (tablet layout): shrinks with the chrome but keeps
   // room for the collapsed pill. The bar animates its own content.

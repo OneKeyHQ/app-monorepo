@@ -291,7 +291,7 @@ function MobileBrowser() {
     toolbarOverlayStyle,
     webPageBottomStyle,
     webPageShiftStyle,
-  } = useMobileBrowserChromeAnimation(activeTabId);
+  } = useMobileBrowserChromeAnimation();
   useDAppNotifyChanges({ tabId: activeTabId });
 
   useDebugComponentRemountLog({
