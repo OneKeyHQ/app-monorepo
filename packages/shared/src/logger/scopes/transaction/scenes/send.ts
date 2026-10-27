@@ -460,11 +460,12 @@ export class SendScene extends BaseScene {
   }
 
   // The check right before signing: conflict, an address no longer valid,
-  // or no answer.
+  // or nothing decided (no answer, a pause, the rate limit: see errorCode).
   @LogToServer()
   public binanceDepositVerifyFail(
     params: IBinanceDepositEventContext & {
       type: 'conflict' | 'invalid' | 'unavailable';
+      errorCode?: number;
     },
   ) {
     return { sendFlowId: this._sendFlowId, ...params };

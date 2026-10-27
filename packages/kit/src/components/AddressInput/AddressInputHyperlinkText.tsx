@@ -13,6 +13,10 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 
 import { AddressInputContext } from './AddressInputContext';
+import {
+  getAddressQueryResolvedAddress,
+  looksLikeAnotherAddress,
+} from './utils';
 
 import type { IAddressInputValue } from '.';
 
@@ -41,27 +45,30 @@ export function AddressInputHyperlinkText({
         if (!address) {
           return;
         }
-        const {
-          addressBookId,
-          addressBookName: _addressBookName,
-          isAllowListed,
-        } = await backgroundApiProxy.serviceAccountProfile.queryAddress({
-          accountId,
-          networkId,
-          address,
-          enableAddressBook: true,
-          enableWalletName: true,
-          skipValidateAddress: true,
-        });
+        const queryResult =
+          await backgroundApiProxy.serviceAccountProfile.queryAddress({
+            accountId,
+            networkId,
+            address,
+            enableAddressBook: true,
+            enableWalletName: true,
+            enableNameResolve: true,
+            skipValidateAddress: true,
+          });
+        const { addressBookId, isAllowListed } = queryResult;
 
         if (!isAllowListed) {
-          // The add button's rule: a new contact skips the similarity checks,
-          // so a lookalike is never one tap away from the address book.
-          const checkLookalike = contentValues.isLookalikeAddress;
-          const isLookalike =
-            !!toValue.similarAddress ||
-            !!checkLookalike?.(toValue.resolved ?? address);
-          if (!addressBookId && isLookalike) {
+          // The add button's rule, checked on the same resolved address: the
+          // form value only carries one for a valid address, which this
+          // error is not.
+          if (
+            !addressBookId &&
+            looksLikeAnotherAddress({
+              similarAddress: toValue.similarAddress,
+              address: getAddressQueryResolvedAddress(queryResult),
+              isLookalikeAddress: contentValues.isLookalikeAddress,
+            })
+          ) {
             Toast.warning({
               title: intl.formatMessage({
                 id: ETranslations.wallet_address_poisoning_alert,

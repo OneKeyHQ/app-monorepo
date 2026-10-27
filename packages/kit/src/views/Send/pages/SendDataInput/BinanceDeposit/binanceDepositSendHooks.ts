@@ -4,17 +4,32 @@ import { EBinanceDepositLocalErrorCode } from '@onekeyhq/shared/src/consts/binan
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getBinanceDepositEventContext } from '@onekeyhq/shared/src/utils/binanceDepositUtils';
+import { EBinanceDepositErrorCode } from '@onekeyhq/shared/types/exchange';
 import type { IBinanceDepositSendContext } from '@onekeyhq/shared/types/exchange';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import type { IntlShape } from 'react-intl';
 
 // Only a conflict says the address can't be trusted; a gone address sends
-// the user back for a new one, and no answer leaves them here to confirm
-// again.
-function getVerifyFailure(intl: IntlShape, error: unknown) {
+// the user back for a new one. A pause or the rate limit is named as such,
+// and no answer leaves the user here to confirm again.
+function getVerifyFailure(intl: IntlShape, code: number | undefined) {
   const t = (id: ETranslations) => intl.formatMessage({ id });
-  switch ((error as { code?: number } | undefined)?.code) {
+  switch (code) {
+    case EBinanceDepositErrorCode.FeatureDisabled:
+    case EBinanceDepositErrorCode.DepositDisabled:
+      return {
+        type: 'unavailable',
+        title: t(ETranslations.binance_deposit_asset_unavailable__msg),
+        message: undefined,
+      } as const;
+    case EBinanceDepositErrorCode.RateLimited:
+      return {
+        type: 'unavailable',
+        title: t(ETranslations.global_request_limit),
+        message: undefined,
+      } as const;
     case EBinanceDepositLocalErrorCode.VerifyFailed:
       return {
         type: 'conflict',
@@ -39,8 +54,6 @@ function getVerifyFailure(intl: IntlShape, error: unknown) {
 export function buildBinanceDepositSendHooks({
   intl,
   context,
-  networkId,
-  tokenSymbol,
   toAddress,
   memo,
   senderAddress,
@@ -48,8 +61,6 @@ export function buildBinanceDepositSendHooks({
 }: {
   intl: IntlShape;
   context: IBinanceDepositSendContext;
-  networkId: string;
-  tokenSymbol?: string;
   toAddress: string;
   memo?: string;
   senderAddress: string;
@@ -65,14 +76,18 @@ export function buildBinanceDepositSendHooks({
           memo,
         });
       } catch (error) {
-        const { type, title, message } = getVerifyFailure(intl, error);
+        const code = (error as { code?: number } | undefined)?.code;
+        const failure = getVerifyFailure(intl, code);
         defaultLogger.transaction.send.binanceDepositVerifyFail({
-          network: networkId,
-          tokenSymbol,
-          type,
+          ...getBinanceDepositEventContext(context),
+          type: failure.type,
+          errorCode: code,
         });
-        Toast.error({ title, message });
-        throw new OneKeyLocalError({ message: title, autoToast: false });
+        Toast.error({ title: failure.title, message: failure.message });
+        throw new OneKeyLocalError({
+          message: failure.title,
+          autoToast: false,
+        });
       }
     },
     // Best effort after the broadcast. The confirm page treats a throwing

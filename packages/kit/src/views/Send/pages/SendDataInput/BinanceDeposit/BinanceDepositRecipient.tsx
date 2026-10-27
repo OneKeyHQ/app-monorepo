@@ -62,11 +62,19 @@ const CARD_FRAME = {
 export function BinanceDepositEntry({
   hidden,
   onPress,
+  onShown,
 }: {
   hidden: boolean;
   onPress: () => void;
+  // Called while the entry is on screen, for the impression.
+  onShown: () => void;
 }) {
   const intl = useIntl();
+  useEffect(() => {
+    if (!hidden) {
+      onShown();
+    }
+  }, [hidden, onShown]);
   return (
     <HeightTransition hide={hidden}>
       <ListItem
@@ -277,6 +285,9 @@ export function BinanceDepositRecipientCard({
       break;
     }
     case 'authorized':
+      // Android reads the address through the live region; iOS hears that
+      // the confirmation went through.
+      statusText = t(ETranslations.binance_deposit_confirmed__title);
       body = snapshot?.destination ? (
         <YStack gap="$2">
           <XStack flexWrap="wrap" testID="send-binance-deposit-address">

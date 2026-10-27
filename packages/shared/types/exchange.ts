@@ -165,5 +165,8 @@ export interface IBinanceDepositSnapshot {
 // Carried from the recipient step to the amount page of the send flow.
 export interface IBinanceDepositSendContext {
   localId: string;
+  networkId: string;
+  // The supported-assets symbol key, as every deposit event reports it.
+  cryptoCurrency: string;
   minAmount?: string;
 }

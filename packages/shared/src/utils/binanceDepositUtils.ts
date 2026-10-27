@@ -124,6 +124,18 @@ export function isAllowedBinanceDepositLink(link: string): boolean {
   }
 }
 
+// What deposit analytics may carry: the network and the coin, never the
+// link, the return nonce or an address.
+export function getBinanceDepositEventContext({
+  networkId,
+  cryptoCurrency,
+}: {
+  networkId: string;
+  cryptoCurrency: string;
+}) {
+  return { network: networkId, tokenSymbol: cryptoCurrency };
+}
+
 export function isSameBinanceDepositAddress({
   networkId,
   a,

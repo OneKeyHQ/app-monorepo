@@ -1,5 +1,8 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { parseBinanceDepositReturnNonce } from '@onekeyhq/shared/src/utils/binanceDepositUtils';
+import {
+  getBinanceDepositEventContext,
+  parseBinanceDepositReturnNonce,
+} from '@onekeyhq/shared/src/utils/binanceDepositUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -22,8 +25,7 @@ export async function handleBinanceDepositReturn(
       });
     if (session) {
       defaultLogger.transaction.send.binanceDepositReturn({
-        network: session.networkId,
-        tokenSymbol: session.cryptoCurrency,
+        ...getBinanceDepositEventContext(session),
         returnType: isLaunchUrl ? 'relaunch' : 'deepLink',
       });
     }

@@ -1,3 +1,5 @@
+import { Semaphore } from 'async-mutex';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -76,6 +78,15 @@ type IRequestResult =
   | { ok: true; data: unknown }
   // `code` is absent when no business verdict came back.
   | { ok: false; code?: number };
+
+type IReleaseCheck =
+  // The server still releases the address the session holds.
+  | { stands: true }
+  // The session was closed for this reason.
+  | { stands: false; failReason: IBinanceDepositFailReason }
+  // Nothing was decided about the address: no answer, or a refusal that says
+  // nothing about it (a pause, the rate limit, a service error).
+  | { stands: false; failReason?: undefined; code?: number };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -260,12 +271,13 @@ class ServiceBinanceDeposit extends ServiceBase {
 
   private lastQueryAt = 0;
 
-  // Starts run one after another, so a tap after a cancel can't race the
-  // create that is still running.
-  private startQueue: Promise<unknown> = Promise.resolve();
+  // Starts and retries run one after another, so a tap after a cancel can't
+  // race a create that is still running.
+  private createLock = new Semaphore(1);
 
   // Throws when the list can't be fetched, so the caller can keep what it
-  // has; undefined means Binance doesn't accept the token.
+  // has; undefined means Binance doesn't accept the token. The list is
+  // fetched on its own whenever Send opens, so the error carries no toast.
   @backgroundMethod()
   async getDepositAsset(params: {
     networkId: string;
@@ -273,8 +285,11 @@ class ServiceBinanceDeposit extends ServiceBase {
     contractAddress?: string;
     isNative: boolean;
   }): Promise<IBinanceDepositAsset | undefined> {
-    const assets =
-      await this.backgroundApi.serviceToken.getBinanceSupportedAssets();
+    const assets = await this.backgroundApi.serviceToken
+      .getBinanceSupportedAssets()
+      .catch(() => {
+        throw this.buildError(EBinanceDepositLocalErrorCode.RequestFailed);
+      });
     return findBinanceDepositAsset({ assets, ...params });
   }
 
@@ -294,9 +309,7 @@ class ServiceBinanceDeposit extends ServiceBase {
   async startSession(
     asset: IBinanceDepositAsset,
   ): Promise<IBinanceDepositSnapshot> {
-    const run = this.startQueue.then(() => this.startSessionNow(asset));
-    this.startQueue = run.catch(() => undefined);
-    return run;
+    return this.createLock.runExclusive(() => this.startSessionNow(asset));
   }
 
   // A new session gets a new key. An unfinished one for the same asset is
@@ -318,11 +331,16 @@ class ServiceBinanceDeposit extends ServiceBase {
         }
       } else if (existing.status === EBinanceDepositSessionStatus.AUTHORIZED) {
         // A released address is picked up only while the server still
-        // stands by it; otherwise this start goes back to Binance. Without
-        // an answer it is picked up, and the pre-sign check still runs.
-        const checked = await this.querySession(existing);
-        if (checked?.destination && !checked.failReason) {
-          return this.toSnapshot(checked);
+        // stands by it. Without a verdict it is picked up too, and the
+        // pre-sign check asks again. A conflict ends here as one; any other
+        // end goes back to Binance.
+        const check = await this.checkReleasedAddress(existing);
+        if (
+          check.stands ||
+          !check.failReason ||
+          check.failReason === 'conflict'
+        ) {
+          return this.toSnapshot(await this.getSession(existing.localId));
         }
       } else {
         return this.toSnapshot(existing);
@@ -353,18 +371,20 @@ class ServiceBinanceDeposit extends ServiceBase {
   // landed on the server maps to that same session.
   @backgroundMethod()
   async retryCreate(localId: string): Promise<IBinanceDepositSnapshot> {
-    const session = await this.getSession(localId);
-    if (!session) {
-      throw this.buildError(EBinanceDepositLocalErrorCode.InvalidState);
-    }
-    if (session.status !== 'LOCAL_PENDING_CREATE') {
-      return this.toSnapshot(session);
-    }
-    const sessionKey = await this.readSessionKey(localId);
-    if (!sessionKey) {
-      throw this.buildError(EBinanceDepositLocalErrorCode.StorageUnavailable);
-    }
-    return this.runCreate(session, sessionKey);
+    return this.createLock.runExclusive(async () => {
+      const session = await this.getSession(localId);
+      if (!session) {
+        throw this.buildError(EBinanceDepositLocalErrorCode.InvalidState);
+      }
+      if (session.status !== 'LOCAL_PENDING_CREATE') {
+        return this.toSnapshot(session);
+      }
+      const sessionKey = await this.readSessionKey(localId);
+      if (!sessionKey) {
+        throw this.buildError(EBinanceDepositLocalErrorCode.StorageUnavailable);
+      }
+      return this.runCreate(session, sessionKey);
+    });
   }
 
   private async runCreate(
@@ -372,7 +392,13 @@ class ServiceBinanceDeposit extends ServiceBase {
     sessionKey: string,
   ): Promise<IBinanceDepositSnapshot> {
     const { localId } = session;
-    await this.updateSession(localId, (s) => ({ ...s, createFailed: false }));
+    // The server's clock starts when a create lands, which may be this one:
+    // an earlier attempt may never have reached it.
+    await this.updateSession(localId, (s) => ({
+      ...s,
+      createFailed: false,
+      createdAt: Date.now(),
+    }));
     const body: Record<string, string> = {
       sessionKey,
       networkId: session.networkId,
@@ -558,8 +584,9 @@ class ServiceBinanceDeposit extends ServiceBase {
   // Runs on the confirm page right before signing: the transfer has to go to
   // the destination the user saw, and the server has to still release it.
   // The error code tells a conflict (VerifyFailed) from an address that is
-  // simply gone (DestinationInvalid) and from no answer (VerifyUnavailable),
-  // which leaves the session as it is.
+  // simply gone (DestinationInvalid), from a pause or the rate limit (the
+  // server's code) and from no answer (VerifyUnavailable); the last two
+  // leave the session as it is.
   @backgroundMethod()
   async verifyBeforeSign({
     localId,
@@ -580,50 +607,34 @@ class ServiceBinanceDeposit extends ServiceBase {
       );
     }
     if (
-      !isSameBinanceDepositAddress({
-        networkId: session.networkId,
-        a: toAddress,
-        b: shown.address,
-      }) ||
+      !(await this.isSameTargetAddress(
+        session.networkId,
+        toAddress,
+        shown.address,
+      )) ||
       (memo ?? '') !== (shown.addressTag ?? '')
     ) {
       await this.failSession(localId, 'conflict');
       throw this.buildError(EBinanceDepositLocalErrorCode.VerifyFailed);
     }
-    const sessionKey = await this.readSessionKey(localId);
-    if (!session.sessionId || !sessionKey) {
-      await this.failSession(localId, 'session_lost');
-      throw this.buildError(EBinanceDepositLocalErrorCode.DestinationInvalid);
-    }
-    const result = await this.request(
-      `/deposit/sessions/${session.sessionId}/query`,
-      { sessionKey },
-    );
-    if (!result.ok) {
-      // `session not found`: the server no longer knows this key.
-      if (result.code === EBinanceDepositErrorCode.InvalidParams) {
-        await this.failSession(localId, 'session_lost');
-        throw this.buildError(EBinanceDepositLocalErrorCode.DestinationInvalid);
-      }
-      throw this.buildError(EBinanceDepositLocalErrorCode.VerifyUnavailable);
-    }
-    const view = parseSessionView(result.data, session.sessionId);
-    if (
-      view?.status === EBinanceDepositSessionStatus.AUTHORIZED &&
-      view.authorizedDestination &&
-      isSameBinanceDepositDestination(view.authorizedDestination, shown)
-    ) {
+    const check = await this.checkReleasedAddress(session);
+    if (check.stands) {
       return;
     }
-    // The server no longer releases it. A decline or an expiry closes the
-    // session as such; a changed destination, a status that went back or an
-    // answer that can't be read closes it as a conflict.
-    const merged = view ? await this.applyView(localId, view) : undefined;
-    if (merged?.failReason && merged.failReason !== 'conflict') {
-      throw this.buildError(EBinanceDepositLocalErrorCode.DestinationInvalid);
+    if (!check.failReason) {
+      throw this.buildError(
+        check.code === EBinanceDepositErrorCode.FeatureDisabled ||
+          check.code === EBinanceDepositErrorCode.DepositDisabled ||
+          check.code === EBinanceDepositErrorCode.RateLimited
+          ? check.code
+          : EBinanceDepositLocalErrorCode.VerifyUnavailable,
+      );
     }
-    await this.failSession(localId, 'conflict');
-    throw this.buildError(EBinanceDepositLocalErrorCode.VerifyFailed);
+    throw this.buildError(
+      check.failReason === 'conflict'
+        ? EBinanceDepositLocalErrorCode.VerifyFailed
+        : EBinanceDepositLocalErrorCode.DestinationInvalid,
+    );
   }
 
   // Best effort, after the broadcast. Retried in the background while the
@@ -708,6 +719,80 @@ class ServiceBinanceDeposit extends ServiceBase {
 
   // ---- internals ----
 
+  // Asks the server whether it still releases the address the session holds,
+  // and closes the session when it no longer does: as declined, expired or
+  // lost when the server says so, as a conflict for any other answer.
+  private async checkReleasedAddress(
+    session: IBinanceDepositLocalSession,
+  ): Promise<IReleaseCheck> {
+    const { localId } = session;
+    const shown = session.destination;
+    const sessionKey = await this.readSessionKey(localId);
+    if (!session.sessionId || !shown || !sessionKey) {
+      await this.failSession(localId, 'session_lost');
+      return { stands: false, failReason: 'session_lost' };
+    }
+    const result = await this.request(
+      `/deposit/sessions/${session.sessionId}/query`,
+      { sessionKey },
+    );
+    if (!result.ok) {
+      // `session not found`: the server no longer knows this key.
+      if (result.code === EBinanceDepositErrorCode.InvalidParams) {
+        await this.failSession(localId, 'session_lost');
+        return { stands: false, failReason: 'session_lost' };
+      }
+      if (result.code === EBinanceDepositErrorCode.SecurityConflict) {
+        await this.failSession(localId, 'conflict');
+        return { stands: false, failReason: 'conflict' };
+      }
+      return { stands: false, code: result.code };
+    }
+    const view = parseSessionView(result.data, session.sessionId);
+    if (
+      view?.status === EBinanceDepositSessionStatus.AUTHORIZED &&
+      view.authorizedDestination &&
+      isSameBinanceDepositDestination(view.authorizedDestination, shown)
+    ) {
+      return { stands: true };
+    }
+    // A decline or an expiry closes the session as such; a changed
+    // destination, a status that went back or an answer that can't be read
+    // closes it as a conflict.
+    const merged = view ? await this.applyView(localId, view) : undefined;
+    if (merged?.failReason && merged.failReason !== 'conflict') {
+      return { stands: false, failReason: merged.failReason };
+    }
+    await this.failSession(localId, 'conflict');
+    return { stands: false, failReason: 'conflict' };
+  }
+
+  // The amount page validates the recipient again, which can re-encode it (a
+  // TON bounce flag, a BCH address prefix). A difference in text alone is
+  // settled by the network's normalized form.
+  private async isSameTargetAddress(
+    networkId: string,
+    a: string,
+    b: string,
+  ): Promise<boolean> {
+    if (isSameBinanceDepositAddress({ networkId, a, b })) {
+      return true;
+    }
+    const [first, second] = await Promise.all(
+      [a, b].map((address) =>
+        this.backgroundApi.serviceValidator
+          .localValidateAddress({ networkId, address })
+          .catch(() => undefined),
+      ),
+    );
+    return (
+      !!first?.isValid &&
+      !!second?.isValid &&
+      !!first.normalizedAddress &&
+      first.normalizedAddress === second.normalizedAddress
+    );
+  }
+
   private async querySession(
     session: IBinanceDepositLocalSession,
   ): Promise<IBinanceDepositLocalSession | undefined> {
@@ -738,10 +823,14 @@ class ServiceBinanceDeposit extends ServiceBase {
     const session = await this.updateSession(localId, (s) =>
       mergeView(s, view),
     );
+    // Only an INIT view's link that passed the host check is kept: a stale
+    // view leaves mergeView before its check.
     if (
       session?.status === EBinanceDepositSessionStatus.INIT &&
       !session.failReason &&
-      view.link
+      view.status === EBinanceDepositSessionStatus.INIT &&
+      view.link &&
+      isAllowedBinanceDepositLink(view.link)
     ) {
       this.memoryLink = { localId, link: view.link };
     } else if (this.memoryLink?.localId === localId) {

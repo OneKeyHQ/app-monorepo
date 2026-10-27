@@ -368,12 +368,27 @@ describe('isSimilarAddress', () => {
     );
   });
 
-  test('does not count the prefix every address of the chain has', () => {
-    // 3 + 3 matching characters after "0x".
+  test('flags a lookalike sharing 3 + 3 characters past the prefix', () => {
     expect(
       accountUtils.isSimilarAddress(
         evmReal,
         '0x962bcccccccccccccccccccccccccccccccc0F4f',
+      ),
+    ).toBe(true);
+    expect(
+      accountUtils.isSimilarAddress(
+        'bc1q9t4lfxv8uceal8q7qae7s09zpm4pg9uydv53jz',
+        'bc1q9t49yj9k6nr77pzm8h35az54g9ujsdlsqe43jz',
+      ),
+    ).toBe(true);
+  });
+
+  test('does not count the prefix every address of the chain has', () => {
+    // 2 + 3 matching characters after "0x".
+    expect(
+      accountUtils.isSimilarAddress(
+        evmReal,
+        '0x96bccccccccccccccccccccccccccccccccc0F4f',
       ),
     ).toBe(false);
     expect(

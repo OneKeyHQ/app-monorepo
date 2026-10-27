@@ -114,7 +114,33 @@ function refuse(code: number) {
   return { data: { code } };
 }
 
-function createService(session: IBinanceDepositLocalSession | undefined) {
+const NEW_SESSION_ID = 'c'.repeat(64);
+
+function initView(patch: Record<string, unknown> = {}) {
+  return {
+    sessionId: NEW_SESSION_ID,
+    status: EBinanceDepositSessionStatus.INIT,
+    networkId: ASSET.networkId,
+    cryptoCurrency: ASSET.cryptoCurrency,
+    link: 'https://app.binance.com/deposit?x=1',
+    ...patch,
+  };
+}
+
+// Stands in for the vaults: TON writes one account as EQ… or UQ… depending
+// on its bounce flag.
+function normalizeForTest(address: string) {
+  return address.replace(/^(EQ|UQ)/, 'ton:').toLowerCase();
+}
+
+function flushAsync() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function createService(
+  session: IBinanceDepositLocalSession | undefined,
+  { getBinanceSupportedAssets = jest.fn() } = {},
+) {
   let stored = session;
   const binanceDeposit = {
     getSession: async () => stored,
@@ -137,6 +163,14 @@ function createService(session: IBinanceDepositLocalSession | undefined) {
       simpleDb: { binanceDeposit },
       serviceToken: {
         _getBinanceSupportedAssetsMemo: { clear: jest.fn() },
+        getBinanceSupportedAssets,
+      },
+      serviceValidator: {
+        localValidateAddress: async ({ address }: { address: string }) => ({
+          isValid: true,
+          normalizedAddress: normalizeForTest(address),
+          displayAddress: address,
+        }),
       },
     },
   });
@@ -153,6 +187,7 @@ function verify(
 describe('ServiceBinanceDeposit.verifyBeforeSign', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockClient.post.mockReset();
     mockSecureItems.clear();
     mockSecureItems.set(SESSION_KEY_STORAGE_KEY, SESSION_KEY);
   });
@@ -266,6 +301,55 @@ describe('ServiceBinanceDeposit.verifyBeforeSign', () => {
     expect(getStored()?.failReason).toBe('conflict');
   });
 
+  it('accepts the address re-encoded by the amount page', async () => {
+    const tonAddress = 'EQBvW8Z5huBkMJYdnfAEM5JqTNkuWX3diqYENkWsIL0XggGG';
+    const destination = {
+      ...DESTINATION,
+      networkId: 'ton--mainnet',
+      address: tonAddress,
+    };
+    const { service, getStored } = createService(
+      buildAuthorizedSession({ networkId: 'ton--mainnet', destination }),
+    );
+    mockClient.post.mockResolvedValueOnce(
+      answer(
+        buildView({
+          networkId: 'ton--mainnet',
+          authorizedDestination: destination,
+        }),
+      ),
+    );
+
+    await expect(
+      verify(service, `UQ${tonAddress.slice(2)}`),
+    ).resolves.toBeUndefined();
+    expect(getStored()?.failReason).toBeUndefined();
+  });
+
+  it('treats a security refusal as a conflict', async () => {
+    const { service, getStored } = createService(buildAuthorizedSession());
+    mockClient.post.mockResolvedValueOnce(
+      refuse(EBinanceDepositErrorCode.SecurityConflict),
+    );
+
+    await expect(verify(service)).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.VerifyFailed,
+    });
+    expect(getStored()?.failReason).toBe('conflict');
+  });
+
+  it('passes a paused deposit on as such and keeps the session', async () => {
+    const { service, getStored } = createService(buildAuthorizedSession());
+    mockClient.post.mockResolvedValueOnce(
+      refuse(EBinanceDepositErrorCode.DepositDisabled),
+    );
+
+    await expect(verify(service)).rejects.toMatchObject({
+      code: EBinanceDepositErrorCode.DepositDisabled,
+    });
+    expect(getStored()?.destination).toEqual(DESTINATION);
+  });
+
   it('reports a session that already ended by how it ended', async () => {
     const lost = createService(
       buildAuthorizedSession({ destination: undefined, failReason: 'expired' }),
@@ -290,6 +374,7 @@ describe('ServiceBinanceDeposit.verifyBeforeSign', () => {
 describe('ServiceBinanceDeposit.startSession with a released address', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockClient.post.mockReset();
     mockSecureItems.clear();
     mockSecureItems.set(SESSION_KEY_STORAGE_KEY, SESSION_KEY);
   });
@@ -360,5 +445,143 @@ describe('ServiceBinanceDeposit.startSession with a released address', () => {
     expect(snapshot.localId).not.toBe(LOCAL_ID);
     expect(getStored()?.destination).toBeUndefined();
     expect(mockSecureItems.has(SESSION_KEY_STORAGE_KEY)).toBe(false);
+  });
+
+  it('stops on a conflict instead of starting over', async () => {
+    const { service } = createService(buildAuthorizedSession());
+    mockClient.post.mockResolvedValueOnce(
+      answer(
+        buildView({
+          authorizedDestination: {
+            ...DESTINATION,
+            address: '0x2222222222222222222222222222222222222222',
+          },
+        }),
+      ),
+    );
+
+    const snapshot = await service.startSession(ASSET);
+
+    expect(snapshot.phase).toBe('failed');
+    expect(snapshot.failReason).toBe('conflict');
+    expect(mockClient.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts over when the session key is gone', async () => {
+    mockSecureItems.clear();
+    const { service } = createService(buildAuthorizedSession());
+    mockClient.post.mockResolvedValueOnce(answer(initView()));
+
+    const snapshot = await service.startSession(ASSET);
+
+    expect(mockClient.post).toHaveBeenCalledTimes(1);
+    expect(mockClient.post.mock.calls[0][0]).toMatch(/\/deposit\/sessions$/);
+    expect(snapshot.localId).not.toBe(LOCAL_ID);
+    expect(snapshot.phase).toBe('awaiting');
+  });
+});
+
+describe('ServiceBinanceDeposit creates', () => {
+  const pendingSession = (createdAt = Date.now()) => ({
+    localId: LOCAL_ID,
+    networkId: ASSET.networkId,
+    cryptoCurrency: ASSET.cryptoCurrency,
+    requiresAddressTag: false,
+    status: 'LOCAL_PENDING_CREATE' as const,
+    createFailed: true,
+    createdAt,
+    updatedAt: createdAt,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockClient.post.mockReset();
+    mockSecureItems.clear();
+    mockSecureItems.set(SESSION_KEY_STORAGE_KEY, SESSION_KEY);
+  });
+
+  it('runs a retry and a start one after another', async () => {
+    const { service } = createService(pendingSession());
+    let respond: (value: unknown) => void = () => undefined;
+    mockClient.post.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          respond = resolve;
+        }),
+    );
+
+    const retried = service.retryCreate(LOCAL_ID);
+    const started = service.startSession(ASSET);
+    await flushAsync();
+    expect(mockClient.post).toHaveBeenCalledTimes(1);
+
+    respond(answer(initView()));
+    const [afterRetry, afterStart] = await Promise.all([retried, started]);
+
+    // The start picks up the session the retry created.
+    expect(mockClient.post).toHaveBeenCalledTimes(1);
+    expect(afterRetry.status).toBe(EBinanceDepositSessionStatus.INIT);
+    expect(afterStart.localId).toBe(afterRetry.localId);
+  });
+
+  it('dates the session from the create that reached the server', async () => {
+    const fortyMinutesAgo = Date.now() - 40 * 60 * 1000;
+    const { service, getStored } = createService(
+      pendingSession(fortyMinutesAgo),
+    );
+    mockClient.post.mockResolvedValueOnce(answer(initView()));
+
+    await service.retryCreate(LOCAL_ID);
+
+    expect(getStored()?.createdAt).toBeGreaterThan(Date.now() - 5000);
+  });
+
+  it('keeps only a checked link from an INIT view', async () => {
+    const initSession = buildAuthorizedSession({
+      status: EBinanceDepositSessionStatus.INIT,
+      destination: undefined,
+    });
+    const stale = createService(initSession);
+    mockClient.post.mockResolvedValueOnce(
+      answer(
+        initView({
+          sessionId: SESSION_ID,
+          status: EBinanceDepositSessionStatus.CREATING,
+          link: 'https://evil.example/x',
+        }),
+      ),
+    );
+    await expect(stale.service.prepareOpenLink(LOCAL_ID)).rejects.toMatchObject(
+      { code: EBinanceDepositLocalErrorCode.InvalidState },
+    );
+
+    const fresh = createService(initSession);
+    mockClient.post.mockResolvedValueOnce(
+      answer(initView({ sessionId: SESSION_ID })),
+    );
+    await expect(fresh.service.prepareOpenLink(LOCAL_ID)).resolves.toEqual({
+      link: 'https://app.binance.com/deposit?x=1',
+    });
+  });
+
+  it('fails a list fetch without a toast', async () => {
+    const { service } = createService(undefined, {
+      getBinanceSupportedAssets: jest
+        .fn()
+        .mockRejectedValue(
+          Object.assign(new Error('forbidden'), { autoToast: true }),
+        ),
+    });
+
+    await expect(
+      service.getDepositAsset({
+        networkId: ASSET.networkId,
+        symbol: 'ETH',
+        isNative: true,
+      }),
+    ).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.RequestFailed,
+      autoToast: false,
+    });
   });
 });

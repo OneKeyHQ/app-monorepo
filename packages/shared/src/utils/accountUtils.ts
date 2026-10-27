@@ -1336,7 +1336,10 @@ function countMatchingSuffix(str1: string, str2: string): number {
   return count;
 }
 
-const SIMILARITY_THRESHOLD = 8;
+// Matching characters, start and end together, past the prefix every
+// address of a chain has. Six catches a lookalike made to share 3 + 3 of
+// them, as the server's check does.
+const SIMILARITY_THRESHOLD = 6;
 // Two similar addresses share at least half the threshold at one end.
 const SIMILARITY_BUCKET_CHARS = Math.ceil(SIMILARITY_THRESHOLD / 2);
 // No one can generate a shared start this long to order: it comes from the
@@ -1344,7 +1347,7 @@ const SIMILARITY_BUCKET_CHARS = Math.ceil(SIMILARITY_THRESHOLD / 2);
 // a Stellar base account. It counts as a short match, so the ends must match
 // too.
 const FORMAT_SHARED_LENGTH = 16;
-const FORMAT_SHARED_COUNTED = 6;
+const FORMAT_SHARED_COUNTED = SIMILARITY_THRESHOLD - 2;
 // CKB full addresses and LNURLs run past the usual bech32 limit of 90.
 const BECH32_MAX_LENGTH = 1023;
 

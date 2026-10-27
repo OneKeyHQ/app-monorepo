@@ -15,7 +15,10 @@ import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 import { AddressBadge } from '../AddressBadge';
 
 import { useIsEnableTransferAllowList } from './hooks';
-import { getAddressQueryResolvedAddress } from './utils';
+import {
+  getAddressQueryResolvedAddress,
+  looksLikeAnotherAddress,
+} from './utils';
 
 import type { IAddressQueryResult } from '.';
 import type { IAddressLookalikeCheck } from './types';
@@ -54,13 +57,12 @@ export function AddressInputWarnings({
         accountUtils.isOwnAccount({ accountId: queryResult.walletAccountId }))
     )
       return false;
-    // Saved contacts skip the similarity checks, so an address that looks
-    // like another one is never one tap away from the address book: not
-    // under a similar-address warning, nor when it looks like an address the
-    // page lists.
     if (
-      queryResult?.similarAddress ||
-      isLookalikeAddress?.(resolvedAddress ?? '')
+      looksLikeAnotherAddress({
+        similarAddress: queryResult?.similarAddress,
+        address: resolvedAddress,
+        isLookalikeAddress,
+      })
     )
       return false;
     // Show for transferred addresses (add to address book guidance)

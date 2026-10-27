@@ -15,6 +15,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getBinanceDepositEventContext } from '@onekeyhq/shared/src/utils/binanceDepositUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EBinanceDepositErrorCode,
@@ -55,14 +56,6 @@ function waitUntilAppLeaves(maxMs: number): Promise<void> {
     subscription?.remove();
     clearTimeout(timer);
   });
-}
-
-// The network and the coin only: never the link, the nonce or an address.
-function getEventContext({
-  networkId,
-  cryptoCurrency,
-}: Pick<IBinanceDepositAsset, 'networkId' | 'cryptoCurrency'>) {
-  return { network: networkId, tokenSymbol: cryptoCurrency };
 }
 
 function getErrorCode(error: unknown): number | undefined {
@@ -118,7 +111,9 @@ export function useBinanceDepositRecipient({
   // isn't sending to Binance.
   const [snapshot, setSnapshot] = useState<IBinanceDepositSnapshot | null>();
   const [isBusy, setIsBusy] = useState(false);
-  const isBusyRef = useRef(false);
+  // The attempt holding the busy lock. A new attempt frees it, so a request
+  // left behind by a cancel can't keep the next card's buttons locked.
+  const busyAttemptRef = useRef<number | undefined>(undefined);
   // Bumped by every start, every exit and on unmount: an answer that arrives
   // for an older attempt must not open Binance.
   const attemptRef = useRef(0);
@@ -180,23 +175,33 @@ export function useBinanceDepositRecipient({
   );
 
   const runExclusive = useCallback(async (task: () => Promise<void>) => {
-    if (isBusyRef.current) {
+    if (busyAttemptRef.current !== undefined) {
       return;
     }
-    isBusyRef.current = true;
+    const attempt = attemptRef.current;
+    busyAttemptRef.current = attempt;
     setIsBusy(true);
     try {
       await task();
     } finally {
-      isBusyRef.current = false;
-      setIsBusy(false);
+      if (busyAttemptRef.current === attempt) {
+        busyAttemptRef.current = undefined;
+        setIsBusy(false);
+      }
     }
   }, []);
 
   // The card's button can be tapped while the open after a start is still
-  // on its way; the link is opened once.
-  const isOpeningRef = useRef(false);
+  // on its way; the link is opened once per attempt.
+  const openingAttemptRef = useRef<number | undefined>(undefined);
   const [isOpening, setIsOpening] = useState(false);
+
+  const releaseLocks = useCallback(() => {
+    busyAttemptRef.current = undefined;
+    setIsBusy(false);
+    openingAttemptRef.current = undefined;
+    setIsOpening(false);
+  }, []);
   // The session Binance was last opened for, until the app comes back.
   const openedLocalIdRef = useRef<string | undefined>(undefined);
   const openBinance = useCallback(
@@ -206,10 +211,10 @@ export function useBinanceDepositRecipient({
       isReopen: boolean,
     ) => {
       const { localId } = session;
-      if (isOpeningRef.current) {
+      if (openingAttemptRef.current === attempt) {
         return;
       }
-      isOpeningRef.current = true;
+      openingAttemptRef.current = attempt;
       setIsOpening(true);
       try {
         // The link only lives in this local variable: it is not stored,
@@ -227,7 +232,7 @@ export function useBinanceDepositRecipient({
         // universal link over to the Binance app.
         await openUrlUtils.linkingOpenURL(link);
         defaultLogger.transaction.send.binanceDepositOpen({
-          ...getEventContext(session),
+          ...getBinanceDepositEventContext(session),
           isReopen,
         });
         // Still opening while the system switches over: the line asking
@@ -253,8 +258,10 @@ export function useBinanceDepositRecipient({
         }
         Toast.error({ title: getErrorToastTitle(intl, error) });
       } finally {
-        isOpeningRef.current = false;
-        setIsOpening(false);
+        if (openingAttemptRef.current === attempt) {
+          openingAttemptRef.current = undefined;
+          setIsOpening(false);
+        }
       }
     },
     [intl],
@@ -273,7 +280,7 @@ export function useBinanceDepositRecipient({
           (next) => {
             if (next?.phase === 'awaiting') {
               defaultLogger.transaction.send.binanceDepositReturn({
-                ...getEventContext(next),
+                ...getBinanceDepositEventContext(next),
                 returnType: 'manual',
               });
             }
@@ -320,7 +327,7 @@ export function useBinanceDepositRecipient({
       Toast.error({ title: getErrorToastTitle(intl, error) });
       const code = getErrorCode(error);
       defaultLogger.transaction.send.binanceDepositFail({
-        ...getEventContext(failedAsset),
+        ...getBinanceDepositEventContext(failedAsset),
         reason: 'request_rejected',
         errorCode: code,
       });
@@ -360,11 +367,12 @@ export function useBinanceDepositRecipient({
         return;
       }
       defaultLogger.transaction.send.binanceDepositStart({
-        ...getEventContext(asset),
+        ...getBinanceDepositEventContext(asset),
         trigger,
       });
       attemptRef.current += 1;
       const attempt = attemptRef.current;
+      releaseLocks();
       // A local read, asked before the card shows so it opens with the
       // right line.
       const resuming = await backgroundApiProxy.serviceBinanceDeposit
@@ -384,7 +392,7 @@ export function useBinanceDepositRecipient({
         await handleCreateError({ attempt, error, asset });
       }
     },
-    [applyCreateResult, asset, handleCreateError],
+    [applyCreateResult, asset, handleCreateError, releaseLocks],
   );
 
   // A retry keeps the session key of the first attempt.
@@ -396,7 +404,7 @@ export function useBinanceDepositRecipient({
         }
         const attempt = attemptRef.current;
         defaultLogger.transaction.send.binanceDepositStart({
-          ...getEventContext(snapshot),
+          ...getBinanceDepositEventContext(snapshot),
           trigger: 'tryAgain',
         });
         try {
@@ -434,6 +442,7 @@ export function useBinanceDepositRecipient({
   // no longer opens Binance.
   const exit = useCallback(async () => {
     attemptRef.current += 1;
+    releaseLocks();
     const current = snapshot;
     setSnapshot(undefined);
     if (current?.phase === 'failed') {
@@ -441,7 +450,7 @@ export function useBinanceDepositRecipient({
         current.localId,
       );
     }
-  }, [snapshot]);
+  }, [releaseLocks, snapshot]);
 
   const localId = snapshot?.localId;
   const phase = snapshot?.phase;
@@ -473,16 +482,17 @@ export function useBinanceDepositRecipient({
   }, [localId, phase]);
 
   const isEntryAvailable = !!asset && isBinanceInstalled === true;
-  // Once per page for each asset, however often typing hides the entry.
+  // Called by the entry while it is on screen. Once per page for each
+  // asset, however often typing hides it.
   const shownAssetKeyRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
+  const reportEntryShown = useCallback(() => {
     const key = asset ? `${asset.networkId}:${asset.cryptoCurrency}` : '';
     if (!asset || !isEntryAvailable || shownAssetKeyRef.current === key) {
       return;
     }
     shownAssetKeyRef.current = key;
     defaultLogger.transaction.send.binanceDepositEntryShow(
-      getEventContext(asset),
+      getBinanceDepositEventContext(asset),
     );
   }, [asset, isEntryAvailable]);
 
@@ -491,7 +501,7 @@ export function useBinanceDepositRecipient({
   const reportedRef = useRef<{
     localId?: string;
     phase?: IBinanceDepositPhase;
-    isUnbound?: boolean;
+    isNotReturned?: boolean;
   }>({});
   useEffect(() => {
     if (!snapshot) {
@@ -499,15 +509,18 @@ export function useBinanceDepositRecipient({
     }
     const last = reportedRef.current;
     const isSameSession = last.localId === snapshot.localId;
-    const isUnbound =
+    // Confirmed in Binance while no return has reached this phone; once one
+    // has, the session is confirming whatever status the server reports.
+    const isNotReturned =
+      snapshot.phase === 'awaiting' &&
       snapshot.status === EBinanceDepositSessionStatus.AUTHORIZED_UNBOUND;
     reportedRef.current = {
       localId: snapshot.localId,
       phase: snapshot.phase,
-      isUnbound,
+      isNotReturned,
     };
-    const context = getEventContext(snapshot);
-    if (isUnbound && !(isSameSession && last.isUnbound)) {
+    const context = getBinanceDepositEventContext(snapshot);
+    if (isNotReturned && !(isSameSession && last.isNotReturned)) {
       defaultLogger.transaction.send.binanceDepositNotReturned(context);
     }
     if (isSameSession && last.phase === snapshot.phase) {
@@ -531,6 +544,7 @@ export function useBinanceDepositRecipient({
 
   return {
     isEntryAvailable,
+    reportEntryShown,
     // The card takes over from the tap, before the server has answered.
     isActive: snapshot !== undefined,
     snapshot: snapshot ?? undefined,

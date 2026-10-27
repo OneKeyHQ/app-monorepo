@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -912,6 +913,8 @@ function SendDataInputContainer() {
       isAllNetworks,
       binanceDeposit: {
         localId: binanceDepositSnapshot.localId,
+        networkId: binanceDepositSnapshot.networkId,
+        cryptoCurrency: binanceDepositSnapshot.cryptoCurrency,
         minAmount: binanceDestination.minAmount,
       },
       onSuccess,
@@ -1144,7 +1147,9 @@ function SendDataInputContainer() {
     );
   }, [renderMemoForm, renderPaymentIdForm, renderNoteForm]);
 
-  useEffect(() => {
+  // A layout effect, so the send flow exists before any event this page
+  // logs from a passive effect, such as the Binance entry's impression.
+  useLayoutEffect(() => {
     if (token || nft) {
       defaultLogger.transaction.send.sendSelect({
         network: currentAccount.networkId,
@@ -1697,6 +1702,7 @@ function SendDataInputContainer() {
                     <BinanceDepositEntry
                       hidden={!!toAddressRaw?.trim()}
                       onPress={() => void binanceDeposit.start('entry')}
+                      onShown={binanceDeposit.reportEntryShown}
                     />
                   ) : null}
                 </YStack>

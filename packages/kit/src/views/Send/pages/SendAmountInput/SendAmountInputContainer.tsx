@@ -3581,8 +3581,6 @@ function SendAmountInputContainer() {
             ? buildBinanceDepositSendHooks({
                 intl,
                 context: binanceDeposit,
-                networkId,
-                tokenSymbol: tokenDetails?.info.symbol,
                 toAddress: submitRecipientAddress,
                 memo: recipientMemo,
                 senderAddress: account.address,
@@ -3640,7 +3638,6 @@ function SendAmountInputContainer() {
       linkedAmount.originalAmount,
       lnUnit,
       network,
-      networkId,
       nft?.collectionAddress,
       nft?.itemId,
       nft?.metadata?.name,
