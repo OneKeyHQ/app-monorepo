@@ -102,6 +102,7 @@ export type IDeviceStageStep =
   | 'pairingCode'
   | 'deviceNotFound'
   | 'btcHighIndex'
+  | 'qrFallback'
   | 'installConfirm'
   | 'installing'
   | 'installBatch';
@@ -238,6 +239,9 @@ export interface IDeviceStageProps {
   /** `btcHighIndex`'s single action — proceed with the non-standard
    * index, one device confirmation per path. Omitted, no button. */
   onBtcHighIndexConfirm?: () => void;
+  /** `qrFallback`'s single action — sign by QR the request too large for
+   * USB. Omitted, no button. */
+  onQrFallbackConfirm?: () => void;
   /** `installConfirm`'s single action — install the missing app. The
    * driver answers by moving to `installing`. Omitted, no button. */
   onInstallConfirm?: () => void;

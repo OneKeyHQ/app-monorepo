@@ -77,6 +77,7 @@ describe('KeystoneAdapter', () => {
           urType: 'crypto-request',
           urData: 'a1b2',
           animated: true,
+          allowAccountExport: true,
         },
       },
     });
@@ -88,6 +89,7 @@ describe('KeystoneAdapter', () => {
         urType: 'crypto-request',
         urData: 'a1b2',
         animated: true,
+        allowAccountExport: true,
       },
     });
 
@@ -99,6 +101,30 @@ describe('KeystoneAdapter', () => {
       payload: undefined,
     });
   });
+
+  it.each([undefined, 'qr-fallback-current'])(
+    'forwards the QR fallback prompt with its SDK request id (%s)',
+    (requestId) => {
+      const listeners = new Map<string, (event: unknown) => void>();
+      const hw = {
+        on: jest.fn((eventName: string, listener: (event: unknown) => void) => {
+          listeners.set(eventName, listener);
+        }),
+      };
+      expect(new KeystoneAdapter(hw as never).vendor).toBe('keystone');
+
+      listeners.get(UI_REQUEST.REQUEST_QR_FALLBACK_CONFIRM)?.({
+        payload: { vendor: 'keystone', ...(requestId ? { requestId } : {}) },
+      });
+
+      expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith({
+        action: 'request-keystone-qr-fallback-confirm',
+        uiRequestId: expect.any(String),
+        vendor: 'keystone',
+        payload: { vendor: 'keystone', ...(requestId ? { requestId } : {}) },
+      });
+    },
+  );
 
   it('keeps the stage on processing for device calls, not sync methods', async () => {
     let finishExport: () => void = () => undefined;
