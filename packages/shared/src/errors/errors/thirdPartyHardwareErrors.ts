@@ -386,11 +386,18 @@ export class ThirdPartyDeviceAppStuck extends ThirdPartyHardwareError {
 }
 
 /** Connected device does not match the stored wallet */
+/** The scanned QR code is not this request's answer; Keystone tags it so. */
+function isUnexpectedQrCode(props?: IOneKeyErrorHardwareProps): boolean {
+  return props?.payload?.params?.reason === 'unexpected-qr-code';
+}
+
 export class ThirdPartyDeviceMismatch extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_device_mismatch,
+        defaultKey: isUnexpectedQrCode(props)
+          ? ETranslations.feedback_invalid_qr_code
+          : ETranslations.hardware_third_party_device_mismatch,
       }),
     );
     this.vendor = props?.vendor;
@@ -567,7 +574,9 @@ export class ThirdPartyMethodNotSupported extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslations.hardware_third_party_method_not_supported,
+        defaultKey: isUnexpectedQrCode(props)
+          ? ETranslations.feedback_invalid_qr_code
+          : ETranslations.hardware_third_party_method_not_supported,
         defaultAutoToast: true,
       }),
     );
@@ -576,16 +585,28 @@ export class ThirdPartyMethodNotSupported extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.MethodNotSupported;
 }
 
+function keystonePathForbiddenKey(
+  props?: IOneKeyErrorHardwareProps & { vendor?: string },
+): ETranslations {
+  if (isKeystoneVendor(props?.vendor)) {
+    switch (props?.payload?.params?.reason) {
+      case 'btc-account-limit':
+        return ETranslations.hardware_third_party_keystone_btc_account_one_only__msg;
+      case 'account-not-exported':
+        return ETranslations.hardware_third_party_keystone_account_not_in_qr__msg;
+      default:
+        break;
+    }
+  }
+  return ETranslations.hardware_third_party_path_not_supported__msg;
+}
+
 /** Device rejected the derivation path (index outside its supported range) */
 export class ThirdPartyPathForbidden extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        defaultKey:
-          isKeystoneVendor(props?.vendor) &&
-          props?.payload?.params?.reason === 'btc-account-limit'
-            ? ETranslations.hardware_third_party_keystone_btc_account_one_only__msg
-            : ETranslations.hardware_third_party_path_not_supported__msg,
+        defaultKey: keystonePathForbiddenKey(props),
         defaultAutoToast: true,
       }),
     );

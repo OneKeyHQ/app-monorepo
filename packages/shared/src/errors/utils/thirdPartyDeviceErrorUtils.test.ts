@@ -461,9 +461,16 @@ describe('convertThirdPartyDeviceError', () => {
     ).toBe(ETranslations.hardware_third_party_path_not_supported__msg);
   });
 
-  it.each([undefined, 'account-not-exported', 'other-path'])(
+  it.each([
+    [undefined, ETranslations.hardware_third_party_path_not_supported__msg],
+    [
+      'account-not-exported',
+      ETranslations.hardware_third_party_keystone_account_not_in_qr__msg,
+    ],
+    ['other-path', ETranslations.hardware_third_party_path_not_supported__msg],
+  ])(
     'does not infer a Bitcoin account limit from path refusal reason %s',
-    (reason) => {
+    (reason, key) => {
       const error = convertThirdPartyDeviceError(
         {
           code: THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
@@ -472,10 +479,39 @@ describe('convertThirdPartyDeviceError', () => {
         },
         { vendor: 'Keystone' },
       );
-      expect(error.key).toBe(
-        ETranslations.hardware_third_party_path_not_supported__msg,
-      );
+      expect(error.key).toBe(key);
       expect(error.payload?.params?.reason).toBe(reason);
+    },
+  );
+
+  it.each([
+    [
+      ThirdPartyHwErrorCode.InvalidParams,
+      ETranslations.hardware_third_party_method_not_supported,
+    ],
+    [
+      ThirdPartyHwErrorCode.DeviceMismatch,
+      ETranslations.hardware_third_party_device_mismatch,
+    ],
+  ])(
+    'says a scanned code is the wrong code, not code %s’s usual wording',
+    (code, usualKey) => {
+      expect(
+        convertThirdPartyDeviceError(
+          {
+            code,
+            error: 'Scanned code is not this request’s answer',
+            params: { reason: 'unexpected-qr-code' },
+          },
+          { vendor: 'Keystone' },
+        ).key,
+      ).toBe(ETranslations.feedback_invalid_qr_code);
+      expect(
+        convertThirdPartyDeviceError(
+          { code, error: 'other failure' },
+          { vendor: 'Keystone' },
+        ).key,
+      ).toBe(usualKey);
     },
   );
 
