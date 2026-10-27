@@ -53,7 +53,6 @@ import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/mark
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getSwapErrorType } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEstimateFeeParams,
@@ -114,6 +113,7 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
+  useSwapActions,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
@@ -346,8 +346,8 @@ export function useSwapBuildTx({
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [swapRecentTokenPairSelection, setSwapRecentTokenPairSelection] =
-    useSwapRecentTokenPairSelectionAtom();
+  const [swapRecentTokenPairSelection] = useSwapRecentTokenPairSelectionAtom();
+  const { clearRecentTokenPairSelection } = useSwapActions().current;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapProAccount = useSwapProAccount();
@@ -637,7 +637,10 @@ export function useSwapBuildTx({
     ) => {
       if (swapInfo) {
         // A recent-pair tap attributes one sent order, not every later one.
-        setSwapRecentTokenPairSelection(undefined);
+        clearRecentTokenPairSelection({
+          fromToken: swapInfo.sender.token,
+          toToken: swapInfo.receiver.token,
+        });
         if (reviewGuard?.execution) {
           reviewGuard.execution.consumeInput();
         } else if (!reviewGuard || reviewGuard.isCurrent()) {
@@ -692,7 +695,7 @@ export function useSwapBuildTx({
       goBackQrCodeModal,
       generateSwapHistoryItem,
       setSwapSteps,
-      setSwapRecentTokenPairSelection,
+      clearRecentTokenPairSelection,
       fromAccountId,
     ],
   );
@@ -708,7 +711,10 @@ export function useSwapBuildTx({
       swapInfo: ISwapTxInfo;
     }) => {
       if (swapInfo) {
-        setSwapRecentTokenPairSelection(undefined);
+        clearRecentTokenPairSelection({
+          fromToken: swapInfo.sender.token,
+          toToken: swapInfo.receiver.token,
+        });
         if (reviewGuard?.execution) {
           reviewGuard.execution.consumeInput();
         } else if (!reviewGuard || reviewGuard.isCurrent()) {
@@ -747,7 +753,7 @@ export function useSwapBuildTx({
       clearQuoteData,
       generateSwapHistoryItem,
       setSwapSteps,
-      setSwapRecentTokenPairSelection,
+      clearRecentTokenPairSelection,
       fromAccountId,
     ],
   );
@@ -1403,11 +1409,7 @@ export function useSwapBuildTx({
         fromAddress: fromUserAddress ?? '',
         toAddress: toUserAddress ?? '',
         status,
-        message:
-          status === ESwapEventAPIStatus.FAIL
-            ? getSwapReviewErrorMessage(error)
-            : undefined,
-        ...getSwapErrorType(error),
+        error,
         ...swapInfo?.reviewAnalyticsContext,
         quoteId:
           swapInfo?.reviewAnalyticsContext?.quoteId ??

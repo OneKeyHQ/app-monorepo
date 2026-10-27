@@ -110,6 +110,7 @@ import {
   swapQuoteFetchingAtom,
   swapQuoteIntervalCountAtom,
   swapQuoteListAtom,
+  swapRecentTokenPairSelectionAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectTokenDetailFetchingAtom,
@@ -10090,5 +10091,77 @@ describe('useSwapActions', () => {
     expect(
       store.get(swapProPositionsCacheAtom()).byOwner[ownerKey].tokens,
     ).toEqual([ethToken]);
+  });
+});
+
+describe('Recent trades attribution', () => {
+  function renderActions() {
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    return { store, actions: result.current };
+  }
+
+  it('records the picked pair after applying it', async () => {
+    const { store, actions } = renderActions();
+    await act(async () => {
+      await actions.selectRecentTokenPair({
+        fromToken: usdcToken,
+        toToken: usdtToken,
+      });
+    });
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(usdcToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(usdtToken);
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual({
+      fromToken: usdcToken,
+      toToken: usdtToken,
+    });
+  });
+
+  it.each([
+    ['re-picking the same from token', 'from', usdcToken],
+    ['picking another to token', 'to', bnbToken],
+  ] as const)('ends the attribution on %s', async (_label, side, token) => {
+    const { store, actions } = renderActions();
+    await act(async () => {
+      await actions.selectRecentTokenPair({
+        fromToken: usdcToken,
+        toToken: usdtToken,
+      });
+    });
+    await act(async () => {
+      await (side === 'from'
+        ? actions.selectFromToken(token)
+        : actions.selectToToken(token));
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it('clears after a sent order only when it still names that pair', async () => {
+    const { store, actions } = renderActions();
+    await act(async () => {
+      await actions.selectRecentTokenPair({
+        fromToken: usdcToken,
+        toToken: usdtToken,
+      });
+    });
+    act(() => {
+      actions.clearRecentTokenPairSelection({
+        fromToken: ethToken,
+        toToken: uniToken,
+      });
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual({
+      fromToken: usdcToken,
+      toToken: usdtToken,
+    });
+    act(() => {
+      actions.clearRecentTokenPairSelection({
+        fromToken: usdcToken,
+        toToken: usdtToken,
+      });
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
 });

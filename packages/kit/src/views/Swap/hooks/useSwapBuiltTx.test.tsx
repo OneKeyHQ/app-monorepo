@@ -15,6 +15,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   IFetchBuildTxResponse,
@@ -40,6 +41,7 @@ import {
   swapFromTokenAmountAtom,
   swapQuoteActionLockAtom,
   swapQuoteListAtom,
+  swapRecentTokenPairSelectionAtom,
   swapStepsAtom,
   swapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -500,6 +502,52 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
       );
     },
   );
+
+  it('attributes one sent order to a Recent trades pick', async () => {
+    const { result, store } = renderExecutionReview();
+    await act(async () => {
+      store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+      store.set(swapQuoteListAtom(), [quote]);
+      store.set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+    });
+    mockLogCreateOrder.mockClear();
+    await act(async () => {
+      await result.current.preSwapStepsStart();
+    });
+    expect(mockLogCreateOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ fromRecentTokenPair: true }),
+    );
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it('keeps a newer Recent trades pick when an older order finishes', async () => {
+    const sent = deferred<ISignedTxPro>();
+    const started = deferred<void>();
+    mockSignAndSendTransaction.mockImplementationOnce(() => {
+      started.resolve();
+      return sent.promise;
+    });
+    const { result, store } = renderExecutionReview();
+    await act(async () => {
+      store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+      store.set(swapQuoteListAtom(), [quote]);
+      store.set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+    });
+    let execution!: Promise<void>;
+    await act(async () => {
+      execution = result.current.preSwapStepsStart();
+      await started.promise;
+    });
+    const newerPick = { fromToken: toToken, toToken: fromToken };
+    await act(async () => {
+      store.set(swapRecentTokenPairSelectionAtom(), newerPick);
+    });
+    await act(async () => {
+      sent.resolve({ txid: 'swap-tx', rawTx: '', encodedTx: {} });
+      await execution;
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual(newerPick);
+  });
 
   it.each(['closed', 'replaced', 'cleared'])(
     'records a broadcast approval only in its own tracking slot: %s',
@@ -2074,8 +2122,10 @@ describe('useSwapBuildTx Review analytics', () => {
         quoteId: quote.quoteId,
         orderId: 'review-repro-98',
         status: ESwapEventAPIStatus.FAIL,
-        message: 'Transaction rejected',
       }),
+    );
+    expect(getSwapErrorMessage(mockLogSendTx.mock.calls[0][0].error)).toBe(
+      'Transaction rejected',
     );
     expect(mockLogCreateOrder).toHaveBeenCalledWith(
       expect.objectContaining({ isPreBuild: false }),
@@ -2135,10 +2185,12 @@ describe('useSwapBuildTx Review analytics', () => {
       expect(mockLogSendTx).toHaveBeenCalledWith(
         expect.objectContaining({
           status: ESwapEventAPIStatus.FAIL,
-          message: 'Network error',
           reviewSessionId: 'review-session-1',
           quoteId: quote.quoteId,
         }),
+      );
+      expect(getSwapErrorMessage(mockLogSendTx.mock.calls[0][0].error)).toBe(
+        'Network error',
       );
       expect(mockLogEstimateFee.mock.calls).toEqual(
         supportBatchEstimateFee

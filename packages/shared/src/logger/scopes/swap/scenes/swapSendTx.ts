@@ -1,9 +1,12 @@
-import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import {
+  getSwapErrorMessage,
+  getSwapErrorType,
+} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
-import type { ESwapEventAPIStatus } from './swapEstimateFee';
+import { ESwapEventAPIStatus } from './swapEstimateFee';
 
 export class SwapSendTxScene extends BaseScene {
   @LogToServer({ level: 'info' })
@@ -23,9 +26,7 @@ export class SwapSendTxScene extends BaseScene {
     provider,
     providerName,
     status,
-    message,
-    errorName,
-    errorCode,
+    error,
     orderId,
     networkId,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -41,10 +42,9 @@ export class SwapSendTxScene extends BaseScene {
     reviewSessionId?: string;
     quoteId?: string;
     status: ESwapEventAPIStatus;
-    message?: string;
-    // Sanitized error class name and code; see getSwapErrorType.
-    errorName?: string;
-    errorCode?: string;
+    // The raw error stays here: only fixed categories and allowlisted
+    // identifiers derived from it reach the server.
+    error?: unknown;
     orderId: string;
     swapType: string;
     slippage: string;
@@ -68,9 +68,9 @@ export class SwapSendTxScene extends BaseScene {
       reviewSessionId,
       quoteId,
       status,
-      message: message === undefined ? undefined : getSwapErrorMessage(message),
-      errorName,
-      errorCode,
+      ...(status === ESwapEventAPIStatus.FAIL
+        ? { message: getSwapErrorMessage(error), ...getSwapErrorType(error) }
+        : undefined),
       swapType,
       slippage,
       router,

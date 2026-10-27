@@ -35,6 +35,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsLoader';
 import type { ISwapProTokenCarryUtils } from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
+import { isRecentTokenPairOrder } from '@onekeyhq/kit/src/views/Swap/utils/swapStockAnalytics';
 import {
   type ISwapTokenSelectorLoadOptions,
   SWAP_TOKEN_SELECTOR_DESKTOP_CACHE_SIZE,
@@ -172,6 +173,7 @@ import {
   swapQuoteFetchingAtom,
   swapQuoteIntervalCountAtom,
   swapQuoteListAtom,
+  swapRecentTokenPairSelectionAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectTokenDetailFetchingAtom,
@@ -1044,6 +1046,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
+      // Any token pick ends a "Recent trades" attribution; selectRecentTokenPair
+      // records a new one after its own picks.
+      set(swapRecentTokenPairSelectionAtom(), undefined);
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       if (isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
         set(swapProUserSelectedTokenAtom(), undefined);
@@ -1102,6 +1107,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
+      set(swapRecentTokenPairSelectionAtom(), undefined);
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       if (isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
         set(swapProUserSelectedTokenAtom(), undefined);
@@ -1130,6 +1136,52 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       );
       set(swapSelectToTokenAtom(), token);
       await syncNetworksSortPromise;
+    },
+  );
+
+  selectRecentTokenPair = contextAtomMethod(
+    async (
+      get,
+      set,
+      { fromToken, toToken }: { fromToken: ISwapToken; toToken: ISwapToken },
+    ) => {
+      const skipCheckEqualToken = !equalTokenNoCaseSensitive({
+        token1: fromToken,
+        token2: toToken,
+      });
+      // Both picks clear the attribution synchronously, so it is recorded last.
+      const picks = Promise.all([
+        this.selectFromToken.call(
+          set,
+          fromToken,
+          true,
+          undefined,
+          skipCheckEqualToken,
+        ),
+        this.selectToToken.call(set, toToken, undefined, skipCheckEqualToken),
+      ]);
+      set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+      await picks;
+    },
+  );
+
+  // Clears the attribution only if it still names this order's pair, so a
+  // finishing order cannot drop a newer "Recent trades" pick.
+  clearRecentTokenPairSelection = contextAtomMethod(
+    (
+      get,
+      set,
+      { fromToken, toToken }: { fromToken: ISwapToken; toToken: ISwapToken },
+    ) => {
+      if (
+        isRecentTokenPairOrder({
+          recentSelection: get(swapRecentTokenPairSelectionAtom()),
+          fromToken,
+          toToken,
+        })
+      ) {
+        set(swapRecentTokenPairSelectionAtom(), undefined);
+      }
     },
   );
 
@@ -4841,6 +4893,9 @@ export const useSwapActions = () => {
   const actions = createActions();
   const selectFromToken = actions.selectFromToken.use();
   const selectToToken = actions.selectToToken.use();
+  const selectRecentTokenPair = actions.selectRecentTokenPair.use();
+  const clearRecentTokenPairSelection =
+    actions.clearRecentTokenPairSelection.use();
   const selectStockExecutionTokens = actions.selectStockExecutionTokens.use();
   const alternationToken = actions.alternationToken.use();
   const syncNetworksSort = actions.syncNetworksSort.use();
@@ -4895,6 +4950,8 @@ export const useSwapActions = () => {
     resumeQuoteAction,
     requireManualQuoteRefresh,
     selectToToken,
+    selectRecentTokenPair,
+    clearRecentTokenPairSelection,
     selectStockExecutionTokens,
     alternationToken,
     syncNetworksSort,

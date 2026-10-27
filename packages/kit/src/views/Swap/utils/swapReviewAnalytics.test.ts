@@ -454,23 +454,17 @@ describe('swap review API correlation', () => {
     );
   });
 
-  it('reports the failure type without the raw message', async () => {
-    const failure = Object.assign(new TypeError('send 0xabc failed'), {
-      code: -32_000,
-    });
+  it('hands the raw failure to the send scene for sanitizing', async () => {
+    const failure = new TypeError('send 0xabc failed');
     await expect(
       trackSwapReviewApi('sendTx', swapInfo, async () => {
         throw failure;
       }),
     ).rejects.toBe(failure);
     expect(mockSendTx).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'fail',
-        message: 'Unknown error',
-        errorName: 'TypeError',
-        errorCode: '-32000',
-      }),
+      expect.objectContaining({ status: 'fail', error: failure }),
     );
+    expect(mockSendTx.mock.calls[0][0]).not.toHaveProperty('message');
   });
 
   it('preserves request outcomes even if telemetry fails', async () => {

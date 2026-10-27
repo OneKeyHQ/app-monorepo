@@ -1,10 +1,7 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import {
-  getSwapErrorMessage,
-  getSwapErrorType,
-} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type {
   ISwapReviewAnalyticsContext,
   ISwapReviewClose,
@@ -266,8 +263,6 @@ export function logSwapReviewApiResult({
       quoteId: swapInfo.reviewAnalyticsContext?.quoteId ?? quote.quoteId,
       orderId: getSwapReviewOrderId(swapInfo) ?? '',
       status,
-      message:
-        error === undefined ? undefined : getSwapReviewErrorMessage(error),
       swapType: getSwapExecutionTypeFromQuoteResult(quote),
       slippage: String(quote.slippage ?? ''),
       fromNetworkId: swapInfo.sender.token.networkId,
@@ -287,13 +282,12 @@ export function logSwapReviewApiResult({
     if (event === 'estimateFee') {
       defaultLogger.swap.swapEstimateFee.swapEstimateFee({
         ...params,
+        message:
+          error === undefined ? undefined : getSwapReviewErrorMessage(error),
         isBatch,
       });
     } else {
-      defaultLogger.swap.swapSendTx.swapSendTx({
-        ...params,
-        ...getSwapErrorType(error),
-      });
+      defaultLogger.swap.swapSendTx.swapSendTx({ ...params, error });
     }
   } catch {
     // Analytics payload/transport failures must not interrupt transaction execution.

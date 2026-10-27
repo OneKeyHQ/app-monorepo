@@ -1,7 +1,9 @@
+import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
 import {
   getDesktopIpcCallContext,
   isUnwrappedIpcError,
 } from '../errors/utils/electronIpcError';
+import { isKnownTranslationKey } from '../locale';
 
 const MAX_SANITIZED_ERROR_MESSAGE_LENGTH = 200;
 const UUID_PATTERN =
@@ -222,36 +224,67 @@ export function getOneKeyIdAuthFailureServerParams({
   return params;
 }
 
-/** Swap telemetry emits fixed categories only, never matched error text. */
-// Identifiers only: a value that does not look like a class name or code is
-// dropped, so free text (addresses, amounts, raw messages) never leaves.
-const SAFE_ERROR_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
-const SAFE_ERROR_CODE_PATTERN = /^-?[A-Za-z0-9_]{1,32}$/;
+// Each field is limited to values from a closed set (an error class enum, a
+// native `*Error` name, a translation key) or a short numeric/constant code,
+// so free text such as addresses, keys or amounts can never be reported.
+const ONEKEY_ERROR_CLASS_NAMES = new Set<string>(
+  Object.values(EOneKeyErrorClassNames),
+);
+const NATIVE_ERROR_NAME_PATTERN = /^[A-Z][A-Za-z]{0,42}Error$/;
+const NUMERIC_ERROR_CODE_PATTERN = /^-?\d{1,6}$/;
+const CONSTANT_ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,31}$/;
+const HEX_LIKE_PATTERN = /^[\dA-F]{8,}$/;
 
-export function getSwapErrorType(error: unknown): {
+export type ISwapErrorType = {
   errorName?: string;
   errorCode?: string;
-} {
+  errorKey?: string;
+};
+
+function getSafeErrorName(className: unknown, name: unknown) {
+  if (
+    typeof className === 'string' &&
+    ONEKEY_ERROR_CLASS_NAMES.has(className)
+  ) {
+    return className;
+  }
+  if (typeof name === 'string' && NATIVE_ERROR_NAME_PATTERN.test(name)) {
+    return name;
+  }
+  return undefined;
+}
+
+function getSafeErrorCode(code: unknown) {
+  const value =
+    typeof code === 'number' && Number.isInteger(code) ? String(code) : code;
+  if (typeof value !== 'string') return undefined;
+  if (NUMERIC_ERROR_CODE_PATTERN.test(value)) return value;
+  if (
+    CONSTANT_ERROR_CODE_PATTERN.test(value) &&
+    !HEX_LIKE_PATTERN.test(value)
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+export function getSwapErrorType(error: unknown): ISwapErrorType {
   if (!error || typeof error !== 'object') return {};
-  const { className, name, code } = error as {
+  const { className, name, code, key } = error as {
     className?: unknown;
     name?: unknown;
     code?: unknown;
+    key?: unknown;
   };
-  const rawName = typeof className === 'string' && className ? className : name;
-  const errorName =
-    typeof rawName === 'string' && SAFE_ERROR_NAME_PATTERN.test(rawName)
-      ? rawName
-      : undefined;
-  const rawCode =
-    typeof code === 'number' && Number.isFinite(code) ? String(code) : code;
-  const errorCode =
-    typeof rawCode === 'string' && SAFE_ERROR_CODE_PATTERN.test(rawCode)
-      ? rawCode
-      : undefined;
-  return { errorName, errorCode };
+  return {
+    errorName: getSafeErrorName(className, name),
+    errorCode: getSafeErrorCode(code),
+    errorKey:
+      typeof key === 'string' && isKnownTranslationKey(key) ? key : undefined,
+  };
 }
 
+/** Swap telemetry emits fixed categories only, never matched error text. */
 export function getSwapErrorMessage(error: unknown): string {
   let message = '';
   if (typeof error === 'string') {

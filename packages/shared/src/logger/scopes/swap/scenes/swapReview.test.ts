@@ -126,7 +126,14 @@ describe('Swap Review server events', () => {
         deviceType: undefined,
       });
       estimate.swapEstimateFee({ ...execution, isBatch: true });
-      send.swapSendTx(execution);
+      send.swapSendTx({
+        ...execution,
+        status:
+          message === undefined
+            ? ESwapEventAPIStatus.SUCCESS
+            : ESwapEventAPIStatus.FAIL,
+        error: message,
+      });
       review.swapReviewReady({
         ...identity,
         status: 'error',
