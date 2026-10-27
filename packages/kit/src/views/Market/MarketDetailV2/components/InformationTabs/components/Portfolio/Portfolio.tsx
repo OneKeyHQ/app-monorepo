@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Empty, YStack, useMedia } from '@onekeyhq/components';
 import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
+import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
@@ -50,6 +51,7 @@ function PortfolioBase({
 }: IPortfolioProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const canShowPortfolio = hasAccount ?? Boolean(accountAddress);
 
   const renderPortfolioItem = useCallback(
@@ -94,10 +96,14 @@ function PortfolioBase({
     () =>
       canShowPortfolio
         ? portfolioData.filter((item) =>
-            isTradePositionVisible({ fiatValue: item.totalPrice }),
+            isTradePositionVisible({
+              fiatValue: item.totalPrice,
+              currency: item.currency ?? 'usd',
+              currencyMap,
+            }),
           )
         : [],
-    [canShowPortfolio, portfolioData],
+    [canShowPortfolio, currencyMap, portfolioData],
   );
 
   if (standalone) {

@@ -127,7 +127,7 @@ describe('useSwapProPositionsPnl request lifecycle', () => {
       });
     }
     expect(maximumActive).toBe(4);
-    expect(mockFetchPortfolio).toHaveBeenCalledTimes(25);
+    expect(mockFetchPortfolio).toHaveBeenCalledTimes(6);
     expect(
       mockFetchPortfolio.mock.calls.filter(
         ([params]) => params.tokenAddress === tokens[0].contractAddress,
@@ -177,9 +177,15 @@ describe('useSwapProPositionsPnl request lifecycle', () => {
         complete.splice(0).forEach((resolve) => resolve());
       });
     }
-    expect(mockFetchPortfolio).toHaveBeenCalledTimes(25);
+    expect(mockFetchPortfolio).toHaveBeenCalledTimes(6);
     rerender({ displayed: tokens });
     await flushRequests();
+    expect(mockFetchPortfolio).toHaveBeenCalledTimes(10);
+    while (complete.length > 0) {
+      await act(async () => {
+        complete.splice(0).forEach((resolve) => resolve());
+      });
+    }
     expect(mockFetchPortfolio).toHaveBeenCalledTimes(25);
     unmount();
   });
@@ -212,6 +218,187 @@ describe('useSwapProPositionsPnl request lifecycle', () => {
     rerender({ displayed: tokens.slice(0, 2) });
     await flushRequests();
     expect(mockFetchPortfolio).toHaveBeenCalledTimes(3);
+    unmount();
+  });
+
+  it('hides the previous account PnL immediately while the next account is pending', async () => {
+    const pnl = {
+      isPnlSupported: true,
+      totalPnlUsd: '12',
+      totalPnlPercent: '6',
+      unrealizedPnlUsd: '8',
+      unrealizedPnlPercent: '4',
+    };
+    mockFetchPortfolio.mockResolvedValue({
+      list: [
+        {
+          accountAddress: 'account-a',
+          tokenAddress: tokens[0].contractAddress,
+          amount: '2',
+          symbol: 'T0',
+          tokenPrice: '100',
+          totalPrice: '200',
+          pnl,
+        },
+      ],
+    });
+    const { result, rerender, unmount } = renderHook(
+      ({ displayed }) => useSwapProPositionsPnl(displayed),
+      { initialProps: { displayed: tokens.slice(0, 1) } },
+    );
+    await flushRequests();
+    expect(result.current.get('evm--1-token-0')).toEqual(pnl);
+    mockFetchPortfolio.mockImplementation(() => new Promise(() => {}));
+    rerender({ displayed: [{ ...tokens[0], accountAddress: 'account-b' }] });
+    expect(result.current.size).toBe(0);
+    await flushRequests();
+    expect(result.current.size).toBe(0);
+    unmount();
+  });
+
+  it('deduplicates a holding needed by both consumers and clears removed PnL immediately', async () => {
+    const { result, rerender, unmount } = renderHook(
+      ({ displayed }) => useSwapProPositionsPnl(displayed),
+      { initialProps: { displayed: [tokens[0], { ...tokens[0] }] } },
+    );
+    await flushRequests();
+    expect(mockFetchPortfolio).toHaveBeenCalledTimes(1);
+    rerender({ displayed: [] });
+    expect(result.current.size).toBe(0);
+    await flushRequests();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(60_000);
+    });
+    expect(mockFetchPortfolio).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('skips queued reads from the previous account before sending the next account requests', async () => {
+    const complete: Array<() => void> = [];
+    mockFetchPortfolio.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete.push(() => resolve({ list: [] }));
+        }),
+    );
+    const { rerender, unmount } = renderHook(
+      ({ displayed }) => useSwapProPositionsPnl(displayed),
+      { initialProps: { displayed: tokens.slice(0, 8) } },
+    );
+    await flushRequests();
+    expect(mockFetchPortfolio).toHaveBeenCalledTimes(4);
+    rerender({ displayed: [{ ...tokens[0], accountAddress: 'account-b' }] });
+    await flushRequests();
+    await act(async () => {
+      complete.splice(0).forEach((resolve) => resolve());
+    });
+    expect(
+      mockFetchPortfolio.mock.calls.map(([p]) => p.accountAddress),
+    ).toEqual([
+      'account-a',
+      'account-a',
+      'account-a',
+      'account-a',
+      'account-b',
+    ]);
+    unmount();
+    await act(async () => {
+      complete.splice(0).forEach((resolve) => resolve());
+    });
+  });
+
+  it('publishes completed PnL and keeps polling while an unrelated holding is slow', async () => {
+    const pnl = {
+      isPnlSupported: true,
+      totalPnlUsd: '1',
+      totalPnlPercent: '1',
+      unrealizedPnlUsd: '1',
+      unrealizedPnlPercent: '1',
+    };
+    let finishSlow: (() => void) | undefined;
+    mockFetchPortfolio.mockImplementation((p) =>
+      p.tokenAddress === tokens[0].contractAddress
+        ? Promise.resolve({
+            list: [
+              {
+                accountAddress: p.accountAddress,
+                tokenAddress: p.tokenAddress,
+                symbol: 'T0',
+                amount: '1',
+                tokenPrice: '1',
+                totalPrice: '1',
+                pnl,
+              },
+            ],
+          })
+        : new Promise((resolve) => {
+            finishSlow = () => resolve({ list: [] });
+          }),
+    );
+    const { result, unmount } = renderHook(() =>
+      useSwapProPositionsPnl(tokens.slice(0, 2)),
+    );
+    await flushRequests();
+    expect(result.current.get('evm--1-token-0')).toEqual(pnl);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(30_000);
+    });
+    expect(
+      mockFetchPortfolio.mock.calls.filter(
+        ([p]) => p.tokenAddress === tokens[0].contractAddress,
+      ),
+    ).toHaveLength(2);
+    expect(
+      mockFetchPortfolio.mock.calls.filter(
+        ([p]) => p.tokenAddress === tokens[1].contractAddress,
+      ),
+    ).toHaveLength(1);
+    unmount();
+    await act(async () => {
+      finishSlow?.();
+    });
+  });
+
+  it('ignores a late PnL response from the previous account', async () => {
+    const response = (address: string, value: string) => ({
+      list: [
+        {
+          accountAddress: address,
+          tokenAddress: tokens[0].contractAddress,
+          symbol: 'T0',
+          amount: '1',
+          tokenPrice: '1',
+          totalPrice: '1',
+          pnl: {
+            isPnlSupported: true,
+            totalPnlUsd: value,
+            totalPnlPercent: value,
+            unrealizedPnlUsd: value,
+            unrealizedPnlPercent: value,
+          },
+        },
+      ],
+    });
+    let finishA: (() => void) | undefined;
+    mockFetchPortfolio.mockImplementation((p) =>
+      p.accountAddress === 'account-a'
+        ? new Promise((resolve) => {
+            finishA = () => resolve(response('account-a', '10'));
+          })
+        : Promise.resolve(response('account-b', '20')),
+    );
+    const { result, rerender, unmount } = renderHook(
+      ({ displayed }) => useSwapProPositionsPnl(displayed),
+      { initialProps: { displayed: tokens.slice(0, 1) } },
+    );
+    await flushRequests();
+    rerender({ displayed: [{ ...tokens[0], accountAddress: 'account-b' }] });
+    await flushRequests();
+    expect(result.current.get('evm--1-token-0')?.totalPnlUsd).toBe('20');
+    await act(async () => {
+      finishA?.();
+    });
+    expect(result.current.get('evm--1-token-0')?.totalPnlUsd).toBe('20');
     unmount();
   });
 });

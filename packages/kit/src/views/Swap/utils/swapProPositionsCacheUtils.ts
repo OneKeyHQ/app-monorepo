@@ -35,6 +35,8 @@ export type ISwapProPositionsCache = {
 export type ISwapProPositionsRuntimeEntry = {
   status: 'loading' | 'refreshing' | 'success' | 'error';
   tokens: ISwapToken[];
+  resolvedNetworkIds?: string[];
+  accountScope?: string;
   updatedAt: number;
 };
 

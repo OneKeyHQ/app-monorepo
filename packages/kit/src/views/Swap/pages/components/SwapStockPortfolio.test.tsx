@@ -10,10 +10,7 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  SwapStockMyPosition,
-  SwapStockPortfolioProvider,
-} from './SwapStockPortfolio';
+import { SwapStockMyPosition } from './SwapStockPortfolio';
 
 let mockLargeLayout = true;
 let mockSelectionPending = false;
@@ -28,6 +25,9 @@ const mockSelectVariant = jest.fn<
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useCurrencyPersistAtom: () => [{ currencyMap: {} }],
 }));
 jest.mock('@onekeyhq/components', () => {
   const Stack = ({
@@ -73,15 +73,15 @@ jest.mock(
     useStockDetail: () => ({ stockId: 'TSM', tokenVariants: mockVariants }),
   }),
 );
-jest.mock('../../hooks/useSwapStockPortfolioData', () => ({
-  useSwapStockPortfolioData: () => ({
-    positionListData: mockItems,
-    hasAccount: true,
-    isRefreshing: false,
-  }),
-}));
 jest.mock('./SwapStockPositions', () => ({
-  useSwapStockPositions: () => ({ positionTokenList: mockTokens }),
+  useSwapStockPositions: () => ({
+    positionTokenList: mockTokens,
+    portfolio: {
+      positionListData: mockItems,
+      hasAccount: true,
+      isRefreshing: false,
+    },
+  }),
 }));
 jest.mock('./SwapStockMarketProvider', () => ({
   useSwapStockSelection: () => ({
@@ -125,11 +125,7 @@ const item: IMarketAccountPortfolioDisplayItem = {
 };
 
 function renderPosition() {
-  return render(
-    <SwapStockPortfolioProvider>
-      <SwapStockMyPosition />
-    </SwapStockPortfolioProvider>,
-  );
+  return render(<SwapStockMyPosition />);
 }
 
 describe('SwapStockMyPosition selection', () => {

@@ -1,5 +1,4 @@
-import type { PropsWithChildren } from 'react';
-import { createContext, useCallback, useContext } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,29 +9,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
-import { useSwapStockPortfolioData } from '../../hooks/useSwapStockPortfolioData';
-
 import { SwapSmoothReveal } from './SwapSmoothReveal';
 import { useSwapStockSelection } from './SwapStockMarketProvider';
 import { useSwapStockPositions } from './SwapStockPositions';
 
-type ISwapStockPortfolio = ReturnType<typeof useSwapStockPortfolioData>;
-
-const SwapStockPortfolioContext = createContext<
-  ISwapStockPortfolio | undefined
->(undefined);
-
-export function SwapStockPortfolioProvider({ children }: PropsWithChildren) {
-  const portfolio = useSwapStockPortfolioData();
-  return (
-    <SwapStockPortfolioContext.Provider value={portfolio}>
-      {children}
-    </SwapStockPortfolioContext.Provider>
-  );
-}
-
 export function useSwapStockPortfolio() {
-  return useContext(SwapStockPortfolioContext);
+  return useSwapStockPositions()?.portfolio;
 }
 
 // The Market stock page's "My position" table, listing every token of the

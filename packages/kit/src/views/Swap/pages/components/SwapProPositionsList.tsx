@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IMarketAccountPortfolioPnl } from '@onekeyhq/shared/types/marketV2';
 import { swapProPositionsListMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { type ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -20,6 +21,8 @@ import SwapProPositionListFooter from '../../components/SwapProPositionListFoote
 import SwapProPositionListHeader from '../../components/SwapProPositionListHeader';
 import { useSwapProPositionsListFilter } from '../../hooks/useSwapPro';
 import { useSwapProPositionsPnl } from '../../hooks/useSwapProPositionsPnl';
+
+const EMPTY_TOKENS: ISwapToken[] = [];
 
 function SwapProPositionItemSkeleton({
   stockLayout = false,
@@ -93,6 +96,7 @@ interface ISwapProPositionsListProps {
   stockOnly?: boolean;
   hideSearch?: boolean;
   stockLayout?: boolean;
+  pnlMap?: Map<string, IMarketAccountPortfolioPnl>;
 }
 
 const SwapProPositionsList = ({
@@ -106,6 +110,7 @@ const SwapProPositionsList = ({
   stockOnly,
   hideSearch,
   stockLayout = false,
+  pnlMap: sharedPnlMap,
 }: ISwapProPositionsListProps) => {
   const intl = useIntl();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -123,7 +128,10 @@ const SwapProPositionsList = ({
     [finallyTokenList, isExpanded],
   );
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
-  const pnlMap = useSwapProPositionsPnl(displayTokenList);
+  const localPnlMap = useSwapProPositionsPnl(
+    sharedPnlMap ? EMPTY_TOKENS : displayTokenList,
+  );
+  const pnlMap = sharedPnlMap ?? localPnlMap;
 
   if (positionLoading && displayTokenList.length === 0) {
     return (

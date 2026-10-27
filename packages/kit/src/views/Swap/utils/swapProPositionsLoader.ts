@@ -37,6 +37,12 @@ import { hasTradePositionBalance } from './tradePositionUtils';
 export type ISwapProPositionsLoadOptions = {
   forceRefresh?: boolean;
   stockOnly?: boolean;
+  accountScope?: string;
+  networkAccount?: {
+    networkId: string;
+    accountId: string;
+    apiAddress: string;
+  };
   additionalSupportNetworkScopes?: {
     stockOnly?: boolean;
     supportNetworks: ISwapNetwork[];
@@ -115,12 +121,19 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
   const runtimeEntries = get(swapProPositionsRuntimeDataAtom());
   const activeRequestIds = get(swapProPositionsRequestIdsAtom());
   const scopesToLoad = uniqueScopes.filter((scope) => {
-    if (!options?.forceRefresh && activeRequestIds[scope.ownerKey]) {
+    const runtimeEntry = runtimeEntries[scope.ownerKey];
+    const sameAccountScope =
+      runtimeEntry?.accountScope === options?.accountScope;
+    if (
+      !options?.forceRefresh &&
+      sameAccountScope &&
+      activeRequestIds[scope.ownerKey]
+    ) {
       return false;
     }
-    const runtimeEntry = runtimeEntries[scope.ownerKey];
     return !(
       !options?.forceRefresh &&
+      sameAccountScope &&
       runtimeEntry?.status === 'success' &&
       requestStartedAt - runtimeEntry.updatedAt <
         SWAP_PRO_POSITIONS_RUNTIME_TTL_MS
@@ -141,7 +154,11 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
   set(swapProPositionsRuntimeDataAtom(), (currentEntries) => {
     let nextEntries = currentEntries;
     for (const scope of scopesToLoad) {
-      const currentEntry = nextEntries[scope.ownerKey];
+      const previousEntry = nextEntries[scope.ownerKey];
+      const currentEntry =
+        previousEntry?.accountScope === options?.accountScope
+          ? previousEntry
+          : undefined;
       const isBackgroundRefresh = Boolean(
         currentEntry?.status === 'success' ||
         currentEntry?.status === 'refreshing' ||
@@ -152,6 +169,8 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
         entry: {
           status: isBackgroundRefresh ? 'refreshing' : 'loading',
           tokens: currentEntry?.tokens ?? [],
+          resolvedNetworkIds: currentEntry?.resolvedNetworkIds,
+          accountScope: options?.accountScope,
           updatedAt: requestStartedAt,
         },
         ownerKey: scope.ownerKey,
@@ -200,6 +219,8 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
             ),
             ...tokens,
           ]),
+          resolvedNetworkIds: Array.from(refreshedNetworkIds),
+          accountScope: options?.accountScope,
           updatedAt: Date.now(),
         },
         ownerKey: scope.ownerKey,
@@ -232,6 +253,7 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
               entry: {
                 status: 'error',
                 tokens: [],
+                accountScope: options?.accountScope,
                 updatedAt: Date.now(),
               },
               ownerKey: scope.ownerKey,
@@ -242,7 +264,28 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
       });
       return;
     }
-    const accountAddressList = swapProSupportAccounts
+    const networkAccount = options?.networkAccount;
+    const scopedAccounts = swapProSupportAccounts.map(
+      ({ networkId, accountId, apiAddress }) => ({
+        networkId,
+        accountId,
+        apiAddress,
+      }),
+    );
+    if (
+      networkAccount &&
+      scopesToLoad.some(
+        (scope) =>
+          scope.stockOnly && scope.networkIds.has(networkAccount.networkId),
+      )
+    ) {
+      const index = scopedAccounts.findIndex(
+        (account) => account.networkId === networkAccount.networkId,
+      );
+      if (index < 0) scopedAccounts.push(networkAccount);
+      else scopedAccounts[index] = networkAccount;
+    }
+    const accountAddressList = scopedAccounts
       .filter((item) => item.apiAddress)
       .filter(
         (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
@@ -367,6 +410,10 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
             entry: {
               status: hasFailure ? 'error' : 'success',
               tokens: scopeTokens,
+              resolvedNetworkIds: Array.from(
+                refreshedNetworkIdsByOwner.get(scope.ownerKey) ?? [],
+              ),
+              accountScope: options?.accountScope,
               updatedAt: completedAt,
             },
             ownerKey: scope.ownerKey,
@@ -403,6 +450,8 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
               tokens: (currentEntry?.tokens ?? []).filter((token) =>
                 refreshedNetworkIds.has(token.networkId),
               ),
+              resolvedNetworkIds: Array.from(refreshedNetworkIds),
+              accountScope: options?.accountScope,
               updatedAt: Date.now(),
             },
             ownerKey: scope.ownerKey,

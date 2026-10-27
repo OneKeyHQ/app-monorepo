@@ -136,7 +136,6 @@ import {
   SwapStockMarketProvider,
   useSwapStockSelection,
 } from './SwapStockMarketProvider';
-import { SwapStockPortfolioProvider } from './SwapStockPortfolio';
 import {
   SwapStockPositions,
   SwapStockPositionsProvider,
@@ -1647,14 +1646,12 @@ function SwapStockPageProviders({
   if (embedded) return children;
   return (
     <SwapStockMarketProvider storeName={storeName}>
-      <SwapStockPortfolioProvider>
-        <SwapStockPositionsProvider
-          networks={supportNetworksList}
-          ready={!fetchLoading}
-        >
-          {children}
-        </SwapStockPositionsProvider>
-      </SwapStockPortfolioProvider>
+      <SwapStockPositionsProvider
+        networks={supportNetworksList}
+        ready={!fetchLoading}
+      >
+        {children}
+      </SwapStockPositionsProvider>
     </SwapStockMarketProvider>
   );
 }

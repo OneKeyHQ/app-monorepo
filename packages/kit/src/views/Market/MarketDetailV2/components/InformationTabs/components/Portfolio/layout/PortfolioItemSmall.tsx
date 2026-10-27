@@ -33,7 +33,7 @@ function PortfolioItemSmallBase({ item, onPress }: IPortfolioItemSmallProps) {
           color="$text"
           autoFormatter="price-marketCap"
           autoFormatterThreshold={1000}
-          sourceCurrency={USD_CURRENCY_ID}
+          sourceCurrency={item.currency ?? USD_CURRENCY_ID}
         >
           {item.totalPrice}
         </Currency>

@@ -92,6 +92,7 @@ import {
   buildSwapProAccountScope,
   getSwapProAccountForCurrentScope,
   getSwapProErrorAlertAction,
+  getSwapProPositionsAccountScope,
   resolveSwapProAccountIdentity,
   resolveSwapProAccountStatus,
   shouldSyncSwapProAccountNetwork,
@@ -1637,31 +1638,44 @@ export function useSwapProPositionAccountIdentity() {
   const [isAccountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
 
-  return useMemo(
-    () =>
-      resolveSwapProAccountIdentity({
-        isAccountSelectorStorageInitDone,
-        selectedNetworkId: selectedAccount.networkId,
-        selectedWalletId: selectedAccount.walletId,
-        selectedFocusedWallet: selectedAccount.focusedWallet,
-        selectedIndexedAccountId: selectedAccount.indexedAccountId,
-        selectedAccountId: selectedAccount.othersWalletAccountId,
-        activeIndexedAccountId: activeAccount?.indexedAccount?.id,
-        activeAccountId:
-          activeAccount?.account?.id ?? activeAccount?.dbAccount?.id,
-      }),
-    [
-      activeAccount?.account?.id,
-      activeAccount?.dbAccount?.id,
-      activeAccount?.indexedAccount?.id,
+  return useMemo(() => {
+    const identity = resolveSwapProAccountIdentity({
       isAccountSelectorStorageInitDone,
-      selectedAccount.focusedWallet,
-      selectedAccount.indexedAccountId,
-      selectedAccount.networkId,
-      selectedAccount.othersWalletAccountId,
-      selectedAccount.walletId,
-    ],
-  );
+      selectedNetworkId: selectedAccount.networkId,
+      selectedWalletId: selectedAccount.walletId,
+      selectedFocusedWallet: selectedAccount.focusedWallet,
+      selectedIndexedAccountId: selectedAccount.indexedAccountId,
+      selectedAccountId: selectedAccount.othersWalletAccountId,
+      activeIndexedAccountId: activeAccount.indexedAccount?.id,
+      activeAccountId: activeAccount.account?.id ?? activeAccount.dbAccount?.id,
+    });
+    const accountScope = getSwapProPositionsAccountScope({
+      ...identity,
+      activeAccount,
+      selectedDeriveType: selectedAccount.deriveType,
+    });
+    const networkAccount =
+      accountScope &&
+      activeAccount.account?.address &&
+      activeAccount.network?.id &&
+      !networkUtils.isAllNetwork({ networkId: activeAccount.network.id })
+        ? {
+            networkId: activeAccount.network.id,
+            accountId: activeAccount.account.id,
+            apiAddress: activeAccount.account.address,
+          }
+        : undefined;
+    return { ...identity, accountScope, networkAccount };
+  }, [
+    activeAccount,
+    isAccountSelectorStorageInitDone,
+    selectedAccount.deriveType,
+    selectedAccount.focusedWallet,
+    selectedAccount.indexedAccountId,
+    selectedAccount.networkId,
+    selectedAccount.othersWalletAccountId,
+    selectedAccount.walletId,
+  ]);
 }
 
 export function useSwapPositionsSupportTokenListAction() {
@@ -1681,6 +1695,7 @@ export function useSwapPositionsSupportTokenListAction() {
         }[];
       },
     ) => {
+      if (!positionAccountIdentity.accountScope) return;
       await swapProLoadSupportNetworksTokenList(
         networkList.map((item) => ({
           networkId: item.networkId,
@@ -1692,6 +1707,8 @@ export function useSwapPositionsSupportTokenListAction() {
         positionCurrencyId,
         {
           forceRefresh: options?.forceRefresh,
+          accountScope: positionAccountIdentity.accountScope,
+          networkAccount: positionAccountIdentity.networkAccount,
           positionLoader: loadSwapProPositions,
           stockOnly: options?.stockOnly,
           additionalSupportNetworkScopes: options?.additionalNetworkScopes?.map(
@@ -1760,9 +1777,14 @@ export function useSwapProSupportNetworksTokenList(
       positionNetworkIdsKey,
     ],
   );
-  const positionRuntimeEntry = positionOwnerKey
+  const scopedEntry = positionOwnerKey
     ? swapProPositionsRuntimeData[positionOwnerKey]
     : undefined;
+  const positionRuntimeEntry =
+    positionAccountIdentity.accountScope &&
+    scopedEntry?.accountScope === positionAccountIdentity.accountScope
+      ? scopedEntry
+      : undefined;
   const hasPositionOwner =
     Boolean(positionOwnerKey) ||
     (!supportNetworksReady && Boolean(positionAccountId));
@@ -1901,6 +1923,8 @@ export function useSwapProSupportNetworksTokenList(
   }, [checkSyncOrderTokenBalance]);
 
   return {
+    hasAccount: Boolean(positionAccountId),
+    resolvedNetworkIds: positionRuntimeEntry?.resolvedNetworkIds ?? [],
     positionLoadError: positionRuntimeEntry?.status === 'error',
     positionLoading:
       hasPositionOwner &&
