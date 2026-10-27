@@ -329,6 +329,8 @@ export function LocalWalletSyncRow({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const accountPaused = lw.state?.paused === true;
+  // Paused here or from the sync light; either way this button resumes it.
+  const canResume = accountPaused || lw.isNetworkPaused;
 
   const openSettings = useCallback(() => {
     navigation.pushModal(EModalRoutes.AccountManagerStacks, {
@@ -396,16 +398,20 @@ export function LocalWalletSyncRow({
         mr="$0"
         size="small"
         variant="tertiary"
-        icon={accountPaused ? 'PlayOutline' : 'RefreshCcwOutline'}
+        icon={canResume ? 'PlayOutline' : 'RefreshCcwOutline'}
         loading={lw.busy}
         onPress={() => {
-          void (
-            accountPaused ? lw.enableAccount({}) : lw.refreshBalanceNow()
-          ).catch(logLocalWalletActionError('refresh'));
+          let action = lw.refreshBalanceNow;
+          if (accountPaused) {
+            action = () => lw.enableAccount({});
+          } else if (lw.isNetworkPaused) {
+            action = lw.resumeNetworkSync;
+          }
+          void action().catch(logLocalWalletActionError('refresh'));
         }}
       >
         {intl.formatMessage({
-          id: accountPaused
+          id: canResume
             ? ETranslations.global_resume
             : ETranslations.privacy_balance_refresh__action,
         })}

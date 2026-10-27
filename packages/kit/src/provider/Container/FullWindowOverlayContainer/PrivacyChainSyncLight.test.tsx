@@ -120,6 +120,7 @@ beforeEach(() => {
     boostingNetworkIds: [],
     dataBlockedNetworkIds: [],
     pausedNetworkIds: [],
+    preparingNetworkIds: [],
     progress: {},
     syncErrorByNetworkId: {},
     storageUnsupportedNetworkIds: [],
@@ -173,7 +174,7 @@ it('prepares without a percentage until this chain has an actual cursor', async 
   expect(text).not.toContain('%');
 });
 
-it('expands both networks, pauses both and collapses back to one row', async () => {
+it('expands both networks, and pausing closes the light at once', async () => {
   mockState.boostingNetworkIds = ['zec--0', 'xmr--0'];
   mockState.progress['zec--0:account'] = scanProgress(107);
   mockState.progress['xmr--0:account'] = scanProgress(400);
@@ -184,42 +185,55 @@ it('expands both networks, pauses both and collapses back to one row', async () 
     fireEvent.click(screen.getByTestId('privacy-chain-sync-light-details-btn'));
   });
   expect(
-    screen.getByTestId('privacy-chain-sync-network-zec--0').textContent,
-  ).toContain('Zcash');
-  expect(
     screen.getByTestId('privacy-chain-sync-network-xmr--0').textContent,
   ).toContain('Monero');
   expect(
     screen.getByTestId('privacy-chain-sync-light-detail-xmr--0').textContent,
   ).toContain('40.0%');
-  fireEvent.click(screen.getByTestId('privacy-chain-sync-light-pause-btn'));
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('privacy-chain-sync-light-pause-btn'));
+  });
   expect(mockPause.mock.calls).toEqual([
     [{ networkId: 'zec--0' }],
     [{ networkId: 'xmr--0' }],
   ]);
-  await act(async () => {
-    fireEvent.click(screen.getByTestId('privacy-chain-sync-light-details-btn'));
-  });
-  expect(screen.queryByTestId('privacy-chain-sync-network-xmr--0')).toBeNull();
+  // Still boosting until the service answers; the light is already gone.
+  expect(screen.queryByTestId('privacy-chain-sync-light')).toBeNull();
 });
 
-it('keeps a paused network visible when expanded alongside a running network', async () => {
-  mockState.boostingNetworkIds = ['zec--0'];
-  mockState.pausedNetworkIds = ['xmr--0'];
-  mockState.progress['zec--0:account'] = scanProgress(107);
+// Paused state lives on the token and settings pages, which can resume it.
+it('shows nothing for a paused chain', async () => {
+  mockState.pausedNetworkIds = ['zec--0'];
   render(<PrivacyChainSyncLight />);
-  await act(async () => {
-    fireEvent.click(screen.getByTestId('privacy-chain-sync-light-details-btn'));
-  });
-  expect(
-    screen.getByTestId('privacy-chain-sync-network-xmr--0').textContent,
-  ).toContain('syncing_paused__title');
-  fireEvent.click(screen.getByTestId('privacy-chain-sync-light-resume-btn'));
-  expect(mockResume).toHaveBeenCalledWith({
-    networkId: 'xmr--0',
-    trigger: 'manual-sync',
-  });
-  expect(mockPause).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('privacy-chain-sync-light')).toBeNull();
+});
+
+// Scanning never finishes; a chain that has caught up shows no "synced" light.
+it('shows nothing for a chain that has caught up', async () => {
+  mockState.boostingNetworkIds = ['zec--0'];
+  mockState.progress['zec--0:account'] = {
+    ...scanProgress(1000),
+    backfillProgress: 1,
+    isBackfillComplete: true,
+    tipLag: 0,
+    isTipCaughtUp: true,
+    isSyncing: false,
+  };
+  render(<PrivacyChainSyncLight />);
+  expect(screen.queryByTestId('privacy-chain-sync-light')).toBeNull();
+});
+
+it('prepares after an explicit start, without another account figures', async () => {
+  mockState.boostingNetworkIds = ['xmr--0'];
+  mockState.preparingNetworkIds = ['xmr--0'];
+  mockState.progress['xmr--0:active'] = scanProgress(191);
+  render(<PrivacyChainSyncLight />);
+  await screen.findByText(/Monero/);
+  const text = screen.getByTestId(
+    'privacy-chain-sync-network-xmr--0',
+  ).textContent;
+  expect(text).toContain('global.preparing');
+  expect(text).not.toContain('%');
 });
 
 it('keeps detailed progress collapsed and expands it on demand', async () => {
@@ -252,72 +266,20 @@ it('keeps detailed progress collapsed and expands it on demand', async () => {
   expect(mockPause).toHaveBeenCalledWith({ networkId: 'zec--0' });
 });
 
-it.each(['preparing', 'complete'])(
-  'resumes the paused scan from the same compact control when progress is %s',
-  async (status) => {
-    mockState.pausedNetworkIds = ['zec--0'];
-    if (status === 'complete') {
-      mockState.progress['zec--0:account'] = {
-        birthdayHeight: 100,
-        backfillScannedHeight: 1000,
-        backfillTargetHeight: 1000,
-        backfillProgress: 1,
-        isBackfillComplete: true,
-        tipScannedHeight: 1000,
-        chainTip: 1000,
-        tipLag: 0,
-        isTipCaughtUp: true,
-        isSyncing: false,
-      };
-    }
-    render(<PrivacyChainSyncLight />);
-    await act(async () => {
-      fireEvent.click(
-        screen.getByTestId('privacy-chain-sync-light-resume-btn'),
-      );
-    });
-    expect(mockResume).toHaveBeenCalledWith({
-      networkId: 'zec--0',
-      trigger: 'manual-sync',
-    });
-    expect(
-      screen.queryByTestId('privacy-chain-sync-light-pause-btn'),
-    ).toBeNull();
-  },
-);
-
-it.each(['running', 'paused'])(
-  'keeps the other chain %s control available while a storage error is visible',
-  async (status) => {
-    mockState.storageUnsupportedNetworkIds = ['zec--0'];
-    mockState.boostingNetworkIds =
-      status === 'running' ? ['zec--0', 'xmr--0'] : ['zec--0'];
-    mockState.pausedNetworkIds = status === 'paused' ? ['xmr--0'] : [];
-    render(<PrivacyChainSyncLight />);
-    expect(
-      screen.getByTestId('privacy-chain-sync-light-detail').textContent,
-    ).toContain('privacy_error_webview_outdated__msg');
-    const actionId =
-      status === 'running'
-        ? 'privacy-chain-sync-light-pause-btn'
-        : 'privacy-chain-sync-light-resume-btn';
-    await act(async () => {
-      fireEvent.click(screen.getByTestId(actionId));
-    });
-    if (status === 'running') {
-      expect(mockPause.mock.calls).toEqual([[{ networkId: 'xmr--0' }]]);
-    } else {
-      expect(mockResume.mock.calls).toEqual([
-        [{ networkId: 'xmr--0', trigger: 'manual-sync' }],
-      ]);
-    }
-    await act(async () => {
-      fireEvent.click(
-        screen.getByTestId('privacy-chain-sync-light-details-btn'),
-      );
-    });
-    expect(
-      screen.getByTestId('privacy-chain-sync-light-detail').textContent,
-    ).toContain('privacy_error_webview_outdated__msg');
-  },
-);
+it('keeps the other chain pause control available while a storage error is visible', async () => {
+  mockState.storageUnsupportedNetworkIds = ['zec--0'];
+  mockState.boostingNetworkIds = ['zec--0', 'xmr--0'];
+  mockState.progress['xmr--0:account'] = scanProgress(400);
+  render(<PrivacyChainSyncLight />);
+  expect(
+    screen.getByTestId('privacy-chain-sync-light-detail').textContent,
+  ).toContain('privacy_error_webview_outdated__msg');
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('privacy-chain-sync-light-pause-btn'));
+  });
+  expect(mockPause.mock.calls).toEqual([[{ networkId: 'xmr--0' }]]);
+  // The storage error cannot be paused away; it stays visible.
+  expect(
+    screen.getByTestId('privacy-chain-sync-light-detail').textContent,
+  ).toContain('privacy_error_webview_outdated__msg');
+});

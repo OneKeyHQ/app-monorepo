@@ -98,6 +98,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     {
       dataBlockedNetworkIds: [],
       pausedNetworkIds: mockPausedNetworks,
+      preparingNetworkIds: [],
       boostingNetworkIds: mockBoostingNetworks,
       storageUnsupportedNetworkIds: mockUnsupportedNetworks,
       syncErrorByNetworkId: {},

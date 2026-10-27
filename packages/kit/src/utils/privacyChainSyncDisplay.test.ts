@@ -133,11 +133,43 @@ describe('chain status shared by settings and the floating control', () => {
     state = {
       boostingNetworkIds: ['xmr--0'],
       pausedNetworkIds: [],
+      preparingNetworkIds: [],
       dataBlockedNetworkIds: [],
       storageUnsupportedNetworkIds: [],
       syncErrorByNetworkId: {},
       progress: {},
     };
+  });
+
+  it('prepares after an explicit start, hiding other accounts figures', () => {
+    state.progress = { 'xmr--0:active': scanning };
+    state.preparingNetworkIds = ['xmr--0'];
+    expect(
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
+    ).toMatchObject({
+      labelId: ETranslations.global_preparing,
+      entry: undefined,
+      isCaughtUp: false,
+    });
+  });
+
+  it('reports a chain whose accounts all finished the backfill as caught up', () => {
+    const complete = {
+      ...scanning,
+      backfillScannedHeight: 1000,
+      backfillProgress: 1,
+      isBackfillComplete: true,
+    };
+    state.progress = { 'xmr--0:done': complete };
+    expect(
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' })
+        .isCaughtUp,
+    ).toBe(true);
+    state.progress = { 'xmr--0:done': complete, 'xmr--0:queued': queued };
+    expect(
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' })
+        .isCaughtUp,
+    ).toBe(false);
   });
 
   it('shows advancing work while another account is still waiting for its cursor', () => {
