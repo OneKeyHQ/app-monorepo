@@ -290,7 +290,7 @@ jest.mock('./SwapStockTradeProvider', () => ({
   }),
 }));
 
-describe('Swap Stock trade target price by screen size', () => {
+describe('Swap Stock trade target price', () => {
   beforeEach(() => {
     mockStockDetailState = createStockDetailState();
     mockStockSelectionPending = false;
@@ -310,22 +310,24 @@ describe('Swap Stock trade target price by screen size', () => {
       platformEnv.isNativeAndroid = platform === 'android';
       platformEnv.isWeb = platform === 'web';
       platformEnv.isExtension = platform === 'extension';
-      const { rerender } = render(<SwapStockVariantSelector />);
+      const { rerender } = render(
+        <SwapStockVariantSelector hasMarketPanel={false} />,
+      );
 
       expect(screen.getByTestId('stock-token-info').textContent).toBe('343.17');
       mockStockDetailState.isTokenVariantPending = true;
-      rerender(<SwapStockVariantSelector />);
+      rerender(<SwapStockVariantSelector hasMarketPanel={false} />);
       expect(screen.queryByTestId('stock-token-info')).toBeNull();
       expect(screen.getByTestId('skeleton')).toBeTruthy();
 
       mockStockDetailState.isTokenVariantPending = false;
-      rerender(<SwapStockVariantSelector />);
+      rerender(<SwapStockVariantSelector hasMarketPanel={false} />);
       expect(screen.getByTestId('stock-token-info').textContent).toBe('343.17');
     },
   );
 
   it.each(['desktop', 'web', 'extension'] as const)(
-    'hides the selected token price and details entry on large-screen %s',
+    'hides the selected token price when the market panel is present on %s',
     (platform) => {
       platformEnv.isNative = false;
       platformEnv.isDesktop = platform === 'desktop';
@@ -333,13 +335,34 @@ describe('Swap Stock trade target price by screen size', () => {
       platformEnv.isExtension = platform === 'extension';
       mockGtLg = true;
       mockStockDetailState.isTokenVariantPending = true;
-      const { rerender } = render(<SwapStockVariantSelector />);
+      const { rerender } = render(<SwapStockVariantSelector hasMarketPanel />);
 
       expect(screen.queryByTestId('stock-token-info')).toBeNull();
       expect(screen.queryByTestId('skeleton')).toBeNull();
       mockStockDetailState.isTokenVariantPending = false;
-      rerender(<SwapStockVariantSelector />);
+      rerender(<SwapStockVariantSelector hasMarketPanel />);
       expect(screen.queryByTestId('stock-token-info')).toBeNull();
+      expect(screen.queryByText('343.17')).toBeNull();
+    },
+  );
+
+  it.each(['desktop', 'web', 'extension'] as const)(
+    'shows the price without a details entry when no market panel exists on large-screen %s',
+    (platform) => {
+      platformEnv.isNative = false;
+      platformEnv.isDesktop = platform === 'desktop';
+      platformEnv.isWeb = platform === 'web';
+      platformEnv.isExtension = platform === 'extension';
+      mockGtLg = true;
+      const { rerender } = render(
+        <SwapStockVariantSelector hasMarketPanel={false} />,
+      );
+
+      expect(screen.getByText('343.17')).toBeTruthy();
+      expect(screen.queryByTestId('stock-token-info')).toBeNull();
+      mockStockDetailState.isTokenVariantPending = true;
+      rerender(<SwapStockVariantSelector hasMarketPanel={false} />);
+      expect(screen.getByTestId('skeleton')).toBeTruthy();
     },
   );
 
@@ -350,32 +373,37 @@ describe('Swap Stock trade target price by screen size', () => {
       platformEnv.isNativeIOS = platform === 'ios';
       platformEnv.isNativeAndroid = platform === 'android';
       mockGtLg = true;
-      const { rerender } = render(<SwapStockVariantSelector />);
+      const { rerender } = render(
+        <SwapStockVariantSelector hasMarketPanel={false} />,
+      );
 
       expect(screen.getByText('343.17')).toBeTruthy();
       expect(screen.queryByTestId('stock-token-info')).toBeNull();
       mockStockDetailState.isTokenVariantPending = true;
-      rerender(<SwapStockVariantSelector />);
+      rerender(<SwapStockVariantSelector hasMarketPanel={false} />);
       expect(screen.getByTestId('skeleton')).toBeTruthy();
       expect(screen.queryByTestId('stock-token-info')).toBeNull();
       mockStockDetailState.isTokenVariantPending = false;
       mockGtLg = false;
-      rerender(<SwapStockVariantSelector />);
+      rerender(<SwapStockVariantSelector hasMarketPanel={false} />);
       expect(screen.getByTestId('stock-token-info').textContent).toBe('343.17');
     },
   );
 
-  it('updates the price and details entry when an extension window crosses the breakpoint', () => {
+  it('updates the price when the market panel appears or disappears', () => {
     platformEnv.isNative = false;
     platformEnv.isExtension = true;
-    const { rerender } = render(<SwapStockVariantSelector />);
+    const { rerender } = render(
+      <SwapStockVariantSelector hasMarketPanel={false} />,
+    );
 
     expect(screen.getByTestId('stock-token-info').textContent).toBe('343.17');
     mockGtLg = true;
-    rerender(<SwapStockVariantSelector />);
+    rerender(<SwapStockVariantSelector hasMarketPanel />);
     expect(screen.queryByTestId('stock-token-info')).toBeNull();
+    expect(screen.queryByText('343.17')).toBeNull();
     mockGtLg = false;
-    rerender(<SwapStockVariantSelector />);
+    rerender(<SwapStockVariantSelector hasMarketPanel={false} />);
     expect(screen.getByTestId('stock-token-info').textContent).toBe('343.17');
   });
 });

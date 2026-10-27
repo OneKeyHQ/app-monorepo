@@ -332,9 +332,13 @@ export function SwapStockMobileHeader() {
   );
 }
 
-export function SwapStockVariantSelector() {
+export function SwapStockVariantSelector({
+  hasMarketPanel,
+}: {
+  hasMarketPanel: boolean;
+}) {
   const { gtLg } = useMedia();
-  const showPrice = platformEnv.isNative || !gtLg;
+  const showPrice = !hasMarketPanel;
   const selection = useSwapStockSelection();
   const { isTokenVariantPending } = useStockDetail();
   const variantLoading = Boolean(
