@@ -9,6 +9,8 @@ import {
 import { useOpenPerksTab } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { PerpsCampaignIllustration } from './PerpsCampaignIllustration';
+
 function usePerpsActivityHubProps() {
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const campaigns = useMemo(
@@ -25,10 +27,14 @@ export function PerpsActivityCenterContent({
   copyAsUrl = false,
   closePopover,
   showTitle = true,
+  menuLayout = false,
+  menuPopoverLayout = false,
 }: {
   copyAsUrl?: boolean;
   closePopover: () => void;
   showTitle?: boolean;
+  menuLayout?: boolean;
+  menuPopoverLayout?: boolean;
 }) {
   const { campaigns, handleOpenInviteeReward } = usePerpsActivityHubProps();
 
@@ -38,6 +44,11 @@ export function PerpsActivityCenterContent({
       copyAsUrl={copyAsUrl}
       closePopover={closePopover}
       showTitle={showTitle}
+      menuLayout={menuLayout}
+      menuPopoverLayout={menuPopoverLayout}
+      campaignFallbackIllustration={
+        menuLayout ? <PerpsCampaignIllustration trimmed /> : undefined
+      }
       onOpenInviteeReward={handleOpenInviteeReward}
       campaigns={campaigns}
     />
