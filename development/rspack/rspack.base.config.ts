@@ -140,8 +140,7 @@ const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
-// Chain runtime wasm is wasm-pack `-t web` output whose `wbg` imports come from
-// the JS glue; parsing it as a webpack wasm module fails, so emit it as an asset.
+// Chain runtime wasm is wasm-pack `-t web` output whose `wbg` imports come from the JS glue; emit it as an asset.
 const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
 const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
 const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];
@@ -299,9 +298,7 @@ const buildBasePlugins: (
     new rspack.NormalModuleReplacementPlugin(
       /worker-rspack-loader[\\/]dist[\\/]runtime[\\/]inline\.js$/,
       (resource) => {
-        // Both client-scanning chains keep their Worker entry in a `sdk`
-        // directory, reach OPFS through the Blob URL's origin and need the
-        // page's release values.
+        // Both scanning chains keep their Worker entry in a `sdk` directory and need the page's release values.
         if (
           /[\\/](zcash[\\/]sdkZcash|xmr[\\/]sdkXmrRuntime)[\\/]sdk$/.test(
             resource.context,
@@ -550,9 +547,7 @@ export function createBaseConfig({
         },
         {
           test: CHAIN_RUNTIME_WASM_TEST,
-          // web-embed (iOS) and desktop release builds run from file://, where
-          // the Blob Worker has no base URL to resolve a wasm file against, so
-          // inline it as a data: URI there.
+          // file:// builds (web-embed iOS, desktop release) have no base URL for a Blob Worker; inline wasm as a data: URI.
           ...(platform === 'web-embed' || platform === 'desktop'
             ? { type: 'asset/inline' as const }
             : {
@@ -895,12 +890,10 @@ export function createBaseConfig({
           use: ['html-loader', 'template-ejs-loader'],
         },
         {
-          // Both chains' inline Worker entries; the suffix is the contract.
           test: /SdkInline\.worker\.js$/,
           use: {
             loader: 'worker-rspack-loader',
-            // WKWebView's file-backed page needs a self-contained Blob Worker.
-            // Do not also ship an unused copy of its embedded WASM assets.
+            // WKWebView's file-backed page needs a self-contained Blob Worker; skip the unused WASM assets.
             options: { inline: 'no-fallback' },
           },
         },

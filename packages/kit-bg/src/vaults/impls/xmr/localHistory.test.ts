@@ -43,7 +43,6 @@ function build(item: Partial<IXmrHistoryItem>, recipient?: string) {
 }
 
 describe('xmr history rows', () => {
-  // Reporting the gross spend would show the whole input as sent.
   it('nets the change and the scanned fee out of an outgoing amount', async () => {
     const row = await build({
       direction: 'out',
@@ -55,7 +54,6 @@ describe('xmr history rows', () => {
     expect(row.decodedTx.totalFeeInNative).toBe('0.00003');
   });
 
-  // Without a fee the net spend still names a figure rather than none.
   it('shows the net spend when no fee is known', async () => {
     const row = await build({
       direction: 'out',
@@ -66,7 +64,6 @@ describe('xmr history rows', () => {
     expect(row.decodedTx.totalFeeInNative).toBeUndefined();
   });
 
-  // Before the change is scanned, spent minus received is the whole input set.
   it('shows a pending send at the amount recorded when it was broadcast', async () => {
     const row = await build({
       direction: 'out',
@@ -167,7 +164,6 @@ describe('xmr history rows', () => {
     });
   });
 
-  // The sort key would fall back to 0 and show the newest tx as oldest.
   it('gives a pending transaction a timestamp so it sorts to the top', async () => {
     const before = Date.now();
     const row = await build({ height: null, timestamp: null });

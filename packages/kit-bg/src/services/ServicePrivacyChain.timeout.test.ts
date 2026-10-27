@@ -198,8 +198,8 @@ describe('Privacy sync failure backoff', () => {
     jest.restoreAllMocks();
   });
 
-  // A failed turn never records the chain tip, so without backoff the failing
-  // group stays `tip` and outranks the other chain's backfill every tick.
+  // A failed turn never records the chain tip, so without backoff the failing group stays `tip` and
+  // outranks the other chain's backfill.
   function createTwoChainScheduler(zcashSync: jest.Mock, xmrSync: jest.Mock) {
     const capability = (networkId: string) => ({
       listAccounts: async () => ({
@@ -242,8 +242,6 @@ describe('Privacy sync failure backoff', () => {
         quarantinedSyncs: new Map<string, Promise<unknown>>(),
         storageUnsupportedNetworkIds: new Set<string>(),
         syncFailureBackoff: new Map(),
-        // Zcash saw tip 100 last time (-> `tip`); XMR is at 200 with history
-        // left (-> `backfill`).
         runtimeSyncState: new Map([
           [
             'zec--0|main',
@@ -304,7 +302,6 @@ describe('Privacy sync failure backoff', () => {
 
     await service.backgroundSyncTick();
     expect(zcashSync).toHaveBeenCalledTimes(1);
-    // Even once its backoff has run out.
     (
       service as unknown as { syncFailureBackoff: Map<string, unknown> }
     ).syncFailureBackoff.clear();
@@ -374,7 +371,6 @@ describe('Privacy password work after a sync turn', () => {
         accountIds: ['idle', 'needs'],
       }),
     ).resolves.toBe(true);
-    // A scheduler turn never opens a password dialog.
     expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
     expect(doWork).toHaveBeenCalledTimes(1);
     expect(doWork).toHaveBeenCalledWith({ password: 'pw' });
@@ -433,7 +429,6 @@ describe('Privacy enable scan visibility', () => {
   );
 });
 
-// Host records App Reset deletes per network after the runtime drop.
 function pendingDropApi(
   pending: string[],
   getPendingLocalDataDrop: () => Promise<string[]> = async () => pending,
@@ -476,8 +471,6 @@ describe('Privacy database erasure', () => {
     jest.clearAllMocks();
   });
 
-  // Reset deletes what it can: one runtime that fails or never answers must
-  // not keep the other chain's data, or block the rest of the reset.
   it('wipes the other chains when one cannot be wiped', async () => {
     jest.useFakeTimers();
     try {
@@ -522,8 +515,6 @@ describe('Privacy database erasure', () => {
     }
   });
 
-  // Host records describe the database just dropped; a failed drop keeps them
-  // for the retry the pending mark triggers.
   it('deletes host records only for networks whose database went', async () => {
     const backgroundApi = pendingDropApi([]);
     const removeNetworkAccounts = jest.fn(async () => undefined);
@@ -734,7 +725,6 @@ describe('Privacy sync backoff after a user action', () => {
     expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
   });
 
-  // Custom RPC saves only announce the change; a failure here must not reach them.
   it('handles node changes from the custom RPC event without throwing', async () => {
     const { appEventBus, EAppEventBusNames } = jest.requireActual<
       typeof import('@onekeyhq/shared/src/eventBus/appEventBus')

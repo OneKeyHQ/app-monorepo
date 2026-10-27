@@ -13,10 +13,8 @@ import { buildXmrLocalWalletCapability } from './localWallet';
 
 import type Vault from './Vault';
 
-// The runtime names an identity by the viewing key fingerprint (vkFp). The
-// fake below follows monero-runtime's add_identity (wallet.rs): idempotent by
-// uuid; the same uuid with other keys starts clean; the same keys under a new
-// uuid are renamed, keeping the row and everything linked to it.
+// The fake follows monero-runtime add_identity: idempotent by uuid; the same uuid with
+// other keys starts clean; the same keys under a new uuid are renamed in place.
 
 const NETWORK_ID = 'xmr--0';
 const TIP = 3_768_162;
@@ -26,7 +24,6 @@ type IFakeIdentity = {
   uuid: string;
   primaryAddress: string;
   birthdayHeight: number;
-  // Stands in for outputs, transactions and pending sends linked by row id.
   sends: string[];
 };
 
@@ -143,8 +140,7 @@ jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime', () => ({
 jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/install', () => ({
   installXmrCarrier: () => undefined,
 }));
-// The real lookup (account -> stored key -> vkFp -> runtime row); only the
-// session and node are replaced.
+// The real lookup (account -> stored key -> vkFp -> runtime row); only session and node are replaced.
 jest.mock('./runtime', () => ({
   ...jest.requireActual<typeof import('./runtime')>('./runtime'),
   getXmrRuntime: async () => mockRuntime,
@@ -170,7 +166,6 @@ function memoryEntity<T>(entity: T): T {
 
 type IScanStateKind = 'on' | 'paused' | 'enabling' | 'deleted-data';
 
-// Builds each state through the entity's own operations.
 async function seedScanState(
   xmr: SimpleDbEntityPrivacyChainState,
   accountId: string,
@@ -200,7 +195,6 @@ function createHarness() {
     servicePrivacyChain: {
       publishLocalWalletSyncProgress: jest.fn(async () => undefined),
       onLocalWalletAccountsChanged: jest.fn(async () => undefined),
-      // As the service without a cached password: the stored key or nothing.
       ensureLocalWalletViewingKey: async ({
         accountId,
       }: {
@@ -225,7 +219,6 @@ function createHarness() {
     backgroundApi,
     getXmrNetwork: async () => 'mainnet',
     resolveXmrNodeUrl: async () => 'https://node.example:18081',
-    // As Vault.getXmrViewingKeys: the stored key, parsed.
     getXmrViewingKeys: async ({ accountId }: { accountId: string }) => {
       const key = await getLocalWalletViewingKey({
         backgroundApi: backgroundApi as never,
@@ -286,7 +279,6 @@ describe('xmr runtime identity named by viewing key', () => {
     });
     expect(mockRuntime.addAccount).not.toHaveBeenCalled();
 
-    // One slot, one alias group, one scan per turn.
     const { accounts } = await capability.listAccounts();
     expect(accounts.map((item) => item.accountRuntimeKey)).toEqual([
       SHARED_FP,
@@ -329,10 +321,8 @@ describe('xmr runtime identity named by viewing key', () => {
     ).resolves.toEqual({ orphaned: false });
     expect(mockRuntime.removeAccount).not.toHaveBeenCalled();
     expect(mockRuntime.identities).toHaveLength(1);
-    // The lifecycle executor then clears the account's own scan state.
     await xmr.clearAccountScanData({ accountId: ALIAS_A });
 
-    // The last one out removes it.
     await capability.deleteRuntimeAccount({ accountId: ALIAS_B });
     expect(mockRuntime.removeAccount).toHaveBeenCalledWith(SHARED_FP);
     expect(mockRuntime.identities).toHaveLength(0);
@@ -455,7 +445,6 @@ describe('xmr runtime identity named by viewing key', () => {
 
     await capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
 
-    // Renamed in place, applying the saved target while retaining the send.
     expect(mockRuntime.identities).toEqual([
       {
         id: 7,

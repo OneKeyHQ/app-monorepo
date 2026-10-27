@@ -1289,8 +1289,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     });
   }
 
-  // Privacy-chain node requests: renderer fetch obeys CORS and mixed content,
-  // and most Monero nodes send no CORS headers. The main process has neither.
+  // The renderer's fetch obeys CORS and mixed content; the main process does not.
   ipcMain.removeHandler(ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST);
   ipcMain.handle(
     ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST,
@@ -1298,8 +1297,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       event,
       params: { url: string; contentType: string; body: Uint8Array },
     ) => {
-      // Main window only: dApp webviews share the preload, and this is a
-      // POST-anywhere relay. Same gate as DESKTOP_API_CALL.
+      // Main window only: dApp webviews share the preload, and this is a POST-anywhere relay.
       const currentMainWebContentsId =
         getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
       if (event.sender.id !== currentMainWebContentsId) {
@@ -1315,14 +1313,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
             error: `unsupported protocol ${parsed.protocol}`,
           };
         }
-        // Same limits as FETCH_STREAM: no embedded credentials, no session
-        // credentials, no redirects to a host the user did not configure.
+        // Same limits as FETCH_STREAM: no credentials, no cross-host redirects.
         if (parsed.username || parsed.password) {
           return { ok: false, error: 'URL credentials are not supported' };
         }
-        // Idle timeout only: a large batch over a proxy can take minutes.
-        // `net.fetch` follows the system proxy; Node's fetch would bypass it
-        // and expose the user's IP to the node.
+        // Idle timeout only: batches can take minutes. `net.fetch` follows the system proxy;
+        // Node's fetch would bypass it and expose the user's IP.
         const response = await fetchBytesWithIdleTimeout(
           url,
           {
@@ -1330,8 +1326,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
             headers: { 'Content-Type': contentType },
             credentials: 'omit',
             redirect: 'error',
-            // A zero-length body is a GET-shaped call in Monero's binary API;
-            // some proxies reject an explicit empty buffer.
+            // A zero-length body is a GET-shaped call in Monero's binary API; some proxies reject an empty buffer.
             body: body.length > 0 ? Buffer.from(body) : undefined,
           },
           undefined,
@@ -1345,7 +1340,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         }
         return { ok: true, bytes: response.bytes };
       } catch (error) {
-        // Carry the cause so outage, bad address and TLS failure differ.
         return {
           ok: false,
           error: error instanceof Error ? error.message : String(error),

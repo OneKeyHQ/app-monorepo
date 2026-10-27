@@ -1,7 +1,6 @@
 // Single source of truth for the runtime's method names; checked against
 // `IXmrRuntimeApi` in `methods.test.ts`.
 export const XMR_RUNTIME_METHODS = [
-  // lifecycle
   'init',
   'dependencyVersions',
   'openWallet',
@@ -9,31 +8,26 @@ export const XMR_RUNTIME_METHODS = [
   'setNodeUrl',
   'chainTip',
 
-  // pure derivation -- no database, no node
   'deriveAccount',
   'deriveSubaddress',
   'validateAddress',
 
-  // identities
   'addAccount',
   'listAccounts',
   'removeAccount',
   'deleteWallet',
   'registerSubaddress',
 
-  // scanning
   'updateChainTip',
   'syncStep',
   'syncPeek',
   'rewindTo',
 
-  // reading
   'balance',
   'history',
   'transactionDetails',
   'diagDatabase',
 
-  // spending
   'importKeyImagesWithBip32Key',
   'prepareTransaction',
   'signTransactionWithBip32Key',

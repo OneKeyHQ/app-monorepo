@@ -58,7 +58,6 @@ jest.mock('./signTransparentTransaction', () => ({
 
 const issuedSeeds: Buffer[] = [];
 
-// The keyring wipes its decrypted seed copy once keys are derived.
 function expectIssuedSeedsWiped() {
   expect(issuedSeeds.length).toBeGreaterThan(0);
   for (const seed of issuedSeeds) {
@@ -66,8 +65,7 @@ function expectIssuedSeedsWiped() {
   }
 }
 
-// Every argument the SDK sees must be free of the BIP39 seed: no seed-named
-// key anywhere and no 64-byte seed value (hex or bytes).
+// No seed-named key and no 64-byte seed value may reach the SDK.
 function expectNoSeed(calls: unknown[][]) {
   const visit = (value: unknown) => {
     if (value instanceof Uint8Array) {

@@ -169,7 +169,6 @@ describe('expired transparent send reconciliation', () => {
     });
     globalThis.fetch = networkFetch as unknown as typeof fetch;
   });
-  // Expiry is decided from backend data only; the user's lightwalletd is never asked.
   function expectNoNodeQuery() {
     expect(networkFetch).not.toHaveBeenCalled();
     expect(fetchZcashChainTipDirect).not.toHaveBeenCalled();
@@ -292,7 +291,6 @@ describe('expired transparent send reconciliation', () => {
       expiryHeight: 1000,
     });
     expect((await inUse()).size).toBe(2);
-    // No tip is known here, as on an account with no later transactions.
     await journalDb.clearTransparentPendingSends({
       accountId,
       scope: 'pending',

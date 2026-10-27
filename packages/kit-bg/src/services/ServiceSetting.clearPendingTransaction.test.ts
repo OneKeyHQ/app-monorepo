@@ -42,7 +42,6 @@ describe('settings clear pending transactions', () => {
     };
   }
 
-  // The "pending queue too long" toast of any chain passes no account.
   it('never reaches privacy-chain locks without a selected account', async () => {
     const { service, clearSelectedAccountLocalWalletPendingSends } =
       createService();

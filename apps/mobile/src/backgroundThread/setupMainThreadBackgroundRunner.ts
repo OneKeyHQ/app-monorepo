@@ -141,8 +141,7 @@ function getAsyncStorageWriteArgSummary(
 }
 
 const OBSERVER_RETRY_MS = 50;
-// Only warn: in dev the background bundle compiles on demand and can take
-// minutes; declaring it dead would bring the app up with no networks.
+// Warn only: in dev the background bundle compiles on demand and can take minutes.
 const READY_OBSERVATION_WARN_MS = 10_000;
 const ASYNC_STORAGE_FORWARDER_RETRY_MS = 100;
 const ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS = 15_000;

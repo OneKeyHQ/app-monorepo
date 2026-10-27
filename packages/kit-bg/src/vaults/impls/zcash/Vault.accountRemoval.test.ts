@@ -12,10 +12,7 @@ import {
 import Vault from './Vault';
 import { createZcashSetupIncompleteError } from './vaultUtils';
 
-// The runtime primitive behind deleting an account or its local data: it
-// never waits on a transaction in flight (the funds are on chain and a later
-// enable scans them back), and never drops runtime data another live account
-// still scans under the same viewing key. Host records are the executor's.
+// Runtime primitive for deleting an account's local data: never waits on an in-flight tx, never drops data another live account scans under the same viewing key.
 describe('Zcash runtime deletion of an account', () => {
   const ufvk = 'uview-removal-test';
   const vkFp = 'f'.repeat(32);
@@ -47,7 +44,6 @@ describe('Zcash runtime deletion of an account', () => {
               metas.get(accountId),
             listZcashAccountMetas: async () =>
               [...metas].map(([accountId, meta]) => ({ accountId, meta })),
-            // A record that can't be read is listed, but has no meta view.
             listZcashMetaAccountIds: async () => [
               ...metas.keys(),
               ...(malformedHolder ? ['malformed'] : []),
@@ -143,7 +139,6 @@ describe('Zcash runtime deletion of an account', () => {
     expect(purgeWallet).not.toHaveBeenCalled();
   });
 
-  // Like XMR: an unreadable record may be an alias, so it counts as one.
   it('keeps the data while another record that holds scan data is unreadable', async () => {
     const { vault, purgeWallet } = createVault({ malformedHolder: true });
 

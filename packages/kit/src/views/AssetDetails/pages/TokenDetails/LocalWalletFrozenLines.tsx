@@ -12,7 +12,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IntlShape } from 'react-intl';
 
-// Existing labels where they say it; password and small change need sentences.
 const REASON_LABELS: Record<
   Exclude<ILocalWalletFrozenReason, 'needsPassword' | 'smallChange'>,
   ETranslations
@@ -21,7 +20,6 @@ const REASON_LABELS: Record<
   confirming: ETranslations.global_confirming,
 };
 
-// What the user can act on first.
 const REASON_ORDER: ILocalWalletFrozenReason[] = [
   'needsPassword',
   'pendingSend',
@@ -81,8 +79,7 @@ export function useLocalWalletPasswordVerify({
   return { isVerifying, verify };
 }
 
-// One line per reason a privacy-chain balance is not spendable yet. Funds that
-// only need the password get a Verify button that asks for it.
+// One line per reason a balance is not spendable yet; password-only funds get a Verify button.
 export function LocalWalletFrozenLines({
   networkId,
   accountId,

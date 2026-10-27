@@ -13,7 +13,6 @@ import type { IDecodedTxShieldedEndpoint } from '@onekeyhq/shared/types/tx';
 
 import type { IntlShape } from 'react-intl';
 
-// The parts of settings.localWallet history display reads.
 export type IPrivacyChainLocalWalletSettings = {
   pools?: IPrivacyChainDisplayPool[];
   historyOnlyPools?: { id: number; label: string }[];
@@ -100,7 +99,6 @@ export function resolvePrivacyChainEndpointDisplay({
   return { poolLabel, isOwn: true };
 }
 
-// The single counterparty a history list row names.
 export function resolvePrivacyChainTargetDisplay({
   intl,
   localWallet,
@@ -114,7 +112,6 @@ export function resolvePrivacyChainTargetDisplay({
   address: string;
   shielded?: IDecodedTxShieldedEndpoint;
   side: 'from' | 'to';
-  // Addresses the row says are ours (collectPrivacyChainOwnAddresses).
   ownAddresses: Set<string>;
 }): IPrivacyChainEndpointDisplay | undefined {
   const item = getPrivacyChainTargetItem({

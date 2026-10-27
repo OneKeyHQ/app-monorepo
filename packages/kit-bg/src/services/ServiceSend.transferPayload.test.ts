@@ -108,7 +108,6 @@ import ServiceSend from './ServiceSend';
 import type { IEncodedTxZcash } from '../vaults/impls/zcash/types';
 import type { ITransferPayload } from '../vaults/types';
 
-// Production asks the chain's local-wallet capability.
 const servicePrivacyChain = {
   reviewLocalWalletTransaction: async ({
     networkId,
@@ -342,7 +341,6 @@ describe('privacy send approval lifecycle', () => {
     },
   );
 
-  // Signed privacy txs embed viewing material; the logs keep only safe fields.
   it.each(['xmr--0', 'zec--0'])(
     '%s logs the signed tx without its hex payloads',
     async (networkId) => {
@@ -460,8 +458,6 @@ describe('privacy fee checks stay local', () => {
           feeAmount: '0.00001',
         }),
       ).resolves.toBe(true);
-      // A fee as large as the payment: Monero's fee floats, so it warns;
-      // Zcash's follows from the transaction's shape (ZIP-317), so it does not.
       const highFee = networkId === 'xmr--0' ? '1000000000000' : '100000000';
       await expect(
         service.preCheckIsFeeInfoOverflow({

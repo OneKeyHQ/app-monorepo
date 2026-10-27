@@ -102,8 +102,6 @@ describe('Privacy Mode enabled-account ceiling', () => {
     return { enableAccount, service };
   }
 
-  // An outdated WebView fails every enable the same way; the network is
-  // marked so the UI can say why instead of showing "syncing" forever.
   it('marks the network when its storage is unsupported on this device', async () => {
     const { privacyChainAtom } = jest.requireMock<{
       privacyChainAtom: { set: jest.Mock };
@@ -136,8 +134,6 @@ describe('Privacy Mode enabled-account ceiling', () => {
     ).toEqual([networkId]);
   });
 
-  // QA: a Worker that crashed at load timed out the handshake and the enable
-  // dialog showed nothing.
   it('rejects a dead runtime with a worded, toasting error', async () => {
     const { service } = createService({
       maxEnabledAccounts: 5,
@@ -214,8 +210,8 @@ describe('Privacy Mode enabled-account ceiling', () => {
   });
 
   it('still enables an alias of a key that is already scanning', async () => {
-    // Two app accounts, one viewing key: the scanner trial-decrypts once, so
-    // the alias costs nothing and must not be refused at the ceiling.
+    // Two app accounts, one viewing key: the alias costs nothing and must not be refused at the
+    // ceiling.
     const { enableAccount, service } = createService({
       maxEnabledAccounts: 5,
       accounts: [
@@ -399,8 +395,6 @@ describe('Privacy Mode slot usage reporting', () => {
     expect(occupants.find((o) => o.accountId === 'a')?.aliasCount).toBe(2);
   });
 
-  // A locked passphrase wallet still holds its slot: the page count must match
-  // what the service enforces.
   it('counts a slot it cannot show when no visible wallet owns it', async () => {
     const service = createService({
       maxEnabledAccounts: 5,

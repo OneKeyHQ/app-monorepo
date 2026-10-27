@@ -159,9 +159,7 @@ export function isProviderApiPrivateOriginDenied({
   );
 }
 
-// Dev builds only: the Mobile DevSession serves the web-embed from Metro on
-// the host loopback (iOS simulator, adb reverse) or the Android emulator's
-// alias for it, on whichever port the session allocated.
+// Dev only: the Metro host loopback or Android emulator alias, on any session port.
 const DEV_SESSION_WEB_EMBED_HOSTS = new Set([
   '127.0.0.1',
   'localhost',
@@ -190,7 +188,6 @@ export function isWebEmbedApiAllowedOrigin(origin?: string) {
   );
 }
 
-// The app's own web-embed page: the host's mark plus its fixed origin.
 export function isWebEmbedChannelRequest(payload?: IJsBridgeMessagePayload) {
   return (
     hasWebEmbedChannelMark(payload) &&

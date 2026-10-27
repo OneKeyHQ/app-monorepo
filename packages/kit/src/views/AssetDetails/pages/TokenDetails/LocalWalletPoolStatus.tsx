@@ -36,8 +36,7 @@ import {
 
 import type { ILocalWalletPool } from './useLocalWalletPool';
 
-// Background errors auto-toast through the standard proxy; a button only
-// needs to keep the rejection from going unhandled.
+// Background errors auto-toast; the button only keeps the rejection handled.
 function logLocalWalletActionError(action: string) {
   return (error: unknown) => {
     console.error(`[privacyChain] ${action} failed`, {
@@ -46,7 +45,6 @@ function logLocalWalletActionError(action: string) {
   };
 }
 
-// Opt-in and password verification; `settingsMode` also carries account controls.
 export function LocalWalletPoolStatus({
   networkId,
   accountId,
@@ -139,7 +137,6 @@ export function LocalWalletPoolStatus({
     });
   }, [intl, lw]);
 
-  // One gate for the whole private UI: see `isReady` in useLocalWalletPool.
   if (!lw.hasPooledBalance || !lw.isReady) {
     return null;
   }
@@ -246,7 +243,6 @@ export function LocalWalletPoolStatus({
   const needsPassword = lw.poolBalance?.frozen?.some(
     ({ reason }) => reason === 'needsPassword',
   );
-  // Repair controls only; the sync line and its settings shortcut live under the address (LocalWalletSyncRow).
   let syncActions: React.ReactNode = null;
   if (settingsMode && identityMismatch) {
     syncActions = deleteForMismatch;
@@ -321,7 +317,6 @@ export function LocalWalletPoolStatus({
   );
 }
 
-// Balance freshness and its explicit refresh action share one stable row.
 export function LocalWalletSyncRow({
   networkId,
   accountId,

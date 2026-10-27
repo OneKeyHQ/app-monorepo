@@ -25,8 +25,6 @@ function getLocalTransparentPayment({
   const local = localTx?.decodedTx;
   const encoded = local?.encodedTx as IEncodedTxZcash | undefined;
   const feeZat = String(encoded?.fee);
-  // The send path sets this existing marker after matching the signed result.
-  // Reuse its compact payment fields rather than retaining signed bytes here.
   if (
     localTx?.privacyChainHistorySide !== 'public' ||
     localTx.isLocalCreated !== true ||
@@ -48,8 +46,7 @@ function getLocalTransparentPayment({
   };
 }
 
-// Rows rebuilt from this device's signed payment; normalizing them again
-// would read our own output as change.
+// Rows rebuilt from this device's signed payment; normalizing again would read our own output as change.
 const locallyRestoredRows = new WeakSet<IOnChainHistoryTx>();
 
 export function restoreZcashLocalTransparentPayment({
@@ -80,8 +77,7 @@ export function restoreZcashLocalTransparentPayment({
     label: '',
     isNative: true,
   };
-  // The indexer sees only the transparent debit, which can include the fee.
-  // Keep the payment verified at signing; raw I/O remains the indexer's data.
+  // The indexer sees only the transparent debit, which can include the fee; keep the payment verified at signing.
   const restored: IOnChainHistoryTx = {
     ...tx,
     type: EOnChainHistoryTxType.Send,
@@ -172,8 +168,6 @@ export function mergeZcashLocalTransparentPayment({
   };
 }
 
-// Missing send details or owned outputs alone do not identify a shielded
-// counterparty.
 export function normalizeZcashBackendHistoryTx(
   tx: IOnChainHistoryTx,
 ): IOnChainHistoryTx {
@@ -199,7 +193,6 @@ export function normalizeZcashBackendHistoryTx(
         receive.isChange !== true &&
         isDestination(receive),
     );
-  // Only a shielded sender the indexer lists itself, with no public `from`.
   if (
     tx.type === EOnChainHistoryTxType.Receive &&
     sends.length > 0 &&
@@ -224,23 +217,19 @@ export function normalizeZcashBackendHistoryTx(
         (receive.isOwn === true && receive.isChange === true),
     )
   ) {
-    // An explicit private payment can disambiguate the sender's public change.
-    // Keep the supplied transfers and amounts; a sparse summary cannot do so.
     return {
       ...tx,
       to: '',
       shieldedCounterparty: 'to',
     };
   }
-  // Mixed payments can name public recipients too. Remove only a destination
-  // explicitly identified as change, before the own-address gate hides it.
+  // Remove only a destination explicitly identified as change, before the own-address gate hides it.
   if (tx.type === EOnChainHistoryTxType.Send && destinationIsOnlyChange) {
     return { ...tx, to: '' };
   }
   return tx;
 }
 
-// Carries the indexer row's shielded side onto the built history action.
 export function markZcashBackendShieldedCounterparty({
   onChainHistoryTx,
   historyTx,
@@ -300,9 +289,7 @@ export async function fetchCompleteZcashBackendHistory({
         .filter((tx): tx is IAccountHistoryTx => !!tx)
         .map((tx) => ({
           ...tx,
-          // This source is queried by the account's transparent receiver.
-          // Until the local scan sees the same txid and supplies exact pool
-          // involvement, it must not leak into every shielded pool tab.
+          // Queried by the account's transparent receiver; must not leak into shielded pool tabs until the local scan supplies pool involvement.
           privacyChainHistoryPoolIds: [0],
           privacyChainHistorySide: 'public' as const,
         })),

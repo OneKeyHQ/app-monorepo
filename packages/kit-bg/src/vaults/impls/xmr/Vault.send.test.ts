@@ -21,7 +21,6 @@ import type { IEncodedTxXmr } from './types';
 
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
 const VIEWING_KEY = 'aa:bb';
-// The runtime names the identity by the stored key's fingerprint.
 const VK_FP = getViewingKeyFingerprint({
   networkId: 'xmr--0',
   viewingKey: VIEWING_KEY,
@@ -77,8 +76,6 @@ function createVault(options?: {
       return JSON.stringify({
         signableHex: 'aabb',
         feeAtomic: '30000000',
-        // Max-send is solved inside the runtime, so it comes back different
-        // from what was asked for.
         amountAtomic: maxSend ? '970000000' : requested,
         changeAtomic: maxSend ? '0' : '5000000',
         inputCount: 2,
@@ -117,7 +114,6 @@ function createVault(options?: {
   });
 
   jest.spyOn(vault, 'getXmrRuntimeApi').mockResolvedValue(runtime);
-  // Caught up with the node, unless a test says otherwise.
   jest.spyOn(vault, 'getLocalWalletCapability').mockReturnValue({
     syncPolicy: { sendMaxBlocksLeft: 100 },
     getSyncProgress: async () => ({
@@ -210,7 +206,6 @@ describe('xmr send: building', () => {
     ).rejects.toThrow(/Batch transfer/);
   });
 
-  // Piconero amounts exceed Number.MAX_SAFE_INTEGER.
   it('carries the amount as an integer string of piconero', async () => {
     const { vault } = createVault();
     const encodedTx = await vault.buildEncodedTx({
@@ -286,7 +281,6 @@ describe('xmr send waits for the wallet to catch up', () => {
     ).rejects.toMatchObject({ code: 'XMR_NOT_SYNCED' });
   });
 
-  // Backfill counts as much as the tip lag.
   it('counts unfinished backfill together with the tip lag', async () => {
     const { vault } = createVault();
     withProgress(vault, { backfill: 60, tipLag: 40 });
@@ -320,7 +314,6 @@ describe('xmr send: the fee comes from the built transaction', () => {
     expect(encodedTx.signableHex).toBe('aabb');
     expect(encodedTx.inputCount).toBe(2);
     expect(encodedTx.chainTip).toBe(3_767_827);
-    // The review is verified once, by the runtime, right before signing.
     expect(runtime.verifyTransaction).not.toHaveBeenCalled();
   });
 
@@ -367,7 +360,6 @@ describe('xmr send: the fee comes from the built transaction', () => {
 });
 
 describe('xmr send: max', () => {
-  // For max send the real amount is `spendable - fee`, known only after build.
   it('takes the resolved amount back from the runtime', async () => {
     const { vault, runtime } = createVault();
     const unsignedTx = await vault.buildUnsignedTx({
@@ -502,7 +494,6 @@ describe('xmr send: broadcast', () => {
     expect(broadcast).not.toHaveBeenCalled();
   });
 
-  // Inputs are not reserved, so going back and rebuilding simply prepares again.
   it('rebuilds from scratch when the review is opened again', async () => {
     const { vault, runtime } = createVault();
     const first = (
@@ -638,7 +629,6 @@ describe('xmr send: broadcast', () => {
     ).rejects.toThrow(/unexpected transaction id/);
   });
 
-  // The broadcast already happened; a failed bookkeeping write must not report failure.
   it('still reports success when recording the recipient fails', async () => {
     const { vault } = createVault({
       recordXmrSent: () => Promise.reject(new Error('disk full')),
@@ -659,7 +649,6 @@ describe('xmr send: broadcast', () => {
     ).resolves.toMatchObject({ txid: 'deadbeef' });
   });
 
-  // Nothing on chain links a Monero tx to its recipient.
   it('records who was paid, so the history row is not "sent to Monero"', async () => {
     const { vault } = createVault();
     await vault.broadcastTransaction({

@@ -277,8 +277,7 @@ describe('privacy chain journal: clear pending sends', () => {
     ).resolves.toEqual(new Set(['b1:0', 'b2:1']));
   });
 
-  // The user's explicit clear works like BTC's: nothing local stays locked,
-  // even with no known tip (an account with no later transactions has none).
+  // An explicit clear leaves nothing locked, even with no known tip.
   it.each([151, undefined])(
     'releases every send and lock on an explicit clear (tip below=%s)',
     async (expiredBeforeHeight) => {
@@ -432,7 +431,6 @@ describe('privacy chain journal: record validation', () => {
       entity.listTransparentOutpointsInUse({ accountId: 'account' }),
     ).resolves.toEqual(new Set(['good:0']));
 
-    // Writes to the same account keep the quarantined records as they were.
     await entity.settleTransparentPendingTx({
       accountId: 'account',
       txid: 'good',

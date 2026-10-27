@@ -16,7 +16,6 @@ export function usePrivacyChainBoost({
   networkId: string;
   accountId: string;
   trigger: IPrivacyChainBoostTrigger;
-  // Whether the user is on this surface; the service decides if a boost is needed.
   enabled: boolean;
 }) {
   const isRouteFocused = useRouteIsFocused();

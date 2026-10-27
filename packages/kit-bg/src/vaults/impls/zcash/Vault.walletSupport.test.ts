@@ -10,9 +10,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ZcashPrivacyMode } from './privacyMode';
 import Vault from './Vault';
 
-// Imported and watch-only accounts send and watch transparent funds but have
-// no viewing key: the private tab must say "not supported", and the receive
-// page must still get the transparent address without a privacy error.
+// Imported and watch-only accounts have no viewing key: the private tab says 'not supported', receive still gets the transparent address.
 describe('zcash privacy support by wallet type', () => {
   afterEach(() => {
     jest.restoreAllMocks();

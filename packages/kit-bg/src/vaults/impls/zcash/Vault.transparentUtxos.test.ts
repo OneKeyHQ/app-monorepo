@@ -153,7 +153,6 @@ it('keeps previously received change at the internal address spendable', async (
   ]);
 });
 
-// A pending or signing send still spends it until it settles or expires.
 it('skips an outpoint another send is spending', async () => {
   const { vault } = createVault({ inUse: [`${txid.toUpperCase()}:0`] });
   const result = await vault['zcashFetchFreshTransparentUtxos']();
@@ -281,7 +280,6 @@ it('does not select a zero-value output', async () => {
 });
 
 describe('confirmations required for change on the receive address', () => {
-  // Change returns to 0/0, the same address deposits arrive at.
   const recent = { ...utxo, confirmations: 3 };
   const historyRow = ({
     isLocalCreated,

@@ -348,8 +348,6 @@ describe('Home native history financial display parity', () => {
 });
 
 describe('Home history shielded endpoints', () => {
-  // Rows reach Home after the background gate checked them against what
-  // Receive displays (`localWalletAddresses`).
   const gatedRow = ({
     localWalletAddresses,
     ...params
@@ -572,7 +570,6 @@ describe('Home history shielded endpoints', () => {
         currency: '$',
         intl,
       });
-    // The list row reads the same flag.
     expect(
       getTxActionTransferInfo({
         action: tx.decodedTx.actions[0],

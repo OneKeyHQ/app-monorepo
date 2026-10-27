@@ -31,15 +31,13 @@ import type {
 export type IZcashDerivedViewingMeta = {
   ufvk: string;
   unifiedAddress: string;
-  // Only the hardware keyring sets this: the app-derived counterpart of a
-  // device-displayed address. See IZcashAccountMeta.derivedUnifiedAddress.
+  // Hardware keyring only: the app-derived counterpart of a device-displayed address.
   derivedUnifiedAddress?: string;
   transparentAddress: string;
   seedFingerprintHex: string;
 };
 
-// The UFVK the meta names, from the viewing key store. A missing key, or one
-// that no longer matches, is an unfinished setup: Repair derives it again.
+// The UFVK the meta names; missing or mismatched means unfinished setup, which Repair derives again.
 export async function getZcashAccountUfvk({
   backgroundApi,
   networkId,
@@ -81,10 +79,7 @@ export async function hasZcashAccountViewingKey({
   return key?.vkFp === vkFp;
 }
 
-// The UFVK goes to the viewing key store before the meta naming it, so a meta
-// on disk always has its key unless the store lost it. A key that differs
-// from the one already named stops setup: the identity never switches, and
-// background repair stops deriving it again on every balance poll.
+// The UFVK is stored before the meta naming it; a different key stops setup so the identity never switches.
 async function saveZcashViewingKey({
   backgroundApi,
   networkId,
@@ -123,8 +118,6 @@ async function saveZcashViewingKey({
   }
 }
 
-// Shared by the software and hardware keyrings, which differ only in where the
-// viewing material comes from (seed vs device).
 export async function resolveAndSaveZcashAccountMeta({
   backgroundApi,
   networkId,
@@ -195,7 +188,6 @@ export async function resolveAndSaveZcashAccountMeta({
     expectedVkFp: existing?.vkFp,
   });
   if (existing?.birthdayHeight) {
-    // Only the key was missing; the meta already names it.
     return;
   }
 

@@ -55,7 +55,6 @@ function row(
   } as unknown as IAccountHistoryTx;
 }
 
-// Real vault settings, so the pools and their sources are the shipped ones.
 function createService() {
   const fetchHistoryTxDetails = jest.fn(
     async (_params: IFetchHistoryTxDetailsParams) => null,

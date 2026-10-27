@@ -8,7 +8,6 @@ import { backgroundPrivacyChainRelayTargets } from './privacyChainRelayTargets';
 export function installFetchStreamListener(
   targets: IPrivacyChainRelayTargetSource = backgroundPrivacyChainRelayTargets,
 ) {
-  // Only privacy-chain node calls use this relay.
   const fetchStreamRequest = createPrivacyChainFetchStreamRelay(targets);
   chrome.runtime.onMessage.addListener(
     (

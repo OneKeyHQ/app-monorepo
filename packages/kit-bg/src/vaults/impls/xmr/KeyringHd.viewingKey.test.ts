@@ -20,9 +20,8 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-// The view key reveals every incoming payment; it must not sit on the account
-// record, which cloud backup, Prime transfer and account listings carry, and
-// a derived account the user never enables must not leave it on disk either.
+// The view key reveals every incoming payment; keep it off the account record
+// (backup, Prime transfer, listings) and off disk for never-enabled accounts.
 it('drops the view key from the account record and stores nothing', async () => {
   const saveKey = jest.fn(async () => undefined);
   const keyring = Object.assign(

@@ -32,9 +32,7 @@ export function getZcashAccountLifecycleMutex({
   );
 }
 
-// Bounds the map: an idle mutex is made again on next use. Never one held or
-// awaited, or a later caller would get a second mutex for the same identity;
-// every caller locks right after the lookup, with no await in between.
+// Bounds the map; never a held or awaited mutex, and callers lock right after lookup with no await between.
 export function forgetIdleZcashLifecycleMutexes(): void {
   for (const [key, mutex] of lifecycleMutexByVkFp) {
     if (!mutex.isLocked()) {

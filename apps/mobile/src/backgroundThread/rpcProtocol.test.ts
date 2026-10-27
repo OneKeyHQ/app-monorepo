@@ -165,8 +165,6 @@ describe('background thread RPC protocol', () => {
     ).toEqual({ $$broadcastTxContext: context });
   });
 
-  // bg tells "the privacy runtime is down" from an ordinary sync failure by
-  // this marker; it is a short enum string.
   it('keeps the privacy runtime failure marker from background error data', () => {
     expect(
       buildSafeBackgroundThreadErrorData({

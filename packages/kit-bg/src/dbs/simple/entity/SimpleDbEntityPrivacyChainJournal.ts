@@ -25,10 +25,8 @@ export type IZcashTransparentPendingTx = {
   broadcastAuthorized?: boolean;
 };
 
-// Records are stored untyped and validated one at a time on read: a malformed
-// record is skipped (quarantined) and kept as is, never deleted.
+// Validated on read; a malformed record is quarantined and kept, never deleted.
 export interface IPrivacyChainJournalDB {
-  // accountId -> { reservations: txid:vout -> ..., pendingTxs: txid -> ... }
   zcashTransparent?: Record<string, unknown>;
 }
 
@@ -56,8 +54,7 @@ const pendingTxSchema = z.object({
 
 type IRecordMap = Record<string, unknown>;
 
-// Valid records are rebuilt from known fields only; quarantined ones are
-// written back untouched. Keys never overlap.
+// Quarantined records are written back untouched.
 type IParsedRecords<T> = {
   valid: Record<string, T>;
   quarantined: IRecordMap;
@@ -165,7 +162,6 @@ export class SimpleDbEntityPrivacyChainJournal extends SimpleDbEntityBase<IPriva
 
   protected override readonly rejectInvalidStoredData = true;
 
-  // Only the container shape is checked here; records are checked on read.
   protected override validateStoredData(data: unknown): void {
     if (
       !isRecordMap(data) ||
@@ -222,7 +218,6 @@ export class SimpleDbEntityPrivacyChainJournal extends SimpleDbEntityBase<IPriva
     return Object.keys(raw?.zcashTransparent ?? {});
   }
 
-  // Removed app accounts.
   async removeAccounts({ accountIds }: { accountIds: string[] }) {
     if (accountIds.length === 0) {
       return;
@@ -389,8 +384,7 @@ export class SimpleDbEntityPrivacyChainJournal extends SimpleDbEntityBase<IPriva
     return Object.values(bucket?.pendingTxs.valid ?? {});
   }
 
-  // Outpoints a signed or signing transaction still spends; a new selection
-  // must skip them until that transaction settles or expires.
+  // Outpoints a signed or signing transaction still spends; new selections skip them.
   async listTransparentOutpointsInUse({
     accountId,
     currentHeight,
@@ -473,11 +467,8 @@ export class SimpleDbEntityPrivacyChainJournal extends SimpleDbEntityBase<IPriva
     });
   }
 
-  // One account's sends.
-  // - 'pending' ("Clear pending transactions"): everything goes, as BTC keeps
-  //   no local input locks.
-  // - 'expired' (deleting local data): only txs and locks whose expiryHeight
-  //   is below `expiredBeforeHeight` go; without it, none.
+  // One account's sends. 'pending' clears everything; 'expired' clears only txs and locks
+  // below `expiredBeforeHeight` (none without it).
   async clearTransparentPendingSends({
     accountId,
     expiredBeforeHeight,

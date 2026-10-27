@@ -42,7 +42,6 @@ it('shows our side as this account and a recorded recipient exactly', () => {
       transfer: tx,
       isSent,
     });
-  // As built by buildXmrLocalHistoryTx: our side names no address.
   expect(
     flow(
       {

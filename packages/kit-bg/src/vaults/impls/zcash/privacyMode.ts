@@ -35,9 +35,7 @@ function requireLocalWalletCapability(
   return capability;
 }
 
-// Zcash's per-account Privacy Mode lifecycle behind the local-wallet
-// capability: enable, disable and the viewing metadata they settle. The
-// operation journal lives in simpleDb.privacyChainState.
+// Per-account Privacy Mode lifecycle: enable, disable and the viewing metadata they settle.
 export class ZcashPrivacyMode {
   private readonly backgroundApi: IBackgroundApi;
 
@@ -155,8 +153,7 @@ export class ZcashPrivacyMode {
         'zcash: select a privacy recovery month before enabling',
       );
     }
-    // Checked before anything is registered: direct callers (debug gallery,
-    // repair panel) bypass the generic pre-check.
+    // Checked before anything is registered: direct callers bypass the generic pre-check.
     await this.backgroundApi.servicePrivacyChain.assertEnabledAccountLimit({
       networkId,
       accountId,
@@ -302,8 +299,6 @@ export class ZcashPrivacyMode {
         );
       };
       if (needsBirthdayUpdate) {
-        // Persist the reconciliation request; the scheduler applies it at a
-        // safe boundary before registering or scanning this identity.
         await vault.rescanLocalWallet({
           accountId,
           from: checkIsDefined(birthday),
@@ -411,8 +406,6 @@ export class ZcashPrivacyMode {
     });
   }
 
-  // The viewing key never reaches the UI; the vault capability uses this for
-  // addresses and birthday fields.
   async getLocalWalletAccountMeta({
     networkId,
     accountId,
@@ -421,9 +414,7 @@ export class ZcashPrivacyMode {
     accountId: string;
   }): Promise<IZcashAccountMeta | undefined> {
     await this.assertZcashAccountContext({ networkId, accountId });
-    // A read never takes the operation mutex: holding it would make an enable
-    // or disable look in flight. Mid-operation there is no settled meta, and
-    // the persisted state already says so.
+    // A read never takes the operation mutex, or an enable/disable would look in flight.
     if (getZcashPrivacyModeOperationMutex(accountId).isLocked()) {
       return undefined;
     }

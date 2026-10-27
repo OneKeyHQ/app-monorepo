@@ -75,11 +75,9 @@ describe('getPrivacyChainFailureBackoffMs', () => {
   });
 });
 
-// Sorting and rotating must agree on the order, or a group gets skipped.
 describe('backfill rotation order', () => {
   it('visits every backfill group in turn regardless of key case', () => {
-    // Locale order puts 'a' before 'B'; code-unit order the reverse. Mixed,
-    // the rotation would never reach 'B'.
+    // Locale order puts 'a' before 'B', code-unit order the reverse; mixing them skips 'B'.
     const candidates = ['B:1', 'a:1', 'c:1'].map((runtimeStateKey) => ({
       runtimeStateKey,
       reason: 'backfill' as const,

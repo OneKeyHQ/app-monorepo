@@ -8,10 +8,7 @@ import { validateBtcAddress } from '../../btc/sdkBtc';
 
 import type { IBtcForkNetwork } from '../../btc/types';
 
-// Zcash mainnet transparent address version prefixes (2 bytes each), unlike
-// Bitcoin's single-byte version. This 2-byte prefix is the one part of Zcash
-// transparent addresses the shared BTC pipeline cannot represent, so we bridge
-// here at the encode/decode boundary (mirrors BCH's legacy<->cashaddr override).
+// Two-byte t-address version prefixes; the shared BTC pipeline only handles one byte, so encode/decode bridge here.
 const ZCASH_T1_PUBKEYHASH = Buffer.from([0x1c, 0xb8]); // t1... (P2PKH)
 const ZCASH_T3_SCRIPTHASH = Buffer.from([0x1c, 0xbd]); // t3... (P2SH)
 

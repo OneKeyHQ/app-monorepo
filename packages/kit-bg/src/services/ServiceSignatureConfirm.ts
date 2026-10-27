@@ -358,8 +358,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     const requiresPrivacyReview = await isLocalWalletNetwork({
       networkId,
     });
-    // The verified local proposal defines payment details and may contain
-    // private viewing material. It must never reach the server parser.
+    // The local proposal may contain private viewing material; it must never reach the server parser.
     let disableParseTxThroughApi = requiresPrivacyReview;
 
     const swapInfo = unsignedTx.swapInfo;

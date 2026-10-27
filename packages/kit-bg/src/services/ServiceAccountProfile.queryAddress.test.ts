@@ -76,7 +76,6 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   },
 }));
 
-// Stands in for settings.localWallet: Zcash is the privacy chain here.
 jest.mock('../vaults/localWallet/isLocalWalletNetwork', () => ({
   isLocalWalletNetwork: async ({ networkId }: { networkId: string }) =>
     networkId === 'zec--0',

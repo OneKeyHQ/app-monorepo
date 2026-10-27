@@ -9,9 +9,7 @@ import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/Simp
 
 import Vault from './Vault';
 
-// A "do not save" hidden wallet is absent from getWallets() once its session
-// ends, while its viewing key stays in SimpleDB. Hidden identities must not
-// trial-decrypt blocks, but retain both recovery state and admission slots.
+// A hidden wallet absent from getWallets() keeps its viewing key: it must not trial-decrypt blocks but keeps recovery state and admission slots.
 function createVault({
   visibleWalletIds,
   tempWalletIds = [],
@@ -75,8 +73,6 @@ describe('Zcash scanning follows hidden-wallet visibility', () => {
     expect(accounts.every(({ syncEnabled }) => syncEnabled)).toBe(true);
   });
 
-  // Unlocked but not kept: privacy is unavailable for it, so it does not scan
-  // either, and resumes like a re-unlocked wallet once it is kept.
   it('does not scan an unlocked wallet the user chose not to keep', async () => {
     const vault = createVault({
       visibleWalletIds: ['hd-saved', 'hd-hidden'],
@@ -102,9 +98,7 @@ describe('Zcash scanning follows hidden-wallet visibility', () => {
 
     const { accounts } = await vault.listLocalWalletAccounts();
 
-    // Deliberately not filtered out: dropping the row would read as "account
-    // gone" to the GC pass, which purges cache the user expects to find on
-    // the next unlock.
+    // Not filtered out: dropping the row would read as 'account gone' to the GC pass.
     expect(accounts).toHaveLength(2);
     expect(accounts.every(({ slotEnabled }) => slotEnabled)).toBe(true);
   });
@@ -142,7 +136,6 @@ it.each([true, false])(
       await entity.completeZcashPrivacyModeEnable({ accountId: id });
     }
     if (!hasProgress) {
-      // The state names only a month; the resolved height is the meta's.
       await entity.setRawData((data) => {
         const record = data?.accounts?.a as {
           scan: Record<string, unknown>;
@@ -232,7 +225,6 @@ it.each([true, false])(
     await makeVault().syncLocalWalletGroup({ accountIds: ['b'] });
     expect(scannedKeys).toEqual([['b']]);
     hidden = false;
-    // A new Vault instance has no in-memory visibility history.
     await makeVault().syncLocalWalletGroup({ accountIds: ['a', 'b'] });
     expect(scannedKeys[1]).toEqual(['a', 'b']);
     expect(foundNote).toBe(true);

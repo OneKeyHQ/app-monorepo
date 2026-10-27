@@ -21,8 +21,6 @@ import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/Simp
 import Vault from './Vault';
 import { createZcashSetupIncompleteError } from './vaultUtils';
 
-// Like a failed backend fetch on other chains: a failed runtime read throws,
-// so the page keeps the rows it has instead of showing none.
 describe('Zcash private history when the runtime read fails', () => {
   function createVault(
     getHistory: jest.Mock,
@@ -102,7 +100,6 @@ describe('Zcash private history when the runtime read fails', () => {
     );
   });
 
-  // The tip only dates confirmations; it is not worth losing the history.
   it('still returns history when the tip read fails', async () => {
     const getHistory = jest.fn().mockResolvedValue([{ txid: 'tx-private' }]);
     const vault = createVault(
@@ -240,8 +237,6 @@ describe('Zcash private balance when the runtime read fails', () => {
     }
   });
 
-  // Kept on disk, so a restart whose first read fails still has it, shown as
-  // not current.
   it('answers with the last balance read, even after a restart', async () => {
     const balance = { shielded: '5', isComplete: true };
     const privacyChainCache = memoryCache();

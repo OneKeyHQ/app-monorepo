@@ -493,8 +493,6 @@ describe('Privacy chain viewing key lifecycle', () => {
     });
   }
 
-  // Q3: both chains delete the key with local data, as the UI copy says.
-  // Zcash derives it again in its own enable (see accountMeta.test.ts).
   it.each([
     ['xmr--0', 'spend:view'],
     ['zec--0', 'uview1synthetic'],
@@ -537,7 +535,6 @@ describe('Privacy chain viewing key lifecycle', () => {
           accountId: hdAccountId,
         }),
       ).resolves.toBeUndefined();
-      // The shared caches hold the composed balance, private part included.
       const owner = {
         networkId: chainNetworkId,
         accountAddress: '4synthetic',

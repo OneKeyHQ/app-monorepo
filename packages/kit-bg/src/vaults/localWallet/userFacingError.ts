@@ -81,7 +81,6 @@ export function toLocalWalletUserFacingError(error: unknown): unknown {
   return error;
 }
 
-// Method decorator for user-initiated background methods.
 export function toastLocalWalletError() {
   return (
     _target: object,

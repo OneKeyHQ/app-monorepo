@@ -131,7 +131,7 @@ describe('Zcash account keys: TS derivation vs installed keys WASM', () => {
     }
   });
 
-  // Change reuses the receive address (0/0); coins already on the old 1/0 change address stay spendable.
+  // Legacy 1/0 change outputs stay spendable.
   it('returns change to the receive address and still spends legacy 1/0 change', async () => {
     const secrets = deriveZcashAccountSecrets({ seed, accountIndex: 0 });
     try {

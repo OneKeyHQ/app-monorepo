@@ -46,7 +46,6 @@ it('reports HTTP failure and releases an unread error body', async () => {
   const relay = createFetchStreamHandler(
     async () => new Response(new ReadableStream({ cancel }), { status: 503 }),
   );
-  // HTTP status is known before consuming an endless error-page body.
   const request = createPrivacyChainBufferedRequest(relay);
   await expect(
     request('https://node.example/rpc', 'application/json', new Uint8Array()),

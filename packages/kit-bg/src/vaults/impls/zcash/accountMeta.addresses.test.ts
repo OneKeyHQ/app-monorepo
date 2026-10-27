@@ -90,7 +90,6 @@ describe('Zcash address policy cache', () => {
     expect(deriveAddresses).toHaveBeenCalledWith(meta);
     await refresh();
     expect(deriveAddresses).toHaveBeenCalledTimes(1);
-    // Other state survives; only known fields are written back.
     await expect(store.getAllowCellularSync()).resolves.toBe(true);
     expect(await store.getRawData()).not.toHaveProperty('futureField');
   });

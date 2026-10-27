@@ -15,20 +15,15 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 
-/**
- * Derivation is a compatibility contract with OneKey V4 (`spend = sc_reduce32(bip32_key)`,
- * `view = keccak256(spend)`, in `keys::derive_from_bip32_key`); changing it strands V4 users importing the same mnemonic.
- */
+/** Derivation must match OneKey V4 (`spend = sc_reduce32(bip32_key)`, `view = keccak256(spend)`); changing it strands V4 users importing the same mnemonic. */
 export class KeyringHd extends KeyringHdBase {
   override coreApi = coreChainApi.xmr.hd;
 
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
-    // coreApi derives the primary address plus `spendPub:viewPriv`; the view
-    // key is dropped here and stored only when the user enables scanning
-    // (ServicePrivacyChain.enableLocalWalletAccount), so a derived account
-    // that is never enabled leaves nothing behind.
+    // The view key is dropped here and stored only when scanning is enabled,
+    // so a never-enabled account leaves nothing behind.
     const accounts = await this.basePrepareAccountsHd(params);
     for (const account of accounts) {
       const { spendPublicKeyHex } = parseXmrViewingKeyPair(account.pub ?? '');
@@ -46,7 +41,6 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    // The runtime re-verifies the review against `signableHex` before signing.
     const encodedTx = parseXmrTransaction(params.unsignedTx.encodedTx);
     return this.baseSignTransaction({
       ...params,
@@ -54,7 +48,6 @@ export class KeyringHd extends KeyringHdBase {
     });
   }
 
-  /** See CoreChainSoftware.getKeyImageBip32PrivateKeyHex. */
   async xmrGetKeyImageBip32PrivateKeyHex({
     password,
   }: {
@@ -73,7 +66,6 @@ export class KeyringHd extends KeyringHdBase {
     });
   }
 
-  /** See CoreChainSoftware.getViewingKeyPair. */
   async xmrDeriveViewingKey({
     password,
   }: {

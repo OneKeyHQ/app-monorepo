@@ -91,7 +91,6 @@ describe('Local wallet receive addresses', () => {
   });
 });
 
-// What the send page reads to say "N blocks left" before the user tries.
 describe('Local wallet send readiness', () => {
   const networkId = 'xmr--0';
   const accountId = 'account';
@@ -171,7 +170,6 @@ describe('Local wallet send readiness', () => {
     ).resolves.toBeUndefined();
   });
 
-  // A paused scan reports no progress and cannot vouch for the balance.
   it('blocks sending while the account is paused', async () => {
     await expect(
       createService(undefined, undefined, {

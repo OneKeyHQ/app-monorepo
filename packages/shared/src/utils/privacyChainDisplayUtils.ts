@@ -198,7 +198,6 @@ function matches(pattern: string | undefined, address: string): boolean {
   return !!pattern && new RegExp(pattern).test(address);
 }
 
-// What one endpoint of a history row shows (the list rows' target).
 export function getPrivacyChainTargetItem({
   pools,
   publicAddressPattern,
@@ -263,7 +262,6 @@ function getPrivacyChainEndpointItem({
   return params.shielded || isRecordedRecipient ? item : undefined;
 }
 
-// One shielded entry of a detail's wallet I/O.
 export function getPrivacyChainEntryItem({
   pools,
   entry,

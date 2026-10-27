@@ -298,7 +298,6 @@ describe('Privacy network settings for a temp wallet', () => {
         .textContent,
     ).toBe(ETranslations.privacy_temp_wallet_unavailable__desc);
     expect(screen.getByText(/global\.not_available/)).toBeTruthy();
-    // Stored data can still be deleted.
     expect(
       screen.getByTestId('privacy-network-delete-hw-1-passphrase--0'),
     ).toBeTruthy();

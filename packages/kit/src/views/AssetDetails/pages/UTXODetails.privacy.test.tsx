@@ -24,7 +24,6 @@ const RECIPIENT = `u1${'z'.repeat(90)}`;
 
 let mockNetworkId = 'zec--0';
 let mockDetails: Partial<IOnChainHistoryTx> = {};
-// What Receive displays; the background gate checks the detail against it.
 let mockAddresses: { publicAddress?: string; privateAddress?: string } = {};
 
 function mockGatedDetails() {
@@ -183,8 +182,6 @@ it('names own notes by pool unless the note names the displayed address', async 
   expect(text).not.toContain(DIVERSIFIED);
   expect(text).toContain(RECIPIENT);
   expect(text).toContain('Sapling pool');
-  // The spent note names no address, so it keeps its pool name; only the
-  // output naming the displayed UA shows it.
   expect(result.getAllByText(OWN_UA)).toHaveLength(1);
   expect(result.getAllByText('Ironwood pool')).toHaveLength(2);
 });
@@ -244,7 +241,6 @@ it('names our transparent change output by pool', async () => {
   expect(result.getByText(OWN_T)).toBeTruthy();
 });
 
-// A shielded change note names no address; its pool stands in for it.
 it('marks shielded change under its pool name', async () => {
   mockDetails = {
     inputOutputSource: 'account',
@@ -257,7 +253,6 @@ it('marks shielded change under its pool name', async () => {
   const result = await renderPage();
   const badges = result.getAllByText('wallet.change_address');
   expect(badges).toHaveLength(1);
-  // Badge text -> badge -> the change row, which names the pool.
   const changeRow = badges[0].parentElement?.parentElement;
   expect(changeRow?.textContent).toContain('Ironwood pool');
   expect(changeRow?.textContent).not.toContain(RECIPIENT);

@@ -1,5 +1,3 @@
-/** Monero chain constants shared across core, kit-bg, and kit. */
-
 /** Monero targets one block every two minutes. */
 export const XMR_TARGET_BLOCK_SECONDS = 120;
 
@@ -53,10 +51,8 @@ export const XMR_DEFAULT_FEE_PRIORITY = 'normal';
 export const XMR_HISTORY_PAGE_SIZE = 500;
 
 /**
- * How a Monero scheduler turn is composed (see localWallet/syncTurn.ts): the
- * runtime sizes each `get_blocks.bin` step itself, between 10 and 1000
- * blocks. The turn budget caps new steps so Monero does not starve Zcash;
- * the watchdog only catches a turn that is actually stuck.
+ * The runtime sizes each `get_blocks.bin` step (10-1000 blocks). The turn budget caps new steps so
+ * Monero does not starve Zcash; the watchdog only catches a stuck turn.
  */
 export const XMR_SYNC_STEP_BLOCKS = 1000;
 export const XMR_SYNC_EXPECTED_STEP_MS = 10_000;

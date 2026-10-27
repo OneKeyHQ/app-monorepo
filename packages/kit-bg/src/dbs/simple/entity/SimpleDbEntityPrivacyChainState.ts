@@ -8,14 +8,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-// Scan state of every privacy chain account, the wallet facts it needs, and
-// the device-wide settings. Read on every scan turn, so it stays small: keys,
-// journals and caches live in their own entities. Evolve the record schema
-// additively (new optional fields only): an older bundle after a hot-update
-// rollback reads a record it can't parse as off.
-
-// ---------------------------------------------------------------------------
-// Chain views. Callers keep these shapes; the record below is what is stored.
+// Scan state of every privacy chain account, wallet facts and device settings. Evolve the schema
+// additively: an older bundle after a rollback reads an unparseable record as off.
 
 export type IZcashBirthdaySource =
   | 'fresh-wallet'
@@ -60,9 +54,7 @@ export type IZcashPrivacyModeStateView = Partial<IZcashPrivacyModeState> & {
   intent: IZcashPrivacyModeIntent;
 };
 
-// Viewing-level Zcash account metadata (exposure equivalent to an xpub). The
-// UFVK itself lives in the viewing key store; the spending key is re-derived
-// from the mnemonic at sign time.
+// Viewing-level account metadata (xpub-equivalent exposure); the UFVK lives in the viewing key store.
 export interface IZcashAccountMeta {
   // Fingerprint of the account's UFVK: the key read back must match it.
   vkFp: string;
@@ -71,53 +63,33 @@ export interface IZcashAccountMeta {
   // device-displayed address (the device UA also carries P2PKH).
   derivedUnifiedAddress?: string;
   transparentAddress: string;
-  // App-owned address derivation policy version, independent of pool upgrades.
   addressSchemeVersion?: number;
-  // One per wallet; see IPrivacyChainWalletRecord.
   seedFingerprintHex: string;
-  // Names the runtime account even after the app account row is gone.
   hdIndex: number;
-  // Fixed when privacy mode is enabled so re-scans stay stable.
   birthdayHeight?: number;
   birthdaySource?: IZcashBirthdaySource;
-  // Diagnostic input only, not a second scan cursor -- birthdayHeight is the
-  // sole scanner authority.
+  // Diagnostic only; birthdayHeight is the sole scanner authority.
   birthdayTimestamp?: number;
   createdAt: number;
 }
 
 export type IXmrAccountScanState = {
-  // Internal runtime admission fence; not a UI operation/state.
   deletionPending?: boolean;
-  /** Identifies the persisted request, including a same-value re-enable. */
   epoch?: string;
-  /** Runtime preparation completed for this persisted request. */
   appliedEpoch?: string;
-  /** An explicit rescan also invalidates observations at an unchanged birthday. */
   forceRescan?: boolean;
-  /** What the user asked for. Distinct from whether it has taken effect. */
   intent: 'on' | 'off';
-  /**
-   * An enable/disable in flight; a crash mid-operation leaves this set, and
-   * resumePendingOperations finishes the job on next start.
-   */
+  /** Set while an enable/disable is in flight; a crash leaves it for resumePendingOperations. */
   operation?: { type: 'enable' | 'disable'; startedAt: number };
-  /** Where scanning starts. Asked for at enable time. */
   birthdayHeight?: number;
   birthdaySource?: string;
   birthdayTimestamp?: number;
-  /**
-   * Recorded at disable time, deliberately a little behind real progress
-   * (reorg safety). Losing it just means a full rescan from birthday.
-   */
+  /** Recorded slightly behind real progress (reorg safety); losing it means a rescan from birthday. */
   resumeFromHeight?: number;
-  /** Whether key images have been imported, which spend detection needs. */
   keyImagesImportedAt?: number;
 };
 
-// ---------------------------------------------------------------------------
-// Stored records. Each one is validated on its own when read: a malformed
-// record reads as "not enabled, needs repair" and never stops the others.
+// Each record is validated on read; a malformed one reads as 'not enabled, needs repair'.
 
 const finiteNumber = z.number().finite();
 
@@ -130,15 +102,12 @@ const birthdaySchema = z.object({
 const accountRecordSchema = z.object({
   networkId: z.string().min(1),
   walletId: z.string(),
-  // See vaults/localWallet/viewingKeyFingerprint.ts. The reference identity:
-  // a key read or derived for this account must carry the same value. Absent
-  // until the first key is derived.
+  // The reference identity: a key read or derived for this account must match it. Absent until first derived.
   vkFp: z
     .string()
     .regex(/^[0-9a-f]{32}$/)
     .optional(),
-  // Random 64-bit hex, renewed when scan data or its requested target changes,
-  // so older work and cached results cannot overwrite the current request.
+  // Random 64-bit hex renewed when scan data or target changes, so stale work cannot overwrite the current request.
   epoch: z.string().regex(/^[0-9a-f]{16}$/),
   scan: z.object({
     intent: z.enum(['on', 'off']),
@@ -153,17 +122,14 @@ const accountRecordSchema = z.object({
       .regex(/^[0-9a-f]{16}$/)
       .optional(),
     forceRescan: z.boolean().optional(),
-    // Enable/disable journal; a crash leaves it for the next start to settle.
     operation: z
       .object({
         type: z.enum(['enable', 'disable']),
         startedAt: finiteNumber,
       })
       .optional(),
-    // The resolved birthday: the only copy, and the scanner's start.
     birthday: birthdaySchema.optional(),
-    // Zcash: what the latest enable asked for, until setup resolves it into
-    // `birthday`. Kept after a failed enable so a retry asks for the same.
+    // Zcash: what the latest enable asked for until setup resolves it into `birthday`.
     birthdayRequest: z
       .object({
         height: finiteNumber.optional(),
@@ -171,9 +137,7 @@ const accountRecordSchema = z.object({
       })
       .optional(),
     resumeFromHeight: finiteNumber.optional(),
-    // Zcash repair journal: resumes a process death before the runtime has
-    // applied the requested scan target. Separate from `operation`
-    // because an enable can run a rescan while its own journal is open.
+    // Zcash repair journal; separate from `operation` because an enable can run a rescan while its journal is open.
     rescan: z
       .object({
         birthday: birthdaySchema.extend({ source: z.string().min(1) }),
@@ -214,16 +178,12 @@ export type IPrivacyChainPendingAccountDeletion = {
 };
 
 const walletRecordSchema = z.object({
-  // True only for a freshly generated mnemonic. Absent means not proven
-  // fresh -- the safe default for the birthday decision.
+  // True only for a freshly generated mnemonic; absent means not proven fresh.
   freshMnemonic: z.boolean().optional(),
-  // Recorded at wallet creation only; recommends a recovery month on opt-in.
   createdAt: finiteNumber.optional(),
   chain: z
     .object({
-      // ZIP-32 seed fingerprint: one seed per wallet. Transparent PCZTs carry
-      // it and the firmware rejects a mismatch. An identifier, not viewing
-      // material: it survives privacy-mode off and local-data deletion.
+      // ZIP-32 seed fingerprint: an identifier, not viewing material, so it survives privacy-off and data deletion.
       zcash: z
         .object({ seedFingerprintHex: z.string().regex(/^[0-9a-f]{64}$/) })
         .optional(),
@@ -234,20 +194,13 @@ const walletRecordSchema = z.object({
 export type IPrivacyChainWalletRecord = z.infer<typeof walletRecordSchema>;
 
 export interface IPrivacyChainStateDB {
-  // Device-wide, not per network: it is about this device's data plan.
   device?: { allowCellularSync?: boolean };
-  // Networks whose scan database an app reset failed to delete. Rewritten
-  // after the reset clears this store; the next launch and the next reset
-  // retry them.
+  // Networks whose scan database an app reset failed to delete; retried on the next launch and reset.
   pendingLocalDataDrop?: string[];
-  // Networks whose runtime may hold an account nothing names any more (its
-  // key was unreadable when the account went). Cleared by a full orphan purge
-  // or a drop of that network's database.
+  // Networks whose runtime may hold an account nothing names any more; cleared by an orphan purge or database drop.
   runtimeOrphans?: string[];
-  // walletId -> IPrivacyChainWalletRecord
   wallets?: Record<string, unknown>;
-  // accountId -> IPrivacyChainAccountRecord. Only accounts that were ever
-  // enabled have one; a missing record means off.
+  // Only accounts ever enabled have a record; missing means off.
   accounts?: Record<string, unknown>;
 }
 
@@ -289,8 +242,7 @@ function parseWalletRecord(
   return result.success ? compact(result.data) : undefined;
 }
 
-// Builders write only what the schema knows; a record that would not read
-// back is refused here instead of reading as "off" later.
+// Builders write only schema fields; a record that would not read back is refused here.
 function toStoredAccountRecord(
   record: IPrivacyChainAccountRecord,
 ): IPrivacyChainAccountRecord {
@@ -311,8 +263,7 @@ function toStoredWalletRecord(
   return parsed;
 }
 
-// A malformed record may still name its network; one that does not is
-// counted under every network, so cleanup and the keep-set still see it.
+// A malformed record may still name its network; otherwise it counts under every network.
 function rawRecordNetworkId(raw: unknown): string | undefined {
   const parsed = parseAccountRecord(raw);
   if (parsed) return parsed.networkId;
@@ -342,8 +293,6 @@ function createEpoch(): string {
   );
 }
 
-// The runtime keeps this account's scan data: scanning, mid-operation,
-// paused with a resume position, or mid-rescan.
 function holdsScanData(record: IPrivacyChainAccountRecord): boolean {
   return (
     record.scan.intent === 'on' ||
@@ -362,8 +311,6 @@ function isScanning(record: IPrivacyChainAccountRecord): boolean {
   );
 }
 
-// The identity a Zcash account holds a slot with, counted once setup stored
-// its addresses and fingerprint.
 function zcashRecordVkFp(
   record: IPrivacyChainAccountRecord | undefined,
 ): string | undefined {
@@ -385,7 +332,6 @@ function buildZcashStateView(
 ): IZcashPrivacyModeStateView {
   const { scan } = record;
   const request = scan.birthdayRequest;
-  // Show the saved user target while the runtime still owns the old range.
   const pendingBirthday =
     includePendingRescan && !scan.operation ? scan.rescan?.birthday : undefined;
   let birthdayHeight = request ? request.height : scan.birthday?.height;
@@ -403,8 +349,6 @@ function buildZcashStateView(
       | IZcashBirthdaySource
       | undefined,
     birthdayTimestamp,
-    // A fresh wallet recommends its creation month; otherwise the month this
-    // account was last asked to start from.
     birthdayMonthHint:
       zcashWalletMonthHint(wallet) ??
       (birthdayTimestamp !== undefined
@@ -464,8 +408,7 @@ export function isSameZcashPendingRescan(
   return isEqual(compact(left), compact(right));
 }
 
-// A CAS compares what the caller acted on; `updatedAt` also moves on writes
-// that change none of it (epoch rotation, rescan journal).
+// A CAS compares what the caller acted on; `updatedAt` also moves on writes that change none of it.
 function zcashStateViewForCas(
   view: IZcashPrivacyModeStateView | undefined,
 ): Omit<IZcashPrivacyModeStateView, 'updatedAt'> | undefined {
@@ -518,8 +461,7 @@ function writeAccount(
   });
 }
 
-// A malformed record reads as absent and is replaced: it names nothing a new
-// enable could keep.
+// A malformed record reads as absent and is replaced.
 function readOrCreateAccount(
   state: IMutableState,
   { networkId, accountId }: { networkId: string; accountId: string },
@@ -557,7 +499,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
 
   protected override readonly rejectInvalidStoredData = true;
 
-  // Only the container shape is checked here; records are checked on read.
   protected override validateStoredData(data: unknown): void {
     const container = data as IPrivacyChainStateDB;
     if (
@@ -576,13 +517,10 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     }
   }
 
-  // Each account's epoch as this runtime last knew it (undefined: no
-  // record). It runs ahead of disk while a destructive operation is in
-  // flight, so a cache write checked against it is refused from the moment
-  // that operation starts. Absent: not read yet.
+  // Each account's epoch as this runtime last knew it; runs ahead of disk during a destructive operation
+  // so cache writes are refused from its start.
   private readonly epochMirror = new Map<string, string | undefined>();
 
-  // Bumped on every change, so a read from disk can tell it was overtaken.
   private epochMirrorVersion = 0;
 
   private setMirroredEpoch(accountId: string, epoch: string | undefined) {
@@ -602,7 +540,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         accounts: { ...raw?.accounts },
       };
       build(state);
-      // Before the write is persisted; records left untouched keep theirs.
       for (const accountId of uniq([
         ...Object.keys(raw?.accounts ?? {}),
         ...Object.keys(state.accounts),
@@ -664,9 +601,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Device
-
   async getAllowCellularSync(): Promise<boolean> {
     const raw = await this.getRawData();
     return raw?.device?.allowCellularSync === true;
@@ -701,8 +635,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
-  // Removes only the given networks: a reset may have marked others since
-  // they were read.
+  // Removes only the given networks: a reset may have marked others since they were read.
   async removePendingLocalDataDrop({
     networkIds,
   }: {
@@ -745,9 +678,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     const raw = await this.getRawData();
     return (raw?.runtimeOrphans ?? []).includes(networkId);
   }
-
-  // -------------------------------------------------------------------------
-  // Wallets
 
   async getWalletFreshMnemonic({
     walletId,
@@ -835,11 +765,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Accounts, any chain
-
-  // Every record of the network, malformed ones included, so removed-account
-  // cleanup reaches them.
   async listAccountIds({
     networkId,
   }: {
@@ -851,11 +776,8 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     );
   }
 
-  // Accounts whose scan data the runtime keeps. A malformed record may be
-  // one of them. Undefined when nothing was read (no state yet, or masked by
-  // Travel Mode): never the same as none. Any state at all (a device
-  // setting, a wallet fact) gives [] instead, so [] is not proof by itself
-  // that the runtime holds nothing.
+  // Accounts whose scan data the runtime keeps; undefined when nothing was read (no state, or masked by
+  // Travel Mode). [] is not proof the runtime holds nothing.
   async listScanDataAccountIds({
     networkId,
   }: {
@@ -878,7 +800,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
-  // Stop admitting work before waiting for a running database transaction.
   async requestAccountDeletion({
     networkId,
     accountId,
@@ -943,8 +864,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
-  // Authorization may be saved while the old runtime transaction finishes.
-  // The deletion marker continues to exclude this account from scanning.
   async beginAccountReenable({
     accountId,
     requestId,
@@ -1008,8 +927,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     }
   }
 
-  // App Reset: the network's database is gone. Wallet facts stay; they do
-  // not describe that database.
   async removeNetworkAccounts({
     networkId,
   }: {
@@ -1035,8 +952,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     const version = this.epochMirrorVersion;
     const raw = await this.getRawData();
     const epoch = parseAccountRecord(raw?.accounts?.[accountId])?.epoch;
-    // A masked store reads as empty, which is not "no record"; a mirror
-    // change during the read is newer than what was read.
+    // A masked store reads as empty, not as "no record".
     if (raw && version === this.epochMirrorVersion) {
       this.setMirroredEpoch(accountId, epoch);
     }
@@ -1052,7 +968,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
   }: {
     accountId: string;
     epoch: string;
-    // Display-only reads may retain a paused account's last successful sync.
     allowPaused?: boolean;
   }): Promise<boolean> {
     const raw = await this.getRawData();
@@ -1072,14 +987,12 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     );
   }
 
-  // Travel Mode and App Reset: what is on disk is no longer this runtime's.
   async forgetAccountEpochs(): Promise<void> {
     this.epochMirror.clear();
     this.epochMirrorVersion += 1;
   }
 
-  // Before scanned data is destroyed. The mirror moves first, so a cache
-  // write racing the destruction is refused even before this is persisted.
+  // The mirror moves first, so a cache write racing the destruction is refused.
   async rotateAccountEpochs({
     accountIds,
   }: {
@@ -1103,10 +1016,8 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
-  // Delete-local-data: everything that points into the deleted scan data
-  // goes, the identity included, so a later enable may set the account up
-  // with whatever key it derives. Only the birthday stays, so that enable
-  // reuses the month.
+  // Delete-local-data: everything pointing into the deleted scan data goes, identity included;
+  // only the birthday stays.
   async clearAccountScanData({
     accountId,
   }: {
@@ -1154,9 +1065,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     return record?.networkId === networkId ? record.vkFp : undefined;
   }
 
-  // -------------------------------------------------------------------------
-  // Zcash
-
   async getZcashPrivacyModeState({
     accountId,
     includePendingRescan = false,
@@ -1173,7 +1081,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         includePendingRescan,
       );
     }
-    // Never enabled: a fresh wallet still recommends its creation month.
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
     return compact({
       intent: 'off' as const,
@@ -1500,8 +1407,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     );
   }
 
-  // Accounts with viewing metadata on disk, plus malformed records that may
-  // have some.
   async listZcashMetaAccountIds({
     networkId,
   }: {
@@ -1515,9 +1420,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
-  // Writes the viewing metadata and the resolved birthday it carries. The
-  // expectations are compare-and-set guards against a concurrent delete,
-  // repair or mode change.
+  // Writes viewing metadata and the resolved birthday; the expectations are compare-and-set guards.
   async saveZcashAccountMeta({
     accountId,
     meta,
@@ -1548,7 +1451,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       ) {
         throw new OneKeyLocalError(ZCASH_STATE_CHANGED_MESSAGE);
       }
-      // Viewing metadata only follows an enable, which creates the record.
       if (!record) {
         throw new OneKeyLocalError(ZCASH_STATE_CHANGED_MESSAGE);
       }
@@ -1619,8 +1521,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     );
   }
 
-  // User requests replace older journals. Automatic repair must still own
-  // its snapshot and must not replace a user's request on any alias.
+  // A user request replaces older journals; an automatic repair must not replace it on any alias.
   async saveZcashPendingRescan({
     accountId,
     repair,
@@ -1683,7 +1584,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     return accepted;
   }
 
-  // With an expected repair, an older completion never consumes a newer one.
   async removeZcashPendingRescan({
     accountId,
     expectedRepair,
@@ -1710,9 +1610,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Monero
-
   async getXmrAccountState({
     accountId,
   }: {
@@ -1722,7 +1619,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     return found ? buildXmrView(found.record) : { intent: 'off' };
   }
 
-  // Authorization is durable before background runtime preparation starts.
   async saveXmrEnabledAccount({
     networkId,
     accountId,
@@ -1783,7 +1679,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
           birthday,
         },
       });
-      // Aliases share one runtime identity and one latest birthday target.
       Object.keys(state.accounts).forEach((otherId) => {
         if (otherId === accountId) return;
         const other = readAccount(state, otherId);
@@ -1847,11 +1742,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       );
   }
 
-  /**
-   * Journal intent before doing work: a crash here is resumed by
-   * resumePendingOperations, else the account would claim 'off' with a
-   * database that already exists.
-   */
+  /** Journal intent first: a crash here is resumed by resumePendingOperations. */
   async beginXmrEnable({
     networkId,
     accountId,
@@ -2015,7 +1906,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       );
   }
 
-  // Background preparation must not overwrite a newer account configuration.
   async updateXmrBirthday({
     accountId,
     birthdayHeight,

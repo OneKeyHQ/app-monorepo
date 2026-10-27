@@ -31,16 +31,10 @@ import type {
   IZcashPrivacyModeStateView,
 } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
-// The endpoint resolver reads the app-wide custom-RPC store; these fixtures
-// only care about the privacy chain state, so the default node is enough.
 const defaultCustomRpcStub = {
-  // The vault reads its node only through this resolver, so a fixture that
-  // leaves it out gets no endpoint at all.
   resolveRpcUrlWithBuiltIn: async () => 'https://zcash.example',
 };
 
-// The runtime step of deleting an account's local data. The key, state,
-// journals and caches are the lifecycle executor's, after this returns.
 describe('Zcash local privacy data deletion', () => {
   const accountId = "hd-1--m/44'/133'/0'";
   const aliasAccountId = "hd-2--m/44'/133'/0'";
@@ -64,7 +58,6 @@ describe('Zcash local privacy data deletion', () => {
     };
   }
 
-  // Scan data: scanning, mid-operation, or paused with a resume position.
   function holdsScanData(state: IZcashPrivacyModeStateView) {
     return (
       state.intent === 'on' ||
@@ -162,8 +155,7 @@ describe('Zcash local privacy data deletion', () => {
     },
   );
 
-  // Pausing promises the cache stays; one account's delete must not discard
-  // what another alias resumes from.
+  // Pausing keeps the cache; one account's delete must not discard what another alias resumes from.
   it('retains the shared cache while an alias is paused', async () => {
     const { purgeWallet, vault } = createVault({
       intent: 'off',
@@ -187,13 +179,11 @@ describe('Zcash local privacy data deletion', () => {
 
     expect(purgeWallet).toHaveBeenCalledTimes(1);
     expect(purgeWallet).toHaveBeenCalledWith(expect.objectContaining({ ufvk }));
-    // Only the runtime: the executor rotates before and clears records after.
     expect(rotateAccountEpochs).not.toHaveBeenCalled();
     expect(clearAccountScanData).not.toHaveBeenCalled();
   });
 
-  // Deleting is one way out of a broken setup, so a lost key must not block
-  // it; the runtime rows it leaves are reported for the orphan marker.
+  // A lost key must not block deleting; leftover runtime rows are reported for the orphan marker.
   it('reports possible orphans for an account whose key can no longer be read', async () => {
     const { purgeWallet, vault } = createVault({
       intent: 'off',
@@ -254,8 +244,7 @@ describe('Zcash web timeout recovery', () => {
   });
 });
 
-// The WebEmbed is shared with XMR and the secret module; a Zcash timeout
-// restarts only the Zcash Worker unless the WebEmbed itself stopped answering.
+// A Zcash timeout restarts only the Zcash Worker unless the shared WebEmbed stopped answering.
 describe('Zcash native timeout recovery', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -471,7 +460,6 @@ describe('Zcash privacy mode account state', () => {
   });
 });
 
-// App Reset's runtime step; the executor deletes the host records.
 it('drops only the runtime database', async () => {
   const dropWalletDatabase = jest.fn().mockResolvedValue(undefined);
   const removeNetworkAccounts = jest.fn().mockResolvedValue(undefined);
@@ -523,7 +511,6 @@ describe('zcash may hold local data', () => {
     ).resolves.toBe(true);
   });
 
-  // An account removed while its key was unreadable left rows behind.
   it('does while the runtime may hold orphans', async () => {
     const vault = createVault({ stateAccountIds: [], orphans: true });
     await expect(
@@ -629,7 +616,6 @@ describe('zcash chain tip for month-based birthday estimates', () => {
   }
 
   beforeEach(async () => {
-    // The save throttle is per process; start each case without one.
     await createVault(null)
       .vault.getLocalWalletCapability()
       .forgetMemoryCaches?.({});
@@ -658,7 +644,6 @@ describe('zcash chain tip for month-based birthday estimates', () => {
     expect(setChainTip).not.toHaveBeenCalled();
   });
 
-  // Every block would otherwise rewrite the shared app storage.
   it('saves again only after 100 blocks or 10 minutes', async () => {
     const now = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
     const { vault, setChainTip, setTip } = createVault(3_100_000);
@@ -698,9 +683,7 @@ describe('zcash chain tip for month-based birthday estimates', () => {
   });
 });
 
-// A re-derived key that names another identity would be derived again from
-// the seed on every balance poll; the latch stops that until local data is
-// deleted.
+// A re-derived key naming another identity is not derived again on every poll; the latch holds until local data is deleted.
 describe('zcash background repair after an identity mismatch', () => {
   function createVault() {
     const zcashRetryLocalWalletSetup = jest.fn(async () => undefined);

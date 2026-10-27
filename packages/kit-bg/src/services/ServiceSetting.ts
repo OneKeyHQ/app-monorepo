@@ -328,9 +328,7 @@ class ServiceSetting extends ServiceBase {
       appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
     }
     if (values.tokenAndNFT || values.transactionHistory) {
-      // Saved privacy-chain balances and their in-memory copies only. The
-      // scan data is not cache: clearing it means rescanning from the
-      // birthday, which can take days; its own settings page offers that.
+      // Only saved balances and in-memory copies: scan data is not cache, clearing it means a rescan from the birthday.
       await this.backgroundApi.servicePrivacyChain.clearLocalWalletCaches();
     }
     if (values.swapHistory) {
@@ -390,8 +388,6 @@ class ServiceSetting extends ServiceBase {
     defaultLogger.setting.page.clearData({ action: 'Cache' });
   }
 
-  // Privacy-chain send locks are cleared only for `selectedAccount`, never
-  // app-wide.
   @backgroundMethod()
   public async clearPendingTransaction(params?: {
     selectedAccount?: {
@@ -406,7 +402,6 @@ class ServiceSetting extends ServiceBase {
       ESwapTxHistoryStatus.PENDING,
     ]);
     if (params?.selectedAccount) {
-      // A failure here must not undo the general clear above.
       try {
         await this.backgroundApi.servicePrivacyChain.clearSelectedAccountLocalWalletPendingSends(
           params.selectedAccount,

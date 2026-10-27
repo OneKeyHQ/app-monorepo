@@ -189,7 +189,6 @@ function buildHistoryActivityRowUnchecked({
   intl: IntlShape;
   tableLayout: boolean;
   isUTXO?: boolean;
-  // Privacy chains: how the row names its counterparty.
   localWallet?: IPrivacyChainLocalWalletSettings;
   hideValue: boolean;
   currency: string;
@@ -232,7 +231,6 @@ function buildHistoryActivityRowUnchecked({
       ? (decodedTx.payload?.privateSend?.originalRecipient ?? '')
       : info.transferTarget;
     if (!privateSend && localWallet && info.transferTargetIsCount) {
-      // "N addresses" is shown as is, never resolved or looked up.
       address = '';
       shieldedTargetLabel = info.transferTarget;
     } else if (!privateSend && localWallet) {
@@ -247,7 +245,6 @@ function buildHistoryActivityRowUnchecked({
           transfer: action.assetTransfer,
         }),
       });
-      // A pool name is shown but never looked up as an address.
       address = target?.address ?? '';
       shieldedTargetLabel = target?.address ? '' : (target?.poolLabel ?? '');
     }

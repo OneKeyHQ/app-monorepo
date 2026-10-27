@@ -5,10 +5,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-// Monero never links a tx to the paid address on chain; this is the only
-// record of who we sent to and how much, and a rescan can't recover it. It
-// grows with every send, so it has its own entity: Zcash's hot journal reads
-// never parse it.
+// Monero never links a tx to the paid address on chain; this is the only record of recipients and
+// amounts, and a rescan can't recover it.
 export type IXmrSentRecord = {
   recipient: string;
   amountAtomic?: string;
@@ -20,9 +18,7 @@ export type IXmrSentAmount = {
   feeAtomic: string;
 };
 
-// accountId -> txid -> IXmrSentRecord. Records are stored untyped and
-// validated one at a time on read: a malformed record is skipped
-// (quarantined) and kept as is, never deleted.
+// accountId -> txid -> IXmrSentRecord. Validated on read; a malformed record is quarantined, never deleted.
 export interface IPrivacyChainXmrSentDB {
   accounts?: Record<string, unknown>;
 }
@@ -39,8 +35,7 @@ function isRecordMap(value: unknown): value is IRecordMap {
   return isPlainObject(value);
 }
 
-// Valid records are rebuilt from known fields only; quarantined ones are
-// written back untouched. Keys never overlap.
+// Quarantined records are written back untouched.
 function parseRecords(records: IRecordMap | undefined): {
   valid: Record<string, IXmrSentRecord>;
   quarantined: IRecordMap;
@@ -77,12 +72,10 @@ export class SimpleDbEntityPrivacyChainXmrSent extends SimpleDbEntityBase<IPriva
 
   override enableCache = false;
 
-  // Sent recipients can't be rebuilt.
   protected override readonly enableUnreadableRecordSelfHeal = false;
 
   protected override readonly rejectInvalidStoredData = true;
 
-  // Only the container shape is checked here; records are checked on read.
   protected override validateStoredData(data: unknown): void {
     if (
       !isRecordMap(data) ||
@@ -102,7 +95,6 @@ export class SimpleDbEntityPrivacyChainXmrSent extends SimpleDbEntityBase<IPriva
     }));
   }
 
-  // Called at broadcast: the last moment this exists.
   async recordXmrSent({
     accountId,
     txid,
@@ -125,8 +117,7 @@ export class SimpleDbEntityPrivacyChainXmrSent extends SimpleDbEntityBase<IPriva
       }
       const records = parseRecords(stored);
       const previous = records.valid[txid];
-      // Amounts are only kept as a pair; a recipient-only write keeps the
-      // amounts already recorded for this tx.
+      // Amounts are kept only as a pair.
       const amounts =
         amountAtomic !== undefined && feeAtomic !== undefined
           ? pickXmrSentAmounts({ amountAtomic, feeAtomic })

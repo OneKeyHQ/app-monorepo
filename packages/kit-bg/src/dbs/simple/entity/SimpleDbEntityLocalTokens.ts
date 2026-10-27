@@ -465,8 +465,6 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     return result;
   }
 
-  // Drops one account's cached lists on one network (both key forms the
-  // writers use), e.g. after its local privacy data is deleted.
   @backgroundMethod()
   async removeAccountTokenList({
     networkId,

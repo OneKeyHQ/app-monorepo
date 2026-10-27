@@ -3,8 +3,6 @@ import {
   workerCarrierHasHostRequest,
 } from './privacyChainWorkerClient';
 
-// The Worker side of the handshake, driven through its message handler the
-// way a carrier's `ping` reaches it.
 describe('privacy chain worker handshake', () => {
   const scope = globalThis as unknown as {
     onmessage: ((event: { data: unknown }) => void) | null;

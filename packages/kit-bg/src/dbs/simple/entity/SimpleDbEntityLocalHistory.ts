@@ -19,9 +19,7 @@ function clearHistoryTxDisplayStatus(tx: IAccountHistoryTx) {
   return rest;
 }
 
-// Local-wallet chains tag every row with its history side. Only public-side
-// rows may be persisted here; private rows are owned by the chain runtime and
-// must never be cached outside it.
+// Only public-side rows are cached; private rows belong to the chain runtime.
 export function canPersistLocalHistoryTx({
   tx,
 }: {
@@ -29,8 +27,7 @@ export function canPersistLocalHistoryTx({
   tx: IAccountHistoryTx;
 }) {
   if (tx.privacyChainHistorySide === undefined) {
-    // A row that carries pool ids came from a local-wallet runtime; without
-    // an explicit public marker it must not be cached here.
+    // Rows with pool ids come from a local-wallet runtime; cache only if marked public.
     return tx.privacyChainHistoryPoolIds === undefined;
   }
   return tx.privacyChainHistorySide === 'public';

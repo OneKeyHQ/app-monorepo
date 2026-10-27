@@ -336,10 +336,7 @@ function ReceiveToken() {
     isCollapsed &&
     (isAddressTypeHidden || hasPickedFromMenu);
 
-  // Local-wallet chains: one account exposes a public and a private receive
-  // form; the segment control in the card header switches them and the
-  // QR / copy / share all follow displayAddress. On-device address
-  // verification must target the currently displayed form.
+  // Local-wallet chains expose a public and a private receive form; address, QR and on-device verification follow the displayed one.
   const localWalletAddressForms = vaultSettings?.localWallet?.addressForms;
   const { result: localWalletAddressRead, run: reloadLocalWalletAddresses } =
     usePromiseResult(async () => {
@@ -357,7 +354,6 @@ function ReceiveToken() {
             ),
         };
       } catch (error) {
-        // Shown as a retry below instead of an empty page.
         console.error('[privacyChain] receive address read failed', {
           error: error instanceof Error ? error.message : '',
         });
@@ -1743,9 +1739,7 @@ function ReceiveToken() {
   );
 
   const cardHeaderRight = useMemo(() => {
-    // Switch between the two receive forms of the same account.
-    // A chain with no public pool (Monero) has nothing to switch to; showing
-    // the control would offer a form that cannot produce an address.
+    // A chain with no public pool (Monero) has nothing to switch to.
     const publicFormLabel = localWalletAddressForms?.publicLabel;
     if (
       localWalletPrivateAddress &&

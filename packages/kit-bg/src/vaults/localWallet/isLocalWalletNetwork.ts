@@ -10,7 +10,6 @@ export async function isLocalWalletNetwork({
   try {
     return !!(await getVaultSettings({ networkId })).localWallet;
   } catch {
-    // Every local-wallet chain registers settings.
     return false;
   }
 }

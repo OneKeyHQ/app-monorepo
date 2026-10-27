@@ -36,8 +36,6 @@ function pool(spendable: string): IZcashPoolDetail {
   };
 }
 
-// The scanner snapshot is shielded-only; `transparentForTest` feeds the
-// indexer mock so each case states its transparent funds at the call site.
 type ITestBalance = IZcashBalance & { transparentForTest: string };
 
 function balance(
@@ -85,7 +83,6 @@ describe('Zcash send amount intent', () => {
         zcashGetWalletAccount: async () => account,
         zcashGetBalanceSafe: async () => snapshot,
         getLocalWalletBalance: async () => snapshot,
-        // The public half is indexer-owned; drive it from the same fixture.
         zcashGetIndexerTransparentBalance: async () => {
           const transparent = new BigNumber(
             (snapshot as ITestBalance | null)?.transparentForTest ??
@@ -104,8 +101,6 @@ describe('Zcash send amount intent', () => {
     };
   }
 
-  // The private pools stay listed without a balance, so the page can offer a
-  // retry instead of silently defaulting to transparent.
   it('keeps indexer funds spendable when the privacy scanner is unavailable', async () => {
     const { vault } = createVault(null);
     const pools = await vault.listLocalWalletSendPools({
@@ -166,8 +161,6 @@ describe('Zcash send amount intent', () => {
     },
   );
 
-  // A private source spends its own pool only: the figure the amount page
-  // showed is exactly what Max sends.
   it('converges explicit Max against the selected shielded pool only', async () => {
     const { vault, quotePczt } = createVault(
       balance('100000000', '200000000', '300000000'),
@@ -184,8 +177,6 @@ describe('Zcash send amount intent', () => {
     expect(quotePczt.mock.calls[0][1]).not.toHaveProperty('spendTransparent');
   });
 
-  // Stored unmined sends already hold their notes; Max quotes without a
-  // confirmation-screen reservation sweep.
   it('does not wait on an unconfirmed send before quoting the max', async () => {
     const { vault, quotePczt } = createVault(balance('100000000', '0'));
 
@@ -200,7 +191,6 @@ describe('Zcash send amount intent', () => {
 
     const encoded = await vault.buildEncodedTx(request('1', true));
 
-    // Keeping the guess would have left 5000 zat of the user's money behind.
     expect(encoded.zcashAmountValue).toBe('99995000');
     expect(quotePczt).toHaveBeenCalledTimes(2);
   });
@@ -213,8 +203,6 @@ describe('Zcash send amount intent', () => {
 
     const encoded = await vault.buildEncodedTx(request('1', true));
 
-    // The first candidate was quoted and affordable; a re-quote that prices
-    // higher must not replace it with a smaller one.
     expect(encoded.zcashAmountValue).toBe('99990000');
   });
 
@@ -248,8 +236,6 @@ describe('Zcash send amount intent', () => {
     });
   });
 
-  // The send page lists transparent as the default for a transparent
-  // recipient; a request that names no pool must build the same thing.
   it('pays a transparent recipient from transparent funds when no pool is named', async () => {
     const { vault } = createVault(balance('100000000', '200000000'));
     const zcashBuildTransparentEncodedTx = jest.fn(async () => ({
@@ -300,7 +286,6 @@ describe('Zcash send amount intent', () => {
     ).rejects.toMatchObject({ code: 'NOT_SYNCED' });
   });
 
-  // Each pool shows its own funds: that figure is exactly what Max sends.
   it('shows each pool its own spendable, whatever the recipient', async () => {
     const { vault } = createVault(balance('100000000', '200000000'));
     const shielded = await vault.listLocalWalletSendPools({

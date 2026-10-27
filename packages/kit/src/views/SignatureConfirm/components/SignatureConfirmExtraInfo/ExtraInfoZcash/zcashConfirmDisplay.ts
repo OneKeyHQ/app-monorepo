@@ -15,7 +15,6 @@ export function isZcashShieldedSpend(encodedTx: unknown): boolean {
   return getZcashEncodedTx(encodedTx)?.zcashMode === 'privacy';
 }
 
-// The account row is the first Address component, built from the signer.
 export function replaceAccountAddressComponent({
   components,
   signer,

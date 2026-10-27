@@ -33,7 +33,6 @@ describe('clear pending sends for the selected account', () => {
     mockGetChainOnlyVault.mockImplementation(
       async ({ networkId }: { networkId: string }) => ({
         getLocalWalletCapability: () =>
-          // XMR keeps no local send locks.
           networkId === ZEC ? { clearPendingSends } : {},
       }),
     );
@@ -52,7 +51,6 @@ describe('clear pending sends for the selected account', () => {
           serviceAccount: {
             getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes,
           },
-          // Clearing pending sends touches nothing but the chain's locks.
           simpleDb: {},
         },
       },

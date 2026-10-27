@@ -20,7 +20,6 @@ import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 import { buildZcashLocalHistoryTx } from './localHistory';
 import settings from './settings';
 
-// This account paid a sibling account's transparent address from Ironwood.
 const OWN_T_ADDRESS = `t1${'a'.repeat(33)}`;
 const OWN_RECEIVE_UA = `u1${'q'.repeat(104)}`;
 const SIBLING_T_ADDRESS = `t1${'b'.repeat(33)}`;
@@ -68,8 +67,6 @@ async function sentRow(recipient: string) {
   );
 }
 
-// The two flows HistoryDetails renders: public addresses get AddressInfo
-// (account name / address book), private ones the local-recipient copy.
 function detailFlows(transfer: Awaited<ReturnType<typeof sentRow>>) {
   const assetTransfer = transfer.decodedTx.actions[0]?.assetTransfer;
   return {
@@ -98,7 +95,6 @@ describe('zcash local history recipient display', () => {
 
     const flows = detailFlows(row);
     expect(flows.public.to).toEqual([SIBLING_T_ADDRESS]);
-    // Nothing on the private side, so no "Saved by this wallet" entry.
     expect(flows.private.to).toEqual([]);
   });
 

@@ -202,7 +202,6 @@ function PrivacyChainNetworkSections({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [busy, setBusy] = useState(false);
-  // Cellular toggle only applies to native mobile runtimes.
   const showMobileDataRow = platformEnv.isNative;
   const showNodeRow = Boolean(endpointUrl && endpointDefaultUrl);
   let endpointStatus = '';
@@ -587,7 +586,6 @@ export default function PrivacyNetworkSettings({
         }
         await refreshEntries();
       } catch (error) {
-        // Background methods already report the actionable failure to the user.
         console.error('[privacyChain] account sync control failed', error);
       } finally {
         setBusyAccountId(undefined);
@@ -753,7 +751,6 @@ export default function PrivacyNetworkSettings({
             </Button>
           ) : null}
         </ListItem>
-        {/* belongs to the account above, not to the list */}
         <YStack testID={`privacy-network-account-detail-${entry.accountId}`}>
           <Divider mx="$4" />
           {entry.walletIsTemp ? (

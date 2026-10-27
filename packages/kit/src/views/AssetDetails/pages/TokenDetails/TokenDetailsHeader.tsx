@@ -291,8 +291,6 @@ function TokenDetailsHeaderContent({
   // A pool that can no longer receive. Balance, history and the withdraw
   // action still show; Send does not (see the action row below).
   const isLegacyPoolTab = selectedPool?.receivesFunds === false;
-  // Owns every local-wallet read for this pool and publishes the selected
-  // pool's balance/address/action to the pool store consumed below.
   const localWalletPool = useLocalWalletPool({
     networkId,
     accountId,
@@ -300,14 +298,12 @@ function TokenDetailsHeaderContent({
     isActive: focusParam,
     accountData: { account, vaultSettings },
   });
-  // One gate for every private-UI decision below, so the page settles once.
   const isLocalWalletReady = localWalletPool.isReady;
   const isLocalWalletEnabled = localWalletPool.enabled;
   const isPrivatePoolDisabled =
     isPrivatePool && isLocalWalletReady && !isLocalWalletEnabled;
 
-  // Published by useLocalWalletPool above. The store is scoped per tab;
-  // ownerKey guards an account switch inside one mounted tab.
+  // Scoped per tab; ownerKey guards an account switch inside one mounted tab.
   const [privacyChainPoolDisplay] = usePrivacyChainPoolDisplayAtom();
   const poolDisplayKey = privacyChainPoolOwnerKey({
     accountId,
@@ -473,8 +469,6 @@ function TokenDetailsHeaderContent({
   const shouldUsePoolBalance =
     hasSelectedPool &&
     (!isPrivatePool || (isLocalWalletReady && isLocalWalletEnabled));
-  // The balance alone does not wait for the rest of the private UI: a saved
-  // one shows at once, marked as syncing until the scanner answers.
   const shouldShowPoolBalance =
     shouldUsePoolBalance ||
     (isPrivatePool &&
@@ -484,7 +478,6 @@ function TokenDetailsHeaderContent({
   if (shouldShowPoolBalance) {
     balanceParsed = poolDisplay?.balanceParsed ?? '0';
   } else if (isPrivatePool) {
-    // A private pool that is not enabled shows an empty balance, as other chains do.
     balanceParsed = '0';
   } else if (!hasSelectedPool) {
     balanceParsed = tokenRebaseUtils.applyBalanceMultiplier({
@@ -506,7 +499,6 @@ function TokenDetailsHeaderContent({
   if (shouldShowPoolBalance) {
     isBalanceLoading = !poolDisplay?.balanceSettled;
   } else if (isPrivatePool) {
-    // Stay loading until the gate opens rather than flash an empty balance.
     isBalanceLoading = !isLocalWalletReady;
   }
   const tokenLogoURI = tokenDetails?.info?.logoURI ?? tokenInfo.logoURI;
@@ -645,7 +637,6 @@ function TokenDetailsHeaderContent({
         ? { localWalletSpendSource: poolAction.spendSource }
         : {}),
     };
-    // These moves skip the amount page, which is where sends normally prewarm.
     const prewarmSourcePool =
       poolAction.type === 'shield' ? 'transparent' : poolAction.spendSource;
     if (prewarmSourcePool) {
@@ -771,8 +762,6 @@ function TokenDetailsHeaderContent({
     poolDisplay?.address,
   ]);
 
-  // One element for both layouts of the action row below: the full row on a
-  // live pool, the withdraw alone on the legacy Orchard tab.
   const poolActionItem =
     hasSelectedPool && poolAction ? (
       <ActionItem
@@ -830,15 +819,12 @@ function TokenDetailsHeaderContent({
           </Stack>
         ) : (
           <Stack px="$5" py="$5">
-            {/* Balance */}
             <TokenDetailsBalanceHero
               isLoading={isBalanceLoading}
               currency={tokenDetails?.currency}
               fiatValue={fiatValue}
               balanceParsed={balanceParsed}
             />
-            {/* A legacy pool can only withdraw; account-level actions would
-              look like they operate on its balance. */}
             {isLegacyPoolTab ? (
               legacyPoolActionRow
             ) : (
@@ -985,8 +971,7 @@ function TokenDetailsHeaderContent({
   );
 }
 
-// One pool store per mounted header, which is one per tab. Without this the
-// two tabs would share a store and each would publish over the other's pool.
+// One pool store per mounted header (one per tab) so tabs do not publish over each other.
 const TokenDetailsHeaderScoped = withPrivacyChainPoolProvider(
   TokenDetailsHeaderContent,
 );

@@ -50,7 +50,6 @@ it.each(
                 : { intent: 'on' },
           },
         },
-        // The self-payment reached the u1 that Receive displays.
         servicePrivacyChain: {
           getLocalWalletAccountAddresses: async () => ({
             privateAddress: 'u1synthetic-recipient',
@@ -119,7 +118,6 @@ it.each(
     });
     expect(detail.receives).toHaveLength(outputCount + (withUTXOs ? 1 : 0));
     if (withUTXOs)
-      // Shielded change names its pool, not an address.
       expect(detail.receives?.[outputCount]).toMatchObject({
         type: EOnChainHistoryTransferType.Shielded,
         amount: '0.002',

@@ -180,8 +180,6 @@ describe('Zcash independent transparent balance availability', () => {
     async (privateBalance) => {
       const vault = Object.create(Vault.prototype) as Vault;
       Object.assign(vault, {
-        // Privacy Mode is ON here; what is incomplete is the scan, not the
-        // account's opt-in. The gate must not confuse the two.
         accountId: 'account',
         networkId: 'zec--0',
         backgroundApi: {
@@ -211,8 +209,6 @@ describe('Zcash independent transparent balance availability', () => {
       });
       expect(result).toMatchObject({ total: undefined });
       expect(result?.pools[0]).toMatchObject({ total: '80', spendable: '50' });
-      // Mid-backfill the home total is what was found so far plus the public
-      // side, marked partial; with no private figure, the public side alone.
       expect(await vault.zcashGetComposedBalanceSafe('80')).toMatchObject({
         total: privateBalance ? '180' : '80',
       });
@@ -295,8 +291,7 @@ describe('Zcash independent transparent balance availability', () => {
   });
 });
 
-// Change at or below the marginal fee: the runtime's totals leave it out,
-// readBalance adds it back to what is shown without increasing spendable.
+// Change at or below the marginal fee is added back to the shown total, not to spendable.
 describe('Zcash dust change', () => {
   afterEach(() => jest.restoreAllMocks());
 
@@ -457,12 +452,9 @@ describe('Zcash dust change', () => {
   });
 });
 
-// The transparent half's backend requests (UTXOs, then each previous
-// transaction, retried) must not hold the private half back.
 describe('Zcash transparent balance on display', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  // No saved pair: the cache store is absent and reads as nothing saved.
   function createVault(read: jest.Mock) {
     return Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: 'zec--0',
@@ -486,7 +478,6 @@ describe('Zcash transparent balance on display', () => {
     expect(read).toHaveBeenCalledWith({ account, rawTxRetries: 1 });
   });
 
-  // The composed balance has the backend total already.
   it('asks only for spendable UTXOs when the total is not needed', async () => {
     const indexer = jest.fn();
     const fresh = jest
@@ -531,7 +522,6 @@ describe('Zcash transparent balance on display', () => {
     ).resolves.toEqual({ total: new BigNumber(80) });
     expect(read).toHaveBeenCalledTimes(1);
 
-    // Past the window the next read asks the backend again.
     const now = Date.now();
     jest.spyOn(Date, 'now').mockReturnValue(now + 60_000);
     read.mockResolvedValueOnce({ total: new BigNumber(90) });
@@ -541,7 +531,6 @@ describe('Zcash transparent balance on display', () => {
     expect(read).toHaveBeenCalledTimes(2);
   });
 
-  // An answer remembered for data since destroyed is not shown again.
   it('never shows a remembered read from an older epoch', async () => {
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
     const pair = {
@@ -558,7 +547,6 @@ describe('Zcash transparent balance on display', () => {
       zcashReadTransparentForDisplay(vault, { account: epochAccount }),
     ).resolves.toEqual(pair);
 
-    // The next read is slow: the same epoch shows the last pair meanwhile.
     read.mockReturnValueOnce(new Promise(() => undefined));
     await expect(
       zcashReadTransparentForDisplay(vault, { account: epochAccount }),
@@ -572,8 +560,6 @@ describe('Zcash transparent balance on display', () => {
   });
 });
 
-// A restart has no in-memory UTXOs; the Transparent tab shows the last pair
-// instead of waiting on the backend.
 describe('Zcash transparent balance saved for the next open', () => {
   afterEach(() => jest.restoreAllMocks());
 
@@ -688,8 +674,6 @@ describe('Zcash transparent balance saved for the next open', () => {
     expect(read).toHaveBeenCalledTimes(1);
   });
 
-  // The password alert and the pool both read on the landed event; whichever
-  // goes first must not leave the other with the saved pair again.
   it('hands a landed value to every reader in the window', async () => {
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
     const slow = deferred<{ total: BigNumber; spendable: BigNumber }>();
@@ -727,7 +711,6 @@ describe('Zcash transparent balance saved for the next open', () => {
       zcashReadTransparentForDisplay(vault, { account }),
     ).resolves.toEqual(fresh);
 
-    // The poll after it: a new value still replaces the old one.
     next.resolve({ total: new BigNumber(95), spendable: new BigNumber(65) });
     await flush();
     expect(emit).toHaveBeenCalledWith(
@@ -799,8 +782,6 @@ describe('Zcash transparent balance saved for the next open', () => {
     });
   });
 
-  // Shield sweeps the UTXOs it fetches itself, but it is only offered on a
-  // figure that is current.
   it('offers shield only once the transparent figure is current', async () => {
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
     const large = { total: '90000', spendable: '90000' };
@@ -834,8 +815,7 @@ describe('Zcash transparent balance saved for the next open', () => {
   });
 });
 
-// The amount page's available figure, Max and the insufficient-funds check
-// come from the send pools; a saved private balance must never stand in.
+// Amount page figures come from the send pools; a saved private balance never stands in.
 describe('Zcash send pools read the private balance fresh', () => {
   afterEach(() => jest.restoreAllMocks());
 
@@ -889,7 +869,6 @@ describe('Zcash send pools read the private balance fresh', () => {
     expect(pools?.find((item) => item.key === 'orchard')?.spendable).toBe(
       undefined,
     );
-    // Display reads still fall back to the saved balance.
     await expect(
       vault.getLocalWalletBalance({ accountId: 'send-fails' }),
     ).resolves.toMatchObject({ isComplete: false, shielded: '100' });

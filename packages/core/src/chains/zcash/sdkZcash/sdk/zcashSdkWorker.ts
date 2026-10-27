@@ -12,14 +12,8 @@ import { ZCASH_SDK_METHODS } from '../types/methods';
 
 import type { IZcashSdkApi } from '../types/sdk';
 
-// Shared Worker entry for every carrier. Hosts the implementation -- wasm,
-// wallet database, scan loop -- so none of it runs on the window thread.
-//
-// Web/desktop/extensions load this entry by URL. Mobile web-embed bundles the
-// same entry through zcashSdkInline.worker.js for file-backed WKWebView pages.
-//
-// The message protocol and error serialization are shared with the other
-// client-scanning chains; see privacyChainWorkerClient.
+// Shared Worker entry for every carrier: wasm, wallet database and scan loop run here, off the window thread.
+// Mobile web-embed bundles it through zcashSdkInline.worker.js.
 let storageRequiresWorkerRestart = () => false;
 
 servePrivacyChainWorker<IZcashSdkApi>({

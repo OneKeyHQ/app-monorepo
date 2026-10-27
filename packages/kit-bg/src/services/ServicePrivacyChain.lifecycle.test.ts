@@ -124,7 +124,6 @@ describe('removed-account gc', () => {
       // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
-    // The second wallet is removed after the first pass listed accounts.
     await service.gcRemovedAccounts();
     releaseFirstPass();
     await first;

@@ -1701,7 +1701,6 @@ class ServiceNetwork extends ServiceBase {
         string,
         string,
       ];
-      // Persisted balances can outlive a removed network or a selector's scope.
       const shouldUseAccountNetworkValue = Boolean(
         selectorNetworkIds.has(networkId) &&
         networkId &&

@@ -25,8 +25,6 @@ const token = (value: string) => ({
   currency: 'usd',
 });
 
-// Deleting an account's local privacy data must drop the composed balance the
-// shared caches hold, and nothing else.
 describe('removing one account from the shared asset caches', () => {
   it('drops the token list of that account on that network only', async () => {
     const entity = withMemoryStorage(new SimpleDbEntityLocalTokens());

@@ -1,10 +1,7 @@
 import type { IPrivacyChainHostRequest } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-/**
- * Desktop: fetch from the Electron main process, which is not subject to the
- * renderer's CORS and mixed-content rules.
- */
+/** Desktop: fetch from the Electron main process, outside the renderer's CORS and mixed-content rules. */
 export const xmrHostFetch: IPrivacyChainHostRequest = async (
   url,
   contentType,

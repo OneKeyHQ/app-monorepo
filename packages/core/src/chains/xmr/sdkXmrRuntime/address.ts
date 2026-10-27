@@ -32,17 +32,14 @@ export type IXmrPureRuntimeApi = {
 
 let runtimeLoader: (() => Promise<IXmrPureRuntimeApi>) | undefined;
 
-/** Installed once per carrier (web, desktop, extension bg, native) at startup. */
 export function setXmrRuntimeLoader(loader: () => Promise<IXmrPureRuntimeApi>) {
   runtimeLoader = loader;
 }
 
-/** The pure runtime, loaded in-process if no carrier registered one. */
 export async function getXmrPureRuntime(): Promise<IXmrPureRuntimeApi> {
   if (runtimeLoader) {
     return runtimeLoader();
   }
-  // Derivation is cheap pure compute and does not need the scanning Worker.
   const { loadXmrRuntime } = await import('./carrier/loadRuntime');
   const api = await loadXmrRuntime();
   return {
@@ -83,10 +80,7 @@ export async function deriveXmrSubaddress(params: {
   ) as { address: string; major: number; minor: number };
 }
 
-/**
- * A mainnet address on testnet is not "wrong network": it is a well-formed
- * destination nobody holds the keys to.
- */
+/** A mainnet address on testnet is well-formed, but nobody holds its keys. */
 export async function validateXmrAddress(params: {
   address: string;
   network?: IXmrNetwork;

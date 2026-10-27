@@ -49,16 +49,13 @@ describe('privacy-chain relay targets', () => {
   });
 
   it.each([
-    // What a dApp would aim the relay at.
     'http://192.168.1.1/admin',
     'http://127.0.0.1:8080/',
     'https://evil.example/collect',
-    // Same host, other scheme / port / path.
     'http://zcash-mainnet.chainsafe.dev/cash.z.wallet.sdk.rpc.CompactTxStreamer/GetLatestBlock',
     'https://xmr-node.example/json_rpc',
     'http://192.168.1.5:18081/other',
     'http://192.168.1.5:18081/rpcx',
-    // Lookalikes and smuggling.
     'https://zcash-mainnet.chainsafe.dev.evil.example/',
     withUserInfo('https://xmr-node.example:18089/json_rpc'),
     'file:///etc/passwd',

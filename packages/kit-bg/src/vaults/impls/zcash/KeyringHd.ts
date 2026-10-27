@@ -73,9 +73,7 @@ export class KeyringHd extends KeyringHdBtc {
     throw new NotImplemented();
   }
 
-  // Proves the review-time PCZT, verifies it against the review, signs with
-  // seed-derived keys, then combines so sighash checks run before submit.
-  // Never routes through the BTC sighash path.
+  // Proves the review-time PCZT, verifies it against the review, signs with seed-derived keys, then combines. Never uses the BTC sighash path.
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
@@ -189,8 +187,7 @@ export class KeyringHd extends KeyringHdBtc {
     });
   }
 
-  // Derives account-scoped keys from the seed in the background and wipes the
-  // seed before any SDK call: the Zcash SDK never receives the seed.
+  // Derives account keys from the seed in bg and wipes the seed before any SDK call.
   private async withAccountSecrets<
     S extends Pick<IZcashAccountSecrets, 'accountXpub'> &
       Partial<Pick<IZcashAccountSecrets, 'orchardSk'>>,
@@ -235,7 +232,6 @@ export class KeyringHd extends KeyringHdBtc {
     }
   }
 
-  // Signs a proved PCZT hex with the account keys re-derived from the seed.
   private async signPcztHex({
     password,
     hdIndex,
@@ -267,8 +263,7 @@ export class KeyringHd extends KeyringHdBtc {
     );
   }
 
-  // Explicit, password-gated setup for an account whose enable operation was
-  // persisted by ServicePrivacyChain. Account creation never enters this path.
+  // Explicit, password-gated setup for an account whose enable was persisted; account creation never enters this path.
   async retryLocalWalletSetup({
     password,
     forceDerivation,

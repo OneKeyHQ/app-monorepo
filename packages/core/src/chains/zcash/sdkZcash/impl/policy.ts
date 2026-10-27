@@ -17,7 +17,7 @@ export const PAD_ORCHARD_BUNDLE = true;
 export const TRUSTED_CONFIRMATIONS = 3;
 export const UNTRUSTED_CONFIRMATIONS = 10;
 
-// PRODUCT. Whether our own zero-conf outputs may spend immediately; must stay
+// PRODUCT. Whether own zero-conf outputs may spend immediately; must stay
 // in lockstep with spend selection (send.ts) or the UI shows funds that sends then reject.
 export const ALLOW_ZERO_CONF_SHIELDING = false;
 

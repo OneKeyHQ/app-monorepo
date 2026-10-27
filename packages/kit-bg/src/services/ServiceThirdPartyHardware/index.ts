@@ -1344,7 +1344,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }
 
   // Dev-only probe for the Ledger Zcash app (viewing key + shielded address).
-  // Typed locally until the adapter release carrying these methods is pinned.
   @backgroundMethod()
   async thirdPartyHardwareZcashProbe(params: {
     vendor: EHardwareVendor;

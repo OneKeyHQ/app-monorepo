@@ -26,7 +26,6 @@ import HistoryDetails from './HistoryDetails';
 
 let mockHistory: IAccountHistoryTx;
 let mockTxDetails: Partial<IOnChainHistoryTx> | undefined;
-// What Receive displays; the background gate checks rows against it.
 let mockAccountAddresses:
   | { publicAddress?: string; privateAddress?: string }
   | undefined;
@@ -45,7 +44,6 @@ function mockGate() {
   });
 }
 
-// Rows and details reach the page after the background gate.
 function mockGatedHistory() {
   return mockHistory.decodedTx.networkId.startsWith('btc')
     ? mockHistory
@@ -61,7 +59,6 @@ function mockGatedDetails() {
     : mockTxDetails;
 }
 
-// A notification opens the page with a txid only; the row is decoded from the detail.
 let mockDeepLink = false;
 
 beforeEach(() => {
@@ -425,7 +422,6 @@ it('names the pool of a hidden sender', () => {
   expect(
     from.getByText(ETranslations.privacy_history_sender_unknown__desc),
   ).toBeTruthy();
-  // Explained under the pool name rather than in a separate "Unknown" row.
   expect(
     result.getAllByText(ETranslations.privacy_history_sender_unknown__desc),
   ).toHaveLength(1);
@@ -503,7 +499,6 @@ it('shows the pool name for our side while no private address is displayed', () 
 
 it('never shows a self-payment or change address that is not the displayed u1', () => {
   mockAccountAddresses = { publicAddress: OWN_T, privateAddress: OWN_UA };
-  // Our send recorded our own diversified address as its recipient.
   setZcashEndpoints({ poolId: 4, own: true }, { address: DIVERSIFIED });
   mockTxDetails = {
     sends: [shieldedOutput(4, { isOwn: true })],
@@ -595,10 +590,8 @@ it('names the recipient pool when the recipient is unknown', () => {
 });
 
 it.each([
-  // Which own address a note reached is unknown here: the pool is named.
   [{ address: OWN_T }, { poolId: 4, own: true }, [OWN_T, 'Ironwood pool']],
   [{ poolId: 4, own: true }, { address: OWN_T }, ['Ironwood pool', OWN_T]],
-  // A legacy pool shows no receive address, so it keeps its name.
   [
     { poolId: 3, own: true },
     { poolId: 4, own: true },
@@ -635,7 +628,6 @@ it('names our transparent change address by pool and shows the displayed t1', ()
   mockHistory.decodedTx.signer = OWN_T;
   const transfer = mockHistory.decodedTx.actions[0].assetTransfer;
   if (!transfer) throw new OneKeyLocalError('missing transfer fixture');
-  // An indexer row for an xpub account: the change goes to m/…/1/0.
   transfer.sends = [{ ...transfer.sends[0], from: OWN_T, to: '', isOwn: true }];
   transfer.receives = [
     { ...transfer.sends[0], from: '', to: external, isOwn: false },
@@ -673,7 +665,6 @@ it.each([
     const external = `t1${'E'.repeat(33)}`;
     mockAccountAddresses = displayed;
     mockDeepLink = true;
-    // Decoded from the detail after the background removed our address.
     setZcashFlow('', external);
     mockHistory.decodedTx.owner = OWN_T;
     mockHistory.decodedTx.signer = '';

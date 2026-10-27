@@ -1171,7 +1171,6 @@ function HistoryDetails() {
       vaultSettings?.localWallet?.publicAddressPattern,
     ],
   );
-  // An input of ours also proves it, where its address was not shown.
   const isSentFromThisWallet =
     (!!historyTx?.decodedTx.signer &&
       historyTx.decodedTx.signer === historyTx.decodedTx.owner) ||
@@ -1304,7 +1303,6 @@ function HistoryDetails() {
               <Fragment key={direction}>
                 {localWalletEndpoints?.[direction].map((endpoint) => {
                   if (!endpoint.address) {
-                    // A pool name is never offered as an address.
                     return (
                       <InfoItem
                         key={`pool-${endpoint.poolLabel}`}

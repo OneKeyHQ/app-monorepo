@@ -16,23 +16,17 @@ import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
 import type Vault from './Vault';
 
-/**
- * The only place that opens the Monero runtime's database and node. Opening
- * the database twice fails like corruption, not loudly.
- */
+/** The only place that opens the runtime database and node; opening the database twice fails like corruption. */
 
 // Installed on import so the chain cannot end up half-wired.
 installXmrCarrier();
 
-/** One database per network. Every identity on that network shares it. */
 export function xmrDbNameForNetwork(network: IXmrNetwork): string {
   return `xmr-${network}`;
 }
 
 type ISession = {
-  /** The carrier's API, wrapped so a lost runtime heals itself (below). */
   api: IXmrRuntimeApi;
-  /** As loaded; only session setup calls it directly. */
   raw: IXmrRuntimeApi;
   network: IXmrNetwork;
   dbName: string;
@@ -42,7 +36,6 @@ type ISession = {
   nodeAttempt?: { url: string; at: number };
 };
 
-// How long an unreachable node is left alone before the next attempt.
 const NODE_RETRY_MS = 30_000;
 
 // The Worker's database/node client was torn down while this cached session
@@ -104,7 +97,6 @@ async function openSession(params: {
   const api = await getXmrRuntimeApi();
   const dbName = xmrDbNameForNetwork(network);
   await api.openWallet(dbName, network);
-  // Local operations need only the database; a bad node must not block them.
   let connectedUrl = '';
   let nodeAttempt: ISession['nodeAttempt'];
   if (nodeUrl) {
@@ -147,7 +139,6 @@ function openSessionSingleFlight(params: {
   return opening;
 }
 
-// Retries once on a fresh session after a lost-state error.
 function healingMethod(
   current: ISession,
   method: (typeof XMR_RUNTIME_METHODS)[number],
@@ -190,8 +181,7 @@ export function isXmrRuntimeBusy(): boolean {
   return runtimeCallLock.isLocked();
 }
 
-// An entry remembers the account epoch it was read under (see
-// privacyChainState); one from another epoch describes destroyed data.
+// An entry remembers its account epoch; one from another epoch describes destroyed data.
 type IXmrStaleFirstEntry = { value: unknown; epoch?: string };
 const staleFirstCache = new Map<string, IXmrStaleFirstEntry>();
 const staleFirstQueued = new Set<string>();
@@ -199,7 +189,6 @@ const staleFirstQueued = new Set<string>();
 // cannot restore results for keys no epoch covers (storage size).
 let staleFirstGeneration = 0;
 
-/** Drop remembered read results. Tests only. */
 export function resetXmrStaleFirstCache() {
   staleFirstCache.clear();
   staleFirstQueued.clear();
@@ -207,9 +196,7 @@ export function resetXmrStaleFirstCache() {
 }
 
 type IXmrStaleFirstEpoch = {
-  // The account's epoch when this read started.
   epoch: string | undefined;
-  // Asked right before a value is stored: is that still the epoch?
   isCurrent: () => Promise<boolean>;
 };
 
@@ -227,7 +214,6 @@ async function storeXmrStaleFirst({
   onlyIfEmpty?: boolean;
 }) {
   if (owner && !(await owner.isCurrent())) return;
-  // A live read may have answered first; it is at least as fresh.
   if (
     generation !== staleFirstGeneration ||
     (onlyIfEmpty && staleFirstCache.has(key))
@@ -279,9 +265,7 @@ export async function readXmrStaleFirst<T>({
   key: string;
   read: () => Promise<T>;
   fallback: T;
-  /** Busy with nothing remembered: also queue one read behind the step. */
   queueWhenUncached?: boolean;
-  /** For a value describing one account's scanned data. */
   owner?: IXmrStaleFirstEpoch;
 }): Promise<T> {
   if (isXmrRuntimeBusy()) {
@@ -328,7 +312,6 @@ export async function deleteXmrDatabase(network: IXmrNetwork): Promise<void> {
   });
 }
 
-// Queues behind a running step instead of reopening the database under it.
 async function connectNode(target: ISession, url: string) {
   const { nodeAttempt } = target;
   if (nodeAttempt?.url === url && Date.now() - nodeAttempt.at < NODE_RETRY_MS) {
@@ -353,7 +336,6 @@ export async function getXmrRuntime(vault: Vault): Promise<IXmrRuntimeApi> {
     );
   }
   const network = await vault.getXmrNetwork();
-  // An unresolvable node still leaves the database usable.
   const nodeUrl = await vault.resolveXmrNodeUrl().catch(() => '');
   const dbName = xmrDbNameForNetwork(network);
 
@@ -361,7 +343,6 @@ export async function getXmrRuntime(vault: Vault): Promise<IXmrRuntimeApi> {
     session?.dbName === dbName
       ? session
       : await openSessionSingleFlight({ network, nodeUrl });
-  // A changed url reconnects; an empty one disconnects.
   if (current.nodeUrl !== nodeUrl) {
     await connectNode(current, nodeUrl);
   }
@@ -404,7 +385,6 @@ export async function getXmrRuntimeUuid({
   return key?.vkFp;
 }
 
-// App account id -> the runtime's integer row id, via its vkFp.
 export async function getXmrIdentityId(params: {
   api: IXmrRuntimeApi;
   vault: Vault;
@@ -451,7 +431,6 @@ export function getXmrNodeHealth(): IXmrNodeHealth | undefined {
 export async function getXmrChainTip(api: IXmrRuntimeApi): Promise<number> {
   // A failed connect leaves nodeUrl empty; the failure still belongs to the node tried.
   const url = session?.nodeUrl || session?.nodeAttempt?.url;
-  // Queued behind a scan step, the round trip would include that step.
   const timed = !isXmrRuntimeBusy();
   const startedAt = Date.now();
   let tip: { height: number };

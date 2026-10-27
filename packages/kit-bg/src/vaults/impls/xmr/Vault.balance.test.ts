@@ -94,7 +94,6 @@ describe('xmr balance for display', () => {
     });
   });
 
-  // The balance-details dialog labels `balance` as spendable.
   it('splits the total into spendable and frozen', async () => {
     const vault = createVault({
       enabled: true,
@@ -119,8 +118,7 @@ describe('xmr balance for display', () => {
   });
 });
 
-// The send page spends `balance`: unlocked only, as wallet2's unlocked
-// balance. The total (with locked change of a pending send) rides alongside.
+// The send page spends `balance`: unlocked only, as wallet2 does.
 describe('xmr token details for the send page', () => {
   it('offers the unlocked amount and reports the rest as locked', async () => {
     const vault = createVault({

@@ -267,9 +267,7 @@ class ServiceCustomRpc extends ServiceBase {
     );
   }
 
-  // Read-only: a chain that ships its own node uses it whenever no enabled row
-  // overrides it. The built-in node is never written as a row, so it is not
-  // cloud-synced and a deleted or disabled row falls back instead of failing.
+  // Read-only: a chain with its own node uses it unless an enabled row overrides it; the built-in node is never written as a row.
   public async resolveRpcUrlWithBuiltIn({
     networkId,
   }: {

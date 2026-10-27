@@ -96,8 +96,7 @@ export function useLocalWalletSendPool({
       revalidateOnFocus: true,
     },
   );
-  // A prior account/destination response must never supply the new balance
-  // or permit submission while the replacement request is still pending.
+  // A prior account/destination response must not supply the balance or allow submit while the new request is pending.
   const currentResult = enabled && result?.scope === scope ? result : undefined;
   const pools = useMemo(
     () =>
@@ -148,9 +147,7 @@ export function useLocalWalletSendPool({
     pools,
     selectedPool,
     selectPool,
-    // Paused privacy hides the private pools; the page says why they are gone.
     isPrivacyPaused: currentResult?.isPrivacyPaused === true,
-    // The selected pool's balance could not be read; the page offers a retry.
     isBalanceUnavailable:
       !!selectedPool && selectedPool.spendableParsed === undefined,
     reload: run,

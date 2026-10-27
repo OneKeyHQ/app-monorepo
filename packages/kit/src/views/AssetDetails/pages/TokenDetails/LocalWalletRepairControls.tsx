@@ -27,20 +27,17 @@ import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-// Recovery controls for a local-wallet account. Every action goes through
-// servicePrivacyChain; the copy speaks of "the chain" rather than a coin.
+// Recovery controls for a local-wallet account; every action goes through servicePrivacyChain.
 
 export type IBirthdayFormState = {
   mode: 'saved-birthday' | 'date' | 'height';
   date: Date | null;
   height?: string;
-  // Overrides `mode`: start at the chain's earliest birthday.
   fromEarliest?: boolean;
 };
 
 export type IEarliestBirthday = { height: number; timestamp: number };
 
-// Preserve the previous fallback scan date while offering day precision.
 export function createEnableBirthdayForm(hintTimestamp?: number): {
   current: IBirthdayFormState;
 } {
@@ -296,7 +293,6 @@ export function SetupRepairControl({
       });
       onDone();
     } catch (e) {
-      // Background errors auto-toast through the standard proxy.
       console.error('[privacyChain] retryLocalWalletAccountSetup failed', e);
     } finally {
       setBusy(false);
@@ -417,8 +413,6 @@ export function ScanRepairControl({
   );
 }
 
-// Developer-only dump of everything the account page reads; still works when
-// account metadata is missing.
 export function LocalWalletDebugControl({
   networkId,
   accountId,

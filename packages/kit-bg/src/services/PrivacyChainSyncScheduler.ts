@@ -39,9 +39,7 @@ export function getPrivacyChainSyncReason({
   return undefined;
 }
 
-// Code-unit order, the same order the rotation below steps through with `>`.
-// A locale collation here would sort keys one way and rotate through them
-// another, skipping or repeating a group.
+// Code-unit order, matching the `>` rotation below; locale collation would skip or repeat a group.
 function compareKeys(a: string, b: string): number {
   if (a < b) return -1;
   if (a > b) return 1;
@@ -71,9 +69,8 @@ export function pickPrivacyChainSyncCandidate<
   return next ?? backfillCandidates[0];
 }
 
-// A group whose turns keep failing sits out for a while, doubling each time:
-// otherwise its `tip`/`membership` reason (never cleared by a failed turn)
-// outranks every other chain's backfill on every tick.
+// A group whose turns keep failing sits out with doubling delay, else its never-cleared `tip`/`membership`
+// reason outranks every other chain's backfill.
 const FAILURE_BACKOFF_BASE_MS = 5000;
 const FAILURE_BACKOFF_MAX_MS = 5 * 60 * 1000;
 

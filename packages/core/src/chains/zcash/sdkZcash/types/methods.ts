@@ -10,7 +10,6 @@ export const ZCASH_SDK_METHODS = [
   'getChainTip',
   'prewarmPczt',
 
-  // keys side
   'validateAddress',
   'deriveAccount',
   'deriveAccountKeys',
@@ -26,7 +25,6 @@ export const ZCASH_SDK_METHODS = [
   'finalizeTransparentHardwarePczt',
   'redactPcztForHardwareSigner',
 
-  // wallet side (watch-only)
   'prepareWalletAccounts',
   'syncWallet',
   'queueRescanFrom',

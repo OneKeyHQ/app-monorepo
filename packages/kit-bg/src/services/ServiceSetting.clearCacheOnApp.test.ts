@@ -48,7 +48,6 @@ const transactionHistoryOnlyValues: IClearCacheOnAppState = {
 };
 
 describe('ServiceSetting.clearCacheOnApp', () => {
-  // Scan data is not cache: wiping it means rescanning for days.
   it('clears history caches without touching privacy-chain scan data', async () => {
     const clearTransactionHistoryCache = jest.fn().mockResolvedValue(undefined);
     const clearLocalWalletCaches = jest.fn().mockResolvedValue(undefined);
@@ -73,7 +72,6 @@ describe('ServiceSetting.clearCacheOnApp', () => {
     await service.clearCacheOnApp(transactionHistoryOnlyValues);
 
     expect(clearTransactionHistoryCache).not.toHaveBeenCalled();
-    // Only the saved balances and in-memory copies.
     expect(clearLocalWalletCaches).toHaveBeenCalledTimes(1);
     expect(clearLocalHistory).toHaveBeenCalledTimes(1);
     expect(clearAddressInfo).toHaveBeenCalledTimes(1);

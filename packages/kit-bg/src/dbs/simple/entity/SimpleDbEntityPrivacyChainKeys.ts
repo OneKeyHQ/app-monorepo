@@ -6,23 +6,18 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { PRIVACY_CHAIN_VIEWING_KEY_MISMATCH } from '../../../vaults/localWallet/viewingKeyMismatch';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-// The only copy of each privacy chain account's viewing key (Zcash UFVK,
-// Monero `spendPub:viewPriv`) on the host. Read and written only through
-// vaults/localWallet/viewingKeyStore.ts.
+// The only host copy of each account's viewing key (Zcash UFVK, Monero `spendPub:viewPriv`).
 
 export type IPrivacyChainSealedViewingKey = { format: 'plain'; value: string };
 
 export type IPrivacyChainKeyRecord = {
   networkId: string;
-  // See vaults/localWallet/viewingKeyFingerprint.ts.
   vkFp: string;
   sealed: IPrivacyChainSealedViewingKey;
 };
 
-// Records are stored untyped and validated one at a time on read: a malformed
-// record reads as missing, so its key is derived again.
+// Validated on read; a malformed record reads as missing and its key is derived again.
 export interface IPrivacyChainKeysDB {
-  // accountId -> IPrivacyChainKeyRecord
   keys?: Record<string, unknown>;
 }
 
@@ -50,7 +45,6 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
 
   protected override readonly rejectInvalidStoredData = true;
 
-  // Only the container shape is checked here; records are checked on read.
   protected override validateStoredData(data: unknown): void {
     if (
       !isPlainObject(data) ||
@@ -135,8 +129,7 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
       );
   }
 
-  // Readable records of one network; a malformed one names no network and is
-  // left for removed-account cleanup.
+  // Readable records of one network; a malformed one names no network.
   async removeNetworkKeys({ networkId }: { networkId: string }): Promise<void> {
     const committed = await this.updateKeys((keys) =>
       Object.fromEntries(

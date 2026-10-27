@@ -10,9 +10,8 @@ import type {
   ILocalWalletLifecycleEvent,
 } from './lifecycle';
 
-// STORAGE-DESIGN.md §3.6, written out independently of lifecycle.ts. Rows
-// the design leaves blank ("—") are 'keep'. localHistory is not a design
-// column; it records what the existing repair paths already cleared.
+// Expected table, written out independently of lifecycle.ts; blank cells are 'keep'.
+// localHistory records what the existing repair paths already cleared.
 const D = 'delete';
 const K = 'keep';
 
@@ -125,7 +124,7 @@ const DESIGN: Record<
     xmrSent: K,
     displayCaches: D,
     chainTips: D,
-    // The user's rule: clearing cache never touches scan data.
+    // Clearing cache never touches scan data.
     runtimeRows: K,
     memoryCaches: D,
     genericStorage: K,

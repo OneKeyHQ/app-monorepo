@@ -78,7 +78,6 @@ describe('findZcashLocalHistoryItem', () => {
 });
 
 describe('buildZcashLocalHistoryTx', () => {
-  // Until the fee is known the row shows the net spend, fee included.
   it('shows the net spend when the fee is unknown and preserves pool deltas', async () => {
     const item = {
       ...historyItem('sent'),
@@ -210,7 +209,6 @@ describe('buildZcashLocalHistoryTx counterparties', () => {
     });
   });
 
-  // Enhancement recovers the payment output later; until then only the fee is known.
   it('shows a self-transfer without a recovered payment output as zero plus its fee', async () => {
     const tx = await build({
       ...historyItem('self-without-payment-output'),

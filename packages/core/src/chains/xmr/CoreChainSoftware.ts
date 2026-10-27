@@ -20,11 +20,8 @@ import type {
   ISignedTxPro,
 } from '../../types';
 
-// Two derivations from one BIP-39 seed, picked by the account's path:
-// - Trezor (default): SLIP-10 ed25519 at m/44'/128'/a'.
-// - Cake Wallet: secp256k1 BIP-32 at m/44'/128'/a'/0/0.
-// ed25519 cannot derive a non-hardened segment, so a path with one is the
-// secp256k1 derivation.
+// Derived by path: SLIP-10 ed25519 at m/44'/128'/a' (Trezor, default) or secp256k1
+// BIP-32 at m/44'/128'/a'/0/0 (Cake). A non-hardened segment means secp256k1.
 export function getXmrCurveForPath(path: string): ICurveName {
   return path
     .split('/')
@@ -35,13 +32,9 @@ export function getXmrCurveForPath(path: string): ICurveName {
 }
 
 /**
- * Monero keys from a BIP-39 seed: `spend = sc_reduce32(bip32_key)` and
- * `view = keccak256(spend)`. The reduction lives only in the Rust runtime so
- * there is a single implementation.
- *
- * `publicKey` carries the viewing pair (`spendPub:viewPriv`). The spend key is
- * never persisted and never leaves the runtime: signing and key-image import
- * hand it the BIP-32 key, which it reduces per call.
+ * Monero keys from a BIP-39 seed: `spend = sc_reduce32(bip32_key)`, `view = keccak256(spend)`.
+ * `publicKey` carries the viewing pair (`spendPub:viewPriv`); the spend key is never
+ * persisted and never leaves the runtime.
  */
 export default class CoreChainSoftware extends CoreChainApiBase {
   override getExportedSecretKey(
@@ -61,10 +54,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
   }
 
-  /**
-   * Inputs, decoys, fee and change were fixed at review time, so signing
-   * needs no wallet database or node.
-   */
+  /** Inputs, decoys, fee and change are fixed at review, so signing needs no database or node. */
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
@@ -88,17 +78,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       ),
     });
     return {
-      // Deterministic at signing time, before any node sees the transaction.
       txid: signed.txid,
       rawTx: signed.rawHex,
       encodedTx,
     };
   }
 
-  /**
-   * The account's BIP-32 key for the runtime's key-image import; the caller
-   * keeps nothing and the runtime reduces it to the spend key.
-   */
+  /** The account's BIP-32 key for the runtime's key-image import. */
   async getKeyImageBip32PrivateKeyHex(
     payload: ICoreApiSignBasePayload,
   ): Promise<string> {
@@ -109,7 +95,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return signer.getPrvkeyHex();
   }
 
-  /** Re-derives the viewing pair (`spendPub:viewPriv`) when the stored copy is missing. */
   async getViewingKeyPair(payload: ICoreApiSignBasePayload): Promise<string> {
     const signer = await this.baseGetSingleSigner({
       payload,

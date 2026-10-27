@@ -1,8 +1,4 @@
-/**
- * Loads the Monero wasm runtime and installs it as this process's API.
- * Scanning is synchronous and CPU-bound in wasm, so every carrier must run
- * this loader inside a Worker or the main thread freezes silently.
- */
+/** Loads the Monero wasm runtime as this process's API. Scanning is CPU-bound, so run it inside a Worker. */
 
 import { runPrivacyChainWorkerOperation } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -22,10 +18,6 @@ let rawModule: IXmrRuntimeModule | undefined;
 // Set if persistent storage failed to install in this process.
 let storageError: unknown;
 
-/**
- * Wraps the synchronous wasm exports in async calls so an in-process runtime
- * and a carrier-hosted one present the same shape to every caller.
- */
 function toAsyncRuntime(mod: Record<string, unknown>): IXmrRuntimeApi {
   const api: Record<string, unknown> = {};
   for (const method of XMR_RUNTIME_METHODS) {
@@ -46,8 +38,7 @@ function toAsyncRuntime(mod: Record<string, unknown>): IXmrRuntimeApi {
 async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
   let mod: Record<string, unknown>;
   try {
-    // Eager: mobile inlines the Worker entry into a Blob, so the module must
-    // be bundled rather than lazy-loaded.
+    // Eager: mobile inlines the Worker entry into a Blob.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     mod = (await import(
       /* webpackMode: "eager" */ 'onekey-monero-runtime'
@@ -62,7 +53,6 @@ async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
 
   const init = mod.default as undefined | (() => Promise<unknown>);
   if (typeof init === 'function') {
-    // wasm-bindgen's default export fetches and instantiates the module.
     await init();
   }
 
@@ -70,9 +60,7 @@ async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
   // which cannot cross a Worker boundary via the typed async wrapper.
   rawModule = mod as unknown as IXmrRuntimeModule;
   const api = toAsyncRuntime(mod);
-  // Install storage once up front to avoid a race between callers. Not fatal:
-  // OPFS sync-access handles are Worker-only, and main-thread address
-  // derivation does not need them.
+  // Install storage once up front to avoid a race; not fatal, since OPFS handles are Worker-only.
   try {
     await api.init();
     storageError = undefined;
@@ -102,10 +90,7 @@ async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
   return api;
 }
 
-/**
- * Caches the promise so concurrent callers share one instantiation: opening
- * the OPFS pool twice looks like storage corruption.
- */
+/** Caches the promise: opening the OPFS pool twice looks like storage corruption. */
 export async function loadXmrRuntime(): Promise<IXmrRuntimeApi> {
   if (!cached) {
     cached = importRuntimeModule().catch((error) => {
@@ -117,10 +102,7 @@ export async function loadXmrRuntime(): Promise<IXmrRuntimeApi> {
   return cached;
 }
 
-/**
- * Installs the host's network channel directly on the module (not part of
- * `IXmrRuntimeApi`) because a function argument cannot cross `postMessage`.
- */
+/** Installed directly on the module: a function argument cannot cross `postMessage`. */
 export async function installXmrHostRequester(
   requester: (
     url: string,
@@ -132,12 +114,10 @@ export async function installXmrHostRequester(
   rawModule?.setRequestHandler(requester);
 }
 
-/** Synchronous so every Worker reply can report it. */
 export function xmrStorageRequiresWorkerRestart(): boolean {
   return rawModule?.storageRequiresWorkerRestart() ?? false;
 }
 
-/** Called once per carrier at startup; both entry points share one module. */
 export function installXmrRuntime() {
   setXmrRuntimeApiLoader(loadXmrRuntime);
   setXmrRuntimeLoader(async () => {

@@ -19,7 +19,6 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     addressInput: { validation: { failWithUnknownError: jest.fn() } },
   },
 }));
-// Stands in for settings.localWallet: Zcash is the privacy chain here.
 jest.mock('../vaults/localWallet/isLocalWalletNetwork', () => ({
   isLocalWalletNetwork: async ({ networkId }: { networkId: string }) =>
     networkId === 'zec--0',
@@ -153,7 +152,6 @@ describe('batch address validation', () => {
         { networkIdList: ['evm--1', 'zec--0'], accountAddress: 'recipient' },
       );
       expect(context.serverBatchValidateAddress).toHaveBeenCalledTimes(1);
-      // Local validation starts once settings say which networks are local.
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(context.localValidateAddress).toHaveBeenCalledTimes(1);
       local.resolve({ isValid, normalizedAddress: '', displayAddress: '' });

@@ -35,14 +35,12 @@ describe('privacy chain xmr sent records', () => {
       amountAtomic: '1000000000000',
       feeAtomic: '30000000',
     });
-    // Only a recorded pair counts; a lone amount is not kept.
     await entity.recordXmrSent({
       accountId: 'account',
       txid: 'half',
       recipient: 'own-three',
       amountAtomic: '5',
     });
-    // A recipient-only write keeps the amounts already recorded.
     await entity.recordXmrSent({
       accountId: 'account',
       txid: 'new',

@@ -11,12 +11,8 @@ import { setXmrRuntimeLoader } from './sdkXmrRuntime/address';
 import type { IXmrPureRuntimeApi } from './sdkXmrRuntime/address';
 
 /**
- * Published vectors from the two wallets whose BIP-39 derivation we follow.
- * They pin what this package owns -- derive type -> path -> curve -> the
- * 32-byte BIP-32 key -- by checking the spend key reduced from it. The runtime
- * owns key -> address and is tested against its own vectors.
- *
- * Templates mirror kit-bg xmr settings (`default` = Trezor, `cake` = Cake).
+ * Published Trezor and Cake Wallet vectors. They pin derive type -> path -> curve -> the
+ * 32-byte BIP-32 key by checking the spend key reduced from it.
  */
 const CAKE_TEMPLATE = `m/44'/128'/${INDEX_PLACEHOLDER}'/0/0`;
 const TREZOR_TEMPLATE = `m/44'/128'/${INDEX_PLACEHOLDER}'`;
@@ -89,9 +85,7 @@ describe('xmr derive type -> curve', () => {
 });
 
 describe('xmr published derivation vectors', () => {
-  // cake-tech/cake_wallet@80a8c83 cw_monero/test/bip39_seed_test.dart. Cake
-  // publishes legacy 25-word seeds, which encode the spend key; the hex below
-  // is those seeds decoded (MyMonero core), accounts 0 and 1.
+  // cake-tech/cake_wallet@80a8c83 cw_monero/test/bip39_seed_test.dart; legacy 25-word seeds decoded, accounts 0 and 1.
   it.each([
     [
       'meadow tip best belt boss eyebrow control affair eternal piece very shiver',
@@ -112,9 +106,7 @@ describe('xmr published derivation vectors', () => {
   });
 
   // cspell:ignore getwatchkey
-  // trezor/trezor-firmware@148e530 tests/device_tests/monero/
-  // test_getwatchkey.py, m/44h/128h/0h. Trezor publishes the view key, which
-  // is keccak256(spend) mod l.
+  // trezor/trezor-firmware@148e530 tests/device_tests/monero/test_getwatchkey.py, m/44h/128h/0h.
   it('matches Trezor', async () => {
     const [spend] = await spendKeysFor(
       'alcohol woman abuse must during monitor noble actual mixed trade anger aisle',

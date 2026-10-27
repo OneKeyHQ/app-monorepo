@@ -29,7 +29,6 @@ const backfilling: ILocalWalletSyncProgress = {
   isSyncing: true,
 };
 
-// Time reads better; the block count stands in only until a rate is measured.
 describe('local wallet backfill remaining', () => {
   it('shows the time left once the scan rate is known', () => {
     const text = buildLocalWalletSyncStatusText({

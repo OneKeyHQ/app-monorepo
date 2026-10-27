@@ -151,8 +151,6 @@ describe('Zcash endpoint outcomes through the leased API', () => {
   });
 });
 
-// A UI read never waits on a scan: when a scan owns the database, a read with
-// a previous answer returns it instead of joining the lease.
 describe('Zcash reads while a scan holds the lease', () => {
   function pool(total: string) {
     return {
@@ -205,8 +203,6 @@ describe('Zcash reads while a scan holds the lease', () => {
   });
 });
 
-// While a scan holds the wallet, reads answer from the last result. A rescan
-// makes the remembered progress wrong, so it must not be answered again.
 describe('Zcash remembered reads after a rescan', () => {
   it('forgets the remembered progress once a rescan is queued', async () => {
     let scannedTo = 100;

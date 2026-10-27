@@ -12,7 +12,6 @@ import Vault from './Vault';
 
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
 const VIEWING_KEY = 'aa:bb';
-// The runtime names the identity by the stored key's fingerprint.
 const VK_FP = getViewingKeyFingerprint({
   networkId: 'xmr--0',
   viewingKey: VIEWING_KEY,
@@ -25,8 +24,7 @@ const privacyChainKeys = {
   }),
 };
 
-// Key images (spend key) reveal spends made elsewhere; computed from the
-// password only when some output still lacks one.
+// Key images (spend key) are computed only when some output still lacks one.
 function createVault(outputsWithoutKeyImage: number, spendsFound = 0) {
   const api = {
     listAccounts: async () =>
@@ -83,7 +81,6 @@ describe('xmr key images', () => {
     expect(keyring.xmrGetKeyImageBip32PrivateKeyHex).toHaveBeenCalledWith({
       password: 'pw',
     });
-    // One crossing with the BIP-32 key; the runtime reduces the spend key.
     expect(api.importKeyImagesWithBip32Key).toHaveBeenCalledTimes(1);
     expect(api.importKeyImagesWithBip32Key).toHaveBeenCalledWith(
       '7',
@@ -100,8 +97,6 @@ describe('xmr key images', () => {
     ).resolves.toBe(true);
   });
 
-  // An imported key image turns a password-locked output spendable even when
-  // it uncovers no spend made elsewhere, so the balance changes either way.
   it('reports a state change whenever key images are imported', async () => {
     await expect(
       createVault(2, 1).vault.localWalletDoPasswordWork({ password: 'pw' }),

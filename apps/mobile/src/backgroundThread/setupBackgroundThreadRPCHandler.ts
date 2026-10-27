@@ -259,8 +259,7 @@ function buildErrorPayload(error: unknown) {
   if (safeData) {
     errorPayload.data = safeData;
   }
-  // Structured runtime errors (zcash wasm) carry params/detail the UI keys
-  // its copy off; keep them alongside the plain-error contract.
+  // Structured runtime errors (zcash wasm) keep params/detail for the UI.
   if (
     runtimeError?.params &&
     typeof runtimeError.params === 'object' &&
@@ -790,15 +789,13 @@ export function reportBackgroundThreadInitializationFailure(error: unknown) {
 
 const WEBEMBED_BRIDGE_CALL_TIMEOUT_MS = 30_000;
 
-// Local-wallet runtimes serialize every call behind one carrier lease, so any
-// method can wait out a whole sync turn (5-minute watchdog); proofs run after.
+// Local-wallet runtimes serialize calls behind one carrier lease, so any method can wait out a sync turn (5-minute watchdog).
 const WEBEMBED_MODULE_TIMEOUTS_MS: Record<
   string,
   { default: number; methods?: Record<string, number> }
 > = {
   chainZcash: { default: 360_000, methods: { provePczt: 540_000 } },
-  // One scan step may fetch and scan up to 1000 blocks; building a send
-  // fetches decoys over several node requests.
+  // One scan step covers up to 1000 blocks; a send fetches decoys over several requests.
   chainXmr: {
     default: 120_000,
     methods: { syncStep: XMR_SYNC_WATCHDOG_MS },
@@ -830,8 +827,7 @@ const pendingWebEmbedBridgeCalls = new Map<
   }
 >();
 
-// Local-wallet runtimes throw structured errors the UI keys its copy off.
-// Other modules surface the message only.
+// Local-wallet runtimes throw structured errors; other modules surface the message only.
 const STRUCTURED_ERROR_WEBEMBED_MODULES = new Set(['chainZcash', 'chainXmr']);
 
 export function rehydrateWebEmbedBridgeError(
@@ -912,8 +908,7 @@ export function callWebEmbedBridgeViaMainThread(
   });
 }
 
-// A remounted WebView never answers the old one's calls; fail them now
-// instead of at their (minutes-long) timeouts.
+// A remounted WebView never answers the old one's calls; fail them now, not at their timeouts.
 export function rejectPendingWebEmbedBridgeCalls(reason: string) {
   const pending = [...pendingWebEmbedBridgeCalls.values()];
   pendingWebEmbedBridgeCalls.clear();

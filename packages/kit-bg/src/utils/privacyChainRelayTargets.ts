@@ -2,16 +2,7 @@ import { getVaultSettings } from '../vaults/settings';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 
-/**
- * Which URLs the privacy-chain host relays (mobile `$private` bridge,
- * extension service worker) may fetch for the runtime.
- *
- * The relays exist so the runtime can reach nodes that serve no CORS headers;
- * without this list they are a fetch-anything proxy for whoever reaches them.
- * Only a node the app itself configured for a local-wallet chain passes: the
- * chain's built-in node or the user's custom node row. Requests go to paths
- * below that node URL (`/json_rpc`, `/get_blocks.bin`, gRPC-web methods).
- */
+/** URLs the host relays may fetch: only the chain's built-in node or the user's custom node row; otherwise the relay is a fetch-anything proxy. */
 
 export type IPrivacyChainRelayTargetSource = {
   getLocalWalletNetworkIds: () => Promise<string[]>;
@@ -84,12 +75,10 @@ export async function isPrivacyChainRelayTargetAllowed(
       ? cachedTargets.targets
       : undefined;
   if (fresh?.some((target) => isUnderTarget(request, target))) return true;
-  // A miss re-reads the settings: a node saved a moment ago must pass.
   const targets = await loadTargets(source);
   return targets.some((target) => isUnderTarget(request, target));
 }
 
-/** Lets the relays reach an unsaved node while the app probes it. */
 export function allowPrivacyChainRelayProbe(url: string): () => void {
   const target = parseRelayTarget(url);
   if (!target) return () => undefined;
@@ -121,8 +110,7 @@ export function createPrivacyChainRelayTargetSource(
         backgroundApi.serviceCustomRpc.resolveRpcUrlWithBuiltIn({ networkId }),
         backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(networkId),
       ]);
-      // A disabled custom row still counts: the runtime may finish a request
-      // to it while switching back to the built-in node.
+      // A disabled custom row still counts: a request may finish while switching back to the built-in node.
       return [...(settings.builtInRpcUrls ?? []), active, customRpc?.rpc];
     },
   };

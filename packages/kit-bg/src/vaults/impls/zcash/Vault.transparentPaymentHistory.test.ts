@@ -291,7 +291,6 @@ function createVault(initial = localPayment()) {
         },
       },
       serviceToken: { getToken: async () => undefined },
-      // Our transparent address is the one Receive displays.
       servicePrivacyChain: {
         getLocalWalletAccountAddresses: async () => ({ publicAddress: sender }),
       },
@@ -501,7 +500,6 @@ it.each([
   if (scenario === 'private cache') local.privacyChainHistorySide = 'private';
   const { vault } = createVault(local);
   const rows = await vault.fetchAccountHistoryFromLocal(params);
-  // Falls back to the backend's net transparent debit.
   expect(rows?.[0].decodedTx.nativeAmount).toBe('0.001');
   expect(rows?.[0].decodedTx.to).not.toBe(recipient);
 });
