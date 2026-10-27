@@ -372,13 +372,15 @@ export function ReversePositionContent({
           <Button
             testID={PerpTestIDs.ReversePositionConfirmButton}
             size={PERP_DIALOG_BUTTON_SIZE}
-            variant="primary"
+            variant={isBuy ? 'accent' : 'destructive'}
             disabled={!target || !isScopeValid || isSubmitting}
             loading={isSubmitting}
             onPress={handleSubmit}
           >
             {intl.formatMessage({
-              id: ETranslations.perp_confirm_reversal__action,
+              id: isBuy
+                ? ETranslations.perp_trade_long
+                : ETranslations.perp_trade_short,
             })}
           </Button>
         </TradingGuardWrapper>
