@@ -582,7 +582,6 @@ function PerpSettingsMenuContent({
         showActivityCenterEntry
           ? () => (
               <PerpsActivityCenterContent
-                copyAsUrl
                 closePopover={closePopover}
                 showTitle={false}
                 menuLayout
