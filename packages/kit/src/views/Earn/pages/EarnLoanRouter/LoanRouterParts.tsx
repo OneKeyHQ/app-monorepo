@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,9 +14,10 @@ import {
   YStack,
   claimEscapePress,
 } from '@onekeyhq/components';
-import type { IColorTokens } from '@onekeyhq/components';
+import type { IColorTokens, IElement } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared';
@@ -118,16 +119,38 @@ export function LoanTokenList({
   options,
   selectedSymbol,
   onSelect,
+  isOpen = true,
   closePopover,
 }: {
   testID: string;
   options: ILoanRouterOption[];
   selectedSymbol: string;
   onSelect: (symbol: string) => void;
+  // On narrow windows the list is a sheet, mounted while closed too
+  isOpen?: boolean;
   closePopover: () => void;
 }) {
   const intl = useIntl();
   const [search, setSearch] = useState('');
+  const listRef = useRef<IElement>(null);
+  // Closed, the list forgets its search and its field lets go of the focus,
+  // so typing and Escape reach the modal again
+  useEffect(() => {
+    if (isOpen) {
+      return;
+    }
+    setSearch('');
+    if (platformEnv.isNative) {
+      return;
+    }
+    const focused = globalThis.document?.activeElement;
+    if (
+      focused instanceof HTMLElement &&
+      (listRef.current as HTMLElement | null)?.contains(focused)
+    ) {
+      focused.blur();
+    }
+  }, [isOpen]);
   const shown = useMemo(() => {
     const query = search.trim().toUpperCase();
     return query
@@ -135,18 +158,20 @@ export function LoanTokenList({
       : options;
   }, [options, search]);
   return (
-    <YStack testID={testID} p="$2" gap="$1">
+    <YStack ref={listRef} testID={testID} p="$2" gap="$1">
       {options.length > SEARCH_FROM ? (
         <Stack px="$1" pb="$1">
           <SearchBar
-            autoFocus
+            // Only while the list shows: a closed sheet's field mustn't take
+            // the focus when the modal opens
+            autoFocus={isOpen}
             placeholder={intl.formatMessage({
               id: ETranslations.global_search,
             })}
             value={search}
             onChangeText={setSearch}
             onKeyPress={(event) => {
-              if (event.nativeEvent.key === 'Escape') {
+              if (event.nativeEvent.key === 'Escape' && isOpen) {
                 // The field keeps the press from the popover: the list
                 // closes, the modal under it stays
                 claimEscapePress();
@@ -328,7 +353,8 @@ function RouteRow({
       gap="$3"
       px="$4"
       py="$3.5"
-      bg={isSelected ? '$bgActive' : '$bgSubdued'}
+      // Nothing to pick where the market doesn't lend the token at all
+      bg={isSelected && !isLendingClosed(block) ? '$bgActive' : '$bgSubdued'}
       borderRadius="$3"
       borderCurve="continuous"
       userSelect="none"

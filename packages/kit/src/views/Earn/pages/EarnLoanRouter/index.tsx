@@ -424,9 +424,17 @@ function EarnLoanRouterPage() {
     };
     return rankedItems.toSorted((a, b) => at(a.route.key) - at(b.route.key));
   }, [isSliding, rankedItems]);
+  const pickedItem = items.find((item) => item.route.key === pickedKey);
+  const usableItem = items.find((item) => !item.metrics.block);
+  // The market of the row the modal opened from (or one picked while the
+  // figures loaded) that doesn't lend the token to the account at all gives
+  // way to the best one that can take the loan
+  const isPickClosed =
+    isFactsLoaded && isLendingClosed(pickedItem?.metrics.block);
   const selected =
-    items.find((item) => item.route.key === pickedKey) ??
-    items.find((item) => !item.metrics.block) ??
+    (isPickClosed ? usableItem : undefined) ??
+    pickedItem ??
+    usableItem ??
     items[0];
   // With no market picked, the best one is checked once every market's
   // figures are in, and stays checked: typing never moves the check to
@@ -434,7 +442,9 @@ function EarnLoanRouterPage() {
   const isPickListed =
     pickedKey !== undefined && routes.some((item) => item.key === pickedKey);
   const autoPickKey =
-    !isPickListed && isFactsLoaded ? selected?.route.key : undefined;
+    (!isPickListed || isPickClosed) && isFactsLoaded
+      ? selected?.route.key
+      : undefined;
   useEffect(() => {
     if (autoPickKey) {
       setPickedKey(autoPickKey);
@@ -540,9 +550,14 @@ function EarnLoanRouterPage() {
   const handleBorrowChange = useCallback((value: string) => {
     setTypedBorrow(value || undefined);
   }, []);
+  // Where the bar starts (what is borrowed in the market already), read at
+  // the press
+  const ltvStartRef = useRef(0);
   const handleLtvChange = useCallback((ltv: number) => {
     setTypedBorrow(undefined);
-    setDraggedLtv(ltv);
+    // At the start there is no loan: kept as none, not as the LTV the start
+    // sat at, so a price move can't make one up
+    setDraggedLtv(ltv <= ltvStartRef.current + 1e-9 ? 0 : ltv);
   }, []);
   const handleSlideStart = useCallback(() => {
     slideOrderRef.current = items.map((item) => item.route.key);
@@ -604,6 +619,7 @@ function EarnLoanRouterPage() {
     () => ({
       title: intl.formatMessage({ id: ETranslations.defi_collateral }),
       content: function CollateralList({
+        isOpen,
         closePopover,
       }: {
         isOpen?: boolean;
@@ -612,6 +628,7 @@ function EarnLoanRouterPage() {
         return (
           <LoanTokenList
             testID="earn-loan-collateral-list"
+            isOpen={isOpen}
             options={collateralOptions}
             selectedSymbol={collateralSymbol}
             onSelect={handleCollateralPick}
@@ -626,6 +643,7 @@ function EarnLoanRouterPage() {
     () => ({
       title: intl.formatMessage({ id: ETranslations.global_borrow }),
       content: function BorrowList({
+        isOpen,
         closePopover,
       }: {
         isOpen?: boolean;
@@ -634,6 +652,7 @@ function EarnLoanRouterPage() {
         return (
           <LoanTokenList
             testID="earn-loan-borrow-list"
+            isOpen={isOpen}
             options={borrowOptions}
             selectedSymbol={borrowSymbol}
             onSelect={handleBorrowPick}
@@ -770,6 +789,7 @@ function EarnLoanRouterPage() {
           previewLtv,
         })
       : undefined;
+  ltvStartRef.current = ltvBar && !ltvBar.isPreview ? ltvBar.used : 0;
   // The health factor the bar's LTV leaves, in the Borrow pages' colors
   const barTone = healthTone(
     ltvBar?.liquidation !== undefined && ltvBar.value > 0
@@ -909,9 +929,10 @@ function EarnLoanRouterPage() {
   // The loan's own result: what this collateral earns less what this loan
   // costs, as a rate while the collateral could carry the loan alone; past
   // that (the market's position carries the rest) as money a year. Where
-  // the account has nothing in the market, its risk too
+  // the account has nothing in the market, its risk too. A market that
+  // doesn't lend the token has no result: a dash
   const netYearly =
-    selectedMetrics?.netApy === undefined
+    !isClosed && selectedMetrics?.netApy === undefined
       ? selectedMetrics?.annualNet
       : undefined;
   const summary = selectedRoute ? (
@@ -925,9 +946,9 @@ function EarnLoanRouterPage() {
             }
           : {
               label: intl.formatMessage({ id: ETranslations.defi_net_apy }),
-              isEarning: (selectedMetrics?.netApy ?? 0) > 0,
+              isEarning: !isClosed && (selectedMetrics?.netApy ?? 0) > 0,
               values:
-                selectedMetrics?.netApy === undefined
+                isClosed || selectedMetrics?.netApy === undefined
                   ? []
                   : [
                       {
@@ -1008,6 +1029,8 @@ function EarnLoanRouterPage() {
 
   // ---------- The press ----------
 
+  // Why the market can't take the loan shows under its card only; here it
+  // holds the button
   const blockText =
     selectedRoute && selectedMetrics?.block
       ? getLoanBlockText({
@@ -1086,16 +1109,6 @@ function EarnLoanRouterPage() {
           color="$textSubdued"
         >
           {suppliedNote}
-        </SizableText>
-      ) : null,
-      blockText && !isLocked ? (
-        <SizableText
-          key="block"
-          testID="earn-loan-block"
-          size="$bodyMd"
-          style={{ color: toneColors.text.caution }}
-        >
-          {blockText}
         </SizableText>
       ) : null,
     ].filter(isElement);
