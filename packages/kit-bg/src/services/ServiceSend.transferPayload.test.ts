@@ -102,6 +102,7 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 import { parseZcashTransaction } from '../vaults/impls/zcash/transactionReview';
 
 import ServiceGas from './ServiceGas';
+import { buildStageConfirmContentForSignTx } from './ServiceHardwareUI/deviceStageConfirmUtils';
 import ServiceSend from './ServiceSend';
 
 import type { IEncodedTxZcash } from '../vaults/impls/zcash/types';
@@ -289,7 +290,7 @@ function privacySendFixture(networkId: string) {
 
 describe('privacy send approval lifecycle', () => {
   it.each(['xmr--0', 'zec--0'])(
-    '%s shows the signed payment and exact fee in the device confirmation card',
+    '%s builds the device confirmation card like other chains',
     async (networkId) => {
       const { service, vault, backgroundApi, accountId } =
         privacySendFixture(networkId);
@@ -300,17 +301,17 @@ describe('privacy send approval lifecycle', () => {
       unsignedTx.transfersInfo = [
         {
           from: 'synthetic-sender',
-          to: 'unverified-recipient',
+          to: 'entered-recipient',
           amount: '2',
         },
       ];
       const stageFeeInfo: ISendSelectedFeeInfo = {
         feeInfo: {
           common: {
-            feeDecimals: 12,
-            feeSymbol: 'UNVERIFIED',
-            nativeDecimals: 12,
-            nativeSymbol: 'UNVERIFIED',
+            feeDecimals: 8,
+            feeSymbol: 'ZEC',
+            nativeDecimals: 8,
+            nativeSymbol: 'ZEC',
           },
         },
         total: '1',
@@ -326,27 +327,54 @@ describe('privacy send approval lifecycle', () => {
         signOnly: true,
         stageFeeInfo,
       });
-      const symbol = networkId === 'xmr--0' ? 'XMR' : 'ZEC';
       expect(
         backgroundApi.serviceHardwareUI.withHardwareProcessing,
       ).toHaveBeenCalledWith(
         expect.any(Function),
         expect.objectContaining({
-          stageConfirmContent: {
-            details: [
-              expect.objectContaining({
-                value:
-                  networkId === 'xmr--0'
-                    ? 'synthetic-recipient'
-                    : 'u1-synthetic-recipient',
-              }),
-              expect.objectContaining({ value: `1 ${symbol}` }),
-              expect.objectContaining({ value: `0.0001 ${symbol}` }),
-            ],
-          },
+          stageConfirmContent: buildStageConfirmContentForSignTx(
+            unsignedTx,
+            stageFeeInfo,
+          ),
         }),
       );
       expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  // Signed privacy txs embed viewing material; the logs keep only safe fields.
+  it.each(['xmr--0', 'zec--0'])(
+    '%s logs the signed tx without its hex payloads',
+    async (networkId) => {
+      const { service, accountId, signedTx } = privacySendFixture(networkId);
+      const unsignedTx = await service.buildUnsignedTx({
+        accountId,
+        networkId,
+      });
+      const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await service.signTransaction({
+          accountId,
+          networkId,
+          unsignedTx,
+          signOnly: true,
+        });
+        const signLogs = log.mock.calls.filter(([label]) =>
+          [
+            'signTx@vault.signTransaction',
+            'signTx@serviceSend.signTransaction',
+          ].includes(label as string),
+        );
+        expect(signLogs).toHaveLength(2);
+        for (const [, payload] of signLogs) {
+          expect(payload).toEqual(
+            expect.objectContaining({ txid: signedTx.txid }),
+          );
+          expect(JSON.stringify(payload)).not.toContain('aabb');
+        }
+      } finally {
+        log.mockRestore();
+      }
     },
   );
 

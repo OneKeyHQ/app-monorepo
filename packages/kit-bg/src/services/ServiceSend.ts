@@ -873,45 +873,24 @@ class ServiceSend extends ServiceBase {
           params.diagnosticSendState.context = activeDiagnostic;
         }
       }
-      const requiresPrivacyReview = await isLocalWalletNetwork({ networkId });
-      let privacyStageConfirmContent:
-        | ReturnType<typeof buildStageConfirmContentForSignTx>
-        | undefined;
-      if (requiresPrivacyReview) {
-        const payment =
+      // Privacy-chain signed txs embed viewing material; log the review instead.
+      let signedTxForLog: (signedTx: ISignedTxPro) => unknown = (signedTx) =>
+        signedTx;
+      if (await isLocalWalletNetwork({ networkId })) {
+        const { encodedTx, to, amount, fee } =
           await this.backgroundApi.servicePrivacyChain.reviewLocalWalletTransaction(
             { networkId, encodedTx: diagnosticUnsignedTx.encodedTx },
           );
-        const toDisplay = (value: string) =>
-          new BigNumber(value).shiftedBy(-payment.decimals).toFixed();
         diagnosticUnsignedTx = {
           ...cloneDeep(diagnosticUnsignedTx),
-          encodedTx: payment.encodedTx,
+          encodedTx,
         };
-        const { symbol } = await vault.getNetwork();
-        privacyStageConfirmContent = {
-          details: [
-            {
-              label: appLocale.intl.formatMessage({
-                id: ETranslations.global_recipient,
-              }),
-              value: payment.to,
-              highlightEnds: true,
-            },
-            {
-              label: appLocale.intl.formatMessage({
-                id: ETranslations.content__amount,
-              }),
-              value: `${toDisplay(payment.amount)} ${symbol}`,
-            },
-            {
-              label: appLocale.intl.formatMessage({
-                id: ETranslations.global_est_network_fee,
-              }),
-              value: `${toDisplay(payment.fee)} ${symbol}`,
-            },
-          ],
-        };
+        signedTxForLog = (signedTx) => ({
+          txid: signedTx.txid,
+          to,
+          amount,
+          fee,
+        });
       }
       const { password, deviceParams } =
         params.prefetchedCredentials ??
@@ -960,25 +939,26 @@ class ServiceSend extends ServiceBase {
               deviceParams,
               signOnly,
             });
-            if (
-              process.env.NODE_ENV !== 'production' &&
-              !requiresPrivacyReview
-            ) {
-              console.log('signTx@vault.signTransaction', signedTx);
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(
+                'signTx@vault.signTransaction',
+                signedTxForLog(signedTx),
+              );
             }
             return signedTx;
           },
           {
             deviceParams,
             debugMethodName: 'serviceSend.signTransaction',
-            stageConfirmContent:
-              privacyStageConfirmContent ??
-              buildStageConfirmContentForSignTx(unsignedTx, stageFeeInfo),
+            stageConfirmContent: buildStageConfirmContentForSignTx(
+              unsignedTx,
+              stageFeeInfo,
+            ),
           },
         );
 
-      if (process.env.NODE_ENV !== 'production' && !requiresPrivacyReview) {
-        console.log('signTx@serviceSend.signTransaction', tx);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('signTx@serviceSend.signTransaction', signedTxForLog(tx));
       }
 
       tx.swapInfo = unsignedTx.swapInfo;
