@@ -22,6 +22,7 @@ import type { IDBDeviceSettings } from '../../dbs/local/types';
 import type {
   ChainForFingerprint,
   ICommonCallParams,
+  IHardwareWallet,
   Response,
 } from '@onekeyfe/hwk-adapter-core';
 
@@ -369,10 +370,28 @@ export async function verifySeedMatch(
     );
   if (!adapter) return 'unknown';
 
+  const compare = () =>
+    compareStoredLedgerFingerprints(
+      adapter.hw,
+      stored,
+      candidates,
+      liveConnectId,
+    );
+  return adapter.runWalletMatchCheck
+    ? adapter.runWalletMatchCheck(compare)
+    : compare();
+}
+
+async function compareStoredLedgerFingerprints(
+  hw: IHardwareWallet,
+  stored: Record<string, string>,
+  candidates: ChainForFingerprint[],
+  liveConnectId: string,
+): Promise<'match' | 'mismatch' | 'unknown'> {
   for (const chain of candidates) {
     let live: string;
     try {
-      const res = await adapter.hw.getChainFingerprint(
+      const res = await hw.getChainFingerprint(
         liveConnectId,
         stored[chain],
         chain,

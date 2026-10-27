@@ -73,6 +73,10 @@ export type IDeviceStageQrFallbackReasonValue =
   | 'device-locked'
   | 'usb-unavailable';
 
+/** Why the device is opening an app, when the app knows: `walletMatch`
+ * is a check that the connected Ledger holds this wallet. */
+export type IDeviceStageOpenAppReasonValue = 'walletMatch';
+
 export type IDeviceStageErrorReasonValue =
   | 'rejected'
   | 'pinInvalid'

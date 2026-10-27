@@ -100,6 +100,7 @@ import {
   resolveQrFallbackText,
   resolveStageText,
   resolveStepSub,
+  resolveWalletMatchOpenAppText,
 } from './stepCopy';
 import { StepText, TEXT_OUT_MS } from './StepText';
 import {
@@ -592,6 +593,7 @@ export function DeviceStage({
   btcHighIndexPath,
   btcHighIndexAccountIndex,
   qrFallbackReason,
+  openAppReason,
   onPairingSubmit,
   onDeviceNotFoundRetry,
   onDeviceNotFoundTroubleshoot,
@@ -1428,16 +1430,22 @@ export function DeviceStage({
   if (pose === 'capsule') {
     // Straight off the live step: the column's words freeze on card
     // steps, but the capsule always speaks the present.
-    const nextCapsuleText = resolveCapsuleText(
-      intl,
-      step,
-      deviceName,
-      vendor,
-      errorReason,
-      localizedErrorMessage,
-      waitStalled ? (connectionType ?? 'usb') : undefined,
-      localizedDoneTitle,
-    );
+    const walletMatchText =
+      step === 'openApp'
+        ? resolveWalletMatchOpenAppText(intl, openAppReason, appName, vendor)
+        : undefined;
+    const nextCapsuleText =
+      walletMatchText ??
+      resolveCapsuleText(
+        intl,
+        step,
+        deviceName,
+        vendor,
+        errorReason,
+        localizedErrorMessage,
+        waitStalled ? (connectionType ?? 'usb') : undefined,
+        localizedDoneTitle,
+      );
     // Same words, same object: the capsule row's memo then bails on
     // every render that changed nothing it shows.
     if (

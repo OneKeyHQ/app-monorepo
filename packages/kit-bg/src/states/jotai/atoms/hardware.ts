@@ -22,6 +22,7 @@ import type {
   IDeviceStageConfirmDetail,
   IDeviceStageErrorI18n,
   IDeviceStageErrorReasonValue,
+  IDeviceStageOpenAppReasonValue,
   IDeviceStageQrFallbackReasonValue,
   IDeviceStageStepValue,
 } from '@onekeyhq/shared/types/deviceStage';
@@ -224,7 +225,8 @@ export type IDeviceStageState = {
   thirdPartyAction?: EThirdPartyHardwareUiAction;
   /** SDK request identifier for the current third-party prompt. */
   thirdPartyRequestId?: string;
-  /** Install steps: coin app name, real SDK progress (0–100), batch queue. */
+  /** Install steps and a wallet-match openApp: coin app name; install
+   * steps also carry real SDK progress (0–100) and the batch queue. */
   appName?: string;
   installProgress?: number;
   installQueue?: string[];
@@ -233,6 +235,8 @@ export type IDeviceStageState = {
   btcHighIndexAccountIndex?: number;
   /** Why the Keystone request is offered as a QR (qrFallback step). */
   qrFallbackReason?: IDeviceStageQrFallbackReasonValue;
+  /** Why the openApp step's device is opening an app, when the app knows. */
+  openAppReason?: IDeviceStageOpenAppReasonValue;
   /** Authenticity flow: the per-component checklist and what ended it. */
   authChecklist?: IDeviceStageAuthChecklistItem[];
   authFailureReason?: IDeviceStageAuthFailureReasonValue;
@@ -363,6 +367,10 @@ export type IThirdPartyHardwareUiState = {
     chain?: string;
     /** SDK request reason used for UI copy. */
     reason?: string;
+    /** Ledger openApp: the app the device is asked to open (`Ethereum`). */
+    appName?: string;
+    /** Ledger openApp: why the app is being opened, when the app knows. */
+    openAppReason?: IDeviceStageOpenAppReasonValue;
     /** BIP-44 path that triggered the request (e.g. requestBtcHighIndexConfirm). */
     path?: string;
     /** Account index parsed from the path (e.g. requestBtcHighIndexConfirm). */

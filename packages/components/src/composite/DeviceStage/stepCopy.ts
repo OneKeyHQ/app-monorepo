@@ -4,6 +4,7 @@ import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIden
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDeviceStageErrorI18n,
+  IDeviceStageOpenAppReasonValue,
   IDeviceStageQrFallbackReasonValue,
 } from '@onekeyhq/shared/types/deviceStage';
 
@@ -394,6 +395,27 @@ export function resolveQrFallbackText(
   return {
     title: intl.formatMessage({ id: text.title }),
     sub: intl.formatMessage({ id: text.sub }),
+  };
+}
+
+/** The openApp capsule's words while checking that the device holds this
+ * wallet: which app to open on which device. Undefined leaves the generic
+ * open-app label. */
+export function resolveWalletMatchOpenAppText(
+  intl: IntlShape,
+  reason?: IDeviceStageOpenAppReasonValue,
+  appName?: string,
+  vendor?: IDeviceStageVendor,
+): { title: string; sub: string } | undefined {
+  if (reason !== 'walletMatch' || !appName || !vendor) {
+    return undefined;
+  }
+  return {
+    title: intl.formatMessage(
+      { id: ETranslations.hardware_third_party_open_app_on_device__title },
+      { appName, device: VENDOR_LABEL[vendor] },
+    ),
+    sub: '',
   };
 }
 

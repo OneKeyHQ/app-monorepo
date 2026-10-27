@@ -604,6 +604,7 @@ function DeviceStageContainerCmp() {
       btcHighIndexPath={stage?.btcHighIndexPath}
       btcHighIndexAccountIndex={stage?.btcHighIndexAccountIndex}
       qrFallbackReason={stage?.qrFallbackReason}
+      openAppReason={stage?.openAppReason}
       errorReason={stage?.errorReason}
       errorMessage={stage?.errorMessage}
       errorI18n={stage?.errorI18n}

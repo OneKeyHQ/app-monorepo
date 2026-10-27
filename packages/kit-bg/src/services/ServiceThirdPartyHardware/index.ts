@@ -469,11 +469,13 @@ class ServiceThirdPartyHardware extends ServiceBase {
         }),
       });
     }
-    const result = await adapter.hw.bindBleDevice({
-      identity,
-      fallbackIdentities,
-      extra: { dbDeviceId },
-    });
+    const bindBleDevice = adapter.hw.bindBleDevice.bind(adapter.hw);
+    const bind = () =>
+      bindBleDevice({ identity, fallbackIdentities, extra: { dbDeviceId } });
+    const result =
+      identity?.type === 'chainFingerprint' && adapter.runWalletMatchCheck
+        ? await adapter.runWalletMatchCheck(bind)
+        : await bind();
     if (!result.success) {
       throw convertThirdPartyDeviceError(result.payload, {
         vendor: getVendorProfile(vendor).presentation.defaultName || vendor,

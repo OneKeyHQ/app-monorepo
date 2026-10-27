@@ -4,6 +4,7 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type {
   IDeviceStageConnectionTypeValue,
   IDeviceStageErrorI18n,
+  IDeviceStageOpenAppReasonValue,
   IDeviceStageQrFallbackReasonValue,
 } from '@onekeyhq/shared/types/deviceStage';
 
@@ -209,7 +210,8 @@ export interface IDeviceStageProps {
    * key when the code is absent. */
   vendorModelName?: string;
   /** The coin app the install steps talk about (`Ethereum`) — titles
-   * and rows of `installConfirm`/`installing`. */
+   * and rows of `installConfirm`/`installing` — and the app a
+   * wallet-match `openApp` names. */
   appName?: string;
   /** Live install progress, 0–100 — `installing`'s bar and the active
    * row of `installBatch`. Real progress from the vendor SDK, never
@@ -226,6 +228,9 @@ export interface IDeviceStageProps {
   btcHighIndexAccountIndex?: number;
   /** Why `qrFallback` asks; picks its words and whether it offers a retry. */
   qrFallbackReason?: IDeviceStageQrFallbackReasonValue;
+  /** Why `openApp`'s device is opening an app; `walletMatch` with an
+   * `appName` names the app and the device. */
+  openAppReason?: IDeviceStageOpenAppReasonValue;
   /** The `pairingCode` entry, confirmed — the code the person copied
    * off the device's screen. Empty is refused inline before this fires. */
   onPairingSubmit?: (code: string) => void;

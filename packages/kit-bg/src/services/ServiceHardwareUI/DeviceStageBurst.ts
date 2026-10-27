@@ -47,6 +47,7 @@ import type {
 import type {
   IDeviceStageConfirmContent,
   IDeviceStageErrorReasonValue,
+  IDeviceStageOpenAppReasonValue,
   IDeviceStageQrFallbackReasonValue,
   IDeviceStageStepValue,
 } from '@onekeyhq/shared/types/deviceStage';
@@ -208,6 +209,19 @@ function qrFallbackReasonOf(
     return undefined;
   }
   return QR_FALLBACK_REASONS.find((reason) => reason === ui.payload?.reason);
+}
+
+/** The app a Ledger openApp ask names while checking this wallet. */
+function walletMatchAppNameOf(
+  ui: IThirdPartyHardwareUiState,
+): string | undefined {
+  if (
+    ui.action !== EThirdPartyHardwareUiAction.openApp ||
+    ui.payload?.openAppReason !== 'walletMatch'
+  ) {
+    return undefined;
+  }
+  return ui.payload.appName || undefined;
 }
 
 /** How long the ✓ `done` beat rests before the exit. */
@@ -1578,6 +1592,7 @@ export class DeviceStageBurstScope {
         return;
       }
       this.clearOffTimer();
+      const walletMatchAppName = walletMatchAppNameOf(ui);
       await this.setStep(step, {
         vendor: ui.vendor,
         thirdPartyAction: ui.action,
@@ -1585,6 +1600,9 @@ export class DeviceStageBurstScope {
         btcHighIndexPath: ui.payload?.path,
         btcHighIndexAccountIndex: ui.payload?.accountIndex,
         qrFallbackReason: qrFallbackReasonOf(ui),
+        ...(walletMatchAppName
+          ? { appName: walletMatchAppName, openAppReason: 'walletMatch' }
+          : {}),
       });
       return;
     }
@@ -2123,6 +2141,7 @@ export class DeviceStageBurstScope {
       btcHighIndexPath?: string;
       btcHighIndexAccountIndex?: number;
       qrFallbackReason?: IDeviceStageQrFallbackReasonValue;
+      openAppReason?: IDeviceStageOpenAppReasonValue;
       qrValueUr?: IDeviceStageState['qrValueUr'];
       qrSessionId?: number;
       qrDiagnostic?: IDeviceStageState['qrDiagnostic'];
@@ -2223,6 +2242,7 @@ export class DeviceStageBurstScope {
         btcHighIndexPath: mergedExtras.btcHighIndexPath,
         btcHighIndexAccountIndex: mergedExtras.btcHighIndexAccountIndex,
         qrFallbackReason: mergedExtras.qrFallbackReason,
+        openAppReason: mergedExtras.openAppReason,
         // The checklist survives the whole authenticity run (the ask, the
         // wait, the landing, the unofficial-firmware failure card).
         authChecklist: AUTH_STEPS.has(step)

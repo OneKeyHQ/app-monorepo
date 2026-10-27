@@ -45,6 +45,7 @@ import {
 import type {
   IDeviceStageState,
   IHardwareUiPayload,
+  IThirdPartyHardwareUiState,
 } from '../../states/jotai/atoms';
 
 jest.mock('../../states/jotai/atoms', () => {
@@ -1101,6 +1102,48 @@ describe('DeviceStageBurstScope', () => {
       batch: undefined,
     });
     expect(stage?.qrFallbackReason).toBeUndefined();
+    await scope.endExplicit({ token });
+  });
+
+  it('names the app on openApp only for a wallet-match check', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.ledger,
+    });
+    const openApp = (
+      payload?: IThirdPartyHardwareUiState['payload'],
+      action = EThirdPartyHardwareUiAction.openApp,
+    ) =>
+      scope.onThirdPartyState({
+        ui: { vendor: EHardwareVendor.ledger, action, payload },
+        install: undefined,
+        batch: undefined,
+      });
+
+    await openApp({ appName: 'Bitcoin', openAppReason: 'walletMatch' });
+    expect(stage?.step).toBe('openApp');
+    expect(stage?.appName).toBe('Bitcoin');
+    expect(stage?.openAppReason).toBe('walletMatch');
+
+    for (const payload of [
+      undefined,
+      { appName: 'Bitcoin' },
+      { openAppReason: 'walletMatch' as const },
+    ]) {
+      await openApp(payload);
+      expect(stage?.step).toBe('openApp');
+      expect(stage?.appName).toBeUndefined();
+      expect(stage?.openAppReason).toBeUndefined();
+    }
+
+    // Another ask carrying the same payload never names an app.
+    await openApp(
+      { appName: 'Bitcoin', openAppReason: 'walletMatch' },
+      EThirdPartyHardwareUiAction.unlockDevice,
+    );
+    expect(stage?.step).toBe('unlockDevice');
+    expect(stage?.appName).toBeUndefined();
+    expect(stage?.openAppReason).toBeUndefined();
     await scope.endExplicit({ token });
   });
 
