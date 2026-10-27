@@ -304,6 +304,7 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
     RCTI18nUtil.sharedInstance().allowRTL(true)
     store?.setValue(launchOptions, forKey: "launchOptions")
 
+#if !targetEnvironment(macCatalyst)
     // Silent-push launches need the JS notification bootstrap even without a scene.
     if application.applicationState == .background {
       factory.rootViewFactory.initializeReactHost(
@@ -312,7 +313,10 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
         devMenuConfiguration: factory.devMenuConfiguration ?? RCTDevMenuConfiguration.default()
       )
     }
+#endif
 
+    #if !targetEnvironment(macCatalyst)
+    // JPUSHService Register
     let tBeforeJPush = CFAbsoluteTimeGetCurrent()
     let entity = JPUSHRegisterEntity()
     entity.types = 0
@@ -326,6 +330,7 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
       "StartupTiming",
       "ios.app.jpush_register: \(String(format: "%.0f", (tAfterJPush - tBeforeJPush) * 1000))ms"
     )
+    #endif
 
     let tBeforeSuper = CFAbsoluteTimeGetCurrent()
     let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
@@ -398,7 +403,9 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
       return
     }
     NitroModuleBridge.logInfo("App", "didRegisterForRemoteNotificationsWithDeviceToken")
+    #if !targetEnvironment(macCatalyst)
     JPUSHService.registerDeviceToken(deviceToken)
+    #endif
     NitroModuleBridge.launchOptionsStore()?.setValue(deviceToken, forKey: "deviceToken")
   }
 
@@ -415,8 +422,10 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
       return
     }
     NitroModuleBridge.logInfo("App", "didReceiveRemoteNotification")
+    #if !targetEnvironment(macCatalyst)
     JPUSHService.handleRemoteNotification(userInfo)
     NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
+    #endif
     completionHandler(.newData)
   }
 }
@@ -451,6 +460,9 @@ class SceneDelegate: ExpoAppSceneDelegate {
     var launchOptions = appDelegate.launchOptions ?? [:]
     if let url = connectionOptions.urlContexts.first?.url {
       launchOptions[UIApplication.LaunchOptionsKey(rawValue: "UIApplicationLaunchOptionsURLKey")] = url
+    }
+    if let sourceApplication = connectionOptions.urlContexts.first?.options.sourceApplication {
+      launchOptions[.sourceApplication] = sourceApplication
     }
     if let userActivity = connectionOptions.userActivities.first(where: {
       $0.activityType == NSUserActivityTypeBrowsingWeb
@@ -498,6 +510,9 @@ class SceneDelegate: ExpoAppSceneDelegate {
     }
   }
 }
+#if targetEnvironment(macCatalyst)
+class CatalystSceneDelegate: SceneDelegate {}
+#endif
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
@@ -1295,6 +1310,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   }
 }
 
+#if !targetEnvironment(macCatalyst)
 extension AppDelegate:JPUSHRegisterDelegate {
   //MARK - JPUSHRegisterDelegate
   @available(iOS 10.0, *)
@@ -1357,3 +1373,4 @@ extension AppDelegate:JPUSHRegisterDelegate {
     NotificationCenter.default.post(name: NSNotification.Name(J_CUSTOM_NOTIFICATION_EVENT), object: userInfo)
   }
 }
+#endif

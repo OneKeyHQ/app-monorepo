@@ -581,10 +581,11 @@ export class ThirdPartyPathForbidden extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        // Keystone refuses a path only for Bitcoin beyond account #1.
-        defaultKey: isKeystoneVendor(props?.vendor)
-          ? ETranslations.hardware_third_party_keystone_btc_account_one_only__msg
-          : ETranslations.hardware_third_party_path_not_supported__msg,
+        defaultKey:
+          isKeystoneVendor(props?.vendor) &&
+          props?.payload?.params?.reason === 'btc-account-limit'
+            ? ETranslations.hardware_third_party_keystone_btc_account_one_only__msg
+            : ETranslations.hardware_third_party_path_not_supported__msg,
         defaultAutoToast: true,
       }),
     );
@@ -787,6 +788,21 @@ export class ThirdPartyPayloadTooLarge extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.PayloadTooLarge;
+}
+
+/** One QR request would ask the device for more keys than it accepts; USB has no such limit. */
+export class ThirdPartyQrRequestTooLarge extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslations.hardware_third_party_qr_request_too_large__msg,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = ThirdPartyHwErrorCode.QrRequestTooLarge;
 }
 
 // ---------------------------------------------------------------------------

@@ -939,6 +939,97 @@ describe('devVendor', () => {
     }
   });
 
+  it('excludes Catalyst-disabled modules while retaining required ABI checks', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    const previousMode = process.env.ONEKEY_MAC_CATALYST;
+    const lockPath = path.join(
+      fixture.repoRoot,
+      'apps/mobile/ios/Podfile.lock',
+    );
+    const excluded = [
+      '@onekeyfe/react-native-lite-card',
+      '@onekeyfe/react-native-sni-connect',
+      '@onramper/onramper-react-native',
+      '@phantom/react-native-juicebox-sdk',
+      '@shopify/react-native-skia',
+      '@walletconnect/react-native-compat',
+      'jcore-react-native',
+      'jpush-react-native',
+    ];
+    const androidBaseline = computeNativeContractKey(
+      'android',
+      fixture.repoRoot,
+    );
+    const catalystLock = fs
+      .readFileSync(lockPath, 'utf8')
+      .split('\n')
+      .filter(
+        (line) =>
+          !excluded.some((name) => line.includes(`node_modules/${name}`)),
+      )
+      .join('\n');
+    fs.writeFileSync(lockPath, catalystLock);
+    try {
+      process.env.ONEKEY_MAC_CATALYST = '1';
+      jest.isolateModules(() => {
+        const catalystVendor = require('../devVendor');
+        const catalystConfig = require('../../react-native.config');
+        const { findDisabledLibrariesByPlatform } = require(
+          path.join(
+            repoRoot,
+            'node_modules/react-native/scripts/codegen/generate-artifacts-executor/utils',
+          ),
+        );
+        const disabled = findDisabledLibrariesByPlatform(catalystConfig, 'ios');
+        for (const supported of [
+          '@onekeyfe/react-native-cloud-kit-module',
+          '@onekeyfe/react-native-network-info',
+          'expo-camera',
+        ]) {
+          expect(disabled).not.toContain(supported);
+        }
+        const descriptor = catalystVendor.getNativeContractDescriptor(
+          'ios',
+          fixture.repoRoot,
+        );
+        const names = descriptor.dependencies.map(({ name }) => name);
+        expect(names).toContain('@onekeyfe/react-native-bundle-crypto');
+        expect(names).toContain('@onekeyfe/react-native-cloud-kit-module');
+        expect(names).toContain('react-native-network-info');
+        for (const name of excluded) {
+          expect(names).not.toContain(name);
+        }
+        expect(
+          catalystVendor.computeNativeContractKey('android', fixture.repoRoot),
+        ).toBe(androidBaseline);
+        fs.writeFileSync(
+          lockPath,
+          catalystLock
+            .split('\n')
+            .filter(
+              (line) =>
+                !line.includes(
+                  'node_modules/@onekeyfe/react-native-bundle-crypto',
+                ),
+            )
+            .join('\n'),
+        );
+        expect(() =>
+          catalystVendor.getNativeContractDescriptor('ios', fixture.repoRoot),
+        ).toThrow(
+          'Native ABI dependency is missing from Podfile.lock: @onekeyfe/react-native-bundle-crypto',
+        );
+      });
+    } finally {
+      if (previousMode === undefined) {
+        delete process.env.ONEKEY_MAC_CATALYST;
+      } else {
+        process.env.ONEKEY_MAC_CATALYST = previousMode;
+      }
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
   it('requires every autolinked native dependency in each ABI descriptor', () => {
     for (const platform of ['android', 'ios']) {
       const configured = [

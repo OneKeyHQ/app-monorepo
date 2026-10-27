@@ -1,4 +1,5 @@
 import { isHardwareOperationId } from '@onekeyfe/hwk-adapter-core';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 
 import {
   backgroundClass,
@@ -61,6 +62,7 @@ import type {
   IDBWallet,
 } from '../../dbs/local/types';
 import type {
+  IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsItem,
   IHwSdkNetwork,
 } from '../../vaults/types';
@@ -73,6 +75,7 @@ import type {
 import type { AllNetworkAddressParams, SearchDevice } from '@onekeyfe/hd-core';
 import type {
   BindBleDeviceParams,
+  DeviceInfo,
   ICommonCallParams,
 } from '@onekeyfe/hwk-adapter-core';
 
@@ -106,6 +109,10 @@ type IThirdPartyConnectDeviceParams = {
   vendor: EHardwareVendor;
   searchTargetId: string;
   deviceId?: string;
+};
+
+type IKeystoneOnboardingDevice = Omit<SearchDevice, 'commType'> & {
+  usbConnectId?: string;
 };
 
 type IThirdPartyAllNetworkGetAddressHw = {
@@ -948,9 +955,10 @@ class ServiceThirdPartyHardware extends ServiceBase {
    * exists. BTC uses the account-level path, other chains the index-0 leaf
    * path, matching the vendor keyrings.
    */
-  private async buildThirdPartyDefaultNetworkBundle(): Promise<
-    IThirdPartyAllNetworkAddressParams[]
-  > {
+  private async buildKeystoneDefaultAccountPlan(): Promise<{
+    bundle: IThirdPartyAllNetworkAddressParams[];
+    networks: { networkId: string; deriveType: IAccountDeriveTypes }[];
+  }> {
     const networks = await buildAddAccountsNetworks({
       backgroundApi: this.backgroundApi,
       includingNetworkWithGlobalDeriveType: true,
@@ -987,7 +995,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
         showOnOneKey: false,
       });
     }
-    return normalizeThirdPartyAllNetworkBundle(bundle);
+    return { bundle: normalizeThirdPartyAllNetworkBundle(bundle), networks };
   }
 
   /**
@@ -999,7 +1007,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   async createKeystoneWalletWithDefaultAccounts(params: {
     usb?: {
       operationId: string;
-      device: Omit<SearchDevice, 'commType'>;
+      device: IKeystoneOnboardingDevice;
     };
   }): Promise<{
     wallet: IDBWallet;
@@ -1016,7 +1024,33 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const hw = adapter.hw as unknown as IThirdPartyAllNetworkGetAddressHw;
     const { usb } = params;
 
-    const bundle = await this.buildThirdPartyDefaultNetworkBundle();
+    let usbDeviceInfo: DeviceInfo | undefined;
+    if (usb) {
+      const infoResult = await adapter.hw.getDeviceInfo(
+        usb.operationId,
+        usb.device.deviceId ?? '',
+      );
+      if (!infoResult.success) {
+        throw convertThirdPartyDeviceError(infoResult.payload, {
+          vendor: vendorName,
+        });
+      }
+      usbDeviceInfo = infoResult.payload;
+      if (
+        usbDeviceInfo.connectionType !== 'usb' ||
+        usbDeviceInfo.deviceId !== usb.device.deviceId
+      ) {
+        throw new ThirdPartyDeviceMismatch({
+          vendor: vendorName,
+          autoToast: true,
+          payload: {},
+        });
+      }
+    }
+    const { bundle, networks } = await this.buildKeystoneDefaultAccountPlan();
+    if (!bundle.length) {
+      throw new OneKeyLocalError('Keystone has no supported default accounts');
+    }
     const response = await hw.allNetworkGetAddress(
       usb?.operationId ?? '',
       usb?.device.deviceId ?? '',
@@ -1033,8 +1067,28 @@ class ServiceThirdPartyHardware extends ServiceBase {
         vendor: vendorName,
       });
     }
-    const items = normalizeAllNetworkInstallCancelErrors(response.payload);
-    const failedItem = items.find((item) => !item.success);
+    let items = normalizeAllNetworkInstallCancelErrors(response.payload);
+    const accountExport = items.some(
+      (item) => item.success && item.payload?.accountExport === true,
+    );
+    // Accounts the device did not export, or whose chain its QR firmware cannot use.
+    const isUnavailableItem = (item: (typeof items)[number]) => {
+      if (item.success) return false;
+      const code = Number(item.payload?.code);
+      const notExported =
+        accountExport &&
+        code === ThirdPartyHwErrorCode.DevicePathForbidden &&
+        item.payload?.params?.reason === 'account-not-exported';
+      const qrChainNotSupported =
+        !usb && code === ThirdPartyHwErrorCode.ChainNotSupported;
+      return notExported || qrChainNotSupported;
+    };
+    // With nothing to create, the first failure is the reason.
+    const hasCreatableItem = items.some((item) => item.success);
+    const failedItem = items.find(
+      (item) =>
+        !item.success && (!hasCreatableItem || !isUnavailableItem(item)),
+    );
     if (failedItem) {
       throw convertThirdPartyDeviceError(
         {
@@ -1044,6 +1098,28 @@ class ServiceThirdPartyHardware extends ServiceBase {
         },
         { vendor: vendorName },
       );
+    }
+    let bundleForCreation = bundle;
+    let networksForCreation = networks;
+    if (accountExport || items.some(isUnavailableItem)) {
+      // Unavailable accounts are skipped; real failures still reject above.
+      if (
+        items.length !== bundle.length ||
+        networks.length !== bundle.length ||
+        items.some(
+          (item, index) =>
+            item.network !== bundle[index].network ||
+            item.path !== bundle[index].path,
+        )
+      ) {
+        throw new OneKeyLocalError(
+          'Keystone response does not match the requested account plan',
+        );
+      }
+      const selected = items.map((item) => item.success);
+      bundleForCreation = bundle.filter((_, index) => selected[index]);
+      networksForCreation = networks.filter((_, index) => selected[index]);
+      items = items.filter((item) => item.success);
     }
     const walletIds = new Set(
       items.map((item) =>
@@ -1068,9 +1144,12 @@ class ServiceThirdPartyHardware extends ServiceBase {
       });
     }
 
-    let device: Omit<SearchDevice, 'commType'>;
-    if (usb) {
-      device = usb.device;
+    let device: IKeystoneOnboardingDevice;
+    if (usbDeviceInfo) {
+      device = {
+        ...mapThirdPartyDeviceToSearchDevice({ device: usbDeviceInfo }),
+        usbConnectId: usb?.device.usbConnectId,
+      };
     } else {
       const infoResult = await adapter.hw.getDeviceInfo(walletId, '');
       const info = infoResult.success ? infoResult.payload : undefined;
@@ -1136,7 +1215,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
       });
     }
     const prepared = new HardwareAllNetworkGetAddressResponse();
-    prepared.bundleLength = bundle.length;
+    prepared.vendor = EHardwareVendor.keystone;
+    prepared.bundleLength = bundleForCreation.length;
     prepared.onSdkResponse({ items, completed: true });
     const index = created.indexedAccount
       ? accountUtils.parseIndexedAccountId({
@@ -1151,7 +1231,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
           toIndex: index,
           excludedIndexes: {},
           saveToDb: true,
-          customNetworks: [],
+          includingDefaultNetworks: false,
+          customNetworks: networksForCreation,
           isCreateWallet: true,
           isAutoCreateMultiNetwork: true,
           // Account creation must succeed before the UI finalizes this wallet.

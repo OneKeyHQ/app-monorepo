@@ -15,7 +15,7 @@ import { hasOnramperCredentials } from './credentials.native';
 const ONRAMPER_MIN_IOS = 16;
 
 export function canUseHeadless(): boolean {
-  if (!platformEnv.isNativeIOS) {
+  if (!platformEnv.isNativeIOS || platformEnv.isNativeIOSMacCatalyst) {
     return false;
   }
   // A build flavor without its credentials pair (production until the
