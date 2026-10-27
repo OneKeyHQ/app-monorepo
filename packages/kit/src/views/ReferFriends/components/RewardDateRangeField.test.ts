@@ -24,7 +24,7 @@ describe('formatRangeLabel', () => {
         },
         allTime,
       ),
-    ).toBe('2025/03/01 – 03/31');
+    ).toBe('03/01/2025 – 03/31');
   });
 
   it('keeps both years across years', () => {
@@ -36,6 +36,6 @@ describe('formatRangeLabel', () => {
         },
         allTime,
       ),
-    ).toBe('2024/12/01 – 2025/01/15');
+    ).toBe('12/01/2024 – 01/15/2025');
   });
 });

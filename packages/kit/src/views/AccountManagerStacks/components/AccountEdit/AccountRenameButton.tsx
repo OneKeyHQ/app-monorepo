@@ -33,20 +33,17 @@ export function useAccountRenameMethod({
   indexedAccount,
   account,
   wallet,
-  nativeSheet = false,
 }: {
   name: string;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   wallet?: IDBWallet;
-  nativeSheet?: boolean;
 }) {
   const { serviceAccount } = backgroundApiProxy;
   const intl = useIntl();
 
   const callShowRenameDialog = useCallback(() => {
     showRenameDialog(name, {
-      nativeSheet,
       intl,
       disabledMaxLengthLabel: true,
       indexedAccount,
@@ -80,15 +77,7 @@ export function useAccountRenameMethod({
         }
       },
     });
-  }, [
-    account?.id,
-    indexedAccount,
-    intl,
-    name,
-    nativeSheet,
-    serviceAccount,
-    wallet?.id,
-  ]);
+  }, [account?.id, indexedAccount, intl, name, serviceAccount, wallet?.id]);
 
   const showAccountRenameDialog = useCallback(() => {
     if (indexedAccount?.id) {
@@ -123,7 +112,6 @@ export function useAccountRenameMethod({
           await showUpdateHardwareWalletLegacyXfpDialog({
             walletId: wallet?.id || '',
             intl,
-            nativeSheet,
             onConfirm: () => {
               callShowRenameDialog();
             },
@@ -140,7 +128,6 @@ export function useAccountRenameMethod({
     wallet?.id,
     wallet?.associatedDeviceInfo?.vendor,
     intl,
-    nativeSheet,
   ]);
 
   return {
@@ -154,14 +141,12 @@ export function AccountRenameButton({
   indexedAccount,
   account,
   onClose,
-  nativeSheet = false,
 }: {
   name: string;
   wallet: IDBWallet | undefined;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   onClose: () => void;
-  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
   const { showAccountRenameDialog } = useAccountRenameMethod({
@@ -169,14 +154,13 @@ export function AccountRenameButton({
     indexedAccount,
     account,
     wallet,
-    nativeSheet,
   });
   const handleShowAccountRenameDialog = useCallback(
     (close: () => void) =>
       runAfterActionListClose(close, showAccountRenameDialog, {
-        waitForAnimation: nativeSheet && platformEnv.isNative,
+        waitForAnimation: platformEnv.isNative,
       }),
-    [nativeSheet, showAccountRenameDialog],
+    [showAccountRenameDialog],
   );
 
   return (

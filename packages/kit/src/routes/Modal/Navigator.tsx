@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useRoute } from '@react-navigation/native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   DesktopDragZoneBox,
@@ -37,12 +38,30 @@ import {
 } from './router';
 
 export function ModalNavigator({ pageType }: { pageType?: EPageType }) {
-  return (
+  const { params } = useRoute();
+  const navigator = (
     <RootModalNavigator<EModalRoutes>
       config={modalRouter}
       pageType={pageType}
     />
   );
+  if (
+    platformEnv.isNativeIOS &&
+    params &&
+    'tradingViewFullscreen' in params &&
+    params.tradingViewFullscreen === true
+  ) {
+    // The underlying detail still reports portrait insets. Measure this modal's
+    // landscape bounds so the list and editor footer clear the device cutout.
+    return (
+      <SafeAreaProvider style={{ flex: 1 }}>
+        <SafeAreaView edges={['left', 'right']} style={{ flex: 1 }}>
+          {navigator}
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+  return navigator;
 }
 
 export function IOSFullScreenNavigator() {
@@ -88,6 +107,9 @@ function TravelModeOnboardingRedirect() {
     </Stack>
   );
 }
+
+const ONBOARDING_SYSTEM_BARS_OWNER = 'onboarding';
+const ONBOARDING_SYSTEM_BARS = { variant: 'dark' } as const;
 
 function StandardOnboardingNavigator() {
   const isFocused = useIsFocused();
@@ -135,7 +157,10 @@ function StandardOnboardingNavigator() {
   // theme change mid-onboarding repaints through the same effective
   // value instead of racing this write (no stale-capture ref needed).
   if (platformEnv.isNativeAndroid) {
-    setSystemBarsOverride(isFocused ? 'dark' : null);
+    setSystemBarsOverride(
+      ONBOARDING_SYSTEM_BARS_OWNER,
+      isFocused ? ONBOARDING_SYSTEM_BARS : null,
+    );
   }
   // The render-time write above already handles focus AND blur (useIsFocused
   // re-renders on both, relinquishing to appGlassStyle when not focused). The
@@ -162,7 +187,7 @@ function StandardOnboardingNavigator() {
       return undefined;
     }
     return () => {
-      setSystemBarsOverride(null);
+      setSystemBarsOverride(ONBOARDING_SYSTEM_BARS_OWNER, null);
     };
   }, []);
   const navigator = isMediaReady ? (

@@ -82,8 +82,10 @@ Ctxs
 ctxs
 ntli
 unfocus
+oklch
 usdc
 USDC
+EURC
 Realtime
 Tpsl
 tpsl
@@ -1634,3 +1636,7 @@ poolstrade
 pumpfun
 sunpump
 Jsign
+misttrack
+Borsh
+Galxe
+Hookable

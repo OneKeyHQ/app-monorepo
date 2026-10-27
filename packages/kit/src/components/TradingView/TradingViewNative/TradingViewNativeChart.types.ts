@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import type { IDrawingHistoryLoader } from './drawings/drawingHistory';
 import type { ITradingViewNativeChartRuntime } from './native/chartRuntime';
 import type {
   ITradingViewNativeCandleLabels,
@@ -26,7 +27,9 @@ import type { SharedValue } from 'react-native-reanimated';
 
 export interface ITradingViewNativeChartProps {
   drawingStorageKey?: string;
+  loadDrawingHistory?: IDrawingHistoryLoader;
   enableDrawings?: boolean;
+  enableNavigationControls?: boolean;
   prioritizePageScroll?: boolean;
   /** Owned by the data controller so native presentation changes retain the viewport. */
   runtimeRef?: RefObject<{

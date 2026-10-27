@@ -172,6 +172,7 @@ const THIRD_PARTY_ACTION_TO_STEP: Partial<
   [EThirdPartyHardwareUiAction.requestTrezorThpPairing]: 'pairingCode',
   [EThirdPartyHardwareUiAction.requestDeviceNotFound]: 'deviceNotFound',
   [EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm]: 'btcHighIndex',
+  [EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm]: 'qrFallback',
 };
 
 /** The third-party rail's asks — the beats the device is waiting on the
@@ -186,6 +187,7 @@ const THIRD_PARTY_ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'pairingCode',
   'deviceNotFound',
   'btcHighIndex',
+  'qrFallback',
 ]);
 
 /** How long the ✓ `done` beat rests before the exit. */
@@ -408,6 +410,29 @@ export function pickIdentityText(
   prev: string | undefined,
 ): string | undefined {
   return next || prev;
+}
+
+/**
+ * A finish names one device. News that names no color keeps the current
+ * one while it is about the same device, but never lends it to another:
+ * a stage or opening still holding the last device's finish must not
+ * dress the next one in it.
+ */
+export function pickDeviceColor(
+  next: Pick<IDeviceStageState, 'connectId' | 'deviceColor'>,
+  current: Pick<IDeviceStageState, 'connectId' | 'deviceColor'> | undefined,
+): IDeviceStageState['deviceColor'] {
+  if (next.deviceColor) {
+    return next.deviceColor;
+  }
+  if (
+    next.connectId &&
+    current?.connectId &&
+    next.connectId !== current.connectId
+  ) {
+    return undefined;
+  }
+  return current?.deviceColor;
 }
 
 export type IDeviceStageBurstBeginParams = {
@@ -1536,6 +1561,7 @@ export class DeviceStageBurstScope {
       await this.setStep(step, {
         vendor: ui.vendor,
         thirdPartyAction: ui.action,
+        thirdPartyRequestId: ui.payload?.requestId,
         btcHighIndexPath: ui.payload?.path,
         btcHighIndexAccountIndex: ui.payload?.accountIndex,
       });
@@ -1887,7 +1913,7 @@ export class DeviceStageBurstScope {
           this.pendingOpen.connectId,
         ),
         deviceType: params.deviceType ?? this.pendingOpen.deviceType,
-        deviceColor: params.deviceColor ?? this.pendingOpen.deviceColor,
+        deviceColor: pickDeviceColor(params, this.pendingOpen),
         deviceName: pickIdentityText(
           params.deviceName,
           this.pendingOpen.deviceName,
@@ -1930,7 +1956,7 @@ export class DeviceStageBurstScope {
             : prev.activitySeq,
         connectId: pickIdentityText(params.connectId, prev.connectId),
         deviceType: pickDeviceType(params.deviceType, prev.deviceType),
-        deviceColor: params.deviceColor ?? prev.deviceColor,
+        deviceColor: pickDeviceColor(params, prev),
         deviceName: pickIdentityText(params.deviceName, prev.deviceName),
         vendor: params.vendor ?? prev.vendor,
         vendorModel: pickIdentityText(params.vendorModel, prev.vendorModel),
@@ -2068,6 +2094,7 @@ export class DeviceStageBurstScope {
       vendorModel?: string;
       vendorModelName?: string;
       thirdPartyAction?: IDeviceStageState['thirdPartyAction'];
+      thirdPartyRequestId?: string;
       appName?: string;
       installProgress?: number;
       installQueue?: string[];
@@ -2150,8 +2177,8 @@ export class DeviceStageBurstScope {
         connectId: pickIdentityText(mergedExtras.connectId, base?.connectId),
         deviceType: pickDeviceType(mergedExtras.deviceType, base?.deviceType),
         // Sticky like the model: a step that names no color keeps the one
-        // the device row gave, never blanks it.
-        deviceColor: mergedExtras.deviceColor ?? base?.deviceColor,
+        // the device row gave, never blanks it — for that device only.
+        deviceColor: pickDeviceColor(mergedExtras, base),
         deviceName: pickIdentityText(mergedExtras.deviceName, base?.deviceName),
         // Device/vendor identity is sticky within the burst (base), never
         // across bursts; the per-step extras (install / btc / action)
@@ -2166,6 +2193,7 @@ export class DeviceStageBurstScope {
           base?.vendorModelName,
         ),
         thirdPartyAction: mergedExtras.thirdPartyAction,
+        thirdPartyRequestId: mergedExtras.thirdPartyRequestId,
         appName: mergedExtras.appName,
         installProgress: mergedExtras.installProgress,
         installQueue: mergedExtras.installQueue,

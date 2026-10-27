@@ -337,6 +337,19 @@ export class SimpleDb {
     return value;
   }
 
+  get broadcastRecords() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@broadcastRecords',
+      loader: () =>
+        import('../entity/SimpleDbEntityBroadcastRecords').then(
+          ({ SimpleDbEntityBroadcastRecords }) =>
+            new SimpleDbEntityBroadcastRecords(),
+        ),
+    });
+    Object.defineProperty(this, 'broadcastRecords', { value });
+    return value;
+  }
+
   get marketWatchList() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@marketWatchList',
@@ -435,6 +448,19 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'earnOrders', { value });
+    return value;
+  }
+
+  get headlessBuyOrders() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@headlessBuyOrders',
+      loader: () =>
+        import('../entity/SimpleDbEntityHeadlessBuyOrders').then(
+          ({ SimpleDbEntityHeadlessBuyOrders }) =>
+            new SimpleDbEntityHeadlessBuyOrders(),
+        ),
+    });
+    Object.defineProperty(this, 'headlessBuyOrders', { value });
     return value;
   }
 

@@ -1702,3 +1702,32 @@ describe('ServiceHardwareUI.silenceDeviceStageForFirmwareWorkflow', () => {
     expect(cancelStageAirGapScan).toHaveBeenCalledWith({ scanning: false });
   });
 });
+
+describe('ServiceHardwareUI.showCheckingDeviceDialog', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('opens the checking beat in the finish the scan named', async () => {
+    const service = new ServiceHardwareUI({ backgroundApi: {} });
+    const noteStep = jest
+      .spyOn(service.deviceStageBurst, 'noteStep')
+      .mockResolvedValue(true);
+
+    await service.showCheckingDeviceDialog({
+      connectId: 'ble-peripheral-id',
+      deviceType: EDeviceType.Pro2,
+      deviceName: 'Pro 2 A1B2',
+      deviceColor: 'Orange',
+    });
+
+    expect(noteStep).toHaveBeenCalledWith(
+      'connecting',
+      expect.objectContaining({
+        connectId: 'ble-peripheral-id',
+        deviceType: EDeviceType.Pro2,
+        deviceColor: 'Orange',
+      }),
+    );
+  });
+});

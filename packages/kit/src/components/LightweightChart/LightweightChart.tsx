@@ -529,12 +529,11 @@ export function LightweightChart({
           if (entries.length === 0 || entries[0].target !== container) return;
           const { height: newHeight, width: newWidth } = entries[0].contentRect;
           chart?.applyOptions({ height: newHeight, width: newWidth });
-          // applyOptions relays out the chart (bar spacing / right-edge anchor)
-          // on the next paint frame; reading coordinates synchronously here
-          // returns the pre-resize layout, so the pulse dot would freeze at its
-          // old x. lockVisibleTimeRangeOnResize also means the visible-range
-          // subscription never fires on resize to correct it. Recompute after
-          // the frame settles, mirroring the init path's rAF fallback.
+          // Scrolling/scaling are disabled; keep the full series fitted after
+          // resize rather than carrying the old right offset into the new width.
+          chart?.timeScale().fitContent();
+          // Layout and the full-range fit settle on the next chart frame.
+          // Refresh the pulse overlay after that frame, using the new coordinates.
           if (resizeRafId !== undefined) {
             cancelAnimationFrame(resizeRafId);
           }

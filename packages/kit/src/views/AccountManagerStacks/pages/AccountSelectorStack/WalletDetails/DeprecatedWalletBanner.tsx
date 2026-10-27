@@ -110,7 +110,6 @@ export function DeprecatedWalletBanner({
       intl,
     });
     showWalletRemoveDialog({
-      nativeSheet: true,
       config,
       title,
       description,

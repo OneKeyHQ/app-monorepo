@@ -18,6 +18,7 @@ import {
   Tooltip,
   XStack,
   resetToRoute,
+  runAfterActionListClose,
   useIsOverlayPage,
   useMedia,
   usePopoverContext,
@@ -139,10 +140,11 @@ function IncognitoPopoverContent({ description }: { description: string }) {
   const { closePopover } = usePopoverContext();
   const handleAction = useCallback(
     (url: string) => {
-      void (async () => {
-        await closePopover?.();
-        openUrlExternal(url);
-      })();
+      void runAfterActionListClose(
+        () => closePopover?.(),
+        () => openUrlExternal(url),
+        { waitForAnimation: false },
+      );
     },
     [closePopover],
   );
@@ -193,6 +195,7 @@ const SwapActionsState = ({
     cleanQuoteInterval,
     closeQuoteEvent,
     loadSwapSelectTokenDetail,
+    requestSelectedTokenBalanceRefresh,
     quoteAction,
   } = useSwapActions().current;
   const swapActionState = useSwapActionState();
@@ -548,6 +551,7 @@ const SwapActionsState = ({
       return;
     }
     if (swapActionState.isRefreshQuote) {
+      requestSelectedTokenBalanceRefresh();
       if (onRefreshQuote) {
         onRefreshQuote();
         return;
@@ -579,6 +583,7 @@ const SwapActionsState = ({
     onRefreshQuote,
     quoteAction,
     quoteActionLock.kind,
+    requestSelectedTokenBalanceRefresh,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
     swapActionState.shouldDepositToTrade,

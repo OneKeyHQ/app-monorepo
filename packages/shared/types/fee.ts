@@ -213,6 +213,13 @@ export type IGasAccountQuote = {
   quoteId: string;
   maxFee: string;
   expiresAt: string;
+  // Who the sponsored quote is bound to (OK-64746 member dimension).
+  // `ownerType === 'member'` means Prime will re-check the OneKey ID member
+  // at execute time, so a login change after this estimate needs a re-quote.
+  // A missing quote never implies an anonymous quote.
+  identity?: {
+    ownerType?: string;
+  };
 };
 
 export type IGasAccountUiState = {
@@ -225,6 +232,8 @@ export type IGasAccountUiState = {
   // L3 scenario gate reason from backend when gasAccountEligible=false due to
   // business-scenario policy (vs L2 chain-level degradation).
   gasAccountScenarioReason?: string;
+  // Backend reason the estimate came back self-paid (see IEstimateGasResp).
+  gasAccountSkipReason?: string;
 };
 
 export type IFeesInfoUnit = {
@@ -328,6 +337,12 @@ export type IEstimateGasResp = {
   // Unbounded string (backend uses this to observe unknown client values); frontend
   // does prefix checks like startsWith('scenario_disabled_').
   gasAccountScenarioReason?: string;
+  // Why the backend returned payer=user instead of a sponsored quote
+  // (OK-64746). Open string; known values: member_required, member_pending,
+  // member_unavailable (OnChain) and eligibility_unavailable,
+  // eligibility_rejected (BFF). Unknown values are plain self-pay; absence
+  // carries no meaning (e.g. no quote, GA check disabled).
+  gasAccountSkipReason?: string;
 };
 
 export type IServerBatchEstimateFeeResponse = {

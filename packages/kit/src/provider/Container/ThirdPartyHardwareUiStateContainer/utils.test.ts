@@ -15,6 +15,31 @@ import {
 } from './utils';
 
 describe('ThirdPartyHardwareUiStateContainer utils', () => {
+  it.each([undefined, 'operation-current'])(
+    'cancels only the operation explicitly owned by the request (%s)',
+    async (operationId) => {
+      const uiResponse = jest.fn(async () => undefined);
+      const cancel = jest.fn(async () => undefined);
+      const clearState = jest.fn(async () => undefined);
+      await cancelThirdPartyHardwareUiRequest({
+        state: {
+          vendor: EHardwareVendor.keystone,
+          action: EThirdPartyHardwareUiAction.requestKeystoneQrScan,
+          ...(operationId ? { operationId } : {}),
+        },
+        uiResponse,
+        cancel,
+        clearState,
+      });
+      expect(uiResponse).not.toHaveBeenCalled();
+      expect(cancel).toHaveBeenCalledWith({
+        vendor: EHardwareVendor.keystone,
+        ...(operationId ? { connectId: operationId } : {}),
+      });
+      expect(clearState).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('builds a declined device-connect response', () => {
     expect(
       buildThirdPartyHardwareUiResponse(
@@ -37,6 +62,52 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
       type: UI_RESPONSE.RECEIVE_BTC_HIGH_INDEX_CONFIRM,
       payload: { confirmed: false },
     });
+  });
+
+  it.each([
+    [true, undefined],
+    [false, undefined],
+    [true, 'qr-fallback-current'],
+    [false, 'qr-fallback-current'],
+  ] as const)(
+    'builds the Keystone QR fallback answer (confirmed=%s, requestId=%s)',
+    (confirmed, requestId) => {
+      expect(
+        buildThirdPartyHardwareUiResponse(
+          EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+          confirmed,
+          { requestId },
+        ),
+      ).toEqual({
+        type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
+        payload: { confirmed, ...(requestId ? { requestId } : {}) },
+      });
+    },
+  );
+
+  it('echoes the QR fallback request id when its prompt is dismissed', async () => {
+    const uiResponse = jest.fn(async () => undefined);
+    const cancel = jest.fn(async () => undefined);
+    const clearState = jest.fn(async () => undefined);
+    await cancelThirdPartyHardwareUiRequest({
+      state: {
+        vendor: EHardwareVendor.keystone,
+        action: EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+        payload: { requestId: 'qr-fallback-current' },
+      },
+      uiResponse,
+      cancel,
+      clearState,
+    });
+    expect(uiResponse).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.keystone,
+      response: {
+        type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
+        payload: { confirmed: false, requestId: 'qr-fallback-current' },
+      },
+    });
+    expect(cancel).not.toHaveBeenCalled();
+    expect(clearState).toHaveBeenCalledTimes(1);
   });
 
   it('builds a Trezor passphrase response without exposing it to logs', () => {

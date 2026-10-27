@@ -546,7 +546,6 @@ export function showExportLogsDialog({
 }) {
   return Dialog.show({
     icon: 'UploadOutline',
-    nativeSheet: true,
     title,
     showFooter: false,
     renderContent: <UploadLogsDialogContent inAppStateLock={inAppStateLock} />,

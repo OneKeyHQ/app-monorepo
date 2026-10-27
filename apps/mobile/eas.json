@@ -22,7 +22,7 @@
       },
       "ios": {
         "scheme": "OneKeyWallet",
-        "image": "macos-tahoe-26.4-xcode-26.4",
+        "image": "macos-tahoe-26.6-xcode-27.1",
         "resourceClass": "medium",
         "env": {
           "PLATFORM": "ios"

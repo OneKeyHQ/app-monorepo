@@ -1,7 +1,5 @@
 import { useCallback, useMemo, useRef } from 'react';
 
-import LiteCard, { CardErrors } from '@onekeyfe/react-native-lite-card';
-
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
@@ -14,7 +12,7 @@ import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
-import useNFC from './useNFC';
+import useNFC, { CardErrors, LiteCard } from './useNFC';
 import useOperationDialog from './useOperationDialog';
 import usePIN from './usePIN';
 import useReadMnemonic from './useReadMnemonic';

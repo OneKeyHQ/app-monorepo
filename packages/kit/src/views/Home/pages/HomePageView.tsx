@@ -69,6 +69,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
+import { useTabDoublePress } from '../../../hooks/useTabDoublePress';
 import {
   buildOverviewOwnerKey,
   useAccountOverviewActions,
@@ -111,7 +112,7 @@ import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
 import type { IHomeNativePagerProps } from './HomeNativePager';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -585,7 +586,7 @@ export function HomePageView({
     NATIVE_HEADER_HEIGHT_SEED,
   );
   const nativeHeaderAlertsHeightRef = useRef(0);
-  const nativeHeaderRef = useRef<View>(null);
+  const nativeHeaderRef = useRef<ViewInstance>(null);
   const nativeHeaderMeasureGenerationRef = useRef(0);
   const handleFullHeaderLayout = useCallback((event: LayoutChangeEvent) => {
     nativeHeaderMeasureGenerationRef.current += 1;
@@ -1060,6 +1061,11 @@ export function HomePageView({
     homeTabsScrollToTopRef.current?.();
   }, [homeScrollOwnerKey]);
 
+  // Double-pressing the Home tab scrolls the focused pane back to the top.
+  useTabDoublePress(() => {
+    homeTabsScrollToTopRef.current?.();
+  });
+
   const stickyHeaderCtx = useMemo(
     () => ({
       portalTarget,
@@ -1085,14 +1091,14 @@ export function HomePageView({
       return measured;
     });
   }, []);
-  const handleOuterHeaderHostRef = useCallback((node: View | null) => {
+  const handleOuterHeaderHostRef = useCallback((node: ViewInstance | null) => {
     if (!__DEV__ || !platformEnv.isNativeIOS) return;
     debugHomeVisual('fixed-header-host', {
       slot: 'outer',
       attached: Boolean(node),
     });
   }, []);
-  const handlePagerHeaderHostRef = useCallback((node: View | null) => {
+  const handlePagerHeaderHostRef = useCallback((node: ViewInstance | null) => {
     if (!__DEV__ || !platformEnv.isNativeIOS) return;
     debugHomeVisual('fixed-header-host', {
       slot: 'pager',
@@ -1233,15 +1239,28 @@ export function HomePageView({
           // Native page offsets have no reset command; reset only for a new owner.
           key={homeScrollOwnerKey}
           ref={tabsRef}
-          tabs={pagerTabConfigs.map((tab) => ({
-            ...tab,
-            component:
-              tab.id === EHomeWalletTab.Portfolio ||
-              activeTabId === tab.id ||
-              mountedHomeTabIds.has(tab.id)
-                ? tab.component
-                : null,
-          }))}
+          tabs={pagerTabConfigs.map((tab) => {
+            if (tab.id === EHomeWalletTab.Portfolio) {
+              return {
+                ...tab,
+                component: (
+                  <>
+                    <HomeTabsScrollToTopBridge
+                      scrollToTopRef={homeTabsScrollToTopRef}
+                    />
+                    {tab.component}
+                  </>
+                ),
+              };
+            }
+            return {
+              ...tab,
+              component:
+                activeTabId === tab.id || mountedHomeTabIds.has(tab.id)
+                  ? tab.component
+                  : null,
+            };
+          })}
           initialTabName={seedTabName}
           headerHeightHint={nativeHeaderHeightHint}
           topOverlayHeightHint={tabPageHeight}

@@ -121,6 +121,7 @@ const validChannels = new Set([
   ipcMessageKeys.CHECK_FOR_UPDATES,
   ipcMessageKeys.APP_OPEN_SETTINGS,
   ipcMessageKeys.APP_LOCK_NOW,
+  ipcMessageKeys.PRIME_STRIPE_RESOURCE_FORBIDDEN,
   ipcMessageKeys.TOUCH_UPDATE_RES_SUCCESS,
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,

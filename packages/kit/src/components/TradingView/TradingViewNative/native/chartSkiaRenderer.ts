@@ -40,7 +40,16 @@ import {
   TRADE_MARK_LABEL_PATH_FONT_SIZE,
 } from './tradeMarkLabelPaths';
 
+import type { IDrawingCanvasText } from '../drawings/drawingText';
 import type { IDrawingRenderState } from '../drawings/useChartDrawings';
+
+export type ITradingViewNativeSkiaCommand =
+  | ITradingViewNativeChartSceneCommand
+  | { kind: 'clipPolygon'; points: { x: number; y: number }[] }
+  | (Omit<
+      Extract<ITradingViewNativeChartSceneCommand, { kind: 'rect' }>,
+      'kind'
+    > & { kind: 'roundRect'; radius: number });
 
 export interface ITradingViewNativeSkiaResources {
   customPaintSignatures: Record<string, string>;
@@ -224,7 +233,14 @@ export function createTradingViewNativeSkiaFontForText({
     }
   }
 
-  return primaryFont;
+  return createTradingViewNativeSkiaFontFromSystemFamilies({
+    fontFamily,
+    fontManager,
+    fontSize,
+    fontWeight,
+    primaryFont,
+    requiredText,
+  });
 }
 
 export function getTradingViewNativeSkiaPaintStyleSignature(
@@ -281,15 +297,20 @@ function createTradingViewNativeTradeMarkLabelPath(
 ) {
   'worklet';
 
-  const path = Skia.Path.MakeFromSVGString(TRADE_MARK_LABEL_PATHS[label]);
-  if (path) {
-    const bounds = path.computeTightBounds();
-    path.offset(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
-    const scale = fontSize / TRADE_MARK_LABEL_PATH_FONT_SIZE;
-    if (scale !== 1) {
-      path.transform(Skia.Matrix().scale(scale, scale));
-    }
+  const svgPath = Skia.Path.MakeFromSVGString(TRADE_MARK_LABEL_PATHS[label]);
+  if (!svgPath) {
+    return null;
   }
+  const bounds = svgPath.computeTightBounds();
+  const builder = Skia.PathBuilder.MakeFromPath(svgPath);
+  builder.offset(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+  const scale = fontSize / TRADE_MARK_LABEL_PATH_FONT_SIZE;
+  if (scale !== 1) {
+    builder.transform(Skia.Matrix().scale(scale, scale));
+  }
+  const path = builder.build();
+  builder.dispose();
+  svgPath.dispose();
   return path;
 }
 
@@ -300,6 +321,7 @@ export function createTradingViewNativeSkiaResources({
   priceAxisTypeface,
   priceAxisFontSize,
   timeAxisFontSize,
+  timeAxisFont,
   timeAxisBorderWidth,
   tradingLineLabelFont,
   watermarkSvg,
@@ -310,6 +332,7 @@ export function createTradingViewNativeSkiaResources({
   priceAxisTypeface: SkTypeface | null;
   priceAxisFontSize: number;
   timeAxisFontSize: number;
+  timeAxisFont?: SkFont;
   timeAxisBorderWidth?: number;
   tradingLineLabelFont: SkFont;
   watermarkSvg: SkSVG | null;
@@ -321,11 +344,13 @@ export function createTradingViewNativeSkiaResources({
   });
   const paints = {} as Record<ITradingViewNativeChartScenePaint, SkPaint>;
   const fontManager = Skia.FontMgr.System();
-  const axisFont = createTradingViewNativeSkiaFont({
-    fontFamily,
-    fontManager,
-    fontSize: timeAxisFontSize,
-  });
+  const axisFont =
+    timeAxisFont ??
+    createTradingViewNativeSkiaFont({
+      fontFamily,
+      fontManager,
+      fontSize: timeAxisFontSize,
+    });
   const priceAxisFont = priceAxisTypeface
     ? Skia.Font(priceAxisTypeface, priceAxisFontSize)
     : createTradingViewNativeSkiaFont({
@@ -429,7 +454,7 @@ function drawTradingViewNativeSkiaCommands({
   resources,
 }: {
   canvas: SkCanvas;
-  commands: ITradingViewNativeChartSceneCommand[];
+  commands: ITradingViewNativeSkiaCommand[];
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   resources: ITradingViewNativeSkiaResources;
 }) {
@@ -454,6 +479,20 @@ function drawTradingViewNativeSkiaCommands({
           }),
         );
         break;
+      case 'clipPolygon': {
+        const builder = Skia.PathBuilder.Make();
+        command.points.forEach((point, index) => {
+          if (index === 0) builder.moveTo(point.x, point.y);
+          else builder.lineTo(point.x, point.y);
+        });
+        builder.close();
+        const path = builder.build();
+        builder.dispose();
+        canvas.save();
+        canvas.clipPath(path, ClipOp.Intersect, true);
+        path.dispose();
+        break;
+      }
       case 'clip':
         canvas.save();
         canvas.clipRect(
@@ -512,15 +551,17 @@ function drawTradingViewNativeSkiaCommands({
         if (!firstPoint) {
           break;
         }
-        const path = Skia.Path.Make();
-        path.moveTo(firstPoint.x, firstPoint.y);
+        const builder = Skia.PathBuilder.Make();
+        builder.moveTo(firstPoint.x, firstPoint.y);
         for (let index = 1; index < command.points.length; index += 1) {
           const point = command.points[index];
-          path.lineTo(point.x, point.y);
+          builder.lineTo(point.x, point.y);
         }
         if (command.kind === 'polygon') {
-          path.close();
+          builder.close();
         }
+        const path = builder.build();
+        builder.dispose();
         canvas.drawPath(
           path,
           getTradingViewNativeSkiaCommandPaint({
@@ -533,15 +574,26 @@ function drawTradingViewNativeSkiaCommands({
         break;
       }
       case 'rect':
-        canvas.drawRect(
-          Skia.XYWHRect(command.x, command.y, command.width, command.height),
-          getTradingViewNativeSkiaCommandPaint({
-            customPaintId: command.customPaintId,
-            fallbackPaint: command.paint,
-            resources,
-          }),
+      case 'roundRect': {
+        const rect = Skia.XYWHRect(
+          command.x,
+          command.y,
+          command.width,
+          command.height,
         );
+        const paint = getTradingViewNativeSkiaCommandPaint({
+          customPaintId: command.customPaintId,
+          fallbackPaint: command.paint,
+          resources,
+        });
+        if (command.kind === 'roundRect')
+          canvas.drawRRect(
+            Skia.RRectXY(rect, command.radius, command.radius),
+            paint,
+          );
+        else canvas.drawRect(rect, paint);
         break;
+      }
       case 'restore':
         canvas.restore();
         break;
@@ -600,14 +652,44 @@ function drawTradingViewNativeSkiaCommands({
   }
 }
 
+export function createTradingViewNativeSkiaCommandPicture({
+  commands,
+  customPaintStyles,
+  resources,
+  width,
+  height,
+}: {
+  commands: ITradingViewNativeSkiaCommand[];
+  customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
+  resources: ITradingViewNativeSkiaResources;
+  width: number;
+  height: number;
+}): SkPicture {
+  'worklet';
+  return createPicture(
+    (canvas) => {
+      'worklet';
+      drawTradingViewNativeSkiaCommands({
+        canvas,
+        commands,
+        customPaintStyles,
+        resources,
+      });
+    },
+    { width, height },
+  );
+}
+
 export function createTradingViewNativeSkiaPicture({
   resources,
   drawings,
+  drawingText,
   onScene,
   ...sceneOptions
 }: Omit<IBuildTradingViewNativeChartSceneOptions, 'measureTextWidth'> & {
   resources: ITradingViewNativeSkiaResources;
   drawings?: IDrawingRenderState;
+  drawingText?: IDrawingCanvasText;
   onScene?: (scene: ITradingViewNativeChartScene) => void;
 }): SkPicture {
   'worklet';
@@ -651,6 +733,10 @@ export function createTradingViewNativeSkiaPicture({
           viewport: scene.viewport,
           points: sceneOptions.points,
           interval: sceneOptions.candleIntervalSeconds,
+          priceDecimalPlaces: sceneOptions.priceDecimalPlaces,
+          size: { width: sceneOptions.width, height: sceneOptions.height },
+          showPriceAxis: sceneOptions.chartSettings?.options.yAxis,
+          text: drawingText,
         },
         resources.fonts.legend,
         sceneOptions.chartSettings?.background.colors[0] ?? '#ffffff',

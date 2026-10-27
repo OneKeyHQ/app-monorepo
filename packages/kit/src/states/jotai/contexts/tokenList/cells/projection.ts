@@ -45,6 +45,8 @@ export interface IStoreProjection {
   aggCells: Map<IAggKey, Atom<ITokenFiat | undefined>>;
   /** Synchronous valuation boundaries for each aggregate group. */
   aggUpdating: Map<IAggKey, PrimitiveAtom<boolean>>;
+  /** Stable across owner resets so frame-wide readers keep the same boundary. */
+  valuationUpdating: PrimitiveAtom<boolean>;
   curOwnerKey: string | undefined;
   /** generation of the most recent applyStructure. */
   curGeneration: number;
@@ -80,6 +82,7 @@ export function ensureStoreProjection(
       aggSubCells: new Map(),
       aggCells: new Map(),
       aggUpdating: new Map(),
+      valuationUpdating: atom(false),
       curOwnerKey: undefined,
       curGeneration: -1,
       lastRoundProvisional: false,

@@ -443,7 +443,7 @@ function MobilePerpMarket() {
       >
         <SizableText size="$headingMd">{pairLabel}</SizableText>
         <TradingModeBadge isSpot={mode === 'spot'} px="$1.5" />
-        <PerpDexBadge dexLabel={dexLabel} />
+        <PerpDexBadge dexLabel={dexLabel} interactive={isSplitDetailActive} />
         {isSplitDetailActive ? null : (
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         )}

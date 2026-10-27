@@ -67,6 +67,7 @@ import {
   EMultiTabBrowserRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
+  ETabDeveloperRoutes,
   ETabEarnRoutes,
   ETabMarketRoutes,
   ETabRoutes,
@@ -97,6 +98,7 @@ import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 import { registerHomeTokenListOwnerCacheInvalidation } from '../states/jotai/contexts/tokenList/cells/ownerCacheInvalidation';
 import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
+import { registerSwapTokenSelectorCacheInvalidation } from '../views/Swap/utils/swapTokenSelectorCacheInvalidation';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
 
@@ -392,8 +394,13 @@ const useDesktopEvents = platformEnv.isDesktop
             });
             break;
           case EShortcutEvents.TabDeveloper:
+            if (!platformEnv.isDev) {
+              break;
+            }
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Developer);
+              navigation.pushModal(EModalRoutes.DeveloperModal, {
+                screen: ETabDeveloperRoutes.TabDeveloper,
+              });
             });
             break;
           case EShortcutEvents.NewTab2:
@@ -849,6 +856,7 @@ registerSwrCacheMutationInvalidation();
 // Same for the home token list's per-owner caches: a removal made before the
 // home token list first runs must still drop them.
 registerHomeTokenListOwnerCacheInvalidation();
+registerSwapTokenSelectorCacheInvalidation();
 
 export function Bootstrap() {
   const navigation = useAppNavigation();
@@ -915,6 +923,17 @@ export function Bootstrap() {
         Choose which page to open when launching the app
       */
       const timer = setTimeout(() => {
+        if (
+          (platformEnv.isNative ||
+            platformEnv.isDesktop ||
+            platformEnv.isExtension) &&
+          autoNavigation.selectedTab === ETabRoutes.Developer
+        ) {
+          navigation.pushModal(EModalRoutes.DeveloperModal, {
+            screen: ETabDeveloperRoutes.TabDeveloper,
+          });
+          return;
+        }
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
         // ----------------------------------------------
         // navigate to auth gallery

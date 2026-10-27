@@ -1,0 +1,149 @@
+diff --git a/node_modules/metro/src/Assets.js b/node_modules/metro/src/Assets.js
+index b9e6893..bd07d07 100644
+--- a/node_modules/metro/src/Assets.js
++++ b/node_modules/metro/src/Assets.js
+@@ -205,6 +205,8 @@ async function getAssetFiles(assetPath, platform = null) {
+   const assetData = await getAbsoluteAssetRecord(assetPath, platform);
+   return assetData.files;
+ }
++
++const GET_TOP_DIR_SYMBOL = "relative_dir_symbol";
+ async function getAsset(
+   relativePath,
+   projectRoot,
+@@ -213,12 +215,19 @@ async function getAsset(
+   assetExts,
+   fileExistsInFileMap,
+ ) {
++  if (relativePath.startsWith(GET_TOP_DIR_SYMBOL)) {
++    relativePath = relativePath.replaceAll(GET_TOP_DIR_SYMBOL, "..");
++  }
+   const assetData = AssetPaths.parse(
+     relativePath,
+     new Set(platform != null ? [platform] : []),
+   );
+   const absolutePath = _nodePath.default.resolve(projectRoot, relativePath);
+   if (!assetExts.includes(assetData.type)) {
++    console.error(
++      `'${relativePath}' cannot be loaded as its extension is not registered in assetExts`,
++      absolutePath,
++    );
+     throw new Error(
+       `'${relativePath}' cannot be loaded as its extension is not registered in assetExts`,
+     );
+@@ -227,6 +236,10 @@ async function getAsset(
+     fileExistsInFileMap == null &&
+     !pathBelongsToRoots(absolutePath, [projectRoot, ...watchFolders])
+   ) {
++    console.error(
++      `'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`,
++      absolutePath,
++    );
+     throw new Error(
+       `'${relativePath}' could not be found, because it cannot be found in the project root or any watch folder`,
+     );
+diff --git a/node_modules/metro/src/DeltaBundler/DeltaCalculator.js b/node_modules/metro/src/DeltaBundler/DeltaCalculator.js
+index 06c8c64..01f5a73 100644
+--- a/node_modules/metro/src/DeltaBundler/DeltaCalculator.js
++++ b/node_modules/metro/src/DeltaBundler/DeltaCalculator.js
+@@ -54,6 +54,12 @@ class DeltaCalculator extends _nodeEvents.default {
+     this._deletedFiles = new Set();
+     const addedFiles = this._addedFiles;
+     this._addedFiles = new Set();
++    // OneKey patch: let serializers invalidate external runtime inputs exactly.
++    const unstable_changedFiles = new Set([
++      ...modifiedFiles,
++      ...deletedFiles,
++      ...addedFiles,
++    ]);
+     const requiresReset = this._requiresReset;
+     this._requiresReset = false;
+     if (requiresReset) {
+@@ -90,9 +96,10 @@ class DeltaCalculator extends _nodeEvents.default {
+         deleted: new Set(),
+         modified: new Map(),
+         reset: true,
++        unstable_changedFiles,
+       };
+     }
+-    return result;
++    return { ...result, unstable_changedFiles };
+   }
+   getGraph() {
+     return this._graph;
+diff --git a/node_modules/metro/src/DeltaBundler/Serializers/hmrJSBundle.js b/node_modules/metro/src/DeltaBundler/Serializers/hmrJSBundle.js
+index 0bcf1dd..dd9ecf3 100644
+--- a/node_modules/metro/src/DeltaBundler/Serializers/hmrJSBundle.js
++++ b/node_modules/metro/src/DeltaBundler/Serializers/hmrJSBundle.js
+@@ -43,7 +43,11 @@ const debug = (0, _debug.default)("Metro:HMR");
+ function generateModules(sourceModules, graph, options) {
+   const modules = [];
+   for (const module of sourceModules) {
+-    if ((0, _js.isJsModule)(module)) {
++    // OneKey patch: HMR must honor the same module filter as full bundles.
++    if (
++      (0, _js.isJsModule)(module) &&
++      options.processModuleFilter?.(module) !== false
++    ) {
+       const getPathname = (extension) => {
+         return _nodePath.default
+           .relative(
+diff --git a/node_modules/metro/src/HmrServer.js b/node_modules/metro/src/HmrServer.js
+index 2c98831..8dec2b2 100644
+--- a/node_modules/metro/src/HmrServer.js
++++ b/node_modules/metro/src/HmrServer.js
+@@ -318,6 +318,8 @@ class HmrServer {
+         clientUrl: new URL(group.clientUrl),
+         createModuleId: this._createModuleId,
+         includeAsyncPaths: group.graphOptions.lazy,
++        // OneKey patch: never publish external common-module stubs over HMR.
++        processModuleFilter: this._config.serializer.processModuleFilter,
+         projectRoot: this._config.projectRoot,
+         serverRoot:
+           this._config.server.unstable_serverRoot ?? this._config.projectRoot,
+diff --git a/node_modules/metro/src/Server.js b/node_modules/metro/src/Server.js
+index 801d7af..bdde47a 100644
+--- a/node_modules/metro/src/Server.js
++++ b/node_modules/metro/src/Server.js
+@@ -3,7 +3,7 @@
+ Object.defineProperty(exports, "__esModule", {
+   value: true,
+ });
+-exports.default = void 0;
++exports.shouldRetainModulesOnlyGraphForHmr = exports.default = void 0;
+ var _Assets = require("./Assets");
+ var _baseJSBundle = _interopRequireDefault(
+   require("./DeltaBundler/Serializers/baseJSBundle"),
+@@ -60,6 +60,17 @@ var _nodePath = _interopRequireDefault(require("node:path"));
+ var _nodePerf_hooks = require("node:perf_hooks");
+ var _nodeQuerystring = _interopRequireDefault(require("node:querystring"));
+ var _nullthrows = _interopRequireDefault(require("nullthrows"));
++function shouldRetainModulesOnlyGraphForHmr(resolverOptions) {
++  const customResolverOptions = resolverOptions.customResolverOptions;
++  return (
++    customResolverOptions?.devVendorNative === "true" &&
++    (customResolverOptions.runtimeTarget === "main" ||
++      (customResolverOptions.runtimeTarget === "background" &&
++        customResolverOptions.devVendorBackgroundHMR === "true"))
++  );
++}
++exports.shouldRetainModulesOnlyGraphForHmr =
++  shouldRetainModulesOnlyGraphForHmr;
+ function _interopRequireWildcard(e, t) {
+   if ("function" == typeof WeakMap)
+     var r = new WeakMap(),
+@@ -958,6 +969,14 @@ class Server {
+       );
+       bundlePerfLogger.point("serializingBundle_end");
+       const bundleCode = typeof bundle === "string" ? bundle : bundle.code;
++      // Keep only native dev-vendor graphs that have an HMR client. Other
++      // modulesOnly bundles are one-shot and should release their graph.
++      if (
++        serializerOptions.modulesOnly &&
++        !shouldRetainModulesOnlyGraphForHmr(resolverOptions)
++      ) {
++        await this._bundler.endGraph(graphId);
++      }
+       return {
+         numModifiedFiles: delta.reset
+           ? delta.added.size + revision.prepend.length

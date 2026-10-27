@@ -85,6 +85,7 @@ type IProps = {
   }) => void;
   replaceTxMode?: boolean;
   replaceTxOriginalFeeInfo?: IFeeInfoUnit;
+  minimumGasLimit?: string;
 };
 
 const DEFAULT_GAS_LIMIT_MIN = 21_000;
@@ -184,6 +185,7 @@ function TxFeeEditor(props: IProps) {
     estimateFeeParams,
     replaceTxMode,
     replaceTxOriginalFeeInfo,
+    minimumGasLimit,
   } = props;
   const intl = useIntl();
   const dialog = useDialogInstance();
@@ -616,9 +618,16 @@ function TxFeeEditor(props: IProps) {
         );
       }
 
+      if (minimumGasLimit && gasLimit.isLessThan(minimumGasLimit)) {
+        return intl.formatMessage(
+          { id: ETranslations.form_must_greater_then_value },
+          { value: minimumGasLimit },
+        );
+      }
+
       return true;
     },
-    [intl, vaultSettings?.gasLimitValidationEnabled],
+    [intl, minimumGasLimit, vaultSettings?.gasLimitValidationEnabled],
   );
 
   const handleValidateGasPrice = useCallback(
@@ -936,13 +945,16 @@ function TxFeeEditor(props: IProps) {
           }}
           options={feeSelectorItems.map((item, index) => ({
             ...item,
-            label: (
+            // The control's value is an index, and the base-fee fallback item
+            // carries value 1 at index 0.
+            value: index,
+            label: ({ color }) => (
               <YStack>
                 {/* <SizableText size="$bodyMdMedium" textAlign="center">
                   {item.icon}
                 </SizableText> */}
                 <SizableText
-                  color={currentFeeIndex === index ? '$text' : '$textSubdued'}
+                  color={color}
                   size="$bodyMdMedium"
                   textAlign="center"
                 >

@@ -24,13 +24,11 @@ import { showLabelSetDialog as showHardwareLabelSetDialog } from './HardwareLabe
 export function WalletRenameButton({
   wallet,
   editable,
-  nativeSheet = false,
   textSize = '$bodyLgMedium',
   ...rest
 }: ComponentProps<typeof XStack> & {
   wallet: IDBWallet;
   editable: boolean | undefined;
-  nativeSheet?: boolean;
   textSize?: '$bodyLgMedium' | '$heading2xl' | '$headingXl' | '$headingLg';
 }) {
   const { serviceAccount } = backgroundApiProxy;
@@ -98,7 +96,6 @@ export function WalletRenameButton({
                   asciiOnly: labelAsciiOnly,
                 },
                 {
-                  nativeSheet,
                   maxLength: labelAsciiAlphanumericWithSpacesOnly
                     ? PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH
                     : undefined,
@@ -121,7 +118,6 @@ export function WalletRenameButton({
               );
             } else {
               showRenameDialog(wallet.name, {
-                nativeSheet,
                 intl,
                 nameHistoryInfo: {
                   entityId: wallet.id,

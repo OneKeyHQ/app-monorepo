@@ -55,6 +55,10 @@ export const HomeTestIDs = {
     'home-prime-subscription-open-app-fallback-btn',
   primeSubscriptionDownloadFallbackBtn:
     'home-prime-subscription-download-fallback-btn',
+  primePurchaseCompleteOpenAppFallbackBtn:
+    'home-prime-purchase-complete-open-app-fallback-btn',
+  primePurchaseCompleteDownloadFallbackBtn:
+    'home-prime-purchase-complete-download-fallback-btn',
 
   // Zero-gas continue confirmation
   walletActionsZeroGasContinueBtn: 'home-wallet-actions-zero-gas-continue-btn',

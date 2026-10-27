@@ -76,6 +76,7 @@ export function useBulkSendPageAccess({
         return;
       }
       await ensureFeatureAccess({
+        trackAttempt: false,
         featureId: EPrimeFeatures.BulkSend,
         networkId,
         isContextValid: () => !isUnmountedRef.current,

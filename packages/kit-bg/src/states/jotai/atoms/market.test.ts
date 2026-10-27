@@ -1,7 +1,9 @@
 import {
   type IMarketDetailChartDisplayModePersistAtom,
+  type IMarketDetailPositionTabPersistAtom,
   type IMarketSelectedTabAtom,
   marketDetailChartDisplayModePersistAtom,
+  marketDetailPositionTabPersistAtom,
   marketSelectedTabAtom,
 } from './market';
 
@@ -25,5 +27,15 @@ describe('marketDetailChartDisplayModePersistAtom', () => {
 
     expect(atom.name).not.toBe(marketTabAtom.name);
     expect(marketTabAtom.initialValue).toEqual({ tab: 'trending' });
+  });
+});
+
+describe('marketDetailPositionTabPersistAtom', () => {
+  const atom =
+    marketDetailPositionTabPersistAtom.atom() as unknown as IJotaiAtomPro<IMarketDetailPositionTabPersistAtom>;
+
+  it('starts on each page default tab and persists the choice', () => {
+    expect(atom.initialValue).toEqual({ preferPosition: false });
+    expect(atom.persist).toBe(true);
   });
 });

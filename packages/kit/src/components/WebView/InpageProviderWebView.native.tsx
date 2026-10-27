@@ -72,7 +72,7 @@ const injectedMetaJavaScript = `
 const defaultOnMessage = (_event: any) => {};
 
 type INativeInpageProviderWebViewProps = IInpageProviderWebViewProps &
-  Pick<WebViewProps, 'containerStyle' | 'style'>;
+  Pick<WebViewProps, 'containerStyle' | 'style' | 'injectedJavaScript'>;
 
 const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
   (
@@ -107,9 +107,11 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       allowFileAccessFromFileURLs,
       allowFileAccess,
       allowingReadAccessToURL,
+      scrollViewClipsToBounds,
       onError,
       onHttpError,
       disableBridge,
+      injectedJavaScript,
     }: INativeInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -281,6 +283,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           receiveHandler={disableBridge ? undefined : receiveHandler}
           disableBridge={disableBridge}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
+          injectedJavaScript={injectedJavaScript}
           style={style}
           containerStyle={webViewContainerStyle}
           onLoadProgress={({ nativeEvent }) => {
@@ -314,6 +317,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           }
           {...nativeWebviewProps}
           allowingReadAccessToURL={allowingReadAccessToURL}
+          scrollViewClipsToBounds={scrollViewClipsToBounds}
           onError={onError}
           onHttpError={onHttpError}
         />

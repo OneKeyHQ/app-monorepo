@@ -75,8 +75,7 @@ function MobileMarketTokenFlatListBase({
     refetch,
   } = useMarketTokenList({
     networkId,
-    initialSortBy: 'v24hUSD',
-    initialSortType: 'desc',
+    useApiDefaultSort: true,
     pageSize: 20,
     type: selectedCategory,
     category: stockCategory,
@@ -267,7 +266,7 @@ function MobileMarketTokenFlatListBase({
       windowSize={platformEnv.isNativeAndroid ? 7 : 3}
       removeClippedSubviews={platformEnv.isNativeIOS}
       updateCellsBatchingPeriod={platformEnv.isNativeAndroid ? 50 : 100}
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={ListFooterComponent ?? undefined}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
         ...(platformEnv.isNative

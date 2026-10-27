@@ -3,8 +3,10 @@ import type {
   IDustSweepSnapshot,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
+import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import {
+  EDustSweepPhase,
   dustSweepReducer,
   getDustSweepPresentation,
   getDustSweepTotals,
@@ -42,10 +44,166 @@ function signingState() {
     snapshot,
   });
   state = dustSweepReducer(state, { ...identity, status: 'preparing' });
+  state = dustSweepReducer(state, { ...identity, status: 'building' });
   return dustSweepReducer(state, { ...identity, status: 'signing' });
 }
 
 describe('Dust Sweep terminal and retry boundaries', () => {
+  it.each([
+    [EDustSweepItemStatus.Preparing, EDustSweepItemStatus.Skipped],
+    [EDustSweepItemStatus.Building, EDustSweepItemStatus.Failed],
+    [EDustSweepItemStatus.Signing, EDustSweepItemStatus.Failed],
+    [EDustSweepItemStatus.Broadcasted, EDustSweepItemStatus.Failed],
+  ] as const)('classifies an error in %s as %s', (stage, expected) => {
+    let state = dustSweepReducer(initialDustSweepState, {
+      type: 'start',
+      snapshot,
+    });
+    for (const status of [
+      EDustSweepItemStatus.Preparing,
+      EDustSweepItemStatus.Building,
+      EDustSweepItemStatus.Signing,
+      EDustSweepItemStatus.Broadcasted,
+    ]) {
+      state = dustSweepReducer(state, { ...identity, status });
+      if (status === stage) break;
+    }
+    const completed = dustSweepReducer(state, {
+      type: 'itemError',
+      sessionId: snapshot.id,
+      key: token.key,
+      providerErrorMessage: 'API error',
+    });
+    expect(completed.phase).toBe(EDustSweepPhase.Completed);
+    expect(completed.items[0]).toMatchObject({
+      status: expected,
+      providerErrorMessage: 'API error',
+    });
+    expect(
+      dustSweepReducer(completed, {
+        ...identity,
+        status: EDustSweepItemStatus.Preparing,
+      }),
+    ).toBe(completed);
+  });
+
+  it('requires the quote/build boundary before signing and rejects skipping a built transaction', () => {
+    const started = dustSweepReducer(initialDustSweepState, {
+      type: 'start',
+      snapshot,
+    });
+    const preparing = dustSweepReducer(started, {
+      ...identity,
+      status: EDustSweepItemStatus.Preparing,
+    });
+    expect(
+      dustSweepReducer(preparing, {
+        ...identity,
+        status: EDustSweepItemStatus.Signing,
+      }),
+    ).toBe(preparing);
+    const building = dustSweepReducer(preparing, {
+      ...identity,
+      status: EDustSweepItemStatus.Building,
+    });
+    expect(
+      dustSweepReducer(building, {
+        ...identity,
+        status: EDustSweepItemStatus.Skipped,
+      }),
+    ).toBe(building);
+    expect(getDustSweepPresentation(building).active?.status).toBe(
+      EDustSweepItemStatus.Building,
+    );
+  });
+
+  it('does not discard an active item on Stop or accept updates after Leave', () => {
+    const signing = signingState();
+    const paused = dustSweepReducer(signing, { type: 'pause' });
+    expect(dustSweepReducer(paused, { type: 'stop' })).toBe(paused);
+    const left = dustSweepReducer(
+      dustSweepReducer(signing, { type: 'leave' }),
+      { type: 'left' },
+    );
+    expect(
+      dustSweepReducer(left, {
+        ...identity,
+        status: EDustSweepItemStatus.Broadcasted,
+        txId: 'late',
+      }),
+    ).toBe(left);
+    expect(
+      dustSweepReducer(left, {
+        type: 'submissionError',
+        sessionId: snapshot.id,
+        key: token.key,
+        txId: 'late',
+      }),
+    ).toBe(left);
+  });
+
+  it('only starts one token at a time and cannot bypass quoting without an existing approval', () => {
+    const started = dustSweepReducer(initialDustSweepState, {
+      type: 'start',
+      snapshot: { ...snapshot, tokens: [token, { ...token, key: 'second' }] },
+    });
+    expect(
+      dustSweepReducer(started, {
+        ...identity,
+        status: EDustSweepItemStatus.Building,
+      }),
+    ).toBe(started);
+    const preparing = dustSweepReducer(started, {
+      ...identity,
+      status: EDustSweepItemStatus.Preparing,
+    });
+    expect(
+      dustSweepReducer(preparing, {
+        ...identity,
+        key: 'second',
+        status: EDustSweepItemStatus.Preparing,
+      }),
+    ).toBe(preparing);
+    const paused = dustSweepReducer(started, { type: 'pause' });
+    expect(
+      dustSweepReducer(paused, {
+        ...identity,
+        status: EDustSweepItemStatus.Preparing,
+      }),
+    ).toBe(paused);
+  });
+
+  it('retains the execution boundary when retrying an already broadcast approval', () => {
+    let state = dustSweepReducer(signingState(), {
+      type: 'approvalBroadcast',
+      sessionId: snapshot.id,
+      key: token.key,
+      approvalTxIds: ['approval'],
+    });
+    state = dustSweepReducer(state, {
+      ...identity,
+      status: EDustSweepItemStatus.Building,
+    });
+    state = dustSweepReducer(state, {
+      ...identity,
+      status: EDustSweepItemStatus.Waiting,
+    });
+    state = dustSweepReducer(state, {
+      ...identity,
+      status: EDustSweepItemStatus.Building,
+    });
+    const completed = dustSweepReducer(state, {
+      type: 'itemError',
+      sessionId: snapshot.id,
+      key: token.key,
+      reason: 'txFailed',
+    });
+    expect(completed.items[0]).toMatchObject({
+      status: EDustSweepItemStatus.Failed,
+      approvalTxIds: ['approval'],
+    });
+  });
+
   it('retains already broadcast approvals across a retryable cancellation', () => {
     let state = signingState();
     state = dustSweepReducer(state, {
@@ -55,7 +213,7 @@ describe('Dust Sweep terminal and retry boundaries', () => {
       approvalTxIds: ['approval-0'],
     });
     expect(state.items[0].status).toBe('signing');
-    state = dustSweepReducer(state, { ...identity, status: 'preparing' });
+    state = dustSweepReducer(state, { ...identity, status: 'building' });
     state = dustSweepReducer(state, { ...identity, status: 'waiting' });
     expect(state.items[0].status).toBe('waiting');
     expect(state.items[0].approvalTxIds).toEqual(['approval-0']);
@@ -89,14 +247,14 @@ describe('Dust Sweep terminal and retry boundaries', () => {
       key: identity.key,
       approvalTxIds: ['failed-approval'],
     });
-    state = dustSweepReducer(state, { ...identity, status: 'preparing' });
+    state = dustSweepReducer(state, { ...identity, status: 'building' });
     state = dustSweepReducer(state, {
       ...identity,
-      status: 'skipped',
+      status: 'failed',
       reason: 'txFailed',
     });
     expect(state.items[0]).toMatchObject({
-      status: 'skipped',
+      status: 'failed',
       approvalTxIds: ['failed-approval'],
     });
   });
@@ -153,11 +311,14 @@ describe('Dust Sweep terminal and retry boundaries', () => {
       ...identity,
       status: 'success',
       receiptUnavailable: true,
+      receivedAmountEstimated: true,
     });
     expect(completed.phase).toBe('completed');
     expect(completed.items[0].receivedAmount).toBeUndefined();
+    expect(completed.items[0].receivedAmountEstimated).toBeUndefined();
     expect(getDustSweepTotals(completed.items)).toMatchObject({
       receiptUnavailable: true,
+      receivedAmountEstimated: false,
       successCount: 1,
     });
   });

@@ -48,6 +48,7 @@ export type IUsePrimePayment = {
   restorePurchases: (() => Promise<void>) | undefined;
   webEmbedQueryParams?: {
     apiKey: string;
+    isSandboxKey: boolean;
     primeUserId: string;
     primeUserEmail: string;
     subscriptionPeriod: ISubscriptionPeriod;

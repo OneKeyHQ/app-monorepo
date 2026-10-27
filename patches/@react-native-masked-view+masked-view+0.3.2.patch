@@ -1,0 +1,15 @@
+diff --git a/node_modules/@react-native-masked-view/masked-view/types/index.d.ts b/node_modules/@react-native-masked-view/masked-view/types/index.d.ts
+index 6a66a1e..8b6b5b1 100644
+--- a/node_modules/@react-native-masked-view/masked-view/types/index.d.ts
++++ b/node_modules/@react-native-masked-view/masked-view/types/index.d.ts
+@@ -13,8 +13,9 @@ interface MaskedViewProps extends ReactNative.ViewProps {
+  * @see https://github.com/react-native-masked-view/masked-view
+  */
+ declare class MaskedViewComponent extends React.Component<MaskedViewProps> {}
++// OneKey patch: RN 0.87+ strict API removed `NativeMethods`; refs are host instances.
+ declare const MaskedViewBase: Constructor<
+-  ReactNative.NativeMethods
++  ReactNative.HostInstance
+ > &
+   typeof MaskedViewComponent;
+ export default class MaskedView extends MaskedViewBase {}

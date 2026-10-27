@@ -1,3 +1,4 @@
+import type { BaseSyntheticEvent } from 'react';
 import {
   memo,
   useCallback,
@@ -219,11 +220,8 @@ function PasswordVerify({
             Dialog.confirm({
               icon: 'ErrorOutline',
               tone: 'warning',
-              // Off the lock screen this takes the default portal, which is
-              // where the passcode prompt that raises it already lives
-              // (PasswordVerifyPromptMount passes no container on native), so
-              // the warning stacks above it as the later child. Only the lock
-              // screen needs a container of its own.
+              // Keep child confirmations above the password prompt.
+              overlayLevel: inAppStateLock ? 'lock' : 'secure',
               ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
               title: intl.formatMessage(
                 {
@@ -455,7 +453,12 @@ function PasswordVerify({
                 onSubmitEditing={
                   confirmBtnDisabled
                     ? undefined
-                    : form.handleSubmit(onInputPasswordAuth)
+                    : (e) =>
+                        // react-hook-form only reads preventDefault/persist
+                        // from the event, which RN events provide too.
+                        form.handleSubmit(onInputPasswordAuth)(
+                          e as unknown as BaseSyntheticEvent,
+                        )
                 }
                 addOns={rightActions}
                 testID="password-input"

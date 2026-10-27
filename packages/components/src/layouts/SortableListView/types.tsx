@@ -1,5 +1,6 @@
 import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
 
+import type { IListSlotComponent } from '../ListView/types';
 import type {
   DragEndParams,
   DraggableFlatListProps,
@@ -32,6 +33,9 @@ export type ISortableListViewProps<T> = Omit<
   | 'columnWrapperStyle'
   | 'ListHeaderComponentStyle'
   | 'ListFooterComponentStyle'
+  | 'ListHeaderComponent'
+  | 'ListFooterComponent'
+  | 'ListEmptyComponent'
   | 'onDragEnd'
 > &
   StackStyle & {
@@ -54,6 +58,9 @@ export type ISortableListViewProps<T> = Omit<
     columnWrapperStyle?: StackStyle;
     ListHeaderComponentStyle?: StackStyle;
     ListFooterComponentStyle?: StackStyle;
+    ListHeaderComponent?: IListSlotComponent;
+    ListFooterComponent?: IListSlotComponent;
+    ListEmptyComponent?: IListSlotComponent;
     onDragEnd?: (params: IDragEndParamsWithItem<T>) => void;
     getItemDragDisabled?: (item: T, index: number) => boolean;
     // Whether this list is integrated inside a collapsible tab container (native only)

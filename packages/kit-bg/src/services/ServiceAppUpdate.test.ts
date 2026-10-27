@@ -157,7 +157,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     })),
     getFallbackBundles: jest.fn(async () => []),
     switchBundle: jest.fn(async () => undefined),
-    isBundleExists: jest.fn(async () => false),
+    isBundleExists: jest.fn(async () => true),
     listLocalBundles: jest.fn(async () => []),
     testVerification: jest.fn(async () => false),
     testDeleteJsBundle: jest.fn(async () => ({
@@ -429,6 +429,7 @@ describe('ServiceAppUpdate state transitions', () => {
           latestVersion: '1.0.0',
           jsBundleVersion: '5',
           status: EAppUpdateStatus.ready,
+          downloadedEvent: { latestVersion: '1.0.0', bundleVersion: '5' },
         });
 
         const info = await service.reconcileAppShellPackage();
@@ -654,7 +655,7 @@ describe('ServiceAppUpdate state transitions', () => {
     });
   });
 
-  describe('app shell package reconciliation', () => {
+  describe('update package reconciliation', () => {
     test('first launch after app update preserves the completed package state', async () => {
       const {
         AppUpdate,
@@ -970,15 +971,89 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(result.downloadedEvent?.latestVersion).toBe('2.0.0');
     });
 
-    test('JS bundle ready state is not inspected by app shell reconciliation', async () => {
+    test.each([EAppUpdateStatus.ready, EAppUpdateStatus.manualInstall])(
+      'available JS bundle preserves %s without checking the app shell',
+      async (status) => {
+        const {
+          AppUpdate,
+          BundleUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        BundleUpdate.isBundleExists.mockResolvedValueOnce(true);
+        resetAtom({
+          latestVersion: '1.0.0',
+          jsBundleVersion: '2',
+          status,
+          updateStrategy: EUpdateStrategy.seamless,
+          downloadedEvent: {
+            downloadUrl: 'https://cdn.onekey.so/bundle-2.zip',
+          },
+        });
+
+        const result = await service.reconcileAppShellPackage();
+
+        expect(result.status).toBe(status);
+        expect(BundleUpdate.isBundleExists).toHaveBeenCalledWith('1.0.0', '2');
+        expect(result.downloadedEvent?.downloadUrl).toBe(
+          'https://cdn.onekey.so/bundle-2.zip',
+        );
+        expect(AppUpdate.checkPackageAvailability).not.toHaveBeenCalled();
+      },
+    );
+
+    test.each([EUpdateStrategy.silent, EUpdateStrategy.seamless])(
+      'missing JS bundle restarts auto download for strategy %s and clears pending task',
+      async (updateStrategy) => {
+        const {
+          BundleUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+        resetAtom({
+          latestVersion: '1.0.0',
+          jsBundleVersion: '24910529',
+          status: EAppUpdateStatus.ready,
+          updateStrategy,
+          downloadedEvent: {
+            downloadUrl: 'https://cdn.onekey.so/bundle-24910529.zip',
+          },
+        });
+        resetPendingTask({
+          taskId: 'jsBundle:1.0.0:24910529',
+          revision: 1,
+          action: EPendingInstallTaskAction.switchBundle,
+          type: EPendingInstallTaskType.jsBundleSwitch,
+          targetAppVersion: '1.0.0',
+          targetBundleVersion: '24910529',
+        });
+
+        const result = await service.reconcileAppShellPackage();
+
+        expect(BundleUpdate.isBundleExists).toHaveBeenCalledWith(
+          '1.0.0',
+          '24910529',
+        );
+        expect(result.status).toBe(EAppUpdateStatus.notify);
+        expect(result.downloadedEvent).toBeUndefined();
+        expect(pendingInstallTaskValue).toBeUndefined();
+
+        const emitSpy = jest.spyOn(appEventBus, 'emit');
+        await jest.runAllTimersAsync();
+        expect(emitSpy).toHaveBeenCalledWith(
+          EAppEventBusNames.StartAutoDownloadUpdate,
+          { decision: 'jsBundlePackageRecovery' },
+        );
+      },
+    );
+
+    test('missing JS bundle transitions manual strategy to updateIncomplete', async () => {
       const {
-        AppUpdate,
+        BundleUpdate,
       } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
       resetAtom({
         latestVersion: '1.0.0',
-        jsBundleVersion: '2',
+        jsBundleVersion: '24910529',
         status: EAppUpdateStatus.ready,
-        updateStrategy: EUpdateStrategy.seamless,
+        updateStrategy: EUpdateStrategy.manual,
         downloadedEvent: {
           latestVersion: '1.0.0',
           bundleVersion: '2',
@@ -987,8 +1062,93 @@ describe('ServiceAppUpdate state transitions', () => {
 
       const result = await service.reconcileAppShellPackage();
 
-      expect(result.status).toBe(EAppUpdateStatus.ready);
-      expect(AppUpdate.checkPackageAvailability).not.toHaveBeenCalled();
+      expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
+      expect(result.downloadedEvent).toBeUndefined();
+    });
+
+    test.each([
+      EAppUpdateStatus.downloadPackage,
+      EAppUpdateStatus.downloadPackageFailed,
+      EAppUpdateStatus.downloadASC,
+      EAppUpdateStatus.downloadASCFailed,
+      EAppUpdateStatus.verifyASC,
+      EAppUpdateStatus.verifyASCFailed,
+      EAppUpdateStatus.verifyPackage,
+      EAppUpdateStatus.verifyPackageFailed,
+    ])(
+      'JS bundle in %s is not invalidated before it is installable',
+      async (status) => {
+        const {
+          AppUpdate,
+          BundleUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        resetAtom({
+          latestVersion: '1.0.0',
+          jsBundleVersion: '24910529',
+          status,
+          updateStrategy: EUpdateStrategy.seamless,
+          downloadedEvent: { downloadUrl: 'https://cdn.onekey.so/bundle.zip' },
+        });
+        const snapshot = atomValue;
+
+        const result = await service.reconcileAppShellPackage();
+
+        expect(result).toMatchObject(snapshot);
+        expect(BundleUpdate.isBundleExists).not.toHaveBeenCalled();
+        expect(AppUpdate.checkPackageAvailability).not.toHaveBeenCalled();
+      },
+    );
+
+    test('JS bundle existence check failure preserves the ready state', async () => {
+      const {
+        BundleUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      BundleUpdate.isBundleExists.mockRejectedValueOnce(
+        new Error('Bridge unavailable'),
+      );
+      resetAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: { downloadUrl: 'https://cdn.onekey.so/bundle.zip' },
+      });
+      const snapshot = atomValue;
+
+      expect(await service.reconcileAppShellPackage()).toMatchObject(snapshot);
+    });
+
+    test('repeated missing JS bundles stop auto recovery after the persisted retry budget', async () => {
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      resetAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        updateStrategy: EUpdateStrategy.seamless,
+      });
+
+      for (let retry = 1; retry <= 3; retry += 1) {
+        const {
+          BundleUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+        atomValue = {
+          ...atomValue,
+          status: EAppUpdateStatus.ready,
+          downloadedEvent: { downloadUrl: 'https://cdn.onekey.so/bundle.zip' },
+        };
+        const result = await service.reconcileAppShellPackage();
+        expect(
+          result.fullFlowRetryByTarget?.['recovery:1.0.0:24910529']?.count,
+        ).toBe(retry);
+        expect(result.status).toBe(
+          retry < 3
+            ? EAppUpdateStatus.notify
+            : EAppUpdateStatus.updateIncomplete,
+        );
+        await jest.runAllTimersAsync();
+      }
+
+      expect(emitSpy).toHaveBeenCalledTimes(2);
     });
 
     test('availability check failure preserves the ready package state', async () => {

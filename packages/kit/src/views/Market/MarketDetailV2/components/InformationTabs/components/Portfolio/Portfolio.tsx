@@ -1,11 +1,15 @@
-import { Fragment, memo, useCallback } from 'react';
+import { Fragment, memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty, Tabs, YStack, useMedia } from '@onekeyhq/components';
+import { Empty, YStack, useMedia } from '@onekeyhq/components';
+import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
+import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
+
+import { MarketDetailList } from '../../layout/MarketDetailScroll';
 
 import { PortfolioSkeleton } from './components/PortfolioSkeleton';
 import { PortfolioHeaderNormal } from './layout/PortfolioHeaderNormal';
@@ -25,9 +29,13 @@ interface IPortfolioProps {
   hasAccount?: boolean;
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing?: boolean;
+  // True until the page knows whether the asset has a position (account still
+  // loading, or the first request for it not back yet).
+  isPending?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   standalone?: boolean;
+  isStock?: boolean;
   onItemPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
 }
 
@@ -36,13 +44,16 @@ function PortfolioBase({
   hasAccount,
   portfolioData,
   isRefreshing,
+  isPending = false,
   tokenLogoUrl,
   scrollEnabled = true,
   standalone = false,
+  isStock = false,
   onItemPress,
 }: IPortfolioProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const canShowPortfolio = hasAccount ?? Boolean(accountAddress);
 
   const renderPortfolioItem = useCallback(
@@ -72,7 +83,7 @@ function PortfolioBase({
   );
 
   const emptyContent =
-    canShowPortfolio && isRefreshing ? (
+    isPending || (canShowPortfolio && isRefreshing) ? (
       <PortfolioSkeleton />
     ) : (
       <Empty
@@ -83,7 +94,21 @@ function PortfolioBase({
       />
     );
 
-  const data = canShowPortfolio ? portfolioData : [];
+  const data = useMemo(
+    () =>
+      canShowPortfolio
+        ? portfolioData.filter((item) =>
+            isTradePositionVisible({
+              balance: item.amount,
+              isStock,
+              fiatValue: item.totalPrice,
+              currency: item.currency ?? 'usd',
+              currencyMap,
+            }),
+          )
+        : [],
+    [canShowPortfolio, currencyMap, isStock, portfolioData],
+  );
 
   if (standalone) {
     return (
@@ -101,7 +126,7 @@ function PortfolioBase({
   }
 
   return (
-    <Tabs.FlatList<IMarketAccountPortfolioDisplayItem>
+    <MarketDetailList<IMarketAccountPortfolioDisplayItem>
       testID="market-detail-portfolio-list"
       showsVerticalScrollIndicator={false}
       scrollEnabled={scrollEnabled}

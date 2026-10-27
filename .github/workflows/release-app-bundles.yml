@@ -242,6 +242,8 @@ jobs:
     needs: [prepare-params, private-fonts]
     if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-24.04
+    env:
+      YARN_ENABLE_GLOBAL_CACHE: true
     outputs:
       artifact_name: ${{ steps.artifact-name.outputs.value }}
     steps:
@@ -353,6 +355,15 @@ jobs:
             node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Install Dep
+        id: dependencies
+        if: hashFiles('.github/actions/install-dependencies/action.yml') != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        uses: ./.github/actions/install-dependencies
+
+      - name: Install dependencies for legacy refs
+        if: hashFiles('.github/actions/install-dependencies/action.yml') == ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -453,6 +464,10 @@ jobs:
             !**/.DS_Store
           if-no-files-found: error
           retention-days: 1
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   desktop-bundle:
     needs: prepare-params
@@ -578,6 +593,7 @@ jobs:
       PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      ONEKEY_AUTOMATION_TOKEN: ${{ secrets.ONEKEY_AUTOMATION_TOKEN }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}

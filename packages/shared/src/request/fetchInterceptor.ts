@@ -66,7 +66,15 @@ const newFetch = async function (
   });
 
   const url = getUrlFromResource(resource);
-  const isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url);
+  // same contract as checkRequestIsOneKeyDomain (Interceptor.ts): runtimes that
+  // never init requestHelper (ext offscreen, CLI, electron main) throw here —
+  // skip OneKey headers instead of breaking the fetch itself.
+  let isOneKeyDomain = false;
+  try {
+    isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url);
+  } catch (_error) {
+    isOneKeyDomain = false;
+  }
   let requestId: string | undefined;
   if (isOneKeyDomain) {
     const headers = await getRequestHeaders();

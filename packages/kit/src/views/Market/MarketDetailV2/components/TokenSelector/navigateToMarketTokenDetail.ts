@@ -43,7 +43,6 @@ export async function navigateToMarketTokenDetail(
     onError?: () => void;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
-    resolveMarketAsset?: boolean;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   },
 ) {
@@ -87,16 +86,12 @@ export async function navigateToMarketTokenDetail(
   }
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
 
-  const shortCode = networkUtils.getNetworkShortCode({
-    networkId: token.networkId,
-  });
-
   const stockId = resolveMarketStockId({
     stockId: token.stockId,
   });
-  const shouldResolveMarketAsset = Boolean(
-    opts.resolveMarketAsset && !token.assetId && !stockId,
-  );
+  const shortCode = networkUtils.getNetworkShortCode({
+    networkId: token.networkId,
+  });
 
   if (stockId) {
     opts.tokenDetailActions.current.prepareStockTokenDetail({
@@ -104,14 +99,6 @@ export async function navigateToMarketTokenDetail(
       networkId: token.networkId,
       isNative: token.isNative,
     });
-  } else if (shouldResolveMarketAsset) {
-    if (opts.tokenDetailPreview) {
-      opts.tokenDetailActions.current.prepareTokenDetailPreview(
-        opts.tokenDetailPreview,
-      );
-    } else {
-      opts.tokenDetailActions.current.clearTokenDetail();
-    }
   } else {
     void opts.tokenDetailActions.current.changeActiveToken({
       tokenAddress: token.address,
@@ -133,15 +120,7 @@ export async function navigateToMarketTokenDetail(
     tokenAddress: token.address,
     network: shortCode || token.networkId,
     isNative: token.isNative,
-    ...(shouldResolveMarketAsset
-      ? {
-          resolveMarketAsset: true,
-          marketTokenSymbol: opts.tokenDetailPreview?.symbol,
-          legacyTokenPreview: opts.tokenDetailPreview,
-        }
-      : undefined),
-    ...(!shouldResolveMarketAsset &&
-    !stockId &&
+    ...(!stockId &&
     opts.tokenDetailPreview &&
     (platformEnv.isDesktop || platformEnv.isWeb)
       ? { legacyTokenPreview: opts.tokenDetailPreview }

@@ -541,6 +541,9 @@ function FinalizeWalletSetupPage({
           connectId: deviceData.device?.connectId ?? undefined,
           deviceType: deviceData.device?.deviceType ?? undefined,
           deviceName: deviceData.device?.name ?? undefined,
+          deviceColor: deviceUtils.getDeviceColorFromSearchDevice(
+            deviceData.device,
+          ),
         });
         const { wallets: walletsBeforeCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({
@@ -722,8 +725,8 @@ function FinalizeWalletSetupPage({
                   message: 'Keystone device search target is required',
                 });
               }
-              // A device search target only describes how to reach Keystone.
-              // Account derivation stays in the wallet creation operation.
+              // Onboarding explicitly selected USB for this attempt. Keep connection failures
+              // on that channel and derive accounts in the same wallet creation operation.
               goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
               setupAttemptsRef.current.startFirstContact(attempt);
               const connected =

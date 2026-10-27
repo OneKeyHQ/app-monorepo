@@ -104,7 +104,13 @@ it('localizes embedded history, request responses and live marks without losing 
   };
   const { result, rerender, unmount } = renderHook(
     () =>
-      usePerpsTradingViewMessageHandler({ symbol: 'SOL', userAddress, webRef }),
+      usePerpsTradingViewMessageHandler({
+        symbol: 'SOL',
+        userAddress,
+        webRef,
+        chartInstanceKey: 'chart',
+        onAccountMarksRebuild: jest.fn(),
+      }),
     {
       wrapper: ({ children }: { children: ReactNode }) => (
         <IntlProvider locale={locale} messages={messages}>
@@ -139,8 +145,8 @@ it('localizes embedded history, request responses and live marks without losing 
     '做空 @ 146.75',
     '平多 @ 146.75',
     '平空 @ 146.75',
-    'Long > Short @ 146.75',
-    'Short > Long @ 146.75',
+    '多转空 @ 146.75',
+    '空转多 @ 146.75',
     'Liquidated Cross Long @ 146.75',
   ]);
   expect(localizedMarks?.map(({ text, ...mark }) => mark)).toEqual(

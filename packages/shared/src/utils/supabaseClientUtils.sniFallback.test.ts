@@ -64,9 +64,9 @@ const REFRESH_URL =
 const USER_URL = 'https://auth.onekey.so/auth/v1/user';
 const ID_TOKEN_URL = 'https://auth.onekey.so/auth/v1/token?grant_type=id_token';
 // The production table without its Cloudflare endpoints, spread by provider.
-const FIRST_IP = '216.19.3.115';
+const FIRST_IP = '216.19.4.106';
 const SECOND_IP = '43.168.19.96';
-const THIRD_IP = '216.19.2.116';
+const THIRD_IP = '43.168.24.171';
 
 function networkError() {
   return new TypeError('Network request failed');

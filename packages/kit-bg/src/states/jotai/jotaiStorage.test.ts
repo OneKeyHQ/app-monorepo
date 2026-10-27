@@ -185,6 +185,35 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     expect(serializedLogs).not.toContain('sensitive-jotai-value');
   });
 
+  it('does not complete automatic migration after a native sync error and retries safely on startup', async () => {
+    const key = 'g_states_v5:aAtom';
+    legacyData.set(key, '"legacy-value"');
+    mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+      new Error('MMKV_SYNC_FAILED: injected durability failure'),
+    );
+    const storage = createStorage();
+    await expect(
+      storage.migrateFromAsyncStorage([key], PROBE_KEY),
+    ).rejects.toThrow('MMKV_SYNC_FAILED');
+    expect(storage.isMigrationComplete()).toBe(false);
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('migrating-v1');
+    expect(mockSetMigrationLedgerComplete).not.toHaveBeenCalled();
+    expect(legacyData.get(key)).toBe('"legacy-value"');
+    const enumerationCalls = legacyStorage.getAllKeys.mock.calls.length;
+
+    const restarted = createStorage();
+    await restarted.migrateFromAsyncStorage([key], PROBE_KEY);
+    expect(restarted.isMigrationComplete()).toBe(true);
+    expect(await restarted.getItem(key, null)).toBe('legacy-value');
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+    expect(mockSyncNativeStorageMMKV.mock.invocationCallOrder[1]).toBeLessThan(
+      mockSetMigrationLedgerComplete.mock.invocationCallOrder[0],
+    );
+    expect(legacyStorage.getAllKeys).toHaveBeenCalledTimes(enumerationCalls);
+    expect(legacyStorage.multiRemove).not.toHaveBeenCalled();
+    expect(legacyData.get(key)).toBe('"legacy-value"');
+  });
+
   it('retries enumeration and falls back to known keys when it stays unavailable', async () => {
     legacyData.set('g_states_v5:aAtom', '"fresh"');
     legacyData.set('g_states_v5:unknownHistoricalAtom', '"not-discovered"');

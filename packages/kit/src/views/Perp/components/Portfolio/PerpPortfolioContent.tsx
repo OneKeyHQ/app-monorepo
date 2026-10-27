@@ -19,10 +19,12 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
+import type { ISegmentControlLabelState } from '@onekeyhq/components';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { getChartColorWithAlpha } from '@onekeyhq/kit/src/components/LightweightChart/utils/chartColor';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { deferHeavyWorkUntilUIIdle } from '@onekeyhq/kit/src/utils/deferHeavyWork';
 import {
   usePerpsActiveAccountAtom,
@@ -49,6 +51,7 @@ import { usePerpUserFundingHistory } from '../../hooks/usePerpOrderInfoPanel';
 import { usePerpsActivePositionsByAddress } from '../../hooks/usePerpsActivePositionsByAddress';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { PERP_DIALOG_BUTTON_SIZE } from '../PerpDialogLayout';
+import { PerpsPartialAccountValueWarning } from '../TradingPanel/components/PerpsAccountNumberValue';
 
 import { PerpFundingBreakdown } from './PerpFundingBreakdown';
 import {
@@ -259,6 +262,7 @@ function PerpPortfolioContentComponent({
   initialChartType = 'accountValue',
 }: IPerpPortfolioContentProps) {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const theme = useTheme();
   const timeZone = useDeviceTimeZone();
   const { showDepositWithdrawModal, isDepositDisabled } =
@@ -398,11 +402,11 @@ function PerpPortfolioContentComponent({
     () =>
       chartTypeOptions.map((option) => ({
         ...option,
-        label: (
+        label: ({ color }: ISegmentControlLabelState) => (
           <XStack height={20} alignItems="center" justifyContent="center">
             <SizableText
               size="$bodySmMedium"
-              color={chartType === option.value ? '$text' : '$textSubdued'}
+              color={color}
               textAlign="center"
               numberOfLines={1}
             >
@@ -411,7 +415,7 @@ function PerpPortfolioContentComponent({
           </XStack>
         ),
       })),
-    [chartType, chartTypeOptions],
+    [chartTypeOptions],
   );
   const mobileTimePeriodOptions = useMemo(
     () =>
@@ -719,15 +723,12 @@ function PerpPortfolioContentComponent({
 
   const formatHoverDate = useCallback(
     (ts: number) =>
-      intl.formatDate(new Date(ts * 1000), {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
+      formatDate(new Date(ts * 1000), {
+        hideYear: true,
+        hideSeconds: true,
         timeZone,
       }),
-    [intl, timeZone],
+    [formatDate, timeZone],
   );
 
   // ─── Chart ──────────────────────────────────────────────────────────────────
@@ -1280,9 +1281,14 @@ function PerpPortfolioContentComponent({
         <SectionLabel>
           {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
         </SectionLabel>
-        <SizableText size="$heading4xl" color="$text">
-          {accountValue}
-        </SizableText>
+        <XStack alignItems="center" gap="$2">
+          <SizableText size="$heading4xl" color="$text">
+            {accountValue}
+          </SizableText>
+          {computedValue?.isAccountValuePartial ? (
+            <PerpsPartialAccountValueWarning />
+          ) : null}
+        </XStack>
         <XStack gap="$1.5" alignItems="center">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.perp_portfolio_available })}
@@ -1304,9 +1310,14 @@ function PerpPortfolioContentComponent({
           <SectionLabel>
             {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
           </SectionLabel>
-          <SizableText size="$heading2xl" color="$text">
-            {accountValue}
-          </SizableText>
+          <XStack alignItems="center" gap="$2">
+            <SizableText size="$heading2xl" color="$text">
+              {accountValue}
+            </SizableText>
+            {computedValue?.isAccountValuePartial ? (
+              <PerpsPartialAccountValueWarning />
+            ) : null}
+          </XStack>
         </YStack>
         <YStack gap="$0.5" alignItems="flex-end">
           <SectionLabel>

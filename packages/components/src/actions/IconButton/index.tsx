@@ -1,7 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import type { TooltipProps } from '@onekeyhq/components/src/shared/tamaguiOverlay';
-
 import {
   ButtonFrame,
   Icon,
@@ -33,7 +31,7 @@ export interface IIconButtonProps extends Omit<
   // Allow triggering via the Enter or Space key.
   hotKey?: boolean;
   titlePlacement?: ITooltipProps['placement'];
-  tooltipProps?: TooltipProps;
+  tooltipProps?: Partial<ITooltipProps>;
 }
 
 const sizes = {

@@ -7,9 +7,16 @@ import { EHardwareVendor } from '../../types/device';
 
 import {
   getDeviceAvatarImage,
+  getSearchDeviceAvatarImage,
   getThirdPartyDeviceAvatarImage,
 } from './avatarUtils';
-import { getHardwareDeviceColor } from './hardwareDeviceColors';
+import deviceUtils from './deviceUtils';
+import {
+  getHardwareDeviceColor,
+  getHardwareDeviceColorFromCode,
+} from './hardwareDeviceColors';
+
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 // require() resolves to a single mocked value under Jest, so tests that must
 // tell artworks apart compare the actual asset bytes on disk.
@@ -135,6 +142,67 @@ describe('getDeviceAvatarImage', () => {
     expect(getDeviceAvatarImage(EDeviceType.Touch, 'TC0001A')).toBe(
       EDeviceType.Touch,
     );
+  });
+});
+
+describe('Bluetooth-advertised color code', () => {
+  const bleDevice = (
+    deviceType: SearchDevice['deviceType'],
+    bleColorCode?: string,
+  ): SearchDevice => ({
+    connectId: 'ble-id',
+    serialNo: null,
+    uuid: '',
+    deviceId: null,
+    deviceType,
+    name: 'Pro 2 A1B2',
+    commType: 'ble',
+    ...(bleColorCode ? { bleColorCode } : {}),
+  });
+
+  it.each([
+    ['A', 'pro2Black', 'Black'],
+    ['B', 'pro2Silver', 'Silver'],
+    ['D', 'pro2Orange', 'Orange'],
+    // Letters the Pro 2 does not come in, and no letter, wear the default.
+    ['C', 'pro2Black', undefined],
+    ['E', 'pro2Black', undefined],
+    ['F', 'pro2Black', undefined],
+    [undefined, 'pro2Black', undefined],
+  ])(
+    'resolves a scanned Pro 2 letter %s like its serial number',
+    (code, avatar, color) => {
+      const device = bleDevice(EDeviceType.Pro2, code);
+      expect(getSearchDeviceAvatarImage(device)).toBe(avatar);
+      expect(deviceUtils.getDeviceColorFromSearchDevice(device)).toBe(color);
+      expect(
+        getHardwareDeviceColorFromCode({
+          deviceType: EDeviceType.Pro2,
+          colorCode: code,
+        }),
+      ).toBe(color);
+    },
+  );
+
+  it.each(['A', 'B', 'D', 'E', 'F'])(
+    'keeps the Neo default artwork for letter %s',
+    (code) => {
+      const device = bleDevice(EDeviceType.Neo, code);
+      expect(getSearchDeviceAvatarImage(device)).toBe(EDeviceType.Neo);
+      expect(deviceUtils.getDeviceColorFromSearchDevice(device)).toBe(
+        undefined,
+      );
+    },
+  );
+
+  it('prefers the serial number a USB scan reports', () => {
+    const device = {
+      ...bleDevice(EDeviceType.Pro2, 'A'),
+      serialNo: 'P20001D',
+      commType: 'webusb' as const,
+    };
+    expect(getSearchDeviceAvatarImage(device)).toBe('pro2Orange');
+    expect(deviceUtils.getDeviceColorFromSearchDevice(device)).toBe('Orange');
   });
 });
 

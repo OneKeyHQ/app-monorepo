@@ -42,6 +42,7 @@ jest.mock('@onekeyhq/components', () => {
     );
 
   return {
+    DesktopTabItem: View,
     Checkbox: ({
       onChange,
       testID,

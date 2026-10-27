@@ -50,6 +50,110 @@ describe('iOS simulator selection', () => {
     ]);
   });
 
+  it('opens the selected simulator in DeviceHub when active Xcode replaced Simulator', async () => {
+    const deviceId = 'device id';
+    const options = createResolution([createSimulator(deviceId)], {
+      fileSystem: {
+        existsSync: jest.fn((filePath) => filePath.endsWith('/DeviceHub.app')),
+      },
+    });
+    options.runForOutputCommand.mockImplementation((_command, args) =>
+      args[0] === '--find'
+        ? '/Applications/Xcode.app/Contents/Developer/usr/bin/simctl'
+        : JSON.stringify({
+            devices: {
+              'com.apple.CoreSimulator.SimRuntime.iOS-27-0': [
+                createSimulator(deviceId),
+              ],
+            },
+          }),
+    );
+    options.runCheckedCommand.mockImplementation((command, args) => {
+      if (command === 'open' && args[1] === 'Simulator') {
+        throw new Error('Simulator app is missing');
+      }
+    });
+
+    await expect(resolveTargetDevice(options)).resolves.toMatchObject({
+      id: deviceId,
+    });
+    expect(options.runCheckedCommand).toHaveBeenLastCalledWith('open', [
+      '-a',
+      '/Applications/Xcode.app/Contents/Applications/DeviceHub.app',
+      'devices://device/open?id=device%20id',
+    ]);
+  });
+
+  it.each([
+    '/Applications/Xcode.app/Contents/Developer/Applications/Simulator.app',
+    '/Applications/Xcode.app/Contents/Applications/Simulator.app',
+    null,
+  ])(
+    'preserves the original open error without a replacement GUI (%s)',
+    async (existingApp) => {
+      const openError = new Error('Simulator could not open');
+      const options = createResolution([createSimulator('A')], {
+        fileSystem: {
+          existsSync: jest.fn(
+            (filePath) =>
+              filePath === existingApp ||
+              (existingApp !== null && filePath.endsWith('/DeviceHub.app')),
+          ),
+        },
+      });
+      options.runForOutputCommand
+        .mockReturnValueOnce(
+          JSON.stringify({
+            devices: {
+              'com.apple.CoreSimulator.SimRuntime.iOS-27-0': [
+                createSimulator('A'),
+              ],
+            },
+          }),
+        )
+        .mockReturnValue(
+          '/Applications/Xcode.app/Contents/Developer/usr/bin/simctl',
+        );
+      options.runCheckedCommand.mockImplementation((command) => {
+        if (command === 'open') throw openError;
+      });
+
+      await expect(resolveTargetDevice(options)).rejects.toBe(openError);
+      expect(options.runCheckedCommand).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('propagates a DeviceHub open failure', async () => {
+    const deviceHubError = new Error('DeviceHub could not open');
+    const options = createResolution([createSimulator('A')], {
+      fileSystem: {
+        existsSync: jest.fn((filePath) => filePath.endsWith('/DeviceHub.app')),
+      },
+    });
+    options.runForOutputCommand
+      .mockReturnValueOnce(
+        JSON.stringify({
+          devices: {
+            'com.apple.CoreSimulator.SimRuntime.iOS-27-0': [
+              createSimulator('A'),
+            ],
+          },
+        }),
+      )
+      .mockReturnValue(
+        '/Applications/Xcode.app/Contents/Developer/usr/bin/simctl',
+      );
+    options.runCheckedCommand.mockImplementation((command, args) => {
+      if (command === 'open') {
+        throw args[1] === 'Simulator'
+          ? new Error('Simulator app is missing')
+          : deviceHubError;
+      }
+    });
+
+    await expect(resolveTargetDevice(options)).rejects.toBe(deviceHubError);
+  });
+
   it('prefers the sole booted simulator without prompting', async () => {
     const options = createResolution([
       createSimulator('A', 'Booted'),

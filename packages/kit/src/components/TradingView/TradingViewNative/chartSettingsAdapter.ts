@@ -142,6 +142,10 @@ export function normalizeTradingViewNativeChartSettings(
         options.crossLine,
         fallback.options.crossLine,
       ),
+      navigationButtons: normalizeBoolean(
+        options.navigationButtons,
+        fallback.options.navigationButtons,
+      ),
     },
     latestPriceLine: {
       upColor: normalizeColor(
@@ -346,6 +350,7 @@ export function getTradingViewChartSettingsValue(
       pastEvents: normalizedSettings.options.pastEvents,
       clickInteraction: normalizedSettings.options.clickInteraction,
       crossLine: normalizedSettings.options.crossLine,
+      navigationButtons: normalizedSettings.options.navigationButtons,
     },
     latestPriceLine: { ...normalizedSettings.latestPriceLine },
     background: {
@@ -402,6 +407,7 @@ export function getTradingViewNativeChartSettings({
       pastEvents: value.options.pastEvents,
       clickInteraction: value.options.clickInteraction,
       crossLine: value.options.crossLine,
+      navigationButtons: value.options.navigationButtons,
     },
     latestPriceLine: { ...value.latestPriceLine },
     background: {

@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -62,6 +63,7 @@ function PerpTradingDisabledPlaceOrderButton({
   isMobile?: boolean;
 }) {
   const intl = useIntl();
+  const sourcePage = useOverlayPageScope();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
@@ -161,7 +163,11 @@ function PerpTradingDisabledPlaceOrderButton({
         aggressiveLimitPriceWarning,
       })
     ) {
-      showOrderConfirmDialog({ intl, aggressiveLimitPriceWarning });
+      showOrderConfirmDialog({
+        sourcePage,
+        intl,
+        aggressiveLimitPriceWarning,
+      });
     } else {
       void handleConfirm();
     }
@@ -173,6 +179,7 @@ function PerpTradingDisabledPlaceOrderButton({
     perpsCustomSettings.skipOrderConfirm,
     handleConfirm,
     intl,
+    sourcePage,
   ]);
 
   return (

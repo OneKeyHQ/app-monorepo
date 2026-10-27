@@ -11,18 +11,24 @@ import {
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   StockDetailProvider,
   useStockDetail,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
-import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type EJotaiContextStoreNames,
+  useSwapStockIssuerPreferencePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { normalizeStockIssuer } from '@onekeyhq/shared/src/utils/stockTokenVariant';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -32,16 +38,28 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
+import {
+  getTokenIdentityKey,
+  isSwapStockTokenKeySettled,
+  settleSwapStockTokenKey,
+} from '../../hooks/swapStockChannelUtils';
 import { ESwapStockChannelAsyncStatus } from '../../hooks/useSwapStockChannel';
 import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
 import {
   type ISwapStockAvailability,
+  type ISwapStockDisplayScope,
   type ISwapStockSelectionKind,
   type ISwapStockSelectionOperation,
+  type ISwapStockTokenIdentityResult,
   fetchSwapStockSelection,
   fetchSwapStockTokenIdentity,
   fetchSwapStockVariantToken,
+  getCachedSwapStockAssetPreview,
+  getCachedSwapStockDisplayVariants,
+  getCachedSwapStockId,
+  getCachedSwapStockSelection,
+  getCachedSwapStockVariantToken,
+  resolveSwapStockAutoVariant,
   resolveSwapStockAvailability,
   resolveSwapStockLoadingScopes,
   resolveSwapStockSelectionToken,
@@ -55,6 +73,8 @@ type ISwapStockSelection = {
   cancelSelection: () => void;
   selecting: boolean;
   stockSelectionPending: boolean;
+  displayStockId?: string;
+  displayTokenVariants: IMarketStockTokenVariant[];
   loadingScopes: ReturnType<typeof resolveSwapStockLoadingScopes>;
   pendingStock?: IMarketStockDetailPreview;
   selectedStockPreview?: IMarketStockDetailPreview;
@@ -68,12 +88,31 @@ type ISwapStockSelection = {
     query?: string,
   ) => Promise<boolean>;
   selectVariant: (variant: IMarketStockTokenVariant) => Promise<boolean>;
+  // A hand pick from the issuer list: also remembers the issuer once the
+  // switch commits (not when a risk prompt is cancelled).
+  pickVariant: (variant: IMarketStockTokenVariant) => Promise<boolean>;
   selectToken: (token: ISwapToken) => Promise<boolean>;
 };
 
 const SwapStockSelectionContext = createContext<
   ISwapStockSelection | undefined
 >(undefined);
+
+// Upper bound for holding the trade target while the automatic issuer switch
+// is undecided (variant list) or in flight (target token), so a stalled
+// request cannot hide it.
+const AUTO_VARIANT_WAIT_MS = 8000;
+
+function withAutoVariantTimeout<T>(request: Promise<T>) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new OneKeyLocalError('Stock variant switch timed out')),
+      AUTO_VARIANT_WAIT_MS,
+    );
+  });
+  return Promise.race([request, timeout]).finally(() => clearTimeout(timer));
+}
 
 function SwapStockSelectionProvider({
   children,
@@ -86,17 +125,24 @@ function SwapStockSelectionProvider({
     'identityResolutionError' | 'retryIdentityResolution'
   > & { storeName: EJotaiContextStoreNames }
 >) {
+  const locale = useLocaleVariant().toLowerCase();
   const {
     stockId,
+    stockDetail,
+    stockPreview: committedStockPreview,
     tokenVariants,
     isTokenVariantPending,
     isTokenVariantsError,
+    isTokenVariantsFresh,
+    defaultTokenId,
   } = useStockDetail();
   const { currentStockToken, selectStockSwapToken, stockTokenStatus } =
     useSwapStockTradeContext();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const checkRiskToken = useSwapTokenRiskCheck();
+  const [{ issuer: preferredIssuer }, setIssuerPreference] =
+    useSwapStockIssuerPreferencePersistAtom();
   const [operation, setOperation] = useState<ISwapStockSelectionOperation>({
     phase: 'idle',
   });
@@ -115,24 +161,142 @@ function SwapStockSelectionProvider({
       currentStockToken &&
       equalTokenNoCaseSensitive({ token1: variant, token2: currentStockToken }),
   );
-  const selecting = operation.phase === 'resolving';
-  const pendingStock =
-    operation.phase === 'resolving' && operation.kind === 'ticker'
-      ? operation.stockPreview
+  const selecting =
+    operation.phase === 'resolving' || operation.phase === 'checkingRisk';
+  const tickerOperation =
+    (operation.phase === 'resolving' || operation.phase === 'applying') &&
+    operation.kind === 'ticker'
+      ? operation
       : undefined;
-  const selectionError = operation.phase === 'failed';
-  const loadingScopes = useMemo(
-    () =>
-      resolveSwapStockLoadingScopes({
-        operation,
-        currentTokenKey: identity,
-        isTokenVariantPending,
-      }),
-    [identity, isTokenVariantPending, operation],
+  const displayTargetStockId = tickerOperation?.stockPreview
+    ? resolveMarketStockId(tickerOperation.stockPreview)
+    : tickerOperation?.targetStockId;
+  const targetVariants =
+    tickerOperation?.tokenVariants ??
+    (displayTargetStockId === stockId &&
+    !isTokenVariantPending &&
+    !isTokenVariantsError
+      ? tokenVariants
+      : undefined);
+  // Display readiness must not delay committing a known trade token. Keep
+  // the previous title and positions together until the target list arrives.
+  const displayScope = useMemo(() => {
+    if (!tickerOperation)
+      return operation.previousDisplay &&
+        (operation.phase === 'checkingRisk' ||
+          isTokenVariantPending ||
+          isTokenVariantsError)
+        ? operation.previousDisplay
+        : undefined;
+    if (targetVariants === undefined) return tickerOperation.previousDisplay;
+    return {
+      stockId: displayTargetStockId,
+      tokenVariants: targetVariants,
+      stockPreview: tickerOperation.stockPreview,
+    };
+  }, [
+    tickerOperation,
+    targetVariants,
+    displayTargetStockId,
+    operation,
+    isTokenVariantPending,
+    isTokenVariantsError,
+  ]);
+  const displayStockId = displayScope ? displayScope.stockId : stockId;
+  const displayTokenVariants = displayScope?.tokenVariants ?? tokenVariants;
+  const pendingStock = displayScope?.stockPreview;
+  const currentDisplay = useMemo<ISwapStockDisplayScope>(
+    () => ({
+      stockId: displayStockId,
+      tokenVariants: displayTokenVariants,
+      stockPreview:
+        pendingStock ??
+        (selectedStockPreview?.stockId === displayStockId
+          ? selectedStockPreview
+          : undefined) ??
+        (stockId === displayStockId
+          ? (stockDetail ?? committedStockPreview)
+          : undefined),
+    }),
+    [
+      displayStockId,
+      displayTokenVariants,
+      pendingStock,
+      selectedStockPreview,
+      stockId,
+      stockDetail,
+      committedStockPreview,
+    ],
   );
+  const isDisplayPending = Boolean(
+    (tickerOperation && targetVariants === undefined) ||
+    (displayScope && displayScope.stockId !== stockId),
+  );
+  const selectionError = operation.phase === 'failed';
+
+  // Only the first token this page shows can be implicit (restored, or the
+  // default loader's pick); any later token came from a user action. The token
+  // is held in the loading state until it is decided, so one about to move is
+  // never shown. Decide only from a fetched list: a persisted cache can still
+  // carry an issuer that has since been retired, and the decision is final.
+  const [, setSettledVersion] = useState(0);
+  const firstTokenKeyRef = useRef<string | undefined>(undefined);
+  // Tokens an explicit entry brought in (Market's Buy/Sell) arrive settled.
+  const isAutoVariantCandidate = Boolean(
+    identity &&
+    (firstTokenKeyRef.current ?? identity) === identity &&
+    !isSwapStockTokenKeySettled(identity),
+  );
+  const isAutoVariantListReady =
+    isTokenVariantsFresh && !isTokenVariantPending && !!selectedVariant;
+  // Nothing more will arrive to decide with: keep the token as it is.
+  const isAutoVariantListBlocked =
+    isTokenVariantsError ||
+    identityResolutionError ||
+    (isTokenVariantsFresh && !selectedVariant);
+  const autoVariantTarget = useMemo(
+    () =>
+      isAutoVariantCandidate && isAutoVariantListReady && selectedVariant
+        ? resolveSwapStockAutoVariant({
+            variants: tokenVariants,
+            current: selectedVariant,
+            defaultTokenId,
+            preferredIssuer,
+          })
+        : undefined,
+    [
+      defaultTokenId,
+      isAutoVariantCandidate,
+      isAutoVariantListReady,
+      preferredIssuer,
+      selectedVariant,
+      tokenVariants,
+    ],
+  );
+  const isAutoVariantPending =
+    isAutoVariantCandidate &&
+    operation.phase === 'idle' &&
+    (!!autoVariantTarget ||
+      (!isAutoVariantListReady && !isAutoVariantListBlocked));
+  const loadingScopes = useMemo(() => {
+    const scopes = resolveSwapStockLoadingScopes({
+      operation,
+      currentTokenKey: identity,
+      isTokenVariantPending,
+      isAutoVariantPending,
+    });
+    return { ...scopes, stock: isDisplayPending || scopes.stock };
+  }, [
+    identity,
+    isAutoVariantPending,
+    isDisplayPending,
+    isTokenVariantPending,
+    operation,
+  ]);
   const stockSelectionPending = loadingScopes.stock;
   const availability = resolveSwapStockAvailability({
     pending:
+      operation.phase === 'checkingRisk' ||
       loadingScopes.tradeTarget ||
       isTokenVariantPending ||
       stockTokenStatus === ESwapStockChannelAsyncStatus.Initializing ||
@@ -141,20 +305,44 @@ function SwapStockSelectionProvider({
     selectedVariant,
   });
   useEffect(() => {
+    if (
+      (operation.phase === 'idle' || operation.phase === 'failed') &&
+      operation.previousDisplay &&
+      !isTokenVariantPending &&
+      !isTokenVariantsError
+    ) {
+      setOperation({ ...operation, previousDisplay: undefined });
+      return;
+    }
     // The fetched token may commit before its variant list catches up.
     if (
       operation.phase === 'applying' &&
       operation.tokenKey === identity &&
-      !isTokenVariantPending
+      !isTokenVariantPending &&
+      !isDisplayPending &&
+      (operation.kind !== 'ticker' ||
+        (stockId === displayStockId && !isTokenVariantsError))
     ) {
       setOperation({ phase: 'idle' });
     }
-  }, [identity, isTokenVariantPending, operation]);
+  }, [
+    identity,
+    displayStockId,
+    stockId,
+    isDisplayPending,
+    isTokenVariantsError,
+    isTokenVariantPending,
+    operation,
+  ]);
   const identityRef = useRef(identity);
   identityRef.current = identity;
   const cancelSelection = useCallback(() => {
     requestRef.current += 1;
-    setOperation({ phase: 'idle' });
+    setOperation((current) =>
+      current.phase === 'applying' && current.tokenKey === identityRef.current
+        ? current
+        : { phase: 'idle', previousDisplay: current.previousDisplay },
+    );
     setSelectedStockPreview((preview) =>
       preview?.stockId.toUpperCase() ===
       currentStockIdRef.current?.toUpperCase()
@@ -171,7 +359,7 @@ function SwapStockSelectionProvider({
     setOperation((current) =>
       current.phase === 'applying' && current.tokenKey === identity
         ? current
-        : { phase: 'idle' },
+        : { phase: 'idle', previousDisplay: current.previousDisplay },
     );
     setSelectedStockPreview((preview) =>
       preview?.stockId.toUpperCase() ===
@@ -188,17 +376,77 @@ function SwapStockSelectionProvider({
   );
 
   const select = useCallback(
-    async (
-      kind: ISwapStockSelectionKind,
-      fetchToken: () => Promise<ISwapToken>,
-      stockPreview?: IMarketStockDetailPreview,
-    ) => {
+    async ({
+      kind,
+      fetchToken,
+      stockPreview,
+      targetStockId = resolveMarketStockId(stockPreview ?? {}),
+      tokenVariants: initialVariants,
+      previousDisplay,
+      hasCachedToken = false,
+      silent = false,
+      onCommitted,
+    }: {
+      kind: ISwapStockSelectionKind;
+      fetchToken: (
+        onVariantsResolved: (
+          variants: IMarketStockTokenVariant[],
+          stockId?: string,
+        ) => void,
+      ) => Promise<ISwapToken>;
+      stockPreview?: IMarketStockDetailPreview;
+      targetStockId?: string;
+      tokenVariants?: IMarketStockTokenVariant[];
+      previousDisplay?: ISwapStockDisplayScope;
+      hasCachedToken?: boolean;
+      // Automatic switches keep the current token on failure: no error
+      // state and no risk prompt the user did not ask for.
+      silent?: boolean;
+      // Runs once the token is actually applied (after a risk confirm).
+      onCommitted?: () => void;
+    }) => {
       requestRef.current += 1;
       const request = requestRef.current;
       const initialIdentity = identityRef.current;
-      setOperation({ phase: 'resolving', kind, stockPreview });
+      // A user's own pick ends the implicit correction of the first token, so
+      // a variant list landing during its risk prompt cannot replace it.
+      if (!silent && initialIdentity) {
+        settleSwapStockTokenKey(initialIdentity);
+        setSettledVersion((version) => version + 1);
+      }
+      // Cached data needs only the risk check. Keep the committed display
+      // coherent until that check permits the new token to commit.
+      setOperation(
+        hasCachedToken
+          ? { phase: 'checkingRisk', kind, previousDisplay }
+          : {
+              phase: 'resolving',
+              kind,
+              stockPreview,
+              targetStockId,
+              tokenVariants: initialVariants,
+              previousDisplay,
+            },
+      );
       try {
-        const token = await fetchToken();
+        let resolvedVariants = initialVariants;
+        const token = await fetchToken((variants, resolvedStockId) => {
+          if (
+            request !== requestRef.current ||
+            initialIdentity !== identityRef.current
+          )
+            return;
+          resolvedVariants = variants;
+          setOperation((previous) =>
+            previous.phase === 'resolving'
+              ? {
+                  ...previous,
+                  tokenVariants: variants,
+                  targetStockId: resolvedStockId ?? previous.targetStockId,
+                }
+              : previous,
+          );
+        });
         if (
           request !== requestRef.current ||
           initialIdentity !== identityRef.current
@@ -214,8 +462,13 @@ function SwapStockSelectionProvider({
               phase: 'applying',
               kind,
               tokenKey: getTokenIdentityKey(token),
+              stockPreview,
+              targetStockId: resolveMarketStockId(token) ?? targetStockId,
+              tokenVariants: resolvedVariants,
+              previousDisplay,
             });
             selectStockSwapToken(token, { resetReceiveAmount: true });
+            onCommitted?.();
           }
         };
         const isRiskToken = await checkRiskToken(token);
@@ -226,7 +479,9 @@ function SwapStockSelectionProvider({
           return false;
         }
         if (isRiskToken) {
-          setOperation({ phase: 'idle' });
+          setOperation({ phase: 'idle', previousDisplay });
+          // An automatic switch never raises a prompt the user did not ask for.
+          if (silent) return false;
           navigation.pushModal(EModalRoutes.SwapModal, {
             screen: EModalSwapRoutes.TokenRiskReminder,
             params: {
@@ -244,7 +499,11 @@ function SwapStockSelectionProvider({
         return true;
       } catch (_error) {
         if (request === requestRef.current)
-          setOperation({ phase: 'failed', kind });
+          setOperation(
+            silent
+              ? { phase: 'idle', previousDisplay }
+              : { phase: 'failed', kind, previousDisplay },
+          );
         return false;
       }
     },
@@ -252,35 +511,155 @@ function SwapStockSelectionProvider({
   );
   const selectStock = useCallback(
     (stock: IMarketStockPublicItem, query?: string) => {
-      const retry = () =>
-        select('ticker', () => fetchSwapStockSelection(stock, query), stock);
+      const retry = () => {
+        const cached = getCachedSwapStockSelection(
+          stock,
+          query,
+          locale,
+          preferredIssuer,
+        );
+        return select({
+          kind: 'ticker',
+          fetchToken: async (onVariantsResolved) =>
+            cached ??
+            fetchSwapStockSelection(
+              stock,
+              query,
+              locale,
+              preferredIssuer,
+              onVariantsResolved,
+            ),
+          stockPreview: stock,
+          tokenVariants: getCachedSwapStockDisplayVariants(
+            stock.stockId,
+            locale,
+          ),
+          hasCachedToken: Boolean(cached),
+          previousDisplay: currentDisplay,
+        });
+      };
       retrySelectionRef.current = retry;
       return retry();
     },
-    [select],
+    [locale, preferredIssuer, select, currentDisplay],
+  );
+  const requestVariant = useCallback(
+    (variant: IMarketStockTokenVariant, onCommitted?: () => void) => {
+      if (!stockId) return Promise.resolve(false);
+      const retry = () => {
+        const cached = getCachedSwapStockVariantToken(variant, stockId, locale);
+        return select({
+          kind: 'variant',
+          fetchToken: async () =>
+            cached ?? fetchSwapStockVariantToken(variant, stockId, locale),
+          hasCachedToken: Boolean(cached),
+          onCommitted,
+        });
+      };
+      retrySelectionRef.current = retry;
+      return retry();
+    },
+    [locale, select, stockId],
   );
   const selectVariant = useCallback(
+    (variant: IMarketStockTokenVariant) => requestVariant(variant),
+    [requestVariant],
+  );
+  const pickVariant = useCallback(
     (variant: IMarketStockTokenVariant) => {
-      if (!stockId) return Promise.resolve(false);
-      const retry = () =>
-        select('variant', () => fetchSwapStockVariantToken(variant, stockId));
-      retrySelectionRef.current = retry;
-      return retry();
+      const issuer = normalizeStockIssuer(variant.issuer);
+      return requestVariant(variant, () =>
+        setIssuerPreference((previous) =>
+          previous.issuer === issuer ? previous : { issuer },
+        ),
+      );
     },
-    [select, stockId],
+    [requestVariant, setIssuerPreference],
   );
   const selectToken = useCallback(
     (token: ISwapToken) => {
-      const retry = () =>
-        select(
-          resolveSwapStockTokenSelectionKind(token, currentStockIdRef.current),
-          () => resolveSwapStockSelectionToken(token),
-        );
+      const retry = () => {
+        const stockPreview = getCachedSwapStockAssetPreview(token, locale);
+        const targetStockId =
+          getCachedSwapStockId(token, locale) ??
+          token.stock?.underlyingAssetTicker?.trim().toUpperCase();
+        const kind =
+          stockPreview?.stockId === currentStockIdRef.current
+            ? 'token'
+            : resolveSwapStockTokenSelectionKind(
+                token,
+                currentStockIdRef.current,
+              );
+        return select({
+          kind,
+          fetchToken: () => resolveSwapStockSelectionToken(token, locale),
+          stockPreview,
+          targetStockId,
+          tokenVariants: targetStockId
+            ? getCachedSwapStockDisplayVariants(targetStockId, locale)
+            : undefined,
+          hasCachedToken: Boolean(stockPreview),
+          previousDisplay: currentDisplay,
+        });
+      };
       retrySelectionRef.current = retry;
       return retry();
     },
-    [select],
+    [locale, select, currentDisplay],
   );
+
+  const markSettled = useCallback((key: string) => {
+    settleSwapStockTokenKey(key);
+    setSettledVersion((version) => version + 1);
+  }, []);
+  useEffect(() => {
+    if (!identity) return;
+    firstTokenKeyRef.current ??= identity;
+    if (identity !== firstTokenKeyRef.current) {
+      settleSwapStockTokenKey(identity);
+      return;
+    }
+    if (isSwapStockTokenKeySettled(identity) || operation.phase !== 'idle') {
+      return;
+    }
+    if (autoVariantTarget && stockId) {
+      markSettled(identity);
+      const cached = getCachedSwapStockVariantToken(
+        autoVariantTarget,
+        stockId,
+        locale,
+      );
+      // Silent: a timeout or failure keeps the current token without an
+      // error state, and the token stays settled so it is not retried.
+      void select({
+        kind: 'variant',
+        fetchToken: async () =>
+          cached ??
+          withAutoVariantTimeout(
+            fetchSwapStockVariantToken(autoVariantTarget, stockId, locale),
+          ),
+        hasCachedToken: Boolean(cached),
+        silent: true,
+      });
+    } else if (isAutoVariantListReady || isAutoVariantListBlocked) {
+      markSettled(identity);
+    }
+  }, [
+    autoVariantTarget,
+    identity,
+    isAutoVariantListBlocked,
+    isAutoVariantListReady,
+    locale,
+    markSettled,
+    operation.phase,
+    select,
+    stockId,
+  ]);
+  useEffect(() => {
+    if (!isAutoVariantPending || autoVariantTarget || !identity) return;
+    const timer = setTimeout(() => markSettled(identity), AUTO_VARIANT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [autoVariantTarget, identity, isAutoVariantPending, markSettled]);
 
   const value = useMemo(
     () => ({
@@ -288,6 +667,8 @@ function SwapStockSelectionProvider({
       cancelSelection,
       selecting,
       stockSelectionPending,
+      displayStockId,
+      displayTokenVariants,
       loadingScopes,
       pendingStock,
       selectedStockPreview,
@@ -298,6 +679,7 @@ function SwapStockSelectionProvider({
       retryIdentityResolution,
       selectStock,
       selectVariant,
+      pickVariant,
       selectToken,
     }),
     [
@@ -305,6 +687,8 @@ function SwapStockSelectionProvider({
       cancelSelection,
       selecting,
       stockSelectionPending,
+      displayStockId,
+      displayTokenVariants,
       loadingScopes,
       pendingStock,
       selectedStockPreview,
@@ -315,6 +699,7 @@ function SwapStockSelectionProvider({
       retryIdentityResolution,
       selectStock,
       selectVariant,
+      pickVariant,
       selectToken,
     ],
   );
@@ -331,16 +716,21 @@ export function SwapStockMarketProvider({
 }: PropsWithChildren<{ storeName: EJotaiContextStoreNames }>) {
   const { currentStockToken, displayStockTokenDetail } =
     useSwapStockTradeContext();
+  const locale = useLocaleVariant().toLowerCase();
   const explicitStockId =
     resolveMarketStockId(displayStockTokenDetail ?? {}) ??
-    resolveMarketStockId(currentStockToken ?? {});
+    (currentStockToken
+      ? getCachedSwapStockId(currentStockToken, locale)
+      : undefined);
   const tokenIdentity = getTokenIdentityKey(currentStockToken);
   const networkId = currentStockToken?.networkId;
   const contractAddress = currentStockToken?.contractAddress;
   const identityResolutionSwrKey = tokenIdentity
     ? swrKeys.swapStockTokenIdentity({ tokenScope: tokenIdentity })
     : undefined;
-  const { result: resolvedStock, run: retryResolution } = usePromiseResult(
+  const { result: resolvedStock, run: retryResolution } = usePromiseResult<
+    ISwapStockTokenIdentityResult | undefined
+  >(
     async () => {
       if (explicitStockId || !contractAddress || !networkId) return undefined;
       try {

@@ -197,27 +197,22 @@ const SwapInputContainer = ({
     useSwapInitialSelectedTokensSyncedAtom();
   const [selectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
-  const {
-    displayFromToken,
-    displayToToken,
-    isInitialFromTokenSelectionPending,
-    isInitialToTokenSelectionPending,
-  } = useSwapColdStartDisplayTokens({
+  const { fromTokenState, toTokenState } = useSwapColdStartDisplayTokens({
     fromToken,
     initialSelectedTokensSynced,
     swapType: swapTypeSwitch,
     toToken,
   });
+  const tokenSelectionState =
+    direction === ESwapDirectionType.FROM ? fromTokenState : toTokenState;
   const tokenSelectorDisplayToken =
-    direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken;
+    tokenSelectionState.status === 'ready'
+      ? tokenSelectionState.token
+      : undefined;
   const selectedTokenImageRecyclingKey = platformEnv.isDesktop
     ? getTokenIdentityKey(tokenSelectorDisplayToken) || undefined
     : undefined;
   const balanceDisplayToken = token?.symbol ? token : tokenSelectorDisplayToken;
-  const isInitialTokenSelectionPending =
-    direction === ESwapDirectionType.FROM
-      ? isInitialFromTokenSelectionPending
-      : isInitialToTokenSelectionPending;
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [balanceDisplayCache] = useSwapBalanceDisplayCacheAtom();
   const currentBalanceDisplayAccountKey =
@@ -240,7 +235,8 @@ const SwapInputContainer = ({
   const tokenSelectorMinWidth = platformEnv.isNative ? 112 : 132;
   const showTokenSelectorSkeleton =
     !tokenSelectorDisplayToken?.symbol &&
-    (selectTokenLoading || isInitialTokenSelectionPending);
+    (tokenSelectionState.status === 'loading' ||
+      (selectTokenLoading && swapTypeSwitch !== ESwapTabSwitchType.SWAP));
   const handleSelectToken = useCallback(() => {
     onSelectToken(direction);
   }, [direction, onSelectToken]);
@@ -527,7 +523,7 @@ const SwapInputContainer = ({
                   caretColor: 'transparent',
                 } as unknown as StyleProp<TextStyle>)
               : undefined,
-          inputAccessoryViewID: platformEnv.isNativeIOS
+          inputAccessoryViewID: platformEnv.isNativeIOSPhone
             ? inputAccessoryViewID
             : undefined,
           autoCorrect: false,
@@ -543,7 +539,7 @@ const SwapInputContainer = ({
         tokenSelectorTriggerProps={tokenSelectorTriggerProps}
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
-      {platformEnv.isNativeIOS && direction === ESwapDirectionType.FROM ? (
+      {platformEnv.isNativeIOSPhone && direction === ESwapDirectionType.FROM ? (
         <InputAccessoryView nativeID={inputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}

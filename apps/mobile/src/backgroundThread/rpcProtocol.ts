@@ -1,4 +1,8 @@
 import {
+  BROADCAST_TX_CONTEXT_DATA_FIELD,
+  getBroadcastTxContextFromData,
+} from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorData';
+import {
   type ILocalSecretEnvelopeCredentialErrorData,
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
@@ -279,6 +283,7 @@ export function serializeBackgroundThreadResponse(
 }
 
 export function buildSafeBackgroundThreadErrorData(data: unknown) {
+  const broadcastTxContext = getBroadcastTxContextFromData(data);
   if (
     data &&
     typeof data === 'object' &&
@@ -290,9 +295,15 @@ export function buildSafeBackgroundThreadErrorData(data: unknown) {
     return {
       [LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD]:
         LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
+      ...(broadcastTxContext
+        ? { [BROADCAST_TX_CONTEXT_DATA_FIELD]: broadcastTxContext }
+        : {}),
     };
   }
 
+  if (broadcastTxContext) {
+    return { [BROADCAST_TX_CONTEXT_DATA_FIELD]: broadcastTxContext };
+  }
   return undefined;
 }
 

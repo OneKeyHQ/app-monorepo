@@ -168,12 +168,12 @@ describe('useMarketStockColumns', () => {
 
     const columns = result.current;
     expect(columns).toHaveLength(5);
-    expect(columns[0]?.columnWidth).toBe('32%');
+    expect(columns[0]?.columnWidth).toBe(256);
     expect(columns.slice(1).map((column) => column.columnWidth)).toEqual([
-      '17%',
-      '17%',
-      '17%',
-      '17%',
+      '25%',
+      '25%',
+      '25%',
+      '25%',
     ]);
     const companyValue = columns[0]?.render?.(
       undefined,
@@ -280,7 +280,7 @@ describe('useMarketStockColumns', () => {
       );
 
       expect(findElementByText(cell as ReactNode, 'Xiaomi')?.props.height).toBe(
-        20,
+        16,
       );
     });
 

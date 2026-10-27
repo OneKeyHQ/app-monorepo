@@ -58,8 +58,15 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useTabContainerWidth', () => ({
   useTabContainerWidth: () => 390,
 }));
+jest.mock('../../../hooks/useMarketDetailPositionTab', () => ({
+  useMarketDetailPositionTab: () => ({
+    preferPosition: false,
+    recordTabChange: jest.fn(),
+  }),
+}));
+let mockNetworkId = 'evm--1';
 jest.mock('../../../hooks/useTokenDetail', () => ({
-  useTokenDetail: () => ({ networkId: 'evm--1', isNative: true }),
+  useTokenDetail: () => ({ networkId: mockNetworkId, isNative: true }),
 }));
 jest.mock('../hooks/useNetworkAccountAddress', () => ({
   useNetworkAccountAddress: () => ({}),
@@ -136,4 +143,21 @@ describe('MobileInformationTabs chart fullscreen', () => {
       screen.getByTestId('information-tab-dexmarket.details_myposition'),
     ).toBeTruthy();
   });
+});
+
+it('mounts stock content before the token network resolves and keeps the same chart', () => {
+  mockNetworkId = '';
+  const renderTabs = () => (
+    <MobileInformationTabs
+      detailKind="stock"
+      renderHeader={() => <Chart />}
+      onScrollEnd={jest.fn()}
+      portfolioData={[]}
+    />
+  );
+  const { rerender } = render(renderTabs());
+  const chart = screen.getByRole('textbox', { name: 'chart viewport' });
+  mockNetworkId = 'evm--1';
+  rerender(renderTabs());
+  expect(screen.getByRole('textbox', { name: 'chart viewport' })).toBe(chart);
 });

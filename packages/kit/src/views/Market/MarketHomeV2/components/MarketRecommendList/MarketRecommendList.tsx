@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import { Button, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -26,6 +27,7 @@ interface IMarketRecommendListProps {
   maxSize?: number;
   onTokenSelect?: (token: IMarketBasicConfigToken) => void;
   enableSelection?: boolean;
+  containerProps?: IYStackProps;
 }
 
 export function MarketRecommendList({
@@ -33,6 +35,7 @@ export function MarketRecommendList({
   maxSize = 8,
   onTokenSelect,
   enableSelection = true,
+  containerProps,
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
@@ -168,6 +171,7 @@ export function MarketRecommendList({
       jc="center"
       ai="center"
       width="100%"
+      {...containerProps}
     >
       <YStack
         gap="$2.5"
