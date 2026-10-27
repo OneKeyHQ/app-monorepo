@@ -27,6 +27,7 @@ export const DiscoveryTestIDs = {
   browserRefreshButton: 'browser-bar-refresh', // preserve existing
   browserShareButton: 'discovery-browser-share',
   browserMinimizeButton: 'discovery-browser-minimize',
+  browserCloseTabButton: 'discovery-browser-close-tab',
   browserCollapsedHeader: 'discovery-browser-collapsed-header',
 
   // Search modal
