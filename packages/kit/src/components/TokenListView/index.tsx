@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -89,6 +89,7 @@ import type {
 // fresh `{}` to `useMemo` deps every render (would defeat memoization).
 const EMPTY_FIAT_MAP: Record<string, ITokenFiat> = {};
 const EMPTY_AGGREGATE_MAP: Record<string, { tokens: IAccountToken[] }> = {};
+let nextDisclosureScopeId = 0;
 
 type IProps = {
   accountId: string;
@@ -311,7 +312,24 @@ function TokenListViewCmp(props: IProps) {
     isOverflow: false,
     isSliced: true,
   });
-  const [structuralTransitionId, setStructuralTransitionId] = useState(0);
+  const [structuralTransitionCommand, setStructuralTransitionCommand] =
+    useState<{ scope: number; id: string }>();
+  const [retainedExpandedContent, setRetainedExpandedContent] = useState<{
+    scope: number;
+    id: string;
+  }>();
+  const transitionSequenceRef = useRef(0);
+  const latestDisclosureIntentRef = useRef<
+    | {
+        scope: number;
+        id: string;
+        sliced: boolean;
+      }
+    | undefined
+  >(undefined);
+  const disclosureScopeRef = useRef<{ owner: string; id: number } | undefined>(
+    undefined,
+  );
 
   const [activeAccountTokenListAtomValue] = useActiveAccountTokenListAtom();
   // SETTLED owner identity for the switch skeleton (red-team C-F1): the
@@ -403,6 +421,27 @@ function TokenListViewCmp(props: IProps) {
   // on the home projection path (PR-6: free the HOME data path of the legacy
   // atom values).
   const isHomeProjectionPath = !!useCellSeam;
+  const disclosureOwner = `${accountId}__${networkId}__${
+    isHomeProjectionPath ? listStructure.ownerKey : ''
+  }`;
+  if (disclosureScopeRef.current?.owner !== disclosureOwner) {
+    nextDisclosureScopeId += 1;
+    disclosureScopeRef.current = {
+      owner: disclosureOwner,
+      id: nextDisclosureScopeId,
+    };
+  }
+  const disclosureScope = disclosureScopeRef.current.id;
+  const issueStructuralTransition = useCallback((sliced: boolean) => {
+    const scope = disclosureScopeRef.current?.id;
+    if (scope === undefined) return;
+    transitionSequenceRef.current += 1;
+    const id = `${scope}:${transitionSequenceRef.current}`;
+    latestDisclosureIntentRef.current = { scope, id, sliced };
+    setOverFlowState((previous) => ({ ...previous, isSliced: sliced }));
+    setStructuralTransitionCommand({ scope, id });
+    setRetainedExpandedContent(sliced ? { scope, id } : undefined);
+  }, []);
 
   const tokenManagementEnabled =
     !deferTokenManagement || tokenListState.initialized;
@@ -1099,10 +1138,7 @@ function TokenListViewCmp(props: IProps) {
             testID="token-list-show-more-btn"
             size="medium"
             variant="secondary"
-            onPress={() => {
-              setOverFlowState((prev) => ({ ...prev, isSliced: false }));
-              setStructuralTransitionId((id) => id + 1);
-            }}
+            onPress={() => issueStructuralTransition(false)}
             flex={1}
           >
             {intl.formatMessage({ id: ETranslations.global_show_more })}
@@ -1135,10 +1171,7 @@ function TokenListViewCmp(props: IProps) {
               testID="token-list-show-less-btn"
               size="medium"
               variant="secondary"
-              onPress={() => {
-                setOverFlowState((prev) => ({ ...prev, isSliced: true }));
-                setStructuralTransitionId((id) => id + 1);
-              }}
+              onPress={() => issueStructuralTransition(true)}
               flex={1}
             >
               {intl.formatMessage({ id: ETranslations.global_show_less })}
@@ -1160,7 +1193,98 @@ function TokenListViewCmp(props: IProps) {
     footerTipText,
     intl,
     hideDeFiMarkedTokens,
+    issueStructuralTransition,
   ]);
+
+  const nativeDisclosureEnabled =
+    platformEnv.isNative &&
+    plainMode &&
+    (overFlowState.isOverflow ||
+      (!!limit && displayCountForOverflow > limit)) &&
+    !showSkeleton &&
+    listData.length > 0;
+  useEffect(() => {
+    if (
+      !nativeDisclosureEnabled ||
+      latestDisclosureIntentRef.current?.scope !== disclosureScope
+    ) {
+      latestDisclosureIntentRef.current = undefined;
+      setRetainedExpandedContent(undefined);
+      setStructuralTransitionCommand(undefined);
+    }
+  }, [nativeDisclosureEnabled, disclosureScope]);
+  const keepExpandedContent =
+    !overFlowState.isSliced ||
+    retainedExpandedContent?.scope === disclosureScope;
+  const expandedContent =
+    nativeDisclosureEnabled && keepExpandedContent ? (
+      <Stack>
+        {withFooter ? (
+          <TokenListFooter
+            tableLayout={tableLayout}
+            hideZeroBalanceTokens={hideZeroBalanceTokens}
+            hideDeFiMarkedTokens={hideDeFiMarkedTokens}
+            hasTokens={displayCount > 0}
+            manageTokenEnabled={manageTokenEnabled}
+            plainMode={plainMode}
+          />
+        ) : null}
+        {!tokenSelectorSearchKey && footerTipText ? (
+          <Stack jc="center" ai="center" pt="$3">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {footerTipText}
+            </SizableText>
+          </Stack>
+        ) : null}
+      </Stack>
+    ) : undefined;
+  const structureToggle = nativeDisclosureEnabled ? (
+    <XStack pt="$3" px="$5" jc="center" ai="center">
+      <Button
+        testID={
+          overFlowState.isSliced
+            ? 'token-list-show-more-btn'
+            : 'token-list-show-less-btn'
+        }
+        size="medium"
+        variant="secondary"
+        onPress={() => issueStructuralTransition(!overFlowState.isSliced)}
+        flex={1}
+      >
+        {intl.formatMessage({
+          id: overFlowState.isSliced
+            ? ETranslations.global_show_more
+            : ETranslations.global_show_less,
+        })}
+      </Button>
+    </XStack>
+  ) : undefined;
+  const activeStructuralCommand =
+    structuralTransitionCommand?.scope === disclosureScope
+      ? structuralTransitionCommand
+      : undefined;
+  const onStructuralTransitionSettled = useCallback(
+    (event: {
+      transitionId: string;
+      status: 'completed' | 'interrupted';
+      settledExpanded: boolean;
+    }) => {
+      const latest = latestDisclosureIntentRef.current;
+      if (
+        latest?.id !== event.transitionId ||
+        latest.scope !== disclosureScopeRef.current?.id ||
+        !latest.sliced ||
+        event.settledExpanded
+      )
+        return;
+      setRetainedExpandedContent((current) =>
+        current?.id === event.transitionId && current.scope === latest.scope
+          ? undefined
+          : current,
+      );
+    },
+    [],
+  );
 
   const listHeader = (
     <Stack>
@@ -1176,7 +1300,9 @@ function TokenListViewCmp(props: IProps) {
   );
   const listFooter = plainMode ? (
     <>
-      {!showSkeleton && listData.length ? renderPlainModeFooter() : null}
+      {!nativeDisclosureEnabled && !showSkeleton && listData.length
+        ? renderPlainModeFooter()
+        : null}
       {nativeListFooter}
     </>
   ) : (
@@ -1243,12 +1369,20 @@ function TokenListViewCmp(props: IProps) {
       rowKeys={homeRowKeys}
       header={listHeader}
       footer={listFooter}
+      expandedContent={expandedContent}
+      structureToggle={structureToggle}
+      disclosure={
+        nativeDisclosureEnabled
+          ? { expanded: !overFlowState.isSliced, expandedTrailingInset: 20 }
+          : undefined
+      }
+      onStructuralTransitionSettled={onStructuralTransitionSettled}
       sidecar={nativeListSidecar}
       sidecarLayout={nativeListSidecarLayout}
       structuralTransition={
-        structuralTransitionId && plainMode
+        activeStructuralCommand && plainMode
           ? {
-              id: String(structuralTransitionId),
+              id: activeStructuralCommand.id,
               durationMs: 220,
               anchorKey:
                 homeRowKeys?.get(structuralAnchorToken?.$key ?? '') ??

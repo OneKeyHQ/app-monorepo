@@ -141,7 +141,8 @@ function buildCellPatches(
     JSON.stringify(previous.capabilities) !==
       JSON.stringify(next.capabilities) ||
     JSON.stringify(previous.structuralTransition) !==
-      JSON.stringify(next.structuralTransition)
+      JSON.stringify(next.structuralTransition) ||
+    JSON.stringify(previous.disclosure) !== JSON.stringify(next.disclosure)
   ) {
     return undefined;
   }
@@ -247,6 +248,10 @@ export function NativeTokenSelectorList({
   rowKeys,
   header,
   footer,
+  expandedContent,
+  structureToggle,
+  disclosure,
+  onStructuralTransitionSettled,
   sidecar,
   sidecarLayout,
   structuralTransition,
@@ -289,6 +294,10 @@ export function NativeTokenSelectorList({
   rowKeys?: ReadonlyMap<string, string>;
   header?: ReactNode;
   footer?: ReactNode;
+  expandedContent?: ReactNode;
+  structureToggle?: ReactNode;
+  disclosure?: NativeListSnapshot['disclosure'];
+  onStructuralTransitionSettled?: NativeListProps['onStructuralTransitionSettled'];
   sidecar?: ReactNode;
   sidecarLayout?: NativeListProps['sidecarLayout'];
   structuralTransition?: NativeListSnapshot['structuralTransition'];
@@ -971,6 +980,7 @@ export function NativeTokenSelectorList({
       rows: nativeRows,
       theme,
       ...(structuralTransition ? { structuralTransition } : undefined),
+      ...(disclosure ? { disclosure } : undefined),
       ...(onRefresh
         ? {
             capabilities: {
@@ -1018,6 +1028,7 @@ export function NativeTokenSelectorList({
     withAggregateBadge,
     swapDisabled,
     structuralTransition,
+    disclosure,
     onRefresh,
     refreshing,
     intl,
@@ -1191,6 +1202,11 @@ export function NativeTokenSelectorList({
             </Stack>
             {footer}
           </>
+        }
+        listExpandedContent={platformEnv.isNative ? expandedContent : undefined}
+        listStructureToggle={platformEnv.isNative ? structureToggle : undefined}
+        onStructuralTransitionSettled={
+          platformEnv.isNative ? onStructuralTransitionSettled : undefined
         }
         listSidecar={platformEnv.isNative ? (sidecar ?? undefined) : undefined}
         sidecarLayout={platformEnv.isNative ? sidecarLayout : undefined}
