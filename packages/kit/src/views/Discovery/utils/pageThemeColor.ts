@@ -395,7 +395,9 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     };
     // What sits at the bottom of the viewport changes as the page scrolls:
     // read once the scroll settles, not during it (each read makes the page
-    // compute styles and hit-test).
+    // compute styles and hit-test). Captured, because a scroll inside an
+    // element does not bubble: dApp panels and lists scroll their own
+    // containers, and the bottom of the viewport changes all the same.
     var scrollTimer;
     window.addEventListener(
       'scroll',
@@ -403,7 +405,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
         clearTimeout(scrollTimer);
         scrollTimer = setTimeout(read, 150);
       },
-      { passive: true },
+      { passive: true, capture: true },
     );
     var isThemeMeta = function (node) {
       return (

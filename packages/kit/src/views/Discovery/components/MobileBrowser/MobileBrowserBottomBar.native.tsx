@@ -128,6 +128,13 @@ const CAPSULE_CONTENT_FADE_START = 0.7;
 // Same point where touches move from the bar to the pill.
 const DOMAIN_SWAP_POINT = BROWSER_CHROME_CROSSFADE_POINT;
 
+// How close two pieces of glass inside the bottom bar's GlassContainer have to be
+// before they merge into one shape. Zero lets the address background and the
+// side capsules affect each other as soon as they touch, which is what makes them
+// read as a single material. Passing it at all is what matters: the native
+// container only builds its effect inside setSpacing.
+const SPACING_GLASS_CONTAINER = 0;
+
 // The pill's domain text size.
 const PILL_DOMAIN_FONT_SIZE = 14;
 // How far the capsule's contents shrink toward the pill's (and the pill's
@@ -512,12 +519,16 @@ function MobileBrowserBottomBar({
         {/* One glass container for the address background and the side
           capsules, like Telegram's bars: the glass renders as one material
           instead of each piece adapting to what is behind it on its own
-          (mismatched mid-morph over page content). Collapsed, it takes no
-          touches at all: the native container holds a full-size effect view
-          that hit-tests across its whole frame, so box-none would swallow
-          taps on the page showing under the bar. */}
+          (mismatched mid-morph over page content). spacing must be passed
+          explicitly: the native container only creates its UIGlassContainerEffect
+          inside setSpacing, which skips a nil-to-nil change, so omitting it
+          leaves the container ineffective. Collapsed, the container takes no
+          touches at all: it holds a full-size effect view that hit-tests across
+          its whole frame, so box-none would swallow taps on the page showing
+          under the bar. */}
         <GlassContainer
           pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
+          spacing={SPACING_GLASS_CONTAINER}
           style={StyleSheet.absoluteFill}
         >
           <MorphingAddressBackground
