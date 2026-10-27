@@ -34,10 +34,10 @@ const accountDeriveInfo: IAccountDeriveInfoMapXmr = {
   // Trezor (and OneKey Pro firmware): SLIP-10 ed25519, all hardened.
   default: {
     namePrefix: 'XMR',
-    label: 'OneKey',
+    labelKey: ETranslations.bip44__standard,
     template: `m/44'/${COINTYPE_XMR}'/${INDEX_PLACEHOLDER}'`,
     coinType: COINTYPE_XMR,
-    desc: 'Same addresses as Trezor.',
+    desc: `OneKey, Trezor, m/44'/128'/*'`,
   },
   // Cake Wallet: secp256k1 BIP-32, m/44'/128'/a'/0/0.
   cake: {
@@ -45,7 +45,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapXmr = {
     label: 'Cake Wallet',
     template: `m/44'/${COINTYPE_XMR}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_XMR,
-    desc: 'Same addresses as Cake Wallet.',
+    desc: `Cake Wallet, m/44'/128'/*'/0/0`,
   },
 };
 
