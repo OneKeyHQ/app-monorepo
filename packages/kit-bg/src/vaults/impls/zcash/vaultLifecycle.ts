@@ -52,7 +52,6 @@ import {
   isZcashSetupIncompleteError,
   zcashDescribeError,
   zcashIdentityMismatchAccountIds,
-  zcashLastPrivateHistory,
   zcashUserOperationsActive,
 } from './vaultUtils';
 
@@ -178,12 +177,10 @@ function forgetZcashMemoryCaches(vault: Vault, accountIds?: string[]) {
     accountIds,
   });
   if (!accountIds) {
-    zcashLastPrivateHistory.clear();
     zcashIdentityMismatchAccountIds.clear();
     return;
   }
   for (const accountId of accountIds) {
-    zcashLastPrivateHistory.delete(accountId);
     zcashIdentityMismatchAccountIds.delete(accountId);
   }
 }

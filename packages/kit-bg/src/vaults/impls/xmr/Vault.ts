@@ -992,13 +992,12 @@ export default class Vault extends VaultBase {
     xpub?: string;
   }): Promise<IAccountHistoryTx[] | undefined> {
     const accountId = params.accountId || this.accountId;
-    const neverEnabled = await this.xmrIsHistoryNeverEnabled(accountId);
     // Never enabled: the runtime has no identity for it, so skip loading it.
-    const items = neverEnabled
-      ? undefined
-      : await this.xmrListHistoryItems({ accountId });
-    // Monero rows are never cached, so there is nothing to fall back to.
-    if (!items) return [];
+    if (await this.xmrIsHistoryNeverEnabled(accountId)) return [];
+    const items = await this.xmrListHistoryItems({ accountId });
+    // Failed, or busy with nothing read yet: as a failed backend fetch does,
+    // so the page keeps the rows it has.
+    if (!items) throw new OneKeyLocalError('xmr: history unavailable');
 
     const [account, nativeToken, sentRecords, progress] = await Promise.all([
       this.getAccount(),
