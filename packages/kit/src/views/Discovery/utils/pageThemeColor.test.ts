@@ -101,4 +101,29 @@ describe('applyCachedPageThemeColor', () => {
     expect(result.current.top).toBe('rgb(30, 30, 30)');
     expect(result.current.bottom).toBe('rgb(30, 30, 30)');
   });
+
+  it('keeps the bottom color for a same-document navigation', () => {
+    const { result } = renderColors();
+
+    // A dark header over a light body: the bar reads its contrast from the
+    // bottom, which differs from the top on purpose.
+    act(() => {
+      reportColors(
+        'rgb(0, 0, 0)',
+        'rgb(250, 250, 250)',
+        'https://d.example.com/',
+      );
+    });
+    expect(result.current.bottom).toBe('rgb(250, 250, 250)');
+
+    act(() => {
+      // An anchor jump, or Android reporting a same-document history update.
+      // The document does not reload, so it will not report again and the
+      // bottom color has to survive.
+      applyCachedPageThemeColor(TAB, 'https://d.example.com/#section', false);
+    });
+
+    expect(result.current.top).toBe('rgb(0, 0, 0)');
+    expect(result.current.bottom).toBe('rgb(250, 250, 250)');
+  });
 });

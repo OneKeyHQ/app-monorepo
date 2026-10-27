@@ -101,10 +101,20 @@ function WebContent({
   // Ask the page for its color (once per URL) so the browser chrome can tint
   // itself to match, like Safari.
   const lastThemeUrlRef = useRef('');
+  // The document last loaded here, ignoring its hash: a different document is
+  // what makes the bottom color stale (see applyCachedPageThemeColor).
+  const lastDocumentUrlRef = useRef('');
 
   const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {
     notifyTabNavigation(id);
-    applyCachedPageThemeColor(id, nativeEvent.url);
+    // Hash-only changes, and Android's same-document history updates (reported
+    // with loading === false), reload nothing: the document keeps its colors.
+    const documentUrl = nativeEvent.url?.split('#')[0] ?? nativeEvent.url;
+    const isNewDocument =
+      documentUrl !== lastDocumentUrlRef.current &&
+      !(platformEnv.isNativeAndroid && nativeEvent.loading === false);
+    lastDocumentUrlRef.current = documentUrl;
+    applyCachedPageThemeColor(id, nativeEvent.url, isNewDocument);
     // A full load runs the theme script itself (injectedJavaScript); only
     // SPA navigations need it injected again.
     lastThemeUrlRef.current = nativeEvent.url;

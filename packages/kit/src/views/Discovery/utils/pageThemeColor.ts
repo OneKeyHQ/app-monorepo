@@ -144,15 +144,24 @@ export function usePageBottomThemeName(tabId: string | null | undefined) {
 }
 
 // Applies the cached color of the page's origin, if any; otherwise the
-// current tint stays until the page reports its own. The bottom color is
-// dropped either way: it described the page that is being left, and the bar
-// picks its icon and glass theme from it, so keeping it until the next page
-// reports would leave the controls on the wrong contrast.
-export function applyCachedPageThemeColor(tabId: string, url: string) {
+// current tint stays until the page reports its own. A new document also drops
+// the bottom color: it described the page being left, the bar picks its icon
+// and glass theme from it, and keeping it would leave the controls on the
+// wrong contrast until the destination reports. Same-document navigations
+// (anchor links, hash routing, Android's history updates, which also arrive as
+// load-start) skip that, since the page already reported and would not report
+// again.
+export function applyCachedPageThemeColor(
+  tabId: string,
+  url: string,
+  isNewDocument = true,
+) {
   const origin = originOf(url);
   const cached = origin ? originColors.get(origin) : undefined;
   const colorChanged = cached ? storeColor(colors, tabId, cached) : false;
-  const bottomChanged = storeColor(bottomColors, tabId, undefined);
+  const bottomChanged = isNewDocument
+    ? storeColor(bottomColors, tabId, undefined)
+    : false;
   if (colorChanged || bottomChanged) {
     emit();
   }

@@ -512,9 +512,12 @@ function MobileBrowserBottomBar({
         {/* One glass container for the address background and the side
           capsules, like Telegram's bars: the glass renders as one material
           instead of each piece adapting to what is behind it on its own
-          (mismatched mid-morph over page content). */}
+          (mismatched mid-morph over page content). Collapsed, it takes no
+          touches at all: the native container holds a full-size effect view
+          that hit-tests across its whole frame, so box-none would swallow
+          taps on the page showing under the bar. */}
         <GlassContainer
-          pointerEvents="box-none"
+          pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
           style={StyleSheet.absoluteFill}
         >
           <MorphingAddressBackground
