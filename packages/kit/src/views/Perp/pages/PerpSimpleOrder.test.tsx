@@ -18,7 +18,9 @@ const route = {
 const submitOrder = jest.fn().mockResolvedValue(undefined);
 const showDepositWithdrawModal = jest.fn();
 let inputAmount = '100';
-const showOrderConfirmDialog = jest.fn(() => ({ close: jest.fn() }));
+const showOrderConfirmDialog = jest.fn(
+  (_options: { onConfirmSuccess?: () => void }) => ({ close: jest.fn() }),
+);
 const getWarning = jest.fn<
   IAggressiveLimitPriceWarning | undefined,
   unknown[]
@@ -316,6 +318,8 @@ it('submits directly when confirmation is skipped and no warning is present', as
     price: '50000',
     formData: expect.objectContaining({ type: 'market', size: '0.002' }),
   });
+  expect(navigation.replace).toHaveBeenCalled();
+  expect(actions.current.refreshAllPerpsData).not.toHaveBeenCalled();
 });
 
 it('restores the order coin after leaving an in-flight token selection', async () => {
@@ -333,4 +337,16 @@ it('restores the order coin after leaving an in-flight token selection', async (
     coin: 'BTC',
     subscriptionRecoveryProof: { source: 'simple-market', disabledCount: 0 },
   });
+});
+
+it('returns to the market after confirmation without consuming manual refresh', () => {
+  const { getByTestId } = render(<PerpSimpleOrder />);
+  fireEvent.click(getByTestId('perps-simple-submit'));
+
+  act(() => {
+    showOrderConfirmDialog.mock.calls[0][0].onConfirmSuccess?.();
+  });
+
+  expect(navigation.replace).toHaveBeenCalled();
+  expect(actions.current.refreshAllPerpsData).not.toHaveBeenCalled();
 });
