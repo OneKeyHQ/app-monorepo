@@ -17,7 +17,7 @@ import type { GlassViewProps } from 'expo-glass-effect';
 
 export { isLiquidGlassAvailable } from 'expo-glass-effect';
 
-// Glass views inside render together: one look for neighbouring glass (each
+// Glass views inside render together: one look for neighboring glass (each
 // glass otherwise adapts to what is behind it on its own), and shapes closer
 // than `spacing` merge, like the system bars.
 export { GlassContainer } from 'expo-glass-effect';
