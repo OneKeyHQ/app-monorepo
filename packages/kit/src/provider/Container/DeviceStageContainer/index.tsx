@@ -5,6 +5,7 @@ import { Keyboard } from 'react-native';
 
 import { DeviceStage } from '@onekeyhq/components/src/composite/DeviceStage';
 import type { IDeviceStageStep } from '@onekeyhq/components/src/composite/DeviceStage';
+import { STEP_POSE } from '@onekeyhq/components/src/composite/DeviceStage/stepCopy';
 import type {
   IDeviceStageConnectionType,
   IDeviceStageVendor,
@@ -16,7 +17,10 @@ import {
 } from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
 import type { IDeviceStageWaitEnd } from '@onekeyhq/components/src/composite/DeviceStage/useDeviceStageExitPolicy';
 import type { IHardwareDeviceType } from '@onekeyhq/components/src/content/HardwareDevice';
-import { useBackHandler } from '@onekeyhq/components/src/hooks';
+import {
+  useBackHandler,
+  useReplaySensitive,
+} from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useDevSettingsPersistAtom,
@@ -89,6 +93,17 @@ function toStageDeviceType(
     : 'unknown';
 }
 
+// Steps that take a PIN, passphrase or pairing code in the app, or open the
+// camera. The stage stays mounted between flows, so the replay pause follows
+// the step instead of the panel's mount.
+const REPLAY_SENSITIVE_DEVICE_STAGE_STEPS: ReadonlySet<IDeviceStageStep> =
+  new Set<IDeviceStageStep>([
+    'pinOnApp',
+    'passphraseOnApp',
+    'pairingCode',
+    'scanQr',
+  ]);
+
 function toStageVendor(
   vendor: IDeviceStageState['vendor'],
 ): IDeviceStageVendor | undefined {
@@ -116,6 +131,11 @@ function DeviceStageContainerCmp() {
   const [settings, setSettings] = useSettingsPersistAtom();
 
   const step: IDeviceStageStep = (stage?.step as IDeviceStageStep) ?? 'off';
+  useReplaySensitive(
+    STEP_POSE[step] !== 'hidden' &&
+      REPLAY_SENSITIVE_DEVICE_STAGE_STEPS.has(step),
+    'deviceStage',
+  );
   const isPro2NeoPassphraseCreation =
     stage?.passphraseMode === 'create' &&
     isProtocolV2ProductType(stage?.deviceType);

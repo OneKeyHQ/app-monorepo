@@ -92,6 +92,19 @@ allprojects {
         resolutionStrategy.dependencySubstitution {
             substitute module('io.github.zhongwuzw:mmkv') using project(':mmkv')
         }
+        // @posthog/react-native-plugin 2.12.6 pins posthog-android 3.71.6.
+        // 3.72.5 fixes replay masks drifting during adjustPan (#857) and 3.72.3
+        // reads replay geometry on the main thread (#854). Only the pinned
+        // version is rewritten, so a newer plugin pin is never downgraded.
+        // Remove once the plugin pins >= 3.72.5.
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == 'com.posthog'
+                    && details.requested.name == 'posthog-android'
+                    && details.requested.version == '3.71.6') {
+                details.useVersion('3.72.8')
+                details.because('posthog-android #857 adjustPan mask leak, #854 safe-area')
+            }
+        }
     }
 }
 

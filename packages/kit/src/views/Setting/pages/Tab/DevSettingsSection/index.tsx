@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
@@ -87,6 +88,11 @@ import {
   requestPermissionsAsync,
   setBadgeCountAsync,
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
+import {
+  getReplayGateStatus,
+  subscribeReplayGateStatus,
+} from '@onekeyhq/shared/src/modules3rdParty/posthog/replayGate';
+import type { IReplayGateStatus } from '@onekeyhq/shared/src/modules3rdParty/posthog/replayTypes';
 import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import {
   getCurrentWebViewPackageInfo,
@@ -300,6 +306,51 @@ function DevSettingsSavedSearchItem({
         onPress={handleRemove}
       />
     </XStack>
+  );
+}
+
+const SESSION_REPLAY_SEARCH_KEYWORDS =
+  'Session Replay 回放 录屏 录制 PostHog sessionId bucket sampled forced 强制录制 状态';
+
+function formatReplayGateStatus(status: IReplayGateStatus): string {
+  const yesNo = (value: boolean) => (value ? 'yes' : 'no');
+  const reasons = status.pauseReasons.length
+    ? status.pauseReasons.join(', ')
+    : '-';
+  return [
+    status.recording ? '录制中' : `未录制 · 原因: ${reasons}`,
+    `platform: ${status.platform ?? '-'} · controller: ${yesNo(
+      status.hasController,
+    )}`,
+    `bucket: ${status.bucket ?? '-'} · sampled: ${yesNo(
+      status.sampled,
+    )} · forced: ${yesNo(status.forced)}`,
+    `route: ${status.routeKey ?? '-'}`,
+    // Settings itself pauses replay, so the live state above always reads
+    // "not recording" here; the last start shows capture actually ran.
+    `最近一次开始录制: ${
+      status.lastRecordingStartedAt
+        ? `${new Date(status.lastRecordingStartedAt).toISOString()} · ${
+            status.lastRecordingSessionId ?? '-'
+          }`
+        : '-'
+    }`,
+  ].join('\n');
+}
+
+function SessionReplayStatusItem() {
+  const status = useSyncExternalStore(
+    subscribeReplayGateStatus,
+    getReplayGateStatus,
+  );
+  return (
+    <SectionPressItem
+      icon="VideoCameraOutline"
+      copyable={Boolean(status.sessionId)}
+      title={status.sessionId ?? 'Session Replay: 无会话'}
+      subtitle={formatReplayGateStatus(status)}
+      searchKeywords={SESSION_REPLAY_SEARCH_KEYWORDS}
+    />
   );
 }
 
@@ -879,6 +930,13 @@ const BaseDevSettingsSection = () => {
     runIdentityExit,
   ]);
 
+  const handleForceSessionReplayChange = useCallback(() => {
+    // The flag is read once when replay initializes at startup.
+    void backgroundApiProxy.serviceApp.restartApp({
+      reason: 'sessionReplayForceRecordChanged',
+    });
+  }, []);
+
   const handlePrimeCardCheckoutSettingChange = useCallback(() => {
     // SectionFieldItem invokes this only after persisting the new setting.
     void backgroundApiProxy.serviceApp.restartApp({
@@ -1183,7 +1241,7 @@ const BaseDevSettingsSection = () => {
         title: 'Basic Info',
         description: '基本信息',
         keywords:
-          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path Persist all logs 日志落盘',
+          '关闭开发者模式 启用测试网络节点 API Endpoint Management Switch web mode InstanceId BuildHash platformEnv Chrome DevTools Print Env Path USB通信方式 Device Info 设备信息 Copy Log Path Persist all logs 日志落盘 Session Replay 强制录制 回放 录屏 PostHog sessionId bucket 回放状态',
       },
       {
         key: 'devtools',
@@ -1390,6 +1448,30 @@ const BaseDevSettingsSection = () => {
                           testID="dev-settings-api-environment-switch"
                         />
                       </SectionFieldItem>
+                      {platformEnv.isNative || platformEnv.isDesktop ? (
+                        <>
+                          <SectionFieldItem
+                            icon="VideoCameraRecordingOutline"
+                            name="forceSessionReplay"
+                            title="Session Replay 强制录制（仅测试网络节点）"
+                            subtitle={
+                              devSettings.settings?.enableTestEndpoint
+                                ? '当前会话视为抽中，录到 PostHog 测试项目；敏感页仍停录。切换后自动重启 App，iOS 若未生效请彻底杀掉 App 再打开'
+                                : '需先启用 OneKey 测试网络节点'
+                            }
+                            searchKeywords={SESSION_REPLAY_SEARCH_KEYWORDS}
+                            onValueChange={handleForceSessionReplayChange}
+                          >
+                            <Switch
+                              size={ESwitchSize.small}
+                              disabled={
+                                !devSettings.settings?.enableTestEndpoint
+                              }
+                            />
+                          </SectionFieldItem>
+                          <SessionReplayStatusItem />
+                        </>
+                      ) : null}
                       <SectionFieldItem
                         icon="CurrencyDollarOutline"
                         name="ignoreReviewControl"

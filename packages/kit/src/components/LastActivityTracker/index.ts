@@ -63,6 +63,27 @@ const LastActivityTracker = () => {
         enableTestEndpoint:
           devSettings.enabled && devSettings.settings?.enableTestEndpoint,
       });
+      if (platformEnv.isNative || platformEnv.isDesktop) {
+        const enableTestEndpoint = Boolean(
+          devSettings.enabled && devSettings.settings?.enableTestEndpoint,
+        );
+        void import('@onekeyhq/shared/src/modules3rdParty/posthog/replay')
+          .then(({ initSessionReplay }) =>
+            initSessionReplay({
+              instanceId,
+              enableTestEndpoint,
+              forceRecord:
+                enableTestEndpoint &&
+                Boolean(devSettings.settings?.forceSessionReplay),
+            }),
+          )
+          .catch((error) => {
+            console.warn(
+              '[SessionReplay] init failed',
+              error instanceof Error ? error.message : 'unknown_error',
+            );
+          });
+      }
       void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
         ({ setUser: setSentryUser }) =>
           setSentryUser({

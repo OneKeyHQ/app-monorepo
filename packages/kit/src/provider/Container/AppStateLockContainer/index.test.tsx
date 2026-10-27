@@ -14,6 +14,7 @@ jest.mock('@onekeyhq/components', () => ({
   AnimatePresence: ({ children }: { children?: ReactNode }) => children,
   Spinner: () => null,
   YStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  useReplaySensitive: () => undefined,
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,

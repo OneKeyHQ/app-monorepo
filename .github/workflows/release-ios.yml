@@ -98,6 +98,7 @@ jobs:
             SENTRY_DISABLE_AUTO_UPLOAD=false
             ONRAMPER_CLIENT_ID=${{ secrets.ONRAMPER_CLIENT_ID }}
             ONRAMPER_API_KEY=${{ secrets.ONRAMPER_API_KEY }}
+            POSTHOG_REPLAY_TOKEN_TEST=${{ secrets.POSTHOG_REPLAY_TOKEN_TEST }}
           env_file_name: '.env.expo'
           sentry_project: ''
           covalent_key: ${{ secrets.COVALENT_KEY }}

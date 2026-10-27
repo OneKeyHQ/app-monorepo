@@ -22,6 +22,7 @@ import {
   YStack,
   onVisibilityStateChange,
   useThemeName,
+  withReplaySensitive,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
@@ -530,4 +531,4 @@ function PasswordVerify({
     </Stack>
   );
 }
-export default memo(PasswordVerify);
+export default memo(withReplaySensitive(PasswordVerify, 'passwordVerify'));

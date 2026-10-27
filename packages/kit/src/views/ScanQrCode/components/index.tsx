@@ -10,6 +10,7 @@ import {
   SizableText,
   Stack,
   YStack,
+  withReplaySensitive,
 } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -37,7 +38,7 @@ export type IScanQrCodeProps = {
   disableNavigationGuard?: boolean;
 };
 
-export function ScanQrCode({
+function ScanQrCodeContent({
   handleBarCodeScanned,
   qrWalletScene,
   disableNavigationGuard,
@@ -216,3 +217,9 @@ export function ScanQrCode({
     </ScanCamera>
   ) : null;
 }
+
+// The camera can see secrets (seed QR codes, air-gap answers). The wrapper
+// fills the host like the camera view does.
+export const ScanQrCode = withReplaySensitive(ScanQrCodeContent, 'scanQrCode', {
+  style: { flex: 1 },
+});

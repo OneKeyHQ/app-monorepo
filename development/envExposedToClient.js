@@ -56,6 +56,16 @@ function buildEnvExposedToClientDangerously({ platform }) {
     transformInlineEnvironmentVariables.push('ONRAMPER_API_KEY');
   }
 
+  if (
+    platform === developmentConsts.platforms.app ||
+    platform === developmentConsts.platforms.desktop
+  ) {
+    // PostHog Session Replay public project tokens (phc_..., publishable;
+    // they ship in every client). Unset disables replay for that project.
+    transformInlineEnvironmentVariables.push('POSTHOG_REPLAY_TOKEN_PROD');
+    transformInlineEnvironmentVariables.push('POSTHOG_REPLAY_TOKEN_TEST');
+  }
+
   return transformInlineEnvironmentVariables;
 }
 

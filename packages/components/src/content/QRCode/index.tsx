@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/components/src/shared/tamagui';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
+import { REPLAY_NO_CAPTURE_TOKEN } from '../../hocs/ReplaySensitiveView/types';
 import { Icon } from '../../primitives/Icon';
 import { Stack } from '../../primitives/Stack';
 
@@ -59,6 +60,10 @@ const DEFAULT_LOGO_SIZE = 62;
 // level, or the quiet-zone math describes a different symbol than the one
 // drawn.
 const DEFAULT_ECL: IQRCodeErrorCorrectionLevel = 'H';
+
+// Keeps codes out of Session Replay on every platform; screenshots and the
+// desktop DOM recording would otherwise keep them decodable.
+const QR_CODE_REPLAY_TEST_ID = REPLAY_NO_CAPTURE_TOKEN;
 
 const transformMatrixIntoPath = (matrix: number[][], size: number) => {
   const cellSize = size / matrix.length;
@@ -359,6 +364,7 @@ export function QRCode({
   return (
     <Theme name="light">
       <Stack
+        testID={QR_CODE_REPLAY_TEST_ID}
         width={canvasSize}
         height={canvasSize}
         bg="$bgApp"

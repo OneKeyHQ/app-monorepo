@@ -541,6 +541,7 @@ jobs:
       # Onramper Headless credentials ride only with the iOS bundle.
       ONRAMPER_CLIENT_ID: ${{ secrets.ONRAMPER_CLIENT_ID }}
       ONRAMPER_API_KEY: ${{ secrets.ONRAMPER_API_KEY }}
+      POSTHOG_REPLAY_TOKEN_TEST: ${{ secrets.POSTHOG_REPLAY_TOKEN_TEST }}
 
   native-bundle-android:
     needs: [prepare-params, web-embed-build]
@@ -575,6 +576,7 @@ jobs:
       QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
       SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
       ACTION_SIGN_SECERT_KEY: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+      POSTHOG_REPLAY_TOKEN_TEST: ${{ secrets.POSTHOG_REPLAY_TOKEN_TEST }}
 
   web-bundle:
     needs: prepare-params

@@ -64,11 +64,21 @@ const FORBIDDEN_NPM_IN_MAIN = [
   '@reown/', //       WalletConnect UI — event-driven lazy mount
   '@bufbuild/protobuf', // Protobuf — transitive dep of @keystonehq
   '@revenuecat/purchases-js-hybrid-mappings', // Browser-only RevenueCat runtime
+  '@posthog/', //     Session Replay plugin — import() only for sampled sessions
+  'posthog-js/', //   Web/desktop SDK — never part of the native graph
 ];
 
 // npm packages that must NEVER appear in the common startup graph.
 const FORBIDDEN_NPM_IN_COMMON = [
   'viem/', //   EVM library — lazy loaded by background connectors
+  '@posthog/', //   Session Replay runs in the main runtime only
+  'posthog-js/', // Web/desktop SDK — never part of the native graph
+];
+
+// npm packages that must NEVER appear in the background startup graph.
+const FORBIDDEN_NPM_IN_BACKGROUND = [
+  '@posthog/', //   Session Replay runs in the main runtime only
+  'posthog-js/', // Web/desktop SDK — never part of the native graph
 ];
 
 function relativePath(absPath, root) {
@@ -240,7 +250,12 @@ async function main() {
   if (fs.existsSync(allocationReportPath)) {
     const allocationReport = readJsonIfExists(allocationReportPath);
     const startupModules = (allocationReport.startup || {}).modules || [];
-    const forbiddenPatterns = entryName === 'main' ? FORBIDDEN_NPM_IN_MAIN : [];
+    let forbiddenPatterns = [];
+    if (entryName === 'main') {
+      forbiddenPatterns = FORBIDDEN_NPM_IN_MAIN;
+    } else if (entryName === 'background') {
+      forbiddenPatterns = FORBIDDEN_NPM_IN_BACKGROUND;
+    }
     for (const pattern of forbiddenPatterns) {
       const matches = startupModules.filter((m) => m.includes(pattern));
       if (matches.length > 0) {

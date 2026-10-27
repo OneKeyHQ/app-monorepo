@@ -96,6 +96,7 @@ jobs:
           additional_env: |
             NO_FLIPPER=1
             SENTRY_DISABLE_AUTO_UPLOAD=false
+            POSTHOG_REPLAY_TOKEN_TEST=${{ secrets.POSTHOG_REPLAY_TOKEN_TEST }}
           env_file_name: '.env.expo'
           sentry_project: ''
           covalent_key: ${{ secrets.COVALENT_KEY }}

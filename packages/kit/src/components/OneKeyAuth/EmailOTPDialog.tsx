@@ -11,6 +11,7 @@ import {
   Toast,
   XStack,
   YStack,
+  withReplaySensitive,
 } from '@onekeyhq/components';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import {
@@ -39,7 +40,7 @@ function getResendCountdownSeconds(result: IEmailOtpSendResult): number {
   return EMAIL_OTP_COUNTDOWN_SECONDS;
 }
 
-export function EmailOTPDialog(props: {
+function EmailOTPDialogContent(props: {
   title: string;
   description: string;
   sendCode: () => Promise<IEmailOtpSendResult>;
@@ -266,5 +267,10 @@ export function EmailOTPDialog(props: {
     </Stack>
   );
 }
+
+export const EmailOTPDialog = withReplaySensitive(
+  EmailOTPDialogContent,
+  'emailOtpDialog',
+);
 
 export default EmailOTPDialog;

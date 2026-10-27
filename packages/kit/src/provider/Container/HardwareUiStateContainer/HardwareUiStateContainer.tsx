@@ -17,7 +17,10 @@ import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
 import { Dialog, DialogContainer, SizableText } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
-import { useBackHandler } from '@onekeyhq/components/src/hooks';
+import {
+  useBackHandler,
+  useReplaySensitive,
+} from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   DeviceNotFoundDialogContent,
@@ -87,6 +90,15 @@ import { shouldSkipHardwareDeviceCancel } from './hardwareUiCancelPolicy';
 import { hardwareUiStateDialogLifecycle } from './hardwareUiStateDialogLifecycle';
 
 let globalShowDeviceProgressDialogEnabled = true;
+
+// Asks that put a PIN or passphrase on (or next to) the app's screen. The
+// pause starts with the state, before any dialog or stage renders.
+const REPLAY_SENSITIVE_HARDWARE_UI_ACTIONS: ReadonlySet<EHardwareUiStateAction> =
+  new Set([
+    EHardwareUiStateAction.REQUEST_PIN,
+    EHardwareUiStateAction.REQUEST_PASSPHRASE,
+    EHardwareUiStateAction.REQUEST_PASSPHRASE_ON_DEVICE,
+  ]);
 
 let autoEnabledTimer: ReturnType<typeof setTimeout> | null = null;
 export function setGlobalShowDeviceProgressDialogEnabled(enabled: boolean) {
@@ -478,6 +490,10 @@ const SHOW_HARDWARE_TOAST_VIEWPORT_NAME = 'SHOW_HARDWARE_TOAST_VIEWPORT_NAME';
 function HardwareUiStateContainerCmpControlled() {
   const intl = useIntl();
   const [state] = useHardwareUiStateAtom();
+  useReplaySensitive(
+    !!state?.action && REPLAY_SENSITIVE_HARDWARE_UI_ACTIONS.has(state.action),
+    'hardwareUi',
+  );
   const stateRef = useRef(state);
   stateRef.current = state;
 

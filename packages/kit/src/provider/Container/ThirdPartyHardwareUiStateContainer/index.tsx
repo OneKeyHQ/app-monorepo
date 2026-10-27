@@ -12,10 +12,12 @@ import {
   IconButton,
   Input,
   LottieView,
+  ReplaySensitiveView,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useReplaySensitive,
 } from '@onekeyhq/components';
 import type { IDialogInstance, ILottieViewProps } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
@@ -467,16 +469,18 @@ const TrezorThpPairingInput = memo(
       [onChange],
     );
     return (
-      <Input
-        testID="third-party-hw-trezor-thp-pairing-input"
-        value={value}
-        onChangeText={handleChangeText}
-        placeholder={placeholder}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="number-pad"
-        autoFocus
-      />
+      <ReplaySensitiveView tag="trezorThpPairingInput">
+        <Input
+          testID="third-party-hw-trezor-thp-pairing-input"
+          value={value}
+          onChangeText={handleChangeText}
+          placeholder={placeholder}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="number-pad"
+          autoFocus
+        />
+      </ReplaySensitiveView>
     );
   },
 );
@@ -1239,6 +1243,10 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     uiState?.action === EThirdPartyHardwareUiAction.requestTrezorPassphrase;
   const isTrezorPin =
     uiState?.action === EThirdPartyHardwareUiAction.requestTrezorPin;
+  useReplaySensitive(
+    isThpPairing || isTrezorPassphrase || isTrezorPin,
+    'thirdPartyHardwareUi',
+  );
 
   const sendTrezorPinResponse = useCallback(
     async (pin: string) => {

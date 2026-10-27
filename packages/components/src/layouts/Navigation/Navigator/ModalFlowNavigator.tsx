@@ -1,11 +1,14 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
+import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isReplaySensitiveScreen } from '@onekeyhq/shared/src/modules3rdParty/posthog/replaySensitiveRoutes';
 
 import { EPageType } from '../../../hocs';
 import { PageTypeContext } from '../../../hocs/PageType/context';
+import { ReplaySensitiveView } from '../../../hocs/ReplaySensitiveView';
 import { useTheme } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
 import createOnBoardingNavigator from '../Modal/createOnBoardingNavigator';
@@ -82,6 +85,28 @@ const WebViewStack = hasStackNavigatorModal
   ? createStackNavigator()
   : createWebViewNavigator();
 
+const REPLAY_SENSITIVE_SCREEN_STYLE = { flex: 1 } as const;
+
+// Screen-level layout for sensitive and third-party screens: the pause token
+// is taken in the commit that mounts the screen, before its first frame, and
+// held while the screen stays anywhere in the stack.
+function renderReplaySensitiveScreen({
+  children,
+  route,
+}: {
+  children: ReactElement;
+  route: { name: string };
+}) {
+  return (
+    <ReplaySensitiveView
+      tag={`screen:${route.name}`}
+      style={REPLAY_SENSITIVE_SCREEN_STYLE}
+    >
+      {children}
+    </ReplaySensitiveView>
+  );
+}
+
 /**
  * Renders a modal stack navigator with configurable screens and lifecycle hooks.
  *
@@ -93,6 +118,7 @@ const WebViewStack = hasStackNavigatorModal
  */
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
+  name: navigatorName,
   onMounted,
   onUnmounted,
   pageType: pageTypeFromProps,
@@ -178,6 +204,14 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
                 name={name}
                 component={component}
                 options={screenOptions}
+                layout={
+                  isReplaySensitiveScreen({
+                    routeName: name as string,
+                    navigatorName,
+                  })
+                    ? renderReplaySensitiveScreen
+                    : undefined
+                }
               />
             );
           },

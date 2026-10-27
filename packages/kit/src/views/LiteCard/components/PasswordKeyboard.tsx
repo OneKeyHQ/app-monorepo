@@ -7,13 +7,14 @@ import {
   SizableText,
   Stack,
   XStack,
+  withReplaySensitive,
 } from '@onekeyhq/components';
 
 import { LiteCardTestIDs } from '../testIDs';
 
 const KEYBOARD_DELETE_CHAR = 'x';
 
-export function PasswordKeyboard({
+function PasswordKeyboardContent({
   value = '',
   onChange,
 }: {
@@ -112,3 +113,8 @@ export function PasswordKeyboard({
     </Stack>
   );
 }
+
+export const PasswordKeyboard = withReplaySensitive(
+  PasswordKeyboardContent,
+  'liteCardPasswordKeyboard',
+);

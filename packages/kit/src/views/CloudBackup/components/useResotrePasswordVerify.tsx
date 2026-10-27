@@ -2,11 +2,11 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Input } from '@onekeyhq/components';
+import { Dialog, Input, withReplaySensitive } from '@onekeyhq/components';
 import { getPasswordKeyboardType } from '@onekeyhq/kit/src/components/Password/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-function RestorePasswordVerify() {
+function RestorePasswordVerifyForm() {
   const intl = useIntl();
   const [secureEntry, setSecureEntry] = useState(true);
   return (
@@ -47,6 +47,11 @@ function RestorePasswordVerify() {
     </Dialog.Form>
   );
 }
+
+const RestorePasswordVerify = withReplaySensitive(
+  RestorePasswordVerifyForm,
+  'cloudBackupRestorePassword',
+);
 
 export function useRestorePasswordVerifyDialog() {
   const intl = useIntl();

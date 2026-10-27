@@ -44,6 +44,12 @@ jest.mock('@onekeyhq/components', () => ({
   ShowCustom: () => null,
   YStack: () => null,
   SizableText: () => null,
+  ReplaySensitiveView: ({
+    children,
+  }: {
+    children?: import('react').ReactNode;
+  }) => children,
+  useReplaySensitive: () => undefined,
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,

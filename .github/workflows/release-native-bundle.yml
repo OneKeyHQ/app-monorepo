@@ -98,6 +98,10 @@ on:
         required: false
       ONRAMPER_API_KEY:
         required: false
+      # Public PostHog test-project key for Session Replay, inlined like the
+      # Onramper pair so a hot-updated bundle keeps recording to the test project.
+      POSTHOG_REPLAY_TOKEN_TEST:
+        required: false
 
 env:
   # Release artifacts must ship the licensed brand font; fonts-sync fails
@@ -480,6 +484,7 @@ jobs:
           # Android arm must not embed the pair.
           ONRAMPER_CLIENT_ID: ${{ matrix.platform == 'ios' && secrets.ONRAMPER_CLIENT_ID || '' }}
           ONRAMPER_API_KEY: ${{ matrix.platform == 'ios' && secrets.ONRAMPER_API_KEY || '' }}
+          POSTHOG_REPLAY_TOKEN_TEST: ${{ secrets.POSTHOG_REPLAY_TOKEN_TEST }}
         run: |
           if [ -z "$JPUSH_KEY" ]; then
             echo "::error::JPUSH_KEY is required to build native bundles"

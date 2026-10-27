@@ -219,6 +219,31 @@ export const setForceSystemBrowserForDebug = (value: boolean) => {
   forceSystemBrowserForDebug = value;
 };
 
+// Called right before a native in-app browser is presented; the returned
+// callback runs once the open call settles (iOS: on dismissal; Android: at
+// launch). Pushed in from kit's UI runtime (session replay pauses while it is
+// shown). Keep this file free of replay/posthog imports: kit-bg imports it.
+export type IInAppBrowserLifecycleListener = () => (() => void) | void;
+let inAppBrowserLifecycleListener: IInAppBrowserLifecycleListener | undefined;
+export const setInAppBrowserLifecycleListener = (
+  listener: IInAppBrowserLifecycleListener | undefined,
+): (() => void) => {
+  inAppBrowserLifecycleListener = listener;
+  return () => {
+    if (inAppBrowserLifecycleListener === listener) {
+      inAppBrowserLifecycleListener = undefined;
+    }
+  };
+};
+
+const notifyInAppBrowserOpen = (): (() => void) | undefined => {
+  try {
+    return inAppBrowserLifecycleListener?.() ?? undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const isSystemBrowserOnlyHost = (hostname: string): boolean => {
   const host = hostname.toLowerCase().replace(/^www\./, '');
   return (
@@ -242,23 +267,33 @@ const trackOpenUrl = (
 const openUrlInAppBrowserNative = async (
   url: string,
 ): Promise<{ type: string }> => {
-  // Lazy import: must never load on the native background JS runtime,
-  // and web/ext/desktop bundles don't need it.
-  const webBrowser = await import('expo-web-browser');
-  // createTask:false keeps the Custom Tab inside OneKey's Android task
-  // (BACK returns to the app; singleTask MainActivity clears it on
-  // deep-link re-entry). iOS presents SFSafariViewController full screen,
-  // dismissed via the X button (no swipe-down); OVER_FULL_SCREEN keeps the
-  // RN view hierarchy mounted underneath, unlike FULL_SCREEN. The promise
-  // only resolves once the browser is dismissed. presentationStyle/
-  // dismissButtonStyle are iOS-only, enableBarCollapsing applies to both
-  // platforms.
-  return webBrowser.openBrowserAsync(url, {
-    createTask: false,
-    presentationStyle: webBrowser.WebBrowserPresentationStyle.OVER_FULL_SCREEN,
-    dismissButtonStyle: 'close',
-    enableBarCollapsing: true,
-  });
+  const onSettled = notifyInAppBrowserOpen();
+  try {
+    // Lazy import: must never load on the native background JS runtime,
+    // and web/ext/desktop bundles don't need it.
+    const webBrowser = await import('expo-web-browser');
+    // createTask:false keeps the Custom Tab inside OneKey's Android task
+    // (BACK returns to the app; singleTask MainActivity clears it on
+    // deep-link re-entry). iOS presents SFSafariViewController full screen,
+    // dismissed via the X button (no swipe-down); OVER_FULL_SCREEN keeps the
+    // RN view hierarchy mounted underneath, unlike FULL_SCREEN. The promise
+    // only resolves once the browser is dismissed. presentationStyle/
+    // dismissButtonStyle are iOS-only, enableBarCollapsing applies to both
+    // platforms.
+    return await webBrowser.openBrowserAsync(url, {
+      createTask: false,
+      presentationStyle:
+        webBrowser.WebBrowserPresentationStyle.OVER_FULL_SCREEN,
+      dismissButtonStyle: 'close',
+      enableBarCollapsing: true,
+    });
+  } finally {
+    try {
+      onSettled?.();
+    } catch {
+      // A listener failure must never affect opening the link.
+    }
+  }
 };
 
 export const openUrlExternal = (

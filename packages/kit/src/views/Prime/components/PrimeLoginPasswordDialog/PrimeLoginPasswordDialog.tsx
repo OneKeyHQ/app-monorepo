@@ -15,6 +15,7 @@ import {
   XStack,
   YStack,
   useKeyboardEventWithoutNavigation,
+  withReplaySensitive,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -104,7 +105,7 @@ function PasswordStrengthBar({ score }: { score: number }) {
   );
 }
 
-export function PrimeLoginPasswordDialog({
+function PrimeLoginPasswordDialogContent({
   data,
   promiseId,
   richTextDescription,
@@ -470,3 +471,8 @@ export function PrimeLoginPasswordDialog({
     </Stack>
   );
 }
+
+export const PrimeLoginPasswordDialog = withReplaySensitive(
+  PrimeLoginPasswordDialogContent,
+  'primeLoginPasswordDialog',
+);

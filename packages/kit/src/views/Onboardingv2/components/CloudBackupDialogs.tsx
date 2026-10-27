@@ -8,6 +8,7 @@ import {
   Input,
   Stack,
   Toast,
+  withReplaySensitive,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { onboardingCloudBackupListRefreshAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -170,7 +171,7 @@ function ForgotPasswordButton({
   );
 }
 
-function CloudBackupPasswordDialogContent({
+function CloudBackupPasswordForm({
   showConfirmPasswordField,
   showForgotPasswordButton,
   onPressForgotPassword,
@@ -189,6 +190,11 @@ function CloudBackupPasswordDialogContent({
     </Dialog.Form>
   );
 }
+
+const CloudBackupPasswordDialogContent = withReplaySensitive(
+  CloudBackupPasswordForm,
+  'cloudBackupPasswordDialog',
+);
 
 export const showCloudBackupPasswordDialog = ({
   onSubmit,

@@ -10,6 +10,7 @@ import {
   Stack,
   Toast,
   YStack,
+  useReplaySensitive,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -56,6 +57,7 @@ type IPrimeLoginEmailDialogV2Props = {
 );
 
 function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
+  useReplaySensitive(true, 'primeLoginEmail');
   const {
     onComplete,
     onLoginSuccess,

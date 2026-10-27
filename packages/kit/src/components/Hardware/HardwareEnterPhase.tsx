@@ -18,6 +18,7 @@ import {
   XStack,
   passwordManagerIgnoreProps,
   useMedia,
+  withReplaySensitive,
 } from '@onekeyhq/components';
 import {
   type UseFormReturn,
@@ -59,7 +60,7 @@ export type IEnterPhaseProps = {
   }) => void;
 };
 
-export function EnterPhase({
+function EnterPhaseContent({
   isVerifyMode,
   allowUseAttachPin,
   deviceOnly,
@@ -355,3 +356,8 @@ export function EnterPhase({
     </Stack>
   );
 }
+
+export const EnterPhase = withReplaySensitive(
+  EnterPhaseContent,
+  'hardwareEnterPhase',
+);

@@ -20,6 +20,7 @@ import {
   YStack,
   passwordManagerIgnoreProps,
   useTheme,
+  withReplaySensitive,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -592,7 +593,7 @@ export function EnterPinOnDevice({
   );
 }
 
-export function EnterPin({
+function EnterPinContent({
   title,
   onConfirm,
   switchOnDevice,
@@ -797,6 +798,11 @@ export function EnterPin({
     </Stack>
   );
 }
+
+export const EnterPin = withReplaySensitive(
+  EnterPinContent,
+  'hardwareEnterPin',
+);
 
 export function EnterPhase(props: IEnterPhaseProps) {
   return <LazyEnterPhase {...props} />;

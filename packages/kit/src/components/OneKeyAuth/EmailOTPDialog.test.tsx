@@ -69,6 +69,8 @@ jest.mock('@onekeyhq/components', () => {
     },
     XStack: Container,
     YStack: Container,
+    withReplaySensitive: <P,>(Component: import('react').ComponentType<P>) =>
+      Component,
   };
 });
 

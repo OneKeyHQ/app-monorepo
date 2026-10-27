@@ -376,6 +376,11 @@ jest.mock('@onekeyhq/components', () => {
         },
         children,
       ),
+    ReplaySensitiveView: ({
+      children,
+    }: {
+      children?: import('react').ReactNode;
+    }) => children,
     Spinner: () => null,
     Stack: Container,
     Toast: {

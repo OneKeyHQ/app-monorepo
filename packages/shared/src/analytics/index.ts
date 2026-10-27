@@ -26,12 +26,23 @@ type IAnalyticsDeviceInfo = Record<string, unknown> & {
   tier: TAnalyticsTier;
 };
 
+export type IAnalyticsReplayContext = {
+  sessionId: string;
+  // Epoch ms; events tracked at or after this time are not linked.
+  expiresAt: number;
+};
+
 export class Analytics {
   private instanceId = '';
 
   private baseURL = '';
 
-  private cacheEvents = [] as [string, Record<string, any> | undefined][];
+  // Third element: replay session id captured when the event was tracked.
+  private cacheEvents = [] as [
+    string,
+    Record<string, any> | undefined,
+    string | undefined,
+  ][];
 
   private cacheUserProfile = [] as IAnalyticsUserProfile[];
 
@@ -46,6 +57,8 @@ export class Analytics {
   private enableAnalyticsInDev = false;
 
   private initializedWaiters: Array<() => void> = [];
+
+  private replayContext: IAnalyticsReplayContext | null = null;
 
   init({
     instanceId,
@@ -67,8 +80,8 @@ export class Analytics {
     while (this.cacheEvents.length) {
       const params = this.cacheEvents.pop();
       if (params) {
-        const [eventName, eventProps] = params;
-        this.trackEvent(eventName as any, eventProps);
+        const [eventName, eventProps, replaySessionId] = params;
+        this.dispatchEvent(eventName, eventProps, replaySessionId);
       }
     }
     while (this.cacheUserProfile.length) {
@@ -109,7 +122,31 @@ export class Analytics {
     return this.request;
   }
 
+  // Links events tracked from this runtime to a sampled Session Replay
+  // session. Pass null to stop linking.
+  setReplayContext(context: IAnalyticsReplayContext | null) {
+    this.replayContext = context
+      ? { sessionId: context.sessionId, expiresAt: context.expiresAt }
+      : null;
+  }
+
+  private captureReplaySessionId(): string | undefined {
+    const context = this.replayContext;
+    if (!context || Date.now() >= context.expiresAt) {
+      return undefined;
+    }
+    return context.sessionId;
+  }
+
   trackEvent(eventName: string, eventProps?: Record<string, any>) {
+    this.dispatchEvent(eventName, eventProps, this.captureReplaySessionId());
+  }
+
+  private dispatchEvent(
+    eventName: string,
+    eventProps: Record<string, any> | undefined,
+    replaySessionId: string | undefined,
+  ) {
     if (eventProps?.pageName) {
       this.basicInfo.pageName = eventProps.pageName;
     }
@@ -123,10 +160,10 @@ export class Analytics {
           },
         });
       } else {
-        void this.requestEvent(eventName, eventProps);
+        void this.requestEvent(eventName, eventProps, replaySessionId);
       }
     } else {
-      this.cacheEvents.push([eventName, eventProps]);
+      this.cacheEvents.push([eventName, eventProps, replaySessionId]);
     }
   }
 
@@ -134,6 +171,7 @@ export class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ): Promise<void> {
+    const replaySessionId = this.captureReplaySessionId();
     if (eventProps?.pageName) {
       this.basicInfo.pageName = eventProps.pageName;
     }
@@ -150,7 +188,7 @@ export class Analytics {
       });
       return;
     }
-    await this.requestEvent(eventName, eventProps);
+    await this.requestEvent(eventName, eventProps, replaySessionId);
   }
 
   private async lazyDeviceInfo(): Promise<IAnalyticsDeviceInfo> {
@@ -197,7 +235,8 @@ export class Analytics {
 
   private async requestEvent(
     eventName: string,
-    eventProps?: Record<string, any>,
+    eventProps: Record<string, any> | undefined,
+    replaySessionId: string | undefined,
   ) {
     if (
       (platformEnv.isDev || platformEnv.isE2E) &&
@@ -221,6 +260,10 @@ export class Analytics {
       tier: deviceInfo.tier,
       distinct_id: this.instanceId,
     } as Record<string, unknown>;
+    if (replaySessionId) {
+      // PostHog's reserved key; the utility service forwards it unchanged.
+      event.$session_id = replaySessionId;
+    }
     if (
       !platformEnv.isNative &&
       // eslint-disable-next-line unicorn/prefer-global-this

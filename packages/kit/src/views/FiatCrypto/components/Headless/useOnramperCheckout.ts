@@ -18,9 +18,11 @@ import type {
   IOnramperButtonStyle,
   IOnramperClient,
   IOnramperEvent,
+  IOnramperEventName,
   IOnramperQuote,
   IOnramperSession,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
+import { acquireReplayPause } from '@onekeyhq/shared/src/modules3rdParty/posthog/replayGate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHeadlessBuyAbandonReason } from '@onekeyhq/shared/types/fiatCrypto';
 
@@ -28,6 +30,25 @@ import { getOnramperErrorMessage } from './onramperErrorCopy';
 import { EBuyActionState } from './types';
 
 const DEBOUNCE_MS = 400;
+
+// Session replay stays paused from the moment the SDK starts presenting
+// provider UI (login, KYC, 3-D Secure, provider web views) until the checkout
+// ends. Non-terminal provider events (paymentCancelled, providerError) keep
+// the pause; leaving the page releases it.
+const REPLAY_PAUSE_EVENTS: ReadonlySet<IOnramperEventName> = new Set([
+  'checkoutStarted',
+  'loginRequired',
+  'renderingStarted',
+  'providerReady',
+  'challengeStarted',
+  'customerOnboardingRequired',
+]);
+const REPLAY_RESUME_EVENTS: ReadonlySet<IOnramperEventName> = new Set([
+  'completed',
+  'failed',
+  'cancelled',
+  'paymentPending',
+]);
 
 type IParams = {
   amount: number; // parsed fiat amount (0 when empty/invalid)
@@ -372,6 +393,23 @@ export function useOnramperCheckout({
   const handleSdkEventRef = useRef(handleSdkEvent);
   handleSdkEventRef.current = handleSdkEvent;
 
+  const releaseReplayPauseRef = useRef<(() => void) | undefined>(undefined);
+  const releaseReplayPause = useCallback(() => {
+    releaseReplayPauseRef.current?.();
+    releaseReplayPauseRef.current = undefined;
+  }, []);
+  const updateReplayPause = useCallback(
+    (name: IOnramperEventName) => {
+      if (REPLAY_PAUSE_EVENTS.has(name)) {
+        releaseReplayPauseRef.current ??=
+          acquireReplayPause('onramperCheckout');
+      } else if (REPLAY_RESUME_EVENTS.has(name)) {
+        releaseReplayPause();
+      }
+    },
+    [releaseReplayPause],
+  );
+
   // Init: mint session (skipped for the mock) → initialize → wire events.
   useEffect(() => {
     // Recreate when a previous cleanup destroyed the client: Fast Refresh (and
@@ -387,6 +425,7 @@ export function useOnramperCheckout({
     const removeListeners = [
       ...ONRAMPER_EVENT_NAMES.map((name) =>
         client.addEventListener(name, (event) => {
+          updateReplayPause(name);
           if (name === 'completed' || name === 'paymentPending') {
             handleCheckoutCompletedRef.current(event);
           } else if (name === 'failed') {
@@ -468,6 +507,7 @@ export function useOnramperCheckout({
     return () => {
       cancelled = true;
       removeListeners.forEach((remove) => remove());
+      releaseReplayPause();
       // The disposed instance must not be reused — see the recreate guard above.
       clientRef.current = null;
       // Defer the native teardown out of the unmount/navigation-transition

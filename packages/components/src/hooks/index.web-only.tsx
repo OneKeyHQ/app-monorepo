@@ -18,5 +18,6 @@ export * from './useStyle';
 export * from './useUpdateEffect';
 export * from './useVisibilityChange';
 export * from './useSplitView';
+export * from './useReplaySensitive';
 export * from './useIsTablet';
 export * from './nativeTabletRealWidthMedia';

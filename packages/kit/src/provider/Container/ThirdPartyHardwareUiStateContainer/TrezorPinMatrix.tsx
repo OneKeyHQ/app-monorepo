@@ -3,13 +3,20 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import { Dialog, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  withReplaySensitive,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 // Trezor host PIN matrix for old button devices. Like OneKey HD's EnterPin but
 // with no `0` and no on-device button (matches Trezor Suite). Blank grid: the
 // scrambled digits live on the device; we send the tapped position string.
-export function TrezorPinMatrix({
+function TrezorPinMatrixContent({
   title,
   onConfirm,
 }: {
@@ -185,3 +192,8 @@ export function TrezorPinMatrix({
     </Stack>
   );
 }
+
+export const TrezorPinMatrix = withReplaySensitive(
+  TrezorPinMatrixContent,
+  'trezorPinMatrix',
+);

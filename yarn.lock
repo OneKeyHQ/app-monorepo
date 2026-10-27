@@ -10623,6 +10623,7 @@ __metadata:
     "@onekeyhq/shared": "npm:*"
     "@onramper/onramper-react-native": "npm:1.3.1"
     "@phantom/react-native-juicebox-sdk": "npm:0.3.17"
+    "@posthog/react-native-plugin": "npm:2.12.6"
     "@react-native-async-storage/async-storage": "npm:@onekeyfe/react-native-async-storage@6.7.0-9"
     "@react-native-community/datetimepicker": "npm:9.1.0"
     "@react-native-community/netinfo": "npm:12.0.1"
@@ -13112,6 +13113,16 @@ __metadata:
   dependencies:
     "@posthog/types": "npm:1.379.1"
   checksum: 10/aab1ab0bea40a5c5579d0cc1a14acf4301f888300a76cf809d25eb4689ddedd8331cb158fb33f473084eded5ee3dd1a9894321a52c71ecbc72741b20536d3f57
+  languageName: node
+  linkType: hard
+
+"@posthog/react-native-plugin@npm:2.12.6":
+  version: 2.12.6
+  resolution: "@posthog/react-native-plugin@npm:2.12.6"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/e1ade9c61c22fbdca9aa71f829f8033b2f0fc226d06b77c6e017b7145923d0544b34f067bd46fa0088dc982b9a039caf4bf3b1722e2cf793593bba644b27fd65
   languageName: node
   linkType: hard
 

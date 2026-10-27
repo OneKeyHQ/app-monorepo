@@ -652,6 +652,29 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - PostHog (3.88.2)
+  - posthog-react-native-plugin (2.12.6):
+    - hermes-engine
+    - PostHog (~> 3.88.2)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - PromisesObjC (2.4.0)
   - PurchasesHybridCommon (18.21.0):
     - RevenueCat (= 5.80.3)
@@ -3906,6 +3929,7 @@ DEPENDENCIES:
   - Pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - "PerpDepthBar (from `../../../node_modules/@onekeyfe/react-native-perp-depth-bar`)"
   - Ping (from `../../../node_modules/react-native-ping`)
+  - "posthog-react-native-plugin (from `../../../node_modules/@posthog/react-native-plugin`)"
   - QuickCrypto (from `../../../node_modules/react-native-quick-crypto`)
   - RCTDeprecation (from `../../../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../../../node_modules/react-native/Libraries/Required`)
@@ -4056,6 +4080,7 @@ SPEC REPOS:
     - lottie-ios
     - MultiplatformBleAdapter
     - OpenSSL-Universal
+    - PostHog
     - PromisesObjC
     - PurchasesHybridCommon
     - RevenueCat
@@ -4193,6 +4218,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-perp-depth-bar"
   Ping:
     :path: "../../../node_modules/react-native-ping"
+  posthog-react-native-plugin:
+    :path: "../../../node_modules/@posthog/react-native-plugin"
   QuickCrypto:
     :path: "../../../node_modules/react-native-quick-crypto"
   RCTDeprecation:
@@ -4528,6 +4555,8 @@ SPEC CHECKSUMS:
   Pbkdf2: 052cac440207f53a272a5a9f94324eeb0bdef30b
   PerpDepthBar: 523a4c6bba9ce5eb6cb1ae8adfd82aa0103fc1d9
   Ping: 33eff2f85822c24184e89cf23308887668a2473b
+  PostHog: b022f9212b67fadbc2ebc52d34451d668c6335a6
+  posthog-react-native-plugin: ac9bbc7ac3756daf0904d672391368ed77aa7183
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PurchasesHybridCommon: 097af88db3cb39b415bef2f3140e6b3324899756
   QuickCrypto: 459dd2f5b5c33f115238c08a9d75ace23bdf5601

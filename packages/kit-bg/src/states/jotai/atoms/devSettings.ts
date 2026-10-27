@@ -73,6 +73,9 @@ export interface IDevSettings {
   strictSignatureAlert?: boolean;
   // enable analytics requests in dev environment
   enableAnalyticsRequest?: boolean;
+  // QA: treat every PostHog Session Replay session as sampled. Only honored
+  // together with enableTestEndpoint; read once at startup.
+  forceSessionReplay?: boolean;
   autoNavigation?: {
     enabled: boolean;
     selectedTab: ETabRoutes | null;

@@ -312,6 +312,115 @@ describe('Analytics tier', () => {
   });
 });
 
+describe('Analytics replay context', () => {
+  let nowSpy: jest.SpyInstance<number, []>;
+  let now = 1_700_000_000_000;
+
+  function getPostedEventProps(index: number): Record<string, unknown> {
+    const [, body] = mockPost.mock.calls[index] as unknown as [
+      string,
+      { eventProps: Record<string, unknown> },
+    ];
+    return body.eventProps;
+  }
+
+  beforeEach(() => {
+    mockPost.mockClear();
+    mockPost.mockResolvedValue(undefined);
+    mockGetDeviceCpuTier.mockReturnValue('high');
+    mockGetDeviceInfo.mockResolvedValue({ deviceId: 'device-id' });
+    now = 1_700_000_000_000;
+    nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+  });
+
+  afterEach(() => {
+    nowSpy.mockRestore();
+  });
+
+  it('adds $session_id while the context is valid', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+    analytics.setReplayContext({ sessionId: 'sid-1', expiresAt: now + 1000 });
+
+    analytics.trackEvent('linkedEvent', { foo: 'bar' });
+    await waitForPostCount(1);
+    await analytics.trackEventAsync('linkedAsyncEvent');
+
+    expect(getPostedEventProps(0)).toMatchObject({
+      foo: 'bar',
+      $session_id: 'sid-1',
+    });
+    expect(getPostedEventProps(1)).toMatchObject({ $session_id: 'sid-1' });
+  });
+
+  it('omits $session_id without a context, after clearing, or once expired', async () => {
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+
+    await analytics.trackEventAsync('plainEvent');
+
+    analytics.setReplayContext({ sessionId: 'sid-1', expiresAt: now + 1000 });
+    analytics.setReplayContext(null);
+    await analytics.trackEventAsync('clearedEvent');
+
+    analytics.setReplayContext({ sessionId: 'sid-2', expiresAt: now + 1000 });
+    now += 1000;
+    await analytics.trackEventAsync('expiredEvent');
+
+    expect(mockPost).toHaveBeenCalledTimes(3);
+    for (let i = 0; i < 3; i += 1) {
+      expect(getPostedEventProps(i)).not.toHaveProperty('$session_id');
+    }
+  });
+
+  it('captures the context when the event is tracked, not when it is sent', async () => {
+    let resolveDeviceInfo:
+      | ((deviceInfo: { deviceId: string }) => void)
+      | undefined;
+    mockGetDeviceInfo.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveDeviceInfo = resolve;
+      }),
+    );
+    const analytics = new Analytics();
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+    analytics.setReplayContext({ sessionId: 'sid-1', expiresAt: now + 1000 });
+
+    analytics.trackEvent('earlyEvent');
+    analytics.setReplayContext({ sessionId: 'sid-2', expiresAt: now + 1000 });
+    resolveDeviceInfo?.({ deviceId: 'device-id' });
+    await waitForPostCount(1);
+
+    expect(getPostedEventProps(0)).toMatchObject({ $session_id: 'sid-1' });
+  });
+
+  it('keeps the context captured by events cached before init', async () => {
+    const analytics = new Analytics();
+    analytics.setReplayContext({ sessionId: 'sid-1', expiresAt: now + 1000 });
+    analytics.trackEvent('cachedLinkedEvent');
+    analytics.setReplayContext(null);
+    analytics.trackEvent('cachedPlainEvent');
+    analytics.setReplayContext({ sessionId: 'sid-2', expiresAt: now + 1000 });
+
+    analytics.init({ instanceId: 'instance-id', baseURL: 'https://utility' });
+    await waitForPostCount(2);
+
+    const byName = new Map(
+      mockPost.mock.calls.map((call) => {
+        const [, body] = call as unknown as [
+          string,
+          { eventName: string; eventProps: Record<string, unknown> },
+        ];
+        return [body.eventName, body.eventProps];
+      }),
+    );
+    expect(byName.get('cachedLinkedEvent')).toMatchObject({
+      $session_id: 'sid-1',
+    });
+    expect(byName.get('cachedPlainEvent')).not.toHaveProperty('$session_id');
+  });
+});
+
 describe('Analytics redemption URL privacy', () => {
   const originalLocation = Object.getOwnPropertyDescriptor(
     globalThis,

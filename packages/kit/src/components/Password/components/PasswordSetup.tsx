@@ -11,6 +11,7 @@ import {
   Heading,
   Input,
   Unspaced,
+  withReplaySensitive,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
@@ -436,4 +437,4 @@ const PasswordSetup = ({
   );
 };
 
-export default memo(PasswordSetup);
+export default memo(withReplaySensitive(PasswordSetup, 'passwordSetup'));

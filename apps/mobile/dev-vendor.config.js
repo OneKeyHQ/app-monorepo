@@ -115,6 +115,7 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-split-bundle-loader',
     '@onekeyfe/react-native-text-input',
     '@phantom/react-native-juicebox-sdk',
+    '@posthog/react-native-plugin',
     '@react-native-async-storage/async-storage',
     '@react-native-community/datetimepicker',
     '@react-native-community/netinfo',

@@ -1,7 +1,12 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { AnimatePresence, Spinner, YStack } from '@onekeyhq/components';
+import {
+  AnimatePresence,
+  Spinner,
+  YStack,
+  useReplaySensitive,
+} from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
@@ -104,6 +109,7 @@ export function AppStateLockContainer({
   children,
 }: PropsWithChildren<unknown>) {
   const [isLocked] = useAppIsLockedAtom();
+  useReplaySensitive(isLocked, 'appLock');
 
   // Track whether this process has ever been unlocked. On low-end native devices
   // we skip rendering the full app tree behind the lock screen ONLY for a

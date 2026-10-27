@@ -1,4 +1,5 @@
 import {
+  type ComponentProps,
   type ReactNode,
   useCallback,
   useEffect,
@@ -17,6 +18,7 @@ import {
   Dialog,
   Icon,
   Input,
+  ReplaySensitiveView,
   SizableText,
   Stack,
   Toast,
@@ -62,7 +64,7 @@ type IEmailOtpSendAttempt = {
   allowPreviousCode: boolean;
 };
 
-export function PrimeLoginEmailCodeDialogV2(props: {
+function PrimeLoginEmailCodeDialogV2Content(props: {
   active?: boolean;
   developmentControls?: (
     disabled: boolean,
@@ -755,5 +757,18 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         }
       />
     </Stack>
+  );
+}
+
+export function PrimeLoginEmailCodeDialogV2(
+  props: ComponentProps<typeof PrimeLoginEmailCodeDialogV2Content>,
+) {
+  return (
+    <ReplaySensitiveView
+      tag="primeLoginEmailCode"
+      active={props.active !== false}
+    >
+      <PrimeLoginEmailCodeDialogV2Content {...props} />
+    </ReplaySensitiveView>
   );
 }

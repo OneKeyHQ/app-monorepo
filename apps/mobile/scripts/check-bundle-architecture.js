@@ -39,11 +39,31 @@ const FORBIDDEN_NPM_IN_MAIN = [
   '@keystonehq/', //      Hardware wallet QR SDK — lazy via qr-wallet-sdk
   '@reown/', //            WalletConnect UI — event-driven lazy mount
   '@bufbuild/protobuf', // Protobuf — transitive dep of @keystonehq
+  '@posthog/', //          Session Replay plugin — import() only for sampled sessions
+  'posthog-js/', //        Web/desktop SDK — never part of the native graph
 ];
 
 // npm packages that must NEVER appear in the common eager bundle.
 const FORBIDDEN_NPM_IN_COMMON = [
   'viem/', // EVM library — lazy loaded by background connectors
+  '@posthog/', //   Session Replay runs in the main runtime only
+  'posthog-js/', // Web/desktop SDK — never part of the native graph
+];
+
+// npm packages that must NEVER appear in the background eager bundle.
+const FORBIDDEN_NPM_IN_BACKGROUND = [
+  '@posthog/', //   Session Replay runs in the main runtime only
+  'posthog-js/', // Web/desktop SDK — never part of the native graph
+];
+
+// Lazy segments of these npm packages must belong to the main runtime only
+// (no background or shared variant).
+const MAIN_ONLY_NPM_SEGMENTS = ['@posthog', 'posthog-js'];
+
+// Session Replay is UI-runtime only: its modules must never be eager in the
+// background bundle or in common (which the background runtime also loads).
+const FORBIDDEN_IN_BACKGROUND_AND_COMMON = [
+  'packages/shared/src/modules3rdParty/posthog/replay',
 ];
 
 const SIMPLE_DB_ENTITY_PREFIX =
@@ -235,6 +255,39 @@ function checkViolations(report, bundleName) {
   return [];
 }
 
+function getSegmentRuntimes(segInfo) {
+  if (!segInfo || typeof segInfo !== 'object') {
+    return [];
+  }
+  if (Array.isArray(segInfo.runtimes)) {
+    return segInfo.runtimes;
+  }
+  if ('variants' in segInfo && segInfo.variants) {
+    return Object.values(segInfo.variants)
+      .filter(Boolean)
+      .map((entry) => entry.runtime);
+  }
+  return segInfo.runtime ? [segInfo.runtime] : [];
+}
+
+function checkMainOnlyNpmSegments(segments) {
+  const errors = [];
+  for (const [segKey, segInfo] of Object.entries(segments)) {
+    const pkg = MAIN_ONLY_NPM_SEGMENTS.find((name) =>
+      segKey.includes(`nm.${name}`),
+    );
+    // oxlint-disable-next-line eslint/no-continue
+    if (!pkg) continue;
+    const runtimes = getSegmentRuntimes(segInfo);
+    if (runtimes.length === 0 || runtimes.some((rt) => rt !== 'main')) {
+      errors.push(
+        `[segment] ${segKey} (${pkg}) must be main-runtime only, got runtimes=[${runtimes.join(', ')}]`,
+      );
+    }
+  }
+  return errors;
+}
+
 function checkSimpleDbEntitiesStayLazy(report, bundleName) {
   return report.startup.modules
     .filter(
@@ -289,12 +342,37 @@ function main() {
     }
   }
   if (common) {
+    errors.push(
+      ...checkForbiddenModules(
+        common,
+        'common',
+        FORBIDDEN_IN_BACKGROUND_AND_COMMON,
+      ),
+    );
     const commonMods = common.startup.modules;
     for (const pattern of FORBIDDEN_NPM_IN_COMMON) {
       const matches = commonMods.filter((m) => m.includes(pattern));
       if (matches.length > 0) {
         errors.push(
           `[common] Forbidden npm "${pattern}" in eager startup (${matches.length} modules). Must not be eagerly loaded.`,
+        );
+      }
+    }
+  }
+  if (bg) {
+    errors.push(
+      ...checkForbiddenModules(
+        bg,
+        'background',
+        FORBIDDEN_IN_BACKGROUND_AND_COMMON,
+      ),
+    );
+    const bgMods = bg.startup.modules;
+    for (const pattern of FORBIDDEN_NPM_IN_BACKGROUND) {
+      const matches = bgMods.filter((m) => m.includes(pattern));
+      if (matches.length > 0) {
+        errors.push(
+          `[background] Forbidden npm "${pattern}" in eager startup (${matches.length} modules). The background runtime must never load it.`,
         );
       }
     }
@@ -311,6 +389,7 @@ function main() {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
       segments = manifest.segments || segments;
     }
+    errors.push(...checkMainOnlyNpmSegments(segments));
     for (const [segKey, segInfo] of Object.entries(segments)) {
       // oxlint-disable-next-line eslint/no-continue
       if (segInfo.runtime !== 'main') continue;

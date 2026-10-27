@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, ComponentType, ReactNode } from 'react';
 
 import assert from 'node:assert/strict';
 
@@ -90,6 +90,7 @@ jest.mock('@onekeyhq/components', () => {
     Stack: host('div'),
     XStack: host('div'),
     YStack: host('div'),
+    withReplaySensitive: <P,>(Component: ComponentType<P>) => Component,
     onVisibilityStateChange: (callback: (visible: boolean) => void) => {
       capture.visibility = callback;
       return () => {
