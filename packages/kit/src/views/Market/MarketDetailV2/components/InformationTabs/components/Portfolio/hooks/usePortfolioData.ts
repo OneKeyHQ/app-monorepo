@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
+import { hasTradePositionBalance } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAccountPortfolioResponse } from '@onekeyhq/shared/types/marketV2';
@@ -113,9 +113,7 @@ export function usePortfolioData({
   const portfolioData = useMemo(() => {
     const items = isCurrentPortfolioScope ? portfolioResult?.list || [] : [];
     return isStock
-      ? items.filter((item) =>
-          isTradePositionVisible({ balance: item.amount, isStock: true }),
-        )
+      ? items.filter((item) => hasTradePositionBalance(item.amount))
       : items;
   }, [isCurrentPortfolioScope, isStock, portfolioResult]);
 

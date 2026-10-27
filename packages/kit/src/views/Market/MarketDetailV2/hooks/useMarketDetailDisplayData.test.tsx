@@ -89,6 +89,63 @@ describe('useMarketDetailDisplayData', () => {
   });
 
   it.each([
+    { source: 'preview', networkId: 'btc--0', decimals: 8 },
+    { source: 'cached detail', networkId: 'btc--0', decimals: 8 },
+    { source: 'preview', networkId: 'evm--1', decimals: 18 },
+    { source: 'preview', networkId: 'sol--101', decimals: 9 },
+  ])(
+    'uses native decimals for $networkId before $source metadata refreshes',
+    ({ source, networkId, decimals }) => {
+      mockTokenDetailData.networkId = networkId;
+      mockTokenDetailData.isNative = true;
+      const token = {
+        address: '',
+        networkId,
+        isNative: true,
+        name: 'Native asset',
+        symbol: 'NATIVE',
+        logoUrl: '',
+        decimals: 0,
+      };
+      if (source === 'preview') {
+        mockTokenDetailData.tokenDetailPreview = { ...token, selectedAt: 1 };
+      } else {
+        mockTokenDetailData.tokenDetail = { ...token, decimalsResolved: true };
+      }
+
+      const { result } = renderHook(useMarketDetailDisplayData);
+
+      expect(result.current.tokenDetail).toMatchObject({
+        networkId,
+        decimals,
+        decimalsResolved: true,
+      });
+      expect(result.current.isPreviewTokenDetail).toBe(source === 'preview');
+    },
+  );
+
+  it('keeps zero decimals for a non-native token on a native-capable network', () => {
+    const tokenAddress = '0x0000000000000000000000000000000000000001';
+    mockTokenDetailData.networkId = 'evm--1';
+    mockTokenDetailData.tokenAddress = tokenAddress;
+    mockTokenDetailData.tokenDetail = {
+      address: tokenAddress,
+      networkId: 'evm--1',
+      isNative: false,
+      name: 'Indivisible token',
+      symbol: 'TOKEN',
+      logoUrl: '',
+      decimals: 0,
+      decimalsResolved: true,
+    };
+
+    const { result } = renderHook(useMarketDetailDisplayData);
+
+    expect(result.current.tokenDetail).toBe(mockTokenDetailData.tokenDetail);
+    expect(result.current.tokenDetail?.decimals).toBe(0);
+  });
+
+  it.each([
     { address: '0x2::sui::SUI', hasPreview: false },
     { address: '0x2::sui::SUI', hasPreview: true },
     { address: SUI_TYPE_ARG, hasPreview: false },
