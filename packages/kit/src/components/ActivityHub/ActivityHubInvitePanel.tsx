@@ -41,19 +41,6 @@ const PANEL_ROW_PROPS = {
   borderRadius: '$2',
 } as const;
 
-// The cached code shows at once; the read also refreshes it in the
-// background. Only a first visit, with nothing cached yet, waits for the
-// summary.
-async function fetchMyReferralCode() {
-  const cached =
-    await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
-  if (cached) {
-    return cached;
-  }
-  const summary = await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
-  return summary.inviteCode || '';
-}
-
 // Pointer layouts already list Referral in the sidebar, so their gift opens
 // what the sidebar cannot: the link and code to copy on the spot, laid out
 // like the invite card on the referral page, plus the Perks tab, named and
@@ -71,9 +58,28 @@ export function ActivityHubInvitePanel({
   const [user] = usePrimePersistAtom();
   const isLoggedIn = Boolean(user.isLoggedIn && user.isLoggedInOnServer);
   const webAppUrl = useReferralWebAppUrl();
-  const { result: code } = usePromiseResult(
-    async () => (isLoggedIn ? fetchMyReferralCode() : ''),
+  const {
+    result: code,
+    isLoading,
+    run: refreshCode,
+  } = usePromiseResult(
+    async () => {
+      if (!isLoggedIn) {
+        return '';
+      }
+      // Read the refreshed value itself; getMyReferralCode only updates its
+      // cache in the background and leaves a mounted panel with the old code.
+      const summary =
+        await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+      return summary.inviteCode || '';
+    },
     [isLoggedIn],
+    {
+      watchLoading: true,
+      keepResultIfError: true,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    },
   );
   // The same product link, and the same line about it, as the referral
   // page's link menu.
@@ -93,10 +99,21 @@ export function ActivityHubInvitePanel({
       source,
       action,
     });
+  const showCodeRetry = isLoading === false && !code;
 
   return (
     <YStack gap="$3">
-      {isLoggedIn ? (
+      {isLoggedIn && showCodeRetry ? (
+        <Button
+          testID="activity-hub-retry"
+          onPress={() => {
+            void refreshCode();
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      ) : null}
+      {isLoggedIn && !showCodeRetry ? (
         <YStack gap="$2">
           <XStack ai="center" jc="space-between" gap="$2">
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -187,7 +204,8 @@ export function ActivityHubInvitePanel({
             </XStack>
           </XStack>
         </YStack>
-      ) : (
+      ) : null}
+      {!isLoggedIn ? (
         <Button
           testID="activity-hub-join"
           variant="primary"
@@ -198,7 +216,7 @@ export function ActivityHubInvitePanel({
         >
           {intl.formatMessage({ id: ETranslations.global_join })}
         </Button>
-      )}
+      ) : null}
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
       <XStack
         testID="activity-hub-open-perks"
