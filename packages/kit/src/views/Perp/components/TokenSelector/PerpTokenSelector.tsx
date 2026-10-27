@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
 import {
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   memo,
   startTransition,
   useCallback,
@@ -18,7 +20,6 @@ import {
   DebugRenderTracker,
   type IInputProps,
   type IListViewRef,
-  type IStackProps,
   Icon,
   ListView,
   NATIVE_HIT_SLOP,
@@ -389,11 +390,12 @@ function BasePerpTokenSelectorContent() {
   const inputQueryRef = useRef(searchQuery);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const refocusSearchOnClick = useRef(false);
-  const handlePointerDown = useCallback<
-    NonNullable<IStackProps['onPointerDownCapture']>
-  >((event) => {
-    refocusSearchOnClick.current = event.nativeEvent.pointerType === 'mouse';
-  }, []);
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      refocusSearchOnClick.current = event.nativeEvent.pointerType === 'mouse';
+    },
+    [],
+  );
   const handleSearchFocus = useCallback<NonNullable<IInputProps['onFocus']>>(
     (event) => {
       if (event.target instanceof HTMLInputElement) {
@@ -402,15 +404,18 @@ function BasePerpTokenSelectorContent() {
     },
     [],
   );
-  const focusSearchInput = useCallback((event: { target: unknown }) => {
-    if (
-      refocusSearchOnClick.current &&
-      event.target !== searchInputRef.current
-    ) {
-      searchInputRef.current?.focus({ preventScroll: true });
-    }
-    refocusSearchOnClick.current = false;
-  }, []);
+  const focusSearchInput = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (
+        refocusSearchOnClick.current &&
+        event.target !== searchInputRef.current
+      ) {
+        searchInputRef.current?.focus({ preventScroll: true });
+      }
+      refocusSearchOnClick.current = false;
+    },
+    [],
+  );
   const keyboardSubmitPending = useRef(false);
   const keyboardRowRefs = useRef(new Map<string, HTMLElement>());
   const keyboardFavoritesPending = useRef(new Set<string>());
@@ -1526,19 +1531,7 @@ function BasePerpTokenSelectorContent() {
   ]);
 
   const content = (
-    <YStack
-      {...(platformEnv.isNative
-        ? undefined
-        : {
-            onPointerDownCapture: handlePointerDown,
-            onClickCapture: focusSearchInput,
-            // Tamagui types this as a native event, but this branch receives DOM events.
-            onKeyDownCapture: handleFavoriteShortcut as unknown as NonNullable<
-              IStackProps['onKeyDownCapture']
-            >,
-            onWheelCapture: cancelPendingKeyboardScroll,
-          })}
-    >
+    <YStack>
       <YStack gap="$1">
         <XStack px="$2" pt="$2">
           <SearchBar
@@ -1714,7 +1707,19 @@ function BasePerpTokenSelectorContent() {
   );
   return (
     <DebugRenderTracker position="top-right" name="PerpTokenSelectorContent">
-      {content}
+      {platformEnv.isNative ? (
+        content
+      ) : (
+        <div
+          style={{ display: 'contents' }}
+          onPointerDownCapture={handlePointerDown}
+          onClickCapture={focusSearchInput}
+          onKeyDownCapture={handleFavoriteShortcut}
+          onWheelCapture={cancelPendingKeyboardScroll}
+        >
+          {content}
+        </div>
+      )}
     </DebugRenderTracker>
   );
 }

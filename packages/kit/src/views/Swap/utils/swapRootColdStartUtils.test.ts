@@ -69,6 +69,7 @@ describe('hydrateSwapDefaultTokensFromGlobalHomeSnapshot', () => {
     setHomeColdStartSnapshot();
     const store = createStore();
     store.set(swapStockSelectedTokenAtom(), stockToken);
+    store.set(swapDefaultConfigStatusAtom(), 'failed');
     store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
 
     expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
@@ -175,16 +176,16 @@ describe('hydrateSwapDefaultTokensFromGlobalHomeSnapshot', () => {
     ).toBeUndefined();
   });
 
-  it('displays known local defaults before configuration returns', () => {
+  it('does not hydrate App placeholders before configuration returns', () => {
     setHomeColdStartSnapshot('evm--1');
     const store = createStore();
     expect(store.get(swapDefaultConfigStatusAtom())).toBe('pending');
-    expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
-    expect(store.get(swapSelectFromTokenAtom())?.symbol).toBe('ETH');
-    expect(store.get(swapSelectToTokenAtom())?.symbol).toBe('USDC');
+    expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(false);
+    expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
+    expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
     expect(
       store.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
-    ).toBeDefined();
+    ).toBeUndefined();
     expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
   });
 

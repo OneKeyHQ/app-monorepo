@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
   ESwapProJumpTokenDirection,
@@ -35,7 +36,6 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
-  swapProPositionsListMaxCount,
   wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -92,10 +92,12 @@ import {
   buildSwapProAccountScope,
   getSwapProAccountForCurrentScope,
   getSwapProErrorAlertAction,
+  getSwapProPositionsAccountScope,
   resolveSwapProAccountIdentity,
   resolveSwapProAccountStatus,
   shouldSyncSwapProAccountNetwork,
 } from '../utils/swapProAccountUtils';
+import { isSwapProPositionsAccountMatch } from '../utils/swapProPositionsCacheUtils';
 import { buildSwapProPositionsNetworkIdsKey } from '../utils/swapProPositionsKeyUtils';
 import { loadSwapProPositions } from '../utils/swapProPositionsLoader';
 import {
@@ -1637,31 +1639,56 @@ export function useSwapProPositionAccountIdentity() {
   const [isAccountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
 
-  return useMemo(
-    () =>
-      resolveSwapProAccountIdentity({
-        isAccountSelectorStorageInitDone,
-        selectedNetworkId: selectedAccount.networkId,
-        selectedWalletId: selectedAccount.walletId,
-        selectedFocusedWallet: selectedAccount.focusedWallet,
-        selectedIndexedAccountId: selectedAccount.indexedAccountId,
-        selectedAccountId: selectedAccount.othersWalletAccountId,
-        activeIndexedAccountId: activeAccount?.indexedAccount?.id,
-        activeAccountId:
-          activeAccount?.account?.id ?? activeAccount?.dbAccount?.id,
-      }),
-    [
-      activeAccount?.account?.id,
-      activeAccount?.dbAccount?.id,
-      activeAccount?.indexedAccount?.id,
+  return useMemo(() => {
+    const identity = resolveSwapProAccountIdentity({
       isAccountSelectorStorageInitDone,
-      selectedAccount.focusedWallet,
-      selectedAccount.indexedAccountId,
-      selectedAccount.networkId,
-      selectedAccount.othersWalletAccountId,
-      selectedAccount.walletId,
-    ],
-  );
+      selectedNetworkId: selectedAccount.networkId,
+      selectedWalletId: selectedAccount.walletId,
+      selectedFocusedWallet: selectedAccount.focusedWallet,
+      selectedIndexedAccountId: selectedAccount.indexedAccountId,
+      selectedAccountId: selectedAccount.othersWalletAccountId,
+      activeIndexedAccountId: activeAccount.indexedAccount?.id,
+      activeAccountId: activeAccount.account?.id ?? activeAccount.dbAccount?.id,
+    });
+    const activeAccountScope = getSwapProPositionsAccountScope({
+      ...identity,
+      activeAccount,
+      selectedDeriveType: selectedAccount.deriveType,
+    });
+    const networkAccount =
+      activeAccountScope &&
+      activeAccount.account?.address &&
+      activeAccount.network?.id &&
+      !networkUtils.isAllNetwork({ networkId: activeAccount.network.id })
+        ? {
+            networkId: activeAccount.network.id,
+            accountId: activeAccount.account.id,
+            apiAddress: activeAccount.account.address,
+          }
+        : undefined;
+    return {
+      ...identity,
+      accountScope: identity.indexedAccountId ?? identity.accountId,
+      networkAccount,
+      pendingAccountNetworkId: activeAccountScope
+        ? undefined
+        : selectedAccount.networkId,
+      isDeriveTypePending: Boolean(
+        selectedAccount.networkId === activeAccount.network?.id &&
+        selectedAccount.deriveType &&
+        selectedAccount.deriveType !== (activeAccount.deriveType ?? 'default'),
+      ),
+    };
+  }, [
+    activeAccount,
+    isAccountSelectorStorageInitDone,
+    selectedAccount.deriveType,
+    selectedAccount.focusedWallet,
+    selectedAccount.indexedAccountId,
+    selectedAccount.networkId,
+    selectedAccount.othersWalletAccountId,
+    selectedAccount.walletId,
+  ]);
 }
 
 export function useSwapPositionsSupportTokenListAction() {
@@ -1681,6 +1708,7 @@ export function useSwapPositionsSupportTokenListAction() {
         }[];
       },
     ) => {
+      if (!positionAccountIdentity.accountScope) return;
       await swapProLoadSupportNetworksTokenList(
         networkList.map((item) => ({
           networkId: item.networkId,
@@ -1692,6 +1720,10 @@ export function useSwapPositionsSupportTokenListAction() {
         positionCurrencyId,
         {
           forceRefresh: options?.forceRefresh,
+          accountScope: positionAccountIdentity.accountScope,
+          pendingAccountNetworkId:
+            positionAccountIdentity.pendingAccountNetworkId,
+          networkAccount: positionAccountIdentity.networkAccount,
           positionLoader: loadSwapProPositions,
           stockOnly: options?.stockOnly,
           additionalSupportNetworkScopes: options?.additionalNetworkScopes?.map(
@@ -1760,9 +1792,45 @@ export function useSwapProSupportNetworksTokenList(
       positionNetworkIdsKey,
     ],
   );
-  const positionRuntimeEntry = positionOwnerKey
+  const scopedEntry = positionOwnerKey
     ? swapProPositionsRuntimeData[positionOwnerKey]
     : undefined;
+  const relevantNetworkAccount =
+    options?.stockOnly &&
+    positionAccountIdentity.networkAccount &&
+    networkList.some(
+      (network) =>
+        network.networkId === positionAccountIdentity.networkAccount?.networkId,
+    )
+      ? positionAccountIdentity.networkAccount
+      : undefined;
+  const isRelevantDeriveTypePending =
+    options?.stockOnly &&
+    positionAccountIdentity.isDeriveTypePending &&
+    networkList.some(
+      (network) =>
+        network.networkId === positionAccountIdentity.pendingAccountNetworkId,
+    );
+  const positionRuntimeEntry =
+    !isRelevantDeriveTypePending &&
+    isSwapProPositionsAccountMatch({
+      entry: scopedEntry,
+      accountScope: options?.stockOnly
+        ? positionAccountIdentity.accountScope
+        : undefined,
+      networkAccount: relevantNetworkAccount,
+      accountPending: Boolean(
+        options?.stockOnly &&
+        positionAccountIdentity.pendingAccountNetworkId &&
+        networkList.some(
+          (network) =>
+            network.networkId ===
+            positionAccountIdentity.pendingAccountNetworkId,
+        ),
+      ),
+    })
+      ? scopedEntry
+      : undefined;
   const hasPositionOwner =
     Boolean(positionOwnerKey) ||
     (!supportNetworksReady && Boolean(positionAccountId));
@@ -1901,6 +1969,8 @@ export function useSwapProSupportNetworksTokenList(
   }, [checkSyncOrderTokenBalance]);
 
   return {
+    hasAccount: Boolean(positionAccountId),
+    resolvedNetworkIds: positionRuntimeEntry?.resolvedNetworkIds ?? [],
     positionLoadError: positionRuntimeEntry?.status === 'error',
     positionLoading:
       hasPositionOwner &&
@@ -1915,25 +1985,19 @@ export function useSwapProPositionsListFilter(
   sourceTokenList: ISwapToken[] = [],
   isStockPositions?: boolean,
 ) {
+  const currencyInfo = useCurrency();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const filterMinValueTokenList = useMemo(() => {
     return sourceTokenList.filter((token) =>
       isTradePositionVisible({
         balance: token.balanceParsed,
         fiatValue: token.fiatValue,
         isStock: isStockPositions,
+        currency: token.currency || currencyInfo.id,
+        currencyMap,
       }),
     );
-  }, [sourceTokenList, isStockPositions]);
-
-  const filterDefaultTokenList = useMemo(() => {
-    if (
-      isStockPositions ||
-      filterMinValueTokenList.length <= swapProPositionsListMaxCount
-    ) {
-      return filterMinValueTokenList;
-    }
-    return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
-  }, [filterMinValueTokenList, isStockPositions]);
+  }, [sourceTokenList, isStockPositions, currencyInfo.id, currencyMap]);
 
   const finallyTokenList = useMemo(
     () =>
@@ -1943,8 +2007,8 @@ export function useSwapProPositionsListFilter(
               equalTokenNoCaseSensitive({ token1: t, token2: token }),
             ),
           )
-        : filterDefaultTokenList,
-    [filterDefaultTokenList, filterMinValueTokenList, filterToken],
+        : filterMinValueTokenList,
+    [filterMinValueTokenList, filterToken],
   );
   return {
     finallyTokenList,

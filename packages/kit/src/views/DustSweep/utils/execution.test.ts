@@ -164,6 +164,7 @@ function createOptions() {
     snapshot,
     token,
     signal: new AbortController().signal,
+    onBuilding: jest.fn(),
     onSigning: jest.fn(),
     onPrepared: jest.fn(),
     onApprovalBroadcast: jest.fn(),
