@@ -135,6 +135,46 @@ describe('xmr history rows', () => {
     expect(row.decodedTx.owner).toBe(OWN);
   });
 
+  it('shows the fee the payer paid on a receive', async () => {
+    const row = await build({
+      direction: 'in',
+      receivedAtomic: '30000000000',
+      feeAtomic: '30660000',
+    });
+    expect(row.decodedTx.totalFeeInNative).toBe('0.00003066');
+  });
+
+  it('names our primary address as the recipient, as the receive page shows it', async () => {
+    const row = await buildXmrLocalHistoryTx({
+      item: {
+        txid: 'cc',
+        height: 100,
+        direction: 'in',
+        receivedAtomic: '1',
+        spentAtomic: '0',
+        timestamp: 1_700_000_000,
+        receivedOnPrimary: true,
+      },
+      ownAddress: OWN,
+      nativeToken,
+      networkId: 'xmr--0',
+      accountId: 'hd-1--x',
+      accountAddress: OWN,
+      buildTransferAction: async ({ from, to, transfers }) => ({
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: { from, to, sends: [], receives: transfers },
+      }),
+    });
+    const transfer = row.decodedTx.actions[0].assetTransfer;
+    expect(transfer).toMatchObject({
+      from: '',
+      to: OWN,
+      shieldedFrom: { poolId: 1 },
+    });
+    expect(transfer).not.toHaveProperty('shieldedTo');
+    expect(transfer?.receives[0].to).toBe(OWN);
+  });
+
   it('shows the recipient we recorded at broadcast', async () => {
     const row = await build({ direction: 'out', spentAtomic: '1' }, PAID);
     const action = row.decodedTx.actions[0] as unknown as {

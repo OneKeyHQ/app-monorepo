@@ -131,11 +131,14 @@ export async function buildXmrLocalHistoryTx({
   // The counterparty is undiscoverable on Monero, so it is marked private.
   const from = isSent ? ownAddress : '';
   const to = isSent ? recipient || '' : ownAddress;
+  // Only the address the receive page shows is named as ours; a subaddress stays private.
+  const showOwnRecipient = !isSent && item.receivedOnPrimary === true;
   const own = { poolId: XMR_POOL_IDS.private, isOwn: true };
   const counterparty = { poolId: XMR_POOL_IDS.private };
+  const namesRecipient = (isSent && !!recipient) || showOwnRecipient;
   const shieldedSides = {
     shieldedFrom: isSent ? own : counterparty,
-    ...(isSent && recipient ? {} : { shieldedTo: isSent ? counterparty : own }),
+    ...(namesRecipient ? {} : { shieldedTo: isSent ? counterparty : own }),
   };
 
   const action = await buildTransferAction({
@@ -157,14 +160,13 @@ export async function buildXmrLocalHistoryTx({
     ],
   });
 
-  // Which of our addresses received it is unknown (may be a subaddress).
   const withoutOwnAddress = <T extends { from: string; to: string }>(
     target: T,
   ): T => ({
     ...target,
     ...shieldedSides,
     from: isSent ? '' : target.from,
-    to: isSent ? target.to : '',
+    to: isSent || showOwnRecipient ? target.to : '',
   });
   if (action.assetTransfer) {
     action.assetTransfer = {
@@ -193,10 +195,9 @@ export async function buildXmrLocalHistoryTx({
     accountId,
     extraInfo: null,
     nativeAmount: paymentAmount,
-    totalFeeInNative:
-      isSent && feeAtomic
-        ? new BigNumber(feeAtomic).shiftedBy(-XMR_DECIMALS).toFixed()
-        : undefined,
+    totalFeeInNative: feeAtomic
+      ? new BigNumber(feeAtomic).shiftedBy(-XMR_DECIMALS).toFixed()
+      : undefined,
     createdAt: timestampMs,
     updatedAt: timestampMs,
   };

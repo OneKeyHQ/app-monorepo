@@ -47,6 +47,8 @@ export type IXmrHistoryItem = {
   failed?: boolean;
   outgoingAtomic?: string | null;
   feeAtomic?: string | null;
+  /** Paid to the account's primary address; absent from runtimes before alpha.11. */
+  receivedOnPrimary?: boolean;
 };
 
 export type {

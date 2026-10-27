@@ -243,6 +243,16 @@ describe('buildZcashLocalHistoryTx counterparties', () => {
     expect(transfer?.sends).toEqual([]);
   });
 
+  it('shows the fee the sender paid on a received row', async () => {
+    const tx = await build({ ...historyItem('r-fee'), fee: '10000' });
+    expect(tx.decodedTx.totalFeeInNative).toBe('0.0001');
+  });
+
+  it('leaves a received row without a fee when the runtime cannot know it', async () => {
+    const tx = await build({ ...historyItem('r-no-fee'), fee: null });
+    expect(tx.decodedTx.totalFeeInNative).toBeUndefined();
+  });
+
   it('marks a shielded recipient lost to a rescan', async () => {
     const tx = await build({
       ...historyItem('s'),
