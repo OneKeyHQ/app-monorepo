@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   Easing,
@@ -52,7 +52,7 @@ const settleTiming = {
 // Drives the mobile browser chrome (header + bottom bar) from WebView scroll:
 // scrolling down collapses both; scrolling up, reaching an edge of the page,
 // or a non-scrollable page brings them back.
-function useMobileBrowserChromeAnimation() {
+function useMobileBrowserChromeAnimation(activeTabId?: string | null) {
   const { top: safeTop, bottom: bottomInset } = useSafeAreaInsets();
   const fullBarHeight = getBarReservedHeight(bottomInset);
   // Scrolling this far collapses (or expands) the chrome while following:
@@ -87,6 +87,9 @@ function useMobileBrowserChromeAnimation() {
   // expand is requested (its end restores the expanded layout on the UI
   // thread), at worst costing one repeated write.
   const layoutCollapsedRef = useRef(false);
+  // Whether a gesture is already being followed, so its first event is the
+  // only one that reads chromeProgress.value (see followScroll).
+  const isFollowingRef = useRef(false);
   const setLayoutCollapsed = useCallback(() => {
     if (!layoutCollapsedRef.current) {
       layoutCollapsedRef.current = true;
@@ -98,6 +101,7 @@ function useMobileBrowserChromeAnimation() {
 
   const animateTo = useCallback(
     (target: number, curve: 'spring' | 'settle' = 'spring') => {
+      isFollowingRef.current = false;
       if (targetRef.current === target && isSettledRef.current) {
         return;
       }
@@ -136,7 +140,18 @@ function useMobileBrowserChromeAnimation() {
     ) => {
       const lastY = lastScrollYRef.current;
       lastScrollYRef.current = scrollY;
+      // The first event of a finger-tracking gesture resumes from where the
+      // chrome is drawn, not from targetRef: starting a drag during a settle
+      // finds the target already at 0 or 1 while the animation is still
+      // between the two, so its first delta would snap the chrome to a
+      // different position. Later events use targetRef, since reading the
+      // shared value on the JS thread blocks until the UI thread answers and
+      // deceleration would pay that on every frame.
       let next = targetRef.current;
+      if (isInteracting && !isFollowingRef.current) {
+        isFollowingRef.current = true;
+        next = chromeProgress.value;
+      }
       if (lastY !== undefined) {
         next -= (scrollY - lastY) / followDistance;
       }
@@ -261,6 +276,15 @@ function useMobileBrowserChromeAnimation() {
     lastTurnScrollYRef.current = undefined;
     animateTo(EXPANDED);
   }, [animateTo]);
+
+  // Every tab's WebView shares this handler, so the scroll baseline of the
+  // previous tab would be compared with the new tab's offsets and could throw
+  // the chrome to an endpoint on its first gesture.
+  useEffect(() => {
+    lastScrollYRef.current = undefined;
+    lastTurnScrollYRef.current = undefined;
+    isFollowingRef.current = false;
+  }, [activeTabId]);
 
   // In-flow bar container (tablet layout): shrinks with the chrome but keeps
   // room for the collapsed pill. The bar animates its own content.
