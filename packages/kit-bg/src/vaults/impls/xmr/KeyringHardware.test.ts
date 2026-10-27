@@ -1,5 +1,6 @@
 import { chacha20poly1305 } from '@noble/ciphers/chacha';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
@@ -37,6 +38,7 @@ function createKeyring({
     .spyOn(KeyringHardwareBase.prototype, 'getHardwareSDKInstance')
     .mockResolvedValue(sdk as never);
   return Object.assign(Object.create(KeyringHardware.prototype), {
+    hwSdkNetwork: 'xmr',
     vault: {
       getXmrNetwork: async () => network,
       getAccount: async () => ({ path: "m/44'/128'/0'", address: ADDRESS }),
@@ -146,6 +148,108 @@ describe('Monero KeyringHardware', () => {
       ],
     });
   });
+
+  it('creates accounts from the all-network response, keeping its root fingerprint', async () => {
+    const moneroGetAddress = jest.fn();
+    const getItem = jest.fn().mockResolvedValue({
+      success: true,
+      path: "m/44'/128'/0'",
+      payload: { address: ADDRESS, rootFingerprint: 0x12_34_56_78 },
+    });
+    const keyring = createKeyring({
+      sdk: { moneroGetAddress, moneroGetWatchKey: jest.fn() },
+    });
+    Object.assign(keyring, {
+      walletId: 'hw-1',
+      getVaultSettings: jest.fn().mockResolvedValue({
+        accountType: 'simple',
+        impl: 'xmr',
+      }),
+    });
+
+    const accounts = await keyring.prepareAccounts({
+      indexes: [0],
+      deriveInfo: {
+        template: "m/44'/128'/$$INDEX$$'",
+        coinType: '128',
+        namePrefix: 'XMR',
+      },
+      deviceParams,
+      hwAllNetworkPrepareAccountsResponse: { getItem },
+    } as never);
+
+    expect(getItem).toHaveBeenCalledWith({
+      path: "m/44'/128'/0'",
+      hwSdkNetwork: 'xmr',
+      useTweak: undefined,
+    });
+    expect(moneroGetAddress).not.toHaveBeenCalled();
+    expect(accounts).toEqual([
+      expect.objectContaining({
+        address: ADDRESS,
+        path: "m/44'/128'/0'",
+        pub: SPEND_PUBLIC_KEY,
+        __hwExtraInfo__: { rootFingerprint: 0x12_34_56_78 },
+      }),
+    ]);
+  });
+
+  it('reports a path the device cannot derive as an unsupported address type', async () => {
+    const failed = {
+      success: false,
+      path: "m/44'/128'/0'/0/0",
+      payload: {
+        error: 'Failure_DataError,Non-hardened paths unsupported on Ed25519',
+        code: 0,
+      },
+    };
+    const keyring = createKeyring({ sdk: {} });
+    Object.assign(keyring, {
+      walletId: 'hw-1',
+      getVaultSettings: jest.fn().mockResolvedValue({
+        accountType: 'simple',
+        impl: 'xmr',
+      }),
+    });
+
+    await expect(
+      keyring.prepareAccounts({
+        indexes: [0],
+        deriveInfo: {
+          template: "m/44'/128'/$$INDEX$$'/0/0",
+          coinType: '128',
+          namePrefix: 'XMR Cake',
+        },
+        deviceParams,
+        hwAllNetworkPrepareAccountsResponse: {
+          getItem: jest.fn().mockResolvedValue(failed),
+          getFirstErrorItem: jest.fn().mockResolvedValue(failed),
+        },
+      } as never),
+    ).rejects.toMatchObject({
+      key: ETranslations.feedback_hardware_unsupported_current_address_type,
+    });
+  });
+
+  it.each(['mainnet', 'testnet'] as const)(
+    'asks the all-network call for the %s account path',
+    async (network) => {
+      const keyring = createKeyring({ sdk: {}, network });
+
+      await expect(
+        keyring.buildHwAllNetworkPrepareAccountsParams({
+          path: "m/44'/128'/0'",
+          template: "m/44'/128'/$$INDEX$$'",
+          index: 0,
+        }),
+      ).resolves.toEqual({
+        network: 'xmr',
+        path: "m/44'/128'/0'",
+        chainName: network,
+        showOnOneKey: false,
+      });
+    },
+  );
 
   describe('key image sync', () => {
     const encKey = new Uint8Array(32).fill(5);

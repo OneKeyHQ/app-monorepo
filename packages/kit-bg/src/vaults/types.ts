@@ -599,6 +599,9 @@ export type IHwAllNetworkPrepareAccountsItem =
       stakeAddress?: string; // ada
 
       derivedPath?: string; // alph
+
+      ufvk?: string; // zcash
+      seedFingerprint?: string; // zcash
     };
 
     useTweak?: boolean; // kaspa

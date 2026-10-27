@@ -5,6 +5,8 @@ import { zPrivacyHex } from '@onekeyhq/shared/src/utils/privacyTransactionReview
 
 import { ZCASH_PCZT_HEX_MAX_CHARS } from './transactionReview';
 
+import type { IHwAllNetworkPrepareAccountsItem } from '../../types';
+
 const addressSchema = z.object({
   path: z.string().min(1),
   address: z.string().min(1),
@@ -83,6 +85,13 @@ function parseAddress(value: unknown): IZcashHardwareAddress {
   if (!result.success)
     throw new OneKeyLocalError('zcash: malformed hardware address');
   return result.data;
+}
+
+// An all-network result is checked like a direct zcashGetAddress reply.
+export function parseZcashAllNetworkAddress(
+  item: IHwAllNetworkPrepareAccountsItem,
+): IZcashHardwareAddress {
+  return parseAddress({ ...item.payload, path: item.path });
 }
 
 // SDKs without these methods must fail before any device operation; every

@@ -17,7 +17,10 @@ import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
-import { getZcashHardwareSdk } from './hardwareSdk';
+import {
+  getZcashHardwareSdk,
+  parseZcashAllNetworkAddress,
+} from './hardwareSdk';
 import { getZcashLifecycleMutex } from './lifecycle';
 import { getZcashPcztReviewRequest } from './pcztReview';
 import { signTransparentTransaction } from './signTransparentTransaction';
@@ -29,17 +32,42 @@ import type { IEncodedTxZcash } from './types';
 import type Vault from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
   IBuildPrepareAccountsPrefixedPathParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 // ZIP-32 account path the device derives shielded keys from.
 const buildZcashShieldedPath = (index: number) => `m/32'/133'/${index}'`;
 
+function assertViewingKeys(items: IZcashHardwareAddress[]) {
+  for (const item of items) {
+    if (!item.ufvk || !item.seedFingerprint) {
+      throw new OneKeyLocalError(
+        'zcash: device did not return the viewing key for this account',
+      );
+    }
+  }
+}
+
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.zec.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'zcash';
+
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: buildZcashShieldedPath(params.index),
+      showOnOneKey: false,
+    };
+  }
 
   private async getZcashSdk({ connectId }: { connectId: string }) {
     return getZcashHardwareSdk(
@@ -93,13 +121,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         'zcash: device returned unexpected address count',
       );
     }
-    for (const item of items) {
-      if (!item.ufvk || !item.seedFingerprint) {
-        throw new OneKeyLocalError(
-          'zcash: device did not return the viewing key for this account',
-        );
-      }
-    }
+    assertViewingKeys(items);
     return items;
   }
 
@@ -213,43 +235,27 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const accounts = await this.basePrepareHdUtxoAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const { dbDevice, deviceCommonParams } = params.deviceParams;
-        const { connectId, deviceId } = dbDevice;
-        const sdk = await this.getHardwareSDKInstance({ connectId });
-        // Root fingerprint of the shared hardware account flow, not Zcash's ZIP-32 seed fingerprint.
-        const rootResponse = await sdk.btcGetPublicKey(connectId, deviceId, {
-          ...deviceCommonParams,
-          path: "m/44'/1'/0'",
-          coin: 'Testnet',
-          scriptType: 'SPENDADDRESS',
-          showOnOneKey: false,
-        });
-        if (!rootResponse.success) {
-          throw convertDeviceError(rootResponse.payload);
-        }
-        const rootFingerprint = rootResponse.payload.root_fingerprint;
-        if (
-          typeof rootFingerprint !== 'number' ||
-          !Number.isInteger(rootFingerprint) ||
-          rootFingerprint < 0 ||
-          rootFingerprint > 0xff_ff_ff_ff
-        ) {
-          throw new OneKeyLocalError(
-            'zcash: device did not return a valid root fingerprint',
-          );
-        }
         const deviceItems = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
-          sdkGetAddressFn: async ({ showOnOnekeyFn }) => ({
-            success: true as const,
-            payload: await this.fetchDeviceViewingKeys({
-              deviceParams: params.deviceParams,
-              indexes: usedIndexes,
-              showOnOnekeyFn,
-            }),
-          }),
+          sdkGetAddressFn: async () => {
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: ({ index }) => buildZcashShieldedPath(index),
+              buildResultAccount: ({ account }) => ({
+                ...parseZcashAllNetworkAddress(account),
+                __hwExtraInfo__: undefined,
+              }),
+              hwSdkNetwork: this.hwSdkNetwork,
+            });
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
+          },
         });
+        assertViewingKeys(deviceItems);
         deviceItems.forEach((item) =>
           reportedFingerprints.add(
             checkIsDefined(item.seedFingerprint).toLowerCase(),
@@ -278,7 +284,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             relPath: addressRelPath,
             xpub,
             addresses: { [addressRelPath]: addresses[addressRelPath] },
-            __hwExtraInfo__: { rootFingerprint },
+            __hwExtraInfo__: deviceItems[i].__hwExtraInfo__,
           });
         }
         return ret;

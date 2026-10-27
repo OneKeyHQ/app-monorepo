@@ -26,14 +26,19 @@ import type { IXmrHardwareAddress } from './hardwareSdk';
 import type Vault from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IBuildHwAllNetworkPrepareAccountsParams,
+  IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 // The device only knows Monero's SEP-5 account path, the "OneKey" derivation.
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.xmr.hd;
+
+  override hwSdkNetwork: IHwSdkNetwork = 'xmr';
 
   private async getXmrSdk({ connectId }: { connectId: string }) {
     return getXmrHardwareSdk(await this.getHardwareSDKInstance({ connectId }));
@@ -76,19 +81,51 @@ export class KeyringHardware extends KeyringHardwareBase {
     return this.getDeviceAddresses(params, params.indexes);
   }
 
+  override async buildHwAllNetworkPrepareAccountsParams(
+    params: IBuildHwAllNetworkPrepareAccountsParams,
+  ): Promise<AllNetworkAddressParams | undefined> {
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      chainName: await (this.vault as Vault).getXmrNetwork(),
+      showOnOneKey: false,
+    };
+  }
+
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const items = await this.getDeviceAddresses(params, usedIndexes);
+        const items = await this.baseGetDeviceAccountAddresses({
+          params,
+          usedIndexes,
+          sdkGetAddressFn: async ({ template }) => {
+            const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+              params,
+              usedIndexes,
+              buildPath: ({ index }) =>
+                accountUtils.buildPathFromTemplate({ template, index }),
+              buildResultAccount: ({ account }) => ({
+                path: account.path,
+                address: account.payload?.address || '',
+                __hwExtraInfo__: undefined,
+              }),
+              hwSdkNetwork: this.hwSdkNetwork,
+            });
+            if (allNetworkAccounts) {
+              return allNetworkAccounts;
+            }
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
+          },
+        });
         return items.map(
-          ({ path, address }): ICoreApiGetAddressItem => ({
+          ({ path, address, __hwExtraInfo__ }): ICoreApiGetAddressItem => ({
             address,
             path,
             // Same as HD accounts: the spend public key, here read off the device's address.
             publicKey: getXmrSpendPublicKeyFromAddress(address),
-            __hwExtraInfo__: undefined,
+            __hwExtraInfo__,
           }),
         );
       },
