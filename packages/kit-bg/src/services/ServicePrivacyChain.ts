@@ -529,6 +529,21 @@ class ServicePrivacyChain extends ServiceBase {
     accountId: string;
   }): Promise<void> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
+    // A hardware account confirms the same funds with its device instead.
+    if (await vault.localWalletHasDeviceWork()) {
+      const deviceParams =
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId: accountUtils.getWalletIdFromAccountId({ accountId }),
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+        });
+      if (!deviceParams) return;
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        () => vault.localWalletDoDeviceWork({ deviceParams }),
+        { deviceParams, debugMethodName: 'privacyChain.syncKeyImages' },
+      );
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      return;
+    }
     if (!(await vault.localWalletHasPasswordWork())) {
       return;
     }

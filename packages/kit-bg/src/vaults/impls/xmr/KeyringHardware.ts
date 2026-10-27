@@ -1,3 +1,8 @@
+import { openXmrDeviceKeyImages } from '@onekeyhq/core/src/chains/xmr/deviceKeyImages';
+import type {
+  IXmrDeviceKeyImage,
+  IXmrKeyImageTransfer,
+} from '@onekeyhq/core/src/chains/xmr/deviceKeyImages';
 import {
   getXmrSpendPublicKeyFromAddress,
   serializeXmrViewingKeyPair,
@@ -114,6 +119,39 @@ export class KeyringHardware extends KeyringHardwareBase {
       spendPublicKeyHex: getXmrSpendPublicKeyFromAddress(account.address),
       viewPrivateKeyHex: response.payload.watchKey,
     });
+  }
+
+  // Key images for scanned outputs, computed on the device of this account;
+  // one entry per transfer, in order.
+  async xmrGetKeyImagesFromDevice({
+    deviceParams,
+    transfers,
+  }: {
+    deviceParams: IDeviceSharedCallParams;
+    transfers: IXmrKeyImageTransfer[];
+  }): Promise<IXmrDeviceKeyImage[]> {
+    const account = await this.vault.getAccount();
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const sdk = await this.getXmrSdk({ connectId });
+    const response = await sdk.moneroKeyImageSync(connectId, deviceId, {
+      ...deviceParams.deviceCommonParams,
+      path: account.path,
+      networkType: await this.getNetworkType(),
+      transfers: transfers.map((transfer) => ({
+        outKey: transfer.outKey,
+        txPubKey: transfer.txPubKey,
+        additionalTxPubKeys: transfer.additionalTxPubKey
+          ? [transfer.additionalTxPubKey]
+          : undefined,
+        internalOutputIndex: transfer.internalOutputIndex,
+        subAddrMajor: transfer.subAddrMajor,
+        subAddrMinor: transfer.subAddrMinor,
+      })),
+    });
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+    return openXmrDeviceKeyImages(response.payload);
   }
 
   override async signTransaction(

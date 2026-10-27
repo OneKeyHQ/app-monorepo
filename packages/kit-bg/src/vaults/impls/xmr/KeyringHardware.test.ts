@@ -1,3 +1,6 @@
+import { chacha20poly1305 } from '@noble/ciphers/chacha';
+
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -141,6 +144,104 @@ describe('Monero KeyringHardware', () => {
         { path: "m/44'/128'/0'", networkType: 1, showOnOneKey: false },
         { path: "m/44'/128'/1'", networkType: 1, showOnOneKey: true },
       ],
+    });
+  });
+
+  describe('key image sync', () => {
+    const encKey = new Uint8Array(32).fill(5);
+    const transfer = {
+      outputId: 3,
+      outKey: 'aa'.repeat(32),
+      txPubKey: 'bb'.repeat(32),
+      additionalTxPubKey: 'cc'.repeat(32),
+      internalOutputIndex: 1,
+      subAddrMajor: 0,
+      subAddrMinor: 4,
+    };
+
+    function sealed(plain: Uint8Array) {
+      const iv = new Uint8Array(12).fill(9);
+      return {
+        iv: bufferUtils.bytesToHex(iv),
+        blob: bufferUtils.bytesToHex(
+          chacha20poly1305(encKey, iv).encrypt(plain),
+        ),
+      };
+    }
+
+    it('sends the transfers on the account path and opens what comes back', async () => {
+      const plain = new Uint8Array(96).fill(0x11);
+      const moneroKeyImageSync = jest.fn().mockResolvedValue({
+        success: true,
+        payload: {
+          encKey: bufferUtils.bytesToHex(encKey),
+          keyImages: [sealed(plain)],
+        },
+      });
+      const keyring = createKeyring({
+        sdk: {
+          moneroGetAddress: jest.fn(),
+          moneroGetWatchKey: jest.fn(),
+          moneroKeyImageSync,
+        },
+      });
+
+      await expect(
+        keyring.xmrGetKeyImagesFromDevice({
+          deviceParams,
+          transfers: [transfer],
+        } as never),
+      ).resolves.toEqual([
+        { keyImage: '11'.repeat(32), signature: '11'.repeat(64) },
+      ]);
+      expect(moneroKeyImageSync).toHaveBeenCalledWith('connect-1', 'device-1', {
+        passphraseState: 'pp',
+        path: "m/44'/128'/0'",
+        networkType: 0,
+        transfers: [
+          {
+            outKey: transfer.outKey,
+            txPubKey: transfer.txPubKey,
+            additionalTxPubKeys: [transfer.additionalTxPubKey],
+            internalOutputIndex: 1,
+            subAddrMajor: 0,
+            subAddrMinor: 4,
+          },
+        ],
+      });
+    });
+
+    it('asks for an app update on an SDK that cannot sync key images', async () => {
+      const keyring = createKeyring({
+        sdk: { moneroGetAddress: jest.fn(), moneroGetWatchKey: jest.fn() },
+      });
+
+      await expect(
+        keyring.xmrGetKeyImagesFromDevice({
+          deviceParams,
+          transfers: [transfer],
+        } as never),
+      ).rejects.toThrow('cannot check Monero hardware spends');
+    });
+
+    it('surfaces a device refusal', async () => {
+      const keyring = createKeyring({
+        sdk: {
+          moneroGetAddress: jest.fn(),
+          moneroGetWatchKey: jest.fn(),
+          moneroKeyImageSync: jest.fn().mockResolvedValue({
+            success: false,
+            payload: { error: 'Action cancelled by user', code: 803 },
+          }),
+        },
+      });
+
+      await expect(
+        keyring.xmrGetKeyImagesFromDevice({
+          deviceParams,
+          transfers: [transfer],
+        } as never),
+      ).rejects.toThrow();
     });
   });
 });

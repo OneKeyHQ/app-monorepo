@@ -60,6 +60,13 @@ export type IXmrRuntimeApi = {
     accountId: string,
     bip32PrivateKeyHex: string,
   ) => Promise<string>;
+  /** Outputs still lacking a key image, in the form a hardware device takes them. */
+  exportKeyImageSyncData: (accountId: string) => Promise<string>;
+  /** Key images a device computed; every signature is verified before any is stored. */
+  importDeviceKeyImages: (
+    accountId: string,
+    itemsJson: string,
+  ) => Promise<string>;
   verifyTransaction: (signableHex: string, reviewJson: string) => Promise<void>;
   verifySignedTransaction: (
     signableHex: string,

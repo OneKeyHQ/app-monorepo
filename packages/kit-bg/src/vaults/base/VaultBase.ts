@@ -56,6 +56,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IEstimateFeeParams,
@@ -653,6 +654,19 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // Returns whether wallet state changed.
   async localWalletDoPasswordWork(_params: {
     password: string;
+  }): Promise<boolean> {
+    return false;
+  }
+
+  // The same follow-up work for a hardware account, done by its device; only
+  // ever on the user's request, never from a background sync turn.
+  async localWalletHasDeviceWork(): Promise<boolean> {
+    return false;
+  }
+
+  // Returns whether wallet state changed.
+  async localWalletDoDeviceWork(_params: {
+    deviceParams: IDeviceSharedCallParams;
   }): Promise<boolean> {
     return false;
   }

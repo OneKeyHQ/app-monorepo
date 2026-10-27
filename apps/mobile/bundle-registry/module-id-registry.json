@@ -21261,6 +21261,7 @@
     "packages/core/src/chains/xmr/CoreChainHd.ts": 18594,
     "packages/core/src/chains/xmr/CoreChainImported.ts": 24574,
     "packages/core/src/chains/xmr/CoreChainSoftware.ts": 7664,
+    "packages/core/src/chains/xmr/deviceKeyImages.ts": 18890,
     "packages/core/src/chains/xmr/index.ts": 14765,
     "packages/core/src/chains/xmr/sdkXmrRuntime/address.ts": 20418,
     "packages/core/src/chains/xmr/sdkXmrRuntime/carrier/loadRuntime.ts": 90,

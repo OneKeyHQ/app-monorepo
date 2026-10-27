@@ -9,6 +9,15 @@ const addressSchema = z.object({
 const watchKeySchema = addressSchema.extend({
   watchKey: z.string().regex(/^[0-9a-fA-F]{64}$/),
 });
+const keyImageSyncSchema = z.object({
+  encKey: z.string().regex(/^[0-9a-fA-F]{64}$/),
+  keyImages: z.array(
+    z.object({
+      iv: z.string().regex(/^[0-9a-fA-F]{24}$/),
+      blob: z.string().regex(/^(?:[0-9a-fA-F]{2})+$/),
+    }),
+  ),
+});
 const responseSchema = z.object({ success: z.boolean(), payload: z.unknown() });
 const errorSchema = z.object({
   code: z.union([z.number(), z.string()]).optional(),
@@ -22,6 +31,7 @@ const errorSchema = z.object({
 
 export type IXmrHardwareAddress = z.infer<typeof addressSchema>;
 export type IXmrHardwareWatchKey = z.infer<typeof watchKeySchema>;
+export type IXmrHardwareKeyImageSync = z.infer<typeof keyImageSyncSchema>;
 type IResponse<T> =
   | { success: true; payload: T }
   | { success: false; payload: z.infer<typeof errorSchema> };
@@ -33,6 +43,12 @@ type IRawSdk = {
     params: IParams,
   ) => Promise<unknown>;
   moneroGetWatchKey: (
+    connectId: string,
+    deviceId: string,
+    params: IParams,
+  ) => Promise<unknown>;
+  // Newer SDKs only; accounts still work without it, spend detection does not.
+  moneroKeyImageSync?: (
     connectId: string,
     deviceId: string,
     params: IParams,
@@ -107,6 +123,31 @@ export function getXmrHardwareSdk(sdk: unknown) {
         const item = watchKeySchema.safeParse(value);
         if (!item.success)
           throw new OneKeyLocalError('xmr: malformed hardware watch key');
+        return item.data;
+      });
+    },
+    async moneroKeyImageSync(
+      connectId: string,
+      deviceId: string,
+      params: IParams & { transfers: IParams[] },
+    ): Promise<IResponse<IXmrHardwareKeyImageSync>> {
+      if (typeof supportedSdk.moneroKeyImageSync !== 'function') {
+        throw new OneKeyLocalError(
+          'This app version cannot check Monero hardware spends. Update the app before continuing.',
+        );
+      }
+      const result = await supportedSdk.moneroKeyImageSync(
+        connectId,
+        deviceId,
+        params,
+      );
+      return parseResponse(result, (value) => {
+        const item = keyImageSyncSchema.safeParse(value);
+        if (
+          !item.success ||
+          item.data.keyImages.length !== params.transfers.length
+        )
+          throw new OneKeyLocalError('xmr: malformed hardware key image sync');
         return item.data;
       });
     },

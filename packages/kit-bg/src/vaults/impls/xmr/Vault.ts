@@ -2,6 +2,7 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
+import { parseXmrKeyImageTransfers } from '@onekeyhq/core/src/chains/xmr/deviceKeyImages';
 import { readXmrRuntimeError } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { xmrHostFetch } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch';
@@ -46,6 +47,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IEstimateGasParams,
   IServerEstimateFeeResponse,
@@ -528,6 +530,65 @@ export default class Vault extends VaultBase {
   }): Promise<boolean> {
     const { imported, spendsFound } = await this.xmrImportKeyImages({
       password,
+    });
+    return imported > 0 || spendsFound > 0;
+  }
+
+  // A hardware account's spend key stays on the device, which computes the key
+  // images instead; the runtime verifies each before using it.
+  async xmrImportKeyImagesFromDevice({
+    deviceParams,
+  }: {
+    deviceParams: IDeviceSharedCallParams;
+  }): Promise<{ imported: number; spendsFound: number }> {
+    if (!(this.keyring instanceof KeyringHardware)) {
+      throw new NotImplemented();
+    }
+    const api = await this.getXmrRuntimeApi();
+    const identityId = await getXmrIdentityId({
+      api,
+      vault: this,
+      accountId: this.accountId,
+    });
+    const transfers = parseXmrKeyImageTransfers(
+      await api.exportKeyImageSyncData(identityId),
+    );
+    if (!transfers.length) return { imported: 0, spendsFound: 0 };
+    const keyImages = await this.keyring.xmrGetKeyImagesFromDevice({
+      deviceParams,
+      transfers,
+    });
+    return JSON.parse(
+      await api.importDeviceKeyImages(
+        identityId,
+        stringUtils.stableStringify(
+          transfers.map(({ outputId }, index) => ({
+            outputId,
+            ...keyImages[index],
+          })),
+        ),
+      ),
+    ) as { imported: number; spendsFound: number };
+  }
+
+  override async localWalletHasDeviceWork(): Promise<boolean> {
+    if (!(this.keyring instanceof KeyringHardware)) return false;
+    const api = await this.getXmrRuntimeApi();
+    const identityId = await getXmrIdentityId({
+      api,
+      vault: this,
+      accountId: this.accountId,
+    });
+    return (await this.xmrCountOutputsWithoutKeyImage({ api, identityId })) > 0;
+  }
+
+  override async localWalletDoDeviceWork({
+    deviceParams,
+  }: {
+    deviceParams: IDeviceSharedCallParams;
+  }): Promise<boolean> {
+    const { imported, spendsFound } = await this.xmrImportKeyImagesFromDevice({
+      deviceParams,
     });
     return imported > 0 || spendsFound > 0;
   }
