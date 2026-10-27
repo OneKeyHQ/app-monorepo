@@ -1144,7 +1144,7 @@ function drawScrubTooltip(
   'worklet';
   const { commands, customPaintStyles } = overlay;
   const label = scrub?.labels[point.time];
-  if (scrub && label) {
+  if (scrub && scrub.showTooltip !== false && label) {
     const width = 120;
     let height = 30;
     if (label.price !== undefined) height = scrub.largePrice ? 52 : 48;

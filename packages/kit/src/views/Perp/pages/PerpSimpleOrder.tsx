@@ -580,7 +580,6 @@ function SimpleOrderContent() {
     const onOrderSuccess = () => {
       orderSubmittedRef.current = true;
       setDraft((current) => (current?.scope === scope ? undefined : current));
-      void actions.current.refreshAllPerpsData();
       if (
         !mountedRef.current ||
         marketQuoteRef.current.scope !== scope ||

@@ -12,6 +12,12 @@ import type { LayoutChangeEvent } from 'react-native';
 
 jest.unmock('react-native');
 
+jest.mock('react-native-svg', () => ({
+  __esModule: true,
+  default: 'svg',
+  Path: 'path',
+}));
+
 type IEvent = { x: number; translationX: number; translationY: number };
 type IHandler = (event: IEvent, success: boolean) => void;
 type IPhase = 'begin' | 'start' | 'update' | 'end' | 'finalize';
