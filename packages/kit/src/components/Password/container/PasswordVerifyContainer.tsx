@@ -437,13 +437,17 @@ const PasswordVerifyContainer = ({
         // neutral state and let the flow retry, instead of showing a wrong-
         // password message for a transient failure. (OK-56875)
         let message: string | undefined = error?.message || undefined;
+        // Trying again is all these need, so they render as a neutral hint
+        // rather than a field error.
+        let isRetry = false;
         if (isAborted) {
           message = undefined;
         } else if (isCancel) {
-          message = intl.formatMessage(
-            { id: ETranslations.auth_biometric_cancel },
-            { biometric: title },
-          );
+          // Dismissing the system prompt is the user's choice, not a failed
+          // attempt: say nothing and leave the attempt counter alone. RETRY
+          // (not DEFAULT) keeps the prompt from reopening by itself.
+          message = undefined;
+          isRetry = true;
         } else if (isSecureStorageUnavailable) {
           // A secure-storage / keychain outage is not a wrong password.
           message = SECURE_KEY_UNAVAILABLE_MESSAGE;
@@ -461,13 +465,16 @@ const PasswordVerifyContainer = ({
             { id: ETranslations.auth_biometric_failed },
             { biometric: title },
           );
+          isRetry = true;
         } else if (isGenuineWrongPassword) {
           message = intl.formatMessage({
             id: ETranslations.prime_incorrect_password,
           });
+          isRetry = true;
         } else if (isNativeBiometricError) {
           // Native biometric failure (e.g. face not recognized): keep its own
           // message.
+          isRetry = true;
         } else {
           // Transient / unexpected failure (e.g. encryptor not ready, slow KDF):
           // do not surface a wrong-password error. (OK-56875)
@@ -488,12 +495,16 @@ const PasswordVerifyContainer = ({
             setVerifyPeriodBiologyAuthAttempts((v) => v + 1);
           }
         }
+        let nextStatus: { value: EPasswordVerifyStatus; message?: string } =
+          message === undefined
+            ? { value: EPasswordVerifyStatus.DEFAULT }
+            : { value: EPasswordVerifyStatus.ERROR, message };
+        if (isRetry) {
+          nextStatus = { value: EPasswordVerifyStatus.RETRY, message };
+        }
         setPasswordAtom((v) => ({
           ...v,
-          passwordVerifyStatus:
-            message === undefined
-              ? { value: EPasswordVerifyStatus.DEFAULT }
-              : { value: EPasswordVerifyStatus.ERROR, message },
+          passwordVerifyStatus: nextStatus,
         }));
       } finally {
         biologyAuthInProgressRef.current = false;
@@ -614,6 +625,7 @@ const PasswordVerifyContainer = ({
           className: EOneKeyErrorClassNames.LocalDbOpenError,
         });
         let message: string;
+        let isRetry = false;
         if (isCallbackError) {
           message =
             errorWithFlag?.message ||
@@ -630,9 +642,13 @@ const PasswordVerifyContainer = ({
             localDbDowngradeGuidanceMessage,
           );
         } else {
+          // Also covers failures that are not a wrong passcode. Do not give
+          // them their own message: travel mode masks its cooldown rejections
+          // as unknown errors, and different copy would reveal it.
           message = intl.formatMessage({
-            id: ETranslations.auth_error_password_incorrect,
+            id: ETranslations.auth_passcode_retry__msg,
           });
+          isRetry = true;
         }
         let skipProtection = false;
         if (
@@ -671,33 +687,41 @@ const PasswordVerifyContainer = ({
               setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
             }
           } else if (
-            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
-            !skipProtection
+            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX
           ) {
-            const timeMinutes =
-              PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
-                nextAttempts.toString()
-              ];
+            // The reset warning stays a critical error, also for a repeated
+            // password that costs no attempt, so a neutral retry hint never
+            // replaces it this close to the reset.
             message = intl.formatMessage(
               {
-                id: ETranslations.auth_passcode_failed_alert,
+                id: ETranslations.auth_passcode_reset_warning__msg,
               },
               {
                 count: PASSCODE_PROTECTION_ATTEMPTS - nextAttempts,
               },
             );
-            setPasswordPersist((v) => ({
-              ...v,
-              passwordErrorAttempts: nextAttempts,
-              passwordErrorProtectionTime: Date.now() + timeMinutes * 60 * 1000, // 2s for animation
-            }));
-            setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
+            isRetry = false;
+            if (!skipProtection) {
+              const timeMinutes =
+                PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
+                  nextAttempts.toString()
+                ];
+              setPasswordPersist((v) => ({
+                ...v,
+                passwordErrorAttempts: nextAttempts,
+                passwordErrorProtectionTime:
+                  Date.now() + timeMinutes * 60 * 1000, // 2s for animation
+              }));
+              setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
+            }
           }
         }
         setPasswordAtom((v) => ({
           ...v,
           passwordVerifyStatus: {
-            value: EPasswordVerifyStatus.ERROR,
+            value: isRetry
+              ? EPasswordVerifyStatus.RETRY
+              : EPasswordVerifyStatus.ERROR,
             message,
           },
         }));

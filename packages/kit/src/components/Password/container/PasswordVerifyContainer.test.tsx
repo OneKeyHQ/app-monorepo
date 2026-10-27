@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { act, render } from '@testing-library/react';
 
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   BIOLOGY_AUTH_ABORTED_ERROR,
@@ -197,14 +198,42 @@ describe('Windows Hello interrupted challenge handling', () => {
     },
   );
 
-  it.each(['OneKeyAppError', BIOLOGY_AUTH_CANCEL_ERROR])(
-    'preserves the existing attempt protection for %s',
-    async (name) => {
+  it('counts a native biometric failure and asks for another try', async () => {
+    jest
+      .spyOn(backgroundApiProxy.servicePassword, 'verifyPassword')
+      .mockRejectedValue(
+        Object.assign(new Error('Verification failed'), {
+          name: 'OneKeyAppError',
+          cause: biologyAuthNativeError,
+        }),
+      );
+    render(<PasswordVerifyContainer onVerifyRes={jest.fn()} />);
+    await act(async () => {
+      await captured().onBiologyAuth();
+    });
+    expect(captured().status).toEqual({
+      value: EPasswordVerifyStatus.RETRY,
+      message: 'Verification failed',
+    });
+    expect(countAttempt).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([0, 2])(
+    'treats a dismissed prompt as a silent retry with %s previous attempts',
+    async (attempts) => {
+      const protection = jest
+        .mocked(usePasswordProtection)
+        .getMockImplementation();
+      assert(protection);
+      jest.mocked(usePasswordProtection).mockReturnValue({
+        ...protection(false),
+        verifyPeriodBiologyAuthAttempts: attempts,
+      });
       jest
         .spyOn(backgroundApiProxy.servicePassword, 'verifyPassword')
         .mockRejectedValue(
-          Object.assign(new Error('Verification failed'), {
-            name,
+          Object.assign(new Error(''), {
+            name: BIOLOGY_AUTH_CANCEL_ERROR,
             cause: biologyAuthNativeError,
           }),
         );
@@ -212,8 +241,11 @@ describe('Windows Hello interrupted challenge handling', () => {
       await act(async () => {
         await captured().onBiologyAuth();
       });
-      expect(captured().status.value).toBe(EPasswordVerifyStatus.ERROR);
-      expect(countAttempt).toHaveBeenCalledTimes(1);
+      expect(captured().status).toEqual({
+        value: EPasswordVerifyStatus.RETRY,
+      });
+      expect(countAttempt).not.toHaveBeenCalled();
+      expect(setBiologyEnabled).not.toHaveBeenCalled();
     },
   );
 
@@ -232,9 +264,104 @@ describe('Windows Hello interrupted challenge handling', () => {
       await captured().onBiologyAuth();
     });
     expect(captured().status).toEqual({
-      value: EPasswordVerifyStatus.ERROR,
+      value: EPasswordVerifyStatus.RETRY,
       message: 'Original native message',
     });
     expect(countAttempt).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('manual passcode failure feedback', () => {
+  const setCooldown = jest.fn();
+
+  function mockProtection(
+    overrides: Partial<ReturnType<typeof usePasswordProtection>> = {},
+  ) {
+    jest.mocked(usePasswordProtection).mockReturnValue({
+      verifyPeriodBiologyEnable: true,
+      verifyPeriodBiologyAuthAttempts: 0,
+      setVerifyPeriodBiologyAuthAttempts: jest.fn(),
+      setVerifyPeriodBiologyEnable: jest.fn(),
+      unlockPeriodPasswordArray: [],
+      passwordErrorProtectionTimeMinutesSurplus: 0,
+      passwordErrorAttempts: 0,
+      alertText: '',
+      setPasswordPersist: jest.fn(),
+      setUnlockPeriodPasswordArray: jest.fn(),
+      setPasswordErrorProtectionTimeMinutesSurplus: setCooldown,
+      enablePasswordErrorProtection: false,
+      isPasswordErrorProtectionEnabled: false,
+      isProtectionTime: false,
+      ...overrides,
+    });
+  }
+
+  async function submitFailing(name: string) {
+    jest
+      .spyOn(backgroundApiProxy.servicePassword, 'verifyPasswordFromInput')
+      .mockRejectedValue(Object.assign(new Error('failed'), { name }));
+    render(<PasswordVerifyContainer onVerifyRes={jest.fn()} />);
+    await act(async () => {
+      await Promise.resolve(
+        captured().onInputPasswordAuth({
+          password: 'wrong-password',
+          passCode: '',
+        }),
+      );
+    });
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    platformEnv.isDesktopWin = false;
+    mockProtection();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each([EOneKeyErrorClassNames.WrongPassword, 'OneKeyLocalError'])(
+    'asks for another try after %s',
+    async (name) => {
+      await submitFailing(name);
+      expect(captured().status).toEqual({
+        value: EPasswordVerifyStatus.RETRY,
+        message: 'auth_passcode_retry__msg',
+      });
+    },
+  );
+
+  it('keeps a secure-storage outage as an error', async () => {
+    await submitFailing(EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable);
+    expect(captured().status.value).toBe(EPasswordVerifyStatus.ERROR);
+  });
+
+  it('warns about the reset from the fifth wrong passcode', async () => {
+    mockProtection({
+      isPasswordErrorProtectionEnabled: true,
+      passwordErrorAttempts: 4,
+    });
+    await submitFailing(EOneKeyErrorClassNames.WrongPassword);
+    expect(captured().status).toEqual({
+      value: EPasswordVerifyStatus.ERROR,
+      message: 'auth_passcode_reset_warning__msg',
+    });
+    expect(setCooldown).toHaveBeenCalledWith(2);
+  });
+
+  it('keeps the reset warning for a repeated wrong passcode without a new cooldown', async () => {
+    mockProtection({
+      isPasswordErrorProtectionEnabled: true,
+      passwordErrorAttempts: 5,
+      unlockPeriodPasswordArray: ['wrong-password'],
+    });
+    await submitFailing(EOneKeyErrorClassNames.WrongPassword);
+    expect(captured().status).toEqual({
+      value: EPasswordVerifyStatus.ERROR,
+      message: 'auth_passcode_reset_warning__msg',
+    });
+    expect(setCooldown).not.toHaveBeenCalled();
   });
 });

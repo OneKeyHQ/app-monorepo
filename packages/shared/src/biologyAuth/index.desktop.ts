@@ -1,6 +1,7 @@
 import { AuthenticationType } from 'expo-local-authentication';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
 import { ETranslations } from '../locale';
 import {
@@ -56,6 +57,15 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
         } as LocalAuthenticationResult;
       }
       if (result.isSupport) {
+        if (platformEnv.isDesktopMac) {
+          // Electron rejects with the OS-language LAError description only, and
+          // the system sheet handles failed matches and the password fallback
+          // itself, so any rejection means the sheet was dismissed.
+          return {
+            success: false,
+            error: BIOLOGY_AUTH_CANCEL_ERROR,
+          };
+        }
         return {
           success: false,
           error: (result.error ||
