@@ -276,7 +276,10 @@ export const TradingViewNativeChart = memo(
       projectionRef: drawingProjectionRef,
       scopeKey: drawingStorageKey,
     });
-    const { hide: hidePriceSelection } = priceSelection;
+    const {
+      hide: hidePriceSelection,
+      updateControl: updatePriceSelectionControl,
+    } = priceSelection;
     const drawingInteraction =
       drawingsEnabled &&
       (drawingController.state.tool !== 'cursor' ||
@@ -610,6 +613,7 @@ export const TradingViewNativeChart = memo(
                 text: drawingText,
               }
             : null;
+        updatePriceSelectionControl();
         if (drawingsEnabled)
           updateData(
             getDataWindowSnapshot({
@@ -662,6 +666,7 @@ export const TradingViewNativeChart = memo(
         line,
         candleLabels,
         points,
+        updatePriceSelectionControl,
         priceAxisFontSize,
         priceAxisLabels,
         priceAxisTickCount,

@@ -189,6 +189,12 @@ export function useChartPriceSelection({
     },
     [getPrice, hide],
   );
+  // The layout can change under a stationary pointer (resize, price axis width).
+  const updateControl = useCallback(() => {
+    const layout = projectionRef.current?.layout;
+    if (button.current && layout && selectedY.current !== null)
+      button.current.style.left = `${Math.max(0, layout.priceAxisX - 24)}px`;
+  }, [projectionRef]);
   const onContextMenu = useCallback(
     (event: MouseEvent<HTMLCanvasElement>) => {
       const selection = getPrice(event);
@@ -271,5 +277,6 @@ export function useChartPriceSelection({
     onContextMenu,
     onPointerMove,
     hide,
+    updateControl,
   };
 }

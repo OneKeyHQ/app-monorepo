@@ -228,6 +228,27 @@ describe('chart price selection', () => {
     expect(hook.canvasMoves).toHaveLength(1);
   });
 
+  it('keeps the visible control on the price axis when the layout changes', () => {
+    const hook = setup();
+    const projection = hook.options.projectionRef.current;
+    hook.hoverCanvas(100);
+    // A resize or a wider price axis redraws the chart without a pointer event.
+    projection.layout = {
+      ...projection.layout,
+      priceAxisX: projection.layout.priceAxisX - 40,
+    };
+    act(() => hook.result.current.updateControl());
+    expect(hook.button.style.left).toBe(
+      `${projection.layout.priceAxisX - 24}px`,
+    );
+    expect(hook.button.style.top).toBe('89px');
+    act(() => {
+      hook.result.current.hide();
+      hook.result.current.updateControl();
+    });
+    expect(hook.button.style.display).toBe('none');
+  });
+
   it('forwards hover moves over the control to the canvas', () => {
     const hook = setup();
     hook.moveOver(hook.button, 130, 140);
