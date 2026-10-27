@@ -76,6 +76,7 @@ export function EarnLendingSummary({
   transactionConfirmation,
   transactionConfirmationLoading,
   isAmountComing,
+  isDimmed = false,
   keepsFiguresWhenEmptied = true,
 }: {
   amountValue: string;
@@ -87,6 +88,9 @@ export function EarnLendingSummary({
   // The amount supplied is still being worked out (a swap's estimate): the
   // figures wait, dimmed, or placeholders where there are none yet
   isAmountComing?: boolean;
+  // The figures dim with nothing on its way (the caller's emptied box, after
+  // an answer that failed): the dashes stay dashes
+  isDimmed?: boolean;
   // Off where the amount given already stays a moment through an emptied
   // box (a swap's estimate), so the figures don't wait twice
   keepsFiguresWhenEmptied?: boolean;
@@ -150,9 +154,26 @@ export function EarnLendingSummary({
     ? new BigNumber(lastPositiveAmountRef.current)
     : typedBN;
   const isPositiveAmount = !amountBN.isNaN() && amountBN.gt(0);
-  const isWaiting = Boolean(isAmountComing) || isEmptySettling;
+  // The market had no answer for the amount typed (it failed): its
+  // projections are dashes, not another amount's figures at full strength
+  const isAnswerMissing =
+    isTypedPositive &&
+    !isAmountComing &&
+    !transactionConfirmation &&
+    !transactionConfirmationLoading;
+  // And they stay dashes through an emptied box's moment: nothing is on its
+  // way, so the figures there dim and no placeholder comes
+  const showedDashesRef = useRef(false);
+  if (isTypedPositive) {
+    showedDashesRef.current = isAnswerMissing;
+  }
+  const isHoldingDashes = isEmptySettling && showedDashesRef.current;
+  const isWaiting =
+    Boolean(isAmountComing) || (isEmptySettling && !isHoldingDashes);
   const showsProjections =
     isPositiveAmount &&
+    !isAnswerMissing &&
+    !isHoldingDashes &&
     (Boolean(freshConfirmation) || !isKeptForEmptiedRef.current);
 
   // Worked out here from the supply rate, so it follows the typing at once
@@ -279,10 +300,13 @@ export function EarnLendingSummary({
       // Worked out here once the supply rate is in (the first answer); the
       // rows wait for each amount's answer
       isOutcomeLoading={(isPositiveAmount && !apy.gt(0)) || isWaiting}
+      // For the amount typed: the emptied box's own answer, on its way through
+      // its moment, replaces nothing
       isLoading={
-        (isPositiveAmount && Boolean(transactionConfirmationLoading)) ||
+        (isTypedPositive && Boolean(transactionConfirmationLoading)) ||
         isWaiting
       }
+      isDimmed={isHoldingDashes || isDimmed}
       rows={rows}
     />
   );

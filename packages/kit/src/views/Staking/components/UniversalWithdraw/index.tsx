@@ -1870,11 +1870,22 @@ export function UniversalWithdraw({
     lastConfirmationRef.current ??
     pendleSellStandIn ??
     emptyAmountConfirmation;
+  // Whether the rows had settled on dashes for the amount in the box (its
+  // answer came without figures): through an emptied box's moment they
+  // stay dashes, nothing being on its way, rather than turning into
+  // placeholders
+  const rowsShowedDashesRef = useRef(false);
   let isQuoteUpdating = quoteLoading;
   if (!isCancelWithdrawal) {
-    isQuoteUpdating = isPositiveAmount
-      ? shownQuote.requestKey !== transactionConfirmationRequestKey
-      : shownQuote.amount !== '' || isEmptiedHolding;
+    if (isPositiveAmount) {
+      isQuoteUpdating =
+        shownQuote.requestKey !== transactionConfirmationRequestKey;
+      rowsShowedDashesRef.current = !isQuoteUpdating && showDashes;
+    } else {
+      isQuoteUpdating =
+        (shownQuote.amount !== '' || isEmptiedHolding) &&
+        !(isEmptiedHolding && rowsShowedDashesRef.current);
+    }
   }
 
   const pendleDetailRows = usePendleTransactionDetails({

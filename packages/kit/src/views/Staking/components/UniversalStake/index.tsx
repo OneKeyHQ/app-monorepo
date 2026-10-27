@@ -2302,12 +2302,23 @@ export function UniversalStake({
     shownQuote.confirmation ??
     lastConfirmationRef.current ??
     emptyAmountConfirmation;
+  // Whether the rows had settled on dashes for the amount in the box (its
+  // answer came without figures): through an emptied box's moment they
+  // stay dashes, nothing being on its way, rather than turning into
+  // placeholders
+  const rowsShowedDashesRef = useRef(false);
+  if (isPositiveAmount) {
+    rowsShowedDashesRef.current =
+      !shownQuote.confirmation && shownQuote.amount === amountValue;
+  }
+  const isHoldingDashes = isEmptiedHolding && rowsShowedDashesRef.current;
   // From the keystroke until this amount's quote is in: the figures shown
   // are the last amount's, dimmed. Through an emptied box's moment what was
   // on screen waits too
   const isQuoteUpdating =
-    (isPositiveAmount ? amountValue : '') !== shownQuote.amount ||
-    isEmptiedHolding;
+    !isHoldingDashes &&
+    ((isPositiveAmount ? amountValue : '') !== shownQuote.amount ||
+      isEmptiedHolding);
   // Nor from a keystroke until that amount's quote is in: the expired quote
   // is being replaced, so the button keeps its look. Nor for an amount the
   // red line turns down (over the balance): the button stays off for it
@@ -2808,7 +2819,10 @@ export function UniversalStake({
       (receiveQuote.amount === amountValue && !isLineCovered))
       ? receiveQuote
       : undefined;
-  const isReceiveSettling = isEmptiedHolding;
+  // The line had no figure for the amount in the box (a dash, or the red
+  // line in its place): through an emptied box's moment it stays a dash
+  const lineShowedDashRef = useRef(false);
+  const isReceiveSettling = isEmptiedHolding && !lineShowedDashRef.current;
   // Dimmed until this amount's figure is in, as the rows are
   const isReceiveQuoting =
     (isPositiveAmount && lineQuote?.amount !== amountValue) ||
@@ -2821,6 +2835,10 @@ export function UniversalStake({
       : '–';
   }
   const isReceiveLinePlaceholder = !receiveLine.startsWith('≈');
+  if (isPositiveAmount) {
+    lineShowedDashRef.current =
+      isReceiveLinePlaceholder && (!isReceiveQuoting || isLineCovered);
+  }
   if (!isReceiveLinePlaceholder && !isLineCovered) {
     lineShownAmountRef.current = lineQuote?.amount;
   }

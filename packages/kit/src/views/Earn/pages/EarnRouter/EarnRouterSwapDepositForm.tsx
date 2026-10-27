@@ -175,6 +175,9 @@ type IDepositSummary = {
   staking?: IStakeTransactionConfirmation;
   // The amount the staking summary answers for ("0" for none)
   stakingAmount?: string;
+  // The answer for that amount failed: the rows keep the labels they had,
+  // with dashes
+  isStakingFailed?: boolean;
   lending?: IBorrowTransactionConfirmation;
   // The amount the lending summary answers for
   lendingAmount?: string;
@@ -261,7 +264,7 @@ function useDepositSummary({
       const hasAnswer =
         request.kind === 'lending'
           ? Boolean(current.lending)
-          : Boolean(current.staking);
+          : Boolean(current.staking) && !current.isStakingFailed;
       if (
         hasAnswer &&
         currentAmount &&
@@ -362,13 +365,16 @@ function useDepositSummary({
             });
           }
         } catch {
-          // The last rows stay; Pendle's show dashes rather than another
-          // amount's figures, as its own form's do
+          // Dashes rather than another amount's figures, as the provider's
+          // own form shows: a vault's rows keep the labels they had, the
+          // market's and Pendle's keep theirs on their own
           if (isCurrent) {
             setSummary((prev) => ({
               ...prev,
               staking: request.kind === 'pendle' ? undefined : prev.staking,
               stakingAmount: requestAmount,
+              isStakingFailed: request.kind === 'staking',
+              lending: request.kind === 'lending' ? undefined : prev.lending,
               lendingAmount:
                 request.kind === 'lending' ? requestAmount : prev.lendingAmount,
               lendingLoading: false,
@@ -864,6 +870,7 @@ export function EarnRouterSwapDepositForm({
           ...answeredSummary,
           staking: keptSummary.staking,
           stakingAmount: keptSummary.stakingAmount,
+          isStakingFailed: keptSummary.isStakingFailed,
         }
       : answeredSummary;
   const summaryAmount = depositSummary.stakingAmount;
@@ -1219,7 +1226,8 @@ export function EarnRouterSwapDepositForm({
     hasNoRoute ||
     !shownDeposit ||
     (summaryRequest?.kind === 'staking' &&
-      depositSummary.stakingAmount === '0') ||
+      (depositSummary.stakingAmount === '0' ||
+        Boolean(depositSummary.isStakingFailed))) ||
     (isPendle && !stakingSummary) ||
     ((summaryRequest?.kind === 'staking' || isPendle) && !canShowSummary);
   // From the swap's new estimate until the provider's answer for it
@@ -1227,7 +1235,17 @@ export function EarnRouterSwapDepositForm({
     (summaryRequest?.kind === 'staking' || isPendle) &&
     Boolean(shownDeposit) &&
     depositSummary.stakingAmount !== shownDeposit;
-  const isSummaryLoading = isQuoting || isSummaryUpdating || isEmptySettling;
+  // The provider's rows had settled on dashes for this estimate (its answer
+  // failed): through an emptied box's moment they stay dashes, nothing being
+  // on its way, rather than turning into placeholders
+  const summaryShowedDashesRef = useRef(false);
+  const isSummaryLoading =
+    isQuoting ||
+    isSummaryUpdating ||
+    (isEmptySettling && !summaryShowedDashesRef.current);
+  if (hasAmount) {
+    summaryShowedDashesRef.current = isSummaryPlaceholder && !isSummaryLoading;
+  }
   if (!isSummaryPlaceholder) {
     shownSummaryAmountRef.current = summaryAmount;
     shownSummaryRef.current = depositSummary;
@@ -1278,6 +1296,22 @@ export function EarnRouterSwapDepositForm({
       ],
     };
   }
+  // From the swap's new estimate until the market's answer for it
+  const isLendingLoading =
+    depositSummary.lendingLoading ||
+    (Boolean(shownDeposit) && depositSummary.lendingAmount !== shownDeposit);
+  // The market's answer for this estimate failed: through an emptied box's
+  // moment its dashes stay, and the figures there dim
+  const lendingShowedDashesRef = useRef(false);
+  if (hasAmount) {
+    lendingShowedDashesRef.current =
+      !isQuoting &&
+      canShowLending &&
+      !depositSummary.lending &&
+      !isLendingLoading;
+  }
+  const isHoldingLendingDashes =
+    isEmptySettling && lendingShowedDashesRef.current;
   let summary: ReactNode;
   if (summaryRequest?.kind === 'lending') {
     summary = isDisabled ? null : (
@@ -1289,15 +1323,13 @@ export function EarnRouterSwapDepositForm({
         transactionConfirmation={
           canShowLending ? depositSummary.lending : undefined
         }
-        // From the swap's new estimate until the market's answer for it
-        transactionConfirmationLoading={
-          depositSummary.lendingLoading ||
-          (Boolean(shownDeposit) &&
-            depositSummary.lendingAmount !== shownDeposit)
-        }
+        transactionConfirmationLoading={isLendingLoading}
         // The amount supplied comes with the swap's estimate: until then
         // the figures wait (dimmed, or placeholders), as the line does
-        isAmountComing={isQuoting || isEmptySettling}
+        isAmountComing={
+          isQuoting || (isEmptySettling && !isHoldingLendingDashes)
+        }
+        isDimmed={isHoldingLendingDashes}
         // The estimate itself stays a moment through an emptied box
         keepsFiguresWhenEmptied={false}
       />

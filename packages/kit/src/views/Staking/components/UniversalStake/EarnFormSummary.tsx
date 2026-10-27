@@ -185,16 +185,27 @@ export function useEarnFeeFigure({
   // or their placeholders through an emptied box's moment
   hasShownFigures: boolean;
 }) {
-  const shownRef = useRef<IEarnEstimateFeeResp | undefined>(undefined);
+  // What the row showed last: a figure, a placeholder (an estimate on its
+  // way) or a dash (an answer without a fee)
+  const shownRef = useRef<{
+    fee?: IEarnEstimateFeeResp;
+    isLoading: boolean;
+  }>({ isLoading: false });
   let shownFee: IEarnEstimateFeeResp | undefined;
   let isFeeLoading = false;
   if (isPositiveAmount && feeAmount === amountValue) {
     shownFee = fee && Number(fee.feeFiatValue) > 0 ? fee : undefined;
-  } else if (isPositiveAmount || hasShownFigures) {
-    shownFee = shownRef.current;
+  } else if (isPositiveAmount) {
+    shownFee = shownRef.current.fee;
     isFeeLoading = true;
+  } else if (hasShownFigures) {
+    // Through an emptied box's moment the row stays as it was: a figure
+    // (dimmed) or a placeholder; a dash stays a dash, nothing being on its
+    // way
+    shownFee = shownRef.current.fee;
+    isFeeLoading = Boolean(shownFee) || shownRef.current.isLoading;
   }
-  shownRef.current = shownFee;
+  shownRef.current = { fee: shownFee, isLoading: isFeeLoading };
   return { shownFee, isFeeLoading };
 }
 
@@ -974,6 +985,7 @@ export function EarnFormSummary({
   outcome,
   isLoading,
   isOutcomeLoading = isLoading,
+  isDimmed = false,
   rows = [],
   footnote,
   detailsPlaceholder,
@@ -983,6 +995,9 @@ export function EarnFormSummary({
   isLoading?: boolean;
   // When the result is worked out without the server, it doesn't wait
   isOutcomeLoading?: boolean;
+  // The figures dim with nothing on its way (an emptied box's moment after
+  // an answer without them): a dash stays a dash, no placeholder comes
+  isDimmed?: boolean;
   rows?: ReactElement[];
   footnote?: ReactNode;
   // The rows are stand-ins for ones that will fold: "Details" holds its
@@ -1042,9 +1057,9 @@ export function EarnFormSummary({
   const rowsQuoting = useMemo(
     () => ({
       isQuoting: Boolean(isLoading),
-      isDimmed: Boolean(isLoading) || isSwitching,
+      isDimmed: Boolean(isLoading) || isDimmed || isSwitching,
     }),
-    [isLoading, isSwitching],
+    [isDimmed, isLoading, isSwitching],
   );
   const shouldFold = rows.length > VISIBLE_ROW_LIMIT;
   const visibleRows = shouldFold ? rows.slice(0, VISIBLE_ROW_LIMIT - 1) : rows;
@@ -1068,7 +1083,7 @@ export function EarnFormSummary({
                 testID="earn-form-outcome"
                 outcome={shownOutcome}
                 isLoading={isOutcomeLoading}
-                isDimmed={Boolean(isOutcomeLoading) || isSwitching}
+                isDimmed={Boolean(isOutcomeLoading) || isDimmed || isSwitching}
                 fadesIn={!isFirstRenderRef.current}
               />
             </YStack>
