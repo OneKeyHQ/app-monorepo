@@ -119,8 +119,12 @@ it.each(
     });
     expect(detail.receives).toHaveLength(outputCount + (withUTXOs ? 1 : 0));
     if (withUTXOs)
+      // Shielded change names its pool, not an address.
       expect(detail.receives?.[outputCount]).toMatchObject({
+        type: EOnChainHistoryTransferType.Shielded,
         amount: '0.002',
+        address: '',
+        poolId: 4,
         isChange: true,
         isOwn: true,
       });
