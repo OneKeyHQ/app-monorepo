@@ -40,6 +40,11 @@ declare global {
   var $desktopMainAppFunctions: {
     getSafelyMainWindow: () => BrowserWindow | undefined;
     getSafelyBrowserWindow: () => BrowserWindow | undefined;
+    isTrustedMainWindowSender?: (
+      senderId: number,
+      senderFrame: { url: string } | null,
+      mainFrame: { url: string } | null,
+    ) => boolean;
     getBackgroundColor: (themeKey: string) => string;
     quitOrMinimizeApp: () => void;
     showMainWindow: () => void;

@@ -26,7 +26,7 @@ import {
 import { shouldShowMnemonicBackupEntryForWallet } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -280,7 +280,6 @@ function WalletEditButtonView({
 
           {showMockedWalletBulkCopyAddressesButton ? (
             <BulkCopyAddressesButton
-              nativeSheet
               wallet={wallet}
               networkId={network?.id || ''}
               isPrimeActive={isPrimeActive}
@@ -334,7 +333,6 @@ function WalletEditButtonView({
 
           {showRemoveWalletButton ? (
             <WalletRemoveButton
-              nativeSheet
               isRemoveToMocked
               wallet={wallet}
               onClose={handleActionListClose}
@@ -343,7 +341,6 @@ function WalletEditButtonView({
 
           {showRemoveDeviceButton ? (
             <WalletRemoveButton
-              nativeSheet
               wallet={wallet}
               onClose={handleActionListClose}
             />
@@ -382,7 +379,6 @@ function WalletEditButtonView({
 
   return (
     <ActionList
-      nativeSheet
       title={intl.formatMessage({ id: ETranslations.global_more })}
       renderTrigger={
         <ListItem.IconButton

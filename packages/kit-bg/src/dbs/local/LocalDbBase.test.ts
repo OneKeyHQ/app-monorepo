@@ -36,6 +36,8 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
@@ -68,6 +70,7 @@ import type {
   IDBAccount,
   IDBContext,
   IDBCreateHDWalletParams,
+  IDBCreateHwWalletParams,
   IDBCredentialBase,
   IDBWallet,
   ILocalDBGetRecordByIdParams,
@@ -706,6 +709,113 @@ describe('LocalDbBase.createHDWallet', () => {
 });
 
 describe('LocalDbBase.createHwWallet', () => {
+  it.each([
+    [EHardwareVendor.trezor, undefined],
+    [EHardwareVendor.trezor, EHardwareTransportType.WEBUSB],
+    [EHardwareVendor.trezor, EHardwareTransportType.BLE],
+    [EHardwareVendor.ledger, EHardwareTransportType.WEBUSB],
+    [EHardwareVendor.ledger, EHardwareTransportType.BLE],
+  ] as const)(
+    'persists %s transport columns without a legacy locator (%s)',
+    async (vendor, transportType) => {
+      const db = new TestLocalDb();
+      jest.spyOn(db, 'buildHwWalletId').mockResolvedValue({
+        dbDeviceId: 'saved-device',
+        dbWalletId: 'hw-saved',
+        deviceUUID: '',
+        rawDeviceId: 'saved-identity',
+      });
+      jest.spyOn(db, 'timeNow').mockResolvedValue(1);
+      const addDevice = jest.spyOn(db, 'txAddDbDevice');
+      const device = {
+        connectId: '',
+        uuid: '',
+        deviceId: 'saved-identity',
+        usbConnectId: 'saved-usb',
+        bleConnectId: 'saved-ble',
+        deviceType: EDeviceType.Unknown,
+        name: vendor,
+      };
+      await db.createHwWallet({
+        device,
+        features: {} as IDBCreateHwWalletParams['features'],
+        vendor,
+        transportType,
+      });
+      expect(addDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          device: expect.objectContaining({
+            connectId: '',
+            uuid: '',
+            usbConnectId: 'saved-usb',
+            bleConnectId: 'saved-ble',
+          }),
+        }),
+      );
+    },
+  );
+
+  it('still rejects onekey without its primary id', async () => {
+    const db = new TestLocalDb();
+    const transaction = jest.spyOn(db, 'withTransaction');
+    await expect(
+      db.createHwWallet({
+        vendor: EHardwareVendor.onekey,
+        features: {} as IDBCreateHwWalletParams['features'],
+        device: {
+          connectId: '',
+          uuid: '',
+          deviceId: 'identity',
+          name: EHardwareVendor.onekey,
+          deviceType: EDeviceType.Unknown,
+        },
+      }),
+    ).rejects.toThrow('connectId is required');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['usb', 'keystone-usb-serial', 'keystone-usb-serial'],
+    ['qr', undefined, undefined],
+  ] as const)(
+    'persists a %s Keystone keyed by deviceId with an empty connectId',
+    async (connectionType, usbConnectId, expectedUsbConnectId) => {
+      const db = new TestLocalDb();
+      jest.spyOn(db, 'buildHwWalletId').mockResolvedValue({
+        dbDeviceId: 'keystone-device',
+        dbWalletId: 'hw-keystone',
+        deviceUUID: '',
+        rawDeviceId: 'a1b2c3d4',
+      });
+      jest.spyOn(db, 'timeNow').mockResolvedValue(1);
+      const addDevice = jest.spyOn(db, 'txAddDbDevice');
+      await db.createHwWallet({
+        vendor: EHardwareVendor.keystone,
+        features: {} as IDBCreateHwWalletParams['features'],
+        transportType: EHardwareTransportType.WEBUSB,
+        device: {
+          connectId: null,
+          uuid: '',
+          deviceId: 'a1b2c3d4',
+          usbConnectId,
+          name: 'Keystone',
+          deviceType: EDeviceType.Unknown,
+          raw: { connectionType },
+        } as unknown as IDBCreateHwWalletParams['device'],
+      });
+      expect(addDevice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          device: expect.objectContaining({
+            connectId: '',
+            deviceId: 'a1b2c3d4',
+            usbConnectId: expectedUsbConnectId,
+            bleConnectId: undefined,
+          }),
+        }),
+      );
+    },
+  );
+
   it('returns the persisted wallet before refill for label synchronization', async () => {
     const db = new TestLocalDb();
     db.wallets = [

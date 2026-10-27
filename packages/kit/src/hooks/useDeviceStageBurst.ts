@@ -45,6 +45,8 @@ export function useDeviceStageBurst() {
     [],
   );
 
+  /** Resolves to the burst the hold stands in (see deviceStageBeginBurst),
+   * or undefined when this request was superseded. */
   const beginBurst = useCallback(
     async (params: IDeviceStageBurstBeginParams = {}) => {
       // One holder at a time: a restarted flow supersedes its own burst
@@ -52,7 +54,7 @@ export function useDeviceStageBurst() {
       await endBurst();
       requestSeqRef.current += 1;
       const seq = requestSeqRef.current;
-      const token =
+      const { token, burstId } =
         await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst(
           params,
         );
@@ -60,9 +62,10 @@ export function useDeviceStageBurst() {
         await backgroundApiProxy.serviceHardwareUI.deviceStageEndBurst({
           token,
         });
-        return;
+        return undefined;
       }
       tokenRef.current = token;
+      return burstId;
     },
     [endBurst],
   );
@@ -76,7 +79,7 @@ export function useDeviceStageBurst() {
       requestSeqRef.current += 1;
       const seq = requestSeqRef.current;
       const reuseToken = tokenRef.current;
-      const token =
+      const { token } =
         await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst({
           ...params,
           reuseToken,

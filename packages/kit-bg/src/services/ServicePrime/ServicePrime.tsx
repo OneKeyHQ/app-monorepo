@@ -64,6 +64,7 @@ import {
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
@@ -501,6 +502,23 @@ export type IOneKeyIdAuthSnapshot = {
   authStateGeneration: number;
 };
 
+// A non-boolean is not a decision. GET /user/info turns an omitted field
+// into false before this runs; other payloads keep the same user's value.
+function resolveInviteProfilePublic({
+  incoming,
+  previous,
+  isSameUser,
+}: {
+  incoming: unknown;
+  previous: boolean | undefined;
+  isSameUser: boolean;
+}): boolean | undefined {
+  if (typeof incoming === 'boolean') {
+    return incoming;
+  }
+  return isSameUser ? previous : undefined;
+}
+
 class ServicePrime extends ServiceBase {
   private primeGiftMutex = new Semaphore(1);
 
@@ -735,6 +753,13 @@ class ServicePrime extends ServiceBase {
   private createInfiniPurchaseUserChangedError() {
     return new OneKeyLocalError({
       message: 'Prime purchase user changed',
+      autoToast: false,
+    });
+  }
+
+  private createInviteProfilePublicUserChangedError() {
+    return new OneKeyLocalError({
+      message: 'Invite profile consent user changed',
       autoToast: false,
     });
   }
@@ -1722,6 +1747,8 @@ class ServicePrime extends ServiceBase {
               reason: `ServicePrime.apiEmailOtpLogin phone OTP exchange failed before email fallback: ${getSanitizedAuthErrorLog(
                 error,
               )}`,
+              trigger: 'interactive',
+              error,
             });
           }
         }
@@ -1737,6 +1764,7 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.apiEmailOtpLogin email OTP verification failed: ${getSanitizedAuthErrorLog(
               response.error,
             )}`,
+            trigger: 'interactive',
           });
           markOneKeyIdFailureServerLogged(error);
           throw error;
@@ -1760,6 +1788,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.apiEmailOtpLogin failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'interactive',
+          error,
         });
         markOneKeyIdFailureServerLogged(error);
       }
@@ -2056,6 +2086,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -2071,6 +2102,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -2086,6 +2118,7 @@ class ServicePrime extends ServiceBase {
       );
       defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
         reason: getSanitizedAuthErrorLog(error),
+        trigger: 'interactive',
       });
       markOneKeyIdFailureServerLogged(error);
       throw error;
@@ -2998,6 +3031,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt upgrade state read failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -3028,6 +3063,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt OneKey ID refresh failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -3062,6 +3099,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt credential upgrade failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -3079,6 +3118,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt bind requirement check failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -3094,6 +3135,8 @@ class ServicePrime extends ServiceBase {
             reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt state write failed: ${getSanitizedAuthErrorLog(
               error,
             )}`,
+            trigger: 'passive',
+            error,
           });
           return { status: 'retryable' };
         }
@@ -3117,6 +3160,8 @@ class ServicePrime extends ServiceBase {
           reason: `ServicePrime.claimOneKeyIdOAuthBindPrompt prompt claim failed: ${getSanitizedAuthErrorLog(
             error,
           )}`,
+          trigger: 'passive',
+          error,
         });
         return { status: 'retryable' };
       }
@@ -4634,14 +4679,22 @@ class ServicePrime extends ServiceBase {
     }
 
     if (serverUserInfo) {
-      return this.mergeDefinedPrimeServerUserInfo({
-        serverUserInfo,
-        profile,
-      });
+      return {
+        ...this.mergeDefinedPrimeServerUserInfo({
+          serverUserInfo,
+          profile,
+        }),
+        // Only this response decides consent. An omitted field is off, and
+        // a profile value must not replace it.
+        inviteProfilePublic: serverUserInfo.inviteProfilePublic === true,
+      };
     }
 
     if (this.isCompletePrimeServerUserInfo(profile)) {
-      return profile;
+      return {
+        ...profile,
+        inviteProfilePublic: undefined,
+      };
     }
 
     if (serverUserInfoResult.status === 'rejected') {
@@ -4745,6 +4798,16 @@ class ServicePrime extends ServiceBase {
         ...v,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
+        // Only a boolean is a decision. GET /user/info already normalized an
+        // omitted field to false; other callers leave a non-boolean untouched.
+        inviteProfilePublic: resolveInviteProfilePublic({
+          incoming: serverUserInfo?.inviteProfilePublic,
+          previous: v.inviteProfilePublic,
+          isSameUser:
+            Boolean(serverUserId) &&
+            (v.onekeyUserId === serverUserId ||
+              v.onekeyAccount?.onekeyUserId === serverUserId),
+        }),
         email: userEmail,
         displayEmail,
         onekeyUserId: serverUserId,
@@ -4832,6 +4895,11 @@ class ServicePrime extends ServiceBase {
         avatar: loginResponse.avatar ?? (isSameUser ? v.avatar : undefined),
         nickname:
           loginResponse.nickname ?? (isSameUser ? v.nickname : undefined),
+        inviteProfilePublic: resolveInviteProfilePublic({
+          incoming: loginResponse.inviteProfilePublic,
+          previous: v.inviteProfilePublic,
+          isSameUser,
+        }),
         email: userEmail,
         displayEmail,
         onekeyUserId: onekeyAccount.onekeyUserId,
@@ -5314,6 +5382,8 @@ class ServicePrime extends ServiceBase {
         reason: `ServicePrime.apiSendEmailVerificationCode failed and returned legacy fallback success: ${getSanitizedAuthErrorLog(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
     }
 
@@ -5348,6 +5418,8 @@ class ServicePrime extends ServiceBase {
         reason: `ServicePrime.apiPrimeLogin failed and returned legacy fallback failure: ${getSanitizedAuthErrorLog(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
     }
     return { success: false };
@@ -5646,12 +5718,28 @@ class ServicePrime extends ServiceBase {
     const result = await client.post<
       IApiClientResponse<{
         resendAt: number;
+        canResendAt?: number;
         uuid: string;
       }>
     >('/prime/v1/general/emailOTP', {
       scene,
     });
-    return result?.data?.data;
+    const data = result?.data?.data;
+    const headerDate = result?.headers?.date;
+    const responseTime =
+      typeof headerDate === 'string' ? Date.parse(headerDate) : NaN;
+    const serverTime = Number.isFinite(responseTime)
+      ? responseTime
+      : systemTimeUtils.getEstimatedServerTime();
+    // Convert to a relative delay before crossing the background bridge.
+    const retryAfterSeconds =
+      typeof data?.canResendAt === 'number' &&
+      Number.isSafeInteger(data.canResendAt) &&
+      typeof serverTime === 'number' &&
+      Number.isFinite(serverTime)
+        ? Math.ceil((data.canResendAt - serverTime) / 1000)
+        : undefined;
+    return { ...data, retryAfterSeconds };
   }
 
   @backgroundMethod()
@@ -6338,6 +6426,55 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  @toastIfError()
+  async apiRemovePrimeForTest(
+    params: IBackgroundMethodWithDevOnlyPassword,
+    { expectedOneKeyUserId }: { expectedOneKeyUserId: string },
+  ): Promise<void> {
+    checkDevOnlyPassword(params, 'apiRemovePrimeForTest');
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError('Developer mode is required');
+    }
+    const createStateChangedError = () =>
+      new OneKeyLocalError('OneKey ID changed; reopen the confirmation');
+    const snapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const client = await this.getPrimeClient();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    // The server enforces the test environment and email allowlist. Use the
+    // configured Prime client so authentication and API errors stay standard.
+    await client.post(
+      '/prime/v1/user/test/remove-prime',
+      undefined,
+      this.getOneKeyIdAuthSnapshotRequestConfig(snapshot),
+    );
+    this.clearPrimeUserInfoCache();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    const { serverUserInfo, primeSubscription } =
+      await this.apiFetchPrimeUserInfo({
+        forceRefresh: true,
+      });
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    if (!serverUserInfo || primeSubscription?.isActive) {
+      throw new OneKeyLocalError(
+        'Removal requested, but Prime removal could not be confirmed. Refresh the account and try again.',
+      );
+    }
+  }
+
   // Intentionally @backgroundMethod() and not @backgroundMethodForDev(): this
   // entry is reachable from a production build, so a dev-only decorator would
   // be a wrong description of it. Its password wrapper also only guards the
@@ -6410,6 +6547,56 @@ class ServicePrime extends ServiceBase {
       void this.apiFetchPrimeUserInfo();
     });
     return result.data.code === 0;
+  }
+
+  @backgroundMethod()
+  async updateInviteProfilePublic({
+    enabled,
+    expectedOneKeyUserId,
+  }: {
+    enabled: boolean;
+    expectedOneKeyUserId: string;
+  }) {
+    const createStateChangedError = () =>
+      this.createInviteProfilePublicUserChangedError();
+    const authSnapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const client = await this.getPrimeClient();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError,
+    });
+    // Send only this field. Omitted avatar and nickname stay unchanged.
+    const result = await client.put<IApiClientResponse<{ success: boolean }>>(
+      `/prime/v1/user/info`,
+      {
+        inviteProfilePublic: enabled,
+      },
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot),
+    );
+    if (result.data.code !== 0) {
+      return false;
+    }
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError,
+    });
+    await primePersistAtom.set((current) => {
+      if (current.onekeyUserId !== expectedOneKeyUserId) {
+        return current;
+      }
+      return {
+        ...current,
+        inviteProfilePublic: enabled,
+      };
+    });
+    this.clearPrimeUserInfoCache();
+    setTimeout(() => {
+      void this.apiFetchPrimeUserInfo();
+    });
+    return true;
   }
 }
 

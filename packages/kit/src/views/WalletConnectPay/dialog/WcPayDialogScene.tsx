@@ -1,14 +1,15 @@
 // cspell:ignore showable
 import type { ReactNode } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
+  DialogContainer,
   Icon,
   Image,
-  ScrollView,
   SizableText,
   Spinner,
   Stack,
@@ -16,6 +17,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   describeWcPaySigningHeadline,
@@ -34,13 +36,85 @@ import type {
 // 1:1 mirror of the accepted reference in
 // packages/components/src/scenarios/WalletConnectPay/WalletConnectPay.stories.tsx
 // (Figma Modules / "Walletconnect pay", node 21831-35638; terminal layout
-// node 21926-35825). The shell (DialogV2) provides the 24pt side inset and
-// the safe-area bottom; nothing here adds horizontal padding of its own.
+// node 21926-35825). The shell (WcPayDialogShell, below) provides the 24pt
+// side inset and the safe-area bottom; nothing here adds horizontal padding
+// of its own. Scrollable areas use Dialog.ScrollView: inside the phone sheet
+// a plain ScrollView loses every vertical swipe to the sheet's drag
+// (OK-61140).
 // Copy comes from the wc_pay_* i18n keys; en_US matches the story verbatim.
 // One deliberate divergence from the story: WcPayConfirmingStep adds a
 // summary block under its headline while a headless signature is in flight —
 // the story predates inline signing and has no step that signs without a
 // confirm page to describe what is being signed.
+
+// ---------------------------------------------------------------------------
+// Shell
+
+// Stable shell props. The modal overlay lane keeps later payment prompts
+// above the shell. The content inset is the
+// contract the steps are drawn against: 24 at the sides, 16 on top, and on
+// native nothing under the last element but the safe-area inset.
+const SHELL_CONTENT_CONTAINER_PROPS = {
+  px: '$6',
+  pt: '$4',
+  pb: platformEnv.isNative ? '$0' : '$6',
+} as const;
+
+/**
+ * The shared Dialog owns its global modal overlay and preserves the caller's
+ * context. Later modal prompts and higher hardware/secure levels cover it.
+ */
+export function WcPayDialogShell({
+  open,
+  dismissible,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  /**
+   * Every dismissal path follows it: the sheet closes itself on a drag or a
+   * backdrop press before any callback could refuse, so those locks must
+   * hold while the view is not dismissible; onBeforeClose refuses the rest.
+   */
+  dismissible: boolean;
+  /** A dismissal the view allows: backdrop, drag, back press or Escape. */
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const handleBeforeClose = useCallback(() => dismissible, [dismissible]);
+  const handleClose = useCallback(async () => {
+    onClose();
+  }, [onClose]);
+  // Preserve the existing iOS reveal remount while Dialog owns its native
+  // overlay and close lifecycle.
+  const [revealCount, setRevealCount] = useState(0);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setRevealCount((count) => count + 1);
+    }
+  }
+  return (
+    <DialogContainer
+      key={platformEnv.isNativeIOS ? revealCount : undefined}
+      open={open}
+      onBeforeClose={handleBeforeClose}
+      onClose={handleClose}
+      renderContent={children}
+      showHeader={false}
+      showFooter={false}
+      dismissOnOverlayPress={dismissible}
+      disableDrag={!dismissible}
+      disableSystemClose={!dismissible}
+      contentContainerProps={SHELL_CONTENT_CONTAINER_PROPS}
+      overlayLevel="modal"
+      // Same iOS-only first-frame inset fallback as the WalletConnect
+      // connection dialog (useWalletConnection).
+      useInitialSafeAreaBottomInsetFallback={Boolean(platformEnv.isNativeIOS)}
+    />
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Header
@@ -165,10 +239,6 @@ const SELECTED_CHECK = (
   <Icon name="CheckRadioSolid" size="$6" color="$iconActive" />
 );
 
-// Rides the scroll content (not the card) so the inset scrolls away with
-// the rows instead of leaving a static gap at the clipped edges.
-const ASSET_LIST_CONTENT_CONTAINER_STYLE = { p: '$1' } as const;
-
 function WcPayAssetOptionRow({
   option,
   selected,
@@ -267,25 +337,29 @@ function WcPayAssetList({
           {intl.formatMessage({ id: ETranslations.wc_pay_pay_with__label })}
         </SizableText>
       </XStack>
-      {/* Fixed 200pt viewport per the design; overflow scrolls inside. */}
       <YStack
         bg="$neutral3"
         borderRadius="$4"
         borderCurve="continuous"
-        height={200}
         overflow="hidden"
       >
-        <ScrollView contentContainerStyle={ASSET_LIST_CONTENT_CONTAINER_STYLE}>
-          {options.map((option) => (
-            <WcPayAssetOptionRow
-              key={option.id}
-              option={option}
-              selected={option.id === selectedId}
-              disabled={disabled}
-              onSelectOption={onSelectOption}
-            />
-          ))}
-        </ScrollView>
+        {/* Fixed 200pt viewport per the design. Dialog.ScrollView sizes to
+            its content, so the height sits on it; the inset rides the
+            scroll content (not the card) so it scrolls away with the rows
+            instead of leaving a static gap at the clipped edges. */}
+        <Dialog.ScrollView height={200}>
+          <YStack p="$1">
+            {options.map((option) => (
+              <WcPayAssetOptionRow
+                key={option.id}
+                option={option}
+                selected={option.id === selectedId}
+                disabled={disabled}
+                onSelectOption={onSelectOption}
+              />
+            ))}
+          </YStack>
+        </Dialog.ScrollView>
       </YStack>
     </YStack>
   );
@@ -564,7 +638,7 @@ export function WcPayConfirmingStep({
             {describeWcPaySigningHeadline(signingSummary, amountText, intl)}
           </SizableText>
           {isMessageBody ? (
-            <ScrollView
+            <Dialog.ScrollView
               maxHeight="$36"
               alignSelf="stretch"
               px="$4"
@@ -573,7 +647,7 @@ export function WcPayConfirmingStep({
               <SizableText size="$bodySm" color="$textSubdued" textAlign="left">
                 {summaryBody}
               </SizableText>
-            </ScrollView>
+            </Dialog.ScrollView>
           ) : (
             <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
               {summaryBody}

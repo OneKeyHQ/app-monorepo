@@ -12,7 +12,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
@@ -31,6 +30,7 @@ import { ReferFriendsTestIDs } from '../../../testIDs';
 import { CardTextAction } from './CardTextAction';
 import { getInviteEarningsState } from './getInviteEarningsState';
 import { InviteStatCell as StatCell } from './InviteStatCell';
+import { PartDot } from './PartDot';
 import { REFERRAL_USD_SOURCE_PROPS } from './shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
@@ -148,9 +148,6 @@ function PayoutAddressValue({
 }
 
 // Ties each part of the earnings card's total to it, like a chart legend.
-function PartDot({ color }: { color: ColorTokens }) {
-  return <YStack w="$2" h="$2" borderRadius="$full" bg={color} />;
-}
 
 // The next payout date is the card's one time-bound fact, so desktop lifts
 // it into the lead group as a brand-green pill instead of a footnote.

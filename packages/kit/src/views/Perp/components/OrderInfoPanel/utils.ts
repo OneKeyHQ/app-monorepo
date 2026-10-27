@@ -111,19 +111,20 @@ export const getPerpFillDirectionType = (
 ): IPerpFillDirectionType => {
   const normalizedDirection = direction?.trim().toLowerCase() ?? '';
 
-  if (normalizedDirection.includes('close long')) {
+  // Reversals and liquidations contain "long" or "short" but are distinct fills.
+  if (normalizedDirection === 'close long') {
     return 'closeLong';
   }
 
-  if (normalizedDirection.includes('close short')) {
+  if (normalizedDirection === 'close short') {
     return 'closeShort';
   }
 
-  if (normalizedDirection.includes('long')) {
+  if (normalizedDirection === 'open long') {
     return 'openLong';
   }
 
-  if (normalizedDirection.includes('short')) {
+  if (normalizedDirection === 'open short') {
     return 'openShort';
   }
 
@@ -151,6 +152,7 @@ export const getFillDirectionDisplayInfo = ({
 
   let color = fill.side === 'B' ? '$green11' : '$red11';
   const directionType = getPerpFillDirectionType(fill.dir);
+  const normalizedDirection = fill.dir?.trim().toLowerCase();
   let text = fill.dir ?? '';
 
   if (directionType === 'openLong') {
@@ -161,7 +163,15 @@ export const getFillDirectionDisplayInfo = ({
     text = intl.formatMessage({ id: ETranslations.perp_order_close_long });
   } else if (directionType === 'closeShort') {
     text = intl.formatMessage({ id: ETranslations.perp_order_close_short });
-  } else if (fill.dir?.trim().toLowerCase() === 'settlement') {
+  } else if (normalizedDirection === 'long > short') {
+    text = intl.formatMessage({
+      id: ETranslations.perp_trade_long_to_short__title,
+    });
+  } else if (normalizedDirection === 'short > long') {
+    text = intl.formatMessage({
+      id: ETranslations.perp_trade_short_to_long__title,
+    });
+  } else if (normalizedDirection === 'settlement') {
     text = intl.formatMessage({
       id: ETranslations.perp_trade_settlement__title,
     });

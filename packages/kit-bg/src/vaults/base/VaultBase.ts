@@ -97,6 +97,7 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
   IFetchAccountTokensResp,
+  IFetchTokenDetailBatchResp,
   IFetchTokenDetailItem,
 } from '@onekeyhq/shared/types/token';
 import type {
@@ -111,6 +112,8 @@ import {
   EDecodedTxActionType,
   EDecodedTxDirection,
 } from '@onekeyhq/shared/types/tx';
+
+import { ESignedTxBroadcastStatus } from '../types';
 
 import { VaultContext } from './VaultContext';
 
@@ -154,6 +157,7 @@ export type IKeyringMap = Record<
 > & {
   hwLedger?: typeof KeyringBase | undefined;
   hwTrezor?: typeof KeyringBase | undefined;
+  hwKeystone?: typeof KeyringBase | undefined;
 };
 
 if (platformEnv.isExtensionUi) {
@@ -412,6 +416,20 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
+  /**
+   * Bulk send fetches sender balances through the search-batch endpoint, keyed
+   * by address rather than by this vault's account. Only address-agnostic
+   * adjustments (e.g. a chain-wide native reserve) belong here; account-bound
+   * logic in `fillTokensDetails` must not be applied to other senders.
+   */
+  async fillTokensDetailsBatch({
+    tokensDetailsBatch,
+  }: {
+    tokensDetailsBatch: IFetchTokenDetailBatchResp;
+  }) {
+    return Promise.resolve(tokensDetailsBatch);
+  }
+
   async verifyMessage(params: IVerifyMessageParams) {
     return Promise.resolve({
       valid: false,
@@ -470,6 +488,25 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     unsignedTx: IUnsignedTxPro,
   ): Promise<IUnsignedTxPro> {
     return unsignedTx;
+  }
+
+  // Override in chain vaults that can tell whether a signed payload reached
+  // the network. A retry after an ambiguous broadcast failure (request
+  // timeout, custom RPC accepted but the server record failed) asks this
+  // before signing again: Broadcast replays the landed tx, NotBroadcast signs
+  // a fresh one, Unknown keeps the chain's pre-OK-65147 retry behavior.
+  async checkSignedTxBroadcastStatus(_params: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+  }): Promise<ESignedTxBroadcastStatus> {
+    return ESignedTxBroadcastStatus.Unknown;
+  }
+
+  // Override to recognize broadcast errors that prove the node never
+  // accepted the payload (e.g. a preflight rejection), so a retry can sign
+  // again at once instead of waiting for a chain verdict.
+  async isSignedTxRejectedByBroadcast(_error: unknown): Promise<boolean> {
+    return false;
   }
 
   async buildBulkSendEncodedTxs(_params: {
@@ -1533,8 +1570,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       '/wallet/v1/account/estimate-fee',
       rest,
       {
+        // Wallet-type header plus the OneKey ID login token: the Gas Account
+        // quote is bound to the member identity the BFF resolves from it.
         headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          await this.backgroundApi.serviceGas.getGasAccountRequestHeaders({
             accountId,
           }),
       },

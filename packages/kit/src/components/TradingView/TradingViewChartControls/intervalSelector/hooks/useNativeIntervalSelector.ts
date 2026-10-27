@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   MAX_PREFERRED_INTERVAL_COUNT,
   formatIntervalOptionDisplayLabel,
+  getCachedPreferredIntervalValues,
   getDefaultPreferredIntervalValues,
   getOptionsByValues,
   getOrderedIntervalOptions,
@@ -33,11 +34,11 @@ export function useNativeIntervalSelector({
 }) {
   const intl = useIntl();
   const [storedPreferredIntervalValues, setStoredPreferredIntervalValues] =
-    useState<string[] | null>(null);
+    useState<string[] | null>(() => getCachedPreferredIntervalValues() ?? null);
   const [
     hasLoadedStoredPreferredIntervals,
     setHasLoadedStoredPreferredIntervals,
-  ] = useState(false);
+  ] = useState(() => getCachedPreferredIntervalValues() !== undefined);
   const hasUpdatedPreferredIntervalsRef = useRef(false);
   const intervalsDialogRef = useRef<IIntervalsDialogInstance | null>(null);
   const [isIntervalsPopoverOpen, setIsIntervalsPopoverOpen] = useState(false);

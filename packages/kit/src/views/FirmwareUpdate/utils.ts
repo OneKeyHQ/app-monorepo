@@ -33,18 +33,55 @@ export function selectFirmwareUpdateDetectStatus({
 }
 
 export async function getFirmwareUpdateUSBPreflightParams(
-  result: ICheckAllFirmwareReleaseResult | undefined,
+  result:
+    | Partial<
+        Pick<
+          ICheckAllFirmwareReleaseResult,
+          | 'features'
+          | 'deviceType'
+          | 'updatingConnectId'
+          | 'originalConnectId'
+          | 'isBootloaderMode'
+        >
+      >
+    | undefined,
 ) {
   const usbConnectId = await deviceUtils.buildDeviceUSBConnectId({
     features: result?.features,
   });
+  const isBootloaderMode = result?.features
+    ? await deviceUtils.isBootloaderModeByFeatures({
+        features: result.features,
+      })
+    : result?.isBootloaderMode;
+  const expectedDeviceId = [
+    result?.features?.deviceId,
+    result?.features?.device_id,
+  ].find((id) => {
+    const value = id?.trim();
+    return value && !/^0+$/.test(value);
+  });
+  const bootloaderRecoveryDeviceType =
+    isBootloaderMode &&
+    !usbConnectId &&
+    !expectedDeviceId &&
+    result?.deviceType !== EDeviceType.Unknown
+      ? result?.deviceType
+      : undefined;
+
+  let connectProtocol: 'V1' | 'V2' | undefined;
+  if (isProtocolV2ProductType(result?.deviceType)) {
+    connectProtocol = 'V2';
+  } else if (bootloaderRecoveryDeviceType) {
+    connectProtocol = 'V1';
+  }
 
   return {
     connectId:
       usbConnectId ?? result?.updatingConnectId ?? result?.originalConnectId,
-    connectProtocol: isProtocolV2ProductType(result?.deviceType)
-      ? ('V2' as const)
-      : undefined,
+    connectProtocol,
+    ...(expectedDeviceId && !usbConnectId ? { expectedDeviceId } : {}),
+    ...(bootloaderRecoveryDeviceType ? { bootloaderRecoveryDeviceType } : {}),
   };
 }
 

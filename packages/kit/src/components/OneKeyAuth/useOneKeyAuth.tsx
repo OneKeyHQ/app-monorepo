@@ -282,6 +282,7 @@ export function useOneKeyAuth() {
             error,
           )}`,
           error,
+          { trigger: 'interactive' },
         );
         localKeylessLoginPrepareResult = {
           status:

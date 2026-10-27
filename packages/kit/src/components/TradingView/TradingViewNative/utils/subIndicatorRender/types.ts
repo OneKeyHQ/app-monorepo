@@ -1,3 +1,4 @@
+import type { ITradingViewNativePriceScaleMode } from '../../types';
 import type {
   ITradingViewNativeIndicatorValues,
   ITradingViewNativeSubIndicator,
@@ -224,6 +225,7 @@ export interface ITradingViewNativeSubIndicatorRenderFill {
 }
 
 export interface ITradingViewNativeSubIndicatorRenderPane {
+  priceScaleMode?: ITradingViewNativePriceScaleMode;
   preferredHeight?: number;
   bands: ITradingViewNativeSubIndicatorRenderBand[];
   fills: ITradingViewNativeSubIndicatorRenderFill[];
@@ -240,6 +242,7 @@ export interface ITradingViewNativeSubIndicatorRenderPane {
 }
 
 export interface ITradingViewNativeSubIndicatorValueRange {
+  mode?: ITradingViewNativePriceScaleMode;
   maxValue: number;
   minValue: number;
 }

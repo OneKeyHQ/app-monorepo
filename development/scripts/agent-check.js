@@ -366,7 +366,14 @@ function runWorktreeLintChecks(logDir) {
         logDir,
         'lint-worktree-js',
         npx,
-        ['oxlint', '--fix', '--deny-warnings'],
+        // A batch may contain only files excluded by oxlint ignorePatterns
+        // (e.g. vendored third-party code); that must not fail the check.
+        [
+          'oxlint',
+          '--fix',
+          '--deny-warnings',
+          '--no-error-on-unmatched-pattern',
+        ],
         js,
       ),
     );
@@ -385,6 +392,7 @@ function runWorktreeLintChecks(logDir) {
           '--type-aware',
           '--fix',
           '--deny-warnings',
+          '--no-error-on-unmatched-pattern',
         ],
         ts,
       ),

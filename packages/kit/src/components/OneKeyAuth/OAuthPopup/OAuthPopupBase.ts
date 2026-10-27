@@ -82,6 +82,8 @@ export abstract class OAuthPopupBase {
             reason: `OAuth redirect state parsing failed: ${getSanitizedErrorLogText(
               error,
             )}`,
+            trigger: 'interactive',
+            error,
           });
           expectedOneKeyState = null;
         }
@@ -93,6 +95,8 @@ export abstract class OAuthPopupBase {
         reason: `OAuth authorization state parsing failed: ${getSanitizedErrorLogText(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
       return { expectedState: null, expectedOneKeyState: null };
     }
@@ -198,6 +202,8 @@ export abstract class OAuthPopupBase {
     }
     defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
       reason: `${fallbackMessage}: ${getSanitizedErrorLogText(error)}`,
+      trigger: 'interactive',
+      error,
     });
     return error instanceof Error
       ? error

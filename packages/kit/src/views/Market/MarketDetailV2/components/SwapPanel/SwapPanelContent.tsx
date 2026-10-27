@@ -27,9 +27,11 @@ import { SwapStockHeaderRightActionContainer } from '@onekeyhq/kit/src/views/Swa
 import SwapQuoteResult from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteResult';
 import SwapQuoteRiskAlert from '@onekeyhq/kit/src/views/Swap/pages/components/SwapQuoteRiskAlert';
 import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
+import { isQuoteResultForStockTrade } from '@onekeyhq/kit/src/views/Swap/utils/swapStockTradeControl';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchQuoteResult,
@@ -237,6 +239,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     return tradeType === ESwapDirection.BUY ? paymentAmount : sellAmount;
   }, [tradeType, paymentAmount, sellAmount]);
 
+  const shouldReserveBalanceGas = shouldReserveSwapGas(balanceToken);
   const handleBalanceClick = useCallback(() => {
     if (!balance) {
       return;
@@ -245,7 +248,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === balanceToken?.networkId,
     )?.reserveGas;
-    if (balanceToken?.isNative && reserveGas) {
+    if (shouldReserveBalanceGas && reserveGas) {
       const maxAmount = BigNumber.max(
         0,
         balance.minus(new BigNumber(reserveGas)),
@@ -290,7 +293,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     }
   }, [
     swapNativeTokenReserveGas,
-    balanceToken?.isNative,
+    shouldReserveBalanceGas,
     balanceToken?.networkId,
     balanceToken?.decimals,
     balanceToken?.symbol,
@@ -314,7 +317,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         (item) => item.networkId === balanceToken.networkId,
       )?.reserveGas;
       let amount = balance.multipliedBy(new BigNumber(stage).dividedBy(100));
-      if (balanceToken.isNative && reserveGas) {
+      if (shouldReserveSwapGas(balanceToken) && reserveGas) {
         amount = BigNumber.max(0, amount.minus(new BigNumber(reserveGas)));
       }
       if (balanceToken.decimals !== undefined) {
@@ -424,12 +427,22 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     (tradeType === ESwapDirection.BUY
       ? currentMarketToken?.symbol
       : paymentToken?.symbol);
+  const quoteMatchesStockTrade = isQuoteResultForStockTrade({
+    quoteResult,
+    receiveToken:
+      tradeType === ESwapDirection.BUY ? currentMarketToken : paymentToken,
+    sendAmount: currentInputAmount.toFixed(),
+    sendToken:
+      tradeType === ESwapDirection.BUY ? paymentToken : currentMarketToken,
+  });
   const estimatedStockTokenAmount =
     tradeType === ESwapDirection.BUY
       ? quoteResult?.toAmount
       : quoteResult?.fromAmount;
   const estimatedShares = calculateMarketStockEstimatedShares({
-    stockTokenAmount: estimatedStockTokenAmount,
+    stockTokenAmount: quoteMatchesStockTrade
+      ? estimatedStockTokenAmount
+      : undefined,
     tokenToAssetRatio: stockTokenToAssetRatio,
   });
   let stockEstimatedReceiveContent: ReactNode = (
@@ -500,6 +513,24 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       </XStack>
     );
   }
+  const stockEstimatedSharesRow = getValidStockTokenToAssetRatio(
+    stockTokenToAssetRatio,
+  ) ? (
+    <XStack
+      testID="stock-trade-estimated-shares"
+      px="$0.5"
+      pt="$0"
+      pb="$2"
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$2"
+    >
+      <SizableText size="$bodyMd">
+        {intl.formatMessage({ id: ETranslations.market_est_shares })}
+      </SizableText>
+      {stockEstimatedSharesContent}
+    </XStack>
+  ) : null;
 
   if (stockDetailDesktopLayout) {
     const noAccount =
@@ -618,22 +649,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
             {stockEstimatedReceiveContent}
           </XStack>
 
-          {getValidStockTokenToAssetRatio(stockTokenToAssetRatio) ? (
-            <XStack
-              testID="stock-trade-estimated-shares"
-              px="$0.5"
-              pt="$0"
-              pb="$2"
-              alignItems="center"
-              justifyContent="space-between"
-              gap="$2"
-            >
-              <SizableText size="$bodyMd">
-                {intl.formatMessage({ id: ETranslations.market_est_shares })}
-              </SizableText>
-              {stockEstimatedSharesContent}
-            </XStack>
-          ) : null}
+          {stockEstimatedSharesRow}
         </YStack>
 
         {quoteError ? (
@@ -719,7 +735,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           tradeType={ESwapDirection.BUY}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
           onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-          selectedToken={paymentToken}
+          selectedToken={paymentTokenDisplay ?? paymentToken}
+          selectedTokenLoading={paymentTokenDisplayLoading}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
@@ -779,12 +796,16 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
               defaultTokens={defaultTokens}
               currentSelectToken={balanceToken as ISwapTokenBase}
               onTokenSelect={(token) => setPaymentToken(token as IToken)}
-              symbol={paymentToken?.symbol ?? '-'}
-              isLoading={!hasInitialReady}
+              symbol={
+                paymentTokenDisplay?.symbol ?? paymentToken?.symbol ?? '-'
+              }
+              isLoading={Boolean(paymentTokenDisplayLoading)}
             />
           </YStack>
         ) : null}
       </YStack>
+
+      {currentMarketToken?.isStock ? stockEstimatedSharesRow : null}
 
       {quoteError ? (
         <SizableText size="$bodyMd" color="$textCritical">

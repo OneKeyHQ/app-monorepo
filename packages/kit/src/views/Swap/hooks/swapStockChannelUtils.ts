@@ -159,6 +159,20 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   }`;
 }
 
+// Stock token keys this app run has already settled against the default
+// issuer rule: checked once, picked by the user, or brought in by an explicit
+// entry such as Market's Buy/Sell. In memory only, so a cold start checks a
+// restored token again while tab switches keep the user's own picks.
+const settledSwapStockTokenKeys = new Set<string>();
+
+export function settleSwapStockTokenKey(key: string) {
+  if (key) settledSwapStockTokenKeys.add(key);
+}
+
+export function isSwapStockTokenKeySettled(key: string) {
+  return settledSwapStockTokenKeys.has(key);
+}
+
 export function resolveDisplayedStockToken({
   coldStartStockToken,
   controlledStockToken,
@@ -436,6 +450,42 @@ function mergeStockExecutionMetadata({
   });
 
   return isEqual(mergedStock, currentStock) ? currentStock : mergedStock;
+}
+
+export function shouldSyncStockExecutionTokenMetadata({
+  token,
+  tokenDetail,
+}: {
+  token?: ISwapToken;
+  tokenDetail?: ISwapToken;
+}) {
+  if (
+    !token ||
+    !tokenDetail ||
+    !equalTokenNoCaseSensitive({ token1: token, token2: tokenDetail })
+  ) {
+    return false;
+  }
+  if (
+    token.decimals !== tokenDetail.decimals ||
+    token.isNative !== (tokenDetail.isNative ?? token.isNative) ||
+    !token.isStock
+  ) {
+    return true;
+  }
+  return (
+    [
+      'stockId',
+      'subtitle',
+      'source',
+      'underlyingAssetTicker',
+      'underlyingAssetName',
+      'tokenToAssetRatio',
+    ] as const
+  ).some((key) => {
+    const value = tokenDetail.stock?.[key];
+    return !!value?.trim() && value !== token.stock?.[key];
+  });
 }
 
 export function resolveStockExecutionTokenMetadata({

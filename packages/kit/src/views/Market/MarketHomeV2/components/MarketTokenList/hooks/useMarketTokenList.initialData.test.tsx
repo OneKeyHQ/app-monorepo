@@ -2,6 +2,7 @@
 
 import { act, render, renderHook, waitFor } from '@testing-library/react';
 
+import { getMarketHomeTokenListSeedForInit } from '@onekeyhq/kit/src/views/Market/utils/marketHomeTokenListSeed';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -77,7 +78,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
-  default: { isAllNetwork: () => false },
+  default: {
+    isAllNetwork: ({ networkId }: { networkId: string }) =>
+      networkId === 'onekeyall--0',
+  },
 }));
 
 jest.mock('../utils/tokenListHelpers', () => {
@@ -225,11 +229,77 @@ describe('useMarketTokenList initial data', () => {
     mockFetchMarketTokenList.mockReset();
     mockTransformApiItemToToken.mockClear();
     mockTrackNetworkLoading.mockReset();
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReset();
   });
 
   afterEach(() => {
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
+  });
+
+  it('paints the default Trending seed before the remote response arrives', async () => {
+    const seed = {
+      ...createResponse('0xseed', 'Seed Token', 'SEED'),
+      __fromSeed: true,
+    };
+    const remoteRequest = createDeferred<IMarketTokenListResponse>();
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValue(seed);
+    mockFetchMarketTokenList
+      .mockResolvedValueOnce(seed)
+      .mockReturnValue(remoteRequest.promise);
+    const renderedTokenIds: string[][] = [];
+    const { result } = renderHook(() => {
+      const value = useMarketTokenList({
+        networkId: 'onekeyall--0',
+        pollingInterval: 0,
+        type: 'trending',
+        timeRange: '1h',
+        useApiDefaultSort: true,
+      });
+      renderedTokenIds.push(value.data.map((item) => item.id));
+      return value;
+    });
+
+    expect(renderedTokenIds[0]).toEqual(['0xseed']);
+    await waitFor(() =>
+      expect(mockFetchMarketTokenList).toHaveBeenCalledWith(
+        expect.objectContaining({
+          networkId: '',
+          sortBy: undefined,
+          sortType: undefined,
+        }),
+        { forceRemote: true },
+      ),
+    );
+    await act(async () => {
+      remoteRequest.resolve(
+        createResponse('0xremote', 'Remote Token', 'REMOTE'),
+      );
+      await remoteRequest.promise;
+    });
+    await waitFor(() =>
+      expect(result.current.data.map((item) => item.id)).toEqual(['0xremote']),
+    );
+  });
+
+  it('does not show the default Trending seed for an explicitly sorted query', () => {
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValue({
+      ...createResponse('0xseed', 'Seed Token', 'SEED'),
+      __fromSeed: true,
+    });
+    mockFetchMarketTokenList.mockReturnValue(
+      createDeferred<IMarketTokenListResponse>().promise,
+    );
+    const { result } = renderHook(() =>
+      useMarketTokenList({
+        networkId: 'onekeyall--0',
+        pollingInterval: 0,
+        type: 'trending',
+        timeRange: '1h',
+      }),
+    );
+
+    expect(result.current.data).toEqual([]);
   });
 
   it('keeps the switching skeleton until a successful response is transformed', async () => {
@@ -819,27 +889,28 @@ describe('useMarketTokenList initial data', () => {
     });
   });
 
-  it('omits sorting when the caller requests the API default order', async () => {
-    mockFetchMarketTokenList.mockResolvedValue(
-      createResponse('0xremote', 'Remote Token', 'REMOTE'),
-    );
-
-    function Probe() {
+  it('shows the bootstrap rows immediately with the API default order, then refreshes them', async () => {
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValue({
+      ...createResponse('0xseed', 'Seed Token', 'SEED'),
+      __fromSeed: true,
+    });
+    const remoteRequest = createDeferred<IMarketTokenListResponse>();
+    mockFetchMarketTokenList.mockReturnValue(remoteRequest.promise);
+    const { result } = renderHook(() =>
       useMarketTokenList({
-        networkId: 'evm--1',
+        networkId: 'onekeyall--0',
         pollingInterval: 0,
         type: 'trending',
+        timeRange: '1h',
         useApiDefaultSort: true,
-      });
-      return null;
-    }
-
-    render(<Probe />);
+      }),
+    );
+    expect(result.current.data.map((item) => item.symbol)).toEqual(['SEED']);
 
     await waitFor(() => {
       expect(mockFetchMarketTokenList).toHaveBeenCalledWith(
         expect.objectContaining({
-          networkId: 'evm--1',
+          networkId: '',
           page: 1,
           sortBy: undefined,
           sortType: undefined,
@@ -848,6 +919,13 @@ describe('useMarketTokenList initial data', () => {
         undefined,
       );
     });
+    await act(async () => {
+      remoteRequest.resolve(
+        createResponse('0xremote', 'Remote Token', 'REMOTE'),
+      );
+      await remoteRequest.promise;
+    });
+    expect(result.current.data.map((item) => item.symbol)).toEqual(['REMOTE']);
   });
   it('ends native network-switch loading on failure and recovers through refetch', async () => {
     mutablePlatformEnv.isNative = true;
@@ -1004,50 +1082,56 @@ describe('useMarketTokenList initial data', () => {
     ]);
   });
 
-  it('holds a failed native page until an explicit load-more retry', async () => {
-    mutablePlatformEnv.isNative = true;
-    mutablePlatformEnv.isWeb = false;
-    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
-    let loadMoreAttempt = 0;
-    mockFetchMarketTokenList.mockImplementation(async ({ page }) => {
-      if (page === 1) {
+  it.each([false, true])(
+    'holds a failed page until an explicit load-more retry (native=%s)',
+    async (isNative) => {
+      mutablePlatformEnv.isNative = isNative;
+      mutablePlatformEnv.isWeb = !isNative;
+      let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+      let loadMoreAttempt = 0;
+      mockFetchMarketTokenList.mockImplementation(async ({ page }) => {
+        if (page === 1) {
+          return {
+            ...createResponse('first', 'First', 'FIRST'),
+            total: 2,
+          };
+        }
+        loadMoreAttempt += 1;
+        if (loadMoreAttempt === 1) {
+          throw new OneKeyLocalError('offline');
+        }
         return {
-          ...createResponse('first', 'First', 'FIRST'),
+          ...createResponse('second', 'Second', 'SECOND'),
           total: 2,
         };
-      }
-      loadMoreAttempt += 1;
-      if (loadMoreAttempt === 1) {
-        throw new OneKeyLocalError('offline');
-      }
-      return {
-        ...createResponse('second', 'Second', 'SECOND'),
-        total: 2,
-      };
-    });
-    function Probe() {
-      latestResult = useMarketTokenList({
-        networkId: 'evm--1',
-        pollingInterval: 0,
-        pageSize: 1,
-        type: 'trending',
       });
-      return null;
-    }
-    render(<Probe />);
-    await waitFor(() => expect(latestResult?.canLoadMore).toBe(true));
+      function Probe() {
+        latestResult = useMarketTokenList({
+          networkId: 'evm--1',
+          pollingInterval: 0,
+          pageSize: 1,
+          type: 'trending',
+        });
+        return null;
+      }
+      render(<Probe />);
+      await waitFor(() => expect(latestResult?.canLoadMore).toBe(true));
 
-    await act(async () => latestResult?.loadMore());
-    expect(latestResult?.isLoadMoreError).toBe(true);
-    expect(latestResult?.canLoadMore).toBe(true);
+      const beforeFailure = latestResult?.data;
+      await act(async () => latestResult?.loadMore());
+      expect(latestResult?.data).toEqual(beforeFailure);
+      expect(loadMoreAttempt).toBe(1);
+      expect(latestResult?.isLoadMoreError).toBe(true);
+      expect(latestResult?.canLoadMore).toBe(true);
 
-    await act(async () => latestResult?.loadMore());
-    expect(latestResult?.isLoadMoreError).toBe(false);
-    expect(latestResult?.data.map((item) => item.id)).toEqual([
-      'first',
-      'second',
-    ]);
-  });
+      await act(async () => latestResult?.loadMore());
+      expect(latestResult?.isLoadMoreError).toBe(false);
+      expect(latestResult?.data.map((item) => item.id)).toEqual([
+        'first',
+        'second',
+      ]);
+    },
+  );
 
   it('does not append an old native page after a refreshed first page', async () => {
     mutablePlatformEnv.isNative = true;

@@ -272,6 +272,44 @@ describe('nativeStorageExecutor', () => {
     );
   });
 
+  it('does not complete automatic migration after a native sync error and retries safely on startup', async () => {
+    mockLegacyData.set('business-key', 'legacy-value');
+    mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+      new Error('MMKV_SYNC_FAILED: injected durability failure'),
+    );
+    const { executeNativeStorageRequest } = loadExecutor();
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'business-key',
+      }),
+    ).rejects.toThrow('MMKV_SYNC_FAILED');
+    expect(mockMigrationLedger.get('app-storage-v1')).toBe('migrating-v1');
+    expect(mockSetMigrationLedgerComplete).not.toHaveBeenCalled();
+    expect(mockLegacyData.get('business-key')).toBe('legacy-value');
+    const enumerationCalls = mockLegacyStorage.getAllKeys.mock.calls.length;
+
+    jest.resetModules();
+    const restarted = loadExecutor();
+    await expect(
+      restarted.executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'business-key',
+      }),
+    ).resolves.toBe('legacy-value');
+    expect(mockMigrationLedger.get('app-storage-v1')).toBe('complete-v1');
+    expect(mockSyncNativeStorageMMKV.mock.invocationCallOrder[1]).toBeLessThan(
+      mockSetMigrationLedgerComplete.mock.invocationCallOrder[0],
+    );
+    expect(mockLegacyStorage.getAllKeys).toHaveBeenCalledTimes(
+      enumerationCalls,
+    );
+    expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
+    expect(mockLegacyData.get('business-key')).toBe('legacy-value');
+  });
+
   it('migrates every third-party and Jotai key into AppStorage MMKV', async () => {
     const thirdPartyKey = '@third-party/sdk:persisted-session';
     const jotaiKey = 'g_states_v5:removedHistoricalAtom';

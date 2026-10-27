@@ -75,10 +75,10 @@ const CONFIG_URL = 'https://data.onekey.so/config.json?noCache=1';
 const PRE_RELEASE_CONFIG_URL =
   'https://data.onekey.so/pre-config.json?noCache=1';
 // Cloudflare endpoints lead the builtin table but are skipped for this host.
-const BUILTIN_FIRST_IP = '216.19.3.115';
+const BUILTIN_FIRST_IP = '216.19.4.106';
 // The builtin fill alternates between the two non-Cloudflare providers.
 const BUILTIN_SECOND_IP = '43.168.19.96';
-const BUILTIN_THIRD_IP = '216.19.2.116';
+const BUILTIN_THIRD_IP = '43.168.24.171';
 
 function buildRemoteConfig(): RemoteConfigResponse {
   const deviceConfig = { firmware: [], ble: [] };
@@ -689,8 +689,8 @@ describe('firmware config provider', () => {
     ).resolves.toBeNull();
     expect(getSniRequestIps()).toEqual([
       '5.5.5.5',
-      BUILTIN_THIRD_IP,
       BUILTIN_SECOND_IP,
+      BUILTIN_THIRD_IP,
     ]);
   });
 

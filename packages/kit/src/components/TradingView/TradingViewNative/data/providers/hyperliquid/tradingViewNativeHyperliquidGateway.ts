@@ -252,7 +252,7 @@ export class TradingViewNativeHyperliquidGateway {
     connection.isActive = false;
     this.connections.delete(environment);
     try {
-      await connection.transport.close();
+      connection.transport.close();
     } catch (error) {
       defaultLogger.networkDoctor.log.error({
         info: `Failed to close shared Hyperliquid candle WebSocket: ${getErrorMessage(
@@ -460,7 +460,7 @@ export class TradingViewNativeHyperliquidGateway {
         previousConnection.isActive = false;
         this.connections.delete(environment);
         try {
-          await previousConnection.transport.close();
+          previousConnection.transport.close();
         } catch (error) {
           defaultLogger.networkDoctor.log.error({
             info: `Failed to restart shared Hyperliquid candle WebSocket: ${getErrorMessage(

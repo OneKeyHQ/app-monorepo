@@ -6,12 +6,29 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
-import { MobileMarketTokenSelectorSearchResults } from './MobileMarketTokenSelectorSearchResults';
+import {
+  MobileMarketSearchAllList,
+  MobileMarketSearchTokenList,
+  MobileMarketTokenSelectorSearchResults,
+} from './MobileMarketTokenSelectorSearchResults';
+
+const { TextInput: WebTextInput } =
+  jest.requireActual<typeof import('react-native')>('react-native-web');
+let mockIsNative = false;
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    get isNative() {
+      return mockIsNative;
+    },
+  },
+}));
 
 const mockStockPress = jest.fn();
 const mockMarketPress = jest.fn();
 const mockLoadMore = jest.fn(() => Promise.resolve());
 type IMockStockSelectorResult = {
+  isRevalidatingFirstPage?: boolean;
   items: IMarketStockPublicItem[];
   isLoading: boolean;
   isError: boolean;
@@ -48,6 +65,39 @@ const marketItem = {
   networkLogoURI: '',
 };
 
+// The tab bar is `Tabs.TabBar` underneath (covered by its own test); a plain
+// row of buttons keeps these tests on the selector's own logic.
+jest.mock('./selectorTabBar', () => {
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
+  return {
+    SelectorTabBar: ({
+      tabs,
+      onChange,
+      testIDPrefix,
+    }: {
+      tabs: { id: string; label: string }[];
+      onChange: (tabId: string) => void;
+      testIDPrefix: string;
+    }) =>
+      ReactModule.createElement(
+        'div',
+        null,
+        tabs.map((tab) =>
+          ReactModule.createElement(
+            'button',
+            {
+              key: tab.id,
+              type: 'button',
+              'data-testid': `${testIDPrefix}${tab.id}`,
+              onClick: () => onChange(tab.id),
+            },
+            tab.label,
+          ),
+        ),
+      ),
+  };
+});
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -71,62 +121,164 @@ jest.mock('@onekeyhq/components', () => {
     );
   return {
     Button: Container,
+    Stack: Container,
     Empty: () => <div data-testid="empty" />,
-    ScrollView: Container,
     SizableText: Container,
-    Spinner: () => <div data-testid="spinner" />,
     XStack: Container,
     YStack: Container,
   };
 });
 
-jest.mock(
-  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/MobileMarketStockListItem',
-  () => ({
-    MobileMarketStockListItem: ({
-      item,
-      onPress,
+jest.mock('react-native', () => {
+  const { ScrollView: WebScrollView } =
+    jest.requireActual<typeof import('react-native')>('react-native-web');
+  return {
+    ScrollView: ({
+      children,
+      onScroll,
+      keyboardDismissMode,
     }: {
-      item: IMarketStockPublicItem;
-      onPress: (item: IMarketStockPublicItem) => void;
+      children?: ReactNode;
+      onScroll?: (event: unknown) => void;
+      keyboardDismissMode?: 'none' | 'on-drag' | 'interactive';
     }) => (
-      <button
-        data-testid={`mobile-stock-${item.stockId}`}
-        type="button"
-        onClick={() => onPress(item)}
+      <div
+        data-testid="search-scroll-mode"
+        data-keyboard-mode={keyboardDismissMode}
       >
-        {item.symbol}
-      </button>
+        <WebScrollView
+          testID="search-scroll"
+          keyboardDismissMode={keyboardDismissMode}
+        >
+          {children}
+          <button
+            data-testid="scroll-to-end"
+            aria-label="scroll to end"
+            type="button"
+            onClick={() =>
+              onScroll?.({
+                nativeEvent: {
+                  contentOffset: { y: 1000 },
+                  layoutMeasurement: { height: 500 },
+                  contentSize: { height: 1500 },
+                },
+              })
+            }
+          />
+        </WebScrollView>
+      </div>
     ),
-  }),
-);
+    FlatList: ({
+      data,
+      renderItem,
+      keyboardDismissMode,
+    }: {
+      data: unknown[];
+      renderItem: (info: { item: unknown }) => ReactNode;
+      keyboardDismissMode?: 'none' | 'on-drag' | 'interactive';
+    }) => (
+      <div
+        data-testid="search-list-mode"
+        data-keyboard-mode={keyboardDismissMode}
+      >
+        {data.map((item, index) => (
+          <div key={index}>{renderItem({ item })}</div>
+        ))}
+      </div>
+    ),
+  };
+});
 
-jest.mock(
-  '@onekeyhq/kit/src/views/Swap/pages/components/SwapProSearchTokenListItem',
-  () => ({
-    __esModule: true,
-    default: ({
+// Rows render as plain buttons so the tests can press them by id.
+jest.mock('./MobileMarketSelectorBrowseLists', () => {
+  const StockButton = ({
+    item,
+    onPress,
+  }: {
+    item: IMarketStockPublicItem;
+    onPress: (item: IMarketStockPublicItem) => void;
+  }) => (
+    <button
+      data-testid={`mobile-stock-${item.stockId}`}
+      type="button"
+      onClick={() => onPress(item)}
+    >
+      {item.symbol}
+    </button>
+  );
+  return {
+    MobileSelectorSearchSkeleton: () => <div data-testid="skeleton" />,
+    MobileSelectorStockRow: StockButton,
+    MobileSelectorStockTable: ({
+      result,
+      onItemPress,
+    }: {
+      result: { items: IMarketStockPublicItem[] };
+      onItemPress: (item: IMarketStockPublicItem) => void;
+    }) => (
+      <div>
+        {result.items.map((item) => (
+          <StockButton key={item.stockId} item={item} onPress={onItemPress} />
+        ))}
+      </div>
+    ),
+    MobileSelectorSearchTokenRow: ({
       item,
       onPress,
     }: {
-      item: typeof marketItem;
-      onPress: (item: typeof marketItem) => void;
+      item: { networkId: string; address: string; symbol: string };
+      onPress: () => void;
     }) => (
       <button
-        data-testid={`mobile-market-${item.network}:${item.address}`}
+        data-testid={`mobile-market-${item.networkId}:${item.address}`}
         type="button"
-        onClick={() => onPress(item)}
+        onClick={onPress}
       >
         {item.symbol}
       </button>
     ),
-  }),
-);
+  };
+});
+
+jest.mock('./selectorTable', () => ({
+  StockLoadMoreFooter: ({
+    isLoadMoreError,
+    onRetry,
+    testID,
+  }: {
+    isLoadMoreError: boolean;
+    onRetry: () => void;
+    testID: string;
+  }) =>
+    isLoadMoreError ? (
+      <button
+        data-testid={testID}
+        aria-label="retry"
+        type="button"
+        onClick={onRetry}
+      />
+    ) : null,
+}));
 
 jest.mock('./useMarketStockSelectorList', () => ({
   useMarketStockSelectorList: (options: { query: string }) =>
     mockUseMarketStockSelectorList(options),
 }));
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useMarketWatchListV2Atom: () => [{ data: [] }],
+}));
+
+const mobileStockResultBase = {
+  items: [stock],
+  isLoading: false,
+  isError: false,
+  isLoadingMore: false,
+  isLoadMoreError: false,
+  isRevalidatingFirstPage: false,
+  canLoadMore: false,
+  loadMore: mockLoadMore,
+  refresh: jest.fn(),
+};
 
 describe('MobileMarketTokenSelectorSearchResults', () => {
   beforeEach(() => {
@@ -146,7 +298,7 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
     });
   });
 
-  it('keeps stock and on-chain market rows in separate sections', () => {
+  it('keeps stock and on-chain market rows on separate tabs', () => {
     render(
       <MobileMarketTokenSelectorSearchResults
         query="aapl"
@@ -156,12 +308,30 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
       />,
     );
 
-    expect(screen.getAllByText('perps.token_selector_stocks')).toHaveLength(2);
-    expect(screen.getAllByText('global.market')).toHaveLength(2);
-    fireEvent.click(screen.getByTestId('mobile-stock-AAPL'));
-    expect(mockStockPress).toHaveBeenCalledWith(stock);
+    expect(
+      screen.getAllByText('global.universal_search_tabs_tokens').length,
+    ).toBeGreaterThan(0);
+    const controls = screen.getByTestId(
+      'market-token-selector-search-controls',
+    );
+    expect(
+      controls.contains(
+        screen.getByTestId('market-token-selector-search-tab-stocks'),
+      ),
+    ).toBe(true);
+    expect(
+      controls.contains(screen.getByTestId('mobile-market-evm--1:0xaapl')),
+    ).toBe(false);
+    expect(controls.contains(screen.getByTestId('mobile-stock-AAPL'))).toBe(
+      false,
+    );
     fireEvent.click(screen.getByTestId('mobile-market-evm--1:0xaapl'));
     expect(mockMarketPress).toHaveBeenCalledWith(marketItem);
+    fireEvent.click(
+      screen.getByTestId('market-token-selector-search-tab-stocks'),
+    );
+    fireEvent.click(screen.getByTestId('mobile-stock-AAPL'));
+    expect(mockStockPress).toHaveBeenCalledWith(stock);
   });
 
   it('filters mobile rows with the shared search tabs', () => {
@@ -181,58 +351,53 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
     expect(screen.queryByTestId('mobile-market-evm--1:0xaapl')).toBeNull();
 
     fireEvent.click(
-      screen.getByTestId('market-token-selector-search-tab-market'),
+      screen.getByTestId('market-token-selector-search-tab-tokens'),
     );
     expect(screen.queryByTestId('mobile-stock-AAPL')).toBeNull();
     expect(screen.getByTestId('mobile-market-evm--1:0xaapl')).toBeTruthy();
   });
 
-  it('loads and retries additional mobile stock search pages', () => {
-    const stockResult = {
-      items: [stock],
-      isLoading: false,
-      isError: false,
-      isLoadingMore: false,
-      isLoadMoreError: false,
-      canLoadMore: true,
-      loadMore: mockLoadMore,
-      refresh: jest.fn(),
-    };
-    mockUseMarketStockSelectorList.mockReturnValue(stockResult);
-    const { rerender } = render(
+  it('previews five per section and jumps to the tab on Show more', () => {
+    const tokens = ['1', '2', '3', '4', '5', '6'].map((suffix) => ({
+      ...marketItem,
+      address: `0x${suffix}`,
+    }));
+    render(
       <MobileMarketTokenSelectorSearchResults
         query="aapl"
-        marketItems={[]}
+        marketItems={tokens}
         onStockPress={mockStockPress}
         onMarketPress={mockMarketPress}
       />,
     );
-    fireEvent.click(
-      screen.getByTestId('market-token-selector-search-tab-stocks'),
-    );
-    fireEvent.click(
-      screen.getByTestId('mobile-market-token-selector-stock-search-load-more'),
-    );
-    expect(mockLoadMore).toHaveBeenCalledTimes(1);
 
-    mockUseMarketStockSelectorList.mockReturnValue({
-      ...stockResult,
-      isLoadMoreError: true,
-    });
-    rerender(
-      <MobileMarketTokenSelectorSearchResults
-        query="aapl"
-        marketItems={[]}
-        onStockPress={mockStockPress}
-        onMarketPress={mockMarketPress}
-      />,
-    );
+    expect(screen.getByTestId('mobile-market-evm--1:0x5')).toBeTruthy();
+    expect(screen.queryByTestId('mobile-market-evm--1:0x6')).toBeNull();
     fireEvent.click(
       screen.getByTestId(
-        'mobile-market-token-selector-stock-search-load-more-retry',
+        'mobile-market-token-selector-market-search-show-more',
       ),
     );
-    expect(mockLoadMore).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('mobile-market-evm--1:0x6')).toBeTruthy();
+    expect(screen.queryByTestId('mobile-stock-AAPL')).toBeNull();
+  });
+
+  it('shows one skeleton until both searches answer', () => {
+    render(
+      <MobileMarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[]}
+        isMarketLoading
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    expect(screen.getByTestId('skeleton')).toBeTruthy();
+    expect(screen.queryByTestId('mobile-stock-AAPL')).toBeNull();
+    expect(
+      screen.queryByTestId('market-token-selector-search-tab-stocks'),
+    ).toBeNull();
   });
 
   it('asks the stock hook for search-only results', () => {
@@ -250,4 +415,99 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
       searchOnly: true,
     });
   });
+
+  it('loads the next stock page as All scrolls when stocks are the only section', () => {
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...mobileStockResultBase,
+      canLoadMore: true,
+    });
+    const { rerender } = render(
+      <MobileMarketTokenSelectorSearchResults
+        query="stock"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('scroll-to-end'));
+    expect(mockLoadMore).toHaveBeenCalledTimes(1);
+
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...mobileStockResultBase,
+      canLoadMore: true,
+      isLoadMoreError: true,
+    });
+    rerender(
+      <MobileMarketTokenSelectorSearchResults
+        query="stock"
+        marketItems={[]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+    fireEvent.click(
+      screen.getByTestId(
+        'mobile-market-token-selector-stock-search-load-more-retry',
+      ),
+    );
+    expect(mockLoadMore).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not page stocks from All when tokens share the tab', () => {
+    mockUseMarketStockSelectorList.mockReturnValue({
+      ...mobileStockResultBase,
+      canLoadMore: true,
+    });
+    render(
+      <MobileMarketTokenSelectorSearchResults
+        query="aapl"
+        marketItems={[marketItem]}
+        onStockPress={mockStockPress}
+        onMarketPress={mockMarketPress}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('scroll-to-end'));
+    expect(mockLoadMore).not.toHaveBeenCalled();
+  });
+});
+
+describe('selector search keyboard behavior', () => {
+  afterEach(() => {
+    mockIsNative = false;
+  });
+
+  it('keeps the focused web search input active when results scroll', () => {
+    mockIsNative = false;
+    render(
+      <>
+        <WebTextInput testID="search-input" />
+        <MobileMarketSearchAllList sections={[]} />
+      </>,
+    );
+    const input = screen.getByTestId('search-input');
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    fireEvent.scroll(screen.getByTestId('search-scroll'));
+    expect(document.activeElement).toBe(input);
+  });
+
+  it.each([false, true])(
+    'uses the correct scroll policy for native=%s in both result lists',
+    (isNative) => {
+      mockIsNative = isNative;
+      render(
+        <>
+          <MobileMarketSearchAllList sections={[]} />
+          <MobileMarketSearchTokenList entries={[]} onPress={jest.fn()} />
+        </>,
+      );
+      for (const testId of ['search-scroll-mode', 'search-list-mode']) {
+        expect(
+          screen.getByTestId(testId).getAttribute('data-keyboard-mode'),
+        ).toBe(isNative ? 'on-drag' : 'none');
+      }
+    },
+  );
 });

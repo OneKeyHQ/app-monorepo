@@ -114,10 +114,11 @@ jobs:
           echo "ANDROID_AVD_HOME=$AVD_DIR" >> "$GITHUB_ENV"
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Restore cached APK
         id: apk-cache
@@ -250,6 +251,10 @@ jobs:
             echo "- Open: \`react-native-harness-android.log\`, \`logcat-tail.txt\`, \`app-logcat.txt\`, and \`react-native-unittest-ai-prompt.md\`"
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice title=CI diagnostics::Download ci-ai-rn-unittest-diagnostics and inspect react-native-harness-android.log"
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   notify-failure:
     name: Notify on Failure

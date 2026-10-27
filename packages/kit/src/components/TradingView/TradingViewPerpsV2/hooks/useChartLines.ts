@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 
 import { usePerpsChartLines } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsChartLines';
 
@@ -23,10 +23,12 @@ interface IUseChartLinesParams {
   szDecimals: number;
   userAddress: string | undefined | null;
   webRef: React.RefObject<IWebViewRef | null>;
+  chartInstanceKey?: string;
   isReady: boolean; // Whether iframe is ready to receive messages
 }
 
 interface IUseChartLinesReturn {
+  hasAccountLinesRef: React.RefObject<boolean>;
   sendLinesSync: () => void;
   sendLinesClear: () => void;
 }
@@ -118,8 +120,15 @@ export function useChartLines({
   userAddress,
   webRef,
   isReady,
+  chartInstanceKey,
 }: IUseChartLinesParams): IUseChartLinesReturn {
   const currentLines = usePerpsChartLines({ symbol, szDecimals, userAddress });
+
+  // Sending CLEAR is not proof that the asynchronous chart has removed lines.
+  const hasAccountLinesRef = useRef(false);
+  useLayoutEffect(() => {
+    hasAccountLinesRef.current = false;
+  }, [chartInstanceKey]);
 
   // Store previous lines for diff calculation
   const prevLinesRef = useRef<Map<string, ITVLine>>(new Map());
@@ -164,6 +173,7 @@ export function useChartLines({
       },
     });
 
+    if (currentLines.length > 0) hasAccountLinesRef.current = true;
     prevLinesRef.current = new Map(currentLines.map((line) => [line.id, line]));
   }, [webRef, isReady, symbol, currentLines]);
 
@@ -195,6 +205,10 @@ export function useChartLines({
         type: MESSAGE_TYPES.PERPS_TV_LINES_PATCH,
         payload: patch,
       });
+
+      if (patch.add.length > 0 || patch.update.length > 0) {
+        hasAccountLinesRef.current = true;
+      }
 
       // Update prev lines reference
       const newPrevLines = new Map(prevLinesRef.current);
@@ -306,6 +320,15 @@ export function useChartLines({
       // Clear pending updates
       clearPendingPnlUpdates();
       prevLinesRef.current.clear();
+      // Pending delayed syncs would redraw the previous account's lines.
+      if (symbolChangeTimeoutRef.current) {
+        clearTimeout(symbolChangeTimeoutRef.current);
+        symbolChangeTimeoutRef.current = null;
+      }
+      if (reloadSyncTimeoutRef.current) {
+        clearTimeout(reloadSyncTimeoutRef.current);
+        reloadSyncTimeoutRef.current = null;
+      }
 
       if (isReady) {
         // Clear old lines first
@@ -401,6 +424,7 @@ export function useChartLines({
   ]);
 
   return {
+    hasAccountLinesRef,
     sendLinesSync,
     sendLinesClear,
   };

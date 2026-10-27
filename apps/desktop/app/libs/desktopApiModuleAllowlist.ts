@@ -1,86 +1,41 @@
-export const DESKTOP_API_ALLOWED_MODULES = Object.freeze([
-  'system',
-  'security',
-  'storage',
-  'webview',
-  'notification',
-  'dev',
-  'inAppPurchase',
-  'bluetooth',
-  'appUpdate',
-  'bundleUpdate',
-  'cloudKit',
-  'keychain',
-  'sniRequest',
-  'oauthLocalServer',
-  'appleAuth',
-  'firmwareArtifact',
-] as const);
+export {
+  DESKTOP_API_ALLOWED_MODULES,
+  isDesktopApiMethodAllowed,
+  isDesktopApiModuleAllowed,
+} from '@onekeyhq/kit-bg/src/desktopApis/desktopApiMethodPolicy';
 
-const DESKTOP_API_ALLOWED_METHODS_BY_MODULE: Readonly<
-  Partial<
-    Record<(typeof DESKTOP_API_ALLOWED_MODULES)[number], readonly string[]>
-  >
-> = Object.freeze({
-  inAppPurchase: Object.freeze([
-    'testDelay',
-    'testError',
-    'getProducts',
-    'canMakePayments',
-    'revenueCatIsAvailable',
-    'revenueCatConfigure',
-    'revenueCatSupportsVerifiedIdentity',
-    'revenueCatLogInWithVerifiedSession',
-    'revenueCatLogOut',
-    'revenueCatGetAppUserId',
-    'revenueCatGetCustomerInfo',
-    'revenueCatGetOfferings',
-    'revenueCatPurchasePackage',
-    'revenueCatRestorePurchases',
-    'revenueCatCheckTrialOrIntroductoryPriceEligibility',
-    'revenueCatSetAttributes',
-  ]),
-  firmwareArtifact: Object.freeze([
-    'getCapabilities',
-    'download',
-    'cancelDownloads',
-    'materialize',
-    'open',
-    'read',
-    'close',
-    'createLease',
-    'retain',
-    'releaseLease',
-    'sweepOrphans',
-  ]),
-});
-
-const DESKTOP_API_DISALLOWED_METHODS = new Set([
-  'constructor',
-  'toString',
-  'valueOf',
-  'hasOwnProperty',
-]);
-
-export const isDesktopApiModuleAllowed = (module: string): boolean =>
-  DESKTOP_API_ALLOWED_MODULES.includes(
-    module as (typeof DESKTOP_API_ALLOWED_MODULES)[number],
-  );
-
-export const isDesktopApiMethodAllowed = (
-  module: string,
-  method: unknown,
-): boolean => {
-  if (
-    typeof method !== 'string' ||
-    method.startsWith('_') ||
-    DESKTOP_API_DISALLOWED_METHODS.has(method)
-  ) {
+export function isTrustedMainWindowUrl(
+  selectedAppShellUrl: string,
+  frameUrl: string,
+  sameDocumentRouteUrl?: string,
+  isDevServer = false,
+): boolean {
+  try {
+    const selected = new URL(selectedAppShellUrl);
+    const frame = new URL(frameUrl);
+    selected.hash = '';
+    frame.hash = '';
+    if (selected.href === frame.href) return true;
+    if (!sameDocumentRouteUrl) return false;
+    const route = new URL(sameDocumentRouteUrl);
+    route.hash = '';
+    // Only a route observed in the trusted document can survive a dev reload.
+    if (
+      isDevServer &&
+      (selected.protocol === 'http:' || selected.protocol === 'https:')
+    ) {
+      if (
+        !['localhost', '127.0.0.1', '[::1]'].includes(selected.hostname) ||
+        selected.origin !== frame.origin ||
+        selected.searchParams.get('render') !==
+          frame.searchParams.get('render') ||
+        /\.html?$/i.test(decodeURIComponent(frame.pathname))
+      ) {
+        return false;
+      }
+    }
+    return route.href === frame.href;
+  } catch {
     return false;
   }
-  const allowedMethods =
-    DESKTOP_API_ALLOWED_METHODS_BY_MODULE[
-      module as (typeof DESKTOP_API_ALLOWED_MODULES)[number]
-    ];
-  return allowedMethods ? allowedMethods.includes(method) : true;
-};
+}

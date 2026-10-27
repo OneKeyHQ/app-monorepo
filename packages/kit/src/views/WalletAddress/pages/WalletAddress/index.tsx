@@ -330,6 +330,7 @@ export function SingleWalletAddressListItem({
               .includes(network.id) ? (
               <AddressTypeSelector
                 placement="bottom-start"
+                whenCollapsed="hide"
                 walletId={walletId ?? ''}
                 networkId={network.id}
                 indexedAccountId={indexedAccountId ?? ''}

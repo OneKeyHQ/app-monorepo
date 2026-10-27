@@ -1,11 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
   Button,
-  Icon,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -13,9 +13,10 @@ import {
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { EarnActionIcon } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
@@ -28,39 +29,18 @@ import type {
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
+import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
+import { EarnHoldingSections } from '../../EarnPositions/mobile/EarnHoldingSections';
 
-import type { GestureResponderEvent } from 'react-native';
+import { TransactionLink } from './TransactionLink';
+
+import type { IEarnHoldingRedeem } from '../../EarnPositions/mobile/EarnHoldingSections';
+import type { IEarnPositionView } from '../../EarnPositions/mobile/earnPositionModel';
 
 type IMobilePortfolio = NonNullable<IStakeEarnDetail['mobilePortfolio']>;
 type IPortfolioGroup = IMobilePortfolio['groups'][number];
 type IPortfolioRow = IPortfolioGroup['items'][number];
-
-function TransactionLink({
-  networkId,
-  txHash,
-}: {
-  networkId: string;
-  txHash: string;
-}) {
-  // The row itself opens the position details, so the hash must not bubble.
-  const onPress = useCallback(
-    (event: GestureResponderEvent) => {
-      event.stopPropagation();
-      void openTransactionDetailsUrl({ networkId, txid: txHash });
-    },
-    [networkId, txHash],
-  );
-
-  return (
-    <XStack ai="center" gap="$1" cursor="pointer" onPress={onPress}>
-      <SizableText size="$bodySm" color="$textSubdued">
-        {`${txHash.slice(0, 6)}…${txHash.slice(-4)}`}
-      </SizableText>
-      <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
-    </XStack>
-  );
-}
 
 // The server speaks the full EBadgeColor set; 'danger' is the one value the
 // Badge component does not have a variant for.
@@ -167,6 +147,87 @@ function PortfolioRow({
   );
 }
 
+/**
+ * My investment over the holding's card (product 10-14): the balance and
+ * the 24h earnings first, then Spark's Effective APY, which the positions
+ * carry on the effective deposit. The APY cell that repeated the headline
+ * is gone.
+ */
+function HoldingInvestment({ holding }: { holding: IEarnPositionView }) {
+  const intl = useIntl();
+  const currencyInfo = useCurrency();
+  const apy = holding.effectiveDeposit?.apy;
+  const earnings24h = new BigNumber(
+    holding.source.earn.investment.earnings24hFiatValue || '0',
+  );
+  return (
+    <YStack gap="$2">
+      <SizableText size="$headingMd" color="$text">
+        {intl.formatMessage({
+          id: ETranslations.wallet_defi_position_module_investment,
+        })}
+      </SizableText>
+      <XStack flexWrap="wrap" m="$-3">
+        <GridItem
+          title={{
+            text: intl.formatMessage({ id: ETranslations.global_balance }),
+          }}
+          descriptionComponent={
+            // As the card prints it: a holding no price is known for reads
+            // "price unavailable", never a zero that says it is empty.
+            <ProtocolValueCell
+              value={holding.value.value}
+              currencySymbol={currencyInfo.symbol}
+              priceUnavailableLabel={intl.formatMessage({
+                id: ETranslations.wallet_price_unavailable,
+              })}
+              partialPriceUnavailableLabel={intl.formatMessage({
+                id: ETranslations.wallet_partial_price_unavailable,
+              })}
+              isUnavailable={!holding.value.hasAvailableValue}
+              showPriceUnavailableTooltip={
+                holding.value.hasAvailableValue &&
+                holding.value.hasUnavailableValue
+              }
+              size="$bodyLgMedium"
+              justifyContent="flex-start"
+              numberOfLines={1}
+            />
+          }
+        />
+        <GridItem
+          title={{
+            text: intl.formatMessage({ id: ETranslations.earn_24h_earnings }),
+          }}
+          descriptionComponent={
+            <NumberSizeableTextWrapper
+              hideValue
+              size="$bodyLgMedium"
+              color={earnings24h.gt(0) ? '$textSuccess' : '$text'}
+              formatter="value"
+              formatterOptions={{
+                currency: currencyInfo.symbol,
+                showPlusMinusSigns: earnings24h.gt(0),
+              }}
+              numberOfLines={1}
+            >
+              {earnings24h.toFixed()}
+            </NumberSizeableTextWrapper>
+          }
+        />
+        {apy ? (
+          <GridItem
+            title={apy.title}
+            description={apy.description}
+            tooltip={apy.tooltip}
+            tooltipTrigger="title"
+          />
+        ) : null}
+      </XStack>
+    </YStack>
+  );
+}
+
 export function PortfolioTab({
   portfolio,
   networkId,
@@ -177,6 +238,9 @@ export function PortfolioTab({
   tokenInfo,
   onActionSuccess,
   onRedeem,
+  canRedeem,
+  holding,
+  holdingRedeem,
 }: {
   portfolio: IMobilePortfolio;
   networkId: string;
@@ -191,6 +255,16 @@ export function PortfolioTab({
   // The page owns the Redeem destination (ManagePosition, or the position
   // picker for per-position providers) so the row and the footer cannot drift.
   onRedeem?: () => void;
+  // Whether the active row offers Redeem; the page decides, since a provider
+  // that hides its wide-layout actions (Native) sends no redeem capability.
+  canRedeem?: boolean;
+  // The holding as the My portfolio card shows it (product 10-14). When
+  // known, Balance and Rewards are that card's panels instead of the
+  // server's groups, so the two pages cannot disagree.
+  holding?: IEarnPositionView;
+  // The deposit row's Redeem: the page footer's, with its label and state
+  // (product 10-15), so a provider that redeems per position gets its picker.
+  holdingRedeem?: IEarnHoldingRedeem;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -224,27 +298,41 @@ export function PortfolioTab({
     });
   }, [navigation, accountId, networkId, symbol, provider, vault]);
 
+  const pendingTxsValue = useMemo(
+    () => ({
+      onRefresh: async () => {
+        onActionSuccess?.();
+      },
+    }),
+    [onActionSuccess],
+  );
+
   return (
     <YStack gap="$6">
-      {portfolio.summary?.items?.length ? (
+      {holding ? <HoldingInvestment holding={holding} /> : null}
+      {!holding && portfolio.summary?.items?.length ? (
         <YStack gap="$2">
           <SizableText size="$headingMd" color="$text">
             {intl.formatMessage({
               id: ETranslations.wallet_defi_position_module_investment,
             })}
           </SizableText>
-          {/* GridItem is already two-per-row on phone; the server sends exactly
-              the two cells the design shows, 24h earnings then APY. They are
-              the wide layout's cells reused as-is, so the tooltip and the popup
-              trigger they carry are deliberately not forwarded: the phone
-              design shows plain figures, and the APY breakdown already opens
-              from the headline above (OK-62393, OK-62391). */}
+          {/* GridItem is already two-per-row on phone; the server sends the
+              cells the design shows (24h earnings then APY, or Spark's
+              effective deposits, effective APY and 24h earnings). The server
+              strips the tooltips of the wide-layout cells it reuses, so a
+              tooltip here is one made for the phone and opens from the title,
+              marked with the dotted rule. The popup trigger a cell carries is
+              still not forwarded: the APY breakdown opens from the headline
+              above (OK-62393, OK-62391). */}
           <XStack flexWrap="wrap" m="$-3">
             {portfolio.summary.items.map((cell, index) => (
               <GridItem
                 key={cell.title?.text || `summary-${index}`}
                 title={cell.title}
                 description={cell.description}
+                tooltip={cell.tooltip}
+                tooltipTrigger="title"
                 type={cell.type}
               />
             ))}
@@ -252,37 +340,44 @@ export function PortfolioTab({
         </YStack>
       ) : null}
 
-      {portfolio.groups.map((group) => (
-        <YStack
-          key={group.key}
-          gap="$3"
-          bg="$bgSubdued"
-          borderRadius="$3"
-          p="$4"
-        >
-          <EarnText text={group.title} size="$bodyMd" color="$textSubdued" />
-          {group.items.map((item, index) => (
-            <PortfolioRow
-              key={`${group.key}-${index}`}
-              item={item}
-              networkId={networkId}
-              protocolInfo={protocolInfo}
-              tokenInfo={tokenInfo}
-              onPress={
-                item.status === 'distributed' && accountId
-                  ? openPayoutHistory
-                  : undefined
-              }
-              onRedeem={
-                item.redeemable && portfolio.capabilities.redeem
-                  ? onRedeem
-                  : undefined
-              }
-              onActionSuccess={onActionSuccess}
-            />
-          ))}
-        </YStack>
-      ))}
+      {holding ? (
+        <PortfolioPendingTxsProvider value={pendingTxsValue}>
+          <EarnHoldingSections position={holding} redeem={holdingRedeem} />
+        </PortfolioPendingTxsProvider>
+      ) : (
+        portfolio.groups.map((group) => (
+          <YStack
+            key={group.key}
+            gap="$3"
+            bg="$bgSubdued"
+            borderRadius="$3"
+            p="$4"
+          >
+            <EarnText text={group.title} size="$bodyMd" color="$textSubdued" />
+            {group.items.map((item, index) => (
+              <PortfolioRow
+                key={`${group.key}-${index}`}
+                item={item}
+                networkId={networkId}
+                protocolInfo={protocolInfo}
+                tokenInfo={tokenInfo}
+                onPress={
+                  item.status === 'distributed' && accountId
+                    ? openPayoutHistory
+                    : undefined
+                }
+                onRedeem={
+                  item.redeemable &&
+                  (canRedeem ?? portfolio.capabilities.redeem)
+                    ? onRedeem
+                    : undefined
+                }
+                onActionSuccess={onActionSuccess}
+              />
+            ))}
+          </YStack>
+        ))
+      )}
     </YStack>
   );
 }

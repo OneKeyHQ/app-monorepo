@@ -78,6 +78,7 @@ export function MDHeader({
   customHeaderRightItems,
   renderCustomHeaderRightItems,
   headerPx = '$5',
+  disableHomeHeaderGlass = false,
   pageScrollPosition,
 }: {
   tabRoute: ETabRoutes;
@@ -92,13 +93,16 @@ export function MDHeader({
     fixedItems: ReactNode;
   }) => ReactNode;
   headerPx?: string;
+  disableHomeHeaderGlass?: boolean;
   pageScrollPosition?: SharedValue<number>;
 }) {
   const { top } = useSafeAreaInsets();
-  // iOS 26 only: when the search bar + buttons render as Liquid Glass capsules,
-  // tighten the gap between them. Off iOS 26 this is false, so the row keeps its
-  // original "$6" spacing (no change on other platforms / iOS < 26).
-  const headerGlassActive = isLiquidGlassAvailable();
+  const isHomeTab =
+    tabRoute === ETabRoutes.Home &&
+    sceneName !== EAccountSelectorSceneName.homeUrlAccount;
+  const usePlainHomeHeader = isHomeTab && disableHomeHeaderGlass;
+  // Preserve the iOS 26 header spacing when its fixed Home overlay uses plain pills.
+  const headerGlassActive = isLiquidGlassAvailable() && !usePlainHomeHeader;
 
   const rightActions = useMemo(() => {
     return sceneName === EAccountSelectorSceneName.homeUrlAccount ? (
@@ -132,10 +136,6 @@ export function MDHeader({
       tabRoute === ETabRoutes.DeviceManagement
     );
   }, [tabRoute]);
-  const isHomeTab =
-    tabRoute === ETabRoutes.Home &&
-    sceneName !== EAccountSelectorSceneName.homeUrlAccount;
-
   return (
     <>
       <Page.Header headerShown={false} />
@@ -148,7 +148,7 @@ export function MDHeader({
                 alignItems="center"
                 px={headerPx}
                 h={56}
-                gap={headerGlassActive ? '$3' : '$6'}
+                gap={headerGlassActive || usePlainHomeHeader ? '$3' : '$6'}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
                   : {})}
@@ -156,7 +156,7 @@ export function MDHeader({
                 <XStack flex={1}>
                   <LegacyUniversalSearchInput
                     size="medium"
-                    glass
+                    glass={!usePlainHomeHeader}
                     tabRoute={tabRoute}
                     containerProps={{
                       width: '100%',
@@ -169,10 +169,24 @@ export function MDHeader({
                     Glass capsule (this in-page header hides the native nav bar,
                     so they can't get the system bar-button glass). Off iOS 26
                     this is a passthrough — the two buttons stay as before. */}
-                <GlassButtonCapsule>
-                  <HeaderNotificationIconButton testID="header-right-notification" />
-                  <LazyMoreActionButton />
-                </GlassButtonCapsule>
+                {usePlainHomeHeader ? (
+                  <XStack
+                    h={40}
+                    alignItems="center"
+                    px="$2"
+                    gap="$3"
+                    bg="$bgStrong"
+                    borderRadius="$full"
+                  >
+                    <HeaderNotificationIconButton testID="header-right-notification" />
+                    <LazyMoreActionButton />
+                  </XStack>
+                ) : (
+                  <GlassButtonCapsule>
+                    <HeaderNotificationIconButton testID="header-right-notification" />
+                    <LazyMoreActionButton />
+                  </GlassButtonCapsule>
+                )}
               </XStack>
               {/* Row 2: Wallet connection (account + network + address) */}
               <HomeWalletConnectionRow

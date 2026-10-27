@@ -113,8 +113,8 @@ export interface IHardwareDeviceProps {
   shadow?: boolean;
   /**
    * The device's finish, as its serial number names it (see
-   * shared/utils/hardwareDeviceColors). Only the Pro 2 comes in more
-   * than one; the other models take it and ignore it. Omitted or unknown:
+   * shared/utils/hardwareDeviceColors). Classic 1s / Pure support transparent
+   * shells, and Pro 2 supports its colored shells. Omitted or unknown:
    * the model's default, black.
    */
   color?: IHardwareDeviceColor;
@@ -171,6 +171,12 @@ export function HardwareDevice({
 }: IHardwareDeviceProps) {
   const Replica = deviceType ? REPLICAS[deviceType] : undefined;
   if (!Replica) return null;
+  const replicaColor =
+    color === 'Transparent' &&
+    deviceType !== 'classic1s' &&
+    deviceType !== 'classicpure'
+      ? undefined
+      : color;
   const replica = (
     <Replica
       width={width}
@@ -178,7 +184,7 @@ export function HardwareDevice({
       instantEntry={instantEntry}
       paused={paused}
       warmScenes={warmScenes}
-      color={color}
+      color={replicaColor}
     />
   );
   return shadow ? <View style={styles.shadow}>{replica}</View> : replica;

@@ -1,4 +1,4 @@
-// Inter fonts are not used — Tamagui uses Roobert. The JS keys (e.g. "Inter_400Regular")
+// Inter fonts are not used — Tamagui uses the brand sans slot. The JS keys (e.g. "Inter_400Regular")
 // also don't match the font's internal PostScript names (e.g. "Inter-Regular"), so the
 // useFonts registration was ineffective anyway.
 // import {

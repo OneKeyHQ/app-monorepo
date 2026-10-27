@@ -15,7 +15,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
-import type { IOneKeyIdAuthFailureStep } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type {
+  IOneKeyIdAuthFailureStep,
+  IOneKeyIdAuthFailureTrigger,
+} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import {
   isSupabaseAuthError,
   isSupabaseAuthTransportError,
@@ -100,6 +103,7 @@ export function showOneKeyIdLoginFailedToast({
           scrubSensitiveErrorMessageText(err?.className || 'unknown')
         }`,
         error,
+        { trigger: 'interactive' },
       );
     }
     return;
@@ -172,10 +176,23 @@ export function getSanitizedAuthErrorText(error: unknown): string {
 // failure classes into one string). Deliberately does NOT touch the
 // onekeyIdLoginFailedToast event or its dedupe mark: that event strictly
 // means "the fallback toast was shown" and keeps firing on its own terms.
+// Skipping an already-logged error object only covers rethrows; repeats of
+// the same failure with new error objects are limited by the logger scene.
+// Write `reason` as `<code-authored location>: <details>`: only the text
+// before the first ": " is sent to the server (see getOneKeyIdAuthFailureSite),
+// so never put error text or user input in front of it.
 export function logOneKeyIdLoginFailureReason(
   reason: string,
   error?: unknown,
-  step?: IOneKeyIdAuthFailureStep,
+  {
+    step,
+    trigger,
+  }: {
+    step?: IOneKeyIdAuthFailureStep;
+    // Leave unset only when the code is shared by user actions and passive
+    // checks alike.
+    trigger?: IOneKeyIdAuthFailureTrigger;
+  } = {},
 ) {
   if (
     error &&
@@ -184,11 +201,14 @@ export function logOneKeyIdLoginFailureReason(
   ) {
     return;
   }
+  // No console output here: the logger's local error entry already prints in
+  // dev, and only for occurrences the repeat limiter lets through.
   const safeReason = scrubSensitiveErrorMessageText(reason);
-  console.error(safeReason);
   defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
     reason: safeReason,
     step,
+    trigger,
+    error,
   });
   if (error && typeof error === 'object') {
     oneKeyIdFailureReasonLoggedErrors.add(error);
@@ -312,7 +332,8 @@ export function noteOAuthSignInOutcome({
 
 // Standard shape for "hide the raw cause from the UI, keep it in
 // diagnostics": server-log the stable English reason, then throw a localized
-// error for toasts and dialogs.
+// error for toasts and dialogs. The localized error always ends a flow the
+// user started, so the failure counts as interactive.
 export function throwLocalizedOneKeyIdLoginError({
   intl,
   reason,
@@ -330,6 +351,9 @@ export function throwLocalizedOneKeyIdLoginError({
     message: intl.formatMessage({ id: key }, values),
     key,
   });
-  logOneKeyIdLoginFailureReason(reason, error, step);
+  logOneKeyIdLoginFailureReason(reason, error, {
+    step,
+    trigger: 'interactive',
+  });
   throw error;
 }

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { ITradingViewNativeTradeMarksComponent } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import type { ITradingViewNativeTradeMark } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
@@ -26,7 +28,14 @@ import {
   ESubscriptionType,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { getFillDirectionDisplayInfo } from '../components/OrderInfoPanel/utils';
+
+function getFillId(fill: IFill) {
+  return `${fill.coin}:${fill.tid ?? fill.oid}:${fill.time}`;
+}
+
 export function usePerpsNativeChartMarks(): ITradingViewNativeTradeMarksComponent[] {
+  const intl = useIntl();
   const [instrument] = useActiveTradeInstrumentAtom();
   const [account] = usePerpsActiveAccountAtom();
   const [{ showTradeMarks }] = usePerpsCustomSettingsAtom();
@@ -54,7 +63,7 @@ export function usePerpsNativeChartMarks(): ITradingViewNativeTradeMarksComponen
   ]);
   const [result, setResult] = useState<{
     request: typeof request;
-    marks: ITradingViewNativeTradeMark[];
+    fills: IFill[];
   }>();
 
   useEffect(() => {
@@ -63,29 +72,20 @@ export function usePerpsNativeChartMarks(): ITradingViewNativeTradeMarksComponen
     let disposed = false;
     const mergeFills = (fills: IFill[]) => {
       if (disposed) return;
-      const marks = fills
-        .filter(
-          (fill) => request.coins.has(fill.coin) && Number.isFinite(fill.time),
-        )
-        .map(
-          (fill): ITradingViewNativeTradeMark => ({
-            id: `${fill.coin}:${fill.tid ?? fill.oid}:${fill.time}`,
-            label: fill.side === 'B' ? 'B' : 'S',
-            text: `${fill.dir}\n${fill.sz} @ ${fill.px}`,
-            time: Math.floor(fill.time / 1000),
-          }),
-        );
+      const currentFills = fills.filter(
+        (fill) => request.coins.has(fill.coin) && Number.isFinite(fill.time),
+      );
       setResult((previous) => {
         const merged = new Map(
-          (previous?.request === request ? previous.marks : []).map((mark) => [
-            mark.id,
-            mark,
+          (previous?.request === request ? previous.fills : []).map((fill) => [
+            getFillId(fill),
+            fill,
           ]),
         );
-        marks.forEach((mark) => merged.set(mark.id, mark));
+        currentFills.forEach((fill) => merged.set(getFillId(fill), fill));
         return {
           request,
-          marks: Array.from(merged.values())
+          fills: Array.from(merged.values())
             .toSorted((a, b) => a.time - b.time)
             .slice(-2000),
         };
@@ -137,11 +137,26 @@ export function usePerpsNativeChartMarks(): ITradingViewNativeTradeMarksComponen
       !accountAddress ||
       showTradeMarks === false ||
       result?.request !== request ||
-      !result.marks.length
+      !result.fills.length
     )
       return [];
     return [
-      { id: 'perps.fills', type: 'tradeMarks', props: { marks: result.marks } },
+      {
+        id: 'perps.fills',
+        type: 'tradeMarks',
+        props: {
+          marks: result.fills.map(
+            (fill): ITradingViewNativeTradeMark => ({
+              id: getFillId(fill),
+              label: fill.side === 'B' ? 'B' : 'S',
+              text: `${getFillDirectionDisplayInfo({ fill, intl }).text}\n${
+                fill.sz
+              } @ ${fill.px}`,
+              time: Math.floor(fill.time / 1000),
+            }),
+          ),
+        },
+      },
     ];
-  }, [accountAddress, showTradeMarks, request, result]);
+  }, [accountAddress, showTradeMarks, request, result, intl]);
 }

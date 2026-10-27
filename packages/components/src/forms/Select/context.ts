@@ -1,10 +1,9 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { createContext } from 'react';
 
-import type { SheetProps } from '@onekeyhq/components/src/shared/tamagui';
-
 import type { ISelectItem, ISelectSection } from './type';
 import type { IPopoverProps } from '../../actions';
+import type { ISheetOptions } from '../../hocs/NativeSheetPresentation/types';
 
 export type IContextType = {
   isOpen?: boolean;
@@ -21,12 +20,11 @@ export type IContextType = {
   sections?: ISelectSection[];
   refreshState?: number;
   changeOpenStatus?: Dispatch<SetStateAction<boolean>>;
-  sheetProps?: SheetProps;
+  sheetProps?: ISheetOptions;
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
   selectedItemRef: MutableRefObject<ISelectItem>;
   offset?: IPopoverProps['offset'];
   usingPercentSnapPoints?: boolean;
-  nativeSheet?: IPopoverProps['nativeSheet'];
 };
 export const SelectContext = createContext<IContextType>({} as IContextType);

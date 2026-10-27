@@ -13,6 +13,7 @@ import {
   useKeyboardEvent,
 } from '../../hooks/useKeyboard';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
+import { isNativeTabBarOverlayingContent } from '../Navigation/BottomTabs/tabBarOverlay';
 import { rootNavigationRef } from '../Navigation/Navigator/NavigationContainer';
 
 import { BottomTabBarHeightContext } from './BottomTabBarHeightContext';
@@ -171,7 +172,7 @@ export const useTabBarHeight = () => {
   return bottom || 0;
 };
 
-export const useScrollContentTabBarOffset = platformEnv.isNativeIOS
+export const useScrollContentTabBarOffset = isNativeTabBarOverlayingContent
   ? () => {
       const nativeTabBarHeight = useNativeTabBarHeight();
       return nativeTabBarHeight ?? 0;

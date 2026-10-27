@@ -327,6 +327,7 @@ function TokenDetailsOverview(props: IProps) {
             // The switch exists only under All Networks (the overview tab
             // itself only renders there).
             switchEntry: isAllNetworks ? 'token' : undefined,
+            allowAddressTypeMenu: true,
             source: 'tokenDetails',
             isAllNetworksMode: isAllNetworks,
             aggregateToken: tokenInfo,
@@ -386,7 +387,7 @@ function TokenDetailsOverview(props: IProps) {
         networkId: member.networkId,
       }),
     ]);
-    await pushSwapFromTokenDetails({
+    pushSwapFromTokenDetails({
       navigation,
       token: {
         address: member.address,

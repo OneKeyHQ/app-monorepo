@@ -22,6 +22,7 @@ import {
   WC_DAPP_SIDE_METHODS_EVM,
   implToNamespaceMap,
 } from '@onekeyhq/shared/src/walletConnect/constant';
+import { getWalletConnectAttemptBaseline } from '@onekeyhq/shared/src/walletConnect/diagnostics';
 import type { IWalletConnectDappConnectionProgress } from '@onekeyhq/shared/src/walletConnect/diagnostics';
 import type {
   IWalletConnectConnectParams,
@@ -483,15 +484,8 @@ export class WalletConnectDappSide {
     const attempt: IWalletConnectConnectAttempt = {
       attemptId: generation,
       // Include an in-flight reconnect, but exclude previous interactions.
-      connectionAttemptsBeforeStart: Math.max(
-        0,
-        initialConnection.connectionAttempts -
-          (initialConnection.connecting ||
-          initialConnection.providerConnecting ||
-          initialConnection.relaySwitchPending
-            ? 1
-            : 0),
-      ),
+      connectionAttemptsBeforeStart:
+        getWalletConnectAttemptBaseline(initialConnection),
       connectionSuccessesBeforeStart: initialConnection.connectionSuccesses,
     };
     this.activeConnectAttempt = attempt;

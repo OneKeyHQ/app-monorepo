@@ -153,6 +153,8 @@ const SwapProTradeInfoGroup = ({
             {!!inputToken && enableAddressTypeSelector ? (
               <AddressTypeSelector
                 refreshOnOpen
+                whenCollapsed="hide"
+                revalidateCollapseOnFocus
                 placement="bottom-start"
                 networkId={inputToken.networkId ?? ''}
                 indexedAccountId={activeAccount?.indexedAccount?.id ?? ''}

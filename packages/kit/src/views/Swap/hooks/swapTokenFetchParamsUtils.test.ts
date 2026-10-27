@@ -1,7 +1,10 @@
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
-import { buildSwapTokenFetchParams } from './swapTokenFetchParamsUtils';
+import {
+  buildSwapTokenFetchParams,
+  resolveSwapTokenSearchNetworkId,
+} from './swapTokenFetchParamsUtils';
 
 function createAllNetworkAccountInfo(
   overrides: Partial<IAllNetworkAccountInfo> = {},
@@ -23,6 +26,81 @@ function createAllNetworkAccountInfo(
 }
 
 describe('buildSwapTokenFetchParams', () => {
+  it('passes the supported chain plan only to non-Stock all-network searches', () => {
+    const searchNetworks = [
+      { networkId: 'evm--1', lpToken: false },
+      { networkId: 'sol--101' },
+    ];
+    const base = {
+      currentSelectNetworkId: 'onekeyall--0',
+      keywords: 'USDC',
+      swapType: ESwapTabSwitchType.SWAP,
+      searchNetworks,
+      shouldUseCurrentAccountAddress: false,
+    };
+    expect(buildSwapTokenFetchParams(base).searchNetworks).toEqual(
+      searchNetworks,
+    );
+    expect(
+      buildSwapTokenFetchParams({ ...base, keywords: '' }),
+    ).not.toHaveProperty('searchNetworks');
+    expect(
+      buildSwapTokenFetchParams({ ...base, currentSelectNetworkId: 'evm--1' }),
+    ).not.toHaveProperty('searchNetworks');
+    expect(
+      buildSwapTokenFetchParams({
+        ...base,
+        swapType: ESwapTabSwitchType.STOCK,
+      }),
+    ).not.toHaveProperty('searchNetworks');
+  });
+  it('preserves the selected chain lookup when contract search expands to all networks', () => {
+    expect(
+      buildSwapTokenFetchParams({
+        currentSelectNetworkId: 'evm--56',
+        searchNetworkId: 'onekeyall--0',
+        keywords: '0x55d398326f99059ff775485246999027b3197955',
+        swapType: ESwapTabSwitchType.SWAP,
+        shouldUseCurrentAccountAddress: false,
+      }),
+    ).toMatchObject({
+      networkId: 'onekeyall--0',
+      contractSearchNetworkId: 'evm--56',
+      onlySwapTokens: true,
+    });
+  });
+
+  it.each([
+    {
+      selectedNetworkId: 'onekeyall--0',
+      keywords: '0x55d398326f99059ff775485246999027b3197955',
+      swapType: ESwapTabSwitchType.SWAP,
+    },
+    {
+      selectedNetworkId: 'evm--56',
+      keywords: 'USDT',
+      swapType: ESwapTabSwitchType.SWAP,
+    },
+    {
+      selectedNetworkId: 'evm--56',
+      keywords: '0x55d398326f99059ff775485246999027b3197955',
+      swapType: ESwapTabSwitchType.STOCK,
+    },
+  ])(
+    'does not add a chain lookup for $selectedNetworkId / $keywords / $swapType',
+    ({ selectedNetworkId, keywords, swapType }) => {
+      expect(
+        buildSwapTokenFetchParams({
+          currentSelectNetworkId: selectedNetworkId,
+          searchNetworkId: 'onekeyall--0',
+          keywords,
+          swapType,
+          shouldUseCurrentAccountAddress: false,
+        }),
+      ).not.toHaveProperty('contractSearchNetworkId');
+    },
+  );
+
   it('keeps matched account params for Stock token lists', () => {
     expect(
       buildSwapTokenFetchParams({
@@ -135,5 +213,70 @@ describe('buildSwapTokenFetchParams', () => {
         shouldUseCurrentAccountAddress: false,
       }),
     ).not.toHaveProperty('onlySwapTokens');
+  });
+});
+
+describe('resolveSwapTokenSearchNetworkId', () => {
+  const allNetworksId = 'onekeyall--0';
+
+  it('searches all networks for a pasted contract address', () => {
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--42161',
+        keywords: 'So11111111111111111111111111111111111111112',
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId,
+      }),
+    ).toBe(allNetworksId);
+  });
+
+  it('keeps the selected network for symbol searches and empty keywords', () => {
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--42161',
+        keywords: 'USDC',
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId,
+      }),
+    ).toBe('evm--42161');
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--42161',
+        keywords: '',
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId,
+      }),
+    ).toBe('evm--42161');
+  });
+
+  it('keeps the selected network for long single-word token names', () => {
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--42161',
+        keywords: 'WrappedStakedEthereumToken',
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId,
+      }),
+    ).toBe('evm--42161');
+  });
+
+  it('keeps the selected network for Stock and when All Networks is unavailable', () => {
+    const keywords = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--1',
+        keywords,
+        swapType: ESwapTabSwitchType.STOCK,
+        allNetworksId,
+      }),
+    ).toBe('evm--1');
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--1',
+        keywords,
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId: undefined,
+      }),
+    ).toBe('evm--1');
   });
 });

@@ -9,8 +9,9 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+
+import { buildNetworkContentSwrKey } from '../networkContentCache';
 
 import { NetworkSectionListV2 } from './NetworkSectionListV2';
 
@@ -66,7 +67,7 @@ export function NetworkContentV2({
 
   const swrKey = useMemo(
     () =>
-      swrKeys.networkContentData({
+      buildNetworkContentSwrKey({
         walletId,
         accountId,
         indexedAccountId,

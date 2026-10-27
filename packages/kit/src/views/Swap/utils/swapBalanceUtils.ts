@@ -21,6 +21,8 @@ type ISwapLatestBalanceCheckParams = {
   amount: string;
   accountId?: string;
   accountAddress?: string;
+  /** Preserve request errors for flows that require a fresh balance. */
+  throwOnError?: boolean;
 };
 
 export type ISwapLatestBalanceCheckResult =
@@ -157,6 +159,7 @@ type ISwapNativeBalanceRequirementParams = {
   fromToken?: ISwapToken;
   fromAmount?: string;
   otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
+  solanaRent?: string;
 };
 
 export type ISwapNativeBalanceRequirement = {
@@ -344,6 +347,7 @@ export function getSwapRequiredNativeBalanceAmount({
   fromToken,
   fromAmount,
   otherFeeInfos,
+  solanaRent,
 }: ISwapNativeBalanceRequirementParams):
   | ISwapNativeBalanceRequirement
   | undefined {
@@ -415,7 +419,11 @@ export function getSwapRequiredNativeBalanceAmount({
     return acc.plus(amountBN);
   }, new BigNumber(0));
 
-  const reserveAmount = networkFeeAmount.plus(otherNativeFeeAmount);
+  // balanceParsed already excludes the sender's rent-exempt frozen balance.
+  // Only this transaction's additional ATA funding belongs on the cost side.
+  const reserveAmount = networkFeeAmount
+    .plus(otherNativeFeeAmount)
+    .plus(solanaRent ?? 0);
   const requiredAmount = shouldAddFromAmount
     ? reserveAmount.plus(fromAmountBN)
     : reserveAmount;
@@ -437,6 +445,7 @@ export async function checkSwapLatestBalanceSufficient({
   amount,
   accountId,
   accountAddress,
+  throwOnError = false,
 }: ISwapLatestBalanceCheckParams): Promise<ISwapLatestBalanceCheckResult> {
   const amountBN = new BigNumber(amount || 0);
   if (
@@ -459,6 +468,7 @@ export async function checkSwapLatestBalanceSufficient({
         accountAddress,
         accountId,
         currency: 'usd',
+        ...(throwOnError ? { throwOnError } : {}),
       });
     const balanceBN = new BigNumber(
       tokenBalanceInfo?.[0]?.balanceParsed ?? NaN,
@@ -467,6 +477,7 @@ export async function checkSwapLatestBalanceSufficient({
       balance = balanceBN.toFixed();
     }
   } catch (error) {
+    if (throwOnError) throw error;
     console.error('checkSwapLatestBalanceSufficient error', error);
   }
 

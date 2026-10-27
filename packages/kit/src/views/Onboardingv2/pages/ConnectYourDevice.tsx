@@ -33,7 +33,7 @@ import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appCon
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
-import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/config/connectionTimeouts';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -43,7 +43,7 @@ import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboard
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import {
   HwWalletAvatarImages,
-  getDeviceAvatarImage,
+  getSearchDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { supportsHardwareQrWallet } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
@@ -74,7 +74,11 @@ import {
   useDesktopBluetoothStatusPolling,
 } from '../hooks/useDeviceConnect';
 import { OnboardingTestIDs } from '../testIDs';
-import { getForceTransportType, sortDevicesData } from '../utils';
+import {
+  getForceTransportType,
+  getThirdPartySearchTarget,
+  sortDevicesData,
+} from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
 
@@ -255,12 +259,19 @@ function useDeviceConnection({
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () =>
-      searchedDevices.map((item: SearchDevice) => ({
-        title: item.name,
-        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
-        device: item,
-        ...(vendor ? { vendor } : {}),
-      })),
+      searchedDevices.map((item: SearchDevice) => {
+        const searchTarget = vendor
+          ? getThirdPartySearchTarget(item)
+          : undefined;
+        const avatarImg = getSearchDeviceAvatarImage(item);
+        return {
+          title: item.name,
+          src: HwWalletAvatarImages[avatarImg],
+          device: item,
+          ...(vendor ? { vendor } : { avatarImg }),
+          ...(searchTarget ? { searchTarget } : {}),
+        };
+      }),
     [searchedDevices, vendor],
   );
 
@@ -1060,6 +1071,7 @@ function ConnectYourDevicePage({
           connectId,
           deviceType: item.device?.deviceType ?? undefined,
           deviceName: item.device?.name ?? undefined,
+          deviceColor: deviceUtils.getDeviceColorFromSearchDevice(item.device),
         });
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
         if (
@@ -1087,6 +1099,9 @@ function ConnectYourDevicePage({
               connectId,
               deviceType: item.device?.deviceType ?? undefined,
               deviceName: item.device?.name ?? undefined,
+              deviceColor: deviceUtils.getDeviceColorFromSearchDevice(
+                item.device,
+              ),
             });
           checkingDialogOpened = true;
           // The iOS wait is for the legacy Sheet's mount acknowledgement.

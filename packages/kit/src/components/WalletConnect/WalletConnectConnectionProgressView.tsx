@@ -20,6 +20,10 @@ export function WalletConnectConnectionProgressView({
 }) {
   const intl = useIntl();
   const theme = useTheme();
+  const attempt = Math.min(
+    Math.max(0, progress?.attempt ?? 0),
+    WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS,
+  );
 
   return (
     <YStack
@@ -47,11 +51,9 @@ export function WalletConnectConnectionProgressView({
             textAlign="center"
             flexShrink={1}
           >
-            {progress
-              ? `${intl.formatMessage({
-                  id: ETranslations.transfer_transfer_server_status_connecting,
-                })} (${Math.min(Math.max(0, progress.attempt), WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS)}/${WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS})`
-              : intl.formatMessage({ id: ETranslations.global_preparing })}
+            {`${intl.formatMessage({
+              id: ETranslations.transfer_transfer_server_status_connecting,
+            })}${attempt > 0 ? ` (${attempt}/${WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS})` : ''}`}
           </SizableText>
         </XStack>
       </YStack>

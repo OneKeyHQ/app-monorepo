@@ -54,7 +54,6 @@ export function WalletActionBulkSend({ onClose }: { onClose: () => void }) {
       const access = await ensureFeatureAccess({
         featureId: EPrimeFeatures.BulkSend,
         networkId: network?.id,
-        deferQuotaCheck: true,
         // A wallet, network or account switched while the gate waited drops
         // the press. This item unmounts with the menu, so the latest
         // selection is read from the account selector store.

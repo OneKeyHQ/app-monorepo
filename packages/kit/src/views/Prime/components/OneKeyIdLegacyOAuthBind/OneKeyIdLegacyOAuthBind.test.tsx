@@ -374,6 +374,7 @@ describe('OneKeyIdLegacyOAuthBindPrompt readiness', () => {
         'OneKeyIdLegacyOAuthBindPrompt profile refresh failed:',
       ),
       profileError,
+      { trigger: 'passive' },
     );
   });
 

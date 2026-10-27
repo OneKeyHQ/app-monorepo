@@ -308,7 +308,14 @@ function ReceiveSelectorContent() {
         onSelect: async (selectedToken: IToken) => {
           try {
             const tokenNetworkId = selectedToken.networkId ?? networkId ?? '';
-            const tokenAccountId = selectedToken.accountId ?? accountId ?? '';
+            const tokenAccountId =
+              await backgroundApiProxy.serviceToken.getDefaultDeriveTypeAccountId(
+                {
+                  networkId: tokenNetworkId,
+                  indexedAccountId,
+                  accountId: selectedToken.accountId ?? accountId ?? '',
+                },
+              );
             const accountAddress =
               await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
                 accountId: tokenAccountId,
@@ -395,7 +402,14 @@ function ReceiveSelectorContent() {
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
             const tokenNetworkId = selectedToken.networkId ?? networkId ?? '';
-            const tokenAccountId = selectedToken.accountId ?? accountId ?? '';
+            const tokenAccountId =
+              await backgroundApiProxy.serviceToken.getDefaultDeriveTypeAccountId(
+                {
+                  networkId: tokenNetworkId,
+                  indexedAccountId,
+                  accountId: selectedToken.accountId ?? accountId ?? '',
+                },
+              );
             const isHardware =
               accountUtils.isHwWallet({ walletId }) ||
               accountUtils.isQrWallet({ walletId });
@@ -481,6 +495,9 @@ function ReceiveSelectorContent() {
               sameModal
               onClose={() => {}}
               source="receiveSelector"
+              // This row buys the given token itself; the Home account's
+              // address type step would start a second purchase after it.
+              withAddressTypeStep={!token}
               renderTrigger={({ onPress, disabled }) => (
                 <ReceiveOptions
                   testID={ReceiveTestIDs.BuyCryptoOption}

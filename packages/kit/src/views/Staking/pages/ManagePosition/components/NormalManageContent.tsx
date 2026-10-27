@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
@@ -587,6 +587,41 @@ export function NormalManageContent({
     );
   }, [protocolInfo?.withdrawAction?.type]);
 
+  // A provider that redeems per order (Stakefish SOL/ETH, Everstake SOL,
+  // Babylon) has no amount for the withdraw tab to take: Redeem is picking
+  // the order, on WithdrawOptions.
+  const openWithdrawOptions = useCallback(() => {
+    const withdrawParams = {
+      accountId: earnAccount?.accountId || '',
+      networkId,
+      protocolInfo,
+      tokenInfo: withdrawTokenInfo,
+      symbol,
+      provider,
+      onSuccess,
+      isInModalContext,
+    };
+
+    if (isInModalContext) {
+      appNavigation.push(EModalStakingRoutes.WithdrawOptions, withdrawParams);
+    } else {
+      appNavigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.WithdrawOptions,
+        params: withdrawParams,
+      });
+    }
+  }, [
+    earnAccount?.accountId,
+    networkId,
+    protocolInfo,
+    withdrawTokenInfo,
+    symbol,
+    provider,
+    onSuccess,
+    isInModalContext,
+    appNavigation,
+  ]);
+
   const handleTabChange = useCallback(
     (name: string) => {
       const index = tabData.findIndex((item) => item.title === name);
@@ -595,28 +630,7 @@ export function NormalManageContent({
           return;
         }
         if (index === 1 && isWithdrawOrder) {
-          const withdrawParams = {
-            accountId: earnAccount?.accountId || '',
-            networkId,
-            protocolInfo,
-            tokenInfo: withdrawTokenInfo,
-            symbol,
-            provider,
-            onSuccess,
-            isInModalContext,
-          };
-
-          if (isInModalContext) {
-            appNavigation.push(
-              EModalStakingRoutes.WithdrawOptions,
-              withdrawParams,
-            );
-          } else {
-            appNavigation.pushModal(EModalRoutes.StakingModal, {
-              screen: EModalStakingRoutes.WithdrawOptions,
-              params: withdrawParams,
-            });
-          }
+          openWithdrawOptions();
           return;
         }
 
@@ -630,20 +644,46 @@ export function NormalManageContent({
     [
       isWithdrawOrder,
       shouldDisablePrimaryTab,
-      earnAccount?.accountId,
       focusedTab,
       tabData,
-      protocolInfo,
-      appNavigation,
-      networkId,
-      withdrawTokenInfo,
-      symbol,
-      provider,
       onTabChange,
-      isInModalContext,
-      onSuccess,
+      openWithdrawOptions,
     ],
   );
+
+  // Opened straight on the withdraw tab (the positions card's Redeem, the
+  // protocol list's) for such a provider: the tab would show an input with
+  // nothing to take (OK-64779's SOL). Once the manage read says the
+  // withdrawal is by order and the earn account is known, go to the order
+  // picker the way switching to the tab does, once, and leave the page on
+  // Deposit behind it unless Deposit is closed.
+  const withdrawOrderHandoffRef = useRef(false);
+  useEffect(() => {
+    if (
+      defaultTab !== 'withdraw' ||
+      !isWithdrawOrder ||
+      !earnAccount?.accountId ||
+      withdrawOrderHandoffRef.current
+    ) {
+      return;
+    }
+    withdrawOrderHandoffRef.current = true;
+    if (!depositDisabled) {
+      focusedTab.value = tabNames[0];
+      setSelectedTabIndex(0);
+      onTabChange?.('deposit');
+    }
+    openWithdrawOptions();
+  }, [
+    defaultTab,
+    isWithdrawOrder,
+    earnAccount?.accountId,
+    depositDisabled,
+    focusedTab,
+    tabNames,
+    onTabChange,
+    openWithdrawOptions,
+  ]);
 
   return (
     <>

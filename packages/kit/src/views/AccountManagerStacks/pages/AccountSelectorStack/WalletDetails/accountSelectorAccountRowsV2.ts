@@ -295,6 +295,17 @@ export function useAccountSelectorAccountRowsV2({
             isCreatingAddress ||
             (!allowSelectEmptyAccount && shouldShowCreateAddressButton),
           trailing,
+          // The native renderers pin the create-address icon to the legacy
+          // `top: 18` offset unless the row states its own alignment; on iOS
+          // that offset is computed from stale frames and lands the icon on
+          // the subtitle line (OK-63880). Center it like the "more" button.
+          ...(shouldShowCreateAddressButton
+            ? {
+                style: {
+                  container: { contentVerticalAlignment: 'center' as const },
+                },
+              }
+            : {}),
           accessibilityLabel: [
             item.name,
             ...subtitleSegments.map((segment) => segment.text),

@@ -15,6 +15,11 @@ export class UnwrappedIpcError extends Error {
 
   data?: unknown;
 
+  // Set by the Desktop API proxy; see attachDesktopIpcCallContext.
+  ipcModule?: string;
+
+  ipcMethod?: string;
+
   constructor(
     message: string,
     options?: { code?: number; data?: unknown; cause?: unknown },
@@ -121,6 +126,91 @@ export function unwrapElectronIpcError(err: unknown): unknown {
     data: payload.data,
     cause: err,
   });
+}
+
+export type IDesktopIpcCallContext = {
+  ipcModule: string;
+  ipcMethod: string;
+};
+
+// Module/method names come from proxy property access in code; anything else
+// is not reported.
+const IPC_CALL_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+// Callers may wrap a Desktop API error (e.g. SupabaseStorageTransientError);
+// follow `cause` a few levels to find the original call.
+const MAX_IPC_ERROR_CAUSE_DEPTH = 5;
+
+const isIpcCallName = (value: unknown): value is string =>
+  isString(value) && IPC_CALL_NAME_PATTERN.test(value);
+
+/**
+ * Records which Desktop API call (module/method) rejected, on the error the
+ * proxy rethrows. Only the message crosses the IPC boundary, so this is the
+ * single place that still knows the failing call; diagnostics read it back
+ * with `getDesktopIpcCallContext` instead of parsing free text. Params and
+ * results are never recorded.
+ */
+export function attachDesktopIpcCallContext<T>(
+  error: T,
+  { module, method }: { module: string; method: string },
+): T {
+  if (
+    !error ||
+    typeof error !== 'object' ||
+    !isIpcCallName(module) ||
+    !isIpcCallName(method)
+  ) {
+    return error;
+  }
+  try {
+    Object.assign(error, { ipcModule: module, ipcMethod: method });
+  } catch {
+    // Frozen errors keep their original shape.
+  }
+  return error;
+}
+
+const findInIpcErrorCauseChain = <T>(
+  error: unknown,
+  pick: (item: object) => T | undefined,
+): T | undefined => {
+  let current = error;
+  for (
+    let depth = 0;
+    depth < MAX_IPC_ERROR_CAUSE_DEPTH && current && typeof current === 'object';
+    depth += 1
+  ) {
+    const picked = pick(current);
+    if (picked !== undefined) {
+      return picked;
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+  return undefined;
+};
+
+export function getDesktopIpcCallContext(
+  error: unknown,
+): IDesktopIpcCallContext | undefined {
+  return findInIpcErrorCauseChain(error, (item) => {
+    const { ipcModule, ipcMethod } = item as Partial<IDesktopIpcCallContext>;
+    return isIpcCallName(ipcModule) && isIpcCallName(ipcMethod)
+      ? { ipcModule, ipcMethod }
+      : undefined;
+  });
+}
+
+// True when the error (or one it wraps) was rebuilt from an Electron IPC
+// rejection, whether or not its call context survived.
+export function isUnwrappedIpcError(error: unknown): boolean {
+  return (
+    findInIpcErrorCauseChain(error, (item) =>
+      item instanceof UnwrappedIpcError ||
+      (item as { name?: unknown }).name === 'UnwrappedIpcError'
+        ? true
+        : undefined,
+    ) === true
+  );
 }
 
 /**

@@ -29,6 +29,12 @@ export enum ETabRoutes {
   SubPage = 'SubPage',
 }
 
+export type IWebviewPerpTradeParamList = {
+  [ETabRoutes.WebviewPerpTrade]:
+    | { tradeRequest?: { requestId: string; expiresAt: number } }
+    | undefined;
+};
+
 export type ITabStackParamList = {
   [ETabRoutes.Home]: ITabHomeParamList;
   [ETabRoutes.Discovery]: ITabDiscoveryParamList;
@@ -37,7 +43,7 @@ export type ITabStackParamList = {
   [ETabRoutes.Market]: ITabMarketParamList;
   [ETabRoutes.Swap]: ITabSwapParamList;
   [ETabRoutes.Perp]: undefined;
-  [ETabRoutes.WebviewPerpTrade]: undefined;
+  [ETabRoutes.WebviewPerpTrade]: IWebviewPerpTradeParamList;
   [ETabRoutes.MultiTabBrowser]: IMultiTabBrowserParamList;
   [ETabRoutes.DeviceManagement]: ITabDeviceManagementParamList;
   [ETabRoutes.ReferFriends]: ITabReferFriendsParamList;

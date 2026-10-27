@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import DesktopApiSecurity from './DesktopApiSecurity';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -57,4 +59,65 @@ describe('DesktopApiSecurity app session state', () => {
       securityApi.setAppSessionUnlocked('true' as unknown as boolean),
     ).rejects.toThrow('Invalid Desktop app session state');
   });
+});
+
+describe('DesktopApiSecurity Windows Hello', () => {
+  function buildWindowsSecurityApi() {
+    const descriptor = Object.getOwnPropertyDescriptor(process, 'platform');
+    let securityApi: DesktopApiSecurity | undefined;
+    Object.defineProperty(process, 'platform', { value: 'win32' });
+    try {
+      jest.isolateModules(() => {
+        const { default: WindowsSecurityApi } = jest.requireActual<
+          typeof import('./DesktopApiSecurity')
+        >('./DesktopApiSecurity');
+        securityApi = new WindowsSecurityApi({ desktopApi: {} as IDesktopApi });
+      });
+    } finally {
+      if (descriptor) Object.defineProperty(process, 'platform', descriptor);
+    }
+    if (!securityApi) {
+      throw new OneKeyLocalError('Windows security API was not initialized');
+    }
+    return securityApi;
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('offers password authentication when the owned interface is unavailable', async () => {
+    const service = jest.requireMock<
+      jest.Mocked<typeof import('@onekeyhq/desktop/app/service')>
+    >('@onekeyhq/desktop/app/service');
+    service.checkAvailabilityAsync.mockResolvedValue(false);
+    const securityApi = buildWindowsSecurityApi();
+    await expect(securityApi.canPromptTouchID()).resolves.toBe(false);
+    await expect(securityApi.promptTouchID('Unlock')).resolves.toEqual({
+      success: false,
+      isSupport: false,
+    });
+    expect(service.requestVerificationAsync).not.toHaveBeenCalled();
+  });
+
+  it.each(['user_cancel', 'app_cancel', 'retries_exhausted'])(
+    'returns %s without another verification request',
+    async (error) => {
+      const service = jest.requireMock<
+        jest.Mocked<typeof import('@onekeyhq/desktop/app/service')>
+      >('@onekeyhq/desktop/app/service');
+      service.checkAvailabilityAsync.mockResolvedValue(true);
+      service.requestVerificationAsync.mockResolvedValue({
+        success: false,
+        error,
+      });
+      const securityApi = buildWindowsSecurityApi();
+      await expect(securityApi.promptTouchID('Unlock')).resolves.toEqual({
+        success: false,
+        error,
+        isSupport: true,
+      });
+      expect(service.requestVerificationAsync).toHaveBeenCalledTimes(1);
+    },
+  );
 });

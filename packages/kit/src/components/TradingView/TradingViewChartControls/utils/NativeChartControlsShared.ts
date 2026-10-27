@@ -82,7 +82,7 @@ const CHART_TYPE_TRANSLATIONS = {
   line: ETranslations.market_line,
 } as const satisfies Record<ITradingViewNativeChartType, ETranslations>;
 
-const CHART_TYPE_ICONS = {
+export const CHART_TYPE_ICONS = {
   area: 'ChartTrending2Outline',
   bars: 'TradingViewCandlesHlcOutline',
   candlestick: 'TradingViewCandlesOutline',

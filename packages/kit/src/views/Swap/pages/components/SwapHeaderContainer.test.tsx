@@ -164,6 +164,30 @@ jest.mock('./SwapHeaderRightActionContainer', () => {
 });
 
 describe('SwapHeaderContainer', () => {
+  it.each([ESwapSource.WALLET_HOME_TOKEN_LIST, ESwapSource.TOKEN_DETAIL])(
+    'leaves imported asset defaults to the init owner for %s',
+    async (enterFrom) => {
+      jest.clearAllMocks();
+      jest.useFakeTimers();
+      try {
+        const view = render(
+          <SwapHeaderContainer
+            pageType={EPageType.modal}
+            defaultSwapType={ESwapTabSwitchType.SWAP}
+            enterFrom={enterFrom}
+          />,
+        );
+        await act(async () => {
+          jest.advanceTimersByTime(100);
+        });
+        expect(mockSwapTypeSwitchAction).not.toHaveBeenCalled();
+        view.unmount();
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
   it('keeps the seeded Market Stock modal out of default type initialization', async () => {
     jest.useFakeTimers();
     try {

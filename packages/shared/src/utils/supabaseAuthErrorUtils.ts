@@ -36,9 +36,14 @@ export function isDefinitiveSupabaseRefreshTokenRejectionError(
  * for auth-js errors here.
  */
 export class SupabaseStorageTransientError extends Error {
-  constructor(message: string) {
+  constructor(message: string, options?: { cause?: unknown }) {
     super(message);
     this.name = SUPABASE_STORAGE_TRANSIENT_ERROR_NAME;
+    // Keeps the underlying error (e.g. a Desktop API IPC failure) reachable
+    // for structured diagnostics; the message stays the public surface.
+    if (options?.cause !== undefined) {
+      (this as { cause?: unknown }).cause = options.cause;
+    }
   }
 }
 

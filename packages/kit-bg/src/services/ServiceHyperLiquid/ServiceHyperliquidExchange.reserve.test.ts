@@ -23,9 +23,9 @@ jest.mock('@nktkas/hyperliquid', () => ({
   HttpRequestError: class extends Error {
     response?: Response;
 
-    constructor(args?: { response?: Response }, options?: ErrorOptions) {
+    constructor(options?: ErrorOptions & { response?: Response }) {
       super('HTTP request failed', options);
-      this.response = args?.response;
+      this.response = options?.response;
     }
   },
 }));
@@ -159,9 +159,7 @@ describe('USDC withdrawal reserve', () => {
   ])(
     'falls back on an SDK-wrapped network or timeout error: %s',
     async (cause) => {
-      preTransferCheck.mockRejectedValueOnce(
-        new HttpRequestError(undefined, { cause }),
-      );
+      preTransferCheck.mockRejectedValueOnce(new HttpRequestError({ cause }));
       await expect(
         service.getUsdcWithdrawReserve({ userAccountId: 'wallet-a' }),
       ).resolves.toEqual({
@@ -197,7 +195,7 @@ describe('USDC withdrawal reserve', () => {
   );
 
   it.each([
-    new HttpRequestError(undefined, { cause: new SyntaxError('Invalid JSON') }),
+    new HttpRequestError({ cause: new SyntaxError('Invalid JSON') }),
     new Error('Invalid request parameters'),
   ])(
     'does not fall back for parsing or validation errors: %s',

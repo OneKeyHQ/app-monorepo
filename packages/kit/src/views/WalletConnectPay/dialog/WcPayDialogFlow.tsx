@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { DialogV2 } from '@onekeyhq/components/src/composite/DialogV2';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -60,6 +59,7 @@ import {
 import {
   WcPayConfirmingStep,
   WcPayDamagedStep,
+  WcPayDialogShell,
   WcPayFetchFailedStep,
   WcPayFetchingStep,
   WcPayOptionsStep,
@@ -89,8 +89,11 @@ import type { IntlShape } from 'react-intl';
 
 // Longest standard modal dismissal on iOS/Android (~350ms) plus slack.
 const WC_PAY_MODAL_TRANSITION_MS = 500;
-// Time for the system sheet to finish dismissing before an RN-layer modal is
-// pushed over the same presenter (see parkWcPayDialogAndWait).
+// The dialog's exit animation — the same wait Dialog.show gives it before
+// unmounting. Closing lets the dialog slide out before the flow unmounts.
+const WC_PAY_DIALOG_EXIT_MS = 300;
+// The exit animation plus slack before a modal page is pushed over the
+// parked dialog (see parkWcPayDialogAndWait).
 const WC_PAY_SHEET_DISMISS_MS = 450;
 
 // stable fallback so render never fabricates a fresh array identity
@@ -298,13 +301,13 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   // machinery
   const [inlineFailure, setInlineFailure] =
     useState<IWcPayInlineFailureRecord>();
-  // generic pre-sign failures that used to be toasts on the routed page; a
-  // toast under the iOS system sheet is invisible, so they render through
-  // the banner slot instead. Holds the message the toast would have shown.
+  // generic pre-sign failures that used to be toasts on the routed page
+  // render through the banner slot instead, next to the action they are
+  // about. Holds the message the toast would have shown.
   const [genericFailure, setGenericFailure] = useState<string | undefined>();
   // deterministically corrupt stored progress: rendered as a dedicated
-  // in-dialog step instead of the page's Dialog.show (an RN-layer dialog
-  // would sit under the iOS system sheet)
+  // in-dialog step instead of the page's Dialog.show, so the whole payment
+  // stays on one surface
   const [damagedContext, setDamagedContext] = useState<IWcPayDamagedContext>();
   const [damagedDiscardLoading, setDamagedDiscardLoading] = useState(false);
   const [damagedDiscardFailed, setDamagedDiscardFailed] = useState(false);
@@ -328,12 +331,10 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   // the next render; this ref closes the same-task window a second caller
   // could otherwise use before that render commits.
   const payInFlightRef = useRef(false);
-  // The host sheet is a system presentation (SwiftUI sheet on iOS). Presenting
-  // it again while the RN-layer confirm modal is still animating out attaches
-  // the sheet to a controller that is being torn down: it stays visible but
-  // never receives touches (Retry/Done dead on device). Reveal only after the
-  // modal's dismissal transition has had time to finish; park cancels any
-  // pending reveal so a follow-up confirm never races a stale timer.
+  // Reveal only after a confirm modal's dismissal transition has had time to
+  // finish, so the dialog never slides up over a page that is still
+  // animating out; park cancels any pending reveal so a follow-up confirm
+  // never races a stale timer.
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -347,9 +348,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     clearPendingReveal();
     hideWcPayDialog();
   }, [clearPendingReveal]);
-  // Park and wait for the sheet's dismissal transition: a modal pushed while
-  // the sheet is still presented lands under it (or gets torn down with it),
-  // leaving the flow waiting on a confirm page the user can never see.
+  // Park and wait for the dialog's exit transition: the dialog paints above
+  // modal pages (full-window overlay), so a page pushed while it is still
+  // sliding out would open underneath it.
   const parkWcPayDialogAndWait = useCallback(async () => {
     parkWcPayDialog();
     await timerUtils.wait(WC_PAY_SHEET_DISMISS_MS);
@@ -367,13 +368,25 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     },
     [],
   );
-  // The password prompt, the hardware dialogs/toasts and the fee-overflow
-  // double confirm are RN-layer surfaces the system sheet covers on native:
-  // park it while one is up, reveal it
-  // when it clears (web/desktop already paint those above the DialogV2 popup,
-  // so the rule is native-only — see isWcPayPromptParkingEnabled). Reveal
-  // ownership is split — this hook only undoes its OWN park, and only while
-  // no sub-flow owns the screen: revealing after a confirm page belongs to
+  // Closing slides the dialog out first; the flow unmounts once the exit
+  // animation is over (a remount for a new pay link cancels the pending
+  // close through the cleanup).
+  const [isClosing, setIsClosing] = useState(false);
+  useEffect(() => {
+    if (!isClosing) {
+      return undefined;
+    }
+    const timer = setTimeout(closeWcPayDialog, WC_PAY_DIALOG_EXIT_MS);
+    return () => clearTimeout(timer);
+  }, [isClosing]);
+  const handleClose = useCallback(() => {
+    setIsClosing(true);
+  }, []);
+  // Native only — see isWcPayPromptParkingEnabled: the dialog steps aside
+  // while the password prompt, a hardware dialog/toast or the fee-overflow
+  // double confirm is up. Reveal ownership is split — this hook only undoes
+  // its OWN park, and only while no sub-flow owns the screen: revealing
+  // after a confirm page belongs to
   // onAfterConfirmModalSettled (the sheet would otherwise pop up over a
   // confirm page that is still open, since the page's own password prompt
   // clears while the page stays), and the terminal reveal on every exit path
@@ -700,11 +713,11 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
         // Parks the dialog before EVERY confirm modal the executor pushes —
         // the inline fallback as well as the typed-data/personal-sign/Solana
         // branches and later actions of a multi-action sequence, none of
-        // which enter the inline attempts loop. The pushed RN-layer confirm
-        // page would otherwise sit under this system-level sheet while the
-        // paying phase keeps it non-dismissible — an unrecoverable deadlock.
-        // Paired with onAfterConfirmModalSettled below; both calls are
-        // idempotent.
+        // which enter the inline attempts loop. The dialog paints above modal
+        // pages, so the pushed confirm page would otherwise sit under it
+        // while the paying phase keeps it non-dismissible — an unrecoverable
+        // deadlock. Paired with onAfterConfirmModalSettled below; both calls
+        // are idempotent.
         onBeforePushConfirmModal: async () => {
           setIsSubFlowOwningScreen(true);
           await parkWcPayDialogAndWait();
@@ -722,9 +735,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
           revealWcPayDialogAfterTransition();
         },
         // Single owner of the transition out of inline execution. The dialog
-        // parks so the pushed confirm modal owns the screen (it would sit
-        // under the iOS system sheet otherwise); handlePay's finally reveals
-        // it again.
+        // parks so the pushed confirm modal owns the screen (the modal would
+        // open under the dialog otherwise); handlePay's finally reveals it
+        // again.
         // Every park is paired with the flag, here as everywhere: a confirm
         // modal follows this park, and relying on onBeforePushConfirmModal
         // (a few statements later) to raise the flag would make the pairing
@@ -740,10 +753,9 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
             return Promise.resolve('retry');
           }
           if (failure.kind === EWcPayInlineFailureKind.WalletNotBackedUp) {
-            // the backup dialog is an RN-layer dialog and owns the next
-            // step; close the sheet entirely so it is visible (the flow is
-            // over anyway — the verdict below aborts)
-            closeWcPayDialog();
+            // the backup dialog owns the next step and the verdict below
+            // aborts the attempt, so the flow is over: close it
+            handleClose();
             return Promise.resolve('abort');
           }
           if (failure.kind === EWcPayInlineFailureKind.InsufficientBalance) {
@@ -888,8 +900,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
       } else if (!(error instanceof WcPayUserCancelledError)) {
         // user-intent cancellation ends the flow silently; local expiry is
         // rendered by the expired terminal (isExpiredLocally), everything
-        // else lands in the generic banner — a toast would be invisible
-        // under the iOS system sheet
+        // else lands in the generic banner
         if (!isWcPayErrorCode(error, EWcPayErrorCode.PaymentExpired)) {
           console.error('wcPay flow failure', error);
           setGenericFailure(resolveWcPayFailureText(error, intl));
@@ -932,6 +943,7 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     parkWcPayDialog,
     parkWcPayDialogAndWait,
     revealWcPayDialogAfterTransition,
+    handleClose,
     inlineFailure,
     isSendFailedLocked,
     effectiveExpiryMs,
@@ -1016,9 +1028,6 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     [clearPendingReveal],
   );
 
-  const handleClose = useCallback(() => {
-    closeWcPayDialog();
-  }, []);
   const handleRetryFetch = useCallback(() => {
     void run();
   }, [run]);
@@ -1047,17 +1056,6 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
     },
     [selectedOptionId],
   );
-  const handleOpenChange = useCallback(
-    (nextOpen: boolean) => {
-      // belt to the shell's own locks: a dismiss gesture only closes the
-      // flow when the current view says it may
-      if (!nextOpen && view.dismissible) {
-        closeWcPayDialog();
-      }
-    },
-    [view.dismissible],
-  );
-
   const sceneOptions: IWcPaySceneOption[] = options.map((option) => {
     const { display } = option.amount;
     const networkId = getWcPayOptionNetworkId(option);
@@ -1210,13 +1208,13 @@ function WcPayDialogFlowInner({ paymentLink }: { paymentLink: string }) {
   }
 
   return (
-    <DialogV2
-      open={!dialogState.isHidden}
-      onOpenChange={handleOpenChange}
+    <WcPayDialogShell
+      open={!dialogState.isHidden && !isClosing}
       dismissible={view.dismissible}
+      onClose={handleClose}
     >
       {content}
-    </DialogV2>
+    </WcPayDialogShell>
   );
 }
 

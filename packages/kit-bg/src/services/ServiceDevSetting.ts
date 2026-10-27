@@ -100,18 +100,24 @@ class ServiceDevSetting extends ServiceBase {
       }
     }
     return identityLifecycleMutex.runExclusive(async () => {
-      const [state, source] = await Promise.all([
+      const [state, source, keylessWallet] = await Promise.all([
         this.backgroundApi.simpleDb.prime.getOneKeyIdAuthState(),
         this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+        this.backgroundApi.serviceAccount.getIdentityManagedKeylessWalletCandidate(),
       ]);
       if (state !== 'loggedOut' || source) {
         throw new OneKeyLocalError(
           'OneKey ID changed during logout. Please try switching nodes again.',
         );
       }
-      const { clearEmailAuthSessionsForEnvironmentChange } =
+      if (keylessWallet) {
+        throw new OneKeyLocalError(
+          'Keyless wallet changed during logout. Please try switching nodes again.',
+        );
+      }
+      const { clearIdentityAuthSessionsForEnvironmentChange } =
         await import('./ServicePrime/primeAuthSessionAccess');
-      await clearEmailAuthSessionsForEnvironmentChange();
+      await clearIdentityAuthSessionsForEnvironmentChange();
       this.environmentRestartRequired = true;
       try {
         // Keep notifications registered if validation or session cleanup

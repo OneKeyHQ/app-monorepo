@@ -4,6 +4,8 @@ import {
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING as CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_FLOATING_PRICE_LABEL_HORIZONTAL_PADDING as FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_FONT_SIZE as ORDER_LINE_LABEL_FONT_SIZE,
+  TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_HEIGHT as ORDER_LINE_LABEL_HEIGHT,
+  TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_PADDING as ORDER_LINE_LABEL_PADDING,
   TRADING_VIEW_NATIVE_PRICE_AXIS_TEXT_BASELINE_OFFSET as PRICE_AXIS_TEXT_BASELINE_OFFSET,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_HEIGHT as PRICE_LABEL_HEIGHT,
   TRADING_VIEW_NATIVE_CURRENT_PRICE_LABEL_TEXT_COLOR as PRICE_LABEL_TEXT_COLOR,
@@ -49,6 +51,8 @@ export interface ITradingViewNativeReferenceLineHitRegion {
   action: 'cancel' | 'drag';
   price: number;
   rect: ITradingViewNativeChartSceneRect;
+  loadingColor?: string;
+  disabled?: boolean;
 }
 
 function getReferenceLinePaintId(id: string, part: 'label' | 'line' | 'text') {
@@ -76,22 +80,20 @@ function appendTradingLineLabelCommands({
   commands,
   customPaintStyles,
   hitRegions,
-  lineY,
+  labelTop,
   maxX,
   measureTextWidth,
-  priceChartHeight,
 }: {
   component: ITradingViewNativeReferenceLineComponent;
   commands: ITradingViewNativeChartSceneCommand[];
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   hitRegions: ITradingViewNativeReferenceLineHitRegion[];
-  lineY: number;
+  labelTop: number;
   maxX: number;
   measureTextWidth: (
     text: string,
     font: ITradingViewNativeChartSceneFont,
   ) => number;
-  priceChartHeight: number;
 }) {
   'worklet';
 
@@ -111,8 +113,15 @@ function appendTradingLineLabelCommands({
   const fontSize = isOrderLabel
     ? ORDER_LINE_LABEL_FONT_SIZE
     : TRADING_LINE_LABEL_FONT_SIZE;
-  const dragHandleWidth = isOrderLabel && interactive && draggable ? 8 : 0;
-  const opacity = pending ? 0.5 : 1;
+  const labelHeight = isOrderLabel
+    ? ORDER_LINE_LABEL_HEIGHT
+    : TRADING_LINE_LABEL_HEIGHT;
+  const labelPadding = isOrderLabel
+    ? ORDER_LINE_LABEL_PADDING
+    : TRADING_LINE_LABEL_PADDING;
+  const dragHandleWidth = isOrderLabel && interactive && draggable ? 6 : 0;
+  const isCancelPending = pending === 'cancel';
+  const opacity = pending && !isCancelPending ? 0.5 : 1;
   const paintId = `${getReferenceLinePaintId(component.id, 'label')}.trading`;
   const bodyPaintId = `${paintId}.body`;
   const bodyTextPaintId = `${paintId}.bodyText`;
@@ -134,19 +143,21 @@ function appendTradingLineLabelCommands({
     };
   }
 
-  const preferredCancelWidth =
-    interactive && cancelable ? TRADING_LINE_LABEL_HEIGHT : 0;
-  const minimumTitleWidth = TRADING_LINE_LABEL_PADDING * 2 + dragHandleWidth;
+  const preferredCancelWidth = interactive && cancelable ? labelHeight : 0;
+  const minimumTitleWidth = labelPadding * 2 + dragHandleWidth;
   const preferredTitleWidth =
     measureTextWidth(title, labelFont) + minimumTitleWidth;
   const preferredQuantityWidth = label.quantity
-    ? measureTextWidth(label.quantity.text, labelFont) +
-      TRADING_LINE_LABEL_PADDING * 2
+    ? measureTextWidth(label.quantity.text, labelFont) + labelPadding * 2
     : 0;
+  const labelOffset =
+    typeof label.offset === 'number'
+      ? label.offset
+      : ((maxX - CHART_HORIZONTAL_PADDING) * label.offset.value) / 100;
   const left = Math.max(
     CHART_HORIZONTAL_PADDING,
     Math.min(
-      CHART_HORIZONTAL_PADDING + label.offset,
+      CHART_HORIZONTAL_PADDING + labelOffset,
       maxX -
         preferredTitleWidth -
         preferredQuantityWidth -
@@ -168,24 +179,16 @@ function appendTradingLineLabelCommands({
     availableWidth - titleWidth - cancelWidth >= preferredQuantityWidth
       ? preferredQuantityWidth
       : 0;
-  const top = Math.max(
-    CHART_TOP_PADDING,
-    Math.min(
-      lineY - TRADING_LINE_LABEL_HEIGHT / 2,
-      CHART_TOP_PADDING + priceChartHeight - TRADING_LINE_LABEL_HEIGHT,
-    ),
-  );
+  // Keep compact labels centered in the shared collision-avoidance slots.
+  const top = labelTop + (TRADING_LINE_LABEL_HEIGHT - labelHeight) / 2;
   const labelRect = {
     x: left,
     y: top,
     width: titleWidth + quantityWidth + cancelWidth,
-    height: TRADING_LINE_LABEL_HEIGHT,
+    height: labelHeight,
   };
   const textY =
-    top +
-    TRADING_LINE_LABEL_HEIGHT / 2 +
-    fontSize / 2 +
-    PRICE_AXIS_TEXT_BASELINE_OFFSET;
+    top + labelHeight / 2 + fontSize / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET;
   commands.push(
     {
       ...labelRect,
@@ -203,7 +206,7 @@ function appendTradingLineLabelCommands({
       customPaintId: bodyTextPaintId,
       font: labelFont,
       text: title,
-      x: left + TRADING_LINE_LABEL_PADDING + dragHandleWidth,
+      x: left + labelPadding + dragHandleWidth,
       y: textY,
     },
     { kind: 'restore' },
@@ -214,8 +217,8 @@ function appendTradingLineLabelCommands({
         kind: 'rect',
         paint: 'axisText',
         customPaintId: bodyTextPaintId,
-        x: left + TRADING_LINE_LABEL_PADDING - 1,
-        y: top + TRADING_LINE_LABEL_HEIGHT / 2 - 5.5 + row * 2,
+        x: left + labelPadding - 1,
+        y: top + labelHeight / 2 - 5.5 + row * 2,
         width: 2,
         height: 1,
       });
@@ -241,7 +244,7 @@ function appendTradingLineLabelCommands({
         customPaintId: quantityTextPaintId,
         font: labelFont,
         text: label.quantity.text,
-        x: quantityRect.x + TRADING_LINE_LABEL_PADDING,
+        x: quantityRect.x + labelPadding,
         y: textY,
       },
       { kind: 'restore' },
@@ -252,16 +255,17 @@ function appendTradingLineLabelCommands({
         x1: quantityRect.x + 0.5,
         x2: quantityRect.x + 0.5,
         y1: top,
-        y2: top + TRADING_LINE_LABEL_HEIGHT,
+        y2: top + labelHeight,
       },
     );
   }
-  if (interactive && draggable && !pending) {
+  if (interactive && draggable) {
     hitRegions.push({
       id: component.id,
       action: 'drag',
       price: anchor.price,
       rect: { ...labelRect, width: titleWidth + quantityWidth },
+      disabled: Boolean(pending),
     });
   }
   if (cancelWidth > 0) {
@@ -271,8 +275,8 @@ function appendTradingLineLabelCommands({
       width: cancelWidth,
     };
     const centerX = cancelRect.x + cancelWidth / 2;
-    const centerY = top + TRADING_LINE_LABEL_HEIGHT / 2;
-    const iconRadius = isOrderLabel ? 4.5 : 3;
+    const centerY = top + labelHeight / 2;
+    const iconRadius = isOrderLabel ? 3.5 : 3;
     if (isOrderLabel) {
       customPaintStyles[cancelBackgroundPaintId] = {
         color,
@@ -285,43 +289,44 @@ function appendTradingLineLabelCommands({
         customPaintId: cancelBackgroundPaintId,
       });
     }
-    commands.push(
-      {
-        kind: 'line',
-        paint: 'gridLine',
-        customPaintId: borderPaintId,
-        x1: cancelRect.x + 0.5,
-        x2: cancelRect.x + 0.5,
-        y1: top,
-        y2: top + TRADING_LINE_LABEL_HEIGHT,
-      },
-      {
-        kind: 'line',
-        paint: 'gridLine',
-        customPaintId: bodyTextPaintId,
-        x1: centerX - iconRadius,
-        x2: centerX + iconRadius,
-        y1: centerY - iconRadius,
-        y2: centerY + iconRadius,
-      },
-      {
-        kind: 'line',
-        paint: 'gridLine',
-        customPaintId: bodyTextPaintId,
-        x1: centerX - iconRadius,
-        x2: centerX + iconRadius,
-        y1: centerY + iconRadius,
-        y2: centerY - iconRadius,
-      },
-    );
-    if (!pending) {
-      hitRegions.push({
-        id: component.id,
-        action: 'cancel',
-        price: anchor.price,
-        rect: cancelRect,
-      });
-    }
+    commands.push({
+      kind: 'line',
+      paint: 'gridLine',
+      customPaintId: borderPaintId,
+      x1: cancelRect.x + 0.5,
+      x2: cancelRect.x + 0.5,
+      y1: top,
+      y2: top + labelHeight,
+    });
+    if (!isCancelPending)
+      commands.push(
+        {
+          kind: 'line',
+          paint: 'gridLine',
+          customPaintId: bodyTextPaintId,
+          x1: centerX - iconRadius,
+          x2: centerX + iconRadius,
+          y1: centerY - iconRadius,
+          y2: centerY + iconRadius,
+        },
+        {
+          kind: 'line',
+          paint: 'gridLine',
+          customPaintId: bodyTextPaintId,
+          x1: centerX - iconRadius,
+          x2: centerX + iconRadius,
+          y1: centerY + iconRadius,
+          y2: centerY - iconRadius,
+        },
+      );
+    hitRegions.push({
+      id: component.id,
+      action: 'cancel',
+      price: anchor.price,
+      rect: cancelRect,
+      loadingColor: isCancelPending ? label.color : undefined,
+      disabled: Boolean(pending),
+    });
   }
   commands.push({
     kind: 'rect',
@@ -375,6 +380,7 @@ export function appendTradingViewNativeChartComponentCommands({
   const priceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const textLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const hitRegions: ITradingViewNativeReferenceLineHitRegion[] = [];
+  const lineHitRegions: ITradingViewNativeReferenceLineHitRegion[] = [];
   const drawingLabels = drawings.flatMap((drawing, renderIndex) => {
     const point = drawing.points[0];
     if (
@@ -418,6 +424,22 @@ export function appendTradingViewNativeChartComponentCommands({
       priceScaleMode,
     });
     return priceLayout ? [{ component, priceLayout }] : [];
+  });
+  const tradingLabelTops = getTradingViewNativePriceLabelPositions({
+    labels: referenceLines.flatMap(({ component, priceLayout }) =>
+      component.props.label
+        ? [
+            {
+              id: component.id,
+              price: component.props.anchor.price,
+              top: priceLayout.lineY - TRADING_LINE_LABEL_HEIGHT / 2,
+            },
+          ]
+        : [],
+    ),
+    labelHeight: TRADING_LINE_LABEL_HEIGHT,
+    minTop: CHART_TOP_PADDING,
+    maxBottom: CHART_TOP_PADDING + priceChartHeight,
   });
   const drawingLabelCapacity = Math.max(
     0,
@@ -536,7 +558,10 @@ export function appendTradingViewNativeChartComponentCommands({
       dash,
       opacity: 1,
     };
-    customPaintStyles[labelPaintId] = { color, opacity: pending ? 0.5 : 1 };
+    customPaintStyles[labelPaintId] = {
+      color,
+      opacity: pending && pending !== 'cancel' ? 0.5 : 1,
+    };
     customPaintStyles[textPaintId] = {
       color: PRICE_LABEL_TEXT_COLOR,
       opacity: 1,
@@ -553,7 +578,7 @@ export function appendTradingViewNativeChartComponentCommands({
     });
 
     if (canDrag) {
-      hitRegions.push({
+      lineHitRegions.push({
         id: component.id,
         action: 'drag',
         price: anchor.price,
@@ -573,10 +598,9 @@ export function appendTradingViewNativeChartComponentCommands({
         commands: textLabelCommands,
         customPaintStyles,
         hitRegions,
-        lineY: priceLayout.lineY,
+        labelTop: tradingLabelTops[component.id] ?? priceLayout.labelTop,
         maxX: priceLabelLeft - REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
         measureTextWidth,
-        priceChartHeight,
       });
     }
 
@@ -605,12 +629,13 @@ export function appendTradingViewNativeChartComponentCommands({
           x: titleX,
           y: labelTop,
         };
-        if (canDrag) {
+        if (interactive && draggable) {
           hitRegions.push({
             id: component.id,
             action: 'drag',
             price: anchor.price,
             rect: titleRect,
+            disabled: Boolean(pending),
           });
         }
         textLabelCommands.push(
@@ -662,39 +687,41 @@ export function appendTradingViewNativeChartComponentCommands({
       };
       const centerX = rect.x + rect.width / 2;
       const centerY = rect.y + rect.height / 2;
-      textLabelCommands.push(
-        {
-          ...rect,
-          kind: 'rect',
-          customPaintId: labelPaintId,
-          paint: 'background',
-        },
-        {
-          kind: 'line',
-          customPaintId: textPaintId,
-          paint: 'gridLine',
-          x1: centerX - 3,
-          y1: centerY - 3,
-          x2: centerX + 3,
-          y2: centerY + 3,
-        },
-        {
-          kind: 'line',
-          customPaintId: textPaintId,
-          paint: 'gridLine',
-          x1: centerX - 3,
-          y1: centerY + 3,
-          x2: centerX + 3,
-          y2: centerY - 3,
-        },
-      );
-      if (!pending)
-        hitRegions.push({
-          id: component.id,
-          action: 'cancel',
-          price: anchor.price,
-          rect,
-        });
+      textLabelCommands.push({
+        ...rect,
+        kind: 'rect',
+        customPaintId: labelPaintId,
+        paint: 'background',
+      });
+      if (pending !== 'cancel')
+        textLabelCommands.push(
+          {
+            kind: 'line',
+            customPaintId: textPaintId,
+            paint: 'gridLine',
+            x1: centerX - 3,
+            y1: centerY - 3,
+            x2: centerX + 3,
+            y2: centerY + 3,
+          },
+          {
+            kind: 'line',
+            customPaintId: textPaintId,
+            paint: 'gridLine',
+            x1: centerX - 3,
+            y1: centerY + 3,
+            x2: centerX + 3,
+            y2: centerY - 3,
+          },
+        );
+      hitRegions.push({
+        id: component.id,
+        action: 'cancel',
+        price: anchor.price,
+        rect,
+        loadingColor: pending === 'cancel' ? color : undefined,
+        disabled: Boolean(pending),
+      });
     }
 
     if (showYAxis) {
@@ -728,6 +755,6 @@ export function appendTradingViewNativeChartComponentCommands({
     currentPriceLabelTop,
     priceLabelCommands,
     textLabelCommands,
-    hitRegions,
+    hitRegions: [...lineHitRegions, ...hitRegions],
   };
 }

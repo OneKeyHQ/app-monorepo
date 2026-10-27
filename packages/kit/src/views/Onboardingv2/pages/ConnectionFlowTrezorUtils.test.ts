@@ -30,6 +30,7 @@ describe('ConnectionFlowTrezorUtils', () => {
       shouldRequestTrezorWebUsbPermissionBeforeListing({
         isDesktop: false,
         isExtension: true,
+        isWeb: true,
       }),
     ).toBe(true);
 
@@ -37,6 +38,7 @@ describe('ConnectionFlowTrezorUtils', () => {
       shouldRequestTrezorWebUsbPermissionBeforeListing({
         isDesktop: true,
         isExtension: false,
+        isWeb: false,
       }),
     ).toBe(false);
 
@@ -44,6 +46,15 @@ describe('ConnectionFlowTrezorUtils', () => {
       shouldRequestTrezorWebUsbPermissionBeforeListing({
         isDesktop: false,
         isExtension: false,
+        isWeb: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldRequestTrezorWebUsbPermissionBeforeListing({
+        isDesktop: false,
+        isExtension: false,
+        isWeb: false,
       }),
     ).toBe(false);
   });

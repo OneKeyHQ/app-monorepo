@@ -14,6 +14,7 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { usePortfolioSyncUiStateAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useDeviceStageAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
@@ -63,6 +64,7 @@ export function WalletPortfolioSpotlight({
       cardPaddingBottom={20}
       cardGap={16}
       cardMaxWidth={280}
+      alignCardToAnchorEnd={platformEnv.isNative}
       message={intl.formatMessage({
         id: ETranslations.portfolio_spotlight__desc,
       })}

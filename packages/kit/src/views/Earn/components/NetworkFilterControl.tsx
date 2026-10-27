@@ -38,13 +38,21 @@ function NetworkFilterControl({
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
 
+  // A selected network the list no longer offers (the page's data changed
+  // under it) is still resolved, so the trigger names it instead of falling
+  // back to "All networks" beside its icon, and the list lets it be cleared
+  // (OK-64596).
+  const networkIdsToResolve = useMemo(
+    () => Array.from(new Set([...availableNetworkIds, ...selectedNetworkIds])),
+    [availableNetworkIds, selectedNetworkIds],
+  );
   const { result: networks } = usePromiseResult(async () => {
-    if (availableNetworkIds.length === 0) return [];
+    if (networkIdsToResolve.length === 0) return [];
     const resp = await backgroundApiProxy.serviceNetwork.getNetworksByIds({
-      networkIds: availableNetworkIds,
+      networkIds: networkIdsToResolve,
     });
     return resp.networks;
-  }, [availableNetworkIds]);
+  }, [networkIdsToResolve]);
 
   const sortedNetworks = useMemo(
     () =>

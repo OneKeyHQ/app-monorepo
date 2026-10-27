@@ -1,6 +1,10 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EThirdPartyDevicePermissionDeniedReason,
+  ThirdPartyDevicePermissionDenied,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -9,8 +13,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { setDeviceStageBurstActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import {
+  deviceStageOutcomeKey,
+  setDeviceStageBurstActive,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -26,6 +34,7 @@ import {
 import {
   DeviceStageBurstScope,
   createLatestStateFeed,
+  pickDeviceColor,
   pickDeviceType,
   pickErrorMessage,
   pickIdentityText,
@@ -92,6 +101,38 @@ describe('pickDeviceType', () => {
     expect(pickDeviceType(EDeviceType.Unknown, undefined)).toBe(
       EDeviceType.Unknown,
     );
+  });
+});
+
+describe('pickDeviceColor', () => {
+  it('takes a named finish', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'NEXT', deviceColor: 'Silver' },
+        { connectId: 'PREV', deviceColor: 'Orange' },
+      ),
+    ).toBe('Silver');
+  });
+
+  it('keeps the finish while the news is about the same device', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'SAME' },
+        { connectId: 'SAME', deviceColor: 'Orange' },
+      ),
+    ).toBe('Orange');
+    expect(
+      pickDeviceColor({}, { connectId: 'SAME', deviceColor: 'Orange' }),
+    ).toBe('Orange');
+  });
+
+  it('does not lend a finish to another device', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'NEXT' },
+        { connectId: 'PREV', deviceColor: 'Orange' },
+      ),
+    ).toBeUndefined();
   });
 });
 
@@ -343,6 +384,22 @@ describe('DeviceStageBurstScope', () => {
     });
 
     expect(stage?.step).toBe('off');
+  });
+
+  it('names the burst a live hold stands in, and none for a stale or unopened one', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(scope.getExplicitBurstId(token)).toBe(stage?.burstId);
+
+    await scope.endExplicit({ token });
+    expect(scope.getExplicitBurstId(token)).toBeUndefined();
+
+    // Minted while the firmware workflow silences the stage: no stage
+    // opened for it, so no exit is this hold's.
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    const silenced = await scope.beginExplicit({ connectId: CONNECT_ID });
+    expect(scope.getExplicitBurstId(silenced)).toBeUndefined();
   });
 
   it('replaces a previous success as soon as a new explicit burst begins', async () => {
@@ -672,6 +729,102 @@ describe('DeviceStageBurstScope', () => {
       connectId: CONNECT_ID,
     });
     expect(stage?.deviceColor).toBe('Silver');
+  });
+
+  it('opens in the finish a Bluetooth scan named and keeps it when features name none', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // A later beat for the same device that names no finish keeps it.
+    await scope.noteStep('connecting', {
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // Features without a serial name no finish; the scan's stays.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+      payload: {
+        rawPayload: { device: { features: { protocol: 'V2' } } },
+      } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    expect(stage?.deviceColor).toBe('Orange');
+  });
+
+  it("drops the last device's finish when an identity refresh switches devices on stage", async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: 'FIRST_DEVICE',
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // A refresh for the same device keeps its finish.
+    await scope.mergeDeviceIdentity({
+      connectId: 'FIRST_DEVICE',
+      deviceName: 'Pro 2 A1B2',
+    });
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // The refresh lands before the second device's connecting step.
+    await scope.mergeDeviceIdentity({
+      connectId: 'SECOND_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.connectId).toBe('SECOND_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
+
+    await scope.noteStep('connecting', {
+      connectId: 'SECOND_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.deviceColor).toBeUndefined();
+  });
+
+  it("drops the last device's finish when an identity refresh switches devices before the opening paints", async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: 'FIRST_DEVICE',
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await scope.mergeDeviceIdentity({ connectId: 'SECOND_DEVICE' });
+    await paintOpeningBeat();
+
+    expect(stage?.connectId).toBe('SECOND_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
+  });
+
+  it('does not lend a finish to the next device when its scan names none', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    await scope.end();
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+
+    // Checking beat outside any burst, as the legacy connect page sends it.
+    await scope.noteStep('connecting', {
+      connectId: 'OTHER_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.connectId).toBe('OTHER_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
   });
 
   it('refreshes a V2 auth narrative name without dismissing an unanswered PIN', async () => {
@@ -1027,6 +1180,37 @@ describe('DeviceStageBurstScope', () => {
   });
 
   it.each([
+    [true, EThirdPartyDevicePermissionDeniedReason.permissionDenied, 'off'],
+    [true, EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff, 'off'],
+    [true, undefined, 'error'],
+    [false, EThirdPartyDevicePermissionDeniedReason.permissionDenied, 'error'],
+  ] as const)(
+    'routes native=%s permission reason=%s to %s',
+    async (isNative, reason, expectedStep) => {
+      jest.replaceProperty(platformEnv, 'isNative', isNative);
+      const scope = new DeviceStageBurstScope();
+      const token = await scope.beginExplicit({
+        connectId: CONNECT_ID,
+        vendor: EHardwareVendor.ledger,
+      });
+      await paintOpeningBeat();
+      // Exercise the same serialization boundary as an explicit UI-owned burst.
+      const error = JSON.parse(
+        JSON.stringify(
+          toPlainErrorObject(
+            new ThirdPartyDevicePermissionDenied({
+              reason,
+              payload: { code: 10_303, error: 'Permission denied', params: {} },
+            }),
+          ),
+        ),
+      );
+      await scope.endExplicit({ token, error });
+      expect(stage?.step).toBe(expectedStep);
+    },
+  );
+
+  it.each([
     HardwareErrorCode.DeviceNotOpenedPassphrase,
     HardwareErrorCode.NewFirmwareForceUpdate,
     HardwareErrorCode.BlePermissionError,
@@ -1212,7 +1396,7 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('off');
     expect(emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.DeviceStageOff,
-      undefined,
+      expect.anything(),
     );
 
     // The dialog's UI-side yield: the off goes out again, and announces
@@ -1220,10 +1404,9 @@ describe('DeviceStageBurstScope', () => {
     const writes = stageAtom.set.mock.calls.length;
     await expect(scope.silence()).resolves.toBe(true);
     expect(stageAtom.set.mock.calls.length).toBe(writes + 1);
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.DeviceStageOff,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+      burstId: 1,
+    });
     // Delivered: a further exit has nothing left to send.
     await expect(scope.silence()).resolves.toBe(false);
     expect(stageAtom.set.mock.calls.length).toBe(writes + 1);
@@ -1760,10 +1943,9 @@ describe('DeviceStageBurstScope', () => {
     await paintOpeningBeat();
     await scope.userClose();
     expect(stage?.step).toBe('off');
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.DeviceStageOff,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+      burstId: 1,
+    });
     emit.mockRestore();
   });
 
@@ -1781,6 +1963,264 @@ describe('DeviceStageBurstScope', () => {
     await scope.end();
     expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
     expect(stage?.step).toBe('off');
+  });
+
+  // The ✗ notice leaves the app live, so its retire — the readable hold
+  // running out, or the person's close — can meet a retry the person
+  // started from the page (OK-64696).
+  describe('error outcome retire', () => {
+    const rejected = {
+      $isHardwareError: true,
+      code: HardwareErrorCode.ActionCancelled,
+    };
+
+    const landNotice = async (scope: DeviceStageBurstScope) => {
+      await scope.begin({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      await scope.end({ error: rejected });
+      expect(stage?.step).toBe('error');
+    };
+
+    /** The outcome as the UI keyed it when the hold armed or ✕ landed. */
+    const seenOnStage = () => deviceStageOutcomeKey(stage);
+
+    it('retires the ✗ the person saw and announces the exit', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const emit = jest.spyOn(appEventBus, 'emit');
+
+      await scope.retireErrorOutcome(seenOnStage());
+
+      expect(stage?.step).toBe('off');
+      expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+        burstId: 1,
+      });
+      expect(scope.getLastOffAt()).toBeGreaterThan(0);
+    });
+
+    it('names the burst that left, and a hold opened after it stands in a new one', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const leftBurstId = stage?.burstId;
+
+      await scope.retireErrorOutcome(seenOnStage());
+      expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+        burstId: leftBurstId,
+      });
+
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+      expect(scope.getExplicitBurstId(token)).toBeDefined();
+      expect(scope.getExplicitBurstId(token)).not.toBe(leftBurstId);
+    });
+
+    it('opens a new burst when the ✗ leaves while a begin is reading it', async () => {
+      // The hold runs out as the person taps the page's retry: that exit
+      // already announced the ✗'s burst, so the retry must not stand in
+      // it — on split runtimes the announcement can land after the
+      // retry's hold has opened.
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const seen = seenOnStage();
+      const leftBurstId = stage?.burstId;
+      stageAtom.get.mockImplementationOnce(async () => {
+        const read = stage;
+        await scope.retireErrorOutcome(seen);
+        expect(stage?.step).toBe('off');
+        return read;
+      });
+
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+
+      expect(stage?.step).toBe('connecting');
+      expect(stage?.burstId).not.toBe(leftBurstId);
+      expect(scope.getExplicitBurstId(token)).toBe(stage?.burstId);
+    });
+
+    it("opens a new burst when the ✗ leaves between a retry's choice and its paint", async () => {
+      // set() awaits before it writes, so the ✗'s retire can land after
+      // begin chose to rejoin its burst: that off named the burst, and the
+      // retry's hold must not stand in it.
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const seen = seenOnStage();
+      const leftBurstId = stage?.burstId;
+      const emit = jest.spyOn(appEventBus, 'emit');
+      stageAtom.set.mockImplementationOnce(async (next) => {
+        await scope.retireErrorOutcome(seen);
+        expect(stage?.step).toBe('off');
+        stage = typeof next === 'function' ? next(stage) : next;
+      });
+
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+
+      expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+        burstId: leftBurstId,
+      });
+      expect(stage?.step).toBe('connecting');
+      expect(stage?.burstId).not.toBe(leftBurstId);
+      expect(scope.getExplicitBurstId(token)).toBe(stage?.burstId);
+    });
+
+    it('counts an off at its write, before its broadcast reaches the UI', async () => {
+      // A wrapper's grace exit is on its way to the UI as a new hold reads
+      // the stage it is taking down. The hold is told its id before its
+      // opening paint, so it has to see that exit when it chooses.
+      const scope = new DeviceStageBurstScope();
+      await scope.begin({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      await scope.end();
+      expect(stage?.step).toBe('connecting');
+      const leftBurstId = stage?.burstId;
+      let landOff: (() => void) | undefined;
+      let deliverOff: (() => void) | undefined;
+      stageAtom.set.mockImplementationOnce(
+        (next) =>
+          new Promise<void>((resolve) => {
+            landOff = () => {
+              stage = typeof next === 'function' ? next(stage) : next;
+            };
+            deliverOff = resolve;
+          }),
+      );
+      await letTheExitRun();
+      stageAtom.get.mockImplementationOnce(async () => {
+        const read = stage;
+        landOff?.();
+        return read;
+      });
+
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+      // Read as deviceStageBeginBurst reads it: right after the hold opens.
+      const heldBurstId = scope.getExplicitBurstId(token);
+      deliverOff?.();
+      await paintOpeningBeat();
+
+      expect(heldBurstId).toBeDefined();
+      expect(heldBurstId).not.toBe(leftBurstId);
+      expect(stage?.step).toBe('connecting');
+      expect(stage?.burstId).toBe(heldBurstId);
+    });
+
+    it('replaces the ✗ at once when a new burst begins', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+
+      await scope.begin({ connectId: CONNECT_ID });
+
+      // No opening defer: a stale ✗ over a retry reads as the retry
+      // failing too.
+      expect(stage?.step).toBe('connecting');
+    });
+
+    it('leaves a retry that already owns the stage alone, and its own failure still lands', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const seen = seenOnStage();
+      await scope.begin({ connectId: CONNECT_ID });
+      const emit = jest.spyOn(appEventBus, 'emit');
+
+      await scope.retireErrorOutcome(seen);
+
+      expect(stage?.step).toBe('connecting');
+      expect(emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.DeviceStageOff,
+        expect.anything(),
+      );
+      await scope.end({ error: rejected });
+      expect(stage?.step).toBe('error');
+    });
+
+    it('leaves a newer ✗ to its own hold', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const first = seenOnStage();
+      await scope.noteStep('error', {
+        connectId: CONNECT_ID,
+        errorReason: 'pinInvalid',
+      });
+      const second = seenOnStage();
+      expect(second).not.toEqual(first);
+
+      await scope.retireErrorOutcome(first);
+      expect(stage?.errorReason).toBe('pinInvalid');
+
+      await scope.retireErrorOutcome(second);
+      expect(stage?.step).toBe('off');
+    });
+
+    it('never takes down an ask that lands while the retire is on its way', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const seen = seenOnStage();
+      stageAtom.set.mockImplementationOnce(async (next) => {
+        // The device asks for its PIN between the person's tap (or the
+        // timer) and the retire's own write.
+        stage = { ...(stage as IDeviceStageState), step: 'pinOnApp' };
+        stage = typeof next === 'function' ? next(stage) : next;
+      });
+
+      await scope.retireErrorOutcome(seen);
+
+      expect(stage?.step).toBe('pinOnApp');
+    });
+
+    it('keeps an explicit hold, so the device can ask again and the holder lands its outcome', async () => {
+      const scope = new DeviceStageBurstScope();
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      await scope.noteStep('error', {
+        connectId: CONNECT_ID,
+        errorReason: 'pinInvalid',
+      });
+
+      await scope.retireErrorOutcome(seenOnStage());
+      expect(stage?.step).toBe('off');
+
+      await scope.onHardwareUiEvent({
+        action: EHardwareUiStateAction.REQUEST_PIN,
+        connectId: CONNECT_ID,
+      });
+      expect(stage?.step).toBe('pinOnApp');
+      await scope.endExplicit({
+        token,
+        doneI18n: { key: ETranslations.global_done },
+      });
+      expect(stage?.step).toBe('done');
+    });
+
+    it('sends an off that never reached the UI again when the person acts on the ✗', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const seen = seenOnStage();
+      const emit = jest.spyOn(appEventBus, 'emit');
+      // The write lands here, then the broadcast to the UI fails: this
+      // side reads off while the ✗ stays on the person's screen.
+      stageAtom.set.mockImplementationOnce(async (next) => {
+        stage = typeof next === 'function' ? next(stage) : next;
+        throw new OneKeyLocalError('broadcast failed');
+      });
+
+      await scope.retireErrorOutcome(seen);
+      expect(stage?.step).toBe('off');
+      expect(emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.DeviceStageOff,
+        expect.anything(),
+      );
+
+      await scope.retireErrorOutcome(seen);
+      expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+        burstId: 1,
+      });
+
+      // Delivered now: a later retire has nothing left to send.
+      emit.mockClear();
+      await scope.retireErrorOutcome(seen);
+      expect(emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.DeviceStageOff,
+        expect.anything(),
+      );
+    });
   });
 });
 

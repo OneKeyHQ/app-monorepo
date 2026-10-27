@@ -5,13 +5,8 @@ import { act, renderHook } from '@testing-library/react';
 import { rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import type { IMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
   ERootRoutes,
-  ETabDiscoveryRoutes,
+  ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
@@ -43,15 +38,6 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     mockMarketSelectedTab,
     mockSetMarketSelectedTab,
   ],
-}));
-
-jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: {
-    SwitchDiscoveryTabInNative: 'SwitchDiscoveryTabInNative',
-  },
-  appEventBus: {
-    emit: jest.fn(),
-  },
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -91,9 +77,6 @@ const mockRootNavigationRef = rootNavigationRef as typeof rootNavigationRef & {
 const mockSwitchTabAsync = switchTabAsync as jest.MockedFunction<
   typeof switchTabAsync
 >;
-const mockAppEventBus = appEventBus as typeof appEventBus & {
-  emit: jest.Mock;
-};
 
 describe('useNavigateToMarketTab', () => {
   beforeEach(() => {
@@ -139,16 +122,13 @@ describe('useNavigateToMarketTab', () => {
       await Promise.resolve();
     });
 
-    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Market);
     expect(mockRootNavigationRef.current.navigate).toHaveBeenCalledWith(
       ERootRoutes.Main,
       {
-        screen: ETabRoutes.Discovery,
+        screen: ETabRoutes.Market,
         params: {
-          screen: ETabDiscoveryRoutes.TabDiscovery,
-          params: {
-            defaultTab: ETranslations.global_market,
-          },
+          screen: ETabMarketRoutes.TabMarket,
         },
       },
     );
@@ -176,10 +156,6 @@ describe('useNavigateToMarketTab', () => {
     act(() => {
       jest.advanceTimersByTime(1);
     });
-    expect(mockAppEventBus.emit).toHaveBeenCalledWith(
-      EAppEventBusNames.SwitchDiscoveryTabInNative,
-      { tab: ETranslations.global_market },
-    );
     expect(onNavigationComplete).toHaveBeenCalledTimes(1);
     expect(
       mockNavigationLogger.performNavigationComplete,

@@ -42,6 +42,17 @@ export const NetworkAvatarBase = ({
   allNetworksIconProps?: ComponentProps<typeof Icon>;
   isAggregateToken?: boolean;
 }) => {
+  const placeholder = useMemo(() => <Stack width="100%" height="100%" />, []);
+  const fallback = useMemo(
+    () => (
+      <Icon
+        size={size as FontSizeTokens}
+        name="GlobusOutline"
+        color="$iconSubdued"
+      />
+    ),
+    [size],
+  );
   if (isCustomNetwork) {
     return <LetterAvatar letter={networkName?.[0]} size={size} />;
   }
@@ -70,14 +81,8 @@ export const NetworkAvatarBase = ({
       src={logoURI}
       bg="$bgApp"
       borderRadius="$full"
-      placeholder={<Stack width="100%" height="100%" />}
-      fallback={
-        <Icon
-          size={size as FontSizeTokens}
-          name="GlobusOutline"
-          color="$iconSubdued"
-        />
-      }
+      placeholder={placeholder}
+      fallback={fallback}
     />
   );
 };
@@ -95,11 +100,11 @@ export function NetworkAvatar({
   allNetworksIconProps,
 }: INetworkAvatarProps) {
   const { serviceNetwork } = backgroundApiProxy;
-  const { networksMap } = useTokenListViewContext();
+  const { networksMap, networkMetadataProvided } = useTokenListViewContext();
   const cachedNetwork = networkId ? networksMap?.[networkId] : undefined;
   const res = usePromiseResult(
     () => {
-      if (cachedNetwork) {
+      if (cachedNetwork || networkMetadataProvided) {
         return Promise.resolve(cachedNetwork);
       }
       return networkId
@@ -110,7 +115,7 @@ export function NetworkAvatar({
             name: '',
           } as IServerNetwork);
     },
-    [networkId, serviceNetwork, cachedNetwork],
+    [networkId, serviceNetwork, cachedNetwork, networkMetadataProvided],
     {
       checkIsFocused: false,
       initResult: cachedNetwork,
@@ -122,6 +127,7 @@ export function NetworkAvatar({
   const effectiveLogoURI = useNetworkLogoUri({
     logoUri: network?.logoURI,
     networkId,
+    skipFetch: networkMetadataProvided,
   });
 
   if (isCustomNetwork) {

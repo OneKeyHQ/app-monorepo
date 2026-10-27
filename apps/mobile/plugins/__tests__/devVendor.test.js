@@ -253,6 +253,24 @@ function createTemporaryRuntimeFixture() {
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.copyFileSync(path.join(repoRoot, relativePath), destination);
   }
+  // ABI inputs from workspace packages need the same installed links as Yarn.
+  for (const name of nativeDependencies) {
+    const packageRoot = path.dirname(
+      require.resolve(`${name}/package.json`, {
+        paths: [path.join(repoRoot, 'apps/mobile'), repoRoot],
+      }),
+    );
+    const relativePackageRoot = path.relative(repoRoot, packageRoot);
+    if (relativePackageRoot.startsWith(`packages${path.sep}`)) {
+      const installedPath = path.join(temporaryRepoRoot, 'node_modules', name);
+      fs.mkdirSync(path.dirname(installedPath), { recursive: true });
+      fs.symlinkSync(
+        path.join(temporaryRepoRoot, relativePackageRoot),
+        installedPath,
+        'junction',
+      );
+    }
+  }
   const modulePath = 'apps/mobile/index.ts';
   const moduleSourcePath = path.join(temporaryRepoRoot, modulePath);
   fs.mkdirSync(path.dirname(moduleSourcePath), { recursive: true });
@@ -581,6 +599,41 @@ describe('devVendor', () => {
     }
   });
 
+  it('invalidates both exact shells when the checked MMKV source inputs change', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      for (const relativePath of [
+        'apps/mobile/native/mmkv/checked-sync.patch',
+        'apps/mobile/native/mmkv/source.lock.json',
+        'development/scripts/prepare-mmkv-source.js',
+      ]) {
+        const file = path.join(fixture.repoRoot, relativePath);
+        const original = fs.readFileSync(file);
+        const baselines = Object.fromEntries(
+          ['android', 'ios'].map((platform) => [
+            platform,
+            hashShellInputFiles(
+              getShellInputPaths(platform, fixture.repoRoot),
+              fixture.repoRoot,
+            ),
+          ]),
+        );
+        fs.appendFileSync(file, '\nchanged MMKV source input\n');
+        for (const platform of ['android', 'ios']) {
+          expect(
+            hashShellInputFiles(
+              getShellInputPaths(platform, fixture.repoRoot),
+              fixture.repoRoot,
+            ),
+          ).not.toBe(baselines[platform]);
+        }
+        fs.writeFileSync(file, original);
+      }
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
   it('keeps shell input keys stable for non-ABI shell and web changes', () => {
     const fixture = createTemporaryRuntimeFixture();
     try {
@@ -720,7 +773,7 @@ describe('devVendor', () => {
       );
 
       const changedPodResolution = podLock.replace(
-        /^(  SPAlert: )[0-9a-f]{40}$/mu,
+        /^(  AppAuth: )[0-9a-f]{40}$/mu,
         `$1${'f'.repeat(40)}`,
       );
       expect(changedPodResolution).not.toBe(podLock);

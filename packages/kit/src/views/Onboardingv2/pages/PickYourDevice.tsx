@@ -91,7 +91,7 @@ export default function PickYourDevice() {
           },
       {
         name: intl.formatMessage({ id: ETranslations.use_another_device }),
-        tags: ['Ledger', 'Trezor'],
+        tags: ['Ledger', 'Trezor', 'Keystone'],
         deviceType: [],
         image: require('@onekeyhq/kit/assets/pick-others.png'),
         colors: SHIMMER_NEUTRAL,
@@ -142,6 +142,7 @@ export default function PickYourDevice() {
         {DEVICES.map(({ name, tags, image, deviceType, colors, dialog }) => (
           <YStack
             key={name}
+            testID={`onboarding-device-card-${dialog ?? deviceType.join('-')}`}
             group="card"
             userSelect="none"
             $gtMd={{ flex: 1 }}

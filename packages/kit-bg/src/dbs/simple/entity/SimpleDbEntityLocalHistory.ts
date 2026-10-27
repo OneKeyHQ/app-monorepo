@@ -163,6 +163,53 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   }
 
   @backgroundMethod()
+  public async restoreLocalHistoryPendingTx({
+    networkId,
+    accountAddress,
+    historyTx,
+  }: {
+    networkId: string;
+    accountAddress: string;
+    historyTx: IAccountHistoryTx;
+  }): Promise<boolean> {
+    if (
+      !accountAddress ||
+      historyTx.decodedTx.networkId !== networkId ||
+      historyTx.decodedTx.status !== EDecodedTxStatus.Pending ||
+      historyTx.replacedNextId
+    ) {
+      throw new OneKeyInternalError('Invalid pending history recovery');
+    }
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress });
+    let restored = false;
+    await this.setRawData((rawData) => {
+      const pending = rawData?.pendingTxs?.[key] ?? [];
+      const confirmed = rawData?.confirmedTxs?.[key] ?? [];
+      // Check inside the storage lock: a confirmation or replacement may have
+      // been recorded while the recovery's chain request was in flight.
+      if (
+        [...pending, ...confirmed].some(
+          (tx) =>
+            tx.id === historyTx.id ||
+            tx.replacedPrevId === historyTx.id ||
+            tx.decodedTx.nonce === historyTx.decodedTx.nonce,
+        )
+      )
+        return rawData ?? { pendingTxs: {}, confirmedTxs: {} };
+      restored = true;
+      return {
+        ...rawData,
+        confirmedTxs: rawData?.confirmedTxs ?? {},
+        pendingTxs: {
+          ...rawData?.pendingTxs,
+          [key]: [clearHistoryTxDisplayStatus(historyTx), ...pending],
+        },
+      };
+    });
+    return restored;
+  }
+
+  @backgroundMethod()
   public async saveLocalHistoryPendingTxs({
     networkId,
     accountAddress,

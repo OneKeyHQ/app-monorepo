@@ -19,6 +19,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -63,6 +64,7 @@ import {
   mergeDenyProviderStrings,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
+import { buildSwapTokenSearchRequests } from '@onekeyhq/shared/src/utils/swapTokenSearchRequestUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -161,6 +163,8 @@ import {
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 
 const SWAP_REFERRAL_LOOKUP_TIMEOUT_MS = 3000;
+const SWAP_TOKEN_SEARCH_CANCELLATION_TTL_MS = 5 * 60 * 1000;
+const SWAP_TOKEN_SEARCH_CANCELLATION_MAX_ENTRIES = 256;
 
 type ISwapBuildTxContext = {
   accountId?: string;
@@ -227,6 +231,11 @@ type IPrivateSendOrderDetail = {
 };
 
 type IPrivateSendStatusSource = 'stateTx' | 'orderDetail';
+
+type ISwapHistoryFeeUpdate = Pick<
+  ISwapTxHistory['txInfo'],
+  'gasFeeInNative' | 'gasFeeFiatValue'
+>;
 
 type IFetchSwapHistoryStatusResult = {
   orderDetail?: IPrivateSendOrderDetail;
@@ -521,9 +530,20 @@ function trackPrivateSendOrderFinalStatusIfNeeded({
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
-  private _checkTokenApproveAllowanceAbortController?: AbortController;
+  private readonly tokenListSemaphore = new Semaphore(6);
 
-  private _tokenListAbortController?: AbortController;
+  private readonly foregroundTokenListQueue: (() => Promise<void>)[] = [];
+
+  private readonly backgroundTokenListQueue: (() => Promise<void>)[] = [];
+
+  private readonly tokenSearchControllers = new Map<
+    string,
+    Set<AbortController>
+  >();
+
+  private readonly canceledTokenSearchRequests = new Map<string, number>();
+
+  private _checkTokenApproveAllowanceAbortController?: AbortController;
 
   private _perpDepositQuoteController?: AbortController;
 
@@ -662,14 +682,6 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancelFetchTokenList() {
-    if (this._tokenListAbortController) {
-      this._tokenListAbortController.abort();
-      this._tokenListAbortController = undefined;
-    }
-  }
-
-  @backgroundMethod()
   async cancelFetchPerpDepositQuote() {
     if (this._perpDepositQuoteController) {
       this._perpDepositQuoteController.abort();
@@ -724,80 +736,189 @@ export default class ServiceSwap extends ServiceBase {
   @toastIfError()
   async fetchSwapNetworks(options?: {
     refreshClientNetworks?: boolean;
+    autoHandleError?: boolean;
   }): Promise<ISwapNetwork[]> {
-    const protocol = EProtocolOfExchange.ALL;
-    const requestParams = {
-      protocol,
-    };
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
-      '/swap/v1/networks',
-      { params: requestParams },
-    );
-    const allClientSupportNetworks =
-      await this.backgroundApi.serviceNetwork.getAllNetworks({
-        clearCache: options?.refreshClientNetworks,
-      });
-    const deFiEnabledNetworksMapState =
-      await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState({
-        syncIfEmpty: false,
-      });
-    const swapNetworks = data?.data
-      ?.map((network) => {
-        const clientNetwork = allClientSupportNetworks.networks.find(
-          (n) => n.id === network.networkId,
-        );
-        if (clientNetwork) {
-          return {
-            name: clientNetwork.name,
-            symbol: clientNetwork.symbol,
-            shortcode: clientNetwork.shortcode,
-            logoURI: clientNetwork.logoURI,
-            backendIndex: clientNetwork.backendIndex ?? false,
-            ...(deFiEnabledNetworksMapState.isReady
-              ? {
-                  isDeFiEnabled:
-                    !!deFiEnabledNetworksMapState.enabledNetworksMap[
-                      network.networkId
-                    ],
-                }
-              : {}),
-            networkId: network.networkId,
-            isL2: network.isL2 ?? false,
-            ...(network.parentNetworkId
-              ? { parentNetworkId: network.parentNetworkId }
-              : {}),
-            defaultSelectToken: network.defaultSelectToken,
-            defaultSelectTokenDetail: network.defaultSelectTokenDetail,
-            supportCrossChainSwap: network.supportCrossChainSwap,
-            supportSingleSwap: network.supportSingleSwap,
-            supportLimit: network.supportLimit,
-            supportPrivateSend: network.supportPrivateSend,
-            supportStock: network.supportStock,
-          };
+    try {
+      const protocol = EProtocolOfExchange.ALL;
+      const requestParams = {
+        protocol,
+      };
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
+        '/swap/v1/networks',
+        // Abort the request before releasing local default-token fallbacks.
+        { params: requestParams, timeout: 10_000 },
+      );
+      const allClientSupportNetworks =
+        await this.backgroundApi.serviceNetwork.getAllNetworks({
+          clearCache: options?.refreshClientNetworks,
+        });
+      const deFiEnabledNetworksMapState =
+        await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState({
+          syncIfEmpty: false,
+        });
+      const swapNetworks = data?.data
+        ?.map((network) => {
+          const clientNetwork = allClientSupportNetworks.networks.find(
+            (n) => n.id === network.networkId,
+          );
+          if (clientNetwork) {
+            return {
+              name: clientNetwork.name,
+              symbol: clientNetwork.symbol,
+              shortcode: clientNetwork.shortcode,
+              logoURI: clientNetwork.logoURI,
+              backendIndex: clientNetwork.backendIndex ?? false,
+              ...(deFiEnabledNetworksMapState.isReady
+                ? {
+                    isDeFiEnabled:
+                      !!deFiEnabledNetworksMapState.enabledNetworksMap[
+                        network.networkId
+                      ],
+                  }
+                : {}),
+              networkId: network.networkId,
+              isL2: network.isL2 ?? false,
+              ...(network.parentNetworkId
+                ? { parentNetworkId: network.parentNetworkId }
+                : {}),
+              defaultSelectToken: network.defaultSelectToken,
+              defaultSelectTokenDetail: network.defaultSelectTokenDetail,
+              supportCrossChainSwap: network.supportCrossChainSwap,
+              supportSingleSwap: network.supportSingleSwap,
+              supportLimit: network.supportLimit,
+              supportPrivateSend: network.supportPrivateSend,
+              supportStock: network.supportStock,
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
+      return swapNetworks ?? [];
+    } catch (error) {
+      if (options?.autoHandleError === false) {
+        errorToastUtils.toastIfErrorDisable(error);
+      }
+      throw error;
+    }
+  }
+
+  private runTokenListRequest<T>(
+    request: () => Promise<T>,
+    foreground: boolean,
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const queue = foreground
+        ? this.foregroundTokenListQueue
+        : this.backgroundTokenListQueue;
+      queue.push(async () => {
+        try {
+          resolve(await request());
+        } catch (error) {
+          reject(error);
         }
-        return null;
-      })
-      .filter(Boolean);
-    return swapNetworks ?? [];
+      });
+      // Semaphore tickets only reserve capacity. Choose the actual task when a
+      // slot opens so queued wallet sweeps cannot delay a foreground search.
+      void this.tokenListSemaphore
+        .runExclusive(async () => {
+          const next =
+            this.foregroundTokenListQueue.shift() ??
+            this.backgroundTokenListQueue.shift();
+          await next?.();
+        })
+        .catch(reject);
+    });
   }
 
   @backgroundMethod()
-  async fetchSwapTokens({
-    networkId,
-    keywords,
-    limit = 50,
-    accountAddress,
-    accountNetworkId,
-    accountId,
-    onlyAccountTokens,
-    onlySwapTokens,
-    isAllNetworkFetchAccountTokens,
-    throwOnError,
-    protocol,
-    lpToken,
-    currency,
-  }: IFetchTokensParams): Promise<ISwapToken[]> {
+  async cancelSwapTokenSearch({ requestId }: { requestId: string }) {
+    if (!requestId) return;
+    this.pruneCanceledTokenSearchRequests();
+    // Keep a bounded tombstone when cancellation reaches the background before
+    // the corresponding service call has finished lazy initialization.
+    this.canceledTokenSearchRequests.delete(requestId);
+    this.canceledTokenSearchRequests.set(requestId, Date.now());
+    this.pruneCanceledTokenSearchRequests();
+    this.tokenSearchControllers
+      .get(requestId)
+      ?.forEach((controller) => controller.abort());
+  }
+
+  private pruneCanceledTokenSearchRequests() {
+    const now = Date.now();
+    for (const [requestId, canceledAt] of this.canceledTokenSearchRequests) {
+      if (
+        now - canceledAt >= SWAP_TOKEN_SEARCH_CANCELLATION_TTL_MS ||
+        this.canceledTokenSearchRequests.size >
+          SWAP_TOKEN_SEARCH_CANCELLATION_MAX_ENTRIES
+      ) {
+        this.canceledTokenSearchRequests.delete(requestId);
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async fetchSwapTokens(params: IFetchTokensParams): Promise<ISwapToken[]> {
+    const requestId = params.keywords ? params.searchRequestId : undefined;
+    const controller = requestId ? new AbortController() : undefined;
+    if (requestId && controller) {
+      this.pruneCanceledTokenSearchRequests();
+      if (this.canceledTokenSearchRequests.has(requestId)) controller.abort();
+      const controllers =
+        this.tokenSearchControllers.get(requestId) ??
+        new Set<AbortController>();
+      controllers.add(controller);
+      this.tokenSearchControllers.set(requestId, controllers);
+    }
+    try {
+      return await this.fetchSwapTokensInternal(params, controller?.signal);
+    } catch (error) {
+      if (axios.isCancel(error)) {
+        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
+        throw new Error('swap fetch token cancel', {
+          cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
+        });
+      }
+      throw error;
+    } finally {
+      if (requestId && controller) {
+        const controllers = this.tokenSearchControllers.get(requestId);
+        controllers?.delete(controller);
+        if (controllers?.size === 0) {
+          this.tokenSearchControllers.delete(requestId);
+        }
+      }
+    }
+  }
+
+  private async fetchSwapTokensInternal(
+    {
+      networkId,
+      contractSearchNetworkId,
+      searchNetworks,
+      keywords,
+      limit = 50,
+      accountAddress,
+      accountNetworkId,
+      accountId,
+      onlyAccountTokens,
+      onlySwapTokens,
+      isAllNetworkFetchAccountTokens,
+      throwOnError,
+      isTokenListPrefetch,
+      tokenListPriority,
+      protocol,
+      lpToken,
+      currency,
+    }: IFetchTokensParams,
+    signal?: AbortSignal,
+  ): Promise<ISwapToken[]> {
+    const throwIfCanceled = () => {
+      if (signal?.aborted)
+        throw new axios.CanceledError('Token search canceled');
+    };
+    throwIfCanceled();
     const accountContext = resolveSwapRequestAccountContext({
       accountAddress,
       accountId,
@@ -809,12 +930,7 @@ export default class ServiceSwap extends ServiceBase {
     const requestAccountAddress = accountContext.accountAddress;
     const requestAccountId = accountContext.accountId;
     const requestAccountNetworkId = accountContext.accountNetworkId;
-    const requestIsAllNetworkFetchAccountTokens =
-      accountContext.isAllNetworkFetchAccountTokens;
     const requestOnlyAccountTokens = accountContext.onlyAccountTokens;
-    if (!requestIsAllNetworkFetchAccountTokens) {
-      await this.cancelFetchTokenList();
-    }
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
     const requestProtocol = getProtocolOfExchangeFromSwapTab(protocol);
     const params: IFetchTokenListParams = {
@@ -831,9 +947,6 @@ export default class ServiceSwap extends ServiceBase {
       onlySwapTokens,
       ...(shouldSendSwapLpTokenParam(lpToken) ? { lpToken } : {}),
     };
-    if (!requestIsAllNetworkFetchAccountTokens) {
-      this._tokenListAbortController = new AbortController();
-    }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const requestCurrency =
       currency ??
@@ -885,11 +998,9 @@ export default class ServiceSwap extends ServiceBase {
       }
     }
     try {
+      throwIfCanceled();
       const requestConfig = {
         params,
-        signal: !requestIsAllNetworkFetchAccountTokens
-          ? this._tokenListAbortController?.signal
-          : undefined,
         headers: {
           ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
             {
@@ -899,15 +1010,37 @@ export default class ServiceSwap extends ServiceBase {
           'x-onekey-request-currency': requestCurrency,
         },
       };
-      const endpoints =
-        keywords && onlySwapTokens
-          ? ['/swap/v1/tokens', '/swap/v1/swap-tokens']
-          : ['/swap/v1/tokens'];
+      const requests = buildSwapTokenSearchRequests({
+        params,
+        contractSearchNetworkId,
+        searchNetworks,
+      });
+      throwIfCanceled();
       const responses = await Promise.allSettled(
-        endpoints.map((endpoint) =>
-          client.get<IFetchResponse<ISwapToken[]>>(endpoint, requestConfig),
-        ),
+        requests.map(({ endpoint, params: requestParams }) => {
+          const fetchTokens = () => {
+            // A superseded search may have waited behind other requests. Never
+            // spend a newly available slot sending its remaining chain calls.
+            throwIfCanceled();
+            return client.get<IFetchResponse<ISwapToken[]>>(endpoint, {
+              ...requestConfig,
+              params: requestParams,
+              ...(signal ? { signal } : {}),
+            });
+          };
+          // Share one HTTP budget across providers, preloads and search rounds.
+          // Failed requests release their slot through runExclusive.
+          return this.runTokenListRequest(
+            fetchTokens,
+            Boolean(keywords) ||
+              tokenListPriority === 'foreground' ||
+              (tokenListPriority !== 'background' &&
+                !isTokenListPrefetch &&
+                !isAllNetworkFetchAccountTokens),
+          );
+        }),
       );
+      throwIfCanceled();
       const canceledResponse = responses.find(
         (response) =>
           response.status === 'rejected' && axios.isCancel(response.reason),
@@ -935,17 +1068,16 @@ export default class ServiceSwap extends ServiceBase {
       });
     } catch (e) {
       if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
-        throw new Error('swap fetch token cancel', {
-          cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
-        });
+        throw e;
       } else {
         const error = e as { code: number; message: string; requestId: string };
-        void this.backgroundApi.serviceApp.showToast({
-          method: 'error',
-          title: error?.message,
-          message: error?.requestId,
-        });
+        if (!isTokenListPrefetch) {
+          void this.backgroundApi.serviceApp.showToast({
+            method: 'error',
+            title: error?.message,
+            message: error?.requestId,
+          });
+        }
         if (throwOnError) {
           throw e;
         }
@@ -1051,6 +1183,7 @@ export default class ServiceSwap extends ServiceBase {
     direction,
     currency,
     protocol = EProtocolOfExchange.SWAP,
+    throwOnError = false,
   }: {
     networkId: string;
     accountAddress?: string;
@@ -1059,6 +1192,7 @@ export default class ServiceSwap extends ServiceBase {
     direction?: ESwapDirectionType;
     currency?: string;
     protocol?: EProtocolOfExchange;
+    throwOnError?: boolean;
   }): Promise<ISwapToken[] | undefined> {
     try {
       await this.cancelFetchTokenDetail(direction);
@@ -1133,6 +1267,7 @@ export default class ServiceSwap extends ServiceBase {
       );
       return data?.data;
     } catch (e) {
+      if (throwOnError) throw e;
       console.error(e);
       return [];
     }
@@ -1203,6 +1338,7 @@ export default class ServiceSwap extends ServiceBase {
   @toastIfError()
   async fetchQuotesEvents({
     source,
+    denySingleSwapProvider: inputDenySingleSwapProvider,
     fromToken,
     toToken,
     fromTokenAmount,
@@ -1230,10 +1366,17 @@ export default class ServiceSwap extends ServiceBase {
       fromToken.networkId,
       toToken.networkId,
     );
-    const denySingleSwapProvider = await this.getDenySingleSwapProvider(
-      fromToken.networkId,
-      toToken.networkId,
-    );
+    const configuredDenySingleSwapProvider =
+      await this.getDenySingleSwapProvider(
+        fromToken.networkId,
+        toToken.networkId,
+      );
+    const denySingleSwapProvider = inputDenySingleSwapProvider
+      ? mergeDenyProviderStrings(
+          configuredDenySingleSwapProvider,
+          inputDenySingleSwapProvider,
+        )
+      : configuredDenySingleSwapProvider;
     const walletDevice =
       await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
         accountId: accountId ?? '',
@@ -1552,6 +1695,7 @@ export default class ServiceSwap extends ServiceBase {
       this.getClient(EServiceEndpointEnum.Swap),
     ]);
     const params: IFetchBuildTxParams = {
+      source,
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,
@@ -1569,7 +1713,6 @@ export default class ServiceSwap extends ServiceBase {
       deviceType: deviceType ?? accountDevice?.deviceType,
       // Preserve the trading entry for attribution even when native BTC quotes
       // fall back to the legacy provider pool.
-      source,
       tradeSource,
       ...context.referralBuildTxParams,
     };
@@ -1594,6 +1737,7 @@ export default class ServiceSwap extends ServiceBase {
     receivedAddress,
     orderId,
     ctx,
+    requestCurrency,
   }: {
     txId?: string;
     toTokenAddress?: string;
@@ -1603,6 +1747,7 @@ export default class ServiceSwap extends ServiceBase {
     provider?: string;
     orderId?: string;
     ctx?: any;
+    requestCurrency?: string;
   }): Promise<IFetchSwapTxHistoryStatusResponse> {
     const params = {
       txId,
@@ -1618,7 +1763,11 @@ export default class ServiceSwap extends ServiceBase {
 
     const { data } = await client.post<
       IFetchResponse<IFetchSwapTxHistoryStatusResponse>
-    >('/swap/v1/state-tx', params);
+    >('/swap/v1/state-tx', params, {
+      headers: requestCurrency
+        ? { 'x-onekey-request-currency': requestCurrency }
+        : undefined,
+    });
     return data?.data ?? { state: ESwapTxHistoryStatus.PENDING };
   }
 
@@ -1902,6 +2051,19 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   // --- swap provider manager
+  @backgroundMethod()
+  async fetchSwapProviderSupportNetworks({
+    provider,
+  }: {
+    provider: string;
+  }): Promise<Pick<ISwapNetworkBase, 'networkId'>[]> {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const { data } = await client.get<
+      IFetchResponse<Pick<ISwapNetworkBase, 'networkId'>[]>
+    >('/swap/v1/provider/support-networks', { params: { provider } });
+    return data?.data ?? [];
+  }
+
   @backgroundMethod()
   async getSwapProviderManager() {
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -2601,11 +2763,19 @@ export default class ServiceSwap extends ServiceBase {
   private async persistSwapHistoryUpdate(
     item: ISwapTxHistory,
     oldTxId?: string,
+    feeUpdate?: ISwapHistoryFeeUpdate,
   ) {
-    await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
-      item,
-      oldTxId,
-    );
+    const persistedItem = feeUpdate
+      ? await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+          item,
+          oldTxId,
+          feeUpdate,
+        )
+      : await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+          item,
+          oldTxId,
+        );
+    const updatedItem = persistedItem ?? item;
     // The durable write for a queued item never landed, so this update had
     // nothing to change. Re-queue under the current identity instead, or the
     // retry would eventually persist a status the swap has already left.
@@ -2614,8 +2784,9 @@ export default class ServiceSwap extends ServiceBase {
       oldTxId && this.swapHistoryDurableRetryQueue.has(oldTxId) ? oldTxId : key;
     if (this.swapHistoryDurableRetryQueue.has(queuedKey)) {
       this.swapHistoryDurableRetryQueue.delete(queuedKey);
-      this.enqueueSwapHistoryDurableRetry(item);
+      this.enqueueSwapHistoryDurableRetry(updatedItem);
     }
+    return updatedItem;
   }
 
   @backgroundMethod()
@@ -2670,7 +2841,10 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async updateSwapHistoryItem(
     item: ISwapTxHistory,
-    options?: { shouldShowToast?: boolean },
+    options?: {
+      shouldShowToast?: boolean;
+      privateSendFeeUpdate?: ISwapHistoryFeeUpdate;
+    },
   ) {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const shouldShowToast = options?.shouldShowToast ?? true;
@@ -2687,7 +2861,7 @@ export default class ServiceSwap extends ServiceBase {
       // preserve the original in-place cancellation reconciliation contract.
       item.status = ESwapTxHistoryStatus.CANCELED;
     }
-    const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
+    let enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
     if (oldItem) {
       if (
         enrichedItem.txInfo.receiverTransactionId &&
@@ -2747,7 +2921,11 @@ export default class ServiceSwap extends ServiceBase {
       }
     }
     await this.swapHistoryMutationMutex.runExclusive(async () => {
-      await this.persistSwapHistoryUpdate(enrichedItem);
+      enrichedItem = await this.persistSwapHistoryUpdate(
+        enrichedItem,
+        undefined,
+        options?.privateSendFeeUpdate,
+      );
       if (oldItem) {
         await inAppNotificationAtom.set((pre) => {
           const newPendingList = filterSwapHistoryPendingList(
@@ -2763,6 +2941,7 @@ export default class ServiceSwap extends ServiceBase {
     if (isPrivateSendSwapHistoryItem(enrichedItem)) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
+    return enrichedItem;
   }
 
   @backgroundMethod()
@@ -2943,6 +3122,9 @@ export default class ServiceSwap extends ServiceBase {
     });
     return this.fetchTxState({
       txId: getSwapHistoryStateTxIdParam(currentSwapTxHistory),
+      // Status fees must use the persisted record's denomination, even after
+      // the user changes their display currency.
+      requestCurrency: currentSwapTxHistory.currencyId,
       provider: currentSwapTxHistory.swapInfo.provider.provider,
       protocol:
         currentSwapTxHistory.protocol ??
@@ -3094,13 +3276,24 @@ export default class ServiceSwap extends ServiceBase {
               : currentSwapTxHistory.baseInfo.toAmount,
           },
         };
-        await this.updateSwapHistoryItem(currentSwapTxHistory, {
-          shouldShowToast: shouldShowSwapHistoryStatusToast({
-            previousSwapTxHistory,
-            swapTxHistory: currentSwapTxHistory,
-            shouldShowToast,
-          }),
-        });
+        currentSwapTxHistory = await this.updateSwapHistoryItem(
+          currentSwapTxHistory,
+          {
+            ...(isPrivateSendHistory
+              ? {
+                  privateSendFeeUpdate: {
+                    gasFeeInNative: txStatusRes.gasFee,
+                    gasFeeFiatValue: txStatusRes.gasFeeFiatValue,
+                  },
+                }
+              : undefined),
+            shouldShowToast: shouldShowSwapHistoryStatusToast({
+              previousSwapTxHistory,
+              swapTxHistory: currentSwapTxHistory,
+              shouldShowToast,
+            }),
+          },
+        );
         const finalStatus = currentSwapTxHistory.status;
         trackPrivateSendOrderFinalStatusIfNeeded({
           isPrivateSendHistory,

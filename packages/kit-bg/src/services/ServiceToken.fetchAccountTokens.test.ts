@@ -21,6 +21,9 @@ consumers see them.
 share one balance. The marked ERC-20 row must stay in `data` / `keys` / `map`
 but be flagged out of totals when a valid native primary is in the response,
 and be counted when it is not.
+
+4. Saved has-assets flag — the saved lists are capped, so whether an account
+held anything is read from the complete response before the cap.
 */
 
 // --- jest.mock calls are hoisted above these imports by babel-jest ---
@@ -555,5 +558,80 @@ describe('ServiceToken.fetchAccountTokens shared-balance groups (OK-63633)', () 
       result.tokens.map[ARC_ERC20_KEY].sharedBalanceExcludedFromTotal,
     ).toBe(undefined);
     expect(result.tokens.fiatValue).toBe('1.456131');
+  });
+});
+
+describe('ServiceToken.fetchAccountTokens saved has-assets flag', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('reads the flag from the complete response, not the capped lists', async () => {
+    const emptyToken: IAccountToken = { ...walletToken, $key: 'empty-token' };
+    const riskyToken: IAccountToken = {
+      ...walletToken,
+      $key: 'risky-token',
+      address: '0xrisky',
+    };
+    const group = (token?: IAccountToken, balance = '0'): ITokenData => ({
+      data: token ? [token] : [],
+      keys: token?.$key ?? '',
+      map: token
+        ? {
+            [token.$key]: {
+              balance,
+              balanceParsed: balance,
+              fiatValue: '0',
+              price: 0,
+            },
+          }
+        : {},
+      fiatValue: '0',
+      currency: 'usd',
+    });
+    const fetchTokenList = jest.fn(async () => ({
+      data: {
+        data: {
+          tokens: group(emptyToken),
+          riskTokens: group(riskyToken, '5'),
+          smallBalanceTokens: group(),
+        },
+      },
+    }));
+    getVaultMock.mockResolvedValue({ fetchTokenList });
+    const updateAccountTokenList = jest.fn(async () => undefined);
+    const backgroundApi = {
+      ...buildBackgroundApiStub(),
+      simpleDb: {
+        localTokens: {
+          reserveAccountTokenListWriteOrder: jest.fn(async () => 1),
+          updateAccountTokenList,
+        },
+      },
+    };
+    backgroundApi.serviceAccount.buildAccountXpubOrAddress.mockImplementation(
+      async ({
+        getAccountAddressFn,
+      }: {
+        getAccountAddressFn: () => Promise<string>;
+      }) => getAccountAddressFn(),
+    );
+    const service = new ServiceToken({ backgroundApi });
+
+    await service.fetchAccountTokens({
+      accountId: "hd-1--m/44'/60'/0'/0/0",
+      networkId,
+      saveToLocal: true,
+      // The risky holding is the one dropped from the saved lists.
+      saveToLocalLimit: 1,
+    });
+
+    expect(updateAccountTokenList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        riskyTokenList: [],
+        tokenListMap: { [emptyToken.$key]: expect.anything() },
+        hasAssets: true,
+      }),
+    );
   });
 });

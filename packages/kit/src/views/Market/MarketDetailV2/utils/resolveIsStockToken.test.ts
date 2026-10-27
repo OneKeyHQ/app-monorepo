@@ -1,6 +1,7 @@
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  buildMarketStockTokenMetadata,
   resolveIsStockToken,
   resolveMarketStockId,
 } from './resolveIsStockToken';
@@ -27,6 +28,33 @@ describe('resolveIsStockToken', () => {
 
   it('returns false when neither source identifies a stock', () => {
     expect(resolveIsStockToken({}, {})).toBe(false);
+  });
+});
+
+describe('buildMarketStockTokenMetadata', () => {
+  it('keeps the resolved listing identity when token detail only contains issuer metadata', () => {
+    expect(buildMarketStockTokenMetadata(previewStock, ' AAPL ')).toEqual({
+      ...previewStock,
+      stockId: 'AAPL',
+    });
+  });
+
+  it('preserves a known stock identity before issuer metadata loads', () => {
+    expect(buildMarketStockTokenMetadata(undefined, 'AAPL')).toEqual({
+      stockId: 'AAPL',
+      subtitle: '',
+      sourceLogoUri: '',
+    });
+  });
+
+  it('keeps unchanged metadata and does not invent an identity for ordinary tokens', () => {
+    expect(buildMarketStockTokenMetadata(detailStock, 'AAPL')).toBe(
+      detailStock,
+    );
+    expect(buildMarketStockTokenMetadata(previewStock, undefined)).toBe(
+      previewStock,
+    );
+    expect(buildMarketStockTokenMetadata(undefined, undefined)).toBeUndefined();
   });
 });
 

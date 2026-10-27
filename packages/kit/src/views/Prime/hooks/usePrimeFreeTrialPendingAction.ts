@@ -63,9 +63,9 @@ export function usePrimeFreeTrialPendingActionRunner() {
         return;
       }
       const access = await ensureFeatureAccess({
+        trackAttempt: false,
         featureId: EPrimeFeatures.BulkCopyAddresses,
         networkId: action.networkId,
-        deferQuotaCheck: true,
       });
       if (!access.granted) {
         return;
@@ -81,9 +81,10 @@ export function usePrimeFreeTrialPendingActionRunner() {
     }
     if (action.type === EPrimeFreeTrialPendingActionType.AddressRiskCheck) {
       const access = await ensureFeatureAccess({
+        trackAttempt: false,
         featureId: EPrimeFeatures.AddressRiskCheck,
         networkId: action.networkId,
-        deferQuotaCheck: true,
+        loginOnly: true,
       });
       if (!access.granted) {
         return;

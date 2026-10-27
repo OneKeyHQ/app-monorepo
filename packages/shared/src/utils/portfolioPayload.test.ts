@@ -269,6 +269,82 @@ describe('buildPortfolioPayload', () => {
     appLocale.setLocale(defaultLocale, defaultMessages);
   });
 
+  describe.each([1, 2] as const)('v%s account label', (schemaVersion) => {
+    test.each([
+      ['', ''],
+      ['1', '1'],
+      ['Account #1', 'Account #1'],
+      ['A'.repeat(47), 'A'.repeat(47)],
+      ['A'.repeat(48), `${'A'.repeat(44)}...`],
+      [`${'账'.repeat(15)}AB`, `${'账'.repeat(15)}AB`],
+      ['账'.repeat(16), `${'账'.repeat(14)}...`],
+      [`${'😀'.repeat(11)}ABC`, `${'😀'.repeat(11)}ABC`],
+      ['😀'.repeat(12), `${'😀'.repeat(11)}...`],
+    ])(
+      'bounds %s to 47 UTF-8 bytes without changing the source',
+      (label, expected) => {
+        const account = Object.freeze({ label, addressMasked: '0x12...ab' });
+        const payload = buildPortfolioPayload({
+          account,
+          currencyMap,
+          displayCurrency: { id: 'usd', symbol: '$' },
+          schemaVersion,
+          totalFiat: '0',
+          totalTokenCount: 0,
+          timestamp: 1_780_900_000,
+          tokenMap: {},
+          tokens: [],
+        });
+
+        expect(payload.account).toEqual({
+          label: expected,
+          addressMasked: account.addressMasked,
+        });
+        expect(
+          Buffer.byteLength(payload.account.label, 'utf8'),
+        ).toBeLessThanOrEqual(47);
+        expect(account.label).toBe(label);
+      },
+    );
+  });
+
+  test.each([
+    ['Short name', 'Short name'],
+    ['A'.repeat(47), 'A'.repeat(47)],
+    ['A'.repeat(48), `${'A'.repeat(44)}...`],
+    [
+      'Taiwan Semiconductor Manufacturing (Ondo Tokenized)',
+      'Taiwan Semiconductor Manufacturing (Ondo Tok...',
+    ],
+    [`${'币'.repeat(15)}AB`, `${'币'.repeat(15)}AB`],
+    ['币'.repeat(16), `${'币'.repeat(14)}...`],
+    [`${'币'.repeat(14)}AB币C`, `${'币'.repeat(14)}AB...`],
+    [`${'😀'.repeat(11)}ABC`, `${'😀'.repeat(11)}ABC`],
+    ['😀'.repeat(12), `${'😀'.repeat(11)}...`],
+    [`${'A'.repeat(43)}😀Z`, `${'A'.repeat(43)}...`],
+  ])('bounds token name %s to the firmware 47-byte limit', (name, expected) => {
+    const token = buildToken({ $key: 'token', name, symbol: 'TSMon' });
+    const payload = buildPortfolioPayload({
+      account: { label: 'Account #1', addressMasked: '0x12...ab' },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      totalFiat: '1',
+      totalTokenCount: 1,
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        token: buildFiat({ fiatValue: '1' }),
+      },
+      tokens: [token],
+    });
+
+    expect(payload.tokens[0].name).toBe(expected);
+    expect(
+      Buffer.byteLength(payload.tokens[0].name, 'utf8'),
+    ).toBeLessThanOrEqual(47);
+    expect(token.name).toBe(name);
+  });
+
   test.each([
     ['123456789012345', '123456789012345'],
     ['1234567890123456', '123456789012345'],

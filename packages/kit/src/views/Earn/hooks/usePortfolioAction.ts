@@ -45,9 +45,12 @@ export const usePortfolioAction = ({
 }: IUsePortfolioActionParams) => {
   const [loading, setLoading] = useState(false);
 
-  // Get earnAccount to use the correct accountId for claim
+  // Get earnAccount to use the correct accountId for claim. An indexed
+  // account alone (all networks on an HD or hardware wallet, a network whose
+  // address is not created yet) resolves too, as the detail page's
+  // useEarnAccount does; the phone positions card claims from there.
   const { result: earnAccount } = usePromiseResult(async () => {
-    if (!accountId) {
+    if (!accountId && !indexedAccountId) {
       return null;
     }
     return backgroundApiProxy.serviceStaking.getEarnAccount({

@@ -1,102 +1,87 @@
-# Swap Provider And Channel Contracts
+# Quote, Execution, And Settlement Contracts
 
-Use this when quote/build/history behavior differs from an ordinary on-chain
-swap, including Bridge, Limit, Stock/order, privacy/order, and broker flows.
+## Establish The Channel Contract
 
-## Contract
+For a new or changed provider, identify the trade capability; source, target,
+signer and receiver roles; amount/fee units and numeric encodings; setup
+requirements; build format; and transaction/order identifiers. Define missing-value
+semantics and terminal states from the current contract. Unknown fee, rate,
+limit, or ETA is not zero.
 
-| Area                | Required decisions                                                               |
-| ------------------- | -------------------------------------------------------------------------------- |
-| Capability          | swap, bridge, limit, stock/order, privacy/order, funding handoff, or data-only   |
-| Asset/account roles | source and target asset/network/account, signer, receiver, settlement target     |
-| Quote identity      | request/event, provider, tokens/assets, amount mode, receiver, slippage/session  |
-| Quote fields        | units, limits, fees, rate, ETA, availability, and meaning of missing values      |
-| Review              | fields frozen for confirmation, setup/approval, risk and settlement copy         |
-| Build/send          | normal tx, setup then business tx, signed/order payload, provider-managed action |
-| Lifecycle identity  | txid, order id, route id, provider id, or explicit composite key                 |
-| Persistence         | local row owner, initial status, fields preserved across restart                 |
-| Replay/repair       | status source, merge priority, terminal mapping, stop/retry behavior             |
+Use typed adapters at the service boundary for payload variants. A data-only
+channel does not create transaction history. If the server contract cannot
+express a required distinction, name that gap instead of inventing a UI rule.
 
-A data-only channel must not create transaction or history state. A response
-shape that does not fit an existing variant should get a typed adapter instead
-of conditionals spread through UI components.
+## Select An Actionable Quote
 
-## Embedded Market Contract
+Accept results only for the active request and trade identity. An early provider
+error is not terminal while the same quote event can still produce a usable
+result. Preserve manual provider choice until a real identity or capability
+change invalidates it.
 
-An embedded Market surface may adapt the entry pair and Market-only display
-slots, but the shared Swap channel remains the owner of quote polling, refresh,
-review/build, fallback navigation, and execution. Document each extension's
-source and lifecycle; do not pass a second loading/disabled model that can
-suppress a valid Swap fallback. Keep the detail shell separate from the trade
-surface without copying ticket state.
+The first usable result can become selectable before the provider stream ends,
+once its identity and safety checks pass. Stream completion and quote usability
+must not be one loading flag.
 
-Stock/order identity includes the selected asset/variant and network. Scope
-pay-token candidate lists, manual preferences, balances, and selector contents
-to that identity; reject late results from a previous identity. For native pay
-tokens, subtract the network's gas reserve from the raw balance once, then
-apply percentage presets to the resulting available balance. Do not subtract
-the full reserve again from a partial slice.
+Own cleanup at the same scope as subscription: leaving one ticket must not
+cancel another ticket's quote event. Opening a provider picker or confirmation
+can temporarily blur the page without ending the trade. Determine whether the
+flow is still active before stopping polling or discarding its state.
 
-Readiness may be staged (asset metadata, market availability, pay-token
-candidates, then quote readiness). A closed market is not automatically a
-missing quote when the provider still supports an on-chain or liquidity path;
-use the current channel status and provider contract. Carry the complete
-execution identity through review, build, and history.
+## Confirmation And Execution Have Different Lifetimes
 
-## Quote Selection
+Freeze the confirmed intent: pair, accounts, receiver, amount, provider, limits,
+slippage, risk, and required steps. Do not read a different page selection
+halfway through confirmation. Rebuilds belong to the current review generation;
+late results and backward phase changes cannot replace a newer review.
 
-Bind each result to the active request/event and full trade identity. When
-providers race, an early error is not terminal while the current event can
-still return an actionable quote. Once identity changes, ignore late results.
-Manual provider selection remains authoritative until invalidated by a real
-capability or identity change.
+Closing a review invalidates its pending preparation and UI updates. An
+explicit handoff to signing/confirmation transfers ownership of the confirmed
+execution snapshot. Track the resulting transaction or order even if the
+original UI closes, and never let its callback mutate a newly opened review.
+Close the originating layer before opening a fallback confirmation layer.
 
-Transient config/quote loading, terminal unsupported capability, provider error,
-and actionable fallback are separate states. An initial/default speed
-configuration is only a display/input hint; only a network-scoped ready
-configuration authorizes quote/build. It must not become an endless skeleton;
-an unsupported embedded trade should render an explicit unavailable state or
-the full Swap fallback when that route is valid.
+Before retrying or falling back, determine what may already have been sent.
+Completed approvals can sometimes be retained while retrying the business
+step. A sent business transaction, uncertain broadcast, or retry that would
+replay a submitted step must stop automatic fallback. Reconcile its identity
+and status instead of risking another spend. User rejection is not permission
+to retry through a different confirmation path.
 
-For every displayed field, define its source and missing-value meaning.
-Unknown fee/rate/ETA/limit is not zero, and provider unavailable is not an
-empty successful quote.
+## Amounts, Fees, And Final Payload
 
-## Review And Submission
+Compute spendable balance with the actual fee payer and same-asset extra costs.
+For percentage presets, subtract the applicable reserve once before applying
+the percentage. A quoted fee, chain gas, sponsor coverage, and account-creation
+cost can represent different liabilities; do not add them twice or assume one
+covers the others. Use the current configuration, final instructions, or owning
+service to determine them rather than a remembered constant.
 
-Freeze the chosen quote, assets, accounts, receiver, provider, fees, rate,
-slippage, limits, risk text, and setup requirements. Confirmation must not
-read changing page atoms. After send/order submission, create the correct
-pending/history identity before relying on status polling.
+Frozen intent does not make gas, nonce, allowance, or sponsorship permanently
+fresh. Respect their build/send-time validity. Provider eligibility is only a
+candidate: approval steps, multiple transactions, custom RPC, or changed payer
+can invalidate sponsorship. Re-estimate when required and check user-paid gas
+when sponsorship is unavailable.
 
-If an embedded flow enters approval or confirmation, keep it alive by a flow
-identity tied to the mounted trade context, not only the currently focused
-modal or tab. Close the originating review layer before opening a fallback
-confirmation layer; never leave two competing dialogs to own the same submit.
+Validate the final executable payload against the selected flow's contract,
+including chain, assets, receiver, amount and native value where applicable.
+A quote preview is not that validation. Bulk flows need their own value,
+partial-success, cancellation, and replay rules even when they reuse a Swap
+builder.
 
-## History, Replay, And Repair
+## Durable History And Settlement
 
-For flows that outlive the submit screen, define:
+Keep transaction hash, provider order/route ID, source/target transaction, and
+replacement/refund identifiers in their distinct roles. A pending atom is not
+a durable write: inspect the service acknowledgement and repair/retry path
+before relying on restart, notification, or account-history replay.
 
-1. semantic fields copied from the review/build result
-2. sole local writer and persisted identity
-3. listener or polling source and terminal states
-4. restart/account-history/notification replay source
-5. merge priority when a richer provider or backend detail arrives
+Merge richer fields by their meaning and source priority. A later hash or
+receiver detail may be useful even when status is unchanged; missing incoming
+fields must not erase known data. A metadata-only update need not trigger a
+status toast or balance refresh.
 
-Preserve semantic receiver, asset, fee, and provider fields until a
-higher-priority source explicitly replaces the same meaning. On-chain data
-must not erase richer order/channel context. Repair only when the merged row
-actually differs.
-
-Visibility is a separate concern: hiding local rows during disconnect or an
-unready account state must not call delete/clean persistence paths.
-
-For order/history channels, define the terminal matrix explicitly (success,
-failed, canceled/canceling, expired, refunded, and any provider-specific
-terminal state). Preserve source, target, replacement, and refund IDs for the
-detail view; stop polling and replacement actions at the terminal boundary,
-and do not render a second transaction ID unless the status contract says it is
-the source, replacement, or refund transaction. Treat a refunded transition as
-balance-changing only when the status source marks it that way; failed or
-expired terminal states do not by themselves imply a balance refresh.
+Separate chain submission/confirmation from provider settlement. Use the
+channel's success, failure, canceling/canceled, expiry, and refund semantics to
+decide when polling/replacement stops and which transitions change balances.
+Disconnect or account-readiness filtering hides rows; it must not delete them.

@@ -198,6 +198,29 @@ describe('ServiceSwap build transaction context', () => {
     );
   });
 
+  it('sends Sweep order attribution separately from the trade entry', async () => {
+    const { service, post } = createService();
+
+    await service.fetchBuildTx({
+      ...buildParams,
+      source: ESwapQuoteSource.SWEEP,
+      quoteResultCtx: { routeId: 'sweep-route' },
+    });
+
+    expect(post).toHaveBeenCalledWith(
+      '/swap/v1/build-tx',
+      expect.objectContaining({
+        source: 'Sweep',
+        tradeSource: 'swapBridge',
+        protocol: 'Swap',
+        quoteResultCtx: { routeId: 'sweep-route' },
+        userAddress: '0xsender',
+        receivingAddress: '0xreceiver',
+      }),
+      expect.any(Object),
+    );
+  });
+
   it('allows software wallets and accountless requests without device metadata', async () => {
     const { service, getAccountDeviceSafe, post } = createService();
 

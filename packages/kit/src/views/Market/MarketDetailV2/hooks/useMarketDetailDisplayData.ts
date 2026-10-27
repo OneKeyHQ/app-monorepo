@@ -143,7 +143,7 @@ export function preserveMarketDetailPreviewImage({
 export function useMarketDetailDisplayData() {
   const tokenDetailData = useTokenDetail();
   const { stockPreview, selectedTokenVariant } = useStockDetail();
-  const { networkId, tokenAddress, tokenDetail, tokenDetailPreview } =
+  const { networkId, tokenAddress, isNative, tokenDetail, tokenDetailPreview } =
     tokenDetailData;
 
   const previewTokenDetail = useMemo(
@@ -168,7 +168,15 @@ export function useMarketDetailDisplayData() {
     const matchesPreview =
       !previewTokenDetail ||
       isSameTokenIdentity({ previewTokenDetail, tokenDetail });
-    if (tokenDetail && matchesPreview) {
+    if (
+      tokenDetail &&
+      matchesPreview &&
+      isMatchingMarketTokenIdentity(tokenDetail, {
+        tokenAddress,
+        networkId,
+        isNative,
+      })
+    ) {
       return {
         displayTokenDetail: preserveMarketDetailPreviewImage({
           previewTokenDetail: previewDisplay,
@@ -181,7 +189,14 @@ export function useMarketDetailDisplayData() {
       displayTokenDetail: previewDisplay,
       isPreviewTokenDetail: Boolean(previewDisplay),
     };
-  }, [previewTokenDetail, stockPreviewTokenDetail, tokenDetail]);
+  }, [
+    isNative,
+    networkId,
+    previewTokenDetail,
+    stockPreviewTokenDetail,
+    tokenAddress,
+    tokenDetail,
+  ]);
 
   return useMemo(
     () => ({

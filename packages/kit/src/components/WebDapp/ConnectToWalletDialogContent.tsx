@@ -33,7 +33,11 @@ export function ConnectToWalletDialogContent({
     ? ETranslations.global_connection_failed
     : ETranslations.global_connect_to_wallet_no_confirmation;
 
-  if (platformEnv.isNative && isWalletConnect && loading) {
+  if (
+    (platformEnv.isNative || platformEnv.isDesktop) &&
+    isWalletConnect &&
+    loading
+  ) {
     return (
       <WalletConnectDappConnectionProgress
         onExhausted={onSocketProgressExhausted}

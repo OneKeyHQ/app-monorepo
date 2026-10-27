@@ -2,6 +2,9 @@ import { ETranslations } from '../../locale';
 
 import {
   UnwrappedIpcError,
+  attachDesktopIpcCallContext,
+  getDesktopIpcCallContext,
+  isUnwrappedIpcError,
   resolveErrorI18nMessage,
   unwrapElectronIpcError,
 } from './electronIpcError';
@@ -149,5 +152,82 @@ describe('resolveErrorI18nMessage', () => {
     const err = new Error('some.unknown.key');
     expect(resolveErrorI18nMessage(err, intl)).toBe('some.unknown.key');
     expect(formatMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('Desktop API IPC call context', () => {
+  it('records the module and method on the rethrown error', () => {
+    const error = attachDesktopIpcCallContext(
+      unwrapElectronIpcError(buildIpcError('Error: keychain locked')),
+      { module: 'storage', method: 'secureGetItemAsync' },
+    );
+
+    expect(error).toBeInstanceOf(UnwrappedIpcError);
+    expect(getDesktopIpcCallContext(error)).toEqual({
+      ipcModule: 'storage',
+      ipcMethod: 'secureGetItemAsync',
+    });
+    expect(isUnwrappedIpcError(error)).toBe(true);
+  });
+
+  it('finds the context through wrapping errors', () => {
+    const ipcError = attachDesktopIpcCallContext(new UnwrappedIpcError('x'), {
+      module: 'storage',
+      method: 'secureSetItemAsync',
+    });
+    const wrapper = new Error('outer') as Error & { cause?: unknown };
+    wrapper.cause = ipcError;
+
+    expect(getDesktopIpcCallContext(wrapper)).toEqual({
+      ipcModule: 'storage',
+      ipcMethod: 'secureSetItemAsync',
+    });
+    expect(isUnwrappedIpcError(wrapper)).toBe(true);
+  });
+
+  it('stops following causes after a few levels', () => {
+    let error: Error & { cause?: unknown } = attachDesktopIpcCallContext(
+      new UnwrappedIpcError('x'),
+      { module: 'storage', method: 'secureGetItemAsync' },
+    );
+    for (let i = 0; i < 5; i += 1) {
+      const wrapper = new Error(`wrapper ${i}`) as Error & { cause?: unknown };
+      wrapper.cause = error;
+      error = wrapper;
+    }
+
+    expect(getDesktopIpcCallContext(error)).toBeUndefined();
+  });
+
+  it('ignores names that are not plain identifiers', () => {
+    const error = attachDesktopIpcCallContext(new UnwrappedIpcError('x'), {
+      module: 'storage',
+      method: 'secureGetItemAsync(key=session)',
+    });
+
+    expect(getDesktopIpcCallContext(error)).toBeUndefined();
+    expect(error.ipcMethod).toBeUndefined();
+  });
+
+  it('leaves non-IPC errors, primitives and frozen errors alone', () => {
+    const plain = new Error('plain');
+    expect(getDesktopIpcCallContext(plain)).toBeUndefined();
+    expect(isUnwrappedIpcError(plain)).toBe(false);
+    expect(
+      attachDesktopIpcCallContext('boom', {
+        module: 'storage',
+        method: 'secureGetItemAsync',
+      }),
+    ).toBe('boom');
+
+    const frozen = Object.freeze(new UnwrappedIpcError('frozen'));
+    expect(() =>
+      attachDesktopIpcCallContext(frozen, {
+        module: 'storage',
+        method: 'secureGetItemAsync',
+      }),
+    ).not.toThrow();
+    expect(getDesktopIpcCallContext(frozen)).toBeUndefined();
+    expect(isUnwrappedIpcError(frozen)).toBe(true);
   });
 });

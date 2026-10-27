@@ -1,16 +1,8 @@
-import {
-  ARC_ERC20_USDC_CONTRACT_ADDRESS,
-  ARC_EURC_CONTRACT_ADDRESS,
-  ARC_NETWORK_ID,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
   buildTokenActionSwapFromToken,
   getResolvedTokenActionToken,
-  getTokenActionSameNetworkSwapToToken,
-  getTokenActionSwapToToken,
   isResolvedTokenActionReady,
 } from './TokenActionsView.utils';
 
@@ -20,18 +12,6 @@ function buildAccountToken(
   return {
     $key: 'btc-token',
     address: '',
-    decimals: 8,
-    isNative: true,
-    name: 'Bitcoin',
-    networkId: 'btc--0',
-    symbol: 'BTC',
-    ...overrides,
-  };
-}
-
-function buildSwapToken(overrides: Partial<ISwapToken> = {}): ISwapToken {
-  return {
-    contractAddress: '',
     decimals: 8,
     isNative: true,
     name: 'Bitcoin',
@@ -172,23 +152,13 @@ describe('isResolvedTokenActionReady', () => {
   });
 });
 
-describe('getTokenActionSwapToToken', () => {
-  it('normalizes the native address used by Home before resolving BTC to ETH', () => {
+describe('buildTokenActionSwapFromToken', () => {
+  it('normalizes the native address used by Home', () => {
     const fromToken = buildTokenActionSwapFromToken({
       token: buildAccountToken({ address: 'native' }),
       networkId: 'btc--0',
     });
-
     expect(fromToken.contractAddress).toBe('');
-    expect(
-      getTokenActionSwapToToken({
-        fromToken,
-        swapSupport: {
-          isSupportCrossChain: true,
-          isSupportSwap: true,
-        },
-      }),
-    ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
   });
 
   it('leaves account-scoped balances to Swap after the Home handoff', () => {
@@ -196,147 +166,7 @@ describe('getTokenActionSwapToToken', () => {
       token: buildAccountToken(),
       networkId: 'btc--0',
     });
-
     expect(fromToken).not.toHaveProperty('accountAddress');
     expect(fromToken).not.toHaveProperty('balanceParsed');
-  });
-
-  it.each([
-    undefined,
-    { isSupportCrossChain: true, isSupportSwap: false },
-    { isSupportCrossChain: true, isSupportSwap: true },
-  ])(
-    'keeps the BTC to ETH handoff deterministic for support %p',
-    (swapSupport) => {
-      expect(
-        getTokenActionSwapToToken({
-          fromToken: buildSwapToken(),
-          swapSupport,
-        }),
-      ).toEqual(
-        expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }),
-      );
-    },
-  );
-
-  it('uses the same-network default pair for an ordinary supported token', () => {
-    expect(
-      getTokenActionSwapToToken({
-        fromToken: buildSwapToken({
-          decimals: 18,
-          name: 'Ethereum',
-          networkId: 'evm--1',
-          symbol: 'ETH',
-        }),
-        swapSupport: {
-          isSupportCrossChain: true,
-          isSupportSwap: true,
-        },
-      }),
-    ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'USDC' }));
-  });
-
-  it('selects the native default when Home opens Swap from the default target', () => {
-    expect(
-      getTokenActionSameNetworkSwapToToken({
-        fromToken: buildSwapToken({
-          contractAddress: '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
-          decimals: 18,
-          isNative: false,
-          name: 'USD Coin',
-          networkId: 'evm--56',
-          symbol: 'USDC',
-        }),
-      }),
-    ).toEqual(
-      expect.objectContaining({
-        isNative: true,
-        networkId: 'evm--56',
-        symbol: 'BNB',
-      }),
-    );
-  });
-
-  it('selects the native default for another non-native same-network token', () => {
-    expect(
-      getTokenActionSameNetworkSwapToToken({
-        fromToken: buildSwapToken({
-          contractAddress: '0x55d398326f99059ff775485246999027b3197955',
-          decimals: 18,
-          isNative: false,
-          name: 'Tether',
-          networkId: 'evm--56',
-          symbol: 'USDT',
-        }),
-      }),
-    ).toEqual(
-      expect.objectContaining({
-        isNative: true,
-        networkId: 'evm--56',
-        symbol: 'BNB',
-      }),
-    );
-  });
-
-  it('uses the bridge default for a cross-chain-only ordinary token', () => {
-    expect(
-      getTokenActionSwapToToken({
-        fromToken: buildSwapToken({
-          decimals: 9,
-          name: 'Solana',
-          networkId: 'sol--101',
-          symbol: 'SOL',
-        }),
-        swapSupport: {
-          isSupportCrossChain: true,
-          isSupportSwap: false,
-        },
-      }),
-    ).toEqual(expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }));
-  });
-
-  it('uses the configured Arc ERC-20 USDC to Arc EURC pair', () => {
-    expect(
-      getTokenActionSwapToToken({
-        fromToken: buildSwapToken({
-          contractAddress: ARC_ERC20_USDC_CONTRACT_ADDRESS,
-          decimals: 6,
-          isNative: false,
-          name: 'USD Coin',
-          networkId: ARC_NETWORK_ID,
-          symbol: 'USDC',
-        }),
-        swapSupport: {
-          isSupportCrossChain: true,
-          isSupportSwap: true,
-        },
-      }),
-    ).toEqual(
-      expect.objectContaining({
-        contractAddress: ARC_EURC_CONTRACT_ADDRESS,
-        isNative: false,
-        networkId: ARC_NETWORK_ID,
-        symbol: 'EURC',
-      }),
-    );
-  });
-
-  it('does not use Arc native USDC as the target for another Arc token', () => {
-    expect(
-      getTokenActionSwapToToken({
-        fromToken: buildSwapToken({
-          contractAddress: '0x1111111111111111111111111111111111111111',
-          decimals: 18,
-          isNative: false,
-          name: 'Other Token',
-          networkId: ARC_NETWORK_ID,
-          symbol: 'OTHER',
-        }),
-        swapSupport: {
-          isSupportCrossChain: true,
-          isSupportSwap: true,
-        },
-      }),
-    ).toBeUndefined();
   });
 });

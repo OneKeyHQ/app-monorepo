@@ -383,18 +383,21 @@ export async function clearAuthSessionBySessionSource(
   });
 }
 
-export async function clearEmailAuthSessionsForEnvironmentChange(): Promise<void> {
-  await runExclusiveOnAuthSessionSlot(
+export async function clearIdentityAuthSessionsForEnvironmentChange(): Promise<void> {
+  // The caller holds the lifecycle mutex and has verified that OneKey ID
+  // and the local Keyless wallet are both absent. Lock one realm at a time.
+  for (const source of [
     EPrimeAuthSessionSource.LegacyEmailSupabase,
-    async () => {
-      // Clear both endpoints before switching so a previous target login
-      // cannot be restored. Keep the independent Keyless wallet realm intact.
-      const sessionKeys = [
-        ONEKEY_ID_AUTH_CONFIG.prod,
-        ONEKEY_ID_AUTH_CONFIG.test,
-      ].map(({ projectUrl }) => getSupabaseAuthSessionKey(projectUrl));
-      // Keep stale SDK refreshes blocked even if cleanup fails. A new
-      // interactive email login reopens its current slot before verifyOtp.
+    EPrimeAuthSessionSource.KeylessOAuth,
+  ]) {
+    await runExclusiveOnAuthSessionSlot(source, async () => {
+      const sessionKeys =
+        source === EPrimeAuthSessionSource.KeylessOAuth
+          ? [getKeylessSupabaseAuthSessionKey()]
+          : [ONEKEY_ID_AUTH_CONFIG.prod, ONEKEY_ID_AUTH_CONFIG.test].map(
+              ({ projectUrl }) => getSupabaseAuthSessionKey(projectUrl),
+            );
+      // Keep stale SDK refreshes blocked until a new interactive login.
       await Promise.all(
         sessionKeys.map((key) =>
           supabaseStorageInstance.blockWritesForKey(key),
@@ -413,8 +416,8 @@ export async function clearEmailAuthSessionsForEnvironmentChange(): Promise<void
       } finally {
         supabaseStorageInstance.clearCache();
       }
-    },
-  );
+    });
+  }
 }
 
 /**

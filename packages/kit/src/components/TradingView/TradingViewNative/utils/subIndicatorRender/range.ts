@@ -52,7 +52,7 @@ function getNormalizedVisibleIndexes({
   return { normalizedEndIndex, normalizedStartIndex };
 }
 
-export function getTradingViewNativeSubIndicatorValueRange({
+function getLinearValueRange({
   endIndex,
   pane,
   startIndex,
@@ -159,4 +159,17 @@ export function getTradingViewNativeSubIndicatorValueRange({
     maxValue: maxValue + valueSpan * topPaddingRatio,
     minValue: minValue - valueSpan * bottomPaddingRatio,
   };
+}
+
+export function getTradingViewNativeSubIndicatorValueRange(
+  options: Parameters<typeof getLinearValueRange>[0],
+): ITradingViewNativeSubIndicatorValueRange | null {
+  'worklet';
+
+  const range = getLinearValueRange(options);
+  return range &&
+    options.pane.priceScaleMode === 'logarithmic' &&
+    range.minValue > 0
+    ? { ...range, mode: 'logarithmic' }
+    : range;
 }

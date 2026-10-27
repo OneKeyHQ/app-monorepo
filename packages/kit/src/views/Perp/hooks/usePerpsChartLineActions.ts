@@ -23,6 +23,7 @@ import { useEnsureTradingEnabled } from './useEnableTradingWithDepositFallback';
 const ORDER_SYNC_TIMEOUT_MS = 10_000;
 
 type IPendingChartLineAction = {
+  type: ITradingViewNativeReferenceLineAction['type'];
   originalPrice: number;
   price?: number;
   scope: { accountKey: ReturnType<typeof getPerpsAccountKey>; symbol: string };
@@ -169,6 +170,7 @@ export function usePerpsChartLineActions({
         return;
 
       const pendingAction: IPendingChartLineAction = {
+        type: action.type,
         originalPrice: action.originalPrice,
         price: newPrice ? Number(newPrice) : undefined,
         scope,

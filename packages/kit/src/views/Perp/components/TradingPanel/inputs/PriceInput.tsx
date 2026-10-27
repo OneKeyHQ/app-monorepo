@@ -20,6 +20,8 @@ interface IPriceInputProps {
   midPriceDisabled?: boolean;
   szDecimals?: number;
   label?: string;
+  labelSuffix?: string;
+  labelTooltip?: string;
   placeholder?: string;
   ifOnDialog?: boolean;
   isMobile?: boolean;
@@ -36,6 +38,8 @@ export const PriceInput = memo(
     midPriceDisabled = false,
     szDecimals,
     label,
+    labelSuffix,
+    labelTooltip,
     placeholder,
     ifOnDialog = false,
     isMobile = false,
@@ -92,6 +96,8 @@ export const PriceInput = memo(
           })
         }
         disabled={disabled}
+        labelTooltip={labelTooltip}
+        labelSuffix={labelSuffix}
         error={error}
         validator={validator}
         actions={actions}

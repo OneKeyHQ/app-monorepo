@@ -1,3 +1,4 @@
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { ESwapAnalyticsCategory } from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -10,6 +11,9 @@ export class CreateOrderScene extends BaseScene {
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
   public swapCreateOrder({
+    reviewSessionId,
+    quoteId,
+    isPreBuild,
     swapType,
     message,
     status,
@@ -37,6 +41,9 @@ export class CreateOrderScene extends BaseScene {
     walletType,
     deviceType,
   }: {
+    reviewSessionId?: string;
+    quoteId?: string;
+    isPreBuild?: boolean;
     status: ESwapEventAPIStatus;
     message?: string;
     swapType: string;
@@ -70,12 +77,15 @@ export class CreateOrderScene extends BaseScene {
     void fromAddress;
     void toAddress;
     return {
+      reviewSessionId,
+      quoteId,
+      isPreBuild,
       orderId,
       quoteToTokenAmount,
       fromTokenAmount,
       toTokenAmount,
       status,
-      message,
+      message: message === undefined ? undefined : getSwapErrorMessage(message),
       isFirstTime,
       swapType,
       orderType,

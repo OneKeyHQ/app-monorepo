@@ -533,6 +533,7 @@ export const EarnNavigation = {
       provider: string;
       vault?: string;
       logoURI?: string;
+      scrollToPortfolio?: boolean;
     },
   ) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocolDetails, {
@@ -541,6 +542,7 @@ export const EarnNavigation = {
       provider: params.provider,
       vault: params.vault,
       logoURI: params.logoURI,
+      ...(params.scrollToPortfolio ? { scrollToPortfolio: true } : {}),
     });
   },
 

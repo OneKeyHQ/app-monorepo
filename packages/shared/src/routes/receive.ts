@@ -7,7 +7,10 @@ import type {
   IAggregateTokenSelectorParams,
   ITokenSelectorParamList,
 } from './assetSelector';
-import type { IModalFiatCryptoParamList } from './fiatCrypto';
+import type {
+  EModalFiatCryptoRoutes,
+  IModalFiatCryptoParamList,
+} from './fiatCrypto';
 import type { IDeriveTypesAddressParams } from './walletAddress';
 import type { IServerNetwork } from '../../types';
 import type { IAccountToken, IToken } from '../../types/token';
@@ -29,6 +32,10 @@ export enum EModalReceiveRoutes {
   BuyModal = 'Buy',
   DeriveTypesAddress = 'DeriveTypesAddress',
   ExchangeOpenRedirect = 'ExchangeOpenRedirect',
+  // The Buy page pushes these by their FiatCrypto route names, so the stack
+  // that hosts it (Receive → Buy crypto) must know them too.
+  HeadlessBuyOrders = 'HeadlessBuyOrders',
+  HeadlessBuyOrderDetail = 'HeadlessBuyOrderDetail',
 }
 
 export type IReceiveSwitchEntry = 'token' | 'network';
@@ -85,6 +92,11 @@ export type IModalReceiveParamList = {
     // (entered from the network tab, title "Receive", no token) switches
     // among every wallet network.
     switchEntry?: IReceiveSwitchEntry;
+    // Header menu that opens the address type list while a Bitcoin account
+    // shows only its default type (see deriveTypeCollapseUtils). Absent = no
+    // menu, so fixed-destination entries keep the address type they asked
+    // for.
+    allowAddressTypeMenu?: boolean;
     // Analytics only: which entry pushed this page, and whether the home was
     // in All Networks mode when it did.
     source?: IWalletActionSource;
@@ -131,6 +143,8 @@ export type IModalReceiveParamList = {
     walletId: string;
   };
   [EModalReceiveRoutes.BuyModal]: IModalFiatCryptoParamList;
+  [EModalReceiveRoutes.HeadlessBuyOrders]: IModalFiatCryptoParamList[EModalFiatCryptoRoutes.HeadlessBuyOrders];
+  [EModalReceiveRoutes.HeadlessBuyOrderDetail]: IModalFiatCryptoParamList[EModalFiatCryptoRoutes.HeadlessBuyOrderDetail];
   [EModalReceiveRoutes.DeriveTypesAddress]: IDeriveTypesAddressParams;
   [EModalReceiveRoutes.ExchangeOpenRedirect]: {
     exchangeSource: EExchangeId;

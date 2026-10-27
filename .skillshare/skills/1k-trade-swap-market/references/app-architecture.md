@@ -1,77 +1,66 @@
-# Trade / Swap Architecture
+# Trade Entries And State Ownership
 
-## Execution Spine
+## Trace The Active Route
 
-Trace every trade-like path through:
+Start with the source entry, platform, and layout. Follow the component that
+actually mounts, its quote/review owner, and its service calls. A filename such
+as mobile or legacy does not prove which runtime uses it.
 
-`entry -> account/asset selection -> quote -> frozen review -> build/sign/send -> history/status`
+Market can embed shared Swap, open a shared Swap modal, or open a compact
+trade dialog with a separate orchestration path. Where the entry already uses
+shared Swap, keep quote/review/execution there and pass Market context through
+typed extensions. Where it uses another live path, repair that owner and check
+shared consumers; do not introduce a second state machine or force migration
+just to match another layout.
 
-Swap is the shared execution spine. Bridge, Limit, Stock/order, privacy/order,
-and Market speed-trade flows may adapt capability and settlement semantics,
-but they must declare how they use or intentionally diverge from each stage.
+Source entries own navigation intent, prefill, and return context. Downstream
+trading owns the consumed selection and execution lifecycle. Preserve entry
+metadata according to each endpoint's contract: analytics, quote, and build
+source fields need not have the same meaning. Later source synchronization
+must not continually overwrite the trade.
 
-## Entry Ownership
+## Initialization And User Intent
 
-| Entry                   | Source owns                                          | Swap owns after mount/quote                       |
-| ----------------------- | ---------------------------------------------------- | ------------------------------------------------- |
-| Wallet or Home Token    | navigation, imported network/token, analytics source | selected state, quote, review, execution, history |
-| Send/Earn/Buy           | source intent, amount/prefill, return context        | quote onward                                      |
-| Market detail           | market token context and presets                     | executable payload onward                         |
-| Direct Swap route/modal | route seed and host                                  | full Swap state machine                           |
-| Receive selector        | Receive/AssetSelector filtering before handoff       | only after a real Swap route mounts               |
+Distinguish route seed, persisted channel selection, temporary display defaults,
+server configuration, and manual edits. Establish which source is authoritative
+at each stage before writing shared selection state. A late default response
+must not overwrite an explicit route choice or the user's edited pair, yet an
+amount edit alone may not mean the default pair is fully initialized.
 
-Route params are one-shot inputs. After consumption, current manual selection
-and channel-owned state win over later source/account synchronization.
+Resolve readiness separately: account/address, networks, asset metadata,
+provider capability, and quote can become ready at different times. A failed
+configuration request is not a successful empty configuration. An automatic
+retry can preserve usable UI without repeatedly surfacing an error toast;
+manual actions still need actionable feedback and handled failures.
 
-## Embedded Market / Stock Trade
+Check the first meaningful frame as well as the settled frame. A correct final
+pair does not excuse a wrong token, tab, or icon flash. The visible tab and
+internal execution/channel type can differ; do not repair one by overwriting
+the other blindly.
 
-An embedded Market or Stock surface is an entry adapter, not a second trade
-implementation. It may keep its detail/chart shell and pass typed context such
-as the selected variant, configuration, sizing, or presentation slots, while
-the shared Swap surface owns quote, refresh, review, build/send, fallback, and
-history lifecycle. Do not duplicate quote, review, action, or input state.
+## Identity And Cached Data
 
-When a route, asset, variant, or network changes, key the transition by the
-complete route and execution identity. Keep the shared trade surface mounted
-when a partial refresh is part of the lifecycle, reuse in-flight state only for
-the same identity, and clear incompatible pay-token state before resolving new
-candidates. Treat transient readiness, provider error, terminal unsupported,
-and actionable fallback as distinct states; terminal unavailability must not be
-left behind an indefinite loading placeholder.
+A result belongs to the inputs that change its meaning: account and actual
+address/derivation, network and asset, direction/amount mode, amount, receiver,
+slippage, provider/channel, and request or review generation as applicable.
+Scope each cache or request to its own dependencies rather than copying an
+unrelated global key.
 
-## State Boundaries
+For Stock, separate the stock identity, selected chain variant, and token.
+Scope pay-token candidates, balances, and manual preferences to that selection;
+clear incompatible network selections before accepting new candidates.
+Display metadata may also depend on locale. A retained display snapshot cannot
+authorize Max, quoting, or spending for an obsolete account or asset.
 
-Keep these owners distinct:
+Keep usable same-scope data while it refreshes, and reject late results before
+they can replace the cache's last valid value. Loading, provider failure,
+unsupported capability, and an available fallback are different outcomes;
+terminal unavailability must not remain behind an endless skeleton. Market
+closure alone is not proof that every provider route is unavailable.
 
-- visible tab versus internal execution/capability type
-- source and target account/network/token/receiver
-- cached first-frame display versus trade readiness
-- quote event progress versus selected actionable quote
-- mutable page state versus frozen review state
-- local history visibility versus background persistence
-- tx settlement versus provider/order lifecycle
+## Runtime And Service Boundary
 
-## Platform Runtime
-
-iOS, Android, and browser extension run `main` and `bg` in isolated JavaScript
-runtimes. They initialize independently; proxy/event payloads are serialized
-copies. Native storage or other native resources can be process-shared, while
-the background SimpleDB/service owner remains the sole writer.
-
-Desktop and web run App `main` and `bg` code in one JavaScript runtime/thread.
-Keep service and persistence ownership, but do not apply split-heap reasoning
-or independent-JS-runtime deserialization assumptions to them.
-
-## Cold Start And First Frame
-
-Inspect both the first meaningful frame and the settled frame. Track route
-seed, account readiness, persisted channel/display context, selected assets,
-visible tab, internal execution type, provider data, and quote readiness
-separately. Expected default assets come from current configuration and code,
-not from this skill.
-
-A cache can improve display without authorizing quote/build/send. A fix is not
-verified if a wrong token/tab/icon flashes before the final state settles.
-Restored channel-owned execution type and asset selection must win over an
-ordinary Swap default initializer; resolve ownership before any default path
-writes shared selection state.
+Apply the platform topology in `AGENTS.md`; service ownership still matters on
+single-runtime targets. Keep durable history writes with the existing
+background owner. A UI visibility filter, local display cache, or modal state
+must not become another persistence owner.

@@ -1,4 +1,8 @@
-import { buildChartHistory, getLatestTimestamp } from './ApyChart.utils';
+import {
+  buildChartHistory,
+  buildChartHistoryWithGaps,
+  getLatestTimestamp,
+} from './ApyChart.utils';
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -110,5 +114,79 @@ describe('getLatestTimestamp', () => {
     ).toBe(NOW_MS);
     expect(getLatestTimestamp([])).toBeUndefined();
     expect(getLatestTimestamp(undefined)).toBeUndefined();
+  });
+});
+
+describe('buildChartHistoryWithGaps', () => {
+  // The campaign APY rides on the base points: present while a campaign ran,
+  // absent otherwise (prod: 08-13 for a day, then again from 10-12).
+  const augustRun = { from: NOW_MS - 27 * DAY_MS, to: NOW_MS - 26 * DAY_MS };
+  const history = hourly(NOW_MS - 30 * DAY_MS, NOW_MS, '3.3').map((item) => ({
+    timestamp: item.timestamp,
+    apy:
+      (item.timestamp >= augustRun.from && item.timestamp <= augustRun.to) ||
+      item.timestamp === NOW_MS
+        ? '20'
+        : undefined,
+  }));
+
+  it('keeps the points without a value as gaps between two runs', () => {
+    const points = buildChartHistoryWithGaps(history, 'max');
+
+    expect(points).toHaveLength(history.length);
+    const lastAugustIndex = points.findIndex(
+      (point) => point.timestamp === augustRun.to,
+    );
+    expect(points[lastAugustIndex].apy).toBe(20);
+    expect(points[lastAugustIndex + 1].apy).toBeNull();
+    expect(points[points.length - 2].apy).toBeNull();
+    expect(points[points.length - 1].apy).toBe(20);
+  });
+
+  it('samples the daily buckets at the same moments as the base line', () => {
+    const base = buildChartHistory(
+      history.map((item) => ({ ...item, apy: '3.3' })),
+      '1d',
+    );
+    const extra = buildChartHistoryWithGaps(history, '1d', NOW_MS);
+
+    expect(extra.map((point) => point.timestamp)).toEqual(
+      base.map((point) => point.timestamp),
+    );
+    // The August day and the day after it (the run ends an hour into it)
+    // carry the campaign; so does the newest point.
+    expect(extra.filter((point) => point.apy !== null)).toHaveLength(3);
+  });
+
+  it('keeps a campaign shorter than a bucket on the day and week it ran', () => {
+    // A campaign of a few hours in the middle of a day, three weeks back:
+    // the day's and the week's last snapshots are gaps, yet the bucket
+    // shows the campaign.
+    const start = NOW_MS - 20 * DAY_MS - 12 * 60 * 60 * 1000;
+    const short = hourly(NOW_MS - 30 * DAY_MS, NOW_MS, '3.3').map((item) => ({
+      timestamp: item.timestamp,
+      apy:
+        item.timestamp >= start && item.timestamp <= start + 3 * 60 * 60 * 1000
+          ? '15'
+          : undefined,
+    }));
+    const daily = buildChartHistoryWithGaps(short, '1d', NOW_MS);
+    const weekly = buildChartHistoryWithGaps(short, '1w', NOW_MS);
+    expect(daily.filter((point) => point.apy === 15)).toHaveLength(1);
+    expect(weekly.filter((point) => point.apy === 15)).toHaveLength(1);
+    // every other bucket stays a gap
+    expect(daily.filter((point) => point.apy !== null)).toHaveLength(1);
+  });
+
+  it('drops nothing but unusable timestamps', () => {
+    expect(
+      buildChartHistoryWithGaps(
+        [
+          { timestamp: NOW_MS, apy: 'oops' },
+          { timestamp: Number.NaN, apy: '1' },
+        ],
+        'max',
+      ),
+    ).toEqual([{ timestamp: NOW_MS, apy: null }]);
   });
 });

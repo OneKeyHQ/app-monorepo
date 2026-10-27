@@ -812,6 +812,81 @@ class GateTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0)
                     self.assertEqual(output.read_text(), f'available={str(installed_workflow).lower()}\n')
 
+    def test_trusted_gate_compares_live_base_with_its_test_merge(self):
+        workflow = (Path(__file__).parent.parent / 'workflows/trivy-pr-gate.yml').read_text()
+        # The event's base.sha goes stale when the base branch advances.
+        self.assertNotIn('pull_request.base.sha', workflow)
+        self.assertIn('BASE_SHA: ${{ steps.revisions.outputs.base }}', workflow)
+        step = workflow.split('- name: Resolve the test merge on the live base\n', 1)[1].split('\n      - name:', 1)[0]
+        script = '\n'.join(line[10:] for line in step.split('run: |\n', 1)[1].splitlines())
+        env = {'PATH': os.environ['PATH'], 'HOME': str(self.root), 'GIT_CONFIG_NOSYSTEM': '1',
+               'GIT_AUTHOR_NAME': 'fixture', 'GIT_AUTHOR_EMAIL': 'fixture@example.invalid',
+               'GIT_COMMITTER_NAME': 'fixture', 'GIT_COMMITTER_EMAIL': 'fixture@example.invalid'}
+        def git(repo, *args):
+            return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false',
+                                   '-C', str(repo), *args], env=env, check=True, capture_output=True,
+                                  text=True).stdout.strip()
+        remote = self.root / 'remote'
+        remote.mkdir()
+        git(remote, 'init', '--quiet')
+        commits = {}
+        for name in ('base1', 'head', 'other', 'base2'):
+            git(remote, 'commit', '--quiet', '--allow-empty', '-m', name)
+            commits[name] = git(remote, 'rev-parse', 'HEAD')
+        tree = git(remote, 'rev-parse', 'HEAD^{tree}')
+        merges = {}
+        def merge(base, head):
+            # commit-tree stamps the current time; build each fixture merge once.
+            if (base, head) not in merges:
+                merges[base, head] = git(remote, 'commit-tree', tree, '-p', commits[base],
+                                         '-p', commits[head], '-m', 'merge')
+            return merges[base, head]
+        # A gh stub stands in for GitHub rebuilding the test merge on request.
+        bin_dir = self.root / 'bin'
+        bin_dir.mkdir()
+        (bin_dir / 'gh').write_text('#!/bin/sh\n[ -s "$REBUILD" ] && git -C "$REMOTE_DIR" update-ref '
+                                    'refs/pull/7/merge "$(cat "$REBUILD")"\nexit 0\n')
+        (bin_dir / 'gh').chmod(0o755)
+        cases = {
+            # GitHub built the test merge on the advanced base; base.sha is stale.
+            'stale-event-base': (merge('base2', 'head'), '', True),
+            # The test merge predates the base push until GitHub rebuilds it.
+            'stale-test-merge': (merge('base1', 'head'), merge('base2', 'head'), True),
+            'never-rebuilt': (merge('base1', 'head'), '', False),
+            'other-head': (merge('base2', 'other'), '', False),
+        }
+        for case, (initial, rebuilt, resolved) in cases.items():
+            with self.subTest(case=case):
+                git(remote, 'update-ref', 'refs/heads/x', commits['base2'])
+                git(remote, 'update-ref', 'refs/pull/7/merge', initial)
+                root = self.root / case
+                (root / 'source').mkdir(parents=True)
+                url = 'file://' + str(remote)
+                # actions/checkout of refs/pull/7/merge at fetch-depth 2.
+                git(root / 'source', 'init', '--quiet')
+                git(root / 'source', 'fetch', '--quiet', '--depth=2', url, 'refs/pull/7/merge')
+                git(root / 'source', 'checkout', '--quiet', '--detach', 'FETCH_HEAD')
+                (root / 'rebuild').write_text(rebuilt)
+                output = root / 'output'
+                output.write_text('')
+                result = subprocess.run(['/bin/bash', '-e', '-c', script], cwd=root, capture_output=True, check=False,
+                    env=dict(env, PATH=f'{bin_dir}:{env["PATH"]}', GH_TOKEN='unused', REPOSITORY='owner/repo',
+                             REMOTE=url, REMOTE_DIR=str(remote), BASE_REF='x', PR_NUMBER='7',
+                             HEAD_SHA=commits['head'], MERGE_ATTEMPTS='3', MERGE_DELAY='0',
+                             REBUILD=str(root / 'rebuild'), GITHUB_OUTPUT=str(output)))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(output.read_text(), f'base={commits["base2"]}\n')
+                checked_out = git(root / 'source', 'rev-parse', 'HEAD')
+                if resolved:
+                    self.assertEqual(checked_out, merge('base2', 'head'))
+                    gate.verify_revisions(root / 'source', commits['base2'], commits['head'], checked_out)
+                    # The event's stale base.sha cannot describe this test merge.
+                    with self.assertRaisesRegex(gate.GateError, '^merge_parents_mismatch$'):
+                        gate.verify_revisions(root / 'source', commits['base1'], commits['head'], checked_out)
+                else:
+                    with self.assertRaisesRegex(gate.GateError, '^merge_parents_mismatch$'):
+                        gate.verify_revisions(root / 'source', commits['base2'], commits['head'], checked_out)
+
     def test_failure_retains_only_safe_evidence(self):
         args = SimpleNamespace(output=str(self.root / 'evidence'), repo=str(self.root),
                                base='a', head='b', merge='c', trivy='trivy')

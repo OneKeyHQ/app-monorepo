@@ -19,6 +19,8 @@ import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/Ma
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import {
   buildReplacedMarketDetailParams,
+  canReuseMarketDetailRoute,
+  openOrReplaceMarketDetailRoute,
   prepareMarketDetailTabBarTransition,
 } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
@@ -35,6 +37,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
+import { requireMarketAssetVariant } from '@onekeyhq/shared/src/utils/marketAssetVariant';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
@@ -78,10 +81,6 @@ interface IUseToDetailPageOptions {
    * A different detail route is replaced, while the same route is updated in place.
    */
   replaceCurrentDetail?: boolean;
-  /**
-   * Resolves a search/watchlist token to its canonical Asset route identity.
-   */
-  resolveMarketAsset?: boolean;
 }
 
 // All entry rows navigate the same UI router. A newer selection must also
@@ -92,7 +91,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
-  const currentRouteName = useRoute().name;
+  const { name: currentRouteName } = useRoute();
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
   const media = useMedia();
@@ -141,19 +140,27 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const navigationGeneration = navigationGenerationRef.current + 1;
       navigationGenerationRef.current = navigationGeneration;
       if (item.assetId) {
+        let assetDetailFetched = false;
         try {
           const { default: backgroundApiProxy } =
             await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
           if (navigationGenerationRef.current !== navigationGeneration) return;
-          const { selectedVariant } =
+          const detail =
             await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
               assetId: item.assetId,
               currency: 'usd',
               autoHandleError: false,
             });
+          assetDetailFetched = true;
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
           }
+          const selectedVariant = requireMarketAssetVariant({
+            detail,
+            networkId: item.networkId,
+            tokenAddress: item.tokenAddress,
+            isNative: item.isNative,
+          });
           item = {
             ...item,
             marketTokenId: item.assetId,
@@ -167,25 +174,28 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
           }
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_an_error_occurred,
-            }),
-          });
-          return;
+          if (!assetDetailFetched && item.networkId) {
+            // Search rows retain a usable chain identity if asset lookup fails.
+            // A successful response with a missing variant must still fail.
+            item = { ...item, assetId: undefined };
+          } else {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+            return;
+          }
         }
       }
-      const shouldResolveMarketAsset = Boolean(
-        options?.resolveMarketAsset && !item.marketTokenId && !item.stock,
-      );
+      const stockId = resolveMarketStockId({
+        stockId: item.stockId,
+        stock: item.stock,
+      });
       const resolvedItem = item;
       const marketTokenCategory = item.assetId
         ? MARKET_TOP_COINS_CATEGORY_ID
         : options?.marketTokenCategory;
-      const stockId = resolveMarketStockId({
-        stockId: resolvedItem.stockId,
-        stock: resolvedItem.stock,
-      });
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
         includeHeavyModules: true,
@@ -210,12 +220,6 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           : undefined),
         ...(resolvedItem.marketVariantId
           ? { marketVariantId: resolvedItem.marketVariantId }
-          : undefined),
-        ...(shouldResolveMarketAsset
-          ? {
-              resolveMarketAsset: true,
-              marketTokenSymbol: resolvedItem.symbol,
-            }
           : undefined),
         ...(resolvedItem.skipMarketDataFetch
           ? { skipMarketDataFetch: true }
@@ -265,11 +269,12 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const detailRouteName = stockId
         ? ETabMarketRoutes.MarketStockDetail
         : ETabMarketRoutes.MarketDetailV2;
-      const shouldReplaceCurrentDetail = Boolean(
-        options?.replaceCurrentDetail && currentRouteName !== detailRouteName,
-      );
       const shouldUpdateCurrentDetail = Boolean(
-        options?.replaceCurrentDetail && currentRouteName === detailRouteName,
+        options?.replaceCurrentDetail &&
+        canReuseMarketDetailRoute(currentRouteName, detailRouteName),
+      );
+      const shouldReplaceCurrentDetail = Boolean(
+        options?.replaceCurrentDetail && !shouldUpdateCurrentDetail,
       );
 
       // Check if in extension popup/side panel
@@ -336,9 +341,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           }
         }
 
-        const targetTab = platformEnv.isNative
-          ? ETabRoutes.Discovery
-          : ETabRoutes.Market;
+        const targetTab = ETabRoutes.Market;
 
         await marketDetailShellPreloadPromise;
         if (navigationGenerationRef.current !== navigationGeneration) {
@@ -376,7 +379,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           splitViewType !== ESplitViewType.UNKNOWN &&
           !options?.replaceCurrentDetail
         ) {
-          navigation.switchTab(ETabRoutes.Discovery);
+          navigation.switchTab(ETabRoutes.Market);
           appEventBus.emit(
             EAppEventBusNames.CleanTokenDetailInTabletDetailView,
             undefined,
@@ -388,6 +391,16 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
           }
+        }
+        if (
+          shouldReplaceCurrentDetail &&
+          !platformEnv.isNative &&
+          openOrReplaceMarketDetailRoute({
+            routeName: detailRouteName,
+            params: params as Record<string, unknown>,
+          })
+        ) {
+          return;
         }
         if (shouldUpdateCurrentDetail) {
           navigation.setParams(
@@ -418,7 +431,6 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       options?.from,
       options?.marketTokenCategory,
       options?.replaceCurrentDetail,
-      options?.resolveMarketAsset,
       options?.showFavoriteButton,
       preloadLayout,
       splitViewType,

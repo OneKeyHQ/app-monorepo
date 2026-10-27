@@ -254,6 +254,8 @@ export type ITradingViewNativeChartSceneCommand =
     };
 
 export interface IBuildTradingViewNativeChartSceneOptions {
+  dateFormatTemplate?: string;
+  autoScalePointRange?: ITradingViewNativeVisiblePointRange;
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents?: readonly ITradingViewNativeChartLeafComponent[];
@@ -675,6 +677,8 @@ function appendLegendCommands({
 }
 
 export function buildTradingViewNativeChartScene({
+  dateFormatTemplate,
+  autoScalePointRange,
   candleIntervalSeconds,
   candleTimeMode,
   chartComponents = [],
@@ -823,10 +827,8 @@ export function buildTradingViewNativeChartScene({
       const colorKey = direction === 'up' ? 'upColor' : 'downColor';
       customPaintStyles[LATEST_PRICE_LINE_PAINT_IDS[direction]] = {
         color: chartSettings.latestPriceLine[colorKey],
-        dash:
-          chartSettings.latestPriceLine.style === 'dashed'
-            ? [CURRENT_PRICE_LINE_DASH_LENGTH, CURRENT_PRICE_LINE_DASH_GAP]
-            : undefined,
+        // The latest price line is always dashed; any stored style is ignored.
+        dash: [CURRENT_PRICE_LINE_DASH_LENGTH, CURRENT_PRICE_LINE_DASH_GAP],
         opacity: 1,
       };
       customPaintStyles[LATEST_PRICE_LABEL_PAINT_IDS[direction]] = {
@@ -891,9 +893,12 @@ export function buildTradingViewNativeChartScene({
     return emptyScene;
   }
 
+  const scalePointRange = autoScalePointRange ?? visiblePointRange;
   const layout = getTradingViewNativeChartLayout({
+    dateFormatTemplate,
+    autoScalePointRange: scalePointRange,
     additionalPriceRange: getTradingViewNativeIndicatorPriceRange({
-      ...visiblePointRange,
+      ...scalePointRange,
       series: indicatorSeries,
     }),
     candleIntervalSeconds,
@@ -936,11 +941,11 @@ export function buildTradingViewNativeChartScene({
     volumeTop,
   } = layout;
   const subIndicatorLayouts = getTradingViewNativeSubIndicatorPaneLayouts({
-    endIndex: visiblePointRange.endIndex,
+    endIndex: scalePointRange.endIndex,
     panes: visibleSubIndicatorPanes,
     stackBottom: subIndicatorPaneStackLayout.bottom,
     stackTop: subIndicatorPaneStackLayout.top,
-    startIndex: visiblePointRange.startIndex,
+    startIndex: scalePointRange.startIndex,
   });
   const getPointX = (index: number) =>
     getTradingViewNativeCandleX({
@@ -1211,8 +1216,21 @@ export function buildTradingViewNativeChartScene({
       });
     }
   }
+  const pinnedPriceIsOutsideChart =
+    crosshair.price !== undefined &&
+    (crosshair.price < minPrice || crosshair.price > maxPrice);
   const crosshairY =
-    crosshairX === null ? null : Math.min(Math.max(crosshair.y, 0), timeAxisY);
+    crosshairX === null || pinnedPriceIsOutsideChart
+      ? null
+      : Math.min(
+          Math.max(
+            crosshair.price === undefined
+              ? crosshair.y
+              : getTradingViewNativePriceY(crosshair.price, layout),
+            0,
+          ),
+          timeAxisY,
+        );
   if (crosshairX !== null && crosshairY !== null) {
     commands.push(
       {
@@ -1513,6 +1531,7 @@ export function buildTradingViewNativeChartScene({
     const timeLabel = formatTradingViewNativeCrosshairTime(
       crosshairTimestamp,
       candleIntervalSeconds,
+      dateFormatTemplate,
     );
     const timeTextWidth = measureTextWidth(timeLabel, 'axis');
     const timeLabelWidth = Math.min(

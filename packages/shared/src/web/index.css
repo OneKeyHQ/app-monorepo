@@ -55,7 +55,7 @@ body {
   -ms-overflow-style: scrollbar;
 }
 
-/* Disable Roobert contextual alternates that convert (1) to ① */
+/* Disable brand font contextual alternates that convert (1) to ① */
 * {
   font-feature-settings: 'calt' 0 !important;
 }

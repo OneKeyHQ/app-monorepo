@@ -15,8 +15,16 @@ under separate owners:
   Browser pointer/keyboard events and native gestures are thin adapters. Pointer
   movement redraws previews without refreshing the React chart tree; completed
   edits update controls and history.
-- `indicatorPanes` owns per-chart order and preferred heights. Its handles use the
-  same layout calculation as the rendered panes, legends, and price-axis hit tests.
+- `indicatorPanes` owns per-chart order and preferred heights. Web/desktop resize
+  handles use the same layout calculation as the rendered panes, legends, and
+  price-axis hit tests. Native charts do not expose pane-height drag handles.
+- Indicator Y axes pin their visible ranges independently by instance ID. Web
+  pointer handlers and native gestures use the main axis scaling calculation;
+  double-click/tap clears only the target pane's manual range. These transient
+  ranges override render metadata without changing settings or copying series.
+  Each axis has independent A/L controls. Resetting Auto preserves its scale mode;
+  logarithmic plots, ticks, and crosshair values share the main axis projection
+  and require a positive range.
 - `chartLocalStorage` serializes writes by key and waits for pending writes before
   restoring a chart. Completed queue entries are removed. Existing drawing keys
   remain compatible with drawings saved before the shared/native implementation.
@@ -41,8 +49,10 @@ and dash effects are released after each render.
 Cover persistence ordering/failure, restored editing, hidden/locked objects,
 freehand previews, resized pane geometry, namespace-specific settings, fullscreen
 ownership, and unmount cleanup. UI acceptance must include actual candle pixels,
-resizing an indicator pane, editing a restored object, and restarting the page/app.
-For native, distinguish process memory (main + bg + worklets + native resources)
+editing a restored object, and restarting the page/app.
+Verify pane resizing on web/desktop; native pane heights must stay unchanged when
+dragging pane boundaries. For native, distinguish process memory
+(main + bg + worklets + native resources)
 from each JS heap, and
 record both UI FPS and JS FPS. Development simulator measurements do not replace
 release-device profiling.

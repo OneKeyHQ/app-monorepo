@@ -30,10 +30,9 @@ const meta = {
       control: 'radio',
       options: ['connecting', 'enterPin', 'enterPassphrase', 'confirm'],
     },
-    // Only the Pro 2 listens; the rest ignore it.
     color: {
       control: 'select',
-      options: ['Black', 'Silver', 'Orange'],
+      options: ['Black', 'Silver', 'Orange', 'Transparent'],
     },
     width: { control: { type: 'range', min: 80, max: 500, step: 1 } },
   },
@@ -73,12 +72,21 @@ export const ByDeviceType: Story = {
   ),
 };
 
-// The two models that come in more than one finish; in the app the serial
+// The models that come in more than one finish; in the app the serial
 // number's last letter picks it (shared/utils/hardwareDeviceColors). The
 // first shell of each row is what an unknown serial gets.
 export const Colors: Story = {
   render: () => (
     <YStack gap="$4">
+      <XStack gap="$4" alignItems="flex-start">
+        <HardwareDevice deviceType="classicpure" width={120} />
+        <HardwareDevice
+          deviceType="classicpure"
+          color="Transparent"
+          animation="connecting"
+          width={120}
+        />
+      </XStack>
       <XStack gap="$4" alignItems="flex-start">
         {(['Black', 'Silver', 'Orange'] as const).map((color) => (
           <HardwareDevice

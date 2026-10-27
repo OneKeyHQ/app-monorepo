@@ -7,10 +7,8 @@ import { BackHandler, StyleSheet, View } from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
-  Icon,
   Page,
   Stack,
-  XStack,
   YStack,
   isLiquidGlassAvailable,
   rootNavigationRef,
@@ -56,15 +54,13 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
-import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
-import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
-import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
+import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 // import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
-import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
+import useMobileBrowserChromeAnimation from '../../hooks/useMobileBrowserChromeAnimation';
 import {
   useActiveTabId,
   useDisplayHomePageFlag,
@@ -221,8 +217,12 @@ function MobileBrowser() {
   const isLandscape = useIsSplitView();
   const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
-  const selectedHeaderTab =
+  const rawSelectedHeaderTab =
     settings.selectedBrowserTab || ETranslations.global_browser;
+  const selectedHeaderTab =
+    rawSelectedHeaderTab === ETranslations.global_earn
+      ? ETranslations.global_earn
+      : ETranslations.global_browser;
   // Pages the outer pager is actually painting. Tracked separately from
   // selectedHeaderTab, which only commits after the swipe finishes — the
   // gap between the two is what showed a blank page mid-swipe (OK-60300).
@@ -236,16 +236,15 @@ function MobileBrowser() {
   }, []);
   const isEarnPageVisible =
     selectedHeaderTab === ETranslations.global_earn ||
-    visibleOuterPages.includes(1);
+    visibleOuterPages.includes(0);
   const exploreTabSwitchTypeRef = useRef<IExploreTabSwitchType>('default');
   const hasLoggedExploreTabViewRef = useRef(false);
 
   // Shared value for swipe-following header tab animation.
-  // Maps tab enum to pager index: market=0, earn=1, browser=2.
+  // Maps tab enum to pager index: earn=0, browser=1.
   const initialPageIndex = useMemo(() => {
-    if (selectedHeaderTab === ETranslations.global_market) return 0;
-    if (selectedHeaderTab === ETranslations.global_earn) return 1;
-    return 2;
+    if (selectedHeaderTab === ETranslations.global_earn) return 0;
+    return 1;
   }, [selectedHeaderTab]);
   const outerPageScrollPosition = useSharedValue(initialPageIndex);
 
@@ -254,9 +253,6 @@ function MobileBrowser() {
   // Market/Perp/Wallet tabs are still available to switch to (OK-56756). Do NOT
   // narrow the search scope here — that would drop those tabs entirely.
   const searchInitialTab = useMemo(() => {
-    if (selectedHeaderTab === ETranslations.global_market) {
-      return 'market' as const;
-    }
     if (selectedHeaderTab === ETranslations.global_browser) {
       return 'dapp' as const;
     }
@@ -271,8 +267,16 @@ function MobileBrowser() {
   const { tab: activeTabData } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { handleScroll, toolbarAnimatedStyle, webPageAnimatedStyle } =
-    useMobileBottomBarAnimation(activeTabId);
+  const {
+    handleScroll,
+    expandBrowserChrome,
+    chromeProgress,
+    layoutExpanded,
+    toolbarAnimatedStyle,
+    toolbarOverlayStyle,
+    webPageBottomStyle,
+    webPageShiftStyle,
+  } = useMobileBrowserChromeAnimation();
   useDAppNotifyChanges({ tabId: activeTabId });
 
   useDebugComponentRemountLog({
@@ -293,9 +297,24 @@ function MobileBrowser() {
     selectedHeaderTab === ETranslations.global_browser;
   const isBrowserWebPageVisible =
     isBrowserHeaderTabSelected && !showDiscoveryPage && !displayHomePage;
+  // The dashboard scroll shares the chrome animation, so make sure the web page
+  // always opens (or switches tab, or navigates) with its header and bottom
+  // bar expanded: a short page has no scroll to bring a collapsed bar back.
+  // The hash is ignored, since pages often update it while scrolling.
+  const activePageUrl = activeTabData?.url?.split('#')[0];
+  useEffect(() => {
+    if (isBrowserWebPageVisible) {
+      expandBrowserChrome();
+    }
+  }, [
+    activeTabId,
+    activePageUrl,
+    isBrowserWebPageVisible,
+    expandBrowserChrome,
+  ]);
   const isBrowserDashboardActive =
     showDiscoveryPage &&
-    (isBrowserHeaderTabSelected || visibleOuterPages.includes(2));
+    (isBrowserHeaderTabSelected || visibleOuterPages.includes(1));
   const shouldKeepBrowserTabLayerAttached =
     platformEnv.isNativeIOSPad && isTabletDetailView;
   const shouldDismissKeyboardOnTabSwitch =
@@ -307,6 +326,14 @@ function MobileBrowser() {
     }
   }, [tabs?.length]);
 
+  useEffect(() => {
+    if (rawSelectedHeaderTab === ETranslations.global_market) {
+      void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
+        ETranslations.global_browser,
+      );
+    }
+  }, [rawSelectedHeaderTab]);
+
   const previousDefaultTab = useRef<ETranslations | undefined>(undefined);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
@@ -315,13 +342,15 @@ function MobileBrowser() {
         previousDefaultTab: previousDefaultTab.current,
       });
       previousDefaultTab.current = defaultTab;
-      if (defaultTab) {
+      if (defaultTab === ETranslations.global_market) {
+        navigation.switchTab(ETabRoutes.Market);
+      } else if (defaultTab) {
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
           defaultTab,
         );
       }
     }
-  }, [defaultTab]);
+  }, [defaultTab, navigation]);
 
   useEffect(() => {
     if (!showDiscoveryPage) {
@@ -378,6 +407,10 @@ function MobileBrowser() {
         openUrl: event.openUrl,
         showWebPage: event.showWebPage,
       });
+      if (event.tab === ETranslations.global_market) {
+        navigation.switchTab(ETabRoutes.Market);
+        return;
+      }
       exploreTabSwitchTypeRef.current = event.switchType ?? 'default';
 
       // State machine: when WebView is open (displayHomePage === false) and
@@ -411,6 +444,7 @@ function MobileBrowser() {
   }, [
     activeTabId,
     displayHomePage,
+    navigation,
     setDisplayHomePage,
     shouldDismissKeyboardOnTabSwitch,
   ]);
@@ -426,6 +460,9 @@ function MobileBrowser() {
     };
   }, [closeCurrentWebTab]);
 
+  // Only the legacy tablet layout requires display:none gating across panes;
+  // phone layouts keep Market, Earn, and Browser in the outer pager.
+  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   const content = useMemo(
     () =>
       tabs.map((t) => (
@@ -446,19 +483,35 @@ function MobileBrowser() {
       selectedHeaderTab === ETranslations.global_browser,
   );
 
+  // Read through refs so the chrome callbacks (and the memoized header/bar)
+  // stay stable while tabs update.
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
   const handleSearchBarPress = useCallback(
     (url: string) => {
-      const tab = tabs.find((t) => t.id === activeTabId);
+      const currentTabId = activeTabIdRef.current;
+      const tab = tabsRef.current.find((t) => t.id === currentTabId);
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
         params: {
           url,
-          tabId: activeTabId ?? undefined,
-          useCurrentWindow: tab?.isPinned ? false : !!activeTabId,
+          tabId: currentTabId ?? undefined,
+          useCurrentWindow: tab?.isPinned ? false : !!currentTabId,
         },
       });
     },
-    [tabs, navigation, activeTabId],
+    [navigation],
+  );
+  const browserChrome = useMemo(
+    () => ({
+      progress: chromeProgress,
+      layoutExpanded,
+      onExpand: expandBrowserChrome,
+      onSearchBarPress: handleSearchBarPress,
+    }),
+    [chromeProgress, layoutExpanded, expandBrowserChrome, handleSearchBarPress],
   );
 
   const { top } = useSafeAreaInsets();
@@ -496,20 +549,10 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
-  // Refs for inner tab containers (Market/Earn) to sync after freeze/unfreeze
-  const marketTabsRef = useRef<ITabContainerRef>(null);
+  // Refs for inner tab containers (Earn) to sync after freeze/unfreeze
   const earnTabsRef = useRef<ITabContainerRef>(null);
   const earnBorrowPagerRef = useRef<IEarnBorrowPagerViewRef>(null);
 
-  // Determine if outer PagerView should be used (phone-style layout).
-  // Only the legacy tablet layout requires display:none gating across panes;
-  // that layout is only meaningful when SplitView is actually active (the
-  // SplitViewContext provider wraps the routers). When the user disables
-  // enableSplitView on a foldable / dual-screen device, neither main nor sub
-  // view is set — fall back to the phone-style pager so Market/Earn/Browser
-  // can still render. Without this, dual-screen Android with split-screen
-  // off renders a blank Market/DeFi page.
-  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   const handleExploreTabSwipe = useCallback(() => {
     exploreTabSwitchTypeRef.current = 'swipe';
   }, []);
@@ -593,20 +636,10 @@ function MobileBrowser() {
           />
         </YStack>
       ) : (
-        <XStack
-          pt={top}
-          px="$5"
-          alignItems="center"
-          my="$1"
-          mt={platformEnv.isNativeAndroid ? '$3' : undefined}
-        >
-          <Stack onPress={handleGoBackHome}>
-            <Icon name="MinimizeOutline" mr="$4" />
-          </Stack>
-
-          <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
-          <HeaderRightToolBar />
-        </XStack>
+        <MobileBrowserHeader
+          chrome={browserChrome}
+          onGoBackHome={handleGoBackHome}
+        />
       )}
       <Page.Body>
         {/* HandleRebuildBrowserData must mount early regardless of active tab */}
@@ -618,17 +651,9 @@ function MobileBrowser() {
               showDiscoveryPage={showDiscoveryPage}
               onPageSelectedBySwipe={handleExploreTabSwipe}
               pageScrollPosition={outerPageScrollPosition}
-              marketTabsRef={marketTabsRef}
               earnTabsRef={earnTabsRef}
               earnBorrowPagerRef={earnBorrowPagerRef}
               onVisiblePagesChange={handleVisiblePagesChange}
-              marketContent={
-                <MarketHomeWithProvider
-                  isFocused={selectedHeaderTab === ETranslations.global_market}
-                  nestedPager={useOuterPager}
-                  tabsRef={marketTabsRef}
-                />
-              }
               earnContent={
                 <EarnHomeWithProvider
                   showHeader={false}
@@ -658,7 +683,11 @@ function MobileBrowser() {
                             ? 'auto'
                             : 'no-hide-descendants'
                         }
-                        style={[styles.webPageLayer, webPageAnimatedStyle]}
+                        style={[
+                          styles.webPageLayer,
+                          webPageBottomStyle,
+                          webPageShiftStyle,
+                        ]}
                       >
                         <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
                       </Animated.View>
@@ -667,8 +696,8 @@ function MobileBrowser() {
                 </Stack>
               }
             />
-            {/* Resize the iOS WebView with the toolbar so fixed page content
-                stays visible above it. */}
+            {/* iOS WebView layer: ends above the bottom bar (see
+                useMobileBrowserChromeAnimation). */}
             {platformEnv.isNativeIOS ? (
               <Animated.View
                 collapsable={false}
@@ -679,7 +708,8 @@ function MobileBrowser() {
                 }
                 style={[
                   styles.webPageRootLayer,
-                  webPageAnimatedStyle,
+                  webPageBottomStyle,
+                  webPageShiftStyle,
                   shouldShowRootWebPageLayer
                     ? styles.iosWebPageRootLayerVisible
                     : styles.iosWebPageRootLayerHidden,
@@ -690,10 +720,10 @@ function MobileBrowser() {
             ) : null}
             <Freeze freeze={!displayBottomBar}>
               <Animated.View
-                pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
+                pointerEvents={shouldShowRootWebPageLayer ? 'box-none' : 'none'}
                 style={[
                   styles.webPageRootToolbar,
-                  toolbarAnimatedStyle,
+                  toolbarOverlayStyle,
                   {
                     display: shouldShowRootWebPageLayer ? 'flex' : 'none',
                   },
@@ -701,7 +731,7 @@ function MobileBrowser() {
               >
                 <MobileBrowserBottomBar
                   id={activeTabId ?? ''}
-                  onGoBackHomePage={handleGoBackHome}
+                  chrome={browserChrome}
                 />
               </Animated.View>
             </Freeze>
@@ -709,21 +739,6 @@ function MobileBrowser() {
         ) : (
           <>
             {/* Keep iPad browser layers attached; Android retains legacy display switching. */}
-            {isShowContent ? (
-              <View
-                style={{
-                  flex: 1,
-                  display:
-                    selectedHeaderTab === ETranslations.global_market
-                      ? 'flex'
-                      : 'none',
-                }}
-              >
-                <MarketHomeWithProvider
-                  isFocused={selectedHeaderTab === ETranslations.global_market}
-                />
-              </View>
-            ) : null}
             <Stack
               flex={1}
               zIndex={shouldKeepBrowserTabLayerAttached ? undefined : 3}
@@ -769,7 +784,7 @@ function MobileBrowser() {
                   />
                 </View>
                 {!isTabletMainView ? (
-                  <View
+                  <Animated.View
                     collapsable={false}
                     pointerEvents={isBrowserWebPageVisible ? 'auto' : 'none'}
                     accessibilityElementsHidden={!isBrowserWebPageVisible}
@@ -785,10 +800,13 @@ function MobileBrowser() {
                       !platformEnv.isNativeIOSPad && {
                         display: showDiscoveryPage ? 'none' : 'flex',
                       },
+                      // Follows the header overlay (see
+                      // useMobileBrowserChromeAnimation).
+                      webPageShiftStyle,
                     ]}
                   >
                     {content}
-                  </View>
+                  </Animated.View>
                 ) : null}
               </Stack>
               <Freeze freeze={!displayBottomBar}>
@@ -804,7 +822,7 @@ function MobileBrowser() {
                 >
                   <MobileBrowserBottomBar
                     id={activeTabId ?? ''}
-                    onGoBackHomePage={handleGoBackHome}
+                    chrome={browserChrome}
                   />
                 </Animated.View>
               </Freeze>

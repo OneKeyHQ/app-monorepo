@@ -32,6 +32,7 @@ export function WalletActionBuy({
   renderTrigger,
   source,
   sameModal,
+  withAddressTypeStep = true,
 }: {
   onClose: () => void;
   renderTrigger?: (props: {
@@ -40,6 +41,9 @@ export function WalletActionBuy({
   }) => ReactElement;
   source?: IWalletActionBaseParams['source'];
   sameModal?: boolean;
+  // Off when the trigger buys something other than this account's native
+  // token, so pressing it never also runs the address type step.
+  withAddressTypeStep?: boolean;
 }) {
   const {
     activeAccount: { network, account, wallet, vaultSettings, indexedAccount },
@@ -147,6 +151,7 @@ export function WalletActionBuy({
   ]);
 
   if (
+    withAddressTypeStep &&
     isBuySupported &&
     !network?.isAllNetworks &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
@@ -157,6 +162,7 @@ export function WalletActionBuy({
   ) {
     return (
       <AddressTypeSelector
+        whenCollapsed="skip"
         placement="bottom-end"
         offset={{
           crossAxis: -16,

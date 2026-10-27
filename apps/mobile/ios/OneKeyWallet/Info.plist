@@ -106,10 +106,10 @@
 	<true/>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Roobert-Regular.ttf</string>
-		<string>Roobert-Medium.ttf</string>
-		<string>Roobert-SemiBold.ttf</string>
-		<string>Roobert-Bold.ttf</string>
+		<string>BrandSans-Regular.ttf</string>
+		<string>BrandSans-Medium.ttf</string>
+		<string>BrandSans-SemiBold.ttf</string>
+		<string>BrandSans-Bold.ttf</string>
 		<string>GeistMono-Regular.ttf</string>
 		<string>GeistMono-Medium.ttf</string>
 	</array>

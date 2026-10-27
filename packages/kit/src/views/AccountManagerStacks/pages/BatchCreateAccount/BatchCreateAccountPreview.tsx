@@ -100,7 +100,7 @@ function DeriveTypeTrigger({ onPress }: ISelectRenderTriggerProps) {
 // Index column sizing: the "No." column only receives a 20% flex share of the
 // row, so a 10-digit account index (e.g. 2147483641) wraps onto two lines.
 // Give the column a digit-aware floor instead. The checkbox label renders at
-// Roobert $bodyLgMedium (16px), whose tabular figures advance ~10.1px; round
+// Brand sans $bodyLgMedium (16px), whose tabular figures advance ~10.1px; round
 // up to stay safe on fallback fonts.
 const INDEX_DIGIT_WIDTH = 11;
 // Checkbox box (~20px) plus the 8px label gap in `Checkbox`.

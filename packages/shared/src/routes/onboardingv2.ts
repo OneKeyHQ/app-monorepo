@@ -34,6 +34,7 @@ export enum EOnboardingPagesV2 {
   PickYourDevice = 'PickYourDevice',
   ConnectYourDevice = 'ConnectYourDevice',
   ConnectQRCode = 'ConnectQRCode',
+  ConnectKeystoneDevice = 'ConnectKeystoneDevice',
   CheckAndUpdate = 'CheckAndUpdate',
   DeviceSetup = 'DeviceSetup',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
@@ -101,6 +102,7 @@ export type IOnboardingParamListV2 = {
     vendor?: EHardwareVendor;
   };
   [EOnboardingPagesV2.ConnectQRCode]: undefined;
+  [EOnboardingPagesV2.ConnectKeystoneDevice]: undefined;
   [EOnboardingPagesV2.CheckAndUpdate]: {
     connectProtocol?: HardwareConnectProtocol;
     deviceData: IConnectYourDeviceItem;
@@ -111,6 +113,8 @@ export type IOnboardingParamListV2 = {
     deviceData: IConnectYourDeviceItem;
     tabValue: EConnectDeviceChannel;
     isFirmwareVerified?: boolean;
+    /** Serial from the connected device's features (BLE scans carry none). */
+    connectedSerialNo?: string;
   };
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: {
     defaultTab: EOnboardingV2ImportPhraseOrPrivateKeyTab;

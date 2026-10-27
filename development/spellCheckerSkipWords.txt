@@ -82,6 +82,7 @@ Ctxs
 ctxs
 ntli
 unfocus
+oklch
 usdc
 USDC
 Realtime
@@ -498,7 +499,6 @@ isXprvt
 itms
 izari
 jane
-jetpack
 jotai
 Jotai
 jpeg
@@ -1634,3 +1634,8 @@ poolsfun
 poolstrade
 pumpfun
 sunpump
+Jsign
+misttrack
+Borsh
+Galxe
+Hookable

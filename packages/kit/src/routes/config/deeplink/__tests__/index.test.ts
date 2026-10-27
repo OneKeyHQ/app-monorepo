@@ -303,8 +303,6 @@ describe('stocks / perps universal links', () => {
     handleDeepLinkUrl({ url });
     await flushAsyncTasks();
 
-    // jest runs as web (non-native), which lands on the Market tab directly;
-    // the native branch converges into Discovery's market sub tab instead.
     expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
@@ -312,6 +310,24 @@ describe('stocks / perps universal links', () => {
       },
     });
     expect(switchTabAsync).not.toHaveBeenCalled();
+  });
+
+  it('routes market universal link to the standalone Market tab on native', async () => {
+    const originalIsNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      handleDeepLinkUrl({ url: 'https://app.onekey.so/market' });
+      await flushAsyncTasks();
+
+      expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.TabMarket,
+        },
+      });
+    } finally {
+      platformEnv.isNative = originalIsNative;
+    }
   });
 
   it('consumes App Clip attribution for a direct universal-link handoff on iOS', async () => {
@@ -795,8 +811,7 @@ describe('walletconnect pay deep links', () => {
   });
 
   it('waits for app unlock before opening the pay dialog', async () => {
-    // the dialog is a system sheet that would present ABOVE the RN lock
-    // screen, so the link must park until the app is unlocked
+    // a payment never opens over a locked app: the link waits for unlock
     let resolveUnlock: () => void = () => {};
     mockedWhenAppUnlocked.mockImplementation(
       () =>

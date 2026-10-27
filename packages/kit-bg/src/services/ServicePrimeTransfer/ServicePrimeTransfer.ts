@@ -100,6 +100,7 @@ import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTran
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { shouldUnwrapCredentialForPortableExport } from '../../dbs/local/localSecretEnvelope';
 import { checkIsOneKeyDomain } from '../../endpoints';
 import {
@@ -137,7 +138,10 @@ import {
   assertTransferSize,
   getTransferMessageLimit,
 } from './e2ee/transferSize';
-import { PrimeTransferPreparation } from './PrimeTransferPreparation';
+import {
+  PRIME_TRANSFER_DEFAULT_PAYLOAD_STAGES,
+  PrimeTransferPreparation,
+} from './PrimeTransferPreparation';
 import {
   collectAndPruneUnavailableTransferCredentials,
   filterTransferWallets,
@@ -2372,6 +2376,14 @@ class ServicePrimeTransfer extends ServiceBase {
         proxy.api.finishChunkedTransfer({ transferId: task.transferId }),
       );
       this.assertNetworkTask(task);
+      // Acknowledged chunks are not a finished send; the receiver accepts the
+      // reassembled payload only when finishChunkedTransfer succeeds.
+      this.publishNetworkProgress(task, {
+        ...manifest,
+        direction: 'sending',
+        transferredBytes: manifest.totalBytes,
+        completed: true,
+      });
     } catch (error) {
       // Reset the flow while its preparation owner still exists. The network
       // finally block clears that owner, so a later task-scoped UI cancel is
@@ -2570,7 +2582,7 @@ class ServicePrimeTransfer extends ServiceBase {
 
     let sendResult: unknown;
     try {
-      this.getPreparationTask(preparationTaskId);
+      await this.getPreparationTask(preparationTaskId)?.update('decrypting');
       // BotWallet -> CLI export is intentionally Transfer-only. The encrypted
       // credential payload must be embedded in Prime Transfer data and sent
       // through the paired E2EE channel, not shown as Base64/QR/manual input.
@@ -2658,6 +2670,11 @@ class ServicePrimeTransfer extends ServiceBase {
         if (!walletId) {
           throw new OneKeyLocalError('Bot wallet transfer data is invalid');
         }
+        preparation?.setPayloadStages([
+          'decrypting',
+          'serializing',
+          'encrypting',
+        ]);
         return this.sendCliBotWalletEncryptedCredentialTransferData({
           transferData,
           walletId,
@@ -2674,6 +2691,17 @@ class ServicePrimeTransfer extends ServiceBase {
       // to decrypt. An empty/invalid peer appVersion means the room contains
       // an ancient or forged client we should not send credentials to.
       const peerSupportsV2 = await this.resolvePeerSupportsV2Envelope();
+      preparation?.setPayloadStages(
+        peerSupportsV2
+          ? PRIME_TRANSFER_DEFAULT_PAYLOAD_STAGES
+          : [
+              'decrypting',
+              'wrappingCredentials',
+              'legacyCredentials',
+              'serializing',
+              'encrypting',
+            ],
+      );
 
       await this.decryptTransferDataCredentials({
         data: transferData,
@@ -2695,6 +2723,7 @@ class ServicePrimeTransfer extends ServiceBase {
           format: peerSupportsV2 ? 'v2' : 'legacy',
           ...appCrypto.pbkdf2.getPbkdf2KdfParamsForNonDbTx(),
         });
+      await preparation?.update('wrappingCredentials');
       if (!peerSupportsV2) {
         // Overwrite the raw credential field with legacy-format ciphertext so
         // pre-6.4.0 receivers (which never read decryptedCredentialsHex) can
@@ -2707,6 +2736,8 @@ class ServicePrimeTransfer extends ServiceBase {
           });
       }
       transferData.privateData.decryptedCredentials = undefined;
+    } else {
+      preparation?.setPayloadStages(['serializing', 'encrypting']);
     }
 
     return this.sendPreparedTransferData({
@@ -3890,6 +3921,12 @@ class ServicePrimeTransfer extends ServiceBase {
       string,
       IAccountDeriveTypes | undefined
     >();
+    const restoredAccountIds = new Set<string>();
+    const rememberRestoredAccounts = (accounts: IDBAccount[]) => {
+      for (const account of accounts) {
+        restoredAccountIds.add(account.id);
+      }
+    };
     this.resetImportItemErrorLog();
     try {
       // Only use these parameters for credential preparation outside DB writes.
@@ -4500,6 +4537,7 @@ class ServicePrimeTransfer extends ServiceBase {
                 }),
             );
             addedAccountsUsed = addedAccounts;
+            rememberRestoredAccounts(addedAccounts);
             if (!addedAccountsUsed?.length && restoreDeriveTypes?.length) {
               const exportedPrivateKeyResult = await this.withImportTaskLog(
                 taskUUID,
@@ -4546,6 +4584,7 @@ class ServicePrimeTransfer extends ServiceBase {
                   }),
               );
               addedAccountsUsed = fallbackResult.addedAccounts;
+              rememberRestoredAccounts(fallbackResult.addedAccounts);
             }
           } finally {
             exportedPrivateKey = '';
@@ -4769,6 +4808,7 @@ class ServicePrimeTransfer extends ServiceBase {
               ...addedAccounts,
               ...(result?.addedAccounts || []),
             ];
+            rememberRestoredAccounts(result.addedAccounts);
           }
 
           const watchingAccountXpub = watchingAccountUtxo?.xpub;
@@ -4799,6 +4839,7 @@ class ServicePrimeTransfer extends ServiceBase {
               ...addedAccounts,
               ...(result?.addedAccounts || []),
             ];
+            rememberRestoredAccounts(result.addedAccounts);
           }
 
           const watchingAccountXpubSegwit = watchingAccountUtxo?.xpubSegwit;
@@ -4829,6 +4870,7 @@ class ServicePrimeTransfer extends ServiceBase {
               ...addedAccounts,
               ...(result?.addedAccounts || []),
             ];
+            rememberRestoredAccounts(result.addedAccounts);
           }
 
           const watchingAccountAddress = watchingAccount?.address;
@@ -4859,6 +4901,7 @@ class ServicePrimeTransfer extends ServiceBase {
               ...addedAccounts,
               ...(result?.addedAccounts || []),
             ];
+            rememberRestoredAccounts(result.addedAccounts);
           }
           // An unsuccessful candidate may still recover through another input or
           // derivation. Count the item as failed only after all fallbacks finish.
@@ -4899,6 +4942,40 @@ class ServicePrimeTransfer extends ServiceBase {
       }
 
       if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
+      if (restoredAccountIds.size > 0) {
+        try {
+          // Restore candidates suppress per-item events. Announce committed
+          // survivors once per wallet, excluding accounts deleted meanwhile.
+          const { records } = await localDb.getRecordsByIds({
+            name: ELocalDBStoreNames.Account,
+            ids: [...restoredAccountIds],
+          });
+          this.assertImportTaskActive(taskUUID);
+          const accountsByWallet = new Map<string, IDBAccount[]>();
+          for (const account of records) {
+            if (account) {
+              const walletId = accountUtils.getWalletIdFromAccountId({
+                accountId: account.id,
+              });
+              const accounts = accountsByWallet.get(walletId) ?? [];
+              accounts.push(account);
+              accountsByWallet.set(walletId, accounts);
+            }
+          }
+          for (const [walletId, accounts] of accountsByWallet) {
+            this.assertImportTaskActive(taskUUID);
+            appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+              walletId,
+              accounts,
+            });
+          }
+        } catch {
+          // A display-cache notification must not turn committed imports into
+          // failures. Cancellation still belongs to the original task owner.
+          this.assertImportTaskActive(taskUUID);
+        }
+      }
+      if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
       return {
         success: true,
         errorsInfo,
@@ -4911,6 +4988,7 @@ class ServicePrimeTransfer extends ServiceBase {
       throw error;
     } finally {
       importedAccountDeriveTypeCache.clear();
+      restoredAccountIds.clear();
       this.resetImportItemErrorLog();
       this.runningImportTaskUUID = undefined;
     }

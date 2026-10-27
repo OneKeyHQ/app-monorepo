@@ -1,8 +1,12 @@
 import type { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
-import { filterStockPayTokenCandidates } from '@onekeyhq/kit/src/views/Swap/hooks/swapStockChannelUtils';
+import {
+  filterStockPayTokenCandidates,
+  getTokenIdentityKey,
+  settleSwapStockTokenKey,
+} from '@onekeyhq/kit/src/views/Swap/hooks/swapStockChannelUtils';
+import { getMarketSwapDefaultPair } from '@onekeyhq/kit/src/views/Swap/utils/marketSwapDefaultPair';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
@@ -40,28 +44,6 @@ function isSameSwapToken(left?: ISwapToken, right?: ISwapToken) {
   );
 }
 
-function resolveDefaultSwapPayToken(token: ISwapToken) {
-  const defaults = swapDefaultSetTokens[token.networkId];
-  if (!defaults) {
-    return undefined;
-  }
-  if (
-    !token.isNative &&
-    defaults.fromToken &&
-    !isSameSwapToken(defaults.fromToken, token)
-  ) {
-    return defaults.fromToken;
-  }
-  if (
-    token.isNative &&
-    defaults.toToken &&
-    !isSameSwapToken(defaults.toToken, token)
-  ) {
-    return defaults.toToken;
-  }
-  return undefined;
-}
-
 export function prepareSwapProEntry({
   direction,
   token,
@@ -94,6 +76,9 @@ export function prepareStockSwapEntry({
     storeName,
   });
   const stockToken = token.isStock ? token : { ...token, isStock: true };
+  // The user picked this exact variant on Market; Swap must not move it to
+  // the default issuer.
+  settleSwapStockTokenKey(getTokenIdentityKey(stockToken));
   const fromToken = store.get(swapSelectFromTokenAtom());
   if (direction === 'from') {
     const toToken = store.get(swapSelectToTokenAtom());
@@ -152,13 +137,15 @@ export function prepareStockSwapEntry({
   };
 }
 
-export function prepareTopCoinSwapEntry({
+export function prepareMarketSwapEntry({
   token,
   direction = 'to',
+  defaultTokens,
   storeName = EJotaiContextStoreNames.swap,
 }: {
   token: ISwapToken;
   direction?: 'from' | 'to';
+  defaultTokens: ISwapToken[];
   storeName?: EJotaiContextStoreNames.swap | EJotaiContextStoreNames.swapModal;
 }): IPreparedMarketSwapEntry {
   const store = jotaiContextStore.prepareStoreForImmediateUse({
@@ -166,24 +153,11 @@ export function prepareTopCoinSwapEntry({
   });
   const fromToken = store.get(swapSelectFromTokenAtom());
   const toToken = store.get(swapSelectToTokenAtom());
-  const oppositeToken = direction === 'to' ? fromToken : toToken;
-  const replacedToken = direction === 'to' ? toToken : fromToken;
-  let otherToken = oppositeToken;
-  if (!otherToken || otherToken.isStock || isSameSwapToken(otherToken, token)) {
-    otherToken =
-      replacedToken &&
-      !replacedToken.isStock &&
-      !isSameSwapToken(replacedToken, token)
-        ? replacedToken
-        : undefined;
-  }
-  otherToken ??= resolveDefaultSwapPayToken(token);
-  const nextFromToken = direction === 'to' ? otherToken : token;
-  const nextToToken = direction === 'to' ? token : otherToken;
-  const swapType =
-    otherToken?.networkId && otherToken.networkId !== token.networkId
-      ? ESwapTabSwitchType.BRIDGE
-      : ESwapTabSwitchType.SWAP;
+  const {
+    fromToken: nextFromToken,
+    toToken: nextToToken,
+    swapType,
+  } = getMarketSwapDefaultPair({ token, direction, defaultTokens });
   store.set(swapSelectFromTokenAtom(), nextFromToken);
   store.set(swapSelectToTokenAtom(), nextToToken);
   // Amounts belong to the complete directed pair, including the trade side.

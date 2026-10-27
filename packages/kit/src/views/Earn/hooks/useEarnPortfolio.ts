@@ -71,14 +71,6 @@ interface IAccountAssetPair {
 // Pure Utility Functions
 // ============================================================================
 
-const createInvestmentKey = (item: {
-  provider: string;
-  symbol: string;
-  vault?: string;
-  networkId: string;
-}): string =>
-  `${item.provider}_${item.symbol}_${item.vault || ''}_${item.networkId}`;
-
 const resolveVault = ({
   protocolVault,
   requestVault,
@@ -142,7 +134,7 @@ const createInvestmentKeyFromInvestment = (
     protocolVault: investment.protocol.vault,
     requestVault: firstAsset?.metadata?.protocol?.vault,
   });
-  return createInvestmentKey({
+  return createEarnPortfolioRequestKey({
     provider: investment.protocol.providerDetail.code,
     symbol: investment.protocol.symbol || firstAsset?.token.info.symbol || '',
     vault: resolvedVault,
@@ -215,7 +207,7 @@ function normalizeAirdropInvestmentResult(
     ...(resolvedVault ? { vault: resolvedVault } : {}),
   };
 
-  const key = createInvestmentKey({
+  const key = createEarnPortfolioRequestKey({
     provider: result.protocol.providerDetail.code,
     symbol: params.symbol,
     vault: resolvedVault,
@@ -237,6 +229,9 @@ function normalizeAirdropInvestmentResult(
       totalFiatValue: '0',
       totalFiatValueUsd: '0',
       earnings24hFiatValue: '0',
+      // Kept on its own field: the phone positions page sums it into the
+      // Rewards header while totalFiatValue stays principal-only.
+      airdropFiatValue: result.totalFiatValue,
       protocol: normalizedProtocol,
       network: result.network,
       assets: [],
@@ -260,7 +255,7 @@ function normalizeInvestmentResult(
     symbol: params.symbol,
   };
 
-  const key = createInvestmentKey({
+  const key = createEarnPortfolioRequestKey({
     provider: result.protocol.providerDetail.code,
     symbol: params.symbol,
     vault: resolvedProtocolVault,
@@ -302,6 +297,9 @@ function normalizeInvestmentResult(
       totalFiatValue: result.totalFiatValue,
       totalFiatValueUsd: result.totalFiatValueUsd,
       earnings24hFiatValue: result.earnings24hFiatValue,
+      ...(result.rewardsFiatValue !== undefined
+        ? { rewardsFiatValue: result.rewardsFiatValue }
+        : {}),
       netPnl: result.netPnl,
       netPnlFiatValue: result.netPnlFiatValue,
       protocol: normalizedProtocol,
@@ -722,15 +720,8 @@ export const useEarnPortfolio = ({
           singlePairs.push(pair);
         });
 
-        const { batchGroups, singleRequests } = buildEarnPortfolioBatchGroups({
+        const { batchGroups } = buildEarnPortfolioBatchGroups({
           requests: batchCandidateRequests,
-        });
-
-        singleRequests.forEach((request) => {
-          singlePairs.push({
-            isAirdrop: false,
-            params: request,
-          });
         });
 
         const applyResult = (result: IEarnPortfolioInvestmentFetchResult) => {
@@ -839,6 +830,7 @@ export const useEarnPortfolio = ({
                 return;
               }
 
+              const resolvedKeys = new Set<string>();
               response.items.forEach((item) => {
                 const matchedRequest = matchEarnPortfolioBatchRequest({
                   group,
@@ -858,19 +850,14 @@ export const useEarnPortfolio = ({
                 }
 
                 applyResult(normalizeInvestmentResult(matchedRequest, item));
+                resolvedKeys.add(createEarnPortfolioRequestKey(matchedRequest));
               });
 
-              response.errors.forEach((errorItem) => {
-                const matchedRequest = matchEarnPortfolioBatchRequest({
-                  group,
-                  symbol: errorItem.symbol,
-                  vault: errorItem.vault,
-                });
-
-                if (matchedRequest) {
-                  normalKeysFailedInThisSession.add(
-                    createEarnPortfolioRequestKey(matchedRequest),
-                  );
+              // Errors, missing items and ambiguous vaults cannot prove an empty
+              // position. Keep the previous value until a matching result arrives.
+              group.requestsByKey.forEach((_request, key) => {
+                if (!resolvedKeys.has(key)) {
+                  normalKeysFailedInThisSession.add(key);
                 }
               });
             }),

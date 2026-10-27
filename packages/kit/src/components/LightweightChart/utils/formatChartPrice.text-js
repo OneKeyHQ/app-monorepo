@@ -1,5 +1,17 @@
-function formatChartPrice(price, maxCharacters, stockPrice) {
+function formatChartPrice(price, maxCharacters, stockPrice, fullPrice) {
   if (!Number.isFinite(price)) return '--';
+  if (fullPrice && Math.abs(price) >= 1) {
+    var fullMatch = /^(-?\$)(\d+)\.(\d{2})$/.exec(
+      formatChartPrice(price, maxCharacters, true),
+    );
+    if (fullMatch && Number(fullMatch[2]) < 1e6) {
+      var integer = fullMatch[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return fullPrice === 'whole'
+        ? fullMatch[1] + integer
+        : fullMatch[1] + integer + '.' + fullMatch[3];
+    }
+    return formatChartPrice(price, maxCharacters);
+  }
   if (stockPrice && Math.abs(price) >= 1) {
     // Round the decimal digits half-up, avoiding binary midpoint errors.
     const [mantissa, exponentText] = Math.abs(price).toExponential().split('e');

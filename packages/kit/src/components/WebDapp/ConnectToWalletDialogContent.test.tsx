@@ -13,6 +13,7 @@ import { ConnectToWalletDialogContent } from './ConnectToWalletDialogContent';
 
 let mockLoading = true;
 let mockIsNative = true;
+let mockIsDesktop = false;
 let mockProgress: IWalletConnectDappConnectionProgress | undefined;
 const mockGetDappProgress = jest.fn<
   Promise<IWalletConnectDappConnectionProgress>,
@@ -54,6 +55,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     get isNative() {
       return mockIsNative;
     },
+    get isDesktop() {
+      return mockIsDesktop;
+    },
   },
 }));
 
@@ -76,6 +80,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 beforeEach(() => {
   mockLoading = true;
   mockIsNative = true;
+  mockIsDesktop = false;
   mockPoll = undefined;
   mockProgress = {
     attemptId: 1,
@@ -123,27 +128,47 @@ it.each([
   { connected: true },
   { connectedDuringAttempt: true },
   { connected: undefined },
-  { attempt: 0 },
   { snapshotFailed: true },
   { attemptId: undefined },
 ])(
-  'shows preparation without a retry count when socket progress is not applicable: %j',
+  'shows connecting without a retry count when socket progress is not applicable: %j',
   (patch) => {
     mockProgress = { ...mockProgress!, ...patch };
     const onExhausted = jest.fn(async () => undefined);
     render(content(onExhausted));
-    expect(screen.getByText(ETranslations.global_preparing)).toBeTruthy();
+    expect(
+      screen.getByTestId('walletconnect-connection-status').textContent,
+    ).toBe(ETranslations.transfer_transfer_server_status_connecting);
     expect(screen.queryByTestId('walletconnect-connection-relay')).toBeNull();
     expect(onExhausted).not.toHaveBeenCalled();
   },
 );
+
+it('keeps the connection layout at zero and shows the count from the first attempt', () => {
+  mockProgress = { ...mockProgress!, attempt: 0 };
+  const view = render(content());
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toBe(ETranslations.transfer_transfer_server_status_connecting);
+  expect(screen.getByTestId('walletconnect-connection-relay').textContent).toBe(
+    mockProgress.relayUrl,
+  );
+
+  mockProgress = { ...mockProgress, attempt: 1 };
+  view.rerender(content());
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toBe(`${ETranslations.transfer_transfer_server_status_connecting} (1/10)`);
+});
 
 it('keeps preparation usable when the diagnostics RPC fails', async () => {
   mockProgress = undefined;
   mockGetDappProgress.mockRejectedValue(new Error('RPC unavailable'));
   render(content());
   await expect(mockPoll?.()).resolves.toBeUndefined();
-  expect(screen.getByText(ETranslations.global_preparing)).toBeTruthy();
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toBe(ETranslations.transfer_transfer_server_status_connecting);
   expect(screen.queryByTestId('walletconnect-connection-relay')).toBeNull();
 });
 
@@ -172,7 +197,7 @@ it('preserves confirmation copy for a selected injected wallet without polling s
   expect(mockPoll).toBeUndefined();
 });
 
-it('limits socket progress to native WalletConnect flows', () => {
+it('limits socket progress to native and desktop WalletConnect flows', () => {
   mockIsNative = false;
   render(content());
   expect(
@@ -183,6 +208,18 @@ it('limits socket progress to native WalletConnect flows', () => {
       .textContent,
   ).toBe(ETranslations.global_preparing);
   expect(mockPoll).toBeUndefined();
+});
+
+it('shows the shared connection count and relay on desktop', () => {
+  mockIsNative = false;
+  mockIsDesktop = true;
+  render(content());
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toContain('(6/10)');
+  expect(screen.getByTestId('walletconnect-connection-relay').textContent).toBe(
+    'wss://relay.walletconnect.org',
+  );
 });
 
 it('uses a connection error, not a missing confirmation, when setup fails', () => {

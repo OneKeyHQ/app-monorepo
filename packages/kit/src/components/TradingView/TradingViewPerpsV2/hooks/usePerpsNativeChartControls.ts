@@ -132,12 +132,6 @@ export function usePerpsNativeChartControls({
     },
     [sendMessage],
   );
-  const handleUndo = useCallback(() => {
-    sendMessage('TRADINGVIEW_UNDO');
-  }, [sendMessage]);
-  const handleRedo = useCallback(() => {
-    sendMessage('TRADINGVIEW_REDO');
-  }, [sendMessage]);
   const reset = useCallback(() => {
     setIntervalConfig(null);
     setNativeChartControlsConfig(null);
@@ -163,8 +157,6 @@ export function usePerpsNativeChartControls({
       onOpenChartSettings: handleOpenChartSettings,
       onControlInteraction: handleControlInteraction,
       onCalendarPanelSubmit: handleCalendarPanelSubmit,
-      onUndo: handleUndo,
-      onRedo: handleRedo,
     },
   };
 }

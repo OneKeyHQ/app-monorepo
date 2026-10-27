@@ -82,7 +82,7 @@ function AddressRiskCheckHistory() {
 
   const handlePress = useCallback(
     (item: IAddressRiskCheckRecentItem) => {
-      checkRisk({
+      void checkRisk({
         networkId: item.networkId,
         address: item.address,
         entryPoint: 'historyList',

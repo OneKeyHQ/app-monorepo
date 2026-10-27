@@ -29,7 +29,9 @@ import {
   createTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeIndicatorSettings,
 } from './indicatorSettingsAdapter';
+import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import {
+  TradingViewNativeChartArea,
   TradingViewNativeContainer,
   updateTradingViewNativeSubIndicatorInstances,
 } from './TradingViewNativeContainer';
@@ -288,6 +290,12 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   >('@onekeyhq/shared/types/tradingViewNative');
 
   return {
+    usePerpsTradingViewChartSettingsPersistAtom: () =>
+      React.useState(tradingViewNative.createTradingViewNativeChartSettings),
+    usePerpsTradingViewIndicatorSettingsPersistAtom: () =>
+      React.useState(
+        tradingViewNative.createTradingViewNativeIndicatorSettings,
+      ),
     useSwapTradingViewChartSettingsPersistAtom: () => {
       const [settings, setSettings] = React.useState(
         () =>
@@ -438,6 +446,40 @@ describe('TradingViewNativeContainer', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it('restores retained inline dimensions and ignores a closing fullscreen layout', () => {
+    const onSizeChange = jest.fn();
+    const area = (isActive: boolean) => (
+      <TradingViewNativeChartActiveContext.Provider value={isActive}>
+        <TradingViewNativeChartArea onSizeChange={onSizeChange} />
+      </TradingViewNativeChartActiveContext.Provider>
+    );
+    const inline = render(area(true));
+    act(() => {
+      mockChartAreaOnLayout?.({
+        nativeEvent: { layout: { width: 360, height: 240 } },
+      });
+    });
+    inline.rerender(area(false));
+    const fullscreen = render(area(true));
+    act(() => {
+      mockChartAreaOnLayout?.({
+        nativeEvent: { layout: { width: 800, height: 400 } },
+      });
+    });
+    expect(onSizeChange).toHaveBeenLastCalledWith({ width: 800, height: 400 });
+    onSizeChange.mockClear();
+    inline.rerender(area(true));
+    fullscreen.rerender(area(false));
+    act(() => {
+      mockChartAreaOnLayout?.({
+        nativeEvent: { layout: { width: 360, height: 800 } },
+      });
+    });
+    expect(onSizeChange).toHaveBeenCalledTimes(1);
+    expect(onSizeChange).toHaveBeenLastCalledWith({ width: 360, height: 240 });
   });
 
   describe.each(['mobile', 'desktop'] as const)(
@@ -673,34 +715,82 @@ describe('TradingViewNativeContainer', () => {
     expect(screen.queryByTestId(quickBarTestId)).toBeNull();
   });
 
-  it.each([false, true])(
-    'opens indicator settings after leaving fullscreen when fullscreen is %s',
-    (isFullscreen) => {
+  it.each([
+    ['inline list', false, undefined],
+    ['fullscreen list', true, undefined],
+    ['fullscreen RSI', true, 'RSI'],
+  ] as const)(
+    'opens %s settings after the fullscreen exit commits',
+    (_label, isFullscreen, indicatorId) => {
+      jest.useFakeTimers();
       const onFullscreenChange = jest.fn();
-      render(
+      const chart = (fullscreen: boolean) => (
         <TradingViewNativeContainer
           source={{ kind: 'hyperliquid', coin: 'ETH', environment: 'mainnet' }}
           nativeControlsLayoutMode="mobile"
           showNativeIndicatorQuickBar
-          isNativeChartFullscreen={isFullscreen}
+          isNativeChartFullscreen={fullscreen}
           onNativeChartFullscreenChange={onFullscreenChange}
-        />,
+        />
       );
-      fireEvent.click(
-        screen.getByTestId('trading-view-native-indicator-settings-trigger'),
-      );
-      expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
-        screen: 'MarketIndicatorSettings',
-        params: { storageNamespace: 'market' },
-      });
+      const { rerender } = render(chart(isFullscreen));
+      if (indicatorId) {
+        const chartProps = mockTradingViewNativeChart.mock.calls.at(
+          -1,
+        )?.[0] as {
+          onSubIndicatorSettingsPress: (indicator: 'RSI') => void;
+        };
+        act(() => chartProps.onSubIndicatorSettingsPress(indicatorId));
+      } else {
+        fireEvent.click(
+          screen.getByTestId('trading-view-native-indicator-settings-trigger'),
+        );
+      }
       if (isFullscreen) {
         expect(onFullscreenChange).toHaveBeenCalledWith(false);
-        expect(onFullscreenChange.mock.invocationCallOrder[0]).toBeLessThan(
-          mockPushModal.mock.invocationCallOrder[0],
-        );
+        act(() => jest.advanceTimersByTime(32));
+        expect(mockPushModal).not.toHaveBeenCalled();
+        rerender(chart(false));
+        expect(mockPushModal).not.toHaveBeenCalled();
+        act(() => jest.advanceTimersByTime(16));
       } else {
         expect(onFullscreenChange).not.toHaveBeenCalled();
       }
+      expect(mockPushModal).toHaveBeenCalledTimes(1);
+      expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
+        screen: 'MarketIndicatorSettings',
+        params: { storageNamespace: 'market', indicatorId },
+      });
+    },
+  );
+
+  it.each(['unmount', 'source change'] as const)(
+    'cancels pending indicator navigation after %s',
+    (reason) => {
+      jest.useFakeTimers();
+      const chart = (fullscreen: boolean) => (
+        <TradingViewNativeContainer
+          source={{ kind: 'hyperliquid', coin: 'ETH', environment: 'mainnet' }}
+          nativeControlsLayoutMode="mobile"
+          showNativeIndicatorQuickBar
+          isNativeChartFullscreen={fullscreen}
+          onNativeChartFullscreenChange={jest.fn()}
+        />
+      );
+      const { rerender, unmount } = render(chart(true));
+      fireEvent.click(
+        screen.getByTestId('trading-view-native-indicator-settings-trigger'),
+      );
+      expect(mockPushModal).not.toHaveBeenCalled();
+      if (reason === 'source change') {
+        mockDataProviderKey = 'hyperliquid:BTC:mainnet';
+      }
+      rerender(chart(false));
+      if (reason === 'unmount') {
+        unmount();
+      }
+      act(() => jest.advanceTimersByTime(32));
+      expect(mockPushModal).not.toHaveBeenCalled();
     },
   );
 
@@ -1179,37 +1269,39 @@ describe('TradingViewNativeContainer', () => {
     ).toEqual(['VOL']);
   });
 
-  it('opens settings on the selected sub-indicator from its chart legend', () => {
-    render(
-      <TradingViewNativeContainer
-        source={{
-          kind: 'market',
-          networkId: 'evm--1',
-          tokenAddress: '0xabc',
-          symbol: 'TOKEN',
-          realtime: 'disabled',
-        }}
-      />,
-    );
+  it.each(['market', 'swap', 'perps'] as const)(
+    'opens the %s mobile editor on the selected sub-indicator from its chart legend',
+    (storageNamespace) => {
+      render(
+        <TradingViewNativeContainer
+          storageNamespace={storageNamespace}
+          nativeControlsLayoutMode="mobile"
+          source={{
+            kind: 'market',
+            networkId: 'evm--1',
+            tokenAddress: '0xabc',
+            symbol: 'TOKEN',
+            realtime: 'disabled',
+          }}
+        />,
+      );
 
-    const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
-      onSubIndicatorSettingsPress: (indicator: 'RSI') => void;
-    };
-    act(() => chartProps.onSubIndicatorSettingsPress('RSI'));
+      const chartProps = mockTradingViewNativeChart.mock.calls.at(-1)?.[0] as {
+        onSubIndicatorSettingsPress: (indicator: 'RSI') => void;
+      };
+      act(() => chartProps.onSubIndicatorSettingsPress('RSI'));
 
-    expect(
-      mockShowTradingViewNativeIndicatorSettingsDialog,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({
-        displayMode: 'focused',
-        initialIndicatorId: 'RSI',
-        onConfirm: expect.any(Function),
-        value: expect.objectContaining({ indicators: expect.any(Array) }),
-      }),
-    );
-  });
+      expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
+        screen: 'MarketIndicatorSettings',
+        params: { storageNamespace, indicatorId: 'RSI' },
+      });
+      expect(
+        mockShowTradingViewNativeIndicatorSettingsDialog,
+      ).not.toHaveBeenCalled();
+    },
+  );
 
-  it.each(['market', 'swap'] as const)(
+  it.each(['market', 'swap', 'perps'] as const)(
     'opens the mobile settings list with the %s storage namespace',
     (storageNamespace) => {
       render(

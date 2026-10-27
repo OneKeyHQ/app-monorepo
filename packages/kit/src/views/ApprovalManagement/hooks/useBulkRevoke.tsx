@@ -30,7 +30,6 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { LinkedDeck } from '../../../hooks/useLinkedList';
-import { PrimeFreeTrialRemainingHint } from '../../Prime/components/PrimeFreeTrialRemainingHint';
 import { usePrimeAvailable } from '../../Prime/hooks/usePrimeAvailable';
 import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
 
@@ -95,8 +94,6 @@ function useBulkRevoke() {
           networkId: unsignedTxs[0]?.networkId,
           // The revoke button already shows its loading.
           showLoading: false,
-          // The start button on the bulk revoke page checks the quota.
-          deferQuotaCheck: true,
         });
         if (!access.granted) {
           return;
@@ -364,20 +361,9 @@ function useBulkRevoke() {
                     ) : null}
                   </XStack>
                 }
-                secondary={
-                  // The free uses only cover bulk revoke, so the hint lives
-                  // in its card rather than under both methods.
-                  <YStack gap="$1.5">
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.wallet_approval_bulk_revoke_method_bulk_desc,
-                      })}
-                    </SizableText>
-                    <PrimeFreeTrialRemainingHint
-                      featureId={EPrimeFeatures.BulkRevoke}
-                    />
-                  </YStack>
-                }
+                secondary={intl.formatMessage({
+                  id: ETranslations.wallet_approval_bulk_revoke_method_bulk_desc,
+                })}
               />
             </ListItem>
           </YStack>

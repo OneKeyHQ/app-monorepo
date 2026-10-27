@@ -6,7 +6,12 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
-import { TabBar } from './TabBar';
+import {
+  TabBar as IndependentTabBar,
+  TabBarItem as IndependentTabBarItem,
+} from '../TabBar';
+
+import { TabBar, TabBarItem } from './TabBar';
 
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -218,6 +223,10 @@ jest.mock('../../utils/webFontFamily', () => ({
 }));
 
 describe('TabBar scrollable focus handling', () => {
+  it('re-exports the single independent UI implementation', () => {
+    expect(TabBar).toBe(IndependentTabBar);
+    expect(TabBarItem).toBe(IndependentTabBarItem);
+  });
   beforeEach(() => {
     jest.useFakeTimers();
     mockScrollToIndex.mockReset();

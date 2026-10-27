@@ -109,6 +109,8 @@ export class OAuthPopup extends OAuthPopupBase {
         reason: `Desktop OAuth local server start failed: ${getSanitizedErrorLogText(
           error,
         )}`,
+        trigger: 'interactive',
+        error,
       });
       throw new OneKeyLocalError(
         'Failed to start OAuth local server. Please try again.',
@@ -367,6 +369,8 @@ export class OAuthPopup extends OAuthPopupBase {
                 reason: `Desktop OAuth cleanup failed while preserving the original failure: ${getSanitizedErrorLogText(
                   cleanupError,
                 )}`,
+                trigger: 'interactive',
+                error: cleanupError,
               });
             }
             reject(OAuthPopup.wrapError(error, 'OAuth failed'));

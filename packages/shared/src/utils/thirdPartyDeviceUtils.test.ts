@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import { DeviceModelId, getDeviceModel } from '@ledgerhq/devices';
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 // Test-only import (node env, never bundled): the SDK original is the source
 // of truth the local copy must stay in parity with.
@@ -13,6 +14,89 @@ import thirdPartyDeviceUtils from './thirdPartyDeviceUtils';
 describe('thirdPartyDeviceUtils', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it.each(Object.values(DeviceModelId))(
+    'matches Ledger Bluetooth model metadata for %s',
+    (vendorModel) => {
+      expect(
+        thirdPartyDeviceUtils.isLedgerBleSupportedDevice({
+          settings: { vendorModel },
+        }),
+      ).toBe(Boolean(getDeviceModel(vendorModel).bluetoothSpec?.length));
+    },
+  );
+
+  it('classifies every DMK Ledger model id as Bluetooth or USB-only', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+    const { DeviceModelId: DmkModelId } =
+      require('@ledgerhq/device-management-kit') as {
+        DeviceModelId: Record<string, string>;
+      };
+    for (const vendorModel of Object.values(DmkModelId)) {
+      const device = { settings: { vendorModel } };
+      const ble = thirdPartyDeviceUtils.isLedgerBleSupportedDevice(device);
+      const usbOnly = thirdPartyDeviceUtils.getSupportedTransports(
+        EHardwareVendor.ledger,
+        device,
+      );
+      expect({ vendorModel, known: ble || usbOnly?.length === 1 }).toEqual({
+        vendorModel,
+        known: true,
+      });
+    }
+  });
+
+  it('constrains only models known to lack Bluetooth', () => {
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.trezor, {
+        settings: { vendorModel: 'T3W1' },
+      }),
+    ).toBeUndefined();
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.trezor, {
+        settings: { vendorModel: 'T2B1' },
+      }),
+    ).toEqual(['usb']);
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.trezor, {
+        settings: { vendorModel: 'T9Z9' },
+      }),
+    ).toBeUndefined();
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.ledger, {
+        settings: { vendorModel: 'apexp' },
+      }),
+    ).toBeUndefined();
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.ledger, {
+        settings: { vendorModel: 'nanoSP' },
+      }),
+    ).toEqual(['usb']);
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.ledger, {}),
+    ).toBeUndefined();
+    expect(
+      thirdPartyDeviceUtils.getSupportedTransports(EHardwareVendor.keystone, {
+        settings: { vendorModel: 'Keystone 3 Pro' },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('reads legacy Ledger model settings without using the editable device name', () => {
+    expect(
+      thirdPartyDeviceUtils.isLedgerBleSupportedDevice({
+        settingsRaw: JSON.stringify({ vendorModel: 'nanoX' }),
+      }),
+    ).toBe(true);
+    expect(
+      thirdPartyDeviceUtils.isLedgerBleSupportedDevice({ name: 'Nano X' }),
+    ).toBe(false);
+    expect(
+      thirdPartyDeviceUtils.isLedgerBleSupportedDevice({
+        settings: { vendorModel: 'unknown', vendorModelName: 'Nano X' },
+      }),
+    ).toBe(false);
   });
 
   it('keeps only persisted third-party feature fields', () => {
@@ -242,6 +326,55 @@ describe('thirdPartyDeviceUtils', () => {
       thirdPartyDeviceUtils.isBtcOnlyFirmware({
         features: {
           unit_btconly: false,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    ['T2T1', true],
+    ['T3T1', true],
+    ['T3W1', true],
+    ['  Trezor   Safe 5  ', true],
+    ['Trezor Model T', true],
+    ['Safe 7', true],
+    ['T1B1', false],
+    ['T2B1', false],
+    ['T3B1', false],
+    ['Safe 3', false],
+    ['unknown', false],
+    ['', false],
+    [undefined, false],
+  ] as const)(
+    'checks brightness support for Trezor model %s',
+    (vendorModel, expected) => {
+      expect(
+        thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice({
+          settings: { vendorModel },
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  it('uses persisted model data without treating an unknown model as supported', () => {
+    expect(thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice()).toBe(
+      false,
+    );
+    expect(
+      thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice({
+        settingsRaw: JSON.stringify({ vendorModel: 'T3T1' }),
+      }),
+    ).toBe(true);
+    expect(
+      thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice({
+        settings: { vendorModelName: 'Trezor Safe 5' },
+      }),
+    ).toBe(true);
+    expect(
+      thirdPartyDeviceUtils.isTrezorBrightnessSupportedDevice({
+        settings: {
+          vendorModel: 'future-model',
+          vendorModelName: 'Trezor Safe 5',
         },
       }),
     ).toBe(false);

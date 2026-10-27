@@ -33,6 +33,7 @@ import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
 import { MARKET_TOKEN_ROW_GROUP_NAME } from '../MarketHoverRevealLine';
+import { WebMarketStockList } from '../MarketNativeList/WebMarketTokenList';
 import { MarketStockCategorySelector } from '../MarketTokenList/MarketStockCategorySelector';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
@@ -270,6 +271,58 @@ function MarketStockListImpl({
     webTabIntegrated,
   ]);
 
+  const listContent = webTabIntegrated ? (
+    <>
+      {!useDesktopPortal ? (
+        <Table.HeaderRow
+          columns={columns}
+          onHeaderRow={handleHeaderRow}
+          rowProps={{ width: '100%', height: MARKET_LIST_ROW_HEIGHT }}
+          headerRowProps={{ height: 36 }}
+        />
+      ) : null}
+      <WebMarketStockList
+        items={items}
+        columns={columns}
+        onPress={toMarketStockDetailPage}
+        footer={TableFooterComponent}
+        empty={TableEmptyComponent}
+        contentPaddingBottom={contentPaddingBottom}
+      />
+    </>
+  ) : (
+    <Table<IMarketStockPublicItem>
+      contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
+      stickyHeader
+      showHeader={!useDesktopPortal}
+      scrollEnabled={!webTabIntegrated}
+      tabIntegrated={tabIntegrated}
+      columns={columns}
+      dataSource={items}
+      keyExtractor={(item) => item.stockId}
+      estimatedItemSize={72}
+      onEndReached={webTabIntegrated ? undefined : handleEndReached}
+      onHeaderRow={handleHeaderRow}
+      rowProps={{
+        width: '100%',
+        height: MARKET_LIST_ROW_HEIGHT,
+      }}
+      headerRowProps={{ height: 36 }}
+      TableEmptyComponent={TableEmptyComponent}
+      TableFooterComponent={TableFooterComponent}
+      onRow={(item) => ({
+        onPress: () => void toMarketStockDetailPage(item),
+        rowProps: {
+          testID: MarketTestIDs.stockRow(item.stockId),
+          // Data rows only: the company cell swaps its subtitle for the
+          // variant summary while the row is hovered. The header row
+          // shares `rowProps` above and must not become a group.
+          group: MARKET_TOKEN_ROW_GROUP_NAME,
+        },
+      })}
+    />
+  );
+
   return (
     <Stack flex={1} width="100%" testID={MarketTestIDs.stockList}>
       {portalContent}
@@ -296,36 +349,7 @@ function MarketStockListImpl({
               }}
             />
           ) : (
-            <Table<IMarketStockPublicItem>
-              contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
-              stickyHeader
-              showHeader={!useDesktopPortal}
-              scrollEnabled={!webTabIntegrated}
-              tabIntegrated={tabIntegrated}
-              columns={columns}
-              dataSource={items}
-              keyExtractor={(item) => item.stockId}
-              estimatedItemSize={72}
-              onEndReached={webTabIntegrated ? undefined : handleEndReached}
-              onHeaderRow={handleHeaderRow}
-              rowProps={{
-                width: '100%',
-                height: MARKET_LIST_ROW_HEIGHT,
-              }}
-              headerRowProps={{ height: 36 }}
-              TableEmptyComponent={TableEmptyComponent}
-              TableFooterComponent={TableFooterComponent}
-              onRow={(item) => ({
-                onPress: () => void toMarketStockDetailPage(item),
-                rowProps: {
-                  testID: MarketTestIDs.stockRow(item.stockId),
-                  // Data rows only: the company cell swaps its subtitle for the
-                  // variant summary while the row is hovered. The header row
-                  // shares `rowProps` above and must not become a group.
-                  group: MARKET_TOKEN_ROW_GROUP_NAME,
-                },
-              })}
-            />
+            listContent
           )}
         </Stack>
       </Stack>

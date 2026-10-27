@@ -1,0 +1,15 @@
+diff --git a/node_modules/@electron/rebuild/lib/clang-fetcher.js b/node_modules/@electron/rebuild/lib/clang-fetcher.js
+index 4757695..97aabb8 100644
+--- a/node_modules/@electron/rebuild/lib/clang-fetcher.js
++++ b/node_modules/@electron/rebuild/lib/clang-fetcher.js
+@@ -2,7 +2,9 @@ import cp from 'node:child_process';
+ import debug from 'debug';
+ import fs from 'graceful-fs';
+ import path from 'node:path';
+-import tar from 'tar';
++// OneKey patch: tar 7 exposes named exports instead of a default export.
++// import tar from 'tar';
++import * as tar from 'tar';
+ import zlib from 'node:zlib';
+ import { ELECTRON_GYP_DIR } from './constants.js';
+ import { fetch } from './fetcher.js';

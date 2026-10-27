@@ -32,7 +32,10 @@ export type IBulkSendFeeState = {
   totalFeeFiat: string;
   nativeSymbol: string;
   feeInfos: ISendSelectedFeeInfo[];
-  // Per-tx gas info from batch estimation (each tx may have different gas limits)
+  // The unsignedTxs these fees were estimated for; feeInfos are matched to
+  // txs by index, so submitting is blocked while the list has changed since.
+  estimatedTxs?: IUnsignedTxPro[];
+  // Per-tx gas info from batch or per-tx estimation
   perTxFeeInfos?: { gas?: IGasLegacy[]; gasEIP1559?: IGasEIP1559[] }[];
   // ATA rent for Solana SPL token transfers
   ataRentFeeNative?: string;

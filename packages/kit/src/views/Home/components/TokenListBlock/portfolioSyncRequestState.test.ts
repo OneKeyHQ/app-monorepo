@@ -1,6 +1,7 @@
 import {
   buildPortfolioSyncTargetKey,
   resolvePortfolioSyncRequestTransition,
+  shouldPortfolioSyncStandDownOnStageOff,
 } from './portfolioSyncRequestState';
 
 import type { IPortfolioSyncRequest } from './portfolioSyncRequestState';
@@ -151,5 +152,58 @@ describe('resolvePortfolioSyncRequestTransition', () => {
     });
 
     expect(transition.nextRequest?.minimumAllNetworksGeneration).toBe(7);
+  });
+});
+
+describe('shouldPortfolioSyncStandDownOnStageOff', () => {
+  it('ends the request whose own stage hold the exit closes', () => {
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageHold: { requestId: 2, burstId: 5 },
+        offBurstId: 5,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps a request when the exit is an earlier burst's (OK-64696)", () => {
+    // A Sync tapped as the previous attempt's ✗ retires under the live
+    // page: on split runtimes that exit can land after the new hold opened.
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageHold: { requestId: 2, burstId: 5 },
+        offBurstId: 4,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps a request whose hold has not opened a stage', () => {
+    // Not yet answered (the hold is still the previous request's), or
+    // minted while the stage was silenced.
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageHold: { requestId: 1, burstId: 4 },
+        offBurstId: 4,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageHold: { requestId: 2, burstId: undefined },
+        offBurstId: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it('has nothing to end without a request', () => {
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: undefined,
+        stageHold: { requestId: 1, burstId: 4 },
+        offBurstId: 4,
+      }),
+    ).toBe(false);
   });
 });

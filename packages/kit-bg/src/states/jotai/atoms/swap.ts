@@ -14,6 +14,30 @@ import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 export const {
+  target: dustSweepPreferencesPersistAtom,
+  use: useDustSweepPreferencesPersistAtom,
+} = globalAtom<{
+  threshold: 1 | 10 | 100;
+}>({
+  persist: true,
+  name: EAtomNames.dustSweepPreferencesPersistAtom,
+  initialValue: { threshold: 10 },
+});
+
+// The stock token issuer the user last picked by hand (normalized, e.g.
+// "ondo"). Default variant selection prefers it over bStocks for every stock.
+export const {
+  target: swapStockIssuerPreferencePersistAtom,
+  use: useSwapStockIssuerPreferencePersistAtom,
+} = globalAtom<{
+  issuer?: string;
+}>({
+  persist: true,
+  name: EAtomNames.swapStockIssuerPreferencePersistAtom,
+  initialValue: {},
+});
+
+export const {
   target: swapTradingViewChartSettingsPersistAtom,
   use: useSwapTradingViewChartSettingsPersistAtom,
 } = globalAtom<ITradingViewNativeChartSettings>({

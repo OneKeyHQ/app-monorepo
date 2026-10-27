@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -16,7 +17,10 @@ import type {
 
 import { scrubSensitiveErrorMessageText } from '../../views/Prime/components/oneKeyIdLoginToastUtils';
 
-import { useShowOneKeyIdLogoutDialog } from './OneKeyIdLogoutDialog';
+import {
+  executeIdentityExitPlan,
+  useShowOneKeyIdLogoutDialog,
+} from './OneKeyIdLogoutDialog';
 
 import type { IntlShape } from 'react-intl';
 
@@ -24,6 +28,8 @@ type IReadyIdentityExitPlan = Extract<IIdentityExitPlan, { status: 'ready' }>;
 
 export type IRunIdentityExitOptions = {
   confirmButtonTestID?: string;
+  /** Only applies to environment switches in developer settings. */
+  skipConfirmation?: boolean;
   analyticsReason?: string;
   beforeExecute?: () => void | Promise<void>;
   beforePresentReadyPlan?: (
@@ -75,6 +81,7 @@ function showBlockedMessageForError(intl: IntlShape, error: unknown) {
 export function useIdentityExitFlow() {
   const intl = useIntl();
   const showIdentityExitDialog = useShowOneKeyIdLogoutDialog();
+  const [devSettings] = useDevSettingsPersistAtom();
 
   const run = useCallback(
     async (
@@ -118,23 +125,41 @@ export function useIdentityExitFlow() {
         }
 
         await options?.beforePresentReadyPlan?.(plan);
-        const dialogResult = await showIdentityExitDialog({
-          plan,
-          confirmButtonTestID: options?.confirmButtonTestID,
-          beforeExecute: options?.beforeExecute,
-        });
-        if (dialogResult.status === 'cancelled') {
+        let exitResult: Awaited<ReturnType<typeof showIdentityExitDialog>>;
+        if (
+          devSettings.enabled &&
+          intent.type === 'switchEnvironment' &&
+          options?.skipConfirmation &&
+          plan.confirmation.type === 'normal'
+        ) {
+          await options.beforeExecute?.();
+          const receipt = await executeIdentityExitPlan(plan);
+          if (receipt.status === 'cancelled') {
+            return { status: 'cancelled' };
+          }
+          exitResult =
+            receipt.status === 'completed'
+              ? { status: 'completed', receipt }
+              : receipt;
+        } else {
+          exitResult = await showIdentityExitDialog({
+            plan,
+            confirmButtonTestID: options?.confirmButtonTestID,
+            beforeExecute: options?.beforeExecute,
+          });
+        }
+        if (exitResult.status === 'cancelled') {
           return { status: 'cancelled' };
         }
-        if (dialogResult.status === 'blocked') {
-          logIdentityExitError('execute blocked', dialogResult);
+        if (exitResult.status === 'blocked') {
+          logIdentityExitError('execute blocked', exitResult);
           defaultLogger.prime.subscription.onekeyIdLogout({
             reason: `identityExit: execute blocked: ${scrubSensitiveErrorMessageText(
-              dialogResult.message,
+              exitResult.message,
             )}`,
           });
           showBlockedMessage(intl);
-          return { status: 'blocked', message: dialogResult.message };
+          return { status: 'blocked', message: exitResult.message };
         }
 
         defaultLogger.prime.subscription.onekeyIdLogout({
@@ -143,7 +168,7 @@ export function useIdentityExitFlow() {
             `identityExit:${intent.type}:${intent.scene}`,
         });
         try {
-          await options?.onCompletedReceipt?.(dialogResult.receipt);
+          await options?.onCompletedReceipt?.(exitResult.receipt);
         } catch (error) {
           logIdentityExitError('post-receipt continuation failed', error);
           const message = getErrorMessage(error);
@@ -167,7 +192,7 @@ export function useIdentityExitFlow() {
         return { status: 'blocked', message };
       }
     },
-    [intl, showIdentityExitDialog],
+    [devSettings.enabled, intl, showIdentityExitDialog],
   );
 
   return { run };

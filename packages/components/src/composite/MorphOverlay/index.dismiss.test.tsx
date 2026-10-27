@@ -10,6 +10,7 @@ import { act, fireEvent, render, renderHook } from '@testing-library/react';
 import { useWindowDimensions } from 'react-native';
 import {
   GestureDetector,
+  GestureHandlerRootView,
   PointerType,
   State,
 } from 'react-native-gesture-handler';
@@ -46,6 +47,9 @@ jest.mock('react-native-gesture-handler', () => ({
     'react-native-gesture-handler',
   ),
   GestureDetector: jest.fn(({ children }: { children: ReactNode }) => children),
+  GestureHandlerRootView: jest.fn(({ children }: { children: ReactNode }) => (
+    <div data-testid="morph-gesture-root">{children}</div>
+  )),
 }));
 
 jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
@@ -60,11 +64,9 @@ jest.mock('../../actions/IconButton', () => ({
   IconButton:
     jest.requireActual<typeof import('react-native')>('react-native').Pressable,
 }));
-jest.mock('../../hocs', () => ({
-  Portal: {
-    Body: ({ children }: { children: ReactNode }) => children,
-    Constant: { HARDWARE_UI_STATE_DIALOG: 'stage' },
-  },
+jest.mock('../../shared/imperativeOverlayMount', () => ({
+  ImperativeOverlayMountBody: ({ children }: { children: ReactNode }) =>
+    children,
 }));
 jest.mock('../../hooks/useLayout', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
@@ -329,6 +331,21 @@ describe('MorphOverlay wall', () => {
     const open = setup();
     expect(open.view.queryByTestId('morph-overlay-wall')).toBeNull();
   });
+});
+
+it('keeps the Android gesture root inside the shell through pose changes', () => {
+  Object.assign(platformEnv, { isNative: true, isNativeAndroid: true });
+  const { view, setPose } = setup({ modal: true });
+  const root = view.getByTestId('morph-gesture-root');
+  expect(root.contains(view.getByTestId('morph-overlay-close'))).toBe(true);
+  expect(root.contains(view.getByTestId('morph-overlay-wall'))).toBe(false);
+  expect(jest.mocked(GestureHandlerRootView)).toHaveBeenCalled();
+
+  setPose('hidden');
+  expect(view.getByTestId('morph-gesture-root')).toBe(root);
+  expect(view.queryByTestId('morph-overlay-wall')).toBeNull();
+  setPose('card');
+  expect(view.getByTestId('morph-gesture-root')).toBe(root);
 });
 
 describe('MorphOverlay viewport posture', () => {

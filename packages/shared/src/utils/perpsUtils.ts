@@ -523,6 +523,22 @@ function formatHlSize(size: BigNumber.Value, szDecimals: number): string {
   return out === '0' ? '' : out;
 }
 
+function getMinimumOrderSize({
+  price,
+  szDecimals,
+  minimumNotional,
+}: {
+  price: BigNumber.Value;
+  szDecimals: number;
+  minimumNotional: number;
+}): BigNumber | undefined {
+  const priceBN = new BigNumber(price);
+  if (!priceBN.isFinite() || priceBN.lte(0)) return undefined;
+  return new BigNumber(minimumNotional)
+    .dividedBy(priceBN)
+    .decimalPlaces(szDecimals, BigNumber.ROUND_CEIL);
+}
+
 function getValidPerpsPrice(price?: string | null): string | undefined {
   if (!price) {
     return undefined;
@@ -2487,6 +2503,7 @@ export {
   SPOT_MIN_VOLUME_STRICT,
   SPOT_SELECTOR_MIN_VOLUME,
   formatHlSize,
+  getMinimumOrderSize,
   formatHlPrice,
   getHlPriceTick,
   snapHlPriceToGrid,
@@ -2558,6 +2575,7 @@ export default {
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
   formatHlSize,
+  getMinimumOrderSize,
   formatHlPrice,
   getHlPriceTick,
   snapHlPriceToGrid,

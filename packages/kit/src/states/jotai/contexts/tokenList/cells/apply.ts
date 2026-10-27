@@ -322,8 +322,8 @@ export function applyStructureSnapshot(
  *   - changedAggFiat: write ONLY existing per-network sub-cells; the derived
  *     aggCell recomputes once after the group's synchronous writes complete.
  *
- * `batch` optionally groups notifications at the caller. Aggregate calculation
- * is coalesced separately because Jotai eagerly recomputes after every write.
+ * `batch` optionally groups notifications at the caller. Aggregate and subtotal
+ * calculation use explicit boundaries because Jotai recomputes after every write.
  */
 export function applyValuationFrame(
   store: IJotaiContextStore,
@@ -346,44 +346,60 @@ export function applyValuationFrame(
   }
 
   batch(() => {
-    // normal tokens — existing cells only (orphan guard)
-    for (const k of Object.keys(frame.changedFiatById)) {
-      // not in structure -> never lazy-create -> no orphan
-      const cellAtom = P.cells.get(k);
-      if (cellAtom) {
-        const next = frame.changedFiatById[k];
-        if (!deps.fiatEqual(deps.get(cellAtom), next)) {
-          deps.set(cellAtom, next);
+    // Readers spanning multiple cells resume once the complete frame is applied.
+    let startedFrameUpdate = false;
+    const startFrameUpdate = () => {
+      if (!startedFrameUpdate && !deps.get(P.valuationUpdating)) {
+        startedFrameUpdate = true;
+        deps.set(P.valuationUpdating, true);
+      }
+    };
+    try {
+      // normal tokens — existing cells only (orphan guard)
+      for (const k of Object.keys(frame.changedFiatById)) {
+        // not in structure -> never lazy-create -> no orphan
+        const cellAtom = P.cells.get(k);
+        if (cellAtom) {
+          const next = frame.changedFiatById[k];
+          if (!deps.fiatEqual(deps.get(cellAtom), next)) {
+            startFrameUpdate();
+            deps.set(cellAtom, next);
+          }
         }
       }
-    }
 
-    // Publish each aggregate after all its changed sub-cells are written.
-    for (const aggKey of Object.keys(frame.changedAggFiat)) {
-      const byNet = P.aggSubCells.get(aggKey);
-      if (byNet) {
-        const byNetPayload = frame.changedAggFiat[aggKey];
-        const updating = P.aggUpdating.get(aggKey);
-        let startedUpdate = false;
-        try {
-          for (const netId of Object.keys(byNetPayload)) {
-            const subAtom = byNet.get(netId);
-            if (subAtom) {
-              const next = byNetPayload[netId];
-              if (!deps.fiatEqual(deps.get(subAtom), next)) {
-                if (updating && !startedUpdate && !deps.get(updating)) {
-                  startedUpdate = true;
-                  deps.set(updating, true);
+      // Publish each aggregate after all its changed sub-cells are written.
+      for (const aggKey of Object.keys(frame.changedAggFiat)) {
+        const byNet = P.aggSubCells.get(aggKey);
+        if (byNet) {
+          const byNetPayload = frame.changedAggFiat[aggKey];
+          const updating = P.aggUpdating.get(aggKey);
+          let startedUpdate = false;
+          try {
+            for (const netId of Object.keys(byNetPayload)) {
+              const subAtom = byNet.get(netId);
+              if (subAtom) {
+                const next = byNetPayload[netId];
+                if (!deps.fiatEqual(deps.get(subAtom), next)) {
+                  startFrameUpdate();
+                  if (updating && !startedUpdate && !deps.get(updating)) {
+                    startedUpdate = true;
+                    deps.set(updating, true);
+                  }
+                  deps.set(subAtom, next);
                 }
-                deps.set(subAtom, next);
               }
             }
-          }
-        } finally {
-          if (updating && startedUpdate) {
-            deps.set(updating, false);
+          } finally {
+            if (updating && startedUpdate) {
+              deps.set(updating, false);
+            }
           }
         }
+      }
+    } finally {
+      if (startedFrameUpdate) {
+        deps.set(P.valuationUpdating, false);
       }
     }
   });

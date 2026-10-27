@@ -35,7 +35,6 @@ import type { IntlShape } from 'react-intl';
 
 function DeviceLabelFormField(props: {
   wallet: IDBWallet | undefined;
-  nativeSheet?: boolean;
   asciiOnly?: boolean;
   maxLength?: number;
   disabledMaxLengthLabel?: boolean;
@@ -45,7 +44,6 @@ function DeviceLabelFormField(props: {
   const intl = useIntl();
   const {
     wallet,
-    nativeSheet,
     asciiOnly,
     maxLength = MAX_LENGTH_HW_LABEL_NAME,
     disabledMaxLengthLabel = true,
@@ -143,7 +141,6 @@ function DeviceLabelFormField(props: {
       }}
     >
       <RenameInputWithNameSelector
-        nativeSheet={nativeSheet}
         inputTestID={AccountManagerTestIDs.walletRenameInput}
         forceHasError={Boolean(validationErrorMessage)}
         validationErrorMessage={validationErrorMessage}
@@ -178,7 +175,6 @@ function DeviceLabelFormField(props: {
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
   deviceLabel: string;
-  nativeSheet?: boolean;
   asciiOnly?: boolean;
   maxLength?: number;
   disabledMaxLengthLabel?: boolean;
@@ -192,7 +188,6 @@ function DeviceLabelDialogContent(props: {
   const {
     wallet,
     deviceLabel,
-    nativeSheet,
     asciiOnly,
     maxLength,
     disabledMaxLengthLabel,
@@ -212,7 +207,6 @@ function DeviceLabelDialogContent(props: {
       >
         <DeviceLabelFormField
           wallet={wallet}
-          nativeSheet={nativeSheet}
           asciiOnly={asciiOnly}
           maxLength={maxLength}
           disabledMaxLengthLabel={disabledMaxLengthLabel}
@@ -278,7 +272,6 @@ export const showLabelSetDialog = async (
     disabledMaxLengthLabel,
     description,
     trimOuterWhitespace,
-    nativeSheet,
     ...dialogProps
   }: IDialogShowProps & {
     maxLength?: number;
@@ -301,7 +294,6 @@ export const showLabelSetDialog = async (
         <DeviceLabelDialogContent
           wallet={wallet}
           deviceLabel={deviceLabel}
-          nativeSheet={nativeSheet}
           asciiOnly={asciiOnly}
           maxLength={maxLength}
           disabledMaxLengthLabel={disabledMaxLengthLabel}
@@ -311,7 +303,6 @@ export const showLabelSetDialog = async (
         />
       ),
       showFooter: false,
-      nativeSheet,
       ...dialogProps,
     });
 

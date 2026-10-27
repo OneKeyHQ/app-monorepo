@@ -34,7 +34,13 @@ jest.mock('@onekeyhq/components', () => ({
       {title}
     </button>
   ),
-  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  ScrollView: ({
+    children,
+    testID,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+  }) => <div data-testid={testID}>{children}</div>,
   Select: ({
     disabled,
     items,
@@ -360,6 +366,41 @@ describe('TradingView chart controls', () => {
       expect(handleFullscreenToggle).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('keeps fullscreen identity and exit outside the scrollable mobile tools', () => {
+    const handleFullscreenToggle = jest.fn();
+    const { rerender } = render(
+      <TradingViewChartControls
+        {...BASE_PROPS}
+        fullscreenHeader={<span>Long token name</span>}
+        isFullscreen
+        onFullscreenToggle={handleFullscreenToggle}
+      />,
+    );
+    const toolbar = screen.getByTestId(
+      'trading-view-mobile-fullscreen-toolbar',
+    );
+    const exit = screen.getByTestId('trading-view-native-fullscreen-toggle');
+    expect(toolbar.contains(screen.getByTestId('interval-selector'))).toBe(
+      true,
+    );
+    expect(toolbar.contains(screen.getByText('Long token name'))).toBe(false);
+    expect(toolbar.contains(exit)).toBe(false);
+    fireEvent.click(exit);
+    expect(handleFullscreenToggle).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <TradingViewChartControls
+        {...BASE_PROPS}
+        fullscreenHeader={<span>Long token name</span>}
+        onFullscreenToggle={handleFullscreenToggle}
+      />,
+    );
+    expect(screen.queryByText('Long token name')).toBeNull();
+    expect(
+      screen.queryByTestId('trading-view-mobile-fullscreen-toolbar'),
+    ).toBeNull();
+  });
 
   it('uses text-only active intervals in compact mode', () => {
     const { rerender } = render(<TradingViewChartControls {...BASE_PROPS} />);

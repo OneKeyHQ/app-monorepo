@@ -270,6 +270,8 @@ export function useSwapStockPayTokens({
         swrKey: speedSwapConfigScope
           ? swrKeys.swapStockSpeedConfig({ networkId: speedSwapConfigScope })
           : undefined,
+        // Market's target-filtered candidates must not replace the network cache.
+        swrShouldPersist: () => stockSpeedConfig?.networkId !== stockNetworkId,
       },
     );
   const speedConfigReady = speedSwapConfigState?.scope === speedSwapConfigScope;
@@ -293,10 +295,11 @@ export function useSwapStockPayTokens({
     stockPayTokenPreferenceScope,
   ]);
 
-  const stockPayTokenCandidates = useMemo(
-    () => filterStockPayTokenCandidates(defaultTokens ?? []),
-    [defaultTokens],
-  );
+  const stockPayTokenCandidates = useMemo(() => {
+    const candidates = filterStockPayTokenCandidates(defaultTokens ?? []);
+    const nonNativeTokens = candidates.filter((token) => !token.isNative);
+    return nonNativeTokens.length ? nonNativeTokens : candidates;
+  }, [defaultTokens]);
   const rawPayTokensValue = useMemo(() => {
     if (!stockPayTokenCandidates.length) {
       return EMPTY_DEFAULT_TOKENS;

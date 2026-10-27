@@ -1,6 +1,7 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
@@ -9,6 +10,11 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import {
+  createPrimeFreeTrialAttempt,
+  getPrimeFreeTrialAccessDeniedResult,
+} from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
+import { hasPrimeFreeTrialReservationInfo } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
 import type {
   IPrimeFreeTrialUsageFeatureId,
   IPrimeFreeTrialUsageResult,
@@ -74,6 +80,9 @@ export function usePrimeFreeTrialUsage({
   featureId: IPrimeFreeTrialUsageFeatureId;
 }) {
   const intl = useIntl();
+  // The page of the bulk tool: a rejection that comes back after the user
+  // left it gets no feedback, so the dashboard never opens over another page.
+  const navigation = useNavigation();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const { handleStartRejected, ensureFeatureAccess } = usePrimeFeatureAccess();
 
@@ -81,6 +90,7 @@ export function usePrimeFreeTrialUsage({
     async (
       usageId: string | undefined,
       result: Exclude<IPrimeFreeTrialUsageResult, 'success'>,
+      analyticsRetryAttemptId?: string,
     ) => {
       if (!usageId) {
         return;
@@ -91,6 +101,7 @@ export function usePrimeFreeTrialUsage({
             featureId,
             usageId,
             result,
+            ...(analyticsRetryAttemptId ? { analyticsRetryAttemptId } : {}),
           });
         } catch (error) {
           defaultLogger.prime.subscription.primeFreeTrialTrace({
@@ -112,7 +123,7 @@ export function usePrimeFreeTrialUsage({
     [featureId],
   );
 
-  const startUsage = useCallback(
+  const startUsageImpl = useCallback(
     async ({
       networkId,
       isCallerGone,
@@ -125,6 +136,10 @@ export function usePrimeFreeTrialUsage({
       if (isPrimeSubscriptionActive) {
         return { status: 'notMetered' };
       }
+      const attempt = createPrimeFreeTrialAttempt({
+        featureId,
+        stage: 'execution',
+      });
       await waitForPendingSettles(featureId);
       // `allowLogin`: at most one login detour. The background reports a
       // missing login (e.g. the token was cleared after the page opened);
@@ -138,8 +153,10 @@ export function usePrimeFreeTrialUsage({
             await backgroundApiProxy.servicePrimeFreeTrial.startUsage({
               featureId,
               usageId,
+              analyticsAttemptId: attempt.attemptId,
             });
           if (result.status === 'unlimited') {
+            attempt.finish('unlimited');
             return { status: 'notMetered' };
           }
           if (result.status === 'granted') {
@@ -147,20 +164,61 @@ export function usePrimeFreeTrialUsage({
           }
           if (result.status === 'loginRequired') {
             if (!allowLogin) {
+              attempt.finish('loginRequired');
               return { status: 'rejected' };
             }
-            const access = await ensureFeatureAccess({ featureId, networkId });
+            const access = await ensureFeatureAccess({
+              featureId,
+              networkId,
+              trackAttempt: false,
+              onAttemptDenied: (reason) =>
+                attempt.finish(
+                  getPrimeFreeTrialAccessDeniedResult(reason),
+                  reason === 'exhausted' || reason === 'notOpen'
+                    ? 'client'
+                    : undefined,
+                ),
+            });
             if (!access.granted) {
+              attempt.finish('cancelled');
               return { status: 'rejected' };
             }
             if (access.entitlementSource === 'prime') {
+              attempt.finish('unlimited');
               return { status: 'notMetered' };
             }
             return await startOnce(false);
           }
-          handleStartRejected({ result, networkId });
+          attempt.finish(result.status, 'server');
+          // An older server sends no reservation fields: this device's own
+          // records tell whether an earlier use still holds the quota. Read
+          // before the focus check, so the feedback right after it never
+          // lands on another page.
+          let rejected = result;
+          if (
+            result.status === 'exhausted' &&
+            !hasPrimeFreeTrialReservationInfo(result.data)
+          ) {
+            const heldUntil = await backgroundApiProxy.servicePrimeFreeTrial
+              .getHeldReservationEnd({ featureId })
+              .catch(() => undefined);
+            if (heldUntil) {
+              rejected = {
+                ...result,
+                data: {
+                  ...result.data,
+                  reserved: 1,
+                  reservationExpiresAt: heldUntil,
+                },
+              };
+            }
+          }
+          if (navigation.isFocused()) {
+            handleStartRejected({ result: rejected, networkId });
+          }
           return { status: 'rejected' };
         } catch (error) {
+          attempt.finish('failed');
           defaultLogger.prime.subscription.primeFreeTrialTrace({
             featureId,
             stage: 'startUsage',
@@ -194,8 +252,24 @@ export function usePrimeFreeTrialUsage({
       handleStartRejected,
       intl,
       isPrimeSubscriptionActive,
+      navigation,
       settleUsage,
     ],
+  );
+
+  const pendingStartRef = useRef<
+    Promise<IPrimeFreeTrialUsageStartOutcome> | undefined
+  >(undefined);
+  const startUsage = useCallback(
+    (params?: Parameters<typeof startUsageImpl>[0]) => {
+      if (pendingStartRef.current) return pendingStartRef.current;
+      const promise = startUsageImpl(params).finally(() => {
+        pendingStartRef.current = undefined;
+      });
+      pendingStartRef.current = promise;
+      return promise;
+    },
+    [startUsageImpl],
   );
 
   const markUsageSuccess = useCallback(
@@ -257,17 +331,24 @@ export function usePrimeFreeTrialUsage({
       proceed: boolean;
       usageId: string | undefined;
       isNewUsage: boolean;
+      analyticsRetryAttemptId?: string;
     }> => {
       if (
         usageId &&
         (succeededLocally || (await getUsageResult(usageId)) === 'success')
       ) {
+        const attempt = createPrimeFreeTrialAttempt({
+          featureId,
+          stage: 'retry',
+        });
+        if (isCallerGone?.()) attempt.finish('cancelled');
         // A reused usage is never released, but a page closed meanwhile
         // runs no retry.
         return {
           proceed: !isCallerGone?.(),
           usageId,
           isNewUsage: false,
+          analyticsRetryAttemptId: attempt.attemptId,
         };
       }
       const outcome = await startUsage({ networkId, isCallerGone });
@@ -280,7 +361,7 @@ export function usePrimeFreeTrialUsage({
         isNewUsage: true,
       };
     },
-    [getUsageResult, startUsage],
+    [featureId, getUsageResult, startUsage],
   );
 
   return useMemo(

@@ -22,11 +22,13 @@ export function resolveStockTokenVariantSelection({
   defaultTokenId,
   routeNetworkId,
   routeTokenAddress,
+  preferredIssuer,
 }: {
   variants: IMarketStockTokenVariant[];
   defaultTokenId?: string;
   routeNetworkId?: string;
   routeTokenAddress?: string;
+  preferredIssuer?: string;
 }) {
   const routeToken = variants.find(
     (item) =>
@@ -42,7 +44,10 @@ export function resolveStockTokenVariantSelection({
         },
       }),
   );
-  return routeToken ?? getDefaultStockTokenVariant(variants, defaultTokenId);
+  return (
+    routeToken ??
+    getDefaultStockTokenVariant(variants, defaultTokenId, preferredIssuer)
+  );
 }
 /**
  * Identity a portfolio balance lookup is keyed on. Lives here rather than

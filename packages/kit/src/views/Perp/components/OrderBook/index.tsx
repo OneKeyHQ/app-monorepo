@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -17,7 +18,6 @@ import {
   Haptics,
   Icon,
   Popover,
-  Portal,
   Select,
   SizableText,
   Stack,
@@ -26,6 +26,7 @@ import {
   useTheme,
   useThemeName,
 } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -108,6 +109,10 @@ type IWebRectElement = {
   };
 };
 const ORDER_BOOK_HOVER_SUMMARY_WIDTH = 220;
+// It follows the pointer across rows; appear and disappear without motion.
+const ORDER_BOOK_HOVER_SUMMARY_ANIMATION = {
+  enter: { type: 'none' },
+} as const;
 const ORDER_BOOK_HOVER_SUMMARY_HEIGHT = 102;
 const ORDER_BOOK_HOVER_SUMMARY_GAP = 8;
 const ORDER_BOOK_HOVER_SUMMARY_VIEWPORT_INSET = 8;
@@ -269,7 +274,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   mobileHeaderText: {
-    fontFamily: platformEnv.isNative ? 'Roobert-Regular' : undefined,
+    fontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.regular
+      : undefined,
     fontSize: 10,
     lineHeight: 16,
     fontWeight: '400',
@@ -283,18 +290,20 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   tabularText: {
-    // Not a mono face: the app font (Roobert) ships tabular figures via the
+    // Not a mono face: the brand sans font ships tabular figures via the
     // `tnum` OpenType feature, so digits stay column-aligned while letters keep
     // their natural proportional widths. Native raw <Text> can't pick a weight
     // from a custom family via fontWeight, so name the medium face explicitly.
-    fontFamily: platformEnv.isNative ? 'Roobert-Medium' : undefined,
+    fontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.medium
+      : undefined,
     fontVariant: TABULAR_NUMS,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
   },
   nativeMobileHorizontalTabularText: {
-    fontFamily: 'Roobert-Regular',
+    fontFamily: BRAND_FONT_NATIVE_FAMILY.regular,
     fontWeight: '400',
   },
   interactiveRow: {
@@ -483,7 +492,9 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 999,
   },
   sideRatioLabel: {
-    fontFamily: platformEnv.isNative ? 'Roobert-Medium' : undefined,
+    fontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.medium
+      : undefined,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
@@ -710,11 +721,10 @@ const OrderBookHoverSummaryOverlay = memo(
     <Stack
       pointerEvents="none"
       style={{
-        position: 'fixed' as const,
+        position: 'absolute' as const,
         left: overlayLeft,
         top: overlayTop,
         width: ORDER_BOOK_HOVER_SUMMARY_WIDTH,
-        zIndex: 1100,
       }}
     >
       <YStack
@@ -777,7 +787,15 @@ const OrderBookHoverSummaryPortal = memo(
     }
 
     return (
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+      <OverlayView
+        visible
+        level="modal"
+        presentation="fullscreen"
+        blocking={false}
+        backdrop={false}
+        dismissOnBackPress={false}
+        animation={ORDER_BOOK_HOVER_SUMMARY_ANIMATION}
+      >
         <OrderBookHoverSummaryOverlay
           averagePrice={averagePrice}
           baseSymbol={baseSymbol}
@@ -790,7 +808,7 @@ const OrderBookHoverSummaryPortal = memo(
           totalNotional={totalNotional}
           totalSize={totalSize}
         />
-      </Portal.Body>
+      </OverlayView>
     );
   },
 );

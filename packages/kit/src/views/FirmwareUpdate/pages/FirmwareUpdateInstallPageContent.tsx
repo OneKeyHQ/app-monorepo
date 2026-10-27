@@ -78,6 +78,7 @@ async function recheckFirmwareRelease(
   const transport =
     await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
       connectId: result.originalConnectId,
+      features: platformEnv.isDesktop ? result.features : undefined,
       hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
     });
   const firmware = result.updateInfos.firmware;

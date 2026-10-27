@@ -170,11 +170,12 @@ public final class OneKeyNativeStorageMigrationModule extends ReactContextBaseJa
         executor.execute(() -> {
             try {
                 requireSupported(VALID_MMKV_IDS.contains(mmapID), "Unsupported MMKV instance");
-                MMKV mmkv = MMKV.mmkvWithID(mmapID);
-                if (mmkv == null) {
-                    throw new IllegalStateException("MMKV instance is unavailable");
+                // Core pins the existing instance and holds its write locks
+                // through both checked flushes. This call never creates a store.
+                int failure = MMKV.syncExisting(mmapID);
+                if (failure != 0) {
+                    throw new IllegalStateException("MMKV durability check failed; errno=" + failure);
                 }
-                mmkv.sync();
                 promise.resolve(null);
             } catch (Exception error) {
                 promise.reject("MMKV_SYNC_FAILED", error.getMessage(), error);

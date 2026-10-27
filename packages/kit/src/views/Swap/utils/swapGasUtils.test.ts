@@ -1,10 +1,14 @@
 import type {
+  IFetchBuildTxResponse,
   IFetchQuoteResult,
+  ISwapGasInfo,
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  applyEvmThorSwapGasLimit,
   canReuseSwapReviewGasInfo,
+  getEvmThorSwapGasLimit,
   isSwapGasAccountCandidate,
   isSwapGasAccountSponsored,
   isSwapGasSponsored,
@@ -27,6 +31,110 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     },
   },
 }));
+
+describe('applyEvmThorSwapGasLimit (OK-64754)', () => {
+  const buildTx = {
+    result: { gasLimit: 241_020, gasAccountEnabled: true },
+    thorSwapCallData: { vault: '0xvault', amount: '1' },
+  } as IFetchBuildTxResponse;
+  const gasInfo: ISwapGasInfo = {
+    payer: 'user',
+    gas: { gasPrice: '2', gasLimit: '30748', gasLimitForDisplay: '30748' },
+    gasEIP1559: {
+      baseFeePerGas: '1',
+      maxFeePerGas: '2',
+      maxPriorityFeePerGas: '1',
+      gasLimit: '30748',
+      gasLimitForDisplay: '30748',
+    },
+  };
+  const apply = (
+    overrides: Partial<Parameters<typeof applyEvmThorSwapGasLimit>[0]> = {},
+  ) =>
+    applyEvmThorSwapGasLimit({
+      networkId: 'evm--1',
+      buildTx,
+      gasInfo,
+      ...overrides,
+    });
+
+  it('raises both fee types and their display limit without changing gas prices', () => {
+    const result = apply();
+    expect(result.gas).toEqual({
+      ...gasInfo.gas,
+      gasLimit: '241020',
+      gasLimitForDisplay: '241020',
+    });
+    expect(result.gasEIP1559).toEqual({
+      ...gasInfo.gasEIP1559,
+      gasLimit: '241020',
+      gasLimitForDisplay: '241020',
+    });
+    expect(gasInfo.gas?.gasLimit).toBe('30748');
+    expect(apply({ gasInfo: result })).toEqual(result);
+  });
+
+  it('keeps a higher estimate and its display semantics for each fee type', () => {
+    const higherGas = {
+      gasPrice: '2',
+      gasLimit: '300000',
+      gasLimitForDisplay: '280000',
+    };
+    const result = apply({ gasInfo: { ...gasInfo, gas: higherGas } });
+    expect(result.gas).toBe(higherGas);
+    expect(result.gasEIP1559?.gasLimit).toBe('241020');
+    expect(
+      getEvmThorSwapGasLimit({
+        networkId: 'evm--1',
+        buildTx,
+        isSponsored: false,
+      }),
+    ).toBe('241020');
+  });
+
+  it.each([undefined, 0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])(
+    'ignores an invalid build limit: %s',
+    (gasLimit) => {
+      expect(
+        apply({
+          buildTx: { ...buildTx, result: { ...buildTx.result, gasLimit } },
+        }),
+      ).toBe(gasInfo);
+    },
+  );
+
+  it('leaves other response shapes, non-EVM networks, and missing fees unchanged', () => {
+    expect(apply({ buildTx: undefined })).toBe(gasInfo);
+    expect(
+      apply({ buildTx: { ...buildTx, thorSwapCallData: undefined } }),
+    ).toBe(gasInfo);
+    expect(apply({ networkId: 'btc--0' })).toBe(gasInfo);
+    expect(apply({ gasInfo: { payer: 'user' } })).toEqual({ payer: 'user' });
+  });
+
+  it.each<ISwapGasInfo>([
+    { payer: 'megafuel' },
+    {
+      gasAccountEligible: true,
+      payer: 'gasAccount',
+      gasAccountQuote: { quoteId: 'quote', maxFee: '1', expiresAt: '1' },
+    },
+  ])('preserves sponsored estimates', (sponsorship) => {
+    const sponsored = { ...gasInfo, ...sponsorship };
+    expect(apply({ gasInfo: sponsored })).toBe(sponsored);
+  });
+
+  it('honors the confirmation page effective sponsorship state', () => {
+    expect(apply({ isSponsored: true })).toBe(gasInfo);
+    expect(
+      getEvmThorSwapGasLimit({
+        networkId: 'evm--1',
+        buildTx,
+        isSponsored: true,
+      }),
+    ).toBeUndefined();
+  });
+});
 
 describe('isSwapGasSponsored', () => {
   it('recognizes final estimate-fee sponsorship signals', () => {

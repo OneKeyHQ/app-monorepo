@@ -1,3 +1,8 @@
+import {
+  formatDateTimeParts,
+  getDateTimeParts,
+  omitDateFormatFields,
+} from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -86,6 +91,7 @@ export interface ITradingViewNativeWatermarkLayout {
 }
 
 export interface ITradingViewNativeChartLayout {
+  dateFormatTemplate?: string;
   autoPriceRange: ITradingViewNativePriceRange;
   mainChartBottom: number;
   maxPrice: number;
@@ -775,6 +781,7 @@ function padTimeAxisValue(value: number) {
 export function formatTradingViewNativeCrosshairTime(
   timestamp: number,
   candleIntervalSeconds: number,
+  dateFormatTemplate?: string,
 ) {
   'worklet';
 
@@ -782,7 +789,9 @@ export function formatTradingViewNativeCrosshairTime(
   const year = date.getFullYear();
   const month = padTimeAxisValue(date.getMonth() + 1);
   const day = padTimeAxisValue(date.getDate());
-  const dateLabel = `${year}-${month}-${day}`;
+  const dateLabel = dateFormatTemplate
+    ? formatDateTimeParts(getDateTimeParts(date), dateFormatTemplate)
+    : `${year}-${month}-${day}`;
 
   if (candleIntervalSeconds >= SECONDS_PER_DAY) {
     return dateLabel;
@@ -797,6 +806,7 @@ function formatTradingViewNativeTimeTick(
   timestamp: number,
   unit: ITradingViewNativeTimeAxisUnit,
   previousTimestamp?: number,
+  dateFormatTemplate?: string,
 ) {
   'worklet';
 
@@ -806,6 +816,12 @@ function formatTradingViewNativeTimeTick(
   const day = padTimeAxisValue(date.getDate());
   const hour = padTimeAxisValue(date.getHours());
   const minute = padTimeAxisValue(date.getMinutes());
+  const monthDay = dateFormatTemplate
+    ? formatDateTimeParts(
+        getDateTimeParts(date),
+        omitDateFormatFields(dateFormatTemplate, { hideYear: true }),
+      )
+    : `${month}/${day}`;
 
   if (unit === 'minute' || unit === 'hour') {
     const previousDate =
@@ -819,14 +835,19 @@ function formatTradingViewNativeTimeTick(
         date.getDate() !== previousDate.getDate()),
     );
     return startsNewLocalDay || (hour === '00' && minute === '00')
-      ? `${month}/${day}`
+      ? monthDay
       : `${hour}:${minute}`;
   }
   if (unit === 'day') {
-    return month === '01' && day === '01' ? year.toString() : `${month}/${day}`;
+    return month === '01' && day === '01' ? year.toString() : monthDay;
   }
   if (unit === 'month') {
-    return `${year}-${month}`;
+    return dateFormatTemplate
+      ? formatDateTimeParts(
+          getDateTimeParts(date),
+          omitDateFormatFields(dateFormatTemplate, { hideDay: true }),
+        )
+      : `${year}-${month}`;
   }
   return year.toString();
 }
@@ -904,6 +925,7 @@ export function getTradingViewNativeTimeTickMinimumIndexSpacing(
 }
 
 export function getTradingViewNativeTimeAxisLayout({
+  dateFormatTemplate,
   candleIntervalSeconds,
   chartWidth,
   endIndex,
@@ -917,6 +939,7 @@ export function getTradingViewNativeTimeAxisLayout({
   minimumIndexSpacing: number;
   points: IMarketTokenKLineDataPoint[];
   startIndex: number;
+  dateFormatTemplate?: string;
 }): ITradingViewNativeTimeAxisLayout {
   'worklet';
 
@@ -1006,6 +1029,7 @@ export function getTradingViewNativeTimeAxisLayout({
               timestamp,
               interval.unit,
               previousTick?.timestamp,
+              dateFormatTemplate,
             ),
             timestamp,
           };
@@ -1020,7 +1044,9 @@ export function getTradingViewNativeTimeAxisLayout({
 }
 
 export function getTradingViewNativeChartLayout({
+  dateFormatTemplate,
   additionalPriceRange,
+  autoScalePointRange,
   candleIntervalSeconds,
   chartType = 'candlestick',
   contentBottomInset = 0,
@@ -1041,6 +1067,7 @@ export function getTradingViewNativeChartLayout({
     maxPrice: number;
     minPrice: number;
   } | null;
+  autoScalePointRange?: ITradingViewNativeVisiblePointRange;
   candleIntervalSeconds: number;
   chartType?: ITradingViewNativeChartType;
   contentBottomInset?: number;
@@ -1056,6 +1083,7 @@ export function getTradingViewNativeChartLayout({
   priceScaleMode?: ITradingViewNativePriceScaleMode;
   visiblePointRange: ITradingViewNativeVisiblePointRange;
   width: number;
+  dateFormatTemplate?: string;
 }): ITradingViewNativeChartLayout | null {
   'worklet';
 
@@ -1083,8 +1111,9 @@ export function getTradingViewNativeChartLayout({
     return null;
   }
 
+  const scalePointRange = autoScalePointRange ?? visiblePointRange;
   const visiblePointPriceRange = getTradingViewNativePriceRange({
-    ...visiblePointRange,
+    ...scalePointRange,
     chartType,
     points,
   });
@@ -1155,7 +1184,7 @@ export function getTradingViewNativeChartLayout({
     },
   );
   const maxVolume = getTradingViewNativeMaxVolume({
-    ...visiblePointRange,
+    ...scalePointRange,
     points,
   });
   const volumeTickCount =
@@ -1182,6 +1211,7 @@ export function getTradingViewNativeChartLayout({
   );
 
   const timeTicks = getTradingViewNativeTimeAxisLayout({
+    dateFormatTemplate,
     candleIntervalSeconds,
     chartWidth,
     ...visiblePointRange,
@@ -1191,6 +1221,7 @@ export function getTradingViewNativeChartLayout({
 
   return {
     autoPriceRange,
+    ...(dateFormatTemplate ? { dateFormatTemplate } : {}),
     mainChartBottom,
     maxPrice,
     maxVolume,

@@ -103,7 +103,13 @@ it('renders a live native brush as a path and exposes only four bounds handles a
     );
   render(null);
   expect(canvas.drawPath).toHaveBeenCalledTimes(1);
-  expect(mockPath.lineTo).toHaveBeenCalledTimes(119);
+  expect(mockPath.lineTo.mock.calls.length).toBeGreaterThan(
+    drawing.points.length,
+  );
+  expect(mockPath.lineTo).toHaveBeenLastCalledWith(
+    expect.closeTo(319),
+    expect.closeTo(229),
+  );
   expect(canvas.drawCircle).not.toHaveBeenCalled();
   expect(canvas.clipRect).toHaveBeenCalledWith(
     { x: 0, y: 0, width: layout.priceAxisX, height: layout.mainChartBottom },
@@ -142,7 +148,7 @@ it('renders text at its saved size without changing the font used by chart axes'
     restore: jest.fn(),
     clipRect: jest.fn(),
     drawRect: jest.fn(),
-    drawText: jest.fn(() => size),
+    drawText: jest.fn((_text: string, _x: number, _y: number) => size),
   };
   const drawing = {
     ...DEFAULT_DRAWING_STYLE,
@@ -168,13 +174,71 @@ it('renders text at its saved size without changing the font used by chart axes'
   expect(canvas.drawText).toHaveNthReturnedWith(2, 40);
   expect(canvas.drawText).toHaveNthReturnedWith(3, 12);
   expect(canvas.drawText).toHaveNthReturnedWith(4, 12);
-  expect(canvas.drawRect.mock.calls[0][0]).toMatchObject({
-    width: 106,
-    height: 46,
-  });
-  expect(canvas.drawRect.mock.calls[2][0]).toMatchObject({
-    width: 36,
-    height: 18,
-  });
+  expect(canvas.drawRect).not.toHaveBeenCalled();
+  expect(
+    canvas.drawText.mock.calls[1][2] - canvas.drawText.mock.calls[0][2],
+  ).toBe(44);
+  expect(
+    canvas.drawText.mock.calls[3][2] - canvas.drawText.mock.calls[2][2],
+  ).toBe(16);
   expect(size).toBe(11);
+});
+
+it('renders the native ruler statistics and both axes while releasing Skia resources', () => {
+  jest.clearAllMocks();
+  if (!layout) throw Error('Expected chart layout');
+  const projection: IDrawingProjection = {
+    layout,
+    points,
+    interval: 60,
+    viewport: createTradingViewNativeChartRuntimeState({}).viewport,
+    priceDecimalPlaces: 2,
+    size: { width: 800, height: 400 },
+  };
+  const drawing = {
+    ...DEFAULT_DRAWING_STYLE,
+    id: 'measure',
+    tool: 'measure' as const,
+    locked: false,
+    points: [
+      { x: 250, y: 120 },
+      { x: 450, y: 220 },
+    ].map((point) => screenToDrawingPoint(point, projection)),
+  };
+  const canvas = {
+    save: jest.fn(),
+    restore: jest.fn(),
+    clipRect: jest.fn(),
+    drawPath: jest.fn(),
+    drawCircle: jest.fn(),
+    drawRect: jest.fn(),
+    drawText: jest.fn(),
+  };
+  let size = 11;
+  const font = {
+    getSize: () => size,
+    setSize: jest.fn((value: number) => {
+      size = value;
+    }),
+    measureText: (text: string) => ({ width: (text.length * size) / 2 }),
+  };
+  drawNativeChartDrawings(
+    canvas as unknown as SkCanvas,
+    { drawings: [drawing], selectedId: null, selectedIds: [] },
+    projection,
+    font as unknown as SkFont,
+    '#FFFFFF',
+  );
+  const text = canvas.drawText.mock.calls.map((call) => call[0] as string);
+  expect(text).toHaveLength(7);
+  expect(text[0]).toContain('−');
+  expect(text[1]).toContain('bars');
+  expect(text[2]).toMatch(/^Vol /);
+  expect(canvas.drawCircle).not.toHaveBeenCalled();
+  expect(canvas.drawRect).toHaveBeenCalledTimes(6);
+  expect(mockPaint.setColor).toHaveBeenCalledWith('#F7525F');
+  expect(mockPaint.setColor).toHaveBeenCalledWith('#FFFFFF');
+  expect(mockPath.dispose).toHaveBeenCalledTimes(6);
+  expect(mockPaint.dispose).toHaveBeenCalledTimes(1);
+  expect(font.setSize).toHaveBeenLastCalledWith(11);
 });

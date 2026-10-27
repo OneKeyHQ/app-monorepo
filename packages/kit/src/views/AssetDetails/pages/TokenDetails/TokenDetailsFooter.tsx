@@ -37,6 +37,7 @@ function TokenDetailsFooter(props: {
   symbol?: string;
   tokenAddress?: string;
   tokenImageUri?: string;
+  tokenSymbol?: string;
 }) {
   const {
     isNative,
@@ -46,6 +47,7 @@ function TokenDetailsFooter(props: {
     symbol,
     tokenAddress,
     tokenImageUri,
+    tokenSymbol,
   } = props;
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -82,6 +84,8 @@ function TokenDetailsFooter(props: {
     if (marketNavigationTarget?.type === 'detail') {
       navigation.push(EModalAssetDetailRoutes.MarketDetail, {
         token: marketNavigationTarget.token,
+        tokenImageUri,
+        tokenSymbol,
         preferredToken:
           !isAggregateToken &&
           !networkUtils.isAllNetwork({ networkId }) &&
@@ -106,6 +110,8 @@ function TokenDetailsFooter(props: {
     navigation,
     networkId,
     tokenAddress,
+    tokenImageUri,
+    tokenSymbol,
   ]);
 
   const priceChangeColor = useMemo(() => {

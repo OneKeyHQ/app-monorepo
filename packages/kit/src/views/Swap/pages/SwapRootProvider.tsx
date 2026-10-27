@@ -11,6 +11,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ProviderJotaiContextSwap,
+  useSwapDefaultConfigStatusAtom,
   useSwapFromTokenAmountAtom,
   useSwapInitialSelectedTokensSyncedAtom,
   useSwapNetworksAtom,
@@ -20,6 +21,8 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
+import { getSwapTokenSelectorStore } from '../../../states/jotai/contexts/swap/tokenSelectorData';
+import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
@@ -33,7 +36,14 @@ import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
 export { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from '../utils/swapRootColdStartUtils';
 
+function SwapTokenSelectorColdStartCacheSync() {
+  // Initialize the single data owner before boot snapshots are released.
+  getSwapTokenSelectorStore();
+  return null;
+}
+
 function SwapColdStartCacheSync() {
+  const [defaultConfigStatus] = useSwapDefaultConfigStatusAtom();
   const [swapNetworks] = useSwapNetworksAtom();
   const swapNetworksRef = useRef(swapNetworks);
   swapNetworksRef.current = swapNetworks;
@@ -83,6 +93,7 @@ function SwapColdStartCacheSync() {
       selectedAccount?: IAccountSelectorSelectedAccount,
     ) => {
       const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+        defaultConfigStatus,
         homeSelectedAccount: selectedAccount,
         swapType: swapTypeSwitchRef.current,
         swapNetworks: swapNetworksRef.current,
@@ -153,6 +164,7 @@ function SwapColdStartCacheSync() {
             swapFromTokenRef.current || swapToTokenRef.current,
           ),
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
+          swapType: swapTypeSwitchRef.current,
         })
       ) {
         if (swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK) {
@@ -162,6 +174,9 @@ function SwapColdStartCacheSync() {
         if (
           !setDefaultSelectedTokensFromHomeAccount(eventPayload.selectedAccount)
         ) {
+          if (defaultConfigStatus === 'pending') {
+            return;
+          }
           clearSelectedTokens();
         }
       }
@@ -176,15 +191,15 @@ function SwapColdStartCacheSync() {
     // the record on disk already matches, which is the normal case whenever
     // another runtime or scene wrote it first - on extension the popup and the
     // side panel are separate runtimes, and the popup dies without a
-    // beforeunload. Read the home selection once on mount so a cold start that
-    // never sees an event still leaves the placeholder tokens behind.
+    // beforeunload. Read Home again when configuration settles so a deferred
+    // default selection does not depend on receiving another account event.
     let isActive = true;
     void import('../utils/swapHomeSelectedAccountUtils')
       .then(({ getLatestHomeSelectedAccount }) =>
         getLatestHomeSelectedAccount(),
       )
       .then((homeSelectedAccount) => {
-        if (!isActive || initialSelectedTokensSyncedRef.current) {
+        if (!isActive) {
           return;
         }
         handleHomeSelectedAccountUpdate({
@@ -203,6 +218,7 @@ function SwapColdStartCacheSync() {
       );
     };
   }, [
+    defaultConfigStatus,
     setInitialSelectedTokensSynced,
     setSelectedTokensColdStartContext,
     setSwapFromToken,
@@ -231,11 +247,13 @@ export const SwapRootProvider = memo(() => {
   const hasHydratedDefaultsRef = useRef(false);
   if (!hasHydratedDefaultsRef.current) {
     hasHydratedDefaultsRef.current = true;
+    jotaiContextStore.prepareStoreForImmediateUse(data);
     hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store);
   }
   return (
     <ProviderJotaiContextSwap store={store}>
       <SwapColdStartCacheSync />
+      <SwapTokenSelectorColdStartCacheSync />
     </ProviderJotaiContextSwap>
   );
 });
@@ -247,6 +265,7 @@ export const SwapModalRootProvider = memo(() => {
   return (
     <ProviderJotaiContextSwap store={store}>
       <SwapColdStartCacheSync />
+      <SwapTokenSelectorColdStartCacheSync />
     </ProviderJotaiContextSwap>
   );
 });

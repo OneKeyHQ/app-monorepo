@@ -75,6 +75,7 @@ export function ClassicDevice({
   instantEntry,
   paused,
   warmScenes,
+  color,
 }: IClassicDeviceProps) {
   const target = typeof animation === 'string' ? animation : undefined;
   const {
@@ -112,6 +113,7 @@ export function ClassicDevice({
       <ClassicPressContext.Provider value={pressDrive}>
         <ClassicDeviceShell
           width={width}
+          color={color}
           animation={troupeAnimation}
           screenContent={troupe.slot}
         />
@@ -123,6 +125,7 @@ export function ClassicDevice({
       <ClassicPressContext.Provider value={pressDrive}>
         <ClassicDeviceShell
           width={width}
+          color={color}
           animation={deviceAnimation}
           screenContent={slot}
         />
@@ -134,6 +137,7 @@ export function ClassicDevice({
   return (
     <ClassicDeviceShell
       width={width}
+      color={color}
       animation={typeof animation === 'string' ? undefined : animation}
       screenContent={typeof animation === 'string' ? undefined : screenContent}
     />

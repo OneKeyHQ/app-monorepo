@@ -1,5 +1,7 @@
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { getTradingViewNativeCandleX } from '../utils/chartViewport';
+
 import {
   createTradingViewNativeChartRuntime,
   resizeTradingViewNativeChartRuntime,
@@ -89,21 +91,35 @@ describe('TradingViewNativeChart resizing', () => {
     );
   });
 
-  it('preserves the viewport and gesture origin beyond the history boundary on resize', () => {
-    const runtime = createRuntime();
-    runtime.viewport.offset = 10_000;
-    runtime.panGesture.startOffset = 10_000;
-    runtime.crosshair = { visible: true, x: 120, y: 200 };
-    const resized = resizeTradingViewNativeChartRuntime(
-      runtime,
-      { width: 760, height: 300 },
-      60,
-    );
-    expect(resized.viewport.offset).toBe(10_000);
-    expect(resized.panGesture.startOffset).toBe(resized.viewport.offset);
-    expect(resized.crosshair.visible).toBe(false);
-    expect(runtime.crosshair.visible).toBe(true);
-  });
+  it.each([
+    { offset: -10_000, expectedOffset: -688, edgeIndex: 199, edgeX: 5 },
+    { offset: 10_000, expectedOffset: 2390, edgeIndex: 0, edgeX: 695 },
+  ])(
+    'keeps a candle and the gesture origin in bounds on resize from $offset',
+    ({ offset, expectedOffset, edgeIndex, edgeX }) => {
+      const runtime = createRuntime();
+      runtime.viewport.offset = offset;
+      runtime.panGesture.startOffset = offset;
+      runtime.crosshair = { visible: true, x: 120, y: 200 };
+      const resized = resizeTradingViewNativeChartRuntime(
+        runtime,
+        { width: 760, height: 300 },
+        60,
+      );
+      expect(resized.viewport.offset).toBe(expectedOffset);
+      expect(
+        getTradingViewNativeCandleX({
+          ...resized.viewport,
+          index: edgeIndex,
+          pointCount: resized.points.length,
+          priceAxisX: 700,
+        }),
+      ).toBe(edgeX);
+      expect(resized.panGesture.startOffset).toBe(resized.viewport.offset);
+      expect(resized.crosshair.visible).toBe(false);
+      expect(runtime.crosshair.visible).toBe(true);
+    },
+  );
 });
 
 function createPane({

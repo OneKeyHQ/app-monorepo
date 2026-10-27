@@ -1,5 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
@@ -303,30 +304,34 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     name: EModalSettingRoutes.SettingDevSniRequestQa,
     component: SniRequestQa,
   },
-  {
-    name: EModalSettingRoutes.SettingDevPerpGalleryModal,
-    component: PerpGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
-    component: CryptoGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
-    component: CloudBackupGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevAuthGalleryModal,
-    component: AuthGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevKeylessWalletGallery,
-    component: KeylessWalletGallery,
-  },
-  {
-    name: EModalSettingRoutes.SettingDevStorageGalleryModal,
-    component: StorageGallery,
-  },
+  ...(process.env.NODE_ENV !== 'production' && platformEnv.isDev
+    ? [
+        {
+          name: EModalSettingRoutes.SettingDevPerpGalleryModal,
+          component: PerpGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
+          component: CryptoGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
+          component: CloudBackupGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevAuthGalleryModal,
+          component: AuthGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevKeylessWalletGallery,
+          component: KeylessWalletGallery,
+        },
+        {
+          name: EModalSettingRoutes.SettingDevStorageGalleryModal,
+          component: StorageGallery,
+        },
+      ]
+    : []),
   {
     name: EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
     component: LocalSecretEnvelopeSelfTest,

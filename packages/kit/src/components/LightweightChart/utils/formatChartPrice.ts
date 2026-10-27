@@ -3,8 +3,23 @@ export function formatChartPrice(
   price: number,
   maxCharacters = 8,
   stockPrice = false,
+  // From $1 up to $1M, print the figure in full instead of K/M/B: 'cents' as
+  // `$2,377.04`, 'whole' as `$2,377` (for ticks already on whole dollars).
+  fullPrice: false | 'cents' | 'whole' = false,
 ): string {
   if (!Number.isFinite(price)) return '--';
+  if (fullPrice && Math.abs(price) >= 1) {
+    const match = /^(-?\$)(\d+)\.(\d{2})$/.exec(
+      formatChartPrice(price, maxCharacters, true),
+    );
+    if (match && Number(match[2]) < 1e6) {
+      const integer = match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return fullPrice === 'whole'
+        ? `${match[1]}${integer}`
+        : `${match[1]}${integer}.${match[3]}`;
+    }
+    return formatChartPrice(price, maxCharacters);
+  }
   if (stockPrice && Math.abs(price) >= 1) {
     // Round the decimal digits half-up, avoiding binary midpoint errors.
     const [mantissa, exponentText] = Math.abs(price).toExponential().split('e');
@@ -117,4 +132,38 @@ export function formatChartPrice(
 // compact formatter.
 export function formatStockChartPrice(price: number): string {
   return formatChartPrice(price, 10, true);
+}
+
+// The axis prints the quote in full up to this size, then falls back to the
+// compact M / B form.
+const FULL_PRICE_COMPACT_FROM = 1e6;
+const FULL_PRICE_MAX_CHARACTERS = 10;
+
+// Price labels (last price, previous close): `$2,377.04` instead of `$2.38K`.
+// Sub-dollar quotes keep the shared compact form.
+export function formatChartPriceFull(price: number): string {
+  return formatChartPrice(price, FULL_PRICE_MAX_CHARACTERS, false, 'cents');
+}
+
+// Axis ticks. Whole-dollar steps drop the decimals (`$2,540`); any fractional
+// step keeps two on every tick so the column stays aligned. The native WebView
+// mirrors this decision in `getTickPriceFormatter` (htmlTemplate.ts).
+export function formatChartPriceFullTicks(prices: number[]): string[] {
+  const values = prices.map((price) =>
+    Number.isFinite(price) ? Number(price.toPrecision(15)) : price,
+  );
+  const wholeDollarTicks =
+    values.some((value) => Math.abs(value) >= 1) &&
+    values.every(
+      (value) =>
+        Number.isInteger(value) && Math.abs(value) < FULL_PRICE_COMPACT_FROM,
+    );
+  return values.map((value) =>
+    formatChartPrice(
+      value,
+      FULL_PRICE_MAX_CHARACTERS,
+      false,
+      wholeDollarTicks ? 'whole' : 'cents',
+    ),
+  );
 }

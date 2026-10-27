@@ -11,29 +11,32 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import {
-  useMarketDetailChartDisplayModePersistAtom,
-  useMarketPriceSourceAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
+import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   type IStockSimpleChartRange,
+  STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
   TOKEN_SIMPLE_CHART_RANGES,
+  resolveStockSimpleChartRangeForPriceMode,
 } from '../components/StockSimpleChart';
 import { useStockDetail } from '../hooks/StockDetailContext';
-import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
+import { useStockPriceSource } from '../hooks/useStockPriceSource';
 
-import { MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH } from './components/marketSimpleChartConstants';
+import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './components/marketSimpleChartConstants';
 
-// Keep the chart height stable when switching ranges.
-const MOBILE_SIMPLE_CHART_HEIGHT = 280;
+// Keep Simple compact and independent of Pro's indicator panes.
+export const MOBILE_SIMPLE_CHART_HEIGHT = 280;
+// The range row mirrors the Pro interval bar (TradingViewChartControls on a
+// non-compact mobile layout): 8pt padding, 30pt pills, at least 42pt wide.
+const RANGE_BUTTON_HEIGHT = 30;
+const RANGE_BUTTON_MIN_WIDTH = 42;
 
 const RANGE_ROW_STYLE = {
   flexGrow: 1,
   alignItems: 'center',
-  gap: '$0.5',
 } as const;
 
 function ChartModeButton({
@@ -100,43 +103,50 @@ export function MobileSimpleChart({
   marketAssetId?: string;
 }) {
   const intl = useIntl();
-  const [range, setRange] = useState<IStockSimpleChartRange>('1D');
-  const { stockId, isStockDetailError } = useStockDetail();
-  const [{ source: priceSource }] = useMarketPriceSourceAtom();
-  // Share price is what draws the previous-close line. Crypto charts, and
-  // stock tokens whose share quote cannot load, stay on the token quote.
-  const priceMode = resolveDisplayedStockPriceMode({
-    stockId,
-    isStockDetailError,
-    storedPriceMode: priceSource,
+  const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
+  const { stockId } = useStockDetail();
+  const { priceMode } = useStockPriceSource();
+  const range = resolveStockSimpleChartRangeForPriceMode({
+    priceMode,
+    range: selectedRange,
   });
+  const chartRanges =
+    priceMode === 'share'
+      ? STOCK_SHARE_SIMPLE_CHART_RANGES
+      : TOKEN_SIMPLE_CHART_RANGES;
 
   return (
-    <YStack width="100%" gap="$2" testID="market-mobile-simple-chart">
-      <XStack px="$3.5" py="$1" gap="$3" alignItems="center" width="100%">
+    <YStack width="100%" testID="market-mobile-simple-chart">
+      <XStack
+        h={TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT}
+        px="$2"
+        gap="$2"
+        alignItems="center"
+        width="100%"
+      >
         <ScrollView
           horizontal
           flex={1}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={RANGE_ROW_STYLE}
         >
-          {TOKEN_SIMPLE_CHART_RANGES.map((item) => (
+          {chartRanges.map((item) => (
             <Button
               key={item}
               testID={`market-mobile-chart-range-${item}`}
-              minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
-              height={32}
+              minWidth={RANGE_BUTTON_MIN_WIDTH}
+              height={RANGE_BUTTON_HEIGHT}
               m="$0"
-              px="$2"
+              px="$2.5"
               borderWidth={0}
               size="small"
               variant={range === item ? 'secondary' : 'tertiary'}
               borderRadius="$full"
               onPress={() => setRange(item)}
             >
-              {item === 'All'
-                ? intl.formatMessage({ id: ETranslations.global_all })
-                : item}
+              {intl.formatMessage({
+                id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
+              })}
             </Button>
           ))}
         </ScrollView>
@@ -144,10 +154,11 @@ export function MobileSimpleChart({
       </XStack>
       <Stack height={MOBILE_SIMPLE_CHART_HEIGHT} width="100%">
         <StockSimpleChart
+          initialHeight={MOBILE_SIMPLE_CHART_HEIGHT}
           marketAssetId={marketAssetId}
           range={range}
           priceMode={priceMode}
-          priceScaleFormat={stockId ? 'stock' : undefined}
+          priceScaleFormat={stockId ? 'stock' : 'full'}
         />
       </Stack>
     </YStack>

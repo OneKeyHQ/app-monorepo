@@ -1,84 +1,52 @@
-# Earn / DeFi Architecture
+# Find The DeFi Flow
 
-## Flow And Surface Ownership
+## Follow The Actual Entry
 
-Trace the affected path without assuming one component owns the whole flow:
+Start from the user's route and follow the request or action to its state and
+service owner. Earn catalog/detail, Borrow positions, wallet DeFi Portfolio,
+and AssetDetails can share protocol data without sharing account context,
+loading state, or refresh subscriptions.
 
-`entry/route -> data owner -> detail/position -> operation -> status -> refresh`
+Use the closest working operation as a comparison, then check its provider,
+amount units, setup steps, account type, and settlement source. Copying a modal
+because it looks similar can silently select a different business contract.
 
-| Surface                       | Primary responsibility                                                        |
-| ----------------------------- | ----------------------------------------------------------------------------- |
-| Earn home/list/detail         | Catalog, portfolio, provider/network/vault identity, detail navigation        |
-| Staking operation             | Stake, withdraw, claim, redeem, quote, approval, permit, cooldown             |
-| Borrow                        | Market/reserve, collateral, debt, health factor, supply/withdraw/borrow/repay |
-| DeFi Portfolio / AssetDetails | Position display, supported action resolution, modal route params             |
-| Background services           | Transaction building, order/status sync, account-scoped refresh, persistence  |
-| Discovery                     | Native Earn host and external protocol websites                               |
-| Swap                          | Quote/review/build/send/history after a DeFi funding handoff starts quoting   |
+For an async defect, find both the producer and every consumer of the changed
+state. A request finishing, an event being emitted, and a visible position
+updating are three different checkpoints. Check who mounts the listener; a
+background settlement refresh must not accidentally depend on opening History.
 
-Entry surfaces own navigation params and analytics source, not the downstream
-data or execution state. Preserve provider, network, token/symbol, vault or
-market, account, indexed account, action, and return target across handoffs.
+## Loading And Readiness
 
-## Readiness, Cache, And Refresh
+Keep independent requests independently usable. A missing balance need not
+block protocol metadata, and changing a selector need not wait for the new
+market request before closing it. Scope the next request before accepting its
+result so the old market cannot overwrite the new one.
 
-Keep a cached complete snapshot, a true cache miss, an authoritative empty
-response, and an error/retry state distinct. A cache hit may keep the current
-layout while a background request refreshes it; it must not suppress a needed
-refresh forever or turn a resolved empty result into a skeleton. Scope cache,
-request, and event invalidation by the identity that can change (account,
-network, provider, market/reserve, or action), and verify every consumer that
-depends on the capability map—not only the home screen.
+Distinguish initial loading, a usable cached snapshot, a successful empty
+response, and a failed refresh. Keep the same scope's complete snapshot during
+refresh, but do not present another account's data as current. Cached data may
+remove a skeleton while still requiring a silent refresh. Opening an action
+modal should not clear the background page's data owner.
 
-For dynamic rows, keep the data owner and presentation owner separate. Preserve
-the last complete visible snapshot while measuring or refreshing, and make
-expanded/collapsed state settle before declaring the route ready. A successful
-request or static element is not proof that the visible route settled
-correctly.
+For layout fixes, preserve loading feedback, amount semantics, and independent
+sections. Check first and settled frames, row measurement, expansion, and
+modal transitions; hiding a skeleton or disabling a placeholder can conceal
+the original problem instead of fixing it.
 
-## Platform Hosts
+## Hosts And Handoffs
 
-- Native Earn lives under the Discovery host. Validate a fresh open, repeated
-  entry, detail push, modal/bottom-sheet behavior, and return to Earn home.
-- Desktop and web use the Earn route/tab. Extension, desktop, and web can use
-  dialog hosts where the current surface supports them.
-- AssetDetails is its own modal stack. Pass required account identity through
-  typed route params or the protocol payload; do not depend on Home-only
-  providers unless that stack proves it mounts the matching mirror.
+Resolve the host from current navigation. Native Earn entry can come through
+Discovery, while desktop/web use an Earn route or tab. Borrow share/deep links
+may not have a home page below them; use the existing host-aware return path.
+AssetDetails has its own modal stack, so carry required account and indexed
+account identity through typed params rather than assuming Home providers.
 
-Cross-surface Market-to-Earn links keep source context at the entry and let Earn
-resolve the returned protocol/product. Pass server-derived asset and protocol
-identity, including native/wrapped mapping, through the existing detail
-handoff; hide the link only when the current response has no usable protocol.
+A Market-to-Earn link carries the server's protocol/product and asset identity,
+including native/wrapped mapping. Earn resolves the detail destination. A
+protocol website instead belongs to Discovery/browser until its RPC enters
+DApp confirmation; opening a website is not an internal DeFi operation.
 
-Borrow navigation is host-dependent. Use the existing host- and mode-aware
-navigation helpers instead of assuming a Borrow home route is directly below
-the current stack, especially for share or deep-link entries.
-
-## Runtime Ownership
-
-On iOS, Android, and browser extension, `main` and `bg` are isolated JavaScript
-runtimes. They initialize independently and exchange serialized copies.
-Native storage or other native singletons may be process-shared, but the
-background service/entity remains the sole writer for its data.
-
-Desktop and web run App `main` and `bg` code in one JavaScript runtime/thread.
-Service and persistence ownership still matters, but do not invent split-heap
-deserialization or independent-JS-runtime races there.
-
-For a cross-runtime or persisted change, name:
-
-1. target platform and runtime scope
-2. native/process resource owner
-3. data copied across proxy or events
-4. independent readiness/order where applicable
-5. identity used to reject stale results
-
-## External DApp Boundary
-
-Opening a protocol website is a Discovery/browser action. Until the website
-sends a chain RPC that enters the DApp confirmation path, do not create an
-internal DeFi action, build request, pending row, order, or portfolio refresh.
-On split-runtime targets, Discovery/WebView and confirmation routing stay in
-`main`; the DApp service runs in `bg`, and only a serialized RPC crosses the
-boundary.
+For cross-runtime changes, apply the target-specific topology in `AGENTS.md`.
+Follow the background service's write ownership even where UI and background
+share a JavaScript runtime; a UI cache is not a second persistence owner.

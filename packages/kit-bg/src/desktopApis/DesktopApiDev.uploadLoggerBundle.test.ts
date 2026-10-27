@@ -38,9 +38,13 @@ import type { AddressInfo } from 'net';
 const hostGlobal = vm.runInThisContext('globalThis') as typeof globalThis;
 
 const TMP_DIR = path.join(os.tmpdir(), 'onekey-desktop-log-upload-test');
-const LOG_FILE = path.join(TMP_DIR, 'app-latest.log');
-const ARCHIVE_FILE = path.join(TMP_DIR, 'OneKeyLogs-test.zip');
-const SMALL_ARCHIVE_FILE = path.join(TMP_DIR, 'OneKeyLogs-small.zip');
+const LOG_FILE = path.join(TMP_DIR, 'logs', 'app-latest.log');
+const ARCHIVE_FILE = path.join(TMP_DIR, 'logs_zip', 'OneKeyLogs-test.zip');
+const SMALL_ARCHIVE_FILE = path.join(
+  TMP_DIR,
+  'logs_zip',
+  'OneKeyLogs-small.zip',
+);
 // Larger than a handful of 64 KiB fs chunks so a drained stream is obvious.
 const ARCHIVE_SIZE = 1_500_000;
 // Fits in a single fs chunk: progress must still not reach 100% before
@@ -66,6 +70,20 @@ jest.mock('fs', () => {
     },
   };
 });
+jest.mock('adm-zip', () => ({
+  __esModule: true,
+  default: class {
+    addLocalFile() {}
+    writeZip(filePath: string) {
+      const size = filePath.endsWith('small.zip')
+        ? SMALL_ARCHIVE_SIZE
+        : ARCHIVE_SIZE;
+      const payload = Buffer.alloc(size);
+      for (let i = 0; i < size; i += 1) payload[i] = (i * 31 + 7) & 0xff;
+      fs.writeFileSync(filePath, payload);
+    }
+  },
+}));
 jest.mock('electron', () => ({ shell: { openPath: jest.fn() } }));
 jest.mock('electron-log/main', () => ({
   __esModule: true,
@@ -228,9 +246,10 @@ function makeApi(): { api: DesktopApiDev; events: IProgressEvent[] } {
       },
     },
   };
-  const desktopApi = {
-    appUpdate: { getMainWindow: () => mainWindow },
-  } as unknown as IDesktopApi;
+  globalThis.$desktopMainAppFunctions = {
+    getSafelyMainWindow: () => mainWindow,
+  } as unknown as typeof globalThis.$desktopMainAppFunctions;
+  const desktopApi = {} as IDesktopApi;
   return { api: new DesktopApiDev({ desktopApi }), events };
 }
 
@@ -258,13 +277,20 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
   let brokenServer: ILocalServer;
   let previousTlsSetting: string | undefined;
   let sandboxFetch: typeof fetch;
+  let localUploadUrl: string;
+  let deleteBeforeFetch: string | undefined;
+  const previousMainAppFunctions = globalThis.$desktopMainAppFunctions;
 
   beforeAll(async () => {
     sandboxFetch = globalThis.fetch;
-    globalThis.fetch = hostGlobal.fetch;
+    globalThis.fetch = async (_url, init) => {
+      if (deleteBeforeFetch) fs.unlinkSync(deleteBeforeFetch);
+      return hostGlobal.fetch(localUploadUrl, init);
+    };
     previousTlsSetting = hostGlobal.process.env.NODE_TLS_REJECT_UNAUTHORIZED;
     hostGlobal.process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    fs.mkdirSync(TMP_DIR, { recursive: true });
+    fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+    fs.mkdirSync(path.dirname(ARCHIVE_FILE), { recursive: true });
     fs.writeFileSync(LOG_FILE, 'log');
     // Non-uniform content so a byte count cannot pass by accident.
     const payload = Buffer.alloc(ARCHIVE_SIZE);
@@ -291,6 +317,7 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     ]);
     fs.rmSync(TMP_DIR, { recursive: true, force: true });
     globalThis.fetch = sandboxFetch;
+    globalThis.$desktopMainAppFunctions = previousMainAppFunctions;
     if (previousTlsSetting === undefined) {
       delete hostGlobal.process.env.NODE_TLS_REJECT_UNAUTHORIZED;
     } else {
@@ -301,13 +328,16 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
   beforeEach(() => {
     uploadServer.requests.length = 0;
     mockOpenedStreams.length = 0;
+    localUploadUrl = uploadServer.url;
+    deleteBeforeFetch = undefined;
   });
 
   it('streams the whole archive after a delayed connection and reports progress', async () => {
     const { api, events } = makeApi();
 
+    await api.collectLoggerDigest({ fileBaseName: 'OneKeyLogs-test' });
     const result = (await api.uploadLoggerBundle({
-      uploadUrl: uploadServer.url,
+      uploadUrl: 'https://wallet.onekeycn.com/wallet/v1/client/log',
       filePath: ARCHIVE_FILE,
       sizeBytes: ARCHIVE_SIZE,
       headers: uploadHeaders(ARCHIVE_SIZE),
@@ -355,10 +385,12 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
   it('never opens the archive or advances progress when the connection fails', async () => {
     const { api, events } = makeApi();
 
+    await api.collectLoggerDigest({ fileBaseName: 'OneKeyLogs-small' });
+    localUploadUrl = brokenServer.url;
     let rejection: { message?: string } | undefined;
     try {
       await api.uploadLoggerBundle({
-        uploadUrl: brokenServer.url,
+        uploadUrl: 'https://wallet.onekeycn.com/wallet/v1/client/log',
         filePath: SMALL_ARCHIVE_FILE,
         sizeBytes: SMALL_ARCHIVE_SIZE,
         headers: uploadHeaders(SMALL_ARCHIVE_SIZE),
@@ -383,8 +415,10 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
   it('releases the archive when the server replies before reading the body', async () => {
     const { api, events } = makeApi();
 
+    await api.collectLoggerDigest({ fileBaseName: 'OneKeyLogs-test' });
+    localUploadUrl = earlyReplyServer.url;
     const result = (await api.uploadLoggerBundle({
-      uploadUrl: earlyReplyServer.url,
+      uploadUrl: 'https://wallet.onekeycn.com/wallet/v1/client/log',
       filePath: ARCHIVE_FILE,
       sizeBytes: ARCHIVE_SIZE,
       headers: uploadHeaders(ARCHIVE_SIZE),
@@ -411,14 +445,18 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
 
   it('rejects and reports an error when the archive cannot be read', async () => {
     const { api, events } = makeApi();
-    const missingFile = path.join(TMP_DIR, 'missing.zip');
+    const digest = await api.collectLoggerDigest({
+      fileBaseName: 'OneKeyLogs-test',
+    });
+    const missingFile = digest.filePath;
+    deleteBeforeFetch = missingFile;
 
     // The rejection comes from the host realm's fetch, so inspect its shape
     // rather than using `instanceof Error`.
     let rejection: { message?: string; cause?: unknown } | undefined;
     try {
       await api.uploadLoggerBundle({
-        uploadUrl: uploadServer.url,
+        uploadUrl: 'https://wallet.onekeycn.com/wallet/v1/client/log',
         filePath: missingFile,
         sizeBytes: ARCHIVE_SIZE,
         headers: uploadHeaders(ARCHIVE_SIZE),

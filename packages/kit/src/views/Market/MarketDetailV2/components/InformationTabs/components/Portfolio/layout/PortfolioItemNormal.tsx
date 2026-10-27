@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import {
   NumberSizeableText,
@@ -18,14 +18,17 @@ import { PORTFOLIO_TOKEN_COLUMN_WIDTH } from './portfolioColumnConstants';
 interface IPortfolioItemNormalProps {
   item: IMarketAccountPortfolioDisplayItem;
   tokenLogoUrl?: string;
+  onPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
 }
 
 function PortfolioItemNormalBase({
   item,
   tokenLogoUrl,
+  onPress,
 }: IPortfolioItemNormalProps) {
   const pnl = item.pnl;
   const isPnlSupported = pnl?.isPnlSupported ?? false;
+  const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
 
   return (
     <XStack
@@ -36,7 +39,8 @@ function PortfolioItemNormalBase({
       px="$3"
       py="$2.5"
       borderRadius="$3"
-      cursor="default"
+      onPress={onPress ? handlePress : undefined}
+      cursor={onPress ? 'pointer' : 'default'}
       hoverStyle={{ backgroundColor: '$bgHover' }}
     >
       <XStack gap="$2.5" alignItems="center" w={PORTFOLIO_TOKEN_COLUMN_WIDTH}>

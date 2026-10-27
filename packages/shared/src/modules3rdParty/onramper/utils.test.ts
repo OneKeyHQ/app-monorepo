@@ -2,7 +2,10 @@ import {
   annotateOnramperSdkErrorMessage,
   getErrorMessageForLog,
   getOnramperErrorFieldsForLog,
+  sanitizeOnramperLogRecord,
 } from './utils';
+
+import type { IOnramperLogRecord } from './type';
 
 describe('annotateOnramperSdkErrorMessage', () => {
   it('appends the BFFRecoveryError case name behind the NSError index', () => {
@@ -98,5 +101,82 @@ describe('getOnramperErrorFieldsForLog', () => {
     expect(fields.errorCode).toBe('initializationFailed');
     expect(fields.errorMessage).toContain('error 1 = sdkSessionRejected');
     expect(fields.errorInfo).toBe('{"status":401}');
+  });
+});
+
+describe('sanitizeOnramperLogRecord', () => {
+  const record: IOnramperLogRecord = {
+    timestamp: 1_700_000_000_000,
+    level: 'info',
+    category: 'checkout',
+    event: 'providerEvent',
+    message: 'Coinbase rejected card for jane@example.com',
+    context: {
+      transactionId: '01M4DBV8MVHV30CSPGERNYDBWN',
+      statusCode: '402',
+      durationMs: '1532',
+      status: 'payment_failed',
+      path: '/v2/{sessionApiKey}/client-sessions',
+      host: 'api.onramper.com',
+      email: 'jane@example.com',
+      phone: '+1 415 555 0100',
+      error: 'Card declined for Jane Doe',
+      sessionId: 'sess_123',
+    },
+  };
+
+  it('keeps only allow-listed keys whose values match their strict format and drops the message by default', () => {
+    expect(sanitizeOnramperLogRecord(record, { keepMessage: false })).toEqual({
+      level: 'info',
+      category: 'checkout',
+      event: 'providerEvent',
+      context: {
+        transactionId: '01M4DBV8MVHV30CSPGERNYDBWN',
+        statusCode: '402',
+        durationMs: '1532',
+        status: 'payment_failed',
+        path: '/v2/{sessionApiKey}/client-sessions',
+        host: 'api.onramper.com',
+      },
+    });
+  });
+
+  it('keeps the message only when asked (dev builds)', () => {
+    expect(
+      sanitizeOnramperLogRecord(record, { keepMessage: true }).message,
+    ).toBe(record.message);
+  });
+
+  it('drops allow-listed keys whose values are free-form or look like personal data', () => {
+    const { context } = sanitizeOnramperLogRecord(
+      {
+        ...record,
+        context: {
+          // Free text in an identifier / token slot.
+          transactionId: 'Jane Doe',
+          status: 'declined: contact Jane Doe',
+          // Card and phone numbers, with and without formatting.
+          supportCode: '4242 4242 4242 4242',
+          code: '4242424242424242',
+          intentId: 'someone@example.com',
+          // Non-numeric where a number is required, and an over-long route.
+          statusCode: 'four-oh-two',
+          path: `/v2/${'x'.repeat(200)}`,
+          // Still fine.
+          errorCode: 'providerFailed',
+        },
+      },
+      { keepMessage: false },
+    );
+    expect(context).toEqual({ errorCode: 'providerFailed' });
+  });
+
+  it('omits an empty context', () => {
+    expect(
+      sanitizeOnramperLogRecord(
+        { ...record, context: { email: 'a@b.c' } },
+        { keepMessage: false },
+      ).context,
+    ).toBeUndefined();
   });
 });

@@ -22,18 +22,12 @@ import {
   WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
   EModalRoutes,
   ERootRoutes,
-  ETabDiscoveryRoutes,
   ETabMarketRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
@@ -358,37 +352,17 @@ async function processOneKeyAppUniversalLink(
     return true;
   }
   if (target.type === 'market') {
-    // Mirrors useNavigateToMarketTab: on native the Market tab is hidden and
-    // merged into Discovery, so land on Discovery's market sub tab there;
-    // elsewhere reset the Market tab stack back to TabMarket.
-    if (platformEnv.isNative) {
-      navigation.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Discovery,
-        params: {
-          screen: ETabDiscoveryRoutes.TabDiscovery,
-          params: {
-            defaultTab: ETranslations.global_market,
-          },
-        },
-      });
-      setTimeout(() => {
-        appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
-          tab: ETranslations.global_market,
-        });
-      }, 150);
-    } else {
-      navigation.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Market,
-        params: {
-          screen: ETabMarketRoutes.TabMarket,
-        },
-      });
-    }
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.TabMarket,
+      },
+    });
     return true;
   }
   if (target.type === 'marketDetail') {
     navigation.navigate(ERootRoutes.Main, {
-      screen: platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Market,
+      screen: ETabRoutes.Market,
       params: {
         screen: ETabMarketRoutes.MarketDetailV2,
         params: {
@@ -539,6 +513,14 @@ async function processDeepLinkUrlAccount(
         case EOneKeyDeepLinkPath.prime_subscription:
           await openPrimeInfiniSubscriptionFromDeepLink({ navigation });
           break;
+        case EOneKeyDeepLinkPath.prime_purchase_complete: {
+          // Return from the hosted card checkout. Only a hint to re-check
+          // RevenueCat; the purchase is never confirmed from the link.
+          const { notifyPrimeWebCheckoutReturned } =
+            await import('../../../views/Prime/hooks/primeHostedCardCheckout');
+          await notifyPrimeWebCheckoutReturned();
+          break;
+        }
         case EOneKeyDeepLinkPath.cross_device_transfer:
           console.log('TODO implement cross_device_transfer deeplink');
           break;

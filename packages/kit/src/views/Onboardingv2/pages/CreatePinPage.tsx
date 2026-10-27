@@ -4,7 +4,10 @@ import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { SizableText } from '@onekeyhq/components';
-import { EKeylessFinalizeAction } from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
+import {
+  EKeylessFinalizeAction,
+  KEYLESS_PIN_LENGTH,
+} from '@onekeyhq/shared/src/keylessWallet/keylessWalletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
@@ -70,8 +73,10 @@ function CreatePinPage() {
       inputTestID={OnboardingTestIDs.passcodeInput}
       title={
         isResetPin
-          ? intl.formatMessage({ id: ETranslations.create_a_new_pin })
-          : intl.formatMessage({ id: ETranslations.create_a_pin })
+          ? intl.formatMessage({
+              id: ETranslations.create_new_recovery_pin__title,
+            })
+          : intl.formatMessage({ id: ETranslations.create_recovery_pin__title })
       }
       description={intl.formatMessage(
         { id: ETranslations.create_a_pin_desc },
@@ -83,7 +88,8 @@ function CreatePinPage() {
       value={pin}
       onChange={setPin}
       onSubmit={handleContinue}
-      isSubmitDisabled={pin.length !== 4}
+      isSubmitDisabled={pin.length !== KEYLESS_PIN_LENGTH}
+      showRecoveryRoleHint
     />
   );
 }

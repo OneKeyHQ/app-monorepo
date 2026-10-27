@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
@@ -6,21 +6,19 @@ import {
   ActivityHubAction,
   ActivityHubContent,
 } from '@onekeyhq/kit/src/components/ActivityHub';
+import { useOpenPerksTab } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useShowInviteeRewardModal } from './InviteeReward/hooks/useShowInviteeRewardModal';
+import { PerpsCampaignIllustration } from './PerpsCampaignIllustration';
 
 function usePerpsActivityHubProps() {
-  const { showInviteeRewardModal } = useShowInviteeRewardModal();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const campaigns = useMemo(
     () => perpConfigCommon?.activityCards ?? [],
     [perpConfigCommon?.activityCards],
   );
 
-  const handleOpenInviteeReward = useCallback(() => {
-    void showInviteeRewardModal();
-  }, [showInviteeRewardModal]);
+  const handleOpenInviteeReward = useOpenPerksTab();
 
   return { campaigns, handleOpenInviteeReward };
 }
@@ -29,10 +27,14 @@ export function PerpsActivityCenterContent({
   copyAsUrl = false,
   closePopover,
   showTitle = true,
+  menuLayout = false,
+  menuPopoverLayout = false,
 }: {
   copyAsUrl?: boolean;
   closePopover: () => void;
   showTitle?: boolean;
+  menuLayout?: boolean;
+  menuPopoverLayout?: boolean;
 }) {
   const { campaigns, handleOpenInviteeReward } = usePerpsActivityHubProps();
 
@@ -42,6 +44,11 @@ export function PerpsActivityCenterContent({
       copyAsUrl={copyAsUrl}
       closePopover={closePopover}
       showTitle={showTitle}
+      menuLayout={menuLayout}
+      menuPopoverLayout={menuPopoverLayout}
+      campaignFallbackIllustration={
+        menuLayout ? <PerpsCampaignIllustration trimmed /> : undefined
+      }
       onOpenInviteeReward={handleOpenInviteeReward}
       campaigns={campaigns}
     />

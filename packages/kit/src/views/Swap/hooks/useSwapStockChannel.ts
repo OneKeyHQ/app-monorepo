@@ -13,6 +13,7 @@ import {
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import { isMarketTokenDecimalsReady } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketTokenIdentity';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { useSwapFromMarketJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -57,6 +58,7 @@ import {
   shouldResetStockTradeReceiveAmount,
   shouldResetStockTradeSideForMarketEntry,
   shouldSyncControlledStockTokenMetadata,
+  shouldSyncStockExecutionTokenMetadata,
 } from './swapStockChannelUtils';
 import {
   getSwapColdStartDisplayTokensFromGlobalSnapshot,
@@ -495,25 +497,29 @@ export function useSwapStockChannel(
 
   useEffect(() => {
     const detail = stockTokenDetail;
-    const currentSubtitle = currentStockToken?.stock?.subtitle?.trim();
-    const detailSubtitle = detail?.stock?.subtitle?.trim();
-    // Detail is authoritative after a locale change; keep the selected token
-    // and its execution snapshot aligned with the current-language metadata.
-    if (
-      !currentStockToken ||
-      !detail ||
-      !detailSubtitle ||
-      currentSubtitle === detailSubtitle
-    ) {
-      return;
+    // Market status remains live in detail. Only execution metadata advances the quote scope.
+    if (currentStockToken && detail?.stock) {
+      const currentToken = stockTokenSnapshotRef.current ?? currentStockToken;
+      const tokenDetail: ISwapToken = {
+        ...currentStockToken,
+        networkId: detail.networkId ?? currentStockToken.networkId,
+        contractAddress: detail.address,
+        decimals: isMarketTokenDecimalsReady(detail)
+          ? detail.decimals
+          : currentToken.decimals,
+        isNative: detail.isNative ?? currentStockToken.isNative,
+        isStock: true,
+        stock: detail.stock,
+      };
+      if (
+        shouldSyncStockExecutionTokenMetadata({
+          token: currentToken,
+          tokenDetail,
+        })
+      ) {
+        syncStockTokenDetail(tokenDetail);
+      }
     }
-    syncStockTokenDetail({
-      ...currentStockToken,
-      decimals: detail.decimals,
-      isNative: detail.isNative ?? currentStockToken.isNative,
-      isStock: true,
-      stock: detail.stock,
-    });
   }, [currentStockToken, stockTokenDetail, syncStockTokenDetail]);
 
   useEffect(() => {

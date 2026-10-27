@@ -153,6 +153,7 @@ class ServiceUniversalSearch extends ServiceBase {
               return {
                 type: EUniversalSearchType.V2MarketToken as const,
                 payload: {
+                  assetId: configToken.assetId,
                   name: batchItem?.name ?? configToken.name,
                   symbol: batchItem?.symbol ?? configToken.symbol,
                   price: batchItem?.price ?? '0',
@@ -177,7 +178,9 @@ class ServiceUniversalSearch extends ServiceBase {
             );
 
           if (v2Items.length) {
-            result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
+            result[EUniversalSearchType.V2MarketToken] = {
+              items: v2Items,
+            };
           }
         }
       } catch {

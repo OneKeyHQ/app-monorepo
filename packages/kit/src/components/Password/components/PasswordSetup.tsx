@@ -111,12 +111,15 @@ const PasswordSetup = ({
   }, [confirmBtnText, intl, passCodeFirstStep]);
   const onPassCodeNext = useCallback(async () => {
     setPassCodeConfirm(true);
+    // Report the step before any awaits so a page-level heading switches in the
+    // same frame as the in-form one, instead of trailing the Android keyboard
+    // dismissal by 150ms.
+    onStepChange?.('confirm');
     // Fix Android keyboard not appearing: dismiss keyboard before switching to confirm step,
     // then manually setFocus after a delay to ensure the keyboard pops up correctly.
     if (platformEnv.isNativeAndroid) {
       await dismissKeyboardWithDelay(150);
     }
-    onStepChange?.('confirm');
     await timerUtils.wait(150);
     form.setFocus('confirmPassCode');
   }, [form, onStepChange]);

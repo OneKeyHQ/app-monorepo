@@ -6,6 +6,7 @@ import { TabBar, TabBarItem } from './TabBar';
 
 import type { Tabs as NativeTabs } from 'react-native-collapsible-tab-view';
 
+/** @deprecated Use CollapsiblePagerView and NativeScroller from react-native-pager-view. */
 export const Tabs = {
   Container,
   Tab,

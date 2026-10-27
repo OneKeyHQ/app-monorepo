@@ -18,6 +18,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EarnTestIDs } from '../testIDs';
@@ -128,7 +129,7 @@ const animatedStyles = StyleSheet.create({
   tabText: {
     fontSize: fs(16),
     fontWeight: '600',
-    fontFamily: 'Roobert-SemiBold',
+    fontFamily: BRAND_FONT_NATIVE_FAMILY.semibold,
     lineHeight: fs(24),
     textAlign: 'center',
   },

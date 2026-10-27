@@ -28,6 +28,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   EProtocolOfExchange,
@@ -666,7 +667,6 @@ export function useSwapStockAmountInputState({
   const isStockTradeChannelInitializing =
     stockChannel.isStockTokenChanging ||
     stockChannel.channelStage === ESwapStockChannelStage.InitializingStock ||
-    stockChannel.channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
     stockChannel.channelStage === ESwapStockChannelStage.InitializingPayToken;
   const stockInputTokenBalance = useStockInputTokenBalance({
     enabled: inputTokenReady,
@@ -694,14 +694,15 @@ export function useSwapStockAmountInputState({
     isSwapBalanceLoadedZero(stockInputTokenBalance.settledBalance);
   const balanceRefreshing = stockInputTokenBalance.refreshing;
   const onBalanceRefreshPress = stockInputTokenBalance.refresh;
+  const shouldReserveInputGas = shouldReserveSwapGas(inputToken);
   const reserveGas = useMemo(() => {
-    if (!inputToken?.isNative) {
+    if (!inputToken?.networkId || !shouldReserveInputGas) {
       return undefined;
     }
     return swapNativeTokenReserveGas.find(
       (item) => item.networkId === inputToken.networkId,
     )?.reserveGas;
-  }, [inputToken?.isNative, inputToken?.networkId, swapNativeTokenReserveGas]);
+  }, [shouldReserveInputGas, inputToken?.networkId, swapNativeTokenReserveGas]);
   const displayBalance = stockInputTokenBalance.displayBalance ?? '--';
   const inputTokenNetworkLogoURI =
     inputToken?.networkLogoURI ?? getNetworkLogoURI(inputToken?.networkId);
@@ -783,7 +784,7 @@ export function useSwapStockAmountInputState({
     }
     const balanceBN = new BigNumber(resolvedInputTokenBalance);
     let maxAmount = balanceBN;
-    if (inputToken?.isNative) {
+    if (shouldReserveInputGas) {
       const reserveGasBN = new BigNumber(reserveGas ?? '');
       if (reserveGasBN.isFinite() && reserveGasBN.gt(0)) {
         maxAmount = BigNumber.max(0, balanceBN.minus(reserveGasBN));
@@ -791,7 +792,7 @@ export function useSwapStockAmountInputState({
       const reserveGasFormatted = reserveGas
         ? numberFormat(reserveGas.toString(), {
             formatter: 'balance',
-            formatterOptions: { tokenSymbol: inputToken.symbol },
+            formatterOptions: { tokenSymbol: inputToken?.symbol },
           })
         : undefined;
       Toast.message({
@@ -809,7 +810,7 @@ export function useSwapStockAmountInputState({
   }, [
     authoritativeStockInputToken,
     balanceActionsReady,
-    inputToken?.isNative,
+    shouldReserveInputGas,
     inputToken?.symbol,
     intl,
     reserveGas,
@@ -827,7 +828,7 @@ export function useSwapStockAmountInputState({
       }
       const amount = calcSwapStockPercentageAmount({
         balanceParsed: resolvedInputTokenBalance,
-        isNative: inputToken?.isNative,
+        isNative: shouldReserveInputGas,
         reserveGas,
         stage,
       });
@@ -836,7 +837,7 @@ export function useSwapStockAmountInputState({
     [
       authoritativeStockInputToken,
       balanceActionsReady,
-      inputToken?.isNative,
+      shouldReserveInputGas,
       reserveGas,
       resolvedInputTokenBalance,
       setInputAmount,

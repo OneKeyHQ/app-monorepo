@@ -1,4 +1,9 @@
-import { type ComponentProps, useEffect, useState } from 'react';
+import {
+  type ComponentProps,
+  type ReactNode,
+  useEffect,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,7 +25,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
   IPrimeGiftClaimResult,
   IPrimeGiftEligibility,
@@ -43,11 +48,13 @@ function StatusCheckRow({
   title,
   status,
   testID,
+  children,
 }: {
   done: boolean;
   title: string;
   status: string;
   testID: string;
+  children?: ReactNode;
 }) {
   return (
     <ListItem
@@ -69,7 +76,33 @@ function StatusCheckRow({
       titleProps={{ size: '$bodyLgMedium' }}
       subtitle={status}
       subtitleProps={{ size: '$bodyMd' }}
-    />
+    >
+      {children}
+    </ListItem>
+  );
+}
+
+function AccountLogoutButton({
+  disabled,
+  onLogout,
+}: {
+  disabled?: boolean;
+  onLogout: () => void;
+}) {
+  const intl = useIntl();
+  return (
+    <Button
+      variant="tertiary"
+      size="small"
+      alignSelf="center"
+      flexShrink={0}
+      disabled={disabled}
+      minHeight={platformEnv.isNative ? 44 : undefined}
+      testID="prime-gift-logout"
+      onPress={onLogout}
+    >
+      {intl.formatMessage({ id: ETranslations.prime_log_out })}
+    </Button>
   );
 }
 
@@ -216,6 +249,8 @@ export function PrimeGiftClaimContent({
   isPendingPaymentConfirm = false,
   error,
   errorDescription,
+  onLogout,
+  logoutDisabled = false,
 }: Partial<Pick<IPrimeGiftEligibility, 'giftMonths' | 'giftDays'>> & {
   deviceModelName: string;
   eligibilityStatus: string;
@@ -229,6 +264,8 @@ export function PrimeGiftClaimContent({
   isPendingPaymentConfirm?: boolean;
   error?: string;
   errorDescription?: string;
+  onLogout?: () => void;
+  logoutDisabled?: boolean;
 }) {
   const intl = useIntl();
   const giftDuration = getPrimeGiftDurationText({ giftMonths, giftDays }, intl);
@@ -281,7 +318,14 @@ export function PrimeGiftClaimContent({
                   id: ETranslations.prime_gift_account__desc,
                 })
           }
-        />
+        >
+          {isAccountReady && onLogout ? (
+            <AccountLogoutButton
+              disabled={logoutDisabled}
+              onLogout={onLogout}
+            />
+          ) : null}
+        </StatusCheckRow>
         <StatusCheckRow
           testID="prime-gift-check-device"
           done={isDeviceVerified}
@@ -406,7 +450,11 @@ export function PrimeGiftSuccessContent({
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage(
               { id: ETranslations.prime_gift_valid_until__desc },
-              { date: formatDateFns(new Date(result.finalExpiresAt), 'PP') },
+              {
+                date: formatDate(new Date(result.finalExpiresAt), {
+                  hideTimeForever: true,
+                }),
+              },
             )}
           </SizableText>
         </YStack>
@@ -503,7 +551,10 @@ export function PrimeGiftClaimView({
   return (
     <YStack flex={1}>
       <ScrollView flex={1}>
-        <PrimeGiftClaimContent {...contentProps} />
+        <PrimeGiftClaimContent
+          {...contentProps}
+          logoutDisabled={isProcessing}
+        />
       </ScrollView>
       <PrimeGiftClaimFooter
         primaryLabel={primaryLabel}
