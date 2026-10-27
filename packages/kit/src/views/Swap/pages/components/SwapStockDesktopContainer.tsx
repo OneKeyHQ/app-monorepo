@@ -136,7 +136,6 @@ import {
   SwapStockMarketProvider,
   useSwapStockSelection,
 } from './SwapStockMarketProvider';
-import { SwapStockPortfolioProvider } from './SwapStockPortfolio';
 import {
   SwapStockPositions,
   SwapStockPositionsProvider,
@@ -563,15 +562,20 @@ function StockActionGate({
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const accountInfo = swapFromAddressInfo.accountInfo;
   const isDesktopModalPage = isModalPage && !md;
-  const isWebDappModeWithNoWallet = Boolean(
+  // Connection identity survives network-account resolution, while an empty
+  // external wallet container can remain after its last account disconnects.
+  const connectionAccountInfo =
+    swapFromAddressInfo.activeAccount ?? accountInfo;
+  const isWebDappModeWithNoAccount = Boolean(
     platformEnv.isWebDappMode &&
-    accountInfo &&
-    !accountInfo.wallet &&
-    !accountInfo.accountName,
+    connectionAccountInfo &&
+    !connectionAccountInfo.account &&
+    !connectionAccountInfo.dbAccount &&
+    !connectionAccountInfo.indexedAccount,
   );
   const shouldShowConnectWalletAction =
     alerts.states.some((item) => item.noConnectWallet) ||
-    isWebDappModeWithNoWallet ||
+    isWebDappModeWithNoAccount ||
     Boolean(accountInfo?.ready && !accountInfo.wallet);
   const handleConnectWalletPress = useCallback(() => {
     if (platformEnv.isWebDappMode) {
@@ -1642,14 +1646,12 @@ function SwapStockPageProviders({
   if (embedded) return children;
   return (
     <SwapStockMarketProvider storeName={storeName}>
-      <SwapStockPortfolioProvider>
-        <SwapStockPositionsProvider
-          networks={supportNetworksList}
-          ready={!fetchLoading}
-        >
-          {children}
-        </SwapStockPositionsProvider>
-      </SwapStockPortfolioProvider>
+      <SwapStockPositionsProvider
+        networks={supportNetworksList}
+        ready={!fetchLoading}
+      >
+        {children}
+      </SwapStockPositionsProvider>
     </SwapStockMarketProvider>
   );
 }

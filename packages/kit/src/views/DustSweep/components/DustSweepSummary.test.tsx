@@ -660,17 +660,22 @@ it('shows an all-failed desktop result with expanded reasons and no amount', () 
   );
   expect(screen.queryByTestId('dust-sweep-skip-footnote')).toBeNull();
   expect(screen.getByText('dust_sweep_token_count__desc:0')).toBeTruthy();
-  expect(screen.getByText('dust_sweep_token_count__desc:3')).toBeTruthy();
+  expect(screen.getByTestId('dust-sweep-result-failed').textContent).toBe(
+    `${ETranslations.global_failed}dust_sweep_token_count__desc:1`,
+  );
+  expect(screen.getByTestId('dust-sweep-result-skipped').textContent).toBe(
+    `${ETranslations.label_skipped}dust_sweep_token_count__desc:2`,
+  );
   expect(screen.getByTestId('dust-sweep-skip-reasons')).toBeTruthy();
   // Each row reads like its token rows, followed by the token preview count.
   expect(
     screen
       .getAllByTestId('dust-sweep-skip-reason')
       .map((row) => row.textContent),
-  ).toEqual([
-    `${ETranslations.swap_page_provider_rate_unavailable}2`,
+  ).toEqual([`${ETranslations.swap_page_provider_rate_unavailable}2`]);
+  expect(screen.getByTestId('dust-sweep-failure-reason').textContent).toBe(
     `${ETranslations.swap_review_transaction_failed}1`,
-  ]);
+  );
   // Desktop owns its action button in the summary card.
   expect(screen.queryByTestId('dust-sweep-result-again')).toBeNull();
 });

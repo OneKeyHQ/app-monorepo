@@ -15,6 +15,7 @@ import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { TokenGroup } from '@onekeyhq/kit/src/components/Token/TokenGroup';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { getDustSweepTotals } from '../stateMachine';
 import { groupDustSweepSkips } from '../utils/skipReasons';
@@ -26,12 +27,18 @@ import type { IDustSweepSkipGroup } from '../utils/skipReasons';
 
 const MAX_PREVIEW_TOKENS = 3;
 
-function DustSweepSkipReasonRow({ group }: { group: IDustSweepSkipGroup }) {
+function DustSweepReasonRow({
+  group,
+  testID,
+}: {
+  group: IDustSweepSkipGroup;
+  testID: string;
+}) {
   const intl = useIntl();
   const overflow = group.tokens.length - MAX_PREVIEW_TOKENS;
   return (
     <XStack
-      testID="dust-sweep-skip-reason"
+      testID={testID}
       height={20}
       alignItems="center"
       justifyContent="space-between"
@@ -104,15 +111,16 @@ function DustSweepBreakdownCount({
   );
 }
 
-// Converted / Skipped counts with the reasons tokens were not converted.
-// Desktop always shows the reasons; mobile keeps them behind the Skipped row so
-// many reasons never crowd a small screen.
-export function DustSweepResultBreakdown({
+function DustSweepReasonBreakdown({
   state,
   collapsible,
+  status,
+  count,
 }: {
   state: IDustSweepState;
   collapsible: boolean;
+  status: EDustSweepItemStatus.Failed | EDustSweepItemStatus.Skipped;
+  count: number;
 }) {
   const intl = useIntl();
   const reducedMotion = useReducedMotion();
@@ -122,36 +130,24 @@ export function DustSweepResultBreakdown({
   const reasonEntering = animate ? FadeInDown.duration(300) : undefined;
   const reasonLayout = animate ? LinearTransition.duration(300) : undefined;
   const [open, setOpen] = useState(!collapsible);
-  const totals = getDustSweepTotals(state.items);
-  const { notConvertedCount } = totals;
   const nativeTokenSymbol = state.snapshot?.nativeToken.symbol;
   const groups = useMemo(
     () =>
-      groupDustSweepSkips(state.items, (item) =>
-        getDustSweepItemReasonMessage(intl, item, nativeTokenSymbol),
+      groupDustSweepSkips(
+        state.items.filter((item) => item.status === status),
+        (item) => getDustSweepItemReasonMessage(intl, item, nativeTokenSymbol),
       ),
-    [intl, state.items, nativeTokenSymbol],
+    [intl, state.items, nativeTokenSymbol, status],
   );
-  const canToggle = collapsible && notConvertedCount > 0;
-  const countLabel = (count: number) =>
-    intl.formatMessage(
-      { id: ETranslations.dust_sweep_token_count__desc },
-      { count },
-    );
+  const canToggle = collapsible && count > 0;
+  const reasonTestID =
+    status === EDustSweepItemStatus.Failed
+      ? 'dust-sweep-failure'
+      : 'dust-sweep-skip';
   return (
-    <YStack testID="dust-sweep-result-breakdown" width="100%" gap="$3">
-      <XStack height={20} alignItems="center" justifyContent="space-between">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.label_converted })}
-        </SizableText>
-        <DustSweepBreakdownCount
-          count={totals.successCount}
-          label={countLabel(totals.successCount)}
-          tone="$textSuccess"
-        />
-      </XStack>
+    <YStack gap="$3">
       <XStack
-        testID="dust-sweep-result-skipped"
+        testID={`dust-sweep-result-${status}`}
         height={20}
         alignItems="center"
         justifyContent="space-between"
@@ -160,17 +156,26 @@ export function DustSweepResultBreakdown({
               role: 'button',
               cursor: 'pointer',
               hitSlop: 8,
+              accessibilityState: { expanded: open },
               onPress: () => setOpen((value) => !value),
             }
           : {})}
       >
         <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.label_skipped })}
+          {intl.formatMessage({
+            id:
+              status === EDustSweepItemStatus.Failed
+                ? ETranslations.global_failed
+                : ETranslations.label_skipped,
+          })}
         </SizableText>
         <XStack alignItems="center" gap="$1">
           <DustSweepBreakdownCount
-            count={notConvertedCount}
-            label={countLabel(notConvertedCount)}
+            count={count}
+            label={intl.formatMessage(
+              { id: ETranslations.dust_sweep_token_count__desc },
+              { count },
+            )}
             tone="$textCritical"
           />
           {canToggle ? (
@@ -182,12 +187,10 @@ export function DustSweepResultBreakdown({
           ) : null}
         </XStack>
       </XStack>
-      {/* Reasons appear as tokens are skipped during the sweep; the box grows
-          with each new reason. */}
       {open && groups.length ? (
         <Animated.View layout={reasonLayout}>
           <Stack
-            testID="dust-sweep-skip-reasons"
+            testID={`${reasonTestID}-reasons`}
             bg="$bgSubdued"
             borderRadius="$3"
             p="$3"
@@ -198,12 +201,57 @@ export function DustSweepResultBreakdown({
                 key={group.label ?? 'others'}
                 entering={reasonEntering}
               >
-                <DustSweepSkipReasonRow group={group} />
+                <DustSweepReasonRow
+                  group={group}
+                  testID={`${reasonTestID}-reason`}
+                />
               </Animated.View>
             ))}
           </Stack>
         </Animated.View>
       ) : null}
+    </YStack>
+  );
+}
+
+// Each unsuccessful outcome owns its count and reasons. Mobile expands them
+// independently so a long error list does not crowd the result sheet.
+export function DustSweepResultBreakdown({
+  state,
+  collapsible,
+}: {
+  state: IDustSweepState;
+  collapsible: boolean;
+}) {
+  const intl = useIntl();
+  const totals = getDustSweepTotals(state.items);
+  return (
+    <YStack testID="dust-sweep-result-breakdown" width="100%" gap="$3">
+      <XStack height={20} alignItems="center" justifyContent="space-between">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.label_converted })}
+        </SizableText>
+        <DustSweepBreakdownCount
+          count={totals.successCount}
+          label={intl.formatMessage(
+            { id: ETranslations.dust_sweep_token_count__desc },
+            { count: totals.successCount },
+          )}
+          tone="$textSuccess"
+        />
+      </XStack>
+      <DustSweepReasonBreakdown
+        state={state}
+        collapsible={collapsible}
+        status={EDustSweepItemStatus.Failed}
+        count={totals.failedCount}
+      />
+      <DustSweepReasonBreakdown
+        state={state}
+        collapsible={collapsible}
+        status={EDustSweepItemStatus.Skipped}
+        count={totals.skippedCount}
+      />
     </YStack>
   );
 }
