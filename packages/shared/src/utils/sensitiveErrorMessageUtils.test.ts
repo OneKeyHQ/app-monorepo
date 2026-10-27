@@ -26,11 +26,11 @@ describe('getSafeErrorIdentifiers', () => {
     });
   });
 
-  it('falls back to a native error name and keeps constant or RPC codes', () => {
+  it('falls back to a native error name and keeps integer codes only', () => {
     const error = Object.assign(new TypeError('boom'), { code: 'ECONNRESET' });
     expect(getSafeErrorIdentifiers(error)).toMatchObject({
       errorName: 'TypeError',
-      errorCode: 'ECONNRESET',
+      errorCode: undefined,
     });
     expect(getSafeErrorIdentifiers({ code: -32_000 })).toMatchObject({
       errorCode: '-32000',
@@ -61,9 +61,11 @@ describe('getSafeErrorIdentifiers', () => {
       errorCode: undefined,
       errorKey: undefined,
     });
-    expect(getSafeErrorIdentifiers({ code: 1_234_567 })).toMatchObject({
-      errorCode: undefined,
-    });
+    for (const code of [1_234_567, 'PRIVATE_KEY_1234567890ABCDEF']) {
+      expect(getSafeErrorIdentifiers({ code })).toMatchObject({
+        errorCode: undefined,
+      });
+    }
   });
 
   it('returns nothing for strings and empty input', () => {
