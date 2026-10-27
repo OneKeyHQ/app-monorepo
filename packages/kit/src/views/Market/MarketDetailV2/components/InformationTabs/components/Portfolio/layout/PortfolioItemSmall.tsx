@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 import { NumberSizeableText, XStack, YStack } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
@@ -35,7 +36,7 @@ function PortfolioItemSmallBase({ item, onPress }: IPortfolioItemSmallProps) {
           autoFormatterThreshold={1000}
           sourceCurrency={item.currency ?? USD_CURRENCY_ID}
         >
-          {item.totalPrice}
+          {displayOrUnavailable(item.totalPrice)}
         </Currency>
         <NumberSizeableText
           size="$bodySm"

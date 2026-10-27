@@ -78,6 +78,7 @@ export function SwapStockMyPosition() {
           <Stack mx="$-5">
             <Portfolio
               standalone
+              isStock
               hasAccount={portfolio?.hasAccount}
               portfolioData={portfolioData}
               isRefreshing={portfolio?.isRefreshing}

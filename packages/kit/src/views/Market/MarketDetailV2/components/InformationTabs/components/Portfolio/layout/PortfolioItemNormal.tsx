@@ -9,6 +9,7 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
 import { PnlCell } from '../components/PnlCell';
@@ -70,7 +71,7 @@ function PortfolioItemNormalBase({
           autoFormatterThreshold={1000}
           sourceCurrency={item.currency ?? USD_CURRENCY_ID}
         >
-          {item.totalPrice}
+          {displayOrUnavailable(item.totalPrice)}
         </Currency>
         <NumberSizeableText
           size="$bodySm"

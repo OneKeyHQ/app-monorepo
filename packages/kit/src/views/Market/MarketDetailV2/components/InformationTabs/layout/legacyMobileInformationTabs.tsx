@@ -193,6 +193,7 @@ export function MobileInformationTabs({
       >
         <DelayedFreeze freeze={freezeContent}>
           <Portfolio
+            isStock={isStockToken}
             portfolioData={portfolioData}
             isRefreshing={!!isRefreshing}
             accountAddress={accountAddress}

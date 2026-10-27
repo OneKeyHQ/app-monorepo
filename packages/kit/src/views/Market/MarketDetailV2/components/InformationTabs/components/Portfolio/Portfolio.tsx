@@ -35,6 +35,7 @@ interface IPortfolioProps {
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   standalone?: boolean;
+  isStock?: boolean;
   onItemPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
 }
 
@@ -47,6 +48,7 @@ function PortfolioBase({
   tokenLogoUrl,
   scrollEnabled = true,
   standalone = false,
+  isStock = false,
   onItemPress,
 }: IPortfolioProps) {
   const intl = useIntl();
@@ -97,13 +99,15 @@ function PortfolioBase({
       canShowPortfolio
         ? portfolioData.filter((item) =>
             isTradePositionVisible({
+              balance: item.amount,
+              isStock,
               fiatValue: item.totalPrice,
               currency: item.currency ?? 'usd',
               currencyMap,
             }),
           )
         : [],
-    [canShowPortfolio, currencyMap, portfolioData],
+    [canShowPortfolio, currencyMap, isStock, portfolioData],
   );
 
   if (standalone) {

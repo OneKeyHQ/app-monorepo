@@ -156,6 +156,22 @@ describe('SwapStockMyPosition selection', () => {
     expect(screen.getAllByRole('button')).toHaveLength(2);
   });
 
+  it.each([
+    ['', true],
+    ['', false],
+    ['NaN', true],
+    ['NaN', false],
+  ] as const)(
+    'retains the positive Stock row with unavailable value %s (large=%s)',
+    (totalPrice, large) => {
+      mockLargeLayout = large;
+      mockItems = [{ ...item, totalPrice }];
+      const screen = renderPosition();
+      expect(screen.getByRole('button').textContent).toContain('--');
+      expect(screen.getByRole('button').textContent).not.toContain('NaN');
+    },
+  );
+
   it('collapses a genuinely empty display portfolio while selection is pending', () => {
     mockSelectionPending = true;
     mockItems = [];

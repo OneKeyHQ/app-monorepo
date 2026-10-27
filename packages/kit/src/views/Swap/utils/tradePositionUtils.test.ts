@@ -43,8 +43,6 @@ describe('isTradePositionVisible', () => {
   );
 
   it.each([
-    [undefined, false],
-    ['', false],
     ['0', false],
     ['-0.01', false],
     ['0.009999999999999999', false],
@@ -52,8 +50,6 @@ describe('isTradePositionVisible', () => {
     ['0.010000000000000001', true],
     ['0.1', true],
     ['1', true],
-    ['NaN', false],
-    ['Infinity', false],
     ['2', true],
   ] as const)(
     'applies the inclusive USD floor to Swap and Stock value %s',
@@ -63,6 +59,16 @@ describe('isTradePositionVisible', () => {
           isTradePositionVisible({ balance: '1', fiatValue, isStock }),
         ).toBe(expected);
       }
+    },
+  );
+
+  it.each([undefined, '', 'NaN', 'Infinity'])(
+    'keeps a positive Stock holding with unknown valuation %s',
+    (fiatValue) => {
+      expect(
+        isTradePositionVisible({ balance: '2', fiatValue, isStock: true }),
+      ).toBe(true);
+      expect(isTradePositionVisible({ balance: '2', fiatValue })).toBe(false);
     },
   );
 

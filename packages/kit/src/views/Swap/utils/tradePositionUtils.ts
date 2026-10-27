@@ -27,9 +27,9 @@ export function isTradePositionVisible({
     return false;
   }
 
-  const value = new BigNumber(fiatValue ?? '0');
+  const value = new BigNumber(fiatValue ?? NaN);
   if (!value.isFinite()) {
-    return false;
+    return isStock;
   }
 
   const currencyId = currency.toLowerCase();
