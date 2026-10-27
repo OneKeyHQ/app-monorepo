@@ -971,7 +971,9 @@ export function StockAnalystRatings({
         </SizableText>
         <Stack
           flex={1}
-          minWidth={STOCK_ANALYST_BAR_MIN_WIDTH}
+          // The compact row cannot wrap beside its tile, so its track gives
+          // way first on narrow phones and long translated labels.
+          minWidth={isCompact ? 0 : STOCK_ANALYST_BAR_MIN_WIDTH}
           height={4}
           borderRadius="$full"
           bg="$neutral5"
