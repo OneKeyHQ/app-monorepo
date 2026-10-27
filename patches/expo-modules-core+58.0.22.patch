@@ -182,6 +182,51 @@ index 10af42b..6e943ac 100644
    }
  
    private synchronized NativeModulesProxy getOrCreateNativeModulesProxy(
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt
+index eec38de..1043498 100644
+--- a/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt
++++ b/node_modules/expo-modules-core/android/src/main/java/expo/modules/kotlin/AppContext.kt
+@@ -51,6 +51,7 @@ class AppContext(
+   // The main context used in the app.
+   // Modules attached to this context will be available on the main js context.
+   override val runtime = MainRuntime(this, reactContextHolder)
++  private val expoModulesV2Host = ExpoModulesV2Host()
+ 
+   override val applicationContext: Context
+     get() {
+@@ -154,7 +155,7 @@ class AppContext(
+    */
+   fun installJSIInterop() {
+     runtime.install()
+-    runtime.reactContext?.let(ExpoModulesV2Host::install)
++    runtime.reactContext?.let(expoModulesV2Host::install)
+   }
+ 
+   /**
+@@ -286,7 +287,7 @@ class AppContext(
+     mainQueue.cancel(ContextDestroyedException())
+     backgroundCoroutineScope.cancel(ContextDestroyedException())
+ 
+-    ExpoModulesV2Host.uninstall()
++    expoModulesV2Host.uninstall()
+ 
+     runtime.deallocate()
+     if (uiRuntimeHolder.isInitialized()) {
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/v2/ExpoModulesV2Host.kt b/node_modules/expo-modules-core/android/src/main/java/expo/modules/v2/ExpoModulesV2Host.kt
+index 3d860cb..e115508 100644
+--- a/node_modules/expo-modules-core/android/src/main/java/expo/modules/v2/ExpoModulesV2Host.kt
++++ b/node_modules/expo-modules-core/android/src/main/java/expo/modules/v2/ExpoModulesV2Host.kt
+@@ -7,8 +7,8 @@ import io.github.expo.modules.v2.react.ExpoModulesV2React
+ import io.github.expo.modules.v2.react.ReactRuntime
+ import java.lang.reflect.Modifier
+ 
+-object ExpoModulesV2Host {
+-  private const val GENERATED_PROVIDER_CLASS = "expo.modules.ExpoModulesV2ModuleList"
++class ExpoModulesV2Host {
++  private val GENERATED_PROVIDER_CLASS = "expo.modules.ExpoModulesV2ModuleList"
+ 
+   private var runtime: ReactRuntime? = null
+ 
 diff --git a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
 index f30fc12..b98b291 100644
 --- a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift

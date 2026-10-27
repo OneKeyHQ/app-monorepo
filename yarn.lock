@@ -11107,7 +11107,7 @@ __metadata:
     react-native-video: "npm:7.0.0-beta.11"
     react-native-view-shot: "npm:5.1.0"
     react-native-webview: "npm:13.16.1"
-    react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@1.0.0"
+    react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@6.7.0-alpha.369"
     react-native-worklets: "npm:0.13.0"
     react-native-zip-archive: "npm:@onekeyfe/react-native-zip-archive@6.7.0-9"
     readable-stream: "npm:^3.6.0"
@@ -44111,13 +44111,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-webview-cleaner@npm:@onekeyfe/react-native-webview-cleaner@1.0.0":
-  version: 1.0.0
-  resolution: "@onekeyfe/react-native-webview-cleaner@npm:1.0.0"
+"react-native-webview-cleaner@npm:@onekeyfe/react-native-webview-cleaner@6.7.0-alpha.369":
+  version: 6.7.0-alpha.369
+  resolution: "@onekeyfe/react-native-webview-cleaner@npm:6.7.0-alpha.369"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/c1882d82c590973750a06552e3806292ca18da602bf93a413b96eed8eb30a27ec6cd7851e2789ce1d06b5e4af21247bb8e83fd442859d026e8d4cbc185b35cd5
+  checksum: 10/dd5eb7bf2f70bb6d4c1bddfdd3ac5577429a905a0d161a6dacc8f0d3076e3b08cf5bc0cf5fca84547742b4ea006c93b4a7e82154afb184465f6efaa23a7b4004
   languageName: node
   linkType: hard
 

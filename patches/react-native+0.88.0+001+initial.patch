@@ -1,3 +1,30 @@
+diff --git a/node_modules/react-native/Libraries/AppDelegate/RCTRootViewFactory.h b/node_modules/react-native/Libraries/AppDelegate/RCTRootViewFactory.h
+index c78844c..0bd3cc8 100644
+--- a/node_modules/react-native/Libraries/AppDelegate/RCTRootViewFactory.h
++++ b/node_modules/react-native/Libraries/AppDelegate/RCTRootViewFactory.h
+@@ -208,7 +208,7 @@ typedef void (^RCTLoadSourceForBridgeBlock)(RCTBridge *bridge, RCTSourceLoadBloc
+                      initialProperties:(NSDictionary *__nullable)initialProperties
+                          launchOptions:(NSDictionary *__nullable)launchOptions
+                    bundleConfiguration:(RCTBundleConfiguration *)bundleConfiguration
+-                  devMenuConfiguration:(RCTDevMenuConfiguration *)devMenuConfiguration;
++                  devMenuConfiguration:(RCTDevMenuConfiguration *__nullable)devMenuConfiguration;
+ 
+ - (UIView *_Nonnull)viewWithModuleName:(NSString *)moduleName
+                      initialProperties:(NSDictionary *__nullable)initialProperties
+@@ -232,11 +232,11 @@ typedef void (^RCTLoadSourceForBridgeBlock)(RCTBridge *bridge, RCTSourceLoadBloc
+  */
+ - (void)initializeReactHostWithLaunchOptions:(NSDictionary *__nullable)launchOptions
+                          bundleConfiguration:(RCTBundleConfiguration *)bundleConfiguration
+-                        devMenuConfiguration:(RCTDevMenuConfiguration *)devMenuConfiguration;
++                        devMenuConfiguration:(RCTDevMenuConfiguration *__nullable)devMenuConfiguration;
+ 
+ - (RCTHost *)createReactHost:(NSDictionary *__nullable)launchOptions
+          bundleConfiguration:(RCTBundleConfiguration *)bundleConfiguration
+-        devMenuConfiguration:(RCTDevMenuConfiguration *)devMenuConfiguration;
++        devMenuConfiguration:(RCTDevMenuConfiguration *__nullable)devMenuConfiguration;
+ 
+ - (RCTHost *)createReactHost:(NSDictionary *__nullable)launchOptions;
+ 
 diff --git a/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js b/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
 index a158d98..bd961d9 100644
 --- a/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
@@ -176,6 +203,19 @@ index 5911eaa..2b3e8cf 100644
 +    }
      return;
    }
+ 
+diff --git a/node_modules/react-native/React/CoreModules/RCTDevMenu.h b/node_modules/react-native/React/CoreModules/RCTDevMenu.h
+index 976cb8c..23f24e7 100644
+--- a/node_modules/react-native/React/CoreModules/RCTDevMenu.h
++++ b/node_modules/react-native/React/CoreModules/RCTDevMenu.h
+@@ -28,7 +28,7 @@ RCT_EXTERN NSString *const RCTShowDevMenuNotification;
+ 
+ #endif
+ 
+-+ (instancetype)defaultConfiguration;
+++ (nullable instancetype)defaultConfiguration;
+ 
+ @end
  
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
 index cc08196..87bc3e6 100644

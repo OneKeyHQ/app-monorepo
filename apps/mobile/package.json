@@ -199,7 +199,7 @@
     "react-native-video": "7.0.0-beta.11",
     "react-native-view-shot": "5.1.0",
     "react-native-webview": "13.16.1",
-    "react-native-webview-cleaner": "npm:@onekeyfe/react-native-webview-cleaner@1.0.0",
+    "react-native-webview-cleaner": "npm:@onekeyfe/react-native-webview-cleaner@6.7.0-alpha.369",
     "react-native-worklets": "0.13.0",
     "react-native-zip-archive": "npm:@onekeyfe/react-native-zip-archive@6.7.0-9",
     "readable-stream": "^3.6.0",

@@ -14155,6 +14155,7 @@
     "node_modules/expo/src/utils/blobUtils.ts": 53203,
     "node_modules/expo/src/utils/getBundleOrigin.ts": 33274,
     "node_modules/expo/src/utils/getBundleUrl.native.ts": 37881,
+    "node_modules/expo/src/utils/getDevServer.native.ts": 61337,
     "node_modules/expo/src/winter/AbortSignal.ts": 57191,
     "node_modules/expo/src/winter/DOMException.ts": 26515,
     "node_modules/expo/src/winter/FormData.ts": 33749,
