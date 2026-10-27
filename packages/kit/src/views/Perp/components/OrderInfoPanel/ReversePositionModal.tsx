@@ -339,11 +339,9 @@ export function ReversePositionContent({
     },
     {
       label: intl.formatMessage({
-        id: ETranslations.perp_spot_reference_price__title,
+        id: ETranslations.global_price,
       }),
-      value: referencePrice
-        ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(referencePrice, szDecimals))}`
-        : '--',
+      value: intl.formatMessage({ id: ETranslations.perp_market_price }),
     },
     {
       label: intl.formatMessage({ id: ETranslations.perp_est_liq_price }),

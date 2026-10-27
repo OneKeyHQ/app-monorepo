@@ -222,26 +222,31 @@ describe('reverse position confirmation', () => {
       await mockPreviewLoader();
     });
     expect(mockFetchAsset).not.toHaveBeenCalled();
-    expect(view.getByText('$2,000')).toBeTruthy();
+    expect(view.getByText('perp.market_price')).toBeTruthy();
+    expect(view.queryByText('$2,000')).toBeNull();
     expect(view.getByText('$2,146.3')).toBeTruthy();
     mockMid = '2100';
     mockMarkPrice = '2100';
     view.rerender(
       <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
     );
-    expect(view.getByText('$2,100')).toBeTruthy();
+    expect(view.getByText('perp.market_price')).toBeTruthy();
+    expect(view.queryByText('$2,100')).toBeNull();
     expect(view.getByText('$2,253.6')).toBeTruthy();
     expect(view.queryByText('$2,000')).toBeNull();
     expect(mockFetchAsset).not.toHaveBeenCalled();
   });
 
-  it('shows reference price before the book request completes', () => {
+  it('shows the market price label before the book request completes', () => {
     mockBookPending = true;
     mockPosition.leverage.type = 'isolated';
     const view = render(
       <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
     );
-    expect(view.getByText('$2,000')).toBeTruthy();
+    expect(view.getByText('perp.market_price')).toBeTruthy();
+    expect(view.queryByText('$2,000')).toBeNull();
+    expect(view.getByText('global.price')).toBeTruthy();
+    expect(view.queryByText('perp_spot_reference_price__title')).toBeNull();
     expect(view.getByText('--')).toBeTruthy();
     expect(mockFetchAsset).not.toHaveBeenCalled();
   });
@@ -271,7 +276,8 @@ describe('reverse position confirmation', () => {
       <ReversePositionContent snapshot={mockSnapshot} onClose={mockClose} />,
     );
     expect(view.getByText('$2,148.7')).toBeTruthy();
-    expect(view.getByText('$2,000')).toBeTruthy();
+    expect(view.getByText('perp.market_price')).toBeTruthy();
+    expect(view.queryByText('$2,000')).toBeNull();
   });
 
   it('formats WLD API noise at the coin size precision before doubling', () => {
