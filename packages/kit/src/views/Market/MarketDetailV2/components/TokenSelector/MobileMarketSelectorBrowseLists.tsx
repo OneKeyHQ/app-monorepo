@@ -567,6 +567,7 @@ export function MobileSelectorWatchlistList({
   }, [watchListActions]);
   const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
     watchlist: watchListData ?? [],
+    isWatchlistReady: isMounted,
     dataCacheRef: marketWatchlistDataCacheRef,
     pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,

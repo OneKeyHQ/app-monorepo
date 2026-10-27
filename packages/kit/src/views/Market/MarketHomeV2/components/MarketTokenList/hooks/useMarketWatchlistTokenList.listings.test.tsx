@@ -631,6 +631,17 @@ it('keeps cached rows and holds back only the uncovered listing', async () => {
 
 it('reuses home quotes in the selector without restoring removed favorites', async () => {
   mockStockBatch.mockResolvedValue([stockItem('AAPL'), stockItem('MSFT')]);
+  mockBatch.mockResolvedValue({
+    list: [
+      {
+        address: '0xaave',
+        name: 'Aave',
+        symbol: 'AAVE',
+        decimals: 18,
+        networkId: 'evm--1',
+      },
+    ],
+  });
   mockPerps.mockResolvedValue({
     tokens: [
       {
@@ -652,6 +663,7 @@ it('reuses home quotes in the selector without restoring removed favorites', asy
     { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
     { stockId: 'MSFT', chainId: '', contractAddress: '', sortIndex: 1 },
     { perpsCoin: 'BTC', chainId: '', contractAddress: '', sortIndex: 2 },
+    { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 3 },
   ];
   const home = renderHook(() =>
     useMarketWatchlistTokenList({
@@ -660,22 +672,35 @@ it('reuses home quotes in the selector without restoring removed favorites', asy
       dataCacheRef: marketWatchlistDataCacheRef,
     }),
   );
-  await waitFor(() => expect(home.result.current.data).toHaveLength(3));
+  await waitFor(() => expect(home.result.current.data).toHaveLength(4));
   home.unmount();
 
   mockStockBatch.mockReturnValue(new Promise(() => {}));
   mockPerps.mockReturnValue(new Promise(() => {}));
+  mockBatch.mockReturnValue(new Promise(() => {}));
+  const cachedQuotes = marketWatchlistDataCacheRef.current;
   const selectorWatchlist = watchlist.filter((item) => item.stockId !== 'MSFT');
-  const selector = renderHook(() =>
-    useMarketWatchlistTokenList({
-      watchlist: selectorWatchlist,
-      pollingInterval: 0,
-      dataCacheRef: marketWatchlistDataCacheRef,
-    }),
+  const pendingWatchlist: IMarketWatchListItemV2[] = [];
+  const selector = renderHook(
+    ({ ready }: { ready: boolean }) =>
+      useMarketWatchlistTokenList({
+        watchlist: ready ? selectorWatchlist : pendingWatchlist,
+        isWatchlistReady: ready,
+        pollingInterval: 0,
+        dataCacheRef: marketWatchlistDataCacheRef,
+      }),
+    { initialProps: { ready: false } },
   );
-  expect(selector.result.current.data.map((item) => item.id)).toEqual([
-    'stock:AAPL',
-    'perps_BTC',
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(marketWatchlistDataCacheRef.current).toEqual(cachedQuotes);
+
+  selector.rerender({ ready: true });
+  expect(selector.result.current.data.map((item) => item.symbol)).toEqual([
+    'AAPL',
+    'BTC',
+    'AAVE',
   ]);
   selector.unmount();
 
@@ -686,11 +711,28 @@ it('reuses home quotes in the selector without restoring removed favorites', asy
       dataCacheRef: marketWatchlistDataCacheRef,
     }),
   );
-  expect(reopenedSelector.result.current.data.map((item) => item.id)).toEqual([
-    'stock:AAPL',
-    'perps_BTC',
-  ]);
+  expect(
+    reopenedSelector.result.current.data.map((item) => item.symbol),
+  ).toEqual(['AAPL', 'BTC', 'AAVE']);
   await act(async () => {
     await Promise.resolve();
   });
+});
+
+it('keeps a hydrated empty watchlist empty and clears its quote cache', async () => {
+  const watchlist: IMarketWatchListItemV2[] = [];
+  marketWatchlistDataCacheRef.current = {
+    listing: [{ key: 'stock:AAPL', quote: undefined }],
+  };
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistReady: true,
+      pollingInterval: 0,
+      dataCacheRef: marketWatchlistDataCacheRef,
+    }),
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toEqual([]);
+  expect(marketWatchlistDataCacheRef.current?.listing).toEqual([]);
 });

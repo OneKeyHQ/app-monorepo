@@ -94,6 +94,7 @@ export function useIsWatchlistTokenCacheReady(): boolean {
 
 export interface IUseMarketWatchlistTokenListParams {
   watchlist: IMarketWatchListItemV2[];
+  isWatchlistReady?: boolean;
   initialSortBy?: string;
   initialSortType?: 'asc' | 'desc';
   pageSize?: number;
@@ -173,6 +174,7 @@ function watchlistMountCacheCoversSources(
 
 export function useMarketWatchlistTokenList({
   watchlist,
+  isWatchlistReady = true,
   initialSortBy,
   initialSortType,
   pageSize = 100,
@@ -207,9 +209,15 @@ export function useMarketWatchlistTokenList({
   // previous request.
   const pendingGenerationRef = useRef<string | null>(null);
   const [, setWatchlistFetchEpoch] = useState(0);
-  const hadCachedRowsOnMountRef = useRef(
-    watchlistMountCacheCoversSources(dataCacheRef?.current, watchlist),
-  );
+  const hadCachedRowsOnMountRef = useRef<boolean | undefined>(undefined);
+  // Check coverage once the actual watchlist is known, before any request can
+  // replace the shared cache with a result for the initial empty placeholder.
+  if (isWatchlistReady && hadCachedRowsOnMountRef.current === undefined) {
+    hadCachedRowsOnMountRef.current = watchlistMountCacheCoversSources(
+      dataCacheRef?.current,
+      watchlist,
+    );
+  }
 
   const pageIndex = useCarouselIndex();
 
@@ -233,6 +241,7 @@ export function useMarketWatchlistTokenList({
     run: refetchListings,
   } = usePromiseResult(
     async () => {
+      if (!isWatchlistReady) return undefined;
       const assetItems = listingItems.filter((item) => item.assetId);
       const stockItems = listingItems.filter(
         (item) => !item.assetId && item.stockId,
@@ -280,7 +289,7 @@ export function useMarketWatchlistTokenList({
       }));
       return [...assetQuotes, ...stockQuotes];
     },
-    [listingItems],
+    [isWatchlistReady, listingItems],
     {
       pollingInterval,
       watchLoading: true,
@@ -320,6 +329,7 @@ export function useMarketWatchlistTokenList({
     run: refetchData,
   } = usePromiseResult(
     async () => {
+      if (!isWatchlistReady) return undefined;
       if (!watchlist || watchlist.length === 0) {
         if (isInitialLoad) {
           await new Promise((resolve) => setTimeout(resolve, 300));
@@ -350,7 +360,7 @@ export function useMarketWatchlistTokenList({
         return { list: undefined, failed: true };
       }
     },
-    [watchlist, spotItems, isInitialLoad],
+    [watchlist, spotItems, isInitialLoad, isWatchlistReady],
     {
       pollingInterval,
       watchLoading: true,
@@ -368,6 +378,7 @@ export function useMarketWatchlistTokenList({
     run: refetchPerpsData,
   } = usePromiseResult(
     async () => {
+      if (!isWatchlistReady) return undefined;
       if (perpsItems.length === 0) return null;
       try {
         const [tokenListData, tokenSearchAliases] = await Promise.all([
@@ -386,7 +397,7 @@ export function useMarketWatchlistTokenList({
         };
       }
     },
-    [perpsItems.length],
+    [isWatchlistReady, perpsItems.length],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
@@ -646,6 +657,7 @@ export function useMarketWatchlistTokenList({
 
   useEffect(() => {
     if (
+      isWatchlistReady &&
       isInitialLoad &&
       apiLoading === false &&
       listingLoading === false &&
@@ -656,6 +668,7 @@ export function useMarketWatchlistTokenList({
   }, [
     apiLoading,
     isInitialLoad,
+    isWatchlistReady,
     listingLoading,
     perpsItems.length,
     perpsLoading,
@@ -702,6 +715,7 @@ export function useMarketWatchlistTokenList({
   const sourceHasSettled = (itemCount: number, loading: boolean | undefined) =>
     itemCount === 0 || (watchlistFetchStarted && loading === false);
   const watchlistSourcesSettled =
+    isWatchlistReady &&
     watchlist.length > 0 &&
     sourceHasSettled(spotItems.length, apiLoading) &&
     sourceHasSettled(listingItems.length, listingLoading) &&
@@ -710,7 +724,8 @@ export function useMarketWatchlistTokenList({
     hasCommittedWatchlistRowsRef.current = true;
   }
   const showWatchlistRows =
-    hasCommittedWatchlistRowsRef.current || hadCachedRowsOnMountRef.current;
+    isWatchlistReady &&
+    (hasCommittedWatchlistRowsRef.current || hadCachedRowsOnMountRef.current);
   const displayData = useMemo(
     () => (showWatchlistRows ? sortedData : []),
     [showWatchlistRows, sortedData],
@@ -758,7 +773,7 @@ export function useMarketWatchlistTokenList({
 
   return {
     data: paginatedData,
-    isLoading: isLoading || isHoldingWatchlistFirstPaint,
+    isLoading: !isWatchlistReady || isLoading || isHoldingWatchlistFirstPaint,
     isError,
     isLoadingMore,
     isNetworkSwitching: false,
