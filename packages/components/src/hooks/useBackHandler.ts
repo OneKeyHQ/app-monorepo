@@ -26,6 +26,12 @@ const trackEscapePresses = () => {
   );
 };
 
+// A layer that closes on a press its own text field answers (the field stops
+// the keydown before the window) claims the press with this
+export const claimEscapePress = () => {
+  isEscapePressClaimed = true;
+};
+
 export const useBackHandler = (
   callback: () => boolean = stopDefaultBackHandler,
   enable: boolean | undefined = true,

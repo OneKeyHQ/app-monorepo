@@ -3,7 +3,7 @@
  */
 import { act, renderHook } from '@testing-library/react';
 
-import { useBackHandler } from './useBackHandler';
+import { claimEscapePress, useBackHandler } from './useBackHandler';
 
 // A press on an element in the page: down then up, bubbling to the window
 const pressEscape = (target: EventTarget = globalThis.document.body) => {
@@ -82,6 +82,28 @@ describe('useBackHandler on web', () => {
 
     pressEscape();
     expect(keyDownHandler).toHaveBeenCalledTimes(1);
+    expect(closeModal).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves a press a text field claimed to the field alone', () => {
+    const closeList = jest.fn();
+    const closeModal = jest.fn(() => true);
+    renderHook(() => useBackHandler(closeModal, true, false));
+
+    // A popover's search field answers the press itself
+    const input = globalThis.document.createElement('input');
+    input.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      claimEscapePress();
+      closeList();
+    });
+    globalThis.document.body.appendChild(input);
+    pressEscape(input);
+    expect(closeList).toHaveBeenCalledTimes(1);
+    expect(closeModal).not.toHaveBeenCalled();
+    input.remove();
+
+    pressEscape();
     expect(closeModal).toHaveBeenCalledTimes(1);
   });
 

@@ -9,6 +9,7 @@ import type {
 
 import { ModalAssetDetailsStack } from '../../AssetDetails/router';
 import { EARN_GUIDE_MODAL_SIZE } from '../../Earn/components/desktopHome/earnGuide.utils';
+import { EARN_LOAN_MODAL_SIZE } from '../../Earn/pages/EarnLoanRouter/loanRouterModal';
 import { EARN_PAY_WITH_PICKER_SIZE } from '../../Earn/pages/EarnRouter/earnPayWithPickerData';
 import { EARN_OFFERS_MODAL_WIDTH } from '../../Earn/pages/EarnRouter/earnRouter.utils';
 
@@ -50,6 +51,13 @@ const EarnPayWithTokenSelect = LazyLoad(
 // Loaded while a deposit form with Pay with shows, the same way
 export const preloadEarnPayWithTokenSelect = () =>
   EarnPayWithTokenSelect.preload();
+
+const EarnLoanRouter = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnLoanRouter'),
+);
+// Loaded as a Loans row is pointed at, so the modal's first open doesn't
+// suspend
+export const preloadEarnLoanRouter = () => EarnLoanRouter.preload();
 
 const EarnPayWithTokenRisk = LazyLoad(
   () =>
@@ -164,6 +172,26 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.BorrowManagePosition,
     component: BorrowManagePosition,
     exact: true,
+  },
+  {
+    name: EModalStakingRoutes.EarnLoanRouter,
+    component: EarnLoanRouter,
+    // Taller than the usual 640: the page fits its height to what it holds
+    // up to this. The size goes here, as the navigator sets it over the
+    // options
+    modalContentMaxHeight: EARN_LOAN_MODAL_SIZE.height,
+    // Wide with the markets beside the form; the done view's one column at
+    // the usual width
+    options: ({ route }) => ({
+      modalContentMaxWidth:
+        (
+          route.params as
+            | IModalStakingParamList[EModalStakingRoutes.EarnLoanRouter]
+            | undefined
+        )?.wide === false
+          ? undefined
+          : EARN_LOAN_MODAL_SIZE.width,
+    }),
   },
   {
     name: EModalStakingRoutes.EarnGuide,

@@ -52,9 +52,9 @@ export function easeModalHeightChanges() {
   easeChangesUntil = performance.now() + SWITCH_EASE_WINDOW_MS;
 }
 
-// Modals this has sized: coming back to one (History closed) eases from
-// where it is instead of jumping
-const sizedModals = new WeakSet<HTMLElement>();
+// Modals this has sized, with the height each may grow to: coming back to
+// one (History closed) eases from where it is instead of jumping
+const sizedModals = new WeakMap<HTMLElement, number>();
 
 /**
  * How much taller the modal holding a node can still grow to fit what it
@@ -64,11 +64,12 @@ const sizedModals = new WeakSet<HTMLElement>();
  */
 export function getModalRoomToGrow(node: HTMLElement): number {
   const modal = node.closest<HTMLElement>(MODAL_SCREEN_SELECTOR);
-  if (!modal || !sizedModals.has(modal)) {
+  const maxHeight = modal ? sizedModals.get(modal) : undefined;
+  if (!modal || maxHeight === undefined) {
     return 0;
   }
   const largest = Math.ceil(
-    Math.min(MODAL_MAX_HEIGHT, window.innerHeight * MODAL_MAX_WINDOW_SHARE),
+    Math.min(maxHeight, window.innerHeight * MODAL_MAX_WINDOW_SHARE),
   );
   return Math.max(0, largest - modal.offsetHeight);
 }
@@ -187,9 +188,13 @@ function releaseModal(
  * only sets the modal's max size and resets it on every stack change, so
  * this sets its height. Another page pushed in the same modal (History) gets
  * the usual size back; a modal opened over it (Pay with's picker) leaves it
- * as it is, to grow out of it and shrink back into it
+ * as it is, to grow out of it and shrink back into it. A route that declares
+ * a taller modal (modalContentMaxHeight) passes the same height as maxHeight
  */
-export function useFitModalHeight(enabled = true) {
+export function useFitModalHeight(
+  enabled = true,
+  maxHeight: number = MODAL_MAX_HEIGHT,
+) {
   const { gtMd } = useMedia();
   const isFocused = useIsFocused();
   // Still the top page of its own modal, with another modal over it
@@ -273,7 +278,7 @@ export function useFitModalHeight(enabled = true) {
       return Math.ceil(
         Math.min(
           desired,
-          MODAL_MAX_HEIGHT,
+          maxHeight,
           window.innerHeight * MODAL_MAX_WINDOW_SHARE,
         ),
       );
@@ -293,7 +298,7 @@ export function useFitModalHeight(enabled = true) {
       if (anchorHeight !== undefined) {
         const largest = Math.min(
           containerHeight * MODAL_MAX_WINDOW_SHARE,
-          MODAL_MAX_HEIGHT,
+          maxHeight,
         );
         const anchoredTop = (containerHeight - anchorHeight) / 2;
         const riseAtLargest = Math.max(
@@ -334,7 +339,7 @@ export function useFitModalHeight(enabled = true) {
         // The height it opens at, not a change to animate. Back from a page
         // pushed on top, it eases from the size it has
         const current = sizedModals.has(modal) ? modal.offsetHeight : 0;
-        sizedModals.add(modal);
+        sizedModals.set(modal, maxHeight);
         target = next;
         if (current && !reduceMotion && Math.abs(next - current) >= 1) {
           jumpFrom = next - current;
@@ -456,7 +461,7 @@ export function useFitModalHeight(enabled = true) {
         releaseModal(modal, container, reduceMotion);
       }
     };
-  }, [content, isActive, reduceMotion]);
+  }, [content, isActive, maxHeight, reduceMotion]);
 
   return contentRef;
 }

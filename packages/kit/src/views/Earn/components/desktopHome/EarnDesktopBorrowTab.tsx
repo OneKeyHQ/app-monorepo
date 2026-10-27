@@ -25,10 +25,12 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { preloadModalNavigator } from '@onekeyhq/kit/src/routes/Modal/lazyModalNavigator';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
+import { preloadEarnLoanRouter } from '../../../Staking/router';
 import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
 
@@ -303,6 +305,14 @@ function PairIcons({ pair }: { pair: IEarnDesktopLoanPair }) {
   );
 }
 
+// The Loans router's modal and the navigator it opens in, loaded as a row is
+// pointed at, so its first open doesn't wait for them. A failure is left to
+// the open, which loads them again
+function warmLoanRouter() {
+  preloadModalNavigator().catch(() => undefined);
+  preloadEarnLoanRouter().catch(() => undefined);
+}
+
 function BasicPairRow({
   pair,
   isWide,
@@ -324,7 +334,10 @@ function BasicPairRow({
       gap={ROW_GAP}
       userSelect="none"
       onPress={onPress}
-      onHoverIn={() => setIsHovered(true)}
+      onHoverIn={() => {
+        setIsHovered(true);
+        warmLoanRouter();
+      }}
       onHoverOut={() => setIsHovered(false)}
       {...buildKeyboardPressProps(onPress)}
     >
@@ -431,6 +444,7 @@ function BasicPairRow({
 // The tab re-renders when the page loses or regains focus (a modal opening
 // or closing); the rows keep their render unless their pair changed
 const PairRow = memo(BasicPairRow);
+
 const getPairKey = (pair: IEarnDesktopLoanPair) => pair.key;
 
 function MoreRows({ count, onPress }: { count: number; onPress: () => void }) {

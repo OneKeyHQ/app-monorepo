@@ -12,8 +12,8 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Icon,
+  Page,
   SizableText,
   Stack,
   XStack,
@@ -29,10 +29,10 @@ import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
-  ETabEarnRoutes,
-  ITabEarnParamList,
+  EModalStakingRoutes,
+  IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -45,16 +45,17 @@ import {
   EarnFormRow,
   EarnFormSummary,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
+import { useFitModalHeight } from '../../../Staking/hooks/useFitModalHeight';
 import { EARN_DESKTOP_LOAN_LTV } from '../../components/desktopHome/earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { useEarnDesktopMarkets } from '../../components/desktopHome/useEarnDesktopHomeData';
-import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
 import {
   EarnDoneHeader,
   formatDoneAmount,
 } from '../EarnRouter/EarnDepositDone';
+import { EARN_OFFER_ROUTES_COLUMN_WIDTH } from '../EarnRouter/earnRouter.utils';
 
 import { LoanLtvBar } from './LoanLtvBar';
 import {
@@ -68,6 +69,7 @@ import {
   pickLoanBorrowSymbol,
   rankLoanRoutes,
 } from './loanRouter.utils';
+import { EARN_LOAN_MODAL_SIZE } from './loanRouterModal';
 import {
   LoanPairTitle,
   LoanRouteList,
@@ -95,11 +97,7 @@ import type { ILoanRunDone, ILoanRunPlan } from './useLoanRouterRun';
 // picked in place and the loan is taken right here: one press supplies the
 // collateral, then borrows
 
-type IRouteParams = ITabEarnParamList[ETabEarnRoutes.EarnLoanRouter];
-
-// The form's column beside the markets: the table keeps room for a market's
-// whole name inside the page's margins
-const FORM_WIDTH = 400;
+type IRouteParams = IModalStakingParamList[EModalStakingRoutes.EarnLoanRouter];
 
 const toBigNumber = (value?: string) => {
   const parsed = new BigNumber(value ?? '');
@@ -287,13 +285,17 @@ function PositionValue({
 function EarnLoanRouterPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnLoanRouter>();
+  const route = useAppRoute<
+    IModalStakingParamList,
+    EModalStakingRoutes.EarnLoanRouter
+  >();
   const {
     collateral: routeCollateral,
     borrow: routeBorrow,
     routeKey,
+    wide,
   } = route.params as IRouteParams;
-  const { gtSm, gtLg, gtXl } = useMedia();
+  const { gtLg } = useMedia();
   const currencyInfo = useCurrency();
   const currency = currencyInfo.symbol;
 
@@ -1068,78 +1070,73 @@ function EarnLoanRouterPage() {
       run.phase === 'landing' ||
       run.phase === 'borrowing');
 
-  const actionArea = (
-    <YStack gap="$3">
-      {showsProgress ? (
-        <StakeProgress
-          currentStep={progressStep}
-          step1Label={
-            run.hasApprovalStep
-              ? intl.formatMessage({ id: ETranslations.global_approve })
-              : intl.formatMessage({ id: ETranslations.defi_supply })
-          }
-          step2Label={
-            run.hasApprovalStep
-              ? intl.formatMessage({ id: ETranslations.defi_supply })
-              : intl.formatMessage({ id: ETranslations.global_borrow })
-          }
-          step3LabelId={
-            run.hasApprovalStep ? ETranslations.global_borrow : undefined
-          }
-          isRunning
-        />
-      ) : null}
-      {run.phase === 'landing' ? (
-        <SizableText size="$bodyMd" color="$textSubdued">
+  // What the press leads to, over the button: the steps show in the footer
+  const notes = (() => {
+    const lines = [
+      run.phase === 'landing' ? (
+        <SizableText key="landing" size="$bodyMd" color="$textSubdued">
           {EARN_DESKTOP_DEMO_COPY.loanLanding}
         </SizableText>
-      ) : null}
-      {suppliedNote && !isLocked ? (
+      ) : null,
+      suppliedNote && !isLocked ? (
         <SizableText
+          key="supplied"
           testID="earn-loan-supplied-note"
           size="$bodyMd"
           color="$textSubdued"
         >
           {suppliedNote}
         </SizableText>
-      ) : null}
-      {blockText && !isLocked ? (
+      ) : null,
+      blockText && !isLocked ? (
         <SizableText
+          key="block"
           testID="earn-loan-block"
           size="$bodyMd"
           style={{ color: toneColors.text.caution }}
         >
           {blockText}
         </SizableText>
-      ) : null}
-      <Button
-        testID="earn-loan-submit"
-        size="large"
-        variant="primary"
-        disabled={!canStart && !run.isRunning}
-        loading={run.isRunning}
-        onPress={handlePress}
-      >
-        {buttonText}
-      </Button>
-    </YStack>
-  );
+      ) : null,
+    ].filter(isElement);
+    return lines.length ? <YStack gap="$3">{lines}</YStack> : null;
+  })();
+  const progress = showsProgress ? (
+    <StakeProgress
+      currentStep={progressStep}
+      step1Label={
+        run.hasApprovalStep
+          ? intl.formatMessage({ id: ETranslations.global_approve })
+          : intl.formatMessage({ id: ETranslations.defi_supply })
+      }
+      step2Label={
+        run.hasApprovalStep
+          ? intl.formatMessage({ id: ETranslations.defi_supply })
+          : intl.formatMessage({ id: ETranslations.global_borrow })
+      }
+      step3LabelId={
+        run.hasApprovalStep ? ETranslations.global_borrow : undefined
+      }
+      isRunning
+    />
+  ) : null;
 
   // ---------- Done ----------
 
+  // Both close the modal, as the deposit modal's do
   const handleFinish = useCallback(() => {
-    setDone(undefined);
-    setCollateralAmount('');
-    setTypedBorrow(undefined);
-    setDraggedLtv(undefined);
-    resetRun();
-    void refresh();
-  }, [refresh, resetRun]);
+    navigation.popStack();
+  }, [navigation]);
   const handleOpenPortfolio = useCallback(() => {
+    navigation.popStack();
+    if (platformEnv.isNative) {
+      EarnNavigation.pushToEarnPositions(navigation);
+      return;
+    }
     void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
   }, [navigation]);
   const doneView = done ? (
-    <YStack testID="earn-loan-done" gap="$8" py="$6">
+    <YStack testID="earn-loan-done" py="$6">
       <EarnDoneHeader
         line={EARN_DESKTOP_DEMO_COPY.loanDone(
           formatDoneAmount(
@@ -1155,63 +1152,35 @@ function EarnLoanRouterPage() {
             : undefined,
         )}
       />
-      <XStack gap="$3">
-        <Button
-          testID="earn-loan-done-portfolio"
-          flex={1}
-          size="large"
-          variant="secondary"
-          onPress={handleOpenPortfolio}
-        >
-          {intl.formatMessage({ id: ETranslations.earn_my_portfolio__title })}
-        </Button>
-        <Button
-          testID="earn-loan-done-finish"
-          flex={1}
-          size="large"
-          variant="primary"
-          onPress={handleFinish}
-        >
-          {intl.formatMessage({ id: ETranslations.global_done })}
-        </Button>
-      </XStack>
     </YStack>
   ) : null;
 
-  // ---------- The page ----------
+  // ---------- The modal ----------
 
-  const breadcrumbProps = useMemo(
-    () => ({
-      items: [
-        {
-          label: intl.formatMessage({ id: ETranslations.global_earn }),
-          onClick: () => {
-            void EarnNavigation.popToEarnHome(navigation);
-          },
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.earn_loans }),
-          onClick: () => {
-            void EarnNavigation.popToEarnHome(navigation);
-          },
-        },
-        { label: `${collateralSymbol} / ${borrowSymbol}` },
-      ],
-    }),
-    [borrowSymbol, collateralSymbol, intl, navigation],
-  );
-  const pageTitle = (
-    <LoanPairTitle
-      collateral={{ symbol: collateralSymbol, logoURI: collateralLogo }}
-      borrow={{ symbol: borrowSymbol, logoURI: borrowLogo }}
-    />
+  // The markets beside the form where the window holds them; under the LTV
+  // bar otherwise, as on a phone, in a modal of the usual width. The done
+  // view is one column at the usual width too
+  const isBeside = gtLg && !done;
+  useEffect(() => {
+    if ((wide !== false) !== isBeside) {
+      navigation.setParams({ wide: isBeside });
+    }
+  }, [isBeside, navigation, wide]);
+  const fitModalRef = useFitModalHeight(true, EARN_LOAN_MODAL_SIZE.height);
+  const renderTitle = useCallback(
+    () => (
+      <LoanPairTitle
+        collateral={{ symbol: collateralSymbol, logoURI: collateralLogo }}
+        borrow={{ symbol: borrowSymbol, logoURI: borrowLogo }}
+      />
+    ),
+    [borrowLogo, borrowSymbol, collateralLogo, collateralSymbol],
   );
 
   const routeList = (
     <LoanRouteList
       items={items}
       selectedKey={isPickListed ? pickedKey : undefined}
-      isWide={gtXl}
       isLoading={!isMarketsLoaded}
       currency={currency}
       emptyText={EARN_DESKTOP_DEMO_COPY.loanNoMarket(
@@ -1250,45 +1219,89 @@ function EarnLoanRouterPage() {
         {borrowBox}
         {ltvBlock}
       </YStack>
-      {gtLg ? null : routeList}
+      {isBeside ? null : routeList}
       {summary}
       {positionBlock}
-      {actionArea}
+      {notes}
     </YStack>
   );
 
-  return (
-    <EarnPageContainer
-      pageTitle={pageTitle}
-      breadcrumbProps={breadcrumbProps}
-      sceneName={EAccountSelectorSceneName.home}
-      tabRoute={ETabRoutes.Earn}
-      showBackButton
-    >
-      {gtSm ? null : (
-        <XStack px="$pagePadding" pt="$2" pb="$5">
-          {pageTitle}
-        </XStack>
-      )}
-      <XStack
-        testID="earn-loan-router"
-        gap="$8"
-        ai="flex-start"
-        flexDirection={gtLg ? 'row' : 'column'}
-        px="$pagePadding"
-        pt="$2"
-        pb="$10"
+  const footer = done ? (
+    <Page.Footer>
+      <Page.FooterActions
+        onCancelText={intl.formatMessage({
+          id: ETranslations.earn_my_portfolio__title,
+        })}
+        onCancel={handleOpenPortfolio}
+        onConfirmText={intl.formatMessage({ id: ETranslations.global_done })}
+        onConfirm={handleFinish}
+        cancelButtonProps={{ testID: 'earn-loan-done-portfolio' }}
+        confirmButtonProps={{ testID: 'earn-loan-done-finish' }}
+      />
+    </Page.Footer>
+  ) : (
+    // As the deposit modal's: the steps on the left while they run, the
+    // button on the right
+    <Page.Footer>
+      <Stack
+        bg="$bgApp"
+        flexDirection="column"
+        $gtMd={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          jc: 'space-between',
+        }}
       >
-        <YStack w={gtLg ? FORM_WIDTH : '100%'} flexShrink={0}>
-          {form}
+        {progress ? (
+          <Stack pl="$5" $md={{ pt: '$5' }}>
+            {progress}
+          </Stack>
+        ) : (
+          <Stack />
+        )}
+        <Page.FooterActions
+          onConfirmText={buttonText}
+          confirmButtonProps={{
+            testID: 'earn-loan-submit',
+            onPress: handlePress,
+            loading: run.isRunning,
+            disabled: !canStart && !run.isRunning,
+          }}
+        />
+      </Stack>
+    </Page.Footer>
+  );
+
+  return (
+    <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
+      <Page.Header headerTitle={renderTitle} />
+      <Page.Body>
+        {/* What the modal fits its height to, up to its size */}
+        <YStack ref={fitModalRef}>
+          {isBeside && !done ? (
+            <XStack testID="earn-loan-router" ai="flex-start">
+              <YStack flex={1} minWidth={0} px="$5" pt="$2.5" pb="$5">
+                {form}
+              </YStack>
+              <YStack
+                w={EARN_OFFER_ROUTES_COLUMN_WIDTH}
+                flexShrink={0}
+                pt="$2.5"
+                pb="$5"
+                pr="$5"
+              >
+                {routeList}
+              </YStack>
+            </XStack>
+          ) : (
+            <YStack testID="earn-loan-router" px="$5" pt="$2.5" pb="$5">
+              {form}
+            </YStack>
+          )}
         </YStack>
-        {gtLg ? (
-          <YStack flex={1} minWidth={0}>
-            {routeList}
-          </YStack>
-        ) : null}
-      </XStack>
-    </EarnPageContainer>
+      </Page.Body>
+      {footer}
+    </Page>
   );
 }
 

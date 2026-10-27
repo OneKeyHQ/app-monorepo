@@ -16,6 +16,7 @@ import {
   ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabRoutes,
+  type IModalStakingParamList,
   type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -146,8 +147,7 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnProtocols ||
     route === ETabEarnRoutes.EarnProtocolDetails ||
     route === ETabEarnRoutes.EarnProtocolDetailsShare ||
-    route === ETabEarnRoutes.EarnLendingDetails ||
-    route === ETabEarnRoutes.EarnLoanRouter;
+    route === ETabEarnRoutes.EarnLendingDetails;
   if (shouldSwitchToEarnMode) {
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
   }
@@ -604,12 +604,16 @@ export const EarnNavigation = {
     );
   },
 
-  // A collateral and a loan, and every market that takes them (demo 10-27)
+  // A collateral and a loan, and every market that takes them, in a modal
+  // as the deposit's (demo 10-27)
   pushToEarnLoanRouter(
     navigation: IAppNavigation,
-    params: ITabEarnParamList[ETabEarnRoutes.EarnLoanRouter],
+    params: IModalStakingParamList[EModalStakingRoutes.EarnLoanRouter],
   ) {
-    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnLoanRouter, params);
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.EarnLoanRouter,
+      params,
+    });
   },
 
   pushToEarnProtocolDetailsShare(

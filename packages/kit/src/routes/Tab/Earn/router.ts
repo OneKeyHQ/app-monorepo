@@ -40,10 +40,6 @@ const EarnLendingDetails = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnLendingDetails'),
 );
 
-const EarnLoanRouter = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnLoanRouter'),
-);
-
 const BorrowReserveDetails = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
@@ -115,11 +111,6 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabEarnRoutes.EarnLendingDetails,
     component: EarnLendingDetails,
-    headerShown: !platformEnv.isNative,
-  },
-  {
-    name: ETabEarnRoutes.EarnLoanRouter,
-    component: EarnLoanRouter,
     headerShown: !platformEnv.isNative,
   },
   {

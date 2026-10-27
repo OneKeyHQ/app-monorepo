@@ -44,6 +44,8 @@ export enum EModalStakingRoutes {
   EarnPayWithTokenSelect = 'EarnPayWithTokenSelect',
   // Swap's risk reminder, pushed in the picker's own modal as Swap does
   EarnPayWithTokenRisk = 'EarnPayWithTokenRisk',
+  // A Loans row's pair in every market that takes it (demo 10-27)
+  EarnLoanRouter = 'EarnLoanRouter',
 }
 
 type IBaseRouteParams = {
@@ -161,6 +163,16 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.EarnPayWithTokenRisk]: IModalSwapParamList[EModalSwapRoutes.TokenRiskReminder] & {
     // The picker's height, which the reminder keeps (see the picker's)
     modalHeight?: number;
+  };
+  // A collateral and a loan, and every market that takes the pair, opened
+  // from a Loans row on the desktop DeFi home. routeKey is the row's pair
+  // key, the market it showed. Wide, with the markets beside the form, until
+  // the done view sets wide to false
+  [EModalStakingRoutes.EarnLoanRouter]: {
+    collateral: string;
+    borrow: string;
+    routeKey?: string;
+    wide?: boolean;
   };
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;

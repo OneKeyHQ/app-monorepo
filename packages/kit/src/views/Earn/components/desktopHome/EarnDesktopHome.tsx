@@ -507,16 +507,19 @@ export function EarnDesktopHome({
     },
     [navigation],
   );
-  // A Loans row: the pair in the Loans router, on the row's market
+  // A Loans row: the pair in the Loans router, on the row's market. The
+  // modal opens wide where the window holds the markets beside the form
+  const isLoanRouterWide = media.gtLg;
   const handleOpenLoanPair = useCallback(
     (pair: IEarnDesktopLoanPair) => {
       EarnNavigation.pushToEarnLoanRouter(navigation, {
         collateral: pair.collateral.symbol,
         borrow: pair.borrow.symbol,
         routeKey: pair.key,
+        wide: isLoanRouterWide,
       });
     },
-    [navigation],
+    [isLoanRouterWide, navigation],
   );
 
   const bannerCount = bannerList.filter(

@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  claimEscapePress,
 } from '@onekeyhq/components';
 import type { IColorTokens } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -146,6 +147,9 @@ export function LoanTokenList({
             onChangeText={setSearch}
             onKeyPress={(event) => {
               if (event.nativeEvent.key === 'Escape') {
+                // The field keeps the press from the popover: the list
+                // closes, the modal under it stays
+                claimEscapePress();
                 closePopover();
               }
             }}
@@ -215,29 +219,11 @@ export type ILoanRouteItem = {
   metrics: ILoanRouteMetrics;
 };
 
-// The table's columns, header and rows alike: the figures keep their width,
-// the market's name gives way
-const COLUMNS = {
-  market: { flex: 1, minWidth: 0 },
-  netApy: { w: 76, flexShrink: 0, ai: 'flex-end' },
-  supply: { w: 76, flexShrink: 0, ai: 'flex-end' },
-  borrow: { w: 76, flexShrink: 0, ai: 'flex-end' },
-  available: { w: 76, flexShrink: 0, ai: 'flex-end' },
-  maxLtv: { w: 60, flexShrink: 0, ai: 'flex-end' },
-} as const;
-const COLUMN_GAP = '$3';
 // Under the market's name, past its logo
-const REASON_INDENT = '$12';
+const FIGURES_INDENT = '$12';
 const CHECK_SIZE = '$6';
-export const LOAN_ROUTE_ROW_HEIGHT = 68;
-
-function HeaderLabel({ children }: { children: string }) {
-  return (
-    <SizableText size="$bodySmMedium" color="$textSubdued" numberOfLines={1}>
-      {children}
-    </SizableText>
-  );
-}
+// A card with its figures, for the skeletons while the markets load
+export const LOAN_ROUTE_CARD_HEIGHT = 112;
 
 const netApyColor = (value?: number): IColorTokens | undefined =>
   value !== undefined && value < 0 ? '$textCritical' : undefined;
@@ -281,20 +267,42 @@ function RouteCheck({
   );
 }
 
+// A figure the table had a column for, its name over it; every card has the
+// same three, so they line up from card to card
+function RouteFigure({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: IColorTokens;
+}) {
+  return (
+    <YStack flex={1} minWidth={0} gap="$0.5">
+      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+        {label}
+      </SizableText>
+      <SizableText size="$bodyMd" color={color} numberOfLines={1}>
+        {value}
+      </SizableText>
+    </YStack>
+  );
+}
+
 function RouteRow({
   item,
   isSelected,
-  isWide,
   currency,
   onSelect,
 }: {
   item: ILoanRouteItem;
   isSelected: boolean;
-  isWide: boolean;
   currency: string;
   onSelect: (key: string) => void;
 }) {
-  const { route, facts, metrics } = item;
+  const intl = useIntl();
+  const { route, metrics } = item;
   const { block } = metrics;
   const isBlocked = Boolean(block);
   const toneText = useLoanToneColors().text;
@@ -314,91 +322,68 @@ function RouteRow({
   // Where the plan's Net APY doesn't hold (the market's position carries
   // part of the loan), what it makes or costs a year
   const yearly = metrics.netApy === undefined ? metrics.annualNet : undefined;
-  const netApy = (
-    <SizableText
-      size="$bodyLgMedium"
-      color={textColor ?? netApyColor(yearly ?? metrics.netApy)}
-      numberOfLines={1}
-    >
-      {yearly !== undefined
-        ? formatLoanNet(yearly, currency)
-        : formatLoanPercent(metrics.netApy)}
-    </SizableText>
-  );
-  const perYear =
-    yearly !== undefined ? (
-      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-        {EARN_DESKTOP_DEMO_COPY.aYear}
-      </SizableText>
-    ) : null;
-  const figure = (text: string) => (
-    <SizableText size="$bodyMd" color={textColor} numberOfLines={1}>
-      {text}
-    </SizableText>
-  );
   return (
     <YStack
       testID={`earn-loan-route-${route.key}`}
-      gap="$1.5"
+      gap="$3"
       px="$4"
-      py="$3"
-      minHeight={LOAN_ROUTE_ROW_HEIGHT}
-      jc="center"
+      py="$3.5"
       bg={isSelected ? '$bgActive' : '$bgSubdued'}
       borderRadius="$3"
       borderCurve="continuous"
       userSelect="none"
       {...pressProps}
     >
-      <XStack ai="center" gap={COLUMN_GAP}>
+      <XStack ai="center" gap="$3">
         <MarketCell route={route} />
-        {isWide ? (
-          <>
-            <YStack {...COLUMNS.netApy}>
-              {netApy}
-              {perYear}
-            </YStack>
-            <YStack {...COLUMNS.supply}>
-              {figure(formatLoanPercent(route.collateral.supplyApy))}
-            </YStack>
-            <YStack {...COLUMNS.borrow}>
-              {figure(formatLoanPercent(route.borrow.borrowApy))}
-            </YStack>
-            <YStack {...COLUMNS.available}>
-              {figure(
-                facts?.liquidity
-                  ? formatCompactFiat(facts.liquidity, currency)
-                  : '–',
-              )}
-            </YStack>
-            {/* The limit the form and the reasons go by */}
-            <YStack {...COLUMNS.maxLtv}>
-              {figure(
-                metrics.maxLtv !== undefined && !isLendingClosed(block)
-                  ? formatLoanLtv(metrics.maxLtv)
-                  : '–',
-              )}
-            </YStack>
-          </>
-        ) : (
-          <YStack ai="flex-end" flexShrink={0} gap="$0.5">
-            <XStack ai="baseline" gap="$1">
-              {netApy}
-              {perYear}
-            </XStack>
-            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {`${formatLoanPercent(route.borrow.borrowApy)} ${route.borrow.symbol}`}
-            </SizableText>
-          </YStack>
-        )}
+        {/* What the plan makes here, named under it */}
+        <YStack ai="flex-end" flexShrink={0} gap="$0.5">
+          <SizableText
+            size="$bodyLgMedium"
+            color={textColor ?? netApyColor(yearly ?? metrics.netApy)}
+            numberOfLines={1}
+          >
+            {yearly !== undefined
+              ? formatLoanNet(yearly, currency)
+              : formatLoanPercent(metrics.netApy)}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {yearly !== undefined
+              ? EARN_DESKTOP_DEMO_COPY.aYear
+              : intl.formatMessage({ id: ETranslations.defi_net_apy })}
+          </SizableText>
+        </YStack>
         <RouteCheck isSelected={isSelected} isBlocked={isBlocked} />
       </XStack>
-      {/* Why the market can't take the loan, under its name */}
+      <XStack pl={FIGURES_INDENT} pr="$9" gap="$3">
+        <RouteFigure
+          label={intl.formatMessage({ id: ETranslations.defi_supply_apy })}
+          value={formatLoanPercent(route.collateral.supplyApy)}
+          color={textColor}
+        />
+        <RouteFigure
+          label={intl.formatMessage({ id: ETranslations.defi_borrow_apy })}
+          value={formatLoanPercent(route.borrow.borrowApy)}
+          color={textColor}
+        />
+        {/* The limit the form and the reasons go by */}
+        <RouteFigure
+          label={intl.formatMessage({ id: ETranslations.defi_max_ltv })}
+          value={
+            metrics.maxLtv !== undefined && !isLendingClosed(block)
+              ? formatLoanLtv(metrics.maxLtv)
+              : '–'
+          }
+          color={textColor}
+        />
+      </XStack>
+      {/* Why the market can't take the loan, the market's liquidity among
+          the reasons */}
       {block ? (
         <SizableText
           size="$bodySm"
           style={{ color: toneText.caution }}
-          pl={REASON_INDENT}
+          pl={FIGURES_INDENT}
           testID={`earn-loan-route-block-${route.key}`}
         >
           {getLoanBlockText({ block, route, currency })}
@@ -409,14 +394,13 @@ function RouteRow({
 }
 
 /**
- * Every market for the pair, as the Swap page lists its routes and the
- * Loans list its rows: the one picked lighter with a check. Those that can't
- * take the loan come last, with why, and can't be picked
+ * Every market for the pair, as the deposit modal lists its protocols: each
+ * a card, the one picked lighter with a check. Those that can't take the
+ * loan come last, with why, and can't be picked
  */
 export function LoanRouteList({
   items,
   selectedKey,
-  isWide,
   isLoading,
   currency,
   emptyText,
@@ -424,7 +408,6 @@ export function LoanRouteList({
 }: {
   items: ILoanRouteItem[];
   selectedKey?: string;
-  isWide: boolean;
   isLoading: boolean;
   currency: string;
   emptyText: string;
@@ -437,7 +420,7 @@ export function LoanRouteList({
         {[0, 1, 2].map((index) => (
           <Skeleton
             key={index}
-            h={LOAN_ROUTE_ROW_HEIGHT}
+            h={LOAN_ROUTE_CARD_HEIGHT}
             w="100%"
             borderRadius="$3"
           />
@@ -467,48 +450,11 @@ export function LoanRouteList({
       aria-label={intl.formatMessage({ id: ETranslations.global_market })}
       gap="$2"
     >
-      {isWide ? (
-        <XStack ai="center" gap={COLUMN_GAP} px="$4" pb="$1">
-          <XStack {...COLUMNS.market}>
-            <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.global_market })}
-            </HeaderLabel>
-          </XStack>
-          <YStack {...COLUMNS.netApy}>
-            <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.defi_net_apy })}
-            </HeaderLabel>
-          </YStack>
-          <YStack {...COLUMNS.supply}>
-            <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.defi_supply_apy })}
-            </HeaderLabel>
-          </YStack>
-          <YStack {...COLUMNS.borrow}>
-            <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.defi_borrow_apy })}
-            </HeaderLabel>
-          </YStack>
-          <YStack {...COLUMNS.available}>
-            {/* What the market has left to lend, as the details page names it */}
-            <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.global_liquidity })}
-            </HeaderLabel>
-          </YStack>
-          <YStack {...COLUMNS.maxLtv}>
-            <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.defi_max_ltv })}
-            </HeaderLabel>
-          </YStack>
-          <Stack w={CHECK_SIZE} flexShrink={0} />
-        </XStack>
-      ) : null}
       {items.map((item) => (
         <RouteRow
           key={item.route.key}
           item={item}
           isSelected={item.route.key === selectedKey}
-          isWide={isWide}
           currency={currency}
           onSelect={onSelect}
         />
@@ -527,19 +473,19 @@ export function LoanPairTitle({
   borrow: { symbol: string; logoURI?: string };
 }) {
   return (
-    <XStack gap="$3" ai="center">
+    <XStack gap="$2" ai="center">
       <XStack>
-        <Token size="md" tokenImageUri={collateral.logoURI} />
+        <Token size="sm" tokenImageUri={collateral.logoURI} />
         <Stack
-          ml="$-2.5"
+          ml="$-2"
           borderRadius="$full"
           borderWidth={2}
           borderColor="$bgApp"
         >
-          <Token size="md" tokenImageUri={borrow.logoURI} />
+          <Token size="sm" tokenImageUri={borrow.logoURI} />
         </Stack>
       </XStack>
-      <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
+      <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
         {`${collateral.symbol} / ${borrow.symbol}`}
       </SizableText>
     </XStack>

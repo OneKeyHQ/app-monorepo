@@ -349,7 +349,8 @@ function RawPopover({
 
   useDismissKeyboard(isOpen);
 
-  useBackHandler(handleBackPress);
+  // Escape closes the popover only, not the modal under it
+  useBackHandler(handleBackPress, true, true, true);
 
   const getMaxScrollViewHeight = useCallback(() => {
     if (platformEnv.isNative) {
