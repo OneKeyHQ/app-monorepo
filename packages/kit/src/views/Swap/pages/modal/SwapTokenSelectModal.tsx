@@ -44,6 +44,7 @@ import {
   useSwapAllNetworkTokenListStatusAtom,
   useSwapNetworksAtom,
   useSwapNetworksIncludeAllNetworkAtom,
+  useSwapRecentTokenPairSelectionAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
@@ -355,6 +356,8 @@ const SwapTokenSelectPage = ({
   const swapAllSupportNetworks = swapNetworksIncludeAllNetwork;
   const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [, setSwapRecentTokenPairSelection] =
+    useSwapRecentTokenPairSelectionAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
   const [swapAllNetworkTokenListStatus] =
     useSwapAllNetworkTokenListStatusAtom();
@@ -874,6 +877,9 @@ const SwapTokenSelectPage = ({
         });
         return;
       }
+      // A manual pick ends the "Recent trades" attribution, even if the user
+      // later lands back on the same pair.
+      setSwapRecentTokenPairSelection(undefined);
       if (await checkRiskToken(item)) {
         navigation.push(EModalSwapRoutes.TokenRiskReminder, {
           storeName: route.params.storeName,
@@ -904,6 +910,7 @@ const SwapTokenSelectPage = ({
       navigation,
       route.params.storeName,
       selectTokenHandler,
+      setSwapRecentTokenPairSelection,
       swapTypeSwitch,
       type,
     ],

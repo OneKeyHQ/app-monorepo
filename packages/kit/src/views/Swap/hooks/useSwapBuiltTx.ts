@@ -346,7 +346,8 @@ export function useSwapBuildTx({
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [swapRecentTokenPairSelection] = useSwapRecentTokenPairSelectionAtom();
+  const [swapRecentTokenPairSelection, setSwapRecentTokenPairSelection] =
+    useSwapRecentTokenPairSelectionAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapProAccount = useSwapProAccount();
@@ -635,6 +636,8 @@ export function useSwapBuildTx({
       reviewGuard?: ISwapReviewRequestGuard,
     ) => {
       if (swapInfo) {
+        // A recent-pair tap attributes one sent order, not every later one.
+        setSwapRecentTokenPairSelection(undefined);
         if (reviewGuard?.execution) {
           reviewGuard.execution.consumeInput();
         } else if (!reviewGuard || reviewGuard.isCurrent()) {
@@ -689,6 +692,7 @@ export function useSwapBuildTx({
       goBackQrCodeModal,
       generateSwapHistoryItem,
       setSwapSteps,
+      setSwapRecentTokenPairSelection,
       fromAccountId,
     ],
   );
@@ -704,6 +708,7 @@ export function useSwapBuildTx({
       swapInfo: ISwapTxInfo;
     }) => {
       if (swapInfo) {
+        setSwapRecentTokenPairSelection(undefined);
         if (reviewGuard?.execution) {
           reviewGuard.execution.consumeInput();
         } else if (!reviewGuard || reviewGuard.isCurrent()) {
@@ -738,7 +743,13 @@ export function useSwapBuildTx({
         });
       }
     },
-    [clearQuoteData, generateSwapHistoryItem, setSwapSteps, fromAccountId],
+    [
+      clearQuoteData,
+      generateSwapHistoryItem,
+      setSwapSteps,
+      setSwapRecentTokenPairSelection,
+      fromAccountId,
+    ],
   );
 
   const getSwapBalanceInsufficientToast = useCallback(
@@ -1393,7 +1404,9 @@ export function useSwapBuildTx({
         toAddress: toUserAddress ?? '',
         status,
         message:
-          error === undefined ? undefined : getSwapReviewErrorMessage(error),
+          status === ESwapEventAPIStatus.FAIL
+            ? getSwapReviewErrorMessage(error)
+            : undefined,
         ...getSwapErrorType(error),
         ...swapInfo?.reviewAnalyticsContext,
         quoteId:
