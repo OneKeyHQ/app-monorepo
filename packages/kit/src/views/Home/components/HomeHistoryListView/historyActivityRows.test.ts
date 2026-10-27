@@ -95,38 +95,6 @@ const row = (tx: IAccountHistoryTx, tableLayout = true, isUTXO = true) =>
 
 describe('Home native history financial display parity', () => {
   it.each([true, false])(
-    'does not display an unknown private payment or derived fiat in table layout %s',
-    (tableLayout) => {
-      const tx = history([{ ...transfer('1.00003'), isNative: true }], []);
-      tx.decodedTx.nativeAmountIsUnknown = true;
-      const result = row(tx, tableLayout, false);
-      expect(result.amounts).toHaveLength(1);
-      expect(result.amounts[0]).toMatchObject({
-        text: ETranslations.global_not_available,
-      });
-      expect(result.amounts[0].secondaryText).toBeUndefined();
-    },
-  );
-
-  it('keeps known token values when the native payment is unknown', () => {
-    const tx = history(
-      [
-        { ...transfer('1.00003'), isNative: true },
-        {
-          ...transfer('7'),
-          tokenIdOnNetwork: 'other',
-          symbol: 'TOKEN',
-          isNative: false,
-        },
-      ],
-      [],
-    );
-    tx.decodedTx.nativeAmountIsUnknown = true;
-    const result = row(tx, true, false);
-    expect(result.amounts[0].text).toBe(ETranslations.global_not_available);
-    expect(result.amounts[1].text).toContain('7');
-  });
-  it.each([true, false])(
     'marks failed and dropped rows in table layout %s',
     (tableLayout) => {
       for (const status of [

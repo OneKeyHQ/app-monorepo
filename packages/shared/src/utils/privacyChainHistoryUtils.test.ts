@@ -107,7 +107,6 @@ describe('projectPrivacyChainHistoryTxToPool', () => {
     decodedTx: {
       txid: 'a',
       nativeAmount: '0.6',
-      nativeAmountIsUnknown: true,
       totalFeeInNative: '0',
       actions: [
         {
@@ -133,7 +132,6 @@ describe('projectPrivacyChainHistoryTxToPool', () => {
       });
       const transfer = projected.decodedTx.actions[0].assetTransfer;
       expect(projected.decodedTx.nativeAmount).toBe(amount);
-      expect(projected.decodedTx.nativeAmountIsUnknown).toBe(false);
       expect(transfer?.sends).toHaveLength(sendCount);
       expect(transfer?.receives).toHaveLength(receiveCount);
       expect((transfer?.sends[0] ?? transfer?.receives[0])?.amount).toBe(
@@ -150,7 +148,7 @@ describe('projectPrivacyChainHistoryTxToPool', () => {
     );
   });
 
-  it('preserves an unknown outgoing amount when the fee is unavailable', () => {
+  it('shows the net spend when the fee is unavailable', () => {
     const projected = projectPrivacyChainHistoryTxToPool({
       tx: {
         ...historyTx,
@@ -159,10 +157,9 @@ describe('projectPrivacyChainHistoryTxToPool', () => {
       selectedPoolId: 0,
     });
 
-    expect(projected.decodedTx.nativeAmountIsUnknown).toBe(true);
-    expect(projected.decodedTx.nativeAmount).toBe('0');
+    expect(projected.decodedTx.nativeAmount).toBe('2.5');
     expect(projected.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
-      '0',
+      '2.5',
     );
   });
 
@@ -175,7 +172,6 @@ describe('projectPrivacyChainHistoryTxToPool', () => {
       selectedPoolId: 4,
     });
 
-    expect(projected.decodedTx.nativeAmountIsUnknown).toBe(false);
     expect(projected.decodedTx.nativeAmount).toBe('2');
   });
 });

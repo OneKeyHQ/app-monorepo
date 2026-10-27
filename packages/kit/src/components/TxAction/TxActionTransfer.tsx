@@ -588,7 +588,6 @@ function TxActionTransferListView(props: ITxActionProps) {
   } = props;
   const { networkId, payload, nativeAmount, actions, networkLogoURI } =
     decodedTx;
-  const nativeAmountIsUnknown = decodedTx.nativeAmountIsUnknown === true;
   const { type } = payload ?? {};
   const isPrivateSend = type === EOnChainHistoryTxType.PrivateSend;
   const intl = useIntl();
@@ -775,13 +774,6 @@ function TxActionTransferListView(props: ITxActionProps) {
       avatar.fallbackIcon = 'CoinsOutline';
     }
 
-    if (nativeAmountIsUnknown) {
-      change = (
-        <SizableText size="$bodyLgMedium">
-          {intl.formatMessage({ id: ETranslations.global_not_available })}
-        </SizableText>
-      );
-    }
     changeDescription = null;
   } else {
     const isStackedLayout = !tableLayout;
@@ -869,11 +861,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       ].filter(Boolean);
     }
 
-    change = nativeAmountIsUnknown ? (
-      <SizableText size="$bodyLgMedium">
-        {intl.formatMessage({ id: ETranslations.global_not_available })}
-      </SizableText>
-    ) : change ? (
+    change = change ? (
       <NumberSizeableTextWrapper
         hideValue={hideValue}
         formatter="balance"
@@ -904,46 +892,43 @@ function TxActionTransferListView(props: ITxActionProps) {
         -
       </NumberSizeableTextWrapper>
     );
-    changeDescription =
-      !nativeAmountIsUnknown && changeDescription ? (
-        <NumberSizeableTextWrapper
-          hideValue={hideValue}
-          formatter={changeDescriptionSymbol ? 'balance' : 'value'}
-          formatterOptions={{
-            tokenSymbol: changeDescriptionSymbol,
-            currency: changeDescriptionSymbol
-              ? ''
-              : settings.currencyInfo.symbol,
-            showPlusMinusSigns: !!changeDescriptionSymbol,
-          }}
-          size="$bodyMd"
-          color="$textSubdued"
-          numberOfLines={1}
-          maxWidth={isStackedLayout ? '100%' : '$40'}
-          {...(isStackedLayout && {
-            minWidth: 0,
-            textAlign: 'right',
-            flexShrink: 1,
-          })}
-        >
-          {changeDescription as string}
-        </NumberSizeableTextWrapper>
-      ) : (
-        <NumberSizeableTextWrapper
-          hideValue={hideValue}
-          size="$bodyMd"
-          color="$textSubdued"
-          formatter="value"
-          {...(isStackedLayout && {
-            minWidth: 0,
-            maxWidth: '100%',
-            textAlign: 'right',
-            flexShrink: 1,
-          })}
-        >
-          -
-        </NumberSizeableTextWrapper>
-      );
+    changeDescription = changeDescription ? (
+      <NumberSizeableTextWrapper
+        hideValue={hideValue}
+        formatter={changeDescriptionSymbol ? 'balance' : 'value'}
+        formatterOptions={{
+          tokenSymbol: changeDescriptionSymbol,
+          currency: changeDescriptionSymbol ? '' : settings.currencyInfo.symbol,
+          showPlusMinusSigns: !!changeDescriptionSymbol,
+        }}
+        size="$bodyMd"
+        color="$textSubdued"
+        numberOfLines={1}
+        maxWidth={isStackedLayout ? '100%' : '$40'}
+        {...(isStackedLayout && {
+          minWidth: 0,
+          textAlign: 'right',
+          flexShrink: 1,
+        })}
+      >
+        {changeDescription as string}
+      </NumberSizeableTextWrapper>
+    ) : (
+      <NumberSizeableTextWrapper
+        hideValue={hideValue}
+        size="$bodyMd"
+        color="$textSubdued"
+        formatter="value"
+        {...(isStackedLayout && {
+          minWidth: 0,
+          maxWidth: '100%',
+          textAlign: 'right',
+          flexShrink: 1,
+        })}
+      >
+        -
+      </NumberSizeableTextWrapper>
+    );
   }
 
   if (isPrivateSend) {
@@ -1028,7 +1013,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     isSendNativeToken,
     swapInfo,
   } = props;
-  const nativeAmountIsUnknown = decodedTx.nativeAmountIsUnknown === true;
 
   const {
     sends,
@@ -1119,22 +1103,18 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 networkId={transfer.networkId}
               />
               <Stack flex={1}>
-                <SizableText size="$bodyLgMedium">
-                  {nativeAmountIsUnknown
-                    ? intl.formatMessage({
-                        id: ETranslations.global_not_available,
-                      })
-                    : `${
-                        block.direction === EDecodedTxDirection.OUT ? '-' : '+'
-                      }${
-                        isSendNativeToken &&
-                        !isNil(nativeTokenTransferAmountToUpdate) &&
-                        transfer.isNative &&
-                        block.direction === EDecodedTxDirection.OUT
-                          ? nativeTokenTransferAmountToUpdate
-                          : transfer.amount
-                      } ${transfer.isNFT ? transfer.name : transfer.symbol}`}
-                </SizableText>
+                <SizableText size="$bodyLgMedium">{`${
+                  block.direction === EDecodedTxDirection.OUT ? '-' : '+'
+                }${
+                  isSendNativeToken &&
+                  !isNil(nativeTokenTransferAmountToUpdate) &&
+                  transfer.isNative &&
+                  block.direction === EDecodedTxDirection.OUT
+                    ? nativeTokenTransferAmountToUpdate
+                    : transfer.amount
+                } ${
+                  transfer.isNFT ? transfer.name : transfer.symbol
+                }`}</SizableText>
                 {/* <SizableText size="$bodyMd" color="$textSubdued">
               TODO: Fiat value
             </SizableText> */}
@@ -1316,7 +1296,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       intl,
       isInternalStaking,
       isSendNativeToken,
-      nativeAmountIsUnknown,
       nativeTokenTransferAmountToUpdate,
       network?.id,
       network?.name,

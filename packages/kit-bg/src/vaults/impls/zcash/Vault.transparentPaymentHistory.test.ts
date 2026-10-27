@@ -343,7 +343,6 @@ it('retains the signed payment across confirmation, serialization and repeated r
       to: recipient,
       encodedTx: { zcashAmountValue: '80000', fee: '20000' },
     });
-    expect(rows?.[0].decodedTx.nativeAmountIsUnknown).not.toBe(true);
     expect(rows?.[0].decodedTx.totalFeeFiatValue).toBeUndefined();
     expect(
       (rows?.[0].decodedTx.encodedTx as IEncodedTxZcash).zcashMemoHex,
@@ -446,7 +445,6 @@ it('preserves a sparse backend summary without inferring a private recipient', a
     to: sender,
     status: EDecodedTxStatus.Confirmed,
   });
-  expect(rows?.[0].decodedTx.nativeAmountIsUnknown).not.toBe(true);
   expect(rows?.[0].isLocalCreated).not.toBe(true);
   expect(
     rows?.[0].decodedTx.actions[0]?.assetTransfer?.shieldedTo,
@@ -486,7 +484,6 @@ it('does not fetch I/O when a signed transparent self-payment is already known',
   const fetchDetail = jest.spyOn(vault, 'baseFetchAccountHistoryDetail');
   const rows = await vault.fetchAccountHistoryFromLocal(params);
   expect(rows?.[0].decodedTx.nativeAmount).toBe('0.0008');
-  expect(rows?.[0].decodedTx.nativeAmountIsUnknown).not.toBe(true);
   expect(fetchDetail).not.toHaveBeenCalled();
 });
 
@@ -505,7 +502,6 @@ it.each([
   const { vault } = createVault(local);
   const rows = await vault.fetchAccountHistoryFromLocal(params);
   // Falls back to the backend's net transparent debit.
-  expect(rows?.[0].decodedTx.nativeAmountIsUnknown).not.toBe(true);
   expect(rows?.[0].decodedTx.nativeAmount).toBe('0.001');
   expect(rows?.[0].decodedTx.to).not.toBe(recipient);
 });
@@ -562,7 +558,6 @@ it('keeps the payment and current price when an All Networks refresh replaces th
       status: EDecodedTxStatus.Confirmed,
       block: 30,
       nativeAmount: '0.001',
-      nativeAmountIsUnknown: true,
       totalFeeInNative: undefined,
       encodedTx: undefined,
       to: 'Shielded',
@@ -586,7 +581,6 @@ it('keeps the payment and current price when an All Networks refresh replaces th
   expect(merged.decodedTx).toMatchObject({
     nativeAmount: '0.0008',
     totalFeeInNative: '0.0002',
-    nativeAmountIsUnknown: false,
     to: recipient,
     status: EDecodedTxStatus.Confirmed,
     block: 30,

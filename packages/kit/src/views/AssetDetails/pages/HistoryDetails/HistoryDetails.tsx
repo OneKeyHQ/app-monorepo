@@ -189,7 +189,6 @@ export function AssetItem({
   index,
   direction,
   amount,
-  isAmountUnknown,
   networkIcon,
   currencySymbol,
   isApprove,
@@ -208,7 +207,6 @@ export function AssetItem({
   index: number;
   direction?: EDecodedTxDirection;
   amount: string;
-  isAmountUnknown?: boolean;
   networkIcon: string;
   currencySymbol: string;
   isApprove?: boolean;
@@ -261,12 +259,6 @@ export function AssetItem({
         </NumberSizeableTextWrapper>
       );
     }
-  } else if (isAmountUnknown) {
-    primary = (
-      <SizableText textAlign="right" size="$bodyLgMedium" color="$text">
-        {intl.formatMessage({ id: ETranslations.global_not_available })}
-      </SizableText>
-    );
   } else if (!amount) {
     primary = (
       <NumberSizeableTextWrapper
@@ -783,10 +775,6 @@ function HistoryDetails() {
             asset={asset}
             direction={direction}
             amount={transfer.amount}
-            isAmountUnknown={
-              historyTx?.decodedTx.nativeAmountIsUnknown === true &&
-              transfer.isNative === true
-            }
             networkIcon={network?.logoURI ?? ''}
             currencySymbol={settings.currencyInfo.symbol}
             isAllNetworks={isAllNetworks}
@@ -795,13 +783,7 @@ function HistoryDetails() {
         );
       });
     },
-    [
-      historyTx?.decodedTx.nativeAmountIsUnknown,
-      isAllNetworks,
-      network?.logoURI,
-      networkId,
-      settings.currencyInfo.symbol,
-    ],
+    [isAllNetworks, network?.logoURI, networkId, settings.currencyInfo.symbol],
   );
 
   const isSendToSelf = useMemo(
