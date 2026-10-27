@@ -106,6 +106,7 @@ export function StakingAmountInput({
   onRefreshBalance,
   stagesLabel,
   activeStage,
+  hideStages,
   ...props
 }: IAmountInputFormItemProps & {
   title: string;
@@ -122,6 +123,8 @@ export function StakingAmountInput({
   stagesLabel?: string;
   // The chip the amount follows, shown pressed
   activeStage?: number;
+  // No chips: the amount is set some other way (the Loans router's LTV bar)
+  hideStages?: boolean;
 }) {
   const boxRef = useRef<IElement>(null);
   useHoldAutoFocus(boxRef, Boolean(inputProps?.autoFocus) && !disabled);
@@ -243,7 +246,7 @@ export function StakingAmountInput({
             focus; as it mounts (another protocol's form) they show as they
             are */}
         <AnimatePresence initial={false}>
-          {!platformEnv.isNative && !disabled ? (
+          {!platformEnv.isNative && !disabled && !hideStages ? (
             <XStack
               transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}

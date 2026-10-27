@@ -282,6 +282,12 @@ export function pickLoanBorrowSymbol({
 
 // ---------- One market for the amounts ----------
 
+// An asset in the account's position: what backs its loans, or one of them
+export type ILoanPositionAsset = {
+  symbol: string;
+  logoURI?: string;
+};
+
 export type ILoanRouteFacts = {
   // No account on the market's network: nothing can be sent there
   hasAccount: boolean;
@@ -308,6 +314,9 @@ export type ILoanRouteFacts = {
   collateralWeighted: number;
   // What the account can borrow of the loan's token now, in the currency
   borrowableNow: number;
+  // What counts as collateral there, and what is borrowed
+  collateralAssets: ILoanPositionAsset[];
+  debtAssets: ILoanPositionAsset[];
   // The market lends the token to this account (Aave's E-Mode narrows it)
   canBorrowHere: boolean;
   eModeLabel?: string;
@@ -321,9 +330,10 @@ export type ILoanRouteBlock =
 
 export type ILoanRouteMetrics = {
   // In %; for the amounts once they are typed, at the chosen LTV before.
-  // Over what the plan puts in, net of the loan; a plan that takes out at
-  // least what it puts in (the market's position backs the rest) over the
-  // loan, so a loan alone shows its cost
+  // The plan's own, over what it puts in net of the loan, and only while its
+  // collateral could carry the loan alone (within the pair's Max LTV). Past
+  // that the market's position carries the rest and the plan's net value is
+  // small or below zero, so no rate holds: annualNet says what it makes
   netApy?: number;
   // What the collateral earns less what the loan costs in a year, in the
   // currency
@@ -370,12 +380,20 @@ export function getLoanRouteMetrics({
   const loanValue = hasPrices ? loan * (borrowPrice ?? 0) : 0;
 
   const metrics: ILoanRouteMetrics = {};
+  const pairMaxLtv =
+    facts?.maxLtv !== undefined ? facts.maxLtv / borrowFactor : undefined;
   if (collateralValue > 0 || loanValue > 0) {
     const annualNet =
       (collateralValue * supplyApy - loanValue * borrowApy) / 100;
     const netValue = collateralValue - loanValue;
     metrics.annualNet = annualNet;
-    metrics.netApy = (annualNet / (netValue > 0 ? netValue : loanValue)) * 100;
+    const standsAlone =
+      netValue > 0 &&
+      (pairMaxLtv === undefined ||
+        loanValue <= collateralValue * pairMaxLtv * (1 + 1e-9));
+    if (standsAlone) {
+      metrics.netApy = (annualNet / netValue) * 100;
+    }
     if (collateralValue > 0) {
       metrics.ltv = loanValue / collateralValue;
     }
@@ -439,8 +457,7 @@ export function getLoanRouteMetrics({
     loanValue > facts.liquidity
   ) {
     metrics.block = { kind: 'liquidity', liquidity: facts.liquidity };
-  } else if (facts?.maxLtv !== undefined) {
-    const pairMaxLtv = facts.maxLtv / borrowFactor;
+  } else if (facts && pairMaxLtv !== undefined) {
     const hasPosition = facts.collateralValue > 0 || facts.debtValue > 0;
     if (loan > 0 && metrics.maxBorrow !== undefined) {
       if (loan > metrics.maxBorrow * (1 + 1e-9)) {
@@ -478,6 +495,99 @@ export function rankLoanRoutes<
       score(b) - score(a) ||
       a.route.marketLabel.localeCompare(b.route.marketLabel),
   );
+}
+
+/**
+ * The loan that brings the market's whole position to an LTV: what all its
+ * collateral after the supply allows at that LTV, less the debt already
+ * there, in the loan's units. None at or below the debt already there
+ */
+export function getLoanForPositionLtv({
+  ltv,
+  collateralValue,
+  debtValue,
+  newCollateralValue,
+  borrowPrice,
+  decimals,
+}: {
+  ltv: number;
+  // The position's, in the currency
+  collateralValue: number;
+  debtValue: number;
+  newCollateralValue: number;
+  borrowPrice?: number;
+  decimals: number;
+}) {
+  const loanValue = ltv * (collateralValue + newCollateralValue) - debtValue;
+  if (!borrowPrice || !Number.isFinite(loanValue) || loanValue <= 0) {
+    return '';
+  }
+  return new BigNumber(loanValue)
+    .div(borrowPrice)
+    .decimalPlaces(Math.min(decimals, 8), BigNumber.ROUND_DOWN)
+    .toFixed();
+}
+
+// The LTV bar, as fractions of the collateral after the supply
+export type ILoanLtvBar = {
+  // The debt already in the market: the bar starts there
+  used: number;
+  // With this loan
+  value: number;
+  // The most the position may borrow to
+  cap?: number;
+  // Where the market starts selling collateral
+  liquidation?: number;
+  // Nothing backs a loan yet: a fresh pair's plan at the LTV chosen
+  isPreview: boolean;
+};
+
+export function getLoanLtvBar({
+  route,
+  facts,
+  maxLtv,
+  newCollateralValue,
+  loanValue,
+  previewLtv,
+}: {
+  route: ILoanRoute;
+  facts?: ILoanRouteFacts;
+  maxLtv?: number;
+  newCollateralValue: number;
+  loanValue: number;
+  previewLtv: number;
+}): ILoanLtvBar {
+  const { liquidationLtv } = route.collateral;
+  const { borrowFactor } = route.borrow;
+  const collateral = (facts?.collateralValue ?? 0) + newCollateralValue;
+  if (collateral <= 0) {
+    return {
+      used: 0,
+      value: previewLtv,
+      cap: maxLtv,
+      liquidation:
+        liquidationLtv > 0 ? liquidationLtv / borrowFactor : undefined,
+      isPreview: true,
+    };
+  }
+  const debt = facts?.debtValue ?? 0;
+  const debtAfter = debt + loanValue;
+  // The health factor reaches 1 where the weighted collateral meets the
+  // debt at its borrow factors: at face value, this LTV
+  const weighted =
+    (facts?.weightedCollateral ?? 0) + newCollateralValue * liquidationLtv;
+  const adjustedDebt = (facts?.debt ?? 0) + loanValue * borrowFactor;
+  const liquidation =
+    adjustedDebt > 0
+      ? (weighted / collateral) * (debtAfter / adjustedDebt)
+      : weighted / collateral / borrowFactor;
+  return {
+    used: debt / collateral,
+    value: debtAfter / collateral,
+    cap: maxLtv,
+    liquidation: liquidation > 0 ? liquidation : undefined,
+    isPreview: false,
+  };
 }
 
 /** The loan for a share of the collateral's value, in the loan's units */

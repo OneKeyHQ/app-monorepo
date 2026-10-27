@@ -88,6 +88,13 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // The Loans router: a collateral and a loan, and the markets that take them
   supplyAndBorrow: 'Supply and Borrow',
   loanLtv: 'LTV',
+  // Under the LTV bar's wall
+  loanMaxShort: (ltv: string) => `Max ${ltv}`,
+  // In place of Net APY where no rate holds: what the plan makes a year
+  loanNetPerYear: 'Net per year',
+  loanPositionTitle: (market: string) => `Your ${market} position`,
+  loanPoolInfo:
+    'Everything you supply here as collateral backs every loan here. If Health Factor falls below 1, any of it can be sold.',
   loanLiquidationPrice: 'Liquidation Price',
   loanBelowNow: (percent: string) => `${percent} below now`,
   loanNoAccount: (network: string) => `This account can't use ${network}`,

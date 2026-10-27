@@ -61,6 +61,12 @@ export const formatLoanYearly = (value: number, currency: string) => {
     : `≈ ${value < 0 ? '-' : ''}${amount} ${EARN_DESKTOP_DEMO_COPY.aYear}`;
 };
 
+// "-$0.04", "< $0.01": what a plan makes a year where no rate holds
+export const formatLoanNet = (value: number, currency: string) => {
+  const amount = formatLoanFiat(Math.abs(value), currency);
+  return value <= -0.01 ? `-${amount}` : amount;
+};
+
 const formatCompactFiat = (value: number, currency: string) =>
   numberFormat(String(value), {
     formatter: 'marketCap',
@@ -302,15 +308,26 @@ function RouteRow({
         ...buildKeyboardPressProps(select, 2),
       };
   const textColor = isBlocked ? '$textDisabled' : undefined;
+  // Where the plan's Net APY doesn't hold (the market's position carries
+  // part of the loan), what it makes or costs a year
+  const yearly = metrics.netApy === undefined ? metrics.annualNet : undefined;
   const netApy = (
     <SizableText
       size="$bodyLgMedium"
-      color={textColor ?? netApyColor(metrics.netApy)}
+      color={textColor ?? netApyColor(yearly ?? metrics.netApy)}
       numberOfLines={1}
     >
-      {formatLoanPercent(metrics.netApy)}
+      {yearly !== undefined
+        ? formatLoanNet(yearly, currency)
+        : formatLoanPercent(metrics.netApy)}
     </SizableText>
   );
+  const perYear =
+    yearly !== undefined ? (
+      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+        {EARN_DESKTOP_DEMO_COPY.aYear}
+      </SizableText>
+    ) : null;
   const figure = (text: string) => (
     <SizableText size="$bodyMd" color={textColor} numberOfLines={1}>
       {text}
@@ -334,7 +351,10 @@ function RouteRow({
         <MarketCell route={route} />
         {isWide ? (
           <>
-            <YStack {...COLUMNS.netApy}>{netApy}</YStack>
+            <YStack {...COLUMNS.netApy}>
+              {netApy}
+              {perYear}
+            </YStack>
             <YStack {...COLUMNS.supply}>
               {figure(formatLoanPercent(route.collateral.supplyApy))}
             </YStack>
@@ -359,7 +379,10 @@ function RouteRow({
           </>
         ) : (
           <YStack ai="flex-end" flexShrink={0} gap="$0.5">
-            {netApy}
+            <XStack ai="baseline" gap="$1">
+              {netApy}
+              {perYear}
+            </XStack>
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
               {`${formatLoanPercent(route.borrow.borrowApy)} ${route.borrow.symbol}`}
             </SizableText>
@@ -464,8 +487,9 @@ export function LoanRouteList({
             </HeaderLabel>
           </YStack>
           <YStack {...COLUMNS.available}>
+            {/* What the market has left to lend, as the details page names it */}
             <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.global_available })}
+              {intl.formatMessage({ id: ETranslations.global_liquidity })}
             </HeaderLabel>
           </YStack>
           <YStack {...COLUMNS.maxLtv}>

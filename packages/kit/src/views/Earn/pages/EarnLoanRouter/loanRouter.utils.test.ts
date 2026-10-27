@@ -2,6 +2,8 @@ import {
   buildLoanRoutes,
   getLoanBorrowOptions,
   getLoanForLtv,
+  getLoanForPositionLtv,
+  getLoanLtvBar,
   getLoanRouteMetrics,
   parseLoanFigure,
   rankLoanRoutes,
@@ -99,6 +101,8 @@ const facts = (overrides: Partial<ILoanRouteFacts> = {}): ILoanRouteFacts => ({
   collateralSupplied: 0,
   collateralWeighted: 0,
   borrowableNow: 0,
+  collateralAssets: [],
+  debtAssets: [],
   canBorrowHere: true,
   ...overrides,
 });
@@ -261,7 +265,7 @@ describe('getLoanRouteMetrics', () => {
     expect(metrics.ltv).toBeGreaterThan(metrics.maxLtv ?? 1);
   });
 
-  it('shows a loan alone at its cost, the market position backing it', () => {
+  it('shows a loan alone by what it costs a year, with no rate', () => {
     const metrics = getLoanRouteMetrics({
       route: core,
       facts: facts({
@@ -274,13 +278,13 @@ describe('getLoanRouteMetrics', () => {
       borrowAmount: '1000',
       ltvStage: undefined,
     });
-    expect(metrics.netApy).toBeCloseTo(-4.5);
+    expect(metrics.netApy).toBeUndefined();
     // 1,000 x 4.5%
     expect(metrics.annualNet).toBeCloseTo(-45);
     expect(metrics.block).toBeUndefined();
   });
 
-  it('measures a plan that takes out more than it puts in over the loan', () => {
+  it('gives no rate to a plan that takes out more than it puts in', () => {
     const metrics = getLoanRouteMetrics({
       route: core,
       facts: facts({
@@ -292,9 +296,36 @@ describe('getLoanRouteMetrics', () => {
       collateralAmount: '1000',
       borrowAmount: '2000',
     });
-    // (1,000 x 0% - 2,000 x 4.5%) / 2,000
+    // 1,000 x 0% - 2,000 x 4.5%
     expect(metrics.annualNet).toBeCloseTo(-90);
-    expect(metrics.netApy).toBeCloseTo(-4.5);
+    expect(metrics.netApy).toBeUndefined();
+  });
+
+  it('keeps the rate to a plan its collateral could carry alone', () => {
+    const position = facts({
+      collateralPrice: 1,
+      weightedCollateral: 100_000,
+      collateralValue: 125_000,
+      borrowableNow: 50_000,
+    });
+    const within = getLoanRouteMetrics({
+      route: core,
+      facts: position,
+      collateralAmount: '1000',
+      borrowAmount: '700',
+    });
+    // (0 - 700 x 4.5%) / 300
+    expect(within.netApy).toBeCloseTo(-10.5);
+    // Past the pair's 73%: the position carries the rest
+    const past = getLoanRouteMetrics({
+      route: core,
+      facts: position,
+      collateralAmount: '1000',
+      borrowAmount: '800',
+    });
+    expect(past.netApy).toBeUndefined();
+    expect(past.annualNet).toBeCloseTo(-36);
+    expect(past.block).toBeUndefined();
   });
 
   it('holds only a fresh pair to its limit before amounts are typed', () => {
@@ -380,6 +411,84 @@ describe('getLoanForLtv', () => {
         decimals: 6,
       }),
     ).toBe('');
+  });
+});
+
+describe('getLoanForPositionLtv', () => {
+  it('lends what brings the whole position to the LTV', () => {
+    // 0.5 x (7.02 + 1) - 2 = 2.01, at 2,000 a token
+    expect(
+      getLoanForPositionLtv({
+        ltv: 0.5,
+        collateralValue: 7.02,
+        debtValue: 2,
+        newCollateralValue: 1,
+        borrowPrice: 2000,
+        decimals: 18,
+      }),
+    ).toBe('0.001005');
+  });
+
+  it('lends nothing at or below the debt already there', () => {
+    expect(
+      getLoanForPositionLtv({
+        ltv: 0.2,
+        collateralValue: 7.02,
+        debtValue: 2,
+        newCollateralValue: 1,
+        borrowPrice: 2000,
+        decimals: 18,
+      }),
+    ).toBe('');
+  });
+});
+
+describe('getLoanLtvBar', () => {
+  const [core] = buildLoanRoutes({
+    markets: MARKETS,
+    collateralSymbol: 'WBTC',
+    borrowSymbol: 'USDC',
+  });
+
+  it('starts the bar at the debt already in the market', () => {
+    const bar = getLoanLtvBar({
+      route: core,
+      facts: facts({
+        weightedCollateral: 5.68,
+        debt: 2,
+        collateralValue: 7.02,
+        debtValue: 2,
+      }),
+      maxLtv: 0.7643,
+      newCollateralValue: 1,
+      loanValue: 0.5,
+      previewLtv: 0.5,
+    });
+    // 2 / 8.02, then 2.5 / 8.02
+    expect(bar.used).toBeCloseTo(0.2494, 3);
+    expect(bar.value).toBeCloseTo(0.3117, 3);
+    // (5.68 + 1 x 0.78) / 8.02
+    expect(bar.liquidation).toBeCloseTo(0.8055, 3);
+    expect(bar.cap).toBe(0.7643);
+    expect(bar.isPreview).toBe(false);
+  });
+
+  it("shows a fresh pair's plan before anything backs it", () => {
+    const bar = getLoanLtvBar({
+      route: core,
+      facts: facts(),
+      maxLtv: 0.73,
+      newCollateralValue: 0,
+      loanValue: 0,
+      previewLtv: 0.5,
+    });
+    expect(bar).toEqual({
+      used: 0,
+      value: 0.5,
+      cap: 0.73,
+      liquidation: 0.78,
+      isPreview: true,
+    });
   });
 });
 

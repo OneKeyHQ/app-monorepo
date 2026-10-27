@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactElement } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -15,6 +23,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -47,11 +56,14 @@ import {
   formatDoneAmount,
 } from '../EarnRouter/EarnDepositDone';
 
+import { LoanLtvBar } from './LoanLtvBar';
 import {
   buildLoanRoutes,
   getLoanBorrowOptions,
   getLoanCollateralOptions,
   getLoanForLtv,
+  getLoanForPositionLtv,
+  getLoanLtvBar,
   getLoanRouteMetrics,
   pickLoanBorrowSymbol,
   rankLoanRoutes,
@@ -60,8 +72,9 @@ import {
   LoanPairTitle,
   LoanRouteList,
   LoanTokenList,
+  formatLoanFiat,
   formatLoanLtv,
-  formatLoanLtvNumber,
+  formatLoanNet,
   formatLoanPercent,
   formatLoanYearly,
   getLoanBlockText,
@@ -70,6 +83,7 @@ import {
 import { useLoanRouterFacts } from './useLoanRouterFacts';
 import { useLoanRouterRun } from './useLoanRouterRun';
 
+import type { ILoanPositionAsset } from './loanRouter.utils';
 import type { ILoanRouteItem } from './LoanRouterParts';
 import type { ILoanRunDone, ILoanRunPlan } from './useLoanRouterRun';
 
@@ -115,6 +129,37 @@ const healthColor = (value?: number) => {
 const formatHealth = (value: number) =>
   value >= 100 ? '>100' : new BigNumber(value).toFixed(2);
 
+const noop = () => undefined;
+
+// The same tiers as the health factor's colors
+type ILoanTone = 'success' | 'caution' | 'critical';
+const healthTone = (value?: number): ILoanTone => {
+  if (value === undefined || value >= 2) {
+    return 'success';
+  }
+  return value >= 1.25 ? 'caution' : 'critical';
+};
+const TONE_TEXT = {
+  success: '$textSuccess',
+  caution: '$textCaution',
+  critical: '$textCritical',
+} as const;
+
+const isSameSymbol = (a: string, b: string) =>
+  a.toUpperCase() === b.toUpperCase();
+
+const isElement = (node: ReactElement | null): node is ReactElement =>
+  isValidElement(node);
+
+// The position's assets with the plan's own, once it is in it
+const withAsset = (
+  assets: ILoanPositionAsset[],
+  token?: { symbol: string; logoURI?: string },
+) =>
+  token && !assets.some((asset) => isSameSymbol(asset.symbol, token.symbol))
+    ? [...assets, { symbol: token.symbol, logoURI: token.logoURI }]
+    : assets;
+
 function RowValue({
   children,
   color,
@@ -159,10 +204,12 @@ function LtvValue({
   before,
   after,
   isChanging,
+  color,
 }: {
   before?: number;
   after?: number;
   isChanging: boolean;
+  color?: '$textSuccess' | '$textCaution' | '$textCritical';
 }) {
   const shown = isChanging ? after : (before ?? after);
   if (shown === undefined) {
@@ -178,7 +225,68 @@ function LtvValue({
           <Icon name="ArrowRightOutline" size="$4" color="$iconDisabled" />
         </>
       ) : null}
-      <RowValue>{formatLoanLtv(shown)}</RowValue>
+      <RowValue color={color}>{formatLoanLtv(shown)}</RowValue>
+    </XStack>
+  );
+}
+
+// A position's assets, overlapping, the first on top
+const LOGOS_SHOWN = 4;
+function AssetLogos({ assets }: { assets: ILoanPositionAsset[] }) {
+  if (!assets.length) {
+    return null;
+  }
+  const shown = assets.slice(0, LOGOS_SHOWN);
+  return (
+    <XStack ai="center">
+      {shown.map((asset, index) => (
+        <Stack
+          key={asset.symbol}
+          ml={index ? '$-1.5' : undefined}
+          zIndex={shown.length - index}
+          borderRadius="$full"
+          borderWidth={2}
+          borderColor="$bgApp"
+        >
+          <Token size="xs" tokenImageUri={asset.logoURI} />
+        </Stack>
+      ))}
+      {assets.length > LOGOS_SHOWN ? (
+        <SizableText size="$bodySm" color="$textSubdued" ml="$1">
+          {`+${assets.length - LOGOS_SHOWN}`}
+        </SizableText>
+      ) : null}
+    </XStack>
+  );
+}
+
+function PositionValue({
+  assets,
+  before,
+  after,
+  isChanging,
+  currency,
+}: {
+  assets: ILoanPositionAsset[];
+  before: number;
+  after: number;
+  isChanging: boolean;
+  currency: string;
+}) {
+  return (
+    <XStack ai="center" gap="$2">
+      <AssetLogos assets={assets} />
+      {isChanging ? (
+        <>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {formatLoanFiat(before, currency)}
+          </SizableText>
+          <Icon name="ArrowRightOutline" size="$4" color="$iconDisabled" />
+        </>
+      ) : null}
+      <RowValue>
+        {formatLoanFiat(isChanging ? after : before, currency)}
+      </RowValue>
     </XStack>
   );
 }
@@ -199,13 +307,14 @@ function EarnLoanRouterPage() {
   const [collateralSymbol, setCollateralSymbol] = useState(routeCollateral);
   const [borrowSymbol, setBorrowSymbol] = useState(routeBorrow);
   const [collateralAmount, setCollateralAmount] = useState('');
-  // The loan typed by hand; otherwise it follows the chosen LTV
+  // The loan typed by hand; otherwise it follows the LTV bar
   const [typedBorrow, setTypedBorrow] = useState<string>();
-  const [ltvStage, setLtvStage] = useState<number | undefined>(
-    EARN_DESKTOP_LOAN_LTV,
-  );
-  // The chip last chosen: a loan cleared, or a token changed, follows it again
-  const lastStageRef = useRef(EARN_DESKTOP_LOAN_LTV);
+  // The market position's LTV the bar was dragged to. Until then the loan is
+  // half the collateral's value, as the Loans list works its Net APY out
+  const [draggedLtv, setDraggedLtv] = useState<number>();
+  // While the bar is dragged the markets keep their order
+  const [isSliding, setIsSliding] = useState(false);
+  const slideOrderRef = useRef<string[]>([]);
   const [pickedKey, setPickedKey] = useState<string | undefined>(routeKey);
   const [done, setDone] = useState<ILoanRunDone>();
   // After a press whose supply went in and whose loan didn't
@@ -263,17 +372,31 @@ function EarnLoanRouterPage() {
     routes.find((item) => item.key === pickedKey)?.borrow.decimals ??
     routes[0]?.borrow.decimals ??
     6;
+  const newCollateralValue = priceRoute?.collateralPrice
+    ? toBigNumber(collateralAmount).times(priceRoute.collateralPrice).toNumber()
+    : 0;
   const borrowAmount =
     typedBorrow ??
-    getLoanForLtv({
-      collateralAmount,
-      ltv: ltvStage ?? EARN_DESKTOP_LOAN_LTV,
-      collateralPrice: priceRoute?.collateralPrice,
-      borrowPrice: priceRoute?.borrowPrice,
-      decimals: borrowDecimals,
-    });
+    (draggedLtv !== undefined
+      ? getLoanForPositionLtv({
+          ltv: draggedLtv,
+          collateralValue: priceRoute?.collateralValue ?? 0,
+          debtValue: priceRoute?.debtValue ?? 0,
+          newCollateralValue,
+          borrowPrice: priceRoute?.borrowPrice,
+          decimals: borrowDecimals,
+        })
+      : getLoanForLtv({
+          collateralAmount,
+          ltv: EARN_DESKTOP_LOAN_LTV,
+          collateralPrice: priceRoute?.collateralPrice,
+          borrowPrice: priceRoute?.borrowPrice,
+          decimals: borrowDecimals,
+        }));
+  // Before amounts are typed, every market is worked out at the bar's LTV
+  const previewLtv = draggedLtv ?? EARN_DESKTOP_LOAN_LTV;
 
-  const items = useMemo<ILoanRouteItem[]>(
+  const rankedItems = useMemo<ILoanRouteItem[]>(
     () =>
       rankLoanRoutes(
         routes.map((item) => {
@@ -286,13 +409,25 @@ function EarnLoanRouterPage() {
               facts,
               collateralAmount,
               borrowAmount,
-              ltvStage: typedBorrow === undefined ? ltvStage : undefined,
+              ltvStage: typedBorrow === undefined ? previewLtv : undefined,
             }),
           };
         }),
       ),
-    [borrowAmount, byRoute, collateralAmount, ltvStage, routes, typedBorrow],
+    [borrowAmount, byRoute, collateralAmount, previewLtv, routes, typedBorrow],
   );
+  // A drag re-ranks the markets once it ends, not under the pointer
+  const items = useMemo(() => {
+    if (!isSliding) {
+      return rankedItems;
+    }
+    const order = slideOrderRef.current;
+    const at = (key: string) => {
+      const index = order.indexOf(key);
+      return index < 0 ? order.length : index;
+    };
+    return rankedItems.toSorted((a, b) => at(a.route.key) - at(b.route.key));
+  }, [isSliding, rankedItems]);
   const selected =
     items.find((item) => item.route.key === pickedKey) ??
     items.find((item) => !item.metrics.block) ??
@@ -348,7 +483,7 @@ function EarnLoanRouterPage() {
     );
     setCollateralAmount('');
     setTypedBorrow(pendingPlan.borrowAmount);
-    setLtvStage(undefined);
+    setDraggedLtv(undefined);
     resetRun();
     void refresh();
   }, [pendingPlan, phase, refresh, resetRun]);
@@ -400,27 +535,42 @@ function EarnLoanRouterPage() {
       shareOf(walletBalance, 100, collateralToken?.decimals ?? 8),
     );
   }, [collateralToken?.decimals, walletBalance]);
-  const followStage = useCallback(() => {
+  // A token changed starts the loan over: half the collateral's value
+  const resetLoan = useCallback(() => {
     setTypedBorrow(undefined);
-    setLtvStage(lastStageRef.current);
+    setDraggedLtv(undefined);
   }, []);
-  const handleBorrowChange = useCallback(
-    (value: string) => {
-      // An emptied box follows the chip again, shown pressed
-      if (!value) {
-        followStage();
-        return;
+  // An emptied box follows the bar again
+  const handleBorrowChange = useCallback((value: string) => {
+    setTypedBorrow(value || undefined);
+  }, []);
+  const handleLtvChange = useCallback((ltv: number) => {
+    setTypedBorrow(undefined);
+    setDraggedLtv(ltv);
+  }, []);
+  const handleSlideStart = useCallback(() => {
+    slideOrderRef.current = items.map((item) => item.route.key);
+    setIsSliding(true);
+  }, [items]);
+  const handleSlideEnd = useCallback(() => {
+    setIsSliding(false);
+  }, []);
+  // Another market keeps the amounts, so the markets compare the same loan:
+  // one the bar set stays as it is, and the bar shows it in that market
+  const handlePickRoute = useCallback(
+    (key: string) => {
+      if (
+        typedBorrow === undefined &&
+        draggedLtv !== undefined &&
+        borrowAmount
+      ) {
+        setTypedBorrow(borrowAmount);
+        setDraggedLtv(undefined);
       }
-      setTypedBorrow(value);
-      setLtvStage(undefined);
+      setPickedKey(key);
     },
-    [followStage],
+    [borrowAmount, draggedLtv, typedBorrow],
   );
-  const handleLtvStage = useCallback((percent: number) => {
-    lastStageRef.current = percent / 100;
-    setTypedBorrow(undefined);
-    setLtvStage(percent / 100);
-  }, []);
 
   const handleCollateralPick = useCallback(
     (symbol: string) => {
@@ -428,7 +578,7 @@ function EarnLoanRouterPage() {
       setCollateralAmount('');
       setSuppliedNote(undefined);
       setPickedKey(undefined);
-      followStage();
+      resetLoan();
       const nextOptions = getLoanBorrowOptions({
         markets,
         collateralSymbol: symbol,
@@ -442,16 +592,16 @@ function EarnLoanRouterPage() {
         setBorrowSymbol(nextBorrow);
       }
     },
-    [borrowSymbol, followStage, markets, stableSymbols],
+    [borrowSymbol, markets, resetLoan, stableSymbols],
   );
   // A loan typed in one token means nothing in another
   const handleBorrowPick = useCallback(
     (symbol: string) => {
       setBorrowSymbol(symbol);
       setPickedKey(undefined);
-      followStage();
+      resetLoan();
     },
-    [followStage],
+    [resetLoan],
   );
 
   const collateralPopover = useMemo(
@@ -506,6 +656,37 @@ function EarnLoanRouterPage() {
     walletBalance !== undefined &&
     toBigNumber(collateralAmount).gt(walletBalance);
 
+  // The most the picked market lends of the token with this collateral.
+  // Where the account has nothing there yet, only once collateral is typed:
+  // before, it would only say 0
+  const availableToBorrow = (() => {
+    const hasMarketCollateral = Boolean(
+      selectedFacts &&
+      (selectedFacts.collateralValue > 0 || selectedFacts.debtValue > 0),
+    );
+    if (
+      !selectedRoute ||
+      (!hasMarketCollateral && !toBigNumber(collateralAmount).gt(0)) ||
+      selectedMetrics?.maxBorrow === undefined ||
+      isLendingClosed(selectedMetrics.block) ||
+      !selectedFacts?.borrowPrice
+    ) {
+      return undefined;
+    }
+    const byLiquidity =
+      selectedFacts.liquidity !== undefined
+        ? selectedFacts.liquidity / selectedFacts.borrowPrice
+        : Number.POSITIVE_INFINITY;
+    return new BigNumber(
+      Math.max(0, Math.min(selectedMetrics.maxBorrow, byLiquidity)),
+    )
+      .decimalPlaces(
+        Math.min(selectedRoute.borrow.decimals, 8),
+        BigNumber.ROUND_DOWN,
+      )
+      .toFixed();
+  })();
+
   const collateralBox = (
     <StakingAmountInput
       boxTestID="earn-loan-collateral"
@@ -540,16 +721,11 @@ function EarnLoanRouterPage() {
     <StakingAmountInput
       boxTestID="earn-loan-borrow"
       title={intl.formatMessage({ id: ETranslations.global_borrow })}
-      stagesLabel={EARN_DESKTOP_DEMO_COPY.loanLtv}
+      hideStages
       disabled={isLocked}
       value={borrowAmount}
       onChange={handleBorrowChange}
-      onSelectPercentageStage={handleLtvStage}
-      activeStage={
-        typedBorrow === undefined && ltvStage !== undefined
-          ? Math.round(ltvStage * 100)
-          : undefined
-      }
+      onSelectPercentageStage={noop}
       tokenSelectorTriggerProps={{
         selectedTokenImageUri: borrowLogo,
         selectedTokenImageLoading: !borrowLogo && !isMarketsLoaded,
@@ -561,121 +737,278 @@ function EarnLoanRouterPage() {
         value: borrowValue?.toFixed(),
         currency,
       }}
+      balanceProps={
+        availableToBorrow !== undefined
+          ? {
+              value: availableToBorrow,
+              iconText: intl.formatMessage({
+                id: ETranslations.global_available,
+              }),
+              testID: 'earn-loan-available',
+            }
+          : undefined
+      }
       inputProps={{ testID: 'earn-loan-borrow-input', placeholder: '0' }}
     />
   );
 
+  // ---------- The market position: the LTV bar ----------
+
+  const selectedNewCollateralValue = selectedFacts?.collateralPrice
+    ? toBigNumber(collateralAmount)
+        .times(selectedFacts.collateralPrice)
+        .toNumber()
+    : 0;
+  const selectedLoanValue = selectedFacts?.borrowPrice
+    ? toBigNumber(borrowAmount).times(selectedFacts.borrowPrice).toNumber()
+    : 0;
+  const isClosed = isLendingClosed(selectedMetrics?.block);
+  const ltvBar =
+    selectedRoute && selectedFacts
+      ? getLoanLtvBar({
+          route: selectedRoute,
+          facts: selectedFacts,
+          maxLtv: isClosed ? undefined : selectedMetrics?.maxLtv,
+          newCollateralValue: selectedNewCollateralValue,
+          loanValue: selectedLoanValue,
+          previewLtv,
+        })
+      : undefined;
+  // The health factor the bar's LTV leaves, in the Borrow pages' colors
+  const barTone = healthTone(
+    ltvBar?.liquidation !== undefined && ltvBar.value > 0
+      ? ltvBar.liquidation / ltvBar.value
+      : undefined,
+  );
+  const hasPosition = Boolean(
+    selectedFacts &&
+    (selectedFacts.collateralValue > 0 || selectedFacts.debtValue > 0),
+  );
+  const isChanging = hasLoan || hasCollateral;
+
+  const ltvBlock = (
+    <YStack testID="earn-loan-ltv" px="$3.5" pt="$3" gap="$1">
+      <XStack jc="space-between" ai="center">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {EARN_DESKTOP_DEMO_COPY.loanLtv}
+        </SizableText>
+        <LtvValue
+          before={
+            hasPosition && selectedFacts && selectedFacts.collateralValue > 0
+              ? selectedFacts.debtValue / selectedFacts.collateralValue
+              : undefined
+          }
+          after={ltvBar?.value}
+          isChanging={isChanging}
+          color={TONE_TEXT[barTone]}
+        />
+      </XStack>
+      <LoanLtvBar
+        testID="earn-loan-ltv-bar"
+        bar={ltvBar}
+        tone={barTone}
+        disabled={isLocked || isClosed}
+        onChange={handleLtvChange}
+        onSlideStart={handleSlideStart}
+        onSlideEnd={handleSlideEnd}
+        valueText={
+          ltvBar
+            ? `${EARN_DESKTOP_DEMO_COPY.loanLtv} ${formatLoanLtv(ltvBar.value)}`
+            : undefined
+        }
+        capLabel={
+          ltvBar?.cap !== undefined
+            ? EARN_DESKTOP_DEMO_COPY.loanMaxShort(formatLoanLtv(ltvBar.cap))
+            : undefined
+        }
+        liquidationLabel={
+          ltvBar?.liquidation !== undefined
+            ? `${intl.formatMessage({
+                id: ETranslations.defi_liquidation_ltv,
+              })} ${formatLoanLtv(ltvBar.liquidation)}`
+            : undefined
+        }
+      />
+    </YStack>
+  );
+
   // ---------- What the picked market makes of it ----------
 
+  const healthRow = (
+    <EarnFormRow
+      key="health"
+      testID="earn-loan-health"
+      label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
+      value={
+        <HealthFactorValue
+          before={isChanging ? selectedMetrics?.healthFactorBefore : undefined}
+          after={
+            isChanging
+              ? selectedMetrics?.healthFactor
+              : selectedMetrics?.healthFactorBefore
+          }
+        />
+      }
+      note={
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.defi_liquidation_at_less_than_1_00,
+          })}
+        </SizableText>
+      }
+    />
+  );
+  // One asset's liquidation price holds only while nothing else is in the
+  // position: with other assets it would take their prices as fixed
+  const isSinglePair = Boolean(
+    selectedRoute &&
+    selectedFacts &&
+    selectedFacts.collateralAssets.every((asset) =>
+      isSameSymbol(asset.symbol, selectedRoute.collateral.symbol),
+    ) &&
+    selectedFacts.debtAssets.every((asset) =>
+      isSameSymbol(asset.symbol, selectedRoute.borrow.symbol),
+    ),
+  );
+  const liquidationRow =
+    !hasPosition || isSinglePair ? (
+      <EarnFormRow
+        key="liquidation"
+        testID="earn-loan-liquidation"
+        label={EARN_DESKTOP_DEMO_COPY.loanLiquidationPrice}
+        value={
+          <RowValue>
+            {selectedMetrics?.liquidationPrice !== undefined && isChanging
+              ? numberFormat(String(selectedMetrics.liquidationPrice), {
+                  formatter: 'price',
+                  formatterOptions: { currency },
+                })
+              : '–'}
+          </RowValue>
+        }
+        // Only while the price is still above it: past it, the health
+        // factor in red says so
+        note={
+          selectedMetrics?.liquidationPrice !== undefined &&
+          selectedFacts?.collateralPrice &&
+          selectedMetrics.liquidationPrice < selectedFacts.collateralPrice &&
+          isChanging ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {EARN_DESKTOP_DEMO_COPY.loanBelowNow(
+                `${new BigNumber(1)
+                  .minus(
+                    new BigNumber(selectedMetrics.liquidationPrice).div(
+                      selectedFacts.collateralPrice,
+                    ),
+                  )
+                  .times(100)
+                  .toFixed(0, BigNumber.ROUND_DOWN)}%`,
+              )}
+            </SizableText>
+          ) : undefined
+        }
+      />
+    ) : null;
+
+  // The loan's own result: what this collateral earns less what this loan
+  // costs, as a rate while the collateral could carry the loan alone; past
+  // that (the market's position carries the rest) as money a year. Where
+  // the account has nothing in the market, its risk too
+  const netYearly =
+    selectedMetrics?.netApy === undefined
+      ? selectedMetrics?.annualNet
+      : undefined;
   const summary = selectedRoute ? (
     <EarnFormSummary
-      outcome={{
-        label: intl.formatMessage({ id: ETranslations.defi_net_apy }),
-        isEarning: (selectedMetrics?.netApy ?? 0) > 0,
-        values:
-          selectedMetrics?.netApy === undefined
-            ? []
-            : [
-                {
-                  main: formatLoanPercent(selectedMetrics.netApy),
-                  suffix:
-                    (hasCollateral || hasLoan) &&
-                    selectedMetrics.annualNet !== undefined
-                      ? formatLoanYearly(selectedMetrics.annualNet, currency)
-                      : undefined,
-                },
-              ],
-      }}
-      rows={[
-        <EarnFormRow
-          key="health"
-          testID="earn-loan-health"
-          label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
-          value={
-            <HealthFactorValue
-              before={
-                hasLoan || hasCollateral
-                  ? selectedMetrics?.healthFactorBefore
-                  : undefined
-              }
-              after={
-                hasLoan || hasCollateral
-                  ? selectedMetrics?.healthFactor
-                  : selectedMetrics?.healthFactorBefore
-              }
-            />
-          }
-          note={
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.defi_liquidation_at_less_than_1_00,
-              })}
-            </SizableText>
-          }
-        />,
-        <EarnFormRow
-          key="liquidation"
-          testID="earn-loan-liquidation"
-          label={EARN_DESKTOP_DEMO_COPY.loanLiquidationPrice}
-          value={
-            <RowValue>
-              {selectedMetrics?.liquidationPrice !== undefined &&
-              (hasLoan || hasCollateral)
-                ? numberFormat(String(selectedMetrics.liquidationPrice), {
-                    formatter: 'price',
-                    formatterOptions: { currency },
-                  })
-                : '–'}
-            </RowValue>
-          }
-          // Only while the price is still above it: past it, the health
-          // factor in red says so
-          note={
-            selectedMetrics?.liquidationPrice !== undefined &&
-            selectedFacts?.collateralPrice &&
-            selectedMetrics.liquidationPrice < selectedFacts.collateralPrice &&
-            (hasLoan || hasCollateral) ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {EARN_DESKTOP_DEMO_COPY.loanBelowNow(
-                  `${new BigNumber(1)
-                    .minus(
-                      new BigNumber(selectedMetrics.liquidationPrice).div(
-                        selectedFacts.collateralPrice,
-                      ),
-                    )
-                    .times(100)
-                    .toFixed(0, BigNumber.ROUND_DOWN)}%`,
-                )}
-              </SizableText>
-            ) : undefined
-          }
-        />,
-        <EarnFormRow
-          key="ltv"
-          testID="earn-loan-ltv"
-          label={EARN_DESKTOP_DEMO_COPY.loanLtv}
-          value={
-            <LtvValue
-              before={selectedMetrics?.ltvBefore}
-              after={selectedMetrics?.ltv}
-              isChanging={hasLoan || hasCollateral}
-            />
-          }
-          note={
-            selectedMetrics?.maxLtv !== undefined &&
-            !isLendingClosed(selectedMetrics.block) ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage(
-                  { id: ETranslations.defi_emode_max_ltv },
-                  { ltv: formatLoanLtvNumber(selectedMetrics.maxLtv) },
-                )}
-              </SizableText>
-            ) : undefined
-          }
-        />,
-      ]}
+      outcome={
+        netYearly !== undefined
+          ? {
+              label: EARN_DESKTOP_DEMO_COPY.loanNetPerYear,
+              isEarning: netYearly >= 0.01,
+              values: [{ main: formatLoanNet(netYearly, currency) }],
+            }
+          : {
+              label: intl.formatMessage({ id: ETranslations.defi_net_apy }),
+              isEarning: (selectedMetrics?.netApy ?? 0) > 0,
+              values:
+                selectedMetrics?.netApy === undefined
+                  ? []
+                  : [
+                      {
+                        main: formatLoanPercent(selectedMetrics.netApy),
+                        suffix:
+                          isChanging && selectedMetrics.annualNet !== undefined
+                            ? formatLoanYearly(
+                                selectedMetrics.annualNet,
+                                currency,
+                              )
+                            : undefined,
+                      },
+                    ],
+            }
+      }
+      rows={hasPosition ? [] : [healthRow, liquidationRow].filter(isElement)}
     />
   ) : null;
+
+  // Where the account already has a position, the loan joins it: what backs
+  // every loan there, what is borrowed, and the health factor, before and
+  // after
+  const positionBlock =
+    hasPosition && selectedRoute && selectedFacts ? (
+      <YStack testID="earn-loan-position" px="$3.5" gap="$3">
+        <XStack ai="center" gap="$2">
+          <Token size="xs" tokenImageUri={selectedRoute.market.logoURI} />
+          <SizableText size="$bodyMdMedium">
+            {EARN_DESKTOP_DEMO_COPY.loanPositionTitle(
+              selectedRoute.marketLabel,
+            )}
+          </SizableText>
+        </XStack>
+        <EarnFormRow
+          testID="earn-loan-position-collateral"
+          label={intl.formatMessage({ id: ETranslations.defi_collateral })}
+          tooltip={{
+            type: 'text',
+            data: {
+              description: { text: EARN_DESKTOP_DEMO_COPY.loanPoolInfo },
+            },
+          }}
+          value={
+            <PositionValue
+              assets={withAsset(
+                selectedFacts.collateralAssets,
+                hasCollateral ? selectedRoute.collateral : undefined,
+              )}
+              before={selectedFacts.collateralValue}
+              after={selectedFacts.collateralValue + selectedNewCollateralValue}
+              isChanging={hasCollateral}
+              currency={currency}
+            />
+          }
+        />
+        <EarnFormRow
+          testID="earn-loan-position-borrowed"
+          label={intl.formatMessage({
+            id: ETranslations.wallet_defi_asset_type_borrowed,
+          })}
+          value={
+            <PositionValue
+              assets={withAsset(
+                selectedFacts.debtAssets,
+                hasLoan ? selectedRoute.borrow : undefined,
+              )}
+              before={selectedFacts.debtValue}
+              after={selectedFacts.debtValue + selectedLoanValue}
+              isChanging={hasLoan}
+              currency={currency}
+            />
+          }
+        />
+        {healthRow}
+        {liquidationRow}
+      </YStack>
+    ) : null;
 
   // ---------- The press ----------
 
@@ -804,7 +1137,7 @@ function EarnLoanRouterPage() {
     setDone(undefined);
     setCollateralAmount('');
     setTypedBorrow(undefined);
-    setLtvStage(EARN_DESKTOP_LOAN_LTV);
+    setDraggedLtv(undefined);
     resetRun();
     void refresh();
   }, [refresh, resetRun]);
@@ -891,7 +1224,7 @@ function EarnLoanRouterPage() {
         collateralSymbol,
         borrowSymbol,
       )}
-      onSelect={isLocked ? () => undefined : setPickedKey}
+      onSelect={isLocked ? noop : handlePickRoute}
     />
   );
   const form = doneView ?? (
@@ -921,9 +1254,11 @@ function EarnLoanRouterPage() {
           </Stack>
         </XStack>
         {borrowBox}
+        {ltvBlock}
       </YStack>
       {gtLg ? null : routeList}
       {summary}
+      {positionBlock}
       {actionArea}
     </YStack>
   );

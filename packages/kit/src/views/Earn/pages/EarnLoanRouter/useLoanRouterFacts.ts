@@ -15,7 +15,11 @@ import { parseFormattedLiquidityValue } from '../../utils/availableAssetsUtils';
 
 import { isSameReserve, parseLoanFigure } from './loanRouter.utils';
 
-import type { ILoanRoute, ILoanRouteFacts } from './loanRouter.utils';
+import type {
+  ILoanPositionAsset,
+  ILoanRoute,
+  ILoanRouteFacts,
+} from './loanRouter.utils';
 
 // A market's figures move slowly; the position after a supply or a loan is
 // read again by the run itself
@@ -76,6 +80,8 @@ export type ILoanRoutePosition = Pick<
   | 'collateralSupplied'
   | 'collateralWeighted'
   | 'borrowableNow'
+  | 'collateralAssets'
+  | 'debtAssets'
   | 'canBorrowHere'
   | 'walletBalance'
 >;
@@ -112,6 +118,7 @@ export async function readLoanRoutePosition({
   let collateralValue = 0;
   let collateralSupplied = 0;
   let collateralWeighted = 0;
+  const collateralAssets: ILoanPositionAsset[] = [];
   (reserves.supplied?.assets ?? []).forEach((asset) => {
     const value = toNumber(asset.suppliedAmount?.fiatValue);
     // Off as collateral (a switch, or an asset that never counts)
@@ -120,6 +127,12 @@ export async function readLoanRoutePosition({
     const weighted = counts ? value * toLtvFraction(asset.liquidationLtv) : 0;
     weightedCollateral += weighted;
     collateralValue += counts ? value : 0;
+    if (counts && value > 0) {
+      collateralAssets.push({
+        symbol: asset.token.symbol,
+        logoURI: asset.token.logoURI,
+      });
+    }
     if (
       isSameReserve(
         { reserveAddress: asset.reserveAddress, symbol: asset.token.symbol },
@@ -144,6 +157,12 @@ export async function readLoanRoutePosition({
     (sum, asset) => sum + toNumber(asset.borrowedAmount?.fiatValue),
     0,
   );
+  const debtAssets: ILoanPositionAsset[] = borrowed
+    .filter((asset) => toNumber(asset.borrowedAmount?.fiatValue) > 0)
+    .map((asset) => ({
+      symbol: asset.token.symbol,
+      logoURI: asset.token.logoURI,
+    }));
   // With an account the list holds only what it can borrow here: Aave's
   // E-Mode leaves out the assets outside its category
   const lent = (reserves.borrow?.assets ?? []).find((asset) =>
@@ -166,6 +185,8 @@ export async function readLoanRoutePosition({
     collateralSupplied,
     collateralWeighted,
     borrowableNow: toNumber(lent?.available?.fiatValue),
+    collateralAssets,
+    debtAssets,
     canBorrowHere: Boolean(lent),
     walletBalance: held?.walletBalance?.amount ?? held?.walletBalance?.number,
   };
@@ -243,6 +264,8 @@ async function readRouteFacts({
     collateralSupplied: position?.collateralSupplied ?? 0,
     collateralWeighted: position?.collateralWeighted ?? 0,
     borrowableNow: position?.borrowableNow ?? 0,
+    collateralAssets: position?.collateralAssets ?? [],
+    debtAssets: position?.debtAssets ?? [],
     // Without the account's list there is no telling: the server decides
     canBorrowHere: position ? position.canBorrowHere : true,
     walletBalance: position?.walletBalance,
