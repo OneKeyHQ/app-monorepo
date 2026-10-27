@@ -1028,8 +1028,12 @@ export function StockAnalystRatings({
       <XStack alignItems="center" gap="$5" py="$2" pr="$2">
         <YStack
           testID="stock-analyst-consensus-summary"
-          width={STOCK_ANALYST_COMPACT_SUMMARY_SIZE}
+          // Square for short verdicts like "Buy"; widens for "Strong buy" and
+          // longer translations instead of truncating them.
+          minWidth={STOCK_ANALYST_COMPACT_SUMMARY_SIZE}
           height={STOCK_ANALYST_COMPACT_SUMMARY_SIZE}
+          px="$2"
+          flexShrink={0}
           borderRadius="$2"
           bg={consensusTone.bg}
           alignItems="center"
