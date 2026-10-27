@@ -51,6 +51,7 @@ export enum EGalleryRoutes {
   ComponentNewTabs = 'component-NewTabs',
   ComponentThemeColors = 'component-ThemeColors',
   ComponentToken = 'component-Token',
+  ComponentPrivacyTokenDetails = 'component-PrivacyTokenDetails',
   ComponentTradingViewGallery = 'component-TradingView',
   ComponentTradingViewV2Gallery = 'component-TradingViewV2',
   ComponentTradingViewPerpsV2Gallery = 'component-TradingViewPerpsV2',

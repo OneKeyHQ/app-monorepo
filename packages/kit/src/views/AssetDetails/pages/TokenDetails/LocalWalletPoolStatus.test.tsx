@@ -19,6 +19,11 @@ jest.mock('react-intl', () => ({
 }));
 
 const mockPushModal = jest.fn();
+
+jest.mock('react-native-reanimated', () => ({
+  useReducedMotion: () => false,
+}));
+
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ pushModal: mockPushModal }),
@@ -107,6 +112,8 @@ jest.mock('@onekeyhq/components', () => {
     Toast: { error: jest.fn() },
     Divider: () => null,
     Icon: () => null,
+    Progress: () => null,
+    Spinner: () => null,
     SizableText: Wrapper,
     Stack: Wrapper,
     XStack: Wrapper,
@@ -160,6 +167,22 @@ describe('LocalWalletPoolStatus for a temp wallet', () => {
       'privacy_balance_privacy_off__desc',
     );
     expect(screen.getByTestId('local-wallet-enable-button')).toBeTruthy();
+  });
+
+  it('also withholds authorization in the token-details presentation', () => {
+    render(
+      <LocalWalletPoolStatus
+        networkId="zec--0"
+        accountId={accountId}
+        pool={pool({ isUnsupportedWallet: true, isTempWallet: true })}
+        presentation="tokenDetails"
+      />,
+    );
+
+    expect(
+      screen.getByText(ETranslations.privacy_temp_wallet_unavailable__desc),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('token-privacy-action')).toBeNull();
   });
 });
 
@@ -308,9 +331,17 @@ describe('LocalWalletPoolStatus enable failure', () => {
     return (call as [IConfirmArgs])[0];
   }
 
-  it.each([undefined, { birthdayHeight: 2_500_000 }])(
-    'only enables after valid birthday input',
-    async (birthday) => {
+  it.each([
+    { presentation: undefined, birthday: undefined },
+    { presentation: undefined, birthday: { birthdayHeight: 2_500_000 } },
+    { presentation: 'tokenDetails' as const, birthday: undefined },
+    {
+      presentation: 'tokenDetails' as const,
+      birthday: { birthdayHeight: 2_500_000 },
+    },
+  ])(
+    'only enables after valid birthday input ($presentation)',
+    async ({ presentation, birthday }) => {
       mockBirthday = birthday;
       const enableAccount = jest.fn(async () => undefined);
       render(
@@ -321,9 +352,16 @@ describe('LocalWalletPoolStatus enable failure', () => {
             enableAccount,
             settings: { accountSetup: { requiresBirthday: true } },
           } as unknown as Partial<ILocalWalletPool>)}
+          presentation={presentation}
         />,
       );
-      fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
+      fireEvent.click(
+        screen.getByTestId(
+          presentation === 'tokenDetails'
+            ? 'token-privacy-action'
+            : 'local-wallet-enable-button',
+        ),
+      );
       const preventClose = jest.fn();
       await act(async () => {
         await lastDialog().onConfirm({ preventClose });

@@ -14,7 +14,7 @@ import {
   IconButton,
   Image,
   Page,
-  SegmentControl,
+  Select,
   SizableText,
   Skeleton,
   Stack,
@@ -127,7 +127,6 @@ function ReceiveToken() {
     btcUsedAddress,
     btcUsedAddressPath,
     exchangeSource,
-    localWalletAddressForm,
     switchEntry,
     allowAddressTypeMenu,
     source: routeSource,
@@ -363,7 +362,7 @@ function ReceiveToken() {
   const localWalletAddresses = localWalletAddressRead?.addresses;
   const [requestedAddressForm, setReceiveAddressForm] = useState<
     'public' | 'private'
-  >(localWalletAddressForm ?? 'public');
+  >('public');
   const localWalletPrivateAddress = localWalletAddresses?.privateAddress;
   // A chain with only a private form (Monero) always receives privately, from
   // whichever entry the page was opened.
@@ -1746,11 +1745,33 @@ function ReceiveToken() {
       localWalletAddressForms &&
       publicFormLabel
     ) {
+      const isAddressFormDisabled =
+        isVerifying || isPreparingShare || isSwitchResolving;
+      const label = intl.formatMessage({
+        id:
+          receiveAddressForm === 'public'
+            ? publicFormLabel
+            : localWalletAddressForms.privateLabel,
+      });
       return (
-        <SegmentControl
+        <Select<'public' | 'private'>
+          testID={ReceiveTestIDs.LocalWalletAddressFormSelect}
+          title={intl.formatMessage({ id: ETranslations.address_type })}
           value={receiveAddressForm}
-          onChange={(v) => setReceiveAddressForm(v as 'public' | 'private')}
-          options={[
+          disabled={isAddressFormDisabled}
+          onChange={(value) => {
+            if (
+              isVerifyingRef.current ||
+              isPreparingShare ||
+              isSwitchResolvingRef.current ||
+              value === receiveAddressForm
+            ) {
+              return;
+            }
+            resetVerifyState();
+            setReceiveAddressForm(value);
+          }}
+          items={[
             {
               label: intl.formatMessage({ id: publicFormLabel }),
               value: 'public',
@@ -1762,6 +1783,29 @@ function ReceiveToken() {
               value: 'private',
             },
           ]}
+          placement="bottom-end"
+          offset={{ mainAxis: 8 }}
+          renderTrigger={({ onPress }) => (
+            <Button
+              testID={ReceiveTestIDs.LocalWalletAddressFormTrigger}
+              variant="tertiary"
+              size="small"
+              childrenAsText={false}
+              disabled={isAddressFormDisabled}
+              onPress={onPress}
+            >
+              <XStack alignItems="center" gap="$0.5">
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  {label}
+                </SizableText>
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  size="$4"
+                  color="$iconSubdued"
+                />
+              </XStack>
+            </Button>
+          )}
         />
       );
     }
@@ -1826,16 +1870,17 @@ function ReceiveToken() {
       />
     );
   }, [
+    intl,
     localWalletAddressForms,
     localWalletPrivateAddress,
     receiveAddressForm,
+    resetVerifyState,
     vaultSettings?.mergeDeriveAssetsEnabled,
     currentAccount,
     showAddressTypeMenu,
     isVerifying,
     isPreparingShare,
     isSwitchResolving,
-    intl,
     disableSelector,
     currentDeriveType,
     currentDeriveInfo,

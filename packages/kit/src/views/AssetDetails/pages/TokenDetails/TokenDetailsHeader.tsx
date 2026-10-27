@@ -85,6 +85,11 @@ import {
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
+import { TokenPrivacyPanel } from './TokenPrivacyPanel';
+import {
+  TokenPrivacyPreviewEntry,
+  useTokenPrivacyStatus,
+} from './TokenPrivacyStatus';
 import {
   resolveSelectedPoolId,
   useLocalWalletPool,
@@ -298,6 +303,13 @@ function TokenDetailsHeaderContent({
     isActive: focusParam,
     accountData: { account, vaultSettings },
   });
+  const privacyStatus = useTokenPrivacyStatus({
+    networkId,
+    accountId,
+    pool: localWalletPool,
+  });
+  const isPrivateSynced = isPrivatePool && privacyStatus.state === 'synced';
+  // One gate for every private-UI decision below, so the page settles once.
   const isLocalWalletReady = localWalletPool.isReady;
   const isLocalWalletEnabled = localWalletPool.enabled;
   const isPrivatePoolDisabled =
@@ -808,22 +820,37 @@ function TokenDetailsHeaderContent({
             />
           </Stack>
         ) : null}
-        {/* Overview */}
-        {isPrivatePoolDisabled ? (
-          <Stack px="$5">
-            <LocalWalletPoolStatus
-              networkId={networkId}
-              accountId={accountId}
-              pool={localWalletPool}
-            />
+        {isPrivatePool && !isPrivateSynced ? (
+          <Stack px="$5" pt="$4" pb={isPrivatePoolDisabled ? '$5' : undefined}>
+            {isPrivatePoolDisabled ? (
+              <LocalWalletPoolStatus
+                networkId={networkId}
+                accountId={accountId}
+                pool={localWalletPool}
+                presentation="tokenDetails"
+              />
+            ) : (
+              <TokenPrivacyPanel {...privacyStatus} />
+            )}
           </Stack>
-        ) : (
+        ) : null}
+        {/* Overview */}
+        {!isPrivatePoolDisabled ? (
           <Stack px="$5" py="$5">
             <TokenDetailsBalanceHero
               isLoading={isBalanceLoading}
               currency={tokenDetails?.currency}
               fiatValue={fiatValue}
               balanceParsed={balanceParsed}
+              sync={
+                isPrivateSynced
+                  ? {
+                      isRefreshing: localWalletPool.busy,
+                      lastSyncedAt: localWalletPool.lastSyncedAt,
+                      onRefresh: privacyStatus.onSync,
+                    }
+                  : undefined
+              }
             />
             {isLegacyPoolTab ? (
               legacyPoolActionRow
@@ -940,7 +967,7 @@ function TokenDetailsHeaderContent({
               pool={localWalletPool}
             />
           </Stack>
-        )}
+        ) : null}
 
         {/* DeFi Entry Block */}
         <TokenDetailsDeFiBlock
@@ -959,11 +986,17 @@ function TokenDetailsHeaderContent({
           testID={AssetDetailsTestIDs.copyAddressBtn}
           disabled={isBotWalletCopyBlocked}
         />
-        <LocalWalletSyncRow
-          networkId={networkId}
-          accountId={accountId}
-          pool={localWalletPool}
-        />
+        {isPrivatePool ? (
+          <>
+            <LocalWalletSyncRow
+              networkId={networkId}
+              accountId={accountId}
+              pool={localWalletPool}
+              settingsOnly
+            />
+            <TokenPrivacyPreviewEntry />
+          </>
+        ) : null}
         {/* History */}
         <Divider mb="$3" />
       </>
