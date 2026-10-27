@@ -2628,7 +2628,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-webview-cleaner (6.7.0-alpha.369):
+  - react-native-webview-cleaner (6.7.0-15):
     - React
   - React-NativeModulesApple (0.88.0):
     - hermes-engine
@@ -4902,7 +4902,7 @@ SPEC CHECKSUMS:
   react-native-slider: a675a3128f24ab70e8cadff749c24c35b9aa6f4f
   react-native-view-shot: acef7a4e8f7b5d78b1e2451a37029e939d24087d
   react-native-webview: 2fbc4003c4f0284b0d01e3dcdbfe982694bae0d4
-  react-native-webview-cleaner: e8d05823aeba7dddf76f406ac6a4ab1e7ce9920f
+  react-native-webview-cleaner: d14bc888e6e698dc94e0b5294c1d7d885f3b8b76
   React-NativeModulesApple: 02d3c79d816db9aa06789d7c3888b84631d85eac
   React-networking: d310a269bdf5f9678244bbd992ee59c4a0648bd9
   React-oscompat: c43a8f3d98385003b47a73b5e6e5ad885327a347
