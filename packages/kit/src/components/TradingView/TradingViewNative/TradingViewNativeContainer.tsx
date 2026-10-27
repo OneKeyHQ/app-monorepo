@@ -267,6 +267,7 @@ const TradingViewNativeContent = memo(
     nativeControlsFlushHorizontalInset,
     showNativeChartCloseControl,
     showNativeIndicatorQuickBar = false,
+    nativeChartGrowsWithSubIndicators = false,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
     isChartSwitchDisabled,
@@ -1139,8 +1140,9 @@ const TradingViewNativeContent = memo(
               initialRightOffset={initialRightOffset}
               isMobileLayout={isMobileControlsLayout}
               resizesWithSubIndicatorPanes={Boolean(
-                showNativeIndicatorQuickBar &&
-                onNativeIndicatorQuickBarChange &&
+                (nativeChartGrowsWithSubIndicators ||
+                  (showNativeIndicatorQuickBar &&
+                    onNativeIndicatorQuickBarChange)) &&
                 !isNativeChartFullscreen,
               )}
               isSwitchingInterval={isSwitchingInterval}

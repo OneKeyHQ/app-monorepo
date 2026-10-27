@@ -794,6 +794,38 @@ describe('TradingViewNativeContainer', () => {
     },
   );
 
+  it('resizes with sub-indicator panes when the parent grows the chart', () => {
+    const source = {
+      kind: 'hyperliquid' as const,
+      coin: 'ETH',
+      environment: 'mainnet' as const,
+    };
+    const { rerender } = render(
+      <TradingViewNativeContainer
+        source={source}
+        nativeControlsLayoutMode="mobile"
+        showNativeIndicatorQuickBar
+        nativeChartGrowsWithSubIndicators
+      />,
+    );
+    expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ resizesWithSubIndicatorPanes: true }),
+    );
+
+    rerender(
+      <TradingViewNativeContainer
+        source={source}
+        nativeControlsLayoutMode="mobile"
+        showNativeIndicatorQuickBar
+        nativeChartGrowsWithSubIndicators
+        isNativeChartFullscreen
+      />,
+    );
+    expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({ resizesWithSubIndicatorPanes: false }),
+    );
+  });
+
   it('preserves the toolbar settings element across chart updates and exits fullscreen before navigation', () => {
     const onFullscreenChange = jest.fn();
     const source = {

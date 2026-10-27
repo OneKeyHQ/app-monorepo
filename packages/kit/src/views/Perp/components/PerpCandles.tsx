@@ -86,10 +86,12 @@ export function PerpCandles({
   collapseChartExpandSignal,
   onTouchScroll,
   onInteractionOverlayOpenChange,
+  nativeChartGrowsWithSubIndicators,
 }: {
   // The workspace owns the selector when it supplies a chart mode.
   chartMode?: ITradingViewChartMode;
   collapseChartExpandSignal?: number;
+  nativeChartGrowsWithSubIndicators?: boolean;
   onTouchScroll?: (deltaY: number) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
@@ -226,6 +228,7 @@ export function PerpCandles({
           nativeControlsLayoutMode={isDesktopLayout ? 'desktop' : 'mobile'}
           nativeChartSettingsInToolbar={platformEnv.isNative}
           showNativeIndicatorQuickBar={platformEnv.isNative}
+          nativeChartGrowsWithSubIndicators={nativeChartGrowsWithSubIndicators}
           onChartSwitch={showChartModeSelect ? handleChartSwitch : undefined}
           isNativeChartFullscreen={
             isDesktopLayout ? chartExpanded : isMobileChartFullscreen
