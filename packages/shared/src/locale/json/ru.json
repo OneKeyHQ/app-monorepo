@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "Это устройство не поддерживает проверку адреса в приложении. Откройте адрес получения на устройстве и посимвольно сравните его с адресом, показанным здесь.",
   "hardware_third_party_method_not_supported": "Эта операция не поддерживается",
   "hardware_third_party_no_app_installed_on_device": "На устройстве не установлено приложений. Установите приложения через Ledger Live.",
+  "hardware_third_party_open_app_on_device__title": "Откройте приложение {appName} на {device}",
   "hardware_third_party_operation_timeout": "Время операции истекло",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "Некоторые приложения не удалось установить, потому что на вашем Ledger недостаточно свободного места. Вы сможете установить их позже в управлении устройством.",
   "hardware_third_party_passphrase_always_on_device": "На вашем устройстве установлен режим «Всегда вводить парольную фразу на устройстве», поэтому стандартный кошелек недоступен. Чтобы воспользоваться им, отключите функцию «Всегда вводить парольную фразу на устройстве».",

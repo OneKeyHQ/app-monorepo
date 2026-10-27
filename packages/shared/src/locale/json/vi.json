@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "Thiết bị này không hỗ trợ xác minh địa chỉ trong ứng dụng. Mở địa chỉ nhận trên thiết bị và đối chiếu từng ký tự với địa chỉ hiển thị tại đây.",
   "hardware_third_party_method_not_supported": "Thao tác này không được hỗ trợ",
   "hardware_third_party_no_app_installed_on_device": "Không có ứng dụng nào được cài trên thiết bị. Vui lòng cài ứng dụng qua Ledger Live.",
+  "hardware_third_party_open_app_on_device__title": "Mở ứng dụng {appName} trên {device} của bạn",
   "hardware_third_party_operation_timeout": "Thao tác đã hết thời gian chờ",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "Một số ứng dụng không thể được cài đặt vì Ledger của bạn không có đủ dung lượng trống. Bạn có thể cài đặt chúng sau trong Quản lý thiết bị.",
   "hardware_third_party_passphrase_always_on_device": "Thiết bị của bạn được thiết lập để luôn nhập mật khẩu trên thiết bị, vì vậy ví điện tử tiêu chuẩn không khả dụng. Hãy tắt tùy chọn \"Luôn nhập mật khẩu trên thiết bị\" để sử dụng ví.",

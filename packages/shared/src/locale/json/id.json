@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "Perangkat ini tidak mendukung verifikasi alamat di dalam aplikasi. Buka alamat penerimaan di perangkat dan bandingkan karakter demi karakter dengan alamat yang ditampilkan di sini.",
   "hardware_third_party_method_not_supported": "Operasi ini tidak didukung",
   "hardware_third_party_no_app_installed_on_device": "Tidak ada aplikasi terpasang di perangkat Anda. Silakan pasang aplikasi melalui Ledger Live.",
+  "hardware_third_party_open_app_on_device__title": "Buka aplikasi {appName} di {device} Anda",
   "hardware_third_party_operation_timeout": "Waktu operasi habis",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "Beberapa aplikasi tidak dapat diinstal karena Ledger Anda tidak memiliki cukup ruang kosong. Anda dapat menginstalnya nanti di Pengelolaan Perangkat.",
   "hardware_third_party_passphrase_always_on_device": "Perangkat Anda diatur agar selalu memasukkan frasa sandi di perangkat itu sendiri, sehingga dompet standar tidak dapat digunakan. Nonaktifkan opsi \"Selalu masukkan frasa sandi di perangkat\" untuk menggunakannya.",

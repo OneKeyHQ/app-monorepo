@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "此裝置不支援在 App 內驗證地址。請在裝置上開啟收款地址，並逐字元核對此處顯示的地址。",
   "hardware_third_party_method_not_supported": "不支援此操作",
   "hardware_third_party_no_app_installed_on_device": "裝置上未安裝任何應用程式，請透過 Ledger Live 安裝",
+  "hardware_third_party_open_app_on_device__title": "在 {device} 上開啟 {appName} 應用程式",
   "hardware_third_party_operation_timeout": "操作已逾時",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "部分 App 無法安裝，因為你的 Ledger 沒有足夠可用空間。你可稍後在裝置管理中安裝。",
   "hardware_third_party_passphrase_always_on_device": "您的设备已设置为“始终在设备上输入密码短语”，因此无法使用标准钱包。请关闭选项才能使用该功能。",

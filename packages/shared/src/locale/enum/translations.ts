@@ -2303,6 +2303,7 @@ export enum ETranslations {
   hardware_third_party_manual_verify_address_only__desc = 'hardware_third_party_manual_verify_address_only__desc',
   hardware_third_party_method_not_supported = 'hardware_third_party_method_not_supported',
   hardware_third_party_no_app_installed_on_device = 'hardware_third_party_no_app_installed_on_device',
+  hardware_third_party_open_app_on_device__title = 'hardware_third_party_open_app_on_device__title',
   hardware_third_party_operation_timeout = 'hardware_third_party_operation_timeout',
   hardware_third_party_partial_app_install_out_of_memory__msg = 'hardware_third_party_partial_app_install_out_of_memory__msg',
   hardware_third_party_passphrase_always_on_device = 'hardware_third_party_passphrase_always_on_device',

@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "このデバイスはアプリ内でのアドレス確認に対応していません。デバイスで受取アドレスを表示し、ここに表示されているアドレスを1文字ずつ照合してください。",
   "hardware_third_party_method_not_supported": "この操作はサポートされていません",
   "hardware_third_party_no_app_installed_on_device": "デバイスにアプリがインストールされていません。Ledger Live からインストールしてください",
+  "hardware_third_party_open_app_on_device__title": "{device} で {appName} アプリを開いてください",
   "hardware_third_party_operation_timeout": "操作がタイムアウトしました",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "一部のアプリは、お使いの Ledger の空き容量が不足しているためインストールできませんでした。後でデバイス管理でインストールできます。",
   "hardware_third_party_passphrase_always_on_device": "お使いのデバイスは「常にデバイス上でパスフレーズを入力する」設定になっているため、標準ウォレットは利用できません。「常にデバイス上でパスフレーズを入力する」の設定をオフにしてください。",

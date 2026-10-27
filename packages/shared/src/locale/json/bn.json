@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "এই ডিভাইসটি অ্যাপের মধ্যে ঠিকানা যাচাই করতে পারে না। ডিভাইসে গ্রহণের ঠিকানা খুলুন এবং এখানে দেখানো ঠিকানার সঙ্গে অক্ষর ধরে ধরে মিলিয়ে দেখুন।",
   "hardware_third_party_method_not_supported": "এই অপারেশন সমর্থিত নয়",
   "hardware_third_party_no_app_installed_on_device": "আপনার ডিভাইসে কোনও অ্যাপ ইনস্টল নেই। Ledger Live-এর মাধ্যমে অ্যাপ ইনস্টল করুন।",
+  "hardware_third_party_open_app_on_device__title": "আপনার {device}-এ {appName} অ্যাপটি খুলুন",
   "hardware_third_party_operation_timeout": "অপারেশনের সময় শেষ হয়েছে",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "কিছু অ্যাপ ইনস্টল করা যায়নি কারণ আপনার Ledger-এ পর্যাপ্ত খালি জায়গা নেই। আপনি পরে ডিভাইস ম্যানেজমেন্টে সেগুলি ইনস্টল করতে পারেন।",
   "hardware_third_party_passphrase_always_on_device": "আপনার ডিভাইসটি এমনভাবে সেট করা আছে যে সবসময় ডিভাইসেই পাসফ্রেজ দিতে হয়, তাই স্ট্যান্ডার্ড ওয়ালেটটি ব্যবহার করা যাচ্ছে না। এটি ব্যবহার করার জন্য \"ডিভাইসে সবসময় পাসফ্রেজ দিন\" অপশনটি বন্ধ করুন।",

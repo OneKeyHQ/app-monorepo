@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "Dieses Gerät unterstützt keine Adressprüfung innerhalb der App. Öffne die Empfangsadresse auf dem Gerät und vergleiche sie Zeichen für Zeichen mit der hier angezeigten Adresse.",
   "hardware_third_party_method_not_supported": "Dieser Vorgang wird nicht unterstützt",
   "hardware_third_party_no_app_installed_on_device": "Keine Apps auf Ihrem Gerät installiert. Bitte installieren Sie Apps über Ledger Live.",
+  "hardware_third_party_open_app_on_device__title": "Öffne die {appName} App auf deinem {device}",
   "hardware_third_party_operation_timeout": "Zeitüberschreitung des Vorgangs",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "Einige Apps konnten nicht installiert werden, weil auf deinem Ledger nicht genügend freier Speicherplatz vorhanden ist. Du kannst sie später in der Geräteverwaltung installieren.",
   "hardware_third_party_passphrase_always_on_device": "Ihr Gerät ist so eingestellt, dass die Passphrase immer auf dem Gerät eingegeben werden muss, daher ist die Standard-Wallet nicht verfügbar. Deaktivieren Sie die Option „Passphrase immer auf dem Gerät eingeben“, um sie zu nutzen.",

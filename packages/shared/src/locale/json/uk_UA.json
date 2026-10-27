@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "Цей пристрій не підтримує перевірку адреси в застосунку. Відкрийте адресу отримання на пристрої та посимвольно порівняйте її з адресою, показаною тут.",
   "hardware_third_party_method_not_supported": "Цю операцію не підтримується",
   "hardware_third_party_no_app_installed_on_device": "На пристрої не встановлено жодних застосунків. Встановіть застосунки через Ledger Live.",
+  "hardware_third_party_open_app_on_device__title": "Відкрийте застосунок {appName} на {device}",
   "hardware_third_party_operation_timeout": "Час операції вичерпано",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "Деякі програми не вдалося встановити, оскільки на вашому Ledger недостатньо вільного місця. Ви зможете встановити їх пізніше в розділі Керування пристроєм.",
   "hardware_third_party_passphrase_always_on_device": "Ваш пристрій налаштований так, щоб пароль завжди вводився безпосередньо на пристрої, тому стандартний гаманець недоступний. Щоб скористатися ним, вимкніть опцію «Завжди вводити пароль на пристрої».",

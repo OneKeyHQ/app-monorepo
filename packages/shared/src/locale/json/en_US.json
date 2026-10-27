@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "This device cannot verify the address inside the app. Open the receive address on the device and compare it with the address shown here, character by character.",
   "hardware_third_party_method_not_supported": "This operation is not supported",
   "hardware_third_party_no_app_installed_on_device": "No apps installed on your device. Please install apps via Ledger Live.",
+  "hardware_third_party_open_app_on_device__title": "Open the {appName} app on your {device}",
   "hardware_third_party_operation_timeout": "Operation timed out",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "Some apps couldn't be installed because your Ledger doesn't have enough free space. You can install them later in Device Management.",
   "hardware_third_party_passphrase_always_on_device": "Your device is set to always enter the passphrase on the device, so the standard wallet is unavailable. Turn off \"Always enter passphrase on device\" to use it.",

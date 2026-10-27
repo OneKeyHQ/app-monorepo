@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "Este dispositivo no permite verificar la dirección desde la app. Abre la dirección de recepción en el dispositivo y compárala, carácter por carácter, con la dirección que se muestra aquí.",
   "hardware_third_party_method_not_supported": "Esta operación no es compatible",
   "hardware_third_party_no_app_installed_on_device": "No hay aplicaciones instaladas en su dispositivo. Instale aplicaciones desde Ledger Live.",
+  "hardware_third_party_open_app_on_device__title": "Abre la aplicación {appName} en tu {device}",
   "hardware_third_party_operation_timeout": "La operación ha caducado",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "Algunas apps no pudieron instalarse porque tu Ledger no tiene suficiente espacio libre. Puedes instalarlas más tarde en Gestión de dispositivos.",
   "hardware_third_party_passphrase_always_on_device": "Tu dispositivo está configurado para introducir siempre la frase de acceso en el propio dispositivo, por lo que la cartera estándar no está disponible. Desactiva la opción «Introducir siempre la frase de acceso en el dispositivo» para poder utilizarla.",

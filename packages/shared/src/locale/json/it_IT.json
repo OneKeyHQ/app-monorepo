@@ -2298,6 +2298,7 @@
   "hardware_third_party_manual_verify_address_only__desc": "Questo dispositivo non consente di verificare l’indirizzo nell’app. Apri l’indirizzo di ricezione sul dispositivo e confrontalo, carattere per carattere, con l’indirizzo mostrato qui.",
   "hardware_third_party_method_not_supported": "Operazione non supportata",
   "hardware_third_party_no_app_installed_on_device": "Nessuna app installata sul tuo dispositivo. Installa le app tramite Ledger Live.",
+  "hardware_third_party_open_app_on_device__title": "Apri l'app {appName} sul tuo {device}",
   "hardware_third_party_operation_timeout": "Operazione scaduta",
   "hardware_third_party_partial_app_install_out_of_memory__msg": "Alcune app non hanno potuto essere installate perché il tuo Ledger non ha abbastanza spazio libero. Puoi installarle in seguito in Gestione dispositivo.",
   "hardware_third_party_passphrase_always_on_device": "Il tuo dispositivo è impostato in modo da richiedere sempre l'inserimento della passphrase sul dispositivo stesso, pertanto il portafoglio standard non è disponibile. Disattiva l'opzione \"Inserisci sempre la passphrase sul dispositivo\" per poterlo utilizzare.",
