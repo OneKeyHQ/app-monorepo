@@ -671,3 +671,48 @@ it('does not count the previous watchlist result as loaded after a failed reques
   expect(result.current.data).toEqual([]);
   expect(result.current.hasLoadedAllSources).toBe(false);
 });
+it('does not count a listing as loaded while its first paint is held', async () => {
+  mockBatch.mockResolvedValue({ list: [] });
+  const { result, rerender } = renderHook(
+    ({ watchlist }: { watchlist: IMarketWatchListItemV2[] }) =>
+      useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    { initialProps: { watchlist: [] as IMarketWatchListItemV2[] } },
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+  mockStockBatch.mockReturnValue(
+    new Promise<IMarketStockPublicItem[]>(() => {}),
+  );
+  rerender({
+    watchlist: [
+      { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+    ],
+  });
+  await waitFor(() => expect(mockStockBatch).toHaveBeenCalled());
+  expect(result.current.data).toEqual([]);
+  expect(result.current.hasLoadedAllSources).toBe(false);
+});
+it('does not count a new listing as loaded from the previous quote batch', async () => {
+  mockBatch.mockResolvedValue({ list: [] });
+  const spot = { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 0 };
+  const { result, rerender } = renderHook(
+    ({ watchlist }: { watchlist: IMarketWatchListItemV2[] }) =>
+      useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    { initialProps: { watchlist: [spot] as IMarketWatchListItemV2[] } },
+  );
+  // The batch drops the only favorite, so the list settles loaded and empty.
+  await waitFor(() => expect(result.current.hasLoadedAllSources).toBe(true));
+  expect(result.current.data).toEqual([]);
+
+  mockStockBatch.mockReturnValue(
+    new Promise<IMarketStockPublicItem[]>(() => {}),
+  );
+  rerender({
+    watchlist: [
+      spot,
+      { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 1 },
+    ],
+  });
+  await waitFor(() => expect(mockStockBatch).toHaveBeenCalled());
+  expect(result.current.hasLoadedAllSources).toBe(false);
+});

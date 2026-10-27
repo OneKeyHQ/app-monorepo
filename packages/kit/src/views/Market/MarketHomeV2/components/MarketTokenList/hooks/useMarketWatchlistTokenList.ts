@@ -456,7 +456,13 @@ export function useMarketWatchlistTokenList({
         !spotResult.failed &&
         spotResult.requestKey === spotRequestKey,
       )) &&
-    (listingItems.length === 0 || Boolean(listingResult)) &&
+    // The previous batch stays in place while a newer one is in flight, so
+    // each current listing needs its own entry, not just any batch.
+    (listingItems.length === 0 ||
+      listingItems.every((item) => {
+        const key = getMarketWatchlistKey(item);
+        return Boolean(listingResult?.some((entry) => entry.key === key));
+      })) &&
     (perpsItems.length === 0 ||
       Boolean(perpsApiResult?.tokenListData && !perpsApiResult.failed));
 
@@ -778,7 +784,9 @@ export function useMarketWatchlistTokenList({
     data: paginatedData,
     isLoading: isLoading || isHoldingWatchlistFirstPaint,
     isError,
-    hasLoadedAllSources,
+    // Rows held back for the first paint have not loaded yet, whatever the
+    // sources hold from an earlier watchlist.
+    hasLoadedAllSources: hasLoadedAllSources && !isHoldingWatchlistFirstPaint,
     isLoadingMore,
     isNetworkSwitching: false,
     canLoadMore: hasMore,
