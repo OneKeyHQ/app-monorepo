@@ -1183,9 +1183,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   // records the synced execution pair afterwards (Stock normalizes the picked
   // tokens) only if no user pick has claimed a newer generation meanwhile.
   beginStockRecentTokenPairPick = contextAtomMethod((get, set) => {
-    const generation = get(swapRecentTokenPairPickGenerationAtom()) + 1;
-    set(swapRecentTokenPairPickGenerationAtom(), generation);
-    return generation;
+    // The previous pick ends now, not when this one finishes syncing.
+    this.endRecentTokenPairAttribution.call(set);
+    return get(swapRecentTokenPairPickGenerationAtom());
   });
 
   markRecentTokenPairSelection = contextAtomMethod(

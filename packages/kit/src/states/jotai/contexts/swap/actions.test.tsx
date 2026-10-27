@@ -10268,4 +10268,22 @@ describe('Recent trades attribution', () => {
     });
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
+  it('ends the previous pick as soon as a new Stock pick starts', () => {
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(
+      () => ({
+        actions: useSwapActions().current,
+        attribution: useSwapRecentTokenPairAttribution().current,
+      }),
+      { wrapper: Wrapper },
+    );
+    const pairA = { fromToken: usdcToken, toToken: usdtToken };
+    act(() => {
+      store.set(swapRecentTokenPairSelectionAtom(), pairA);
+      result.current.actions.beginStockRecentTokenPairPick();
+    });
+    expect(
+      result.current.attribution.getRecentTokenPairSelectionFor(pairA),
+    ).toBeUndefined();
+  });
 });
