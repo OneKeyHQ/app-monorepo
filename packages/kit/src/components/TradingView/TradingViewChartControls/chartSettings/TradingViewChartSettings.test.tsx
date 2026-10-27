@@ -206,6 +206,47 @@ describe('TradingViewChartSettings', () => {
     expect(nextValue?.options.previousClose).toBe(true);
   });
 
+  it('shows the navigation buttons option enabled by default and updates it', () => {
+    const initialValue = createTradingViewChartSettingsValue();
+    const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={initialValue}
+        mobileLayout
+        onChange={onChange}
+      />,
+    );
+
+    const navigationButtonsCheckbox = screen.getByTestId(
+      'trading-view-settings-checkbox-navigation-buttons',
+    );
+    expect(navigationButtonsCheckbox.textContent).toBe('Navigation buttons');
+    expect(navigationButtonsCheckbox.getAttribute('data-value')).toBe('true');
+
+    fireEvent.click(navigationButtonsCheckbox);
+
+    const nextValue = onChange.mock.calls.at(-1)?.[0];
+    expect(nextValue?.options.navigationButtons).toBe(false);
+  });
+
+  it('keeps the chart interface group when only navigation buttons are offered', () => {
+    render(
+      <TradingViewChartSettings
+        defaultValue={createTradingViewChartSettingsValue()}
+        mobileLayout
+        hiddenOptionIds={['clickInteraction']}
+      />,
+    );
+
+    expect(
+      screen.queryByTestId('trading-view-settings-checkbox-click-interaction'),
+    ).toBeNull();
+    expect(
+      screen.getByTestId('trading-view-settings-checkbox-navigation-buttons'),
+    ).toBeTruthy();
+  });
+
   it('shows native chart types in settings and updates the preference', () => {
     const initialValue = createTradingViewChartSettingsValue();
     const onChange = jest.fn<void, [ITradingViewChartSettingsValue]>();

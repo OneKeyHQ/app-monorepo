@@ -47,6 +47,12 @@ const PREVIOUS_CLOSE_HIDDEN_OPTION_IDS = [
 ] as const satisfies NonNullable<
   ITradingViewChartSettingsProps['hiddenOptionIds']
 >;
+// Only charts that render the hover navigation bar offer its visibility toggle.
+const NAVIGATION_BUTTONS_HIDDEN_OPTION_IDS = [
+  'navigationButtons',
+] as const satisfies NonNullable<
+  ITradingViewChartSettingsProps['hiddenOptionIds']
+>;
 const NON_NATIVE_HIDDEN_OPTION_IDS = [
   ...NATIVE_HIDDEN_OPTION_IDS,
   'clickInteraction',
@@ -60,6 +66,7 @@ type IMarketChartSettingsContentProps = {
   mobileLayout?: boolean;
   usePageFooter?: boolean;
   showPreviousClose?: boolean;
+  showNavigationButtons?: boolean;
   onClose?: () => void;
 };
 
@@ -76,6 +83,7 @@ function ChartSettingsContent({
   mobileLayout = false,
   usePageFooter = false,
   showPreviousClose = false,
+  showNavigationButtons = false,
   onClose,
 }: IMarketChartSettingsContentProps & {
   settingsState: ReturnType<typeof useTradingViewNativeChartSettings>;
@@ -101,8 +109,9 @@ function ChartSettingsContent({
         ? NATIVE_HIDDEN_OPTION_IDS
         : NON_NATIVE_HIDDEN_OPTION_IDS),
       ...(showPreviousClose ? [] : PREVIOUS_CLOSE_HIDDEN_OPTION_IDS),
+      ...(showNavigationButtons ? [] : NAVIGATION_BUTTONS_HIDDEN_OPTION_IDS),
     ],
-    [showPreviousClose],
+    [showNavigationButtons, showPreviousClose],
   );
   const handleMobileSettingsChange = useCallback(
     (value: ITradingViewChartSettingsValue) => {
@@ -131,8 +140,10 @@ function ChartSettingsContent({
 export function showMarketChartSettingsDialog({
   storageNamespace,
   showPreviousClose = false,
+  showNavigationButtons = false,
 }: {
   showPreviousClose?: boolean;
+  showNavigationButtons?: boolean;
   storageNamespace?: ITradingViewNativeStorageNamespace;
 } = {}) {
   return showTradingViewChartSettingsDialog({
@@ -141,6 +152,7 @@ export function showMarketChartSettingsDialog({
         dialogRef={dialogRef}
         storageNamespace={storageNamespace}
         showPreviousClose={showPreviousClose}
+        showNavigationButtons={showNavigationButtons}
         onClose={closeDialog}
       />
     ),
