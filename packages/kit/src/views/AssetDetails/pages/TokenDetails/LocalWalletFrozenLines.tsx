@@ -29,7 +29,7 @@ const REASON_ORDER: ILocalWalletFrozenReason[] = [
 
 function frozenLineText(
   intl: IntlShape,
-  reason: ILocalWalletFrozenReason,
+  { reason, confirmInBlocks, confirmInSeconds }: ILocalWalletFrozenPart,
   amount: string,
 ) {
   if (reason === 'needsPassword') {
@@ -46,7 +46,23 @@ function frozenLineText(
       { amount },
     );
   }
-  return `${intl.formatMessage({ id: REASON_LABELS[reason] })} ${amount}`;
+  const line = `${intl.formatMessage({ id: REASON_LABELS[reason] })} ${amount}`;
+  if (reason !== 'confirming' || !confirmInBlocks) return line;
+  return [
+    line,
+    intl.formatMessage(
+      { id: ETranslations.tx_confirm_eta_blocks__desc },
+      { count: confirmInBlocks },
+    ),
+    confirmInSeconds
+      ? intl.formatMessage(
+          { id: ETranslations.tx_confirm_eta_minutes__desc },
+          { minutes: Math.max(1, Math.ceil(confirmInSeconds / 60)) },
+        )
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 // Asks for the password and confirms funds a view-only scan cannot prove
@@ -112,8 +128,8 @@ export function LocalWalletFrozenLines({
   }
   return (
     <YStack gap="$1">
-      {parts.map(({ reason, amountParsed }) => (
-        <XStack key={reason} alignItems="center" gap="$2">
+      {parts.map((part) => (
+        <XStack key={part.reason} alignItems="center" gap="$2">
           <SizableText
             size="$bodySm"
             color="$textSubdued"
@@ -122,11 +138,11 @@ export function LocalWalletFrozenLines({
           >
             {frozenLineText(
               intl,
-              reason,
-              symbol ? `${amountParsed} ${symbol}` : amountParsed,
+              part,
+              symbol ? `${part.amountParsed} ${symbol}` : part.amountParsed,
             )}
           </SizableText>
-          {reason === 'needsPassword' ? (
+          {part.reason === 'needsPassword' ? (
             <Button
               testID="privacy-frozen-verify"
               size="small"

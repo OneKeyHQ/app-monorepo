@@ -70,3 +70,27 @@ describe('LocalWalletFrozenLines small change', () => {
     expect(container.textContent).toBe('');
   });
 });
+
+describe('LocalWalletFrozenLines confirming', () => {
+  it('says how many blocks and about how long until confirming funds are spendable', () => {
+    render(
+      <LocalWalletFrozenLines
+        networkId="xmr--0"
+        accountId="hd-1--0"
+        symbol="XMR"
+        frozen={[
+          {
+            reason: 'confirming',
+            amountParsed: '0.03',
+            confirmInBlocks: 7,
+            confirmInSeconds: 840,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId('line').textContent).toBe(
+      `global.confirming 0.03 XMR · ${ETranslations.tx_confirm_eta_blocks__desc} · ${ETranslations.tx_confirm_eta_minutes__desc}`,
+    );
+  });
+});

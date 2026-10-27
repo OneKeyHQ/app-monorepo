@@ -155,6 +155,9 @@ export type ILocalWalletFrozenReason =
 export type ILocalWalletFrozenPart = {
   reason: ILocalWalletFrozenReason;
   amountParsed: string;
+  // 'confirming': blocks and seconds until all of it is spendable, when known.
+  confirmInBlocks?: number;
+  confirmInSeconds?: number;
 };
 
 export type ILocalWalletPoolBalance = {

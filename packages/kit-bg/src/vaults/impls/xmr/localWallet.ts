@@ -350,6 +350,8 @@ export function buildXmrLocalWalletCapability(
       unlockedAtomic: string;
       unverifiableAtomic: string;
       pendingChangeAtomic: string;
+      // Absent before runtime alpha.11.
+      confirmingBlocksLeft?: number | null;
     };
     // The remaining locked amount is the 10-block maturation lock.
     const unverifiable = BigInt(raw.unverifiableAtomic);
@@ -360,17 +362,37 @@ export function buildXmrLocalWalletCapability(
       unverifiable -
       pendingSend;
     const frozen: ILocalWalletFrozenPart[] = [];
-    const addFrozen = (reason: ILocalWalletFrozenReason, amount: bigint) => {
+    const addFrozen = (
+      reason: ILocalWalletFrozenReason,
+      amount: bigint,
+      extra?: Pick<
+        ILocalWalletFrozenPart,
+        'confirmInBlocks' | 'confirmInSeconds'
+      >,
+    ) => {
       if (amount > 0n) {
         frozen.push({
           reason,
           amountParsed: toParsed(amount.toString()) ?? '0',
+          ...extra,
         });
       }
     };
     addFrozen('needsPassword', unverifiable);
     addFrozen('pendingSend', pendingSend);
-    if (tip !== undefined) addFrozen('confirming', confirming);
+    const blocksLeft = raw.confirmingBlocksLeft ?? undefined;
+    if (tip !== undefined) {
+      addFrozen(
+        'confirming',
+        confirming,
+        blocksLeft
+          ? {
+              confirmInBlocks: blocksLeft,
+              confirmInSeconds: blocksLeft * XMR_TARGET_BLOCK_SECONDS,
+            }
+          : undefined,
+      );
+    }
 
     return {
       total: raw.totalAtomic,

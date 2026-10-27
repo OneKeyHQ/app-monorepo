@@ -181,6 +181,33 @@ describe('xmr frozen balance', () => {
     expect(balance?.pools[0].hints).toEqual([]);
   });
 
+  it('says how long the confirming part still waits', async () => {
+    const { balance: original } = runtime;
+    runtime.balance = async () =>
+      JSON.stringify({
+        totalAtomic: '1000000000000',
+        unlockedAtomic: '800000000000',
+        unverifiableAtomic: '0',
+        pendingChangeAtomic: '0',
+        confirmingBlocksLeft: 7,
+      });
+    try {
+      const balance = await capability().getAccountBalance({
+        accountId: 'acc',
+      });
+      expect(balance?.frozen).toEqual([
+        {
+          reason: 'confirming',
+          amountParsed: '0.2',
+          confirmInBlocks: 7,
+          confirmInSeconds: 840,
+        },
+      ]);
+    } finally {
+      runtime.balance = original;
+    }
+  });
+
   it('reports nothing at all while scanning is off', async () => {
     await expect(
       capability('off').getAccountBalance({ accountId: 'acc' }),
