@@ -95,6 +95,14 @@ function RuleColumn({
     // the right; it never shrinks below its content.
     <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-end">
       <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end" gap="$1">
+        {/* Leads the label, so the label's right edge, not the icon's, lines
+            up with the figures. Centered on the header's last line rather
+            than its bottom edge, so the 14px icon sits level with the text. */}
+        {glyph ? (
+          <Stack h={RULE_HEADER_LINE_HEIGHT} ai="center" jc="center">
+            {glyph}
+          </Stack>
+        ) : null}
         <SizableText
           size="$bodySm"
           color="$textSubdued"
@@ -104,13 +112,6 @@ function RuleColumn({
         >
           {header}
         </SizableText>
-        {/* Centered on the header's last line rather than its bottom edge,
-            so the 14px icon sits level with the text. */}
-        {glyph ? (
-          <Stack h={RULE_HEADER_LINE_HEIGHT} ai="center" jc="center">
-            {glyph}
-          </Stack>
-        ) : null}
       </XStack>
       {values.map((value, index) => (
         <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
