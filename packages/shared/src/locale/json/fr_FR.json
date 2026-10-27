@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "Vérifiez la connexion USB et réessayez, ou utilisez plutôt un QR code.",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "Passez à ce portefeuille sur l'appareil et réessayez, ou utilisez plutôt un QR code.",
   "hardware_third_party_qr_request_too_large__msg": "Trop de comptes pour un seul QR code. Connectez-vous via USB, puis réessayez.",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "Trop de comptes pour un seul QR code. Réduisez à {count} ou moins, puis réessayez.",
   "hardware_third_party_thp_pairing_required__msg": "Cet appareil doit être associé à nouveau. Reconnectez-le, puis réessayez.",
   "hardware_third_party_transport_error": "La communication matérielle a échoué. Vérifiez le câble USB ou le Bluetooth et réessayez.",
   "hardware_third_party_transport_not_available": "Votre navigateur ou plateforme ne prend pas en charge la connexion à ce portefeuille matériel.",

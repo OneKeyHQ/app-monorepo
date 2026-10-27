@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "檢查 USB 連接後重試，或改用二維碼。",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "在裝置上切換到此錢包後重試，或改用二維碼。",
   "hardware_third_party_qr_request_too_large__msg": "帳戶過多，無法一次掃碼匯出。改用 USB 連線後重試。",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "帳戶過多，一次最多掃碼匯出 {count} 個。減少數量後重試。",
   "hardware_third_party_thp_pairing_required__msg": "裝置需要重新配對，請重新連線後重試。",
   "hardware_third_party_transport_error": "硬件通訊失敗，請檢查 USB 連接線或藍牙後重試",
   "hardware_third_party_transport_not_available": "目前的瀏覽器或平台不支援連接此硬件錢包",

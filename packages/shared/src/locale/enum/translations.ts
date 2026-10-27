@@ -2315,6 +2315,7 @@ export enum ETranslations {
   hardware_third_party_qr_fallback_usb_unavailable__desc = 'hardware_third_party_qr_fallback_usb_unavailable__desc',
   hardware_third_party_qr_fallback_wallet_mismatch__desc = 'hardware_third_party_qr_fallback_wallet_mismatch__desc',
   hardware_third_party_qr_request_too_large__msg = 'hardware_third_party_qr_request_too_large__msg',
+  hardware_third_party_qr_request_too_large_no_usb__msg = 'hardware_third_party_qr_request_too_large_no_usb__msg',
   hardware_third_party_thp_pairing_required__msg = 'hardware_third_party_thp_pairing_required__msg',
   hardware_third_party_transport_error = 'hardware_third_party_transport_error',
   hardware_third_party_transport_not_available = 'hardware_third_party_transport_not_available',

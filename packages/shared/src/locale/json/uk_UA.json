@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "Перевірте USB-з’єднання та повторіть спробу або скористайтеся QR-кодом.",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "Перемкніться на цей гаманець на пристрої та повторіть спробу або скористайтеся QR-кодом.",
   "hardware_third_party_qr_request_too_large__msg": "Забагато акаунтів для одного QR-коду. Підключіться через USB і спробуйте ще раз.",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "Забагато акаунтів для одного QR-коду. Зменште їх кількість до {count} і спробуйте ще раз.",
   "hardware_third_party_thp_pairing_required__msg": "Пристрій потрібно з'єднати знову. Підключіть його ще раз і спробуйте знову.",
   "hardware_third_party_transport_error": "Помилка зв'язку з обладнанням. Перевірте USB-кабель або Bluetooth і спробуйте ще раз.",
   "hardware_third_party_transport_not_available": "Ваш браузер або платформа не підтримує підключення до цього апаратного гаманця.",

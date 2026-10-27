@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "USB 接続を確認して再試行するか、代わりに QR コードを使用してください。",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "デバイスでこのウォレットに切り替えて再試行するか、代わりに QR コードを使用してください。",
   "hardware_third_party_qr_request_too_large__msg": "アカウントが多すぎるため、1 回の QR コードでエクスポートできません。USB で接続してから再試行してください。",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "アカウントが多すぎるため、1 回の QR コードでエクスポートできません。{count} 件以下に減らしてから再試行してください。",
   "hardware_third_party_thp_pairing_required__msg": "このデバイスは再度ペアリングが必要です。再接続してからもう一度お試しください。",
   "hardware_third_party_transport_error": "ハードウェア通信に失敗しました。USB ケーブルまたは Bluetooth を確認して再試行してください",
   "hardware_third_party_transport_not_available": "ご使用のブラウザまたはプラットフォームではこのハードウェアウォレットに接続できません",

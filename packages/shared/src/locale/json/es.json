@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "Revisa la conexión USB y reintenta, o usa un código QR en su lugar.",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "Cambia a esta billetera en el dispositivo y reintenta, o usa un código QR en su lugar.",
   "hardware_third_party_qr_request_too_large__msg": "Demasiadas cuentas para un solo código QR. Conéctate por USB e inténtalo de nuevo.",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "Demasiadas cuentas para un solo código QR. Reduce a {count} o menos e inténtalo de nuevo.",
   "hardware_third_party_thp_pairing_required__msg": "Este dispositivo debe vincularse de nuevo. Vuelve a conectarlo e inténtalo de nuevo.",
   "hardware_third_party_transport_error": "Falló la comunicación con el hardware. Compruebe el cable USB o el Bluetooth y vuelva a intentarlo.",
   "hardware_third_party_transport_not_available": "Su navegador o plataforma no admite la conexión con esta billetera de hardware.",

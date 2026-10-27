@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "Verifique a ligação USB e tente novamente, ou utilize antes um código QR.",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "Mude para esta carteira no dispositivo e tente novamente, ou utilize antes um código QR.",
   "hardware_third_party_qr_request_too_large__msg": "Demasiadas contas para um único código QR. Ligue-se por USB e tente novamente.",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "Demasiadas contas para um único código QR. Reduza para {count} ou menos e tente novamente.",
   "hardware_third_party_thp_pairing_required__msg": "Este dispositivo tem de ser emparelhado novamente. Volte a ligá-lo e tente novamente.",
   "hardware_third_party_transport_error": "Falha na comunicação com o hardware. Verifique o cabo USB ou o Bluetooth e tente novamente.",
   "hardware_third_party_transport_not_available": "O seu navegador ou plataforma não suporta a ligação a esta carteira de hardware.",

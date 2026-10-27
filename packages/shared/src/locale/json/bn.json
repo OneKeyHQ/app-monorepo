@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "USB সংযোগ পরীক্ষা করে পুনরায় চেষ্টা করুন, অথবা এর বদলে QR কোড ব্যবহার করুন।",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "ডিভাইসে এই ওয়ালেটে স্যুইচ করে পুনরায় চেষ্টা করুন, অথবা এর বদলে QR কোড ব্যবহার করুন।",
   "hardware_third_party_qr_request_too_large__msg": "একটি QR কোডের জন্য অনেক বেশি অ্যাকাউন্ট। USB দিয়ে সংযোগ করে আবার চেষ্টা করুন।",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "একটি QR কোডের জন্য অনেক বেশি অ্যাকাউন্ট। {count}টি বা তার কম করে আবার চেষ্টা করুন।",
   "hardware_third_party_thp_pairing_required__msg": "এই ডিভাইসটি আবার পেয়ার করতে হবে। আবার সংযোগ করে পুনরায় চেষ্টা করুন।",
   "hardware_third_party_transport_error": "হার্ডওয়্যার যোগাযোগ ব্যর্থ হয়েছে। USB কেবল বা Bluetooth পরীক্ষা করে আবার চেষ্টা করুন।",
   "hardware_third_party_transport_not_available": "আপনার ব্রাউজার বা প্ল্যাটফর্ম এই হার্ডওয়্যার ওয়ালেটের সাথে সংযোগ সমর্থন করে না।",

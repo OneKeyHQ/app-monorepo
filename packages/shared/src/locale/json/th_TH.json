@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "ตรวจสอบการเชื่อมต่อ USB แล้วลองใหม่ หรือใช้ QR โค้ดแทน",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "สลับไปยังกระเป๋านี้บนอุปกรณ์แล้วลองใหม่ หรือใช้ QR โค้ดแทน",
   "hardware_third_party_qr_request_too_large__msg": "บัญชีมากเกินไปสำหรับ QR โค้ดเดียว โปรดเชื่อมต่อผ่าน USB แล้วลองอีกครั้ง",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "บัญชีมากเกินไปสำหรับ QR โค้ดเดียว ลดให้เหลือไม่เกิน {count} บัญชีแล้วลองอีกครั้ง",
   "hardware_third_party_thp_pairing_required__msg": "ต้องจับคู่อุปกรณ์นี้อีกครั้ง โปรดเชื่อมต่อใหม่แล้วลองอีกครั้ง",
   "hardware_third_party_transport_error": "การสื่อสารกับฮาร์ดแวร์ล้มเหลว โปรดตรวจสอบสาย USB หรือ Bluetooth แล้วลองอีกครั้ง",
   "hardware_third_party_transport_not_available": "เบราว์เซอร์หรือแพลตฟอร์มของคุณไม่รองรับการเชื่อมต่อกับฮาร์ดแวร์วอลเล็ตนี้",

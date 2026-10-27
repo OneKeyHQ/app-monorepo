@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "检查 USB 连接后重试，或改用二维码。",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "在设备上切换到此钱包后重试，或改用二维码。",
   "hardware_third_party_qr_request_too_large__msg": "账户过多，无法一次扫码导出。改用 USB 连接后重试。",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "账户过多，一次最多扫码导出 {count} 个。减少数量后重试。",
   "hardware_third_party_thp_pairing_required__msg": "设备需要重新配对，请重新连接后重试。",
   "hardware_third_party_transport_error": "硬件通信失败，请检查 USB 连接线或蓝牙后重试",
   "hardware_third_party_transport_not_available": "当前浏览器或平台不支持连接此硬件钱包",

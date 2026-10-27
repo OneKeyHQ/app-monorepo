@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "Kiểm tra kết nối USB rồi thử lại, hoặc dùng mã QR thay thế.",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "Chuyển sang ví này trên thiết bị rồi thử lại, hoặc dùng mã QR thay thế.",
   "hardware_third_party_qr_request_too_large__msg": "Quá nhiều tài khoản cho một mã QR. Hãy kết nối qua USB rồi thử lại.",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "Quá nhiều tài khoản cho một mã QR. Hãy giảm xuống tối đa {count} rồi thử lại.",
   "hardware_third_party_thp_pairing_required__msg": "Thiết bị này cần được ghép nối lại. Hãy kết nối lại rồi thử lại.",
   "hardware_third_party_transport_error": "Giao tiếp phần cứng thất bại. Kiểm tra cáp USB hoặc Bluetooth và thử lại.",
   "hardware_third_party_transport_not_available": "Trình duyệt hoặc nền tảng của bạn không hỗ trợ kết nối với ví phần cứng này.",

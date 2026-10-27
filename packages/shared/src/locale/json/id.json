@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "Periksa koneksi USB lalu coba lagi, atau gunakan kode QR sebagai gantinya.",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "Beralih ke dompet ini di perangkat lalu coba lagi, atau gunakan kode QR sebagai gantinya.",
   "hardware_third_party_qr_request_too_large__msg": "Terlalu banyak akun untuk satu kode QR. Hubungkan melalui USB, lalu coba lagi.",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "Terlalu banyak akun untuk satu kode QR. Kurangi menjadi {count} atau kurang, lalu coba lagi.",
   "hardware_third_party_thp_pairing_required__msg": "Perangkat ini perlu dipasangkan ulang. Hubungkan kembali, lalu coba lagi.",
   "hardware_third_party_transport_error": "Komunikasi hardware gagal. Periksa kabel USB atau Bluetooth dan coba lagi.",
   "hardware_third_party_transport_not_available": "Peramban atau platform Anda tidak mendukung koneksi ke dompet hardware ini.",

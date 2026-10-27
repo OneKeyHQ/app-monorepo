@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "USB कनेक्शन जांचें और पुनः प्रयास करें, या इसके बजाय QR कोड का उपयोग करें।",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "डिवाइस पर इस वॉलेट पर स्विच करें और पुनः प्रयास करें, या इसके बजाय QR कोड का उपयोग करें।",
   "hardware_third_party_qr_request_too_large__msg": "एक QR कोड के लिए बहुत अधिक खाते हैं। USB से कनेक्ट करें और फिर से कोशिश करें।",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "एक QR कोड के लिए बहुत अधिक खाते हैं। इन्हें {count} या उससे कम करें और फिर से कोशिश करें।",
   "hardware_third_party_thp_pairing_required__msg": "इस डिवाइस को फिर से पेयर करना होगा। इसे दोबारा कनेक्ट करें और फिर से कोशिश करें।",
   "hardware_third_party_transport_error": "हार्डवेयर संचार विफल हुआ। USB केबल या Bluetooth जांचें और पुनः प्रयास करें।",
   "hardware_third_party_transport_not_available": "आपका ब्राउज़र या प्लेटफ़ॉर्म इस हार्डवेयर वॉलेट से कनेक्ट करने का समर्थन नहीं करता।",

@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "USB 연결을 확인한 후 다시 시도하거나, 대신 QR 코드를 사용하세요.",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "기기에서 이 지갑으로 전환한 후 다시 시도하거나, 대신 QR 코드를 사용하세요.",
   "hardware_third_party_qr_request_too_large__msg": "계정이 너무 많아 QR 코드 한 번으로 내보낼 수 없습니다. USB로 연결한 후 다시 시도하세요.",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "계정이 너무 많아 QR 코드 한 번으로 내보낼 수 없습니다. {count}개 이하로 줄인 후 다시 시도하세요.",
   "hardware_third_party_thp_pairing_required__msg": "이 기기를 다시 페어링해야 합니다. 다시 연결한 후 다시 시도하세요.",
   "hardware_third_party_transport_error": "하드웨어 통신에 실패했습니다. USB 케이블이나 Bluetooth 를 확인한 후 다시 시도해주세요",
   "hardware_third_party_transport_not_available": "브라우저 또는 플랫폼에서 이 하드웨어 지갑 연결을 지원하지 않습니다",

@@ -2310,6 +2310,7 @@
   "hardware_third_party_qr_fallback_usb_unavailable__desc": "Проверьте USB-подключение и повторите попытку или используйте QR-код.",
   "hardware_third_party_qr_fallback_wallet_mismatch__desc": "Переключитесь на этот кошелёк на устройстве и повторите попытку или используйте QR-код.",
   "hardware_third_party_qr_request_too_large__msg": "Слишком много аккаунтов для одного QR-кода. Подключитесь по USB и повторите попытку.",
+  "hardware_third_party_qr_request_too_large_no_usb__msg": "Слишком много аккаунтов для одного QR-кода. Уменьшите их число до {count} и повторите попытку.",
   "hardware_third_party_thp_pairing_required__msg": "Устройство нужно сопрячь заново. Подключите его снова и повторите попытку.",
   "hardware_third_party_transport_error": "Ошибка связи с оборудованием. Проверьте USB-кабель или Bluetooth и повторите попытку.",
   "hardware_third_party_transport_not_available": "Ваш браузер или платформа не поддерживает подключение к этому аппаратному кошельку.",
