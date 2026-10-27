@@ -38,7 +38,7 @@ import {
 } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
-import { usePageTheme } from '../../utils/pageThemeColor';
+import { usePageBottomThemeName } from '../../utils/pageThemeColor';
 
 import {
   AddressCapsuleTitle,
@@ -110,8 +110,8 @@ const styles = StyleSheet.create({
 });
 
 // Glass shapes closer than this merge in the bar's glass container (Telegram's
-// spacing); the capsules' resting gap is wider, so they only merge while the
-// bar draws into the pill.
+// spacing); the capsules' gap is wider and the side ones shrink in place, so
+// they stay apart.
 const GLASS_MERGE_SPACING = 7;
 
 // Grows the 30pt pill's tap area to the bar capsule's height, and over its
@@ -124,16 +124,12 @@ const PILL_HIT_SLOP = {
 // Fade ranges of the bar/pill morph (progress: 1 = expanded, 0 = collapsed).
 const SIDE_FADE_START = 0.4;
 // The address capsule's buttons and badge: only while the shared background
-// is wide enough to hold them.
+// is wide enough to hold them (it narrows faster than the capsule's contents
+// shrink, so an earlier fade would leave them hanging outside the glass).
 const CAPSULE_CONTENT_FADE_START = 0.7;
 // The capsule's and the pill's domain swap here (see useBarMorphStyles).
 // Same point where touches move from the bar to the pill.
 const DOMAIN_SWAP_POINT = BROWSER_CHROME_CROSSFADE_POINT;
-
-// The side buttons move this far towards the center while collapsing, and
-// shrink to this scale.
-const SIDE_COLLAPSE_TRAVEL_X = 40;
-const SIDE_COLLAPSED_SCALE = 0.5;
 
 // The pill's domain text size.
 const PILL_DOMAIN_FONT_SIZE = 14;
@@ -146,33 +142,13 @@ function getCapsuleCollapsedScale(domainFontSize: number) {
   return PILL_DOMAIN_FONT_SIZE / domainFontSize;
 }
 
-// A side button's move: down with the bar, in toward the center (`towards`
-// is +1 for the left one, -1 for the right), and smaller.
-function useSideMorphStyle(
-  progress: SharedValue<number>,
-  travelY: number,
-  towards: 1 | -1,
-) {
+// A side button's move: down with the bar. Nothing more: its capsule's glass
+// shrinks away and its contents fade on their own (BrowserChromeCapsule).
+function useSideMorphStyle(progress: SharedValue<number>, travelY: number) {
   return useAnimatedStyle(() => ({
     transform: [
       {
-        translateX: interpolate(
-          progress.value,
-          [0, 1],
-          [towards * SIDE_COLLAPSE_TRAVEL_X, 0],
-          'clamp',
-        ),
-      },
-      {
         translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
-      },
-      {
-        scale: interpolate(
-          progress.value,
-          [0, 1],
-          [SIDE_COLLAPSED_SCALE, 1],
-          'clamp',
-        ),
       },
     ],
   }));
@@ -188,8 +164,8 @@ function getCapsuleMorphScale(progress: number, collapsedScale: number) {
 
 // Morphs the address capsule into the collapsed pill (and back), like
 // Safari: the capsule shrinks and slides down to the pill's spot while the
-// pill grows out of it; the side buttons shrink towards the pill, so the
-// whole bar draws into its center. The address capsule and the pill share
+// pill grows out of it; the side buttons shrink away where they are. The
+// address capsule and the pill share
 // one background (MorphingAddressBackground); these are transforms only, as
 // a parent opacity would break Liquid Glass.
 function useBarMorphStyles(
@@ -198,8 +174,8 @@ function useBarMorphStyles(
   domainCenterOffset: SharedValue<number>,
   collapsedScale: number,
 ) {
-  const leftStyle = useSideMorphStyle(progress, travelY, 1);
-  const rightStyle = useSideMorphStyle(progress, travelY, -1);
+  const leftStyle = useSideMorphStyle(progress, travelY);
+  const rightStyle = useSideMorphStyle(progress, travelY);
   const capsuleStyle = useAnimatedStyle(() => ({
     transform: [
       {
@@ -448,8 +424,9 @@ function MobileBrowserBottomBar({
   } = useMobileBrowserBottomBarData({ id });
 
   const { progress, onExpand, onSearchBarPress } = chrome;
-  // Match the page's light/dark look (glass, icons, text), like Safari.
-  const { pageThemeName } = usePageTheme(id);
+  // Match the light/dark look of the page right behind the bar (glass,
+  // icons, text, blur), like Safari, which reads each edge of the page.
+  const pageThemeName = usePageBottomThemeName(id);
   const appThemeName = useThemeName();
   const chromeThemeName = pageThemeName ?? appThemeName;
   const isChromeCollapsed = useIsChromeCollapsed(progress);
@@ -547,8 +524,7 @@ function MobileBrowserBottomBar({
         {/* One glass container for the address background and the side
           capsules, like Telegram's bars: the glass renders as one material
           instead of each piece adapting to what is behind it on its own
-          (mismatched mid-morph over page content), and the side capsules
-          merge into the address as they draw in. */}
+          (mismatched mid-morph over page content). */}
         <GlassContainer
           spacing={GLASS_MERGE_SPACING}
           pointerEvents="box-none"

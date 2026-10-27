@@ -133,6 +133,17 @@ export function usePageTheme(tabId: string | null | undefined) {
   return { pageColor, pageThemeName };
 }
 
+// The light/dark theme for chrome laid over the bottom of the page (the
+// bottom bar), from the color there: a page can be dark at the top and light
+// at the bottom, or the other way round.
+export function usePageBottomThemeName(tabId: string | null | undefined) {
+  const bottomColor = usePageBottomColor(tabId);
+  if (!bottomColor) {
+    return undefined;
+  }
+  return isDarkColor(bottomColor) ? 'dark' : 'light';
+}
+
 // Applies the cached color of the page's origin, if any; otherwise the
 // current tint stays until the page reports its own.
 export function applyCachedPageThemeColor(tabId: string, url: string) {
@@ -237,6 +248,45 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       }
       return '';
     };
+    // The color seen at a point: the stacked backgrounds there, from the top
+    // one down to the first opaque one, translucent layers blended over it
+    // (a frosted bottom nav over a white body reads dark, a dimming backdrop
+    // over the page reads as the dimmed page).
+    var colorAt = function (x, y) {
+      if (!document.elementsFromPoint) {
+        return backgroundOf(document.elementFromPoint(x, y));
+      }
+      var elements = document.elementsFromPoint(x, y);
+      var layers = [];
+      for (var i = 0; i < elements.length; i++) {
+        var m = /rgba?\\(([^)]+)\\)/.exec(
+          toRgb(getComputedStyle(elements[i]).backgroundColor),
+        );
+        if (!m) continue;
+        var parts = m[1].split(',').map(parseFloat);
+        var alpha = parts.length > 3 ? parts[3] : 1;
+        if (!(alpha > 0)) continue;
+        layers.push([parts[0], parts[1], parts[2], alpha]);
+        if (alpha >= ${MIN_OPAQUE_ALPHA}) break;
+      }
+      var base = layers.pop();
+      if (!base || base[3] < ${MIN_OPAQUE_ALPHA}) return '';
+      for (var j = layers.length - 1; j >= 0; j--) {
+        var layer = layers[j];
+        for (var k = 0; k < 3; k++) {
+          base[k] = layer[k] * layer[3] + base[k] * (1 - layer[3]);
+        }
+      }
+      return (
+        'rgb(' +
+        Math.round(base[0]) +
+        ', ' +
+        Math.round(base[1]) +
+        ', ' +
+        Math.round(base[2]) +
+        ')'
+      );
+    };
     var lastReport;
     var read = function () {
       // Walks up from <body> to <html>.
@@ -245,12 +295,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
         backgroundOf(document.elementFromPoint(window.innerWidth / 2, 2)) ||
         bodyColor;
       var bottomColor =
-        backgroundOf(
-          document.elementFromPoint(
-            window.innerWidth / 2,
-            window.innerHeight - 2,
-          ),
-        ) || bodyColor;
+        colorAt(window.innerWidth / 2, window.innerHeight - 2) || bodyColor;
       if (!color) {
         var metas = document.querySelectorAll('meta[name="theme-color"]');
         for (var i = 0; i < metas.length; i++) {
