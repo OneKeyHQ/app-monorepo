@@ -31,6 +31,24 @@ describe('buildReferralLinks', () => {
   it('returns no shop link when the invite URL is missing', () => {
     expect(buildHardwareShopInviteUrl('')).toBe('');
   });
+
+  it('extracts only the code pathname segment when the invite URL has a query or hash', () => {
+    const inviteUrl = 'https://onekey.so/r/HTSEO7?a=1&b=2#details';
+    expect(
+      buildReferralLinks({
+        inviteUrl,
+        webAppUrl: 'https://app.onekey.so',
+      }).map(({ url }) => url),
+    ).toEqual([
+      'https://onekey.so/r/HTSEO7/shop?a=1&b=2#details',
+      'https://app.onekey.so/r/HTSEO7/app/perps',
+      'https://app.onekey.so/r/HTSEO7/app/swap',
+      'https://app.onekey.so/r/HTSEO7/app/defi',
+    ]);
+    expect(buildHardwareShopInviteUrl(inviteUrl)).toBe(
+      'https://onekey.so/r/HTSEO7/shop?a=1&b=2#details',
+    );
+  });
 });
 
 describe('getProductReferralLink', () => {

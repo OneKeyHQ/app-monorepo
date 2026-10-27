@@ -152,6 +152,39 @@ function createReferralCache(initial: IReferralCodeData) {
 }
 
 describe('ServiceReferralCode owned invite code', () => {
+  it('only exposes the active account code through the public share reader', async () => {
+    jest.useFakeTimers();
+    try {
+      const { service } = createReferralCache({
+        myReferralCode: 'CODE-A',
+        myReferralCodeUserId: 'USER-A',
+      });
+      await expect(service.getMyReferralCode()).resolves.toBe('CODE-A');
+      mockPrimeUser = { ...mockPrimeUser, onekeyUserId: 'USER-B' };
+      await expect(service.getMyReferralCode()).resolves.toBe('');
+      await expect(
+        service.getMyReferralCode({ onekeyUserId: 'USER-A' }),
+      ).resolves.toBe('');
+
+      mockPrimeUser = { ...mockPrimeUser, isLoggedIn: false };
+      await expect(service.getMyReferralCode()).resolves.toBe('');
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not expose an unowned legacy code through the public share reader', async () => {
+    jest.useFakeTimers();
+    try {
+      const { service } = createReferralCache({ myReferralCode: 'LEGACY' });
+      await expect(service.getMyReferralCode()).resolves.toBe('');
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+  });
+
   it('does not reuse the previous account code when a new login has no code', async () => {
     const { service, getStored } = createReferralCache({
       myReferralCode: 'LEGACY',
@@ -200,6 +233,40 @@ describe('ServiceReferralCode owned invite code', () => {
       myReferralCode: 'CODE-A',
       myReferralCodeUserId: 'USER-A',
     });
+  });
+
+  it('checks the owner again when a delayed write enters the storage mutex', async () => {
+    const { service, entity, getStored } = createReferralCache({
+      myReferralCode: 'CODE-A',
+      myReferralCodeUserId: 'USER-A',
+    });
+    const write = jest.mocked(entity.setRawData).getMockImplementation()!;
+    let releaseWrite!: () => void;
+    let markWriteQueued!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    const queued = new Promise<void>((resolve) => {
+      markWriteQueued = resolve;
+    });
+    jest.mocked(entity.setRawData).mockImplementationOnce(async (builder) => {
+      markWriteQueued();
+      await blocked;
+      return write(builder);
+    });
+
+    const pending = service.updateMyReferralCode('LATE-A', 'USER-A');
+    await queued;
+    mockPrimeUser = { ...mockPrimeUser, onekeyUserId: 'USER-B' };
+    await service.updateMyReferralCode('CODE-B', 'USER-B');
+    releaseWrite();
+    await pending;
+
+    expect(getStored()).toEqual({
+      myReferralCode: 'CODE-B',
+      myReferralCodeUserId: 'USER-B',
+    });
+    await expect(service.getCachedMyReferralCode()).resolves.toBe('CODE-B');
   });
 
   it('discards a cache read if the account changes while storage is loading', async () => {

@@ -81,8 +81,21 @@ export function getProductReferralLink({
 }
 
 function extractInviteCode(url: string): string | undefined {
-  const match = url.match(/\/r\/([^/]+)/);
-  return match?.[1];
+  try {
+    return new URL(url).pathname.match(/^\/r\/([^/]+)/)?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
+function appendReferralPath(inviteUrl: string, pathSuffix: string) {
+  try {
+    const url = new URL(inviteUrl);
+    url.pathname = `${url.pathname}${pathSuffix}`;
+    return url.toString();
+  } catch {
+    return `${inviteUrl}${pathSuffix}`;
+  }
 }
 
 export function buildReferralLinks({
@@ -102,7 +115,7 @@ export function buildReferralLinks({
             inviteCode,
             pathSuffix: link.pathSuffix,
           })
-        : `${inviteUrl}${link.pathSuffix}`,
+        : appendReferralPath(inviteUrl, link.pathSuffix),
   }));
 }
 
@@ -113,5 +126,5 @@ export function buildHardwareShopInviteUrl(inviteUrl: string) {
   if (!inviteUrl || !hardwareLink) {
     return '';
   }
-  return `${inviteUrl}${hardwareLink.pathSuffix}`;
+  return appendReferralPath(inviteUrl, hardwareLink.pathSuffix);
 }

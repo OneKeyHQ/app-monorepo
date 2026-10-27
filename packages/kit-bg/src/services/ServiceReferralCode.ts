@@ -687,9 +687,8 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getMyReferralCode() {
-    const myReferralCode =
-      await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
+  async getMyReferralCode(params?: { onekeyUserId: string }) {
+    const myReferralCode = await this.getCachedMyReferralCode(params);
     setTimeout(async () => {
       const isLogin = await this.backgroundApi.servicePrime.isLoggedIn();
       if (isLogin) {
@@ -807,19 +806,32 @@ class ServiceReferralCode extends ServiceBase {
 
   @backgroundMethod()
   async updateMyReferralCode(code: string, onekeyUserId: string) {
-    const user = await primePersistAtom.get();
-    if (
-      !onekeyUserId ||
-      onekeyUserId !== user.onekeyUserId ||
-      !user.isLoggedIn ||
-      !user.isLoggedInOnServer
-    ) {
-      return;
+    const staleWriteError = new OneKeyLocalError('Referral code owner changed');
+    try {
+      // Check ownership inside the storage mutex, after any queued writes.
+      await this.backgroundApi.simpleDb.referralCode.setRawData(
+        async (rawData) => {
+          const user = await primePersistAtom.get();
+          if (
+            !onekeyUserId ||
+            onekeyUserId !== user.onekeyUserId ||
+            !user.isLoggedIn ||
+            !user.isLoggedInOnServer
+          ) {
+            throw staleWriteError;
+          }
+          return {
+            ...rawData,
+            myReferralCode: code,
+            myReferralCodeUserId: onekeyUserId,
+          };
+        },
+      );
+    } catch (error) {
+      if (error !== staleWriteError) {
+        throw error;
+      }
     }
-    await this.backgroundApi.simpleDb.referralCode.updateCode({
-      myReferralCode: code,
-      myReferralCodeUserId: onekeyUserId,
-    });
   }
 
   @backgroundMethod()
