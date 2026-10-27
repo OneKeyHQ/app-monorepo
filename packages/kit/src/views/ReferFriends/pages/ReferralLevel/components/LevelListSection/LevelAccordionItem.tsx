@@ -166,8 +166,9 @@ function RuleColumn({
 
 // The rate column reads "you / invitee". Right-aligning the whole text
 // staggered its slashes whenever a part was "–" or a different width, so the
-// two parts sit in their own sub-columns: yours flush right, the invitee's
-// flush left, and every row's slash lands at the same spot.
+// two parts sit in their own sub-columns, both flush right like the other
+// figures: every row's slash lands at the same spot and the column keeps one
+// right edge under its header.
 function RateColumn({
   header,
   values,
@@ -192,7 +193,7 @@ function RateColumn({
         />
         <RuleCells
           values={values}
-          ai="flex-start"
+          ai="flex-end"
           renderCell={(value) =>
             value ? <RuleCell value={value.invitee} /> : null
           }
