@@ -881,11 +881,14 @@ const STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH = 240;
 const STOCK_ANALYST_COMPACT_BAR_ROW_HEIGHT = 28;
 const STOCK_ANALYST_COMPACT_SUMMARY_SIZE = 56;
 
-function getStockAnalystConsensusTone(consensus?: 'Buy' | 'Sell') {
-  if (consensus === 'Buy') {
+// The provider sends a free-form string (see `formatStockAnalystConsensus`),
+// so match it the same way the label does.
+function getStockAnalystConsensusTone(consensus?: string) {
+  const normalized = consensus?.trim().toLowerCase();
+  if (normalized === 'buy' || normalized === 'strong buy') {
     return { bg: '$bgSuccessSubdued', icon: '$iconSuccess' } as const;
   }
-  if (consensus === 'Sell') {
+  if (normalized === 'sell' || normalized === 'strong sell') {
     return { bg: '$bgCriticalSubdued', icon: '$iconCritical' } as const;
   }
   return { bg: '$bgSubdued', icon: '$iconSubdued' } as const;
