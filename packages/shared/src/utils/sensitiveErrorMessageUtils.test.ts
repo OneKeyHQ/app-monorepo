@@ -6,9 +6,8 @@ import { getSafeErrorIdentifiers } from './sensitiveErrorMessageUtils';
 describe('getSafeErrorIdentifiers', () => {
   beforeAll(() => {
     appLocale.setLocale('en-US', {
-      ...appLocale.intl.messages,
       [ETranslations.swap_page_recent_trade]: 'Recent trade',
-    });
+    } as Parameters<typeof appLocale.setLocale>[1]);
   });
 
   it('keeps an allowlisted OneKey class name, numeric code and known key', () => {

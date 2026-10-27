@@ -35,9 +35,8 @@ function reportSendTx(params: Parameters<SwapSendTxScene['swapSendTx']>[0]) {
 describe('SwapSendTxScene', () => {
   beforeAll(() => {
     appLocale.setLocale('en-US', {
-      ...appLocale.intl.messages,
       [ETranslations.swap_page_recent_trade]: 'Recent trade',
-    });
+    } as Parameters<typeof appLocale.setLocale>[1]);
   });
 
   it('reports the failure category and allowlisted error identifiers', () => {
