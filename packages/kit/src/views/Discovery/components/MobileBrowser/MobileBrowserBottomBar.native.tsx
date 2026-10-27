@@ -38,7 +38,10 @@ import {
 } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
-import { usePageBottomThemeName } from '../../utils/pageThemeColor';
+import {
+  usePageBottomThemeName,
+  usePageTheme,
+} from '../../utils/pageThemeColor';
 
 import {
   AddressCapsuleTitle,
@@ -62,7 +65,6 @@ import {
   BrowserChromeCapsule,
   ChromeGlassView,
   PILL_RADIUS,
-  PageBottomColorFill,
   useCapsuleFadeStyle,
 } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
@@ -353,7 +355,7 @@ const edgeBlurMask = (
 // iPhone, where the page draws under the bar: a blur that fades in towards
 // the screen bottom, like Telegram's toolbar edge effect, so the glass sits
 // on a soft backdrop rather than on sharp page content. The thinnest
-// material in the page's light/dark look (Telegram's is untinted; the
+// material in the page's light/dark look (Telegram's is not tinted; the
 // default tint follows the system appearance and veils a dark page in
 // light mode). If the blur doesn't render inside the mask on a device
 // (masking a visual effect view's parent view is not officially supported),
@@ -408,11 +410,16 @@ function MobileBrowserBottomBar({
   } = useMobileBrowserBottomBarData({ id });
 
   const { progress, onExpand, onSearchBarPress } = chrome;
-  // Match the light/dark look of the page right behind the bar (glass,
-  // icons, text, blur), like Safari, which reads each edge of the page.
-  const pageThemeName = usePageBottomThemeName(id);
+  // On iPhone, match the light/dark look of the page right behind the bar
+  // (glass, icons, text, blur), like Safari, which reads each edge of the
+  // page. Elsewhere the bar sits on a solid strip in the header's color, so
+  // it takes the header's look too.
+  const bottomThemeName = usePageBottomThemeName(id);
+  const { pageColor, pageThemeName } = usePageTheme(id);
   const appThemeName = useThemeName();
-  const chromeThemeName = pageThemeName ?? appThemeName;
+  const chromeThemeName =
+    (PAGE_DRAWS_UNDER_BROWSER_BAR ? bottomThemeName : pageThemeName) ??
+    appThemeName;
   const isChromeCollapsed = useIsChromeCollapsed(progress);
   const sideFade = useMemo<ICapsuleFade>(
     () => ({ progress, range: [SIDE_FADE_START, 1] }),
@@ -495,13 +502,11 @@ function MobileBrowserBottomBar({
           {PAGE_DRAWS_UNDER_BROWSER_BAR ? (
             <BarEdgeBlur isDark={chromeThemeName === 'dark'} />
           ) : (
-            // The WebView ends above the bar: the strip behind it takes the
-            // page's color right above the bar (rather than e.g. a colored
-            // top banner), so there is no seam above the bar, and
-            // hides the WebView's part that passes behind the bar mid-morph.
-            // No fade above it: a plain alpha fade (no blur) over page
-            // content of another color looks muddy.
-            <PageBottomColorFill tabId={id} style={StyleSheet.absoluteFill} />
+            // The WebView ends above the bar: a solid strip in the header's
+            // color hides the WebView's part that passes behind the bar
+            // mid-morph. Not the page's bottom color: that changes as the page
+            // scrolls, and a solid bar changing color draws the eye.
+            <Stack bg={pageColor ?? '$bgApp'} style={StyleSheet.absoluteFill} />
           )}
         </BarBackdrop>
         {/* One glass container for the address background and the side
