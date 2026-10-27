@@ -106,7 +106,8 @@ export function useSwapStockChannel(
     useSwapStockSelectedTokenAtom();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const { selectStockExecutionTokens } = useSwapActions().current;
+  const { selectStockExecutionTokens, markRecentTokenPairSelection } =
+    useSwapActions().current;
   const { spotCategories, isLoading: marketBasicConfigLoading } =
     useMarketBasicConfig();
   const [swapFromMarketJumpToken] = useSwapFromMarketJumpTokenAtom();
@@ -720,8 +721,14 @@ export function useSwapStockChannel(
         stockToken: nextStockToken,
         payToken: nextPayToken,
       });
+      markRecentTokenPairSelection();
     },
-    [resetStockTradeAmounts, setStockSelectedToken, syncStockExecutionTokens],
+    [
+      markRecentTokenPairSelection,
+      resetStockTradeAmounts,
+      setStockSelectedToken,
+      syncStockExecutionTokens,
+    ],
   );
 
   const stockTokenStatus = useMemo(() => {

@@ -520,34 +520,40 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
 
-  it('keeps a newer Recent trades pick when an older order finishes', async () => {
-    const sent = deferred<ISignedTxPro>();
-    const started = deferred<void>();
-    mockSignAndSendTransaction.mockImplementationOnce(() => {
-      started.resolve();
-      return sent.promise;
-    });
-    const { result, store } = renderExecutionReview();
-    await act(async () => {
-      store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
-      store.set(swapQuoteListAtom(), [quote]);
-      store.set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
-    });
-    let execution!: Promise<void>;
-    await act(async () => {
-      execution = result.current.preSwapStepsStart();
-      await started.promise;
-    });
-    const newerPick = { fromToken: toToken, toToken: fromToken };
-    await act(async () => {
-      store.set(swapRecentTokenPairSelectionAtom(), newerPick);
-    });
-    await act(async () => {
-      sent.resolve({ txid: 'swap-tx', rawTx: '', encodedTx: {} });
-      await execution;
-    });
-    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual(newerPick);
-  });
+  it.each([
+    ['the reversed pair', () => ({ fromToken: toToken, toToken: fromToken })],
+    ['the same pair again', () => ({ fromToken, toToken })],
+  ])(
+    'keeps a newer Recent trades pick of %s when an older order finishes',
+    async (_label, makeNewerPick) => {
+      const sent = deferred<ISignedTxPro>();
+      const started = deferred<void>();
+      mockSignAndSendTransaction.mockImplementationOnce(() => {
+        started.resolve();
+        return sent.promise;
+      });
+      const { result, store } = renderExecutionReview();
+      await act(async () => {
+        store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+        store.set(swapQuoteListAtom(), [quote]);
+        store.set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+      });
+      let execution!: Promise<void>;
+      await act(async () => {
+        execution = result.current.preSwapStepsStart();
+        await started.promise;
+      });
+      const newerPick = makeNewerPick();
+      await act(async () => {
+        store.set(swapRecentTokenPairSelectionAtom(), newerPick);
+      });
+      await act(async () => {
+        sent.resolve({ txid: 'swap-tx', rawTx: '', encodedTx: {} });
+        await execution;
+      });
+      expect(store.get(swapRecentTokenPairSelectionAtom())).toBe(newerPick);
+    },
+  );
 
   it.each(['closed', 'replaced', 'cleared'])(
     'records a broadcast approval only in its own tracking slot: %s',

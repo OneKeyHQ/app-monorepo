@@ -113,6 +113,7 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
+  type ISwapTokenPair,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
@@ -344,8 +345,11 @@ export function useSwapBuildTx({
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const { isRecentTokenPairOrder, clearRecentTokenPairSelection } =
+  const { getRecentTokenPairSelectionFor, clearRecentTokenPairSelection } =
     useSwapRecentTokenPairAttribution().current;
+  // The "Recent trades" pick each logged order was attributed to, keyed by
+  // order id, so a sent order clears exactly that pick and not a newer one.
+  const recentPairPickByOrderIdRef = useRef(new Map<string, ISwapTokenPair>());
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapProAccount = useSwapProAccount();
@@ -623,6 +627,20 @@ export function useSwapBuildTx({
     }
   }, []);
 
+  const releaseRecentTokenPairAttribution = useCallback(
+    (swapInfo: ISwapTxInfo) => {
+      const { orderId } = swapInfo.swapBuildResData;
+      const pick = orderId
+        ? recentPairPickByOrderIdRef.current.get(orderId)
+        : undefined;
+      if (orderId && pick) {
+        recentPairPickByOrderIdRef.current.delete(orderId);
+        clearRecentTokenPairSelection(pick);
+      }
+    },
+    [clearRecentTokenPairSelection],
+  );
+
   const onBuildTxSuccess = useCallback(
     async (
       txId: string,
@@ -635,10 +653,7 @@ export function useSwapBuildTx({
     ) => {
       if (swapInfo) {
         // A recent-pair tap attributes one sent order, not every later one.
-        clearRecentTokenPairSelection({
-          fromToken: swapInfo.sender.token,
-          toToken: swapInfo.receiver.token,
-        });
+        releaseRecentTokenPairAttribution(swapInfo);
         if (reviewGuard?.execution) {
           reviewGuard.execution.consumeInput();
         } else if (!reviewGuard || reviewGuard.isCurrent()) {
@@ -693,7 +708,7 @@ export function useSwapBuildTx({
       goBackQrCodeModal,
       generateSwapHistoryItem,
       setSwapSteps,
-      clearRecentTokenPairSelection,
+      releaseRecentTokenPairAttribution,
       fromAccountId,
     ],
   );
@@ -709,10 +724,7 @@ export function useSwapBuildTx({
       swapInfo: ISwapTxInfo;
     }) => {
       if (swapInfo) {
-        clearRecentTokenPairSelection({
-          fromToken: swapInfo.sender.token,
-          toToken: swapInfo.receiver.token,
-        });
+        releaseRecentTokenPairAttribution(swapInfo);
         if (reviewGuard?.execution) {
           reviewGuard.execution.consumeInput();
         } else if (!reviewGuard || reviewGuard.isCurrent()) {
@@ -751,7 +763,7 @@ export function useSwapBuildTx({
       clearQuoteData,
       generateSwapHistoryItem,
       setSwapSteps,
-      clearRecentTokenPairSelection,
+      releaseRecentTokenPairAttribution,
       fromAccountId,
     ],
   );
@@ -2441,6 +2453,16 @@ export function useSwapBuildTx({
           !buildRoutes?.length && quoteRoutes?.length
             ? quoteRoutes
             : buildRoutes;
+        const recentPairPick = getRecentTokenPairSelectionFor({
+          fromToken: buildSwapRes.result?.fromTokenInfo,
+          toToken: buildSwapRes.result?.toTokenInfo,
+        });
+        if (recentPairPick && buildSwapRes.orderId) {
+          recentPairPickByOrderIdRef.current.set(
+            buildSwapRes.orderId,
+            recentPairPick,
+          );
+        }
         defaultLogger.swap.createSwapOrder.swapCreateOrder({
           ...reviewAnalyticsContext,
           quoteId: reviewAnalyticsContext?.quoteId ?? quoteResult?.quoteId,
@@ -2469,10 +2491,7 @@ export function useSwapBuildTx({
             isSwapPro: focusSwapPro,
             isModalPage,
           }),
-          fromRecentTokenPair: isRecentTokenPairOrder({
-            fromToken: buildSwapRes.result?.fromTokenInfo,
-            toToken: buildSwapRes.result?.toTokenInfo,
-          }),
+          fromRecentTokenPair: !!recentPairPick,
           orderId: buildSwapRes?.orderId ?? '',
           orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
           ...getStockTradeAnalyticsPayload({
@@ -2493,7 +2512,7 @@ export function useSwapBuildTx({
       isFirstTimeSwap,
       focusSwapPro,
       isModalPage,
-      isRecentTokenPairOrder,
+      getRecentTokenPairSelectionFor,
     ],
   );
 
@@ -2678,7 +2697,7 @@ export function useSwapBuildTx({
                 isSwapPro: focusSwapPro,
                 isModalPage,
               }),
-              fromRecentTokenPair: isRecentTokenPairOrder({
+              fromRecentTokenPair: !!getRecentTokenPairSelectionFor({
                 fromToken: data?.fromTokenInfo,
                 toToken: data?.toTokenInfo,
               }),
@@ -3078,7 +3097,7 @@ export function useSwapBuildTx({
       toAccountId,
       swapBuildFinish,
       logSwapBuildResult,
-      isRecentTokenPairOrder,
+      getRecentTokenPairSelectionFor,
       intl,
       persistSettings.currencyInfo.id,
       currencyMap,

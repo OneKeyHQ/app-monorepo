@@ -10138,7 +10138,7 @@ describe('Recent trades attribution', () => {
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
 
-  it('matches and clears only the pair the order traded', async () => {
+  it('clears only the pick an order was attributed to', async () => {
     const { store, Wrapper } = createWrapperWithStore();
     const { result } = renderHook(
       () => ({
@@ -10148,23 +10148,58 @@ describe('Recent trades attribution', () => {
       { wrapper: Wrapper },
     );
     const { actions, attribution } = result.current;
+    const pickedOrder = { fromToken: usdcToken, toToken: usdtToken };
+    await act(async () => {
+      await actions.selectRecentTokenPair(pickedOrder);
+    });
+    expect(
+      attribution.getRecentTokenPairSelectionFor({
+        fromToken: ethToken,
+        toToken: uniToken,
+      }),
+    ).toBeUndefined();
+    const olderPick = attribution.getRecentTokenPairSelectionFor(pickedOrder);
+    expect(olderPick).toEqual(pickedOrder);
+
+    await act(async () => {
+      await actions.selectRecentTokenPair(pickedOrder);
+    });
+    act(() => {
+      attribution.clearRecentTokenPairSelection(olderPick!);
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual(pickedOrder);
+
+    const newerPick = attribution.getRecentTokenPairSelectionFor(pickedOrder);
+    act(() => {
+      attribution.clearRecentTokenPairSelection(newerPick!);
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it('ends the attribution when the pair is reversed', async () => {
+    const { store, actions } = renderActions();
     await act(async () => {
       await actions.selectRecentTokenPair({
         fromToken: usdcToken,
         toToken: usdtToken,
       });
     });
-    const otherOrder = { fromToken: ethToken, toToken: uniToken };
-    const pickedOrder = { fromToken: usdcToken, toToken: usdtToken };
-    expect(attribution.isRecentTokenPairOrder(otherOrder)).toBe(false);
-    expect(attribution.isRecentTokenPairOrder(pickedOrder)).toBe(true);
     act(() => {
-      attribution.clearRecentTokenPairSelection(otherOrder);
-    });
-    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual(pickedOrder);
-    act(() => {
-      attribution.clearRecentTokenPairSelection(pickedOrder);
+      actions.alternationToken();
     });
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it('records the pair selected for execution for Stock picks', () => {
+    const { store, actions } = renderActions();
+    act(() => {
+      store.set(swapSelectFromTokenAtom(), usdcToken);
+      store.set(swapSelectToTokenAtom(), usdtToken);
+      actions.markRecentTokenPairSelection();
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual({
+      fromToken: usdcToken,
+      toToken: usdtToken,
+    });
   });
 });

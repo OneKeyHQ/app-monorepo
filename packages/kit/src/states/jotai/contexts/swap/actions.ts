@@ -1178,16 +1178,28 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  isRecentTokenPairOrder = contextAtomMethod(
-    (get, set, order: IRecentTokenPairOrder) =>
-      matchesTokenPair(get(swapRecentTokenPairSelectionAtom()), order),
+  // Records the pair now selected for execution; Stock normalizes the picked
+  // tokens, so it records after syncing instead of passing the chip pair.
+  markRecentTokenPairSelection = contextAtomMethod((get, set) => {
+    const fromToken = get(swapSelectFromTokenAtom());
+    const toToken = get(swapSelectToTokenAtom());
+    if (fromToken && toToken) {
+      set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+    }
+  });
+
+  getRecentTokenPairSelectionFor = contextAtomMethod(
+    (get, set, order: IRecentTokenPairOrder) => {
+      const selection = get(swapRecentTokenPairSelectionAtom());
+      return matchesTokenPair(selection, order) ? selection : undefined;
+    },
   );
 
-  // Clears the attribution only if it still names this order's pair, so a
-  // finishing order cannot drop a newer "Recent trades" pick.
+  // Clears only the pick an order was attributed to, so a finishing order
+  // cannot drop a newer "Recent trades" pick, even of the same pair.
   clearRecentTokenPairSelection = contextAtomMethod(
-    (get, set, order: IRecentTokenPairOrder) => {
-      if (matchesTokenPair(get(swapRecentTokenPairSelectionAtom()), order)) {
+    (get, set, selection: ISwapTokenPair) => {
+      if (get(swapRecentTokenPairSelectionAtom()) === selection) {
         set(swapRecentTokenPairSelectionAtom(), undefined);
       }
     },
@@ -1304,6 +1316,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     );
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
+    set(swapRecentTokenPairSelectionAtom(), undefined);
     // Carry the balances (and their bookkeeping) across with the tokens. The
     // To balance is fetched for the same wallet, so it is exactly the From
     // balance now; without this the From row, Top up chip and action button
@@ -4901,10 +4914,14 @@ const createActions = memoFn(() => new ContentJotaiActionsSwap());
 // re-render the hosts of useSwapBuildTx.
 export const useSwapRecentTokenPairAttribution = () => {
   const actions = createActions();
-  const isRecentTokenPairOrder = actions.isRecentTokenPairOrder.use();
+  const getRecentTokenPairSelectionFor =
+    actions.getRecentTokenPairSelectionFor.use();
   const clearRecentTokenPairSelection =
     actions.clearRecentTokenPairSelection.use();
-  return useRef({ isRecentTokenPairOrder, clearRecentTokenPairSelection });
+  return useRef({
+    getRecentTokenPairSelectionFor,
+    clearRecentTokenPairSelection,
+  });
 };
 
 export const useSwapActions = () => {
@@ -4912,6 +4929,8 @@ export const useSwapActions = () => {
   const selectFromToken = actions.selectFromToken.use();
   const selectToToken = actions.selectToToken.use();
   const selectRecentTokenPair = actions.selectRecentTokenPair.use();
+  const markRecentTokenPairSelection =
+    actions.markRecentTokenPairSelection.use();
   const selectStockExecutionTokens = actions.selectStockExecutionTokens.use();
   const alternationToken = actions.alternationToken.use();
   const syncNetworksSort = actions.syncNetworksSort.use();
@@ -4967,6 +4986,7 @@ export const useSwapActions = () => {
     requireManualQuoteRefresh,
     selectToToken,
     selectRecentTokenPair,
+    markRecentTokenPairSelection,
     selectStockExecutionTokens,
     alternationToken,
     syncNetworksSort,
