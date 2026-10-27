@@ -2,11 +2,14 @@ import type { PropsWithChildren } from 'react';
 
 import { View } from 'react-native';
 
-import type { StyleProp, ViewStyle } from 'react-native';
+import type { GlassViewProps } from 'expo-glass-effect';
+import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
 
 export type IGlassViewProps = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
-  glassEffectStyle?: 'clear' | 'regular';
+  // Type-only import: erased at build time, so the native module still
+  // never enters a non-iOS bundle.
+  glassEffectStyle?: GlassViewProps['glassEffectStyle'];
   tintColor?: string;
   isInteractive?: boolean;
 }>;
@@ -18,6 +21,25 @@ export type IGlassViewProps = PropsWithChildren<{
 // variant is the only place expo-glass-effect is referenced.
 export function GlassView({ children, style }: IGlassViewProps) {
   return <View style={style}>{children}</View>;
+}
+
+export type IGlassContainerProps = PropsWithChildren<{
+  style?: StyleProp<ViewStyle>;
+  spacing?: number;
+  pointerEvents?: ViewProps['pointerEvents'];
+}>;
+
+// Placeholder like GlassView above; see index.ios.tsx.
+export function GlassContainer({
+  children,
+  style,
+  pointerEvents,
+}: IGlassContainerProps) {
+  return (
+    <View style={style} pointerEvents={pointerEvents}>
+      {children}
+    </View>
+  );
 }
 
 export function isLiquidGlassAvailable(): boolean {

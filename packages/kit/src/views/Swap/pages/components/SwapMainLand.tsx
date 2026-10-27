@@ -157,6 +157,7 @@ import {
   resolveSwapReviewTokenAmounts,
 } from '../../utils/buildSwapReviewState';
 import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
+import { getHomeSelectedAccountInfoFromContextStore } from '../../utils/swapHomeSelectedAccountUtils';
 import {
   buildSwapPositionPrefetchScopes,
   createSwapPositionPrefetchScheduler,
@@ -186,7 +187,7 @@ import {
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
 
-import type { ScrollView as ScrollViewNative } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
@@ -1377,7 +1378,7 @@ const SwapMainLoad = ({
     },
     [navigation, storeName],
   );
-  const scrollViewRef = useRef<ScrollViewNative>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const onTokenPress = useCallback(
     (token: ISwapToken) => {
       if (token.isStock) {
@@ -1929,11 +1930,22 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     storeName: providedStoreName,
     swapInitParams,
   } = props;
-  const storeName =
-    providedStoreName ??
-    (pageType === EPageType.modal
-      ? EJotaiContextStoreNames.swapModal
-      : EJotaiContextStoreNames.swap);
+  let entryStoreName = EJotaiContextStoreNames.swap;
+  if (pageType === EPageType.modal) {
+    entryStoreName = EJotaiContextStoreNames.swapModal;
+    if (swapInitParams?.swapSource === ESwapSource.WALLET_HOME) {
+      entryStoreName = EJotaiContextStoreNames.swapHomeMore;
+    } else if (
+      swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST
+    ) {
+      entryStoreName = EJotaiContextStoreNames.swapHomeToken;
+    }
+  }
+  const storeName = providedStoreName ?? entryStoreName;
+  const homeSelectedAccountOnInit =
+    storeName === EJotaiContextStoreNames.swapHomeMore
+      ? (getHomeSelectedAccountInfoFromContextStore()?.selectedAccount ?? null)
+      : undefined;
   const shouldSeedMarketPair = Boolean(
     (singleSwapBridgeHeader || pageType === EPageType.modal) &&
     swapInitParams?.swapSource === ESwapSource.MARKET &&
@@ -1968,6 +1980,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     <SwapProviderMirror
       storeName={storeName}
       initialSelectedTokensOnInit={initialSelectedTokensOnInit}
+      homeSelectedAccountOnInit={homeSelectedAccountOnInit}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}

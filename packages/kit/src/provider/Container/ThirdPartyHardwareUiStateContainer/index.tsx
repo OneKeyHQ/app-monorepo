@@ -261,13 +261,14 @@ function InstallAppDialogContent() {
       if (vendor) {
         await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
           vendor,
+          ...(state?.operationId ? { connectId: state.operationId } : {}),
         });
       }
     } finally {
       await thirdPartyAppInstallAtom.set(undefined);
       await thirdPartyBatchInstallAtom.set(undefined);
     }
-  }, [vendor]);
+  }, [vendor, state?.operationId]);
 
   if (!appName && !inBatch) {
     return null;
@@ -619,6 +620,14 @@ function getDialogContent(
         ),
         showFooter: true,
       };
+    case EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm:
+      return {
+        title: intl.formatMessage({ id: ETranslations.qr_connection_cta }),
+        message: intl.formatMessage({
+          id: ETranslations.hardware_third_party_qr_fallback__desc,
+        }),
+        showFooter: true,
+      };
     case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
       return {
         title: intl.formatMessage({
@@ -905,7 +914,12 @@ function ThirdPartyHardwareUiStateContainerCmp() {
               },
             )
           : backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
-              { vendor },
+              {
+                vendor,
+                ...(expectedState?.operationId
+                  ? { connectId: expectedState.operationId }
+                  : {}),
+              },
             );
         void cancelRequest.finally(clearExpectedState);
       } else {
@@ -926,6 +940,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
       vendor,
       requestId: selection?.requestId,
+      operationId: expectedState?.operationId,
       dialogInstanceRef: localDialogRef,
       settledRef,
       uiResponse: (requestParams) =>
@@ -1001,6 +1016,13 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     }
     const expectedState = uiState;
     let isSettled = false;
+    let scanStarted = false;
+    const cancelParams = {
+      vendor,
+      ...(expectedState?.operationId
+        ? { connectId: expectedState.operationId }
+        : {}),
+    };
 
     const clearExpectedState = async () => {
       const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
@@ -1025,12 +1047,16 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       const cleared = await clearExpectedState();
       if (!cleared) return;
       await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
-        { vendor },
+        cancelParams,
       );
     };
 
     const sendResponse = async (
-      qrResponse: { urType: string; urData: string } | null,
+      qrResponse: {
+        urType: string;
+        urData: string;
+        accountExport?: boolean;
+      } | null,
     ) => {
       if (isSettled) return;
       isSettled = true;
@@ -1046,35 +1072,48 @@ function ThirdPartyHardwareUiStateContainerCmp() {
           );
         } else {
           await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
-            { vendor },
+            cancelParams,
           );
         }
       } catch {
         await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
-          { vendor },
+          cancelParams,
         );
       } finally {
         await clearExpectedState();
       }
     };
 
-    const runScan = async () => {
-      if (isSettled) return;
+    const runScan = async (accountExport = false) => {
+      if (isSettled || scanStarted) return;
+      scanStarted = true;
+      let result: Awaited<ReturnType<typeof startKeystoneQrScan>>;
       try {
         await yieldDeviceStageToDialog();
         if (isSettled) return;
-        const result = await startKeystoneQrScan({
+        result = await startKeystoneQrScan({
           handlers: [EQRCodeHandlerNames.animation],
           qrWalletScene: true,
           autoExecuteParsedAction: false,
         });
+      } catch {
+        await sendResponse(null);
+        return;
+      }
+      try {
         const ur = await airGapUrUtils.qrcodeToUr(result.raw);
         await sendResponse({
           urType: ur.type,
           urData: ur.cbor.toString('hex'),
+          ...(accountExport ? { accountExport: true } : {}),
         });
       } catch {
-        await sendResponse(null);
+        // A completed scan that cannot be decoded is bad data, not a user cancellation.
+        await sendResponse({
+          urType: '',
+          urData: '',
+          ...(accountExport ? { accountExport: true } : {}),
+        });
       }
     };
 
@@ -1101,6 +1140,33 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         drawType: 'line',
         dismissOnOverlayPress: false,
         showConfirmButton: true,
+        ...(uiState?.payload?.allowAccountExport
+          ? {
+              title: intl.formatMessage(
+                { id: ETranslations.device_stage_connect_vendor__title },
+                { vendor: 'Keystone' },
+              ),
+              message: intl.formatMessage({
+                id: ETranslations.device_stage_show_qr__title,
+              }),
+              extraAction: {
+                title: intl.formatMessage({
+                  id: ETranslations.keystone_specialized_firmware__title,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.keystone_account_export__desc,
+                }),
+                label: intl.formatMessage({
+                  id: ETranslations.keystone_scan_account_export__action,
+                }),
+                testID: 'keystone-scan-account-export-btn',
+                onPress: async () => {
+                  await toast?.close({ flag: 'skipReject' });
+                  await runScan(true);
+                },
+              },
+            }
+          : {}),
         onConfirm: async () => {
           await toast?.close({ flag: 'skipReject' });
           await runScan();
@@ -1122,6 +1188,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       void toast?.close({ flag: 'skipReject' });
     };
   }, [
+    intl,
     isKeystoneQr,
     uiState,
     uiState?.vendor,
@@ -1220,7 +1287,10 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       ) {
         return;
       }
-      const response = buildThirdPartyHardwareUiResponse(action, true, { tag });
+      const response = buildThirdPartyHardwareUiResponse(action, true, {
+        tag,
+        requestId: uiStateRef.current?.payload?.requestId,
+      });
       if (response) {
         await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
           {
@@ -1385,12 +1455,14 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   }, [uiState, isToastAction, intl]);
 
   const handleToastUserClose = useCallback(async () => {
-    const vendor = uiStateRef.current?.vendor;
+    const state = uiStateRef.current;
+    const vendor = state?.vendor;
     try {
       if (vendor) {
         await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
           {
             vendor,
+            ...(state?.operationId ? { connectId: state.operationId } : {}),
           },
         );
       }

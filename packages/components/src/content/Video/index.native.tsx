@@ -71,10 +71,11 @@ function VideoComponent(
   const [props, style] = usePropsAndStyle(rawProps);
   const mergedStyle = useMemo<ViewStyle>(
     () =>
-      StyleSheet.flatten<ViewStyle>([
+      // Flattening an array always yields an object.
+      StyleSheet.flatten<StyleProp<ViewStyle>>([
         style as ViewStyle,
         callerStyle as StyleProp<ViewStyle>,
-      ]),
+      ]) as ViewStyle,
     [style, callerStyle],
   );
 

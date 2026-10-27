@@ -38,6 +38,7 @@ describe('TradingViewNative chart settings adapter', () => {
     value.options.countdown = false;
     value.options.latestPrice = false;
     value.options.previousClose = true;
+    value.options.navigationButtons = false;
     value.latestPriceLine.upColor = '#123456';
     value.latestPriceLine.downColor = '#654321';
     value.background.style = 'gradient';
@@ -53,6 +54,7 @@ describe('TradingViewNative chart settings adapter', () => {
     expect(nextSettings.options).not.toHaveProperty('countdown');
     expect(nextSettings.options.latestPrice).toBe(false);
     expect(nextSettings.options.previousClose).toBe(true);
+    expect(nextSettings.options.navigationButtons).toBe(false);
     expect(nextSettings.latestPriceLine).toEqual({
       ...currentSettings.latestPriceLine,
       upColor: '#123456',
@@ -134,6 +136,23 @@ describe('TradingViewNative chart settings adapter', () => {
       TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
     );
     expect(migrated.options.previousClose).toBe(false);
+  });
+
+  it('shows navigation buttons when migrating schema version 4 settings', () => {
+    const previousSettings = createTradingViewNativeChartSettings();
+    const { navigationButtons: _navigationButtons, ...legacyOptions } =
+      previousSettings.options;
+
+    const migrated = normalizeTradingViewNativeChartSettings({
+      ...previousSettings,
+      schemaVersion: 4,
+      options: legacyOptions,
+    });
+
+    expect(migrated.schemaVersion).toBe(
+      TRADING_VIEW_NATIVE_CHART_SETTINGS_SCHEMA_VERSION,
+    );
+    expect(migrated.options.navigationButtons).toBe(true);
   });
 
   it('sanitizes malformed nested values in the current persisted schema', () => {

@@ -40,6 +40,7 @@ import { MarketTooltipLabel } from '../../components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
 import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TABS_MIN_HEIGHT,
   MARKET_DETAIL_TRADE_COLUMN_PROPS,
 } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
@@ -865,6 +866,7 @@ function StockPosition({
   return (
     <Portfolio
       standalone
+      isStock
       hasAccount={hasAccount}
       portfolioData={portfolioData}
       isRefreshing={isRefreshing}
@@ -1347,14 +1349,15 @@ function StockOverview({
           <StockAbout />
         </>
       ) : (
-        // Portfolio brings its own horizontal padding and sizes to its rows, so
-        // it is mounted bare: an outer gutter would double-indent the table and
-        // a min-height would strand the section header above dead space.
-        <StockPosition
-          portfolioData={portfolioData}
-          isRefreshing={isRefreshing}
-          hasAccount={hasAccount}
-        />
+        // Portfolio brings its own horizontal padding, so it gets no outer
+        // gutter that would double-indent the table.
+        <YStack minHeight={MARKET_DETAIL_TABS_MIN_HEIGHT}>
+          <StockPosition
+            portfolioData={portfolioData}
+            isRefreshing={isRefreshing}
+            hasAccount={hasAccount}
+          />
+        </YStack>
       )}
     </YStack>
   );

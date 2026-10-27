@@ -1,10 +1,12 @@
+import { useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
   Icon,
   Image,
-  LottieView,
   SizableText,
   Stack,
   XStack,
@@ -14,121 +16,126 @@ import {
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
 import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-light.json';
-import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IActivityHubLayout } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/activityHub';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { getActivityHubLayout } from './layout';
+import { ActivityHubInvitePanel } from './ActivityHubInvitePanel';
+import {
+  ActivityShortcutCard,
+  MENU_SHORTCUT_GRID_PROPS,
+} from './ActivityShortcutCard';
+import {
+  ACTIVITY_HUB_SHORTCUT_BASIS,
+  getActivityHubTitleId,
+  shouldShowActivityHubInvitePanel,
+} from './layout';
 
-import type { IActivityHubShortcutBasis } from './layout';
-import type { IActivityHubCampaign, IActivityHubSource } from './types';
+import type {
+  IActivityHubCampaign,
+  IActivityHubOpenReferral,
+  IActivityHubSource,
+} from './types';
 
 const EMPTY_ACTIVITY_HUB_CAMPAIGNS: IActivityHubCampaign[] = [];
-
-function ActivityShortcutCard({
-  title,
-  iconName,
-  lottieSrc,
-  flexBasis,
-  testID,
-  onPress,
-}: {
-  title: string;
-  iconName?: IButtonProps['icon'];
-  lottieSrc?: object;
-  flexBasis: IActivityHubShortcutBasis;
-  testID?: string;
-  onPress: () => void;
-}) {
-  return (
-    <YStack
-      testID={testID}
-      flexBasis={flexBasis}
-      flexShrink={0}
-      minWidth={0}
-      borderRadius="$2"
-      py="$2.5"
-      gap="$1"
-      alignItems="center"
-      justifyContent="flex-start"
-      onPress={onPress}
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      cursor="default"
-      userSelect="none"
-    >
-      {iconName ? (
-        <Stack w="$6" h="$6" ai="center" jc="center">
-          <Icon name={iconName} size="$6" color="$icon" />
-        </Stack>
-      ) : null}
-      {lottieSrc ? (
-        <Stack w="$6" h="$6" ai="center" jc="center">
-          <LottieView width={32} height={32} source={lottieSrc} />
-        </Stack>
-      ) : null}
-      <SizableText
-        size="$bodySmMedium"
-        textAlign="center"
-        numberOfLines={2}
-        color="$textSubdued"
-      >
-        {title}
-      </SizableText>
-    </YStack>
-  );
-}
 
 function ActivityCampaignCard({
   title,
   subtitle,
   imageUrl,
   fallbackIconName = 'GiftOutline',
+  variant = 'outlined',
+  illustration,
+  listLayout = false,
   onPress,
 }: {
   title: string;
   subtitle: string;
   imageUrl?: string;
   fallbackIconName?: IButtonProps['icon'];
+  variant?: 'filled' | 'outlined';
+  illustration?: ReactNode;
+  listLayout?: boolean;
   onPress: () => void;
 }) {
+  const themeVariant = useThemeVariant();
+  const filledBackground = themeVariant === 'dark' ? '$bgStrong' : '$bgSubdued';
+
+  if (listLayout) {
+    return (
+      <ActivityShortcutCard
+        title={title}
+        subtitle={subtitle}
+        iconName={fallbackIconName}
+        leadingContent={
+          illustration || imageUrl ? (
+            <Stack w="$5" h="$5" flexShrink={0}>
+              {illustration ?? (
+                <Image
+                  w="$5"
+                  h="$5"
+                  src={imageUrl}
+                  fallback={
+                    <Icon name={fallbackIconName} size="$5" color="$text" />
+                  }
+                />
+              )}
+            </Stack>
+          ) : undefined
+        }
+        flexBasis="100%"
+        listLayout
+        onPress={onPress}
+      />
+    );
+  }
+
   return (
     <XStack
       onPress={onPress}
       alignItems="center"
       gap="$3"
-      px="$3"
+      px={variant === 'filled' ? '$4' : '$3'}
       py="$2"
+      minHeight={variant === 'filled' ? 64 : undefined}
       borderRadius="$4"
-      borderWidth="$px"
+      borderWidth={variant === 'filled' ? 0 : '$px'}
       borderColor="$borderSubdued"
-      bg="$bg"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
+      bg={variant === 'filled' ? filledBackground : '$bg'}
+      hoverStyle={{ bg: variant === 'filled' ? '$bgStrongHover' : '$bgHover' }}
+      pressStyle={{
+        bg: variant === 'filled' ? '$bgStrongActive' : '$bgActive',
+      }}
       cursor="default"
       userSelect="none"
     >
       <Stack
         alignItems="center"
         justifyContent="center"
-        w="$8"
-        h="$8"
+        w={illustration ? 56 : '$8'}
+        h={illustration ? 50 : '$8'}
+        p={illustration ? 2.5 : undefined}
+        flexShrink={0}
         borderRadius="$2"
-        bg="$bgSubdued"
+        bg={illustration ? undefined : '$bgSubdued'}
       >
-        {imageUrl ? (
-          <Image
-            w="$8"
-            h="$8"
-            src={imageUrl}
-            borderRadius="$2"
-            fallback={<Icon name={fallbackIconName} size="$6" color="$icon" />}
-          />
-        ) : (
-          <Icon name={fallbackIconName} size="$6" color="$iconSubdued" />
-        )}
+        {illustration ??
+          (imageUrl ? (
+            <Image
+              w="$8"
+              h="$8"
+              src={imageUrl}
+              borderRadius="$2"
+              fallback={
+                <Icon name={fallbackIconName} size="$6" color="$icon" />
+              }
+            />
+          ) : (
+            <Icon name={fallbackIconName} size="$6" color="$iconSubdued" />
+          ))}
       </Stack>
       <YStack flex={1} minWidth={0} gap="$0.5">
         <SizableText size="$headingSm" color="$text" numberOfLines={1}>
@@ -177,93 +184,189 @@ function openCampaignUrl(
 
 export function ActivityHubContent({
   source,
-  copyAsUrl = false,
   closePopover,
   showTitle = true,
-  isCompactPanel = false,
-  onOpenInviteeReward,
+  menuLayout = false,
+  menuPopoverLayout = false,
+  campaignFallbackIllustration,
+  onOpenReferral,
+  onOpenInvitePanel,
   campaigns,
 }: {
   source: IActivityHubSource;
-  copyAsUrl?: boolean;
   closePopover: () => void | Promise<void>;
   showTitle?: boolean;
-  // True only for a 208px floating popover/dialog. Sheets and in-panel embeds
-  // leave this unset so tiles keep the 25% basis.
-  isCompactPanel?: boolean;
-  onOpenInviteeReward: () => void;
+  menuLayout?: boolean;
+  menuPopoverLayout?: boolean;
+  campaignFallbackIllustration?: ReactNode;
+  onOpenReferral: IActivityHubOpenReferral;
+  // Set by hosts whose Referral row should open the invite panel in its own
+  // dialog instead of the referral page, like the Perps menu on pointer
+  // layouts, where the panel would crowd the menu.
+  onOpenInvitePanel?: () => void;
   campaigns?: IActivityHubCampaign[];
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
   const isDesktop = gtMd;
   const themeVariant = useThemeVariant();
-  const { shareReferRewards } = useReferFriends();
-  const activityCenterTitle = intl.formatMessage({
-    id: ETranslations.perps_activity_hub,
-  });
   const campaignItems = campaigns ?? EMPTY_ACTIVITY_HUB_CAMPAIGNS;
-  const hasCampaigns = campaignItems.length > 0;
-  // Campaigns still force the 4-column row. Compact is an explicit host signal,
-  // not gtMd: native popovers are sheets and Perps embeds sit in a wide panel.
-  const { shortcutBasis } = getActivityHubLayout(
-    hasCampaigns || !isCompactPanel,
-  );
+  const showIconBackground = menuLayout;
+  const giftAnimation =
+    themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark;
+  const campaignCount = campaignItems.length;
+  const hasCampaigns = campaignCount > 0;
+  // The Perps menu lists the entry like its other menu items.
+  const showInvitePanel = shouldShowActivityHubInvitePanel() && !menuLayout;
+  // The invite panel shares the title's 20px inset (popover header and dialog
+  // title alike) and keeps an even 16px above and below its content; the
+  // Perks row's own 6px press padding counts toward the bottom.
+  const horizontalPadding = showInvitePanel ? '$5' : '$4';
+  let topPadding: '$3' | '$3.5' = '$3';
+  if (!showInvitePanel && isDesktop && showTitle) {
+    topPadding = '$3.5';
+  }
+  let bottomPadding: '$2.5' | '$3.5' | '$4' = '$3.5';
+  if (showInvitePanel) {
+    bottomPadding = hasCampaigns ? '$4' : '$2.5';
+  }
+  const hubTitle = intl.formatMessage({
+    id: getActivityHubTitleId({ hasCampaigns, showInvitePanel }),
+  });
+  let layout: IActivityHubLayout = 'shortcut';
+  if (menuLayout) {
+    layout = 'menu';
+  } else if (showInvitePanel) {
+    layout = 'invite_panel';
+  }
+  // Campaigns can load after the hub opens; the count at opening is enough.
+  const campaignCountRef = useRef(campaignCount);
+  useEffect(() => {
+    defaultLogger.referral.activityHub.activityHubShown({
+      source,
+      layout,
+      campaignCount: campaignCountRef.current,
+    });
+  }, [layout, source]);
 
   return (
-    <YStack mb="$2">
+    <YStack mb={menuLayout || showInvitePanel ? '$0' : '$2'}>
       {isDesktop && showTitle ? (
         <XStack px="$5" pt="$4" pb="$1">
           <SizableText size="$headingMd" color="$text" userSelect="none">
-            {activityCenterTitle}
+            {hubTitle}
           </SizableText>
         </XStack>
       ) : null}
-      <YStack px="$4" pt={isDesktop && showTitle ? '$3.5' : '$3'} pb="$3.5">
-        <XStack width="100%" flexWrap="nowrap">
-          <ActivityShortcutCard
-            testID="activity-hub-invite"
-            flexBasis={shortcutBasis}
-            lottieSrc={
-              themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark
-            }
-            title={intl.formatMessage({
-              id: ETranslations.activity_hub_invite__action,
-            })}
-            onPress={() => {
-              closeThenRun(closePopover, () => {
-                void shareReferRewards(undefined, undefined, source, copyAsUrl);
-              });
-            }}
-          />
-          <ActivityShortcutCard
-            testID="activity-hub-my-rewards"
-            flexBasis={shortcutBasis}
-            iconName="HandCoinsOutline"
-            title={intl.formatMessage({
-              id: ETranslations.activity_hub_my_rewards__action,
-            })}
-            onPress={() => {
-              closeThenRun(closePopover, onOpenInviteeReward);
-            }}
-          />
-        </XStack>
+      <YStack
+        px={menuLayout ? '$0' : horizontalPadding}
+        pt={menuLayout ? '$0' : topPadding}
+        pb={menuLayout ? '$0' : bottomPadding}
+      >
+        {showInvitePanel ? (
+          <YStack gap="$2.5">
+            {/* Under the activity hub title the invite part names itself,
+                like the campaign list below it. */}
+            {hasCampaigns ? (
+              <SizableText size="$headingXs" color="$text">
+                {intl.formatMessage({
+                  id: ETranslations.referral_home__title,
+                })}
+              </SizableText>
+            ) : null}
+            <ActivityHubInvitePanel
+              source={source}
+              onOpenReferral={(tab) => {
+                closeThenRun(closePopover, () => onOpenReferral(tab));
+              }}
+            />
+          </YStack>
+        ) : (
+          <XStack
+            width="100%"
+            flexWrap="nowrap"
+            {...(menuLayout ? MENU_SHORTCUT_GRID_PROPS : {})}
+            {...(menuLayout && menuPopoverLayout
+              ? {
+                  px: '$2',
+                  pt: '$2.5',
+                  flexDirection: 'column',
+                  flexWrap: 'nowrap',
+                  alignItems: 'stretch',
+                }
+              : {})}
+          >
+            {/* One entry for both sides of referrals, named like the page it
+                opens; the page reopens whichever tab was used last. */}
+            <ActivityShortcutCard
+              testID="activity-hub-referral"
+              flexBasis={
+                menuLayout && menuPopoverLayout
+                  ? '33.333333%'
+                  : ACTIVITY_HUB_SHORTCUT_BASIS
+              }
+              showIconBackground={showIconBackground}
+              menuLayout={menuLayout}
+              listLayout={menuLayout && menuPopoverLayout}
+              iconName={menuLayout ? 'GiftOutline' : undefined}
+              lottieSrc={menuLayout ? undefined : giftAnimation}
+              title={intl.formatMessage({
+                id: ETranslations.sidebar_refer_a_friend,
+              })}
+              onPress={() => {
+                defaultLogger.referral.activityHub.activityHubActionPressed({
+                  source,
+                  action: onOpenInvitePanel
+                    ? 'open_invite_panel'
+                    : 'open_referral',
+                });
+                closeThenRun(
+                  closePopover,
+                  onOpenInvitePanel ?? (() => onOpenReferral()),
+                );
+              }}
+            />
+          </XStack>
+        )}
         {hasCampaigns ? (
-          <YStack gap="$2.5" mt="$4">
-            <SizableText size="$headingXs" color="$text">
-              {`${intl.formatMessage({ id: ETranslations.perps_ongoing_events })} (${campaignItems.length})`}
-            </SizableText>
+          <YStack
+            gap="$2.5"
+            mt={menuLayout ? '$0' : '$4'}
+            px={menuLayout ? '$5' : undefined}
+            {...(menuLayout && menuPopoverLayout ? { px: '$2' } : {})}
+            pb={menuLayout ? '$2' : undefined}
+          >
+            {menuLayout ? null : (
+              <SizableText size="$headingXs" color="$text">
+                {`${intl.formatMessage({ id: ETranslations.perps_ongoing_events })} (${campaignCount})`}
+              </SizableText>
+            )}
             <YStack gap="$2">
               {campaignItems.map((item) => (
                 <ActivityCampaignCard
                   key={item.id}
+                  variant={source === 'Perps' ? 'filled' : 'outlined'}
+                  listLayout={menuLayout && menuPopoverLayout}
                   imageUrl={item.imageUrl}
+                  illustration={
+                    !item.imageUrl &&
+                    (!item.iconName || item.iconName === 'GiftOutline')
+                      ? campaignFallbackIllustration
+                      : undefined
+                  }
                   fallbackIconName={
                     (item.iconName as IButtonProps['icon']) ?? 'GiftOutline'
                   }
                   title={item.title}
                   subtitle={item.subtitle}
                   onPress={() => {
+                    defaultLogger.referral.activityHub.activityHubActionPressed(
+                      {
+                        source,
+                        action: 'open_campaign',
+                        campaignId: item.id,
+                      },
+                    );
                     openCampaignUrl(closePopover, item.url);
                   }}
                 />

@@ -87,11 +87,13 @@ const PerpDexBadge = memo(
     dexLabel,
     height,
     testID,
+    interactive = true,
   }: {
     compact?: boolean;
     dexLabel?: string;
     height?: number;
     testID?: string;
+    interactive?: boolean;
   }) => {
     const intl = useIntl();
     const descriptionId = getPerpDexDescriptionId(dexLabel);
@@ -120,6 +122,10 @@ const PerpDexBadge = memo(
         {badgeText}
       </XStack>
     );
+
+    if (!interactive) {
+      return badge;
+    }
 
     if (platformEnv.isNative) {
       return (

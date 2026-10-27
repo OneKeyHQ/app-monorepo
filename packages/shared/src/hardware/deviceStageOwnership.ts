@@ -262,6 +262,7 @@ const EXIT_RULE: Record<IDeviceStageStepValue, IDeviceStageExitRule> = {
   pairingCode: rule('settle', true),
   deviceNotFound: rule('immediate', false, false),
   btcHighIndex: rule('immediate', true),
+  qrFallback: rule('immediate', true),
   installConfirm: rule('immediate', true),
   installing: rule('stall'),
   installBatch: rule('stall'),

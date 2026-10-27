@@ -106,9 +106,9 @@ import type {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  TextInputFocusEventData,
-  View,
+  ViewInstance,
 } from 'react-native';
+import type { SearchBarTextEventData } from 'react-native-screens';
 
 const num = 0;
 
@@ -121,7 +121,7 @@ function readMountedHeight(node: IElement): number | undefined {
   if (platformEnv.isNative) {
     let height: number | undefined;
     // Fabric answers measure() synchronously during the commit.
-    (node as View).measure((_x, _y, _width, measuredHeight) => {
+    (node as ViewInstance).measure((_x, _y, _width, measuredHeight) => {
       height = measuredHeight;
     });
     return height;
@@ -1206,7 +1206,7 @@ function TokenSelector() {
       onChangeText: ({
         nativeEvent,
       }: {
-        nativeEvent: TextInputFocusEventData;
+        nativeEvent: SearchBarTextEventData;
       }) => {
         liveSearchKeyRef.current = nativeEvent.text;
         debounceUpdateSearchKey(nativeEvent.text);
