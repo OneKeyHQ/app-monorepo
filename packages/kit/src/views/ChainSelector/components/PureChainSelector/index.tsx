@@ -4,7 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IChainSelectorParams } from '@onekeyhq/shared/src/routes/chainSelector';
+import type {
+  IChainSelectorParams,
+  IChainSelectorSelectedIndicator,
+} from '@onekeyhq/shared/src/routes/chainSelector';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { ChainSelectorListView } from './ChainSelectorListView';
@@ -22,6 +25,7 @@ type IPureChainSelectorProps = {
   accountNetworkValueCurrency?: string;
   hideLowValueNetworkValue?: boolean;
   groupByNetworkValue?: boolean;
+  selectedIndicator?: IChainSelectorSelectedIndicator;
   featuredNetwork?: IChainSelectorParams['featuredNetwork'];
 };
 
@@ -37,6 +41,7 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
   accountNetworkValueCurrency,
   hideLowValueNetworkValue,
   groupByNetworkValue,
+  selectedIndicator,
   featuredNetwork,
 }) => {
   const intl = useIntl();
@@ -60,6 +65,7 @@ export const PureChainSelector: FC<IPureChainSelectorProps> = ({
             accountNetworkValueCurrency={accountNetworkValueCurrency}
             hideLowValueNetworkValue={hideLowValueNetworkValue}
             groupByNetworkValue={groupByNetworkValue}
+            selectedIndicator={selectedIndicator}
           />
         ) : (
           <ChainSelectorListView

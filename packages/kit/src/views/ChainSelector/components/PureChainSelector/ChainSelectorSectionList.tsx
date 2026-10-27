@@ -27,6 +27,7 @@ import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/networkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IChainSelectorSelectedIndicator } from '@onekeyhq/shared/src/routes/chainSelector';
 import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
 import { useAndroidFlashListInitialScrollFix } from '../../hooks/useAndroidFlashListInitialScrollFix';
@@ -64,6 +65,7 @@ type IChainSelectorSectionListContentProps = {
   accountNetworkValues?: Record<string, string>;
   accountNetworkValueCurrency?: string;
   hideLowValueNetworkValue?: boolean;
+  selectedIndicator?: IChainSelectorSelectedIndicator;
 };
 
 const ChainSelectorSectionListContent = ({
@@ -77,6 +79,7 @@ const ChainSelectorSectionListContent = ({
   accountNetworkValues,
   accountNetworkValueCurrency,
   hideLowValueNetworkValue,
+  selectedIndicator = 'checkmark',
 }: IChainSelectorSectionListContentProps & {
   initialScrollIndex: ISectionListProps<any>['initialScrollIndex'];
 }) => {
@@ -126,6 +129,8 @@ const ChainSelectorSectionListContent = ({
             new BigNumber(networkValue || 0).gt(
               NETWORK_SHOW_VALUE_THRESHOLD_USD,
             ));
+        const isSelected = networkId === item.id;
+        const showCheckMark = selectedIndicator === 'checkmark';
 
         return (
           <ListItem
@@ -147,6 +152,7 @@ const ChainSelectorSectionListContent = ({
                 ? intl.formatMessage({ id: ETranslations.global_all_networks })
                 : item.name
             }
+            bg={isSelected && !showCheckMark ? '$bgActive' : undefined}
             opacity={section.isUnavailable ? 0.7 : 1}
             titleMatch={item.titleMatch}
             onPress={
@@ -155,13 +161,13 @@ const ChainSelectorSectionListContent = ({
             testID={`select-item-${item.id}`}
           >
             {/* eslint-disable no-nested-ternary */}
-            {accountNetworkValues !== undefined ? (
-              networkId === item.id ? (
+            {!showCheckMark ? null : accountNetworkValues !== undefined ? (
+              isSelected ? (
                 <ListItem.CheckMark key="checkmark" />
               ) : (
                 <Stack w="$5" />
               )
-            ) : networkId === item.id ? (
+            ) : isSelected ? (
               <ListItem.CheckMark key="checkmark" />
             ) : null}
             {/* eslint-enable no-nested-ternary */}
@@ -195,6 +201,7 @@ type IChainSelectorSectionListProps = {
   // Lift networks above the value threshold into a top "Networks with assets"
   // section, like the wallet network selector. Opt-in per caller.
   groupByNetworkValue?: boolean;
+  selectedIndicator?: IChainSelectorSelectedIndicator;
 };
 
 const usePending = () => {
@@ -234,6 +241,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   accountNetworkValueCurrency,
   hideLowValueNetworkValue,
   groupByNetworkValue,
+  selectedIndicator,
 }) => {
   const [text, setText] = useState('');
   const intl = useIntl();
@@ -455,6 +463,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
           accountNetworkValues={accountNetworkValues}
           accountNetworkValueCurrency={accountNetworkValueCurrency}
           hideLowValueNetworkValue={hideLowValueNetworkValue}
+          selectedIndicator={selectedIndicator}
         />
       ) : (
         <ListEmptyComponent />
@@ -469,6 +478,7 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
       accountNetworkValues,
       accountNetworkValueCurrency,
       hideLowValueNetworkValue,
+      selectedIndicator,
       onScrollBeginDrag,
       androidScrollProps,
     ],

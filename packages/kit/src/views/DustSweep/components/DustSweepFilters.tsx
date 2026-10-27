@@ -528,6 +528,8 @@ export function DustSweepNetworks({
                 ),
                 networkValueCurrency: 'usd',
                 groupByNetworkValue: true,
+                recentNetworksEnabled: false,
+                selectedIndicator: 'background',
                 excludeAllNetworkItem: true,
                 onSelect: (network) => selectNetwork(network.id),
               })
