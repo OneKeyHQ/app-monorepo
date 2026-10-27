@@ -38,11 +38,13 @@ let mockVariantsFresh = false;
 let mockCurrentToken: ISwapToken;
 let mockStockId = 'AAPL';
 let mockVariantsPending = false;
+let mockVariantsError = false;
 let mockCachedParentId: string | undefined;
 let mockProviderStockId: string | undefined;
 let mockIdentityFetcher: () => Promise<unknown>;
 let mockSelection: ReturnType<typeof useSwapStockSelection>;
 let mockDisplayVariants: IMarketStockTokenVariant[] | undefined;
+let mockCachedPreview: IMarketStockPublicItem | undefined;
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -71,7 +73,13 @@ jest.mock(
       stockId: mockStockId,
       tokenVariants: mockTokenVariants,
       isTokenVariantPending: mockVariantsPending,
-      isTokenVariantsError: false,
+      isTokenVariantsError: mockVariantsError,
+      stockPreview: {
+        stockId: mockStockId,
+        symbol: mockStockId,
+        name: mockStockId,
+        logoUrl: '',
+      },
       isTokenVariantsFresh: mockVariantsFresh,
     }),
   }),
@@ -98,6 +106,7 @@ jest.mock('../../utils/swapStockMarketData', () => {
     getCachedSwapStockId: (token: ISwapToken) =>
       token.stock?.stockId ?? mockCachedParentId,
     getCachedSwapStockSelection: () => undefined,
+    getCachedSwapStockAssetPreview: () => mockCachedPreview,
     getCachedSwapStockDisplayVariants: () => mockDisplayVariants,
     fetchSwapStockSelection: (
       _stock: IMarketStockPublicItem,
@@ -158,12 +167,87 @@ beforeEach(() => {
   mockStockId = 'AAPL';
   mockDisplayVariants = [];
   mockVariantsPending = false;
+  mockVariantsError = false;
   mockCachedParentId = undefined;
+  mockCachedPreview = undefined;
   mockFetchSelection.mockResolvedValue(targetToken);
   mockRiskCheck.mockReset().mockResolvedValue(false);
   mockTokenVariants = [];
   mockVariantsFresh = false;
 });
+
+it.each([false, true])(
+  'commits a known holding independently of missing display variants (error: %s)',
+  async (failed) => {
+    mockDisplayVariants = undefined;
+    const previousVariants = mockTokenVariants;
+    const view = render(<Subject />);
+    await act(async () => {
+      expect(await mockSelection?.selectToken(targetToken)).toBe(true);
+    });
+    expect(mockRiskCheck).toHaveBeenCalledWith(targetToken);
+    expect(mockCommitToken).toHaveBeenCalledWith(targetToken, {
+      resetReceiveAmount: true,
+    });
+    mockCurrentToken = targetToken;
+    mockStockId = 'NVDA';
+    mockTokenVariants = [];
+    mockVariantsPending = !failed;
+    mockVariantsError = failed;
+    view.rerender(<Subject />);
+    expect(mockSelection?.displayStockId).toBe('AAPL');
+    expect(mockSelection?.pendingStock?.stockId).toBe('AAPL');
+    expect(mockSelection?.displayTokenVariants).toBe(previousVariants);
+    expect(mockSelection?.selectionError).toBe(false);
+    act(() => mockSelection?.cancelSelection());
+    expect(mockSelection?.displayStockId).toBe('AAPL');
+    expect(mockSelection?.displayTokenVariants).toBe(previousVariants);
+
+    mockCachedPreview = { ...targetStock, stockId: 'MSFT' };
+    let finishRisk: (risk: boolean) => void = () => {};
+    mockRiskCheck.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishRisk = resolve;
+        }),
+    );
+    let nextSelection: Promise<boolean> | undefined;
+    await act(async () => {
+      nextSelection = mockSelection?.selectToken({
+        ...targetToken,
+        contractAddress: '0xmsft',
+        stock: { stockId: 'MSFT', subtitle: '', sourceLogoUri: '' },
+      });
+    });
+    expect(mockSelection?.displayStockId).toBe('AAPL');
+    expect(mockSelection?.displayTokenVariants).toBe(previousVariants);
+    await act(async () => {
+      finishRisk(true);
+      await nextSelection;
+    });
+    expect(mockSelection?.displayStockId).toBe('AAPL');
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+
+    mockVariantsPending = false;
+    mockVariantsError = false;
+    const targetVariants: IMarketStockTokenVariant[] = [
+      {
+        tokenId: 'nvda-ethereum',
+        issuer: 'bStocks',
+        networkId: targetToken.networkId,
+        contractAddress: targetToken.contractAddress,
+        currency: 'USD',
+        status: 'active',
+        tradingEnabled: true,
+      },
+    ];
+    mockTokenVariants = targetVariants;
+    view.rerender(<Subject />);
+    expect(mockSelection?.displayStockId).toBe('NVDA');
+    expect(mockSelection?.displayTokenVariants).toBe(targetVariants);
+    expect(mockSelection?.stockSelectionPending).toBe(false);
+  },
+);
 
 it('keeps the committed display until cold variant identity is ready, then switches before the trade token', async () => {
   mockDisplayVariants = undefined;

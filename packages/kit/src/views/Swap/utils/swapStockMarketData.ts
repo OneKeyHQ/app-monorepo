@@ -206,7 +206,13 @@ export function resolveSwapStockTokenSelectionKind(
     : 'token';
 }
 
-export type ISwapStockSelectionOperation =
+export type ISwapStockDisplayScope = {
+  stockId?: string;
+  tokenVariants: IMarketStockTokenVariant[];
+  stockPreview?: IMarketStockDetailPreview;
+};
+
+export type ISwapStockSelectionOperation = (
   | { phase: 'idle' }
   | { phase: 'checkingRisk'; kind: ISwapStockSelectionKind }
   | {
@@ -224,7 +230,8 @@ export type ISwapStockSelectionOperation =
       tokenVariants?: IMarketStockTokenVariant[];
       stockPreview?: IMarketStockDetailPreview;
     }
-  | { phase: 'failed'; kind: ISwapStockSelectionKind };
+  | { phase: 'failed'; kind: ISwapStockSelectionKind }
+) & { previousDisplay?: ISwapStockDisplayScope };
 
 export function resolveSwapStockLoadingScopes({
   operation,
