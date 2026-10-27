@@ -456,6 +456,75 @@ describe('mobile selector review regressions', () => {
   );
 });
 
+describe('mobile selector partial favorites', () => {
+  beforeEach(() => {
+    mockBrowseData = [searchToken];
+    mockWatchlistCount = 2;
+    mockListState = { isError: false };
+    mockIsMounted = true;
+    mockIsWatchlistLoading = true;
+    mockRefetch.mockClear();
+  });
+
+  afterEach(() => {
+    mockBrowseData = [];
+    mockWatchlistCount = 0;
+    mockListState = { isError: false };
+    mockIsWatchlistLoading = false;
+  });
+
+  it('keeps cached favorites visible while missing favorites load', () => {
+    const onItemPress = jest.fn();
+    const { rerender } = render(
+      <MobileSelectorWatchlistList onItemPress={onItemPress} />,
+    );
+    expect(screen.getByText('AAPLx')).toBeTruthy();
+    expect(screen.getByRole('progressbar')).toBeTruthy();
+    fireEvent.click(screen.getByText('AAPLx'));
+    expect(onItemPress).toHaveBeenCalledWith(searchToken);
+
+    mockBrowseData = [
+      searchToken,
+      { ...searchToken, id: 'stock:MSFT', symbol: 'MSFT', stockId: 'MSFT' },
+    ];
+    mockIsWatchlistLoading = false;
+    rerender(<MobileSelectorWatchlistList onItemPress={onItemPress} />);
+    expect(screen.getByText('AAPLx')).toBeTruthy();
+    expect(screen.getByText('MSFT')).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
+  it('keeps cached favorites visible and retries a failed partial refresh', () => {
+    mockIsWatchlistLoading = false;
+    mockListState = { isError: true };
+    render(<MobileSelectorWatchlistList onItemPress={jest.fn()} />);
+    expect(screen.getByText('AAPLx')).toBeTruthy();
+    fireEvent.click(
+      screen.getByTestId('mobile-market-token-selector-favorites-retry'),
+    );
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show a loader when all favorites are cached during refresh', () => {
+    mockWatchlistCount = 1;
+    render(<MobileSelectorWatchlistList onItemPress={jest.fn()} />);
+    expect(screen.getByText('AAPLx')).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
+  it('does not show an empty category while missing favorites load', () => {
+    render(
+      <MobileSelectorWatchlistList
+        watchlistFilter="stocks"
+        onItemPress={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole('progressbar')).toBeTruthy();
+    expect(screen.queryByText('global.no_results')).toBeNull();
+    expect(screen.queryByTestId('recommendations')).toBeNull();
+  });
+});
+
 describe('mobile selector recommendations', () => {
   beforeEach(() => {
     mockBrowseData = [];

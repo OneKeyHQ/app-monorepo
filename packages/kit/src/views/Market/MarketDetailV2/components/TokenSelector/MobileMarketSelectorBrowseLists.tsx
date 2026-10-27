@@ -576,8 +576,15 @@ export function MobileSelectorWatchlistList({
     groups[watchlistFilter],
     liveTokenOverride,
   );
+  // The hook merges cached quotes against the current watchlist, so fewer
+  // returned rows means some favorites still have no quote result.
+  const hasMissingFavorites = data.length < (watchListData?.length ?? 0);
 
-  if (!isMounted || (isLoading && data.length === 0)) {
+  if (
+    !isMounted ||
+    (isLoading &&
+      (data.length === 0 || (hasMissingFavorites && rows.length === 0)))
+  ) {
     return <CenteredSpinner />;
   }
   if (isError && rows.length === 0) {
@@ -606,7 +613,21 @@ export function MobileSelectorWatchlistList({
     );
   }
   return (
-    <TokenRowsList data={rows} tokenSubtitle="name" onItemPress={onItemPress} />
+    <TokenRowsList
+      data={rows}
+      tokenSubtitle="name"
+      onItemPress={onItemPress}
+      footer={
+        hasMissingFavorites ? (
+          <LoadMoreFooter
+            isLoading={isLoading}
+            isError={isError}
+            testID="mobile-market-token-selector-favorites-retry"
+            onRetry={() => void refetch()}
+          />
+        ) : null
+      }
+    />
   );
 }
 
