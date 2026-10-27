@@ -8,27 +8,10 @@ import { PAGE_THEME_COLOR_SCRIPT } from './pageThemeColor';
 const SETTLE_MS = 150;
 const MAX_WAIT_MS = 1000;
 
-let now = 0;
-const timers = new Map<number, { at: number; fn: () => void }>();
-let nextTimerId = 1;
 const elementsFromPoint = jest.fn(() => [document.body]);
 
-function nextDueTimer(at: number) {
-  let due: [number, { at: number; fn: () => void }] | undefined;
-  for (const entry of timers) {
-    if (entry[1].at <= at && (!due || entry[1].at < due[1].at)) {
-      due = entry;
-    }
-  }
-  return due;
-}
-
 function advanceTo(target: number) {
-  now = target;
-  for (let due = nextDueTimer(now); due; due = nextDueTimer(now)) {
-    timers.delete(due[0]);
-    due[1].fn();
-  }
+  jest.advanceTimersByTime(target - Date.now());
 }
 
 function scroll() {
@@ -38,28 +21,14 @@ function scroll() {
 // Clock time of the next test, far enough past the previous one that no burst
 // or timer carries over.
 function startTest() {
-  const start = now + 10_000;
+  const start = Date.now() + 10_000;
   advanceTo(start);
   elementsFromPoint.mockClear();
   return start;
 }
 
 beforeAll(() => {
-  jest.spyOn(Date, 'now').mockImplementation(() => now);
-  jest.spyOn(globalThis, 'setTimeout').mockImplementation(((
-    fn: () => void,
-    ms?: number,
-  ) => {
-    const id = nextTimerId;
-    nextTimerId += 1;
-    timers.set(id, { at: now + (ms ?? 0), fn });
-    return id;
-  }) as unknown as typeof setTimeout);
-  jest.spyOn(globalThis, 'clearTimeout').mockImplementation(((id?: number) => {
-    if (id !== undefined) {
-      timers.delete(id);
-    }
-  }) as unknown as typeof clearTimeout);
+  jest.useFakeTimers({ now: 0 });
 
   // jsdom has no hit testing or matchMedia; the script would throw on either,
   // which its own try/catch swallows before the scroll listener is registered.
@@ -74,16 +43,19 @@ beforeAll(() => {
   document.body.style.backgroundColor = 'rgb(10, 20, 30)';
   // jest-setup stubs the global addEventListener, which would drop the
   // script's scroll listener.
-  globalThis.addEventListener = EventTarget.prototype.addEventListener;
+  globalThis.addEventListener =
+    EventTarget.prototype.addEventListener.bind(globalThis);
 
-  // eslint-disable-next-line no-new-func
-  new Function(PAGE_THEME_COLOR_SCRIPT)();
+  // The script is a string injected into WebViews; this is how it runs there.
+  // eslint-disable-next-line no-new-func, @typescript-eslint/no-implied-eval
+  const runScript = new Function(PAGE_THEME_COLOR_SCRIPT) as () => void;
+  runScript();
   // Let the load-time reads (immediate and the 800ms re-read) go by.
   advanceTo(2000);
 });
 
 afterAll(() => {
-  jest.restoreAllMocks();
+  jest.useRealTimers();
 });
 
 describe('PAGE_THEME_COLOR_SCRIPT scroll throttle', () => {

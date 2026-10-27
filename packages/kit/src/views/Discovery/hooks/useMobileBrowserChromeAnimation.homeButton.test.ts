@@ -47,7 +47,11 @@ const EXPANDED_VIEWPORT = SCREEN - (46 + FULL_BAR); // 692
 const MAX_SCROLL_COLLAPSED = CONTENT - COLLAPSED_VIEWPORT; // 2242
 const MAX_SCROLL_EXPANDED = CONTENT - EXPANDED_VIEWPORT; // 2308
 
-function ev(y: number, interacting: boolean, viewport: number) {
+function ev(
+  y: number,
+  interacting: boolean,
+  viewport: number,
+): IWebViewOnScrollEvent {
   return {
     nativeEvent: {
       contentOffset: { y, x: 0 },
