@@ -1,5 +1,5 @@
 import { Fragment, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
@@ -22,8 +22,8 @@ import {
   PRESSABLE_SURFACE_PROPS,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import {
-  formatCommissionRateText,
   getDisplayLabel,
+  shouldShowInviteeDiscount,
   sortCommissionRateItems,
 } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -58,7 +58,14 @@ interface ILevelRuleRow {
   label: string;
   keep?: string;
   upgrade?: string;
-  rate?: string;
+  rate?: ILevelRuleRate;
+}
+
+// Kept as two parts so the rate column can line up on its slash.
+interface ILevelRuleRate {
+  you: string;
+  // Unset when invitees get no discount; the cell then reads as a quiet "–".
+  invitee?: string;
 }
 
 // A level's icon (or emoji) at header size, so each column names the level
@@ -73,9 +80,7 @@ function LevelGlyph({ icon, emoji }: { icon?: string; emoji?: string }) {
 // One figure column, laid out top to bottom so it takes the width of its
 // widest value: currency symbols and localized figures vary in length
 // ("$8K", "Rp15,6M"), and a figure must never be cut off. Fixed-height
-// cells keep the columns' rows aligned with the label column. Header and
-// figures start at the column's left edge, so a "–" or a "20% / 10%" rate
-// does not shift where its row reads from.
+// cells keep the columns' rows aligned with the label column.
 function RuleColumn({
   header,
   glyph,
@@ -89,12 +94,12 @@ function RuleColumn({
     // Starts at its widest value and takes an equal share of any spare
     // width, so the figures spread across the row instead of bunching on
     // the right; it never shrinks below its content.
-    <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-start">
-      <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-start" gap="$1">
+    <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-end">
+      <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end" gap="$1">
         <SizableText
           size="$bodySm"
           color="$textSubdued"
-          textAlign="left"
+          textAlign="right"
           numberOfLines={2}
           maxWidth={RULE_HEADER_MAX_WIDTH}
         >
@@ -104,15 +109,76 @@ function RuleColumn({
       </XStack>
       {values.map((value, index) => (
         <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
-          <SizableText
-            size="$bodyMdMedium"
-            color={value ? '$text' : '$textSubdued'}
-            numberOfLines={1}
-          >
-            {value ?? '–'}
-          </SizableText>
+          <RuleCell value={value} />
         </XStack>
       ))}
+    </YStack>
+  );
+}
+
+function RuleCell({
+  value,
+  ...rest
+}: { value?: string } & ComponentProps<typeof SizableText>) {
+  return (
+    <SizableText
+      size="$bodyMdMedium"
+      color={value ? '$text' : '$textSubdued'}
+      numberOfLines={1}
+      {...rest}
+    >
+      {value ?? '–'}
+    </SizableText>
+  );
+}
+
+// The rate column reads "you / invitee". Right-aligning the whole text
+// staggered its slashes whenever a part was "-" or a different width, so the
+// two parts sit in their own sub-columns: yours flush right, the invitee's
+// flush left, and every row's slash lands at the same spot.
+function RateColumn({
+  header,
+  values,
+}: {
+  header: string;
+  values: (ILevelRuleRate | undefined)[];
+}) {
+  return (
+    <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-end">
+      <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end">
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="right"
+          numberOfLines={2}
+          maxWidth={RULE_HEADER_MAX_WIDTH}
+        >
+          {header}
+        </SizableText>
+      </XStack>
+      <XStack>
+        <YStack ai="flex-end">
+          {values.map((value, index) => (
+            <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
+              <RuleCell value={value?.you} />
+            </XStack>
+          ))}
+        </YStack>
+        <YStack>
+          {values.map((value, index) => (
+            <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
+              {value ? <RuleCell value="/" px="$1" /> : null}
+            </XStack>
+          ))}
+        </YStack>
+        <YStack ai="flex-start">
+          {values.map((value, index) => (
+            <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
+              {value ? <RuleCell value={value.invitee} /> : null}
+            </XStack>
+          ))}
+        </YStack>
+      </XStack>
     </YStack>
   );
 }
@@ -167,7 +233,7 @@ function LevelRuleTable({
           values={rows.map((row) => row.upgrade)}
         />
       ) : null}
-      <RuleColumn
+      <RateColumn
         header={intl.formatMessage({
           id: ETranslations.referral_rate_column__title,
         })}
@@ -296,10 +362,12 @@ export function LevelAccordionItem({
         subject || `${index}`,
         getCommissionRateLabel(intl, subject, rate),
       );
-      row.rate = formatCommissionRateText({
-        rebate: rate.rebate,
-        discount: rate.discount,
-      });
+      row.rate = {
+        you: `${rate.rebate}%`,
+        invitee: shouldShowInviteeDiscount(rate.discount)
+          ? `${rate.discount ?? 0}%`
+          : undefined,
+      };
     });
     // Earn and Onchain share the DeFi name: fold them into one row, the first
     // one's figures leading and the other filling any cell the first lacks,
