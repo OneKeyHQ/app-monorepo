@@ -862,6 +862,7 @@ function StockPosition({
   return (
     <Portfolio
       standalone
+      isStock
       hasAccount={hasAccount}
       portfolioData={portfolioData}
       isRefreshing={isRefreshing}
