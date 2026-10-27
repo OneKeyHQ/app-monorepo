@@ -45,7 +45,7 @@ const primeClose = {
   data: { method: 'webembedPrivateRequest_closeWebViewModal' },
 } as unknown as IJsBridgeMessagePayload;
 
-async function deliver(payload: IJsBridgeMessagePayload) {
+async function deliver(payload: IJsBridgeMessagePayload): Promise<unknown> {
   if (!mockReceiveHandler) throw new OneKeyLocalError('WebView did not mount');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   return mockReceiveHandler(payload, {} as any);

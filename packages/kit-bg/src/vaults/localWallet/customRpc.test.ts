@@ -10,9 +10,9 @@ jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch', () => ({
 jest.mock(
   '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
   () => ({
-    ...jest.requireActual(
-      '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
-    ),
+    ...jest.requireActual<
+      typeof import('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect')
+    >('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect'),
     fetchZcashLightdInfoDirect: jest.fn(),
   }),
 );
