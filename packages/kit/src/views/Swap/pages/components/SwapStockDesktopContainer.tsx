@@ -833,6 +833,8 @@ function StockPayTokenPopoverContent({
 }
 
 function StockTradeHeaderSkeleton() {
+  const { gtLg } = useMedia();
+  const showPrice = platformEnv.isNative || !gtLg;
   return (
     <XStack
       testID={SwapTestIDs.stockTradeHeaderSkeleton}
@@ -849,7 +851,7 @@ function StockTradeHeaderSkeleton() {
           <Skeleton h="$4" w="$16" />
         </YStack>
       </XStack>
-      <Skeleton h="$5" w="$16" />
+      {showPrice ? <Skeleton h="$5" w="$16" /> : null}
     </XStack>
   );
 }
@@ -1266,6 +1268,7 @@ function StockTradeTicket({
         )}
         {stockChannel.readyForQuote && !showStockTradeIdentitySkeleton ? (
           <SwapQuoteResult
+            fixedReverseRate={tradeSide === ESwapStockTradeSide.Buy}
             refreshAction={refreshAction}
             onOpenProviderList={onOpenProviderList}
             quoteResult={quoteResult}
