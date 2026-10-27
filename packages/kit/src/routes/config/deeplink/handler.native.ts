@@ -10,7 +10,7 @@ import type { IRegisterHandler } from './handler.type';
 // the bundle segment before the runtime is able to load it, so the import is
 // tried once more after a short wait. Nothing caught here is inspected: it
 // may quote the URL.
-async function consumeBinanceDepositReturn(url: string) {
+async function consumeBinanceDepositReturn(url: string, isLaunchUrl: boolean) {
   for (const delayMs of [0, 600]) {
     try {
       if (delayMs) {
@@ -18,7 +18,7 @@ async function consumeBinanceDepositReturn(url: string) {
       }
       const { handleBinanceDepositReturn } =
         await import('./binanceDepositReturn');
-      await handleBinanceDepositReturn(url);
+      await handleBinanceDepositReturn(url, isLaunchUrl);
       return;
     } catch {
       // Retried once.
@@ -29,11 +29,14 @@ async function consumeBinanceDepositReturn(url: string) {
 export const registerHandler: IRegisterHandler = (
   handleDeepLinkUrl: (e: IDesktopOpenUrlEventData) => void,
 ) => {
-  const nativeLinkingHandler = ({ url }: { url: string }) => {
+  const nativeLinkingHandler = (
+    { url }: { url: string },
+    isLaunchUrl = false,
+  ) => {
     // The Binance deposit return carries a one-time nonce. It is consumed
     // here and never enters the generic pipeline, which logs the URL.
     if (isBinanceConnectDeepLink(url)) {
-      void consumeBinanceDepositReturn(url);
+      void consumeBinanceDepositReturn(url, isLaunchUrl);
       return url;
     }
     // TODO: maybe need to edit WalletConnect landing page
@@ -44,7 +47,7 @@ export const registerHandler: IRegisterHandler = (
   void (async () => {
     const url = await Linking.getInitialURL();
     if (url) {
-      nativeLinkingHandler({ url });
+      nativeLinkingHandler({ url }, true);
     }
   })();
 

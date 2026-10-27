@@ -1,19 +1,52 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EBinanceDepositLocalErrorCode } from '@onekeyhq/shared/src/consts/binanceDepositConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IBinanceDepositSendContext } from '@onekeyhq/shared/types/exchange';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { BINANCE_DEPOSIT_COPY } from './binanceDepositCopy';
 
+// Only a conflict says the address can't be trusted; a gone address sends
+// the user back for a new one, and no answer leaves them here to confirm
+// again.
+function getVerifyFailure(error: unknown) {
+  const copy = BINANCE_DEPOSIT_COPY;
+  switch ((error as { code?: number } | undefined)?.code) {
+    case EBinanceDepositLocalErrorCode.VerifyFailed:
+      return {
+        type: 'conflict',
+        title: copy.verifyFailedTitle,
+        message: copy.verifyFailedDesc,
+      } as const;
+    case EBinanceDepositLocalErrorCode.DestinationInvalid:
+      return {
+        type: 'invalid',
+        title: copy.destinationInvalidTitle,
+        message: copy.destinationInvalidDesc,
+      } as const;
+    default:
+      return {
+        type: 'unavailable',
+        title: copy.verifyUnavailableTitle,
+        message: copy.verifyUnavailableDesc,
+      } as const;
+  }
+}
+
 export function buildBinanceDepositSendHooks({
   context,
+  networkId,
+  tokenSymbol,
   toAddress,
   memo,
   senderAddress,
   onSuccess,
 }: {
   context: IBinanceDepositSendContext;
+  networkId: string;
+  tokenSymbol?: string;
   toAddress: string;
   memo?: string;
   senderAddress: string;
@@ -28,15 +61,15 @@ export function buildBinanceDepositSendHooks({
           toAddress,
           memo,
         });
-      } catch {
-        Toast.error({
-          title: BINANCE_DEPOSIT_COPY.verifyFailedTitle,
-          message: BINANCE_DEPOSIT_COPY.verifyFailedDesc,
+      } catch (error) {
+        const { type, title, message } = getVerifyFailure(error);
+        defaultLogger.transaction.send.binanceDepositVerifyFail({
+          network: networkId,
+          tokenSymbol,
+          type,
         });
-        throw new OneKeyLocalError({
-          message: BINANCE_DEPOSIT_COPY.verifyFailedTitle,
-          autoToast: false,
-        });
+        Toast.error({ title, message });
+        throw new OneKeyLocalError({ message: title, autoToast: false });
       }
     },
     // Best effort after the broadcast. The confirm page treats a throwing

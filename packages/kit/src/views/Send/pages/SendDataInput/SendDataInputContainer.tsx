@@ -896,6 +896,10 @@ function SendDataInputContainer() {
     if (!binanceDepositSnapshot || !binanceDestination) {
       return;
     }
+    // Carried on to the send's confirm event.
+    defaultLogger.transaction.send.addressInput({
+      addressInputMethod: 'binanceDeposit',
+    });
     pushAmountInput({
       networkId: currentAccount.networkId,
       accountId: currentAccount.accountId,
@@ -1635,12 +1639,13 @@ function SendDataInputContainer() {
               <BinanceDepositRecipientCard
                 snapshot={binanceDepositSnapshot}
                 isBusy={binanceDeposit.isBusy}
-                assetLabel={[tokenInfo?.symbol, network?.name]
-                  .filter(Boolean)
-                  .join(' · ')}
+                isOpening={binanceDeposit.isOpening}
+                isResuming={binanceDeposit.isResuming}
+                assetSymbol={tokenInfo?.symbol}
+                networkName={network?.name}
                 onOpenBinance={() => void binanceDeposit.reopenBinance()}
                 onRetry={() => void binanceDeposit.retryCreate()}
-                onRestart={() => void binanceDeposit.start()}
+                onRestart={() => void binanceDeposit.start('tryAgain')}
                 onExit={() => void binanceDeposit.exit()}
               />
             ) : (
@@ -1691,7 +1696,7 @@ function SendDataInputContainer() {
                   {binanceDeposit.isEntryAvailable ? (
                     <BinanceDepositEntry
                       hidden={!!toAddressRaw?.trim()}
-                      onPress={() => void binanceDeposit.start()}
+                      onPress={() => void binanceDeposit.start('entry')}
                     />
                   ) : null}
                 </YStack>

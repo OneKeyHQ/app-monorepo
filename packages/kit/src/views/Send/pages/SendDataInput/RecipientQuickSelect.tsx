@@ -11,6 +11,12 @@ import {
 
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import {
   ActionList,
@@ -36,6 +42,10 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAddressNetworkItem } from '@onekeyhq/kit/src/views/AddressBook/type';
+import {
+  MOTION_EASE_OUT,
+  MOTION_ENTER_MS,
+} from '@onekeyhq/kit/src/views/FiatCrypto/components/Headless/motionTokens';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import type {
   IDBIndexedAccount,
@@ -1062,6 +1072,35 @@ function AddressBookRecipients({
   );
 }
 
+// A tab's list fades in when the user switches to it, like the segments of
+// the token selector; the first one arrives with the page. Visited tabs stay
+// mounted, so a hidden one waits at opacity 0 for its next turn.
+function QuickSelectTabContent({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: ReactNode;
+}) {
+  const reducedMotion = useReducedMotion();
+  const opacity = useSharedValue(active ? 1 : 0);
+  useEffect(() => {
+    if (!active) {
+      opacity.value = 0;
+      return;
+    }
+    opacity.value = reducedMotion
+      ? 1
+      : withTiming(1, { duration: MOTION_ENTER_MS, easing: MOTION_EASE_OUT });
+  }, [active, opacity, reducedMotion]);
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return (
+    <Animated.View style={[{ display: active ? 'flex' : 'none' }, fadeStyle]}>
+      {children}
+    </Animated.View>
+  );
+}
+
 function RecipientQuickSelect({
   accountId,
   networkId,
@@ -1402,7 +1441,7 @@ function RecipientQuickSelect({
       <Stack mx={-20} pb="$3">
         {/* Render active tab, or visited tabs (hidden with display:none to avoid unmount crashes) */}
         {!isRecentHidden && (activeTab === 'recent' || visitedTabs.recent) ? (
-          <Stack display={activeTab === 'recent' ? 'flex' : 'none'}>
+          <QuickSelectTabContent active={activeTab === 'recent'}>
             <RecentRecipients
               compact
               accountId={accountId}
@@ -1423,10 +1462,10 @@ function RecipientQuickSelect({
               lookalikeAddresses={lookalikeAddresses}
               onAddressesChange={reportAddresses.recent}
             />
-          </Stack>
+          </QuickSelectTabContent>
         ) : null}
         {activeTab === 'account' || visitedTabs.account ? (
-          <Stack display={activeTab === 'account' ? 'flex' : 'none'}>
+          <QuickSelectTabContent active={activeTab === 'account'}>
             <AccountRecipients
               networkId={networkId}
               showNetworkBadge={showAccountNetworkBadge}
@@ -1449,10 +1488,10 @@ function RecipientQuickSelect({
               }}
               onMatchStatusChange={handleAccountMatchStatus}
             />
-          </Stack>
+          </QuickSelectTabContent>
         ) : null}
         {activeTab === 'addressBook' || visitedTabs.addressBook ? (
-          <Stack display={activeTab === 'addressBook' ? 'flex' : 'none'}>
+          <QuickSelectTabContent active={activeTab === 'addressBook'}>
             <AddressBookRecipients
               networkId={networkId}
               searchKey={searchKey}
@@ -1470,7 +1509,7 @@ function RecipientQuickSelect({
               }
               onMatchStatusChange={handleAddressBookMatchStatus}
             />
-          </Stack>
+          </QuickSelectTabContent>
         ) : null}
       </Stack>
     </YStack>

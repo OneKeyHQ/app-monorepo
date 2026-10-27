@@ -57,6 +57,13 @@ interface ISendPrivateCreateOrderParams {
   estimatedReceived: string | undefined;
 }
 
+// The deposit to the user's Binance account. The network and the coin
+// only: never the link, the return nonce or an address.
+interface IBinanceDepositEventContext {
+  network: string;
+  tokenSymbol: string | undefined;
+}
+
 interface ISendPrivateOrderFinalStatusParams {
   orderId: string | undefined;
   finalStatus: IPrivateSendFinalStatus;
@@ -395,6 +402,72 @@ export class SendScene extends BaseScene {
       network,
       searchKeyLength,
     };
+  }
+
+  @LogToServer()
+  public binanceDepositEntryShow(params: IBinanceDepositEventContext) {
+    return { sendFlowId: this._sendFlowId, ...params };
+  }
+
+  @LogToServer()
+  public binanceDepositStart(
+    params: IBinanceDepositEventContext & { trigger: 'entry' | 'tryAgain' },
+  ) {
+    return { sendFlowId: this._sendFlowId, ...params };
+  }
+
+  @LogToServer()
+  public binanceDepositOpen(
+    params: IBinanceDepositEventContext & { isReopen: boolean },
+  ) {
+    return { sendFlowId: this._sendFlowId, ...params };
+  }
+
+  // deepLink: brought back by Binance; relaunch: the same, but the system
+  // had closed the app meanwhile; manual: came back without the return link.
+  @LogToServer()
+  public binanceDepositReturn(
+    params: IBinanceDepositEventContext & {
+      returnType: 'deepLink' | 'relaunch' | 'manual';
+    },
+  ) {
+    return { sendFlowId: this._sendFlowId, ...params };
+  }
+
+  // Confirmed in Binance, but the return never reached this phone.
+  @LogToServer()
+  public binanceDepositNotReturned(params: IBinanceDepositEventContext) {
+    return { sendFlowId: this._sendFlowId, ...params };
+  }
+
+  @LogToServer()
+  public binanceDepositAddressReceived(
+    params: IBinanceDepositEventContext & { isResumed: boolean },
+  ) {
+    return { sendFlowId: this._sendFlowId, ...params };
+  }
+
+  // reason: why the session ended, `create_failed` when the create got no
+  // answer, or `request_rejected` with the code a request was refused with.
+  @LogToServer()
+  public binanceDepositFail(
+    params: IBinanceDepositEventContext & {
+      reason: string;
+      errorCode?: number;
+    },
+  ) {
+    return { sendFlowId: this._sendFlowId, ...params };
+  }
+
+  // The check right before signing: conflict, an address no longer valid,
+  // or no answer.
+  @LogToServer()
+  public binanceDepositVerifyFail(
+    params: IBinanceDepositEventContext & {
+      type: 'conflict' | 'invalid' | 'unavailable';
+    },
+  ) {
+    return { sendFlowId: this._sendFlowId, ...params };
   }
 
   @LogToServer()
