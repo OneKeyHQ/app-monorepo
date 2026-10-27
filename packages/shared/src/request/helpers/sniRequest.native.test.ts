@@ -1,6 +1,7 @@
 import { request as nativeSniRequest } from '@onekeyfe/react-native-sni-connect';
 import { NativeModules } from 'react-native';
 
+import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 
 import { sniRequest } from './sniRequest.native';
@@ -25,6 +26,11 @@ jest.mock('react-native', () => {
     TurboModuleRegistry: { get: jest.fn(() => sniConnect) },
   };
 });
+
+jest.mock('../../platformEnv', () => ({
+  __esModule: true,
+  default: { isNativeIOSMacCatalyst: false },
+}));
 
 jest.mock('../../logger/logger', () => ({
   defaultLogger: {
@@ -214,5 +220,26 @@ describe('sniRequest.native AbortController compatibility', () => {
     expect(warning).toContain('capability=cancel_request');
     expect(warning).toContain('available=false');
     expect(warning).toContain('decision=transport_may_continue');
+  });
+});
+
+test('uses the unsupported transport fallback on Catalyst without loading SniConnect', async () => {
+  jest.resetModules();
+  jest.doMock('../../platformEnv', () => ({
+    __esModule: true,
+    default: { isNativeIOSMacCatalyst: true },
+  }));
+  jest.doMock('@onekeyfe/react-native-sni-connect', () => {
+    throw new OneKeyLocalError('Catalyst must not initialize SniConnect');
+  });
+  await jest.isolateModulesAsync(async () => {
+    const adapter: typeof import('./sniRequest.native') = require('./sniRequest.native');
+    expect(adapter.isSniSupported()).toBe(false);
+    await expect(
+      adapter.sniRequest(buildSniRequestConfig()),
+    ).resolves.toBeNull();
+    await expect(
+      adapter.isProxyActiveForUrl('https://example.com'),
+    ).resolves.toBeNull();
   });
 });

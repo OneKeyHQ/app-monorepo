@@ -56,7 +56,7 @@ export default class NotificationProvider extends NotificationProviderBase {
   jpushProvider: PushProviderJPush | undefined;
 
   initJPushProvider() {
-    if (this.options.disabledJPush) {
+    if (this.options.disabledJPush || platformEnv.isNativeIOSMacCatalyst) {
       return;
     }
     this.jpushProvider = new PushProviderJPush({
