@@ -6,6 +6,7 @@ import { getSafeErrorIdentifiers } from './sensitiveErrorMessageUtils';
 describe('getSafeErrorIdentifiers', () => {
   beforeAll(() => {
     appLocale.setLocale('en-US', {
+      ...appLocale.intl.messages,
       [ETranslations.swap_page_recent_trade]: 'Recent trade',
     });
   });
