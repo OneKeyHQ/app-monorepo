@@ -7,6 +7,7 @@ import {
   Button,
   Dialog,
   Divider,
+  Icon,
   SizableText,
   Toast,
   XStack,
@@ -307,7 +308,40 @@ export function ReversePositionContent({
             {`${currentSideLabel} ${formattedSize}`}
           </SizableText>
         </XStack>
-        <Divider borderColor="$bg" />
+        <YStack>
+          <Divider
+            borderColor="$bg"
+            borderBottomWidth="$0.5"
+            maxHeight="$0.5"
+          />
+          <YStack
+            position="absolute"
+            top={0}
+            bottom={0}
+            left={0}
+            right={0}
+            alignItems="center"
+            justifyContent="center"
+            pointerEvents="none"
+          >
+            <YStack p="$0.5" bg="$bg" borderRadius="$3" flexShrink={0}>
+              <YStack
+                width="$7"
+                height="$6"
+                bg="$bgStrong"
+                borderRadius="$2.5"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Icon
+                  name="ArrowBottomOutline"
+                  size="$3.5"
+                  color="$iconSubdued"
+                />
+              </YStack>
+            </YStack>
+          </YStack>
+        </YStack>
         <XStack
           p="$4"
           gap="$3"

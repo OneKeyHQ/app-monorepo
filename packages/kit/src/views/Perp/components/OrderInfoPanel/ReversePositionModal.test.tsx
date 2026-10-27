@@ -86,6 +86,7 @@ jest.mock('@onekeyhq/components', () => {
     ),
     Dialog: { show: (props: IDialogShowProps) => mockDialogShow(props) },
     Divider: () => <hr />,
+    Icon: () => null,
     SizableText: Stack,
     XStack: Stack,
     YStack: Stack,
