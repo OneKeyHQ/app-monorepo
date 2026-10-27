@@ -35,6 +35,7 @@ import {
   getBirthdayInputError,
   readEnableBirthday,
 } from './LocalWalletRepairControls';
+import { TokenPrivacyPanel } from './TokenPrivacyPanel';
 
 import type { ILocalWalletPool } from './useLocalWalletPool';
 
@@ -88,11 +89,13 @@ export function LocalWalletPoolStatus({
   accountId,
   pool: lw,
   settingsMode = false,
+  presentation,
 }: {
   networkId: string;
   accountId: string;
   pool: ILocalWalletPool;
   settingsMode?: boolean;
+  presentation?: 'tokenDetails';
 }) {
   const intl = useIntl();
   const openSettings = useOpenPrivacyNetworkSettings({ accountId, networkId });
@@ -214,6 +217,19 @@ export function LocalWalletPoolStatus({
   if (!lw.enabled) {
     if (!settingsMode && lw.pool?.source !== 'localScan') {
       return null;
+    }
+    if (presentation === 'tokenDetails' && !settingsMode) {
+      return (
+        <TokenPrivacyPanel
+          state={
+            lw.state?.pendingOperation === 'enable' ? 'preparing' : 'disabled'
+          }
+          description={intl.formatMessage({ id: disabledDescriptionId })}
+          busy={lw.busy}
+          enableUnavailable={!canEnable}
+          onEnable={canEnable ? handleEnable : undefined}
+        />
+      );
     }
     return (
       <YStack py="$4">
@@ -380,10 +396,12 @@ export function LocalWalletSyncRow({
   networkId,
   accountId,
   pool: lw,
+  settingsOnly = false,
 }: {
   networkId: string;
   accountId: string;
   pool: ILocalWalletPool;
+  settingsOnly?: boolean;
 }) {
   const intl = useIntl();
   const accountPaused = lw.state?.paused === true;
@@ -398,6 +416,30 @@ export function LocalWalletSyncRow({
     lw.pool?.source !== 'localScan'
   ) {
     return null;
+  }
+
+  const settingsButton = (
+    <IconButton
+      testID="local-wallet-open-settings-btn"
+      ml="$2"
+      size="small"
+      variant="tertiary"
+      icon="SettingsOutline"
+      title={intl.formatMessage({ id: ETranslations.global_settings })}
+      onPress={openSettings}
+    />
+  );
+  if (settingsOnly) {
+    return (
+      <XStack
+        px="$5"
+        minHeight="$9"
+        alignItems="center"
+        justifyContent="flex-end"
+      >
+        {settingsButton}
+      </XStack>
+    );
   }
 
   return (
@@ -477,15 +519,7 @@ export function LocalWalletSyncRow({
             : ETranslations.privacy_balance_refresh__action,
         })}
       </Button>
-      <IconButton
-        testID="local-wallet-open-settings-btn"
-        ml="$2"
-        size="small"
-        variant="tertiary"
-        icon="SettingsOutline"
-        title={intl.formatMessage({ id: ETranslations.global_settings })}
-        onPress={openSettings}
-      />
+      {settingsButton}
     </XStack>
   );
 }

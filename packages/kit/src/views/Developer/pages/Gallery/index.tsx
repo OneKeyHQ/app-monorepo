@@ -6,6 +6,10 @@ import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 const ComponentsScreen = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components'),
 );
+const PrivacyTokenDetailsGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PrivacyTokenDetails'),
+);
 const AccountModelGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountModelGallery'),
@@ -347,6 +351,10 @@ export const galleryScreenList: {
   component: ComponentType;
 }[] = [
   { name: EGalleryRoutes.Components, component: ComponentsScreen },
+  {
+    name: EGalleryRoutes.ComponentPrivacyTokenDetails,
+    component: PrivacyTokenDetailsGallery,
+  },
   {
     name: EGalleryRoutes.ComponentTypography,
     component: TypographyGallery,
