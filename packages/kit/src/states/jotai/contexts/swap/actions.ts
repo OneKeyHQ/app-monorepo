@@ -135,7 +135,6 @@ import {
   swapAutoSlippageSuggestedValueAtom,
   swapBalanceDisplayCacheAtom,
   swapBuildTxFetchingAtom,
-  swapDefaultConfigStatusAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
   swapInputAmountDraftsAtom,
@@ -144,6 +143,7 @@ import {
   swapLimitPartiallyFillAtom,
   swapLimitPriceUseRateAtom,
   swapManualSelectQuoteProvidersAtom,
+  swapNetworkConfigStatusAtom,
   swapNetworks,
   swapNetworksIncludeAllNetworkAtom,
   swapProDirectionAtom,
@@ -1072,7 +1072,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       );
       const needChangeToToken = this.needChangeToken({
         swapNetworks:
-          get(swapDefaultConfigStatusAtom()) === 'failed'
+          get(swapNetworkConfigStatusAtom()) === 'failed'
             ? []
             : get(swapNetworks()),
         token,
@@ -4165,6 +4165,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapAccountNetworkId?: string,
       options?: {
         carryTargetToken?: boolean;
+        initializeSwapDefaultsFromHome?: boolean;
         proSupportedNetworkIds?: ReadonlySet<string>;
         stableTokenKeys?: ReadonlySet<string>;
         tokenCarryUtils?: ISwapProTokenCarryUtils;
@@ -4351,6 +4352,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (shouldRestoreLastNonLimitSelectedTokens) {
           currentFromToken = lastNonLimitSelectedTokens.fromToken;
           currentToToken = lastNonLimitSelectedTokens.toToken;
+        } else if (
+          normalizedType === ESwapTabSwitchType.SWAP &&
+          options?.initializeSwapDefaultsFromHome
+        ) {
+          // Stock's payment network does not own an uncached Swap pair.
+          // Let Swap initialization resolve defaults from its Home selection.
+          currentFromToken = undefined;
+          currentToToken = undefined;
         } else {
           const defaultNetworkId =
             normalizedType === ESwapTabSwitchType.LIMIT
@@ -4431,6 +4440,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapQuoteEventCompletedAtom(), false);
       set(swapQuoteEventTotalCountAtom(), { count: 0 });
       set(swapTypeSwitchAtom(), normalizedType);
+      if (
+        isSwitchingFromStockToNonStock &&
+        normalizedType === ESwapTabSwitchType.SWAP &&
+        options?.initializeSwapDefaultsFromHome &&
+        !currentFromToken &&
+        !currentToToken
+      ) {
+        this.cleanManualSelectQuoteProviders.call(set);
+        restoreTargetInputAmountDraft();
+        return;
+      }
       if (platformEnv.isNative && normalizedType === ESwapTabSwitchType.LIMIT) {
         return get(swapSelectFromTokenAtom());
       }
@@ -4547,7 +4567,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           if (fromToken && !toToken) {
             const needChangeToToken = this.needChangeToken({
               swapNetworks:
-                get(swapDefaultConfigStatusAtom()) === 'failed'
+                get(swapNetworkConfigStatusAtom()) === 'failed'
                   ? []
                   : get(swapNetworks()),
               token: fromToken,

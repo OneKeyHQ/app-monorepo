@@ -36,6 +36,8 @@ type ILoadState = {
   data?: IDustSweepNetworksResult;
   status: 'refreshing' | 'idle' | 'error';
   freshNetworks?: IDustSweepNetwork[];
+  // Keep failed assets hidden until an authoritative refresh succeeds.
+  loadFailed?: boolean;
 };
 
 type ILoadScope = {
@@ -145,7 +147,7 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
           freshSettled = true;
           if (isCurrent()) {
             scope.request = undefined;
-            publish({ ...scope.state, status: 'error' });
+            publish({ ...scope.state, status: 'error', loadFailed: true });
           }
         })
         .finally(() => {
@@ -257,13 +259,18 @@ export function useDustSweepNetworks(params: IDustSweepRouteParams) {
   const hasData = !!state.data;
   let loadStatus: 'ready' | 'loading' | 'error' = 'loading';
   if (hasData) loadStatus = 'ready';
-  else if (state.status === 'error') loadStatus = 'error';
+  else if (state.loadFailed || state.status === 'error') loadStatus = 'error';
   const isRefreshing = useCallback(() => !!scope.request, [scope]);
   return {
     networks: state.data?.networks ?? EMPTY_NETWORKS,
     providerInfo: state.data?.providerInfo,
     failedNetworks: state.data?.failedNetworks,
-    partialError: state.status === 'error' || !!state.data?.partialError,
+    failedNetworkIds: state.data?.failedNetworkIds,
+    loadFailed: !!state.loadFailed,
+    partialError:
+      !!state.loadFailed ||
+      state.status === 'error' ||
+      !!state.data?.partialError,
     freshNetworks: state.freshNetworks,
     hasData,
     loadStatus,
@@ -351,7 +358,7 @@ export function useDustSweepNetworkRefresh({
     if (
       !enabled ||
       !isFocused ||
-      !hasData ||
+      (!hasData && refreshStatus !== 'error') ||
       pending ||
       refreshStatus === 'refreshing'
     ) {

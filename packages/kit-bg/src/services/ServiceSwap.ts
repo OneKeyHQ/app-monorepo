@@ -746,7 +746,7 @@ export default class ServiceSwap extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
         '/swap/v1/networks',
-        // Abort the request before releasing local default-token fallbacks.
+        // Bound transport separately from the UI's default-token wait budget.
         { params: requestParams, timeout: 10_000 },
       );
       const allClientSupportNetworks =
