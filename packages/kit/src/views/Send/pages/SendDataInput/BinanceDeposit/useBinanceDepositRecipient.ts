@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
 import { Toast } from '@onekeyhq/components';
@@ -9,6 +10,7 @@ import { canOpenExchangeApp } from '@onekeyhq/kit/src/hooks/useExchangeAppDetect
 import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
@@ -25,7 +27,7 @@ import type {
 } from '@onekeyhq/shared/types/exchange';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { BINANCE_DEPOSIT_COPY } from './binanceDepositCopy';
+import type { IntlShape } from 'react-intl';
 
 // Local reads only; the service asks the server at its own pace.
 const SNAPSHOT_POLL_INTERVAL_MS = 1500;
@@ -67,16 +69,17 @@ function getErrorCode(error: unknown): number | undefined {
   return (error as { code?: number } | undefined)?.code;
 }
 
-function getErrorToastTitle(error: unknown): string {
+function getErrorToastTitle(intl: IntlShape, error: unknown): string {
+  const t = (id: ETranslations) => intl.formatMessage({ id });
   switch (getErrorCode(error)) {
     case EBinanceDepositErrorCode.FeatureDisabled:
     case EBinanceDepositErrorCode.DepositDisabled:
     case EBinanceDepositErrorCode.CapabilityStale:
-      return BINANCE_DEPOSIT_COPY.toastAssetUnavailable;
+      return t(ETranslations.binance_deposit_asset_unavailable__msg);
     case EBinanceDepositErrorCode.RateLimited:
-      return BINANCE_DEPOSIT_COPY.toastRateLimited;
+      return t(ETranslations.global_request_limit);
     default:
-      return BINANCE_DEPOSIT_COPY.toastUnavailable;
+      return t(ETranslations.binance_deposit_unavailable__msg);
   }
 }
 
@@ -109,6 +112,7 @@ export function useBinanceDepositRecipient({
   token?: IToken | null;
   isNFT: boolean;
 }) {
+  const intl = useIntl();
   // null from the tap until the first server answer, so the card shows at
   // once instead of waiting on the create request; undefined when the user
   // isn't sending to Binance.
@@ -247,13 +251,13 @@ export function useBinanceDepositRecipient({
           );
           return;
         }
-        Toast.error({ title: getErrorToastTitle(error) });
+        Toast.error({ title: getErrorToastTitle(intl, error) });
       } finally {
         isOpeningRef.current = false;
         setIsOpening(false);
       }
     },
-    [],
+    [intl],
   );
 
   const onAppActive = useCallback(() => {
@@ -313,7 +317,7 @@ export function useBinanceDepositRecipient({
       if (attempt !== attemptRef.current) {
         return;
       }
-      Toast.error({ title: getErrorToastTitle(error) });
+      Toast.error({ title: getErrorToastTitle(intl, error) });
       const code = getErrorCode(error);
       defaultLogger.transaction.send.binanceDepositFail({
         ...getEventContext(failedAsset),
@@ -338,7 +342,7 @@ export function useBinanceDepositRecipient({
       }
       setSnapshot(next);
     },
-    [refreshAsset, setAsset],
+    [intl, refreshAsset, setAsset],
   );
 
   // A start that picks up an address already released only waits for the

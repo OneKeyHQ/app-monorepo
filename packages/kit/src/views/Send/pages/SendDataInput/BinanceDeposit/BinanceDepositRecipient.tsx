@@ -31,8 +31,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EBinanceDepositSessionStatus } from '@onekeyhq/shared/types/exchange';
 import type { IBinanceDepositSnapshot } from '@onekeyhq/shared/types/exchange';
 
-import { BINANCE_DEPOSIT_COPY } from './binanceDepositCopy';
-
 import type { ImageSourcePropType } from 'react-native';
 
 const BINANCE_LOGO: ImageSourcePropType = require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_binance.png');
@@ -68,6 +66,7 @@ export function BinanceDepositEntry({
   hidden: boolean;
   onPress: () => void;
 }) {
+  const intl = useIntl();
   return (
     <HeightTransition hide={hidden}>
       <ListItem
@@ -96,7 +95,9 @@ export function BinanceDepositEntry({
         />
         <ListItem.Text
           flex={1}
-          primary={BINANCE_DEPOSIT_COPY.accountName}
+          primary={intl.formatMessage({
+            id: ETranslations.binance_deposit_account__title,
+          })}
           primaryTextProps={{ size: '$bodyLg' }}
         />
       </ListItem>
@@ -182,11 +183,15 @@ export function BinanceDepositRecipientCard({
   onExit: () => void;
 }) {
   const intl = useIntl();
-  const copy = BINANCE_DEPOSIT_COPY;
+  // What the deposit address takes: this coin, sent over this network.
   const assetLabel =
     assetSymbol && networkName
-      ? copy.assetOnNetwork(assetSymbol, networkName)
+      ? intl.formatMessage(
+          { id: ETranslations.binance_deposit_asset_on_network__desc },
+          { symbol: assetSymbol, network: networkName },
+        )
       : assetSymbol || networkName;
+  const t = (id: ETranslations) => intl.formatMessage({ id });
   // No snapshot yet: the entry was just tapped and the server hasn't answered.
   const phase = snapshot?.phase ?? 'creating';
   const cancelText = intl.formatMessage({ id: ETranslations.global_cancel });
@@ -213,26 +218,37 @@ export function BinanceDepositRecipientCard({
   }
   switch (shownPhase) {
     case 'creating':
-      statusText = copy.opening;
+      statusText = t(ETranslations.binance_deposit_opening__msg);
       body = (
-        <CardProgress text={copy.opening} description={copy.openingDesc} />
+        <CardProgress
+          text={statusText}
+          description={t(ETranslations.binance_deposit_auto_return__desc)}
+        />
       );
       break;
     case 'confirming':
-      statusText = copy.gettingAddress;
-      body = <CardProgress text={copy.gettingAddress} />;
+      statusText = t(ETranslations.binance_deposit_getting_address__msg);
+      body = <CardProgress text={statusText} />;
       break;
     case 'awaiting': {
       // Confirmed in Binance, but the return never reached this phone: the
       // link can't be opened again, so only leaving is offered.
       const isUnbound =
         snapshot?.status === EBinanceDepositSessionStatus.AUTHORIZED_UNBOUND;
-      statusText = isUnbound ? copy.confirmedTitle : copy.confirmTitle;
+      statusText = t(
+        isUnbound
+          ? ETranslations.binance_deposit_confirmed__title
+          : ETranslations.binance_deposit_confirm_in_app__title,
+      );
       body = (
         <>
           <CardMessage
-            title={isUnbound ? copy.confirmedTitle : copy.confirmTitle}
-            description={isUnbound ? copy.confirmedDesc : copy.confirmDesc}
+            title={statusText}
+            description={t(
+              isUnbound
+                ? ETranslations.binance_deposit_not_returned__desc
+                : ETranslations.binance_deposit_open_again__desc,
+            )}
           />
           {isUnbound ? (
             <Button
@@ -240,7 +256,7 @@ export function BinanceDepositRecipientCard({
               size="large"
               onPress={onExit}
             >
-              {copy.enterAddress}
+              {t(ETranslations.binance_deposit_enter_address__action)}
             </Button>
           ) : (
             <Button
@@ -285,7 +301,7 @@ export function BinanceDepositRecipientCard({
       break;
     case 'create_failed':
       failure = {
-        title: copy.connectFailed,
+        title: t(ETranslations.binance_deposit_connect_failed__title),
         onTryAgain: onRetry,
         secondary: cancelText,
       };
@@ -296,9 +312,13 @@ export function BinanceDepositRecipientCard({
       const isConflict = snapshot?.failReason === 'conflict';
       failure = {
         isCritical: isConflict,
-        title: isConflict ? copy.securityFailedTitle : copy.addressFailed,
+        title: t(
+          isConflict
+            ? ETranslations.binance_deposit_security_failed__title
+            : ETranslations.binance_deposit_address_failed__title,
+        ),
         onTryAgain: onRestart,
-        secondary: copy.enterAddress,
+        secondary: t(ETranslations.binance_deposit_enter_address__action),
       };
     }
   }
@@ -380,7 +400,7 @@ export function BinanceDepositRecipientCard({
             />
             <ListItem.Text
               flex={1}
-              primary={copy.accountName}
+              primary={t(ETranslations.binance_deposit_account__title)}
               secondary={assetLabel}
             />
           </XStack>

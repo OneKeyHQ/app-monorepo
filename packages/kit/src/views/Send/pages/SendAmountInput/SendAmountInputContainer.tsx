@@ -3579,6 +3579,7 @@ function SendAmountInputContainer() {
 
           const binanceDepositHooks = binanceDeposit
             ? buildBinanceDepositSendHooks({
+                intl,
                 context: binanceDeposit,
                 networkId,
                 tokenSymbol: tokenDetails?.info.symbol,
