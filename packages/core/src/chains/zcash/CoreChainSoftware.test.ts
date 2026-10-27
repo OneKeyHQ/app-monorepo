@@ -6,9 +6,6 @@ import { getCoreChainApiScopeByImpl } from '../../instance/coreChainApi';
 
 import CoreChainHd from './CoreChainHd';
 
-// Expected values were derived independently (standard BIP39/BIP32 +
-// Zcash t1 base58check) from the shared test mnemonic, so these tests validate
-// the whole HD -> xpub -> t-address pipeline, not just the address codec.
 const { hdCredential, networkInfo, hdAccountTemplate, hdAccounts } =
   coreTestsFixtures.prepareCoreChainTestsFixtures({
     networkInfo: {
@@ -38,7 +35,6 @@ const { hdCredential, networkInfo, hdAccountTemplate, hdAccounts } =
     msgSamples: [],
   });
 
-// yarn jest packages/core/src/chains/zcash/CoreChainSoftware.test.ts
 describe('ZCASH Core tests', () => {
   it('registers the Core API under the network implementation', () => {
     expect(getCoreChainApiScopeByImpl({ impl: IMPL_ZCASH }).impl).toBe('zec');

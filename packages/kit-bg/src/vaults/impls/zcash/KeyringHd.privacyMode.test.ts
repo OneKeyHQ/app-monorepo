@@ -25,7 +25,6 @@ describe('Zcash KeyringHd privacy mode setup', () => {
     jest.restoreAllMocks();
   });
 
-  // Only an enable records scan state; a derived or saved account leaves none.
   it('creates transparent accounts without deriving or recording privacy state', async () => {
     const account = {
       id: "hd-1--m/44'/133'/0'/0/0",
@@ -53,7 +52,6 @@ describe('Zcash KeyringHd privacy mode setup', () => {
     ]);
 
     expect(prepareAccounts).toHaveBeenCalledTimes(1);
-    // Account creation never decrypts the seed for Zcash key material.
     expect(seedFromHdCredentialAsync).not.toHaveBeenCalled();
   });
 });

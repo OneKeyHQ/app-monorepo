@@ -170,9 +170,8 @@ const dash: IBtcForkNetwork = {
   wif: 0xcc,
 };
 
-// zcash (transparent). pubKeyHash/scriptHash are single-byte intermediates the
-// shared pipeline emits; the real 2-byte t-address prefixes (t1=0x1cb8,
-// t3=0x1cbd) are applied in chains/zcash/sdkZcash encode/decodeAddress.
+// zcash (transparent): single-byte pubKeyHash/scriptHash placeholders; the real 2-byte
+// t-address prefixes (t1=0x1cb8, t3=0x1cbd) are applied in chains/zcash/sdkZcash.
 const zcash: IBtcForkNetwork = {
   // Length byte is 22 (0x16): zcashd's strMessageMagic, not Bitcoin's 24.
   messagePrefix: '\x16Zcash Signed Message:\n',

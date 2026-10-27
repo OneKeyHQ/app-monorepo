@@ -14,14 +14,7 @@ export type IPrivacyChainNodeRelayResult =
 
 const NOT_A_CONFIGURED_NODE = 'not a configured privacy-chain node';
 
-/**
- * A privacy-chain node request made on behalf of a browser context (the
- * extension's offscreen document, the mobile web-embed), from a context whose
- * networking has no CORS or mixed-content rule.
- *
- * The response travels as base64: the bridges serialize as JSON, a number
- * array is ~3.6x the bytes and base64 1.33x.
- */
+/** A node request made for a browser context without CORS rules; the response travels as base64 (1.33x vs ~3.6x as a number array). */
 export async function relayPrivacyChainNodeRequest({
   url,
   contentType,
@@ -48,9 +41,7 @@ export async function relayPrivacyChainNodeRequest({
     if (!(await isPrivacyChainRelayTargetAllowed(parsed.href, targets))) {
       return { ok: false, error: NOT_A_CONFIGURED_NODE };
     }
-    // Fails only on silence: a large batch over a proxy can take minutes.
-    // Fetch the URL that was checked, not a raw string another parser may
-    // read differently.
+    // Timeout on silence only: a large batch can take minutes. Fetch the checked URL, not a raw string.
     const response = await fetchBytesWithIdleTimeout(
       parsed.href,
       {
@@ -75,8 +66,7 @@ export async function relayPrivacyChainNodeRequest({
     }
     return { ok: true, b64: bufferUtils.bytesToBase64(response.bytes) };
   } catch (error) {
-    // Carry the cause: an outage, a wrong address and a TLS error must not
-    // all read as "request failed".
+    // Carry the cause so an outage, a wrong address and a TLS error read differently.
     return {
       ok: false,
       error: error instanceof Error ? error.message : String(error),
@@ -84,11 +74,6 @@ export async function relayPrivacyChainNodeRequest({
   }
 }
 
-/**
- * The chunked counterpart for the same callers. Node calls are POSTs to a
- * configured node; the shared handler adds the credential, redirect and size
- * limits.
- */
 export function createPrivacyChainFetchStreamRelay(
   targets: IPrivacyChainRelayTargetSource,
   fetchImpl?: typeof fetch,

@@ -495,9 +495,6 @@ describe('privacy chain state: zcash privacy mode', () => {
     ).resolves.toEqual([]);
   });
 
-  // The month used to be copied onto each account at creation and backfilled
-  // when provenance arrived later; it is now read from the wallet, so every
-  // account of a fresh wallet recommends it whenever it was created.
   it('recommends a fresh wallet creation month to its accounts', async () => {
     const entity = createEntity();
     await entity.beginZcashPrivacyModeEnable({
@@ -519,7 +516,6 @@ describe('privacy chain state: zcash privacy mode', () => {
         source: 'created-wallet',
       },
     });
-    // The fresh-wallet month wins over a month the user picked.
     await entity.beginZcashPrivacyModeEnable({
       networkId: ZEC,
       accountId: 'hd-1--picked',
@@ -534,8 +530,6 @@ describe('privacy chain state: zcash privacy mode', () => {
         source: 'created-wallet',
       },
     });
-    // A fresh wallet without its creation time recommends nothing; the
-    // account's own creation time is never used instead.
     await entity.setRawData((data) => ({
       ...data,
       wallets: { ...data?.wallets, 'hd-3': { freshMnemonic: true } },
@@ -548,7 +542,6 @@ describe('privacy chain state: zcash privacy mode', () => {
     await expect(
       entity.getZcashPrivacyModeState({ accountId: 'hd-3--account' }),
     ).resolves.not.toHaveProperty('birthdayMonthHint');
-    // A wallet not proven fresh recommends nothing.
     await entity.saveWalletCreationProvenance({
       walletId: 'hd-2',
       isFreshlyGeneratedMnemonic: false,
@@ -714,12 +707,9 @@ describe('privacy chain state: zcash privacy mode', () => {
       accountId: 'account',
     });
     expect(state).toMatchObject({ intent: 'off', birthdayHeight: 2000 });
-    // The cursor pointed into the cache this call just deleted. Leaving it
-    // would make the account read as merely paused, and the UI would offer
-    // "Resume" to someone who had asked to delete their privacy data.
+    // A leftover cursor would read as paused and offer "Resume" after the user deleted the data.
     expect(state.resumeFromHeight).toBeUndefined();
-    // The identity goes too: the next enable may set the account up with
-    // whatever key it derives (the way out of an identity mismatch).
+    // The identity goes too, so the next enable may use any derived key.
     await expect(
       entity.getAccountVkFp({ networkId: ZEC, accountId: 'account' }),
     ).resolves.toBeUndefined();
@@ -779,7 +769,6 @@ describe('privacy chain state: zcash privacy mode', () => {
       resetResumeFromHeight: true,
     });
 
-    // The request is what a retry asks for; the scanner keeps its start.
     await expect(
       entity.getZcashPrivacyModeState({ accountId: 'account' }),
     ).resolves.toMatchObject({ birthdayTimestamp: 1_650_000_000_000 });
@@ -1348,8 +1337,6 @@ describe('privacy chain state: zcash hardware seed fingerprint', () => {
     await expect(
       entity.getZcashWalletSeedFingerprint({ walletId: 'hw-1' }),
     ).resolves.toBe(SEED_FP);
-    // Still named by an account record: removing it would leave that
-    // account's runtime data unnameable.
     await entity.removeWalletState({ walletId: 'hw-1' });
     await expect(entity.listWalletStateIds()).resolves.toContain('hw-1');
 
@@ -1387,7 +1374,6 @@ describe('privacy chain state: zcash hardware seed fingerprint', () => {
   });
 });
 
-// The UFVK's only host copy is the viewing key store.
 describe('privacy chain state: zcash viewing key ownership', () => {
   it('stores no viewing key, and the seed fingerprint once per wallet', async () => {
     const entity = createEntity();
@@ -1447,7 +1433,6 @@ describe('privacy chain state: per-record validation', () => {
     await expect(
       entity.getZcashAccountMeta({ accountId: 'good' }),
     ).resolves.toMatchObject({ vkFp: 'b'.repeat(32) });
-    // Cleanup, the keep-set and "has data" still see it.
     await expect(entity.listAccountIds({ networkId: ZEC })).resolves.toEqual([
       'good',
       'bad',
@@ -1458,7 +1443,6 @@ describe('privacy chain state: per-record validation', () => {
     await expect(
       entity.listZcashMetaAccountIds({ networkId: ZEC }),
     ).resolves.toEqual(['good', 'bad']);
-    // Not another network's.
     await expect(entity.listAccountIds({ networkId: XMR })).resolves.toEqual(
       [],
     );
@@ -1473,7 +1457,6 @@ describe('privacy chain state: per-record validation', () => {
     await expect(
       entity.listScanDataAccountIds({ networkId: XMR }),
     ).resolves.toEqual(['bad']);
-    // Only cleanup of a removed account deletes it.
     await entity.removeNetworkAccounts({ networkId: ZEC });
     await expect(entity.listAccountIds({ networkId: XMR })).resolves.toEqual([
       'bad',
@@ -1711,8 +1694,7 @@ describe('privacy chain state: monero', () => {
     },
   );
 
-  // Re-enabling after a local data delete must not start at tip and miss
-  // older funds; removing the account itself keeps nothing.
+  // Re-enabling after a local data delete must not start at tip and miss older funds.
   it('keeps only the birthday when local data is deleted', async () => {
     const entity = createEntity();
     await entity.beginXmrEnable({
@@ -1855,7 +1837,6 @@ describe('privacy chain state: epoch', () => {
         requestedAt: 1,
       },
     });
-    // The purge that applies the journal rotates, right before it runs.
     await expect(epochOf(entity, 'account')).resolves.toBe(
       [...seen][seen.size - 1],
     );
@@ -1943,7 +1924,6 @@ describe('privacy chain state: epoch mirror', () => {
 
     harness.holdWrites(true);
     const rotation = entity.rotateAccountEpochs({ accountIds: ['account'] });
-    // Let the rotation reach storage, where its write now waits.
     await new Promise((resolve) => setTimeout(resolve, 0));
     const during = await entity.getAccountEpoch({ accountId: 'account' });
     expect(during).toMatch(/^[0-9a-f]{16}$/);
@@ -2120,7 +2100,6 @@ describe('privacy chain state: A5 review follow-ups', () => {
     const observed = await entity.getZcashPrivacyModeState({
       accountId: 'account',
     });
-    // updatedAt moves; nothing the setup acted on does.
     await new Promise((resolve) => setTimeout(resolve, 2));
     await entity.rotateAccountEpochs({ accountIds: ['account'] });
 

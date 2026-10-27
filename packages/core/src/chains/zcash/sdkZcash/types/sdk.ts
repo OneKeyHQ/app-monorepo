@@ -13,8 +13,6 @@ export type IZcashRuntimeSelfTestResult = {
 
 export type IZcashNetwork = 'main' | 'test';
 
-// ---- keys side (works on every carrier, no sync/threads needed) ----
-
 export type IZcashGetChainTipParams = {
   network: IZcashNetwork;
   lightwalletdUrl: string;
@@ -178,8 +176,6 @@ export type IZcashSendResult = {
     detail?: string;
   };
 };
-
-// ---- wallet side (watch-only via UFVK) ----
 
 // Identifies one watch-only wallet account inside the carrier's wallet pool.
 export type IZcashWalletAccount = {
@@ -360,7 +356,7 @@ export type IZcashTxDetails = {
     memoBinary: { hex: string; hash: string } | null;
     address: string | null;
   }[];
-  // Outputs we sent externally; an unavailable address does not erase the known amount or memo.
+  // Outputs sent externally; an unavailable address does not erase the known amount or memo.
   external: {
     address: string | null;
     value: string;
@@ -425,7 +421,6 @@ export type IZcashSdkApi = {
     address: string;
   }) => Promise<boolean>;
 
-  // keys side
   deriveAccount: (
     params: IZcashDeriveAccountParams,
   ) => Promise<IZcashDeriveAccountResult>;
@@ -468,7 +463,6 @@ export type IZcashSdkApi = {
     pcztHex: string;
   }) => Promise<{ pcztHex: string }>;
 
-  // wallet side (watch-only)
   prepareWalletAccounts: (
     accounts: IZcashWalletAccount[],
     options?: { retainedUfvks: string[] },

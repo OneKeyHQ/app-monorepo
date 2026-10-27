@@ -1,17 +1,10 @@
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-// Results of a privacy chain's local scan (plus the last public-side balance),
-// kept so a cold start can show them before a live read answers. Unlike
-// privacyChainState, anything here may be dropped at any time: the scan
-// rebuilds it. Read and written only through
-// vaults/localWallet/privacyChainCacheStore.ts.
+// Droppable cache of local scan results; the scan rebuilds it.
 
 export interface IPrivacyChainCacheDB {
-  // accountId -> the last private balance read from the scanner.
   lastBalances?: Record<string, IPrivacyChainLastBalanceRecord>;
-  // accountId -> the last public-side balance fetched from the backend.
   lastPublicBalances?: Record<string, IPrivacyChainLastPublicBalanceRecord>;
-  // networkId -> the last chain tip fetched from the node, for display only.
   chainTips?: Record<string, number>;
   // Successful catch-up, independent of whether the balance amount changed.
   lastSyncs?: Record<
@@ -22,10 +15,7 @@ export interface IPrivacyChainCacheDB {
 
 export type IPrivacyChainLastBalanceRecord = {
   networkId: string;
-  // The account's epoch when the value was read (see privacyChainState);
-  // absent when the account had no record yet.
   epoch?: string;
-  // Opaque here; the chain owns the format.
   value: string;
   savedAt: number;
 };
@@ -74,10 +64,7 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
     return rawData?.lastBalances?.[accountId];
   }
 
-  // `isCurrent` runs under this entity's lock, right before the write: a
-  // value read before its scanned data was destroyed is dropped there, and
-  // one that passes is deleted by that destruction, which deletes caches
-  // after it rotates the epoch.
+  // `isCurrent` runs under the entity lock right before the write; a value read before its data was destroyed is dropped.
   async setLastBalance({
     accountId,
     record,
@@ -235,7 +222,6 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
     }));
   }
 
-  // One network's tip, or every network's.
   async removeChainTips({ networkId }: { networkId?: string }): Promise<void> {
     await this.setRawData((rawData) => {
       if (networkId === undefined) {

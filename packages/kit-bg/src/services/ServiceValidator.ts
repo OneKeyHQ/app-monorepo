@@ -37,8 +37,7 @@ class ServiceValidator extends ServiceBase {
     if (!networkId) {
       return 'invalid';
     }
-    // A privacy chain's local SDK owns recipient support: server indexing
-    // support must not veto a receiver the shipped builder can pay.
+    // A privacy chain's local SDK owns recipient support; server indexing support must not veto it.
     if (await isLocalWalletNetwork({ networkId })) {
       try {
         const localValidation = await this.localValidateAddress(params);
@@ -157,7 +156,6 @@ class ServiceValidator extends ServiceBase {
     networkIdList: string[];
     accountAddress: string;
   }): Promise<{ isValid: boolean; networkIds: string[] }> {
-    // The server request must not wait for the settings lookup.
     const serverRequest = this.serverBatchValidateAddress(params);
     serverRequest.catch(() => undefined);
     const isLocalWallet = await Promise.all(
@@ -171,8 +169,7 @@ class ServiceValidator extends ServiceBase {
     const [server, ...local] = await Promise.allSettled([
       serverRequest,
       ...localNetworkIds.map(async (networkId) => {
-        // Search runs this per keystroke; don't load a chain runtime for
-        // input that cannot be its address.
+        // Search runs this per keystroke; do not load a chain runtime for input that cannot be its address.
         if (
           !(await mayBeLocalWalletAddress({
             networkId,

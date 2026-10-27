@@ -13,9 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useLocalWalletPasswordVerify } from './LocalWalletFrozenLines';
 
-// One line wherever the balance is read when part of it waits for the
-// password: without it the spendable figure looks wrong for no visible reason.
-// The why is in the balance details.
+// Shown wherever the balance is read when part of it waits for the password.
 export function LocalWalletPasswordAlert({
   networkId,
   accountId,

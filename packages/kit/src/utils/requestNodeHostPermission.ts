@@ -9,6 +9,4 @@ export async function requestNodeHostPermission(
 export async function releaseNodeHostPermission(
   _nodeUrl: string,
   _remainingNodeUrls: string[],
-): Promise<void> {
-  // Nothing to give back outside the extension.
-}
+): Promise<void> {}

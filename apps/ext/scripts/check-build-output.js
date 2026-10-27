@@ -381,9 +381,7 @@ function main() {
     );
   const budgets = {
     // The expected hardware onboarding assets raised Linux CI output to
-    // 166931278 bytes (run 35951858232). The Zcash and Monero runtime wasm
-    // files (~12 MiB) raised it to 181975153 bytes (run 39396169051). Keep
-    // about 1.7% headroom for growth.
+    // Measured on Linux CI, including the Zcash and Monero runtime wasm (~12 MiB); about 1.7% headroom.
     // Trust the CI number when the margin is thin; macOS builds differ.
     totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 185000000),
     // Keep enough headroom for expected route and chunk growth while the total

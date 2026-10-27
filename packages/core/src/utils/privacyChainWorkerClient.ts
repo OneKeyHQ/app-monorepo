@@ -6,19 +6,16 @@ import type {
 } from '@onekeyhq/shared/types/fetchStream';
 
 /**
- * Worker transport shared by every client-scanning chain.
- *
- * A failed Worker rejects its calls; it never retries, replays, or falls
- * back to the page thread, since replaying a call with an unknown outcome
- * is how one broadcast becomes two.
+ * Worker transport shared by every client-scanning chain. A failed Worker rejects
+ * its calls and never retries, replays or falls back to the page thread: replaying
+ * a call with an unknown outcome can turn one broadcast into two.
  */
 
 const DEFAULT_HANDSHAKE_TIMEOUT_MS = 15_000;
 
 /**
- * Tags a carrier failure (the Worker never answered, crashed or was torn
- * down) as opposed to a runtime error. Kept in `data`, which every carrier
- * bridge forwards; `code` would read as a runtime error code.
+ * Tags a carrier failure (Worker never answered, crashed or was torn down).
+ * Kept in `data`, which every carrier bridge forwards.
  */
 export type IPrivacyChainRuntimeFailure =
   | 'handshake'
@@ -67,18 +64,13 @@ type IWorkerState = {
 export type IPrivacyChainWorkerClient<TApi> = {
   api: TApi;
   ensureReady: () => Promise<void>;
-  /**
-   * Tears down a wedged carrier; must run outside the Worker, since a stuck
-   * synchronous wasm call cannot receive a message to reset itself.
-   */
+  /** Tears down a wedged carrier; runs outside the Worker, which cannot reset itself mid wasm call. */
   reset: () => void;
 };
 
 /**
- * Performs one network request on the Worker's behalf.
- *
- * The Worker is a browser context, so fetching there obeys CORS and mixed
- * content, which most nodes do not satisfy; the host relays instead.
+ * Performs one network request on the Worker's behalf. The Worker's own fetch obeys
+ * CORS and mixed content, which most nodes fail, so the host relays instead.
  */
 export type IPrivacyChainHostRequest = (
   url: string,
@@ -93,10 +85,7 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
   /** Omitted: the runtime keeps fetching inside wasm, reaching only browser-serving nodes. */
   hostRequest?: IPrivacyChainHostRequest;
   hostStreamRequest?: IFetchStreamRequester;
-  /**
-   * Cheap method used to prove the Worker booted; without it a broken Worker
-   * looks identical to a slow one until the first real call times out.
-   */
+  /** Cheap method used to prove the Worker booted. */
   handshakeMethod?: string;
   handshakeTimeoutMs?: number;
 }): IPrivacyChainWorkerClient<TApi> {
@@ -157,7 +146,6 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([
-        // Tells the Worker whether this carrier can relay its HTTP.
         callWorker(current, handshakeMethod, [
           {
             hostRequest: Boolean(hostRequest),
@@ -376,8 +364,7 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
       const current = getWorkerState();
       await current.ready;
       if (state !== current) {
-        // Torn down while this call waited to start; the replacement Worker
-        // never saw the state the caller was reasoning about.
+        // Torn down while this call waited; the replacement Worker lacks the state the caller assumed.
         throw runtimeFailureError(`${label} worker: carrier reset`, 'reset');
       }
       return callWorker(current, method, args);
@@ -404,10 +391,7 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
   };
 }
 
-/**
- * Forwards every declared method to `getTarget()`, resolved per call since
- * the offscreen document / web-embed target can be torn down and recreated.
- */
+/** Forwards every declared method to `getTarget()`, resolved per call because the target can be recreated. */
 export function createPrivacyChainRemoteProxy<TApi>(
   methods: readonly string[],
   getTarget: () => TApi | Promise<TApi>,
@@ -424,11 +408,7 @@ export function createPrivacyChainRemoteProxy<TApi>(
 
 /** Worker-side half of the transport; protocol: `{ id, method, args }` in, `{ id, ok, result | error }` out. */
 
-/**
- * Errors cross as plain objects: structured clone keeps only
- * name/message/stack on an `Error`, so `code`/`params`/`payload` would
- * otherwise vanish on the way out.
- */
+/** Errors cross as plain objects: structured clone keeps only name/message/stack of an `Error`. */
 const ERROR_FIELDS = [
   'name',
   'message',
@@ -460,10 +440,7 @@ function toPlainError(e: unknown): Record<string, unknown> {
   return out;
 }
 
-/**
- * Backstop for a node request relayed through the host: hosts already time
- * out on 30s of silence, so this only catches one that never answers at all.
- */
+/** Backstop for a relayed node request: hosts time out after 30s of silence, this catches one that never answers. */
 export const PRIVACY_CHAIN_HOST_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
 
 export function createWorkerHostRequester(
@@ -506,7 +483,6 @@ export function createWorkerHostRequester(
     nextId += 1;
     return new Promise<Uint8Array>((resolve, reject) => {
       const timer = setTimeout(() => {
-        // A late reply finds no waiter and is dropped by the listener above.
         if (pending.delete(requestId)) {
           reject(
             new Error(
@@ -540,7 +516,6 @@ export function createWorkerHostRequester(
 let carrierHasHostRequest = false;
 let carrierHasHostStreamRequest = false;
 
-/** Inside a Worker: whether the carrier relays HTTP for it. */
 export function workerCarrierHasHostStreamRequest(): boolean {
   return carrierHasHostStreamRequest;
 }
@@ -554,7 +529,6 @@ type IWorkerRuntimeState = {
   trapped: boolean;
 };
 
-// Installed only by the server in its dedicated Worker heap.
 let workerRuntimeState: IWorkerRuntimeState | undefined;
 
 export async function runPrivacyChainWorkerOperation<T>(
@@ -581,13 +555,8 @@ export async function runPrivacyChainWorkerOperation<T>(
 export function servePrivacyChainWorker<TApi extends object>(options: {
   label: string;
   methods: readonly string[];
-  /** Loads the implementation. Called once, on the first real call. */
   loadApi: () => Promise<TApi>;
-  /**
-   * True once storage has failed unrecoverably. Reported with every reply so
-   * the client can retire the Worker while still delivering the finished
-   * call's result, including an uncertain broadcast outcome.
-   */
+  /** True once storage has failed unrecoverably; the client retires the Worker but still delivers the finished call's result. */
   storageRequiresRestart?: () => boolean;
   /** Answers a call without loading the implementation (return `undefined` to fall through). */
   intercept?: (
@@ -615,8 +584,7 @@ export function servePrivacyChainWorker<TApi extends object>(options: {
   const getApi = async (): Promise<TApi> => {
     if (!apiPromise) {
       apiPromise = loadApi().catch((error) => {
-        // Do not cache a failure: a transient load error should not disable
-        // the chain for the rest of the session.
+        // Do not cache a failure: a transient load error must not disable the chain.
         apiPromise = undefined;
         throw error;
       });

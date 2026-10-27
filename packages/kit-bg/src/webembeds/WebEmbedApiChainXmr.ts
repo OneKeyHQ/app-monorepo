@@ -3,8 +3,7 @@ import { workerApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/worke
 
 import type { IWebembedApi } from './instance/IWebembedApi';
 
-// WebEmbed owns the transport; the same Worker as web and desktop owns the
-// wallet. Hermes cannot run wasm, so on iOS/Android the runtime lives here.
+// WebEmbed owns the transport; Hermes cannot run wasm, so on iOS/Android the runtime lives here.
 class WebEmbedApiChainXmr {
   constructor() {
     Object.assign(

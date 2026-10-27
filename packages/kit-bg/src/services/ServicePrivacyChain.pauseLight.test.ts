@@ -152,7 +152,6 @@ describe('Privacy sync light pause state', () => {
     expect(mockPublished.pausedNetworkIds).toEqual([networkId]);
   });
 
-  // A floating window over every page: on only for a long wait.
   describe('shows the light only for a long wait', () => {
     const publishBehind = (
       accountId: string,
@@ -199,7 +198,6 @@ describe('Privacy sync light pause state', () => {
       expect(mockPublished.boostingNetworkIds).toEqual([]);
     });
 
-    // A finished backfill that fell behind the tip is just as unusable.
     it('counts how far the scan trails the tip', async () => {
       const service = createService();
       publishBehind('account', {
@@ -228,8 +226,8 @@ describe('Privacy sync light pause state', () => {
     });
   });
 
-  // Pausing from Settings, or after the boost request cleared, must still
-  // publish: otherwise the chain sits silently paused with the light hidden.
+  // Pausing from Settings or after the boost request cleared must still publish, or the light stays
+  // hidden.
   it('publishes a pause even when no boost was ever requested', async () => {
     const service = createService();
     await service.pauseLocalWalletScan({ networkId });
@@ -425,8 +423,6 @@ describe('Privacy scan pause is session-scoped', () => {
     await service.pauseLocalWalletScan({ networkId });
 
     expect(service.boostPausedByNetwork[networkId]).toBe(true);
-    // Nothing to persist through: "not right now" describes this sitting,
-    // not a setting. The empty store proves no write was attempted.
     expect(service.backgroundApi.simpleDb.privacyChainState).toEqual({});
   });
 
@@ -440,8 +436,6 @@ describe('Privacy scan pause is session-scoped', () => {
   });
 });
 
-// XMR publishes after every step with the one account it is scanning; the
-// network's other accounts must keep their rows.
 describe('Privacy per-step progress publish', () => {
   beforeEach(() => {
     mockPublished = mockEmptyState();
@@ -473,7 +467,6 @@ describe('Privacy per-step progress publish', () => {
   });
 });
 
-// "Sync now" must not wait out an idle timer that was already pending.
 describe('Privacy sync timer', () => {
   it('pulls a pending later timer forward and keeps an earlier one', () => {
     jest.useFakeTimers();

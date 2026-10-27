@@ -47,8 +47,6 @@ jest.mock('../vaults/factory', () => ({
 const ServicePrivacyChain = require('./ServicePrivacyChain')
   .default as typeof import('./ServicePrivacyChain').default;
 
-// A scheduled pass that fails must not toast, and must not leave the status
-// row reading "Preparing" forever either.
 describe('Privacy sync failure state', () => {
   const networkId = 'zec--0';
 

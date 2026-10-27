@@ -7,8 +7,7 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 
 import Vault from './Vault';
 
-// Watch-only accounts are excluded from KYT: the server must never receive
-// the OneKey ID token for their addresses.
+// Watch-only accounts are excluded from KYT: the server never receives the OneKey ID token for their addresses.
 describe('Zcash transparent history auth headers', () => {
   async function requestHeaders(accountId: string) {
     const post = jest.fn(async () => ({

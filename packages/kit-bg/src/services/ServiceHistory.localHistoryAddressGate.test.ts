@@ -45,7 +45,6 @@ const BTC = 'btc--0';
 const OWN = `t1${'A'.repeat(33)}`;
 const LEGACY_CHANGE = `t1${'H'.repeat(33)}`;
 
-// A cached row whose input is the account's legacy change address.
 function cachedRow(
   networkId: string,
   txid: string,
@@ -111,7 +110,6 @@ function createService(cached: IAccountHistoryTx[]) {
       },
     },
   );
-  // Private display steps are outside this test.
   Object.assign(service, {
     attachPrivateSendDisplayStatus: async (txs: IAccountHistoryTx[]) => txs,
     attachPrivateSendDisplayPrices: async ({

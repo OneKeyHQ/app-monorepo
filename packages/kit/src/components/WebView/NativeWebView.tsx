@@ -38,9 +38,8 @@ export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
 const WEB_EMBED_ANDROID_LOCAL_HOST = new URL(WEB_EMBED_ANDROID_LOCAL_ORIGIN)
   .host;
 
-// The Android web-embed origin serves privileged local files to whichever
-// WebView's `source.uri` points at it. Only web-embed sets it, through
-// `nativeWebviewSource`; a `src` (dApp tab, external page) never may.
+// Android web-embed origin serves privileged local files; only web-embed sets it via
+// `nativeWebviewSource`, never a `src` (dApp tab, external page).
 function isWebEmbedLocalOriginSrc(src: string | undefined): boolean {
   if (!platformEnv.isNativeAndroid || !src) return false;
   try {
@@ -315,8 +314,7 @@ const NativeWebView = forwardRef(
       [],
     );
 
-    // iOS's counterpart: the system can kill the WebContent process under
-    // memory pressure, leaving a dead WebView that never answers again.
+    // iOS can kill the WebContent process under memory pressure, leaving a dead WebView.
     const handleContentProcessDidTerminate = useCallback(() => {
       if (isUnmountingRef.current) return;
       console.warn('WebView content process terminated, recreating WebView');

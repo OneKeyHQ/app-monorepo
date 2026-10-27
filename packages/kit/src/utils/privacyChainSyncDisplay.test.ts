@@ -180,7 +180,6 @@ describe('chain status shared by settings and the floating control', () => {
     ).toMatchObject({ labelId: ETranslations.global_synced, entry: complete });
   });
 
-  // A paused or held scan is not retrying, so its last error is not current.
   it('puts pause and the data wait ahead of an old error', () => {
     state.boostingNetworkIds = [];
     state.pausedNetworkIds = ['xmr--0'];

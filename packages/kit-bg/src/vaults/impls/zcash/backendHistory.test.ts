@@ -368,7 +368,6 @@ describe('normalizeZcashBackendHistoryTx', () => {
   });
 
   it('leaves a transparent receive from another t1 to show its sender', () => {
-    // The indexer's receive row for a t1 -> t1 payment: no sends, sender in `from`.
     const row = {
       ...base,
       type: EOnChainHistoryTxType.Receive,

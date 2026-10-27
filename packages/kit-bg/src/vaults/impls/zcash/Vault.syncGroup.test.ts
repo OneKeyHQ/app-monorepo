@@ -232,7 +232,6 @@ it('keeps a queued peer scan behind recovery admission until the recovering key 
   expect(discovered.has('note-a')).toBe(true);
 });
 
-// A key the store lost waits for Repair; the other accounts keep scanning.
 it('scans without an account whose viewing key cannot be read', async () => {
   const states: Record<string, IZcashPrivacyModeStateView> = {
     a: { intent: 'on' },
@@ -290,7 +289,6 @@ it('scans without an account whose viewing key cannot be read', async () => {
     chainTip: undefined,
   });
   expect(syncWallet.mock.calls[0][1].activeUfvks).toEqual(['a']);
-  // Its scan resumes from here once Repair restores the key.
   expect(markPrivacyModeScanExcluded).toHaveBeenCalledWith({
     accountId: 'lost',
     fromHeight: 2_000_000,

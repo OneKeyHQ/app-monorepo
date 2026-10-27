@@ -2,12 +2,7 @@ import type { IPrivacyChainHostRequest } from '@onekeyhq/core/src/utils/privacyC
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-/**
- * Mobile: relay through the private channel to the app background, whose
- * native networking has no CORS rule. The WebView's own fetch obeys CORS, and
- * Android's virtual https origin refuses plain-http nodes. Cleartext still
- * follows the app's transport policy (iOS local network only; Android none).
- */
+/** Mobile: relay to the app background, whose native networking has no CORS rule; cleartext follows the app's transport policy. */
 
 export const PRIVACY_CHAIN_NODE_REQUEST_METHOD =
   'privacyChainNodeRequest' as const;

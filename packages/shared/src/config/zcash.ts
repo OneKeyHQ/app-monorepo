@@ -1,6 +1,3 @@
-// Zcash-specific constants. Chain-agnostic scanning gates live in
-// utils/privacyChainSyncPolicy; what is here is true of Zcash alone.
-
 // Lowest height the low-level wallet registration flow accepts. Keep
 // separate from the product scan floor below, which starts at Orchard
 // since this wallet cannot spend Sapling.

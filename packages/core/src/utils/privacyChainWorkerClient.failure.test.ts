@@ -3,8 +3,6 @@ import {
   getPrivacyChainRuntimeFailure,
 } from './privacyChainWorkerClient';
 
-// A Worker that crashed at load, or never answered, must reject with an
-// error the app can word for the user, not a bare transport message.
 describe('privacy chain worker carrier failures', () => {
   beforeEach(() => {
     jest.useFakeTimers();

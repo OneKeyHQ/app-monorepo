@@ -19,8 +19,8 @@ import Vault from './Vault';
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
 const ADDRESS = '4-synthetic-primary-address';
 
-// undefined would send the address to the server history API, and an empty
-// list would blank the page; a throw keeps the rows it shows, as on BTC.
+// `undefined` would hit the server history API and an empty list would blank
+// the page; a throw keeps the rows shown.
 describe('xmr history when the runtime cannot answer', () => {
   it('throws instead of answering empty or undefined', async () => {
     const vault: Vault = Object.assign(Object.create(Vault.prototype), {
@@ -40,7 +40,6 @@ describe('xmr history when the runtime cannot answer', () => {
   });
 });
 
-// Pausing hides the primary address on Receive, so history rows lose it too.
 describe('xmr history shows our primary address only while Receive does', () => {
   it.each([
     ['scanning', ADDRESS, ADDRESS],
@@ -96,8 +95,8 @@ describe('xmr history shows our primary address only while Receive does', () => 
   });
 });
 
-// A sent row carries `signableHex` (it holds the view key); the shared
-// local-history cache refuses rows tagged private.
+// A sent row carries `signableHex` (holds the view key), so it is tagged private
+// and kept out of the shared local-history cache.
 describe('xmr history stays on the device', () => {
   function createVault() {
     return Object.assign(Object.create(Vault.prototype) as Vault, {
@@ -126,7 +125,6 @@ describe('xmr history stays on the device', () => {
   });
 });
 
-// The runtime only knows accounts that turned scanning on at least once.
 describe('xmr history for an account that never enabled scanning', () => {
   const localRuntime = jest.mocked(getXmrLocalRuntime);
 

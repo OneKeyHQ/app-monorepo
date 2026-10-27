@@ -14,9 +14,7 @@ import { XMR_RUNTIME_METHODS } from '../methods';
 
 import type { IXmrRuntimeApi } from '..';
 
-// Shared Worker entry for every carrier: hosts the wasm module, the SQLite
-// wallet database and the scan loop off the window thread. Platform loaders
-// live in the createXmrWorker.* files.
+// Shared Worker entry for every carrier: wasm module, SQLite wallet database and scan loop.
 let storageRequiresWorkerRestart = () => false;
 
 servePrivacyChainWorker<IXmrRuntimeApi>({

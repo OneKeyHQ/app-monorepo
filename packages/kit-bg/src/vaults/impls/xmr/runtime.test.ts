@@ -58,10 +58,7 @@ beforeEach(() => {
   raw.balance.mockImplementation(async () => '{}');
 });
 
-/**
- * The runtime's state lives in Worker memory. On the extension the offscreen
- * document can be recreated, leaving a cached session over an empty runtime.
- */
+/** Runtime state lives in Worker memory; a recreated offscreen document leaves a cached session over an empty runtime. */
 describe('xmr runtime session', () => {
   it('opens the wallet and points it at the node once', async () => {
     const api = await getXmrRuntime(vault);
@@ -71,7 +68,6 @@ describe('xmr runtime session', () => {
     expect(raw.setNodeUrl).toHaveBeenCalledWith('https://node.example:18081');
   });
 
-  // Delete, reset and GC only need the database.
   it('opens for local work when the node cannot be reached', async () => {
     raw.setNodeUrl.mockImplementationOnce(async () => {
       throw runtimeError('NETWORK_ERROR');
@@ -232,12 +228,10 @@ describe('xmr stale-first reads', () => {
     expect(isXmrRuntimeBusy()).toBe(true);
 
     const read = jest.fn(async () => 'v2');
-    // Answered immediately, without touching the runtime.
     await expect(
       readXmrStaleFirst({ key: 'k', read, fallback: '?' }),
     ).resolves.toBe('v1');
     expect(read).not.toHaveBeenCalled();
-    // Never read before: the placeholder, not a wait.
     await expect(
       readXmrStaleFirst({ key: 'other', read, fallback: '?' }),
     ).resolves.toBe('?');
@@ -283,8 +277,7 @@ describe('xmr stale-first reads', () => {
   });
 });
 
-// B2: a value read for scanned data that was destroyed meanwhile must not be
-// remembered, and one remembered under an older epoch must not be answered.
+// A value read for data destroyed meanwhile must not be remembered; one remembered under an older epoch must not be answered.
 describe('xmr stale-first epochs', () => {
   it('drops a live read whose epoch rotated while it ran', async () => {
     let epoch = 'e1';
@@ -295,7 +288,6 @@ describe('xmr stale-first epochs', () => {
     await readXmrStaleFirst({
       key: 'history:a',
       read: async () => {
-        // The account's data is deleted while the read is in flight.
         epoch = 'e2';
         return 'stale rows';
       },
@@ -351,7 +343,6 @@ describe('xmr stale-first epochs', () => {
         owner: { epoch: 'e2', isCurrent: async () => true },
       }),
     ).resolves.toBe('?');
-    // The mismatching entry was dropped, not kept for its old epoch.
     await expect(
       readXmrStaleFirst({
         key: 'progress:a',
@@ -382,7 +373,6 @@ describe('xmr stale-first cold start', () => {
     return async () => {
       releaseStep();
       await step;
-      // Let the queued read run after the step.
       await new Promise((resolve) => setTimeout(resolve, 0));
     };
   }
@@ -406,7 +396,6 @@ describe('xmr stale-first cold start', () => {
     await release();
     expect(read).toHaveBeenCalledTimes(1);
 
-    // Still busy for the next poll: answered from what the queued read saw.
     const releaseAgain = await holdStep();
     const next = jest.fn(async () => 'newer');
     await expect(
@@ -491,7 +480,6 @@ describe('xmr display chain tip', () => {
     expect(raw.chainTip).not.toHaveBeenCalled();
   });
 
-  // A cold start must not wait on the node just to draw progress.
   it('falls back to the saved tip, never the node', async () => {
     mockSavedTip = 7;
     await expect(getXmrLastKnownChainTip(vault)).resolves.toBe(7);
@@ -521,7 +509,6 @@ describe('xmr local reads', () => {
     expect(raw.openWallet).toHaveBeenCalledTimes(1);
     expect(raw.setNodeUrl).not.toHaveBeenCalled();
 
-    // Scanning connects on the same session instead of reopening it.
     await getXmrRuntime(vault);
     expect(raw.openWallet).toHaveBeenCalledTimes(1);
     expect(raw.setNodeUrl).toHaveBeenCalledWith('https://node.example:18081');

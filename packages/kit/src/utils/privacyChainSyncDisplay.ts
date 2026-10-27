@@ -56,7 +56,6 @@ export function getPrivacyChainSyncLabel({
     : ETranslations.global_synced;
 }
 
-// What a failed background sync tells the user; the scheduler keeps retrying.
 export function formatPrivacyChainSyncError(
   kind: ILocalWalletSyncErrorKind | undefined,
   intl: Pick<IntlShape, 'formatMessage'>,
@@ -74,8 +73,7 @@ export function formatPrivacyChainSyncError(
   return intl.formatMessage({ id });
 }
 
-// One decimal: a multi-year backfill advances well under 1% per minute, and a
-// whole-percent floor reads as "stuck at 0%" while blocks are flowing.
+// One decimal: multi-year backfills advance under 1% per minute, so whole percents read as stuck.
 export function formatPrivacyChainPercent(progress: number): string {
   const tenths = Math.floor(Math.min(1, Math.max(0, progress)) * 1000);
   return tenths >= 1000 ? '100%' : `${(tenths / 10).toFixed(1)}%`;
@@ -158,7 +156,6 @@ export function getPrivacyChainNetworkSyncDisplay({
   const entry =
     getPrivacyChainBackfillProgress(known, networkId) ??
     (backfilling ? undefined : Object.values(known)[0]);
-  // A paused or held scan is not retrying, so its last error is not current.
   const syncError =
     isPaused || isHeldByData
       ? undefined

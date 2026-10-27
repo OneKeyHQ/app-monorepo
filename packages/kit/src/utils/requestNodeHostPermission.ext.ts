@@ -11,7 +11,6 @@ export async function requestNodeHostPermission(
   } catch {
     return false;
   }
-  // Resolves true without prompting when already granted.
   return chrome.permissions.request({ origins: [`${origin}/*`] });
 }
 

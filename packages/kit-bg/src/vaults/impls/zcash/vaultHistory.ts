@@ -135,8 +135,7 @@ export async function fetchAccountHistoryDetail(
       fetchPage: (pagination) => api.getHistory(account, pagination),
     });
   } catch (e) {
-    // Only the runtime lookups above land here; a backend "not found" below is
-    // the normal pending-tx state, not a runtime failure, so it isn't logged here.
+    // A backend 'not found' is the normal pending state, not a runtime failure, so it is not logged.
     console.error('[zcash] runtime history detail failed', {
       txid: params.txid,
       ...zcashDescribeError(e),

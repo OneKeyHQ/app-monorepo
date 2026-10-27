@@ -150,8 +150,6 @@ export function resolveInternalMoveEndpoints({
   };
 }
 
-// Maps one runtime history row to the app's history-tx shape; pure except
-// for the injected action builder (a VaultBase method).
 export async function buildZcashLocalHistoryTx({
   item,
   chainTip,

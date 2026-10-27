@@ -210,7 +210,6 @@ test('an obsolete registration cannot restore the identity after Service deletio
     .syncGroup({ accountIds: [accountId], chainTip: tip })
     .catch((error: unknown) => error);
   await requested;
-  // Acceptance precedes the safely ordered cleanup performed in background.
   await service.deleteLocalWalletAccountData({ networkId, accountId });
   await service.resumePendingAccountDeletions();
   expect(rows.size).toBe(0);

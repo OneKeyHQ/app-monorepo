@@ -87,7 +87,6 @@ function createBackend(initial: IOnChainHistoryTx[]) {
   const backend = { rows: initial };
   const post = jest.fn(
     async (_url: string, body: { limit: number; maxTimestampMs?: number }) => {
-      // Tests keep `rows` newest first.
       const sorted = backend.rows.filter(
         (row) =>
           body.maxTimestampMs === undefined ||
@@ -194,7 +193,6 @@ describe('Zcash transparent history polling', () => {
     const full = await fetchTransparent();
     expect(post).toHaveBeenCalledTimes(3);
     expect(full.snapshotComplete).toBe(true);
-    // The highest indexed block; confirmations do not move the tip.
     expect(full.tipHeight).toBe(1200);
 
     post.mockClear();
@@ -211,11 +209,9 @@ describe('Zcash transparent history polling', () => {
     await fetchTransparent();
 
     const changes = [
-      // New tx lands on page 1.
       () => {
         backend.rows = [onChainRow(1400), ...backend.rows];
       },
-      // The pending tx confirms.
       () => {
         backend.rows = backend.rows.map((row) =>
           row.tx === pending.tx ? onChainRow(1300) : row,
@@ -233,7 +229,6 @@ describe('Zcash transparent history polling', () => {
       expect(poll.txs).toHaveLength(backend.rows.length);
       expect(statuses(poll.txs)).toEqual(expectedStatuses(backend.rows));
     }
-    // A row far beyond page 1 is still the backend's mined row.
     const last = await fetchTransparent();
     expect(statuses(last.txs).get(txidOf(3))).toBe(EDecodedTxStatus.Confirmed);
 
@@ -277,7 +272,6 @@ describe('Zcash transparent history polling', () => {
     backend.rows = [...minedRows(1201, 1800), ...backend.rows];
     post.mockClear();
     const result = await fetchTransparent();
-    // Page 1 is reused by the full fetch, not requested twice.
     expect(post).toHaveBeenCalledTimes(4);
     expect(result.snapshotComplete).toBe(true);
     expect(statuses(result.txs)).toEqual(expectedStatuses(backend.rows));
@@ -366,7 +360,6 @@ describe('Zcash transparent history polling', () => {
         broadcastAuthorized: true,
       },
     });
-    // The backend stops listing an old row; the send is past expiry by the backend tip.
     const removed = txidOf(5);
     backend.rows = backend.rows.filter((row) => row.tx !== removed);
 

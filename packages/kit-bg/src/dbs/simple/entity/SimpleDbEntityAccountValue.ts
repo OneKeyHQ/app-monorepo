@@ -164,8 +164,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     });
   }
 
-  // Drops one account's worth on one network from both the single-network
-  // and All Networks maps (both key forms the writers use).
+  // Clears both the single-network and All Networks keys.
   async removeAccountNetworkValue({
     networkId,
     accountAddress,

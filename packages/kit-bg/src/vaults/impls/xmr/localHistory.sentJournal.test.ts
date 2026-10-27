@@ -15,7 +15,6 @@ type IRecordCall = {
   feeAtomic?: string;
 };
 
-// Every recordSentRecipient call shape the broadcast path can make.
 const RECORD_CALLS: IRecordCall[] = [
   { txid: 'legacy', recipient: '4-paid-legacy' },
   {
@@ -31,7 +30,6 @@ const RECORD_CALLS: IRecordCall[] = [
     feeAtomic: '40000000',
   },
   { txid: 'half', recipient: '4-paid-half', amountAtomic: '7' },
-  // A second, recipient-only write keeps the amounts already recorded.
   {
     txid: 'rewritten',
     recipient: '4-paid-first',
@@ -42,7 +40,6 @@ const RECORD_CALLS: IRecordCall[] = [
   { txid: 'empty-recipient', recipient: '' },
 ];
 
-// What the retired `xmr.sentRecipients` / `xmr.sentAmounts` builder stored.
 function recordLegacy(calls: IRecordCall[]) {
   const sentRecipients: Record<string, string> = {};
   const sentAmounts: Record<string, IXmrSentAmount> = {};

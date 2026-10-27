@@ -1,7 +1,5 @@
 /* eslint-disable onekey/no-raw-error */
-// Mobile web-embed must carry both zcash runtimes: keys (signing) and wallet
-// (scanning). Either half missing means a broken build; the gzip budget
-// catches bloat (the wasm is base64-inlined into JS).
+// Mobile web-embed must carry both zcash runtimes (keys and wallet); the gzip budget catches bloat.
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');

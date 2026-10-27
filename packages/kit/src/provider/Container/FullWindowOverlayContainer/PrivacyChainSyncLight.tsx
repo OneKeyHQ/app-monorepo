@@ -77,7 +77,6 @@ function PrivacyChainSyncNetwork({
   onAllowCellular: () => void;
 }) {
   const intl = useIntl();
-  // Names remain available even when optional region hints cannot be read.
   const { result: metadata } = usePromiseResult(
     async () => {
       const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
@@ -218,7 +217,6 @@ function PrivacyChainSyncNetwork({
   );
 }
 
-// The collapsed bar shows one chain; expanded rows use the same per-chain data.
 function BasicPrivacyChainSyncLight() {
   const [state] = usePrivacyChainAtom();
   const {
@@ -268,7 +266,6 @@ function BasicPrivacyChainSyncLight() {
   useEffect(() => {
     if (!networkId) setExpanded(false);
   }, [networkId]);
-  // Only the UI sees connection type; preserve the scheduler's existing input.
   useEffect(() => {
     const reportDeviceNetworkState = () => {
       void backgroundApiProxy.servicePrivacyChain.setDeviceNetworkState({
@@ -417,8 +414,7 @@ const PrivacyChainSyncLightContent = memo(BasicPrivacyChainSyncLight);
 
 const IOS_HOST_ANIMATION: IOverlayAnimation = { enter: { type: 'none' } };
 
-// iOS lost its full-window container; the `hardware` level keeps the light
-// above dialogs and sheets as before. Other platforms render it in place.
+// iOS lost its full-window container; `hardware` level keeps the light above dialogs and sheets.
 export function PrivacyChainSyncLight() {
   if (!platformEnv.isNativeIOS) {
     return <PrivacyChainSyncLightContent />;

@@ -1,8 +1,4 @@
-/**
- * The spend key never exists outside the runtime: signing hands over the
- * account's BIP-32 key and the runtime reduces it with the same sc_reduce32
- * that produced the address.
- */
+/** Signing hands the runtime the account's BIP-32 key; the spend key only exists reduced inside it. */
 
 import { z } from 'zod';
 
@@ -14,18 +10,13 @@ import { getXmrPureRuntime } from './address';
 import type { IXmrTransactionReviewRequest } from './types';
 
 export type IXmrSignedTransaction = {
-  /**
-   * Fixed at signing, before any node sees it, so the pending record built
-   * from it can still be reconciled if a broadcast reply is lost.
-   */
+  /** Fixed at signing, so a pending record can be reconciled if a broadcast reply is lost. */
   txid: string;
-  /** The transaction as it goes on the wire. */
   rawHex: string;
   sizeBytes: number;
 };
 
 export async function signXmrTransaction(params: {
-  /** The constructed transaction, as `prepareTransaction` returned it. */
   signableHex: string;
   /** The account's BIP-32 private key. Reduced to the spend key in-runtime. */
   bip32PrivateKeyHex: string;

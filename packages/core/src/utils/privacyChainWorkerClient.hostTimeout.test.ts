@@ -1,9 +1,6 @@
 import { createWorkerHostRequester } from './privacyChainWorkerClient';
 
-/**
- * A relayed node request must end even if the host never replies (stalled
- * connection, extension background recycled mid-request).
- */
+/** A relayed node request must end even if the host never replies. */
 describe('worker host requester', () => {
   const listeners: ((event: MessageEvent) => void)[] = [];
   const posted: { requestId: number }[] = [];
@@ -75,7 +72,6 @@ describe('worker host requester', () => {
     );
     jest.advanceTimersByTime(1000);
     await expect(second).rejects.toThrow('timed out');
-    // The reply that finally shows up has no waiter left and changes nothing.
     expect(() => reply(posted[1].requestId, [3])).not.toThrow();
   });
 });

@@ -1,8 +1,6 @@
 import XmrSdkInlineWorker from './xmrSdkInline.worker';
 
-// WKWebView cannot load a Worker script directly from the bundled file URL.
-// The loader embeds the same Worker entry; wallet and storage logic stay
-// shared with every other carrier.
+// WKWebView cannot load a Worker script from the bundled file URL; the loader embeds the same entry.
 export default function createXmrWorker(): Worker {
   return new XmrSdkInlineWorker();
 }

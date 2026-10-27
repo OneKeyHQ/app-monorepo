@@ -21,8 +21,6 @@ it.each([1, 3])(
       confirmations: 10,
       derivationPath: "m/44'/133'/0'/0/0",
     }));
-    // Sorting returns the same synthetic descending catalog so we can count
-    // prefix allocations, independently of the quote implementation.
     jest.spyOn(utxos, 'toSorted').mockReturnValue(utxos);
     const slice = jest.spyOn(utxos, 'slice');
     const quote = jest.fn(async (request: IZcashTransparentTxRequest) => {

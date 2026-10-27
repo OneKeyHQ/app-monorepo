@@ -26,7 +26,6 @@ describe('xmr birthday', () => {
   });
 
   it('never returns a height above the tip', () => {
-    // A month picked today, or in the future by a wrong device clock.
     expect(estimateXmrHeightDaysAgo({ daysAgo: 0, chainTip: 1000 })).toBe(
       1000 - XMR_BIRTHDAY_SAFETY_BLOCKS,
     );
@@ -51,7 +50,6 @@ describe('xmr birthday', () => {
       chainTip,
     });
     expect(height).toBeLessThan(chainTip);
-    // 996 days at 720 blocks a day, plus the safety day.
     expect(chainTip - height).toBe(996 * 720 + XMR_BIRTHDAY_SAFETY_BLOCKS);
   });
 

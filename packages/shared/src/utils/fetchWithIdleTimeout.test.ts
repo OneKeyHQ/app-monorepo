@@ -1,9 +1,6 @@
 import { fetchBytesWithIdleTimeout } from './fetchWithIdleTimeout';
 
-/**
- * A slow but steady transfer must never be cut off; only silence ends it.
- * The body is a scripted reader so the test controls exactly when bytes arrive.
- */
+/** A slow but steady transfer must never be cut off; only silence ends it. */
 function fakeResponse(
   schedule: { atMs: number; bytes: number[] }[],
   signal: AbortSignal,

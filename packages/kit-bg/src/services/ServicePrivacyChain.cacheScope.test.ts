@@ -32,8 +32,6 @@ jest.mock('../vaults/settings', () => ({
 const ServicePrivacyChain = require('./ServicePrivacyChain')
   .default as typeof import('./ServicePrivacyChain').default;
 
-// What the lifecycle executor needs on a service made without its
-// constructor, plus a background api whose writes are recorded.
 function lifecycleHarness() {
   const calls: string[] = [];
   const record =
@@ -173,14 +171,12 @@ describe('Privacy transaction history cache clear', () => {
 
     await service.clearTransactionHistoryCache({ networkId: 'zec--0' });
 
-    // One rewind per identity; the alias shares it.
     expect(rewindAccount.mock.calls).toEqual([[{ accountId: 'on' }]]);
     expect(harness.calls).toContain('rotate:{"accountIds":["on","on-alias"]}');
     expect(harness.calls.join('\n')).not.toContain('paused');
   });
 });
 
-// A database that cannot be opened is exactly when Settings must offer a reset.
 describe('Privacy storage reset when the database cannot be read', () => {
   function createService(capability: Partial<ILocalWalletCapability>) {
     mockGetChainOnlyVault.mockResolvedValue({
@@ -217,9 +213,8 @@ describe('Privacy storage reset when the database cannot be read', () => {
     });
     await service.clearTransactionHistoryCache({ networkId: 'xmr--0' });
     expect(resetStorage).toHaveBeenCalledTimes(1);
-    // Paused accounts lose their scan data too, so no saved balance survives;
-    // their epochs move before the database goes, and once more after, for a
-    // read that took the first new epoch.
+    // Paused accounts lose their scan data too; epochs move before the database goes and once more
+    // after.
     expect(harness.calls.slice(0, 4)).toEqual([
       'rotate:{"accountIds":["paused","on"]}',
       'resetStorage',

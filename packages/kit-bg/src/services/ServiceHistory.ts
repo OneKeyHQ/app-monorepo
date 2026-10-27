@@ -2668,8 +2668,7 @@ class ServiceHistory extends ServiceBase {
       };
     }
 
-    // Client-computed history (e.g. zcash shielded): every data source flows
-    // through this pipeline; a defined local result replaces the server query.
+    // Client-computed history (e.g. zcash shielded): a defined local result replaces the server query.
     const localTxs = await vault.fetchAccountHistoryFromLocal({
       accountId,
       networkId,
@@ -2843,9 +2842,7 @@ class ServiceHistory extends ServiceBase {
     };
   }
 
-  // A privacy chain joins All Networks only with its backend pool, tagged the
-  // way its own view tags it; local-scan rows never enter. Other chains'
-  // rows are returned as is.
+  // A privacy chain joins All Networks only with its backend pool; local-scan rows never enter.
   private async applyAllNetworksPrivacyChainSource<
     T extends IAccountHistoryTx | null,
   >(txs: T[]): Promise<T[]> {
@@ -2866,7 +2863,6 @@ class ServiceHistory extends ServiceBase {
       }),
     );
     if (!backendPoolIds.size) return txs;
-    // Own addresses on these rows face the same check as the chain's own view.
     const gates = new Map<string, ILocalWalletHistoryAddressGate>();
     await Promise.all(
       uniqBy(
@@ -2904,9 +2900,7 @@ class ServiceHistory extends ServiceBase {
     });
   }
 
-  // Cached rows skip the vault's history build, so local-wallet chains' rows
-  // face the same own-address gate here. A gate that can't be built hides
-  // every own address of that account; the rows stay.
+  // Cached rows skip the vault's history build, so own-address gating happens here; if the gate can't be built, own addresses are hidden.
   private async gateLocalWalletCachedHistoryTxs(
     txs: IAccountHistoryTx[],
   ): Promise<IAccountHistoryTx[]> {
@@ -2946,8 +2940,7 @@ class ServiceHistory extends ServiceBase {
     });
   }
 
-  // A row on backend pools only is the backend's to answer, so its detail
-  // request names that pool and the vault never consults its local scan.
+  // A row on backend pools only is the backend's to answer: its detail request names that pool.
   private async getBackendPrivacyChainPoolId(
     tx: IAccountHistoryTx,
   ): Promise<number | undefined> {
@@ -2980,8 +2973,7 @@ class ServiceHistory extends ServiceBase {
   }> {
     const { accountId, networkId, limit = 10 } = params;
 
-    // Same shape as a server "unsupported" answer: the UI falls back to its
-    // locally stored recipients and never retries.
+    // Same shape as a server "unsupported" answer: the UI falls back to locally stored recipients.
     if (await isAddressWithheldFromBackend({ networkId })) {
       return { supported: false, data: [] };
     }

@@ -230,7 +230,6 @@ function UTXODetails() {
           r.data.receives?.map((receive) =>
             buildHistoryUtxoListItem({ transfer: receive, endpoint: 'to' }),
           ) ?? [],
-        // Shielded chains (zcash) attach decrypted note memos here.
         memo: r.data.memo,
         binaryMemos: r.data.binaryMemos,
         inputOutputSource: r.data.inputOutputSource,
@@ -450,7 +449,6 @@ function UTXODetails() {
     );
   }, [intl, isLoading, renderUTXOList, result]);
 
-  // Decrypted shielded-note memo (zcash); only rendered when present.
   const renderMemo = useCallback(() => {
     if (isLoading || (!result?.memo && !result?.binaryMemos?.length)) {
       return null;

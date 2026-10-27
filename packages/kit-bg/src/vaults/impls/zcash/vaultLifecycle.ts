@@ -100,8 +100,7 @@ async function purgeZcashRuntimeAccount(
   return { orphaned: false };
 }
 
-// Uses the last saved tip: an older tip only keeps more sends, and the
-// clear must not wait on loading the runtime.
+// Uses the last saved tip: an older tip only keeps more sends.
 async function clearZcashPendingSends(
   vault: Vault,
   {
@@ -131,9 +130,7 @@ async function clearZcashPendingSends(
   );
 }
 
-// The tip only feeds month-based birthday estimates, so it is saved when it
-// moved far enough or long enough ago, sparing the shared app storage a
-// rewrite every block. Best-effort: a failed save never fails the fetch.
+// Saved only when the tip moved far enough or long enough ago; best-effort, never fails the fetch.
 const ZCASH_CHAIN_TIP_SAVE_MIN_BLOCKS = 100;
 const ZCASH_CHAIN_TIP_SAVE_MIN_MS = timerUtils.getTimeDurationMs({
   minute: 10,
@@ -497,8 +494,6 @@ export async function listLocalWalletAccounts(vault: Vault): Promise<{
   return {
     accounts,
     cleanupAccountIds: await listZcashCleanupAccountIds(vault),
-    // Accounts with viewing metadata or scanning; a record left by a
-    // cancelled enable or a deletion holds no data.
     storedAccountIds: uniq([...accountIds, ...enabledAccountIds]),
   };
 }
@@ -553,8 +548,6 @@ export async function zcashPrepareAccounts(
       // eslint-disable-next-line no-continue
       continue;
     }
-    // Capture ownership before constructing the runtime snapshot. A late
-    // automatic repair cannot replace a newer birthday request.
     // eslint-disable-next-line no-await-in-loop
     const [epoch, meta] = await Promise.all([
       vault.backgroundApi.simpleDb.privacyChainState.getAccountEpoch({
@@ -1065,8 +1058,7 @@ export async function syncLocalWalletGroupImpl(
     if (!accountIds.length) {
       return { synced: false };
     }
-    // Crash-safety replay first: a birthday change journals before purging,
-    // so a death mid-repair is finished here before registration reads it.
+    // Crash-safety replay first: finish a birthday repair interrupted mid-way before registration.
     await vault.zcashResumePendingRescans(prepareAccountId);
     let effectiveRescanFrom = rescanFrom;
     if (prepareAccountId !== undefined && prepareBirthday !== undefined) {
@@ -1190,7 +1182,6 @@ async function zcashSharedRescanAccount(
   };
 }
 
-// Requeues the account from its shared birthday.
 export async function zcashRewindAccount(
   vault: Vault,
   { accountId }: { accountId: string },
@@ -1206,9 +1197,7 @@ export async function zcashRewindAccount(
   });
 }
 
-// Runtime data is keyed by the shared UFVK: another live account holding
-// scan data under it keeps it. Funds stay on chain either way; a later
-// enable scans them back.
+// Runtime data is keyed by the shared UFVK: another live account scanning under it keeps it.
 export async function zcashDeleteRuntimeAccount(
   vault: Vault,
   {
@@ -1218,7 +1207,6 @@ export async function zcashDeleteRuntimeAccount(
 ): Promise<{ orphaned: boolean }> {
   const stateDb = vault.backgroundApi.simpleDb.privacyChainState;
   const targetMeta = await stateDb.getZcashAccountMeta({ accountId });
-  // Setup never stored viewing metadata, so nothing was registered.
   if (!targetMeta) {
     return { orphaned: false };
   }
@@ -1237,8 +1225,7 @@ export async function zcashDeleteRuntimeAccount(
         stateDb.listZcashMetaAccountIds({ networkId: vault.networkId }),
         stateDb.listScanDataAccountIds({ networkId: vault.networkId }),
       ]);
-      // Unreadable, or a record that may be an alias but can't be read: an
-      // alias can't be ruled out, so the data stays for the orphan pass.
+      // An unreadable record may be an alias, so the data stays for the orphan pass.
       const readableIds = new Set(metas.map((item) => item.accountId));
       if (
         !holders ||
@@ -1419,8 +1406,7 @@ export async function applyPendingRescan(
     ) {
       return;
     }
-    // The runtime moves first; until it succeeds the saved birthday stays and
-    // the request journal is retried. Replaying a done rescan only requeues.
+    // The runtime moves first; until it succeeds the saved birthday stays and the journal is retried.
     const account = await zcashSharedRescanAccount(vault, {
       accountId,
       birthdayHeight: repair.birthdayHeight,

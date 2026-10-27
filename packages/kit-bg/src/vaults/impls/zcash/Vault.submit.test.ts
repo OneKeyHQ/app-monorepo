@@ -8,8 +8,6 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
-// The runtime stores the authorized transaction before broadcasting. Definitive
-// rejection remains recorded; ambiguous outcomes retain the same transaction.
 describe('Zcash private send submission', () => {
   function createVault(result: IZcashSendResult | Error) {
     const submitPczt = jest.fn(async () => {
@@ -113,7 +111,6 @@ describe('Zcash private send submission', () => {
     );
   });
 
-  // The carrier died mid-call: the runtime may have broadcast and recorded it.
   it('propagates a carrier timeout without manufacturing a successful result', async () => {
     const error = new Error('WebEmbed bridge call timeout (360s)');
     const { vault, submitPczt, params } = createVault(error);

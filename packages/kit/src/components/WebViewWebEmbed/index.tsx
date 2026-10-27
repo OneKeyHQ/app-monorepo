@@ -66,8 +66,7 @@ function getDevSessionWebEmbedUrl() {
   }
 }
 
-// Paths mirror the handlers registered by the app's WebEmbedLocalOrigin
-// (apps/mobile/android/.../so/onekey/app/wallet/webview).
+// Mirrors the handlers registered by WebEmbedLocalOrigin (apps/mobile/android).
 const ANDROID_LOCAL_BUNDLE_DIR_MARKER = '/onekey-bundle/';
 
 function getAndroidLocalOriginWebEmbedUrl(webEmbedPath: string) {
@@ -203,9 +202,7 @@ export function WebViewWebEmbed({
       return undefined;
     }
     const webEmbedPath = BundleUpdate.getWebEmbedPath();
-    // Android serves local files from a virtual https origin: file:// is an
-    // opaque origin and cannot use OPFS. One host covers both APK assets and
-    // the verified hot-update bundle, so browser storage survives updates.
+    // Android serves local files from a virtual https origin (file:// is opaque and cannot use OPFS), so storage survives updates.
     if (platformEnv.isNativeAndroid) {
       const nativeUri = getAndroidLocalOriginWebEmbedUrl(webEmbedPath);
       defaultLogger.app.webembed.webEmbedWebViewSource({ nativeUri });
@@ -292,7 +289,6 @@ export function WebViewWebEmbed({
   }, []);
 
   const allowFileAccessByUrl = useMemo(() => {
-    // Android loads from the https origin, so it needs no file access.
     if (platformEnv.isNativeAndroid) {
       return undefined;
     }
@@ -413,9 +409,7 @@ export function WebViewWebEmbed({
       return;
     }
     jsBridge.globalOnMessageEnabled = true;
-    // Only the singleton carries webembedApi calls (keys included). Any other
-    // instance (the Prime purchase modal) talks to the app through its own
-    // customReceiveHandler and must neither take over nor drop that bridge.
+    // Only the singleton carries webembedApi calls; other instances (Prime modal) use their own handler and must not take over or drop the bridge.
     if (!isSingleton) {
       return;
     }

@@ -37,8 +37,6 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-// The runtime re-verifies the review against `signableHex` inside signing, so
-// the keyring only validates the shape and delegates.
 describe('xmr signing', () => {
   it('delegates the validated transaction to the core signer', async () => {
     const { keyring, params, encodedTx } = createKeyring();

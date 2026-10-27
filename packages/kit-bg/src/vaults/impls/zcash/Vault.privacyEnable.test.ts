@@ -64,7 +64,6 @@ it.each([false, true])(
         entity.getZcashAccountMeta({ accountId }),
         entity.listZcashPendingRescans({ networkId }),
       ]);
-      // The runtime moves first; the saved birthday follows its success.
       expect(account.birthdayHeight).toBe(pending[0].repair.birthdayHeight);
       expect(meta?.birthdayHeight).toBe(2_000_000);
       if (interrupt && purge.mock.calls.length === 1)
@@ -92,7 +91,6 @@ it.each([false, true])(
         registered = true;
         return [{ accountId, account: { ufvk: 'birthday-fixture' } }];
       },
-      // The runtime refuses to requeue an account it has not registered.
       queueLocalWalletRescanFrom: async ({
         fromHeight,
       }: {

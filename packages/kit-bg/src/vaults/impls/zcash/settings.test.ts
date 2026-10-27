@@ -17,8 +17,6 @@ import { getVaultSettings } from '../../settings';
 import settings from './settings';
 import Vault from './Vault';
 
-// Zcash spreads `{...settingsBtc}`, so every inherited `true` flag is a UI
-// entry point. A feature stays enabled only when its full Zcash flow works.
 describe('zcash vault settings invariants', () => {
   it('loads settings from the indexed network ID', async () => {
     await expect(getVaultSettings({ networkId: 'zec--0' })).resolves.toBe(
@@ -27,9 +25,7 @@ describe('zcash vault settings invariants', () => {
   });
 
   it('enables only account types whose full flow works', () => {
-    // Account-level xprvs sign t-to-t without a privacy runtime.
     expect(settings.importedAccountEnabled).toBe(true);
-    // Transparent address/xpub watching remains read-only.
     expect(settings.watchingAccountEnabled).toBe(true);
     // KeyringHardware: device UA/UFVK at setup, device-signed PCZT at send
     expect(settings.hardwareAccountEnabled).toBe(true);
@@ -39,9 +35,6 @@ describe('zcash vault settings invariants', () => {
   });
 
   it('only offers a custom node while both custom-RPC hooks exist', () => {
-    // The flag wires ServiceSend and Settings > Custom RPC straight into these
-    // two; without them the base class throws NotImplemented and sending
-    // breaks for anyone who saved a node.
     expect(settings.customRpcEnabled).toBe(true);
     expect(typeof Vault.prototype.getCustomRpcEndpointStatus).toBe('function');
     expect(typeof Vault.prototype.broadcastTransactionFromCustomRpc).toBe(
@@ -52,20 +45,16 @@ describe('zcash vault settings invariants', () => {
   it('disables BTC-inherited features without a zcash implementation', () => {
     expect(settings.coinControlEnabled).toBe(false);
     expect(settings.nativeBatchTransferEnabled).toBe(false);
-    // A transparent BTC-style xprv/xpub cannot recover shielded funds.
     expect(settings.publicKeyExportEnabled).toBe(false);
     expect(settings.supportExportedSecretKeys).toEqual([]);
   });
 
-  // Swaps need a route instruction a Zcash send cannot carry.
   it('turns the swap entry off', () => {
     expect(settings.disabledSwapAction).toBe(true);
   });
 
   it('matches the PCZT send-path contract', () => {
     expect(settings.editFeeEnabled).toBe(false);
-    // A fully authorized PCZT must provide the txid used for pending-state
-    // reconciliation and definite-rejection rollback.
     expect(settings.withoutBroadcastTxId).toBe(false);
     expect(settings.localWallet).toEqual(
       expect.objectContaining({
@@ -81,14 +70,10 @@ describe('zcash vault settings invariants', () => {
         },
       }),
     );
-    // Generic UI reads pool tabs, the send picker and history filters from
-    // this list; exactly one public pool and one default private pool.
     const pools = settings.localWallet?.pools ?? [];
     expect(pools.filter((pool) => pool.kind === 'public')).toHaveLength(1);
     expect(pools.filter((pool) => pool.isDefaultPrivate)).toHaveLength(1);
     expect(new Set(pools.map((pool) => pool.id)).size).toBe(pools.length);
-    // The vault composition hook owns local + backend history; this flag must
-    // not come back and shadow it.
     expect(settings.onChainHistoryDisabled).toBeFalsy();
   });
 

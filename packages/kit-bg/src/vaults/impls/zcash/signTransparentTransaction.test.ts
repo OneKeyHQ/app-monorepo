@@ -20,7 +20,6 @@ const outpoints = [
   { txid: 'public-tx-a', vout: 0 },
   { txid: 'public-tx-b', vout: 1 },
 ];
-// Real encodings: the check decodes them to output scripts.
 const RECIPIENT = 't1Hsc1LR8yKnbbe3twRp88p6vFfC5t7DLbs';
 const CHANGE = 't1VpYecBW4UudbGcy4ufh61eWxQCoFaUrPs';
 const request = {
@@ -175,7 +174,6 @@ it.each(['sign', 'save'] as const)(
   },
 );
 
-// The runtime's message is the bare code; the user sees the wording.
 it('reports a runtime failure in user wording', async () => {
   const { journal, sign, parseOutputs } = setup();
   sign.mockRejectedValue(
@@ -218,8 +216,6 @@ it('does not release another owner when reservation acquisition fails', async ()
   expect(journal.releaseTransparentReservation).not.toHaveBeenCalled();
 });
 
-// Fee, expiry and inputs echo the request; only the outputs show a signer
-// that paid someone else.
 it.each([
   [
     'a swapped recipient',

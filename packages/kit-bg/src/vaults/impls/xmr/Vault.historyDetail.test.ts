@@ -27,8 +27,7 @@ function item(patch: Partial<IXmrHistoryItem>): IXmrHistoryItem {
   };
 }
 
-// The detail page polls this while a row is pending; Monero answers from the
-// scanned rows, never the backend, since the address must not leave the device.
+// Answered from scanned rows, never the backend: the address must not leave the device.
 describe('xmr history detail', () => {
   function createVault({
     rows,

@@ -60,9 +60,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  // One device round trip returns UA + UFVK + seed fingerprint for a set of
-  // account indexes. The transparent account (BIP44 m/44'/133'/i') is
-  // rebuilt from the UFVK's transparent FVK, so no second call is needed.
+  // One device round trip returns UA, UFVK and seed fingerprint per account index; the transparent account is rebuilt from the UFVK.
   private async fetchDeviceViewingKeys({
     deviceParams,
     indexes,
@@ -105,8 +103,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     return items;
   }
 
-  // One seed per hardware wallet, so one fingerprint per wallet. A device
-  // reporting a different one does not hold this wallet's seed.
+  // One seed per hardware wallet, so one fingerprint; a device reporting another does not hold this seed.
   private async rememberSeedFingerprint({
     walletId,
     seedFingerprintHex,
@@ -219,8 +216,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const { dbDevice, deviceCommonParams } = params.deviceParams;
         const { connectId, deviceId } = dbDevice;
         const sdk = await this.getHardwareSDKInstance({ connectId });
-        // Match the root fingerprint used by the shared hardware account flow.
-        // Zcash's ZIP-32 seed fingerprint is a different identifier.
+        // Root fingerprint of the shared hardware account flow, not Zcash's ZIP-32 seed fingerprint.
         const rootResponse = await sdk.btcGetPublicKey(connectId, deviceId, {
           ...deviceCommonParams,
           path: "m/44'/1'/0'",
@@ -306,8 +302,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     return accounts;
   }
 
-  // Device-gated counterpart of KeyringHd.retryLocalWalletSetup: the viewing
-  // material comes from the device instead of the seed.
+  // Device-gated counterpart of KeyringHd.retryLocalWalletSetup.
   async retryLocalWalletSetup({
     deviceParams,
     forceDerivation,
@@ -351,7 +346,6 @@ export class KeyringHardware extends KeyringHardwareBase {
         const vault = this.vault as Vault;
         const api = await vault.zcashGetApi();
         const ufvk = checkIsDefined(item.ufvk);
-        // The node the user configured, like every other Zcash request.
         const lightwalletdUrl = await vault.zcashResolveLightwalletdUrl();
         const derived = await api.deriveAddressFromUfvk({
           network: ZCASH_NETWORK_MAIN,
@@ -365,8 +359,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         }
         return {
           ufvk,
-          // The device is the address authority for hardware accounts: what
-          // it displays is what the user verifies.
+          // The device is the address authority for hardware accounts.
           unifiedAddress: item.address,
           derivedUnifiedAddress:
             derived.unifiedAddress === item.address
@@ -426,14 +419,12 @@ export class KeyringHardware extends KeyringHardwareBase {
         );
       }
       const api = await zcashVault.zcashGetApi();
-      // The device shows its own summary; the host still refuses a PCZT that
-      // differs from what the user reviewed before asking the device to sign.
+      // The host refuses a PCZT that differs from the reviewed one before asking the device to sign.
       await api.verifyPcztReview({
         pcztHex,
         review: getZcashPcztReviewRequest(encodedTx, ufvk),
       });
-      // The device signs a redacted copy of the UNPROVED PCZT and returns
-      // only signatures; the original keeps what proving needs.
+      // The device signs a redacted copy and returns only signatures; the original keeps what proving needs.
       const device = await api.redactPcztForHardwareSigner({ pcztHex });
       const sdk = await this.getZcashSdk({ connectId });
       const response = await sdk.zcashSignPczt(connectId, deviceId, {
@@ -464,8 +455,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  // Accounts added before the fingerprint was kept ask the device once; the
-  // viewing key it returns must still derive this account's xpub.
+  // Accounts added before the fingerprint was kept ask the device once; the returned key must derive this account's xpub.
   private async resolveSeedFingerprint({
     deviceParams,
     accountIndex,
@@ -545,8 +535,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           network: request.network,
           accountXpub,
         });
-        // The firmware checks every input's seed fingerprint and pubkey
-        // against its own seed, so a different device refuses to sign.
+        // The firmware checks each input's seed fingerprint and pubkey, so a different device refuses to sign.
         const original = await api.createTransparentHardwarePczt({
           request,
           accountXpub,
@@ -564,7 +553,6 @@ export class KeyringHardware extends KeyringHardwareBase {
         if (!response.success) {
           throw convertDeviceError(response.payload);
         }
-        // Proves locally (Orchard output on a shield), unlike the device step above.
         const result = await zcashTrackUserOperation(() =>
           api.finalizeTransparentHardwarePczt({
             request,

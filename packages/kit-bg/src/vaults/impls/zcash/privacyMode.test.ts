@@ -65,7 +65,6 @@ function createService({
       onLocalWalletAccountsChanged: jest.fn(
         async (): Promise<void> => undefined,
       ),
-      // Enable checks the slot ceiling itself; direct callers skip the generic pre-check.
       assertEnabledAccountLimit: jest.fn(async () => undefined),
     },
     simpleDb: {
@@ -190,7 +189,6 @@ describe('Zcash Privacy Mode context and receive gating', () => {
     ).resolves.toBe(meta);
   });
 
-  // Holding the mutex would make an enable or disable look in flight.
   it('reads viewing metadata without taking the operation mutex', async () => {
     const lockedDuringRead: boolean[] = [];
     mockGetChainOnlyVault.mockResolvedValue({
@@ -209,8 +207,6 @@ describe('Zcash Privacy Mode context and receive gating', () => {
   });
 });
 
-// An enable can wait on a password or device prompt; address reads must not
-// wait with it.
 describe('Zcash Privacy Mode UI reads during an account operation', () => {
   it('answers without viewing metadata instead of queueing', async () => {
     const { service } = createService({ privacyModeEnabled: true });
@@ -258,8 +254,6 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
 
   it('completes a new enable after saving authorization without preparing the scan database', async () => {
     const { backgroundApi, service } = createService();
-    // First enable: no viewing metadata yet, so derivation must run. The
-    // second read is the post-derivation check inside the service.
     backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta
       .mockResolvedValueOnce(undefined)
       .mockResolvedValue({ vkFp: syntheticVkFp, birthdayHeight: 2_000_000 });
@@ -370,10 +364,7 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
   });
 });
 
-// The settings page turns an account off before deleting its data. Deleting
-// on its own refuses any state but a settled "off".
-// Deleting local data (ServicePrivacyChain) turns the account off first and
-// refuses unless it is then off with no operation open.
+// Deleting local data turns the account off first and refuses unless it is then off with no operation open.
 describe('Zcash Privacy Mode turning off before a delete', () => {
   it.each([
     ['enabled', { intent: 'on', birthdayHeight: 2_000_000 }],
@@ -561,8 +552,6 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
 
   it('resumes a paused account without asking for the password again', async () => {
     const { backgroundApi, service } = createService();
-    // A pause keeps birthday, resume cursor and viewing metadata, so there is
-    // nothing to derive and no seed to unlock.
     backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockResolvedValue(
       {
         intent: 'off',
@@ -645,8 +634,6 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
   });
 
-  // The Receive page's retry on an enabled account only re-derives the key;
-  // a failed attempt (e.g. cancelled on the device) must not turn it off.
   it('keeps an enabled account on when repairing its key fails', async () => {
     const { backgroundApi, service } = createService();
     backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockResolvedValue(
@@ -694,8 +681,6 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
       }),
     ).resolves.toBeUndefined();
 
-    // Completing the enable already cleared the pending operation the
-    // rollback keys on.
     expect(
       backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
     ).toHaveBeenCalledTimes(1);

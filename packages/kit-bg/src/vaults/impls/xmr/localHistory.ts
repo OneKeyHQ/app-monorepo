@@ -39,7 +39,6 @@ function getXmrConfirmations(
     : undefined;
 }
 
-// Status facts only: the page keeps showing the list row for amounts, fee and endpoints.
 export function buildXmrLocalHistoryDetail({
   item,
   chainTip,
@@ -62,7 +61,6 @@ export function buildXmrLocalHistoryDetail({
   } as IOnChainHistoryTx;
 }
 
-// The history row's view of a sent record: amounts only as a recorded pair.
 export function toXmrSentAmount(
   record: IXmrSentRecord | undefined,
 ): IXmrSentAmount | undefined {
@@ -90,7 +88,6 @@ export async function buildXmrLocalHistoryTx({
   item: IXmrHistoryItem;
   chainTip?: number | null;
   ownAddress: string;
-  /** What we recorded at broadcast time, when this device sent it. */
   recipient?: string;
   sentAmount?: IXmrSentAmount;
   nativeToken:
@@ -108,9 +105,8 @@ export async function buildXmrLocalHistoryTx({
 }): Promise<IAccountHistoryTx> {
   const isSent = item.direction === 'out';
 
-  // Amount sent = spent minus returned change and the scanned fee. Until
-  // change is scanned that is the whole input set, so a send from this device
-  // uses the broadcast figure.
+  // Amount sent = spent minus change and fee; until change is scanned that is the whole
+  // input set, so a send from this device uses the broadcast figure.
   let atomic = new BigNumber(item.receivedAtomic);
   if (isSent) {
     atomic = item.outgoingAtomic
@@ -132,7 +128,6 @@ export async function buildXmrLocalHistoryTx({
           .toFixed()
       : amount;
 
-  // Own address fixes direction (buildTxActionDirection compares against it).
   // The counterparty is undiscoverable on Monero, so it is marked private.
   const from = isSent ? ownAddress : '';
   const to = isSent ? recipient || '' : ownAddress;
@@ -162,8 +157,7 @@ export async function buildXmrLocalHistoryTx({
     ],
   });
 
-  // Own address only fixed direction above. Which of our addresses a payment
-  // reached is unknown (it may be a subaddress), so our side names no address.
+  // Which of our addresses received it is unknown (may be a subaddress).
   const withoutOwnAddress = <T extends { from: string; to: string }>(
     target: T,
   ): T => ({
@@ -214,7 +208,6 @@ export async function buildXmrLocalHistoryTx({
       txid: item.txid,
     }),
     decodedTx,
-    // Every Monero output is private; per-pool filters still need an id.
     privacyChainHistoryPoolIds: [1],
   };
 }

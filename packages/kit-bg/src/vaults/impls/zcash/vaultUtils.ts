@@ -61,9 +61,7 @@ export function isTerminalTransparentHistoryStatus(
 // Max wait for a Worker-only reset before the WebEmbed is treated as unresponsive.
 export const ZCASH_WORKER_RESET_TIMEOUT_MS = 10_000;
 
-// Accounts whose re-derived viewing key named another identity than their
-// state. Background repair stops deriving from the seed for them until
-// their local data is deleted.
+// Accounts whose re-derived viewing key named another identity; background repair skips them until their local data is deleted.
 export const zcashIdentityMismatchAccountIds = new Set<string>();
 
 // In-flight user sends (build/prove/submit) hold the runtime lease; the
@@ -115,8 +113,7 @@ export function isZcashRuntimeDatabaseBroken(e: unknown): boolean {
   ) {
     return false;
   }
-  // Runtime errors can wrap incompatible parameters and business rules as
-  // "corrupted"; only physical SQLite corruption permits a rebuild.
+  // Only physical SQLite corruption permits a rebuild; runtime errors can wrap other failures as 'corrupted'.
   return (
     /database disk image is malformed|\bsqlite_(?:corrupt(?:_\w+)?|notadb)\b|file is not a database|invalid disk image/i.test(
       detail,
@@ -134,11 +131,9 @@ export function createZcashSetupIncompleteError(): Error {
   return error;
 }
 
-// The fix is the user's: turning privacy mode off and deleting the
-// account's local data lets the next enable set it up with this key.
+// Turning privacy mode off and deleting local data lets the next enable set up with this key.
 export function createZcashIdentityMismatchError(): Error {
-  // Shown from Retry and Enable, whose callers only log; a balance poll
-  // that hits it catches it in bg.
+  // Shown from Retry and Enable, whose callers only log.
   const error = new OneKeyLocalError({
     message: localWalletText(
       ETranslations.privacy_error_identity_mismatch__msg,

@@ -55,9 +55,7 @@ function withMemoryStorage<T extends object>(entity: T): T {
   return entity;
 }
 
-// RV-a1a4 P2-3 / RV-a5 P2-1: an account whose re-derived key no longer
-// matches its identity (a firmware or encoding change) must be recoverable
-// by the path the error names: turn off, delete local data, turn on.
+// An account whose re-derived key no longer matches its identity is recovered by: turn off, delete local data, turn on.
 describe('Zcash identity mismatch recovery', () => {
   it('turning off, deleting local data and turning on adopts the new key', async () => {
     const account = { id: 'hd-1--zcash', pathIndex: 0 } as IDBAccount;
@@ -105,7 +103,6 @@ describe('Zcash identity mismatch recovery', () => {
         derive: async () => ({ ...derived, ufvk }),
       });
 
-    // Enabled with the old key.
     await privacyChainState.beginZcashPrivacyModeEnable({
       networkId,
       accountId: account.id,
@@ -116,7 +113,6 @@ describe('Zcash identity mismatch recovery', () => {
       accountId: account.id,
     });
 
-    // The stored key is lost and the device now exports another one.
     await backgroundApi.simpleDb.privacyChainKeys.removeKeys({
       accountIds: [account.id],
     });
@@ -126,11 +122,9 @@ describe('Zcash identity mismatch recovery', () => {
     expect((mismatch as Error).message).toBe(
       ETranslations.privacy_error_identity_mismatch__msg,
     );
-    // Retry and Enable only log what they catch; the toast is the message.
     expect((mismatch as { autoToast?: boolean }).autoToast).toBe(true);
     expect(zcashIdentityMismatchAccountIds.has(account.id)).toBe(true);
 
-    // Off, as the switch does it.
     await privacyChainState.beginZcashPrivacyModeDisable({
       accountId: account.id,
       resumeFromHeight: 3_100_000,
@@ -146,13 +140,10 @@ describe('Zcash identity mismatch recovery', () => {
       zcashGetApi: async () => ({ purgeWallet }),
     });
     const capability = vault.getLocalWalletCapability();
-    // The account row offers Delete instead of Retry.
     await expect(
       capability.getAccountState({ accountId: account.id }),
     ).resolves.toMatchObject({ identityMismatch: true });
 
-    // Delete local data through the one executor and the real Zcash
-    // primitives.
     const service = Object.assign(
       Object.create(ServicePrivacyChain.prototype) as ServicePrivacyChain,
       {
@@ -176,7 +167,6 @@ describe('Zcash identity mismatch recovery', () => {
         },
       ],
     });
-    // No key named the old runtime account, so the network is marked.
     expect(purgeWallet).not.toHaveBeenCalled();
     await expect(
       privacyChainState.hasRuntimeOrphans({ networkId }),
@@ -186,7 +176,6 @@ describe('Zcash identity mismatch recovery', () => {
       capability.getAccountState({ accountId: account.id }),
     ).resolves.not.toHaveProperty('identityMismatch');
 
-    // On again: the new key is adopted, and the month is kept.
     await privacyChainState.beginZcashPrivacyModeEnable({
       networkId,
       accountId: account.id,

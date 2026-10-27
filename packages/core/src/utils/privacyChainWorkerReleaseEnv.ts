@@ -1,8 +1,5 @@
-// Release builds read version values from a global that release-meta.js
-// defines (pages load it; see development/rspack/releaseEnv.ts). Import this
-// first in every privacy-chain Worker entry: a Blob Worker gets the page's
-// values from inlineWorkerRuntime, a URL Worker loads release-meta.js itself.
-// Development builds inline those values and emit no release-meta.js.
+// Release builds read version values from a global defined by release-meta.js.
+// Import this first in every privacy-chain Worker entry; development builds inline the values.
 declare const __webpack_public_path__: string | undefined;
 
 type IReleaseEnvScope = typeof globalThis & {

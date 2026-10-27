@@ -548,8 +548,7 @@ class ServiceAccountProfile extends ServiceBase {
       input: rawAddress,
     };
 
-    // Start the combined local/server check before address normalization so a
-    // local WASM load cannot serialize the server round trip behind it.
+    // Start the combined local/server check before address normalization so a local WASM load cannot delay the server round trip.
     const validation =
       !skipValidateAddress &&
       networkId &&

@@ -127,7 +127,6 @@ function createXmrSentDb(accountIds: string[] = []) {
   return entity;
 }
 
-// A stored record holding scan data, as an enable leaves it.
 function scanRecord(accountId: string, walletId = 'hd-1') {
   return {
     networkId,
@@ -142,7 +141,6 @@ function scanRecord(accountId: string, walletId = 'hd-1') {
   };
 }
 
-// The executor's in-memory fields on a service made without its constructor.
 const lifecycleFields = () => ({
   backfillActiveByAccount: {},
   boostPausedByNetwork: {},
@@ -193,7 +191,6 @@ describe('removed-account gc', () => {
     const privacyChainState = createPrivacyChainDb({
       data: {
         accounts: Object.fromEntries(allIds.map((id) => [id, scanRecord(id)])),
-        // One wallet whose wallet is gone, one still live.
         wallets: { 'hd-gone': {}, 'hd-1': {} },
       },
       updatedAt: 1,
@@ -309,7 +306,6 @@ describe('removed-account gc', () => {
     expect(deleteRuntimeAccount).toHaveBeenCalledWith({
       accountId: removedAccountId,
     });
-    // The account set changed: the runtime orphan cleanup is due again.
     expect(service.orphanCleanupGeneration.get(networkId)).toBe(1);
     const kept = [liveAccountId, hiddenAccountId];
     await expect(privacyChainKeys.listAccountIds()).resolves.toEqual(kept);
@@ -321,13 +317,11 @@ describe('removed-account gc', () => {
     await expect(
       privacyChainState.listAccountIds({ networkId }),
     ).resolves.toEqual(kept);
-    // A wallet that is gone loses its facts once no record names it.
     await expect(privacyChainState.listWalletStateIds()).resolves.toEqual([
       'hd-1',
     ]);
   });
 
-  // The key is what names the runtime data: a later pass needs it.
   it('keeps every record of an account whose runtime delete failed', async () => {
     const {
       service,
@@ -405,7 +399,6 @@ describe('removed-account gc', () => {
     expect(service.orphanCleanupGeneration.get(networkId)).toBeUndefined();
   });
 
-  // Deleting an HD account removes its indexed account but leaves its rows.
   it('purges an account whose HD account was deleted', async () => {
     const { service, deleteRuntimeAccount, privacyChainKeys } = createGcHarness(
       async () => ({
@@ -593,7 +586,6 @@ describe('pending local data drop retry', () => {
 
     expect(dropLocalData).toHaveBeenCalledTimes(1);
     await expect(privacyChain.getPendingLocalDataDrop()).resolves.toEqual([]);
-    // Nothing is left in a dropped database to be an orphan.
     await expect(privacyChain.hasRuntimeOrphans({ networkId })).resolves.toBe(
       false,
     );
@@ -628,7 +620,6 @@ describe('pending local data drop retry', () => {
     ]);
   });
 
-  // A record left by a cancelled enable or a deletion holds no data.
   it('wipes a network whose accounts hold no stored data', async () => {
     const { service, dropLocalData } = createRetryHarness({
       pending: [networkId],

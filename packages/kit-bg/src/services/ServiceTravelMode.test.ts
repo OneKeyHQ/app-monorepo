@@ -132,7 +132,6 @@ describe('ServiceTravelMode authentication boundary', () => {
     const promptPasswordVerify = jest.fn(async () => ({
       password: 'encoded-password',
     }));
-    // Best-effort: a failure to halt privacy scanning never blocks the switch.
     const haltLocalWalletForTravelMode = jest.fn(async () => {
       throw new OneKeyLocalError('privacy runtime unavailable');
     });
@@ -164,7 +163,6 @@ describe('ServiceTravelMode authentication boundary', () => {
       skipLazyUpgrade: true,
     });
     expect(timerUtils.wait).toHaveBeenCalledWith(3000);
-    // Nothing scans into the restart.
     expect(haltLocalWalletForTravelMode).toHaveBeenCalledTimes(1);
   });
 });

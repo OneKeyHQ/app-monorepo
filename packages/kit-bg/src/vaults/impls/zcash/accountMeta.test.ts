@@ -121,7 +121,6 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     await expect(zcash.listAccountIds({ networkId })).resolves.toEqual([]);
   });
 
-  // A balance poll repairs a missing key; deleting local data meanwhile must
   // leave the key store empty.
   it('does not write a repaired key back after local data is deleted', async () => {
     const { account, backgroundApi, zcash, derived, readKey } = createContext();
@@ -205,7 +204,6 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
       birthdayHeight: 3_000_000,
       addressSchemeVersion: ZCASH_ADDRESS_SCHEME_VERSION,
     });
-    // One owner: the UFVK is only in the viewing key store.
     expect(JSON.stringify(await zcash.getRawData())).not.toContain(
       derived.ufvk,
     );
@@ -271,8 +269,6 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     }).catch((e: unknown) => e);
 
     expect(isZcashSetupIncompleteError(error)).toBe(true);
-    // A distinct error naming the way out, and a latch that stops background
-    // repair from deriving again on every poll.
     expect((error as Error).message).toBe(
       ETranslations.privacy_error_identity_mismatch__msg,
     );
@@ -280,10 +276,8 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     await expect(
       zcash.getZcashAccountMeta({ accountId: account.id }),
     ).resolves.toEqual(meta);
-    // The mismatched key is not adopted.
     await expect(readKey()).resolves.toBeUndefined();
 
-    // The matching key clears the latch.
     await resolveAndSaveZcashAccountMeta({
       account,
       backgroundApi,
@@ -293,8 +287,6 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     expect(zcashIdentityMismatchAccountIds.has(account.id)).toBe(false);
   });
 
-  // Deleting local data drops the identity with the data it named, so the
-  // next enable sets the account up with whatever key it derives.
   it('accepts a different key derived after local-data deletion', async () => {
     const { account, backgroundApi, zcash, derived, readKey } = createContext();
     await zcash.beginZcashPrivacyModeEnable({
@@ -336,7 +328,6 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
       accountId: account.id,
       birthdayHeight: 3_000_000,
     });
-    // A key stored by an enable that stopped before its meta was written.
     await backgroundApi.simpleDb.privacyChainKeys.saveKey({
       accountId: account.id,
       record: {

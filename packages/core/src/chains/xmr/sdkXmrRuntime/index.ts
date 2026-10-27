@@ -5,7 +5,6 @@ import type { IXmrFeePriority, IXmrNetwork, IXmrRuntimeError } from './types';
 // All async despite sync wasm: reached across a Worker/WebView boundary on
 // every platform.
 export type IXmrRuntimeApi = {
-  /** Install the persistent VFS. Must run before any wallet is opened. */
   init: () => Promise<void>;
   dependencyVersions: () => Promise<string>;
 
@@ -36,7 +35,6 @@ export type IXmrRuntimeApi = {
   ) => Promise<string>;
   listAccounts: () => Promise<string>;
   removeAccount: (uuid: string) => Promise<string>;
-  /** Deletes the database file without opening it (App reset, storage reset). */
   deleteWallet: (dbName: string) => Promise<string>;
   registerSubaddress: (
     accountId: string,
@@ -58,7 +56,6 @@ export type IXmrRuntimeApi = {
   ) => Promise<string>;
   transactionDetails: (accountId: string, txidHex: string) => Promise<string>;
 
-  /** Takes the account's BIP-32 key; the spend key is reduced inside the runtime. */
   importKeyImagesWithBip32Key: (
     accountId: string,
     bip32PrivateKeyHex: string,
@@ -70,11 +67,7 @@ export type IXmrRuntimeApi = {
     rawHex: string,
   ) => Promise<string>;
 
-  /**
-   * Returned feeAtomic/amountAtomic are final. maxSend solves for
-   * spendable - fee rather than omitting change, which would donate the
-   * remainder to the miner.
-   */
+  /** Returned fee and amount are final. maxSend solves spendable - fee; omitting change would donate it to the miner. */
   prepareTransaction: (
     accountId: string,
     recipientsJson: string,
@@ -82,18 +75,15 @@ export type IXmrRuntimeApi = {
     chainTip: string,
     priority: IXmrFeePriority,
   ) => Promise<string>;
-  /** Touches neither node nor database; the spend key is reduced in-runtime. */
   signTransactionWithBip32Key: (
     signableHex: string,
     bip32PrivateKeyHex: string,
     reviewJson: string,
   ) => Promise<string>;
-  /** Broadcast and record. Irreversible. */
   broadcastTransaction: (
     accountId: string,
     rawHex: string,
     chainTip: string,
-    /** Amount plus fee, for the pending row. */
     outgoingAtomic: string | undefined,
     /** Change, counted in the total (locked) until the send is mined. */
     changeAtomic: string | undefined,
@@ -142,7 +132,7 @@ export function readXmrRuntimeError(error: unknown): IXmrRuntimeError | null {
       return parsed as IXmrRuntimeError;
     }
   } catch {
-    // Not a runtime error; the caller decides.
+    // Not a runtime error.
   }
   return null;
 }

@@ -39,7 +39,6 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
 
 const settings: IVaultSettings = {
   ...settingsBtc,
-  // OneKey hardware only; no third-party vendors.
   supportedThirdPartyVendors: undefined,
   accountDeriveInfo,
   impl: IMPL_ZCASH,
@@ -48,8 +47,6 @@ const settings: IVaultSettings = {
   disabledSwapAction: true,
   // No minTransferAmount/utxoDustAmount override: the real dust floor is
   // ZCASH_SHIELDING_THRESHOLD_ZAT, enforced by the Shield action.
-  // Frozen = total - spendable (pending confirmations + in-flight locks);
-  // TokenDetails breaks this down per pool.
   hasFrozenBalance: true,
   showAddressType: false,
   estimatedFeePollingInterval: 60,
@@ -58,8 +55,6 @@ const settings: IVaultSettings = {
   mergeDeriveAssetsEnabled: false,
   qrAccountEnabled: false,
   replaceTxEnabled: false,
-  // History combines runtime-owned private rows with backend-owned
-  // transparent rows via ServiceHistory, on every platform incl. mobile.
   localWallet: {
     activation: 'account-opt-in',
     feeSetByProtocol: true,
@@ -124,32 +119,25 @@ const settings: IVaultSettings = {
       },
     ],
   },
-  // ZIP-317 protocol fee; nothing user-editable
   editFeeEnabled: false,
   withTxMessage: false,
   withMemo: true,
   memoMaxLength: 512,
-  // buildEncodedTx converges max-send to spendable-fee already; a generic
-  // confirm-page rewrite would show a different number than the one signed.
+  // buildEncodedTx already converges max-send to spendable-fee; a confirm-page rewrite would differ from the signed amount.
   ignoreUpdateNativeAmount: true,
-  // A fully authorized PCZT has a deterministic txid before broadcast;
-  // pending reconciliation and rejection recovery both depend on that identity.
+  // A fully authorized PCZT has a deterministic txid before broadcast; pending reconciliation depends on it.
   withoutBroadcastTxId: false,
 
   createAllDeriveTypeAccountsByDefault: false,
   enabledInternalSignAndVerify: false,
-  // A BTC xprv/xpub only covers the transparent branch and is not a complete
-  // Zcash backup. Wallet recovery remains mnemonic-only.
+  // A BTC xprv/xpub covers only the transparent branch; wallet recovery stays mnemonic-only.
   publicKeyExportEnabled: false,
   supportExportedSecretKeys: [],
 
-  // Imported account xprvs can sign t-to-t through the stateless keys runtime.
-  // Address/xpub watching accounts remain transparent and read-only.
   importedAccountEnabled: true,
   watchingAccountEnabled: true,
   hardwareAccountEnabled: true,
-  // Custom node here is the lightwalletd the scanner reads from (not just a
-  // broadcast override); transparent sends stay on the backend either way.
+  // The lightwalletd the scanner reads from; transparent sends stay on the backend either way.
   customRpcEnabled: true,
   builtInRpcUrls: [ZCASH_LIGHTWALLETD_MAINNET],
   // - note selection happens inside the wasm wallet; the BTC coin-control

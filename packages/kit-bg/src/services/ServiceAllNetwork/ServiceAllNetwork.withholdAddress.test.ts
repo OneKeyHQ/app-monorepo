@@ -23,8 +23,6 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: { on: jest.fn() },
 }));
 
-// Token search, approvals and All Networks history all build their backend
-// account list here.
 it('leaves chains that withhold their address out of the backend account list', async () => {
   const service = new ServiceAllNetwork({ backgroundApi: {} });
   jest.spyOn(service, 'getAllNetworkAccounts').mockResolvedValue({

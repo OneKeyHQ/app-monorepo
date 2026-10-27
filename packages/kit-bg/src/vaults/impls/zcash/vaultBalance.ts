@@ -147,7 +147,6 @@ export async function listLocalWalletSendPools(
       typeof scanned === 'number' && typeof target === 'number'
         ? Math.max(0, target - scanned)
         : undefined;
-    // The light's bar, so the hint and the light agree.
     if (
       remaining === undefined ||
       remaining >= PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT
@@ -192,15 +191,9 @@ export async function listLocalWalletSendPools(
   ];
 }
 
-// Display reads only: sends and shields fetch fresh UTXOs and keep the
-// default retries.
 const ZCASH_TRANSPARENT_DISPLAY_WAIT_MS = 3000;
 const ZCASH_TRANSPARENT_DISPLAY_RAW_TX_RETRIES = 1;
-// A late result serves every read in this window, so whichever page asks
-// first does not take it from the others.
 const ZCASH_TRANSPARENT_LANDED_REUSE_MS = 5000;
-// While the next read is slow, a result this recent stays on screen as
-// current instead of the saved pair coming back as not current.
 const ZCASH_TRANSPARENT_LAST_READ_MAX_AGE_MS = 60_000;
 
 type IZcashTransparentDisplay = {
@@ -295,8 +288,7 @@ export async function zcashReadTransparentForDisplay(
     spendableOnly = false,
   }: {
     account: IDBUtxoAccount;
-    // The composed balance takes its total from the backend token list
-    // already; asking for it again would be one more request per refresh.
+    // The total comes from the backend token list already; no extra request.
     spendableOnly?: boolean;
   },
 ): Promise<IZcashTransparentDisplay> {
@@ -337,8 +329,7 @@ export async function zcashReadTransparentForDisplay(
           rawTxRetries: ZCASH_TRANSPARENT_DISPLAY_RAW_TX_RETRIES,
         });
     if (!spendableOnly) {
-      // Saved beside the read, not in front of it. Only a complete pair is
-      // saved, so a saved total and spendable always come from one read.
+      // Only a complete pair is saved, so a saved total and spendable come from one read.
       void running.then(
         async (value) => {
           const pair = zcashTransparentPair(value);
@@ -356,7 +347,6 @@ export async function zcashReadTransparentForDisplay(
     }
     zcashTransparentDisplayReads.set(key, { epoch, running, lastRead });
   }
-  // Full reads only (the pool view); the composed balance keeps waiting.
   let shown: IZcashTransparentDisplay | undefined;
   if (!spendableOnly) {
     if (
@@ -408,7 +398,6 @@ export async function zcashReadTransparentForDisplay(
     }
     return outcome.value;
   }
-  // Shown as before or unknown for now; the next read gets the result.
   const pending = running;
   void pending.then(
     (value) => {
@@ -434,7 +423,6 @@ export async function zcashReadTransparentForDisplay(
       if (changed) {
         appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
       }
-      // Even an unchanged value replaces a saved one marked not current.
       if (changed || shown?.stale) {
         appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
           networkId: vault.networkId,
@@ -463,7 +451,6 @@ export async function getLocalWalletAccountBalance(
     accountId: string;
   },
 ): Promise<ILocalWalletAccountBalance | null> {
-  // The halves are read side by side: neither waits on the other.
   const [balance, transparent] = await Promise.all([
     // Gate covers the private half only; gating transparent too would hide funds the account can still spend.
     (async () => {
@@ -558,8 +545,7 @@ export async function getLocalWalletAccountBalance(
         amountParsed: transparentSpendable?.gt(0)
           ? parsed(transparentSpendable.toFixed(0))
           : undefined,
-        // Dust below the threshold is rejected by the sweep proposer. A saved
-        // pair is display only: shielding waits for a current read.
+        // Dust below the threshold is rejected by the sweep proposer; a saved pair is display only.
         enabled:
           !transparent.stale &&
           (transparentSpendable?.gte(ZCASH_SHIELDING_THRESHOLD_ZAT) ?? false),
@@ -1026,7 +1012,6 @@ export async function zcashGetComposedBalanceSafe(
   vault: Vault,
   publicSideBackend?: string,
 ): Promise<IPrivacyChainComposedBalance> {
-  // Display only: Max and other spends read the scanner and UTXOs live.
   const [balance, transparent] = await Promise.all([
     vault.accountId
       ? readLocalWalletBalanceStaleFirst<IZcashBalance>({

@@ -23,7 +23,6 @@ jest.mock('../states/jotai/atoms', () => ({
 const ServicePrivacyChain = require('./ServicePrivacyChain')
   .default as typeof import('./ServicePrivacyChain').default;
 
-// The Verify button: funds that only need the password to be shown unspent.
 describe('Privacy password verification on request', () => {
   const params = { networkId: 'xmr--0', accountId: 'account' };
 

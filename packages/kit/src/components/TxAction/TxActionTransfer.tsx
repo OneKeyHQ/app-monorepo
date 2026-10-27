@@ -190,9 +190,7 @@ function getTxActionTransferInfo(
   let transferTarget = '';
   // Privacy chains: the target is a shielded endpoint with no address.
   let transferTargetShielded: IDecodedTxShieldedEndpoint | undefined;
-  // Which side of the transfer the target is.
   let transferTargetSide: 'from' | 'to' = 'to';
-  // The target is a localized "N addresses" label, not an endpoint.
   let transferTargetIsCount = false;
 
   const sendsWithNFT = sends.filter((send) => send.isNFT);
@@ -279,7 +277,6 @@ function getTxActionTransferInfo(
     transferTarget = to;
     transferTargetShielded = shieldedTo;
   }
-  // Only an endpoint without an address is described by its marker.
   if (transferTarget) {
     transferTargetShielded = undefined;
   }

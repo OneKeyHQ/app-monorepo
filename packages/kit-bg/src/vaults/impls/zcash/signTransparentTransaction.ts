@@ -13,10 +13,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IEncodedTxZcash } from './types';
 import type { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 
-// The outputs the signed transaction actually pays, checked against what the
-// user reviewed. Inputs, fee and expiry echo the request and prove nothing on
-// their own; a signer that swapped the recipient or the change address shows
-// up only here.
+// The outputs the signed tx actually pays, checked against the review; a swapped recipient or change address shows up only here.
 function outputsMatchReview(
   request: IZcashTransparentTxRequest,
   outputs: { valueZat: string; scriptPubKey: string }[],

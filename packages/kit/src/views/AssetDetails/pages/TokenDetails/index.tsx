@@ -116,7 +116,6 @@ export type IProps = {
     enabledNetworks: Record<string, boolean>;
   };
   refreshAllNetworkState?: () => void;
-  // settings.localWallet.pools[].id of the tab this view renders.
   privacyHistoryPoolId?: number;
 } & IStackProps;
 function TokenDetailsView() {
@@ -742,7 +741,6 @@ function TokenDetailsView() {
     }
 
     if (networkId && walletId) {
-      // Keep public/private navigation stable as the current private pool changes.
       if (
         vaultSettings?.localWallet?.balanceShape === 'pooled' &&
         vaultSettings.localWallet.pools

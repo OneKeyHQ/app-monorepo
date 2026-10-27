@@ -78,8 +78,6 @@ function accountRow(id: string) {
   return { id, indexedAccountId: `${id}--indexed` };
 }
 
-// The runtime side: identities named by vkFp, purged as the XMR capability
-// does (everything not retained goes).
 function createHarness({
   keyAccountIds = [liveAccountId, hiddenAccountId, deletedAccountId],
 }: { keyAccountIds?: string[] } = {}) {
@@ -345,8 +343,6 @@ describe('privacy chain runtime orphan cleanup schedule', () => {
     expect(purgeRuntimeOrphans).toHaveBeenCalledTimes(2);
   });
 
-  // A network marked as holding unnamed runtime accounts reads as holding
-  // data for App Reset until a full purge has run.
   it('clears the orphan marker only after a full purge', async () => {
     const { pass, purgeRuntimeOrphans, clearRuntimeOrphans } = createHarness();
     purgeRuntimeOrphans.mockResolvedValueOnce(false);
@@ -365,7 +361,6 @@ describe('privacy chain runtime orphan cleanup schedule', () => {
     expect(clearRuntimeOrphans).not.toHaveBeenCalled();
   });
 
-  // Bounded well inside the turn, whatever the chain's own watchdog is.
   it('gives up after 30 s and stays due', async () => {
     jest.useFakeTimers();
     try {
@@ -382,7 +377,6 @@ describe('privacy chain runtime orphan cleanup schedule', () => {
       await jest.advanceTimersByTimeAsync(30_000);
       await expect(first).resolves.toBeUndefined();
 
-      // The abandoned pass still holds the enable lock until it settles.
       finishStuck(true);
       await jest.advanceTimersByTimeAsync(0);
       await runIfDue();

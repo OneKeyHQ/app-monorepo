@@ -88,7 +88,6 @@ jest.mock('../WebView', () => ({
 
 async function mount(props: Parameters<typeof WebViewWebEmbed>[0]) {
   const view = render(<WebViewWebEmbed {...props} />);
-  // Let the RevenueCat key effect resolve and the bridge effect run.
   await act(async () => {
     await Promise.resolve();
   });

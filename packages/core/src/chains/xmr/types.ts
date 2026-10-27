@@ -3,11 +3,7 @@ type IXmrDestination = {
   'send_amount': string;
 };
 
-/**
- * A Monero send. The fee is the node's rate times the transaction's weight,
- * which depends on input selection, so the transaction is built at review
- * time and the displayed fee is read off it.
- */
+/** A Monero send. The fee depends on input selection, so the transaction is built at review time. */
 export type IEncodedTxXmr = {
   from: string;
   to: string;
@@ -16,21 +12,12 @@ export type IEncodedTxXmr = {
   /** XMR, for display only. Derived from `amountAtomic`, never the reverse. */
   amount: string;
   priority: IXmrFeePriority;
-  /**
-   * Send everything. The amount is `spendable - fee`, solved by the runtime
-   * and written back into `amountAtomic`.
-   */
+  /** Send everything: the runtime solves `spendable - fee` and writes it back into `amountAtomic`. */
   isMaxSend?: boolean;
 
-  // ---- filled in by the runtime at review time (see `prepareTransaction`)
-
   /**
-   * The constructed, unsigned transaction; signing takes only this, so the
-   * reviewed and signed transactions are the same.
-   *
-   * Contains the account's private view key (upstream `ChangeEnum::Standard`
-   * embeds the viewing pair for the change output), so it may only cross a
-   * trust boundary the view key may cross.
+   * The constructed unsigned transaction; signing takes only this. It contains the private view key
+   * (change output), so it may only cross a trust boundary the view key may cross.
    */
   signableHex?: string;
   /** Piconero. Exact once `signableHex` is set. */
@@ -44,10 +31,7 @@ export type IEncodedTxXmr = {
   privacyEpoch?: string;
 };
 
-/**
- * Fee tiers as monerod names them. Strings, not numbers: a number crossing
- * the boundary cannot be validated on arrival.
- */
+/** Fee tiers as monerod names them; strings, since a number cannot be validated on arrival. */
 export type IXmrFeePriority =
   | 'unimportant'
   | 'normal'

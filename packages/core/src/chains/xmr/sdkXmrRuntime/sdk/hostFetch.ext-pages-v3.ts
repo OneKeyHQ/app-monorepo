@@ -2,11 +2,7 @@ import type { IPrivacyChainHostRequest } from '@onekeyhq/core/src/utils/privacyC
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-/**
- * Extension: fetch through the background service worker. The offscreen
- * document's fetch obeys CORS and mixed content; the MV3 background is the
- * context `host_permissions` unambiguously cover.
- */
+/** Extension: fetch through the MV3 background, which `host_permissions` unambiguously cover; the offscreen fetch obeys CORS. */
 export const PRIVACY_CHAIN_NODE_REQUEST_MESSAGE =
   'privacyChain/nodeRequest' as const;
 

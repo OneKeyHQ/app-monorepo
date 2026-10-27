@@ -53,7 +53,6 @@ function createFixture(
           getZcashPrivacyModeState: async () => ({ intent: 'on' }),
         },
       },
-      // Our transparent address is the one Receive displays.
       servicePrivacyChain: {
         getLocalWalletAccountAddresses: async () => ({ publicAddress: own }),
       },
@@ -108,7 +107,6 @@ function createFixture(
           feeZat: null,
         },
     }),
-    // This fixture represents a public detail after the existing account-association guard.
     zcashFetchBackendHistoryDetail: publicDetail,
   });
   return { vault, publicDetail };

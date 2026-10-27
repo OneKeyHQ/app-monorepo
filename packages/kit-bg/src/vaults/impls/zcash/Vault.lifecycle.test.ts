@@ -120,18 +120,14 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
         accountId: f.accountId,
         expectedRepair: f.repair,
       });
-      // Invalidate reads before a journaled rescan or database rebuild.
       expect(f.rotateAccountEpochs.mock.calls).toEqual([
         [{ accountIds: [f.accountId] }],
         [{ accountIds: [f.accountId] }],
       ]);
-      // Host records are the executor's too.
       expect(f.clearAccountScanData).not.toHaveBeenCalled();
     },
   );
 
-  // The executor stops before host records when the runtime step throws, so
-  // the key that names the runtime account survives for a retry.
   it('fails the runtime deletion when storage removal fails', async () => {
     const f = fixture('pending');
     const error = new Error('storage deletion failed');
@@ -143,8 +139,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     expect(f.clearAccountScanData).not.toHaveBeenCalled();
   });
 
-  // A height repair from the caller carries `birthdayTimestamp: undefined`;
-  // the journal read back has no such key. It must apply on this turn.
+  // A height repair carries birthdayTimestamp: undefined, absent in the journal read back; it must apply on this turn.
   it('applies a journaled repair whose caller copy has undefined keys', async () => {
     const f = fixture('pending');
     await f.vault.applyPendingRescan({

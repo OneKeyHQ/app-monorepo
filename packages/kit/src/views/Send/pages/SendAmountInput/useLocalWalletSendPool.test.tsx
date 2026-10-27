@@ -116,7 +116,6 @@ describe('local wallet source pool selection', () => {
     ]);
   });
 
-  // Paused privacy hides the private pools; the page must be able to say so.
   it('reports paused privacy so the page can explain the missing pools', async () => {
     mockGetState.mockResolvedValueOnce({ paused: true });
     mockGetPools.mockResolvedValue([pools[2]]);
@@ -328,8 +327,6 @@ describe('getEntryLocalWalletSendPools', () => {
     expect(result.current.isReady).toBe(true);
   });
 
-  // Paused privacy lists only the public pool; paying publicly is the
-  // user's own choice, not a default.
   it('selects nothing when a private entry pool is missing while privacy is paused', () => {
     mockSnapshot.result = {
       scope: scopeFor(props),

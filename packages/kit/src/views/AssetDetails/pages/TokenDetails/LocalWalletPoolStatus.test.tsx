@@ -326,9 +326,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
     },
   );
 
-  // QA: the Worker crashed at load, enable timed out its handshake, and the
-  // dialog showed nothing. The rejection is what carries the toast (the
-  // background marks it autoToast); the dialog must not swallow it.
+  // The rejection carries the toast (background autoToast); the dialog must not swallow it.
   it('lets a rejected enable reach the user and keeps the dialog open', async () => {
     const failure = Object.assign(new Error('runtime unavailable'), {
       autoToast: true,

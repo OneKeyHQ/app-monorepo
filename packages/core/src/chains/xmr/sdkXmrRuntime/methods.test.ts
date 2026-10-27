@@ -10,9 +10,7 @@ import {
 import type { IXmrRuntimeApi } from '.';
 import type { IXmrRuntimeMethod } from './methods';
 
-// A name missing from the method list is not a type error anywhere: the call
-// just becomes `undefined is not a function` at runtime on one platform.
-// These checks turn that into a compile failure.
+// A name missing from the method list only fails at runtime on one platform; these checks make it a compile error.
 
 // Export names of the installed `onekey-monero-runtime` glue, or `undefined`
 // when the package is not installed.

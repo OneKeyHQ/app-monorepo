@@ -414,7 +414,6 @@ describe('useLocalWalletPool balance refresh cadence', () => {
       ([params]) => params.accountId === 'account-b',
     );
     expect(accountReads).toHaveLength(2);
-    // Settle the hook's queued interval transition before measuring steady polling.
     await advanceTime(0);
     const balanceReads = mockGetBalance.mock.calls.length;
     await advanceTime(24_000);
@@ -522,7 +521,6 @@ describe('useLocalWalletPool on a device that cannot store the database', () => 
   });
 });
 
-// Background failures never toast; the sync row is where they show.
 describe('useLocalWalletPool after a failed background sync', () => {
   afterEach(() => {
     setPublishedScanState({});
@@ -592,8 +590,6 @@ it('shows preparing after authorization while the first runtime reads are pendin
 });
 
 describe('useLocalWalletPool enable failure', () => {
-  // The rejection carries the toast (autoToast from the background); the
-  // hook must hand it back and release the button.
   it('rejects and ends the busy state', async () => {
     const failure = new Error('privacy runtime unavailable');
     mockEnableAccount.mockRejectedValueOnce(failure);
@@ -720,7 +716,6 @@ describe('useLocalWalletPool retained-page lifecycle', () => {
     const { result } = renderHook(useLocalWalletPool, { initialProps: props });
     await flushReads();
     const display = mockDisplay;
-    // The immediate first read plus the first poll, which flushReads fires.
     const balanceReads = mockGetBalance.mock.calls.length;
     for (let index = 0; index < 5; index += 1) {
       emitPrivacyChange(undefined, EAppEventBusNames.RefreshTokenList);
@@ -853,7 +848,6 @@ describe('a chain with one kind of balance still gets its local wallet UI', () =
     mockLocalWalletSettings = POOLED;
   });
 
-  // `balanceShape` only drives the pool tabs; it must not gate the private UI.
   it('shows the private UI for a single-balance chain', () => {
     mockLocalWalletSettings = SINGLE;
     const { result } = renderHook(() =>
@@ -891,7 +885,6 @@ describe('a chain with one kind of balance still gets its local wallet UI', () =
   });
 });
 
-// No keyring for the wallet type (Monero hardware): no scan toggle offered.
 describe('a wallet the chain cannot serve', () => {
   afterEach(() => {
     mockWalletSupport = 'supported';
@@ -908,7 +901,6 @@ describe('a wallet the chain cannot serve', () => {
     );
     await flushReads();
     expect(result.current.isUnsupportedWallet).toBe(true);
-    // Settles without waiting on the account reads.
     expect(result.current.isReady).toBe(true);
   });
 
@@ -924,7 +916,6 @@ describe('a wallet the chain cannot serve', () => {
     expect(result.current.isUnsupportedWallet).toBe(false);
   });
 
-  // Otherwise the toggle flashes and disappears.
   it('is not ready until the support answer lands', () => {
     mockWalletSupport = 'unsupported';
     const { result } = renderHook(() =>
@@ -938,7 +929,6 @@ describe('a wallet the chain cannot serve', () => {
     expect(result.current.isReady).toBe(false);
   });
 
-  // The token page passes its own account data; the answer must not depend on it.
   it('reports a temp wallet as unsupported, with its own reason', async () => {
     mockWalletSupport = 'tempWallet';
     const { result } = renderHook(() =>
@@ -975,7 +965,6 @@ describe('a wallet the chain cannot serve', () => {
   });
 });
 
-// A single-balance chain renders no tabs, so its pool must be selected here.
 describe('resolveSelectedPoolId', () => {
   const POOLED = {
     balanceShape: 'pooled',

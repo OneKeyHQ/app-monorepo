@@ -7,9 +7,8 @@ import {
 import type { IXmrPureRuntimeApi } from './sdkXmrRuntime/address';
 import type { IXmrNetwork } from './sdkXmrRuntime/types';
 
-// Pins the wiring, not the cryptography (the runtime tests its own vectors):
-// a wrong network, swapped viewing-pair halves or a drifted JSON shape all
-// silently produce a plausible address for the wrong wallet.
+// Pins the wiring, not the cryptography: a wrong network, swapped viewing-pair halves or JSON
+// shape drift silently yield a plausible address for the wrong wallet.
 
 function fakeRuntime(): IXmrPureRuntimeApi & {
   calls: { method: string; args: unknown[] }[];
@@ -67,8 +66,7 @@ function fakeRuntime(): IXmrPureRuntimeApi & {
 }
 
 describe('xmr derivation plumbing', () => {
-  // The in-process fallback cannot load the wasm under jest; the failure must
-  // surface, since an empty address would be a receive form that loses money.
+  // The load failure must surface: an empty address would be a receive form that loses money.
   it('surfaces a failure rather than deriving nothing when no carrier is registered', async () => {
     setXmrRuntimeLoader(undefined as never);
     await expect(

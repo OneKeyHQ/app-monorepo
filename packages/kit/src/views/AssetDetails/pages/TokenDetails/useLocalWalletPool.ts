@@ -52,7 +52,6 @@ const lastSeenByAccount = new Map<
   }
 >();
 
-/** Forget remembered reads. Tests only. */
 export function resetLocalWalletPoolLastSeen() {
   lastSeenByAccount.clear();
 }
@@ -76,7 +75,6 @@ export function resolveSelectedPoolId({
   return pool?.id;
 }
 
-// Goes through dateUtils/date-fns rather than hand-rolled units, to get locale and plurals for free.
 function formatSeconds(seconds: number, addSuffix: boolean): string {
   const now = Date.now();
   return formatDistanceStrict(
@@ -140,7 +138,6 @@ export function buildLocalWalletSyncStatusText({
       ? ` · ${intl.formatMessage({ id: regionLabelId })}`
       : '';
     const eta = formatEtaSuffix(remaining, scanRatePerSec);
-    // The block count only stands in until a scan rate gives a time.
     const remainingText = eta
       ? ''
       : formatPrivacyChainRemainingBlocks(syncProgress, intl);
@@ -180,8 +177,7 @@ export function buildLocalWalletSyncStatusText({
       });
 }
 
-// Everything the token/settings pages need for one local-wallet account, optionally focused on
-// one pool. Chain-agnostic: reads settings.localWallet and servicePrivacyChain only.
+// Everything the token/settings pages need for one local-wallet account, optionally for one pool.
 export function useLocalWalletPool({
   networkId,
   accountId,
@@ -216,7 +212,6 @@ export function useLocalWalletPool({
   );
   const { account, vaultSettings } = accountData ?? ownAccountData;
   const settings = vaultSettings?.localWallet;
-  // Whether this chain has a local wallet at all; `balanceShape` only drives the pool tabs.
   const hasPooledBalance = Boolean(settings);
   const pool = useMemo(
     () => settings?.pools.find((item) => item.id === poolId),
@@ -288,7 +283,6 @@ export function useLocalWalletPool({
     },
     [isActive, hasPooledBalance, accountScope, accountId, networkId],
     {
-      // Keep the last state while revalidating so the private UI does not collapse on return.
       revalidateOnFocus: true,
       undefinedResultIfError: true,
       overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
@@ -300,7 +294,6 @@ export function useLocalWalletPool({
     stateResult?.scope === accountScope ? stateResult.state : undefined;
   const state = freshState ?? lastSeen?.state;
   const accountPaused = state?.paused === true;
-  // A pause retains authorization and saved data; only scanning is off.
   const enabled = state?.enabled === true || accountPaused;
   const canRead =
     isActive && hasPooledBalance && !!accountId && enabled && !accountPaused;
@@ -358,8 +351,7 @@ export function useLocalWalletPool({
       : undefined;
   const lastSyncedAt =
     balanceResult?.scope === readScope ? balanceResult.lastSyncedAt : undefined;
-  // A balance that landed after its read gave up; the poll alone would leave
-  // the saved one up for a full interval.
+  // A balance that landed after its read gave up; the poll would show the saved one a full interval.
   useEffect(() => {
     if (!canReadBalance) return;
     const onLanded = (payload: { networkId: string; accountId: string }) => {
@@ -467,7 +459,6 @@ export function useLocalWalletPool({
     ) {
       return;
     }
-    // Include the first known progress: the initial balance may have come from an older cache.
     lastBalanceProgressRef.current = {
       scope: readScope,
       marker: balanceProgressMarker,
@@ -475,8 +466,7 @@ export function useLocalWalletPool({
     void refreshBalance();
   }, [balanceProgressMarker, canReadBalance, readScope, refreshBalance]);
 
-  // Turning the interval on schedules the first polled run one interval
-  // out; read once right away instead of leaving the page empty until then.
+  // Read once right away; the interval's first run is one interval out.
   const readableRef = useRef({ canReadBalance, canRead });
   useEffect(() => {
     const previous = readableRef.current;
@@ -514,7 +504,6 @@ export function useLocalWalletPool({
           storageUnsupported:
             value.storageUnsupportedNetworkIds.includes(networkId),
           paused: value.pausedNetworkIds.includes(networkId),
-          // Paused or held for data: nothing is retrying.
           error:
             value.pausedNetworkIds.includes(networkId) ||
             value.dataBlockedNetworkIds.includes(networkId)
@@ -616,7 +605,6 @@ export function useLocalWalletPool({
       id: ETranslations.syncing_paused__title,
     });
   } else {
-    // A failed background sync replaces the figures; it retries on its own.
     syncStatusText =
       formatPrivacyChainSyncError(syncError, intl) ??
       buildLocalWalletSyncStatusText({
@@ -674,10 +662,8 @@ export function useLocalWalletPool({
       }),
     [accountId, networkId, refreshState, runBusy, setPoolDisplay],
   );
-  // Authorization visibility must not wait for successful scan-database reads.
   const isReady = (() => {
     if (!hasPooledBalance) return true;
-    // An unsupported wallet has no state to read and nothing to enable, so it's complete as soon as it lands.
     if (isWalletSupported === undefined) return false;
     if (!isWalletSupported) return true;
     if (state === undefined) return false;
@@ -691,7 +677,6 @@ export function useLocalWalletPool({
     isUnsupportedWallet,
     pool,
     state,
-    // Undefined until the first state read lands; must not be treated as "disabled" before that.
     isStateSettled: state !== undefined,
     isReady,
     enabled,
@@ -708,7 +693,6 @@ export function useLocalWalletPool({
     hasAttemptedBalance,
     busy,
     accountName: account?.name,
-    // A wallet the user chose not to keep: unsupported, with its own reason.
     isTempWallet: accountSupport === 'tempWallet',
     refresh,
     refreshBalanceNow,

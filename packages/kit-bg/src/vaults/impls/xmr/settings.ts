@@ -30,8 +30,7 @@ export type IAccountDeriveInfoMapXmr = IAccountDeriveInfoMapBase & {
 };
 export type IAccountDeriveTypesXmr = keyof IAccountDeriveInfoMapXmr;
 
-// BIP-39->Monero has no standard; these are the two in wide use. Path shape
-// picks the curve (`getXmrCurveForPath`); pinned by derivation.vectors.test.ts.
+// BIP-39->Monero has no standard; these two are in wide use. Path shape picks the curve (`getXmrCurveForPath`).
 const accountDeriveInfo: IAccountDeriveInfoMapXmr = {
   // Trezor (and OneKey Pro firmware): SLIP-10 ed25519, all hardened.
   default: {
@@ -55,7 +54,6 @@ const settings: IVaultSettings = {
   impl: IMPL_XMR,
   coinTypeDefault: COINTYPE_XMR,
   accountDeriveInfo,
-  // One account = one primary address; subaddresses are runtime-tracked.
   accountType: EDBAccountType.SIMPLE,
 
   importedAccountEnabled: false,
@@ -87,7 +85,6 @@ const settings: IVaultSettings = {
   enabledInternalSignAndVerify: false,
   replaceTxEnabled: false,
 
-  // Fee is the node's recommended rate x priority tier.
   editFeeEnabled: false,
   withTxMessage: false,
   defaultFeePresetIndex: 0,
@@ -95,21 +92,17 @@ const settings: IVaultSettings = {
   // would show a different number than the one actually signed.
   ignoreUpdateNativeAmount: true,
 
-  // Every output is private: no transparent pool, shield/unshield action, or
-  // public receive form.
+  // Every output is private: no transparent pool, shield action or public receive form.
   localWallet: {
     // Scanning costs real bandwidth/CPU, so it's opt-in per account.
     activation: 'account-opt-in',
-    // Keeps the generic pool tabs off the token page.
     balanceShape: 'single',
-    // Monero has no public address endpoints in transaction history.
     publicAddressPattern: '^$',
     // No indexer covers Monero; the runtime is the only source of truth.
     privateAddressPattern:
       '^(?:[1-9A-HJ-NP-Za-km-z]{95}|[1-9A-HJ-NP-Za-km-z]{106})$',
     hiddenEndpointLabelId: ETranslations.private_send_private_option,
-    // Base58 lengths of 69..87 address bytes: every type monero-address
-    // parses, incl. featured addresses (97/108 chars).
+    // Base58 lengths for 69..87 address bytes, incl. featured addresses (97/108 chars).
     addressShapePattern: '^[1-9A-HJ-NP-Za-km-z]{95,120}$',
     tipLagWarningBlocks: XMR_TIP_LAG_WARNING_BLOCKS,
     pools: [
@@ -139,27 +132,22 @@ const settings: IVaultSettings = {
     withholdAddressFromBackend: true,
   },
 
-  // Watch-only scans cannot prove outputs unspent without key images; that
-  // part is surfaced as frozen until the password confirms it.
+  // Watch-only scans cannot prove outputs unspent without key images; shown as frozen until the password confirms.
   hasFrozenBalance: true,
   showAddressType: false,
 
-  // One piconero.
   minTransferAmount: '0.000000000001',
 
   // Payment IDs are legacy; the modern flow is a subaddress per counterparty.
   withPaymentId: false,
 
-  // Txid is deterministic once signed, before broadcast; pending
-  // reconciliation depends on that identity.
+  // Txid is fixed once signed, before broadcast; pending reconciliation relies on it.
   withoutBroadcastTxId: false,
 
-  // Whoever serves blocks sees what we ask for, so users can pick their node.
   customRpcEnabled: true,
   builtInRpcUrls: XMR_BUILT_IN_NODE_URLS,
 
-  // Coin control would call a blockbook backend that doesn't index Monero;
-  // inputs are chosen inside the runtime anyway.
+  // Inputs are chosen inside the runtime; blockbook does not index Monero.
   coinControlEnabled: false,
   // Bulk send would bypass the prepare/sign/broadcast seam entirely.
   nativeBatchTransferEnabled: false,

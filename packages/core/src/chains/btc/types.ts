@@ -176,9 +176,8 @@ export type IUtxoInfo = {
   value: string;
   height: number;
   confirmations: number;
-  // Zcash coinbase outputs are visible but cannot be spent by the stateless
-  // transparent signer. Backends should send this explicitly; callers must
-  // fail closed when neither this field nor txIndex can establish provenance.
+  // Zcash coinbase outputs cannot be spent by the stateless transparent signer.
+  // Callers must fail closed when neither this field nor txIndex establishes provenance.
   isCoinbase?: boolean;
   address: string;
   path: string;

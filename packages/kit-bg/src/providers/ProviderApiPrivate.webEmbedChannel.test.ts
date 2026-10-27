@@ -75,10 +75,8 @@ describe('ProviderApiPrivate web-embed-only methods on native', () => {
   });
 
   it.each([
-    // A dApp's data: iframe: opaque origin, no host mark.
     ['dApp data: iframe', page('null')],
     ['dApp file:// frame', page('file://')],
-    // The Prime purchase modal is a web-embed page but not the singleton.
     ['Prime purchase modal', markWebEmbedChannelPayload(page('null'), false)],
   ])('rejects %s', async (_label, request) => {
     const provider = setup();

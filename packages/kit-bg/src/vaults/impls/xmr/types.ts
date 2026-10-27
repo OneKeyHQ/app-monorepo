@@ -1,7 +1,4 @@
-/**
- * Monero vault types. Amounts cross every boundary as decimal strings of
- * piconero -- a number would silently lose precision past MAX_SAFE_INTEGER.
- */
+/** Amounts cross every boundary as decimal piconero strings; a number loses precision past MAX_SAFE_INTEGER. */
 
 // Runtime pool ids; history rows carry these, so they must never be renumbered.
 export const XMR_POOL_IDS = {
@@ -10,23 +7,17 @@ export const XMR_POOL_IDS = {
 
 export type IXmrPoolKey = 'private';
 
-/** One scanned output as the vault hands it to the UI. */
 export type IXmrOutput = {
-  /** Runtime row id. */
   id: number;
   amountAtomic: string;
   globalIndex: string;
   height: number;
-  /** `undefined` on the primary address. */
   subaddress?: { major: number; minor: number };
   /** False when the runtime has no key image yet, so it cannot tell whether this output is already spent. */
   spendKnown: boolean;
 };
 
-/**
- * `unverifiableAtomic` must be surfaced, not folded into the total: it is
- * value the wallet cannot confirm is still unspent, for lack of key images.
- */
+/** `unverifiableAtomic` is value the wallet cannot confirm unspent for lack of key images; surface it, do not fold it into the total. */
 export type IXmrBalance = {
   totalAtomic: string;
   unlockedAtomic: string;
@@ -54,13 +45,10 @@ export type IXmrHistoryItem = {
   timestamp: number | null;
   /** Our send never reached the node's pool; its inputs are spendable again. */
   failed?: boolean;
-  /** Amount plus fee, recorded when this device broadcast it. */
   outgoingAtomic?: string | null;
-  /** Network fee of a send, read from the scanned transaction. */
   feeAtomic?: string | null;
 };
 
-// The wire shape lives with the chain, beside the runtime that produces it.
 export type {
   IEncodedTxXmr,
   IXmrFeePriority,

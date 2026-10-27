@@ -135,7 +135,6 @@ describe('privacy-chain node relay', () => {
 });
 
 describe('privacy-chain fetch stream relay', () => {
-  // Opened streams keep an idle timer; close them like the client does.
   const closeStream = async (
     relay: ReturnType<typeof createPrivacyChainFetchStreamRelay>,
     result: Awaited<

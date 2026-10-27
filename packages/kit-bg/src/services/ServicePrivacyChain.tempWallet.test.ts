@@ -56,7 +56,6 @@ const ServicePrivacyChain = require('./ServicePrivacyChain')
 type IService = InstanceType<typeof ServicePrivacyChain>;
 
 const networkId = 'zec--0';
-// A hidden wallet the user did not keep, next to an ordinary saved one.
 const tempWalletId = 'hw-1-passphrase';
 const savedWalletId = 'hd-1';
 const tempAccountId = `${tempWalletId}--m/44'/133'/0'`;

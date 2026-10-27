@@ -137,7 +137,6 @@ function createKeyring({
       simpleDb: {
         privacyChainState: {
           ...createSeedFingerprintStore(),
-          // No identity recorded yet: the first key is accepted.
           getAccountVkFp: jest.fn(async () => undefined),
           getAccountEpoch: jest.fn(async () => undefined),
           ...simpleDbZcash,
@@ -153,7 +152,6 @@ function createKeyring({
   }) as KeyringHardware;
 }
 
-// The device gets a redacted copy; tagging it shows which copy went where.
 const redactPcztForHardwareSigner = async ({
   pcztHex,
 }: {
@@ -254,7 +252,6 @@ describe('Zcash KeyringHardware', () => {
           seedFingerprint: 'ab'.repeat(32),
         })),
       });
-      // Creating accounts records no scan state: only an enable does.
       const beginZcashPrivacyModeEnable = jest.fn();
       const saveZcashAccountMeta = jest.fn();
       const fingerprintStore = createSeedFingerprintStore();
@@ -307,7 +304,6 @@ describe('Zcash KeyringHardware', () => {
         const accounts = await result;
         expect(beginZcashPrivacyModeEnable).not.toHaveBeenCalled();
         expect(saveZcashAccountMeta).not.toHaveBeenCalled();
-        // The wallet's seed fingerprint is kept: transparent signing needs it.
         expect(
           fingerprintStore.saveZcashWalletSeedFingerprint,
         ).toHaveBeenCalledWith({
@@ -618,7 +614,6 @@ describe('Zcash KeyringHardware', () => {
       deviceParams: deviceParams as never,
     });
 
-    // The configured node, not the build constant.
     expect(deriveAddressFromUfvk).toHaveBeenCalledWith(
       expect.objectContaining({ lightwalletdUrl: 'https://custom.lwd:443' }),
     );
@@ -647,8 +642,7 @@ describe('Zcash KeyringHardware', () => {
       meta: expect.objectContaining({
         vkFp,
         unifiedAddress: 'u1device',
-        // The device UA still includes a P2PKH receiver, so the app's
-        // Orchard-only derivation is kept beside it.
+        // The device UA still has a P2PKH receiver, so the Orchard-only derivation is kept beside it.
         derivedUnifiedAddress: 'u1app',
         transparentAddress: 't1account',
         seedFingerprintHex: 'ab'.repeat(32),
@@ -657,7 +651,6 @@ describe('Zcash KeyringHardware', () => {
         birthdaySource: 'manual-height',
       }),
     });
-    // The device's UFVK goes only to the viewing key store.
     expect(JSON.stringify(saveAccountMeta.mock.calls)).not.toContain(
       'uview1device',
     );
@@ -676,7 +669,6 @@ describe('Zcash KeyringHardware', () => {
       vkFp,
       sealed: { format: 'plain', value: 'uview1device' },
     });
-    // One seed per hardware wallet: the fingerprint is kept per wallet.
     await expect(
       (
         keyring as unknown as {
@@ -841,10 +833,6 @@ describe('Zcash KeyringHardware', () => {
   });
 });
 
-// The transparent path carries four assertions that only fail on a device:
-// account drift, a viewing key that is not this account's, a signed result
-// that no longer matches what was reviewed, and an account removed mid-signing.
-// Each of them must also let the input reservation go.
 describe('Zcash KeyringHardware transparent signing', () => {
   const accountId = 'hw-1--acc';
   const request = {
@@ -1044,7 +1032,6 @@ describe('Zcash KeyringHardware transparent signing', () => {
 
     await expect(sign()).rejects.toThrow('hardware signing account changed');
 
-    // Refused before anything was reserved, so there is nothing to release.
     expect(reserveTransparentOutpoints).not.toHaveBeenCalled();
     expect(zcashSignPczt).not.toHaveBeenCalled();
   });

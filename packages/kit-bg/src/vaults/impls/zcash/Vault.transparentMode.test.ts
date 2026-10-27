@@ -43,7 +43,6 @@ describe('Zcash Transparent Mode runtime boundary', () => {
             getZcashPrivacyModeState: jest.fn(async () => ({ intent: 'off' })),
           },
         },
-        // Our transparent output is the address Receive displays.
         servicePrivacyChain: {
           getLocalWalletAccountAddresses: async () => ({
             publicAddress: 't1-public-output',
@@ -442,8 +441,7 @@ describe('Zcash hardware transparent send', () => {
     },
   );
 
-  // A swap route instruction (OP_RETURN) cannot be carried; silently dropping
-  // it would pay the swap vault with no instruction.
+  // A swap route instruction (OP_RETURN) cannot be carried; dropping it would pay the vault with no instruction.
   it('refuses a transfer that carries a swap route instruction', async () => {
     const build = jest.fn();
     const vault = createVault();
@@ -555,8 +553,6 @@ describe('Zcash private history detail routing', () => {
     expect(publicHistory).not.toHaveBeenCalled();
   });
 
-  // A deep link has no tab. A transparent leg makes the transaction the
-  // indexer's to judge: the list shows the backend's status, so must this.
   it('takes the status of a mixed transaction from the backend on a deep link', async () => {
     const { vault, getHistory, backend, publicHistory } = createVault();
     getHistory.mockResolvedValue([{ ...item, poolIds: [0, 4] }]);
@@ -624,7 +620,6 @@ describe('Zcash private history detail routing', () => {
     );
     expect(backend).not.toHaveBeenCalled();
     expect(publicHistory).not.toHaveBeenCalled();
-    // A genuine runtime failure is still worth a console error.
     expect(consoleError).toHaveBeenCalled();
   });
 
@@ -645,7 +640,6 @@ describe('Zcash private history detail routing', () => {
       xpub: undefined,
     });
     expect(backend).not.toHaveBeenCalled();
-    // A pending (not yet indexed) tx is the normal state, not a runtime error.
     expect(consoleError).not.toHaveBeenCalled();
   });
 
@@ -724,8 +718,6 @@ describe('Zcash transparent history address resolution', () => {
     return { fetchHistory, getClient };
   }
 
-  // Raw I/O detail requests carry no account address and Transparent Mode
-  // writes no viewing metadata, so the account t-address must answer.
   it('uses the account t-address when metadata and params have none', async () => {
     const { fetchHistory, getClient } = createVault({ address: 't1-self' });
 
@@ -850,8 +842,6 @@ describe('Zcash history detail pool split', () => {
     expect(backend).not.toHaveBeenCalled();
   });
 
-  // A deep link carries no tab. A row the runtime knows only as transparent is
-  // the backend's to describe.
   it('sends a transparent-only transaction to the backend without a tab', async () => {
     const { vault, getTxDetails, backend } = createVault({ poolIds: [0] });
 

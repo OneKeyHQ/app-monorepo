@@ -5,8 +5,7 @@ import {
 
 export const XMR_BIRTHDAY_PENDING_SOURCE = 'pending-timestamp';
 
-// v2 activated on 2016-03-22. Earlier dates used 60-second blocks; avoid
-// applying the current cadence across that boundary, including the fork day.
+// v2 activated on 2016-03-22; earlier dates used 60-second blocks.
 const XMR_V2_DAY_END_MS = Date.UTC(2016, 2, 23);
 
 /** 120-second target blocks: 720 a day. */
@@ -14,14 +13,10 @@ export const XMR_BLOCKS_PER_DAY = Math.round(
   (24 * 60 * 60) / XMR_TARGET_BLOCK_SECONDS,
 );
 
-/**
- * One day of slack under every date height: early costs scan time, but late
- * means outputs before it are never trial-decrypted -- a silently missing balance.
- */
+/** One day of slack: a late start never trial-decrypts earlier outputs (silently missing balance). */
 export const XMR_BIRTHDAY_SAFETY_BLOCKS = XMR_BLOCKS_PER_DAY;
 
-// Counted back from the live tip at the target rate; real intervals average
-// slightly above 120s, which biases this early (the safe direction).
+// Counted back from the live tip; real intervals average above 120s, which biases early (safe).
 export function estimateXmrHeightDaysAgo({
   daysAgo,
   chainTip,
@@ -36,7 +31,6 @@ export function estimateXmrHeightDaysAgo({
   );
 }
 
-// The enable dialog collects a month, not a block height.
 export function estimateXmrBirthdayHeight({
   birthdayTimestamp,
   now,

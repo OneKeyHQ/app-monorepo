@@ -42,8 +42,6 @@ function localTx(): IAccountHistoryTx {
   } as unknown as IAccountHistoryTx;
 }
 
-// A pending row is handed over to the history source as soon as the source
-// lists the tx, even as pending.
 describe('ServiceHistory local pending reconciliation', () => {
   function createService() {
     const batchUpdateLocalHistoryTxs = jest.fn(async () => undefined);
@@ -89,8 +87,6 @@ describe('ServiceHistory local pending reconciliation', () => {
 });
 
 describe('ServiceHistory clear pending transactions', () => {
-  // Privacy-chain send locks are per account; an app-wide clear (settings,
-  // or any chain's "pending queue too long" toast) must not reach them.
   it('never touches local wallet send locks', async () => {
     const clearLocalHistoryPendingTxs = jest.fn(async () => undefined);
     const forEachLocalWalletCapability = jest.fn();

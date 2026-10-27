@@ -778,9 +778,8 @@ class ServiceSend extends ServiceBase {
         const { localWallet } = await getVaultSettings({
           networkId: params.networkId,
         });
-        // Checked locally until the backend's pre-send check supports privacy
-        // chains; switch to it then. A mismatched fee needs review; so does
-        // one at least as large as the payment, unless the protocol sets it.
+        // Checked locally until the backend pre-send check supports privacy chains; a mismatched fee or one at least
+        // as large as the payment needs review, unless the protocol sets it.
         return (
           !fee.shiftedBy(-tx.decimals).eq(params.feeAmount) ||
           (!localWallet?.feeSetByProtocol && fee.gte(tx.amount))
@@ -2942,7 +2941,6 @@ class ServiceSend extends ServiceBase {
   }: {
     networkId: string;
     txids: string[];
-    // Display reads ask for fewer: a page should not wait minutes on them.
     retries?: number;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -3056,7 +3054,6 @@ class ServiceSend extends ServiceBase {
     }
   }
 
-  // Review page closed without sending: return whatever the build reserved.
   @backgroundMethod()
   async releaseUnsignedTxs({
     networkId,

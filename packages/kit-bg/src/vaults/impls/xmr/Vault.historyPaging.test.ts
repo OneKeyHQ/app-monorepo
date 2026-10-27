@@ -13,8 +13,7 @@ jest.mock('./runtime', () => ({
 
 import Vault from './Vault';
 
-// The cached list is replaced by what the runtime returns; stopping at one
-// page would delete every older row from it.
+// The cached list is replaced by the runtime result; one page would drop older rows.
 describe('xmr history paging', () => {
   it('reads every page', async () => {
     const rows = Array.from({ length: 1200 }, (_, i) => ({ txid: `t${i}` }));

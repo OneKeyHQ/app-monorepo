@@ -9,29 +9,32 @@ OneKey supports 40+ blockchains with pluggable chain implementations. This guide
 ### 1. Implement Chain Core Logic
 Location: `packages/core/src/chains/`
 
-Create a new directory for the chain (tests are co-located with sources —
-every existing chain follows this; `packages/core/src/@tests/` is reserved for
-shared test utilities/fixtures, never per-chain tests):
+Create a new directory for the chain:
 ```
 packages/core/src/chains/mychain/
-├── index.ts                   # CoreChainScope (hd/imported api proxies)
-├── types.ts                   # Chain-specific types
-├── CoreChainSoftware.ts       # Software wallet implementation
-├── CoreChainSoftware.test.ts  # Tests co-located next to sources
-└── sdkMychain/                # SDK wrapper if needed
-    ├── index.ts
+├── index.ts           # Main exports
+├── types.ts           # Chain-specific types
+├── CoreChainSoftware/ # Software wallet implementation
+│   └── index.ts
+├── sdkMychain/        # SDK wrapper if needed
+│   └── index.ts
+└── @tests/            # Chain tests
     └── index.test.ts
 ```
 
 ### 2. Add Chain Configuration
+Location: `packages/shared/src/config/chains/`
 
-Two registration points (there is no `config/chains/` directory):
-
-- `packages/shared/src/engine/engineConsts.ts` — `IMPL_MYCHAIN`,
-  `COINTYPE_MYCHAIN`, `COINNAME_MYCHAIN`; add the impl to `SUPPORTED_IMPLS`
-  (and to `PRODUCTION_IMPLS` only when release-ready).
-- `packages/shared/src/config/presetNetworks.ts` — add the `IServerNetwork`
-  object and register it in both export collections in the same file.
+Add chain constants and configuration:
+```typescript
+export const CHAIN_MYCHAIN = {
+  id: 'mychain',
+  name: 'My Chain',
+  symbol: 'MYC',
+  decimals: 18,
+  // ... other chain config
+};
+```
 
 ### 3. Update UI Components for Chain-Specific Features
 Location: `packages/kit/src/`
@@ -43,8 +46,7 @@ Add any chain-specific UI components or modifications needed for:
 - Network selection
 
 ### 4. Add Tests for Chain Functionality
-Location: co-located with sources (`CoreChainSoftware.test.ts`,
-`sdkMychain/index.test.ts`)
+Location: `packages/core/src/chains/mychain/@tests/`
 
 Write comprehensive tests:
 ```typescript
@@ -113,94 +115,3 @@ export async function buildTransaction(params: TxParams): Promise<UnsignedTx> {
   };
 }
 ```
-
-## Privacy Chains (Zcash / Monero-family / privacy pools)
-
-Privacy chains break the "backend serves account data" assumption: shielded
-balances are cryptographically invisible to any server (viewing keys required),
-so balance/history/state must be computed client-side. Reference
-implementation: `packages/kit-bg/src/vaults/impls/zcash/`; design rationale and
-known pitfalls: `packages/core/src/chains/zcash/ARCHITECTURE.md`.
-
-### Where the standard flows break, and the established seams
-
-| Broken assumption | Seam to use |
-|---|---|
-| Balance/token list come from backend | override `vault.fetchAccountDetails` + `vault.fetchTokenList` (serve locally) |
-| History comes from backend | override `vault.fetchAccountHistoryFromLocal` (VaultBase hook; a defined result replaces the server query in ServiceHistory) |
-| Fee comes from backend | override `vault.estimateFee` |
-| Broadcast returns a txid | set `withoutBroadcastTxId: true` if the protocol yields none pre-broadcast |
-| BTC-style precheck (blockbook UTXO list) | override `precheckUnsignedTx` when inheriting a UTXO vault |
-| UI needs chain-specific data (sync state, pools, receive forms) | no per-chain service: return an `ILocalWalletCapability` from `vault.getLocalWalletCapability()` and declare `settings.localWallet`; `ServicePrivacyChain` owns scheduling, GC and UI entry points. Identifiers and scan state go in a per-chain SimpleDb entity; viewing keys go through `vaults/localWallet/viewingKeyStore.ts` (see below) |
-| Heavy crypto (wasm/proving) | platform carrier pattern: `sdkXxx/sdk/index.ts` plus platform files (`.web`/`.desktop`, `.ext-bg-v3`, `.native`) and offscreen/webembed delegates (kaspa/zcash precedent) |
-
-### Integration pitfalls
-
-- Vault settings must be exported with `Object.freeze`: `getVaultSettings`
-  throws otherwise, and the `Promise.all` that loads every network rejects, so
-  all networks disappear.
-- The MV3 background entry (`index.ext-bg-v3.ts`) must stay a proxy: importing
-  a module that creates a Worker makes rspack panic on chunk ids.
-- BigInt cannot cross the extension offscreen or WebEmbed JSON bridges
-  ("Could not serialize message"); desktop's structured clone hides the bug.
-  Keep u64 values as decimal strings in SDK APIs.
-- Restart the dev server after rebuilding a wasm package; a running one fails
-  with "Cannot find module".
-
-### Settings inheritance is a trap
-
-When spreading another chain's settings (`{...settingsBtc}`), audit every
-inherited `true` flag: each one is a UI entry point promising a code path you
-may not have implemented (bulk send, coin control, custom RPC, hardware,
-imported/watching accounts...). Rule: an account type or feature ships enabled
-only when its full flow works; otherwise disable it.
-
-### Address scheme versioning (wallet-owned)
-
-Privacy-chain address forms evolve while the keys stay the same (new receiver
-types, receiver-composition policy). Persist addresses only as a cache stamped
-with a wallet-owned `addressSchemeVersion` (our compatibility ledger, not the
-SDK's or the protocol's version). Bump it only when we change what a given key
-derives to; on version mismatch, lazily re-derive from the stored viewing key
-(no password needed) and overwrite. When bumping the wasm SDK, run the chain's
-golden-address check (fixed test mnemonic vs committed expected addresses) —
-if outputs changed, the same diff must bump the scheme version and update the
-golden values.
-
-### Where account key material lives
-
-Three tiers, decided by what a leak exposes:
-
-| Tier | Examples | Where | Encrypted |
-|---|---|---|---|
-| Identifier | seed fingerprint, addresses, birthday | the chain's own SimpleDb entity; per wallet when it derives from the seed (one per seed), per account otherwise | no |
-| Viewing key | Zcash UFVK, Monero view key pair | `vaults/localWallet/viewingKeyStore.ts` only — never the account record, never read raw from storage | no (plain SimpleDb) |
-| Spending key | mnemonic, private keys | Credential table (password + LSE) | yes |
-
-- Viewing keys stay off `IDBAccount` (`pub`, `xpub`, ...): the account record
-  rides along with cloud backup, Prime transfer and account listings.
-- Treat a viewing key read as async and possibly empty. HD accounts implement
-  the capability's `deriveViewingKey`; `ServicePrivacyChain.ensureLocalWalletViewingKey`
-  rebuilds a missing copy with a cached password (never prompts).
-- Lifecycle is generic: account removal, deleting local privacy data and
-  app reset clear it. Every lifecycle event runs through
-  `ServicePrivacyChain.runLocalWalletLifecycle`, driven by the table in
-  `vaults/localWallet/lifecycle.ts`. A chain supplies only runtime primitives
-  (`deleteRuntimeAccount`, `rewindAccount`, `dropLocalData`, `resetStorage`,
-  `forgetMemoryCaches`, `clearPendingSends`) and never deletes host records
-  itself.
-- A cache of scanned data carries the account epoch: take the epoch before
-  the live read, and write back only while it is still current.
-- Scan state (intent, enable/disable journal, birthday, resume height,
-  per-chain fields, epoch) lives in one record per enabled account in
-  `simpleDb.privacyChainState`; its `vkFp` is the identity the stored key
-  must match. Records are validated one at a time, so a bad one reads as
-  not enabled without breaking the others.
-- SimpleDb fields need no `LOCAL_DB_VERSION` bump; keep each entity's zod
-  schema in step.
-
-### Structurally impossible (set product expectations, not bugs)
-
-Backend push notifications for shielded receipts, server-side address book
-validation of shielded addresses, swap/fiat integrations that assume indexed
-balances, cloud sync of local chain state.

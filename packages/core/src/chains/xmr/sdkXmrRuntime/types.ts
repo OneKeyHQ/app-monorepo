@@ -17,7 +17,6 @@ export type IXmrTransactionReviewRequest = {
   isMaxSend: boolean;
 };
 
-/** Fee tiers as monerod names them. */
 export type IXmrFeePriority =
   | 'unimportant'
   | 'normal'

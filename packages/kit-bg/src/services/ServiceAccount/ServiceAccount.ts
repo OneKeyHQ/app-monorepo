@@ -565,9 +565,7 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
-  // md5(mnemonic) -> generatedAt ms, so createHDWallet can tell a mnemonic
-  // generated in this session. In-memory, one-time-use, pruned by age; a lost
-  // record means "not proven fresh".
+  // md5(mnemonic) -> generatedAt ms, so createHDWallet can tell a mnemonic generated in this session. In-memory, one-time-use.
   private freshMnemonicFingerprints = new Map<string, number>();
 
   private static readonly FRESH_MNEMONIC_TTL_MS = 30 * 60 * 1000;
@@ -581,7 +579,6 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
-  // Consumes on match -- a retried createHDWallet call doesn't stay fresh.
   private consumeFreshMnemonicFlag(mnemonic: string): boolean {
     this.pruneFreshMnemonicFingerprints();
     const fp = md5(mnemonic);
@@ -4614,7 +4611,6 @@ class ServiceAccount extends ServiceBase {
     keylessDetailsInfo?: IKeylessWalletDetailsInfo;
     skipAddHDNextIndexedAccount?: boolean;
     applyRestoreSyncPolicy?: boolean;
-    // See EAppEventBusNames.WalletAdded. Omitted callers default to false.
     isFreshlyGeneratedMnemonic?: boolean;
   }): Promise<{
     wallet: IDBWallet;
@@ -4784,9 +4780,7 @@ class ServiceAccount extends ServiceBase {
       void this.logBackupMigrationFlagProbe({ stage: 'afterCreateHDWallet' });
     }
 
-    // Persist local-scanner provenance through one explicit capability fanout.
-    // An event-only listener can miss this because the service is lazy.
-    // The wallet is already saved, so a failure here must not fail the create.
+    // Fanout through an explicit capability (an event-only listener can miss a lazy service); a failure must not fail the create.
     try {
       await this.backgroundApi.servicePrivacyChain.onWalletCreated({
         walletId: result.wallet.id,
@@ -6291,7 +6285,6 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
     customReceiveAddressPath?: string;
-    /** The displayed address, used for the confirm card and hardware address format. */
     expectedAddress?: string;
     localWalletAddressForm?: 'public' | 'private';
   }): Promise<string[]> {

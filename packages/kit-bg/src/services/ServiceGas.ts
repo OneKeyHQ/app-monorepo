@@ -136,7 +136,6 @@ class ServiceGas extends ServiceBase {
       nativeTokenPrice === undefined &&
       (await isLocalWalletNetwork({ networkId: params.networkId }))
     ) {
-      // Price metadata needs only the asset identity, never the account or transaction.
       const network = await vault.getNetwork();
       const quotePrice = network.backendIndex
         ? await (async () => {

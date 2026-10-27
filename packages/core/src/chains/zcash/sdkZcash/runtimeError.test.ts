@@ -59,9 +59,6 @@ describe('readZcashRuntimeError', () => {
   });
 
   it('shows why the payload copy is needed', () => {
-    // Without it the hop keeps only the code, and a message that should read
-    // "short 0.0066, you have 0.013 in the transparent pool" degrades to a
-    // bare error name.
     const noPayload = Object.assign(new Error('X'), {
       code: 'X',
       params: { shortfallZat: 1 },

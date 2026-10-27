@@ -6,7 +6,6 @@ import type { IDecodedTxActionAssetTransfer } from '@onekeyhq/shared/types/tx';
 
 import settings from './settings';
 
-// The rule under test is the one Zcash ships in its settings.
 const publicAddressPattern = settings.localWallet?.publicAddressPattern;
 const getZcashHistoryDisplayAddress = (address?: string) =>
   getPrivacyChainPublicDisplayAddress({ publicAddressPattern, address });

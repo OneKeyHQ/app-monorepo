@@ -487,9 +487,7 @@ export async function buildUnsignedTx(
   return { ...unsignedTx, encodedTx: withPczt };
 }
 
-// Built here, not at signing, so review shows the exact proposal. Building
-// locks no notes: an abandoned review leaves nothing to release, and signing
-// verifies the PCZT against this review before any key touches it.
+// Built here so review shows the exact proposal; building locks no notes, and signing verifies the PCZT against this review.
 export async function zcashAttachPczt(
   vault: Vault,
   encodedTx: IEncodedTxZcash,
@@ -650,8 +648,7 @@ export async function broadcastTransaction(
         rawTx: signedTx.rawTx,
       },
     );
-    // Propagate transport errors through the normal BTC send error flow.
-    // The durable journal retains input locks for later reconciliation.
+    // Propagate transport errors through the BTC send error flow; the journal retains input locks.
     const broadcast = await vault.zcashBroadcastTransparentViaBackend(params);
     if (broadcast.txid.toLowerCase() !== expectedTxid.toLowerCase()) {
       throw zcashTransparentError(

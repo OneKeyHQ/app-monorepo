@@ -14,8 +14,7 @@ import type { IXmrPureRuntimeApi } from './sdkXmrRuntime/address';
 import type { IEncodedTxXmr } from './types';
 import type { ICoreApiNetworkInfo } from '../../types';
 
-// Signing and key-image import hand the runtime the same BIP-32 key address
-// derivation does; no spend key crosses back. Checked for both derive types.
+// The runtime gets the same BIP-32 key address derivation uses; no spend key crosses back.
 
 // ed25519 group order.
 const L = 2n ** 252n + 27_742_317_777_372_353_535_851_937_790_883_648_493n;

@@ -182,8 +182,7 @@ export default class Vault extends VaultBtc {
     } catch {
       return { ok: false, reason: 'invalid-url' };
     }
-    // The runtime reaches the node through the host relay, which serves only
-    // configured nodes; this one is not saved yet.
+    // The runtime relays only configured nodes; this one is not saved yet.
     const releaseProbe = allowPrivacyChainRelayProbe(normalized);
     try {
       const api = await this.zcashGetApi();
@@ -322,8 +321,7 @@ export default class Vault extends VaultBtc {
   }): Promise<IZcashWalletAccount> {
     const meta = await this.zcashGetAccountMeta({ accountId });
     if (!meta) {
-      // Meta is written once at account creation; if missing, that derivation
-      // failed. Recover via retryLocalWalletSetup -- never delete and re-add.
+      // Meta is written once at account creation; if missing, derivation failed. Recover via retryLocalWalletSetup, never delete and re-add.
       throw createZcashSetupIncompleteError();
     }
     return {
@@ -737,7 +735,6 @@ export default class Vault extends VaultBtc {
   >;
 
   async zcashFetchFreshTransparentUtxos(options?: {
-    // Chain-only vault callers (capability methods) name the account.
     account?: IDBUtxoAccount;
     rawTxRetries?: number;
   }): Promise<{
@@ -833,8 +830,6 @@ export default class Vault extends VaultBtc {
     return tx;
   }
 
-  // A shielded note has no token or address of its own; both ends lie in
-  // its pool.
   override buildHistoryTransfer(
     params: Parameters<VaultBtc['buildHistoryTransfer']>[0],
   ) {
@@ -924,7 +919,6 @@ export default class Vault extends VaultBtc {
     return zcashSend.broadcastTransaction(this, params);
   }
 
-  // Base-class behavior for the split-out modules.
   baseBuildHistoryTx(
     ...args: Parameters<VaultBtc['buildHistoryTx']>
   ): ReturnType<VaultBtc['buildHistoryTx']> {

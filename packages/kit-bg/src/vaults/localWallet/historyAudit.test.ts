@@ -96,7 +96,6 @@ it.each([null, 100])(
               appliedEpoch: '0123456789abcdef',
             }),
           },
-          // The runtime identity is named by the stored key's fingerprint.
           privacyChainKeys: {
             getKey: async () => ({
               networkId: 'xmr--0',
@@ -107,7 +106,6 @@ it.each([null, 100])(
         },
       },
     });
-    // The runtime fixture records the same field that the Rust wire history returns.
     await vault.broadcastTransaction({
       accountId,
       networkId: 'xmr--0',

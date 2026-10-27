@@ -24,7 +24,6 @@ import {
 
 import { Layout } from './utils/Layout';
 
-// Preset zec--0 mainnet network id (packages/shared/src/config/presetNetworks.ts).
 const ZCASH_NETWORK_ID = 'zec--0';
 
 const SELF_TEST_STAGES = [

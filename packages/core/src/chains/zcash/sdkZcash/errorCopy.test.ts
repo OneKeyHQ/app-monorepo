@@ -57,8 +57,6 @@ describe('zcashUserMessage', () => {
   });
 
   it('leaves caller-bug codes alone', () => {
-    // These can only come from a wrong call, never from anything the user did,
-    // so a friendly sentence would bury the one detail worth reporting.
     expect(
       zcashUserMessage(runtimeError('INVALID_DB_NAME', { operation: 'x' })),
     ).toBeNull();
@@ -69,8 +67,6 @@ describe('zcashUserMessage', () => {
   });
 
   it('explains a broken local cache instead of showing its code', () => {
-    // Reachable in normal use (corrupt or full storage), and Resync rebuilds
-    // the cache, so the user gets the recovery action.
     const message = zcashUserMessage(
       runtimeError('DATABASE_ERROR', { operation: 'x' }),
     );
@@ -156,8 +152,6 @@ it('names the node reason for a rejected broadcast', () => {
   );
 });
 
-// QA: a Worker that crashed at load surfaced "handshake timed out" (no code)
-// and the enable dialog said nothing.
 it.each([
   ['en-US', 'Privacy sync isn’t responding. Restart the app and try again.'],
   ['zh-CN', '隐私同步无响应。重启应用后重试。'],

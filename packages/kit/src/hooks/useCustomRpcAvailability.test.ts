@@ -31,7 +31,6 @@ describe('checkCustomRpcAvailability', () => {
     mockMeasureRpcStatus.mockRejectedValue(new Error('unreachable'));
   });
 
-  // Its node is its only data source; offering OneKey RPC would disable it.
   it('never flags a chain that ships its own node', async () => {
     mockGetVaultSettings.mockResolvedValue({
       builtInRpcUrls: ['https://node.example'],

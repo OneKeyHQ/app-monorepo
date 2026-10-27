@@ -154,7 +154,6 @@ async function readXmrNodeNetwork(url: string): Promise<string | undefined> {
   }
 }
 
-/** Maps runtime errors to actionable messages; anything not ours passes through. */
 function toXmrUserFacingError(error: unknown): unknown {
   if (getPrivacyChainRuntimeFailure(error)) {
     return new OneKeyLocalError(
@@ -200,15 +199,11 @@ function toXmrUserFacingError(error: unknown): unknown {
   return error;
 }
 
-/**
- * Send path is prepare -> sign -> broadcast because the fee depends on the
- * built transaction's weight, not a flat rate.
- */
+/** Prepare -> sign -> broadcast, since the fee depends on the built transaction weight. */
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    // No watch-only story: detecting spends needs key images, which need
-    // the spend key; a watching account would show an unverifiable balance.
+    // No watch-only: detecting spends needs key images, which need the spend key.
     watching: undefined,
     imported: undefined,
     // Firmware has a Monero impl inherited from Trezor, but @onekeyfe/hd-core
@@ -218,11 +213,7 @@ export default class Vault extends VaultBase {
     external: undefined,
   };
 
-  /**
-   * The account's viewing pair (`spendPub:viewPriv`, the analogue of a Zcash
-   * UFVK) from the privacy-chain viewing key store. Derivation is owned by
-   * the service's epoch-guarded authorization path, never a read.
-   */
+  /** The account viewing pair (`spendPub:viewPriv`) from the privacy-chain viewing key store; derivation belongs to the service authorization path, never a read. */
   async getXmrViewingKeys({
     accountId,
   }: {
@@ -246,7 +237,6 @@ export default class Vault extends VaultBase {
     }
     return {
       primaryAddress: account.address,
-      // The runtime identity's name; see getXmrRuntimeUuid.
       vkFp: getViewingKeyFingerprint({
         networkId: this.networkId,
         viewingKey: stored.value,
@@ -287,7 +277,6 @@ export default class Vault extends VaultBase {
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
     const { account, networkId } = params;
-    // Stored on the account record at creation (KeyringHd).
     const address = account.address ?? '';
     return {
       networkId,
@@ -331,8 +320,7 @@ export default class Vault extends VaultBase {
     });
   }
 
-  // Must be synced before building: an unscanned block may already have
-  // spent the outputs this send would pick (mirrors Cake Wallet's rule).
+  // Must be synced before building: an unscanned block may already have spent the outputs this send would pick.
   private async xmrAssertSyncedForSend(): Promise<void> {
     const capability = this.getLocalWalletCapability();
     const { sendMaxBlocksLeft } = capability.syncPolicy;
@@ -446,10 +434,7 @@ export default class Vault extends VaultBase {
     return state.epoch;
   }
 
-  /**
-   * Built at review time, not at signing: recomputing later could let the
-   * confirmed fee/amount drift from what's actually signed.
-   */
+  /** Built at review time, not signing, so the confirmed fee/amount cannot drift from what is signed. */
   private async xmrPrepareTransaction(
     encodedTx: IEncodedTxXmr,
   ): Promise<IEncodedTxXmr> {
@@ -503,11 +488,7 @@ export default class Vault extends VaultBase {
     });
   }
 
-  /**
-   * Confirms real spends via key images (watch-only scanning can't detect
-   * outside spends). The runtime reduces the spend key from the BIP-32 key
-   * for this call only; it never exists on this side.
-   */
+  /** Confirms real spends via key images; the runtime reduces the spend key from the BIP-32 key for this call only. */
   async xmrImportKeyImages({ password }: { password: string }): Promise<{
     imported: number;
     spendsFound: number;
@@ -549,7 +530,6 @@ export default class Vault extends VaultBase {
     const { imported, spendsFound } = await this.xmrImportKeyImages({
       password,
     });
-    // An imported key image unlocks a password-locked output either way.
     return imported > 0 || spendsFound > 0;
   }
 
@@ -642,8 +622,6 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
       extraInfo: null,
       encodedTx,
-      // Inputs were selected from real spendable outputs at build time; a
-      // balance recount on the confirm page could only disagree with it.
       isPsbt: true,
       totalFeeInNative: new BigNumber(encodedTx.feeAtomic || '0')
         .shiftedBy(-network.feeMeta.decimals)
@@ -653,20 +631,14 @@ export default class Vault extends VaultBase {
     };
   }
 
-  /**
-   * Nothing is adjustable after build: editing fee or amount would
-   * invalidate `signableHex` and silently sign something other than reviewed.
-   */
+  /** Nothing is adjustable after build: editing would invalidate `signableHex`. */
   override updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     return Promise.resolve(params.unsignedTx);
   }
 
-  /**
-   * Fee read off the already-built transaction; no quote/estimate fallback -
-   * showing a fee the tx won't actually pay is worse than showing none.
-   */
+  /** Fee read off the built transaction; no estimate fallback, since a wrong fee is worse than none. */
   override async estimateFee(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse> {
@@ -685,7 +657,6 @@ export default class Vault extends VaultBase {
           feeSymbol: network.feeMeta.symbol,
           nativeDecimals: network.decimals,
           nativeSymbol: network.symbol,
-          // feeUtils consumes feeValue as an already-parsed native amount.
           feeUTXO: [
             {
               feeValue: new BigNumber(encodedTx.feeAtomic)
@@ -698,7 +669,6 @@ export default class Vault extends VaultBase {
     };
   }
 
-  // The runtime always broadcasts through the configured node.
   override async broadcastTransactionFromCustomRpc(
     params: IBroadcastTransactionByCustomRpcParams,
   ): Promise<ISignedTxPro> {
@@ -706,10 +676,7 @@ export default class Vault extends VaultBase {
     return this.broadcastTransaction(rest);
   }
 
-  /**
-   * Irreversible. Outputs are marked spent and the tx recorded together, so a
-   * network error is recorded as pending rather than letting a resend pay twice.
-   */
+  /** Irreversible. Outputs are marked spent and the tx recorded together; a network error is recorded as pending so a resend cannot pay twice. */
   override async broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
@@ -790,8 +757,7 @@ export default class Vault extends VaultBase {
       error?: unknown;
     };
     if (signedTx.txid && txid !== signedTx.txid) {
-      // The txid is fixed at signing. A different one back means the runtime
-      // broadcast something other than what was signed.
+      // The txid is fixed at signing; a different one back means something else was broadcast.
       throw new OneKeyLocalError(
         `xmr: broadcast returned an unexpected transaction id (signed ${signedTx.txid}, broadcast ${txid})`,
       );
@@ -832,7 +798,6 @@ export default class Vault extends VaultBase {
     return { ...signedTx, txid, encodedTx };
   }
 
-  // A balance that is not enabled or cannot be read shows as zero, as on other chains.
   private async xmrGetBalanceForDisplay(): Promise<{
     total: string;
     totalParsed: string;
@@ -850,7 +815,6 @@ export default class Vault extends VaultBase {
       const state = await capability.getAccountState({
         accountId: this.accountId,
       });
-      // Pausing retains the saved balance.
       if (!state.enabled && !state.paused) {
         return zero;
       }
@@ -904,10 +868,7 @@ export default class Vault extends VaultBase {
     };
   }
 
-  /**
-   * Synthesizes the native token row: `backendIndex: false` means no server
-   * list to merge with, so without this the account page shows no XMR row.
-   */
+  /** Synthesizes the native token row: with `backendIndex: false` there is no server list to merge, so the account page would show no XMR row. */
   override async fetchTokenList(
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
@@ -923,8 +884,6 @@ export default class Vault extends VaultBase {
     });
   }
 
-  // `balance` is spendable (unlocked); total and the locked rest ride
-  // alongside, matching wallet2's balance/unlocked-balance split.
   override async fetchTokenDetails(
     _params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
@@ -964,10 +923,7 @@ export default class Vault extends VaultBase {
     };
   }
 
-  /**
-   * Local scan is the only history source; `undefined` falls back to cached
-   * rows instead of sending the account's address to the server API.
-   */
+  /** Local scan is the only history source; `undefined` falls back to cached rows rather than sending the address to the server API. */
   override async fetchAccountHistoryFromLocal(params: {
     accountId: string;
     networkId: string;
@@ -976,7 +932,6 @@ export default class Vault extends VaultBase {
   }): Promise<IAccountHistoryTx[] | undefined> {
     const txs = await this.xmrBuildHistoryTxs(params);
     if (!txs?.length) return txs;
-    // Cached rows too: pausing hides the primary address on Receive.
     const gate = await getLocalWalletHistoryAddressGate({
       backgroundApi: this.backgroundApi,
       networkId: params.networkId,
@@ -992,7 +947,6 @@ export default class Vault extends VaultBase {
     xpub?: string;
   }): Promise<IAccountHistoryTx[] | undefined> {
     const accountId = params.accountId || this.accountId;
-    // Never enabled: the runtime has no identity for it, so skip loading it.
     if (await this.xmrIsHistoryNeverEnabled(accountId)) return [];
     const items = await this.xmrListHistoryItems({ accountId });
     // Failed, or busy with nothing read yet: as a failed backend fetch does,
@@ -1045,7 +999,6 @@ export default class Vault extends VaultBase {
     }
   }
 
-  // `undefined` when the runtime cannot answer.
   private async xmrListHistoryItems({
     accountId,
   }: {
@@ -1142,10 +1095,7 @@ export default class Vault extends VaultBase {
     return { ...historyTx, privacyChainHistorySide: 'private' };
   }
 
-  /**
-   * Checked through the scanner's own request channel, so a pass here means
-   * the scanner can reach it; plain http works on desktop/extension only.
-   */
+  /** Checked through the scanner request channel; plain http works on desktop/extension only. */
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
@@ -1157,7 +1107,6 @@ export default class Vault extends VaultBase {
     if (protocol === 'http:' && platformEnv.isWeb) {
       throw new OneKeyLocalError('xmr: this platform needs an https node');
     }
-    // Same path join as the runtime's transport.
     const url = `${base}/get_height`;
     const start = Date.now();
     let text: string;

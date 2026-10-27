@@ -83,7 +83,6 @@ beforeEach(() => {
   };
 });
 
-// Inputs can include change addresses that are not the receive address.
 it.each([
   ['a locally parsed send', () => undefined],
   [
@@ -105,7 +104,6 @@ it.each([
   expect(screen.getByText('test memo')).toBeTruthy();
 });
 
-// The account row already shows the private address, so no source row.
 it('adds no source pool row for a shielded spend', () => {
   const tx: IEncodedTxZcash = {
     ...(mockDecodedTx.encodedTx as IEncodedTxZcash),

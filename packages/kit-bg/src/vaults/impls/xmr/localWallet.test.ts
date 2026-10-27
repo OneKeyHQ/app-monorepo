@@ -64,14 +64,12 @@ const runtime = {
     }),
 };
 
-// Stale-first is unit-tested in runtime.test.ts; here it passes through,
-// except when a test flips `mockBusy` to see what a UI read gets mid-step.
+// Stale-first is tested in runtime.test.ts; here it passes through unless a test sets `mockBusy`.
 let mockBusy = false;
 let mockNodeHealth:
   | { url: string; ok: boolean; latencyMs: number | null; atMs: number }
   | undefined;
 const mockGetIdentityId = jest.fn(async () => '3');
-// Stands in for the stored key's fingerprint, which names the runtime identity.
 const mockGetRuntimeUuid = jest.fn(
   async (accountId: string): Promise<string | undefined> => `fp-${accountId}`,
 );
@@ -126,8 +124,7 @@ beforeEach(() => {
 
 let mockNodeUrl = 'https://node.example:18081';
 
-// The service derives or reads the stored view key; undefined means it can't
-// yet (locked wallet, no cached password).
+// undefined: the key cannot be derived yet (locked wallet, no cached password).
 const mockEnsureViewingKey = jest.fn(
   async ({ accountId }: { accountId: string }): Promise<string | undefined> =>
     `key-${accountId}`,
@@ -204,7 +201,6 @@ describe('xmr sync progress before the first block', () => {
     peek = { scannedToHeight: null, ranges: [] };
   });
 
-  // Enabled but not yet scanned: progress must still show numbers.
   it('reports the queued range start as 0% rather than nothing', async () => {
     peek = {
       scannedToHeight: null,
@@ -218,7 +214,6 @@ describe('xmr sync progress before the first block', () => {
     expect(progress?.backfillProgress).toBe(0);
     expect(progress?.isSyncing).toBe(true);
     expect(progress?.isBackfillComplete).toBe(false);
-    // Nothing has actually been scanned, so the tip reading stays honest.
     expect(progress?.tipScannedHeight).toBeNull();
     expect(progress?.tipLag).toBeNull();
   });
@@ -276,7 +271,6 @@ describe('xmr syncGroup turns', () => {
     mockPublish.mockClear();
   });
 
-  // A turn is small steps inside the watchdog budget, ending early once caught up.
   it('steps in small batches until caught up', async () => {
     runtime.syncStep
       .mockImplementationOnce(async () =>
@@ -294,7 +288,6 @@ describe('xmr syncGroup turns', () => {
     expect(runtime.syncStep.mock.calls[0][1]).toBe(
       String(XMR_SYNC_STEP_BLOCKS),
     );
-    // Published once per step: new state, published state.
     expect(mockPublish).toHaveBeenCalledTimes(2);
     expect(mockPublish).toHaveBeenCalledWith({
       networkId: 'xmr--0',
@@ -320,8 +313,7 @@ describe('xmr syncGroup turns', () => {
     expect(result.caughtUpAccountIds).toEqual(['acc', 'alias']);
   });
 
-  // A page turned away by a busy runtime asks the scan for a balance; the
-  // scan saves one after its step and the page's next read gets it.
+  // A page turned away by a busy runtime asks the scan to save a balance for its next read.
   it('saves a balance mid-turn only when a page asked for one', async () => {
     const { balance } = runtime;
     const balanceReads = jest.fn(balance);
@@ -334,7 +326,6 @@ describe('xmr syncGroup turns', () => {
         accountIds: ['acc'],
         chainTip: 3_767_827,
       });
-      // Nobody asked: the scan read nothing extra.
       expect(balanceReads).not.toHaveBeenCalled();
 
       mockBusy = true;
@@ -459,7 +450,6 @@ describe('xmr UI reads while a scan step is in flight', () => {
     ).resolves.toBeNull();
   });
 
-  // Seen before on this device: the saved one is shown while busy.
   it('answers balance with the saved one while busy', async () => {
     const live = await capability().getAccountBalance({ accountId: 'acc' });
     mockBusy = true;
@@ -494,8 +484,7 @@ describe('xmr local sync data size', () => {
     });
   });
 
-  // Opening the runtime creates its database; a device that never scanned
-  // must not get one just because the settings page asked how big it is.
+  // Opening the runtime creates its database; the size query must not create one.
   it('reports nothing stored without opening the runtime when never enabled', async () => {
     mockHasAnyAccountState = false;
     await expect(capability().getStorageUsage?.()).resolves.toEqual({
@@ -538,7 +527,6 @@ describe('xmr persists rescan requests before background preparation', () => {
     expect(runtime.rewindTo).not.toHaveBeenCalled();
   });
 
-  // An earlier start widens what the account covers.
   it('moves the birthday back to an earlier rescan start', async () => {
     await capability('on', 3_700_000).rescan({
       accountId: 'acc',
@@ -590,10 +578,9 @@ it.each(['spendsDetected', 'sendsRestored'] as const)(
   },
 );
 
-// A database the runtime refuses to open (newer schema, corruption) must still
-// be recoverable from Settings, without a password.
+// A database the runtime refuses to open must still be recoverable from Settings without a password.
 describe('xmr storage reset', () => {
-  // B4: a paused account keeps its identity, so resuming it still finds one.
+  // A paused account keeps its identity, so resuming it still finds one.
   it('re-registers every account holding scan data, paused ones included, without the node', async () => {
     runtime.addAccount.mockClear();
     mockOnlineRuntime.mockClear();
@@ -644,8 +631,7 @@ describe('xmr storage reset', () => {
   });
 });
 
-// The settings page deletes an enabled account by turning it off first; a
-// sync that still lists it must not register it again.
+// Settings turns an enabled account off before deleting; a sync still listing it must not register it again.
 describe('xmr delete after turning the account off', () => {
   it('leaves nothing for a later sync to register', async () => {
     let state: Record<string, unknown> = {
@@ -653,8 +639,6 @@ describe('xmr delete after turning the account off', () => {
       birthdayHeight: 3_600_000,
     };
     const getXmrViewingKeys = jest.fn(viewingKeys);
-    // The executor removed the key with the data; nothing can derive it in
-    // the background without a cached password.
     const ensureLocalWalletViewingKey = jest.fn(async () => undefined);
     const cap = buildXmrLocalWalletCapability({
       networkId: 'xmr--0',
@@ -690,8 +674,7 @@ describe('xmr delete after turning the account off', () => {
     ).resolves.toEqual({ orphaned: false });
     expect(runtime.removeAccount).toHaveBeenCalledWith('fp-acc');
 
-    // The executor removed the key with the data. A sync whose account list
-    // predates the delete must not derive it again for an account now off.
+    // A sync whose account list predates the delete must not derive the key again.
     mockGetRuntimeUuid.mockImplementation(async () => undefined);
     try {
       await expect(
@@ -709,10 +692,9 @@ describe('xmr delete after turning the account off', () => {
   });
 });
 
-// P3: one account whose key can't be read must not stall the whole group.
+// One account whose key cannot be read must not stall the group.
 describe('xmr sync skips an account without its view key', () => {
   beforeEach(() => {
-    // No stored key: the sync has to derive one.
     mockGetRuntimeUuid.mockImplementation(async () => undefined);
   });
 
@@ -757,8 +739,7 @@ describe('xmr sync skips an account without its view key', () => {
   });
 });
 
-// A Resync that could not reach the node leaves the account enabled but
-// unknown to the runtime; the next sync registers it from its saved birthday.
+// After a Resync that could not reach the node, the next sync registers the account from its saved birthday.
 describe('xmr sync registers an enabled account the runtime lost', () => {
   it('adds it back from the saved birthday before scanning', async () => {
     mockGetIdentityId.mockRejectedValueOnce(new Error('not registered'));
@@ -864,8 +845,7 @@ describe('xmr user lifecycle operations do not depend on pending history', () =>
   });
 });
 
-// The runtime half of deleting an account's data; keys, journals and state
-// are the lifecycle executor's (ServicePrivacyChain).
+// Runtime half of deleting an account data; keys, journals and state belong to the lifecycle executor.
 describe('xmr runtime identity removal', () => {
   beforeEach(() => {
     runtime.removeAccount.mockClear();
@@ -905,7 +885,6 @@ describe('xmr runtime identity removal', () => {
     expect(runtime.removeAccount).not.toHaveBeenCalled();
   });
 
-  // Nothing names the identity any more: orphan cleanup must settle it.
   it('reports a possible orphan when its own key is gone', async () => {
     mockGetRuntimeUuid.mockImplementation(async () => undefined);
     await expect(
@@ -927,8 +906,7 @@ describe('xmr runtime identity removal', () => {
   });
 });
 
-// Nothing read (no state, or Travel Mode) is not "no other holder": an
-// identity another account may share stays for orphan cleanup to judge.
+// Nothing read (no state, Travel Mode) is not "no other holder": a shared identity stays for orphan cleanup.
 it('xmr keeps the runtime identity when the state cannot say who holds it', async () => {
   runtime.removeAccount.mockClear();
   const cap = buildXmrLocalWalletCapability({
@@ -1068,7 +1046,7 @@ describe('xmr app reset wipe', () => {
   });
 });
 
-// P2-1: an account removed without its key may have left an identity.
+// An account removed without its key may have left an identity.
 describe('xmr local data presence', () => {
   function capabilityWith(accountIds: string[], orphans: boolean) {
     return buildXmrLocalWalletCapability({
@@ -1243,7 +1221,6 @@ describe('xmr enable authorization boundary', () => {
       birthdayTimestamp,
       birthdaySource: 'restore-month',
     });
-    // Both reads use already saved authorization; no password or device request.
     expect(getKeys).toHaveBeenCalledTimes(2);
     expect(mockEnsureViewingKey).not.toHaveBeenCalled();
   });

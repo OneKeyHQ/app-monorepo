@@ -635,8 +635,7 @@ class ProviderApiPrivate extends ProviderApiBase {
     });
   }
 
-  // Only the app's own web-embed page may use the methods below; on native any
-  // frame can claim its origin, so the host's channel mark is required too.
+  // Only the app's own web-embed page may use these; on native any frame can claim its origin, so the host's channel mark is required too.
   private assertWebEmbedChannel(
     request: IJsBridgeMessagePayload,
     name: string,
@@ -661,10 +660,8 @@ class ProviderApiPrivate extends ProviderApiBase {
     this.backgroundApi,
   );
 
-  // The web-embed WebView relays its privacy-chain node requests here: its
-  // own fetch obeys CORS and mixed content, native networking does not. Only
-  // the web-embed page may use it, and only towards a configured node --
-  // otherwise it is a POST-anywhere proxy.
+  // Relays the web-embed's node requests (native networking ignores CORS). Web-embed page and configured
+  // nodes only, otherwise it is a POST-anywhere proxy.
   @providerApiMethod()
   async privacyChainNodeRequest(
     request: IJsBridgeMessagePayload,
@@ -723,7 +720,6 @@ class ProviderApiPrivate extends ProviderApiBase {
     return this.setWebEmbedApiNotReady();
   }
 
-  // The host's own teardown (ServiceDApp), not a page request.
   async setWebEmbedApiNotReady(): Promise<void> {
     defaultLogger.app.webembed.webembedApiNotReady();
     this.isWebEmbedApiReady = false;

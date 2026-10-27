@@ -57,7 +57,6 @@ type IService = InstanceType<typeof ServicePrivacyChain>;
 const networkId = 'zec--0';
 const accountId = 'hd-1--0';
 
-// Every call the executor can make, filed under the data class it touches.
 type IRecorded = ILocalWalletDataClass | 'rotateEpoch' | 'stopScheduling';
 
 function createHarness() {
@@ -141,7 +140,6 @@ function createHarness() {
   service.scheduleBackgroundSync = scheduleBackgroundSync;
   service.publishBoostingNetworks = publishBoostingNetworks;
   service.getLocalWalletNetworkIds = jest.fn(async () => [networkId]);
-  // Published progress is in-memory session state.
   mockAtomSet.mockImplementation(async () => {
     calls.push('memoryCaches');
   });
@@ -191,8 +189,6 @@ const STEP_OF: Record<IRecorded, ILocalWalletLifecycleStep> = {
   memoryCaches: 'memory',
 };
 
-// Effects that are done outside the executor (by App Reset's storage clear,
-// or in memory without a call this harness can see).
 const SILENT_EFFECTS = new Set([
   'clearedWithAppStorage',
   'rewritePendingDrop',
@@ -212,7 +208,6 @@ describe('privacy chain lifecycle executor', () => {
     '%s: touches exactly the data classes its table row changes, in step order',
     async (event) => {
       const { service, capability, calls } = createHarness();
-      // App Reset finds a scan running and stops it first.
       service.syncTickRunning = event === 'appReset';
       if (event === 'appReset') {
         (capability.recoverFromTimeout as jest.Mock).mockImplementation(
@@ -241,7 +236,6 @@ describe('privacy chain lifecycle executor', () => {
       if (spec.stopScheduling === 'waitForTick') expected.add('stopScheduling');
       expect([...new Set(calls)].toSorted()).toEqual([...expected].toSorted());
 
-      // A rotation after the runtime step is the settling one.
       const runtimeAt = calls.indexOf('runtimeRows');
       const steps = calls.map((name, index) =>
         LOCAL_WALLET_LIFECYCLE_STEPS.indexOf(
@@ -361,7 +355,6 @@ describe('privacy chain lifecycle executor', () => {
   });
 });
 
-// RV-a6 P3-2, P3-3 and P3-6.
 describe('privacy chain lifecycle executor: failures, timers and Travel Mode', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -409,7 +402,6 @@ describe('privacy chain lifecycle executor: failures, timers and Travel Mode', (
     (
       backgroundApi.simpleDb.privacyChainCache.removeLastBalances as jest.Mock
     ).mockRejectedValue(new Error('storage busy'));
-    // One account's row is gone, so its history can't be found.
     (
       backgroundApi.serviceAccount.getDBAccountSafe as jest.Mock
     ).mockImplementation(async ({ accountId: id }: { accountId: string }) =>
@@ -519,8 +511,6 @@ describe('privacy chain lifecycle executor: failures, timers and Travel Mode', (
   );
 });
 
-// B1: a stale-first write-back racing a destructive event. The cache must not
-// end up holding a balance for scan data that is gone, whichever lands first.
 describe('privacy chain cache write-back racing a delete', () => {
   function memoryStorage() {
     let saved: unknown = null;
@@ -584,7 +574,6 @@ describe('privacy chain cache write-back racing a delete', () => {
           finishRead = resolve;
         }),
     });
-    // The read is in flight; the delete runs to the end under it.
     await new Promise((resolve) => setTimeout(resolve, 0));
     await deleteLocalData(service, capability);
     finishRead('balance of deleted data');
@@ -627,7 +616,6 @@ describe('privacy chain cache write-back racing a delete', () => {
       epoch,
       value: 'balance',
     });
-    // The process died between the rotation and the cache delete.
     await privacyChainState.rotateAccountEpochs({ accountIds: [accountId] });
 
     await expect(
@@ -641,8 +629,6 @@ describe('privacy chain cache write-back racing a delete', () => {
     ).resolves.toBeNull();
   });
 
-  // RV-a6 P3-1: a read that takes the epoch the first rotation made, and
-  // reads the runtime before the rescan destroys its data.
   it('refuses a write-back whose read started between the rotation and the rescan', async () => {
     const { service, capability, backgroundApi, privacyChainState } =
       createRealHarness();

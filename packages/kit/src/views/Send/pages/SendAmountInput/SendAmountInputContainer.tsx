@@ -1394,7 +1394,6 @@ function SendAmountInputContainer() {
         sourcePool: sendSourcePool,
         toAddress: recipientAddress,
       })
-      // Warm-up is optional; the actual send builds any missing parameters.
       .catch(() => undefined);
   }, [
     isRouteFocused,
@@ -1465,7 +1464,6 @@ function SendAmountInputContainer() {
     if (!tokenDetails) return '0';
     // Backend may report "--" for an unknown price, which parses to NaN. Guard
     // the multiplication the same way the linkedAmount conversion does so the
-    // Selected spendable fiat balance never renders as "NaN".
     const priceBN = new BigNumber(tokenDetails.price ?? 0);
     const spendable = selectedUtxoTotalAmount ?? sourcePoolSpendableParsed;
     if (
@@ -4193,7 +4191,6 @@ function SendAmountInputContainer() {
       );
     }
 
-    // A paused scan already says so above.
     if (isWaitingForSync && !isPrivacyPaused) {
       addons.push(
         <SizableText
