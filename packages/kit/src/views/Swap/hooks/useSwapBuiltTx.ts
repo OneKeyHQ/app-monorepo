@@ -1571,8 +1571,14 @@ export function useSwapBuildTx({
           );
         }
       }
+      // An approval may come first; the swap carries the attribution to release.
+      const sentSwapInfo = res?.find((item) => item.signedTx.swapInfo)?.signedTx
+        .swapInfo;
+      if (sentSwapInfo) {
+        releaseRecentTokenPairAttribution(sentSwapInfo);
+      }
     },
-    [onBuildTxSuccess],
+    [onBuildTxSuccess, releaseRecentTokenPairAttribution],
   );
 
   const handleBuildTxFallbackOnCancel = useCallback(

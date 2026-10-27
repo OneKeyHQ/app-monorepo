@@ -2367,6 +2367,42 @@ describe('useSwapBuildTx Review analytics', () => {
     );
   });
 
+  it('releases a Recent trades pick when a fallback sends an approval first', async () => {
+    const review = renderReview({ preSwapData: { shouldFallback: true } });
+    await act(async () => {
+      review.store.set(swapRecentTokenPairSelectionAtom(), {
+        fromToken: quote.fromTokenInfo,
+        toToken: quote.toTokenInfo,
+      });
+    });
+    await review.send();
+    const fallback = mockNavigateTxConfirm.mock.calls[0][0];
+    const decodedTx = {
+      totalFeeInNative: '0.000021',
+      totalFeeFiatValue: '0.021',
+    } as ISendTxOnSuccessData['decodedTx'];
+    await act(async () => {
+      fallback.onSuccess?.([
+        {
+          signedTx: { txid: 'approval-tx', rawTx: '', encodedTx: {} },
+          decodedTx,
+        },
+        {
+          signedTx: {
+            txid: 'fallback-swap-tx',
+            rawTx: '',
+            encodedTx: {},
+            swapInfo: fallback.swapInfo,
+          },
+          decodedTx,
+        },
+      ]);
+    });
+    expect(
+      review.store.get(swapRecentTokenPairSelectionAtom()),
+    ).toBeUndefined();
+  });
+
   it('logs the actual swap from a late fallback callback with an approval first', async () => {
     const review = renderReview({ preSwapData: { shouldFallback: true } });
     await review.send();
