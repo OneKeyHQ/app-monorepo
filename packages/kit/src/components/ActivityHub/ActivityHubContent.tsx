@@ -211,8 +211,6 @@ export function ActivityHubContent({
   const themeVariant = useThemeVariant();
   const campaignItems = campaigns ?? EMPTY_ACTIVITY_HUB_CAMPAIGNS;
   const showIconBackground = menuLayout;
-  const horizontalPadding = '$4';
-  const topPadding = isDesktop && showTitle ? '$3.5' : '$3';
   const giftAnimation =
     themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark;
   const campaignCount = campaignItems.length;
@@ -221,6 +219,18 @@ export function ActivityHubContent({
   // have one in the sidebar and show the code and link to copy instead. The
   // Perps menu lists the entry like its other menu items.
   const showInvitePanel = !platformEnv.isNative && !menuLayout;
+  // The invite panel shares the title's 20px inset (popover header and dialog
+  // title alike) and keeps an even 16px above and below its content; the
+  // Perks row's own 6px press padding counts toward the bottom.
+  const horizontalPadding = showInvitePanel ? '$5' : '$4';
+  let topPadding: '$3' | '$3.5' = '$3';
+  if (!showInvitePanel && isDesktop && showTitle) {
+    topPadding = '$3.5';
+  }
+  let bottomPadding: '$2.5' | '$3.5' | '$4' = '$3.5';
+  if (showInvitePanel) {
+    bottomPadding = hasCampaigns ? '$4' : '$2.5';
+  }
   const hubTitle = intl.formatMessage({
     id: getActivityHubTitleId({ hasCampaigns, showInvitePanel }),
   });
@@ -241,7 +251,7 @@ export function ActivityHubContent({
   }, [layout, source]);
 
   return (
-    <YStack mb={menuLayout ? '$0' : '$2'}>
+    <YStack mb={menuLayout || showInvitePanel ? '$0' : '$2'}>
       {isDesktop && showTitle ? (
         <XStack px="$5" pt="$4" pb="$1">
           <SizableText size="$headingMd" color="$text" userSelect="none">
@@ -252,7 +262,7 @@ export function ActivityHubContent({
       <YStack
         px={menuLayout ? '$0' : horizontalPadding}
         pt={menuLayout ? '$0' : topPadding}
-        pb={menuLayout ? '$0' : '$3.5'}
+        pb={menuLayout ? '$0' : bottomPadding}
       >
         {showInvitePanel ? (
           <YStack gap="$2.5">

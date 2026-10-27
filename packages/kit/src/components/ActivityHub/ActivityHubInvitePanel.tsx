@@ -122,7 +122,7 @@ export function ActivityHubInvitePanel({
                 link menu does. */}
             {linkDescId ? (
               <SizableText
-                size="$bodyMd"
+                size="$bodySm"
                 color="$textSubdued"
                 numberOfLines={1}
                 flexShrink={1}
