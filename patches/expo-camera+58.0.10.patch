@@ -1,8 +1,8 @@
 diff --git a/node_modules/expo-camera/ios/CameraViewModule.swift b/node_modules/expo-camera/ios/CameraViewModule.swift
-index cccd73f..1546c4e 100644
+index 51baba6..a8f6103 100644
 --- a/node_modules/expo-camera/ios/CameraViewModule.swift
 +++ b/node_modules/expo-camera/ios/CameraViewModule.swift
-@@ -31,7 +31,12 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+@@ -32,7 +32,12 @@ public final class CameraViewModule: Module, ScannerResultHandler {
      }
  
      Property("isModernBarcodeScannerAvailable") {
@@ -14,8 +14,8 @@ index cccd73f..1546c4e 100644
 +      #endif
      }
  
-     Property("toggleRecordingAsyncAvailable") {
-@@ -332,6 +337,9 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+     Property("isDocumentScannerAvailable") {
+@@ -334,6 +339,9 @@ public final class CameraViewModule: Module, ScannerResultHandler {
      }
  
      AsyncFunction("launchScanner") { (options: VisionScannerOptions?) in
@@ -25,7 +25,7 @@ index cccd73f..1546c4e 100644
        if #available(iOS 16.0, *) {
          try await MainActor.run {
            guard DataScannerViewController.isSupported, DataScannerViewController.isAvailable else {
-@@ -342,14 +350,17 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+@@ -344,14 +352,17 @@ public final class CameraViewModule: Module, ScannerResultHandler {
            launchScanner(with: options)
          }
        }
@@ -42,8 +42,8 @@ index cccd73f..1546c4e 100644
 +      #endif
      }
  
-     AsyncFunction("getCameraPermissionsAsync") { (promise: Promise) in
-@@ -393,6 +404,8 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+     AsyncFunction("scanDocumentAsync") { (options: DocumentScannerOptions?) -> [String: Any]? in
+@@ -399,6 +410,8 @@ public final class CameraViewModule: Module, ScannerResultHandler {
      }
    }
  
@@ -52,15 +52,15 @@ index cccd73f..1546c4e 100644
    @available(iOS 16.0, *)
    @MainActor
    private func launchScanner(with options: VisionScannerOptions?) {
-@@ -428,17 +441,21 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+@@ -433,6 +446,7 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+       self?.onScannerDismissed()
      }
    }
- 
 +  #endif
-+
-   func onItemScanned(result: [String: Any]) {
-     sendEvent("onModernBarcodeScanned", result)
-   }
+ 
+   @available(iOS 13.0, *)
+   @MainActor
+@@ -462,11 +476,13 @@ public final class CameraViewModule: Module, ScannerResultHandler {
  
    @MainActor
    func onScannerDismissed() {
@@ -75,10 +75,10 @@ index cccd73f..1546c4e 100644
    }
  
 diff --git a/node_modules/expo-camera/ios/Current/BarcodeScannerUtils.swift b/node_modules/expo-camera/ios/Current/BarcodeScannerUtils.swift
-index 23827cf..41bfd7c 100644
+index 0502f8f..d66b3eb 100644
 --- a/node_modules/expo-camera/ios/Current/BarcodeScannerUtils.swift
 +++ b/node_modules/expo-camera/ios/Current/BarcodeScannerUtils.swift
-@@ -60,6 +60,8 @@ class BarcodeScannerUtils {
+@@ -52,6 +52,8 @@ class BarcodeScannerUtils {
      return result
    }
  
@@ -87,20 +87,19 @@ index 23827cf..41bfd7c 100644
    @available(iOS 16.0, *)
    static func visionDataScannerObjectToDictionary(item: RecognizedItem.Barcode) -> [String: Any] {
      var result = [String: Any]()
-@@ -83,6 +85,8 @@ class BarcodeScannerUtils {
+@@ -68,6 +70,7 @@ class BarcodeScannerUtils {
+ 
      return result
    }
- 
 +  #endif
-+
-   static func addEmptyCornerPoints(to result: inout [String: Any]) {
-     result["cornerPoints"] = []
-     result["bounds"] = [
+ 
+   // iOS reports upc_a as ean13 with an extra leading zero; strip it so the value matches the code.
+   static func normalizeBarcodeValue(_ value: String?, isEAN13: Bool) -> String? {
 diff --git a/node_modules/expo-camera/ios/Current/CameraSessionManager.swift b/node_modules/expo-camera/ios/Current/CameraSessionManager.swift
-index 403e033..5ead249 100644
+index 139cd02..0c472c5 100644
 --- a/node_modules/expo-camera/ios/Current/CameraSessionManager.swift
 +++ b/node_modules/expo-camera/ios/Current/CameraSessionManager.swift
-@@ -376,7 +376,10 @@ class CameraSessionManager: NSObject, DeviceDiscoveryDelegate {
+@@ -380,7 +380,10 @@ class CameraSessionManager: NSObject, DeviceDiscoveryDelegate {
      if photoOutput.isFastCapturePrioritizationSupported {
        photoOutput.isFastCapturePrioritizationEnabled = true
      }
@@ -112,7 +111,7 @@ index 403e033..5ead249 100644
  
    private func startSession() {
 diff --git a/node_modules/expo-camera/ios/Current/VisionScannerDelegate.swift b/node_modules/expo-camera/ios/Current/VisionScannerDelegate.swift
-index f7ceabc..d2f1638 100644
+index f7ceabc..207d3b7 100644
 --- a/node_modules/expo-camera/ios/Current/VisionScannerDelegate.swift
 +++ b/node_modules/expo-camera/ios/Current/VisionScannerDelegate.swift
 @@ -6,6 +6,8 @@ protocol ScannerResultHandler {
@@ -124,9 +123,8 @@ index f7ceabc..d2f1638 100644
  @available(iOS 16.0, *)
  class VisionScannerDelegate: NSObject, DataScannerViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
    private let handler: ScannerResultHandler
-@@ -32,3 +34,5 @@ class VisionScannerDelegate: NSObject, DataScannerViewControllerDelegate, UIAdap
+@@ -32,3 +34,4 @@ class VisionScannerDelegate: NSObject, DataScannerViewControllerDelegate, UIAdap
      handler.onScannerDismissed()
    }
  }
-+
 +#endif
