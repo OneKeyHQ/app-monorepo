@@ -1290,7 +1290,7 @@ function TokenListViewCmp(props: IProps) {
               tableLayout,
             })}
           />
-        ) : null
+        ) : undefined
       }
       ListEmptyComponent={EmptyComponentElement}
       renderItem={({ item, index }) => {

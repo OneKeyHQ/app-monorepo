@@ -142,35 +142,39 @@ function CreateNewWallet() {
         gap: '$5',
       }}
     >
-      <OnboardingIconButton
-        testID={OnboardingTestIDs.googleSignInButton}
-        variant="primary"
-        icon="GoogleIllus"
-        isLoading={isGoogleLoading}
-        disabled={isKeylessLoginInProgress}
-        onPress={handleGoogleLogin}
-      >
-        {intl.formatMessage(
-          { id: ETranslations.continue_with_social_platform },
-          { platform: 'Google' },
-        )}
-      </OnboardingIconButton>
-      <OnboardingIconButton
-        testID={OnboardingTestIDs.appleSignInButton}
-        variant="primary"
-        icon="AppleBrand"
-        isLoading={isAppleLoading}
-        disabled={isKeylessLoginInProgress}
-        onPress={handleAppleLogin}
-      >
-        {intl.formatMessage(
-          { id: ETranslations.continue_with_social_platform },
-          { platform: 'Apple' },
-        )}
-      </OnboardingIconButton>
+      {isKeylessWalletEnabled ? (
+        <>
+          <OnboardingIconButton
+            testID={OnboardingTestIDs.googleSignInButton}
+            variant="primary"
+            icon="GoogleIllus"
+            isLoading={isGoogleLoading}
+            disabled={isKeylessLoginInProgress}
+            onPress={handleGoogleLogin}
+          >
+            {intl.formatMessage(
+              { id: ETranslations.continue_with_social_platform },
+              { platform: 'Google' },
+            )}
+          </OnboardingIconButton>
+          <OnboardingIconButton
+            testID={OnboardingTestIDs.appleSignInButton}
+            variant="primary"
+            icon="AppleBrand"
+            isLoading={isAppleLoading}
+            disabled={isKeylessLoginInProgress}
+            onPress={handleAppleLogin}
+          >
+            {intl.formatMessage(
+              { id: ETranslations.continue_with_social_platform },
+              { platform: 'Apple' },
+            )}
+          </OnboardingIconButton>
+        </>
+      ) : null}
       {isWebKeylessSidePanelMode ? null : (
         <>
-          {!md ? <OnboardingOrDivider /> : null}
+          {!md && isKeylessWalletEnabled ? <OnboardingOrDivider /> : null}
           <OnboardingIconButton
             testID={OnboardingTestIDs.createNewWalletSeedPhraseBtn}
             icon="SecretPhraseOutline"
@@ -182,7 +186,7 @@ function CreateNewWallet() {
           </OnboardingIconButton>
         </>
       )}
-      {isWebKeylessSidePanelMode ? null : (
+      {isWebKeylessSidePanelMode || !isKeylessWalletEnabled ? null : (
         <KeylessOnboardingDebugPanel
           isResetMode={isResetMode}
           onResetModeChange={setIsResetMode}
@@ -209,36 +213,38 @@ function CreateNewWallet() {
           mt: -40,
         }}
       >
-        <OnboardingSidebar $md={{ pt: '$5', pb: '$5' }}>
-          {md ? null : <OnboardingIconBadge icon="WalletCryptoSolid" />}
-          <YStack gap="$6">
-            <SizableText size="$headingMd">
-              {intl.formatMessage({
-                id: ETranslations.onboarding_keyless_tagline,
-              })}
-            </SizableText>
-            {bullets.map((item) => (
-              <XStack key={item.titleId} gap="$5" alignItems="flex-start">
-                {md ? (
-                  <Icon
-                    name={item.icon}
-                    color="$iconSubdued"
-                    size="$6"
-                    flexShrink={0}
-                  />
-                ) : null}
-                <YStack flex={1} gap="$1">
-                  <SizableText size="$bodyLgMedium">
-                    {intl.formatMessage({ id: item.titleId })}
-                  </SizableText>
-                  <SizableText size="$bodyLg" color="$textSubdued">
-                    {intl.formatMessage({ id: item.descriptionId })}
-                  </SizableText>
-                </YStack>
-              </XStack>
-            ))}
-          </YStack>
-        </OnboardingSidebar>
+        {isKeylessWalletEnabled ? (
+          <OnboardingSidebar $md={{ pt: '$5', pb: '$5' }}>
+            {md ? null : <OnboardingIconBadge icon="WalletCryptoSolid" />}
+            <YStack gap="$6">
+              <SizableText size="$headingMd">
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_keyless_tagline,
+                })}
+              </SizableText>
+              {bullets.map((item) => (
+                <XStack key={item.titleId} gap="$5" alignItems="flex-start">
+                  {md ? (
+                    <Icon
+                      name={item.icon}
+                      color="$iconSubdued"
+                      size="$6"
+                      flexShrink={0}
+                    />
+                  ) : null}
+                  <YStack flex={1} gap="$1">
+                    <SizableText size="$bodyLgMedium">
+                      {intl.formatMessage({ id: item.titleId })}
+                    </SizableText>
+                    <SizableText size="$bodyLg" color="$textSubdued">
+                      {intl.formatMessage({ id: item.descriptionId })}
+                    </SizableText>
+                  </YStack>
+                </XStack>
+              ))}
+            </YStack>
+          </OnboardingSidebar>
+        ) : null}
         {md ? null : actions}
       </YStack>
     </OnboardingPage>

@@ -8,10 +8,10 @@
   ],
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
-    "@onekeyfe/react-native-bottom-tabs": "6.7.0-13",
-    "@onekeyfe/react-native-native-overlay": "6.7.0-13",
-    "@onekeyfe/react-native-scroll-guard": "6.7.0-13",
-    "@onekeyfe/react-native-segment-slider": "6.7.0-13",
+    "@onekeyfe/react-native-bottom-tabs": "6.7.0-14",
+    "@onekeyfe/react-native-native-overlay": "6.7.0-14",
+    "@onekeyfe/react-native-scroll-guard": "6.7.0-14",
+    "@onekeyfe/react-native-segment-slider": "6.7.0-14",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@react-navigation/bottom-tabs": "7.10.1",
     "@react-navigation/elements": "2.9.5",
@@ -27,7 +27,7 @@
     "react-hook-form": "^7.22.1",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-root-siblings": "^5.0.1",
-    "react-native-svg": "15.15.4"
+    "react-native-svg": "15.16.0"
   },
   "devDependencies": {
     "@svgr/core": "8.1.0",

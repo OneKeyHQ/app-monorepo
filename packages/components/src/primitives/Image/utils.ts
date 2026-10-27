@@ -18,11 +18,17 @@ export const useSourceRef = (source?: ImageSourcePropType) => {
   return sourceRef;
 };
 
+// `Array.isArray` does not narrow readonly arrays, which RN's strict
+// `ImageSourcePropType` now uses.
+export const isImageSourceArray = (
+  source: ImageSourcePropType,
+): source is readonly ImageURISource[] => Array.isArray(source);
+
 export const isEmptyResolvedSource = (source?: ImageSourcePropType | null) => {
   if (!source) {
     return true;
   }
-  if (Array.isArray(source)) {
+  if (isImageSourceArray(source)) {
     return source.length === 0;
   }
   return (
