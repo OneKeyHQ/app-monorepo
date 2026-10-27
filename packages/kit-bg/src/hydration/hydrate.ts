@@ -320,7 +320,17 @@ export function shouldProceedAfterReset(
   return countNonMetaEntries(recheck) === 0;
 }
 
+const isDesktopTrayRenderer =
+  typeof globalThis.location !== 'undefined' &&
+  new URLSearchParams(globalThis.location.search ?? '').get('render') ===
+    'tray';
+
 const promise: Promise<void> = (async () => {
+  if (isDesktopTrayRenderer) {
+    status = 'skipped';
+    return;
+  }
+
   // In development, keep generic context-atom hydration disabled to avoid
   // schema drift between local code changes. Prime only the versioned,
   // display-only Swap snapshots so localhost can verify the real
@@ -466,6 +476,8 @@ const promise: Promise<void> = (async () => {
 
 // Every other namespace, after the gate and after any wipe above: priming
 // from a read that started earlier would put back what the wipe removed.
-void promise.finally(schedulePrimeUiSnapshotStore);
+if (!isDesktopTrayRenderer) {
+  void promise.finally(schedulePrimeUiSnapshotStore);
+}
 
 setGlobal('__ONEKEY_COLD_START_PROMISE__', promise);

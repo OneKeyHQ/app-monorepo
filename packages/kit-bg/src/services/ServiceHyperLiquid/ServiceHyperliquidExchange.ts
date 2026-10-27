@@ -126,6 +126,10 @@ import {
 } from './cctpWithdraw';
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import {
+  createStaleReferrerBindingError,
+  isReferrerAlreadySetError,
+} from './referrerCodeBinding';
+import {
   getLiveUsdcWithdrawRoute,
   getUsdcWithdrawRoute,
 } from './usdcWithdrawRoute';
@@ -229,6 +233,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       endpoint: 'exchange',
       context: () => this._buildLogContext(),
       extra: { source: 'ServiceHyperliquidExchange' },
+      shouldLogFailure: ({ action, error }) =>
+        !(action === 'setReferrer' && isReferrerAlreadySetError(error)),
     });
   }
 
@@ -545,13 +551,34 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setReferrerCode(params: ISetReferrerRequest) {
+  async setReferrerCode(
+    params: ISetReferrerRequest,
+    options: IOrderAccountGuardOptions & {
+      expectedAgentAddress?: string;
+    } = {},
+  ) {
     await this.checkAccountCanTrade();
+    const client = this.exchangeClient;
+    if (
+      options.expectedAccountAddress &&
+      this._userAddress?.toLowerCase() !==
+        options.expectedAccountAddress.toLowerCase()
+    ) {
+      throw createStaleReferrerBindingError();
+    }
+    if (
+      options.expectedAgentAddress &&
+      this._account?.toLowerCase() !==
+        options.expectedAgentAddress.toLowerCase()
+    ) {
+      throw createStaleReferrerBindingError();
+    }
+    const targetUserAddress = this._userAddress;
     const context = await this._buildLogContext();
     const startedAt = Date.now();
     try {
       const response = await convertHyperLiquidResponse(() =>
-        this.exchangeClient.setReferrer(params),
+        client.setReferrer(params),
       );
       defaultLogger.perp.hyperliquid.setReferrer({
         ...context,
@@ -559,22 +586,25 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         response,
         ...buildHyperLiquidLogResult({ startedAt }),
       });
-      if (context.accountAddress) {
+      const resolvedUserAddress = targetUserAddress || context.accountAddress;
+      if (resolvedUserAddress) {
         await this.backgroundApi.serviceHyperliquidReferral.invalidateBannerCache(
-          { userAddress: context.accountAddress },
+          { userAddress: resolvedUserAddress },
         );
       }
       return response;
     } catch (error) {
-      defaultLogger.perp.hyperliquid.setReferrer({
-        ...context,
-        request: params,
-        response: extractHyperLiquidErrorResponse<
-          IApiRequestResult | IApiErrorResponse
-        >(error),
-        error: serializeHyperLiquidError(error),
-        ...buildHyperLiquidLogResult({ startedAt, error }),
-      });
+      if (!isReferrerAlreadySetError(error)) {
+        defaultLogger.perp.hyperliquid.setReferrer({
+          ...context,
+          request: params,
+          response: extractHyperLiquidErrorResponse<
+            IApiRequestResult | IApiErrorResponse
+          >(error),
+          error: serializeHyperLiquidError(error),
+          ...buildHyperLiquidLogResult({ startedAt, error }),
+        });
+      }
       throw error;
     }
   }

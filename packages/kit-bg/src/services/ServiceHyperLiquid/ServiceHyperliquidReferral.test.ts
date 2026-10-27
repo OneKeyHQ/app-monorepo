@@ -183,4 +183,29 @@ describe('referral banner reconciliation', () => {
       data: { referralAlreadySet: true },
     });
   });
+
+  it('persists already_has_referrer in banner cache when promotion condition check finds existing referrer', async () => {
+    request.mockResolvedValueOnce({ role: 'user' }).mockResolvedValueOnce({
+      referredBy: { referrer: address },
+      cumVlm: '0',
+    });
+    await expect(
+      service.checkReferralPromotionConditions({
+        origin: 'https://app.hyperliquid.xyz',
+        accountId: 'account-a',
+        userAddress: address,
+        isApproveAgentSign: true,
+      }),
+    ).resolves.toEqual({
+      shouldShow: false,
+      reason: 'already_has_referrer',
+    });
+    expect(setReferralBannerCache).toHaveBeenCalledWith(
+      address,
+      expect.objectContaining({
+        shouldShow: false,
+        reason: 'already_has_referrer',
+      }),
+    );
+  });
 });

@@ -13,8 +13,10 @@ import type {
   WebViewErrorEvent,
   WebViewHttpErrorEvent,
   WebViewNavigationEvent,
+  WebViewRenderProcessGoneEvent,
   WebViewSharedProps,
   WebViewSource,
+  WebViewTerminatedEvent,
 } from 'react-native-webview/lib/WebViewTypes';
 
 type IFirstParameterOrUndefined<T> = T extends (
@@ -47,6 +49,8 @@ export interface IInpageProviderWebViewProps
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
   onError?: (event: WebViewErrorEvent) => void;
   onHttpError?: (event: WebViewHttpErrorEvent) => void;
+  onContentProcessDidTerminate?: (event: WebViewTerminatedEvent) => void;
+  onRenderProcessGone?: (event: WebViewRenderProcessGoneEvent) => void;
   onScroll?: IWebViewOnScroll;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;

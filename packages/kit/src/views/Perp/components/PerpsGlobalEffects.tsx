@@ -238,14 +238,23 @@ function useSyncContextOrderBookOptionsToGlobal() {
 
 function useTradeRouteViewStateSync() {
   const actions = useHyperliquidActions();
+  const prevRouteFocusedRef = useRef<boolean | undefined>(
+    shouldTreatPerpAsFocusedOnMount ? true : undefined,
+  );
 
   useListenTabFocusState(
     ETabRoutes.Perp,
     (isFocus: boolean, isHiddenByModal: boolean) => {
+      const nextRouteFocused =
+        resolvePerpRouteFocused(isFocus) && !isHiddenByModal;
+      if (prevRouteFocusedRef.current === nextRouteFocused) {
+        return;
+      }
+      prevRouteFocusedRef.current = nextRouteFocused;
       actions.current.setTradeRouteViewState({
-        routeFocused: resolvePerpRouteFocused(isFocus) && !isHiddenByModal,
+        routeFocused: nextRouteFocused,
       });
-      if (resolvePerpRouteFocused(isFocus) && !isHiddenByModal) {
+      if (nextRouteFocused) {
         resetPerpsColdStartPerfSession();
         markPerpsColdStartPerf('route_focused');
       } else {

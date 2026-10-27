@@ -328,6 +328,14 @@ export default class ServiceHyperliquidReferral extends ServiceBase {
     // Condition 4: No existing referrer
     const referralInfo = await this.getUserReferralInfo({ userAddress });
     if (referralInfo?.referredBy) {
+      await this.backgroundApi.simpleDb.perp.setReferralBannerCache(
+        userAddress,
+        {
+          shouldShow: false,
+          reason: 'already_has_referrer',
+          cachedAt: Date.now(),
+        },
+      );
       defaultLogger.perp.hyperliquid.referralConditionCheck({
         userAddress,
         condition: 'existing_referrer',
