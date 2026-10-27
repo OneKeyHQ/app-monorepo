@@ -376,7 +376,6 @@ function MarketDetailWatchlistSidebarImpl({
   const { navigateToPerps } = usePerpsNavigation();
   const toMarketDetailPage = useToDetailPage({
     replaceCurrentDetail: true,
-    resolveMarketAsset: true,
   });
   const handleItemPress = useCallback(
     (item: IMarketToken) => {

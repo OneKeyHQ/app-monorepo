@@ -14,6 +14,7 @@ import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 import {
   getWebDappAllowListRule,
   getWebDappUrlFallback,
+  normalizeMarketTokenDetailPath,
 } from './webDappUrlFallback';
 
 const allowList = {
@@ -261,4 +262,67 @@ describe('getWebDappUrlFallback', () => {
       ).toBe('/market');
     },
   );
+});
+
+describe('normalizeMarketTokenDetailPath', () => {
+  const config = {
+    screens: {
+      [ETabMarketRoutes.MarketDetailV2]: 'market/token/:network/:tokenAddress',
+      [ETabMarketRoutes.MarketNativeDetail]: 'market/token/:network',
+    },
+  };
+
+  it.each(['eth', 'sol'])(
+    'publishes a reloadable native %s URL after switching token identity',
+    (network) => {
+      const params = {
+        network,
+        tokenAddress: '',
+        isNative: true,
+        marketTokenId: network,
+        marketVariantId: `${network}-variant`,
+      };
+      const path = normalizeMarketTokenDetailPath(
+        getPathFromState(
+          { routes: [{ name: ETabMarketRoutes.MarketDetailV2, params }] },
+          config,
+        ),
+      );
+      const pathname = path.split('?')[0];
+      const nativeAllowList = {
+        '/market/token/.': { showUrl: true, showParams: true },
+      };
+
+      expect(pathname).toBe(`/market/token/${network}`);
+      expect(
+        getWebDappAllowListRule({
+          allowList: nativeAllowList,
+          allowListKeys: Object.keys(nativeAllowList),
+          path: pathname,
+        }),
+      ).toEqual({ showUrl: true, showParams: true });
+      expect(getStateFromPath(path, config)?.routes[0]).toEqual(
+        expect.objectContaining({
+          name: ETabMarketRoutes.MarketNativeDetail,
+          params: {
+            network,
+            isNative: 'true',
+            marketTokenId: network,
+            marketVariantId: `${network}-variant`,
+          },
+        }),
+      );
+    },
+  );
+
+  it.each([
+    '/market/token/eth/0xabc?isNative=false&next=/market/token/sol/',
+    '/market/token/eth?isNative=true',
+    '/market/stock/AAPL',
+    '/modal/token-selector?next=/market/token/eth/',
+    '/market/token/eth//0xabc?isNative=false',
+    '/',
+  ])('preserves other URLs and query values: %s', (path) => {
+    expect(normalizeMarketTokenDetailPath(path)).toBe(path);
+  });
 });

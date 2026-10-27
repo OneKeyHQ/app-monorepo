@@ -1,0 +1,132 @@
+diff --git a/node_modules/expo-camera/ios/CameraViewModule.swift b/node_modules/expo-camera/ios/CameraViewModule.swift
+index cccd73f..1546c4e 100644
+--- a/node_modules/expo-camera/ios/CameraViewModule.swift
++++ b/node_modules/expo-camera/ios/CameraViewModule.swift
+@@ -31,7 +31,12 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+     }
+ 
+     Property("isModernBarcodeScannerAvailable") {
++      // OneKey patch: live scanning is unavailable; image decoding remains supported.
++      #if targetEnvironment(macCatalyst)
++      false
++      #else
+       if #available(iOS 16.0, *) { true } else { false }
++      #endif
+     }
+ 
+     Property("toggleRecordingAsyncAvailable") {
+@@ -332,6 +337,9 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+     }
+ 
+     AsyncFunction("launchScanner") { (options: VisionScannerOptions?) in
++      #if targetEnvironment(macCatalyst)
++      throw CameraScannerUnavailableException()
++      #else
+       if #available(iOS 16.0, *) {
+         try await MainActor.run {
+           guard DataScannerViewController.isSupported, DataScannerViewController.isAvailable else {
+@@ -342,14 +350,17 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+           launchScanner(with: options)
+         }
+       }
++      #endif
+     }
+ 
+     AsyncFunction("dismissScanner") {
++      #if !targetEnvironment(macCatalyst)
+       if #available(iOS 16.0, *) {
+         await MainActor.run {
+           dismissScanner()
+         }
+       }
++      #endif
+     }
+ 
+     AsyncFunction("getCameraPermissionsAsync") { (promise: Promise) in
+@@ -393,6 +404,8 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+     }
+   }
+ 
++  // OneKey patch: exclude only the unsupported VisionKit live scanner.
++  #if !targetEnvironment(macCatalyst)
+   @available(iOS 16.0, *)
+   @MainActor
+   private func launchScanner(with options: VisionScannerOptions?) {
+@@ -428,17 +441,21 @@ public final class CameraViewModule: Module, ScannerResultHandler {
+     }
+   }
+ 
++  #endif
++
+   func onItemScanned(result: [String: Any]) {
+     sendEvent("onModernBarcodeScanned", result)
+   }
+ 
+   @MainActor
+   func onScannerDismissed() {
++    #if !targetEnvironment(macCatalyst)
+     if #available(iOS 16.0, *) {
+       if let controller = scannerContext?.controller as? DataScannerViewController {
+         controller.stopScanning()
+       }
+     }
++    #endif
+     scannerContext = nil
+   }
+ 
+diff --git a/node_modules/expo-camera/ios/Current/BarcodeScannerUtils.swift b/node_modules/expo-camera/ios/Current/BarcodeScannerUtils.swift
+index 23827cf..41bfd7c 100644
+--- a/node_modules/expo-camera/ios/Current/BarcodeScannerUtils.swift
++++ b/node_modules/expo-camera/ios/Current/BarcodeScannerUtils.swift
+@@ -60,6 +60,8 @@ class BarcodeScannerUtils {
+     return result
+   }
+ 
++  // OneKey patch: keep image decoding independent of unavailable live scanning.
++  #if !targetEnvironment(macCatalyst)
+   @available(iOS 16.0, *)
+   static func visionDataScannerObjectToDictionary(item: RecognizedItem.Barcode) -> [String: Any] {
+     var result = [String: Any]()
+@@ -83,6 +85,8 @@ class BarcodeScannerUtils {
+     return result
+   }
+ 
++  #endif
++
+   static func addEmptyCornerPoints(to result: inout [String: Any]) {
+     result["cornerPoints"] = []
+     result["bounds"] = [
+diff --git a/node_modules/expo-camera/ios/Current/CameraSessionManager.swift b/node_modules/expo-camera/ios/Current/CameraSessionManager.swift
+index 403e033..5ead249 100644
+--- a/node_modules/expo-camera/ios/Current/CameraSessionManager.swift
++++ b/node_modules/expo-camera/ios/Current/CameraSessionManager.swift
+@@ -376,7 +376,10 @@ class CameraSessionManager: NSObject, DeviceDiscoveryDelegate {
+     if photoOutput.isFastCapturePrioritizationSupported {
+       photoOutput.isFastCapturePrioritizationEnabled = true
+     }
++    // OneKey patch: deferred photo delivery is unavailable on Mac Catalyst.
++    #if !targetEnvironment(macCatalyst)
+     photoOutput.isAutoDeferredPhotoDeliveryEnabled = false
++    #endif
+   }
+ 
+   private func startSession() {
+diff --git a/node_modules/expo-camera/ios/Current/VisionScannerDelegate.swift b/node_modules/expo-camera/ios/Current/VisionScannerDelegate.swift
+index f7ceabc..d2f1638 100644
+--- a/node_modules/expo-camera/ios/Current/VisionScannerDelegate.swift
++++ b/node_modules/expo-camera/ios/Current/VisionScannerDelegate.swift
+@@ -6,6 +6,8 @@ protocol ScannerResultHandler {
+   @MainActor func onScannerDismissed()
+ }
+ 
++// OneKey patch: VisionKit live scanning is unavailable on Mac Catalyst.
++#if !targetEnvironment(macCatalyst)
+ @available(iOS 16.0, *)
+ class VisionScannerDelegate: NSObject, DataScannerViewControllerDelegate, UIAdaptivePresentationControllerDelegate {
+   private let handler: ScannerResultHandler
+@@ -32,3 +34,5 @@ class VisionScannerDelegate: NSObject, DataScannerViewControllerDelegate, UIAdap
+     handler.onScannerDismissed()
+   }
+ }
++
++#endif
