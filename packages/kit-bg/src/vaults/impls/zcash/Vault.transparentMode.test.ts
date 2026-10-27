@@ -501,6 +501,7 @@ describe('Zcash private history detail routing', () => {
       lightwalletdUrl: 'https://lightwalletd.invalid',
       seedFingerprintHex: '00'.repeat(32),
       hdIndex: 0,
+      label: 'synthetic-fp',
     });
     const getHistory = jest.fn(async () => [item]);
     const getTxDetails = jest.fn(async () => ({
@@ -775,6 +776,7 @@ describe('Zcash history detail pool split', () => {
       lightwalletdUrl: 'https://lightwalletd.invalid',
       seedFingerprintHex: '00'.repeat(32),
       hdIndex: 0,
+      label: 'synthetic-fp',
     });
     const getHistory = jest.fn(async () => [{ ...item, poolIds }]);
     const getTxDetails = jest.fn(async () => ({

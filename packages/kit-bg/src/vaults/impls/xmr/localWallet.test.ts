@@ -142,6 +142,8 @@ function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
       simpleDb: {
         privacyChainCache,
         privacyChainState: {
+          getAccountVkFp: async ({ accountId }: { accountId: string }) =>
+            mockGetRuntimeUuid(accountId),
           getAccountEpoch: async () => 'e1',
           getXmrAccountState: async () => ({
             epoch: 'e1',
@@ -588,6 +590,8 @@ describe('xmr storage reset', () => {
       backgroundApi: {
         simpleDb: {
           privacyChainState: {
+            getAccountVkFp: async ({ accountId }: { accountId: string }) =>
+              mockGetRuntimeUuid(accountId),
             listXmrEnabledAccountIds: async () => ['acc-1', 'acc-2'],
             listScanDataAccountIds: async () => ['acc-1', 'acc-2', 'paused'],
             getXmrAccountState: async ({
@@ -643,6 +647,8 @@ describe('xmr delete after turning the account off', () => {
         simpleDb: {
           privacyChainCache,
           privacyChainState: {
+            getAccountVkFp: async ({ accountId }: { accountId: string }) =>
+              mockGetRuntimeUuid(accountId),
             getAccountEpoch: async () => 'e1',
             getXmrAccountState: async () => state,
             saveXmrDisabledAccount: async () => {
@@ -752,6 +758,8 @@ describe('xmr sync registers an enabled account the runtime lost', () => {
         },
         simpleDb: {
           privacyChainState: {
+            getAccountVkFp: async ({ accountId }: { accountId: string }) =>
+              mockGetRuntimeUuid(accountId),
             getXmrAccountState: async () => ({
               intent: 'on',
               birthdayHeight: 3_700_000,
@@ -852,7 +860,12 @@ describe('xmr runtime identity removal', () => {
       getXmrNetwork: async () => 'mainnet',
       backgroundApi: {
         simpleDb: {
-          privacyChainState: { listScanDataAccountIds: async () => holders },
+          privacyChainState: {
+            listScanDataAccountIds: async () => holders,
+            // The record names the identity, so deleting reads no key.
+            getAccountVkFp: async ({ accountId }: { accountId: string }) =>
+              mockGetRuntimeUuid(accountId),
+          },
         },
       },
     } as unknown as Vault);
@@ -875,7 +888,7 @@ describe('xmr runtime identity removal', () => {
     expect(runtime.removeAccount).not.toHaveBeenCalled();
   });
 
-  it('reports a possible orphan when its own key is gone', async () => {
+  it('reports a possible orphan when its record names no identity', async () => {
     mockGetRuntimeUuid.mockImplementation(async () => undefined);
     await expect(
       capabilityWithHolders(['acc']).deleteRuntimeAccount({ accountId: 'acc' }),
@@ -883,7 +896,7 @@ describe('xmr runtime identity removal', () => {
     expect(runtime.removeAccount).not.toHaveBeenCalled();
   });
 
-  it("reports a possible orphan when another holder's key is unreadable", async () => {
+  it("reports a possible orphan when another holder's record names no identity", async () => {
     mockGetRuntimeUuid.mockImplementation(async (accountId) =>
       accountId === 'acc' ? 'fp-acc' : undefined,
     );
@@ -905,6 +918,8 @@ it('xmr keeps the runtime identity when the state cannot say who holds it', asyn
     backgroundApi: {
       simpleDb: {
         privacyChainState: {
+          getAccountVkFp: async ({ accountId }: { accountId: string }) =>
+            mockGetRuntimeUuid(accountId),
           listScanDataAccountIds: async () => undefined,
         },
       },
@@ -1044,6 +1059,8 @@ describe('xmr local data presence', () => {
       backgroundApi: {
         simpleDb: {
           privacyChainState: {
+            getAccountVkFp: async ({ accountId }: { accountId: string }) =>
+              mockGetRuntimeUuid(accountId),
             listAccountIds: async () => accountIds,
             hasRuntimeOrphans: async () => orphans,
           },

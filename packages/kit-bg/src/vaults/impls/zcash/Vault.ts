@@ -327,6 +327,7 @@ export default class Vault extends VaultBtc {
       seedFingerprintHex: meta.seedFingerprintHex,
       hdIndex: meta.hdIndex,
       birthdayHeight: meta.birthdayHeight,
+      label: meta.vkFp,
     };
   }
 

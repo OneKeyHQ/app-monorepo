@@ -2200,17 +2200,18 @@ class ServicePrivacyChain extends ServiceBase {
           // eslint-disable-next-line no-continue
           continue;
         }
+        // The runtime names accounts by vkFp, so the record's is enough; no key is read.
         // eslint-disable-next-line no-await-in-loop
-        const key = await getLocalWalletViewingKey({
-          backgroundApi: this.backgroundApi,
-          networkId,
-          accountId,
-        });
+        const vkFp =
+          await this.backgroundApi.simpleDb.privacyChainState.getAccountVkFp({
+            networkId,
+            accountId,
+          });
         // Its runtime account cannot be told apart from an orphan.
-        if (!key) {
+        if (!vkFp) {
           return false;
         }
-        retained.push({ accountId, vkFp: key.vkFp, viewingKey: key.value });
+        retained.push({ accountId, vkFp });
       }
       if (!(await this.isLocalWalletOrphanCleanupAllowed(networkId))) {
         return false;

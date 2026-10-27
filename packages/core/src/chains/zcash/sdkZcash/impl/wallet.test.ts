@@ -2,7 +2,7 @@
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { getRuntime, withWallet } from './carrier';
+import { openWalletDatabase, withWallet } from './carrier';
 import {
   canonicalizeZcashWalletAccounts,
   getBalance,
@@ -22,6 +22,7 @@ jest.mock('./carrier', () => ({
   ...jest.requireActual<typeof import('./carrier')>('./carrier'),
   withWallet: jest.fn(),
   getRuntime: jest.fn(),
+  openWalletDatabase: jest.fn(),
 }));
 
 const account: IZcashWalletAccount = {
@@ -31,6 +32,7 @@ const account: IZcashWalletAccount = {
   seedFingerprintHex: 'test-seed',
   hdIndex: 0,
   birthdayHeight: 1_000_000,
+  label: 'test-fp',
 };
 
 describe('getTxDetails', () => {
@@ -487,18 +489,20 @@ describe('prepareWalletAccounts retention', () => {
     jest.clearAllMocks();
   });
 
-  it('retains paused host identities without importing them and removes actual orphans', async () => {
+  it('retains paused host identities by label without importing them and removes actual orphans', async () => {
     const removeAccount = jest.fn(async () => undefined);
     const rt = {
       accountByUfvk: (ufvk: string) => JSON.stringify({ uuid: ufvk }),
+      accountByName: (label: string) => JSON.stringify({ uuid: label }),
       listAccounts: () => JSON.stringify(['active', 'paused', 'orphan']),
       removeAccount,
     } as unknown as Awaited<ReturnType<typeof withWallet>>['rt'];
     jest.mocked(withWallet).mockResolvedValue({ rt, accountUuid: 'active' });
 
-    await prepareWalletAccounts([{ ...account, ufvk: 'active' }], {
-      retainedUfvks: ['active', 'paused'],
-    });
+    await prepareWalletAccounts(
+      [{ ...account, ufvk: 'active', label: 'active' }],
+      { retainedLabels: ['paused'] },
+    );
 
     expect(removeAccount).toHaveBeenCalledTimes(1);
     expect(removeAccount).toHaveBeenCalledWith('orphan');
@@ -507,6 +511,48 @@ describe('prepareWalletAccounts retention', () => {
         .mocked(withWallet)
         .mock.calls.every(([prepared]) => prepared.ufvk === 'active'),
     ).toBe(true);
+  });
+
+  // Registered before accounts were named by label: only its key still finds it.
+  it('keeps an account being prepared by its key even under an older name', async () => {
+    const removeAccount = jest.fn(async () => undefined);
+    const rt = {
+      accountByUfvk: (ufvk: string) =>
+        JSON.stringify(ufvk === 'active' ? { uuid: 'legacy-uuid' } : null),
+      accountByName: () => 'null',
+      listAccounts: () => JSON.stringify(['legacy-uuid', 'orphan']),
+      removeAccount,
+    } as unknown as Awaited<ReturnType<typeof withWallet>>['rt'];
+    jest
+      .mocked(withWallet)
+      .mockResolvedValue({ rt, accountUuid: 'legacy-uuid' });
+
+    await prepareWalletAccounts([{ ...account, ufvk: 'active' }], {
+      retainedLabels: [],
+    });
+
+    expect(removeAccount).toHaveBeenCalledTimes(1);
+    expect(removeAccount).toHaveBeenCalledWith('orphan');
+  });
+
+  it('removes nothing when a label names more than one account', async () => {
+    const removeAccount = jest.fn(async () => undefined);
+    const rt = {
+      accountByUfvk: (ufvk: string) => JSON.stringify({ uuid: ufvk }),
+      accountByName: () => {
+        throw new OneKeyLocalError('INVALID_ACCOUNT_ID');
+      },
+      listAccounts: () => JSON.stringify(['active', 'twin-a', 'twin-b']),
+      removeAccount,
+    } as unknown as Awaited<ReturnType<typeof withWallet>>['rt'];
+    jest.mocked(withWallet).mockResolvedValue({ rt, accountUuid: 'active' });
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await prepareWalletAccounts([{ ...account, ufvk: 'active' }], {
+      retainedLabels: ['twin'],
+    });
+
+    expect(removeAccount).not.toHaveBeenCalled();
   });
 
   it('does not infer ownership from an active-only registration call', async () => {
@@ -528,49 +574,71 @@ describe('purgeWallet', () => {
     jest.clearAllMocks();
   });
 
-  it('does not register an unknown account in order to delete it', async () => {
-    const removeAccount = jest.fn(async () => undefined);
-    const rt = {
-      listAccounts: () => JSON.stringify(['someone-else']),
-      removeAccount,
-    } as unknown as Awaited<ReturnType<typeof withWallet>>['rt'];
+  function runtime(found: string | null, remaining: string[]) {
+    return {
+      accountByName: jest.fn((label: string) =>
+        JSON.stringify(found && label === 'test-fp' ? { uuid: found } : null),
+      ),
+      removeAccount: jest.fn(async () => undefined),
+      listAccounts: () => JSON.stringify(remaining),
+      closeWallet: jest.fn(),
+      deleteWallet: jest.fn(async () => true),
+    };
+  }
+
+  it('drops the account named by its label without its key or a registration', async () => {
+    const rt = runtime('uuid-1', ['someone-else']);
     jest
-      .mocked(withWallet)
-      .mockRejectedValue(
-        Object.assign(
-          new OneKeyLocalError('zcash: account not registered in runtime'),
-          { code: 'ACCOUNT_NOT_FOUND' },
-        ),
+      .mocked(openWalletDatabase)
+      .mockResolvedValue(
+        rt as unknown as Awaited<ReturnType<typeof openWalletDatabase>>,
       );
-    jest.mocked(getRuntime).mockResolvedValue(rt);
 
-    await expect(purgeWallet(account)).resolves.toBeUndefined();
+    await expect(
+      purgeWallet({ network: 'main', label: 'test-fp' }),
+    ).resolves.toEqual({ removed: true });
 
+    expect(rt.removeAccount).toHaveBeenCalledWith('uuid-1');
     // Importing here would requeue every other account's scanned range.
-    expect(
-      jest.mocked(withWallet).mock.calls[0]?.[1]?.registerIfMissing,
-    ).not.toBe(true);
-    expect(removeAccount).not.toHaveBeenCalled();
+    expect(withWallet).not.toHaveBeenCalled();
+    expect(rt.deleteWallet).not.toHaveBeenCalled();
   });
 
-  it('removes the account it was asked to purge', async () => {
-    const removeAccount = jest.fn(async () => undefined);
-    const rt = {
-      listAccounts: () => JSON.stringify(['someone-else']),
-      removeAccount,
-    } as unknown as Awaited<ReturnType<typeof withWallet>>['rt'];
-    jest.mocked(withWallet).mockResolvedValue({ rt, accountUuid: 'uuid-1' });
-
-    await expect(purgeWallet(account)).resolves.toBeUndefined();
-
-    expect(removeAccount).toHaveBeenCalledWith('uuid-1');
-  });
-
-  it('propagates failures that are not a missing registration', async () => {
+  it('reports an account it cannot find under the label', async () => {
+    const rt = runtime(null, ['someone-else']);
     jest
-      .mocked(withWallet)
+      .mocked(openWalletDatabase)
+      .mockResolvedValue(
+        rt as unknown as Awaited<ReturnType<typeof openWalletDatabase>>,
+      );
+
+    await expect(
+      purgeWallet({ network: 'main', label: 'test-fp' }),
+    ).resolves.toEqual({ removed: false });
+    expect(rt.removeAccount).not.toHaveBeenCalled();
+  });
+
+  it('deletes the database after the last account', async () => {
+    const rt = runtime('uuid-1', []);
+    jest
+      .mocked(openWalletDatabase)
+      .mockResolvedValue(
+        rt as unknown as Awaited<ReturnType<typeof openWalletDatabase>>,
+      );
+
+    await purgeWallet({ network: 'main', label: 'test-fp' });
+
+    expect(rt.closeWallet).toHaveBeenCalledTimes(1);
+    expect(rt.deleteWallet).toHaveBeenCalledWith('zcash-main.db');
+  });
+
+  it('propagates a failure to open the database', async () => {
+    jest
+      .mocked(openWalletDatabase)
       .mockRejectedValue(new OneKeyLocalError('wallet is busy'));
 
-    await expect(purgeWallet(account)).rejects.toThrow('wallet is busy');
+    await expect(
+      purgeWallet({ network: 'main', label: 'test-fp' }),
+    ).rejects.toThrow('wallet is busy');
   });
 });

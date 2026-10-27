@@ -17,6 +17,7 @@ const account: IZcashWalletAccount = {
   seedFingerprintHex: 'test-fingerprint',
   hdIndex: 0,
   birthdayHeight: 1,
+  label: 'test-fp',
 };
 
 describe('scan limits in carrier builds', () => {

@@ -185,6 +185,9 @@ export type IZcashWalletAccount = {
   seedFingerprintHex: string;
   hdIndex: number;
   birthdayHeight?: number;
+  // The runtime account's name: the host's viewing key fingerprint, so the
+  // host can drop the account without its key.
+  label: string;
 };
 
 export type IZcashSyncResult = {
@@ -465,7 +468,7 @@ export type IZcashSdkApi = {
 
   prepareWalletAccounts: (
     accounts: IZcashWalletAccount[],
-    options?: { retainedUfvks: string[] },
+    options?: { retainedLabels: string[] },
   ) => Promise<IZcashWalletAccount[]>;
   syncWallet: (
     account: IZcashWalletAccount,
@@ -528,8 +531,11 @@ export type IZcashSdkApi = {
     account: IZcashWalletAccount,
     params: { pcztHex: string },
   ) => Promise<IZcashSendResult>;
-  // drop the in-memory wallet and its persisted db cache (account removed)
-  purgeWallet: (account: IZcashWalletAccount) => Promise<void>;
+  // Drops the account named `label` (and the database after the last one); false when absent.
+  purgeWallet: (params: {
+    network: IZcashNetwork;
+    label: string;
+  }) => Promise<{ removed: boolean }>;
   // Deletes the whole per-network database (app reset); every account's decrypted scan state goes with it.
   dropWalletDatabase: (network: IZcashNetwork) => Promise<void>;
 };

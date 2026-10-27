@@ -49,7 +49,6 @@ import {
   ZCASH_WORKER_RESET_TIMEOUT_MS,
   createZcashSetupIncompleteError,
   isZcashRuntimeDatabaseBroken,
-  isZcashSetupIncompleteError,
   zcashDescribeError,
   zcashIdentityMismatchAccountIds,
   zcashUserOperationsActive,
@@ -80,24 +79,18 @@ async function listZcashCleanupAccountIds(vault: Vault): Promise<string[]> {
   return uniq([...stateAccountIds, ...journalAccountIds]);
 }
 
-// Without its key nothing can name the runtime account; the orphan cleanup
-// purges it once every key it must keep reads.
+// The runtime names each account by its vkFp, so no key is needed. One that
+// is not found under it (registered before labels) is left to the orphan cleanup.
 async function purgeZcashRuntimeAccount(
   vault: Vault,
-  accountId: string,
+  vkFp: string,
 ): Promise<{ orphaned: boolean }> {
-  let account: IZcashWalletAccount;
-  try {
-    account = await vault.zcashGetWalletAccount({ accountId });
-  } catch (e) {
-    if (isZcashSetupIncompleteError(e)) {
-      return { orphaned: true };
-    }
-    throw e;
-  }
   const api = await vault.zcashGetApi();
-  await api.purgeWallet(account);
-  return { orphaned: false };
+  const { removed } = await api.purgeWallet({
+    network: ZCASH_NETWORK_MAIN,
+    label: vkFp,
+  });
+  return { orphaned: !removed };
 }
 
 // Uses the last saved tip: an older tip only keeps more sends.
@@ -227,7 +220,7 @@ export async function zcashPurgeRuntimeOrphans(
     });
     const api = await vault.zcashGetApi();
     await api.prepareWalletAccounts([account], {
-      retainedUfvks: uniq(retained.map(({ viewingKey }) => viewingKey)),
+      retainedLabels: uniq(retained.map(({ vkFp }) => vkFp)),
     });
     return true;
   });
@@ -1249,7 +1242,7 @@ export async function zcashDeleteRuntimeAccount(
           return { orphaned: false };
         }
       }
-      return purgeZcashRuntimeAccount(vault, accountId);
+      return purgeZcashRuntimeAccount(vault, targetMeta.vkFp);
     }),
   );
 }

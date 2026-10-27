@@ -324,7 +324,10 @@ export function buildXmrLocalWalletCapability(
         continue;
       }
       // eslint-disable-next-line no-await-in-loop
-      const otherVkFp = await getXmrRuntimeUuid({ vault, accountId: otherId });
+      const otherVkFp = await stateDb().getAccountVkFp({
+        networkId,
+        accountId: otherId,
+      });
       if (otherVkFp === vkFp) return 'alias';
       if (otherVkFp === undefined) held = 'maybe';
     }
@@ -672,7 +675,8 @@ export function buildXmrLocalWalletCapability(
         )
           return { orphaned: false };
         if (!hasXmrRuntimeApiLoader()) return { orphaned: false };
-        const vkFp = await getXmrRuntimeUuid({ vault, accountId });
+        // The record keeps the identity until the runtime step is done; no key needed.
+        const vkFp = await stateDb().getAccountVkFp({ networkId, accountId });
         if (vkFp === undefined) return { orphaned: true };
         const held = await identityHeldByOtherAccount({ accountId, vkFp });
         if (held !== 'no') return { orphaned: held === 'maybe' };

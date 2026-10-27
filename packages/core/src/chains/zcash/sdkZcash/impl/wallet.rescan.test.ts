@@ -30,6 +30,7 @@ const account: IZcashWalletAccount = {
   seedFingerprintHex: 'ab'.repeat(32),
   hdIndex: 0,
   birthdayHeight: 50,
+  label: 'synthetic-fp',
 };
 
 beforeEach(() => {

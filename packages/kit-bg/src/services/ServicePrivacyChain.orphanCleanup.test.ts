@@ -1,12 +1,10 @@
 import { Mutex } from 'async-mutex';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
-import { SimpleDbEntityPrivacyChainKeys } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 import { getViewingKeyFingerprint } from '../vaults/localWallet/viewingKeyFingerprint';
 
 import type { ILocalWalletRetainedIdentity } from '../vaults/localWallet/types';
@@ -37,37 +35,14 @@ function vkFpOf(accountId: string) {
   });
 }
 
-function createKeysDb(accountIds: string[]) {
-  const storage = createMemoryStorage({
-    data: {
-      keys: Object.fromEntries(
-        accountIds.map((id) => [
-          id,
-          {
-            networkId,
-            vkFp: vkFpOf(id),
-            sealed: { format: 'plain', value: `key-${id}` },
-          },
-        ]),
-      ),
-    },
-    updatedAt: 1,
-  });
-  const entity = new SimpleDbEntityPrivacyChainKeys();
-  (entity as { appStorage: unknown }).appStorage = {
-    getItem: storage.getItem,
-    setItem: storage.setItem,
-  };
-  return entity;
-}
-
 function accountRow(id: string) {
   return { id, indexedAccountId: `${id}--indexed` };
 }
 
+// `recordAccountIds`: accounts whose state record still names an identity.
 function createHarness({
-  keyAccountIds = [liveAccountId, hiddenAccountId, deletedAccountId],
-}: { keyAccountIds?: string[] } = {}) {
+  recordAccountIds = [liveAccountId, hiddenAccountId, deletedAccountId],
+}: { recordAccountIds?: string[] } = {}) {
   let identities = [liveAccountId, hiddenAccountId, deletedAccountId].map(
     vkFpOf,
   );
@@ -111,8 +86,13 @@ function createHarness({
           })),
         },
         simpleDb: {
-          privacyChainKeys: createKeysDb(keyAccountIds),
-          privacyChainState: { clearRuntimeOrphans },
+          privacyChainState: {
+            clearRuntimeOrphans,
+            getAccountVkFp: async ({ accountId }: { accountId: string }) =>
+              recordAccountIds.includes(accountId)
+                ? vkFpOf(accountId)
+                : undefined,
+          },
         },
       },
     },
@@ -169,7 +149,6 @@ describe('privacy chain runtime orphan cleanup', () => {
       retained: [liveAccountId, hiddenAccountId].map((accountId) => ({
         accountId,
         vkFp: vkFpOf(accountId),
-        viewingKey: `key-${accountId}`,
       })),
     });
     expect(identities()).toEqual([
@@ -214,18 +193,18 @@ describe('privacy chain runtime orphan cleanup', () => {
     expect(purgeRuntimeOrphans).not.toHaveBeenCalled();
   });
 
-  it("skips the pass when a kept account's key is not resolved", async () => {
+  it("skips the pass when a kept account's record names no identity", async () => {
     const { pass, purgeRuntimeOrphans, identities } = createHarness({
-      keyAccountIds: [liveAccountId, deletedAccountId],
+      recordAccountIds: [liveAccountId, deletedAccountId],
     });
     await expect(pass()).resolves.toBe(false);
     expect(purgeRuntimeOrphans).not.toHaveBeenCalled();
     expect(identities()).toHaveLength(3);
   });
 
-  it('needs no key for an account that is already gone', async () => {
+  it('needs no identity for an account that is already gone', async () => {
     const { pass, purgeRuntimeOrphans } = createHarness({
-      keyAccountIds: [liveAccountId, hiddenAccountId],
+      recordAccountIds: [liveAccountId, hiddenAccountId],
     });
     await expect(pass()).resolves.toBe(true);
     expect(purgeRuntimeOrphans).toHaveBeenCalledTimes(1);
@@ -281,7 +260,7 @@ describe('privacy chain runtime orphan cleanup', () => {
     expect(purgeRuntimeOrphans).not.toHaveBeenCalled();
   });
 
-  it('skips the pass when Reset starts while keys are read', async () => {
+  it('skips the pass when Reset starts while identities are read', async () => {
     const { pass, purgeRuntimeOrphans, listScanDataAccountIds } =
       createHarness();
     const resetting = jest.spyOn(resetUtils, 'getIsResetting');

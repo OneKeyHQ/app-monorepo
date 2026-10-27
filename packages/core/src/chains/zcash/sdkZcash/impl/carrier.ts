@@ -57,10 +57,9 @@ export function recordWalletScanProgress(account: IZcashWalletAccount): void {
   if (retries) retries.scanProgress += 1;
 }
 
-export function forgetWalletAccountRegistration(
-  account: IZcashWalletAccount,
-): void {
-  registrationRetries.get(walletDbName(account))?.failures.delete(account.ufvk);
+// A removed account may be enabled again; no earlier import failure should block it.
+export function forgetWalletRegistrationFailures(network: IZcashNetwork): void {
+  registrationRetries.get(walletDbNameForNetwork(network))?.failures.clear();
 }
 
 // Kept synchronously reachable: an await here would yield to the event loop, where the scan could retake the lease.
@@ -329,6 +328,19 @@ export async function diagnoseWalletDatabase({
 // The endpoint the last wallet operation used; health samples are attributed to it.
 let selectedEndpointUrl: string | undefined;
 
+// Opens the network's database without resolving any account.
+export async function openWalletDatabase(
+  network: IZcashNetwork,
+): Promise<IRuntimeModule> {
+  const rt = await getRuntime();
+  const dbName = walletDbNameForNetwork(network);
+  if (openDbName !== dbName) {
+    await rt.openWallet(network, dbName);
+    openDbName = dbName;
+  }
+  return rt;
+}
+
 export async function withWallet(
   account: IZcashWalletAccount,
   options?: {
@@ -339,13 +351,8 @@ export async function withWallet(
   rt: IRuntimeModule;
   accountUuid: string;
 }> {
-  const rt = await getRuntime();
+  const rt = await openWalletDatabase(account.network);
   const dbName = walletDbName(account);
-
-  if (openDbName !== dbName) {
-    await rt.openWallet(account.network, dbName);
-    openDbName = dbName;
-  }
   // Pinned to the configured endpoint (default or custom RPC); no automatic failover.
   selectedEndpointUrl = account.lightwalletdUrl;
   rt.setLightwalletdUrl(account.lightwalletdUrl);
@@ -390,7 +397,7 @@ export async function withWallet(
   const birthday = account.birthdayHeight ?? (await rt.chainTip());
   try {
     const accountUuid = await rt.importAccountUfvk(
-      `hd-${account.hdIndex}`,
+      account.label,
       account.ufvk,
       birthday,
       account.seedFingerprintHex,

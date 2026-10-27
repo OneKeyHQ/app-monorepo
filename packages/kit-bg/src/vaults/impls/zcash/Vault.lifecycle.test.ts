@@ -14,7 +14,7 @@ jest.mock('../../../dbs/local/localDbInstance');
 describe('Zcash local lifecycle operations do not depend on pending history', () => {
   function fixture(historyState: 'pending' | 'unreadable') {
     const accountId = 'synthetic-account';
-    const account = { ufvk: 'synthetic-ufvk' };
+    const account = { ufvk: 'synthetic-ufvk', vkFp: 'synthetic-fp' };
     const repair = {
       birthdayHeight: 2_000_000,
       requestedAt: 1,
@@ -25,7 +25,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
         throw new OneKeyLocalError('history unavailable');
       return ['11'.repeat(32)];
     });
-    const purgeWallet = jest.fn(async () => undefined);
+    const purgeWallet = jest.fn(async () => ({ removed: true }));
     const rescanWallet = jest.fn(async () => undefined);
     const dropWalletDatabase = jest.fn(async () => undefined);
     const clearAccountScanData = jest.fn(async () => undefined);
@@ -108,7 +108,10 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
 
       expect(f.readPending).not.toHaveBeenCalled();
       expect(f.purgeWallet).toHaveBeenCalledTimes(1);
-      expect(f.purgeWallet).toHaveBeenCalledWith(f.account);
+      expect(f.purgeWallet).toHaveBeenCalledWith({
+        network: 'main',
+        label: f.account.vkFp,
+      });
       expect(f.rescanWallet).toHaveBeenCalledTimes(2);
       expect(f.rescanWallet).toHaveBeenCalledWith(f.account);
       expect(f.dropWalletDatabase).toHaveBeenCalledWith('main');

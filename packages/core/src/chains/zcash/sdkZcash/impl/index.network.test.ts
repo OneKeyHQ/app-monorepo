@@ -27,6 +27,7 @@ const account: IZcashWalletAccount = {
   seedFingerprintHex: 'test-seed',
   hdIndex: 0,
   birthdayHeight: 1,
+  label: 'test-fp',
 };
 
 function networkError() {

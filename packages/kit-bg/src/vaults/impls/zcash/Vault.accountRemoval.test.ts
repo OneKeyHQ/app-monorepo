@@ -7,27 +7,25 @@ import {
   getZcashLifecycleMutex,
 } from './lifecycle';
 import Vault from './Vault';
-import { createZcashSetupIncompleteError } from './vaultUtils';
 
 // Runtime primitive for deleting an account's local data: never waits on an in-flight tx, never drops data another live account scans under the same viewing key.
 describe('Zcash runtime deletion of an account', () => {
-  const ufvk = 'uview-removal-test';
   const vkFp = 'f'.repeat(32);
 
   function createVault({
     otherAccountStillExists = false,
     otherHoldsScanData = true,
-    keyReadable = true,
+    foundUnderLabel = true,
     scanListReadable = true,
     malformedHolder = false,
   }: {
     otherAccountStillExists?: boolean;
     otherHoldsScanData?: boolean;
     malformedHolder?: boolean;
-    keyReadable?: boolean;
+    foundUnderLabel?: boolean;
     scanListReadable?: boolean;
   } = {}) {
-    const purgeWallet = jest.fn(async () => undefined);
+    const purgeWallet = jest.fn(async () => ({ removed: foundUnderLabel }));
     const metas = new Map([
       ['deleted', { vkFp }],
       ['other', { vkFp }],
@@ -61,10 +59,6 @@ describe('Zcash runtime deletion of an account', () => {
               ? { id: 'other' }
               : null,
         },
-      },
-      zcashGetWalletAccount: async () => {
-        if (!keyReadable) throw createZcashSetupIncompleteError();
-        return { ufvk };
       },
       zcashGetApi: async () => ({ purgeWallet }),
     });
@@ -106,10 +100,11 @@ describe('Zcash runtime deletion of an account', () => {
       purge: true,
     },
     {
-      title: 'reports possible orphans when its key can no longer be read',
-      options: { keyReadable: false },
+      // Registered before runtime accounts were named; the orphan pass removes it.
+      title: 'reports a possible orphan when no runtime account has its label',
+      options: { foundUnderLabel: false },
       orphaned: true,
-      purge: false,
+      purge: true,
     },
     {
       title:
@@ -136,7 +131,12 @@ describe('Zcash runtime deletion of an account', () => {
     await expect(
       vault.getLocalWalletCapability().deleteRuntimeAccount({ accountId }),
     ).resolves.toEqual({ orphaned });
-    if (purge) expect(purgeWallet).toHaveBeenCalledWith({ ufvk });
+    // Named by its fingerprint, so no key is read to remove it.
+    if (purge)
+      expect(purgeWallet).toHaveBeenCalledWith({
+        network: 'main',
+        label: vkFp,
+      });
     else expect(purgeWallet).not.toHaveBeenCalled();
   });
 });

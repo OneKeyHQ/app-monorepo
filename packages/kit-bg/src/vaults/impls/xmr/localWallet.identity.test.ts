@@ -598,9 +598,7 @@ describe('xmr runtime orphan purge', () => {
 
     await expect(
       capability.purgeRuntimeOrphans?.({
-        retained: [
-          { accountId: ALIAS_A, vkFp: SHARED_FP, viewingKey: SHARED_KEY },
-        ],
+        retained: [{ accountId: ALIAS_A, vkFp: SHARED_FP }],
       }),
     ).resolves.toBe(true);
 

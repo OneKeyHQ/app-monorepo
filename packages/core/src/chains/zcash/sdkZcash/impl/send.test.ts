@@ -39,6 +39,7 @@ const account: IZcashWalletAccount = {
   ufvk: 'test-ufvk',
   seedFingerprintHex: 'test-seed',
   hdIndex: 0,
+  label: 'test-fp',
 };
 
 describe('Zcash PCZT send policy', () => {

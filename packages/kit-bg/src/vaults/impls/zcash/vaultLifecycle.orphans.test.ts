@@ -51,12 +51,12 @@ function createVault({ pausedMetaVkFp = 'fp-paused' } = {}) {
 }
 
 const retained = [
-  { accountId: LIVE, vkFp: 'fp-live', viewingKey: 'ufvk-live' },
-  { accountId: PAUSED, vkFp: 'fp-paused', viewingKey: 'ufvk-paused' },
+  { accountId: LIVE, vkFp: 'fp-live' },
+  { accountId: PAUSED, vkFp: 'fp-paused' },
 ];
 
 describe('zcash runtime orphan cleanup', () => {
-  it('keeps every retained key, paused ones included, opening through a scanning account', async () => {
+  it('keeps every retained identity by label, paused ones included, opening through a scanning account', async () => {
     const { vault, prepareWalletAccounts } = createVault();
 
     await expect(zcashPurgeRuntimeOrphans(vault, { retained })).resolves.toBe(
@@ -66,7 +66,7 @@ describe('zcash runtime orphan cleanup', () => {
     // Only the scanning account is registered; the paused one is kept by key.
     expect(prepareWalletAccounts).toHaveBeenCalledWith(
       [{ ufvk: 'ufvk-live' }],
-      { retainedUfvks: ['ufvk-live', 'ufvk-paused'] },
+      { retainedLabels: ['fp-live', 'fp-paused'] },
     );
   });
 

@@ -15,6 +15,7 @@ jest.mock('onekey-zcash-runtime', () => ({
   openWallet: jest.fn(async () => undefined),
   setLightwalletdUrl: jest.fn(),
   accountByUfvk: jest.fn(),
+  accountByName: jest.fn(),
   importAccountUfvk: jest.fn(),
   listAccounts: jest.fn(),
   accountBalance: jest.fn(),
@@ -34,12 +35,19 @@ const pending: IZcashWalletAccount = {
   seedFingerprintHex: 'synthetic-fingerprint',
   hdIndex: 0,
   birthdayHeight: 100,
+  label: 'fp-pending',
 };
-const healthy = { ...pending, ufvk: 'healthy', hdIndex: 1 };
+const healthy = {
+  ...pending,
+  ufvk: 'healthy',
+  hdIndex: 1,
+  label: 'fp-healthy',
+};
 const later = { ...pending, ufvk: 'later', hdIndex: 2 };
 
 function createRuntime(structured = false) {
   const registered = new Map<string, string>();
+  const named = new Map<string, string>();
   const state = {
     allowPending: false,
     blocksToScan: 0,
@@ -68,11 +76,17 @@ function createRuntime(structured = false) {
     );
   jest
     .mocked(runtime.importAccountUfvk)
-    .mockImplementation(async (_name, ufvk) => {
+    .mockImplementation(async (name, ufvk) => {
       if (ufvk === pending.ufvk && !state.allowPending) throw checkpointError;
       registered.set(ufvk, ufvk);
+      named.set(name, ufvk);
       return ufvk;
     });
+  jest
+    .mocked(runtime.accountByName)
+    .mockImplementation((name) =>
+      JSON.stringify(named.has(name) ? { uuid: named.get(name) } : null),
+    );
   jest
     .mocked(runtime.listAccounts)
     .mockImplementation(() => JSON.stringify([...registered.values()]));
@@ -164,7 +178,7 @@ it.each([false, true])(
     );
     expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(5);
     expect(runtime.importAccountUfvk).toHaveBeenLastCalledWith(
-      'hd-0',
+      pending.label,
       pending.ufvk,
       pending.birthdayHeight,
       pending.seedFingerprintHex,
@@ -178,7 +192,7 @@ it('does not repeat a failed first import to run orphan cleanup', async () => {
   const api = await sdk.getZcashApi();
   await expect(
     api.prepareWalletAccounts([pending, healthy], {
-      retainedUfvks: [pending.ufvk, healthy.ufvk],
+      retainedLabels: [pending.label, healthy.label],
     }),
   ).resolves.toEqual([healthy]);
   expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(2);
@@ -224,7 +238,7 @@ it('retries each changed birthday without waiting for unrelated scan progress', 
     expectedCalls += 1;
     expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(expectedCalls);
     expect(runtime.importAccountUfvk).toHaveBeenLastCalledWith(
-      'hd-0',
+      pending.label,
       pending.ufvk,
       birthdayHeight,
       pending.seedFingerprintHex,

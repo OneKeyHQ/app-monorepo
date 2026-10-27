@@ -34,7 +34,7 @@ describe('Zcash identity mismatch recovery', () => {
     const privacyChainState = withMemoryStorage(
       new SimpleDbEntityPrivacyChainState(),
     );
-    const purgeWallet = jest.fn(async () => undefined);
+    const purgeWallet = jest.fn(async () => ({ removed: true }));
     const backgroundApi = {
       simpleDb: {
         privacyChainState,
@@ -139,10 +139,17 @@ describe('Zcash identity mismatch recovery', () => {
         },
       ],
     });
-    expect(purgeWallet).not.toHaveBeenCalled();
+    // The lost key does not matter: the runtime account is named by the old identity.
+    expect(purgeWallet).toHaveBeenCalledWith({
+      network: 'main',
+      label: getViewingKeyFingerprint({
+        networkId,
+        viewingKey: 'ufvk-before-firmware-change',
+      }),
+    });
     await expect(
       privacyChainState.hasRuntimeOrphans({ networkId }),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
     expect(zcashIdentityMismatchAccountIds.has(account.id)).toBe(false);
     await expect(
       capability.getAccountState({ accountId: account.id }),

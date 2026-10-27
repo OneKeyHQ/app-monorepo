@@ -10,9 +10,10 @@ import {
 
 import {
   forgetOpenWallet,
-  forgetWalletAccountRegistration,
+  forgetWalletRegistrationFailures,
   getRuntime,
   noteNetworkOutcome,
+  openWalletDatabase,
   getEndpointHealth as readEndpointHealth,
   recordEndpointHealth,
   recordWalletScanProgress,
@@ -133,22 +134,32 @@ export function canonicalizeZcashWalletAccounts(
 
 // Host owns the account set; an orphaned runtime account (lost host record)
 // would otherwise be trial-decrypted forever with no way to remove it.
+// Accounts being prepared match by key (they may predate labels); the rest by label.
 async function purgeAccountsUnknownToHost(
   rt: Awaited<ReturnType<typeof withWallet>>['rt'],
-  knownUfvks: string[],
+  known: { ufvks: string[]; labels: string[] },
 ): Promise<void> {
-  const knownUuids = new Set(
-    knownUfvks
-      .map(
-        (ufvk) =>
-          (
-            JSON.parse(rt.accountByUfvk(ufvk)) as {
-              uuid: string;
-            } | null
-          )?.uuid,
-      )
-      .filter((uuid): uuid is string => !!uuid),
-  );
+  const lookup = (found: string) =>
+    (JSON.parse(found) as { uuid: string } | null)?.uuid;
+  let knownUuids: Set<string>;
+  try {
+    knownUuids = new Set(
+      [
+        ...known.ufvks.map((ufvk) => lookup(rt.accountByUfvk(ufvk))),
+        ...known.labels.map((label) => lookup(rt.accountByName(label))),
+      ].filter((uuid): uuid is string => !!uuid),
+    );
+  } catch (e) {
+    if (e instanceof WebAssembly.RuntimeError) throw e;
+    // A label the runtime finds twice cannot say which account to keep.
+    console.error(
+      '[zcash] orphan purge skipped: an account label is ambiguous',
+      {
+        error: e instanceof Error ? e.message : String(e),
+      },
+    );
+    return;
+  }
   const all = JSON.parse(rt.listAccounts()) as string[];
   const unknown = all.filter((candidate) => !knownUuids.has(candidate));
   for (const uuid of unknown) {
@@ -168,7 +179,7 @@ async function purgeAccountsUnknownToHost(
 
 export async function prepareWalletAccounts(
   accounts: IZcashWalletAccount[],
-  options?: { retainedUfvks: string[] },
+  options?: { retainedLabels: string[] },
 ): Promise<IZcashWalletAccount[]> {
   // Opens and migrates each account's DB up front, one at a time — the runtime holds only one database open.
   const canonical = canonicalizeZcashWalletAccounts(accounts);
@@ -185,10 +196,13 @@ export async function prepareWalletAccounts(
   }
   if (runtime && options) {
     // Paused accounts keep their cache outside the active scan set; retention must be explicit or purge can't tell what's still owned.
-    await purgeAccountsUnknownToHost(runtime, [
-      ...options.retainedUfvks,
-      ...canonical.map(({ ufvk }) => ufvk),
-    ]);
+    await purgeAccountsUnknownToHost(runtime, {
+      ufvks: canonical.map(({ ufvk }) => ufvk),
+      labels: [
+        ...options.retainedLabels,
+        ...canonical.map(({ label }) => label),
+      ],
+    });
   }
   return registered;
 }
@@ -760,32 +774,34 @@ export async function getEndpointHealth(): Promise<
 // Removes the runtime account and its local transaction state; callers must
 // preserve pending transaction state required by their lifecycle operation.
 // The shared network database remains while other runtime accounts exist.
-export async function purgeWallet(account: IZcashWalletAccount): Promise<void> {
-  // Registering it just to remove it would rewind the shared database and requeue every other
-  // account's range; an unregistered account has nothing to drop.
-  let registered: Awaited<ReturnType<typeof withWallet>> | undefined;
-  try {
-    registered = await withWallet(account);
-  } catch (e) {
-    if (!isZcashRuntimeError(e, 'ACCOUNT_NOT_FOUND')) throw e;
+// Drops an account by its label, so no key is needed; registering it just to
+// remove it would rewind the shared database and requeue every other account.
+export async function purgeWallet({
+  network,
+  label,
+}: {
+  network: IZcashNetwork;
+  label: string;
+}): Promise<{ removed: boolean }> {
+  const rt = await openWalletDatabase(network);
+  const found = JSON.parse(rt.accountByName(label)) as { uuid: string } | null;
+  if (found) {
+    await rt.removeAccount(found.uuid);
   }
-  // Open either way: withWallet opens the database before resolving the account, so the emptiness check below is accurate.
-  const rt = registered?.rt ?? (await getRuntime());
-  if (registered) {
-    await rt.removeAccount(registered.accountUuid);
-  }
+  forgetWalletRegistrationFailures(network);
 
   const remaining = JSON.parse(rt.listAccounts()) as string[];
-  forgetWalletAccountRegistration(account);
-  if (remaining.length > 0) return;
+  if (remaining.length > 0) return { removed: !!found };
 
   // Last one out deletes the file: close and clear the carrier's cached handle first, or the next call
   // reuses a handle to deleted bytes. WALLET_BUSY propagates rather than deleting an open database.
   rt.closeWallet();
-  forgetOpenWallet(account.network);
+  forgetOpenWallet(network);
   // A re-created database starts without subtree roots; the freshness mark must be cleared with the file.
-  subtreeRootsFreshUntil.delete(walletDbName(account));
-  await rt.deleteWallet(walletDbName(account));
+  const dbName = walletDbNameForNetwork(network);
+  subtreeRootsFreshUntil.delete(dbName);
+  await rt.deleteWallet(dbName);
+  return { removed: !!found };
 }
 
 // App reset: deletes the per-network database outright; the runtime closes it first if open, and a missing database is not an error.

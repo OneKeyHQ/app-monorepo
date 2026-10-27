@@ -275,9 +275,11 @@ const api: IZcashSdkApi = {
   submitPczt: leased(submitPczt),
   quotePczt: leased(quotePczt),
   provePczt: leased(provePczt),
-  purgeWallet: async (account) => {
-    await leasedPurgeWallet(account);
-    forgetLastReads(account);
+  purgeWallet: async (params) => {
+    const result = await leasedPurgeWallet(params);
+    // A label does not name the account's read keys, so all go.
+    forgetLastReads(null);
+    return result;
   },
   dropWalletDatabase: async (network) => {
     await leasedDropWalletDatabase(network);

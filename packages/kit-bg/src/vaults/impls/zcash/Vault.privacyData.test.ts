@@ -66,7 +66,7 @@ describe('Zcash local privacy data deletion', () => {
 
   function createVault(aliasState: IZcashPrivacyModeStateView) {
     const meta = createMeta();
-    const purgeWallet = jest.fn().mockResolvedValue(undefined);
+    const purgeWallet = jest.fn().mockResolvedValue({ removed: true });
     const rotateAccountEpochs = jest.fn().mockResolvedValue(undefined);
     const clearAccountScanData = jest.fn().mockResolvedValue(undefined);
     const states: Record<string, IZcashPrivacyModeStateView> = {
@@ -176,13 +176,13 @@ describe('Zcash local privacy data deletion', () => {
     ).resolves.toEqual({ orphaned: false });
 
     expect(purgeWallet).toHaveBeenCalledTimes(1);
-    expect(purgeWallet).toHaveBeenCalledWith(expect.objectContaining({ ufvk }));
+    expect(purgeWallet).toHaveBeenCalledWith({ network: 'main', label: vkFp });
     expect(rotateAccountEpochs).not.toHaveBeenCalled();
     expect(clearAccountScanData).not.toHaveBeenCalled();
   });
 
-  // A lost key must not block deleting; leftover runtime rows are reported for the orphan marker.
-  it('reports possible orphans for an account whose key can no longer be read', async () => {
+  // The runtime account is named by its fingerprint, so a lost key does not block deleting.
+  it('deletes an account whose key can no longer be read', async () => {
     const { purgeWallet, vault } = createVault({
       intent: 'off',
     });
@@ -192,9 +192,9 @@ describe('Zcash local privacy data deletion', () => {
 
     await expect(
       vault.getLocalWalletCapability().deleteRuntimeAccount({ accountId }),
-    ).resolves.toEqual({ orphaned: true });
+    ).resolves.toEqual({ orphaned: false });
 
-    expect(purgeWallet).not.toHaveBeenCalled();
+    expect(purgeWallet).toHaveBeenCalledWith({ network: 'main', label: vkFp });
   });
 });
 

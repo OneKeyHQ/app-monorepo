@@ -20,7 +20,6 @@ export type ILocalWalletAccount = {
 export type ILocalWalletRetainedIdentity = {
   accountId: string;
   vkFp: string;
-  viewingKey: string;
 };
 
 export type ILocalWalletSyncProgress = {
