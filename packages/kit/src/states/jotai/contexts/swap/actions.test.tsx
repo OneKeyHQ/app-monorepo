@@ -10,6 +10,7 @@ import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/co
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { resolveVerifiedSwapBalance } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceOwnerUtils';
+import { buildSwapPositionPrefetchScopes } from '@onekeyhq/kit/src/views/Swap/utils/swapPositionPrefetchUtils';
 import {
   SWAP_PRO_POSITIONS_CACHE_MAX_TOKENS_PER_OWNER,
   SWAP_PRO_POSITIONS_CACHE_VERSION,
@@ -9391,6 +9392,259 @@ describe('useSwapActions', () => {
           balanceParsed: '2',
         }),
       ],
+    });
+  });
+
+  describe('Stock and Swap position account isolation', () => {
+    const networkList: ISwapNetwork[] = [
+      {
+        networkId: 'evm--56',
+        name: 'BNB Chain',
+        symbol: 'BNB',
+        supportSingleSwap: true,
+        supportStock: true,
+      },
+    ];
+    const swapAddress = 'swap-default-address';
+    const swapAccountId = 'swap-default-account';
+    const stockAddress = 'stock-derived-address';
+    const stockAccountId = 'stock-derived-account';
+    const swapOwner = 'indexed-account__evm--56__usd';
+    const stockOwner = 'indexed-account__evm--56__usd__stock';
+    const stockPosition = {
+      ...stockTokenA,
+      accountAddress: stockAddress,
+      balanceParsed: '9',
+      fiatValue: '900',
+    };
+    const swapPosition = {
+      ...stockTokenA,
+      accountAddress: swapAddress,
+      balanceParsed: '1',
+      fiatValue: '100',
+    };
+
+    function setup({
+      sameAccount = false,
+      swap = true,
+      stock = true,
+    }: { sameAccount?: boolean; swap?: boolean; stock?: boolean } = {}) {
+      platformEnv.isNative = true;
+      mockGetSupportSwapAllAccounts.mockResolvedValue({
+        supportAccountsFetchFailed: false,
+        swapSupportAccounts: [
+          {
+            networkId: 'evm--56',
+            accountId: swapAccountId,
+            apiAddress: swapAddress,
+          },
+        ],
+      });
+      mockFetchSwapTokens.mockImplementation(async (params) =>
+        (params as IFetchTokensParams).accountAddress === swapAddress
+          ? [swapPosition]
+          : [stockPosition],
+      );
+      mockFetchMarketTokenListBatch.mockResolvedValue({
+        list: [{ stock: { stockId: 'AAPL', subtitle: '', sourceLogoUri: '' } }],
+      });
+      const [primary, ...additional] = buildSwapPositionPrefetchScopes({
+        swapNetworksReady: true,
+        proNetworksReady: false,
+        swapNetworkList: swap ? networkList : [],
+        stockNetworkList: stock ? networkList : [],
+        proNetworkList: [],
+      });
+      const { store, Wrapper } = createWrapperWithStore();
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      const load = () =>
+        result.current.swapProLoadSupportNetworksTokenList(
+          primary.networkList.map((network) => ({
+            networkId: network.networkId,
+            name: network.name,
+            symbol: network.name,
+          })),
+          'indexed-account',
+          undefined,
+          'usd',
+          {
+            positionLoader: loadSwapProPositions,
+            stockOnly: primary.stockOnly,
+            accountScope: 'active-stock-scope',
+            networkAccount: {
+              networkId: 'evm--56',
+              accountId: sameAccount ? swapAccountId : stockAccountId,
+              apiAddress: sameAccount ? swapAddress : stockAddress,
+            },
+            additionalSupportNetworkScopes: additional.map((scope) => ({
+              stockOnly: scope.stockOnly,
+              supportNetworks: scope.networkList.map((network) => ({
+                networkId: network.networkId,
+                name: network.name,
+                symbol: network.name,
+              })),
+            })),
+          },
+        );
+      return { store, load };
+    }
+
+    it('keeps requests, runtime positions and cached balances assigned to each account', async () => {
+      const { store, load } = setup();
+      await act(async () => {
+        await load();
+      });
+      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
+      for (const [accountAddress, accountId] of [
+        [swapAddress, swapAccountId],
+        [stockAddress, stockAccountId],
+      ]) {
+        expect(mockFetchSwapTokens).toHaveBeenCalledWith(
+          expect.objectContaining({ accountAddress, accountId }),
+        );
+      }
+      expect(
+        store.get(swapProPositionsRuntimeDataAtom())[swapOwner],
+      ).toMatchObject({
+        status: 'success',
+        tokens: [swapPosition],
+      });
+      expect(
+        store.get(swapProPositionsRuntimeDataAtom())[stockOwner],
+      ).toMatchObject({
+        status: 'success',
+        tokens: [stockPosition],
+      });
+      expect(
+        store.get(swapProPositionsCacheAtom()).byOwner[swapOwner].tokens[0]
+          .balanceParsed,
+      ).toBe('1');
+      expect(
+        store.get(swapProPositionsCacheAtom()).byOwner[stockOwner].tokens[0]
+          .balanceParsed,
+      ).toBe('9');
+    });
+
+    it('shares one request when both scopes resolve to the same account', async () => {
+      const { store, load } = setup({ sameAccount: true });
+      await act(async () => {
+        await load();
+      });
+      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(1);
+      expect(mockFetchMarketTokenListBatch).toHaveBeenCalledTimes(1);
+      for (const owner of [swapOwner, stockOwner]) {
+        expect(
+          store.get(swapProPositionsRuntimeDataAtom())[owner],
+        ).toMatchObject({
+          status: 'success',
+          tokens: [swapPosition],
+        });
+      }
+    });
+
+    it.each([
+      { swap: true, stock: false, owner: swapOwner, position: swapPosition },
+      { swap: false, stock: true, owner: stockOwner, position: stockPosition },
+    ])(
+      'preserves the account for a single scope $owner',
+      async ({ swap, stock, owner, position }) => {
+        const { store, load } = setup({ swap, stock });
+        await act(async () => {
+          await load();
+        });
+        expect(mockFetchSwapTokens).toHaveBeenCalledTimes(1);
+        expect(
+          store.get(swapProPositionsRuntimeDataAtom())[owner],
+        ).toMatchObject({
+          status: 'success',
+          tokens: [position],
+        });
+      },
+    );
+
+    it.each([
+      {
+        failedAddress: stockAddress,
+        failedOwner: stockOwner,
+        healthyOwner: swapOwner,
+        healthyPosition: swapPosition,
+      },
+      {
+        failedAddress: swapAddress,
+        failedOwner: swapOwner,
+        healthyOwner: stockOwner,
+        healthyPosition: stockPosition,
+      },
+    ])(
+      'isolates a failed request for $failedOwner',
+      async ({ failedAddress, failedOwner, healthyOwner, healthyPosition }) => {
+        const { store, load } = setup();
+        mockFetchSwapTokens.mockImplementation(async (params) => {
+          if ((params as IFetchTokensParams).accountAddress === failedAddress) {
+            throw new OneKeyLocalError('Account token request failed');
+          }
+          return [healthyPosition];
+        });
+        await act(async () => {
+          await load();
+        });
+        expect(
+          store.get(swapProPositionsRuntimeDataAtom())[healthyOwner],
+        ).toMatchObject({
+          status: 'success',
+          tokens: [healthyPosition],
+        });
+        expect(
+          store.get(swapProPositionsRuntimeDataAtom())[failedOwner],
+        ).toMatchObject({
+          status: 'error',
+          tokens: [],
+        });
+        expect(
+          store.get(swapProPositionsCacheAtom()).byOwner[healthyOwner].tokens[0]
+            .balanceParsed,
+        ).toBe(healthyPosition.balanceParsed);
+        expect(
+          store.get(swapProPositionsCacheAtom()).byOwner[failedOwner],
+        ).toBeUndefined();
+      },
+    );
+
+    it('publishes Swap independently while the same network Stock account is pending', async () => {
+      const { store, load } = setup();
+      const pendingStock = createDeferred<ISwapToken[]>();
+      mockFetchSwapTokens.mockImplementation(async (params) =>
+        (params as IFetchTokensParams).accountAddress === stockAddress
+          ? pendingStock.promise
+          : [swapPosition],
+      );
+      let loading: Promise<void> | undefined;
+      act(() => {
+        loading = load();
+      });
+      try {
+        await waitFor(() => {
+          expect(
+            store.get(swapProPositionsRuntimeDataAtom())[swapOwner].tokens,
+          ).toEqual([swapPosition]);
+        });
+        expect(
+          store.get(swapProPositionsRuntimeDataAtom())[stockOwner].tokens,
+        ).toEqual([]);
+      } finally {
+        await act(async () => {
+          pendingStock.resolve([stockPosition]);
+          await loading;
+        });
+      }
+      expect(
+        store.get(swapProPositionsRuntimeDataAtom())[swapOwner].tokens,
+      ).toEqual([swapPosition]);
+      expect(
+        store.get(swapProPositionsRuntimeDataAtom())[stockOwner].tokens,
+      ).toEqual([expect.objectContaining(stockPosition)]);
     });
   });
 

@@ -265,52 +265,63 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
       return;
     }
     const networkAccount = options?.networkAccount;
-    const scopedAccounts = swapProSupportAccounts.map(
+    const defaultAccounts = swapProSupportAccounts.map(
       ({ networkId, accountId, apiAddress }) => ({
         networkId,
         accountId,
         apiAddress,
       }),
     );
-    if (
-      networkAccount &&
-      scopesToLoad.some(
-        (scope) =>
-          scope.stockOnly && scope.networkIds.has(networkAccount.networkId),
-      )
-    ) {
-      const index = scopedAccounts.findIndex(
-        (account) => account.networkId === networkAccount.networkId,
+    const requestsByAccount = new Map<
+      string,
+      {
+        account: NonNullable<ISwapProPositionsLoadOptions['networkAccount']>;
+        scopes: typeof scopesToLoad;
+      }
+    >();
+    for (const scope of scopesToLoad) {
+      // Resolve each scope's account before sharing requests across scopes.
+      const selectedAccount =
+        scope.stockOnly &&
+        networkAccount &&
+        scope.networkIds.has(networkAccount.networkId)
+          ? networkAccount
+          : undefined;
+      const accounts = (
+        selectedAccount
+          ? [
+              ...defaultAccounts.filter(
+                (account) => account.networkId !== selectedAccount.networkId,
+              ),
+              selectedAccount,
+            ]
+          : defaultAccounts
+      ).filter(
+        (account) =>
+          scope.networkIds.has(account.networkId) &&
+          account.apiAddress &&
+          !networkUtils.isAllNetwork({ networkId: account.networkId }),
       );
-      if (index < 0) scopedAccounts.push(networkAccount);
-      else scopedAccounts[index] = networkAccount;
+      for (const account of accounts) {
+        const key = JSON.stringify([
+          account.networkId,
+          account.accountId,
+          account.apiAddress,
+        ]);
+        const request = requestsByAccount.get(key);
+        if (request) {
+          if (!request.scopes.includes(scope)) request.scopes.push(scope);
+        } else {
+          requestsByAccount.set(key, { account, scopes: [scope] });
+        }
+      }
     }
-    const accountAddressList = scopedAccounts
-      .filter((item) => item.apiAddress)
-      .filter(
-        (item) => !networkUtils.isAllNetwork({ networkId: item.networkId }),
-      )
-      .toSorted((left, right) => {
-        const primaryNetworkIds = scopesToLoad[0]?.networkIds;
-        return (
-          Number(Boolean(primaryNetworkIds?.has(right.networkId))) -
-          Number(Boolean(primaryNetworkIds?.has(left.networkId)))
-        );
-      });
-    const stockNetworkIds = new Set(
-      scopesToLoad
-        .filter((scope) => scope.stockOnly)
-        .flatMap((scope) => [...scope.networkIds]),
-    );
-    const requestLocale = stockNetworkIds.size
+    const accountRequests = [...requestsByAccount.values()];
+    const requestLocale = scopesToLoad.some((scope) => scope.stockOnly)
       ? appLocale.getLocale()
       : undefined;
-    const tasks = accountAddressList.map((networkDataString) => {
-      const {
-        apiAddress,
-        networkId: accountNetworkId,
-        accountId,
-      } = networkDataString;
+    const tasks = accountRequests.map(({ account, scopes }) => {
+      const { apiAddress, networkId: accountNetworkId, accountId } = account;
       return async () => {
         const tokens = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
           networkId: accountNetworkId,
@@ -323,8 +334,8 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
           currency: positionCurrencyId,
           protocol: ESwapTabSwitchType.SWAP,
         });
-        for (const scope of scopesToLoad) {
-          if (!scope.stockOnly && scope.networkIds.has(accountNetworkId)) {
+        for (const scope of scopes) {
+          if (!scope.stockOnly) {
             publishNetworkPositions({
               networkId: accountNetworkId,
               scope,
@@ -335,7 +346,8 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
 
         let stockMetadataFailed = false;
         let stockTokens: ISwapToken[] | undefined;
-        if (stockNetworkIds.has(accountNetworkId)) {
+        const stockScopes = scopes.filter((scope) => scope.stockOnly);
+        if (stockScopes.length) {
           try {
             const stockCandidateTokens = tokens.filter((token) =>
               hasTradePositionBalance(token.balanceParsed),
@@ -359,14 +371,12 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
                 tokens: stockCandidateTokens,
               });
             }
-            for (const scope of scopesToLoad) {
-              if (scope.stockOnly && scope.networkIds.has(accountNetworkId)) {
-                publishNetworkPositions({
-                  networkId: accountNetworkId,
-                  scope,
-                  tokens: stockTokens,
-                });
-              }
+            for (const scope of stockScopes) {
+              publishNetworkPositions({
+                networkId: accountNetworkId,
+                scope,
+                tokens: stockTokens,
+              });
             }
           } catch (error) {
             stockMetadataFailed = true;
@@ -386,7 +396,7 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
     for (const scope of scopesToLoad) {
       if (isLatestScopeRequest(scope.ownerKey)) {
         const scopeResults = results.filter((_, index) =>
-          scope.networkIds.has(accountAddressList[index]?.networkId ?? ''),
+          accountRequests[index]?.scopes.includes(scope),
         );
         const hasFailure = scopeResults.some(
           (result) =>
