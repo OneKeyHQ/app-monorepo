@@ -17,6 +17,12 @@ import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigati
 const mockStack = jest.fn<void, [Record<string, unknown>]>();
 const mockXStack = jest.fn<void, [Record<string, unknown>]>();
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+  }),
+}));
+
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({
     children,
@@ -129,6 +135,30 @@ describe('Web TradingViewNativeNavigationControls', () => {
     expect(mockXStack.mock.lastCall?.[0]).toEqual(
       expect.objectContaining({ opacity: 0 }),
     );
+  });
+
+  it('labels every button with translated copy', () => {
+    renderControls();
+
+    expect(
+      [
+        'zoomOut',
+        'zoomIn',
+        'scrollLeft',
+        'scrollRight',
+        'reset',
+      ].map((action) =>
+        screen
+          .getByTestId(`chart-navigation-${action}`)
+          .getAttribute('aria-label'),
+      ),
+    ).toEqual([
+      'menu.zoom_out',
+      'menu.zoom_in',
+      'chart_scroll_left__action',
+      'chart_scroll_right__action',
+      'global.reset',
+    ]);
   });
 
   it('runs the pressed navigation action', () => {

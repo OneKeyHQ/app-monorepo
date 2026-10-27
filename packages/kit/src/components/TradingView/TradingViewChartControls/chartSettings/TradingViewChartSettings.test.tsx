@@ -232,7 +232,9 @@ describe('TradingViewChartSettings', () => {
     const navigationButtonsCheckbox = screen.getByTestId(
       'trading-view-settings-checkbox-navigation-buttons',
     );
-    expect(navigationButtonsCheckbox.textContent).toBe('Navigation buttons');
+    expect(navigationButtonsCheckbox.textContent).toBe(
+      'chart_navigation_buttons__title',
+    );
     expect(navigationButtonsCheckbox.getAttribute('data-value')).toBe('true');
 
     fireEvent.click(navigationButtonsCheckbox);

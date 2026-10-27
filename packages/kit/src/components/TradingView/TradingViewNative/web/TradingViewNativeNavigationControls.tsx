@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import type { FocusEvent, KeyboardEvent } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Stack, XStack, useTheme } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS,
@@ -18,14 +21,20 @@ import type { ITradingViewNativeNavigationAction } from '../utils/chartNavigatio
 // TradingView's control bar, so the bar reads as a single set.
 const NAVIGATION_BUTTONS: Record<
   ITradingViewNativeNavigationAction,
-  { label: string; path: string }
+  { labelId: ETranslations; path: string }
 > = {
-  zoomOut: { label: 'Zoom out', path: 'M6 12h12' },
-  zoomIn: { label: 'Zoom in', path: 'M6 12h12M12 6v12' },
-  scrollLeft: { label: 'Scroll to the left', path: 'M14 7l-5 5 5 5' },
-  scrollRight: { label: 'Scroll to the right', path: 'M10 7l5 5-5 5' },
+  zoomOut: { labelId: ETranslations.menu_zoom_out, path: 'M6 12h12' },
+  zoomIn: { labelId: ETranslations.menu_zoom_in, path: 'M6 12h12M12 6v12' },
+  scrollLeft: {
+    labelId: ETranslations.chart_scroll_left__action,
+    path: 'M14 7l-5 5 5 5',
+  },
+  scrollRight: {
+    labelId: ETranslations.chart_scroll_right__action,
+    path: 'M10 7l5 5-5 5',
+  },
   reset: {
-    label: 'Reset chart view',
+    labelId: ETranslations.global_reset,
     path: 'M5.5 12a6.5 6.5 0 1 0 6.5-6.5 7.04 7.04 0 0 0-4.87 1.98L5.5 9.11M5.5 5.5v3.61h3.61',
   },
 };
@@ -47,6 +56,7 @@ export function TradingViewNativeNavigationControls({
   timeAxisHeight,
   testID,
 }: ITradingViewNativeNavigationControlsProps) {
+  const intl = useIntl();
   const theme = useTheme();
   const iconColor = theme.text.val;
   // Keyboard focus reveals the bar; pointer focus after a click must not keep
@@ -72,7 +82,8 @@ export function TradingViewNativeNavigationControls({
       pointerEvents={isShown ? 'box-none' : 'none'}
     >
       {TRADING_VIEW_NATIVE_NAVIGATION_ACTIONS.map((action) => {
-        const { label, path } = NAVIGATION_BUTTONS[action];
+        const { labelId, path } = NAVIGATION_BUTTONS[action];
+        const label = intl.formatMessage({ id: labelId });
         const updateKeyboardFocus = (
           event: FocusEvent<HTMLElement> | KeyboardEvent<HTMLElement>,
         ) => {

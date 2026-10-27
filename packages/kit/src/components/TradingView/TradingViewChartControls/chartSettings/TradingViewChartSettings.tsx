@@ -58,10 +58,7 @@ const NAVIGATION_TRANSLATION_IDS: Record<
 };
 
 const OPTION_TRANSLATION_IDS: Record<
-  Exclude<
-    keyof ITradingViewChartSettingsOptions,
-    'previousClose' | 'navigationButtons'
-  >,
+  Exclude<keyof ITradingViewChartSettingsOptions, 'previousClose'>,
   ETranslations
 > = {
   yAxis: ETranslations.market_chart_settings__y_axis,
@@ -73,10 +70,8 @@ const OPTION_TRANSLATION_IDS: Record<
   pastEvents: ETranslations.market_chart_settings__show_past_events,
   clickInteraction: ETranslations.market_chart_settings__chart_interaction,
   crossLine: ETranslations.market_chart_settings__crosshair,
+  navigationButtons: ETranslations.chart_navigation_buttons__title,
 };
-
-// English-only until the setting gets a translation key.
-const NAVIGATION_BUTTONS_LABEL = 'Navigation buttons';
 
 const APPEARANCE_ITEM_TRANSLATION_IDS: Record<string, ETranslations> = {
   body: ETranslations.market_chart_settings__body,
@@ -757,7 +752,9 @@ export function TradingViewChartSettings({
           ) : null}
           {isOptionVisible('navigationButtons') ? (
             <SettingsCheckboxRow
-              label={NAVIGATION_BUTTONS_LABEL}
+              label={intl.formatMessage({
+                id: OPTION_TRANSLATION_IDS.navigationButtons,
+              })}
               testID="navigation-buttons"
               value={settingsValue.options.navigationButtons}
               disabled={submitInProgress}
