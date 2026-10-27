@@ -73,7 +73,9 @@ function LevelGlyph({ icon, emoji }: { icon?: string; emoji?: string }) {
 // One figure column, laid out top to bottom so it takes the width of its
 // widest value: currency symbols and localized figures vary in length
 // ("$8K", "Rp15,6M"), and a figure must never be cut off. Fixed-height
-// cells keep the columns' rows aligned with the label column.
+// cells keep the columns' rows aligned with the label column. Header and
+// figures start at the column's left edge, so a "–" or a "20% / 10%" rate
+// does not shift where its row reads from.
 function RuleColumn({
   header,
   glyph,
@@ -87,12 +89,12 @@ function RuleColumn({
     // Starts at its widest value and takes an equal share of any spare
     // width, so the figures spread across the row instead of bunching on
     // the right; it never shrinks below its content.
-    <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-end">
-      <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end" gap="$1">
+    <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-start">
+      <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-start" gap="$1">
         <SizableText
           size="$bodySm"
           color="$textSubdued"
-          textAlign="right"
+          textAlign="left"
           numberOfLines={2}
           maxWidth={RULE_HEADER_MAX_WIDTH}
         >

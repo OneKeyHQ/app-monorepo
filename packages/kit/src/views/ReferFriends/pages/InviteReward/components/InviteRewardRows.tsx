@@ -544,39 +544,10 @@ export function InviteRewardRows({
           theirs. */}
       <YStack px="$4" py="$1" {...cardStyle}>
         {rows.visibleRows.map(renderRow)}
-        {/* Like desktop: one product without rewards is listed directly; two
-          or more fold into one row that expands in place. */}
-        {rows.foldedRows.length > 1 ? (
-          <ListItem
-            {...COMPACT_ROW_BLEED_PROPS}
-            // Icon-wide gap so the names line up with the product rows.
-            renderIcon={<Stack w="$5" flexShrink={0} />}
-            titleProps={COMPACT_ENTRY_TITLE_PROPS}
-            title={foldedTitle}
-            onPress={() => {
-              setIsFoldedOpen((open) => !open);
-            }}
-          >
-            <XStack ai="center" gap="$1" flexShrink={0}>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {noRewardLabel}
-              </SizableText>
-              <Icon
-                name={
-                  isFoldedOpen
-                    ? 'ChevronTopSmallOutline'
-                    : 'ChevronDownSmallOutline'
-                }
-                // Same size and edge as the list drill-in chevrons.
-                color="$iconSubdued"
-                mx="$-1.5"
-              />
-            </XStack>
-          </ListItem>
-        ) : null}
-        {rows.foldedRows.length === 1 || isFoldedOpen
-          ? rows.foldedRows.map(renderRow)
-          : null}
+        {/* Unlike desktop, products without rewards are never folded: an
+          icon-less folded row reads as a missing icon on phones, so each
+          keeps its own row and "No reward yet". */}
+        {rows.foldedRows.map(renderRow)}
       </YStack>
     </YStack>
   );
