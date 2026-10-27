@@ -4261,6 +4261,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
       if (normalizedType !== oldVisibleType) {
+        // A tab change restores or replaces the pair without a new chip tap.
+        set(swapRecentTokenPairSelectionAtom(), undefined);
         set(swapSelectedTokenBalanceRefreshRequestedAtom(), {
           from: false,
           to: false,

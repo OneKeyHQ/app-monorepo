@@ -10211,4 +10211,36 @@ describe('Recent trades attribution', () => {
     });
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
+  it('ends the attribution when switching tabs away and back', async () => {
+    const { store, Wrapper } = createWrapperWithStore((instance) => {
+      instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+    });
+    const { result } = renderHook(
+      () => ({
+        actions: useSwapActions().current,
+        attribution: useSwapRecentTokenPairAttribution().current,
+      }),
+      { wrapper: Wrapper },
+    );
+    const pickedPair = { fromToken: usdcToken, toToken: usdtToken };
+    await act(async () => {
+      await result.current.actions.selectRecentTokenPair(pickedPair);
+    });
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.LIMIT,
+        'evm--56',
+      );
+    });
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.SWAP,
+        'evm--56',
+      );
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+    expect(
+      result.current.attribution.getRecentTokenPairSelectionFor(pickedPair),
+    ).toBeUndefined();
+  });
 });
