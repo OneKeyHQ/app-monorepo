@@ -24,6 +24,8 @@ export class SwapSendTxScene extends BaseScene {
     providerName,
     status,
     message,
+    errorName,
+    errorCode,
     orderId,
     networkId,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -40,6 +42,9 @@ export class SwapSendTxScene extends BaseScene {
     quoteId?: string;
     status: ESwapEventAPIStatus;
     message?: string;
+    // Sanitized error class name and code; see getSwapErrorType.
+    errorName?: string;
+    errorCode?: string;
     orderId: string;
     swapType: string;
     slippage: string;
@@ -64,6 +69,8 @@ export class SwapSendTxScene extends BaseScene {
       quoteId,
       status,
       message: message === undefined ? undefined : getSwapErrorMessage(message),
+      errorName,
+      errorCode,
       swapType,
       slippage,
       router,

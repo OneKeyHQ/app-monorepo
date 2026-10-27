@@ -223,6 +223,35 @@ export function getOneKeyIdAuthFailureServerParams({
 }
 
 /** Swap telemetry emits fixed categories only, never matched error text. */
+// Identifiers only: a value that does not look like a class name or code is
+// dropped, so free text (addresses, amounts, raw messages) never leaves.
+const SAFE_ERROR_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const SAFE_ERROR_CODE_PATTERN = /^-?[A-Za-z0-9_]{1,32}$/;
+
+export function getSwapErrorType(error: unknown): {
+  errorName?: string;
+  errorCode?: string;
+} {
+  if (!error || typeof error !== 'object') return {};
+  const { className, name, code } = error as {
+    className?: unknown;
+    name?: unknown;
+    code?: unknown;
+  };
+  const rawName = typeof className === 'string' && className ? className : name;
+  const errorName =
+    typeof rawName === 'string' && SAFE_ERROR_NAME_PATTERN.test(rawName)
+      ? rawName
+      : undefined;
+  const rawCode =
+    typeof code === 'number' && Number.isFinite(code) ? String(code) : code;
+  const errorCode =
+    typeof rawCode === 'string' && SAFE_ERROR_CODE_PATTERN.test(rawCode)
+      ? rawCode
+      : undefined;
+  return { errorName, errorCode };
+}
+
 export function getSwapErrorMessage(error: unknown): string {
   let message = '';
   if (typeof error === 'string') {

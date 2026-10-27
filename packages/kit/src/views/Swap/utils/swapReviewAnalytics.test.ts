@@ -454,6 +454,25 @@ describe('swap review API correlation', () => {
     );
   });
 
+  it('reports the failure type without the raw message', async () => {
+    const failure = Object.assign(new TypeError('send 0xabc failed'), {
+      code: -32_000,
+    });
+    await expect(
+      trackSwapReviewApi('sendTx', swapInfo, async () => {
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+    expect(mockSendTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'fail',
+        message: 'Unknown error',
+        errorName: 'TypeError',
+        errorCode: '-32000',
+      }),
+    );
+  });
+
   it('preserves request outcomes even if telemetry fails', async () => {
     const telemetryFailure = new Error('Telemetry unavailable');
     const requestFailure = new Error('RPC failure');

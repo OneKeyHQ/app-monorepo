@@ -1,7 +1,10 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import {
+  getSwapErrorMessage,
+  getSwapErrorType,
+} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type {
   ISwapReviewAnalyticsContext,
   ISwapReviewClose,
@@ -287,7 +290,10 @@ export function logSwapReviewApiResult({
         isBatch,
       });
     } else {
-      defaultLogger.swap.swapSendTx.swapSendTx(params);
+      defaultLogger.swap.swapSendTx.swapSendTx({
+        ...params,
+        ...getSwapErrorType(error),
+      });
     }
   } catch {
     // Analytics payload/transport failures must not interrupt transaction execution.

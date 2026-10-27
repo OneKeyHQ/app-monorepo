@@ -53,6 +53,7 @@ import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/mark
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getSwapErrorType } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEstimateFeeParams,
@@ -1379,7 +1380,7 @@ export function useSwapBuildTx({
       status: ESwapEventAPIStatus,
       networkId: string,
       accountId: string,
-      message?: string,
+      error?: unknown,
       encodedTx?: string,
       swapInfo?: ISwapTxInfo,
       quoteResult?: IFetchQuoteResult,
@@ -1392,9 +1393,8 @@ export function useSwapBuildTx({
         toAddress: toUserAddress ?? '',
         status,
         message:
-          message === undefined
-            ? undefined
-            : getSwapReviewErrorMessage(message),
+          error === undefined ? undefined : getSwapReviewErrorMessage(error),
+        ...getSwapErrorType(error),
         ...swapInfo?.reviewAnalyticsContext,
         quoteId:
           swapInfo?.reviewAnalyticsContext?.quoteId ??
@@ -1843,8 +1843,7 @@ export function useSwapBuildTx({
                     ESwapEventAPIStatus.FAIL,
                     networkId,
                     accountId,
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    e?.message ?? 'unknown error',
+                    e,
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
                     quoteResult,
@@ -1923,8 +1922,7 @@ export function useSwapBuildTx({
                     ESwapEventAPIStatus.FAIL,
                     networkId,
                     accountId,
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    e?.message ?? 'unknown error',
+                    e,
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
                     quoteResult,
@@ -1998,8 +1996,7 @@ export function useSwapBuildTx({
                     ESwapEventAPIStatus.FAIL,
                     networkId,
                     accountId,
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    e?.message ?? 'unknown error',
+                    e,
                     JSON.stringify(unsignedTxItem.encodedTx ?? ''),
                     swapInfo,
                     quoteResult,
@@ -2166,8 +2163,7 @@ export function useSwapBuildTx({
                 ESwapEventAPIStatus.FAIL,
                 networkId,
                 accountId,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                e?.message ?? 'unknown error',
+                e,
                 JSON.stringify(unsignedTx.encodedTx ?? ''),
                 swapInfo,
                 quoteResult,
@@ -2239,8 +2235,7 @@ export function useSwapBuildTx({
                 ESwapEventAPIStatus.FAIL,
                 networkId,
                 accountId,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                e?.message ?? 'unknown error',
+                e,
                 JSON.stringify(unsignedTx.encodedTx ?? ''),
                 swapInfo,
                 quoteResult,
