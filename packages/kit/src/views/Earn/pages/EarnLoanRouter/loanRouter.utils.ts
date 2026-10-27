@@ -74,11 +74,53 @@ export type ILoanRoute = {
   };
 };
 
+export type ILoanRouterNetwork = {
+  id: string;
+  name: string;
+  logoURI: string;
+};
+
 export type ILoanRouterOption = {
   symbol: string;
   logoURI: string;
   type: IEarnDesktopLoanAssetType;
+  // Where the token is offered, in the markets' order: a pick can move the
+  // pair to another network
+  networks: ILoanRouterNetwork[];
 };
+
+// One option per symbol; a market on another network adds its network
+function addOption({
+  bySymbol,
+  token,
+  market,
+  stableSymbols,
+}: {
+  bySymbol: Map<string, ILoanRouterOption>;
+  token: { symbol: string; logoURI: string };
+  market: IEarnDesktopMarketReserves['market'];
+  stableSymbols: Set<string>;
+}) {
+  const key = token.symbol.toUpperCase();
+  const network = {
+    id: market.networkId,
+    name: market.network.name,
+    logoURI: market.network.logoURI,
+  };
+  const option = bySymbol.get(key);
+  if (!option) {
+    bySymbol.set(key, {
+      symbol: token.symbol,
+      logoURI: token.logoURI,
+      type: getLoanAssetType(token.symbol, stableSymbols),
+      networks: [network],
+    });
+    return;
+  }
+  if (!option.networks.some((item) => item.id === network.id)) {
+    option.networks.push(network);
+  }
+}
 
 // A market's collateral and what it lends, as the Loans list reads them
 function getMarketAssets({ market, reserves }: IEarnDesktopMarketReserves) {
@@ -210,18 +252,18 @@ export function getLoanCollateralOptions({
   markets.forEach((entry) => {
     const { collateral, borrow } = getMarketAssets(entry);
     collateral.forEach((asset) => {
-      const key = asset.token.symbol.toUpperCase();
       // Only a collateral the market lends something else against
       const lendsAgainst = borrow.some(
         (lent) => !isSameLoanAsset(lent.token.symbol, asset.token.symbol),
       );
-      if (!lendsAgainst || bySymbol.has(key)) {
+      if (!lendsAgainst) {
         return;
       }
-      bySymbol.set(key, {
-        symbol: asset.token.symbol,
-        logoURI: asset.token.logoURI,
-        type: getLoanAssetType(asset.token.symbol, stableSymbols),
+      addOption({
+        bySymbol,
+        token: asset.token,
+        market: entry.market,
+        stableSymbols,
       });
     });
   });
@@ -249,17 +291,14 @@ export function getLoanBorrowOptions({
       return;
     }
     borrow.forEach((asset) => {
-      const key = asset.token.symbol.toUpperCase();
-      if (
-        isSameLoanAsset(asset.token.symbol, collateralSymbol) ||
-        bySymbol.has(key)
-      ) {
+      if (isSameLoanAsset(asset.token.symbol, collateralSymbol)) {
         return;
       }
-      bySymbol.set(key, {
-        symbol: asset.token.symbol,
-        logoURI: asset.token.logoURI,
-        type: getLoanAssetType(asset.token.symbol, stableSymbols),
+      addOption({
+        bySymbol,
+        token: asset.token,
+        market: entry.market,
+        stableSymbols,
       });
     });
   });

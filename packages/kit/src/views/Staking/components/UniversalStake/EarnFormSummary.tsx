@@ -21,7 +21,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IElement } from '@onekeyhq/components';
+import type { IColorTokens, IElement } from '@onekeyhq/components';
 import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
@@ -103,6 +103,8 @@ export type IEarnOutcome = {
   values: IEarnOutcomeValue[];
   // Earned money is green; an amount received is not
   isEarning?: boolean;
+  // A cost (a loan's net result below zero) is red
+  isCost?: boolean;
   // The figure comes with a note line under it (Pendle's gain): the line's
   // room is kept while there is no figure, so the rows below stay put
   hasNoteLine?: boolean;
@@ -466,6 +468,12 @@ function OutcomeValues({
   stacksSuffix?: boolean;
 }) {
   const hasValues = outcome.values.length > 0;
+  let outcomeColor: IColorTokens = '$text';
+  if (outcome.isEarning) {
+    outcomeColor = '$textSuccess';
+  } else if (outcome.isCost) {
+    outcomeColor = '$textCritical';
+  }
   // Decided as the figures appear and kept while they stay, as a row's
   // value is
   const valuesFadeInRef = useRef<boolean | undefined>(undefined);
@@ -526,7 +534,7 @@ function OutcomeValues({
             const main = (
               <EarnAmountText
                 size="$bodyLgMedium"
-                color={outcome.isEarning ? '$textSuccess' : '$text'}
+                color={outcomeColor}
                 fontVariant={TABULAR_NUMS}
                 textAlign="right"
               >

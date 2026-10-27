@@ -143,6 +143,29 @@ describe('getLoanBorrowOptions', () => {
     });
     expect(options.map((option) => option.symbol)).toEqual(['USDC']);
   });
+
+  it('names every network a token is lent on, once each', () => {
+    const arbitrum = market(
+      'Arbitrum',
+      '0xarb',
+      [supplyAsset('WBTC')],
+      [borrowAsset('USDC')],
+    );
+    arbitrum.market.networkId = 'evm--42161';
+    arbitrum.market.network = {
+      ...arbitrum.market.network,
+      networkId: 'evm--42161',
+      name: 'Arbitrum',
+    };
+    const options = getLoanBorrowOptions({
+      markets: [...MARKETS, arbitrum],
+      collateralSymbol: 'WBTC',
+      stableSymbols: new Set(['USDC']),
+    });
+    expect(
+      options.map((option) => option.networks.map((network) => network.name)),
+    ).toEqual([['Ethereum', 'Arbitrum']]);
+  });
 });
 
 describe('getLoanRouteMetrics', () => {

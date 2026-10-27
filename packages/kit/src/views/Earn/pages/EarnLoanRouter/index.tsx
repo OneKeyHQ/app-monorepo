@@ -81,6 +81,7 @@ import {
   formatLoanYearly,
   getLoanBlockText,
   isLendingClosed,
+  isLoanLoss,
 } from './LoanRouterParts';
 import { useLoanToneColors } from './loanToneColors';
 import { useLoanRouterFacts } from './useLoanRouterFacts';
@@ -942,11 +943,14 @@ function EarnLoanRouterPage() {
           ? {
               label: EARN_DESKTOP_DEMO_COPY.loanNetPerYear,
               isEarning: netYearly >= 0.01,
+              // In the cards' red, so a cost under a cent reads as one too
+              isCost: isLoanLoss(netYearly),
               values: [{ main: formatLoanNet(netYearly, currency) }],
             }
           : {
               label: intl.formatMessage({ id: ETranslations.defi_net_apy }),
               isEarning: !isClosed && (selectedMetrics?.netApy ?? 0) > 0,
+              isCost: !isClosed && isLoanLoss(selectedMetrics?.netApy),
               values:
                 isClosed || selectedMetrics?.netApy === undefined
                   ? []
@@ -1195,6 +1199,7 @@ function EarnLoanRouterPage() {
       items={items}
       selectedKey={isPickListed ? pickedKey : undefined}
       isLoading={!isMarketsLoaded}
+      isSettled={isFactsLoaded}
       currency={currency}
       emptyText={EARN_DESKTOP_DEMO_COPY.loanNoMarket(
         collateralSymbol,

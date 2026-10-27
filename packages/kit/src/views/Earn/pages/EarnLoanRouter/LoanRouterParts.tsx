@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   claimEscapePress,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IColorTokens, IElement } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -31,6 +32,7 @@ import type {
   ILoanRouteBlock,
   ILoanRouteFacts,
   ILoanRouteMetrics,
+  ILoanRouterNetwork,
   ILoanRouterOption,
 } from './loanRouter.utils';
 
@@ -56,19 +58,24 @@ export const formatLoanFiat = (value: number, currency: string) =>
     formatterOptions: { currency },
   });
 
-// "≈ -$0.02 a year", "< $0.01 a year": the value formatter writes anything
+// A cost, however small; what float sums leave around zero is nothing
+export const isLoanLoss = (value?: number) =>
+  value !== undefined && value < -1e-9;
+
+// "≈ -$0.02 a year", "-< $0.01 a year": the value formatter writes anything
 // under a cent, a cost too, as "< $0.01", so the sign goes in front here
 export const formatLoanYearly = (value: number, currency: string) => {
   const amount = formatLoanFiat(Math.abs(value), currency);
+  const sign = isLoanLoss(value) ? '-' : '';
   return Math.abs(value) < 0.01
-    ? `${amount} ${EARN_DESKTOP_DEMO_COPY.aYear}`
-    : `≈ ${value < 0 ? '-' : ''}${amount} ${EARN_DESKTOP_DEMO_COPY.aYear}`;
+    ? `${sign}${amount} ${EARN_DESKTOP_DEMO_COPY.aYear}`
+    : `≈ ${sign}${amount} ${EARN_DESKTOP_DEMO_COPY.aYear}`;
 };
 
-// "-$0.04", "< $0.01": what a plan makes a year where no rate holds
+// "-$0.04", "-< $0.01": what a plan makes a year where no rate holds
 export const formatLoanNet = (value: number, currency: string) => {
   const amount = formatLoanFiat(Math.abs(value), currency);
-  return value <= -0.01 ? `-${amount}` : amount;
+  return isLoanLoss(value) ? `-${amount}` : amount;
 };
 
 const formatCompactFiat = (value: number, currency: string) =>
@@ -109,6 +116,29 @@ export function getLoanBlockText({
 
 // Past this many tokens the list gets a search field
 const SEARCH_FROM = 8;
+// The rows' height, and the least of it kept where the modal leaves less room
+const LIST_MAX_HEIGHT = 360;
+const LIST_MIN_HEIGHT = 160;
+// Between a popover list and the modal's bottom edge
+const LIST_MODAL_GAP = 12;
+
+// Where a token is offered, side by side
+const NETWORKS_SHOWN = 3;
+function NetworkLogos({ networks }: { networks: ILoanRouterNetwork[] }) {
+  const shown = networks.slice(0, NETWORKS_SHOWN);
+  return (
+    <XStack ai="center" gap="$1" flexShrink={0}>
+      {shown.map((network) => (
+        <Token key={network.id} size="xs" tokenImageUri={network.logoURI} />
+      ))}
+      {networks.length > NETWORKS_SHOWN ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          {`+${networks.length - NETWORKS_SHOWN}`}
+        </SizableText>
+      ) : null}
+    </XStack>
+  );
+}
 
 /**
  * A box's token list, in the chip's popover as the lending repay form lists
@@ -151,6 +181,60 @@ export function LoanTokenList({
       focused.blur();
     }
   }, [isOpen]);
+  // A popover list ends inside the modal it opens from: the rows give up
+  // what would hang past the modal's bottom edge
+  const { gtMd } = useMedia();
+  const [listMaxHeight, setListMaxHeight] = useState(LIST_MAX_HEIGHT);
+  useEffect(() => {
+    if (!isOpen || !gtMd || platformEnv.isNative) {
+      setListMaxHeight(LIST_MAX_HEIGHT);
+      return;
+    }
+    let frame = 0;
+    let tries = 0;
+    const fit = () => {
+      const list = listRef.current as HTMLElement | null;
+      const modals = list?.ownerDocument.querySelectorAll(
+        '[data-testid="APP-Modal-Screen"]',
+      );
+      const modal = modals?.[modals.length - 1];
+      if (!list || !modal) {
+        return;
+      }
+      // The panel's placed box: the open animation scales what is inside it,
+      // so its top and unscaled height give where the list will end
+      let placed: HTMLElement = list;
+      for (
+        let element = list.parentElement;
+        element && element !== modal.ownerDocument.body;
+        element = element.parentElement
+      ) {
+        const { position } = getComputedStyle(element);
+        if (position === 'absolute' || position === 'fixed') {
+          placed = element;
+          break;
+        }
+      }
+      const { top } = placed.getBoundingClientRect();
+      // Not placed yet: the popover takes its place a frame or two late
+      if (top <= 0 && tries < 10) {
+        tries += 1;
+        frame = requestAnimationFrame(fit);
+        return;
+      }
+      const overflow =
+        top +
+        placed.offsetHeight -
+        (modal.getBoundingClientRect().bottom - LIST_MODAL_GAP);
+      if (overflow > 0) {
+        setListMaxHeight((height) =>
+          Math.max(LIST_MIN_HEIGHT, Math.floor(height - overflow)),
+        );
+      }
+    };
+    frame = requestAnimationFrame(fit);
+    return () => cancelAnimationFrame(frame);
+  }, [gtMd, isOpen]);
   const shown = useMemo(() => {
     const query = search.trim().toUpperCase();
     return query
@@ -181,7 +265,7 @@ export function LoanTokenList({
           />
         </Stack>
       ) : null}
-      <ScrollView maxHeight={360} contentContainerStyle={{ gap: 2 }}>
+      <ScrollView maxHeight={listMaxHeight} contentContainerStyle={{ gap: 2 }}>
         {shown.length ? null : (
           <SizableText
             testID={`${testID}-empty`}
@@ -225,9 +309,13 @@ export function LoanTokenList({
               <SizableText size="$bodyMdMedium" flex={1} numberOfLines={1}>
                 {option.symbol}
               </SizableText>
+              <NetworkLogos networks={option.networks} />
+              {/* The check's place is kept, so the networks line up */}
               {isSelected ? (
                 <Icon name="CheckLargeOutline" size="$4" color="$iconSuccess" />
-              ) : null}
+              ) : (
+                <Stack w="$4" h="$4" flexShrink={0} />
+              )}
             </XStack>
           );
         })}
@@ -251,7 +339,7 @@ const CHECK_SIZE = '$6';
 export const LOAN_ROUTE_CARD_HEIGHT = 112;
 
 const netApyColor = (value?: number): IColorTokens | undefined =>
-  value !== undefined && value < 0 ? '$textCritical' : undefined;
+  isLoanLoss(value) ? '$textCritical' : undefined;
 
 function MarketCell({ route }: { route: ILoanRoute }) {
   return (
@@ -275,12 +363,27 @@ function MarketCell({ route }: { route: ILoanRoute }) {
 function RouteCheck({
   isSelected,
   isBlocked,
+  isWaiting,
 }: {
   isSelected: boolean;
   isBlocked: boolean;
+  isWaiting: boolean;
 }) {
   if (isBlocked) {
     return <Stack w={CHECK_SIZE} h={CHECK_SIZE} flexShrink={0} />;
+  }
+  if (isWaiting) {
+    return (
+      <Stack
+        w={CHECK_SIZE}
+        h={CHECK_SIZE}
+        ai="center"
+        jc="center"
+        flexShrink={0}
+      >
+        <Skeleton w="$5" h="$5" borderRadius="$full" />
+      </Stack>
+    );
   }
   return (
     <Icon
@@ -298,19 +401,27 @@ function RouteFigure({
   label,
   value,
   color,
+  isLoading,
 }: {
   label: string;
   value: string;
   color?: IColorTokens;
+  isLoading?: boolean;
 }) {
   return (
     <YStack flex={1} minWidth={0} gap="$0.5">
       <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
         {label}
       </SizableText>
-      <SizableText size="$bodyMd" color={color} numberOfLines={1}>
-        {value}
-      </SizableText>
+      {isLoading ? (
+        <Stack h="$5" jc="center">
+          <Skeleton w="$12" h="$3" />
+        </Stack>
+      ) : (
+        <SizableText size="$bodyMd" color={color} numberOfLines={1}>
+          {value}
+        </SizableText>
+      )}
     </YStack>
   );
 }
@@ -318,11 +429,13 @@ function RouteFigure({
 function RouteRow({
   item,
   isSelected,
+  isSettled,
   currency,
   onSelect,
 }: {
   item: ILoanRouteItem;
   isSelected: boolean;
+  isSettled: boolean;
   currency: string;
   onSelect: (key: string) => void;
 }) {
@@ -332,17 +445,20 @@ function RouteRow({
   const isBlocked = Boolean(block);
   const toneText = useLoanToneColors().text;
   const select = () => onSelect(route.key);
-  const pressProps = isBlocked
-    ? {}
-    : {
-        role: 'radio' as const,
-        'aria-checked': isSelected,
-        cursor: 'pointer',
-        hoverStyle: isSelected ? undefined : { bg: '$bgHover' },
-        pressStyle: { bg: '$bgActive' },
-        onPress: select,
-        ...buildKeyboardPressProps(select, 2),
-      };
+  // Until every market's figures are in, nothing can be picked: one that
+  // looks open may turn out not to lend the token
+  const pressProps =
+    isBlocked || !isSettled
+      ? {}
+      : {
+          role: 'radio' as const,
+          'aria-checked': isSelected,
+          cursor: 'pointer',
+          hoverStyle: isSelected ? undefined : { bg: '$bgHover' },
+          pressStyle: { bg: '$bgActive' },
+          onPress: select,
+          ...buildKeyboardPressProps(select, 2),
+        };
   const textColor = isBlocked ? '$textDisabled' : undefined;
   // Where the plan's Net APY doesn't hold (the market's position carries
   // part of the loan), what it makes or costs a year
@@ -353,8 +469,13 @@ function RouteRow({
       gap="$3"
       px="$4"
       py="$3.5"
-      // Nothing to pick where the market doesn't lend the token at all
-      bg={isSelected && !isLendingClosed(block) ? '$bgActive' : '$bgSubdued'}
+      // Nothing to pick where the market doesn't lend the token at all, and
+      // nothing picked while the figures load
+      bg={
+        isSelected && isSettled && !isLendingClosed(block)
+          ? '$bgActive'
+          : '$bgSubdued'
+      }
       borderRadius="$3"
       borderCurve="continuous"
       userSelect="none"
@@ -379,7 +500,11 @@ function RouteRow({
               : intl.formatMessage({ id: ETranslations.defi_net_apy })}
           </SizableText>
         </YStack>
-        <RouteCheck isSelected={isSelected} isBlocked={isBlocked} />
+        <RouteCheck
+          isSelected={isSelected}
+          isBlocked={isBlocked}
+          isWaiting={!isSettled}
+        />
       </XStack>
       <XStack pl={FIGURES_INDENT} pr="$9" gap="$3">
         <RouteFigure
@@ -401,6 +526,8 @@ function RouteRow({
               : '–'
           }
           color={textColor}
+          // The market's own figures on their way
+          isLoading={!item.facts}
         />
       </XStack>
       {/* Why the market can't take the loan, the market's liquidity among
@@ -428,6 +555,7 @@ export function LoanRouteList({
   items,
   selectedKey,
   isLoading,
+  isSettled,
   currency,
   emptyText,
   onSelect,
@@ -435,6 +563,8 @@ export function LoanRouteList({
   items: ILoanRouteItem[];
   selectedKey?: string;
   isLoading: boolean;
+  // Every market's figures are in
+  isSettled: boolean;
   currency: string;
   emptyText: string;
   onSelect: (key: string) => void;
@@ -481,6 +611,7 @@ export function LoanRouteList({
           key={item.route.key}
           item={item}
           isSelected={item.route.key === selectedKey}
+          isSettled={isSettled}
           currency={currency}
           onSelect={onSelect}
         />
