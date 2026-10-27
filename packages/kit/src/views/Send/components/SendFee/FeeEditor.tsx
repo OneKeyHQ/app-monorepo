@@ -822,8 +822,11 @@ function FeeEditor(props: IProps) {
             setCurrentFeeIndex(Number(v));
             setCurrentFeeType(feeType);
           }}
-          options={feeSelectorItems.map((item) => ({
+          options={feeSelectorItems.map((item, index) => ({
             ...item,
+            // The control's value is an index, and the base-fee fallback item
+            // carries value 1 at index 0.
+            value: index,
             label: ({ color }) => (
               <YStack>
                 <SizableText
