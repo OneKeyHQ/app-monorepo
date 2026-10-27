@@ -47,6 +47,23 @@ jest.mock('@onekeyhq/components', () => {
     );
 
   return {
+    // The component imports this from the Header subpath, but the module mapper
+    // folds that specifier into this same mock, so both live here: a separate
+    // jest.mock for the subpath would replace this whole factory instead.
+    HeaderIconButton: ({
+      onPress,
+      testID,
+      title,
+    }: {
+      onPress?: () => void;
+      testID?: string;
+      title?: string;
+    }) =>
+      React.createElement(
+        'button',
+        { 'data-testid': testID, onClick: onPress, type: 'button' },
+        title,
+      ),
     Icon: Primitive,
     Image: Primitive,
     LottieView: Primitive,
@@ -75,29 +92,16 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-jest.mock('@onekeyhq/components/src/layouts/Navigation/Header', () => ({
-  HeaderIconButton: ({
-    onPress,
-    testID,
-    title,
-  }: {
-    onPress?: () => void;
-    testID?: string;
-    title?: string;
-  }) => (
-    <button data-testid={testID} onClick={onPress} type="button">
-      {title}
-    </button>
-  ),
-}));
-
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     referral: {
       activityHub: {
-        activityHubShown: (...args: unknown[]) => mockHubShown(...args),
-        activityHubActionPressed: (...args: unknown[]) =>
-          mockHubActionPressed(...args),
+        activityHubShown: (...args: unknown[]) => {
+          mockHubShown(...args);
+        },
+        activityHubActionPressed: (...args: unknown[]) => {
+          mockHubActionPressed(...args);
+        },
       },
     },
   },
@@ -150,7 +154,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ActivityHubAction } from './ActivityHubAction';
 import { ActivityHubContent } from './ActivityHubContent';
-import { ACTIVITY_HUB_PANEL_WIDTH, ACTIVITY_HUB_SHORTCUT_BASIS } from './layout';
+import {
+  ACTIVITY_HUB_PANEL_WIDTH,
+  ACTIVITY_HUB_SHORTCUT_BASIS,
+} from './layout';
 
 import type { IActivityHubCampaign } from './types';
 
