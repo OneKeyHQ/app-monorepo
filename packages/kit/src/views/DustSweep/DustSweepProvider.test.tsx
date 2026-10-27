@@ -714,7 +714,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.current).toBe(ethereum);
   });
 
-  it('retains cached choices on failure and retry, then uses fresh amounts without selecting new tokens', async () => {
+  it('hides failed cached assets until refresh succeeds and restores the existing token choices', async () => {
     const cached = network('evm--1', ['8', '2']);
     const fresh = deferredLoad();
     const retried = deferredLoad();
@@ -737,16 +737,23 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.refreshStatus).toBe('error');
     expect(result.current.partialError).toBe(true);
     expect(result.current.current).toBe(cached);
-    expect(result.current.selected).toEqual([cached.tokens[0]]);
+    expect(result.current.visible).toEqual([]);
+    expect(result.current.hidden).toEqual([]);
+    expect(result.current.selected).toEqual([]);
     expect(result.current.assetStatus).toBe('ready');
-    expect(result.current.canStart).toBe(true);
+    expect(result.current.canStart).toBe(false);
+    act(() => {
+      expect(result.current.start()).toBeUndefined();
+    });
     act(() => result.current.retryAssets());
     expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
     expect(mockRefreshNetwork).not.toHaveBeenCalled();
     expect(result.current.loadStatus).toBe('ready');
     expect(result.current.refreshStatus).toBe('refreshing');
     expect(result.current.current).toBe(cached);
-    expect(result.current.selected).toEqual([cached.tokens[0]]);
+    expect(result.current.visible).toEqual([]);
+    expect(result.current.selected).toEqual([]);
+    expect(result.current.canStart).toBe(false);
     act(() => mockLoadNetworks.mock.calls[1][2]?.([ethereum]));
     expect(result.current.current).toBe(cached);
 
@@ -843,7 +850,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     },
   );
 
-  it('keeps failed network previews executable while retrying their full load', async () => {
+  it('shows only the failed cached network as empty until its full load recovers', async () => {
     const fresh = deferredLoad();
     const retry = deferredLoad();
     mockLoadNetworks
@@ -876,14 +883,22 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.refreshStatus).toBe('idle');
     expect(result.current.partialError).toBe(true);
     expect(result.current.assetStatus).toBe('ready');
-    expect(result.current.canStart).toBe(true);
+    expect(result.current.visible).toEqual([]);
+    expect(result.current.selected).toEqual([]);
+    expect(result.current.canStart).toBe(false);
+    act(() => {
+      expect(result.current.start()).toBeUndefined();
+    });
     act(() => result.current.selectNetwork(ethereum.network.networkId));
+    expect(result.current.visible).toEqual(ethereum.tokens);
     expect(result.current.canStart).toBe(true);
     act(() => result.current.selectNetwork(base.network.networkId));
     act(() => result.current.retryAssets());
     expect(mockRefreshNetwork).not.toHaveBeenCalled();
     expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
     expect(result.current.current).toBe(base);
+    expect(result.current.visible).toEqual([]);
+    expect(result.current.canStart).toBe(false);
     await act(async () => {
       retry.resolve({
         networks: [ethereum, base],
@@ -893,6 +908,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       await retry.promise;
     });
     expect(result.current.current).toBe(base);
+    expect(result.current.visible).toEqual([base.tokens[0]]);
     expect(result.current.canStart).toBe(true);
   });
 
