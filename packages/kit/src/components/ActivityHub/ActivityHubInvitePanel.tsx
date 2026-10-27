@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Button,
   Divider,
   Icon,
@@ -20,6 +19,7 @@ import {
   INVITE_CARD_BORDER_COLOR,
   PRESSABLE_SURFACE_PROPS,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
+import { getReferralLinkDescId } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/referralLinks';
 import { useReferralTabCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { buildReferralUrl } from '@onekeyhq/shared/src/config/appConfig';
@@ -33,13 +33,12 @@ import type { IActivityHubSource } from './types';
 
 const SUMMARY_TIMEOUT_MS = 5000;
 
-// Named like the products on the referral page, so the badge says whose
-// landing page the link opens.
-const SOURCE_PRODUCT_TITLE: Record<IActivityHubSource, ETranslations> = {
-  Earn: ETranslations.referral_referred_type_2,
-  Perps: ETranslations.perps_perps,
-  Swap: ETranslations.global_swap,
-};
+// Each hub links to its own product's landing page.
+const SOURCE_LINK_SUBJECT = {
+  Earn: 'Earn',
+  Perps: 'Perp',
+  Swap: 'Swap',
+} as const satisfies Record<IActivityHubSource, string>;
 
 // The summary holds the current code; a slow or failed request falls back to
 // the code cached from the last summary.
@@ -85,6 +84,7 @@ export function ActivityHubInvitePanel({
     () => (code ? buildReferralUrl({ code, source, env }) : undefined),
     [code, env, source],
   );
+  const linkDescId = getReferralLinkDescId(SOURCE_LINK_SUBJECT[source]);
   const logAction = (action: IActivityHubAction) =>
     defaultLogger.referral.activityHub.activityHubActionPressed({
       source,
@@ -118,18 +118,27 @@ export function ActivityHubInvitePanel({
                 id: ETranslations.referral_referral_link,
               })}
             </SizableText>
-            <Badge badgeSize="sm">
-              {intl.formatMessage({ id: SOURCE_PRODUCT_TITLE[source] })}
-            </Badge>
+            {/* Says what the link invites friends to, as the referral page's
+                link menu does. */}
+            {linkDescId ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {intl.formatMessage({ id: linkDescId })}
+              </SizableText>
+            ) : null}
           </XStack>
           {/* The link and its Copy button read as one pill, like the invite
-              card's link field; the button sits 8px from every edge. */}
+              card's link field; the button sits 4px from every edge. */}
           <XStack
-            minHeight={44}
+            minHeight={36}
             ai="center"
             gap="$2"
-            pl="$4"
-            pr="$2"
+            pl="$3"
+            pr="$1"
             borderRadius="$full"
             bg="$bgStrong"
           >
@@ -137,7 +146,7 @@ export function ActivityHubInvitePanel({
               <SizableText
                 flex={1}
                 minWidth={0}
-                size="$bodyLg"
+                size="$bodyMd"
                 numberOfLines={1}
               >
                 {url}

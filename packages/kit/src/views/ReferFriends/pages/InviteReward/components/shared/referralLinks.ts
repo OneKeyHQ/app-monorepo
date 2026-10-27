@@ -32,6 +32,14 @@ const REFERRAL_LINKS = [
   },
 ];
 
+// What a product's referral link invites friends to, as the referral page's
+// link menu describes it.
+export function getReferralLinkDescId(
+  subject: 'Perp' | 'Swap' | 'Earn',
+): ETranslations | undefined {
+  return REFERRAL_LINKS.find((link) => link.subject === subject)?.descId;
+}
+
 function extractInviteCode(url: string): string | undefined {
   const match = url.match(/\/r\/([^/]+)/);
   return match?.[1];

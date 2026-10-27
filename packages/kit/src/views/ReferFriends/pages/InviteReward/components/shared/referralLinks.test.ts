@@ -3,6 +3,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   buildHardwareShopInviteUrl,
   buildReferralLinks,
+  getReferralLinkDescId,
 } from './referralLinks';
 
 describe('buildReferralLinks', () => {
@@ -29,5 +30,19 @@ describe('buildReferralLinks', () => {
 
   it('returns no shop link when the invite URL is missing', () => {
     expect(buildHardwareShopInviteUrl('')).toBe('');
+  });
+});
+
+describe('getReferralLinkDescId', () => {
+  it('describes each product link as the link menu does', () => {
+    expect(getReferralLinkDescId('Perp')).toBe(
+      ETranslations.referral_link_perps_desc,
+    );
+    expect(getReferralLinkDescId('Swap')).toBe(
+      ETranslations.swap_referral_link__desc,
+    );
+    expect(getReferralLinkDescId('Earn')).toBe(
+      ETranslations.referral_link_defi_desc,
+    );
   });
 });
