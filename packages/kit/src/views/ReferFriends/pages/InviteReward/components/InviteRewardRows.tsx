@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -193,21 +193,19 @@ function DesktopRewardHeader({
 
 // The product's icon on a round neutral tile, the row's visual anchor like a
 // token logo in the wallet lists; the page keeps its green for the few
-// figures that need it. The folded group keeps the tile's width blank.
-function ProductTile({ subject }: { subject?: IInviteRewardSubject }) {
+// figures that need it.
+function ProductTile({ subject }: { subject: IInviteRewardSubject }) {
   return (
     <Stack
       w="$10"
       h="$10"
       borderRadius="$full"
-      bg={subject ? '$bgStrong' : undefined}
+      bg="$bgStrong"
       ai="center"
       jc="center"
       flexShrink={0}
     >
-      {subject ? (
-        <Icon name={INVITE_REWARD_SUBJECT_ICON[subject]} size="$5" />
-      ) : null}
+      <Icon name={INVITE_REWARD_SUBJECT_ICON[subject]} size="$5" />
     </Stack>
   );
 }
@@ -291,39 +289,6 @@ function DesktopRewardRow({
   );
 }
 
-// Two or more products without rewards fold into one line that expands in
-// place (and goes away once open); a blank tile keeps the names aligned with
-// the rows above.
-function DesktopFoldedRow({
-  title,
-  noRewardLabel,
-  onPress,
-}: {
-  title: string;
-  noRewardLabel: string;
-  onPress: () => void;
-}) {
-  return (
-    <XStack
-      ai="center"
-      gap="$3"
-      {...DESKTOP_ROW_BLEED_PROPS}
-      py="$3"
-      {...PRESSABLE_SURFACE_PROPS}
-      onPress={onPress}
-    >
-      <ProductTile />
-      <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
-        {title}
-      </SizableText>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {noRewardLabel}
-      </SizableText>
-      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
-    </XStack>
-  );
-}
-
 // Before the first reward every product page is empty too, so the section
 // shows one quiet in-card empty state: what will appear here, plus the one
 // action that changes it. Native already has the share footer, so only the
@@ -400,7 +365,6 @@ export function InviteRewardRows({
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
-  const [isFoldedOpen, setIsFoldedOpen] = useState(false);
   const rows = useMemo(
     () => getInviteRewardRows(summaryInfo, summaryInfo.rebateConfig.configs),
     [summaryInfo],
@@ -437,9 +401,6 @@ export function InviteRewardRows({
   const noRewardLabel = intl.formatMessage({
     id: ETranslations.referral_no_reward,
   });
-  const foldedTitle = rows.foldedRows
-    .map((row) => titleFor(row.subject))
-    .join(' · ');
 
   if (!md) {
     const hasAnyData = rows.visibleRows.length > 0;
@@ -470,12 +431,9 @@ export function InviteRewardRows({
               labels={desktopLabels}
               columns={desktopColumns}
             />
-            {[
-              ...rows.visibleRows,
-              ...(rows.foldedRows.length === 1 || isFoldedOpen
-                ? rows.foldedRows
-                : []),
-            ].map((row) => (
+            {/* Products without rewards are listed after the rest, never
+                folded: an icon-less folded row reads as a missing icon. */}
+            {[...rows.visibleRows, ...rows.foldedRows].map((row) => (
               <DesktopRewardRow
                 key={row.subject}
                 row={row}
@@ -488,15 +446,6 @@ export function InviteRewardRows({
                 }}
               />
             ))}
-            {rows.foldedRows.length > 1 && !isFoldedOpen ? (
-              <DesktopFoldedRow
-                title={foldedTitle}
-                noRewardLabel={noRewardLabel}
-                onPress={() => {
-                  setIsFoldedOpen(true);
-                }}
-              />
-            ) : null}
           </YStack>
         ) : (
           <RewardsEmpty cardStyle={cardStyle} onCopyLink={copyLink} />
@@ -544,9 +493,7 @@ export function InviteRewardRows({
           theirs. */}
       <YStack px="$4" py="$1" {...cardStyle}>
         {rows.visibleRows.map(renderRow)}
-        {/* Unlike desktop, products without rewards are never folded: an
-          icon-less folded row reads as a missing icon on phones, so each
-          keeps its own row and "No reward yet". */}
+        {/* Like desktop, products without rewards keep their own rows. */}
         {rows.foldedRows.map(renderRow)}
       </YStack>
     </YStack>
