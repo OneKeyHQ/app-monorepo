@@ -20,6 +20,7 @@ import { resolveStakeTokenAddress } from '../../../Staking/utils/utils';
 import {
   buildEmptyAmountFirstFrameKey,
   buildOffersFirstFrameKey,
+  buildSupplyEmptyFirstFrameKey,
   keepFirstFrame,
   warmFirstFrame,
 } from './earnFirstFrameCache';
@@ -74,10 +75,39 @@ export type IWarmFormParams = {
   reserveAddress?: string;
 };
 
-// The form's data, then its rows before an amount (a vault's or a staking
-// protocol's; a lending market's form reads its own on open)
+// The form's data, then its rows before an amount: a vault's or a staking
+// protocol's, or a lending market's (My Supply; with loans, Health Factor
+// and Use as Collateral), which its form also stands in place when it opens
+// with an amount, until its own answer
 export function warmFormData(params: IWarmFormParams) {
   const { networkId, symbol, provider: providerName, vault, type } = params;
+  const { accountId, marketAddress, reserveAddress } = params;
+  if (
+    type === EManagePositionType.Supply &&
+    accountId &&
+    marketAddress &&
+    reserveAddress !== undefined
+  ) {
+    warmFirstFrame(
+      buildSupplyEmptyFirstFrameKey({
+        accountId,
+        networkId,
+        provider: providerName,
+        marketAddress,
+        reserveAddress,
+      }),
+      () =>
+        backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation({
+          networkId,
+          provider: providerName,
+          marketAddress,
+          reserveAddress,
+          accountId,
+          action: 'supply',
+          amount: '0',
+        }),
+    ).catch(() => undefined);
+  }
   void warmManagePageData({
     ...params,
     indexedAccountId: params.indexedAccountId,

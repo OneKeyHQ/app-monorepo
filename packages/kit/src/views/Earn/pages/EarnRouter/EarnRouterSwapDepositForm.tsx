@@ -1235,16 +1235,18 @@ export function EarnRouterSwapDepositForm({
     (summaryRequest?.kind === 'staking' || isPendle) &&
     Boolean(shownDeposit) &&
     depositSummary.stakingAmount !== shownDeposit;
-  // The provider's rows had settled on dashes for this estimate (its answer
-  // failed): through an emptied box's moment they stay dashes, nothing being
-  // on its way, rather than turning into placeholders
-  const summaryShowedDashesRef = useRef(false);
+  // The provider's rows had settled for this estimate (its answer in, with
+  // figures or without): through an emptied box's moment they stay as they
+  // were, the figures dimmed and the dashes dashes, nothing being on its way.
+  // Rows still waiting for their answer keep their placeholders
+  const summarySettledRef = useRef(false);
+  const isHoldingSettledSummary = isEmptySettling && summarySettledRef.current;
   const isSummaryLoading =
     isQuoting ||
     isSummaryUpdating ||
-    (isEmptySettling && !summaryShowedDashesRef.current);
+    (isEmptySettling && !isHoldingSettledSummary);
   if (hasAmount) {
-    summaryShowedDashesRef.current = isSummaryPlaceholder && !isSummaryLoading;
+    summarySettledRef.current = !isSummaryLoading;
   }
   if (!isSummaryPlaceholder) {
     shownSummaryAmountRef.current = summaryAmount;
@@ -1323,6 +1325,18 @@ export function EarnRouterSwapDepositForm({
         transactionConfirmation={
           canShowLending ? depositSummary.lending : undefined
         }
+        // Until the market's first answer here (it comes after the swap's
+        // estimate): its rows for an empty amount, as last read, so the
+        // rows are in place from the first frame
+        rowsStandIn={readFirstFrame<IBorrowTransactionConfirmation>(
+          buildSupplyEmptyFirstFrameKey({
+            accountId: summaryRequest.accountId,
+            networkId,
+            provider: summaryRequest.provider,
+            marketAddress: summaryRequest.marketAddress,
+            reserveAddress: summaryRequest.reserveAddress,
+          }),
+        )}
         transactionConfirmationLoading={isLendingLoading}
         // The amount supplied comes with the swap's estimate: until then
         // the figures wait (dimmed, or placeholders), as the line does
@@ -1388,6 +1402,7 @@ export function EarnRouterSwapDepositForm({
       <EarnFormSummary
         outcome={outcome}
         isLoading={isSummaryLoading}
+        isDimmed={isHoldingSettledSummary}
         rows={rows}
       />
     );
@@ -1454,6 +1469,7 @@ export function EarnRouterSwapDepositForm({
       <EarnFormSummary
         outcome={outcome}
         isLoading={isSummaryLoading}
+        isDimmed={isHoldingSettledSummary}
         rows={rows}
       />
     );
@@ -1485,9 +1501,42 @@ export function EarnRouterSwapDepositForm({
 
   // A route problem is not the amount's: it stays a notice under the
   // protocol. It opens and closes over the line's time, as everything under
-  // the box does, and fades with it
+  // the box does, and fades with it. It stays while the next amount's quote
+  // is on its way (a second failure leaves it in place rather than closing
+  // and opening it again) and closes once a quote comes; emptied, it stays
+  // its moment as figures do (keys while the box has no amount keep it)
+  const routeAlertShownRef = useRef(false);
+  const isRouteAlertEmptiedRef = useRef(false);
+  const routeAlertHadAmountRef = useRef(hasAmount);
+  if (routeAlertHadAmountRef.current !== hasAmount) {
+    routeAlertHadAmountRef.current = hasAmount;
+    isRouteAlertEmptiedRef.current = !hasAmount && routeAlertShownRef.current;
+  }
+  const [, setRouteAlertTick] = useState(0);
+  useEffect(() => {
+    if (hasAmount || !isRouteAlertEmptiedRef.current) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      isRouteAlertEmptiedRef.current = false;
+      setRouteAlertTick((tick) => tick + 1);
+    }, EARN_EMPTIED_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [hasAmount, typedAmount]);
+  // From the frame the amount is typed: the quote shown is another
+  // amount's (or none) until this one's is asked for
+  const isNextQuoteComing =
+    hasAmount &&
+    canQuote &&
+    !quoteState.quote &&
+    (quoteState.isLoading || quoteState.amount !== amount);
   const showsRouteAlert =
-    !isInsufficient && (hasNoRoute || (hasAmount && !isSwappable));
+    !isInsufficient &&
+    (hasNoRoute ||
+      (hasAmount && !isSwappable) ||
+      (routeAlertShownRef.current &&
+        (isNextQuoteComing || isRouteAlertEmptiedRef.current)));
+  routeAlertShownRef.current = showsRouteAlert;
   // There as the form mounts, it shows at once (decided once: the height
   // transition lays its content out by it)
   const [routeAlertFromStart] = useState(showsRouteAlert);

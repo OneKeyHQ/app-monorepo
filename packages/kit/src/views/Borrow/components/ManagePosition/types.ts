@@ -225,6 +225,7 @@ export interface IManagePositionActions {
 export interface IManagePositionActionResult {
   estimateFeeResp?: IEarnEstimateFeeResp;
   transactionConfirmation?: IBorrowTransactionConfirmation;
+  transactionConfirmationStandIn?: IBorrowTransactionConfirmation;
   transactionConfirmationLoading: boolean;
   checkAmountMessage: string;
   checkAmountAlerts: ICheckAmountAlert[];

@@ -74,6 +74,7 @@ export function EarnLendingSummary({
   price,
   currencySymbol,
   transactionConfirmation,
+  rowsStandIn,
   transactionConfirmationLoading,
   isAmountComing,
   isDimmed = false,
@@ -84,6 +85,12 @@ export function EarnLendingSummary({
   price?: string;
   currencySymbol: string;
   transactionConfirmation?: IBorrowTransactionConfirmation;
+  // Before the first answer (a form opened with an amount): the market's
+  // answer for an empty amount, as last read. The rows take their places
+  // and what doesn't depend on the amount from it (My Supply as it is, the
+  // liquidation line, Use as Collateral, the supply rate); the figures for
+  // the amount wait for the answer
+  rowsStandIn?: IBorrowTransactionConfirmation;
   transactionConfirmationLoading?: boolean;
   // The amount supplied is still being worked out (a swap's estimate): the
   // figures wait, dimmed, or placeholders where there are none yet
@@ -144,7 +151,10 @@ export function EarnLendingSummary({
     lastConfirmationRef.current = freshConfirmation;
     isKeptForEmptiedRef.current = false;
   }
-  const confirmation = freshConfirmation ?? lastConfirmationRef.current;
+  const isStandingIn =
+    !freshConfirmation && !lastConfirmationRef.current && Boolean(rowsStandIn);
+  const confirmation =
+    freshConfirmation ?? lastConfirmationRef.current ?? rowsStandIn;
   if (isTypedPositive) {
     lastPositiveAmountRef.current = amountValue;
   } else if (!isEmptySettling) {
@@ -172,6 +182,7 @@ export function EarnLendingSummary({
     Boolean(isAmountComing) || (isEmptySettling && !isHoldingDashes);
   const showsProjections =
     isPositiveAmount &&
+    !isStandingIn &&
     !isAnswerMissing &&
     !isHoldingDashes &&
     (Boolean(freshConfirmation) || !isKeptForEmptiedRef.current);

@@ -1324,6 +1324,26 @@ export function UniversalStake({
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
+  // The last notes stay in place while they close, and go once closed, so
+  // nothing hidden (a note's button) stays in the form
+  const lastCheckAmountAlertsRef = useRef(checkAmountAlerts);
+  if (checkAmountAlerts.length) {
+    lastCheckAmountAlertsRef.current = checkAmountAlerts;
+  }
+  const [, setClosedAlertsTick] = useState(0);
+  useEffect(() => {
+    if (checkAmountAlerts.length || !lastCheckAmountAlertsRef.current.length) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      lastCheckAmountAlertsRef.current = [];
+      setClosedAlertsTick((tick) => tick + 1);
+    }, AMOUNT_LINE_MS);
+    return () => clearTimeout(timer);
+  }, [checkAmountAlerts]);
+  const shownCheckAmountAlerts = checkAmountAlerts.length
+    ? checkAmountAlerts
+    : lastCheckAmountAlertsRef.current;
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   // The amount the last check answered for
   const [checkedAmount, setCheckedAmount] = useState<string>();
@@ -2302,28 +2322,36 @@ export function UniversalStake({
     shownQuote.confirmation ??
     lastConfirmationRef.current ??
     emptyAmountConfirmation;
-  // Whether the rows had settled on dashes for the amount in the box (its
-  // answer came without figures): through an emptied box's moment they
-  // stay dashes, nothing being on its way, rather than turning into
-  // placeholders
-  const rowsShowedDashesRef = useRef(false);
+  // Whether the rows had settled for the amount in the box (its answer in,
+  // with figures or without): through an emptied box's moment they stay as
+  // they were, the figures dimmed and the dashes dashes, nothing being on
+  // its way. Rows still waiting for their answer keep their placeholders
+  const rowsSettledRef = useRef(false);
   if (isPositiveAmount) {
-    rowsShowedDashesRef.current =
-      !shownQuote.confirmation && shownQuote.amount === amountValue;
+    rowsSettledRef.current = shownQuote.amount === amountValue;
   }
-  const isHoldingDashes = isEmptiedHolding && rowsShowedDashesRef.current;
+  const isHoldingSettled = isEmptiedHolding && rowsSettledRef.current;
   // From the keystroke until this amount's quote is in: the figures shown
   // are the last amount's, dimmed. Through an emptied box's moment what was
   // on screen waits too
   const isQuoteUpdating =
-    !isHoldingDashes &&
+    !isHoldingSettled &&
     ((isPositiveAmount ? amountValue : '') !== shownQuote.amount ||
       isEmptiedHolding);
+  // Only a quote with a figure for this amount (what it buys) expires into
+  // "Refresh": an amount without one (too small for the market, or its
+  // answer failed) has nothing to refresh, so the button stays off
+  const hasShownQuoteFigure = new BigNumber(
+    earnUtils.extractAmountFromText(
+      shownQuote.confirmation?.receive?.description,
+    ),
+  ).gt(0);
   // Nor from a keystroke until that amount's quote is in: the expired quote
   // is being replaced, so the button keeps its look. Nor for an amount the
   // red line turns down (over the balance): the button stays off for it
   const effectiveShowExpiredRefresh =
     showExpiredRefresh &&
+    hasShownQuoteFigure &&
     !isTransacting &&
     !quoteLoading &&
     !isQuoteUpdating &&
@@ -2996,44 +3024,54 @@ export function UniversalStake({
           disabled={amountInputDisabled}
         />
       ) : null}
-      {checkAmountAlerts.length > 0 ? (
-        <>
-          {checkAmountAlerts.map((alert, index) => (
-            <Alert
-              key={index}
-              type="warning"
-              renderTitle={() => {
-                return <EarnText text={alert.text} size="$bodyMdMedium" />;
-              }}
-              action={
-                alert.button
-                  ? {
-                      primary: alert.button.text.text,
-                      onPrimaryPress: () => {
-                        if (alert.button?.data?.link) {
-                          handleOpenWebSite({
-                            navigation,
-                            useCurrentWindow: false,
-                            webSite: {
-                              url: alert.button.data.link,
-                              title: alert.button.data.link,
-                              logo: undefined,
-                              sortIndex: undefined,
-                            },
-                          });
-                        }
-                      },
-                    }
-                  : undefined
-              }
-            />
-          ))}
-        </>
-      ) : null}
+      {/* The check's notes (Pendle's "The min fiat value is $0.01") open
+          and close over the form's moment, the rows below moving with
+          them; always there, so their margin takes back the form's gap
+          while they are closed */}
+      <YStack mb="$-4">
+        <HeightTransition
+          duration={AMOUNT_LINE_MS}
+          hide={!checkAmountAlerts.length}
+        >
+          <YStack pb="$4" gap="$4" aria-hidden={!checkAmountAlerts.length}>
+            {shownCheckAmountAlerts.map((alert, index) => (
+              <Alert
+                key={index}
+                type="warning"
+                renderTitle={() => {
+                  return <EarnText text={alert.text} size="$bodyMdMedium" />;
+                }}
+                action={
+                  alert.button
+                    ? {
+                        primary: alert.button.text.text,
+                        onPrimaryPress: () => {
+                          if (alert.button?.data?.link) {
+                            handleOpenWebSite({
+                              navigation,
+                              useCurrentWindow: false,
+                              webSite: {
+                                url: alert.button.data.link,
+                                title: alert.button.data.link,
+                                logo: undefined,
+                                sortIndex: undefined,
+                              },
+                            });
+                          }
+                        },
+                      }
+                    : undefined
+                }
+              />
+            ))}
+          </YStack>
+        </HeightTransition>
+      </YStack>
       {/* What it gets you, then the transaction's own rows */}
       <EarnFormSummary
         outcome={outcome}
         isLoading={isQuoteUpdating}
+        isDimmed={isHoldingSettled}
         rows={summaryRows}
         footnote={summaryFootnote}
         detailsPlaceholder={isPendleRowsReserved}

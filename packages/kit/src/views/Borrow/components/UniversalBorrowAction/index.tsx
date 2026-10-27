@@ -40,6 +40,9 @@ export type IUniversalBorrowActionParams = {
 export type IUniversalBorrowActionState = {
   estimateFeeResp?: IEarnEstimateFeeResp;
   transactionConfirmation?: IBorrowTransactionConfirmation;
+  // Until the first answer of a form opened with an amount: the market's
+  // rows for an empty amount, as last read, to lay its rows out by
+  transactionConfirmationStandIn?: IBorrowTransactionConfirmation;
   transactionConfirmationLoading: boolean;
   checkAmountMessage: string;
   checkAmountAlerts: ICheckAmountAlert[];
@@ -732,10 +735,22 @@ export function useUniversalBorrowAction({
     transactionConfirmation =
       readFirstFrame<IBorrowTransactionConfirmation>(supplyEmptyKey);
   }
+  // Opened with an amount: the rows for an empty amount (kept from the last
+  // read, or read ahead as the protocol list opened) stand in until the
+  // first answer, so the rows are in place from the first frame and the
+  // answer only fills in their figures
+  const transactionConfirmationStandIn =
+    !transactionConfirmation &&
+    !hasAnsweredRef.current &&
+    supplyEmptyKey &&
+    shouldFetchTransactionConfirmation
+      ? readFirstFrame<IBorrowTransactionConfirmation>(supplyEmptyKey)
+      : undefined;
 
   return {
     estimateFeeResp,
     transactionConfirmation,
+    transactionConfirmationStandIn,
     transactionConfirmationLoading:
       effectiveTransactionConfirmationState.transactionConfirmationLoading,
     checkAmountMessage: effectiveCheckAmountState.checkAmountMessage,

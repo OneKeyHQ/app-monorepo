@@ -198,6 +198,7 @@ export function InfoDisplaySection({
         price={state.price}
         currencySymbol={state.currencySymbol}
         transactionConfirmation={actionResult.transactionConfirmation}
+        rowsStandIn={actionResult.transactionConfirmationStandIn}
         transactionConfirmationLoading={
           actionResult.transactionConfirmationLoading
         }

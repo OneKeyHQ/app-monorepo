@@ -955,6 +955,26 @@ export function UniversalWithdraw({
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
   >([]);
+  // The last notes stay in place while they close, and go once closed, so
+  // nothing hidden (a note's button) stays in the form
+  const lastCheckAmountAlertsRef = useRef(checkAmountAlerts);
+  if (checkAmountAlerts.length) {
+    lastCheckAmountAlertsRef.current = checkAmountAlerts;
+  }
+  const [, setClosedAlertsTick] = useState(0);
+  useEffect(() => {
+    if (checkAmountAlerts.length || !lastCheckAmountAlertsRef.current.length) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      lastCheckAmountAlertsRef.current = [];
+      setClosedAlertsTick((tick) => tick + 1);
+    }, AMOUNT_LINE_MS);
+    return () => clearTimeout(timer);
+  }, [checkAmountAlerts]);
+  const shownCheckAmountAlerts = checkAmountAlerts.length
+    ? checkAmountAlerts
+    : lastCheckAmountAlertsRef.current;
 
   // With the amount it is for, so the fee's figure waits for its own answer
   const { result: estimateFee } = usePromiseResult(async () => {
@@ -1870,23 +1890,28 @@ export function UniversalWithdraw({
     lastConfirmationRef.current ??
     pendleSellStandIn ??
     emptyAmountConfirmation;
-  // Whether the rows had settled on dashes for the amount in the box (its
-  // answer came without figures): through an emptied box's moment they
-  // stay dashes, nothing being on its way, rather than turning into
-  // placeholders
-  const rowsShowedDashesRef = useRef(false);
+  // Whether the rows had settled for the amount in the box (its answer in,
+  // with figures or without): through an emptied box's moment they stay as
+  // they were, the figures dimmed and the dashes dashes, nothing being on
+  // its way. Rows still waiting for their answer keep their placeholders
+  const rowsSettledRef = useRef(false);
   let isQuoteUpdating = quoteLoading;
+  let isHoldingSettled = false;
   if (!isCancelWithdrawal) {
     if (isPositiveAmount) {
       isQuoteUpdating =
         shownQuote.requestKey !== transactionConfirmationRequestKey;
-      rowsShowedDashesRef.current = !isQuoteUpdating && showDashes;
+      rowsSettledRef.current = !isQuoteUpdating;
     } else {
+      isHoldingSettled = isEmptiedHolding && rowsSettledRef.current;
       isQuoteUpdating =
-        (shownQuote.amount !== '' || isEmptiedHolding) &&
-        !(isEmptiedHolding && rowsShowedDashesRef.current);
+        (shownQuote.amount !== '' || isEmptiedHolding) && !isHoldingSettled;
     }
   }
+
+  const hasShownReceiveFigure = new BigNumber(
+    earnUtils.extractAmountFromText(shownConfirmation?.receive?.description),
+  ).gt(0);
 
   const pendleDetailRows = usePendleTransactionDetails({
     transactionConfirmation: rowsConfirmation,
@@ -2347,8 +2372,9 @@ export function UniversalWithdraw({
       fiatSymbol={symbol}
       payFiatValue={currentValue}
       // Waits as the rows do: from a changed amount, or through the moment
-      // an emptied box keeps its figures, until the answer for it
-      loading={isQuoteUpdating}
+      // an emptied box keeps its figures, until the answer for it. With no
+      // figure there (the answer had none) it stays as it is
+      loading={isQuoteUpdating || (isHoldingSettled && hasShownReceiveFigure)}
     />
   );
 
@@ -2502,44 +2528,54 @@ export function UniversalWithdraw({
           )}
         />
       ) : null}
-      {checkAmountAlerts.length > 0 ? (
-        <>
-          {checkAmountAlerts.map((alert, index) => (
-            <Alert
-              key={index}
-              type={resolveEarnAlertType(alert.type)}
-              renderTitle={() => {
-                return <EarnText text={alert.text} size="$bodyMdMedium" />;
-              }}
-              action={
-                alert.button
-                  ? {
-                      primary: alert.button.text.text,
-                      onPrimaryPress: () => {
-                        if (alert.button?.data?.link) {
-                          handleOpenWebSite({
-                            navigation,
-                            useCurrentWindow: false,
-                            webSite: {
-                              url: alert.button.data.link,
-                              title: alert.button.data.link,
-                              logo: undefined,
-                              sortIndex: undefined,
-                            },
-                          });
-                        }
-                      },
-                    }
-                  : undefined
-              }
-            />
-          ))}
-        </>
-      ) : null}
+      {/* The check's notes (Pendle's "The min fiat value is $0.01") open
+          and close over the form's moment, the rows below moving with
+          them; always there, so their margin takes back the form's gap
+          while they are closed */}
+      <YStack mb="$-4">
+        <HeightTransition
+          duration={AMOUNT_LINE_MS}
+          hide={!checkAmountAlerts.length}
+        >
+          <YStack pb="$4" gap="$4" aria-hidden={!checkAmountAlerts.length}>
+            {shownCheckAmountAlerts.map((alert, index) => (
+              <Alert
+                key={index}
+                type={resolveEarnAlertType(alert.type)}
+                renderTitle={() => {
+                  return <EarnText text={alert.text} size="$bodyMdMedium" />;
+                }}
+                action={
+                  alert.button
+                    ? {
+                        primary: alert.button.text.text,
+                        onPrimaryPress: () => {
+                          if (alert.button?.data?.link) {
+                            handleOpenWebSite({
+                              navigation,
+                              useCurrentWindow: false,
+                              webSite: {
+                                url: alert.button.data.link,
+                                title: alert.button.data.link,
+                                logo: undefined,
+                                sortIndex: undefined,
+                              },
+                            });
+                          }
+                        },
+                      }
+                    : undefined
+                }
+              />
+            ))}
+          </YStack>
+        </HeightTransition>
+      </YStack>
       {/* What reaches the wallet, then the withdrawal's own rows */}
       <EarnFormSummary
         outcome={outcome}
         isLoading={isQuoteUpdating}
+        isDimmed={isHoldingSettled}
         rows={summaryRows}
         footnote={
           footnoteText ? (
