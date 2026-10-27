@@ -54,6 +54,21 @@ export function ActivityHubAction({
   const isCompactPanel = isDesktopFloatingPanel && !hasCampaigns;
   const { panelWidth } = getActivityHubLayout(hasCampaigns);
 
+  // Without campaigns the hub would hold only the referral entry, so the
+  // gift opens the referral page itself instead of a one-item popover.
+  if (!hasCampaigns && !renderTrigger) {
+    return (
+      <HeaderIconButton
+        title={intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend })}
+        icon="GiftOutline"
+        size={size}
+        testID={testID}
+        {...triggerProps}
+        onPress={onOpenReferral}
+      />
+    );
+  }
+
   return (
     <Popover
       open={open}

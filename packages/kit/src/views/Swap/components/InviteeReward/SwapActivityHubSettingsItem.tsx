@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { useDialogInstance } from '@onekeyhq/components';
-import { useShowActivityHub } from '@onekeyhq/kit/src/components/ActivityHub';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -16,18 +15,16 @@ export function SwapActivityHubSettingsItem({
 }) {
   const intl = useIntl();
   const dialog = useDialogInstance();
-  const showActivityHub = useShowActivityHub();
-  const title = intl.formatMessage({ id: ETranslations.perps_activity_hub });
+  // Swap has no campaigns, so the hub would hold only the referral entry;
+  // the item opens the referral page directly.
+  const title = intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend });
 
   const handlePress = useCallback(async () => {
-    // Swap settings is itself a dialog/sheet, so it has to finish closing before
-    // the hub opens on top of it.
+    // Swap settings is itself a dialog/sheet, so it has to finish closing
+    // before the referral page opens.
     await dialog.close();
-    showActivityHub({
-      source: 'Swap',
-      onOpenReferral,
-    });
-  }, [dialog, onOpenReferral, showActivityHub]);
+    onOpenReferral();
+  }, [dialog, onOpenReferral]);
 
   return (
     <ListItem

@@ -73,6 +73,22 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('@onekeyhq/components/src/layouts/Navigation/Header', () => ({
+  HeaderIconButton: ({
+    onPress,
+    testID,
+    title,
+  }: {
+    onPress?: () => void;
+    testID?: string;
+    title?: string;
+  }) => (
+    <button data-testid={testID} onClick={onPress} type="button">
+      {title}
+    </button>
+  ),
+}));
+
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
@@ -99,6 +115,7 @@ jest.mock(
   () => ({}),
 );
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ActivityHubAction } from './ActivityHubAction';
@@ -178,6 +195,29 @@ describe('ActivityHubContent', () => {
     await waitFor(() => expect(closePopover).toHaveBeenCalledTimes(1));
     await Promise.resolve();
     expect(onOpenReferral).not.toHaveBeenCalled();
+  });
+
+  it('opens the referral page from the gift when there are no campaigns', () => {
+    const onOpenReferral = jest.fn();
+    render(<ActivityHubAction source="Earn" onOpenReferral={onOpenReferral} />);
+
+    const gift = screen.getByTestId('header-gift-action');
+    expect(gift.textContent).toBe(ETranslations.sidebar_refer_a_friend);
+    expect(mockPopoverFloatingPanelProps).not.toHaveBeenCalled();
+
+    fireEvent.click(gift);
+    expect(onOpenReferral).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the popover when there are campaigns', () => {
+    render(
+      <ActivityHubAction
+        source="Perps"
+        onOpenReferral={jest.fn()}
+        campaigns={CAMPAIGNS}
+      />,
+    );
+    expect(mockPopoverFloatingPanelProps).toHaveBeenCalled();
   });
 
   it.each([

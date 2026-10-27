@@ -21,12 +21,6 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-const mockShowActivityHub = jest.fn();
-
-jest.mock('@onekeyhq/kit/src/components/ActivityHub', () => ({
-  useShowActivityHub: () => mockShowActivityHub,
-}));
-
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
   ListItem: ({
     onPress,
@@ -58,7 +52,7 @@ describe('SwapActivityHubSettingsItem', () => {
     jest.clearAllMocks();
   });
 
-  it('closes the settings sheet before opening the activity hub', async () => {
+  it('closes the settings sheet before opening the referral page', async () => {
     const close = getCloseMock();
     const onOpenReferral = jest.fn();
 
@@ -67,20 +61,16 @@ describe('SwapActivityHubSettingsItem', () => {
     );
 
     const entry = screen.getByTestId(SwapTestIDs.activityHubSettingsItem);
-    expect(entry.textContent).toBe(ETranslations.perps_activity_hub);
+    expect(entry.textContent).toBe(ETranslations.sidebar_refer_a_friend);
 
     fireEvent.click(entry);
 
     await waitFor(() => {
-      expect(mockShowActivityHub).toHaveBeenCalledTimes(1);
-    });
-    expect(mockShowActivityHub).toHaveBeenCalledWith({
-      source: 'Swap',
-      onOpenReferral,
+      expect(onOpenReferral).toHaveBeenCalledTimes(1);
     });
     expect(close).toHaveBeenCalledTimes(1);
     expect(close.mock.invocationCallOrder[0]).toBeLessThan(
-      mockShowActivityHub.mock.invocationCallOrder[0],
+      onOpenReferral.mock.invocationCallOrder[0],
     );
   });
 });
