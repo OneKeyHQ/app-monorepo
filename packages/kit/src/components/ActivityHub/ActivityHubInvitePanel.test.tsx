@@ -12,7 +12,7 @@ import {
 } from '@testing-library/react';
 
 const mockGetSummaryInfo = jest.fn<Promise<{ inviteCode: string }>, []>();
-const mockGetMyReferralCode = jest.fn<Promise<string>, []>();
+const mockGetCachedMyReferralCode = jest.fn<Promise<string>, []>();
 const mockCopyCode = jest.fn<void, [string]>();
 const mockCopyLink = jest.fn<void, [string]>();
 let mockIsLoggedIn = true;
@@ -79,7 +79,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceReferralCode: {
-      getMyReferralCode: () => mockGetMyReferralCode(),
+      getCachedMyReferralCode: () => mockGetCachedMyReferralCode(),
       getSummaryInfo: () => mockGetSummaryInfo(),
     },
   },
@@ -143,7 +143,7 @@ describe('ActivityHubInvitePanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsLoggedIn = true;
-    mockGetMyReferralCode.mockReset().mockResolvedValue('OLD');
+    mockGetCachedMyReferralCode.mockReset().mockResolvedValue('OLD');
     mockGetSummaryInfo.mockReset().mockResolvedValue({ inviteCode: 'NEW' });
   });
 
@@ -164,7 +164,7 @@ describe('ActivityHubInvitePanel', () => {
   });
 
   it('recovers from a failed first request through the retry button', async () => {
-    mockGetMyReferralCode.mockResolvedValue('');
+    mockGetCachedMyReferralCode.mockResolvedValue('');
     mockGetSummaryInfo.mockRejectedValueOnce(new Error('Offline'));
     render(<ActivityHubInvitePanel source="Swap" onOpenReferral={jest.fn()} />);
 
@@ -181,6 +181,47 @@ describe('ActivityHubInvitePanel', () => {
     expect(
       screen.getByTestId('activity-hub-copy-link').hasAttribute('disabled'),
     ).toBe(false);
+  });
+
+  it('displays and copies the cached code when the summary request fails', async () => {
+    mockGetSummaryInfo.mockRejectedValueOnce(new Error('Offline'));
+    render(<ActivityHubInvitePanel source="Swap" onOpenReferral={jest.fn()} />);
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('activity-hub-copy-code').textContent,
+      ).toContain('OLD'),
+    );
+    expect(screen.queryByTestId('activity-hub-retry')).toBeNull();
+    fireEvent.click(screen.getByTestId('activity-hub-copy-code'));
+    fireEvent.click(screen.getByTestId('activity-hub-copy-link'));
+    expect(mockCopyCode).toHaveBeenCalledWith('OLD');
+    expect(mockCopyLink).toHaveBeenCalledWith(
+      'https://app.onekey.so/r/OLD/app/swap',
+    );
+    expect(mockGetSummaryInfo).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the cached code after a five-second summary timeout', async () => {
+    jest.useFakeTimers();
+    try {
+      mockGetSummaryInfo.mockReturnValueOnce(new Promise(() => {}));
+      render(
+        <ActivityHubInvitePanel source="Swap" onOpenReferral={jest.fn()} />,
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(5000);
+      });
+
+      expect(
+        screen.getByTestId('activity-hub-copy-code').textContent,
+      ).toContain('OLD');
+      expect(screen.queryByTestId('activity-hub-retry')).toBeNull();
+      expect(mockGetSummaryInfo).toHaveBeenCalledTimes(1);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('opens the referral intro without fetching a code when signed out', async () => {

@@ -27,6 +27,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IActivityHubAction } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/activityHub';
 import type { IReferralPageTab } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IActivityHubSource } from './types';
 
@@ -67,11 +68,21 @@ export function ActivityHubInvitePanel({
       if (!isLoggedIn) {
         return '';
       }
-      // Read the refreshed value itself; getMyReferralCode only updates its
-      // cache in the background and leaves a mounted panel with the old code.
-      const summary =
-        await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
-      return summary.inviteCode || '';
+      try {
+        const summary = await timerUtils.timeout(
+          backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+          5000,
+        );
+        return summary.inviteCode || '';
+      } catch (error) {
+        // Keep offline copying available without starting another refresh.
+        const cachedCode =
+          await backgroundApiProxy.serviceReferralCode.getCachedMyReferralCode();
+        if (cachedCode) {
+          return cachedCode;
+        }
+        throw error;
+      }
     },
     [isLoggedIn],
     {

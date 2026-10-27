@@ -28,13 +28,13 @@ function readLastReferralPageTab(): string | undefined {
   return cachedLastTab;
 }
 
-function saveLastReferralPageTab(tab: IReferralPageTab) {
+async function saveLastReferralPageTab(tab: IReferralPageTab) {
   if (readLastReferralPageTab() === tab) {
     return;
   }
   cachedLastTab = tab;
   try {
-    appStorage.syncStorage.set(
+    await appStorage.syncStorage.set(
       EAppSyncStorageKeys.onekey_referral_last_page_tab,
       tab,
     );
@@ -55,7 +55,7 @@ export function useReferralPageTab(routeTab?: string | null): IReferralPageTab {
   );
   const activeTab = resolveReferralPageTab(routeTab ?? lastTab);
   useEffect(() => {
-    saveLastReferralPageTab(activeTab);
+    void saveLastReferralPageTab(activeTab);
   }, [activeTab]);
   return activeTab;
 }

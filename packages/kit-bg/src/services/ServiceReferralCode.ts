@@ -659,9 +659,13 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getCachedMyReferralCode() {
+    return this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
+  }
+
+  @backgroundMethod()
   async getMyReferralCode() {
-    const myReferralCode =
-      await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
+    const myReferralCode = await this.getCachedMyReferralCode();
     setTimeout(async () => {
       const isLogin = await this.backgroundApi.servicePrime.isLoggedIn();
       if (isLogin) {
