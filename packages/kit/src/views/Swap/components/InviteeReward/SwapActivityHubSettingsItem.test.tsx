@@ -25,6 +25,10 @@ const mockShowActivityHub = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/components/ActivityHub', () => ({
   useShowActivityHub: () => mockShowActivityHub,
+  shouldShowActivityHubInvitePanel: () =>
+    !jest.requireMock<{ default: { isNative: boolean } }>(
+      '@onekeyhq/shared/src/platformEnv',
+    ).default.isNative,
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({

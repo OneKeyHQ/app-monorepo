@@ -3,26 +3,21 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, useDialogInstance, useMedia } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ActivityHubContent } from './ActivityHubContent';
-import { ACTIVITY_HUB_PANEL_WIDTH, getActivityHubTitleId } from './layout';
+import { ACTIVITY_HUB_PANEL_WIDTH } from './layout';
 
-import type {
-  IActivityHubCampaign,
-  IActivityHubOpenReferral,
-  IActivityHubSource,
-} from './types';
+import type { IActivityHubOpenReferral, IActivityHubSource } from './types';
 
 type IShowActivityHubParams = {
   source: IActivityHubSource;
   onOpenReferral: IActivityHubOpenReferral;
-  campaigns?: IActivityHubCampaign[];
 };
 
 function ActivityHubDialogContent({
   source,
   onOpenReferral,
-  campaigns,
 }: IShowActivityHubParams) {
   const dialog = useDialogInstance();
 
@@ -32,31 +27,23 @@ function ActivityHubDialogContent({
       showTitle={false}
       closePopover={() => dialog.close()}
       onOpenReferral={onOpenReferral}
-      campaigns={campaigns}
     />
   );
 }
 
-// Surfaces that cannot host the gift popover (the Swap settings sheet) open the
-// same hub content as a dialog instead.
+// Pointer-layout surfaces that cannot host the gift popover (the Swap settings
+// sheet, the Perps menu) open the invite panel as a dialog instead. Their
+// campaigns, if any, are listed where they are opened from.
 export function useShowActivityHub() {
   const intl = useIntl();
   const { gtMd } = useMedia();
 
   return useCallback(
     (params: IShowActivityHubParams) => {
-      // Unlike Popover, Dialog only degrades to a sheet below the md
-      // breakpoint. Above it every platform (native tablets included) renders a
+      // Dialog degrades to a sheet below the md breakpoint; above it, a
       // floating panel that honours floatingPanelProps.
       Dialog.show({
-        // Only pointer layouts open the hub as a dialog, so it holds the
-        // invite panel.
-        title: intl.formatMessage({
-          id: getActivityHubTitleId({
-            hasCampaigns: Boolean(params.campaigns?.length),
-            showInvitePanel: true,
-          }),
-        }),
+        title: intl.formatMessage({ id: ETranslations.referral_home__title }),
         floatingPanelProps: gtMd
           ? {
               width: ACTIVITY_HUB_PANEL_WIDTH,

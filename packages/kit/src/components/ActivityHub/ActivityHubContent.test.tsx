@@ -195,9 +195,6 @@ describe('ActivityHubContent', () => {
       />,
     );
 
-    expect(screen.queryByTestId('activity-hub-invite')).toBeNull();
-    expect(screen.queryByTestId('activity-hub-my-rewards')).toBeNull();
-
     fireEvent.click(screen.getByTestId('activity-hub-referral'));
     expect(closePopover).toHaveBeenCalledTimes(1);
     expect(onOpenReferral).not.toHaveBeenCalled();

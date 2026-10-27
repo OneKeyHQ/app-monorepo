@@ -3,7 +3,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   buildHardwareShopInviteUrl,
   buildReferralLinks,
-  getReferralLinkDescId,
+  getProductReferralLink,
 } from './referralLinks';
 
 describe('buildReferralLinks', () => {
@@ -33,16 +33,31 @@ describe('buildReferralLinks', () => {
   });
 });
 
-describe('getReferralLinkDescId', () => {
-  it('describes each product link as the link menu does', () => {
-    expect(getReferralLinkDescId('Perp')).toBe(
-      ETranslations.referral_link_perps_desc,
-    );
-    expect(getReferralLinkDescId('Swap')).toBe(
-      ETranslations.swap_referral_link__desc,
-    );
-    expect(getReferralLinkDescId('Earn')).toBe(
-      ETranslations.referral_link_defi_desc,
-    );
+describe('getProductReferralLink', () => {
+  it('links each activity hub to its product page as the link menu does', () => {
+    expect(
+      getProductReferralLink({
+        source: 'Perps',
+        inviteCode: 'CODE1',
+        webAppUrl: 'https://app.onekey.so',
+      }),
+    ).toEqual({
+      url: 'https://app.onekey.so/r/CODE1/app/perps',
+      descId: ETranslations.referral_link_perps_desc,
+    });
+    expect(
+      getProductReferralLink({
+        source: 'Swap',
+        inviteCode: 'CODE1',
+        webAppUrl: 'https://app.onekey.so',
+      }).descId,
+    ).toBe(ETranslations.swap_referral_link__desc);
+    expect(
+      getProductReferralLink({
+        source: 'Earn',
+        inviteCode: 'CODE1',
+        webAppUrl: 'https://app.onekey.so',
+      }).url,
+    ).toBe('https://app.onekey.so/r/CODE1/app/defi');
   });
 });

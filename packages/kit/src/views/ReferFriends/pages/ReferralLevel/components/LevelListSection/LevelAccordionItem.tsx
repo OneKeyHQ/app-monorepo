@@ -26,6 +26,7 @@ import {
   getDisplayLabel,
   sortCommissionRateItems,
 } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import type { ICommissionRateParts } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteLevelCommissionRate,
@@ -60,11 +61,8 @@ interface ILevelRuleRow {
   label: string;
   keep?: string;
   upgrade?: string;
-  rate?: ILevelRuleRate;
+  rate?: ICommissionRateParts;
 }
-
-// Your rate and the invitee's, each shown in its own column.
-type ILevelRuleRate = ReturnType<typeof getCommissionRateParts>;
 
 // A level's icon (or emoji) at header size, so each column names the level
 // it is about without spelling it out.

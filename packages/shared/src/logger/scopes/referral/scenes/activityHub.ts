@@ -1,8 +1,10 @@
+import type { IReferralShareSource } from '@onekeyhq/shared/src/config/appConfig';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 // The product whose gift (or Swap settings item) opened the hub.
-export type IActivityHubLogSource = 'Earn' | 'Perps' | 'Swap';
+export type IActivityHubLogSource = IReferralShareSource;
 
 // invite_panel: pointer layouts, with the code and link to copy.
 // shortcut: native sheets, with the Referral tile.

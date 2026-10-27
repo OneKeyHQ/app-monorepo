@@ -5,11 +5,11 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   ActivityHubAction,
   ActivityHubContent,
+  shouldShowActivityHubInvitePanel,
   useShowActivityHub,
 } from '@onekeyhq/kit/src/components/ActivityHub';
 import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpsCampaignIllustration } from './PerpsCampaignIllustration';
 
@@ -56,7 +56,9 @@ export function PerpsActivityCenterContent({
       }
       onOpenReferral={handleOpenReferral}
       onOpenInvitePanel={
-        menuLayout && !platformEnv.isNative ? openInvitePanel : undefined
+        menuLayout && shouldShowActivityHubInvitePanel()
+          ? openInvitePanel
+          : undefined
       }
       campaigns={campaigns}
     />

@@ -15,14 +15,10 @@ import {
   usePopoverContext,
 } from '@onekeyhq/components';
 import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import {
-  WEB_APP_URL,
-  WEB_APP_URL_DEV,
-} from '@onekeyhq/shared/src/config/appConfig';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { buildReferralLinks } from './referralLinks';
+import { useReferralWebAppUrl } from './useReferralWebAppUrl';
 
 interface IReferralLinkItemProps {
   title: string;
@@ -106,13 +102,7 @@ export function ReferralLinkPopoverContent({
   const intl = useIntl();
   const { copyUrl } = useClipboard();
   const { closePopover } = usePopoverContext();
-  const [devSettings] = useDevSettingsPersistAtom();
-
-  const webAppUrl = useMemo(() => {
-    const useTestUrl =
-      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
-    return useTestUrl ? WEB_APP_URL_DEV : WEB_APP_URL;
-  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
+  const webAppUrl = useReferralWebAppUrl();
 
   const handleCopyLink = useCallback(
     (url: string) => {

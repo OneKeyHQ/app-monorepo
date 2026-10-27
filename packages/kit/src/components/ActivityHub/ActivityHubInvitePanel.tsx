@@ -10,48 +10,48 @@ import {
   Skeleton,
   XStack,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard/hooks/useReferralCodeCard';
+import { getProductReferralLink } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/referralLinks';
+import { useReferralWebAppUrl } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/useReferralWebAppUrl';
 import {
   INVITE_CARD_BORDER_COLOR,
+  POINTER_ROW_BLEED_PROPS,
   PRESSABLE_SURFACE_PROPS,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
-import { getReferralLinkDescId } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/referralLinks';
 import { useReferralTabCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import { buildReferralUrl } from '@onekeyhq/shared/src/config/appConfig';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IActivityHubAction } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/activityHub';
 import type { IReferralPageTab } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IActivityHubSource } from './types';
 
-const SUMMARY_TIMEOUT_MS = 5000;
+// A tappable row that bleeds 8px past the text, like the referral page's
+// press surfaces, so its text lines up with the rest of the panel.
+const PANEL_ROW_PROPS = {
+  ...POINTER_ROW_BLEED_PROPS,
+  ...PRESSABLE_SURFACE_PROPS,
+  ai: 'center',
+  gap: '$3',
+  py: '$1.5',
+  borderRadius: '$2',
+} as const;
 
-// Each hub links to its own product's landing page.
-const SOURCE_LINK_SUBJECT = {
-  Earn: 'Earn',
-  Perps: 'Perp',
-  Swap: 'Swap',
-} as const satisfies Record<IActivityHubSource, string>;
-
-// The summary holds the current code; a slow or failed request falls back to
-// the code cached from the last summary.
+// The cached code shows at once; the read also refreshes it in the
+// background. Only a first visit, with nothing cached yet, waits for the
+// summary.
 async function fetchMyReferralCode() {
-  try {
-    const summary = await timerUtils.timeout(
-      backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
-      SUMMARY_TIMEOUT_MS,
-    );
-    return summary.inviteCode || '';
-  } catch {
-    return backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+  const cached =
+    await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
+  if (cached) {
+    return cached;
   }
+  const summary = await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+  return summary.inviteCode || '';
 }
 
 // Pointer layouts already list Referral in the sidebar, so their gift opens
@@ -68,45 +68,31 @@ export function ActivityHubInvitePanel({
 }) {
   const intl = useIntl();
   const tabCopy = useReferralTabCopy();
-  const { copyText } = useClipboard();
-  const { isLoggedIn } = useOneKeyAuthMethods();
-  const [devSettings] = useDevSettingsPersistAtom();
-  const env =
-    devSettings.enabled && devSettings.settings?.enableTestEndpoint
-      ? 'test'
-      : 'prod';
+  const [user] = usePrimePersistAtom();
+  const isLoggedIn = Boolean(user.isLoggedIn && user.isLoggedInOnServer);
+  const webAppUrl = useReferralWebAppUrl();
   const { result: code } = usePromiseResult(
     async () => (isLoggedIn ? fetchMyReferralCode() : ''),
     [isLoggedIn],
   );
-  // Links land on the product the user shared from.
-  const url = useMemo(
-    () => (code ? buildReferralUrl({ code, source, env }) : undefined),
-    [code, env, source],
+  // The same product link, and the same line about it, as the referral
+  // page's link menu.
+  const link = useMemo(
+    () =>
+      code
+        ? getProductReferralLink({ source, inviteCode: code, webAppUrl })
+        : undefined,
+    [code, source, webAppUrl],
   );
-  const linkDescId = getReferralLinkDescId(SOURCE_LINK_SUBJECT[source]);
+  const { handleCopy, copyLink, inviteCodeUrl } = useReferralCodeCard({
+    inviteUrl: link?.url ?? '',
+    inviteCode: code ?? '',
+  });
   const logAction = (action: IActivityHubAction) =>
     defaultLogger.referral.activityHub.activityHubActionPressed({
       source,
       action,
     });
-
-  const copyLink = () => {
-    if (!url) {
-      return;
-    }
-    copyText(url);
-    defaultLogger.referral.page.shareReferralLink('copy');
-    logAction('copy_link');
-  };
-  const copyCode = () => {
-    if (!code) {
-      return;
-    }
-    copyText(code);
-    defaultLogger.referral.page.copyReferralCode();
-    logAction('copy_code');
-  };
 
   return (
     <YStack gap="$3">
@@ -118,16 +104,14 @@ export function ActivityHubInvitePanel({
                 id: ETranslations.referral_referral_link,
               })}
             </SizableText>
-            {/* Says what the link invites friends to, as the referral page's
-                link menu does. */}
-            {linkDescId ? (
+            {link ? (
               <SizableText
                 size="$bodySm"
                 color="$textSubdued"
                 numberOfLines={1}
                 flexShrink={1}
               >
-                {intl.formatMessage({ id: linkDescId })}
+                {intl.formatMessage({ id: link.descId })}
               </SizableText>
             ) : null}
           </XStack>
@@ -142,14 +126,14 @@ export function ActivityHubInvitePanel({
             borderRadius="$full"
             bg="$bgStrong"
           >
-            {url ? (
+            {link ? (
               <SizableText
                 flex={1}
                 minWidth={0}
                 size="$bodyMd"
                 numberOfLines={1}
               >
-                {url}
+                {inviteCodeUrl}
               </SizableText>
             ) : (
               <YStack flex={1}>
@@ -160,8 +144,11 @@ export function ActivityHubInvitePanel({
               testID="activity-hub-copy-link"
               variant="primary"
               size="small"
-              disabled={!url}
-              onPress={copyLink}
+              disabled={!link}
+              onPress={() => {
+                copyLink();
+                logAction('copy_link');
+              }}
             >
               {intl.formatMessage({
                 id: ETranslations.referral_copy_link__action,
@@ -171,15 +158,15 @@ export function ActivityHubInvitePanel({
           {/* A tap anywhere on the code row copies it; the icon is the cue. */}
           <XStack
             testID="activity-hub-copy-code"
-            ai="center"
+            {...PANEL_ROW_PROPS}
             jc="space-between"
-            gap="$3"
-            mx="$-2"
-            px="$2"
-            py="$1.5"
-            borderRadius="$2"
-            {...PRESSABLE_SURFACE_PROPS}
-            onPress={copyCode}
+            onPress={() => {
+              if (!code) {
+                return;
+              }
+              handleCopy();
+              logAction('copy_code');
+            }}
           >
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.referral_your_code })}
@@ -215,13 +202,7 @@ export function ActivityHubInvitePanel({
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
       <XStack
         testID="activity-hub-open-perks"
-        ai="center"
-        gap="$3"
-        mx="$-2"
-        px="$2"
-        py="$1.5"
-        borderRadius="$2"
-        {...PRESSABLE_SURFACE_PROPS}
+        {...PANEL_ROW_PROPS}
         onPress={() => {
           logAction('open_perks');
           onOpenReferral('benefits');

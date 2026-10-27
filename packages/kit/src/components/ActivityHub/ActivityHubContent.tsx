@@ -30,6 +30,7 @@ import {
 import { ActivityHubInvitePanel } from './ActivityHubInvitePanel';
 import {
   ACTIVITY_HUB_SHORTCUT_BASIS,
+  shouldShowActivityHubInvitePanel,
   getActivityHubTitleId,
 } from './layout';
 
@@ -215,10 +216,8 @@ export function ActivityHubContent({
     themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark;
   const campaignCount = campaignItems.length;
   const hasCampaigns = campaignCount > 0;
-  // Native has no Referral tab, so its hub links to the page; pointer layouts
-  // have one in the sidebar and show the code and link to copy instead. The
-  // Perps menu lists the entry like its other menu items.
-  const showInvitePanel = !platformEnv.isNative && !menuLayout;
+  // The Perps menu lists the entry like its other menu items.
+  const showInvitePanel = shouldShowActivityHubInvitePanel() && !menuLayout;
   // The invite panel shares the title's 20px inset (popover header and dialog
   // title alike) and keeps an even 16px above and below its content; the
   // Perks row's own 6px press padding counts toward the bottom.

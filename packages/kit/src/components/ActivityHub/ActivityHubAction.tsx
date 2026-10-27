@@ -10,7 +10,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { ACTIVITY_HUB_PANEL_WIDTH, getActivityHubTitleId } from './layout';
+import {
+  ACTIVITY_HUB_PANEL_WIDTH,
+  shouldShowActivityHubInvitePanel,
+  getActivityHubTitleId,
+} from './layout';
 
 import type {
   IActivityHubCampaign,
@@ -53,7 +57,7 @@ export function ActivityHubAction({
   const hubTitle = intl.formatMessage({
     id: getActivityHubTitleId({
       hasCampaigns,
-      showInvitePanel: !platformEnv.isNative,
+      showInvitePanel: shouldShowActivityHubInvitePanel(),
     }),
   });
   // The gift's tooltip names where it leads: the referral page, or the
@@ -67,17 +71,21 @@ export function ActivityHubAction({
   // no-op there.
   const isDesktopFloatingPanel = gtMd && !platformEnv.isNative;
 
+  const giftButtonProps = {
+    title: triggerTitle,
+    icon: 'GiftOutline',
+    size,
+    testID,
+    ...triggerProps,
+  } as const;
+
   // A native hub without campaigns would hold only the referral entry, so the
   // gift opens the referral page itself instead of a one-item sheet. Pointer
   // layouts keep the popover: it holds the code and link to copy.
-  if (platformEnv.isNative && !hasCampaigns && !renderTrigger) {
+  if (!shouldShowActivityHubInvitePanel() && !hasCampaigns && !renderTrigger) {
     return (
       <HeaderIconButton
-        title={triggerTitle}
-        icon="GiftOutline"
-        size={size}
-        testID={testID}
-        {...triggerProps}
+        {...giftButtonProps}
         onPress={() => {
           defaultLogger.referral.activityHub.activityHubActionPressed({
             source,
@@ -107,15 +115,7 @@ export function ActivityHubAction({
             }
       }
       renderTrigger={
-        renderTrigger ?? (
-          <HeaderIconButton
-            title={triggerTitle}
-            icon="GiftOutline"
-            size={size}
-            testID={testID}
-            {...triggerProps}
-          />
-        )
+        renderTrigger ?? <HeaderIconButton {...giftButtonProps} />
       }
       renderContent={({ closePopover }) => (
         <LazyActivityHubContent

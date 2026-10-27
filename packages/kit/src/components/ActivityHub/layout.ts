@@ -1,4 +1,12 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+// Pointer layouts list Referral in the sidebar, so their hub shows the invite
+// panel (code and link to copy). Native has no Referral tab, so its entries go
+// to the referral page itself.
+export function shouldShowActivityHubInvitePanel() {
+  return !platformEnv.isNative;
+}
 
 // The floating hub panel is wide enough for the invite link and the campaign
 // cards; shortcut tiles sit four to a row.

@@ -3,12 +3,14 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { useDialogInstance } from '@onekeyhq/components';
-import { useShowActivityHub } from '@onekeyhq/kit/src/components/ActivityHub';
+import {
+  shouldShowActivityHubInvitePanel,
+  useShowActivityHub,
+} from '@onekeyhq/kit/src/components/ActivityHub';
 import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SwapTestIDs } from '../../testIDs';
 
@@ -20,9 +22,6 @@ export function SwapActivityHubSettingsItem({
   const intl = useIntl();
   const dialog = useDialogInstance();
   const showActivityHub = useShowActivityHub();
-  // Swap has no campaigns. Native has no Referral tab, so the item is the way
-  // to the referral page; elsewhere it opens the hub with the code to copy.
-  const opensReferralPage = platformEnv.isNative;
   const title = intl.formatMessage({
     id: ETranslations.sidebar_refer_a_friend,
   });
@@ -31,7 +30,9 @@ export function SwapActivityHubSettingsItem({
     // Swap settings is itself a dialog/sheet, so it has to finish closing
     // before anything opens on top of it.
     await dialog.close();
-    if (opensReferralPage) {
+    // Swap has no campaigns, so the item opens the invite panel or, where the
+    // hub skips it, the referral page.
+    if (!shouldShowActivityHubInvitePanel()) {
       defaultLogger.referral.activityHub.activityHubActionPressed({
         source: 'Swap',
         action: 'open_referral',
@@ -40,7 +41,7 @@ export function SwapActivityHubSettingsItem({
       return;
     }
     showActivityHub({ source: 'Swap', onOpenReferral });
-  }, [dialog, onOpenReferral, opensReferralPage, showActivityHub]);
+  }, [dialog, onOpenReferral, showActivityHub]);
 
   return (
     <ListItem

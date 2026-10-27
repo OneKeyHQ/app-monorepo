@@ -28,7 +28,7 @@ export function ReferralLinkDropdown({
   );
 
   // Whether the invite pages show the user's nickname and avatar sits with
-  // the pages it affects, rather than behind a page-level settings button.
+  // the pages it affects.
   const renderContent = useCallback(
     () => (
       <ReferralLinkPopoverContent
