@@ -1826,7 +1826,6 @@ function ReceiveToken() {
       />
     );
   }, [
-    intl,
     localWalletAddressForms,
     localWalletPrivateAddress,
     receiveAddressForm,

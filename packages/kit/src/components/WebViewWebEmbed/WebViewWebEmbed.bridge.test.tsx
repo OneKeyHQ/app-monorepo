@@ -6,7 +6,7 @@ import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
 
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 
-const mockConnectWebEmbedBridge = jest.fn();
+const mockConnectWebEmbedBridge = jest.fn((_bridge: unknown) => undefined);
 const mockMarkWebEmbedApiNotReady = jest.fn(async () => undefined);
 const mockJsBridge = { globalOnMessageEnabled: false };
 let mockWebViewProps: Record<string, unknown> | undefined;
