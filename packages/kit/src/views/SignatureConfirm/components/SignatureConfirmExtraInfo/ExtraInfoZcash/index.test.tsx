@@ -6,6 +6,7 @@ import TxExtraInfoZcash from '.';
 import { render, screen } from '@testing-library/react';
 
 import type { IEncodedTxZcash } from '@onekeyhq/kit-bg/src/vaults/impls/zcash/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
@@ -101,5 +102,19 @@ it.each([
   arrange();
   render(<TxExtraInfoZcash />);
   expect(screen.queryByText(inputAddress)).toBeNull();
+  expect(screen.getByText('test memo')).toBeTruthy();
+});
+
+// The account row already shows the private address, so no source row.
+it('adds no source pool row for a shielded spend', () => {
+  const tx: IEncodedTxZcash = {
+    ...(mockDecodedTx.encodedTx as IEncodedTxZcash),
+    zcashMode: 'privacy',
+    zcashSpendSource: 'ironwood',
+  };
+  mockDecodedTx.encodedTx = tx;
+  render(<TxExtraInfoZcash />);
+  expect(screen.queryByText('Ironwood')).toBeNull();
+  expect(screen.queryByText(ETranslations.global_from)).toBeNull();
   expect(screen.getByText('test memo')).toBeTruthy();
 });

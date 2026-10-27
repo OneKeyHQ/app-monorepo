@@ -15,17 +15,6 @@ export function isZcashShieldedSpend(encodedTx: unknown): boolean {
   return getZcashEncodedTx(encodedTx)?.zcashMode === 'privacy';
 }
 
-// The pool a shielded spend draws from. A transparent send adds nothing:
-// the account row already shows its address, as on BTC.
-export function getZcashConfirmFromPool(
-  tx: IEncodedTxZcash,
-): string | undefined {
-  if (tx.zcashMode === 'transparent') return undefined;
-  if (tx.zcashSpendSource === 'ironwood') return 'Ironwood';
-  if (tx.zcashSpendSource === 'orchard') return 'Orchard';
-  return 'Shielded';
-}
-
 // The account row is the first Address component, built from the signer.
 export function replaceAccountAddressComponent({
   components,
