@@ -321,7 +321,9 @@ export type ILoanRouteBlock =
 
 export type ILoanRouteMetrics = {
   // In %; for the amounts once they are typed, at the chosen LTV before.
-  // None when the position would be worth nothing
+  // Over what the plan puts in, net of the loan; a plan that takes out at
+  // least what it puts in (the market's position backs the rest) over the
+  // loan, so a loan alone shows its cost
   netApy?: number;
   // What the collateral earns less what the loan costs in a year, in the
   // currency
@@ -368,13 +370,15 @@ export function getLoanRouteMetrics({
   const loanValue = hasPrices ? loan * (borrowPrice ?? 0) : 0;
 
   const metrics: ILoanRouteMetrics = {};
-  if (collateralValue > 0) {
+  if (collateralValue > 0 || loanValue > 0) {
     const annualNet =
       (collateralValue * supplyApy - loanValue * borrowApy) / 100;
     const netValue = collateralValue - loanValue;
     metrics.annualNet = annualNet;
-    metrics.netApy = netValue > 0 ? (annualNet / netValue) * 100 : undefined;
-    metrics.ltv = loanValue / collateralValue;
+    metrics.netApy = (annualNet / (netValue > 0 ? netValue : loanValue)) * 100;
+    if (collateralValue > 0) {
+      metrics.ltv = loanValue / collateralValue;
+    }
   } else {
     const ltv = ltvStage ?? EARN_DESKTOP_LOAN_LTV;
     metrics.netApy = getLoanNetApy({ supplyApy, borrowApy, ltv });
@@ -437,15 +441,22 @@ export function getLoanRouteMetrics({
     metrics.block = { kind: 'liquidity', liquidity: facts.liquidity };
   } else if (facts?.maxLtv !== undefined) {
     const pairMaxLtv = facts.maxLtv / borrowFactor;
-    const overLimit =
-      loan > 0 && metrics.maxBorrow !== undefined
-        ? loan > metrics.maxBorrow * (1 + 1e-9)
-        : collateral <= 0 && (ltvStage ?? 0) > pairMaxLtv;
-    if (overLimit) {
-      metrics.block = {
-        kind: 'maxLtv',
-        maxLtv: metrics.maxLtv ?? pairMaxLtv,
-      };
+    const hasPosition = facts.collateralValue > 0 || facts.debtValue > 0;
+    if (loan > 0 && metrics.maxBorrow !== undefined) {
+      if (loan > metrics.maxBorrow * (1 + 1e-9)) {
+        metrics.block = {
+          kind: 'maxLtv',
+          maxLtv: metrics.maxLtv ?? pairMaxLtv,
+        };
+      }
+    } else if (
+      collateral <= 0 &&
+      !hasPosition &&
+      (ltvStage ?? 0) > pairMaxLtv
+    ) {
+      // Before amounts are typed only a fresh pair is held to its limit: a
+      // position's spare room may take more
+      metrics.block = { kind: 'maxLtv', maxLtv: pairMaxLtv };
     }
   }
   return metrics;

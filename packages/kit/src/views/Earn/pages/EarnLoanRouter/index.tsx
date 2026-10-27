@@ -60,10 +60,12 @@ import {
   LoanPairTitle,
   LoanRouteList,
   LoanTokenList,
-  formatLoanFiat,
   formatLoanLtv,
+  formatLoanLtvNumber,
   formatLoanPercent,
+  formatLoanYearly,
   getLoanBlockText,
+  isLendingClosed,
 } from './LoanRouterParts';
 import { useLoanRouterFacts } from './useLoanRouterFacts';
 import { useLoanRouterRun } from './useLoanRouterRun';
@@ -79,8 +81,9 @@ import type { ILoanRunDone, ILoanRunPlan } from './useLoanRouterRun';
 
 type IRouteParams = ITabEarnParamList[ETabEarnRoutes.EarnLoanRouter];
 
-// The form's column beside the markets
-const FORM_WIDTH = 440;
+// The form's column beside the markets: the table keeps room for a market's
+// whole name inside the page's margins
+const FORM_WIDTH = 400;
 
 const toBigNumber = (value?: string) => {
   const parsed = new BigNumber(value ?? '');
@@ -189,7 +192,7 @@ function EarnLoanRouterPage() {
     borrow: routeBorrow,
     routeKey,
   } = route.params as IRouteParams;
-  const { gtLg } = useMedia();
+  const { gtSm, gtLg, gtXl } = useMedia();
   const currencyInfo = useCurrency();
   const currency = currencyInfo.symbol;
 
@@ -201,6 +204,8 @@ function EarnLoanRouterPage() {
   const [ltvStage, setLtvStage] = useState<number | undefined>(
     EARN_DESKTOP_LOAN_LTV,
   );
+  // The chip last chosen: a loan cleared, or a token changed, follows it again
+  const lastStageRef = useRef(EARN_DESKTOP_LOAN_LTV);
   const [pickedKey, setPickedKey] = useState<string | undefined>(routeKey);
   const [done, setDone] = useState<ILoanRunDone>();
   // After a press whose supply went in and whose loan didn't
@@ -236,7 +241,11 @@ function EarnLoanRouterPage() {
     () => buildLoanRoutes({ markets, collateralSymbol, borrowSymbol }),
     [borrowSymbol, collateralSymbol, markets],
   );
-  const { byRoute, refresh } = useLoanRouterFacts({ routes });
+  const {
+    byRoute,
+    isLoaded: isFactsLoaded,
+    refresh,
+  } = useLoanRouterFacts({ routes });
 
   // The prices the boxes go by: the picked market's, else the first known
   const priceRoute = useMemo(() => {
@@ -288,6 +297,18 @@ function EarnLoanRouterPage() {
     items.find((item) => item.route.key === pickedKey) ??
     items.find((item) => !item.metrics.block) ??
     items[0];
+  // With no market picked, the best one is checked once every market's
+  // figures are in, and stays checked: typing never moves the check to
+  // another market or network. One it can't take any more shows why
+  const isPickListed =
+    pickedKey !== undefined && routes.some((item) => item.key === pickedKey);
+  const autoPickKey =
+    !isPickListed && isFactsLoaded ? selected?.route.key : undefined;
+  useEffect(() => {
+    if (autoPickKey) {
+      setPickedKey(autoPickKey);
+    }
+  }, [autoPickKey]);
   const selectedRoute = selected?.route;
   const selectedFacts = selected?.facts;
   const selectedMetrics = selected?.metrics;
@@ -379,11 +400,24 @@ function EarnLoanRouterPage() {
       shareOf(walletBalance, 100, collateralToken?.decimals ?? 8),
     );
   }, [collateralToken?.decimals, walletBalance]);
-  const handleBorrowChange = useCallback((value: string) => {
-    setTypedBorrow(value);
-    setLtvStage(undefined);
+  const followStage = useCallback(() => {
+    setTypedBorrow(undefined);
+    setLtvStage(lastStageRef.current);
   }, []);
+  const handleBorrowChange = useCallback(
+    (value: string) => {
+      // An emptied box follows the chip again, shown pressed
+      if (!value) {
+        followStage();
+        return;
+      }
+      setTypedBorrow(value);
+      setLtvStage(undefined);
+    },
+    [followStage],
+  );
   const handleLtvStage = useCallback((percent: number) => {
+    lastStageRef.current = percent / 100;
     setTypedBorrow(undefined);
     setLtvStage(percent / 100);
   }, []);
@@ -394,6 +428,7 @@ function EarnLoanRouterPage() {
       setCollateralAmount('');
       setSuppliedNote(undefined);
       setPickedKey(undefined);
+      followStage();
       const nextOptions = getLoanBorrowOptions({
         markets,
         collateralSymbol: symbol,
@@ -407,12 +442,17 @@ function EarnLoanRouterPage() {
         setBorrowSymbol(nextBorrow);
       }
     },
-    [borrowSymbol, markets, stableSymbols],
+    [borrowSymbol, followStage, markets, stableSymbols],
   );
-  const handleBorrowPick = useCallback((symbol: string) => {
-    setBorrowSymbol(symbol);
-    setPickedKey(undefined);
-  }, []);
+  // A loan typed in one token means nothing in another
+  const handleBorrowPick = useCallback(
+    (symbol: string) => {
+      setBorrowSymbol(symbol);
+      setPickedKey(undefined);
+      followStage();
+    },
+    [followStage],
+  );
 
   const collateralPopover = useMemo(
     () => ({
@@ -505,6 +545,11 @@ function EarnLoanRouterPage() {
       value={borrowAmount}
       onChange={handleBorrowChange}
       onSelectPercentageStage={handleLtvStage}
+      activeStage={
+        typedBorrow === undefined && ltvStage !== undefined
+          ? Math.round(ltvStage * 100)
+          : undefined
+      }
       tokenSelectorTriggerProps={{
         selectedTokenImageUri: borrowLogo,
         selectedTokenImageLoading: !borrowLogo && !isMarketsLoaded,
@@ -534,11 +579,9 @@ function EarnLoanRouterPage() {
                 {
                   main: formatLoanPercent(selectedMetrics.netApy),
                   suffix:
-                    hasCollateral && selectedMetrics.annualNet !== undefined
-                      ? `≈ ${formatLoanFiat(
-                          selectedMetrics.annualNet,
-                          currency,
-                        )} ${EARN_DESKTOP_DEMO_COPY.aYear}`
+                    (hasCollateral || hasLoan) &&
+                    selectedMetrics.annualNet !== undefined
+                      ? formatLoanYearly(selectedMetrics.annualNet, currency)
                       : undefined,
                 },
               ],
@@ -550,7 +593,11 @@ function EarnLoanRouterPage() {
           label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
           value={
             <HealthFactorValue
-              before={selectedMetrics?.healthFactorBefore}
+              before={
+                hasLoan || hasCollateral
+                  ? selectedMetrics?.healthFactorBefore
+                  : undefined
+              }
               after={
                 hasLoan || hasCollateral
                   ? selectedMetrics?.healthFactor
@@ -615,15 +662,12 @@ function EarnLoanRouterPage() {
             />
           }
           note={
-            selectedMetrics?.maxLtv !== undefined ? (
+            selectedMetrics?.maxLtv !== undefined &&
+            !isLendingClosed(selectedMetrics.block) ? (
               <SizableText size="$bodySm" color="$textSubdued">
                 {intl.formatMessage(
                   { id: ETranslations.defi_emode_max_ltv },
-                  {
-                    ltv: new BigNumber(selectedMetrics.maxLtv * 100)
-                      .decimalPlaces(2, BigNumber.ROUND_DOWN)
-                      .toFixed(),
-                  },
+                  { ltv: formatLoanLtvNumber(selectedMetrics.maxLtv) },
                 )}
               </SizableText>
             ) : undefined
@@ -839,8 +883,8 @@ function EarnLoanRouterPage() {
   const routeList = (
     <LoanRouteList
       items={items}
-      selectedKey={selectedRoute?.key}
-      isWide={gtLg}
+      selectedKey={isPickListed ? pickedKey : undefined}
+      isWide={gtXl}
       isLoading={!isMarketsLoaded}
       currency={currency}
       emptyText={EARN_DESKTOP_DEMO_COPY.loanNoMarket(
@@ -892,11 +936,17 @@ function EarnLoanRouterPage() {
       tabRoute={ETabRoutes.Earn}
       showBackButton
     >
+      {gtSm ? null : (
+        <XStack px="$pagePadding" pt="$2" pb="$5">
+          {pageTitle}
+        </XStack>
+      )}
       <XStack
         testID="earn-loan-router"
         gap="$8"
         ai="flex-start"
         flexDirection={gtLg ? 'row' : 'column'}
+        px="$pagePadding"
         pt="$2"
         pb="$10"
       >

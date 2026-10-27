@@ -219,6 +219,9 @@ export function AmountInput({
     );
   }, [valueProps, reversible]);
 
+  // A token list in a popover opens from the keyboard too (web): the
+  // trigger takes focus, and Enter or Space opens the list
+  const [isTokenPopoverOpen, setIsTokenPopoverOpen] = useState(false);
   const TokenSelectorTrigger = useMemo(() => {
     const {
       popover: popoverProps,
@@ -249,6 +252,31 @@ export function AmountInput({
 
     const hasPopover = !!popoverProps?.content;
     const hasOnPress = !!onPress || hasPopover;
+    const popoverKeyboardProps =
+      hasPopover && !disabled && platformEnv.isRuntimeBrowser
+        ? {
+            tabIndex: 0,
+            focusVisibleStyle: {
+              outlineColor: '$focusRing',
+              outlineWidth: 2,
+              outlineStyle: 'solid',
+            },
+            onKeyDown: (event: {
+              key: string;
+              target?: unknown;
+              currentTarget?: unknown;
+              preventDefault: () => void;
+            }) => {
+              if (event.target !== event.currentTarget) {
+                return;
+              }
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setIsTokenPopoverOpen(true);
+              }
+            },
+          }
+        : undefined;
 
     const triggerContent = (
       <XStack
@@ -273,6 +301,7 @@ export function AmountInput({
         })}
         disabled={disabled}
         onPress={hasPopover ? undefined : onPress}
+        {...popoverKeyboardProps}
       >
         <Stack mr="$2">
           {selectedTokenImageLoading ? (
@@ -363,6 +392,8 @@ export function AmountInput({
       return (
         <Popover
           title={popoverProps.title}
+          open={isTokenPopoverOpen}
+          onOpenChange={setIsTokenPopoverOpen}
           renderTrigger={triggerContent}
           renderContent={popoverProps.content}
           floatingPanelProps={{
@@ -373,7 +404,7 @@ export function AmountInput({
     }
 
     return triggerContent;
-  }, [intl, tokenSelectorTriggerProps]);
+  }, [intl, isTokenPopoverOpen, tokenSelectorTriggerProps]);
 
   const BalanceElement = useMemo(() => {
     if (!balanceProps) {

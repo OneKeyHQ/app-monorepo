@@ -261,6 +261,69 @@ describe('getLoanRouteMetrics', () => {
     expect(metrics.ltv).toBeGreaterThan(metrics.maxLtv ?? 1);
   });
 
+  it('shows a loan alone at its cost, the market position backing it', () => {
+    const metrics = getLoanRouteMetrics({
+      route: core,
+      facts: facts({
+        weightedCollateral: 100_000,
+        debt: 0,
+        collateralValue: 125_000,
+        borrowableNow: 50_000,
+      }),
+      collateralAmount: '',
+      borrowAmount: '1000',
+      ltvStage: undefined,
+    });
+    expect(metrics.netApy).toBeCloseTo(-4.5);
+    // 1,000 x 4.5%
+    expect(metrics.annualNet).toBeCloseTo(-45);
+    expect(metrics.block).toBeUndefined();
+  });
+
+  it('measures a plan that takes out more than it puts in over the loan', () => {
+    const metrics = getLoanRouteMetrics({
+      route: core,
+      facts: facts({
+        collateralPrice: 1,
+        weightedCollateral: 100_000,
+        collateralValue: 125_000,
+        borrowableNow: 50_000,
+      }),
+      collateralAmount: '1000',
+      borrowAmount: '2000',
+    });
+    // (1,000 x 0% - 2,000 x 4.5%) / 2,000
+    expect(metrics.annualNet).toBeCloseTo(-90);
+    expect(metrics.netApy).toBeCloseTo(-4.5);
+  });
+
+  it('holds only a fresh pair to its limit before amounts are typed', () => {
+    const fresh = getLoanRouteMetrics({
+      route: core,
+      facts: facts(),
+      collateralAmount: '',
+      borrowAmount: '',
+      ltvStage: 0.75,
+    });
+    expect(fresh.block).toEqual({ kind: 'maxLtv', maxLtv: 0.73 });
+    expect(fresh.maxLtv).toBeCloseTo(0.73);
+
+    const withPosition = getLoanRouteMetrics({
+      route: core,
+      facts: facts({
+        weightedCollateral: 10_000,
+        debt: 5000,
+        collateralValue: 12_500,
+        debtValue: 5000,
+        borrowableNow: 4000,
+      }),
+      collateralAmount: '',
+      borrowAmount: '',
+      ltvStage: 0.75,
+    });
+    expect(withPosition.block).toBeUndefined();
+  });
+
   it("lowers the limit by the loan token's borrow factor", () => {
     const [prime] = buildLoanRoutes({
       markets: [

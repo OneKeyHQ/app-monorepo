@@ -35,15 +35,31 @@ export const formatLoanPercent = (value?: number) =>
     ? '–'
     : `${new BigNumber(value).toFixed(2)}%`;
 
-// "73%", "80.5%": a market's limit as it's written
+// "73.00", "76.61": every LTV on the page to two places, as the details page
+// writes a market's
+export const formatLoanLtvNumber = (fraction: number) =>
+  new BigNumber(fraction * 100).toFixed(2);
 export const formatLoanLtv = (fraction: number) =>
-  `${new BigNumber(fraction * 100).decimalPlaces(2).toFixed()}%`;
+  `${formatLoanLtvNumber(fraction)}%`;
+
+// The market doesn't lend the token to the account at all: no limit applies
+export const isLendingClosed = (block?: ILoanRouteBlock) =>
+  block?.kind === 'account' || block?.kind === 'borrowable';
 
 export const formatLoanFiat = (value: number, currency: string) =>
   numberFormat(String(value), {
     formatter: 'value',
     formatterOptions: { currency },
   });
+
+// "≈ -$0.02 a year", "< $0.01 a year": the value formatter writes anything
+// under a cent, a cost too, as "< $0.01", so the sign goes in front here
+export const formatLoanYearly = (value: number, currency: string) => {
+  const amount = formatLoanFiat(Math.abs(value), currency);
+  return Math.abs(value) < 0.01
+    ? `${amount} ${EARN_DESKTOP_DEMO_COPY.aYear}`
+    : `≈ ${value < 0 ? '-' : ''}${amount} ${EARN_DESKTOP_DEMO_COPY.aYear}`;
+};
 
 const formatCompactFiat = (value: number, currency: string) =>
   numberFormat(String(value), {
@@ -120,10 +136,26 @@ export function LoanTokenList({
             })}
             value={search}
             onChangeText={setSearch}
+            onKeyPress={(event) => {
+              if (event.nativeEvent.key === 'Escape') {
+                closePopover();
+              }
+            }}
           />
         </Stack>
       ) : null}
       <ScrollView maxHeight={360} contentContainerStyle={{ gap: 2 }}>
+        {shown.length ? null : (
+          <SizableText
+            testID={`${testID}-empty`}
+            size="$bodyMd"
+            color="$textSubdued"
+            px="$3"
+            py="$2"
+          >
+            {intl.formatMessage({ id: ETranslations.global_no_results })}
+          </SizableText>
+        )}
         {shown.map((option) => {
           const isSelected =
             option.symbol.toUpperCase() === selectedSymbol.toUpperCase();
@@ -316,9 +348,12 @@ function RouteRow({
                   : '–',
               )}
             </YStack>
+            {/* The limit the form and the reasons go by */}
             <YStack {...COLUMNS.maxLtv}>
               {figure(
-                facts?.maxLtv !== undefined ? formatLoanLtv(facts.maxLtv) : '–',
+                metrics.maxLtv !== undefined && !isLendingClosed(block)
+                  ? formatLoanLtv(metrics.maxLtv)
+                  : '–',
               )}
             </YStack>
           </>

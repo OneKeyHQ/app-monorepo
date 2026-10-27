@@ -105,6 +105,7 @@ export function StakingAmountInput({
   boxTestID,
   onRefreshBalance,
   stagesLabel,
+  activeStage,
   ...props
 }: IAmountInputFormItemProps & {
   title: string;
@@ -119,6 +120,8 @@ export function StakingAmountInput({
   // Before the chips, what they are a share of when it isn't the balance
   // (the Loans router's loan: "LTV", of the collateral's value)
   stagesLabel?: string;
+  // The chip the amount follows, shown pressed
+  activeStage?: number;
 }) {
   const boxRef = useRef<IElement>(null);
   useHoldAutoFocus(boxRef, Boolean(inputProps?.autoFocus) && !disabled);
@@ -267,6 +270,7 @@ export function StakingAmountInput({
                 <SwapPercentageStageBadge
                   key={`swap-percentage-input-stage-${stage}`}
                   stage={stage}
+                  isActive={stage === activeStage}
                   onSelectStage={handleSelectStage}
                   {...buildKeyboardPressProps(() => handleSelectStage(stage))}
                 />
