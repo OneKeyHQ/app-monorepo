@@ -597,6 +597,7 @@ function DeviceStageContainerCmp() {
       vendorModelName={stage?.vendorModelName}
       appName={stage?.appName}
       transferProgress={transferProgress}
+      transferMetrics={deviceProgress}
       installProgress={stage?.installProgress}
       installQueue={stage?.installQueue}
       installActiveIndex={stage?.installActiveIndex}

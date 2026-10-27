@@ -211,6 +211,12 @@ export interface IDeviceStageProps {
   appName?: string;
   /** File-write progress reported by the SDK, 0–100. */
   transferProgress?: number;
+  transferMetrics?: {
+    transferredBytes?: number;
+    totalBytes?: number;
+    rateBytesPerSecond?: number;
+    retryCount?: number;
+  };
   /** Live install progress, 0–100 — `installing`'s bar and the active
    * row of `installBatch`. Real progress from the vendor SDK, never
    * simulated. */

@@ -1496,13 +1496,17 @@ class ServiceHardware extends ServiceBase {
         totalBytes,
         rateBytesPerSecond,
         elapsedMs,
-      } = originEvent.payload;
+        retryCount,
+      } = originEvent.payload as typeof originEvent.payload & {
+        retryCount?: number;
+      };
       newPayload.deviceProgress = {
         progress,
         transferredBytes,
         totalBytes,
         rateBytesPerSecond,
         elapsedMs,
+        retryCount,
       };
     }
 

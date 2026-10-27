@@ -139,3 +139,33 @@ it('shows progress only for the file-transfer processing step', () => {
   rerender(<DeviceStage step="enterPin" transferProgress={42} />);
   expect(screen.queryByRole('progressbar')).toBeNull();
 });
+
+const transferTestMetrics = {
+  transferredBytes: 32 * 1024,
+  totalBytes: 128 * 1024,
+  rateBytesPerSecond: 16 * 1024,
+  retryCount: 1,
+};
+
+it('shows transfer size, speed and retry count, then replaces them with confirmation', () => {
+  const { rerender } = render(
+    <DeviceStage
+      step="processing"
+      transferProgress={25}
+      transferMetrics={transferTestMetrics}
+    />,
+  );
+  expect(screen.getByText('hardware.transferring_data')).toBeTruthy();
+  expect(screen.getByText('32.0 KiB / 128.0 KiB')).toBeTruthy();
+  expect(screen.getByText('global.retry 1 · 16.0 KiB/s')).toBeTruthy();
+  rerender(
+    <DeviceStage
+      step="confirm"
+      transferProgress={100}
+      transferMetrics={transferTestMetrics}
+    />,
+  );
+  expect(screen.queryByRole('progressbar')).toBeNull();
+  expect(screen.queryByText('32.0 KiB / 128.0 KiB')).toBeNull();
+  expect(screen.queryByText('global.retry 1 · 16.0 KiB/s')).toBeNull();
+});
