@@ -1,4 +1,3 @@
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   EStockTradeAlertType,
   IFetchQuoteResult,
@@ -220,28 +219,4 @@ export function getStockTradeAlertAnalyticsPayload({
     stockTokenAddress: stockToken?.contractAddress,
     network: stockToken?.networkId,
   };
-}
-
-export function isRecentTokenPairOrder({
-  recentSelection,
-  fromToken,
-  toToken,
-}: {
-  recentSelection:
-    | { fromToken: IStockAnalyticsToken; toToken: IStockAnalyticsToken }
-    | undefined;
-  fromToken: IStockAnalyticsToken;
-  toToken: IStockAnalyticsToken;
-}) {
-  return (
-    !!recentSelection &&
-    equalTokenNoCaseSensitive({
-      token1: recentSelection.fromToken,
-      token2: fromToken,
-    }) &&
-    equalTokenNoCaseSensitive({
-      token1: recentSelection.toToken,
-      token2: toToken,
-    })
-  );
 }

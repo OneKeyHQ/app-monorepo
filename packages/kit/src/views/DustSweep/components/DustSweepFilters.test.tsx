@@ -259,7 +259,7 @@ it('retains the compact network selector menu', () => {
       networkValueCurrency: 'usd',
       groupByNetworkValue: true,
       recentNetworksEnabled: false,
-      selectedIndicator: 'background',
+      highlightSelected: true,
     }),
   );
   expect(mockOpenChainSelector.mock.calls[0][0]).not.toHaveProperty('grouped');

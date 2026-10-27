@@ -245,14 +245,13 @@ export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
     coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
   });
 
+export type ISwapTokenPair = { fromToken: ISwapToken; toToken: ISwapToken };
+
 // The pair last picked from the "Recent trades" chips, so an order can report
 // whether it still trades that pair.
-export const {
-  atom: swapRecentTokenPairSelectionAtom,
-  use: useSwapRecentTokenPairSelectionAtom,
-} = contextAtom<{ fromToken: ISwapToken; toToken: ISwapToken } | undefined>(
-  undefined,
-);
+export const { atom: swapRecentTokenPairSelectionAtom } = contextAtom<
+  ISwapTokenPair | undefined
+>(undefined);
 
 export const {
   atom: swapLastNonLimitSelectedTokensAtom,

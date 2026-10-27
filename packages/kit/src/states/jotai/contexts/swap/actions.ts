@@ -35,7 +35,6 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/utils/swapProPositionsLoader';
 import type { ISwapProTokenCarryUtils } from '@onekeyhq/kit/src/views/Swap/utils/swapProTokenCarryUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
-import { isRecentTokenPairOrder } from '@onekeyhq/kit/src/views/Swap/utils/swapStockAnalytics';
 import {
   type ISwapTokenSelectorLoadOptions,
   SWAP_TOKEN_SELECTOR_DESKTOP_CACHE_SIZE,
@@ -102,6 +101,7 @@ import type {
   ISwapQuoteEventPayload,
   ISwapQuoteEventQuoteResult,
   ISwapToken,
+  ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
@@ -125,6 +125,7 @@ import {
   type ISwapQuoteEventErrorState,
   type ISwapSelectedTokenBalanceMeta,
   type ISwapTokenAmountState,
+  type ISwapTokenPair,
   contextAtomMethod,
   limitOrderMarketPriceAtom,
   rateDifferenceAtom,
@@ -594,6 +595,22 @@ function getLimitDefaultNetworkId({
   }
 
   return undefined;
+}
+
+type IRecentTokenPairOrder = {
+  fromToken?: ISwapTokenBase;
+  toToken?: ISwapTokenBase;
+};
+
+function matchesTokenPair(
+  pair: ISwapTokenPair | undefined,
+  { fromToken, toToken }: IRecentTokenPairOrder,
+) {
+  return (
+    !!pair &&
+    equalTokenNoCaseSensitive({ token1: pair.fromToken, token2: fromToken }) &&
+    equalTokenNoCaseSensitive({ token1: pair.toToken, token2: toToken })
+  );
 }
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
@@ -1140,11 +1157,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   );
 
   selectRecentTokenPair = contextAtomMethod(
-    async (
-      get,
-      set,
-      { fromToken, toToken }: { fromToken: ISwapToken; toToken: ISwapToken },
-    ) => {
+    async (get, set, { fromToken, toToken }: ISwapTokenPair) => {
       const skipCheckEqualToken = !equalTokenNoCaseSensitive({
         token1: fromToken,
         token2: toToken,
@@ -1165,21 +1178,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
+  isRecentTokenPairOrder = contextAtomMethod(
+    (get, set, order: IRecentTokenPairOrder) =>
+      matchesTokenPair(get(swapRecentTokenPairSelectionAtom()), order),
+  );
+
   // Clears the attribution only if it still names this order's pair, so a
   // finishing order cannot drop a newer "Recent trades" pick.
   clearRecentTokenPairSelection = contextAtomMethod(
-    (
-      get,
-      set,
-      { fromToken, toToken }: { fromToken: ISwapToken; toToken: ISwapToken },
-    ) => {
-      if (
-        isRecentTokenPairOrder({
-          recentSelection: get(swapRecentTokenPairSelectionAtom()),
-          fromToken,
-          toToken,
-        })
-      ) {
+    (get, set, order: IRecentTokenPairOrder) => {
+      if (matchesTokenPair(get(swapRecentTokenPairSelectionAtom()), order)) {
         set(swapRecentTokenPairSelectionAtom(), undefined);
       }
     },
@@ -4889,13 +4897,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
 
+// Read at log time instead of subscribing, so a "Recent trades" tap does not
+// re-render the hosts of useSwapBuildTx.
+export const useSwapRecentTokenPairAttribution = () => {
+  const actions = createActions();
+  const isRecentTokenPairOrder = actions.isRecentTokenPairOrder.use();
+  const clearRecentTokenPairSelection =
+    actions.clearRecentTokenPairSelection.use();
+  return useRef({ isRecentTokenPairOrder, clearRecentTokenPairSelection });
+};
+
 export const useSwapActions = () => {
   const actions = createActions();
   const selectFromToken = actions.selectFromToken.use();
   const selectToToken = actions.selectToToken.use();
   const selectRecentTokenPair = actions.selectRecentTokenPair.use();
-  const clearRecentTokenPairSelection =
-    actions.clearRecentTokenPairSelection.use();
   const selectStockExecutionTokens = actions.selectStockExecutionTokens.use();
   const alternationToken = actions.alternationToken.use();
   const syncNetworksSort = actions.syncNetworksSort.use();
@@ -4951,7 +4967,6 @@ export const useSwapActions = () => {
     requireManualQuoteRefresh,
     selectToToken,
     selectRecentTokenPair,
-    clearRecentTokenPairSelection,
     selectStockExecutionTokens,
     alternationToken,
     syncNetworksSort,

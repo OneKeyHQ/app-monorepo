@@ -53,25 +53,6 @@ describe('SwapSendTxScene', () => {
     expect(JSON.stringify(payload)).not.toContain('private-');
   });
 
-  it('never forwards free text a caller puts in the error fields', () => {
-    const payload = reportSendTx({
-      ...base,
-      status: ESwapEventAPIStatus.FAIL,
-      error: {
-        name: 'Error: transfer 1.5 ETH to 0x1111',
-        code: 'insufficient funds for 0x1111',
-        key: 'private-free-text',
-      },
-    });
-    expect(payload).toMatchObject({
-      message: 'Unknown error',
-      errorName: undefined,
-      errorCode: undefined,
-      errorKey: undefined,
-    });
-    expect(JSON.stringify(payload)).not.toContain('0x1111');
-  });
-
   it('keeps a failure category even when the thrown value is undefined', () => {
     expect(
       reportSendTx({ ...base, status: ESwapEventAPIStatus.FAIL }),

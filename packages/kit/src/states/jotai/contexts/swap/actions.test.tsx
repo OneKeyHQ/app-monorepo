@@ -73,7 +73,7 @@ import {
 
 import { jotaiContextStore } from '../../utils/jotaiContextStore';
 
-import { useSwapActions } from './actions';
+import { useSwapActions, useSwapRecentTokenPairAttribution } from './actions';
 import {
   ProviderJotaiContextSwap,
   swapActiveSelectedFromTokenBalanceAtom,
@@ -10138,29 +10138,32 @@ describe('Recent trades attribution', () => {
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });
 
-  it('clears after a sent order only when it still names that pair', async () => {
-    const { store, actions } = renderActions();
+  it('matches and clears only the pair the order traded', async () => {
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(
+      () => ({
+        actions: useSwapActions().current,
+        attribution: useSwapRecentTokenPairAttribution().current,
+      }),
+      { wrapper: Wrapper },
+    );
+    const { actions, attribution } = result.current;
     await act(async () => {
       await actions.selectRecentTokenPair({
         fromToken: usdcToken,
         toToken: usdtToken,
       });
     });
+    const otherOrder = { fromToken: ethToken, toToken: uniToken };
+    const pickedOrder = { fromToken: usdcToken, toToken: usdtToken };
+    expect(attribution.isRecentTokenPairOrder(otherOrder)).toBe(false);
+    expect(attribution.isRecentTokenPairOrder(pickedOrder)).toBe(true);
     act(() => {
-      actions.clearRecentTokenPairSelection({
-        fromToken: ethToken,
-        toToken: uniToken,
-      });
+      attribution.clearRecentTokenPairSelection(otherOrder);
     });
-    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual({
-      fromToken: usdcToken,
-      toToken: usdtToken,
-    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual(pickedOrder);
     act(() => {
-      actions.clearRecentTokenPairSelection({
-        fromToken: usdcToken,
-        toToken: usdtToken,
-      });
+      attribution.clearRecentTokenPairSelection(pickedOrder);
     });
     expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
   });

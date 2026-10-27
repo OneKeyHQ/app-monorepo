@@ -33,8 +33,6 @@ export type IUnifiedNetworkSelectorRouteParams = IAccountSelectorRouteParams &
     defaultTab?: 'portfolio' | 'network';
   };
 
-export type IChainSelectorSelectedIndicator = 'checkmark' | 'background';
-
 export type IChainSelectorParams = {
   defaultNetworkId?: string;
   networkIds?: string[];
@@ -56,9 +54,9 @@ export type IChainSelectorParams = {
   // section like the wallet network selector, instead of A-Z only.
   groupByNetworkValue?: boolean;
   recentNetworksEnabled?: boolean;
-  // How the current network is marked; 'background' matches the wallet
-  // network selector's highlighted row.
-  selectedIndicator?: IChainSelectorSelectedIndicator;
+  // Grouped list only: mark the current network with a row background, like
+  // the wallet network selector, instead of a check mark.
+  highlightSelected?: boolean;
   featuredNetwork?: {
     networkId: string;
     badgeText: string;

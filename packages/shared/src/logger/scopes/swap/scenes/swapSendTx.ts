@@ -1,6 +1,6 @@
 import {
+  getSafeErrorIdentifiers,
   getSwapErrorMessage,
-  getSwapErrorType,
 } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -69,7 +69,10 @@ export class SwapSendTxScene extends BaseScene {
       quoteId,
       status,
       ...(status === ESwapEventAPIStatus.FAIL
-        ? { message: getSwapErrorMessage(error), ...getSwapErrorType(error) }
+        ? {
+            message: getSwapErrorMessage(error),
+            ...getSafeErrorIdentifiers(error),
+          }
         : undefined),
       swapType,
       slippage,

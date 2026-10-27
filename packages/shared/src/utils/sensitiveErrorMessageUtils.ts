@@ -224,63 +224,33 @@ export function getOneKeyIdAuthFailureServerParams({
   return params;
 }
 
-// Each field is limited to values from a closed set (an error class enum, a
-// native `*Error` name, a translation key) or a short numeric/constant code,
-// so free text such as addresses, keys or amounts can never be reported.
+// Each field comes from a closed set (an error class enum, a native `*Error`
+// name, a translation key) or is a short code, so free text such as
+// addresses, keys or amounts can never be reported.
 const ONEKEY_ERROR_CLASS_NAMES = new Set<string>(
   Object.values(EOneKeyErrorClassNames),
 );
 const NATIVE_ERROR_NAME_PATTERN = /^[A-Z][A-Za-z]{0,42}Error$/;
-const NUMERIC_ERROR_CODE_PATTERN = /^-?\d{1,6}$/;
-const CONSTANT_ERROR_CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,31}$/;
-const HEX_LIKE_PATTERN = /^[\dA-F]{8,}$/;
+// A short integer, or an uppercase constant that is not a hex blob.
+const SAFE_ERROR_CODE_PATTERN =
+  /^(?:-?\d{1,6}|(?![\dA-F]{8,}$)[A-Z][A-Z0-9_]{1,31})$/;
 
-export type ISwapErrorType = {
-  errorName?: string;
-  errorCode?: string;
-  errorKey?: string;
-};
-
-function getSafeErrorName(className: unknown, name: unknown) {
-  if (
-    typeof className === 'string' &&
-    ONEKEY_ERROR_CLASS_NAMES.has(className)
-  ) {
-    return className;
-  }
-  if (typeof name === 'string' && NATIVE_ERROR_NAME_PATTERN.test(name)) {
-    return name;
-  }
-  return undefined;
+function pickSafe(value: unknown, isSafe: (value: string) => boolean) {
+  return typeof value === 'string' && isSafe(value) ? value : undefined;
 }
 
-function getSafeErrorCode(code: unknown) {
-  const value =
-    typeof code === 'number' && Number.isInteger(code) ? String(code) : code;
-  if (typeof value !== 'string') return undefined;
-  if (NUMERIC_ERROR_CODE_PATTERN.test(value)) return value;
-  if (
-    CONSTANT_ERROR_CODE_PATTERN.test(value) &&
-    !HEX_LIKE_PATTERN.test(value)
-  ) {
-    return value;
-  }
-  return undefined;
-}
-
-export function getSwapErrorType(error: unknown): ISwapErrorType {
+export function getSafeErrorIdentifiers(error: unknown) {
   if (!error || typeof error !== 'object') return {};
-  const { className, name, code, key } = error as {
-    className?: unknown;
-    name?: unknown;
-    code?: unknown;
-    key?: unknown;
-  };
+  const { className, name, code, key } = error as Record<string, unknown>;
   return {
-    errorName: getSafeErrorName(className, name),
-    errorCode: getSafeErrorCode(code),
-    errorKey:
-      typeof key === 'string' && isKnownTranslationKey(key) ? key : undefined,
+    errorName:
+      pickSafe(className, (value) => ONEKEY_ERROR_CLASS_NAMES.has(value)) ??
+      pickSafe(name, (value) => NATIVE_ERROR_NAME_PATTERN.test(value)),
+    errorCode: pickSafe(
+      typeof code === 'number' && Number.isInteger(code) ? String(code) : code,
+      (value) => SAFE_ERROR_CODE_PATTERN.test(value),
+    ),
+    errorKey: pickSafe(key, isKnownTranslationKey),
   };
 }
 

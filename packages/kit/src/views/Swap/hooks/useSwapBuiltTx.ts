@@ -113,7 +113,6 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
-  useSwapActions,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
@@ -124,7 +123,7 @@ import {
   useSwapQuoteActionLockAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
-  useSwapRecentTokenPairSelectionAtom,
+  useSwapRecentTokenPairAttribution,
   useSwapStepNetFeeLevelAtom,
   useSwapStepsAtom,
   useSwapToTokenAmountAtom,
@@ -183,7 +182,6 @@ import {
   getStockTradeAnalyticsPayload,
   getSwapAnalyticsCategoryFromSwapType,
   getSwapTradeSource,
-  isRecentTokenPairOrder,
 } from '../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
@@ -346,8 +344,8 @@ export function useSwapBuildTx({
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
   const [quoteActionLock] = useSwapQuoteActionLockAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [swapRecentTokenPairSelection] = useSwapRecentTokenPairSelectionAtom();
-  const { clearRecentTokenPairSelection } = useSwapActions().current;
+  const { isRecentTokenPairOrder, clearRecentTokenPairSelection } =
+    useSwapRecentTokenPairAttribution().current;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapProAccount = useSwapProAccount();
@@ -1852,7 +1850,7 @@ export function useSwapBuildTx({
                 } else {
                   void onApproveTxSuccess(reviewGuard);
                 }
-              } catch (e: any) {
+              } catch (e) {
                 if (!isApprove && i === unsignedTxArr.length - 1) {
                   void swapSendTxEvent(
                     ESwapEventAPIStatus.FAIL,
@@ -1931,7 +1929,7 @@ export function useSwapBuildTx({
                 } else {
                   void onApproveTxSuccess(reviewGuard);
                 }
-              } catch (e: any) {
+              } catch (e) {
                 if (!isApprove && i === unsignedTxArr.length - 1) {
                   void swapSendTxEvent(
                     ESwapEventAPIStatus.FAIL,
@@ -2005,7 +2003,7 @@ export function useSwapBuildTx({
                 } else {
                   void onApproveTxSuccess(reviewGuard);
                 }
-              } catch (e: any) {
+              } catch (e) {
                 if (!isApprove && i === unsignedTxArr.length - 1) {
                   void swapSendTxEvent(
                     ESwapEventAPIStatus.FAIL,
@@ -2172,7 +2170,7 @@ export function useSwapBuildTx({
               unsignedTxItem: unsignedTx,
               gasInfo: gasInfoFinal,
             });
-          } catch (e: any) {
+          } catch (e) {
             if (!isApprove) {
               void swapSendTxEvent(
                 ESwapEventAPIStatus.FAIL,
@@ -2244,7 +2242,7 @@ export function useSwapBuildTx({
               unsignedTxItem: unsignedTx,
               gasInfo: gasParseInfo,
             });
-          } catch (e: any) {
+          } catch (e) {
             if (!isApprove) {
               void swapSendTxEvent(
                 ESwapEventAPIStatus.FAIL,
@@ -2472,7 +2470,6 @@ export function useSwapBuildTx({
             isModalPage,
           }),
           fromRecentTokenPair: isRecentTokenPairOrder({
-            recentSelection: swapRecentTokenPairSelection,
             fromToken: buildSwapRes.result?.fromTokenInfo,
             toToken: buildSwapRes.result?.toTokenInfo,
           }),
@@ -2496,7 +2493,7 @@ export function useSwapBuildTx({
       isFirstTimeSwap,
       focusSwapPro,
       isModalPage,
-      swapRecentTokenPairSelection,
+      isRecentTokenPairOrder,
     ],
   );
 
@@ -2682,7 +2679,6 @@ export function useSwapBuildTx({
                 isModalPage,
               }),
               fromRecentTokenPair: isRecentTokenPairOrder({
-                recentSelection: swapRecentTokenPairSelection,
                 fromToken: data?.fromTokenInfo,
                 toToken: data?.toTokenInfo,
               }),
@@ -3082,7 +3078,7 @@ export function useSwapBuildTx({
       toAccountId,
       swapBuildFinish,
       logSwapBuildResult,
-      swapRecentTokenPairSelection,
+      isRecentTokenPairOrder,
       intl,
       persistSettings.currencyInfo.id,
       currencyMap,
