@@ -1,8 +1,8 @@
 diff --git a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/KeyboardControllerModuleImpl.kt b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/KeyboardControllerModuleImpl.kt
-index 8bffcae..f598510 100644
+index 62bce08..8018587 100644
 --- a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/KeyboardControllerModuleImpl.kt
 +++ b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/KeyboardControllerModuleImpl.kt
-@@ -110,6 +110,11 @@ class KeyboardControllerModuleImpl(
+@@ -115,6 +115,11 @@ class KeyboardControllerModuleImpl(
        map.putDouble("y", location[1].toFloat().dp)
        map.putDouble("width", view.width.toFloat().dp)
        map.putDouble("height", view.height.toFloat().dp)
@@ -64,7 +64,7 @@ index a3c84b0..d109b49 100644
  
    fun getConstants(): MutableMap<String, Any>? = original.getConstants()
 diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_modules/react-native-keyboard-controller/src/module.ts
-index b666df1..895e9b6 100644
+index f749419..34937cc 100644
 --- a/node_modules/react-native-keyboard-controller/src/module.ts
 +++ b/node_modules/react-native-keyboard-controller/src/module.ts
 @@ -1,3 +1,5 @@
@@ -73,7 +73,7 @@ index b666df1..895e9b6 100644
  import { KeyboardControllerNative, KeyboardEvents } from "./bindings";
  
  import type {
-@@ -31,18 +33,141 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
+@@ -31,21 +33,146 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
    const animated = options?.animated ?? true;
  
    return new Promise((resolve) => {
@@ -81,13 +81,18 @@ index b666df1..895e9b6 100644
 +    const focusedAndroidInput =
 +      Platform.OS === "android" ? TextInput.State.currentlyFocusedInput() : null;
 +    if (isClosed && !focusedAndroidInput) {
+       if (!keepFocus) {
+         KeyboardControllerNative.dismiss(keepFocus, animated);
++        resolve();
++        return;
++      }
 +      // Android keyboards can live in a separate window (for example a
 +      // BottomSheetDialog). The activity listener does not observe that
 +      // window, so its cached visibility can be stale even while an input is
 +      // focused. Always forward the native dismissal on Android.
 +      if (Platform.OS === "android") {
 +        KeyboardControllerNative.dismiss(true, animated);
-+      }
+       }
        resolve();
  
        return;
@@ -221,10 +226,10 @@ index b666df1..895e9b6 100644
  };
  const isVisible = () => !isClosed;
 diff --git a/node_modules/react-native-keyboard-controller/src/types/module.ts b/node_modules/react-native-keyboard-controller/src/types/module.ts
-index 0d60d55..70f8354 100644
+index df02252..4a97b36 100644
 --- a/node_modules/react-native-keyboard-controller/src/types/module.ts
 +++ b/node_modules/react-native-keyboard-controller/src/types/module.ts
-@@ -114,6 +114,7 @@ export type ViewPositionInWindowResult = {
+@@ -120,6 +120,7 @@ export type ViewPositionInWindowResult = {
    y: number;
    width: number;
    height: number;
