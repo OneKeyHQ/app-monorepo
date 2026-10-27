@@ -984,10 +984,9 @@ function StockAmountInput({
           activeAccount={swapFromAddressInfo.activeAccount}
           onDepositClose={onBalanceRefreshPress}
           showPercentageInput={Boolean(
-            showPercentageInputDebounce &&
-            balanceActionsReady &&
-            !contentLoading,
+            showPercentageInputDebounce && !contentLoading,
           )}
+          percentageInputDisabled={!balanceActionsReady}
           showActionBuy={showActionBuy && !contentLoading}
           actionBuyHighlighted={!isBalanceLoadedZero}
           onSelectStage={onSelectPercentageStage}
