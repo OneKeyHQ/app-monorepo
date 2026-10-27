@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
 import {
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   memo,
   startTransition,
   useCallback,
@@ -402,17 +403,18 @@ function BasePerpTokenSelectorContent() {
     },
     [],
   );
-  const focusSearchInput = useCallback<
-    NonNullable<IStackProps['onClickCapture']>
-  >((event) => {
-    if (
-      refocusSearchOnClick.current &&
-      event.target !== searchInputRef.current
-    ) {
-      searchInputRef.current?.focus({ preventScroll: true });
-    }
-    refocusSearchOnClick.current = false;
-  }, []);
+  const focusSearchInput = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (
+        refocusSearchOnClick.current &&
+        event.target !== searchInputRef.current
+      ) {
+        searchInputRef.current?.focus({ preventScroll: true });
+      }
+      refocusSearchOnClick.current = false;
+    },
+    [],
+  );
   const keyboardSubmitPending = useRef(false);
   const keyboardRowRefs = useRef(new Map<string, HTMLElement>());
   const keyboardFavoritesPending = useRef(new Set<string>());
@@ -1529,12 +1531,13 @@ function BasePerpTokenSelectorContent() {
     <YStack
       {...(platformEnv.isNative
         ? undefined
-        : {
+        : // Web-only DOM capture handlers; Tamagui types them as RN events.
+          ({
             onPointerDownCapture: handlePointerDown,
             onClickCapture: focusSearchInput,
             onKeyDownCapture: handleFavoriteShortcut,
             onWheelCapture: cancelPendingKeyboardScroll,
-          })}
+          } as unknown as IStackProps))}
     >
       <YStack gap="$1">
         <XStack px="$2" pt="$2">
