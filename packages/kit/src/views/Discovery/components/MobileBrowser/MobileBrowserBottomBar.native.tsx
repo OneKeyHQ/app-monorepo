@@ -128,13 +128,12 @@ const CAPSULE_CONTENT_FADE_START = 0.7;
 // Same point where touches move from the bar to the pill.
 const DOMAIN_SWAP_POINT = BROWSER_CHROME_CROSSFADE_POINT;
 
-// Must be passed for the container's material to exist at all: the native
-// container only builds its UIGlassContainerEffect inside setSpacing, and that
-// skips a nil-to-nil change, so omitting the prop leaves the container inert.
-// The value itself is below the gap between the capsules (8pt), so they stay
-// separate shapes: what unifies their look is being in the container, not
-// merging them. Anything at 8 or more would fuse them into one blob.
-const SPACING_GLASS_CONTAINER = 0;
+// Glass shapes closer than this merge in the bar's glass container (Telegram's
+// spacing); the capsules' gap is wider and the side ones shrink in place, so
+// they stay apart. The prop has to be passed at all for the container to build
+// its UIGlassContainerEffect (its setSpacing skips a nil-to-nil change), so a
+// refactor dropping it silently disables the shared material.
+const SPACING_GLASS_CONTAINER = 7;
 
 // The pill's domain text size.
 const PILL_DOMAIN_FONT_SIZE = 14;
