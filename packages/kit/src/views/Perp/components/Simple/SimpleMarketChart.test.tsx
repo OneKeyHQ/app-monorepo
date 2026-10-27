@@ -54,6 +54,9 @@ jest.mock('@onekeyhq/shared/src/utils/perpsUtils', () => ({
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en',
+}));
 jest.mock('@tamagui/core', () => ({
   useTheme: () =>
     Object.fromEntries(
@@ -131,7 +134,13 @@ jest.mock('@onekeyhq/components', () => {
             aria-pressed={value === option.value}
             onClick={() => onChange(option.value)}
           >
-            {option.label}
+            {typeof option.label === 'function'
+              ? option.label({
+                  active: option.value === value,
+                  hovered: false,
+                  color: '$text',
+                })
+              : option.label}
           </button>
         ))}
       </div>
