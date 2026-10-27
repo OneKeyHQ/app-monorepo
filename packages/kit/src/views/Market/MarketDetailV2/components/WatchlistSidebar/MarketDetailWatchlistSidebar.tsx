@@ -453,6 +453,7 @@ function MarketDetailWatchlistSidebarImpl({
     isError,
     hasLoadedAllSources,
     rowCount: data.length,
+    filter,
   });
 
   const tableHeader = (
@@ -526,7 +527,7 @@ function MarketDetailWatchlistSidebarImpl({
         </Button>
       </YStack>
     );
-  } else if (listData.length === 0) {
+  } else if (contentState === 'noResults' || listData.length === 0) {
     content = (
       <YStack flex={1} px={TOKEN_SELECTOR_TABLE_PADDING}>
         {tableHeader}

@@ -1,5 +1,8 @@
+import type { IWatchlistFilterType } from '../../../MarketHomeV2/components/MarketTokenList/MarketWatchlistCategorySelector';
+
 export type IWatchlistSidebarContentState =
   | 'recommendations'
+  | 'noResults'
   | 'skeleton'
   | 'loadFailed'
   | 'rows';
@@ -10,6 +13,8 @@ export type IWatchlistSidebarContentState =
 // nothing the user can see or remove (OK-65655). Desktop and web report a
 // failed request only through `hasLoadedAllSources`, so an empty list that
 // did not load reads as a failure with a retry, not as an empty watchlist.
+// The recommendations are spot tokens, so the Stocks and Perps filters read as
+// an empty list instead, as in the token selector's Favorites tab.
 export function getWatchlistSidebarContentState({
   isMounted,
   storedCount,
@@ -17,6 +22,7 @@ export function getWatchlistSidebarContentState({
   isError,
   hasLoadedAllSources,
   rowCount,
+  filter,
 }: {
   isMounted: boolean;
   storedCount: number;
@@ -24,12 +30,15 @@ export function getWatchlistSidebarContentState({
   isError: boolean;
   hasLoadedAllSources: boolean;
   rowCount: number;
+  filter: IWatchlistFilterType;
 }): IWatchlistSidebarContentState {
+  const emptyState =
+    filter === 'all' || filter === 'spot' ? 'recommendations' : 'noResults';
   if (!isMounted) {
     return 'skeleton';
   }
   if (storedCount === 0) {
-    return 'recommendations';
+    return emptyState;
   }
   if (rowCount > 0) {
     return 'rows';
@@ -40,5 +49,5 @@ export function getWatchlistSidebarContentState({
   if (isError || !hasLoadedAllSources) {
     return 'loadFailed';
   }
-  return 'recommendations';
+  return emptyState;
 }

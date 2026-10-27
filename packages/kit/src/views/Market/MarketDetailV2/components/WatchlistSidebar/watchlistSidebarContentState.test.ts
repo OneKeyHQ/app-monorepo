@@ -7,7 +7,8 @@ const base = {
   isError: false,
   hasLoadedAllSources: true,
   rowCount: 0,
-};
+  filter: 'all',
+} as const;
 
 it('waits on the skeleton until favorites storage is ready', () => {
   expect(getWatchlistSidebarContentState({ ...base, isMounted: false })).toBe(
@@ -55,4 +56,21 @@ it('offers a retry when the request reports an error', () => {
 
 it('shows recommendations when every source loaded but no favorite resolved', () => {
   expect(getWatchlistSidebarContentState(base)).toBe('recommendations');
+});
+
+it('reads as an empty list under the Stocks and Perps filters', () => {
+  for (const filter of ['stocks', 'perps'] as const) {
+    expect(getWatchlistSidebarContentState({ ...base, filter })).toBe(
+      'noResults',
+    );
+    expect(
+      getWatchlistSidebarContentState({ ...base, filter, storedCount: 0 }),
+    ).toBe('noResults');
+  }
+});
+
+it('keeps the recommendations under the Spot filter', () => {
+  expect(getWatchlistSidebarContentState({ ...base, filter: 'spot' })).toBe(
+    'recommendations',
+  );
 });

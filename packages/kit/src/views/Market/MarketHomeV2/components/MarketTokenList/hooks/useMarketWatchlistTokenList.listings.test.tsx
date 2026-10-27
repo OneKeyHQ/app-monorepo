@@ -651,3 +651,23 @@ it('reports loaded sources when a successful batch drops every favorite', async 
   expect(result.current.data).toEqual([]);
   expect(result.current.hasLoadedAllSources).toBe(true);
 });
+it('does not count the previous watchlist result as loaded after a failed request', async () => {
+  mockBatch.mockResolvedValue({ list: [] });
+  const { result, rerender } = renderHook(
+    ({ watchlist }: { watchlist: IMarketWatchListItemV2[] }) =>
+      useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    { initialProps: { watchlist: [] as IMarketWatchListItemV2[] } },
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+  // The new request fails, and usePromiseResult keeps the empty result from
+  // the previous watchlist.
+  mockBatch.mockRejectedValue(new Error('network'));
+  rerender({
+    watchlist: [{ chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 0 }],
+  });
+  await waitFor(() => expect(mockBatch).toHaveBeenCalled());
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toEqual([]);
+  expect(result.current.hasLoadedAllSources).toBe(false);
+});
