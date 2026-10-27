@@ -314,19 +314,8 @@ function TokenListViewCmp(props: IProps) {
   });
   const [structuralTransitionCommand, setStructuralTransitionCommand] =
     useState<{ scope: number; id: string }>();
-  const [retainedExpandedContent, setRetainedExpandedContent] = useState<{
-    scope: number;
-    id: string;
-  }>();
+  const [expandedContentScope, setExpandedContentScope] = useState<number>();
   const transitionSequenceRef = useRef(0);
-  const latestDisclosureIntentRef = useRef<
-    | {
-        scope: number;
-        id: string;
-        sliced: boolean;
-      }
-    | undefined
-  >(undefined);
   const disclosureScopeRef = useRef<{ owner: string; id: number } | undefined>(
     undefined,
   );
@@ -437,10 +426,9 @@ function TokenListViewCmp(props: IProps) {
     if (scope === undefined) return;
     transitionSequenceRef.current += 1;
     const id = `${scope}:${transitionSequenceRef.current}`;
-    latestDisclosureIntentRef.current = { scope, id, sliced };
     setOverFlowState((previous) => ({ ...previous, isSliced: sliced }));
     setStructuralTransitionCommand({ scope, id });
-    setRetainedExpandedContent(sliced ? { scope, id } : undefined);
+    if (!sliced) setExpandedContentScope(scope);
   }, []);
 
   const tokenManagementEnabled =
@@ -1196,29 +1184,32 @@ function TokenListViewCmp(props: IProps) {
     issueStructuralTransition,
   ]);
 
-  const nativeDisclosureEnabled =
-    platformEnv.isNative &&
+  const disclosureEnabled =
+    (platformEnv.isNative || platformEnv.isWeb) &&
     plainMode &&
     (overFlowState.isOverflow ||
       (!!limit && displayCountForOverflow > limit)) &&
     !showSkeleton &&
     listData.length > 0;
   useEffect(() => {
-    if (
-      !nativeDisclosureEnabled ||
-      latestDisclosureIntentRef.current?.scope !== disclosureScope
-    ) {
-      latestDisclosureIntentRef.current = undefined;
-      setRetainedExpandedContent(undefined);
-      setStructuralTransitionCommand(undefined);
-    }
-  }, [nativeDisclosureEnabled, disclosureScope]);
+    setExpandedContentScope((current) => {
+      if (!disclosureEnabled) return undefined;
+      if (!overFlowState.isSliced) return disclosureScope;
+      return current === disclosureScope ? current : undefined;
+    });
+  }, [disclosureEnabled, disclosureScope, overFlowState.isSliced]);
+  useEffect(() => {
+    setStructuralTransitionCommand((current) =>
+      disclosureEnabled && current?.scope === disclosureScope
+        ? current
+        : undefined,
+    );
+  }, [disclosureEnabled, disclosureScope]);
   const keepExpandedContent =
-    !overFlowState.isSliced ||
-    retainedExpandedContent?.scope === disclosureScope;
+    !overFlowState.isSliced || expandedContentScope === disclosureScope;
   const expandedContent =
-    nativeDisclosureEnabled && keepExpandedContent ? (
-      <Stack>
+    disclosureEnabled && keepExpandedContent ? (
+      <Stack key={disclosureScope}>
         {withFooter ? (
           <TokenListFooter
             tableLayout={tableLayout}
@@ -1238,7 +1229,7 @@ function TokenListViewCmp(props: IProps) {
         ) : null}
       </Stack>
     ) : undefined;
-  const structureToggle = nativeDisclosureEnabled ? (
+  const structureToggle = disclosureEnabled ? (
     <XStack pt="$3" px="$5" jc="center" ai="center">
       <Button
         testID={
@@ -1263,29 +1254,6 @@ function TokenListViewCmp(props: IProps) {
     structuralTransitionCommand?.scope === disclosureScope
       ? structuralTransitionCommand
       : undefined;
-  const onStructuralTransitionSettled = useCallback(
-    (event: {
-      transitionId: string;
-      status: 'completed' | 'interrupted';
-      settledExpanded: boolean;
-    }) => {
-      const latest = latestDisclosureIntentRef.current;
-      if (
-        latest?.id !== event.transitionId ||
-        latest.scope !== disclosureScopeRef.current?.id ||
-        !latest.sliced ||
-        event.settledExpanded
-      )
-        return;
-      setRetainedExpandedContent((current) =>
-        current?.id === event.transitionId && current.scope === latest.scope
-          ? undefined
-          : current,
-      );
-    },
-    [],
-  );
-
   const listHeader = (
     <Stack>
       {nativeListHeader}
@@ -1300,7 +1268,7 @@ function TokenListViewCmp(props: IProps) {
   );
   const listFooter = plainMode ? (
     <>
-      {!nativeDisclosureEnabled && !showSkeleton && listData.length
+      {!disclosureEnabled && !showSkeleton && listData.length
         ? renderPlainModeFooter()
         : null}
       {nativeListFooter}
@@ -1372,11 +1340,10 @@ function TokenListViewCmp(props: IProps) {
       expandedContent={expandedContent}
       structureToggle={structureToggle}
       disclosure={
-        nativeDisclosureEnabled
+        disclosureEnabled
           ? { expanded: !overFlowState.isSliced, expandedTrailingInset: 20 }
           : undefined
       }
-      onStructuralTransitionSettled={onStructuralTransitionSettled}
       sidecar={nativeListSidecar}
       sidecarLayout={nativeListSidecarLayout}
       structuralTransition={

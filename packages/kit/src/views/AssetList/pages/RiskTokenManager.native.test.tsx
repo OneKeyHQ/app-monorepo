@@ -333,6 +333,8 @@ it('opens Gas help only for the current native token and rejects stale anchors',
   view.rerender(<RiskNativeList {...props} sections={[]} />);
   act(() => secondMeasure(5, 10));
   expect(view.queryByTestId('native-tooltip')).toBeNull();
+  act(() => mockRowAction!({ rowKey, actionKey: 'press' }));
+  expect(onPress).not.toHaveBeenCalled();
   act(() =>
     mockRowAction!({
       rowKey,
@@ -344,6 +346,23 @@ it('opens Gas help only for the current native token and rejects stale anchors',
     token: 'removed',
     open: true,
   });
+  view.rerender(
+    <RiskNativeList
+      {...props}
+      sections={[
+        {
+          key: 'collapsed',
+          title: 'Collapsed',
+          data: [{ ...token, accountId: 'account-b' }],
+        },
+      ]}
+    />,
+  );
+  expect(
+    mockSnapshot?.rows.find((row) => row.type === 'identity')?.key,
+  ).not.toBe(rowKey);
+  act(() => mockRowAction!({ rowKey, actionKey: 'press' }));
+  expect(onPress).not.toHaveBeenCalled();
   view.rerender(<RiskNativeList {...props} />);
   act(() =>
     mockRowAction!({

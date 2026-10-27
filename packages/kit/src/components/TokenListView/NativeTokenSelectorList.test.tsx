@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { planNativeListPatches } from '@onekeyfe/react-native-native-list';
 import { fireEvent, render } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,6 +24,8 @@ import type {
 
 let mockSnapshot: NativeListSnapshot | undefined;
 let mockListSidecar: ReactNode;
+let mockExpandedContent: ReactNode;
+let mockStructureToggle: ReactNode;
 const mockSnapshotProps: NativeListSnapshot[] = [];
 const getMockSnapshot = () => mockSnapshot;
 const mockApplyPatches = jest.fn((patches: readonly RowPatch[]) => {
@@ -69,16 +72,35 @@ const mockSwap = jest.fn();
 
 jest.mock('@onekeyfe/react-native-native-list', () => {
   const React = jest.requireActual<typeof import('react')>('react');
+  const path = jest.requireActual<typeof import('node:path')>('node:path');
+  const { planNativeListPatches: actualPlanner } = jest.requireActual<
+    Pick<
+      typeof import('@onekeyfe/react-native-native-list'),
+      'planNativeListPatches'
+    >
+  >(
+    path.join(
+      path.dirname(
+        require.resolve('@onekeyfe/react-native-native-list/package.json'),
+      ),
+      'lib/module/validation.js',
+    ),
+  );
   return {
+    planNativeListPatches: actualPlanner,
     NativeList: React.forwardRef(
       (
         {
           snapshot,
           listSidecar,
+          listExpandedContent,
+          listStructureToggle,
           onRowAction,
         }: {
           snapshot: NativeListSnapshot;
           listSidecar?: ReactNode;
+          listExpandedContent?: ReactNode;
+          listStructureToggle?: ReactNode;
           onRowAction: (event: { actionKey: string; rowKey: string }) => void;
         },
         ref,
@@ -88,6 +110,8 @@ jest.mock('@onekeyfe/react-native-native-list', () => {
         }));
         mockSnapshotProps.push(snapshot);
         mockListSidecar = listSidecar;
+        mockExpandedContent = listExpandedContent;
+        mockStructureToggle = listStructureToggle;
         if (!mockSnapshot || mockSnapshotProps.at(-2) !== snapshot) {
           mockSnapshot = snapshot;
         }
@@ -236,6 +260,33 @@ it('omits an absent Home sidecar so token rows remain a valid list input', () =>
   }
   expect(mockListSidecar).toBeUndefined();
   expect(mockSnapshot?.rows).toHaveLength(1);
+});
+
+it('passes disclosure content and toggle through the Web adapter', () => {
+  const wasNative = platformEnv.isNative;
+  platformEnv.isNative = false;
+  const content = <div>Expanded content</div>;
+  const toggle = <div>Show less</div>;
+  try {
+    render(
+      <NativeTokenSelectorList
+        rows={[ethToken]}
+        networkId="evm--1"
+        crossNetworkGroupingActive={false}
+        zeroFillMissingFiat={false}
+        showProcessingState={false}
+        isSearching={false}
+        currentNetworkName="Ethereum"
+        empty={<div />}
+        expandedContent={content}
+        structureToggle={toggle}
+      />,
+    );
+  } finally {
+    platformEnv.isNative = wasNative;
+  }
+  expect(mockExpandedContent).toBe(content);
+  expect(mockStructureToggle).toBe(toggle);
 });
 
 it('keeps cross-network badges scoped and dispatches the selected token and retry', () => {
@@ -559,9 +610,21 @@ it('formats and patches only changed selector rows on an immutable fiat update',
   const { rerender } = render(
     <NativeTokenSelectorList {...props} tokenListMap={initialFiat} />,
   );
-  const initialSnapshot = mockSnapshotProps.at(-1);
+  const initialSnapshot = mockSnapshotProps.at(-1)!;
   const unchangedRow = getMockSnapshot()?.rows[500];
+  mockApplyPatches.mockClear();
   jest.mocked(formatNativeSelectorAmount).mockClear();
+  const stringifySpy = jest.spyOn(JSON, 'stringify');
+  try {
+    expect(planNativeListPatches(initialSnapshot, initialSnapshot)).toEqual([]);
+    expect(stringifySpy).not.toHaveBeenCalled();
+  } finally {
+    stringifySpy.mockRestore();
+  }
+  rerender(<NativeTokenSelectorList {...props} tokenListMap={initialFiat} />);
+  expect(mockSnapshotProps.at(-1)).toBe(initialSnapshot);
+  expect(mockApplyPatches).not.toHaveBeenCalled();
+  expect(formatNativeSelectorAmount).not.toHaveBeenCalled();
   const changedIndices = [2, 15, 40, 95, 280, 350, 610, 704, 850, 999];
   const updatedFiat = { ...initialFiat };
   for (const index of changedIndices) {
@@ -590,6 +653,16 @@ it('formats and patches only changed selector rows on an immutable fiat update',
       expect.objectContaining({ kind: 'valuePair', secondary: '$2.00' }),
     );
   }
+  mockApplyPatches.mockClear();
+  rerender(
+    <NativeTokenSelectorList
+      {...props}
+      rows={[...rows].toReversed()}
+      tokenListMap={updatedFiat}
+    />,
+  );
+  expect(mockSnapshotProps.at(-1)).not.toBe(initialSnapshot);
+  expect(mockApplyPatches).not.toHaveBeenCalled();
 });
 
 it('refreshes an aggregate row when only a member fiat entry changes', () => {
@@ -761,12 +834,17 @@ it('invalidates selector rows for owner, presentation, and processing changes', 
     rerender(<NativeTokenSelectorList {...props} tokenListMap={fiat} />);
     const afterLocale = mockSnapshot?.rows[0];
     expect(afterLocale).not.toBe(beforeLocale);
+    const beforeTheme = mockSnapshotProps.at(-1);
+    mockApplyPatches.mockClear();
     mockTheme = { ...mockTheme, background: '#101010' };
     rerender(<NativeTokenSelectorList {...props} tokenListMap={fiat} />);
     expect(mockSnapshot?.theme?.background).toBe('#101010');
     expect(mockSnapshot?.rows[0]).not.toBe(afterLocale);
+    expect(mockSnapshotProps.at(-1)).not.toBe(beforeTheme);
+    expect(mockApplyPatches).not.toHaveBeenCalled();
 
     const beforeOwner = mockSnapshotProps.at(-1);
+    mockApplyPatches.mockClear();
     rerender(
       <NativeTokenSelectorList
         {...props}
@@ -777,6 +855,7 @@ it('invalidates selector rows for owner, presentation, and processing changes', 
     expect(mockSnapshotProps.at(-1)).not.toBe(beforeOwner);
     expect(mockSnapshot?.rows[0]).not.toBe(initialRow);
     expect(mockSnapshotProps.at(-1)).not.toBe(initialSnapshot);
+    expect(mockApplyPatches).not.toHaveBeenCalled();
   } finally {
     mockProcessingTokenState = { isProcessing: false, token: null };
     mockCurrencyId = 'usd';

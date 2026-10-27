@@ -1,9 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  NativeList,
-  validateSnapshot,
-} from '@onekeyfe/react-native-native-list';
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useRoute } from '@react-navigation/core';
 import { debounce, isString } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -548,7 +545,7 @@ function TokenListContent({ params }: { params: ITokenListParams }) {
       theme,
       rows,
     };
-    return { snapshot: validateSnapshot(nextSnapshot), tokensByKey: byKey };
+    return { snapshot: nextSnapshot, tokensByKey: byKey };
   }, [
     visibleTokens,
     tokenMap,

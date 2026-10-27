@@ -4,6 +4,7 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
 
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -467,6 +468,50 @@ it('accepts only current token actions and blocks repeated or disabled actions',
   expect(onHide).not.toHaveBeenCalled();
   expect(onAdd).toHaveBeenCalledTimes(1);
   expect(mockButtonClick).toHaveBeenCalledTimes(1);
+});
+
+it('shows a rejected hide action and releases its pending gate', async () => {
+  const error = new Error('hide failed');
+  let rejectAction: ((reason: Error) => void) | undefined;
+  const onHide = jest
+    .fn()
+    .mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectAction = reject;
+        }),
+    )
+    .mockResolvedValueOnce(undefined);
+  const toastIfError = jest
+    .spyOn(errorToastUtils, 'toastIfError')
+    .mockImplementation(() => undefined);
+  const showToastOfError = jest
+    .spyOn(errorToastUtils, 'showToastOfError')
+    .mockImplementation(() => undefined);
+  try {
+    renderList({ onHide, check: () => token });
+    const key = mockSnapshot?.rows.find((row) => row.type === 'identity')?.key;
+    act(() => {
+      mockRowAction?.({ rowKey: key, actionKey: 'hide' });
+      mockRowAction?.({ rowKey: key, actionKey: 'hide' });
+    });
+    expect(onHide).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      rejectAction?.(error);
+      await Promise.resolve();
+    });
+    expect(toastIfError).toHaveBeenCalledWith(error);
+    expect(showToastOfError).toHaveBeenCalledWith(error);
+
+    act(() => {
+      mockRowAction?.({ rowKey: key, actionKey: 'hide' });
+    });
+    expect(onHide).toHaveBeenCalledTimes(2);
+  } finally {
+    toastIfError.mockRestore();
+    showToastOfError.mockRestore();
+  }
 });
 
 it('shows BTC help on DOM hover without enabling or tracking the action', () => {

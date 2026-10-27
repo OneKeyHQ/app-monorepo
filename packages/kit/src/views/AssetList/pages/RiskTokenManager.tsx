@@ -1,9 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  NativeList,
-  validateSnapshot,
-} from '@onekeyfe/react-native-native-list';
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useRoute } from '@react-navigation/core';
 import { debounce, groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -400,7 +397,7 @@ export function RiskNativeList({
       theme,
       rows,
     };
-    return { snapshot: validateSnapshot(nextSnapshot), tokensByKey: tokenMap };
+    return { snapshot: nextSnapshot, tokensByKey: tokenMap };
   }, [
     sections,
     networkId,

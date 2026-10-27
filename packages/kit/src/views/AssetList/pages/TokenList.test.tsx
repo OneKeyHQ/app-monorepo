@@ -211,7 +211,7 @@ describe('TokenList route recovery', () => {
       currency: 'usd',
     } as ITokenFiat;
     const onPressToken = jest.fn();
-    mockParams = {
+    const params: ITokenListParams = {
       accountId: 'test-account',
       networkId: 'evm--1',
       walletId: 'test-wallet',
@@ -222,7 +222,8 @@ describe('TokenList route recovery', () => {
       },
       onPressToken,
     };
-    render(<TokenList />);
+    mockParams = params;
+    const { rerender } = render(<TokenList />);
 
     const props = mockNativeList.mock.lastCall?.[0] as {
       snapshot: NativeListSnapshot;
@@ -251,6 +252,23 @@ describe('TokenList route recovery', () => {
       );
     act(() => props.onRowAction({ rowKey: token.$key, actionKey: 'press' }));
     expect(onPressToken).toHaveBeenCalledWith(token);
+    act(() => props.onRowAction({ rowKey: 'missing-row', actionKey: 'press' }));
+    expect(onPressToken).toHaveBeenCalledTimes(1);
+
+    mockParams = {
+      ...params,
+      tokenList: {
+        ...params.tokenList,
+        map: { [token.$key]: { ...fiat, fiatValue: '0.02' } },
+      },
+    };
+    rerender(<TokenList />);
+    const updatedProps = mockNativeList.mock.lastCall?.[0] as typeof props;
+    act(() =>
+      updatedProps.onRowAction({ rowKey: token.$key, actionKey: 'press' }),
+    );
+    expect(onPressToken).toHaveBeenCalledTimes(2);
+    expect(onPressToken).toHaveBeenLastCalledWith(token);
   });
 
   it('keeps search, map priority, rebased balance, and privacy masking', () => {

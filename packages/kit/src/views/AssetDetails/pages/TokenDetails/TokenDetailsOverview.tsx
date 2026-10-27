@@ -1,9 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  NativeList,
-  validateSnapshot,
-} from '@onekeyfe/react-native-native-list';
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -781,7 +778,7 @@ function TokenDetailsOverview(props: IProps) {
       theme,
       rows: nativeRows,
     };
-    return { snapshot: validateSnapshot(nextSnapshot), tokensByKey: byKey };
+    return { snapshot: nextSnapshot, tokensByKey: byKey };
   }, [
     rows,
     settingsValue.hideValue,

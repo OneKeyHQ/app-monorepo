@@ -4,13 +4,7 @@ import type { ReactNode } from 'react';
 
 import { TokenListView } from '.';
 
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -20,7 +14,7 @@ let mockNativeProps: Record<string, unknown> = {};
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: true, isNativeAndroid: false },
+  default: { isNative: true, isNativeAndroid: false, isWeb: false },
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -150,7 +144,7 @@ function renderList(owner = 'account-a', visibleTokens = tokens) {
   );
 }
 
-it('keeps one real expanded footer until the latest owner-scoped collapse ACK', async () => {
+it('keeps one expanded footer mounted through collapse and rapid reversal', async () => {
   (platformEnv as { isNative: boolean }).isNative = true;
   mockFooterMount.mockClear();
   mockFooterUnmount.mockClear();
@@ -158,75 +152,62 @@ it('keeps one real expanded footer until the latest owner-scoped collapse ACK', 
   await waitFor(() =>
     expect(screen.getByTestId('token-list-show-more-btn')).toBeTruthy(),
   );
+  expect(mockFooterMount).not.toHaveBeenCalled();
+  expect(mockNativeProps.expandedContent).toBeUndefined();
+  expect(mockNativeProps.rows as unknown[]).toHaveLength(2);
+
+  fireEvent.click(screen.getByTestId('token-list-show-more-btn'));
+  await waitFor(() => expect(mockFooterMount).toHaveBeenCalledTimes(1));
+  expect(mockNativeProps.rows as unknown[]).toHaveLength(8);
+  fireEvent.click(screen.getByTestId('token-list-show-less-btn'));
+  expect(mockNativeProps.rows as unknown[]).toHaveLength(2);
+  expect(mockFooterUnmount).not.toHaveBeenCalled();
+  const firstCollapseId = (
+    mockNativeProps.structuralTransition as { id: string }
+  ).id;
+  fireEvent.click(screen.getByTestId('token-list-show-more-btn'));
+  fireEvent.click(screen.getByTestId('token-list-show-less-btn'));
+  expect((mockNativeProps.structuralTransition as { id: string }).id).not.toBe(
+    firstCollapseId,
+  );
+  expect(mockNativeProps.rows as unknown[]).toHaveLength(2);
+  expect(mockNativeProps.onStructuralTransitionSettled).toBeUndefined();
+  expect(mockFooterMount).toHaveBeenCalledTimes(1);
+  expect(mockFooterUnmount).not.toHaveBeenCalled();
+  view.unmount();
+  expect(mockFooterUnmount).toHaveBeenCalledTimes(1);
+});
+
+it('releases collapsed owner content and remounts an expanded owner', async () => {
+  (platformEnv as { isNative: boolean }).isNative = true;
   mockFooterMount.mockClear();
   mockFooterUnmount.mockClear();
+  const view = render(renderList());
+  await waitFor(() =>
+    expect(screen.getByTestId('token-list-show-more-btn')).toBeTruthy(),
+  );
   fireEvent.click(screen.getByTestId('token-list-show-more-btn'));
   await waitFor(() => expect(mockFooterMount).toHaveBeenCalledTimes(1));
   fireEvent.click(screen.getByTestId('token-list-show-less-btn'));
-  const oldCollapseId = (mockNativeProps.structuralTransition as { id: string })
-    .id;
-  expect(mockFooterUnmount).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByTestId('token-list-show-more-btn'));
-  fireEvent.click(screen.getByTestId('token-list-show-less-btn'));
-  const latestCollapseId = (
-    mockNativeProps.structuralTransition as { id: string }
-  ).id;
-  expect(latestCollapseId).not.toBe(oldCollapseId);
-  act(() =>
-    (mockNativeProps.onStructuralTransitionSettled as (event: unknown) => void)(
-      {
-        transitionId: oldCollapseId,
-        status: 'completed',
-        settledExpanded: false,
-      },
-    ),
-  );
-  expect(mockFooterUnmount).not.toHaveBeenCalled();
-  act(() =>
-    (mockNativeProps.onStructuralTransitionSettled as (event: unknown) => void)(
-      {
-        transitionId: latestCollapseId,
-        status: 'completed',
-        settledExpanded: false,
-      },
-    ),
-  );
-  await waitFor(() => expect(mockFooterUnmount).toHaveBeenCalledTimes(1));
   view.rerender(renderList('account-b'));
   expect(screen.queryByTestId('expanded-footer')).toBeNull();
+  expect(mockFooterUnmount).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByTestId('token-list-show-more-btn'));
-  fireEvent.click(screen.getByTestId('token-list-show-less-btn'));
-  const newOwnerCollapseId = (
-    mockNativeProps.structuralTransition as { id: string }
-  ).id;
-  expect(newOwnerCollapseId).not.toBe(latestCollapseId);
-  act(() =>
-    (mockNativeProps.onStructuralTransitionSettled as (event: unknown) => void)(
-      {
-        transitionId: latestCollapseId,
-        status: 'completed',
-        settledExpanded: false,
-      },
-    ),
-  );
+  await waitFor(() => expect(mockFooterMount).toHaveBeenCalledTimes(2));
+  view.rerender(renderList('account-c'));
   expect(screen.getByTestId('expanded-footer')).toBeTruthy();
-  act(() =>
-    (mockNativeProps.onStructuralTransitionSettled as (event: unknown) => void)(
-      {
-        transitionId: newOwnerCollapseId,
-        status: 'completed',
-        settledExpanded: false,
-      },
-    ),
-  );
-  await waitFor(() =>
-    expect(screen.queryByTestId('expanded-footer')).toBeNull(),
-  );
+  expect(mockFooterUnmount).toHaveBeenCalledTimes(2);
+  expect(mockFooterMount).toHaveBeenCalledTimes(3);
+  fireEvent.click(screen.getByTestId('token-list-show-less-btn'));
+  expect(mockFooterUnmount).toHaveBeenCalledTimes(2);
   view.unmount();
+  expect(mockFooterUnmount).toHaveBeenCalledTimes(3);
 });
 
-it('releases a pending collapsed footer when disclosure becomes unavailable', async () => {
+it('releases a collapsed footer when disclosure becomes unavailable', async () => {
   (platformEnv as { isNative: boolean }).isNative = true;
+  mockFooterMount.mockClear();
+  mockFooterUnmount.mockClear();
   const view = render(renderList());
   await waitFor(() =>
     expect(screen.getByTestId('token-list-show-more-btn')).toBeTruthy(),
@@ -234,27 +215,53 @@ it('releases a pending collapsed footer when disclosure becomes unavailable', as
   fireEvent.click(screen.getByTestId('token-list-show-more-btn'));
   fireEvent.click(screen.getByTestId('token-list-show-less-btn'));
   expect(mockNativeProps.expandedContent).toBeTruthy();
+  expect(mockFooterMount).toHaveBeenCalledTimes(1);
   view.rerender(renderList('account-a', []));
   await waitFor(() => expect(mockNativeProps.expandedContent).toBeUndefined());
+  expect(mockFooterUnmount).toHaveBeenCalledTimes(1);
   view.rerender(renderList());
   await waitFor(() =>
     expect(screen.getByTestId('token-list-show-more-btn')).toBeTruthy(),
   );
   expect(mockNativeProps.expandedContent).toBeUndefined();
+  expect(mockFooterMount).toHaveBeenCalledTimes(1);
   view.unmount();
 });
 
-it('keeps the existing web structural command without native disclosure slots', async () => {
-  (platformEnv as { isNative: boolean }).isNative = false;
-  const view = render(renderList());
-  await waitFor(() =>
-    expect(screen.getByTestId('token-list-show-more-btn')).toBeTruthy(),
-  );
-  fireEvent.click(screen.getByTestId('token-list-show-more-btn'));
-  expect(mockNativeProps.structuralTransition).toMatchObject({
-    durationMs: 220,
-  });
-  expect(mockNativeProps.disclosure).toBeUndefined();
-  view.unmount();
-  (platformEnv as { isNative: boolean }).isNative = true;
+it('keeps the Web footer mounted through collapse and releases it on owner change', async () => {
+  const webEnv = platformEnv as { isNative: boolean; isWeb: boolean };
+  webEnv.isNative = false;
+  webEnv.isWeb = true;
+  mockFooterMount.mockClear();
+  mockFooterUnmount.mockClear();
+  try {
+    const view = render(renderList());
+    await waitFor(() =>
+      expect(screen.getByTestId('token-list-show-more-btn')).toBeTruthy(),
+    );
+    expect(mockFooterMount).not.toHaveBeenCalled();
+    expect(mockNativeProps.expandedContent).toBeUndefined();
+
+    fireEvent.click(screen.getByTestId('token-list-show-more-btn'));
+    await waitFor(() => expect(mockFooterMount).toHaveBeenCalledTimes(1));
+    expect(mockNativeProps.disclosure).toMatchObject({ expanded: true });
+    expect(mockNativeProps.structuralTransition).toMatchObject({
+      durationMs: 220,
+    });
+    fireEvent.click(screen.getByTestId('token-list-show-less-btn'));
+    expect(mockNativeProps.disclosure).toMatchObject({ expanded: false });
+    expect(mockFooterUnmount).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('token-list-show-more-btn'));
+    fireEvent.click(screen.getByTestId('token-list-show-less-btn'));
+    expect(mockFooterMount).toHaveBeenCalledTimes(1);
+    expect(mockFooterUnmount).not.toHaveBeenCalled();
+
+    view.rerender(renderList('account-b'));
+    expect(mockFooterUnmount).toHaveBeenCalledTimes(1);
+    expect(mockNativeProps.expandedContent).toBeUndefined();
+    view.unmount();
+  } finally {
+    webEnv.isNative = true;
+    webEnv.isWeb = false;
+  }
 });

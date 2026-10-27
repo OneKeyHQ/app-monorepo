@@ -8,7 +8,10 @@ import {
 } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
-import { NativeList } from '@onekeyfe/react-native-native-list';
+import {
+  NativeList,
+  planNativeListPatches,
+} from '@onekeyfe/react-native-native-list';
 import { useIntl } from 'react-intl';
 
 import {
@@ -65,7 +68,6 @@ import type {
   NativeListSnapshot,
   RowActionEvent,
   RowModel,
-  RowPatch,
   TrailingAccessory,
   VisualOverlay,
 } from '@onekeyfe/react-native-native-list';
@@ -130,90 +132,6 @@ function imageUri(value: unknown): string | undefined {
     : undefined;
 }
 
-function buildCellPatches(
-  previous: NativeListSnapshot,
-  next: NativeListSnapshot,
-): RowPatch[] | undefined {
-  if (
-    previous.rows.length !== next.rows.length ||
-    JSON.stringify(previous.layout) !== JSON.stringify(next.layout) ||
-    JSON.stringify(previous.theme) !== JSON.stringify(next.theme) ||
-    JSON.stringify(previous.capabilities) !==
-      JSON.stringify(next.capabilities) ||
-    JSON.stringify(previous.structuralTransition) !==
-      JSON.stringify(next.structuralTransition) ||
-    JSON.stringify(previous.disclosure) !== JSON.stringify(next.disclosure)
-  ) {
-    return undefined;
-  }
-  const patches: RowPatch[] = [];
-  for (let index = 0; index < next.rows.length; index += 1) {
-    const oldRow = previous.rows[index];
-    const row = next.rows[index];
-    if (oldRow.key !== row.key || oldRow.type !== row.type) return undefined;
-    if (oldRow !== row) {
-      if (oldRow.type === 'dataRow' && row.type === 'dataRow') {
-        const {
-          columns: oldColumns,
-          trailing: oldTrailing,
-          ...oldMetadata
-        } = oldRow;
-        const { columns, trailing, ...metadata } = row;
-        if ((oldTrailing === undefined) !== (trailing === undefined)) {
-          return undefined;
-        }
-        if (
-          JSON.stringify({ ...oldMetadata, asset: oldColumns[0] }) !==
-          JSON.stringify({ ...metadata, asset: columns[0] })
-        ) {
-          return undefined;
-        }
-        if (
-          JSON.stringify([oldColumns.slice(1), oldTrailing]) !==
-          JSON.stringify([columns.slice(1), trailing])
-        ) {
-          patches.push({
-            type: 'dataRow',
-            key: row.key,
-            changes: { columns, trailing },
-          });
-        }
-      } else if (oldRow.type === 'identity' && row.type === 'identity') {
-        const {
-          subtitle: oldSubtitle,
-          subtitleSegments: oldSubtitleSegments,
-          trailing: oldTrailing,
-          ...oldMetadata
-        } = oldRow;
-        const { subtitle, subtitleSegments, trailing, ...metadata } = row;
-        if (
-          (oldSubtitle === undefined) !== (subtitle === undefined) ||
-          (oldTrailing === undefined) !== (trailing === undefined)
-        ) {
-          return undefined;
-        }
-        if (JSON.stringify(oldMetadata) !== JSON.stringify(metadata)) {
-          return undefined;
-        }
-        if (
-          JSON.stringify([oldSubtitle, oldSubtitleSegments, oldTrailing]) !==
-          JSON.stringify([subtitle, subtitleSegments, trailing])
-        ) {
-          if (!!oldSubtitleSegments !== !!subtitleSegments) return undefined;
-          patches.push({
-            type: 'identity',
-            key: row.key,
-            changes: { subtitle, subtitleSegments, trailing },
-          });
-        }
-      } else if (JSON.stringify(oldRow) !== JSON.stringify(row)) {
-        return undefined;
-      }
-    }
-  }
-  return patches;
-}
-
 export function NativeTokenSelectorList({
   rows,
   networkId,
@@ -251,7 +169,6 @@ export function NativeTokenSelectorList({
   expandedContent,
   structureToggle,
   disclosure,
-  onStructuralTransitionSettled,
   sidecar,
   sidecarLayout,
   structuralTransition,
@@ -297,7 +214,6 @@ export function NativeTokenSelectorList({
   expandedContent?: ReactNode;
   structureToggle?: ReactNode;
   disclosure?: NativeListSnapshot['disclosure'];
-  onStructuralTransitionSettled?: NativeListProps['onStructuralTransitionSettled'];
   sidecar?: ReactNode;
   sidecarLayout?: NativeListProps['sidecarLayout'];
   structuralTransition?: NativeListSnapshot['structuralTransition'];
@@ -1048,7 +964,7 @@ export function NativeTokenSelectorList({
   const appliedOwnerKeyRef = useRef<string | undefined>(undefined);
   const rowPatches =
     appliedSnapshotRef.current && appliedOwnerKeyRef.current === ownerKey
-      ? buildCellPatches(appliedSnapshotRef.current, snapshot)
+      ? planNativeListPatches(appliedSnapshotRef.current, snapshot)
       : undefined;
   const snapshotForList =
     rowPatches !== undefined ? (propSnapshotRef.current ?? snapshot) : snapshot;
@@ -1203,11 +1119,8 @@ export function NativeTokenSelectorList({
             {footer}
           </>
         }
-        listExpandedContent={platformEnv.isNative ? expandedContent : undefined}
-        listStructureToggle={platformEnv.isNative ? structureToggle : undefined}
-        onStructuralTransitionSettled={
-          platformEnv.isNative ? onStructuralTransitionSettled : undefined
-        }
+        listExpandedContent={expandedContent}
+        listStructureToggle={structureToggle}
         listSidecar={platformEnv.isNative ? (sidecar ?? undefined) : undefined}
         sidecarLayout={platformEnv.isNative ? sidecarLayout : undefined}
         keyboardDismissMode="on-drag"

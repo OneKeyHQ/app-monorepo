@@ -7,10 +7,7 @@ import {
   useState,
 } from 'react';
 
-import {
-  NativeList,
-  validateSnapshot,
-} from '@onekeyfe/react-native-native-list';
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useIntl } from 'react-intl';
 
 import {
@@ -30,6 +27,7 @@ import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useTokenListViewContext } from '@onekeyhq/kit/src/components/TokenListView/TokenListViewContext';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -599,7 +597,7 @@ function NativeTokenManagerList({
       rows,
     };
     return {
-      snapshot: validateSnapshot(nextSnapshot),
+      snapshot: nextSnapshot,
       tokensByKey: tokenMap,
       nextKeys: { generation, nextId, byIdentity: nextByIdentity },
     };
@@ -683,14 +681,20 @@ function NativeTokenManagerList({
           trackId: AssetListTestIDs.tokenManagerToggleBtn,
         });
         const action = isAdded ? onHiddenToken(item) : onAddCustomToken(item);
-        void Promise.resolve(action).finally(() => {
-          if (pendingActions.current.get(pendingKey) === pendingToken)
-            pendingActions.current.delete(pendingKey);
-        });
+        void Promise.resolve(action)
+          .catch((error: unknown) => {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+          })
+          .finally(() => {
+            if (pendingActions.current.get(pendingKey) === pendingToken)
+              pendingActions.current.delete(pendingKey);
+          });
       } catch (error) {
         if (pendingActions.current.get(pendingKey) === pendingToken)
           pendingActions.current.delete(pendingKey);
-        throw error;
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
       }
     },
     [
