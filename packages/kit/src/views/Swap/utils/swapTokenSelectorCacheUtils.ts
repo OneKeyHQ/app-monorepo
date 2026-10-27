@@ -3,10 +3,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  getSwapTokenSearchContractNetworkId,
-  normalizeSwapTokenSearchNetworks,
-} from '@onekeyhq/shared/src/utils/swapTokenSearchRequestUtils';
 import type {
   IFetchTokensParams,
   ISwapTokenCatch,
@@ -193,10 +189,6 @@ export function buildSwapTokenListCacheKey(params: IFetchTokensParams) {
   return JSON.stringify({
     protocol: params.protocol,
     networkId: params.networkId,
-    contractSearchNetworkId: getSwapTokenSearchContractNetworkId(params),
-    searchNetworks: params.searchNetworks
-      ? normalizeSwapTokenSearchNetworks(params.searchNetworks)
-      : undefined,
     keywords: params.keywords ?? '',
     limit: params.limit ?? 50,
     accountAddress: params.accountAddress,
