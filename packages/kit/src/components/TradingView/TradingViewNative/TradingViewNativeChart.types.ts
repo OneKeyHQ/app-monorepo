@@ -29,6 +29,7 @@ export interface ITradingViewNativeChartProps {
   drawingStorageKey?: string;
   loadDrawingHistory?: IDrawingHistoryLoader;
   enableDrawings?: boolean;
+  enableNavigationControls?: boolean;
   prioritizePageScroll?: boolean;
   /** Owned by the data controller so native presentation changes retain the viewport. */
   runtimeRef?: RefObject<{
