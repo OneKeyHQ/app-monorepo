@@ -10249,4 +10249,23 @@ describe('Recent trades attribution', () => {
       result.current.attribution.getRecentTokenPairSelectionFor(pickedPair),
     ).toBeUndefined();
   });
+  it('drops a pending Stock pick when the tab changes before it syncs', async () => {
+    const { store, actions } = renderActions();
+    act(() => {
+      store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      store.set(swapSelectFromTokenAtom(), usdcToken);
+      store.set(swapSelectToTokenAtom(), usdtToken);
+    });
+    let generation = 0;
+    act(() => {
+      generation = actions.beginStockRecentTokenPairPick();
+    });
+    await act(async () => {
+      await actions.swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, 'evm--56');
+    });
+    act(() => {
+      actions.markRecentTokenPairSelection({ generation });
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
 });

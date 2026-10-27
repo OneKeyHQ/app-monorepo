@@ -1066,7 +1066,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       // Any token pick ends a "Recent trades" attribution; selectRecentTokenPair
       // records a new one after its own picks.
-      set(swapRecentTokenPairSelectionAtom(), undefined);
+      this.endRecentTokenPairAttribution.call(set);
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       if (isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
         set(swapProUserSelectedTokenAtom(), undefined);
@@ -1125,7 +1125,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
-      set(swapRecentTokenPairSelectionAtom(), undefined);
+      this.endRecentTokenPairAttribution.call(set);
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       if (isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
         set(swapProUserSelectedTokenAtom(), undefined);
@@ -1202,8 +1202,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  // Stock picks go through selectStockExecutionTokens, which also runs for
-  // automatic syncs, so manual Stock picks end the attribution explicitly.
+  // Ends the attribution on any user change of intent (a token pick, reversal,
+  // tab change or manual Stock pick), and supersedes a Stock pick still
+  // waiting on its sync. Automatic syncs never call it.
   endRecentTokenPairAttribution = contextAtomMethod((get, set) => {
     set(
       swapRecentTokenPairPickGenerationAtom(),
@@ -1340,7 +1341,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     );
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
-    set(swapRecentTokenPairSelectionAtom(), undefined);
+    this.endRecentTokenPairAttribution.call(set);
     // Carry the balances (and their bookkeeping) across with the tokens. The
     // To balance is fetched for the same wallet, so it is exactly the From
     // balance now; without this the From row, Top up chip and action button
@@ -4273,7 +4274,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
       if (normalizedType !== oldVisibleType) {
         // A tab change restores or replaces the pair without a new chip tap.
-        set(swapRecentTokenPairSelectionAtom(), undefined);
+        this.endRecentTokenPairAttribution.call(set);
         set(swapSelectedTokenBalanceRefreshRequestedAtom(), {
           from: false,
           to: false,
