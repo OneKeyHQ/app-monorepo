@@ -133,3 +133,10 @@ export const MARKET_LIST_HEADER_ROW_HEIGHT = 36;
 
 // The design's 72px `TBody` row, shared by every desktop list page.
 export const MARKET_LIST_ROW_HEIGHT = 72;
+
+// Floor for a detail page's lower tab region (token information tabs, a
+// stock's My position, and their lazy-load fallback). Switching to a short tab
+// keeps the page tall enough that the scroll position does not jump, and a
+// short position table still leaves room below it: the tab bar, a table
+// header, about three rows, and some breathing space.
+export const MARKET_DETAIL_TABS_MIN_HEIGHT = 320;
