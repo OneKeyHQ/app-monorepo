@@ -1,10 +1,10 @@
 import * as React from 'react';
 
 import type { EventArg, EventConsumer } from '@react-navigation/native';
-import type { EventEmitter } from 'react-native/Libraries/Types/CodegenTypes';
+import type { CodegenTypes } from 'react-native';
 
 export type INavigationEventEmitter<T extends Record<string, any>> =
-  EventEmitter<T> & {
+  CodegenTypes.EventEmitter<T> & {
     create: (target: string) => EventConsumer<T>;
   };
 

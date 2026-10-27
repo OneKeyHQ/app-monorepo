@@ -56,7 +56,7 @@ export const inputSizeVariant: SizeVariantSpreadFunction<any> = (
   const fontStyle = getFontSized(val as any, extras);
   // lineHeight messes up input on native
   if (!isWeb && fontStyle) {
-    delete fontStyle.lineHeight;
+    delete (fontStyle as { lineHeight?: unknown }).lineHeight;
   }
   return {
     ...fontStyle,

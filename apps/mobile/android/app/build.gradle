@@ -51,6 +51,45 @@ sentry {
     }
 }
 
+afterEvaluate {
+    // Sentry adds its failure-check action during variant registration.
+    tasks.withType(io.sentry.android.gradle.tasks.SentryUploadNativeSymbolsTask).configureEach { nativeSymbolsTask ->
+        // Keep Sentry's upload actions and tolerate only transient API failures.
+        def sentryActions = new ArrayList(nativeSymbolsTask.actions)
+        nativeSymbolsTask.setActions(sentryActions.collect { originalAction ->
+            { task ->
+                try {
+                    originalAction.execute(task)
+                } catch (io.sentry.android.gradle.util.SentryCliException error) {
+                    def errorOutput = task.errorOutput?.toString() ?: ''
+                    def apiRequestFailed = errorOutput =~ /(?m)^error: API request failed[ \t]*\r?$/
+                    def httpStatuses = (errorOutput =~ /\(http status: ([0-9]{3})\)/).collect { match -> Integer.parseInt(match[1]) }
+                    def httpStatusMarkers = (errorOutput =~ /http status:/).collect { it }
+                    def transientFailure
+                    if (httpStatusMarkers) {
+                        transientFailure = httpStatuses.size() == httpStatusMarkers.size() &&
+                            httpStatuses.every { status -> status >= 500 && status <= 599 }
+                    } else {
+                        def curlCauses = (errorOutput =~ /(?m)^[ \t]*\[([0-9]+)\] ([^\r\n]+)\r?$/).collect { match ->
+                            [code: Integer.parseInt(match[1]), detail: match[2].trim()]
+                        }
+                        transientFailure = curlCauses && curlCauses.every { cause ->
+                            [28, 52, 55, 56].contains(cause.code) ||
+                                // Curl 26 is also a local read error; only this observed reset is transient.
+                                (cause.code == 26 && cause.detail == 'Failed to open/read local data from file/application (Recv failure: Connection reset by peer)')
+                        }
+                    }
+                    if (error.reason == io.sentry.android.gradle.util.CliFailureReason.UNKNOWN && apiRequestFailed && transientFailure) {
+                        task.logger.warn('Sentry native symbol upload did not complete after a transient API failure; continuing the build. Some native crashes may lack symbolication.')
+                    } else {
+                        throw error
+                    }
+                }
+            } as org.gradle.api.Action
+        })
+    }
+}
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -318,6 +357,9 @@ tasks.matching { it.name.toLowerCase().contains("lintvital") }.configureEach {
     dependsOn(prepareSentryNativeAssets)
 }
 
+// Gradle 9 removed Project.exec() from task actions.
+def devShellExecOperations = project.services.get(org.gradle.process.ExecOperations)
+
 def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
     inputs.property("onekeyDevShellEnabled", useDevShell)
     outputs.dir(generatedDevShellAssetsDir)
@@ -329,7 +371,7 @@ def prepareDevShellDebugAssets = tasks.register("prepareDevShellDebugAssets") {
             return
         }
         mkdir(generatedDevShellAssetsDir)
-        exec {
+        devShellExecOperations.exec {
             workingDir projectRoot
             commandLine(
                 "node",

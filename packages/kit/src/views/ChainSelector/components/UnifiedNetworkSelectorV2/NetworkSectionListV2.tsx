@@ -36,7 +36,7 @@ import type {
   RowModel,
   TrailingAccessory,
 } from '@onekeyfe/react-native-native-list';
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 type INetworkSectionV2 = {
   key: string;
@@ -46,7 +46,7 @@ type INetworkSectionV2 = {
 };
 
 type INetworkSectionListPropsV2 = {
-  webSectionIndexContainerRef: RefObject<View | null>;
+  webSectionIndexContainerRef: RefObject<ViewInstance | null>;
   // Space kept free under the web index rail, so it matches the height
   // available in the all-networks tab and the letters stay put across tabs.
   webSectionIndexBottomInset?: number;

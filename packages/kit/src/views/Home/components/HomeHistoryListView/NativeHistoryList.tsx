@@ -76,6 +76,7 @@ import type {
   RowActionEvent,
   RowModel,
 } from '@onekeyfe/react-native-native-list';
+import type { ViewInstance } from 'react-native';
 
 type IPendingActions = {
   actions: FooterAction[];
@@ -841,7 +842,7 @@ export function NativeHistoryList(
     // Equal Web refreshes must not invalidate an open row action anchor.
     setWebSnapshot(preparedSnapshot);
   }
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const listRef = useRef<NativeListRef>(null);
   const [addressInfo, setAddressInfo] = useState<{
     address: string;

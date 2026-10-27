@@ -33,12 +33,12 @@ import type {
   SelectionDeltaEvent,
   TrailingAccessory,
 } from '@onekeyfe/react-native-native-list';
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 const LIST_STYLE_V2 = { flex: 1 };
 
 type INetworksSectionListV2Props = {
-  webSectionIndexContainerRef: RefObject<View | null>;
+  webSectionIndexContainerRef: RefObject<ViewInstance | null>;
 };
 
 export default function NetworksSectionListV2({

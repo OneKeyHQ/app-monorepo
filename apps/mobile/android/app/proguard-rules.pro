@@ -32,6 +32,21 @@
 # keepnames still allows unused classes to be removed. dontwarn only suppresses
 # missing-class diagnostics; it does not supply runtime classes or protect JNI.
 
+# Room 2.5 reflects generated database constructors; keep them under AGP 9 R8.
+-keep,allowoptimization class * extends androidx.room.RoomDatabase {
+    public <init>();
+}
+
+# Glide manifest modules are reflectively instantiated with a public no-arg constructor.
+-keep,allowoptimization public class * implements com.bumptech.glide.module.GlideModule {
+    public <init>();
+}
+
+# WorkManager reflects InputMerger classes named in work requests.
+-keep,allowoptimization class * extends androidx.work.InputMerger {
+    public <init>();
+}
+
 # Preserve the existing Reanimated/TurboModule native interoperability rules.
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
