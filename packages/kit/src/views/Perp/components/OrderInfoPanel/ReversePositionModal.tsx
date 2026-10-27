@@ -17,6 +17,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -30,7 +31,10 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 import { usePerpsCrossAvailableAfterMaintenance } from '../../hooks/usePerpsCrossAvailableAfterMaintenance';
+import { usePerpsMarketDataFreshness } from '../../hooks/usePerpsMarketDataFreshness';
+import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../testIDs';
@@ -44,6 +48,8 @@ import {
 } from './utils/addPosition';
 import {
   buildReversePositionOrder,
+  getReversePositionClearingPrice,
+  getReversePositionSize,
   isReversePositionScopeValid,
 } from './utils/reversePosition';
 
@@ -119,19 +125,82 @@ export function ReversePositionContent({
     return { assetData, symbolMeta, price: referencePrice };
   }, [intl, snapshot.accountAddress, snapshot.coin]);
   const {
-    result: target,
+    result: symbolMeta,
     isLoading,
     run,
-  } = usePromiseResult(fetchTarget, [fetchTarget], {
-    watchLoading: true,
-    checkIsFocused: false,
-    undefinedResultIfError: true,
-  });
+  } = usePromiseResult(
+    async () => {
+      const meta = await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+        coin: snapshot.coin,
+      });
+      return meta?.coin === snapshot.coin && !meta.isSpot ? meta : undefined;
+    },
+    [snapshot.coin],
+    { watchLoading: true, checkIsFocused: false, undefinedResultIfError: true },
+  );
+  const bookRefreshInterval = PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS / 3;
+  const { result: bookSnapshot } = usePromiseResult(
+    async () => {
+      const cached =
+        await backgroundApiProxy.serviceHyperliquid.getL2BookSnapshotCache({
+          coin: snapshot.coin,
+          nSigFigs: null,
+          mantissa: null,
+        });
+      if (
+        cached?.coin === snapshot.coin &&
+        cached.nSigFigs === null &&
+        cached.mantissa === null &&
+        Math.abs(Date.now() - cached.time) < bookRefreshInterval
+      )
+        return { book: cached, receivedAt: cached.time };
+      const book =
+        await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
+          coin: snapshot.coin,
+        });
+      // REST snapshots use local receipt time so server clock skew cannot
+      // invalidate a freshly fetched book. Keep the exchange timestamp intact.
+      return book ? { book, receivedAt: Date.now() } : undefined;
+    },
+    [snapshot.coin, bookRefreshInterval],
+    {
+      pollingInterval: bookRefreshInterval,
+      runImmediatelyOnMount: true,
+      checkIsFocused: false,
+      keepResultIfError: true,
+    },
+  );
+  const [bookExpired, setBookExpired] = useState(false);
+  useEffect(() => {
+    if (!bookSnapshot) return undefined;
+    const remaining =
+      bookSnapshot.receivedAt +
+      PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS -
+      Date.now();
+    setBookExpired(remaining < 0);
+    if (remaining < 0) return undefined;
+    // Expire retained depth even if neither prices nor the network update.
+    const timer = setTimeout(() => setBookExpired(true), remaining + 1);
+    return () => clearTimeout(timer);
+  }, [bookSnapshot]);
+  const szDecimals = symbolMeta?.universe?.szDecimals;
+  const { mid } = usePerpsMidPrice({ coin: snapshot.coin, szDecimals });
+  const { assetCtx } = usePerpsAssetCtx({ assetId: symbolMeta?.assetId ?? -1 });
+  // Preview uses coin-scoped streaming data. Account limits are fetched again
+  // on submit, so a slow activeAssetData request cannot block the preview.
+  const { isReady: isMarketDataReady } = usePerpsMarketDataFreshness();
+  const referencePrice = getValidPerpsPrice(mid);
+  const markPrice = symbolMeta
+    ? getValidPerpsPrice(assetCtx.markPrice)
+    : undefined;
   const isScopeValid = isReversePositionScopeValid({
     snapshot,
     ...liveScopeRef.current,
   });
-  const size = new BigNumber(snapshot.positionSize).abs();
+  const size =
+    szDecimals === undefined
+      ? null
+      : getReversePositionSize(snapshot.positionSize, szDecimals)?.abs();
   const isBuy = new BigNumber(snapshot.positionSize).lt(0);
   const side = isBuy ? 'long' : 'short';
   const symbol = parseDexCoin(snapshot.coin).displayName;
@@ -139,17 +208,39 @@ export function ReversePositionContent({
     snapshot.coin,
   );
   const liquidationPrice = useMemo(() => {
-    if (!target || !position || !isScopeValid) return null;
+    if (
+      !symbolMeta ||
+      !isMarketDataReady ||
+      !markPrice ||
+      !position ||
+      !isScopeValid ||
+      !size ||
+      bookExpired
+    )
+      return null;
+    const estimatedClearingPrice =
+      referencePrice && szDecimals !== undefined
+        ? getReversePositionClearingPrice({
+            coin: snapshot.coin,
+            book: bookSnapshot
+              ? { ...bookSnapshot.book, time: bookSnapshot.receivedAt }
+              : undefined,
+            referencePrice,
+            positionSize: isBuy ? size.negated() : size,
+            szDecimals,
+          })
+        : null;
+    if (!estimatedClearingPrice) return null;
     return estimateLiquidationPrice({
+      estimatedClearingPrice,
       side,
-      orderSize: new BigNumber(snapshot.positionSize).abs().multipliedBy(2),
+      orderSize: size.multipliedBy(2),
       priceMode: 'market',
-      orderPrice: new BigNumber(target.price),
-      markPrice: new BigNumber(target.assetData.markPx),
-      marginMode: target.assetData.leverage.type,
-      leverage: target.assetData.leverage.value,
-      marginTiers: target.symbolMeta.marginTable?.marginTiers,
-      maxLeverage: target.symbolMeta.universe?.maxLeverage ?? 1,
+      markPrice: new BigNumber(markPrice),
+      marginMode: position.leverage.type,
+      leverage: position.leverage.value,
+      marginTiers: symbolMeta.marginTable?.marginTiers,
+      maxLeverage: symbolMeta.universe?.maxLeverage ?? 1,
       existingPositionSize: new BigNumber(position.szi),
       isolatedRawUsd:
         position.leverage.type === 'isolated'
@@ -158,12 +249,20 @@ export function ReversePositionContent({
       crossAvailableAfterMaintenance,
     });
   }, [
+    bookSnapshot,
+    bookExpired,
+    isMarketDataReady,
+    referencePrice,
+    szDecimals,
+    snapshot.coin,
+    isBuy,
     crossAvailableAfterMaintenance,
     isScopeValid,
     position,
     side,
-    snapshot.positionSize,
-    target,
+    size,
+    markPrice,
+    symbolMeta,
   ]);
 
   const handleSubmit = useCallback(async () => {
@@ -256,7 +355,9 @@ export function ReversePositionContent({
     snapshot,
   ]);
 
-  const formattedSize = `${formatLocalizedNumberString(size.toFixed())} ${symbol}`;
+  const formattedSize = size
+    ? `${formatLocalizedNumberString(size.toFixed())} ${symbol}`
+    : '--';
   const currentSideLabel = intl.formatMessage({
     id: isBuy ? ETranslations.perp_short : ETranslations.perp_long,
   });
@@ -268,20 +369,20 @@ export function ReversePositionContent({
       label: intl.formatMessage({
         id: ETranslations.perp_market_order_size__title,
       }),
-      value: `${intl.formatMessage({ id: isBuy ? ETranslations.global_buy : ETranslations.global_sell })} ${formatLocalizedNumberString(size.multipliedBy(2).toFixed())} ${symbol}`,
+      value: size
+        ? `${intl.formatMessage({ id: isBuy ? ETranslations.global_buy : ETranslations.global_sell })} ${formatLocalizedNumberString(size.multipliedBy(2).toFixed())} ${symbol}`
+        : '--',
     },
     {
       label: intl.formatMessage({
-        id: ETranslations.perp_spot_reference_price__title,
+        id: ETranslations.global_price,
       }),
-      value: target
-        ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(target.price, target.symbolMeta.universe?.szDecimals))}`
-        : '--',
+      value: intl.formatMessage({ id: ETranslations.perp_market_price }),
     },
     {
       label: intl.formatMessage({ id: ETranslations.perp_est_liq_price }),
       value: liquidationPrice?.gt(0)
-        ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(liquidationPrice.toFixed(), target?.symbolMeta.universe?.szDecimals))}`
+        ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(liquidationPrice.toFixed(), szDecimals))}`
         : '--',
     },
   ];
@@ -390,7 +491,7 @@ export function ReversePositionContent({
           })}
         </SizableText>
       ) : null}
-      {!target && !isLoading ? (
+      {!symbolMeta && !isLoading ? (
         <Button
           testID="perp-reverse-position-retry-button"
           onPress={() => void run()}
@@ -407,7 +508,7 @@ export function ReversePositionContent({
             testID={PerpTestIDs.ReversePositionConfirmButton}
             size={PERP_DIALOG_BUTTON_SIZE}
             variant={isBuy ? 'accent' : 'destructive'}
-            disabled={!target || !isScopeValid || isSubmitting}
+            disabled={!symbolMeta || !size || !isScopeValid || isSubmitting}
             loading={isSubmitting}
             onPress={handleSubmit}
           >
