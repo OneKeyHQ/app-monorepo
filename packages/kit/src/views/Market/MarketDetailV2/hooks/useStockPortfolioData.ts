@@ -6,7 +6,9 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
 import { hasTradePositionBalance } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   equalTokenNoCaseSensitive,
@@ -110,14 +112,17 @@ export async function fetchStockPortfolioData({
   );
   const networkAccounts = new Map<
     string,
-    IStockPortfolioNetworkAccount | undefined
+    { account?: IStockPortfolioNetworkAccount; resolved: boolean }
   >(
     await Promise.all(
       networkIds.map(async (networkId) => {
         try {
-          return [networkId, await resolveNetworkAccount(networkId)] as const;
+          return [
+            networkId,
+            { account: await resolveNetworkAccount(networkId), resolved: true },
+          ] as const;
         } catch (_error) {
-          return [networkId, undefined] as const;
+          return [networkId, { resolved: false }] as const;
         }
       }),
     ),
@@ -126,11 +131,16 @@ export async function fetchStockPortfolioData({
   const portfolioGroups = await Promise.all(
     uniqueVariants.map(async (variant) => {
       const variantKey = getStockPortfolioVariantKey(variant);
-      const networkAccount = networkAccounts.get(variant.networkId);
-      // No account for the variant's network means its balance was never
-      // looked up, which is not the same as holding none of it.
+      const networkResolution = networkAccounts.get(variant.networkId);
+      const networkAccount = networkResolution?.account;
       if (!networkAccount?.address) {
-        return { variantKey, items: [], resolved: false };
+        // A confirmed absent/incompatible account owns no position here. A
+        // rejected lookup still leaves its holdings unknown and retryable.
+        return {
+          variantKey,
+          items: [],
+          resolved: Boolean(networkResolution?.resolved && !networkAccount),
+        };
       }
 
       const cacheKey = [
@@ -209,6 +219,8 @@ export function useStockPortfolioData({ enabled = true } = {}) {
     isTokenVariantsError,
     retryTokenVariants,
   } = useStockDetail();
+  const isTokenVariantsUnavailable =
+    isTokenVariantsError && tokenVariants.length === 0;
   const successfulPortfolioCacheRef = useRef(
     new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
   );
@@ -239,26 +251,47 @@ export function useStockPortfolioData({ enabled = true } = {}) {
   ]);
 
   const resolveNetworkAccount = useCallback(
-    async (networkId: string) => {
+    async (networkId: string, dbAccounts: IDBAccount[]) => {
       const networkDefaultDeriveType =
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId,
         });
+      const accountDeriveType = resolveStockPortfolioDeriveType({
+        activeDeriveType: deriveType,
+        networkDefaultDeriveType,
+        networkId,
+        portfolioNetworkId,
+        selectedDeriveType: getSelectedDeriveTypeForNetwork(
+          selectedDeriveType,
+          networkId,
+        ),
+      });
+      const dbAccountId = indexedAccount?.id
+        ? await backgroundApiProxy.serviceAccount.getDbAccountIdFromIndexedAccountId(
+            {
+              indexedAccountId: indexedAccount.id,
+              networkId,
+              deriveType: accountDeriveType,
+            },
+          )
+        : account?.id;
+      const dbAccount = dbAccounts.find((item) => item.id === dbAccountId);
+      if (
+        !dbAccount ||
+        !accountUtils.isAccountCompatibleWithNetwork({
+          account: dbAccount,
+          networkId,
+        })
+      ) {
+        return undefined;
+      }
       const networkAccount =
         await backgroundApiProxy.serviceAccount.getNetworkAccount({
-          accountId: indexedAccount?.id ? undefined : account?.id,
-          indexedAccountId: indexedAccount?.id,
+          dbAccount,
+          accountId: dbAccount.id,
+          indexedAccountId: undefined,
           networkId,
-          deriveType: resolveStockPortfolioDeriveType({
-            activeDeriveType: deriveType,
-            networkDefaultDeriveType,
-            networkId,
-            portfolioNetworkId,
-            selectedDeriveType: getSelectedDeriveTypeForNetwork(
-              selectedDeriveType,
-              networkId,
-            ),
-          }),
+          deriveType: accountDeriveType,
         });
       return {
         id: networkAccount.id,
@@ -289,15 +322,30 @@ export function useStockPortfolioData({ enabled = true } = {}) {
         !stockId ||
         !hasAccount ||
         isTokenVariantPending ||
-        isTokenVariantsError
+        isTokenVariantsUnavailable
       ) {
         return undefined;
       }
+      // Read the derived-account inventory once per run. Unlike a failed
+      // address lookup, an absent entry proves this network has no account.
+      let dbAccountsPromise: Promise<{ accounts: IDBAccount[] }> | undefined;
       const result = await fetchStockPortfolioData({
         stockId,
         tokenVariants: tokenVariantsRef.current,
         successfulPortfolioCache: successfulPortfolioCacheRef.current,
-        resolveNetworkAccount,
+        resolveNetworkAccount: async (networkId) => {
+          dbAccountsPromise ??= indexedAccount?.id
+            ? backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
+                {
+                  indexedAccountId: indexedAccount.id,
+                },
+              )
+            : Promise.resolve({ accounts: account ? [account] : [] });
+          return resolveNetworkAccount(
+            networkId,
+            (await dbAccountsPromise).accounts,
+          );
+        },
         fetchPortfolio: (params) =>
           backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
             ...params,
@@ -313,7 +361,7 @@ export function useStockPortfolioData({ enabled = true } = {}) {
       enabled,
       hasAccount,
       isTokenVariantPending,
-      isTokenVariantsError,
+      isTokenVariantsUnavailable,
       resolveNetworkAccount,
       portfolioScopeKey,
     ],
@@ -334,7 +382,7 @@ export function useStockPortfolioData({ enabled = true } = {}) {
     enabled &&
     hasAccount &&
     !isTokenVariantPending &&
-    !isTokenVariantsError &&
+    !isTokenVariantsUnavailable &&
     portfolioResult?.portfolioScopeKey === portfolioScopeKey;
   const portfolioData = useMemo(
     () => (isCurrentPortfolioScope ? (portfolioResult?.items ?? []) : []),
@@ -352,7 +400,7 @@ export function useStockPortfolioData({ enabled = true } = {}) {
     enabled &&
     (!ready ||
       isTokenVariantPending ||
-      (hasAccount && !isTokenVariantsError && !isCurrentPortfolioScope)),
+      (hasAccount && !isTokenVariantsUnavailable && !isCurrentPortfolioScope)),
   );
   const isPortfolioIncomplete = Boolean(
     enabled &&
@@ -366,12 +414,17 @@ export function useStockPortfolioData({ enabled = true } = {}) {
   );
   const onRefresh = useCallback(async () => {
     if (isTokenVariantsError) {
-      // A successful variant retry changes the scope and starts its portfolio.
+      // With no usable variants, their successful retry starts the portfolio.
       await retryTokenVariants();
-      return;
+      if (isTokenVariantsUnavailable) return;
     }
     await fetchPortfolio();
-  }, [fetchPortfolio, isTokenVariantsError, retryTokenVariants]);
+  }, [
+    fetchPortfolio,
+    isTokenVariantsError,
+    isTokenVariantsUnavailable,
+    retryTokenVariants,
+  ]);
 
   return {
     portfolioData,

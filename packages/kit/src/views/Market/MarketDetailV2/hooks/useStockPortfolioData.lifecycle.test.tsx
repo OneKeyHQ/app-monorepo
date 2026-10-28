@@ -3,6 +3,7 @@
 import { act, renderHook } from '@testing-library/react';
 
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IMarketAccountPortfolioResponse,
   IMarketStockTokenVariant,
@@ -34,7 +35,7 @@ const secondVariant = {
 
 let mockAccount: {
   ready: boolean;
-  account?: { id: string };
+  account?: { id: string; impl?: string; networks?: string[] };
   indexedAccount?: { id: string };
   deriveType: IAccountDeriveTypes;
 };
@@ -53,6 +54,23 @@ const mockFetchPortfolio = jest.fn<
   [IFetchParams]
 >();
 const mockRetryTokenVariants = jest.fn(async () => {});
+const mockGetDbAccountId = jest.fn(
+  async ({
+    indexedAccountId,
+    networkId,
+  }: {
+    indexedAccountId: string;
+    networkId: string;
+  }) => `${indexedAccountId}:${networkId}`,
+);
+const mockGetIndexedAccounts = jest.fn(
+  async ({ indexedAccountId }: { indexedAccountId: string }) => ({
+    accounts: [variant, secondVariant].map(({ networkId }) => ({
+      id: `${indexedAccountId}:${networkId}`,
+      impl: 'evm',
+    })),
+  }),
+);
 const mockGetNetworkAccount = jest.fn(
   async ({
     accountId,
@@ -62,10 +80,14 @@ const mockGetNetworkAccount = jest.fn(
     accountId?: string;
     indexedAccountId?: string;
     networkId: string;
-  }) => ({
-    id: `${indexedAccountId ?? accountId}:${networkId}`,
-    address: `${indexedAccountId ?? accountId}:${networkId}`,
-  }),
+  }) => {
+    if (networkId === 'sol--101')
+      throw new OneKeyLocalError('account not found');
+    return {
+      id: `${indexedAccountId ?? accountId}:${networkId}`,
+      address: `${indexedAccountId ?? accountId}:${networkId}`,
+    };
+  },
 );
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -73,6 +95,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceNetwork: { getGlobalDeriveTypeOfNetwork: async () => 'default' },
     serviceAccount: {
+      getDbAccountIdFromIndexedAccountId: (
+        params: Parameters<typeof mockGetDbAccountId>[0],
+      ) => mockGetDbAccountId(params),
+      getAccountsInSameIndexedAccountId: (
+        params: Parameters<typeof mockGetIndexedAccounts>[0],
+      ) => mockGetIndexedAccounts(params),
       getNetworkAccount: (
         params: Parameters<typeof mockGetNetworkAccount>[0],
       ) => mockGetNetworkAccount(params),
@@ -163,6 +191,8 @@ describe('stock portfolio loading and scope changes', () => {
     mockSelectedDeriveType = undefined;
     mockRetryTokenVariants.mockReset();
     mockGetNetworkAccount.mockClear();
+    mockGetDbAccountId.mockClear();
+    mockGetIndexedAccounts.mockClear();
     mockFetchPortfolio.mockReset();
     mockFetchPortfolio.mockImplementation(async (params) =>
       portfolioResponse(params),
@@ -297,6 +327,90 @@ describe('stock portfolio loading and scope changes', () => {
     expect(result.current.portfolioData).toEqual([]);
     expect(result.current.isPortfolioPending).toBe(false);
     expect(result.current.isPortfolioIncomplete).toBe(false);
+  });
+
+  it.each(['single-chain', 'indexed'])(
+    'keeps the known total complete when a %s account has no account on a variant network',
+    async (kind) => {
+      mockAccount.account = { id: 'account-a', impl: 'evm' };
+      if (kind === 'indexed') mockAccount.indexedAccount = { id: 'indexed-a' };
+      mockStock.tokenVariants = [
+        variant,
+        {
+          ...secondVariant,
+          networkId: 'sol--101',
+          contractAddress: 'SolanaAapl',
+        },
+      ];
+      const { result } = renderHook(() => useStockPortfolioData());
+      await flush();
+      expect(
+        result.current.portfolioData.map((item) => item.networkId),
+      ).toEqual(['evm--1']);
+      expect(result.current.isPortfolioIncomplete).toBe(false);
+      await act(async () => {
+        await result.current.fetchPortfolio();
+      });
+      expect(result.current.portfolioData).toHaveLength(1);
+      expect(result.current.isPortfolioIncomplete).toBe(false);
+    },
+  );
+
+  it('keeps an account inventory read failure incomplete until retry succeeds', async () => {
+    mockAccount.indexedAccount = { id: 'indexed-a' };
+    mockGetIndexedAccounts.mockRejectedValueOnce(new Error('DB unavailable'));
+    const { result } = renderHook(() => useStockPortfolioData());
+    await flush();
+    expect(result.current.portfolioData).toEqual([]);
+    expect(result.current.isPortfolioIncomplete).toBe(true);
+    await act(async () => {
+      await result.current.fetchPortfolio();
+    });
+    expect(result.current.portfolioData).toHaveLength(1);
+    expect(result.current.isPortfolioIncomplete).toBe(false);
+  });
+
+  it('retains current rows and resolution keys across a cached variant-list failure and recovery', async () => {
+    const { result, rerender } = renderHook(() => useStockPortfolioData());
+    await flush();
+    const rows = result.current.portfolioData;
+    const keys = result.current.resolvedVariantKeys;
+    mockStock.isTokenVariantsError = true;
+    rerender();
+    await flush();
+    expect(result.current.portfolioData).toEqual(rows);
+    expect(result.current.resolvedVariantKeys).toEqual(keys);
+    expect(result.current.isPortfolioPending).toBe(false);
+
+    mockFetchPortfolio.mockRejectedValueOnce(new Error('offline'));
+    await act(async () => {
+      jest.advanceTimersByTime(15_000);
+    });
+    await flush();
+    expect(result.current.portfolioData).toEqual(rows);
+    expect(result.current.isPortfolioPending).toBe(false);
+
+    mockRetryTokenVariants.mockImplementationOnce(async () => {
+      mockStock.isTokenVariantsError = false;
+    });
+    mockFetchPortfolio.mockImplementationOnce(async (params) =>
+      portfolioResponse(params, '2'),
+    );
+    await act(async () => {
+      await result.current.fetchPortfolio();
+    });
+    rerender();
+    expect(result.current.portfolioData[0].amount).toBe('2');
+    expect(result.current.isPortfolioPending).toBe(false);
+    expect(result.current.isPortfolioIncomplete).toBe(false);
+  });
+
+  it('queries cached variants on entry even when their refresh failed', async () => {
+    mockStock.isTokenVariantsError = true;
+    const { result } = renderHook(() => useStockPortfolioData());
+    await flush();
+    expect(result.current.portfolioData).toHaveLength(1);
+    expect(result.current.isPortfolioPending).toBe(false);
   });
 
   it('does not present a failed variant list as a resolved zero holding', async () => {
