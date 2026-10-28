@@ -52,7 +52,6 @@ runs:
         SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
 
     - name: Locate Yarn cache
-      if: steps.snapshot.outputs.cache-matched-key == '' && steps.legacy.outputs.cache-matched-key == ''
       id: yarn-cache
       shell: bash
       run: |
@@ -71,8 +70,9 @@ runs:
         fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
         NODE
 
-    - name: Restore Yarn cache from x on snapshot miss
-      if: steps.snapshot.outputs.cache-matched-key == '' && steps.legacy.outputs.cache-matched-key == ''
+    # A snapshot restores node_modules but not the package archives that the
+    # immutable install fetches and verifies again.
+    - name: Restore Yarn cache from x
       uses: actions/cache/restore@v4
       continue-on-error: true
       with:
