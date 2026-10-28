@@ -2945,8 +2945,9 @@ class ServicePrivacyChain extends ServiceBase {
     });
   }
 
-  // Settings 'Reset storage': every account with scan data on the network, paused included, scans
-  // again from its birthday.
+  // Settings 'Reset storage': every account with scan data on the network
+  // scans again from its birthday; a paused one shows no balance until it
+  // resumes.
   @backgroundMethod()
   @toastLocalWalletError()
   async clearTransactionHistoryCache(params?: {

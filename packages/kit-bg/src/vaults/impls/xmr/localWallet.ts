@@ -728,7 +728,9 @@ export function buildXmrLocalWalletCapability(
       accountId,
     }): Promise<ILocalWalletAccountBalance | null> {
       const state = await stateDb().getXmrAccountState({ accountId });
-      // A paused account keeps its scanned data; its last balance is real, just not advancing.
+      // A paused account keeps its scanned data; its last balance is real, just
+      // not advancing. A storage reset rotates its epoch: until it scans again
+      // there is no balance to show, not a zero one.
       const paused =
         state.intent === 'off' && state.resumeFromHeight !== undefined;
       if (
@@ -737,7 +739,11 @@ export function buildXmrLocalWalletCapability(
         state.operation
       )
         return null;
-      if (!paused && state.epoch !== state.appliedEpoch) return null;
+      // Paused before applied epochs were recorded: nothing to compare.
+      const pausedWithoutAppliedEpoch =
+        paused && state.appliedEpoch === undefined;
+      if (!pausedWithoutAppliedEpoch && state.epoch !== state.appliedEpoch)
+        return null;
       if (!hasXmrRuntimeApiLoader()) return null;
 
       // UI read: the saved balance while a scan step holds the runtime or

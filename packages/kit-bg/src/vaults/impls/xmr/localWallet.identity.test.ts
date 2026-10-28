@@ -394,6 +394,30 @@ describe('xmr runtime identity named by viewing key', () => {
     ).resolves.toMatchObject({ total: '1000000000000' });
   });
 
+  it('shows no balance for a paused account once a storage reset rotates its epoch', async () => {
+    const { capability, saveKey, xmr } = createHarness();
+    await saveKey(ALIAS_A, SHARED_KEY);
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_000_000,
+    });
+    await capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
+    await xmr.beginXmrDisable({
+      accountId: ALIAS_A,
+      resumeFromHeight: 3_000_000,
+    });
+    await xmr.completeXmrDisable({ accountId: ALIAS_A });
+    await expect(
+      capability.getAccountBalance({ accountId: ALIAS_A }),
+    ).resolves.toMatchObject({ total: '1000000000000' });
+
+    await xmr.rotateAccountEpochs({ accountIds: [ALIAS_A] });
+
+    await expect(
+      capability.getAccountBalance({ accountId: ALIAS_A }),
+    ).resolves.toBeNull();
+  });
+
   it('removes a lone account identity, not one with another key', async () => {
     const { capability, saveKey } = createHarness();
     await saveKey(ALIAS_A, SHARED_KEY);
