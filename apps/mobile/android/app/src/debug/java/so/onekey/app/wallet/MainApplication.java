@@ -113,6 +113,15 @@ public final class MainApplication extends BaseMainApplication {
     ) {
       throw new IllegalStateException("DevSession Metro URL must be an HTTP(S) origin");
     }
+    // React Native's packager connection picks https and wss from port 443
+    // alone, so any other pairing would send reload and debugger traffic over
+    // the wrong scheme.
+    boolean secure = "https".equals(scheme);
+    int defaultPort = secure ? 443 : 80;
+    int port = uri.getPort() == -1 ? defaultPort : uri.getPort();
+    if (secure != (port == 443)) {
+      throw new IllegalStateException("DevSession Metro URL must use HTTPS exactly on port 443");
+    }
     return value.replaceAll("/$", "");
   }
 
@@ -162,7 +171,12 @@ public final class MainApplication extends BaseMainApplication {
   // Metro. The host it replaces is kept for a plain debug build to restore,
   // unless an earlier session wrote it.
   private void applyDevSessionDebugServerHost(@NonNull String metroBaseUrl) {
-    String host = Uri.parse(metroBaseUrl).getEncodedAuthority();
+    Uri uri = Uri.parse(metroBaseUrl);
+    String host = uri.getEncodedAuthority();
+    // An implicit HTTPS port must be spelled out for the packager connection.
+    if ("https".equals(uri.getScheme()) && uri.getPort() == -1) {
+      host += ":443";
+    }
     SharedPreferences sessionPreferences =
       getSharedPreferences(DEV_SESSION_PREFS_NAME, MODE_PRIVATE);
     String earlierSessionHost =
