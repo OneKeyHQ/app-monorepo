@@ -113,6 +113,33 @@ describe('selector favorite identity', () => {
     expect(mockAdd).not.toHaveBeenCalled();
   });
 
+  it('shows and removes the Top Coins favorite from a native BTC search row', async () => {
+    mockWatchlist = [{ assetId: 'bitcoin', chainId: '', contractAddress: '' }];
+    const item = convertSearchTokenToMarketToken({
+      assetId: 'bitcoin',
+      network: 'btc--0',
+      address: 'native',
+      isNative: true,
+      name: 'Bitcoin',
+      symbol: 'BTC',
+      price: '100000',
+      logoUrl: '',
+      decimals: 8,
+      liquidity: '0',
+      volume_24h: '0',
+      networkLogoURI: '',
+    });
+    render(<SelectorTokenStar item={item} />);
+    fireEvent.click(screen.getByRole('button', { name: 'StarSolid' }));
+    await waitFor(() =>
+      expect(mockRemove).toHaveBeenCalledWith('btc--0', 'native', {
+        assetId: 'bitcoin',
+        stockId: undefined,
+      }),
+    );
+    expect(mockAdd).not.toHaveBeenCalled();
+  });
+
   it.each([false])(
     'favorites a chain search result with assetId by its chain identity (native token: %s)',
     async (isNative) => {
