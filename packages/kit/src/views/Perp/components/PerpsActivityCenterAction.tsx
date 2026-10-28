@@ -30,11 +30,15 @@ export function PerpsActivityCenterContent({
   showTitle = true,
   menuLayout = false,
   menuPopoverLayout = false,
+  menuShortcuts,
+  renderMenuReferral,
 }: {
   closePopover: () => void;
   showTitle?: boolean;
   menuLayout?: boolean;
   menuPopoverLayout?: boolean;
+  menuShortcuts?: ReactNode;
+  renderMenuReferral?: (referral: ReactNode) => ReactNode;
 }) {
   const { campaigns, handleOpenReferral } = usePerpsActivityHubProps();
   const showActivityHub = useShowActivityHub();
@@ -51,6 +55,8 @@ export function PerpsActivityCenterContent({
       showTitle={showTitle}
       menuLayout={menuLayout}
       menuPopoverLayout={menuPopoverLayout}
+      menuShortcuts={menuShortcuts}
+      renderMenuReferral={renderMenuReferral}
       campaignFallbackIllustration={
         menuLayout ? <PerpsCampaignIllustration trimmed /> : undefined
       }
