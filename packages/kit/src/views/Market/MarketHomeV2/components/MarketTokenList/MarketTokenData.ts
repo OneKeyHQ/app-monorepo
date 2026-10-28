@@ -4,7 +4,7 @@ export interface IMarketToken {
   name: string;
   symbol: string;
   address: string;
-  decimals: number;
+  decimals?: number;
   price: number;
   change24h: number;
   priceChangeRaw?: string;
