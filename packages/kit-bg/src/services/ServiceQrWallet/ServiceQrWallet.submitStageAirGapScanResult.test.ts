@@ -640,12 +640,22 @@ describe('ServiceQrWallet stage session owner', () => {
     const scan = service.scanAirGap({ owner: 'legacy-camera' });
     const error = scan.catch((failure: unknown) => failure);
     for (let i = 0; i < 20; i += 1) await Promise.resolve();
+    jest.mocked(appEventBus.emit).mockClear();
+    service.notifyLegacyAirGapScan({ owner: 'other-request' });
+    expect(appEventBus.emit).not.toHaveBeenCalled();
+    service.notifyLegacyAirGapScan({ owner: 'legacy-camera' });
+    expect(appEventBus.emit).toHaveBeenCalledWith('ScanAirGapQrcode', {
+      promiseId: 1,
+    });
+    jest.mocked(appEventBus.emit).mockClear();
     await expect(
       Promise.all([
         service.claimLegacyAirGapScan({ promiseId: 1 }),
         service.claimLegacyAirGapScan({ promiseId: 1 }),
       ]),
     ).resolves.toEqual([true, false]);
+    service.notifyLegacyAirGapScan({ owner: 'legacy-camera' });
+    expect(appEventBus.emit).not.toHaveBeenCalled();
     await expect(service.claimLegacyAirGapScan({ promiseId: 2 })).resolves.toBe(
       false,
     );

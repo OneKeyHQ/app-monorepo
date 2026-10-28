@@ -21,6 +21,17 @@ import { yieldDeviceStageToDialog } from '../DeviceStageContainer/waitForDeviceS
 
 let mockUiState: IThirdPartyHardwareUiState | undefined;
 const mockUiListeners = new Set<() => void>();
+let mockVisible = true;
+const mockVisibilityListeners = new Set<(visible: boolean) => void>();
+jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
+  getCurrentVisibilityState: () => mockVisible,
+  onVisibilityStateChange: (listener: (visible: boolean) => void) => {
+    mockVisibilityListeners.add(listener);
+    return () => {
+      mockVisibilityListeners.delete(listener);
+    };
+  },
+}));
 const mockSubscribe = (listener: () => void) => {
   mockUiListeners.add(listener);
   return () => {
@@ -202,6 +213,7 @@ function holdExit() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockVisible = true;
   mockUiState = undefined;
   jest.mocked(yieldDeviceStageToDialog).mockResolvedValue(false);
   // Reset, not clear: an unconsumed once-value must not reach the next test.
@@ -463,6 +475,31 @@ it('settles a claim that finishes after its viewport closes', async () => {
     id: 42,
     error: expect.any(Error),
   });
+});
+
+it('keeps a hidden page from claiming the camera and wakes bg when it becomes visible', async () => {
+  mockVisible = false;
+  mockUiState = qrState(false);
+  render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+  });
+  await flush();
+  expect(mockHandleQrRequest).not.toHaveBeenCalled();
+  expect(mockClaimScan).not.toHaveBeenCalled();
+  mockVisible = true;
+  act(() => {
+    mockVisibilityListeners.forEach((listener) => listener(true));
+  });
+  await flush();
+  expect(mockHandleQrRequest).toHaveBeenCalledWith({ uiRequestId: 'ui-qr' });
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+  });
+  await flush();
+  expect(mockClaimScan).toHaveBeenCalledTimes(1);
+  expect(mockLegacyScan).toHaveBeenCalledTimes(1);
 });
 
 it('hands the stage to the Bluetooth settings dialog', async () => {

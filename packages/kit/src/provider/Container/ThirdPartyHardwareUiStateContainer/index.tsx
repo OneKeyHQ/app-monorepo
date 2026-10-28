@@ -46,6 +46,10 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorPro
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from '@onekeyhq/shared/src/utils/appVisibility';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
@@ -1005,9 +1009,17 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   useEffect(() => {
     const uiRequestId = uiState?.uiRequestId;
     if (!isKeystoneQr || !uiRequestId) return;
-    void backgroundApiProxy.serviceThirdPartyHardware
-      .handleKeystoneQrRequest({ uiRequestId })
-      .catch(() => undefined);
+    const wake = () => {
+      if (!getCurrentVisibilityState()) return;
+      void backgroundApiProxy.serviceThirdPartyHardware
+        .handleKeystoneQrRequest({ uiRequestId })
+        .catch(() => undefined);
+    };
+    const unsubscribe = onVisibilityStateChange((visible) => {
+      if (visible) wake();
+    });
+    wake();
+    return unsubscribe;
   }, [isKeystoneQr, uiState?.uiRequestId]);
 
   // The firmware-update gate can decline the stage camera. The legacy page
@@ -1019,6 +1031,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       resetScanModalRoute({ scanRequestId: `air-gap:${promiseId}` });
     };
     const scan = ({ promiseId }: { promiseId: number }) => {
+      if (!getCurrentVisibilityState() || pendingScans.has(promiseId)) return;
       let cancelled = false;
       let claimed = false;
       let viewportClosed = false;
@@ -1038,6 +1051,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
           if (!claimed || cancelled) return;
           await yieldDeviceStageToDialog();
           if (cancelled) return;
+          if (!getCurrentVisibilityState())
+            throw new OneKeyErrorScanQrCodeCancel();
           const result = await Promise.race([
             startKeystoneQrScan({
               handlers: [EQRCodeHandlerNames.animation],

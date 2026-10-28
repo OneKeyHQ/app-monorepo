@@ -137,6 +137,19 @@ class ServiceQrWallet extends ServiceBase {
     return true;
   }
 
+  notifyLegacyAirGapScan({ owner }: { owner: string }) {
+    const session = this.stageAirGapSession;
+    if (
+      session?.legacyScan &&
+      !session.legacyScanClaimed &&
+      session.owner === owner
+    ) {
+      appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, {
+        promiseId: session.promiseId,
+      });
+    }
+  }
+
   /**
    * The completed scan, submitted by the stage's embedded camera — the
    * legacy scan page's resolve, in stage form. The result is the same

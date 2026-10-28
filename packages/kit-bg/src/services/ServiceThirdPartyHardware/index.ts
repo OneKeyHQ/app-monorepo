@@ -213,9 +213,14 @@ class ServiceThirdPartyHardware extends ServiceBase {
       state?.uiRequestId !== uiRequestId ||
       state.vendor !== EHardwareVendor.keystone ||
       (state.action !== EThirdPartyHardwareUiAction.requestKeystoneQrDisplay &&
-        state.action !== EThirdPartyHardwareUiAction.requestKeystoneQrScan) ||
-      this.keystoneQrRequestId === uiRequestId
+        state.action !== EThirdPartyHardwareUiAction.requestKeystoneQrScan)
     ) {
+      return;
+    }
+    if (this.keystoneQrRequestId === uiRequestId) {
+      this.backgroundApi.serviceQrWallet.notifyLegacyAirGapScan({
+        owner: uiRequestId,
+      });
       return;
     }
     this.keystoneQrRequestId = uiRequestId;

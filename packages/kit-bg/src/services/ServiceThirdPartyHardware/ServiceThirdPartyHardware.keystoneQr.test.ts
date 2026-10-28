@@ -98,12 +98,14 @@ function createService(initial = qrState()) {
     state = value;
     listeners.forEach((listener) => listener());
   };
+  const notifyLegacyAirGapScan = jest.fn();
   const service = new ServiceThirdPartyHardware({
     backgroundApi: {
       serviceQrWallet: {
         startTwoWayAirGapScan,
         scanAirGap,
         cancelStageAirGapScan,
+        notifyLegacyAirGapScan,
       },
     } as unknown as IBackgroundApi,
   });
@@ -128,6 +130,7 @@ function createService(initial = qrState()) {
     startTwoWayAirGapScan,
     scanAirGap,
     cancelStageAirGapScan,
+    notifyLegacyAirGapScan,
     reply,
     cancel,
     clear,
@@ -145,6 +148,7 @@ it('answers in bg after the initiating UI call returned, with only one exchange 
   ]);
   await flush();
   expect(f.startTwoWayAirGapScan).toHaveBeenCalledTimes(1);
+  expect(f.notifyLegacyAirGapScan).toHaveBeenCalledWith({ owner: 'qr-a' });
   expect(f.reply).not.toHaveBeenCalled();
   // No UI promise needs to survive: another viewport's frame resolves the bg exchange.
   f.pending.get('qr-a')?.resolve({ type: 'eth-signature', cbor: 'a1' });
