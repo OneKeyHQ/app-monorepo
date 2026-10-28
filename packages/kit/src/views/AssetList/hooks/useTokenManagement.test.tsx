@@ -155,6 +155,7 @@ describe('useTokenManagement', () => {
 
     expect(result.customTokens).toEqual([customToken]);
     expect(result.addedTokens).toEqual([customToken]);
+    expect(result.sectionTokens).toHaveLength(1);
     expect(mockGetCustomTokensBatch).toHaveBeenCalledTimes(1);
     expect(mockGetHiddenTokensBatch).toHaveBeenCalledTimes(1);
     expect(mockGetHiddenTokensBatch).toHaveBeenCalledWith({
@@ -163,5 +164,20 @@ describe('useTokenManagement', () => {
     expect(mockGetCustomTokens).not.toHaveBeenCalled();
     expect(mockGetHiddenTokens).not.toHaveBeenCalled();
     expect(options.debounced).toBeUndefined();
+  });
+
+  it('only adds a second manager section when hidden tokens exist', async () => {
+    const hiddenToken = {
+      ...customToken,
+      $key: 'evm--1_0xhidden',
+      address: '0xhidden',
+    };
+    mockGetHiddenTokensBatch.mockResolvedValue([hiddenToken]);
+    const { fetcher } = renderTokenManagement(false);
+
+    const result = await fetcher();
+
+    expect(result.sectionTokens).toHaveLength(2);
+    expect(result.sectionTokens[1]).toMatchObject({ data: [hiddenToken] });
   });
 });
