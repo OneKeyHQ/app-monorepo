@@ -19,6 +19,7 @@ import {
 
 import { Divider } from '../../content/Divider';
 import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
+import { useOverlayWidthClass } from '../../hooks/useOverlayWidthClass';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import {
   ButtonFrame,
@@ -774,7 +775,9 @@ function ActionListFrame(props: IActionListProps) {
   assertOverlayProps('ActionList', props);
   const isProcessing = useRef(false);
 
-  const { gtMd } = useMedia();
+  // Expanded windows keep the trigger so the menu anchors to it; narrower
+  // ones open the shared sheet (see useOverlayWidthClass).
+  const isExpandedWindow = useOverlayWidthClass() === 'expanded';
   const { disabled, renderTrigger, ...popoverProps } = props;
 
   const modalNavigatorContext = useModalNavigatorContext();
@@ -796,7 +799,7 @@ function ActionListFrame(props: IActionListProps) {
     }, PROCESSING_RESET_DELAY);
   }, [popoverProps, contexts]);
 
-  if (gtMd) {
+  if (isExpandedWindow) {
     return <BasicActionList {...props} />;
   }
   return (

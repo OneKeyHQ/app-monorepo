@@ -614,9 +614,13 @@ function AnchoredPopover({
   renderContent,
   closePopover,
   onAnimationComplete,
+  anchorIsModalRelative,
 }: {
   isOpen: boolean;
   anchor: IAnchorRect | undefined;
+  // A rect from `measureInWindow`, relative to the enclosing native modal;
+  // the overlay reports the offset that maps it onto the screen.
+  anchorIsModalRelative: boolean;
   placement: IPopoverProps['placement'];
   offset: IPopoverProps['offset'];
   floatingPanelProps: IPopoverProps['floatingPanelProps'];
@@ -631,6 +635,29 @@ function AnchoredPopover({
   const level = useNestedOverlayLevel();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
+  const [windowOffset, setWindowOffset] = useState<{ x: number; y: number }>();
+  const [windowOffsetRequest, setWindowOffsetRequest] = useState(0);
+  useEffect(() => {
+    if (anchorIsModalRelative && isOpen && anchor) {
+      setWindowOffsetRequest((request) => request + 1);
+    }
+  }, [anchor, anchorIsModalRelative, isOpen]);
+  const handleWindowOffset = useCallback(
+    (next: { x: number; y: number }) =>
+      setWindowOffset((prev) =>
+        prev && prev.x === next.x && prev.y === next.y ? prev : next,
+      ),
+    [],
+  );
+  const screenAnchor = useMemo(() => {
+    if (!anchor || !anchorIsModalRelative) return anchor;
+    if (!windowOffset) return undefined;
+    return {
+      ...anchor,
+      x: anchor.x + windowOffset.x,
+      y: anchor.y + windowOffset.y,
+    };
+  }, [anchor, anchorIsModalRelative, windowOffset]);
   const closeResolversRef = useRef<Array<() => void>>([]);
   const flushCloseResolvers = useCallback(() => {
     const resolvers = closeResolversRef.current;
@@ -674,9 +701,9 @@ function AnchoredPopover({
     trapFocus: _trapFocus,
     ...panelProps
   } = floatingPanelProps ?? {};
-  const frame = anchor
+  const frame = screenAnchor
     ? getAnchoredFrame({
-        anchor,
+        anchor: screenAnchor,
         placement,
         offset: typeof offset === 'number' ? offset : ANCHORED_DEFAULT_OFFSET,
         width: resolveAnchoredPanelWidth(panelWidthProp),
@@ -701,6 +728,11 @@ function AnchoredPopover({
       onRequestDismiss={closePopover}
       onPresented={handlePresented}
       onClose={handleClosed}
+      // Mounted (hidden) while open so it can report the modal offset
+      // before the panel is placed.
+      keepContentMounted={anchorIsModalRelative && isOpen}
+      windowOffsetRequest={windowOffsetRequest}
+      onWindowOffset={anchorIsModalRelative ? handleWindowOffset : undefined}
     >
       {frame ? (
         <YStack
@@ -861,6 +893,7 @@ function BasicPopover({
         <AnchoredPopover
           isOpen={Boolean(isOpen)}
           anchor={nativeAnchorRect ?? anchor}
+          anchorIsModalRelative={!nativeAnchorRect}
           placement={rest.placement}
           offset={rest.offset}
           floatingPanelProps={rest.floatingPanelProps}
