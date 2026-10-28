@@ -2379,7 +2379,7 @@
   "keyless_wallet_removed__desc": "Ihre schlüssellose Wallet wurde entfernt. Stellen Sie sie wieder her, um die Synchronisierung fortzusetzen.",
   "keyless_wallet_verify_pin_account_mismatch": "Kontenabweichung",
   "keyless_wallet_verify_pin_account_mismatch_desc": "Das angemeldete Konto stimmt nicht mit dem Konto überein, das mit diesem schlüssellosen Wallet verknüpft ist.",
-  "keystone_account_export__desc": "Nicht-Standard-Firmware: Öffne auf deinem Gerät den Konto-QR-Code und tippe dann auf „Weiter“.",
+  "keystone_account_export__desc": "Nicht-Standard-Firmware: Am Gerät „Wallet verbinden“ tippen, dann direkt „Weiter“.",
   "keytag_backup_short__title": "Auf KeyTag sichern",
   "keytag_checksum_failed__msg": "Diese Wörter bestehen die BIP39-Prüfung nicht. Überprüfen Sie jede Zeile anhand Ihres KeyTags.",
   "keytag_checksum_terminal__msg": "Ihre Punkte stimmen mit der Platte überein, aber die Prüfung schlägt trotzdem fehl — die Platte selbst könnte falsch gelocht sein.",

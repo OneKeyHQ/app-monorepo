@@ -2379,7 +2379,7 @@
   "keyless_wallet_removed__desc": "キーレスウォレットが削除されました。同期を再開するには復元してください。",
   "keyless_wallet_verify_pin_account_mismatch": "アカウントの不一致",
   "keyless_wallet_verify_pin_account_mismatch_desc": "ログイン中のアカウントとこのウォレットに紐づくアカウントが異なります",
-  "keystone_account_export__desc": "標準以外のファームウェア：デバイスでアカウントの QR コードを表示してから、「次へ」をタップしてください。",
+  "keystone_account_export__desc": "非標準ファームウェア：デバイスで「ウォレットを接続」を押し、そのまま「次へ」へ",
   "keytag_backup_short__title": "KeyTag にバックアップ",
   "keytag_checksum_failed__msg": "これらの単語は BIP39 チェックに合格していません。各行を KeyTag と照合してください。",
   "keytag_checksum_terminal__msg": "あなたのドットはプレートと一致していますが、チェックは依然として失敗します — プレート自体の打ち間違いの可能性があります。",

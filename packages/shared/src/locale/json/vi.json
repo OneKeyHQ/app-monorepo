@@ -2379,7 +2379,7 @@
   "keyless_wallet_removed__desc": "Ví không cần khóa của bạn đã bị xóa. Khôi phục nó để tiếp tục đồng bộ hóa.",
   "keyless_wallet_verify_pin_account_mismatch": "Tài khoản không khớp",
   "keyless_wallet_verify_pin_account_mismatch_desc": "Tài khoản đã đăng nhập không khớp với tài khoản liên kết với ví không khóa này.",
-  "keystone_account_export__desc": "Firmware không tiêu chuẩn: mở mã QR tài khoản trên thiết bị, rồi nhấn Tiếp theo.",
+  "keystone_account_export__desc": "Firmware không tiêu chuẩn: nhấn Kết nối ví trên thiết bị, rồi nhấn Tiếp theo.",
   "keytag_backup_short__title": "Sao lưu vào KeyTag",
   "keytag_checksum_failed__msg": "Những từ này không vượt qua kiểm tra BIP39. Xem lại từng dòng đối chiếu với KeyTag của bạn.",
   "keytag_checksum_terminal__msg": "Các chấm của bạn khớp với tấm, nhưng kiểm tra vẫn không đạt — chính tấm đó có thể bị đục sai.",
