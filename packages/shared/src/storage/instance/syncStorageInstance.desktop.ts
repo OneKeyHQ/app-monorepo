@@ -11,9 +11,42 @@ import resetUtils from '../../utils/resetUtils';
 import type { ISyncStorage } from './syncStorageInstance';
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
-function ipc(id: string, method: string, key?: string, value?: unknown): any {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-  return (globalThis as any).$mmkvSync({ method, id, key, value });
+type IMmkvSyncBridge = (args: {
+  method: string;
+  id: string;
+  key?: string;
+  value?: unknown;
+}) => unknown;
+
+function getMmkvSyncBridge(): IMmkvSyncBridge | undefined {
+  const bridge = (globalThis as { $mmkvSync?: unknown }).$mmkvSync;
+  return typeof bridge === 'function' ? (bridge as IMmkvSyncBridge) : undefined;
+}
+
+let hasWarnedMissingBridge = false;
+
+function ipc(
+  id: string,
+  method: string,
+  key?: string,
+  value?: unknown,
+): unknown {
+  const bridge = getMmkvSyncBridge();
+  if (!bridge) {
+    // The tray window shares this bundle, but preload deliberately does not
+    // expose $mmkvSync to it. Module-level readers (e.g. dbPerfMonitor) run
+    // before React mounts, so throwing here blanks the whole panel
+    // (OK-65749). Degrade to an empty store: reads yield undefined, writes
+    // are dropped.
+    if (!hasWarnedMissingBridge) {
+      hasWarnedMissingBridge = true;
+      console.warn(
+        `[syncStorage] $mmkvSync bridge unavailable; "${id}" reads return undefined and writes are dropped`,
+      );
+    }
+    return undefined;
+  }
+  return bridge({ method, id, key, value });
 }
 
 function createDesktopSyncStorage({

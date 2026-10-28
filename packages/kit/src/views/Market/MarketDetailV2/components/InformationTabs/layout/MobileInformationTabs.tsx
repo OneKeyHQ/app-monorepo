@@ -135,6 +135,7 @@ export function MobileInformationTabs({
   pendingHeader,
   onScrollEnd,
   portfolioData,
+  hasPortfolioAccount,
   isRefreshing,
   isPortfolioPending,
   tokenLogoUrl,
@@ -151,6 +152,7 @@ export function MobileInformationTabs({
   pendingHeader?: ReactNode;
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
+  hasPortfolioAccount?: boolean;
   isRefreshing?: boolean;
   // The first holdings result for this token is not back yet.
   isPortfolioPending?: boolean;
@@ -200,8 +202,9 @@ export function MobileInformationTabs({
       >
         <DelayedFreeze freeze={freezeContent}>
           <Portfolio
-            isStock={isStockToken}
+            isStock={detailKind === 'stock' || isStockToken}
             portfolioData={portfolioData}
+            hasAccount={hasPortfolioAccount}
             isRefreshing={!!isRefreshing}
             isPending={isPortfolioPending}
             accountAddress={accountAddress}
@@ -320,6 +323,7 @@ export function MobileInformationTabs({
     holdersTabName,
     accountAddress,
     portfolioData,
+    hasPortfolioAccount,
     isRefreshing,
     isPortfolioPending,
     isNative,
