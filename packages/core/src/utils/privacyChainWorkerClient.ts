@@ -637,11 +637,17 @@ export function servePrivacyChainWorker<TApi extends object>(options: {
         if (storageRequiresRestart()) {
           throw new OneKeyLocalError(`${label} worker: storage failed`);
         }
-        const fn = (api as Record<string, unknown>)[method] as (
-          ...a: unknown[]
-        ) => unknown;
+        // Own functions only: never an inherited Object.prototype member.
+        const fn = Object.prototype.hasOwnProperty.call(api, method)
+          ? (api as Record<string, unknown>)[method]
+          : undefined;
+        if (typeof fn !== 'function') {
+          throw new OneKeyLocalError(
+            `${label} worker: unknown method ${method}`,
+          );
+        }
         const result = await runPrivacyChainWorkerOperation(() =>
-          fn.apply(api, args),
+          (fn as (...a: unknown[]) => unknown).apply(api, args),
         );
         scope.postMessage({
           id,
