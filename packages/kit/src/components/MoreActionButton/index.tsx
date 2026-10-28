@@ -34,6 +34,7 @@ import {
   runAfterActionListClose,
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
+  useIsWideNativeWindow,
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
@@ -2011,7 +2012,8 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
     <XStack>
       <HeaderIconButton
         testID="moreActions"
-        onPress={handleMoreActionPage}
+        // A popover trigger passes its own handler on wide native windows.
+        onPress={onPress ?? handleMoreActionPage}
         title={intl.formatMessage({ id: ETranslations.explore_options })}
         icon="DotGridOutline"
       />
@@ -2024,8 +2026,32 @@ function MoreActionButtonCmp() {
   const intl = useIntl();
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const media = useMedia();
-  if (!isDesktopMode) {
+  // iPad and the iPhone Duo inner display show the menu as a panel under the
+  // button, like desktop; phones keep the full-screen page.
+  const isWideNativeWindow = useIsWideNativeWindow();
+  if (!isDesktopMode && !isWideNativeWindow) {
     return <MoreButtonWithDot />;
+  }
+
+  if (!isDesktopMode) {
+    return (
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.address_book_menu_title,
+        })}
+        showHeader={false}
+        floatingPanelProps={{
+          width: 384,
+          maxHeight: MORE_ACTION_DESKTOP_POPOVER_MAX_HEIGHT,
+        }}
+        placement="bottom-end"
+        nativePresentation="auto"
+        renderTrigger={<MoreButtonWithDot />}
+        renderContent={
+          <MoreActionContent containerStyle={{ maxWidth: 384, width: 384 }} />
+        }
+      />
+    );
   }
 
   const trigger = (

@@ -2,6 +2,10 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  OverlayView,
+  useNestedOverlayLevel,
+} from '@onekeyfe/react-native-native-overlay';
 import { useIsomorphicLayoutEffect } from '@tamagui/core';
 import { useWindowDimensions } from 'react-native';
 
@@ -18,6 +22,7 @@ import {
   useSafeAreaInsets,
 } from '../../hooks';
 import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
+import { useIsWideNativeWindow } from '../../hooks/useIsWideNativeWindow';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
@@ -520,6 +525,215 @@ function RawPopover({
   );
 }
 
+const ANCHORED_PANEL_WIDTH = 384;
+const ANCHORED_VIEWPORT_PADDING = 8;
+const ANCHORED_DEFAULT_OFFSET = 8;
+// Below this much room the panel opens on the other side of the trigger.
+const ANCHORED_MIN_HEIGHT = 240;
+// Longer than the system rotation and window resize animations.
+const ANCHORED_SETTLE_MS = 500;
+const ANCHORED_BACKDROP = { color: 'transparent', dismissOnPress: true };
+const ANCHORED_SHADOW_OFFSET = { width: 0, height: 8 };
+
+interface IAnchorRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function getAnchoredFrame({
+  anchor,
+  placement,
+  offset,
+  width: preferredWidth,
+  maxHeight: preferredMaxHeight,
+  window,
+  insets,
+}: {
+  anchor: IAnchorRect;
+  placement: IPopoverProps['placement'];
+  offset: number;
+  width: number;
+  maxHeight?: number;
+  window: { width: number; height: number };
+  insets: { top: number; left: number; bottom: number; right: number };
+}) {
+  const minX = insets.left + ANCHORED_VIEWPORT_PADDING;
+  const maxX = window.width - insets.right - ANCHORED_VIEWPORT_PADDING;
+  const width = Math.max(0, Math.min(preferredWidth, maxX - minX));
+  // Native panels open below or above the trigger; side placements map to
+  // below so the panel never covers its trigger on narrow side rails.
+  const [side, align] = (placement ?? 'bottom-end').split('-');
+  let left: number;
+  if (align === 'start') {
+    left = anchor.x;
+  } else if (align === 'end') {
+    left = anchor.x + anchor.width - width;
+  } else {
+    left = anchor.x + anchor.width / 2 - width / 2;
+  }
+  left = Math.min(Math.max(left, minX), maxX - width);
+
+  const spaceBelow =
+    window.height -
+    insets.bottom -
+    ANCHORED_VIEWPORT_PADDING -
+    (anchor.y + anchor.height + offset);
+  const spaceAbove = anchor.y - offset - insets.top - ANCHORED_VIEWPORT_PADDING;
+  const preferAbove = side === 'top';
+  const openAbove = preferAbove
+    ? spaceAbove >= ANCHORED_MIN_HEIGHT || spaceAbove >= spaceBelow
+    : spaceBelow < ANCHORED_MIN_HEIGHT && spaceAbove > spaceBelow;
+  const available = Math.max(0, openAbove ? spaceAbove : spaceBelow);
+  const maxHeight =
+    preferredMaxHeight !== undefined
+      ? Math.min(preferredMaxHeight, available)
+      : available;
+  return openAbove
+    ? {
+        left,
+        width,
+        maxHeight,
+        bottom: window.height - (anchor.y - offset),
+      }
+    : { left, width, maxHeight, top: anchor.y + anchor.height + offset };
+}
+
+// Wide-window presentation: a panel placed under (or above) its trigger in a
+// non-sheet overlay, like the anchored panel on web.
+function AnchoredPopover({
+  isOpen,
+  anchor,
+  placement,
+  offset,
+  floatingPanelProps,
+  renderContent,
+  closePopover,
+}: {
+  isOpen: boolean;
+  anchor: IAnchorRect | undefined;
+  placement: IPopoverProps['placement'];
+  offset: IPopoverProps['offset'];
+  floatingPanelProps: IPopoverProps['floatingPanelProps'];
+  renderContent: IPopoverProps['renderContent'];
+  closePopover: () => void;
+}) {
+  useDeferredGuideBlocker(isOpen);
+  useDismissKeyboard(isOpen);
+  const level = useNestedOverlayLevel();
+  const insets = useSafeAreaInsets();
+  const window = useWindowDimensions();
+  const closeResolversRef = useRef<Array<() => void>>([]);
+  const flushCloseResolvers = useCallback(() => {
+    const resolvers = closeResolversRef.current;
+    closeResolversRef.current = [];
+    resolvers.forEach((resolve) => resolve());
+  }, []);
+  useEffect(() => flushCloseResolvers, [flushCloseResolvers]);
+  const handleClosePopover = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        if (!isOpen) {
+          resolve();
+          return;
+        }
+        closeResolversRef.current.push(resolve);
+        setTimeout(resolve, POPOVER_CLOSE_FALLBACK_MS);
+        closePopover();
+      }),
+    [closePopover, isOpen],
+  );
+  const popoverContextValue = useMemo(
+    () => ({ open: isOpen, closePopover: handleClosePopover }),
+    [handleClosePopover, isOpen],
+  );
+
+  const {
+    width: panelWidthProp,
+    maxWidth: _maxWidth,
+    maxHeight: panelMaxHeightProp,
+    style: _style,
+    onOpenAutoFocus: _openFocus,
+    onCloseAutoFocus: _closeFocus,
+    trapFocus: _trapFocus,
+    ...panelProps
+  } = floatingPanelProps ?? {};
+  const frame = anchor
+    ? getAnchoredFrame({
+        anchor,
+        placement,
+        offset: typeof offset === 'number' ? offset : ANCHORED_DEFAULT_OFFSET,
+        width:
+          typeof panelWidthProp === 'number'
+            ? panelWidthProp
+            : ANCHORED_PANEL_WIDTH,
+        maxHeight:
+          typeof panelMaxHeightProp === 'number'
+            ? panelMaxHeightProp
+            : undefined,
+        window,
+        insets,
+      })
+    : undefined;
+
+  const RenderContent =
+    typeof renderContent === 'function' ? renderContent : null;
+  return (
+    <OverlayView
+      visible={isOpen && !!frame}
+      level={level}
+      presentation="anchored"
+      backdrop={ANCHORED_BACKDROP}
+      dismissOnBackPress
+      onRequestDismiss={closePopover}
+      onClose={flushCloseResolvers}
+    >
+      {frame ? (
+        <YStack
+          position="absolute"
+          left={frame.left}
+          top={frame.top}
+          bottom={frame.bottom}
+          width={frame.width}
+          maxHeight={frame.maxHeight}
+          backgroundColor="$bg"
+          borderRadius="$4"
+          borderWidth="$px"
+          borderColor="$borderSubdued"
+          borderCurve="continuous"
+          overflow="hidden"
+          elevation={8}
+          shadowColor="black"
+          shadowOpacity={0.12}
+          shadowRadius={24}
+          shadowOffset={ANCHORED_SHADOW_OFFSET}
+          {...panelProps}
+        >
+          <ScrollView
+            flexShrink={1}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
+          >
+            <ModalPortalProvider>
+              <PopoverContext.Provider value={popoverContextValue}>
+                {RenderContent
+                  ? ((
+                      <RenderContent
+                        isOpen={isOpen}
+                        closePopover={handleClosePopover}
+                      />
+                    ) as ReactElement)
+                  : (renderContent as ReactElement)}
+              </PopoverContext.Provider>
+            </ModalPortalProvider>
+          </ScrollView>
+        </YStack>
+      ) : null}
+    </OverlayView>
+  );
+}
+
 function BasicPopover({
   open,
   onOpenChange: onOpenChangeFunc,
@@ -528,6 +742,7 @@ function BasicPopover({
   trackID,
   keepChildrenMounted,
   mountNativePortalBeforeOpen,
+  nativePresentation = 'sheet',
   ...rest
 }: IPopoverProps) {
   assertOverlayProps('Popover', { ...rest, sheetProps });
@@ -536,6 +751,50 @@ function BasicPopover({
     onOpenChangeFunc,
     trackID,
   );
+  const isWideWindow = useIsWideNativeWindow();
+  const isAnchored =
+    Boolean(renderTrigger) &&
+    (nativePresentation === 'anchored' ||
+      (nativePresentation === 'auto' && isWideWindow));
+  // A presentation change (folding, rotating across the wide threshold,
+  // resizing a window) leaves the open panel or sheet in the wrong form, and a
+  // transient menu is cheaper to reopen than to morph: close it.
+  const previousIsAnchoredRef = useRef(isAnchored);
+  useEffect(() => {
+    if (previousIsAnchoredRef.current === isAnchored) return;
+    previousIsAnchoredRef.current = isAnchored;
+    if (isOpen) {
+      closePopover();
+    }
+  }, [closePopover, isAnchored, isOpen]);
+
+  const triggerRef = useRef<ViewInstance>(null);
+  const [anchor, setAnchor] = useState<IAnchorRect | undefined>();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  useEffect(() => {
+    if (!isAnchored || !isOpen) return;
+    // Re-measure on every window size change so the panel follows its
+    // trigger when the window resizes or rotates within the wide range. The
+    // new size arrives before the rotated layout settles, so measure again
+    // once the rotation animation is over.
+    const measure = () => {
+      triggerRef.current?.measureInWindow((x, y, width, height) => {
+        setAnchor((prev) =>
+          prev &&
+          prev.x === x &&
+          prev.y === y &&
+          prev.width === width &&
+          prev.height === height
+            ? prev
+            : { x, y, width, height },
+        );
+      });
+    };
+    measure();
+    const timer = setTimeout(measure, ANCHORED_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [isAnchored, isOpen, windowHeight, windowWidth]);
+
   const {
     shouldUseNativePortalLifecycle,
     isNativePortalMounted,
@@ -573,6 +832,29 @@ function BasicPopover({
       rest,
     ],
   );
+  if (isAnchored) {
+    return (
+      <>
+        <Trigger
+          ref={triggerRef}
+          testID="popover-trigger"
+          onPress={isOpen ? closePopover : openPopover}
+        >
+          {renderTrigger}
+        </Trigger>
+        <AnchoredPopover
+          isOpen={Boolean(isOpen)}
+          anchor={anchor}
+          placement={rest.placement}
+          offset={rest.offset}
+          floatingPanelProps={rest.floatingPanelProps}
+          renderContent={rest.renderContent}
+          closePopover={closePopover}
+        />
+      </>
+    );
+  }
+
   // The overlay sheet renders in the native overlay level, so the popover
   // stays in the caller's tree (and its contexts) instead of a portal.
   return (
