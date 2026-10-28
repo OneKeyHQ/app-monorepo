@@ -72,11 +72,11 @@ describe('NSIS uninstall warnings', () => {
     ].map((match) => Number(match[1]));
     expect(languageIds).toHaveLength(26);
     expect(new Set(languageIds).size).toBe(26);
-    expect(languageIds.sort((left, right) => left - right)).toEqual(
+    expect(languageIds.toSorted((left, right) => left - right)).toEqual(
       [
         ...sharedLocales.map(([, languageId]) => languageId),
         ...Object.values(nativeLanguageIds),
-      ].sort((left, right) => left - right),
+      ].toSorted((left, right) => left - right),
     );
   });
 
@@ -93,30 +93,22 @@ describe('NSIS uninstall warnings', () => {
         ),
       );
       expect(generateUninstallMessages()).toContain(
-        'LangString OneKeyUninstallWarning ' +
-          languageId +
-          ' "' +
-          escapeNsisString(translations['uninstall.confirmSubtitle']) +
-          '"\n',
+        `LangString OneKeyUninstallWarning ${languageId} "${escapeNsisString(translations['uninstall.confirmSubtitle'])}"\n`,
       );
     },
   );
 
   test('keeps the 11 native-only warnings without NSIS placeholders', () => {
     const warnings = JSON.parse(fs.readFileSync(nativeMessagesPath, 'utf8'));
-    expect(Object.keys(warnings).sort()).toEqual(
-      Object.keys(nativeLanguageIds).sort(),
+    expect(Object.keys(warnings).toSorted()).toEqual(
+      Object.keys(nativeLanguageIds).toSorted(),
     );
     const generated = generateUninstallMessages();
     for (const [locale, languageId] of Object.entries(nativeLanguageIds)) {
       expect(warnings[locale]).not.toMatch(/\$\(|\$\{/);
       expect(warnings[locale].split('\n\n')).toHaveLength(2);
       expect(generated).toContain(
-        'LangString OneKeyUninstallWarning ' +
-          languageId +
-          ' "' +
-          escapeNsisString(warnings[locale]) +
-          '"\n',
+        `LangString OneKeyUninstallWarning ${languageId} "${escapeNsisString(warnings[locale])}"\n`,
       );
     }
   });
@@ -198,11 +190,9 @@ describe('NSIS uninstall warnings', () => {
   });
 
   test('escapes NSIS macros, variables, quotes and line endings', () => {
-    const warning = `\${PRODUCT_NAME} \${UNKNOWN} $INSTDIR $(something) "C:\\wallet"\r\nnext`;
+    const warning = `\${PRODUCT_NAME} \${UNKNOWN} $LANGUAGE $(something) "C:\\wallet"\r\nnext`;
     expect(escapeNsisString(warning)).toBe(
-      `\${U+24}\${U+24}{PRODUCT_NAME} \${U+24}\${U+24}{UNKNOWN} ` +
-        `\${U+24}\${U+24}INSTDIR \${U+24}\${U+24}(something) ` +
-        '$\\"C:\\wallet$\\"$\\r$\\nnext',
+      `\${U+24}\${U+24}{PRODUCT_NAME} \${U+24}\${U+24}{UNKNOWN} \${U+24}\${U+24}LANGUAGE \${U+24}\${U+24}(something) $\\"C:\\wallet$\\"$\\r$\\nnext`,
     );
   });
 

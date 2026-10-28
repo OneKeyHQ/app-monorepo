@@ -64,6 +64,16 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+function serializeUninstallMessage([locale, languageId, warning]) {
+  if (typeof warning !== 'string' || !warning.trim()) {
+    throw new Error(`Missing uninstall warning: ${locale}`);
+  }
+  if (warning.includes('\0')) {
+    throw new Error(`Invalid uninstall warning: ${locale}`);
+  }
+  return `LangString OneKeyUninstallWarning ${languageId} "${escapeNsisString(warning)}"\n`;
+}
+
 function generateUninstallMessages() {
   const theme = readJson(path.join(themeDirectory, 'theme.json'));
   const nativeMessages = readJson(nativeMessagesPath);
@@ -72,19 +82,19 @@ function generateUninstallMessages() {
   );
   for (const locale of Object.keys(nativeMessages)) {
     if (!expectedNativeLocales.has(locale)) {
-      throw new Error('Unexpected native uninstall locale: ' + locale);
+      throw new Error(`Unexpected native uninstall locale: ${locale}`);
     }
   }
   for (const [locale] of nativeLocales) {
     if (Object.prototype.hasOwnProperty.call(theme.locales, locale)) {
-      throw new Error('Conflicting uninstall locale sources: ' + locale);
+      throw new Error(`Conflicting uninstall locale sources: ${locale}`);
     }
   }
 
   const messages = sharedLocales.map(([locale, languageId]) => {
     const localeFile = theme.locales[locale];
     if (typeof localeFile !== 'string' || !localeFile.trim()) {
-      throw new Error('Missing modern uninstall locale: ' + locale);
+      throw new Error(`Missing modern uninstall locale: ${locale}`);
     }
     const translations = readJson(path.join(themeDirectory, localeFile));
     return [locale, languageId, translations['uninstall.confirmSubtitle']];
@@ -97,23 +107,7 @@ function generateUninstallMessages() {
     ]),
   );
 
-  return messages
-    .map(([locale, languageId, warning]) => {
-      if (typeof warning !== 'string' || !warning.trim()) {
-        throw new Error('Missing uninstall warning: ' + locale);
-      }
-      if (warning.includes('\0')) {
-        throw new Error('Invalid uninstall warning: ' + locale);
-      }
-      return (
-        'LangString OneKeyUninstallWarning ' +
-        languageId +
-        ' "' +
-        escapeNsisString(warning) +
-        '"\n'
-      );
-    })
-    .join('');
+  return messages.map(serializeUninstallMessage).join('');
 }
 
 if (require.main === module) {

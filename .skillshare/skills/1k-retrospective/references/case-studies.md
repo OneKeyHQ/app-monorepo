@@ -1071,3 +1071,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Those overlays are siblings above the canvas. Their pointer-enter handlers hide only the crosshair, and the canvas handler that hides the button stops receiving moves.
 **Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
 **Catchable by**: NEW â€” not covered (same pattern as the previous case: overlays above a canvas take its pointer events)
+
+## Case: Silent Windows uninstall deleted wallet data without showing a warning
+**Date**: 2026-10-28 | **Platforms**: Windows
+**Symptom**: A silent uninstall could delete local wallet data even though no confirmation or backup warning was displayed.
+**Root Cause**: The default data-deletion branch checked the upgrade flag but did not check the NSIS silent state. The original isolated fixture forced every run into silent mode, so its ordinary-uninstall label did not prove interactive behavior.
+**Fix**: Apply default deletion only to interactive, non-upgrade uninstalls. Preserve explicit --delete-app-data behavior, and verify interactive and silent argument combinations with the actual NSIS engine state recorded.
+**Catchable by**: Section 4: preserve confirmation and execution-mode guards around destructive actions; Section 6: assert the real runtime mode and cover default, upgrade and explicit-deletion combinations.
