@@ -291,7 +291,7 @@ describe('useMarketDetailDisplayData', () => {
       symbol: 'TOKEN',
       decimals: 18,
       logoUrl,
-      logoUrls: [logoUrl, 'https://example.com/fallback.png'],
+      logoUrls: [logoUrl],
       price: '2',
     };
     mockTokenDetailData.tokenDetailPreview = undefined;
@@ -307,6 +307,16 @@ describe('useMarketDetailDisplayData', () => {
     rerender();
     expect(result.current.tokenDetail?.logoUrls).toBeUndefined();
     expect(result.current.tokenDetail?.price).toBe('3');
+
+    mockTokenDetailData.tokenDetail = {
+      ...mockTokenDetailData.tokenDetail,
+      logoUrls: [logoUrl, 'https://example.com/fallback.png'],
+    };
+    rerender();
+    expect(result.current.tokenDetail?.logoUrls).toEqual([
+      logoUrl,
+      'https://example.com/fallback.png',
+    ]);
 
     // Losing the detail must not resurrect preview quotes or trading metadata.
     mockTokenDetailData.tokenDetail = undefined;
@@ -325,7 +335,7 @@ describe('useMarketDetailDisplayData', () => {
       symbol: 'TOKEN',
       decimals: 18,
       logoUrl,
-      logoUrls: [logoUrl, 'https://example.com/fallback.png'],
+      logoUrls: [logoUrl],
     };
     rerender();
     expect(result.current.tokenDetail).toBe(mockTokenDetailData.tokenDetail);
@@ -345,10 +355,7 @@ describe('preserveMarketDetailPreviewImage', () => {
   const tokenDetail: IMarketTokenDetail = {
     ...previewTokenDetail,
     logoUrl: previewTokenDetail.logoUrl,
-    logoUrls: [
-      previewTokenDetail.logoUrl,
-      'https://example.com/detail-fallback.png',
-    ],
+    logoUrls: [previewTokenDetail.logoUrl],
     price: '1.23',
   };
 
@@ -402,6 +409,26 @@ describe('preserveMarketDetailPreviewImage', () => {
       }),
     ).toBe(tokenDetail);
   });
+
+  it.each([undefined, [previewTokenDetail.logoUrl]])(
+    'preserves additional detail fallback sources when preview logoUrls is %p',
+    (logoUrls) => {
+      const fullDetail = {
+        ...tokenDetail,
+        logoUrls: [
+          previewTokenDetail.logoUrl,
+          'https://example.com/detail-fallback.png',
+        ],
+      };
+
+      expect(
+        preserveMarketDetailPreviewImage({
+          previewTokenDetail: { ...previewTokenDetail, logoUrls },
+          tokenDetail: fullDetail,
+        }),
+      ).toBe(fullDetail);
+    },
+  );
 
   it('uses full-detail images when the preview has no image source', () => {
     expect(

@@ -122,10 +122,15 @@ export function preserveMarketDetailPreviewImage({
   const fullDetailConfirmsPreviewImage = previewImageUris
     .filter(Boolean)
     .every((uri) => fullImageUris.includes(uri));
+  // Keeping the preview's source mode must not discard new detail fallbacks.
+  const previewIncludesFullImageSources = fullImageUris
+    .filter(Boolean)
+    .every((uri) => previewImageUris.includes(uri));
   if (
     !tokenDetail ||
     !hasPreviewImage ||
     !fullDetailConfirmsPreviewImage ||
+    !previewIncludesFullImageSources ||
     !isSameTokenIdentity({ previewTokenDetail, tokenDetail })
   ) {
     return tokenDetail;

@@ -20,6 +20,16 @@ describe('market token decimals', () => {
     ['18', 18],
     [0, 0],
     ['0', 0],
+    ['', Number.NaN],
+    ['  ', Number.NaN],
+    [null, Number.NaN],
+    [undefined, Number.NaN],
+    [-1, Number.NaN],
+    ['18.5', Number.NaN],
+    ['invalid', Number.NaN],
+    [Infinity, Number.NaN],
+    [true, Number.NaN],
+    [false, Number.NaN],
   ])('normalizes API decimals %p for detail previews', (decimals, expected) => {
     const token = transformApiItemToToken(
       {

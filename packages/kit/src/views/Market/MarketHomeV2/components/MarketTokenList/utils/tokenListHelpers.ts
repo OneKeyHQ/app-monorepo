@@ -355,6 +355,11 @@ export function transformApiItemToToken(
         timeRange,
       });
 
+  const decimals =
+    typeof item.decimals === 'number' || typeof item.decimals === 'string'
+      ? getFiniteNumericSortValue(item.decimals)
+      : undefined;
+
   return {
     id: `${item.address}${item.name}${tokenNetworkLogoUri}${item.symbol}`,
     name: item.name,
@@ -371,7 +376,10 @@ export function transformApiItemToToken(
     turnover,
     tokenImageUri: item.logoUrl || '',
     tokenImageUris: item.logoUrls,
-    decimals: Number(item.decimals),
+    decimals:
+      decimals !== undefined && Number.isInteger(decimals) && decimals >= 0
+        ? decimals
+        : Number.NaN,
     networkLogoUri: tokenNetworkLogoUri,
     networkId: tokenNetworkId,
     priceChangeBasePrice,
