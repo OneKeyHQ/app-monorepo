@@ -211,6 +211,8 @@ type IUniversalWithdrawProps = {
   receiptTokenRate?: string;
   amountUnit?: IEarnAmountUnit;
   withdrawAssetsReady?: boolean;
+  withdrawAssetsStatus?: 'error' | 'empty' | 'ready';
+  onRetryWithdrawAssets?: () => void;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
 };
@@ -414,6 +416,8 @@ export function UniversalWithdraw({
   receiptTokenRate,
   amountUnit,
   withdrawAssetsReady,
+  withdrawAssetsStatus,
+  onRetryWithdrawAssets,
   protocolInfo,
   tokenInfo,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
@@ -2276,6 +2280,23 @@ export function UniversalWithdraw({
         onRetry={() => void legacyApproval.refresh()}
         onRevoke={() => void legacyApproval.revoke()}
       />
+      {amountUnit === 'shares' &&
+      !isCancelWithdrawal &&
+      (withdrawAssetsStatus === 'error' || withdrawAssetsStatus === 'empty') ? (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id:
+              withdrawAssetsStatus === 'empty'
+                ? ETranslations.global_no_data
+                : ETranslations.global_an_error_occurred,
+          })}
+          action={{
+            primary: intl.formatMessage({ id: ETranslations.global_retry }),
+            onPrimaryPress: onRetryWithdrawAssets,
+          }}
+        />
+      ) : null}
       {amountUnit === 'shares' && !isCancelWithdrawal && allowanceError ? (
         <Alert
           type="critical"

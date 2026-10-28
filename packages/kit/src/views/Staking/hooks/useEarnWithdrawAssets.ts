@@ -28,29 +28,52 @@ export function useEarnWithdrawAssets({
     scopeKey: string;
     asset: IEarnTokenItem;
   }>();
-  const { result } = usePromiseResult(
+  const { result, isLoading, run } = usePromiseResult(
     async () => {
       if (!enabled || !accountId || !networkId || !provider || !symbol) {
         return undefined;
       }
-      const response =
-        await backgroundApiProxy.serviceStaking.getEarnAssetsList({
-          accountId,
-          networkId,
-          provider,
-          symbol,
-          vault,
-          action: 'unstake',
-        });
-      return { scopeKey, assets: response.assets };
+      try {
+        const response =
+          await backgroundApiProxy.serviceStaking.getEarnAssetsList({
+            accountId,
+            networkId,
+            provider,
+            symbol,
+            vault,
+            action: 'unstake',
+          });
+        return {
+          scopeKey,
+          status: 'success' as const,
+          assets: response.assets,
+        };
+      } catch {
+        return { scopeKey, status: 'error' as const };
+      }
     },
     [enabled, accountId, networkId, provider, symbol, vault, scopeKey],
-    { watchLoading: true, undefinedResultIfReRun: true },
+    {
+      watchLoading: true,
+      undefinedResultIfReRun: true,
+      revalidateOnReconnect: true,
+    },
   );
   const assets = useMemo(
-    () => (enabled && result?.scopeKey === scopeKey ? result.assets : []),
+    () =>
+      enabled && result?.scopeKey === scopeKey && result.status === 'success'
+        ? result.assets
+        : [],
     [enabled, result, scopeKey],
   );
+  let status: 'error' | 'empty' | 'ready' | undefined;
+  if (enabled && result?.scopeKey === scopeKey) {
+    if (result.status === 'error') {
+      status = 'error';
+    } else {
+      status = result.assets.length === 0 ? 'empty' : 'ready';
+    }
+  }
   const selectedAsset = useMemo(() => {
     const selected =
       selection?.scopeKey === scopeKey ? selection.asset : undefined;
@@ -69,5 +92,5 @@ export function useEarnWithdrawAssets({
     (asset: IEarnTokenItem) => setSelection({ scopeKey, asset }),
     [scopeKey],
   );
-  return { assets, selectedAsset, selectAsset };
+  return { assets, selectedAsset, selectAsset, status, isLoading, retry: run };
 }

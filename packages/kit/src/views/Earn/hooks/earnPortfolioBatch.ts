@@ -72,11 +72,30 @@ export const matchEarnPortfolioBatchRequest = ({
   group,
   symbol,
   vault,
+  symbolIsAuthoritative = true,
 }: {
   group: IEarnPortfolioBatchTaskGroup;
   symbol: string;
   vault?: string;
+  symbolIsAuthoritative?: boolean;
 }) => {
+  if (!symbolIsAuthoritative && !vault) {
+    return undefined;
+  }
+  if (vault && !symbolIsAuthoritative) {
+    const vaultKey = createEarnPortfolioRequestKey({
+      provider: group.provider,
+      symbol: '',
+      vault,
+      networkId: group.networkId,
+    });
+    const candidates = Array.from(group.requestsByKey.values()).filter(
+      (request) =>
+        request.vault &&
+        createEarnPortfolioRequestKey({ ...request, symbol: '' }) === vaultKey,
+    );
+    return candidates.length === 1 ? candidates[0] : undefined;
+  }
   const exactKey = createEarnPortfolioRequestKey({
     provider: group.provider,
     symbol,

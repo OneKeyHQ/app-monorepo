@@ -161,6 +161,23 @@ describe('useEarnPortfolio batch refresh', () => {
     expect(result.current.earnTotalFiatValue.toFixed()).toBe('20');
   });
 
+  it('keeps the requested protocol identity on assets when an older response omits its symbol', async () => {
+    const item = investment('market-a');
+    delete item.protocol.symbol;
+    item.assets[0].token.info.symbol = 'receipt-token';
+    mockStaking.getAvailableAssetsV2.mockResolvedValue([assets[0]]);
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValue({
+      items: [item],
+      errors: [],
+    });
+
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    expect(result.current.investments[0]?.assets[0]?.metadata.protocol).toEqual(
+      expect.objectContaining({ symbol: 'sUSDe', vault: 'market-a' }),
+    );
+  });
+
   it('updates and clears the same EVM vault across mixed-case full and partial refreshes', async () => {
     const vaults = [
       '0xAbCd000000000000000000000000000000000001',

@@ -600,6 +600,8 @@ export const WithdrawSection = ({
     assets: selectableReceiveAssets,
     selectedAsset: selectedReceiveAsset,
     selectAsset: setSelectedReceiveAsset,
+    status: withdrawAssetsStatus,
+    retry: retryWithdrawAssets,
   } = useEarnWithdrawAssets({
     enabled: Boolean(
       hasRequiredData && supportsReceiveAssetSelection && !useBorrowApi,
@@ -1448,6 +1450,8 @@ export const WithdrawSection = ({
           requestSymbol={withdrawRequestSymbol}
           amountUnit={amountUnit}
           withdrawAssetsReady={!!selectedReceiveAsset}
+          withdrawAssetsStatus={withdrawAssetsStatus}
+          onRetryWithdrawAssets={() => void retryWithdrawAssets()}
           tokenImageUri={token?.logoURI || fallbackTokenImageUri}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}

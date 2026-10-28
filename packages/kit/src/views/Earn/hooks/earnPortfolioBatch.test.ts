@@ -251,6 +251,50 @@ describe('earnPortfolioBatch', () => {
     ).toBeUndefined();
   });
 
+  it('uses a unique vault when the response symbol is only a receipt token', () => {
+    const request = buildRequest({
+      networkId: 'evm--1',
+      vault: '0xAbCd000000000000000000000000000000000001',
+    });
+    const { batchGroups } = buildEarnPortfolioBatchGroups({
+      requests: [request],
+    });
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: batchGroups[0],
+        symbol: 'receipt',
+        vault: request.vault?.toLowerCase(),
+        symbolIsAuthoritative: false,
+      }),
+    ).toBe(request);
+
+    const ambiguous = buildEarnPortfolioBatchGroups({
+      requests: [request, { ...request, symbol: 'USDT' }],
+    });
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: ambiguous.batchGroups[0],
+        symbol: 'USDC',
+        vault: request.vault,
+        symbolIsAuthoritative: false,
+      }),
+    ).toBeUndefined();
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: ambiguous.batchGroups[0],
+        symbol: 'USDC',
+        symbolIsAuthoritative: false,
+      }),
+    ).toBeUndefined();
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: batchGroups[0],
+        symbol: 'another-protocol',
+        vault: request.vault,
+      }),
+    ).toBeUndefined();
+  });
+
   it.each([false, undefined])(
     'respects disabled batch configuration: %s',
     (enableBatch) => {

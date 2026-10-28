@@ -5,11 +5,14 @@ import type { IEarnTokenItem } from '@onekeyhq/shared/types/staking';
 
 import { useEarnWithdrawAssets } from './useEarnWithdrawAssets';
 
-type IAssetsResult = { scopeKey: string; assets: IEarnTokenItem[] };
+type IAssetsResult =
+  | { scopeKey: string; status: 'success'; assets: IEarnTokenItem[] }
+  | { scopeKey: string; status: 'error' };
 const mockPromiseState: {
   result?: IAssetsResult;
   method?: () => Promise<IAssetsResult | undefined>;
 } = {};
+const mockRun = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -19,7 +22,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (method: () => Promise<IAssetsResult | undefined>) => {
     mockPromiseState.method = method;
-    return { result: mockPromiseState.result };
+    return { result: mockPromiseState.result, run: mockRun };
   },
 }));
 
@@ -52,6 +55,7 @@ describe('withdraw output asset selection', () => {
   beforeEach(() => {
     mockPromiseState.result = undefined;
     mockPromiseState.method = undefined;
+    mockRun.mockReset();
     serviceStaking.getEarnAssetsList.mockReset().mockResolvedValue({ assets });
   });
 
@@ -99,6 +103,7 @@ describe('withdraw output asset selection', () => {
     act(() => result.current.selectAsset(assets[1]));
     mockPromiseState.result = {
       scopeKey: mockPromiseState.result?.scopeKey ?? '',
+      status: 'success',
       assets: [assets[0]],
     };
     rerender({});
@@ -112,5 +117,30 @@ describe('withdraw output asset selection', () => {
     expect(await mockPromiseState.method?.()).toBeUndefined();
     expect(serviceStaking.getEarnAssetsList.mock.calls).toHaveLength(0);
     expect(result.current.selectedAsset).toBeUndefined();
+  });
+
+  it('distinguishes a failed request from an empty result and exposes retry', async () => {
+    serviceStaking.getEarnAssetsList.mockRejectedValueOnce(
+      new Error('offline'),
+    );
+    const { result, rerender } = renderHook(() =>
+      useEarnWithdrawAssets(params),
+    );
+    mockPromiseState.result = await mockPromiseState.method?.();
+    rerender({});
+    expect(result.current.status).toBe('error');
+    expect(result.current.selectedAsset).toBeUndefined();
+    act(() => void result.current.retry());
+    expect(mockRun).toHaveBeenCalledTimes(1);
+
+    serviceStaking.getEarnAssetsList.mockResolvedValueOnce({ assets: [] });
+    mockPromiseState.result = await mockPromiseState.method?.();
+    rerender({});
+    expect(result.current.status).toBe('empty');
+
+    mockPromiseState.result = await mockPromiseState.method?.();
+    rerender({});
+    expect(result.current.status).toBe('ready');
+    expect(result.current.selectedAsset?.info.symbol).toBe('weETH');
   });
 });

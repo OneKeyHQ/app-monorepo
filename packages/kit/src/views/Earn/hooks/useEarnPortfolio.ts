@@ -284,7 +284,12 @@ function normalizeInvestmentResult(
       providerName: result.protocol.providerDetail.code,
     })
       ? normalizedProtocol
-      : result.protocol;
+      : {
+          ...result.protocol,
+          symbol: result.protocol.symbol?.trim()
+            ? result.protocol.symbol
+            : params.symbol,
+        };
     return {
       ...asset,
       metadata: {
@@ -849,6 +854,7 @@ export const useEarnPortfolio = ({
                     item.assets[0]?.token.info.symbol ||
                     '',
                   vault: item.protocol.vault,
+                  symbolIsAuthoritative: Boolean(item.protocol.symbol?.trim()),
                 });
 
                 if (

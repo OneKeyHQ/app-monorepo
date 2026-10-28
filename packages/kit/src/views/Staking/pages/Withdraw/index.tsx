@@ -88,14 +88,16 @@ const WithdrawPage = () => {
   const vault = protocolInfo?.vault || '';
   const actionTag = protocolInfo?.stakeTag || '';
   const appNavigation = useAppNavigation();
-  const { assets, selectedAsset, selectAsset } = useEarnWithdrawAssets({
-    enabled: !isCancelWithdrawal && amountUnit === 'shares' && shareInput.ready,
-    accountId,
-    networkId,
-    provider: providerName,
-    symbol: requestSymbol,
-    vault: vault || undefined,
-  });
+  const { assets, selectedAsset, selectAsset, status, retry } =
+    useEarnWithdrawAssets({
+      enabled:
+        !isCancelWithdrawal && amountUnit === 'shares' && shareInput.ready,
+      accountId,
+      networkId,
+      provider: providerName,
+      symbol: requestSymbol,
+      vault: vault || undefined,
+    });
   const outputTokenAddress = resolveStakeTokenAddress(selectedAsset?.info);
   const withdrawAssetsReady =
     isCancelWithdrawal ||
@@ -362,6 +364,8 @@ const WithdrawPage = () => {
           amountUnit={amountUnit}
           isDisabled={!withdrawAssetsReady}
           withdrawAssetsReady={withdrawAssetsReady}
+          withdrawAssetsStatus={status}
+          onRetryWithdrawAssets={() => void retry()}
           transactionInputTokenAddress={
             !isCancelWithdrawal && amountUnit === 'shares'
               ? token?.address
