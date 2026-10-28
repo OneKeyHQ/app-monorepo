@@ -24,6 +24,7 @@ import {
   OneKeyErrorOneKeyIdLegacyBindStateChanged,
   OneKeyErrorOneKeyIdOAuthIdentityAlreadyBound,
   OneKeyErrorPrimeLoginInvalidToken,
+  OneKeyErrorPrimeUserBanned,
   OneKeyLocalError,
   OneKeyServerApiError,
   PrimeLoginDialogCancelError,
@@ -42,6 +43,8 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
+import type { IOneKeyIdRequestContext } from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -798,6 +801,7 @@ class ServicePrime extends ServiceBase {
     insideLoginMutex?: boolean;
     createStateChangedError: () => Error;
   }): Promise<IOneKeyIdAuthSnapshot> {
+    await this.assertOneKeyIdNotBanned();
     const initialUserInfo = await primePersistAtom.get();
     if (
       !expectedOneKeyUserId ||
@@ -817,6 +821,7 @@ class ServicePrime extends ServiceBase {
     }
 
     return this.authStateWriteMutex.runExclusive(async () => {
+      await this.assertOneKeyIdNotBanned();
       const currentUserInfo = await primePersistAtom.get();
       const authSessionSource =
         await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
@@ -855,6 +860,7 @@ class ServicePrime extends ServiceBase {
     createStateChangedError: () => Error;
   }) {
     await this.authStateWriteMutex.runExclusive(async () => {
+      await this.assertOneKeyIdNotBanned();
       const currentUserInfo = await primePersistAtom.get();
       const authSessionSource =
         await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
@@ -955,6 +961,9 @@ class ServicePrime extends ServiceBase {
   }
 
   private isOneKeyIdOAuthIdentityAlreadyBoundError(error: unknown) {
+    if (isPrimeUserBannedError(error)) {
+      return false;
+    }
     const e = error as OneKeyError | undefined;
     const errorData = e?.data as IOneKeyIdOAuthBindErrorData | undefined;
     return (
@@ -988,6 +997,9 @@ class ServicePrime extends ServiceBase {
     };
     fallbackMessage: string;
   }) {
+    if (isPrimeUserBannedError(response.data)) {
+      return new OneKeyErrorPrimeUserBanned();
+    }
     const errorCode = Number(response.data.code);
     const errorMessage = response.data.message || fallbackMessage;
     if ([90_002, 90_003].includes(errorCode)) {
@@ -1196,6 +1208,9 @@ class ServicePrime extends ServiceBase {
 
           return Array.isArray(translations) ? translations : batch;
         } catch (error) {
+          if (isPrimeUserBannedError(error)) {
+            throw error;
+          }
           const errorCode = Number((error as OneKeyError | undefined)?.code);
           if ([90_104, 90_105].includes(errorCode)) {
             throw error;
@@ -1287,6 +1302,63 @@ class ServicePrime extends ServiceBase {
   // slot check is a strict persisted-bytes read
   // (readPersistedAccessTokenBySessionSourceStrict), never getSession.
   authStateWriteMutex = new Semaphore(1);
+
+  async handlePrimeUserBanned({
+    requestAuthToken,
+    requestContext,
+    requestUrl,
+  }: {
+    requestAuthToken?: string;
+    requestContext?: IOneKeyIdRequestContext;
+    requestUrl?: string;
+  }) {
+    // A bind rejection can describe the incoming OAuth identity, not the
+    // signed-in legacy account. Its profile probe checks that account first.
+    if (
+      !requestAuthToken ||
+      requestUrl?.split('?')[0].endsWith('/account/identities/oauth/bind')
+    ) {
+      return;
+    }
+    await this.authStateWriteMutex.runExclusive(async () => {
+      const user = await primePersistAtom.get();
+      const source =
+        await this.backgroundApi.simpleDb.prime.getAuthSessionSource();
+      const generation =
+        await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+      if (
+        !source ||
+        !user.isLoggedIn ||
+        !user.isLoggedInOnServer ||
+        !user.onekeyUserId ||
+        (requestContext &&
+          (requestContext.onekeyUserId !== user.onekeyUserId ||
+            requestContext.authStateGeneration !== generation))
+      ) {
+        return;
+      }
+      // Persisted bytes only: never refresh or acquire loginMutex in an
+      // interceptor; the request may itself be holding the lifecycle lock.
+      const session =
+        await readPersistedAccessTokenBySessionSourceStrict(source);
+      if (session.status !== 'ok' || session.accessToken !== requestAuthToken) {
+        return;
+      }
+      this.clearPrimeUserInfoCache();
+      this.primeUserInfoFetchGeneration += 1;
+      await primePersistAtom.set((current) => ({
+        ...current,
+        isOneKeyIdBanned: true,
+      }));
+    });
+  }
+
+  @backgroundMethod()
+  async assertOneKeyIdNotBanned() {
+    if ((await primePersistAtom.get()).isOneKeyIdBanned) {
+      throw new OneKeyErrorPrimeUserBanned();
+    }
+  }
 
   private sourceLessOneKeyIdRecoveryRetryTimer:
     | ReturnType<typeof setTimeout>
@@ -1686,6 +1758,7 @@ class ServicePrime extends ServiceBase {
           updatePrimeAtom: async () => {
             await this.updatePrimeAtomByServerUserInfo({
               serverUserInfo: response.data.data,
+              isLogin: true,
             });
           },
         });
@@ -2954,6 +3027,9 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async isLegacyOneKeyIdOAuthBindRequired(): Promise<boolean> {
+    if ((await primePersistAtom.get()).isOneKeyIdBanned) {
+      return false;
+    }
     const isLoggedIn = await this.isLoggedIn();
     if (!isLoggedIn) {
       return false;
@@ -4628,6 +4704,11 @@ class ServicePrime extends ServiceBase {
     // never leaks into IPrimeServerUserInfo. undefined means unknown.
     onFreeTrial?: (freeTrial: IPrimeFreeTrialQuota | null | undefined) => void;
   }): Promise<IPrimeServerUserInfoWithProfile> {
+    const requestContext: IOneKeyIdRequestContext = {
+      onekeyUserId: (await primePersistAtom.get()).onekeyUserId,
+      authStateGeneration:
+        await this.backgroundApi.simpleDb.prime.getAuthStateGeneration(),
+    };
     const client = await this.getPrimeClient();
     const requestConfig: Parameters<typeof client.get>[1] & {
       autoHandleError?: boolean;
@@ -4664,6 +4745,15 @@ class ServicePrime extends ServiceBase {
       profileRequest,
       serverUserInfoRequest,
     ]);
+
+    const bannedResult = [profileResult, serverUserInfoResult].find(
+      (result): result is PromiseRejectedResult =>
+        result.status === 'rejected' && isPrimeUserBannedError(result.reason),
+    );
+    if (bannedResult) {
+      await this.handlePrimeUserBanned({ requestAuthToken, requestContext });
+      throw bannedResult.reason;
+    }
 
     await this.throwIfAllPrimeUserInfoRequestsFailedByInvalidTokenError({
       results: [profileResult, serverUserInfoResult],
@@ -4750,8 +4840,10 @@ class ServicePrime extends ServiceBase {
 
   async updatePrimeAtomByServerUserInfo({
     serverUserInfo,
+    isLogin = false,
   }: {
     serverUserInfo: IPrimeServerUserInfo;
+    isLogin?: boolean;
   }) {
     const beforeValue = await primePersistAtom.get();
     const onekeyAccount = (serverUserInfo as Partial<IOneKeyIdProfileResponse>)
@@ -4797,6 +4889,12 @@ class ServicePrime extends ServiceBase {
         !onekeyAccount && v.onekeyAccount?.onekeyUserId === serverUserId;
       return {
         ...v,
+        // A profile can be exempt from a server ban; only an accepted login
+        // or a different identity clears this session's observed restriction.
+        isOneKeyIdBanned:
+          !isLogin && v.onekeyUserId === serverUserId
+            ? v.isOneKeyIdBanned
+            : false,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
         // Only a boolean is a decision. GET /user/info already normalized an
@@ -4894,6 +4992,7 @@ class ServicePrime extends ServiceBase {
       const displayEmail = onekeyAccount.displayEmail;
       return {
         ...v,
+        isOneKeyIdBanned: false,
         avatar: loginResponse.avatar ?? (isSameUser ? v.avatar : undefined),
         nickname:
           loginResponse.nickname ?? (isSameUser ? v.nickname : undefined),
@@ -4952,6 +5051,8 @@ class ServicePrime extends ServiceBase {
         email: userEmail,
         displayEmail,
         onekeyUserId: onekeyAccount.onekeyUserId,
+        isOneKeyIdBanned:
+          v.onekeyUserId === onekeyAccount.onekeyUserId && v.isOneKeyIdBanned,
         onekeyAccount,
         isLoggedIn: true,
         isLoggedInOnServer: true,
@@ -5309,8 +5410,9 @@ class ServicePrime extends ServiceBase {
     if (!(await this.isLoggedIn())) {
       return false;
     }
-    const { primeSubscription } = await primePersistAtom.get();
-    return Boolean(primeSubscription?.isActive);
+    const { primeSubscription, isOneKeyIdBanned } =
+      await primePersistAtom.get();
+    return Boolean(!isOneKeyIdBanned && primeSubscription?.isActive);
   }
 
   @backgroundMethod()

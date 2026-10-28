@@ -2,6 +2,7 @@ import {
   OneKeyErrorPrimeLoginExceedDeviceLimit,
   OneKeyErrorPrimeLoginInvalidToken,
   OneKeyErrorPrimePaidMembershipRequired,
+  OneKeyErrorPrimeUserBanned,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
@@ -55,6 +56,7 @@ jest.mock('../ServiceBase', () => ({
 }));
 
 type IMockUser = {
+  isOneKeyIdBanned?: boolean;
   isLoggedIn: boolean;
   isLoggedInOnServer: boolean;
   onekeyUserId?: string;
@@ -278,6 +280,19 @@ describe('ServicePrimeFreeTrial', () => {
   });
 
   describe('startUsage', () => {
+    it('rejects a banned Prime member before granting unlimited usage', async () => {
+      const { service } = createService();
+      mockState.user.isOneKeyIdBanned = true;
+      mockState.user.primeSubscription = { isActive: true };
+      await expect(
+        service.startUsage({
+          featureId: EPrimeFeatures.BulkSend,
+          usageId: 'usage-0001',
+        }),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+    });
+
     it('reserves a use and keeps a durable record with the expiry', async () => {
       const { service, simpleDb } = createService();
       mockOneKeyIdClient.post.mockResolvedValueOnce({

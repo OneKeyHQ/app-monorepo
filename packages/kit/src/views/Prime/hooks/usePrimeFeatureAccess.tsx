@@ -8,6 +8,7 @@ import { shouldRunOneKeyIdAuthInExtExpandTab } from '@onekeyhq/kit/src/component
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePrimeFreeTrialAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
+  OneKeyErrorPrimeUserBanned,
   PrimeLoginDialogCancelError,
   PrimeLoginHandedOffToExtExpandTabError,
 } from '@onekeyhq/shared/src/errors';
@@ -484,6 +485,9 @@ export function usePrimeFeatureAccess() {
         reason: IPrimeFeatureAccessDeniedReason,
       ) => void | Promise<void>;
     }): Promise<IPrimeFeatureAccessResult> => {
+      if (user?.isOneKeyIdBanned) {
+        throw new OneKeyErrorPrimeUserBanned();
+      }
       const deny = async (reason: IPrimeFeatureAccessDeniedReason) => {
         onAttemptDenied?.(reason);
         await onDenied?.(reason);
@@ -650,6 +654,7 @@ export function usePrimeFeatureAccess() {
       openPrimeDashboard,
       runWithEntryLoading,
       showActiveRejectedFeedback,
+      user?.isOneKeyIdBanned,
     ],
   );
 

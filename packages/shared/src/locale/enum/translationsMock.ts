@@ -1,4 +1,6 @@
 export enum ETranslationsMock {
+  // Server key pending the next generated locale catalog pull.
+  error__service_prime_user_banned_error = 'error__service_prime_user_banned_error',
   mock_do_not_delete_this_key = 'mock',
 
   // ----------------------------------------------
