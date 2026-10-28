@@ -23,7 +23,7 @@ describe('extension relay targets', () => {
     appGlobals.$backgroundApiProxy = {
       backgroundApi: {
         servicePrivacyChain: {
-          getLocalWalletNetworkIds: async () => ['zec--0'],
+          getListedLocalWalletNetworkIds: async () => ['zec--0'],
         },
         serviceCustomRpc: {
           resolveRpcUrlWithBuiltIn: async () => 'https://active.example',
