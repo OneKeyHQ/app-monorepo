@@ -11,6 +11,8 @@ jest.mock('../../factory', () => ({
   },
 }));
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import Vault from './Vault';
 
 import type { ILocalWalletAccountBalance } from '../../localWallet/types';
@@ -267,5 +269,19 @@ describe('xmr fiat value', () => {
     });
     const details = await vault.fetchTokenDetails({} as never);
     expect(details.data.data[0]).toMatchObject({ price: 150, price24h: -2.5 });
+  });
+});
+
+describe('xmr network on a delisted chain', () => {
+  it('still names the database network when the list drops the chain', async () => {
+    const vault = Object.assign(
+      createVault({ enabled: true, balance: async () => null }),
+      {
+        getNetwork: async () => {
+          throw new OneKeyLocalError('getNetwork ERROR: Network not found');
+        },
+      },
+    );
+    await expect(vault.getXmrNetwork()).resolves.toBe('mainnet');
   });
 });

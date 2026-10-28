@@ -18,6 +18,7 @@ import { parseXmrViewingKeyPair } from '@onekeyhq/core/src/chains/xmr/viewingKey
 import type { IXmrViewingKeyPair } from '@onekeyhq/core/src/chains/xmr/viewingKeys';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getPrivacyChainRuntimeFailure } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   XMR_DECIMALS,
   XMR_DEFAULT_FEE_PRIORITY,
@@ -262,8 +263,12 @@ export default class Vault extends VaultBase {
     };
   }
 
+  // A delisted network leaves the network list while its local data still has
+  // to be reached for deletion; the built-in entry fixes mainnet vs testnet.
   async getXmrNetwork(): Promise<IXmrNetwork> {
-    const network = await this.getNetwork();
+    const network =
+      getPresetNetworks().find(({ id }) => id === this.networkId) ??
+      (await this.getNetwork());
     return network.isTestnet ? 'testnet' : 'mainnet';
   }
 
