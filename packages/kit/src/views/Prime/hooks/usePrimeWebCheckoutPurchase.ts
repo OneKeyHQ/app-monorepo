@@ -10,8 +10,8 @@ import {
   startPrimeHostedCardCheckout,
 } from './primeHostedCardCheckout';
 
-import type { IPrimeEmbeddedCheckoutFallbackTrigger } from '../purchasesSdk/primeEmbeddedCheckoutFallback';
 import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
+import type { IPrimeEmbeddedCheckoutFallbackTrigger } from '../purchasesSdk/primeEmbeddedCheckoutFallback';
 
 type IPrimeHostedCardCheckoutPlan = {
   selectedSubscriptionPeriod: ISubscriptionPeriod;

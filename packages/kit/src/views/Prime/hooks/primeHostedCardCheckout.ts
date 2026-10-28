@@ -37,8 +37,8 @@ import {
   getPrimeWebPurchaseLinkConfig,
 } from './primeWebPurchaseLink';
 
-import type { IPrimeEmbeddedCheckoutFallbackTrigger } from '../purchasesSdk/primeEmbeddedCheckoutFallback';
 import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
+import type { IPrimeEmbeddedCheckoutFallbackTrigger } from '../purchasesSdk/primeEmbeddedCheckoutFallback';
 import type { IntlShape } from 'react-intl';
 
 export type IPrimeHostedCardCheckoutParams = {
