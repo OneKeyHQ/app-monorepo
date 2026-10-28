@@ -1,6 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { shouldHideWebViewHeaderRight } from '../webViewHeaderPolicy';
+import { shouldHideWebViewHeaderRight } from '../displayPolicy';
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,

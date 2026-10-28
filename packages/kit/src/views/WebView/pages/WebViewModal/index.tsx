@@ -43,7 +43,7 @@ import {
   EDappWebViewNavigationDecision,
   resolveDappWebViewNavigation,
 } from '../../utils/dappWebViewNavigationPolicy';
-import { shouldHideWebViewHeaderRight } from '../../utils/webViewHeaderPolicy';
+import { shouldHideWebViewHeaderRight } from '../../utils/displayPolicy';
 
 import type {
   IJsBridgeMessagePayload,
