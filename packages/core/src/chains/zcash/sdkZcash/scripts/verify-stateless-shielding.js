@@ -22,8 +22,8 @@ async function load(packageName, stem) {
 }
 
 async function main() {
-  const keys = await load('onekey-zcash-keys', 'onekey_zcash_keys');
-  const runtime = await load('onekey-zcash-runtime', 'onekey_zcash_runtime');
+  const keys = await load('@onekeyfe/zcash-keys', 'onekey_zcash_keys');
+  const runtime = await load('@onekeyfe/zcash-runtime', 'onekey_zcash_runtime');
   const seed = new Uint8Array(32).fill(7);
   // Account-scoped keys only; the seed never enters the WASM.
   const accountKeys = deriveAccountKeys(seed, 0);

@@ -29,7 +29,7 @@ const golden = {
 
 (async () => {
   const pkgDir = path.dirname(
-    require.resolve('onekey-zcash-keys/package.json'),
+    require.resolve('@onekeyfe/zcash-keys/package.json'),
   );
   const keys = await import(path.join(pkgDir, 'onekey_zcash_keys.js'));
   const wasmBytes = fs.readFileSync(

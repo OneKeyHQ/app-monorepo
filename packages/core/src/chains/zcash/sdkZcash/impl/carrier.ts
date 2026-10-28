@@ -15,8 +15,8 @@ import type {
 
 // Low-level utility only: one database open at a time, bounded scan steps, no scheduling of its own.
 
-type IRuntimeModule = typeof import('onekey-zcash-runtime');
-type IKeysModule = typeof import('onekey-zcash-keys');
+type IRuntimeModule = typeof import('@onekeyfe/zcash-runtime');
+type IKeysModule = typeof import('@onekeyfe/zcash-keys');
 
 let runtimeWasmPromise: Promise<IRuntimeModule> | undefined;
 let runtimePromise: Promise<IRuntimeModule> | undefined;
@@ -110,7 +110,7 @@ export async function getRuntimeWasm(): Promise<IRuntimeModule> {
   if (!runtimeWasmPromise) {
     runtimeWasmPromise = (async () => {
       const mod = await import(
-        /* webpackMode: "eager" */ 'onekey-zcash-runtime'
+        /* webpackMode: "eager" */ '@onekeyfe/zcash-runtime'
       );
       await mod.default();
       return mod;
@@ -174,7 +174,9 @@ export function tryReadOnlyHandle(account: IZcashWalletAccount): {
 export async function getKeys(): Promise<IKeysModule> {
   if (!keysPromise) {
     keysPromise = (async () => {
-      const mod = await import(/* webpackMode: "eager" */ 'onekey-zcash-keys');
+      const mod = await import(
+        /* webpackMode: "eager" */ '@onekeyfe/zcash-keys'
+      );
       const instance = await mod.default();
       return wrapKeysModuleWithStackCleanup(mod, instance);
     })().catch((e) => {

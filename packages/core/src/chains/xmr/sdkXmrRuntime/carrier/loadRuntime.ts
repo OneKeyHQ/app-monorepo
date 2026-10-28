@@ -11,7 +11,7 @@ import type { IXmrRuntimeApi } from '..';
 
 let cached: Promise<IXmrRuntimeApi> | undefined;
 
-type IXmrRuntimeModule = typeof import('onekey-monero-runtime');
+type IXmrRuntimeModule = typeof import('@onekeyfe/monero-runtime');
 
 let rawModule: IXmrRuntimeModule | undefined;
 
@@ -24,7 +24,7 @@ function toAsyncRuntime(mod: Record<string, unknown>): IXmrRuntimeApi {
     const fn = mod[method];
     if (typeof fn !== 'function') {
       throw new OneKeyLocalError(
-        `xmr: onekey-monero-runtime is missing "${method}"; the installed package is older than this app expects`,
+        `xmr: @onekeyfe/monero-runtime is missing "${method}"; the installed package is older than this app expects`,
       );
     }
     api[method] = (...args: unknown[]) =>
@@ -41,11 +41,11 @@ async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
     // Eager: mobile inlines the Worker entry into a Blob.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     mod = (await import(
-      /* webpackMode: "eager" */ 'onekey-monero-runtime'
+      /* webpackMode: "eager" */ '@onekeyfe/monero-runtime'
     )) as unknown as Record<string, unknown>;
   } catch (error) {
     throw new OneKeyLocalError(
-      `xmr: the onekey-monero-runtime package is not available: ${
+      `xmr: the @onekeyfe/monero-runtime package is not available: ${
         error instanceof Error ? error.message : String(error)
       }`,
     );

@@ -9,7 +9,7 @@ import { isLocalWalletStorageUnsupportedError } from './storageSupport';
 
 const mockInit = jest.fn<Promise<void>, []>();
 
-jest.mock('onekey-monero-runtime', () => {
+jest.mock('@onekeyfe/monero-runtime', () => {
   const { XMR_RUNTIME_METHODS: methods } = jest.requireActual<
     typeof import('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/methods')
   >('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/methods');

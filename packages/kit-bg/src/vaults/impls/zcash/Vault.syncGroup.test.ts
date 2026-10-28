@@ -2,7 +2,7 @@
 /* eslint-disable import/first */
 jest.mock('../../../dbs/local/localDbInstance');
 
-import * as runtime from 'onekey-zcash-runtime';
+import * as runtime from '@onekeyfe/zcash-runtime';
 
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import sdk from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl';
@@ -12,7 +12,7 @@ import Vault from './Vault';
 
 import type { IZcashPrivacyModeStateView } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
-jest.mock('onekey-zcash-runtime', () => ({
+jest.mock('@onekeyfe/zcash-runtime', () => ({
   __esModule: true,
   default: async () => undefined,
   init: async () => undefined,

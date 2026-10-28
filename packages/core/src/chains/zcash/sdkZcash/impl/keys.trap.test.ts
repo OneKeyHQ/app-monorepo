@@ -1,9 +1,9 @@
-import * as raw from 'onekey-zcash-runtime';
+import * as raw from '@onekeyfe/zcash-runtime';
 
 import sdk from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl';
 import { storageRequiresWorkerRestart } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/carrier';
 
-jest.mock('onekey-zcash-runtime', () => ({
+jest.mock('@onekeyfe/zcash-runtime', () => ({
   __esModule: true,
   default: async () => undefined,
   init: jest.fn(async () => undefined),
@@ -31,7 +31,7 @@ test.each(['tip', 'initialization'] as const)(
   'a %s trap retires the worker before any later leased runtime call',
   async (phase) => {
     jest.resetModules();
-    const runtime = jest.requireMock<typeof raw>('onekey-zcash-runtime');
+    const runtime = jest.requireMock<typeof raw>('@onekeyfe/zcash-runtime');
     const freshSdk =
       jest.requireActual<typeof import('./index')>('./index').default;
     const carrier = jest.requireActual<typeof import('./carrier')>('./carrier');

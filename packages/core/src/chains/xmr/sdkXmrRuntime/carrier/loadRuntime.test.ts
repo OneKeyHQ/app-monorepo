@@ -7,7 +7,7 @@ import { loadXmrRuntime, xmrStorageRequiresWorkerRestart } from './loadRuntime';
 const mockInit = jest.fn<Promise<void>, []>();
 const mockOpenWallet = jest.fn(async () => '{}');
 
-jest.mock('onekey-monero-runtime', () => {
+jest.mock('@onekeyfe/monero-runtime', () => {
   const { XMR_RUNTIME_METHODS: methods } =
     jest.requireActual<typeof import('../methods')>('../methods');
   const mod: Record<string, unknown> = { __esModule: true };
@@ -36,7 +36,7 @@ describe('xmr runtime storage install', () => {
 
 describe('xmr storage restart signal', () => {
   const runtimeModule = jest.requireMock<Record<string, unknown>>(
-    'onekey-monero-runtime',
+    '@onekeyfe/monero-runtime',
   );
 
   const defaultCheck = runtimeModule.storageRequiresWorkerRestart;

@@ -42,7 +42,7 @@ const cases = [
 
 (async () => {
   const pkgDir = path.dirname(
-    require.resolve('onekey-zcash-keys/package.json'),
+    require.resolve('@onekeyfe/zcash-keys/package.json'),
   );
   const wasmBytes = fs.readFileSync(
     path.join(pkgDir, 'onekey_zcash_keys_bg.wasm'),

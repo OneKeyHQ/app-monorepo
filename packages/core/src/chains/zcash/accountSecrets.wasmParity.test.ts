@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
+import * as keys from '@onekeyfe/zcash-keys';
 import { mnemonicToSeedSync } from 'bip39';
 import bs58check from 'bs58check';
-import * as keys from 'onekey-zcash-keys';
 
 import { EAddressEncodings } from '../../types';
 import { getAddressFromXpub } from '../btc/sdkBtc';
@@ -40,7 +40,7 @@ describe('Zcash account keys: TS derivation vs installed keys WASM', () => {
 
   beforeAll(() => {
     const pkgDir = path.dirname(
-      require.resolve('onekey-zcash-keys/package.json'),
+      require.resolve('@onekeyfe/zcash-keys/package.json'),
     );
     keys.initSync({
       module: fs.readFileSync(path.join(pkgDir, 'onekey_zcash_keys_bg.wasm')),

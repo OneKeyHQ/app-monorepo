@@ -12,12 +12,12 @@ import type { IXmrRuntimeMethod } from './methods';
 
 // A name missing from the method list only fails at runtime on one platform; these checks make it a compile error.
 
-// Export names of the installed `onekey-monero-runtime` glue, or `undefined`
+// Export names of the installed `@onekeyfe/monero-runtime` glue, or `undefined`
 // when the package is not installed.
 function readInstalledRuntimeExports(): string[] | undefined {
   let packageJsonPath: string;
   try {
-    packageJsonPath = require.resolve('onekey-monero-runtime/package.json');
+    packageJsonPath = require.resolve('@onekeyfe/monero-runtime/package.json');
   } catch {
     return undefined;
   }

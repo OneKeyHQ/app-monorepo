@@ -1,4 +1,4 @@
-import * as runtime from 'onekey-zcash-runtime';
+import * as runtime from '@onekeyfe/zcash-runtime';
 
 import sdk from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl';
 
@@ -6,7 +6,7 @@ import { forgetOpenWallet } from './carrier';
 
 import type { IZcashWalletAccount } from '../types/sdk';
 
-jest.mock('onekey-zcash-runtime', () => ({
+jest.mock('@onekeyfe/zcash-runtime', () => ({
   __esModule: true,
   default: async () => undefined,
   init: async () => undefined,

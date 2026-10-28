@@ -96,9 +96,9 @@ const baseResolve = ({ platform, configName, basePath }) => ({
     // Web ships no Zcash/Monero (web-embed does); mirrors rspack.resolve.config.js.
     ...(platform === 'web'
       ? {
-          'onekey-zcash-runtime': false,
-          'onekey-zcash-keys': false,
-          'onekey-monero-runtime': false,
+          '@onekeyfe/zcash-runtime': false,
+          '@onekeyfe/zcash-keys': false,
+          '@onekeyfe/monero-runtime': false,
         }
       : {}),
   },
