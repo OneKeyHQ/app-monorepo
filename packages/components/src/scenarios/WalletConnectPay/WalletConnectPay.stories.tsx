@@ -27,7 +27,7 @@ import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 //
 // Figma: Modules / "Walletconnect pay" (node 21831-35638). Every step shares
 // one skeleton — Header, optional Body, optional Footer — laid inside the
-// shell's content inset (24pt sides, safe-area bottom; the scene adds no side
+// shell's content inset (24pt sides, bottom inset; the scene adds no side
 // padding of its own):
 //   - Header: a 64pt visual over centered text. Vertical padding is 48pt on
 //     the transient status steps (fetching / failed / confirming) and 16pt on
@@ -72,12 +72,19 @@ const SAMPLE_OPTIONS: IWcPayDemoOption[] = [
 const EMPTY_OPTIONS: IWcPayDemoOption[] = [];
 
 // The shell's content inset, as the production flow sets it: 24 at the
-// sides, 16 on top, and on native nothing under the last element but the
-// safe-area inset.
+// sides, 16 on top. Under the last element iOS adds nothing to the sheet's
+// home-indicator inset, Android keeps the native Dialog's default 20 above
+// its navigation-bar inset (OK-65646), web keeps 24.
+function getShellContentBottomInset(): '$0' | '$5' | '$6' {
+  if (platformEnv.isNativeIOS) {
+    return '$0';
+  }
+  return platformEnv.isNative ? '$5' : '$6';
+}
 const SHELL_CONTENT_CONTAINER_PROPS = {
   px: '$6',
   pt: '$4',
-  pb: platformEnv.isNative ? '$0' : '$6',
+  pb: getShellContentBottomInset(),
 } as const;
 
 // ---------------------------------------------------------------------------
