@@ -1,8 +1,10 @@
 import { scriptPkToAddress } from '.';
 
-import { Psbt, Transaction } from 'bitcoinjs-lib';
+import { Psbt } from 'bitcoinjs-lib';
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
+import { getPsbtInputUtxo } from './providerUtils';
 
 import type { ITxInputToSign } from '../../../types';
 import type { networks } from 'bitcoinjs-lib';
@@ -133,9 +135,9 @@ export function buildOwnedAddressesForBatchDisplay({
   return Array.from(owned);
 }
 
-// Strict parsing: any input without a resolvable spent value, or a
-// non-positive fee, makes the whole psbt impossible to summarize for the
-// batch overview — a negative fee is even legitimate for
+// Invalid UTXO records are rejected before calculating amounts. A
+// non-positive fee cannot be summarized for the batch overview, but is
+// legitimate for
 // SIGHASH_SINGLE|ANYONECANPAY marketplace listing psbts (seller-side, the
 // buyer adds fee inputs later). The caller must never show a made-up
 // fee/amount breakdown for such a psbt; it falls back to the legacy
@@ -160,19 +162,7 @@ export function computeBatchPsbtAmounts({
 
   let totalInValue = 0n;
   for (let index = 0; index < psbt.data.inputs.length; index += 1) {
-    const input = psbt.data.inputs[index];
-    if (input.witnessUtxo) {
-      totalInValue += input.witnessUtxo.value;
-    } else if (input.nonWitnessUtxo) {
-      const fundingTx = Transaction.fromBuffer(input.nonWitnessUtxo);
-      const fundingOutput = fundingTx.outs[psbt.txInputs[index].index];
-      if (!fundingOutput) {
-        return null;
-      }
-      totalInValue += fundingOutput.value;
-    } else {
-      return null;
-    }
+    totalInValue += getPsbtInputUtxo({ psbt, index }).value;
   }
 
   let externalOutValue = 0n;
