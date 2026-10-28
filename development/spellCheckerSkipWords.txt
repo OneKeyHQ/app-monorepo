@@ -85,6 +85,7 @@ unfocus
 oklch
 usdc
 USDC
+EURC
 Realtime
 Tpsl
 tpsl

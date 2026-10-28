@@ -14,7 +14,7 @@
         "NODE_OPTIONS": "--max-old-space-size=8192"
       },
       "android": {
-        "image": "ubuntu-24.04-jdk-17-ndk-r27b",
+        "image": "ubuntu-26.04-jdk-17-ndk-r27b-sdk-58",
         "ndk": "27.1.12297006",
         "env": {
           "PLATFORM": "android"
@@ -22,7 +22,7 @@
       },
       "ios": {
         "scheme": "OneKeyWallet",
-        "image": "macos-tahoe-26.4-xcode-26.4",
+        "image": "macos-tahoe-26.6-xcode-27.1",
         "resourceClass": "medium",
         "env": {
           "PLATFORM": "ios"

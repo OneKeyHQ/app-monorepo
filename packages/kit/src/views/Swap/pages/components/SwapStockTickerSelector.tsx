@@ -270,17 +270,24 @@ export function SwapStockTickerSelector() {
   const { stockDetail, stockPreview, stockId, isStockDetailError } =
     useStockDetail();
   const { currentStockToken } = useSwapStockTradeContext();
-  const stock = selection?.stockSelectionPending
-    ? undefined
-    : (stockDetail ?? stockPreview);
+  const displayStockId = selection ? selection.displayStockId : stockId;
+  const pendingPreview =
+    selection?.pendingStock?.stockId.toUpperCase() ===
+    displayStockId?.toUpperCase()
+      ? selection?.pendingStock
+      : undefined;
+  const stock =
+    displayStockId === stockId &&
+    (!selection?.stockSelectionPending || !pendingPreview)
+      ? (stockDetail ?? stockPreview)
+      : undefined;
   const selectedStockPreview = selection?.selectedStockPreview;
   const committedPreview =
-    selectedStockPreview?.stockId.toUpperCase() === stockId?.toUpperCase()
+    selectedStockPreview?.stockId.toUpperCase() ===
+    displayStockId?.toUpperCase()
       ? selectedStockPreview
       : undefined;
-  const listPreview = selection?.stockSelectionPending
-    ? selection.pendingStock
-    : committedPreview;
+  const listPreview = pendingPreview ?? committedPreview;
   // The list item already carries the underlying stock's brand icon. Keep it
   // through the token and stock-detail transition instead of showing the old
   // stock or the issuer token's artwork.
@@ -294,7 +301,8 @@ export function SwapStockTickerSelector() {
     !selection?.stockSelectionPending &&
     !stock &&
     currentStockToken &&
-    (!stockId || resolveMarketStockId(currentStockToken) === stockId)
+    (!displayStockId ||
+      resolveMarketStockId(currentStockToken) === displayStockId)
       ? currentStockToken
       : undefined;
   const stockSymbol =
@@ -302,9 +310,9 @@ export function SwapStockTickerSelector() {
     stock?.symbol ||
     (fallbackToken
       ? fallbackToken.stock?.underlyingAssetTicker ||
-        stockId ||
+        displayStockId ||
         fallbackToken.symbol
-      : undefined);
+      : displayStockId);
   const stockName =
     listPreview?.name ||
     stock?.name ||

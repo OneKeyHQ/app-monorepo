@@ -44,7 +44,10 @@ import {
   MARKET_HOME_WS_MAX_SUBSCRIPTIONS,
   useMarketHomeTokenListWebSocket,
 } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
-import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import {
+  type IMarketWatchlistDataCache,
+  useMarketWatchlistTokenList,
+} from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
 import { getMarketWatchlistRowKind } from '../../../MarketHomeV2/components/MarketTokenList/utils/marketWatchlistRowKind';
@@ -58,6 +61,7 @@ import {
 import { SelectorWatchlistRecommendations } from '../TokenSelector/SelectorWatchlistRecommendations';
 
 import { getWatchlistSidebarPriceChange } from './filterWatchlistTokens';
+import { getWatchlistSidebarContentState } from './watchlistSidebarContentState';
 import {
   WATCHLIST_SIDEBAR_ROW_HEIGHT,
   WatchlistSidebarRow,
@@ -75,6 +79,14 @@ const SIDEBAR_DIVIDER_INSET = 24;
 
 // The filter menu only holds four short labels and a check mark.
 const FILTER_MENU_WIDTH = 160;
+
+// Closing the sidebar unmounts it, and leaving the detail page (a perps jump,
+// a tab switch) unmounts the page as well, so the fetched rows are parked at
+// module scope and painted again on remount while polling refreshes them in
+// the background (OK-65700, OK-65703).
+const watchlistSidebarDataCacheRef: {
+  current: IMarketWatchlistDataCache | undefined;
+} = { current: undefined };
 
 // The detail headers start 20px down and center a 28px symbol over a 20px name
 // in their 72px row, so the symbol line is centered 46px from the top. Lifting
@@ -277,11 +289,13 @@ function MarketDetailWatchlistSidebarImpl({
       appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, refresh);
     };
   }, [watchListActions]);
-  const { data, isLoading, isError, refetchAll } = useMarketWatchlistTokenList({
-    watchlist: watchListData ?? [],
-    pageSize: Math.max(watchListData?.length ?? 0, 1),
-    pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
-  });
+  const { data, isLoading, isError, hasLoadedAllSources, refetchAll } =
+    useMarketWatchlistTokenList({
+      watchlist: watchListData ?? [],
+      pageSize: Math.max(watchListData?.length ?? 0, 1),
+      pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
+      dataCacheRef: watchlistSidebarDataCacheRef,
+    });
   // A star in the search modal changes favorites while this page sits under
   // the modal. The list skips fetching while its page is unfocused, and every
   // favorites rewrite then cancels any request still in flight, so a one-off
@@ -432,14 +446,15 @@ function MarketDetailWatchlistSidebarImpl({
     [assetId, handleItemPress, networkId, stockId, tokenAddress],
   );
 
-  // Empty means nothing is stored, not nothing loaded: on desktop and web a
-  // failed request leaves the hook without rows and without `isError`, so
-  // favorites that are stored but came back with no rows read as a failed
-  // load rather than an empty watchlist.
-  const storedCount = watchListData?.length ?? 0;
-  const isWatchlistEmpty = isMounted && storedCount === 0;
-  const showSkeleton = !isMounted || (isLoading && data.length === 0);
-  const isLoadFailed = data.length === 0 && (isError || storedCount > 0);
+  const contentState = getWatchlistSidebarContentState({
+    isMounted,
+    storedCount: watchListData?.length ?? 0,
+    isLoading,
+    isError,
+    hasLoadedAllSources,
+    rowCount: data.length,
+    filter,
+  });
 
   const tableHeader = (
     <XStack
@@ -483,9 +498,9 @@ function MarketDetailWatchlistSidebarImpl({
   );
 
   let content;
-  if (isWatchlistEmpty) {
-    content = <SelectorWatchlistRecommendations />;
-  } else if (showSkeleton) {
+  if (contentState === 'recommendations') {
+    content = <SelectorWatchlistRecommendations compact />;
+  } else if (contentState === 'skeleton') {
     content = (
       <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>
         {tableHeader}
@@ -494,17 +509,12 @@ function MarketDetailWatchlistSidebarImpl({
         ))}
       </YStack>
     );
-  } else if (isLoadFailed) {
-    // Without `isError` the empty result may also be favorites that are no
-    // longer available (a delisted perp), so it reads as no results with a
-    // retry rather than claiming a connection error.
+  } else if (contentState === 'loadFailed') {
     content = (
       <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
         <SizableText color="$textSubdued">
           {intl.formatMessage({
-            id: isError
-              ? ETranslations.global_connet_error_try_again
-              : ETranslations.global_no_results,
+            id: ETranslations.global_connet_error_try_again,
           })}
         </SizableText>
         <Button
@@ -517,7 +527,7 @@ function MarketDetailWatchlistSidebarImpl({
         </Button>
       </YStack>
     );
-  } else if (listData.length === 0) {
+  } else if (contentState === 'noResults' || listData.length === 0) {
     content = (
       <YStack flex={1} px={TOKEN_SELECTOR_TABLE_PADDING}>
         {tableHeader}

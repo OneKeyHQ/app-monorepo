@@ -1,8 +1,10 @@
-import { Fragment, memo, useCallback } from 'react';
+import { Fragment, memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Empty, YStack, useMedia } from '@onekeyhq/components';
+import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
+import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
@@ -33,6 +35,7 @@ interface IPortfolioProps {
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   standalone?: boolean;
+  isStock?: boolean;
   onItemPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
 }
 
@@ -45,25 +48,32 @@ function PortfolioBase({
   tokenLogoUrl,
   scrollEnabled = true,
   standalone = false,
+  isStock = false,
   onItemPress,
 }: IPortfolioProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const canShowPortfolio = hasAccount ?? Boolean(accountAddress);
+  const isMobileStock = platformEnv.isNative && isStock;
 
   const renderPortfolioItem = useCallback(
     (item: IMarketAccountPortfolioDisplayItem) => {
-      return gtLg ? (
+      return gtLg && !isMobileStock ? (
         <PortfolioItemNormal
           item={item}
           tokenLogoUrl={tokenLogoUrl}
           onPress={onItemPress}
         />
       ) : (
-        <PortfolioItemSmall item={item} onPress={onItemPress} />
+        <PortfolioItemSmall
+          item={item}
+          onPress={onItemPress}
+          isStock={isMobileStock}
+        />
       );
     },
-    [gtLg, onItemPress, tokenLogoUrl],
+    [gtLg, isMobileStock, onItemPress, tokenLogoUrl],
   );
 
   const renderItem: FlatListProps<IMarketAccountPortfolioDisplayItem>['renderItem'] =
@@ -89,12 +99,30 @@ function PortfolioBase({
       />
     );
 
-  const data = canShowPortfolio ? portfolioData : [];
+  const data = useMemo(
+    () =>
+      canShowPortfolio
+        ? portfolioData.filter((item) =>
+            isTradePositionVisible({
+              balance: item.amount,
+              isStock,
+              fiatValue: item.totalPrice,
+              currency: item.currency ?? 'usd',
+              currencyMap,
+            }),
+          )
+        : [],
+    [canShowPortfolio, currencyMap, isStock, portfolioData],
+  );
 
   if (standalone) {
     return (
       <YStack>
-        {gtLg ? <PortfolioHeaderNormal /> : <PortfolioHeaderSmall />}
+        {gtLg && !isMobileStock ? (
+          <PortfolioHeaderNormal />
+        ) : (
+          <PortfolioHeaderSmall isStock={isMobileStock} />
+        )}
         {data.length > 0
           ? data.map((item) => (
               <Fragment key={keyExtractor(item)}>

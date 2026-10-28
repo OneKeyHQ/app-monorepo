@@ -206,7 +206,7 @@ export function MarketDetailHeader({
       <XStack
         testID="market-detail-native-header-title"
         ai="center"
-        gap="$2"
+        gap="$3"
         flexShrink={1}
         minWidth={0}
         // Android's custom row must fill the space between the back and action
@@ -228,7 +228,7 @@ export function MarketDetailHeader({
         <YStack flexShrink={1} minWidth={0}>
           <XStack
             ai="center"
-            gap="$1"
+            gap="$1.5"
             flexShrink={1}
             {...(!isOverlayPage && {
               onPress: onPressTokenSelector,
@@ -258,7 +258,7 @@ export function MarketDetailHeader({
             {!isOverlayPage ? (
               <Icon
                 name="ChevronDownSmallOutline"
-                size="$4"
+                size="$5"
                 color="$iconSubdued"
               />
             ) : null}
@@ -540,7 +540,7 @@ export function MarketDetailHeader({
           )}
 
           {networkId || listingIdentity.assetId || listingIdentity.stockId ? (
-            <XStack gap="$3" ai="center">
+            <XStack gap={isMobileWebLayout ? '$6' : '$3'} ai="center">
               {showFavoriteButton ? (
                 <MarketStarV2
                   {...listingIdentity}
