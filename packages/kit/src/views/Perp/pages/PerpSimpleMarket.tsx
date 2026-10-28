@@ -210,7 +210,6 @@ function SimpleMarketContent() {
         coin={route.params.coin}
         width={headerWidth}
         price={headerPrice}
-        animatePrice={!currentChartPrice?.isScrubbing}
         changeLabel={changeLabel}
         changeLoading={changeLoading}
         changeColor={changeColor}
@@ -222,7 +221,6 @@ function SimpleMarketContent() {
       headerWidth,
       route.params.coin,
       headerPrice,
-      currentChartPrice?.isScrubbing,
       changeColor,
       changeLabel,
       changeLoading,
