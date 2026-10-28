@@ -371,7 +371,7 @@ export function transformApiItemToToken(
     turnover,
     tokenImageUri: item.logoUrl || '',
     tokenImageUris: item.logoUrls,
-    decimals: item.decimals,
+    decimals: Number(item.decimals),
     networkLogoUri: tokenNetworkLogoUri,
     networkId: tokenNetworkId,
     priceChangeBasePrice,

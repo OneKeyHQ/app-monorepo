@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -151,6 +151,22 @@ export function useMarketDetailDisplayData() {
     () => buildPreviewTokenDetail(tokenDetailPreview),
     [tokenDetailPreview],
   );
+  // Requests clear the preview atom when full detail arrives. Retain it only
+  // for image continuity, never as a fallback for quotes or trading metadata.
+  const [previewImage, setPreviewImage] = useState(previewTokenDetail);
+  const nextPreviewImage =
+    previewTokenDetail ??
+    (previewImage &&
+    isMatchingMarketTokenIdentity(previewImage, {
+      tokenAddress,
+      networkId,
+      isNative,
+    })
+      ? previewImage
+      : undefined);
+  if (nextPreviewImage !== previewImage) {
+    setPreviewImage(nextPreviewImage);
+  }
   const stockPreviewTokenDetail = useMemo(
     () =>
       buildStockPreviewTokenDetail({
@@ -180,7 +196,7 @@ export function useMarketDetailDisplayData() {
     ) {
       return {
         displayTokenDetail: preserveMarketDetailPreviewImage({
-          previewTokenDetail: previewDisplay,
+          previewTokenDetail: previewDisplay ?? previewImage,
           tokenDetail,
         }),
         isPreviewTokenDetail: false,
@@ -193,6 +209,7 @@ export function useMarketDetailDisplayData() {
   }, [
     isNative,
     networkId,
+    previewImage,
     previewTokenDetail,
     stockPreviewTokenDetail,
     tokenAddress,

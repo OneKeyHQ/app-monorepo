@@ -14,6 +14,28 @@ function buildSortableToken(id: string, price: number) {
   return { id, price };
 }
 
+describe('market token decimals', () => {
+  test.each([
+    [18, 18],
+    ['18', 18],
+    [0, 0],
+    ['0', 0],
+  ])('normalizes API decimals %p for detail previews', (decimals, expected) => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x4a220e6096b25eadb88358cb44068a3248254675',
+        name: 'Quant',
+        symbol: 'QNT',
+        // The API can return numeric strings despite declaring a number.
+        decimals: decimals as number,
+      },
+      { chainId: 'evm--1', networkLogoUri: '' },
+    );
+
+    expect(token.decimals).toBe(expected);
+  });
+});
+
 describe('market token list sorting', () => {
   test('sorts the latest token values without mutating the source list', () => {
     const source = [

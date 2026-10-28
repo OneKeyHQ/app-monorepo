@@ -265,6 +265,71 @@ describe('useMarketDetailDisplayData', () => {
     });
     expect(result.current.isPreviewTokenDetail).toBe(true);
   });
+
+  it('keeps the preview image mode after the detail response clears the preview', () => {
+    const address = '0x0000000000000000000000000000000000000001';
+    const logoUrl = 'https://example.com/token.png';
+    mockTokenDetailData.tokenAddress = address;
+    mockTokenDetailData.networkId = 'evm--1';
+    mockTokenDetailData.tokenDetailPreview = {
+      address,
+      networkId: 'evm--1',
+      name: 'Token',
+      symbol: 'TOKEN',
+      decimals: 18,
+      tokenImageUri: logoUrl,
+      price: 1,
+      selectedAt: 1,
+    };
+    const { result, rerender } = renderHook(useMarketDetailDisplayData);
+    expect(result.current.tokenDetail?.logoUrls).toBeUndefined();
+
+    mockTokenDetailData.tokenDetail = {
+      address,
+      networkId: 'evm--1',
+      name: 'Token',
+      symbol: 'TOKEN',
+      decimals: 18,
+      logoUrl,
+      logoUrls: [logoUrl, 'https://example.com/fallback.png'],
+      price: '2',
+    };
+    mockTokenDetailData.tokenDetailPreview = undefined;
+    rerender();
+    expect(result.current.tokenDetail).toMatchObject({ logoUrl, price: '2' });
+    expect(result.current.tokenDetail?.logoUrls).toBeUndefined();
+    expect(result.current.isPreviewTokenDetail).toBe(false);
+
+    mockTokenDetailData.tokenDetail = {
+      ...mockTokenDetailData.tokenDetail,
+      price: '3',
+    };
+    rerender();
+    expect(result.current.tokenDetail?.logoUrls).toBeUndefined();
+    expect(result.current.tokenDetail?.price).toBe('3');
+
+    // Losing the detail must not resurrect preview quotes or trading metadata.
+    mockTokenDetailData.tokenDetail = undefined;
+    rerender();
+    expect(result.current.tokenDetail).toBeUndefined();
+
+    // Switching away also discards the retained image for a later return.
+    mockTokenDetailData.tokenAddress =
+      '0x0000000000000000000000000000000000000002';
+    rerender();
+    mockTokenDetailData.tokenAddress = address;
+    mockTokenDetailData.tokenDetail = {
+      address,
+      networkId: 'evm--1',
+      name: 'Token',
+      symbol: 'TOKEN',
+      decimals: 18,
+      logoUrl,
+      logoUrls: [logoUrl, 'https://example.com/fallback.png'],
+    };
+    rerender();
+    expect(result.current.tokenDetail).toBe(mockTokenDetailData.tokenDetail);
+  });
 });
 
 describe('preserveMarketDetailPreviewImage', () => {
