@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Stack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   type IMarketMobileDetailKind,
@@ -38,8 +39,11 @@ function BaseStickyHeader({
   }, [gtXl]);
 
   const portfolioHeader = useMemo(() => {
+    if (platformEnv.isNative && detailKind === 'stock') {
+      return <PortfolioHeaderSmall isStock />;
+    }
     return gtLg ? <PortfolioHeaderNormal /> : <PortfolioHeaderSmall />;
-  }, [gtLg]);
+  }, [detailKind, gtLg]);
 
   const holdersHeader = useMemo(() => {
     return gtLg ? <HoldersHeaderNormal /> : <HoldersHeaderSmall />;
