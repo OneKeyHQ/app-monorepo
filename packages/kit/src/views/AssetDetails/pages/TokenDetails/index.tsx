@@ -10,7 +10,6 @@ import type {
   IListViewProps,
   ISectionListProps,
   IStackProps,
-  ITabContainerRef,
 } from '@onekeyhq/components';
 import {
   ActionList,
@@ -25,7 +24,6 @@ import {
   SizableText,
   Spinner,
   Stack,
-  Tabs,
   Toast,
   XStack,
   useClipboard,
@@ -34,6 +32,10 @@ import {
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import type {
+  IAppPagerPage,
+  IAppPagerRef,
+} from '@onekeyhq/kit/src/components/AppPager/types';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import {
   TabletModalContainer,
@@ -85,6 +87,7 @@ import {
 import TokenDetailsFooter from './TokenDetailsFooter';
 import { enableNetworkInAllNetworksOnce } from './tokenDetailsNetworkAutoEnable';
 import TokenDetailsOverview from './TokenDetailsOverview';
+import { TokenDetailsPager } from './TokenDetailsPager';
 import TokenDetailsTabToolbar from './TokenDetailsTabToolbar';
 import TokenDetailsViews from './TokenDetailsView';
 
@@ -146,9 +149,9 @@ function TokenDetailsView() {
 
   const { gtMd } = useMedia();
 
-  const tabsRef = useRef<ITabContainerRef | null>(null);
+  const tabsRef = useRef<IAppPagerRef | null>(null);
 
-  const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [activeTabKey, setActiveTabKey] = useState<string>();
 
   const { vaultSettings, network } = useAccountData({ networkId });
 
@@ -654,6 +657,15 @@ function TokenDetailsView() {
     ];
   }, [tokens, overviewTabName, uniqueTabNames]);
 
+  useEffect(() => {
+    if (
+      activeTabKey &&
+      !aggregateTabs?.some((tab) => tab.token?.$key === activeTabKey)
+    ) {
+      setActiveTabKey(undefined);
+    }
+  }, [activeTabKey, aggregateTabs]);
+
   const jumpToMemberTab = useCallback(
     (token: IAccountToken) => {
       tabsRef.current?.jumpToTab(uniqueTabNames.get(token.$key) ?? token.$key);
@@ -667,9 +679,9 @@ function TokenDetailsView() {
   const activeFooterToken = useMemo(
     () =>
       (aggregateTabs
-        ? aggregateTabs[activeTabIndex]?.token
-        : tokens[activeTabIndex]) ?? tokens[0],
-    [activeTabIndex, aggregateTabs, tokens],
+        ? aggregateTabs.find((tab) => tab.token?.$key === activeTabKey)?.token
+        : undefined) ?? tokens[0],
+    [activeTabKey, aggregateTabs, tokens],
   );
   const activeFooterNetworkId = activeFooterToken?.networkId ?? networkId;
 
@@ -700,87 +712,96 @@ function TokenDetailsView() {
     }
   }, [footerTokenMetadata, updateTokenMetadata]);
 
-  const tabs = useMemo(() => {
+  const tabs = useMemo<IAppPagerPage[]>(() => {
     if (aggregateTabs) {
       return aggregateTabs.map(({ name, token }) =>
-        token ? (
-          <Tabs.Tab key={token.$key} name={name}>
-            <TokenDetailsViews
-              inTabList
-              isTabView
-              accountId={token.accountId ?? ''}
-              networkId={token.networkId ?? ''}
-              walletId={walletId}
-              tokenInfo={token}
-              tokenMap={tokenMap}
-              isAllNetworks={isAllNetworks}
-              listViewContentContainerStyle={listViewContentContainerStyle}
-              indexedAccountId={indexedAccountId}
-              allNetworksState={allNetworksState}
-              refreshAllNetworkState={refreshAllNetworkState}
-            />
-          </Tabs.Tab>
-        ) : (
-          <Tabs.Tab key="aggregate-overview" name={name}>
-            <TokenDetailsOverview
-              accountId={accountId}
-              networkId={networkId}
-              walletId={walletId}
-              indexedAccountId={indexedAccountId}
-              tokenInfo={tokenInfo}
-              tokens={tokens}
-              tokenMap={tokenMap}
-              isAllNetworks={isAllNetworks}
-              onSelectToken={jumpToMemberTab}
-            />
-          </Tabs.Tab>
-        ),
+        token
+          ? {
+              key: token.$key,
+              name,
+              children: (
+                <TokenDetailsViews
+                  inTabList
+                  isTabView
+                  accountId={token.accountId ?? ''}
+                  networkId={token.networkId ?? ''}
+                  walletId={walletId}
+                  tokenInfo={token}
+                  tokenMap={tokenMap}
+                  isAllNetworks={isAllNetworks}
+                  listViewContentContainerStyle={listViewContentContainerStyle}
+                  indexedAccountId={indexedAccountId}
+                  allNetworksState={allNetworksState}
+                  refreshAllNetworkState={refreshAllNetworkState}
+                />
+              ),
+            }
+          : {
+              key: 'aggregate-overview',
+              name,
+              children: (
+                <TokenDetailsOverview
+                  accountId={accountId}
+                  networkId={networkId}
+                  walletId={walletId}
+                  indexedAccountId={indexedAccountId}
+                  tokenInfo={tokenInfo}
+                  tokens={tokens}
+                  tokenMap={tokenMap}
+                  isAllNetworks={isAllNetworks}
+                  onSelectToken={jumpToMemberTab}
+                />
+              ),
+            },
       );
     }
 
     if (networkId && walletId) {
       if (vaultSettings?.mergeDeriveAssetsEnabled) {
-        return result?.networkAccounts.map((item, index) => (
-          <Tabs.Tab
-            key={String(index)}
-            name={
-              item.deriveInfo.labelKey
-                ? intl.formatMessage({ id: item.deriveInfo.labelKey })
-                : (item.deriveInfo.label ?? String(index))
-            }
-          >
+        return (
+          result?.networkAccounts.map((item, index) => ({
+            key: item.account?.id ?? `${networkId}:${item.deriveType}`,
+            name: item.deriveInfo.labelKey
+              ? intl.formatMessage({ id: item.deriveInfo.labelKey })
+              : (item.deriveInfo.label ?? String(index)),
+            children: (
+              <TokenDetailsViews
+                inTabList
+                isTabView
+                accountId={item.account?.id ?? ''}
+                networkId={tokenInfo.networkId ?? ''}
+                walletId={walletId}
+                deriveInfo={item.deriveInfo}
+                deriveType={item.deriveType}
+                tokenInfo={tokenInfo}
+                tokenMap={tokenMap}
+                allowTokenMapAsInitialDetails={false}
+                isAllNetworks={isAllNetworks}
+                listViewContentContainerStyle={listViewContentContainerStyle}
+                indexedAccountId={indexedAccountId}
+              />
+            ),
+          })) ?? []
+        );
+      }
+
+      return [
+        {
+          key: String(tokenInfo.$key),
+          name: '',
+          children: (
             <TokenDetailsViews
-              inTabList
-              isTabView
-              accountId={item.account?.id ?? ''}
+              accountId={tokenInfo.accountId ?? ''}
               networkId={tokenInfo.networkId ?? ''}
               walletId={walletId}
-              deriveInfo={item.deriveInfo}
-              deriveType={item.deriveType}
               tokenInfo={tokenInfo}
               tokenMap={tokenMap}
-              allowTokenMapAsInitialDetails={false}
               isAllNetworks={isAllNetworks}
               listViewContentContainerStyle={listViewContentContainerStyle}
               indexedAccountId={indexedAccountId}
             />
-          </Tabs.Tab>
-        ));
-      }
-
-      return [
-        <Tabs.Tab key={String(tokenInfo.$key)} name="">
-          <TokenDetailsViews
-            accountId={tokenInfo.accountId ?? ''}
-            networkId={tokenInfo.networkId ?? ''}
-            walletId={walletId}
-            tokenInfo={tokenInfo}
-            tokenMap={tokenMap}
-            isAllNetworks={isAllNetworks}
-            listViewContentContainerStyle={listViewContentContainerStyle}
-            indexedAccountId={indexedAccountId}
-          />
-        </Tabs.Tab>,
+          ),
+        },
       ];
     }
 
@@ -814,7 +835,7 @@ function TokenDetailsView() {
 
   const handleTabIndexChange = useCallback(
     async (index: number) => {
-      setActiveTabIndex(index);
+      setActiveTabKey(aggregateTabsRef.current?.[index]?.token?.$key);
 
       // The Overview descriptor has no token, so only member tabs can trigger
       // the auto-enable below.
@@ -912,27 +933,20 @@ function TokenDetailsView() {
         vaultSettings?.mergeDeriveAssetsEnabled) ||
       tokens.length > 1
     ) {
-      if (tabs && !isEmpty(tabs) && tabs.length > 1) {
+      if (tabs.length > 1) {
         return (
-          <Tabs.Container
+          <TokenDetailsPager
             width={pageWidth}
-            ref={tabsRef as any}
+            ref={tabsRef}
+            pages={tabs}
             onIndexChange={handleTabIndexChange}
-            renderTabBar={(props) => (
-              <Tabs.TabBar
-                {...props}
-                scrollable
-                renderToolbar={() => (
-                  <TokenDetailsTabToolbar
-                    tokens={tokens}
-                    onSelected={jumpToMemberTab}
-                  />
-                )}
+            toolbar={
+              <TokenDetailsTabToolbar
+                tokens={tokens}
+                onSelected={jumpToMemberTab}
               />
-            )}
-          >
-            {tabs}
-          </Tabs.Container>
+            }
+          />
         );
       }
       return null;

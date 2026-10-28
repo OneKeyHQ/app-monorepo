@@ -9,6 +9,7 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IReceiveNetworkSelection,
   ITokenSelectorSecondaryTab,
@@ -633,6 +634,11 @@ export function ReceiveNetworkList({
   return (
     <SectionList
       testID={testID}
+      dataSet={
+        !platformEnv.isNative && mode === 'tab'
+          ? { 'collapsible-pager-scroll': 'true' }
+          : undefined
+      }
       onScroll={listProps?.onScroll}
       scrollEventThrottle={listProps?.scrollEventThrottle}
       contentContainerStyle={listProps?.contentContainerStyle}
