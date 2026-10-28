@@ -19,6 +19,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { WC_PAY_SHELL_CONTENT_BOTTOM_INSET } from './wcPayDialogShellInset';
 import {
   describeWcPaySigningHeadline,
   describeWcPaySigningSummary,
@@ -37,8 +38,8 @@ import type {
 // packages/components/src/scenarios/WalletConnectPay/WalletConnectPay.stories.tsx
 // (Figma Modules / "Walletconnect pay", node 21831-35638; terminal layout
 // node 21926-35825). The shell (WcPayDialogShell, below) provides the 24pt
-// side inset and the safe-area bottom; nothing here adds horizontal padding
-// of its own. Scrollable areas use Dialog.ScrollView: inside the phone sheet
+// side inset and the bottom inset; nothing here adds horizontal padding of
+// its own. Scrollable areas use Dialog.ScrollView: inside the phone sheet
 // a plain ScrollView loses every vertical swipe to the sheet's drag
 // (OK-61140).
 // Copy comes from the wc_pay_* i18n keys; en_US matches the story verbatim.
@@ -51,13 +52,14 @@ import type {
 // Shell
 
 // Stable shell props. The modal overlay lane keeps later payment prompts
-// above the shell. The content inset is the
-// contract the steps are drawn against: 24 at the sides, 16 on top, and on
-// native nothing under the last element but the safe-area inset.
+// above the shell. The content inset is the contract the steps are drawn
+// against: 24 at the sides, 16 on top. The bottom inset differs per platform
+// (wcPayDialogShellInset.{ios,android}.ts explain why) because the native
+// sheet pads the system inset under the last element itself.
 const SHELL_CONTENT_CONTAINER_PROPS = {
   px: '$6',
   pt: '$4',
-  pb: platformEnv.isNative ? '$0' : '$6',
+  pb: WC_PAY_SHELL_CONTENT_BOTTOM_INSET,
 } as const;
 
 /**
