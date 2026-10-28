@@ -67,6 +67,7 @@ import {
 } from './hooks';
 import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDetail';
 import { useSwapStockBackTrip } from './hooks/useMarketDetailBackNavigation';
+import { useMarketDetailChartMode } from './hooks/useMarketDetailChartMode';
 import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
@@ -428,7 +429,7 @@ function MarketDetailV2(
   const media = useMedia();
   const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  const [isTradingViewNative, setIsTradingViewNative] = useState(true);
+  const { isTradingViewNative, toggleChartMode } = useMarketDetailChartMode();
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
   const supportsChartFullscreen = Boolean(
     isDesktopChartLayout ||
@@ -461,8 +462,8 @@ function MarketDetailV2(
     if (!isDesktopChartLayout) {
       handleChartFullscreenChange(false);
     }
-    setIsTradingViewNative((currentValue) => !currentValue);
-  }, [handleChartFullscreenChange, isDesktopChartLayout]);
+    toggleChartMode();
+  }, [handleChartFullscreenChange, isDesktopChartLayout, toggleChartMode]);
   const handleFullscreenRemove = useCallback(
     ({ data }: { data: { action: NavigationAction } }) => {
       handleChartFullscreenChange(false);

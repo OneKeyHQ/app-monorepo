@@ -160,6 +160,7 @@ export enum EAtomNames {
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
   marketDetailChartDisplayModePersistAtom = 'marketDetailChartDisplayModePersistAtom',
+  marketDetailChartModePersistAtom = 'marketDetailChartModePersistAtom',
   marketDetailPositionTabPersistAtom = 'marketDetailPositionTabPersistAtom',
   marketDetailWatchlistSidebarPersistAtom = 'marketDetailWatchlistSidebarPersistAtom',
   marketPriceSourceAtom = 'marketPriceSourceAtom',
