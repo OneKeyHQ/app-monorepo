@@ -55,20 +55,25 @@ function PortfolioBase({
   const { gtLg } = useMedia();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const canShowPortfolio = hasAccount ?? Boolean(accountAddress);
+  const isMobileStock = platformEnv.isNative && isStock;
 
   const renderPortfolioItem = useCallback(
     (item: IMarketAccountPortfolioDisplayItem) => {
-      return gtLg ? (
+      return gtLg && !isMobileStock ? (
         <PortfolioItemNormal
           item={item}
           tokenLogoUrl={tokenLogoUrl}
           onPress={onItemPress}
         />
       ) : (
-        <PortfolioItemSmall item={item} onPress={onItemPress} />
+        <PortfolioItemSmall
+          item={item}
+          onPress={onItemPress}
+          isStock={isMobileStock}
+        />
       );
     },
-    [gtLg, onItemPress, tokenLogoUrl],
+    [gtLg, isMobileStock, onItemPress, tokenLogoUrl],
   );
 
   const renderItem: FlatListProps<IMarketAccountPortfolioDisplayItem>['renderItem'] =
@@ -113,7 +118,11 @@ function PortfolioBase({
   if (standalone) {
     return (
       <YStack>
-        {gtLg ? <PortfolioHeaderNormal /> : <PortfolioHeaderSmall />}
+        {gtLg && !isMobileStock ? (
+          <PortfolioHeaderNormal />
+        ) : (
+          <PortfolioHeaderSmall isStock={isMobileStock} />
+        )}
         {data.length > 0
           ? data.map((item) => (
               <Fragment key={keyExtractor(item)}>

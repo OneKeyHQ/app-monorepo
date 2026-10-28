@@ -1072,6 +1072,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
 **Catchable by**: NEW — not covered (same pattern as the previous case: overlays above a canvas take its pointer events)
 
+## Case: Desktop tray popover blank in production builds (OK-65749)
+**Date**: 2026-10-28 | **Platforms**: Desktop (macOS menu-bar tray renderer; production builds only)
+**Symptom**: On App 6.7.0 the menu-bar tray popover rendered as an empty white panel. 6.6.1 on the same machine worked, and the bug never reproduced in a dev session. Logs showed the tray renderer alive at ~0% CPU with no `did-fail-load`, `render-process-gone`, or Sentry events.
+**Root Cause**: The preload hardening in #13770 stopped exposing `$mmkvSync` to the tray window, but the tray shares the main renderer bundle. `dbPerfMonitor` reads `syncStorage.getBoolean()` at module evaluation time behind `platformEnv.isDev ||`, so only production builds reached `ipc()` in `syncStorageInstance.desktop.ts`, which called `globalThis.$mmkvSync(...)` unguarded. The resulting `TypeError` fired before React mounted and left the transparent window showing the white `index.html` body.
+**Fix**: The desktop syncStorage adapter looks up the bridge per call and degrades to an empty store when it is absent: reads return `undefined`, `getAllKeys` returns `[]`, writes are no-ops, and a single warning is logged. Unit tests cover the bridged and bridge-less paths; the bridge-less cases failed with the original TypeError before the fix.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (the #13770 preload change removed a bridge without checking every renderer that loads the shared bundle); Section 1: Error cases handled (an unguarded global bridge call); NEW — a dev-only short-circuit (`isDev ||`) hides a production-only code path, so bridge/global access gated behind it must be verified with a production build or with the flag forced off
+
 ## Case: Silent Windows uninstall deleted wallet data without showing a warning
 **Date**: 2026-10-28 | **Platforms**: Windows
 **Symptom**: A silent uninstall could delete local wallet data even though no confirmation or backup warning was displayed.
