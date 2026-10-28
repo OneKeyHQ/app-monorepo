@@ -8,6 +8,7 @@ import {
   getDefaultLocale,
   getLocaleMessages,
 } from '../locale/getDefaultLocale';
+import { defaultLogger } from '../logger/logger';
 import { memoizee } from '../utils/cacheUtils';
 
 import type { IBiologyAuth } from './types';
@@ -58,9 +59,14 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
       }
       if (result.isSupport) {
         if (platformEnv.isDesktopMac) {
-          // Electron rejects with the OS-language LAError description only, and
-          // the system sheet handles failed matches and the password fallback
-          // itself, so any rejection means the sheet was dismissed.
+          // Electron rejects with the OS-language LAError description only, so
+          // a dismissal can't be told apart from a rare system failure. The
+          // system sheet handles failed matches and the password fallback
+          // itself, so treat both as a dismissal and keep the description in
+          // the logs.
+          defaultLogger.setting.page.biologyAuthDebug('touchId:rejected', {
+            reason: result.error,
+          });
           return {
             success: false,
             error: BIOLOGY_AUTH_CANCEL_ERROR,

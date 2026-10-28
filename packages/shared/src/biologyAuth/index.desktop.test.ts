@@ -17,6 +17,18 @@ jest.mock('../locale/getDefaultLocale', () => ({
   getDefaultLocale: () => 'en-US',
   getLocaleMessages: async () => ({}),
 }));
+const mockBiologyAuthDebug = jest.fn();
+jest.mock('../logger/logger', () => ({
+  defaultLogger: {
+    setting: {
+      page: {
+        biologyAuthDebug: (...args: unknown[]) => {
+          mockBiologyAuthDebug(...args);
+        },
+      },
+    },
+  },
+}));
 
 type IGlobalWithProxy = {
   desktopApiProxy?: {
@@ -32,6 +44,7 @@ describe('desktop biometric prompt result', () => {
 
   beforeEach(() => {
     promptTouchID.mockReset();
+    mockBiologyAuthDebug.mockClear();
     (globalThis as unknown as IGlobalWithProxy).desktopApiProxy = {
       security: { canPromptTouchID: async () => true, promptTouchID },
     };
@@ -55,6 +68,9 @@ describe('desktop biometric prompt result', () => {
         success: false,
         error: BIOLOGY_AUTH_CANCEL_ERROR,
       });
+      expect(mockBiologyAuthDebug).toHaveBeenCalledWith('touchId:rejected', {
+        reason: message,
+      });
     },
   );
 
@@ -70,5 +86,6 @@ describe('desktop biometric prompt result', () => {
       error: 'app_cancel',
       warning: 'app_cancel',
     });
+    expect(mockBiologyAuthDebug).not.toHaveBeenCalled();
   });
 });
