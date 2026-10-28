@@ -1781,17 +1781,6 @@ class ServicePrivacyChain extends ServiceBase {
     ]);
   }
 
-  // Delisted, or privacy switched off, by the server: no scan, enable,
-  // rotation or deletion runs for it, and its local data stays until it is
-  // back.
-  private async getPausedLocalWalletNetworkIds(
-    activeNetworkIds: string[],
-  ): Promise<string[]> {
-    return (await this.getPresetLocalWalletNetworkIds()).filter(
-      (networkId) => !activeNetworkIds.includes(networkId),
-    );
-  }
-
   presetLocalWalletNetworkIds: Promise<string[]> | undefined;
 
   // Presets are fixed per build (Web ships none of these networks).
@@ -2635,12 +2624,11 @@ class ServicePrivacyChain extends ServiceBase {
         capability: ILocalWalletCapability;
         cleanupAccountIds: string[];
       }[] = [];
-      const activeNetworkIds = await this.getLocalWalletNetworkIds();
-      // A paused chain is not asked, so it counts as one that could not list.
-      let everyChainListed =
-        (await this.getPausedLocalWalletNetworkIds(activeNetworkIds)).length ===
-        0;
-      for (const networkId of activeNetworkIds) {
+      // A delisted or privacy-disabled chain only stops scanning; a removed
+      // account's data is still cleaned there.
+      const knownNetworkIds = await this.getKnownLocalWalletNetworkIds();
+      let everyChainListed = true;
+      for (const networkId of knownNetworkIds) {
         try {
           const vault = await vaultFactory.getChainOnlyVault({ networkId });
           const capability = requireLocalWalletCapability(vault);
@@ -3190,11 +3178,12 @@ class ServicePrivacyChain extends ServiceBase {
       const pending =
         await this.backgroundApi.simpleDb.privacyChainState.listPendingAccountDeletions();
       if (pending.length === 0) return;
-      // A delisted network's deletions wait until it is listed again.
-      const listedNetworkIds = await this.getLocalWalletNetworkIds();
+      // A delisted network's deletions still run; a network this platform
+      // does not ship is never loaded.
+      const knownNetworkIds = await this.getKnownLocalWalletNetworkIds();
       await Promise.allSettled(
         pending
-          .filter((request) => listedNetworkIds.includes(request.networkId))
+          .filter((request) => knownNetworkIds.includes(request.networkId))
           .map((request) => this.processPendingAccountDeletion(request)),
       );
     } catch (error) {

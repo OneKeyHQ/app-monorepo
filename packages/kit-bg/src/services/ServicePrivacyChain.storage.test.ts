@@ -393,7 +393,7 @@ describe('removed-account gc', () => {
     expect(harness.deleteRuntimeAccount).not.toHaveBeenCalled();
   });
 
-  it('keeps records no listed chain names while another chain is delisted', async () => {
+  it('still removes records no chain names while another chain is delisted', async () => {
     const strayId = 'hd-4--0';
     const harness = createGcHarness(async () => ({
       accounts: [accountRow(liveAccountId), accountRow(hiddenAccountId)],
@@ -409,13 +409,41 @@ describe('removed-account gc', () => {
 
     await harness.service.gcRemovedAccounts();
 
-    // The listed chain still purges its own removed account.
+    // The delisted chain is asked too.
+    expect(mockGetChainOnlyVault).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+    });
     expect(harness.deleteRuntimeAccount).toHaveBeenCalledWith({
       accountId: removedAccountId,
     });
     await expect(
       harness.privacyChainXmrSent.listAccountIds(),
-    ).resolves.toContain(strayId);
+    ).resolves.not.toContain(strayId);
+  });
+
+  it('cleans a removed account while the server switches privacy off', async () => {
+    const harness = createGcHarness(async () => ({
+      accounts: [accountRow(liveAccountId), accountRow(hiddenAccountId)],
+    }));
+    Object.assign(harness.service, {
+      getLocalWalletNetworkIds: async () => [],
+      presetLocalWalletNetworkIds: Promise.resolve([networkId]),
+    });
+
+    await harness.service.gcRemovedAccounts();
+
+    expect(harness.deleteRuntimeAccount).toHaveBeenCalledWith({
+      accountId: removedAccountId,
+    });
+    await expect(
+      harness.privacyChainKeys.listAccountIds(),
+    ).resolves.not.toContain(removedAccountId);
+    await expect(
+      harness.privacyChainXmrSent.listAccountIds(),
+    ).resolves.not.toContain(removedAccountId);
+    await expect(
+      harness.privacyChainZcashSent.listAccountIds(),
+    ).resolves.not.toContain(removedAccountId);
   });
 
   it('keeps a hidden or locked passphrase wallet account', async () => {
@@ -888,13 +916,30 @@ describe.each(['zec--0', 'xmr--0'])(
       ]);
     });
 
-    it('holds a pending deletion while the network is delisted', async () => {
+    it('finishes a pending deletion while the network is delisted', async () => {
       const { service, capability, privacyChainState, privacyChainKeys } =
         createDeleteHarness();
       await privacyChainState.requestAccountDeletion(params);
-      let listedNetworkIds: string[] = [];
       Object.assign(service, {
-        getLocalWalletNetworkIds: async () => listedNetworkIds,
+        getLocalWalletNetworkIds: async () => [],
+        presetLocalWalletNetworkIds: Promise.resolve([chainNetworkId]),
+      });
+
+      await service.resumePendingAccountDeletions();
+
+      expect(capability.deleteRuntimeAccount).toHaveBeenCalledTimes(1);
+      expect(await privacyChainState.listPendingAccountDeletions()).toEqual([]);
+      expect(await privacyChainKeys.listAccountIds()).not.toContain(
+        liveAccountId,
+      );
+    });
+
+    it('leaves a pending deletion for a network this build does not ship', async () => {
+      const { service, capability, privacyChainState } = createDeleteHarness();
+      await privacyChainState.requestAccountDeletion(params);
+      Object.assign(service, {
+        getLocalWalletNetworkIds: async () => [],
+        presetLocalWalletNetworkIds: Promise.resolve([]),
       });
 
       await service.resumePendingAccountDeletions();
@@ -903,13 +948,6 @@ describe.each(['zec--0', 'xmr--0'])(
       expect(
         await privacyChainState.listPendingAccountDeletions(),
       ).toHaveLength(1);
-      expect(await privacyChainKeys.listAccountIds()).toContain(liveAccountId);
-
-      listedNetworkIds = [chainNetworkId];
-      await service.resumePendingAccountDeletions();
-
-      expect(capability.deleteRuntimeAccount).toHaveBeenCalledTimes(1);
-      expect(await privacyChainState.listPendingAccountDeletions()).toEqual([]);
     });
 
     it('deletes local data and expired sends while preserving other accounts', async () => {
