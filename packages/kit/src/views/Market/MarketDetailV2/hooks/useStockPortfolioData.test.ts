@@ -268,7 +268,7 @@ describe('fetchStockPortfolioData', () => {
     ]);
   });
 
-  it('reports a variant whose account cannot be resolved as unresolved', async () => {
+  it('confirms no holding for a variant whose network has no compatible account', async () => {
     const result = await fetchStockPortfolioData({
       stockId: 'AAPL',
       tokenVariants: [ondoVariant, xStocksVariant],
@@ -286,11 +286,24 @@ describe('fetchStockPortfolioData', () => {
     });
 
     expect(result.items.map((item) => item.amount)).toEqual(['5']);
-    // Nothing was read for the Solana variant, so its balance stays unknown
-    // rather than being reported as a zero holding.
     expect(result.resolvedVariantKeys).toEqual([
       getStockPortfolioVariantKey(ondoVariant),
+      getStockPortfolioVariantKey(xStocksVariant),
     ]);
+  });
+
+  it('does not confuse an account lookup failure with a network that has no account', async () => {
+    const result = await fetchStockPortfolioData({
+      stockId: 'AAPL',
+      tokenVariants: [ondoVariant],
+      successfulPortfolioCache: createPortfolioCache(),
+      resolveNetworkAccount: async () => {
+        throw new OneKeyLocalError('DB unavailable');
+      },
+      fetchPortfolio: async () => ({ list: [] }),
+    });
+    expect(result.items).toEqual([]);
+    expect(result.resolvedVariantKeys).toEqual([]);
   });
 
   it('reports a failed variant with nothing cached as unresolved', async () => {

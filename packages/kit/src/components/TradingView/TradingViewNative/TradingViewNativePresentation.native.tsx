@@ -3,7 +3,10 @@ import type { ReactNode } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  useSafeAreaFrame,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { Stack } from '@onekeyhq/components';
 
@@ -17,17 +20,20 @@ export const pushTradingViewNativeFullscreenModal: IPushTradingViewNativeFullscr
 
 // The host sits inside the app's providers, so their safe-area insets apply;
 // a nested SafeAreaProvider would render nothing until its own native view
-// reports insets from inside the overlay window.
+// reports insets from inside the overlay window. Their frame sizes the layer:
+// the overlay lays content out at the window size, but its host is the app's
+// content view, which stops at a side navigation bar in landscape.
 const FullscreenChart = memo(
   ({ children }: Pick<ITradingViewNativePresentationProps, 'children'>) => {
     const insets = useSafeAreaInsets();
+    const frame = useSafeAreaFrame();
     return (
       <Stack
         position="absolute"
         top={0}
-        right={0}
-        bottom={0}
         left={0}
+        width={frame.width}
+        height={frame.height}
         bg="$bgApp"
         collapsable={false}
         accessibilityViewIsModal
