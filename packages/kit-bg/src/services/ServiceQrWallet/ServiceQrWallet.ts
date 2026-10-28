@@ -98,6 +98,18 @@ class ServiceQrWallet extends ServiceBase {
 
   private stageAirGapSessionSeq = 0;
 
+  /** An owner whose cancel arrived before its session registered. */
+  private cancelledStageAirGapOwner: string | undefined;
+
+  /** True once for the owner that cancelled early: its session must not open. */
+  private takeCancelledStageAirGapOwner(owner: string | undefined) {
+    if (owner === undefined || owner !== this.cancelledStageAirGapOwner) {
+      return false;
+    }
+    this.cancelledStageAirGapOwner = undefined;
+    return true;
+  }
+
   private async rejectStageAirGapSession(error: unknown) {
     const session = this.stageAirGapSession;
     if (!session) {
@@ -168,7 +180,8 @@ class ServiceQrWallet extends ServiceBase {
    * with the same cancel the legacy surfaces used — the toast's cancel on
    * showQr, the scan page's on scanQr — so every downstream contract
    * (silent-cancel toast policy, batch-flow termination) keeps holding.
-   * With `owner`, only that caller's own session ends.
+   * With `owner`, only that caller's own session ends; a cancel that beats
+   * its session's registration keeps that session from opening.
    */
   @backgroundMethod()
   async cancelStageAirGapScan({
@@ -176,6 +189,7 @@ class ServiceQrWallet extends ServiceBase {
     owner,
   }: { scanning?: boolean; owner?: string } = {}) {
     if (owner !== undefined && this.stageAirGapSession?.owner !== owner) {
+      this.cancelledStageAirGapOwner = owner;
       return;
     }
     await this.rejectStageAirGapSession(
@@ -218,12 +232,21 @@ class ServiceQrWallet extends ServiceBase {
     // would stand over the update page for good.
     let stageOpened = false;
     if (await deviceStageBurst.isEnabled()) {
+      // Checked before the supersede: a cancelled caller must not end a
+      // newer caller's session.
+      if (this.takeCancelledStageAirGapOwner(owner)) {
+        throw new SecureQRCodeDialogCancel();
+      }
       // A newer request supersedes a pending one — the legacy container
       // closed the standing toast and rejected its promise the same way.
       await this.rejectStageAirGapSession(new SecureQRCodeDialogCancel());
       // Depth-joins the wrapper's burst where one is active (sign, verify
       // address); brackets the flows that have no wrapper (add address).
       stageOpened = await deviceStageBurst.begin({});
+      if (stageOpened && this.takeCancelledStageAirGapOwner(owner)) {
+        await deviceStageBurst.end({});
+        throw new SecureQRCodeDialogCancel();
+      }
     }
 
     // **** 2. app scan device Qrcode

@@ -409,4 +409,62 @@ describe('ServiceQrWallet stage session owner', () => {
       error: expect.any(SecureQRCodeDialogCancel),
     });
   });
+
+  it('keeps a code off the stage when its owner cancelled before it started', async () => {
+    // The request ended while its start was still crossing the bridge.
+    const { service, deviceStageBurst } = createStageSessionService();
+    await service.cancelStageAirGapScan({ owner: 'request-a' });
+
+    await expect(
+      service.startTwoWayAirGapScan(
+        { type: 'bytes', cbor: 'a0' },
+        { owner: 'request-a' },
+      ),
+    ).rejects.toBeInstanceOf(SecureQRCodeDialogCancel);
+    expect(deviceStageBurst.begin).not.toHaveBeenCalled();
+    expect(deviceStageBurst.qrShowCode).not.toHaveBeenCalled();
+  });
+
+  it('closes the stage it opened when its owner cancels while it opens', async () => {
+    const { service, deviceStageBurst } = createStageSessionService();
+    let openStage: (opened: boolean) => void = () => undefined;
+    const opening = new Promise<void>((resolve) => {
+      deviceStageBurst.begin.mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolveBegin) => {
+            openStage = resolveBegin;
+            resolve();
+          }),
+      );
+    });
+
+    const exchange = service.startTwoWayAirGapScan(
+      { type: 'bytes', cbor: 'a0' },
+      { owner: 'request-a' },
+    );
+    await opening;
+    await service.cancelStageAirGapScan({ owner: 'request-a' });
+    openStage(true);
+
+    await expect(exchange).rejects.toBeInstanceOf(SecureQRCodeDialogCancel);
+    expect(deviceStageBurst.end).toHaveBeenCalledTimes(1);
+    expect(deviceStageBurst.qrShowCode).not.toHaveBeenCalled();
+  });
+
+  it("does not let one owner's early cancel stop another owner's code", async () => {
+    const { service, deviceStageBurst, codeShown } =
+      createStageSessionService();
+    const shown = codeShown();
+    await service.cancelStageAirGapScan({ owner: 'request-a' });
+
+    const exchange = service.startTwoWayAirGapScan(
+      { type: 'bytes', cbor: 'a0' },
+      { owner: 'request-b' },
+    );
+    await shown;
+    expect(deviceStageBurst.qrShowCode).toHaveBeenCalledTimes(1);
+
+    await service.cancelStageAirGapScan({ owner: 'request-b' });
+    await expect(exchange).rejects.toBeInstanceOf(SecureQRCodeDialogCancel);
+  });
 });
