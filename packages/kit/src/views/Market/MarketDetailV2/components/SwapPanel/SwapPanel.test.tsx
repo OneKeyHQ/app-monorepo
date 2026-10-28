@@ -121,6 +121,12 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true, isWeb: false },
 }));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/kit-bg/src/states/jotai/atoms')
+  >('@onekeyhq/kit-bg/src/states/jotai/atoms'),
+  useCurrencyPersistAtom: () => [{ currencyMap: {} }],
+}));
 jest.mock('./hooks/useSpeedSwapInit', () => ({
   ESpeedSwapConfigScope: { DEFAULT: 'default', MARKET: 'market' },
   useSpeedSwapInit: () => ({
@@ -231,6 +237,44 @@ describe('Market mobile Buy / Sell modal entry', () => {
     expect(screen.queryByText('25')).toBeNull();
     expect(container.textContent).not.toContain('(-3.23%)');
   });
+
+  it.each([true, false])(
+    'sums only visible stock holdings for value and PNL (dust PNL supported=%s)',
+    (dustPnlSupported) => {
+      const { container } = render(
+        <SwapPanel
+          swapToken={{ ...token, isStock: true }}
+          detailKind="stock"
+          portfolioData={[
+            stockPositions[0],
+            {
+              ...stockPositions[1],
+              amount: '0.000025',
+              totalPrice: '0.005',
+              pnl: dustPnlSupported ? stockPositions[1].pnl : undefined,
+            },
+            {
+              ...stockPositions[1],
+              tokenAddress: '0xBoundary',
+              amount: '0.00005',
+              totalPrice: '0.01',
+              pnl: {
+                isPnlSupported: true,
+                unrealizedPnlUsd: '0',
+                unrealizedPnlPercent: '0',
+                totalPnlUsd: '0',
+                totalPnlPercent: '0',
+              },
+            },
+          ]}
+          mobileLayout
+        />,
+      );
+      expect(screen.getByText('250.01')).toBeTruthy();
+      expect(screen.getByText('25')).toBeTruthy();
+      expect(container.textContent).toContain('(11.11%)');
+    },
+  );
 
   it.each([
     { name: 'no resolved variants', portfolioData: [] },

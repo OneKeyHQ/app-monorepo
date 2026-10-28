@@ -25,7 +25,11 @@ import {
   prepareMarketSwapEntry,
   prepareStockSwapEntry,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
+import {
+  EJotaiContextStoreNames,
+  useCurrencyPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -170,9 +174,18 @@ export function SwapPanel({
   const tabBarHeight = usePageFooterTabBarHeight();
   const bottomInset = footerSafeAreaBottom + tabBarHeight;
   const navigation = useAppNavigation();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const myPositionInfo = useMemo(() => {
     if (platformEnv.isNative && detailKind === 'stock') {
-      const positions = portfolioData ?? [];
+      const positions = (portfolioData ?? []).filter((item) =>
+        isTradePositionVisible({
+          balance: item.amount,
+          isStock: true,
+          fiatValue: item.totalPrice,
+          currency: item.currency ?? 'usd',
+          currencyMap,
+        }),
+      );
       const value = positions.reduce(
         (sum, item) => sum.plus(getPortfolioPositionValue(item)),
         new BigNumber(0),
@@ -227,6 +240,7 @@ export function SwapPanel({
       pnl: positionInfo.pnl,
     };
   }, [
+    currencyMap,
     detailKind,
     portfolioData,
     swapToken.contractAddress,
