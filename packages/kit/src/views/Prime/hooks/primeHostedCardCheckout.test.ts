@@ -4,7 +4,6 @@ import type { IPrimeWebCheckoutPendingSession } from '@onekeyhq/shared/types/pri
 
 import {
   handlePrimeHostedCardCheckoutFallbackRequest,
-  resumePendingPrimeHostedCardCheckout,
   startPrimeHostedCardCheckout,
 } from './primeHostedCardCheckout';
 import { buildPrimeWebPurchaseLinkUrl } from './primeWebPurchaseLink';
@@ -42,6 +41,10 @@ const mockPlatformEnv = { isExtensionUiPopup: false };
 const mockOpenExpandTab = jest.fn<Promise<void>, [unknown]>();
 const mockClosePopup = jest.fn<void, []>();
 const mockTrackFailure = jest.fn<void, [unknown]>();
+const mockFetchEntitlement = jest.fn<
+  Promise<{ isActive: boolean } | undefined>,
+  [unknown]
+>();
 const mockResolvePackage = jest.fn(async () => ({
   packageId: '$rc_annual',
   offeringId: 'Sandbox_testing',
@@ -123,7 +126,8 @@ jest.mock('./primePaymentUtils', () => ({
 }));
 
 jest.mock('./primeWebCheckout', () => ({
-  fetchPrimeWebCheckoutEntitlement: async () => undefined,
+  fetchPrimeWebCheckoutEntitlement: (params: unknown) =>
+    mockFetchEntitlement(params),
   getPrimeWebCheckoutPlatform: () => 'desktop',
   isPrimeWebCheckoutUserCurrent: () => mockIsUserCurrent(),
   logPrimeWebCheckoutFlow: jest.fn(),
@@ -170,16 +174,14 @@ describe('startPrimeHostedCardCheckout', () => {
     mockOpenExpandTab.mockResolvedValue(undefined);
     mockAcquiredSessions.clear();
     mockIsUserCurrent.mockResolvedValue(true);
+    mockFetchEntitlement.mockResolvedValue(undefined);
     mockGetPendingSession.mockResolvedValue(undefined);
     mockAcquirePendingSession.mockImplementation(async ({ session }) => {
       const stored = await mockGetPendingSession({
         onekeyUserId: session.onekeyUserId,
       });
       const previous = mockAcquiredSessions.get(session.onekeyUserId) ?? stored;
-      if (
-        previous?.platform === session.platform &&
-        previous.isSandbox === session.isSandbox
-      ) {
+      if (previous?.checkoutId === session.checkoutId) {
         return { session: previous, reused: true };
       }
       mockAcquiredSessions.set(session.onekeyUserId, session);
@@ -296,34 +298,59 @@ describe('startPrimeHostedCardCheckout', () => {
     expect(mockToastError).not.toHaveBeenCalled();
   });
 
-  it('keeps one pending checkout when independent surfaces start concurrently', async () => {
+  it('coalesces rapid starts in the same runtime into one checkout', async () => {
     await Promise.all([startCheckout(), startCheckout()]);
 
     const openedSessions = mockOpenPage.mock.calls.map(
       ([value]) => value as IPrimeWebCheckoutPendingSession,
     );
-    expect(openedSessions).toHaveLength(2);
+    expect(mockAcquirePendingSession).toHaveBeenCalledTimes(1);
+    expect(openedSessions).toHaveLength(1);
     expect(
       new Set(openedSessions.map(({ checkoutId }) => checkoutId)).size,
     ).toBe(1);
   });
 
-  it('reuses the pending checkout of the same link', async () => {
+  it('does not open another checkout for an active subscriber', async () => {
+    mockFetchEntitlement.mockResolvedValueOnce({ isActive: true });
+
+    await startCheckout();
+
+    expect(mockAcquirePendingSession).not.toHaveBeenCalled();
+    expect(mockOpenPage).not.toHaveBeenCalled();
+  });
+
+  it('starts a fresh checkout on re-entry after the first one opened', async () => {
+    await startCheckout();
+    await startCheckout();
+
+    const first = mockAcquirePendingSession.mock.calls[0][0].session;
+    const second = mockAcquirePendingSession.mock.calls[1][0].session;
+    expect(second.checkoutId).not.toBe(first.checkoutId);
+    expect(mockOpenPage).toHaveBeenNthCalledWith(2, second, {
+      email: 'a@example.com',
+      replacedSession: first,
+    });
+  });
+
+  it('starts a fresh attempt even when the previous plan and link match', async () => {
     mockGetPendingSession.mockResolvedValue(previousSession);
 
     await startCheckout();
 
     expect(mockAcquirePendingSession).toHaveBeenCalledTimes(1);
-    expect(mockOpenPage).toHaveBeenCalledWith(previousSession, {
+    const { session } = mockAcquirePendingSession.mock.calls[0][0];
+    expect(session.checkoutId).not.toBe(previousSession.checkoutId);
+    expect(mockOpenPage).toHaveBeenCalledWith(session, {
       email: 'a@example.com',
-      replacedSession: undefined,
+      replacedSession: previousSession,
     });
     expect(mockShowWaitingDialog).toHaveBeenCalledWith({
-      session: previousSession,
+      session,
     });
   });
 
-  it('keeps the pending checkout when another link is selected while it remains payable', async () => {
+  it('uses the newly selected plan instead of a payable previous plan', async () => {
     const otherSession = {
       ...previousSession,
       subscriptionPeriod: 'P1M' as const,
@@ -340,16 +367,22 @@ describe('startPrimeHostedCardCheckout', () => {
     await startCheckout();
 
     expect(mockAcquirePendingSession).toHaveBeenCalledTimes(1);
-    expect(mockOpenPage).toHaveBeenCalledWith(otherSession, {
+    const { session } = mockAcquirePendingSession.mock.calls[0][0];
+    expect(session).toMatchObject({
+      subscriptionPeriod: 'P1Y',
+      packageId: '$rc_annual',
+      checkoutUrl,
+    });
+    expect(mockOpenPage).toHaveBeenCalledWith(session, {
       email: 'a@example.com',
-      replacedSession: undefined,
+      replacedSession: otherSession,
     });
     expect(mockShowWaitingDialog).toHaveBeenCalledWith({
-      session: otherSession,
+      session,
     });
   });
 
-  it('keeps a reused checkout when opening it fails', async () => {
+  it('keeps the new attempt recoverable when replacing an old checkout fails to open', async () => {
     mockGetPendingSession.mockResolvedValue(previousSession);
     mockOpenPage.mockRejectedValueOnce(new Error('blocked'));
 
@@ -370,16 +403,21 @@ describe('startPrimeHostedCardCheckout', () => {
     expect(mockToastError).toHaveBeenCalled();
   });
 
-  it('preserves a session opened by another caller when one concurrent opener fails', async () => {
+  it('allows a fresh attempt after a coalesced start fails', async () => {
     mockOpenPage.mockRejectedValueOnce(new Error('blocked'));
 
     await Promise.all([startCheckout(), startCheckout()]);
 
+    const failedSession = mockAcquiredSessions.get('user-1');
+    expect(mockOpenPage).toHaveBeenCalledTimes(1);
+    await startCheckout();
+
     const session = mockAcquiredSessions.get('user-1');
     expect(session).toBeDefined();
+    expect(session?.checkoutId).not.toBe(failedSession?.checkoutId);
     expect(mockOpenPage).toHaveBeenNthCalledWith(2, session, {
       email: 'a@example.com',
-      replacedSession: undefined,
+      replacedSession: failedSession,
     });
     expect(mockClearPendingSession).not.toHaveBeenCalled();
     expect(mockShowWaitingDialog).toHaveBeenCalledWith({ session });
@@ -394,59 +432,5 @@ describe('startPrimeHostedCardCheckout', () => {
     expect(mockOpenPage).not.toHaveBeenCalled();
     expect(mockClearPendingSession).not.toHaveBeenCalled();
     expect(mockToastError).toHaveBeenCalled();
-  });
-});
-
-describe('resumePendingPrimeHostedCardCheckout', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockIsUserCurrent.mockResolvedValue(true);
-  });
-
-  it('keeps the payable hosted checkout monitored before another embedded attempt', async () => {
-    mockGetPendingSession.mockResolvedValue(previousSession);
-
-    await expect(resumePendingPrimeHostedCardCheckout('user-1')).resolves.toBe(
-      true,
-    );
-
-    expect(mockClearPendingSession).not.toHaveBeenCalled();
-    expect(mockShowWaitingDialog).toHaveBeenCalledWith({
-      session: previousSession,
-    });
-  });
-
-  it('does nothing without a user or a pending checkout', async () => {
-    await expect(resumePendingPrimeHostedCardCheckout(undefined)).resolves.toBe(
-      false,
-    );
-    mockGetPendingSession.mockResolvedValue(undefined);
-    await expect(resumePendingPrimeHostedCardCheckout('user-1')).resolves.toBe(
-      false,
-    );
-
-    expect(mockClearPendingSession).not.toHaveBeenCalled();
-  });
-
-  it('blocks another checkout when the pending session cannot be read', async () => {
-    mockGetPendingSession.mockRejectedValue(new Error('bg unavailable'));
-
-    await expect(
-      resumePendingPrimeHostedCardCheckout('user-1'),
-    ).rejects.toThrow('bg unavailable');
-    expect(mockClearPendingSession).not.toHaveBeenCalled();
-    expect(mockShowWaitingDialog).not.toHaveBeenCalled();
-  });
-
-  it('does not resume the previous user after the OneKey ID changes', async () => {
-    mockGetPendingSession.mockResolvedValue(previousSession);
-    mockIsUserCurrent.mockResolvedValue(false);
-
-    await expect(
-      resumePendingPrimeHostedCardCheckout('user-1'),
-    ).rejects.toThrow('user changed');
-
-    expect(mockClearPendingSession).not.toHaveBeenCalled();
-    expect(mockShowWaitingDialog).not.toHaveBeenCalled();
   });
 });

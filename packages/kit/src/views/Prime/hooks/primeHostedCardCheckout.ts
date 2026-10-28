@@ -37,8 +37,8 @@ import {
   getPrimeWebPurchaseLinkConfig,
 } from './primeWebPurchaseLink';
 
-import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
 import type { IPrimeEmbeddedCheckoutFallbackTrigger } from '../purchasesSdk/primeEmbeddedCheckoutFallback';
+import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
 import type { IntlShape } from 'react-intl';
 
 export type IPrimeHostedCardCheckoutParams = {
@@ -94,9 +94,27 @@ async function handOffCardCheckoutToExpandTab({
   closeExtensionPopupAfterExpandTabOpen();
 }
 
+// Coalesce rapid starts in this UI runtime until the checkout is opened.
+// After that, a new explicit intent replaces the persisted pending attempt.
+const startingCheckouts = new Map<string | undefined, Promise<void>>();
+
+export function startPrimeHostedCardCheckout(
+  params: IPrimeHostedCardCheckoutParams,
+): Promise<void> {
+  const pending = startingCheckouts.get(params.onekeyUserId);
+  if (pending) {
+    return pending;
+  }
+  const completion = openPrimeHostedCardCheckout(params).finally(() => {
+    startingCheckouts.delete(params.onekeyUserId);
+  });
+  startingCheckouts.set(params.onekeyUserId, completion);
+  return completion;
+}
+
 // Opens the RevenueCat hosted card checkout (Web Purchase Link) and waits for
 // RevenueCat to confirm the purchase. Errors end in a toast, never a throw.
-export async function startPrimeHostedCardCheckout({
+async function openPrimeHostedCardCheckout({
   intl,
   onekeyUserId,
   email,
@@ -201,7 +219,8 @@ export async function startPrimeHostedCardCheckout({
       checkoutUrl,
       startedAt: Date.now(),
     };
-    // Independent extension surfaces must acquire the same payable session.
+    // Keep pending tracking for returns and late entitlement recovery, while
+    // replacing the previous attempt with this intent's resolved package.
     const { session, reused, replacedSession } =
       await backgroundApiProxy.simpleDb.prime.acquireWebCheckoutPendingSession({
         session: candidate,
@@ -292,28 +311,6 @@ export async function fallbackToPrimeHostedCardCheckout({
     return;
   }
   await startPrimeHostedCardCheckout({ ...params, fallbackFrom: trigger });
-}
-
-// A hosted page may still accept payment after its waiting dialog closes.
-// Resume that checkout instead of losing its monitor or starting a second one.
-export async function resumePendingPrimeHostedCardCheckout(
-  onekeyUserId: string | undefined,
-): Promise<boolean> {
-  if (!onekeyUserId) {
-    return false;
-  }
-  const session =
-    await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
-      onekeyUserId,
-    });
-  if (!session) {
-    return false;
-  }
-  if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
-    throw new OneKeyLocalError('Prime purchase user changed');
-  }
-  showPrimeWebCheckoutWaitingDialog({ session });
-  return true;
 }
 
 const FALLBACK_TRIGGERS = new Set<string>([

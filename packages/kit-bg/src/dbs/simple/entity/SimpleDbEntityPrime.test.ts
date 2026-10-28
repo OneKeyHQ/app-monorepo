@@ -3955,7 +3955,7 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
     ...overrides,
   });
 
-  test('preserves the payable session per user and drops expired ones', async () => {
+  test('replaces a previous attempt for the same plan and drops expired ones', async () => {
     const expired = buildSession({
       checkoutId: 'old',
       onekeyUserId: 'user-2',
@@ -3966,24 +3966,24 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
     });
 
     await entity.acquireWebCheckoutPendingSession({ session: buildSession() });
-    const reused = await entity.acquireWebCheckoutPendingSession({
+    const acquired = await entity.acquireWebCheckoutPendingSession({
       session: buildSession({ checkoutId: 'checkout-2' }),
     });
 
     expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
       'user-1': buildSession({
-        checkoutId: 'checkout-1',
+        checkoutId: 'checkout-2',
         startedAt: expect.any(Number),
       }),
     });
-    expect(reused.reused).toBe(true);
-    expect(reused.session.checkoutId).toBe('checkout-1');
+    expect(acquired.reused).toBe(false);
+    expect(acquired.replacedSession?.checkoutId).toBe('checkout-1');
     await expect(
       entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-2' }),
     ).resolves.toBeUndefined();
   });
 
-  test('atomically gives concurrent plans the same pending session', async () => {
+  test('atomically replaces the current attempt with the newly selected plan', async () => {
     const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
     const annual = buildSession();
     const monthly = buildSession({
@@ -4001,14 +4001,31 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
 
     expect(acquisitions).toEqual([
       { session: annual, reused: false, replacedSession: undefined },
-      { session: annual, reused: true },
+      { session: monthly, reused: false, replacedSession: annual },
     ]);
     expect(
       getPersisted().webCheckoutPendingSessionByUserId?.['user-1'],
-    ).toEqual(annual);
+    ).toEqual(monthly);
   });
 
-  test('keeps different accounts independent and only replaces a different environment', async () => {
+  test('deduplicates concurrent acquisition of the same attempt', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
+    const session = buildSession();
+    await expect(
+      Promise.all([
+        entity.acquireWebCheckoutPendingSession({ session }),
+        entity.acquireWebCheckoutPendingSession({ session }),
+      ]),
+    ).resolves.toEqual([
+      { session, reused: false, replacedSession: undefined },
+      { session, reused: true },
+    ]);
+    expect(
+      getPersisted().webCheckoutPendingSessionByUserId?.['user-1'],
+    ).toEqual(session);
+  });
+
+  test('keeps different accounts independent when replacing the environment', async () => {
     const original = buildSession();
     const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
       webCheckoutPendingSessionByUserId: { 'user-1': original },
@@ -4076,6 +4093,25 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
       }),
     ).resolves.toBe(false);
     expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({});
+  });
+
+  test('an old settlement cannot clear a newly acquired attempt', async () => {
+    const oldSession = buildSession();
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': oldSession },
+    });
+    const current = buildSession({ checkoutId: 'checkout-2' });
+    await entity.acquireWebCheckoutPendingSession({ session: current });
+
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: oldSession.checkoutId,
+      }),
+    ).resolves.toBe(false);
+    expect(
+      getPersisted().webCheckoutPendingSessionByUserId?.['user-1'],
+    ).toEqual(current);
   });
 
   test('records extension tabs only for the current checkout', async () => {

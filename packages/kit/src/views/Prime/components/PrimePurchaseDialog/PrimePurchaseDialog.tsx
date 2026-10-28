@@ -274,11 +274,8 @@ export function usePrimePurchaseCallback({
   const intl = useIntl();
 
   const purchaseByWebviewUnchecked = usePurchasePackageWebview();
-  const {
-    purchaseByHostedLink,
-    fallbackToHostedLink,
-    resumePendingHostedCheckout,
-  } = usePrimeWebCheckoutPurchase();
+  const { purchaseByHostedLink, fallbackToHostedLink } =
+    usePrimeWebCheckoutPurchase();
   const { purchaseByCrypto: purchaseByCryptoUnchecked } =
     usePrimeInfiniPurchase({ networkId });
 
@@ -316,9 +313,6 @@ export function usePrimePurchaseCallback({
         | undefined;
       try {
         const purchaseUserId = user?.onekeyUserId;
-        if (await resumePendingHostedCheckout()) {
-          return;
-        }
         beginStripePaymentElementAttempt();
         let purchaseResult:
           | Awaited<ReturnType<NonNullable<typeof purchasePackageWeb>>>
@@ -366,7 +360,6 @@ export function usePrimePurchaseCallback({
       }
     },
     [
-      resumePendingHostedCheckout,
       fallbackToHostedLink,
       intl.locale,
       purchasePackageWeb,

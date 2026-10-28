@@ -2723,10 +2723,9 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
         Date.now(),
       );
       const previousSession = sessions[session.onekeyUserId];
-      if (
-        previousSession?.platform === session.platform &&
-        previousSession.isSandbox === session.isSandbox
-      ) {
+      // Only a retry of the same attempt may reuse its payable session. A
+      // fresh intent must keep its current plan, currency and environment.
+      if (previousSession?.checkoutId === session.checkoutId) {
         acquisition = { session: previousSession, reused: true };
         return rawData ?? {};
       }

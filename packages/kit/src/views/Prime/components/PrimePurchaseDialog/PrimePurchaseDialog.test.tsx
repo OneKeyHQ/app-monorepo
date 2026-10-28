@@ -123,6 +123,7 @@ const mockSupersedePaymentSession = jest.fn<
 >();
 let mockPendingChoice: 'replace' | 'resume' | 'cancel' = 'resume';
 const mockPurchasePackageWeb = jest.fn(async () => undefined);
+const mockGetHostedPendingSession = jest.fn<Promise<unknown>, []>();
 const mockGooglePlayIsAvailable = jest.fn(async () => false);
 const mockPlatformEnv = {
   isDev: false,
@@ -174,6 +175,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     servicePrime: { getLocalUserInfo: () => mockGetLocalUserInfo() },
     simpleDb: {
       prime: {
+        getWebCheckoutPendingSession: () => mockGetHostedPendingSession(),
         supersedeInfiniPendingPaymentSession: (
           ...args: Parameters<typeof mockSupersedePaymentSession>
         ) => mockSupersedePaymentSession(...args),
@@ -353,7 +355,6 @@ jest.mock('./usePurchasePackageWebview', () => ({
 
 const mockPurchaseByHostedLink = jest.fn(async () => undefined);
 const mockFallbackToHostedLink = jest.fn(async () => undefined);
-const mockResumePendingHostedCheckout = jest.fn(async () => false);
 const mockCardPaymentErrorToast = jest.fn<void, [unknown]>();
 let mockCardCheckoutMode: 'embedded' | 'hostedLink' = 'embedded';
 
@@ -368,7 +369,6 @@ jest.mock('../../hooks/usePrimeWebCheckoutPurchase', () => ({
   usePrimeWebCheckoutPurchase: () => ({
     purchaseByHostedLink: mockPurchaseByHostedLink,
     fallbackToHostedLink: mockFallbackToHostedLink,
-    resumePendingHostedCheckout: mockResumePendingHostedCheckout,
   }),
 }));
 
@@ -1301,25 +1301,25 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       expect(mockPurchaseByHostedLink).not.toHaveBeenCalled();
     });
 
-    it('resumes a payable hosted checkout without starting another embedded payment', async () => {
-      mockResumePendingHostedCheckout.mockResolvedValueOnce(true);
+    it('starts a new embedded payment without gating on the old hosted session', async () => {
+      mockGetHostedPendingSession.mockResolvedValue({ checkoutId: 'previous' });
 
       await selectCard();
 
-      expect(mockResumePendingHostedCheckout).toHaveBeenCalledTimes(1);
-      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+      expect(mockGetHostedPendingSession).not.toHaveBeenCalled();
+      expect(mockPurchasePackageWeb).toHaveBeenCalledWith(
+        expect.objectContaining({ subscriptionPeriod: 'P1M', currency: 'EUR' }),
+      );
       expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
     });
 
-    it('does not start another payment when reading the hosted session fails', async () => {
-      const error = new Error('bg unavailable');
-      mockResumePendingHostedCheckout.mockRejectedValueOnce(error);
-
+    it('starts another embedded attempt after leaving and re-entering', async () => {
+      await selectCard();
       await selectCard();
 
-      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+      expect(mockPurchasePackageWeb).toHaveBeenCalledTimes(2);
+      expect(mockGetHostedPendingSession).not.toHaveBeenCalled();
       expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
-      expect(mockCardPaymentErrorToast).toHaveBeenCalledWith(error);
     });
   });
 });

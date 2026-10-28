@@ -10,7 +10,6 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { getPrimePaymentApiKey } from '../../hooks/getPrimePaymentApiKey';
-import { resumePendingPrimeHostedCardCheckout } from '../../hooks/primeHostedCardCheckout';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
@@ -33,9 +32,6 @@ export function usePurchasePackageWebview() {
         return;
       }
       navigation.popStack();
-      if (await resumePendingPrimeHostedCardCheckout(user?.onekeyUserId)) {
-        return;
-      }
       const { apiKey, isSandboxKey } = await getPrimePaymentApiKey({
         apiKeyType: 'web',
       });
