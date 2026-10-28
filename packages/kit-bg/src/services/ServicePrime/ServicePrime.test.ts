@@ -3463,6 +3463,31 @@ describe('ServicePrime invalid-token handling', () => {
       expect(takeRequestAuthTokenOfError(rawError)).toBe('');
     });
 
+    it('keeps the bind path when an SNI error records only the service origin', async () => {
+      const config = {
+        url: '/prime/v1/account/identities/oauth/bind',
+        method: 'post',
+        headers: { 'X-Onekey-Request-Token': REQUEST_TOKEN },
+      };
+      await mockCapturedInterceptors.requestOnFulfilled?.(config);
+      const error = {
+        data: { code: 90_012, requestUrl: 'https://test.onekey.so' },
+      };
+      stashRequestAuthTokenOfError({
+        error,
+        requestAuthToken: REQUEST_TOKEN,
+        requestConfig: config,
+      });
+      await expect(
+        mockCapturedInterceptors.responseOnRejected?.(error),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      expect(bannedHandlerImpl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestUrl: '/prime/v1/account/identities/oauth/bind',
+        }),
+      );
+    });
+
     it('rejects a banned body even when automatic error handling was disabled', async () => {
       const response = {
         data: { code: 90_012, data: { status: 'merge_required' } },

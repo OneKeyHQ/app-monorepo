@@ -85,6 +85,7 @@ export default class ServiceBase {
         stashOneKeyIdRequestContext(config, {
           onekeyUserId: user.onekeyUserId,
           authStateGeneration,
+          requestUrl: config.url,
         });
         // Restrict OneKey ID service calls, leaving independent wallet APIs alone.
         if (
@@ -188,7 +189,13 @@ export default class ServiceBase {
               await this.backgroundApi.servicePrime.handlePrimeUserBanned({
                 requestAuthToken,
                 requestContext,
-                requestUrl: errorData?.data?.requestUrl || failedConfig?.url,
+                // SNI errors may record only the service origin as requestUrl.
+                // Preserve the original path to distinguish an incoming OAuth
+                // identity ban from a ban of the signed-in legacy account.
+                requestUrl:
+                  requestContext?.requestUrl ||
+                  failedConfig?.url ||
+                  errorData?.data?.requestUrl,
               });
             } catch {
               // A local state failure must not hide the server restriction.
