@@ -205,9 +205,8 @@ const WatchlistTokenSelectorList = memo(
         dataCacheRef,
       });
 
-    const watchlistKey = (watchListData ?? [])
-      .map(getMarketWatchlistKey)
-      .join('\n');
+    const watchlistKey =
+      watchListData?.map(getMarketWatchlistKey).join('\n') ?? '';
     const hasCachedEmptyResult =
       dataCacheRef?.current?.emptyWatchlistKey === watchlistKey;
     useEffect(() => {
