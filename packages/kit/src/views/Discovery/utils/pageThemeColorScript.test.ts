@@ -1,15 +1,9 @@
 /** @jest-environment jsdom */
-// Covers the injected page script's scroll throttle, which decides how often
-// the page is measured. Each read hit-tests the bottom once and the top edge
-// at several x positions (PAGE_THEME_HIT_TESTS_PER_READ). Counting posted
-// messages would miss reads whose result is unchanged (the script drops
-// duplicate reports).
-import {
-  PAGE_THEME_COLOR_SCRIPT,
-  PAGE_THEME_HIT_TESTS_PER_READ,
-} from './pageThemeColor';
+// Scroll reads only measure the bottom edge. The top tint remains locked;
+// counting hit-tests also covers reads whose reported color did not change.
+import { PAGE_THEME_COLOR_SCRIPT } from './pageThemeColor';
 
-const CALLS_PER_READ = PAGE_THEME_HIT_TESTS_PER_READ;
+const CALLS_PER_READ = 1;
 
 const SETTLE_MS = 150;
 const MAX_WAIT_MS = 1000;

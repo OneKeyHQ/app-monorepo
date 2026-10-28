@@ -48,10 +48,6 @@ const TOP_SAMPLE_X_RATIOS = [0.25, 0.5, 0.75];
 // Anti-aliasing can disagree by a few levels. A button and the page cannot.
 const COLOR_CHANNEL_DELTA = 16;
 
-// One bottom hit-test plus one per top-edge x. The scroll-throttle test counts
-// elementsFromPoint calls, so it has to move with this.
-export const PAGE_THEME_HIT_TESTS_PER_READ = 1 + TOP_SAMPLE_X_RATIOS.length;
-
 // Accept only opaque rgb()/rgba() values (the script normalizes to these), so
 // a page can't feed arbitrary strings into native styles.
 const RGB_PATTERN =
@@ -249,15 +245,14 @@ export function tryDispatchPageThemeMessage(
 // the background behind the top edge: three samples, and only a layer about as
 // wide as the viewport can win, so a button or small banner cannot. A wide
 // linear-gradient counts; its color is the stop at that point, which a
-// transparent background-color would miss. body/html, then
-// <meta name="theme-color">, stay fallbacks (Safari 26 no longer uses
-// theme-color). The bottom color is separate: it can differ from the top (a
-// colored banner over a gray page, or a dark container over a white body) and
-// follows scrolling, so a sheet at the bottom brings its own color.
-// Re-reads after a short delay (late SPA paint), when the system color scheme
-// changes, and when the page switches its own theme (class/style/data-*
-// changes on <html>/<body>, or a new theme-color), like Safari tracking a
-// site's light/dark toggle.
+// transparent background-color would miss. Matching <meta name="theme-color">,
+// then body/html, are fallbacks. The bottom color is separate: it can differ
+// from the top (a colored banner over a gray page, or a dark container over
+// a white body) and follows scrolling, so a bottom sheet brings its own color.
+// The top color is stable while scrolling. Each page gets an initial read and
+// at most one late-paint correction, canceled once scrolling starts. A route
+// or theme change starts a new top-color read; the bottom keeps following the
+// viewport independently.
 export const PAGE_THEME_COLOR_SCRIPT = `(function () {
   try {
     if (window.__onekeyReadPageTheme) {
@@ -526,19 +521,13 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       }
       return rgbString(stop.channels);
     };
-    // An unknown angle uses only its first stop. A later opaque stop must not
-    // stand in for a transparent one.
-    var opaqueFirstStop = function (args) {
-      if (!args.length) return '';
-      return opaqueStopColor(parseStop(args[0]));
-    };
     var clamp01 = function (n) {
       if (n < 0) return 0;
       if (n > 1) return 1;
       return n;
     };
-    // Repeating gradients are clamped to their first cycle. An angle this
-    // does not understand (45deg, to bottom right) uses the first stop.
+    // Only axis-aligned, opaque gradients with unambiguous stops are sampled.
+    // Unsupported syntax must not turn into an unrelated first-stop color.
     var sampleLinearGradient = function (body, el, x, y) {
       var args = splitTop(body);
       if (!args.length) return '';
@@ -546,21 +535,27 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       var start = 0;
       if (isGradientDirection(args[0])) {
         axis = gradientAxis(args[0]);
-        if (!axis) return opaqueFirstStop(args.slice(1));
+        if (!axis) return '';
         start = 1;
       }
       var stops = [];
       for (var i = start; i < args.length; i++) {
         var stop = parseStop(args[i]);
-        if (stop) stops.push(stop);
+        if (!stop || !isFinite(stop.alpha) || stop.alpha < 1) return '';
+        if (stop.pos && !isFinite(stop.pos.value)) return '';
+        stops.push(stop);
       }
-      if (!stops.length) return '';
+      if (stops.length < 2) return '';
       var rect = el.getBoundingClientRect();
+      if (!(rect.width > 0 && rect.height > 0)) return '';
       var horizontal = axis === 'x' || axis === 'x-reverse';
       var positions = stopPositions(
         stops,
         horizontal ? rect.width : rect.height,
       );
+      for (var j = 1; j < positions.length; j++) {
+        if (positions[j] < positions[j - 1]) return '';
+      }
       var yRatio = rect.height > 0 ? clamp01((y - rect.top) / rect.height) : 0;
       var xRatio = rect.width > 0 ? clamp01((x - rect.left) / rect.width) : 0;
       var t =
@@ -573,46 +568,99 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
               : 1 - xRatio;
       return opaqueStopColor(colorAtStop(stops, positions, t));
     };
-    var gradientBody = function (layer) {
-      var text = layer.trim();
-      var lower = text.toLowerCase();
-      var prefix = '';
-      if (lower.indexOf('repeating-linear-gradient(') === 0) {
-        prefix = 'repeating-linear-gradient(';
-      } else if (lower.indexOf('linear-gradient(') === 0) {
-        prefix = 'linear-gradient(';
-      }
-      if (!prefix || text.charAt(text.length - 1) !== ')') return '';
-      return text.slice(prefix.length, text.length - 1);
-    };
-    // The top painted layer wins. A url() or a non-linear gradient hides
-    // whatever is listed after it, and those pixels are not readable here.
-    var gradientAt = function (image, el, x, y) {
-      if (!image || image === 'none') return '';
+    var gradientAt = function (image, el, style, x, y) {
       var layers = splitTop(image);
-      for (var i = 0; i < layers.length; i++) {
-        var layer = layers[i].trim();
-        if (!layer || layer.toLowerCase() === 'none') continue;
-        var body = gradientBody(layer);
-        if (!body) return '';
-        var color = sampleLinearGradient(body, el, x, y);
-        if (color) return color;
+      if (layers.length !== 1) return '';
+      var layer = layers[0].trim();
+      var prefix = 'linear-gradient(';
+      if (layer.toLowerCase().indexOf(prefix) !== 0 || layer.slice(-1) !== ')') {
+        return '';
       }
-      return '';
+      // The interpolation uses the element box. A positioned, resized or
+      // transformed background needs geometry this sampler cannot reproduce.
+      var size = style.backgroundSize;
+      var position = style.backgroundPosition;
+      if (size && size !== 'auto' && size !== 'auto auto' && size !== '100% 100%') {
+        return '';
+      }
+      if (position && position !== '0% 0%' && position !== '0px 0px') return '';
+      if (style.backgroundOrigin &&
+          style.backgroundOrigin !== 'padding-box' &&
+          style.backgroundOrigin !== 'border-box') return '';
+      if (style.backgroundClip &&
+          style.backgroundClip !== 'border-box' &&
+          style.backgroundClip !== 'padding-box') return '';
+      if (style.transform && style.transform !== 'none') return '';
+      if (style.backgroundAttachment && style.backgroundAttachment !== 'scroll') return '';
+      if (parseFloat(style.borderTopWidth) > 0 ||
+          parseFloat(style.borderRightWidth) > 0 ||
+          parseFloat(style.borderBottomWidth) > 0 ||
+          parseFloat(style.borderLeftWidth) > 0) return '';
+      return sampleLinearGradient(layer.slice(prefix.length, -1), el, x, y);
+    };
+    // Empty means transparent; null means painted content we cannot infer.
+    // Never look through an unknown wide surface to a convenient solid below.
+    var topLayerColor = function (el, x, y) {
+      var style = getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden' ||
+          (style.opacity !== '' && Number(style.opacity) === 0)) return '';
+      if (style.opacity && Number(style.opacity) < 1) return null;
+      if (style.filter && style.filter !== 'none') return null;
+      if (style.backdropFilter && style.backdropFilter !== 'none') return null;
+      if (style.maskImage && style.maskImage !== 'none') return null;
+      var ancestor = el.parentElement;
+      while (ancestor) {
+        var parentStyle = getComputedStyle(ancestor);
+        if (parentStyle.opacity && Number(parentStyle.opacity) === 0) return '';
+        if ((parentStyle.opacity && Number(parentStyle.opacity) < 1) ||
+            (parentStyle.filter && parentStyle.filter !== 'none') ||
+            (parentStyle.backdropFilter && parentStyle.backdropFilter !== 'none') ||
+            (parentStyle.maskImage && parentStyle.maskImage !== 'none')) return null;
+        ancestor = ancestor.parentElement;
+      }
+      if (/^(IMG|VIDEO|CANVAS|IFRAME|SVG|OBJECT|EMBED)$/.test(el.tagName.toUpperCase())) return null;
+      var image = style.backgroundImage;
+      if (image && image !== 'none') {
+        return gradientAt(image, el, style, x, y) || null;
+      }
+      var solid = opaqueColor(style.backgroundColor);
+      if (solid) return solid;
+      var color = toRgb(style.backgroundColor);
+      var alpha = /rgba\\([^,]+,[^,]+,[^,]+,\\s*([\\d.]+)\\s*\\)/.exec(color);
+      return !color || (alpha && Number(alpha[1]) === 0) ? '' : null;
     };
     var colorAtTopPoint = function (x, y) {
       var elements = document.elementsFromPoint(x, y) || [];
       for (var i = 0; i < elements.length; i++) {
         var el = elements[i];
-        if (!el || el === document.body || el === document.documentElement) {
-          return '';
+        if (!el) return '';
+        if (el === document.body || el === document.documentElement) {
+          // A document gradient must pass the same three-point agreement.
+          // Plain document colors remain the fallback after theme-color.
+          var image = getComputedStyle(el).backgroundImage;
+          if (image && image !== 'none') return topLayerColor(el, x, y);
+          continue;
         }
+        // Mobile action buttons can span the viewport and cover all samples.
+        // Exclude their painted descendants too, but keep the surrounding bar.
+        if (el.closest('a[href], button, input, select, textarea, summary, [role~="button"], [role~="link"]')) continue;
         if (!isWideEnough(el)) continue;
-        var style = getComputedStyle(el);
-        var solid = opaqueColor(style.backgroundColor);
-        if (solid) return solid;
-        var gradient = gradientAt(style.backgroundImage, el, x, y);
-        if (gradient) return gradient;
+        var color = topLayerColor(el, x, y);
+        if (color !== '') return color;
+      }
+      return '';
+    };
+    var documentTopColor = function () {
+      var el = document.body || document.documentElement;
+      while (el && el.nodeType === 1) {
+        // Document fallbacks are solid base colors, not a fourth, single-point
+        // gradient sample that could bypass the three-point agreement rule.
+        var image = getComputedStyle(el).backgroundImage;
+        if (image && image !== 'none') return '';
+        var color = topLayerColor(el, window.innerWidth / 2, SAMPLE_Y);
+        if (color === null) return '';
+        if (color) return color;
+        el = el.parentElement;
       }
       return '';
     };
@@ -626,6 +674,9 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
           colorAtTopPoint(window.innerWidth * SAMPLE_X[i], SAMPLE_Y),
         );
       }
+      // An unreadable image/filter is not an empty vote. Reject the group
+      // rather than allowing two other points to hide that uncertainty.
+      if (samples.indexOf(null) !== -1) return '';
       var present = [];
       for (var j = 0; j < samples.length; j++) {
         if (samples[j]) present.push({ index: j, color: samples[j] });
@@ -656,60 +707,120 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       }
       return present[0].color;
     };
-    var lastReport;
-    var read = function () {
-      var bodyColor = backgroundOf(document.body || document.documentElement);
-      var color = agreedTopColor() || bodyColor;
-      var bottomColor =
-        colorAt(window.innerWidth / 2, window.innerHeight - 2) || bodyColor;
+    var readTop = function () {
+      var color = agreedTopColor();
       if (!color) {
         var metas = document.querySelectorAll('meta[name="theme-color"]');
         for (var i = 0; i < metas.length; i++) {
           var media = metas[i].getAttribute('media');
           if (!media || window.matchMedia(media).matches) {
-            color = toRgb(metas[i].getAttribute('content'));
-            break;
+            color = opaqueColor(metas[i].getAttribute('content'));
+            if (color) break;
           }
         }
       }
-      var report = color + '|' + bottomColor;
+      return color || documentTopColor();
+    };
+    var lastReport;
+    var topColor = '';
+    var read = function (updateTop) {
+      if (updateTop) topColor = readTop();
+      var bodyColor = backgroundOf(document.body || document.documentElement);
+      var bottomColor =
+        colorAt(window.innerWidth / 2, window.innerHeight - 2) || bodyColor;
+      var report = topColor + '|' + bottomColor;
       if (report === lastReport) return;
       lastReport = report;
       window.ReactNativeWebView &&
         window.ReactNativeWebView.postMessage(
           JSON.stringify({
             type: '${PAGE_THEME_MESSAGE_TYPE}',
-            color: color,
+            color: topColor,
             bottomColor: bottomColor,
           }),
         );
     };
-    // Re-injection (SPA navigation) and restores from the back-forward cache
-    // land on a document that already reported: the app may be showing
-    // another page's color by now, so report again even if unchanged, and
-    // re-read once the new route has painted.
+    var topCorrectionTimer;
+    var pending;
+    var cancelTopCorrection = function () {
+      clearTimeout(topCorrectionTimer);
+      topCorrectionTimer = undefined;
+    };
+    var startTopRead = function () {
+      cancelTopCorrection();
+      read(true);
+      topCorrectionTimer = setTimeout(function () {
+        topCorrectionTimer = undefined;
+        read(true);
+      }, 800);
+    };
+    var scheme = window.matchMedia('(prefers-color-scheme: dark)');
+    // Layout classes such as "scrolled" must not unlock the top color. Watch
+    // explicit theme markers and color-scheme instead of arbitrary DOM changes.
+    var themeKey = function () {
+      var parts = [scheme.matches];
+      var roots = [document.documentElement, document.body];
+      for (var i = 0; i < roots.length; i++) {
+        var el = roots[i];
+        if (!el) continue;
+        var classes = (el.getAttribute('class') || '').split(/\\s+/).filter(function (name) {
+          return /(^|[-_])(dark|light)([-_]|$)/i.test(name);
+        }).sort();
+        parts.push(classes.join(' '), el.getAttribute('data-theme'),
+          el.getAttribute('data-color-mode'), el.getAttribute('data-mode'),
+          getComputedStyle(el).colorScheme);
+      }
+      var metas = document.querySelectorAll('meta[name="theme-color"]');
+      for (var j = 0; j < metas.length; j++) {
+        var media = metas[j].getAttribute('media');
+        if (!media || window.matchMedia(media).matches) {
+          parts.push(metas[j].getAttribute('content'));
+        }
+      }
+      return JSON.stringify(parts);
+    };
+    var lastThemeKey;
+    var pageKey = function () {
+      var hash = window.location.hash;
+      var routeHash = hash.indexOf('#/') === 0 || hash.indexOf('#!/') === 0;
+      return window.location.href.split('#')[0] + (routeHash ? hash : '');
+    };
+    var lastPageKey;
+    // Re-injection re-reports even unchanged colors. Only a different route
+    // unlocks the top; anchors and back-forward cache restores keep its tint.
     var refresh = function () {
       lastReport = undefined;
-      read();
-      setTimeout(read, 800);
+      var nextPageKey = pageKey();
+      if (nextPageKey !== lastPageKey) {
+        clearTimeout(pending);
+        pending = null;
+        lastPageKey = nextPageKey;
+        lastThemeKey = themeKey();
+        startTopRead();
+      } else {
+        read(false);
+      }
     };
     window.__onekeyReadPageTheme = refresh;
     window.addEventListener('pageshow', function (event) {
       if (event.persisted) refresh();
     });
-    read();
-    setTimeout(read, 800);
-    var scheme = window.matchMedia('(prefers-color-scheme: dark)');
-    scheme.addEventListener && scheme.addEventListener('change', read);
-    // Throttled (at most one read per 300ms, trailing): theme toggles touch
-    // several attributes at once and the new colors may land a frame or a
-    // transition later, while pages that mutate constantly still get reads.
-    var pending;
+    refresh();
+    scheme.addEventListener && scheme.addEventListener('change', function () {
+      lastThemeKey = themeKey();
+      startTopRead();
+    });
     var schedule = function () {
       if (pending) return;
       pending = setTimeout(function () {
         pending = null;
-        read();
+        var nextThemeKey = themeKey();
+        if (nextThemeKey !== lastThemeKey) {
+          lastThemeKey = nextThemeKey;
+          startTopRead();
+        } else {
+          read(false);
+        }
       }, 300);
     };
     // What sits at the bottom of the viewport changes as the page scrolls:
@@ -732,10 +843,12 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       scrollTimer = setTimeout(function () {
         scrollTimer = undefined;
         scrollBurstStartedAt = undefined;
-        read();
+        read(false);
       }, delay);
     };
     var onScroll = function () {
+      // A late first-screen read must not sample a section reached by scrolling.
+      cancelTopCorrection();
       var now = Date.now();
       if (scrollBurstStartedAt === undefined) {
         scrollBurstStartedAt = now;
@@ -743,7 +856,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       clearTimeout(scrollTimer);
       if (now - scrollBurstStartedAt >= SCROLL_MAX_WAIT_MS) {
         scrollBurstStartedAt = now;
-        read();
+        read(false);
       }
       scheduleRead(SCROLL_SETTLE_MS);
     };
@@ -769,7 +882,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
         new MutationObserver(function (mutations) {
           for (var i = 0; i < mutations.length; i++) {
             var m = mutations[i];
-            if (isThemeMeta(m.target)) return schedule();
+            if (isThemeMeta(m.target) || m.attributeName === 'name') return schedule();
             var nodes = [].concat(
               [].slice.call(m.addedNodes),
               [].slice.call(m.removedNodes),
@@ -782,7 +895,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
           childList: true,
           subtree: true,
           attributes: true,
-          attributeFilter: ['content'],
+          attributeFilter: ['content', 'media', 'name'],
         });
     }
   } catch (e) {}
