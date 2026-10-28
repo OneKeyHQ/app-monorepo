@@ -653,12 +653,24 @@ describe('PasswordVerify biometric safety guard', () => {
 });
 
 describe('PasswordVerify retry feedback', () => {
+  const platformEnv = jest.requireMock<
+    typeof import('@onekeyhq/shared/src/platformEnv')
+  >('@onekeyhq/shared/src/platformEnv').default;
+  const nativeFlags = {
+    isNative: platformEnv.isNative,
+    isNativeIOS: platformEnv.isNativeIOS,
+  };
+  function onDesktop() {
+    Object.assign(platformEnv, { isNative: false, isNativeIOS: false });
+  }
+
   beforeEach(() => {
     jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
     jest.clearAllMocks();
     bgCheck().mockResolvedValue(false);
   });
   afterEach(() => {
+    Object.assign(platformEnv, nativeFlags);
     jest.useRealTimers();
   });
 
@@ -703,6 +715,7 @@ describe('PasswordVerify retry feedback', () => {
   });
 
   it('asks for biometrics when Enter is pressed on the empty field', async () => {
+    onDesktop();
     const onBiologyAuth = jest.fn();
     const onInputPasswordAuth = jest.fn();
     // A dismissed prompt leaves RETRY, which blocks the automatic prompt.
@@ -721,7 +734,25 @@ describe('PasswordVerify retry feedback', () => {
     expect(onInputPasswordAuth).not.toHaveBeenCalled();
   });
 
+  it('leaves the phone return key on the empty field to closing the keyboard', async () => {
+    const onBiologyAuth = jest.fn();
+    const onInputPasswordAuth = jest.fn();
+    renderVerify({
+      onBiologyAuth,
+      onInputPasswordAuth,
+      status: { value: EPasswordVerifyStatus.RETRY },
+    });
+    await flush();
+    await act(async () => {
+      await captured().input.onSubmitEditing?.();
+    });
+    await flush();
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+    expect(onInputPasswordAuth).not.toHaveBeenCalled();
+  });
+
   it('asks for biometrics on Enter during a passcode cooldown', async () => {
+    onDesktop();
     const onBiologyAuth = jest.fn();
     renderVerify({
       confirmBtnDisabled: true,

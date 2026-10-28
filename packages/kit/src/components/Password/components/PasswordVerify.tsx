@@ -380,8 +380,9 @@ function PasswordVerify({
     if (!form.getValues('password')) {
       // An empty submit is not an attempt. Like 1Password, Enter on the empty
       // field runs the biometric action shown in its place instead, also
-      // during a passcode cooldown, when that action stays available.
-      if (showBiologyAuthAction) {
+      // during a passcode cooldown, when that action stays available. On
+      // phones the return key mostly just closes the keyboard, so it doesn't.
+      if (showBiologyAuthAction && !platformEnv.isNative) {
         await guardedBiologyAuth();
       }
       return;
