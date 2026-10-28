@@ -27,18 +27,113 @@ const DEFAULT_COMPATIBLE_NETWORKS = [
   { id: 'evm--1', name: 'Ethereum' },
   { id: 'evm--42161', name: 'Arbitrum' },
 ];
-let mockCompatibleNetworks = DEFAULT_COMPATIBLE_NETWORKS;
+let mockCompatibleNetworks: {
+  id: string;
+  name: string;
+  isCustomNetwork?: boolean;
+  logoURI?: string;
+}[] = DEFAULT_COMPATIBLE_NETWORKS;
 let mockRouteParams: Record<string, unknown> = {};
 let mockActiveAccount: {
   wallet?: { id: string };
   indexedAccount?: { id: string; walletId: string };
 } = {};
 let mockSubTokenFiat:
-  | { balanceParsed?: string; fiatValue?: string; currency?: string }
+  | {
+      balanceParsed?: string;
+      balanceMultiplier?: string;
+      fiatValue?: string;
+      currency?: string;
+    }
   | undefined;
 
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({ params: mockRouteParams }),
+}));
+
+jest.mock('@onekeyfe/react-native-native-list', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    NativeList: ({
+      snapshot,
+      onRowAction,
+      listEmpty,
+    }: {
+      snapshot: {
+        rows: {
+          key: string;
+          title: string;
+          subtitle?: string;
+          disabled?: boolean;
+          trailing?: { kind: string; primary?: string; secondary?: string }[];
+          leading?: {
+            image?: { uri: string };
+            fallbackText?: string;
+            fallbackTextColor?: string;
+            backgroundColor?: string;
+          };
+        }[];
+      };
+      onRowAction: (event: { actionKey: string; rowKey: string }) => void;
+      listEmpty?: ReactNode;
+    }) =>
+      React.createElement(
+        'div',
+        null,
+        snapshot.rows.length
+          ? snapshot.rows.map((row) =>
+              React.createElement(
+                'div',
+                {
+                  key: row.key,
+                  'data-testid': 'list-item',
+                  'data-balance': row.trailing?.find(
+                    (item) => item.kind === 'valuePair',
+                  )?.primary,
+                  'data-fiat-value': row.trailing?.find(
+                    (item) => item.kind === 'valuePair',
+                  )?.secondary,
+                  'data-avatar-letter': row.leading?.fallbackText,
+                  'data-avatar-image': row.leading?.image?.uri,
+                  'data-avatar-text-color': row.leading?.fallbackTextColor,
+                  'data-avatar-background': row.leading?.backgroundColor,
+                  onClick: row.disabled
+                    ? undefined
+                    : () =>
+                        onRowAction({ actionKey: 'press', rowKey: row.key }),
+                },
+                React.createElement(
+                  'span',
+                  { 'data-testid': 'title' },
+                  row.title,
+                ),
+                row.subtitle
+                  ? React.createElement(
+                      'span',
+                      { 'data-testid': 'subtitle' },
+                      row.subtitle,
+                    )
+                  : null,
+              ),
+            )
+          : listEmpty,
+      ),
+  };
+});
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useSettingsPersistAtom: () => [{ currencyInfo: { id: 'usd' } }],
+  useCurrencyPersistAtom: () => [{ currencyMap: { usd: { unit: '$' } } }],
+}));
+
+jest.mock('../../Home/hooks/useHomeNativeListTheme', () => ({
+  useHomeNativeListTheme: () => ({
+    background: '#fff',
+    secondaryText: '#888',
+    iconSubdued: '#888',
+    inverseBackground: '#222',
+    inverseText: '#eee',
+  }),
 }));
 
 jest.mock('react-intl', () => ({
@@ -488,6 +583,61 @@ describe('AggregateTokenSelector', () => {
       expect.anything(),
     );
     expect(mockCreateAddressForNetwork).not.toHaveBeenCalled();
+  });
+
+  it('keeps the sub-token multiplier and fiat value in native rows', async () => {
+    mockSubTokenFiat = {
+      balanceParsed: '0.414',
+      balanceMultiplier: '1000',
+      fiatValue: '0.41',
+      currency: 'usd',
+    };
+    const { row, queryAllByTestId } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    expect(row('Arbitrum').getAttribute('data-balance')).toBe('414');
+    expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('$0.41');
+    expect(row('Ethereum').getAttribute('data-balance')).toBeNull();
+  });
+
+  it('preserves an empty balance and unavailable fiat value', async () => {
+    mockSubTokenFiat = { fiatValue: '--', currency: 'usd' };
+    const { row, queryAllByTestId } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    expect(row('Arbitrum').getAttribute('data-balance')).toBe('');
+    expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('--');
+  });
+
+  it('distinguishes missing sub-token fiat data from an actual zero', async () => {
+    const { row, queryAllByTestId, rerender } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('--');
+
+    mockSubTokenFiat = { fiatValue: '0', currency: 'usd' };
+    rerender(<AggregateTokenSelector />);
+    expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('$0.00');
+  });
+
+  it('uses a letter avatar for a custom network even when it has a logo', async () => {
+    mockCompatibleNetworks = [
+      {
+        id: 'custom--1',
+        name: 'Custom Chain',
+        isCustomNetwork: true,
+        logoURI: 'https://example.com/logo.png',
+      },
+    ];
+    const { row, queryAllByTestId } = renderSelector({
+      allAggregateTokenList: [usdcOn('custom--1', 'Custom Chain')],
+    });
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(1));
+    expect(row('Custom Chain').getAttribute('data-avatar-letter')).toBe('C');
+    expect(row('Custom Chain').getAttribute('data-avatar-image')).toBeNull();
+    expect(row('Custom Chain').getAttribute('data-avatar-background')).toBe(
+      '#222',
+    );
+    expect(row('Custom Chain').getAttribute('data-avatar-text-color')).toBe(
+      '#eee',
+    );
   });
 
   it('does not report a network whose address finished creating after another network was picked', async () => {
