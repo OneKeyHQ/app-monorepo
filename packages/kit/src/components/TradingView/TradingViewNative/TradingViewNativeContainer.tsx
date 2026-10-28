@@ -496,9 +496,13 @@ const TradingViewNativeContent = memo(
           cache: subIndicatorCalculationCache,
           instances: visibleSubIndicatorInstances,
           points: primarySeriesPoints,
+          // Stock feeds send zero volume for bars they have no volume for,
+          // such as after hours. Elsewhere zero can mean nothing traded.
+          zeroVolumeIsMissing: source.kind === 'stock',
         }),
       [
         primarySeriesPoints,
+        source.kind,
         subIndicatorCalculationCache,
         visibleSubIndicatorInstances,
       ],
