@@ -12,11 +12,8 @@ import type { HeaderOptions } from '@react-navigation/elements';
 import type { ParamListBase, Route, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import type { StackNavigationEventMap } from '@react-navigation/stack';
-import type {
-  NativeSyntheticEvent,
-  TargetedEvent,
-  TextInputFocusEventData,
-} from 'react-native';
+import type { NativeSyntheticEvent, TargetedEvent } from 'react-native';
+import type { SearchBarTextEventData } from 'react-native-screens';
 
 export type {
   IModalScreenProps,
@@ -46,7 +43,7 @@ export interface INavSearchBarProps {
   /**
    * A callback that gets called when the text changes. It receives the current text value of the search bar.
    */
-  onChangeText?: (e: NativeSyntheticEvent<TextInputFocusEventData>) => void;
+  onChangeText?: (e: NativeSyntheticEvent<SearchBarTextEventData>) => void;
   /**
    * A callback that gets called when search bar has received focus
    */
@@ -55,7 +52,7 @@ export interface INavSearchBarProps {
    * A callback that gets called when the search button is pressed. It receives the current text value of the search bar.
    */
   onSearchButtonPress?: (
-    e: NativeSyntheticEvent<TextInputFocusEventData>,
+    e: NativeSyntheticEvent<SearchBarTextEventData>,
   ) => void;
   /**
    * Text displayed when search field is empty

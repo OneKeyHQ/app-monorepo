@@ -266,7 +266,7 @@ function PerpContent() {
       customToolbarItems={
         <>
           {!gtMd && !platformEnv.isNative ? (
-            <PerpsActivityCenterAction size="small" copyAsUrl />
+            <PerpsActivityCenterAction size="small" />
           ) : null}
           <PerpSettingsButton
             testID={PerpTestIDs.HeaderSettingsButton}

@@ -20,6 +20,19 @@ export function getSwapBuildServiceOrderId(buildRes?: IFetchBuildTxResponse) {
   return buildRes?.orderId ?? buildRes?.result?.quoteId;
 }
 
+// The id a built order is tracked by: the provider order id for signed
+// orders, otherwise the service order id.
+export function getSwapBuildOrderId(buildRes: IFetchBuildTxResponse): string {
+  const ctx = buildRes.ctx as ISwapOrderCtx | undefined;
+  return (
+    ctx?.cowSwapOrderId ??
+    ctx?.oneInchFusionOrderHash ??
+    ctx?.changeHeroOrderId ??
+    getSwapBuildServiceOrderId(buildRes) ??
+    ''
+  );
+}
+
 // The provider-facing order id that pairs with swapInfo.orderSupportUrl
 // (e.g. the CoW order uid searchable on explorer.cow.fi). txInfo.orderId
 // may hold the internal service order id instead (Stock orders track

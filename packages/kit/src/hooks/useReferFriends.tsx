@@ -1,29 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import {
-  Dialog,
-  Icon,
-  IconButton,
-  SizableText,
-  XStack,
-  YStack,
-  rootNavigationRef,
-  useClipboard,
-} from '@onekeyhq/components';
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import {
-  REFERRAL_HELP_LINK,
-  buildReferralUrl,
-} from '@onekeyhq/shared/src/config/appConfig';
-import type { IReferralShareSource } from '@onekeyhq/shared/src/config/appConfig';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -37,12 +16,7 @@ import type {
   IReferralPageTab,
 } from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
-import {
-  openUrlExternal,
-  openUrlInDiscovery,
-} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 
 import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
 
@@ -59,28 +33,6 @@ function openExtensionReferralInExpandTab(path: string, params?: object) {
       params,
     })
     .then(closeExtensionPopupAfterExpandTabOpen);
-}
-
-const EMPTY_SHARE_SOURCE_CONFIG: IInvitePostConfig['locales']['Earn'] = {
-  title: '',
-  subtitle: '',
-  for_you: { title: '', subtitle: '' },
-  for_your_friend: { title: '', subtitle: '' },
-};
-
-// Earn is the fallback copy: Perps / Swap locales are optional on the config.
-function getInviteShareSourceConfig({
-  source,
-  postConfig,
-}: {
-  source: IReferralShareSource;
-  postConfig?: IInvitePostConfig;
-}): IInvitePostConfig['locales']['Earn'] {
-  return (
-    postConfig?.locales[source] ??
-    postConfig?.locales.Earn ??
-    EMPTY_SHARE_SOURCE_CONFIG
-  );
 }
 
 export function useToReferFriendsModalByRootNavigation() {
@@ -164,16 +116,8 @@ export function useReplaceToReferFriends() {
 }
 
 export const useReferFriends = () => {
-  const intl = useIntl();
   const navigation = useAppNavigation();
   const { loginOneKeyId } = useOneKeyAuth();
-  const [devSettings] = useDevSettingsPersistAtom();
-
-  const env: IEndpointEnv = useMemo(() => {
-    const useTestEnv =
-      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
-    return useTestEnv ? 'test' : 'prod';
-  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
 
   const toInviteRewardPage = useCallback(
     async (params?: IInviteRewardRouteParams) => {
@@ -291,252 +235,15 @@ export const useReferFriends = () => {
     [navigation],
   );
 
-  const { copyText } = useClipboard();
-
-  const shareReferRewards = useCallback(
-    async (
-      _onSuccess?: () => void,
-      _onFail?: () => void,
-      source: IReferralShareSource = 'Earn',
-      copyAsUrl = false,
-    ) => {
-      const [isLogin, postConfig] = await Promise.all([
-        backgroundApiProxy.servicePrime.isLoggedIn(),
-        backgroundApiProxy.serviceReferralCode
-          .getPostConfig()
-          .catch(() => undefined),
-      ]);
-      let myReferralCode = '';
-      if (isLogin) {
-        try {
-          // Short timeout; falls back to cached referral code on failure
-          const SUMMARY_TIMEOUT_MS = 5000;
-          const summary = await timerUtils.timeout(
-            backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
-            SUMMARY_TIMEOUT_MS,
-          );
-          myReferralCode = summary.inviteCode || '';
-        } catch {
-          // Fall back to cached code on API failure
-          myReferralCode =
-            await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
-        }
-      } else {
-        myReferralCode =
-          await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
-      }
-
-      const sourceConfig = getInviteShareSourceConfig({ source, postConfig });
-
-      const getReferralUrl = (code: string) =>
-        buildReferralUrl({
-          code,
-          source,
-          env,
-        });
-
-      const copyContent = copyAsUrl
-        ? getReferralUrl(myReferralCode)
-        : myReferralCode;
-
-      const handleConfirm = async () => {
-        if (isLogin) {
-          if (shouldOpenReferralInExtensionExpandTab) {
-            await openExtensionReferralInExpandTab(
-              '/refer-friends/invite-reward',
-            );
-            return;
-          }
-          if (shouldUseReferralModalNav) {
-            navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-              screen: EModalReferFriendsRoutes.InviteReward,
-            });
-          } else {
-            navigation.switchTab(ETabRoutes.ReferFriends);
-            await timerUtils.wait(50);
-            navigation.reset({
-              index: 0,
-              routes: [{ name: ETabReferFriendsRoutes.TabInviteReward }],
-            });
-          }
-        } else {
-          try {
-            await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
-            void shareReferRewards(_onSuccess, _onFail, source, copyAsUrl);
-          } catch {
-            // User cancelled login, do nothing
-          }
-        }
-      };
-
-      const getRenderContent = () => {
-        if (isLogin) {
-          return (
-            <YStack gap="$5">
-              <YStack gap="$2">
-                <SizableText size="$bodyMdMedium">
-                  {intl.formatMessage({ id: ETranslations.referral_your_code })}
-                </SizableText>
-                <XStack
-                  gap="$3"
-                  bg="$bgStrong"
-                  borderRadius="$2"
-                  px="$2"
-                  py="$1.5"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <SizableText size="$bodyLgMedium">
-                    {myReferralCode}
-                  </SizableText>
-                  <IconButton
-                    testID="app-get-render-content-icon-btn"
-                    title={intl.formatMessage({
-                      id: ETranslations.global_copy,
-                    })}
-                    variant="tertiary"
-                    icon="Copy3Outline"
-                    size="small"
-                    iconColor="$iconSubdued"
-                    onPress={() => {
-                      copyText(myReferralCode);
-                      defaultLogger.referral.page.copyReferralCode();
-                    }}
-                  />
-                </XStack>
-              </YStack>
-
-              {copyAsUrl ? (
-                <YStack gap="$2">
-                  <SizableText size="$bodyMdMedium">
-                    {intl.formatMessage({
-                      id: ETranslations.referral_referral_link,
-                    })}
-                  </SizableText>
-                  <XStack
-                    gap="$3"
-                    bg="$bgStrong"
-                    borderRadius="$2"
-                    px="$2"
-                    py="$1.5"
-                    justifyContent="space-between"
-                    alignItems="center"
-                  >
-                    <SizableText
-                      size="$bodyLgMedium"
-                      numberOfLines={1}
-                      flexShrink={1}
-                    >
-                      {copyContent}
-                    </SizableText>
-                    <IconButton
-                      testID="app-icon-btn"
-                      title={intl.formatMessage({
-                        id: ETranslations.global_copy,
-                      })}
-                      variant="tertiary"
-                      icon="Copy3Outline"
-                      size="small"
-                      iconColor="$iconSubdued"
-                      flexShrink={0}
-                      onPress={() => {
-                        copyText(copyContent);
-                        defaultLogger.referral.page.copyReferralCode();
-                      }}
-                    />
-                  </XStack>
-                </YStack>
-              ) : null}
-            </YStack>
-          );
-        }
-        if (source === 'Perps') {
-          return null;
-        }
-        return (
-          <YStack gap="$5">
-            <XStack gap="$4">
-              <XStack h={42} w={42} p={9} borderRadius={13} bg="$bgSuccess">
-                <Icon name="PeopleOutline" color="$iconSuccess" size={20} />
-              </XStack>
-              <YStack flexShrink={1}>
-                <SizableText size="$headingMd">
-                  {sourceConfig?.for_you?.title}
-                </SizableText>
-                <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {sourceConfig?.for_you?.subtitle}
-                </SizableText>
-              </YStack>
-            </XStack>
-            <XStack gap="$4">
-              <XStack h={42} w={42} p={9} borderRadius={13} bg="$bgInfo">
-                <Icon name="PeopleLikeOutline" color="$iconInfo" size={20} />
-              </XStack>
-              <YStack flexShrink={1}>
-                <SizableText size="$headingMd">
-                  {sourceConfig?.for_your_friend?.title}
-                </SizableText>
-                <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  {sourceConfig?.for_your_friend?.subtitle}
-                </SizableText>
-              </YStack>
-            </XStack>
-          </YStack>
-        );
-      };
-
-      const dialog = Dialog.show({
-        icon: 'GiftOutline',
-        title: sourceConfig?.title,
-        description:
-          source === 'Perps' ? (
-            intl.formatMessage({
-              id: ETranslations.perps_referral_campaign__desc,
-            })
-          ) : (
-            <FormatHyperlinkText
-              size="$bodyMd"
-              underlineTextProps={{ color: '$textInfo' }}
-              onAction={() => {
-                void dialog.close();
-              }}
-            >
-              {sourceConfig?.subtitle}
-            </FormatHyperlinkText>
-          ),
-        renderContent: getRenderContent(),
-        onCancelText: intl.formatMessage({
-          id: ETranslations.referral_intro_learn_more,
-        }),
-        onCancel: () => {
-          if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
-          } else {
-            openUrlExternal(REFERRAL_HELP_LINK);
-          }
-        },
-        onConfirmText: intl.formatMessage({
-          id: isLogin
-            ? ETranslations.earn_referral_view_rewards
-            : ETranslations.global_join,
-        }),
-        onConfirm: handleConfirm,
-      });
-    },
-    [copyText, intl, loginOneKeyId, navigation, env],
-  );
-
   return useMemo(
     () => ({
       toReferFriendsPage,
-      shareReferRewards,
       toInviteRewardPage,
       toHardwareSalesRewardPage,
       openHardwareSalesOrderDetail,
     }),
     [
       toReferFriendsPage,
-      shareReferRewards,
       toInviteRewardPage,
       toHardwareSalesRewardPage,
       openHardwareSalesOrderDetail,
@@ -544,11 +251,14 @@ export const useReferFriends = () => {
   );
 };
 
-// "My Rewards" in every activity hub lands on the Perks tab, so the rewards
-// from all products read in one place.
-export function useOpenPerksTab() {
+// Opens the referral page from an activity hub. Without a tab the page
+// reopens the one the user last left.
+export function useOpenReferralPage() {
   const { toReferFriendsPage } = useReferFriends();
-  return useCallback(() => {
-    void toReferFriendsPage({ tab: 'benefits', perksEntry: 'activity_hub' });
-  }, [toReferFriendsPage]);
+  return useCallback(
+    (tab?: IReferralPageTab) => {
+      void toReferFriendsPage({ tab, perksEntry: 'activity_hub' });
+    },
+    [toReferFriendsPage],
+  );
 }

@@ -4,10 +4,11 @@ import { useIntl } from 'react-intl';
 import {
   Keyboard,
   type LayoutChangeEvent,
-  type ScrollView as RNScrollView,
   TextInput as RNTextInput,
-  type View as RNView,
+  type ScrollViewInstance,
   StyleSheet,
+  type TextInputInstance,
+  type ViewInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -122,8 +123,8 @@ function LineNumberedTextArea({
 }: ILineNumberedTextAreaProps) {
   const intl = useIntl();
   const safeAreaInsets = useSafeAreaInsets();
-  const inputRef = useRef<RNTextInput>(null);
-  const scrollViewRef = useRef<RNScrollView>(null);
+  const inputRef = useRef<TextInputInstance>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const [lineHeights, setLineHeights] = useState<Record<number, number>>({});
   const { getClipboard } = useClipboard();
   const theme = useTheme();
@@ -219,7 +220,7 @@ function LineNumberedTextArea({
 
   // #1 iOS: scroll outer page ScrollView to keep this component visible above keyboard
   const { scrollViewRef: pageScrollViewRef, pageOffsetRef } = useScrollView();
-  const containerRef = useRef<RNView>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const isFocusedRef = useRef(false);
   const lastKeyboardScreenYRef = useRef<number | null>(null);
 

@@ -1,0 +1,14 @@
+diff --git a/node_modules/@react-native-community/slider/typings/index.d.ts b/node_modules/@react-native-community/slider/typings/index.d.ts
+index 6903ca7..56f5d49 100644
+--- a/node_modules/@react-native-community/slider/typings/index.d.ts
++++ b/node_modules/@react-native-community/slider/typings/index.d.ts
+@@ -208,7 +208,8 @@ export interface SliderProps
+  * A component used to select a single value from a range of values.
+  */
+ declare class SliderComponent extends React.Component<SliderProps> {}
+-declare const SliderBase: Constructor<ReactNative.NativeMethods> &
++// OneKey patch: RN 0.87+ strict API removed `NativeMethods`; refs are host instances.
++declare const SliderBase: Constructor<ReactNative.HostInstance> &
+   typeof SliderComponent;
+ export default class Slider extends SliderBase {}
+ export type SliderIOS = Slider;

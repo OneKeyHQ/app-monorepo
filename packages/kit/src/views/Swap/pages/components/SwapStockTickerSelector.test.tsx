@@ -20,6 +20,7 @@ let mockCurrentStockToken: ISwapToken | undefined;
 let mockStockDetailOverrides: Record<string, unknown> = {};
 let mockHeaderOnly = false;
 let mockPendingState: {
+  displayStockId?: string;
   stockSelectionPending?: boolean;
   pendingStock?: IMarketStockPublicItem;
   selectedStockPreview?: IMarketStockPublicItem;
@@ -143,11 +144,20 @@ jest.mock(
   }),
 );
 jest.mock('./SwapStockMarketProvider', () => ({
-  useSwapStockSelection: () => ({
-    selectStock: mockSelectStock,
-    selectionError: mockSelectionError,
-    ...mockPendingState,
-  }),
+  useSwapStockSelection: () => {
+    const committedStockId =
+      'stockId' in mockStockDetailOverrides
+        ? mockStockDetailOverrides.stockId
+        : 'AAPL';
+    return {
+      selectStock: mockSelectStock,
+      selectionError: mockSelectionError,
+      displayStockId: mockPendingState.stockSelectionPending
+        ? mockPendingState.pendingStock?.stockId
+        : committedStockId,
+      ...mockPendingState,
+    };
+  },
 }));
 jest.mock('./SwapStockTradeProvider', () => ({
   useSwapStockTradeContext: () => ({
@@ -285,6 +295,37 @@ describe('SwapStockTickerSelector', () => {
     expect(screen.getByRole('img').getAttribute('src')).toBe(
       'https://example.com/google.png',
     );
+  });
+
+  it('shows the selected company ID without borrowing the old title when its preview is missing', () => {
+    mockHeaderOnly = true;
+    mockPendingState = {
+      displayStockId: 'GOOGL',
+      stockSelectionPending: true,
+      selectedStockPreview: mockStock,
+    };
+    render(<SwapStockTickerSelector />);
+    expect(screen.getByText('GOOGL')).toBeTruthy();
+    expect(screen.queryByText('AAPL')).toBeNull();
+    expect(screen.queryByText('Apple')).toBeNull();
+  });
+
+  it('keeps the committed title until the pending company can classify its holdings', () => {
+    mockHeaderOnly = true;
+    mockPendingState = {
+      displayStockId: 'AAPL',
+      stockSelectionPending: true,
+      pendingStock: {
+        ...mockStock,
+        stockId: 'GOOGL',
+        symbol: 'GOOGL',
+        name: 'Google',
+      },
+    };
+    render(<SwapStockTickerSelector />);
+    expect(screen.getByText('Apple')).toBeTruthy();
+    expect(screen.queryByText('Google')).toBeNull();
+    expect(screen.getAllByRole('img')).toHaveLength(1);
   });
 
   it('keeps an empty page with a cursor reachable through the more button', () => {

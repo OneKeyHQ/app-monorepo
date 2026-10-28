@@ -97,7 +97,7 @@ function MobileInformationTabsHeader({
           {...props}
           scrollable
           keepFocusedTabVisible
-          textSize="$bodyMdMedium"
+          textSize="$bodyLgMedium"
           onTabPress={handleTabPress}
           renderItem={renderTabBarItem}
         />
@@ -200,6 +200,7 @@ export function MobileInformationTabs({
       >
         <DelayedFreeze freeze={freezeContent}>
           <Portfolio
+            isStock={isStockToken}
             portfolioData={portfolioData}
             isRefreshing={!!isRefreshing}
             isPending={isPortfolioPending}

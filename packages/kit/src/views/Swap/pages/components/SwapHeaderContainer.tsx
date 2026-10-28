@@ -293,6 +293,7 @@ const SwapHeaderContainer = ({
         syncRouteTabParam(newType);
         await swapTypeSwitchAction(newType, networkId, {
           carryTargetToken: true,
+          initializeSwapDefaultsFromHome: pageType !== 'modal',
           ...swapProTokenCarryOptions,
         });
         return;
@@ -336,6 +337,7 @@ const SwapHeaderContainer = ({
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
       enterFrom,
+      pageType,
       isSwapProCategory,
       swapProTokenCarryOptions,
     ],

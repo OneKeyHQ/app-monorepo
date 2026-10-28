@@ -21,18 +21,16 @@ const appGround = (variant: 'light' | 'dark'): string =>
     'color',
   ) as string;
 
-const setDarkContent = (color?: string, isAnimated = true) => {
+const setDarkContent = (_color?: string, isAnimated = true) => {
   StatusBar.setBarStyle('light-content', isAnimated);
   if (platformEnv.isNativeAndroid) {
-    StatusBar.setBackgroundColor(color ?? appGround('dark'), isAnimated);
     setStyle('light');
   }
 };
 
-const setLightContent = (color?: string, isAnimated = true) => {
+const setLightContent = (_color?: string, isAnimated = true) => {
   StatusBar.setBarStyle('dark-content', isAnimated);
   if (platformEnv.isNativeAndroid) {
-    StatusBar.setBackgroundColor(color ?? appGround('light'), isAnimated);
     setStyle('dark');
   }
 };
@@ -44,13 +42,10 @@ const setLightContent = (color?: string, isAnimated = true) => {
 // repaints through applySystemBars, so ordering can never leave a
 // stale coat.
 //
-// Two mechanisms per repaint, because Android changed the rules: the
-// bar-color calls above paint real bar surfaces up to Android 14, and
-// under enforced edge-to-edge (targetSdk 35+, Android 15+) become
-// no-ops — there the "bars" are transparent over the WINDOW background
-// (the app content sits inset by fitsSystemWindows), so the window
-// paint below is what actually colors the bands. The icon styles work
-// on both eras.
+// The app runs edge-to-edge on every Android version (KeyboardProvider
+// turns off decorFitsSystemWindows and insets the content), so the "bars"
+// are transparent over the WINDOW background and the window paint below is
+// what colors the bands. The calls above only pick the icon styles.
 let appVariant: 'light' | 'dark' | undefined;
 // One slot per foreground surface (onboarding, the mobile browser...), so one
 // surface releasing its pin can't clear another's; the latest set wins.

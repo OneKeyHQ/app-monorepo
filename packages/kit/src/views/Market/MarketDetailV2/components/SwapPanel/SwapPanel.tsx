@@ -290,21 +290,23 @@ export function SwapPanel({
         <Divider />
         <XStack
           px="$5"
-          pt="$2.5"
+          // 10pt footer padding plus the row's own 4pt.
+          pt="$3.5"
+          pb="$1"
           justifyContent="space-between"
           alignItems="center"
         >
-          <XStack gap="$2" alignItems="center">
-            <SizableText size="$bodySmMedium">
+          <XStack gap="$1" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.dexmarket_details_myposition,
               })}
             </SizableText>
             {isPortfolioPending ? (
-              <Skeleton width="$12" height="$4" />
+              <Skeleton width="$12" height="$5" />
             ) : (
               <Currency
-                size="$bodySmMedium"
+                size="$bodyMdMedium"
                 formatter="value"
                 sourceCurrency={USD_CURRENCY_ID}
               >
@@ -316,12 +318,12 @@ export function SwapPanel({
             <XStack gap="$1" alignItems="center">
               <XStack alignItems="center">
                 {pnlPrefix ? (
-                  <SizableText size="$bodySmMedium" color={pnlColor}>
+                  <SizableText size="$bodyMdMedium" color={pnlColor}>
                     {pnlPrefix}
                   </SizableText>
                 ) : null}
                 <Currency
-                  size="$bodySmMedium"
+                  size="$bodyMdMedium"
                   color={pnlColor}
                   formatter="value"
                   sourceCurrency={USD_CURRENCY_ID}
@@ -329,7 +331,7 @@ export function SwapPanel({
                   {unrealizedBN.abs().toFixed()}
                 </Currency>
               </XStack>
-              <SizableText size="$bodySm" color={pnlColor}>
+              <SizableText size="$bodyMd" color={pnlColor}>
                 {`(${pnl?.unrealizedPnlPercent ?? '0'}%)`}
               </SizableText>
             </XStack>

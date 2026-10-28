@@ -38,7 +38,7 @@ import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
 
 import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 export function SearchInput({ tabId }: { tabId?: string }) {
   const searchPopoverShortcutsFeatureFlag =
@@ -48,7 +48,7 @@ export function SearchInput({ tabId }: { tabId?: string }) {
   const [searchValue, setSearchValue] = useState('');
   const searchResultRef = useRef<ISearchResultContentRef>(null);
   const scrollViewRef = useRef<IScrollViewRef>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const focusTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );

@@ -213,6 +213,7 @@ export function DesktopInformationTabs({
         })}
       >
         <Portfolio
+          isStock={isStockToken}
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
           isPending={isPortfolioPending}

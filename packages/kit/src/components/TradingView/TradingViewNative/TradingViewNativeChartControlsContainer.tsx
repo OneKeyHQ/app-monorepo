@@ -42,6 +42,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   mobileSettingsControl?: ReactNode;
   enableNativeChartSettings?: boolean;
   enablePreviousClose?: boolean;
+  enableNavigationButtons?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
@@ -77,6 +78,7 @@ export const TradingViewNativeChartControlsContainer = memo(
     mobileSettingsControl,
     enableNativeChartSettings = false,
     enablePreviousClose = false,
+    enableNavigationButtons = false,
     intervalConfig,
     maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
@@ -109,9 +111,10 @@ export const TradingViewNativeChartControlsContainer = memo(
     const handleSettingsPress = useCallback(() => {
       showMarketChartSettingsDialog({
         showPreviousClose: enablePreviousClose,
+        showNavigationButtons: enableNavigationButtons,
         ...(storageNamespace ? { storageNamespace } : {}),
       });
-    }, [enablePreviousClose, storageNamespace]);
+    }, [enableNavigationButtons, enablePreviousClose, storageNamespace]);
     const indicators = useMemo<ITradingViewIndicatorOption[]>(
       () =>
         TRADING_VIEW_NATIVE_INDICATOR_CATALOG.map(({ id, label }) => ({

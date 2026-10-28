@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
+  EJotaiContextStoreNames,
   useInAppNotificationAtom,
   useSwapFromMarketJumpTokenAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -67,6 +68,7 @@ import {
 import { getMarketSwapDefaultPair } from '../utils/marketSwapDefaultPair';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
+  buildSwapAutomaticDefaultTokenContext,
   buildSwapDefaultSelectedTokensForNetwork,
   buildSwapDefaultSelectedTokensFromHomeAccount,
   buildSwapDefaultTokenSeed,
@@ -74,6 +76,7 @@ import {
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartChannelSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
+  isSelectedAccountMatched,
   isSwapAccountSelectionSyncAccepted,
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
@@ -93,7 +96,10 @@ import {
   isSwapHomeAccountSyncSelectionCurrent,
   shouldDeferSwapDefaultTokenSeedContextUpdate,
 } from '../utils/swapDefaultTokenSeedUtils';
-import { getLatestHomeSelectedAccountInfo } from '../utils/swapHomeSelectedAccountUtils';
+import {
+  getHomeSelectedAccountInfoFromContextStore,
+  getLatestHomeSelectedAccountInfo,
+} from '../utils/swapHomeSelectedAccountUtils';
 import { isSwapNetworkCacheCompatible } from '../utils/swapNetworkCacheUtils';
 import {
   getSwapNetworkSupportTabSwitchTypes,
@@ -104,6 +110,7 @@ import {
 
 import { resolveMarketJumpIntentAfterHandoff } from './swapMarketJumpIntent';
 import { useSwapAddressInfo } from './useSwapAccount';
+import { useSwapDefaultConfigDecision } from './useSwapDefaultConfigDecision';
 import { useSwapNetworks } from './useSwapNetworks';
 import { useSwapProInputToken } from './useSwapPro';
 
@@ -146,11 +153,12 @@ function getSelectedTokensColdStartSwapType({
 export function useSwapInit(params?: ISwapInitParams) {
   const isFocused = useIsFocused();
   const {
-    defaultConfigStatus,
-    defaultConfigStatusRef,
+    defaultConfigStatusRef: initialDefaultConfigStatusRef,
     fetchSwapNetworks,
     hasRefreshedSwapNetworksRef,
     networkListFetching,
+    networkConfigStatus,
+    networkConfigStatusRef,
     swapNetworks,
     swapNetworksRef,
   } = useSwapNetworks();
@@ -186,17 +194,35 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
   const swapInitParamsConsumptionKey =
     buildSwapInitParamsConsumptionKey(params);
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const swapColdStartScopeKey = useSwapColdStartScopeKey();
+  const rootSwapInitType =
+    swapColdStartScopeKey === `store:${EJotaiContextStoreNames.swap}`
+      ? swapTypeSwitch
+      : undefined;
+  const { defaultConfigStatus, getDefaultConfigStatus } =
+    useSwapDefaultConfigDecision({
+      intentKey: swapInitParamsConsumptionKey ?? rootSwapInitType,
+      initialStatusRef: initialDefaultConfigStatusRef,
+      networkConfigStatus,
+    });
   const swapInitParamsSnapshot = {
     key: swapInitParamsConsumptionKey,
     fromToken: params?.importFromToken,
     toToken: params?.importToToken,
+    isFocused,
   };
   const latestSwapInitParamsRef = useRef(swapInitParamsSnapshot);
   latestSwapInitParamsRef.current = swapInitParamsSnapshot;
+  useEffect(() => {
+    latestSwapInitParamsRef.current.isFocused = isFocused;
+    return () => {
+      latestSwapInitParamsRef.current.isFocused = false;
+    };
+  }, [isFocused]);
   const swapAddressInfoRef =
     useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
   const [, setInAppNotification] = useInAppNotificationAtom();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
   const [, setSwapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
@@ -205,7 +231,6 @@ export function useSwapInit(params?: ISwapInitParams) {
     useSwapSelectedTokensColdStartContextAtom();
   const [swapStockSelectedToken, setSwapStockSelectedToken] =
     useSwapStockSelectedTokenAtom();
-  const swapColdStartScopeKey = useSwapColdStartScopeKey();
   const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
     useSwapInitialSelectedTokensSyncedAtom();
   const fromToken = useMemo(() => {
@@ -574,16 +599,26 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   const clearSelectedTokensColdStartCache = useCallback(
     ({
+      automaticHomeAccount,
       resetSwapType = false,
     }: {
+      automaticHomeAccount?: Parameters<
+        typeof buildSwapAutomaticDefaultTokenContext
+      >[0]['homeSelectedAccount'];
       resetSwapType?: boolean;
     } = {}) => {
+      const context = automaticHomeAccount
+        ? buildSwapAutomaticDefaultTokenContext({
+            homeSelectedAccount: automaticHomeAccount,
+            swapType: ESwapTabSwitchType.SWAP,
+          })
+        : undefined;
       fromTokenRef.current = undefined;
       toTokenRef.current = undefined;
-      selectedTokensColdStartContextRef.current = undefined;
+      selectedTokensColdStartContextRef.current = context;
       void resetSwapTokenData(ESwapDirectionType.FROM);
       void resetSwapTokenData(ESwapDirectionType.TO);
-      setSelectedTokensColdStartContext(undefined);
+      setSelectedTokensColdStartContext(context);
       if (resetSwapType) {
         switchSwapTypeIfNeeded(
           params?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
@@ -617,6 +652,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       homeSelectedAccountUpdatedAt,
       importNetworkId,
       sourceRuntimeId,
+      shouldCommit,
     }: {
       homeSelectedAccount?: Parameters<
         typeof shouldSyncSwapSelectedAccountOnHomeAccountUpdate
@@ -637,6 +673,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       homeSelectedAccountUpdatedAt: number | null | undefined;
       importNetworkId?: string;
       sourceRuntimeId?: string;
+      shouldCommit?: () => boolean;
     }) => {
       if (!homeSelectedAccount) {
         return { synced: false as const, cancelled: false as const };
@@ -687,6 +724,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           swapSelectedAccount: swapSelectedAccountAtRequest,
         });
       const selectionResult = await updateSelectedAccount({
+        shouldCommit,
         eventUpdatedAt: homeSelectedAccountUpdatedAt,
         expectedPartialSelection:
           homeSelectedAccountUpdatedAt === undefined
@@ -759,7 +797,11 @@ export function useSwapInit(params?: ISwapInitParams) {
             swapSelectedAccount: swapSelectedAccountAtRequest,
             swapType: swapTypeSwitchRef.current,
             swapNetworks: swapNetworksRef.current,
-            defaultConfigStatus: defaultConfigStatusRef.current,
+            defaultConfigStatus:
+              initialSelectedTokensSyncedRef.current &&
+              networkConfigStatusRef.current === 'success'
+                ? 'success'
+                : getDefaultConfigStatus(),
           });
         if (selectedTokensSyncAction.type === 'replace-with-defaults') {
           const { defaultTokens } = selectedTokensSyncAction;
@@ -784,6 +826,10 @@ export function useSwapInit(params?: ISwapInitParams) {
             !homeNetworkDefaultTokens?.limitFromToken &&
             !homeNetworkDefaultTokens?.limitToToken;
           clearSelectedTokensColdStartCache({
+            automaticHomeAccount:
+              swapTypeSwitchRef.current === ESwapTabSwitchType.SWAP
+                ? homeSelectedAccount
+                : undefined,
             resetSwapType: !shouldPreserveLimitTabWithoutDefaultTokens,
           });
         }
@@ -819,27 +865,55 @@ export function useSwapInit(params?: ISwapInitParams) {
       switchSwapTypeIfNeeded,
       updateSelectedAccount,
       swapNetworksRef,
-      defaultConfigStatusRef,
+      getDefaultConfigStatus,
+      networkConfigStatusRef,
     ],
   );
 
   const syncSwapSelectedAccountFromLatestHome = useCallback(async () => {
+    const canBootstrapEmptyDefaults = () =>
+      latestSwapInitParamsRef.current.key === swapInitParamsConsumptionKey &&
+      swapTypeSwitchRef.current === ESwapTabSwitchType.SWAP &&
+      !initialSelectedTokensSyncedRef.current &&
+      !fromTokenRef.current &&
+      !toTokenRef.current &&
+      !selectedTokensColdStartContextRef.current &&
+      !params?.importFromToken &&
+      !params?.importToToken &&
+      (!params?.swapSource || params.swapSource === ESwapSource.WALLET_HOME);
+    const emptyDefaultsAtRead = canBootstrapEmptyDefaults();
+    const swapSelectionAtRead = swapSelectedAccountRef.current;
     const { selectedAccount, selectedAccountUpdatedAt, sourceRuntimeId } =
       await getLatestHomeSelectedAccountInfo();
+    const bootstrapEmptyDefaults =
+      emptyDefaultsAtRead && selectedAccountUpdatedAt !== undefined;
     return syncSwapSelectedAccountFromHome({
       homeSelectedAccount: selectedAccount,
-      // Home's committed revision when the home store is alive in this
-      // runtime; otherwise undefined, which commits unconditionally and
-      // mints a fresh local revision. Deliberately NOT null for a snapshot
-      // without a revision: storage init restores a committed revision
-      // into the swap slot from its cold-start cache in the common case, so
-      // the fill-only null semantics would skip this initial sync entirely
-      // and leave swap visibly out of step with home after a cold start
-      // into the swap tab. The unconditional apply matches the previous
-      // behavior of this path; the minted revision is a genuine local
-      // commit (monotonic, wall clock at commit time), not a receive time
-      // stamped onto somebody else's event.
-      homeSelectedAccountUpdatedAt: selectedAccountUpdatedAt,
+      // An empty entry reads Home as a new initialization intent, not a replay
+      // of its older revision. Keep ordinary event ordering and guard this
+      // local commit against both Home changes and user takeover during await.
+      homeSelectedAccountUpdatedAt: bootstrapEmptyDefaults
+        ? undefined
+        : selectedAccountUpdatedAt,
+      shouldCommit: bootstrapEmptyDefaults
+        ? () => {
+            const currentHome = getHomeSelectedAccountInfoFromContextStore();
+            return (
+              latestSwapInitParamsRef.current.isFocused &&
+              canBootstrapEmptyDefaults() &&
+              isSelectedAccountMatched(
+                swapSelectionAtRead,
+                getSelectedAccount({ num: 0 }),
+              ) &&
+              currentHome?.selectedAccountUpdatedAt ===
+                selectedAccountUpdatedAt &&
+              isSelectedAccountMatched(
+                currentHome?.selectedAccount,
+                selectedAccount,
+              )
+            );
+          }
+        : undefined,
       importNetworkId:
         params?.swapSource === ESwapSource.TOKEN_DETAIL &&
         (params.importFromToken || params.importToToken)
@@ -852,6 +926,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importNetworkId,
     params?.importToToken,
     params?.swapSource,
+    swapInitParamsConsumptionKey,
+    getSelectedAccount,
     syncSwapSelectedAccountFromHome,
   ]);
 
@@ -1116,15 +1192,28 @@ export function useSwapInit(params?: ISwapInitParams) {
       const cachedNetwork = swapNetworksRef.current.find(
         (network) => network.networkId === params.importFromToken?.networkId,
       );
-      const provisionalToToken = getSwapEntryDefaultToToken({
-        fromToken: params.importFromToken,
-        swapNetworks:
-          defaultConfigStatusRef.current === 'failed'
-            ? []
-            : swapNetworksRef.current,
-        isSupportSwap: cachedNetwork?.supportSingleSwap,
-        isSupportCrossChain: cachedNetwork?.supportCrossChainSwap,
-      });
+      const cachedToToken =
+        params.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+        toTokenRef.current?.networkId === params.importFromToken.networkId &&
+        !equalTokenNoCaseSensitive({
+          token1: toTokenRef.current,
+          token2: params.importFromToken,
+        })
+          ? toTokenRef.current
+          : undefined;
+      const provisionalToToken =
+        cachedToToken ??
+        (getDefaultConfigStatus() === 'pending'
+          ? undefined
+          : getSwapEntryDefaultToToken({
+              fromToken: params.importFromToken,
+              swapNetworks:
+                getDefaultConfigStatus() === 'failed'
+                  ? []
+                  : swapNetworksRef.current,
+              isSupportSwap: cachedNetwork?.supportSingleSwap,
+              isSupportCrossChain: cachedNetwork?.supportCrossChainSwap,
+            }));
       fromTokenRef.current = params.importFromToken;
       toTokenRef.current = provisionalToToken;
       setSwapFromToken(params.importFromToken);
@@ -1135,7 +1224,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         fromToken: params.importFromToken,
         toToken: provisionalToToken,
       };
-      if (defaultConfigStatusRef.current === 'pending') {
+      if (getDefaultConfigStatus() === 'pending') {
         return;
       }
     }
@@ -1213,7 +1302,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       fromToken: fromTokenRef.current,
       toToken: toTokenRef.current,
       swapNetworks: swapNetworksRef.current,
-      defaultConfigStatus: defaultConfigStatusRef.current,
+      defaultConfigStatus: getDefaultConfigStatus(),
       selectedAccount: swapSelectedAccountRef.current,
       preserveSelectedTokens:
         hasImportTokenParams ||
@@ -1305,14 +1394,18 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     hasSelectedTokens = Boolean(fromTokenRef.current || toTokenRef.current);
     if (hasImportParams && params?.importNetworkId && !hasImportTokenParams) {
-      if (!swapNetworksRef.current.length) {
-        return;
-      }
       const importNetwork = swapNetworksRef.current.find(
         (net) => net.networkId === params.importNetworkId,
       );
       const importSupportCheckType =
         supportCheckSwapTabSwitchType ?? ESwapTabSwitchType.SWAP;
+      const canUseLocalSwapDefaults =
+        getDefaultConfigStatus() === 'failed' &&
+        importSupportCheckType === ESwapTabSwitchType.SWAP &&
+        !importNetwork;
+      if (!swapNetworksRef.current.length && !canUseLocalSwapDefaults) {
+        return;
+      }
       const isImportNetworkSupported =
         importNetwork &&
         getSwapNetworkSupportTabSwitchTypes({
@@ -1321,7 +1414,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           supportLimit: importNetwork.supportLimit,
           supportStock: importNetwork.supportStock,
         }).includes(importSupportCheckType);
-      if (!isImportNetworkSupported) {
+      if (!isImportNetworkSupported && !canUseLocalSwapDefaults) {
         clearSelectedTokensColdStartCache();
         finishSwapInitParamsSync();
         return;
@@ -1329,10 +1422,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     if (hasImportTokenParams) {
       if (!swapNetworksRef.current.length) {
-        if (
-          isAssetCounterpartEntry &&
-          defaultConfigStatusRef.current === 'failed'
-        ) {
+        if (isAssetCounterpartEntry && getDefaultConfigStatus() === 'failed') {
           finishSwapInitParamsSync();
         }
         return;
@@ -1419,15 +1509,16 @@ export function useSwapInit(params?: ISwapInitParams) {
       );
       const importToToken: ISwapToken | undefined =
         isAssetCounterpartEntry && params?.importFromToken
-          ? getSwapEntryDefaultToToken({
+          ? (deferredImportedTokensRef.current?.toToken ??
+            getSwapEntryDefaultToToken({
               fromToken: params.importFromToken,
               swapNetworks:
-                defaultConfigStatusRef.current === 'failed'
+                getDefaultConfigStatus() === 'failed'
                   ? []
                   : swapNetworksRef.current,
               isSupportSwap: assetNetwork?.supportSingleSwap,
               isSupportCrossChain: assetNetwork?.supportCrossChainSwap,
-            })
+            }))
           : params?.importToToken;
       const hasImportTokenNetwork =
         Boolean(
@@ -1546,7 +1637,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           const defaultTokenSwapType = importTokenSupportCheckType;
           const needSetToToken = needChangeToken({
             swapNetworks:
-              defaultConfigStatusRef.current === 'failed'
+              getDefaultConfigStatus() === 'failed'
                 ? []
                 : swapNetworksRef.current,
             token: params.importFromToken,
@@ -1637,13 +1728,23 @@ export function useSwapInit(params?: ISwapInitParams) {
       networkId: defaultTokenNetworkId,
       swapType: preferredDefaultSwapType,
       swapNetworks: swapNetworksRef.current,
-      defaultConfigStatus: defaultConfigStatusRef.current,
+      defaultConfigStatus: getDefaultConfigStatus(),
     });
     if (!defaultSelectedTokens) {
-      if (defaultConfigStatusRef.current === 'pending') {
+      if (getDefaultConfigStatus() === 'pending') {
         return;
       }
-      clearSelectedTokensColdStartCache();
+      clearSelectedTokensColdStartCache({
+        automaticHomeAccount:
+          preferredDefaultSwapType === ESwapTabSwitchType.SWAP
+            ? {
+                ...(homeAccountSyncResult.synced
+                  ? homeAccountSyncResult.homeSelectedAccount
+                  : swapSelectedAccountRef.current),
+                networkId: defaultTokenNetworkId,
+              }
+            : undefined,
+      });
       finishSwapInitParamsSync();
       return;
     }
@@ -1672,7 +1773,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       if (
         shouldUseLimitDefaults &&
         !netInfo &&
-        defaultConfigStatusRef.current === 'pending'
+        getDefaultConfigStatus() === 'pending'
       ) {
         return;
       }
@@ -1738,7 +1839,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         defaultSwapTypes.some((type) => {
           const nextToToken = needChangeToken({
             swapNetworks:
-              defaultConfigStatusRef.current === 'failed'
+              getDefaultConfigStatus() === 'failed'
                 ? []
                 : swapNetworksRef.current,
             token: defaultFromTokenWithLogo,
@@ -1780,7 +1881,7 @@ export function useSwapInit(params?: ISwapInitParams) {
               },
               swapType: preferredDefaultSwapType,
               swapNetworks: swapNetworksRef.current,
-              defaultConfigStatus: defaultConfigStatusRef.current,
+              defaultConfigStatus: getDefaultConfigStatus(),
             })?.context
           : getCurrentSelectedTokensColdStartContext();
         if (currentContext) {
@@ -1836,11 +1937,20 @@ export function useSwapInit(params?: ISwapInitParams) {
     syncSwapSelectedAccountFromLatestHomeStorage,
     shouldPreserveUserInputSelectedTokens,
     swapNetworksRef,
-    defaultConfigStatusRef,
+    getDefaultConfigStatus,
   ]);
 
   useEffect(() => {
     if (initialSelectedTokensSyncedRef.current) {
+      return;
+    }
+    const deferredImport = deferredImportedTokensRef.current;
+    if (
+      deferredImport &&
+      deferredImport.key === swapInitParamsConsumptionKey &&
+      consumedSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey
+    ) {
+      // The entry owns completion until its counterpart is applied or resolved empty.
       return;
     }
     const hasSelectedTokens = Boolean(
@@ -1875,6 +1985,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapActiveAccount.network?.id,
     validateSelectedTokensColdStartContext,
     markInitialSelectedTokensSynced,
+    swapInitParamsConsumptionKey,
   ]);
 
   useEffect(() => {
@@ -1955,6 +2066,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   }, [fetchSyncSwapProviderManager]);
 
   useEffect(() => {
+    let isActive = true;
     void (async () => {
       const importNetworkId = params?.importNetworkId;
       const currentNetworkId = swapAddressInfoRef.current?.networkId;
@@ -1970,15 +2082,32 @@ export function useSwapInit(params?: ISwapInitParams) {
       ) {
         return;
       }
-      appliedImportNetworkIdRef.current = importNetworkId;
+      if (
+        params?.swapSource === ESwapSource.WALLET_HOME &&
+        !params.importFromToken &&
+        !params.importToToken
+      ) {
+        // Establish the automatic pair's owner before announcing its network.
+        const homeSync = await syncSwapSelectedAccountFromLatestHomeStorage();
+        if (!isActive || homeSync.cancelled) {
+          return;
+        }
+      }
       if (importNetworkId !== currentNetworkId) {
         await updateSelectedAccountNetwork({
           num: 0,
           networkId: importNetworkId,
           reason: 'swapImportNetworkSync',
+          shouldCommit: () => isActive,
         });
       }
+      if (isActive) {
+        appliedImportNetworkIdRef.current = importNetworkId;
+      }
     })();
+    return () => {
+      isActive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isFocused,
@@ -1998,6 +2127,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     swapAddressInfo.accountInfo?.ready,
+    rootSwapInitType,
     swapNetworks,
     defaultConfigStatus,
     swapAddressInfo.networkId,

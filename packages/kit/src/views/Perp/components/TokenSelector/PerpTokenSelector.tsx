@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   memo,
   startTransition,
   useCallback,
@@ -9,11 +12,13 @@ import {
   useState,
 } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
   DebugRenderTracker,
+  type IInputProps,
   type IListViewRef,
   Icon,
   ListView,
@@ -33,6 +38,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAllAssetCtxsAtom,
@@ -45,20 +51,32 @@ import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebvi
 import {
   type ISpotAssetCtxsMap,
   spotAssetCtxsMapAtom,
+  usePerpTokenFavoritesPersistAtom,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   usePerpsActiveAccountAtom,
   usePerpsFavoritesOrderPersistAtom,
   useSpotExternalMarketCapsAtom,
+  useSpotTokenFavoritesPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
+import {
+  getKeyboardEventKey,
+  isImeComposingKeyboardEvent,
+} from '@onekeyhq/shared/src/utils/imeUtils';
 import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import {
+  reconcileTokenSelectorFavoritesOrder,
+  updateTokenSelectorFavoriteCoins,
+} from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
@@ -369,8 +387,61 @@ function BasePerpTokenSelectorContent() {
     usePerpTokenSelector();
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
+  const inputQueryRef = useRef(searchQuery);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const refocusSearchOnClick = useRef(false);
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      refocusSearchOnClick.current = event.nativeEvent.pointerType === 'mouse';
+    },
+    [],
+  );
+  const handleSearchFocus = useCallback<NonNullable<IInputProps['onFocus']>>(
+    (event) => {
+      if (event.target instanceof HTMLInputElement) {
+        searchInputRef.current = event.target;
+      }
+    },
+    [],
+  );
+  const focusSearchInput = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (
+        refocusSearchOnClick.current &&
+        event.target !== searchInputRef.current
+      ) {
+        searchInputRef.current?.focus({ preventScroll: true });
+      }
+      refocusSearchOnClick.current = false;
+    },
+    [],
+  );
+  const keyboardSubmitPending = useRef(false);
+  const keyboardRowRefs = useRef(new Map<string, HTMLElement>());
+  const keyboardFavoritesPending = useRef(new Set<string>());
+  const pendingKeyboardScroll = useRef<string | undefined>(undefined);
+  const cancelPendingKeyboardScroll = useCallback(() => {
+    pendingKeyboardScroll.current = undefined;
+  }, []);
+  const registerKeyboardRow = useCallback((coin: string, node: unknown) => {
+    if (typeof HTMLElement !== 'undefined' && node instanceof HTMLElement) {
+      keyboardRowRefs.current.set(coin, node);
+      if (pendingKeyboardScroll.current === coin) {
+        pendingKeyboardScroll.current = undefined;
+        node.scrollIntoView({ block: 'nearest' });
+      }
+    } else {
+      keyboardRowRefs.current.delete(coin);
+    }
+  }, []);
+  const [keyboardSelection, setKeyboardSelection] = useState<{
+    key: string;
+    query: string;
+    tab: string;
+  }>();
 
-  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetsByDex, query: filteredQuery }] =
+    usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const [selectorConfig, setSelectorConfig] =
@@ -473,6 +544,8 @@ function BasePerpTokenSelectorContent() {
   );
   const setActiveTab = useCallback(
     (tab: string) => {
+      pendingKeyboardScroll.current = undefined;
+      setKeyboardSelection(undefined);
       defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
         tab,
         previousTab: displayActiveTab,
@@ -487,6 +560,8 @@ function BasePerpTokenSelectorContent() {
       if (tab === displayPrimaryTab) {
         return;
       }
+      pendingKeyboardScroll.current = undefined;
+      setKeyboardSelection(undefined);
       defaultLogger.perp.tokenSelector.perpTokenSelectorPrimaryTabClick({
         tab,
         previousTab: displayPrimaryTab,
@@ -556,7 +631,10 @@ function BasePerpTokenSelectorContent() {
     [perpFavoriteItems, spotFavoriteItems],
   );
   const isFavoritesReady = isPerpFavoritesReady && isSpotFavoritesReady;
-  const [favoritesOrder] = usePerpsFavoritesOrderPersistAtom();
+  const [favoritesOrder, setFavoritesOrder] =
+    usePerpsFavoritesOrderPersistAtom();
+  const [perpFavorites, setPerpFavorites] = usePerpTokenFavoritesPersistAtom();
+  const [spotFavorites, setSpotFavorites] = useSpotTokenFavoritesPersistAtom();
 
   // Freeze sort order while popover is open; refreshed on sort change or first data arrival.
   const ctxSnapshotRef = useRef(assetCtxsByDex);
@@ -999,6 +1077,7 @@ function BasePerpTokenSelectorContent() {
         const dynamicItems = getPerpTokenSelectorDynamicTabItems({
           items: perpSortedList,
           tokens: dynamicTab.tokens,
+          filteredQuery,
         });
         if (activeDynamicTabUserSort && sortField) {
           result = dynamicItems
@@ -1060,6 +1139,7 @@ function BasePerpTokenSelectorContent() {
   }, [
     displayActiveTab,
     displayPrimaryTab,
+    filteredQuery,
     activeDynamicTabUserSort,
     activeFavoritesTabUserSort,
     assetsByDex,
@@ -1098,6 +1178,262 @@ function BasePerpTokenSelectorContent() {
     (item: ITokenSelectorListItem) => getTokenSelectorListItemKey(item),
     [],
   );
+  const keyboardResultsReady =
+    isPerpTokenSelectorSpotTab(displayPrimaryTab) ||
+    (filteredQuery ?? '') === searchQuery;
+  const keyboardSelectedKey =
+    keyboardResultsReady &&
+    keyboardSelection?.query === searchQuery &&
+    keyboardSelection?.tab === displayActiveTab
+      ? keyboardSelection.key
+      : undefined;
+  const keyboardSelectedIndex = activeTabData.findIndex(
+    (item) => keyExtractor(item) === keyboardSelectedKey,
+  );
+  const handleSearchInputChange = useCallback<
+    NonNullable<IInputProps['onChange']>
+  >((event) => {
+    inputQueryRef.current = event.nativeEvent.text.trim().slice(0, 64);
+    pendingKeyboardScroll.current = undefined;
+    setKeyboardSelection(undefined);
+  }, []);
+  const handleSearchQueryChange = useCallback(
+    (query: string) => {
+      inputQueryRef.current = query.trim().slice(0, 64);
+      pendingKeyboardScroll.current = undefined;
+      setKeyboardSelection(undefined);
+      setSearchQuery(query);
+    },
+    [setSearchQuery],
+  );
+  const handleFavoriteShortcut = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (
+        isImeComposingKeyboardEvent(event) ||
+        !event.currentTarget.contains(event.target as Node)
+      ) {
+        return;
+      }
+      const keyboardEvent = event.nativeEvent;
+      if (
+        event.key.toLowerCase() === 's' &&
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        const inputTarget = keyboardEvent.target;
+        const currentQuery =
+          typeof HTMLInputElement !== 'undefined' &&
+          inputTarget instanceof HTMLInputElement
+            ? inputTarget.value.trim().slice(0, 64)
+            : inputQueryRef.current;
+        if (
+          keyboardEvent.repeat ||
+          keyboardSelectedIndex < 0 ||
+          !keyboardResultsReady ||
+          currentQuery !== searchQuery ||
+          inputQueryRef.current !== searchQuery
+        ) {
+          return;
+        }
+        const item = activeTabData[keyboardSelectedIndex];
+        const coin = item?.spotUniverse?.name ?? item?.tokenName;
+        if (coin && !keyboardFavoritesPending.current.has(coin)) {
+          keyboardFavoritesPending.current.add(coin);
+          const isSpot = !!item.spotUniverse;
+          const currentFavorites = isSpot ? spotFavorites : perpFavorites;
+          const action = currentFavorites.favorites.includes(coin)
+            ? 'remove'
+            : 'add';
+          if (!platformEnv.isExtensionUi) {
+            const updateFavorites = (favorites: string[]) =>
+              updateTokenSelectorFavoriteCoins({ favorites, coin, action })
+                .favorites;
+            if (isSpot) {
+              setSpotFavorites((prev) => ({
+                ...prev,
+                favorites: updateFavorites(prev.favorites),
+              }));
+            } else {
+              setPerpFavorites((prev) => ({
+                ...prev,
+                favorites: updateFavorites(prev.favorites),
+              }));
+            }
+            setFavoritesOrder((prev) => ({
+              sequence: reconcileTokenSelectorFavoritesOrder({
+                sequence: prev.sequence,
+                perpFavorites: isSpot
+                  ? perpFavorites.favorites
+                  : updateFavorites(perpFavorites.favorites),
+                spotFavorites: isSpot
+                  ? updateFavorites(spotFavorites.favorites)
+                  : spotFavorites.favorites,
+              }),
+            }));
+          }
+          void backgroundApiProxy.serviceHyperliquid
+            .updateTokenSelectorFavorite({
+              mode: isSpot ? 'spot' : 'perp',
+              coin,
+              action: platformEnv.isExtensionUi ? 'toggle' : action,
+            })
+            .catch((error) => {
+              console.error('Failed to update token favorite:', error);
+            })
+            .finally(() => {
+              keyboardFavoritesPending.current.delete(coin);
+            });
+        }
+      }
+    },
+    [
+      activeTabData,
+      keyboardResultsReady,
+      keyboardSelectedIndex,
+      searchQuery,
+      perpFavorites,
+      spotFavorites,
+      setPerpFavorites,
+      setSpotFavorites,
+      setFavoritesOrder,
+    ],
+  );
+  const handleKeyboardNavigation = useCallback<
+    NonNullable<IInputProps['onKeyPress']>
+  >(
+    (event) => {
+      if (isImeComposingKeyboardEvent(event)) return;
+      const key = getKeyboardEventKey(event);
+      const keyboardEvent = event.nativeEvent as Partial<KeyboardEvent>;
+      const inputTarget = keyboardEvent.target;
+      if (
+        typeof HTMLInputElement !== 'undefined' &&
+        inputTarget instanceof HTMLInputElement &&
+        inputTarget.value.trim().slice(0, 64) !== inputQueryRef.current
+      ) {
+        inputQueryRef.current = inputTarget.value.trim().slice(0, 64);
+        pendingKeyboardScroll.current = undefined;
+        setKeyboardSelection(undefined);
+      }
+      if (key === 'ArrowLeft' || key === 'ArrowRight') {
+        if (
+          keyboardEvent.metaKey ||
+          keyboardEvent.ctrlKey ||
+          keyboardEvent.altKey ||
+          keyboardEvent.shiftKey ||
+          inputQueryRef.current ||
+          (typeof HTMLInputElement !== 'undefined' &&
+            inputTarget instanceof HTMLInputElement &&
+            inputTarget.value.length > 0)
+        ) {
+          return;
+        }
+        event.preventDefault();
+        const index = primaryTabs.findIndex(
+          (tab) => tab.tabId === displayPrimaryTab,
+        );
+        const nextTab = primaryTabs[index + (key === 'ArrowRight' ? 1 : -1)];
+        if (nextTab) setPrimaryTab(nextTab.tabId);
+        return;
+      }
+      if (key !== 'ArrowDown' && key !== 'ArrowUp') return;
+      if (
+        keyboardEvent.metaKey ||
+        keyboardEvent.ctrlKey ||
+        keyboardEvent.altKey ||
+        keyboardEvent.shiftKey
+      ) {
+        return;
+      }
+      event.preventDefault();
+      if (
+        inputQueryRef.current !== searchQuery ||
+        !keyboardResultsReady ||
+        !activeTabData.length
+      ) {
+        return;
+      }
+      let nextIndex: number;
+      if (keyboardSelectedIndex < 0) {
+        nextIndex = key === 'ArrowDown' ? 0 : activeTabData.length - 1;
+      } else {
+        nextIndex = Math.max(
+          0,
+          Math.min(
+            activeTabData.length - 1,
+            keyboardSelectedIndex + (key === 'ArrowDown' ? 1 : -1),
+          ),
+        );
+      }
+      const nextItem = activeTabData[nextIndex];
+      setKeyboardSelection({
+        key: keyExtractor(nextItem),
+        query: searchQuery,
+        tab: displayActiveTab,
+      });
+      const coin = nextItem.spotUniverse?.name ?? nextItem.tokenName;
+      const row = coin ? keyboardRowRefs.current.get(coin) : undefined;
+      pendingKeyboardScroll.current = undefined;
+      if (row) {
+        row.scrollIntoView({ block: 'nearest' });
+      } else {
+        pendingKeyboardScroll.current = coin;
+        // Mount virtualized targets before their actual bounds are scrolled.
+        listRef.current?.scrollToOffset?.({
+          offset: Math.max(
+            0,
+            (nextIndex - 3) * TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT,
+          ),
+          animated: false,
+        });
+      }
+    },
+    [
+      activeTabData,
+      displayActiveTab,
+      displayPrimaryTab,
+      keyExtractor,
+      keyboardResultsReady,
+      keyboardSelectedIndex,
+      primaryTabs,
+      searchQuery,
+      setPrimaryTab,
+    ],
+  );
+  const handleKeyboardSubmit = useCallback<
+    NonNullable<IInputProps['onSubmitEditing']>
+  >(
+    (event) => {
+      if (
+        keyboardSubmitPending.current ||
+        keyboardSelectedIndex < 0 ||
+        !keyboardResultsReady ||
+        inputQueryRef.current !== searchQuery ||
+        event.nativeEvent.text.trim().slice(0, 64) !== searchQuery
+      ) {
+        return;
+      }
+      const item = activeTabData[keyboardSelectedIndex];
+      const coin = item?.spotUniverse?.name ?? item?.tokenName;
+      if (coin) {
+        event.preventDefault();
+        keyboardSubmitPending.current = true;
+        void handleSelectToken(coin).finally(() => {
+          keyboardSubmitPending.current = false;
+        });
+      }
+    },
+    [
+      activeTabData,
+      handleSelectToken,
+      keyboardResultsReady,
+      keyboardSelectedIndex,
+      searchQuery,
+    ],
+  );
   const desktopListLayout = useMemo((): 'perp' | 'spot' | 'mixed' => {
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
       return 'spot';
@@ -1131,9 +1467,17 @@ function BasePerpTokenSelectorContent() {
         onPress={handleSelectToken}
         skipMarkRequired
         desktopLayout={getRowDesktopLayout(mockedToken)}
+        isKeyboardSelected={keyExtractor(mockedToken) === keyboardSelectedKey}
+        registerKeyboardRow={registerKeyboardRow}
       />
     ),
-    [getRowDesktopLayout, handleSelectToken],
+    [
+      getRowDesktopLayout,
+      handleSelectToken,
+      keyExtractor,
+      keyboardSelectedKey,
+      registerKeyboardRow,
+    ],
   );
 
   const hasPerpTokenDataLoaded = useMemo(
@@ -1199,10 +1543,22 @@ function BasePerpTokenSelectorContent() {
               flex: 1,
             }}
             autoFocus
+            onFocus={platformEnv.isNative ? undefined : handleSearchFocus}
             placeholder={intl.formatMessage({
               id: ETranslations.global_search_asset,
             })}
-            onChangeText={setSearchQuery}
+            onChangeText={
+              platformEnv.isNative ? setSearchQuery : handleSearchQueryChange
+            }
+            onChange={
+              platformEnv.isNative ? undefined : handleSearchInputChange
+            }
+            onKeyPress={
+              platformEnv.isNative ? undefined : handleKeyboardNavigation
+            }
+            onSubmitEditing={
+              platformEnv.isNative ? undefined : handleKeyboardSubmit
+            }
             // value={searchQuery} // keep value undefined to make debounce works
           />
         </XStack>
@@ -1283,11 +1639,87 @@ function BasePerpTokenSelectorContent() {
           )}
         </YStack>
       </YStack>
+      {!platformEnv.isNative ? (
+        <SizableText
+          role="status"
+          aria-live="polite"
+          aria-atomic
+          position="absolute"
+          width={1}
+          height={1}
+          overflow="hidden"
+          opacity={0}
+        >
+          {activeTabData[keyboardSelectedIndex]?.spotUniverse?.displayName ??
+            activeTabData[keyboardSelectedIndex]?.tokenName ??
+            ''}
+        </SizableText>
+      ) : null}
+      {!platformEnv.isNative ? (
+        <XStack
+          px="$4"
+          py="$2"
+          gap="$4"
+          alignItems="center"
+          flexWrap="wrap"
+          flexShrink={0}
+          borderTopWidth="$px"
+          borderTopColor="$borderSubdued"
+        >
+          <XStack gap="$1">
+            <Badge badgeSize="sm">↑↓</Badge>
+          </XStack>
+          <XStack gap="$1.5" alignItems="center">
+            <Badge badgeSize="sm">←→</Badge>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_switch })}
+            </SizableText>
+          </XStack>
+          <XStack
+            gap="$1.5"
+            alignItems="center"
+            opacity={keyboardSelectedIndex < 0 ? 0.5 : 1}
+          >
+            <Badge badgeSize="sm">Enter</Badge>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.dexmarket_select_token })}
+            </SizableText>
+          </XStack>
+          <XStack
+            gap="$1.5"
+            alignItems="center"
+            opacity={keyboardSelectedIndex < 0 ? 0.5 : 1}
+          >
+            <Badge badgeSize="sm">{`${shortcutsKeys.CmdOrCtrl}S`}</Badge>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_favorites })}
+            </SizableText>
+          </XStack>
+          <XStack gap="$1.5" alignItems="center">
+            <Badge badgeSize="sm">Esc</Badge>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_close })}
+            </SizableText>
+          </XStack>
+        </XStack>
+      ) : null}
     </YStack>
   );
   return (
     <DebugRenderTracker position="top-right" name="PerpTokenSelectorContent">
-      {content}
+      {platformEnv.isNative ? (
+        content
+      ) : (
+        <div
+          style={{ display: 'contents' }}
+          onPointerDownCapture={handlePointerDown}
+          onClickCapture={focusSearchInput}
+          onKeyDownCapture={handleFavoriteShortcut}
+          onWheelCapture={cancelPendingKeyboardScroll}
+        >
+          {content}
+        </div>
+      )}
     </DebugRenderTracker>
   );
 }
@@ -1340,6 +1772,49 @@ function BasePerpTokenSelector() {
       );
     };
   }, []);
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        isOpeningRef.current = false;
+        setIsOpen(false);
+        return;
+      }
+      if (isOpen || isOpeningRef.current) {
+        return;
+      }
+      isOpeningRef.current = true;
+      void waitForTokenSelectorOpenPrewarm(
+        Promise.resolve().then(() => prewarmTokenSelectorImages()),
+      ).finally(() => {
+        isOpeningRef.current = false;
+      });
+      defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+        currentToken: baseName,
+        tradeMode: mode === 'spot' ? 'spot' : 'perp',
+        walletType: activePerpsAccount.walletType ?? 'unknown',
+      });
+      setContentGeneration((generation) => generation + 1);
+      setIsOpen(true);
+    },
+    [
+      isOpen,
+      prewarmTokenSelectorImages,
+      baseName,
+      mode,
+      activePerpsAccount.walletType,
+    ],
+  );
+  const closeOnBlur = useCallback(() => {
+    isOpeningRef.current = false;
+    setIsOpen(false);
+  }, []);
+  const pageFocused = useIsFocused();
+  useEffect(() => {
+    if (!pageFocused) closeOnBlur();
+  }, [closeOnBlur, pageFocused]);
+  useListenTabFocusState(ETabRoutes.Perp, (focused, hiddenByModal) => {
+    if (!focused || hiddenByModal) closeOnBlur();
+  });
   const triggerLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
   const content = useMemo(
     () => (
@@ -1351,29 +1826,7 @@ function BasePerpTokenSelector() {
           width: DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH,
         }}
         open={isOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            isOpeningRef.current = false;
-            setIsOpen(false);
-            return;
-          }
-          if (isOpen || isOpeningRef.current) {
-            return;
-          }
-          isOpeningRef.current = true;
-          void waitForTokenSelectorOpenPrewarm(
-            Promise.resolve().then(() => prewarmTokenSelectorImages()),
-          ).finally(() => {
-            isOpeningRef.current = false;
-          });
-          defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-            currentToken: baseName,
-            tradeMode: mode === 'spot' ? 'spot' : 'perp',
-            walletType: activePerpsAccount.walletType ?? 'unknown',
-          });
-          setContentGeneration((generation) => generation + 1);
-          setIsOpen(true);
-        }}
+        onOpenChange={handleOpenChange}
         placement="bottom-start"
         renderTrigger={
           <Badge
@@ -1444,7 +1897,6 @@ function BasePerpTokenSelector() {
       />
     ),
     [
-      activePerpsAccount.walletType,
       contentGeneration,
       isOpen,
       triggerLabel,
@@ -1454,7 +1906,7 @@ function BasePerpTokenSelector() {
       dexLabel,
       builderFeeRate,
       intl,
-      prewarmTokenSelectorImages,
+      handleOpenChange,
     ],
   );
   return (

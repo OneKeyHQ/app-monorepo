@@ -1,7 +1,10 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE } from '../chartConstants';
+import {
+  TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
+} from '../chartConstants';
 import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
 import {
   type ITradingViewNativeChartRuntimeState,
@@ -70,6 +73,30 @@ export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartR
     startX: number;
     startZoomScale: number;
   };
+}
+
+// The container and the pane data resize in separate UI updates. A pane-sized
+// height mismatch means one side is still pending, so keep the runtime size
+// and the price pane stays put instead of stretching or squashing.
+export function shouldHoldTradingViewNativeSubIndicatorResize({
+  canvasSize,
+  enabled,
+  runtimeSize,
+}: {
+  canvasSize: ITradingViewNativeChartSize;
+  enabled: boolean;
+  runtimeSize: ITradingViewNativeChartSize;
+}) {
+  'worklet';
+
+  const heightDelta = canvasSize.height - runtimeSize.height;
+  return (
+    enabled &&
+    runtimeSize.height > 0 &&
+    canvasSize.width === runtimeSize.width &&
+    heightDelta !== 0 &&
+    heightDelta % TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT === 0
+  );
 }
 
 export function resizeTradingViewNativeChartRuntime(
