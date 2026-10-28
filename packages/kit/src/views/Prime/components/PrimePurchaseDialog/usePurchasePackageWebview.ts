@@ -44,7 +44,6 @@ export function usePurchasePackageWebview() {
         url: '',
         title: 'WebView',
         isWebEmbed: true,
-        hideHeaderRight: true,
         hashRoutePath: EWebEmbedRoutePath.primePurchase,
         hashRouteQueryParams: {
           primeUserId: user?.onekeyUserId || '',

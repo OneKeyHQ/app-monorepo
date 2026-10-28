@@ -3,13 +3,8 @@ import { dismissBrowser, openBrowserAsync } from 'expo-web-browser';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EModalWebViewRoutes,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
 
-import openUrlUtils, {
+import {
   dismissNativeInAppBrowser,
   getOneKeyStoreHandoffUrl,
   handleOneKeyStoreLink,
@@ -66,43 +61,6 @@ const flushPromises = () =>
   new Promise((resolve) => {
     setImmediate(resolve);
   });
-
-describe('openUrlByWebviewPro', () => {
-  const originalNavigationRef = appGlobals.$navigationRef;
-  const navigate = jest.fn();
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    appGlobals.$navigationRef = {
-      current: { navigate },
-    } as unknown as typeof appGlobals.$navigationRef;
-  });
-
-  afterEach(() => {
-    appGlobals.$navigationRef = originalNavigationRef;
-  });
-
-  test.each([true, false, undefined])(
-    'hides the header menu only when explicitly enabled: %s',
-    (hideHeaderRight) => {
-      openUrlUtils.openUrlByWebviewPro({
-        url: 'https://onekey.so',
-        title: 'OneKey',
-        ...(hideHeaderRight === undefined ? {} : { hideHeaderRight }),
-      });
-
-      expect(navigate).toHaveBeenCalledWith(ERootRoutes.Modal, {
-        screen: EModalRoutes.WebViewModal,
-        params: {
-          screen: EModalWebViewRoutes.WebView,
-          params: hideHeaderRight
-            ? expect.objectContaining({ hideHeaderRight: true })
-            : expect.not.objectContaining({ hideHeaderRight: true }),
-        },
-      });
-    },
-  );
-});
 
 describe('openUrlExternal (native)', () => {
   beforeEach(() => {

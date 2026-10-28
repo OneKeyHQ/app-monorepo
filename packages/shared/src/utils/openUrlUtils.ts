@@ -90,14 +90,12 @@ function openUrlByWebviewPro({
   url,
   title,
   isWebEmbed,
-  hideHeaderRight,
   hashRoutePath,
   hashRouteQueryParams,
 }: {
   url: string;
   title: string;
   isWebEmbed?: boolean;
-  hideHeaderRight?: boolean;
   hashRoutePath?: EWebEmbedRoutePath;
   hashRouteQueryParams?: Record<string, string>;
 }) {
@@ -109,7 +107,6 @@ function openUrlByWebviewPro({
         url,
         title,
         isWebEmbed,
-        hideHeaderRight,
         hashRoutePath,
         hashRouteQueryParams,
       },

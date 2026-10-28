@@ -43,6 +43,7 @@ import {
   EDappWebViewNavigationDecision,
   resolveDappWebViewNavigation,
 } from '../../utils/dappWebViewNavigationPolicy';
+import { shouldHideWebViewHeaderRight } from '../../utils/webViewHeaderPolicy';
 
 import type {
   IJsBridgeMessagePayload,
@@ -341,7 +342,15 @@ export default function WebViewModal() {
   return (
     <Page>
       <Page.Header
-        headerRight={hideHeaderRight ? undefined : headerRight}
+        headerRight={
+          shouldHideWebViewHeaderRight({
+            url: currentUrl,
+            isWebEmbed,
+            hideHeaderRight,
+          })
+            ? undefined
+            : headerRight
+        }
         title={navigationTitle}
       />
       <Page.Body>
