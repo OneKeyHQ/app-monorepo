@@ -18,8 +18,20 @@ import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/Networ
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EarnTestIDs } from '@onekeyhq/kit/src/views/Earn/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { buildKeyboardPressProps } from './desktopHome/earnDesktopPressable';
+
+// On web, a trigger without a style of its own keeps room around its label
+// for the focus ring, the size of the DeFi home's pill; the margins take the
+// padding back, so the label holds still and nothing around it moves
+const TRIGGER_RING_ROOM = {
+  px: '$3',
+  mx: '$-3',
+  py: '$1.5',
+  my: '$-1.5',
+  borderRadius: '$full',
+} as const;
 
 interface INetworkFilterControlProps {
   availableNetworkIds: string[];
@@ -143,6 +155,9 @@ function NetworkFilterControl({
       renderTrigger={
         <XStack
           testID={testID}
+          // Read out as a button that opens the network list
+          role="button"
+          aria-expanded={isOpen}
           ai="center"
           gap={isCompact ? '$1' : '$2'}
           hitSlop={isCompact ? 8 : undefined}
@@ -152,7 +167,8 @@ function NetworkFilterControl({
           // A tab stop on web that Enter and Space open, with the app's focus
           // ring; a click goes through the Popover's own trigger
           {...buildKeyboardPressProps(() => setIsOpen(true), 2)}
-          {...triggerProps}
+          {...(triggerProps ??
+            (platformEnv.isRuntimeBrowser ? TRIGGER_RING_ROOM : undefined))}
         >
           {compactLeadingIcon}
           <SizableText
