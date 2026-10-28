@@ -1,5 +1,5 @@
 import { runPrivacyChainWorkerOperation } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ZCASH_LIGHTWALLETD_MAINNET } from '../constants';

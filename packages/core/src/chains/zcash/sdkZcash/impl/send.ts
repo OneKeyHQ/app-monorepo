@@ -1,4 +1,4 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { validateZcashMemoHex } from '@onekeyhq/shared/src/utils/zcashMemo';
 
 import {

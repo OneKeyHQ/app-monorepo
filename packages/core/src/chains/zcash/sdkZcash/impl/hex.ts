@@ -1,4 +1,4 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 
 // Strict: an odd length or a non-hex character is a caller bug. Decoding it
 // anyway yields a silently wrong seed or PCZT (NaN bytes become 0).

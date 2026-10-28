@@ -1,4 +1,4 @@
-import { OneKeyLocalError } from '../errors';
+import { OneKeyLocalError } from '../errors/errors/localError';
 
 /**
  * How long a node response may go without delivering a single byte. Not a

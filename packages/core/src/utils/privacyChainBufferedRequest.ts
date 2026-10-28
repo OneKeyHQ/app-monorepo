@@ -1,4 +1,4 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { createFetchStream } from '@onekeyhq/shared/src/utils/fetchStreamClient';
 import { fetchBytesWithIdleTimeout } from '@onekeyhq/shared/src/utils/fetchWithIdleTimeout';
 import type { IFetchStreamRequester } from '@onekeyhq/shared/types/fetchStream';

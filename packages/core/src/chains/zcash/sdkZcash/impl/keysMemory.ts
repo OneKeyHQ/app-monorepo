@@ -1,4 +1,4 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 
 // The keys module is synchronous and single-threaded. Upstream crypto code
 // can leave copies in inactive stack frames even after owned inputs are cleared.

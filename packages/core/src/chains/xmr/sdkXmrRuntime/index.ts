@@ -1,4 +1,4 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 
 import type { IXmrFeePriority, IXmrNetwork, IXmrRuntimeError } from './types';
 

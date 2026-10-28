@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { getXmrPureRuntime } from './address';

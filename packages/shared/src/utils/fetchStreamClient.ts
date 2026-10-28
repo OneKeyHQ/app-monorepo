@@ -1,4 +1,4 @@
-import { OneKeyLocalError } from '../errors';
+import { OneKeyLocalError } from '../errors/errors/localError';
 
 import bufferUtils from './bufferUtils';
 

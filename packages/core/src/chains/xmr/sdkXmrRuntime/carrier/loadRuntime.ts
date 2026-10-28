@@ -1,7 +1,7 @@
 /** Loads the Monero wasm runtime as this process's API. Scanning is CPU-bound, so run it inside a Worker. */
 
 import { runPrivacyChainWorkerOperation } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 
 import { readXmrRuntimeError, setXmrRuntimeApiLoader } from '..';
 import { setXmrRuntimeLoader } from '../address';

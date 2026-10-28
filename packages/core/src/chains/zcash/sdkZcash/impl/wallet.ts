@@ -1,6 +1,6 @@
 /* cspell:ignore Ufvks */
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 
 import {
   isZcashAccountImportCheckpointError,

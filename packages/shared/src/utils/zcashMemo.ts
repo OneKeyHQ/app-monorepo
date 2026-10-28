@@ -1,7 +1,7 @@
 import { blake2b } from '@noble/hashes/blake2b';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 export type IZcashMemoEncoding = 'utf8' | 'hex';
 
