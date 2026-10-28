@@ -396,23 +396,27 @@ function BasicStakePage() {
   ]);
 
   const onConfirm = useCallback(
-    async ({
-      amount,
-      approveType,
-      permitSignature,
-      unsignedMessage,
-      message,
-      effectiveApy,
-      validatorPubkey,
-      stakeType: confirmStakeType,
-      onStepChange,
-    }: IApproveConfirmFnParams) => {
+    async (
+      {
+        amount,
+        approveType,
+        permitSignature,
+        unsignedMessage,
+        message,
+        effectiveApy,
+        validatorPubkey,
+        stakeType: confirmStakeType,
+        onStepChange,
+      }: IApproveConfirmFnParams,
+      isActionCurrent?: () => boolean,
+    ) => {
       if (!token || !isStakeAssetReady) {
         // Nothing was started, so the form keeps what the user typed.
         return false;
       }
       const effectiveStakeType = confirmStakeType ?? stakeType;
       return handleStake({
+        isActionCurrent,
         amount,
         approveType,
         permitSignature,

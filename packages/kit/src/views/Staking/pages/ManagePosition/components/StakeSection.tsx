@@ -597,17 +597,20 @@ export const StakeSection = ({
   const handleBorrowBorrow = useUniversalBorrowBorrow({ accountId, networkId });
 
   const onConfirm = useCallback(
-    async ({
-      amount,
-      approveType,
-      permitSignature,
-      unsignedMessage,
-      message,
-      effectiveApy,
-      validatorPubkey,
-      stakeType: confirmStakeType,
-      onStepChange,
-    }: IApproveConfirmFnParams) => {
+    async (
+      {
+        amount,
+        approveType,
+        permitSignature,
+        unsignedMessage,
+        message,
+        effectiveApy,
+        validatorPubkey,
+        stakeType: confirmStakeType,
+        onStepChange,
+      }: IApproveConfirmFnParams,
+      isActionCurrent?: () => boolean,
+    ) => {
       // Nothing was started, so the form keeps what the user typed.
       if (!hasRequiredData || !isStakeAssetReady) return false;
 
@@ -617,6 +620,7 @@ export const StakeSection = ({
       if (borrowApiCtx.isBorrow) return false;
 
       return handleStake({
+        isActionCurrent,
         amount,
         approveType,
         permitSignature,

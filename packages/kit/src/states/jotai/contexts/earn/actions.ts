@@ -100,6 +100,13 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
 
   getPermitCache = contextAtomMethod(
     (get, set, keyPayload: IEarnPermitCacheKey) => {
+      // EtherFi uses token-level EIP-2612 nonces, which can change in another
+      // flow even when this amount and spender are unchanged.
+      if (
+        earnUtils.isEtherFiProvider({ providerName: keyPayload.providerName })
+      ) {
+        return null;
+      }
       const permitCaches = get(earnPermitCacheAtom());
       const key = earnUtils.getEarnPermitCacheKey(keyPayload);
 
@@ -124,6 +131,9 @@ class ContextJotaiActionsEarn extends ContextJotaiActionsBase {
   );
 
   updatePermitCache = contextAtomMethod((_, set, payload: IEarnPermitCache) => {
+    if (earnUtils.isEtherFiProvider({ providerName: payload.providerName })) {
+      return;
+    }
     const key = earnUtils.getEarnPermitCacheKey(payload);
     set(earnPermitCacheAtom(), (prev: Record<string, IEarnPermitCache>) => ({
       ...prev,

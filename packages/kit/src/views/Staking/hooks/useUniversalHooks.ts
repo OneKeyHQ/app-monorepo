@@ -37,6 +37,7 @@ import {
   useEarnRiskWarningGate,
 } from '../components/EarnRiskWarningDialog';
 import { useShowClaimEstimateGasAlert } from '../components/EstimateNetworkFee';
+import { createEarnActionScopeGuard } from '../utils/utils';
 
 const createStakeInfoWithOrderId = ({
   stakingInfo,
@@ -103,8 +104,24 @@ export function useUniversalStake({
   const operationScope = [accountId, networkId, scopeKey].join('|');
   const operationScopeRef = useRef(operationScope);
   operationScopeRef.current = operationScope;
+  const operationScopeGuardRef = useRef<ReturnType<
+    typeof createEarnActionScopeGuard
+  > | null>(null);
+  if (!operationScopeGuardRef.current) {
+    operationScopeGuardRef.current = createEarnActionScopeGuard();
+  }
+  const operationScopeGuard = operationScopeGuardRef.current;
+  operationScopeGuard.update(operationScope);
+  const mountedRef = useRef(false);
   const wrapAbortRef = useRef<AbortController | undefined>(undefined);
   useEffect(() => () => wrapAbortRef.current?.abort(), [operationScope]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      operationScopeGuard.invalidate();
+    };
+  }, [operationScopeGuard]);
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
@@ -117,12 +134,16 @@ export function useUniversalStake({
       approvesInfo,
       useFeeInTx,
       feeInfoEditable,
+      isNavigationCurrent,
+      signal,
     }: {
       encodedTx?: IEncodedTx;
       stakingInfo?: IStakingInfo;
       approvesInfo?: IApproveInfo[];
       useFeeInTx?: boolean;
       feeInfoEditable?: boolean;
+      isNavigationCurrent?: () => boolean;
+      signal?: AbortSignal;
     }): Promise<ITxConfirmResult> =>
       new Promise((resolve, reject) => {
         let settled = false;
@@ -132,6 +153,7 @@ export function useUniversalStake({
             return;
           }
           settled = true;
+          signal?.removeEventListener('abort', onAbort);
           resolve(result);
         };
 
@@ -140,19 +162,33 @@ export function useUniversalStake({
             return;
           }
           settled = true;
+          signal?.removeEventListener('abort', onAbort);
           reject(error);
         };
 
+        function onAbort() {
+          resolveOnce({ status: 'cancel' });
+        }
+        if (signal?.aborted) {
+          onAbort();
+          return;
+        }
+        signal?.addEventListener('abort', onAbort, { once: true });
         void navigationToTxConfirm({
           encodedTx,
           stakingInfo,
           approvesInfo,
           useFeeInTx,
           feeInfoEditable,
+          isNavigationCurrent,
           onSuccess: (data) => resolveOnce({ status: 'success', data }),
           onFail: (error) => rejectOnce(error),
           onCancel: () => resolveOnce({ status: 'cancel' }),
-        }).catch((error) => rejectOnce(error));
+        })
+          .then(() => {
+            if (isNavigationCurrent && !isNavigationCurrent()) onAbort();
+          })
+          .catch((error) => rejectOnce(error));
       }),
     [navigationToTxConfirm],
   );
@@ -180,6 +216,7 @@ export function useUniversalStake({
       onSuccess,
       onFail,
       onStepChange,
+      isActionCurrent,
       // Stakefish specific param
       validatorPublicKey,
     }: {
@@ -205,6 +242,7 @@ export function useUniversalStake({
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
+      isActionCurrent?: () => boolean;
       onStepChange?: (
         step: number,
         options?: { shouldShowPostWrapApproveStep?: boolean },
@@ -212,6 +250,13 @@ export function useUniversalStake({
       // Stakefish specific param
       validatorPublicKey?: string;
     }) => {
+      const isScopeCurrent = operationScopeGuard.capture();
+      const isOperationCurrent = () =>
+        mountedRef.current &&
+        operationScopeRef.current === operationScope &&
+        isScopeCurrent() &&
+        (isActionCurrent?.() ?? true);
+      if (!isOperationCurrent()) return false;
       // OK-59196: one-time risk disclaimer gates the first earn trade on
       // this device; resolves immediately once accepted
       const riskConfirmed = await showEarnRiskWarningDialog({
@@ -223,7 +268,7 @@ export function useUniversalStake({
       if (!riskConfirmed) {
         return false;
       }
-      if (operationScopeRef.current !== operationScope) return false;
+      if (!isOperationCurrent()) return false;
       const buildStakeConfirmPayload = async ({
         confirmStakeType = stakeType,
         confirmInputTokenAddress = inputTokenAddress,
@@ -293,8 +338,7 @@ export function useUniversalStake({
         const controller = new AbortController();
         wrapAbortRef.current = controller;
         const isCurrent = () =>
-          !controller.signal.aborted &&
-          operationScopeRef.current === operationScope;
+          !controller.signal.aborted && isOperationCurrent();
         if (!postWrapStakeToken?.address || !postWrapApproveSpenderAddress) {
           throw new OneKeyLocalError(
             'Wrap staking requires wrapped token approval config',
@@ -320,6 +364,8 @@ export function useUniversalStake({
             stakingInfo: wrapConfirmPayload.stakeInfoWithOrderId,
             useFeeInTx: wrapConfirmPayload.useFeeInTx,
             feeInfoEditable: wrapConfirmPayload.feeInfoEditable,
+            isNavigationCurrent: isCurrent,
+            signal: controller.signal,
           });
         } catch (error) {
           onFail?.(error as Error);
@@ -455,6 +501,8 @@ export function useUniversalStake({
                   tokenInfo: postWrapStakeToken,
                 },
               ],
+              isNavigationCurrent: isCurrent,
+              signal: controller.signal,
             });
           } catch (error) {
             onFail?.(error as Error);
@@ -530,11 +578,13 @@ export function useUniversalStake({
           onFail,
           useFeeInTx: normalConfirmPayload.useFeeInTx,
           feeInfoEditable: normalConfirmPayload.feeInfoEditable,
+          isNavigationCurrent: isCurrent,
         });
-        return true;
+        return isCurrent();
       }
 
       const stakeConfirmPayload = await buildStakeConfirmPayload();
+      if (!isOperationCurrent()) return false;
 
       await navigationToTxConfirm({
         encodedTx: stakeConfirmPayload.encodedTx,
@@ -550,9 +600,10 @@ export function useUniversalStake({
         onFail,
         useFeeInTx: stakeConfirmPayload.useFeeInTx,
         feeInfoEditable: stakeConfirmPayload.feeInfoEditable,
+        isNavigationCurrent: isOperationCurrent,
       });
 
-      return true;
+      return isOperationCurrent();
     },
     [
       accountId,
@@ -560,6 +611,7 @@ export function useUniversalStake({
       networkId,
       navigationToTxConfirm,
       operationScope,
+      operationScopeGuard,
       waitForTxConfirmResult,
     ],
   );

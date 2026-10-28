@@ -135,6 +135,54 @@ describe('useTrackTokenAllowance', () => {
     expect(result.current.allowanceAvailable).toBe(false);
   });
 
+  it('lets the current allowance request recover after a failure', async () => {
+    serviceStaking.fetchTokenAllowance
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockResolvedValueOnce({ allowance: '10000000', allowanceParsed: '10' });
+    const { result } = renderHook(() =>
+      useTrackTokenAllowance({ ...params, refreshOnMount: true }),
+    );
+
+    await waitFor(() => expect(result.current.allowanceError).toBe(true));
+    expect(result.current.allowanceAvailable).toBe(false);
+    act(() => result.current.retryAllowance());
+    await waitFor(() => expect(result.current.allowanceAvailable).toBe(true));
+    expect(result.current.allowanceError).toBe(false);
+    expect(result.current.allowance).toBe('10');
+  });
+
+  it('ignores a retry result after the account changes', async () => {
+    let resolveRetry:
+      | ((value: { allowance: string; allowanceParsed: string }) => void)
+      | undefined;
+    serviceStaking.fetchTokenAllowance
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveRetry = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({ allowance: '20000000', allowanceParsed: '20' });
+    const { result, rerender } = renderHook(
+      ({ accountId }: { accountId: string }) =>
+        useTrackTokenAllowance({ ...params, accountId, refreshOnMount: true }),
+      { initialProps: { accountId: 'account-1' } },
+    );
+
+    await waitFor(() => expect(result.current.allowanceError).toBe(true));
+    act(() => result.current.retryAllowance());
+    await waitFor(() => expect(resolveRetry).toBeDefined());
+    rerender({ accountId: 'account-2' });
+    await waitFor(() => expect(result.current.allowance).toBe('20'));
+    await act(async () => {
+      resolveRetry?.({ allowance: '99000000', allowanceParsed: '99' });
+      await Promise.resolve();
+    });
+    expect(result.current.allowance).toBe('20');
+    expect(result.current.allowanceError).toBe(false);
+  });
+
   it('distinguishes a confirmed zero allowance from an unavailable allowance', async () => {
     serviceStaking.fetchTokenAllowance.mockResolvedValue({
       allowance: '0',
@@ -152,6 +200,21 @@ describe('useTrackTokenAllowance', () => {
     expect(result.current.allowance).toBe('0');
     expect(result.current.allowanceAvailable).toBe(true);
   });
+
+  it.each(['NaN', '-1', 'Infinity', ''])(
+    'treats an invalid allowance %s as a retryable error',
+    async (allowanceParsed) => {
+      serviceStaking.fetchTokenAllowance.mockResolvedValue({
+        allowance: '0',
+        allowanceParsed,
+      });
+      const { result } = renderHook(() =>
+        useTrackTokenAllowance({ ...params, refreshOnMount: true }),
+      );
+      await waitFor(() => expect(result.current.allowanceError).toBe(true));
+      expect(result.current.allowanceAvailable).toBe(false);
+    },
+  );
 
   it('invalidates a previously confirmed allowance when a later refresh fails', async () => {
     serviceHistory.fetchTxDetails.mockResolvedValue({

@@ -1,8 +1,9 @@
+import { resolvePortfolioClaimProtocolIdentity } from '@onekeyhq/kit/src/views/Earn/utils/portfolioClaimUtils';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
-import { EClaimType } from '@onekeyhq/shared/types/staking';
+import { EClaimType, EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnRewardsPortfolioGroup,
   IEarnRewardsPortfolioItem,
@@ -28,6 +29,7 @@ import {
   sellsEarly,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
+  toPositionCancel,
   toPositionClaim,
   toPositionRewardClaim,
 } from './myPortfolio.utils';
@@ -187,6 +189,46 @@ describe('toPositionClaim', () => {
 
   it('yields nothing for a position without a claim of its own', () => {
     expect(toPositionClaim(lido)).toBeUndefined();
+  });
+});
+
+describe('mobile position action identity', () => {
+  it('passes the server action identity through claim, reward and cancel adapters', () => {
+    const position: IEarnPortfolioPosition = {
+      ...lidoClaimable,
+      earn: {
+        ...lidoClaimable.earn,
+        symbol: 'receipt-token',
+        vault: '0xsteth',
+        manage: { ...lidoClaimable.earn.manage, symbol: 'ETH' },
+        cancel: {
+          type: EStakingActionType.CancelWithdrawal,
+          disabled: false,
+          text: { text: 'Cancel' },
+        },
+      },
+    };
+    const actions = [
+      toPositionClaim(position),
+      toPositionRewardClaim(position, claimableReward(everstake)),
+      toPositionCancel(position),
+    ];
+
+    for (const action of actions) {
+      if (!action || 'airdropAssets' in action.asset) {
+        throw new OneKeyLocalError('expected a normal position action');
+      }
+      const { protocol } = action.asset.metadata;
+      expect(
+        resolvePortfolioClaimProtocolIdentity({
+          isAirdrop: false,
+          providerName: protocol.providerDetail.code,
+          assetSymbol: action.asset.token.info.symbol,
+          protocolSymbol: protocol.symbol,
+          assetVault: protocol.vault,
+        }),
+      ).toEqual({ symbol: 'ETH', vault: '0xsteth' });
+    }
   });
 });
 

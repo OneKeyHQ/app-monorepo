@@ -730,6 +730,8 @@ export function UniversalWithdraw({
   const {
     allowance,
     allowanceAvailable,
+    allowanceError,
+    retryAllowance,
     loading: loadingAllowance,
     trackAllowance,
     fetchAllowanceResponse,
@@ -2274,6 +2276,18 @@ export function UniversalWithdraw({
         onRetry={() => void legacyApproval.refresh()}
         onRevoke={() => void legacyApproval.revoke()}
       />
+      {amountUnit === 'shares' && !isCancelWithdrawal && allowanceError ? (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          })}
+          action={{
+            primary: intl.formatMessage({ id: ETranslations.global_retry }),
+            onPrimaryPress: retryAllowance,
+          }}
+        />
+      ) : null}
       {beforeFooter}
       {shouldShowPendleWithdrawProgress ? (
         <StakeProgress

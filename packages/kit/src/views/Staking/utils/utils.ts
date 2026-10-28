@@ -16,6 +16,32 @@ const NATIVE_EARN_WRAPPED_ETH_SYMBOL = 'WETH';
 const BORROW_CLAIM_SCOPE_VERSION = 'v1';
 const BORROW_SET_COLLATERAL_SCOPE_VERSION = 'v1';
 
+export function normalizeEarnActionAmountScope(amount: string): string {
+  if (!amount.trim()) return amount;
+  const value = new BigNumber(amount);
+  return value.isFinite() ? value.toFixed() : amount;
+}
+
+export function createEarnActionScopeGuard() {
+  let scope: string | undefined;
+  let generation = 0;
+  return {
+    update(nextScope: string) {
+      if (scope !== nextScope) {
+        scope = nextScope;
+        generation += 1;
+      }
+    },
+    capture() {
+      const captured = generation;
+      return () => captured === generation;
+    },
+    invalidate() {
+      generation += 1;
+    },
+  };
+}
+
 function isNativeEarnEthSymbol(symbol?: string) {
   return symbol?.toUpperCase() === 'ETH';
 }

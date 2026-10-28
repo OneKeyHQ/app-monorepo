@@ -8,6 +8,7 @@ import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
@@ -118,6 +119,52 @@ export function useEtherFiLegacyApproval({
       : undefined;
   }, [accountId, networkId]);
 
+  const findRevokeReplacement = useCallback(
+    async (txid: string) => {
+      const [accountAddress, xpub] = await Promise.all([
+        backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+        backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+      ]);
+      let historyId = accountUtils.buildLocalHistoryId({
+        accountAddress,
+        networkId,
+        txid,
+        xpub,
+      });
+      const visited = new Set<string>();
+      let hasReplacement = false;
+
+      while (historyId && !visited.has(historyId) && visited.size < 32) {
+        visited.add(historyId);
+        const transaction =
+          await backgroundApiProxy.serviceHistory.getLocalHistoryTxById({
+            accountId,
+            networkId,
+            historyId,
+          });
+        if (!transaction) return undefined;
+        if (!transaction.replacedNextId) {
+          return hasReplacement && transaction.decodedTx.txid
+            ? {
+                txid: transaction.decodedTx.txid,
+                isCancel: transaction.replacedType === EReplaceTxType.Cancel,
+              }
+            : undefined;
+        }
+        hasReplacement = true;
+        historyId = transaction.replacedNextId;
+      }
+      return undefined;
+    },
+    [accountId, networkId],
+  );
+
   const monitorTx = useCallback(
     async (txid: string, id: number, controller: AbortController) => {
       const current = () =>
@@ -183,11 +230,17 @@ export function useEtherFiLegacyApproval({
         if (!clear) {
           const pendingTx = await findPendingRevoke();
           if (id !== generation.current || scopeRef.current !== scope) return;
-          if (pendingTx) {
-            pendingTxIdRef.current = pendingTx.txid;
-            pendingIsCancelRef.current = pendingTx.isCancel;
+          const replacementTx =
+            !pendingTx && wasPending && previousTxId
+              ? await findRevokeReplacement(previousTxId)
+              : undefined;
+          if (id !== generation.current || scopeRef.current !== scope) return;
+          const activeTx = pendingTx ?? replacementTx;
+          if (activeTx) {
+            pendingTxIdRef.current = activeTx.txid;
+            pendingIsCancelRef.current = activeTx.isCancel;
           }
-          if (pendingTx || wasPending) {
+          if (activeTx || wasPending) {
             nextStatus = 'pending';
             const txid = pendingTxIdRef.current;
             if (txid) {
@@ -227,10 +280,12 @@ export function useEtherFiLegacyApproval({
           abortRef.current = controller;
           void monitorTx(pendingTxIdRef.current, id, controller);
         }
-        if (clear && wasPending) {
+        if (nextStatus !== 'pending' && wasPending) {
           generation.current += 1;
           abortRef.current?.abort();
-          onClearedRef.current?.();
+          pendingTxIdRef.current = undefined;
+          pendingIsCancelRef.current = false;
+          if (clear) onClearedRef.current?.();
         }
       }
     } catch {
@@ -238,7 +293,15 @@ export function useEtherFiLegacyApproval({
         setState({ scope, status: wasPending ? 'pending' : 'unknown' });
       }
     }
-  }, [accountId, findPendingRevoke, monitorTx, networkId, read, scope]);
+  }, [
+    accountId,
+    findPendingRevoke,
+    findRevokeReplacement,
+    monitorTx,
+    networkId,
+    read,
+    scope,
+  ]);
 
   useEffect(() => {
     return () => {

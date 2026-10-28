@@ -3,11 +3,47 @@ import type { IEarnTokenItem } from '@onekeyhq/shared/types/staking';
 import {
   buildBorrowTag,
   buildLocalTxStatusSyncId,
+  createEarnActionScopeGuard,
+  normalizeEarnActionAmountScope,
   parseBorrowTag,
   resolveEarnStakeRequestSymbol,
   resolveEarnStakeType,
   resolveSelectedStakeAsset,
 } from './utils';
+
+describe('earn action scope guard', () => {
+  it('keeps equivalent valid amounts in the same scope without collapsing invalid input', () => {
+    expect(normalizeEarnActionAmountScope('1.0')).toBe(
+      normalizeEarnActionAmountScope('1'),
+    );
+    expect(normalizeEarnActionAmountScope('')).not.toBe(
+      normalizeEarnActionAmountScope('0'),
+    );
+    expect(normalizeEarnActionAmountScope('invalid')).not.toBe(
+      normalizeEarnActionAmountScope('0'),
+    );
+  });
+  it('continues an approval only while its original scope remains current', async () => {
+    const scope = createEarnActionScopeGuard();
+    scope.update('account-a|asset-a|amount-1');
+    const sameAction = scope.capture();
+    await Promise.resolve();
+    expect(sameAction()).toBe(true);
+
+    scope.update('account-a|asset-a|amount-2');
+    scope.update('account-a|asset-a|amount-1');
+    expect(sameAction()).toBe(false);
+    expect(scope.capture()()).toBe(true);
+  });
+
+  it('invalidates in-flight approval after the owning form is removed', () => {
+    const scope = createEarnActionScopeGuard();
+    scope.update('account-a|asset-a|amount-1');
+    const action = scope.capture();
+    scope.invalidate();
+    expect(action()).toBe(false);
+  });
+});
 
 describe('buildLocalTxStatusSyncId', () => {
   it('keeps existing provider tags backward compatible', () => {

@@ -82,8 +82,10 @@ import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import {
   countDecimalPlaces,
+  createEarnActionScopeGuard,
   getStakeTransactionConfirmationAction,
   isInvalidAmount,
+  normalizeEarnActionAmountScope,
   shouldShowStakingSummaryCard,
 } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
@@ -456,7 +458,10 @@ type IUniversalStakeProps = {
   // pre-flight check failed), so the form keeps the amount the user typed.
   // Deliberately not `boolean | void`: a caller that forgets to return the
   // hook's result would silently reset the form.
-  onConfirm?: (params: IApproveConfirmFnParams) => Promise<boolean>;
+  onConfirm?: (
+    params: IApproveConfirmFnParams,
+    isActionCurrent?: () => boolean,
+  ) => Promise<boolean>;
   onFeeRateChange?: (rate: string) => void;
 
   tokenInfo?: IEarnTokenInfo;
@@ -556,6 +561,7 @@ export function UniversalStake({
   transactionConfirmationAmountRef.current = amountValue;
   const [approving, setApproving] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const submissionLockRef = useRef(false);
   const [selectedValidator, setSelectedValidator] = useState<
     string | undefined
   >(ongoingValidator?.select?.defaultValue);
@@ -605,6 +611,32 @@ export function UniversalStake({
     () => requestSymbol || tokenInfo?.token.symbol || tokenSymbol || '',
     [requestSymbol, tokenInfo?.token.symbol, tokenSymbol],
   );
+  const approvalScopeKey = JSON.stringify([
+    accountId,
+    networkId,
+    providerName,
+    protocolInfo?.vault,
+    actionSymbol,
+    approveTarget.accountId,
+    approveTarget.networkId,
+    approveTarget.spenderAddress,
+    approveTarget.token?.address,
+    approveType,
+    normalizeEarnActionAmountScope(amountValue),
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
+    stakeType,
+    selectedValidator,
+    pendleSlippage,
+  ]);
+  const approvalScopeGuardRef = useRef<ReturnType<
+    typeof createEarnActionScopeGuard
+  > | null>(null);
+  if (!approvalScopeGuardRef.current) {
+    approvalScopeGuardRef.current = createEarnActionScopeGuard();
+  }
+  const approvalScopeGuard = approvalScopeGuardRef.current;
+  approvalScopeGuard.update(approvalScopeKey);
   const isStakefishEthStake = useMemo(
     () => isStakefishProvider && actionSymbol.toUpperCase() === 'ETH',
     [actionSymbol, isStakefishProvider],
@@ -923,7 +955,9 @@ export function UniversalStake({
     async (
       onNext: () => Promise<void> | undefined,
       action = confirmationAction,
+      isCurrent: () => boolean = () => true,
     ) => {
+      if (!isCurrent()) return;
       if (usePermit2Approve) {
         return onNext();
       }
@@ -932,6 +966,7 @@ export function UniversalStake({
 
       const response = await fetchEstimateFeeResp(amountValue, action);
 
+      if (!isCurrent()) return;
       setApproving(false);
       if (!response) {
         return onNext();
@@ -949,7 +984,7 @@ export function UniversalStake({
         estFiatValue: response.feeFiatValue,
         onConfirm: async (dialogInstance: IDialogInstance) => {
           await dialogInstance.close();
-          await onNext();
+          if (isCurrent()) await onNext();
         },
       });
     },
@@ -1114,10 +1149,16 @@ export function UniversalStake({
 
   useEffect(
     () => () => {
+      approvalScopeGuard.invalidate();
       allowanceAbortRef.current?.abort();
     },
-    [],
+    [approvalScopeGuard],
   );
+
+  useEffect(() => {
+    allowanceAbortRef.current?.abort();
+    setApproving(false);
+  }, [approvalScopeKey]);
 
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
@@ -1228,7 +1269,7 @@ export function UniversalStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
-      if (isWrapStake && submitting) return;
+      if (submitting || submissionLockRef.current) return;
       if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
@@ -1252,7 +1293,7 @@ export function UniversalStake({
         void debouncedFetchEstimateFeeResp(value);
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp, isWrapStake, submitting],
+    [decimals, debouncedFetchEstimateFeeResp, submitting],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -1387,8 +1428,8 @@ export function UniversalStake({
     amountValue?.length > 0 && !!checkAmountMessage;
 
   const amountInputDisabled = useMemo(() => {
-    return isDisabled || isStakingCapFull || (isWrapStake && submitting);
-  }, [isDisabled, isStakingCapFull, isWrapStake, submitting]);
+    return isDisabled || isStakingCapFull || submitting;
+  }, [isDisabled, isStakingCapFull, submitting]);
 
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
@@ -1417,7 +1458,16 @@ export function UniversalStake({
   }, [estimateFeeResp?.coverFeeSeconds]);
 
   const onSubmit = useCallback(
-    async (freshFee?: IEarnEstimateFeeResp) => {
+    async (
+      freshFee?: IEarnEstimateFeeResp,
+      isApprovalCurrent?: () => boolean,
+      signedPermit?: {
+        signature: string;
+        unsignedMessage?: IEarnPermit2ApproveSignData;
+      },
+    ) => {
+      const isCurrent = isApprovalCurrent ?? approvalScopeGuard.capture();
+      if (!isCurrent()) return;
       Keyboard.dismiss();
 
       // Approval can auto-continue before React receives the new allowance.
@@ -1436,19 +1486,23 @@ export function UniversalStake({
             ECheckAmountActionType.STAKING,
           );
         } catch (error) {
-          errorToastUtils.toastIfError(error);
-          errorToastUtils.showToastOfError(error);
+          if (isCurrent()) {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+          }
           return;
         }
       }
+      if (!isCurrent()) return;
       // A successful empty preview is valid for legacy protocols; only request failures block submission.
       // Bot Wallet deactivated warning
       const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
         accountId,
       });
+      if (!isCurrent()) return;
       if (isDeactivatedBot) {
         const confirmed = await showBotWalletDeactivatedWarningDialog();
-        if (!confirmed) {
+        if (!confirmed || !isCurrent()) {
           return;
         }
       }
@@ -1468,7 +1522,7 @@ export function UniversalStake({
           networkId,
           title: intl.formatMessage({ id: ETranslations.global_warning }),
         });
-        if (!riskAcceptedBeforeSigning) {
+        if (!riskAcceptedBeforeSigning || !isCurrent()) {
           return;
         }
       }
@@ -1491,6 +1545,7 @@ export function UniversalStake({
             amount: new BigNumber(amountValue).toFixed(),
             action: 'stake',
           });
+          if (!isCurrent()) return;
           stakefishPermitSignatureRef.current = signature;
           stakefishPermitMessageRef.current = message;
         } catch (error) {
@@ -1508,8 +1563,10 @@ export function UniversalStake({
       let finalMessage: string | undefined;
       let finalUnsignedMessage: IEarnPermit2ApproveSignData | undefined;
       if (usePermit2Approve && new BigNumber(amountValue).gt(allowance)) {
-        finalPermitSignature = permitSignatureRef.current;
-        finalUnsignedMessage = permit2DataRef.current;
+        finalPermitSignature =
+          signedPermit?.signature ?? permitSignatureRef.current;
+        finalUnsignedMessage =
+          signedPermit?.unsignedMessage ?? permit2DataRef.current;
       } else if (isStakefishCreateNewValidator) {
         finalPermitSignature = stakefishPermitSignatureRef.current;
         finalMessage = stakefishPermitMessageRef.current;
@@ -1541,6 +1598,8 @@ export function UniversalStake({
         stakefishPermitMessageRef.current = undefined;
       };
       const handleConfirm = async () => {
+        if (!isCurrent() || submissionLockRef.current) return;
+        submissionLockRef.current = true;
         setSubmitting(true);
         try {
           if (isWrapStake) {
@@ -1552,21 +1611,26 @@ export function UniversalStake({
             } catch {
               shouldShowApproveStep = true;
             }
+            if (!isCurrent()) return;
             setShouldShowPostWrapApproveStepOverride(shouldShowApproveStep);
             setStakeProgressStep(EStakeProgressStep.approve);
           }
 
-          const started = await onConfirm?.({
-            amount: amountValue,
-            effectiveApy: depositConfirmation?.effectiveApy,
-            stakeType,
-            onStepChange: handleStakeProgressChange,
-            ...permitSignatureParams,
-            ...stakefishParams,
-          });
+          const started = await onConfirm?.(
+            {
+              amount: amountValue,
+              effectiveApy: depositConfirmation?.effectiveApy,
+              stakeType,
+              onStepChange: handleStakeProgressChange,
+              ...permitSignatureParams,
+              ...stakefishParams,
+            },
+            isCurrent,
+          );
           if (started === false) {
             return;
           }
+          if (!isCurrent()) return;
           resetAmount();
           // Auto-refresh quote countdown after swap completes
           onQuoteReset?.();
@@ -1575,6 +1639,7 @@ export function UniversalStake({
           errorToastUtils.toastIfError(error);
           errorToastUtils.showToastOfError(error);
         } finally {
+          submissionLockRef.current = false;
           setSubmitting(false);
         }
       };
@@ -1597,7 +1662,7 @@ export function UniversalStake({
             percent: impactInfo.percent,
             lossAmount: `${currencySymbol}${impactInfo.lossAmount}`,
           });
-          if (!userConfirmed) return;
+          if (!userConfirmed || !isCurrent()) return;
         }
       }
 
@@ -1625,6 +1690,7 @@ export function UniversalStake({
         await checkEstimateGasAlert(
           handleConfirm,
           ECheckAmountActionType.STAKING,
+          isCurrent,
         );
         return;
       }
@@ -1633,6 +1699,7 @@ export function UniversalStake({
     },
     [
       usePermit2Approve,
+      approvalScopeGuard,
       approveType,
       allowance,
       estimateFeeResp,
@@ -1677,123 +1744,144 @@ export function UniversalStake({
   // press event would otherwise land in the options slot.
   const usdtResetReentryRef = useRef(false);
 
-  const resetUSDTApproveValue = useCallback(async () => {
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: approveTarget.accountId,
-      networkId: approveTarget.networkId,
-    });
-    const approveResetInfo: IApproveInfo = {
-      owner: account.address,
-      spender: approveTarget.spenderAddress,
-      amount: '0',
-      isMax: false,
-      tokenInfo: {
-        ...tokenInfo?.token,
-        address: tokenInfo?.token.address ?? '',
-        symbol: tokenInfo?.token.symbol ?? '',
-        decimals: tokenInfo?.token.decimals ?? 0,
-        isNative: !!tokenInfo?.token.isNative,
-        name: tokenInfo?.token.name ?? (tokenInfo?.token.symbol || ''),
-      },
-    };
-    const approvesInfo = [approveResetInfo];
-    await navigationToTxConfirm({
-      approvesInfo,
-      onSuccess() {
-        // Poll for allowance updates until it becomes 0
-        const pollAllowanceUntilZero = async () => {
-          try {
+  const resetUSDTApproveValue = useCallback(
+    async (isCurrent: () => boolean) => {
+      if (!isCurrent()) return;
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+      });
+      if (!isCurrent()) return;
+      const approveResetInfo: IApproveInfo = {
+        owner: account.address,
+        spender: approveTarget.spenderAddress,
+        amount: '0',
+        isMax: false,
+        tokenInfo: {
+          ...tokenInfo?.token,
+          address: tokenInfo?.token.address ?? '',
+          symbol: tokenInfo?.token.symbol ?? '',
+          decimals: tokenInfo?.token.decimals ?? 0,
+          isNative: !!tokenInfo?.token.isNative,
+          name: tokenInfo?.token.name ?? (tokenInfo?.token.symbol || ''),
+        },
+      };
+      const approvesInfo = [approveResetInfo];
+      await navigationToTxConfirm({
+        approvesInfo,
+        isNavigationCurrent: isCurrent,
+        onSuccess() {
+          if (!isCurrent()) return;
+          // Poll for allowance updates until it becomes 0
+          const pollAllowanceUntilZero = () => {
             let attempts = 0;
             const maxAttempts = 10; // Prevent infinite polling
             const pollInterval = 3000; // 3 seconds between polls
 
-            const checkAllowance = async () => {
-              // Fetch latest allowance
-              const allowanceInfo = await fetchAllowanceResponse();
+            async function checkAllowance() {
+              try {
+                if (!isCurrent()) return;
+                // Fetch latest allowance
+                const allowanceInfo = await fetchAllowanceResponse();
+                if (!isCurrent()) return;
 
-              if (allowanceInfo) {
-                // Allowance is now 0: the USDT reset landed on-chain. Re-enter
-                // the approve step to continue the flow (approve the new amount
-                // then submit the stake). onApprove re-reads the allowance, sees
-                // 0, and skips the reset branch — no loop. Without this the flow
-                // dead-ended right after the reset tx, so the stake never fired
-                // (OK-58027). Keep approving=true; onApprove owns the state from
-                // here — but observe rejections: onApprove awaits getAccount /
-                // navigationToTxConfirm outside any try/catch, and a swallowed
-                // reject would leave the confirm button stuck loading+disabled.
-                if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
-                  // Bypass the approving-reentry guard: this deliberate
-                  // re-entry runs with approving === true (OK-58027)
-                  usdtResetReentryRef.current = true;
-                  void onApproveRef.current?.().catch((e) => {
-                    console.error(
-                      'Re-enter approve after USDT reset failed:',
-                      e,
-                    );
-                    setApproving(false);
-                  });
-                  return;
+                if (allowanceInfo) {
+                  // Allowance is now 0: the USDT reset landed on-chain. Re-enter
+                  // the approve step to continue the flow (approve the new amount
+                  // then submit the stake). onApprove re-reads the allowance, sees
+                  // 0, and skips the reset branch — no loop. Without this the flow
+                  // dead-ended right after the reset tx, so the stake never fired
+                  // (OK-58027). Keep approving=true; onApprove owns the state from
+                  // here — but observe rejections: onApprove awaits getAccount /
+                  // navigationToTxConfirm outside any try/catch, and a swallowed
+                  // reject would leave the confirm button stuck loading+disabled.
+                  if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
+                    // Bypass the approving-reentry guard: this deliberate
+                    // re-entry runs with approving === true (OK-58027)
+                    usdtResetReentryRef.current = true;
+                    void onApproveRef.current?.().catch((e) => {
+                      console.error(
+                        'Re-enter approve after USDT reset failed:',
+                        e,
+                      );
+                      if (isCurrent()) setApproving(false);
+                    });
+                    return;
+                  }
                 }
+
+                attempts += 1;
+
+                if (attempts < maxAttempts) {
+                  scheduleCheck();
+                } else {
+                  if (isCurrent()) setApproving(false);
+                }
+              } catch (error) {
+                console.error('Error polling for allowance:', error);
+                if (isCurrent()) setApproving(false);
               }
+            }
+            function scheduleCheck() {
+              setTimeout(() => {
+                void checkAllowance();
+              }, pollInterval);
+            }
+            scheduleCheck();
+          };
 
-              attempts += 1;
+          // Start polling for USDT reset
+          pollAllowanceUntilZero();
+        },
+        onFail() {
+          if (isCurrent()) setApproving(false);
+        },
+        onCancel() {
+          if (isCurrent()) setApproving(false);
+        },
+      });
+    },
+    [
+      approveTarget.accountId,
+      approveTarget.networkId,
+      approveTarget.spenderAddress,
+      fetchAllowanceResponse,
+      navigationToTxConfirm,
+      tokenInfo?.token,
+    ],
+  );
 
-              if (attempts < maxAttempts) {
-                setTimeout(checkAllowance, pollInterval);
-              } else {
-                setApproving(false);
-              }
-            };
-
-            // Start the recursive polling
-            setTimeout(checkAllowance, pollInterval);
-          } catch (error) {
-            console.error('Error polling for allowance:', error);
-            setApproving(false);
-          }
-        };
-
-        // Start polling for USDT reset
-        void pollAllowanceUntilZero();
-      },
-      onFail() {
-        setApproving(false);
-      },
-      onCancel() {
-        setApproving(false);
-      },
-    });
-  }, [
-    approveTarget.accountId,
-    approveTarget.networkId,
-    approveTarget.spenderAddress,
-    fetchAllowanceResponse,
-    navigationToTxConfirm,
-    tokenInfo?.token,
-  ]);
-
-  const showResetUSDTApproveValueDialog = useCallback(() => {
-    Dialog.show({
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_continue,
-      }),
-      showExitButton: false,
-      dismissOnOverlayPress: false,
-      onCancel: () => {
-        setApproving(false);
-      },
-      onConfirm: () => {
-        void resetUSDTApproveValue();
-      },
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
-      }),
-      icon: 'ErrorOutline',
-    });
-  }, [intl, resetUSDTApproveValue]);
+  const showResetUSDTApproveValueDialog = useCallback(
+    (isCurrent: () => boolean) => {
+      Dialog.show({
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        showExitButton: false,
+        dismissOnOverlayPress: false,
+        onCancel: () => {
+          if (isCurrent()) setApproving(false);
+        },
+        onConfirm: () => {
+          void resetUSDTApproveValue(isCurrent).catch((error: unknown) => {
+            if (isCurrent()) {
+              errorToastUtils.toastIfError(error);
+              errorToastUtils.showToastOfError(error);
+              setApproving(false);
+            }
+          });
+        },
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
+        }),
+        icon: 'ErrorOutline',
+      });
+    },
+    [intl, resetUSDTApproveValue],
+  );
 
   const waitForAllowanceAfterApprove = useCallback(
     async ({
@@ -1858,6 +1946,7 @@ export function UniversalStake({
 
   const onApprove = useCallback(async () => {
     Keyboard.dismiss();
+    const isCurrent = approvalScopeGuard.capture();
     // Take the approving lock synchronously BEFORE any await (review P1):
     // the confirm button's loading derives from `approving`, so awaiting
     // first would leave a double-tap window as wide as one bg IPC roundtrip.
@@ -1880,6 +1969,7 @@ export function UniversalStake({
       networkId: approveTarget.networkId,
       title: intl.formatMessage({ id: ETranslations.global_warning }),
     });
+    if (!isCurrent()) return;
     if (!riskConfirmed) {
       setApproving(false);
       return;
@@ -1891,6 +1981,7 @@ export function UniversalStake({
     } catch (e) {
       console.error(e);
     }
+    if (!isCurrent()) return;
     permitSignatureRef.current = undefined;
     permit2DataRef.current = undefined;
     showStakeProgressRef.current[amountValue] = true;
@@ -1900,14 +1991,14 @@ export function UniversalStake({
 
     if (tokenInfo?.token && earnUtils.isUSDTonETHNetwork(tokenInfo?.token)) {
       if (allowanceBN.gt(0) && amountBN.gt(allowanceBN)) {
-        showResetUSDTApproveValueDialog();
+        showResetUSDTApproveValueDialog(isCurrent);
         return;
       }
     }
 
     if (usePermit2Approve && amountBN.lte(allowanceBN)) {
       setApproving(false);
-      await onSubmit();
+      await onSubmit(undefined, isCurrent);
       return;
     }
 
@@ -1935,9 +2026,13 @@ export function UniversalStake({
             permitSignatureRef.current = permitCache.signature;
             permit2DataRef.current = permitCache.permit2Data;
             const cachedFee = await fetchEstimateFeeResp(amountValue);
+            if (!isCurrent()) return;
             setEstimateFeeResp(cachedFee);
-            await onSubmit(cachedFee);
-            setApproving(false);
+            await onSubmit(cachedFee, isCurrent, {
+              signature: permitCache.signature,
+              unsignedMessage: permitCache.permit2Data,
+            });
+            if (isCurrent()) setApproving(false);
             return;
           }
 
@@ -1949,6 +2044,7 @@ export function UniversalStake({
             providerName,
             vaultAddress: protocolVault || '',
           });
+          if (!isCurrent()) return;
           permitSignatureRef.current = signature;
           permit2DataRef.current = unsignedMessage;
 
@@ -1973,22 +2069,25 @@ export function UniversalStake({
           });
 
           const freshFee = await fetchEstimateFeeResp(amountValue);
+          if (!isCurrent()) return;
           setEstimateFeeResp(freshFee);
 
-          await onSubmit(freshFee);
-          setApproving(false);
+          await onSubmit(freshFee, isCurrent, { signature, unsignedMessage });
+          if (isCurrent()) setApproving(false);
         } catch (error: unknown) {
-          errorToastUtils.toastIfError(error);
-          errorToastUtils.showToastOfError(error);
-          console.error('Permit sign error:', error);
-          defaultLogger.staking.page.permitSignError({
-            error: error instanceof Error ? error.message : String(error),
-          });
-          setApproving(false);
+          if (isCurrent()) {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+            console.error('Permit sign error:', error);
+            defaultLogger.staking.page.permitSignError({
+              error: error instanceof Error ? error.message : String(error),
+            });
+            setApproving(false);
+          }
         }
       };
 
-      void checkEstimateGasAlert(handlePermit2Approve);
+      void checkEstimateGasAlert(handlePermit2Approve, undefined, isCurrent);
       return;
     }
 
@@ -1996,6 +2095,7 @@ export function UniversalStake({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
+    if (!isCurrent()) return;
 
     await navigationToTxConfirm({
       approvesInfo: [
@@ -2006,7 +2106,9 @@ export function UniversalStake({
           tokenInfo: approveTarget.token,
         },
       ],
+      isNavigationCurrent: isCurrent,
       onSuccess(data) {
+        if (!isCurrent()) return;
         trackAllowance(data[0].decodedTx.txid);
         allowanceAbortRef.current?.abort();
         const abortController = new AbortController();
@@ -2017,31 +2119,35 @@ export function UniversalStake({
               requiredAmount: amountValue,
               signal: abortController.signal,
             });
-            if (!allowanceReady) {
+            if (!allowanceReady || !isCurrent()) {
               return;
             }
             const freshFee = await fetchEstimateFeeResp(
               amountValue,
               ECheckAmountActionType.STAKING,
             );
+            if (!isCurrent()) return;
             setEstimateFeeResp(freshFee);
-            await onSubmit(freshFee);
+            await onSubmit(freshFee, isCurrent);
           } catch (error) {
-            errorToastUtils.toastIfError(error);
-            errorToastUtils.showToastOfError(error);
+            if (isCurrent()) {
+              errorToastUtils.toastIfError(error);
+              errorToastUtils.showToastOfError(error);
+            }
           } finally {
-            setApproving(false);
+            if (isCurrent()) setApproving(false);
           }
         })();
       },
       onFail() {
-        setApproving(false);
+        if (isCurrent()) setApproving(false);
       },
       onCancel() {
-        setApproving(false);
+        if (isCurrent()) setApproving(false);
       },
     });
   }, [
+    approvalScopeGuard,
     approving,
     allowance,
     amountValue,
@@ -2277,6 +2383,7 @@ export function UniversalStake({
   const effectiveConfirmOnPress =
     footerActionOverride?.onPress ??
     (() => {
+      if (submissionLockRef.current) return;
       void (async () => {
         if (
           (await legacyApproval.verifyBeforeAction()) &&
@@ -2295,6 +2402,7 @@ export function UniversalStake({
     ? Boolean(footerActionOverride.loading)
     : baseConfirmLoading;
   const effectiveConfirmDisabled =
+    submitting ||
     legacyApproval.blocked ||
     (footerActionOverride
       ? Boolean(footerActionOverride.disabled)

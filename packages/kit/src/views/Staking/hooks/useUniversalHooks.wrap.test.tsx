@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import { StrictMode } from 'react';
+
 import { renderHook, waitFor } from '@testing-library/react';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
@@ -30,6 +32,7 @@ type IConfirmParams = {
   onSuccess?: (data: ISendTxOnSuccessData[]) => void | Promise<void>;
   onFail?: (error: Error) => void;
   onCancel?: () => void;
+  isNavigationCurrent?: () => boolean;
 };
 type IAllowance = { allowance: string; allowanceParsed: string };
 
@@ -312,6 +315,112 @@ describe('useUniversalStake EtherFi ETH wrapping', () => {
     expect(mockNavigate).toHaveBeenCalledTimes(1);
     expect(mockAllowance).not.toHaveBeenCalled();
   });
+
+  it('does not open a normal stake confirmation after a scope changes and changes back during build', async () => {
+    const build = deferred<IStakeTxResponse>();
+    mockBuildStake.mockReturnValueOnce(build.promise);
+    const { result, rerender } = renderHook(
+      ({ scopeKey }: { scopeKey: string }) =>
+        useUniversalStake({ ...account, scopeKey }),
+      { initialProps: { scopeKey: 'first-vault' } },
+    );
+    const submit = result.current({ ...params, stakeType: 'normal' });
+    await waitFor(() => expect(mockBuildStake).toHaveBeenCalledTimes(1));
+    rerender({ scopeKey: 'other-vault' });
+    rerender({ scopeKey: 'first-vault' });
+    build.resolve({ tx: depositTx });
+    await expect(submit).resolves.toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('does not open a normal stake confirmation when the originating form becomes stale during build', async () => {
+    const build = deferred<IStakeTxResponse>();
+    mockBuildStake.mockReturnValueOnce(build.promise);
+    let current = true;
+    const { result } = renderHook(() => useUniversalStake(account));
+    const submit = result.current({
+      ...params,
+      stakeType: 'normal',
+      isActionCurrent: () => current,
+    });
+    await waitFor(() => expect(mockBuildStake).toHaveBeenCalledTimes(1));
+    current = false;
+    build.resolve({ tx: depositTx });
+    await expect(submit).resolves.toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('rejects an old callback invoked after changing accounts', async () => {
+    const { result, rerender } = renderHook(
+      ({ accountId }: { accountId: string }) =>
+        useUniversalStake({ accountId, networkId: account.networkId }),
+      { initialProps: { accountId: 'account-1' } },
+    );
+    const oldCallback = result.current;
+    rerender({ accountId: 'account-2' });
+    await expect(oldCallback({ ...params, stakeType: 'normal' })).resolves.toBe(
+      false,
+    );
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('rejects a saved callback invoked after its owning hook unmounts', async () => {
+    const { result, unmount } = renderHook(() => useUniversalStake(account));
+    const oldCallback = result.current;
+    unmount();
+    await expect(oldCallback({ ...params, stakeType: 'normal' })).resolves.toBe(
+      false,
+    );
+    expect(mockRiskAccepted).not.toHaveBeenCalled();
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('allows a current action after StrictMode replays effect setup', async () => {
+    const { result } = renderHook(() => useUniversalStake(account), {
+      wrapper: StrictMode,
+    });
+    await expect(
+      result.current({ ...params, stakeType: 'normal' }),
+    ).resolves.toBe(true);
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open a normal stake confirmation after the owning hook unmounts during build', async () => {
+    const build = deferred<IStakeTxResponse>();
+    mockBuildStake.mockReturnValueOnce(build.promise);
+    const { result, unmount } = renderHook(() => useUniversalStake(account));
+    const submit = result.current({ ...params, stakeType: 'normal' });
+    await waitFor(() => expect(mockBuildStake).toHaveBeenCalledTimes(1));
+    unmount();
+    build.resolve({ tx: depositTx });
+    await expect(submit).resolves.toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it.each(['normal', 'wrap'] as const)(
+    'cancels a %s confirmation if the scope changes while navigation prepares',
+    async (stakeType) => {
+      const prepare = deferred<void>();
+      const opened = jest.fn();
+      mockNavigate.mockImplementation(async ({ isNavigationCurrent }) => {
+        await prepare.promise;
+        if (isNavigationCurrent?.() ?? true) opened();
+      });
+      const { result, rerender } = renderHook(
+        ({ scopeKey }: { scopeKey: string }) =>
+          useUniversalStake({ ...account, scopeKey }),
+        { initialProps: { scopeKey: 'first-vault' } },
+      );
+      const submit = result.current({ ...params, stakeType });
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+      rerender({ scopeKey: 'other-vault' });
+      prepare.resolve();
+      await expect(submit).resolves.toBe(false);
+      expect(opened).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(['1', '2'])(
     'skips approval when WETH allowance is %s',

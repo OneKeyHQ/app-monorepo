@@ -8,6 +8,7 @@ import { useEtherFiLegacyApproval } from './useEtherFiLegacyApproval';
 
 const allowance = jest.fn<Promise<{ allowanceParsed: string }>, [unknown]>();
 const getAccount = jest.fn<Promise<{ address: string }>, [unknown]>();
+const getXpub = jest.fn<Promise<string>, [unknown]>();
 const getToken = jest.fn<
   Promise<{
     info: {
@@ -59,6 +60,18 @@ const txDetails = jest.fn<
   Promise<{ data: { status: EOnChainHistoryTxStatus } }>,
   [unknown]
 >();
+const localHistoryTx = jest.fn<
+  Promise<
+    | {
+        id: string;
+        replacedNextId?: string;
+        replacedType?: EReplaceTxType;
+        decodedTx: { txid: string };
+      }
+    | undefined
+  >,
+  [{ accountId: string; networkId: string; historyId: string }]
+>();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -69,9 +82,15 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceAccount: {
       getAccount: (arg: unknown) => getAccount(arg),
       getAccountAddressForApi: async () => '0xowner',
+      getAccountXpub: (arg: unknown) => getXpub(arg),
     },
     serviceHistory: {
       getAccountLocalHistoryPendingTxs: (arg: unknown) => pendingTxs(arg),
+      getLocalHistoryTxById: (arg: {
+        accountId: string;
+        networkId: string;
+        historyId: string;
+      }) => localHistoryTx(arg),
       fetchTxDetails: (arg: unknown) => txDetails(arg),
     },
     serviceToken: {
@@ -103,6 +122,7 @@ describe('EtherFi legacy allowance', () => {
     jest.resetAllMocks();
     allowance.mockResolvedValue({ allowanceParsed: '1' });
     getAccount.mockResolvedValue({ address: '0xowner' });
+    getXpub.mockResolvedValue('');
     getToken.mockResolvedValue({
       info: {
         address: vault,
@@ -240,6 +260,200 @@ describe('EtherFi legacy allowance', () => {
     );
     await waitFor(() => expect(result.current.status).toBe('pending'));
     expect(result.current.blocked).toBe(true);
+  });
+
+  it('recovers a completed cancellation by following the local replacement chain', async () => {
+    finalStatus.mockResolvedValue(undefined);
+    txDetails.mockResolvedValue({
+      data: { status: EOnChainHistoryTxStatus.Success },
+    });
+    localHistoryTx.mockImplementation(async ({ historyId }) => {
+      if (historyId === 'evm--1_0xtx_0xowner_') {
+        return {
+          id: historyId,
+          replacedNextId: 'speedup',
+          decodedTx: { txid: '0xtx' },
+        };
+      }
+      if (historyId === 'speedup') {
+        return {
+          id: historyId,
+          replacedNextId: 'cancel',
+          replacedType: EReplaceTxType.SpeedUp,
+          decodedTx: { txid: '0xspeedup' },
+        };
+      }
+      if (historyId === 'cancel') {
+        return {
+          id: historyId,
+          replacedType: EReplaceTxType.Cancel,
+          decodedTx: { txid: '0xcancel' },
+        };
+      }
+      return undefined;
+    });
+    const onCleared = jest.fn();
+    const { result } = renderHook(() =>
+      useEtherFiLegacyApproval({ ...params, onCleared }),
+    );
+    await waitFor(() => expect(result.current.status).toBe('required'));
+    await act(async () => result.current.revoke());
+    act(() =>
+      confirm.mock.calls[0][0].onSuccess([{ signedTx: { txid: '0xtx' } }]),
+    );
+    await waitFor(() => expect(result.current.status).toBe('pending'));
+    await act(async () => result.current.refresh());
+    expect(result.current.status).toBe('required');
+    expect(txDetails).toHaveBeenCalledWith({
+      accountId: 'account',
+      networkId: 'evm--1',
+      txid: '0xcancel',
+    });
+    expect(onCleared).not.toHaveBeenCalled();
+  });
+
+  it('keeps a replaced revoke pending when replacement history is incomplete', async () => {
+    finalStatus.mockResolvedValue(undefined);
+    txDetails.mockResolvedValue({
+      data: { status: EOnChainHistoryTxStatus.Pending },
+    });
+    localHistoryTx.mockImplementation(async ({ historyId }) =>
+      historyId === 'evm--1_0xtx_0xowner_'
+        ? {
+            id: historyId,
+            replacedNextId: 'missing',
+            decodedTx: { txid: '0xtx' },
+          }
+        : undefined,
+    );
+    const { result } = renderHook(() => useEtherFiLegacyApproval(params));
+    await waitFor(() => expect(result.current.status).toBe('required'));
+    await act(async () => result.current.revoke());
+    act(() =>
+      confirm.mock.calls[0][0].onSuccess([{ signedTx: { txid: '0xtx' } }]),
+    );
+    await waitFor(() => expect(result.current.status).toBe('pending'));
+    await act(async () => result.current.refresh());
+    expect(result.current.status).toBe('pending');
+    expect(result.current.blocked).toBe(true);
+  });
+
+  it('remains blocked when another matching revoke is still pending', async () => {
+    finalStatus.mockResolvedValue(undefined);
+    txDetails.mockResolvedValue({
+      data: { status: EOnChainHistoryTxStatus.Pending },
+    });
+    localHistoryTx.mockImplementation(async ({ historyId }) => {
+      if (historyId === 'evm--1_0xtx_0xowner_') {
+        return {
+          id: historyId,
+          replacedNextId: 'cancel',
+          decodedTx: { txid: '0xtx' },
+        };
+      }
+      if (historyId === 'cancel') {
+        return {
+          id: historyId,
+          replacedType: EReplaceTxType.Cancel,
+          decodedTx: { txid: '0xcancel' },
+        };
+      }
+      return undefined;
+    });
+    const { result } = renderHook(() => useEtherFiLegacyApproval(params));
+    await waitFor(() => expect(result.current.status).toBe('required'));
+    await act(async () => result.current.revoke());
+    act(() =>
+      confirm.mock.calls[0][0].onSuccess([{ signedTx: { txid: '0xtx' } }]),
+    );
+    await waitFor(() => expect(result.current.status).toBe('pending'));
+    pendingTxs.mockResolvedValue([
+      {
+        decodedTx: {
+          txid: '0xother',
+          actions: [
+            {
+              tokenApprove: {
+                spender: queue,
+                tokenIdOnNetwork: vault,
+                amount: '0',
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    getXpub.mockRejectedValue(new Error('xpub unavailable'));
+    await act(async () => result.current.refresh());
+    expect(result.current.status).toBe('pending');
+    expect(result.current.blocked).toBe(true);
+    expect(txDetails).toHaveBeenCalledWith({
+      accountId: 'account',
+      networkId: 'evm--1',
+      txid: '0xother',
+    });
+    expect(getXpub).not.toHaveBeenCalled();
+    expect(localHistoryTx).not.toHaveBeenCalled();
+  });
+
+  it('does not require xpub for the normal allowance check', async () => {
+    getXpub.mockRejectedValue(new Error('xpub unavailable'));
+    const { result } = renderHook(() => useEtherFiLegacyApproval(params));
+    await waitFor(() => expect(result.current.status).toBe('required'));
+    expect(getXpub).not.toHaveBeenCalled();
+  });
+
+  it('keeps an unknown broadcast pending when no transaction id was returned', async () => {
+    const { result } = renderHook(() => useEtherFiLegacyApproval(params));
+    await waitFor(() => expect(result.current.status).toBe('required'));
+    await act(async () => result.current.revoke());
+    act(() => confirm.mock.calls[0][0].onSuccess([]));
+    expect(result.current.status).toBe('pending');
+    await act(async () => result.current.refresh());
+    expect(result.current.status).toBe('pending');
+    expect(localHistoryTx).not.toHaveBeenCalled();
+  });
+
+  it('ignores a replacement lookup that resolves after switching accounts', async () => {
+    finalStatus.mockResolvedValue(undefined);
+    let resolveHistory: (value: {
+      id: string;
+      replacedNextId: string;
+      decodedTx: { txid: string };
+    }) => void = () => undefined;
+    localHistoryTx.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveHistory = resolve;
+        }),
+    );
+    const { result, rerender } = renderHook(
+      (p: typeof params) => useEtherFiLegacyApproval(p),
+      { initialProps: params },
+    );
+    await waitFor(() => expect(result.current.status).toBe('required'));
+    await act(async () => result.current.revoke());
+    act(() =>
+      confirm.mock.calls[0][0].onSuccess([{ signedTx: { txid: '0xtx' } }]),
+    );
+    await waitFor(() => expect(result.current.status).toBe('pending'));
+    let pendingRefresh: Promise<void> | undefined;
+    act(() => {
+      pendingRefresh = result.current.refresh();
+    });
+    await waitFor(() => expect(localHistoryTx).toHaveBeenCalledTimes(1));
+    rerender({ ...params, accountId: 'other' });
+    await waitFor(() => expect(result.current.status).toBe('required'));
+    await act(async () => {
+      resolveHistory({
+        id: 'evm--1_0xtx_0xowner_',
+        replacedNextId: 'replacement',
+        decodedTx: { txid: '0xtx' },
+      });
+      await pendingRefresh;
+    });
+    expect(result.current.status).toBe('required');
+    expect(txDetails).not.toHaveBeenCalled();
   });
 
   it('ignores a late result after switching accounts', async () => {
