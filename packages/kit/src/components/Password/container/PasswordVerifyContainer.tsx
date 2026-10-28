@@ -687,6 +687,10 @@ const PasswordVerifyContainer = ({
             // fails and the lock screen remains.
             isRetry = false;
             if (isLock) {
+              // A retry hint would be wrong past the reset threshold.
+              message = intl.formatMessage({
+                id: ETranslations.settings_reset_app_description,
+              });
               defaultLogger.setting.page.resetApp({
                 reason: 'WrongPasscodeMaxAttempts',
               });

@@ -432,6 +432,9 @@ describe('manual passcode failure feedback', () => {
     });
     await submitFailing(EOneKeyErrorClassNames.WrongPassword, { name: 'lock' });
     expect(resetApp).toHaveBeenCalledTimes(1);
-    expect(captured().status.value).toBe(EPasswordVerifyStatus.ERROR);
+    expect(captured().status).toEqual({
+      value: EPasswordVerifyStatus.ERROR,
+      message: 'settings_reset_app_description',
+    });
   });
 });
