@@ -204,6 +204,7 @@ export function useMarketWatchlistTokenList({
   // cache that already covers every source this watchlist needs can paint early.
   const hasCommittedWatchlistRowsRef = useRef(false);
   const watchlistGenerationRef = useRef<string | null>(null);
+  const settledWatchlistGenerationRef = useRef<string | null>(null);
   // Set when the watchlist changes, cleared after that generation's fetch
   // effects start. Loading on the transition render still belongs to the
   // previous request.
@@ -491,10 +492,9 @@ export function useMarketWatchlistTokenList({
     (platformEnv.isNative &&
       ((spotItems.length > 0 && apiLoading !== false && !spotResult) ||
         (perpsItems.length > 0 && perpsLoading !== false && !perpsResult)));
-  const isError = Boolean(
-    (spotItems.length > 0 && spotResult?.failed) ||
-    (perpsItems.length > 0 && perpsResult?.failed),
-  );
+  const isSpotError = spotItems.length > 0 && Boolean(spotResult?.failed);
+  const isPerpsError = perpsItems.length > 0 && Boolean(perpsResult?.failed);
+  const isError = isSpotError || isPerpsError;
   // `alwaysSetState` lets a caller refresh while its page sits under a modal,
   // where the focus gate would otherwise skip the fetch.
   const refetch = useCallback(
@@ -728,6 +728,7 @@ export function useMarketWatchlistTokenList({
   if (watchlistGenerationRef.current !== watchlistGeneration) {
     const isInitialGeneration = watchlistGenerationRef.current === null;
     watchlistGenerationRef.current = watchlistGeneration;
+    settledWatchlistGenerationRef.current = null;
     if (!isInitialGeneration) {
       pendingGenerationRef.current = watchlistGeneration;
     }
@@ -751,7 +752,13 @@ export function useMarketWatchlistTokenList({
     sourceHasSettled(perpsItems.length, perpsLoading);
   if (watchlistSourcesSettled) {
     hasCommittedWatchlistRowsRef.current = true;
+    settledWatchlistGenerationRef.current = watchlistGeneration;
   }
+  // Polling must not turn a settled error or empty view back into first-load UI.
+  const hasSettledAllSources =
+    isWatchlistReady &&
+    (watchlist.length === 0 ||
+      settledWatchlistGenerationRef.current === watchlistGeneration);
   const showWatchlistRows =
     isWatchlistReady &&
     (hasCommittedWatchlistRowsRef.current || hadCachedRowsOnMountRef.current);
@@ -804,6 +811,9 @@ export function useMarketWatchlistTokenList({
     data: paginatedData,
     isLoading: !isWatchlistReady || isLoading || isHoldingWatchlistFirstPaint,
     isError,
+    isSpotError,
+    isPerpsError,
+    hasSettledAllSources,
     // Rows held back for the first paint have not loaded yet, whatever the
     // sources hold from an earlier watchlist.
     hasLoadedAllSources:

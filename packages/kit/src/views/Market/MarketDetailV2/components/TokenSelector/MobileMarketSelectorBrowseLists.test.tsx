@@ -32,6 +32,8 @@ let mockWatchlistCount = 0;
 let mockIsMounted = true;
 let mockIsWatchlistLoading = false;
 let mockHasLoadedAllSources = false;
+let mockHasSettledAllSources = false;
+let mockFailedSource: 'spot' | 'perps' = 'spot';
 const mockEventHandlers = new Map<string, () => Promise<void>>();
 const mockOn = jest.fn((name: string, handler: () => Promise<void>) => {
   mockEventHandlers.set(name, handler);
@@ -163,7 +165,10 @@ jest.mock(
       data: mockBrowseData.slice(0, pageSize),
       isLoading: mockIsWatchlistLoading,
       hasLoadedAllSources: mockHasLoadedAllSources,
+      hasSettledAllSources: mockHasSettledAllSources,
       isError: mockListState.isError,
+      isSpotError: mockListState.isError && mockFailedSource === 'spot',
+      isPerpsError: mockListState.isError && mockFailedSource === 'perps',
       refetch: mockRefetch,
     }),
   }),
@@ -530,6 +535,8 @@ describe('mobile selector partial favorites', () => {
 describe('mobile selector unavailable favorites', () => {
   afterEach(() => {
     mockHasLoadedAllSources = false;
+    mockHasSettledAllSources = false;
+    mockFailedSource = 'spot';
     mockIsWatchlistLoading = false;
     mockBrowseData = [];
     mockWatchlistCount = 0;
@@ -544,6 +551,7 @@ describe('mobile selector unavailable favorites', () => {
       mockIsMounted = true;
       mockListState = { isError: false };
       mockHasLoadedAllSources = true;
+      mockHasSettledAllSources = true;
       mockIsWatchlistLoading = false;
       mockRefetch.mockClear();
       const renderList = () => (
@@ -582,6 +590,7 @@ describe('mobile selector unavailable favorites', () => {
       mockIsMounted = true;
       mockListState = { isError: false };
       mockHasLoadedAllSources = true;
+      mockHasSettledAllSources = true;
       mockIsWatchlistLoading = false;
       const renderList = () => (
         <MobileSelectorWatchlistList
@@ -602,10 +611,153 @@ describe('mobile selector unavailable favorites', () => {
 
       // A newly added favorite starts a new unresolved request generation.
       mockHasLoadedAllSources = false;
+      mockHasSettledAllSources = false;
       rerender(renderList());
       expect(screen.getByRole('progressbar')).toBeTruthy();
     },
   );
+
+  it.each([
+    ['perps', 'stocks'],
+    ['perps', 'spot'],
+    ['spot', 'perps'],
+    ['spot', 'stocks'],
+  ] as const)(
+    'does not show a %s error in the unrelated %s category',
+    (source, filter) => {
+      mockFailedSource = source;
+      mockListState = { isError: true };
+      mockHasSettledAllSources = true;
+      mockHasLoadedAllSources = source === 'perps';
+      mockWatchlistCount = 2;
+      mockBrowseData = [
+        { ...searchToken, perpsCoin: source === 'perps' ? 'BTC' : undefined },
+      ];
+      render(
+        <MobileSelectorWatchlistList
+          watchlistFilter={filter}
+          onItemPress={jest.fn()}
+        />,
+      );
+      expect(screen.getByText('global.no_results')).toBeTruthy();
+      expect(
+        screen.queryByTestId('mobile-market-token-selector-favorites-retry'),
+      ).toBeNull();
+    },
+  );
+
+  it.each(['spot', 'perps'] as const)(
+    'keeps %s errors and retry visible while failed requests poll',
+    (source) => {
+      mockFailedSource = source;
+      mockListState = { isError: true };
+      mockHasSettledAllSources = true;
+      mockWatchlistCount = 2;
+      mockBrowseData = [{ ...searchToken, id: 'stock:AAPL', stockId: 'AAPL' }];
+      const renderList = () => (
+        <MobileSelectorWatchlistList
+          watchlistFilter={source}
+          onItemPress={jest.fn()}
+        />
+      );
+      const { rerender } = render(renderList());
+      const retry = screen.getByTestId(
+        'mobile-market-token-selector-favorites-retry',
+      );
+
+      mockIsWatchlistLoading = true;
+      rerender(renderList());
+      expect(screen.queryByRole('progressbar')).toBeNull();
+      expect(retry.isConnected).toBe(true);
+      mockRefetch.mockClear();
+      fireEvent.click(retry);
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+
+      mockIsWatchlistLoading = false;
+      rerender(renderList());
+      expect(retry.isConnected).toBe(true);
+    },
+  );
+
+  it.each([
+    {
+      source: 'perps',
+      filter: 'stocks',
+      token: { ...searchToken, stockId: 'AAPL' },
+      hasRetry: false,
+    },
+    {
+      source: 'perps',
+      filter: 'spot',
+      token: searchToken,
+      hasRetry: false,
+    },
+    {
+      source: 'spot',
+      filter: 'perps',
+      token: { ...searchToken, perpsCoin: 'BTC' },
+      hasRetry: false,
+    },
+    {
+      source: 'spot',
+      filter: 'stocks',
+      token: {
+        ...searchToken,
+        stock: { subtitle: 'Apple', source: 'xstock', sourceLogoUri: '' },
+      },
+      hasRetry: true,
+    },
+  ] as const)(
+    'scopes the $filter footer to $source failures, retry=$hasRetry',
+    ({ source, filter, token, hasRetry }) => {
+      mockFailedSource = source;
+      mockListState = { isError: true };
+      mockHasSettledAllSources = true;
+      mockWatchlistCount = 2;
+      mockBrowseData = [token];
+      const renderList = () => (
+        <MobileSelectorWatchlistList
+          watchlistFilter={filter}
+          onItemPress={jest.fn()}
+        />
+      );
+      const { rerender } = render(renderList());
+      expect(screen.getByText(token.symbol)).toBeTruthy();
+      expect(
+        Boolean(
+          screen.queryByTestId('mobile-market-token-selector-favorites-retry'),
+        ),
+      ).toBe(hasRetry);
+
+      mockIsWatchlistLoading = true;
+      rerender(renderList());
+      expect(screen.queryByRole('progressbar')).toBeNull();
+      expect(
+        Boolean(
+          screen.queryByTestId('mobile-market-token-selector-favorites-retry'),
+        ),
+      ).toBe(hasRetry);
+    },
+  );
+
+  it('keeps a settled empty category stable during failed web polling', () => {
+    // Web requests throw without setting the native source error flags.
+    mockHasSettledAllSources = true;
+    mockWatchlistCount = 2;
+    mockBrowseData = [{ ...searchToken, id: 'stock:AAPL', stockId: 'AAPL' }];
+    const renderList = () => (
+      <MobileSelectorWatchlistList
+        watchlistFilter="spot"
+        onItemPress={jest.fn()}
+      />
+    );
+    const { rerender } = render(renderList());
+    const emptyView = screen.getByText('global.no_results');
+    mockIsWatchlistLoading = true;
+    rerender(renderList());
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(emptyView.isConnected).toBe(true);
+  });
 });
 
 describe('mobile selector recommendations', () => {

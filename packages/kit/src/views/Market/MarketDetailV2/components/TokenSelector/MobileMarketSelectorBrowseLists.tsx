@@ -565,27 +565,40 @@ export function MobileSelectorWatchlistList({
       appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, refresh);
     };
   }, [watchListActions]);
-  const { data, isLoading, isError, hasLoadedAllSources, refetch } =
-    useMarketWatchlistTokenList({
-      watchlist: watchListData ?? [],
-      isWatchlistReady: isMounted,
-      dataCacheRef: marketWatchlistDataCacheRef,
-      pageSize: Math.max(watchListData?.length ?? 0, 1),
-      pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
-    });
+  const {
+    data,
+    isLoading,
+    isSpotError,
+    isPerpsError,
+    hasSettledAllSources,
+    refetch,
+  } = useMarketWatchlistTokenList({
+    watchlist: watchListData ?? [],
+    isWatchlistReady: isMounted,
+    dataCacheRef: marketWatchlistDataCacheRef,
+    pageSize: Math.max(watchListData?.length ?? 0, 1),
+    pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
+  });
   const groups = useWatchlistFilteredGroups(data);
   const rows = useLiveOverriddenTokens(
     groups[watchlistFilter],
     liveTokenOverride,
   );
-  // Delisted favorites can stay absent after a successful fetch. Missing rows
-  // only need loading feedback until the current sources have loaded.
+  const isError = {
+    all: isSpotError || isPerpsError,
+    spot: isSpotError,
+    // Tokenized stocks use the spot source; stock listings use listing quotes.
+    stocks: isSpotError && rows.some((item) => !item.stockId && !item.assetId),
+    perps: isPerpsError,
+  }[watchlistFilter];
+  // Missing rows need first-load feedback only until requests settle, including
+  // failures. Later polling keeps the current empty or error view in place.
   const hasMissingFavorites = data.length < (watchListData?.length ?? 0);
 
   if (
     !isMounted ||
     (isLoading &&
-      !hasLoadedAllSources &&
+      !hasSettledAllSources &&
       (data.length === 0 || (hasMissingFavorites && rows.length === 0)))
   ) {
     return <CenteredSpinner />;
@@ -622,9 +635,9 @@ export function MobileSelectorWatchlistList({
       tokenSubtitle="name"
       onItemPress={onItemPress}
       footer={
-        hasMissingFavorites && (!hasLoadedAllSources || isError) ? (
+        hasMissingFavorites && (!hasSettledAllSources || isError) ? (
           <LoadMoreFooter
-            isLoading={isLoading}
+            isLoading={isLoading && !hasSettledAllSources}
             isError={isError}
             testID="mobile-market-token-selector-favorites-retry"
             onRetry={() => void refetch()}

@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketListingWatchlistQuote,
   IMarketWatchListItemV2,
@@ -37,6 +38,10 @@ const mockPerps = jest.fn<Promise<IMarketPerpsTokenListData>, []>(async () => ({
 }));
 const mockTokenSearchAliases = jest.fn(async () => ({}));
 const mockNetworks: [] = [];
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false },
+}));
 jest.mock('@onekeyhq/components', () => ({ useCarouselIndex: () => 0 }));
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
   useMarketBasicConfig: () => ({ networkList: mockNetworks }),
@@ -110,9 +115,69 @@ const stockItem = (
 });
 beforeEach(() => {
   jest.clearAllMocks();
+  platformEnv.isNative = false;
   mockStockBatch.mockResolvedValue([]);
   mockPerps.mockResolvedValue({ tokens: [], updatedAt: 0 });
   marketWatchlistDataCacheRef.current = undefined;
+});
+
+it.each([false, true])(
+  'settles failed requests until the watchlist identity changes, native=%s',
+  async (isNative) => {
+    platformEnv.isNative = isNative;
+    mockBatch.mockRejectedValue(new Error('network'));
+    const watchlist = [
+      { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 0 },
+    ];
+    const { result, rerender } = renderHook(
+      ({ items }: { items: IMarketWatchListItemV2[] }) =>
+        useMarketWatchlistTokenList({ watchlist: items, pollingInterval: 0 }),
+      { initialProps: { items: watchlist } },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.hasSettledAllSources).toBe(true);
+    expect(result.current.hasLoadedAllSources).toBe(false);
+    expect(result.current.isSpotError).toBe(isNative);
+    expect(result.current.isPerpsError).toBe(false);
+
+    let resolveSpot: (value: { list: unknown[] }) => void = () => {};
+    mockBatch.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSpot = resolve;
+      }),
+    );
+    rerender({ items: [...watchlist] });
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.hasSettledAllSources).toBe(true);
+
+    rerender({
+      items: [
+        ...watchlist,
+        { chainId: 'evm--1', contractAddress: '0xnew', sortIndex: 1 },
+      ],
+    });
+    expect(result.current.hasSettledAllSources).toBe(false);
+    await act(async () => resolveSpot({ list: [] }));
+    await waitFor(() => expect(result.current.hasLoadedAllSources).toBe(true));
+    expect(result.current.hasSettledAllSources).toBe(true);
+    expect(result.current.isSpotError).toBe(false);
+  },
+);
+
+it('reports Perps refresh failures separately from Spot errors', async () => {
+  platformEnv.isNative = true;
+  mockPerps.mockRejectedValue(new Error('network'));
+  const watchlist = [
+    { perpsCoin: 'BTC', chainId: '', contractAddress: '', sortIndex: 0 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.isPerpsError).toBe(true);
+  expect(result.current.isSpotError).toBe(false);
+  expect(result.current.isError).toBe(true);
+  expect(result.current.hasSettledAllSources).toBe(true);
 });
 it('holds the first paint until spot and listing quotes have both settled', async () => {
   let resolveSpot: (value: { list: unknown[] }) => void = () => {};
