@@ -22,9 +22,12 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeInfiniSubscriptionPlan } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { showPrimeInfiniWaitingDialog } from '../components/PrimeInfiniWaitingDialog';
+import { showPrimeInfiniUnfinishedPaymentDialog } from '../components/PrimePurchaseDialog/showPrimeInfiniUnfinishedPaymentDialog';
 import { logPrimeInfiniPaymentFlow } from '../primeInfiniPaymentLogger';
 
 import { getPrimeInfiniExternalCheckoutGuard } from './primeInfiniExternalCheckoutGuard';
+import { getPrimeInfiniPaymentAssets } from './primeInfiniPaymentUtils';
+import { createPrimeInfiniRemotePendingPaymentResolver } from './primeInfiniRemotePendingPayment';
 
 import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
 
@@ -224,6 +227,53 @@ export function usePrimeInfiniPurchase({
           });
           return false;
         }
+        const lookup =
+          await backgroundApiProxy.servicePrime.apiGetInfiniPendingPayment({
+            expectedOneKeyUserId: purchaserUserId,
+            authContext,
+          });
+        if (lookup.pendingPayment) {
+          const options = await backgroundApiProxy.servicePrime
+            .apiGetInfiniPaymentOptions()
+            .catch(() => []);
+          const decision =
+            await createPrimeInfiniRemotePendingPaymentResolver()({
+              lookup,
+              assets: getPrimeInfiniPaymentAssets(options),
+              choose: (canResume) =>
+                showPrimeInfiniUnfinishedPaymentDialog({ intl, canResume }),
+              validateAuth: validateCheckout,
+              shouldContinue: isCheckoutCurrent,
+            });
+          if (decision.type === 'cancelled') {
+            return false;
+          }
+          if (decision.type === 'resume') {
+            await beforeOpenCheckout?.();
+            if (!(await validateCheckout())) {
+              return false;
+            }
+            navigation.pushModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeInfiniPayment,
+              params: {
+                flowId,
+                selectedSubscriptionPeriod:
+                  decision.recovery.plan === 'monthly' ? 'P1M' : 'P1Y',
+                featureName,
+                createNewPayment: false,
+                networkId: decision.recovery.asset.networkId,
+                remotePaymentResumeIntent: {
+                  paymentId: decision.recovery.payment.paymentId,
+                  authContext: lookup.authContext,
+                },
+              },
+            });
+            return false;
+          }
+        }
+        if (!(await validateCheckout())) {
+          return false;
+        }
         defaultLogger.prime.subscription.primeSubscribeIntent({
           subscriptionPeriod: selectedSubscriptionPeriod,
           featureName,
@@ -345,7 +395,7 @@ export function usePrimeInfiniPurchase({
         }
       }
     },
-    [intl],
+    [intl, navigation],
   );
 
   const purchaseByCrypto = useCallback(

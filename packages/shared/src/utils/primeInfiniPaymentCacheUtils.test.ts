@@ -4,6 +4,7 @@ import { getNetworkIdsMap } from '../config/networkIds';
 import {
   buildPrimeInfiniPaymentCacheKey,
   getPrimeInfiniPaymentAssetKey,
+  hasPrimeInfiniPaymentProgressSnapshot,
   isPrimeInfiniPaymentFullyConfirmedSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isPrimeInfiniPaymentTransferClaimForSession,
@@ -240,6 +241,29 @@ describe('mergePrimeInfiniPaymentProgressSnapshot', () => {
     amountDue: '29.99',
     expiresAt: Date.now() + 60_000,
   };
+
+  test('retains remote transaction activity when a later snapshot omits transactions', () => {
+    const merged = mergePrimeInfiniPaymentProgressSnapshot({
+      previous: { ...payment, hasTransactions: true },
+      latest: payment,
+    });
+    expect(merged.hasTransactions).toBe(true);
+    expect(hasPrimeInfiniPaymentProgressSnapshot(merged)).toBe(true);
+  });
+
+  test.each(['signed', 'confirming', 'processing'])(
+    'treats %s status as transfer activity even before amounts arrive',
+    (status) => {
+      expect(
+        hasPrimeInfiniPaymentProgressSnapshot({
+          ...payment,
+          status,
+          amountConfirming: '0',
+          amountConfirmed: '0',
+        }),
+      ).toBe(true);
+    },
+  );
 
   test('lets a later confirmed snapshot replace an earlier expiry', () => {
     const merged = mergePrimeInfiniPaymentProgressSnapshot({

@@ -100,6 +100,7 @@ import type {
   IPrimeInfiniPaymentOption,
   IPrimeInfiniPaymentPreBroadcastSnapshot,
   IPrimeInfiniPaymentSource,
+  IPrimeInfiniPendingPaymentLookup,
   IPrimeInfiniPurchaseStatusSnapshot,
   IPrimeInfiniSubscription,
   IPrimeInfiniSubscriptionPlan,
@@ -214,6 +215,7 @@ type IPrimeInfiniPaymentApiResponse = {
   amountConfirmed?: unknown;
   amountConfirming?: unknown;
   warningMessages?: unknown;
+  transactions?: unknown;
 };
 
 type IPrimeRedemptionApiResponse = {
@@ -289,6 +291,14 @@ function normalizePrimeRedemptionAxiosHttpError(
     httpStatusCode: status,
     data: { code, message, translatedMessage },
   });
+}
+
+function normalizeInfiniPendingPaymentPlan(
+  plan: unknown,
+): IPrimeInfiniSubscriptionPlan | undefined {
+  if (plan === 'monthly' || plan === 'yearly') return plan;
+  if (plan === 'annual') return 'yearly';
+  return undefined;
 }
 
 function validateInfiniPaymentResponse(
@@ -380,6 +390,10 @@ function validateInfiniPaymentResponse(
     amountConfirmed: payment.amountConfirmed,
     amountConfirming: payment.amountConfirming,
     warningMessages: payment.warningMessages as string[] | undefined,
+    ...(payment.transactions !== undefined &&
+    (!Array.isArray(payment.transactions) || payment.transactions.length > 0)
+      ? { hasTransactions: true }
+      : undefined),
   };
 }
 
@@ -6082,6 +6096,7 @@ class ServicePrime extends ServiceBase {
     token,
     expectedOneKeyUserId,
     flowContext,
+    authContext,
   }: IPrimeInfiniPaymentCreateParams): Promise<IPrimeInfiniPayment> {
     return this.runInfiniPaymentRequest({
       flowContext: flowContext
@@ -6092,6 +6107,7 @@ class ServicePrime extends ServiceBase {
       request: async (context) => {
         const authSnapshot =
           await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        this.assertInfiniPaymentRequestAuthContext(authSnapshot, authContext);
         const client = await this.getPrimeClient();
         const result = await client.post<
           IApiClientResponse<IPrimeInfiniPaymentApiResponse>
@@ -6169,14 +6185,96 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
+  async apiGetInfiniPendingPayment({
+    expectedOneKeyUserId,
+    authContext,
+  }: {
+    expectedOneKeyUserId: string;
+    authContext?: IPrimeInfiniCheckoutAuthContext;
+  }): Promise<IPrimeInfiniPendingPaymentLookup> {
+    const snapshot =
+      await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+    this.assertInfiniPaymentRequestAuthContext(snapshot, authContext);
+    const lookup: IPrimeInfiniPendingPaymentLookup = {
+      authContext: {
+        onekeyUserId: snapshot.expectedOneKeyUserId,
+        authSessionSource: snapshot.authSessionSource,
+        authStateGeneration: snapshot.authStateGeneration,
+      },
+    };
+    try {
+      const client = await this.getPrimeClient();
+      const result = await client.get<
+        IApiClientResponse<
+          | (IPrimeInfiniPaymentApiResponse & {
+              plan?: unknown;
+              transactions?: unknown;
+            })
+          | null
+        >
+      >('/prime/v1/infini/payment/pending', {
+        ...this.getInfiniPurchaseRequestConfig(snapshot),
+        timeout: 5000,
+      });
+      const pending = result?.data?.data;
+      if (pending) {
+        let payment: IPrimeInfiniPayment | undefined;
+        try {
+          payment = validateInfiniPaymentResponse(pending);
+        } catch {
+          // Existence still requires consent even when recovery is unavailable.
+        }
+        lookup.pendingPayment = {
+          paymentId: isString(pending.paymentId)
+            ? pending.paymentId
+            : undefined,
+          payment,
+          plan: normalizeInfiniPendingPaymentPlan(pending.plan),
+          hasTransactions:
+            pending.transactions !== undefined &&
+            (!Array.isArray(pending.transactions) ||
+              pending.transactions.length > 0),
+        };
+      }
+    } catch (error) {
+      // Discovery is advisory. Never log response bodies or request credentials.
+      defaultLogger.prime.subscription.primeCryptoPaymentFlow({
+        ...getPrimeInfiniPaymentSafeError(error),
+        stage: 'paymentContext',
+        status: 'failed',
+        reason: 'remotePendingLookupFailed',
+      });
+    }
+    // A failed lookup may fail open only for the same authentication lifecycle.
+    await this.assertInfiniPurchaseAuthSnapshot(snapshot);
+    return lookup;
+  }
+
+  private assertInfiniPaymentRequestAuthContext(
+    snapshot: IOneKeyIdAuthSnapshot,
+    context?: IPrimeInfiniCheckoutAuthContext,
+  ) {
+    if (
+      context &&
+      (context.onekeyUserId !== snapshot.expectedOneKeyUserId ||
+        context.authSessionSource !== snapshot.authSessionSource ||
+        context.authStateGeneration !== snapshot.authStateGeneration)
+    ) {
+      throw this.createInfiniPurchaseUserChangedError();
+    }
+  }
+
+  @backgroundMethod()
   async apiGetInfiniPayment({
     paymentId,
     expectedOneKeyUserId,
     flowContext,
+    authContext,
   }: {
     paymentId: string;
     expectedOneKeyUserId: string;
     flowContext?: IPrimeInfiniPaymentFlowContext;
+    authContext?: IPrimeInfiniCheckoutAuthContext;
   }): Promise<IPrimeInfiniPayment> {
     return this.runInfiniPaymentRequest({
       flowContext,
@@ -6185,6 +6283,7 @@ class ServicePrime extends ServiceBase {
       request: async (context) => {
         const authSnapshot =
           await this.captureInfiniPurchaseAuthSnapshot(expectedOneKeyUserId);
+        this.assertInfiniPaymentRequestAuthContext(authSnapshot, authContext);
         const client = await this.getPrimeClient();
         const result = await client.get<
           IApiClientResponse<IPrimeInfiniPaymentApiResponse>
