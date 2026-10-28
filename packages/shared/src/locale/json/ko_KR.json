@@ -3385,7 +3385,7 @@
   "perp_account_mode_updated__msg": "계정 모드가 업데이트되었습니다",
   "perp_account_mode_updating__msg": "계정 모드 업데이트 중…",
   "perp_aggressive_limit_buy_price_warning__msg": "Your limit price is {percentage}% above the current best ask of {referencePrice}. The order may execute immediately at market price. Please confirm your limit price.",
-  "perp_aggressive_limit_sell_warning__msg": "Your limit price is {percentage}% below the current best bid of {referencePrice}. The order may execute immediately at market price. Please confirm your limit price.",
+  "perp_aggressive_limit_sell_warning__msg": "지정가가 현재 최우선 매수 호가인 {referencePrice}보다 {percentage}% 낮습니다. 주문이 시장가로 즉시 체결될 수 있습니다. 지정가를 확인해 주세요.",
   "perp_average_price__title": "평균 가격",
   "perp_backstop_liquidation__title": "백스톱 청산",
   "perp_basic_order__title": "기본 주문",
