@@ -27,6 +27,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
+import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheStore';
 
 import {
   ZCASH_TRANSPARENT_P2PKH_SCRIPT_RE,
@@ -41,8 +42,86 @@ import type Vault from './Vault';
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IBuildEncodedTxParams } from '../../types';
 
-// Backend blocks past expiry before an unmined send is dropped; covers indexer lag and shallow reorgs.
+// Blocks past expiry before an unmined send is dropped; covers indexer lag and shallow reorgs.
 export const ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS = 10;
+
+// Highest height seen this session per network: backend history and UTXOs, or
+// the scanner's node. A height carries no account data.
+const zcashLiveChainHeights = new Map<string, number>();
+
+export function noteZcashChainHeight(
+  networkId: string,
+  height: number | null | undefined,
+): void {
+  if (
+    typeof height !== 'number' ||
+    !Number.isSafeInteger(height) ||
+    height <= (zcashLiveChainHeights.get(networkId) ?? 0)
+  ) {
+    return;
+  }
+  zcashLiveChainHeights.set(networkId, height);
+}
+
+export function forgetZcashChainHeights(networkId?: string): void {
+  if (networkId === undefined) {
+    zcashLiveChainHeights.clear();
+    return;
+  }
+  zcashLiveChainHeights.delete(networkId);
+}
+
+// The one height for transparent expiry (journal locks, dropped rows, clearing):
+// the higher of the live height and the saved scanner tip.
+export async function zcashTransparentExpiryTip(
+  vault: Vault,
+): Promise<number | undefined> {
+  const saved = await getLastLocalWalletChainTip({
+    backgroundApi: vault.backgroundApi,
+    networkId: vault.networkId,
+  }).catch(() => undefined);
+  const heights = [zcashLiveChainHeights.get(vault.networkId), saved].filter(
+    (height): height is number => height !== undefined,
+  );
+  return heights.length ? Math.max(...heights) : undefined;
+}
+
+// A send past its expiry by this tip can never be mined.
+export function isZcashTransparentSendExpired(
+  expiryHeight: number,
+  tip: number,
+): boolean {
+  return tip > expiryHeight + ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS;
+}
+
+// Releases input holds once the backend settles a send (lowercase txids) or it expires.
+export async function zcashSettleTransparentPendingSends(
+  vault: Vault,
+  {
+    accountId,
+    settledTxids,
+  }: {
+    accountId: string;
+    settledTxids?: Set<string>;
+  },
+): Promise<void> {
+  const journal = vault.backgroundApi.simpleDb.privacyChainJournal;
+  const pending = await journal.listTransparentPendingTxs({ accountId });
+  if (!pending.length) return;
+  const tip = await zcashTransparentExpiryTip(vault);
+  await Promise.all(
+    pending
+      .filter(
+        (tx) =>
+          settledTxids?.has(tx.txid.toLowerCase()) ||
+          (tip !== undefined &&
+            isZcashTransparentSendExpired(tx.expiryHeight, tip)),
+      )
+      .map((tx) =>
+        journal.settleTransparentPendingTx({ accountId, txid: tx.txid }),
+      ),
+  );
+}
 
 export function zcashTransparentAccountIndex(
   vault: Vault,
@@ -224,6 +303,9 @@ export async function zcashFetchFreshTransparentUtxos(
     (height, utxo) => Math.max(height, utxo.height + utxo.confirmations),
     0,
   );
+  noteZcashChainHeight(vault.networkId, targetHeight - 1);
+  // Same expiry tip as history, so spendable and the frozen line release a dropped send together.
+  await zcashSettleTransparentPendingSends(vault, { accountId: account.id });
   // Expired unsigned reservations stop blocking inputs; signed journals remain in use until settled.
   const inUse = new Set(
     [

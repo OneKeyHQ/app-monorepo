@@ -44,7 +44,12 @@ import {
 import { parseZcashTransaction } from './transactionReview';
 import { forgetZcashTransparentDisplayReads } from './vaultBalance';
 import { forgetZcashTransparentHistorySnapshots } from './vaultHistory';
-import { ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS } from './vaultTransparent';
+import {
+  ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS,
+  forgetZcashChainHeights,
+  noteZcashChainHeight,
+  zcashTransparentExpiryTip,
+} from './vaultTransparent';
 import {
   ZCASH_WORKER_RESET_TIMEOUT_MS,
   createZcashSetupIncompleteError,
@@ -93,7 +98,7 @@ async function purgeZcashRuntimeAccount(
   return { orphaned: !removed };
 }
 
-// Uses the last saved tip: an older tip only keeps more sends.
+// Same tip as history and builds; an older tip only keeps more sends.
 async function clearZcashPendingSends(
   vault: Vault,
   {
@@ -107,10 +112,7 @@ async function clearZcashPendingSends(
       'zcash: pending sends belong to another network',
     );
   }
-  const tip = await getLastLocalWalletChainTip({
-    backgroundApi: vault.backgroundApi,
-    networkId,
-  }).catch(() => undefined);
+  const tip = await zcashTransparentExpiryTip(vault);
   await vault.backgroundApi.simpleDb.privacyChainJournal.clearTransparentPendingSends(
     {
       accountId,
@@ -256,6 +258,7 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
     getAccountAliases: (params) => vault.getLocalWalletAccountAliases(params),
     getChainTip: async () => {
       const tip = await vault.getLocalWalletChainTip();
+      noteZcashChainHeight(vault.networkId, tip);
       // Gives month-based birthday estimates a tip without a node call.
       if (tip !== null) {
         await saveZcashChainTip(vault, tip);
@@ -274,6 +277,7 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       forgetIdleZcashLifecycleMutexes();
       if (!accountIds) {
         zcashLastSavedChainTip.clear();
+        forgetZcashChainHeights(vault.networkId);
       }
     },
     recoverFromTimeout: () => recoverLocalWalletFromTimeout(vault),

@@ -43,7 +43,12 @@ import {
   buildZcashLocalHistoryTx,
   findZcashLocalHistoryItem,
 } from './localHistory';
-import { ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS } from './vaultTransparent';
+import {
+  isZcashTransparentSendExpired,
+  noteZcashChainHeight,
+  zcashSettleTransparentPendingSends,
+  zcashTransparentExpiryTip,
+} from './vaultTransparent';
 import {
   canReadZcashPrivateData,
   isTerminalTransparentHistoryStatus,
@@ -161,6 +166,7 @@ export async function fetchAccountHistoryDetail(
     details = await api.getTxDetails(account, { txid: params.txid });
     chainTip = (await api.getSyncProgress(account).catch(() => undefined))
       ?.chainTip;
+    noteZcashChainHeight(vault.networkId, chainTip);
   } catch (e) {
     console.error('[zcash] runtime history detail failed', {
       txid: params.txid,
@@ -342,61 +348,23 @@ export async function fetchAccountHistoryDetail(
   };
 }
 
-// Latest complete backend snapshot tip per account; it decides transparent expiry.
-const zcashTransparentTipByAccount = new Map<string, number>();
-
-// A send past its expiry by the backend tip can never be mined.
-function isZcashTransparentSendExpired(expiryHeight: number, tip: number) {
-  return tip > expiryHeight + ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS;
-}
-
-// Releases input holds once the backend settles a send or it expires.
-async function zcashSettleTransparentPendingSends(
-  vault: Vault,
-  {
-    accountId,
-    publicTxs,
-    tipHeight,
-  }: { accountId: string; publicTxs: IAccountHistoryTx[]; tipHeight: number },
-): Promise<void> {
-  const journal = vault.backgroundApi.simpleDb.privacyChainJournal;
-  const rows = new Map(
-    publicTxs.map((tx) => [tx.decodedTx.txid.toLowerCase(), tx.decodedTx]),
-  );
-  const pending = await journal.listTransparentPendingTxs({ accountId });
-  await Promise.all(
-    pending
-      .filter((tx) => {
-        const row = rows.get(tx.txid.toLowerCase());
-        const settled =
-          !!row &&
-          ((row.block ?? 0) > 0 ||
-            isTerminalTransparentHistoryStatus(row.status));
-        return (
-          settled || isZcashTransparentSendExpired(tx.expiryHeight, tipHeight)
-        );
-      })
-      .map((tx) =>
-        journal.settleTransparentPendingTx({ accountId, txid: tx.txid }),
-      ),
-  );
-}
-
 // Local pending transparent sends past their expiry, for the shared history flow to drop.
-export function zcashDroppedPendingTxs(
+export async function zcashDroppedPendingTxs(
+  vault: Vault,
   pendingTxs: IAccountHistoryTx[],
-): IAccountHistoryTx[] {
-  return pendingTxs.filter((tx) => {
+): Promise<IAccountHistoryTx[]> {
+  const expiryOf = (tx: IAccountHistoryTx) => {
     const encoded = tx.decodedTx.encodedTx as IEncodedTxZcash | undefined;
-    const expiry =
-      encoded?.zcashTransparentBuild?.expiryHeight ?? encoded?.expiry;
-    const tip = zcashTransparentTipByAccount.get(tx.decodedTx.accountId);
-    return (
-      encoded?.zcashMode === 'transparent' &&
-      expiry !== undefined &&
-      tip !== undefined &&
-      isZcashTransparentSendExpired(expiry, tip)
-    );
+    return encoded?.zcashMode === 'transparent'
+      ? (encoded.zcashTransparentBuild?.expiryHeight ?? encoded.expiry)
+      : undefined;
+  };
+  if (!pendingTxs.some((tx) => expiryOf(tx) !== undefined)) return [];
+  const tip = await zcashTransparentExpiryTip(vault);
+  if (tip === undefined) return [];
+  return pendingTxs.filter((tx) => {
+    const expiry = expiryOf(tx);
+    return expiry !== undefined && isZcashTransparentSendExpired(expiry, tip);
   });
 }
 
@@ -440,6 +408,7 @@ export async function fetchAccountHistoryFromLocal(
       items = await api.getHistory(account, { limit: maxItems, offset: 0 });
       chainTip = (await api.getSyncProgress(account).catch(() => undefined))
         ?.chainTip;
+      noteZcashChainHeight(vault.networkId, chainTip);
     } catch (error) {
       // Not registered or set up yet: there is no private history to show.
       if (
@@ -484,14 +453,24 @@ export async function fetchAccountHistoryFromLocal(
   try {
     const publicResult = await vault.zcashFetchTransparentHistory(params);
     publicTxs = publicResult.txs;
-    if (publicResult.snapshotComplete && publicResult.tipHeight !== undefined) {
-      zcashTransparentTipByAccount.set(accountId, publicResult.tipHeight);
-      await zcashSettleTransparentPendingSends(vault, {
-        accountId,
-        publicTxs,
-        tipHeight: publicResult.tipHeight,
-      });
+    let settledTxids: Set<string> | undefined;
+    // Only a complete snapshot may settle rows or raise the tip.
+    if (publicResult.snapshotComplete) {
+      noteZcashChainHeight(vault.networkId, publicResult.tipHeight);
+      settledTxids = new Set(
+        publicTxs
+          .filter(
+            ({ decodedTx }) =>
+              (decodedTx.block ?? 0) > 0 ||
+              isTerminalTransparentHistoryStatus(decodedTx.status),
+          )
+          .map(({ decodedTx }) => decodedTx.txid.toLowerCase()),
+      );
     }
+    await zcashSettleTransparentPendingSends(vault, {
+      accountId,
+      settledTxids,
+    });
   } catch (e) {
     console.error('[zcash] transparent history fetch failed', {
       name: e instanceof Error ? e.name : typeof e,

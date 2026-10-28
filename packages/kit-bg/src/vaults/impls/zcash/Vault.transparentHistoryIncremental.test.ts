@@ -19,6 +19,7 @@ import VaultBtc from '../btc/Vault';
 
 import Vault from './Vault';
 import { zcashTransparentHistorySnapshots } from './vaultHistory';
+import { forgetZcashChainHeights } from './vaultTransparent';
 
 import type { IEncodedTxZcash } from './types';
 
@@ -181,6 +182,7 @@ describe('Zcash transparent history polling', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     zcashTransparentHistorySnapshots.clear();
+    forgetZcashChainHeights();
   });
 
   it('pages the whole history on first read, then asks for one page per poll', async () => {
@@ -302,7 +304,7 @@ describe('Zcash transparent history polling', () => {
     }
   });
 
-  it('removes rows and releases expired sends only on full passes', async () => {
+  it('removes rows only on full passes but releases an expired send on any pass', async () => {
     const { backend, post } = createBackend(minedRows(1, 1200));
     const { vault, journalDb, localHistory, readHistory } = createVault(post);
     await readHistory();
@@ -364,14 +366,8 @@ describe('Zcash transparent history polling', () => {
     const incremental = statuses((await readHistory()) ?? []);
     expect(post).toHaveBeenCalledTimes(1);
     expect(incremental.get(removed)).toBe(EDecodedTxStatus.Confirmed);
-    expect(
-      await journalDb.listTransparentPendingTxs({ accountId }),
-    ).toHaveLength(1);
-
-    post.mockClear();
-    const full = statuses((await readHistory(true)) ?? []);
-    expect(post).toHaveBeenCalledTimes(3);
-    expect(full.has(removed)).toBe(false);
+    // The chain tip from the earlier full pass already passes expiry; the lock
+    // and the pending row follow the same height.
     expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
       [],
     );
@@ -380,5 +376,10 @@ describe('Zcash transparent history polling', () => {
     await expect(
       vault.getDroppedPendingTxs({ pendingTxs: [localPending] }),
     ).resolves.toEqual([localPending]);
+
+    post.mockClear();
+    const full = statuses((await readHistory(true)) ?? []);
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(full.has(removed)).toBe(false);
   });
 });

@@ -614,7 +614,7 @@ export default class Vault extends VaultBtc {
   }: {
     pendingTxs: IAccountHistoryTx[];
   }): Promise<IAccountHistoryTx[]> {
-    return zcashHistory.zcashDroppedPendingTxs(pendingTxs);
+    return zcashHistory.zcashDroppedPendingTxs(this, pendingTxs);
   }
 
   // BTC's override asks F2pool about acceleration, which never applies to zec txids.

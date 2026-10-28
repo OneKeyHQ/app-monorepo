@@ -28,11 +28,14 @@ import type {
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityLocalHistory } from '../../../dbs/simple/entity/SimpleDbEntityLocalHistory';
+import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import VaultBtc from '../btc/Vault';
 
 import Vault from './Vault';
+import { getLocalWalletCapability } from './vaultLifecycle';
+import { forgetZcashChainHeights } from './vaultTransparent';
 
 import type { IEncodedTxZcash } from './types';
 
@@ -104,6 +107,7 @@ describe('expired transparent send reconciliation', () => {
   async function fixture() {
     const journalDb = inMemory(new SimpleDbEntityPrivacyChainJournal());
     const localHistory = inMemory(new SimpleDbEntityLocalHistory());
+    const chainCache = inMemory(new SimpleDbEntityPrivacyChainCache());
     await localHistory.saveLocalHistoryTxs({
       ...historyParams,
       pendingTxs: [localSend()],
@@ -133,6 +137,7 @@ describe('expired transparent send reconciliation', () => {
         simpleDb: {
           privacyChainState: inMemory(new SimpleDbEntityPrivacyChainState()),
           privacyChainJournal: journalDb,
+          privacyChainCache: chainCache,
           localHistory,
         },
         serviceToken: { getToken: async () => undefined },
@@ -157,7 +162,7 @@ describe('expired transparent send reconciliation', () => {
     };
     const inUse = async () =>
       journalDb.listTransparentOutpointsInUse({ accountId });
-    return { vault, journalDb, localHistory, backend, read, inUse };
+    return { vault, journalDb, localHistory, chainCache, backend, read, inUse };
   }
 
   beforeEach(() => {
@@ -175,6 +180,7 @@ describe('expired transparent send reconciliation', () => {
   beforeEach(() => {
     jest.mocked(fetchZcashChainTipDirect).mockClear();
     jest.mocked(fetchZcashLightdInfoDirect).mockClear();
+    forgetZcashChainHeights();
   });
   afterEach(() => {
     globalThis.fetch = originalFetch;
@@ -242,6 +248,132 @@ describe('expired transparent send reconciliation', () => {
     backend.tipHeight = expiryHeight;
     await vault.fetchAccountHistoryFromLocal({ accountId, ...historyParams });
     expect(await inUse()).toEqual(lockedInputs);
+  });
+
+  describe('when the account has no newer transaction', () => {
+    function withBackendUtxos(
+      vault: Vault,
+      { confirmations }: { confirmations: number },
+    ) {
+      const scriptPubKey = `76a914${'95'.repeat(20)}88ac`;
+      Object.assign(vault, {
+        getAccount: async () => ({
+          id: accountId,
+          address: 't1-own',
+          pathIndex: 0,
+          path: "m/44'/133'/0'",
+          xpub: 'xpub',
+        }),
+        // The dropped send never landed, so the backend still lists its input.
+        baseFetchAccountDetails: async () => ({
+          data: {
+            data: {
+              allUtxoList: [
+                {
+                  ...spentOutpoint,
+                  value: '100000',
+                  height: 50,
+                  confirmations,
+                  address: 't1-own',
+                  path: "m/44'/133'/0'/0/0",
+                },
+              ],
+            },
+          },
+        }),
+        zcashGetApi: async () => ({
+          parseTransparentTransactions: async () => [
+            {
+              txid: spentOutpoint.txid,
+              isCoinbase: false,
+              outputs: [{ valueZat: '100000', scriptPubKey }],
+            },
+          ],
+        }),
+      });
+      Object.assign(vault.backgroundApi, {
+        serviceSend: {
+          getRawTransactions: async () => ({
+            [spentOutpoint.txid]: { rawTx: 'raw' },
+          }),
+        },
+      });
+    }
+
+    it('keeps the input frozen while the UTXO tip is within the margin', async () => {
+      const { vault, inUse } = await fixture();
+      // Tip = height + confirmations - 1 = expiry + 10.
+      withBackendUtxos(vault, { confirmations: 61 });
+      const fresh = await vault.zcashFetchFreshTransparentUtxos();
+      expect(fresh.utxos).toEqual([]);
+      expect(await inUse()).toEqual(lockedInputs);
+      await expect(
+        vault.getDroppedPendingTxs({ pendingTxs: [localSend()] }),
+      ).resolves.toEqual([]);
+    });
+
+    it('releases the input from the UTXO tip and drops the row at the same height', async () => {
+      const { vault, backend, inUse } = await fixture();
+      withBackendUtxos(vault, { confirmations: 62 });
+      const fresh = await vault.zcashFetchFreshTransparentUtxos();
+      expect(fresh.utxos.map(({ txid: id, vout }) => `${id}:${vout}`)).toEqual([
+        ...lockedInputs,
+      ]);
+      expect(await inUse()).toEqual(new Set());
+      backend.tipHeight = undefined;
+      await vault.fetchAccountHistoryFromLocal({ accountId, ...historyParams });
+      await expect(
+        vault.getDroppedPendingTxs({ pendingTxs: [localSend()] }),
+      ).resolves.toEqual([localSend()]);
+    });
+
+    it("releases the input from the scanner's chain tip", async () => {
+      const { vault, chainCache, backend, inUse } = await fixture();
+      Object.assign(vault, {
+        getLocalWalletChainTip: async () => expiryHeight + 11,
+      });
+      // Only the live height can release it: saving the tip fails.
+      jest
+        .spyOn(chainCache, 'setChainTip')
+        .mockRejectedValue(new OneKeyLocalError('storage unavailable'));
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      await getLocalWalletCapability(vault).getChainTip();
+      await expect(
+        chainCache.getChainTip({ networkId: historyParams.networkId }),
+      ).resolves.toBeUndefined();
+      backend.tipHeight = undefined;
+      await vault.fetchAccountHistoryFromLocal({ accountId, ...historyParams });
+      expectNoNodeQuery();
+      expect(await inUse()).toEqual(new Set());
+      await expect(
+        vault.getDroppedPendingTxs({ pendingTxs: [localSend()] }),
+      ).resolves.toEqual([localSend()]);
+    });
+
+    it('falls back to the saved chain tip when no live height is known', async () => {
+      const { vault, chainCache, backend, inUse } = await fixture();
+      await chainCache.setChainTip({
+        networkId: historyParams.networkId,
+        height: expiryHeight + 11,
+      });
+      backend.tipHeight = undefined;
+      await vault.fetchAccountHistoryFromLocal({ accountId, ...historyParams });
+      expect(await inUse()).toEqual(new Set());
+      await expect(
+        vault.getDroppedPendingTxs({ pendingTxs: [localSend()] }),
+      ).resolves.toEqual([localSend()]);
+    });
+
+    it('takes the higher of the live and saved heights', async () => {
+      const { vault, chainCache, backend, inUse } = await fixture();
+      await chainCache.setChainTip({
+        networkId: historyParams.networkId,
+        height: expiryHeight + 11,
+      });
+      backend.tipHeight = expiryHeight;
+      await vault.fetchAccountHistoryFromLocal({ accountId, ...historyParams });
+      expect(await inUse()).toEqual(new Set());
+    });
   });
 
   it('only drops transparent sends', async () => {
