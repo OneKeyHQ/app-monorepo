@@ -197,6 +197,7 @@ const { createBaseResolveOptions } = require('./rspack.resolve.config.js') as {
   createBaseResolveOptions: (options: {
     basePath: string;
     enableSentryMinimalCompat: boolean;
+    excludeChainRuntimes?: boolean;
     extensions: string[];
   }) => RspackOptions['resolve'];
 };
@@ -210,6 +211,8 @@ const baseResolve = ({
   createBaseResolveOptions({
     basePath,
     enableSentryMinimalCompat,
+    // Web ships no Zcash/Monero (web-embed does).
+    excludeChainRuntimes: platform === 'web',
     extensions: createResolveExtensions({ platform, configName }),
   });
 

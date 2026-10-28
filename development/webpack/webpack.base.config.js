@@ -93,6 +93,14 @@ const baseResolve = ({ platform, configName, basePath }) => ({
       '../../node_modules/@react-aria/utils/src/index.ts',
     ),
     'bn.js$': require.resolve('bn.js'),
+    // Web ships no Zcash/Monero (web-embed does); mirrors rspack.resolve.config.js.
+    ...(platform === 'web'
+      ? {
+          'onekey-zcash-runtime': false,
+          'onekey-zcash-keys': false,
+          'onekey-monero-runtime': false,
+        }
+      : {}),
   },
   fallback: {
     'crypto':
