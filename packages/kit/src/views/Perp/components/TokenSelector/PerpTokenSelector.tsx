@@ -1424,11 +1424,7 @@ function BasePerpTokenSelectorContent() {
           keyboardEvent.metaKey ||
           keyboardEvent.ctrlKey ||
           keyboardEvent.altKey ||
-          keyboardEvent.shiftKey ||
-          inputQueryRef.current ||
-          (typeof HTMLInputElement !== 'undefined' &&
-            inputTarget instanceof HTMLInputElement &&
-            inputTarget.value.length > 0)
+          keyboardEvent.shiftKey
         ) {
           return;
         }
@@ -1763,11 +1759,7 @@ function BasePerpTokenSelectorContent() {
               <Badge.Text color="$text">↑↓</Badge.Text>
             </Badge>
           </XStack>
-          <XStack
-            gap="$1.5"
-            alignItems="center"
-            opacity={searchQuery ? 0.5 : 1}
-          >
+          <XStack gap="$1.5" alignItems="center">
             <Badge badgeSize="sm">
               <Badge.Text color="$text">←→</Badge.Text>
             </Badge>
