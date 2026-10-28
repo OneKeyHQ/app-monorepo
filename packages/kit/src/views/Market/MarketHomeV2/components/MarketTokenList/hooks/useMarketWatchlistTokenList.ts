@@ -683,6 +683,10 @@ export function useMarketWatchlistTokenList({
     perpsTokenMap,
     networkLogoUriMap,
   ]);
+  const hasUnresolvedSpotFavorites =
+    transformedData.filter(
+      (item) => !item.perpsCoin && !item.assetId && !item.stockId,
+    ).length < spotItems.length;
 
   useEffect(() => {
     if (
@@ -813,6 +817,7 @@ export function useMarketWatchlistTokenList({
     isError,
     isSpotError,
     isPerpsError,
+    hasUnresolvedSpotFavorites,
     hasSettledAllSources,
     // Rows held back for the first paint have not loaded yet, whatever the
     // sources hold from an earlier watchlist.

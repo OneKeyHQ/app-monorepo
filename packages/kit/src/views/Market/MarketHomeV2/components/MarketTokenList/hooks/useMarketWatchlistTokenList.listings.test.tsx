@@ -139,6 +139,7 @@ it.each([false, true])(
     expect(result.current.hasLoadedAllSources).toBe(false);
     expect(result.current.isSpotError).toBe(isNative);
     expect(result.current.isPerpsError).toBe(false);
+    expect(result.current.hasUnresolvedSpotFavorites).toBe(true);
 
     let resolveSpot: (value: { list: unknown[] }) => void = () => {};
     mockBatch.mockReturnValue(
@@ -161,6 +162,68 @@ it.each([false, true])(
     await waitFor(() => expect(result.current.hasLoadedAllSources).toBe(true));
     expect(result.current.hasSettledAllSources).toBe(true);
     expect(result.current.isSpotError).toBe(false);
+    // A successful batch can still omit a favorite; it remains unresolved.
+    expect(result.current.hasUnresolvedSpotFavorites).toBe(true);
+  },
+);
+
+it.each([false, true])(
+  'resolves spot coverage from the current favorites and cache, cached=%s',
+  async (hasCachedSpot) => {
+    platformEnv.isNative = true;
+    mockBatch.mockRejectedValue(new Error('network'));
+    mockStockBatch.mockResolvedValue([stockItem('AAPL')]);
+    const watchlist = [
+      {
+        chainId: 'evm--1',
+        contractAddress: '0x1111111111111111111111111111111111111111',
+        sortIndex: 0,
+      },
+      { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 1 },
+    ];
+    const spotToken = {
+      address: '0x1111111111111111111111111111111111111111',
+      name: 'Aave',
+      symbol: 'AAVE',
+      decimals: 18,
+      networkId: 'evm--1',
+    };
+    const dataCacheRef: RefObject<IMarketWatchlistDataCache | undefined> = {
+      current: hasCachedSpot ? { spot: { list: [spotToken] } } : undefined,
+    };
+    const { result, rerender } = renderHook(
+      ({ items }: { items: IMarketWatchListItemV2[] }) =>
+        useMarketWatchlistTokenList({
+          watchlist: items,
+          pollingInterval: 0,
+          dataCacheRef,
+        }),
+      { initialProps: { items: watchlist } },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isSpotError).toBe(true);
+    expect(result.current.hasUnresolvedSpotFavorites).toBe(!hasCachedSpot);
+    expect(result.current.data).toHaveLength(hasCachedSpot ? 2 : 1);
+
+    // A cache for AAVE does not cover a newly added spot favorite.
+    mockBatch.mockResolvedValue({ list: [spotToken] });
+    rerender({
+      items: [
+        ...watchlist,
+        {
+          chainId: 'evm--1',
+          contractAddress: '0x2222222222222222222222222222222222222222',
+          sortIndex: 2,
+        },
+      ],
+    });
+    await waitFor(() => expect(result.current.isSpotError).toBe(false));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.hasUnresolvedSpotFavorites).toBe(true);
+
+    rerender({ items: watchlist });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.hasUnresolvedSpotFavorites).toBe(false);
   },
 );
 

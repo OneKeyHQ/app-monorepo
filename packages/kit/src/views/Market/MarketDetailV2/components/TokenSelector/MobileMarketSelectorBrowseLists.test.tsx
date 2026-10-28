@@ -34,6 +34,7 @@ let mockIsWatchlistLoading = false;
 let mockHasLoadedAllSources = false;
 let mockHasSettledAllSources = false;
 let mockFailedSource: 'spot' | 'perps' = 'spot';
+let mockHasUnresolvedSpotFavorites = false;
 const mockEventHandlers = new Map<string, () => Promise<void>>();
 const mockOn = jest.fn((name: string, handler: () => Promise<void>) => {
   mockEventHandlers.set(name, handler);
@@ -169,6 +170,7 @@ jest.mock(
       isError: mockListState.isError,
       isSpotError: mockListState.isError && mockFailedSource === 'spot',
       isPerpsError: mockListState.isError && mockFailedSource === 'perps',
+      hasUnresolvedSpotFavorites: mockHasUnresolvedSpotFavorites,
       refetch: mockRefetch,
     }),
   }),
@@ -537,6 +539,7 @@ describe('mobile selector unavailable favorites', () => {
     mockHasLoadedAllSources = false;
     mockHasSettledAllSources = false;
     mockFailedSource = 'spot';
+    mockHasUnresolvedSpotFavorites = false;
     mockIsWatchlistLoading = false;
     mockBrowseData = [];
     mockWatchlistCount = 0;
@@ -676,6 +679,60 @@ describe('mobile selector unavailable favorites', () => {
       mockIsWatchlistLoading = false;
       rerender(renderList());
       expect(retry.isConnected).toBe(true);
+    },
+  );
+
+  it.each([false, true])(
+    'retries unresolved tokenized stocks without spot cache, listing rows=%s',
+    (hasListingRows) => {
+      mockFailedSource = 'spot';
+      mockListState = { isError: true };
+      mockHasSettledAllSources = true;
+      mockHasUnresolvedSpotFavorites = true;
+      mockWatchlistCount = hasListingRows ? 2 : 1;
+      const listing = {
+        ...searchToken,
+        id: 'stock:AAPL',
+        symbol: 'AAPL',
+        stockId: 'AAPL',
+      };
+      mockBrowseData = hasListingRows ? [listing] : [];
+      const renderList = () => (
+        <MobileSelectorWatchlistList
+          watchlistFilter="stocks"
+          onItemPress={jest.fn()}
+        />
+      );
+      const { rerender } = render(renderList());
+      expect(screen.queryByText('global.no_results')).toBeNull();
+      if (hasListingRows) expect(screen.getByText('AAPL')).toBeTruthy();
+      const retry = screen.getByTestId(
+        'mobile-market-token-selector-favorites-retry',
+      );
+      mockRefetch.mockClear();
+      fireEvent.click(retry);
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+
+      mockIsWatchlistLoading = true;
+      rerender(renderList());
+      expect(retry.isConnected).toBe(true);
+      expect(screen.queryByRole('progressbar')).toBeNull();
+
+      mockIsWatchlistLoading = false;
+      mockListState = { isError: false };
+      mockHasUnresolvedSpotFavorites = false;
+      const tokenizedStock = {
+        ...searchToken,
+        stock: { subtitle: 'Apple', source: 'xstock', sourceLogoUri: '' },
+      };
+      mockBrowseData = hasListingRows
+        ? [listing, tokenizedStock]
+        : [tokenizedStock];
+      rerender(renderList());
+      expect(screen.getByText('AAPLx')).toBeTruthy();
+      expect(
+        screen.queryByTestId('mobile-market-token-selector-favorites-retry'),
+      ).toBeNull();
     },
   );
 

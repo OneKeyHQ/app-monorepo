@@ -570,6 +570,7 @@ export function MobileSelectorWatchlistList({
     isLoading,
     isSpotError,
     isPerpsError,
+    hasUnresolvedSpotFavorites,
     hasSettledAllSources,
     refetch,
   } = useMarketWatchlistTokenList({
@@ -587,8 +588,12 @@ export function MobileSelectorWatchlistList({
   const isError = {
     all: isSpotError || isPerpsError,
     spot: isSpotError,
-    // Tokenized stocks use the spot source; stock listings use listing quotes.
-    stocks: isSpotError && rows.some((item) => !item.stockId && !item.assetId),
+    // Unresolved spot favorites may be tokenized stocks: their classification
+    // comes from the API and is unknown when a cold request fails.
+    stocks:
+      isSpotError &&
+      (hasUnresolvedSpotFavorites ||
+        rows.some((item) => !item.stockId && !item.assetId)),
     perps: isPerpsError,
   }[watchlistFilter];
   // Missing rows need first-load feedback only until requests settle, including
