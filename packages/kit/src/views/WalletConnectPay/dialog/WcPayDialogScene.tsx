@@ -37,8 +37,8 @@ import type {
 // packages/components/src/scenarios/WalletConnectPay/WalletConnectPay.stories.tsx
 // (Figma Modules / "Walletconnect pay", node 21831-35638; terminal layout
 // node 21926-35825). The shell (WcPayDialogShell, below) provides the 24pt
-// side inset and the safe-area bottom; nothing here adds horizontal padding
-// of its own. Scrollable areas use Dialog.ScrollView: inside the phone sheet
+// side inset and the bottom inset; nothing here adds horizontal padding of
+// its own. Scrollable areas use Dialog.ScrollView: inside the phone sheet
 // a plain ScrollView loses every vertical swipe to the sheet's drag
 // (OK-61140).
 // Copy comes from the wc_pay_* i18n keys; en_US matches the story verbatim.
@@ -51,13 +51,24 @@ import type {
 // Shell
 
 // Stable shell props. The modal overlay lane keeps later payment prompts
-// above the shell. The content inset is the
-// contract the steps are drawn against: 24 at the sides, 16 on top, and on
-// native nothing under the last element but the safe-area inset.
+// above the shell. The content inset is the contract the steps are drawn
+// against: 24 at the sides, 16 on top. Under the last element the native
+// sheet pads the system inset itself. On iOS that is the home-indicator
+// area, which reads as the footer's spacing, so nothing is added. On Android
+// it is only the navigation-bar inset: a separate system region under
+// 3-button navigation and a thin strip under gestures, so the footer sat
+// flush against the sheet's edge (OK-65646). Android keeps the native
+// Dialog's default 20 under the footer, like every other sheet; web keeps 24.
+function getShellContentBottomInset(): '$0' | '$5' | '$6' {
+  if (platformEnv.isNativeIOS) {
+    return '$0';
+  }
+  return platformEnv.isNative ? '$5' : '$6';
+}
 const SHELL_CONTENT_CONTAINER_PROPS = {
   px: '$6',
   pt: '$4',
-  pb: platformEnv.isNative ? '$0' : '$6',
+  pb: getShellContentBottomInset(),
 } as const;
 
 /**
