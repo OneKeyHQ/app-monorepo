@@ -4,16 +4,24 @@ import type { ReactNode } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PrivacyChainSyncLight } from './PrivacyChainSyncLight';
 
+import type { IOverlayViewProps } from '@onekeyfe/react-native-native-overlay';
+
 let mockState: IPrivacyChainScanState;
+let mockStage: { step: string } | undefined;
+let mockOverlayProps: IOverlayViewProps | undefined;
 const mockPause = jest.fn(async (_params: { networkId: string }) => undefined);
 const mockResume = jest.fn(
   async (_params: { networkId: string; trigger: string }) => undefined,
 );
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
-  OverlayView: () => null,
+  OverlayView: (props: IOverlayViewProps) => {
+    mockOverlayProps = props;
+    return props.visible ? props.children : null;
+  },
 }));
 jest.mock('expo-keep-awake', () => ({
   activateKeepAwakeAsync: async () => undefined,
@@ -35,6 +43,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePrivacyChainAtom: () => [mockState],
+  useDeviceStageAtom: () => [mockStage],
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -113,7 +122,12 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+const nativeEnv = platformEnv as { isNativeIOS: boolean };
+
 beforeEach(() => {
+  nativeEnv.isNativeIOS = false;
+  mockStage = undefined;
+  mockOverlayProps = undefined;
   mockPause.mockClear();
   mockResume.mockClear();
   mockState = {
@@ -286,4 +300,42 @@ it('keeps the other chain pause control available while a storage error is visib
   expect(
     screen.getByTestId('privacy-chain-sync-light-detail').textContent,
   ).toContain('privacy_error_webview_outdated__msg');
+});
+
+describe('under a hardware stage', () => {
+  beforeEach(() => {
+    mockState.boostingNetworkIds = ['zec--0'];
+    mockState.progress['zec--0:account'] = scanProgress(107);
+  });
+
+  // Same native level as the stage and requested after it: it would cover
+  // the stage and stay tappable during device confirmation.
+  it('steps aside on iOS while a device stage is up', () => {
+    nativeEnv.isNativeIOS = true;
+    mockStage = { step: 'loading' };
+    const { rerender } = render(<PrivacyChainSyncLight />);
+    expect(mockOverlayProps?.level).toBe('hardware');
+    expect(mockOverlayProps?.visible).toBe(false);
+    expect(screen.queryByTestId('privacy-chain-sync-light')).toBeNull();
+
+    mockStage = { step: 'off' };
+    rerender(<PrivacyChainSyncLight />);
+    expect(mockOverlayProps?.visible).toBe(true);
+    expect(screen.getByTestId('privacy-chain-sync-light')).toBeTruthy();
+  });
+
+  it('shows on iOS when no stage was ever opened', () => {
+    nativeEnv.isNativeIOS = true;
+    render(<PrivacyChainSyncLight />);
+    expect(mockOverlayProps?.visible).toBe(true);
+    expect(screen.getByTestId('privacy-chain-sync-light')).toBeTruthy();
+  });
+
+  // The stage's overlay level already covers the app tree the light renders in.
+  it('stays in the app tree elsewhere', () => {
+    mockStage = { step: 'loading' };
+    render(<PrivacyChainSyncLight />);
+    expect(mockOverlayProps).toBeUndefined();
+    expect(screen.getByTestId('privacy-chain-sync-light')).toBeTruthy();
+  });
 });

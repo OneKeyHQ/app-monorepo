@@ -28,7 +28,10 @@ import {
   getPrivacyChainNetworkSyncDisplay,
   pickSlowestPrivacyChainNetwork,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
-import { usePrivacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDeviceStageAtom,
+  usePrivacyChainAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import {
@@ -410,13 +413,14 @@ const PrivacyChainSyncLightContent = memo(BasicPrivacyChainSyncLight);
 const IOS_HOST_ANIMATION: IOverlayAnimation = { enter: { type: 'none' } };
 
 // iOS lost its full-window container; `hardware` level keeps the light above dialogs and sheets.
-export function PrivacyChainSyncLight() {
-  if (!platformEnv.isNativeIOS) {
-    return <PrivacyChainSyncLightContent />;
-  }
+// The hardware stage shares that level and mounts first, so the light would
+// stack above it: it steps aside while a device stage is up.
+function IOSPrivacyChainSyncLight() {
+  const [stage] = useDeviceStageAtom();
+  const isStageOpen = Boolean(stage && stage.step !== 'off');
   return (
     <OverlayView
-      visible
+      visible={!isStageOpen}
       level="hardware"
       presentation="fullscreen"
       animation={IOS_HOST_ANIMATION}
@@ -428,4 +432,12 @@ export function PrivacyChainSyncLight() {
       <PrivacyChainSyncLightContent />
     </OverlayView>
   );
+}
+
+// Elsewhere the stage's overlay level sits above the app tree the light renders in.
+export function PrivacyChainSyncLight() {
+  if (!platformEnv.isNativeIOS) {
+    return <PrivacyChainSyncLightContent />;
+  }
+  return <IOSPrivacyChainSyncLight />;
 }
