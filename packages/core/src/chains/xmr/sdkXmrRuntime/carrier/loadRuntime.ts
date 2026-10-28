@@ -3,7 +3,7 @@
 import { runPrivacyChainWorkerOperation } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { setXmrRuntimeApiLoader } from '..';
+import { readXmrRuntimeError, setXmrRuntimeApiLoader } from '..';
 import { setXmrRuntimeLoader } from '../address';
 import { XMR_RUNTIME_METHODS, coerceXmrU64Args } from '../methods';
 
@@ -78,6 +78,12 @@ async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
       } catch (error) {
         if (error instanceof WebAssembly.RuntimeError) throw error;
         storageError = error;
+        // Keep a runtime error's JSON message whole: callers read its code (STORAGE_UNSUPPORTED).
+        if (readXmrRuntimeError(error)) {
+          throw new OneKeyLocalError(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
         throw new OneKeyLocalError(
           `xmr: persistent storage is unavailable in this process, so no wallet can be opened. ${
             error instanceof Error ? error.message : String(error)
