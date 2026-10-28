@@ -26363,6 +26363,7 @@
     "packages/kit/src/views/Staking/hooks/useEarnTxLabel.ts": 8883,
     "packages/kit/src/views/Staking/hooks/useEarnWithdrawAssets.ts": 11823,
     "packages/kit/src/views/Staking/hooks/useEtherFiLegacyApproval.ts": 15707,
+    "packages/kit/src/views/Staking/hooks/useEtherFiStakeApproval.ts": 9910,
     "packages/kit/src/views/Staking/hooks/useHandleSwap.ts": 9492,
     "packages/kit/src/views/Staking/hooks/useIsPendleProvider.ts": 1871,
     "packages/kit/src/views/Staking/hooks/usePendleLayoutState.ts": 6164,
