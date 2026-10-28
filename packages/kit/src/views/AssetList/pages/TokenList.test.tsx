@@ -27,6 +27,7 @@ const mockPopToMainRoute = jest.fn();
 const mockNativeList = jest.fn();
 const mockUpdateTokenListState = jest.fn();
 const mockUpdateSearchKey = jest.fn();
+const mockSearchTokenList: { tokens: IAccountToken[] } = { tokens: [] };
 
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({ params: mockParams }),
@@ -112,7 +113,7 @@ jest.mock('../../../states/jotai/contexts/tokenList', () => ({
     },
   }),
   useSearchKeyAtom: () => [mockSearchKey],
-  useSearchTokenListAtom: () => [{ tokens: [] }],
+  useSearchTokenListAtom: () => [mockSearchTokenList],
   useTokenListSortAtom: () => [{ sortType: 'value', sortDirection: 'desc' }],
   withTokenListProvider: (component: unknown) => component,
 }));
@@ -412,7 +413,7 @@ describe('TokenList route recovery', () => {
       );
   });
 
-  it('keeps network badges when a logo is unavailable', () => {
+  it('keeps network badges when a logo is unavailable', async () => {
     const networkInfo = jest.spyOn(networkUtils, 'getLocalNetworkInfo');
     networkInfo.mockImplementation((id) =>
       id === 'custom--1'
@@ -442,7 +443,9 @@ describe('TokenList route recovery', () => {
     };
 
     try {
-      render(<TokenList />);
+      await act(async () => {
+        render(<TokenList />);
+      });
       const rows = (
         mockNativeList.mock.lastCall?.[0]?.snapshot as NativeListSnapshot
       ).rows;

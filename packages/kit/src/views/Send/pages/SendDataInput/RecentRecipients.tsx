@@ -49,6 +49,8 @@ import {
 import { useRecentRecipientsData } from './useRecentRecipientsData';
 import { useStableItemPress } from './useStableItemPress';
 
+import type { RowActionEvent } from '@onekeyfe/react-native-native-list';
+
 interface IRecentRecipientsProps {
   accountId?: string;
   networkId: string;
@@ -576,13 +578,15 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     [nativeItems, networkId, formatCompactTime, nativeListTheme],
   );
   const showNativeMenu = useCallback(
-    (item: IQuickItem) => {
+    (item: IQuickItem, event: RowActionEvent) => {
       const isLightningNetwork =
         networkUtils.isLightningNetworkByNetworkId(networkId);
       if (item.isAddressBook || isLightningNetwork) return;
       const primaryText =
         item.name || accountUtils.shortenAddress({ address: item.address });
       ActionList.show({
+        triggerRect: event.anchor?.windowRect,
+        triggerPosition: event.anchor ? undefined : event.windowPoint,
         title: primaryText,
         sections: [
           {
@@ -733,7 +737,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             : undefined;
           if (!item) return;
           if (event.actionKey === 'press') void handleRecipientPress(item);
-          if (event.actionKey === 'menu') showNativeMenu(item);
+          if (event.actionKey === 'menu') showNativeMenu(item, event);
         }}
       />
     );

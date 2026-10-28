@@ -2,12 +2,42 @@
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import { ActionList } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import RecipientQuickSelect from './RecipientQuickSelect';
 
+import type {
+  NativeListProps,
+  RowActionEvent,
+} from '@onekeyfe/react-native-native-list';
+
 const mockScrollHeaderToOffset = jest.fn();
 const mockScrollHeaderBy = jest.fn();
+let mockNativeRowAction: NativeListProps['onRowAction'];
+let mockHeaderLayout:
+  | ((event: { nativeEvent: { layout: { height: number } } }) => void)
+  | undefined;
+let mockShowWalletAccounts = false;
+const mockWalletGroups = [
+  {
+    walletId: 'hd-1',
+    walletName: 'Wallet 1',
+    wallet: { id: 'hd-1' },
+    accounts: [
+      {
+        account: { id: 'account-legacy', name: 'Legacy', address: '1abc' },
+        deriveType: 'bip44',
+        deriveInfo: { label: 'Legacy' },
+      },
+      {
+        account: { id: 'account-segwit', name: 'Segwit', address: 'bc1abc' },
+        deriveType: 'bip84',
+        deriveInfo: { label: 'Segwit' },
+      },
+    ],
+  },
+];
 let mockPageSelected:
   | ((event: { nativeEvent: { position: number } }) => void)
   | undefined;
@@ -106,13 +136,16 @@ jest.mock('@onekeyhq/components', () => {
         children,
         onTouchStart,
         onWheel,
+        onLayout,
       }: {
         children?: React.ReactNode;
         onTouchStart?: React.TouchEventHandler;
         onWheel?: React.WheelEventHandler;
+        onLayout?: typeof mockHeaderLayout;
       },
       ref,
     ) => {
+      if (onLayout) mockHeaderLayout = onLayout;
       React.useImperativeHandle(ref, () => ({
         measureInWindow: (callback: (...bounds: number[]) => void) =>
           callback(0, 100, 320, 600),
@@ -130,7 +163,7 @@ jest.mock('@onekeyhq/components', () => {
   );
   Stack.displayName = 'MockStack';
   return {
-    ActionList: Container,
+    ActionList: Object.assign(Container, { show: jest.fn() }),
     Badge: Container,
     Button: Container,
     DashText: Container,
@@ -159,7 +192,10 @@ jest.mock('@onekeyhq/components', () => {
 });
 
 jest.mock('@onekeyfe/react-native-native-list', () => ({
-  NativeList: () => null,
+  NativeList: ({ onRowAction }: NativeListProps) => {
+    mockNativeRowAction = onRowAction;
+    return null;
+  },
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -188,7 +224,18 @@ jest.mock('@onekeyhq/kit/src/hooks/useDebounce', () => ({
   useDebounce: (value: unknown) => value,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({ result: [], isLoading: false, run: jest.fn() }),
+  usePromiseResult: (
+    _callback: unknown,
+    _deps: unknown,
+    options?: { initResult?: unknown },
+  ) => ({
+    result:
+      mockShowWalletAccounts && Array.isArray(options?.initResult)
+        ? mockWalletGroups
+        : options?.initResult,
+    isLoading: false,
+    run: jest.fn(),
+  }),
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2',
@@ -222,7 +269,10 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
-  default: { isLightningNetworkByNetworkId: () => false },
+  default: {
+    isLightningNetworkByNetworkId: () => false,
+    isBTCNetwork: () => false,
+  },
 }));
 jest.mock('./RecentRecipients', () => ({
   __esModule: true,
@@ -303,6 +353,10 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     mockPageScrollStateChanged = undefined;
     mockNativeTabBar = undefined;
     mockRecentMatchStatus = undefined;
+    mockHeaderLayout = undefined;
+    mockNativeRowAction = undefined;
+    mockShowWalletAccounts = false;
+    jest.mocked(ActionList.show).mockClear();
     globalThis.requestAnimationFrame = jest.fn(
       (callback: FrameRequestCallback) => {
         callback(0);
@@ -330,15 +384,70 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
   it.each([
     ['iOS', true],
     ['Android', false],
-  ])('uses absolute native header target on %s', (_name, isIOS) => {
-    platformEnv.isNativeIOS = isIOS;
-    platformEnv.isNativeAndroid = !isIOS;
-    renderPager();
-    for (let index = 0; index < 3; index += 1) showKeyboard();
-    expect(mockScrollHeaderToOffset).toHaveBeenCalledTimes(3);
-    expect(mockScrollHeaderToOffset).toHaveBeenLastCalledWith(222);
-    expect(mockScrollHeaderBy).not.toHaveBeenCalled();
-  });
+  ])(
+    'only scrolls the remaining native field overflow on %s',
+    (_name, isIOS) => {
+      platformEnv.isNativeIOS = isIOS;
+      platformEnv.isNativeAndroid = !isIOS;
+      const { field } = renderPager();
+      showKeyboard();
+      expect(mockScrollHeaderBy).toHaveBeenCalledTimes(1);
+      expect(mockScrollHeaderBy).toHaveBeenLastCalledWith(222);
+      field.measureInWindow.mockImplementation(
+        (callback: (...bounds: number[]) => void) => callback(0, 428, 320, 60),
+      );
+      showKeyboard();
+      act(() =>
+        mockHeaderLayout?.({ nativeEvent: { layout: { height: 240 } } }),
+      );
+      expect(mockScrollHeaderBy).toHaveBeenCalledTimes(1);
+      field.measureInWindow.mockImplementation(
+        (callback: (...bounds: number[]) => void) => callback(0, 470, 320, 60),
+      );
+      showKeyboard();
+      expect(mockScrollHeaderBy).toHaveBeenCalledTimes(2);
+      expect(mockScrollHeaderBy).toHaveBeenLastCalledWith(42);
+      expect(mockScrollHeaderToOffset).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([true, false])(
+    'anchors an account derive menu with rect=%s and ignores a missing row',
+    (hasAnchor) => {
+      mockShowWalletAccounts = true;
+      render(
+        <RecipientQuickSelect
+          networkId="btc--0"
+          activeTab="account"
+          hideTabs={['recent', 'addressBook']}
+          pagerHeader={null}
+        />,
+      );
+      const event: RowActionEvent = {
+        actionKey: 'derive',
+        rowKey: 'header-hd-1',
+        windowPoint: { x: 300, y: 400 },
+        anchor: hasAnchor
+          ? {
+              token: 'derive-menu',
+              windowRect: { x: 100, y: 200, width: 40, height: 32 },
+              source: 'trailingAccessory',
+              generation: 1,
+              layoutDirection: 'ltr',
+            }
+          : undefined,
+      };
+      act(() => mockNativeRowAction?.(event));
+      expect(ActionList.show).toHaveBeenCalledWith(
+        expect.objectContaining({
+          triggerRect: event.anchor?.windowRect,
+          triggerPosition: hasAnchor ? undefined : event.windowPoint,
+        }),
+      );
+      act(() => mockNativeRowAction?.({ ...event, rowKey: 'missing-wallet' }));
+      expect(ActionList.show).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('uses the native segmented bar with the visible tab keys', () => {
     renderPager(['addressBook']);
@@ -455,6 +564,7 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
       act(() => frames.shift()?.(0));
       expect(field.measureInWindow).not.toHaveBeenCalled();
       expect(mockScrollHeaderToOffset).not.toHaveBeenCalled();
+      expect(mockScrollHeaderBy).not.toHaveBeenCalled();
       if (interruption === 'unmount') {
         expect(mockKeyboardListeners.size).toBe(0);
       }
@@ -464,7 +574,7 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
           expect(frames).toHaveLength(1);
           act(() => frames.shift()?.(0));
           expect(field.measureInWindow).toHaveBeenCalledTimes(1);
-          expect(mockScrollHeaderToOffset).toHaveBeenLastCalledWith(222);
+          expect(mockScrollHeaderBy).toHaveBeenLastCalledWith(222);
         } else {
           expect(frames).toHaveLength(0);
           expect(field.measureInWindow).not.toHaveBeenCalled();

@@ -87,7 +87,10 @@ import {
 } from './searchMatchUtils';
 import { useStableItemPress } from './useStableItemPress';
 
-import type { IdentityRow } from '@onekeyfe/react-native-native-list';
+import type {
+  IdentityRow,
+  RowActionEvent,
+} from '@onekeyfe/react-native-native-list';
 import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 type IFocusMeasurable = Pick<ViewInstance, 'measureInWindow'>;
@@ -771,13 +774,16 @@ function AccountRecipients({
   ]);
 
   const handleNativeAccountAction = useCallback(
-    (actionKey: string, rowKey?: string) => {
+    (event: RowActionEvent) => {
+      const { actionKey, rowKey } = event;
       const item = rowKey ? nativeRowItems.itemsByKey.get(rowKey) : undefined;
       if (!item) return;
       if (item.type === 'header') {
         if (actionKey === 'press') toggleCollapse(item.walletId);
         if (actionKey === 'derive') {
           ActionList.show({
+            triggerRect: event.anchor?.windowRect,
+            triggerPosition: event.anchor ? undefined : event.windowPoint,
             title: intl.formatMessage({
               id: ETranslations.address_type_selector_title,
             }),
@@ -852,9 +858,7 @@ function AccountRecipients({
             />
           )
         }
-        onRowAction={(event) =>
-          handleNativeAccountAction(event.actionKey, event.rowKey)
-        }
+        onRowAction={handleNativeAccountAction}
       />
     );
   }
@@ -1337,8 +1341,8 @@ function RecipientQuickSelect({
               return;
             }
             if (platformEnv.isNative) {
-              const target = Math.max(0, fieldY + fieldHeight - visibleBottom);
-              pagerRef.current?.scrollHeaderToOffset(target);
+              const overflow = fieldY + fieldHeight - visibleBottom;
+              if (overflow > 0) pagerRef.current?.scrollHeaderBy(overflow);
               return;
             }
             let delta = 0;
