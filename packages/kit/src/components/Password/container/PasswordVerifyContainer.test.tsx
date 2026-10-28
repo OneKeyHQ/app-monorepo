@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/shared/types/password';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useResetApp } from '../../../views/Setting/hooks';
 import PasswordVerify from '../components/PasswordVerify';
 import usePasswordProtection from '../hooks/usePasswordProtection';
 
@@ -55,7 +56,7 @@ jest.mock('@onekeyhq/shared/src/locale', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
-    setting: { page: { biologyAuthDebug: jest.fn() } },
+    setting: { page: { biologyAuthDebug: jest.fn(), resetApp: jest.fn() } },
     app: { webembed: { webembedApiNotReady: jest.fn() } },
   },
 }));
@@ -296,11 +297,14 @@ describe('manual passcode failure feedback', () => {
     });
   }
 
-  async function submitFailing(name: string) {
+  async function submitFailing(
+    name: string,
+    props: Partial<ComponentProps<typeof PasswordVerifyContainer>> = {},
+  ) {
     jest
       .spyOn(backgroundApiProxy.servicePassword, 'verifyPasswordFromInput')
       .mockRejectedValue(Object.assign(new Error('failed'), { name }));
-    render(<PasswordVerifyContainer onVerifyRes={jest.fn()} />);
+    render(<PasswordVerifyContainer onVerifyRes={jest.fn()} {...props} />);
     await act(async () => {
       await Promise.resolve(
         captured().onInputPasswordAuth({
@@ -363,5 +367,17 @@ describe('manual passcode failure feedback', () => {
       message: 'auth_passcode_reset_warning__msg',
     });
     expect(setCooldown).not.toHaveBeenCalled();
+  });
+
+  it('keeps the tenth wrong passcode an error when the reset fails', async () => {
+    const resetApp = jest.fn().mockResolvedValue(false);
+    jest.mocked(useResetApp).mockReturnValue(resetApp);
+    mockProtection({
+      isPasswordErrorProtectionEnabled: true,
+      passwordErrorAttempts: 9,
+    });
+    await submitFailing(EOneKeyErrorClassNames.WrongPassword, { name: 'lock' });
+    expect(resetApp).toHaveBeenCalledTimes(1);
+    expect(captured().status.value).toBe(EPasswordVerifyStatus.ERROR);
   });
 });

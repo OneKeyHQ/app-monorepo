@@ -668,6 +668,9 @@ const PasswordVerifyContainer = ({
             skipProtection = true;
           }
           if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS) {
+            // Reaching the limit stays a critical error, also when the reset
+            // fails and the lock screen remains.
+            isRetry = false;
             if (isLock) {
               defaultLogger.setting.page.resetApp({
                 reason: 'WrongPasscodeMaxAttempts',

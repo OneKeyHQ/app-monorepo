@@ -721,6 +721,73 @@ describe('PasswordVerify retry feedback', () => {
     expect(onInputPasswordAuth).not.toHaveBeenCalled();
   });
 
+  it('asks for biometrics on Enter during a passcode cooldown', async () => {
+    const onBiologyAuth = jest.fn();
+    renderVerify({
+      confirmBtnDisabled: true,
+      onBiologyAuth,
+      status: { value: EPasswordVerifyStatus.RETRY },
+    });
+    await flush();
+    await act(async () => {
+      await captured().input.onSubmitEditing?.();
+    });
+    await flush();
+    expect(onBiologyAuth).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [false, 1],
+    [true, 0],
+  ])(
+    'submits a typed password on Enter when the cooldown is %s: %s time(s)',
+    async (confirmBtnDisabled, expectedCalls) => {
+      const onInputPasswordAuth = jest.fn();
+      renderVerify({
+        confirmBtnDisabled,
+        isEnable: false,
+        onInputPasswordAuth,
+      });
+      act(() => {
+        captured().form.setValue('password', 'typed');
+      });
+      await act(async () => {
+        await captured().input.onSubmitEditing?.();
+      });
+      expect(onInputPasswordAuth).toHaveBeenCalledTimes(expectedCalls);
+    },
+  );
+
+  it('clears the passcode digits after a retry', () => {
+    const props = {
+      authType: [],
+      isEnable: false,
+      passwordMode: EPasswordMode.PASSCODE,
+      onPasswordChange: () => {},
+      onBiologyAuth: () => {},
+      onInputPasswordAuth: () => {},
+    };
+    const view = render(
+      <PasswordVerify
+        {...props}
+        status={{ value: EPasswordVerifyStatus.VERIFYING }}
+      />,
+    );
+    act(() => {
+      captured().form.setValue('passCode', '123456');
+    });
+    view.rerender(
+      <PasswordVerify
+        {...props}
+        status={{
+          value: EPasswordVerifyStatus.RETRY,
+          message: 'auth_passcode_retry__msg',
+        }}
+      />,
+    );
+    expect(captured().form.getValues('passCode')).toBe('');
+  });
+
   it.each([
     [EPasswordVerifyStatus.RETRY, 1],
     [EPasswordVerifyStatus.DEFAULT, 0],
