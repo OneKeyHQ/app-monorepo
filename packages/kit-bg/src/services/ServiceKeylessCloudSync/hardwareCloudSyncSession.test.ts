@@ -167,6 +167,34 @@ describe('hardware Cloud sync session', () => {
     ).rejects.toThrow();
   });
 
+  test('a wrapped key does not unwrap under another key id', async () => {
+    const first = fakeClient();
+    first.get.mockResolvedValue(ok({ lock: null }));
+    first.post.mockResolvedValue(ok({}));
+    await bootstrapHardwareCloudSyncDataKey({
+      client: first.client,
+      session: session(),
+      deriveKek: wallet(WALLET),
+    });
+    const lock = first.post.mock.calls[0][1].lock;
+    const swapped = {
+      ...lock,
+      data: JSON.stringify({
+        ...JSON.parse(lock.data),
+        dekId: 'ee'.repeat(16),
+      }),
+    };
+    const c = fakeClient();
+    c.get.mockResolvedValue(ok({ lock: swapped }));
+    await expect(
+      bootstrapHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+      }),
+    ).rejects.toThrow();
+  });
+
   test('losing a concurrent first enable adopts the winner key', async () => {
     const winner = fakeClient();
     winner.get.mockResolvedValue(ok({ lock: null }));

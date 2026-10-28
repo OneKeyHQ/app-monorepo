@@ -1094,4 +1094,40 @@ describe('a hardware key never outlives turned-off sync', () => {
     await expect(service.sweepHardwareCloudKeyIfSyncOff()).resolves.toBe(false);
     expect(mockStored).toBe(stored);
   });
+
+  test('a refresh after another one finished uses the stored token instead of reusing the rotated one', async () => {
+    const { service } = setup();
+    const hardwareSession = {
+      deviceKeyJwk: {
+        kty: 'EC' as const,
+        crv: 'P-256' as const,
+        x: 'x',
+        y: 'y',
+        d: 'd',
+      },
+      accessToken: 'public-test-access-1',
+      accessTokenExpiresAt: 0,
+      refreshToken: 'public-test-refresh-1',
+      sessionId: 'public-test-session',
+      dekId: 'public-test-dek',
+    };
+    const stale = { ...credential, hardwareSession };
+    mockStored = {
+      ...stale,
+      hardwareSession: {
+        ...hardwareSession,
+        accessToken: 'public-test-access-2',
+        refreshToken: 'public-test-refresh-2',
+      },
+    };
+    const { refreshHardwareCloudSyncSessionIfNeeded } = jest.requireMock<
+      typeof import('./hardwareCloudSyncSession')
+    >('./hardwareCloudSyncSession');
+    jest.mocked(refreshHardwareCloudSyncSessionIfNeeded).mockClear();
+    const fresh = await service['getFreshHardwareCredential'](stale, {
+      force: true,
+    });
+    expect(fresh.hardwareSession?.refreshToken).toBe('public-test-refresh-2');
+    expect(refreshHardwareCloudSyncSessionIfNeeded).not.toHaveBeenCalled();
+  });
 });

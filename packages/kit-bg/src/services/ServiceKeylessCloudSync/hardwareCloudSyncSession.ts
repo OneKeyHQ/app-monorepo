@@ -290,26 +290,42 @@ export function isHardwareCloudSyncKeyEnvelopeItem(item: {
   return item?.dataType === HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE;
 }
 
-async function wrapDek({ kek, dek }: { kek: string; dek: string }) {
+type IEnvelopeContext = Pick<IKeyEnvelope, 'dekId' | 'kekVersion' | 'kekSalt'>;
+
+// Binds the wrapped key to its envelope, so the server cannot pair one
+// envelope's wrappedDek with another dekId.
+function envelopeItemId({ dekId, kekVersion, kekSalt }: IEnvelopeContext) {
+  return `${ENVELOPE_ITEM_ID}:v${kekVersion}:${dekId}:${kekSalt}`;
+}
+
+async function wrapDek({
+  kek,
+  dek,
+  context,
+}: {
+  kek: string;
+  dek: string;
+  context: IEnvelopeContext;
+}) {
   return keylessCloudSyncUtils.encryptWithKeylessKey({
     rawData: dek,
     encryptionKey: kek,
-    itemId: ENVELOPE_ITEM_ID,
+    itemId: envelopeItemId(context),
     dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
   });
 }
 
 async function unwrapDek({
   kek,
-  wrappedDek,
+  envelope,
 }: {
   kek: string;
-  wrappedDek: string;
+  envelope: IKeyEnvelope;
 }) {
   const dek = await keylessCloudSyncUtils.decryptWithKeylessKey({
-    encryptedData: wrappedDek,
+    encryptedData: envelope.wrappedDek,
     encryptionKey: kek,
-    itemId: ENVELOPE_ITEM_ID,
+    itemId: envelopeItemId(envelope),
     dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
   });
   if (!/^[0-9a-f]{64}$/.test(dek)) {
@@ -370,11 +386,14 @@ async function createEnvelope(deriveKek: IHardwareCloudSyncKekDeriver) {
   const dekId = bufferUtils.bytesToHex(randomBytes(16));
   const kekSalt = bufferUtils.bytesToHex(randomBytes(16));
   const kek = await deriveKek(kekSalt);
-  const envelope: IKeyEnvelope = {
+  const context: IEnvelopeContext = {
     dekId,
     kekVersion: HARDWARE_CLOUD_SYNC_KEK_VERSION,
     kekSalt,
-    wrappedDek: await wrapDek({ kek, dek }),
+  };
+  const envelope: IKeyEnvelope = {
+    ...context,
+    wrappedDek: await wrapDek({ kek, dek, context }),
     createdAt: Date.now(),
   };
   const dataKey: IHardwareCloudSyncDataKey = {
@@ -455,7 +474,7 @@ export async function bootstrapHardwareCloudSyncDataKey({
     const existing = await readLockEnvelope({ client, session });
     if (existing) {
       const kek = await deriveKek(existing.kekSalt);
-      const dek = await unwrapDek({ kek, wrappedDek: existing.wrappedDek });
+      const dek = await unwrapDek({ kek, envelope: existing });
       const pwdHash = computeHardwareCloudSyncPwdHash(existing.dekId);
       return {
         dek,

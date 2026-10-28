@@ -705,6 +705,17 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const session = credential.hardwareSession;
     if (!session) return credential;
     const refreshing = (async () => {
+      // A refresh that finished after this request read its credential has
+      // already rotated the token; use the stored one instead of reusing it.
+      const stored = await keylessSyncCredentialStorage.getCredential(
+        credential.keylessWalletId,
+      );
+      if (
+        stored?.hardwareSession?.sessionId === session.sessionId &&
+        stored.hardwareSession.refreshToken !== session.refreshToken
+      ) {
+        return stored;
+      }
       const client = await this.backgroundApi.servicePrime.getPrimeClient();
       let next: IHardwareCloudSyncSession | undefined;
       try {
