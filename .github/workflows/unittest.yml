@@ -34,7 +34,7 @@ concurrency:
 
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
-  JEST_SHARD_TOTAL: 7
+  JEST_SHARD_TOTAL: 3
   JEST_COVERAGE_THRESHOLD_JSON: '{"statements":10,"branches":35,"functions":10}'
 
 permissions:
@@ -43,16 +43,16 @@ permissions:
 
 jobs:
   unittest:
-    name: Unit Tests (${{ matrix.shard }}/7)
+    name: Unit Tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
     # Allow cold immutable installs and coverage reporting to finish on PR runners.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 20 }}
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
         node-version: [24.x]
-        shard: [1, 2, 3, 4, 5, 6, 7]
+        shard: [1, 2, 3]
 
     steps:
       - uses: actions/checkout@v4
