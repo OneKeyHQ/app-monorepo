@@ -219,8 +219,10 @@ const shellInputDirectories = {
   ],
   ios: [
     'apps/mobile/ios/OneKeyLogo.icon',
+    'apps/mobile/ios/OneKeyMarketWidget',
     'apps/mobile/ios/OneKeyWallet',
     'apps/mobile/ios/ServiceExtension',
+    'apps/mobile/ios/SharedMarketWidget',
     'apps/mobile/ios/bn.lproj',
     'apps/mobile/ios/de.lproj',
     'apps/mobile/ios/en.lproj',

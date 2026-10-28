@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { parseMarketWidgetLinkUrl } from '@onekeyhq/shared/src/utils/marketWidgetUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
@@ -729,11 +730,36 @@ export const tryHandleOneKeyUniversalLink = async (
   }
 };
 
+let latestDeepLinkRequest = 0;
+
 export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
   const urls = [data.url, ...(data.argv ?? [])].filter(
-    (item) => !!item && isString(item),
+    (item): item is string => !!item && isString(item),
   );
   urls.forEach((url) => {
+    latestDeepLinkRequest += 1;
+    const request = latestDeepLinkRequest;
+    if (platformEnv.isNative) {
+      const widgetLink = parseMarketWidgetLinkUrl(url);
+      if (widgetLink.matches) {
+        const { target } = widgetLink;
+        if (target) {
+          void import('./marketWidgetLink')
+            .then(({ handleMarketWidgetLink }) =>
+              handleMarketWidgetLink({
+                target,
+                shouldContinue: () => request === latestDeepLinkRequest,
+              }),
+            )
+            .catch(() => {
+              defaultLogger.app.error.log(
+                'Market widget deep link handler unavailable',
+              );
+            });
+        }
+        return;
+      }
+    }
     console.log('processDeepLinkUrl >>>>>> ', url);
     void processDeepLinkUrl(url);
   });

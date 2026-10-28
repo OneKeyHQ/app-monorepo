@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		00150D8E2550895727C68738 /* MarketWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F973B21C4F7985CA645E5B /* MarketWidgetData.swift */; };
 		076068C02E7EF3BA00E007B2 /* BuildFile in Embed Frameworks */ = {isa = PBXBuildFile; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */; };
 		07A167A92E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
@@ -16,14 +17,23 @@
 		07B1C3A52F08000000E00003 /* OneKeyNativeStorageMigration.m in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A42F08000000E00003 /* OneKeyNativeStorageMigration.m */; };
 		07B1C3A72F08000000E00004 /* OneKeyTravelModeLaunchEpoch.m in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3A62F08000000E00004 /* OneKeyTravelModeLaunchEpoch.m */; };
 		07B1C3AD2F08000000E00007 /* OneKeyNativeCrashDiagnostics.m in Sources */ = {isa = PBXBuildFile; fileRef = 07B1C3AC2F08000000E00007 /* OneKeyNativeCrashDiagnostics.m */; };
+		0F29651ED13BE60061A59A34 /* OneKeyMarketWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E065912A2C5A4DE1F7428135 /* OneKeyMarketWidget.appex */; platformFilter = ios; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		0FB3985DDF293021CD4457FE /* GeistMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0C4EA597D56EB31B1F2AEAE5 /* GeistMono-Regular.ttf */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		15885025AE1EDC8CB76FF2EA /* MarketWidgetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05C4D6557651549826573C8 /* MarketWidgetService.swift */; };
 		2788FF4A611FA65E5DD92E66 /* libPods-OneKeyWallet.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */; };
+		27F95DFDC80A36AFBA2BBA8B /* MarketWidgetIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCF838E4D9786EDFF0DD1EE6 /* MarketWidgetIntents.swift */; };
+		2D7ABFACD016A166E5D9967B /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = B931E2F5319EF7F0B17D01FB /* Localizable.strings */; };
 		31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAB62C802804CA1BF90BB10 /* noop-file.swift */; };
+		34D69A5113286CFBD0625BE6 /* MarketWidgetProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB7037E2870D8EC9DB49C7FC /* MarketWidgetProvider.swift */; };
 		35EE15B12B9A2ACD004C86AC /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 35EE15B32B9A2ACD004C86AC /* InfoPlist.strings */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		40F6CA7726307513C784E6A0 /* MarketWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F973B21C4F7985CA645E5B /* MarketWidgetData.swift */; };
 		4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */; };
 		541DCC87FB2B844A31C6B2CE /* BrandSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B713FFEAAB53780C8C97C64A /* BrandSans-Medium.ttf */; };
+		6B45493A8A076B0FB96C2B59 /* OneKeyMarketWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27C72F9E6D2BF9165383D899 /* OneKeyMarketWidget.swift */; };
+		855CFDE445F2D1F1407C6BA1 /* MarketWidgetModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 08C496B0D83CDA8183FB4F84 /* MarketWidgetModule.m */; };
+		87CC3FF58F52829A885B64AC /* MarketWidgetModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5A813A4D5AC973A2D38A54 /* MarketWidgetModule.swift */; };
 		8C103D83F4F845C446B2FA61 /* BrandSans-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D61DE12A640796AEBBF9AF3E /* BrandSans-Bold.ttf */; };
 		A1C000000000000000000001 /* OneKeyAppClipApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000020 /* OneKeyAppClipApp.swift */; };
 		A1C000000000000000000002 /* AppClipRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000021 /* AppClipRootView.swift */; };
@@ -42,6 +52,7 @@
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E4F6F335E5288BB6F6B67904 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 76D7FECDA69004339A20F4C7 /* Foundation.framework */; };
 		EA73E1F22C3EAEAD000E9398 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */; };
 		EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */; };
 		EA9FF4ED2BDFFDBB00AC618A /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = EA9FF4EC2BDFFDBB00AC618A /* web-embed */; };
@@ -50,6 +61,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		606F9F687814EF85BEFFC642 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7E4EA818900E3E978703EE89;
+			remoteInfo = OneKeyMarketWidget;
+		};
 		A1C000000000000000000010 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
@@ -96,6 +114,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */,
+				0F29651ED13BE60061A59A34 /* OneKeyMarketWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -110,10 +129,13 @@
 		07B1C3A42F08000000E00003 /* OneKeyNativeStorageMigration.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OneKeyNativeStorageMigration.m; path = OneKeyWallet/OneKeyNativeStorageMigration.m; sourceTree = "<group>"; };
 		07B1C3A62F08000000E00004 /* OneKeyTravelModeLaunchEpoch.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OneKeyTravelModeLaunchEpoch.m; path = OneKeyWallet/OneKeyTravelModeLaunchEpoch.m; sourceTree = "<group>"; };
 		07B1C3AC2F08000000E00007 /* OneKeyNativeCrashDiagnostics.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OneKeyNativeCrashDiagnostics.m; path = OneKeyWallet/OneKeyNativeCrashDiagnostics.m; sourceTree = "<group>"; };
+		08C496B0D83CDA8183FB4F84 /* MarketWidgetModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = MarketWidgetModule.m; path = OneKeyWallet/MarketWidgetModule.m; sourceTree = "<group>"; };
 		0C4EA597D56EB31B1F2AEAE5 /* GeistMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "GeistMono-Regular.ttf"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* OneKeyWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OneKeyWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OneKeyWallet/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = OneKeyWallet/Info.plist; sourceTree = "<group>"; };
+		1BF61B53ED133200337D145F /* OneKeyMarketWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = OneKeyMarketWidget.entitlements; sourceTree = "<group>"; };
+		27C72F9E6D2BF9165383D899 /* OneKeyMarketWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OneKeyMarketWidget.swift; sourceTree = "<group>"; };
 		2DAB62C802804CA1BF90BB10 /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "OneKeyWallet/noop-file.swift"; sourceTree = "<group>"; };
 		2E73E93BC72DE3615E826B36 /* BrandSans-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "BrandSans-Regular.ttf"; sourceTree = "<group>"; };
 		3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "OneKeyWallet-Bridging-Header.h"; path = "OneKeyWallet/OneKeyWallet-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -124,6 +146,7 @@
 		39B7886775EDB292CDA71277 /* GeistMono-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "GeistMono-Medium.ttf"; sourceTree = "<group>"; };
 		4212F2E9F990F15A98CD2C91 /* BrandSans-SemiBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "BrandSans-SemiBold.ttf"; sourceTree = "<group>"; };
 		494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		76D7FECDA69004339A20F4C7 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		7930D3EB206A16EE7BAE3E3F /* Pods-OneKeyWallet.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.release.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.release.xcconfig"; sourceTree = "<group>"; };
 		8F3684A92F0AE732D0290D9A /* Pods-OneKeyWallet.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-OneKeyWallet.debug.xcconfig"; path = "Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet.debug.xcconfig"; sourceTree = "<group>"; };
 		9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-OneKeyWallet.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -140,14 +163,23 @@
 		A1C00000000000000000002B /* AppClipAttributionModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppClipAttributionModule.swift; path = OneKeyWallet/AppClipAttributionModule.swift; sourceTree = "<group>"; };
 		A1C00000000000000000002C /* AppClipAttributionModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AppClipAttributionModule.m; path = OneKeyWallet/AppClipAttributionModule.m; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B05C4D6557651549826573C8 /* MarketWidgetService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MarketWidgetService.swift; sourceTree = "<group>"; };
 		B713FFEAAB53780C8C97C64A /* BrandSans-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "BrandSans-Medium.ttf"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		BB4CA7173CF55F2F68DB835D /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		BCF838E4D9786EDFF0DD1EE6 /* MarketWidgetIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MarketWidgetIntents.swift; sourceTree = "<group>"; };
 		C274DABD2AE2644400755275 /* ServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C274DABF2AE2644400755275 /* NotificationService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NotificationService.h; sourceTree = "<group>"; };
 		C274DAC02AE2644400755275 /* NotificationService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NotificationService.m; sourceTree = "<group>"; };
 		C274DAC22AE2644400755275 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = OneKeyWallet.entitlements; path = OneKeyWallet/OneKeyWallet.entitlements; sourceTree = "<group>"; };
+		C5F973B21C4F7985CA645E5B /* MarketWidgetData.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MarketWidgetData.swift; sourceTree = "<group>"; };
+		CA5A813A4D5AC973A2D38A54 /* MarketWidgetModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MarketWidgetModule.swift; path = OneKeyWallet/MarketWidgetModule.swift; sourceTree = "<group>"; };
+		CB7037E2870D8EC9DB49C7FC /* MarketWidgetProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MarketWidgetProvider.swift; sourceTree = "<group>"; };
+		D05417BCA1F2A22F952622D1 /* zh-Hans */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		D61DE12A640796AEBBF9AF3E /* BrandSans-Bold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "BrandSans-Bold.ttf"; sourceTree = "<group>"; };
+		E065912A2C5A4DE1F7428135 /* OneKeyMarketWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OneKeyMarketWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		E33E0830EF9BC023B80883E9 /* en */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		E386ED442C7889E000B1E360 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E386ED452C788A1300B1E360 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E386ED472C788A2700B1E360 /* hi */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = hi; path = hi.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -171,6 +203,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		0E40B82C3FA6E9571234F936 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E4F6F335E5288BB6F6B67904 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -229,8 +269,20 @@
 				3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */,
 				07A167A82E576AF7006A3117 /* OneKeyLogo.icon */,
 				B443EFD976C5A3FE30F5AF8C /* Fonts */,
+				CA5A813A4D5AC973A2D38A54 /* MarketWidgetModule.swift */,
+				08C496B0D83CDA8183FB4F84 /* MarketWidgetModule.m */,
 			);
 			name = OneKeyWallet;
+			sourceTree = "<group>";
+		};
+		1F13053CAC772C3DE316FE82 /* SharedMarketWidget */ = {
+			isa = PBXGroup;
+			children = (
+				C5F973B21C4F7985CA645E5B /* MarketWidgetData.swift */,
+				B05C4D6557651549826573C8 /* MarketWidgetService.swift */,
+			);
+			name = SharedMarketWidget;
+			path = SharedMarketWidget;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
@@ -239,8 +291,23 @@
 				F42739F82D24DABD0072EBA9 /* StoreKit.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				9373BA6134E4C051DB510900 /* libPods-OneKeyWallet.a */,
+				E370E1640A32724984845752 /* iOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		731C135230639BEA117C9075 /* OneKeyMarketWidget */ = {
+			isa = PBXGroup;
+			children = (
+				27C72F9E6D2BF9165383D899 /* OneKeyMarketWidget.swift */,
+				CB7037E2870D8EC9DB49C7FC /* MarketWidgetProvider.swift */,
+				BCF838E4D9786EDFF0DD1EE6 /* MarketWidgetIntents.swift */,
+				BB4CA7173CF55F2F68DB835D /* Info.plist */,
+				1BF61B53ED133200337D145F /* OneKeyMarketWidget.entitlements */,
+				B931E2F5319EF7F0B17D01FB /* Localizable.strings */,
+			);
+			name = OneKeyMarketWidget;
+			path = OneKeyMarketWidget;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -262,6 +329,8 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				D65327D7A22EEC0BE12398D9 /* Pods */,
 				E2ABB62F868BF0E9EED605CB /* ExpoModulesProviders */,
+				1F13053CAC772C3DE316FE82 /* SharedMarketWidget */,
+				731C135230639BEA117C9075 /* OneKeyMarketWidget */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -274,6 +343,7 @@
 				13B07F961A680F5B00A75B9A /* OneKeyWallet.app */,
 				C274DABD2AE2644400755275 /* ServiceExtension.appex */,
 				A1C00000000000000000002A /* OneKeyAppClip.app */,
+				E065912A2C5A4DE1F7428135 /* OneKeyMarketWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -351,6 +421,14 @@
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
+		E370E1640A32724984845752 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				76D7FECDA69004339A20F4C7 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -379,11 +457,29 @@
 			dependencies = (
 				C274DAC42AE2644400755275 /* PBXTargetDependency */,
 				A1C000000000000000000070 /* PBXTargetDependency */,
+				C7FF7CF90A14017A85A82D77 /* PBXTargetDependency */,
 			);
 			name = OneKeyWallet;
 			productName = OneKeyWallet;
 			productReference = 13B07F961A680F5B00A75B9A /* OneKeyWallet.app */;
 			productType = "com.apple.product-type.application";
+		};
+		7E4EA818900E3E978703EE89 /* OneKeyMarketWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D2180CCEB925CCA418A79A6 /* Build configuration list for PBXNativeTarget "OneKeyMarketWidget" */;
+			buildPhases = (
+				B19B0055028FDD58265557E5 /* Sources */,
+				0E40B82C3FA6E9571234F936 /* Frameworks */,
+				5B7B0324824457449C893B4A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OneKeyMarketWidget;
+			productName = OneKeyMarketWidget;
+			productReference = E065912A2C5A4DE1F7428135 /* OneKeyMarketWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		A1C000000000000000000050 /* OneKeyAppClip */ = {
 			isa = PBXNativeTarget;
@@ -430,6 +526,9 @@
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
 					};
+					7E4EA818900E3E978703EE89 = {
+						CreatedOnToolsVersion = 26.0;
+					};
 					A1C000000000000000000050 = {
 						CreatedOnToolsVersion = 26.0;
 					};
@@ -472,6 +571,7 @@
 				13B07F861A680F5B00A75B9A /* OneKeyWallet */,
 				C274DABC2AE2644400755275 /* ServiceExtension */,
 				A1C000000000000000000050 /* OneKeyAppClip */,
+				7E4EA818900E3E978703EE89 /* OneKeyMarketWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -495,6 +595,14 @@
 				8C103D83F4F845C446B2FA61 /* BrandSans-Bold.ttf in Resources */,
 				0FB3985DDF293021CD4457FE /* GeistMono-Regular.ttf in Resources */,
 				AC86234A85826FB6BC60AF85 /* GeistMono-Medium.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5B7B0324824457449C893B4A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D7ABFACD016A166E5D9967B /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -788,6 +896,9 @@
 				A1C00000000000000000000B /* AppClipAttributionStore.swift in Sources */,
 				A1C00000000000000000000C /* AppClipAttributionModule.swift in Sources */,
 				A1C00000000000000000000D /* AppClipAttributionModule.m in Sources */,
+				00150D8E2550895727C68738 /* MarketWidgetData.swift in Sources */,
+				87CC3FF58F52829A885B64AC /* MarketWidgetModule.swift in Sources */,
+				855CFDE445F2D1F1407C6BA1 /* MarketWidgetModule.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -800,6 +911,18 @@
 				A1C000000000000000000003 /* AppClipModel.swift in Sources */,
 				A1C000000000000000000004 /* AppClipMarketService.swift in Sources */,
 				A1C000000000000000000006 /* AppClipAttributionStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B19B0055028FDD58265557E5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				40F6CA7726307513C784E6A0 /* MarketWidgetData.swift in Sources */,
+				15885025AE1EDC8CB76FF2EA /* MarketWidgetService.swift in Sources */,
+				6B45493A8A076B0FB96C2B59 /* OneKeyMarketWidget.swift in Sources */,
+				34D69A5113286CFBD0625BE6 /* MarketWidgetProvider.swift in Sources */,
+				27F95DFDC80A36AFBA2BBA8B /* MarketWidgetIntents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -825,6 +948,13 @@
 			platformFilter = ios;
 			target = C274DABC2AE2644400755275 /* ServiceExtension */;
 			targetProxy = C274DAC32AE2644400755275 /* PBXContainerItemProxy */;
+		};
+		C7FF7CF90A14017A85A82D77 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = OneKeyMarketWidget;
+			platformFilter = ios;
+			target = 7E4EA818900E3E978703EE89 /* OneKeyMarketWidget */;
+			targetProxy = 606F9F687814EF85BEFFC642 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -853,6 +983,15 @@
 				E386ED552C788C7500B1E360 /* zh-Hant */,
 			);
 			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		B931E2F5319EF7F0B17D01FB /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				E33E0830EF9BC023B80883E9 /* en */,
+				D05417BCA1F2A22F952622D1 /* zh-Hans */,
+			);
+			name = Localizable.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -960,6 +1099,40 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		60DCA23E8A893E294BC47E57 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CC = clang;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = OneKeyMarketWidget/OneKeyMarketWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				CXX = "clang++";
+				DEVELOPMENT_TEAM = BVJ3FU5H2K;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OneKeyMarketWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				LD = clang;
+				LDPLUSPLUS = "clang++";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = so.onekey.wallet.MarketWidget;
+				PRODUCT_NAME = OneKeyMarketWidget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -1211,6 +1384,41 @@
 			};
 			name = Release;
 		};
+		A9C0DD7457C8130F0E0EE944 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CC = clang;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = OneKeyMarketWidget/OneKeyMarketWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				CXX = "clang++";
+				DEVELOPMENT_TEAM = BVJ3FU5H2K;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OneKeyMarketWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
+				LD = clang;
+				LDPLUSPLUS = "clang++";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = so.onekey.wallet.MarketWidget;
+				PRODUCT_NAME = OneKeyMarketWidget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		C274DAC72AE2644400755275 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1311,6 +1519,15 @@
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
 				13B07F951A680F5B00A75B9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D2180CCEB925CCA418A79A6 /* Build configuration list for PBXNativeTarget "OneKeyMarketWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A9C0DD7457C8130F0E0EE944 /* Release */,
+				60DCA23E8A893E294BC47E57 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -34,6 +34,7 @@
 
   <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
@@ -175,6 +176,28 @@
         android:theme="@style/Theme.Recovery"
         android:screenOrientation="portrait"
         android:exported="false" />
+    <activity android:name=".marketwidget.MarketWidgetConfigureActivity"
+        android:theme="@style/Theme.MarketWidget" android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+      </intent-filter>
+    </activity>
+    <receiver android:name=".marketwidget.MarketSingleWidgetProvider"
+        android:label="@string/market_widget_single_title" android:exported="false">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/market_widget_single_info" />
+    </receiver>
+    <receiver android:name=".marketwidget.MarketWatchlistWidgetProvider"
+        android:label="@string/market_widget_watchlist_title" android:exported="false">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/market_widget_watchlist_info" />
+    </receiver>
+    <service android:name=".marketwidget.MarketWidgetRefreshService"
+        android:permission="android.permission.BIND_JOB_SERVICE" android:exported="false" />
     <!-- <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/> -->
     <provider
         android:name="so.onekey.app.wallet.OnekeyFileProvider"

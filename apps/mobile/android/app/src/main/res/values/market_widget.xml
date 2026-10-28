@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">OneKey · Price</string>
+    <string name="market_widget_watchlist_title">OneKey · Watchlist</string>
+    <string name="market_widget_single_description">A crypto price and its 24-hour change.</string>
+    <string name="market_widget_watchlist_description">Shows the first three assets in your OneKey watchlist. Without a watchlist, shows BTC, ETH and SOL. Quotes are in USD and updates depend on Android.</string>
+    <string name="market_widget_select_description">Choose one asset from your OneKey watchlist. Quotes are in USD and updates depend on Android.</string>
+    <string name="market_widget_currency">USD · 24h change</string>
+    <string name="market_widget_refresh">Refresh prices</string>
+    <string name="market_widget_configure">Edit widget</string>
+    <string name="market_widget_empty">Asset no longer in watchlist. Tap to edit.</string>
+    <string name="market_widget_configuration_error">Open OneKey to restore widget settings.</string>
+    <string name="market_widget_unavailable">Price unavailable</string>
+    <string name="market_widget_updated_at">Updated %1$s</string>
+    <string name="market_widget_cached_at">Cached %1$s</string>
+    <string name="market_widget_manage_watchlist">Manage watchlist in OneKey</string>
+    <string name="market_widget_save">Save widget</string>
+    <string name="market_widget_choose_asset">Choose an asset first</string>
+    <string name="market_widget_save_failed">Unable to save. Please try again.</string>
+    <color name="market_widget_background">#F7F8FA</color>
+    <color name="market_widget_foreground">#111315</color>
+    <color name="market_widget_secondary">#657080</color>
+    <color name="market_widget_green">#00864A</color>
+    <color name="market_widget_red">#C93D4B</color>
+    <style name="Theme.MarketWidget" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/market_widget_background</item>
+        <item name="android:colorAccent">@color/market_widget_green</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@color/market_widget_background</item>
+        <item name="android:navigationBarColor">@color/market_widget_background</item>
+    </style>
+</resources>

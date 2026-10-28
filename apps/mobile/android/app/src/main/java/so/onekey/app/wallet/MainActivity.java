@@ -220,6 +220,8 @@ public class MainActivity extends ReactActivity {
 
   @Override
   public void onNewIntent(Intent intent) {
+    // Linking.getInitialURL must retain links delivered before the JS listener is ready.
+    setIntent(intent);
     super.onNewIntent(intent);
     if (MainApplication.shouldShowRecovery) {
       return;

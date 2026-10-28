@@ -1,0 +1,15 @@
+"Market price" = "市场价格";
+"Market watchlist" = "自选行情";
+"A coin's USD price and 24-hour change." = "查看单个币种的美元价格与 24 小时涨跌幅。";
+"The first coin in your watchlist. Open OneKey to change it." = "显示自选列表中的第一个币种，可在 OneKey 中调整。";
+"The first three coins in your watchlist. Open OneKey to change them." = "显示自选列表中的前三个币种，可在 OneKey 中调整。";
+"Choose a coin. Leave empty to follow the first coin in your watchlist." = "选择一个币种，留空则跟随自选列表中的第一个币种。";
+"Coin" = "币种";
+"Coins" = "币种";
+"Refresh prices" = "刷新价格";
+"Coin no longer in watchlist. Edit this widget to choose another." = "币种已移出自选，请编辑小组件重新选择。";
+"Open OneKey to sync your watchlist." = "请打开 OneKey 同步自选列表。";
+"Updated" = "更新于";
+"ago" = "前";
+"Prices unavailable" = "暂时无法获取价格";
+"24-hour change: %@" = "24 小时涨跌幅：%@";

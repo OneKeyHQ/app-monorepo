@@ -31,6 +31,7 @@ import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConne
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
 import { LocalDbDowngradeDialogContainer } from './LocalDbDowngradeDialogContainer';
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
+import { MarketWidgetSync } from './MarketWidgetSync';
 import { NavigationContainer } from './NavigationContainer';
 import PageTrackerContainer from './PageTrackerContainer';
 import { PerpsUnifoldDepositTerminalDeliveryContainer } from './PerpsUnifoldDepositTerminalDeliveryContainer';
@@ -68,6 +69,7 @@ function DetailRouter() {
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />
       <Bootstrap />
+      <MarketWidgetSync />
       <FullWindowOverlayContainer />
       <AirGapQrcodeDialogContainer />
       <CreateAddressContainer />
