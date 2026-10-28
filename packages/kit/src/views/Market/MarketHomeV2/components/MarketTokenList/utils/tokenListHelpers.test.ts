@@ -1,3 +1,7 @@
+import BigNumber from 'bignumber.js';
+
+import { calcSwapProSliderAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapProAmountSliderUtils';
+
 import {
   calculateMarketTokenLivePriceChange,
   getStockMarketCapValue,
@@ -20,16 +24,16 @@ describe('market token decimals', () => {
     ['18', 18],
     [0, 0],
     ['0', 0],
-    ['', Number.NaN],
-    ['  ', Number.NaN],
-    [null, Number.NaN],
-    [undefined, Number.NaN],
-    [-1, Number.NaN],
-    ['18.5', Number.NaN],
-    ['invalid', Number.NaN],
-    [Infinity, Number.NaN],
-    [true, Number.NaN],
-    [false, Number.NaN],
+    ['', undefined],
+    ['  ', undefined],
+    [null, undefined],
+    [undefined, undefined],
+    [-1, undefined],
+    ['18.5', undefined],
+    ['invalid', undefined],
+    [Infinity, undefined],
+    [true, undefined],
+    [false, undefined],
   ])('normalizes API decimals %p for detail previews', (decimals, expected) => {
     const token = transformApiItemToToken(
       {
@@ -44,6 +48,31 @@ describe('market token decimals', () => {
 
     expect(token.decimals).toBe(expected);
   });
+
+  test.each([
+    [50, '6.1728'],
+    [100, '12.345678'],
+  ])(
+    'supports a %p%% Swap Pro slider selection with missing precision',
+    (percent, expected) => {
+      const token = transformApiItemToToken(
+        {
+          address: '0xtoken',
+          name: 'Token',
+          symbol: 'TOKEN',
+          decimals: null as unknown as number,
+        },
+        { chainId: 'evm--1', networkLogoUri: '' },
+      );
+      expect(
+        calcSwapProSliderAmount({
+          percent,
+          availableBalance: new BigNumber('12.3456789'),
+          decimals: token.decimals,
+        }),
+      ).toBe(expected);
+    },
+  );
 });
 
 describe('market token list sorting', () => {

@@ -379,7 +379,7 @@ export function transformApiItemToToken(
     decimals:
       decimals !== undefined && Number.isInteger(decimals) && decimals >= 0
         ? decimals
-        : Number.NaN,
+        : undefined,
     networkLogoUri: tokenNetworkLogoUri,
     networkId: tokenNetworkId,
     priceChangeBasePrice,

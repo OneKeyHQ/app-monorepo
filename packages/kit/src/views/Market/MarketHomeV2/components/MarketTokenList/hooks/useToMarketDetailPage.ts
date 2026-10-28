@@ -16,7 +16,6 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import { buildMarketTokenDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
-import { isMarketTokenDecimalsReady } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketTokenIdentity';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import {
   buildReplacedMarketDetailParams,
@@ -110,11 +109,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
     const previewAddress = item.address ?? item.tokenAddress;
 
-    if (
-      (!previewAddress && !item.isNative) ||
-      !item.name ||
-      !isMarketTokenDecimalsReady(item)
-    ) {
+    if ((!previewAddress && !item.isNative) || !item.name) {
       return undefined;
     }
 

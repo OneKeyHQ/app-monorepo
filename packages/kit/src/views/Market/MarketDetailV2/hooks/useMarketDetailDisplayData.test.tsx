@@ -83,6 +83,7 @@ describe('useMarketDetailDisplayData', () => {
       name: 'Apple Inc.',
       logoUrl: 'https://example.com/aapl.png',
       decimalsResolved: false,
+      logoUrls: ['https://example.com/aapl.png'],
     });
     expect(result.current.isPreviewTokenDetail).toBe(true);
     expect(result.current.isStockToken).toBe(true);
@@ -179,7 +180,10 @@ describe('useMarketDetailDisplayData', () => {
       }
 
       const { result } = renderHook(() => useMarketDetailDisplayData());
-      expect(result.current.tokenDetail).toBe(mockTokenDetailData.tokenDetail);
+      expect(result.current.tokenDetail).toEqual({
+        ...mockTokenDetailData.tokenDetail,
+        logoUrls: ['https://example.com/sui.png'],
+      });
       expect(result.current.isPreviewTokenDetail).toBe(false);
     },
   );
@@ -282,7 +286,7 @@ describe('useMarketDetailDisplayData', () => {
       selectedAt: 1,
     };
     const { result, rerender } = renderHook(useMarketDetailDisplayData);
-    expect(result.current.tokenDetail?.logoUrls).toBeUndefined();
+    expect(result.current.tokenDetail?.logoUrls).toEqual([logoUrl]);
 
     mockTokenDetailData.tokenDetail = {
       address,
@@ -291,13 +295,16 @@ describe('useMarketDetailDisplayData', () => {
       symbol: 'TOKEN',
       decimals: 18,
       logoUrl,
-      logoUrls: [logoUrl],
+      logoUrls: [logoUrl, 'https://example.com/fallback.png'],
       price: '2',
     };
     mockTokenDetailData.tokenDetailPreview = undefined;
     rerender();
     expect(result.current.tokenDetail).toMatchObject({ logoUrl, price: '2' });
-    expect(result.current.tokenDetail?.logoUrls).toBeUndefined();
+    expect(result.current.tokenDetail?.logoUrls).toEqual([
+      logoUrl,
+      'https://example.com/fallback.png',
+    ]);
     expect(result.current.isPreviewTokenDetail).toBe(false);
 
     mockTokenDetailData.tokenDetail = {
@@ -305,18 +312,18 @@ describe('useMarketDetailDisplayData', () => {
       price: '3',
     };
     rerender();
-    expect(result.current.tokenDetail?.logoUrls).toBeUndefined();
-    expect(result.current.tokenDetail?.price).toBe('3');
-
-    mockTokenDetailData.tokenDetail = {
-      ...mockTokenDetailData.tokenDetail,
-      logoUrls: [logoUrl, 'https://example.com/fallback.png'],
-    };
-    rerender();
     expect(result.current.tokenDetail?.logoUrls).toEqual([
       logoUrl,
       'https://example.com/fallback.png',
     ]);
+    expect(result.current.tokenDetail?.price).toBe('3');
+
+    mockTokenDetailData.tokenDetail = {
+      ...mockTokenDetailData.tokenDetail,
+      logoUrls: undefined,
+    };
+    rerender();
+    expect(result.current.tokenDetail?.logoUrls).toEqual([logoUrl]);
 
     // Losing the detail must not resurrect preview quotes or trading metadata.
     mockTokenDetailData.tokenDetail = undefined;

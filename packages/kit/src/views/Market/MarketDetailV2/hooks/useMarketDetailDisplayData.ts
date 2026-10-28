@@ -239,9 +239,16 @@ export function useMarketDetailDisplayData() {
           }
         : displayTokenDetail;
 
+    // Token and stock previews use the same image component as full details,
+    // including when the first response adds fallback sources.
+    const tokenDetailWithImageSources =
+      resolvedTokenDetail?.logoUrl && !resolvedTokenDetail.logoUrls?.length
+        ? { ...resolvedTokenDetail, logoUrls: [resolvedTokenDetail.logoUrl] }
+        : resolvedTokenDetail;
+
     return {
       ...tokenDetailData,
-      tokenDetail: resolvedTokenDetail,
+      tokenDetail: tokenDetailWithImageSources,
       fullTokenDetail: tokenDetail,
       isPreviewTokenDetail,
       isStockToken:
