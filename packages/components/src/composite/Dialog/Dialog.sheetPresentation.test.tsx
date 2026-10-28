@@ -576,9 +576,11 @@ describe('Dialog bounded sheet layout opt-in', () => {
         .getAttribute('data-max-height'),
     ).toBe('763');
 
+    // Still a compact width, so the dialog stays a sheet; 768 and wider
+    // would center it.
     mockWindowDimensions.current = {
       height: 390,
-      width: 844,
+      width: 600,
       scale: 1,
       fontScale: 1,
     };
@@ -635,6 +637,11 @@ describe('Dialog bounded sheet layout opt-in', () => {
 
   it('keeps a tablet floating dialog on a single bounded scroll view', () => {
     mockMediaMd.current = false;
+    // Native centers dialogs from the window width, not the clamped media.
+    mockWindowDimensions.current = {
+      ...mockWindowDimensions.current,
+      width: 834,
+    };
     render(<DialogContainer {...boundedDialogProps} />);
 
     expect(screen.getByTestId('dialog-bounded-scroll')).toBeTruthy();

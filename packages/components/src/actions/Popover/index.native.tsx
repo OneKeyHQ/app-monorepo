@@ -9,7 +9,6 @@ import {
 import { useIsomorphicLayoutEffect } from '@tamagui/core';
 import { useWindowDimensions } from 'react-native';
 
-import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import {
   getTokenValue,
   withStaticProperties,
@@ -26,7 +25,7 @@ import {
   useSafeAreaInsets,
 } from '../../hooks';
 import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
-import { useIsWideNativeWindow } from '../../hooks/useIsWideNativeWindow';
+import { useOverlayWidthClass } from '../../hooks/useOverlayWidthClass';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
@@ -51,12 +50,6 @@ import { useNativePortalLifecycle } from './useNativePortalLifecycle';
 import type { IPopoverProps, IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
 import type { LayoutChangeEvent, ViewInstance } from 'react-native';
-
-const gtMdShFrameStyle = {
-  minWidth: 400,
-  maxWidth: 480,
-  mx: 'auto',
-} as const;
 
 // Fit-mode sheets size their frame to the content, and the sheet only caps the
 // inner ScrollView at the full screen height, so a tall list plus the header
@@ -168,11 +161,9 @@ function RawPopover({
   useDeferredGuideBlocker(Boolean(isOpen));
   const { bottom } = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
-  const { gtMd } = useMedia();
   // Native callers always keep a sheet presentation, including controls
   // that opt out of sheets only for their web anchored panel.
   const useNativeSheet = true;
-  const isWideSheet = Boolean(gtMd) || Boolean(platformEnv.isNativeIOSPad);
   const [sheetHeaderHeight, setSheetHeaderHeight] = useState<
     number | undefined
   >();
@@ -456,10 +447,8 @@ function RawPopover({
       maxHeight={nativeSheetDetentMaxHeight}
       onAnimationComplete={handleSheetAnimationComplete}
     >
-      <YStack
-        height={percentSheetHeight}
-        {...(isWideSheet ? gtMdShFrameStyle : undefined)}
-      >
+      {/* The overlay caps the sheet width (OVERLAY_SHEET_MAX_WIDTH). */}
+      <YStack height={percentSheetHeight}>
         {/* header */}
         {showHeader ? (
           <XStack
@@ -766,7 +755,7 @@ function BasicPopover({
   trackID,
   keepChildrenMounted,
   mountNativePortalBeforeOpen,
-  nativePresentation = 'sheet',
+  nativePresentation = 'auto',
   nativeAnchorRect,
   ...rest
 }: IPopoverProps) {
@@ -776,11 +765,11 @@ function BasicPopover({
     onOpenChangeFunc,
     trackID,
   );
-  const isWideWindow = useIsWideNativeWindow();
+  const isExpandedWindow = useOverlayWidthClass() === 'expanded';
   const isAnchored =
     Boolean(renderTrigger || nativeAnchorRect) &&
     (nativePresentation === 'anchored' ||
-      (nativePresentation === 'auto' && isWideWindow));
+      (nativePresentation === 'auto' && isExpandedWindow));
   // A presentation change (folding, rotating across the wide threshold,
   // resizing a window) leaves the open panel or sheet in the wrong form, and a
   // transient menu is cheaper to reopen than to morph: close it.

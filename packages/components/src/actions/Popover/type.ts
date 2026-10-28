@@ -45,9 +45,9 @@ export interface IPopoverProps {
   };
   sheetProps?: ISheetOptions;
   /**
-   * Native only. `sheet` (default) always uses a sheet; `auto` anchors the
-   * panel to `renderTrigger` on wide iOS windows (iPad, iPhone Duo inner
-   * display) and uses a sheet on phones; `anchored` always anchors. Without
+   * Native only. `auto` (default) anchors the panel to `renderTrigger` in
+   * expanded windows (>= 768 wide) and uses a sheet below that, like web;
+   * `sheet` always uses a sheet; `anchored` always anchors. Without
    * `renderTrigger` there is nothing to anchor to, so a sheet is used. An open
    * popover closes when the presentation changes, such as on folding.
    */

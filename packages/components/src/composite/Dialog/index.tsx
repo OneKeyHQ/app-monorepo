@@ -29,7 +29,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 
-import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
@@ -55,8 +54,8 @@ import {
   useSafeAreaInsets,
 } from '../../hooks';
 import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
-import { useIsWideNativeWindow } from '../../hooks/useIsWideNativeWindow';
 import { useKeyboardAnimation } from '../../hooks/useKeyboardAnimation';
+import { useOverlayWidthClass } from '../../hooks/useOverlayWidthClass';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, Spinner, Stack } from '../../primitives';
@@ -333,16 +332,14 @@ function DialogFrame({
     await onClose?.();
   }, [onClose, onHeaderCloseButtonPress]);
 
-  const media = useMedia();
   useDeferredGuideBlocker(Boolean(open));
   const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
   const isNativeCentered = nativeCentered && platformEnv.isNative;
-  // Wide iOS windows (iPad, iPhone Duo inner display) keep the centered card
-  // even though their media stays `md`: a bottom sheet across a wide window
-  // reads as a stretched phone layout.
-  const isWideNativeWindow = useIsWideNativeWindow();
+  // Expanded windows center the dialog; narrower ones use a sheet, capped in
+  // width on medium windows (see useOverlayWidthClass).
+  const overlayWidthClass = useOverlayWidthClass();
   const useSheetPresentation =
-    media.md && !isNativeCentered && !isWideNativeWindow;
+    overlayWidthClass !== 'expanded' && !isNativeCentered;
   const centeredInset = Math.max(safeAreaTop, safeAreaBottom, 16);
 
   // Native OneKey login opt-in (OK-63232): cap + scroll inside the overlay
