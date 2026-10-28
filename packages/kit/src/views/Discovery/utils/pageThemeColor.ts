@@ -38,6 +38,20 @@ function subscribe(listener: () => void) {
 // by the page script (e.g. a modal's dimming backdrop).
 const MIN_OPAQUE_ALPHA = 0.95;
 
+// A top-edge layer narrower than this is a button or banner, not the page
+// surface behind the browser header.
+const MIN_BAR_WIDTH_RATIO = 0.8;
+// Just inside the top of the WebView, the same y as the previous single sample.
+const TOP_SAMPLE_Y = 2;
+// Inset from the edges so a side rail is not the only thing measured.
+const TOP_SAMPLE_X_RATIOS = [0.25, 0.5, 0.75];
+// Anti-aliasing can disagree by a few levels. A button and the page cannot.
+const COLOR_CHANNEL_DELTA = 16;
+
+// One bottom hit-test plus one per top-edge x. The scroll-throttle test counts
+// elementsFromPoint calls, so it has to move with this.
+export const PAGE_THEME_HIT_TESTS_PER_READ = 1 + TOP_SAMPLE_X_RATIOS.length;
+
 // Accept only opaque rgb()/rgba() values (the script normalizes to these), so
 // a page can't feed arbitrary strings into native styles.
 const RGB_PATTERN =
@@ -231,13 +245,15 @@ export function tryDispatchPageThemeMessage(
   }
 }
 
-// Reports the page color the way Safari 26 tints its chrome: the background
-// behind the top of the viewport (a fixed header, else body/html). Safari 26
-// no longer uses <meta name="theme-color">; it is only a last fallback here.
-// Also reports the background behind the bottom of the viewport, which can
-// differ from the top (a colored banner over a gray page) and from body/html
-// (app-like sites paint a dark container over a white body); it follows
-// scrolling, so a sheet at the bottom brings its own color.
+// Reports the page color the way Safari 26 tints its chrome. The top color is
+// the background behind the top edge: three samples, and only a layer about as
+// wide as the viewport can win, so a button or small banner cannot. A wide
+// linear-gradient counts; its color is the stop at that point, which a
+// transparent background-color would miss. body/html, then
+// <meta name="theme-color">, stay fallbacks (Safari 26 no longer uses
+// theme-color). The bottom color is separate: it can differ from the top (a
+// colored banner over a gray page, or a dark container over a white body) and
+// follows scrolling, so a sheet at the bottom brings its own color.
 // Re-reads after a short delay (late SPA paint), when the system color scheme
 // changes, and when the page switches its own theme (class/style/data-*
 // changes on <html>/<body>, or a new theme-color), like Safari tracking a
@@ -260,7 +276,10 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       if (!value || value === 'transparent') return '';
       if (/^rgba?\\(/.test(value)) return value;
       if (rgbCache[value] !== undefined) return rgbCache[value];
-      rgbCache[value] = canvasRgb(value);
+      // Hex is resolved here so a gradient stop and a theme-color meta share
+      // one path, including when the 1px canvas cannot read the color.
+      var hex = hexToRgb(value);
+      rgbCache[value] = hex || canvasRgb(value);
       return rgbCache[value];
     };
     var canvasRgb = function (value) {
@@ -334,13 +353,313 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
         ')'
       );
     };
+    // Top-edge samples. Narrow layers are buttons and banners. body/html are
+    // not samples: they are the fallback below, and counting them here would
+    // make every point agree on the document color.
+    var SAMPLE_X = [${TOP_SAMPLE_X_RATIOS.join(', ')}];
+    var SAMPLE_Y = ${TOP_SAMPLE_Y};
+    var MIN_WIDTH_RATIO = ${MIN_BAR_WIDTH_RATIO};
+    var CHANNEL_DELTA = ${COLOR_CHANNEL_DELTA};
+    var splitTop = function (value) {
+      var parts = [];
+      var depth = 0;
+      var start = 0;
+      for (var i = 0; i < value.length; i++) {
+        var ch = value.charAt(i);
+        if (ch === '(') depth++;
+        else if (ch === ')') depth--;
+        else if (ch === ',' && depth === 0) {
+          parts.push(value.slice(start, i));
+          start = i + 1;
+        }
+      }
+      parts.push(value.slice(start));
+      return parts;
+    };
+    var channelsOf = function (color) {
+      var match = /rgba?\\(\\s*([\\d.]+)\\s*,\\s*([\\d.]+)\\s*,\\s*([\\d.]+)/.exec(
+        color,
+      );
+      if (!match) return null;
+      return [
+        Math.round(parseFloat(match[1])),
+        Math.round(parseFloat(match[2])),
+        Math.round(parseFloat(match[3])),
+      ];
+    };
+    var rgbString = function (channels) {
+      return (
+        'rgb(' + channels[0] + ', ' + channels[1] + ', ' + channels[2] + ')'
+      );
+    };
+    var isWideEnough = function (el) {
+      var rect = el.getBoundingClientRect();
+      return rect.width >= window.innerWidth * MIN_WIDTH_RATIO;
+    };
+    var opaqueColor = function (bg) {
+      var color = toRgb(bg);
+      if (!isOpaque(color)) return '';
+      var channels = channelsOf(color);
+      return channels ? rgbString(channels) : '';
+    };
+    var hexToRgb = function (value) {
+      var match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value.trim());
+      if (!match) return '';
+      var hex = match[1];
+      if (hex.length === 3) {
+        hex =
+          hex.charAt(0) +
+          hex.charAt(0) +
+          hex.charAt(1) +
+          hex.charAt(1) +
+          hex.charAt(2) +
+          hex.charAt(2);
+      }
+      var n = parseInt(hex, 16);
+      return rgbString([(n >> 16) & 255, (n >> 8) & 255, n & 255]);
+    };
+    var gradientAxis = function (token) {
+      var text = token.trim().toLowerCase();
+      if (text === 'to bottom') return 'y';
+      if (text === 'to top') return 'y-reverse';
+      if (text === 'to right') return 'x';
+      if (text === 'to left') return 'x-reverse';
+      var match = /^(-?[\\d.]+)deg$/.exec(text);
+      if (!match) return '';
+      var deg = parseFloat(match[1]) % 360;
+      if (deg < 0) deg += 360;
+      if (deg === 180) return 'y';
+      if (deg === 0) return 'y-reverse';
+      if (deg === 90) return 'x';
+      if (deg === 270) return 'x-reverse';
+      return '';
+    };
+    var isGradientDirection = function (token) {
+      var text = token.trim().toLowerCase();
+      return (
+        text.indexOf('to ') === 0 || /^(-?[\\d.]+)(deg|turn|rad)$/.test(text)
+      );
+    };
+    var parseStop = function (token) {
+      var text = token.trim();
+      var pos = null;
+      var posMatch = /(-?[\\d.]+)(%|px)\\s*$/.exec(text);
+      if (posMatch) {
+        pos = { value: parseFloat(posMatch[1]), unit: posMatch[2] };
+        text = text.slice(0, posMatch.index).trim();
+      }
+      var color = toRgb(text);
+      var channels = color ? channelsOf(color) : null;
+      if (!channels) return null;
+      var alpha = 1;
+      var alphaMatch = /rgba\\([^,]+,[^,]+,[^,]+,\\s*([\\d.]+)\\s*\\)/.exec(
+        color,
+      );
+      if (alphaMatch) alpha = parseFloat(alphaMatch[1]);
+      return { channels: channels, alpha: alpha, pos: pos };
+    };
+    var stopPositions = function (stops, axisLength) {
+      var positions = [];
+      for (var i = 0; i < stops.length; i++) {
+        var pos = stops[i].pos;
+        if (!pos) positions.push(null);
+        else if (pos.unit === '%') positions.push(pos.value / 100);
+        else if (pos.unit === 'px' && axisLength > 0)
+          positions.push(pos.value / axisLength);
+        else positions.push(null);
+      }
+      if (!positions.length) return positions;
+      if (positions[0] === null) positions[0] = 0;
+      var last = positions.length - 1;
+      if (positions[last] === null) positions[last] = 1;
+      var index = 0;
+      while (index < positions.length) {
+        if (positions[index] !== null) {
+          index++;
+          continue;
+        }
+        var start = index - 1;
+        var end = index + 1;
+        while (end < positions.length && positions[end] === null) end++;
+        if (start < 0 || end >= positions.length || positions[start] === null || positions[end] === null) {
+          index++;
+          continue;
+        }
+        var span = end - start;
+        for (var k = 1; k < span; k++) {
+          positions[start + k] =
+            positions[start] + ((positions[end] - positions[start]) * k) / span;
+        }
+        index = end;
+      }
+      return positions;
+    };
+    var colorAtStop = function (stops, positions, t) {
+      if (t <= positions[0]) return stops[0];
+      var last = positions.length - 1;
+      if (t >= positions[last]) return stops[last];
+      var i = 1;
+      while (i < positions.length && positions[i] < t) i++;
+      var from = stops[i - 1];
+      var to = stops[i];
+      var span = positions[i] - positions[i - 1];
+      var u = span === 0 ? 0 : (t - positions[i - 1]) / span;
+      var channels = [
+        from.channels[0] + (to.channels[0] - from.channels[0]) * u,
+        from.channels[1] + (to.channels[1] - from.channels[1]) * u,
+        from.channels[2] + (to.channels[2] - from.channels[2]) * u,
+      ];
+      for (var k = 0; k < 3; k++) {
+        channels[k] = Math.round(channels[k]);
+        if (channels[k] < 0) channels[k] = 0;
+        if (channels[k] > 255) channels[k] = 255;
+      }
+      return {
+        channels: channels,
+        alpha: from.alpha + (to.alpha - from.alpha) * u,
+      };
+    };
+    var opaqueStopColor = function (stop) {
+      if (!stop || !(stop.alpha >= ${MIN_OPAQUE_ALPHA})) return '';
+      for (var i = 0; i < 3; i++) {
+        if (!isFinite(stop.channels[i])) return '';
+      }
+      return rgbString(stop.channels);
+    };
+    // An unknown angle uses only its first stop. A later opaque stop must not
+    // stand in for a transparent one.
+    var opaqueFirstStop = function (args) {
+      if (!args.length) return '';
+      return opaqueStopColor(parseStop(args[0]));
+    };
+    var clamp01 = function (n) {
+      if (n < 0) return 0;
+      if (n > 1) return 1;
+      return n;
+    };
+    // Repeating gradients are clamped to their first cycle. An angle this
+    // does not understand (45deg, to bottom right) uses the first stop.
+    var sampleLinearGradient = function (body, el, x, y) {
+      var args = splitTop(body);
+      if (!args.length) return '';
+      var axis = 'y';
+      var start = 0;
+      if (isGradientDirection(args[0])) {
+        axis = gradientAxis(args[0]);
+        if (!axis) return opaqueFirstStop(args.slice(1));
+        start = 1;
+      }
+      var stops = [];
+      for (var i = start; i < args.length; i++) {
+        var stop = parseStop(args[i]);
+        if (stop) stops.push(stop);
+      }
+      if (!stops.length) return '';
+      var rect = el.getBoundingClientRect();
+      var horizontal = axis === 'x' || axis === 'x-reverse';
+      var positions = stopPositions(
+        stops,
+        horizontal ? rect.width : rect.height,
+      );
+      var yRatio = rect.height > 0 ? clamp01((y - rect.top) / rect.height) : 0;
+      var xRatio = rect.width > 0 ? clamp01((x - rect.left) / rect.width) : 0;
+      var t =
+        axis === 'y'
+          ? yRatio
+          : axis === 'y-reverse'
+            ? 1 - yRatio
+            : axis === 'x'
+              ? xRatio
+              : 1 - xRatio;
+      return opaqueStopColor(colorAtStop(stops, positions, t));
+    };
+    var gradientBody = function (layer) {
+      var text = layer.trim();
+      var lower = text.toLowerCase();
+      var prefix = '';
+      if (lower.indexOf('repeating-linear-gradient(') === 0) {
+        prefix = 'repeating-linear-gradient(';
+      } else if (lower.indexOf('linear-gradient(') === 0) {
+        prefix = 'linear-gradient(';
+      }
+      if (!prefix || text.charAt(text.length - 1) !== ')') return '';
+      return text.slice(prefix.length, text.length - 1);
+    };
+    // The top painted layer wins. A url() or a non-linear gradient hides
+    // whatever is listed after it, and those pixels are not readable here.
+    var gradientAt = function (image, el, x, y) {
+      if (!image || image === 'none') return '';
+      var layers = splitTop(image);
+      for (var i = 0; i < layers.length; i++) {
+        var layer = layers[i].trim();
+        if (!layer || layer.toLowerCase() === 'none') continue;
+        var body = gradientBody(layer);
+        if (!body) return '';
+        var color = sampleLinearGradient(body, el, x, y);
+        if (color) return color;
+      }
+      return '';
+    };
+    var colorAtTopPoint = function (x, y) {
+      var elements = document.elementsFromPoint(x, y) || [];
+      for (var i = 0; i < elements.length; i++) {
+        var el = elements[i];
+        if (!el || el === document.body || el === document.documentElement) {
+          return '';
+        }
+        if (!isWideEnough(el)) continue;
+        var style = getComputedStyle(el);
+        var solid = opaqueColor(style.backgroundColor);
+        if (solid) return solid;
+        var gradient = gradientAt(style.backgroundImage, el, x, y);
+        if (gradient) return gradient;
+      }
+      return '';
+    };
+    // Empty samples are ignored. One lone sample is not enough: it is the
+    // case the width check could not reject. The center sample wins when the
+    // others agree with it.
+    var agreedTopColor = function () {
+      var samples = [];
+      for (var i = 0; i < SAMPLE_X.length; i++) {
+        samples.push(
+          colorAtTopPoint(window.innerWidth * SAMPLE_X[i], SAMPLE_Y),
+        );
+      }
+      var present = [];
+      for (var j = 0; j < samples.length; j++) {
+        if (samples[j]) present.push({ index: j, color: samples[j] });
+      }
+      if (present.length < 2) return '';
+      // The whole set has to sit within the delta, not each sample against
+      // the first one (that would allow the ends to drift twice as far).
+      var min = null;
+      var max = null;
+      for (var k = 0; k < present.length; k++) {
+        var channels = channelsOf(present[k].color);
+        if (!channels) return '';
+        if (!min) {
+          min = [channels[0], channels[1], channels[2]];
+          max = [channels[0], channels[1], channels[2]];
+          continue;
+        }
+        for (var c = 0; c < 3; c++) {
+          if (channels[c] < min[c]) min[c] = channels[c];
+          if (channels[c] > max[c]) max[c] = channels[c];
+        }
+      }
+      for (var d = 0; d < 3; d++) {
+        if (max[d] - min[d] > CHANNEL_DELTA) return '';
+      }
+      for (var n = 0; n < present.length; n++) {
+        if (SAMPLE_X[present[n].index] === 0.5) return present[n].color;
+      }
+      return present[0].color;
+    };
     var lastReport;
     var read = function () {
-      // Walks up from <body> to <html>.
       var bodyColor = backgroundOf(document.body || document.documentElement);
-      var color =
-        backgroundOf(document.elementFromPoint(window.innerWidth / 2, 2)) ||
-        bodyColor;
+      var color = agreedTopColor() || bodyColor;
       var bottomColor =
         colorAt(window.innerWidth / 2, window.innerHeight - 2) || bodyColor;
       if (!color) {

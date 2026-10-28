@@ -1071,3 +1071,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Those overlays are siblings above the canvas. Their pointer-enter handlers hide only the crosshair, and the canvas handler that hides the button stops receiving moves.
 **Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
 **Catchable by**: NEW — not covered (same pattern as the previous case: overlays above a canvas take its pointer events)
+
+## Case: Mobile browser top chrome missed gradient pages and copied a button color (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser; Android/iPad bottom bar follows the top color)
+**Symptom**: On Tinyman the header stayed white, and after scroll it turned the yellow of the "Go to Tinyman v2" button. Android's bottom bar copied that color.
+**Root Cause**: The top sample was one point at the viewport center, then an ancestor walk for opaque background-color. The green is a full-width linear-gradient behind the content (not an ancestor, and background-color is transparent). A narrow button at that point won after it stuck.
+**Fix**: Sample the top edge at 25/50/75% width, ignore layers narrower than 80% of the viewport, and read a wide linear-gradient at the sample point. body/html and theme-color stay fallbacks. Bottom-edge sampling is unchanged.
+**Catchable by**: Section 6: jsdom script tests for gradient, narrow button, and disagreeing points. Device check that WebView elementsFromPoint includes z-index -1 is NEW — not covered.
