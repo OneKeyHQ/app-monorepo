@@ -1272,6 +1272,21 @@ export function sortLoanPairs(
   );
 }
 
+/**
+ * The phone home's Loans section: the pairs the Loans list starts on (any
+ * collateral, a stable token to borrow, the best net APY first), the first
+ * few
+ */
+export function pickLoanPreviewPairs(
+  pairs: IEarnDesktopLoanPair[],
+  count: number,
+): IEarnDesktopLoanPair[] {
+  return sortLoanPairs(
+    pairs.filter((pair) => pair.borrow.type === 'stable'),
+    'net',
+  ).slice(0, count);
+}
+
 // ---------- Lending supply as Earn offers ----------
 // Production expects the backend to add Aave and Kamino supply to the Earn
 // lists; this demo builds the rows from the Borrow data instead.

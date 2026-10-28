@@ -272,6 +272,7 @@ function BasicEarnDesktopHero({
   onOpenPortfolio,
   onRefresh,
   rewards,
+  hidesSplit,
   onHeightChange,
 }: {
   totalFiatValue: string;
@@ -301,6 +302,8 @@ function BasicEarnDesktopHero({
   onRefresh?: () => void;
   /** The rewards to claim, in the row under the totals */
   rewards?: ReactNode;
+  /** The phone layout leaves the split by protocol out */
+  hidesSplit?: boolean;
   onHeightChange?: (height: number) => void;
 }) {
   const intl = useIntl();
@@ -508,7 +511,9 @@ function BasicEarnDesktopHero({
   }
 
   let split: ReactNode = null;
-  if (isLoading) {
+  if (hidesSplit) {
+    split = null;
+  } else if (isLoading) {
     split = <ProtocolSplitSkeleton />;
   } else if (shares.top.length) {
     split = <ProtocolSplit shares={shares} />;

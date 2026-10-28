@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -38,6 +39,7 @@ import {
   getListRowMotion,
 } from '../../utils/earnListMotion';
 import { AprText } from '../AprText';
+import { EarnPhoneSectionTitle } from '../EarnPhoneSectionTitle';
 
 import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
@@ -57,6 +59,8 @@ import type {
 
 // Five rows, then the rest open in place
 const ROW_LIMIT = 5;
+// The phone home's sections show four rows each
+const PHONE_ROW_LIMIT = 4;
 const MORE_ROWS_VALUE = 'more';
 // The pointer resting this long on a row gets its deposit form's data ready;
 // passing over the list doesn't
@@ -528,22 +532,36 @@ const toWarmTarget = (row: IEarnDesktopHoldRow) => ({
  * stand on the page and every row is a tile of its own, so the section reads
  * in layers instead of as one flat card. A row opens the deposit modal for that
  * token on that network.
+ *
+ * On the phone home the section shows its first rows under the phone's
+ * section title, whose chevron opens the page with every row; that page
+ * shows them all with no title of its own.
  */
 function BasicEarnDesktopHoldCard({
   rows,
   networkNames,
   onOpenRow,
+  variant = 'section',
+  onOpenAll,
 }: {
   rows: IEarnDesktopHoldRow[];
   networkNames: Map<string, string>;
   onOpenRow: (row: IEarnDesktopHoldRow) => void;
+  variant?: 'section' | 'phone' | 'page';
+  /** The phone home: the page with every row */
+  onOpenAll?: () => void;
 }) {
   const intl = useIntl();
   const media = useMedia();
   const reduceMotion = useReducedMotion();
-  const isWide = media.gtMd;
+  const isWide = media.gtMd && variant !== 'phone';
   const [isExpanded, setIsExpanded] = useState(false);
-  const shown = isExpanded ? rows : rows.slice(0, ROW_LIMIT);
+  let shown = isExpanded ? rows : rows.slice(0, ROW_LIMIT);
+  if (variant === 'phone') {
+    shown = rows.slice(0, PHONE_ROW_LIMIT);
+  } else if (variant === 'page') {
+    shown = rows;
+  }
   const warm = useWarmOffersDeposit();
   const handleWarmRow = useCallback(
     (row: IEarnDesktopHoldRow) => warm(toWarmTarget(row)),
@@ -586,6 +604,33 @@ function BasicEarnDesktopHoldCard({
       onWarmRow={handleWarmRow}
     />
   );
+  if (variant === 'phone') {
+    return (
+      <YStack gap="$3">
+        {/* The chevron only when the page holds more than the rows here */}
+        <EarnPhoneSectionTitle
+          title={intl.formatMessage({
+            id: ETranslations.earns_on_your_holding__title,
+          })}
+          testID="earn-phone-holdings-title"
+          onPress={rows.length > PHONE_ROW_LIMIT ? onOpenAll : undefined}
+        />
+        <YStack gap="$2" px="$pagePadding">
+          {shown.map(renderRow)}
+        </YStack>
+      </YStack>
+    );
+  }
+  if (variant === 'page') {
+    return (
+      <YStack>
+        {isWide ? <HoldLabels /> : null}
+        <YStack gap="$2" mt={isWide ? '$1' : 0}>
+          {shown.map(renderRow)}
+        </YStack>
+      </YStack>
+    );
+  }
   return (
     // The wider gap above sets the title apart from the hero
     <YStack mt="$4">
@@ -676,13 +721,35 @@ function SkeletonPair({ top, bottom }: { top: number; bottom: number }) {
 
 // The loaded section's boxes, a full page of tiles and the "N more" line
 // included, so the page keeps its height when the rows land
-export function EarnDesktopHoldCardSkeleton() {
+export function EarnDesktopHoldCardSkeleton({
+  variant = 'section',
+}: {
+  variant?: 'section' | 'phone' | 'page';
+}) {
   const media = useMedia();
-  const isWide = media.gtMd;
+  const isWide = media.gtMd && variant !== 'phone';
   const surfaces = useEarnDesktopSurfaces();
+  const isPhone = variant === 'phone';
+  let rowCount = ROW_LIMIT;
+  if (isPhone) {
+    rowCount = PHONE_ROW_LIMIT;
+  }
+  let title: ReactNode = (
+    <SkeletonLine height={28} width={200} barHeight={20} />
+  );
+  if (isPhone) {
+    // The phone section title's row
+    title = (
+      <XStack minHeight="$12" px="$pagePadding" py="$1" ai="center">
+        <Skeleton w={200} h={20} borderRadius="$2" />
+      </XStack>
+    );
+  } else if (variant === 'page') {
+    title = null;
+  }
   return (
-    <YStack mt="$4">
-      <SkeletonLine height={28} width={200} barHeight={20} />
+    <YStack mt={variant === 'section' ? '$4' : 0} gap={isPhone ? '$3' : 0}>
+      {title}
       {isWide ? (
         <XStack h="$8" ai="center" gap={ROW_GAP} px="$4" mt="$3">
           <Stack {...COLUMNS.asset}>
@@ -700,8 +767,12 @@ export function EarnDesktopHoldCardSkeleton() {
           <Stack w={ACTION_WIDTH} flexShrink={0} />
         </XStack>
       ) : null}
-      <YStack gap="$2" mt={isWide ? '$1' : '$3'}>
-        {Array.from({ length: ROW_LIMIT }).map((_, index) => (
+      <YStack
+        gap="$2"
+        mt={isWide || variant !== 'section' ? '$1' : '$3'}
+        px={isPhone ? '$pagePadding' : undefined}
+      >
+        {Array.from({ length: rowCount }).map((_, index) => (
           <XStack
             key={index}
             ai="center"
@@ -749,9 +820,11 @@ export function EarnDesktopHoldCardSkeleton() {
           </XStack>
         ))}
       </YStack>
-      <XStack h={44} ai="center" pl="$4">
-        <Skeleton w={88} h={14} borderRadius="$2" />
-      </XStack>
+      {variant === 'section' ? (
+        <XStack h={44} ai="center" pl="$4">
+          <Skeleton w={88} h={14} borderRadius="$2" />
+        </XStack>
+      ) : null}
     </YStack>
   );
 }

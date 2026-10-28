@@ -129,10 +129,17 @@ export function EarnPageContainer({
     headerLeftMaxWidth,
   ]);
 
+  // The web app's header has no back button or page title, and a phone-wide
+  // screen has no breadcrumbs either, so there a pushed page gets the phone's
+  // header instead: back and title, as My portfolio's (demo 10-28)
+  const usePhoneWebHeader =
+    showBackButton && platformEnv.isWebDappMode && !media.gtMd;
+
   // Read on every render: useMedia's object keeps its identity when the
   // width changes, so a memo keyed on it kept the first width's answer (the
   // breadcrumb and title stayed hidden after widening, shown after narrowing)
-  const showBreadcrumb = Boolean(breadcrumbProps) && media.gtSm;
+  const showBreadcrumb =
+    Boolean(breadcrumbProps) && media.gtSm && !usePhoneWebHeader;
   const showHeader = useMemo(() => header, [header]);
 
   // In WebDapp mode, always use TabPageHeader for consistent mobile layout
@@ -280,7 +287,7 @@ export function EarnPageContainer({
     </Page.Body>
   );
 
-  if (useNativeHeader) {
+  if (useNativeHeader || usePhoneWebHeader) {
     return (
       <Page>
         <Page.Header

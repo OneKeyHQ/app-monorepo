@@ -5,6 +5,8 @@ export enum ETabEarnRoutes {
   EarnTokens = 'EarnTokens',
   EarnFixedRateTokens = 'EarnFixedRateTokens',
   EarnAllProtocols = 'EarnAllProtocols',
+  EarnHoldings = 'EarnHoldings',
+  EarnLoans = 'EarnLoans',
   EarnProtocolTokens = 'EarnProtocolTokens',
   EarnProtocols = 'EarnProtocols',
   EarnProtocolDetails = 'EarnProtocolDetails',
@@ -40,6 +42,10 @@ export type ITabEarnParamList = {
   [ETabEarnRoutes.EarnFixedRateTokens]: undefined;
   // Protocols home (OK-58505): aggregated list of all protocols
   [ETabEarnRoutes.EarnAllProtocols]: undefined;
+  // The phone home's full lists (demo 10-28): every row of Earns on your
+  // holding, and the Loans pairs
+  [ETabEarnRoutes.EarnHoldings]: undefined;
+  [ETabEarnRoutes.EarnLoans]: undefined;
   // Tokens list of a single protocol (OK-58505)
   [ETabEarnRoutes.EarnProtocolTokens]: {
     provider: string;

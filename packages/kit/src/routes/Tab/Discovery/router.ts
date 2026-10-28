@@ -33,6 +33,14 @@ const EarnAllProtocols = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnAllProtocols'),
   earnLazyPageFallback,
 );
+const EarnHoldings = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnHoldings'),
+  earnLazyPageFallback,
+);
+const EarnLoans = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnLoans'),
+  earnLazyPageFallback,
+);
 const EarnProtocolTokens = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolTokens'),
   earnLazyPageFallback,
@@ -79,6 +87,17 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabEarnRoutes.EarnAllProtocols,
     component: EarnAllProtocols,
     headerShown: !platformEnv.isNative,
+  },
+  // Their own Page.Header, as My portfolio
+  {
+    name: ETabEarnRoutes.EarnHoldings,
+    component: EarnHoldings,
+    headerShown: true,
+  },
+  {
+    name: ETabEarnRoutes.EarnLoans,
+    component: EarnLoans,
+    headerShown: true,
   },
   {
     name: ETabEarnRoutes.EarnProtocolTokens,

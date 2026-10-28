@@ -28,6 +28,14 @@ const EarnAllProtocols = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnAllProtocols'),
 );
 
+const EarnHoldings = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnHoldings'),
+);
+
+const EarnLoans = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnLoans'),
+);
+
 const EarnProtocolTokens = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolTokens'),
 );
@@ -95,6 +103,16 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabEarnRoutes.EarnAllProtocols,
     component: EarnAllProtocols,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnHoldings,
+    component: EarnHoldings,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnLoans,
+    component: EarnLoans,
     headerShown: !platformEnv.isNative,
   },
   {

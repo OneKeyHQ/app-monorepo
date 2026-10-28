@@ -26,17 +26,18 @@ import { EarnHomeBanner } from '../EarnHomeBanner';
 import { FAQContent } from '../FAQContent';
 import { PortfolioPendingTxsProvider } from '../PortfolioTabContent';
 
-import { EarnDesktopBorrowTab } from './EarnDesktopBorrowTab';
+import {
+  EarnDesktopBorrowTab,
+  useEarnDesktopOpenLoanPair,
+} from './EarnDesktopBorrowTab';
 import { EarnDesktopEarnTab } from './EarnDesktopEarnTab';
 import { EarnDesktopGuideCard } from './EarnDesktopGuideCard';
 import { EarnDesktopHero } from './EarnDesktopHero';
 import {
   buildHoldingShares,
   buildProtocolShares,
-  collectLendingOffers,
   collectTileRows,
   computeNetWorth,
-  deriveLendingSupply,
   estimateBorrowInterest24h,
   sumBorrowedFiat,
   sumHoldRows,
@@ -45,21 +46,16 @@ import {
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopRewardPills } from './EarnDesktopRewardPills';
 import { EarnDesktopTiles } from './EarnDesktopTiles';
+import { EarnPhoneHome } from './EarnPhoneHome';
 import { useContentStable } from './useContentStable';
 import { useEarnDesktopFadeIn } from './useEarnDesktopFadeIn';
 import { useEarnDesktopGuide } from './useEarnDesktopGuide';
-import { useEarnDesktopHoldRows } from './useEarnDesktopHoldRows';
 import {
-  useEarnDesktopAccountMarkets,
-  useEarnDesktopMarkets,
-  useEarnDesktopWalletHoldings,
-} from './useEarnDesktopHomeData';
+  useEarnDesktopHoldData,
+  useEarnDesktopOpenHoldRow,
+} from './useEarnDesktopHoldData';
 
-import type {
-  IEarnDesktopHoldRow,
-  IEarnDesktopLoanPair,
-  IEarnDesktopOpenRequest,
-} from './earnDesktopHome.utils';
+import type { IEarnDesktopOpenRequest } from './earnDesktopHome.utils';
 import type { IUseEarnPortfolioReturn } from '../../hooks/useEarnPortfolio';
 
 type IHomeTab = 'earn' | 'loans';
@@ -273,18 +269,6 @@ export function EarnDesktopHome({
     !activeAccount.account &&
     !activeAccount.indexedAccount;
 
-  const {
-    marketList,
-    isListReady,
-    markets,
-    isLoaded: isMarketsLoaded,
-  } = useEarnDesktopMarkets({ isActive });
-  // Asked from the market list itself, not after the public reserves
-  const accountMarkets = useEarnDesktopAccountMarkets({
-    markets: marketList,
-    isListReady,
-    isActive,
-  });
   const trendingAssets = useMemo(
     () =>
       mergeSimpleEarnWithStakingAssets(
@@ -296,23 +280,31 @@ export function EarnDesktopHome({
   );
   const fixedRateAssets =
     availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate] ?? EMPTY_ASSETS;
-  // The networks Earn offers on, where the wallet's balances are fetched
-  // fresh rather than read from the wallet home's cache alone
-  const earnNetworkIds = useMemo(
-    () =>
-      Array.from(
-        new Set([
-          ...[...trendingAssets, ...fixedRateAssets].flatMap((asset) =>
-            asset.protocols.map((protocol) => protocol.networkId),
-          ),
-          ...marketList.map((market) => market.networkId),
-        ]),
-      ).toSorted(),
-    [fixedRateAssets, marketList, trendingAssets],
-  );
-  const wallet = useEarnDesktopWalletHoldings({
+  // A list that has not been asked for yet counts as loading, so nothing
+  // reads it as empty
+  const isAssetsLoading =
+    Boolean(
+      loadingStates[`availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`],
+    ) || !availableAssetsByType[EAvailableAssetsTypeEnum.SimpleEarn];
+  const isFixedRateLoading =
+    Boolean(
+      loadingStates[`availableAssets-${EAvailableAssetsTypeEnum.FixedRate}`],
+    ) || !availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate];
+  const {
+    marketList,
+    markets,
+    isMarketsLoaded,
+    accountMarkets,
+    wallet,
+    lending,
+    lendingOffers,
+    hold,
+  } = useEarnDesktopHoldData({
     isActive,
-    refreshNetworkIds: earnNetworkIds,
+    investments,
+    trendingAssets,
+    fixedRateAssets,
+    isAssetsLoading: isAssetsLoading || isFixedRateLoading,
   });
 
   const refreshAccountMarkets = accountMarkets.refresh;
@@ -344,14 +336,6 @@ export function EarnDesktopHome({
     );
   }, [marketNetworksKey, onBorrowNetworksChange]);
 
-  const lending = useMemo(
-    () => deriveLendingSupply({ entries: accountMarkets.entries, investments }),
-    [accountMarkets.entries, investments],
-  );
-  const lendingOffers = useMemo(
-    () => collectLendingOffers({ markets, supplied: lending.supplied }),
-    [lending.supplied, markets],
-  );
   const shares = useMemo(
     () =>
       buildProtocolShares({
@@ -394,28 +378,6 @@ export function EarnDesktopHome({
     lending.lendingTotal > 0 ||
     accountMarkets.loans.length > 0;
 
-  // A list that has not been asked for yet counts as loading, so nothing
-  // reads it as empty
-  const isAssetsLoading =
-    Boolean(
-      loadingStates[`availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`],
-    ) || !availableAssetsByType[EAvailableAssetsTypeEnum.SimpleEarn];
-  const isFixedRateLoading =
-    Boolean(
-      loadingStates[`availableAssets-${EAvailableAssetsTypeEnum.FixedRate}`],
-    ) || !availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate];
-  const hold = useEarnDesktopHoldRows({
-    networkGroups: wallet.networkGroups,
-    trendingAssets,
-    fixedRateAssets,
-    lendingOffers,
-    isActive,
-    isReady:
-      wallet.isLoaded &&
-      !isAssetsLoading &&
-      !isFixedRateLoading &&
-      isMarketsLoaded,
-  });
   // Without positions the hero shows what the wallet's tokens that can earn
   // here are worth, from the rows of Earns on your holding
   const readyToEarn = useMemo(() => {
@@ -512,38 +474,31 @@ export function EarnDesktopHome({
       setTab('earn');
     }
   }, [openRequest]);
-  // A held token opens the deposit modal with every way to earn on it, on
-  // the network it sits on, and the offer whose rate the row showed chosen
-  const handleOpenHoldRow = useCallback(
-    (row: IEarnDesktopHoldRow) =>
-      EarnNavigation.pushToEarnOffersDeposit(navigation, {
-        symbol: row.asset.symbol,
-        networkId: row.networkId,
-        logoURI: row.asset.logoURI || row.token.logoURI,
-        offerKey: row.offers[0]?.key,
-        wide: row.offers.length > 1,
-      }),
-    [navigation],
-  );
+  const handleOpenHoldRow = useEarnDesktopOpenHoldRow();
   const handleOpenBorrow = useCallback(
     (market?: IBorrowMarketItem) => {
       BorrowNavigation.pushToBorrowHome(navigation, market);
     },
     [navigation],
   );
-  // A Loans row: the pair in the Loans router, on the row's market. The
-  // modal opens wide where the window holds the markets beside the form
-  const isLoanRouterWide = media.gtLg;
-  const handleOpenLoanPair = useCallback(
-    (pair: IEarnDesktopLoanPair) => {
-      EarnNavigation.pushToEarnLoanRouter(navigation, {
-        collateral: pair.collateral.symbol,
-        borrow: pair.borrow.symbol,
-        routeKey: pair.key,
-        wide: isLoanRouterWide,
-      });
-    },
-    [isLoanRouterWide, navigation],
+  const handleOpenLoanPair = useEarnDesktopOpenLoanPair();
+
+  // The phone layout's entries and its sections' full lists are pages
+  const handleOpenTokensPage = useCallback(
+    () => EarnNavigation.pushToEarnTokens(navigation),
+    [navigation],
+  );
+  const handleOpenLoansPage = useCallback(
+    () => EarnNavigation.pushToEarnLoans(navigation),
+    [navigation],
+  );
+  const handleOpenProtocolsPage = useCallback(
+    () => EarnNavigation.pushToEarnAllProtocols(navigation),
+    [navigation],
+  );
+  const handleOpenHoldingsPage = useCallback(
+    () => EarnNavigation.pushToEarnHoldings(navigation),
+    [navigation],
   );
 
   const bannerCount = bannerList.filter(
@@ -580,6 +535,74 @@ export function EarnDesktopHome({
     ),
     [claimableRewards, onOpenPortfolio],
   );
+
+  // A phone-wide screen gets the phone's arrangement of the same data
+  if (!media.gtMd) {
+    return (
+      <PortfolioPendingTxsProvider value={pendingTxsValue}>
+        <EarnPhoneHome
+          header={
+            guide.isShown ? (
+              <EarnDesktopGuideCard
+                state={guide.state}
+                onOpen={handleOpenGuide}
+              />
+            ) : (
+              <EarnDesktopHero
+                totalFiatValue={totalFiatValue}
+                earnings24h={earnings24h}
+                borrowInterest24h={borrowInterest24h}
+                shares={shares}
+                readyToEarn={readyToEarn}
+                isLoading={isHeroLoading}
+                isRefreshing={isRefreshing}
+                hasPositions={hasPositions}
+                isActive={isActive}
+                onOpenPortfolio={onOpenPortfolio}
+                onRefresh={onRefresh}
+                rewards={rewardPills}
+                hidesSplit
+              />
+            )
+          }
+          banner={
+            hasBannerContent ? (
+              // Capped as under the hero on a wider screen, so the art keeps
+              // its proportions on a wide phone layout
+              <YStack
+                maxWidth={BANNER_WIDTH}
+                onLayout={(event) =>
+                  setStackedBannerWidth(
+                    Math.round(event.nativeEvent.layout.width),
+                  )
+                }
+              >
+                <EarnHomeBanner
+                  banners={bannerList}
+                  isLoading={isBannerLoading}
+                  cardHeight={stackedBannerCardHeight}
+                />
+              </YStack>
+            ) : null
+          }
+          showsHoldings={showsHoldings}
+          isHoldLoading={!hasNoWallet && !hold.isLoaded}
+          holdRows={hold.rows}
+          networkNames={hold.networkNames}
+          markets={markets}
+          isMarketsLoaded={isMarketsLoaded}
+          faqList={faqList}
+          isFaqLoading={isFaqLoading}
+          onOpenTokens={handleOpenTokensPage}
+          onOpenLoans={handleOpenLoansPage}
+          onOpenProtocols={handleOpenProtocolsPage}
+          onOpenHoldRow={handleOpenHoldRow}
+          onOpenHoldings={handleOpenHoldingsPage}
+          onOpenLoanPair={handleOpenLoanPair}
+        />
+      </PortfolioPendingTxsProvider>
+    );
+  }
 
   return (
     <PortfolioPendingTxsProvider value={pendingTxsValue}>

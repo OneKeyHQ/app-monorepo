@@ -559,6 +559,15 @@ export const EarnNavigation = {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnAllProtocols);
   },
 
+  // The phone home's full lists: Earns on your holding, and the Loans pairs
+  pushToEarnHoldings(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnHoldings);
+  },
+
+  pushToEarnLoans(navigation: IAppNavigation) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnLoans);
+  },
+
   // Tokens list of a single protocol (OK-58505)
   pushToEarnProtocolTokens(
     navigation: IAppNavigation,

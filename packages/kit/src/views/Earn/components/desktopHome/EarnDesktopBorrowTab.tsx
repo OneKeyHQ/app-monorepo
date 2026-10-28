@@ -32,6 +32,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { preloadModalNavigator } from '@onekeyhq/kit/src/routes/Modal/lazyModalNavigator';
 import { getTokenImagePrewarmSource } from '@onekeyhq/kit/src/utils/tokenImagePrewarm';
@@ -40,6 +41,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { preloadEarnLoanRouter } from '../../../Staking/router';
+import { EarnNavigation } from '../../earnUtils';
 import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
 
@@ -476,8 +478,60 @@ function BasicPairRow({
 // The tab re-renders when the page loses or regains focus (a modal opening
 // or closing); the rows keep their render unless their pair changed
 const PairRow = memo(BasicPairRow);
+// The phone home's Loans section shows the same rows
+export const EarnDesktopLoanPairRow = PairRow;
 
 const getPairKey = (pair: IEarnDesktopLoanPair) => pair.key;
+
+/**
+ * A Loans row: the pair in the Loans router, on the row's market. The modal
+ * opens wide where the window holds the markets beside the form
+ */
+export function useEarnDesktopOpenLoanPair() {
+  const navigation = useAppNavigation();
+  const media = useMedia();
+  const isWide = media.gtLg;
+  return useCallback(
+    (pair: IEarnDesktopLoanPair) => {
+      EarnNavigation.pushToEarnLoanRouter(navigation, {
+        collateral: pair.collateral.symbol,
+        borrow: pair.borrow.symbol,
+        routeKey: pair.key,
+        wide: isWide,
+      });
+    },
+    [isWide, navigation],
+  );
+}
+
+/**
+ * Every borrow-against-collateral pair the markets offer. A pair's borrow
+ * side counts as stable once the stable token list is in; until then the
+ * pairs are not ready to filter by it
+ */
+export function useEarnDesktopLoanPairs(markets: IEarnDesktopMarketReserves[]) {
+  const { result: stableAssets } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceStaking.getAvailableAssets({
+        type: EAvailableAssetsTypeEnum.StableCoins,
+      }),
+    [],
+    { undefinedResultIfError: true },
+  );
+  const stableSymbols = useMemo(
+    () =>
+      new Set((stableAssets ?? []).map((asset) => asset.symbol.toUpperCase())),
+    [stableAssets],
+  );
+  const builtPairs = useMemo(
+    () => buildLoanPairs({ markets, stableSymbols }),
+    [markets, stableSymbols],
+  );
+  // A market poll rebuilds every pair; the unchanged ones keep their object
+  // and their memoized row
+  const pairs = useStableItems(builtPairs, getPairKey);
+  return { pairs, isStableListIn: stableAssets !== undefined };
+}
 
 function MoreRows({ count, onPress }: { count: number; onPress: () => void }) {
   // Subdued until hovered, as the holdings card's "N more"
@@ -538,26 +592,7 @@ function BasicEarnDesktopBorrowTab({
   const media = useMedia();
   const isWide = media.gtMd;
 
-  const { result: stableAssets } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking.getAvailableAssets({
-        type: EAvailableAssetsTypeEnum.StableCoins,
-      }),
-    [],
-    { undefinedResultIfError: true },
-  );
-  const stableSymbols = useMemo(
-    () =>
-      new Set((stableAssets ?? []).map((asset) => asset.symbol.toUpperCase())),
-    [stableAssets],
-  );
-  const builtPairs = useMemo(
-    () => buildLoanPairs({ markets, stableSymbols }),
-    [markets, stableSymbols],
-  );
-  // A market poll rebuilds every pair; the unchanged ones keep their object
-  // and their memoized row
-  const pairs = useStableItems(builtPairs, getPairKey);
+  const { pairs } = useEarnDesktopLoanPairs(markets);
   const walletTokenKeys = useMemo(
     () => collectWalletTokenKeys(walletNetworkGroups),
     [walletNetworkGroups],

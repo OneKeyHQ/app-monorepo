@@ -30,6 +30,7 @@ import {
   getLoanAssetType,
   getLoanNetApy,
   parseCompactFiatText,
+  pickLoanPreviewPairs,
   pickTileOffers,
   sortLoanPairs,
   sumBorrowedFiat,
@@ -1515,6 +1516,21 @@ describe('loan pairs', () => {
       'WBTC>ETH',
       'USDC>ETH',
     ]);
+  });
+
+  it('previews the pairs the Loans list starts on', () => {
+    const pairs = buildLoanPairs({
+      markets: [aaveCore],
+      stableSymbols: stable,
+    });
+    const names = (list: typeof pairs) =>
+      list.map((pair) => `${pair.collateral.symbol}>${pair.borrow.symbol}`);
+    // A stable token to borrow, the best net APY first
+    expect(names(pickLoanPreviewPairs(pairs, 3))).toEqual([
+      'ETH>USDC',
+      'WBTC>USDC',
+    ]);
+    expect(names(pickLoanPreviewPairs(pairs, 1))).toEqual(['ETH>USDC']);
   });
 });
 
