@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type { IChainListItem } from '@onekeyhq/shared/types/customNetwork';
@@ -519,9 +520,19 @@ class ServiceCustomRpc extends ServiceBase {
    *============================== */
   @backgroundMethod()
   public async getServerNetworks(): Promise<IServerNetwork[]> {
+    const { networks } = await this.getServerNetworkState();
+    return networks;
+  }
+
+  // Cached server networks plus the preset networks the server delisted.
+  @backgroundMethod()
+  public async getServerNetworkState(): Promise<{
+    networks: IServerNetwork[];
+    delistedPresetNetworkIds: string[];
+  }> {
     return this.semaphore.runExclusive(async () => {
       try {
-        const { networks, lastFetchTime } =
+        const { networks, lastFetchTime, delistedPresetNetworkIds } =
           await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
         const now = Date.now();
 
@@ -534,10 +545,13 @@ class ServiceCustomRpc extends ServiceBase {
           });
         }
         defaultLogger.account.wallet.getServerNetworks(networks);
-        return networks || [];
+        return {
+          networks: networks || [],
+          delistedPresetNetworkIds: delistedPresetNetworkIds || [],
+        };
       } catch (error) {
         defaultLogger.account.wallet.getServerNetworksError(error);
-        return [];
+        return { networks: [], delistedPresetNetworkIds: [] };
       }
     });
   }
@@ -613,26 +627,47 @@ class ServiceCustomRpc extends ServiceBase {
     // LISTED and later delisted would keep its stale LISTED snapshot in the DB
     // forever. Instead we store the real status and let the read/merge layer
     // (ServiceNetwork.getAllNetworks) filter TRASH out.
+    // The list may carry non-EVM preset entries (to delist them), but only EVM
+    // networks are ever added from it.
     const usedNetworks = serverNetworks.filter(
-      (n) => !presetNetworkIds.includes(n.id),
+      (n) =>
+        !presetNetworkIds.includes(n.id) &&
+        networkUtils.isEvmNetwork({ networkId: n.id }),
     );
+    // Only the status of a preset's entry is read: TRASH hides the preset,
+    // LISTED or no entry keeps it.
+    const delistedPresetNetworkIds = serverNetworks
+      .filter(
+        (n) =>
+          presetNetworkIds.includes(n.id) && n.status === ENetworkStatus.TRASH,
+      )
+      .map((n) => n.id)
+      .toSorted();
 
     // Snapshot the previous server-network set so the refresh event below is only
     // fanned out when the set actually changed (id added/removed or status
     // flipped), instead of on every hourly fetch.
-    const { networks: prevServerNetworks } =
-      await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+    const {
+      networks: prevServerNetworks,
+      delistedPresetNetworkIds: prevDelistedPresetNetworkIds,
+    } = await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
     const serverNetworkSignature = (list: IServerNetwork[]) =>
       list
         .map((n) => `${n.id}:${n.status}`)
         .toSorted()
         .join(',');
-    const serverNetworkListChanged =
+    const serverNetworkSetChanged =
       serverNetworkSignature(prevServerNetworks ?? []) !==
       serverNetworkSignature(usedNetworks);
+    const delistedPresetNetworksChanged =
+      (prevDelistedPresetNetworkIds ?? []).toSorted().join(',') !==
+      delistedPresetNetworkIds.join(',');
+    const serverNetworkListChanged =
+      serverNetworkSetChanged || delistedPresetNetworksChanged;
 
     await this.backgroundApi.simpleDb.serverNetwork.upsertServerNetworks({
       networkInfos: usedNetworks,
+      delistedPresetNetworkIds,
     });
 
     // delete custom networks

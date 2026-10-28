@@ -149,6 +149,7 @@ async function setup() {
       isPersistenceMasked: async () => false,
       scheduleBackgroundSync: jest.fn(),
       forgetCachedLocalWalletBalance: async () => undefined,
+      getLocalWalletNetworkIds: async () => [networkId],
     },
   ) as unknown as InstanceType<typeof ServicePrivacyChain>;
   return { cap, state, keys, runtime, rows, saved, vault, service };

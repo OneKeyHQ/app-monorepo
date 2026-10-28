@@ -38,14 +38,21 @@ const robinhood = {
   status: ENetworkStatus.LISTED,
 } as IServerNetwork;
 
+const zcashDelisted = {
+  id: 'zec--0',
+  status: ENetworkStatus.TRASH,
+} as IServerNetwork;
+
 function buildService({
   cachedNetworks,
   lastFetchTime,
   serverNetworks,
+  cachedDelistedPresetNetworkIds = [],
 }: {
   cachedNetworks: IServerNetwork[];
   lastFetchTime: number | undefined;
   serverNetworks: IServerNetwork[];
+  cachedDelistedPresetNetworkIds?: string[];
 }) {
   const clearConfigSyncMeta = jest.fn(async () => undefined);
   const upsertServerNetworks = jest.fn(async () => undefined);
@@ -56,6 +63,7 @@ function buildService({
           getAllServerNetworks: jest.fn(async () => ({
             networks: cachedNetworks,
             lastFetchTime,
+            delistedPresetNetworkIds: cachedDelistedPresetNetworkIds,
           })),
           upsertServerNetworks,
         },
@@ -89,6 +97,7 @@ describe('ServiceCustomRpc server networks', () => {
     expect(get).toHaveBeenCalledTimes(1);
     expect(upsertServerNetworks).toHaveBeenCalledWith({
       networkInfos: [robinhood],
+      delistedPresetNetworkIds: [],
     });
   });
 
@@ -189,5 +198,93 @@ describe('ServiceCustomRpc server networks', () => {
     });
     await unchanged.service.fetchNetworkFromServer();
     expect(unchanged.clearConfigSyncMeta).not.toHaveBeenCalled();
+  });
+  it('stores a TRASH preset entry as delisted and never as a server network', async () => {
+    const { service, upsertServerNetworks, clearConfigSyncMeta } = buildService(
+      {
+        cachedNetworks: [robinhood],
+        lastFetchTime: Date.now(),
+        serverNetworks: [robinhood, zcashDelisted],
+      },
+    );
+
+    await service.fetchNetworkFromServer();
+
+    expect(upsertServerNetworks).toHaveBeenCalledWith({
+      networkInfos: [robinhood],
+      delistedPresetNetworkIds: ['zec--0'],
+    });
+    // Reuses the "network list changed" refresh.
+    expect(clearConfigSyncMeta).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['LISTED', [{ ...zcashDelisted, status: ENetworkStatus.LISTED }]],
+    ['absent', [] as IServerNetwork[]],
+  ])(
+    'lists a delisted preset again when its entry is %s',
+    async (_label, presetEntries) => {
+      const { service, upsertServerNetworks, clearConfigSyncMeta } =
+        buildService({
+          cachedNetworks: [robinhood],
+          lastFetchTime: Date.now(),
+          serverNetworks: [robinhood, ...presetEntries],
+          cachedDelistedPresetNetworkIds: ['zec--0'],
+        });
+
+      await service.fetchNetworkFromServer();
+
+      expect(upsertServerNetworks).toHaveBeenCalledWith({
+        networkInfos: [robinhood],
+        delistedPresetNetworkIds: [],
+      });
+      expect(clearConfigSyncMeta).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not refresh when the delisted presets are unchanged', async () => {
+    const { service, clearConfigSyncMeta } = buildService({
+      cachedNetworks: [robinhood],
+      lastFetchTime: Date.now(),
+      serverNetworks: [robinhood, zcashDelisted],
+      cachedDelistedPresetNetworkIds: ['zec--0'],
+    });
+
+    await service.fetchNetworkFromServer();
+
+    expect(clearConfigSyncMeta).not.toHaveBeenCalled();
+  });
+
+  it('never adds an unknown non-EVM server entry as a network', async () => {
+    const unknownChain = {
+      id: 'starknet--0x534e',
+      status: ENetworkStatus.LISTED,
+    } as IServerNetwork;
+    const { service, upsertServerNetworks } = buildService({
+      cachedNetworks: [],
+      lastFetchTime: undefined,
+      serverNetworks: [robinhood, unknownChain],
+    });
+
+    await service.fetchNetworkFromServer();
+
+    expect(upsertServerNetworks).toHaveBeenCalledWith({
+      networkInfos: [robinhood],
+      delistedPresetNetworkIds: [],
+    });
+  });
+
+  it('getServerNetworkState returns the stored delisted presets', async () => {
+    const { service } = buildService({
+      cachedNetworks: [robinhood],
+      lastFetchTime: Date.now(),
+      serverNetworks: [],
+      cachedDelistedPresetNetworkIds: ['xmr--0'],
+    });
+
+    await expect(service.getServerNetworkState()).resolves.toEqual({
+      networks: [robinhood],
+      delistedPresetNetworkIds: ['xmr--0'],
+    });
   });
 });

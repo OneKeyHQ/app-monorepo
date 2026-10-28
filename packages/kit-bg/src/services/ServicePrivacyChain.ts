@@ -186,6 +186,11 @@ class ServicePrivacyChain extends ServiceBase {
       void this.gcRemovedAccounts();
       this.scheduleBackgroundSync(0);
     });
+    // The network list changed: a delisted network pauses, a relisted one resumes.
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, () => {
+      this.localWalletNetworkIdsCache = undefined;
+      this.scheduleBackgroundSync(0);
+    });
     // A node edit must never fail or wait on privacy-chain work.
     appEventBus.on(EAppEventBusNames.CustomRpcChanged, ({ networkIds }) => {
       void this.onLocalWalletNodeChanged({ networkIds }).catch((error) => {
@@ -199,8 +204,11 @@ class ServicePrivacyChain extends ServiceBase {
   // Fans an event out to every opted-in chain.
   async forEachLocalWalletCapability(
     fn: (capability: ILocalWalletCapability) => Promise<void>,
+    { includeDelisted = false }: { includeDelisted?: boolean } = {},
   ): Promise<void> {
-    const networkIds = await this.getLocalWalletNetworkIds();
+    const networkIds = includeDelisted
+      ? await this.getKnownLocalWalletNetworkIds()
+      : await this.getLocalWalletNetworkIds();
     for (const networkId of networkIds) {
       try {
         // eslint-disable-next-line no-await-in-loop
@@ -225,12 +233,15 @@ class ServicePrivacyChain extends ServiceBase {
     isFreshlyGeneratedMnemonic: boolean;
     createdAt: number;
   }): Promise<void> {
-    await this.forEachLocalWalletCapability((capability) =>
-      capability.onWalletCreated({
-        walletId,
-        isFreshlyGeneratedMnemonic,
-        createdAt,
-      }),
+    // Provenance is only seen now, so a delisted chain records it too.
+    await this.forEachLocalWalletCapability(
+      (capability) =>
+        capability.onWalletCreated({
+          walletId,
+          isFreshlyGeneratedMnemonic,
+          createdAt,
+        }),
+      { includeDelisted: true },
     );
   }
 
@@ -1340,7 +1351,7 @@ class ServicePrivacyChain extends ServiceBase {
     // Skip loading a runtime for users who never used a privacy chain.
     const targets: ILocalWalletLifecycleTarget[] = [];
     const failedNetworkIds: string[] = [];
-    for (const networkId of await this.getLocalWalletNetworkIdsForReset()) {
+    for (const networkId of await this.getKnownLocalWalletNetworkIds()) {
       let capability: ILocalWalletCapability | undefined;
       let mayHoldData = true;
       try {
@@ -1441,10 +1452,17 @@ class ServicePrivacyChain extends ServiceBase {
       });
       return;
     }
+    // A wipe the user asked for still runs on a delisted network; a network
+    // this platform does not ship is never loaded.
+    const knownNetworkIds = await this.getKnownLocalWalletNetworkIds();
     const droppedNetworkIds: string[] = [];
     for (const networkId of pending) {
       if (resetUtils.getIsResetting()) {
         return;
+      }
+      if (!knownNetworkIds.includes(networkId)) {
+        // eslint-disable-next-line no-continue
+        continue;
       }
       try {
         // eslint-disable-next-line no-await-in-loop
@@ -1494,27 +1512,52 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
-  private async getLocalWalletNetworkIdsForReset(): Promise<string[]> {
+  // Listed and delisted local-wallet networks: a delisted one still holds data.
+  private async getKnownLocalWalletNetworkIds(): Promise<string[]> {
+    let listedNetworkIds: string[] = [];
     try {
-      return await this.getLocalWalletNetworkIds();
+      listedNetworkIds = await this.getLocalWalletNetworkIds();
     } catch (e) {
-      console.error('[privacy-chain] network list unreadable on reset', {
+      console.error('[privacy-chain] network list unreadable', {
         error: e instanceof Error ? e.message : String(e),
       });
     }
-    const ids: string[] = [];
-    for (const network of getPresetNetworks()) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const settings = await getVaultSettings({ networkId: network.id });
-        if (settings.localWallet) {
-          ids.push(network.id);
+    return uniq([
+      ...listedNetworkIds,
+      ...(await this.getPresetLocalWalletNetworkIds()),
+    ]);
+  }
+
+  // Delisted by the server: no scan, enable, rotation or deletion runs for it,
+  // and its local data stays until it is listed again.
+  private async getDelistedLocalWalletNetworkIds(
+    listedNetworkIds: string[],
+  ): Promise<string[]> {
+    return (await this.getPresetLocalWalletNetworkIds()).filter(
+      (networkId) => !listedNetworkIds.includes(networkId),
+    );
+  }
+
+  presetLocalWalletNetworkIds: Promise<string[]> | undefined;
+
+  // Presets are fixed per build (Web ships none of these networks).
+  private getPresetLocalWalletNetworkIds(): Promise<string[]> {
+    this.presetLocalWalletNetworkIds ??= (async () => {
+      const ids: string[] = [];
+      for (const network of getPresetNetworks()) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const settings = await getVaultSettings({ networkId: network.id });
+          if (settings.localWallet) {
+            ids.push(network.id);
+          }
+        } catch {
+          // Not a candidate.
         }
-      } catch {
-        // Not a candidate.
       }
-    }
-    return ids;
+      return ids;
+    })();
+    return this.presetLocalWalletNetworkIds;
   }
 
   // Clears pending transactions for one account only.
@@ -2295,8 +2338,12 @@ class ServicePrivacyChain extends ServiceBase {
         capability: ILocalWalletCapability;
         cleanupAccountIds: string[];
       }[] = [];
-      let everyChainListed = true;
-      for (const networkId of await this.getLocalWalletNetworkIds()) {
+      const listedNetworkIds = await this.getLocalWalletNetworkIds();
+      // A delisted chain is not asked, so it counts as one that could not list.
+      let everyChainListed =
+        (await this.getDelistedLocalWalletNetworkIds(listedNetworkIds))
+          .length === 0;
+      for (const networkId of listedNetworkIds) {
         try {
           const vault = await vaultFactory.getChainOnlyVault({ networkId });
           const capability = requireLocalWalletCapability(vault);
@@ -2830,8 +2877,13 @@ class ServicePrivacyChain extends ServiceBase {
     try {
       const pending =
         await this.backgroundApi.simpleDb.privacyChainState.listPendingAccountDeletions();
+      if (pending.length === 0) return;
+      // A delisted network's deletions wait until it is listed again.
+      const listedNetworkIds = await this.getLocalWalletNetworkIds();
       await Promise.allSettled(
-        pending.map((request) => this.processPendingAccountDeletion(request)),
+        pending
+          .filter((request) => listedNetworkIds.includes(request.networkId))
+          .map((request) => this.processPendingAccountDeletion(request)),
       );
     } catch (error) {
       console.error('[privacy-chain] could not read pending deletions', {

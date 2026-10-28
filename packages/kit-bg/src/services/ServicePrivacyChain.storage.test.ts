@@ -361,6 +361,31 @@ describe('removed-account gc', () => {
     expect(harness.deleteRuntimeAccount).not.toHaveBeenCalled();
   });
 
+  it('keeps records no listed chain names while another chain is delisted', async () => {
+    const strayId = 'hd-4--0';
+    const harness = createGcHarness(async () => ({
+      accounts: [accountRow(liveAccountId), accountRow(hiddenAccountId)],
+    }));
+    await harness.privacyChainXmrSent.recordXmrSent({
+      accountId: strayId,
+      txid: 'tx',
+      recipient: '4stray',
+    });
+    Object.assign(harness.service, {
+      presetLocalWalletNetworkIds: Promise.resolve([networkId, 'zec--0']),
+    });
+
+    await harness.service.gcRemovedAccounts();
+
+    // The listed chain still purges its own removed account.
+    expect(harness.deleteRuntimeAccount).toHaveBeenCalledWith({
+      accountId: removedAccountId,
+    });
+    await expect(
+      harness.privacyChainXmrSent.listAccountIds(),
+    ).resolves.toContain(strayId);
+  });
+
   it('keeps a hidden or locked passphrase wallet account', async () => {
     const { service, serviceAccount, deleteRuntimeAccount } = createGcHarness(
       async () => ({
@@ -504,11 +529,13 @@ describe('pending local data drop retry', () => {
     cleanupAccountIds = [],
     storedAccountIds,
     dropLocalData = jest.fn(async () => undefined),
+    localWalletNetworkIds = [networkId],
   }: {
     pending: string[];
     cleanupAccountIds?: string[];
     storedAccountIds?: string[];
     dropLocalData?: jest.Mock;
+    localWalletNetworkIds?: string[];
   }) {
     const privacyChain = createPrivacyChainDb({
       data: { pendingLocalDataDrop: pending },
@@ -539,6 +566,7 @@ describe('pending local data drop retry', () => {
           },
         },
       },
+      getLocalWalletNetworkIds: async () => localWalletNetworkIds,
     });
     return { service, privacyChain, dropLocalData };
   }
@@ -619,6 +647,39 @@ describe('pending local data drop retry', () => {
     await service.retryPendingLocalDataDrop();
 
     expect(dropLocalData).not.toHaveBeenCalled();
+  });
+
+  it('still wipes a delisted network', async () => {
+    const { service, dropLocalData } = createRetryHarness({
+      pending: [networkId],
+      localWalletNetworkIds: [],
+    });
+    Object.assign(service, {
+      presetLocalWalletNetworkIds: Promise.resolve([networkId]),
+    });
+
+    await service.retryPendingLocalDataDrop();
+
+    expect(dropLocalData).toHaveBeenCalledTimes(1);
+  });
+
+  // Web ships no privacy chain, so a mark left by an older build loads nothing.
+  it('never loads a network this platform does not ship', async () => {
+    const { service, privacyChain, dropLocalData } = createRetryHarness({
+      pending: [networkId],
+      localWalletNetworkIds: [],
+    });
+    Object.assign(service, {
+      presetLocalWalletNetworkIds: Promise.resolve([]),
+    });
+
+    await service.retryPendingLocalDataDrop();
+
+    expect(mockGetChainOnlyVault).not.toHaveBeenCalled();
+    expect(dropLocalData).not.toHaveBeenCalled();
+    await expect(privacyChain.getPendingLocalDataDrop()).resolves.toEqual([
+      networkId,
+    ]);
   });
 
   it('starts from init without holding it up', async () => {
@@ -736,6 +797,7 @@ describe.each(['zec--0', 'xmr--0'])(
         isTempWalletAccount: async () => false,
         onLocalWalletAccountsChanged: jest.fn(async () => undefined),
         forgetCachedLocalWalletBalance,
+        getLocalWalletNetworkIds: async () => [chainNetworkId],
       });
       return {
         service,
@@ -777,6 +839,30 @@ describe.each(['zec--0', 'xmr--0'])(
       expect(await privacyChainKeys.listAccountIds()).toEqual([
         hiddenAccountId,
       ]);
+    });
+
+    it('holds a pending deletion while the network is delisted', async () => {
+      const { service, capability, privacyChainState, privacyChainKeys } =
+        createDeleteHarness();
+      await privacyChainState.requestAccountDeletion(params);
+      let listedNetworkIds: string[] = [];
+      Object.assign(service, {
+        getLocalWalletNetworkIds: async () => listedNetworkIds,
+      });
+
+      await service.resumePendingAccountDeletions();
+
+      expect(capability.deleteRuntimeAccount).not.toHaveBeenCalled();
+      expect(
+        await privacyChainState.listPendingAccountDeletions(),
+      ).toHaveLength(1);
+      expect(await privacyChainKeys.listAccountIds()).toContain(liveAccountId);
+
+      listedNetworkIds = [chainNetworkId];
+      await service.resumePendingAccountDeletions();
+
+      expect(capability.deleteRuntimeAccount).toHaveBeenCalledTimes(1);
+      expect(await privacyChainState.listPendingAccountDeletions()).toEqual([]);
     });
 
     it('deletes local data and expired sends while preserving other accounts', async () => {

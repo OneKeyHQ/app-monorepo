@@ -146,8 +146,11 @@ class ServiceNetwork extends ServiceBase {
 
       perf.markStart('getServerNetworks-and-getAllCustomNetworks');
       // Fetch server and custom networks
-      const [serverNetworks, customNetworks] = await Promise.all([
-        this.backgroundApi.serviceCustomRpc.getServerNetworks(),
+      const [
+        { networks: serverNetworks, delistedPresetNetworkIds },
+        customNetworks,
+      ] = await Promise.all([
+        this.backgroundApi.serviceCustomRpc.getServerNetworkState(),
         this.backgroundApi.serviceCustomRpc.getAllCustomNetworks(),
       ]);
       perf.markEnd('getServerNetworks-and-getAllCustomNetworks');
@@ -166,8 +169,16 @@ class ServiceNetwork extends ServiceBase {
       };
 
       perf.markStart('addNetworks-presetNetworks');
-      // Add networks in order of priority
-      addNetworks(presetNetworks);
+      // Add networks in order of priority. A preset the server delisted keeps
+      // its slot as TRASH, so the TRASH filter below hides it.
+      const delistedPresetNetworkIdSet = new Set(delistedPresetNetworkIds);
+      addNetworks(
+        presetNetworks.map((network) =>
+          delistedPresetNetworkIdSet.has(network.id)
+            ? { ...network, status: ENetworkStatus.TRASH }
+            : network,
+        ),
+      );
       perf.markEnd('addNetworks-presetNetworks');
 
       perf.markStart('addNetworks-serverNetworks');

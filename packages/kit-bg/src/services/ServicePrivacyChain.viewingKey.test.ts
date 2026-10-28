@@ -64,11 +64,13 @@ function createService({
   promptedPassword,
   liveAccountIds = [hdAccountId],
   lastBalanceAccountIds = [],
+  localWalletNetworkIds = [],
 }: {
   cachedPassword?: string;
   promptedPassword?: string;
   liveAccountIds?: string[];
   lastBalanceAccountIds?: string[];
+  localWalletNetworkIds?: string[];
 } = {}) {
   const privacyChainKeys = createKeysDb();
   const privacyChainState = createStateDb();
@@ -133,7 +135,7 @@ function createService({
       backfillActiveByAccount: {},
       syncFailureBackoff: new Map(),
       scheduleBackgroundSync: jest.fn(),
-      getLocalWalletNetworkIds: async () => [],
+      getLocalWalletNetworkIds: async () => localWalletNetworkIds,
       forEachLocalWalletCapability: async () => undefined,
       requireAccountCapability: async () => ({
         getAccountState: async ({ accountId }: { accountId: string }) => {
@@ -374,6 +376,7 @@ describe('Privacy chain viewing key store', () => {
   it('completes enable with the real XMR stored-key reader without reentering its mutex', async () => {
     const { service, backgroundApi, privacyChainState } = createService({
       cachedPassword: 'pw',
+      localWalletNetworkIds: [networkId],
     });
     const vault = Object.assign(Object.create(XmrVault.prototype) as VaultXmr, {
       networkId,
@@ -526,7 +529,10 @@ describe('Privacy chain viewing key lifecycle', () => {
         removeAccountTokenList,
         removeAccountNetworkValue,
         removeLastBalances,
-      } = createService({ cachedPassword: 'pw' });
+      } = createService({
+        cachedPassword: 'pw',
+        localWalletNetworkIds: [chainNetworkId],
+      });
       const deleteRuntimeAccount = jest.fn(async () => ({ orphaned: false }));
       withCapability(service, {
         deleteRuntimeAccount,
@@ -576,6 +582,7 @@ describe('Privacy chain viewing key lifecycle', () => {
     });
     const { service, backgroundApi, privacyChainState } = createService({
       cachedPassword: 'pw',
+      localWalletNetworkIds: [networkId],
     });
     const enableAccount = jest.fn(async () => {
       await privacyChainState.saveXmrEnabledAccount({
@@ -631,6 +638,7 @@ describe('Privacy chain viewing key lifecycle', () => {
     });
     const { service, backgroundApi, privacyChainState } = createService({
       cachedPassword: 'pw',
+      localWalletNetworkIds: [networkId],
     });
     withCapability(service, {
       deleteRuntimeAccount: async () => ({ orphaned: false }),

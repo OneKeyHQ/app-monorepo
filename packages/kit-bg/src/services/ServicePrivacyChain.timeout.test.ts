@@ -562,6 +562,7 @@ describe('Privacy database erasure', () => {
         syncTickRunning: true,
         backgroundApi: pendingDropApi([]),
         getLocalWalletNetworkIds: async () => ['zec--0'],
+        presetLocalWalletNetworkIds: Promise.resolve(['zec--0']),
       },
     );
     mockGetChainOnlyVault.mockResolvedValue({
@@ -681,6 +682,64 @@ describe('Privacy database erasure', () => {
 
     await expect(service.dropAllLocalWalletData()).resolves.toEqual([]);
     expect(dropped).toEqual(expect.arrayContaining(['zec--0', 'xmr--0']));
+    mockGetChainOnlyVault.mockReset();
+  });
+
+  // A delisted network only pauses scanning; App Reset still wipes it.
+  it('wipes a delisted network too', async () => {
+    const dropped: string[] = [];
+    mockGetChainOnlyVault.mockImplementation(
+      async ({ networkId }: { networkId: string }) => ({
+        getLocalWalletCapability: () => ({
+          listAccounts: noAccounts,
+          dropLocalData: async () => {
+            dropped.push(networkId);
+          },
+        }),
+      }),
+    );
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        ...lifecycleFields(),
+        backgroundApi: pendingDropApi([]),
+        getLocalWalletNetworkIds: async () => ['zec--0'],
+      },
+    );
+
+    await expect(service.dropAllLocalWalletData()).resolves.toEqual([]);
+    expect(dropped).toEqual(['zec--0', 'xmr--0']);
+    mockGetChainOnlyVault.mockReset();
+  });
+});
+
+describe('wallet creation provenance', () => {
+  it('reaches a delisted chain too', async () => {
+    const onWalletCreated = jest.fn(async () => undefined);
+    mockGetChainOnlyVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({ onWalletCreated }),
+    });
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        getLocalWalletNetworkIds: async () => [],
+        presetLocalWalletNetworkIds: Promise.resolve(['zec--0']),
+      },
+    );
+    const params = {
+      walletId: 'hd-1',
+      isFreshlyGeneratedMnemonic: true,
+      createdAt: 1,
+    };
+
+    await service.onWalletCreated(params);
+
+    expect(mockGetChainOnlyVault).toHaveBeenCalledWith({ networkId: 'zec--0' });
+    expect(onWalletCreated).toHaveBeenCalledWith(params);
     mockGetChainOnlyVault.mockReset();
   });
 });

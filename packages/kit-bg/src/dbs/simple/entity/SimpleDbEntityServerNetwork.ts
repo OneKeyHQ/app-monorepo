@@ -9,6 +9,8 @@ export interface IServerNetworkDBStruct {
     IServerNetwork & { createdAt: number; updatedAt: number }
   >;
   lastFetchTime: number; // last fetch api time
+  // Preset network ids the server list marks TRASH.
+  delistedPresetNetworkIds?: string[];
 }
 
 export class SimpleDbEntityServerNetwork extends SimpleDbEntityBase<IServerNetworkDBStruct> {
@@ -17,13 +19,18 @@ export class SimpleDbEntityServerNetwork extends SimpleDbEntityBase<IServerNetwo
   override enableCache = false;
 
   @backgroundMethod()
-  async upsertServerNetworks(params: { networkInfos: IServerNetwork[] }) {
+  async upsertServerNetworks(params: {
+    networkInfos: IServerNetwork[];
+    delistedPresetNetworkIds?: string[];
+  }) {
     const { networkInfos } = params;
     await this.setRawData((rawData) => {
       const now = Date.now();
       const data: IServerNetworkDBStruct = {
         data: {},
         lastFetchTime: now,
+        delistedPresetNetworkIds:
+          params.delistedPresetNetworkIds ?? rawData?.delistedPresetNetworkIds,
       };
 
       // Update or add new network data
@@ -44,6 +51,7 @@ export class SimpleDbEntityServerNetwork extends SimpleDbEntityBase<IServerNetwo
   async getAllServerNetworks(): Promise<{
     networks: IServerNetwork[];
     lastFetchTime: number | undefined;
+    delistedPresetNetworkIds: string[];
   }> {
     const rawData = await this.getRawData();
     const result = Object.values(rawData?.data || {}).toSorted(
@@ -52,6 +60,7 @@ export class SimpleDbEntityServerNetwork extends SimpleDbEntityBase<IServerNetwo
     return {
       networks: result,
       lastFetchTime: rawData?.lastFetchTime,
+      delistedPresetNetworkIds: rawData?.delistedPresetNetworkIds ?? [],
     };
   }
 
