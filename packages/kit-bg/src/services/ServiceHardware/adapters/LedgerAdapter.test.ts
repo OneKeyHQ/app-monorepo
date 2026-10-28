@@ -1,13 +1,11 @@
-import { DEVICE, EConnectorInteraction } from '@onekeyfe/hwk-adapter-core';
+import { EConnectorInteraction } from '@onekeyfe/hwk-adapter-core';
 import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core/ui-events';
 
 import {
   EThirdPartyHardwareUiAction,
   type IThirdPartyHardwareUiState,
-  type IThirdPartyLiveConnectionState,
   thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
-  thirdPartyLiveConnectionAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -25,44 +23,6 @@ jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDb', () => ({
 }));
 
 describe('LedgerAdapter', () => {
-  it('records the channel the SDK connected the Ledger over until it disconnects', async () => {
-    const handlers = new Map<string, (event: unknown) => void>();
-    const hw = {
-      on: jest.fn((event: string, handler: (event: unknown) => void) => {
-        handlers.set(event, handler);
-      }),
-    };
-    let live: IThirdPartyLiveConnectionState | undefined;
-    const atomSet = jest
-      .spyOn(thirdPartyLiveConnectionAtom, 'set')
-      .mockImplementation(async (update) => {
-        live = typeof update === 'function' ? update(live) : update;
-      });
-    try {
-      expect(new LedgerAdapter(hw as never).vendor).toBe('ledger');
-      const emit = (event: string, payload: unknown) =>
-        handlers.get(event)?.({ type: event, payload });
-
-      emit(DEVICE.CONNECT, { connectId: 'ble-1', connectionType: 'ble' });
-      await Promise.resolve();
-      expect(live).toEqual({
-        vendor: 'ledger',
-        connectId: 'ble-1',
-        connectionType: 'ble',
-      });
-
-      emit(DEVICE.DISCONNECT, { connectId: 'usb-1' });
-      await Promise.resolve();
-      expect(live?.connectId).toBe('ble-1');
-
-      emit(DEVICE.DISCONNECT, { connectId: 'ble-1' });
-      await Promise.resolve();
-      expect(live).toBeUndefined();
-    } finally {
-      atomSet.mockRestore();
-    }
-  });
-
   it('passes resetSession through to the HWK adapter searchDevices call', async () => {
     const hw = {
       searchDevices: jest.fn().mockResolvedValue([]),

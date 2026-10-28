@@ -33,6 +33,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import type { IQrWalletDevice } from '@onekeyhq/shared/types/device';
+import type { IDeviceStageErrorI18n } from '@onekeyhq/shared/types/deviceStage';
 import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { vaultFactory } from '../../vaults/factory';
@@ -90,6 +91,8 @@ class ServiceQrWallet extends ServiceBase {
         promiseId: number;
         sessionId: number;
         diagnostic?: ISolanaTxDiagnosticContext;
+        /** The caller's tag, so its own cleanup cannot cancel a newer session. */
+        owner?: string;
       }
     | undefined;
 
@@ -165,9 +168,16 @@ class ServiceQrWallet extends ServiceBase {
    * with the same cancel the legacy surfaces used — the toast's cancel on
    * showQr, the scan page's on scanQr — so every downstream contract
    * (silent-cancel toast policy, batch-flow termination) keeps holding.
+   * With `owner`, only that caller's own session ends.
    */
   @backgroundMethod()
-  async cancelStageAirGapScan({ scanning }: { scanning?: boolean } = {}) {
+  async cancelStageAirGapScan({
+    scanning,
+    owner,
+  }: { scanning?: boolean; owner?: string } = {}) {
+    if (owner !== undefined && this.stageAirGapSession?.owner !== owner) {
+      return;
+    }
     await this.rejectStageAirGapSession(
       scanning
         ? new OneKeyErrorScanQrCodeCancel()
@@ -175,62 +185,22 @@ class ServiceQrWallet extends ServiceBase {
     );
   }
 
-  /**
-   * A scan-only stage session for a flow that shows its own code (the
-   * Keystone QR toast): the stage's camera sits above any dialog the flow
-   * keeps open, where the scan page would sit under it. Undefined when the
-   * stage is unavailable, so the caller falls back to the scan page; a
-   * stage close rejects like the scan page's cancel.
-   */
-  @backgroundMethod()
-  async scanAirGapOnStage(): Promise<
-    IQRCodeHandlerParseResult<IAnimationValue> | undefined
-  > {
-    const { deviceStageBurst } = this.backgroundApi.serviceHardwareUI;
-    if (!(await deviceStageBurst.isEnabled())) {
-      return undefined;
-    }
-    await this.rejectStageAirGapSession(new SecureQRCodeDialogCancel());
-    if (!(await deviceStageBurst.begin({}))) {
-      return undefined;
-    }
-    let promiseId = 0;
-    const scanPromise = new Promise<IQRCodeHandlerParseResult<IAnimationValue>>(
-      (resolve, reject) => {
-        promiseId = this.backgroundApi.servicePromise.createCallback({
-          resolve,
-          reject,
-        });
-      },
-    );
-    this.stageAirGapSessionSeq += 1;
-    const sessionId = this.stageAirGapSessionSeq;
-    this.stageAirGapSession = { promiseId, sessionId };
-    let stageError: unknown;
-    try {
-      await deviceStageBurst.qrStartScan({ sessionId });
-      return await scanPromise;
-    } catch (error) {
-      stageError = error;
-      throw error;
-    } finally {
-      if (this.stageAirGapSession?.promiseId === promiseId) {
-        this.stageAirGapSession = undefined;
-      }
-      await deviceStageBurst.end({ error: stageError });
-    }
-  }
-
   async startTwoWayAirGapScanUr({
     requestUr,
     appQrCodeModalTitle,
     allowPlainTextResponse,
     diagnostic,
+    notice,
+    owner,
   }: {
     requestUr: AirGapUR;
     appQrCodeModalTitle?: string;
     allowPlainTextResponse?: boolean;
     diagnostic?: ISolanaTxDiagnosticContext;
+    /** Shown under the stage card's steps; the legacy toast has no slot. */
+    notice?: IDeviceStageErrorI18n;
+    /** See cancelStageAirGapScan: lets the caller end its own stage session. */
+    owner?: string;
   }): Promise<{
     raw?: string;
     responseUr?: AirGapUR;
@@ -274,7 +244,7 @@ class ServiceQrWallet extends ServiceBase {
       // bracket whose finally clears it: registered ahead of a begin()
       // that rejected, the session and its callback stayed parked until
       // the next scan or the callback expiry.
-      this.stageAirGapSession = { promiseId, sessionId, diagnostic };
+      this.stageAirGapSession = { promiseId, sessionId, diagnostic, owner };
       let stageError: unknown;
       try {
         logSolanaTxDiagnostic(diagnostic, {
@@ -282,7 +252,12 @@ class ServiceQrWallet extends ServiceBase {
           status: 'started',
           reason: 'stage',
         });
-        await deviceStageBurst.qrShowCode({ valueUr, sessionId, diagnostic });
+        await deviceStageBurst.qrShowCode({
+          valueUr,
+          sessionId,
+          diagnostic,
+          notice,
+        });
         appScanDeviceResult = await scanPromise;
       } catch (error) {
         stageError = error;
@@ -361,13 +336,18 @@ class ServiceQrWallet extends ServiceBase {
   }
 
   @backgroundMethod()
-  async startTwoWayAirGapScan(appUr: IAirGapUrJson): Promise<IAirGapUrJson> {
+  async startTwoWayAirGapScan(
+    appUr: IAirGapUrJson,
+    options?: { notice?: IDeviceStageErrorI18n; owner?: string },
+  ): Promise<IAirGapUrJson> {
     const { airGapUrUtils } = await loadQrWalletSdk();
     const deviceScanAppUr: AirGapUR = airGapUrUtils.jsonToUr({
       ur: appUr,
     });
     const { responseUr: appScanDeviceUr } = await this.startTwoWayAirGapScanUr({
       requestUr: deviceScanAppUr,
+      notice: options?.notice,
+      owner: options?.owner,
     });
     return airGapUrUtils.urToJson({
       ur: checkIsDefined(appScanDeviceUr),

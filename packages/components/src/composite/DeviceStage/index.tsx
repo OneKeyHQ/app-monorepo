@@ -70,7 +70,6 @@ import {
 import { AuthChecklist, AuthFailureCard } from './AuthPanels';
 import { BluetoothBadge } from './BluetoothBadge';
 import { CardValue } from './CardValue';
-import { ChannelCornerBadge } from './ChannelCornerBadge';
 import {
   COMPACT_DEVICE_WIDTH,
   COMPACT_PORT_HEIGHT,
@@ -554,6 +553,7 @@ export function DeviceStage({
   confirmCount,
   qrValue,
   qrValueUr,
+  qrNoticeI18n,
   qrSessionId,
   qrRenderKey,
   qrScannerView,
@@ -621,6 +621,7 @@ export function DeviceStage({
     errorI18n,
   );
   const localizedDoneTitle = resolveErrorMessage(intl, undefined, doneI18n);
+  const localizedQrNotice = resolveErrorMessage(intl, undefined, qrNoticeI18n);
   // The failure's own words, where no reason claims it — the message the
   // live flow's toast used to speak. A reason's considered wording wins.
   const errorOwnWords = errorReason ? undefined : localizedErrorMessage;
@@ -1828,6 +1829,7 @@ export function DeviceStage({
             key={qrRenderKey ?? qrSessionId}
             value={qrValue}
             valueUr={qrValueUr}
+            notice={localizedQrNotice}
             onNext={onQrNext}
             onRenderReady={onQrRenderReady}
           />
@@ -1837,6 +1839,7 @@ export function DeviceStage({
     [
       appStepSub.showQr,
       intl,
+      localizedQrNotice,
       onQrNext,
       onQrRenderReady,
       panelMeasureHandlers,
@@ -2362,9 +2365,6 @@ export function DeviceStage({
               height={CAPSULE_ROW.thumbBox}
             />
           ) : null}
-          {capsuleGlyph === 'device' && vendorImageSource && connectionType ? (
-            <ChannelCornerBadge connectionType={connectionType} />
-          ) : null}
         </Stack>
         <YStack maxWidth={CAPSULE_TEXT_MAX_WIDTH}>
           {/* The sweep rests with the capsule: hidden poses neither pay
@@ -2382,14 +2382,7 @@ export function DeviceStage({
         </YStack>
       </XStack>
     ),
-    [
-      bluetoothBadgePaused,
-      capsuleGlyph,
-      capsuleText,
-      connectionType,
-      pose,
-      vendorImageSource,
-    ],
+    [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
   );
 
   const dismissLabel = useMemo(

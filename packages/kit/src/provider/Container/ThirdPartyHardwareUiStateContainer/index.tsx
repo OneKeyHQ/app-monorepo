@@ -35,8 +35,8 @@ import {
   useThirdPartyBleBindingAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -45,8 +45,8 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorPro
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { TREZOR_THP_APP_NAME } from '@onekeyhq/shared/src/hardware/trezorThpIdentity';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
-import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EnterPhase } from '../../../components/Hardware/Hardware';
@@ -55,9 +55,7 @@ import {
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
 import { showThirdPartyDeviceSelectionDialog } from '../../../components/Hardware/ThirdPartyDeviceSelectionDialog';
-import { SecureQRToast } from '../../../components/SecureQRToast';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import useScanQrCodeLazy from '../../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 import { yieldDeviceStageToDialog } from '../DeviceStageContainer/waitForDeviceStageExit';
 
 import { useInstallCancelVisibility } from './installCancelVisibility';
@@ -1002,8 +1000,6 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   // Keystone QR round trip: not a generic Dialog action, since it needs
   // animated-QR display and camera-scan, not title/message/footer. Like Trezor's THP pairing, the SDK blocks in hw.on() until uiResponse() is called.
-  const { start: startKeystoneQrScan } = useScanQrCodeLazy();
-
   useEffect(() => {
     if (!isKeystoneQr) {
       return;
@@ -1016,7 +1012,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     }
     const expectedState = uiState;
     let isSettled = false;
-    let scanStarted = false;
+    // Tags this request's stage session, so its cleanup ends only its own.
+    const stageOwner = generateUUID();
     const cancelParams = {
       vendor,
       ...(expectedState?.operationId
@@ -1084,40 +1081,64 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       }
     };
 
-    const runScan = async (accountExport = false) => {
-      if (isSettled || scanStarted) return;
-      scanStarted = true;
-      let raw: string;
-      try {
-        // The stage's camera sits above a dialog the flow keeps open (the
-        // batch-create progress); the scan page would sit under it.
-        const stageResult =
-          await backgroundApiProxy.serviceQrWallet.scanAirGapOnStage();
-        if (stageResult) {
-          raw = stageResult.data?.fullData || stageResult.raw || '';
-        } else {
-          await yieldDeviceStageToDialog();
-          if (isSettled) return;
-          const result = await startKeystoneQrScan({
-            handlers: [EQRCodeHandlerNames.animation],
-            qrWalletScene: true,
-            autoExecuteParsedAction: false,
-          });
-          raw = result.raw;
-        }
-      } catch {
-        await sendResponse(null);
-        return;
+    // The request ended (answered elsewhere, timed out, aborted): its stage
+    // session must end with it, or the camera and the burst stay up.
+    const cancelOnCleanup = () => {
+      const wasSettled = isSettled;
+      void cancelIfStillCurrent();
+      if (!wasSettled) {
+        void backgroundApiProxy.serviceQrWallet.cancelStageAirGapScan({
+          owner: stageOwner,
+        });
       }
-      if (isSettled) return;
+    };
+
+    // Every request this app makes carries its code. One without — the
+    // SDK's scan-only import, which nothing here starts — is declined
+    // rather than left to time out.
+    if (
+      action === EThirdPartyHardwareUiAction.requestKeystoneQrScan ||
+      !urData
+    ) {
+      void sendResponse(null);
+      return cancelOnCleanup;
+    }
+
+    // The stage presents the code, then runs the camera after its Next.
+    // Where the request accepts a device export, the SDK reads either
+    // answer — this request's or a specialized firmware's own export.
+    const accountExport = Boolean(uiState?.payload?.allowAccountExport);
+    void (async () => {
       try {
-        const ur = await airGapUrUtils.qrcodeToUr(raw);
+        const answer =
+          await backgroundApiProxy.serviceQrWallet.startTwoWayAirGapScan(
+            { type: urType ?? '', cbor: urData },
+            {
+              owner: stageOwner,
+              ...(accountExport
+                ? {
+                    notice: {
+                      key: ETranslations.keystone_account_export__desc,
+                    },
+                  }
+                : {}),
+            },
+          );
         await sendResponse({
-          urType: ur.type,
-          urData: ur.cbor.toString('hex'),
+          urType: answer.type,
+          urData: answer.cbor,
           ...(accountExport ? { accountExport: true } : {}),
         });
-      } catch {
+      } catch (error) {
+        const className = (error as { className?: unknown } | undefined)
+          ?.className;
+        if (
+          className === EOneKeyErrorClassNames.SecureQRCodeDialogCancel ||
+          className === EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel
+        ) {
+          await sendResponse(null);
+          return;
+        }
         // A completed scan that cannot be decoded is bad data, not a user cancellation.
         await sendResponse({
           urType: '',
@@ -1125,75 +1146,14 @@ function ThirdPartyHardwareUiStateContainerCmp() {
           ...(accountExport ? { accountExport: true } : {}),
         });
       }
-    };
-
-    // REQUEST_QR_SCAN (device already showing its own export/response QR) or
-    // a malformed display request: go straight to the camera.
-    if (
-      action === EThirdPartyHardwareUiAction.requestKeystoneQrScan ||
-      !urData
-    ) {
-      void runScan();
-      return () => {
-        void cancelIfStillCurrent();
-      };
-    }
-
-    // The stage must step aside first, or its capsule covers the QR code.
-    let toast: ReturnType<typeof SecureQRToast.show> | undefined;
-    let isDisposed = false;
-    void (async () => {
-      await yieldDeviceStageToDialog();
-      if (isSettled || isDisposed) return;
-      toast = SecureQRToast.show({
-        valueUr: { type: urType ?? '', cbor: urData },
-        drawType: 'line',
-        dismissOnOverlayPress: false,
-        showConfirmButton: true,
-        ...(uiState?.payload?.allowAccountExport
-          ? {
-              title: intl.formatMessage(
-                { id: ETranslations.device_stage_connect_vendor__title },
-                { vendor: 'Keystone' },
-              ),
-              message: intl.formatMessage({
-                id: ETranslations.device_stage_show_qr__title,
-              }),
-              notice: intl.formatMessage({
-                id: ETranslations.keystone_account_export__desc,
-              }),
-            }
-          : {}),
-        onConfirm: async () => {
-          await toast?.close({ flag: 'skipReject' });
-          // Where the request accepts a device export, the SDK reads either
-          // answer — this request's or a specialized firmware's own export.
-          await runScan(Boolean(uiState?.payload?.allowAccountExport));
-        },
-        onCancel: async () => {
-          await toast?.close();
-          await sendResponse(null);
-        },
-        onClose: async (params) => {
-          if (params?.flag !== 'skipReject') {
-            await sendResponse(null);
-          }
-        },
-      });
     })();
-    return () => {
-      isDisposed = true;
-      void cancelIfStillCurrent();
-      void toast?.close({ flag: 'skipReject' });
-    };
+    return cancelOnCleanup;
   }, [
-    intl,
     isKeystoneQr,
     uiState,
     uiState?.vendor,
     uiState?.action,
     uiState?.payload,
-    startKeystoneQrScan,
   ]);
 
   useEffect(() => {

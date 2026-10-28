@@ -8,10 +8,10 @@ import { act, render } from '@testing-library/react';
 
 import { Dialog } from '@onekeyhq/components';
 import { showThirdPartyDeviceSelectionDialog } from '@onekeyhq/kit/src/components/Hardware/ThirdPartyDeviceSelectionDialog';
-import { SecureQRToast } from '@onekeyhq/kit/src/components/SecureQRToast';
 import { EThirdPartyHardwareUiAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IThirdPartyHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -33,19 +33,17 @@ const mockCancel = jest.fn(async () => undefined);
 const mockUiResponse = jest.fn(async (_params: unknown) => undefined);
 const mockClearUiState = jest.fn(async (_params: unknown) => true);
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
-const mockStartScan = jest.fn<Promise<{ raw: string }>, [unknown]>(
-  () => new Promise(() => undefined),
+// The stage presents the code, then scans the device's answer.
+const mockTwoWayScan = jest.fn<
+  Promise<{ type: string; cbor: string }>,
+  [
+    { type: string; cbor: string },
+    { owner?: string; notice?: { key?: string } },
+  ]
+>(() => new Promise(() => undefined));
+const mockCancelStageScan = jest.fn(
+  async (_params: { owner?: string }) => undefined,
 );
-const mockDecodeUr = jest.fn(async (_raw: string) => ({
-  type: 'crypto-multi-accounts',
-  cbor: Buffer.from('a0', 'hex'),
-}));
-const mockScanHook = { start: mockStartScan };
-// Undefined: the stage is unavailable and the scan page takes over.
-const mockScanOnStage = jest.fn<
-  Promise<{ raw: string; data?: { fullData?: string } } | undefined>,
-  []
->();
 
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 jest.mock('@onekeyhq/components', () => ({
@@ -60,7 +58,14 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    serviceQrWallet: { scanAirGapOnStage: () => mockScanOnStage() },
+    serviceQrWallet: {
+      startTwoWayAirGapScan: (
+        appUr: { type: string; cbor: string },
+        options: { owner?: string; notice?: { key?: string } },
+      ) => mockTwoWayScan(appUr, options),
+      cancelStageAirGapScan: (params: { owner?: string }) =>
+        mockCancelStageScan(params),
+    },
     serviceThirdPartyHardware: {
       thirdPartyHardwareUiResponse: (params: unknown) => mockUiResponse(params),
       thirdPartyHardwareCancel: () => mockCancel(),
@@ -84,9 +89,6 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
     thirdPartyHardwareUiStateAtom: { get: async () => mockUiState },
   };
 });
-jest.mock('@onekeyhq/qr-wallet-sdk', () => ({
-  airGapUrUtils: { qrcodeToUr: (raw: string) => mockDecodeUr(raw) },
-}));
 jest.mock('../../../components/Hardware/Hardware', () => ({
   EnterPhase: () => null,
 }));
@@ -107,17 +109,8 @@ jest.mock(
     ),
   }),
 );
-jest.mock('../../../components/SecureQRToast', () => ({
-  SecureQRToast: {
-    show: jest.fn(() => ({ close: jest.fn().mockResolvedValue(undefined) })),
-  },
-}));
 jest.mock('../../../hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
-}));
-jest.mock('../../../views/ScanQrCode/hooks/useScanQrCodeLazy', () => ({
-  __esModule: true,
-  default: () => mockScanHook,
 }));
 jest.mock('../DeviceStageContainer/waitForDeviceStageExit', () => ({
   yieldDeviceStageToDialog: jest.fn(),
@@ -186,7 +179,9 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUiState = undefined;
   jest.mocked(yieldDeviceStageToDialog).mockResolvedValue(false);
-  mockScanOnStage.mockResolvedValue(undefined);
+  // Reset, not clear: an unconsumed once-value must not reach the next test.
+  mockTwoWayScan.mockReset();
+  mockTwoWayScan.mockImplementation(() => new Promise(() => undefined));
 });
 
 it.each([
@@ -289,59 +284,46 @@ it('opens the next selection after the user cancels one', async () => {
   expect(showThirdPartyDeviceSelectionDialog).toHaveBeenCalledTimes(2);
 });
 
-it('waits before opening the Keystone scanner', async () => {
+it('declines a scan-only Keystone request instead of leaving it to time out', async () => {
   mockUiState = qrState(false);
-  const release = holdExit();
   render(<ThirdPartyHardwareUiStateContainer />);
   await flush();
-  expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(1);
-  expect(mockStartScan).not.toHaveBeenCalled();
-  await release();
-  expect(mockStartScan).toHaveBeenCalledTimes(1);
-});
-
-it('waits before showing the Keystone QR so the stage cannot cover it', async () => {
-  mockUiState = qrState(true);
-  const releaseDisplay = holdExit();
-  render(<ThirdPartyHardwareUiStateContainer />);
-  expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(1);
-  expect(SecureQRToast.show).not.toHaveBeenCalled();
-  await releaseDisplay();
-  expect(SecureQRToast.show).toHaveBeenCalledTimes(1);
-
-  const releaseScan = holdExit();
-  await act(async () => {
-    jest.mocked(SecureQRToast.show).mock.calls[0][0].onConfirm?.();
-  });
-  expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(2);
-  expect(mockStartScan).not.toHaveBeenCalled();
-  await releaseScan();
-  expect(mockStartScan).toHaveBeenCalledTimes(1);
-});
-
-it('answers Next with an account export where the request accepts one', async () => {
-  mockUiState = {
-    ...qrState(true),
-    payload: {
-      urType: 'qr-hardware-call',
-      urData: 'a0',
-      allowAccountExport: true,
-    },
-  };
-  mockStartScan.mockResolvedValueOnce({ raw: 'fixture-account-export' });
-  render(<ThirdPartyHardwareUiStateContainer />);
-  await flush();
-  const props = jest.mocked(SecureQRToast.show).mock.calls[0][0];
-  expect(props.title).toBe(ETranslations.device_stage_connect_vendor__title);
-  expect(props.message).toBe(ETranslations.device_stage_show_qr__title);
-  expect(props.notice).toBe(ETranslations.keystone_account_export__desc);
-  expect(mockStartScan).not.toHaveBeenCalled();
+  expect(mockCancel).toHaveBeenCalledTimes(1);
   expect(mockUiResponse).not.toHaveBeenCalled();
-  await act(async () => {
-    props.onConfirm?.();
-  });
+  expect(mockTwoWayScan).not.toHaveBeenCalled();
+});
+
+const exportQrState = (): IThirdPartyHardwareUiState => ({
+  ...qrState(true),
+  payload: {
+    urType: 'qr-hardware-call',
+    urData: 'a0',
+    allowAccountExport: true,
+  },
+});
+
+it('shows the Keystone QR on the stage, which it does not leave', async () => {
+  mockUiState = qrState(true);
+  render(<ThirdPartyHardwareUiStateContainer />);
   await flush();
-  expect(mockStartScan).toHaveBeenCalledTimes(1);
+  expect(mockTwoWayScan).toHaveBeenCalledWith(
+    { type: 'eth-sign-request', cbor: 'a0' },
+    { owner: expect.any(String) },
+  );
+  expect(yieldDeviceStageToDialog).not.toHaveBeenCalled();
+});
+
+it('answers with an account export, and its note, where the request accepts one', async () => {
+  mockUiState = exportQrState();
+  mockTwoWayScan.mockResolvedValueOnce({
+    type: 'crypto-multi-accounts',
+    cbor: 'a0',
+  });
+  render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  expect(mockTwoWayScan.mock.calls[0][1].notice).toEqual({
+    key: ETranslations.keystone_account_export__desc,
+  });
   expect(mockUiResponse).toHaveBeenCalledWith({
     vendor: EHardwareVendor.keystone,
     response: {
@@ -358,19 +340,10 @@ it('answers Next with an account export where the request accepts one', async ()
 
 it('keeps signing QR scans on the normal response path', async () => {
   mockUiState = qrState(true);
-  mockStartScan.mockResolvedValueOnce({ raw: 'fixture-signature' });
-  mockDecodeUr.mockResolvedValueOnce({
-    type: 'eth-signature',
-    cbor: Buffer.from('a1', 'hex'),
-  });
+  mockTwoWayScan.mockResolvedValueOnce({ type: 'eth-signature', cbor: 'a1' });
   render(<ThirdPartyHardwareUiStateContainer />);
   await flush();
-  const props = jest.mocked(SecureQRToast.show).mock.calls[0][0];
-  expect(props.title).toBeUndefined();
-  expect(props.notice).toBeUndefined();
-  await act(async () => {
-    props.onConfirm?.();
-  });
+  expect(mockTwoWayScan.mock.calls[0][1].notice).toBeUndefined();
   expect(mockUiResponse).toHaveBeenCalledWith({
     vendor: EHardwareVendor.keystone,
     response: {
@@ -381,21 +354,13 @@ it('keeps signing QR scans on the normal response path', async () => {
 });
 
 it('reports undecodable export data to the SDK instead of treating it as cancellation', async () => {
-  mockUiState = {
-    ...qrState(true),
-    payload: {
-      urType: 'qr-hardware-call',
-      urData: 'a0',
-      allowAccountExport: true,
-    },
-  };
-  mockStartScan.mockResolvedValueOnce({ raw: 'not-an-account-code' });
-  mockDecodeUr.mockRejectedValueOnce(new Error('Cannot decode code'));
-  render(<ThirdPartyHardwareUiStateContainer />);
-  await flush();
-  await act(async () => {
-    jest.mocked(SecureQRToast.show).mock.calls[0][0].onConfirm?.();
+  mockUiState = exportQrState();
+  // The stage scan throws its invalid-code error, which has no class of its own.
+  mockTwoWayScan.mockRejectedValueOnce({
+    className: EOneKeyErrorClassNames.OneKeyAppError,
+    message: 'OneKeyErrorAirGapInvalidQrCode',
   });
+  render(<ThirdPartyHardwareUiStateContainer />);
   await flush();
   expect(mockUiResponse).toHaveBeenCalledWith({
     vendor: EHardwareVendor.keystone,
@@ -407,47 +372,67 @@ it('reports undecodable export data to the SDK instead of treating it as cancell
   expect(mockCancel).not.toHaveBeenCalled();
 });
 
-it('scans on the stage camera when the stage can host it', async () => {
-  mockUiState = qrState(false);
-  mockScanOnStage.mockResolvedValueOnce({
-    raw: 'last-frame',
-    data: { fullData: 'fixture-full-ur' },
-  });
-  render(<ThirdPartyHardwareUiStateContainer />);
-  await flush();
-  await flush();
-  expect(mockScanOnStage).toHaveBeenCalledTimes(1);
-  expect(mockDecodeUr).toHaveBeenCalledWith('fixture-full-ur');
-  expect(mockUiResponse).toHaveBeenCalledWith({
-    vendor: EHardwareVendor.keystone,
-    response: {
-      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
-      payload: { urType: 'crypto-multi-accounts', urData: 'a0' },
-    },
-  });
-  expect(yieldDeviceStageToDialog).not.toHaveBeenCalled();
-  expect(mockStartScan).not.toHaveBeenCalled();
-});
+it.each([
+  EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+  EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+])(
+  'ends the request when the stage closes over the code (%s)',
+  async (className) => {
+    mockUiState = qrState(true);
+    mockTwoWayScan.mockRejectedValueOnce({ className });
+    render(<ThirdPartyHardwareUiStateContainer />);
+    await flush();
+    expect(mockCancel).toHaveBeenCalledTimes(1);
+    expect(mockUiResponse).not.toHaveBeenCalled();
+  },
+);
 
-it('ends the request when the stage camera is closed', async () => {
-  mockUiState = qrState(false);
-  mockScanOnStage.mockRejectedValueOnce(new Error('scan cancelled'));
-  render(<ThirdPartyHardwareUiStateContainer />);
-  await flush();
-  await flush();
-  expect(mockCancel).toHaveBeenCalledTimes(1);
-  expect(mockUiResponse).not.toHaveBeenCalled();
-  expect(mockStartScan).not.toHaveBeenCalled();
-});
-
-it('does not open the scanner after its QR request was cancelled during the exit', async () => {
-  mockUiState = qrState(false);
-  const release = holdExit();
+it('ends its own stage session when the SDK ends the QR request', async () => {
+  mockUiState = qrState(true);
   const view = render(<ThirdPartyHardwareUiStateContainer />);
-  view.unmount();
-  await release();
-  expect(mockStartScan).not.toHaveBeenCalled();
-  expect(mockCancel).toHaveBeenCalledTimes(1);
+  await flush();
+  const { owner } = mockTwoWayScan.mock.calls[0][1];
+  expect(owner).toEqual(expect.any(String));
+
+  // A timeout or abort clears the request under the open stage session.
+  publishState(undefined);
+  view.rerender(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+
+  expect(mockCancelStageScan).toHaveBeenCalledTimes(1);
+  expect(mockCancelStageScan).toHaveBeenCalledWith({ owner });
+});
+
+it('leaves the stage alone once its code has been answered', async () => {
+  mockUiState = qrState(true);
+  mockTwoWayScan.mockResolvedValueOnce({ type: 'eth-signature', cbor: 'a1' });
+  const view = render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  expect(mockUiResponse).toHaveBeenCalledTimes(1);
+
+  publishState(undefined);
+  view.rerender(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+
+  expect(mockCancelStageScan).not.toHaveBeenCalled();
+});
+
+it('tags each request with its own stage owner', async () => {
+  mockUiState = qrState(true);
+  const view = render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  publishState({ ...qrState(true), uiRequestId: 'ui-qr-2' });
+  view.rerender(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+
+  const [first, second] = mockTwoWayScan.mock.calls.map(
+    ([, options]) => options.owner,
+  );
+  expect(second).toEqual(expect.any(String));
+  expect(second).not.toBe(first);
+  // The replaced request's cleanup names only its own session.
+  expect(mockCancelStageScan).toHaveBeenCalledWith({ owner: first });
+  expect(mockCancelStageScan).not.toHaveBeenCalledWith({ owner: second });
 });
 
 it('hands the stage to the Bluetooth settings dialog', async () => {

@@ -18803,7 +18803,6 @@
     "packages/components/src/composite/DeviceStage/AuthPanels.tsx": 8035,
     "packages/components/src/composite/DeviceStage/BluetoothBadge.tsx": 8036,
     "packages/components/src/composite/DeviceStage/CardValue.tsx": 1729,
-    "packages/components/src/composite/DeviceStage/ChannelCornerBadge.tsx": 3045,
     "packages/components/src/composite/DeviceStage/PassphraseIntro.tsx": 8038,
     "packages/components/src/composite/DeviceStage/PreferenceCapsule.tsx": 19210,
     "packages/components/src/composite/DeviceStage/QrPanels.tsx": 8040,

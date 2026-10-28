@@ -22,7 +22,6 @@ import {
   useDevSettingsPersistAtom,
   useDeviceStageAtom,
   useSettingsPersistAtom,
-  useThirdPartyLiveConnectionAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDeviceStageState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -132,14 +131,6 @@ function DeviceStageContainerCmp() {
       settings.hardwareTransportType === EHardwareTransportType.DesktopWebBle)
       ? 'bluetooth'
       : 'usb';
-  // A third-party device's channel is the one its SDK connected over, never
-  // the OneKey setting above; unknown leaves the badge off.
-  const [liveVendorConnection] = useThirdPartyLiveConnectionAtom();
-  let vendorConnectionType: IDeviceStageConnectionType | undefined;
-  if (stage?.vendor && liveVendorConnection?.vendor === stage.vendor) {
-    vendorConnectionType =
-      liveVendorConnection.connectionType === 'ble' ? 'bluetooth' : 'usb';
-  }
 
   // The exit policy's clocks, and the wait report that rides out of them
   // with the numbers the grant saw.
@@ -601,7 +592,7 @@ function DeviceStageContainerCmp() {
       deviceType={toStageDeviceType(stage?.deviceType)}
       deviceColor={stage?.deviceColor}
       deviceName={stage?.deviceName}
-      connectionType={stage?.vendor ? vendorConnectionType : connectionType}
+      connectionType={connectionType}
       waitStalled={stalled}
       vendor={toStageVendor(stage?.vendor)}
       vendorModel={stage?.vendorModel}
@@ -646,6 +637,7 @@ function DeviceStageContainerCmp() {
       confirmDescriptionDanger={stage?.confirmDescriptionDanger}
       confirmCount={stage?.confirmCount}
       qrValueUr={stage?.qrValueUr}
+      qrNoticeI18n={stage?.qrNoticeI18n}
       qrSessionId={stage?.qrSessionId}
       qrRenderKey={
         stage?.qrDiagnostic
@@ -659,9 +651,7 @@ function DeviceStageContainerCmp() {
       }
       onQrNext={handleQrNext}
       onQrRenderReady={handleQrRenderReady}
-      // A scan-only session (Keystone shows its code in its own toast) has
-      // no code on stage to go back to.
-      onQrBack={stage?.qrValueUr ? handleQrBack : undefined}
+      onQrBack={handleQrBack}
       onClose={closable ? handleClose : undefined}
       onErrorNoticeExpire={retireErrorOutcome}
       errorNoticeKey={

@@ -272,8 +272,7 @@ export interface IDeviceStageProps {
    * (desktop runs USB and Bluetooth side by side, and support reads it
    * off a screenshot). `usb` (and omitted) keeps the replica — the
    * plugged-in device standing there IS the wired look. The vendor
-   * track keeps its product shot and wears a small corner badge for
-   * either channel; omitted, it shows none.
+   * track ignores it: that seat wears the product shot.
    */
   connectionType?: IDeviceStageConnectionType;
   /**
@@ -367,6 +366,8 @@ export interface IDeviceStageProps {
    * integration layer hands over the UR json and owns nothing else.
    */
   qrValueUr?: IAirGapUrJson;
+  /** A note the showQr card carries under its steps. */
+  qrNoticeI18n?: IDeviceStageErrorI18n;
   qrSessionId?: number;
   qrRenderKey?: string;
   /**

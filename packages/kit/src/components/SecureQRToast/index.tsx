@@ -30,8 +30,6 @@ interface ISecureQRToastBaseProps {
   onConfirmText?: string;
   onCancel?: () => void;
   showConfirmButton?: boolean;
-  /** An important note under the code, in critical color. */
-  notice?: string;
 }
 
 const SecureQRToastBase = ({
@@ -45,7 +43,6 @@ const SecureQRToastBase = ({
   onConfirmText,
   onCancel,
   showConfirmButton = true,
-  notice,
 }: ISecureQRToastBaseProps) => {
   const intl = useIntl();
   const [show, setShow] = useState(showQRCode);
@@ -181,19 +178,6 @@ const SecureQRToastBase = ({
           </Button>
         ) : null}
       </XStack>
-      {notice ? (
-        <SizableText
-          testID="secure-qr-toast-notice"
-          mt="$5"
-          pt="$4"
-          borderTopWidth={1}
-          borderTopColor="$borderSubdued"
-          size="$bodyMdMedium"
-          color="$textCritical"
-        >
-          {notice}
-        </SizableText>
-      ) : null}
     </YStack>
   );
 };
@@ -210,7 +194,6 @@ export const SecureQRToast = {
     onCancel,
     onConfirmText,
     showConfirmButton,
-    notice,
     ...props
   }: ISecureQRToastBaseProps & IShowToasterProps) =>
     Toast.show({
@@ -226,7 +209,6 @@ export const SecureQRToast = {
           onConfirmText={onConfirmText}
           onCancel={onCancel}
           showConfirmButton={showConfirmButton}
-          notice={notice}
         />
       ),
       ...props,

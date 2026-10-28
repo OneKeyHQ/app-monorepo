@@ -1229,46 +1229,34 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('done');
   });
 
-  it('reclaims a stage that yielded to the Keystone code toast for its camera', async () => {
-    // The code toast made the stage step aside; the scan that follows is
-    // the person's next ask, so the camera rises over any open dialog,
-    // and the processing stragglers behind the yield stay off until then.
+  it("carries a code's note across the scan and back, and drops it with the code", async () => {
     const scope = new DeviceStageBurstScope();
     const token = await scope.beginExplicit({
       vendor: EHardwareVendor.keystone,
     });
-    const processing = () =>
-      scope.onThirdPartyState({
-        ui: {
-          action: EThirdPartyHardwareUiAction.processing,
-          vendor: EHardwareVendor.keystone,
-        },
-        install: undefined,
-        batch: undefined,
-      });
-    await processing();
-    expect(stage?.step).toBe('processing');
-    await scope.silence();
-    await processing();
-    expect(stage?.step).toBe('off');
+    const valueUr = { type: 'bytes', cbor: 'a0' };
+    const notice = { key: ETranslations.keystone_account_export__desc };
 
-    await scope.qrStartScan({ sessionId: 9 });
+    await scope.qrShowCode({ valueUr, sessionId: 1, notice });
+    expect(stage?.step).toBe('showQr');
+    expect(stage?.qrNoticeI18n).toEqual(notice);
+
+    await scope.qrProceedToScan();
     expect(stage?.step).toBe('scanQr');
-    expect(stage?.qrSessionId).toBe(9);
-    expect(stage?.qrValueUr).toBeUndefined();
+    expect(stage?.qrNoticeI18n).toEqual(notice);
 
+    await scope.qrBackToShow();
+    expect(stage?.step).toBe('showQr');
+    expect(stage?.qrNoticeI18n).toEqual(notice);
+
+    // A newer code without a note does not inherit the old one.
+    await scope.qrShowCode({ valueUr, sessionId: 2 });
+    expect(stage?.qrNoticeI18n).toBeUndefined();
+
+    await scope.qrShowCode({ valueUr, sessionId: 3, notice });
     await scope.qrNoteScanCompleted();
     expect(stage?.step).toBe('processing');
-    // Lifted for good: the rail's own beats paint again.
-    await scope.onThirdPartyState({
-      ui: {
-        action: EThirdPartyHardwareUiAction.done,
-        vendor: EHardwareVendor.keystone,
-      },
-      install: undefined,
-      batch: undefined,
-    });
-    expect(stage?.step).toBe('done');
+    expect(stage?.qrNoticeI18n).toBeUndefined();
     await scope.endExplicit({ token });
   });
 

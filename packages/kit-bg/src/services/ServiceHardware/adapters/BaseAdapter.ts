@@ -1,10 +1,7 @@
-import { DEVICE } from '@onekeyfe/hwk-adapter-core';
-
 import {
   type IThirdPartyHardwareUiState,
   publishThirdPartyHardwareUiState,
   thirdPartyHardwareUiStateAtom,
-  thirdPartyLiveConnectionAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -79,27 +76,6 @@ export abstract class BaseAdapter {
         payload: undefined,
         uiRequestId: replacement.uiRequestId,
       };
-    });
-  }
-
-  /** Records the channel the SDK connects this vendor's device over, for the stage's channel badge. */
-  protected trackLiveConnection(): void {
-    this.hw.on(DEVICE.CONNECT, (event) => {
-      const { connectId, connectionType } = event.payload;
-      if (connectionType !== 'usb' && connectionType !== 'ble') return;
-      void thirdPartyLiveConnectionAtom.set({
-        vendor: this.vendor,
-        connectId,
-        connectionType,
-      });
-    });
-    this.hw.on(DEVICE.DISCONNECT, (event) => {
-      void thirdPartyLiveConnectionAtom.set((state) =>
-        state?.vendor === this.vendor &&
-        state.connectId === event.payload.connectId
-          ? undefined
-          : state,
-      );
     });
   }
 

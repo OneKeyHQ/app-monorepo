@@ -1788,9 +1788,11 @@ export class DeviceStageBurstScope {
     valueUr,
     sessionId,
     diagnostic,
+    notice,
   }: {
     valueUr: IAirGapUrJson;
     diagnostic?: IDeviceStageState['qrDiagnostic'];
+    notice?: IDeviceStageState['qrNoticeI18n'];
     /** The session's tag, echoed back by the viewfinder's submit — a
      * stale frame must never answer a newer request (see ServiceQrWallet
      * stageAirGapSession). */
@@ -1801,6 +1803,7 @@ export class DeviceStageBurstScope {
       qrValueUr: valueUr,
       qrSessionId: sessionId,
       qrDiagnostic: diagnostic,
+      qrNoticeI18n: notice,
     });
   }
 
@@ -1818,15 +1821,6 @@ export class DeviceStageBurstScope {
       stage: 'qrScanStarted',
       status: 'started',
     });
-  }
-
-  /** A flow that shows its own code (the Keystone QR toast) hands only its
-   * camera to the stage: straight to scanQr, reclaiming a stage that
-   * yielded to that toast. */
-  async qrStartScan({ sessionId }: { sessionId: number }) {
-    this.clearOffTimer();
-    this.yieldedToDialog = false;
-    await this.setStep('scanQr', { qrSessionId: sessionId });
   }
 
   /** The escape hatch for a premature handoff: back to presenting the
@@ -2154,6 +2148,7 @@ export class DeviceStageBurstScope {
       qrValueUr?: IDeviceStageState['qrValueUr'];
       qrSessionId?: number;
       qrDiagnostic?: IDeviceStageState['qrDiagnostic'];
+      qrNoticeI18n?: IDeviceStageState['qrNoticeI18n'];
       resetOutcome?: boolean;
     },
   ) {
@@ -2280,6 +2275,12 @@ export class DeviceStageBurstScope {
           step,
           mergedExtras.qrSessionId,
           base?.qrSessionId,
+        ),
+        // Like the trace: a new code names its own note, or clears the old one.
+        qrNoticeI18n: pickQrScoped(
+          step,
+          mergedExtras.qrNoticeI18n,
+          'qrNoticeI18n' in mergedExtras ? undefined : base?.qrNoticeI18n,
         ),
         inputError: mergedExtras.inputError,
         passphraseMode: mergedExtras.passphraseMode ?? base?.passphraseMode,

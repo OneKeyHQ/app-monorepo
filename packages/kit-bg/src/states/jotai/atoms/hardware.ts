@@ -270,6 +270,8 @@ export type IDeviceStageState = {
    * request. The servicePromise id itself never leaves bg. */
   qrSessionId?: number;
   qrDiagnostic?: ISolanaTxDiagnosticContext;
+  /** A note the showQr card carries under its steps; scoped like the UR. */
+  qrNoticeI18n?: IDeviceStageErrorI18n;
   confirmDetails?: IDeviceStageConfirmDetail[];
   confirmMessage?: string;
   confirmDescription?: string;
@@ -461,21 +463,6 @@ export const {
 } = globalAtom<IThirdPartyBatchInstallState | undefined>({
   initialValue: undefined,
   name: EAtomNames.thirdPartyBatchInstallAtom,
-});
-
-/** The channel the SDK last connected a third-party device over; cleared when that device disconnects. */
-export type IThirdPartyLiveConnectionState = {
-  vendor: EHardwareVendor;
-  connectId: string;
-  connectionType: 'usb' | 'ble';
-};
-
-export const {
-  target: thirdPartyLiveConnectionAtom,
-  use: useThirdPartyLiveConnectionAtom,
-} = globalAtom<IThirdPartyLiveConnectionState | undefined>({
-  initialValue: undefined,
-  name: EAtomNames.thirdPartyLiveConnectionAtom,
 });
 
 // firmware update ----------------------------------------------

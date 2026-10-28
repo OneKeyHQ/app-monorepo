@@ -2,6 +2,7 @@
 import {
   OneKeyErrorScanQrCodeCancel,
   OneKeyLocalError,
+  SecureQRCodeDialogCancel,
 } from '@onekeyhq/shared/src/errors';
 import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 
@@ -30,6 +31,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
 jest.mock('@onekeyhq/qr-wallet-sdk', () => ({
   airGapUrUtils: {
     urToJson: jest.fn(() => ({ type: 'bytes', cbor: 'mock' })),
+    jsonToUr: jest.fn(() => ({ type: 'bytes' })),
     qrcodeToUr: jest.fn(async () => ({ type: 'bytes' })),
   },
 }));
@@ -299,17 +301,17 @@ describe('ServiceQrWallet.startTwoWayAirGapScanUr stage bracket', () => {
   );
 });
 
-describe('ServiceQrWallet.scanAirGapOnStage', () => {
-  const createScanOnlyService = ({ isEnabled }: { isEnabled: boolean }) => {
+describe('ServiceQrWallet stage session owner', () => {
+  const createStageSessionService = () => {
     const callbacks = new Map<
       number,
       { resolve: (value: unknown) => void; reject: (error: unknown) => void }
     >();
     let nextCallbackId = 0;
     const deviceStageBurst = {
-      isEnabled: jest.fn(async () => isEnabled),
+      isEnabled: jest.fn(async () => true),
       begin: jest.fn(async () => true),
-      qrStartScan: jest.fn<Promise<void>, [{ sessionId: number }]>(
+      qrShowCode: jest.fn<Promise<void>, [{ sessionId: number }]>(
         async () => undefined,
       ),
       qrNoteScanCompleted: jest.fn(async () => undefined),
@@ -344,57 +346,67 @@ describe('ServiceQrWallet.scanAirGapOnStage', () => {
         },
       } as unknown as IBackgroundApi,
     });
-    const scanStarted = () =>
+    const codeShown = () =>
       new Promise<number>((resolve) => {
-        deviceStageBurst.qrStartScan.mockImplementation(
+        deviceStageBurst.qrShowCode.mockImplementation(
           async ({ sessionId }) => {
             resolve(sessionId);
           },
         );
       });
-    return { service, deviceStageBurst, scanStarted };
+    return { service, deviceStageBurst, codeShown };
   };
 
-  it('leaves the scan to the page when the stage is unavailable', async () => {
-    const { service, deviceStageBurst } = createScanOnlyService({
-      isEnabled: false,
+  // Settles to 'pending' when the call is still waiting on its session.
+  const settledState = async (call: Promise<unknown>) =>
+    Promise.race([
+      call.then(
+        () => 'resolved',
+        () => 'rejected',
+      ),
+      new Promise((resolve) => {
+        setTimeout(() => resolve('pending'), 0);
+      }),
+    ]);
+
+  it('still lets a stage close end a session that names no owner', async () => {
+    // The OneKey QR wallet passes no owner; the stage's own close is unchanged.
+    const { service, deviceStageBurst, codeShown } =
+      createStageSessionService();
+    const shown = codeShown();
+
+    const exchange = service.startTwoWayAirGapScan({
+      type: 'bytes',
+      cbor: 'a0',
     });
-
-    await expect(service.scanAirGapOnStage()).resolves.toBeUndefined();
-    expect(deviceStageBurst.begin).not.toHaveBeenCalled();
-    expect(deviceStageBurst.qrStartScan).not.toHaveBeenCalled();
-  });
-
-  it("answers with the stage camera's scan and releases the stage", async () => {
-    const { service, deviceStageBurst, scanStarted } = createScanOnlyService({
-      isEnabled: true,
-    });
-    const started = scanStarted();
-
-    const scan = service.scanAirGapOnStage();
-    const sessionId = await started;
-    await service.submitStageAirGapScanResult({
-      result: scanResult,
-      sessionId,
-    });
-
-    await expect(scan).resolves.toBe(scanResult);
-    expect(deviceStageBurst.end).toHaveBeenCalledWith({ error: undefined });
-  });
-
-  it('rejects like the scan page when the stage is closed on the camera', async () => {
-    const { service, deviceStageBurst, scanStarted } = createScanOnlyService({
-      isEnabled: true,
-    });
-    const started = scanStarted();
-
-    const scan = service.scanAirGapOnStage();
-    await started;
+    await shown;
     await service.cancelStageAirGapScan({ scanning: true });
 
-    await expect(scan).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+    await expect(exchange).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
     expect(deviceStageBurst.end).toHaveBeenCalledWith({
       error: expect.any(OneKeyErrorScanQrCodeCancel),
+    });
+  });
+
+  it("ends a shown code when its owner's request ends, and only its owner's", async () => {
+    const { service, deviceStageBurst, codeShown } =
+      createStageSessionService();
+    const shown = codeShown();
+
+    const exchange = service.startTwoWayAirGapScan(
+      { type: 'bytes', cbor: 'a0' },
+      { owner: 'request-a' },
+    );
+    await shown;
+    await service.cancelStageAirGapScan({ owner: 'request-b' });
+    await expect(settledState(exchange)).resolves.toBe('pending');
+    expect(deviceStageBurst.end).not.toHaveBeenCalled();
+
+    await service.cancelStageAirGapScan({ owner: 'request-a' });
+
+    await expect(exchange).rejects.toBeInstanceOf(SecureQRCodeDialogCancel);
+    expect(deviceStageBurst.end).toHaveBeenCalledWith({
+      error: expect.any(SecureQRCodeDialogCancel),
     });
   });
 });
