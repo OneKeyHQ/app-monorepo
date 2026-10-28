@@ -252,6 +252,8 @@ export function useEarnDesktopAccountMarkets({
   return {
     entries,
     loans,
+    // Whose markets these are, for what is remembered per account
+    accountScope: scope,
     // A changed market list keeps the answers it has while the rest load
     isLoaded:
       isListReady &&

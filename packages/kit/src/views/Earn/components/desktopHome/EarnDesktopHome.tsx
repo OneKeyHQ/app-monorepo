@@ -488,6 +488,11 @@ export function EarnDesktopHome({
     setTab('earn');
     scrollToBrowse();
   }, [scrollToBrowse]);
+  // The Loans card's title, as the Trending card's opens the Earn tab
+  const handleOpenLoansTab = useCallback(() => {
+    setTab('loans');
+    scrollToBrowse();
+  }, [scrollToBrowse]);
   // The row asked for is in the Earn tab
   useEffect(() => {
     if (openRequest) {
@@ -502,6 +507,21 @@ export function EarnDesktopHome({
     [navigation],
   );
   const handleOpenLoanPair = useEarnDesktopOpenLoanPair();
+  // The account's loans over the Loans list, each opening its market's page
+  const yourLoans = useMemo(
+    () => ({
+      loans: accountMarkets.loans,
+      isLoaded: accountMarkets.isLoaded,
+      accountScope: accountMarkets.accountScope,
+      onOpenMarket: handleOpenBorrow,
+    }),
+    [
+      accountMarkets.accountScope,
+      accountMarkets.isLoaded,
+      accountMarkets.loans,
+      handleOpenBorrow,
+    ],
+  );
 
   // The phone layout's entries and its sections' full lists are pages
   const handleOpenTokensPage = useCallback(
@@ -725,7 +745,7 @@ export function EarnDesktopHome({
             isTrendingLoading={isAssetsLoading}
             isFixedRateLoading={isFixedRateLoading}
             lendingOffers={lendingOffers}
-            onOpenBorrow={handleOpenBorrow}
+            onOpenLoans={handleOpenLoansTab}
             onOpenTokens={handleOpenTokens}
             onOpenHoldRow={handleOpenHoldRow}
           />
@@ -761,6 +781,7 @@ export function EarnDesktopHome({
                 isActive={tab === 'loans'}
                 walletNetworkGroups={wallet.networkGroups}
                 onOpenPair={handleOpenLoanPair}
+                yourLoans={yourLoans}
               />
             </YStack>
           ) : null}

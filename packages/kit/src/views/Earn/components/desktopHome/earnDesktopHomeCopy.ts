@@ -93,6 +93,8 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // In place of Net APY where no rate holds: what the plan makes a year
   loanNetPerYear: 'Net per year',
   loanPositionTitle: (market: string) => `Your ${market} position`,
+  // The account's loans, a card per market, above the Loans list
+  yourLoans: 'Your loans',
   loanPoolInfo:
     'Everything you supply here as collateral backs every loan here. If Health Factor falls below 1, any of it can be sold.',
   loanLiquidationPrice: 'Liquidation Price',

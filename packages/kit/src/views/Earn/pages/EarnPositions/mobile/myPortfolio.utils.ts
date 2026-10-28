@@ -3,7 +3,10 @@ import BigNumber from 'bignumber.js';
 import type { IProtocolValueState } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
+import type {
+  IEarnPortfolioPosition,
+  IEarnPositionManageTarget,
+} from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
   IEarnActionIcon,
   IEarnPortfolioAirdropAsset,
@@ -19,6 +22,7 @@ import type {
   IEarnPositionSectionAsset,
   IEarnPositionSectionKind,
   IEarnPositionView,
+  IEarnProtocolView,
 } from './earnPositionModel';
 import type { IPortfolioClaimSourceCandidate } from '../../../utils/portfolioClaimUtils';
 
@@ -61,6 +65,39 @@ export function positionPendingTag(position: IEarnPortfolioPosition): string {
     tokenSymbol: position.earn.symbol,
     protocolVault: position.earn.vault,
   });
+}
+
+/**
+ * The market a card's loan sits in, for the market's own page (the Borrow
+ * page, where repaying and the collateral are): set where the card holds a
+ * lending position that borrows. Found by the target the card hands its
+ * Manage, the one object the card was built with (demo 10-28)
+ */
+export function findLoanMarketOf(
+  protocols: IEarnProtocolView[],
+  target: IEarnPositionManageTarget,
+): { provider: string; networkId: string; marketAddress: string } | undefined {
+  for (const protocol of protocols) {
+    const card = protocol.positions.find(
+      (position) => position.action?.target === target,
+    );
+    if (card) {
+      const isLoan = card.sources.some(
+        (source) => source.category === 'lending' && source.debts.length > 0,
+      );
+      // The market is the position's vault, named on Manage's target or on
+      // the position itself
+      const marketAddress = target.vault || card.source.earn.vault;
+      return isLoan && marketAddress
+        ? {
+            provider: target.provider,
+            networkId: target.networkId,
+            marketAddress,
+          }
+        : undefined;
+    }
+  }
+  return undefined;
 }
 
 /**

@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import type { IElement } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
@@ -356,15 +357,19 @@ function OfferTile({
   kind,
   lists,
   onOpenTokens,
-  onOpenBorrow,
+  onOpenLoans,
 }: {
   kind: IEarnDesktopOfferKind;
   lists: IOfferLists;
   onOpenTokens: () => void;
-  onOpenBorrow: (market?: IEarnDesktopMarketReserves['market']) => void;
+  /** The Loans card's title opens the Loans tab */
+  onOpenLoans: () => void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const accountId = activeAccount.account?.id;
+  const indexedAccountId = activeAccount.indexedAccount?.id;
   const navigateToAsset = useNavigateToEarnAsset();
   const { trending, fixed, loans } = lists;
 
@@ -434,14 +439,27 @@ function OfferTile({
       <TileFrame>
         <TileHead
           title={intl.formatMessage({ id: ETranslations.earn_loans__action })}
-          onPress={() => onOpenBorrow()}
+          onPress={onOpenLoans}
         />
         <YStack mt="$2">
           {loans.map((offer) => (
             <TileRow
               key={`${buildBorrowMarketKey(offer.market)}-${offer.reserveAddress}`}
               testID={`earn-desktop-loan-${offer.market.networkId}-${offer.symbol}`}
-              onPress={() => onOpenBorrow(offer.market)}
+              // A row's rate is what supplying pays: it opens the asset's
+              // supply page, as the Earn table's row for the market does
+              onPress={() =>
+                EarnNavigation.pushToEarnLendingDetails(navigation, {
+                  networkId: offer.market.networkId,
+                  provider: offer.market.provider,
+                  marketAddress: offer.market.marketAddress,
+                  reserveAddress: offer.reserveAddress,
+                  symbol: offer.symbol,
+                  logoURI: offer.logoURI,
+                  accountId,
+                  indexedAccountId,
+                })
+              }
               icon={
                 <SurfaceToken
                   size="md"
@@ -489,7 +507,7 @@ function BasicEarnDesktopTiles({
   isTrendingLoading,
   isFixedRateLoading,
   lendingOffers,
-  onOpenBorrow,
+  onOpenLoans,
   onOpenTokens,
   onOpenHoldRow,
 }: {
@@ -504,7 +522,7 @@ function BasicEarnDesktopTiles({
   isTrendingLoading: boolean;
   isFixedRateLoading: boolean;
   lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
-  onOpenBorrow: (market?: IEarnDesktopMarketReserves['market']) => void;
+  onOpenLoans: () => void;
   onOpenTokens: () => void;
   onOpenHoldRow: (row: IEarnDesktopHoldRow) => void;
 }) {
@@ -600,7 +618,7 @@ function BasicEarnDesktopTiles({
           kind={kind}
           lists={offerLists}
           onOpenTokens={onOpenTokens}
-          onOpenBorrow={onOpenBorrow}
+          onOpenLoans={onOpenLoans}
         />
       </TileSlot>
     ),

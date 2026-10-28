@@ -41,6 +41,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
+import { BorrowNavigation } from '../../../Borrow/borrowUtils';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { StakeProgress } from '../../../Staking/components/StakeProgress';
 import { StakingAmountInput } from '../../../Staking/components/StakingAmountInput';
@@ -50,6 +51,7 @@ import {
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import { EARN_DESKTOP_LOAN_LTV } from '../../components/desktopHome/earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
+import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 import { useEarnDesktopMarkets } from '../../components/desktopHome/useEarnDesktopHomeData';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
@@ -294,6 +296,42 @@ function SkeletonFormRow({
         <Skeleton.BodyMd w={56} />
         {hasNote ? <Skeleton.BodySm w={96} /> : null}
       </YStack>
+    </XStack>
+  );
+}
+
+// The way from the loan's market here to the market's own page, where the
+// whole position is managed: repaying, collateral, borrowing more
+function PositionManageLink({ onPress }: { onPress: () => void }) {
+  const intl = useIntl();
+  const [isHovered, setIsHovered] = useState(false);
+  return (
+    <XStack
+      testID="earn-loan-position-manage"
+      role="button"
+      ai="center"
+      gap="$0.5"
+      ml="auto"
+      flexShrink={0}
+      cursor="pointer"
+      userSelect="none"
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+      pressStyle={{ opacity: 0.5 }}
+      onPress={onPress}
+      {...buildKeyboardPressProps(onPress, 2)}
+    >
+      <SizableText
+        size="$bodyMdMedium"
+        color={isHovered ? '$text' : '$textSubdued'}
+      >
+        {intl.formatMessage({ id: ETranslations.global_manage })}
+      </SizableText>
+      <Icon
+        name="ChevronRightSmallOutline"
+        size="$5"
+        color={isHovered ? '$icon' : '$iconSubdued'}
+      />
     </XStack>
   );
 }
@@ -1025,6 +1063,17 @@ function EarnLoanRouterPage() {
       <EarnFormSummary outcome={outcome} isOutcomeLoading={isFiguresLoading} />
     ) : null;
 
+  // The window closes and the market's own page opens, the whole position
+  // there
+  const positionMarket = selectedRoute?.market;
+  const handleManagePosition = useCallback(() => {
+    if (!positionMarket) {
+      return;
+    }
+    navigation.popStack();
+    BorrowNavigation.pushToBorrowHome(navigation, positionMarket);
+  }, [navigation, positionMarket]);
+
   // Where the account already has a position, the loan joins it: what backs
   // every loan there, what is borrowed, and the health factor, before and
   // after
@@ -1033,11 +1082,12 @@ function EarnLoanRouterPage() {
       <YStack testID="earn-loan-position" px="$3.5" gap="$3" {...fadeInProps}>
         <XStack ai="center" gap="$2">
           <Token size="xs" tokenImageUri={selectedRoute.market.logoURI} />
-          <SizableText size="$bodyMdMedium">
+          <SizableText size="$bodyMdMedium" flexShrink={1} numberOfLines={1}>
             {EARN_DESKTOP_DEMO_COPY.loanPositionTitle(
               selectedRoute.marketLabel,
             )}
           </SizableText>
+          <PositionManageLink onPress={handleManagePosition} />
         </XStack>
         <EarnFormRow
           testID="earn-loan-position-collateral"

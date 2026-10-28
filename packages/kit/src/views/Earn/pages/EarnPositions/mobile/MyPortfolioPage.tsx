@@ -20,6 +20,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { warmWithdrawWaysOut } from '@onekeyhq/kit/src/views/Staking/components/UniversalWithdraw/warmWithdrawWaysOut';
 import {
   buildEarnProtocolInfo,
@@ -56,7 +57,11 @@ import {
   sumEarnClaimableRewards,
   sumEarnPendingRewards,
 } from './earnPositionModel';
-import { positionPendingTag, sumRewardsHeaderFiat } from './myPortfolio.utils';
+import {
+  findLoanMarketOf,
+  positionPendingTag,
+  sumRewardsHeaderFiat,
+} from './myPortfolio.utils';
 import { PortfolioTableLayoutContext } from './portfolioTableLayout';
 import { PortfolioTotalsHeader } from './PortfolioTotalsHeader';
 import { RewardsTab } from './RewardsTab';
@@ -321,15 +326,23 @@ export function MyPortfolioPage({
   );
 
   // The card's header line opens the position's own detail page, landing on
-  // its Portfolio tab.
+  // its Portfolio tab. On web a loan opens its market's Borrow page instead,
+  // where repaying and the collateral are (demo 10-28)
   const handleManage = useCallback(
     (target: IEarnPositionManageTarget) => {
+      const loanMarket = platformEnv.isNative
+        ? undefined
+        : findLoanMarketOf(view.protocols, target);
+      if (loanMarket) {
+        BorrowNavigation.pushToBorrowHome(navigation, loanMarket);
+        return;
+      }
       void EarnNavigation.pushToEarnProtocolDetails(navigation, {
         ...target,
         scrollToPortfolio: true,
       });
     },
-    [navigation],
+    [navigation, view.protocols],
   );
 
   // The account the page is on, read after an await: a Redeem whose read

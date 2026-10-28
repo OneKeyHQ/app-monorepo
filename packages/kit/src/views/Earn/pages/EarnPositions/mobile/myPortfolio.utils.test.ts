@@ -20,6 +20,7 @@ import {
   buildClaimSourceCandidates,
   buildNetworkInfoMap,
   canRedeemFromCard,
+  findLoanMarketOf,
   hasPositionDetailPage,
   holdingRowActionOf,
   isPositiveAmountText,
@@ -574,5 +575,46 @@ describe('canRedeemFromCard', () => {
       }),
     ).toBe(true);
     expect(positionMatured(byId('lido:evm--1:steth'))).toBeUndefined();
+  });
+});
+
+describe('findLoanMarketOf', () => {
+  const translate = (id: ETranslations) => id as string;
+  const { protocols } = buildEarnPortfolioView({
+    response: EARN_PORTFOLIO_POSITIONS_FIXTURE,
+    translate,
+  });
+  const targetOf = (groupId: string) => {
+    const card = protocols
+      .flatMap((protocol) => protocol.positions)
+      .find((position) => position.key === groupId);
+    if (!card?.action) {
+      throw new OneKeyLocalError(`fixture changed: ${groupId} missing`);
+    }
+    return card.action.target;
+  };
+
+  it("opens a loan's market", () => {
+    expect(
+      findLoanMarketOf(protocols, targetOf('morpho:evm--1:market:weth-usdc')),
+    ).toEqual({
+      provider: 'morpho',
+      networkId: 'evm--1',
+      marketAddress: 'market:weth-usdc',
+    });
+  });
+
+  it('leaves a holding without a loan to its detail page', () => {
+    expect(
+      findLoanMarketOf(protocols, targetOf('everstake:evm--1:eth')),
+    ).toBeUndefined();
+  });
+
+  it('knows only the targets its cards were built with', () => {
+    expect(
+      findLoanMarketOf(protocols, {
+        ...targetOf('morpho:evm--1:market:weth-usdc'),
+      }),
+    ).toBeUndefined();
   });
 });

@@ -18,7 +18,9 @@ import {
   EarnDesktopBorrowTab,
   useEarnDesktopOpenLoanPair,
 } from '../../components/desktopHome/EarnDesktopBorrowTab';
+import { useEarnDesktopOpenBorrowMarket } from '../../components/desktopHome/EarnDesktopYourLoans';
 import {
+  useEarnDesktopAccountMarkets,
   useEarnDesktopMarkets,
   useEarnDesktopWalletHoldings,
 } from '../../components/desktopHome/useEarnDesktopHomeData';
@@ -33,9 +35,30 @@ function EarnLoansContent() {
   const intl = useIntl();
   const tabBarHeight = useScrollContentTabBarOffset();
   const isActive = useRouteIsFocused();
-  const { marketList, markets, isLoaded } = useEarnDesktopMarkets({
+  const { marketList, isListReady, markets, isLoaded } = useEarnDesktopMarkets({
     isActive,
   });
+  // The account's loans, over the list
+  const accountMarkets = useEarnDesktopAccountMarkets({
+    markets: marketList,
+    isListReady,
+    isActive,
+  });
+  const handleOpenMarket = useEarnDesktopOpenBorrowMarket();
+  const yourLoans = useMemo(
+    () => ({
+      loans: accountMarkets.loans,
+      isLoaded: accountMarkets.isLoaded,
+      accountScope: accountMarkets.accountScope,
+      onOpenMarket: handleOpenMarket,
+    }),
+    [
+      accountMarkets.accountScope,
+      accountMarkets.isLoaded,
+      accountMarkets.loans,
+      handleOpenMarket,
+    ],
+  );
   // The wallet's balances where the markets are, for the collateral it holds
   const marketNetworkIds = useMemo(
     () =>
@@ -70,6 +93,7 @@ function EarnLoansContent() {
               isActive={isActive}
               walletNetworkGroups={wallet.networkGroups}
               onOpenPair={handleOpenPair}
+              yourLoans={yourLoans}
             />
           </YStack>
         </ScrollView>

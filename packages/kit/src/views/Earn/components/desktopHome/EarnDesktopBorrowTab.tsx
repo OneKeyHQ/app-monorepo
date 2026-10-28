@@ -58,6 +58,7 @@ import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { EarnDesktopPillScroller } from './EarnDesktopPillScroller';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopSortLabel } from './EarnDesktopSortLabel';
+import { EarnDesktopYourLoans } from './EarnDesktopYourLoans';
 import { useStableItems } from './useContentStable';
 
 import type {
@@ -67,6 +68,7 @@ import type {
   IEarnDesktopMarketReserves,
   IEarnDesktopWalletNetworkGroup,
 } from './earnDesktopHome.utils';
+import type { IEarnDesktopYourLoansProps } from './EarnDesktopYourLoans';
 
 // Laid out as the Earn tab's table: one set of columns for the labels and the
 // rows, its row height and its gap between columns
@@ -589,6 +591,7 @@ function BasicEarnDesktopBorrowTab({
   isActive,
   walletNetworkGroups,
   onOpenPair,
+  yourLoans,
 }: {
   markets: IEarnDesktopMarketReserves[];
   isLoaded: boolean;
@@ -597,6 +600,8 @@ function BasicEarnDesktopBorrowTab({
   walletNetworkGroups: IEarnDesktopWalletNetworkGroup[];
   // A row opens the Loans router on its pair, on the market it shows
   onOpenPair: (pair: IEarnDesktopLoanPair) => void;
+  /** The account's loans, shown over the list; each opens its market's page */
+  yourLoans: IEarnDesktopYourLoansProps;
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -818,131 +823,134 @@ function BasicEarnDesktopBorrowTab({
   );
 
   return (
-    <YStack gap="$4">
-      <XStack ai="center" jc="space-between" gap="$4" flexWrap="wrap">
-        {isWide ? (
-          <XStack gap="$2">{assetFilters}</XStack>
-        ) : (
-          // A phone's width scrolls the pills sideways, edge to edge, as the
-          // Earn tab's categories do, instead of cutting the second one
-          <EarnDesktopPillScroller gap="$2">
-            {assetFilters}
-          </EarnDesktopPillScroller>
-        )}
-        <XStack ai="center" gap="$3" w={isWide ? undefined : '100%'}>
-          <NetworkFilterControl
-            testID="earn-desktop-loans-network-filter"
-            variant={isWide ? 'pill' : 'default'}
-            availableNetworkIds={availableNetworkIds}
-            selectedNetworkIds={selectedNetworkIds}
-            networkAssetCounts={networkPairCounts}
-            onSelectionChange={(networkIds) => {
-              setSelectedNetworkIds(networkIds);
-              resetPage();
-            }}
-            triggerProps={{
-              ...NETWORK_TRIGGER_PROPS,
-              bg: selectedNetworkIds.length ? '$bgActive' : '$bgSubdued',
-              hoverStyle: selectedNetworkIds.length
-                ? undefined
-                : { bg: '$bgHover' },
-              ...(reduceMotion ? undefined : HOVER_MOTION),
-            }}
-          />
-          <SearchBar
-            testID="earn-desktop-loans-search"
-            size="small"
-            value={searchText}
-            placeholder={intl.formatMessage({
-              id: ETranslations.global_search_asset,
-            })}
-            onChangeText={(text) => {
-              setSearchText(text);
-              resetPage();
-            }}
-            containerProps={
-              isWide
-                ? SEARCH_BAR_CONTAINER_PROPS
-                : NARROW_SEARCH_BAR_CONTAINER_PROPS
-            }
-          />
-        </XStack>
-      </XStack>
-      {!isLoading && !rows.length ? (
-        // No pairs at all is missing data, not a filter's miss
-        <EarnListEmptyState
-          isFiltered={isFiltered && pairs.length > 0}
-          onReset={hasPickedFilters ? handleResetFilters : undefined}
-        />
-      ) : (
-        <YStack mx="$-5">
-          <ListItem gap={ROW_GAP} minHeight="$8">
-            {isWide ? (
-              <>
-                <Stack {...COLUMNS.collateral}>
-                  <HeaderLabel>{collateralLabel}</HeaderLabel>
-                </Stack>
-                <Stack {...COLUMNS.borrow}>
-                  <HeaderLabel>{borrowLabel}</HeaderLabel>
-                </Stack>
-                <Stack {...COLUMNS.market}>
-                  <HeaderLabel>
-                    {intl.formatMessage({ id: ETranslations.global_market })}
-                  </HeaderLabel>
-                </Stack>
-                <Stack {...COLUMNS.supply}>
-                  <EarnDesktopSortLabel
-                    sort="supply"
-                    current={sort}
-                    onPress={handleSort}
-                    testID="earn-desktop-loans-sort-supply"
-                  >
-                    {supplyApyLabel}
-                  </EarnDesktopSortLabel>
-                </Stack>
-                <Stack {...COLUMNS.borrowApy}>
-                  <EarnDesktopSortLabel
-                    sort="borrow"
-                    current={sort}
-                    onPress={handleSort}
-                    testID="earn-desktop-loans-sort-borrow"
-                  >
-                    {borrowApyLabel}
-                  </EarnDesktopSortLabel>
-                </Stack>
-              </>
-            ) : (
-              <Stack flex={1} minWidth={0}>
-                <HeaderLabel>{`${collateralLabel} / ${borrowLabel}`}</HeaderLabel>
-              </Stack>
-            )}
-            <XStack
-              {...(isWide ? COLUMNS.net : { flexShrink: 0 })}
-              ai="center"
-              jc="flex-end"
-              gap="$1"
-            >
-              <NetApyInfo />
-              <EarnDesktopSortLabel
-                sort="net"
-                current={sort}
-                onPress={handleSort}
-                testID="earn-desktop-loans-sort-net"
-              >
-                {netApyLabel}
-              </EarnDesktopSortLabel>
-            </XStack>
-            <Stack w="$5" />
-          </ListItem>
-          {list}
-          {moreCount > 0 ? (
-            <MoreRows
-              count={moreCount}
-              onPress={() => setShownCount((count) => count + PAGE_SIZE)}
+    <YStack>
+      <EarnDesktopYourLoans {...yourLoans} />
+      <YStack gap="$4">
+        <XStack ai="center" jc="space-between" gap="$4" flexWrap="wrap">
+          {isWide ? (
+            <XStack gap="$2">{assetFilters}</XStack>
+          ) : (
+            // A phone's width scrolls the pills sideways, edge to edge, as the
+            // Earn tab's categories do, instead of cutting the second one
+            <EarnDesktopPillScroller gap="$2">
+              {assetFilters}
+            </EarnDesktopPillScroller>
+          )}
+          <XStack ai="center" gap="$3" w={isWide ? undefined : '100%'}>
+            <NetworkFilterControl
+              testID="earn-desktop-loans-network-filter"
+              variant={isWide ? 'pill' : 'default'}
+              availableNetworkIds={availableNetworkIds}
+              selectedNetworkIds={selectedNetworkIds}
+              networkAssetCounts={networkPairCounts}
+              onSelectionChange={(networkIds) => {
+                setSelectedNetworkIds(networkIds);
+                resetPage();
+              }}
+              triggerProps={{
+                ...NETWORK_TRIGGER_PROPS,
+                bg: selectedNetworkIds.length ? '$bgActive' : '$bgSubdued',
+                hoverStyle: selectedNetworkIds.length
+                  ? undefined
+                  : { bg: '$bgHover' },
+                ...(reduceMotion ? undefined : HOVER_MOTION),
+              }}
             />
-          ) : null}
-        </YStack>
-      )}
+            <SearchBar
+              testID="earn-desktop-loans-search"
+              size="small"
+              value={searchText}
+              placeholder={intl.formatMessage({
+                id: ETranslations.global_search_asset,
+              })}
+              onChangeText={(text) => {
+                setSearchText(text);
+                resetPage();
+              }}
+              containerProps={
+                isWide
+                  ? SEARCH_BAR_CONTAINER_PROPS
+                  : NARROW_SEARCH_BAR_CONTAINER_PROPS
+              }
+            />
+          </XStack>
+        </XStack>
+        {!isLoading && !rows.length ? (
+          // No pairs at all is missing data, not a filter's miss
+          <EarnListEmptyState
+            isFiltered={isFiltered && pairs.length > 0}
+            onReset={hasPickedFilters ? handleResetFilters : undefined}
+          />
+        ) : (
+          <YStack mx="$-5">
+            <ListItem gap={ROW_GAP} minHeight="$8">
+              {isWide ? (
+                <>
+                  <Stack {...COLUMNS.collateral}>
+                    <HeaderLabel>{collateralLabel}</HeaderLabel>
+                  </Stack>
+                  <Stack {...COLUMNS.borrow}>
+                    <HeaderLabel>{borrowLabel}</HeaderLabel>
+                  </Stack>
+                  <Stack {...COLUMNS.market}>
+                    <HeaderLabel>
+                      {intl.formatMessage({ id: ETranslations.global_market })}
+                    </HeaderLabel>
+                  </Stack>
+                  <Stack {...COLUMNS.supply}>
+                    <EarnDesktopSortLabel
+                      sort="supply"
+                      current={sort}
+                      onPress={handleSort}
+                      testID="earn-desktop-loans-sort-supply"
+                    >
+                      {supplyApyLabel}
+                    </EarnDesktopSortLabel>
+                  </Stack>
+                  <Stack {...COLUMNS.borrowApy}>
+                    <EarnDesktopSortLabel
+                      sort="borrow"
+                      current={sort}
+                      onPress={handleSort}
+                      testID="earn-desktop-loans-sort-borrow"
+                    >
+                      {borrowApyLabel}
+                    </EarnDesktopSortLabel>
+                  </Stack>
+                </>
+              ) : (
+                <Stack flex={1} minWidth={0}>
+                  <HeaderLabel>{`${collateralLabel} / ${borrowLabel}`}</HeaderLabel>
+                </Stack>
+              )}
+              <XStack
+                {...(isWide ? COLUMNS.net : { flexShrink: 0 })}
+                ai="center"
+                jc="flex-end"
+                gap="$1"
+              >
+                <NetApyInfo />
+                <EarnDesktopSortLabel
+                  sort="net"
+                  current={sort}
+                  onPress={handleSort}
+                  testID="earn-desktop-loans-sort-net"
+                >
+                  {netApyLabel}
+                </EarnDesktopSortLabel>
+              </XStack>
+              <Stack w="$5" />
+            </ListItem>
+            {list}
+            {moreCount > 0 ? (
+              <MoreRows
+                count={moreCount}
+                onPress={() => setShownCount((count) => count + PAGE_SIZE)}
+              />
+            ) : null}
+          </YStack>
+        )}
+      </YStack>
     </YStack>
   );
 }
