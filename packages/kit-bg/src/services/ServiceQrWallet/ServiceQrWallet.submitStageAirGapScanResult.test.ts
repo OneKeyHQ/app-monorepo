@@ -24,7 +24,10 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: { ShowAirGapQrcode: 'ShowAirGapQrcode' },
+  EAppEventBusNames: {
+    ShowAirGapQrcode: 'ShowAirGapQrcode',
+    ScanAirGapQrcode: 'ScanAirGapQrcode',
+  },
   appEventBus: { on: jest.fn(), off: jest.fn(), emit: jest.fn() },
 }));
 
@@ -262,6 +265,20 @@ describe('ServiceQrWallet.startTwoWayAirGapScanUr stage bracket', () => {
     ).rejects.toThrow('stage bridge not ready');
 
     expect(createCallback).not.toHaveBeenCalled();
+    expect(sessions.stageAirGapSession).toBeUndefined();
+  });
+
+  it('returns a legacy camera result through the same background UR pipeline', async () => {
+    const { service, sessions } = createStageService({
+      isEnabled: false,
+      begin: jest.fn<Promise<boolean>, []>().mockResolvedValue(false),
+    });
+    await expect(
+      service.scanAirGap({ owner: 'legacy-camera' }),
+    ).resolves.toEqual({ type: 'bytes', cbor: 'mock' });
+    expect(appEventBus.emit).toHaveBeenCalledWith('ScanAirGapQrcode', {
+      promiseId: 42,
+    });
     expect(sessions.stageAirGapSession).toBeUndefined();
   });
 
@@ -528,9 +545,7 @@ describe('ServiceQrWallet stage session owner', () => {
       { owner: 'ui-b' },
     );
     const sessionId = await shownNext;
-    await expect(firstError).resolves.toMatchObject({
-      data: { stageAirGapSuperseded: true },
-    });
+    await expect(firstError).resolves.toBeInstanceOf(SecureQRCodeDialogCancel);
     await service.submitStageAirGapScanResult({
       result: scanResult,
       sessionId,
@@ -565,9 +580,7 @@ describe('ServiceQrWallet stage session owner', () => {
     );
     const sessionId = await shown;
     finishOpening(true);
-    await expect(firstError).resolves.toMatchObject({
-      data: { stageAirGapSuperseded: true },
-    });
+    await expect(firstError).resolves.toBeInstanceOf(SecureQRCodeDialogCancel);
     expect(deviceStageBurst.qrShowCode).toHaveBeenCalledTimes(1);
     await service.submitStageAirGapScanResult({
       result: scanResult,
@@ -592,5 +605,16 @@ describe('ServiceQrWallet stage session owner', () => {
     await expect(scan).resolves.toEqual({ type: 'bytes', cbor: 'mock' });
     expect(deviceStageBurst.qrShowCode).not.toHaveBeenCalled();
     expect(deviceStageBurst.end).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a legacy camera callback when the owning background request ends', async () => {
+    const { service, deviceStageBurst } = createStageSessionService();
+    deviceStageBurst.isEnabled.mockResolvedValue(false);
+    const scan = service.scanAirGap({ owner: 'legacy-camera' });
+    const error = scan.catch((failure: unknown) => failure);
+    for (let i = 0; i < 12; i += 1) await Promise.resolve();
+    await service.cancelStageAirGapScan({ owner: 'legacy-camera' });
+    await expect(error).resolves.toBeInstanceOf(SecureQRCodeDialogCancel);
+    expect(deviceStageBurst.end).not.toHaveBeenCalled();
   });
 });
