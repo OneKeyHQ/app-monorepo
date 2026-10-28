@@ -651,7 +651,7 @@ function DeviceStageContainerCmp() {
       }
       onQrNext={handleQrNext}
       onQrRenderReady={handleQrRenderReady}
-      onQrBack={handleQrBack}
+      onQrBack={stage?.qrValueUr ? handleQrBack : undefined}
       onClose={closable ? handleClose : undefined}
       onErrorNoticeExpire={retireErrorOutcome}
       errorNoticeKey={

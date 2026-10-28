@@ -1260,6 +1260,26 @@ describe('DeviceStageBurstScope', () => {
     await scope.endExplicit({ token });
   });
 
+  it('starts a camera-only session without retaining a previous request code or back target', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({
+      vendor: EHardwareVendor.keystone,
+    });
+    await scope.qrShowCode({
+      valueUr: { type: 'bytes', cbor: 'a0' },
+      sessionId: 1,
+      notice: { key: ETranslations.keystone_account_export__desc },
+    });
+    await scope.qrStartScan({ sessionId: 2 });
+    expect(stage?.step).toBe('scanQr');
+    expect(stage?.qrSessionId).toBe(2);
+    expect(stage?.qrValueUr).toBeUndefined();
+    expect(stage?.qrNoticeI18n).toBeUndefined();
+    await scope.qrBackToShow();
+    expect(stage?.step).toBe('scanQr');
+    await scope.endExplicit({ token });
+  });
+
   it('leaves on a call-end close during the firmware workflow even behind a foreign hold', async () => {
     // Onboarding holds across the update page. Its hold must not turn the
     // update's call-end closes into a processing capsule over the page,

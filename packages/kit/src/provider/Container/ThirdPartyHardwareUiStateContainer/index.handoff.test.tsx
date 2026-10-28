@@ -44,6 +44,24 @@ const mockTwoWayScan = jest.fn<
 const mockCancelStageScan = jest.fn(
   async (_params: { owner?: string }) => undefined,
 );
+const mockStageScan = jest.fn<
+  Promise<{ type: string; cbor: string } | undefined>,
+  [{ owner?: string }]
+>(() => new Promise(() => undefined));
+const mockLegacyScan = jest.fn(async () => ({ raw: 'ur:bytes/mock' }));
+
+jest.mock('../../../views/ScanQrCode/hooks/useScanQrCodeLazy', () => ({
+  __esModule: true,
+  default: () => ({ start: mockLegacyScan }),
+}));
+jest.mock('@onekeyhq/qr-wallet-sdk', () => ({
+  airGapUrUtils: {
+    qrcodeToUr: jest.fn(async () => ({
+      type: 'crypto-multi-accounts',
+      cbor: Buffer.from('a0', 'hex'),
+    })),
+  },
+}));
 
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 jest.mock('@onekeyhq/components', () => ({
@@ -59,6 +77,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceQrWallet: {
+      scanAirGapOnStage: (options: { owner?: string }) =>
+        mockStageScan(options),
       startTwoWayAirGapScan: (
         appUr: { type: string; cbor: string },
         options: { owner?: string; notice?: { key?: string } },
@@ -182,6 +202,8 @@ beforeEach(() => {
   // Reset, not clear: an unconsumed once-value must not reach the next test.
   mockTwoWayScan.mockReset();
   mockTwoWayScan.mockImplementation(() => new Promise(() => undefined));
+  mockStageScan.mockReset();
+  mockStageScan.mockImplementation(() => new Promise(() => undefined));
 });
 
 it.each([
@@ -284,13 +306,54 @@ it('opens the next selection after the user cancels one', async () => {
   expect(showThirdPartyDeviceSelectionDialog).toHaveBeenCalledTimes(2);
 });
 
-it('declines a scan-only Keystone request instead of leaving it to time out', async () => {
+it('answers a scan-only Keystone request with the stage camera result', async () => {
   mockUiState = qrState(false);
+  mockStageScan.mockResolvedValueOnce({
+    type: 'crypto-multi-accounts',
+    cbor: 'a0',
+  });
+  render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  expect(mockCancel).not.toHaveBeenCalled();
+  expect(mockStageScan).toHaveBeenCalledWith({ owner: expect.any(String) });
+  expect(mockUiResponse).toHaveBeenCalledWith({
+    vendor: EHardwareVendor.keystone,
+    response: {
+      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+      payload: { urType: 'crypto-multi-accounts', urData: 'a0' },
+    },
+  });
+  expect(mockTwoWayScan).not.toHaveBeenCalled();
+  expect(mockLegacyScan).not.toHaveBeenCalled();
+});
+
+it('uses the scan page when the stage is unavailable for a scan-only request', async () => {
+  mockUiState = qrState(false);
+  mockStageScan.mockResolvedValueOnce(undefined);
+  render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(1);
+  expect(mockLegacyScan).toHaveBeenCalledTimes(1);
+  expect(mockUiResponse).toHaveBeenCalledWith(
+    expect.objectContaining({
+      response: {
+        type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
+        payload: { urType: 'crypto-multi-accounts', urData: 'a0' },
+      },
+    }),
+  );
+  expect(mockCancel).not.toHaveBeenCalled();
+});
+
+it('ends a scan-only SDK request when the stage camera is closed', async () => {
+  mockUiState = qrState(false);
+  mockStageScan.mockRejectedValueOnce({
+    className: EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+  });
   render(<ThirdPartyHardwareUiStateContainer />);
   await flush();
   expect(mockCancel).toHaveBeenCalledTimes(1);
   expect(mockUiResponse).not.toHaveBeenCalled();
-  expect(mockTwoWayScan).not.toHaveBeenCalled();
 });
 
 const exportQrState = (): IThirdPartyHardwareUiState => ({
@@ -386,6 +449,22 @@ it.each([
     expect(mockUiResponse).not.toHaveBeenCalled();
   },
 );
+
+it('does not cancel the SDK request when another UI takes over its stage session', async () => {
+  mockUiState = qrState(true);
+  mockTwoWayScan.mockRejectedValueOnce({
+    className: EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
+    data: { stageAirGapSuperseded: true },
+  });
+  const view = render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  view.unmount();
+  await flush();
+  expect(mockCancel).not.toHaveBeenCalled();
+  expect(mockUiResponse).not.toHaveBeenCalled();
+  expect(mockClearUiState).not.toHaveBeenCalled();
+  expect(mockCancelStageScan).not.toHaveBeenCalled();
+});
 
 it('ends its own stage session when the SDK ends the QR request', async () => {
   mockUiState = qrState(true);

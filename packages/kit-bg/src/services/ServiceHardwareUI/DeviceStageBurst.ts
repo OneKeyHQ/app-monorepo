@@ -1807,6 +1807,17 @@ export class DeviceStageBurstScope {
     });
   }
 
+  /** A device export needs only the camera, with no request code to return to. */
+  async qrStartScan({ sessionId }: { sessionId: number }) {
+    this.clearOffTimer();
+    await this.setStep('scanQr', {
+      qrValueUr: undefined,
+      qrSessionId: sessionId,
+      qrDiagnostic: undefined,
+      qrNoticeI18n: undefined,
+    });
+  }
+
   /** The person watched the device show its answer code and pressed
    * Next: on to the camera. A stale press (the stage already left the
    * pair) moves nothing. */
@@ -1828,7 +1839,7 @@ export class DeviceStageBurstScope {
    * container's skipReject, in stage form). */
   async qrBackToShow() {
     const prev = await deviceStageAtom.get();
-    if (prev?.step !== 'scanQr') {
+    if (prev?.step !== 'scanQr' || !prev.qrValueUr) {
       return;
     }
     this.clearOffTimer();
@@ -2262,7 +2273,11 @@ export class DeviceStageBurstScope {
         errorMessage: step === 'error' ? mergedExtras.errorMessage : undefined,
         errorI18n: step === 'error' ? mergedExtras.errorI18n : undefined,
         doneI18n: step === 'done' ? mergedExtras.doneI18n : undefined,
-        qrValueUr: pickQrScoped(step, mergedExtras.qrValueUr, base?.qrValueUr),
+        qrValueUr: pickQrScoped(
+          step,
+          mergedExtras.qrValueUr,
+          'qrValueUr' in mergedExtras ? undefined : base?.qrValueUr,
+        ),
         // qrShowCode always names the key, so a session without a trace
         // clears the superseded one instead of inheriting it; only the
         // showQr/scanQr hops within one session carry it.

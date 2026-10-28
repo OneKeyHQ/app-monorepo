@@ -88,7 +88,10 @@ function createService() {
   return { service, sessions };
 }
 
-const scanResult = { raw: 'ur:bytes/mock' } as unknown as Parameters<
+const scanResult = {
+  raw: 'ur:bytes/mock',
+  data: { fullData: 'ur:bytes/mock' },
+} as unknown as Parameters<
   ServiceQrWallet['submitStageAirGapScanResult']
 >[0]['result'];
 
@@ -263,6 +266,21 @@ describe('ServiceQrWallet.startTwoWayAirGapScanUr stage bracket', () => {
   });
 
   it.each([false, true])(
+    'returns a scan-only fallback when the stage declines (enabled: %s)',
+    async (isEnabled) => {
+      const { service, createCallback, qrShowCode, end } = createStageService({
+        isEnabled,
+        begin: jest.fn<Promise<boolean>, []>().mockResolvedValue(false),
+      });
+      await expect(service.scanAirGapOnStage()).resolves.toBeUndefined();
+      expect(createCallback).not.toHaveBeenCalled();
+      expect(qrShowCode).not.toHaveBeenCalled();
+      expect(appEventBus.emit).not.toHaveBeenCalled();
+      expect(end).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])(
     'reports an invalid response as failed only, stage enabled: %s',
     async (isEnabled) => {
       const sdk = jest.requireMock<{
@@ -312,6 +330,9 @@ describe('ServiceQrWallet stage session owner', () => {
       isEnabled: jest.fn(async () => true),
       begin: jest.fn(async () => true),
       qrShowCode: jest.fn<Promise<void>, [{ sessionId: number }]>(
+        async () => undefined,
+      ),
+      qrStartScan: jest.fn<Promise<void>, [{ sessionId: number }]>(
         async () => undefined,
       ),
       qrNoteScanCompleted: jest.fn(async () => undefined),
@@ -425,6 +446,29 @@ describe('ServiceQrWallet stage session owner', () => {
     expect(deviceStageBurst.qrShowCode).not.toHaveBeenCalled();
   });
 
+  it('remembers both owners when two requests cancel before either starts', async () => {
+    const { service, deviceStageBurst } = createStageSessionService();
+    await service.cancelStageAirGapScan({ owner: 'request-a' });
+    await service.cancelStageAirGapScan({ owner: 'request-b' });
+
+    const exchange = service.startTwoWayAirGapScan(
+      { type: 'bytes', cbor: 'a0' },
+      { owner: 'request-a' },
+    );
+    const state = await settledState(exchange);
+    // Clean up the broken implementation too, so the regression fails without hanging.
+    await service.cancelStageAirGapScan({ owner: 'request-a' });
+    await expect(exchange).rejects.toBeInstanceOf(SecureQRCodeDialogCancel);
+    expect(state).toBe('rejected');
+    await expect(
+      service.startTwoWayAirGapScan(
+        { type: 'bytes', cbor: 'a0' },
+        { owner: 'request-b' },
+      ),
+    ).rejects.toBeInstanceOf(SecureQRCodeDialogCancel);
+    expect(deviceStageBurst.qrShowCode).not.toHaveBeenCalled();
+  });
+
   it('closes the stage it opened when its owner cancels while it opens', async () => {
     const { service, deviceStageBurst } = createStageSessionService();
     let openStage: (opened: boolean) => void = () => undefined;
@@ -466,5 +510,87 @@ describe('ServiceQrWallet stage session owner', () => {
 
     await service.cancelStageAirGapScan({ owner: 'request-b' });
     await expect(exchange).rejects.toBeInstanceOf(SecureQRCodeDialogCancel);
+  });
+
+  it('lets the newer UI complete after superseding an already shown QR code', async () => {
+    const { service, deviceStageBurst, codeShown } =
+      createStageSessionService();
+    const shownFirst = codeShown();
+    const first = service.startTwoWayAirGapScan(
+      { type: 'bytes', cbor: 'a0' },
+      { owner: 'ui-a' },
+    );
+    const firstError = first.catch((error: unknown) => error);
+    await shownFirst;
+    const shownNext = codeShown();
+    const next = service.startTwoWayAirGapScan(
+      { type: 'bytes', cbor: 'a0' },
+      { owner: 'ui-b' },
+    );
+    const sessionId = await shownNext;
+    await expect(firstError).resolves.toMatchObject({
+      data: { stageAirGapSuperseded: true },
+    });
+    await service.submitStageAirGapScanResult({
+      result: scanResult,
+      sessionId,
+    });
+    await expect(next).resolves.toEqual({ type: 'bytes', cbor: 'mock' });
+    expect(deviceStageBurst.end).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not register an older session whose stage opens after the newer session', async () => {
+    const { service, deviceStageBurst, codeShown } =
+      createStageSessionService();
+    let finishOpening: (opened: boolean) => void = () => undefined;
+    const opening = new Promise<void>((resolve) => {
+      deviceStageBurst.begin.mockImplementationOnce(
+        () =>
+          new Promise<boolean>((finish) => {
+            finishOpening = finish;
+            resolve();
+          }),
+      );
+    });
+    const first = service.startTwoWayAirGapScan(
+      { type: 'bytes', cbor: 'a0' },
+      { owner: 'ui-a' },
+    );
+    const firstError = first.catch((error: unknown) => error);
+    await opening;
+    const shown = codeShown();
+    const next = service.startTwoWayAirGapScan(
+      { type: 'bytes', cbor: 'a0' },
+      { owner: 'ui-b' },
+    );
+    const sessionId = await shown;
+    finishOpening(true);
+    await expect(firstError).resolves.toMatchObject({
+      data: { stageAirGapSuperseded: true },
+    });
+    expect(deviceStageBurst.qrShowCode).toHaveBeenCalledTimes(1);
+    await service.submitStageAirGapScanResult({
+      result: scanResult,
+      sessionId,
+    });
+    await expect(next).resolves.toEqual({ type: 'bytes', cbor: 'mock' });
+  });
+
+  it('opens the camera directly for a scan-only request and returns its UR', async () => {
+    const { service, deviceStageBurst } = createStageSessionService();
+    const cameraOpened = new Promise<number>((resolve) => {
+      deviceStageBurst.qrStartScan.mockImplementation(async ({ sessionId }) =>
+        resolve(sessionId),
+      );
+    });
+    const scan = service.scanAirGapOnStage({ owner: 'scan-only' });
+    const sessionId = await cameraOpened;
+    await service.submitStageAirGapScanResult({
+      result: scanResult,
+      sessionId,
+    });
+    await expect(scan).resolves.toEqual({ type: 'bytes', cbor: 'mock' });
+    expect(deviceStageBurst.qrShowCode).not.toHaveBeenCalled();
+    expect(deviceStageBurst.end).toHaveBeenCalledTimes(1);
   });
 });
