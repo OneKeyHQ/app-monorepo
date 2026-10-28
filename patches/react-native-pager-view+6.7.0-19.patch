@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts b/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts
-index aed0ef4..cf11736 100644
+index b094653..986a2b9 100644
 --- a/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts
 +++ b/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerViewNativeComponent.d.ts
 @@ -1,6 +1,11 @@
