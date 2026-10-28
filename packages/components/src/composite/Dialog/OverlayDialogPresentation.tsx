@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useNativeSheetMaxWidth } from '../../hooks/useNativeSheetMaxWidth';
 import { useTheme } from '../../hooks/useStyle';
 import { ScrollView } from '../../layouts/ScrollView';
 import { ThemeableStack } from '../../primitives';
@@ -75,6 +76,7 @@ export function OverlayDialogPresentation({
 }: IOverlayDialogPresentationProps) {
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
+  const sheetMaxWidth = useNativeSheetMaxWidth();
   const surfaceColor = useMemo(() => {
     const token = (bg ?? '$bg').replace(/^\$/, '') as keyof typeof theme;
     return String(theme[token]?.val ?? theme.bg.val);
@@ -89,12 +91,13 @@ export function OverlayDialogPresentation({
   );
   const sheet = useMemo<IOverlaySheetOptions>(
     () => ({
+      maxWidth: sheetMaxWidth,
       cornerRadius: SHEET_CORNER_RADIUS,
       showHandle: false,
       backgroundColor: surfaceColor,
       dismissOnPanDown: !disableDrag,
     }),
-    [disableDrag, surfaceColor],
+    [disableDrag, sheetMaxWidth, surfaceColor],
   );
 
   const handleRequestDismiss = useCallback(

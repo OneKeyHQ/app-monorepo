@@ -10,7 +10,11 @@ import { useIsomorphicLayoutEffect } from '@tamagui/core';
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
-import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  getTokenValue,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { Token } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { GlassButtonCapsule } from '../../content/GlassButtonCapsule';
@@ -526,6 +530,16 @@ function RawPopover({
 }
 
 const ANCHORED_PANEL_WIDTH = 384;
+
+// The panel is positioned in points, so size tokens (`$56`) resolve here.
+function resolveAnchoredPanelWidth(width: unknown): number {
+  if (typeof width === 'number') return width;
+  if (typeof width === 'string' && width.startsWith('$')) {
+    const value = Number(getTokenValue(width as Token, 'size'));
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return ANCHORED_PANEL_WIDTH;
+}
 const ANCHORED_VIEWPORT_PADDING = 8;
 const ANCHORED_DEFAULT_OFFSET = 8;
 // Below this much room the panel opens on the other side of the trigger.
@@ -610,6 +624,7 @@ function AnchoredPopover({
   floatingPanelProps,
   renderContent,
   closePopover,
+  onAnimationComplete,
 }: {
   isOpen: boolean;
   anchor: IAnchorRect | undefined;
@@ -618,6 +633,9 @@ function AnchoredPopover({
   floatingPanelProps: IPopoverProps['floatingPanelProps'];
   renderContent: IPopoverProps['renderContent'];
   closePopover: () => void;
+  // Mirrors the sheet's animation callback so callers that wait for the
+  // close (ActionList runs item actions after it) are not left on a timeout.
+  onAnimationComplete?: (info: { open: boolean }) => void;
 }) {
   useDeferredGuideBlocker(isOpen);
   useDismissKeyboard(isOpen);
@@ -631,6 +649,14 @@ function AnchoredPopover({
     resolvers.forEach((resolve) => resolve());
   }, []);
   useEffect(() => flushCloseResolvers, [flushCloseResolvers]);
+  const handlePresented = useCallback(
+    () => onAnimationComplete?.({ open: true }),
+    [onAnimationComplete],
+  );
+  const handleClosed = useCallback(() => {
+    flushCloseResolvers();
+    onAnimationComplete?.({ open: false });
+  }, [flushCloseResolvers, onAnimationComplete]);
   const handleClosePopover = useCallback(
     () =>
       new Promise<void>((resolve) => {
@@ -664,10 +690,7 @@ function AnchoredPopover({
         anchor,
         placement,
         offset: typeof offset === 'number' ? offset : ANCHORED_DEFAULT_OFFSET,
-        width:
-          typeof panelWidthProp === 'number'
-            ? panelWidthProp
-            : ANCHORED_PANEL_WIDTH,
+        width: resolveAnchoredPanelWidth(panelWidthProp),
         maxHeight:
           typeof panelMaxHeightProp === 'number'
             ? panelMaxHeightProp
@@ -687,7 +710,8 @@ function AnchoredPopover({
       backdrop={ANCHORED_BACKDROP}
       dismissOnBackPress
       onRequestDismiss={closePopover}
-      onClose={flushCloseResolvers}
+      onPresented={handlePresented}
+      onClose={handleClosed}
     >
       {frame ? (
         <YStack
@@ -743,6 +767,7 @@ function BasicPopover({
   keepChildrenMounted,
   mountNativePortalBeforeOpen,
   nativePresentation = 'sheet',
+  nativeAnchorRect,
   ...rest
 }: IPopoverProps) {
   assertOverlayProps('Popover', { ...rest, sheetProps });
@@ -753,7 +778,7 @@ function BasicPopover({
   );
   const isWideWindow = useIsWideNativeWindow();
   const isAnchored =
-    Boolean(renderTrigger) &&
+    Boolean(renderTrigger || nativeAnchorRect) &&
     (nativePresentation === 'anchored' ||
       (nativePresentation === 'auto' && isWideWindow));
   // A presentation change (folding, rotating across the wide threshold,
@@ -772,7 +797,7 @@ function BasicPopover({
   const [anchor, setAnchor] = useState<IAnchorRect | undefined>();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   useEffect(() => {
-    if (!isAnchored || !isOpen) return;
+    if (!isAnchored || !isOpen || nativeAnchorRect) return;
     // Re-measure on every window size change so the panel follows its
     // trigger when the window resizes or rotates within the wide range. The
     // new size arrives before the rotated layout settles, so measure again
@@ -793,7 +818,7 @@ function BasicPopover({
     measure();
     const timer = setTimeout(measure, ANCHORED_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [isAnchored, isOpen, windowHeight, windowWidth]);
+  }, [isAnchored, isOpen, nativeAnchorRect, windowHeight, windowWidth]);
 
   const {
     shouldUseNativePortalLifecycle,
@@ -835,21 +860,24 @@ function BasicPopover({
   if (isAnchored) {
     return (
       <>
-        <Trigger
-          ref={triggerRef}
-          testID="popover-trigger"
-          onPress={isOpen ? closePopover : openPopover}
-        >
-          {renderTrigger}
-        </Trigger>
+        {renderTrigger ? (
+          <Trigger
+            ref={triggerRef}
+            testID="popover-trigger"
+            onPress={isOpen ? closePopover : openPopover}
+          >
+            {renderTrigger}
+          </Trigger>
+        ) : null}
         <AnchoredPopover
           isOpen={Boolean(isOpen)}
-          anchor={anchor}
+          anchor={nativeAnchorRect ?? anchor}
           placement={rest.placement}
           offset={rest.offset}
           floatingPanelProps={rest.floatingPanelProps}
           renderContent={rest.renderContent}
           closePopover={closePopover}
+          onAnimationComplete={resolvedSheetProps?.onAnimationComplete}
         />
       </>
     );

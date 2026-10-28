@@ -55,6 +55,7 @@ import {
   useSafeAreaInsets,
 } from '../../hooks';
 import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
+import { useIsWideNativeWindow } from '../../hooks/useIsWideNativeWindow';
 import { useKeyboardAnimation } from '../../hooks/useKeyboardAnimation';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
@@ -336,7 +337,12 @@ function DialogFrame({
   useDeferredGuideBlocker(Boolean(open));
   const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
   const isNativeCentered = nativeCentered && platformEnv.isNative;
-  const useSheetPresentation = media.md && !isNativeCentered;
+  // Wide iOS windows (iPad, iPhone Duo inner display) keep the centered card
+  // even though their media stays `md`: a bottom sheet across a wide window
+  // reads as a stretched phone layout.
+  const isWideNativeWindow = useIsWideNativeWindow();
+  const useSheetPresentation =
+    media.md && !isNativeCentered && !isWideNativeWindow;
   const centeredInset = Math.max(safeAreaTop, safeAreaBottom, 16);
 
   // Native OneKey login opt-in (OK-63232): cap + scroll inside the overlay

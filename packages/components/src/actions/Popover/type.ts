@@ -52,6 +52,11 @@ export interface IPopoverProps {
    * popover closes when the presentation changes, such as on folding.
    */
   nativePresentation?: 'auto' | 'anchored' | 'sheet';
+  /**
+   * Native only. Window rect to anchor to instead of measuring
+   * `renderTrigger`, for popovers opened imperatively from a known position.
+   */
+  nativeAnchorRect?: { x: number; y: number; width: number; height: number };
   mountNativePortalBeforeOpen?: boolean;
   /**
    * Unique identifier for tracking/analytics purposes.

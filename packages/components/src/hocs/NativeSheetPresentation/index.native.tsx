@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useNativeSheetMaxWidth } from '../../hooks/useNativeSheetMaxWidth';
 import { useTheme } from '../../hooks/useStyle';
 
 import type { INativeSheetPresentationProps } from './types';
@@ -37,6 +38,7 @@ export function NativeSheetPresentation({
   children,
 }: INativeSheetPresentationProps) {
   const theme = useTheme();
+  const sheetMaxWidth = useNativeSheetMaxWidth();
   const openRef = useRef(open);
   openRef.current = open;
   const previousOpenRef = useRef(open);
@@ -68,6 +70,7 @@ export function NativeSheetPresentation({
     () => ({
       height,
       maxHeight,
+      maxWidth: sheetMaxWidth,
       cornerRadius,
       showHandle,
       backgroundColor: backgroundColor ?? String(theme.bg.val),
@@ -80,6 +83,7 @@ export function NativeSheetPresentation({
       dismissOnSnapToBottom,
       height,
       maxHeight,
+      sheetMaxWidth,
       showHandle,
       theme.bg.val,
     ],

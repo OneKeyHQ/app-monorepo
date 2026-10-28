@@ -607,10 +607,14 @@ function BasicActionList({
       onOpenChange={handleOpenStatusChange}
       renderContent={renderContentMemo}
       floatingPanelProps={ACTION_LIST_FLOATING_PANEL_PROPS}
+      // Wide iOS windows anchor the menu to its trigger, like desktop.
+      nativePresentation="auto"
       {...props}
       usingSheet={usingSheet}
       mountNativePortalBeforeOpen={defaultOpen}
-      renderTrigger={trigger}
+      // `ActionList.show` without a position has only an empty trigger,
+      // which must fall back to a sheet rather than anchor to nothing.
+      renderTrigger={renderTrigger ? trigger : undefined}
       sheetProps={actionListSheetProps}
     />
   );
@@ -716,6 +720,8 @@ const showActionList = (
   const actionList = (
     <BasicActionList
       {...restProps}
+      // Native has no proxy trigger; wide iOS windows anchor to the rect.
+      nativeAnchorRect={platformEnv.isNative ? triggerRect : undefined}
       {...contextMenuProps}
       defaultOpen
       imperativeCloseRef={imperativeCloseRef}
