@@ -200,7 +200,7 @@ export const StakeSection = ({
     stakeAssetsSymbol,
   ].join(':');
 
-  const { result: stakeAssetsList } = usePromiseResult(
+  const { result: stakeAssetsList, run: retryStakeAssets } = usePromiseResult(
     async () => {
       if (
         !hasRequiredData ||
@@ -210,21 +210,31 @@ export const StakeSection = ({
       ) {
         return undefined;
       }
-      const response =
-        await backgroundApiProxy.serviceStaking.getEarnAssetsList({
-          accountId,
-          networkId,
-          provider: providerName,
-          symbol: stakeAssetsSymbol,
-          vault: protocolInfo?.vault || undefined,
-          action: 'stake',
-        });
-      return { ...response, scopeKey: stakeAssetsScopeKey };
+      try {
+        const response =
+          await backgroundApiProxy.serviceStaking.getEarnAssetsList({
+            accountId,
+            networkId,
+            provider: providerName,
+            symbol: stakeAssetsSymbol,
+            vault: protocolInfo?.vault || undefined,
+            action: 'stake',
+          });
+        return {
+          assets: response.assets,
+          scopeKey: stakeAssetsScopeKey,
+          status: 'success' as const,
+        };
+      } catch (error) {
+        if (!isEtherFiProvider) throw error;
+        return { scopeKey: stakeAssetsScopeKey, status: 'error' as const };
+      }
     },
     [
       hasRequiredData,
       isPendleProvider,
       supportsWrappedStake,
+      isEtherFiProvider,
       accountId,
       networkId,
       providerName,
@@ -238,10 +248,15 @@ export const StakeSection = ({
   );
 
   const selectableStakeAssets = useMemo(() => {
-    return stakeAssetsList?.scopeKey === stakeAssetsScopeKey
+    return stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+      stakeAssetsList.status === 'success'
       ? stakeAssetsList.assets
       : [];
   }, [stakeAssetsList, stakeAssetsScopeKey]);
+  const stakeAssetsError =
+    isEtherFiProvider &&
+    stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+    stakeAssetsList.status === 'error';
 
   const activeStakeAsset = resolveSelectedStakeAsset({
     assets: selectableStakeAssets,
@@ -988,7 +1003,7 @@ export const StakeSection = ({
               : undefined
           }
           beforeFooter={
-            selectedStakeApproval.error ? (
+            stakeAssetsError || selectedStakeApproval.error ? (
               <>
                 {beforeFooter}
                 <Alert
@@ -1000,7 +1015,12 @@ export const StakeSection = ({
                     primary: intl.formatMessage({
                       id: ETranslations.global_retry,
                     }),
-                    onPrimaryPress: () => void selectedStakeApproval.retry(),
+                    onPrimaryPress: () => {
+                      if (stakeAssetsError) void retryStakeAssets();
+                      if (selectedStakeApproval.error) {
+                        void selectedStakeApproval.retry();
+                      }
+                    },
                   }}
                 />
               </>
