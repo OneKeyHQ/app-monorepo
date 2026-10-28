@@ -1217,6 +1217,7 @@ function BasicEarnDesktopEarnTab({
   openRequest?: IEarnDesktopOpenRequest;
 }) {
   const intl = useIntl();
+  const media = useMedia();
   const [category, setCategory] = useState<ITokenCategory>('all');
   const [searchText, setSearchText] = useState('');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
@@ -1524,6 +1525,7 @@ function BasicEarnDesktopEarnTab({
         <XStack ai="center" gap="$3">
           <NetworkFilterControl
             testID="earn-desktop-earn-network-filter"
+            variant={media.gtMd ? 'pill' : 'default'}
             availableNetworkIds={availableNetworkIds}
             selectedNetworkIds={selectedNetworkIds}
             networkAssetCounts={networkAssetCounts}

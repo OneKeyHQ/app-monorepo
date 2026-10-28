@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { buildKeyboardPressProps } from './desktopHome/earnDesktopPressable';
+import { NetworkFilterPill } from './NetworkFilterPill';
 
 // On web, a trigger without a style of its own keeps room around its label
 // for the focus ring, the size of the DeFi home's pill; the margins take the
@@ -39,7 +40,8 @@ interface INetworkFilterControlProps {
   networkAssetCounts: Record<string, number>;
   onSelectionChange: (networkIds: string[]) => void;
   testID?: string;
-  variant?: 'default' | 'compact';
+  /** 'pill' is the desktop look, Market's network selector with several picks */
+  variant?: 'default' | 'compact' | 'pill';
   /** The trigger's own style, such as a fill while networks are picked */
   triggerProps?: IXStackProps;
 }
@@ -145,6 +147,21 @@ function NetworkFilterControl({
       { count: selectedNetworkIds.length },
     );
   }, [selectedNetworkIds, networks, intl]);
+
+  if (variant === 'pill') {
+    return (
+      <NetworkFilterPill
+        testID={testID}
+        networks={sortedNetworks ?? []}
+        selectedNetworkIds={selectedNetworkIds}
+        networkAssetCounts={networkAssetCounts}
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
+        onToggle={toggleNetwork}
+        onReset={handleReset}
+      />
+    );
+  }
 
   return (
     <Popover

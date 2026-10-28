@@ -517,7 +517,7 @@ export function MyPortfolioPage({
       selectedNetworkIds={selectedNetworkIds}
       networkAssetCounts={networkAssetCounts}
       onSelectionChange={setSelectedNetworkIds}
-      variant={tableLayout ? 'default' : 'compact'}
+      variant={tableLayout ? 'pill' : 'compact'}
     />
   );
   const tabs = (

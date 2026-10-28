@@ -786,6 +786,7 @@ function BasicEarnDesktopBorrowTab({
         <XStack ai="center" gap="$3">
           <NetworkFilterControl
             testID="earn-desktop-loans-network-filter"
+            variant={isWide ? 'pill' : 'default'}
             availableNetworkIds={availableNetworkIds}
             selectedNetworkIds={selectedNetworkIds}
             networkAssetCounts={networkPairCounts}
