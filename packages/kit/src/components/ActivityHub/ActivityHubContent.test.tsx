@@ -13,6 +13,7 @@ const mockHubShown = jest.fn();
 const mockHubActionPressed = jest.fn();
 const mockPopoverFloatingPanelProps = jest.fn();
 let mockGtMd = true;
+let mockIsLoggedIn = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -91,6 +92,12 @@ jest.mock('@onekeyhq/components', () => {
     runAfterActionListClose,
   };
 });
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
+  usePrimePersistAtom: () => [
+    { isLoggedIn: mockIsLoggedIn, isLoggedInOnServer: mockIsLoggedIn },
+  ],
+}));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -180,7 +187,35 @@ describe('ActivityHubContent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGtMd = true;
+    mockIsLoggedIn = true;
     platformEnv.isNative = false;
+  });
+
+  it('hides the duplicate invite title until the user signs in', () => {
+    mockIsLoggedIn = false;
+    const props = {
+      source: 'Swap' as const,
+      closePopover: jest.fn(),
+      onOpenReferral: jest.fn(),
+    };
+    const { rerender } = render(<ActivityHubContent {...props} />);
+    expect(screen.queryByText(ETranslations.referral_home__title)).toBeNull();
+    mockIsLoggedIn = true;
+    rerender(<ActivityHubContent {...props} />);
+    expect(screen.getByText(ETranslations.referral_home__title)).toBeTruthy();
+  });
+
+  it('keeps the activity hub title when signed out with campaigns', () => {
+    mockIsLoggedIn = false;
+    render(
+      <ActivityHubContent
+        source="Perps"
+        closePopover={jest.fn()}
+        onOpenReferral={jest.fn()}
+        campaigns={CAMPAIGNS}
+      />,
+    );
+    expect(screen.getByText(ETranslations.perps_activity_hub)).toBeTruthy();
   });
 
   it('opens the referral page from the native tile after the host closes', async () => {

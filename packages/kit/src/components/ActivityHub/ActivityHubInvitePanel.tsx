@@ -5,16 +5,16 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
+  Empty,
   Icon,
-  Image,
   SizableText,
   Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard/hooks/useReferralCodeCard';
 import { getProductReferralLink } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/referralLinks';
 import { useReferralWebAppUrl } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/useReferralWebAppUrl';
@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import { useReferralTabCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
+import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IActivityHubAction } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/activityHub';
@@ -44,23 +45,28 @@ const PANEL_ROW_PROPS = {
   borderRadius: '$2',
 } as const;
 
-// The invite page's settled still, kept short so a 384px panel does not
-// become a page hero. Same art in every signed-out hub.
-function SignedOutInviteGuide() {
-  const isDark = useThemeVariant() === 'dark';
+const SIGNED_OUT_INVITE_TITLE = {
+  Perps: ETranslations.referral_link_perps_desc,
+  Swap: ETranslations.swap_referral_link__desc,
+  Earn: ETranslations.referral_link_defi_desc,
+} as const;
+
+function SignedOutInviteGuide({ source }: { source: IActivityHubSource }) {
+  const intl = useIntl();
 
   return (
-    <Image
+    <Empty
       testID="activity-hub-signed-out-guide"
-      alignSelf="center"
-      w="100%"
-      h={140}
-      resizeMode="contain"
-      source={
-        isDark
-          ? require('@onekeyhq/kit/assets/referral_invite_hero_dark.png')
-          : require('@onekeyhq/kit/assets/referral_invite_hero.png')
-      }
+      p="$0"
+      pb="$1"
+      illustration="ShakeHands"
+      illustrationProps={{ size: 80, mb: '$1' }}
+      title={intl.formatMessage({ id: SIGNED_OUT_INVITE_TITLE[source] })}
+      titleProps={{ size: '$bodyLgMedium', mb: '$1' }}
+      description={intl.formatMessage({
+        id: ETranslations.referral_intro_for_you_2,
+      })}
+      descriptionProps={{ size: '$bodySm' }}
     />
   );
 }
@@ -68,8 +74,8 @@ function SignedOutInviteGuide() {
 // Pointer layouts already list Referral in the sidebar, so their gift opens
 // what the sidebar cannot: the link and code to copy on the spot, laid out
 // like the invite card on the referral page, plus the Perks tab, named and
-// described as in the referral page's tab switch. Signed out, Join opens the
-// referral intro, which carries the sign-in.
+// described as in the referral page's tab switch. Join signs in without
+// leaving the panel; the account atom then reveals the code and link.
 export function ActivityHubInvitePanel({
   source,
   onOpenReferral,
@@ -79,6 +85,7 @@ export function ActivityHubInvitePanel({
 }) {
   const intl = useIntl();
   const tabCopy = useReferralTabCopy();
+  const { loginOneKeyId } = useOneKeyAuth();
   const [user] = usePrimePersistAtom();
   const isLoggedIn = Boolean(user.isLoggedIn && user.isLoggedInOnServer);
   const onekeyUserId = isLoggedIn ? user.onekeyUserId : undefined;
@@ -249,16 +256,23 @@ export function ActivityHubInvitePanel({
       ) : null}
       {!isLoggedIn ? (
         <>
-          <SignedOutInviteGuide />
+          <SignedOutInviteGuide source={source} />
           <Button
             testID="activity-hub-join"
             variant="primary"
-            onPress={() => {
+            onPressLoadingEnabled
+            onPress={async () => {
               logAction('join');
-              onOpenReferral('invite');
+              try {
+                await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+              } catch (error) {
+                if (!(error instanceof PrimeLoginDialogCancelError)) {
+                  throw error;
+                }
+              }
             }}
           >
-            {intl.formatMessage({ id: ETranslations.global_join })}
+            {intl.formatMessage({ id: ETranslations.global_sign_in })}
           </Button>
         </>
       ) : null}

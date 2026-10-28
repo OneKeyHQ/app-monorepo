@@ -16,6 +16,10 @@ const mockGetCachedMyReferralCode = jest.fn<
   Promise<string>,
   [{ onekeyUserId: string }]
 >();
+const mockLoginOneKeyId = jest.fn<
+  Promise<void>,
+  [{ toOneKeyIdPageOnLoginSuccess: boolean }]
+>();
 const mockCopyCode = jest.fn<void, [string]>();
 const mockCopyLink = jest.fn<void, [string]>();
 let mockIsLoggedIn = true;
@@ -58,8 +62,21 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Button: Primitive,
     Divider: Primitive,
+    Empty: ({
+      testID,
+      title,
+      description,
+    }: {
+      testID?: string;
+      title?: ReactNode;
+      description?: ReactNode;
+    }) => (
+      <div data-testid={testID}>
+        <div>{title}</div>
+        <div>{description}</div>
+      </div>
+    ),
     Icon: Primitive,
-    Image: Primitive,
     SizableText: Primitive,
     Skeleton: () => <span data-testid="loading-skeleton" />,
     XStack: Primitive,
@@ -71,12 +88,12 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocusedWhenEnabled: () => true,
+jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
+  useOneKeyAuth: () => ({ loginOneKeyId: mockLoginOneKeyId }),
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
-  useThemeVariant: () => 'light',
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -149,6 +166,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
+import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ActivityHubInvitePanel } from './ActivityHubInvitePanel';
@@ -156,6 +174,7 @@ import { ActivityHubInvitePanel } from './ActivityHubInvitePanel';
 describe('ActivityHubInvitePanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLoginOneKeyId.mockReset().mockResolvedValue(undefined);
     mockIsLoggedIn = true;
     mockOnekeyUserId = 'USER-A';
     mockGetCachedMyReferralCode.mockReset().mockResolvedValue('OLD');
@@ -241,7 +260,7 @@ describe('ActivityHubInvitePanel', () => {
     }
   });
 
-  it('opens the referral intro without fetching a code when signed out', async () => {
+  it('opens login without navigating or fetching a code when signed out', async () => {
     mockIsLoggedIn = false;
     const onOpenReferral = jest.fn();
     await act(async () => {
@@ -254,21 +273,102 @@ describe('ActivityHubInvitePanel', () => {
     });
 
     expect(screen.getByTestId('activity-hub-signed-out-guide')).toBeTruthy();
-    fireEvent.click(screen.getByText(ETranslations.global_join));
+    fireEvent.click(screen.getByText(ETranslations.global_sign_in));
 
-    expect(onOpenReferral).toHaveBeenCalledWith('invite');
+    expect(mockLoginOneKeyId).toHaveBeenCalledWith({
+      toOneKeyIdPageOnLoginSuccess: false,
+    });
+    expect(onOpenReferral).not.toHaveBeenCalled();
     expect(mockGetSummaryInfo).not.toHaveBeenCalled();
   });
 
-  it('shows the same signed-out guide for Perps', async () => {
-    mockIsLoggedIn = false;
-    await act(async () => {
-      render(
-        <ActivityHubInvitePanel source="Perps" onOpenReferral={jest.fn()} />,
-      );
-    });
+  it.each([
+    [
+      'Perps',
+      ETranslations.referral_link_perps_desc,
+      ETranslations.referral_intro_for_you_2,
+    ],
+    [
+      'Swap',
+      ETranslations.swap_referral_link__desc,
+      ETranslations.referral_intro_for_you_2,
+    ],
+    [
+      'Earn',
+      ETranslations.referral_link_defi_desc,
+      ETranslations.referral_intro_for_you_2,
+    ],
+  ] as const)(
+    'shows %s invite copy and keeps the perks entry available',
+    async (source, title, description) => {
+      mockIsLoggedIn = false;
+      const onOpenReferral = jest.fn();
+      await act(async () => {
+        render(
+          <ActivityHubInvitePanel
+            source={source}
+            onOpenReferral={onOpenReferral}
+          />,
+        );
+      });
 
+      expect(screen.getByText(title)).toBeTruthy();
+      expect(screen.getByText(description)).toBeTruthy();
+      fireEvent.click(screen.getByTestId('activity-hub-open-perks'));
+      expect(onOpenReferral).toHaveBeenCalledWith('benefits');
+      fireEvent.click(screen.getByTestId('activity-hub-join'));
+      expect(mockLoginOneKeyId).toHaveBeenCalledWith({
+        toOneKeyIdPageOnLoginSuccess: false,
+      });
+      expect(onOpenReferral).toHaveBeenCalledTimes(1);
+      expect(mockGetSummaryInfo).not.toHaveBeenCalled();
+    },
+  );
+
+  it('shows the code and product link in the same panel after login', async () => {
+    mockIsLoggedIn = false;
+    const onOpenReferral = jest.fn();
+    const { rerender } = render(
+      <ActivityHubInvitePanel source="Perps" onOpenReferral={onOpenReferral} />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('activity-hub-join'));
+    });
+    mockIsLoggedIn = true;
+    rerender(
+      <ActivityHubInvitePanel source="Perps" onOpenReferral={onOpenReferral} />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('activity-hub-copy-code').textContent,
+      ).toContain('NEW'),
+    );
+    expect(screen.queryByTestId('activity-hub-join')).toBeNull();
+    expect(screen.queryByTestId('activity-hub-signed-out-guide')).toBeNull();
+    fireEvent.click(screen.getByTestId('activity-hub-copy-link'));
+    expect(mockCopyLink).toHaveBeenCalledWith(
+      'https://app.onekey.so/r/NEW/app/perps',
+    );
+    expect(onOpenReferral).not.toHaveBeenCalled();
+  });
+
+  it('keeps the signed-out panel usable after login is cancelled', async () => {
+    mockIsLoggedIn = false;
+    mockLoginOneKeyId.mockRejectedValueOnce(new PrimeLoginDialogCancelError());
+    const onOpenReferral = jest.fn();
+    render(
+      <ActivityHubInvitePanel source="Swap" onOpenReferral={onOpenReferral} />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('activity-hub-join'));
+    });
     expect(screen.getByTestId('activity-hub-signed-out-guide')).toBeTruthy();
+    expect(mockGetSummaryInfo).not.toHaveBeenCalled();
+    expect(onOpenReferral).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('activity-hub-join'));
+    });
+    expect(mockLoginOneKeyId).toHaveBeenCalledTimes(2);
   });
 
   it('hides the previous account code while the new account request fails', async () => {
