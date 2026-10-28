@@ -569,7 +569,7 @@ function RouteReasonLine({
   isReserved: boolean;
   testID: string;
 }) {
-  const toneText = useLoanToneColors().text;
+  const noteColor = useLoanToneColors().note;
   const reduceMotion = useReducedMotion();
   const [textHeight, setTextHeight] = useState(REASON_LINE_HEIGHT);
   let height = 0;
@@ -599,7 +599,7 @@ function RouteReasonLine({
         >
           <SizableText
             size="$bodySm"
-            style={{ color: toneText.caution }}
+            style={{ color: noteColor }}
             pl={FIGURES_INDENT}
             testID={testID}
             transition={reduceMotion ? undefined : 'quick'}

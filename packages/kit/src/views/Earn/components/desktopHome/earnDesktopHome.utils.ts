@@ -10,6 +10,7 @@ import type {
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type {
+  IBorrowHealthFactor,
   IBorrowMarketItem,
   IBorrowReserveItem,
   IEarnPortfolioInvestment,
@@ -162,6 +163,10 @@ export type IEarnDesktopLendingSupply = {
   name: string;
   logoURI?: string;
   fiatValue: number;
+  // What the market adds to net worth: the supply less what is borrowed
+  // there, its part of the split under Net Worth, as My portfolio's bar
+  // counts it
+  netValue: number;
 };
 
 const DAYS_PER_YEAR = 365;
@@ -319,6 +324,80 @@ export function sumBorrowedFiat(entries: IEarnDesktopMarketReserves[]) {
   );
 }
 
+/** An asset in a lending position: what backs its loans, or one of them */
+export type IEarnDesktopLoanAsset = {
+  symbol: string;
+  logoURI?: string;
+};
+
+type IBorrowSuppliedAsset = NonNullable<
+  IBorrowReserveItem['supplied']
+>['assets'][number];
+
+/** Supplied and backing the market's loans: not switched off, and able to */
+export const countsAsLoanCollateral = (asset: IBorrowSuppliedAsset) =>
+  asset.usageAsCollateral !== false && asset.canBeCollateral !== false;
+
+/**
+ * A market position at face value: what backs its loans and what is
+ * borrowed, with their assets. The Loans window and the cards of the
+ * account's loans read a position alike
+ */
+export function summarizeLoanPosition(reserves?: IBorrowReserveItem) {
+  let collateralValue = 0;
+  const collateralAssets: IEarnDesktopLoanAsset[] = [];
+  (reserves?.supplied?.assets ?? []).forEach((asset) => {
+    const value = toNumber(asset.suppliedAmount?.fiatValue);
+    if (!countsAsLoanCollateral(asset)) {
+      return;
+    }
+    collateralValue += value;
+    if (value > 0) {
+      collateralAssets.push({
+        symbol: asset.token.symbol,
+        logoURI: asset.token.logoURI,
+      });
+    }
+  });
+  const borrowed = reserves?.borrowed?.assets ?? [];
+  const debtValue = borrowed.reduce(
+    (sum, asset) => sum + toNumber(asset.borrowedAmount?.fiatValue),
+    0,
+  );
+  const debtAssets: IEarnDesktopLoanAsset[] = borrowed
+    .filter((asset) => toNumber(asset.borrowedAmount?.fiatValue) > 0)
+    .map((asset) => ({
+      symbol: asset.token.symbol,
+      logoURI: asset.token.logoURI,
+    }));
+  return { collateralValue, collateralAssets, debtValue, debtAssets };
+}
+
+/**
+ * A market position's health factor as the server reads it, the Borrow
+ * page's: its risk detail (color and status), its figure, and the figure as
+ * a number to order by
+ */
+export function readLoanHealth(healthFactor?: IBorrowHealthFactor) {
+  const detail = healthFactor?.healthFactor?.button?.data?.healthFactorDetail;
+  const text = detail?.value || healthFactor?.healthFactor?.text?.text;
+  const value = text ? Number(text) : NaN;
+  return {
+    detail,
+    text,
+    value: Number.isFinite(value) ? value : undefined,
+  };
+}
+
+/** The riskiest first: the lowest health factor; one without a figure last */
+export function sortLoansByRisk<
+  T extends { healthFactor?: IBorrowHealthFactor },
+>(loans: T[]): T[] {
+  const rank = (loan: T) =>
+    readLoanHealth(loan.healthFactor).value ?? Number.MAX_VALUE;
+  return loans.toSorted((a, b) => rank(a) - rank(b));
+}
+
 /** Interest the loans accrue in a day at today's borrow APYs, in fiat. */
 export function estimateBorrowInterest24h(
   entries: IEarnDesktopMarketReserves[],
@@ -385,12 +464,17 @@ export function deriveLendingSupply({
       );
     });
     if (marketTotal > 0) {
+      const marketDebt = (reserves?.borrowed?.assets ?? []).reduce(
+        (sum, asset) => sum + toNumber(asset.borrowedAmount?.fiatValue),
+        0,
+      );
       lendingSupplies.push({
         provider: market.provider,
         name:
           market.provider.charAt(0).toUpperCase() + market.provider.slice(1),
         logoURI: market.logoURI,
         fiatValue: marketTotal,
+        netValue: Math.max(0, marketTotal - marketDebt),
       });
     }
   });
@@ -425,7 +509,7 @@ export function buildProtocolShares({
         key: supply.provider.toLowerCase(),
         name: supply.name,
         logoURI: supply.logoURI,
-        value: supply.fiatValue,
+        value: supply.netValue,
       })),
     ],
     topCount,

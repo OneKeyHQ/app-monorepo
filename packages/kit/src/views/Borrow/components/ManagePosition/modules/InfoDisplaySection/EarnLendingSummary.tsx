@@ -7,8 +7,10 @@ import { useIntl } from 'react-intl';
 import { Icon, XStack } from '@onekeyhq/components';
 import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
 import type { ILoanLtvTone } from '@onekeyhq/kit/src/views/Earn/pages/EarnLoanRouter/loanLtvBar.types';
-import { getLoanHealthTone } from '@onekeyhq/kit/src/views/Earn/pages/EarnLoanRouter/loanRouter.utils';
-import { useLoanToneColors } from '@onekeyhq/kit/src/views/Earn/pages/EarnLoanRouter/loanToneColors';
+import {
+  LOAN_HEALTH_TEXT_COLOR,
+  getLoanHealthTone,
+} from '@onekeyhq/kit/src/views/Earn/pages/EarnLoanRouter/loanRouter.utils';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import {
   EarnFormRow,
@@ -74,7 +76,8 @@ const isHealthFigure = (text?: IEarnText) => {
   return Number.isFinite(value) && value > 0;
 };
 
-// A health factor's tier, as the Loans modal and My portfolio read one
+// A health factor's band, the server's, as the Loans window and My portfolio
+// read one
 const readHealthTone = (text?: IEarnText): ILoanLtvTone | undefined =>
   isHealthFigure(text) ? getLoanHealthTone(readHealthFigure(text)) : undefined;
 
@@ -126,12 +129,12 @@ export function EarnLendingSummary({
   keepsFiguresWhenEmptied?: boolean;
 }) {
   const intl = useIntl();
-  // The factor in the Loans modal's colors for its tier: "careful" in amber
-  // rather than the theme's lemon
-  const toneText = useLoanToneColors().text;
+  // The factor in its band's color, the Borrow page's own
   const withHealthTone = (text?: IEarnText): IEarnText | undefined => {
     const tone = readHealthTone(text);
-    return text && tone ? { ...text, color: toneText[tone] } : text;
+    return text && tone
+      ? { ...text, color: LOAN_HEALTH_TEXT_COLOR[tone] }
+      : text;
   };
   // While a new amount's rows load, the last ones stay in place
   const lastConfirmationRef = useRef<

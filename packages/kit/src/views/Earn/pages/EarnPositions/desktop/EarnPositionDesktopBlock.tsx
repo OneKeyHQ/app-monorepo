@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { DEFI_PORTFOLIO_DETAIL_POSITION_NAME_COLOR } from '@onekeyhq/kit/src/components/DeFi/defiPortfolioDetailStyleUtils';
-import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -27,8 +26,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { buildKeyboardPressProps } from '../../../components/desktopHome/earnDesktopPressable';
 import { EarnTestIDs } from '../../../testIDs';
-import { getLoanHealthTone } from '../../EarnLoanRouter/loanRouter.utils';
-import { useLoanToneColors } from '../../EarnLoanRouter/loanToneColors';
+import { EarnPositionHealthFactorRow } from '../EarnPositionHealthFactorRow';
 import {
   DaysLeftText,
   EffectiveDepositText,
@@ -271,8 +269,6 @@ function EarnPositionDesktopBlockCmp({
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
   const redeem = useHoldingRedeem(position, onRedeem, onWarmRedeem);
-  // A loan's health reads in the Loans modal's tiers and colors
-  const toneColors = useLoanToneColors();
   // The name and chevron brighten on hover, as the DeFi home's tile titles do
   const [isHovered, setIsHovered] = useState(false);
   const isLit = Boolean(openDetail) && isHovered;
@@ -349,10 +345,7 @@ function EarnPositionDesktopBlockCmp({
         </XStack>
       </XStack>
       {meta?.kind === 'healthFactor' ? (
-        <DeFiPositionHealthFactorRow
-          healthFactor={meta.healthFactor}
-          valueColor={toneColors.text[getLoanHealthTone(meta.healthFactor)]}
-        />
+        <EarnPositionHealthFactorRow meta={meta} />
       ) : null}
       <HoldingSectionsTable position={position} redeem={redeem} />
     </YStack>

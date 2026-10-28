@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import type { ColorTokens } from '@onekeyhq/components';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import { getBorrowMarketLabel } from '../../../Borrow/borrowMarketDisplayName';
@@ -16,7 +17,9 @@ import {
 } from '../../components/desktopHome/earnDesktopHome.utils';
 
 import type { ILoanLtvTone } from './loanLtvBar.types';
+import type { IHealthFactorDetail } from '../../../Borrow/components/healthFactorValueColor';
 import type {
+  IEarnDesktopLoanAsset,
   IEarnDesktopLoanAssetType,
   IEarnDesktopMarketReserves,
 } from '../../components/desktopHome/earnDesktopHome.utils';
@@ -26,13 +29,22 @@ import type {
 // filling the whole loan alone (the Borrow Router PRD's rule); a market that
 // can't is listed last with the reason
 
-// A health factor's tier, as the Borrow pages read one: 2 and up, 1.25 to 2,
-// under 1.25. My portfolio reads its loans' health the same way
+// A health factor's tier, where the server puts it on the Borrow page and in
+// its quotes (read off them 10-28): 1.50 and up, 1.10 to 1.49, under 1.10.
+// The Loans window, My portfolio and the Earn forms read every health factor
+// the same way
 export const getLoanHealthTone = (value?: number): ILoanLtvTone => {
-  if (value === undefined || value >= 2) {
+  if (value === undefined || value >= 1.5) {
     return 'success';
   }
-  return value >= 1.25 ? 'caution' : 'critical';
+  return value >= 1.1 ? 'caution' : 'critical';
+};
+
+// A health factor's figure in its tier's color, the Borrow page's own
+export const LOAN_HEALTH_TEXT_COLOR: Record<ILoanLtvTone, ColorTokens> = {
+  success: '$textSuccess',
+  caution: '$textCaution',
+  critical: '$textCritical',
 };
 
 const toNumber = (value?: string | number) => {
@@ -332,10 +344,7 @@ export function pickLoanBorrowSymbol({
 // ---------- One market for the amounts ----------
 
 // An asset in the account's position: what backs its loans, or one of them
-export type ILoanPositionAsset = {
-  symbol: string;
-  logoURI?: string;
-};
+export type ILoanPositionAsset = IEarnDesktopLoanAsset;
 
 export type ILoanRouteFacts = {
   // No account on the market's network: nothing can be sent there
@@ -369,6 +378,9 @@ export type ILoanRouteFacts = {
   // The market lends the token to this account (Aave's E-Mode narrows it)
   canBorrowHere: boolean;
   eModeLabel?: string;
+  // With a loan there, the server's reading of the position: the Borrow
+  // page's figure, color and status
+  healthFactorDetail?: IHealthFactorDetail;
 };
 
 export type ILoanRouteBlock =

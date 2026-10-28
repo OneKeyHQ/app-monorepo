@@ -21,6 +21,7 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
+import { useBorrowMarkets } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowMarkets';
 import { warmWithdrawWaysOut } from '@onekeyhq/kit/src/views/Staking/components/UniversalWithdraw/warmWithdrawWaysOut';
 import {
   buildEarnProtocolInfo,
@@ -32,8 +33,12 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
-import type { IEarnRewardsPortfolioStage } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowMarketItem,
+  IEarnRewardsPortfolioStage,
+} from '@onekeyhq/shared/types/staking';
 
+import { useEarnDesktopAccountMarkets } from '../../../components/desktopHome/useEarnDesktopHomeData';
 import { NetworkFilterControl } from '../../../components/NetworkFilterControl';
 import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabContent';
 import { EarnNavigation } from '../../../earnUtils';
@@ -47,6 +52,7 @@ import {
 import { DeFiAssetsDesktopTab } from '../desktop/DeFiAssetsDesktopTab';
 
 import { DeFiAssetsTab } from './DeFiAssetsTab';
+import { withLendingMarketPositions } from './earnLendingPositions';
 import { EMPTY_POSITIONS_RESPONSE } from './earnPortfolioPositions.utils';
 import {
   buildEarnClaimableRewardGroups,
@@ -77,6 +83,11 @@ type IPrimaryTab = 'assets' | 'rewards';
 
 // One stable empty selection: the rewards request keys on the array.
 const ALL_NETWORKS: string[] = [];
+const NO_MARKETS: IBorrowMarketItem[] = [];
+// The lending markets the positions API leaves out (Aave, Kamino) are read
+// here as the DeFi home reads them for its Net Worth, so the two totals
+// agree (web; the phone app keeps the API's list)
+const READS_LENDING_MARKETS = !platformEnv.isNative;
 // The wide layout's column, the wallet DeFi Portfolio's desktop width
 const TABLE_LAYOUT_MAX_WIDTH = 1140;
 
@@ -193,15 +204,37 @@ export function MyPortfolioPage({
     isLoading: isPositionsLoading,
     refresh: refreshPositions,
   } = useEarnPortfolioPositions({ isActive: isFocused });
+  // The account's positions in the lending markets, each market's answer as
+  // the home last had it until this page's own lands
+  const { markets: borrowMarkets, isLoading: isBorrowMarketListLoading } =
+    useBorrowMarkets({ isActive: isFocused && READS_LENDING_MARKETS });
+  const lendingMarketList = READS_LENDING_MARKETS
+    ? (borrowMarkets ?? NO_MARKETS)
+    : NO_MARKETS;
+  const lendingMarkets = useEarnDesktopAccountMarkets({
+    markets: lendingMarketList,
+    isListReady: lendingMarketList.length > 0 || !isBorrowMarketListLoading,
+    isActive: isFocused && READS_LENDING_MARKETS,
+  });
   // Partial sums are wrong numbers: a first load, the only kind that starts
   // from an empty page, keeps the page empty until every protocol has
-  // answered and then shows it whole, as the DeFi home's Net Worth does.
-  // Shown as each one landed, the totals counted up from $0.00 and the bar,
-  // tiles and cards reordered several times in a second. A refresh keeps
-  // the rows on screen as before
-  const response = isPositionsLoading
-    ? EMPTY_POSITIONS_RESPONSE
-    : loadedResponse;
+  // answered, the lending markets too, and then shows it whole, as the DeFi
+  // home's Net Worth does. Shown as each one landed, the totals counted up
+  // from $0.00 and the bar, tiles and cards reordered several times in a
+  // second. A refresh keeps the rows on screen as before
+  const isFirstLoad =
+    isPositionsLoading || (READS_LENDING_MARKETS && !lendingMarkets.isLoaded);
+  const response = useMemo(() => {
+    if (isFirstLoad) {
+      return EMPTY_POSITIONS_RESPONSE;
+    }
+    return READS_LENDING_MARKETS
+      ? withLendingMarketPositions({
+          response: loadedResponse,
+          entries: lendingMarkets.entries,
+        })
+      : loadedResponse;
+  }, [isFirstLoad, lendingMarkets.entries, loadedResponse]);
   const {
     rewards,
     isLoading: isRewardsLoading,
@@ -215,11 +248,16 @@ export function MyPortfolioPage({
     isActive: isFocused,
   });
 
+  const refreshLendingMarkets = lendingMarkets.refresh;
   const refreshAll = useCallback(
     async (options?: IRefreshOptions) => {
-      await Promise.all([refreshPositions(options), refreshRewards()]);
+      await Promise.all([
+        refreshPositions(options),
+        refreshRewards(),
+        READS_LENDING_MARKETS ? refreshLendingMarkets() : undefined,
+      ]);
     },
-    [refreshPositions, refreshRewards],
+    [refreshLendingMarkets, refreshPositions, refreshRewards],
   );
 
   const translate = useCallback(
@@ -618,7 +656,7 @@ export function MyPortfolioPage({
                 <PortfolioTotalsHeader
                   defiAssetsFiatValue={String(view.totalValue)}
                   rewardsFiatValue={rewardsHeaderFiat}
-                  isLoading={isPositionsLoading}
+                  isLoading={isFirstLoad}
                 />
                 {tableLayout ? (
                   // One row for the tabs and the filter both tabs share
@@ -647,7 +685,7 @@ export function MyPortfolioPage({
                         protocols={visibleProtocols}
                         deFiProtocols={visibleDeFiProtocols}
                         protocolMap={view.protocolMap}
-                        isLoading={isPositionsLoading}
+                        isLoading={isFirstLoad}
                         pendingCountByProvider={pendingCountByProvider}
                         onManage={handleManage}
                         onRedeem={handleRedeem}
@@ -656,7 +694,7 @@ export function MyPortfolioPage({
                     ) : (
                       <DeFiAssetsTab
                         protocols={visibleProtocols}
-                        isLoading={isPositionsLoading}
+                        isLoading={isFirstLoad}
                         pendingCountByProvider={pendingCountByProvider}
                         networkFilter={networkFilter}
                         onManage={handleManage}

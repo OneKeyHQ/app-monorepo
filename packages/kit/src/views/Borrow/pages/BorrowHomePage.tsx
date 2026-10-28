@@ -7,6 +7,7 @@ import { HeaderIconButton, Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabEarnRoutes,
   ITabEarnParamList,
@@ -125,7 +126,14 @@ function BorrowHomePageContent() {
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_borrow })}
+        // Reached from Loans on web (the Loans tab, the cards of the
+        // account's loans, the Loans window), the page says so; the market
+        // picker under it names the market (demo 10-29)
+        title={intl.formatMessage({
+          id: platformEnv.isNative
+            ? ETranslations.global_borrow
+            : ETranslations.earn_loans__action,
+        })}
         headerRight={showBorrowHistoryAction ? renderHeaderRight : undefined}
       />
       <Page.Body pt={bodyPaddingTop} opacity={isHeaderHeightSettled ? 1 : 0}>

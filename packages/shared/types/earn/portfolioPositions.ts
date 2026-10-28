@@ -1,5 +1,6 @@
 import type { IDeFiAsset, IDeFiPosition, IProtocolSummary } from '../defi';
 import type {
+  IBorrowHealthFactorRiskDetail,
   IEarnActionIcon,
   IEarnInvestmentItemV2,
   IEarnProtocolCategory,
@@ -209,6 +210,12 @@ export type IEarnPositionExtension = {
   airdropRows?: IEarnPositionAirdropRow[];
   /** fiat of those rows, as the airdrop detail sums it */
   airdropFiatValue?: string;
+  /**
+   * A lending position the client reads from its market (demo 10-29): the
+   * market's health factor as the Borrow page shows it, figure, color and
+   * status
+   */
+  healthFactorDetail?: IBorrowHealthFactorRiskDetail['data']['healthFactorDetail'];
 };
 
 export type IEarnPortfolioPosition = Omit<

@@ -12,7 +12,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
-import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -25,8 +24,7 @@ import type {
 
 import { buildKeyboardPressProps } from '../../../components/desktopHome/earnDesktopPressable';
 import { EarnTestIDs } from '../../../testIDs';
-import { getLoanHealthTone } from '../../EarnLoanRouter/loanRouter.utils';
-import { useLoanToneColors } from '../../EarnLoanRouter/loanToneColors';
+import { EarnPositionHealthFactorRow } from '../EarnPositionHealthFactorRow';
 
 import { EarnHoldingSections } from './EarnHoldingSections';
 import {
@@ -208,8 +206,6 @@ function EarnPositionCardCmp({
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
   const redeem = useHoldingRedeem(position, onRedeem, onWarmRedeem);
-  // A loan's health reads in the Loans modal's tiers and colors
-  const toneColors = useLoanToneColors();
 
   return (
     <YStack gap="$3" testID={EarnTestIDs.portfolioItem(source.protocolName)}>
@@ -285,10 +281,7 @@ function EarnPositionCardCmp({
       </YStack>
 
       {meta?.kind === 'healthFactor' ? (
-        <DeFiPositionHealthFactorRow
-          healthFactor={meta.healthFactor}
-          valueColor={toneColors.text[getLoanHealthTone(meta.healthFactor)]}
-        />
+        <EarnPositionHealthFactorRow meta={meta} />
       ) : null}
 
       <EarnHoldingSections position={position} redeem={redeem} />

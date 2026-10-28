@@ -117,11 +117,18 @@ export type IEarnDesktopAccountMarket = {
 };
 
 const EMPTY_ACCOUNT_MARKETS: IEarnDesktopAccountMarket[] = [];
-const INITIAL_ACCOUNT_RESULT: {
+type IAccountMarketsResult = {
   scope?: string;
   marketsKey?: string;
   entries: IEarnDesktopAccountMarket[];
-} = { entries: EMPTY_ACCOUNT_MARKETS };
+};
+const INITIAL_ACCOUNT_RESULT: IAccountMarketsResult = {
+  entries: EMPTY_ACCOUNT_MARKETS,
+};
+// Each account's last answers, in memory: a page opened from the DeFi home
+// (My portfolio) starts with them while it asks again, so its totals agree
+// with the home's from the first frame
+const accountMarketsMemory = new Map<string, IAccountMarketsResult>();
 
 /**
  * The account's position in each market. No endpoint spans markets yet, so
@@ -147,10 +154,16 @@ export function useEarnDesktopAccountMarkets({
     selectedAccount.indexedAccountId || indexedAccount?.id;
   const scope = `${accountId}|${indexedAccountId ?? ''}`;
   const marketsKey = getMarketsKey(markets);
+  const remembered = accountMarketsMemory.get(scope);
   // Each market's last good answer for this account, kept when a request fails
   const lastGoodRef = useRef({
     scope,
-    byMarket: new Map<string, IEarnDesktopAccountMarket>(),
+    byMarket: new Map<string, IEarnDesktopAccountMarket>(
+      (remembered?.entries ?? []).map((entry) => [
+        buildBorrowMarketKey(entry.market),
+        entry,
+      ]),
+    ),
   });
 
   const { result = INITIAL_ACCOUNT_RESULT, run } = usePromiseResult(
@@ -221,13 +234,15 @@ export function useEarnDesktopAccountMarkets({
           }),
         ),
       );
-      return { scope, marketsKey, entries };
+      const answer = { scope, marketsKey, entries };
+      accountMarketsMemory.set(scope, answer);
+      return answer;
     },
     // marketsKey stands in for the markets array, which is rebuilt on every poll
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [scope, marketsKey],
     {
-      initResult: INITIAL_ACCOUNT_RESULT,
+      initResult: remembered ?? INITIAL_ACCOUNT_RESULT,
       pollingInterval: isActive ? ACCOUNT_POLLING_INTERVAL : undefined,
     },
   );

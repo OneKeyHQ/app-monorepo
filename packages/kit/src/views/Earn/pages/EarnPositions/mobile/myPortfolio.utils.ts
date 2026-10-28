@@ -15,6 +15,8 @@ import type {
   IEarnRewardsPortfolioItem,
 } from '@onekeyhq/shared/types/staking';
 
+import { EARN_LENDING_MARKET_SOURCE } from './earnLendingPositions';
+
 import type {
   IEarnClaimableReward,
   IEarnPositionRewardGroup,
@@ -70,7 +72,8 @@ export function positionPendingTag(position: IEarnPortfolioPosition): string {
 /**
  * The market a card's loan sits in, for the market's own page (the Borrow
  * page, where repaying and the collateral are): set where the card holds a
- * lending position that borrows. Found by the target the card hands its
+ * lending position that borrows, or one read from its market (a supply
+ * there is managed on that page too). Found by the target the card hands its
  * Manage, the one object the card was built with (demo 10-28)
  */
 export function findLoanMarketOf(
@@ -83,7 +86,10 @@ export function findLoanMarketOf(
     );
     if (card) {
       const isLoan = card.sources.some(
-        (source) => source.category === 'lending' && source.debts.length > 0,
+        (source) =>
+          source.category === 'lending' &&
+          (source.debts.length > 0 ||
+            source.source.provider === EARN_LENDING_MARKET_SOURCE),
       );
       // The market is the position's vault, named on Manage's target or on
       // the position itself

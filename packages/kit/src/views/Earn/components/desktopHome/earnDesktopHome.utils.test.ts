@@ -318,8 +318,8 @@ describe('buildProtocolShares', () => {
     const shares = buildProtocolShares({
       investments: [investment('morpho', '10')],
       lendingSupplies: [
-        { provider: 'aave', name: 'Aave', fiatValue: 30 },
-        { provider: 'Morpho', name: 'Morpho', fiatValue: 10 },
+        { provider: 'aave', name: 'Aave', fiatValue: 30, netValue: 30 },
+        { provider: 'Morpho', name: 'Morpho', fiatValue: 10, netValue: 10 },
       ],
     });
     expect(shares.top.map((item) => [item.key, item.value])).toEqual([
@@ -699,6 +699,30 @@ describe('deriveLendingSupply', () => {
     expect(
       result.supplied.get(`aave:evm--1:${core.marketAddress}:supply-usdc`),
     ).toBe(2.9);
+  });
+
+  it("splits a market's supply net of what it borrows there", () => {
+    const withLoan = [
+      {
+        market: core,
+        reserves: {
+          ...reserves({
+            borrow: [],
+            supplied: [{ symbol: 'ETH', fiatValue: '2.84' }],
+          }),
+          borrowed: {
+            assets: [{ borrowedAmount: { fiatValue: '1.49' } }],
+          },
+        } as unknown as IBorrowReserveItem,
+      },
+    ];
+    const [aave] = deriveLendingSupply({
+      entries: withLoan,
+      investments: [],
+    }).lendingSupplies;
+    // Net Worth subtracts the loan apart; the split shows what is left
+    expect(aave.fiatValue).toBeCloseTo(2.84);
+    expect(aave.netValue).toBeCloseTo(1.35);
   });
 
   it('estimates a day of what the supply earns', () => {

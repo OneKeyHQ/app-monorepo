@@ -525,13 +525,14 @@ describe('parseLoanFigure', () => {
 });
 
 describe('getLoanHealthTone', () => {
-  it('reads 2 and up as safe, 1.25 to 2 as careful and under 1.25 as at risk', () => {
+  // Where the server's quotes put 1.50, 1.49, 1.10 and 1.09 (10-28)
+  it('reads the bands the server colors: 1.5 and up, 1.1 to 1.5, under 1.1', () => {
     expect(getLoanHealthTone(undefined)).toBe('success');
     expect(getLoanHealthTone(Infinity)).toBe('success');
-    expect(getLoanHealthTone(2)).toBe('success');
-    expect(getLoanHealthTone(1.99)).toBe('caution');
-    expect(getLoanHealthTone(1.25)).toBe('caution');
-    expect(getLoanHealthTone(1.24)).toBe('critical');
+    expect(getLoanHealthTone(1.5)).toBe('success');
+    expect(getLoanHealthTone(1.49)).toBe('caution');
+    expect(getLoanHealthTone(1.1)).toBe('caution');
+    expect(getLoanHealthTone(1.09)).toBe('critical');
     expect(getLoanHealthTone(0.9)).toBe('critical');
   });
 });

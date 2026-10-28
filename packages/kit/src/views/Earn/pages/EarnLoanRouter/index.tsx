@@ -13,6 +13,7 @@ import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
+  Badge,
   Icon,
   Page,
   SizableText,
@@ -22,6 +23,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { ColorTokens } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -42,6 +44,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { BorrowNavigation } from '../../../Borrow/borrowUtils';
+import { resolveHealthFactorValueColor } from '../../../Borrow/components/healthFactorValueColor';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { StakeProgress } from '../../../Staking/components/StakeProgress';
 import { StakingAmountInput } from '../../../Staking/components/StakingAmountInput';
@@ -52,6 +55,7 @@ import {
 import { EARN_DESKTOP_LOAN_LTV } from '../../components/desktopHome/earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import { EarnLoanAssetLogos } from '../../components/desktopHome/EarnLoanAssetLogos';
 import { useEarnDesktopMarkets } from '../../components/desktopHome/useEarnDesktopHomeData';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
@@ -63,6 +67,7 @@ import { EARN_OFFER_ROUTES_COLUMN_WIDTH } from '../EarnRouter/earnRouter.utils';
 
 import { LoanLtvBar } from './LoanLtvBar';
 import {
+  LOAN_HEALTH_TEXT_COLOR,
   buildLoanRoutes,
   getLoanBorrowOptions,
   getLoanCollateralOptions,
@@ -96,6 +101,7 @@ import { useLoanRouterRun } from './useLoanRouterRun';
 import type { ILoanPositionAsset } from './loanRouter.utils';
 import type { ILoanRouteItem } from './LoanRouterParts';
 import type { ILoanRunDone, ILoanRunPlan } from './useLoanRouterRun';
+import type { IHealthFactorDetail } from '../../../Borrow/components/healthFactorValueColor';
 import type { IEarnOutcome } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 
 // A collateral and a loan, and every market that takes the pair, as
@@ -157,16 +163,42 @@ function RowValue({
   );
 }
 
+const scaleHealth = (value: number | undefined, scale: number) =>
+  value === undefined ? undefined : value * scale;
+
+const healthColorOf = (value: number): ColorTokens =>
+  LOAN_HEALTH_TEXT_COLOR[getLoanHealthTone(value)];
+
+// The health factor in the Borrow page's words: the position as it stands is
+// the server's figure, color and status; once amounts are typed, the figure
+// before and after, each in its band's color
 function HealthFactorValue({
   before,
   after,
+  current,
 }: {
   before?: number;
   after?: number;
+  current?: IHealthFactorDetail;
 }) {
-  const toneText = useLoanToneColors().text;
   if (after === undefined) {
     return <RowValue>–</RowValue>;
+  }
+  if (before === undefined && current) {
+    return (
+      <XStack ai="center" gap="$1.5">
+        <SizableText
+          size="$bodyMdMedium"
+          color={resolveHealthFactorValueColor(current)}
+          fontVariant={['tabular-nums']}
+        >
+          {current.value}
+        </SizableText>
+        {current.status?.tag ? (
+          <Badge badgeType={current.status.badge}>{current.status.tag}</Badge>
+        ) : null}
+      </XStack>
+    );
   }
   return (
     <XStack ai="center" gap="$1.5">
@@ -174,16 +206,24 @@ function HealthFactorValue({
         <>
           <SizableText
             size="$bodySm"
-            style={{ color: toneText[getLoanHealthTone(before)] }}
+            color={
+              current
+                ? resolveHealthFactorValueColor(current)
+                : healthColorOf(before)
+            }
           >
-            {formatHealth(before)}
+            {current ? current.value : formatHealth(before)}
           </SizableText>
           <Icon name="ArrowRightOutline" size="$4" color="$iconDisabled" />
         </>
       ) : null}
-      <RowValue toneColor={toneText[getLoanHealthTone(after)]}>
+      <SizableText
+        size="$bodyMdMedium"
+        textAlign="right"
+        color={healthColorOf(after)}
+      >
         {formatHealth(after)}
-      </RowValue>
+      </SizableText>
     </XStack>
   );
 }
@@ -219,36 +259,6 @@ function LtvValue({
   );
 }
 
-// A position's assets, overlapping, the first on top
-const LOGOS_SHOWN = 4;
-function AssetLogos({ assets }: { assets: ILoanPositionAsset[] }) {
-  if (!assets.length) {
-    return null;
-  }
-  const shown = assets.slice(0, LOGOS_SHOWN);
-  return (
-    <XStack ai="center">
-      {shown.map((asset, index) => (
-        <Stack
-          key={asset.symbol}
-          ml={index ? '$-1.5' : undefined}
-          zIndex={shown.length - index}
-          borderRadius="$full"
-          borderWidth={2}
-          borderColor="$bgApp"
-        >
-          <Token size="xs" tokenImageUri={asset.logoURI} />
-        </Stack>
-      ))}
-      {assets.length > LOGOS_SHOWN ? (
-        <SizableText size="$bodySm" color="$textSubdued" ml="$1">
-          {`+${assets.length - LOGOS_SHOWN}`}
-        </SizableText>
-      ) : null}
-    </XStack>
-  );
-}
-
 function PositionValue({
   assets,
   before,
@@ -264,7 +274,7 @@ function PositionValue({
 }) {
   return (
     <XStack ai="center" gap="$2">
-      <AssetLogos assets={assets} />
+      <EarnLoanAssetLogos assets={assets} />
       {isChanging ? (
         <>
           <SizableText size="$bodySm" color="$textSubdued">
@@ -867,10 +877,21 @@ function EarnLoanRouterPage() {
         })
       : undefined;
   ltvStartRef.current = ltvBar && !ltvBar.isPreview ? ltvBar.used : 0;
-  // The health factor the bar's LTV leaves, in the Borrow pages' colors
+  // A position's health factor is the server's, the Borrow page's figure;
+  // the window's own reading of it (from the reserves' prices, a hair off)
+  // only scales what typed amounts do to it, so before and after agree with
+  // the page
+  const serverHealth = selectedFacts?.healthFactorDetail;
+  const serverHealthValue = serverHealth ? Number(serverHealth.value) : NaN;
+  const ownHealthBefore = selectedMetrics?.healthFactorBefore;
+  const healthScale =
+    Number.isFinite(serverHealthValue) && ownHealthBefore
+      ? serverHealthValue / ownHealthBefore
+      : 1;
+  // The health factor the bar's LTV leaves, in the Borrow page's bands
   const barTone = getLoanHealthTone(
     ltvBar?.liquidation !== undefined && ltvBar.value > 0
-      ? ltvBar.liquidation / ltvBar.value
+      ? (ltvBar.liquidation / ltvBar.value) * healthScale
       : undefined,
   );
   const hasPosition = Boolean(
@@ -934,12 +955,17 @@ function EarnLoanRouterPage() {
       label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
       value={
         <HealthFactorValue
-          before={isChanging ? selectedMetrics?.healthFactorBefore : undefined}
+          before={
+            isChanging && ownHealthBefore !== undefined
+              ? ownHealthBefore * healthScale
+              : undefined
+          }
           after={
             isChanging
-              ? selectedMetrics?.healthFactor
-              : selectedMetrics?.healthFactorBefore
+              ? scaleHealth(selectedMetrics?.healthFactor, healthScale)
+              : scaleHealth(ownHealthBefore, healthScale)
           }
+          current={serverHealth}
         />
       }
       note={

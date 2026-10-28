@@ -10,16 +10,17 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
 
-import { toLtvFraction } from '../../components/desktopHome/earnDesktopHome.utils';
+import {
+  countsAsLoanCollateral,
+  readLoanHealth,
+  summarizeLoanPosition,
+  toLtvFraction,
+} from '../../components/desktopHome/earnDesktopHome.utils';
 import { parseFormattedLiquidityValue } from '../../utils/availableAssetsUtils';
 
 import { isSameReserve, parseLoanFigure } from './loanRouter.utils';
 
-import type {
-  ILoanPositionAsset,
-  ILoanRoute,
-  ILoanRouteFacts,
-} from './loanRouter.utils';
+import type { ILoanRoute, ILoanRouteFacts } from './loanRouter.utils';
 
 // A market's figures move slowly; the position after a supply or a loan is
 // read again by the run itself
@@ -84,6 +85,7 @@ export type ILoanRoutePosition = Pick<
   | 'debtAssets'
   | 'canBorrowHere'
   | 'walletBalance'
+  | 'healthFactorDetail'
 >;
 
 /** The account's position in the route's market, from its reserve lists */
@@ -95,14 +97,21 @@ export async function readLoanRoutePosition({
   networkAccountId: string;
 }): Promise<ILoanRoutePosition | undefined> {
   const { market } = route;
-  const reserves = await backgroundApiProxy.serviceStaking
-    .getBorrowReserves({
-      provider: market.provider,
-      networkId: market.networkId,
-      marketAddress: market.marketAddress,
-      accountId: networkAccountId,
-    })
-    .catch(() => undefined);
+  const marketParams = {
+    provider: market.provider,
+    networkId: market.networkId,
+    marketAddress: market.marketAddress,
+    accountId: networkAccountId,
+  };
+  // The health factor alongside, so a position's figure is the server's
+  const [reserves, healthFactor] = await Promise.all([
+    backgroundApiProxy.serviceStaking
+      .getBorrowReserves(marketParams)
+      .catch(() => undefined),
+    backgroundApiProxy.serviceStaking
+      .getBorrowHealthFactor(marketParams)
+      .catch(() => undefined),
+  ]);
   if (!reserves) {
     return undefined;
   }
@@ -115,24 +124,15 @@ export async function readLoanRoutePosition({
     symbol: route.borrow.symbol,
   };
   let weightedCollateral = 0;
-  let collateralValue = 0;
   let collateralSupplied = 0;
   let collateralWeighted = 0;
-  const collateralAssets: ILoanPositionAsset[] = [];
   (reserves.supplied?.assets ?? []).forEach((asset) => {
     const value = toNumber(asset.suppliedAmount?.fiatValue);
     // Off as collateral (a switch, or an asset that never counts)
-    const counts =
-      asset.usageAsCollateral !== false && asset.canBeCollateral !== false;
-    const weighted = counts ? value * toLtvFraction(asset.liquidationLtv) : 0;
+    const weighted = countsAsLoanCollateral(asset)
+      ? value * toLtvFraction(asset.liquidationLtv)
+      : 0;
     weightedCollateral += weighted;
-    collateralValue += counts ? value : 0;
-    if (counts && value > 0) {
-      collateralAssets.push({
-        symbol: asset.token.symbol,
-        logoURI: asset.token.logoURI,
-      });
-    }
     if (
       isSameReserve(
         { reserveAddress: asset.reserveAddress, symbol: asset.token.symbol },
@@ -153,16 +153,8 @@ export async function readLoanRoutePosition({
         (toNumber(asset.borrowFactor) || 1),
     0,
   );
-  const debtValue = borrowed.reduce(
-    (sum, asset) => sum + toNumber(asset.borrowedAmount?.fiatValue),
-    0,
-  );
-  const debtAssets: ILoanPositionAsset[] = borrowed
-    .filter((asset) => toNumber(asset.borrowedAmount?.fiatValue) > 0)
-    .map((asset) => ({
-      symbol: asset.token.symbol,
-      logoURI: asset.token.logoURI,
-    }));
+  const { collateralValue, collateralAssets, debtValue, debtAssets } =
+    summarizeLoanPosition(reserves);
   // With an account the list holds only what it can borrow here: Aave's
   // E-Mode leaves out the assets outside its category
   const lent = (reserves.borrow?.assets ?? []).find((asset) =>
@@ -189,6 +181,8 @@ export async function readLoanRoutePosition({
     debtAssets,
     canBorrowHere: Boolean(lent),
     walletBalance: held?.walletBalance?.amount ?? held?.walletBalance?.number,
+    healthFactorDetail:
+      debtValue > 0 ? readLoanHealth(healthFactor).detail : undefined,
   };
 }
 
@@ -269,6 +263,7 @@ async function readRouteFacts({
     // Without the account's list there is no telling: the server decides
     canBorrowHere: position ? position.canBorrowHere : true,
     walletBalance: position?.walletBalance,
+    healthFactorDetail: position?.healthFactorDetail,
     eModeLabel,
   };
 }

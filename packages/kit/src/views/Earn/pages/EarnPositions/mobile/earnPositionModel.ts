@@ -23,6 +23,7 @@ import type {
   IEarnPortfolioPositionsResponse,
   IEarnPositionCategory,
   IEarnPositionEffectiveDeposit,
+  IEarnPositionExtension,
   IEarnPositionManageTarget,
   IEarnPositionRewardAsset,
   IEarnPositionRewardClaim,
@@ -94,7 +95,12 @@ export type IEarnPositionSectionView = {
   assets: IEarnPositionSectionAsset[];
 };
 
-export type IEarnPositionMeta = { kind: 'healthFactor'; healthFactor: number };
+export type IEarnPositionMeta = {
+  kind: 'healthFactor';
+  healthFactor: number;
+  /** the Borrow page's reading, where the position carries it */
+  detail?: IEarnPositionExtension['healthFactorDetail'];
+};
 
 /** Manage, or Unstake where leaving is the only move, into the detail page. */
 export type IEarnPositionAction = {
@@ -404,7 +410,11 @@ function buildPositionView({
     value: getProtocolPositionSectionsValueState(sections),
     meta:
       typeof item.healthFactor === 'number'
-        ? { kind: 'healthFactor', healthFactor: item.healthFactor }
+        ? {
+            kind: 'healthFactor',
+            healthFactor: item.healthFactor,
+            detail: source.earn.healthFactorDetail,
+          }
         : undefined,
     sections,
     action: {
