@@ -93,6 +93,8 @@ class ServiceQrWallet extends ServiceBase {
         diagnostic?: ISolanaTxDiagnosticContext;
         /** The caller's tag, so its own cleanup cannot cancel a newer session. */
         owner?: string;
+        legacyScan?: boolean;
+        legacyScanClaimed?: boolean;
       }
     | undefined;
 
@@ -118,6 +120,21 @@ class ServiceQrWallet extends ServiceBase {
       id: session.promiseId,
       error,
     });
+  }
+
+  @backgroundMethod()
+  async claimLegacyAirGapScan({ promiseId }: { promiseId: number }) {
+    const session = this.stageAirGapSession;
+    if (
+      !session?.legacyScan ||
+      session.promiseId !== promiseId ||
+      session.legacyScanClaimed
+    ) {
+      return false;
+    }
+    // Every UI receives the event; only one may open its camera.
+    session.legacyScanClaimed = true;
+    return true;
   }
 
   /**
@@ -268,6 +285,11 @@ class ServiceQrWallet extends ServiceBase {
         throw new SecureQRCodeDialogCancel();
       }
       if (openingSeq !== this.stageAirGapOpeningSeq) throw superseded;
+      await this.rejectStageAirGapSession(superseded);
+      if (this.takeCancelledStageAirGapOwner(owner)) {
+        throw new SecureQRCodeDialogCancel();
+      }
+      if (openingSeq !== this.stageAirGapOpeningSeq) throw superseded;
     }
 
     // **** 2. app scan device Qrcode
@@ -341,6 +363,7 @@ class ServiceQrWallet extends ServiceBase {
         sessionId: this.stageAirGapSessionSeq,
         diagnostic,
         owner,
+        legacyScan: !valueUr,
       };
       try {
         logSolanaTxDiagnostic(diagnostic, {
@@ -371,6 +394,11 @@ class ServiceQrWallet extends ServiceBase {
       } finally {
         if (this.stageAirGapSession?.promiseId === promiseId) {
           this.stageAirGapSession = undefined;
+        }
+        if (!valueUr) {
+          appEventBus.emit(EAppEventBusNames.CancelAirGapQrcodeScan, {
+            promiseId,
+          });
         }
       }
     } else {

@@ -4,6 +4,7 @@ import {
   OneKeyLocalError,
   SecureQRCodeDialogCancel,
 } from '@onekeyhq/shared/src/errors';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 
 import ServiceQrWallet from './ServiceQrWallet';
@@ -27,6 +28,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     ShowAirGapQrcode: 'ShowAirGapQrcode',
     ScanAirGapQrcode: 'ScanAirGapQrcode',
+    CancelAirGapQrcodeScan: 'CancelAirGapQrcodeScan',
   },
   appEventBus: { on: jest.fn(), off: jest.fn(), emit: jest.fn() },
 }));
@@ -178,10 +180,6 @@ describe('ServiceQrWallet.submitStageAirGapScanResult', () => {
 });
 
 describe('ServiceQrWallet.startTwoWayAirGapScanUr stage bracket', () => {
-  const { appEventBus } = jest.requireMock<{
-    appEventBus: { emit: jest.Mock };
-  }>('@onekeyhq/shared/src/eventBus/appEventBus');
-
   const createStageService = ({
     isEnabled,
     begin,
@@ -392,7 +390,7 @@ describe('ServiceQrWallet stage session owner', () => {
           },
         );
       });
-    return { service, deviceStageBurst, codeShown };
+    return { service, deviceStageBurst, codeShown, callbacks };
   };
 
   // Settles to 'pending' when the call is still waiting on its session.
@@ -615,6 +613,65 @@ describe('ServiceQrWallet stage session owner', () => {
     for (let i = 0; i < 12; i += 1) await Promise.resolve();
     await service.cancelStageAirGapScan({ owner: 'legacy-camera' });
     await expect(error).resolves.toBeInstanceOf(SecureQRCodeDialogCancel);
+    expect(appEventBus.emit).toHaveBeenCalledWith('CancelAirGapQrcodeScan', {
+      promiseId: 1,
+    });
     expect(deviceStageBurst.end).not.toHaveBeenCalled();
+  });
+
+  it('closes the fallback camera when its callback expires', async () => {
+    const { service, deviceStageBurst, callbacks } =
+      createStageSessionService();
+    deviceStageBurst.isEnabled.mockResolvedValue(false);
+    const scan = service.scanAirGap({ owner: 'expired-scan' });
+    const error = scan.catch((failure: unknown) => failure);
+    for (let i = 0; i < 20; i += 1) await Promise.resolve();
+    const expired = new OneKeyLocalError('Callback expired');
+    callbacks.get(1)?.reject(expired);
+    await expect(error).resolves.toBe(expired);
+    expect(appEventBus.emit).toHaveBeenCalledWith('CancelAirGapQrcodeScan', {
+      promiseId: 1,
+    });
+  });
+
+  it('atomically grants one viewport the fallback camera', async () => {
+    const { service, deviceStageBurst } = createStageSessionService();
+    deviceStageBurst.isEnabled.mockResolvedValue(false);
+    const scan = service.scanAirGap({ owner: 'legacy-camera' });
+    const error = scan.catch((failure: unknown) => failure);
+    for (let i = 0; i < 20; i += 1) await Promise.resolve();
+    await expect(
+      Promise.all([
+        service.claimLegacyAirGapScan({ promiseId: 1 }),
+        service.claimLegacyAirGapScan({ promiseId: 1 }),
+      ]),
+    ).resolves.toEqual([true, false]);
+    await expect(service.claimLegacyAirGapScan({ promiseId: 2 })).resolves.toBe(
+      false,
+    );
+    await service.cancelStageAirGapScan({ owner: 'legacy-camera' });
+    await expect(error).resolves.toBeInstanceOf(SecureQRCodeDialogCancel);
+    await expect(service.claimLegacyAirGapScan({ promiseId: 1 })).resolves.toBe(
+      false,
+    );
+  });
+
+  it('settles an earlier fallback scan before starting its replacement', async () => {
+    const { service, deviceStageBurst, callbacks } =
+      createStageSessionService();
+    deviceStageBurst.isEnabled.mockResolvedValue(false);
+    const first = service.scanAirGap({ owner: 'first' });
+    const firstError = first.catch((failure: unknown) => failure);
+    for (let i = 0; i < 20; i += 1) await Promise.resolve();
+    const second = service.scanAirGap({ owner: 'second' });
+    for (let i = 0; i < 20; i += 1) await Promise.resolve();
+    expect(await settledState(first)).toBe('rejected');
+    await expect(firstError).resolves.toBeInstanceOf(SecureQRCodeDialogCancel);
+    await service.cancelStageAirGapScan({ owner: 'first' });
+    await expect(service.claimLegacyAirGapScan({ promiseId: 2 })).resolves.toBe(
+      true,
+    );
+    callbacks.get(2)?.resolve({ raw: 'ur:bytes/new', data: { fullData: '' } });
+    await expect(second).resolves.toEqual({ type: 'bytes', cbor: 'mock' });
   });
 });

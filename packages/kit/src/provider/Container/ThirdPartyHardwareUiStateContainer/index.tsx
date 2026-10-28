@@ -16,6 +16,7 @@ import {
   Stack,
   XStack,
   YStack,
+  resetScanModalRoute,
 } from '@onekeyhq/components';
 import type { IDialogInstance, ILottieViewProps } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
@@ -35,6 +36,7 @@ import {
   useThirdPartyBleBindingAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import {
   EAppEventBusNames,
@@ -1011,30 +1013,71 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   // The firmware-update gate can decline the stage camera. The legacy page
   // returns data to bg's callback, never directly to the vendor SDK.
   useEffect(() => {
+    const pendingScans = new Map<number, (viewportClosed?: boolean) => void>();
+    const cancel = ({ promiseId }: { promiseId: number }) => {
+      pendingScans.get(promiseId)?.();
+      resetScanModalRoute({ scanRequestId: `air-gap:${promiseId}` });
+    };
     const scan = ({ promiseId }: { promiseId: number }) => {
+      let cancelled = false;
+      let claimed = false;
+      let viewportClosed = false;
+      const cancelledPromise = new Promise<undefined>((resolve) => {
+        pendingScans.set(promiseId, (closed = false) => {
+          cancelled = true;
+          viewportClosed ||= closed;
+          resolve(undefined);
+        });
+      });
       void (async () => {
         try {
+          claimed =
+            await backgroundApiProxy.serviceQrWallet.claimLegacyAirGapScan({
+              promiseId,
+            });
+          if (!claimed || cancelled) return;
           await yieldDeviceStageToDialog();
-          const result = await startKeystoneQrScan({
-            handlers: [EQRCodeHandlerNames.animation],
-            qrWalletScene: true,
-            autoExecuteParsedAction: false,
-          });
+          if (cancelled) return;
+          const result = await Promise.race([
+            startKeystoneQrScan({
+              handlers: [EQRCodeHandlerNames.animation],
+              qrWalletScene: true,
+              autoExecuteParsedAction: false,
+              scanRequestId: `air-gap:${promiseId}`,
+            }),
+            cancelledPromise,
+          ]);
+          if (!result || cancelled) return;
           await backgroundApiProxy.servicePromise.resolveCallback({
             id: promiseId,
             data: result,
           });
         } catch (error) {
+          if (cancelled) return;
           await backgroundApiProxy.servicePromise.rejectCallback({
             id: promiseId,
             error,
           });
+        } finally {
+          pendingScans.delete(promiseId);
+          if (claimed && viewportClosed) {
+            await backgroundApiProxy.servicePromise.rejectCallback({
+              id: promiseId,
+              error: new OneKeyErrorScanQrCodeCancel(),
+            });
+          }
         }
       })().catch(() => undefined);
     };
     appEventBus.on(EAppEventBusNames.ScanAirGapQrcode, scan);
+    appEventBus.on(EAppEventBusNames.CancelAirGapQrcodeScan, cancel);
     return () => {
       appEventBus.off(EAppEventBusNames.ScanAirGapQrcode, scan);
+      appEventBus.off(EAppEventBusNames.CancelAirGapQrcodeScan, cancel);
+      pendingScans.forEach((close, promiseId) => {
+        close(true);
+        resetScanModalRoute({ scanRequestId: `air-gap:${promiseId}` });
+      });
     };
   }, [startKeystoneQrScan]);
 

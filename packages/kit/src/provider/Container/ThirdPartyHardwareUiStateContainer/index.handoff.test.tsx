@@ -6,7 +6,7 @@ import { ThirdPartyHardwareUiStateContainer } from '.';
 import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { act, render } from '@testing-library/react';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, resetScanModalRoute } from '@onekeyhq/components';
 import { showThirdPartyDeviceSelectionDialog } from '@onekeyhq/kit/src/components/Hardware/ThirdPartyDeviceSelectionDialog';
 import { EThirdPartyHardwareUiAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IThirdPartyHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -57,6 +57,7 @@ const mockHandleQrRequest = jest.fn(
 );
 const mockResolveScan = jest.fn(async (_params: unknown) => undefined);
 const mockRejectScan = jest.fn(async (_params: unknown) => undefined);
+const mockClaimScan = jest.fn(async (_params: { promiseId: number }) => true);
 
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 jest.mock('@onekeyhq/components', () => ({
@@ -67,6 +68,7 @@ jest.mock('@onekeyhq/components', () => ({
   ShowCustom: () => null,
   YStack: () => null,
   SizableText: () => null,
+  resetScanModalRoute: jest.fn(),
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -76,6 +78,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       rejectCallback: (params: unknown) => mockRejectScan(params),
     },
     serviceQrWallet: {
+      claimLegacyAirGapScan: (params: { promiseId: number }) =>
+        mockClaimScan(params),
       scanAirGapOnStage: (options: { owner?: string }) =>
         mockStageScan(options),
       startTwoWayAirGapScan: (
@@ -205,6 +209,10 @@ beforeEach(() => {
   mockTwoWayScan.mockImplementation(() => new Promise(() => undefined));
   mockStageScan.mockReset();
   mockStageScan.mockImplementation(() => new Promise(() => undefined));
+  mockLegacyScan.mockReset();
+  mockLegacyScan.mockResolvedValue({ raw: 'ur:bytes/mock' });
+  mockClaimScan.mockReset();
+  mockClaimScan.mockResolvedValue(true);
 });
 
 it.each([
@@ -350,12 +358,111 @@ it('returns a legacy camera result to the background callback', async () => {
   });
   await flush();
   expect(mockLegacyScan).toHaveBeenCalledTimes(1);
+  expect(mockLegacyScan).toHaveBeenCalledWith(
+    expect.objectContaining({ scanRequestId: 'air-gap:42' }),
+  );
   expect(mockResolveScan).toHaveBeenCalledWith({
     id: 42,
     data: { raw: 'ur:bytes/mock' },
   });
   expect(mockUiResponse).not.toHaveBeenCalled();
   expect(mockCancel).not.toHaveBeenCalled();
+});
+
+it('closes only the cancelled fallback scan and ignores its delayed result', async () => {
+  let resolveOldScan: (result: { raw: string }) => void = () => undefined;
+  mockLegacyScan.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveOldScan = resolve;
+      }),
+  );
+  render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 41 });
+  });
+  await flush();
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+    appEventBus.emit(EAppEventBusNames.CancelAirGapQrcodeScan, {
+      promiseId: 41,
+    });
+  });
+  await flush();
+  expect(resetScanModalRoute).toHaveBeenCalledWith({
+    scanRequestId: 'air-gap:41',
+  });
+  resolveOldScan({ raw: 'ur:bytes/old' });
+  await flush();
+  expect(mockResolveScan).toHaveBeenCalledTimes(1);
+  expect(mockResolveScan).toHaveBeenCalledWith({
+    id: 42,
+    data: { raw: 'ur:bytes/mock' },
+  });
+  expect(mockRejectScan).not.toHaveBeenCalled();
+  expect(mockCancel).not.toHaveBeenCalled();
+});
+
+it('does not open a fallback camera cancelled while waiting for the stage', async () => {
+  const release = holdExit();
+  render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+    appEventBus.emit(EAppEventBusNames.CancelAirGapQrcodeScan, {
+      promiseId: 42,
+    });
+  });
+  await release();
+  await flush();
+  expect(mockLegacyScan).not.toHaveBeenCalled();
+  expect(mockResolveScan).not.toHaveBeenCalled();
+  expect(mockRejectScan).not.toHaveBeenCalled();
+});
+
+it('opens a fallback camera in only the viewport that claims it', async () => {
+  mockClaimScan.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+  mockLegacyScan.mockImplementationOnce(() => new Promise(() => undefined));
+  const owner = render(<ThirdPartyHardwareUiStateContainer />);
+  const other = render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+  });
+  await flush();
+  expect(mockClaimScan).toHaveBeenCalledTimes(2);
+  expect(mockLegacyScan).toHaveBeenCalledTimes(1);
+  other.unmount();
+  await flush();
+  expect(mockRejectScan).not.toHaveBeenCalled();
+  owner.unmount();
+  await flush();
+  expect(mockRejectScan).toHaveBeenCalledWith({
+    id: 42,
+    error: expect.any(Error),
+  });
+  expect(mockCancel).not.toHaveBeenCalled();
+});
+
+it('settles a claim that finishes after its viewport closes', async () => {
+  let claim: (value: boolean) => void = () => undefined;
+  mockClaimScan.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        claim = resolve;
+      }),
+  );
+  const view = render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+  });
+  await flush();
+  view.unmount();
+  claim(true);
+  await flush();
+  expect(mockLegacyScan).not.toHaveBeenCalled();
+  expect(mockRejectScan).toHaveBeenCalledWith({
+    id: 42,
+    error: expect.any(Error),
+  });
 });
 
 it('hands the stage to the Bluetooth settings dialog', async () => {

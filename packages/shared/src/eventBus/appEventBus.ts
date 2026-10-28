@@ -293,6 +293,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ScanAirGapQrcode]: {
     promiseId: number;
   };
+  [EAppEventBusNames.CancelAirGapQrcodeScan]: {
+    promiseId: number;
+  };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;
   [EAppEventBusNames.SyncDeviceLabelToWalletName]: {
