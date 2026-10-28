@@ -136,7 +136,7 @@ describe('useManagePage receipt approval compatibility', () => {
     expect(staking.getProtocolDetailsV2).not.toHaveBeenCalled();
   });
 
-  it('uses a new identity after switching providers instead of old details', async () => {
+  it('uses a new identity after switching EtherFi vaults instead of old details', async () => {
     const { rerender } = renderHook(
       (value: typeof params) => useManagePage(value),
       {
@@ -146,7 +146,14 @@ describe('useManagePage receipt approval compatibility', () => {
     await load();
     const initialKey = jest.mocked(swrCacheUtils.getWithTimestamp).mock
       .calls[0][0];
-    rerender({ ...params, provider: 'another-provider' });
+    staking.getManagePage.mockResolvedValue({
+      ...managePageData,
+      withdraw: { data: { token: { info: { address: '0xOtherVault' } } } },
+    } as IEarnManagePageResponse);
+    staking.getProtocolDetailsV2.mockResolvedValue({
+      withdrawApprove: { ...withdrawApprove, tokenAddress: '0xOtherVault' },
+    });
+    rerender({ ...params, vault: '0xOtherVault' });
     await load();
     expect(
       jest.mocked(swrCacheUtils.getWithTimestamp).mock.calls.at(-1)?.[0],
@@ -154,9 +161,20 @@ describe('useManagePage receipt approval compatibility', () => {
     expect(staking.getProtocolDetailsV2).toHaveBeenLastCalledWith({
       networkId: params.networkId,
       symbol: params.symbol,
-      provider: 'another-provider',
-      vault,
+      provider: params.provider,
+      vault: '0xOtherVault',
     });
+  });
+
+  it('does not apply EtherFi approval recovery to other protocols', async () => {
+    staking.getProtocolDetailsV2.mockResolvedValue({});
+    renderHook(() =>
+      useManagePage({ ...params, provider: 'another-provider' }),
+    );
+    const result = await load();
+    expect(staking.getProtocolDetailsV2).not.toHaveBeenCalled();
+    expect(result.withdrawApprovalUnavailable).toBe(false);
+    expect(result.withdrawApprove).toBeUndefined();
   });
 
   it('does not request details for Borrow', async () => {

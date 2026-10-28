@@ -149,46 +149,46 @@ export const useManagePage = ({
           }),
         ]);
 
-        // Reuse the account-less detail cache by complete protocol identity
-        // so switching vaults cannot reuse the previous approval target.
-        const resolvedVault =
-          vault ||
-          protocolList.find(
-            (item) =>
-              item.provider.name.toLowerCase() === provider.toLowerCase() &&
-              item.network.networkId === networkId,
-          )?.provider.vault;
-        const detailParams = {
-          networkId,
-          symbol,
-          provider,
-          vault: resolvedVault,
-        };
-        const detailCacheKey = swrKeys.earnProtocolDetail({
-          ...detailParams,
-          locale,
-          currencyId,
-        });
         let withdrawApprovalUnavailable = false;
-        const withdrawApprove = await resolveManagePageWithdrawApprove({
-          managePageData,
-          vault: resolvedVault,
-          detailCacheEntry:
-            swrCacheUtils.getWithTimestamp<IStakeEarnDetail>(detailCacheKey),
-          loadDetail: async () => {
-            // Only protocol configuration is needed. Omit the account to
-            // avoid another position refresh or withdrawal recovery scan.
-            const detail =
-              await backgroundApiProxy.serviceStaking.getProtocolDetailsV2(
-                detailParams,
-              );
-            swrCacheUtils.set(detailCacheKey, detail);
-            return detail;
-          },
-        }).catch(() => {
-          withdrawApprovalUnavailable = true;
-          return undefined;
-        });
+        let withdrawApprove = managePageData.withdrawApprove;
+        if (provider.toLowerCase() === 'etherfi') {
+          // Reuse account-less details only for the same protocol and vault.
+          const resolvedVault =
+            vault ||
+            protocolList.find(
+              (item) =>
+                item.provider.name.toLowerCase() === provider.toLowerCase() &&
+                item.network.networkId === networkId,
+            )?.provider.vault;
+          const detailParams = {
+            networkId,
+            symbol,
+            provider,
+            vault: resolvedVault,
+          };
+          const detailCacheKey = swrKeys.earnProtocolDetail({
+            ...detailParams,
+            locale,
+            currencyId,
+          });
+          withdrawApprove = await resolveManagePageWithdrawApprove({
+            managePageData,
+            vault: resolvedVault,
+            detailCacheEntry:
+              swrCacheUtils.getWithTimestamp<IStakeEarnDetail>(detailCacheKey),
+            loadDetail: async () => {
+              const detail =
+                await backgroundApiProxy.serviceStaking.getProtocolDetailsV2(
+                  detailParams,
+                );
+              swrCacheUtils.set(detailCacheKey, detail);
+              return detail;
+            },
+          }).catch(() => {
+            withdrawApprovalUnavailable = true;
+            return undefined;
+          });
+        }
 
         return {
           managePageData,

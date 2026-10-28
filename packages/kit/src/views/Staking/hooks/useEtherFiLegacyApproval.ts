@@ -323,35 +323,9 @@ export function useEtherFiLegacyApproval({
       void refresh();
   }, [accountId, applicable, isFocused, refresh]);
 
-  const verifyBeforeAction = useCallback(async () => {
-    if (!isEtherFi || (vault && !applicable)) return true;
-    if (!applicable || !accountId || statusRef.current !== 'clear')
-      return false;
-    generation.current += 1;
-    const id = generation.current;
-    setState({ scope, status: 'checking' });
-    try {
-      const clear = await read();
-      if (id !== generation.current || scopeRef.current !== scope) return false;
-      const pendingTx = clear ? undefined : await findPendingRevoke();
-      if (id !== generation.current || scopeRef.current !== scope) return false;
-      if (pendingTx) {
-        pendingTxIdRef.current = pendingTx.txid;
-        pendingIsCancelRef.current = pendingTx.isCancel;
-      }
-      let nextStatus: IStatus = 'clear';
-      if (!clear) nextStatus = pendingTx ? 'pending' : 'required';
-      setState({ scope, status: nextStatus });
-      return clear;
-    } catch {
-      if (id === generation.current && scopeRef.current === scope)
-        setState({ scope, status: 'unknown' });
-      return false;
-    }
-  }, [accountId, applicable, findPendingRevoke, isEtherFi, read, scope, vault]);
-
   const revoke = useCallback(async () => {
-    if (!applicable || status !== 'required') return;
+    if (!applicable || statusRef.current !== 'required') return;
+    statusRef.current = 'submitting';
     generation.current += 1;
     const id = generation.current;
     const controller = new AbortController();
@@ -432,7 +406,53 @@ export function useEtherFiLegacyApproval({
     onCleared,
     read,
     scope,
-    status,
+  ]);
+
+  const verifyBeforeAction = useCallback(async () => {
+    if (!isEtherFi || (vault && !applicable)) return true;
+    if (!applicable || !accountId || statusRef.current !== 'clear')
+      return false;
+    generation.current += 1;
+    const id = generation.current;
+    setState({ scope, status: 'checking' });
+    try {
+      const clear = await read();
+      if (id !== generation.current || scopeRef.current !== scope) return false;
+      const pendingTx = clear ? undefined : await findPendingRevoke();
+      if (id !== generation.current || scopeRef.current !== scope) return false;
+      if (pendingTx) {
+        pendingTxIdRef.current = pendingTx.txid;
+        pendingIsCancelRef.current = pendingTx.isCancel;
+        setState({ scope, status: 'pending' });
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+        void monitorTx(pendingTx.txid, id, controller);
+        return false;
+      }
+      if (!clear) {
+        statusRef.current = 'required';
+        setState({ scope, status: 'required' });
+        await revoke();
+        return false;
+      }
+      setState({ scope, status: 'clear' });
+      return true;
+    } catch {
+      if (id === generation.current && scopeRef.current === scope)
+        setState({ scope, status: 'unknown' });
+      return false;
+    }
+  }, [
+    accountId,
+    applicable,
+    findPendingRevoke,
+    isEtherFi,
+    monitorTx,
+    read,
+    revoke,
+    scope,
+    vault,
   ]);
 
   return {

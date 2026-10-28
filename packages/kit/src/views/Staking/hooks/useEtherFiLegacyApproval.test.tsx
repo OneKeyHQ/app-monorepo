@@ -203,7 +203,7 @@ describe('EtherFi legacy allowance', () => {
     expect(onCleared).not.toHaveBeenCalled();
   });
 
-  it('rechecks a previously clear allowance before starting an action', async () => {
+  it('opens a revoke confirmation if the allowance changes before an action', async () => {
     allowance
       .mockResolvedValueOnce({ allowanceParsed: '0' })
       .mockResolvedValue({ allowanceParsed: '1' });
@@ -214,7 +214,50 @@ describe('EtherFi legacy allowance', () => {
       allowed = await result.current.verifyBeforeAction();
     });
     expect(allowed).toBe(false);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm.mock.calls[0][0].approvesInfo[0]).toMatchObject({
+      spender: queue,
+      amount: '0',
+      tokenInfo: { address: vault },
+    });
+    expect(result.current.blocked).toBe(true);
+    act(() => confirm.mock.calls[0][0].onCancel());
     expect(result.current.status).toBe('required');
+  });
+
+  it('monitors a pending revoke discovered during the final allowance check', async () => {
+    allowance
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockResolvedValue({ allowanceParsed: '1' });
+    pendingTxs.mockResolvedValue([
+      {
+        decodedTx: {
+          txid: '0xtx',
+          actions: [
+            {
+              tokenApprove: {
+                spender: queue,
+                tokenIdOnNetwork: vault,
+                amount: '0',
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    finalStatus.mockReturnValue(new Promise(() => {}));
+    const { result } = renderHook(() => useEtherFiLegacyApproval(params));
+    await waitFor(() => expect(result.current.status).toBe('clear'));
+    let allowed = true;
+    await act(async () => {
+      allowed = await result.current.verifyBeforeAction();
+    });
+    expect(allowed).toBe(false);
+    expect(result.current.status).toBe('pending');
+    expect(finalStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ txid: '0xtx' }),
+    );
+    expect(confirm).not.toHaveBeenCalled();
   });
 
   it('revokes only the old queue and waits for confirmation and zero allowance', async () => {
@@ -475,5 +518,35 @@ describe('EtherFi legacy allowance', () => {
     await waitFor(() => expect(result.current.status).toBe('required'));
     await act(async () => resolveOld({ allowanceParsed: '0' }));
     expect(result.current.status).toBe('required');
+  });
+
+  it('does not open a revoke confirmation for an outdated account', async () => {
+    let resolveOld: (value: { allowanceParsed: string }) => void = () =>
+      undefined;
+    allowance
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveOld = resolve;
+          }),
+      )
+      .mockResolvedValue({ allowanceParsed: '0' });
+    const { result, rerender } = renderHook(
+      (p: typeof params) => useEtherFiLegacyApproval(p),
+      { initialProps: params },
+    );
+    await waitFor(() => expect(result.current.status).toBe('clear'));
+    let verification: Promise<boolean> | undefined;
+    act(() => {
+      verification = result.current.verifyBeforeAction();
+    });
+    rerender({ ...params, accountId: 'other' });
+    await waitFor(() => expect(result.current.status).toBe('clear'));
+    await act(async () => {
+      resolveOld({ allowanceParsed: '1' });
+      expect(await verification).toBe(false);
+    });
+    expect(confirm).not.toHaveBeenCalled();
   });
 });

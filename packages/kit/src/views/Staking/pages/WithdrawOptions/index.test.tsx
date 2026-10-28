@@ -224,6 +224,18 @@ describe('WithdrawOptions cancellation requests', () => {
     expect(mockExternalSuccess).toHaveBeenCalledTimes(1);
   });
 
+  it('distinguishes requests with the same amount and submission time', () => {
+    mockList.items[1] = {
+      ...mockList.items[1],
+      amount: mockList.items[0].amount,
+      timestamp: mockList.items[0].timestamp,
+    };
+    const screen = render(<WithdrawOptions />);
+    expect(screen.getAllByText('0.00001 liquidETH')).toHaveLength(2);
+    expect(screen.getByText(/0x111111\.\.\.111111/)).toBeTruthy();
+    expect(screen.getByText(/0x222222\.\.\.222222/)).toBeTruthy();
+  });
+
   it('keeps the picker open if the risk warning is declined', async () => {
     mockWithdraw.mockResolvedValue(false);
     const screen = render(<WithdrawOptions />);

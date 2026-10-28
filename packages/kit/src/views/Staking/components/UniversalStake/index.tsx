@@ -95,7 +95,6 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import { EtherFiLegacyApproval } from '../EtherFiLegacyApproval';
 import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
@@ -2379,11 +2378,47 @@ export function UniversalStake({
   const footerActionOverrideRef = useRef(footerActionOverride);
   footerActionOverrideRef.current = footerActionOverride;
 
-  const effectiveOnConfirmText = footerActionOverride?.text ?? onConfirmText;
+  const legacyActionAvailable =
+    legacyApproval.status === 'required' ||
+    legacyApproval.status === 'pending' ||
+    legacyApproval.status === 'unknown';
+  const legacyActionLoading =
+    legacyApproval.status === 'checking' ||
+    legacyApproval.status === 'submitting';
+  let effectiveOnConfirmText = footerActionOverride?.text ?? onConfirmText;
+  if (!footerActionOverride && legacyApproval.status === 'required') {
+    effectiveOnConfirmText = intl.formatMessage(
+      { id: ETranslations.global_revoke_approve },
+      { symbol: 'liquidUSD' },
+    );
+  } else if (!footerActionOverride && legacyActionAvailable) {
+    effectiveOnConfirmText = intl.formatMessage({
+      id: ETranslations.global_retry,
+    });
+  }
   const effectiveConfirmOnPress =
     footerActionOverride?.onPress ??
     (() => {
       if (submissionLockRef.current) return;
+      if (legacyApproval.status === 'required') {
+        void legacyApproval.revoke();
+        return;
+      }
+      if (
+        legacyApproval.status === 'pending' ||
+        legacyApproval.status === 'unknown'
+      ) {
+        Toast.message({
+          title: intl.formatMessage({
+            id:
+              legacyApproval.status === 'pending'
+                ? ETranslations.global_pending
+                : ETranslations.global_an_error_occurred,
+          }),
+        });
+        void legacyApproval.refresh();
+        return;
+      }
       void (async () => {
         if (
           (await legacyApproval.verifyBeforeAction()) &&
@@ -2398,15 +2433,16 @@ export function UniversalStake({
     ? quoteRefreshing
     : loadingAllowance || approving || submitting || checkAmountLoading;
   const baseConfirmDisabled = effectiveShowExpiredRefresh ? false : isDisable;
-  const effectiveConfirmLoading = footerActionOverride
-    ? Boolean(footerActionOverride.loading)
-    : baseConfirmLoading;
-  const effectiveConfirmDisabled =
-    submitting ||
-    legacyApproval.blocked ||
-    (footerActionOverride
-      ? Boolean(footerActionOverride.disabled)
-      : baseConfirmDisabled);
+  let effectiveConfirmLoading = baseConfirmLoading || legacyActionLoading;
+  let effectiveConfirmDisabled = legacyApproval.blocked || baseConfirmDisabled;
+  if (footerActionOverride) {
+    effectiveConfirmLoading = Boolean(footerActionOverride.loading);
+    effectiveConfirmDisabled = Boolean(footerActionOverride.disabled);
+  } else if (legacyActionAvailable) {
+    effectiveConfirmLoading = false;
+    effectiveConfirmDisabled = false;
+  }
+  effectiveConfirmDisabled = submitting || effectiveConfirmDisabled;
 
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
@@ -2940,11 +2976,6 @@ export function UniversalStake({
         </YStack>
       ) : null}
       {platformBonusContent}
-      <EtherFiLegacyApproval
-        status={legacyApproval.status}
-        onRetry={() => void legacyApproval.refresh()}
-        onRevoke={() => void legacyApproval.revoke()}
-      />
       {beforeFooter}
       {isInModalContext ? (
         <Page.Footer>

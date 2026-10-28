@@ -18,6 +18,7 @@ import {
   Page,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -76,7 +77,6 @@ import {
 } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
-import { EtherFiLegacyApproval } from '../EtherFiLegacyApproval';
 import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
@@ -1687,7 +1687,9 @@ export function UniversalWithdraw({
 
   const showWithdrawPathSummary =
     (!requiresEarnWithdrawPath || isTransactionConfirmationCurrent) &&
-    withdrawPathConfirmBoxes.length > 0 &&
+    (withdrawPathConfirmBoxes.length > 1 ||
+      (providerName?.toLowerCase() === 'etherfi' &&
+        withdrawPathConfirmBoxes.length === 1)) &&
     !!selectedWithdrawPath;
   const canSelectWithdrawPath = withdrawPathConfirmBoxes.length > 1;
   const shouldShowPendleWithdrawProgress =
@@ -1814,11 +1816,47 @@ export function UniversalWithdraw({
     return isDisable;
   }, [shouldApprove, effectiveShowExpiredRefresh, isDisable]);
 
-  const effectiveConfirmText =
+  const legacyActionAvailable =
+    legacyApproval.status === 'required' ||
+    legacyApproval.status === 'pending' ||
+    legacyApproval.status === 'unknown';
+  const legacyActionLoading =
+    legacyApproval.status === 'checking' ||
+    legacyApproval.status === 'submitting';
+  let effectiveConfirmText =
     footerActionOverride?.text ?? intl.formatMessage({ id: confirmText });
+  if (!footerActionOverride && legacyApproval.status === 'required') {
+    effectiveConfirmText = intl.formatMessage(
+      { id: ETranslations.global_revoke_approve },
+      { symbol: 'liquidUSD' },
+    );
+  } else if (!footerActionOverride && legacyActionAvailable) {
+    effectiveConfirmText = intl.formatMessage({
+      id: ETranslations.global_retry,
+    });
+  }
   const effectiveConfirmOnPress =
     footerActionOverride?.onPress ??
     (() => {
+      if (legacyApproval.status === 'required') {
+        void legacyApproval.revoke();
+        return;
+      }
+      if (
+        legacyApproval.status === 'pending' ||
+        legacyApproval.status === 'unknown'
+      ) {
+        Toast.message({
+          title: intl.formatMessage({
+            id:
+              legacyApproval.status === 'pending'
+                ? ETranslations.global_pending
+                : ETranslations.global_an_error_occurred,
+          }),
+        });
+        void legacyApproval.refresh();
+        return;
+      }
       void (async () => {
         if (
           (await legacyApproval.verifyBeforeAction()) &&
@@ -1829,14 +1867,15 @@ export function UniversalWithdraw({
           confirmOnPress();
       })();
     });
-  const effectiveConfirmLoading = footerActionOverride
-    ? Boolean(footerActionOverride.loading)
-    : confirmLoading;
-  const effectiveConfirmDisabled =
-    legacyApproval.blocked ||
-    (footerActionOverride
-      ? Boolean(footerActionOverride.disabled)
-      : confirmDisabled);
+  let effectiveConfirmLoading = confirmLoading || legacyActionLoading;
+  let effectiveConfirmDisabled = legacyApproval.blocked || confirmDisabled;
+  if (footerActionOverride) {
+    effectiveConfirmLoading = Boolean(footerActionOverride.loading);
+    effectiveConfirmDisabled = Boolean(footerActionOverride.disabled);
+  } else if (legacyActionAvailable) {
+    effectiveConfirmLoading = false;
+    effectiveConfirmDisabled = false;
+  }
 
   const shouldShowSummaryCard = shouldShowStakingSummaryCard({
     isDisabled,
@@ -2275,11 +2314,6 @@ export function UniversalWithdraw({
           ) : null}
         </YStack>
       ) : null}
-      <EtherFiLegacyApproval
-        status={legacyApproval.status}
-        onRetry={() => void legacyApproval.refresh()}
-        onRevoke={() => void legacyApproval.revoke()}
-      />
       {amountUnit === 'shares' &&
       !isCancelWithdrawal &&
       (withdrawAssetsStatus === 'error' || withdrawAssetsStatus === 'empty') ? (
