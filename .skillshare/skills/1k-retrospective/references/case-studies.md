@@ -1071,3 +1071,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Those overlays are siblings above the canvas. Their pointer-enter handlers hide only the crosshair, and the canvas handler that hides the button stops receiving moves.
 **Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
 **Catchable by**: NEW — not covered (same pattern as the previous case: overlays above a canvas take its pointer events)
+
+## Case: Android Select trigger focused as a text input instead of opening (OK-65708)
+**Date**: 2026-10-27 | **Platforms**: Android (native `main` runtime); the shared `useInputProps` change applies to all platforms
+**Symptom**: In the native TradingView chart settings, tapping the Chart, Chart style or Price change colors select on Android put a text caret and selection handle in the trigger instead of opening the options.
+**Root Cause**: `SettingsSelect` passes an explicit `disabled={false}`. The default Select trigger renders a read-only `Input`, whose Tamagui `Group` forwards `disabled: false` to the inner TextInput, and `useInputProps` mapped it to `readOnly: false`. The native TextInput prefers a defined `readOnly` over `editable`, so Android's read-only `editable={false}` was overridden. RN Android hit testing only lets touches pass through disabled views, so the enabled EditText took the tap and the trigger never got `onPress`. Selects that omit `disabled` kept `readOnly` undefined and worked.
+**Fix**: `useInputProps` sets `readOnly` only when `disabled` is truthy, so `disabled: false` no longer overrides `editable`. Added `TamaguiInput.test.tsx` for the explicit `disabled: false` case.
+**Catchable by**: Section 8: Manual Verification (tap every Select on Android native); an explicit `false` overriding an omitted-prop default (`readOnly: false` beating `editable={false}`) is NEW — not covered
