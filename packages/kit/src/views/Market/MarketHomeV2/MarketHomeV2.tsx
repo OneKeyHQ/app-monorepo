@@ -424,11 +424,16 @@ function BaseMarketHome() {
   const isFocused = useRouteIsFocused();
   const rootRoutersLength = getRootRoutersLength();
   const focusedRootRoutersLengthRef = useRef(rootRoutersLength);
+  const ownsModalBackgroundRef = useRef(isFocused);
   if (isFocused) {
+    ownsModalBackgroundRef.current = true;
     focusedRootRoutersLengthRef.current = rootRoutersLength;
+  } else if (rootRoutersLength <= focusedRootRoutersLengthRef.current) {
+    ownsModalBackgroundRef.current = false;
   }
   // Root modals blur Market while its content remains visible underneath.
   const isCoveredByModal =
+    ownsModalBackgroundRef.current &&
     rootRoutersLength > focusedRootRoutersLengthRef.current;
   const { top } = useSafeAreaInsets();
   const searchGlassActive = isLiquidGlassAvailable();

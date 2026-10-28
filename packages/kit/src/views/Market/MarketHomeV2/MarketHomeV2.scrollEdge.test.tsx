@@ -244,6 +244,11 @@ it('still freezes desktop Market when navigating away and restores it on return'
   await act(async () => screen.rerender(<MarketHomeV2 />));
   expect(isInaccessible(layout)).toBe(true);
 
+  mockRootRoutersLength = 2;
+  await act(async () => screen.rerender(<MarketHomeV2 />));
+  expect(isInaccessible(layout)).toBe(true);
+
+  mockRootRoutersLength = 1;
   mockIsFocused = true;
   await act(async () => screen.rerender(<MarketHomeV2 />));
   expect(screen.getByTestId('desktop-layout')).toBe(layout);

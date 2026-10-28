@@ -37,6 +37,27 @@ import ServiceBase from './ServiceBase';
 
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
 const SEARCH_ASSET_RESOLUTION_TIMEOUT_MS = 2000;
+const SEARCH_ASSET_CANDIDATE_TIMEOUT_MS = 1000;
+
+async function withSearchAssetTimeout<T>(
+  promise: Promise<T>,
+  timeout: number,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new OneKeyLocalError('Market asset lookup timed out')),
+          timeout,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 @backgroundClass()
 class ServiceMarket extends ServiceBase {
@@ -91,7 +112,10 @@ class ServiceMarket extends ServiceBase {
 
   _fetchMarketAssetIdentityList = memoizee(
     async () => {
-      const assets = await this.fetchMarketAssetList();
+      const assets = await withSearchAssetTimeout(
+        this.fetchMarketAssetList(),
+        SEARCH_ASSET_RESOLUTION_TIMEOUT_MS,
+      );
       return assets.list.map(({ assetId, symbol }) => ({ assetId, symbol }));
     },
     {
@@ -102,11 +126,14 @@ class ServiceMarket extends ServiceBase {
 
   _fetchMarketAssetNativeVariants = memoizee(
     async (assetId: string) => {
-      const detail = await this.fetchMarketAssetDetail({
-        assetId,
-        currency: 'usd',
-        autoHandleError: false,
-      });
+      const detail = await withSearchAssetTimeout(
+        this.fetchMarketAssetDetail({
+          assetId,
+          currency: 'usd',
+          autoHandleError: false,
+        }),
+        SEARCH_ASSET_CANDIDATE_TIMEOUT_MS,
+      );
       return {
         assetId: detail.asset.assetId,
         selectedVariant: detail.selectedVariant,

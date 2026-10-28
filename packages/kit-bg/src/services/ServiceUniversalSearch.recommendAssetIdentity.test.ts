@@ -1,6 +1,7 @@
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
+import ServiceMarket from './ServiceMarket';
 import ServiceUniversalSearch from './ServiceUniversalSearch';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -41,13 +42,13 @@ it.each(['failed', 'empty', 'zero-priced'] as const)(
           volume_24h: '0',
         },
       ]);
+    const serviceMarket = new ServiceMarket({ backgroundApi: {} });
+    jest
+      .spyOn(serviceMarket, 'fetchTrendingV2')
+      .mockImplementation(fetchTrendingV2);
     const service = new ServiceUniversalSearch({
       backgroundApi: {
-        serviceMarket: {
-          fetchTrendingV2,
-          resolveSearchTokenAssets: async (tokens: IMarketSearchV2Token[]) =>
-            tokens,
-        },
+        serviceMarket,
         serviceMarketV2: {
           fetchMarketBasicConfig: jest.fn(async () => ({
             data: {
