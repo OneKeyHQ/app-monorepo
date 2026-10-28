@@ -110,6 +110,34 @@ function setOpacityAtOnce(element: HTMLElement, opacity: string) {
   element.style.transition = transition;
 }
 
+// A modal let go stays out of sight whatever writes its opacity next: the
+// navigator shows every modal in the stack again, inline and with its fade,
+// on any change of the app's routes, and the removal waits for the ghost. A
+// rule marked important wins over an inline value
+const RELEASED_ATTRIBUTE = 'data-earn-guide-released';
+const RELEASED_STYLE_ID = 'earn-guide-released-style';
+
+function setReleased(element: HTMLElement, isReleased: boolean) {
+  if (isReleased) {
+    const doc = globalThis.document;
+    if (!doc.getElementById(RELEASED_STYLE_ID)) {
+      const style = doc.createElement('style');
+      style.id = RELEASED_STYLE_ID;
+      style.textContent = `[${RELEASED_ATTRIBUTE}] { opacity: 0 !important; transition: none !important; }`;
+      doc.head.appendChild(style);
+    }
+    element.setAttribute(RELEASED_ATTRIBUTE, '');
+    return;
+  }
+  // Back as it was, at once
+  const { transition } = element.style;
+  element.style.transition = 'none';
+  element.style.opacity = '1';
+  element.removeAttribute(RELEASED_ATTRIBUTE);
+  void element.offsetHeight;
+  element.style.transition = transition;
+}
+
 /** How strong the ghost's own dim is, for it and the backdrop together to
  * darken the page by `alpha`: one dim the whole way, whichever draws it */
 function getOwnDim(alpha: number, backdropOpacity: number) {
@@ -295,6 +323,7 @@ function EarnGuideGhostView({
     // The modal kept out of sight under the ghost: up before the ghost has
     // landed, or going from under it on the way out
     let hiddenScreen: HTMLElement | undefined;
+    let releasedScreen: HTMLElement | undefined;
     let releasedBackdrop: HTMLElement | undefined;
     let isReleased = false;
     // By its opacity, as the navigator shows and hides it (its content can
@@ -316,27 +345,35 @@ function EarnGuideGhostView({
     // ghost in this frame, the ghost's own dim taking over
     const releaseModal = () => {
       isReleased = true;
-      hideScreen();
-      const backdrop = findBackdrop();
-      if (backdrop) {
-        setOpacityAtOnce(backdrop, '0');
-        releasedBackdrop = backdrop;
-      }
+      releasedScreen = findScreen();
+      releasedBackdrop = findBackdrop();
+      [releasedScreen, releasedBackdrop].forEach(
+        (element) => element && setReleased(element, true),
+      );
       setDim(1);
     };
     // A modal out of sight shows again as it was: at once when the ghost
     // goes before letting it go, or if a removal asked for never came
     const restoreModal = (after = 0) => {
       const screen = hiddenScreen;
+      const letGoScreen = releasedScreen;
       const backdrop = releasedBackdrop;
       hiddenScreen = undefined;
+      releasedScreen = undefined;
       releasedBackdrop = undefined;
       const restore = () => {
         if (screen?.isConnected) {
           setOpacityAtOnce(screen, '1');
+        }
+        if (letGoScreen?.isConnected) {
+          setReleased(letGoScreen, false);
           if (backdrop?.isConnected) {
-            setOpacityAtOnce(backdrop, '1');
+            setReleased(backdrop, false);
           }
+        } else {
+          // Removed: a backdrop that stays (a modal under the guide's) goes
+          // back to the navigator's own value
+          backdrop?.removeAttribute(RELEASED_ATTRIBUTE);
         }
       };
       if (after) {

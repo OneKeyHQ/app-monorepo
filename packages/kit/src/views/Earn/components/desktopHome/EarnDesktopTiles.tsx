@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { memo, useMemo, useState } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Badge,
@@ -13,6 +14,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -25,6 +27,7 @@ import { EarnNavigation } from '../../earnUtils';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { useNavigateToEarnAsset } from '../../hooks/useNavigateToEarnAsset';
 
+import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import {
   EarnDesktopHoldCard,
   EarnDesktopHoldCardSkeleton,
@@ -63,6 +66,70 @@ const distinctName = (name: string | undefined, symbol: string) =>
 // ---------- Tile parts ----------
 
 // One column of the tile row; the frame inside grows to the row's height
+// What stands under the hero changes as the page loads: the loading tiles,
+// then the holdings or the offers. When the new content's height differs,
+// the box eases to it instead of moving the page at once: on a phone a
+// holding with a badge takes a line more than its loading tile did
+const SWAP_EASE_MS = 250;
+
+function SwapHeightEase({
+  contentKey,
+  children,
+}: {
+  contentKey: string;
+  children: ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+  const boxRef = useRef<IElement>(null);
+  const keyRef = useRef(contentKey);
+  // The content's own height as last laid out
+  const heightRef = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    const box = boxRef.current as HTMLElement | null;
+    if (!box?.getBoundingClientRect) {
+      return undefined;
+    }
+    if (keyRef.current === contentKey) {
+      heightRef.current = box.getBoundingClientRect().height;
+      return undefined;
+    }
+    keyRef.current = contentKey;
+    // Mid-ease the box shows the height it is pinned to
+    const from = box.style.height
+      ? box.getBoundingClientRect().height
+      : heightRef.current;
+    const release = () =>
+      ['transition', 'height', 'overflow'].forEach((property) =>
+        box.style.removeProperty(property),
+      );
+    release();
+    const to = box.getBoundingClientRect().height;
+    heightRef.current = to;
+    if (reduceMotion || from === undefined || Math.abs(from - to) < 1) {
+      return undefined;
+    }
+    box.style.overflow = 'hidden';
+    box.style.height = `${from}px`;
+    void box.offsetHeight;
+    box.style.transition = `height ${SWAP_EASE_MS}ms cubic-bezier(0.2, 0, 0, 1)`;
+    box.style.height = `${to}px`;
+    const timer = setTimeout(release, SWAP_EASE_MS + 50);
+    return () => clearTimeout(timer);
+  }, [contentKey, reduceMotion]);
+  return (
+    <YStack
+      ref={boxRef}
+      onLayout={(event) => {
+        if (!(boxRef.current as HTMLElement | null)?.style?.height) {
+          heightRef.current = event.nativeEvent.layout.height;
+        }
+      }}
+    >
+      {children}
+    </YStack>
+  );
+}
+
 function TileSlot({ children }: { children: ReactNode }) {
   return (
     <YStack flex={1} flexBasis={0} minWidth={0}>
@@ -147,6 +214,7 @@ function TileRow({
   // Opaque card steps rather than a translucent wash, so the network badges'
   // rings take the row's color as it changes
   const { surface, isActive, handlers } = usePressableSurface(!!onPress);
+  const reduceMotion = useReducedMotion();
   return (
     <EarnDesktopSurfaceProvider value={surface}>
       <XStack
@@ -154,6 +222,9 @@ function TileRow({
         ai="center"
         gap="$2.5"
         minHeight={ROW_HEIGHT}
+        // Eases with the badges' rings, which ease the same way
+        transition={reduceMotion ? undefined : 'quick'}
+        animateOnly={ANIMATE_ONLY_BG_COLOR}
         {...(onPress
           ? {
               // Highlights like the table rows. The negative margin lets the
@@ -486,15 +557,21 @@ function BasicEarnDesktopTiles({
   ]);
 
   if (isLoading) {
-    return <EarnDesktopHoldCardSkeleton />;
+    return (
+      <SwapHeightEase contentKey="loading">
+        <EarnDesktopHoldCardSkeleton />
+      </SwapHeightEase>
+    );
   }
   if (holdRows.length) {
     return (
-      <EarnDesktopHoldCard
-        rows={holdRows}
-        networkNames={networkNames}
-        onOpenRow={onOpenHoldRow}
-      />
+      <SwapHeightEase contentKey="holdings">
+        <EarnDesktopHoldCard
+          rows={holdRows}
+          networkNames={networkNames}
+          onOpenRow={onOpenHoldRow}
+        />
+      </SwapHeightEase>
     );
   }
 
@@ -540,16 +617,20 @@ function BasicEarnDesktopTiles({
     rows.push(tiles.slice(index, index + perRow));
   }
   return (
-    <YStack gap="$4">
-      {rows.map((rowTiles, rowIndex) => (
-        <XStack key={rowIndex} gap="$4">
-          {rowTiles}
-          {Array.from({ length: perRow - rowTiles.length }).map((_, index) => (
-            <TileSlot key={`spacer-${index}`}>{null}</TileSlot>
-          ))}
-        </XStack>
-      ))}
-    </YStack>
+    <SwapHeightEase contentKey="offers">
+      <YStack gap="$4">
+        {rows.map((rowTiles, rowIndex) => (
+          <XStack key={rowIndex} gap="$4">
+            {rowTiles}
+            {Array.from({ length: perRow - rowTiles.length }).map(
+              (_, index) => (
+                <TileSlot key={`spacer-${index}`}>{null}</TileSlot>
+              ),
+            )}
+          </XStack>
+        ))}
+      </YStack>
+    </SwapHeightEase>
   );
 }
 

@@ -1,4 +1,4 @@
-import { Fragment, memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -96,20 +96,14 @@ function ManagersRow({
   managers: IBorrowReserveDetail['managers'] | undefined;
 }) {
   return managers?.items?.length ? (
-    <XStack gap="$1" alignItems="center">
+    // Each manager its own group, apart by space rather than a dot
+    <XStack columnGap="$4" rowGap="$1" flexWrap="wrap" alignItems="center">
       {managers.items.map((item, index) => (
-        <Fragment key={index}>
-          <XStack gap="$1" alignItems="center">
-            <Image size="$4" borderRadius="$1" src={item.logoURI} />
-            <EarnText text={item.title} size="$bodySm" />
-            <EarnText text={item.description} size="$bodySm" />
-          </XStack>
-          {index !== managers.items.length - 1 ? (
-            <XStack w="$4" h="$4" ai="center" jc="center">
-              <XStack w="$1" h="$1" borderRadius="$full" bg="$iconSubdued" />
-            </XStack>
-          ) : null}
-        </Fragment>
+        <XStack key={index} gap="$1" alignItems="center">
+          <Image size="$4" borderRadius="$1" src={item.logoURI} />
+          <EarnText text={item.title} size="$bodySm" />
+          <EarnText text={item.description} size="$bodySm" />
+        </XStack>
       ))}
     </XStack>
   ) : null;

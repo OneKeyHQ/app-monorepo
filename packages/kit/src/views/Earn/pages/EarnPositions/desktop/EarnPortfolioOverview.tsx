@@ -4,6 +4,7 @@ import { YStack, useMedia } from '@onekeyhq/components';
 import { ProviderJotaiContextDeFiList } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { buildValueShares } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
 import { ProtocolSplit } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/EarnDesktopProtocolSplit';
+import { useEarnDesktopSurfaces } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/useEarnDesktopSurfaces';
 import { DeFiOverviewGrid } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/DeFiOverviewGrid';
 import { resolveOverviewCols } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/overviewColsResolver';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
@@ -36,6 +37,12 @@ export function EarnPortfolioOverview({
   onPressProtocol: (protocol: IDeFiProtocol) => void;
 }) {
   const media = useMedia();
+  // The DeFi home's card colors, so the tiles read as the home's cards do
+  const { rest, hover, press } = useEarnDesktopSurfaces();
+  const tileSurface = useMemo(
+    () => ({ rest, hover, press }),
+    [rest, hover, press],
+  );
   const cols = useMemo(
     () => resolveOverviewCols({ gtXl: media.gtXl, gtLg: media.gtLg }),
     [media.gtXl, media.gtLg],
@@ -97,6 +104,7 @@ export function EarnPortfolioOverview({
           getNetWorth={getNetWorth}
           onPressProtocol={onPressProtocol}
           isAllNetworks
+          tileSurface={tileSurface}
         />
       </YStack>
     </ProviderJotaiContextDeFiList>

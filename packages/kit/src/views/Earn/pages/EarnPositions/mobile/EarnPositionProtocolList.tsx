@@ -26,6 +26,7 @@ export function EarnPositionProtocolList({
   pendingCountByProvider,
   onManage,
   onRedeem,
+  onWarmRedeem,
 }: {
   protocols: IEarnProtocolView[];
   expansion: IGroupExpansion;
@@ -69,6 +70,7 @@ export function EarnPositionProtocolList({
               position={position}
               onManage={onManage}
               onRedeem={onRedeem}
+              onWarmRedeem={onWarmRedeem}
             />
           ))}
         </GroupRow>

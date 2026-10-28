@@ -181,31 +181,41 @@ export function AmountInputSection({
     </Stack>
   );
 
+  // The line brings its own space, so no line leaves no gap
+  const amountErrorLine = (
+    <HeightTransition duration={200}>
+      {amountErrorText ? (
+        <YStack pt="$2" px="$3.5">
+          <SizableText
+            testID="earn-amount-error"
+            size="$bodyMd"
+            color="$textCritical"
+          >
+            {amountErrorText}
+          </SizableText>
+        </YStack>
+      ) : null}
+    </HeightTransition>
+  );
+
   return (
     // With a card under the box, the section spaces as the deposit forms do
     <YStack gap={afterInput ? '$4' : '$3'}>
       {isEarnForm ? (
-        // The line brings its own space, so no line leaves no gap
         <YStack>
           {amountBox}
-          <HeightTransition duration={200}>
-            {amountErrorText ? (
-              <YStack pt="$2" px="$3.5">
-                <SizableText
-                  testID="earn-amount-error"
-                  size="$bodyMd"
-                  color="$textCritical"
-                >
-                  {amountErrorText}
-                </SizableText>
-              </YStack>
-            ) : null}
-          </HeightTransition>
+          {afterInput ? null : amountErrorLine}
         </YStack>
       ) : (
         amountBox
       )}
       {afterInput}
+      {/* Under the card (a phone's list of protocols), so the red line
+          coming and going doesn't move it; where the protocols are beside
+          the form, right under the box */}
+      {isEarnForm && afterInput ? (
+        <YStack mt="$-4">{amountErrorLine}</YStack>
+      ) : null}
 
       {/* Error Alert */}
       {isCheckAmountMessageError && !isEarnForm ? (

@@ -1,8 +1,10 @@
-import { useCallback, useState } from 'react';
+import { Children, isValidElement, useCallback, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
+  Accordion,
   Badge,
   Icon,
   SizableText,
@@ -10,8 +12,18 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IYStackProps } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { PendingIndicator } from '@onekeyhq/kit/src/views/Staking/components/StakingActivityIndicator';
+
+import { ANIMATE_ONLY_BG_COLOR } from '../../../components/desktopHome/earnDesktopColorEase';
+import { buildKeyboardPressProps } from '../../../components/desktopHome/earnDesktopPressable';
+import {
+  LIST_HIDDEN_STYLE,
+  getListHeightTransition,
+  getListRowMotion,
+} from '../../../utils/earnListMotion';
 
 import { usePortfolioTableLayout } from './portfolioTableLayout';
 
@@ -59,9 +71,112 @@ type IGroupRowProps = {
   onToggle: () => void;
   /** the wide layout's card, for the page to scroll to */
   anchorRef?: (node: HTMLElement | null) => void;
+  /** a tile scrolled the page to it: the header lights up for a moment */
+  isHighlighted?: boolean;
   testID?: string;
   children: React.ReactNode;
 };
+
+const FOLD_VALUE = 'open';
+
+/**
+ * One card in a fold. Whether it fades in is settled when it mounts: a view
+ * on screen can't take on motion props later (Tamagui changes its hooks)
+ */
+function FoldRow({
+  index,
+  isAnimated,
+  children,
+}: {
+  index: number;
+  isAnimated: boolean;
+  children: React.ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+  const [motion] = useState(() =>
+    isAnimated ? getListRowMotion(index, reduceMotion) : undefined,
+  );
+  return <YStack {...motion}>{children}</YStack>;
+}
+
+/**
+ * A group's cards folding in place, as the DeFi home's lists do: open over
+ * 250 ms and shut over 200 ms on the smooth curve. Once the user has folded
+ * the group, the cards that come back fade in, each a moment after the one
+ * above; the ones on screen when the page opens don't.
+ */
+function GroupFold({
+  expanded,
+  hasToggled,
+  children,
+  ...frameProps
+}: {
+  expanded: boolean;
+  hasToggled: boolean;
+  children: React.ReactNode;
+} & IYStackProps) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <Accordion type="single" collapsible value={expanded ? FOLD_VALUE : ''}>
+      <Accordion.Item value={FOLD_VALUE}>
+        <Accordion.HeightAnimator
+          transition={getListHeightTransition(expanded, reduceMotion)}
+        >
+          <Accordion.Content
+            unstyled
+            transition="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
+            exitStyle={LIST_HIDDEN_STYLE}
+          >
+            <YStack {...frameProps}>
+              {Children.toArray(children).map((child, index) => (
+                <FoldRow
+                  key={isValidElement(child) && child.key ? child.key : index}
+                  index={index}
+                  isAnimated={hasToggled}
+                >
+                  {child}
+                </FoldRow>
+              ))}
+            </YStack>
+          </Accordion.Content>
+        </Accordion.HeightAnimator>
+      </Accordion.Item>
+    </Accordion>
+  );
+}
+
+/** The chevron turns with the fold instead of flipping */
+function FoldChevron({
+  expanded,
+  name,
+  color,
+}: {
+  expanded: boolean;
+  name: 'ChevronDownSmallSolid' | 'ChevronDownSmallOutline';
+  color: '$icon' | '$iconSubdued';
+}) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <View
+      transition={reduceMotion ? undefined : 'quick'}
+      rotate={expanded ? '180deg' : '0deg'}
+      transformOrigin="center"
+    >
+      {/* the rows' chevron slot: the group's figure and theirs share one edge */}
+      <Icon name={name} color={color} size="$5" />
+    </View>
+  );
+}
+
+function useFoldToggle(onToggle: () => void) {
+  const [hasToggled, setHasToggled] = useState(false);
+  const toggle = useCallback(() => {
+    setHasToggled(true);
+    onToggle();
+  }, [onToggle]);
+  return { hasToggled, toggle };
+}
 
 // The wallet token list's network badge (TokenNameView). Short of room it
 // gives up its width well before the name does
@@ -90,12 +205,15 @@ function GroupCard({
   expanded,
   onToggle,
   anchorRef,
+  isHighlighted = false,
   testID,
   children,
 }: IGroupRowProps) {
   // The header keeps its surface on hover, as the wallet's card header does;
   // the chevron answers instead
   const [isHovered, setIsHovered] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const { hasToggled, toggle } = useFoldToggle(onToggle);
   return (
     <YStack
       ref={(node) => anchorRef?.(node as unknown as HTMLElement | null)}
@@ -113,15 +231,19 @@ function GroupCard({
         gap="$3"
         px="$5"
         py="$3"
-        bg="$bgSubdued"
+        bg={isHighlighted ? '$gray3' : '$bgSubdued'}
+        transition={reduceMotion ? undefined : 'quick'}
+        animateOnly={ANIMATE_ONLY_BG_COLOR}
         cursor="pointer"
         userSelect="none"
         role="button"
         aria-expanded={expanded}
-        onPress={onToggle}
+        onPress={toggle}
         onHoverIn={() => setIsHovered(true)}
         onHoverOut={() => setIsHovered(false)}
         testID={testID}
+        // Inside the card's clipped corners, so the ring sits inside too
+        {...buildKeyboardPressProps(toggle, -2)}
       >
         <XStack ai="center" gap="$3" flex={1} minWidth={0}>
           <Token
@@ -151,26 +273,25 @@ function GroupCard({
             ) : null}
           </YStack>
         </XStack>
-        <XStack ai="center" gap="$3" flexShrink={0}>
+        <XStack ai="center" gap="$1" flexShrink={0}>
           {total}
-          <View
-            transition="quick"
-            rotate={expanded ? '180deg' : '0deg'}
-            transformOrigin="center"
-          >
-            <Icon
-              name="ChevronDownSmallSolid"
-              color={isHovered ? '$icon' : '$iconSubdued'}
-              size="$6"
-            />
-          </View>
+          <FoldChevron
+            expanded={expanded}
+            name="ChevronDownSmallSolid"
+            color={isHovered ? '$icon' : '$iconSubdued'}
+          />
         </XStack>
       </XStack>
-      {expanded ? (
-        <YStack px="$5" pt="$3" pb="$4" gap="$4">
-          {children}
-        </YStack>
-      ) : null}
+      <GroupFold
+        expanded={expanded}
+        hasToggled={hasToggled}
+        px="$5"
+        pt="$3"
+        pb="$4"
+        gap="$4"
+      >
+        {children}
+      </GroupFold>
     </YStack>
   );
 }
@@ -196,11 +317,12 @@ export function GroupRow(props: IGroupRowProps) {
     testID,
     children,
   } = props;
+  const { hasToggled, toggle } = useFoldToggle(onToggle);
   if (isTableLayout) {
     return <GroupCard {...props} />;
   }
   return (
-    <YStack gap="$3">
+    <YStack>
       <XStack
         ai="center"
         jc="space-between"
@@ -209,8 +331,11 @@ export function GroupRow(props: IGroupRowProps) {
         px="$5"
         cursor="pointer"
         userSelect="none"
-        onPress={onToggle}
+        role="button"
+        aria-expanded={expanded}
+        onPress={toggle}
         testID={testID}
+        {...buildKeyboardPressProps(toggle, -2)}
       >
         <XStack ai="center" gap="$2" flex={1} minWidth={0}>
           <Token
@@ -226,22 +351,25 @@ export function GroupRow(props: IGroupRowProps) {
           {networkName ? <NetworkNameBadge name={networkName} /> : null}
           {pendingCount > 0 ? <PendingIndicator num={pendingCount} /> : null}
         </XStack>
-        <XStack ai="center" gap="$2" flexShrink={0}>
+        <XStack ai="center" gap="$1" flexShrink={0}>
           {total}
-          <Icon
-            name={
-              expanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
-            }
-            size="$5"
+          <FoldChevron
+            expanded={expanded}
+            name="ChevronDownSmallOutline"
             color="$iconSubdued"
           />
         </XStack>
       </XStack>
-      {expanded ? (
-        <YStack px="$5" gap="$3">
-          {children}
-        </YStack>
-      ) : null}
+      {/* The header's gap moves into the fold, so a shut group adds none */}
+      <GroupFold
+        expanded={expanded}
+        hasToggled={hasToggled}
+        px="$5"
+        pt="$3"
+        gap="$3"
+      >
+        {children}
+      </GroupFold>
     </YStack>
   );
 }

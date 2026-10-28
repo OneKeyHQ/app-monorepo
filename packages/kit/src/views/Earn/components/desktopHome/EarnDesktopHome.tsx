@@ -46,6 +46,7 @@ import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopRewardPills } from './EarnDesktopRewardPills';
 import { EarnDesktopTiles } from './EarnDesktopTiles';
 import { useContentStable } from './useContentStable';
+import { useEarnDesktopFadeIn } from './useEarnDesktopFadeIn';
 import { useEarnDesktopGuide } from './useEarnDesktopGuide';
 import { useEarnDesktopHoldRows } from './useEarnDesktopHoldRows';
 import {
@@ -456,18 +457,41 @@ export function EarnDesktopHome({
     (!hasNoWallet && !hold.isLoaded) || hold.rows.length > 0;
 
   const [tab, setTab] = useState<IHomeTab>('earn');
-  // Earn mounts with the page, Loans the first time it's pointed at or
-  // chosen. A mounted tab stays and hides while the other shows, so switching
-  // back costs a display change instead of building fifty rows again
+  // Earn mounts with the page, Loans once its markets are in and the page
+  // has a quiet moment, or the first time it's pointed at or chosen if that
+  // comes sooner. Mounted hidden, it reads its rows' logos ahead, so they
+  // paint in its first frame. A mounted tab stays and hides while the other
+  // shows, so switching back costs a display change instead of building
+  // fifty rows again
   const [isLoansMounted, setIsLoansMounted] = useState(false);
   if (tab === 'loans' && !isLoansMounted) {
     setIsLoansMounted(true);
   }
+  useEffect(() => {
+    if (
+      !isActive ||
+      !isMarketsLoaded ||
+      isLoansMounted ||
+      typeof requestIdleCallback !== 'function'
+    ) {
+      return undefined;
+    }
+    const idleId = requestIdleCallback(() => setIsLoansMounted(true));
+    return () => cancelIdleCallback(idleId);
+  }, [isActive, isLoansMounted, isMarketsLoaded]);
   const handlePreloadTab = useCallback((value: IHomeTab) => {
     if (value === 'loans') {
       setIsLoansMounted(true);
     }
   }, []);
+  // The table coming in fades in over the quick fade as the tab line slides;
+  // Loans mounting as it's chosen fades in too
+  const earnPanelRef = useEarnDesktopFadeIn(tab, { isEnabled: tab === 'earn' });
+  const loansPanelRef = useEarnDesktopFadeIn(tab, {
+    isEnabled: tab === 'loans',
+    fadesOnMount: true,
+  });
+  const faqRef = useEarnDesktopFadeIn(tab, { isEnabled: tab === 'earn' });
   const [heroHeight, setHeroHeight] = useState<number>();
   const [stackedBannerWidth, setStackedBannerWidth] = useState<number>();
 
@@ -667,7 +691,7 @@ export function EarnDesktopHome({
             onChange={setTab}
             onPreload={handlePreloadTab}
           />
-          <YStack display={tab === 'earn' ? 'flex' : 'none'}>
+          <YStack ref={earnPanelRef} display={tab === 'earn' ? 'flex' : 'none'}>
             <EarnDesktopEarnTab
               trendingAssets={trendingAssets}
               fixedRateAssets={fixedRateAssets}
@@ -675,14 +699,19 @@ export function EarnDesktopHome({
               deposits={portfolioDeposits}
               lendingOffers={lendingOffers}
               walletHoldings={wallet.holdings}
+              hasWallet={!hasNoWallet}
               openRequest={openRequest}
             />
           </YStack>
           {isLoansMounted ? (
-            <YStack display={tab === 'loans' ? 'flex' : 'none'}>
+            <YStack
+              ref={loansPanelRef}
+              display={tab === 'loans' ? 'flex' : 'none'}
+            >
               <EarnDesktopBorrowTab
                 markets={markets}
                 isLoaded={isMarketsLoaded}
+                isActive={tab === 'loans'}
                 walletNetworkGroups={wallet.networkGroups}
                 onOpenPair={handleOpenLoanPair}
               />
@@ -692,7 +721,12 @@ export function EarnDesktopHome({
         {/* The questions are about Earn; Borrow's are per reserve and live on
             its pages */}
         {faqList.length || isFaqLoading ? (
-          <YStack gap="$3" mt="$10" display={tab === 'earn' ? 'flex' : 'none'}>
+          <YStack
+            ref={faqRef}
+            gap="$3"
+            mt="$10"
+            display={tab === 'earn' ? 'flex' : 'none'}
+          >
             <SizableText size="$headingXl">
               {intl.formatMessage({ id: ETranslations.global_faqs })}
             </SizableText>

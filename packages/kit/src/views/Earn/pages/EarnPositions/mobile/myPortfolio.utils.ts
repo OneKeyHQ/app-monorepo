@@ -395,6 +395,19 @@ export function positionMatured(
 }
 
 /**
+ * Whether a server-formatted amount ("+0.216 USDT", "< 0.0001 U") reads as
+ * more than nothing, for the gain's green. A loss, a zero or a text that
+ * isn't an amount reads as no gain.
+ */
+export function isPositiveAmountText(text: string): boolean {
+  const match = /^([+-]?)\s*<?\s*([+-]?)\s*([\d,]*\.?\d+)/.exec(text.trim());
+  if (!match || match[1] === '-' || match[2] === '-') {
+    return false;
+  }
+  return new BigNumber(match[3].replace(/,/g, '')).gt(0);
+}
+
+/**
  * A Pendle PT before its market matures is sold rather than redeemed: the
  * detail page's footer reads Sell early until maturity, and so does the row.
  */

@@ -16,6 +16,7 @@ export function DeFiAssetsTab({
   networkFilter,
   onManage,
   onRedeem,
+  onWarmRedeem,
 }: {
   protocols: IEarnProtocolView[];
   isLoading: boolean;
@@ -56,6 +57,7 @@ export function DeFiAssetsTab({
         pendingCountByProvider={pendingCountByProvider}
         onManage={onManage}
         onRedeem={onRedeem}
+        onWarmRedeem={onWarmRedeem}
       />
       {/* scopes still landing behind the rows already shown */}
       {isLoading && protocols.length > 0 ? (

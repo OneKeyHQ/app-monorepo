@@ -10,16 +10,19 @@ import type { ReactElement } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Icon,
   Page,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
@@ -45,7 +48,6 @@ import {
   EarnFormRow,
   EarnFormSummary,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
-import { useFitModalHeight } from '../../../Staking/hooks/useFitModalHeight';
 import { EARN_DESKTOP_LOAN_LTV } from '../../components/desktopHome/earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { useEarnDesktopMarkets } from '../../components/desktopHome/useEarnDesktopHomeData';
@@ -64,6 +66,7 @@ import {
   getLoanCollateralOptions,
   getLoanForLtv,
   getLoanForPositionLtv,
+  getLoanHealthTone,
   getLoanLtvBar,
   getLoanRouteMetrics,
   pickLoanBorrowSymbol,
@@ -84,13 +87,14 @@ import {
   isLoanLoss,
 } from './LoanRouterParts';
 import { useLoanToneColors } from './loanToneColors';
+import { useLoanModalHeight } from './useLoanModalHeight';
 import { useLoanRouterFacts } from './useLoanRouterFacts';
 import { useLoanRouterRun } from './useLoanRouterRun';
 
-import type { ILoanLtvTone } from './loanLtvBar.types';
 import type { ILoanPositionAsset } from './loanRouter.utils';
 import type { ILoanRouteItem } from './LoanRouterParts';
 import type { ILoanRunDone, ILoanRunPlan } from './useLoanRouterRun';
+import type { IEarnOutcome } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 
 // A collateral and a loan, and every market that takes the pair, as
 // LlamaSwap's Borrow tab lays them out: the amounts on the left, the markets
@@ -117,15 +121,6 @@ const formatHealth = (value: number) =>
   value >= 100 ? '>100' : new BigNumber(value).toFixed(2);
 
 const noop = () => undefined;
-
-// A health factor's tier, as the Borrow pages read one: 2 and up, 1.25 to 2,
-// under 1.25
-const healthTone = (value?: number): ILoanLtvTone => {
-  if (value === undefined || value >= 2) {
-    return 'success';
-  }
-  return value >= 1.25 ? 'caution' : 'critical';
-};
 
 const isSameSymbol = (a: string, b: string) =>
   a.toUpperCase() === b.toUpperCase();
@@ -177,14 +172,14 @@ function HealthFactorValue({
         <>
           <SizableText
             size="$bodySm"
-            style={{ color: toneText[healthTone(before)] }}
+            style={{ color: toneText[getLoanHealthTone(before)] }}
           >
             {formatHealth(before)}
           </SizableText>
           <Icon name="ArrowRightOutline" size="$4" color="$iconDisabled" />
         </>
       ) : null}
-      <RowValue toneColor={toneText[healthTone(after)]}>
+      <RowValue toneColor={toneText[getLoanHealthTone(after)]}>
         {formatHealth(after)}
       </RowValue>
     </XStack>
@@ -283,6 +278,46 @@ function PositionValue({
   );
 }
 
+// A block's line, its label on the left and its value on the right, as a
+// placeholder of the line's height
+function SkeletonFormRow({
+  height,
+  hasNote,
+}: {
+  height: number;
+  hasNote?: boolean;
+}) {
+  return (
+    <XStack h={height} jc="space-between" ai="flex-start">
+      <Skeleton.BodyMd w={88} />
+      <YStack ai="flex-end">
+        <Skeleton.BodyMd w={56} />
+        {hasNote ? <Skeleton.BodySm w={96} /> : null}
+      </YStack>
+    </XStack>
+  );
+}
+
+// While the market's figures load, the place of the account's position
+// there, line for line (its title, Collateral, Borrowed and the health
+// factor with its note), so the modal opens at the size it settles at
+// where the account has a position, and shrinks once if it has none
+function PositionSkeleton() {
+  return (
+    <YStack testID="earn-loan-position-loading" px="$3.5" gap="$3" aria-hidden>
+      <XStack h={20} ai="center" gap="$2">
+        <Skeleton w="$5" h="$5" radius="round" />
+        <Skeleton.BodyMd w={160} />
+      </XStack>
+      <SkeletonFormRow height={24} />
+      <SkeletonFormRow height={24} />
+      <SkeletonFormRow height={36} hasNote />
+    </YStack>
+  );
+}
+
+const FADE_IN = { opacity: 0 } as const;
+
 function EarnLoanRouterPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -297,6 +332,7 @@ function EarnLoanRouterPage() {
     wide,
   } = route.params as IRouteParams;
   const { gtLg } = useMedia();
+  const reduceMotion = useReducedMotion();
   const currencyInfo = useCurrency();
   const currency = currencyInfo.symbol;
 
@@ -794,7 +830,7 @@ function EarnLoanRouterPage() {
       : undefined;
   ltvStartRef.current = ltvBar && !ltvBar.isPreview ? ltvBar.used : 0;
   // The health factor the bar's LTV leaves, in the Borrow pages' colors
-  const barTone = healthTone(
+  const barTone = getLoanHealthTone(
     ltvBar?.liquidation !== undefined && ltvBar.value > 0
       ? ltvBar.liquidation / ltvBar.value
       : undefined,
@@ -929,6 +965,21 @@ function EarnLoanRouterPage() {
       />
     ) : null;
 
+  // Until the picked market's own figures are in (and the markets, while
+  // they load), the form holds their places: the Net APY's and the
+  // position's. A preview rate shown meanwhile would turn into a dash once
+  // the market turned out not to lend the token
+  const isFiguresLoading =
+    !isMarketsLoaded || (Boolean(selectedRoute) && !selectedFacts);
+  // Figures that land after the form shows fade in
+  const fadeInProps = reduceMotion
+    ? undefined
+    : {
+        transition: 'quick' as const,
+        animateOnly: ANIMATE_ONLY_OPACITY,
+        enterStyle: FADE_IN,
+      };
+
   // The loan's own result: what this collateral earns less what this loan
   // costs, as a rate while the collateral could carry the loan alone; past
   // that (the market's position carries the rest) as money a year. Where
@@ -938,48 +989,48 @@ function EarnLoanRouterPage() {
     !isClosed && selectedMetrics?.netApy === undefined
       ? selectedMetrics?.annualNet
       : undefined;
-  const summary = selectedRoute ? (
-    <EarnFormSummary
-      outcome={
-        netYearly !== undefined
-          ? {
-              label: EARN_DESKTOP_DEMO_COPY.loanNetPerYear,
-              isEarning: netYearly >= 0.01,
-              // In the cards' red, so a cost under a cent reads as one too
-              isCost: isLoanLoss(netYearly),
-              values: [{ main: formatLoanNet(netYearly, currency) }],
-            }
-          : {
-              label: intl.formatMessage({ id: ETranslations.defi_net_apy }),
-              isEarning: !isClosed && (selectedMetrics?.netApy ?? 0) > 0,
-              isCost: !isClosed && isLoanLoss(selectedMetrics?.netApy),
-              values:
-                isClosed || selectedMetrics?.netApy === undefined
-                  ? []
-                  : [
-                      {
-                        main: formatLoanPercent(selectedMetrics.netApy),
-                        suffix:
-                          isChanging && selectedMetrics.annualNet !== undefined
-                            ? formatLoanYearly(
-                                selectedMetrics.annualNet,
-                                currency,
-                              )
-                            : undefined,
-                      },
-                    ],
-            }
-      }
-      rows={hasPosition ? [] : [healthRow, liquidationRow].filter(isElement)}
-    />
-  ) : null;
+  const netApyLabel = intl.formatMessage({ id: ETranslations.defi_net_apy });
+  let outcome: IEarnOutcome;
+  if (isFiguresLoading) {
+    outcome = { label: netApyLabel, values: [] };
+  } else if (netYearly !== undefined) {
+    outcome = {
+      label: EARN_DESKTOP_DEMO_COPY.loanNetPerYear,
+      isEarning: netYearly >= 0.01,
+      // In the cards' red, so a cost under a cent reads as one too
+      isCost: isLoanLoss(netYearly),
+      values: [{ main: formatLoanNet(netYearly, currency) }],
+    };
+  } else {
+    outcome = {
+      label: netApyLabel,
+      isEarning: !isClosed && (selectedMetrics?.netApy ?? 0) > 0,
+      isCost: !isClosed && isLoanLoss(selectedMetrics?.netApy),
+      values:
+        isClosed || selectedMetrics?.netApy === undefined
+          ? []
+          : [
+              {
+                main: formatLoanPercent(selectedMetrics.netApy),
+                suffix:
+                  isChanging && selectedMetrics.annualNet !== undefined
+                    ? formatLoanYearly(selectedMetrics.annualNet, currency)
+                    : undefined,
+              },
+            ],
+    };
+  }
+  const summary =
+    selectedRoute || isFiguresLoading ? (
+      <EarnFormSummary outcome={outcome} isOutcomeLoading={isFiguresLoading} />
+    ) : null;
 
   // Where the account already has a position, the loan joins it: what backs
   // every loan there, what is borrowed, and the health factor, before and
   // after
   const positionBlock =
     hasPosition && selectedRoute && selectedFacts ? (
-      <YStack testID="earn-loan-position" px="$3.5" gap="$3">
+      <YStack testID="earn-loan-position" px="$3.5" gap="$3" {...fadeInProps}>
         <XStack ai="center" gap="$2">
           <Token size="xs" tokenImageUri={selectedRoute.market.logoURI} />
           <SizableText size="$bodyMdMedium">
@@ -1032,6 +1083,24 @@ function EarnLoanRouterPage() {
         {liquidationRow}
       </YStack>
     ) : null;
+
+  // Under the Net APY: the position's place while the figures load, then
+  // the position, or where the account has none there, its risk. One part
+  // in one place, so the form changes height once as the figures land
+  let details: ReactElement | null = null;
+  if (isFiguresLoading) {
+    details = <PositionSkeleton />;
+  } else if (positionBlock) {
+    details = positionBlock;
+  } else if (selectedRoute) {
+    const riskRows = [healthRow, liquidationRow].filter(isElement);
+    details = riskRows.length ? (
+      // As close under the Net APY as the summary's own rows sit
+      <YStack px="$3.5" mt="$-2" gap="$3" {...fadeInProps}>
+        {riskRows}
+      </YStack>
+    ) : null;
+  }
 
   // ---------- The press ----------
 
@@ -1176,16 +1245,16 @@ function EarnLoanRouterPage() {
 
   // ---------- The modal ----------
 
-  // The markets beside the form where the window holds them; under the LTV
-  // bar otherwise, as on a phone, in a modal of the usual width. The done
-  // view is one column at the usual width too
+  // The markets beside the form where the window holds them; under the
+  // form's figures otherwise, as on a phone, in a modal of the usual width.
+  // The done view is one column at the usual width too
   const isBeside = gtLg && !done;
   useEffect(() => {
     if ((wide !== false) !== isBeside) {
       navigation.setParams({ wide: isBeside });
     }
   }, [isBeside, navigation, wide]);
-  const fitModalRef = useFitModalHeight(true, EARN_LOAN_MODAL_SIZE.height);
+  const fitModalRef = useLoanModalHeight(EARN_LOAN_MODAL_SIZE.height);
   const renderTitle = useCallback(
     () => (
       <LoanPairTitle
@@ -1239,9 +1308,11 @@ function EarnLoanRouterPage() {
         {borrowBox}
         {ltvBlock}
       </YStack>
-      {isBeside ? null : routeList}
+      {/* In one column the markets come after what the amounts make, so
+          typing or dragging shows its result without a scroll */}
       {summary}
-      {positionBlock}
+      {details}
+      {isBeside ? null : routeList}
       {notes}
     </YStack>
   );

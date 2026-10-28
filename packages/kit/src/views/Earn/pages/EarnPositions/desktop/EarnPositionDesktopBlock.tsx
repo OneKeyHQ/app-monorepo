@@ -25,7 +25,10 @@ import {
 } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/ProtocolUnifiedTable';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { buildKeyboardPressProps } from '../../../components/desktopHome/earnDesktopPressable';
 import { EarnTestIDs } from '../../../testIDs';
+import { getLoanHealthTone } from '../../EarnLoanRouter/loanRouter.utils';
+import { useLoanToneColors } from '../../EarnLoanRouter/loanToneColors';
 import {
   DaysLeftText,
   EffectiveDepositText,
@@ -139,7 +142,12 @@ function HoldingTableRow({
       </Stack>
       <XStack width={ACTION_COLUMN_WIDTH} flexShrink={0} jc="flex-end">
         {button ? (
-          <RowAction action={button} symbol={asset.symbol} redeem={redeem} />
+          <RowAction
+            action={button}
+            symbol={asset.symbol}
+            tokenAddress={asset.address}
+            redeem={redeem}
+          />
         ) : null}
         {action?.kind === 'pending' ? <PendingBadge asset={asset} /> : null}
       </XStack>
@@ -253,6 +261,7 @@ function EarnPositionDesktopBlockCmp({
   position,
   onManage,
   onRedeem,
+  onWarmRedeem,
 }: { position: IEarnPositionView } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
@@ -261,7 +270,9 @@ function EarnPositionDesktopBlockCmp({
     Boolean(action) && Boolean(onManage) && hasPositionDetailPage(source);
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
-  const redeem = useHoldingRedeem(position, onRedeem);
+  const redeem = useHoldingRedeem(position, onRedeem, onWarmRedeem);
+  // A loan's health reads in the Loans modal's tiers and colors
+  const toneColors = useLoanToneColors();
   // The name and chevron brighten on hover, as the DeFi home's tile titles do
   const [isHovered, setIsHovered] = useState(false);
   const isLit = Boolean(openDetail) && isHovered;
@@ -274,11 +285,13 @@ function EarnPositionDesktopBlockCmp({
         minHeight={32}
         {...(openDetail
           ? {
+              role: 'button',
               onPress: openDetail,
               onHoverIn: () => setIsHovered(true),
               onHoverOut: () => setIsHovered(false),
               cursor: 'pointer',
               pressStyle: { opacity: 0.6 },
+              ...buildKeyboardPressProps(openDetail, 2),
             }
           : {})}
       >
@@ -299,7 +312,8 @@ function EarnPositionDesktopBlockCmp({
             </SizableText>
           ) : null}
         </XStack>
-        <XStack ai="center" gap="$3" flexShrink={0}>
+        {/* The PnL keeps clear of the value, so the two read apart */}
+        <XStack ai="center" gap="$6" flexShrink={0}>
           {hasDeposit ? <PositionPnlLine position={source} /> : null}
           <XStack ai="center" gap="$1">
             <ProtocolValueCell
@@ -320,18 +334,25 @@ function EarnPositionDesktopBlockCmp({
               numberOfLines={1}
               fontVariant={TABULAR_NUMS}
             />
+            {/* Without a detail page the chevron's place stays, so every
+                value in the card ends on one edge */}
             {openDetail ? (
               <Icon
                 name="ChevronRightSmallOutline"
                 size="$5"
                 color={isLit ? '$icon' : '$iconSubdued'}
               />
-            ) : null}
+            ) : (
+              <Stack w="$5" />
+            )}
           </XStack>
         </XStack>
       </XStack>
       {meta?.kind === 'healthFactor' ? (
-        <DeFiPositionHealthFactorRow healthFactor={meta.healthFactor} />
+        <DeFiPositionHealthFactorRow
+          healthFactor={meta.healthFactor}
+          valueColor={toneColors.text[getLoanHealthTone(meta.healthFactor)]}
+        />
       ) : null}
       <HoldingSectionsTable position={position} redeem={redeem} />
     </YStack>

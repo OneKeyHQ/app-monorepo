@@ -3,12 +3,21 @@ import { useIntl } from 'react-intl';
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useOverviewTileSurfaceProps } from './DeFiOverviewTile';
+
+import type { IDeFiOverviewTileSurface } from './DeFiOverviewTile';
+
 export type IDeFiOverviewLessTileProps = {
   onPress: () => void;
+  surface?: IDeFiOverviewTileSurface;
 };
 
-function DeFiOverviewLessTile({ onPress }: IDeFiOverviewLessTileProps) {
+function DeFiOverviewLessTile({
+  onPress,
+  surface,
+}: IDeFiOverviewLessTileProps) {
   const intl = useIntl();
+  const surfaceProps = useOverviewTileSurfaceProps(surface, onPress);
   const collapseLabel = intl.formatMessage({
     id: ETranslations.global_collapse,
   });
@@ -34,11 +43,12 @@ function DeFiOverviewLessTile({ onPress }: IDeFiOverviewLessTileProps) {
         outlineStyle: 'solid',
         outlineWidth: 2,
       }}
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
+      hoverStyle={{ bg: surface?.hover ?? '$bgHover' }}
+      pressStyle={{ bg: surface?.press ?? '$bgActive' }}
       onPress={onPress}
       role="button"
       aria-label={collapseLabel}
+      {...surfaceProps}
     >
       <Stack
         width={20}

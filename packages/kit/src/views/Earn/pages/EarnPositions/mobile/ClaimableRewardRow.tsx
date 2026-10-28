@@ -71,6 +71,7 @@ export function ClaimableRewardRow({
   title,
   subtitle,
   fiatValue,
+  isValueUnknown = false,
   action,
 }: {
   networkId: string;
@@ -81,6 +82,8 @@ export function ClaimableRewardRow({
   subtitle?: React.ReactNode;
   /** nothing when the server has not priced the reward */
   fiatValue?: string | number;
+  /** the amount itself is unknown (Lista's, until Check): "–" for its value */
+  isValueUnknown?: boolean;
   action?: React.ReactNode;
 }) {
   const currencyInfo = useCurrency();
@@ -105,8 +108,18 @@ export function ClaimableRewardRow({
     ) : (
       subtitle
     );
-  const fiatNode =
-    fiatValue !== undefined && fiatValue !== '' ? (
+  let fiatNode: React.ReactNode = null;
+  if (isValueUnknown) {
+    fiatNode = (
+      <SizableText
+        size={isTableLayout ? '$bodyMdMedium' : '$bodyMd'}
+        color="$textSubdued"
+      >
+        –
+      </SizableText>
+    );
+  } else if (fiatValue !== undefined && fiatValue !== '') {
+    fiatNode = (
       <NumberSizeableTextWrapper
         hideValue
         size={isTableLayout ? '$bodyMdMedium' : '$bodyMd'}
@@ -117,7 +130,8 @@ export function ClaimableRewardRow({
       >
         {fiatValue}
       </NumberSizeableTextWrapper>
-    ) : null;
+    );
+  }
 
   if (isTableLayout) {
     return (

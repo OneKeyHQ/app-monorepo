@@ -17,6 +17,7 @@ import {
   getFontSize,
   useMedia,
 } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
@@ -38,6 +39,7 @@ import {
 } from '../../utils/earnListMotion';
 import { AprText } from '../AprText';
 
+import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import {
   EarnDesktopSurfaceProvider,
@@ -45,6 +47,7 @@ import {
   buildKeyboardPressProps,
   usePressableSurface,
 } from './earnDesktopPressable';
+import { useEarnDesktopScrollPin } from './useEarnDesktopScrollPin';
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
@@ -124,10 +127,19 @@ export function OfferRate({
 const getOfferBadge = (offer: IEarnDesktopHoldOffer | undefined) =>
   offer?.kind === 'protocol' ? offer.item.provider.badges?.[0] : undefined;
 
-// A phone's width: the rate's column, and the width it takes in every row
-// once one row's rate carries a badge, so the balances keep one edge
+// A phone's width: the rate's column in every row, so the balances keep one
+// edge. A badge takes a line of its own under the rate's, where the widest
+// fits, leaving the symbol and the whole balance their room
 const NARROW_RATE_WIDTH = 96;
-const NARROW_BADGED_RATE_WIDTH = 112;
+// Two lines of a row (an amount at 24 over its 16 tall second line) and the
+// token's icon (md)
+const TWO_LINES_HEIGHT = 24 + 16;
+const TOKEN_ICON_SIZE = 32;
+// The rows' first lines on one line across the tiles: a row with a badge
+// grows downwards. This much above and below two lines makes the tile's
+// height, as centring did
+const NARROW_ROW_PY = (ROW_HEIGHT - TWO_LINES_HEIGHT) / 2;
+const NARROW_ICON_MT = (TWO_LINES_HEIGHT - TOKEN_ICON_SIZE) / 2;
 
 // What the balance would earn in a year at that rate
 function YearlyLine({ row }: { row: IEarnDesktopHoldRow }) {
@@ -208,19 +220,20 @@ function BasicHoldRow({
   row,
   networkName,
   isWide,
-  narrowRateWidth,
   onOpenRow,
   onWarmRow,
 }: {
   row: IEarnDesktopHoldRow;
   networkName?: string;
   isWide: boolean;
-  narrowRateWidth: number;
   onOpenRow: (row: IEarnDesktopHoldRow) => void;
   // Gets the deposit modal's form ready, so it opens complete
   onWarmRow: (row: IEarnDesktopHoldRow) => void;
 }) {
   const intl = useIntl();
+  const reduceMotion = useReducedMotion();
+  // Hover and press colors ease in, as the open rows of the table do
+  const colorTransition = reduceMotion ? undefined : 'quick';
   const onPress = () => onOpenRow(row);
   const onWarm = useCallback(() => onWarmRow(row), [onWarmRow, row]);
   // The cards' steps: at rest a tile is the card color, never the hover or
@@ -284,13 +297,16 @@ function BasicHoldRow({
       <XStack
         testID={`earn-desktop-hold-${row.networkId}-${symbol}`}
         role="button"
-        ai="center"
+        ai={isWide ? 'center' : 'flex-start'}
         gap={ROW_GAP}
         minHeight={ROW_HEIGHT}
         px="$4"
+        py={isWide ? undefined : NARROW_ROW_PY}
         borderRadius="$3"
         borderCurve="continuous"
         bg={surface}
+        transition={colorTransition}
+        animateOnly={ANIMATE_ONLY_BG_COLOR}
         cursor="pointer"
         userSelect="none"
         onPress={onPress}
@@ -335,6 +351,11 @@ function BasicHoldRow({
                 testID={`earn-desktop-hold-earn-${row.networkId}-${symbol}`}
                 size="small"
                 variant="secondary"
+                // The row is the Tab stop with the same action: one stop a
+                // row, not two
+                tabIndex={-1}
+                transition={colorTransition}
+                animateOnly={ANIMATE_ONLY_BG_COLOR}
                 // Button stops the press at itself, so the row under it does
                 // not open the same page a second time. Stopping the press-in
                 // too keeps the row at its hover color while the button is
@@ -350,11 +371,13 @@ function BasicHoldRow({
           <>
             {/* One column has no room for a network column: the badge and
                 the second line carry the network */}
-            <SurfaceToken
-              size="md"
-              tokenImageUri={row.token.logoURI || row.asset.logoURI}
-              networkId={row.networkId}
-            />
+            <YStack mt={NARROW_ICON_MT}>
+              <SurfaceToken
+                size="md"
+                tokenImageUri={row.token.logoURI || row.asset.logoURI}
+                networkId={row.networkId}
+              />
+            </YStack>
             <YStack flex={1} minWidth={0}>
               {symbolText}
               <SizableText
@@ -365,17 +388,17 @@ function BasicHoldRow({
                 {networkName ?? ''}
               </SizableText>
             </YStack>
-            <YStack ai="flex-end" flexShrink={1} minWidth={0}>
+            {/* A number is never cut short: the names give way first */}
+            <YStack ai="flex-end" flexShrink={0}>
               <RowBalance row={row} />
             </YStack>
-            {/* A phone's width has no room for the badge beside the symbol;
-                beside the rate it still says why the rate is green */}
-            <YStack ai="flex-end" flexShrink={0} minWidth={narrowRateWidth}>
-              <XStack ai="center" gap="$1.5">
-                {badgeElement}
-                <OfferRate offer={best} />
-              </XStack>
+            {/* A phone's width has no room for the badge beside the symbol
+                or the rate; under the rate's lines it still says why the
+                rate is green */}
+            <YStack ai="flex-end" flexShrink={0} minWidth={NARROW_RATE_WIDTH}>
+              <OfferRate offer={best} />
               <YearlyLine row={row} />
+              {badgeElement ? <XStack mt="$1.5">{badgeElement}</XStack> : null}
             </YStack>
           </>
         )}
@@ -419,8 +442,19 @@ function MoreToggle({
   const intl = useIntl();
   // Subdued until hovered, the way the tile titles brighten
   const [isHovered, setIsHovered] = useState(false);
+  // Show less keeps the control where it was pressed: the page scrolls up
+  // with the rows folding above it
+  const toggleRef = useRef<IElement>(null);
+  const pinScroll = useEarnDesktopScrollPin();
+  const handlePress = () => {
+    if (isExpanded) {
+      pinScroll(toggleRef.current);
+    }
+    onPress();
+  };
   return (
     <XStack
+      ref={toggleRef}
       testID="earn-desktop-hold-more"
       role="button"
       aria-expanded={isExpanded}
@@ -432,8 +466,8 @@ function MoreToggle({
       userSelect="none"
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
-      onPress={onPress}
-      {...buildKeyboardPressProps(onPress, 2)}
+      onPress={handlePress}
+      {...buildKeyboardPressProps(handlePress, 2)}
     >
       <SizableText
         size="$bodyMdMedium"
@@ -441,7 +475,7 @@ function MoreToggle({
       >
         {isExpanded
           ? intl.formatMessage({ id: ETranslations.global_show_less })
-          : EARN_DESKTOP_DEMO_COPY.more(count)}
+          : EARN_DESKTOP_DEMO_COPY.showMore(count)}
       </SizableText>
       <Icon
         name={isExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
@@ -542,17 +576,12 @@ function BasicEarnDesktopHoldCard({
     return () => clearTimeout(timer);
   }, [shownKey, warm]);
   const moreCount = rows.length - ROW_LIMIT;
-  // Over every row, so showing more doesn't move the columns
-  const narrowRateWidth = rows.some((row) => getOfferBadge(row.offers[0]))
-    ? NARROW_BADGED_RATE_WIDTH
-    : NARROW_RATE_WIDTH;
   const renderRow = (row: IEarnDesktopHoldRow) => (
     <HoldRow
       key={row.key}
       row={row}
       networkName={networkNames.get(row.networkId)}
       isWide={isWide}
-      narrowRateWidth={narrowRateWidth}
       onOpenRow={onOpenRow}
       onWarmRow={handleWarmRow}
     />
@@ -721,7 +750,7 @@ export function EarnDesktopHoldCardSkeleton() {
         ))}
       </YStack>
       <XStack h={44} ai="center" pl="$4">
-        <Skeleton w={56} h={14} borderRadius="$2" />
+        <Skeleton w={88} h={14} borderRadius="$2" />
       </XStack>
     </YStack>
   );

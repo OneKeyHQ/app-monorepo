@@ -7,6 +7,7 @@ import {
   Button,
   Empty,
   NumberSizeableText,
+  SizableText,
   Spinner,
   Stack,
   YStack,
@@ -26,6 +27,7 @@ import { EarnTestIDs } from '../../../testIDs';
 import { resolveUniquePortfolioClaimSourceIdentity } from '../../../utils/portfolioClaimUtils';
 
 import { ClaimableRewardRow, RewardTableHeader } from './ClaimableRewardRow';
+import { isCheckRow } from './earnPositionModel';
 import { GroupRow, useGroupExpansion } from './GroupRow';
 import {
   buildClaimSourceCandidates,
@@ -54,12 +56,27 @@ export const REWARD_ROWS_BOX_PROPS = {
   bg: '$bg',
 } as const;
 
-/** The group's figure: fiat the way the protocol rows read, the token amount only when nothing priced it. */
+/**
+ * The group's figure: fiat the way the protocol rows read, the token amount
+ * only when nothing priced it, and "–" while every row's amount is unknown
+ * (Lista's, until Check) rather than a total of nothing.
+ */
 export function RewardsGroupTotal({ group }: { group: IRewardsStageGroup }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   // The wide layout's card header reads its figure at the name's size
   const size = usePortfolioTableLayout() ? '$headingLg' : '$bodyLgMedium';
+  const isUnknown =
+    group.ledgerItems.length === 0 &&
+    group.positionRows.length > 0 &&
+    group.positionRows.every((row) => isCheckRow(row.asset));
+  if (isUnknown) {
+    return (
+      <SizableText size={size} color="$textSubdued">
+        –
+      </SizableText>
+    );
+  }
   if (group.amountOnly) {
     return (
       <NumberSizeableText
@@ -201,32 +218,44 @@ export function RewardsClaimableList({
         >
           <YStack {...(isTableLayout ? {} : REWARD_ROWS_BOX_PROPS)}>
             {isTableLayout ? <RewardTableHeader /> : null}
-            {group.positionRows.map((row) => (
-              <ClaimableRewardRow
-                key={row.key}
-                networkId={row.position.source.networkId}
-                logoURI={row.asset.meta?.logoUrl}
-                title={
-                  <NumberSizeableTextWrapper
-                    hideValue
-                    size="$bodyMdMedium"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: row.asset.symbol }}
-                    numberOfLines={1}
-                  >
-                    {row.asset.amount}
-                  </NumberSizeableTextWrapper>
-                }
-                subtitle={row.position.name}
-                fiatValue={
-                  isProtocolAssetValueUnavailable(row.asset) ||
-                  !new BigNumber(row.asset.amount).gt(0)
-                    ? undefined
-                    : row.asset.value
-                }
-                action={<PositionRewardAction row={row} onManage={onManage} />}
-              />
-            ))}
+            {group.positionRows.map((row) => {
+              // Lista's reward is unknown until Check reveals it: the name
+              // alone, as DeFi Assets reads it, and no value
+              const isCheck = isCheckRow(row.asset);
+              return (
+                <ClaimableRewardRow
+                  key={row.key}
+                  networkId={row.position.source.networkId}
+                  logoURI={row.asset.meta?.logoUrl}
+                  title={
+                    isCheck ? (
+                      row.asset.symbol
+                    ) : (
+                      <NumberSizeableTextWrapper
+                        hideValue
+                        size="$bodyMdMedium"
+                        formatter="balance"
+                        formatterOptions={{ tokenSymbol: row.asset.symbol }}
+                        numberOfLines={1}
+                      >
+                        {row.asset.amount}
+                      </NumberSizeableTextWrapper>
+                    )
+                  }
+                  subtitle={row.position.name}
+                  fiatValue={
+                    isProtocolAssetValueUnavailable(row.asset) ||
+                    !new BigNumber(row.asset.amount).gt(0)
+                      ? undefined
+                      : row.asset.value
+                  }
+                  isValueUnknown={isCheck}
+                  action={
+                    <PositionRewardAction row={row} onManage={onManage} />
+                  }
+                />
+              );
+            })}
             {group.ledgerItems.map(({ group: ledgerGroup, item }, index) => {
               const network = networkInfoById.get(ledgerGroup.networkId);
               const asset = toLedgerClaimAsset({

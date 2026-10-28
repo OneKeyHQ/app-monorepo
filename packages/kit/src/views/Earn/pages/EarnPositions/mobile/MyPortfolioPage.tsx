@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Page,
@@ -12,12 +13,14 @@ import {
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { warmWithdrawWaysOut } from '@onekeyhq/kit/src/views/Staking/components/UniversalWithdraw/warmWithdrawWaysOut';
 import {
   buildEarnProtocolInfo,
   buildEarnTokenInfo,
@@ -124,6 +127,35 @@ export function MyPortfolioPage({
     tab === primaryTab || (!platformEnv.isNative && shownTabs.includes(tab));
   const tabDisplay = (tab: IPrimaryTab) =>
     tab === primaryTab ? 'flex' : 'none';
+  // The tab picked shows clear for a frame, then fades in over 150 ms
+  const reduceMotion = useReducedMotion();
+  const [enteringTab, setEnteringTab] = useState<IPrimaryTab | undefined>();
+  useEffect(() => {
+    if (!enteringTab) {
+      return undefined;
+    }
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setEnteringTab(undefined));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [enteringTab]);
+  const handleTabChange = (tab: IPrimaryTab) => {
+    if (tab === primaryTab) {
+      return;
+    }
+    setPrimaryTab(tab);
+    if (!reduceMotion) {
+      setEnteringTab(tab);
+    }
+  };
+  const tabMotion = (tab: IPrimaryTab) =>
+    reduceMotion
+      ? undefined
+      : ({
+          opacity: tab === enteringTab ? 0 : 1,
+          transition: 'quick',
+          animateOnly: ANIMATE_ONLY_OPACITY,
+        } as const);
   const [stage, setStage] = useState<IEarnRewardsPortfolioStage>('claimable');
   // The network filter belongs to the account it was picked on (OK-64596):
   // another account opens on All networks, in the same render, instead of
@@ -411,6 +443,53 @@ export function MyPortfolioPage({
     ],
   );
 
+  // Pointed at or focused, a row's Redeem reads its withdraw form's ways out
+  // ahead, once per row on this page, for the account the press would use
+  const warmedRedeemsRef = useRef(new Set<string>());
+  const handleWarmRedeem = useCallback(
+    (target: IEarnPositionManageTarget, inputTokenAddress: string) => {
+      const key = [
+        filterAccountKeyRef.current,
+        target.networkId,
+        target.provider,
+        target.symbol,
+        target.vault ?? '',
+        inputTokenAddress,
+      ].join('|');
+      if (warmedRedeemsRef.current.has(key)) {
+        return;
+      }
+      warmedRedeemsRef.current.add(key);
+      void (async () => {
+        const earnAccount =
+          await backgroundApiProxy.serviceStaking.getEarnAccount({
+            accountId: selectedAccount.othersWalletAccountId || '',
+            networkId: target.networkId,
+            indexedAccountId:
+              selectedAccount.indexedAccountId ||
+              activeAccount.indexedAccount?.id,
+            btcOnlyTaproot: true,
+          });
+        if (!earnAccount) {
+          return;
+        }
+        await warmWithdrawWaysOut({
+          accountId: earnAccount.accountId,
+          networkId: target.networkId,
+          providerName: target.provider,
+          symbol: target.symbol,
+          vault: target.vault,
+          inputTokenAddress,
+        });
+      })().catch(() => undefined);
+    },
+    [
+      selectedAccount.othersWalletAccountId,
+      selectedAccount.indexedAccountId,
+      activeAccount.indexedAccount?.id,
+    ],
+  );
+
   // Ledger paging: the next page loads as the Rewards tab nears the bottom
   // (same threshold as the referral reward pages). Only the ledger pages;
   // DeFi Assets holds every position already.
@@ -458,7 +537,7 @@ export function MyPortfolioPage({
         },
       ]}
       value={primaryTab}
-      onChange={setPrimaryTab}
+      onChange={handleTabChange}
       testID="earn-my-portfolio-tabs"
       bare={tableLayout}
     />
@@ -546,7 +625,10 @@ export function MyPortfolioPage({
                   tabs
                 )}
                 {isTabMounted('assets') ? (
-                  <YStack display={tabDisplay('assets')}>
+                  <YStack
+                    display={tabDisplay('assets')}
+                    {...tabMotion('assets')}
+                  >
                     {tableLayout ? (
                       <DeFiAssetsDesktopTab
                         protocols={visibleProtocols}
@@ -556,6 +638,7 @@ export function MyPortfolioPage({
                         pendingCountByProvider={pendingCountByProvider}
                         onManage={handleManage}
                         onRedeem={handleRedeem}
+                        onWarmRedeem={handleWarmRedeem}
                       />
                     ) : (
                       <DeFiAssetsTab
@@ -565,12 +648,16 @@ export function MyPortfolioPage({
                         networkFilter={networkFilter}
                         onManage={handleManage}
                         onRedeem={handleRedeem}
+                        onWarmRedeem={handleWarmRedeem}
                       />
                     )}
                   </YStack>
                 ) : null}
                 {isTabMounted('rewards') ? (
-                  <YStack display={tabDisplay('rewards')}>
+                  <YStack
+                    display={tabDisplay('rewards')}
+                    {...tabMotion('rewards')}
+                  >
                     <RewardsTab
                       stage={stage}
                       onStageChange={setStage}

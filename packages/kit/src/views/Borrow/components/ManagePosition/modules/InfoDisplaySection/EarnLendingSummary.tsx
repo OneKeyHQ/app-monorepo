@@ -6,6 +6,9 @@ import { useIntl } from 'react-intl';
 
 import { Icon, XStack } from '@onekeyhq/components';
 import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
+import type { ILoanLtvTone } from '@onekeyhq/kit/src/views/Earn/pages/EarnLoanRouter/loanLtvBar.types';
+import { getLoanHealthTone } from '@onekeyhq/kit/src/views/Earn/pages/EarnLoanRouter/loanRouter.utils';
+import { useLoanToneColors } from '@onekeyhq/kit/src/views/Earn/pages/EarnLoanRouter/loanToneColors';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import {
   EarnFormRow,
@@ -64,10 +67,16 @@ function BeforeAfter({
 
 // A health factor the server can show as a number: an account without loans
 // gets none, or a sign that isn't one
+const readHealthFigure = (text?: IEarnText) =>
+  Number((text?.text ?? '').replace(/[^\d.]/g, ''));
 const isHealthFigure = (text?: IEarnText) => {
-  const value = Number((text?.text ?? '').replace(/[^\d.]/g, ''));
+  const value = readHealthFigure(text);
   return Number.isFinite(value) && value > 0;
 };
+
+// A health factor's tier, as the Loans modal and My portfolio read one
+const readHealthTone = (text?: IEarnText): ILoanLtvTone | undefined =>
+  isHealthFigure(text) ? getLoanHealthTone(readHealthFigure(text)) : undefined;
 
 /**
  * A lending supply's part under the amount, as the Earn forms show it: what a
@@ -117,6 +126,13 @@ export function EarnLendingSummary({
   keepsFiguresWhenEmptied?: boolean;
 }) {
   const intl = useIntl();
+  // The factor in the Loans modal's colors for its tier: "careful" in amber
+  // rather than the theme's lemon
+  const toneText = useLoanToneColors().text;
+  const withHealthTone = (text?: IEarnText): IEarnText | undefined => {
+    const tone = readHealthTone(text);
+    return text && tone ? { ...text, color: toneText[tone] } : text;
+  };
   // While a new amount's rows load, the last ones stay in place
   const lastConfirmationRef = useRef<
     IBorrowTransactionConfirmation | undefined
@@ -292,12 +308,12 @@ export function EarnLendingSummary({
   if (healthFactor) {
     healthValue = (
       <BeforeAfter
-        current={healthFactor.current?.title}
-        latest={healthFactor.latest?.title}
+        current={withHealthTone(healthFactor.current?.title)}
+        latest={withHealthTone(healthFactor.latest?.title)}
       />
     );
   } else if (isHealthFigure(currentHealthFactor)) {
-    healthValue = <BeforeAfter current={currentHealthFactor} />;
+    healthValue = <BeforeAfter current={withHealthTone(currentHealthFactor)} />;
   }
   if (hasLoans) {
     rows.push(
@@ -353,6 +369,7 @@ export function EarnLendingSummary({
   return (
     <EarnFormSummary
       outcome={outcome}
+      isLendingMarket
       // Worked out here once the supply rate is in (the first answer); the
       // rows wait for each amount's answer
       isOutcomeLoading={

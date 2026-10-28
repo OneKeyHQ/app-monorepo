@@ -15,6 +15,7 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -38,6 +39,7 @@ import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/
 import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import {
   buildEmptyAmountFirstFrameKey,
+  buildWaysOutFirstFrameKey,
   keepFirstFrame,
   readFirstFrame,
 } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnFirstFrameCache';
@@ -96,6 +98,7 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import {
+  EARN_BUTTON_LOOK_TRANSITION,
   EarnFormRow,
   EarnFormSummary,
   buildRewardNoteRows,
@@ -358,6 +361,48 @@ function WithdrawPathCards({
   );
 }
 
+// The ways out before their answer, where the provider's last answer had
+// two: cards of the same lines, their words placeholders
+function WithdrawPathCardsPlaceholder({
+  boxes,
+}: {
+  boxes: IWithdrawPathBox[];
+}) {
+  return (
+    <XStack gap="$2" flexWrap="wrap" aria-hidden>
+      {boxes.map((box, index) => (
+        <YStack
+          key={index}
+          flexGrow={1}
+          flexBasis={0}
+          minWidth="$36"
+          gap="$1"
+          pl="$3"
+          pr="$2"
+          py="$3"
+          bg="$bgSubdued"
+          borderRadius="$3"
+          borderCurve="continuous"
+        >
+          <YStack h="$5" jc="center">
+            <Skeleton w={96} h="$3" borderRadius="$1" />
+          </YStack>
+          {box.subtitle?.text ? (
+            <YStack h="$4" jc="center">
+              <Skeleton w={72} h="$2.5" borderRadius="$1" />
+            </YStack>
+          ) : null}
+          {box.subtitleDescription?.text ? (
+            <YStack h="$4" jc="center">
+              <Skeleton w={112} h="$2.5" borderRadius="$1" />
+            </YStack>
+          ) : null}
+        </YStack>
+      ))}
+    </XStack>
+  );
+}
+
 const EARN_ALERT_TYPES = new Set<IAlertType>([
   'info',
   'warning',
@@ -519,6 +564,17 @@ export function UniversalWithdraw({
   const [emptyAmountConfirmation, setEmptyAmountConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
   >(() => readFirstFrame(emptyAmountKey, { orOlder: true }));
+  const waysOutKey = buildWaysOutFirstFrameKey({
+    networkId: networkId || '',
+    providerName: providerName || '',
+  });
+  // Before this position's own answer: the provider's ways out as its last
+  // answer had them, so the cards' place is held from the first frame
+  const [providerWaysOut] = useState(() =>
+    emptyAmountConfirmation
+      ? undefined
+      : readFirstFrame<IWithdrawPathBox[]>(waysOutKey, { orOlder: true }),
+  );
 
   const withdrawPathConfirmBoxes = useMemo(() => {
     return (
@@ -1430,6 +1486,10 @@ export function UniversalWithdraw({
         outputTokenAddress: transactionOutputTokenAddress,
       })
       .then((resp) => {
+        keepFirstFrame(
+          waysOutKey,
+          resp?.withdrawPath?.data?.confirmBoxes ?? [],
+        );
         if (!cancelled) {
           setEmptyAmountConfirmation(resp);
           keepFirstFrame(emptyAmountKey, resp);
@@ -1452,6 +1512,7 @@ export function UniversalWithdraw({
     shouldSendProtocolVault,
     transactionInputTokenAddress,
     transactionOutputTokenAddress,
+    waysOutKey,
   ]);
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
@@ -2159,8 +2220,20 @@ export function UniversalWithdraw({
 
   const showWithdrawPathCards =
     withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
-  // Cards there from the first frame (a kept answer) show at once
-  const [hasPathCardsFromStart] = useState(showWithdrawPathCards);
+  // The provider's ways out stand in until this position's answer is in
+  const waysOutStandIn =
+    !isCancelWithdrawal &&
+    !emptyAmountConfirmation &&
+    !withdrawPathConfirmBoxes.length &&
+    providerWaysOut &&
+    providerWaysOut.length > 1
+      ? providerWaysOut
+      : undefined;
+  // Cards there from the first frame (a kept answer, or their stand-ins)
+  // show at once
+  const [hasPathCardsFromStart] = useState(
+    showWithdrawPathCards || Boolean(waysOutStandIn),
+  );
   // The steps show once pressed: the button already names them
   const isWithdrawRunning =
     approving || loading || withdrawProgressStep > EStakeProgressStep.approve;
@@ -2267,8 +2340,14 @@ export function UniversalWithdraw({
     ? isPressWaitingAnswer ||
       (shouldApprove ? loadingAllowance || approving : loading)
     : effectiveConfirmLoading;
+  // Nor while this amount's figures (what it pays out, the network fee) are
+  // on their way: it turns on as they land. An answer that fails lets it go,
+  // as the rows go to dashes. Lido asks for no fee
+  const isFiguresComing =
+    isPositiveAmount &&
+    (isQuoteUpdating || (!isLidoWithdraw && Boolean(isFeeLoading)));
   const buttonDisabled = isOwnButtonState
-    ? isDisableBeforeAnswer
+    ? isDisableBeforeAnswer || isFiguresComing
     : effectiveConfirmDisabled;
   const handleConfirmPress = useCallback(() => {
     if (isOwnButtonState && isWaitingAnswer) {
@@ -2337,7 +2416,12 @@ export function UniversalWithdraw({
     (isFormTipNote ? formTransactionTip?.text : undefined);
 
   // What is wrong with the amount, in red: under the amount box, or under
-  // the second box where there is one
+  // the second box where there is one. Where a card follows (the position,
+  // the ways out), under the cards: the line coming and going doesn't move
+  // them
+  const hasCardGroup = Boolean(
+    offerSwitch || showWithdrawPathCards || waysOutStandIn,
+  );
   const amountErrorLine = (
     <HeightTransition duration={AMOUNT_LINE_MS}>
       {amountErrorText ? (
@@ -2425,14 +2509,14 @@ export function UniversalWithdraw({
                 <Stack position="absolute" w="100%" h="100%" zIndex={1} />
               ) : null}
             </Stack>
-            {showReceiveInput ? null : amountErrorLine}
+            {showReceiveInput || hasCardGroup ? null : amountErrorLine}
           </YStack>
           {/* With a second box the red line goes under it: between the
               boxes the arrow joining them would sit on it */}
           {showReceiveInput ? (
             <YStack position="relative">
               {receiveBox}
-              {amountErrorLine}
+              {hasCardGroup ? null : amountErrorLine}
               <Stack
                 ai="center"
                 position="absolute"
@@ -2467,7 +2551,7 @@ export function UniversalWithdraw({
       {/* Where it comes from, then the ways out when there are two: cards
           side by side, each with when it pays and what it costs. The cards
           bring their own space above, so none leave no gap */}
-      {offerSwitch || showWithdrawPathCards ? (
+      {hasCardGroup ? (
         <YStack>
           {offerSwitch}
           <HeightTransition
@@ -2484,7 +2568,13 @@ export function UniversalWithdraw({
                 />
               </YStack>
             ) : null}
+            {!showWithdrawPathCards && waysOutStandIn ? (
+              <YStack pt={offerSwitch ? '$2' : undefined}>
+                <WithdrawPathCardsPlaceholder boxes={waysOutStandIn} />
+              </YStack>
+            ) : null}
           </HeightTransition>
+          {amountErrorLine}
         </YStack>
       ) : null}
 
@@ -2613,6 +2703,7 @@ export function UniversalWithdraw({
                   onPress: handleConfirmPress,
                   loading: buttonLoading,
                   disabled: buttonDisabled,
+                  ...EARN_BUTTON_LOOK_TRANSITION,
                 }}
               />
             </Stack>
@@ -2639,6 +2730,7 @@ export function UniversalWithdraw({
               loading: buttonLoading,
               disabled: buttonDisabled,
               w: '100%',
+              ...EARN_BUTTON_LOOK_TRANSITION,
             }}
           />
         </YStack>

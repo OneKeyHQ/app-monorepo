@@ -22,6 +22,7 @@ import {
   canRedeemFromCard,
   hasPositionDetailPage,
   holdingRowActionOf,
+  isPositiveAmountText,
   mergeRewardGroups,
   positionMatured,
   positionPendingTag,
@@ -90,6 +91,24 @@ describe('sumRewardsHeaderFiat', () => {
         positionRewardsValue: 0,
       }),
     ).toBe('0');
+  });
+});
+
+describe('isPositiveAmountText', () => {
+  it('reads a server amount above zero as a gain', () => {
+    expect(isPositiveAmountText('+0.216 USDT')).toBe(true);
+    expect(isPositiveAmountText('1,204.5 USDC')).toBe(true);
+    expect(isPositiveAmountText('< 0.0001 U')).toBe(true);
+    expect(isPositiveAmountText('+< 0.0001 U')).toBe(true);
+  });
+
+  it('reads a loss, a zero or no amount as no gain', () => {
+    expect(isPositiveAmountText('-0.5 USDT')).toBe(false);
+    expect(isPositiveAmountText('< -0.0001 U')).toBe(false);
+    expect(isPositiveAmountText('0 LISTA')).toBe(false);
+    expect(isPositiveAmountText('+0.00 USDT')).toBe(false);
+    expect(isPositiveAmountText('USDT')).toBe(false);
+    expect(isPositiveAmountText('')).toBe(false);
   });
 });
 

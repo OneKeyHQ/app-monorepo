@@ -12,11 +12,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EarnTestIDs } from '@onekeyhq/kit/src/views/Earn/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { buildKeyboardPressProps } from './desktopHome/earnDesktopPressable';
 
 interface INetworkFilterControlProps {
   availableNetworkIds: string[];
@@ -25,6 +28,8 @@ interface INetworkFilterControlProps {
   onSelectionChange: (networkIds: string[]) => void;
   testID?: string;
   variant?: 'default' | 'compact';
+  /** The trigger's own style, such as a fill while networks are picked */
+  triggerProps?: IXStackProps;
 }
 
 function NetworkFilterControl({
@@ -34,6 +39,7 @@ function NetworkFilterControl({
   onSelectionChange,
   testID,
   variant = 'default',
+  triggerProps,
 }: INetworkFilterControlProps) {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
@@ -140,8 +146,13 @@ function NetworkFilterControl({
           ai="center"
           gap={isCompact ? '$1' : '$2'}
           hitSlop={isCompact ? 8 : undefined}
+          borderRadius="$2"
           cursor="pointer"
           userSelect="none"
+          // A tab stop on web that Enter and Space open, with the app's focus
+          // ring; a click goes through the Popover's own trigger
+          {...buildKeyboardPressProps(() => setIsOpen(true), 2)}
+          {...triggerProps}
         >
           {compactLeadingIcon}
           <SizableText

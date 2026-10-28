@@ -3,7 +3,10 @@ import BigNumber from 'bignumber.js';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
-import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
+import type {
+  IEarnAvailableAsset,
+  IEarnAvailableAssetBadge,
+} from '@onekeyhq/shared/types/earn';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type {
@@ -1567,4 +1570,181 @@ export function buildOfferRows({
     });
   });
   return Array.from(rows.values());
+}
+
+// ---------- Earn table: an open token ----------
+
+/** One offer in an open token's list */
+export type IEarnDesktopTokenOffer =
+  | {
+      kind: 'protocol';
+      key: string;
+      apr: number;
+      tvl: number;
+      item: IStakeProtocolListItem;
+    }
+  | {
+      kind: 'lending';
+      key: string;
+      apr: number;
+      tvl: number;
+      offer: IEarnDesktopLendingOffer;
+    };
+
+// What an open token lists: the protocols of its kind (fixed rate or not)
+// and the lending markets the protocol list doesn't already carry. With
+// networks picked in the filter, the offers on those alone
+export function buildTokenOffers({
+  protocols,
+  lendingOffers,
+  isFixedRate,
+  networkIds,
+}: {
+  protocols: IStakeProtocolListItem[];
+  lendingOffers: IEarnDesktopLendingOffer[];
+  isFixedRate: boolean;
+  /** The networks picked in the filter; none keeps every network */
+  networkIds?: string[];
+}): IEarnDesktopTokenOffer[] {
+  const isShown = (networkId: string) =>
+    !networkIds?.length || networkIds.includes(networkId);
+  const protocolRows = protocols
+    .filter(
+      (item) =>
+        isFixedRateProtocol(item) === isFixedRate &&
+        isShown(item.network.networkId),
+    )
+    .map((item) => ({
+      kind: 'protocol' as const,
+      key: `${item.network.networkId}-${item.provider.name}-${item.provider.vault ?? ''}`,
+      apr: parseAprPercentValue(item.provider.aprWithoutFee),
+      tvl: getProtocolTvl(item),
+      item,
+    }));
+  // A market the protocol list already carries (Kamino USDC has a staking
+  // config) must not be listed twice
+  const listed = new Set(
+    protocols.map(
+      (item) =>
+        `${(normalizeToEarnProvider(item.provider.name) ?? item.provider.name).toLowerCase()}:${item.network.networkId}`,
+    ),
+  );
+  const lendingRows = isFixedRate
+    ? []
+    : lendingOffers
+        .filter(
+          (offer) =>
+            isShown(offer.market.networkId) &&
+            !listed.has(
+              `${offer.market.provider.toLowerCase()}:${offer.market.networkId}`,
+            ),
+        )
+        .map((offer) => ({
+          kind: 'lending' as const,
+          key: offer.key,
+          apr: parseAprPercentValue(offer.apy),
+          tvl: parseFormattedLiquidityValue(offer.tvlText),
+          offer,
+        }));
+  return [...protocolRows, ...lendingRows];
+}
+
+/** A token's row while networks are picked in the filter */
+type IEarnRateColor = NonNullable<
+  NonNullable<IEarnAvailableAsset['aprInfo']>['normal']
+>['color'];
+
+export type IEarnDesktopNetworkView = {
+  /** The networks of its offers among the picked ones */
+  networkIds: string[];
+  /** Its lowest and highest rate there; none when nothing there pays */
+  aprRange?: { min: number; max: number };
+  /** The color an offer there gives its own rate (a bonus's green) */
+  aprColor?: IEarnRateColor;
+  /** Its badges an offer there carries, and those no offer carries */
+  badges?: IEarnAvailableAssetBadge[];
+};
+
+// A token's row with networks picked: the networks and rates of its offers
+// on those alone, counted as the offer cards count them (withdraw-only,
+// redeem-only and zero-rate offers left out). Without such an offer there,
+// the picked networks the token is listed on still show, so the row says
+// why it's in the list
+export function buildNetworkView({
+  protocols,
+  lendingOffers,
+  isFixedRate,
+  rowNetworkIds,
+  pickedNetworkIds,
+  badges,
+}: {
+  protocols: IStakeProtocolListItem[];
+  lendingOffers: IEarnDesktopLendingOffer[];
+  isFixedRate: boolean;
+  /** Every network the row is listed on */
+  rowNetworkIds: string[];
+  pickedNetworkIds: string[];
+  /** The token's own badges */
+  badges?: IEarnAvailableAssetBadge[];
+}): IEarnDesktopNetworkView {
+  const open = protocols.filter(
+    (item) => item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly,
+  );
+  const offers = pickedNetworkIds.flatMap((networkId) =>
+    collectNetworkOffers({
+      networkId,
+      protocols: open,
+      lendingOffers: isFixedRate ? [] : lendingOffers,
+    }).filter((offer) => offer.isFixedRate === isFixedRate),
+  );
+  const offerNetworkIds = new Set(
+    offers.map((offer) =>
+      offer.kind === 'protocol'
+        ? offer.item.network.networkId
+        : offer.offer.market.networkId,
+    ),
+  );
+  // A badge an offer carries (Spark's Bonus) is that offer's: it stays only
+  // with an offer here carrying it. One no offer carries is the token's own
+  const offerTags = new Set(
+    protocols.flatMap(
+      (item) => item.provider.badges?.map((badge) => badge.tag) ?? [],
+    ),
+  );
+  const tagsHere = new Set(
+    offers.flatMap((offer) =>
+      offer.kind === 'protocol'
+        ? (offer.item.provider.badges?.map((badge) => badge.tag) ?? [])
+        : [],
+    ),
+  );
+  const shownBadges = badges?.filter(
+    (badge) => !offerTags.has(badge.tag) || tagsHere.has(badge.tag),
+  );
+  // In the row's own order, then any network only the offers name
+  const ordered = Array.from(
+    new Set([...rowNetworkIds, ...offerNetworkIds]),
+  ).filter((networkId) => offerNetworkIds.has(networkId));
+  if (!offers.length) {
+    return {
+      networkIds: rowNetworkIds.filter((networkId) =>
+        pickedNetworkIds.includes(networkId),
+      ),
+      ...(shownBadges ? { badges: shownBadges } : undefined),
+    };
+  }
+  const rates = offers.map((offer) => offer.apr);
+  // The token's own rate color comes from any of its offers (Spark's bonus
+  // green); here it comes from the offers here only, as their rows show it
+  const aprColor = offers
+    .map((offer) =>
+      offer.kind === 'protocol' ? offer.item.aprInfo?.normal?.color : undefined,
+    )
+    .find(Boolean);
+  return {
+    networkIds: ordered,
+    aprRange: { min: Math.min(...rates), max: Math.max(...rates) },
+    ...(aprColor ? { aprColor } : undefined),
+    ...(shownBadges ? { badges: shownBadges } : undefined),
+  };
 }

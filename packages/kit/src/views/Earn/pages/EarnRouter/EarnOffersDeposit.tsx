@@ -91,6 +91,7 @@ function OfferSwitcherItem({
   // Set for the first row when the list opens from the keyboard
   focusRef?: RefObject<boolean>;
 }) {
+  const intl = useIntl();
   const reduceMotion = useReducedMotion();
   const handlePress = useCallback(() => onSelect(offer), [offer, onSelect]);
   const rowRef = useRef<IElement>(null);
@@ -105,7 +106,7 @@ function OfferSwitcherItem({
       <ProtocolSwitchRow
         ref={rowRef}
         testID={`earn-offer-${offer.key}`}
-        {...buildOfferRowProps(offer)}
+        {...buildOfferRowProps(offer, { intl })}
         networkLogoURI={networkLogoURI}
         isSwitchEnabled
         showChevron={false}
@@ -151,6 +152,7 @@ export function EarnOfferSwitcher({
   onOpenChange?: (isOpen: boolean) => void;
   onSelect?: (offer: IEarnDesktopHoldOffer) => void;
 }) {
+  const intl = useIntl();
   const focusFirstRef = useRef(false);
   // Decided as the row for an offer appears and kept while it shows that
   // offer: the row would be drawn again as a new view if it gained an
@@ -205,7 +207,7 @@ export function EarnOfferSwitcher({
     <ProtocolSwitchRow
       ref={rowRef}
       testID="earn-offer-switch"
-      {...buildOfferRowProps(selected)}
+      {...buildOfferRowProps(selected, { intl })}
       networkLogoURI={networkLogoURI}
       isSwitchEnabled={canSwitch}
       showChevron={canSwitch}

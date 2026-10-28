@@ -1,5 +1,7 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 
+import { useReducedMotion } from 'react-native-reanimated';
+
 import { Stack } from '@onekeyhq/components';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -7,6 +9,7 @@ import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import { TOKEN_SIZE_MAP } from '@onekeyhq/kit/src/components/Token/tokenSize';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type { IEarnDesktopSurface } from './useEarnDesktopSurfaces';
@@ -88,6 +91,13 @@ const SurfaceContext = createContext<IEarnDesktopSurface | undefined>(
 
 export const EarnDesktopSurfaceProvider = SurfaceContext.Provider;
 
+// The ring eases with the surface under it, which must ease its own color
+// the same way (the app's quick fade) for the two to stay one color
+const RING_MOTION = {
+  transition: 'quick',
+  animateOnly: ANIMATE_ONLY_BG_COLOR,
+} as const;
+
 /**
  * Token's network badge sits in a ring of the page color, a dark circle on a
  * dark card and a white one on a light card. This one paints the ring in the
@@ -99,6 +109,7 @@ export function SurfaceToken({
   ...rest
 }: Omit<ITokenProps, 'showNetworkIcon' | 'cornerBadge'>) {
   const surfaces = useEarnDesktopSurfaces();
+  const reduceMotion = useReducedMotion();
   const ringColor = useContext(SurfaceContext) ?? surfaces.rest;
   return (
     <Token
@@ -107,7 +118,12 @@ export function SurfaceToken({
       showCornerBadgeBorder={false}
       cornerBadge={
         networkId ? (
-          <Stack p="$0.5" bg={ringColor} borderRadius="$full">
+          <Stack
+            p="$0.5"
+            bg={ringColor}
+            borderRadius="$full"
+            {...(reduceMotion ? undefined : RING_MOTION)}
+          >
             <NetworkAvatar
               networkId={networkId}
               size={TOKEN_SIZE_MAP[size].chainImageSize}

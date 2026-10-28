@@ -3,7 +3,14 @@ import { memo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Badge, Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
@@ -16,12 +23,16 @@ import type {
   IEarnPositionManageTarget,
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
 
+import { buildKeyboardPressProps } from '../../../components/desktopHome/earnDesktopPressable';
 import { EarnTestIDs } from '../../../testIDs';
+import { getLoanHealthTone } from '../../EarnLoanRouter/loanRouter.utils';
+import { useLoanToneColors } from '../../EarnLoanRouter/loanToneColors';
 
 import { EarnHoldingSections } from './EarnHoldingSections';
 import {
   canRedeemFromCard,
   hasPositionDetailPage,
+  isPositiveAmountText,
   sellsEarly,
 } from './myPortfolio.utils';
 
@@ -40,6 +51,11 @@ export type IEarnPositionCardHandlers = {
     target: IEarnPositionManageTarget,
     options: { byOrder: boolean },
   ) => void | Promise<void>;
+  /** reads that withdrawal's form ahead, for the token it redeems */
+  onWarmRedeem?: (
+    target: IEarnPositionManageTarget,
+    inputTokenAddress: string,
+  ) => void;
 };
 
 /**
@@ -74,15 +90,14 @@ export function PositionPnlLine({
           });
     // The value formatter reads every negative as "under a cent", so a
     // loss is formatted as its size and signed here: "-$1.20", and under a
-    // cent either way "< +$0.01" / "< -$0.01". Hidden with the balances.
+    // cent the sign still leads, "+< $0.01" / "-< $0.01". Hidden with the
+    // balances.
     const size = numberFormat(fiat.abs().toFixed(), {
       formatter: 'value',
       formatterOptions: { currency: currencyInfo.symbol },
     });
     const sign = fiat.lt(0) ? '-' : '+';
-    const fiatText = size.startsWith('< ')
-      ? `< ${sign}${size.slice(2)}`
-      : `${sign}${size}`;
+    const fiatText = `${sign}${size}`;
     return (
       <XStack ai="center" gap="$1">
         <SizableText size="$bodySm" color={color} numberOfLines={1}>
@@ -106,13 +121,10 @@ export function PositionPnlLine({
     );
   }
   if (totalReward) {
+    // Named first, then the amount, green once something was earned, as
+    // the PnL above reads a gain
     return (
       <XStack ai="center" gap="$1">
-        <EarnText
-          size="$bodySm"
-          color="$textSubdued"
-          text={totalReward.description}
-        />
         <EarnText
           size="$bodySm"
           color="$textSubdued"
@@ -121,6 +133,15 @@ export function PositionPnlLine({
               id: ETranslations.earn_referral_total_earned,
             }),
           }}
+        />
+        <EarnText
+          size="$bodySm"
+          color={
+            isPositiveAmountText(totalReward.description.text)
+              ? '$textSuccess'
+              : '$textSubdued'
+          }
+          text={totalReward.description}
         />
       </XStack>
     );
@@ -138,12 +159,14 @@ export function PositionPnlLine({
 export function useHoldingRedeem(
   position: IEarnPositionView,
   onRedeem: IEarnPositionCardHandlers['onRedeem'],
+  onWarmRedeem?: IEarnPositionCardHandlers['onWarmRedeem'],
 ): IEarnHoldingRedeem | undefined {
   const intl = useIntl();
   const { source } = position;
   if (!onRedeem || !canRedeemFromCard(position)) {
     return undefined;
   }
+  const byOrder = Boolean(source.earn.redeem?.byOrder);
   return {
     label: intl.formatMessage({
       id: sellsEarly(source)
@@ -151,10 +174,17 @@ export function useHoldingRedeem(
         : ETranslations.earn_redeem,
     }),
     disabled: source.earn.redeem?.disabled,
-    onPress: () =>
-      onRedeem(source.earn.manage, {
-        byOrder: Boolean(source.earn.redeem?.byOrder),
-      }),
+    onPress: () => onRedeem(source.earn.manage, { byOrder }),
+    // An order-picking withdrawal opens its own list, not the form, and a
+    // sale before maturity has no ways out to read ahead
+    onWarm:
+      onWarmRedeem &&
+      !byOrder &&
+      !sellsEarly(source) &&
+      !source.earn.redeem?.disabled
+        ? (inputTokenAddress) =>
+            onWarmRedeem(source.earn.manage, inputTokenAddress)
+        : undefined,
   };
 }
 
@@ -168,6 +198,7 @@ function EarnPositionCardCmp({
   position,
   onManage,
   onRedeem,
+  onWarmRedeem,
 }: { position: IEarnPositionView } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
@@ -176,16 +207,20 @@ function EarnPositionCardCmp({
     Boolean(action) && Boolean(onManage) && hasPositionDetailPage(source);
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
-  const redeem = useHoldingRedeem(position, onRedeem);
+  const redeem = useHoldingRedeem(position, onRedeem, onWarmRedeem);
+  // A loan's health reads in the Loans modal's tiers and colors
+  const toneColors = useLoanToneColors();
 
   return (
     <YStack gap="$3" testID={EarnTestIDs.portfolioItem(source.protocolName)}>
       <YStack
         {...(openDetail
           ? {
+              role: 'button',
               onPress: openDetail,
               cursor: 'pointer',
               pressStyle: { opacity: 0.6 },
+              ...buildKeyboardPressProps(openDetail, 2),
             }
           : {})}
       >
@@ -195,11 +230,13 @@ function EarnPositionCardCmp({
             <Badge badgeType="success" badgeSize="sm" flexShrink={0}>
               <Badge.Text>{position.badgeLabel}</Badge.Text>
             </Badge>
+            {/* Two lines before it cuts: the end often tells two
+                positions apart, "…Return(USDT)" and "…Return(U)" */}
             {position.name ? (
               <SizableText
                 size="$bodyMd"
                 color="$textSubdued"
-                numberOfLines={1}
+                numberOfLines={2}
                 flex={1}
               >
                 {position.name}
@@ -224,27 +261,34 @@ function EarnPositionCardCmp({
               textAlign="right"
               numberOfLines={1}
             />
+            {/* Without a detail page the chevron's place stays, so every
+                value ends on one edge */}
             {openDetail ? (
               <Icon
                 name="ChevronRightSmallOutline"
                 size="$5"
                 color="$iconSubdued"
               />
-            ) : null}
+            ) : (
+              <Stack w="$5" />
+            )}
           </XStack>
         </XStack>
         {hasDeposit ? (
           // Right-aligned under the value (the padding skips the chevron),
           // on a line of its own: a long "Total earned" takes the room under
           // the name instead of squeezing the badge and name out.
-          <XStack jc="flex-end" pr={openDetail ? '$6' : undefined}>
+          <XStack jc="flex-end" pr="$6">
             <PositionPnlLine position={source} />
           </XStack>
         ) : null}
       </YStack>
 
       {meta?.kind === 'healthFactor' ? (
-        <DeFiPositionHealthFactorRow healthFactor={meta.healthFactor} />
+        <DeFiPositionHealthFactorRow
+          healthFactor={meta.healthFactor}
+          valueColor={toneColors.text[getLoanHealthTone(meta.healthFactor)]}
+        />
       ) : null}
 
       <EarnHoldingSections position={position} redeem={redeem} />

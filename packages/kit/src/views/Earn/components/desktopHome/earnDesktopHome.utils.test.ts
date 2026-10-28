@@ -13,8 +13,10 @@ import {
   buildLoanOffers,
   buildLoanPairs,
   buildMarketCard,
+  buildNetworkView,
   buildOfferRows,
   buildProtocolShares,
+  buildTokenOffers,
   buildValueShares,
   collectLendingOffers,
   collectNetworkOffers,
@@ -1513,5 +1515,172 @@ describe('loan pairs', () => {
       'WBTC>ETH',
       'USDC>ETH',
     ]);
+  });
+});
+
+describe('an open token in the Earn table', () => {
+  const withProvider = (
+    item: IStakeProtocolListItem,
+    fields: Record<string, unknown>,
+  ) =>
+    ({
+      ...item,
+      provider: { ...item.provider, ...fields },
+    }) as unknown as IStakeProtocolListItem;
+  // USDC as the 10-28 data lists it: two Morpho vaults on Base among them
+  const usdcProtocols = [
+    protocol('spark', 'evm--1', '5.19'),
+    withProvider(protocol('morpho', 'evm--8453', '4.6327'), { vault: 'a' }),
+    withProvider(protocol('morpho', 'evm--8453', '4.6297'), { vault: 'b' }),
+    protocol('morpho', 'evm--1', '3.82'),
+  ];
+  const usdcLending = [
+    lending('aave', 'evm--1', '3.85'),
+    lending('aave', 'evm--42161', '2.37'),
+  ];
+  const usdcNetworks = ['evm--1', 'evm--8453', 'evm--42161'];
+
+  it('lists the protocols of its kind and the markets the list lacks', () => {
+    const offers = buildTokenOffers({
+      protocols: [
+        ...usdcProtocols,
+        protocol('pendle', 'evm--1', '9.1'),
+        protocol('Kamino', 'sol--101', '4.58'),
+      ],
+      lendingOffers: [...usdcLending, lending('kamino', 'sol--101', '6.10')],
+      isFixedRate: false,
+    });
+    expect(offers.map((offer) => [offer.kind, offer.key, offer.apr])).toEqual([
+      ['protocol', 'evm--1-spark-spark-vault', 5.19],
+      ['protocol', 'evm--8453-morpho-a', 4.6327],
+      ['protocol', 'evm--8453-morpho-b', 4.6297],
+      ['protocol', 'evm--1-morpho-morpho-vault', 3.82],
+      ['protocol', 'sol--101-Kamino-Kamino-vault', 4.58],
+      ['lending', 'aave:evm--1:usdc', 3.85],
+      ['lending', 'aave:evm--42161:usdc', 2.37],
+    ]);
+  });
+
+  it('keeps to the picked networks', () => {
+    const keys = (networkIds: string[]) =>
+      buildTokenOffers({
+        protocols: usdcProtocols,
+        lendingOffers: usdcLending,
+        isFixedRate: false,
+        networkIds,
+      }).map((offer) => offer.key);
+    expect(keys(['evm--8453'])).toEqual([
+      'evm--8453-morpho-a',
+      'evm--8453-morpho-b',
+    ]);
+    expect(keys(['evm--42161'])).toEqual(['aave:evm--42161:usdc']);
+    expect(keys([])).toHaveLength(6);
+  });
+
+  it('lists no lending markets for a fixed-rate token', () => {
+    expect(
+      buildTokenOffers({
+        protocols: [protocol('pendle', 'evm--1', '9.1')],
+        lendingOffers: usdcLending,
+        isFixedRate: true,
+      }).map((offer) => offer.kind),
+    ).toEqual(['protocol']);
+  });
+
+  it('shows a filtered row the rates and networks of its offers there', () => {
+    const view = (pickedNetworkIds: string[]) =>
+      buildNetworkView({
+        protocols: usdcProtocols,
+        lendingOffers: usdcLending,
+        isFixedRate: false,
+        rowNetworkIds: usdcNetworks,
+        pickedNetworkIds,
+      });
+    expect(view(['evm--8453'])).toEqual({
+      networkIds: ['evm--8453'],
+      aprRange: { min: 4.6297, max: 4.6327 },
+    });
+    // In the row's order, whatever order the networks were picked in
+    expect(view(['evm--42161', 'evm--8453'])).toEqual({
+      networkIds: ['evm--8453', 'evm--42161'],
+      aprRange: { min: 2.37, max: 4.6327 },
+    });
+  });
+
+  it('keeps a badge to the networks of the offers carrying it', () => {
+    const bonus = { tag: 'Bonus', badgeType: 'success' };
+    const own = { tag: 'New', badgeType: 'info' };
+    const tags = (pickedNetworkIds: string[]) =>
+      buildNetworkView({
+        protocols: [
+          withProvider(usdcProtocols[0], { badges: [bonus] }),
+          ...usdcProtocols.slice(1),
+        ],
+        lendingOffers: usdcLending,
+        isFixedRate: false,
+        rowNetworkIds: usdcNetworks,
+        pickedNetworkIds,
+        badges: [bonus, own],
+      }).badges?.map((badge) => badge.tag);
+    // Spark's Bonus is on Ethereum; a badge no offer carries stays
+    expect(tags(['evm--1'])).toEqual(['Bonus', 'New']);
+    expect(tags(['evm--8453'])).toEqual(['New']);
+    expect(tags(['evm--8453', 'evm--1'])).toEqual(['Bonus', 'New']);
+  });
+
+  it('colors a filtered rate as the offers there color theirs', () => {
+    const green = '#1E8055';
+    const color = (pickedNetworkIds: string[]) =>
+      buildNetworkView({
+        protocols: [
+          protocol('spark', 'evm--1', '5.19', {
+            aprInfo: { normal: { text: '5.19%', color: green } },
+          } as unknown as Partial<IStakeProtocolListItem>),
+          ...usdcProtocols.slice(1),
+        ],
+        lendingOffers: usdcLending,
+        isFixedRate: false,
+        rowNetworkIds: usdcNetworks,
+        pickedNetworkIds,
+      }).aprColor;
+    // Spark's green is on Ethereum; Base's Morpho rates have no color
+    expect(color(['evm--1'])).toBe(green);
+    expect(color(['evm--8453'])).toBeUndefined();
+    expect(color(['evm--8453', 'evm--1'])).toBe(green);
+  });
+
+  it('counts no withdraw-only, redeem-only or zero-rate offer', () => {
+    const view = buildNetworkView({
+      protocols: [
+        withProvider(protocol('lido', 'evm--1', '2.32'), {
+          group: 'withdrawOnly',
+        }),
+        protocol('stakefish', 'evm--1', '2.52', {
+          aprInfo: { button: { type: 'redeem' } },
+        } as Partial<IStakeProtocolListItem>),
+        protocol('everstake', 'evm--1', '0'),
+      ],
+      lendingOffers: [],
+      isFixedRate: false,
+      rowNetworkIds: ['evm--1'],
+      pickedNetworkIds: ['evm--1'],
+    });
+    // Nothing there pays: the picked network still shows, without a rate
+    expect(view).toEqual({ networkIds: ['evm--1'] });
+  });
+
+  it('keeps a fixed-rate row to its fixed-rate offers', () => {
+    expect(
+      buildNetworkView({
+        protocols: [
+          protocol('ethena', 'evm--1', '4.28'),
+          protocol('pendle', 'evm--1', '9.1'),
+        ],
+        lendingOffers: [lending('aave', 'evm--1', '3.85')],
+        isFixedRate: true,
+        rowNetworkIds: ['evm--1'],
+        pickedNetworkIds: ['evm--1'],
+      }).aprRange,
+    ).toEqual({ min: 9.1, max: 9.1 });
   });
 });

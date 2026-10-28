@@ -31,8 +31,11 @@ const RISK_TEXT_COLOR: Record<IHealthFactorRisk, ColorTokens> = {
 
 export function DeFiPositionHealthFactorRow({
   healthFactor,
+  valueColor,
 }: {
   healthFactor: number;
+  /** A page that reads the risk its own way colors the value itself */
+  valueColor?: string;
 }) {
   const intl = useIntl();
   const label = intl.formatMessage({ id: ETranslations.defi_health_factor });
@@ -79,7 +82,7 @@ export function DeFiPositionHealthFactorRow({
       />
       <SizableText
         size="$bodyMdMedium"
-        color={RISK_TEXT_COLOR[risk]}
+        color={valueColor ?? RISK_TEXT_COLOR[risk]}
         fontVariant={TABULAR_NUMS}
         numberOfLines={1}
       >

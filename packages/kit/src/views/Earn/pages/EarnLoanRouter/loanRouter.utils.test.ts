@@ -3,6 +3,7 @@ import {
   getLoanBorrowOptions,
   getLoanForLtv,
   getLoanForPositionLtv,
+  getLoanHealthTone,
   getLoanLtvBar,
   getLoanRouteMetrics,
   parseLoanFigure,
@@ -520,5 +521,17 @@ describe('parseLoanFigure', () => {
     expect(parseLoanFigure('79,594.7677')).toBeCloseTo(79_594.7677);
     expect(parseLoanFigure('73.00%')).toBe(73);
     expect(parseLoanFigure(undefined)).toBeUndefined();
+  });
+});
+
+describe('getLoanHealthTone', () => {
+  it('reads 2 and up as safe, 1.25 to 2 as careful and under 1.25 as at risk', () => {
+    expect(getLoanHealthTone(undefined)).toBe('success');
+    expect(getLoanHealthTone(Infinity)).toBe('success');
+    expect(getLoanHealthTone(2)).toBe('success');
+    expect(getLoanHealthTone(1.99)).toBe('caution');
+    expect(getLoanHealthTone(1.25)).toBe('caution');
+    expect(getLoanHealthTone(1.24)).toBe('critical');
+    expect(getLoanHealthTone(0.9)).toBe('critical');
   });
 });

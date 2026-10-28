@@ -127,13 +127,14 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
+import { keepConfirmWordId } from './earnConfirmWord';
 import {
+  EARN_BUTTON_LOOK_TRANSITION,
   EarnFormRow,
   EarnFormSummary,
   EarnFormSwitchingContext,
   SHOWN_ROWS_WHEN_FOLDED,
   buildOutcomeValueFromText,
-  buildResultLinesKey,
   buildRewardNoteRows,
   buildRewardsOutcome,
   buildRowKeys,
@@ -141,7 +142,9 @@ import {
   useEarnFeeFigure,
 } from './EarnFormSummary';
 import { hasStakingRewardsSummary } from './StakingConfirmationSummary';
+import { useEarnRewardTokens } from './useEarnRewardTokens';
 
+import type { IEarnConfirmWordId } from './earnConfirmWord';
 import type { IEarnOutcome } from './EarnFormSummary';
 import type {
   IManagePositionFooterAction,
@@ -384,8 +387,10 @@ export function ProtocolSwitchRow({
         <ProtocolImage logoURI={logoURI} networkLogoURI={networkLogoURI} />
         <YStack flex={1} minWidth={0} gap="$0.5">
           {nameLine}
+          {/* A long vault name takes a second line in a narrow form, as the
+              name is what tells the vaults apart */}
           {subtitle ? (
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
               {subtitle}
             </SizableText>
           ) : null}
@@ -635,6 +640,9 @@ type IUniversalStakeProps = {
   };
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
+  // Standing in for a form whose protocol isn't known yet (nor whether it
+  // approves first): the word its button showed last time
+  confirmWordIdWhileLoading?: IEarnConfirmWordId;
   // A new key presses the button once by itself, as soon as the amount has
   // passed its checks: the swap that paid for this deposit asked for it
   autoSubmitKey?: number;
@@ -700,6 +708,7 @@ export function UniversalStake({
   currentAllowance,
   beforeFooter,
   footerActionOverride,
+  confirmWordIdWhileLoading,
   autoSubmitKey,
   onAutoSubmit,
   protocolSwitchConfig,
@@ -2418,6 +2427,14 @@ export function UniversalStake({
     });
   }
 
+  // The tokens the rewards come in, a line each from the first frame
+  const offerRewardTokens = useEarnRewardTokens({
+    networkId,
+    providerName,
+    symbol: actionSymbol,
+    vault: protocolInfo?.vault,
+    enabled: !isPendleLikeLayout,
+  });
   let outcome: IEarnOutcome | undefined;
   if (isPendleLikeLayout) {
     const { outcomeRow } = pendleRows;
@@ -2439,12 +2456,7 @@ export function UniversalStake({
       transactionConfirmation: rowsConfirmation,
       placeholderLabel: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
       withoutValues: isRowsPlaceholder,
-      linesKey: buildResultLinesKey({
-        networkId,
-        provider: providerName,
-        vault: protocolInfo?.vault,
-        symbol: actionSymbol,
-      }),
+      offerTokens: offerRewardTokens,
     });
   }
 
@@ -2634,9 +2646,27 @@ export function UniversalStake({
     />
   );
 
+  // Before the form has its protocol, whether it approves first isn't known:
+  // the word its button showed last time, or the preview's own. With
+  // neither, the word is held back (drawn transparent) until it is known,
+  // so the button never says one word and then another
+  const isProtocolUnknown = !providerName && !effectiveShowExpiredRefresh;
+  const isConfirmWordHeld =
+    isProtocolUnknown &&
+    !confirmWordIdWhileLoading &&
+    !footerActionOverride?.text;
   const onConfirmText = useMemo(() => {
     if (effectiveShowExpiredRefresh) {
       return intl.formatMessage({ id: ETranslations.global_refresh });
+    }
+    if (isProtocolUnknown) {
+      if (confirmWordIdWhileLoading) {
+        return intl.formatMessage({ id: confirmWordIdWhileLoading });
+      }
+      return (
+        footerActionOverride?.text ||
+        intl.formatMessage({ id: ETranslations.earn_deposit })
+      );
     }
     if (!useApprove) {
       if (isWrapStake) {
@@ -2668,6 +2698,9 @@ export function UniversalStake({
     });
   }, [
     effectiveShowExpiredRefresh,
+    isProtocolUnknown,
+    confirmWordIdWhileLoading,
+    footerActionOverride?.text,
     useApprove,
     shouldApprove,
     intl,
@@ -2676,6 +2709,39 @@ export function UniversalStake({
     amountValue,
     tokenInfo?.token.symbol,
     isPendleProvider,
+  ]);
+  // The word before an amount, kept for the shell and the stand-in drawn
+  // before this form next time
+  const restConfirmWordId = useMemo<IEarnConfirmWordId | undefined>(() => {
+    if (!providerName || isWrapStake) {
+      return undefined;
+    }
+    if (isPendleProvider) {
+      return ETranslations.global_buy;
+    }
+    return useApprove
+      ? ETranslations.earn_deposit
+      : ETranslations.global_continue;
+  }, [isPendleProvider, isWrapStake, providerName, useApprove]);
+  const confirmWordVault = protocolInfo?.vault;
+  useEffect(() => {
+    if (restConfirmWordId && providerName && actionSymbol) {
+      keepConfirmWordId(
+        {
+          networkId,
+          providerName,
+          symbol: actionSymbol,
+          vault: confirmWordVault,
+        },
+        restConfirmWordId,
+      );
+    }
+  }, [
+    actionSymbol,
+    confirmWordVault,
+    networkId,
+    providerName,
+    restConfirmWordId,
   ]);
 
   const confirmOnPress = useMemo(() => {
@@ -2719,8 +2785,12 @@ export function UniversalStake({
   const buttonLoading = isOwnButtonState
     ? isPressWaitingCheck || loadingAllowance || approving || submitting
     : effectiveConfirmLoading;
+  // Nor while this amount's figures (its quote, its network fee) are on
+  // their way: it turns on as they land. An answer that fails lets it go, as
+  // the rows go to dashes
+  const isFiguresComing = isPositiveAmount && (isQuoteUpdating || isFeeLoading);
   const buttonDisabled = isOwnButtonState
-    ? isDisableBeforeCheck
+    ? isDisableBeforeCheck || isFiguresComing
     : effectiveConfirmDisabled;
   const isSwitchingOffer = useContext(EarnFormSwitchingContext);
   const handleConfirmPress = useCallback(() => {
@@ -2798,6 +2868,8 @@ export function UniversalStake({
           loading: buttonLoading,
           disabled: buttonDisabled,
           w: '100%',
+          color: isConfirmWordHeld ? '$transparent' : undefined,
+          ...EARN_BUTTON_LOOK_TRANSITION,
         }}
       />
     </YStack>
@@ -2886,6 +2958,24 @@ export function UniversalStake({
       amountErrorText = checkAmountMessage;
     }
   }
+
+  // The red line, growing open over AMOUNT_LINE_MS
+  const amountErrorLine = (
+    <HeightTransition duration={AMOUNT_LINE_MS}>
+      {amountErrorText ? (
+        <YStack pt="$2" px="$3.5">
+          <SizableText
+            testID="earn-amount-error"
+            size="$bodyMd"
+            color="$textCritical"
+          >
+            {amountErrorText}
+          </SizableText>
+        </YStack>
+      ) : null}
+    </HeightTransition>
+  );
+  const hasCardSlot = Boolean(protocolSwitchConfig || offerSwitch);
 
   const summaryFootnote =
     pendleTipText || (!shouldShowPlatformBonus && tradeOrBuyContent) ? (
@@ -2986,21 +3076,8 @@ export function UniversalStake({
               )}
             </YStack>
           </HeightTransition>
-        ) : (
-          <HeightTransition duration={AMOUNT_LINE_MS}>
-            {amountErrorText ? (
-              <YStack pt="$2" px="$3.5">
-                <SizableText
-                  testID="earn-amount-error"
-                  size="$bodyMd"
-                  color="$textCritical"
-                >
-                  {amountErrorText}
-                </SizableText>
-              </YStack>
-            ) : null}
-          </HeightTransition>
-        )}
+        ) : null}
+        {showReceiveInput || hasCardSlot ? null : amountErrorLine}
       </YStack>
       {/* Where it goes: the protocol, and a validator where there is one */}
       {protocolSwitchConfig ? (
@@ -3016,6 +3093,12 @@ export function UniversalStake({
       ) : (
         offerSwitch
       )}
+      {/* Under the protocol (a phone's list of them), so the red line
+          coming and going doesn't move it; where the protocols are beside
+          the form, right under the box. With no line, no gap */}
+      {!showReceiveInput && hasCardSlot ? (
+        <YStack mt="$-4">{amountErrorLine}</YStack>
+      ) : null}
       {ongoingValidator ? (
         <EarnValidatorSelect
           field={ongoingValidator}
@@ -3109,6 +3192,8 @@ export function UniversalStake({
                   onPress: handleConfirmPress,
                   loading: buttonLoading,
                   disabled: buttonDisabled,
+                  color: isConfirmWordHeld ? '$transparent' : undefined,
+                  ...EARN_BUTTON_LOOK_TRANSITION,
                 }}
               />
             </Stack>

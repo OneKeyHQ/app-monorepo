@@ -105,6 +105,51 @@ export const buildEmptyAmountFirstFrameKey = ({
     vault ?? ''
   ).toLowerCase()}`;
 
+// A provider's ways out of a position (Instant and Queued) as its last
+// withdrawal answer had them: a position of the provider opened before its
+// own answer is in holds their place
+export const buildWaysOutFirstFrameKey = ({
+  networkId,
+  providerName,
+}: {
+  networkId: string;
+  providerName: string;
+}) => `unstake-ways:${networkId}:${providerName.toLowerCase()}`;
+
+// The word on an offer's deposit button before an amount ("Deposit",
+// "Continue"), as its form last showed it
+export const buildConfirmWordFirstFrameKey = ({
+  networkId,
+  providerName,
+  symbol,
+  vault,
+}: {
+  networkId: string;
+  providerName: string;
+  symbol: string;
+  vault?: string;
+}) =>
+  `confirm-word:${networkId}:${providerName.toLowerCase()}:${symbol.toLowerCase()}:${(
+    vault ?? ''
+  ).toLowerCase()}`;
+
+// The tokens an offer pays its rewards in, from its rates' breakdown: the
+// same for every account, so the details page's own read fills it too
+export const buildRewardTokensFirstFrameKey = ({
+  networkId,
+  providerName,
+  symbol,
+  vault,
+}: {
+  networkId: string;
+  providerName: string;
+  symbol: string;
+  vault?: string;
+}) =>
+  `reward-tokens:${networkId}:${providerName.toLowerCase()}:${symbol.toLowerCase()}:${(
+    vault ?? ''
+  ).toLowerCase()}`;
+
 // A lending market's answer for an empty supply: the same for the market's
 // own form and for paying with another token, so either opens with the
 // market's rows

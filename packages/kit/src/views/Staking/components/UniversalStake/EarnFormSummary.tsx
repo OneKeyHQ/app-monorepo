@@ -53,14 +53,15 @@ const VISIBLE_ROW_LIMIT = 4;
 export const SHOWN_ROWS_WHEN_FOLDED = VISIBLE_ROW_LIMIT - 1;
 // When a row comes or goes, the rows below move in this long
 const ROWS_HEIGHT_MS = 200;
-// The room beside a result's label that its figure and the value after it
-// ("(in …)", or its dollar value) are sure to fit in on one line: up to
-// four digits before the point and four after, as "1,299.5121 USDC
-// $1,299.51" (about 210 px)
-const STACKED_SUFFIX_BELOW_PX = 225;
 // A figure being worked out again stays at this opacity until the new one
 const STALE_OPACITY = 0.4;
 const DETAILS_KEY = 'earn-form-details';
+// A form's button going off while its figures are on their way, and on
+// again as they land, eases between its looks
+export const EARN_BUTTON_LOOK_TRANSITION = {
+  transition: 'quick',
+  animateOnly: ANIMATE_ONLY_OPACITY,
+} as const;
 // The accordion opens or folds over 'fast' (200 ms) and the modal follows it
 // a frame behind; the rest is room for slow frames
 const DETAILS_UNFOLD_MS = 450;
@@ -108,41 +109,34 @@ export type IEarnOutcome = {
   // The figure comes with a note line under it (Pendle's gain): the line's
   // room is kept while there is no figure, so the rows below stay put
   hasNoteLine?: boolean;
-  // The figures this offer's last result had (Spark Savings pays in two
-  // tokens): as many lines are kept while there are none
-  reservedLines?: number;
+  // The tokens its figures come in (Spark Savings pays USDC and a USDT
+  // bonus): a line for each in every state, so the figures come in where
+  // their lines were. At rest each line shows its dash and its token; a
+  // single token, the dash alone
+  tokens?: string[];
 };
-
-// How many figures an offer's last result had, by offer, for this session.
-// Its answer for an empty amount can list fewer (Spark Savings: one token,
-// two once there is an amount), so the empty form holds the last count: a
-// clear doesn't pull the rows below up, nor the next figures push them down
-const resultLinesByOffer = new Map<string, number>();
-export function buildResultLinesKey({
-  networkId,
-  provider,
-  vault,
-  symbol,
-}: {
-  networkId?: string;
-  provider?: string;
-  vault?: string;
-  symbol?: string;
-}): string {
-  return [networkId ?? '', provider ?? '', vault || symbol || '']
-    .join('|')
-    .toLowerCase();
-}
-export function readResultLines(key?: string): number | undefined {
-  return key ? resultLinesByOffer.get(key) : undefined;
-}
 
 // Kept by the deposit modal across a protocol switch, which builds a new
 // form: the new one shows the last figures, dimmed, until its own come in,
-// so the rows don't go blank and come back
+// so the rows don't go blank and come back. The rows under them too: a row
+// the new form only has once its answer is in (Est. receive) keeps its
+// place with the last figure, dimmed
 export const EarnOutcomeCarryContext = createContext<{
   current?: IEarnOutcome;
+  rows?: ReactElement[];
+  isLendingMarket?: boolean;
 } | null>(null);
+
+// The carried rows in their order, each this form's own where it has the
+// same row already; then this form's rows the last one didn't have
+function mergeCarriedRows(carried: ReactElement[], own: ReactElement[]) {
+  const ownByKey = new Map(own.map((row) => [row.key, row]));
+  const carriedKeys = new Set(carried.map((row) => row.key));
+  return [
+    ...carried.map((row) => ownByKey.get(row.key) ?? row),
+    ...own.filter((row) => !carriedKeys.has(row.key)),
+  ];
+}
 
 // From a pick in the deposit modal's protocol list until the form is the
 // picked protocol's (the list folds first): the figures on screen dim, as
@@ -229,6 +223,17 @@ const AMOUNT_TEXT = /^[<≈~]?\s*[$€£¥]?\s*\d/;
 const isAmountReward = (reward: IEarnReward) =>
   AMOUNT_TEXT.test(reward.title?.text?.trim() ?? '');
 
+// The token an amount names ("0.038 USDC", "0.0<subscripts>5</subscripts>2
+// PT"); none for a money amount ("< $0.01")
+function readAmountToken(text: string): string | undefined {
+  return (
+    text
+      .replace(/<[^>]+>/g, '')
+      .replace(/^[<≈~]?\s*[$€£¥]?\s*[\d.,]+/, '')
+      .trim() || undefined
+  );
+}
+
 // The server's result lines that are not amounts, as rows: label, then its
 // text, or a dash while there is no amount
 export function buildRewardNoteRows({
@@ -265,33 +270,33 @@ export function buildRewardsOutcome({
   transactionConfirmation,
   placeholderLabel,
   withoutValues,
-  linesKey,
+  offerTokens,
 }: {
   transactionConfirmation?: IStakeTransactionConfirmation;
   placeholderLabel: string;
   // No amount yet: the label stays, the figures wait
   withoutValues?: boolean;
-  // The offer, so its count of figures is kept for its empty form
-  linesKey?: string;
+  // The tokens the offer pays in, from its own rates (useEarnRewardTokens);
+  // without them, the tokens this answer names
+  offerTokens?: string[];
 }): IEarnOutcome {
-  const rewards = withoutValues
-    ? []
-    : (transactionConfirmation?.rewards ?? []).filter(
-        (reward) =>
-          Boolean(reward.title?.text?.trim()) && isAmountReward(reward),
-      );
-  if (linesKey && rewards.length > 0) {
-    resultLinesByOffer.set(linesKey, rewards.length);
-  }
+  const amountRewards = (transactionConfirmation?.rewards ?? []).filter(
+    (reward) => Boolean(reward.title?.text?.trim()) && isAmountReward(reward),
+  );
+  const answerTokens = amountRewards
+    .map((reward) => readAmountToken(reward.title.text.trim()))
+    .filter((token): token is string => Boolean(token));
   return {
-    reservedLines: readResultLines(linesKey),
+    tokens: offerTokens?.length ? offerTokens : answerTokens,
     label: transactionConfirmation?.title?.text?.trim() || placeholderLabel,
     tooltip: transactionConfirmation?.tooltip,
-    values: rewards.map((reward) => ({
-      main: reward.title.text.trim(),
-      suffix: stripParens(reward.description?.text),
-      tooltip: reward.tooltip,
-    })),
+    values: withoutValues
+      ? []
+      : amountRewards.map((reward) => ({
+          main: reward.title.text.trim(),
+          suffix: stripParens(reward.description?.text),
+          tooltip: reward.tooltip,
+        })),
     isEarning: true,
   };
 }
@@ -363,11 +368,23 @@ export function buildRowKeys(labels: string[], prefix = 'row'): string[] {
   });
 }
 
-function Dash() {
+// A dash, or one with its token ("– USDT"). One that comes after the first
+// frame (an emptied box's figures going back to dashes) fades in, as the
+// figures do
+function Dash({ token, fadesIn }: { token?: string; fadesIn: boolean }) {
+  // As it mounts, and kept: a view that gained an enterStyle later would be
+  // drawn again as a new view
+  const [entryFadesIn] = useState(fadesIn);
   return (
-    <SizableText size="$bodyMdMedium" color="$textDisabled">
-      –
-    </SizableText>
+    <YStack
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
+      enterStyle={entryFadesIn ? FADE_IN : undefined}
+    >
+      <SizableText size="$bodyMdMedium" color="$textDisabled">
+        {token ? `– ${token}` : '–'}
+      </SizableText>
+    </YStack>
   );
 }
 
@@ -444,7 +461,7 @@ export function EarnFormValue({
           {children}
         </XStack>
       ) : null}
-      {!hasValue && !isQuoting ? <Dash /> : null}
+      {!hasValue && !isQuoting ? <Dash fadesIn={isMountedRef.current} /> : null}
     </XStack>
   );
 }
@@ -454,7 +471,6 @@ function OutcomeValues({
   isLoading,
   isDimmed = isLoading,
   fadesIn = true,
-  stacksSuffix = false,
 }: {
   outcome: IEarnOutcome;
   isLoading?: boolean;
@@ -463,9 +479,6 @@ function OutcomeValues({
   // Off for figures already on screen as the form mounts (the last
   // protocol's, carried): only figures that come later fade in
   fadesIn?: boolean;
-  // The value after each figure ("(in sUSDe)", its dollar value) on a line
-  // of its own, whatever the figure's length
-  stacksSuffix?: boolean;
 }) {
   const hasValues = outcome.values.length > 0;
   let outcomeColor: IColorTokens = '$text';
@@ -474,6 +487,10 @@ function OutcomeValues({
   } else if (outcome.isCost) {
     outcomeColor = '$textCritical';
   }
+  const isMountedRef = useRef(false);
+  useEffect(() => {
+    isMountedRef.current = true;
+  }, []);
   // Decided as the figures appear and kept while they stay, as a row's
   // value is
   const valuesFadeInRef = useRef<boolean | undefined>(undefined);
@@ -489,19 +506,12 @@ function OutcomeValues({
         {' '}
       </SizableText>
     ) : null;
-  // And the line of the value after a figure, where it has a line of its
-  // own: kept under each figure (or place for one) that has none (yet), so
-  // a result holds as many lines with its figures as without
-  const suffixRoom = stacksSuffix ? (
-    <SizableText size="$bodyMd" opacity={0} aria-hidden>
-      {' '}
-    </SizableText>
-  ) : null;
   // One tree in every state, so the placeholder (on the figure's first
   // line) fades out as the figures fade in. Figures that replace figures
   // change in place: the dimmed last ones brighten into the new ones, with
-  // no blank between
-  const lineCount = Math.max(1, outcome.reservedLines ?? 1);
+  // no blank between. A line for each token the figures come in
+  const tokens = outcome.tokens ?? [];
+  const lineCount = Math.max(1, tokens.length);
   return (
     <YStack position="relative" ai="flex-end">
       <EarnFadingPlaceholder
@@ -511,11 +521,8 @@ function OutcomeValues({
         gap="$1"
       >
         {Array.from({ length: lineCount }, (_, index) => (
-          <YStack key={index} ai="flex-end">
-            <YStack h="$6" jc="center">
-              <Skeleton.BodyLg w={96} />
-            </YStack>
-            {suffixRoom}
+          <YStack key={index} h="$6" jc="center">
+            <Skeleton.BodyLg w={96} />
           </YStack>
         ))}
       </EarnFadingPlaceholder>
@@ -555,26 +562,20 @@ function OutcomeValues({
             ) : null;
             return (
               <YStack key={index} ai="flex-end">
-                {stacksSuffix ? (
-                  <>
-                    <XStack columnGap="$1.5" ai="center" jc="flex-end">
-                      {main}
-                      {tooltip}
-                    </XStack>
-                    {suffix ?? suffixRoom}
-                  </>
-                ) : (
-                  <XStack
-                    columnGap="$1.5"
-                    ai="center"
-                    jc="flex-end"
-                    flexWrap="wrap"
-                  >
-                    {main}
-                    {suffix}
-                    {tooltip}
-                  </XStack>
-                )}
+                {/* The value after the figure ("(in sUSDe)", its dollar
+                    value) on the figure's line, or under it where the line
+                    has no room for both */}
+                <XStack
+                  columnGap="$1.5"
+                  ai="center"
+                  jc="flex-end"
+                  flexWrap="wrap"
+                  minHeight="$6"
+                >
+                  {main}
+                  {suffix}
+                  {tooltip}
+                </XStack>
                 {value.note ? (
                   <SizableText size="$bodySm" color="$textSubdued">
                     {value.note}
@@ -583,15 +584,12 @@ function OutcomeValues({
               </YStack>
             );
           })}
-          {/* The lines a result holds for its figures (an offer's count)
-              stay where it has fewer this time */}
+          {/* The lines a result holds for its tokens stay where it has fewer
+              figures this time */}
           {Array.from(
             { length: Math.max(0, lineCount - outcome.values.length) },
             (_, index) => (
-              <YStack key={`room-${index}`} ai="flex-end" aria-hidden>
-                <YStack h="$6" />
-                {suffixRoom}
-              </YStack>
+              <YStack key={`room-${index}`} h="$6" aria-hidden />
             ),
           )}
           {noteRoom}
@@ -600,21 +598,14 @@ function OutcomeValues({
         <YStack key="empty" ai="flex-end">
           <YStack ai="flex-end" gap="$1">
             {Array.from({ length: lineCount }, (_, index) => (
-              <YStack key={index} ai="flex-end">
-                <YStack
-                  h="$6"
-                  jc="center"
-                  ai="flex-end"
-                  aria-hidden={index > 0}
-                >
-                  {index === 0 && !isLoading ? (
-                    <SizableText size="$bodyLgMedium" color="$textDisabled">
-                      –
-                    </SizableText>
-                  ) : null}
-                </YStack>
-                {suffixRoom}
-              </YStack>
+              <XStack key={index} h="$6" ai="center" jc="flex-end">
+                {isLoading ? null : (
+                  <Dash
+                    token={tokens.length > 1 ? tokens[index] : undefined}
+                    fadesIn={isMountedRef.current}
+                  />
+                )}
+              </XStack>
             ))}
           </YStack>
           {noteRoom}
@@ -679,53 +670,25 @@ export function EarnOutcomeRow({
   fadesIn?: boolean;
   testID?: string;
 }) {
-  // A result with too little room beside its label (a phone, the details
-  // page's form) puts the value after each figure (Pendle's "(in sUSDe)",
-  // a reward's dollar value) on a line of its own whatever the figure: a
-  // figure a digit longer then doesn't push the rows below down a line, nor
-  // a shorter one pull them back up. Measured before the first paint, and
-  // again as the width changes
-  const rowRef = useRef<IElement>(null);
-  const [stacksSuffix, setStacksSuffix] = useState(false);
-  const watchesRoom = platformEnv.isRuntimeBrowser;
-  useLayoutEffect(() => {
-    const row = rowRef.current as unknown as HTMLElement | null;
-    const label = row?.firstElementChild;
-    if (!watchesRoom || !row || !label) {
-      return undefined;
-    }
-    const measure = () => {
-      const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
-      const room =
-        row.getBoundingClientRect().width -
-        label.getBoundingClientRect().width -
-        gap;
-      setStacksSuffix(room < STACKED_SUFFIX_BELOW_PX);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(row);
-    return () => observer.disconnect();
-  }, [watchesRoom]);
+  // A result with a note line (Pendle's gain) keeps its figure and the
+  // value after it ("(in sUSDe)") on one line: where they don't fit beside
+  // the label, the label takes a second line, beside the note's, so the
+  // rows below stay put as the figure comes in
+  const keepsFigureLine = Boolean(outcome.hasNoteLine);
   return (
     // A long result (rewards of 100 a year and more on a narrow form) puts
     // its money value under the amount; the label stays on its line
-    <XStack
-      ref={rowRef}
-      testID={testID}
-      jc="space-between"
-      ai="flex-start"
-      gap="$3"
-    >
+    <XStack testID={testID} jc="space-between" ai="flex-start" gap="$3">
       <RowLabel
         label={outcome.label}
         tooltip={outcome.tooltip}
         minHeight="$6"
-        keepsOneLine
+        keepsOneLine={!keepsFigureLine}
       />
       <YStack
-        flexShrink={1}
+        flexShrink={keepsFigureLine ? 0 : 1}
         minWidth={0}
+        maxWidth={keepsFigureLine ? '75%' : undefined}
         ai="flex-end"
         minHeight="$6"
         jc="center"
@@ -735,7 +698,6 @@ export function EarnOutcomeRow({
           isLoading={isLoading}
           isDimmed={isDimmed}
           fadesIn={fadesIn}
-          stacksSuffix={stacksSuffix}
         />
       </YStack>
     </XStack>
@@ -997,6 +959,7 @@ export function EarnFormSummary({
   rows = [],
   footnote,
   detailsPlaceholder,
+  isLendingMarket,
 }: {
   outcome?: IEarnOutcome;
   // A new amount's figures on their way
@@ -1011,11 +974,12 @@ export function EarnFormSummary({
   // The rows are stand-ins for ones that will fold: "Details" holds its
   // place under them
   detailsPlaceholder?: boolean;
+  // A lending market's form (My supply, Health factor), whose rows are not
+  // a vault's
+  isLendingMarket?: boolean;
 }) {
   const carry = useContext(EarnOutcomeCarryContext);
   const isSwitching = useContext(EarnFormSwitchingContext);
-  // Rows there from the first frame show at once; rows that come later open
-  const [hasRowsFromStart] = useState(rows.length > 0);
   // Figures there as the form mounts are on screen already (the last
   // protocol's, carried over a switch): only figures that come later fade in
   const isFirstRenderRef = useRef(true);
@@ -1029,8 +993,18 @@ export function EarnFormSummary({
   useEffect(() => {
     if (carry && outcome && hasOwnValues && !isOutcomeLoading) {
       carry.current = outcome;
+      carry.rows = isLoading ? undefined : rows;
+      carry.isLendingMarket = isLendingMarket;
     }
-  }, [carry, hasOwnValues, isOutcomeLoading, outcome]);
+  }, [
+    carry,
+    hasOwnValues,
+    isLendingMarket,
+    isLoading,
+    isOutcomeLoading,
+    outcome,
+    rows,
+  ]);
   // Until this form's own figures are in, the last form's stay, dimmed: only
   // the same result (a vault's year for a vault's), never Pendle's for one
   const carried =
@@ -1040,16 +1014,15 @@ export function EarnFormSummary({
     carry.current.label === outcome?.label
       ? carry.current
       : undefined;
-  // Held in this form's own place: as many lines as its result takes (the
-  // offer's count this session, else one), so its figures replace the
-  // carried ones without the rows below moving (Spark's two rewards after
-  // Aave's one, or the other way round)
-  const ownLines = Math.max(1, outcome?.reservedLines ?? 1);
+  // Held in this form's own place: a line for each of its own tokens, so
+  // its figures replace the carried ones without the rows below moving
+  // (Spark's two rewards after Aave's one, or the other way round)
+  const ownLines = Math.max(1, outcome?.tokens?.length ?? 1);
   const shownOutcome = carried
     ? {
         ...carried,
         values: carried.values.slice(0, ownLines),
-        reservedLines: ownLines,
+        tokens: outcome?.tokens,
       }
     : outcome;
   // The form's own figures taking over from the last protocol's can change
@@ -1062,6 +1035,17 @@ export function EarnFormSummary({
     }
     wasCarryingRef.current = Boolean(carried);
   }, [carried]);
+  // Only another form of the same kind's (a vault's for a vault's), so they
+  // take the places of rows this one will have, never of rows it won't
+  const carriedRows =
+    carried &&
+    carry?.rows &&
+    Boolean(carry.isLendingMarket) === Boolean(isLendingMarket)
+      ? carry.rows
+      : undefined;
+  const shownRows = carriedRows ? mergeCarriedRows(carriedRows, rows) : rows;
+  // Rows there from the first frame show at once; rows that come later open
+  const [hasRowsFromStart] = useState(shownRows.length > 0);
   const rowsQuoting = useMemo(
     () => ({
       isQuoting: Boolean(isLoading),
@@ -1069,10 +1053,12 @@ export function EarnFormSummary({
     }),
     [isDimmed, isLoading, isSwitching],
   );
-  const shouldFold = rows.length > VISIBLE_ROW_LIMIT;
-  const visibleRows = shouldFold ? rows.slice(0, VISIBLE_ROW_LIMIT - 1) : rows;
-  const foldedRows = shouldFold ? rows.slice(VISIBLE_ROW_LIMIT - 1) : [];
-  if (!shownOutcome && !rows.length && !footnote) {
+  const shouldFold = shownRows.length > VISIBLE_ROW_LIMIT;
+  const visibleRows = shouldFold
+    ? shownRows.slice(0, VISIBLE_ROW_LIMIT - 1)
+    : shownRows;
+  const foldedRows = shouldFold ? shownRows.slice(VISIBLE_ROW_LIMIT - 1) : [];
+  if (!shownOutcome && !shownRows.length && !footnote) {
     return null;
   }
   // Each part brings its own space above it, so a part that is not there
@@ -1101,13 +1087,13 @@ export function EarnFormSummary({
       {/* The block clips while it opens and closes; 4 px of room above and
           below, taken back by the margin, keep a focus ring on a row's (i)
           whole */}
-      <YStack my={rows.length ? '$-1' : undefined}>
+      <YStack my={shownRows.length ? '$-1' : undefined}>
         <EarnFormQuotingContext.Provider value={rowsQuoting}>
           <HeightTransition
             duration={ROWS_HEIGHT_MS}
             skipInitialAnimation={hasRowsFromStart}
           >
-            {rows.length ? (
+            {shownRows.length ? (
               <YStack pt={shownOutcome ? '$4' : '$1'} pb="$1" gap="$3">
                 {visibleRows.map((row, index) => (
                   <EarnFormRowEntry
@@ -1123,7 +1109,7 @@ export function EarnFormSummary({
           {/* "Details" opens and folds with its own animation only: inside
               the block, the block's height would chase the unfold and show
               the rows late, the fold leaving their space to close after */}
-          {rows.length && (foldedRows.length || detailsPlaceholder) ? (
+          {shownRows.length && (foldedRows.length || detailsPlaceholder) ? (
             <YStack pt="$2" pb="$1">
               {foldedRows.length ? (
                 <EarnFormDetails rows={foldedRows} />

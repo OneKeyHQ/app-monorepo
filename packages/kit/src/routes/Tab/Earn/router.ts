@@ -54,6 +54,12 @@ const EarnPositions = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnPositions'),
 );
 
+// Loaded while the desktop Earn home points at what opens them, so a first
+// open renders at once instead of showing the route's loading screen
+export const preloadEarnPositions = () => EarnPositions.preload();
+export const preloadEarnProtocolDetails = () => EarnProtocolDetails.preload();
+export const preloadEarnLendingDetails = () => EarnLendingDetails.preload();
+
 export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',

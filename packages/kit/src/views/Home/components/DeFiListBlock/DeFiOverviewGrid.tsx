@@ -12,6 +12,7 @@ import { buildOverviewGridStyle } from './DeFiOverviewLayout';
 import { buildDeFiOverviewRenderCells } from './DeFiOverviewPlanner';
 import { useDeFiOverviewTopN } from './hooks/useDeFiOverviewTopN';
 
+import type { IDeFiOverviewTileSurface } from './DeFiOverviewTile';
 import type { IOverviewCols } from './overviewColsResolver';
 
 /**
@@ -43,6 +44,8 @@ export type IDeFiOverviewGridProps = {
   isAllNetworks?: boolean;
   getNetWorth: (p: IDeFiProtocol) => number;
   onPressProtocol: (p: IDeFiProtocol) => void;
+  /** see IDeFiOverviewTileSurface; the wallet's look without it */
+  tileSurface?: IDeFiOverviewTileSurface;
 };
 
 function DeFiOverviewGrid({
@@ -53,6 +56,7 @@ function DeFiOverviewGrid({
   isAllNetworks,
   getNetWorth,
   onPressProtocol,
+  tileSurface,
 }: IDeFiOverviewGridProps) {
   const [isSliced, setIsSliced] = useDeFiListSlicedAtom();
   const isExpanded = !isSliced;
@@ -140,6 +144,7 @@ function DeFiOverviewGrid({
       onPressMore={handleMore}
       onPressLess={handleLess}
       isAllNetworks={isAllNetworks}
+      tileSurface={tileSurface}
     />
   );
 }

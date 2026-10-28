@@ -15,6 +15,7 @@ import {
   toLtvFraction,
 } from '../../components/desktopHome/earnDesktopHome.utils';
 
+import type { ILoanLtvTone } from './loanLtvBar.types';
 import type {
   IEarnDesktopLoanAssetType,
   IEarnDesktopMarketReserves,
@@ -24,6 +25,15 @@ import type {
 // pair, each worked out for the amounts typed. One market is one candidate,
 // filling the whole loan alone (the Borrow Router PRD's rule); a market that
 // can't is listed last with the reason
+
+// A health factor's tier, as the Borrow pages read one: 2 and up, 1.25 to 2,
+// under 1.25. My portfolio reads its loans' health the same way
+export const getLoanHealthTone = (value?: number): ILoanLtvTone => {
+  if (value === undefined || value >= 2) {
+    return 'success';
+  }
+  return value >= 1.25 ? 'caution' : 'critical';
+};
 
 const toNumber = (value?: string | number) => {
   const parsed = new BigNumber(value ?? 0);

@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,6 +25,24 @@ import type { IEarnProtocolView } from '../mobile/earnPositionModel';
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 // The gap between the cards ($4)
 const CARD_SCROLL_MARGIN_TOP = 16;
+// The scroll to a card counts as done once the page has been still this
+// long, or at once if it never moves
+const SCROLL_SETTLE_MS = 120;
+// The card's header lights up a step for about 600 ms in all: 150 ms in,
+// held, 150 ms back
+const HEADER_FLASH_MS = 450;
+
+function findScrollParent(node: HTMLElement): HTMLElement | null {
+  let parent = node.parentElement;
+  while (parent) {
+    const { overflowY } = getComputedStyle(parent);
+    if (overflowY === 'auto' || overflowY === 'scroll') {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return null;
+}
 
 /**
  * DeFi Assets in the wide layout, the way the wallet DeFi Portfolio reads on
@@ -40,6 +58,7 @@ function BasicDeFiAssetsDesktopTab({
   pendingCountByProvider,
   onManage,
   onRedeem,
+  onWarmRedeem,
 }: {
   protocols: IEarnProtocolView[];
   deFiProtocols: IDeFiProtocol[];
@@ -53,6 +72,34 @@ function BasicDeFiAssetsDesktopTab({
   const { open } = expansion;
   const networkNames = useRepeatedProtocolNetworkNames(protocols);
   const anchorsRef = useRef(new Map<string, HTMLElement>());
+  // The card a tile scrolled to, marked once the page stops
+  const [flashKey, setFlashKey] = useState<string | undefined>();
+  const flashCleanupRef = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => () => flashCleanupRef.current?.(), []);
+  const flashWhenSettled = useCallback((key: string, node: HTMLElement) => {
+    flashCleanupRef.current?.();
+    setFlashKey(undefined);
+    const listening = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const flash = () => {
+      listening.abort();
+      setFlashKey(key);
+      timer = setTimeout(() => setFlashKey(undefined), HEADER_FLASH_MS);
+    };
+    findScrollParent(node)?.addEventListener(
+      'scroll',
+      () => {
+        clearTimeout(timer);
+        timer = setTimeout(flash, SCROLL_SETTLE_MS);
+      },
+      { passive: true, signal: listening.signal },
+    );
+    timer = setTimeout(flash, SCROLL_SETTLE_MS);
+    flashCleanupRef.current = () => {
+      clearTimeout(timer);
+      listening.abort();
+    };
+  }, []);
   const positionsLabel = intl.formatMessage({
     id: ETranslations.earn_positions,
   });
@@ -83,9 +130,12 @@ function BasicDeFiAssetsDesktopTab({
       if (node && typeof node.scrollIntoView === 'function') {
         node.style.scrollMarginTop = `${CARD_SCROLL_MARGIN_TOP}px`;
         node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Where the page can't bring it to the top (the last cards), the
+        // header's flash still shows which card the tile meant
+        flashWhenSettled(key, node);
       }
     },
-    [open],
+    [open, flashWhenSettled],
   );
 
   let placeholder: React.ReactNode = null;
@@ -127,6 +177,7 @@ function BasicDeFiAssetsDesktopTab({
               expanded={expansion.isExpanded(protocol.key)}
               onToggle={() => expansion.toggle(protocol.key)}
               anchorRef={(node) => registerAnchor(protocol.key, node)}
+              isHighlighted={flashKey === protocol.key}
               testID={EarnTestIDs.portfolioItem(protocol.name)}
               total={
                 <ProtocolValueCell
@@ -147,6 +198,7 @@ function BasicDeFiAssetsDesktopTab({
                   position={position}
                   onManage={onManage}
                   onRedeem={onRedeem}
+                  onWarmRedeem={onWarmRedeem}
                 />
               ))}
             </GroupRow>

@@ -3,6 +3,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -18,10 +19,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EManagePageActionType,
@@ -40,6 +43,8 @@ import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
+import { readConfirmWordId } from '../../../components/UniversalStake/earnConfirmWord';
+import { warmWithdrawWaysOut } from '../../../components/UniversalWithdraw/warmWithdrawWaysOut';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useQuoteCountdown } from '../../../hooks/useQuoteCountdown';
 import { EManagePositionType } from '../hooks/useManagePage';
@@ -59,16 +64,14 @@ import type { IWithdrawSuccessInfo } from './WithdrawSection';
 type IBorrowAction = 'supply' | 'withdraw' | 'borrow' | 'repay';
 type IManageActionData = IEarnManagePageActionData | undefined;
 
-// Switching sides on the details page: the side on screen fades out, then
-// the other fades in (fade through), as the selected background slides
-// between the two tabs
-const TAB_CONTENT_OUT_MS = 100;
-const TAB_CONTENT_OUT_TRANSITION: ['quick', { duration: number }] = [
-  'quick',
-  { duration: TAB_CONTENT_OUT_MS },
-];
-// Laid over the side on screen, invisible, until that one has faded out
-const TAB_CONTENT_PREPARED_STYLE = {
+// Switching sides on the details page: the other side is put together out
+// of sight, then the two cross-fade in place (the one on screen fading out
+// over the other fading in) while the space they take eases from one's
+// height to the other's, as the selected background slides between the tabs
+const TAB_CONTENT_SWAP_MS = 250;
+const TAB_CONTENT_HEIGHT_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
+// Laid over the side in the flow, invisible (put together, or fading out)
+const TAB_CONTENT_OVERLAY_STYLE = {
   position: 'absolute',
   top: 0,
   left: 0,
@@ -88,43 +91,71 @@ function useTabContentFade(selectedIndex: number, enabled: boolean) {
   const reduceMotion = useReducedMotion();
   const animates = enabled && !reduceMotion;
   const [shownIndex, setShownIndex] = useState(selectedIndex);
-  // The other side is put together out of sight while this one fades out
-  // (a form takes a few frames to mount), so it can fade in at once
+  // The other side is put together out of sight first (a form takes a few
+  // frames to mount), so it can fade in whole
   const [preparedIndex, setPreparedIndex] = useState<number>();
+  // The side that was on screen, fading out over the new one
+  const [leavingIndex, setLeavingIndex] = useState<number>();
   useEffect(() => {
     if (!animates) {
       setShownIndex(selectedIndex);
       setPreparedIndex(undefined);
+      setLeavingIndex(undefined);
       return undefined;
     }
     if (shownIndex === selectedIndex) {
       setPreparedIndex(undefined);
       return undefined;
     }
-    // Once the fade's first frame is drawn, and rendered in slices, so the
-    // fade and the tab's slide keep their frames while it mounts
+    // Once the tab's first frame is drawn, and rendered in slices, so the
+    // tab's slide keeps its frames while the side mounts
     let prepareTimer: ReturnType<typeof setTimeout> | undefined;
     const frame = requestAnimationFrame(() => {
       prepareTimer = setTimeout(() =>
         startTransition(() => setPreparedIndex(selectedIndex)),
       );
     });
-    const timer = setTimeout(
-      () => setShownIndex(selectedIndex),
-      TAB_CONTENT_OUT_MS,
-    );
     return () => {
       cancelAnimationFrame(frame);
       clearTimeout(prepareTimer);
-      clearTimeout(timer);
     };
   }, [animates, selectedIndex, shownIndex]);
+  // The prepared side drawn: the two swap places
+  useEffect(() => {
+    if (
+      !animates ||
+      preparedIndex === undefined ||
+      preparedIndex !== selectedIndex ||
+      preparedIndex === shownIndex
+    ) {
+      return undefined;
+    }
+    const frame = requestAnimationFrame(() => {
+      setLeavingIndex(shownIndex);
+      setShownIndex(preparedIndex);
+      setPreparedIndex(undefined);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [animates, preparedIndex, selectedIndex, shownIndex]);
+  useEffect(() => {
+    if (leavingIndex === undefined) {
+      return undefined;
+    }
+    const timer = setTimeout(
+      () => setLeavingIndex(undefined),
+      TAB_CONTENT_SWAP_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [leavingIndex]);
   const index = animates ? shownIndex : selectedIndex;
   return {
     shownIndex: index,
     preparedIndex:
       animates && preparedIndex !== index ? preparedIndex : undefined,
-    isLeaving: index !== selectedIndex,
+    leavingIndex:
+      animates && leavingIndex !== index && leavingIndex !== preparedIndex
+        ? leavingIndex
+        : undefined,
     animates,
   };
 }
@@ -140,32 +171,82 @@ function TabContentFade({
   enabled: boolean;
   sides: ReactNode[];
 }) {
-  const { shownIndex, preparedIndex, isLeaving, animates } = useTabContentFade(
-    selectedIndex,
-    enabled,
-  );
+  const { shownIndex, preparedIndex, leavingIndex, animates } =
+    useTabContentFade(selectedIndex, enabled);
+  // The space the sides take, eased from the one that was on screen to the
+  // one now there (web)
+  const containerRef = useRef<IElement>(null);
+  const shownHeightRef = useRef(0);
+  const lastShownIndexRef = useRef(shownIndex);
+  useLayoutEffect(() => {
+    const container = containerRef.current as unknown as HTMLElement | null;
+    if (!platformEnv.isRuntimeBrowser || !container) {
+      return undefined;
+    }
+    const from = shownHeightRef.current;
+    const isSwap = lastShownIndexRef.current !== shownIndex;
+    lastShownIndexRef.current = shownIndex;
+    const to = container.offsetHeight;
+    shownHeightRef.current = to;
+    if (!isSwap || !animates || !from || from === to) {
+      return undefined;
+    }
+    container.style.transition = 'none';
+    container.style.height = `${from}px`;
+    // Drawn at the old height first, then eased to the new one
+    void container.offsetHeight;
+    container.style.transition = `height ${TAB_CONTENT_SWAP_MS}ms ${TAB_CONTENT_HEIGHT_EASING}`;
+    container.style.height = `${to}px`;
+    const timer = setTimeout(() => {
+      container.style.transition = '';
+      container.style.height = '';
+    }, TAB_CONTENT_SWAP_MS);
+    return () => {
+      clearTimeout(timer);
+      container.style.transition = '';
+      container.style.height = '';
+    };
+  }, [animates, shownIndex]);
+  // Kept up to date between swaps (rows coming in, a line opening)
+  useEffect(() => {
+    const container = containerRef.current as unknown as HTMLElement | null;
+    if (!platformEnv.isRuntimeBrowser || !container) {
+      return undefined;
+    }
+    const observer = new ResizeObserver(() => {
+      if (!container.style.height) {
+        shownHeightRef.current = container.offsetHeight;
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
   if (!animates) {
     return <>{sides[selectedIndex]}</>;
   }
   return (
-    <YStack>
-      {[shownIndex, preparedIndex].map((index) => {
-        if (index === undefined) {
-          return null;
-        }
-        const isPrepared = index !== shownIndex;
-        return (
-          <YStack
-            key={index}
-            {...(isPrepared ? TAB_CONTENT_PREPARED_STYLE : null)}
-            opacity={isPrepared || isLeaving ? 0 : 1}
-            transition={isLeaving ? TAB_CONTENT_OUT_TRANSITION : 'quick'}
-            animateOnly={ANIMATE_ONLY_OPACITY}
-          >
-            {sides[index]}
-          </YStack>
-        );
-      })}
+    <YStack ref={containerRef}>
+      {[shownIndex, leavingIndex, preparedIndex]
+        .filter((index): index is number => index !== undefined)
+        .toSorted((a, b) => a - b)
+        .map((index) => {
+          const isShown = index === shownIndex;
+          return (
+            <YStack
+              key={index}
+              {...(isShown ? null : TAB_CONTENT_OVERLAY_STYLE)}
+              // The prepared side mounts invisible (a first value doesn't
+              // animate); the other two cross-fade. The transition is there
+              // from the first frame: one added later would draw the view
+              // again with more hooks
+              opacity={isShown ? 1 : 0}
+              transition="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY}
+            >
+              {sides[index]}
+            </YStack>
+          );
+        })}
     </YStack>
   );
 }
@@ -723,6 +804,39 @@ export function NormalManageContent({
     return tabNames;
   }, [depositOnly, withdrawOnly, tabNames]);
 
+  // The Withdraw side's rows and ways out, read while Deposit is on screen:
+  // it fades in with them in place rather than settling after it shows
+  const withdrawSymbol = protocolInfo?.symbol || tokenInfo?.token?.symbol;
+  const withdrawTokenAddress = tokenInfo?.token?.isNative
+    ? ''
+    : tokenInfo?.token?.address;
+  const canWarmWithdraw =
+    !isInModalContext &&
+    visibleTabNames.length > 1 &&
+    !withdrawDisabled &&
+    !useBorrowApi;
+  useEffect(() => {
+    if (!canWarmWithdraw || !earnAccount?.accountId || !withdrawSymbol) {
+      return;
+    }
+    void warmWithdrawWaysOut({
+      accountId: earnAccount.accountId,
+      networkId,
+      providerName: provider,
+      symbol: withdrawSymbol,
+      vault: protocolInfo?.vault,
+      inputTokenAddress: withdrawTokenAddress,
+    });
+  }, [
+    canWarmWithdraw,
+    earnAccount?.accountId,
+    networkId,
+    protocolInfo?.vault,
+    provider,
+    withdrawSymbol,
+    withdrawTokenAddress,
+  ]);
+
   useEffect(() => {
     if (depositOnly) {
       return;
@@ -872,6 +986,12 @@ export function NormalManageContent({
       onSuccess={onSuccess}
       beforeFooter={stakeBeforeFooter}
       footerActionOverride={footerActionOverride}
+      confirmWordIdWhileLoading={readConfirmWordId({
+        networkId,
+        providerName: provider,
+        symbol,
+        vault: _vault,
+      })}
       showApyDetail={showApyDetail}
       suppressPlatformBonus={suppressPlatformBonus}
       isInModalContext={isInModalContext}

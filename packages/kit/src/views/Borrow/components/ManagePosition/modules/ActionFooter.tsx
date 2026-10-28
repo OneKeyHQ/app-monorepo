@@ -19,7 +19,10 @@ import {
   EStakeProgressStep,
   StakeProgress,
 } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
-import { EarnFormSwitchingContext } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
+import {
+  EARN_BUTTON_LOOK_TRANSITION,
+  EarnFormSwitchingContext,
+} from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BorrowTestIDs } from '../../../testIDs';
@@ -60,6 +63,7 @@ export function ActionFooter({
     isCheckAmountMessageError,
     checkAmountResult,
     riskOfLiquidationAlert,
+    transactionConfirmationLoading,
   } = actionResult;
 
   const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
@@ -86,6 +90,12 @@ export function ActionFooter({
     [actionLabelProp, action, intl],
   );
 
+  // In the Earn forms it stays off while this amount's figures are on their
+  // way, and turns on as they land; an answer that fails lets it go, as the
+  // rows go to dashes
+  const isFiguresComing =
+    keepsLookWhileChecking && transactionConfirmationLoading;
+
   // Disable state
   // Borrow action doesn't check isInsufficientBalance because it's borrowing from protocol
   const isButtonDisabled = useMemo(() => {
@@ -95,7 +105,8 @@ export function ActionFooter({
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
       isCheckAmountMessageError ||
       checkAmountResult === false ||
-      (checkAmountLoading && !keepsLookWhileChecking);
+      (checkAmountLoading && !keepsLookWhileChecking) ||
+      isFiguresComing;
 
     // Borrow doesn't need to check wallet balance
     if (action === 'borrow') {
@@ -113,6 +124,7 @@ export function ActionFooter({
     checkAmountResult,
     checkAmountLoading,
     keepsLookWhileChecking,
+    isFiguresComing,
   ]);
 
   const confirmBorrowLiquidationRisk = useCallback(async () => {
@@ -245,6 +257,7 @@ export function ActionFooter({
         loading: isConfirmLoading,
         disabled: isButtonDisabled,
         ...(isInModalContext ? undefined : { w: '100%' }),
+        ...(isEarnForm ? EARN_BUTTON_LOOK_TRANSITION : undefined),
       }}
     />
   );

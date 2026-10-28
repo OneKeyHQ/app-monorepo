@@ -178,11 +178,11 @@ export function StakingAmountInput({
     }
   }, [onRefreshBalance]);
   const balanceValue = props.balanceProps?.value;
-  const isBalanceLoadedZero =
-    Boolean(onRefreshBalance) &&
+  const isLoadedZero =
     !props.balanceProps?.loading &&
     Boolean(balanceValue) &&
     new BigNumber(balanceValue ?? '').isZero();
+  const isBalanceLoadedZero = Boolean(onRefreshBalance) && isLoadedZero;
   const balanceOnPress = props.balanceProps?.onPress;
   const balanceProps = useMemo(() => {
     if (!props.balanceProps) {
@@ -201,19 +201,22 @@ export function StakingAmountInput({
         isKeyboardPressable: true,
       };
     }
+    // Nothing to fill from a zero balance: Max takes its disabled look
     return {
       ...props.balanceProps,
-      onPress: balanceOnPress
-        ? () => {
-            balanceOnPress();
-            keepTypingFocus();
-          }
-        : undefined,
+      onPress:
+        balanceOnPress && !isLoadedZero
+          ? () => {
+              balanceOnPress();
+              keepTypingFocus();
+            }
+          : undefined,
       isKeyboardPressable: true,
     };
   }, [
     balanceOnPress,
     isBalanceLoadedZero,
+    isLoadedZero,
     isRefreshingBalance,
     keepTypingFocus,
     props.balanceProps,

@@ -87,7 +87,7 @@ export function EarnWithdrawDone({
           {/* The offer as the deposit modal's protocol row shows it */}
           <ProtocolSwitchRow
             testID="earn-withdraw-better-offer"
-            {...buildOfferRowProps(offer)}
+            {...buildOfferRowProps(offer, { intl })}
             networkLogoURI={networkLogoURI}
             isSwitchEnabled={false}
             showChevron={false}

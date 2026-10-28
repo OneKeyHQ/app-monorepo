@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared';
@@ -43,8 +45,9 @@ export function EarnOfferOptionCard({
     [offer, onHoverIn],
   );
   const isChoice = Boolean(onSelect);
+  const intl = useIntl();
   const { logoURI, name, nameAccessory, subtitle, aprElement, tvlText } =
-    buildOfferRowProps(offer);
+    buildOfferRowProps(offer, { intl, isOnPicked: isSelected });
   const vaultName =
     vaultFirst && offer.kind === 'protocol' && !offer.isFixedRate
       ? offer.item.provider.vaultName
@@ -83,7 +86,7 @@ export function EarnOfferOptionCard({
           {nameAccessory}
         </XStack>
         {caption ? (
-          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={2}>
             {caption}
           </SizableText>
         ) : null}

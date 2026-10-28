@@ -45,6 +45,8 @@ export type IEarnHoldingRedeem = {
   label: string;
   disabled?: boolean;
   onPress: () => void | Promise<void>;
+  /** reads the withdraw form's ways out ahead, for the row's token ('' for a network's own coin) */
+  onWarm?: (inputTokenAddress: string) => void;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -121,10 +123,13 @@ export type IRowButton = Extract<
 export function RowAction({
   action,
   symbol,
+  tokenAddress,
   redeem,
 }: {
   action: IRowButton;
   symbol: string;
+  /** the row's token, '' for a network's own coin */
+  tokenAddress: string;
   redeem?: IEarnHoldingRedeem;
 }) {
   // A Redeem that reads the detail before it opens (the order picker's)
@@ -163,6 +168,10 @@ export function RowAction({
         disabled={redeem.disabled}
         loading={isOpening}
         onPress={handleRedeem}
+        // Pointed at or focused, the form's ways out are read ahead, so it
+        // opens with its Instant and Queued cards in place
+        onHoverIn={() => redeem.onWarm?.(tokenAddress)}
+        onFocus={() => redeem.onWarm?.(tokenAddress)}
       >
         {redeem.label}
       </Button>
@@ -327,7 +336,12 @@ function PositionRow({
           </YStack>
         </XStack>
         {button ? (
-          <RowAction action={button} symbol={asset.symbol} redeem={redeem} />
+          <RowAction
+            action={button}
+            symbol={asset.symbol}
+            tokenAddress={asset.address}
+            redeem={redeem}
+          />
         ) : null}
         {action?.kind === 'pending' ? <PendingBadge asset={asset} /> : null}
       </XStack>

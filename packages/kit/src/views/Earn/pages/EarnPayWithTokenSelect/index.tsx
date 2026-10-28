@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactNode } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -21,6 +29,7 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { ITokenListItemProps } from '@onekeyhq/kit/src/components/TokenListItem';
@@ -85,6 +94,10 @@ const getRawToken = (item: ITokenItem) =>
     : (item as ISwapToken);
 
 const LOADING_ROW_COUNT = 5;
+// The rows drawn as the list first shows, in this long after it, fade in:
+// from dim, so no frame between the placeholder rows and them is blank
+const ROWS_REVEAL_MS = 300;
+const ROW_FADE_IN = { opacity: 0.4 } as const;
 const SEARCH_DEBOUNCE_MS = 300;
 const RETRY_AFTER_CANCEL_MS = 300;
 const MODAL_SCREEN_SELECTOR = '[data-testid="APP-Modal-Screen"]';
@@ -124,6 +137,28 @@ function ListSkeleton() {
         </ListItem>
       ))}
     </>
+  );
+}
+
+// A token's row, fading in when it is among the first the list draws
+function PickerRow({
+  fadesIn,
+  children,
+}: {
+  fadesIn: boolean;
+  children: ReactNode;
+}) {
+  // As it mounts, and kept: a view that gained an enterStyle later would be
+  // drawn again as a new view
+  const [entryFadesIn] = useState(fadesIn);
+  return (
+    <YStack
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
+      enterStyle={entryFadesIn ? ROW_FADE_IN : undefined}
+    >
+      {children}
+    </YStack>
   );
 }
 
@@ -180,6 +215,35 @@ function EarnPayWithTokenSelectPage() {
     },
     [setTokenSelectorFilter],
   );
+
+  // The rows, the costly part to draw, come a frame after the picker: its
+  // frame (title, search, placeholder rows) shows at once with the modal's
+  // fade and scale, and the rows fade in after it
+  const [isListShown, setIsListShown] = useState(!platformEnv.isRuntimeBrowser);
+  const rowsFadeInRef = useRef(false);
+  useEffect(() => {
+    if (isListShown) {
+      return undefined;
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        rowsFadeInRef.current = true;
+        timer = setTimeout(() => {
+          rowsFadeInRef.current = false;
+        }, ROWS_REVEAL_MS);
+        startTransition(() => {
+          setIsListShown(true);
+        });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+    // Once, as the picker opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [searchInput, setSearchInput] = useState('');
   const typedKeyword = searchInput.trim();
@@ -569,7 +633,7 @@ function EarnPayWithTokenSelectPage() {
         ),
       };
       return (
-        <>
+        <PickerRow fadesIn={rowsFadeInRef.current}>
           {searchTitle && index === 0 ? (
             <SizableText
               size={useDesktopTokenSelector ? '$bodyMdMedium' : '$bodyMd'}
@@ -645,7 +709,7 @@ function EarnPayWithTokenSelectPage() {
               </Stack>
             }
           />
-        </>
+        </PickerRow>
       );
     },
     [
@@ -743,10 +807,12 @@ function EarnPayWithTokenSelectPage() {
             showLpTokenFilterSwitch={showLpTokenFilterSwitch}
             showLpTokensOnly={showLpTokensOnly}
             onLpTokenFilterChange={handleLpTokenFilterChange}
-            tokens={displayTokens}
+            tokens={isListShown ? displayTokens : NO_TOKENS}
             renderToken={renderItem}
             currencySymbol={settingsPersist.currencyInfo.symbol}
-            tokenListEmptyComponent={tokenListEmptyComponent}
+            tokenListEmptyComponent={
+              isListShown ? tokenListEmptyComponent : <ListSkeleton />
+            }
           />
         ) : null}
         {!useDesktopTokenSelector ? (

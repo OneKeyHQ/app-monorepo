@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   IconButton,
@@ -11,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import {
   EARN_GUIDE_GREEN,
   GuideStepMark,
@@ -40,6 +42,7 @@ export function EarnGuideHeader({
   isCopy?: boolean;
 }) {
   const intl = useIntl();
+  const reduceMotion = useReducedMotion();
   const { state } = useEarnGuide();
   const tid = (id: string) => (isCopy ? undefined : id);
 
@@ -140,6 +143,9 @@ export function EarnGuideHeader({
                   borderRadius="$2"
                   borderCurve="continuous"
                   bg={isShown ? '$whiteA3' : undefined}
+                  // The shown step's light moves over as its body fades in
+                  transition={reduceMotion ? undefined : 'quick'}
+                  animateOnly={ANIMATE_ONLY_BG_COLOR}
                   cursor={canOpen && !isShown ? 'pointer' : undefined}
                   hoverStyle={
                     canOpen && !isShown ? { bg: '$whiteA2' } : undefined

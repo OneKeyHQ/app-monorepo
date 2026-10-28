@@ -35,12 +35,12 @@ import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
 import { StakingAmountResultLine } from '../../../components/StakingAmountResultLine';
+import { readConfirmWordId } from '../../../components/UniversalStake/earnConfirmWord';
 import {
   EarnFormRow,
   EarnFormSummary,
-  buildResultLinesKey,
-  readResultLines,
 } from '../../../components/UniversalStake/EarnFormSummary';
+import { readRewardTokens } from '../../../components/UniversalStake/useEarnRewardTokens';
 import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
 import { shouldBlockManagePageAction } from '../hooks/useManagePage.utils';
 
@@ -51,6 +51,7 @@ import { USDEManageContent } from './USDEManageContent';
 
 import type { IHeaderRightViewProps } from './HeaderRight';
 import type { IWithdrawSuccessInfo } from './WithdrawSection';
+import type { IEarnConfirmWordId } from '../../../components/UniversalStake/earnConfirmWord';
 
 export type IManagePositionSelectedProtocol = {
   networkId: string;
@@ -178,12 +179,16 @@ export const ManageSectionShell = ({
   hasPayWith,
   offerSwitch,
   liftsHeaderControls,
-  resultLinesKey,
+  rewardTokens,
+  confirmWordId,
 }: {
   type: EManagePositionType;
   symbol: string;
-  // The offer, so the result holds as many lines as its last figures had
-  resultLinesKey?: string;
+  // The tokens the offer's rewards come in, as last read: the result holds a
+  // line for each, as the form will
+  rewardTokens?: string[];
+  // The deposit button's word as the offer's form last showed it
+  confirmWordId?: IEarnConfirmWordId;
   defaultTab?: 'deposit' | 'withdraw';
   // As the loaded form: Pay with leaves out the "Not enough X?" row
   hasPayWith?: boolean;
@@ -250,9 +255,20 @@ export const ManageSectionShell = ({
     isEarnDepositForm || isPendleDepositForm
       ? EARN_DESKTOP_DEMO_COPY.payWith
       : activeLabel;
-  const confirmLabel = isPendleDepositForm
-    ? intl.formatMessage({ id: ETranslations.global_buy })
-    : activeLabel;
+  // A deposit says "Deposit" or "Continue" by whether it approves first,
+  // which only its form knows: the word it showed last time, or none (the
+  // word drawn transparent) until the form has it
+  const isStakeDeposit =
+    type === EManagePositionType.Staking &&
+    activeIndex === 0 &&
+    !isPendleProvider;
+  const holdsConfirmWord = isStakeDeposit && !confirmWordId;
+  let confirmLabel = activeLabel;
+  if (isPendleDepositForm) {
+    confirmLabel = intl.formatMessage({ id: ETranslations.global_buy });
+  } else if (isStakeDeposit && confirmWordId) {
+    confirmLabel = intl.formatMessage({ id: confirmWordId });
+  }
   const borrowAction = useMemo(() => {
     if (
       [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
@@ -453,7 +469,7 @@ export const ManageSectionShell = ({
               label: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
               values: [],
               isEarning: true,
-              reservedLines: readResultLines(resultLinesKey),
+              tokens: rewardTokens,
             }}
             rows={
               borrowAction
@@ -510,6 +526,7 @@ export const ManageSectionShell = ({
             variant="primary"
             disabled
             width="100%"
+            color={holdsConfirmWord ? '$transparent' : undefined}
           >
             {confirmLabel}
           </Button>
@@ -519,7 +536,10 @@ export const ManageSectionShell = ({
         <Page.Footer>
           <Page.FooterActions
             onConfirmText={confirmLabel}
-            confirmButtonProps={{ disabled: true }}
+            confirmButtonProps={{
+              disabled: true,
+              color: holdsConfirmWord ? '$transparent' : undefined,
+            }}
           />
           <PercentageStageOnKeyboard
             reserveSpaceUntilKeyboardShown={reserveKeyboardAccessorySpace}
@@ -1121,11 +1141,17 @@ export function ManagePositionContent({
         hasPayWith={Boolean(payWith)}
         offerSwitch={offerSwitch}
         liftsHeaderControls={Boolean(onHeaderRightChange)}
-        resultLinesKey={buildResultLinesKey({
+        rewardTokens={readRewardTokens({
           networkId,
-          provider,
-          vault,
+          providerName: provider,
           symbol,
+          vault,
+        })}
+        confirmWordId={readConfirmWordId({
+          networkId,
+          providerName: provider,
+          symbol,
+          vault,
         })}
       />
     );

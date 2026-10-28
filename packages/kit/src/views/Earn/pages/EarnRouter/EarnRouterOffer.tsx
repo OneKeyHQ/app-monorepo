@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Badge, SizableText } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -27,6 +28,7 @@ import {
 } from './earnFirstFrameCache';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
+import type { IntlShape } from 'react-intl';
 
 const EMPTY_OFFERS: IEarnDesktopHoldOffer[] = [];
 
@@ -99,14 +101,26 @@ export const getOfferLogo = (offer: IEarnDesktopHoldOffer) =>
     ? offer.offer.market.logoURI
     : offer.item.provider.logoURI;
 
-// A vault names itself; a fixed rate says when it matures
-export const getOfferSubtitle = (offer: IEarnDesktopHoldOffer) => {
+// A vault names itself; a fixed rate says how long is left, as the Earn
+// table's row does
+export const getOfferSubtitle = (
+  offer: IEarnDesktopHoldOffer,
+  intl: IntlShape,
+) => {
   if (offer.kind === 'lending') {
     return undefined;
   }
-  return offer.isFixedRate
-    ? offer.item.provider.maturity
-    : offer.item.provider.vaultName;
+  if (!offer.isFixedRate) {
+    return offer.item.provider.vaultName;
+  }
+  const { daysRemaining } = offer.item.provider;
+  const days = Number(daysRemaining ?? '');
+  return daysRemaining && Number.isFinite(days)
+    ? intl.formatMessage(
+        { id: ETranslations.earn_number_days_left },
+        { number: days },
+      )
+    : undefined;
 };
 
 // Where a deposit goes, in a line: the protocol, then its vault where it has
@@ -157,9 +171,21 @@ export function OfferBadges({ offer }: { offer: IEarnDesktopHoldOffer }) {
   );
 }
 
+// On light, the green a picked card's rate takes: dark enough for 4.5:1 on
+// the card's grey (4.57 there), where the theme's comes to 4.0
+const PICKED_SUCCESS_TEXT_LIGHT = '#1C764E';
+
 // The rate as the protocol switcher's row writes it: with its unit, and
 // struck through when the protocol no longer pays it
-function OfferSwitchRate({ offer }: { offer: IEarnDesktopHoldOffer }) {
+function OfferSwitchRate({
+  offer,
+  isOnPicked = false,
+}: {
+  offer: IEarnDesktopHoldOffer;
+  // On a picked card's lighter grey
+  isOnPicked?: boolean;
+}) {
+  const isLight = useThemeVariant() === 'light';
   if (offer.kind === 'lending') {
     return (
       <EarnAprSuffixText
@@ -184,21 +210,28 @@ function OfferSwitchRate({ offer }: { offer: IEarnDesktopHoldOffer }) {
     <EarnAprSuffixText
       text={display.text}
       size="$headingLg"
-      color={display.color}
+      color={
+        isOnPicked && isLight && display.color === '$textSuccess'
+          ? PICKED_SUCCESS_TEXT_LIGHT
+          : display.color
+      }
     />
   );
 }
 
 // An offer as the deposit modal's protocol rows show it: the switcher's row,
 // the offers it unfolds, and the better rate after a withdrawal
-export function buildOfferRowProps(offer: IEarnDesktopHoldOffer) {
+export function buildOfferRowProps(
+  offer: IEarnDesktopHoldOffer,
+  { intl, isOnPicked }: { intl: IntlShape; isOnPicked?: boolean },
+) {
   const tvl = getOfferTvl(offer);
   return {
     logoURI: getOfferLogo(offer),
     name: getOfferName(offer),
     nameAccessory: <OfferBadges offer={offer} />,
-    subtitle: getOfferSubtitle(offer),
-    aprElement: <OfferSwitchRate offer={offer} />,
+    subtitle: getOfferSubtitle(offer, intl),
+    aprElement: <OfferSwitchRate offer={offer} isOnPicked={isOnPicked} />,
     tvlText: tvl || undefined,
   };
 }

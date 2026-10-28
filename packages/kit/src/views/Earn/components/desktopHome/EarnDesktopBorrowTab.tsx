@@ -1,13 +1,20 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import type { CSSProperties } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Icon,
   IconButton,
   Popover,
-  ScrollView,
   SearchBar,
   Select,
   SizableText,
@@ -19,6 +26,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { ISelectItem } from '@onekeyhq/components';
+import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
 import { s } from '@onekeyhq/components/src/utils/scale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -26,6 +34,7 @@ import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { preloadModalNavigator } from '@onekeyhq/kit/src/routes/Modal/lazyModalNavigator';
+import { getTokenImagePrewarmSource } from '@onekeyhq/kit/src/utils/tokenImagePrewarm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
@@ -34,6 +43,7 @@ import { preloadEarnLoanRouter } from '../../../Staking/router';
 import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
 
+import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import {
   EARN_DESKTOP_LOAN_LTV,
   LOAN_SORT_BEST_FIRST,
@@ -43,6 +53,7 @@ import {
   sortLoanPairs,
 } from './earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
+import { EarnDesktopPillScroller } from './EarnDesktopPillScroller';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopSortLabel } from './EarnDesktopSortLabel';
 import { useStableItems } from './useContentStable';
@@ -89,6 +100,21 @@ const SEARCH_BAR_CONTAINER_PROPS = {
   borderColor: '$transparent' as const,
   overflow: 'hidden' as const,
 };
+// The network filter's trigger is a pill that takes a picked category's fill
+// while networks are picked. Its padding stays either way so the label holds
+// still, and its start pulls back so the label keeps the row's edge
+const NETWORK_TRIGGER_PROPS = {
+  px: '$3',
+  py: '$1.5',
+  ml: '$-3',
+  borderRadius: '$full',
+} as const;
+// Hovers ease their color over the app's quick fade; under reduced motion
+// the color changes at once
+const HOVER_MOTION = {
+  transition: 'quick',
+  animateOnly: ANIMATE_ONLY_BG_COLOR,
+} as const;
 
 type IAssetFilter = 'all' | 'wallet' | IEarnDesktopLoanAssetType;
 
@@ -141,6 +167,7 @@ function AssetFilter({
   onChange: (value: IAssetFilter) => void;
 }) {
   const getLabel = useAssetTypeLabel();
+  const reduceMotion = useReducedMotion();
   // Held here so Enter and Space open the list too; a click goes through the
   // Select's own trigger
   const [isOpen, setIsOpen] = useState(false);
@@ -176,6 +203,7 @@ function AssetFilter({
             userSelect="none"
             hoverStyle={isOn ? undefined : { bg: '$bgHover' }}
             pressStyle={{ bg: '$bgActive' }}
+            {...(reduceMotion ? undefined : HOVER_MOTION)}
             onPress={onPress}
             {...buildKeyboardPressProps(() => setIsOpen(true), 2)}
           >
@@ -203,17 +231,19 @@ function HeaderLabel({ children }: { children: string }) {
   );
 }
 
+// Pointed at, the (i) shows what Net APY means, under the header so the
+// search field above stays clear; a tap opens the same
 function NetApyInfo() {
   const intl = useIntl();
   const title = intl.formatMessage({ id: ETranslations.defi_net_apy });
   return (
     <Popover
+      hoverable
       placement="bottom-end"
       title={title}
       renderTrigger={
         <IconButton
           testID="earn-desktop-loans-net-apy-info"
-          title={title}
           aria-label={intl.formatMessage({ id: ETranslations.global_info })}
           icon="InfoCircleOutline"
           size="small"
@@ -322,6 +352,7 @@ function BasicPairRow({
   isWide: boolean;
   onOpenPair: (pair: IEarnDesktopLoanPair) => void;
 }) {
+  const reduceMotion = useReducedMotion();
   const [isHovered, setIsHovered] = useState(false);
   const { collateral, borrow, market } = pair;
   const onPress = () => onOpenPair(pair);
@@ -339,6 +370,7 @@ function BasicPairRow({
         warmLoanRouter();
       }}
       onHoverOut={() => setIsHovered(false)}
+      {...(reduceMotion ? undefined : HOVER_MOTION)}
       {...buildKeyboardPressProps(onPress)}
     >
       {isWide ? (
@@ -490,11 +522,14 @@ function MoreRows({ count, onPress }: { count: number; onPress: () => void }) {
 function BasicEarnDesktopBorrowTab({
   markets,
   isLoaded,
+  isActive,
   walletNetworkGroups,
   onOpenPair,
 }: {
   markets: IEarnDesktopMarketReserves[];
   isLoaded: boolean;
+  /** The tab is in view; it mounts hidden as it's pointed at */
+  isActive: boolean;
   walletNetworkGroups: IEarnDesktopWalletNetworkGroup[];
   // A row opens the Loans router on its pair, on the market it shows
   onOpenPair: (pair: IEarnDesktopLoanPair) => void;
@@ -634,6 +669,42 @@ function BasicEarnDesktopBorrowTab({
   const isLoading = !isLoaded && !pairs.length;
   const shown = rows.slice(0, shownCount);
   const moreCount = Math.min(PAGE_SIZE, rows.length - shown.length);
+
+  // Mounted hidden as it's pointed at, the tab reads its rows' logos first
+  // and builds the rows once they're in: a logo never shown waits for the
+  // page to scroll it into view, unless it was read ahead, and then paints in
+  // its first frame. Chosen before the logos are in, it shows the rows at
+  // once and builds them again as the logos land, early in its fade-in
+  const [areLogosWarm, setAreLogosWarm] = useState(false);
+  const shownLogosKey = Array.from(
+    new Set(
+      shown.flatMap((pair) => [
+        pair.collateral.logoURI,
+        pair.borrow.logoURI,
+        pair.market.logoURI,
+      ]),
+    ),
+  )
+    .filter(Boolean)
+    .join('\n');
+  useEffect(() => {
+    if (areLogosWarm || !shownLogosKey) {
+      return undefined;
+    }
+    let isCancelled = false;
+    void preloadImages(
+      shownLogosKey
+        .split('\n')
+        .map((uri) => getTokenImagePrewarmSource({ uri })),
+    ).finally(() => {
+      if (!isCancelled) {
+        setAreLogosWarm(true);
+      }
+    });
+    return () => {
+      isCancelled = true;
+    };
+  }, [areLogosWarm, shownLogosKey]);
   const collateralLabel = intl.formatMessage({
     id: ETranslations.defi_collateral,
   });
@@ -650,7 +721,7 @@ function BasicEarnDesktopBorrowTab({
   );
 
   let list = null;
-  if (isLoading) {
+  if (isLoading || (!isActive && !areLogosWarm)) {
     list = Array.from({ length: 6 }).map((_, index) => (
       <ListItem key={index} minHeight={ROW_HEIGHT} gap={ROW_GAP}>
         <XStack flex={1} ai="center" gap="$3">
@@ -661,14 +732,18 @@ function BasicEarnDesktopBorrowTab({
       </ListItem>
     ));
   } else {
-    list = shown.map((pair) => (
-      <PairRow
-        key={pair.key}
-        pair={pair}
-        isWide={isWide}
-        onOpenPair={onOpenPair}
-      />
-    ));
+    list = (
+      <Fragment key={areLogosWarm ? 'warm' : 'cold'}>
+        {shown.map((pair) => (
+          <PairRow
+            key={pair.key}
+            pair={pair}
+            isWide={isWide}
+            onOpenPair={onOpenPair}
+          />
+        ))}
+      </Fragment>
+    );
   }
 
   const assetFilters = (
@@ -704,25 +779,23 @@ function BasicEarnDesktopBorrowTab({
         ) : (
           // A phone's width scrolls the pills sideways, edge to edge, as the
           // Earn tab's categories do, instead of cutting the second one
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            mx="$-5"
-            w="100%"
-            flexGrow={1}
-            contentContainerStyle={{ px: '$5', gap: '$2' }}
-          >
+          <EarnDesktopPillScroller gap="$2">
             {assetFilters}
-          </ScrollView>
+          </EarnDesktopPillScroller>
         )}
         <XStack ai="center" gap="$3">
           <NetworkFilterControl
+            testID="earn-desktop-loans-network-filter"
             availableNetworkIds={availableNetworkIds}
             selectedNetworkIds={selectedNetworkIds}
             networkAssetCounts={networkPairCounts}
             onSelectionChange={(networkIds) => {
               setSelectedNetworkIds(networkIds);
               resetPage();
+            }}
+            triggerProps={{
+              ...NETWORK_TRIGGER_PROPS,
+              bg: selectedNetworkIds.length ? '$bgActive' : '$transparent',
             }}
           />
           <SearchBar

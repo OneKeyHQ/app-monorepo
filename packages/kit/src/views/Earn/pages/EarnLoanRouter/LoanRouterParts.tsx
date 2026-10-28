@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { Platform } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Icon,
@@ -15,13 +17,19 @@ import {
   claimEscapePress,
   useMedia,
 } from '@onekeyhq/components';
-import type { IColorTokens, IElement } from '@onekeyhq/components';
+import type {
+  IColorTokens,
+  IElement,
+  IScrollViewRef,
+} from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared';
+import { ANIMATE_ONLY_BG_COLOR } from '../../components/desktopHome/earnDesktopColorEase';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 
@@ -241,6 +249,34 @@ export function LoanTokenList({
       ? options.filter((option) => option.symbol.toUpperCase().includes(query))
       : options;
   }, [options, search]);
+  // The list opens on the token in the box, in the middle of the rows where
+  // there are rows above it to scroll past
+  const scrollRef = useRef<IScrollViewRef>(null);
+  const selectedRowRef = useRef<{ y: number; height: number } | undefined>(
+    undefined,
+  );
+  const viewHeightRef = useRef(0);
+  const hasScrolledRef = useRef(false);
+  const scrollToSelected = () => {
+    const row = selectedRowRef.current;
+    if (!row || !viewHeightRef.current) {
+      return;
+    }
+    hasScrolledRef.current = true;
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, row.y - (viewHeightRef.current - row.height) / 2),
+      animated: false,
+    });
+  };
+  useEffect(() => {
+    if (!isOpen) {
+      hasScrolledRef.current = false;
+      return;
+    }
+    // A sheet mounted while closed has its rows placed already
+    scrollToSelected();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
   return (
     <YStack ref={listRef} testID={testID} p="$2" gap="$1">
       {options.length > SEARCH_FROM ? (
@@ -265,7 +301,17 @@ export function LoanTokenList({
           />
         </Stack>
       ) : null}
-      <ScrollView maxHeight={listMaxHeight} contentContainerStyle={{ gap: 2 }}>
+      <ScrollView
+        ref={scrollRef}
+        maxHeight={listMaxHeight}
+        contentContainerStyle={{ gap: 2 }}
+        onLayout={(event) => {
+          viewHeightRef.current = event.nativeEvent.layout.height;
+          if (isOpen && !hasScrolledRef.current) {
+            scrollToSelected();
+          }
+        }}
+      >
         {shown.length ? null : (
           <SizableText
             testID={`${testID}-empty`}
@@ -303,6 +349,16 @@ export function LoanTokenList({
               cursor="pointer"
               userSelect="none"
               onPress={select}
+              onLayout={
+                isSelected
+                  ? (event) => {
+                      selectedRowRef.current = event.nativeEvent.layout;
+                      if (isOpen && !hasScrolledRef.current) {
+                        scrollToSelected();
+                      }
+                    }
+                  : undefined
+              }
               {...buildKeyboardPressProps(select, 2)}
             >
               <Token size="sm" tokenImageUri={option.logoURI} />
@@ -335,8 +391,81 @@ export type ILoanRouteItem = {
 // Under the market's name, past its logo
 const FIGURES_INDENT = '$12';
 const CHECK_SIZE = '$6';
-// A card with its figures, for the skeletons while the markets load
-export const LOAN_ROUTE_CARD_HEIGHT = 112;
+// The line under the figures that says why a market can't take the loan,
+// and the card's gap above it
+const REASON_LINE_HEIGHT = 16;
+const CARD_GAP = 12;
+const FADE_IN = { opacity: 0 } as const;
+// Cards that change places slide there, on the app's smooth curve
+const SLIDE_MS = 220;
+const SLIDE_EASING = 'cubic-bezier(0.2, 0, 0, 1)';
+const REASON_LINE_TRANSITION = ['smooth', { duration: 200 }] as [
+  'smooth',
+  { duration: number },
+];
+// The web driver writes animateOnly keys into the CSS transition as they
+// are, where only the hyphenated name works; native takes the style key
+const ANIMATE_ONLY_HEIGHT_MARGIN = Platform.select({
+  web: ['height', 'margin-top'],
+  default: ['height', 'marginTop'],
+});
+const ANIMATE_ONLY_BG_OPACITY = [...ANIMATE_ONLY_BG_COLOR, 'opacity'];
+
+type ICardPlace = { top: number; color: string };
+
+// Where each card shows in their list (the cards' parent), a slide under way
+// included, and the color it shows
+const readCardPlaces = (nodes: Map<string, HTMLElement>) => {
+  const places = new Map<string, ICardPlace>();
+  const list = [...nodes.values()][0]?.parentElement;
+  if (!list) {
+    return places;
+  }
+  const listTop = list.getBoundingClientRect().top;
+  nodes.forEach((node, key) => {
+    places.set(key, {
+      top: node.getBoundingClientRect().top - listTop,
+      color: getComputedStyle(node).backgroundColor,
+    });
+  });
+  return places;
+};
+
+const colorChannels = (color: string) =>
+  (color.match(/[\d.]+/g) ?? []).map(Number);
+
+// The picked card's color is see-through, and a card rising passes over the
+// others: it slides in its colors laid over what is under the list, from
+// the one it showed to the one it ends on, in place of its own ease
+function solidSlideColors(
+  node: HTMLElement,
+  shownColor: string,
+): [string, string] | undefined {
+  let under = node.parentElement;
+  while (
+    under &&
+    (colorChannels(getComputedStyle(under).backgroundColor)[3] ?? 1) < 1
+  ) {
+    under = under.parentElement;
+  }
+  if (!under) {
+    return undefined;
+  }
+  const [underR, underG, underB] = colorChannels(
+    getComputedStyle(under).backgroundColor,
+  );
+  const solid = (color: string) => {
+    const [r, g, b, alpha = 1] = colorChannels(color);
+    const mix = (top: number, bottom: number) =>
+      Math.round(top * alpha + bottom * (1 - alpha));
+    return `rgb(${mix(r, underR)}, ${mix(g, underG)}, ${mix(b, underB)})`;
+  };
+  const { transition } = node.style;
+  node.style.transition = 'none';
+  const endColor = getComputedStyle(node).backgroundColor;
+  node.style.transition = transition;
+  return [solid(shownColor), solid(endColor)];
+}
 
 const netApyColor = (value?: number): IColorTokens | undefined =>
   isLoanLoss(value) ? '$textCritical' : undefined;
@@ -426,24 +555,127 @@ function RouteFigure({
   );
 }
 
+// Why the market can't take the loan, under its figures, the market's
+// liquidity among the reasons. Until every market's figures are in, a
+// line's room is kept, so a card that turns out not to take the loan doesn't
+// grow; the room of one that can closes, and a reason that comes later (an
+// amount past its liquidity) opens
+function RouteReasonLine({
+  text,
+  isReserved,
+  testID,
+}: {
+  text?: string;
+  isReserved: boolean;
+  testID: string;
+}) {
+  const toneText = useLoanToneColors().text;
+  const reduceMotion = useReducedMotion();
+  const [textHeight, setTextHeight] = useState(REASON_LINE_HEIGHT);
+  let height = 0;
+  if (text) {
+    height = textHeight;
+  } else if (isReserved) {
+    height = REASON_LINE_HEIGHT;
+  }
+  return (
+    <YStack
+      height={height}
+      // Without a line, the card's gap above it goes too
+      mt={height ? 0 : -CARD_GAP}
+      overflow="hidden"
+      transition={reduceMotion ? undefined : REASON_LINE_TRANSITION}
+      animateOnly={ANIMATE_ONLY_HEIGHT_MARGIN}
+    >
+      {text ? (
+        <YStack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          onLayout={(event) =>
+            setTextHeight(Math.ceil(event.nativeEvent.layout.height))
+          }
+        >
+          <SizableText
+            size="$bodySm"
+            style={{ color: toneText.caution }}
+            pl={FIGURES_INDENT}
+            testID={testID}
+            transition={reduceMotion ? undefined : 'quick'}
+            animateOnly={ANIMATE_ONLY_OPACITY}
+            enterStyle={reduceMotion ? undefined : FADE_IN}
+          >
+            {text}
+          </SizableText>
+        </YStack>
+      ) : null}
+    </YStack>
+  );
+}
+
+// A card as it shows while the markets load: the logo, name and network,
+// the result, the three figures and the reason line's room, so the cards
+// that come take the place it held
+function RouteRowSkeleton() {
+  return (
+    <YStack
+      gap="$3"
+      px="$4"
+      py="$3.5"
+      bg="$bgSubdued"
+      borderRadius="$3"
+      borderCurve="continuous"
+      aria-hidden
+    >
+      <XStack ai="center" gap="$3">
+        <XStack ai="center" gap="$3" flex={1} minWidth={0}>
+          <Skeleton w="$9" h="$9" borderRadius="$2" />
+          <YStack gap="$0.5">
+            <Skeleton.BodyLg w={96} />
+            <Skeleton.BodySm w={56} />
+          </YStack>
+        </XStack>
+        <YStack ai="flex-end" gap="$0.5">
+          <Skeleton.BodyLg w={56} />
+          <Skeleton.BodySm w={48} />
+        </YStack>
+        <Stack w={CHECK_SIZE} h={CHECK_SIZE} flexShrink={0} />
+      </XStack>
+      <XStack pl={FIGURES_INDENT} pr="$9" gap="$3">
+        {[0, 1, 2].map((index) => (
+          <YStack key={index} flex={1} minWidth={0} gap="$0.5">
+            <Skeleton.BodySm w={56} />
+            <Skeleton.BodyMd w={48} />
+          </YStack>
+        ))}
+      </XStack>
+      <Stack h={REASON_LINE_HEIGHT} />
+    </YStack>
+  );
+}
+
 function RouteRow({
   item,
   isSelected,
   isSettled,
   currency,
   onSelect,
+  nodeRef,
 }: {
   item: ILoanRouteItem;
   isSelected: boolean;
   isSettled: boolean;
   currency: string;
   onSelect: (key: string) => void;
+  // The card's element on web, for the list to slide it to a new place
+  nodeRef: (node: unknown) => void;
 }) {
   const intl = useIntl();
+  const reduceMotion = useReducedMotion();
   const { route, metrics } = item;
   const { block } = metrics;
   const isBlocked = Boolean(block);
-  const toneText = useLoanToneColors().text;
   const select = () => onSelect(route.key);
   // Until every market's figures are in, nothing can be picked: one that
   // looks open may turn out not to lend the token
@@ -465,6 +697,7 @@ function RouteRow({
   const yearly = metrics.netApy === undefined ? metrics.annualNet : undefined;
   return (
     <YStack
+      ref={nodeRef}
       testID={`earn-loan-route-${route.key}`}
       gap="$3"
       px="$4"
@@ -479,6 +712,11 @@ function RouteRow({
       borderRadius="$3"
       borderCurve="continuous"
       userSelect="none"
+      // Its color eases as it is hovered and picked; a card that comes in
+      // (the markets for another token) fades in
+      transition={reduceMotion ? undefined : 'quick'}
+      animateOnly={ANIMATE_ONLY_BG_OPACITY}
+      enterStyle={reduceMotion ? undefined : FADE_IN}
       {...pressProps}
     >
       <XStack ai="center" gap="$3">
@@ -530,18 +768,11 @@ function RouteRow({
           isLoading={!item.facts}
         />
       </XStack>
-      {/* Why the market can't take the loan, the market's liquidity among
-          the reasons */}
-      {block ? (
-        <SizableText
-          size="$bodySm"
-          style={{ color: toneText.caution }}
-          pl={FIGURES_INDENT}
-          testID={`earn-loan-route-block-${route.key}`}
-        >
-          {getLoanBlockText({ block, route, currency })}
-        </SizableText>
-      ) : null}
+      <RouteReasonLine
+        text={block ? getLoanBlockText({ block, route, currency }) : undefined}
+        isReserved={!isSettled}
+        testID={`earn-loan-route-block-${route.key}`}
+      />
     </YStack>
   );
 }
@@ -570,16 +801,78 @@ export function LoanRouteList({
   onSelect: (key: string) => void;
 }) {
   const intl = useIntl();
+  const reduceMotion = useReducedMotion();
+  // Cards that change places (the figures in, a drag let go, a market
+  // picked) slide from where they showed to their new places. Where they
+  // showed is read before the new order is drawn
+  const nodesRef = useRef(new Map<string, HTMLElement>());
+  const nodeRefs = useRef(new Map<string, (node: unknown) => void>());
+  const slidesRef = useRef(new WeakMap<HTMLElement, Animation>());
+  const orderKey = items.map((item) => item.route.key).join('|');
+  const drawnOrderRef = useRef(orderKey);
+  const shownPlacesRef = useRef<Map<string, ICardPlace> | undefined>(undefined);
+  if (orderKey === drawnOrderRef.current) {
+    shownPlacesRef.current = undefined;
+  } else if (
+    platformEnv.isRuntimeBrowser &&
+    nodesRef.current.size &&
+    !shownPlacesRef.current
+  ) {
+    shownPlacesRef.current = readCardPlaces(nodesRef.current);
+  }
+  useLayoutEffect(() => {
+    const shownPlaces = shownPlacesRef.current;
+    shownPlacesRef.current = undefined;
+    drawnOrderRef.current = orderKey;
+    if (!shownPlaces || reduceMotion) {
+      return;
+    }
+    nodesRef.current.forEach((node) => slidesRef.current.get(node)?.cancel());
+    const places = readCardPlaces(nodesRef.current);
+    places.forEach(({ top }, key) => {
+      const node = nodesRef.current.get(key);
+      const shown = shownPlaces.get(key);
+      if (!node || !shown || Math.abs(shown.top - top) < 1) {
+        return;
+      }
+      const from = { transform: `translateY(${shown.top - top}px)` };
+      const to = { transform: 'translateY(0px)' };
+      // A card moving up passes over the ones it overtakes
+      const colors =
+        shown.top > top ? solidSlideColors(node, shown.color) : undefined;
+      slidesRef.current.set(
+        node,
+        node.animate(
+          colors
+            ? [
+                { ...from, zIndex: 1, backgroundColor: colors[0] },
+                { ...to, zIndex: 1, backgroundColor: colors[1] },
+              ]
+            : [from, to],
+          { duration: SLIDE_MS, easing: SLIDE_EASING },
+        ),
+      );
+    });
+  }, [orderKey, reduceMotion]);
+  const getNodeRef = (key: string) => {
+    let ref = nodeRefs.current.get(key);
+    if (!ref) {
+      ref = (node: unknown) => {
+        if (typeof HTMLElement !== 'undefined' && node instanceof HTMLElement) {
+          nodesRef.current.set(key, node);
+        } else {
+          nodesRef.current.delete(key);
+        }
+      };
+      nodeRefs.current.set(key, ref);
+    }
+    return ref;
+  };
   if (isLoading && !items.length) {
     return (
       <YStack gap="$2">
         {[0, 1, 2].map((index) => (
-          <Skeleton
-            key={index}
-            h={LOAN_ROUTE_CARD_HEIGHT}
-            w="100%"
-            borderRadius="$3"
-          />
+          <RouteRowSkeleton key={index} />
         ))}
       </YStack>
     );
@@ -614,6 +907,7 @@ export function LoanRouteList({
           isSettled={isSettled}
           currency={currency}
           onSelect={onSelect}
+          nodeRef={getNodeRef(item.route.key)}
         />
       ))}
     </YStack>

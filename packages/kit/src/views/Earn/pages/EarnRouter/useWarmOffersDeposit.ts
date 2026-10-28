@@ -10,6 +10,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 
+import { warmRewardTokens } from '../../../Staking/components/UniversalStake/useEarnRewardTokens';
 import {
   EManagePositionType,
   warmManagePageData,
@@ -107,6 +108,16 @@ export function warmFormData(params: IWarmFormParams) {
           amount: '0',
         }),
     ).catch(() => undefined);
+  }
+  // The tokens a vault's rewards come in, so its result holds a line for
+  // each from the first frame
+  if (
+    (!type || type === EManagePositionType.Staking) &&
+    !earnUtils.isPendleProvider({ providerName })
+  ) {
+    warmRewardTokens({ networkId, providerName, symbol, vault }).catch(
+      () => undefined,
+    );
   }
   void warmManagePageData({
     ...params,

@@ -59,8 +59,8 @@ export function ledgerTimeOf(item: IEarnRewardsPortfolioItem) {
 /**
  * The wide layout's header strip over a group's ledger rewards, in the
  * holdings tables' columns: the amount, the payout date the stage is
- * about (labelled only when a reward has one), the value and, once paid,
- * the transaction.
+ * about (or, when no reward has one, the Position column the other groups
+ * have), the value and, once paid, the transaction.
  */
 export function LedgerRewardTableHeader({
   stage,
@@ -86,11 +86,11 @@ export function LedgerRewardTableHeader({
         </SizableText>
       </Stack>
       <Stack flex={BALANCE_FLEX_WITHOUT_REWARDS} flexBasis={0} minWidth={0}>
-        {hasTime ? (
-          <SizableText size="$bodySmMedium" color="$textSubdued">
-            {intl.formatMessage({ id: timeLabelIdOf(stage) })}
-          </SizableText>
-        ) : null}
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          {intl.formatMessage({
+            id: hasTime ? timeLabelIdOf(stage) : ETranslations.label_position,
+          })}
+        </SizableText>
       </Stack>
       <Stack
         flex={USD_FLEX_WITHOUT_REWARDS}
@@ -148,11 +148,16 @@ function LedgerRewardTableRow({
         />
       </XStack>
       <Stack flex={BALANCE_FLEX_WITHOUT_REWARDS} flexBasis={0} minWidth={0}>
+        {/* The ledger names no position: "–" holds the column */}
         {time ? (
           <SizableText size="$bodyMd" numberOfLines={1}>
             {formatDate(new Date(time), { hideTimeForever: true })}
           </SizableText>
-        ) : null}
+        ) : (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            –
+          </SizableText>
+        )}
       </Stack>
       <Stack
         flex={USD_FLEX_WITHOUT_REWARDS}

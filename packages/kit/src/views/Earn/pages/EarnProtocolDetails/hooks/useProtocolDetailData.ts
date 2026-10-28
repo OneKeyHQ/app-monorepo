@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { keepRewardTokens } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/useEarnRewardTokens';
 import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
 import {
   buildEarnProtocolInfo,
@@ -153,6 +154,17 @@ export function useProtocolDetailData({
       void run();
     }
   }, [derivedAddress, run]);
+
+  // The form beside it holds a line for each token the rewards come in, from
+  // this read: kept as it lands, before the form draws with it
+  useMemo(
+    () =>
+      keepRewardTokens(
+        { networkId, providerName: provider, symbol, vault },
+        detailInfo,
+      ),
+    [detailInfo, networkId, provider, symbol, vault],
+  );
 
   // Shared with the positions card's Redeem, which reads the detail itself
   // to open the order picker.

@@ -1,10 +1,20 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import { Icon, SizableText, Theme, XStack, YStack } from '@onekeyhq/components';
-import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import {
+  AnimatePresence,
+  Icon,
+  SizableText,
+  Theme,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
@@ -26,6 +36,9 @@ const EARN_GUIDE_PILL_HEIGHT = 30;
 
 export type IEarnGuideStepStatus = 'done' | 'current' | 'upcoming';
 
+// A step's mark or action, faded out
+const HIDDEN_STYLE = { opacity: 0 } as const;
+
 export const getGuideStepStatus = (
   state: IEarnGuideState,
   step: IEarnGuideStep,
@@ -36,8 +49,7 @@ export const getGuideStepStatus = (
   return state.done[step - 1] ? 'done' : 'upcoming';
 };
 
-/** A step's number in a circle; a done step's check takes its place */
-export function GuideStepMark({
+function GuideStepMarkFace({
   step,
   status,
 }: {
@@ -77,6 +89,83 @@ export function GuideStepMark({
         {step}
       </SizableText>
     </YStack>
+  );
+}
+
+/**
+ * A step's number in a circle; a done step's check takes its place. As the
+ * step moves on, the new mark fades in over the old one as it fades out
+ */
+export function GuideStepMark({
+  step,
+  status,
+}: {
+  step: IEarnGuideStep;
+  status: IEarnGuideStepStatus;
+}) {
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion) {
+    return <GuideStepMarkFace step={step} status={status} />;
+  }
+  return (
+    <YStack w="$5" h="$5">
+      <AnimatePresence initial={false}>
+        <YStack
+          key={status}
+          position="absolute"
+          t={0}
+          l={0}
+          transition="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
+          enterStyle={HIDDEN_STYLE}
+          exitStyle={HIDDEN_STYLE}
+        >
+          <GuideStepMarkFace step={step} status={status} />
+        </YStack>
+      </AnimatePresence>
+    </YStack>
+  );
+}
+
+// The card's action as the step moves on: the old words fade out, the pill
+// takes the new ones' width while it holds none, and they fade in
+const ACTION_OUT_MS = 75;
+const ACTION_IN_MS = 125;
+
+function GuideActionLabel({ action }: { action: string }) {
+  const reduceMotion = useReducedMotion();
+  const [shownAction, setShownAction] = useState(action);
+  const isLeaving = action !== shownAction;
+  useEffect(() => {
+    if (!isLeaving) {
+      return undefined;
+    }
+    const timer = setTimeout(
+      () => setShownAction(action),
+      reduceMotion ? 0 : ACTION_OUT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [action, isLeaving, reduceMotion]);
+  if (reduceMotion) {
+    return (
+      <SizableText size="$bodyMdMedium" color="$textInverse" numberOfLines={1}>
+        {action}
+      </SizableText>
+    );
+  }
+  return (
+    <XStack
+      opacity={isLeaving ? 0 : 1}
+      transition={[
+        'quick',
+        { duration: isLeaving ? ACTION_OUT_MS : ACTION_IN_MS },
+      ]}
+      animateOnly={ANIMATE_ONLY_OPACITY}
+    >
+      <SizableText size="$bodyMdMedium" color="$textInverse" numberOfLines={1}>
+        {shownAction}
+      </SizableText>
+    </XStack>
   );
 }
 
@@ -153,13 +242,7 @@ export function GuideCardSteps({ state }: { state: IEarnGuideState }) {
         $md={{ h: '$10' }}
         aria-hidden
       >
-        <SizableText
-          size="$bodyMdMedium"
-          color="$textInverse"
-          numberOfLines={1}
-        >
-          {action}
-        </SizableText>
+        <GuideActionLabel action={action} />
       </XStack>
     </XStack>
   );

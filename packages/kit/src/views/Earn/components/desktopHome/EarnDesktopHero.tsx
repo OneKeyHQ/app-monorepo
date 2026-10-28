@@ -1,8 +1,16 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useEffect, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Icon,
@@ -14,7 +22,9 @@ import {
   YStack,
   getFontSize,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_HEIGHT } from '@onekeyhq/components/src/utils/animationConstants';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   settingsValuePersistAtom,
@@ -28,6 +38,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EarnTestIDs } from '../../testIDs';
 import { getNumberColor } from '../../utils/getNumberColor';
 
+import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import {
@@ -35,6 +46,8 @@ import {
   ProtocolSplitSkeleton,
   SkeletonLine,
 } from './EarnDesktopProtocolSplit';
+import { EarnDesktopRewardPillsSkeleton } from './EarnDesktopRewardPills';
+import { warmEarnPositions } from './earnDesktopWarm';
 
 import type { IEarnDesktopShares } from './earnDesktopHome.utils';
 
@@ -64,6 +77,23 @@ const MIN_TICK_MS = 1000;
 const MAX_TICK_MS = 60_000;
 // How far a hidden amount's asterisks drop, as a share of their size
 const ASTERISK_DROP = 0.16;
+// A small tertiary icon button sits 5 px out of its place (its negative
+// margin), so its hover circle met the words before it. This much after the
+// words gives the circle the row's gap
+const TEXT_BEFORE_ICON_SPACE = 5;
+// The hero's gap between its rows ($6). The rewards row takes the one above
+// it into its own height, so the two ease in and out as one
+const HERO_GAP = 24;
+const REWARDS_EASE_MS = 250;
+const REWARDS_EASE = ['smooth', { duration: REWARDS_EASE_MS }] as [
+  'smooth',
+  { duration: number },
+];
+// Past the ease and its last layout report
+const REWARDS_SETTLE_MS = REWARDS_EASE_MS + 100;
+// Whether an account had rewards to claim when its hero last loaded: while
+// it loads again, their row keeps its place unless they are known to be none
+const hadRewardsByAccount = new Map<string, boolean>();
 
 // The total keeps moving between refreshes at the estimated daily change's
 // per-second rate. It shows cents only, so it re-renders about when the next
@@ -151,6 +181,83 @@ function TotalValue({
   );
 }
 
+/**
+ * The rewards row's place under the totals. While the hero loads it keeps the
+ * row's room with placeholder pills, as the rest of the hero does, unless the
+ * account is known to have none; then it eases to the row's own height (none
+ * when there is nothing to claim) instead of moving the page at once
+ */
+function RewardsRow({
+  isLoading,
+  isReserved,
+  onHasRow,
+  onEase,
+  children,
+}: {
+  isLoading: boolean;
+  isReserved: boolean;
+  /** Known once loaded: whether there is a row */
+  onHasRow: (hasRow: boolean) => void;
+  /** The height the hero is about to gain or lose as the row eases */
+  onEase: (delta: number) => void;
+  children: ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+  const contentRef = useRef<unknown>(null);
+  // The row's own height, measured; until then the box takes its content's
+  const [rowHeight, setRowHeight] = useState<number>();
+  let content: ReactNode = children;
+  if (isLoading) {
+    content = isReserved ? <EarnDesktopRewardPillsSkeleton /> : null;
+  }
+  // Read before the change paints, so the box never shows a height its
+  // content no longer has
+  useLayoutEffect(() => {
+    const element = contentRef.current as HTMLElement | null;
+    const rect = element?.getBoundingClientRect?.();
+    if (rect) {
+      setRowHeight(Math.round(rect.height));
+    }
+  }, [children, isLoading, isReserved]);
+  const height = rowHeight ? HERO_GAP + rowHeight : 0;
+  const heightRef = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (rowHeight === undefined) {
+      return;
+    }
+    const previous = heightRef.current;
+    heightRef.current = height;
+    if (previous !== undefined && previous !== height && !reduceMotion) {
+      onEase(height - previous);
+    }
+  }, [height, onEase, reduceMotion, rowHeight]);
+  useEffect(() => {
+    if (!isLoading && rowHeight !== undefined) {
+      onHasRow(rowHeight > 0);
+    }
+  }, [isLoading, onHasRow, rowHeight]);
+  return (
+    <YStack
+      mt={-HERO_GAP}
+      h={rowHeight === undefined ? undefined : height}
+      overflow="hidden"
+      transition={reduceMotion ? undefined : REWARDS_EASE}
+      animateOnly={ANIMATE_ONLY_HEIGHT}
+    >
+      <YStack pt={HERO_GAP}>
+        <YStack
+          ref={contentRef as never}
+          onLayout={(event) =>
+            setRowHeight(Math.round(event.nativeEvent.layout.height))
+          }
+        >
+          {content}
+        </YStack>
+      </YStack>
+    </YStack>
+  );
+}
+
 function BasicEarnDesktopHero({
   totalFiatValue,
   earnings24h,
@@ -232,6 +339,40 @@ function BasicEarnDesktopHero({
     : intl.formatMessage({
         id: ETranslations.defi_net_worth,
       });
+  const reduceMotion = useReducedMotion();
+
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const accountKey =
+    activeAccount.indexedAccount?.id || activeAccount.account?.id || '';
+  const handleHasRewards = useCallback(
+    (hasRow: boolean) => hadRewardsByAccount.set(accountKey, hasRow),
+    [accountKey],
+  );
+  // While the rewards row eases, the banner beside keeps one height:
+  // following every frame would lay its carousel out again at each one. A
+  // row closing gives the banner its new height at once, as the hero shrinks
+  // to it; one opening gives it once the hero has grown, since a banner
+  // taller than the hero would push the page down ahead of the ease
+  const heroHeightRef = useRef(0);
+  const easeUntilRef = useRef(0);
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(settleTimerRef.current), []);
+  const handleRewardsEase = useCallback(
+    (delta: number) => {
+      easeUntilRef.current = Date.now() + REWARDS_SETTLE_MS;
+      if (delta < 0) {
+        onHeightChange?.(heroHeightRef.current + delta);
+      }
+      clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = setTimeout(
+        () => onHeightChange?.(heroHeightRef.current),
+        REWARDS_SETTLE_MS,
+      );
+    },
+    [onHeightChange],
+  );
 
   // The size comes from an unseen copy of the total at 64px: the text scales
   // with its size, so the largest size that fits is known in one step, with
@@ -275,7 +416,11 @@ function BasicEarnDesktopHero({
         >
           {earnings24h}
         </NumberSizeableTextWrapper>
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          mr={TEXT_BEFORE_ICON_SPACE}
+        >
           {intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
         </SizableText>
         <Popover
@@ -288,6 +433,8 @@ function BasicEarnDesktopHero({
               variant="tertiary"
               size="small"
               icon="InfoCircleOutline"
+              transition={reduceMotion ? undefined : 'quick'}
+              animateOnly={ANIMATE_ONLY_BG_COLOR}
             />
           }
           title={intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
@@ -328,7 +475,11 @@ function BasicEarnDesktopHero({
             {String(yearly)}
           </NumberSizeableTextWrapper>
         </XStack>
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          mr={TEXT_BEFORE_ICON_SPACE}
+        >
           {EARN_DESKTOP_DEMO_COPY.aYear}
         </SizableText>
         <Popover
@@ -341,6 +492,8 @@ function BasicEarnDesktopHero({
               variant="tertiary"
               size="small"
               icon="InfoCircleOutline"
+              transition={reduceMotion ? undefined : 'quick'}
+              animateOnly={ANIMATE_ONLY_BG_COLOR}
             />
           }
           title={EARN_DESKTOP_DEMO_COPY.readyToEarn}
@@ -375,7 +528,10 @@ function BasicEarnDesktopHero({
       onLayout={(event) => {
         const { height, width } = event.nativeEvent.layout;
         setHeroWidth(Math.round(width));
-        onHeightChange?.(Math.round(height));
+        heroHeightRef.current = Math.round(height);
+        if (Date.now() >= easeUntilRef.current) {
+          onHeightChange?.(heroHeightRef.current);
+        }
       }}
     >
       {/* Unseen, at full size, so the total's size is picked before it shows */}
@@ -403,7 +559,11 @@ function BasicEarnDesktopHero({
         {/* The eye hides and shows values the way pressing the wallet home
             balance does */}
         <XStack ai="center" gap="$1">
-          <SizableText size="$bodyLgMedium" color="$textSubdued">
+          <SizableText
+            size="$bodyLgMedium"
+            color="$textSubdued"
+            mr={TEXT_BEFORE_ICON_SPACE}
+          >
             {label}
           </SizableText>
           <YStack my="$-1">
@@ -419,6 +579,8 @@ function BasicEarnDesktopHero({
               variant="tertiary"
               size="small"
               icon={isHidden ? 'EyeOffOutline' : 'EyeOutline'}
+              transition={reduceMotion ? undefined : 'quick'}
+              animateOnly={ANIMATE_ONLY_BG_COLOR}
               onPress={handleToggleHideValue}
             />
           </YStack>
@@ -466,7 +628,11 @@ function BasicEarnDesktopHero({
                 userSelect="none"
                 hoverStyle={{ bg: '$bgHover' }}
                 pressStyle={{ bg: '$bgActive' }}
+                transition={reduceMotion ? undefined : 'quick'}
+                animateOnly={ANIMATE_ONLY_BG_COLOR}
                 onPress={onOpenPortfolio}
+                onHoverIn={warmEarnPositions}
+                onFocus={warmEarnPositions}
                 {...buildKeyboardPressProps(onOpenPortfolio)}
               >
                 {/* Every size keeps the 48px line, so nothing below moves */}
@@ -501,6 +667,8 @@ function BasicEarnDesktopHero({
                 icon="RefreshCcwOutline"
                 variant="tertiary"
                 loading={isRefreshing}
+                transition={reduceMotion ? undefined : 'quick'}
+                animateOnly={ANIMATE_ONLY_BG_COLOR}
                 onPress={onRefresh}
               />
             ) : null}
@@ -508,7 +676,14 @@ function BasicEarnDesktopHero({
         )}
         {earningsRow}
       </YStack>
-      {isLoading || isReadyToEarn ? null : rewards}
+      <RewardsRow
+        isLoading={isLoading}
+        isReserved={hadRewardsByAccount.get(accountKey) !== false}
+        onHasRow={handleHasRewards}
+        onEase={handleRewardsEase}
+      >
+        {isReadyToEarn ? null : rewards}
+      </RewardsRow>
       {split}
     </YStack>
   );

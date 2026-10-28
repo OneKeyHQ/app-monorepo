@@ -10,6 +10,7 @@ import { DeFiOverviewMoreTile } from './DeFiOverviewMoreTile';
 import { DeFiOverviewTile } from './DeFiOverviewTile';
 
 import type { IDeFiOverviewRenderCell } from './DeFiOverviewPlanner';
+import type { IDeFiOverviewTileSurface } from './DeFiOverviewTile';
 import type { IOverviewCols } from './overviewColsResolver';
 
 const SPAN_1: React.CSSProperties = { gridColumnEnd: 'span 1' };
@@ -23,6 +24,8 @@ export type IDeFiOverviewDesktopGridProps = {
   onPressMore: () => void;
   onPressLess: () => void;
   isAllNetworks?: boolean;
+  /** see IDeFiOverviewTileSurface; the wallet's look without it */
+  tileSurface?: IDeFiOverviewTileSurface;
 };
 
 function DeFiOverviewDesktopGrid({
@@ -33,6 +36,7 @@ function DeFiOverviewDesktopGrid({
   onPressMore,
   onPressLess,
   isAllNetworks,
+  tileSurface,
 }: IDeFiOverviewDesktopGridProps) {
   return (
     <XStack
@@ -54,6 +58,7 @@ function DeFiOverviewDesktopGrid({
               netWorth={cell.netWorth}
               onPress={() => onPressProtocol(cell.protocol)}
               isAllNetworks={isAllNetworks}
+              surface={tileSurface}
             />
           ) : null}
           {cell.kind === 'more' ? (
@@ -62,10 +67,11 @@ function DeFiOverviewDesktopGrid({
               protocolMap={protocolMap}
               extraCount={cell.extraCount}
               onPress={onPressMore}
+              surface={tileSurface}
             />
           ) : null}
           {cell.kind === 'less' ? (
-            <DeFiOverviewLessTile onPress={onPressLess} />
+            <DeFiOverviewLessTile onPress={onPressLess} surface={tileSurface} />
           ) : null}
         </XStack>
       ))}

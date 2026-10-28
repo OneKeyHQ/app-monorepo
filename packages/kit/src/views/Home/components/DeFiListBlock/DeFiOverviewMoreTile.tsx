@@ -9,11 +9,16 @@ import type {
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
+import { useOverviewTileSurfaceProps } from './DeFiOverviewTile';
+
+import type { IDeFiOverviewTileSurface } from './DeFiOverviewTile';
+
 export type IDeFiOverviewMoreTileProps = {
   extraProtocols: IDeFiProtocol[];
   protocolMap: Record<string, IProtocolSummary>;
   extraCount: number;
   onPress: () => void;
+  surface?: IDeFiOverviewTileSurface;
 };
 
 function DeFiOverviewMoreTile({
@@ -21,8 +26,10 @@ function DeFiOverviewMoreTile({
   protocolMap,
   extraCount,
   onPress,
+  surface,
 }: IDeFiOverviewMoreTileProps) {
   const intl = useIntl();
+  const surfaceProps = useOverviewTileSurfaceProps(surface, onPress);
 
   const moreLabel = intl.formatMessage({ id: ETranslations.global_more });
   const protocolWord = intl.formatMessage({
@@ -54,11 +61,12 @@ function DeFiOverviewMoreTile({
         outlineStyle: 'solid',
         outlineWidth: 2,
       }}
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
+      hoverStyle={{ bg: surface?.hover ?? '$bgHover' }}
+      pressStyle={{ bg: surface?.press ?? '$bgActive' }}
       onPress={onPress}
       role="button"
       aria-label={`${viewMoreLabel} (+${extraCount})`}
+      {...surfaceProps}
     >
       <XStack flex={1} minWidth={0} alignItems="center" gap="$3">
         <Stack position="relative" width={44} height={24} flexShrink={0}>

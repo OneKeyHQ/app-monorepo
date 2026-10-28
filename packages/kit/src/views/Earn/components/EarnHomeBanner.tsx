@@ -218,13 +218,7 @@ function EarnHomeBannerInfoGlass() {
   );
 }
 
-function EarnHomeBannerItem({
-  item,
-  cardHeight,
-}: {
-  item: IEarnPageBannerListItem;
-  cardHeight: number;
-}) {
+function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
   const shouldSuppressPress = useCarouselPressSuppressor();
   const isDarkTheme = useThemeName() === 'dark';
   const reducedMotion = useReducedMotion();
@@ -304,7 +298,11 @@ function EarnHomeBannerItem({
     // responder wins, so it does not fire twice.
     <YStack
       testID={EarnTestIDs.bannerItem(item.bannerId)}
-      h={cardHeight}
+      // The page's height less the shadow's room under the card, not the
+      // height asked for: the pager measures its new height a moment after
+      // the ask, and a card taller than the old page lost its bar to the clip
+      flex={1}
+      mb={BANNER_SHADOW_ROOM_BOTTOM}
       // react-native-pager-view's viewport clips at the page edge, and a page
       // is exactly as wide as the carousel. Without this inset the card's
       // shadow is sliced off flush with its own left/right sides, which is
@@ -521,9 +519,9 @@ export function EarnHomeBanner({
 
   const renderItem = useCallback(
     ({ item }: { item: IEarnPageBannerListItem }) => (
-      <EarnHomeBannerItem item={item} cardHeight={cardHeight} />
+      <EarnHomeBannerItem item={item} />
     ),
-    [cardHeight],
+    [],
   );
 
   if (isLoading && validBanners.length === 0) {

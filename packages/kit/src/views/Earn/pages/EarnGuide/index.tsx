@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Icon,
@@ -17,6 +18,7 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
@@ -25,6 +27,7 @@ import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -77,6 +80,9 @@ const GAS_POLL_MS = 8000;
 const PREVIEW_ADDRESS = '0x92bAA173828d55B2F1ed611352Aa0627AB825178';
 // The preview's deposit takes about as long as a quick real one
 const PREVIEW_DEPOSIT_MS = 1400;
+// A step's body as the header moves to it: the step before can't stay to
+// fade out (its form would keep the page's footer), so the new one fades in
+const STEP_HIDDEN_STYLE = { opacity: 0 } as const;
 
 function StepIntro({ title, body }: { title: string; body: string }) {
   return (
@@ -431,6 +437,22 @@ function EarnGuidePage() {
     symbol: EARN_GUIDE_SYMBOL,
     networkId,
   });
+  // The form names its token from the wallet's; with none (the preview) it
+  // takes this one, the logo the Earn list shows
+  const [{ availableAssetsByType }] = useEarnAtom();
+  const tokenLogoURI = useMemo(() => {
+    const asset = Object.values(availableAssetsByType ?? {})
+      .flat()
+      .find(
+        (item) =>
+          item.symbol.toUpperCase() === EARN_GUIDE_SYMBOL && item.logoURI,
+      );
+    if (asset) {
+      return asset.logoURI;
+    }
+    const lending = offers.find((offer) => offer.kind === 'lending');
+    return lending?.kind === 'lending' ? lending.offer.logoURI : undefined;
+  }, [availableAssetsByType, offers]);
   const [pickedVaultKey, setPickedVaultKey] = useState<string>();
   const vaultKey = pickedVaultKey ?? saved.vaultKey;
   const vaultOffer = useMemo(
@@ -443,32 +465,45 @@ function EarnGuidePage() {
 
   // A step that finishes moves straight on to the next. One the user's own
   // press finished shows the next at once; one that finished by itself (the
-  // ETH landing) keeps its check a moment first
+  // ETH landing) keeps its check a moment first. Settled in the render that
+  // sees the change, so no frame shows the next step (or its button) early
   const { current } = state;
   const isDeposited = state.done[2];
   const [picked, setPicked] = useState<IEarnGuideStep>();
   const [pinned, setPinned] = useState<IEarnGuideStep>();
-  // Set by a press as it moves the guide on, for the change it makes
-  const isMovedByPressRef = useRef(false);
-  const previousRef = useRef(current);
-  useEffect(() => {
-    const previous = previousRef.current;
-    previousRef.current = current;
-    if (previous === current) {
-      return undefined;
-    }
+  // The step a press moves the guide on to, set by that press
+  const [pressedTo, setPressedTo] = useState<IEarnGuideStep>();
+  const [seenCurrent, setSeenCurrent] = useState(current);
+  // This render goes on with the values the change sets, as the render React
+  // runs again at once will have them
+  let settledPinned = pinned;
+  let settledPicked = picked;
+  if (seenCurrent !== current) {
+    settledPinned =
+      pressedTo === current || current < seenCurrent ? undefined : seenCurrent;
+    settledPicked = undefined;
+    setSeenCurrent(current);
     setPicked(undefined);
-    if (isMovedByPressRef.current || current < previous) {
-      isMovedByPressRef.current = false;
-      setPinned(undefined);
+    setPressedTo(undefined);
+    setPinned(settledPinned);
+  }
+  useEffect(() => {
+    if (pinned === undefined) {
       return undefined;
     }
-    setPinned(previous);
     const timer = setTimeout(() => setPinned(undefined), DONE_BEAT_MS);
     return () => clearTimeout(timer);
-  }, [current]);
-  const shownStep = pinned ?? picked ?? current;
+  }, [pinned]);
+  const shownStep = settledPinned ?? settledPicked ?? current;
   shownStepRef.current = shownStep;
+  // Every step the guide moves to fades in; the one it opens on comes with
+  // the modal. Only a body mounting takes the fade: a step's own key
+  const [firstShownStep] = useState(shownStep);
+  const [hasMoved, setHasMoved] = useState(false);
+  if (!hasMoved && shownStep !== firstShownStep) {
+    setHasMoved(true);
+  }
+  const reduceMotion = useReducedMotion();
   const hasGas = state.done[0];
 
   const handleClose = useCallback(() => {
@@ -483,7 +518,7 @@ function EarnGuidePage() {
     }
     setPickedVaultKey(vaultOffer.key);
     if (!isDeposited) {
-      isMovedByPressRef.current = current === 2;
+      setPressedTo(current === 2 ? 3 : undefined);
       if (!isPreview) {
         earnGuideStore.save(scope, { vaultKey: vaultOffer.key });
       } else if (current === 2) {
@@ -506,7 +541,7 @@ function EarnGuidePage() {
   // back to step 3
   const handleDeposited = useCallback(
     (amount: string) => {
-      isMovedByPressRef.current = current !== 4;
+      setPressedTo(current !== 4 ? 4 : undefined);
       setPicked(undefined);
       if (isPreview) {
         earnGuideStore.setPreview(4, amount);
@@ -580,6 +615,9 @@ function EarnGuidePage() {
     [intl, isPreview, isPreviewDepositing],
   );
 
+  // Each footer has its own key: a new one sets the page's footer as it
+  // renders, with its step's body, where a changed one would set it a frame
+  // later
   let body = null;
   let footer = null;
   if (shownStep === 1) {
@@ -599,6 +637,7 @@ function EarnGuidePage() {
     if (!hasWallet && !isPreview) {
       footer = (
         <Page.Footer
+          key="connect"
           onConfirmText={intl.formatMessage({
             id: ETranslations.global_connect_wallet,
           })}
@@ -609,6 +648,7 @@ function EarnGuidePage() {
     } else if (canBuy || isPreview) {
       footer = (
         <Page.Footer
+          key="buy"
           onConfirmText={intl.formatMessage({ id: ETranslations.global_buy })}
           onConfirm={() => (canBuy ? handleFiatCrypto(undefined) : undefined)}
           confirmButtonProps={{ testID: 'earn-guide-buy' }}
@@ -627,6 +667,7 @@ function EarnGuidePage() {
     );
     footer = (
       <Page.Footer
+        key="vault"
         onConfirmText={copy.guideUseVault}
         onConfirm={handleUseVault}
         confirmButtonProps={{
@@ -654,6 +695,7 @@ function EarnGuidePage() {
           <EarnOffersDeposit
             symbol={EARN_GUIDE_SYMBOL}
             networkId={networkId}
+            logoURI={tokenLogoURI}
             offerKey={vaultOffer.key}
             // The vault was chosen in step 2: the others fold under it
             offersLayout="switcher"
@@ -680,6 +722,10 @@ function EarnGuidePage() {
         )}
       </YStack>
     );
+    // The form's button comes with the form. Till then the footer is empty,
+    // not the last step's button: the one before goes as it renders. Placed
+    // before the body, the form's own footer, rendered after it, wins
+    footer = <Page.Footer key="deposit" />;
   } else {
     body = (
       <DoneStep
@@ -690,6 +736,7 @@ function EarnGuidePage() {
     );
     footer = (
       <Page.Footer
+        key="done"
         onConfirmText={copy.guideGoToPosition}
         onConfirm={() => handleFinish(true)}
         confirmButtonProps={{ testID: 'earn-guide-go-to-position' }}
@@ -709,12 +756,21 @@ function EarnGuidePage() {
         onPickStep={setPicked}
         onClose={handleClose}
       />
+      {footer}
       <ScrollView flex={1}>
-        <YStack testID={`earn-guide-body-${shownStep}`} py="$5">
+        <YStack
+          key={shownStep}
+          testID={`earn-guide-body-${shownStep}`}
+          py="$5"
+          // Always there from its first render: the animation driver adds
+          // hooks for it, and a view that gains them later breaks the page
+          transition={reduceMotion ? undefined : 'quick'}
+          animateOnly={ANIMATE_ONLY_OPACITY}
+          enterStyle={hasMoved && !reduceMotion ? STEP_HIDDEN_STYLE : undefined}
+        >
           {shownStep === 3 ? body : <YStack px="$5">{body}</YStack>}
         </YStack>
       </ScrollView>
-      {footer}
     </Page>
   );
 }

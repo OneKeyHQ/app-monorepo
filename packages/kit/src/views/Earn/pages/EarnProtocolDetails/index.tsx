@@ -1,12 +1,4 @@
-import {
-  Fragment,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
@@ -152,20 +144,20 @@ function ManagersSection({
   noPadding?: boolean;
 }) {
   return managers?.items?.length ? (
-    <XStack gap="$1" alignItems="center" px={noPadding ? '$0' : '$pagePadding'}>
+    // Each manager its own group, apart by space rather than a dot
+    <XStack
+      columnGap="$4"
+      rowGap="$1"
+      flexWrap="wrap"
+      alignItems="center"
+      px={noPadding ? '$0' : '$pagePadding'}
+    >
       {managers.items.map((item, index) => (
-        <Fragment key={index}>
-          <XStack gap="$1" alignItems="center">
-            <Image size="$4" borderRadius="$1" src={item.logoURI} />
-            <EarnText text={item.title} size="$bodySm" />
-            <EarnText text={item.description} size="$bodySm" />
-          </XStack>
-          {index !== managers.items.length - 1 ? (
-            <XStack w="$4" h="$4" ai="center" jc="center">
-              <XStack w="$1" h="$1" borderRadius="$full" bg="$iconSubdued" />
-            </XStack>
-          ) : null}
-        </Fragment>
+        <XStack key={index} gap="$1" alignItems="center">
+          <Image size="$4" borderRadius="$1" src={item.logoURI} />
+          <EarnText text={item.title} size="$bodySm" />
+          <EarnText text={item.description} size="$bodySm" />
+        </XStack>
       ))}
     </XStack>
   ) : null;
@@ -368,6 +360,8 @@ const ProtocolHeader = ({
           />
         ) : (
           <>
+            {/* The rate in the green the server gives a vault's and a
+                market's, where it gives none (Pendle's) */}
             <EarnText
               text={
                 apyDetail?.description || {
@@ -378,6 +372,7 @@ const ProtocolHeader = ({
                 }
               }
               size="$heading3xl"
+              color="$textSuccess"
             />
             <EarnActionIcon
               title={apyDetail?.title?.text}
@@ -594,26 +589,38 @@ function ChartSection({
     return null;
   }
 
+  // The line is there while the history loads, its figures placeholders,
+  // so the chart and the sections under it don't move down when they land
+  const isHistoryComing = !chartData;
+  const highLowFigure = (value: number | null) =>
+    value === null ? (
+      <YStack h="$5" jc="center">
+        <Skeleton w={44} h="$3" borderRadius="$1" />
+      </YStack>
+    ) : (
+      <SizableText size="$bodyMd" color="$text">
+        {value.toFixed(2)}%
+      </SizableText>
+    );
+
   return (
     <YStack gap="$3">
       {/* High and Low values */}
-      {gtMd && !isPendleProvider && high !== null && low !== null ? (
+      {gtMd &&
+      !isPendleProvider &&
+      (isHistoryComing || (high !== null && low !== null)) ? (
         <XStack gap="$4" pt="$6">
           <YStack>
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.market_high })}
             </SizableText>
-            <SizableText size="$bodyMd" color="$text">
-              {high.toFixed(2)}%
-            </SizableText>
+            {highLowFigure(high)}
           </YStack>
           <YStack>
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.market_low })}
             </SizableText>
-            <SizableText size="$bodyMd" color="$text">
-              {low.toFixed(2)}%
-            </SizableText>
+            {highLowFigure(low)}
           </YStack>
         </XStack>
       ) : null}

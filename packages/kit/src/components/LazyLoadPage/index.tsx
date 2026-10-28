@@ -39,7 +39,9 @@ export function LazyLoadPage<
   delayMs?: number,
   unStyle?: boolean,
   fallback?: React.ReactNode,
-): ComponentType<IExtractComponentProps<T>> {
+): ComponentType<IExtractComponentProps<T>> & {
+  preload: () => Promise<unknown>;
+} {
   const defaultFallback = (
     <Stack flex={1} alignItems="center" justifyContent="center">
       <Spinner size="large" />
@@ -63,9 +65,12 @@ export function LazyLoadPage<
       </LazyLoadPageBackdrop>
     );
   }
-  return memo(LazyLoadPageContainer) as ComponentType<
-    IExtractComponentProps<T>
-  >;
+  // The module loaded ahead (preload) renders at once when the page mounts,
+  // instead of suspending behind the route's loading screen
+  return Object.assign(
+    memo(LazyLoadPageContainer) as ComponentType<IExtractComponentProps<T>>,
+    { preload: LazyLoadComponent.preload },
+  );
 }
 
 // prevent useEffect triggers when tab loaded on Native
@@ -80,5 +85,5 @@ export const LazyLoadRootTabPage = (
     undefined,
     fallback,
   );
-  return memo(Page);
+  return Object.assign(memo(Page), { preload: Page.preload });
 };

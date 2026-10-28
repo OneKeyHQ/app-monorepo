@@ -66,16 +66,17 @@ import {
 import { StakingAmountResultLine } from '../../../Staking/components/StakingAmountResultLine';
 import StakingFormWrapper from '../../../Staking/components/StakingFormWrapper';
 import {
+  EARN_BUTTON_LOOK_TRANSITION,
   EarnFormRow,
   EarnFormSummary,
   EarnFormSwitchingContext,
   buildOutcomeValueFromText,
-  buildResultLinesKey,
   buildRewardNoteRows,
   buildRewardsOutcome,
   buildRowKeys,
   splitPendleRewardRows,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
+import { useEarnRewardTokens } from '../../../Staking/components/UniversalStake/useEarnRewardTokens';
 import {
   EARN_EMPTIED_HOLD_MS,
   getTypedAmountValue,
@@ -1114,6 +1115,15 @@ export function EarnRouterSwapDepositForm({
         depositSummary.staking?.receive?.description,
       ),
     ).gt(0);
+  // Nor beside a vault's or a market's figures still on their way for this
+  // estimate; an answer that fails lets it go, its rows going to dashes
+  const isSummaryComing =
+    Boolean(depositAmount) &&
+    ((summaryRequest?.kind === 'staking' &&
+      answeredSummary.stakingAmount !== depositAmount) ||
+      (summaryRequest?.kind === 'lending' &&
+        (answeredSummary.lendingLoading ||
+          answeredSummary.lendingAmount !== depositAmount)));
   const canStart =
     !isDisabled &&
     hasAmount &&
@@ -1121,6 +1131,7 @@ export function EarnRouterSwapDepositForm({
     Boolean(depositAmount) &&
     !isPendleLineComing &&
     !isPendleLineMissing &&
+    !isSummaryComing &&
     Boolean(account);
 
   const handleSelectPercentage = useCallback(
@@ -1195,6 +1206,7 @@ export function EarnRouterSwapDepositForm({
     disabled: overridesState
       ? Boolean(footerActionOverride.disabled)
       : !canStart && !isBusy,
+    ...EARN_BUTTON_LOOK_TRANSITION,
   };
   // While another protocol loads, the button waits under its own words
   const confirmText =
@@ -1218,6 +1230,15 @@ export function EarnRouterSwapDepositForm({
   // dash
   const stakingSummary = depositSummary.staking;
   const isPendle = summaryRequest?.kind === 'pendle';
+  // The tokens a vault's rewards come in, a line each from the first frame
+  const offerRewardTokens = useEarnRewardTokens({
+    networkId,
+    providerName: summaryRequest?.provider ?? '',
+    symbol: summaryRequest?.kind === 'staking' ? summaryRequest.symbol : '',
+    vault:
+      summaryRequest?.kind === 'staking' ? summaryRequest.vault : undefined,
+    enabled: summaryRequest?.kind === 'staking',
+  });
   // No figures yet: nothing typed, no route, the rows still the empty
   // amount's (the first estimate's are on their way), no Pendle quote, or
   // an answer that never was on screen
@@ -1413,12 +1434,7 @@ export function EarnRouterSwapDepositForm({
             transactionConfirmation: stakingSummary,
             placeholderLabel: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
             withoutValues: isSummaryPlaceholder,
-            linesKey: buildResultLinesKey({
-              networkId,
-              provider: summaryRequest.provider,
-              vault: summaryRequest.vault,
-              symbol: summaryRequest.symbol,
-            }),
+            offerTokens: offerRewardTokens,
           })
         : {
             label: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,

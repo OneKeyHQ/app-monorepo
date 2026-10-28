@@ -104,6 +104,7 @@ import type {
 } from './ManagePositionContent';
 import type { IWithdrawSuccessInfo } from './WithdrawSection';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
+import type { IEarnConfirmWordId } from '../../../components/UniversalStake/earnConfirmWord';
 
 export const StakeSection = ({
   accountId,
@@ -114,6 +115,7 @@ export const StakeSection = ({
   onSuccess,
   beforeFooter,
   footerActionOverride,
+  confirmWordIdWhileLoading,
   showApyDetail,
   suppressPlatformBonus,
   isInModalContext,
@@ -146,6 +148,9 @@ export const StakeSection = ({
   onSuccess?: (info?: IWithdrawSuccessInfo) => void;
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
+  // The word the deposit button showed last time, for the form standing in
+  // before the protocol is in
+  confirmWordIdWhileLoading?: IEarnConfirmWordId;
   showApyDetail?: boolean;
   suppressPlatformBonus?: boolean;
   isInModalContext?: boolean;
@@ -1451,6 +1456,7 @@ export const StakeSection = ({
         isInModalContext={isInModalContext}
         beforeFooter={beforeFooter}
         footerActionOverride={footerActionOverride}
+        confirmWordIdWhileLoading={confirmWordIdWhileLoading}
         protocolSwitchConfig={protocolSwitchConfig}
         providerName={hasRequiredData ? providerName : undefined}
         providerLogo={protocolInfo?.providerDetail.logoURI}
@@ -1666,6 +1672,7 @@ export const StakeSection = ({
           }
           beforeFooter={beforeFooter}
           footerActionOverride={footerActionOverride}
+          confirmWordIdWhileLoading={confirmWordIdWhileLoading}
           showApyDetail={showApyDetail}
           suppressPlatformBonus={suppressPlatformBonus}
           isInModalContext={isInModalContext}

@@ -1,6 +1,15 @@
 import type { ReactNode } from 'react';
 
-import { SizableText, Spinner, XStack, useMedia } from '@onekeyhq/components';
+import { useReducedMotion } from 'react-native-reanimated';
+
+import {
+  SizableText,
+  Skeleton,
+  Spinner,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
+import { getSharedButtonStyles } from '@onekeyhq/components/src/primitives/Button';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
@@ -8,24 +17,41 @@ import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/a
 
 import { WrappedActionButton } from '../PortfolioTabContent';
 
+import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
+import { warmEarnPositions } from './earnDesktopWarm';
 
 import type { IEarnDesktopTileRow } from './earnDesktopHome.utils';
+
+// The height of the secondary buttons this row had
+export const getRewardPillHeight = (isWide: boolean) => (isWide ? 36 : 32);
+// Claim is a Secondary button: its colors, in the pill's shape
+const { sharedFrameStyles: SECONDARY_STYLES } = getSharedButtonStyles({
+  variant: 'secondary',
+});
+const SECONDARY_HOVER_STYLE =
+  'hoverStyle' in SECONDARY_STYLES ? SECONDARY_STYLES.hoverStyle : undefined;
+const SECONDARY_PRESS_STYLE =
+  'pressStyle' in SECONDARY_STYLES ? SECONDARY_STYLES.pressStyle : undefined;
 
 function PillFrame({
   testID,
   isText,
   disabled,
   onPress,
+  onWarm,
   children,
 }: {
   testID: string;
   isText?: boolean;
   disabled?: boolean;
   onPress: () => void;
+  /** Loads what the press opens, while the pill is pointed at or focused */
+  onWarm?: () => void;
   children: ReactNode;
 }) {
   const media = useMedia();
+  const reduceMotion = useReducedMotion();
   const press = disabled ? undefined : onPress;
   return (
     <XStack
@@ -33,21 +59,36 @@ function PillFrame({
       role="button"
       ai="center"
       gap="$2"
-      // The height of the secondary buttons this row had
-      h={media.gtMd ? 36 : 32}
+      h={getRewardPillHeight(media.gtMd)}
       pl={isText ? '$3.5' : '$1.5'}
       pr="$3.5"
       borderRadius="$full"
       borderCurve="continuous"
-      bg="$bgStrong"
-      hoverStyle={{ bg: '$bgStrongHover' }}
-      pressStyle={{ bg: '$bgStrongActive' }}
+      bg={SECONDARY_STYLES.bg}
+      hoverStyle={SECONDARY_HOVER_STYLE}
+      pressStyle={SECONDARY_PRESS_STYLE}
+      transition={reduceMotion ? undefined : 'quick'}
+      animateOnly={ANIMATE_ONLY_BG_COLOR}
       cursor={disabled ? 'not-allowed' : 'pointer'}
       userSelect="none"
       onPress={press}
+      onHoverIn={onWarm}
+      onFocus={onWarm}
       {...buildKeyboardPressProps(press)}
     >
       {children}
+    </XStack>
+  );
+}
+
+/** The row's place while the hero loads: pills of its height, no words */
+export function EarnDesktopRewardPillsSkeleton() {
+  const media = useMedia();
+  const height = getRewardPillHeight(media.gtMd);
+  return (
+    <XStack testID="earn-desktop-reward-pills-placeholder" gap="$2">
+      <Skeleton w={176} h={height} radius="round" />
+      {media.gtMd ? <Skeleton w={196} h={height} radius="round" /> : null}
     </XStack>
   );
 }
@@ -156,6 +197,7 @@ export function EarnDesktopRewardPills({
           testID="earn-desktop-reward-pills-more"
           isText
           onPress={onOpenMore}
+          onWarm={warmEarnPositions}
         >
           <SizableText size="$bodyMdMedium">{`+${moreCount}`}</SizableText>
         </PillFrame>
