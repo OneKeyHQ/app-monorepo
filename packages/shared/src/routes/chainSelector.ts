@@ -53,6 +53,10 @@ export type IChainSelectorParams = {
   // Grouped list only: lift valued networks into a top "Networks with assets"
   // section like the wallet network selector, instead of A-Z only.
   groupByNetworkValue?: boolean;
+  recentNetworksEnabled?: boolean;
+  // Grouped list only: mark the current network with a row background, like
+  // the wallet network selector, instead of a check mark.
+  highlightSelected?: boolean;
   featuredNetwork?: {
     networkId: string;
     badgeText: string;

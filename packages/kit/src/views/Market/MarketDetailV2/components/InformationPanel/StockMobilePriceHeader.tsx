@@ -47,16 +47,22 @@ function PriceModeButton({
       testID={testID}
       height={26}
       m="$0"
-      px="$1.5"
+      px="$2"
       py="$0"
       borderWidth={0}
       flexShrink={0}
       size="small"
       variant={selected ? 'secondary' : 'tertiary'}
       borderRadius="$full"
+      childrenAsText={false}
       onPress={onPress}
     >
-      {label}
+      <SizableText
+        size="$bodySmMedium"
+        color={selected ? '$text' : '$textSubdued'}
+      >
+        {label}
+      </SizableText>
     </Button>
   );
 }
@@ -102,8 +108,8 @@ function StockPriceChangeLine({
   );
 }
 
-// 36pt price, 20pt change, 2pt gap, 20pt status, 12pt row gap, and 36pt padding.
-export const STOCK_MOBILE_PRICE_HEADER_HEIGHT = 126;
+// 36pt price, 20pt change, 2pt gap, 16pt status, 12pt row gap, and 36pt padding.
+export const STOCK_MOBILE_PRICE_HEADER_HEIGHT = 122;
 
 export function StockMobilePriceHeader() {
   const intl = useIntl();
@@ -211,7 +217,7 @@ export function StockMobilePriceHeader() {
           )}
         </YStack>
         {sharePriceAvailable ? (
-          <XStack alignItems="center" gap="$0.5" flexShrink={0}>
+          <XStack alignItems="center" gap="$0.5" flexShrink={0} pt="$1">
             <PriceModeButton
               testID="stock-mobile-price-mode-share"
               label={intl.formatMessage({
@@ -231,16 +237,16 @@ export function StockMobilePriceHeader() {
           </XStack>
         ) : null}
       </XStack>
-      {/* Keep the status row's bodyMd line box while its first quote loads. */}
+      {/* Keep the status row's bodySm line box while its first quote loads. */}
       <Stack
         testID="stock-mobile-market-status-row"
-        minHeight={20}
+        minHeight={16}
         justifyContent="center"
       >
         {isSharePreview ? (
           <SizableText
             testID="stock-mobile-share-price-preview-label"
-            size="$bodyMd"
+            size="$bodySm"
             color="$textSubdued"
           >
             {intl.formatMessage({ id: ETranslations.market_share_price })}
@@ -252,6 +258,7 @@ export function StockMobilePriceHeader() {
           <StockMarketStatusBadge
             stock={stockStatus}
             variant="inline"
+            inlineSize="sm"
             showLastUpdate={isSharePrice}
           />
         ) : null}

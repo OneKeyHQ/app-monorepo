@@ -85,6 +85,7 @@ import {
   type ITradingViewNativeChartSize,
   createTradingViewNativeChartRuntime,
   resizeTradingViewNativeChartRuntime,
+  shouldHoldTradingViewNativeSubIndicatorResize,
 } from './chartRuntime';
 import {
   applyTradingViewNativeSubIndicatorLatestPaneValues,
@@ -125,6 +126,9 @@ const PRICE_AXIS_FONT_URI = Image.resolveAssetSource(
 const ONEKEY_WATERMARK_URI = Image.resolveAssetSource(
   ONEKEY_WATERMARK_SOURCE,
 )?.uri;
+// Fallback for a canvas size that never matches the pane count.
+const SUB_INDICATOR_RESIZE_HOLD_TIMEOUT_MS = 300;
+
 const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPane[] =
   [];
 export const TradingViewNativeChart = memo(
@@ -179,6 +183,12 @@ export const TradingViewNativeChart = memo(
       width: 0,
     });
     const canvasSize = useSharedValue({ width: 0, height: 0 });
+    const resizesWithSubIndicatorPanesValue = useSharedValue(
+      resizesWithSubIndicatorPanes,
+    );
+    useEffect(() => {
+      resizesWithSubIndicatorPanesValue.value = resizesWithSubIndicatorPanes;
+    }, [resizesWithSubIndicatorPanes, resizesWithSubIndicatorPanesValue]);
     const isActive = useContext(TradingViewNativeChartActiveContext);
     const onChartReady = useContext(TradingViewNativeChartReadyContext);
     const [chartWidth, setChartWidth] = useState(0);
@@ -520,14 +530,22 @@ export const TradingViewNativeChart = memo(
     const picture = useDerivedValue(() => {
       // Draw against this frame's canvas bounds, before the gesture runtime's
       // resize reaction catches up. Otherwise rotation exposes an old-sized scene.
-      const runtime = resizeTradingViewNativeChartRuntime(
-        chartRuntime.value,
-        {
-          width: Math.round(canvasSize.value.width),
-          height: Math.round(canvasSize.value.height),
-        },
-        priceAxisWidth.value,
-      );
+      // A pane-sized mismatch keeps the runtime size until its panes arrive.
+      const canvasBounds = {
+        width: Math.round(canvasSize.value.width),
+        height: Math.round(canvasSize.value.height),
+      };
+      const runtime = shouldHoldTradingViewNativeSubIndicatorResize({
+        canvasSize: canvasBounds,
+        enabled: resizesWithSubIndicatorPanesValue.value,
+        runtimeSize: chartRuntime.value.size,
+      })
+        ? chartRuntime.value
+        : resizeTradingViewNativeChartRuntime(
+            chartRuntime.value,
+            canvasBounds,
+            priceAxisWidth.value,
+          );
       return createTradingViewNativeSkiaPicture({
         dateFormatTemplate,
         drawings: enableDrawings ? drawings.value : undefined,
@@ -724,6 +742,47 @@ export const TradingViewNativeChart = memo(
       if (isActive && chartWidth > 0) onChartWidthChange?.(chartWidth);
     }, [chartWidth, isActive, onChartWidthChange]);
 
+    const releaseSubIndicatorResizeHold = useCallback(() => {
+      scheduleOnUI(() => {
+        'worklet';
+
+        const runtime = chartRuntime.value;
+        const nextRuntime = resizeTradingViewNativeChartRuntime(
+          runtime,
+          {
+            width: Math.round(canvasSize.value.width),
+            height: Math.round(canvasSize.value.height),
+          },
+          priceAxisWidth.value,
+        );
+        if (nextRuntime !== runtime) {
+          cancelAnimation(decayOffset);
+          decayOffset.value = nextRuntime.viewport.offset;
+          chartRuntime.value = nextRuntime;
+        }
+      });
+    }, [canvasSize, chartRuntime, decayOffset, priceAxisWidth]);
+    const releaseHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+      null,
+    );
+    const scheduleSubIndicatorResizeHoldRelease = useCallback(() => {
+      if (releaseHoldTimerRef.current) {
+        clearTimeout(releaseHoldTimerRef.current);
+      }
+      releaseHoldTimerRef.current = setTimeout(() => {
+        releaseHoldTimerRef.current = null;
+        releaseSubIndicatorResizeHold();
+      }, SUB_INDICATOR_RESIZE_HOLD_TIMEOUT_MS);
+    }, [releaseSubIndicatorResizeHold]);
+    useEffect(
+      () => () => {
+        if (releaseHoldTimerRef.current) {
+          clearTimeout(releaseHoldTimerRef.current);
+        }
+      },
+      [],
+    );
+
     useLayoutEffect(() => {
       const dataUpdateMetadata = getTradingViewNativeDataUpdateMetadata({
         points,
@@ -885,15 +944,25 @@ export const TradingViewNativeChart = memo(
           nextSubIndicatorPanes,
         );
         // The mobile container changes height with the pane count. Resize the
-        // picture in the same UI update, before Skia reports its new canvas size.
+        // picture in the same UI update, whether Skia reports the new canvas
+        // size before or after it. Start from the runtime height because a held
+        // canvas may already report the next size.
+        const baseChartHeight =
+          runtime.size.height > 0 ? runtime.size.height : chartSize.height;
         const nextChartHeight =
           resizesWithSubIndicatorPanes &&
-          chartSize.height > 0 &&
+          baseChartHeight > 0 &&
           previousPaneCount !== nextPaneCount
-            ? chartSize.height +
+            ? baseChartHeight +
               (nextPaneCount - previousPaneCount) *
                 TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT
             : 0;
+        if (
+          nextChartHeight > 0 &&
+          Math.round(canvasSize.value.height) !== nextChartHeight
+        ) {
+          scheduleOnRN(scheduleSubIndicatorResizeHoldRelease);
+        }
         const sizedRuntime =
           nextChartHeight > 0
             ? resizeTradingViewNativeChartRuntime(
@@ -910,12 +979,14 @@ export const TradingViewNativeChart = memo(
       candleTimeMode,
       chartSize.height,
       chartType,
+      canvasSize,
       chartRuntime,
       decayOffset,
       hasVolume,
       indicatorSeries,
       indicatorSeriesSettingsKey,
       resizesWithSubIndicatorPanes,
+      scheduleSubIndicatorResizeHoldRelease,
       points,
       priceAxisWidth,
       renderDataRevision,
@@ -1072,6 +1143,16 @@ export const TradingViewNativeChart = memo(
       }),
       (nextSize) => {
         const runtime = chartRuntime.value;
+        if (
+          shouldHoldTradingViewNativeSubIndicatorResize({
+            canvasSize: nextSize,
+            enabled: resizesWithSubIndicatorPanesValue.value,
+            runtimeSize: runtime.size,
+          })
+        ) {
+          scheduleOnRN(scheduleSubIndicatorResizeHoldRelease);
+          return;
+        }
         const nextRuntime = resizeTradingViewNativeChartRuntime(
           runtime,
           nextSize,

@@ -22,10 +22,11 @@ import {
   PRESSABLE_SURFACE_PROPS,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import {
-  formatCommissionRateText,
+  getCommissionRateParts,
   getDisplayLabel,
   sortCommissionRateItems,
 } from '@onekeyhq/kit/src/views/ReferFriends/utils';
+import type { ICommissionRateParts } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IInviteLevelCommissionRate,
@@ -52,13 +53,15 @@ import {
 const RULE_HEADER_MAX_WIDTH = 80;
 const RULE_HEADER_HEIGHT = 32;
 const RULE_ROW_HEIGHT = 32;
+// The header's $bodySm line height.
+const RULE_HEADER_LINE_HEIGHT = 16;
 
 interface ILevelRuleRow {
   subject: string;
   label: string;
   keep?: string;
   upgrade?: string;
-  rate?: string;
+  rate?: ICommissionRateParts;
 }
 
 // A level's icon (or emoji) at header size, so each column names the level
@@ -73,7 +76,8 @@ function LevelGlyph({ icon, emoji }: { icon?: string; emoji?: string }) {
 // One figure column, laid out top to bottom so it takes the width of its
 // widest value: currency symbols and localized figures vary in length
 // ("$8K", "Rp15,6M"), and a figure must never be cut off. Fixed-height
-// cells keep the columns' rows aligned with the label column.
+// cells keep the columns' rows aligned with the label column. A missing
+// figure reads as a quiet "–".
 function RuleColumn({
   header,
   glyph,
@@ -89,6 +93,14 @@ function RuleColumn({
     // the right; it never shrinks below its content.
     <YStack flexGrow={1} flexShrink={0} flexBasis="auto" ai="flex-end">
       <XStack h={RULE_HEADER_HEIGHT} ai="flex-end" jc="flex-end" gap="$1">
+        {/* Leads the label, so the label's right edge, not the icon's, lines
+            up with the figures. Centered on the header's last line rather
+            than its bottom edge, so the 14px icon sits level with the text. */}
+        {glyph ? (
+          <Stack h={RULE_HEADER_LINE_HEIGHT} ai="center" jc="center">
+            {glyph}
+          </Stack>
+        ) : null}
         <SizableText
           size="$bodySm"
           color="$textSubdued"
@@ -98,7 +110,6 @@ function RuleColumn({
         >
           {header}
         </SizableText>
-        {glyph}
       </XStack>
       {values.map((value, index) => (
         <XStack key={index} h={RULE_ROW_HEIGHT} ai="center">
@@ -130,7 +141,7 @@ function LevelRuleTable({
   return (
     // Headers name the level each column is about by its icon (keep this
     // one, reach the next) and spell out whose rate is whose. Spare width is
-    // shared by all four columns; only the product names give way when space
+    // shared by all the columns; only the product names give way when space
     // runs out.
     <XStack gap="$3">
       <YStack flexGrow={1} flexShrink={1} flexBasis="auto" minWidth={0}>
@@ -165,12 +176,29 @@ function LevelRuleTable({
           values={rows.map((row) => row.upgrade)}
         />
       ) : null}
-      <RuleColumn
-        header={intl.formatMessage({
-          id: ETranslations.referral_rate_column__title,
-        })}
-        values={rows.map((row) => row.rate)}
-      />
+      {/* Your rate and the invitee's in their own columns, each header
+          over its own figures. A wider gap before them sets the rates apart
+          from the thresholds without adding a row. */}
+      <XStack
+        flexGrow={2}
+        flexShrink={0}
+        flexBasis="auto"
+        gap="$3"
+        pl={hasKeep || hasUpgrade ? '$3' : undefined}
+      >
+        <RuleColumn
+          header={intl.formatMessage({
+            id: ETranslations.referral_upgrade_you,
+          })}
+          values={rows.map((row) => row.rate?.you)}
+        />
+        <RuleColumn
+          header={intl.formatMessage({
+            id: ETranslations.referral_upgrade_user,
+          })}
+          values={rows.map((row) => row.rate?.invitee)}
+        />
+      </XStack>
     </XStack>
   );
 }
@@ -294,7 +322,7 @@ export function LevelAccordionItem({
         subject || `${index}`,
         getCommissionRateLabel(intl, subject, rate),
       );
-      row.rate = formatCommissionRateText({
+      row.rate = getCommissionRateParts({
         rebate: rate.rebate,
         discount: rate.discount,
       });
