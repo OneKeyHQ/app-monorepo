@@ -3388,7 +3388,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               getPerpsOrderNoLongerEligibleForChaseMessage(),
             );
           }
-          // Replacing an unchanged ALO order only loses its queue priority.
+          // Preserve queue priority for unchanged ALO orders; same-price GTC orders
+          // still need amendment to enforce post-only execution.
           if (
             existing.tif === 'Alo' &&
             new BigNumber(existing.limitPx).eq(params.newPrice)
