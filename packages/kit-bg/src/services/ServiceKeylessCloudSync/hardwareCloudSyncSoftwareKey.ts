@@ -18,11 +18,12 @@ import type {
   IKeylessCloudSyncCredential,
 } from '@onekeyhq/shared/types/keylessCloudSync';
 
-import { deriveHardwareCloudSyncCredential } from './hardwareCloudSyncCredential';
+import { deriveHardwareCloudSyncKek } from './hardwareCloudSyncCredential';
 
 import type {
+  IHardwareCloudKeyAdapter,
   IHardwareCloudKeyIdentity,
-  IHardwareCloudSyncAuthSigner,
+  IHardwareCloudKeyUnlock,
 } from './hardwareCloudSyncCredential';
 
 // Dev builds only: a fixed test key stands in for the device so end-to-end
@@ -44,10 +45,10 @@ function signBip137(path: string, message: Buffer): Buffer {
 
 export async function generateHardwareCloudSyncCredentialWithSoftwareKey({
   isCurrent,
-  signAuth,
+  unlock,
 }: {
   isCurrent: () => boolean;
-  signAuth?: (signer: IHardwareCloudSyncAuthSigner) => Promise<void>;
+  unlock: IHardwareCloudKeyUnlock;
 }): Promise<{
   credential: IKeylessCloudSyncCredential;
   source: IHardwareCloudSyncKeySource;
@@ -75,27 +76,34 @@ export async function generateHardwareCloudSyncCredentialWithSoftwareKey({
     unlockedAttachPin: false,
     connected: true,
   };
-  const credential = await deriveHardwareCloudSyncCredential({
+  const adapter: IHardwareCloudKeyAdapter = {
+    openStandardWallet: async () => identity,
+    getIdentity: async () => identity,
+    signMessage: async ({ path, messageHex }) => ({
+      address,
+      signature: signBip137(path, Buffer.from(messageHex, 'hex')).toString(
+        'hex',
+      ),
+    }),
+  };
+  // Same order as a device: sign in, then the salted key message.
+  const credential = await unlock({
     credentialId,
-    expectedIdentity: identity,
-    isCurrent,
-    adapter: {
-      openStandardWallet: async () => identity,
-      getIdentity: async () => identity,
-      signMessage: async ({ path, messageHex }) => ({
-        address,
-        signature: signBip137(path, Buffer.from(messageHex, 'hex')).toString(
-          'hex',
-        ),
-      }),
+    signAuth: async (message) => {
+      assertHardwareCloudSyncAuthMessage(message);
+      return signBip137(
+        HARDWARE_CLOUD_SYNC_AUTH_PATH,
+        Buffer.from(message, 'utf8'),
+      ).toString('base64');
     },
-  });
-  await signAuth?.(async (message) => {
-    assertHardwareCloudSyncAuthMessage(message);
-    return signBip137(
-      HARDWARE_CLOUD_SYNC_AUTH_PATH,
-      Buffer.from(message, 'utf8'),
-    ).toString('base64');
+    deriveKek: (kekSalt) =>
+      deriveHardwareCloudSyncKek({
+        credentialId,
+        expectedIdentity: identity,
+        isCurrent,
+        adapter,
+        kekSalt,
+      }),
   });
   const source: IHardwareCloudSyncKeySource = {
     type: 'hardware',

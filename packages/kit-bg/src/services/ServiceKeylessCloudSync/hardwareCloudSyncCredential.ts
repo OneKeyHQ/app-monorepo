@@ -1,16 +1,17 @@
+import { hkdf } from '@noble/hashes/hkdf';
+import { sha256 } from '@noble/hashes/sha256';
 import { payments } from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
+  HARDWARE_CLOUD_SYNC_KEK_HKDF_INFO,
   HARDWARE_CLOUD_SYNC_PATH,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
-
-import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 export type IHardwareCloudKeyIdentity = {
   connectId: string;
@@ -137,17 +138,24 @@ export function normalizeHardwareCloudSignature(signatureHex: string): Buffer {
   return signature;
 }
 
-export async function deriveHardwareCloudSyncCredential({
+/**
+ * Signs the salted key message twice on HARDWARE_CLOUD_SYNC_PATH and returns
+ * KEK = HKDF-SHA256(signature, kekSalt, info) as hex. The signature never
+ * leaves this function.
+ */
+export async function deriveHardwareCloudSyncKek({
   adapter,
   expectedIdentity,
   credentialId,
   isCurrent,
+  kekSalt,
 }: {
   adapter: IHardwareCloudKeyAdapter;
   expectedIdentity: IExpectedIdentity;
   credentialId: string;
   isCurrent: () => boolean;
-}): Promise<IKeylessCloudSyncCredential> {
+  kekSalt: string;
+}): Promise<string> {
   const expected = Object.freeze({ ...expectedIdentity });
   let first: Buffer | undefined;
   let second: Buffer | undefined;
@@ -164,6 +172,7 @@ export async function deriveHardwareCloudSyncCredential({
     assertIdentity(standard, expected);
     const message = buildHardwareCloudSyncMessage(
       getHardwareCloudSyncIdentityTag(standard.walletXfp),
+      kekSalt,
     );
     const checkCurrentIdentity = async () => {
       assertCurrent();
@@ -201,12 +210,18 @@ export async function deriveHardwareCloudSyncCredential({
       throw new OneKeyLocalError('Hardware Cloud key signature is not stable');
     }
     assertCurrent();
-    const credential = await keylessCloudSyncUtils.deriveKeylessCredential({
-      seed: first,
-      keylessWalletId: credentialId,
-    });
-    assertCurrent();
-    return credential;
+    const kek = hkdf(
+      sha256,
+      first,
+      Buffer.from(kekSalt, 'hex'),
+      Buffer.from(HARDWARE_CLOUD_SYNC_KEK_HKDF_INFO, 'utf8'),
+      32,
+    );
+    try {
+      return Buffer.from(kek).toString('hex');
+    } finally {
+      kek.fill(0);
+    }
   } catch (error) {
     // A firmware rejection carries only its failure text, so the user sees it.
     if (error instanceof HardwareCloudKeyDeviceRejectedError) throw error;
@@ -220,3 +235,16 @@ export async function deriveHardwareCloudSyncCredential({
     second?.fill(0);
   }
 }
+
+// What a device session offers while it is open: sign the server sign-in
+// challenge, and derive a KEK for an envelope's salt.
+export type IHardwareCloudKeyDevice = {
+  credentialId: string;
+  signAuth: IHardwareCloudSyncAuthSigner;
+  deriveKek: (kekSalt: string) => Promise<string>;
+};
+
+// Runs inside the device session and returns the credential to keep.
+export type IHardwareCloudKeyUnlock = (
+  device: IHardwareCloudKeyDevice,
+) => Promise<IKeylessCloudSyncCredential>;

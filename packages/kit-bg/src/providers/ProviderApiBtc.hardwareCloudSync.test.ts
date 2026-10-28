@@ -45,7 +45,10 @@ function harness() {
   return { provider, openSignMessageModal, getAccountsInfo, log };
 }
 
-const message = buildHardwareCloudSyncMessage('0123456789abcdef');
+const message = buildHardwareCloudSyncMessage(
+  '0123456789abcdef',
+  '0123456789abcdef0123456789abcdef',
+);
 const baseRequest: IJsBridgeMessagePayload = {
   origin: 'https://example.com',
   scope: IInjectedProviderNames.btc,

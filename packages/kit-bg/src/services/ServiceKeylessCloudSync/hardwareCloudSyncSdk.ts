@@ -18,13 +18,14 @@ import type {
 } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import {
-  deriveHardwareCloudSyncCredential,
+  deriveHardwareCloudSyncKek,
   normalizeHardwareCloudWalletXfp,
 } from './hardwareCloudSyncCredential';
 
 import type {
+  IHardwareCloudKeyAdapter,
   IHardwareCloudKeyIdentity,
-  IHardwareCloudSyncAuthSigner,
+  IHardwareCloudKeyUnlock,
 } from './hardwareCloudSyncCredential';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
@@ -33,6 +34,17 @@ function unlockError() {
   return new OneKeyLocalError(
     'Hardware Cloud key could not be unlocked. Check the standard wallet and try again.',
   );
+}
+
+// Device steps run inside the caller's unlock, whose own errors pass through;
+// SDK errors from these steps must not carry request or response data out.
+async function sanitizeDeviceError<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof HardwareCloudKeyDeviceRejectedError) throw error;
+    throw unlockError();
+  }
 }
 
 // Firmware failures (Failure_*) are shown as they are; any other SDK failure
@@ -59,7 +71,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   expectedCredentialId,
   isCurrent,
   onDeviceCancelChange,
-  signAuth,
+  unlock,
 }: {
   backgroundApi: IBackgroundApi;
   // From the device the user picked on the Cloud sync page.
@@ -70,8 +82,9 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   isCurrent: () => boolean;
   // Receives a canceller once the hardware lease is held, then undefined.
   onDeviceCancelChange?: (cancel: (() => void) | undefined) => void;
-  // Runs while the device session is open, after the key is derived.
-  signAuth?: (signer: IHardwareCloudSyncAuthSigner) => Promise<void>;
+  // Runs while the device session is open: sign in, read the envelope, then
+  // derive its KEK.
+  unlock: IHardwareCloudKeyUnlock;
 }): Promise<{
   credential: IKeylessCloudSyncCredential;
   source: IHardwareCloudSyncKeySource;
@@ -79,6 +92,8 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   if (!isHardwareCloudSyncPlatformSupported()) {
     throw new HardwareCloudKeyPrerequisiteError('compatibility');
   }
+  // The caller's own errors (server responses, envelope checks) pass through.
+  let callbackError: unknown;
   try {
     if (!isCurrent() || !selectedConnectId) {
       throw unlockError();
@@ -222,43 +237,65 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                     connected: true,
                   };
                 };
-              const credential = await deriveHardwareCloudSyncCredential({
-                credentialId,
-                expectedIdentity: {
-                  connectId,
-                  deviceId,
-                  walletXfp: opened.walletXfp,
+              const expectedIdentity = {
+                connectId,
+                deviceId,
+                walletXfp: opened.walletXfp,
+              };
+              const adapter = {
+                // The standard session is already open; re-read it live.
+                openStandardWallet: getIdentity,
+                getIdentity,
+                async signMessage(
+                  params: Parameters<
+                    IHardwareCloudKeyAdapter['signMessage']
+                  >[0],
+                ) {
+                  const response = await call(() =>
+                    sdk.btcSignMessage(connectId, deviceId, params),
+                  );
+                  assertSdkSuccess(response);
+                  return response.payload;
                 },
-                isCurrent: () => isCurrent() && !lease.signal?.aborted,
-                adapter: {
-                  // The standard session is already open; re-read it live.
-                  openStandardWallet: getIdentity,
-                  getIdentity,
-                  async signMessage(params) {
-                    const response = await call(() =>
-                      sdk.btcSignMessage(connectId, deviceId, params),
-                    );
-                    assertSdkSuccess(response);
-                    return response.payload;
-                  },
-                },
-              });
-              assertCurrent();
-              await signAuth?.(async (message) => {
-                assertHardwareCloudSyncAuthMessage(message);
-                const response = await call(() =>
-                  sdk.btcSignMessage(connectId, deviceId, {
-                    path: HARDWARE_CLOUD_SYNC_AUTH_PATH,
-                    messageHex: Buffer.from(message, 'utf8').toString('hex'),
-                    coin: 'Bitcoin',
-                    useEmptyPassphrase: true,
-                  }),
-                );
-                assertSdkSuccess(response);
-                return Buffer.from(response.payload.signature, 'hex').toString(
-                  'base64',
-                );
-              });
+              };
+              let unlocked: IKeylessCloudSyncCredential;
+              try {
+                unlocked = await unlock({
+                  credentialId,
+                  signAuth: (message) =>
+                    sanitizeDeviceError(async () => {
+                      assertHardwareCloudSyncAuthMessage(message);
+                      const response = await call(() =>
+                        sdk.btcSignMessage(connectId, deviceId, {
+                          path: HARDWARE_CLOUD_SYNC_AUTH_PATH,
+                          messageHex: Buffer.from(message, 'utf8').toString(
+                            'hex',
+                          ),
+                          coin: 'Bitcoin',
+                          useEmptyPassphrase: true,
+                        }),
+                      );
+                      assertSdkSuccess(response);
+                      return Buffer.from(
+                        response.payload.signature,
+                        'hex',
+                      ).toString('base64');
+                    }),
+                  deriveKek: (kekSalt) =>
+                    sanitizeDeviceError(() =>
+                      deriveHardwareCloudSyncKek({
+                        credentialId,
+                        expectedIdentity,
+                        isCurrent: () => isCurrent() && !lease.signal?.aborted,
+                        adapter,
+                        kekSalt,
+                      }),
+                    ),
+                });
+              } catch (error) {
+                callbackError = error;
+                throw error;
+              }
               assertCurrent();
               const source: IHardwareCloudSyncKeySource = {
                 type: 'hardware',
@@ -269,7 +306,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 }),
                 deviceType: opened.state.identity.deviceType,
               };
-              return { credential: { ...credential, source }, source };
+              return { credential: { ...unlocked, source }, source };
             },
           );
         } finally {
@@ -281,7 +318,8 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   } catch (error) {
     if (
       error instanceof HardwareCloudKeyPrerequisiteError ||
-      error instanceof HardwareCloudKeyDeviceRejectedError
+      error instanceof HardwareCloudKeyDeviceRejectedError ||
+      (callbackError !== undefined && error === callbackError)
     ) {
       throw error;
     }

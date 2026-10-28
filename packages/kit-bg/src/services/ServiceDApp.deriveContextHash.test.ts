@@ -323,7 +323,10 @@ describe('BTC deriveContextHash hardware integration', () => {
       address: 'test-address',
       appName: 'onekey-cloud-key-v1',
       context: Buffer.from(
-        buildHardwareCloudSyncMessage('0123456789abcdef'),
+        buildHardwareCloudSyncMessage(
+          '0123456789abcdef',
+          '0123456789abcdef0123456789abcdef',
+        ),
       ).toString('hex'),
     });
     expect(await h.service.peekDeriveContextHashRequest(nonce)).toMatchObject({

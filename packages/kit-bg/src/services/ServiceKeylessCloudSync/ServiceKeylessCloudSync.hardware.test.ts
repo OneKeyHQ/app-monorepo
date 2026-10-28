@@ -73,34 +73,37 @@ jest.mock('./hardwareCloudSyncSession', () => ({
     dekId: '',
   })),
   bootstrapHardwareCloudSyncDataKey: jest.fn(
-    async ({ kek }: { kek: string }) => {
-      const { results } = jest.mocked(
-        jest.requireMock<typeof import('./hardwareCloudSyncSdk')>(
-          './hardwareCloudSyncSdk',
-        ).generateHardwareCloudSyncCredentialWithSdk,
-      ).mock;
-      const derived = await results[results.length - 1].value;
-      return {
-        dek: kek,
-        dekId: 'public-test-dek',
-        pwdHash: derived.credential.pwdHash,
-      };
-    },
+    async ({
+      deriveKek,
+    }: {
+      deriveKek: (kekSalt: string) => Promise<string>;
+    }) => ({
+      dek: await deriveKek('00'.repeat(16)),
+      dekId: 'public-test-dek',
+      pwdHash: 'keyless-test-hardware',
+      previousPwdHashes: [],
+    }),
   ),
   isHardwareCloudSyncKeyEnvelopeItem: jest.fn(() => false),
   refreshHardwareCloudSyncSessionIfNeeded: jest.fn(async () => undefined),
   requestRawWithHardwareCloudSyncSession: jest.fn(),
 }));
 
-type ISignAuthParams = {
-  signAuth?: (signer: (message: string) => Promise<string>) => Promise<void>;
+type IDeviceParams = Pick<
+  Parameters<typeof generateHardwareCloudSyncCredentialWithSdk>[0],
+  'unlock'
+>;
+// Runs the service's unlock (sign-in, then the data key) as the SDK does.
+const signIn = async ({ unlock }: IDeviceParams) => {
+  await unlock({
+    credentialId: 'hardware-cloud-v1-test',
+    signAuth: async () => 'public-test-signature',
+    deriveKek: async () => 'public-test-kek',
+  });
 };
-const signIn = async (params: ISignAuthParams) => {
-  await params.signAuth?.(async () => 'public-test-signature');
-};
-// A device result that also completes the server sign-in, as the SDK does.
+// A device result that also completes the unlock, as the SDK does.
 function withSignIn<T>(value: T) {
-  return async (params: ISignAuthParams) => {
+  return async (params: IDeviceParams) => {
     await signIn(params);
     return value;
   };
@@ -502,7 +505,7 @@ describe('hardware Cloud key source lifecycle', () => {
     const { service } = setup();
     jest
       .mocked(generateHardwareCloudSyncCredentialWithSdk)
-      .mockImplementation(async (params: ISignAuthParams) => {
+      .mockImplementation(async (params: IDeviceParams) => {
         await service.cancelHardwareCloudKeyOperation();
         await signIn(params);
         return { credential, source };
@@ -529,7 +532,7 @@ describe('hardware Cloud key source lifecycle', () => {
     let finish: () => void = () => undefined;
     const prompt: typeof generateHardwareCloudSyncCredentialWithSdk = ({
       onDeviceCancelChange,
-      signAuth,
+      unlock,
     }) =>
       new Promise((resolve, reject) => {
         onDeviceCancelChange?.(() => {
@@ -537,7 +540,7 @@ describe('hardware Cloud key source lifecycle', () => {
           reject(new Error('Synthetic device request cancelled'));
         });
         finish = () => {
-          void signIn({ signAuth }).then(() => resolve({ credential, source }));
+          void signIn({ unlock }).then(() => resolve({ credential, source }));
         };
         entered();
       });
@@ -610,7 +613,7 @@ describe('hardware Cloud key source lifecycle', () => {
       const { service } = setup(items);
       jest
         .mocked(generateHardwareCloudSyncCredentialWithSdk)
-        .mockImplementation(async (params: ISignAuthParams) => {
+        .mockImplementation(async (params: IDeviceParams) => {
           change(items);
           await signIn(params);
           return { credential, source };

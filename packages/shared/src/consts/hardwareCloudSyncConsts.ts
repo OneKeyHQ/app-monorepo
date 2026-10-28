@@ -19,6 +19,20 @@ export const HARDWARE_CLOUD_SYNC_AUTH_MESSAGE_PREFIX =
   'OneKey Cloud Sync sign-in\n';
 // Server-side records holding a wrapped data key; never synced into local data.
 export const HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE = 'HardwareKeyEnvelope';
+// pwdHash of hardware data: this prefix + sha256(dekId), so any key version is
+// identified without unwrapping it.
+export const HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX = 'hw-dek-';
+// The KEK line appended to the key message: a 16-byte random salt per data
+// key, so a signature taken before a reset no longer opens the new envelope.
+export const HARDWARE_CLOUD_SYNC_KEK_SALT_LINE = '\nKey: ';
+export const HARDWARE_CLOUD_SYNC_KEK_VERSION = 1;
+export const HARDWARE_CLOUD_SYNC_KEK_HKDF_INFO = 'onekey-hw-cloudsync-kek-v1';
+
+export function isHardwareCloudSyncKekSalt(
+  kekSalt: unknown,
+): kekSalt is string {
+  return typeof kekSalt === 'string' && /^[0-9a-f]{32}$/.test(kekSalt);
+}
 
 export function assertHardwareCloudSyncAuthMessage(message: string): void {
   if (
@@ -57,9 +71,17 @@ export function isHardwareCloudSyncPlatformSupported(): boolean {
   );
 }
 
-export function buildHardwareCloudSyncMessage(identityTag: string): string {
+// 185 bytes: warning, version and wallet lines, then the envelope's salt. The
+// salt is checked so the server cannot make the device show arbitrary text.
+export function buildHardwareCloudSyncMessage(
+  identityTag: string,
+  kekSalt: string,
+): string {
   if (!/^[0-9a-f]{16}$/.test(identityTag)) {
     throw new OneKeyLocalError('Invalid standard wallet identity');
   }
-  return `${HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX}${identityTag}`;
+  if (!isHardwareCloudSyncKekSalt(kekSalt)) {
+    throw new OneKeyLocalError('Invalid Cloud sync key salt');
+  }
+  return `${HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX}${identityTag}${HARDWARE_CLOUD_SYNC_KEK_SALT_LINE}${kekSalt}`;
 }

@@ -7,17 +7,29 @@ import {
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import type { IHardwareCloudSyncSession } from '@onekeyhq/shared/types/keylessCloudSync';
 
+import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+
 import {
   bootstrapHardwareCloudSyncDataKey,
+  computeHardwareCloudSyncPwdHash,
   createHardwareCloudSyncDeviceKey,
   getHardwareCloudSyncDevicePublicJwk,
+  reencryptHardwareCloudSyncItems,
   requestWithHardwareCloudSyncSession,
+  rotateHardwareCloudSyncDataKey,
 } from './hardwareCloudSyncSession';
 
 import type { AxiosInstance } from 'axios';
 
 const BASE_URL = 'http://localhost:7001';
-const KEK = 'aa'.repeat(32);
+
+// Stands in for a wallet: a KEK that depends on its secret and the salt.
+function wallet(secret: string) {
+  return jest.fn(async (kekSalt: string) =>
+    createHash('sha256').update(`${secret}:${kekSalt}`).digest('hex'),
+  );
+}
+const WALLET = 'wallet-a';
 
 function fakeClient() {
   const get = jest.fn();
@@ -86,10 +98,15 @@ describe('hardware Cloud sync session', () => {
     const result = await bootstrapHardwareCloudSyncDataKey({
       client,
       session: session(),
-      kek: KEK,
+      deriveKek: wallet(WALLET),
     });
     expect(result.dek).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.pwdHash).toMatch(/^hw-dek-[0-9a-f]{64}$/);
+    expect(result.pwdHash).toBe(computeHardwareCloudSyncPwdHash(result.dekId));
     const body = post.mock.calls[0][1];
+    const envelope = JSON.parse(body.lock.data);
+    expect(envelope).toMatchObject({ dekId: result.dekId, kekVersion: 1 });
+    expect(envelope.kekSalt).toMatch(/^[0-9a-f]{32}$/);
     expect(post.mock.calls[0][0]).toBe('/prime/v1/sync/flush');
     expect(body.expectedPwdHash).toBe('');
     expect(body.pwdHash).toBe(result.pwdHash);
@@ -108,19 +125,26 @@ describe('hardware Cloud sync session', () => {
     const created = await bootstrapHardwareCloudSyncDataKey({
       client: first.client,
       session: session(),
-      kek: KEK,
+      deriveKek: wallet(WALLET),
     });
     const lock = first.post.mock.calls[0][1].lock;
 
     const second = fakeClient();
     second.get.mockResolvedValue(ok({ lock }));
+    second.post.mockResolvedValue(ok({ serverData: [] }));
+    const deriveKek = wallet(WALLET);
     const joined = await bootstrapHardwareCloudSyncDataKey({
       client: second.client,
       session: session(),
-      kek: KEK,
+      deriveKek,
     });
     expect(joined).toEqual(created);
-    expect(second.post).not.toHaveBeenCalled();
+    // Signs the salt found in the Lock, once.
+    expect(deriveKek.mock.calls).toEqual([[JSON.parse(lock.data).kekSalt]]);
+    // Only reads earlier envelopes; never flushes.
+    expect(second.post.mock.calls.map((call) => call[0] as string)).toEqual([
+      '/prime/v1/sync/download',
+    ]);
   });
 
   test('a device with another KEK cannot unwrap the data key', async () => {
@@ -130,7 +154,7 @@ describe('hardware Cloud sync session', () => {
     await bootstrapHardwareCloudSyncDataKey({
       client: first.client,
       session: session(),
-      kek: KEK,
+      deriveKek: wallet(WALLET),
     });
     const other = fakeClient();
     other.get.mockResolvedValue(ok({ lock: first.post.mock.calls[0][1].lock }));
@@ -138,7 +162,7 @@ describe('hardware Cloud sync session', () => {
       bootstrapHardwareCloudSyncDataKey({
         client: other.client,
         session: session(),
-        kek: 'bb'.repeat(32),
+        deriveKek: wallet('wallet-b'),
       }),
     ).rejects.toThrow();
   });
@@ -150,7 +174,7 @@ describe('hardware Cloud sync session', () => {
     const won = await bootstrapHardwareCloudSyncDataKey({
       client: winner.client,
       session: session(),
-      kek: KEK,
+      deriveKek: wallet(WALLET),
     });
     const winnerLock = winner.post.mock.calls[0][1].lock;
 
@@ -158,11 +182,15 @@ describe('hardware Cloud sync session', () => {
     loser.get
       .mockResolvedValueOnce(ok({ lock: null }))
       .mockResolvedValueOnce(ok({ lock: winnerLock }));
-    loser.post.mockRejectedValueOnce(new Error('PRIME_USER_PWD_HASH_INVALID'));
+    loser.post
+      .mockRejectedValueOnce(
+        Object.assign(new Error('pwdHash invalid'), { code: 90_010 }),
+      )
+      .mockResolvedValueOnce(ok({ serverData: [] }));
     const adopted = await bootstrapHardwareCloudSyncDataKey({
       client: loser.client,
       session: session(),
-      kek: KEK,
+      deriveKek: wallet(WALLET),
     });
     expect(adopted).toEqual(won);
   });
@@ -176,16 +204,273 @@ describe('hardware Cloud sync session', () => {
     ).not.toThrow();
     expect(() =>
       assertHardwareCloudSyncAuthMessage(
-        buildHardwareCloudSyncMessage('0123456789abcdef'),
+        buildHardwareCloudSyncMessage(
+          '0123456789abcdef',
+          '0123456789abcdef0123456789abcdef',
+        ),
       ),
     ).toThrow();
     expect(() =>
       assertHardwareCloudSyncAuthMessage(
         `OneKey Cloud Sync sign-in\n${buildHardwareCloudSyncMessage(
           '0123456789abcdef',
+          '0123456789abcdef0123456789abcdef',
         )}\nNonce: ${nonce}\n`,
       ),
     ).toThrow();
     expect(() => assertHardwareCloudSyncAuthMessage('Sign anything')).toThrow();
+  });
+
+  test.each([
+    [
+      'missing salt',
+      (e: Record<string, unknown>) => ({ ...e, kekSalt: undefined }),
+    ],
+    [
+      'uppercase salt',
+      (e: Record<string, unknown>) => ({ ...e, kekSalt: 'AB'.repeat(16) }),
+    ],
+    [
+      'text in salt',
+      (e: Record<string, unknown>) => ({
+        ...e,
+        kekSalt: 'Sign this to send funds now!!!!!',
+      }),
+    ],
+    ['kekVersion 2', (e: Record<string, unknown>) => ({ ...e, kekVersion: 2 })],
+  ])('refuses to sign for a Lock with %s', async (_name, mutate) => {
+    const first = fakeClient();
+    first.get.mockResolvedValue(ok({ lock: null }));
+    first.post.mockResolvedValue(ok({}));
+    await bootstrapHardwareCloudSyncDataKey({
+      client: first.client,
+      session: session(),
+      deriveKek: wallet(WALLET),
+    });
+    const lock = first.post.mock.calls[0][1].lock;
+    const bad = {
+      ...lock,
+      data: JSON.stringify(mutate(JSON.parse(lock.data))),
+    };
+    const c = fakeClient();
+    c.get.mockResolvedValue(ok({ lock: bad }));
+    const deriveKek = wallet(WALLET);
+    await expect(
+      bootstrapHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek,
+      }),
+    ).rejects.toThrow('Invalid Cloud sync key envelope');
+    expect(deriveKek).not.toHaveBeenCalled();
+    expect(c.post).not.toHaveBeenCalled();
+  });
+
+  describe('data key reset', () => {
+    async function firstDevice() {
+      const c = fakeClient();
+      c.get.mockResolvedValue(ok({ lock: null }));
+      c.post.mockResolvedValue(ok({}));
+      const key = await bootstrapHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+      });
+      const flushed = c.post.mock.calls[0][1];
+      return { key, lock: flushed.lock, envelopeItem: flushed.localData[0] };
+    }
+
+    async function item(dek: string, pwdHash: string, id: string) {
+      return {
+        id,
+        dataType: 'BrowserBookmark',
+        pwdHash,
+        data: await keylessCloudSyncUtils.encryptWithKeylessKey({
+          rawData: `raw-${id}`,
+          encryptionKey: dek,
+          itemId: id,
+          dataType: 'BrowserBookmark',
+        }),
+      };
+    }
+
+    test('re-encrypts records with the new key in one guarded flush', async () => {
+      const { key, lock, envelopeItem } = await firstDevice();
+      const local = [
+        await item(key.dek, key.pwdHash, 'a'),
+        { ...(await item(key.dek, 'keyless-other', 'b')) },
+      ];
+      // The server also holds a record this device has no local copy of.
+      const remote = await item(key.dek, key.pwdHash, 'from-other-device');
+      const serverData = [
+        envelopeItem,
+        { key: 'a', dataType: 'BrowserBookmark', data: local[0].data },
+        { key: remote.id, dataType: remote.dataType, data: remote.data },
+        { key: 'gone', dataType: 'BrowserBookmark', data: '', isDeleted: true },
+      ];
+      const c = fakeClient();
+      c.get.mockResolvedValue(ok({ lock }));
+      c.post
+        .mockResolvedValueOnce(ok({ serverData }))
+        .mockResolvedValueOnce(ok({}));
+      const savePending = jest.fn(async () => undefined);
+      const { next, items } = await rotateHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+        current: key,
+        localItems: local,
+        savePending,
+      });
+      expect(next.dek).not.toBe(key.dek);
+      expect(next.pwdHash).toBe(computeHardwareCloudSyncPwdHash(next.dekId));
+      const newSalt = JSON.parse(c.post.mock.calls[1][1].lock.data).kekSalt;
+      expect(newSalt).toMatch(/^[0-9a-f]{32}$/);
+      expect(newSalt).not.toBe(JSON.parse(lock.data).kekSalt);
+      expect(savePending).toHaveBeenCalledWith(next);
+      // Only records under the current key are carried over.
+      expect(items.map((i) => i.id)).toEqual(['a']);
+      await expect(
+        keylessCloudSyncUtils.decryptWithKeylessKey({
+          encryptedData: items[0].data,
+          encryptionKey: next.dek,
+          itemId: 'a',
+          dataType: 'BrowserBookmark',
+        }),
+      ).resolves.toBe('raw-a');
+
+      const flush = c.post.mock.calls[1] as [
+        string,
+        {
+          localData: Array<{
+            key: string;
+            dataType: string;
+            data: string;
+            isDeleted: boolean;
+          }>;
+        },
+      ];
+      expect(flush[0]).toBe('/prime/v1/sync/flush');
+      expect(flush[1]).toMatchObject({
+        pwdHash: next.pwdHash,
+        expectedPwdHash: key.pwdHash,
+      });
+      const types = flush[1].localData.map(
+        (i: { dataType: string }) => i.dataType,
+      );
+      expect(
+        types.filter(
+          (t: string) => t === HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+        ),
+      ).toHaveLength(2);
+      expect(JSON.stringify(flush[1])).not.toContain(next.dek);
+      // Server records, including other devices' and deletions, carry over.
+      const byKey = Object.fromEntries(
+        flush[1].localData.map((i) => [i.key, i]),
+      );
+      expect(Object.keys(byKey)).toEqual(
+        expect.arrayContaining(['a', 'from-other-device', 'gone']),
+      );
+      expect(byKey.gone.isDeleted).toBe(true);
+      await expect(
+        keylessCloudSyncUtils.decryptWithKeylessKey({
+          encryptedData: byKey['from-other-device'].data,
+          encryptionKey: next.dek,
+          itemId: 'from-other-device',
+          dataType: 'BrowserBookmark',
+        }),
+      ).resolves.toBe('raw-from-other-device');
+    });
+
+    test('refuses when the server key was already reset', async () => {
+      const { key, lock } = await firstDevice();
+      const c = fakeClient();
+      c.get.mockResolvedValue(ok({ lock }));
+      await expect(
+        rotateHardwareCloudSyncDataKey({
+          client: c.client,
+          session: session(),
+          deriveKek: wallet(WALLET),
+          current: { ...key, dekId: 'ee'.repeat(16) },
+          localItems: [],
+          savePending: jest.fn(),
+        }),
+      ).rejects.toThrow('Cloud sync key changed');
+      expect(c.post).not.toHaveBeenCalled();
+    });
+
+    test('a joining device learns earlier key versions by id', async () => {
+      const { key, envelopeItem } = await firstDevice();
+      const other = await (async () => {
+        const c = fakeClient();
+        c.get.mockResolvedValue(ok({ lock: null }));
+        c.post.mockResolvedValue(ok({}));
+        await bootstrapHardwareCloudSyncDataKey({
+          client: c.client,
+          session: session(),
+          deriveKek: wallet('wallet-c'),
+        });
+        const flushed = c.post.mock.calls[0][1] as {
+          localData: Record<string, unknown>[];
+        };
+        return flushed.localData[0];
+      })();
+      const rotated = fakeClient();
+      rotated.get.mockResolvedValue(ok({ lock: null }));
+      rotated.post.mockResolvedValue(ok({}));
+      const newer = await bootstrapHardwareCloudSyncDataKey({
+        client: rotated.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+      });
+      const joiner = fakeClient();
+      joiner.get.mockResolvedValue(
+        ok({ lock: rotated.post.mock.calls[0][1].lock }),
+      );
+      joiner.post.mockResolvedValue(
+        ok({
+          serverData: [
+            envelopeItem,
+            other,
+            { ...other, data: '{"dekId":"legacy"}' },
+          ],
+        }),
+      );
+      const joined = await bootstrapHardwareCloudSyncDataKey({
+        client: joiner.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+      });
+      expect(joined.dek).toBe(newer.dek);
+      expect(joined.previousPwdHashes.toSorted()).toEqual(
+        [
+          key.pwdHash,
+          computeHardwareCloudSyncPwdHash(
+            JSON.parse(other.data as string).dekId,
+          ),
+        ].toSorted(),
+      );
+    });
+
+    test('re-encryption drops records written with another key', async () => {
+      const { key } = await firstDevice();
+      const to = { dek: 'dd'.repeat(32), dekId: 'x', pwdHash: 'keyless-next' };
+      const out = await reencryptHardwareCloudSyncItems({
+        items: [
+          { id: 'gone', dataType: 'Wallet', pwdHash: 'keyless-old' },
+          { id: 'deleted', dataType: 'Wallet', pwdHash: key.pwdHash },
+        ],
+        from: key,
+        to,
+      });
+      expect(out).toEqual([
+        {
+          id: 'deleted',
+          dataType: 'Wallet',
+          pwdHash: 'keyless-next',
+          data: undefined,
+        },
+      ]);
+    });
   });
 });

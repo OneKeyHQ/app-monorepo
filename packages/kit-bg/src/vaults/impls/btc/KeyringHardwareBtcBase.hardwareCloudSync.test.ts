@@ -30,7 +30,10 @@ jest.mock('../../../providers/backgroundProviders', () => ({
   providerApiLoaders: {},
 }));
 
-const message = buildHardwareCloudSyncMessage('0123456789abcdef');
+const message = buildHardwareCloudSyncMessage(
+  '0123456789abcdef',
+  '0123456789abcdef0123456789abcdef',
+);
 const deviceParams: IDeviceSharedCallParams = {
   dbDevice: {
     id: 'public-test-device',

@@ -77,7 +77,10 @@ describe('provider ingress delegates protocol-specific message validation', () =
           method: 'wallet_addEthereumChain',
           params: [
             {
-              chainName: buildHardwareCloudSyncMessage('0123456789abcdef'),
+              chainName: buildHardwareCloudSyncMessage(
+                '0123456789abcdef',
+                '0123456789abcdef0123456789abcdef',
+              ),
               metadata: { path: HARDWARE_CLOUD_SYNC_PATH },
             },
           ],

@@ -951,6 +951,18 @@ function AppDataSection() {
               </Stack>
             </ListItem>
           ) : null}
+          {hardwareSource && !hardwareKey.keyMissing ? (
+            <ListItem
+              testID="cloud-hardware-key-reset"
+              icon="KeyOutline"
+              // TODO i18n
+              title="Reset Cloud sync key"
+              subtitle="Encrypt synced data with a new key and sign out other devices"
+              drillIn
+              disabled={hardwareKey.pending}
+              onPress={hardwareKey.resetKey}
+            />
+          ) : null}
           {keylessWallet && !hardwareSource ? (
             <ListItem
               icon="Wallet4Outline"

@@ -1,7 +1,13 @@
 import { p256 } from '@noble/curves/p256';
 import { sha256 } from '@noble/hashes/sha256';
+import { randomBytes } from '@noble/hashes/utils';
 
-import { HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
+  HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
+  HARDWARE_CLOUD_SYNC_KEK_VERSION,
+  HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+  isHardwareCloudSyncKekSalt,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -29,9 +35,14 @@ type ITokenResponse = {
 type IKeyEnvelope = {
   dekId: string;
   kekVersion: 1;
+  // Part of the message the device signs for this envelope's KEK.
+  kekSalt: string;
   wrappedDek: string;
   createdAt: number;
 };
+
+// Called inside the open device session; signs the salted key message.
+export type IHardwareCloudSyncKekDeriver = (kekSalt: string) => Promise<string>;
 
 // The renderer's Buffer polyfill has no 'base64url' encoding.
 const toBase64url = (bytes: Uint8Array | string) =>
@@ -307,52 +318,158 @@ async function unwrapDek({
   return dek;
 }
 
+// Identifies a key version from its id alone, so earlier envelopes (each with
+// its own salt) never need unwrapping.
+export function computeHardwareCloudSyncPwdHash(dekId: string): string {
+  return `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}${bufferUtils.bytesToHex(
+    sha256(Buffer.from(dekId, 'utf8')),
+  )}`;
+}
+
+// Only well-formed v1 envelopes are signed for: the salt is shown on the
+// device, so the server must not choose arbitrary text there.
 function parseEnvelope(data: string | undefined): IKeyEnvelope | undefined {
   if (!data) return undefined;
-  const envelope = JSON.parse(data) as IKeyEnvelope;
-  if (!envelope?.dekId || !envelope.wrappedDek) {
+  let envelope: Partial<IKeyEnvelope> | undefined;
+  try {
+    envelope = JSON.parse(data) as Partial<IKeyEnvelope>;
+  } catch {
+    envelope = undefined;
+  }
+  if (
+    !envelope ||
+    typeof envelope.dekId !== 'string' ||
+    !/^[0-9a-f]{32}$/.test(envelope.dekId) ||
+    envelope.kekVersion !== HARDWARE_CLOUD_SYNC_KEK_VERSION ||
+    !isHardwareCloudSyncKekSalt(envelope.kekSalt) ||
+    typeof envelope.wrappedDek !== 'string' ||
+    !envelope.wrappedDek
+  ) {
     throw new OneKeyLocalError('Invalid Cloud sync key envelope');
   }
-  return envelope;
+  return envelope as IKeyEnvelope;
+}
+
+async function readLockEnvelope({
+  client,
+  session,
+}: {
+  client: AxiosInstance;
+  session: IHardwareCloudSyncSession;
+}): Promise<IKeyEnvelope | undefined> {
+  const { lock } = await requestWithHardwareCloudSyncSession<{
+    lock: { data?: string } | null;
+  }>({ client, session, method: 'GET', urlPath: '/prime/v1/sync/lock' });
+  return parseEnvelope(lock?.data);
+}
+
+// A new data key with its own salt; the device signs the salted message once
+// per call of deriveKek.
+async function createEnvelope(deriveKek: IHardwareCloudSyncKekDeriver) {
+  const dek = bufferUtils.bytesToHex(randomBytes(32));
+  const dekId = bufferUtils.bytesToHex(randomBytes(16));
+  const kekSalt = bufferUtils.bytesToHex(randomBytes(16));
+  const kek = await deriveKek(kekSalt);
+  const envelope: IKeyEnvelope = {
+    dekId,
+    kekVersion: HARDWARE_CLOUD_SYNC_KEK_VERSION,
+    kekSalt,
+    wrappedDek: await wrapDek({ kek, dek }),
+    createdAt: Date.now(),
+  };
+  const dataKey: IHardwareCloudSyncDataKey = {
+    dek,
+    dekId,
+    pwdHash: computeHardwareCloudSyncPwdHash(dekId),
+  };
+  return { dataKey, envelope };
+}
+
+function envelopeRecord(envelope: IKeyEnvelope) {
+  return {
+    key: `dek:${envelope.dekId}`,
+    dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+    data: JSON.stringify(envelope),
+    dataTimestamp: envelope.createdAt,
+    isDeleted: false,
+  };
+}
+
+// Earlier key versions on the server, known by dekId alone.
+async function listPreviousPwdHashes({
+  client,
+  session,
+  pwdHash,
+}: {
+  client: AxiosInstance;
+  session: IHardwareCloudSyncSession;
+  pwdHash: string;
+}): Promise<string[]> {
+  const { serverData } = await requestWithHardwareCloudSyncSession<{
+    serverData: Array<{ dataType?: string; data?: string }>;
+  }>({
+    client,
+    session,
+    method: 'POST',
+    urlPath: '/prime/v1/sync/download',
+    data: { pwdHash, limit: 100_000 },
+  });
+  const hashes: string[] = [];
+  const envelopes = (serverData ?? []).filter((item) =>
+    isHardwareCloudSyncKeyEnvelopeItem(item),
+  );
+  for (const item of envelopes) {
+    try {
+      const envelope = parseEnvelope(item.data);
+      const hash = envelope
+        ? computeHardwareCloudSyncPwdHash(envelope.dekId)
+        : undefined;
+      if (hash && hash !== pwdHash) hashes.push(hash);
+    } catch {
+      // Malformed or legacy envelope: not a key version of this wallet.
+    }
+  }
+  return hashes;
 }
 
 /**
- * Returns the data key for this hardware identity. The first device creates it
- * and stores it wrapped by the device-derived KEK; later devices unwrap it.
- * The server only ever sees the wrapped form.
+ * Returns the data key for this hardware identity, signing only after reading
+ * the Lock. The first device creates the key and its salt; later devices sign
+ * the salt they find. The server only ever sees the wrapped form.
  */
 export async function bootstrapHardwareCloudSyncDataKey({
   client,
   session,
-  kek,
+  deriveKek,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
-  kek: string;
-}): Promise<{ dek: string; dekId: string; pwdHash: string }> {
+  deriveKek: IHardwareCloudSyncKekDeriver;
+}): Promise<
+  IHardwareCloudSyncDataKey & {
+    // Earlier keys of this wallet, after another device reset it.
+    previousPwdHashes: string[];
+  }
+> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { lock } = await requestWithHardwareCloudSyncSession<{
-      lock: { data?: string } | null;
-    }>({ client, session, method: 'GET', urlPath: '/prime/v1/sync/lock' });
-    const existing = parseEnvelope(lock?.data);
+    const existing = await readLockEnvelope({ client, session });
     if (existing) {
+      const kek = await deriveKek(existing.kekSalt);
       const dek = await unwrapDek({ kek, wrappedDek: existing.wrappedDek });
+      const pwdHash = computeHardwareCloudSyncPwdHash(existing.dekId);
       return {
         dek,
         dekId: existing.dekId,
-        pwdHash: keylessCloudSyncUtils.computeKeylessPwdHash(dek),
+        pwdHash,
+        previousPwdHashes: await listPreviousPwdHashes({
+          client,
+          session,
+          pwdHash,
+        }),
       };
     }
 
-    const dek = bufferUtils.bytesToHex(p256.utils.randomPrivateKey());
-    const envelope: IKeyEnvelope = {
-      dekId: randomHex(32),
-      kekVersion: 1,
-      wrappedDek: await wrapDek({ kek, dek }),
-      createdAt: Date.now(),
-    };
-    const pwdHash = keylessCloudSyncUtils.computeKeylessPwdHash(dek);
-    const envelopeData = JSON.stringify(envelope);
+    const { dataKey, envelope } = await createEnvelope(deriveKek);
     try {
       await requestWithHardwareCloudSyncSession({
         client,
@@ -361,31 +478,235 @@ export async function bootstrapHardwareCloudSyncDataKey({
         urlPath: '/prime/v1/sync/flush',
         data: {
           nonce: 0,
-          pwdHash,
+          pwdHash: dataKey.pwdHash,
           // Only the first device may create the key; a concurrent first
-          // enable loses here and unwraps the winner's key instead.
+          // enable loses here and signs the winner's salt instead.
           expectedPwdHash: '',
           lock: {
             key: 'lock',
             dataType: 'Lock',
-            data: envelopeData,
+            data: JSON.stringify(envelope),
             dataTimestamp: envelope.createdAt,
           },
-          localData: [
-            {
-              key: `dek:${envelope.dekId}`,
-              dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
-              data: envelopeData,
-              dataTimestamp: envelope.createdAt,
-              isDeleted: false,
-            },
-          ],
+          localData: [envelopeRecord(envelope)],
         },
       });
-      return { dek, dekId: envelope.dekId, pwdHash };
+      return { ...dataKey, previousPwdHashes: [] };
     } catch (error) {
-      if (attempt === 2) throw error;
+      if (!isHardwareCloudSyncPwdHashInvalidError(error) || attempt === 2) {
+        throw error;
+      }
     }
   }
   throw new OneKeyLocalError('Cloud sync data key is unavailable');
+}
+
+export type IHardwareCloudSyncDataKey = {
+  dek: string;
+  dekId: string;
+  pwdHash: string;
+};
+
+type IEncryptedSyncItem = {
+  id: string;
+  dataType: string;
+  data?: string;
+  pwdHash?: string;
+};
+
+// Stale pwdHash response code. Placeholder shared with the local mock server;
+// align with the Prime production code before shipping.
+export const HARDWARE_CLOUD_SYNC_PWD_HASH_INVALID_CODE = 90_010;
+
+export function isHardwareCloudSyncPwdHashInvalidError(error: unknown) {
+  return (
+    (error as { code?: unknown } | undefined)?.code ===
+    HARDWARE_CLOUD_SYNC_PWD_HASH_INVALID_CODE
+  );
+}
+
+export function isHardwareCloudSyncUnauthorizedError(error: unknown) {
+  const e = error as
+    | {
+        httpStatusCode?: number;
+        response?: { status?: number };
+        data?: { httpStatusCode?: number };
+      }
+    | undefined;
+  return (
+    e?.httpStatusCode === 401 ||
+    e?.response?.status === 401 ||
+    e?.data?.httpStatusCode === 401
+  );
+}
+
+/** Returns the data key the server currently holds, or undefined if none. */
+export async function getCurrentHardwareCloudSyncDataKeyId({
+  client,
+  session,
+}: {
+  client: AxiosInstance;
+  session: IHardwareCloudSyncSession;
+}): Promise<string | undefined> {
+  const { lock } = await requestWithHardwareCloudSyncSession<{
+    lock: { data?: string } | null;
+  }>({ client, session, method: 'GET', urlPath: '/prime/v1/sync/lock' });
+  return parseEnvelope(lock?.data)?.dekId;
+}
+
+/** Re-encrypts the items written with `from` under `to`. Others are dropped. */
+export async function reencryptHardwareCloudSyncItems<
+  T extends IEncryptedSyncItem,
+>({
+  items,
+  from,
+  to,
+}: {
+  items: T[];
+  from: IHardwareCloudSyncDataKey;
+  to: IHardwareCloudSyncDataKey;
+}): Promise<T[]> {
+  const result: T[] = [];
+  const carried = items.filter((item) => item.pwdHash === from.pwdHash);
+  for (const item of carried) {
+    let { data } = item;
+    if (data) {
+      const raw = await keylessCloudSyncUtils.decryptWithKeylessKey({
+        encryptedData: data,
+        encryptionKey: from.dek,
+        itemId: item.id,
+        dataType: item.dataType,
+      });
+      data = await keylessCloudSyncUtils.encryptWithKeylessKey({
+        rawData: raw,
+        encryptionKey: to.dek,
+        itemId: item.id,
+        dataType: item.dataType,
+      });
+    }
+    result.push({ ...item, data, pwdHash: to.pwdHash });
+  }
+  return result;
+}
+
+/**
+ * Replaces the data key: everything on the server is re-encrypted with a new
+ * DEK in one flush, guarded by the current pwdHash. Local records are
+ * re-encrypted too and returned for the local database. `savePending` runs
+ * before the flush so an interrupted reset can be finished or dropped later.
+ */
+export async function rotateHardwareCloudSyncDataKey<
+  T extends IEncryptedSyncItem,
+>({
+  client,
+  session,
+  deriveKek,
+  current,
+  localItems,
+  savePending,
+}: {
+  client: AxiosInstance;
+  session: IHardwareCloudSyncSession;
+  deriveKek: IHardwareCloudSyncKekDeriver;
+  current: IHardwareCloudSyncDataKey;
+  localItems: T[];
+  savePending: (next: IHardwareCloudSyncDataKey) => Promise<void>;
+}): Promise<{ next: IHardwareCloudSyncDataKey; items: T[] }> {
+  const existing = await readLockEnvelope({ client, session });
+  // Nobody reset it meanwhile. The wallet itself was checked by its identity
+  // before the device signs.
+  if (!existing || existing.dekId !== current.dekId) {
+    throw new OneKeyLocalError('Cloud sync key changed. Sync again first.');
+  }
+  // New salt and data key: signatures taken for the old envelope stop working.
+  const { dataKey: next, envelope } = await createEnvelope(deriveKek);
+  const items = await reencryptHardwareCloudSyncItems({
+    items: localItems,
+    from: current,
+    to: next,
+  });
+  // The server copy is the source: it also holds records this device keeps
+  // no local copy of, such as other devices' wallets.
+  const { serverData } = await requestWithHardwareCloudSyncSession<{
+    serverData: Array<{
+      key: string;
+      dataType: string;
+      data?: string;
+      dataTimestamp?: number;
+      isDeleted?: boolean;
+    }>;
+  }>({
+    client,
+    session,
+    method: 'POST',
+    urlPath: '/prime/v1/sync/download',
+    data: { pwdHash: current.pwdHash, includeDeleted: true, limit: 100_000 },
+  });
+  const [envelopeRecords, records] = [
+    (serverData ?? []).filter((item) =>
+      isHardwareCloudSyncKeyEnvelopeItem(item),
+    ),
+    (serverData ?? []).filter(
+      (item) => !isHardwareCloudSyncKeyEnvelopeItem(item),
+    ),
+  ];
+  const serverItems = await reencryptHardwareCloudSyncItems({
+    items: records.map((item) => ({
+      ...item,
+      id: item.key,
+      pwdHash: current.pwdHash,
+    })),
+    from: current,
+    to: next,
+  });
+  const envelopeData = JSON.stringify(envelope);
+  // Keep every earlier envelope; they are tiny and help recovery.
+  const envelopeItems = [
+    ...envelopeRecords.map(({ key, dataType, data, dataTimestamp }) => ({
+      key,
+      dataType,
+      data,
+      dataTimestamp,
+      isDeleted: false,
+    })),
+    {
+      key: `dek:${envelope.dekId}`,
+      dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+      data: envelopeData,
+      dataTimestamp: envelope.createdAt,
+      isDeleted: false,
+    },
+  ];
+
+  await savePending(next);
+  await requestWithHardwareCloudSyncSession({
+    client,
+    session,
+    method: 'POST',
+    urlPath: '/prime/v1/sync/flush',
+    data: {
+      nonce: 0,
+      pwdHash: next.pwdHash,
+      expectedPwdHash: current.pwdHash,
+      lock: {
+        key: 'lock',
+        dataType: 'Lock',
+        data: envelopeData,
+        dataTimestamp: envelope.createdAt,
+      },
+      localData: [
+        ...serverItems.map(
+          ({ key, dataType, data, dataTimestamp, isDeleted }) => ({
+            key,
+            dataType,
+            data: data ?? '',
+            dataTimestamp,
+            isDeleted: !!isDeleted,
+          }),
+        ),
+        ...envelopeItems,
+      ],
+    },
+  });
+  return { next, items };
 }

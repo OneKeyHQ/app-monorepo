@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHmac } from 'crypto';
 
 import { payments } from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
@@ -11,7 +11,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
 
 import {
-  deriveHardwareCloudSyncCredential,
+  deriveHardwareCloudSyncKek,
   getHardwareCloudSyncIdentityTag,
   normalizeHardwareCloudSignature,
   normalizeHardwareCloudWalletXfp,
@@ -121,8 +121,14 @@ class MockHardwareCloudKeyAdapter implements IHardwareCloudKeyAdapter {
   }
 }
 
-function derive(adapter: MockHardwareCloudKeyAdapter, isCurrent = () => true) {
-  return deriveHardwareCloudSyncCredential({
+const TEST_SALT = '00112233445566778899aabbccddeeff';
+
+function derive(
+  adapter: MockHardwareCloudKeyAdapter,
+  isCurrent = () => true,
+  kekSalt = TEST_SALT,
+) {
+  return deriveHardwareCloudSyncKek({
     adapter,
     expectedIdentity: {
       connectId: 'mock-connect-id',
@@ -131,50 +137,74 @@ function derive(adapter: MockHardwareCloudKeyAdapter, isCurrent = () => true) {
     },
     credentialId: 'hardware-cloud-test',
     isCurrent,
+    kekSalt,
   });
 }
 
+// RFC 5869 HKDF-SHA256 with a single 32-byte output block.
+function hkdfSha256(ikm: Buffer, salt: Buffer, info: string) {
+  const prk = createHmac('sha256', salt).update(ikm).digest();
+  return createHmac('sha256', prk)
+    .update(Buffer.concat([Buffer.from(info, 'utf8'), Buffer.from([1])]))
+    .digest('hex');
+}
+
 describe('hardware Cloud key credential provider', () => {
-  test('uses a fixed readable message and deterministic compatible credential', async () => {
+  test('signs the salted message twice and derives the KEK with HKDF', async () => {
     const adapter = new MockHardwareCloudKeyAdapter();
     expect(
       payments.p2pkh({ pubkey: Buffer.from(TEST_PUBLIC_KEY, 'hex') }).address,
     ).toBe(TEST_ADDRESS);
     const message = buildHardwareCloudSyncMessage(
       getHardwareCloudSyncIdentityTag(TEST_XFP),
+      TEST_SALT,
     );
-    expect(message.length).toBeLessThanOrEqual(150);
+    expect(message.length).toBe(185);
     expect(message).toMatch(/^[\x20-\x7e\n]+$/);
     expect(message).toContain('Unlock ALL OneKey Cloud data');
+    expect(message.endsWith(`\nKey: ${TEST_SALT}`)).toBe(true);
     const expectedMaterial = normalizeHardwareCloudSignature(
       bitcoinMessage.sign(message, TEST_PRIVATE_KEY, true).toString('hex'),
     );
     const first = await derive(adapter);
     const second = await derive(new MockHardwareCloudKeyAdapter());
-    expect(first).toEqual(second);
+    expect(first).toBe(second);
     expect(adapter.signatures).toBe(2);
     expect(adapter.calls).toHaveLength(2);
     for (const params of adapter.calls) {
       expect(params.path).toBe(HARDWARE_CLOUD_SYNC_PATH);
       expect(params.coin).toBe('Bitcoin');
       expect(params.useEmptyPassphrase).toBe(true);
+      expect(Buffer.from(params.messageHex, 'hex').toString('ascii')).toBe(
+        message,
+      );
     }
-    expect(first.keylessWalletId).toBe('hardware-cloud-test');
-    expect(first.signingPrivateKey).toBe(
-      createHash('sha256')
-        .update(expectedMaterial)
-        .update('F7A3E1B2-8C4D-4F6E-9A1B-3D5E7F8A2C4D')
-        .digest('hex'),
+    expect(first).toBe(
+      hkdfSha256(
+        expectedMaterial,
+        Buffer.from(TEST_SALT, 'hex'),
+        'onekey-hw-cloudsync-kek-v1',
+      ),
     );
-    expect(first.encryptionKey).toBe(
-      createHash('sha256')
-        .update(expectedMaterial)
-        .update('B2C4D6E8-1A3B-5C7D-9E1F-4A6B8C0D2E4F')
-        .digest('hex'),
-    );
-    expect(first.signingPublicKey).toMatch(/^(02|03)[\da-f]{64}$/);
-    expect(first.pwdHash).toMatch(/^keyless-[\da-f]{128}$/);
     expectedMaterial.fill(0);
+  });
+
+  test('another salt gives another KEK', async () => {
+    const a = await derive(new MockHardwareCloudKeyAdapter());
+    const b = await derive(
+      new MockHardwareCloudKeyAdapter(),
+      () => true,
+      'ffeeddccbbaa99887766554433221100',
+    );
+    expect(a).not.toBe(b);
+  });
+
+  test('refuses a malformed salt before asking the device', async () => {
+    const adapter = new MockHardwareCloudKeyAdapter();
+    await expect(derive(adapter, () => true, 'NOT-A-SALT')).rejects.toThrow(
+      EXPECTED_FAILURE,
+    );
+    expect(adapter.calls).toHaveLength(0);
   });
 
   test('pads the public root fingerprint without changing xpub case', () => {

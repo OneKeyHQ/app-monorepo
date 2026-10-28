@@ -8,34 +8,53 @@ import {
 
 import { assertNoHardwareCloudSyncSigningRequest } from './hardwareCloudSyncGuards';
 
-const message = buildHardwareCloudSyncMessage('0123456789abcdef');
+const salt = 'fedcba9876543210fedcba9876543210';
+const message = buildHardwareCloudSyncMessage('0123456789abcdef', salt);
 const bytes = Buffer.from(message, 'ascii');
 
 describe('hardware Cloud root message contract', () => {
-  test('keeps the warning and stable identity within 150 ASCII bytes', () => {
+  test('keeps the warning, identity and the envelope salt in 185 ASCII bytes', () => {
     expect(message).toBe(
-      `${HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX}0123456789abcdef`,
+      `${HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX}0123456789abcdef\nKey: ${salt}`,
     );
-    expect(bytes.length).toBe(147);
+    expect(bytes.length).toBe(185);
     expect(/^[\x20-\x7e\n]+$/.test(message)).toBe(true);
   });
 
   test.each(['', '01234567', '0123456789ABCDEF', '../0123456789ab'])(
     'rejects noncanonical identity %s',
     (identity) => {
-      expect(() => buildHardwareCloudSyncMessage(identity)).toThrow(
+      expect(() => buildHardwareCloudSyncMessage(identity, salt)).toThrow(
         'Invalid standard wallet identity',
       );
     },
   );
+
+  test.each([
+    '',
+    'fedcba98',
+    salt.toUpperCase(),
+    `${salt}00`,
+    'not-a-salt-not-a-salt-not-a-salt',
+  ])('rejects a malformed salt %s', (badSalt) => {
+    expect(() =>
+      buildHardwareCloudSyncMessage('0123456789abcdef', badSalt),
+    ).toThrow('Invalid Cloud sync key salt');
+  });
 });
 
 describe('exact protocol message comparison', () => {
   test.each(
     [
       message,
-      buildHardwareCloudSyncMessage('0000000000000000'),
-      buildHardwareCloudSyncMessage('ffffffffffffffff'),
+      buildHardwareCloudSyncMessage(
+        '0000000000000000',
+        '00000000000000000000000000000000',
+      ),
+      buildHardwareCloudSyncMessage(
+        'ffffffffffffffff',
+        'ffffffffffffffffffffffffffffffff',
+      ),
       bytes,
       [...bytes],
       new Uint8Array(bytes),
@@ -102,6 +121,10 @@ describe('exact protocol message comparison', () => {
     message.toUpperCase(),
     message.replace(/\n/g, '\r\n'),
     message.replace('0123456789abcdef', '0123456789ABCDEF'),
+    message.replace(salt, salt.toUpperCase()),
+    message.replace('\nKey: ', '\nkey: '),
+    // The earlier fixed 147-byte message is not a protocol message any more.
+    `${HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX}0123456789abcdef`,
     bytes.toString('hex'),
     bytes.toString('base64'),
     JSON.stringify({ message }),

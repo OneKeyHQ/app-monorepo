@@ -71,7 +71,10 @@ describe('final background Cloud key signing boundary', () => {
         networkId: 'btc--0',
         unsignedMessage: {
           type: EMessageTypesBtc.ECDSA,
-          message: buildHardwareCloudSyncMessage('0123456789abcdef'),
+          message: buildHardwareCloudSyncMessage(
+            '0123456789abcdef',
+            '0123456789abcdef0123456789abcdef',
+          ),
           payload: { isFromDApp: false },
         },
       }),
@@ -132,7 +135,10 @@ describe('final background Cloud key signing boundary', () => {
     const h = createHarness(HARDWARE_CLOUD_SYNC_PATH);
     const payload = {
       isFromDApp: true,
-      message: buildHardwareCloudSyncMessage('0123456789abcdef'),
+      message: buildHardwareCloudSyncMessage(
+        '0123456789abcdef',
+        '0123456789abcdef0123456789abcdef',
+      ),
       path: HARDWARE_CLOUD_SYNC_PATH,
     };
     await expect(

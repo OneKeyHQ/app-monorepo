@@ -216,57 +216,111 @@ export function useHardwareCloudSyncKey() {
     },
     [intl, signWithDevice],
   );
-  const openPicker = useCallback(async () => {
-    if (
-      (platformEnv.isWeb || platformEnv.isExtension) &&
-      settings.hardwareTransportType !== EHardwareTransportType.WEBUSB
-    ) {
-      // Bridge is never used for the Cloud key; offer the direct connection.
-      if (!(await confirmSwitchToWebUsb(intl))) return;
-      await backgroundApiProxy.serviceHardware.switchTransport({
-        transportType: EHardwareTransportType.WEBUSB,
+  const resetWithDevice = useCallback(
+    async (connectId: string) => {
+      setPending(true);
+      const waiting = Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.global_confirm_on_device,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.cloud_sync_hardware_signing__desc,
+        }),
+        showConfirmButton: false,
+        dismissOnOverlayPress: false,
+        disableDrag: true,
+        renderContent: <Spinner size="large" />,
+        onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
+        onClose: async () => {
+          await backgroundApiProxy.serviceKeylessCloudSync.cancelHardwareCloudKeyOperation();
+        },
       });
-      await backgroundApiProxy.serviceSetting.setHardwareTransportType(
-        EHardwareTransportType.WEBUSB,
-      );
-    }
-    if (
-      platformEnv.isExtensionUiPopup ||
-      platformEnv.isExtensionUiSidePanel ||
-      platformEnv.isExtensionUiStandaloneWindow
-    ) {
-      // The USB chooser opens only in a full tab, as in onboarding.
-      await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-        routes: [
-          ERootRoutes.Modal,
-          EModalRoutes.PrimeModal,
-          EPrimePages.PrimeCloudSync,
-        ],
+      try {
+        await backgroundApiProxy.serviceKeylessCloudSync.resetHardwareCloudSyncKey(
+          { connectId },
+        );
+        void backgroundApiProxy.serviceApp.showToast({
+          method: 'success',
+          // TODO i18n
+          title: 'Cloud sync key reset',
+        });
+      } finally {
+        void waiting.close();
+        setPending(false);
+        void backgroundApiProxy.serviceHardware.clearForceTransportType();
+      }
+    },
+    [intl],
+  );
+  const pickDevice = useCallback(
+    async (onPick: (connectId: string) => Promise<void>) => {
+      if (
+        (platformEnv.isWeb || platformEnv.isExtension) &&
+        settings.hardwareTransportType !== EHardwareTransportType.WEBUSB
+      ) {
+        // Bridge is never used for the Cloud key; offer the direct connection.
+        if (!(await confirmSwitchToWebUsb(intl))) return;
+        await backgroundApiProxy.serviceHardware.switchTransport({
+          transportType: EHardwareTransportType.WEBUSB,
+        });
+        await backgroundApiProxy.serviceSetting.setHardwareTransportType(
+          EHardwareTransportType.WEBUSB,
+        );
+      }
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel ||
+        platformEnv.isExtensionUiStandaloneWindow
+      ) {
+        // The USB chooser opens only in a full tab, as in onboarding.
+        await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          routes: [
+            ERootRoutes.Modal,
+            EModalRoutes.PrimeModal,
+            EPrimePages.PrimeCloudSync,
+          ],
+        });
+        return;
+      }
+      let picked = false;
+      const dialog = Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.onboarding_connect_your_device,
+        }),
+        showFooter: false,
+        renderContent: (
+          <HardwareCloudSyncDevicePicker
+            onPick={async (connectId) => {
+              picked = true;
+              await dialog.close();
+              await onPick(connectId);
+            }}
+          />
+        ),
+        onClose: () => {
+          if (!picked) {
+            void backgroundApiProxy.serviceHardware.clearForceTransportType();
+          }
+        },
       });
-      return;
-    }
-    let picked = false;
-    const dialog = Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.onboarding_connect_your_device,
-      }),
-      showFooter: false,
-      renderContent: (
-        <HardwareCloudSyncDevicePicker
-          onPick={async (connectId) => {
-            picked = true;
-            await dialog.close();
-            await enableWithDevice(connectId);
-          }}
-        />
-      ),
-      onClose: () => {
-        if (!picked) {
-          void backgroundApiProxy.serviceHardware.clearForceTransportType();
-        }
-      },
+    },
+    [intl, settings.hardwareTransportType],
+  );
+  const openPicker = useCallback(
+    () => pickDevice(enableWithDevice),
+    [enableWithDevice, pickDevice],
+  );
+  const resetKey = useCallback(async () => {
+    const confirmed = await confirmDialog({
+      // TODO i18n
+      title: 'Reset Cloud sync key?',
+      description:
+        'All synced data is encrypted again with a new key and other devices are signed out. They need to connect this hardware wallet again to keep syncing.',
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_confirm }),
     });
-  }, [enableWithDevice, intl, settings.hardwareTransportType]);
+    if (!confirmed) return;
+    await pickDevice(resetWithDevice);
+  }, [intl, pickDevice, resetWithDevice]);
   const syncNow = useCallback(async () => {
     await backgroundApiProxy.serviceApp.showDialogLoading({
       title: intl.formatMessage({ id: ETranslations.global_syncing }),
@@ -298,6 +352,7 @@ export function useHardwareCloudSyncKey() {
     keyMissing,
     pending,
     openPicker,
+    resetKey,
     syncNow,
   };
 }

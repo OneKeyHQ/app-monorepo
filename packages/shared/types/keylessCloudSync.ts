@@ -42,6 +42,13 @@ export interface IKeylessCloudSyncCredential {
   // Hardware keys only: encryptionKey is then the data key (DEK) unwrapped
   // from the server, and requests use these DPoP-bound tokens.
   hardwareSession?: IHardwareCloudSyncSession;
+  // Set while a key reset is between saving the new key and the server
+  // switching to it; finished or dropped on the next sync.
+  pendingDataKey?: {
+    dek: string;
+    dekId: string;
+    pwdHash: string;
+  };
 }
 
 export type IHardwareCloudSyncSession = {
