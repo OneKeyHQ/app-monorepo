@@ -67,12 +67,16 @@ runs:
             : path.join(os.homedir(), '.yarn', 'berry');
         const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
           ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
-        fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+        // Many callers restore the same Yarn cache before using this action.
+        const present = fs.existsSync(cache)
+          && fs.readdirSync(cache).some((name) => name.endsWith('.zip'));
+        fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\npresent=${present}\n`);
         NODE
 
     # A snapshot restores node_modules but not the package archives that the
     # immutable install fetches and verifies again.
     - name: Restore Yarn cache from x
+      if: steps.yarn-cache.outputs.present != 'true'
       uses: actions/cache/restore@v4
       continue-on-error: true
       with:
