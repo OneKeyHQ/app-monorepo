@@ -101,6 +101,7 @@ import type {
   ISwapQuoteEventPayload,
   ISwapQuoteEventQuoteResult,
   ISwapToken,
+  ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
@@ -124,6 +125,7 @@ import {
   type ISwapQuoteEventErrorState,
   type ISwapSelectedTokenBalanceMeta,
   type ISwapTokenAmountState,
+  type ISwapTokenPair,
   contextAtomMethod,
   limitOrderMarketPriceAtom,
   rateDifferenceAtom,
@@ -172,6 +174,8 @@ import {
   swapQuoteFetchingAtom,
   swapQuoteIntervalCountAtom,
   swapQuoteListAtom,
+  swapRecentTokenPairPickGenerationAtom,
+  swapRecentTokenPairSelectionAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectTokenDetailFetchingAtom,
@@ -592,6 +596,22 @@ function getLimitDefaultNetworkId({
   }
 
   return undefined;
+}
+
+type IRecentTokenPairOrder = {
+  fromToken?: ISwapTokenBase;
+  toToken?: ISwapTokenBase;
+};
+
+function matchesTokenPair(
+  pair: ISwapTokenPair | undefined,
+  { fromToken, toToken }: IRecentTokenPairOrder,
+) {
+  return (
+    !!pair &&
+    equalTokenNoCaseSensitive({ token1: pair.fromToken, token2: fromToken }) &&
+    equalTokenNoCaseSensitive({ token1: pair.toToken, token2: toToken })
+  );
 }
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
@@ -1044,6 +1064,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
+      // Any token pick ends a "Recent trades" attribution; selectRecentTokenPair
+      // records a new one after its own picks.
+      this.endRecentTokenPairAttribution.call(set);
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       if (isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
         set(swapProUserSelectedTokenAtom(), undefined);
@@ -1102,6 +1125,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       ) {
         return;
       }
+      this.endRecentTokenPairAttribution.call(set);
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       if (isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
         set(swapProUserSelectedTokenAtom(), undefined);
@@ -1130,6 +1154,79 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       );
       set(swapSelectToTokenAtom(), token);
       await syncNetworksSortPromise;
+    },
+  );
+
+  selectRecentTokenPair = contextAtomMethod(
+    async (get, set, { fromToken, toToken }: ISwapTokenPair) => {
+      const skipCheckEqualToken = !equalTokenNoCaseSensitive({
+        token1: fromToken,
+        token2: toToken,
+      });
+      // Both picks clear the attribution synchronously, so it is recorded last.
+      const picks = Promise.all([
+        this.selectFromToken.call(
+          set,
+          fromToken,
+          true,
+          undefined,
+          skipCheckEqualToken,
+        ),
+        this.selectToToken.call(set, toToken, undefined, skipCheckEqualToken),
+      ]);
+      set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+      await picks;
+    },
+  );
+
+  // A Stock "Recent trades" pick claims a generation before it syncs, and
+  // records the synced execution pair afterwards (Stock normalizes the picked
+  // tokens) only if no user pick has claimed a newer generation meanwhile.
+  beginStockRecentTokenPairPick = contextAtomMethod((get, set) => {
+    // The previous pick ends now, not when this one finishes syncing.
+    this.endRecentTokenPairAttribution.call(set);
+    return get(swapRecentTokenPairPickGenerationAtom());
+  });
+
+  markRecentTokenPairSelection = contextAtomMethod(
+    (get, set, { generation }: { generation: number }) => {
+      const fromToken = get(swapSelectFromTokenAtom());
+      const toToken = get(swapSelectToTokenAtom());
+      if (
+        get(swapRecentTokenPairPickGenerationAtom()) === generation &&
+        fromToken &&
+        toToken
+      ) {
+        set(swapRecentTokenPairSelectionAtom(), { fromToken, toToken });
+      }
+    },
+  );
+
+  // Ends the attribution on any user change of intent (a token pick, reversal,
+  // tab change or manual Stock pick), and supersedes a Stock pick still
+  // waiting on its sync. Automatic syncs never call it.
+  endRecentTokenPairAttribution = contextAtomMethod((get, set) => {
+    set(
+      swapRecentTokenPairPickGenerationAtom(),
+      get(swapRecentTokenPairPickGenerationAtom()) + 1,
+    );
+    set(swapRecentTokenPairSelectionAtom(), undefined);
+  });
+
+  getRecentTokenPairSelectionFor = contextAtomMethod(
+    (get, set, order: IRecentTokenPairOrder) => {
+      const selection = get(swapRecentTokenPairSelectionAtom());
+      return matchesTokenPair(selection, order) ? selection : undefined;
+    },
+  );
+
+  // Clears only the pick an order was attributed to, so a finishing order
+  // cannot drop a newer "Recent trades" pick, even of the same pair.
+  clearRecentTokenPairSelection = contextAtomMethod(
+    (get, set, selection: ISwapTokenPair) => {
+      if (get(swapRecentTokenPairSelectionAtom()) === selection) {
+        set(swapRecentTokenPairSelectionAtom(), undefined);
+      }
     },
   );
 
@@ -1244,6 +1341,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     );
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
+    this.endRecentTokenPairAttribution.call(set);
     // Carry the balances (and their bookkeeping) across with the tokens. The
     // To balance is fetched for the same wallet, so it is exactly the From
     // balance now; without this the From row, Top up chip and action button
@@ -4175,6 +4273,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
       if (normalizedType !== oldVisibleType) {
+        // A tab change restores or replaces the pair without a new chip tap.
+        this.endRecentTokenPairAttribution.call(set);
         set(swapSelectedTokenBalanceRefreshRequestedAtom(), {
           from: false,
           to: false,
@@ -4837,10 +4937,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
 
+// Read at log time instead of subscribing, so a "Recent trades" tap does not
+// re-render the hosts of useSwapBuildTx.
+export const useSwapRecentTokenPairAttribution = () => {
+  const actions = createActions();
+  const getRecentTokenPairSelectionFor =
+    actions.getRecentTokenPairSelectionFor.use();
+  const clearRecentTokenPairSelection =
+    actions.clearRecentTokenPairSelection.use();
+  return useRef({
+    getRecentTokenPairSelectionFor,
+    clearRecentTokenPairSelection,
+  });
+};
+
 export const useSwapActions = () => {
   const actions = createActions();
   const selectFromToken = actions.selectFromToken.use();
   const selectToToken = actions.selectToToken.use();
+  const selectRecentTokenPair = actions.selectRecentTokenPair.use();
+  const beginStockRecentTokenPairPick =
+    actions.beginStockRecentTokenPairPick.use();
+  const markRecentTokenPairSelection =
+    actions.markRecentTokenPairSelection.use();
+  const endRecentTokenPairAttribution =
+    actions.endRecentTokenPairAttribution.use();
   const selectStockExecutionTokens = actions.selectStockExecutionTokens.use();
   const alternationToken = actions.alternationToken.use();
   const syncNetworksSort = actions.syncNetworksSort.use();
@@ -4895,6 +5016,10 @@ export const useSwapActions = () => {
     resumeQuoteAction,
     requireManualQuoteRefresh,
     selectToToken,
+    selectRecentTokenPair,
+    beginStockRecentTokenPairPick,
+    markRecentTokenPairSelection,
+    endRecentTokenPairAttribution,
     selectStockExecutionTokens,
     alternationToken,
     syncNetworksSort,

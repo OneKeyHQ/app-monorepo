@@ -49,6 +49,7 @@ describe('CreateOrderScene', () => {
       feeType: '0',
       isFirstTime: false,
       createFrom: 'swap',
+      fromRecentTokenPair: true,
       fromTokenAmount: '1',
       toTokenAmount: '2000',
       fromAddress: '0xfrom',
@@ -65,6 +66,7 @@ describe('CreateOrderScene', () => {
       expect.objectContaining({
         walletType: 'hw',
         deviceType: 'pro2',
+        fromRecentTokenPair: true,
       }),
     );
     expect(payload).not.toHaveProperty('fromAddress');
