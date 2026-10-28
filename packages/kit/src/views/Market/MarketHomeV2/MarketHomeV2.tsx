@@ -12,7 +12,10 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
-import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import {
+  getRootRoutersLength,
+  useRouteIsFocused,
+} from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EJotaiContextStoreNames,
   useMarketSelectedTabAtom,
@@ -419,6 +422,14 @@ function BaseMarketHomeLayout({
 
 function BaseMarketHome() {
   const isFocused = useRouteIsFocused();
+  const rootRoutersLength = getRootRoutersLength();
+  const focusedRootRoutersLengthRef = useRef(rootRoutersLength);
+  if (isFocused) {
+    focusedRootRoutersLengthRef.current = rootRoutersLength;
+  }
+  // Root modals blur Market while its content remains visible underneath.
+  const isCoveredByModal =
+    rootRoutersLength > focusedRootRoutersLengthRef.current;
   const { top } = useSafeAreaInsets();
   const searchGlassActive = isLiquidGlassAvailable();
   const scrollEdgeHeaderEnabled = Boolean(
@@ -499,7 +510,9 @@ function BaseMarketHome() {
         />
       )}
       <Page.Body testID={MarketTestIDs.marketPage}>
-        <DelayedFreeze freeze={!platformEnv.isNative && !isFocused}>
+        <DelayedFreeze
+          freeze={!platformEnv.isNative && !isFocused && !isCoveredByModal}
+        >
           <BaseMarketHomeLayout
             externalTopOverlayTag={headerReady ? headerTag : undefined}
             externalTopOverlayHeight={headerReady ? headerHeight : undefined}

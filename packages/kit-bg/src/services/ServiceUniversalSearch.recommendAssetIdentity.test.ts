@@ -43,7 +43,11 @@ it.each(['failed', 'empty', 'zero-priced'] as const)(
       ]);
     const service = new ServiceUniversalSearch({
       backgroundApi: {
-        serviceMarket: { fetchTrendingV2 },
+        serviceMarket: {
+          fetchTrendingV2,
+          resolveSearchTokenAssets: async (tokens: IMarketSearchV2Token[]) =>
+            tokens,
+        },
         serviceMarketV2: {
           fetchMarketBasicConfig: jest.fn(async () => ({
             data: {

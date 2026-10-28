@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { act, render } from '@testing-library/react';
+import { act, isInaccessible, render } from '@testing-library/react';
 
 import { MarketHomeV2, MarketHomeWithProvider } from './MarketHomeV2';
 
@@ -9,6 +9,9 @@ let mockBannerLoading = true;
 let mockCategoryLoading = false;
 let mockSplitViewType: 'main' | 'sub' | undefined;
 let mockIsSplitView = false;
+let mockIsNative = true;
+let mockIsFocused = true;
+let mockRootRoutersLength = 1;
 const mockSetSelection = jest.fn();
 const mockActions = { current: { refreshWatchListV2: jest.fn() } };
 let mockLayoutProps:
@@ -33,6 +36,8 @@ jest.mock('react-native', () => ({
 }));
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
+  const { Freeze } =
+    jest.requireActual<typeof import('react-freeze')>('react-freeze');
   const Wrapper = ({ children }: PropsWithChildren) => <div>{children}</div>;
   return {
     ESplitViewType: {
@@ -44,7 +49,7 @@ jest.mock('@onekeyhq/components', () => {
       Header: () => null,
       Body: Wrapper,
     }),
-    DelayedFreeze: Wrapper,
+    DelayedFreeze: Freeze,
     XStack: Wrapper,
     isLiquidGlassAvailable: () => true,
     isNativeTablet: () => false,
@@ -82,11 +87,16 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  isNative: true,
-  isNativeIOS: true,
+  get isNative() {
+    return mockIsNative;
+  },
+  get isNativeIOS() {
+    return mockIsNative;
+  },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockIsFocused,
+  getRootRoutersLength: () => mockRootRoutersLength,
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   EJotaiContextStoreNames: {},
@@ -171,7 +181,9 @@ jest.mock('./hooks/useMarketHomeSelection', () => ({
     mockSetSelection,
   ],
 }));
-jest.mock('./layouts/DesktopLayout', () => ({ DesktopLayout: () => null }));
+jest.mock('./layouts/DesktopLayout', () => ({
+  DesktopLayout: () => <span data-testid="desktop-layout" />,
+}));
 jest.mock('./layouts/MobileLayout', () => ({
   MobileLayout: (props: typeof mockLayoutProps) => {
     mockLayoutProps = props;
@@ -183,6 +195,60 @@ jest.mock('./utils', () => ({
   getMarketHomeFallbackSpotCategories: () => [],
   isMarketStockCategory: () => false,
 }));
+
+beforeEach(() => {
+  mockIsNative = true;
+  mockIsFocused = true;
+  mockRootRoutersLength = 1;
+  mockIsSplitView = false;
+  mockSplitViewType = undefined;
+});
+
+it.each([false, true])(
+  'keeps desktop Market visible under search (mounted under a modal: %s)',
+  async (mountedUnderModal) => {
+    mockIsNative = false;
+    mockBannerLoading = false;
+    mockCategoryLoading = false;
+    mockIsFocused = !mountedUnderModal;
+    mockRootRoutersLength = mountedUnderModal ? 2 : 1;
+    const screen = render(<MarketHomeV2 />);
+
+    mockIsFocused = true;
+    mockRootRoutersLength = 1;
+    await act(async () => screen.rerender(<MarketHomeV2 />));
+    const layout = screen.getByTestId('desktop-layout');
+    expect(isInaccessible(layout)).toBe(false);
+
+    mockIsFocused = false;
+    mockRootRoutersLength = 2;
+    await act(async () => screen.rerender(<MarketHomeV2 />));
+    expect(isInaccessible(layout)).toBe(false);
+
+    mockIsFocused = true;
+    mockRootRoutersLength = 1;
+    await act(async () => screen.rerender(<MarketHomeV2 />));
+    expect(screen.getByTestId('desktop-layout')).toBe(layout);
+    expect(isInaccessible(layout)).toBe(false);
+  },
+);
+
+it('still freezes desktop Market when navigating away and restores it on return', async () => {
+  mockIsNative = false;
+  mockBannerLoading = false;
+  mockCategoryLoading = false;
+  const screen = render(<MarketHomeV2 />);
+  const layout = screen.getByTestId('desktop-layout');
+
+  mockIsFocused = false;
+  await act(async () => screen.rerender(<MarketHomeV2 />));
+  expect(isInaccessible(layout)).toBe(true);
+
+  mockIsFocused = true;
+  await act(async () => screen.rerender(<MarketHomeV2 />));
+  expect(screen.getByTestId('desktop-layout')).toBe(layout);
+  expect(isInaccessible(layout)).toBe(false);
+});
 
 it.each(['banner', 'category'])(
   'reserves the external header during %s loading and passes geometry to the ready layout',
