@@ -388,6 +388,7 @@ function BasePerpTokenSelectorContent() {
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
   const inputQueryRef = useRef(searchQuery);
+  const [inputQuery, setInputQuery] = useState(searchQuery);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const refocusSearchOnClick = useRef(false);
   const handlePointerDown = useCallback(
@@ -1180,7 +1181,7 @@ function BasePerpTokenSelectorContent() {
     [],
   );
   const keyboardResultsReady =
-    inputQueryRef.current === searchQuery &&
+    inputQuery === searchQuery &&
     (isPerpTokenSelectorSpotTab(displayPrimaryTab) ||
       (filteredQuery ?? '') === searchQuery);
   const selectionMatchesResults =
@@ -1295,12 +1296,14 @@ function BasePerpTokenSelectorContent() {
     NonNullable<IInputProps['onChange']>
   >((event) => {
     inputQueryRef.current = event.nativeEvent.text.trim().slice(0, 64);
+    setInputQuery(inputQueryRef.current);
     pendingKeyboardScroll.current = undefined;
     setKeyboardSelection(undefined);
   }, []);
   const handleSearchQueryChange = useCallback(
     (query: string) => {
       inputQueryRef.current = query.trim().slice(0, 64);
+      setInputQuery(inputQueryRef.current);
       pendingKeyboardScroll.current = undefined;
       setKeyboardSelection(undefined);
       setSearchQuery(query);
@@ -1416,6 +1419,7 @@ function BasePerpTokenSelectorContent() {
         inputTarget.value.trim().slice(0, 64) !== inputQueryRef.current
       ) {
         inputQueryRef.current = inputTarget.value.trim().slice(0, 64);
+        setInputQuery(inputQueryRef.current);
         pendingKeyboardScroll.current = undefined;
         setKeyboardSelection(undefined);
       }
