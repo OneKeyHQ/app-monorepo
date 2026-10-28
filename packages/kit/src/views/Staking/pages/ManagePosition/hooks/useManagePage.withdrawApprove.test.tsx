@@ -71,7 +71,6 @@ describe('useManagePage receipt approval compatibility', () => {
     vault,
   };
   const withdrawApprove = {
-    amountUnit: 'shares' as const,
     approveTarget: '0xQueue',
     tokenAddress: vault,
   };

@@ -72,7 +72,6 @@ describe('manage-page receipt withdrawal approval', () => {
   const approve = {
     approveTarget: '0xQueue',
     tokenAddress: vault,
-    amountUnit: 'shares' as const,
   };
   const detail = { withdrawApprove: approve } as IStakeEarnDetail;
   const managePageData = {
@@ -166,7 +165,6 @@ describe('manage-page receipt withdrawal approval', () => {
     {},
     { withdrawApprove: { ...approve, approveTarget: undefined } },
     { withdrawApprove: { ...approve, tokenAddress: '0xOtherVault' } },
-    { withdrawApprove: { ...approve, amountUnit: undefined } },
   ])(
     'rejects an incomplete receipt withdrawal configuration (%s)',
     async (value) => {

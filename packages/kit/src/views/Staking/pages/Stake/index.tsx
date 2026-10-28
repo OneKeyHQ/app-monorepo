@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Alert, Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -34,6 +34,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { UniversalStake } from '../../components/UniversalStake';
+import { useEtherFiStakeApproval } from '../../hooks/useEtherFiStakeApproval';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import {
   buildStakeTokenUniqueKey,
@@ -219,12 +220,18 @@ function BasicStakePage() {
   }, [effectiveStakeTokenInfo?.token, activeStakeAsset?.info]);
 
   const token = effectiveStakeTokenInfo?.token as IToken;
-  const selectedStakeApprove =
-    stakeType === 'wrap'
-      ? wrappedStakeAsset?.approve
-      : activeStakeAsset?.approve;
+  const selectedStakeApproval = useEtherFiStakeApproval({
+    enabled: isEtherFiProvider,
+    networkId,
+    provider: providerName,
+    symbol:
+      stakeType === 'wrap'
+        ? wrappedStakeAsset?.info.symbol
+        : activeStakeAsset?.info.symbol,
+    vault: protocolInfo?.vault,
+  });
   const stakeApprove = isEtherFiProvider
-    ? selectedStakeApprove
+    ? selectedStakeApproval.approve
     : protocolInfo?.approve;
   const isStakeAssetReady =
     !isEtherFiProvider ||
@@ -576,6 +583,22 @@ function BasicStakePage() {
           providerName={protocolInfo?.provider}
           onConfirm={onConfirm}
           isDisabled={!isStakeAssetReady}
+          beforeFooter={
+            selectedStakeApproval.error ? (
+              <Alert
+                type="critical"
+                title={intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                })}
+                action={{
+                  primary: intl.formatMessage({
+                    id: ETranslations.global_retry,
+                  }),
+                  onPrimaryPress: () => void selectedStakeApproval.retry(),
+                }}
+              />
+            ) : undefined
+          }
           approveType={effectiveApproveType}
           currentAllowance={
             isEtherFiProvider

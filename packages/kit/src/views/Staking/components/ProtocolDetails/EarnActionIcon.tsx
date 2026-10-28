@@ -591,16 +591,13 @@ function BasicEarnActionIcon({
       ) {
         return;
       }
-      if (actionIcon.data?.selectRequest) {
+      if (earnUtils.isEtherFiProvider({ providerName: provider })) {
         appNavigation.pushModal(EModalRoutes.StakingModal, {
           screen: EModalStakingRoutes.WithdrawOptions,
           params: {
             accountId: protocolInfo.earnAccount.accountId,
             networkId: protocolInfo.networkId || tokenInfo?.networkId || '',
-            protocolInfo: {
-              ...protocolInfo,
-              vault: actionIcon.data.vault ?? protocolInfo.vault,
-            },
+            protocolInfo,
             tokenInfo,
             symbol,
             provider,
@@ -616,11 +613,10 @@ function BasicEarnActionIcon({
           amount: '0',
           symbol,
           provider,
-          identity: actionIcon.data?.identity,
           protocolVault: earnUtils.shouldSendEarnProtocolVault({
             providerName: provider,
           })
-            ? (actionIcon.data?.vault ?? protocolInfo?.vault)
+            ? protocolInfo?.vault
             : undefined,
           withdrawAll: false,
           withdrawType: 'cancel',

@@ -71,9 +71,6 @@ jest.mock('./EarnText', () => ({ EarnText: () => null }));
 
 const networkId = 'evm--1';
 const owner = '0xf67b153b536f47a6e04cb8779e689f6a3b89e5c7';
-const identity =
-  '0x14e5511f491565d7e10ab19a35c7ce3e61a243245ec4573c341298d775d5833d';
-const requestVault = '0xf0bb20865277abd641a307ece5ee04e79073416c';
 const protocolInfo: IProtocolInfo = {
   provider: 'etherfi',
   networkId,
@@ -110,7 +107,7 @@ const cancelAction: IEarnCancelWithdrawalActionIcon = {
   type: EStakingActionType.CancelWithdrawal,
   text: { text: '取消' },
   disabled: false,
-  data: { identity, vault: requestVault },
+  data: { balance: '1' },
 };
 
 describe('EarnActionIcon cancel withdrawal', () => {
@@ -121,15 +118,12 @@ describe('EarnActionIcon cancel withdrawal', () => {
   });
 
   it.each(['button', 'trigger'] as const)(
-    'opens the request picker from the aggregated %s action using its vault',
+    'opens the request picker from the %s action using the protocol vault',
     async (entry) => {
       const onActionSuccess = jest.fn();
       const screen = render(
         <EarnActionIcon
-          actionIcon={{
-            ...cancelAction,
-            data: { vault: requestVault, selectRequest: true },
-          }}
+          actionIcon={cancelAction}
           protocolInfo={protocolInfo}
           onActionSuccess={onActionSuccess}
           trigger={
@@ -153,7 +147,7 @@ describe('EarnActionIcon cancel withdrawal', () => {
           networkId,
           symbol: 'eETH',
           provider: 'etherfi',
-          protocolInfo: expect.objectContaining({ vault: requestVault }),
+          protocolInfo: expect.objectContaining({ vault: protocolInfo.vault }),
           withdrawType: 'cancel',
           onSuccess: onActionSuccess,
         }),
@@ -164,13 +158,13 @@ describe('EarnActionIcon cancel withdrawal', () => {
   );
 
   it.each(['button', 'trigger'] as const)(
-    'forwards the selected request from the %s and refreshes only after success',
+    'preserves direct non-EtherFi cancellation from the %s and refreshes only after success',
     async (entry) => {
       const onActionSuccess = jest.fn();
       const screen = render(
         <EarnActionIcon
           actionIcon={cancelAction}
-          protocolInfo={protocolInfo}
+          protocolInfo={{ ...protocolInfo, provider: 'native' }}
           onActionSuccess={onActionSuccess}
           trigger={
             entry === 'trigger'
@@ -194,10 +188,9 @@ describe('EarnActionIcon cancel withdrawal', () => {
       expect(mockWithdraw).toHaveBeenCalledWith(
         expect.objectContaining({
           amount: '0',
-          provider: 'etherfi',
+          provider: 'native',
           symbol: 'eETH',
-          identity,
-          protocolVault: requestVault,
+          protocolVault: protocolInfo.vault,
           withdrawType: 'cancel',
           withdrawAll: false,
           onSuccess: onActionSuccess,
@@ -230,12 +223,12 @@ describe('EarnActionIcon cancel withdrawal', () => {
           amount: '0',
           provider,
           symbol: 'USDC',
-          identity: undefined,
           protocolVault: protocolInfo.vault,
           withdrawType: 'cancel',
           withdrawAll: false,
         }),
       );
+      expect(mockWithdraw.mock.calls[0][0]).not.toHaveProperty('identity');
     },
   );
 

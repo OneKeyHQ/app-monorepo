@@ -276,7 +276,6 @@ function BasicInvestmentDetails() {
   const renderItem = useCallback(
     ({
       item: {
-        symbol,
         tokenInfo,
         staked,
         stakedFiatValue,
@@ -297,7 +296,7 @@ function BasicInvestmentDetails() {
           if (tokenInfo) {
             navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
               networkId: tokenInfo.networkId,
-              symbol: symbol ?? tokenInfo.symbol,
+              symbol: tokenInfo.symbol,
               provider: providerName,
               vault,
             });

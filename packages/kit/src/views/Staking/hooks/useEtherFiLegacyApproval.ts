@@ -180,6 +180,7 @@ export function useEtherFiLegacyApproval({
         });
         if (!current()) return;
         if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+          generation.current += 1;
           pendingTxIdRef.current = undefined;
           setState({ scope, status: 'unknown' });
           return;
@@ -188,6 +189,7 @@ export function useEtherFiLegacyApproval({
         if (pendingIsCancelRef.current) {
           const clear = await read();
           if (current()) {
+            generation.current += 1;
             pendingTxIdRef.current = undefined;
             pendingIsCancelRef.current = false;
             setState({ scope, status: clear ? 'clear' : 'required' });
@@ -199,6 +201,7 @@ export function useEtherFiLegacyApproval({
           try {
             if (await read()) {
               if (current()) {
+                generation.current += 1;
                 pendingTxIdRef.current = undefined;
                 setState({ scope, status: 'clear' });
                 onClearedRef.current?.();

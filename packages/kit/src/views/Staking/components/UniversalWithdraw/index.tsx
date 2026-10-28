@@ -1830,7 +1830,11 @@ export function UniversalWithdraw({
       { id: ETranslations.global_revoke_approve },
       { symbol: 'liquidUSD' },
     );
-  } else if (!footerActionOverride && legacyActionAvailable) {
+  } else if (!footerActionOverride && legacyApproval.status === 'pending') {
+    effectiveConfirmText = intl.formatMessage({
+      id: ETranslations.global_pending,
+    });
+  } else if (!footerActionOverride && legacyApproval.status === 'unknown') {
     effectiveConfirmText = intl.formatMessage({
       id: ETranslations.global_retry,
     });

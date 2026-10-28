@@ -846,6 +846,7 @@ export const useEarnPortfolio = ({
               }
 
               const resolvedKeys = new Set<string>();
+              let hasUnidentifiedItem = false;
               response.items.forEach((item) => {
                 const matchedRequest = matchEarnPortfolioBatchRequest({
                   group,
@@ -862,6 +863,7 @@ export const useEarnPortfolio = ({
                   (matchedRequest.accountId &&
                     matchedRequest.accountId !== accountIdValue)
                 ) {
+                  if (!item.protocol.vault) hasUnidentifiedItem = true;
                   return;
                 }
 
@@ -884,11 +886,36 @@ export const useEarnPortfolio = ({
                 resolvedKeys.add(createEarnPortfolioRequestKey(matchedRequest));
               });
 
-              // Errors, missing items and ambiguous vaults cannot prove an empty
-              // position. Keep the previous value until a matching result arrives.
-              group.requestsByKey.forEach((_request, key) => {
+              const failedKeys = new Set<string>();
+              let hasUnidentifiedError = false;
+              response.errors.forEach((error) => {
+                const request = matchEarnPortfolioBatchRequest({
+                  group,
+                  symbol: error.symbol,
+                  vault: error.vault,
+                });
+                if (request) {
+                  failedKeys.add(createEarnPortfolioRequestKey(request));
+                } else if (!error.vault) {
+                  hasUnidentifiedError = true;
+                }
+              });
+              group.requestsByKey.forEach((request, key) => {
                 if (!resolvedKeys.has(key)) {
-                  normalKeysFailedInThisSession.add(key);
+                  // EtherFi includes syncing positions and omits confirmed empty vaults.
+                  if (
+                    earnUtils.isEtherFiProvider({
+                      providerName: group.provider,
+                    }) &&
+                    request.vault &&
+                    !failedKeys.has(key) &&
+                    !hasUnidentifiedError &&
+                    !hasUnidentifiedItem
+                  ) {
+                    applyResult({ key, source: 'normal', remove: true });
+                  } else {
+                    normalKeysFailedInThisSession.add(key);
+                  }
                 }
               });
             }),

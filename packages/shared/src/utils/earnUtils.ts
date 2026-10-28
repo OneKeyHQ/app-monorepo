@@ -160,6 +160,9 @@ function resolveEarnApproveType({
   if (!networkUtils.isEvmNetwork({ networkId })) {
     return undefined;
   }
+  if (isEtherFiProvider({ providerName })) {
+    return EApproveType.Legacy;
+  }
   const providerKey = getEarnProviderEnumKey(providerName);
   if (providerKey && providerApproveTypeOverrides[providerKey]) {
     return providerApproveTypeOverrides[providerKey];

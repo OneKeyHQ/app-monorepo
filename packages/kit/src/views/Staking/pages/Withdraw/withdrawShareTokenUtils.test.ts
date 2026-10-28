@@ -47,7 +47,6 @@ const protocolInfo: IProtocolInfo = {
   stakeTag: 'etherfi-eeth',
   providerDetail: { name: 'ether.fi', logoURI: '' },
   withdrawApprove: {
-    amountUnit: 'shares',
     tokenAddress: shareAddress,
   },
   activeBalance: '1.250000000000000001',
@@ -112,10 +111,7 @@ describe('独立赎回页份额身份', () => {
     ['按钮仍返回存入币', withReceipt(depositToken)],
     ['份额被标成原生币', withReceipt({ ...shareToken, isNative: true })],
     ['精度无效', withReceipt({ ...shareToken, decimals: -1 })],
-    [
-      '授权份额地址缺失',
-      { ...withReceipt(), withdrawApprove: { amountUnit: 'shares' as const } },
-    ],
+    ['授权份额地址缺失', { ...withReceipt(), withdrawApprove: {} }],
   ])('%s 时禁用，不把 eETH 的金额或价格解释为 liquidETH', (_name, protocol) => {
     expect(
       resolveWithdrawShareToken({
@@ -155,9 +151,10 @@ describe('独立赎回页份额身份', () => {
     });
   });
 
-  it('未声明 shares 的协议保留原资产信息和预填数量，不推断金额单位', () => {
+  it('其他协议保留原资产信息和预填数量', () => {
     const result = resolveWithdrawShareToken({
       ...account,
+      provider: 'native',
       protocolInfo: { ...withReceipt(), withdrawApprove: undefined },
       tokenInfo,
       initialAmount: '2',
@@ -165,6 +162,17 @@ describe('独立赎回页份额身份', () => {
 
     expect(result).toEqual({ ready: true, tokenInfo, initialAmount: '2' });
     expect(result.tokenInfo).toBe(tokenInfo);
+  });
+
+  it('EtherFi 缺少份额授权信息时不把存入币当成份额', () => {
+    const result = resolveWithdrawShareToken({
+      ...account,
+      protocolInfo: { ...withReceipt(), withdrawApprove: undefined },
+      tokenInfo,
+      initialAmount: '2',
+    });
+    expect(result.ready).toBe(false);
+    expect(result.tokenInfo).toBeUndefined();
   });
 
   it('取消已有请求不要求份额元数据，保留原入口信息以继续取消流程', () => {

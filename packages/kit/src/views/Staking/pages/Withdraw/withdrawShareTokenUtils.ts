@@ -1,3 +1,4 @@
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
   IEarnToken,
   IEarnTokenInfo,
@@ -41,12 +42,15 @@ export function resolveWithdrawShareToken({
 } {
   if (
     withdrawType === 'cancel' ||
-    protocolInfo?.withdrawApprove?.amountUnit !== 'shares'
+    !earnUtils.isEtherFiProvider({ providerName: provider })
   ) {
     return { ready: true, tokenInfo, initialAmount };
   }
 
-  const shareAddress = protocolInfo.withdrawApprove.tokenAddress;
+  if (!protocolInfo) {
+    return { ready: false, tokenInfo: undefined, initialAmount: undefined };
+  }
+  const shareAddress = protocolInfo.withdrawApprove?.tokenAddress;
   const originalMatches = matchesShareToken(tokenInfo?.token, shareAddress);
   const actionData = protocolInfo.withdrawAction?.data;
   const actionToken =

@@ -149,9 +149,29 @@ describe('earnUtils EtherFi vault and Permit targets', () => {
           approveSpenderAddress: EtherFiLiquidReferContract,
           backendApproveType: EApproveType.Permit,
         }),
-      ).toBe(EApproveType.Permit);
+      ).toBe(EApproveType.Legacy);
     },
   );
+
+  it('retains normal approval rules for native EtherFi and other providers', () => {
+    expect(
+      earnUtils.resolveEarnApproveType({
+        providerName: 'etherfi',
+        networkId: getNetworkIdsMap().eth,
+        tokenIsNative: true,
+        approveSpenderAddress: EtherFiLiquidReferContract,
+        backendApproveType: EApproveType.Permit,
+      }),
+    ).toBeUndefined();
+    expect(
+      earnUtils.resolveEarnApproveType({
+        providerName: 'morpho',
+        networkId: getNetworkIdsMap().eth,
+        approveSpenderAddress: MorphoBundlerContract,
+        backendApproveType: EApproveType.Permit,
+      }),
+    ).toBe(EApproveType.Permit);
+  });
 
   it('never substitutes the EtherFi receipt vault for missing approval data', () => {
     expect(

@@ -457,6 +457,60 @@ describe('EtherFi legacy allowance', () => {
     expect(localHistoryTx).not.toHaveBeenCalled();
   });
 
+  it('keeps the cleared state when an older pending refresh finishes later', async () => {
+    let resolveStatus: (status: EOnChainHistoryTxStatus) => void = () =>
+      undefined;
+    let resolveDetails: (value: {
+      data: { status: EOnChainHistoryTxStatus };
+    }) => void = () => undefined;
+    allowance
+      .mockResolvedValueOnce({ allowanceParsed: '1' })
+      .mockResolvedValueOnce({ allowanceParsed: '1' })
+      .mockResolvedValueOnce({ allowanceParsed: '1' })
+      .mockResolvedValue({ allowanceParsed: '0' });
+    finalStatus.mockImplementation(
+      () => new Promise((resolve) => (resolveStatus = resolve)),
+    );
+    txDetails.mockImplementation(
+      () => new Promise((resolve) => (resolveDetails = resolve)),
+    );
+    const { result } = renderHook(() => useEtherFiLegacyApproval(params));
+    await waitFor(() => expect(result.current.status).toBe('required'));
+    await act(async () => result.current.revoke());
+    act(() =>
+      confirm.mock.calls[0][0].onSuccess([{ signedTx: { txid: '0xtx' } }]),
+    );
+    await waitFor(() => expect(result.current.status).toBe('pending'));
+    pendingTxs.mockResolvedValue([
+      {
+        decodedTx: {
+          txid: '0xtx',
+          actions: [
+            {
+              tokenApprove: {
+                spender: queue,
+                tokenIdOnNetwork: vault,
+                amount: '0',
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    let retry: Promise<void> | undefined;
+    act(() => {
+      retry = result.current.refresh();
+    });
+    await waitFor(() => expect(txDetails).toHaveBeenCalledTimes(1));
+    await act(async () => resolveStatus(EOnChainHistoryTxStatus.Success));
+    await waitFor(() => expect(result.current.status).toBe('clear'));
+    await act(async () => {
+      resolveDetails({ data: { status: EOnChainHistoryTxStatus.Pending } });
+      await retry;
+    });
+    expect(result.current.status).toBe('clear');
+  });
+
   it('ignores a replacement lookup that resolves after switching accounts', async () => {
     finalStatus.mockResolvedValue(undefined);
     let resolveHistory: (value: {

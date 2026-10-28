@@ -51,7 +51,9 @@ const WithdrawPage = () => {
 
   const providerName = protocolInfo?.provider || provider || '';
   const isCancelWithdrawal = withdrawType === 'cancel';
-  const amountUnit = protocolInfo?.withdrawApprove?.amountUnit;
+  const amountUnit = earnUtils.isEtherFiProvider({ providerName })
+    ? 'shares'
+    : undefined;
   const shareInput = useMemo(
     () =>
       resolveWithdrawShareToken({

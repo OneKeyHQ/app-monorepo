@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Alert } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -41,6 +42,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalStake } from '../../../components/UniversalStake';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
+import { useEtherFiStakeApproval } from '../../../hooks/useEtherFiStakeApproval';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
 import {
@@ -317,12 +319,18 @@ export const StakeSection = ({
       tokenInfo?.token.symbol,
     ],
   );
-  const selectedStakeApprove =
-    stakeType === 'wrap'
-      ? wrappedStakeAsset?.approve
-      : activeStakeAsset?.approve;
+  const selectedStakeApproval = useEtherFiStakeApproval({
+    enabled: isEtherFiProvider,
+    networkId,
+    provider: providerName,
+    symbol:
+      stakeType === 'wrap'
+        ? wrappedStakeAsset?.info.symbol
+        : activeStakeAsset?.info.symbol,
+    vault: protocolInfo?.vault,
+  });
   const stakeApprove = isEtherFiProvider
-    ? selectedStakeApprove
+    ? selectedStakeApproval.approve
     : protocolInfo?.approve;
   const isStakeAssetReady =
     !isEtherFiProvider ||
@@ -979,7 +987,27 @@ export const StakeSection = ({
                 }
               : undefined
           }
-          beforeFooter={beforeFooter}
+          beforeFooter={
+            selectedStakeApproval.error ? (
+              <>
+                {beforeFooter}
+                <Alert
+                  type="critical"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_an_error_occurred,
+                  })}
+                  action={{
+                    primary: intl.formatMessage({
+                      id: ETranslations.global_retry,
+                    }),
+                    onPrimaryPress: () => void selectedStakeApproval.retry(),
+                  }}
+                />
+              </>
+            ) : (
+              beforeFooter
+            )
+          }
           footerActionOverride={footerActionOverride}
           showApyDetail={showApyDetail}
           suppressPlatformBonus={suppressPlatformBonus}

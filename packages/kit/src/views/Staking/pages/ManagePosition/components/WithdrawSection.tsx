@@ -143,7 +143,9 @@ export const WithdrawSection = ({
     [protocolInfo?.provider],
   );
   const isPendleProvider = useIsPendleProvider(providerName);
-  const amountUnit = protocolInfo?.withdrawApprove?.amountUnit;
+  const amountUnit = earnUtils.isEtherFiProvider({ providerName })
+    ? 'shares'
+    : undefined;
   const supportsReceiveAssetSelection =
     isPendleProvider || amountUnit === 'shares';
   const hasWithdrawApprove = Boolean(

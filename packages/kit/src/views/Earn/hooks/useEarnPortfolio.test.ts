@@ -153,6 +153,121 @@ describe('useEarnPortfolio batch refresh', () => {
     expect(result.current.earnTotalFiatValue.toFixed()).toBe('15');
   });
 
+  it.each([false, true])(
+    'clears an absent EtherFi position after a successful batch (partial=%s)',
+    async (partial) => {
+      const vault = '0xAbCd000000000000000000000000000000000001';
+      mockStaking.getAvailableAssetsV2.mockResolvedValue([
+        { ...assets[0], provider: 'etherfi', symbol: 'USDC', vault },
+      ]);
+      const item = investment(vault.toLowerCase(), '10');
+      item.protocol.symbol = 'USDC';
+      item.protocol.providerDetail.code = 'etherfi';
+      mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+        items: [item],
+        errors: [],
+      });
+      const { result } = renderHook(() => useEarnPortfolio());
+      await act(async () => result.current.refresh());
+      expect(result.current.earnTotalFiatValue.toFixed()).toBe('10');
+      mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+        items: [],
+        errors: [],
+      });
+      await act(async () =>
+        result.current.refresh(partial ? { provider: 'etherfi' } : undefined),
+      );
+      expect(result.current.earnTotalFiatValue.toFixed()).toBe('0');
+      expect(result.current.investments).toHaveLength(0);
+    },
+  );
+
+  it('preserves an EtherFi position when its batch item fails', async () => {
+    const vault = '0xAbCd000000000000000000000000000000000001';
+    mockStaking.getAvailableAssetsV2.mockResolvedValue([
+      { ...assets[0], provider: 'etherfi', symbol: 'USDC', vault },
+    ]);
+    const item = investment(vault, '10');
+    item.protocol.symbol = 'USDC';
+    item.protocol.providerDetail.code = 'etherfi';
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [item],
+      errors: [],
+    });
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [],
+      errors: [
+        { symbol: 'USDC', vault: vault.toLowerCase(), errorCode: 'TIMEOUT' },
+      ],
+    });
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('10');
+  });
+
+  it('does not treat an unidentifiable batch error as an empty EtherFi vault', async () => {
+    const vault = '0xAbCd000000000000000000000000000000000001';
+    mockStaking.getAvailableAssetsV2.mockResolvedValue([
+      { ...assets[0], provider: 'etherfi', symbol: 'USDC', vault },
+    ]);
+    const item = investment(vault, '10');
+    item.protocol.symbol = 'USDC';
+    item.protocol.providerDetail.code = 'etherfi';
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [item],
+      errors: [],
+    });
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [],
+      errors: [{ symbol: '', vault: '', errorCode: 'TIMEOUT' }],
+    });
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('10');
+  });
+
+  it('clears only the missing EtherFi vault when another vault has an error', async () => {
+    const vaults = [
+      '0xAbCd000000000000000000000000000000000001',
+      '0xAbCd000000000000000000000000000000000002',
+    ];
+    mockStaking.getAvailableAssetsV2.mockResolvedValue(
+      vaults.map((vault, index) => ({
+        ...assets[index],
+        provider: 'etherfi',
+        symbol: index ? 'WETH' : 'USDC',
+        vault,
+      })),
+    );
+    const items = vaults.map((vault, index) => {
+      const item = investment(vault, index ? '20' : '10');
+      item.protocol.symbol = index ? 'WETH' : 'USDC';
+      item.protocol.providerDetail.code = 'etherfi';
+      return item;
+    });
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items,
+      errors: [],
+    });
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('30');
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [],
+      errors: [
+        {
+          symbol: 'WETH',
+          vault: vaults[1].toLowerCase(),
+          errorCode: 'TIMEOUT',
+        },
+      ],
+    });
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('20');
+  });
+
   it('fetches same-symbol vaults through one batch and no single-detail requests', async () => {
     const { result } = renderHook(() => useEarnPortfolio());
     await act(async () => result.current.refresh());

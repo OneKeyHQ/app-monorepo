@@ -751,6 +751,9 @@ export function UniversalStake({
     usePermitApprove: usePermit2Approve,
   });
   const isPreparationStep = isWrapStake || confirmationAction === 'approve';
+  // The existing confirmation endpoint describes the deposit, not its wrap or approval.
+  const isEtherFiPreparationStep =
+    earnUtils.isEtherFiProvider({ providerName }) && isPreparationStep;
   const hideYieldPreview = isPreparationStep || shouldApprove;
 
   const [transactionConfirmation, setTransactionConfirmation] = useState<
@@ -777,13 +780,13 @@ export function UniversalStake({
           symbol: actionSymbol,
           vault: shouldSendProtocolVault ? protocolInfo?.vault || '' : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
-          action,
+          action:
+            action === 'approve' ? ECheckAmountActionType.STAKING : action,
           amount,
           identity: stakefishIdentity,
           inputTokenAddress: transactionInputTokenAddress,
           outputTokenAddress: transactionOutputTokenAddress,
           slippage: pendleSlippage,
-          stakeType,
         });
       return resp;
     },
@@ -799,13 +802,30 @@ export function UniversalStake({
       transactionInputTokenAddress,
       transactionOutputTokenAddress,
       pendleSlippage,
-      stakeType,
       confirmationAction,
     ],
   );
 
-  const transactionConfirmationScopeRef = useRef(fetchTransactionConfirmation);
-  transactionConfirmationScopeRef.current = fetchTransactionConfirmation;
+  const transactionConfirmationScopeRef = useRef({
+    fetchConfirmation: fetchTransactionConfirmation,
+    isEtherFiPreparationStep,
+    amount: amountValue,
+    generation: 0,
+  });
+  if (
+    transactionConfirmationScopeRef.current.fetchConfirmation !==
+      fetchTransactionConfirmation ||
+    transactionConfirmationScopeRef.current.isEtherFiPreparationStep !==
+      isEtherFiPreparationStep ||
+    transactionConfirmationScopeRef.current.amount !== amountValue
+  ) {
+    transactionConfirmationScopeRef.current = {
+      fetchConfirmation: fetchTransactionConfirmation,
+      isEtherFiPreparationStep,
+      amount: amountValue,
+      generation: transactionConfirmationScopeRef.current.generation + 1,
+    };
+  }
   const transactionConfirmationDataScopeRef = useRef<
     | { fetchConfirmation: typeof fetchTransactionConfirmation; amount: string }
     | undefined
@@ -837,9 +857,10 @@ export function UniversalStake({
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
       const fetchConfirmation = fetchTransactionConfirmation;
+      const generation = transactionConfirmationScopeRef.current.generation;
       const isCurrentRequest = () =>
         transactionConfirmationAmountRef.current === amount &&
-        transactionConfirmationScopeRef.current === fetchConfirmation;
+        transactionConfirmationScopeRef.current.generation === generation;
       setTransactionConfirmationLoading(true);
       try {
         const resp = await fetchConfirmation(amount || '0');
@@ -868,7 +889,7 @@ export function UniversalStake({
     setTransactionConfirmation(undefined);
     setTransactionConfirmationLoading(false);
     setTransactionConfirmationSettled(false);
-  }, [fetchTransactionConfirmation]);
+  }, [fetchTransactionConfirmation, isEtherFiPreparationStep]);
 
   const protocolVault = shouldSendProtocolVault
     ? protocolInfo?.vault || ''
@@ -888,7 +909,6 @@ export function UniversalStake({
       const permitParams: {
         approveType?: EApproveType.Permit;
         permitSignature?: string;
-        unsignedMessage?: IEarnPermit2ApproveSignData;
       } = usePermit2Approve ? { approveType: EApproveType.Permit } : {};
       if (
         usePermit2Approve &&
@@ -897,7 +917,6 @@ export function UniversalStake({
         permit2DataRef.current
       ) {
         permitParams.permitSignature = permitSignatureRef.current;
-        permitParams.unsignedMessage = permit2DataRef.current;
       }
       // A freshly signed permit is available before React updates shouldApprove.
       if (
@@ -1117,7 +1136,11 @@ export function UniversalStake({
       void debouncedFetchEstimateFeeResp(amountValue);
     }
     prevShouldApproveRef.current = shouldApprove;
-    if (!isInvalidAmount(amountValue) && amountValueBN.isGreaterThan(0)) {
+    if (
+      !isEtherFiPreparationStep &&
+      !isInvalidAmount(amountValue) &&
+      amountValueBN.isGreaterThan(0)
+    ) {
       void debouncedFetchTransactionConfirmation(amountValue);
     } else {
       debouncedFetchTransactionConfirmation.cancel();
@@ -1134,6 +1157,7 @@ export function UniversalStake({
     debouncedFetchTransactionConfirmation,
     fetchTransactionConfirmation,
     stakefishIdentity,
+    isEtherFiPreparationStep,
   ]);
 
   const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
@@ -2224,7 +2248,7 @@ export function UniversalStake({
       return pendleAccordionItems;
     }
 
-    if (transactionConfirmation?.receive) {
+    if (!isEtherFiPreparationStep && transactionConfirmation?.receive) {
       items.push(
         <CalculationListItem key="receive">
           <CalculationListItem.Label
@@ -2280,6 +2304,7 @@ export function UniversalStake({
     estimateFeeResp,
     estimateFeeUTXO,
     isPendleLikeLayout,
+    isEtherFiPreparationStep,
     onFeeRateChange,
     pendleAccordionItems,
     providerName,
@@ -2391,7 +2416,11 @@ export function UniversalStake({
       { id: ETranslations.global_revoke_approve },
       { symbol: 'liquidUSD' },
     );
-  } else if (!footerActionOverride && legacyActionAvailable) {
+  } else if (!footerActionOverride && legacyApproval.status === 'pending') {
+    effectiveOnConfirmText = intl.formatMessage({
+      id: ETranslations.global_pending,
+    });
+  } else if (!footerActionOverride && legacyApproval.status === 'unknown') {
     effectiveOnConfirmText = intl.formatMessage({
       id: ETranslations.global_retry,
     });
@@ -2745,7 +2774,11 @@ export function UniversalStake({
             ) : null}
           </Stack>
           <ManagePageV2ReceiveInput
-            receive={transactionConfirmation?.receive}
+            receive={
+              isEtherFiPreparationStep
+                ? undefined
+                : transactionConfirmation?.receive
+            }
             config={effectiveReceiveInputConfig}
             fiatSymbol={currencySymbol}
             payFiatValue={currentValue}

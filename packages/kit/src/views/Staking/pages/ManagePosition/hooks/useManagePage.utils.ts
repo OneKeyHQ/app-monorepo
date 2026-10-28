@@ -45,9 +45,8 @@ export async function resolveManagePageWithdrawApprove({
     : undefined;
   const cachedApprove = detailCacheEntry?.data.withdrawApprove;
   const isValid = (approve: IProtocolInfo['withdrawApprove']) =>
-    approve?.amountUnit === 'shares' &&
-    Boolean(approve.approveTarget) &&
-    approve.tokenAddress?.toLowerCase() === receiptAddress;
+    Boolean(approve?.approveTarget) &&
+    approve?.tokenAddress?.toLowerCase() === receiptAddress;
   if (age !== undefined && age >= 0 && age < 60_000 && isValid(cachedApprove)) {
     return cachedApprove;
   }

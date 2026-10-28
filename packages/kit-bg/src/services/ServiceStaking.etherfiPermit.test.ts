@@ -114,15 +114,12 @@ describe('ServiceStaking EtherFi Permit requests', () => {
     jest.restoreAllMocks();
   });
 
-  it('serializes the fee query Permit without losing large integers or the actual vault', async () => {
+  it('estimates an EtherFi deposit with the existing fee query fields', async () => {
     const { service, get } = createServiceHarness();
     const input = Object.freeze({
       ...params,
       accountAddress,
       action: 'stake' as const,
-      approveType: 'permit' as const,
-      permitSignature,
-      unsignedMessage,
     });
 
     await expect(service.estimateFee(input)).resolves.toMatchObject({
@@ -137,23 +134,30 @@ describe('ServiceStaking EtherFi Permit requests', () => {
       amount: params.amount,
       vault: protocolVault,
       inputTokenAddress,
+    });
+    expect(options.params).not.toHaveProperty('protocolVault');
+    expect(options.params).not.toHaveProperty('unsignedMessage');
+    expect(options.params).not.toHaveProperty('permitSignature');
+  });
+
+  it('preserves the existing Permit fee query for other providers', async () => {
+    const { service, get } = createServiceHarness();
+    await service.estimateFee({
+      ...params,
+      provider: 'morpho',
+      symbol: 'USDC',
+      accountAddress,
+      action: 'stake',
       approveType: 'permit',
       permitSignature,
     });
-    expect(options.params).not.toHaveProperty('protocolVault');
-    expect(typeof options.params.unsignedMessage).toBe('string');
-    const restored: unknown = JSON.parse(
-      options.params.unsignedMessage as string,
-    );
-    expect(restored).toEqual(unsignedMessage);
-    expect(restored).toMatchObject({
-      message: {
-        deadline: '18446744073709551615',
-        nonce: '9007199254740993',
-        value: '1000000000000000001',
-      },
+
+    expect(get.mock.calls[0][1].params).toMatchObject({
+      provider: 'morpho',
+      approveType: 'permit',
+      permitSignature,
     });
-    expect(input.unsignedMessage).toBe(unsignedMessage);
+    expect(get.mock.calls[0][1].params).not.toHaveProperty('unsignedMessage');
   });
 
   it('does not require a Permit message when an existing allowance is sufficient', async () => {

@@ -11,7 +11,6 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnActionIcon,
-  IEarnCancelWithdrawalActionIcon,
   IEarnClaimActionIcon,
   IEarnClaimType,
   IEarnClaimWithKycActionIcon,
@@ -274,8 +273,8 @@ export const usePortfolioAction = ({
 
   const handleCancelWithdrawalAction = useCallback(
     // Aggregated actions open a picker; legacy actions retain direct cancellation.
-    async (actionIcon: IEarnCancelWithdrawalActionIcon) => {
-      if (actionIcon.data?.selectRequest) {
+    async () => {
+      if (earnUtils.isEtherFiProvider({ providerName: provider })) {
         if (!earnAccountId) return;
         appNavigation.pushModal(EModalRoutes.StakingModal, {
           screen: EModalStakingRoutes.WithdrawOptions,
@@ -288,7 +287,7 @@ export const usePortfolioAction = ({
             protocolInfo: {
               symbol,
               provider,
-              vault: actionIcon.data.vault ?? vault ?? '',
+              vault: vault ?? '',
               networkId,
               stakeTag: stakeTag || '',
               providerDetail: {
@@ -307,11 +306,10 @@ export const usePortfolioAction = ({
           amount: '0',
           symbol,
           provider,
-          identity: actionIcon.data?.identity,
           protocolVault: earnUtils.shouldSendEarnProtocolVault({
             providerName: provider,
           })
-            ? (actionIcon.data?.vault ?? vault)
+            ? vault
             : undefined,
           withdrawAll: false,
           withdrawType: 'cancel',
@@ -390,7 +388,7 @@ export const usePortfolioAction = ({
           });
           break;
         case EStakingActionType.CancelWithdrawal:
-          void handleCancelWithdrawalAction(actionIcon);
+          void handleCancelWithdrawalAction();
           break;
         default:
           break;

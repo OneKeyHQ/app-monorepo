@@ -65,8 +65,6 @@ jest.mock('../../Staking/components/ProtocolDetails/showKYCDialog', () => ({
 
 const hookVault = '0xf0bb20865277abd641a307ece5ee04e79073416c';
 const otherVault = '0x08c6f91e2b681faf5e17227f2a44c307b3c1364c';
-const requestOne = `0x${'11'.repeat(32)}`;
-const requestTwo = `0x${'22'.repeat(32)}`;
 const params = {
   accountId: 'selected-account',
   networkId: 'evm--1',
@@ -109,7 +107,7 @@ describe('usePortfolioAction cancel withdrawal', () => {
 
     await act(async () =>
       result.current.handleAction({
-        actionIcon: cancelAction({ selectRequest: true, vault: otherVault }),
+        actionIcon: cancelAction(),
       }),
     );
 
@@ -121,7 +119,7 @@ describe('usePortfolioAction cancel withdrawal', () => {
         provider: 'etherfi',
         symbol: 'eETH',
         withdrawType: 'cancel',
-        protocolInfo: expect.objectContaining({ vault: otherVault }),
+        protocolInfo: expect.objectContaining({ vault: hookVault }),
         onSuccess,
       }),
     });
@@ -130,67 +128,26 @@ describe('usePortfolioAction cancel withdrawal', () => {
     expect(onSuccess).not.toHaveBeenCalled();
   });
 
-  it('keeps the selected request identity when two queue items are canceled in sequence', async () => {
-    const { result } = renderHook(() => usePortfolioAction(params));
-    const actions = [
-      cancelAction({ identity: requestOne }),
-      cancelAction({ identity: requestTwo }),
-    ];
-
-    for (const actionIcon of actions) {
-      await act(async () => result.current.handleAction({ actionIcon }));
-    }
-
-    expect(mockWithdrawAccount).toHaveBeenCalledWith({
-      accountId: 'earn-account',
-      networkId: params.networkId,
-    });
-    expect(mockWithdraw).toHaveBeenCalledTimes(2);
-    expect(
-      mockWithdraw.mock.calls.map(([call]) => ({
-        identity: call.identity,
-        protocolVault: call.protocolVault,
-      })),
-    ).toEqual([
-      {
-        identity: requestOne,
-        protocolVault: hookVault,
-      },
-      {
-        identity: requestTwo,
-        protocolVault: hookVault,
-      },
-    ]);
-    expect(mockWithdraw.mock.calls[0][0]).toMatchObject({
-      amount: '0',
-      symbol: 'eETH',
-      provider: 'etherfi',
-      withdrawAll: false,
-      withdrawType: 'cancel',
-    });
-    expect(mockClaim).not.toHaveBeenCalled();
-    expect(mockSignMessage).not.toHaveBeenCalled();
-    expect(mockShowKyc).not.toHaveBeenCalled();
-  });
-
-  it('uses each clicked action vault and falls back to the hook vault when omitted', async () => {
-    const { result } = renderHook(() => usePortfolioAction(params));
-    const actions = [
-      cancelAction({ identity: requestOne, vault: otherVault }),
-      cancelAction({ identity: requestTwo }),
-    ];
-
-    for (const actionIcon of actions) {
-      await act(async () => result.current.handleAction({ actionIcon }));
-    }
-
-    expect(mockWithdraw.mock.calls.map(([call]) => call.protocolVault)).toEqual(
-      [otherVault, hookVault],
+  it('uses the current protocol vault after switching vaults', async () => {
+    const { result, rerender } = renderHook(
+      (value: typeof params) => usePortfolioAction(value),
+      { initialProps: params },
     );
-    expect(mockWithdraw.mock.calls.map(([call]) => call.identity)).toEqual([
-      requestOne,
-      requestTwo,
-    ]);
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    rerender({ ...params, vault: otherVault });
+    await act(async () =>
+      result.current.handleAction({ actionIcon: cancelAction() }),
+    );
+    expect(mockPushModal).toHaveBeenCalledTimes(2);
+    expect(mockPushModal.mock.calls[0][1].params.protocolInfo.vault).toBe(
+      hookVault,
+    );
+    expect(mockPushModal.mock.calls[1][1].params.protocolInfo.vault).toBe(
+      otherVault,
+    );
+    expect(mockWithdraw).not.toHaveBeenCalled();
   });
 
   it.each(['Native', 'Spark'])(
@@ -222,11 +179,13 @@ describe('usePortfolioAction cancel withdrawal', () => {
   it('clears loading when the transaction confirmation is canceled', async () => {
     const withdrawal = deferred<boolean>();
     mockWithdraw.mockReturnValueOnce(withdrawal.promise);
-    const { result } = renderHook(() => usePortfolioAction(params));
+    const { result } = renderHook(() =>
+      usePortfolioAction({ ...params, provider: 'Native' }),
+    );
 
     act(() => {
       result.current.handleAction({
-        actionIcon: cancelAction({ identity: requestOne }),
+        actionIcon: cancelAction(),
       });
     });
     expect(result.current.loading).toBe(true);
@@ -239,12 +198,12 @@ describe('usePortfolioAction cancel withdrawal', () => {
   it('refreshes the portfolio only through the withdrawal success callback', async () => {
     const onSuccess = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
     const { result } = renderHook(() =>
-      usePortfolioAction({ ...params, onSuccess }),
+      usePortfolioAction({ ...params, provider: 'Native', onSuccess }),
     );
 
     await act(async () => {
       result.current.handleAction({
-        actionIcon: cancelAction({ identity: requestOne }),
+        actionIcon: cancelAction(),
       });
     });
     expect(onSuccess).not.toHaveBeenCalled();
