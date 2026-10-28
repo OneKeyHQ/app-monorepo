@@ -34,7 +34,6 @@ import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { getEndpointInfo } from '../endpoints';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
-import { primePersistAtom } from '../states/jotai/atoms/prime';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
@@ -79,6 +78,9 @@ export default class ServiceBase {
         await getEndpointInfo({ name }),
       );
       client.interceptors.request.use(async (config) => {
+        // Keep Prime storage initialization out of unrelated services' load graph.
+        const { primePersistAtom } =
+          await import('../states/jotai/atoms/prime');
         const user = await primePersistAtom.get();
         const authStateGeneration =
           await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
