@@ -9,7 +9,11 @@ describe('request auth context', () => {
   it('transfers the captured identity to the error privately and consumes it once', () => {
     const config = {};
     const error = {};
-    const context = { onekeyUserId: 'user-a', authStateGeneration: 7 };
+    const context = {
+      onekeyUserId: 'user-a',
+      authStateGeneration: 7,
+      requestUrl: '/prime/v1/account/identities/oauth/bind',
+    };
     stashOneKeyIdRequestContext(config, context);
     stashRequestAuthTokenOfError({
       error,
