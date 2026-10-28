@@ -30,6 +30,8 @@ Android Widget 已随主 APK 打包，Provider、配置页和后台任务均已�
 
 可以先用真机安装 Release APK 验证。手动触发 `.github/workflows/release-android.yml` 时，将 `ONEKEY_ALLOW_SKIP_GPG_VERIFICATION` 和 `ENABLE_STARTUP_PROFILE` 都设为 `false`，工作流会使用 `production` 配置执行 `:app:assembleProdRelease`，生成 direct 渠道 APK，不自动提交应用商店。
 
+该工作流通过 `eas build --no-wait` 提交构建。GitHub Actions 成功只表示提交成功，必须继续检查日志中的 EAS 构建链接，确认 APK 已生成。
+
 当前手动触发流程固定使用 `BUILD_NUMBER=1`，包名仍为 `so.onekey.app.wallet`，因此可能无法直接覆盖设备上版本号更高的正式版。建议使用独立测试机或隔离的测试用户安装，验证桌面添加、选币、自选同步、刷新和冷启动跳转，再进行下文的长时间后台验证。
 
 ## iOS 发布配置
@@ -43,6 +45,8 @@ Android Widget 已随主 APK 打包，Provider、配置页和后台任务均已�
 ## 验证要求
 
 使用标准 Mobile DevSession 验证集成后的 App。原生代码变更需要重新构建原生壳；不能仅更新 JavaScript 并沿用不包含 Widget Provider 和桥接模块的旧壳。
+
+新增移动端 JavaScript 模块还需要更新 `bundle-registry/module-id-registry.json`。从实际 Metro 依赖图生成 module ID map 后，使用 `yarn workspace @onekeyhq/mobile module-id:update --map <module-id-map.json>` 注册新增模块；随后在严格模式下重新生成生产分包，并用 `module-id:check --map` 验证新的 map。Android 还需验证 `expo export:embed --eager --platform android --dev false`，覆盖 EAS 的前置打包入口。DevSession 和提交前检查通过，不代表发布注册表完整。
 
 需要覆盖以下场景：
 
@@ -61,7 +65,7 @@ Android Widget 已随主 APK 打包，Provider、配置页和后台任务均已�
 - `yarn agent:check --profile commit` 全部通过。React Native 配置与深链测试共 5 个测试套件、92 项用例通过；Swift 配置、缓存、资产标识和解码测试共 53 项通过；原生壳缓存测试共 18 项通过，包括尚未被 Git 跟踪的 Widget 源码发生变化时的缓存失效检查。
 - **iOS 模拟器构建**：复用此前已构建的 Pods 库，成功重新构建最终版本的主 App、MarketWidget、App Clip 和 ServiceExtension。通过仓库标准流程完成模拟器签名、打包、缓存登记和集成 DevSession 启动。这次验证并非清空所有原生依赖后从零构建。
 - **iOS 界面**：小号和中号组件显示真实行情，以及完整的最近成功获取日期和时间。选币、多实例独立配置、手动刷新、自选同步，以及冷启动打开正确的 SOL 详情均通过。本地证据：[最终组件界面](ios/outputs/buildreports/screenshots/ios-widgets-final.png)、[SOL 冷启动详情](ios/outputs/buildreports/screenshots/ios-widget-cold-link-sol.png)。
-- **Android 构建与界面**：完整 APK 打包和标准 DevSession 启动通过。单币和列表组件显示真实价格及获取时间。手动刷新、选择 ETH/SOL、热启动跳转 BTC/SOL、进入 App 管理自选均通过。收藏 SOL 后列表同步为 SOL；原先选中的 ETH 被移除后显示不可用，配置页禁用保存；重新选择有效的 SOL 后可正常保存。
+- **Android 开发构建与界面**：DevSession APK 打包和启动通过。单币和列表组件显示真实价格及获取时间。手动刷新、选择 ETH/SOL、热启动跳转 BTC/SOL、进入 App 管理自选均通过。收藏 SOL 后列表同步为 SOL；原先选中的 ETH 被移除后显示不可用，配置页禁用保存；重新选择有效的 SOL 后可正常保存。
 - **Android 最终修复验证**：组件标题精简为品牌名称，并保留最新 Intent，供 JavaScript 尚未就绪时收到的链接在启动后补读。两种组件标题均在桌面实际尺寸下检查通过。确认 App 主进程未运行后，点击 ETH 可打开正确的 Ethereum 详情和价格曲线，随后热启动点击 BTC 也能正确切换。本地证据：[单币组件](android/build/reports/market-widget/screenshots/android-single-final.png)、[列表组件](android/build/reports/market-widget/screenshots/android-watchlist-final.png)、[ETH 冷启动详情](android/build/reports/market-widget/screenshots/android-widget-cold-link-eth.png)。
 - **Android 设备端测试**：在 API 36 上运行的 11 项 instrumentation 测试全部通过，包括 9 项 Widget 数据与存储测试，以及 2 项提前到达或连续更新的 Intent 测试。测试在目标应用沙箱中使用唯一命名、相互隔离的偏好存储，不启动 Activity 界面，也不访问钱包数据。此前出现的 Maven TLS 下载失败和测试沙箱权限问题，均已在最终成功运行前解决。
 - **公开接口验证**：使用实际 Swift 请求与解码代码，从生产接口成功获取并解码 3 项默认资产。另有 8 项公开资产与 Token API 用例通过 macOS URLSession 检查，覆盖原生币空地址和合约 Token。这些接口验证与模拟器界面验证分别记录。
