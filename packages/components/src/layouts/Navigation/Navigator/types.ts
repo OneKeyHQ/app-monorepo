@@ -81,6 +81,16 @@ export interface ICommonNavigatorConfig<
       }) => ICommonScreenOptions);
 }
 
+export interface ITabSubStackNavigatorProps {
+  config: ITabSubNavigatorConfig<string, any>[] | null;
+  /**
+   * Header style for screens pushed above the first one. `modal` gives them
+   * the opaque modal-stack header, for panes that host modal routes (the
+   * Settings split layout). Native only; defaults to `tab`.
+   */
+  pushedScreenPresentation?: 'tab' | 'modal';
+}
+
 export interface ITabNavigatorExtraConfig<RouteName extends string> {
   name: RouteName;
   children: ITabSubNavigatorConfig<any, any>[];
