@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Button } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -26,6 +27,7 @@ export function useTokenPrivacyStatus({
   pool: ILocalWalletPool;
 }): ITokenPrivacyPanelProps {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const dataBlockedAtom = useMemo(
     () =>
       selectAtom(privacyChainAtom.atom(), (value) =>
@@ -67,15 +69,9 @@ export function useTokenPrivacyStatus({
   ) {
     if (!lw.enabled) {
       state = 'disabled';
-    } else if (
-      lw.state?.paused &&
-      !lw.isNetworkPaused &&
-      lw.lastSyncedAt !== undefined
-    ) {
-      // Rotated out of the sync slots: reads as synced up to its last
-      // catch-up, and Sync resumes it.
-      state = 'synced';
     } else if (lw.isSyncPaused) {
+      // Paused by the user or rotated out of the sync slots alike: nothing
+      // scans it until Resume, so its balance is only as new as its last sync.
       state = 'stopped';
     } else if (lw.hasSyncError) {
       state = 'error';
@@ -112,11 +108,30 @@ export function useTokenPrivacyStatus({
       detail = lw.syncStatusText ?? undefined;
     }
   }
+  // The paused title already says so; keep only a detail that adds to it.
+  if (
+    state === 'stopped' &&
+    detail === intl.formatMessage({ id: ETranslations.syncing_paused__title })
+  ) {
+    detail = undefined;
+  }
+  let updatedAtLabel: string | undefined;
+  if (
+    state === 'stopped' &&
+    typeof lw.lastSyncedAt === 'number' &&
+    lw.lastSyncedAt > 0
+  ) {
+    updatedAtLabel = intl.formatMessage(
+      { id: ETranslations.backup_updated_time },
+      { time: formatDate(new Date(lw.lastSyncedAt), { hideTheYear: true }) },
+    );
+  }
 
   return {
     state,
     description,
     detail,
+    updatedAtLabel,
     enableUnavailable: lw.isUnsupportedWallet || !!lw.state?.privacyDisabled,
     busy: lw.busy,
     onSync:

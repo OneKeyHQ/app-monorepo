@@ -12,7 +12,15 @@ import type { PrimitiveAtom } from 'jotai';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
+    formatMessage: ({ id }: { id: string }, values?: Record<string, string>) =>
+      values ? `${id}:${JSON.stringify(values)}` : id,
+  }),
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
+  __esModule: true,
+  default: () => ({
+    formatDate: (date: Date) => `date(${date.getTime()})`,
   }),
 }));
 
@@ -134,10 +142,28 @@ describe('token privacy status', () => {
     );
 
     expect(result.current.state).toBe('stopped');
-    expect(result.current.detail).toBe(ETranslations.syncing_paused__title);
+    // The title already says paused; the line is not repeated.
+    expect(result.current.detail).toBeUndefined();
     expect(result.current.onSync).toBeDefined();
     expect(result.current.onEnable).toBeUndefined();
     expect(result.current.onStop).toBeUndefined();
+  });
+
+  it('keeps a paused detail that says more than the title', () => {
+    const { result } = renderStatus(
+      pool({
+        state: { enabled: false, paused: true },
+        isSyncPaused: true,
+        hasSyncError: true,
+        syncProgress: undefined,
+        syncStatusText: ETranslations.privacy_error_webview_outdated__msg,
+      }),
+    );
+
+    expect(result.current.state).toBe('stopped');
+    expect(result.current.detail).toBe(
+      ETranslations.privacy_error_webview_outdated__msg,
+    );
   });
 
   it('waits for wallet support even when a remembered account state exists', () => {
@@ -307,24 +333,52 @@ describe('token privacy status', () => {
     }
   });
 
-  it('shows an account rotated out of the sync slots as synced up to its last catch-up', async () => {
+  // A manual pause and a rotation out of the sync slots read the same: the
+  // balance is only as new as the last sync, and Resume restarts it.
+  it('shows a paused account as paused since its last sync, never as synced', async () => {
     const enableAccount = jest.fn(async () => undefined);
     const { result } = renderStatus(
       pool({
         state: { enabled: false, paused: true },
         isSyncPaused: true,
+        syncProgress: undefined,
         lastSyncedAt: 1_700_000_000_000,
         enableAccount,
       }),
     );
 
-    expect(result.current.state).toBe('synced');
+    expect(result.current.state).toBe('stopped');
+    expect(result.current.updatedAtLabel).toBe(
+      `${ETranslations.backup_updated_time}:${JSON.stringify({
+        time: 'date(1700000000000)',
+      })}`,
+    );
 
     await act(async () => {
       result.current.onSync?.();
     });
 
     expect(enableAccount).toHaveBeenCalledWith({});
+  });
+
+  it('has no last sync time to show for an account that never synced', () => {
+    const { result } = renderStatus(
+      pool({
+        state: { enabled: false, paused: true },
+        isSyncPaused: true,
+        syncProgress: undefined,
+      }),
+    );
+
+    expect(result.current.state).toBe('stopped');
+    expect(result.current.updatedAtLabel).toBeUndefined();
+  });
+
+  it('keeps the last sync time off a running account', () => {
+    const { result } = renderStatus(pool({ lastSyncedAt: 1_700_000_000_000 }));
+
+    expect(result.current.state).toBe('synced');
+    expect(result.current.updatedAtLabel).toBeUndefined();
   });
 
   it('keeps a chain paused from the sync light stopped despite a last catch-up', () => {
