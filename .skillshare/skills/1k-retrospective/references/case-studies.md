@@ -1057,3 +1057,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: On the Android background runtime `process.nextTick` came from the npm `process` polyfill, whose cached `setTimeout` is the React Native TimerManager timer that never fires on the never-resumed background ReactHost. `next-tick` (used by memoizee's promise/max-age extensions) captured that dead function by reference while `@onekeyhq/shared/src/polyfills` loaded the request stack, before `background.ts` replaced `process.nextTick`. Every `memoizee({ promise: true, maxAge })` cache in kit-bg therefore never expired, including the BTC vault UTXO list (30s) and `VaultFactory.getVault` (15 min), so the next send reused spent inputs.
 **Fix**: Install a working `process.nextTick` (setImmediate/queueMicrotask) right after the `process` shim in `polyfillsPlatform.js`, gated to Android background, with a bootstrap-order contract test; clear the BTC vault UTXO caches in `finally` after both `broadcastTransaction` and `broadcastTransactionFromCustomRpc`.
 **Catchable by**: Section 5: No stale closures capturing outdated state (module-load capture of `process.nextTick` by a dependency); the split-runtime timer availability itself is NEW — not covered
+
+## Case: Native chart crosshair froze under the price action "+" button and its menu
+**Date**: 2026-10-27 | **Platforms**: Desktop, Web (native chart web renderer)
+**Symptom**: Hovering the "+" button next to the price axis froze the crosshair and the button until the pointer left it. With the limit menu open, the crosshair stayed pinned at the selected price, even while the pointer was on the menu.
+**Root Cause**: Elements above the canvas swallow its pointer events: the absolutely positioned button and the anchored Popover's full-screen transparent backdrop. `useChartPriceSelection` also pinned the crosshair while the menu was open.
+**Fix**: The button forwards hover moves to the canvas, only with no buttons pressed (a pressed move hits the canvas handler's hide and swallows the click). While the menu is open, a document `pointermove` listener re-dispatches plot hovers on the backdrop to the canvas and runs the chart's mouse-leave handler elsewhere. Removed the pinned crosshair; the visible button is realigned with the price axis on every redraw.
+**Catchable by**: NEW — not covered (an overlay or transparent backdrop above a canvas blocks its hover events)
+
+## Case: Native chart "+" price action button lingered over the axes
+**Date**: 2026-10-27 | **Platforms**: Desktop, Web (native chart web renderer)
+**Symptom**: Moving the pointer from the plot onto the price axis, the time axis or a pane handle hid the crosshair but left the "+" button at its last position.
+**Root Cause**: Those overlays are siblings above the canvas. Their pointer-enter handlers hide only the crosshair, and the canvas handler that hides the button stops receiving moves.
+**Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
+**Catchable by**: NEW — not covered (same pattern as the previous case: overlays above a canvas take its pointer events)
