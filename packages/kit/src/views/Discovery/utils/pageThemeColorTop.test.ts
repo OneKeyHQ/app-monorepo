@@ -103,6 +103,7 @@ function resetPage() {
   backgroundImages.clear();
   document.body.replaceChildren();
   document.body.style.backgroundColor = 'rgb(255, 255, 255)';
+  document.body.style.transform = '';
   document.documentElement.style.backgroundColor = 'transparent';
   document.querySelectorAll('meta[name="theme-color"]').forEach((node) => {
     node.remove();
@@ -495,6 +496,51 @@ describe('PAGE_THEME_COLOR_SCRIPT top color', () => {
       document.body,
       'linear-gradient(#10cd7e, #10cd7e, #ffffff)',
     );
+
+    expectRgb(readNow().color, [16, 205, 126]);
+  });
+
+  it('does not sample a negative-z layer under a translucent html background', () => {
+    document.documentElement.style.backgroundColor = 'rgba(1, 2, 3, 0.4)';
+    document.body.style.backgroundColor = 'rgb(255, 255, 255)';
+    const gradient = addLayer({
+      backgroundImage: 'linear-gradient(#10cd7e, #10cd7e, #ffffff)',
+    });
+    hit = topStack(() => [document.body, gradient, document.documentElement]);
+
+    expectRgb(readNow().color, [255, 255, 255]);
+  });
+
+  it('samples a negative-z layer inside a body stacking context', () => {
+    document.documentElement.style.backgroundColor = 'rgb(1, 2, 3)';
+    document.body.style.backgroundColor = 'rgb(255, 255, 255)';
+    document.body.style.transform = 'scale(1)';
+    const gradient = addLayer({
+      backgroundImage: 'linear-gradient(#10cd7e, #10cd7e, #ffffff)',
+    });
+    hit = topStack(() => [document.body, gradient, document.documentElement]);
+
+    expectRgb(readNow().color, [16, 205, 126]);
+  });
+
+  it('does not sample a negative-z layer covered by an opaque body', () => {
+    document.documentElement.style.backgroundColor = 'rgb(1, 2, 3)';
+    document.body.style.backgroundColor = 'rgb(255, 255, 255)';
+    const gradient = addLayer({
+      backgroundImage: 'linear-gradient(#10cd7e, #10cd7e, #ffffff)',
+    });
+    hit = topStack(() => [document.body, gradient, document.documentElement]);
+
+    expectRgb(readNow().color, [255, 255, 255]);
+  });
+
+  it('samples a negative-z layer when an opaque html does not cover it', () => {
+    document.documentElement.style.backgroundColor = 'rgb(1, 2, 3)';
+    document.body.style.backgroundColor = 'transparent';
+    const gradient = addLayer({
+      backgroundImage: 'linear-gradient(#10cd7e, #10cd7e, #ffffff)',
+    });
+    hit = topStack(() => [document.body, gradient, document.documentElement]);
 
     expectRgb(readNow().color, [16, 205, 126]);
   });

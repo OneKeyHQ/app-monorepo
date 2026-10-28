@@ -629,6 +629,45 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       var alpha = /rgba\\([^,]+,[^,]+,[^,]+,\\s*([\\d.]+)\\s*\\)/.exec(color);
       return !color || (alpha && Number(alpha[1]) === 0) ? '' : null;
     };
+    // Any painted html background, including a translucent one, stops the body
+    // background from propagating to the canvas. Alpha 0 does not paint.
+    var backgroundPaints = function (style) {
+      var image = style.backgroundImage;
+      if (image && image !== 'none') return true;
+      var color = toRgb(style.backgroundColor);
+      if (!color) return false;
+      var alpha = /rgba\\([^,]+,[^,]+,[^,]+,\\s*([\\d.]+)\\s*\\)/.exec(color);
+      return !alpha || Number(alpha[1]) !== 0;
+    };
+    // Inside a stacking context the body's background is painted first, so a
+    // negative z-index child is visible on top of it.
+    var bodyStacksAboveNegativeZ = function (style) {
+      if (style.opacity && Number(style.opacity) < 1) return true;
+      if (style.transform && style.transform !== 'none') return true;
+      if (style.filter && style.filter !== 'none') return true;
+      if (style.perspective && style.perspective !== 'none') return true;
+      if (style.mixBlendMode && style.mixBlendMode !== 'normal') return true;
+      if (style.isolation === 'isolate') return true;
+      if (style.clipPath && style.clipPath !== 'none') return true;
+      if (style.maskImage && style.maskImage !== 'none') return true;
+      if (style.backdropFilter && style.backdropFilter !== 'none') return true;
+      var position = style.position;
+      return !!(
+        position &&
+        position !== 'static' &&
+        style.zIndex &&
+        style.zIndex !== 'auto'
+      );
+    };
+    var bodyCoversNegativeZ = function () {
+      var root = document.documentElement;
+      var body = document.body;
+      if (!root || !body) return false;
+      if (!backgroundPaints(getComputedStyle(root))) return false;
+      var bodyStyle = getComputedStyle(body);
+      if (bodyStacksAboveNegativeZ(bodyStyle)) return false;
+      return !!opaqueColor(bodyStyle.backgroundColor);
+    };
     var colorAtTopPoint = function (x, y) {
       var elements = document.elementsFromPoint(x, y) || [];
       for (var i = 0; i < elements.length; i++) {
@@ -639,6 +678,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
           // Plain document colors remain the fallback after theme-color.
           var image = getComputedStyle(el).backgroundImage;
           if (image && image !== 'none') return topLayerColor(el, x, y);
+          if (el === document.body && bodyCoversNegativeZ()) return '';
           continue;
         }
         // Mobile action buttons can span the viewport and cover all samples.

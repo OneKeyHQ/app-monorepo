@@ -1085,3 +1085,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The scroll listener is on window in the capture phase so inner containers update the bottom color. That same handler cancelled the one late top read for every scroll event, including a panel that does not move the viewport.
 **Fix**: Cancel the late top read only when the scroll target is the document, documentElement, body, or window.
 **Catchable by**: Section 6: lifecycle test dispatches scroll on an inner element and still expects the late top color.
+
+## Case: Opaque body was skipped and a hidden negative-z color painted the header (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser)
+**Symptom**: With an opaque html background and an opaque body, the header could take the color of a z-index -1 layer the body covers.
+**Root Cause**: The top walk skipped body whenever it had no background-image, then accepted the next wide layer. That is right only when the body background has propagated to the canvas, which requires html to paint nothing. Once html paints, the body background is drawn above negative z-index descendants.
+**Fix**: Stop at an opaque body when html paints any background. Keep looking through body when html is transparent, when body is transparent, or when body itself is a stacking context.
+**Catchable by**: Section 6: top-color tests for opaque html plus opaque body, translucent html, and a transformed body.
