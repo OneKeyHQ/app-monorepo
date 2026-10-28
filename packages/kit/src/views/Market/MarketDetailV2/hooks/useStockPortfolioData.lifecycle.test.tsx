@@ -71,6 +71,11 @@ const mockGetIndexedAccounts = jest.fn(
     })),
   }),
 );
+const mockGetAccountsByIds = jest.fn(async ({ ids }: { ids: string[] }) => ({
+  accounts: ids
+    .filter((id) => !id.includes('sol--101'))
+    .map((id) => ({ id, impl: 'evm' })),
+}));
 const mockGetNetworkAccount = jest.fn(
   async ({
     accountId,
@@ -95,6 +100,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceNetwork: { getGlobalDeriveTypeOfNetwork: async () => 'default' },
     serviceAccount: {
+      getAllAccounts: (params: Parameters<typeof mockGetAccountsByIds>[0]) =>
+        mockGetAccountsByIds(params),
       getDbAccountIdFromIndexedAccountId: (
         params: Parameters<typeof mockGetDbAccountId>[0],
       ) => mockGetDbAccountId(params),
@@ -193,6 +200,7 @@ describe('stock portfolio loading and scope changes', () => {
     mockGetNetworkAccount.mockClear();
     mockGetDbAccountId.mockClear();
     mockGetIndexedAccounts.mockClear();
+    mockGetAccountsByIds.mockClear();
     mockFetchPortfolio.mockReset();
     mockFetchPortfolio.mockImplementation(async (params) =>
       portfolioResponse(params),
@@ -356,18 +364,55 @@ describe('stock portfolio loading and scope changes', () => {
     },
   );
 
-  it('keeps an account inventory read failure incomplete until retry succeeds', async () => {
+  it('keeps a targeted account read failure incomplete until retry succeeds', async () => {
     mockAccount.indexedAccount = { id: 'indexed-a' };
-    mockGetIndexedAccounts.mockRejectedValueOnce(new Error('DB unavailable'));
+    mockStock.tokenVariants = [variant, secondVariant];
+    mockGetAccountsByIds.mockRejectedValueOnce(new Error('DB unavailable'));
     const { result } = renderHook(() => useStockPortfolioData());
     await flush();
-    expect(result.current.portfolioData).toEqual([]);
+    expect(result.current.portfolioData.map((item) => item.networkId)).toEqual([
+      'evm--8453',
+    ]);
     expect(result.current.isPortfolioIncomplete).toBe(true);
     await act(async () => {
       await result.current.fetchPortfolio();
     });
-    expect(result.current.portfolioData).toHaveLength(1);
+    expect(result.current.portfolioData).toHaveLength(2);
     expect(result.current.isPortfolioIncomplete).toBe(false);
+  });
+
+  it('only reads the stock networks account IDs on initial load and subsequent polls', async () => {
+    mockAccount.indexedAccount = { id: 'indexed-a' };
+    mockStock.tokenVariants = [
+      variant,
+      {
+        ...variant,
+        tokenId: 'aapl-other-ethereum',
+        contractAddress: '0xOther',
+      },
+      secondVariant,
+    ];
+    const { result } = renderHook(() => useStockPortfolioData());
+    await flush();
+    expect(result.current.portfolioData).toHaveLength(3);
+    const expectedReads = [
+      [{ ids: ['indexed-a:evm--1'] }],
+      [{ ids: ['indexed-a:evm--8453'] }],
+    ];
+    expect(mockGetAccountsByIds.mock.calls).toEqual(expectedReads);
+    expect(mockGetIndexedAccounts).not.toHaveBeenCalled();
+
+    await act(async () => {
+      jest.advanceTimersByTime(15_000);
+    });
+    await flush();
+    expect(result.current.portfolioData).toHaveLength(3);
+    expect(result.current.isPortfolioIncomplete).toBe(false);
+    expect(mockGetAccountsByIds.mock.calls).toEqual([
+      ...expectedReads,
+      ...expectedReads,
+    ]);
+    expect(mockGetIndexedAccounts).not.toHaveBeenCalled();
   });
 
   it('retains current rows and resolution keys across a cached variant-list failure and recovery', async () => {

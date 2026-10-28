@@ -251,7 +251,7 @@ export function useStockPortfolioData({ enabled = true } = {}) {
   ]);
 
   const resolveNetworkAccount = useCallback(
-    async (networkId: string, dbAccounts: IDBAccount[]) => {
+    async (networkId: string, singletonAccount?: IDBAccount) => {
       const networkDefaultDeriveType =
         await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
           networkId,
@@ -266,16 +266,22 @@ export function useStockPortfolioData({ enabled = true } = {}) {
           networkId,
         ),
       });
-      const dbAccountId = indexedAccount?.id
-        ? await backgroundApiProxy.serviceAccount.getDbAccountIdFromIndexedAccountId(
+      let dbAccount = singletonAccount;
+      if (indexedAccount?.id) {
+        const dbAccountId =
+          await backgroundApiProxy.serviceAccount.getDbAccountIdFromIndexedAccountId(
             {
               indexedAccountId: indexedAccount.id,
               networkId,
               deriveType: accountDeriveType,
             },
-          )
-        : account?.id;
-      const dbAccount = dbAccounts.find((item) => item.id === dbAccountId);
+          );
+        const { accounts } =
+          await backgroundApiProxy.serviceAccount.getAllAccounts({
+            ids: [dbAccountId],
+          });
+        dbAccount = accounts[0];
+      }
       if (
         !dbAccount ||
         !accountUtils.isAccountCompatibleWithNetwork({
@@ -299,13 +305,7 @@ export function useStockPortfolioData({ enabled = true } = {}) {
         xpub: getNetworkAccountXpub(networkAccount),
       };
     },
-    [
-      account?.id,
-      deriveType,
-      indexedAccount?.id,
-      portfolioNetworkId,
-      selectedDeriveType,
-    ],
+    [deriveType, indexedAccount?.id, portfolioNetworkId, selectedDeriveType],
   );
 
   const {
@@ -326,26 +326,12 @@ export function useStockPortfolioData({ enabled = true } = {}) {
       ) {
         return undefined;
       }
-      // Read the derived-account inventory once per run. Unlike a failed
-      // address lookup, an absent entry proves this network has no account.
-      let dbAccountsPromise: Promise<{ accounts: IDBAccount[] }> | undefined;
       const result = await fetchStockPortfolioData({
         stockId,
         tokenVariants: tokenVariantsRef.current,
         successfulPortfolioCache: successfulPortfolioCacheRef.current,
-        resolveNetworkAccount: async (networkId) => {
-          dbAccountsPromise ??= indexedAccount?.id
-            ? backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
-                {
-                  indexedAccountId: indexedAccount.id,
-                },
-              )
-            : Promise.resolve({ accounts: account ? [account] : [] });
-          return resolveNetworkAccount(
-            networkId,
-            (await dbAccountsPromise).accounts,
-          );
-        },
+        resolveNetworkAccount: (networkId) =>
+          resolveNetworkAccount(networkId, account),
         fetchPortfolio: (params) =>
           backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
             ...params,
