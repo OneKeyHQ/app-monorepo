@@ -1275,11 +1275,11 @@ class ServiceHardware extends ServiceBase {
       currentTransportType;
     if (
       this.sensitiveCloudKeyOperationDepth > 0 &&
-      platformEnv.isDesktop &&
+      (platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension) &&
       hardwareTransportType !== EHardwareTransportType.WEBUSB &&
       hardwareTransportType !== EHardwareTransportType.DesktopWebBle
     ) {
-      // The bridge/web SDK embeds a separate unpatched copy of the logger.
+      // Bridge relays the signature through a separate process with its own logs.
       throw new HardwareCloudKeyPrerequisiteError('transport');
     }
 

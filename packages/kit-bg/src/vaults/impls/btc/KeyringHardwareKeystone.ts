@@ -659,6 +659,11 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
       if (payload.type === 'bip322-simple') {
         throw new ThirdPartyMethodNotSupported();
       }
+      // Check exactly what the adapter signs; a non-string could be coerced
+      // differently by Buffer.from and by the vendor SDK.
+      if (typeof payload.message !== 'string') {
+        throw new OneKeyLocalError('Bitcoin message must be a string');
+      }
       assertNoHardwareCloudSyncSigningRequest(Buffer.from(payload.message));
       const result =
         // eslint-disable-next-line no-await-in-loop

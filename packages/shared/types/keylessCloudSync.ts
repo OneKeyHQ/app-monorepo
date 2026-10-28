@@ -5,17 +5,27 @@
  * Coexists with OneKey ID encryption mode, implementing a dual-encryption scheme.
  */
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
+
 /**
- * Keyless sync credentials (derived from the unique Keyless wallet mnemonic)
+ * Standard hardware wallet that supplies the Cloud sync key. It is read from the
+ * device when sync is turned on; no wallet record is created in the App.
  */
 export type IHardwareCloudSyncKeySource = {
   type: 'hardware';
-  walletId: string;
-  walletXfp: string;
+  // Ends with the SHA-256 of the standard wallet identity, so signing again
+  // can check the recovery phrase without keeping its xpub.
   credentialId: string;
   derivationVersion: 1;
+  // Display only. Another device restored from the same recovery phrase can
+  // sign again.
+  deviceName: string;
+  deviceType: IDeviceType;
 };
 
+/**
+ * Keyless sync credentials (derived from the unique Keyless wallet mnemonic)
+ */
 export interface IKeylessCloudSyncCredential {
   /** Keyless wallet ID */
   keylessWalletId: string;

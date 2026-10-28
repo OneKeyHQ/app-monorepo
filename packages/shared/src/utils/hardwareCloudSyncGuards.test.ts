@@ -6,10 +6,7 @@ import {
   buildHardwareCloudSyncMessage,
 } from '../consts/hardwareCloudSyncConsts';
 
-import {
-  assertNoHardwareCloudSyncSigningRequest,
-  isHardwareCloudSyncPath,
-} from './hardwareCloudSyncGuards';
+import { assertNoHardwareCloudSyncSigningRequest } from './hardwareCloudSyncGuards';
 
 const message = buildHardwareCloudSyncMessage('0123456789abcdef');
 const bytes = Buffer.from(message, 'ascii');
@@ -19,7 +16,7 @@ describe('hardware Cloud root message contract', () => {
     expect(message).toBe(
       `${HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX}0123456789abcdef`,
     );
-    expect(bytes.length).toBe(113);
+    expect(bytes.length).toBe(147);
     expect(/^[\x20-\x7e\n]+$/.test(message)).toBe(true);
   });
 
@@ -194,24 +191,4 @@ describe('exact protocol message comparison', () => {
       /^OneKey Cloud key operations are unavailable to external signing requests$/,
     );
   });
-});
-
-describe('derivation path identification does not prohibit ordinary signing', () => {
-  test.each(
-    [
-      HARDWARE_CLOUD_SYNC_PATH,
-      "m/44'/0'/100'",
-      'm/44h/0h/100H/1/999',
-      "hd-1--m/44'/0'/100'/0/0",
-      [2_147_483_692, 2_147_483_648, 2_147_483_748, 0, 0],
-    ].map((path) => ({ path })),
-  )('identifies $path without rejecting a message or metadata', ({ path }) => {
-    expect(isHardwareCloudSyncPath(path)).toBe(true);
-    expect(() => assertNoHardwareCloudSyncSigningRequest(path)).not.toThrow();
-  });
-
-  test.each(["m/44'/60'/100'/0/0", "m/44'/0'/1000'/0/0", "m/84'/0'/100'"])(
-    'does not identify unrelated path %s',
-    (path) => expect(isHardwareCloudSyncPath(path)).toBe(false),
-  );
 });

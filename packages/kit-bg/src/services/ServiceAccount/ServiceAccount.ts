@@ -7051,6 +7051,19 @@ class ServiceAccount extends ServiceBase {
     );
   }
 
+  // Same wallets generateHDWalletMissingHashAndXfp fills; read-only.
+  async hasHdWalletsMissingHashOrXfp(): Promise<boolean> {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.allHdWalletsHashAndXfpGenerated) return false;
+    const { wallets } = await localDb.getAllWallets();
+    return wallets.some(
+      (wallet) =>
+        accountUtils.isHdWallet({ walletId: wallet.id }) &&
+        !wallet.isKeyless &&
+        !(wallet.hash && accountUtils.isValidWalletXfp({ xfp: wallet.xfp })),
+    );
+  }
+
   @backgroundMethod()
   async generateHDWalletMissingHashAndXfp({
     password,

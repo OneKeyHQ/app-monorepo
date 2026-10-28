@@ -53,7 +53,10 @@ import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
 
-import { HardwareCloudSyncKeySection } from './HardwareCloudSyncKeySection';
+import {
+  chooseCloudSyncKey,
+  useHardwareCloudSyncKey,
+} from './HardwareCloudSyncKeySection';
 
 function isAutoLockValueNotAllowed(value: number) {
   return isNeverLockDuration(value) || value === Number(ELockDuration.Hour4);
@@ -314,6 +317,10 @@ function AppDataSection() {
 
   const kwExists = keylessWalletResult?.exists ?? false;
   const keylessWallet = keylessWalletResult?.wallet;
+  const hardwareKey = useHardwareCloudSyncKey();
+  const hardwareSource = hardwareKey.source;
+  // A selected hardware key stands in for the Keyless wallet.
+  const hasSyncKey = kwExists || !!hardwareSource;
 
   // Scenario derivation (7 states, priority: 4 > 5 > 3 > 7 > 2 > 6 > 1)
   // Scenarios 1/2/5/6 depend on kwExists, so skip them while loading to avoid flash
@@ -322,7 +329,7 @@ function AppDataSection() {
   const isActiveIdUser =
     !!config.isCloudSyncEnabled && !hasConflictingCloudSyncModes; // Scenario 4
   const isKwSyncEnabled = !!config.isCloudSyncEnabledKeyless;
-  const isKwRemovedWhileSyncOn = !kwLoading && isKwSyncEnabled && !kwExists; // Scenario 5
+  const isKwRemovedWhileSyncOn = !kwLoading && isKwSyncEnabled && !hasSyncKey; // Scenario 5
   const isActiveKwUser =
     !kwLoading && isKwSyncEnabled && !isKwRemovedWhileSyncOn; // Scenario 3
   const hasUsedKeylessSyncBefore =
@@ -346,21 +353,24 @@ function AppDataSection() {
     !kwLoading &&
     !isActiveIdUser &&
     !isKwSyncEnabled &&
-    kwExists &&
+    // With hardware keys the switch's key chooser also creates a Keyless
+    // wallet, so first-time users get the switch instead of Scenario 1.
+    (hasSyncKey || (hardwareKey.supported && !hasUsedKeylessSyncBefore)) &&
     !isFormerIdUser; // Scenario 2
   const isFormerKwUserNoKw =
     !kwLoading &&
     !isActiveIdUser &&
     !isKwSyncEnabled &&
-    !kwExists &&
+    !hasSyncKey &&
     hasUsedKeylessSyncBefore; // Scenario 6
   const isSyncOffNoKw =
     !kwLoading &&
     !isActiveIdUser &&
     !isKwSyncEnabled &&
-    !kwExists &&
+    !hasSyncKey &&
     !hasUsedKeylessSyncBefore &&
-    !hasUsedOneKeyIdSyncBefore; // Scenario 1
+    !hasUsedOneKeyIdSyncBefore &&
+    !hardwareKey.supported; // Scenario 1
 
   // Last update times
   const shouldUseLegacyLastSyncTime =
@@ -575,6 +585,53 @@ function AppDataSection() {
     }
   }, []);
 
+  // Turning sync on asks which key to use where hardware keys are supported.
+  const handleEnableSync = useCallback(async () => {
+    const choice = hardwareKey.supported
+      ? await chooseCloudSyncKey(intl)
+      : 'keyless';
+    if (choice === 'hardware') {
+      await hardwareKey.openPicker();
+      return;
+    }
+    if (choice !== 'keyless') return;
+    if (!kwExists) {
+      handleCreateKeylessWallet();
+      return;
+    }
+    if (hardwareSource) {
+      await backgroundApiProxy.serviceKeylessCloudSync.selectKeylessCloudSyncKey();
+    }
+    await handleToggleKeylessSync(true);
+  }, [
+    handleCreateKeylessWallet,
+    handleToggleKeylessSync,
+    hardwareKey,
+    intl,
+    hardwareSource,
+    kwExists,
+  ]);
+
+  // A hardware key lost while sync stays on is signed again first.
+  const handleHardwareSyncNow = useCallback(async () => {
+    if (hardwareKey.keyMissing) {
+      await hardwareKey.openPicker();
+      return;
+    }
+    await hardwareKey.syncNow();
+  }, [hardwareKey]);
+
+  const handleKeylessSwitchChange = useCallback(
+    async (value: boolean) => {
+      if (value) {
+        await handleEnableSync();
+        return;
+      }
+      await handleToggleKeylessSync(false);
+    },
+    [handleEnableSync, handleToggleKeylessSync],
+  );
+
   // Manual sync ID (Scenario 4)
   const handleManualSyncOneKeyId = useCallback(async () => {
     if (!config.isCloudSyncEnabled) return;
@@ -722,7 +779,7 @@ function AppDataSection() {
             <Switch
               testID={PrimeTestIDs.cloudSyncKeylessSwitch}
               size={ESwitchSize.small}
-              onChange={handleToggleKeylessSync}
+              onChange={handleKeylessSwitchChange}
               value={false}
             />
           </ListItem>
@@ -820,7 +877,8 @@ function AppDataSection() {
           <Switch
             testID="prime-switch"
             size={ESwitchSize.small}
-            onChange={handleToggleKeylessSync}
+            disabled={hardwareKey.pending}
+            onChange={handleKeylessSwitchChange}
             value={false}
           />
         </ListItem>
@@ -829,6 +887,30 @@ function AppDataSection() {
       {/* Scenario 3: KW sync active */}
       {isActiveKwUser ? (
         <>
+          {/* The hardware counterpart of Scenario 5: sync stays on but this
+              device lost its key, e.g. after an older App version ran. */}
+          {hardwareSource && hardwareKey.keyMissing ? (
+            <Alert
+              testID="cloud-hardware-key-missing"
+              type="warning"
+              title={intl.formatMessage({
+                id: ETranslations.syncing_paused__title,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.cloud_sync_hardware_key_missing__desc,
+              })}
+              actionLayout={media.sm ? 'vertical' : undefined}
+              action={{
+                primary: intl.formatMessage({
+                  id: ETranslations.global_connect_hardware_wallet,
+                }),
+                onPrimaryPress: hardwareKey.openPicker,
+              }}
+              mx="$5"
+              mt="$2"
+              mb="$3"
+            />
+          ) : null}
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.global_onekey_cloud,
@@ -845,7 +927,31 @@ function AppDataSection() {
               value={!!config.isCloudSyncEnabledKeyless}
             />
           </ListItem>
-          {keylessWallet ? (
+          {hardwareSource ? (
+            <ListItem
+              testID="cloud-hardware-key-device"
+              icon="OnekeyProOutline"
+              title={intl.formatMessage({
+                id: ETranslations.hardware_wallet__title,
+              })}
+              subtitle={intl.formatMessage({
+                id: ETranslations.syncing_with_wallet__msg,
+              })}
+            >
+              <Stack flexDirection="row" alignItems="center" gap="$1.5">
+                {/* Same device image as hardware wallets in the account selector. */}
+                <WalletAvatar
+                  wallet={undefined}
+                  img={hardwareSource.deviceType}
+                  size="$5"
+                />
+                <SizableText size="$bodyLg" color="$textSubdued">
+                  {hardwareSource.deviceName}
+                </SizableText>
+              </Stack>
+            </ListItem>
+          ) : null}
+          {keylessWallet && !hardwareSource ? (
             <ListItem
               icon="Wallet4Outline"
               title={intl.formatMessage({
@@ -865,11 +971,13 @@ function AppDataSection() {
           ) : null}
           <Divider mx="$5" my="$2" />
           <ListItem
-            title={intl.formatMessage({ id: ETranslations.wallet_backup_now })}
+            title={intl.formatMessage({ id: ETranslations.sync_now__action })}
             icon="RefreshCwOutline"
             drillIn
             nativePressableStyle={listItemNativePressableStyle}
-            onPress={handleManualSyncKeyless}
+            onPress={
+              hardwareSource ? handleHardwareSyncNow : handleManualSyncKeyless
+            }
           />
         </>
       ) : null}
@@ -914,7 +1022,7 @@ function AppDataSection() {
           </ListItem>
           <Divider mx="$5" my="$2" />
           <ListItem
-            title={intl.formatMessage({ id: ETranslations.wallet_backup_now })}
+            title={intl.formatMessage({ id: ETranslations.sync_now__action })}
             icon="RefreshCwOutline"
             drillIn
             nativePressableStyle={listItemNativePressableStyle}
@@ -963,7 +1071,7 @@ function AppDataSection() {
           </ListItem>
           <Divider mx="$5" my="$2" />
           <ListItem
-            title={intl.formatMessage({ id: ETranslations.wallet_backup_now })}
+            title={intl.formatMessage({ id: ETranslations.sync_now__action })}
             icon="RefreshCwOutline"
             drillIn
             nativePressableStyle={listItemNativePressableStyle}
@@ -992,7 +1100,6 @@ function AppDataSection() {
 
 export default function PagePrimeCloudSync() {
   const intl = useIntl();
-  const [config] = usePrimeCloudSyncPersistAtom();
   const navigation = useAppNavigation();
   useEffect(() => {
     void backgroundApiProxy.servicePrimeCloudSync.showAlertDialogIfLocalPasswordNotSet();
@@ -1023,10 +1130,7 @@ export default function PagePrimeCloudSync() {
       />
       <Page.Body>
         <LocalSystemTimeErrorAlert />
-        {platformEnv.isDev || config.hardwareCloudSyncKeySource ? (
-          <HardwareCloudSyncKeySection />
-        ) : null}
-        {!config.hardwareCloudSyncKeySource ? <AppDataSection /> : null}
+        <AppDataSection />
         <MultipleClickStack
           h="$10"
           showDevBgColor

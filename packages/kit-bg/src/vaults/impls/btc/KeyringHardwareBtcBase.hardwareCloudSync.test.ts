@@ -143,7 +143,8 @@ describe('BTC hardware boundaries compare the actual signed message', () => {
         'public-test-connect',
         'public-test-device-id',
         expect.objectContaining({
-          path: HARDWARE_CLOUD_SYNC_PATH,
+          // The ordinary 101st Legacy account, not the Cloud key path.
+          path: "m/44'/0'/100'/0/0",
           coin: 'Bitcoin',
           messageHex: Buffer.from(literal).toString('hex'),
         }),

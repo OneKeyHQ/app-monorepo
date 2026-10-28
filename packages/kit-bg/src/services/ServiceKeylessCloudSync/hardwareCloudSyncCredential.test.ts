@@ -8,6 +8,7 @@ import {
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
 
 import {
   deriveHardwareCloudSyncCredential,
@@ -72,6 +73,8 @@ class MockHardwareCloudKeyAdapter implements IHardwareCloudKeyAdapter {
 
   signFailure = false;
 
+  firmwareRejection?: string;
+
   nonDeterministic = false;
 
   afterSign?: () => void;
@@ -88,6 +91,12 @@ class MockHardwareCloudKeyAdapter implements IHardwareCloudKeyAdapter {
     params: Parameters<IHardwareCloudKeyAdapter['signMessage']>[0],
   ) {
     this.calls.push(params);
+    if (this.firmwareRejection) {
+      throw new HardwareCloudKeyDeviceRejectedError(
+        params.path,
+        this.firmwareRejection,
+      );
+    }
     if (this.signFailure) {
       throw new OneKeyLocalError(
         'SDK cancellation with a deliberately sensitive payload',
@@ -192,6 +201,14 @@ describe('hardware Cloud key credential provider', () => {
     Object.assign(adapter.identity, identityPatch);
     await expect(derive(adapter)).rejects.toThrow(EXPECTED_FAILURE);
     expect(adapter.signatures).toBe(0);
+  });
+
+  test('keeps a firmware rejection visible instead of the generic error', async () => {
+    const rejected = new MockHardwareCloudKeyAdapter();
+    rejected.firmwareRejection = 'Failure_DataError,Forbidden key path';
+    await expect(derive(rejected)).rejects.toThrow(
+      `The device rejected the derivation path ${HARDWARE_CLOUD_SYNC_PATH} (Forbidden key path)`,
+    );
   });
 
   test('rejects cancellation without copying SDK error data', async () => {

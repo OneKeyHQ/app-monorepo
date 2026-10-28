@@ -1,22 +1,19 @@
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
+  HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
   HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
   HARDWARE_CLOUD_SYNC_PATH,
+  isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
 import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  EHardwareCallContext,
-  EHardwareVendor,
-} from '@onekeyhq/shared/types/device';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
   IHardwareCloudSyncKeySource,
   IKeylessCloudSyncCredential,
 } from '@onekeyhq/shared/types/keylessCloudSync';
-
-import localDb from '../../dbs/local/localDb';
 
 import {
   deriveHardwareCloudSyncCredential,
@@ -25,6 +22,7 @@ import {
 
 import type { IHardwareCloudKeyIdentity } from './hardwareCloudSyncCredential';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
 
 function unlockError() {
   return new OneKeyLocalError(
@@ -32,101 +30,103 @@ function unlockError() {
   );
 }
 
-// There are no certified model/firmware pairs yet. This gate allows local
-// hardware acceptance in development builds without claiming production support.
+// Firmware failures (Failure_*) are shown as they are; any other SDK failure
+// stays generic because it may carry request or response data.
+function assertSdkSuccess<T>(
+  response: Success<T> | Unsuccessful,
+): asserts response is Success<T> {
+  if (response.success) return;
+  const deviceError = String(response.payload?.error ?? '');
+  if (deviceError.startsWith('Failure_')) {
+    throw new HardwareCloudKeyDeviceRejectedError(
+      HARDWARE_CLOUD_SYNC_PATH,
+      deviceError,
+    );
+  }
+  throw unlockError();
+}
+
+// The device, not a wallet record in the App, defines the standard wallet:
+// its identity is read live and only its hash is kept.
 export async function generateHardwareCloudSyncCredentialWithSdk({
   backgroundApi,
-  walletId,
+  connectId: selectedConnectId,
+  expectedCredentialId,
   isCurrent,
+  onDeviceCancelChange,
 }: {
   backgroundApi: IBackgroundApi;
-  walletId: string;
+  // From the device the user picked on the Cloud sync page.
+  connectId: string;
+  // Set when the selected key already encrypts records; another recovery
+  // phrase is rejected before the device is asked to sign.
+  expectedCredentialId?: string;
   isCurrent: () => boolean;
+  // Receives a canceller once the hardware lease is held, then undefined.
+  onDeviceCancelChange?: (cancel: (() => void) | undefined) => void;
 }): Promise<{
   credential: IKeylessCloudSyncCredential;
   source: IHardwareCloudSyncKeySource;
 }> {
-  if (!platformEnv.isDev || !(platformEnv.isDesktop || platformEnv.isNative)) {
+  if (!isHardwareCloudSyncPlatformSupported()) {
     throw new HardwareCloudKeyPrerequisiteError('compatibility');
   }
   try {
-    const wallet = await localDb.getWallet({ walletId });
-    if (
-      !isCurrent() ||
-      !accountUtils.isHwWallet({ walletId }) ||
-      wallet.passphraseState ||
-      !wallet.associatedDevice ||
-      !wallet.xfp
-    ) {
+    if (!isCurrent() || !selectedConnectId) {
       throw unlockError();
     }
-    const dbDevice = await localDb.getDevice(wallet.associatedDevice);
-    if (
-      !isCurrent() ||
-      (dbDevice.vendor && dbDevice.vendor !== EHardwareVendor.onekey) ||
-      !dbDevice.connectId ||
-      !dbDevice.deviceId
-    ) {
-      throw unlockError();
-    }
-    const walletXfp = wallet.xfp;
-    const canonicalXfp = normalizeHardwareCloudWalletXfp(walletXfp);
-    const credentialId = `hardware-cloud-v1-${Buffer.from(
-      appCrypto.hash.sha256Sync(Buffer.from(canonicalXfp, 'utf8')),
-    ).toString('hex')}`;
-    const source: IHardwareCloudSyncKeySource = {
-      type: 'hardware',
-      walletId,
-      walletXfp,
-      credentialId,
-      derivationVersion: HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
-    };
     return await backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
       async (lease) => {
-        const assertCurrent = () => {
-          if (!isCurrent() || lease.signal?.aborted) {
-            throw unlockError();
-          }
-        };
-        const call = async <T>(operation: () => Promise<T>): Promise<T> => {
-          assertCurrent();
-          const result = await operation();
-          assertCurrent();
-          return result;
-        };
-        return backgroundApi.serviceHardware.runWithSensitiveCloudKeyOperation(
-          async () => {
-            const hardware = backgroundApi.serviceHardware;
-            const { deviceId } = dbDevice;
-            const connectId = await call(() =>
-              hardware.getCompatibleConnectId({
-                connectId: dbDevice.connectId,
-                featuresDeviceId: deviceId,
-                hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
-              }),
-            );
-            if (!connectId) throw unlockError();
-            const sdk = await call(() =>
-              hardware.getSDKInstance({ connectId }),
-            );
-            let standardSelected = false;
-            let standard:
-              | Pick<IHardwareCloudKeyIdentity, 'publicKey' | 'address'>
-              | undefined;
-            const getIdentity =
-              async (): Promise<IHardwareCloudKeyIdentity> => {
-                const currentWallet = await call(() =>
-                  localDb.getWallet({ walletId }),
-                );
-                if (
-                  currentWallet.associatedDevice !== dbDevice.id ||
-                  currentWallet.passphraseState ||
-                  !currentWallet.xfp ||
-                  normalizeHardwareCloudWalletXfp(currentWallet.xfp) !==
-                    canonicalXfp
-                ) {
-                  throw unlockError();
-                }
+        // Same path as closing a device prompt: abort the lease and cancel the
+        // in-flight SDK request so the device and the hardware lock are freed.
+        onDeviceCancelChange?.(() => {
+          backgroundApi.serviceHardwareUI.hardwareProcessingManager.cancelOneKeyOperation(
+            lease,
+          );
+          void backgroundApi.serviceHardware.cancel({
+            connectId: selectedConnectId,
+            oneKeyOperationLease: lease,
+            immediate: true,
+          });
+        });
+        try {
+          const assertCurrent = () => {
+            if (!isCurrent() || lease.signal?.aborted) {
+              throw unlockError();
+            }
+          };
+          const call = async <T>(operation: () => Promise<T>): Promise<T> => {
+            assertCurrent();
+            const result = await operation();
+            assertCurrent();
+            return result;
+          };
+          return await backgroundApi.serviceHardware.runWithSensitiveCloudKeyOperation(
+            async () => {
+              const hardware = backgroundApi.serviceHardware;
+              const connectId = await call(() =>
+                hardware.getCompatibleConnectId({
+                  connectId: selectedConnectId,
+                  hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+                }),
+              );
+              if (!connectId) throw unlockError();
+              const sdk = await call(() =>
+                hardware.getSDKInstance({ connectId }),
+              );
+              const session = await call(() =>
+                sdk.openWalletSession(connectId, { mode: 'standard' }),
+              );
+              assertSdkSuccess(session);
+              if (
+                session.payload.walletType !== 'standard' ||
+                session.payload.passphraseState ||
+                !session.payload.deviceId
+              ) {
+                throw unlockError();
+              }
+              const { deviceId } = session.payload;
+              const readStandardWallet = async () => {
                 const state = await call(() =>
                   hardware.getDeviceState({
                     connectId,
@@ -137,12 +137,11 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 if (
                   state.identity.deviceId !== deviceId ||
                   state.status.unlocked !== true ||
-                  state.status.unlockedAttachPin !== false ||
-                  !standardSelected
+                  state.status.unlockedAttachPin !== false
                 ) {
                   throw unlockError();
                 }
-                const currentXfp = await call(() =>
+                const walletXfp = await call(() =>
                   hardware.buildHwWalletXfp({
                     connectId,
                     deviceId,
@@ -151,86 +150,115 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                     withUserInteraction: true,
                   }),
                 );
-                if (
-                  !currentXfp ||
-                  normalizeHardwareCloudWalletXfp(currentXfp) !== canonicalXfp
-                ) {
-                  throw unlockError();
-                }
-                if (!standard) {
-                  const pub = await call(() =>
-                    sdk.btcGetPublicKey(connectId, deviceId, {
-                      path: HARDWARE_CLOUD_SYNC_PATH,
-                      coin: 'Bitcoin',
-                      showOnOneKey: false,
-                      useEmptyPassphrase: true,
-                    }),
-                  );
-                  if (!pub.success) throw unlockError();
-                  const addr = await call(() =>
-                    sdk.btcGetAddress(connectId, deviceId, {
-                      path: HARDWARE_CLOUD_SYNC_PATH,
-                      coin: 'Bitcoin',
-                      showOnOneKey: false,
-                      useEmptyPassphrase: true,
-                    }),
-                  );
-                  if (!addr.success) throw unlockError();
-                  standard = {
-                    publicKey: pub.payload.node.public_key,
-                    address: addr.payload.address,
-                  };
-                }
-                return {
-                  connectId,
-                  deviceId,
-                  walletXfp: currentXfp,
-                  ...standard,
-                  walletType: 'standard',
-                  passphraseState: undefined,
-                  unlockedAttachPin: false,
-                  connected: true,
-                };
+                if (!walletXfp) throw unlockError();
+                return { state, walletXfp };
               };
-            const credential = await deriveHardwareCloudSyncCredential({
-              credentialId,
-              expectedIdentity: { connectId, deviceId, walletXfp },
-              isCurrent: () => isCurrent() && !lease.signal?.aborted,
-              adapter: {
-                async openStandardWallet() {
-                  const session = await call(() =>
-                    sdk.openWalletSession(connectId, { mode: 'standard' }),
-                  );
+
+              const opened = await readStandardWallet();
+              const canonicalXfp = normalizeHardwareCloudWalletXfp(
+                opened.walletXfp,
+              );
+              const credentialId = `${HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX}${Buffer.from(
+                appCrypto.hash.sha256Sync(Buffer.from(canonicalXfp, 'utf8')),
+              ).toString('hex')}`;
+              if (
+                expectedCredentialId &&
+                credentialId !== expectedCredentialId
+              ) {
+                throw new HardwareCloudKeyPrerequisiteError('walletMismatch');
+              }
+
+              let standard:
+                | Pick<IHardwareCloudKeyIdentity, 'publicKey' | 'address'>
+                | undefined;
+              const getIdentity =
+                async (): Promise<IHardwareCloudKeyIdentity> => {
+                  const { walletXfp } = await readStandardWallet();
                   if (
-                    !session.success ||
-                    session.payload.walletType !== 'standard' ||
-                    session.payload.deviceId !== deviceId ||
-                    session.payload.passphraseState
+                    normalizeHardwareCloudWalletXfp(walletXfp) !== canonicalXfp
                   ) {
                     throw unlockError();
                   }
-                  standardSelected = true;
-                  return getIdentity();
+                  if (!standard) {
+                    const pub = await call(() =>
+                      sdk.btcGetPublicKey(connectId, deviceId, {
+                        path: HARDWARE_CLOUD_SYNC_PATH,
+                        coin: 'Bitcoin',
+                        showOnOneKey: false,
+                        useEmptyPassphrase: true,
+                      }),
+                    );
+                    assertSdkSuccess(pub);
+                    const addr = await call(() =>
+                      sdk.btcGetAddress(connectId, deviceId, {
+                        path: HARDWARE_CLOUD_SYNC_PATH,
+                        coin: 'Bitcoin',
+                        showOnOneKey: false,
+                        useEmptyPassphrase: true,
+                      }),
+                    );
+                    assertSdkSuccess(addr);
+                    standard = {
+                      publicKey: pub.payload.node.public_key,
+                      address: addr.payload.address,
+                    };
+                  }
+                  return {
+                    connectId,
+                    deviceId,
+                    walletXfp,
+                    ...standard,
+                    walletType: 'standard',
+                    passphraseState: undefined,
+                    unlockedAttachPin: false,
+                    connected: true,
+                  };
+                };
+              const credential = await deriveHardwareCloudSyncCredential({
+                credentialId,
+                expectedIdentity: {
+                  connectId,
+                  deviceId,
+                  walletXfp: opened.walletXfp,
                 },
-                getIdentity,
-                async signMessage(params) {
-                  const response = await call(() =>
-                    sdk.btcSignMessage(connectId, deviceId, params),
-                  );
-                  if (!response.success) throw unlockError();
-                  return response.payload;
+                isCurrent: () => isCurrent() && !lease.signal?.aborted,
+                adapter: {
+                  // The standard session is already open; re-read it live.
+                  openStandardWallet: getIdentity,
+                  getIdentity,
+                  async signMessage(params) {
+                    const response = await call(() =>
+                      sdk.btcSignMessage(connectId, deviceId, params),
+                    );
+                    assertSdkSuccess(response);
+                    return response.payload;
+                  },
                 },
-              },
-            });
-            assertCurrent();
-            return { credential: { ...credential, source }, source };
-          },
-        );
+              });
+              assertCurrent();
+              const source: IHardwareCloudSyncKeySource = {
+                type: 'hardware',
+                credentialId,
+                derivationVersion: HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
+                deviceName: deviceUtils.getDeviceDisplayName({
+                  state: opened.state,
+                }),
+                deviceType: opened.state.identity.deviceType,
+              };
+              return { credential: { ...credential, source }, source };
+            },
+          );
+        } finally {
+          onDeviceCancelChange?.(undefined);
+        }
       },
-      { deviceKey: dbDevice.id },
+      { deviceKey: selectedConnectId },
     );
   } catch (error) {
-    if (error instanceof HardwareCloudKeyPrerequisiteError) {
+    if (
+      error instanceof HardwareCloudKeyPrerequisiteError ||
+      error instanceof HardwareCloudKeyDeviceRejectedError
+    ) {
       throw error;
     }
     throw unlockError();

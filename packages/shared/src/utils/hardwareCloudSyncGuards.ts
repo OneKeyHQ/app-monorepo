@@ -5,30 +5,11 @@ import { OneKeyLocalError } from '../errors/errors/localError';
 
 const RESERVED_REQUEST_ERROR =
   'OneKey Cloud key operations are unavailable to external signing requests';
-const HARDENED = 2_147_483_648;
 const IDENTITY_LENGTH = 16;
 const MESSAGE_LENGTH =
   HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX.length + IDENTITY_LENGTH;
 
 type IMessageEncoding = 'utf8' | 'hex';
-
-/** Identifies the Cloud derivation path; ordinary accounts may share this path. */
-export function isHardwareCloudSyncPath(value: unknown): boolean {
-  if (Array.isArray(value)) {
-    return (
-      value.length >= 3 &&
-      value[0] === HARDENED + 44 &&
-      value[1] === HARDENED &&
-      value[2] === HARDENED + 100
-    );
-  }
-  if (typeof value !== 'string') {
-    return false;
-  }
-  return /(?:^|[^0-9])(?:m\/)?0*44['h]\/0+['h]\/0*100['h](?:\/|$)/i.test(
-    value.replace(/\s/g, ''),
-  );
-}
 
 function isReservedText(message: string): boolean {
   return (
@@ -56,7 +37,7 @@ function isReservedBytes(message: ArrayLike<unknown>): boolean {
 /**
  * Compare the actual protocol message, not arbitrary RPC metadata. Callers must
  * select the encoding the signer uses; JSON/hex/base64 literals are not decoded
- * recursively. Exact length checks bound decoding to the 113-byte contract.
+ * recursively. Exact length checks bound decoding to the 147-byte contract.
  */
 export function assertNoHardwareCloudSyncSigningRequest(
   message: unknown,

@@ -7,6 +7,7 @@ import {
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { HardwareCloudKeyDeviceRejectedError } from '@onekeyhq/shared/src/hardware/hardwareCloudKeyDeviceRejectedError';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
@@ -202,7 +203,9 @@ export async function deriveHardwareCloudSyncCredential({
     });
     assertCurrent();
     return credential;
-  } catch {
+  } catch (error) {
+    // A firmware rejection carries only its failure text, so the user sees it.
+    if (error instanceof HardwareCloudKeyDeviceRejectedError) throw error;
     // SDK errors may carry request/response objects. Do not propagate them into
     // ordinary RPC error logging, analytics, or the message-signing UI.
     throw new OneKeyLocalError(
