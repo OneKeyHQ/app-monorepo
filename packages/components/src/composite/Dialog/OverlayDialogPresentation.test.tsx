@@ -10,8 +10,13 @@ import { OverlayDialogPresentation } from './OverlayDialogPresentation';
 import type { IOverlayViewProps } from '@onekeyfe/react-native-native-overlay';
 let mockProps: IOverlayViewProps;
 let mockSurfaceProps: { width?: unknown };
+let mockPlatformOS = 'android';
 const mockSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 jest.mock('react-native', () => ({
+  Platform: {
+    select: (spec: Record<string, unknown>) =>
+      mockPlatformOS in spec ? spec[mockPlatformOS] : spec.default,
+  },
   useWindowDimensions: () => ({ width: 1000, height: 800 }),
 }));
 jest.mock('../../hooks/useLayout', () => ({
@@ -48,12 +53,11 @@ jest.mock('../../layouts/ScrollView', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: true, isNativeAndroid: true, isNativeIOS: false },
+  default: { isNative: true, isNativeAndroid: true },
 }));
 const nativeEnv = platformEnv as {
   isNative: boolean;
   isNativeAndroid: boolean;
-  isNativeIOS: boolean;
 };
 const pageScope = { hostKey: 'main', ownerKey: 'screen' };
 const dialogProps = {
@@ -70,7 +74,7 @@ const dialogProps = {
 afterEach(() => {
   nativeEnv.isNative = true;
   nativeEnv.isNativeAndroid = true;
-  nativeEnv.isNativeIOS = false;
+  mockPlatformOS = 'android';
   mockSafeAreaInsets.left = 0;
   mockSafeAreaInsets.right = 0;
 });
@@ -138,7 +142,7 @@ it('leaves page overlays and non-Android presentations without a gesture root', 
 
 it('fits an iOS global sheet to the safe-area width of a landscape window', () => {
   nativeEnv.isNativeAndroid = false;
-  nativeEnv.isNativeIOS = true;
+  mockPlatformOS = 'ios';
   mockSafeAreaInsets.left = 62;
   mockSafeAreaInsets.right = 62;
   render(<OverlayDialogPresentation {...dialogProps} isSheet />);
@@ -154,7 +158,7 @@ it('keeps page sheets and Android sheets at the window width', () => {
   expect(mockSurfaceProps.width).toBeUndefined();
 
   nativeEnv.isNativeAndroid = false;
-  nativeEnv.isNativeIOS = true;
+  mockPlatformOS = 'ios';
   rerender(
     <OverlayDialogPresentation {...dialogProps} isSheet page={pageScope} />,
   );

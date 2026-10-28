@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -81,10 +81,9 @@ export function OverlayDialogPresentation({
   // global sheet at the safe-area width: the edge-attached sheet of a
   // landscape iPhone is narrower, so window-wide content is clipped on the
   // right. Page sheets are drawn full width by the page host.
-  const sheetWidth =
-    platformEnv.isNativeIOS && !page
-      ? windowWidth - safeAreaLeft - safeAreaRight
-      : undefined;
+  const sheetWidth = page
+    ? undefined
+    : Platform.select({ ios: windowWidth - safeAreaLeft - safeAreaRight });
   const surfaceColor = useMemo(() => {
     const token = (bg ?? '$bg').replace(/^\$/, '') as keyof typeof theme;
     return String(theme[token]?.val ?? theme.bg.val);
