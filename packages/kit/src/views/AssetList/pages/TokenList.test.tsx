@@ -271,6 +271,65 @@ describe('TokenList route recovery', () => {
     expect(onPressToken).toHaveBeenLastCalledWith(token);
   });
 
+  it('preserves unavailable fiat and price placeholders while keeping zero numeric', () => {
+    const token = {
+      $key: 'placeholder-token',
+      symbol: 'PLACEHOLDER',
+      networkId: 'evm--1',
+    } as IAccountToken;
+    const fiat = {
+      balanceParsed: '2',
+      currency: 'usd',
+      price24h: 0,
+    } as ITokenFiat;
+    mockParams = {
+      accountId: 'test-account',
+      networkId: 'evm--1',
+      walletId: 'test-wallet',
+      tokenList: {
+        tokens: [token],
+        keys: 'test-list',
+        map: { [token.$key]: fiat },
+      },
+    };
+    const { rerender } = render(<TokenList />);
+    const getRow = () =>
+      (mockNativeList.mock.lastCall?.[0]?.snapshot as NativeListSnapshot)
+        .rows[0];
+    const unavailable = getRow();
+    expect(unavailable.type).toBe('identity');
+    if (unavailable.type === 'identity') {
+      expect(unavailable.trailing?.[0]).toEqual(
+        expect.objectContaining({ secondary: '--' }),
+      );
+      expect(unavailable.subtitleSegments?.[0].text).toBe('--');
+    }
+
+    mockParams = {
+      ...mockParams,
+      tokenList: {
+        ...mockParams.tokenList,
+        map: {
+          [token.$key]: {
+            ...fiat,
+            balanceParsed: '0',
+            fiatValue: '0',
+            price: 0,
+          },
+        },
+      },
+    };
+    rerender(<TokenList />);
+    const zero = getRow();
+    expect(zero.type).toBe('identity');
+    if (zero.type === 'identity') {
+      expect(zero.trailing?.[0]).toEqual(
+        expect.objectContaining({ secondary: '0.00' }),
+      );
+      expect(zero.subtitleSegments?.[0].text).toBe('0.00');
+    }
+  });
+
   it('keeps search, map priority, rebased balance, and privacy masking', () => {
     const alpha = {
       $key: 'alpha',

@@ -134,7 +134,9 @@ function NativeAggregateRowMirror({
     });
     const targetCurrency = currencyInfo?.id ?? '';
     const sourceCurrency = tokenInfo?.currency ?? targetCurrency;
-    const rawFiatValue = tokenInfo?.fiatValue || '0';
+    const rawFiatValue = tokenInfo
+      ? tokenInfo.fiatValue || '0'
+      : UNAVAILABLE_DISPLAY;
     const fiatValue =
       rawFiatValue === UNAVAILABLE_DISPLAY
         ? UNAVAILABLE_DISPLAY

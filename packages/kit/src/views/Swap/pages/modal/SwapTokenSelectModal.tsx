@@ -1587,6 +1587,7 @@ const SwapTokenSelectPage = ({
                   ref={nativeListRef}
                   style={{ flex: 1 }}
                   snapshot={nativeListSnapshot}
+                  keyboardShouldPersistTaps="handled"
                   onRowAction={handleNativeRowAction}
                   onActionAnchorInvalidated={handleNativeAnchorInvalidated}
                   listHeader={

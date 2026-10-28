@@ -666,15 +666,14 @@ function TokenDetailsOverview(props: IProps) {
         const rawFiat = tokenDetail
           ? displayFiatValueOrUnavailable(tokenDetail.fiatValue, displayBalance)
           : '';
-        const fiatValue =
-          rawFiat && rawFiat !== '-'
-            ? convertFiat({
-                value: rawFiat,
-                sourceCurrency: tokenDetail?.currency ?? targetCurrency,
-                targetCurrency,
-                currencyMap,
-              })
-            : rawFiat;
+        const fiatValue = isValidNumberValue(rawFiat)
+          ? convertFiat({
+              value: rawFiat,
+              sourceCurrency: tokenDetail?.currency ?? targetCurrency,
+              targetCurrency,
+              currencyMap,
+            })
+          : rawFiat;
         const unit =
           currencyMap[targetCurrency]?.unit ??
           currencyMap[tokenDetail?.currency ?? '']?.unit;

@@ -607,6 +607,16 @@ describe('AggregateTokenSelector', () => {
     expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('--');
   });
 
+  it('distinguishes missing sub-token fiat data from an actual zero', async () => {
+    const { row, queryAllByTestId, rerender } = renderSelector();
+    await waitFor(() => expect(queryAllByTestId('list-item')).toHaveLength(2));
+    expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('--');
+
+    mockSubTokenFiat = { fiatValue: '0', currency: 'usd' };
+    rerender(<AggregateTokenSelector />);
+    expect(row('Arbitrum').getAttribute('data-fiat-value')).toBe('$0.00');
+  });
+
   it('uses a letter avatar for a custom network even when it has a logo', async () => {
     mockCompatibleNetworks = [
       {

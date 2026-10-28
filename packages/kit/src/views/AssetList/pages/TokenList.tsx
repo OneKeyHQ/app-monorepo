@@ -296,15 +296,14 @@ function TokenListContent({ params }: { params: ITokenListParams }) {
         const amount = fiat
           ? displayFiatValueOrUnavailable(fiat.fiatValue, balance)
           : '';
-        const fiatValue =
-          amount && amount !== '-'
-            ? convertFiat({
-                value: amount,
-                sourceCurrency: fiat?.currency ?? targetCurrency,
-                targetCurrency,
-                currencyMap,
-              })
-            : amount;
+        const fiatValue = isValidNumberValue(amount)
+          ? convertFiat({
+              value: amount,
+              sourceCurrency: fiat?.currency ?? targetCurrency,
+              targetCurrency,
+              currencyMap,
+            })
+          : amount;
         const unit =
           currencyMap[targetCurrency]?.unit ??
           currencyMap[fiat?.currency ?? '']?.unit;
@@ -317,15 +316,14 @@ function TokenListContent({ params }: { params: ITokenListParams }) {
               });
         }
         const price = fiat ? displayOrUnavailable(fiat.price) : '-';
-        const convertedPrice =
-          price === '-'
-            ? '-'
-            : convertFiat({
-                value: price,
-                sourceCurrency: fiat?.currency ?? targetCurrency,
-                targetCurrency,
-                currencyMap,
-              });
+        const convertedPrice = isValidNumberValue(price)
+          ? convertFiat({
+              value: price,
+              sourceCurrency: fiat?.currency ?? targetCurrency,
+              targetCurrency,
+              currencyMap,
+            })
+          : String(price);
         const priceText = formatNativeAmount(convertedPrice, 'price', {
           currency: unit,
         });
