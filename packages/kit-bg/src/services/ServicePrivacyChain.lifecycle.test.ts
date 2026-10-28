@@ -96,6 +96,8 @@ describe('removed-account gc', () => {
         gcRunning: false,
         gcRequested: false,
         getLocalWalletNetworkIds,
+        // Otherwise every preset network would count as a local-wallet one.
+        presetLocalWalletNetworkIds: Promise.resolve([]),
         forEachLocalWalletCapability: jest.fn(async () => undefined),
         backgroundApi: {
           serviceAccount: {

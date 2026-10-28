@@ -2,7 +2,7 @@
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 
-const mockGetVault = jest.fn();
+const mockGetVault = jest.fn<Promise<unknown>, unknown[]>();
 const mockQuoteTokenDetails = jest.fn();
 jest.mock('../vaults/factory', () => ({
   vaultFactory: {
