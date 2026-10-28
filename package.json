@@ -443,6 +443,7 @@
     "yaml": "^2.8.0"
   },
   "resolutions": {
+    "bip322-js/bitcoinjs-lib": "6.1.10",
     "hermes-compiler": "260318099.0.4",
     "@keystonehq/bc-ur-registry": "0.8.0",
     "react-native-nitro-modules": "0.37.0",
