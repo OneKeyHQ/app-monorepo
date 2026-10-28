@@ -477,7 +477,26 @@ it('settles a claim that finishes after its viewport closes', async () => {
   });
 });
 
-it('keeps a hidden page from claiming the camera and wakes bg when it becomes visible', async () => {
+it.each([true, false])(
+  'wakes successive QR requests while unfocused (display=%s)',
+  async (display) => {
+    mockVisible = false;
+    mockUiState = qrState(display);
+    const view = render(<ThirdPartyHardwareUiStateContainer />);
+    await flush();
+    expect(mockHandleQrRequest).toHaveBeenCalledWith({ uiRequestId: 'ui-qr' });
+    publishState({ ...qrState(display), uiRequestId: 'next-qr' });
+    view.rerender(<ThirdPartyHardwareUiStateContainer />);
+    await flush();
+    expect(mockHandleQrRequest).toHaveBeenLastCalledWith({
+      uiRequestId: 'next-qr',
+    });
+    expect(mockClaimScan).not.toHaveBeenCalled();
+    expect(mockLegacyScan).not.toHaveBeenCalled();
+  },
+);
+
+it('keeps the background request running while the fallback camera waits for focus', async () => {
   mockVisible = false;
   mockUiState = qrState(false);
   render(<ThirdPartyHardwareUiStateContainer />);
@@ -485,13 +504,15 @@ it('keeps a hidden page from claiming the camera and wakes bg when it becomes vi
     appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
   });
   await flush();
-  expect(mockHandleQrRequest).not.toHaveBeenCalled();
+  expect(mockHandleQrRequest).toHaveBeenCalledTimes(1);
+  expect(mockHandleQrRequest).toHaveBeenCalledWith({ uiRequestId: 'ui-qr' });
   expect(mockClaimScan).not.toHaveBeenCalled();
   mockVisible = true;
   act(() => {
     mockVisibilityListeners.forEach((listener) => listener(true));
   });
   await flush();
+  expect(mockHandleQrRequest).toHaveBeenCalledTimes(2);
   expect(mockHandleQrRequest).toHaveBeenCalledWith({ uiRequestId: 'ui-qr' });
   act(() => {
     appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });

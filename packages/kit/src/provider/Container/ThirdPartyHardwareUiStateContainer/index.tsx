@@ -1010,7 +1010,6 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const uiRequestId = uiState?.uiRequestId;
     if (!isKeystoneQr || !uiRequestId) return;
     const wake = () => {
-      if (!getCurrentVisibilityState()) return;
       void backgroundApiProxy.serviceThirdPartyHardware
         .handleKeystoneQrRequest({ uiRequestId })
         .catch(() => undefined);
