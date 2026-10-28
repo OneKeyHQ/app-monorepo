@@ -21,7 +21,10 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
-import { collectPrivacyChainOwnAddresses } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import {
+  collectPrivacyChainOwnAddresses,
+  getPrivacyChainPublicDisplayAddress,
+} from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import {
   TX_RISKY_LEVEL_MALICIOUS,
@@ -249,6 +252,11 @@ function buildHistoryActivityRowUnchecked({
       });
       address = target?.address ?? '';
       shieldedTargetLabel = target?.address ? '' : (target?.poolLabel ?? '');
+    } else if (localWallet) {
+      address = getPrivacyChainPublicDisplayAddress({
+        publicAddressPattern: localWallet.publicAddressPattern,
+        address,
+      });
     }
     const bothDirections = sends.length > 0 && receives.length > 0;
     const sendOnly =
@@ -381,8 +389,14 @@ function buildHistoryActivityRowUnchecked({
       decodedTx.actions[0]?.assetTransfer?.isInternalStaking
     )
       icon = 'CoinsOutline';
+    // A local-wallet row's server label describes the wrong side; as in
+    // TxActionTransfer, it never overrides Send/Receive.
     if (privateSend) title = label(ETranslations.private_send_private_send);
-    else if (decodedTx.status !== EDecodedTxStatus.Pending && info.label)
+    else if (
+      decodedTx.status !== EDecodedTxStatus.Pending &&
+      info.label &&
+      !localWallet
+    )
       title = info.label;
     if (!info.label && decodedTx.actions[0]?.assetTransfer?.isInternalSwap)
       title = label(ETranslations.global_swap);

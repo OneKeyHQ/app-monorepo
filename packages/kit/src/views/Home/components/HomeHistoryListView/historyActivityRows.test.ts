@@ -694,3 +694,50 @@ describe('Home history shielded endpoints', () => {
     expect(zcash.address).toBe(T1);
   });
 });
+
+describe('Home history local wallet rows match TxActionTransfer', () => {
+  const T1 = `t1${'A'.repeat(33)}`;
+  const U1 = `u1${'q'.repeat(90)}`;
+  const localWallet = {
+    publicAddressPattern: '^t[13][1-9A-HJ-NP-Za-km-z]{33}$',
+  };
+  const build = (
+    tx: IAccountHistoryTx,
+    settings: typeof localWallet | undefined,
+  ) =>
+    buildHistoryActivityRow({
+      history: tx,
+      intl,
+      tableLayout: true,
+      isUTXO: false,
+      hideValue: false,
+      currency: '$',
+      localWallet: settings,
+    });
+  const labelledSend = () => {
+    const tx = history([transfer('1')], []);
+    const assetTransfer = tx.decodedTx.actions[0].assetTransfer;
+    if (assetTransfer) assetTransfer.label = 'Server label';
+    return tx;
+  };
+
+  it('keeps Send for a local-wallet row the server labelled', () => {
+    const send = intl.formatMessage({ id: ETranslations.global_send });
+    expect(build(labelledSend(), localWallet).row.title).toBe(send);
+    expect(build(labelledSend(), undefined).row.title).toBe('Server label');
+  });
+
+  it('shows a private send recipient only when it is a public address', () => {
+    const privateSend = (recipient: string) => {
+      const tx = history([transfer('1')], []);
+      tx.decodedTx.payload = {
+        ...tx.decodedTx.payload,
+        type: EOnChainHistoryTxType.PrivateSend,
+        privateSend: { originalRecipient: recipient },
+      } as typeof tx.decodedTx.payload;
+      return tx;
+    };
+    expect(build(privateSend(T1), localWallet).address).toBe(T1);
+    expect(build(privateSend(U1), localWallet).address).toBe('');
+  });
+});
