@@ -14,15 +14,15 @@ export const MARKET_DESKTOP_CONTENT_FRAME_PROPS = {
   mx: 'auto',
 } as const;
 
-// Detail pages' trade column: 28% of the content row with a 376px floor, which
-// holds up to a ~1383px window (a ~1343px content row). Wider rows scale it in
+// Detail pages' trade column: 28% of the content row with a 368px floor, which
+// holds up to a ~1354px window (a ~1314px content row). Wider rows scale it in
 // proportion, so no breakpoint is needed; the frame's 1440px cap bounds it at
 // about 403px. The desktop detail layouts are web-only and scroll inside an
 // `overflow-y: auto` container, so the column sticks 16px below its top once
 // the page header scrolls away; the row's `alignItems="flex-start"` keeps it
 // from stretching, which sticky needs. Space above the column must be margin,
 // not padding, or it adds to that 16px once pinned.
-export const MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH = 376;
+export const MARKET_DETAIL_TRADE_COLUMN_MIN_WIDTH = 368;
 const MARKET_DETAIL_TRADE_COLUMN_SHARE_PERCENT = 28;
 
 export const MARKET_DETAIL_TRADE_COLUMN_PROPS = {
