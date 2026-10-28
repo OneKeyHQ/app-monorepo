@@ -59,6 +59,7 @@ jest.mock('@onekeyhq/components', () => {
     Button: Primitive,
     Divider: Primitive,
     Icon: Primitive,
+    Image: Primitive,
     SizableText: Primitive,
     Skeleton: () => <span data-testid="loading-skeleton" />,
     XStack: Primitive,
@@ -72,6 +73,10 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocusedWhenEnabled: () => true,
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
+  useThemeVariant: () => 'light',
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -160,6 +165,8 @@ describe('ActivityHubInvitePanel', () => {
   it('displays and copies the refreshed code instead of the stale cache', async () => {
     render(<ActivityHubInvitePanel source="Swap" onOpenReferral={jest.fn()} />);
 
+    expect(screen.queryByTestId('activity-hub-signed-out-guide')).toBeNull();
+
     await waitFor(() =>
       expect(
         screen.getByTestId('activity-hub-copy-code').textContent,
@@ -246,10 +253,22 @@ describe('ActivityHubInvitePanel', () => {
       );
     });
 
+    expect(screen.getByTestId('activity-hub-signed-out-guide')).toBeTruthy();
     fireEvent.click(screen.getByText(ETranslations.global_join));
 
     expect(onOpenReferral).toHaveBeenCalledWith('invite');
     expect(mockGetSummaryInfo).not.toHaveBeenCalled();
+  });
+
+  it('shows the same signed-out guide for Perps', async () => {
+    mockIsLoggedIn = false;
+    await act(async () => {
+      render(
+        <ActivityHubInvitePanel source="Perps" onOpenReferral={jest.fn()} />,
+      );
+    });
+
+    expect(screen.getByTestId('activity-hub-signed-out-guide')).toBeTruthy();
   });
 
   it('hides the previous account code while the new account request fails', async () => {

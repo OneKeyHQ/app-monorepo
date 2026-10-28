@@ -6,6 +6,7 @@ import {
   Button,
   Divider,
   Icon,
+  Image,
   SizableText,
   Skeleton,
   XStack,
@@ -13,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard/hooks/useReferralCodeCard';
 import { getProductReferralLink } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/referralLinks';
 import { useReferralWebAppUrl } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/shared/useReferralWebAppUrl';
@@ -41,6 +43,27 @@ const PANEL_ROW_PROPS = {
   py: '$1.5',
   borderRadius: '$2',
 } as const;
+
+// The invite page's settled still, kept short so a 384px panel does not
+// become a page hero. Same art in every signed-out hub.
+function SignedOutInviteGuide() {
+  const isDark = useThemeVariant() === 'dark';
+
+  return (
+    <Image
+      testID="activity-hub-signed-out-guide"
+      alignSelf="center"
+      w="100%"
+      h={140}
+      resizeMode="contain"
+      source={
+        isDark
+          ? require('@onekeyhq/kit/assets/referral_invite_hero_dark.png')
+          : require('@onekeyhq/kit/assets/referral_invite_hero.png')
+      }
+    />
+  );
+}
 
 // Pointer layouts already list Referral in the sidebar, so their gift opens
 // what the sidebar cannot: the link and code to copy on the spot, laid out
@@ -225,16 +248,19 @@ export function ActivityHubInvitePanel({
         </YStack>
       ) : null}
       {!isLoggedIn ? (
-        <Button
-          testID="activity-hub-join"
-          variant="primary"
-          onPress={() => {
-            logAction('join');
-            onOpenReferral('invite');
-          }}
-        >
-          {intl.formatMessage({ id: ETranslations.global_join })}
-        </Button>
+        <>
+          <SignedOutInviteGuide />
+          <Button
+            testID="activity-hub-join"
+            variant="primary"
+            onPress={() => {
+              logAction('join');
+              onOpenReferral('invite');
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_join })}
+          </Button>
+        </>
       ) : null}
       <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
       <XStack
