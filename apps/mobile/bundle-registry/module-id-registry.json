@@ -26717,6 +26717,8 @@
     "packages/kit/src/views/WalletConnectPay/dialog/WcPayDialogScene.tsx": 8518,
     "packages/kit/src/views/WalletConnectPay/dialog/useWcPayPromptParking.ts": 19220,
     "packages/kit/src/views/WalletConnectPay/dialog/walletconnect-dapp-icon.png": 23544,
+    "packages/kit/src/views/WalletConnectPay/dialog/wcPayDialogShellInset.android.ts": 21853,
+    "packages/kit/src/views/WalletConnectPay/dialog/wcPayDialogShellInset.ios.ts": 5329,
     "packages/kit/src/views/WalletConnectPay/dialog/wcPayDialogStore.ts": 16022,
     "packages/kit/src/views/WalletConnectPay/dialog/wcPayDialogView.ts": 24462,
     "packages/kit/src/views/WalletConnectPay/dialog/wcPaySigningSummary.ts": 16737,
