@@ -7,7 +7,7 @@ import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 
 const mockPopStack = jest.fn();
-const mockOpenWebview = jest.fn();
+const mockOpenWebview = jest.fn<void, [unknown]>();
 const mockGetPendingSession = jest.fn(async () => ({ checkoutId: 'previous' }));
 const mockGetApiKey = jest.fn(async () => ({
   apiKey: 'current-web-key',
