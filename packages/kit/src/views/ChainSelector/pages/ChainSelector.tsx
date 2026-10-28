@@ -39,6 +39,8 @@ export default function ChainSelectorPage({
     networkValues,
     networkValueCurrency,
     groupByNetworkValue,
+    recentNetworksEnabled,
+    highlightSelected,
     featuredNetwork,
   } = route.params ?? {};
   const { result } = usePromiseResult(
@@ -181,6 +183,8 @@ export default function ChainSelectorPage({
       accountNetworkValueCurrency={result?.accountNetworkValueCurrency}
       hideLowValueNetworkValue={hideLowValueNetworkValue}
       groupByNetworkValue={groupByNetworkValue}
+      recentNetworksEnabled={recentNetworksEnabled}
+      highlightSelected={highlightSelected}
       featuredNetwork={featuredNetwork}
       onPressItem={(network) => {
         onSelect?.(network);
