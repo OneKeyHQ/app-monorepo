@@ -196,12 +196,13 @@ export async function fetchStockPortfolioData({
   };
 }
 
-export function useStockPortfolioData() {
+export function useStockPortfolioData({ enabled = true } = {}) {
   const {
     activeAccount: { account, indexedAccount, deriveType, ready },
   } = useActiveAccount({ num: 0 });
   const [selectedDeriveType] = useSelectedDeriveTypeAtom();
-  const { portfolioNetworkId, stockId, tokenVariants } = useStockDetail();
+  const { portfolioNetworkId, stockId, tokenVariants, isTokenVariantPending } =
+    useStockDetail();
   const successfulPortfolioCacheRef = useRef(
     new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
   );
@@ -267,7 +268,7 @@ export function useStockPortfolioData() {
       // Undefined rather than an empty result: with no account there is
       // nothing to read a balance from, and an empty list would claim every
       // variant was checked and found empty.
-      if (!stockId || !hasAccount) return undefined;
+      if (!enabled || !stockId || !hasAccount) return undefined;
       return fetchStockPortfolioData({
         stockId,
         tokenVariants: tokenVariantsRef.current,
@@ -283,11 +284,11 @@ export function useStockPortfolioData() {
     // The request reads the latest variants from a ref so 6-second metadata
     // refreshes only restart this query when their asset identities change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hasAccount, resolveNetworkAccount, stockId, tokenVariantsKey],
+    [enabled, hasAccount, resolveNetworkAccount, stockId, tokenVariantsKey],
     {
       watchLoading: true,
       pollingInterval:
-        stockId && hasAccount
+        enabled && stockId && hasAccount
           ? timerUtils.getTimeDurationMs({ seconds: 15 })
           : undefined,
       revalidateOnReconnect: true,
@@ -305,6 +306,8 @@ export function useStockPortfolioData() {
     portfolioData,
     resolvedVariantKeys,
     isRefreshing: Boolean(isRefreshing),
+    isPortfolioPending:
+      !ready || isTokenVariantPending || (hasAccount && !portfolioResult),
     hasAccount,
     fetchPortfolio,
   };

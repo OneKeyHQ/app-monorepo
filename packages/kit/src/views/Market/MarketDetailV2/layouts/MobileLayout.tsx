@@ -88,6 +88,7 @@ import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData'
 import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartLayout } from '../hooks/useMarketNativeChartLayout';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
+import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import { useMarketTradingViewParams } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
@@ -591,13 +592,18 @@ export function MobileLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing, isPortfolioPending } = usePortfolioData({
+  const isStockPortfolio = platformEnv.isNative && isStockRoute && !!stockId;
+  const tokenPortfolio = usePortfolioData({
     tokenAddress,
     networkId,
-    accountAddress,
+    accountAddress: isStockPortfolio ? undefined : accountAddress,
     xpub,
     isStock: Boolean(isStockToken || isStockRoute),
   });
+  const stockPortfolio = useStockPortfolioData({ enabled: isStockPortfolio });
+  const { portfolioData, isRefreshing, isPortfolioPending } = isStockPortfolio
+    ? stockPortfolio
+    : tokenPortfolio;
   const isModalPage = useIsOverlayPage();
   const inPageDialog = useInPageDialog(
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
@@ -1279,6 +1285,9 @@ export function MobileLayout({
               pendingHeader={informationHeader}
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
+              hasPortfolioAccount={
+                isStockPortfolio ? stockPortfolio.hasAccount : undefined
+              }
               isRefreshing={isRefreshing}
               isPortfolioPending={isPortfolioPending}
               tokenLogoUrl={tokenDetail?.logoUrl}

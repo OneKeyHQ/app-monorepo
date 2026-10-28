@@ -6,6 +6,11 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
+
+import { Portfolio } from '../components/Portfolio';
+
 import { MobileInformationTabs } from './MobileInformationTabs';
 
 import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
@@ -13,6 +18,9 @@ import type { CollapsibleProps } from 'react-native-collapsible-tab-view';
 const mockContainerProps = jest.fn();
 const mockChartMount = jest.fn();
 const mockChartUnmount = jest.fn();
+let mockGtLg = false;
+let mockStockId: string | undefined;
+let mockAccountAddress: string | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -23,7 +31,21 @@ jest.mock('@onekeyhq/components', () => {
     DelayedFreeze:
       jest.requireActual<typeof import('react-freeze')>('react-freeze').Freeze,
     HeaderScrollGestureWrapper: Box,
+    XStack: Box,
     YStack: Box,
+    Stack: Box,
+    Skeleton: Box,
+    Empty: () => <div>No data</div>,
+    SizableText: Box,
+    DashText: Box,
+    NumberSizeableText: ({
+      children,
+      color,
+    }: {
+      children?: ReactNode;
+      color?: string;
+    }) => <span data-color={color}>{children}</span>,
+    useMedia: () => ({ gtLg: mockGtLg }),
     Tabs: {
       Container: (props: CollapsibleProps) => {
         mockContainerProps(props);
@@ -43,6 +65,27 @@ jest.mock('@onekeyhq/components', () => {
         <div data-testid={`information-tab-${name ?? ''}`}>{children}</div>
       ),
       ScrollView: Box,
+      FlatList: ({
+        data,
+        renderItem,
+        ListEmptyComponent,
+      }: {
+        data: IMarketAccountPortfolioDisplayItem[];
+        renderItem: (info: {
+          item: IMarketAccountPortfolioDisplayItem;
+        }) => ReactNode;
+        ListEmptyComponent: ReactNode;
+      }) => (
+        <div>
+          {data.length > 0
+            ? data.map((item) => (
+                <div key={`${item.networkId}:${item.tokenAddress}`}>
+                  {renderItem({ item })}
+                </div>
+              ))
+            : ListEmptyComponent}
+        </div>
+      ),
       TabBar: () => <div data-testid="information-tab-bar" />,
     },
   };
@@ -69,7 +112,7 @@ jest.mock('../../../hooks/useTokenDetail', () => ({
   useTokenDetail: () => ({ networkId: mockNetworkId, isNative: true }),
 }));
 jest.mock('../hooks/useNetworkAccountAddress', () => ({
-  useNetworkAccountAddress: () => ({}),
+  useNetworkAccountAddress: () => ({ accountAddress: mockAccountAddress }),
 }));
 jest.mock('../hooks/useBottomTabAnalytics', () => ({
   useBottomTabAnalytics: () => ({ handleTabChange: jest.fn() }),
@@ -78,13 +121,26 @@ jest.mock('../../TokenLiquidityPools', () => ({
   TokenLiquidityPools: () => null,
 }));
 jest.mock('../components/Holders', () => ({ Holders: () => null }));
-jest.mock('../components/Portfolio', () => ({ Portfolio: () => null }));
+jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
+  Currency: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+}));
+jest.mock('@onekeyhq/kit/src/components/Token', () => ({
+  Token: ({ tokenImageUri }: { tokenImageUri?: string }) => (
+    <img alt="" src={tokenImageUri} />
+  ),
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useCurrencyPersistAtom: () => [{ currencyMap: {} }],
+}));
 jest.mock('../components/TransactionsHistory', () => ({
   TransactionsHistory: () => null,
 }));
 jest.mock('./StickyHeader', () => ({ StickyHeader: () => null }));
 jest.mock('../../../hooks/StockDetailContext', () => ({
-  useStockDetail: () => ({ stockId: undefined }),
+  useStockDetail: () => ({
+    stockId: mockStockId,
+    isTokenVariantsLoading: false,
+  }),
 }));
 jest.mock('./MobileDetailOverviewPanels', () => ({
   MobileStockFinancialsPanel: () => null,
@@ -160,4 +216,105 @@ it('mounts stock content before the token network resolves and keeps the same ch
   mockNetworkId = 'evm--1';
   rerender(renderTabs());
   expect(screen.getByRole('textbox', { name: 'chart viewport' })).toBe(chart);
+});
+
+describe('stock positions', () => {
+  const positions: IMarketAccountPortfolioDisplayItem[] = [
+    {
+      networkId: 'evm--1',
+      accountAddress: 'account-ethereum',
+      tokenAddress: '0xNVDAon',
+      tokenLogoUrl: 'https://example.com/nvda-on.png',
+      symbol: 'NVDAon',
+      amount: '1',
+      tokenPrice: '100',
+      totalPrice: '100',
+      pnl: {
+        isPnlSupported: true,
+        unrealizedPnlUsd: '-5',
+        unrealizedPnlPercent: '-4.76',
+        totalPnlUsd: '10',
+        totalPnlPercent: '10',
+      },
+    },
+    {
+      networkId: 'sol--101',
+      accountAddress: 'account-solana',
+      tokenAddress: 'NVDAB',
+      tokenLogoUrl: 'https://example.com/nvda-b.png',
+      symbol: 'NVDAB',
+      amount: '2',
+      tokenPrice: '100',
+      totalPrice: '200',
+    },
+  ];
+
+  beforeEach(() => {
+    mockNetworkId = 'sol--101';
+    mockStockId = 'NVDA';
+    mockAccountAddress = undefined;
+    mockGtLg = false;
+    platformEnv.isNative = true;
+  });
+
+  afterEach(() => {
+    mockStockId = undefined;
+    mockAccountAddress = undefined;
+    mockGtLg = false;
+    platformEnv.isNative = true;
+  });
+
+  it('shows every stock variant with its identity and value even without a selected-network account', () => {
+    const { container } = render(
+      <MobileInformationTabs
+        detailKind="stock"
+        renderHeader={() => null}
+        onScrollEnd={jest.fn()}
+        portfolioData={positions}
+        hasPortfolioAccount
+      />,
+    );
+
+    expect(screen.getByText('NVDAon')).toBeTruthy();
+    expect(screen.getByText('NVDAB')).toBeTruthy();
+    expect(screen.getByText('100')).toBeTruthy();
+    expect(screen.getByText('200')).toBeTruthy();
+    expect(screen.getByText('-4.76').getAttribute('data-color')).toBe(
+      '$textCritical',
+    );
+    expect(screen.queryByText('No data')).toBeNull();
+    expect(
+      Array.from(container.querySelectorAll('img'), (img) => img.src),
+    ).toEqual(positions.map((position) => position.tokenLogoUrl));
+  });
+
+  it('keeps the desktop stock table columns', () => {
+    platformEnv.isNative = false;
+    mockGtLg = true;
+    render(
+      <Portfolio standalone isStock hasAccount portfolioData={positions} />,
+    );
+
+    expect(screen.getByText('NVDAon')).toBeTruthy();
+    expect(screen.getByText('NVDAB')).toBeTruthy();
+    expect(screen.getByText('marketdex.unrealized_pnl')).toBeTruthy();
+    expect(screen.getByText('marketdex.total_pnl')).toBeTruthy();
+  });
+
+  it('uses Name and Value/PNL columns for stocks on wide native screens too', () => {
+    mockGtLg = true;
+    render(
+      <Portfolio standalone isStock hasAccount portfolioData={positions} />,
+    );
+
+    expect(screen.getByText('NVDAon')).toBeTruthy();
+    expect(screen.getByText('NVDAB')).toBeTruthy();
+    expect(screen.getByText('dexmarket.token_name')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'dexmarket.details_history_value / perp.position_pnl_mobile',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText('marketdex.total_pnl')).toBeNull();
+  });
 });

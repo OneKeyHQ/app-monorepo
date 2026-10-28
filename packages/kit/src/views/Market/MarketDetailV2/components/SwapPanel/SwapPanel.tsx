@@ -49,6 +49,15 @@ import {
 } from './hooks/useSpeedSwapInit';
 import SwapPanelFooterButtons from './SwapPanelFooterButtons';
 
+function getPortfolioPositionValue(item: IMarketAccountPortfolioDisplayItem) {
+  const amount = new BigNumber(item.amount || '0');
+  if (amount.isZero()) return new BigNumber(0);
+  const totalPrice = new BigNumber(item.totalPrice || NaN);
+  return totalPrice.isFinite()
+    ? totalPrice
+    : new BigNumber(item.tokenPrice || '0').multipliedBy(amount);
+}
+
 function TradeButton({
   swapToken,
   onShowSwapDialog,
@@ -158,6 +167,37 @@ export function SwapPanel({
   const bottomInset = footerSafeAreaBottom + tabBarHeight;
   const navigation = useAppNavigation();
   const myPositionInfo = useMemo(() => {
+    if (platformEnv.isNative && detailKind === 'stock') {
+      const positions = portfolioData ?? [];
+      const value = positions.reduce(
+        (sum, item) => sum.plus(getPortfolioPositionValue(item)),
+        new BigNumber(0),
+      );
+      const isPnlSupported =
+        positions.length > 0 &&
+        positions.every(
+          (item) =>
+            item.pnl?.isPnlSupported &&
+            new BigNumber(item.pnl.unrealizedPnlUsd).isFinite(),
+        );
+      const unrealizedPnl = positions.reduce(
+        (sum, item) => sum.plus(item.pnl?.unrealizedPnlUsd ?? 0),
+        new BigNumber(0),
+      );
+      // Unrealized PNL is measured against the remaining position cost.
+      // Summing or averaging the per-token percentages uses the wrong base.
+      const cost = value.minus(unrealizedPnl);
+      return {
+        formattedValue: value.toFixed(),
+        pnl: {
+          isPnlSupported,
+          unrealizedPnlUsd: unrealizedPnl.toFixed(),
+          unrealizedPnlPercent: cost.gt(0)
+            ? unrealizedPnl.dividedBy(cost).multipliedBy(100).toFixed(2)
+            : undefined,
+        },
+      };
+    }
     const positionInfo = portfolioData?.find(
       (item) =>
         (!item.networkId || item.networkId === swapToken.networkId) &&
@@ -171,12 +211,8 @@ export function SwapPanel({
         pnl: undefined,
       };
     }
-    const tokenPriceBN = new BigNumber(positionInfo?.tokenPrice || '0');
     const amountBN = new BigNumber(positionInfo?.amount || '0');
-    const totalPriceBN = new BigNumber(positionInfo?.totalPrice || NaN);
-    const valueBN = totalPriceBN.isFinite()
-      ? totalPriceBN
-      : tokenPriceBN.multipliedBy(amountBN);
+    const valueBN = getPortfolioPositionValue(positionInfo);
     const isZero = amountBN.eq(0);
     const formattedValue = isZero ? '0.00' : valueBN.toFixed();
     const formattedAmount = isZero ? '0.00' : amountBN.toFixed();
@@ -186,7 +222,12 @@ export function SwapPanel({
       isZero,
       pnl: positionInfo.pnl,
     };
-  }, [portfolioData, swapToken.contractAddress, swapToken.networkId]);
+  }, [
+    detailKind,
+    portfolioData,
+    swapToken.contractAddress,
+    swapToken.networkId,
+  ]);
 
   const { defaultTokens, speedConfigReady } = useSpeedSwapInit(
     swapToken.isStock ? '' : swapToken.networkId,
@@ -331,9 +372,11 @@ export function SwapPanel({
                   {unrealizedBN.abs().toFixed()}
                 </Currency>
               </XStack>
-              <SizableText size="$bodyMd" color={pnlColor}>
-                {`(${pnl?.unrealizedPnlPercent ?? '0'}%)`}
-              </SizableText>
+              {pnl?.unrealizedPnlPercent !== undefined ? (
+                <SizableText size="$bodyMd" color={pnlColor}>
+                  {`(${pnl.unrealizedPnlPercent}%)`}
+                </SizableText>
+              ) : null}
             </XStack>
           ) : null}
         </XStack>
