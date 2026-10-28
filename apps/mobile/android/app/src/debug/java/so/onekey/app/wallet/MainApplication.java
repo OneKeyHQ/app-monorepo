@@ -1,11 +1,13 @@
 package so.onekey.app.wallet;
 
+import android.content.SharedPreferences;
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.backgroundthread.BackgroundThreadManager;
+import com.facebook.react.packagerconnection.PackagerConnectionSettings;
 import com.margelo.nitro.nativelogger.OneKeyLog;
 
 import java.io.ByteArrayOutputStream;
@@ -25,6 +27,8 @@ public final class MainApplication extends BaseMainApplication {
   private static final Pattern DEV_SESSION_ID_PATTERN = Pattern.compile("^wk-[0-9a-f]{12}-dev-[0-9a-f]{12}-[0-9a-f]{16}$");
   private static final int MAX_DEV_SESSION_BYTES = 2 * 1024 * 1024;
   private static final long MAX_DEV_VENDOR_BYTES = 512L * 1024L * 1024L;
+  private static final String DEV_SESSION_PREFS_NAME = "onekey-dev-session";
+  private static final String DEV_SESSION_DEBUG_SERVER_HOST_KEY = "debugServerHost";
 
   @Nullable
   private BuildVariantBundleInfo buildVariantBundleInfo;
@@ -140,9 +144,37 @@ public final class MainApplication extends BaseMainApplication {
     return builder.build().toString();
   }
 
+  // React Native's packager connection (HMR, reload, debugger) reads its own
+  // persisted host instead of the bundle URL, so point it at the session's
+  // Metro, and remember the host so a plain debug build can release it.
+  private void applyDevSessionDebugServerHost(@NonNull String metroBaseUrl) {
+    String host = Uri.parse(metroBaseUrl).getEncodedAuthority();
+    new PackagerConnectionSettings(this).setDebugServerHost(host);
+    getSharedPreferences(DEV_SESSION_PREFS_NAME, MODE_PRIVATE)
+      .edit()
+      .putString(DEV_SESSION_DEBUG_SERVER_HOST_KEY, host)
+      .apply();
+  }
+
+  // Keeps a host chosen in the dev menu; only the session's own host is reset.
+  private void releaseDevSessionDebugServerHost() {
+    SharedPreferences sessionPreferences =
+      getSharedPreferences(DEV_SESSION_PREFS_NAME, MODE_PRIVATE);
+    String sessionHost = sessionPreferences.getString(DEV_SESSION_DEBUG_SERVER_HOST_KEY, null);
+    if (sessionHost == null) {
+      return;
+    }
+    PackagerConnectionSettings settings = new PackagerConnectionSettings(this);
+    if (sessionHost.equals(settings.getDebugServerHost())) {
+      settings.resetDebugServerHost();
+    }
+    sessionPreferences.edit().remove(DEV_SESSION_DEBUG_SERVER_HOST_KEY).apply();
+  }
+
   @Override
   protected synchronized void configureBuildVariantRuntime() {
     if (!BuildConfig.ONEKEY_DEV_SHELL) {
+      releaseDevSessionDebugServerHost();
       return;
     }
     if (buildVariantBundleInfo != null) {
@@ -235,6 +267,7 @@ public final class MainApplication extends BaseMainApplication {
       ) {
         throw new IllegalStateException("DevSession private common.hbc integrity mismatch");
       }
+      applyDevSessionDebugServerHost(metroBaseUrl);
       buildVariantBundleInfo = new BuildVariantBundleInfo(
         commonFile.getAbsolutePath(),
         fingerprint,
