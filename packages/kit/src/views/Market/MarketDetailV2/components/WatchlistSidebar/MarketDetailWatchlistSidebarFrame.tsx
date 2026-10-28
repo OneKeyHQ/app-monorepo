@@ -56,14 +56,17 @@ export function MarketDetailWatchlistSidebarFrame({
   const [{ data: watchListData, isMounted: isWatchListMounted }] =
     useMarketWatchListV2Atom();
   // Until the user picks a state, the sidebar opens for users who have
-  // favorites. The answer is fixed once the watchlist loads, so removing the
-  // last favorite from the open sidebar does not snap it shut.
+  // favorites. Each mount answers once the watchlist loads and then keeps it,
+  // so removing the last favorite from the open sidebar does not snap it shut.
+  // The previous mount's answer only covers the frames before that.
   const [defaultDockedOpen, setDefaultDockedOpen] = useState<
     boolean | undefined
   >(lastDefaultDockedOpen);
-  if (defaultDockedOpen === undefined && isWatchListMounted) {
+  const [hasResolvedDefault, setHasResolvedDefault] = useState(false);
+  if (!hasResolvedDefault && isWatchListMounted) {
     const nextDefaultDockedOpen = (watchListData?.length ?? 0) > 0;
     lastDefaultDockedOpen = nextDefaultDockedOpen;
+    setHasResolvedDefault(true);
     setDefaultDockedOpen(nextDefaultDockedOpen);
   }
   const dockedOpen = savedDockedOpen ?? defaultDockedOpen ?? false;
