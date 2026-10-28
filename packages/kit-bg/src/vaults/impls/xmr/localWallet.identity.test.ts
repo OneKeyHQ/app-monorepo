@@ -381,17 +381,38 @@ describe('xmr runtime identity named by viewing key', () => {
     expect(mockRuntime.identities).toHaveLength(1);
   });
 
-  it('keeps a legacy paused balance readable before the first applied-epoch marker exists', async () => {
+  it('shows no balance for an account paused again before its first scan after a reset', async () => {
     const { capability, saveKey, xmr } = createHarness();
     await saveKey(ALIAS_A, SHARED_KEY);
-    await seedScanState(xmr, ALIAS_A, 'paused', 3_000_000);
-    await mockRuntime.addAccount(SHARED_FP, 'aa', 'bb', '3000000');
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_000_000,
+    });
+    await capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
+    await xmr.beginXmrDisable({
+      accountId: ALIAS_A,
+      resumeFromHeight: 3_000_000,
+    });
+    await xmr.completeXmrDisable({ accountId: ALIAS_A });
+    await xmr.rotateAccountEpochs({ accountIds: [ALIAS_A] });
+
+    // Resumed, then paused again before any scan step applied the new epoch.
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_000_000,
+    });
+    await xmr.beginXmrDisable({
+      accountId: ALIAS_A,
+      resumeFromHeight: 3_000_000,
+    });
+    await xmr.completeXmrDisable({ accountId: ALIAS_A });
     expect(
       (await xmr.getXmrAccountState({ accountId: ALIAS_A })).appliedEpoch,
     ).toBeUndefined();
+
     await expect(
       capability.getAccountBalance({ accountId: ALIAS_A }),
-    ).resolves.toMatchObject({ total: '1000000000000' });
+    ).resolves.toBeNull();
   });
 
   it('shows no balance for a paused account once a storage reset rotates its epoch', async () => {

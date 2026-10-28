@@ -739,11 +739,7 @@ export function buildXmrLocalWalletCapability(
         state.operation
       )
         return null;
-      // Paused before applied epochs were recorded: nothing to compare.
-      const pausedWithoutAppliedEpoch =
-        paused && state.appliedEpoch === undefined;
-      if (!pausedWithoutAppliedEpoch && state.epoch !== state.appliedEpoch)
-        return null;
+      if (state.epoch !== state.appliedEpoch) return null;
       if (!hasXmrRuntimeApiLoader()) return null;
 
       // UI read: the saved balance while a scan step holds the runtime or
