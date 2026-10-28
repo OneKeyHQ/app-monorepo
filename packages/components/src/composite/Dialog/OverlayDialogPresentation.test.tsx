@@ -12,6 +12,7 @@ let mockProps: IOverlayViewProps;
 let mockSurfaceProps: { width?: unknown };
 let mockPlatformOS = 'android';
 const mockSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+const mockContentFrame = { x: 0, y: 0, width: 1000, height: 800 };
 jest.mock('react-native', () => ({
   Platform: {
     select: (spec: Record<string, unknown>) =>
@@ -20,6 +21,7 @@ jest.mock('react-native', () => ({
   useWindowDimensions: () => ({ width: 1000, height: 800 }),
 }));
 jest.mock('../../hooks/useLayout', () => ({
+  useSafeAreaFrame: () => mockContentFrame,
   useSafeAreaInsets: () => mockSafeAreaInsets,
 }));
 jest.mock('react-native-gesture-handler', () => ({
@@ -77,6 +79,7 @@ afterEach(() => {
   mockPlatformOS = 'android';
   mockSafeAreaInsets.left = 0;
   mockSafeAreaInsets.right = 0;
+  mockContentFrame.width = 1000;
 });
 it('delivers sheet animation completion only after the host finishes', () => {
   const onRequestClose = jest.fn();
@@ -149,11 +152,18 @@ it('fits an iOS global sheet to the safe-area width of a landscape window', () =
   expect(mockSurfaceProps.width).toBe(876);
 });
 
-it('keeps page sheets and Android sheets at the window width', () => {
+it('fits an Android global sheet to the app content beside a side navigation bar', () => {
+  mockContentFrame.width = 952;
+  render(<OverlayDialogPresentation {...dialogProps} isSheet />);
+  expect(mockSurfaceProps.width).toBe(952);
+});
+
+it('keeps page sheets and web sheets at the window width', () => {
   mockSafeAreaInsets.left = 62;
   mockSafeAreaInsets.right = 62;
+  mockContentFrame.width = 952;
   const { rerender } = render(
-    <OverlayDialogPresentation {...dialogProps} isSheet />,
+    <OverlayDialogPresentation {...dialogProps} isSheet page={pageScope} />,
   );
   expect(mockSurfaceProps.width).toBeUndefined();
 
@@ -162,5 +172,10 @@ it('keeps page sheets and Android sheets at the window width', () => {
   rerender(
     <OverlayDialogPresentation {...dialogProps} isSheet page={pageScope} />,
   );
+  expect(mockSurfaceProps.width).toBeUndefined();
+
+  nativeEnv.isNative = false;
+  mockPlatformOS = 'web';
+  rerender(<OverlayDialogPresentation {...dialogProps} isSheet />);
   expect(mockSurfaceProps.width).toBeUndefined();
 });

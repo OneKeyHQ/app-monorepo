@@ -10,9 +10,15 @@ import {
 } from './TradingViewNativePresentation.native';
 
 let mockPortalHost: HTMLElement;
+let mockLayerProps: Record<string, unknown>;
+// A landscape Android window is 640 wide; its side navigation bar takes 48.
+const mockContentFrame = { x: 0, y: 0, width: 592, height: 360 };
 
 jest.mock('@onekeyhq/components', () => ({
-  Stack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Stack: ({ children, ...props }: { children: ReactNode }) => {
+    mockLayerProps = props;
+    return <div>{children}</div>;
+  },
 }));
 jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: ({ children }: { children: ReactNode }) => (
@@ -20,6 +26,7 @@ jest.mock('react-native-gesture-handler', () => ({
   ),
 }));
 jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaFrame: () => mockContentFrame,
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
@@ -66,5 +73,20 @@ describe('TradingViewNative fullscreen presentation', () => {
     expect(mockPortalHost.textContent).toBe('Chart');
     unmount();
     expect(mockPortalHost.textContent).toBe('');
+  });
+
+  it('sizes the fullscreen layer to the app content frame instead of the window', () => {
+    render(
+      <TradingViewNativePresentation isFullscreen>
+        <button type="button">Chart</button>
+      </TradingViewNativePresentation>,
+    );
+    expect(mockLayerProps).toMatchObject({
+      testID: 'trading-view-native-fullscreen-layer',
+      top: 0,
+      left: 0,
+      width: 592,
+      height: 360,
+    });
   });
 });

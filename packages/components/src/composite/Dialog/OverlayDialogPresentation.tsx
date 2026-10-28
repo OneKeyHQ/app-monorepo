@@ -7,7 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSafeAreaInsets } from '../../hooks/useLayout';
+import { useSafeAreaFrame, useSafeAreaInsets } from '../../hooks/useLayout';
 import { useTheme } from '../../hooks/useStyle';
 import { ScrollView } from '../../layouts/ScrollView';
 import { ThemeableStack } from '../../primitives';
@@ -76,14 +76,19 @@ export function OverlayDialogPresentation({
 }: IOverlayDialogPresentationProps) {
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
+  const { width: contentWidth } = useSafeAreaFrame();
   const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
-  // OverlayView lays sheet content out at the window width, but UIKit keeps a
-  // global sheet at the safe-area width: the edge-attached sheet of a
-  // landscape iPhone is narrower, so window-wide content is clipped on the
-  // right. Page sheets are drawn full width by the page host.
+  // OverlayView lays sheet content out at the window width, but a global
+  // sheet is narrower in landscape: UIKit keeps it at the safe-area width, and
+  // Android draws it in the app's content view, which stops at a side
+  // navigation bar. Window-wide content is clipped on the right. Page sheets
+  // are drawn full width by the page host.
   const sheetWidth = page
     ? undefined
-    : Platform.select({ ios: windowWidth - safeAreaLeft - safeAreaRight });
+    : Platform.select({
+        ios: windowWidth - safeAreaLeft - safeAreaRight,
+        android: contentWidth,
+      });
   const surfaceColor = useMemo(() => {
     const token = (bg ?? '$bg').replace(/^\$/, '') as keyof typeof theme;
     return String(theme[token]?.val ?? theme.bg.val);
