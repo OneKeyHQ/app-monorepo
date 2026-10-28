@@ -49,6 +49,7 @@ import type {
   RowModel,
   VisualOverlay,
 } from '@onekeyfe/react-native-native-list';
+import type { ViewInstance } from 'react-native';
 
 type ITokenManagerListProps = {
   dataSource:
@@ -270,12 +271,16 @@ function NativeTokenManagerList({
   });
   const active = useRef(true);
   const listRef = useRef<NativeListRef>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const [tooltip, setTooltip] = useState<{
     anchor: NativeListActionAnchor;
     rowKey: string;
+    left: number;
+    top: number;
   }>();
-  const tooltipRef = useRef(tooltip);
-  tooltipRef.current = tooltip;
+  const tooltipRef = useRef<
+    Pick<NonNullable<typeof tooltip>, 'anchor' | 'rowKey'> | undefined
+  >(undefined);
 
   const closeTooltip = useCallback(() => {
     const current = tooltipRef.current;
@@ -302,6 +307,7 @@ function NativeTokenManagerList({
           open: false,
         });
       }
+      tooltipRef.current = undefined;
     };
   }, []);
 
@@ -662,13 +668,27 @@ function NativeTokenManagerList({
         ) {
           return;
         }
+        closeTooltip();
+        const anchor = event.anchor;
+        const nextTooltip = { anchor, rowKey: event.rowKey };
+        tooltipRef.current = nextTooltip;
         listRef.current?.setActionAnchorState({
           token: event.anchor.token,
           open: true,
         });
-        const nextTooltip = { anchor: event.anchor, rowKey: event.rowKey };
-        tooltipRef.current = nextTooltip;
-        setTooltip(nextTooltip);
+        containerRef.current?.measureInWindow((x, y) => {
+          if (
+            !active.current ||
+            tooltipRef.current !== nextTooltip ||
+            committedKeys.current.generation !== anchor.generation
+          )
+            return;
+          setTooltip({
+            ...nextTooltip,
+            left: anchor.windowRect.x - x,
+            top: anchor.windowRect.y - y,
+          });
+        });
         return;
       }
       if (event.actionKey !== (isAdded ? 'hide' : 'add')) return;
@@ -703,11 +723,12 @@ function NativeTokenManagerList({
       checkTokenExistInTokenList,
       onHiddenToken,
       onAddCustomToken,
+      closeTooltip,
     ],
   );
 
   return (
-    <>
+    <Stack ref={containerRef} flex={1} minHeight={0} position="relative">
       <NativeList
         ref={listRef}
         style={{ flex: 1 }}
@@ -762,9 +783,9 @@ function NativeTokenManagerList({
       />
       {!platformEnv.isNative && tooltip ? (
         <Stack
-          position="fixed"
-          left={tooltip.anchor.windowRect.x}
-          top={tooltip.anchor.windowRect.y}
+          position="absolute"
+          left={tooltip.left}
+          top={tooltip.top}
           width={tooltip.anchor.windowRect.width}
           height={tooltip.anchor.windowRect.height}
           pointerEvents="none"
@@ -789,7 +810,7 @@ function NativeTokenManagerList({
           />
         </Stack>
       ) : null}
-    </>
+    </Stack>
   );
 }
 

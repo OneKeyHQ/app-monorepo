@@ -385,29 +385,33 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
     ['iOS', true],
     ['Android', false],
   ])(
-    'only scrolls the remaining native field overflow on %s',
+    'uses an idempotent positive native header target on %s',
     (_name, isIOS) => {
       platformEnv.isNativeIOS = isIOS;
       platformEnv.isNativeAndroid = !isIOS;
       const { field } = renderPager();
       showKeyboard();
-      expect(mockScrollHeaderBy).toHaveBeenCalledTimes(1);
-      expect(mockScrollHeaderBy).toHaveBeenLastCalledWith(222);
-      field.measureInWindow.mockImplementation(
-        (callback: (...bounds: number[]) => void) => callback(0, 428, 320, 60),
-      );
+      expect(mockScrollHeaderToOffset).toHaveBeenCalledTimes(1);
+      expect(mockScrollHeaderToOffset).toHaveBeenLastCalledWith(222);
       showKeyboard();
+      expect(mockScrollHeaderToOffset).toHaveBeenCalledTimes(2);
+      expect(mockScrollHeaderToOffset).toHaveBeenLastCalledWith(222);
       act(() =>
         mockHeaderLayout?.({ nativeEvent: { layout: { height: 240 } } }),
       );
-      expect(mockScrollHeaderBy).toHaveBeenCalledTimes(1);
+      expect(mockScrollHeaderToOffset).toHaveBeenLastCalledWith(222);
       field.measureInWindow.mockImplementation(
         (callback: (...bounds: number[]) => void) => callback(0, 470, 320, 60),
       );
       showKeyboard();
-      expect(mockScrollHeaderBy).toHaveBeenCalledTimes(2);
-      expect(mockScrollHeaderBy).toHaveBeenLastCalledWith(42);
-      expect(mockScrollHeaderToOffset).not.toHaveBeenCalled();
+      expect(mockScrollHeaderToOffset).toHaveBeenLastCalledWith(42);
+      field.measureInWindow.mockImplementation(
+        (callback: (...bounds: number[]) => void) => callback(0, 428, 320, 60),
+      );
+      const scrollCount = mockScrollHeaderToOffset.mock.calls.length;
+      showKeyboard();
+      expect(mockScrollHeaderToOffset).toHaveBeenCalledTimes(scrollCount);
+      expect(mockScrollHeaderBy).not.toHaveBeenCalled();
     },
   );
 
@@ -574,7 +578,7 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
           expect(frames).toHaveLength(1);
           act(() => frames.shift()?.(0));
           expect(field.measureInWindow).toHaveBeenCalledTimes(1);
-          expect(mockScrollHeaderBy).toHaveBeenLastCalledWith(222);
+          expect(mockScrollHeaderToOffset).toHaveBeenLastCalledWith(222);
         } else {
           expect(frames).toHaveLength(0);
           expect(field.measureInWindow).not.toHaveBeenCalled();

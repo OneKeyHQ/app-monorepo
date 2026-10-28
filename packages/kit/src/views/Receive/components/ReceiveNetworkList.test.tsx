@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import {
@@ -35,6 +36,7 @@ let mockAccountsInfo: Array<{
   dbAccount: object | undefined;
   deriveType?: string;
 }> = [];
+let mockSectionListDataSet: Record<string, string> | undefined;
 const mockGetGlobalDeriveType = jest.fn<Promise<string>, [unknown]>();
 const mockCreateAddressForNetwork = jest.fn<
   Promise<string | undefined>,
@@ -56,6 +58,10 @@ jest.mock('react-intl', () => ({
     formatMessage: ({ id }: { id: string }) => id,
   }),
 }));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false },
+}));
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -67,14 +73,17 @@ jest.mock('@onekeyhq/components', () => {
     renderSectionHeader,
     ListEmptyComponent,
     testID,
+    dataSet,
   }: {
     sections: Array<{ title?: string; data: IServerNetwork[] }>;
     renderItem: (info: { item: IServerNetwork }) => ReactNode;
     renderSectionHeader: (info: { section: { title?: string } }) => ReactNode;
     ListEmptyComponent?: ReactNode;
     testID?: string;
-  }) =>
-    React.createElement(
+    dataSet?: Record<string, string>;
+  }) => {
+    mockSectionListDataSet = dataSet;
+    return React.createElement(
       'div',
       { 'data-testid': testID },
       sections.length === 0 ? ListEmptyComponent : null,
@@ -93,6 +102,7 @@ jest.mock('@onekeyhq/components', () => {
         ),
       ),
     );
+  };
   SectionList.SectionHeader = ({ title }: { title: string }) =>
     React.createElement('span', { 'data-testid': 'section-title' }, title);
   return {
@@ -329,6 +339,8 @@ function renderList(
 
 describe('ReceiveNetworkList', () => {
   beforeEach(() => {
+    platformEnv.isNative = false;
+    mockSectionListDataSet = undefined;
     mockAccountsInfo = [
       {
         networkId: 'evm--1',
@@ -360,6 +372,21 @@ describe('ReceiveNetworkList', () => {
     mockToastSuccess.mockReset();
     mockReceiveSelectNetworkTab.mockReset();
   });
+
+  it.each([
+    [false, 'tab', { 'collapsible-pager-scroll': 'true' }],
+    [false, 'selector', undefined],
+    [true, 'tab', undefined],
+  ] as const)(
+    'marks only the Web pager tab scroll owner with native=%s mode=%s',
+    async (isNative, mode, expectedDataSet) => {
+      platformEnv.isNative = isNative;
+      await act(async () => {
+        renderList({ mode });
+      });
+      expect(mockSectionListDataSet).toEqual(expectedDataSet);
+    },
+  );
 
   it('lists the popular block first, then letter groups, with addresses and create rows', async () => {
     const { getAllByTestId, getByTestId } = renderList();

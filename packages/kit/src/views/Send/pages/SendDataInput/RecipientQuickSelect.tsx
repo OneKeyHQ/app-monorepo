@@ -1342,7 +1342,8 @@ function RecipientQuickSelect({
             }
             if (platformEnv.isNative) {
               const overflow = fieldY + fieldHeight - visibleBottom;
-              if (overflow > 0) pagerRef.current?.scrollHeaderBy(overflow);
+              if (overflow > 0)
+                pagerRef.current?.scrollHeaderToOffset(overflow);
               return;
             }
             let delta = 0;

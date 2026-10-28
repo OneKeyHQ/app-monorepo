@@ -29,6 +29,7 @@ let mockAnchorInvalidated:
   | ((event: ActionAnchorInvalidatedEvent) => void)
   | undefined;
 const mockSetActionAnchorState = jest.fn();
+const mockMeasureInWindow = jest.fn<void, [(...bounds: number[]) => void]>();
 const mockButtonClick = jest.spyOn(defaultLogger.ui.button, 'click');
 
 const mockTheme = Object.fromEntries(
@@ -146,7 +147,29 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
   return { ListItem };
 });
 jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
   const Wrap = ({ children }: PropsWithChildren) => <div>{children}</div>;
+  const Stack = React.forwardRef(
+    (
+      {
+        children,
+        position,
+        left,
+        top,
+      }: PropsWithChildren<{
+        position?: 'relative' | 'absolute';
+        left?: number;
+        top?: number;
+      }>,
+      ref,
+    ) => {
+      React.useImperativeHandle(ref, () => ({
+        measureInWindow: mockMeasureInWindow,
+      }));
+      return <div style={{ position, left, top }}>{children}</div>;
+    },
+  );
+  Stack.displayName = 'MockStack';
   return {
     Badge: Wrap,
     Button: Wrap,
@@ -159,7 +182,7 @@ jest.mock('@onekeyhq/components', () => {
     ),
     SizableText: Wrap,
     Skeleton: Wrap,
-    Stack: Wrap,
+    Stack,
     XStack: Wrap,
     YStack: Wrap,
     useSafeAreaInsets: () => ({ bottom: 0 }),
@@ -253,6 +276,10 @@ beforeEach(() => {
   mockAnchorInvalidated = undefined;
   mockButtonClick.mockClear();
   mockSetActionAnchorState.mockClear();
+  mockMeasureInWindow.mockReset();
+  mockMeasureInWindow.mockImplementation((callback) =>
+    callback(100, 200, 800, 600),
+  );
 });
 
 it('keeps the empty added section before hidden tokens and serializes its rows', async () => {
@@ -529,6 +556,7 @@ it('shows BTC help on DOM hover without enabling or tracking the action', () => 
   const row = mockSnapshot?.rows.find((item) => item.type === 'identity');
   const currentAnchor = {
     ...actionAnchor,
+    windowRect: { x: 310, y: 420, width: 24, height: 24 },
     generation: mockSnapshot?.generation ?? 0,
   };
   expect(row).toMatchObject({
@@ -554,6 +582,13 @@ it('shows BTC help on DOM hover without enabling or tracking the action', () => 
   expect(screen.getByTestId('token-tooltip').textContent).toBe(
     ETranslations.manage_token_native_token_cannot_removed,
   );
+  expect(
+    screen.getByTestId('token-tooltip').parentElement?.style,
+  ).toMatchObject({
+    position: 'absolute',
+    left: '210px',
+    top: '220px',
+  });
   expect(mockSetActionAnchorState).toHaveBeenCalledWith({
     token: currentAnchor.token,
     open: true,
@@ -608,6 +643,46 @@ it('shows BTC help on DOM hover without enabling or tracking the action', () => 
   expect(onHide).not.toHaveBeenCalled();
   expect(mockButtonClick).not.toHaveBeenCalled();
 });
+
+it.each(['invalidate', 'unmount'])(
+  'does not reopen a tooltip after delayed measurement and %s',
+  (interruption) => {
+    mockIsNative = false;
+    let measure: ((...bounds: number[]) => void) | undefined;
+    mockMeasureInWindow.mockImplementation((callback) => {
+      measure = callback;
+    });
+    const btcToken = { ...token, networkId: 'btc--0' };
+    const { unmount } = renderList({
+      sections: [{ title: 'Added', data: [btcToken] }],
+      check: () => btcToken,
+    });
+    const row = mockSnapshot?.rows.find((item) => item.type === 'identity');
+    const anchor = {
+      ...actionAnchor,
+      generation: mockSnapshot?.generation ?? 0,
+    };
+    act(() =>
+      mockRowAction?.({
+        rowKey: row?.key,
+        actionKey: 'cannot-remove',
+        anchor,
+      }),
+    );
+    expect(mockMeasureInWindow).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('token-tooltip')).toBeNull();
+    if (interruption === 'unmount') unmount();
+    else
+      act(() =>
+        mockAnchorInvalidated?.({ token: anchor.token, reason: 'scroll' }),
+      );
+    act(() => measure?.(100, 200, 800, 600));
+    expect(screen.queryByTestId('token-tooltip')).toBeNull();
+    expect(mockSetActionAnchorState).toHaveBeenLastCalledWith(
+      expect.objectContaining({ token: anchor.token, open: false }),
+    );
+  },
+);
 
 it('ignores a native action delivered after the modal unmounts', () => {
   const onAdd = jest.fn();
