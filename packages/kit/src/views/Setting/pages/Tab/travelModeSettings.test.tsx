@@ -20,6 +20,7 @@ import { useSettingsConfig } from './config';
 
 const mockPlatform = platformEnv;
 let mockGtMd = false;
+let mockWideNativeWindow = false;
 let mockTravelMode = false;
 let mockDevEnabled = false;
 const mockNavigation = {
@@ -90,6 +91,7 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Stack,
     getTokenValue: () => 16,
     isNativeTablet: () => mockPlatform.isNativeIOSPad || mockGtMd,
+    useIsWideNativeWindow: () => mockWideNativeWindow,
     useMedia: () => ({ gtMd: mockGtMd }),
     useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
     DesktopTabItem: ({
@@ -366,88 +368,117 @@ const restrictedCategories = [
 ];
 
 describe.each([
-  { name: 'iPhone', isIOSPad: false, isAndroid: false, gtMd: false },
-  { name: 'iPad', isIOSPad: true, isAndroid: false, gtMd: false },
-  { name: 'wide Android', isIOSPad: false, isAndroid: true, gtMd: true },
-])('Travel Mode settings on $name', ({ isIOSPad, isAndroid, gtMd }) => {
-  const isTabNavigator = isIOSPad || gtMd;
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockTravelMode = true;
-    mockGtMd = gtMd;
-    mockPlatform.isNativeIOSPad = isIOSPad;
-    mockPlatform.isNativeIOS = !isAndroid;
-    mockPlatform.isNativeAndroid = isAndroid;
-  });
-
-  it('shares the hidden and inert category policy across layouts', () => {
-    const { result } = renderHook(() => useSettingsConfig());
-    expect(
-      result.current.find(
-        (category) => category?.name === ESettingsTabNames.About,
-      ),
-    ).toEqual(expect.objectContaining({ isHidden: true }));
-    for (const { name } of restrictedCategories) {
-      expect(
-        result.current.find((category) => category?.name === name),
-      ).toEqual(expect.objectContaining({ ignorePress: true }));
-    }
-    const itemIds = result.current.flatMap(
-      (category) => category?.configs.flat().map((item) => item?.id) ?? [],
-    );
-    expect(itemIds).not.toContain('manual-backup');
-    expect(itemIds).not.toContain('address-book');
-    expect(itemIds).not.toContain('add-network');
-    expect(itemIds).not.toContain('custom-rpc');
-  });
-
-  it('hides About, search, official channels and Support', () => {
-    const view = render(<SettingTab />);
-    expect(view.queryByTestId(SettingTestIDs.aboutItem)).toBeNull();
-    expect(view.queryByRole('textbox')).toBeNull();
-    expect(view.queryByTestId('official-channels-and-support')).toBeNull();
-    expect(view.getByTestId(SettingTestIDs.versionItem)).toBeTruthy();
-  });
-
-  it('keeps restricted rows visible without navigating or emitting tab events', async () => {
-    const view = render(<SettingTab />);
-    for (const { title } of restrictedCategories) {
-      const button = view.getByRole('button', { name: title });
-      expect(button.hasAttribute('disabled')).toBe(false);
-      fireEvent.click(button);
-    }
-    expect(mockNavigation.dispatch).not.toHaveBeenCalled();
-    expect(mockNavigation.push).not.toHaveBeenCalled();
-    expect(mockNavigation.emit).not.toHaveBeenCalled();
-    expect(mockCategoryOpened).not.toHaveBeenCalled();
-
-    fireEvent.click(view.getByTestId(SettingTestIDs.securityItem));
-    await waitFor(() => {
-      expect(mockCategoryOpened).toHaveBeenCalledWith({
-        category: ESettingsTabNames.Security,
-        source: isTabNavigator ? 'sidebar' : 'mobileHome',
-      });
+  {
+    name: 'iPhone',
+    isIOSPad: false,
+    isAndroid: false,
+    gtMd: false,
+    isWideWindow: false,
+  },
+  {
+    name: 'iPhone Duo inner display',
+    isIOSPad: false,
+    isAndroid: false,
+    gtMd: false,
+    isWideWindow: true,
+  },
+  {
+    name: 'iPad',
+    isIOSPad: true,
+    isAndroid: false,
+    gtMd: false,
+    isWideWindow: true,
+  },
+  {
+    name: 'wide Android',
+    isIOSPad: false,
+    isAndroid: true,
+    gtMd: true,
+    isWideWindow: false,
+  },
+])(
+  'Travel Mode settings on $name',
+  ({ isIOSPad, isAndroid, gtMd, isWideWindow }) => {
+    const isTabNavigator = isIOSPad || gtMd || isWideWindow;
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockTravelMode = true;
+      mockGtMd = gtMd;
+      mockWideNativeWindow = isWideWindow;
+      mockPlatform.isNativeIOSPad = isIOSPad;
+      mockPlatform.isNativeIOS = !isAndroid;
+      mockPlatform.isNativeAndroid = isAndroid;
     });
-    expect(
-      isTabNavigator ? mockNavigation.dispatch : mockNavigation.push,
-    ).toHaveBeenCalledTimes(1);
-  });
 
-  it('restores categories, search and navigation in normal mode', async () => {
-    mockTravelMode = false;
-    const view = render(<SettingTab />);
-    expect(view.getByTestId(SettingTestIDs.aboutItem)).toBeTruthy();
-    expect(view.getByRole('textbox')).toBeTruthy();
-    if (isTabNavigator) {
-      expect(view.getByTestId('official-channels-and-support')).toBeTruthy();
-    }
-    for (const { title } of restrictedCategories) {
-      fireEvent.click(view.getByRole('button', { name: title }));
-    }
-    await waitFor(() => {
+    it('shares the hidden and inert category policy across layouts', () => {
+      const { result } = renderHook(() => useSettingsConfig());
+      expect(
+        result.current.find(
+          (category) => category?.name === ESettingsTabNames.About,
+        ),
+      ).toEqual(expect.objectContaining({ isHidden: true }));
+      for (const { name } of restrictedCategories) {
+        expect(
+          result.current.find((category) => category?.name === name),
+        ).toEqual(expect.objectContaining({ ignorePress: true }));
+      }
+      const itemIds = result.current.flatMap(
+        (category) => category?.configs.flat().map((item) => item?.id) ?? [],
+      );
+      expect(itemIds).not.toContain('manual-backup');
+      expect(itemIds).not.toContain('address-book');
+      expect(itemIds).not.toContain('add-network');
+      expect(itemIds).not.toContain('custom-rpc');
+    });
+
+    it('hides About, search, official channels and Support', () => {
+      const view = render(<SettingTab />);
+      expect(view.queryByTestId(SettingTestIDs.aboutItem)).toBeNull();
+      expect(view.queryByRole('textbox')).toBeNull();
+      expect(view.queryByTestId('official-channels-and-support')).toBeNull();
+      expect(view.getByTestId(SettingTestIDs.versionItem)).toBeTruthy();
+    });
+
+    it('keeps restricted rows visible without navigating or emitting tab events', async () => {
+      const view = render(<SettingTab />);
+      for (const { title } of restrictedCategories) {
+        const button = view.getByRole('button', { name: title });
+        expect(button.hasAttribute('disabled')).toBe(false);
+        fireEvent.click(button);
+      }
+      expect(mockNavigation.dispatch).not.toHaveBeenCalled();
+      expect(mockNavigation.push).not.toHaveBeenCalled();
+      expect(mockNavigation.emit).not.toHaveBeenCalled();
+      expect(mockCategoryOpened).not.toHaveBeenCalled();
+
+      fireEvent.click(view.getByTestId(SettingTestIDs.securityItem));
+      await waitFor(() => {
+        expect(mockCategoryOpened).toHaveBeenCalledWith({
+          category: ESettingsTabNames.Security,
+          source: isTabNavigator ? 'sidebar' : 'mobileHome',
+        });
+      });
       expect(
         isTabNavigator ? mockNavigation.dispatch : mockNavigation.push,
-      ).toHaveBeenCalledTimes(3);
+      ).toHaveBeenCalledTimes(1);
     });
-  });
-});
+
+    it('restores categories, search and navigation in normal mode', async () => {
+      mockTravelMode = false;
+      const view = render(<SettingTab />);
+      expect(view.getByTestId(SettingTestIDs.aboutItem)).toBeTruthy();
+      expect(view.getByRole('textbox')).toBeTruthy();
+      if (isTabNavigator) {
+        expect(view.getByTestId('official-channels-and-support')).toBeTruthy();
+      }
+      for (const { title } of restrictedCategories) {
+        fireEvent.click(view.getByRole('button', { name: title }));
+      }
+      await waitFor(() => {
+        expect(
+          isTabNavigator ? mockNavigation.dispatch : mockNavigation.push,
+        ).toHaveBeenCalledTimes(3);
+      });
+    });
+  },
+);

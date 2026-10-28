@@ -1,14 +1,18 @@
-import { useMedia } from '@onekeyhq/components';
+import { useIsWideNativeWindow, useMedia } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+// Wide iOS windows (the iPhone Duo inner display) get the iPad sidebar
+// layout; their media stays `md` because phone media uses the short side.
 export const useIsTabNavigator = () => {
   const { gtMd } = useMedia();
-  return platformEnv.isNativeIOSPad || gtMd;
+  const isWideNativeWindow = useIsWideNativeWindow();
+  return platformEnv.isNativeIOSPad || gtMd || isWideNativeWindow;
 };
 
 /**
  * The settings layout axes, derived once so every surface agrees:
- * - tab navigator (desktop, wide web, iPad): left sidebar + panes
+ * - tab navigator (desktop, wide web, iPad, iPhone Duo inner display):
+ *   left sidebar + panes
  * - mobile layout (phones): card home + pushed pages
  * - neither (extension popup, narrow web): flat list
  * `preferMobileNaming` lets tab layouts and phones use the few intentional

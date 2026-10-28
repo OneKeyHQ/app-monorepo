@@ -150,6 +150,16 @@ function TabItemView({
       };
     }
 
+    // DesktopTabItem only lays rows out horizontally at `gtMd`; the sidebar
+    // also shows on wide iOS windows whose media stays `md` (iPhone Duo).
+    const tabBarItemStyle = {
+      flexDirection: 'row',
+      px: '$2',
+      borderRadius: '$2',
+      ...(isActive ? { bg: '$bgActive' } : undefined),
+      ...(options.tabBarItemStyle as IStackStyle | undefined),
+    } as IStackStyle;
+
     return (
       <DesktopTabItem
         onPress={handlePress}
@@ -163,7 +173,7 @@ function TabItemView({
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         tabBarStyle={options.tabBarStyle}
-        tabBarItemStyle={options.tabBarItemStyle}
+        tabBarItemStyle={tabBarItemStyle}
         {...(selectedBackgroundColor
           ? { bg: selectedBackgroundColor }
           : undefined)}
@@ -250,11 +260,15 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   }, [routes, state.index, state.key, descriptors, navigation]);
 
   const { top, bottom } = useSafeAreaInsets();
+  // An iPhone page sheet (iPhone Duo inner display) already starts below the
+  // status bar, so the window's top inset would only push the sidebar down.
+  const sidebarTop =
+    platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad ? 0 : top;
   return (
     <YStack
       w={192}
       bg="$bgSubdued"
-      pt={top}
+      pt={sidebarTop}
       pb={bottom}
       borderRightWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
