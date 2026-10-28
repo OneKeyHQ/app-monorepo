@@ -26,6 +26,7 @@ export class CreateOrderScene extends BaseScene {
     swapProvider,
     swapProviderName,
     createFrom,
+    fromRecentTokenPair,
     router,
     slippage,
     quoteToTokenAmount,
@@ -63,6 +64,8 @@ export class CreateOrderScene extends BaseScene {
     feeType: string;
     isFirstTime: boolean;
     createFrom: string;
+    // Whether the traded pair is the one last picked from "Recent trades".
+    fromRecentTokenPair: boolean;
     toTokenAmount: string;
     fromTokenAmount: string;
     fromAddress: string;
@@ -102,6 +105,7 @@ export class CreateOrderScene extends BaseScene {
       router,
       slippage,
       createFrom,
+      fromRecentTokenPair,
       walletType,
       deviceType,
     };
