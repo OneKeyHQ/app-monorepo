@@ -85,6 +85,8 @@ async function createHarness() {
       ]),
       boostPausedByNetwork: {},
       syncFailureBackoff: new Map(),
+      // Object.create skips field initializers; desktop and web start off cellular.
+      deviceIsCellular: false,
     },
   );
   const epoch = (await state.getAccountEpoch({ accountId }))!;
@@ -284,6 +286,32 @@ it('leaves a paused chain paused when the balance is refreshed', async () => {
   expect(start).not.toHaveBeenCalled();
   expect(wake).not.toHaveBeenCalled();
 });
+
+// A caught-up account is too small for the light, but a held Refresh must still offer the data choice.
+it.each([
+  { deviceIsCellular: true, dataBlockedNetworkIds: [networkId] },
+  { deviceIsCellular: false, dataBlockedNetworkIds: [] },
+])(
+  'requests a caught-up refresh only while metered data holds scanning (cellular: $deviceIsCellular)',
+  async ({ deviceIsCellular, dataBlockedNetworkIds }) => {
+    const { service } = await createHarness();
+    stubScheduling(service);
+    Object.assign(service, { deviceIsCellular });
+    jest.spyOn(service, 'getPublishedRemainingBlocks').mockResolvedValue(0);
+    const wake = jest
+      .spyOn(service, 'wakeLocalWalletSync')
+      .mockResolvedValue(undefined);
+    await service.refreshLocalWalletAccount(params);
+    expect(publishedState().dataBlockedNetworkIds).toEqual(
+      dataBlockedNetworkIds,
+    );
+    expect(publishedState().boostingNetworkIds).toEqual([]);
+    expect(!!service.foregroundBoostRequestedByNetwork[networkId]).toBe(
+      deviceIsCellular,
+    );
+    expect(wake).toHaveBeenCalledTimes(1);
+  },
+);
 
 it('marks a chain preparing on an explicit sync until its next published position', async () => {
   const { service, candidate } = await createHarness();

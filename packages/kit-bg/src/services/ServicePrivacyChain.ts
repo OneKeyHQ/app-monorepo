@@ -552,7 +552,32 @@ class ServicePrivacyChain extends ServiceBase {
   // not.
   @backgroundMethod()
   @toastLocalWalletError()
-  async verifyLocalWalletWithPassword({
+  async verifyLocalWalletWithPassword(params: {
+    networkId: string;
+    accountId: string;
+  }): Promise<void> {
+    await this.confirmLocalWalletFunds(params);
+  }
+
+  // Passive check on entering a send: scanning accounts only; failures are logged, never toasted.
+  @backgroundMethod()
+  async maybeVerifyLocalWalletOnSend(params: {
+    networkId: string;
+    accountId: string;
+  }): Promise<void> {
+    try {
+      const state = await this.getLocalWalletAccountState(params);
+      if (!state.enabled) return;
+      await this.confirmLocalWalletFunds(params);
+    } catch (e) {
+      console.error('[privacy-chain] send verification skipped', {
+        networkId: params.networkId,
+        ...describePrivacyChainError(e),
+      });
+    }
+  }
+
+  private async confirmLocalWalletFunds({
     networkId,
     accountId,
   }: {
@@ -862,6 +887,14 @@ class ServicePrivacyChain extends ServiceBase {
       accountId,
       trigger: 'auto-backfill',
     });
+    // Held by metered data: request it anyway so the light offers the data choice.
+    if (
+      !(await this.isLocalWalletScanAllowed()) &&
+      (await this.getLocalWalletNetworkIds()).includes(networkId)
+    ) {
+      this.foregroundBoostRequestedByNetwork[networkId] = true;
+      await this.publishBoostingNetworks();
+    }
     this.shortenStartupQuietWindow();
     await this.wakeLocalWalletSync();
   }

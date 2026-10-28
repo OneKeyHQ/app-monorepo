@@ -1415,7 +1415,7 @@ function SendAmountInputContainer() {
   useEffect(() => {
     if (!hasLocalWallet || !currentAccountId) return;
     void backgroundApiProxy.servicePrivacyChain
-      .verifyLocalWalletWithPassword({ networkId, accountId: currentAccountId })
+      .maybeVerifyLocalWalletOnSend({ networkId, accountId: currentAccountId })
       .catch(() => undefined);
   }, [hasLocalWallet, networkId, currentAccountId]);
   const sourcePoolSpendableParsed = isSendPoolReady

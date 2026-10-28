@@ -1,3 +1,6 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 
 const mockGetVault = jest.fn();
@@ -131,5 +134,107 @@ describe('Privacy device verification on request', () => {
     await service.verifyLocalWalletWithPassword(params);
 
     expect(localWalletDoDeviceWork).not.toHaveBeenCalled();
+  });
+});
+
+describe('Privacy password verification on entering a send', () => {
+  const params = { networkId: 'xmr--0', accountId: 'account' };
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetAllMocks();
+  });
+
+  function createService({
+    enabled,
+    hasWork = async () => true,
+  }: {
+    enabled: boolean;
+    hasWork?: () => Promise<boolean>;
+  }) {
+    const localWalletHasPasswordWork = jest.fn(hasWork);
+    const localWalletDoPasswordWork = jest.fn(async () => true);
+    mockGetVault.mockResolvedValue({
+      localWalletHasDeviceWork: async () => false,
+      localWalletHasPasswordWork,
+      localWalletDoPasswordWork,
+    });
+    const promptPasswordVerifyByAccount = jest.fn(async () => ({
+      password: 'synthetic-test-password',
+    }));
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as {
+        maybeVerifyLocalWalletOnSend: (p: typeof params) => Promise<void>;
+      },
+      {
+        backgroundApi: { servicePassword: { promptPasswordVerifyByAccount } },
+        getLocalWalletAccountState: jest.fn(async () => ({
+          enabled,
+          paused: !enabled,
+        })),
+      },
+    );
+    const toast = jest.spyOn(errorToastUtils, 'toastIfError');
+    return {
+      service,
+      localWalletHasPasswordWork,
+      localWalletDoPasswordWork,
+      promptPasswordVerifyByAccount,
+      toast,
+    };
+  }
+
+  it('leaves an account that does not scan alone', async () => {
+    const {
+      service,
+      localWalletHasPasswordWork,
+      promptPasswordVerifyByAccount,
+      toast,
+    } = createService({ enabled: false });
+
+    await service.maybeVerifyLocalWalletOnSend(params);
+
+    expect(mockGetVault).not.toHaveBeenCalled();
+    expect(localWalletHasPasswordWork).not.toHaveBeenCalled();
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it('asks for the password for a scanning account, as a tap does', async () => {
+    const {
+      service,
+      localWalletDoPasswordWork,
+      promptPasswordVerifyByAccount,
+    } = createService({ enabled: true });
+
+    await service.maybeVerifyLocalWalletOnSend(params);
+
+    expect(promptPasswordVerifyByAccount).toHaveBeenCalledTimes(1);
+    expect(localWalletDoPasswordWork).toHaveBeenCalledWith({
+      password: 'synthetic-test-password',
+    });
+  });
+
+  it('logs a runtime failure instead of raising or toasting it', async () => {
+    const { service, promptPasswordVerifyByAccount, toast } = createService({
+      enabled: true,
+      hasWork: async () => {
+        throw new OneKeyLocalError('xmr: runtime unavailable');
+      },
+    });
+    const log = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    await expect(
+      service.maybeVerifyLocalWalletOnSend(params),
+    ).resolves.toBeUndefined();
+
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+    expect(toast).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      '[privacy-chain] send verification skipped',
+      expect.objectContaining({ message: 'xmr: runtime unavailable' }),
+    );
   });
 });
