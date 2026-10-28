@@ -860,11 +860,24 @@ export function ManagePositionContent({
   const resolvedTokenImageUri =
     tokenInfo?.token?.logoURI || fallbackTokenImageUri;
 
-  // With Pay with, a deposit the server turns off only because the wallet
-  // holds none of the token stays open: another token can pay. A deposit off
-  // for any other reason (a paused or capped protocol) stays off
+  // Lack of funds is the wallet's state, not the market's: a deposit the
+  // server turns off only for it stays open, and the form says what is wrong
+  // once an amount is typed. Aave's supply comes off whenever the most the
+  // wallet can supply is 0: none of the token, or less of the network's coin
+  // than the fee the server keeps back. With Pay with, holding none of the
+  // token is no reason either. Off for any other reason (a protocol that
+  // takes no more deposits) stays off
+  const supplyData = managePageData?.supply?.data;
+  const supplyMax = new BigNumber(supplyData?.maxBalance ?? Number.NaN);
+  const isSupplyOffForFunds =
+    !!managePageData?.supply?.disabled &&
+    supplyMax.isFinite() &&
+    supplyMax.lte(0) &&
+    (!new BigNumber(supplyData?.balance ?? 0).gt(0) ||
+      !!supplyData?.token?.info?.isNative);
   const isDepositDisabled =
     depositDisabled &&
+    !isSupplyOffForFunds &&
     !(payWith && !new BigNumber(tokenInfo?.balanceParsed ?? '0').gt(0));
 
   const resolvedTokenInfo = useMemo(() => {
