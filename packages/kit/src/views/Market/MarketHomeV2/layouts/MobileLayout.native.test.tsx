@@ -321,7 +321,10 @@ jest.mock('../components/MarketPerpsList/MarketPerpsCategorySelector', () => ({
 }));
 jest.mock(
   '../components/MarketTokenList/hooks/useMarketWatchlistTokenList',
-  () => ({ useIsWatchlistTokenCacheReady: () => true }),
+  () => ({
+    marketWatchlistDataCacheRef: { current: undefined },
+    useIsWatchlistTokenCacheReady: () => true,
+  }),
 );
 jest.mock('../components/MarketTokenList/MarketStockCategorySelector', () => ({
   MarketStockCategorySelector: (props: IMockCategorySelectorProps) => {
