@@ -71,7 +71,7 @@ jest.mock('@onekeyhq/components', () => {
     ),
     Divider: Container,
     Icon: Container,
-    SizableText: Container,
+    SizableText: ({ children }: PropsWithChildren) => <span>{children}</span>,
     Skeleton: () => <span data-testid="position-loading" />,
     Spinner: Container,
     Stack: Container,
@@ -215,6 +215,66 @@ describe('Market mobile Buy / Sell modal entry', () => {
     expect(screen.getByText('750')).toBeTruthy();
     expect(container.textContent).toContain('(-3.23%)');
   });
+
+  it('hides PNL together with the position value while the current scope is pending', () => {
+    const { container } = render(
+      <SwapPanel
+        swapToken={{ ...token, isStock: true }}
+        detailKind="stock"
+        portfolioData={stockPositions}
+        isPortfolioPending
+        mobileLayout
+      />,
+    );
+    expect(screen.getByTestId('position-loading')).toBeTruthy();
+    expect(screen.queryByText('750')).toBeNull();
+    expect(screen.queryByText('25')).toBeNull();
+    expect(container.textContent).not.toContain('(-3.23%)');
+  });
+
+  it.each([
+    { name: 'no resolved variants', portfolioData: [] },
+    { name: 'one resolved variant', portfolioData: stockPositions.slice(0, 1) },
+  ])(
+    'shows an unavailable total and retries with $name',
+    ({ portfolioData }) => {
+      const onRefreshPortfolio = jest.fn();
+      const { container, rerender } = render(
+        <SwapPanel
+          swapToken={{ ...token, isStock: true }}
+          detailKind="stock"
+          portfolioData={portfolioData}
+          isPortfolioIncomplete
+          onRefreshPortfolio={onRefreshPortfolio}
+          mobileLayout
+        />,
+      );
+      expect(screen.getByText('—')).toBeTruthy();
+      expect(screen.queryByText('250')).toBeNull();
+      expect(screen.queryByText('0')).toBeNull();
+      expect(container.textContent).not.toContain('(11.11%)');
+      fireEvent.click(
+        screen.getByRole('button', { name: ETranslations.global_retry }),
+      );
+      expect(onRefreshPortfolio).toHaveBeenCalledTimes(1);
+
+      rerender(
+        <SwapPanel
+          swapToken={{ ...token, isStock: true }}
+          detailKind="stock"
+          portfolioData={stockPositions}
+          isPortfolioIncomplete={false}
+          onRefreshPortfolio={onRefreshPortfolio}
+          mobileLayout
+        />,
+      );
+      expect(screen.getByText('750')).toBeTruthy();
+      expect(container.textContent).toContain('(-3.23%)');
+      expect(
+        screen.queryByRole('button', { name: ETranslations.global_retry }),
+      ).toBeNull();
+    },
+  );
 
   it('keeps the stock value but hides incomplete combined PNL', () => {
     const { container } = render(

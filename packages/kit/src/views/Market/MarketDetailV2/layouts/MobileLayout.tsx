@@ -1212,6 +1212,10 @@ export function MobileLayout({
         portfolioData={portfolioData}
         onShowSwapDialog={showSwapDialog}
         isPortfolioPending={isPortfolioPending}
+        isPortfolioIncomplete={
+          isStockPortfolio && stockPortfolio.isPortfolioIncomplete
+        }
+        onRefreshPortfolio={stockPortfolio.fetchPortfolio}
         executionReady={isSwapTokenReady && isSwapExecutionReady}
         footerMode={footerMode}
         mobileLayout

@@ -201,8 +201,14 @@ export function useStockPortfolioData({ enabled = true } = {}) {
     activeAccount: { account, indexedAccount, deriveType, ready },
   } = useActiveAccount({ num: 0 });
   const [selectedDeriveType] = useSelectedDeriveTypeAtom();
-  const { portfolioNetworkId, stockId, tokenVariants, isTokenVariantPending } =
-    useStockDetail();
+  const {
+    portfolioNetworkId,
+    stockId,
+    tokenVariants,
+    isTokenVariantPending,
+    isTokenVariantsError,
+    retryTokenVariants,
+  } = useStockDetail();
   const successfulPortfolioCacheRef = useRef(
     new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
   );
@@ -221,6 +227,16 @@ export function useStockPortfolioData({ enabled = true } = {}) {
   );
   const tokenVariantsRef = useRef(tokenVariants);
   tokenVariantsRef.current = tokenVariants;
+  const portfolioScopeKey = JSON.stringify([
+    stockId,
+    account?.id,
+    indexedAccount?.id,
+    deriveType,
+    portfolioNetworkId,
+    selectedDeriveType?.networkId,
+    selectedDeriveType?.deriveType,
+    tokenVariantsKey,
+  ]);
 
   const resolveNetworkAccount = useCallback(
     async (networkId: string) => {
@@ -268,8 +284,16 @@ export function useStockPortfolioData({ enabled = true } = {}) {
       // Undefined rather than an empty result: with no account there is
       // nothing to read a balance from, and an empty list would claim every
       // variant was checked and found empty.
-      if (!enabled || !stockId || !hasAccount) return undefined;
-      return fetchStockPortfolioData({
+      if (
+        !enabled ||
+        !stockId ||
+        !hasAccount ||
+        isTokenVariantPending ||
+        isTokenVariantsError
+      ) {
+        return undefined;
+      }
+      const result = await fetchStockPortfolioData({
         stockId,
         tokenVariants: tokenVariantsRef.current,
         successfulPortfolioCache: successfulPortfolioCacheRef.current,
@@ -280,13 +304,22 @@ export function useStockPortfolioData({ enabled = true } = {}) {
             throwOnError: true,
           }),
       });
+      return { ...result, portfolioScopeKey };
     },
     // The request reads the latest variants from a ref so 6-second metadata
     // refreshes only restart this query when their asset identities change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enabled, hasAccount, resolveNetworkAccount, stockId, tokenVariantsKey],
+    [
+      enabled,
+      hasAccount,
+      isTokenVariantPending,
+      isTokenVariantsError,
+      resolveNetworkAccount,
+      portfolioScopeKey,
+    ],
     {
       watchLoading: true,
+      runImmediatelyOnPollingIntervalChange: true,
       pollingInterval:
         enabled && stockId && hasAccount
           ? timerUtils.getTimeDurationMs({ seconds: 15 })
@@ -295,20 +328,58 @@ export function useStockPortfolioData({ enabled = true } = {}) {
     },
   );
 
-  const portfolioData = portfolioResult?.items ?? [];
+  // usePromiseResult retains the last result during a new request. It is only
+  // usable when its account, stock, derivation and variants still match.
+  const isCurrentPortfolioScope =
+    enabled &&
+    hasAccount &&
+    !isTokenVariantPending &&
+    !isTokenVariantsError &&
+    portfolioResult?.portfolioScopeKey === portfolioScopeKey;
+  const portfolioData = useMemo(
+    () => (isCurrentPortfolioScope ? (portfolioResult?.items ?? []) : []),
+    [isCurrentPortfolioScope, portfolioResult],
+  );
   // Empty until a run settles, so nothing counts as established before then.
   const resolvedVariantKeys = useMemo(
-    () => portfolioResult?.resolvedVariantKeys ?? [],
-    [portfolioResult],
+    () =>
+      isCurrentPortfolioScope
+        ? (portfolioResult?.resolvedVariantKeys ?? [])
+        : [],
+    [isCurrentPortfolioScope, portfolioResult],
   );
+  const isPortfolioPending = Boolean(
+    enabled &&
+    (!ready ||
+      isTokenVariantPending ||
+      (hasAccount && !isTokenVariantsError && !isCurrentPortfolioScope)),
+  );
+  const isPortfolioIncomplete = Boolean(
+    enabled &&
+    hasAccount &&
+    !isPortfolioPending &&
+    (isTokenVariantsError ||
+      tokenVariants.some(
+        (variant) =>
+          !resolvedVariantKeys.includes(getStockPortfolioVariantKey(variant)),
+      )),
+  );
+  const onRefresh = useCallback(async () => {
+    if (isTokenVariantsError) {
+      // A successful variant retry changes the scope and starts its portfolio.
+      await retryTokenVariants();
+      return;
+    }
+    await fetchPortfolio();
+  }, [fetchPortfolio, isTokenVariantsError, retryTokenVariants]);
 
   return {
     portfolioData,
     resolvedVariantKeys,
     isRefreshing: Boolean(isRefreshing),
-    isPortfolioPending:
-      !ready || isTokenVariantPending || (hasAccount && !portfolioResult),
+    isPortfolioPending,
+    isPortfolioIncomplete,
     hasAccount,
-    fetchPortfolio,
+    fetchPortfolio: onRefresh,
   };
 }

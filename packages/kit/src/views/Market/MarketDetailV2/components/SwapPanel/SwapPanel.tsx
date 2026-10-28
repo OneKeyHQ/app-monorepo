@@ -136,6 +136,8 @@ export function SwapPanel({
   disableTrade,
   portfolioData,
   isPortfolioPending = false,
+  isPortfolioIncomplete = false,
+  onRefreshPortfolio,
   onShowSwapDialog,
   executionReady = true,
   footerMode = 'buy-sell',
@@ -148,6 +150,8 @@ export function SwapPanel({
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
   isPortfolioPending?: boolean;
+  isPortfolioIncomplete?: boolean;
+  onRefreshPortfolio?: () => void;
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
   // False until the token detail confirms the token can be traded. The footer
   // keeps its place and shows the buttons disabled instead of appearing late.
@@ -304,7 +308,11 @@ export function SwapPanel({
   if (mobileLayout) {
     const pnl = myPositionInfo.pnl;
     const unrealizedBN = new BigNumber(pnl?.unrealizedPnlUsd ?? 0);
-    const hasPnl = pnl?.isPnlSupported && !unrealizedBN.isNaN();
+    const hasPnl =
+      !isPortfolioPending &&
+      !isPortfolioIncomplete &&
+      pnl?.isPnlSupported &&
+      !unrealizedBN.isNaN();
     const pnlIsPositive = hasPnl && unrealizedBN.gt(0);
     const pnlIsNegative = hasPnl && unrealizedBN.lt(0);
 
@@ -325,6 +333,32 @@ export function SwapPanel({
         !executionReady || (!swapToken.isStock && !speedConfigReady),
       perpsDisabled,
     };
+    let positionValue = (
+      <Currency
+        size="$bodyMdMedium"
+        formatter="value"
+        sourceCurrency={USD_CURRENCY_ID}
+      >
+        {myPositionInfo.formattedValue}
+      </Currency>
+    );
+    if (isPortfolioPending) {
+      positionValue = <Skeleton width="$12" height="$5" />;
+    } else if (isPortfolioIncomplete) {
+      positionValue = (
+        <>
+          <SizableText size="$bodyMdMedium">—</SizableText>
+          <Button
+            testID="market-stock-position-retry"
+            size="small"
+            variant="tertiary"
+            onPress={onRefreshPortfolio}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </>
+      );
+    }
 
     return (
       <YStack>
@@ -343,17 +377,7 @@ export function SwapPanel({
                 id: ETranslations.dexmarket_details_myposition,
               })}
             </SizableText>
-            {isPortfolioPending ? (
-              <Skeleton width="$12" height="$5" />
-            ) : (
-              <Currency
-                size="$bodyMdMedium"
-                formatter="value"
-                sourceCurrency={USD_CURRENCY_ID}
-              >
-                {myPositionInfo.formattedValue}
-              </Currency>
-            )}
+            {positionValue}
           </XStack>
           {hasPnl ? (
             <XStack gap="$1" alignItems="center">
