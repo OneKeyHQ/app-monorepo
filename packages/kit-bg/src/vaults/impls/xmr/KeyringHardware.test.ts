@@ -1,4 +1,4 @@
-// cspell:ignore clsag clsags subaddr rsig vinis
+// cspell:ignore clsag clsags subaddr rsig vinis randMult
 import { chacha20poly1305 } from '@noble/ciphers/chacha';
 import { keccak_256 as keccak256 } from '@noble/hashes/sha3';
 
@@ -458,6 +458,11 @@ describe('Monero KeyringHardware', () => {
     }
     const SEALED = sealForIndexZero(clsag, openingKey);
 
+    const SEALED_TX_KEYS = {
+      salt: '11'.repeat(32),
+      randMult: '12'.repeat(32),
+      txEncKeys: 'ee'.repeat(76),
+    };
     const parts = {
       origIndices: [0],
       vinis: [`02${'00'.repeat(20)}${'33'.repeat(32)}`],
@@ -478,8 +483,8 @@ describe('Monero KeyringHardware', () => {
           ...parts,
           signatures: [SEALED],
           openingKey: bufferUtils.bytesToHex(openingKey),
-          // Not in the contract: must not reach the runtime.
-          txEncKeys: 'ee'.repeat(48),
+          // For the sent record: must not reach the runtime.
+          ...SEALED_TX_KEYS,
           ...overrides,
         },
       };
@@ -525,6 +530,9 @@ describe('Monero KeyringHardware', () => {
         txid: 'ab'.repeat(32),
         rawTx: '0200',
         encodedTx,
+        xmrSentTxKeys: {
+          device: { ...SEALED_TX_KEYS, txPrefixHash: parts.txPrefixHash },
+        },
       });
 
       expect(moneroSignTransaction).toHaveBeenCalledWith(
@@ -571,6 +579,18 @@ describe('Monero KeyringHardware', () => {
 
       await expect(keyring.signTransaction(signParams())).rejects.toThrow(
         'signature from the device does not open',
+      );
+      expect(assembleDeviceTransaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses a device reply without the sealed tx keys', async () => {
+      const { keyring, assembleDeviceTransaction } = createSigningKeyring({
+        sign: jest
+          .fn()
+          .mockResolvedValue(signedPayload({ txEncKeys: undefined })),
+      });
+      await expect(keyring.signTransaction(signParams())).rejects.toThrow(
+        'malformed hardware signed transaction',
       );
       expect(assembleDeviceTransaction).not.toHaveBeenCalled();
     });
@@ -648,6 +668,7 @@ describe('Monero KeyringHardware', () => {
         SEALED,
         bufferUtils.bytesToHex(openingKey),
         bufferUtils.bytesToHex(clsag),
+        SEALED_TX_KEYS.txEncKeys,
       ]) {
         expect(logged).not.toContain(secret);
       }

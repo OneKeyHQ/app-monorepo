@@ -1,4 +1,4 @@
-// cspell:ignore clsags
+// cspell:ignore clsags randMult
 import { isEqual } from 'lodash';
 
 import { openXmrDeviceKeyImages } from '@onekeyhq/core/src/chains/xmr/deviceKeyImages';
@@ -254,8 +254,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (!response.success) {
       throw convertDeviceError(response.payload);
     }
-    // The opening key stops here; only the opened signatures go on.
-    const { signatures, openingKey, ...parts } = response.payload;
+    // The opening key stops here; only the opened signatures go on. The
+    // sealed tx keys go to the sent record instead (see Vault.signTransaction).
+    const { signatures, openingKey, salt, randMult, txEncKeys, ...parts } =
+      response.payload;
     const clsags = openXmrDeviceSignatures({ openingKey, signatures });
     const api = await (this.vault as Vault).getXmrRuntimeApi();
     const assembled = parseXmrAssembledTransaction(
@@ -264,7 +266,15 @@ export class KeyringHardware extends KeyringHardwareBase {
         stringUtils.stableStringify({ ...parts, clsags }),
       ),
     );
-    return { txid: assembled.txid, rawTx: assembled.rawHex, encodedTx };
+    return {
+      txid: assembled.txid,
+      rawTx: assembled.rawHex,
+      encodedTx,
+      // The runtime checked the transaction against this prefix hash.
+      xmrSentTxKeys: {
+        device: { salt, randMult, txEncKeys, txPrefixHash: parts.txPrefixHash },
+      },
+    };
   }
 
   override async signMessage(

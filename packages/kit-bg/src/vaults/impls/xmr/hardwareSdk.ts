@@ -1,4 +1,4 @@
-// cspell:ignore vinis rsig
+// cspell:ignore vinis rsig randMult
 import { z } from 'zod';
 
 import type { IXmrDevicePlan } from '@onekeyhq/core/src/chains/xmr/deviceSigning';
@@ -25,6 +25,8 @@ const keyImageSyncSchema = z.object({
 });
 // Per-input arrays are in key-image sorted order, per-output ones in the
 // order of tsxData.outputs; `signatures` are sealed until `openingKey`.
+// `txEncKeys` are the tx private keys, sealed by the device under a key it
+// derives again from `salt` and `randMult`.
 const signTransactionSchema = z.object({
   origIndices: z.array(z.number().int().nonnegative()),
   vinis: z.array(hexBytes),
@@ -43,6 +45,9 @@ const signTransactionSchema = z.object({
     rvType: z.number().int().nonnegative(),
   }),
   openingKey: hex32,
+  salt: hex32,
+  randMult: hex32,
+  txEncKeys: hexBytes,
 });
 const responseSchema = z.object({ success: z.boolean(), payload: z.unknown() });
 const errorSchema = z.object({

@@ -1,4 +1,4 @@
-// cspell:ignore piconero
+// cspell:ignore piconero randMult
 /* eslint-disable import/first */
 
 jest.mock('../../../dbs/local/localDbInstance');
@@ -541,11 +541,9 @@ describe('xmr send: broadcast', () => {
   });
 
   // Fails like BTC; the message asks to check history, where the runtime
-  // keeps the tx pending, and the recipient is still recorded.
-  it('fails on an unknown network outcome after recording the recipient', async () => {
-    const recordXmrSent = jest.fn(async () => undefined);
+  // keeps the tx pending under the recipient recorded at signing.
+  it('fails on an unknown network outcome', async () => {
     const { vault } = createVault({
-      recordXmrSent,
       broadcast: async () =>
         JSON.stringify({
           txid: 'deadbeef',
@@ -567,9 +565,6 @@ describe('xmr send: broadcast', () => {
         },
       } as never),
     ).rejects.toThrow(ETranslations.privacy_error_broadcast_unknown__msg);
-    expect(recordXmrSent).toHaveBeenCalledWith(
-      expect.objectContaining({ txid: 'deadbeef', recipient: RECIPIENT }),
-    );
   });
 
   // The pending row needs the amount, and the total its change (wallet2
@@ -640,49 +635,19 @@ describe('xmr send: broadcast', () => {
     ).rejects.toThrow(/unexpected transaction id/);
   });
 
-  it('still reports success when recording the recipient fails', async () => {
-    const { vault } = createVault({
-      recordXmrSent: () => Promise.reject(new Error('disk full')),
-    });
-    await expect(
-      vault.broadcastTransaction({
-        signedTx: {
-          txid: 'deadbeef',
-          rawTx: '00ff',
-          encodedTx: {
-            ...broadcastEncodedTx,
-            to: RECIPIENT,
-            signableHex: 'aabb',
-            chainTip: 3_767_827,
-          } as IEncodedTxXmr,
-        },
-      } as never),
-    ).resolves.toMatchObject({ txid: 'deadbeef' });
-  });
-
-  it('records who was paid, so the history row is not "sent to Monero"', async () => {
+  // Recorded at signing; a broadcast never rewrites the record.
+  it('leaves the sent record alone', async () => {
     const { vault } = createVault();
     await vault.broadcastTransaction({
       signedTx: {
         txid: 'deadbeef',
         rawTx: '00ff',
-        encodedTx: {
-          ...broadcastEncodedTx,
-          to: RECIPIENT,
-          signableHex: 'aabb',
-          chainTip: 3_767_827,
-        } as IEncodedTxXmr,
+        encodedTx: broadcastEncodedTx,
       },
     } as never);
     expect(
       vault.backgroundApi.simpleDb.privacyChainXmrSent.recordXmrSent,
-    ).toHaveBeenCalledWith({
-      accountId: ACCOUNT_ID,
-      txid: 'deadbeef',
-      recipient: RECIPIENT,
-      amountAtomic: '1000000000000',
-      feeAtomic: '30000000',
-    });
+    ).not.toHaveBeenCalled();
   });
 
   // customRpcEnabled routes a saved node's sends here; the base class would
@@ -717,6 +682,83 @@ describe('xmr send: broadcast', () => {
         signedTx: { txid: '', rawTx: '00ff', encodedTx: {} },
       } as never),
     ).rejects.toThrow(ETranslations.privacy_error_review_expired__msg);
+  });
+});
+
+describe('xmr send: signing records the send', () => {
+  const TX_KEYS = { txKey: '22'.repeat(32), additionalTxKeys: [] };
+
+  function withKeyring(vault: Vault, xmrSentTxKeys: unknown = TX_KEYS) {
+    const signTransaction = jest.fn(async () => ({
+      txid: 'deadbeef',
+      rawTx: '00ff',
+      encodedTx: broadcastEncodedTx,
+      xmrSentTxKeys,
+    }));
+    Object.assign(vault, { keyring: { signTransaction } });
+    return signTransaction;
+  }
+
+  const sign = (vault: Vault) =>
+    vault.signTransaction({
+      unsignedTx: { encodedTx: broadcastEncodedTx },
+    } as never);
+
+  // The chain never names the recipient; this record is the only place it lives.
+  it('records who was paid and the tx keys before returning the signed tx', async () => {
+    const { vault } = createVault();
+    withKeyring(vault);
+    const signed = await sign(vault);
+
+    expect(
+      vault.backgroundApi.simpleDb.privacyChainXmrSent.recordXmrSent,
+    ).toHaveBeenCalledWith({
+      accountId: ACCOUNT_ID,
+      txid: 'deadbeef',
+      recipient: RECIPIENT,
+      amountAtomic: '1000000000000',
+      feeAtomic: '30000000',
+      txKeys: TX_KEYS,
+    });
+    // The signed tx reaches the UI and the broadcast retry store.
+    expect(signed).not.toHaveProperty('xmrSentTxKeys');
+    expect(signed).toMatchObject({ txid: 'deadbeef', rawTx: '00ff' });
+  });
+
+  it('records a device send with its sealed keys', async () => {
+    const device = {
+      salt: '11'.repeat(32),
+      randMult: '12'.repeat(32),
+      txEncKeys: 'ab'.repeat(76),
+      txPrefixHash: '56'.repeat(32),
+    };
+    const { vault } = createVault();
+    withKeyring(vault, { device });
+    await expect(sign(vault)).resolves.not.toHaveProperty('xmrSentTxKeys');
+    expect(
+      vault.backgroundApi.simpleDb.privacyChainXmrSent.recordXmrSent,
+    ).toHaveBeenCalledWith(expect.objectContaining({ txKeys: { device } }));
+  });
+
+  // Nothing has left the device yet; a send without its record must not go on.
+  it('fails when the record cannot be written', async () => {
+    const { vault } = createVault({
+      recordXmrSent: () => Promise.reject(new Error('disk full')),
+    });
+    withKeyring(vault);
+    await expect(sign(vault)).rejects.toThrow('disk full');
+  });
+
+  it('writes nothing once the review expired', async () => {
+    const { vault, state } = createVault();
+    withKeyring(vault);
+    state.epoch = '02'.repeat(8);
+    await expect(sign(vault)).rejects.toThrow(
+      ETranslations.privacy_error_review_expired__msg,
+    );
+    expect(
+      vault.backgroundApi.simpleDb.privacyChainXmrSent.recordXmrSent,
+    ).not.toHaveBeenCalled();
   });
 });
 

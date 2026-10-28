@@ -51,6 +51,8 @@ export type IXmrHistoryItem = {
   receivedOnPrimary?: boolean;
   /** Hex payment ID a receive carried (receives only); absent from older runtimes. */
   paymentId?: string | null;
+  /** Received in a block's miner transaction; absent from older runtimes. */
+  isCoinbase?: boolean;
 };
 
 export type {

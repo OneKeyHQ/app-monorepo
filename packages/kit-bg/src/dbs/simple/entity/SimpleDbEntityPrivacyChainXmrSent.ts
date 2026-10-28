@@ -1,6 +1,8 @@
+// cspell:ignore randMult
 import { isPlainObject } from 'lodash';
 import { z } from 'zod';
 
+import type { IXmrSentTxKeys } from '@onekeyhq/core/src/chains/xmr/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -18,16 +20,33 @@ export type IXmrSentAmount = {
   feeAtomic: string;
 };
 
-// accountId -> txid -> IXmrSentRecord. Validated on read; a malformed record is quarantined, never deleted.
+// accountId -> txid -> IXmrSentRecord plus its tx keys. Validated on read; a malformed record is
+// quarantined, never deleted.
 export interface IPrivacyChainXmrSentDB {
   accounts?: Record<string, unknown>;
 }
 
-const xmrSentSchema = z.object({
+const hex32 = z.string().regex(/^[0-9a-fA-F]{64}$/);
+const txKeysFields = {
+  txKey: hex32.optional(),
+  additionalTxKeys: z.array(hex32).max(16).optional(),
+  device: z
+    .object({
+      salt: hex32,
+      randMult: hex32,
+      txEncKeys: z.string().regex(/^(?:[0-9a-fA-F]{2})+$/),
+      txPrefixHash: hex32,
+    })
+    .optional(),
+};
+const xmrSentRecordSchema = z.object({
   recipient: z.string(),
   amountAtomic: z.string().regex(/^\d+$/).optional(),
   feeAtomic: z.string().regex(/^\d+$/).optional(),
 });
+const xmrSentSchema = xmrSentRecordSchema.extend(txKeysFields);
+
+type IStoredXmrSent = z.infer<typeof xmrSentSchema>;
 
 type IRecordMap = Record<string, unknown>;
 
@@ -37,11 +56,11 @@ function isRecordMap(value: unknown): value is IRecordMap {
 
 // Quarantined records are written back untouched.
 function parseRecords(records: IRecordMap | undefined): {
-  valid: Record<string, IXmrSentRecord>;
+  valid: Record<string, IStoredXmrSent>;
   quarantined: IRecordMap;
 } {
   const parsed: {
-    valid: Record<string, IXmrSentRecord>;
+    valid: Record<string, IStoredXmrSent>;
     quarantined: IRecordMap;
   } = { valid: {}, quarantined: {} };
   for (const [key, record] of Object.entries(records ?? {})) {
@@ -65,6 +84,21 @@ function pickXmrSentAmounts(
     amountAtomic: source.amountAtomic,
     feeAtomic: source.feeAtomic,
   };
+}
+
+function pickXmrSentTxKeys(
+  source: IStoredXmrSent | IXmrSentTxKeys | undefined,
+): IXmrSentTxKeys | undefined {
+  if (source && 'device' in source && source.device) {
+    return { device: source.device };
+  }
+  if (source && 'txKey' in source && source.txKey !== undefined) {
+    return {
+      txKey: source.txKey,
+      additionalTxKeys: source.additionalTxKeys ?? [],
+    };
+  }
+  return undefined;
 }
 
 export class SimpleDbEntityPrivacyChainXmrSent extends SimpleDbEntityBase<IPrivacyChainXmrSentDB> {
@@ -95,18 +129,21 @@ export class SimpleDbEntityPrivacyChainXmrSent extends SimpleDbEntityBase<IPriva
     }));
   }
 
+  // Without `txKeys`, keys already recorded for the tx are kept.
   async recordXmrSent({
     accountId,
     txid,
     recipient,
     amountAtomic,
     feeAtomic,
+    txKeys,
   }: {
     accountId: string;
     txid: string;
     recipient: string;
     amountAtomic?: string;
     feeAtomic?: string;
+    txKeys?: IXmrSentTxKeys;
   }): Promise<void> {
     await this.updateAccounts((accounts) => {
       const stored = accounts[accountId];
@@ -122,7 +159,11 @@ export class SimpleDbEntityPrivacyChainXmrSent extends SimpleDbEntityBase<IPriva
         amountAtomic !== undefined && feeAtomic !== undefined
           ? pickXmrSentAmounts({ amountAtomic, feeAtomic })
           : pickXmrSentAmounts(previous);
-      const record = xmrSentSchema.safeParse({ recipient, ...amounts });
+      const record = xmrSentSchema.safeParse({
+        recipient,
+        ...amounts,
+        ...pickXmrSentTxKeys(txKeys ?? previous),
+      });
       if (!record.success) {
         throw new OneKeyLocalError('xmr: invalid sent record');
       }
@@ -135,6 +176,7 @@ export class SimpleDbEntityPrivacyChainXmrSent extends SimpleDbEntityBase<IPriva
     });
   }
 
+  // Without tx keys: history needs none.
   async listXmrSent({
     accountId,
   }: {
@@ -145,7 +187,26 @@ export class SimpleDbEntityPrivacyChainXmrSent extends SimpleDbEntityBase<IPriva
     if (!isRecordMap(stored)) {
       return {};
     }
-    return parseRecords(stored).valid;
+    const records: Record<string, IXmrSentRecord> = {};
+    for (const [txid, record] of Object.entries(parseRecords(stored).valid)) {
+      records[txid] = xmrSentRecordSchema.parse(record);
+    }
+    return records;
+  }
+
+  async getXmrSentTxKeys({
+    accountId,
+    txid,
+  }: {
+    accountId: string;
+    txid: string;
+  }): Promise<IXmrSentTxKeys | undefined> {
+    const raw = await this.getRawData();
+    const stored = raw?.accounts?.[accountId];
+    if (!isRecordMap(stored)) {
+      return undefined;
+    }
+    return pickXmrSentTxKeys(parseRecords(stored).valid[txid]);
   }
 
   async listAccountIds(): Promise<string[]> {

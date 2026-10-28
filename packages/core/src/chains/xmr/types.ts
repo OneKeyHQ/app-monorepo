@@ -1,3 +1,4 @@
+// cspell:ignore randMult
 type IXmrDestination = {
   'to_address': string;
   'send_amount': string;
@@ -35,6 +36,27 @@ export type IEncodedTxXmr = {
   /** Local scan request that supplied the reviewed inputs. */
   privacyEpoch?: string;
 };
+
+/**
+ * A send's tx private keys, kept for payment proofs as wallet2 keeps them. Never part of the
+ * transaction: the XMR vault moves them into its sent record when signing.
+ */
+export type IXmrSentTxKeys =
+  | {
+      /** Hex scalar r, the discrete log of the transaction's public key. */
+      txKey: string;
+      /** One per output when the transaction has additional public keys; usually empty. */
+      additionalTxKeys: string[];
+    }
+  | {
+      /** A hardware send's keys, sealed by the device; it opens them with these again. */
+      device: {
+        salt: string;
+        randMult: string;
+        txEncKeys: string;
+        txPrefixHash: string;
+      };
+    };
 
 /** Fee tiers as monerod names them; strings, since a number cannot be validated on arrival. */
 export type IXmrFeePriority =

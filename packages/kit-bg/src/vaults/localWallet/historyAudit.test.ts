@@ -81,6 +81,13 @@ it.each([null, 100])(
     const vault = Object.assign(Object.create(XmrVault.prototype) as XmrVault, {
       accountId,
       networkId: 'xmr--0',
+      keyring: {
+        signTransaction: async () => ({
+          txid: 'synthetic-tx',
+          rawTx: 'aabb',
+          encodedTx,
+        }),
+      },
       getXmrRuntimeApi: async () => api,
       getXmrNetwork: async () => 'mainnet' as const,
       backgroundApi: {
@@ -103,11 +110,15 @@ it.each([null, 100])(
         },
       },
     });
+    // Signing records the payment; the broadcast hands the runtime its total.
+    const signedTx = await vault.signTransaction({
+      unsignedTx: { encodedTx },
+    } as never);
     await vault.broadcastTransaction({
       accountId,
       networkId: 'xmr--0',
       accountAddress: own,
-      signedTx: { txid: 'synthetic-tx', rawTx: 'aabb', encodedTx },
+      signedTx,
     });
     expect(api.broadcastTransaction).toHaveBeenCalledTimes(1);
     expect(api.verifySignedTransaction).toHaveBeenCalledTimes(1);

@@ -86,6 +86,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       txid: signed.txid,
       rawTx: signed.rawHex,
       encodedTx,
+      xmrSentTxKeys:
+        signed.txKeyHex === undefined
+          ? undefined
+          : {
+              txKey: signed.txKeyHex,
+              additionalTxKeys: signed.additionalTxKeysHex ?? [],
+            },
     };
   }
 

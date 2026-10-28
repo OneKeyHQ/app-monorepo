@@ -14,7 +14,12 @@ export type IXmrSignedTransaction = {
   txid: string;
   rawHex: string;
   sizeBytes: number;
+  /** Tx private keys for payment proofs; absent from older runtimes. */
+  txKeyHex?: string;
+  additionalTxKeysHex?: string[];
 };
+
+const txKeyHex = z.string().regex(/^[0-9a-f]{64}$/);
 
 export async function signXmrTransaction(params: {
   signableHex: string;
@@ -39,6 +44,8 @@ export async function signXmrTransaction(params: {
       txid: z.string().regex(/^[0-9a-f]{64}$/),
       rawHex: z.string().regex(/^(?:[0-9a-f]{2})+$/),
       sizeBytes: z.number().int().positive().safe(),
+      txKeyHex: txKeyHex.optional(),
+      additionalTxKeysHex: z.array(txKeyHex).max(16).optional(),
     })
     .safeParse(value);
   if (

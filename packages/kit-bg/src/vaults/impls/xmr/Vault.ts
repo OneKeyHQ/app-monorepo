@@ -123,6 +123,7 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  ISignTransactionParams,
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
@@ -770,6 +771,35 @@ export default class Vault extends VaultBase {
     };
   }
 
+  /**
+   * Records the send once signed, before anything can broadcast it: the chain never names the
+   * recipient. Its tx keys go into that record and never onto the signed tx, which reaches the UI
+   * and is persisted for broadcast retries.
+   */
+  override async signTransaction(
+    params: ISignTransactionParams,
+  ): Promise<ISignedTxPro> {
+    const { xmrSentTxKeys, ...signedTx } = await super.signTransaction(params);
+    const reviewed = parseXmrTransaction(signedTx.encodedTx);
+    // Same guard as the broadcast: a record written after a deletion began would outlive it.
+    await getXmrLifecycleMutex(this.networkId).runExclusive(async () => {
+      if ((await this.xmrPreparedEpoch()) !== reviewed.privacyEpoch) {
+        throw new OneKeyLocalError(
+          localWalletText(ETranslations.privacy_error_review_expired__msg),
+        );
+      }
+      await this.backgroundApi.simpleDb.privacyChainXmrSent.recordXmrSent({
+        accountId: this.accountId,
+        txid: signedTx.txid,
+        recipient: reviewed.to,
+        amountAtomic: reviewed.amountAtomic,
+        feeAtomic: reviewed.feeAtomic,
+        txKeys: xmrSentTxKeys,
+      });
+    });
+    return signedTx;
+  }
+
   override async broadcastTransactionFromCustomRpc(
     params: IBroadcastTransactionByCustomRpcParams,
   ): Promise<ISignedTxPro> {
@@ -870,26 +900,6 @@ export default class Vault extends VaultBase {
       // The txid is fixed at signing; a different one back means something else was broadcast.
       throw new OneKeyLocalError(
         `xmr: broadcast returned an unexpected transaction id (signed ${signedTx.txid}, broadcast ${txid})`,
-      );
-    }
-
-    // Only chance to record the recipient (chain carries none); never let
-    // this failure make an already-successful broadcast look like it failed.
-    try {
-      await this.backgroundApi.simpleDb.privacyChainXmrSent.recordXmrSent({
-        accountId: this.accountId,
-        txid,
-        recipient: encodedTx.to,
-        amountAtomic: encodedTx.amountAtomic,
-        feeAtomic: encodedTx.feeAtomic,
-      });
-    } catch (error) {
-      console.error(
-        '[xmr] could not record the recipient; the send itself succeeded',
-        {
-          txid,
-          error,
-        },
       );
     }
 

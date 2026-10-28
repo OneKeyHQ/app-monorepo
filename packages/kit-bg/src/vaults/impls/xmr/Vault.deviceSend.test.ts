@@ -1,3 +1,4 @@
+// cspell:ignore randMult
 /* eslint-disable import/first */
 
 jest.mock('../../../dbs/local/localDbInstance');
@@ -289,13 +290,37 @@ describe('xmr hardware send: broadcast', () => {
       DEVICE_PLAN,
       reviewJson,
     );
-    // The journal keeps who was paid, never the plan.
+    // Recorded at signing.
+    expect(recordXmrSent).not.toHaveBeenCalled();
+  });
+
+  it('records who was paid and the sealed tx keys at signing, never the plan', async () => {
+    const { vault, keyring, recordXmrSent } = createHardwareVault();
+    const device = {
+      salt: '11'.repeat(32),
+      randMult: '12'.repeat(32),
+      txEncKeys: 'ab'.repeat(76),
+      txPrefixHash: '56'.repeat(32),
+    };
+    jest.spyOn(keyring, 'signTransaction').mockResolvedValue({
+      txid: 'deadbeef',
+      rawTx: '00ff',
+      encodedTx: signedEncodedTx,
+      xmrSentTxKeys: { device },
+    });
+
+    const signed = await vault.signTransaction({
+      unsignedTx: { encodedTx: signedEncodedTx },
+    } as never);
+
+    expect(signed).not.toHaveProperty('xmrSentTxKeys');
     expect(recordXmrSent).toHaveBeenCalledWith({
       accountId: ACCOUNT_ID,
       txid: 'deadbeef',
       recipient: RECIPIENT,
       amountAtomic: '1000000000',
       feeAtomic: '30000000',
+      txKeys: { device },
     });
   });
 

@@ -65,6 +65,24 @@ describe('Monero signing capability and review boundary', () => {
       json,
     );
   });
+  it('returns the tx keys and refuses malformed ones', async () => {
+    const api = runtime();
+    const signed = {
+      txid: '11'.repeat(32),
+      rawHex: 'aabb',
+      sizeBytes: 2,
+      txKeyHex: '22'.repeat(32),
+      additionalTxKeysHex: ['33'.repeat(32)],
+    };
+    jest
+      .spyOn(api, 'signTransactionWithBip32Key')
+      .mockResolvedValueOnce(JSON.stringify(signed))
+      .mockResolvedValueOnce(
+        JSON.stringify({ ...signed, txKeyHex: '22'.repeat(31) }),
+      );
+    await expect(sign()).resolves.toEqual(signed);
+    await expect(sign()).rejects.toThrow('invalid signed transaction response');
+  });
   it('rejects an inconsistent signed response', async () => {
     const api = runtime();
     jest

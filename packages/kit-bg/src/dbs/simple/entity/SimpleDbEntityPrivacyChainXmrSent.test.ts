@@ -1,3 +1,4 @@
+// cspell:ignore randMult
 import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainXmrSent } from './SimpleDbEntityPrivacyChainXmrSent';
@@ -55,6 +56,74 @@ describe('privacy chain xmr sent records', () => {
         half: { recipient: 'own-three' },
       },
     );
+  });
+
+  it('keeps the tx keys with the record but out of the listing', async () => {
+    const { entity, readSaved } = createEntity();
+    const software = { txKey: '22'.repeat(32), additionalTxKeys: [] };
+    const device = {
+      salt: '11'.repeat(32),
+      randMult: '12'.repeat(32),
+      txEncKeys: 'ab'.repeat(76),
+      txPrefixHash: '56'.repeat(32),
+    };
+    await entity.recordXmrSent({
+      accountId: 'account',
+      txid: 'soft',
+      recipient: '4soft',
+      amountAtomic: '5',
+      feeAtomic: '1',
+      txKeys: software,
+    });
+    await entity.recordXmrSent({
+      accountId: 'account',
+      txid: 'hw',
+      recipient: '4hw',
+      txKeys: { device },
+    });
+    // A later write without keys keeps them.
+    await entity.recordXmrSent({
+      accountId: 'account',
+      txid: 'soft',
+      recipient: '4soft',
+    });
+
+    await expect(entity.listXmrSent({ accountId: 'account' })).resolves.toEqual(
+      {
+        soft: { recipient: '4soft', amountAtomic: '5', feeAtomic: '1' },
+        hw: { recipient: '4hw' },
+      },
+    );
+    await expect(
+      entity.getXmrSentTxKeys({ accountId: 'account', txid: 'soft' }),
+    ).resolves.toEqual(software);
+    await expect(
+      entity.getXmrSentTxKeys({ accountId: 'account', txid: 'hw' }),
+    ).resolves.toEqual({ device });
+    await expect(
+      entity.getXmrSentTxKeys({ accountId: 'account', txid: 'none' }),
+    ).resolves.toBeUndefined();
+    expect(readSaved()).toMatchObject({
+      data: { accounts: { account: { soft: software, hw: { device } } } },
+    });
+
+    await entity.removeAccounts({ accountIds: ['account'] });
+    await expect(
+      entity.getXmrSentTxKeys({ accountId: 'account', txid: 'soft' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('refuses malformed tx keys without writing', async () => {
+    const { entity, storage } = createEntity();
+    await expect(
+      entity.recordXmrSent({
+        accountId: 'account',
+        txid: 'tx',
+        recipient: '4x',
+        txKeys: { txKey: '22'.repeat(31), additionalTxKeys: [] },
+      }),
+    ).rejects.toThrow('invalid sent record');
+    expect(storage.setItem).not.toHaveBeenCalled();
   });
 
   it('quarantines a malformed record and keeps it through writes', async () => {
