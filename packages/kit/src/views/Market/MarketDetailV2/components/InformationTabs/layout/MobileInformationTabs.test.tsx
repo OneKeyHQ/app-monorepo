@@ -32,7 +32,7 @@ jest.mock('@onekeyhq/components', () => {
           focusedTab: { value: 'transactions' },
         } as Parameters<NonNullable<CollapsibleProps['renderHeader']>>[0];
         return (
-          <div>
+          <div data-testid="information-scroll-container">
             {props.renderHeader?.(headerProps)}
             {props.renderTabBar?.(headerProps)}
             {props.children}
@@ -65,8 +65,14 @@ jest.mock('../../../hooks/useMarketDetailPositionTab', () => ({
   }),
 }));
 let mockNetworkId = 'evm--1';
+let mockTokenAddress = '0xabc';
+let mockStockId: string | undefined;
 jest.mock('../../../hooks/useTokenDetail', () => ({
-  useTokenDetail: () => ({ networkId: mockNetworkId, isNative: true }),
+  useTokenDetail: () => ({
+    networkId: mockNetworkId,
+    tokenAddress: mockTokenAddress,
+    isNative: true,
+  }),
 }));
 jest.mock('../hooks/useNetworkAccountAddress', () => ({
   useNetworkAccountAddress: () => ({}),
@@ -84,7 +90,7 @@ jest.mock('../components/TransactionsHistory', () => ({
 }));
 jest.mock('./StickyHeader', () => ({ StickyHeader: () => null }));
 jest.mock('../../../hooks/StockDetailContext', () => ({
-  useStockDetail: () => ({ stockId: undefined }),
+  useStockDetail: () => ({ stockId: mockStockId }),
 }));
 jest.mock('./MobileDetailOverviewPanels', () => ({
   MobileStockFinancialsPanel: () => null,
@@ -102,6 +108,44 @@ function Chart() {
   }, []);
   return <input aria-label="chart viewport" defaultValue="latest" />;
 }
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockNetworkId = 'evm--1';
+  mockTokenAddress = '0xabc';
+  mockStockId = undefined;
+});
+
+it.each(['address', 'network'] as const)(
+  'resets scrolling when the token %s changes with the same tabs',
+  (identity) => {
+    const renderTabs = () => (
+      <MobileInformationTabs
+        renderHeader={() => <Chart />}
+        onScrollEnd={jest.fn()}
+        portfolioData={[]}
+      />
+    );
+    const { rerender } = render(renderTabs());
+    const container = screen.getByTestId('information-scroll-container');
+    container.scrollTop = 400;
+
+    // Refreshing the current token must preserve its scroll position.
+    rerender(renderTabs());
+    expect(screen.getByTestId('information-scroll-container')).toBe(container);
+    expect(container.scrollTop).toBe(400);
+
+    if (identity === 'address') {
+      mockTokenAddress = '0xdef';
+    } else {
+      mockNetworkId = 'evm--8453';
+    }
+    rerender(renderTabs());
+    const nextContainer = screen.getByTestId('information-scroll-container');
+    expect(nextContainer).not.toBe(container);
+    expect(nextContainer.scrollTop).toBe(0);
+  },
+);
 
 describe('MobileInformationTabs chart fullscreen', () => {
   it('keeps the chart controller mounted while the hidden information content is frozen', async () => {
@@ -146,6 +190,7 @@ describe('MobileInformationTabs chart fullscreen', () => {
 });
 
 it('mounts stock content before the token network resolves and keeps the same chart', () => {
+  mockStockId = 'AAPL';
   mockNetworkId = '';
   const renderTabs = () => (
     <MobileInformationTabs
@@ -160,4 +205,12 @@ it('mounts stock content before the token network resolves and keeps the same ch
   mockNetworkId = 'evm--1';
   rerender(renderTabs());
   expect(screen.getByRole('textbox', { name: 'chart viewport' })).toBe(chart);
+
+  const container = screen.getByTestId('information-scroll-container');
+  container.scrollTop = 400;
+  mockStockId = 'TSLA';
+  rerender(renderTabs());
+  const nextContainer = screen.getByTestId('information-scroll-container');
+  expect(nextContainer).not.toBe(container);
+  expect(nextContainer.scrollTop).toBe(0);
 });
