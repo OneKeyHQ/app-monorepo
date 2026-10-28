@@ -5,12 +5,11 @@ const mockQuoteTokenDetails = jest.fn();
 jest.mock('../../factory', () => ({
   vaultFactory: {
     getChainOnlyVault: async () => ({
-      fetchTokenDetails: mockQuoteTokenDetails,
+      fetchTokenDetailsByApi: mockQuoteTokenDetails,
     }),
   },
 }));
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IFetchServerTokenDetailParams,
   IFetchServerTokenListParams,
@@ -24,8 +23,12 @@ const own = 'synthetic-own-transparent-address';
 function createVault(backend: {
   tokenList?: () => Promise<IFetchServerTokenListResponse>;
 }) {
-  const failed = () =>
-    Promise.reject(new OneKeyLocalError('backend unavailable'));
+  const empty = { data: [], map: {}, keys: '' };
+  const noTokenList = async (): Promise<IFetchServerTokenListResponse> => ({
+    data: {
+      data: { tokens: empty, riskTokens: empty, smallBalanceTokens: empty },
+    },
+  });
   return Object.assign(Object.create(Vault.prototype) as Vault, {
     accountId: 'hd-1--zec',
     networkId: 'zec--0',
@@ -44,8 +47,8 @@ function createVault(backend: {
       logoURI: '',
       backendIndex: true,
     }),
-    baseFetchTokenList: backend.tokenList ?? failed,
-    baseFetchTokenDetails: failed,
+    baseFetchTokenList: backend.tokenList ?? noTokenList,
+    baseFetchTokenDetails: async () => ({ data: { data: [] } }),
     zcashGetComposedBalanceSafe: async () => ({
       total: '300000000',
       spendable: '125000000',

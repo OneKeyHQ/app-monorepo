@@ -85,6 +85,7 @@ import {
 import {
   buildLocalWalletNativeTokenList,
   getLocalWalletFiatValue,
+  localWalletBalanceUnavailableError,
 } from '../../localWallet/tokenList';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
@@ -109,7 +110,10 @@ import {
 import type { IEncodedTxXmr, IXmrHistoryItem } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
-import type { ILocalWalletCapability } from '../../localWallet/types';
+import type {
+  ILocalWalletAccountBalance,
+  ILocalWalletCapability,
+} from '../../localWallet/types';
 import type {
   IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
@@ -904,46 +908,47 @@ export default class Vault extends VaultBase {
     return { ...signedTx, txid, encodedTx };
   }
 
+  // Not enabled is a known zero. Enabled but unreadable (setting up, deleting,
+  // rescanning, runtime down) throws, so pages keep the balance they show.
   private async xmrGetBalanceForDisplay(): Promise<{
     total: string;
     totalParsed: string;
     spendable: string;
     spendableParsed: string;
   }> {
-    const zero = {
-      total: '0',
-      totalParsed: '0',
-      spendable: '0',
-      spendableParsed: '0',
-    };
+    let balance: ILocalWalletAccountBalance | null;
     try {
       const capability = this.getLocalWalletCapability();
       const state = await capability.getAccountState({
         accountId: this.accountId,
       });
-      if (!state.enabled && !state.paused) {
-        return zero;
+      if (!state.enabled && !state.paused && !state.pendingOperation) {
+        return {
+          total: '0',
+          totalParsed: '0',
+          spendable: '0',
+          spendableParsed: '0',
+        };
       }
-      const balance = await capability.getAccountBalance({
+      balance = await capability.getAccountBalance({
         accountId: this.accountId,
       });
-      if (!balance?.total || !balance.totalParsed) {
-        return zero;
-      }
-      const spendable = balance.spendable ?? balance.total;
-      return {
-        total: balance.total,
-        totalParsed: balance.totalParsed,
-        spendable,
-        spendableParsed: new BigNumber(spendable)
-          .shiftedBy(-XMR_DECIMALS)
-          .toFixed(),
-      };
     } catch (error) {
-      // A balance read must never take down the account page.
       console.error('[xmr] balance unavailable', { error });
-      return zero;
+      balance = null;
     }
+    if (!balance?.total || !balance.totalParsed) {
+      throw localWalletBalanceUnavailableError('xmr');
+    }
+    const spendable = balance.spendable ?? balance.total;
+    return {
+      total: balance.total,
+      totalParsed: balance.totalParsed,
+      spendable,
+      spendableParsed: new BigNumber(spendable)
+        .shiftedBy(-XMR_DECIMALS)
+        .toFixed(),
+    };
   }
 
   // `balance` is spendable-now (as on BTC); the dialog shows it beside total
@@ -998,11 +1003,9 @@ export default class Vault extends VaultBase {
   private async xmrGetNativeTokenPrice(
     requestCurrency?: string,
   ): Promise<number | undefined> {
-    const network = await this.getNetwork();
     return fetchLocalWalletNativeTokenPrice({
       backgroundApi: this.backgroundApi,
       networkId: this.networkId,
-      backendIndex: network.backendIndex,
       requestCurrency,
     });
   }

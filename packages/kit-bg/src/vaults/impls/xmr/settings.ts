@@ -97,8 +97,6 @@ const settings: IVaultSettings = {
 
   // Every output is private: no transparent pool, shield action or public receive form.
   localWallet: {
-    // The market has no network-scoped Monero quote.
-    marketCoingeckoId: 'monero',
     // Scanning costs real bandwidth/CPU, so it's opt-in per account.
     activation: 'account-opt-in',
     balanceShape: 'single',

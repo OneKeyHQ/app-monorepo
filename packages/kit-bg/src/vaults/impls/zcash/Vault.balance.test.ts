@@ -196,9 +196,19 @@ describe('Zcash independent transparent balance availability', () => {
       });
       expect(result).toMatchObject({ total: undefined });
       expect(result?.pools[0]).toMatchObject({ total: '80', spendable: '50' });
-      expect(await vault.zcashGetComposedBalanceSafe('80')).toMatchObject({
-        total: privateBalance ? '180' : '80',
-      });
+      if (privateBalance) {
+        expect(await vault.zcashGetComposedBalanceSafe('80')).toMatchObject({
+          total: '180',
+        });
+      } else {
+        // A transparent-only total would read as lost funds.
+        await expect(
+          vault.zcashGetComposedBalanceSafe('80'),
+        ).rejects.toMatchObject({
+          message: 'zcash: balance unavailable',
+          autoToast: false,
+        });
+      }
     },
   );
 
@@ -870,5 +880,161 @@ describe('Zcash send pools read the private balance fresh', () => {
     expect(pools?.find((item) => item.key === 'transparent')?.spendable).toBe(
       '50',
     );
+  });
+});
+
+// Fails as a backend read does on other chains, so pages keep what they show.
+describe('Zcash balance that cannot be read', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  const backendList = {
+    data: {
+      data: {
+        tokens: {
+          data: [
+            {
+              $key: 'zec--0_t1own_',
+              decimals: 8,
+              name: 'Zcash',
+              symbol: 'ZEC',
+              address: '',
+              isNative: true,
+            },
+          ],
+          map: {
+            'zec--0_t1own_': {
+              balance: '80',
+              balanceParsed: '0.0000008',
+              fiatValue: '0',
+              price: 0,
+              price24h: 0,
+            },
+          },
+          keys: 'server',
+        },
+        riskTokens: { data: [], map: {}, keys: 'risk' },
+        smallBalanceTokens: { data: [], map: {}, keys: 'small' },
+      },
+    },
+  };
+  const backendDetails = {
+    data: {
+      data: [{ info: { isNative: true, address: '' }, balance: '80' }],
+    },
+  };
+  const backendAccount = { data: { data: { balance: '80' } } };
+
+  function createVault({
+    intent = 'on',
+    privateBalance = balance,
+    backendFails = false,
+  }: {
+    intent?: 'on' | 'off';
+    privateBalance?: IZcashBalance | null;
+    backendFails?: boolean;
+  }) {
+    // A fresh copy per call: the composed balance is written into it.
+    const backend = <T>(value: T) =>
+      jest.fn(() =>
+        backendFails
+          ? Promise.reject(new OneKeyLocalError('backend unavailable'))
+          : Promise.resolve(structuredClone(value)),
+      );
+    const readPrivate = jest.fn().mockResolvedValue(privateBalance);
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      accountId: 'account',
+      networkId: 'zec--0',
+      backgroundApi: {
+        simpleDb: {
+          privacyChainCache: memoryCache(),
+          privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue(undefined),
+            getZcashPrivacyModeState: jest.fn().mockResolvedValue({ intent }),
+          },
+        },
+      },
+      getNetwork: async () => ({
+        decimals: 8,
+        name: 'Zcash',
+        symbol: 'ZEC',
+        logoURI: '',
+      }),
+      getAccount: jest.fn().mockResolvedValue({ id: 'account' }),
+      baseFetchTokenList: backend(backendList),
+      baseFetchTokenDetails: backend(backendDetails),
+      baseFetchAccountDetails: backend(backendAccount),
+      zcashGetBalanceSafe: readPrivate,
+      zcashFetchFreshTransparentUtxos: jest
+        .fn()
+        .mockResolvedValue({ utxos: [{ valueZat: '50' }] }),
+    });
+    return { vault, readPrivate };
+  }
+
+  const readList = (vault: Vault) =>
+    vault.fetchTokenList({
+      accountId: 'account',
+      requestApiParams: { networkId: 'zec--0', accountAddress: 't1own' },
+    } as Parameters<Vault['fetchTokenList']>[0]);
+  const readDetails = (vault: Vault) =>
+    vault.fetchTokenDetails({
+      accountId: 'account',
+      networkId: 'zec--0',
+      accountAddress: 't1own',
+      contractList: [''],
+    } as Parameters<Vault['fetchTokenDetails']>[0]);
+  const readAccount = (vault: Vault) =>
+    vault.fetchAccountDetails({
+      accountId: 'account',
+      networkId: 'zec--0',
+      accountAddress: 't1own',
+    } as Parameters<Vault['fetchAccountDetails']>[0]);
+
+  it('fails the shown balance while the private side has no figure, instead of a transparent-only total', async () => {
+    const { vault } = createVault({ privateBalance: null });
+    const unavailable = {
+      message: 'zcash: balance unavailable',
+      autoToast: false,
+    };
+    await expect(readList(vault)).rejects.toMatchObject(unavailable);
+    await expect(readAccount(vault)).rejects.toMatchObject(unavailable);
+  });
+
+  it('still lets a send spend transparent funds while the private side has no figure', async () => {
+    const { vault } = createVault({ privateBalance: null });
+    const details = await readDetails(vault);
+    expect(details.data.data[0]).toMatchObject({
+      balance: '50',
+      totalBalance: '80',
+      frozenBalance: '30',
+    });
+    expect(vault.baseFetchTokenDetails).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails every read when the backend half fails, instead of a private-only total', async () => {
+    const { vault } = createVault({ backendFails: true });
+    const failed = { message: 'backend unavailable' };
+    await expect(readList(vault)).rejects.toMatchObject(failed);
+    await expect(readDetails(vault)).rejects.toMatchObject(failed);
+    await expect(readAccount(vault)).rejects.toMatchObject(failed);
+  });
+
+  it('still shows a scan in progress with what it has found', async () => {
+    const { vault } = createVault({
+      privateBalance: { ...balance, isComplete: false },
+    });
+    await expect(readList(vault)).resolves.toMatchObject({
+      data: {
+        data: {
+          tokens: { map: { 'zec--0_t1own_': { balance: '180' } } },
+        },
+      },
+    });
+  });
+
+  it('leaves the private side out while scanning is not enabled', async () => {
+    const { vault, readPrivate } = createVault({ intent: 'off' });
+    await expect(readList(vault)).resolves.toEqual(backendList);
+    expect(readPrivate).not.toHaveBeenCalled();
   });
 });

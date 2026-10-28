@@ -8,60 +8,36 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../factory';
-import { getVaultSettings } from '../settings';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 type ILocalWalletNativePriceQuery = {
   backgroundApi: IBackgroundApi;
   networkId: string;
-  backendIndex?: boolean;
-  // The token search prices in this currency; market detail in the settings one.
   requestCurrency?: string;
 };
 
 async function fetchNativeQuotePrice({
   backgroundApi,
   networkId,
-  backendIndex,
   requestCurrency,
 }: ILocalWalletNativePriceQuery): Promise<number | string | undefined> {
-  if (backendIndex) {
-    const chainVault = await vaultFactory.getChainOnlyVault({ networkId });
-    const tokenAddress = await backgroundApi.serviceToken.getNativeTokenAddress(
-      { networkId },
-    );
-    const quote = await chainVault.fetchTokenDetails({
-      networkId,
-      contractList: [tokenAddress],
-      requestCurrency,
-    });
-    return quote.data.data.find((token) => token.info.address === tokenAddress)
-      ?.price;
-  }
-  const { marketCoingeckoId } =
-    (await getVaultSettings({ networkId })).localWallet ?? {};
-  if (marketCoingeckoId) {
-    const detail = await backgroundApi.serviceMarket.fetchMarketTokenDetail(
-      marketCoingeckoId,
-      false,
-      requestCurrency,
-    );
-    return detail?.stats?.currentPrice;
-  }
-  const quote =
-    await backgroundApi.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-      '',
-      networkId,
-      { autoHandleError: false },
-    );
-  return quote?.data?.token?.priceConverted ?? quote?.data?.token?.price;
+  const chainVault = await vaultFactory.getChainOnlyVault({ networkId });
+  const tokenAddress = await backgroundApi.serviceToken.getNativeTokenAddress({
+    networkId,
+  });
+  // Straight to the wallet API: these vaults answer token details from their own scan.
+  const quote = await chainVault.fetchTokenDetailsByApi({
+    networkId,
+    contractList: [tokenAddress],
+    requestCurrency,
+  });
+  return quote.data.data.find((token) => token.info.address === tokenAddress)
+    ?.price;
 }
 
 // Local-wallet chains get no quote from an account-scoped request, so the
-// native price is asked for by asset alone: the wallet token search on
-// indexed chains, market detail by market id or by network otherwise. No
-// request carries an address.
+// native price is asked for by network alone; no request carries an address.
 // A failed, missing or unusable quote is `undefined`, never 0.
 export async function fetchLocalWalletNativeTokenPrice(
   query: ILocalWalletNativePriceQuery,

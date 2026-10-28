@@ -2,9 +2,24 @@ import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty } from 'lodash';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IFetchServerTokenListResponse } from '@onekeyhq/shared/types/serverToken';
 import type { ITokenData, ITokenFiat } from '@onekeyhq/shared/types/token';
+
+/**
+ * For a balance that cannot be read now. Thrown as a failed backend fetch is
+ * on other chains, so pages keep the figure they show (or keep loading) and no
+ * partial figure or zero reaches the token caches.
+ */
+export function localWalletBalanceUnavailableError(
+  chain: string,
+): OneKeyLocalError {
+  return new OneKeyLocalError({
+    message: `${chain}: balance unavailable`,
+    autoToast: false,
+  });
+}
 
 /**
  * Fiat for a locally known amount. Only a confirmed zero is worth 0; an

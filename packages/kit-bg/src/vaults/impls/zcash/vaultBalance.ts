@@ -49,6 +49,7 @@ import {
 import {
   buildLocalWalletNativeTokenList,
   getLocalWalletFiatValue,
+  localWalletBalanceUnavailableError,
 } from '../../localWallet/tokenList';
 
 import {
@@ -699,23 +700,17 @@ export async function fetchAccountDetails(
   if (!canReadZcashPrivateData(privacyModeState)) {
     return vault.baseFetchAccountDetails(params);
   }
-  let serverResponse: IFetchServerAccountDetailsResponse | undefined;
-  try {
-    serverResponse = await vault.baseFetchAccountDetails(params);
-  } catch (e) {
-    console.error('[zcash] backend account details fetch failed', {
-      ...zcashDescribeError(e),
-    });
-  }
+  // A failed transparent half fails the read, as on other chains.
+  const serverResponse = await vault.baseFetchAccountDetails(params);
   const balance = await vault.zcashGetComposedBalanceSafe(
-    serverResponse?.data.data.balance,
+    serverResponse.data.data.balance,
   );
   // Same split as the other chains: the balance-details dialog labels `balance` as spendable.
   const { total, spendable, frozen } = balance;
   return {
     data: {
       data: {
-        ...serverResponse?.data.data,
+        ...serverResponse.data.data,
         address: params.accountAddress,
         balance: spendable,
         balanceParsed: spendable === '' ? '' : zatoshiToZec(spendable),
@@ -742,20 +737,13 @@ export async function fetchTokenList(
     return vault.baseFetchTokenList(params);
   }
   const network = await vault.getNetwork();
-  let serverResponse: IFetchServerTokenListResponse | undefined;
-  try {
-    serverResponse = await vault.baseFetchTokenList(params);
-  } catch (e) {
-    console.error('[zcash] backend token list fetch failed', {
-      ...zcashDescribeError(e),
-    });
-  }
+  const serverResponse = await vault.baseFetchTokenList(params);
 
-  const serverNativeToken = serverResponse?.data.data.tokens.data.find(
+  const serverNativeToken = serverResponse.data.data.tokens.data.find(
     (token) => token.isNative || token.address === '',
   );
   const serverNativeFiat = serverNativeToken
-    ? serverResponse?.data.data.tokens.map[serverNativeToken.$key]
+    ? serverResponse.data.data.tokens.map[serverNativeToken.$key]
     : undefined;
   const balance = await vault.zcashGetComposedBalanceSafe(
     serverNativeFiat?.balance,
@@ -764,8 +752,6 @@ export async function fetchTokenList(
   const balanceParsed = total === '' ? '' : zatoshiToZec(total);
 
   if (
-    serverResponse &&
-    balance &&
     applyZcashBalanceToBackendTokenList({
       response: serverResponse,
       balance,
@@ -789,11 +775,9 @@ async function zcashFetchNativeTokenPrice(
   vault: Vault,
   requestCurrency?: string,
 ): Promise<number | undefined> {
-  const network = await vault.getNetwork();
   return fetchLocalWalletNativeTokenPrice({
     backgroundApi: vault.backgroundApi,
     networkId: vault.networkId,
-    backendIndex: network.backendIndex,
     requestCurrency,
   });
 }
@@ -860,8 +844,9 @@ export async function zcashGetIndexerTransparentBalance(
 export async function zcashFetchTransparentTokenDetails(
   vault: Vault,
   params: IFetchServerTokenDetailParams,
+  fetched?: IFetchServerTokenDetailResponse,
 ): Promise<IFetchServerTokenDetailResponse> {
-  const serverResponse = await vault.baseFetchTokenDetails(params);
+  const serverResponse = fetched ?? (await vault.baseFetchTokenDetails(params));
   const nativeToken = serverResponse.data.data.find(
     (token) => token.info.isNative || token.info.address === '',
   );
@@ -916,20 +901,23 @@ export async function fetchTokenDetails(
     return zcashFetchTransparentTokenDetails(vault, params);
   }
   const network = await vault.getNetwork();
-  let serverResponse: IFetchServerTokenDetailResponse | undefined;
-  try {
-    serverResponse = await vault.baseFetchTokenDetails(params);
-  } catch (e) {
-    console.error('[zcash] backend token details fetch failed', {
-      ...zcashDescribeError(e),
-    });
-  }
-  const serverNativeToken = serverResponse?.data.data.find(
+  const serverResponse = await vault.baseFetchTokenDetails(params);
+  const serverNativeToken = serverResponse.data.data.find(
     (token) => token.info.isNative || token.info.address === '',
   );
-  const balance = await vault.zcashGetComposedBalanceSafe(
-    serverNativeToken?.balance,
-  );
+  let balance: IPrivacyChainComposedBalance;
+  try {
+    balance = await vault.zcashGetComposedBalanceSafe(
+      serverNativeToken?.balance,
+    );
+  } catch (e) {
+    // Sends read these figures (the token page shows pool tabs instead):
+    // while the private side is unread, only transparent funds can be spent.
+    console.error('[zcash] token details without the private balance', {
+      ...zcashDescribeError(e),
+    });
+    return zcashFetchTransparentTokenDetails(vault, params, serverResponse);
+  }
   const total = new BigNumber(balance.total);
   // Account availability includes transparent funds; Send Max uses the explicitly selected pool, not this aggregate.
   const spendable = new BigNumber(balance.spendable);
@@ -937,8 +925,6 @@ export async function fetchTokenDetails(
   const toParsed = (v: BigNumber) => (v.isFinite() ? zatoshiToZec(v) : '');
   const totalParsed = toParsed(total);
   if (
-    serverResponse &&
-    balance &&
     applyZcashBalanceToBackendTokenDetails({
       response: serverResponse,
       balance,
@@ -1016,13 +1002,15 @@ export async function zcashGetComposedBalanceSafe(
       }
     })(),
   ]);
-  const transparentSpendable = transparent.spendable;
+  // Not read yet (setting up, rescanning, not synced): a transparent-only
+  // total would read as lost funds.
+  if (!balance) throw localWalletBalanceUnavailableError('zcash');
   return composePrivacyChainBalance({
-    privateSide: balance?.shielded,
-    privateSideComplete: balance?.isComplete === true,
+    privateSide: balance.shielded,
+    privateSideComplete: balance.isComplete,
     publicSideIndexer: publicSideBackend,
-    spendable: balance
-      ? transparentSpendable?.plus(balance.shieldedSpendable).toFixed(0)
-      : undefined,
+    spendable: transparent.spendable
+      ?.plus(balance.shieldedSpendable)
+      .toFixed(0),
   });
 }

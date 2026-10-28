@@ -137,11 +137,9 @@ class ServiceGas extends ServiceBase {
       nativeTokenPrice === undefined &&
       (await isLocalWalletNetwork({ networkId: params.networkId }))
     ) {
-      const network = await vault.getNetwork();
       nativeTokenPrice = await fetchLocalWalletNativeTokenPrice({
         backgroundApi: this.backgroundApi,
         networkId: params.networkId,
-        backendIndex: network.backendIndex,
         requestCurrency: currencyInfo?.id ?? 'usd',
       });
     }

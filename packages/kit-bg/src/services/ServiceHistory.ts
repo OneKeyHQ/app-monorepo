@@ -2646,13 +2646,9 @@ class ServiceHistory extends ServiceBase {
       return txs;
     }
     try {
-      const network = await this.backgroundApi.serviceNetwork.getNetwork({
-        networkId,
-      });
       const price = await fetchLocalWalletNativeTokenPrice({
         backgroundApi: this.backgroundApi,
         networkId,
-        backendIndex: network.backendIndex,
         requestCurrency: currency,
       });
       if (price === undefined) {

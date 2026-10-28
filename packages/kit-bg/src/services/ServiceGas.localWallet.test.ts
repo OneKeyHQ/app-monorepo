@@ -43,7 +43,7 @@ const mockFetchTokenDetails = jest.fn<
   [IFetchServerTokenDetailParams]
 >();
 const mockGetChainOnlyVault = jest.fn<
-  Promise<{ fetchTokenDetails: typeof mockFetchTokenDetails }>,
+  Promise<{ fetchTokenDetailsByApi: typeof mockFetchTokenDetails }>,
   [{ networkId: string }]
 >();
 jest.mock('../vaults/factory', () => ({
@@ -80,9 +80,8 @@ describe('local wallet fee fiat metadata', () => {
     jest.clearAllMocks();
     mockSettingsGet.mockResolvedValue({ currencyInfo: { id: 'usd' } });
     mockIsLocalWalletNetwork.mockResolvedValue(true);
-    mockGetNetwork.mockResolvedValue({ backendIndex: false });
     mockGetChainOnlyVault.mockResolvedValue({
-      fetchTokenDetails: mockFetchTokenDetails,
+      fetchTokenDetailsByApi: mockFetchTokenDetails,
     });
     mockFetchTokenDetails.mockResolvedValue({
       data: {
@@ -94,66 +93,16 @@ describe('local wallet fee fiat metadata', () => {
     });
   });
 
-  it('queries only the asset identity and uses the selected currency price', async () => {
-    const fetchMarketTokenDetailByTokenAddress = jest.fn(async () => ({
-      data: { token: { price: '40', priceConverted: '6000' } },
-    }));
-    const service = new ServiceGas({
-      backgroundApi: {
-        serviceMarketV2: { fetchMarketTokenDetailByTokenAddress },
-      },
-    });
-    expect((await service.estimateFee(params)).common.nativeTokenPrice).toBe(
-      6000,
-    );
-    expect(fetchMarketTokenDetailByTokenAddress).toHaveBeenCalledWith(
-      '',
-      'zec--0',
-      { autoHandleError: false },
-    );
-    expect(mockEstimateFee).toHaveBeenCalledWith(params);
-  });
-
-  it('does not turn a missing quote into zero or block a locally priced send', async () => {
-    const fetchMarketTokenDetailByTokenAddress = jest.fn(async () => {
-      throw new OneKeyLocalError('offline');
-    });
-    const service = new ServiceGas({
-      backgroundApi: {
-        serviceMarketV2: { fetchMarketTokenDetailByTokenAddress },
-      },
-    });
-    const result = await service.estimateFee(params);
-    expect(result.common.nativeTokenPrice).toBeUndefined();
-    expect(result.feeUTXO).toEqual([{ feeValue: '0.0001' }]);
-  });
-
-  function indexedService() {
-    mockGetNetwork.mockResolvedValue({ backendIndex: true });
+  function createService() {
     const getNativeTokenAddress = jest.fn(async () => '');
-    const fetchMarketTokenDetailByTokenAddress = jest.fn();
     const service = new ServiceGas({
-      backgroundApi: {
-        serviceToken: { getNativeTokenAddress },
-        serviceMarketV2: { fetchMarketTokenDetailByTokenAddress },
-      },
+      backgroundApi: { serviceToken: { getNativeTokenAddress } },
     });
-    return {
-      service,
-      getNativeTokenAddress,
-      fetchMarketTokenDetailByTokenAddress,
-    };
+    return { service, getNativeTokenAddress };
   }
 
-  it('uses account-free wallet pricing for indexed native assets when market detail is unsupported', async () => {
-    const {
-      service,
-      getNativeTokenAddress,
-      fetchMarketTokenDetailByTokenAddress,
-    } = indexedService();
-    fetchMarketTokenDetailByTokenAddress.mockRejectedValue(
-      new OneKeyLocalError('30011'),
-    );
+  it('asks the wallet token search by network alone, in the selected currency', async () => {
+    const { service, getNativeTokenAddress } = createService();
     const result = await service.estimateFee(params);
     expect(result.common.nativeTokenPrice).toBe(1190.66);
     expect(result.feeUTXO).toEqual([{ feeValue: '0.0001' }]);
@@ -164,11 +113,19 @@ describe('local wallet fee fiat metadata', () => {
       contractList: [''],
       requestCurrency: 'usd',
     });
-    expect(fetchMarketTokenDetailByTokenAddress).not.toHaveBeenCalled();
+    expect(mockEstimateFee).toHaveBeenCalledWith(params);
+  });
+
+  it('does not turn a missing quote into zero or block a locally priced send', async () => {
+    const { service } = createService();
+    mockFetchTokenDetails.mockRejectedValueOnce(new OneKeyLocalError('40056'));
+    const result = await service.estimateFee(params);
+    expect(result.common.nativeTokenPrice).toBeUndefined();
+    expect(result.feeUTXO).toEqual([{ feeValue: '0.0001' }]);
   });
 
   it('pins each wallet quote to the selected currency after a currency switch', async () => {
-    const { service } = indexedService();
+    const { service } = createService();
     mockSettingsGet.mockResolvedValueOnce({ currencyInfo: { id: 'usd' } });
     mockSettingsGet.mockResolvedValueOnce({ currencyInfo: { id: 'cny' } });
     mockFetchTokenDetails.mockResolvedValueOnce({
@@ -190,7 +147,7 @@ describe('local wallet fee fiat metadata', () => {
   });
 
   it('uses only the requested native asset and preserves Gas Account opt-out', async () => {
-    const { service } = indexedService();
+    const { service } = createService();
     mockSettingsGet.mockResolvedValue({ useGasAccountByDefault: false });
     mockFetchTokenDetails.mockResolvedValue({
       data: {
@@ -217,7 +174,7 @@ describe('local wallet fee fiat metadata', () => {
   it.each(['', 'NaN', 'Infinity', '0', '-1'])(
     'keeps the native fee when the wallet price is unusable (%s)',
     async (price) => {
-      const { service } = indexedService();
+      const { service } = createService();
       mockFetchTokenDetails.mockResolvedValue({
         data: { data: [{ info: { address: '' }, price }] },
       });
@@ -227,18 +184,8 @@ describe('local wallet fee fiat metadata', () => {
     },
   );
 
-  it('does not block a send when the wallet quote fails', async () => {
-    const { service } = indexedService();
-    mockFetchTokenDetails.mockRejectedValueOnce(
-      new OneKeyLocalError('offline'),
-    );
-    const result = await service.estimateFee(params);
-    expect(result.common.nativeTokenPrice).toBeUndefined();
-    expect(result.feeUTXO).toEqual([{ feeValue: '0.0001' }]);
-  });
-
   it('preserves a supplied price and skips all fallback quote requests', async () => {
-    const { service } = indexedService();
+    const { service } = createService();
     mockEstimateFee.mockResolvedValue({
       data: { data: { nativeTokenPrice: { price: 12 } } },
     });
@@ -250,7 +197,7 @@ describe('local wallet fee fiat metadata', () => {
   });
 
   it('leaves non-local fee pricing unchanged', async () => {
-    const { service } = indexedService();
+    const { service } = createService();
     mockIsLocalWalletNetwork.mockResolvedValueOnce(false);
     expect(
       (await service.estimateFee({ ...params, networkId: 'btc--0' })).common

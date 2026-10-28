@@ -8,7 +8,7 @@ jest.mock('../vaults/factory', () => ({
   vaultFactory: {
     getVault: (...args: unknown[]) => mockGetVault(...args),
     getChainOnlyVault: async () => ({
-      fetchTokenDetails: mockQuoteTokenDetails,
+      fetchTokenDetailsByApi: mockQuoteTokenDetails,
     }),
   },
 }));
@@ -63,46 +63,31 @@ function localRow(networkId: string): IAccountHistoryTx {
   };
 }
 
-function createService({ backendIndex }: { backendIndex: boolean }) {
-  const fetchMarketTokenDetailByTokenAddress = jest.fn(async () => ({
-    data: { token: { price: '150' } },
-  }));
-  const fetchMarketTokenDetail = jest.fn(async () => ({
-    stats: { currentPrice: '150' },
-  }));
-  const service = Object.assign(
+function createService() {
+  return Object.assign(
     Object.create(ServiceHistory.prototype) as InstanceType<
       typeof ServiceHistory
     >,
     {
       backgroundApi: {
-        serviceNetwork: {
-          isCustomNetwork: async () => false,
-          getNetwork: async () => ({ backendIndex }),
-        },
-        serviceMarket: { fetchMarketTokenDetail },
-        serviceMarketV2: { fetchMarketTokenDetailByTokenAddress },
+        serviceNetwork: { isCustomNetwork: async () => false },
         serviceToken: { getNativeTokenAddress: async () => '' },
       },
     },
   );
-  return {
-    service,
-    fetchMarketTokenDetail,
-    fetchMarketTokenDetailByTokenAddress,
-  };
 }
 
 describe('ServiceHistory local wallet rows', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('prices Monero rows from the asset-only market quote', async () => {
+  it('prices Monero rows from the address-free network quote', async () => {
     mockGetVault.mockResolvedValue({
       fetchAccountHistoryFromLocal: async () => [localRow('xmr--0')],
     });
-    const { service, fetchMarketTokenDetail } = createService({
-      backendIndex: false,
+    mockQuoteTokenDetails.mockResolvedValue({
+      data: { data: [{ info: { address: '' }, price: '150' }] },
     });
+    const service = createService();
     const { txs } = await service.fetchAccountOnChainHistory({
       accountId: 'hd-1',
       networkId: 'xmr--0',
@@ -113,8 +98,8 @@ describe('ServiceHistory local wallet rows', () => {
       '150',
     );
     expect(txs[0].decodedTx.totalFeeFiatValue).toBe('1.5');
-    expect(fetchMarketTokenDetail.mock.calls).toEqual([
-      ['monero', false, 'usd'],
+    expect(mockQuoteTokenDetails.mock.calls).toEqual([
+      [{ networkId: 'xmr--0', contractList: [''], requestCurrency: 'usd' }],
     ]);
   });
 
@@ -125,7 +110,7 @@ describe('ServiceHistory local wallet rows', () => {
     mockQuoteTokenDetails.mockResolvedValue({
       data: { data: [{ info: { address: '' }, price: 290 }] },
     });
-    const { service } = createService({ backendIndex: true });
+    const service = createService();
     const { txs } = await service.fetchAccountOnChainHistory({
       accountId: 'hd-1',
       networkId: 'zec--0',
@@ -148,9 +133,7 @@ describe('ServiceHistory local wallet rows', () => {
     mockGetVault.mockResolvedValue({
       fetchAccountHistoryFromLocal: async () => [row],
     });
-    const { service, fetchMarketTokenDetailByTokenAddress } = createService({
-      backendIndex: true,
-    });
+    const service = createService();
     const { txs } = await service.fetchAccountOnChainHistory({
       accountId: 'hd-1',
       networkId: 'zec--0',
@@ -158,6 +141,5 @@ describe('ServiceHistory local wallet rows', () => {
     });
     expect(txs[0]).toBe(row);
     expect(mockQuoteTokenDetails).not.toHaveBeenCalled();
-    expect(fetchMarketTokenDetailByTokenAddress).not.toHaveBeenCalled();
   });
 });

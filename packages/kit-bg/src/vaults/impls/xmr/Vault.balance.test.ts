@@ -2,6 +2,15 @@
 
 jest.mock('../../../dbs/local/localDbInstance');
 
+const mockQuoteTokenDetails = jest.fn();
+jest.mock('../../factory', () => ({
+  vaultFactory: {
+    getChainOnlyVault: async () => ({
+      fetchTokenDetailsByApi: mockQuoteTokenDetails,
+    }),
+  },
+}));
+
 import Vault from './Vault';
 
 import type { ILocalWalletAccountBalance } from '../../localWallet/types';
@@ -9,17 +18,19 @@ import type { ILocalWalletAccountBalance } from '../../localWallet/types';
 function createVault({
   enabled,
   paused = false,
+  pendingOperation,
   balance,
 }: {
   enabled: boolean;
   paused?: boolean;
+  pendingOperation?: 'enable' | 'disable';
   balance: () => Promise<ILocalWalletAccountBalance | null>;
 }) {
   const vault: Vault = Object.assign(Object.create(Vault.prototype), {
     accountId: 'hd-1--x',
     networkId: 'xmr--0',
     getLocalWalletCapability: () => ({
-      getAccountState: async () => ({ enabled, paused }),
+      getAccountState: async () => ({ enabled, paused, pendingOperation }),
       getAccountBalance: balance,
     }),
     getNetwork: async () => ({
@@ -44,10 +55,22 @@ function readBalance(vault: Vault) {
   return vault.fetchAccountDetails({ accountAddress: 'a' } as never);
 }
 
-// Not enabled or unreadable shows zero, as other chains do.
 describe('xmr balance for display', () => {
+  it('shows zero while scanning is not enabled, without asking the scanner', async () => {
+    const balance = jest.fn(async () => null);
+    const vault = createVault({ enabled: false, balance });
+    await expect(readBalance(vault)).resolves.toMatchObject({
+      data: { data: { balance: '0' } },
+    });
+    await expect(readTokenFiat(vault)).resolves.toMatchObject({
+      balance: '0',
+      fiatValue: '0',
+    });
+    expect(balance).not.toHaveBeenCalled();
+  });
+
+  // Fails as a backend read does on other chains, so pages keep what they show.
   it.each([
-    ['not enabled', { enabled: false, balance: async () => null }],
     ['without a figure yet', { enabled: true, balance: async () => null }],
     [
       'with the runtime unreachable',
@@ -56,16 +79,24 @@ describe('xmr balance for display', () => {
         balance: () => Promise.reject(new Error('runtime down')),
       },
     ],
+    [
+      'while scanning is being turned on',
+      { enabled: false, pendingOperation: 'enable', balance: async () => null },
+    ],
+    [
+      'while a paused account is busy',
+      { enabled: false, paused: true, balance: async () => null },
+    ],
   ] as [string, Parameters<typeof createVault>[0]][])(
-    'shows zero %s',
+    'fails the read %s instead of showing zero',
     async (_label, options) => {
       const vault = createVault(options);
-      await expect(readBalance(vault)).resolves.toMatchObject({
-        data: { data: { balance: '0' } },
-      });
-      await expect(readTokenFiat(vault)).resolves.toMatchObject({
-        balance: '0',
-        fiatValue: '0',
+      const unavailable = { message: 'xmr: balance unavailable' };
+      await expect(readBalance(vault)).rejects.toMatchObject(unavailable);
+      await expect(readTokenFiat(vault)).rejects.toMatchObject(unavailable);
+      await expect(vault.fetchTokenDetails({} as never)).rejects.toMatchObject({
+        ...unavailable,
+        autoToast: false,
       });
     },
   );
@@ -137,15 +168,16 @@ describe('xmr token details for the send page', () => {
   });
 });
 
-// Priced like other chains, from a quote that names only the asset.
+// Priced like other chains, from a quote that names only the network.
 describe('xmr fiat value', () => {
   const ownAddress =
     '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A';
 
-  function createPricedVault(
-    quote: () => Promise<{ stats: { currentPrice: string } }>,
-  ) {
-    const fetchMarketTokenDetail = jest.fn(quote);
+  function createPricedVault(quote: () => Promise<string>) {
+    mockQuoteTokenDetails.mockReset();
+    mockQuoteTokenDetails.mockImplementation(async () => ({
+      data: { data: [{ info: { address: '' }, price: await quote() }] },
+    }));
     const vault = Object.assign(
       createVault({
         enabled: true,
@@ -158,17 +190,15 @@ describe('xmr fiat value', () => {
       }),
       {
         backgroundApi: {
-          serviceMarket: { fetchMarketTokenDetail },
+          serviceToken: { getNativeTokenAddress: async () => '' },
         },
       },
     );
-    return { vault, fetchMarketTokenDetail };
+    return { vault };
   }
 
   it('values the home row and the token details at the market price', async () => {
-    const { vault, fetchMarketTokenDetail } = createPricedVault(async () => ({
-      stats: { currentPrice: '150' },
-    }));
+    const { vault } = createPricedVault(async () => '150');
     const list = await vault.fetchTokenList({
       requestApiParams: { networkId: 'xmr--0', accountAddress: ownAddress },
       requestCurrency: 'usd',
@@ -189,18 +219,23 @@ describe('xmr fiat value', () => {
       frozenBalanceFiatValue: '300',
       totalBalanceFiatValue: '450',
     });
-    expect(fetchMarketTokenDetail.mock.calls).toEqual([
-      ['monero', false, 'usd'],
-      ['monero', false, 'usd'],
+    const quoteRequest = {
+      networkId: 'xmr--0',
+      contractList: [''],
+      requestCurrency: 'usd',
+    };
+    expect(mockQuoteTokenDetails.mock.calls).toEqual([
+      [quoteRequest],
+      [quoteRequest],
     ]);
-    expect(JSON.stringify(fetchMarketTokenDetail.mock.calls)).not.toContain(
+    expect(JSON.stringify(mockQuoteTokenDetails.mock.calls)).not.toContain(
       ownAddress,
     );
   });
 
   it('leaves fiat unknown while the quote is unavailable', async () => {
     const { vault } = createPricedVault(() =>
-      Promise.reject(new Error('30011')),
+      Promise.reject(new Error('40056')),
     );
     await expect(readTokenFiat(vault)).resolves.toMatchObject({
       price: 0,

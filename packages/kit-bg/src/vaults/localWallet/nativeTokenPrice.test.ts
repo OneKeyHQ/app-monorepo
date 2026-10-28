@@ -1,8 +1,8 @@
 /* eslint-disable import/first */
-const mockFetchTokenDetails = jest.fn();
+const mockFetchTokenDetailsByApi = jest.fn();
 const mockGetChainOnlyVault = jest.fn(
   async (_params: { networkId: string }) => ({
-    fetchTokenDetails: mockFetchTokenDetails,
+    fetchTokenDetailsByApi: mockFetchTokenDetailsByApi,
   }),
 );
 jest.mock('../factory', () => ({
@@ -10,12 +10,6 @@ jest.mock('../factory', () => ({
     getChainOnlyVault: (params: { networkId: string }) =>
       mockGetChainOnlyVault(params),
   },
-}));
-jest.mock('../settings', () => ({
-  getVaultSettings: async ({ networkId }: { networkId: string }) =>
-    networkId === 'xmr--0'
-      ? { localWallet: { marketCoingeckoId: 'monero' } }
-      : {},
 }));
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -35,109 +29,50 @@ import {
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 function createBackgroundApi() {
-  const fetchMarketTokenDetailByTokenAddress = jest.fn();
-  const fetchMarketTokenDetail = jest.fn();
   const getNativeTokenAddress = jest.fn(async () => '');
   const backgroundApi = {
-    serviceMarket: { fetchMarketTokenDetail },
-    serviceMarketV2: { fetchMarketTokenDetailByTokenAddress },
     serviceToken: { getNativeTokenAddress },
   } as unknown as IBackgroundApi;
-  return {
-    backgroundApi,
-    fetchMarketTokenDetail,
-    fetchMarketTokenDetailByTokenAddress,
-    getNativeTokenAddress,
-  };
+  return { backgroundApi, getNativeTokenAddress };
 }
 
 describe('local wallet native price lookup', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('asks market detail by market id for Monero, which has no network quote', async () => {
-    const {
-      backgroundApi,
-      fetchMarketTokenDetail,
-      fetchMarketTokenDetailByTokenAddress,
-    } = createBackgroundApi();
-    fetchMarketTokenDetail.mockResolvedValue({
-      stats: { currentPrice: '4021.08' },
-    });
-    await expect(
-      fetchLocalWalletNativeTokenPrice({
-        backgroundApi,
-        networkId: 'xmr--0',
-        backendIndex: false,
-        requestCurrency: 'cny',
-      }),
-    ).resolves.toBe(4021.08);
-    // The whole request is the asset identity: no account field exists to fill.
-    expect(fetchMarketTokenDetail.mock.calls).toEqual([
-      ['monero', false, 'cny'],
-    ]);
-    expect(fetchMarketTokenDetailByTokenAddress).not.toHaveBeenCalled();
-    expect(mockGetChainOnlyVault).not.toHaveBeenCalled();
-  });
-
-  it('asks market detail for the bare native asset on another unindexed chain', async () => {
-    const { backgroundApi, fetchMarketTokenDetailByTokenAddress } =
-      createBackgroundApi();
-    fetchMarketTokenDetailByTokenAddress.mockResolvedValue({
-      data: { token: { price: '150', priceConverted: '1080' } },
-    });
-    await expect(
-      fetchLocalWalletNativeTokenPrice({
-        backgroundApi,
-        networkId: 'other--0',
-        backendIndex: false,
-        requestCurrency: 'cny',
-      }),
-    ).resolves.toBe(1080);
-    expect(fetchMarketTokenDetailByTokenAddress.mock.calls).toEqual([
-      ['', 'other--0', { autoHandleError: false }],
-    ]);
-    expect(mockGetChainOnlyVault).not.toHaveBeenCalled();
-  });
-
-  it('asks the account-free token search on an indexed chain', async () => {
-    const { backgroundApi, fetchMarketTokenDetailByTokenAddress } =
-      createBackgroundApi();
-    mockFetchTokenDetails.mockResolvedValue({
-      data: { data: [{ info: { address: '' }, price: 42 }] },
-    });
-    await expect(
-      fetchLocalWalletNativeTokenPrice({
-        backgroundApi,
-        networkId: 'zec--0',
-        backendIndex: true,
-        requestCurrency: 'usd',
-      }),
-    ).resolves.toBe(42);
-    expect(mockFetchTokenDetails.mock.calls).toEqual([
-      [{ networkId: 'zec--0', contractList: [''], requestCurrency: 'usd' }],
-    ]);
-    expect(fetchMarketTokenDetailByTokenAddress).not.toHaveBeenCalled();
-  });
+  it.each(['xmr--0', 'zec--0'])(
+    'asks the wallet token search by network alone on %s',
+    async (networkId) => {
+      const { backgroundApi } = createBackgroundApi();
+      mockFetchTokenDetailsByApi.mockResolvedValue({
+        data: { data: [{ info: { address: '' }, price: '4021.08' }] },
+      });
+      await expect(
+        fetchLocalWalletNativeTokenPrice({
+          backgroundApi,
+          networkId,
+          requestCurrency: 'cny',
+        }),
+      ).resolves.toBe(4021.08);
+      // The whole request is the asset identity: no account field exists to fill.
+      expect(mockFetchTokenDetailsByApi.mock.calls).toEqual([
+        [{ networkId, contractList: [''], requestCurrency: 'cny' }],
+      ]);
+    },
+  );
 
   it.each([
-    ['an unsupported network', new OneKeyLocalError('30011')],
-    ['an empty quote', undefined],
-  ])('reports no price for %s', async (_label, error) => {
-    const { backgroundApi, fetchMarketTokenDetailByTokenAddress } =
-      createBackgroundApi();
-    if (error) {
-      fetchMarketTokenDetailByTokenAddress.mockRejectedValue(error);
+    ['an unsupported network', new OneKeyLocalError('40056')],
+    ['an empty result', { data: { data: [] } }],
+    ['a zero quote', { data: { data: [{ info: { address: '' }, price: 0 }] } }],
+  ])('reports no price for %s', async (_label, outcome) => {
+    const { backgroundApi } = createBackgroundApi();
+    if (outcome instanceof Error) {
+      mockFetchTokenDetailsByApi.mockRejectedValue(outcome);
     } else {
-      fetchMarketTokenDetailByTokenAddress.mockResolvedValue({
-        data: { token: { price: '0' } },
-      });
+      mockFetchTokenDetailsByApi.mockResolvedValue(outcome);
     }
     await expect(
-      fetchLocalWalletNativeTokenPrice({
-        backgroundApi,
-        networkId: 'other--0',
-        backendIndex: false,
-      }),
+      fetchLocalWalletNativeTokenPrice({ backgroundApi, networkId: 'xmr--0' }),
     ).resolves.toBeUndefined();
   });
 
@@ -146,7 +81,6 @@ describe('local wallet native price lookup', () => {
       fetchLocalWalletNativeTokenPrice({
         backgroundApi: {} as IBackgroundApi,
         networkId: 'xmr--0',
-        backendIndex: false,
       }),
     ).resolves.toBeUndefined();
   });
