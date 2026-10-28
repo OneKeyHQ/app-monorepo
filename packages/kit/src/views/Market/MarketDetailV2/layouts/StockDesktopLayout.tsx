@@ -40,6 +40,7 @@ import { MarketTooltipLabel } from '../../components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '../../components/PerpsBadges';
 import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TABS_MIN_HEIGHT,
   MARKET_DETAIL_TRADE_COLUMN_PROPS,
 } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
@@ -78,6 +79,7 @@ import {
 import {
   buildStockInfoFromPublicDetail,
   formatDirectPercentValue,
+  formatStockAnalystConsensus,
 } from '../utils/stockPublicDataUtils';
 import { getStockTokenVariantActionIdentity } from '../utils/stockTokenVariant';
 
@@ -781,7 +783,9 @@ export function StockOverviewGrid({
     [intl, marketCap, stock, stockDetail],
   );
   const statWidth = columns === 2 ? '50%' : '33.33%';
-  const valueSize = columns === 2 ? '$headingLg' : '$headingXl';
+  const valueSize = columns === 2 ? '$headingMd' : '$headingXl';
+  const valueHeight = columns === 2 ? 24 : 28;
+  const statHeight = columns === 2 ? 50 : 54;
   const gridHeight = columns === 2 ? undefined : 288;
 
   if (isStockDetailError) {
@@ -818,12 +822,12 @@ export function StockOverviewGrid({
           <YStack
             key={item.label}
             width={statWidth}
-            height={54}
+            height={statHeight}
             pr="$2.5"
             gap="$1.5"
           >
             <Skeleton width={88} height={16} />
-            <Skeleton width={120} height={24} />
+            <Skeleton width={120} height={valueHeight - 4} />
           </YStack>
         ))}
       </XStack>
@@ -836,7 +840,7 @@ export function StockOverviewGrid({
         <YStack
           key={item.label}
           width={statWidth}
-          height={54}
+          height={statHeight}
           pr="$2.5"
           gap="$1.5"
         >
@@ -876,12 +880,31 @@ const STOCK_ANALYST_BAR_ROW_HEIGHT = 32;
 // and the column sits under the dial instead of being squeezed beside it.
 const STOCK_ANALYST_BAR_MIN_WIDTH = 96;
 const STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH = 240;
+const STOCK_ANALYST_COMPACT_BAR_ROW_HEIGHT = 28;
+const STOCK_ANALYST_COMPACT_SUMMARY_SIZE = 56;
+
+// The provider sends a free-form string (see `formatStockAnalystConsensus`),
+// so match it the same way the label does.
+function getStockAnalystConsensusTone(consensus?: string) {
+  const normalized = consensus?.trim().toLowerCase();
+  if (normalized === 'buy' || normalized === 'strong buy') {
+    return { bg: '$bgSuccessSubdued', icon: '$iconSuccess' } as const;
+  }
+  if (normalized === 'sell' || normalized === 'strong sell') {
+    return { bg: '$bgCriticalSubdued', icon: '$iconCritical' } as const;
+  }
+  return { bg: '$bgSubdued', icon: '$iconSubdued' } as const;
+}
 
 export function StockAnalystRatings({
   gaugeWidth = STOCK_ANALYST_GAUGE_WIDTH,
+  variant = 'gauge',
 }: {
   gaugeWidth?: number;
+  /** `compact` replaces the dial with the mobile consensus tile. */
+  variant?: 'gauge' | 'compact';
 } = {}) {
+  const isCompact = variant === 'compact';
   const resolvedGaugeWidth = Math.min(gaugeWidth, STOCK_ANALYST_GAUGE_WIDTH);
   const intl = useIntl();
   const { formatDate } = useFormatDate();
@@ -920,6 +943,178 @@ export function StockAnalystRatings({
     return null;
   }
 
+  const barRowHeight = isCompact
+    ? STOCK_ANALYST_COMPACT_BAR_ROW_HEIGHT
+    : STOCK_ANALYST_BAR_ROW_HEIGHT;
+  const distributionRows = [
+    {
+      key: 'buy',
+      label: intl.formatMessage({ id: ETranslations.global_buy }),
+      value: ratings?.buy,
+      barColor: '$bgSuccessStrong',
+    },
+    {
+      key: 'hold',
+      label: intl.formatMessage({
+        id: ETranslations.market_stock_rating_hold,
+      }),
+      value: ratings?.hold,
+      barColor: '$neutral8',
+    },
+    {
+      key: 'sell',
+      label: intl.formatMessage({ id: ETranslations.global_sell }),
+      value: ratings?.sell,
+      barColor: '$bgCriticalStrong',
+    },
+  ].map((item) => {
+    const barWidth = Math.min(100, Math.max(0, Number(item.value) || 0));
+    return (
+      <XStack key={item.key} height={barRowHeight} alignItems="center" gap="$3">
+        <SizableText size="$bodyMdMedium" minWidth={32} flexShrink={0}>
+          {item.label}
+        </SizableText>
+        <Stack
+          flex={1}
+          // The compact row cannot wrap beside its tile, so its track gives
+          // way first on narrow phones and long translated labels.
+          minWidth={isCompact ? 0 : STOCK_ANALYST_BAR_MIN_WIDTH}
+          height={4}
+          borderRadius="$full"
+          bg="$neutral5"
+          overflow="hidden"
+        >
+          <Stack
+            testID={`stock-analyst-${item.key}-bar`}
+            width={`${barWidth}%`}
+            height="100%"
+            borderRadius="$full"
+            bg={item.barColor}
+          />
+        </Stack>
+        <SizableText
+          testID={`stock-analyst-${item.key}`}
+          size="$bodyMdMedium"
+          minWidth={48}
+          textAlign="right"
+          color="$textSubdued"
+          flexShrink={0}
+          numberOfLines={1}
+        >
+          {formatDirectPercentValue(item.value)}
+        </SizableText>
+      </XStack>
+    );
+  });
+
+  let content: ReactNode;
+  if (isCompact) {
+    const consensusTone = getStockAnalystConsensusTone(ratings?.consensus);
+    content = isLoading ? (
+      <XStack
+        testID="stock-detail-analyst-ratings-skeleton"
+        alignItems="center"
+        gap="$5"
+        py="$2"
+      >
+        <Skeleton
+          width={STOCK_ANALYST_COMPACT_SUMMARY_SIZE}
+          height={STOCK_ANALYST_COMPACT_SUMMARY_SIZE}
+          borderRadius="$2"
+        />
+        {/* Three 24px bars with 6px gaps match the 84px of loaded rows. */}
+        <YStack flex={1} gap="$1.5">
+          <Skeleton width="100%" height={24} />
+          <Skeleton width="100%" height={24} />
+          <Skeleton width="100%" height={24} />
+        </YStack>
+      </XStack>
+    ) : (
+      <XStack alignItems="center" gap="$5" py="$2" pr="$2">
+        <YStack
+          testID="stock-analyst-consensus-summary"
+          // Square for short verdicts like "Buy"; widens for "Strong buy" and
+          // longer translations instead of truncating them.
+          minWidth={STOCK_ANALYST_COMPACT_SUMMARY_SIZE}
+          height={STOCK_ANALYST_COMPACT_SUMMARY_SIZE}
+          px="$2"
+          flexShrink={0}
+          borderRadius="$2"
+          bg={consensusTone.bg}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon name="SpeedOutline" size="$5" color={consensusTone.icon} />
+          <SizableText
+            testID="stock-analyst-consensus"
+            size="$headingSm"
+            textAlign="center"
+            numberOfLines={1}
+          >
+            {formatStockAnalystConsensus({ intl, analystRatings: ratings })}
+          </SizableText>
+        </YStack>
+        <YStack flex={1} justifyContent="center">
+          {distributionRows}
+        </YStack>
+      </XStack>
+    );
+  } else {
+    content = isLoading ? (
+      <XStack
+        testID="stock-detail-analyst-ratings-skeleton"
+        flexWrap="wrap"
+        gap="$8"
+        alignItems="center"
+        // Only bites once the row wraps: until then the distribution column
+        // grows into the leftover space and there is nothing to centre.
+        justifyContent="center"
+        py="$2"
+      >
+        <Skeleton
+          width={resolvedGaugeWidth}
+          height={
+            STOCK_ANALYST_GAUGE_HEIGHT *
+            (resolvedGaugeWidth / STOCK_ANALYST_GAUGE_WIDTH)
+          }
+        />
+        {/* Three 24px bars with 12px gaps add up to the 96px the loaded
+        bars occupy, so the section does not jump when data lands. */}
+        <YStack
+          flex={1}
+          minWidth={STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH}
+          gap="$3"
+        >
+          <Skeleton width="100%" height={24} />
+          <Skeleton width="100%" height={24} />
+          <Skeleton width="100%" height={24} />
+        </YStack>
+      </XStack>
+    ) : (
+      <XStack
+        flexWrap="wrap"
+        gap="$8"
+        alignItems="center"
+        justifyContent="center"
+        py="$2"
+        pr="$2"
+      >
+        <StockAnalystGauge
+          ratings={ratings}
+          ratingCounts={ratingCounts}
+          width={resolvedGaugeWidth}
+        />
+        <YStack
+          flex={1}
+          minWidth={STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH}
+          justifyContent="center"
+        >
+          {distributionRows}
+        </YStack>
+      </XStack>
+    );
+  }
+
   return (
     <YStack
       testID="stock-detail-analyst-ratings"
@@ -931,128 +1126,7 @@ export function StockAnalystRatings({
       <SizableText size="$headingXl">
         {intl.formatMessage({ id: ETranslations.market_stock_analyst_ratings })}
       </SizableText>
-      {isLoading ? (
-        <XStack
-          testID="stock-detail-analyst-ratings-skeleton"
-          flexWrap="wrap"
-          gap="$8"
-          alignItems="center"
-          // Only bites once the row wraps: until then the distribution column
-          // grows into the leftover space and there is nothing to centre.
-          justifyContent="center"
-          py="$2"
-        >
-          <Skeleton
-            width={resolvedGaugeWidth}
-            height={
-              STOCK_ANALYST_GAUGE_HEIGHT *
-              (resolvedGaugeWidth / STOCK_ANALYST_GAUGE_WIDTH)
-            }
-          />
-          {/* Three 24px bars with 12px gaps add up to the 96px the loaded
-          bars occupy, so the section does not jump when data lands. */}
-          <YStack
-            flex={1}
-            minWidth={STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH}
-            gap="$3"
-          >
-            <Skeleton width="100%" height={24} />
-            <Skeleton width="100%" height={24} />
-            <Skeleton width="100%" height={24} />
-          </YStack>
-        </XStack>
-      ) : (
-        <XStack
-          flexWrap="wrap"
-          gap="$8"
-          alignItems="center"
-          justifyContent="center"
-          py="$2"
-          pr="$2"
-        >
-          <StockAnalystGauge
-            ratings={ratings}
-            ratingCounts={ratingCounts}
-            width={resolvedGaugeWidth}
-          />
-          <YStack
-            flex={1}
-            minWidth={STOCK_ANALYST_DISTRIBUTION_MIN_WIDTH}
-            justifyContent="center"
-          >
-            {[
-              {
-                key: 'buy',
-                label: intl.formatMessage({ id: ETranslations.global_buy }),
-                value: ratings?.buy,
-                barColor: '$bgSuccessStrong',
-              },
-              {
-                key: 'hold',
-                label: intl.formatMessage({
-                  id: ETranslations.market_stock_rating_hold,
-                }),
-                value: ratings?.hold,
-                barColor: '$neutral8',
-              },
-              {
-                key: 'sell',
-                label: intl.formatMessage({ id: ETranslations.global_sell }),
-                value: ratings?.sell,
-                barColor: '$bgCriticalStrong',
-              },
-            ].map((item) => {
-              const barWidth = Math.min(
-                100,
-                Math.max(0, Number(item.value) || 0),
-              );
-              return (
-                <XStack
-                  key={item.key}
-                  height={STOCK_ANALYST_BAR_ROW_HEIGHT}
-                  alignItems="center"
-                  gap="$3"
-                >
-                  <SizableText
-                    size="$bodyMdMedium"
-                    minWidth={32}
-                    flexShrink={0}
-                  >
-                    {item.label}
-                  </SizableText>
-                  <Stack
-                    flex={1}
-                    minWidth={STOCK_ANALYST_BAR_MIN_WIDTH}
-                    height={4}
-                    borderRadius="$full"
-                    bg="$neutral5"
-                    overflow="hidden"
-                  >
-                    <Stack
-                      testID={`stock-analyst-${item.key}-bar`}
-                      width={`${barWidth}%`}
-                      height="100%"
-                      borderRadius="$full"
-                      bg={item.barColor}
-                    />
-                  </Stack>
-                  <SizableText
-                    testID={`stock-analyst-${item.key}`}
-                    size="$bodyMdMedium"
-                    minWidth={48}
-                    textAlign="right"
-                    color="$textSubdued"
-                    flexShrink={0}
-                    numberOfLines={1}
-                  >
-                    {formatDirectPercentValue(item.value)}
-                  </SizableText>
-                </XStack>
-              );
-            })}
-          </YStack>
-        </XStack>
-      )}
+      {content}
       <SizableText size="$bodySm" color="$textDisabled">
         {footerText}
       </SizableText>
@@ -1102,7 +1176,7 @@ export function StockAbout({
         <XStack
           height={columns === 2 ? undefined : 46}
           flexWrap={columns === 2 ? 'wrap' : undefined}
-          rowGap={columns === 2 ? '$5' : undefined}
+          rowGap={columns === 2 ? '$6' : undefined}
         >
           <YStack
             width={columns === 2 ? '50%' : undefined}
@@ -1275,14 +1349,15 @@ function StockOverview({
           <StockAbout />
         </>
       ) : (
-        // Portfolio brings its own horizontal padding and sizes to its rows, so
-        // it is mounted bare: an outer gutter would double-indent the table and
-        // a min-height would strand the section header above dead space.
-        <StockPosition
-          portfolioData={portfolioData}
-          isRefreshing={isRefreshing}
-          hasAccount={hasAccount}
-        />
+        // Portfolio brings its own horizontal padding, so it gets no outer
+        // gutter that would double-indent the table.
+        <YStack minHeight={MARKET_DETAIL_TABS_MIN_HEIGHT}>
+          <StockPosition
+            portfolioData={portfolioData}
+            isRefreshing={isRefreshing}
+            hasAccount={hasAccount}
+          />
+        </YStack>
       )}
     </YStack>
   );

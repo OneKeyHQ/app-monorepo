@@ -38,9 +38,10 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useOpenPerksTab } from '@onekeyhq/kit/src/hooks/useReferFriends';
+import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useSwapActions,
@@ -379,7 +380,7 @@ const SwapSettingsDialogContent = ({
   swapType,
 }: {
   activityHubAction?: {
-    onOpenInviteeReward: () => void;
+    onOpenReferral: IActivityHubOpenReferral;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
   swapType?: ESwapTabSwitchType;
@@ -614,7 +615,7 @@ const SwapSettingsDialogContent = ({
           <>
             <Divider />
             <SwapActivityHubSettingsItem
-              onOpenInviteeReward={activityHubAction.onOpenInviteeReward}
+              onOpenReferral={activityHubAction.onOpenReferral}
             />
           </>
         ) : null}
@@ -869,7 +870,7 @@ type ISwapSettingsHeaderButtonProps = {
   compact?: boolean;
   showCustomSlippageValue?: boolean;
   activityHubAction?: {
-    onOpenInviteeReward: () => void;
+    onOpenReferral: IActivityHubOpenReferral;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
 };
@@ -1004,12 +1005,12 @@ export function SwapSettingsHeaderButton({
 function SwapSettingsHeaderButtonWithActivityHub(
   props: Omit<ISwapSettingsHeaderButtonProps, 'activityHubAction'>,
 ) {
-  const openPerksTab = useOpenPerksTab();
+  const openReferralPage = useOpenReferralPage();
   const activityHubAction = useMemo(
     () => ({
-      onOpenInviteeReward: openPerksTab,
+      onOpenReferral: openReferralPage,
     }),
-    [openPerksTab],
+    [openReferralPage],
   );
 
   return (

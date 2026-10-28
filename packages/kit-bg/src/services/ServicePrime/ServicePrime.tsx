@@ -4835,9 +4835,10 @@ class ServicePrime extends ServiceBase {
     void this.trackOneKeyIdIdentityLinked({ onekeyUserId: serverUserId });
     this.enqueuePrimeProfileAnalyticsReport();
 
-    if (serverUserInfo?.inviteCode) {
+    if (serverUserInfo?.inviteCode && serverUserId) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
         serverUserInfo.inviteCode,
+        serverUserId,
       );
     }
 
@@ -4932,6 +4933,7 @@ class ServicePrime extends ServiceBase {
     if (loginResponse.inviteCode) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
         loginResponse.inviteCode,
+        onekeyAccount.onekeyUserId,
       );
     }
   }
