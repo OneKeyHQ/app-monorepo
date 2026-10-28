@@ -1,9 +1,63 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EApproveType,
   type EManagePositionType,
   type IEarnManagePageResponse,
   type IProtocolInfo,
+  type IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
+
+/**
+ * Restore receipt withdrawal metadata from protocol details when manage-page
+ * omits it, so the form cannot treat shares as the deposited asset. Other
+ * flows keep their existing metadata. Only reuse details fetched within one
+ * minute; missing configuration or load failures block the incomplete form.
+ */
+export async function resolveManagePageWithdrawApprove({
+  managePageData,
+  vault,
+  detailCacheEntry,
+  loadDetail,
+}: {
+  managePageData: IEarnManagePageResponse;
+  vault?: string;
+  detailCacheEntry?: { data: IStakeEarnDetail; updatedAt: number };
+  loadDetail: () => Promise<IStakeEarnDetail>;
+}): Promise<IProtocolInfo['withdrawApprove']> {
+  const configured = managePageData.withdrawApprove;
+  const receiptAddress =
+    managePageData.withdraw?.data?.token?.info.address?.toLowerCase();
+  const depositToken = managePageData.deposit?.data?.token?.info;
+  if (
+    configured ||
+    managePageData.buy ||
+    managePageData.sell ||
+    !vault ||
+    !depositToken ||
+    receiptAddress !== vault.toLowerCase() ||
+    receiptAddress === depositToken.address.toLowerCase()
+  ) {
+    return configured;
+  }
+
+  const age = detailCacheEntry
+    ? Date.now() - detailCacheEntry.updatedAt
+    : undefined;
+  const cachedApprove = detailCacheEntry?.data.withdrawApprove;
+  const isValid = (approve: IProtocolInfo['withdrawApprove']) =>
+    approve?.amountUnit === 'shares' &&
+    Boolean(approve.approveTarget) &&
+    approve.tokenAddress?.toLowerCase() === receiptAddress;
+  if (age !== undefined && age >= 0 && age < 60_000 && isValid(cachedApprove)) {
+    return cachedApprove;
+  }
+
+  const approve = (await loadDetail()).withdrawApprove;
+  if (!isValid(approve)) {
+    throw new OneKeyLocalError('Receipt token withdrawal approval is missing');
+  }
+  return approve;
+}
 
 export function buildManagePageRequestKey({
   accountId,

@@ -12,10 +12,12 @@ import { RiskSection } from './RiskSection';
 
 type IProtocolDetailsProps = {
   details?: IStakeProtocolDetails;
+  symbol: string;
 };
 
 export function ProtocolDetails({
   details,
+  symbol,
   children,
 }: PropsWithChildren<IProtocolDetailsProps>) {
   if (!details) {
@@ -32,7 +34,7 @@ export function ProtocolDetails({
       <ProviderSection details={details} />
       <Divider />
       <RiskSection details={details} />
-      <FaqSection details={details} />
+      <FaqSection details={details} symbol={symbol} />
     </>
   );
 }

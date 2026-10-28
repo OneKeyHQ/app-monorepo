@@ -171,18 +171,20 @@ function FaqInfo({
 
 export const FaqSection = ({
   details,
+  symbol,
 }: {
   details?: IStakeProtocolDetails;
+  symbol: string;
 }) => {
   const { result: solutions } = usePromiseResult(
     async () =>
       details
         ? backgroundApiProxy.serviceStaking.getFAQList({
-            symbol: details.token.info.symbol,
+            symbol,
             provider: details.provider.name,
           })
         : Promise.resolve([]),
-    [details],
+    [details, symbol],
     {
       initResult: [],
     },

@@ -3,13 +3,10 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  MorphoBaseBundlerContract,
-  MorphoBundlerContract,
-  MorphoKatanaBundlerContract,
-} from '@onekeyhq/shared/src/consts/addresses';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IEarnPermit2ApproveSignData } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -60,20 +57,18 @@ export function useEarnPermitApprove() {
           amount: new BigNumber(amountValue).toFixed(),
         });
 
-      // check spender address
+      const expectedSpender = earnUtils.resolveEarnPermitSpenderAddress({
+        providerName,
+        networkId,
+      });
+      const spender = permit2Data.message?.spender;
       if (
-        (networkId === getNetworkIdsMap().eth &&
-          permit2Data.message.spender.toLowerCase() !==
-            MorphoBundlerContract.toLowerCase()) ||
-        (networkId === getNetworkIdsMap().base &&
-          permit2Data.message.spender.toLowerCase() !==
-            MorphoBaseBundlerContract.toLowerCase()) ||
-        (networkId === getNetworkIdsMap().katana &&
-          permit2Data.message.spender.toLowerCase() !==
-            MorphoKatanaBundlerContract.toLowerCase())
+        !expectedSpender ||
+        typeof spender !== 'string' ||
+        spender.toLowerCase() !== expectedSpender.toLowerCase()
       ) {
         const error = new Error(
-          `Invalid spender address. Expected: ${MorphoBundlerContract}, Got: ${permit2Data.message.spender}`,
+          `Invalid spender address. Expected: ${expectedSpender ?? 'unsupported provider/network'}, Got: ${spender}`,
         );
         defaultLogger.staking.page.permitSignError({
           error: error.message,
@@ -81,7 +76,53 @@ export function useEarnPermitApprove() {
         throw error;
       }
 
-      const unsignedMessage = JSON.stringify(permit2Data);
+      if (providerName.toLowerCase() === 'etherfi') {
+        const value = new BigNumber(amountValue).shiftedBy(token.decimals);
+        const signedValue = new BigNumber(permit2Data.message?.value ?? '');
+        const permitFields = permit2Data.types?.Permit;
+        const expectedFields = [
+          ['owner', 'address'],
+          ['spender', 'address'],
+          ['value', 'uint256'],
+          ['nonce', 'uint256'],
+          ['deadline', 'uint256'],
+        ];
+        const domainFields = permit2Data.types?.EIP712Domain;
+        const expectedDomainFields = [
+          ['name', 'string'],
+          ['version', 'string'],
+          ['chainId', 'uint256'],
+          ['verifyingContract', 'address'],
+        ];
+        if (
+          permit2Data.primaryType !== 'Permit' ||
+          permit2Data.domain?.chainId !== 1 ||
+          permit2Data.domain?.verifyingContract?.toLowerCase() !==
+            token.address.toLowerCase() ||
+          permit2Data.message?.owner?.toLowerCase() !==
+            account.address.toLowerCase() ||
+          !value.isFinite() ||
+          !value.isInteger() ||
+          !value.isGreaterThan(0) ||
+          !signedValue.isEqualTo(value) ||
+          permitFields?.length !== expectedFields.length ||
+          domainFields?.length !== expectedDomainFields.length ||
+          !expectedDomainFields.every(
+            ([name, type], index) =>
+              domainFields[index]?.name === name &&
+              domainFields[index]?.type === type,
+          ) ||
+          !expectedFields.every(
+            ([name, type], index) =>
+              permitFields[index]?.name === name &&
+              permitFields[index]?.type === type,
+          )
+        ) {
+          throw new OneKeyLocalError('Invalid EtherFi permit data');
+        }
+      }
+
+      const unsignedMessage = stringUtils.stableStringify(permit2Data);
 
       const signHash = await navigationToMessageConfirmAsync({
         accountId,

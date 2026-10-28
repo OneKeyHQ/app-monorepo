@@ -3,7 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { Dialog, SizableText, Tabs, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Dialog,
+  SizableText,
+  Tabs,
+  XStack,
+} from '@onekeyhq/components';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -55,6 +61,8 @@ interface INormalManageContentProps {
   };
   depositDisabled: boolean;
   withdrawDisabled: boolean;
+  withdrawApprovalUnavailable?: boolean;
+  actionsBlocked?: boolean;
   stakeBeforeFooter: React.ReactElement | null;
   withdrawBeforeFooter: React.ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
@@ -91,6 +99,8 @@ export function NormalManageContent({
   earnAccount,
   depositDisabled,
   withdrawDisabled,
+  withdrawApprovalUnavailable,
+  actionsBlocked,
   stakeBeforeFooter,
   withdrawBeforeFooter,
   footerActionOverride,
@@ -622,6 +632,42 @@ export function NormalManageContent({
     appNavigation,
   ]);
 
+  const openPendingWithdrawals = useCallback(() => {
+    if (actionsBlocked || !earnAccount?.accountId || !protocolInfo?.vault) {
+      return;
+    }
+    const params = {
+      accountId: earnAccount.accountId,
+      networkId,
+      protocolInfo,
+      tokenInfo: withdrawTokenInfo,
+      symbol,
+      provider,
+      onSuccess,
+      isInModalContext,
+      withdrawType: 'cancel' as const,
+    };
+    if (isInModalContext) {
+      appNavigation.push(EModalStakingRoutes.WithdrawOptions, params);
+    } else {
+      appNavigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.WithdrawOptions,
+        params,
+      });
+    }
+  }, [
+    appNavigation,
+    actionsBlocked,
+    earnAccount?.accountId,
+    isInModalContext,
+    networkId,
+    onSuccess,
+    protocolInfo,
+    provider,
+    symbol,
+    withdrawTokenInfo,
+  ]);
+
   const handleTabChange = useCallback(
     (name: string) => {
       const index = tabData.findIndex((item) => item.title === name);
@@ -757,8 +803,30 @@ export function NormalManageContent({
           onOpenSlippage={handleOpenSlippage}
         />
       </XStack>
+      {provider.toLowerCase() === 'etherfi' &&
+      !actionsBlocked &&
+      earnAccount?.accountId &&
+      protocolInfo?.vault ? (
+        <XStack px="$5" py="$2" ai="center" jc="space-between">
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.earn_withdrawal_requested,
+            })}
+          </SizableText>
+          <Button
+            testID="etherfi-pending-withdrawals"
+            size="small"
+            variant="tertiary"
+            onPress={openPendingWithdrawals}
+          >
+            {intl.formatMessage({ id: ETranslations.global_view })}
+          </Button>
+        </XStack>
+      ) : null}
       {selectedTabIndex === 0 ? (
         <StakeSection
+          onLegacyApprovalCleared={onIndicatorRefresh}
+          isLegacyApprovalBlocked={actionsBlocked}
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
           tokenInfo={stakeTokenInfo}
@@ -786,8 +854,24 @@ export function NormalManageContent({
           onQuoteRefreshingChange={handleStakeQuoteRefreshingChange}
         />
       ) : null}
+      {selectedTabIndex === 1 && withdrawApprovalUnavailable ? (
+        <XStack px="$5" py="$2" ai="center" jc="space-between">
+          <SizableText size="$bodyMd" flex={1}>
+            {intl.formatMessage({ id: ETranslations.global_an_error_occurred })}
+          </SizableText>
+          <Button
+            testID="earn-withdraw-approval-retry"
+            size="small"
+            onPress={onIndicatorRefresh}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </XStack>
+      ) : null}
       {selectedTabIndex === 1 ? (
         <WithdrawSection
+          onLegacyApprovalCleared={onIndicatorRefresh}
+          isLegacyApprovalBlocked={actionsBlocked}
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
           tokenInfo={withdrawTokenInfo}

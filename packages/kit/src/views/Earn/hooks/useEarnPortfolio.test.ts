@@ -106,6 +106,53 @@ describe('useEarnPortfolio batch refresh', () => {
     });
   });
 
+  it('keeps one EtherFi vault across input-specific refreshes and retains a syncing position', async () => {
+    const vault = '0xAbCd000000000000000000000000000000000001';
+    mockStaking.getAvailableAssetsV2.mockResolvedValue(
+      ['USDC', 'USDT'].map((symbol) => ({
+        ...assets[0],
+        provider: 'etherfi',
+        symbol,
+        vault,
+      })),
+    );
+    const response = (value: string) => {
+      const item = investment(vault, value);
+      return {
+        ...item,
+        protocol: {
+          ...item.protocol,
+          symbol: 'USDC',
+          providerDetail: { code: 'etherfi', name: 'EtherFi', logoURI: '' },
+        },
+      };
+    };
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [response('10')],
+      errors: [],
+    });
+    const { result } = renderHook(() => useEarnPortfolio());
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('10');
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [response('15')],
+      errors: [],
+    });
+    await act(async () =>
+      result.current.refresh({ provider: 'etherfi', symbol: 'USDT' }),
+    );
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('15');
+    const positions = result.current.investments.flatMap((item) => item.assets);
+    expect(positions).toHaveLength(1);
+    expect(positions[0].metadata.protocol.symbol).toBe('USDC');
+    mockStaking.fetchInvestmentBatchDetail.mockResolvedValueOnce({
+      items: [response('0')],
+      errors: [],
+    });
+    await act(async () => result.current.refresh());
+    expect(result.current.earnTotalFiatValue.toFixed()).toBe('15');
+  });
+
   it('fetches same-symbol vaults through one batch and no single-detail requests', async () => {
     const { result } = renderHook(() => useEarnPortfolio());
     await act(async () => result.current.refresh());

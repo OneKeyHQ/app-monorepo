@@ -897,21 +897,24 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     vault?: string;
     accountAddress: string;
-    action: ECheckAmountActionType;
+    action: ECheckAmountActionType | 'approve';
     amount: string;
     identity?: string;
     inputTokenAddress?: string;
     outputTokenAddress?: string;
     slippage?: number;
     withdrawType?: IEarnWithdrawType;
+    stakeType?: IEarnStakeType;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
-    params.amount = amountNumber.isNaN() ? '0' : amountNumber.toFixed();
     const resp = await client.get<{
       data: IStakeTransactionConfirmation;
     }>(`/earn/v1/transaction-confirmation`, {
-      params,
+      params: {
+        ...params,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+      },
     });
     return resp.data.data;
   }
@@ -2167,6 +2170,7 @@ class ServiceStaking extends ServiceBase {
     publicKey?: string;
     approveType?: 'permit';
     permitSignature?: string;
+    unsignedMessage?: IEarnPermit2ApproveSignData;
     withdrawAll?: boolean;
     inputTokenAddress?: string;
     outputTokenAddress?: string;
@@ -2174,11 +2178,15 @@ class ServiceStaking extends ServiceBase {
     stakeType?: IEarnStakeType;
     withdrawType?: IEarnWithdrawType;
   }) {
-    const { symbol, protocolVault, withdrawAll, ...rest } = params;
+    const { symbol, protocolVault, withdrawAll, unsignedMessage, ...rest } =
+      params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const sendParams: Record<string, string | number | boolean | undefined> = {
       symbol,
       ...rest,
+      unsignedMessage: unsignedMessage
+        ? stringUtils.stableStringify(unsignedMessage)
+        : undefined,
     };
     if (
       earnUtils.shouldSendEarnProtocolVault({ providerName: params.provider })

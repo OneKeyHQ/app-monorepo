@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -94,10 +94,17 @@ const handleStakeSuccess = async ({
 export function useUniversalStake({
   networkId,
   accountId,
+  scopeKey,
 }: {
   networkId: string;
   accountId: string;
+  scopeKey?: string;
 }) {
+  const operationScope = [accountId, networkId, scopeKey].join('|');
+  const operationScopeRef = useRef(operationScope);
+  operationScopeRef.current = operationScope;
+  const wrapAbortRef = useRef<AbortController | undefined>(undefined);
+  useEffect(() => () => wrapAbortRef.current?.abort(), [operationScope]);
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
@@ -216,6 +223,7 @@ export function useUniversalStake({
       if (!riskConfirmed) {
         return false;
       }
+      if (operationScopeRef.current !== operationScope) return false;
       const buildStakeConfirmPayload = async ({
         confirmStakeType = stakeType,
         confirmInputTokenAddress = inputTokenAddress,
@@ -223,7 +231,7 @@ export function useUniversalStake({
       }: {
         confirmStakeType?: IEarnStakeType;
         confirmInputTokenAddress?: string;
-        confirmStakingInfo?: IStakingInfo;
+        confirmStakingInfo?: IStakingInfo | null;
       } = {}) => {
         const stakeTx =
           await backgroundApiProxy.serviceStaking.buildStakeTransaction({
@@ -268,7 +276,7 @@ export function useUniversalStake({
         }
 
         const stakeInfoWithOrderId = createStakeInfoWithOrderId({
-          stakingInfo: confirmStakingInfo,
+          stakingInfo: confirmStakingInfo ?? undefined,
           orderId: stakeTx.orderId,
         });
 
@@ -281,16 +289,29 @@ export function useUniversalStake({
       };
 
       if (stakeType === 'wrap') {
+        wrapAbortRef.current?.abort();
+        const controller = new AbortController();
+        wrapAbortRef.current = controller;
+        const isCurrent = () =>
+          !controller.signal.aborted &&
+          operationScopeRef.current === operationScope;
         if (!postWrapStakeToken?.address || !postWrapApproveSpenderAddress) {
           throw new OneKeyLocalError(
-            'Native wrap staking requires wrapped token approval config',
+            'Wrap staking requires wrapped token approval config',
           );
+        }
+
+        const amountBN = new BigNumber(amount);
+        if (!amountBN.isFinite() || amountBN.lte(0)) {
+          throw new OneKeyLocalError('Invalid wrap staking amount');
         }
 
         const wrapConfirmPayload = await buildStakeConfirmPayload({
           confirmStakeType: 'wrap',
-          confirmStakingInfo: undefined,
+          // Wrapping only changes the wallet asset and must not record a deposit.
+          confirmStakingInfo: null,
         });
+        if (!isCurrent()) return false;
 
         let wrapConfirmResult: ITxConfirmResult;
         try {
@@ -305,7 +326,7 @@ export function useUniversalStake({
           return false;
         }
 
-        if (wrapConfirmResult.status !== 'success') {
+        if (!isCurrent() || wrapConfirmResult.status !== 'success') {
           return false;
         }
 
@@ -319,9 +340,9 @@ export function useUniversalStake({
           wrapConfirmResult.data[0]?.signedTx?.txid ??
           wrapConfirmResult.data[0]?.decodedTx?.txid;
         if (!wrapTxId) {
-          Toast.error({
+          Toast.message({
             title: intl.formatMessage({
-              id: ETranslations.global_failed,
+              id: ETranslations.global_pending,
             }),
           });
           return false;
@@ -331,11 +352,20 @@ export function useUniversalStake({
           accountId,
           networkId,
           txid: wrapTxId,
+          signal: controller.signal,
         });
+        if (!isCurrent()) return false;
         if (wrapStatus !== EOnChainHistoryTxStatus.Success) {
-          Toast.error({
+          const notify =
+            wrapStatus === EOnChainHistoryTxStatus.Failed
+              ? Toast.error
+              : Toast.message;
+          notify({
             title: intl.formatMessage({
-              id: ETranslations.global_failed,
+              id:
+                wrapStatus === EOnChainHistoryTxStatus.Failed
+                  ? ETranslations.global_failed
+                  : ETranslations.global_pending,
             }),
           });
           return false;
@@ -353,7 +383,6 @@ export function useUniversalStake({
             }
           : undefined;
 
-        const amountBN = new BigNumber(amount);
         const fetchPostWrapAllowance = async () => {
           const allowanceInfo =
             await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
@@ -362,7 +391,11 @@ export function useUniversalStake({
               spenderAddress: postWrapApproveSpenderAddress,
               tokenAddress: postWrapStakeToken.address,
             });
-          return new BigNumber(allowanceInfo.allowanceParsed || '0');
+          const allowanceBN = new BigNumber(allowanceInfo.allowanceParsed);
+          if (!allowanceBN.isFinite() || allowanceBN.lt(0)) {
+            throw new OneKeyLocalError('Invalid wrapped token allowance');
+          }
+          return allowanceBN;
         };
         const waitForPostWrapAllowance = async ({
           maxAttempts = 15,
@@ -371,11 +404,8 @@ export function useUniversalStake({
           maxAttempts?: number;
           intervalMs?: number;
         } = {}) => {
-          if (amountBN.isNaN() || amountBN.lte(0)) {
-            return true;
-          }
-
           for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+            if (!isCurrent()) return false;
             try {
               const latestAllowanceBN = await fetchPostWrapAllowance();
               if (
@@ -398,19 +428,21 @@ export function useUniversalStake({
         };
 
         const allowanceBN = await fetchPostWrapAllowance();
-        const shouldApprovePostWrapStake =
-          !amountBN.isNaN() && !allowanceBN.isNaN() && allowanceBN.lt(amountBN);
+        if (!isCurrent()) return false;
+        const shouldApprovePostWrapStake = allowanceBN.lt(amountBN);
         onStepChange?.(2, {
           shouldShowPostWrapApproveStep: shouldApprovePostWrapStake,
         });
 
         await timerUtils.wait(150);
+        if (!isCurrent()) return false;
 
         if (shouldApprovePostWrapStake) {
           const account = await backgroundApiProxy.serviceAccount.getAccount({
             accountId,
             networkId,
           });
+          if (!isCurrent()) return false;
 
           let approveConfirmResult: ITxConfirmResult;
           try {
@@ -429,17 +461,46 @@ export function useUniversalStake({
             return false;
           }
 
-          if (approveConfirmResult.status !== 'success') {
+          if (!isCurrent() || approveConfirmResult.status !== 'success') {
+            return false;
+          }
+
+          const approveTxId =
+            approveConfirmResult.data[0]?.signedTx?.txid ??
+            approveConfirmResult.data[0]?.decodedTx?.txid;
+          const approveStatus = approveTxId
+            ? await waitForTxFinalStatus({
+                accountId,
+                networkId,
+                txid: approveTxId,
+                signal: controller.signal,
+              })
+            : undefined;
+          if (!isCurrent()) return false;
+          if (approveStatus !== EOnChainHistoryTxStatus.Success) {
+            const notify =
+              approveStatus === EOnChainHistoryTxStatus.Failed
+                ? Toast.error
+                : Toast.message;
+            notify({
+              title: intl.formatMessage({
+                id:
+                  approveStatus === EOnChainHistoryTxStatus.Failed
+                    ? ETranslations.global_failed
+                    : ETranslations.global_pending,
+              }),
+            });
             return false;
           }
 
           await timerUtils.wait(150);
 
           const allowanceReady = await waitForPostWrapAllowance();
+          if (!isCurrent()) return false;
           if (!allowanceReady) {
-            Toast.error({
+            Toast.message({
               title: intl.formatMessage({
-                id: ETranslations.global_failed,
+                id: ETranslations.global_pending,
               }),
             });
             return false;
@@ -453,6 +514,7 @@ export function useUniversalStake({
           confirmInputTokenAddress: postWrapStakeToken.address,
           confirmStakingInfo: postWrapStakingInfo,
         });
+        if (!isCurrent()) return false;
 
         await navigationToTxConfirm({
           encodedTx: normalConfirmPayload.encodedTx,
@@ -492,7 +554,14 @@ export function useUniversalStake({
 
       return true;
     },
-    [accountId, intl, networkId, navigationToTxConfirm, waitForTxConfirmResult],
+    [
+      accountId,
+      intl,
+      networkId,
+      navigationToTxConfirm,
+      operationScope,
+      waitForTxConfirmResult,
+    ],
   );
 }
 

@@ -33,7 +33,11 @@ export const createEarnPortfolioRequestKey = (
         contractAddress: request.vault,
       })
     : request.vault;
-  return `${request.provider}_${request.symbol}_${vault || ''}_${request.networkId}`;
+  // EtherFi deposit assets share a single position per vault.
+  const isEtherFi = request.provider.toLowerCase() === 'etherfi';
+  const symbol = isEtherFi && vault ? '' : request.symbol;
+  const provider = isEtherFi ? 'etherfi' : request.provider;
+  return `${provider}_${symbol}_${vault || ''}_${request.networkId}`;
 };
 
 export const shouldUseEarnPortfolioBatchFetch = ({

@@ -111,6 +111,8 @@ export type IEarnStakeType = 'wrap' | 'normal';
 
 export type IEarnWithdrawType = 'instant' | 'queued' | 'cancel';
 
+export type IEarnAmountUnit = 'shares';
+
 export type IEarnClaimType = 'normal' | 'airdrop';
 
 export type IEarnWithdrawApproveInfo = {
@@ -119,6 +121,7 @@ export type IEarnWithdrawApproveInfo = {
   tokenAddress?: string;
   allowance?: string;
   receiptTokenRate?: string;
+  amountUnit?: IEarnAmountUnit;
 };
 
 export type IStakeProviderInfo = {
@@ -242,7 +245,7 @@ export type IWithdrawBaseParams = {
   slippage?: number;
   effectiveApy?: string | number;
 
-  identity?: string; // sol pubkey
+  identity?: string;
   signature?: string; // lido unstake, stakefish withdraw all
   deadline?: number; // lido unstake
   protocolVault?: string; // protocol vault
@@ -430,6 +433,11 @@ export type IEarnTokenItem = {
   price: string;
   price24h: string;
   info: IToken;
+  // Asset-specific approval from the protocol record; an empty object means no approval.
+  approve?: {
+    approveType?: EApproveType;
+    approveTarget?: string;
+  };
 };
 
 export interface IEarnAssetsList {
@@ -1276,6 +1284,10 @@ export interface IEarnCancelWithdrawalActionIcon {
   disabled: boolean;
   text: IEarnText;
   data?: {
+    identity?: string;
+    vault?: string;
+    // Aggregated positions select one request before building a cancellation.
+    selectRequest?: boolean;
     balance?: string;
     token?: {
       price: string;
@@ -1976,6 +1988,8 @@ export type IClaimableListItemExtra = {
 export type IClaimableListItem = {
   id: string;
   amount: string;
+  /** Request submission time, in Unix seconds. */
+  timestamp?: number;
   fiatValue?: string;
   isPending?: boolean;
   babylonExtra?: IBabylonPortfolioItem;
@@ -2119,6 +2133,7 @@ export type IEarnRewardNum = Record<
 >;
 
 export interface IInvestment {
+  symbol?: string;
   active: string;
   claimable: string;
   overflow: string;
