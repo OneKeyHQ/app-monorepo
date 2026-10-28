@@ -21,13 +21,22 @@ import { useMarketTopCoins } from '../../../MarketHomeV2/components/MarketTopCoi
 
 import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 
-import type { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import type {
+  IMarketWatchlistDataCache,
+  useMarketWatchlistTokenList,
+} from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 
 const mockWatchlistResult = jest.fn<
   Pick<
     ReturnType<typeof useMarketWatchlistTokenList>,
     'data' | 'isLoading' | 'isError' | 'refetch'
-  >,
+  > &
+    Partial<
+      Pick<
+        ReturnType<typeof useMarketWatchlistTokenList>,
+        'hasLoadedAllSources'
+      >
+    >,
   Parameters<typeof useMarketWatchlistTokenList>
 >();
 const mockFetchTopCoins = jest.fn<Promise<IMarketAssetListData>, [string]>();
@@ -103,7 +112,7 @@ jest.mock(
   () => ({
     useMarketWatchlistTokenList: (
       ...args: Parameters<typeof useMarketWatchlistTokenList>
-    ) => mockWatchlistResult(...args),
+    ) => ({ hasLoadedAllSources: false, ...mockWatchlistResult(...args) }),
   }),
 );
 jest.mock('./SelectorWatchlistRecommendations', () => ({
@@ -276,7 +285,13 @@ describe('desktop selector recommendations', () => {
     'keeps %s separate from an empty watchlist',
     (state) => {
       mockWatchlistAtom.mockReturnValue([
-        { data: [], isMounted: state !== 'initializing' },
+        {
+          data:
+            state === 'initializing'
+              ? []
+              : [{ chainId: 'evm--1', contractAddress: '0xtoken' }],
+          isMounted: state !== 'initializing',
+        },
         jest.fn(),
       ]);
       mockWatchlistResult.mockReturnValue({
@@ -296,6 +311,101 @@ describe('desktop selector recommendations', () => {
       expect(screen.getByTestId('header')).toBeTruthy();
     },
   );
+
+  it('keeps empty favorites recommendations through refreshes and tab switches', () => {
+    const view = (isWatchlistMode = true) => (
+      <MarketTokenSelectorList
+        networkId=""
+        isWatchlistMode={isWatchlistMode}
+        dataOverride={isWatchlistMode ? undefined : []}
+        onItemPress={jest.fn()}
+      />
+    );
+    const { rerender } = render(view());
+    const recommendations = screen.getByTestId('recommendations');
+
+    mockWatchlistResult.mockReturnValue({
+      data: [],
+      isLoading: true,
+      isError: false,
+      refetch: jest.fn(),
+    });
+    rerender(view());
+    expect(screen.getByTestId('recommendations')).toBe(recommendations);
+    expect(screen.queryByTestId('loading')).toBeNull();
+    expect(screen.queryByTestId('header')).toBeNull();
+
+    rerender(view(false));
+    expect(screen.queryByTestId('recommendations')).toBeNull();
+    rerender(view());
+    expect(screen.getByTestId('recommendations')).toBeTruthy();
+    expect(screen.queryByTestId('loading')).toBeNull();
+    expect(screen.queryByTestId('header')).toBeNull();
+  });
+
+  it('reuses a successfully resolved empty watchlist through refresh and tab remount', () => {
+    mockWatchlistAtom.mockReturnValue([
+      {
+        data: [{ chainId: 'evm--1', contractAddress: '0xunavailable' }],
+        isMounted: true,
+      },
+      jest.fn(),
+    ]);
+    const cache: { current: IMarketWatchlistDataCache | undefined } = {
+      current: undefined,
+    };
+    const view = (isWatchlistMode = true) => (
+      <MarketTokenSelectorList
+        networkId=""
+        isWatchlistMode={isWatchlistMode}
+        watchlistDataCacheRef={cache}
+        dataOverride={isWatchlistMode ? undefined : []}
+        onItemPress={jest.fn()}
+      />
+    );
+    mockWatchlistResult.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      hasLoadedAllSources: true,
+      refetch: jest.fn(),
+    });
+    const { rerender } = render(view());
+    const recommendations = screen.getByTestId('recommendations');
+
+    mockWatchlistResult.mockReturnValue({
+      data: [],
+      isLoading: true,
+      isError: false,
+      hasLoadedAllSources: true,
+      refetch: jest.fn(),
+    });
+    rerender(view());
+    expect(screen.getByTestId('recommendations')).toBe(recommendations);
+
+    rerender(view(false));
+    mockWatchlistResult.mockReturnValue({
+      data: [],
+      isLoading: true,
+      isError: false,
+      hasLoadedAllSources: false,
+      refetch: jest.fn(),
+    });
+    rerender(view());
+    expect(screen.getByTestId('recommendations')).toBeTruthy();
+    expect(screen.queryByTestId('loading')).toBeNull();
+
+    mockWatchlistAtom.mockReturnValue([
+      {
+        data: [{ chainId: 'evm--1', contractAddress: '0xnew' }],
+        isMounted: true,
+      },
+      jest.fn(),
+    ]);
+    rerender(view());
+    expect(screen.queryByTestId('recommendations')).toBeNull();
+    expect(screen.getByTestId('loading')).toBeTruthy();
+  });
 
   it('does not truncate the favorites after a page of perps', () => {
     mockWatchlistAtom.mockReturnValue([

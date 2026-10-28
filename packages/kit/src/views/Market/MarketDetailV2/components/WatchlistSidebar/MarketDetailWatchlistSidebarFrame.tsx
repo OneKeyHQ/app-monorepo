@@ -1,5 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+
+import { useIsFocused } from '@react-navigation/native';
 
 import { Stack, XStack } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -44,6 +46,7 @@ export function MarketDetailWatchlistSidebarFrame({
   hidden?: boolean;
   children: ReactNode;
 }) {
+  const isFocused = useIsFocused();
   const [{ open: savedDockedOpen }, setPersist] =
     useMarketDetailWatchlistSidebarPersistAtom();
   const [{ data: watchListData, isMounted: isWatchListMounted }] =
@@ -73,13 +76,26 @@ export function MarketDetailWatchlistSidebarFrame({
       : 'overlay';
   const isOpen = mode === 'docked' ? dockedOpen : overlayOpen;
 
-  const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    setFrameWidth(event.nativeEvent.layout.width);
-  }, []);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { width } = event.nativeEvent.layout;
+      // Hidden navigation screens measure zero; keep the last visible mode
+      // so returning to the tab does not remount the sidebar.
+      if (isFocused && width > 0) {
+        setFrameWidth(width);
+      }
+    },
+    [isFocused],
+  );
 
   // Only an open the user asks for slides in; a docked sidebar that is
   // already open when the page appears shows in place.
   const [animateDockedEnter, setAnimateDockedEnter] = useState(false);
+  useEffect(() => {
+    if (!isFocused) {
+      setAnimateDockedEnter(false);
+    }
+  }, [isFocused]);
 
   const setOpen = useCallback(
     (open: boolean) => {
