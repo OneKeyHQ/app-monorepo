@@ -2,6 +2,7 @@ import { EEarnProviderEnum } from '../../types/earn';
 import { EApproveType } from '../../types/staking';
 import { getNetworkIdsMap } from '../config/networkIds';
 import {
+  EtherFiLiquidReferContract,
   MorphoBaseBundlerContract,
   MorphoBundlerContract,
   MorphoKatanaBundlerContract,
@@ -48,6 +49,8 @@ const isEverstakeProvider = createProviderCheck(EEarnProviderEnum.Everstake);
 
 const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
+const isEtherFiProvider = createProviderCheck(EEarnProviderEnum.EtherFi);
+
 const isSparkProvider = createProviderCheck(EEarnProviderEnum.Spark);
 
 const isPendleProvider = createProviderCheck(EEarnProviderEnum.Pendle);
@@ -69,6 +72,7 @@ const isMomentumProvider = createProviderCheck(EEarnProviderEnum.Momentum);
 const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
   return (
     isMorphoProvider({ providerName }) ||
+    isEtherFiProvider({ providerName }) ||
     isSparkProvider({ providerName }) ||
     isPendleProvider({ providerName }) ||
     isListaProvider({ providerName }) ||
@@ -123,6 +127,10 @@ function resolveEarnApproveSpenderAddress({
   protocolVault?: string;
   backendApproveTarget?: string;
 }) {
+  // The EtherFi receipt vault identifies the position but cannot spend deposits.
+  if (isEtherFiProvider({ providerName })) {
+    return backendApproveTarget ?? '';
+  }
   const providerKey = getEarnProviderEnumKey(providerName);
   if (providerKey && providerApproveSpenderOverrides[providerKey]) {
     return providerApproveSpenderOverrides[providerKey];
@@ -159,11 +167,41 @@ function resolveEarnApproveType({
   return backendApproveType ?? EApproveType.Legacy;
 }
 
+/** Returns a known Permit spender; unsupported provider/network pairs fail closed. */
+export function resolveEarnPermitSpenderAddress({
+  providerName,
+  networkId,
+}: {
+  providerName: string;
+  networkId: string;
+}): string | undefined {
+  if (isEtherFiProvider({ providerName })) {
+    return networkId === getNetworkIdsMap().eth
+      ? EtherFiLiquidReferContract
+      : undefined;
+  }
+  if (!isMorphoProvider({ providerName })) {
+    return undefined;
+  }
+  if (networkId === getNetworkIdsMap().eth) {
+    return MorphoBundlerContract;
+  }
+  if (networkId === getNetworkIdsMap().base) {
+    return MorphoBaseBundlerContract;
+  }
+  if (networkId === getNetworkIdsMap().katana) {
+    return MorphoKatanaBundlerContract;
+  }
+  return undefined;
+}
+
 function resolveEarnAllowanceSpenderAddress({
+  providerName,
   networkId,
   approveType,
   approveSpenderAddress,
 }: {
+  providerName: string;
   networkId: string;
   approveType?: EApproveType;
   approveSpenderAddress?: string;
@@ -171,14 +209,13 @@ function resolveEarnAllowanceSpenderAddress({
   if (!approveSpenderAddress) {
     return '';
   }
-  if (approveType === EApproveType.Permit) {
-    if (networkId === getNetworkIdsMap().base) {
-      return MorphoBaseBundlerContract;
-    }
-    if (networkId === getNetworkIdsMap().katana) {
-      return MorphoKatanaBundlerContract;
-    }
-    return MorphoBundlerContract;
+  // Morpho historically exposes its vault as approveTarget, while Permit uses
+  // a bundler. Other providers already expose their actual deposit spender.
+  if (
+    approveType === EApproveType.Permit &&
+    isMorphoProvider({ providerName })
+  ) {
+    return resolveEarnPermitSpenderAddress({ providerName, networkId }) ?? '';
   }
   return approveSpenderAddress;
 }
@@ -205,7 +242,8 @@ function getEarnProviderName({
 }
 
 function getEarnPermitCacheKey(payload: IEarnPermitCacheKey) {
-  return `${payload.accountId}_${payload.networkId}_${payload.tokenAddress}_${payload.amount}`;
+  // A token allowance signed for one spender cannot authorize another protocol.
+  return `${payload.accountId}_${payload.networkId}_${payload.providerName.toLowerCase()}_${payload.approveSpenderAddress.toLowerCase()}_${payload.tokenAddress}_${payload.amount}`;
 }
 
 function isUSDTonETHNetwork({
@@ -343,6 +381,7 @@ export default {
   buildEarnAccountKey,
   getEarnProviderEnumKey,
   isMorphoProvider,
+  isEtherFiProvider,
   isSparkProvider,
   isPendleProvider,
   isNativeProvider,
@@ -365,6 +404,7 @@ export default {
   isValidatorProvider,
   resolveEarnApproveSpenderAddress,
   resolveEarnApproveType,
+  resolveEarnPermitSpenderAddress,
   resolveEarnAllowanceSpenderAddress,
   convertEarnTokenToIToken,
   getDisplaySymbol,

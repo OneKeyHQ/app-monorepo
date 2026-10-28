@@ -223,7 +223,7 @@ export function useUniversalStake({
       }: {
         confirmStakeType?: IEarnStakeType;
         confirmInputTokenAddress?: string;
-        confirmStakingInfo?: IStakingInfo;
+        confirmStakingInfo?: IStakingInfo | null;
       } = {}) => {
         const stakeTx =
           await backgroundApiProxy.serviceStaking.buildStakeTransaction({
@@ -268,7 +268,7 @@ export function useUniversalStake({
         }
 
         const stakeInfoWithOrderId = createStakeInfoWithOrderId({
-          stakingInfo: confirmStakingInfo,
+          stakingInfo: confirmStakingInfo ?? undefined,
           orderId: stakeTx.orderId,
         });
 
@@ -283,13 +283,19 @@ export function useUniversalStake({
       if (stakeType === 'wrap') {
         if (!postWrapStakeToken?.address || !postWrapApproveSpenderAddress) {
           throw new OneKeyLocalError(
-            'Native wrap staking requires wrapped token approval config',
+            'Wrap staking requires wrapped token approval config',
           );
+        }
+
+        const amountBN = new BigNumber(amount);
+        if (!amountBN.isFinite() || amountBN.lte(0)) {
+          throw new OneKeyLocalError('Invalid wrap staking amount');
         }
 
         const wrapConfirmPayload = await buildStakeConfirmPayload({
           confirmStakeType: 'wrap',
-          confirmStakingInfo: undefined,
+          // Wrapping only changes the wallet asset and must not record a deposit.
+          confirmStakingInfo: null,
         });
 
         let wrapConfirmResult: ITxConfirmResult;
@@ -353,7 +359,6 @@ export function useUniversalStake({
             }
           : undefined;
 
-        const amountBN = new BigNumber(amount);
         const fetchPostWrapAllowance = async () => {
           const allowanceInfo =
             await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
@@ -362,7 +367,11 @@ export function useUniversalStake({
               spenderAddress: postWrapApproveSpenderAddress,
               tokenAddress: postWrapStakeToken.address,
             });
-          return new BigNumber(allowanceInfo.allowanceParsed || '0');
+          const allowanceBN = new BigNumber(allowanceInfo.allowanceParsed);
+          if (!allowanceBN.isFinite() || allowanceBN.lt(0)) {
+            throw new OneKeyLocalError('Invalid wrapped token allowance');
+          }
+          return allowanceBN;
         };
         const waitForPostWrapAllowance = async ({
           maxAttempts = 15,
@@ -371,10 +380,6 @@ export function useUniversalStake({
           maxAttempts?: number;
           intervalMs?: number;
         } = {}) => {
-          if (amountBN.isNaN() || amountBN.lte(0)) {
-            return true;
-          }
-
           for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
             try {
               const latestAllowanceBN = await fetchPostWrapAllowance();
@@ -398,8 +403,7 @@ export function useUniversalStake({
         };
 
         const allowanceBN = await fetchPostWrapAllowance();
-        const shouldApprovePostWrapStake =
-          !amountBN.isNaN() && !allowanceBN.isNaN() && allowanceBN.lt(amountBN);
+        const shouldApprovePostWrapStake = allowanceBN.lt(amountBN);
         onStepChange?.(2, {
           shouldShowPostWrapApproveStep: shouldApprovePostWrapStake,
         });
@@ -496,6 +500,10 @@ export function useUniversalStake({
   );
 }
 
+/**
+ * 为指定账户提供赎回确认流程，资产、路径、金额单位及取消请求 ID 完整传递到交易构建。
+ * 未声明单位时沿用原有协议口径；风险提示或确认被取消时返回 false，构建失败继续抛出。
+ */
 export function useUniversalWithdraw({
   networkId,
   accountId,
@@ -557,6 +565,7 @@ export function useUniversalWithdraw({
   const ensureRiskAccepted = useEarnRiskWarningGate();
 
   return useCallback(
+    /** 按协议约定的金额构建赎回步骤；取消使用 identity 中的原请求 ID，不从余额推断待取消请求。 */
     async ({
       amount,
       symbol,

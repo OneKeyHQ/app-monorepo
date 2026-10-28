@@ -19,6 +19,43 @@ const buildRequest = (
 });
 
 describe('earnPortfolioBatch', () => {
+  it('groups all EtherFi vault entries into one account batch and matches input symbols', () => {
+    const requests = [
+      { symbol: 'eETH', vault: 'liquid-eth-vault' },
+      { symbol: 'USDC', vault: 'liquid-usd-vault' },
+      { symbol: 'WBTC', vault: 'liquid-btc-vault' },
+    ].map((entry) =>
+      buildRequest({
+        ...entry,
+        provider: 'etherfi',
+        networkId: 'evm--1',
+      }),
+    );
+
+    const { batchGroups } = buildEarnPortfolioBatchGroups({
+      requests,
+    });
+
+    expect(batchGroups).toHaveLength(1);
+    expect(batchGroups[0].requestsByKey.size).toBe(3);
+    requests.forEach((request) => {
+      expect(
+        matchEarnPortfolioBatchRequest({
+          group: batchGroups[0],
+          symbol: request.symbol,
+          vault: request.vault,
+        }),
+      ).toEqual(request);
+    });
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: batchGroups[0],
+        symbol: 'liquidETH',
+        vault: 'liquid-eth-vault',
+      }),
+    ).toBeUndefined();
+  });
+
   it('matches EVM vaults with different casing without changing request addresses', () => {
     const requests = [
       buildRequest({

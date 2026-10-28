@@ -19,6 +19,13 @@ import { useEarnAccountKey } from '../hooks/useEarnAccountKey';
 import { EarnTestIDs } from '../testIDs';
 import { getNumberColor } from '../utils/getNumberColor';
 
+import { EarnPortfolioValue } from './EarnPortfolioValue';
+
+/**
+ * 展示总资产和预计收益；优先使用传入金额，未提供时读取账户缓存并以零兜底。
+ * @param props 刷新状态、展示金额及点击回调；无效金额由金额组件展示为不可用。
+ * @returns 总资产概览；同步状态不额外增加金额前缀。
+ */
 const OverviewComponent = ({
   isLoading,
   onRefresh,
@@ -84,7 +91,7 @@ const OverviewComponent = ({
           cursor={onPressTotalValue ? 'pointer' : undefined}
           onPress={onPressTotalValue}
         >
-          <NumberSizeableText
+          <EarnPortfolioValue
             size="$heading5xl"
             fontWeight={400}
             formatter="value"
@@ -94,7 +101,7 @@ const OverviewComponent = ({
             pointerEvents="box-none"
           >
             {totalFiatValue}
-          </NumberSizeableText>
+          </EarnPortfolioValue>
           {onPressTotalValue ? (
             <Icon
               name="ChevronRightSmallOutline"
