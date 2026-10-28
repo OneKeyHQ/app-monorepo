@@ -206,13 +206,7 @@ export function buildSwapTokenNativeListSnapshot({
       title: token.symbol,
       titleMatch,
       subtitle: token.name,
-      tertiary: searchKeyword
-        ? accountUtils.shortenAddress({
-            address,
-            leadingLength: 8,
-            trailingLength: 6,
-          })
-        : undefined,
+      tertiary: searchKeyword ? address : undefined,
       badges: badgeText
         ? [{ key: 'fee', text: badgeText, tone: 'success' }]
         : undefined,

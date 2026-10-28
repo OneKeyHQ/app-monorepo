@@ -84,7 +84,7 @@ describe('Swap NativeList row adapter', () => {
     ]);
     const [first, second] = rows(built.snapshot);
     expect(first?.titleMatch).toEqual([{ start: 0, end: 2 }]);
-    expect(first?.tertiary).toBe('0x123456...567890');
+    expect(first?.tertiary).toBe(selected.contractAddress);
     expect(first?.trailing?.[0]).toEqual(
       expect.objectContaining({
         kind: 'valuePair',
@@ -98,6 +98,37 @@ describe('Swap NativeList row adapter', () => {
     );
     expect(built.tokensByKey.get(second?.key ?? '')).toBe(other);
   });
+
+  it.each([
+    [true, true, '0x123456...567890'],
+    [true, false, '0x123456...567890'],
+    [false, true, '0x12345678901234567890'],
+    [false, false, '0x12345678901234567890'],
+  ] as const)(
+    'keeps search address display for medium=%s desktop=%s',
+    (isMediumScreen, isDesktopSelector, expectedAddress) => {
+      const params = {
+        tokens: [token('USDC', 'evm--1', '0x12345678901234567890')],
+        theme,
+        disabledNetworkIds: [],
+        isMediumScreen,
+        isDesktopSelector,
+        currencySymbol: '$',
+        otherNetworkStartIndex: -1,
+        warningIndex: -1,
+        warningText: 'Unknown token',
+        warningBorderWidth: 1,
+      };
+      const search = buildSwapTokenNativeListSnapshot({
+        ...params,
+        searchKeyword: 'USDC',
+      });
+      expect(rows(search.snapshot)[0]?.tertiary).toBe(expectedAddress);
+
+      const browse = buildSwapTokenNativeListSnapshot(params);
+      expect(rows(browse.snapshot)[0]?.tertiary).toBeUndefined();
+    },
+  );
 
   it('keeps native-token menu disabled and shows a matched free-fee badge', () => {
     const opposite = token('ETH', 'evm--1', '');

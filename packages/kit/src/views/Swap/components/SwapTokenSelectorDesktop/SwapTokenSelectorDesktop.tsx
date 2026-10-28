@@ -677,6 +677,7 @@ export function SwapTokenSelectorDesktop({
               ref={nativeListRef}
               style={{ flex: 1 }}
               snapshot={nativeListSnapshot}
+              keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
               onRowAction={onNativeRowAction}
               onActionAnchorInvalidated={onNativeAnchorInvalidated}

@@ -154,6 +154,7 @@ import type {
 
 import { useHomeNativeRefresh } from '../../hooks/useHomeNativeRefresh';
 import { useTabIsRefreshingFocused } from '../../hooks/useHomeTab';
+import { HomeTestIDs } from '../../testIDs';
 import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { RichBlock } from '../RichBlock/RichBlock';
 import { RichBlockHeader } from '../RichBlock/RichBlockHeader';
@@ -4157,6 +4158,7 @@ function TokenListBlock({
   const renderContent = useCallback(() => {
     return (
       <TokenListView
+        tokenItemTestIDPrefix={HomeTestIDs.tokenItemTestIDPrefix}
         limit={6}
         plainMode
         withHeader
