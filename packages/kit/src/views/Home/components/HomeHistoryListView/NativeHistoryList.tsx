@@ -36,6 +36,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   buildAddressMapInfoKey,
@@ -207,6 +208,8 @@ function PendingActionsController({
 
 export function NativeHistoryList(
   props: IHomeHistoryListViewProps & {
+    refreshEnabled?: boolean;
+    isAllNetworks?: boolean;
     webScrollHost?: HTMLElement | null;
     webContentPadding?: { top: number; bottom: number };
   },
@@ -216,6 +219,7 @@ export function NativeHistoryList(
     tableLayout = false,
     initialized,
     frozenTopEnabled,
+    observeFrozenTop,
     onAwayFromTopChange,
     ListHeaderComponent,
     onEndReached,
@@ -223,6 +227,8 @@ export function NativeHistoryList(
     hasMore,
     onPressHistory,
     hideValue,
+    showIcon = true,
+    refreshEnabled = true,
     webScrollHost,
     webContentPadding,
   } = props;
@@ -232,7 +238,7 @@ export function NativeHistoryList(
   const isDark = useThemeVariant() === 'dark';
   const theme = useMemo(
     () =>
-      webScrollHost === undefined
+      platformEnv.isNative
         ? nativeListTheme
         : {
             ...nativeListTheme,
@@ -243,7 +249,7 @@ export function NativeHistoryList(
               ? undefined
               : componentTheme.gray5.val,
           },
-    [nativeListTheme, componentTheme, webScrollHost, tableLayout],
+    [nativeListTheme, componentTheme, tableLayout],
   );
   const bottom = useScrollContentTabBarOffset();
   const { refreshing, onRefresh: triggerRefresh } = useHomeNativeRefresh();
@@ -260,6 +266,7 @@ export function NativeHistoryList(
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
+  const isAllNetworks = props.isAllNetworks ?? network?.isAllNetworks;
   const filtered = useMemo(
     () => getFilteredHistoryBySearchKey({ history: data, searchKey }),
     [data, searchKey],
@@ -346,7 +353,7 @@ export function NativeHistoryList(
   // badges need an asynchronous lookup in the background runtime.
   const missingBadgeNetworkIds = useMemo(
     () =>
-      network?.isAllNetworks
+      isAllNetworks
         ? [
             ...new Set(
               filtered
@@ -359,7 +366,7 @@ export function NativeHistoryList(
             ),
           ].toSorted()
         : [],
-    [filtered, localNetworkLogos, network?.isAllNetworks],
+    [filtered, localNetworkLogos, isAllNetworks],
   );
   const badgeRequestIdentity = JSON.stringify({
     scope: props.frozenTopIdentityKey,
@@ -429,7 +436,7 @@ export function NativeHistoryList(
               ]?.vault?.localWallet,
             hideValue: effectiveHideValue,
             currency: settings.currencyInfo.symbol,
-            isAllNetworks: network?.isAllNetworks,
+            isAllNetworks,
             networkBadge: {
               logoURI:
                 localNetworkLogos[history.decodedTx.networkId] ||
@@ -450,7 +457,7 @@ export function NativeHistoryList(
       fetchedBadges,
       effectiveHideValue,
       settings.currencyInfo.symbol,
-      network?.isAllNetworks,
+      isAllNetworks,
       theme.primaryText,
       theme.rowBackground,
     ],
@@ -549,12 +556,12 @@ export function NativeHistoryList(
         const header: RowModel = {
           key: sectionKey,
           type: 'sectionHeader',
-          variant: webScrollHost === undefined ? undefined : 'history',
+          variant: platformEnv.isNative ? undefined : 'history',
           sectionKey,
           height:
             (sectionIndex === 0 ? 32 : 52) +
-            (pending && webScrollHost === undefined ? 4 : 0),
-          ...(webScrollHost !== undefined ? { pressDisabled: true } : {}),
+            (pending && platformEnv.isNative ? 4 : 0),
+          ...(!platformEnv.isNative ? { pressDisabled: true } : {}),
           titleLoading: pending,
           title: pending
             ? intl.formatMessage({ id: ETranslations.global_confirming })
@@ -599,7 +606,7 @@ export function NativeHistoryList(
             let leading = model.row.leading;
             let secondaryLeading = model.row.secondaryLeading;
             const amounts =
-              webScrollHost !== undefined && tableLayout
+              !platformEnv.isNative && tableLayout
                 ? model.row.amounts?.map((amount) =>
                     amount.leading?.kind === 'token' && amount.leading.image
                       ? {
@@ -618,7 +625,7 @@ export function NativeHistoryList(
                   )
                 : model.row.amounts;
             if (
-              webScrollHost !== undefined &&
+              !platformEnv.isNative &&
               tableLayout &&
               leading?.kind === 'token'
             ) {
@@ -634,7 +641,7 @@ export function NativeHistoryList(
                   : undefined,
               };
             } else if (
-              webScrollHost !== undefined &&
+              !platformEnv.isNative &&
               !tableLayout &&
               leading?.kind === 'token' &&
               leading.image &&
@@ -650,7 +657,7 @@ export function NativeHistoryList(
                   : undefined,
               };
             } else if (
-              webScrollHost !== undefined &&
+              !platformEnv.isNative &&
               !tableLayout &&
               leading?.kind === 'icon'
             ) {
@@ -660,7 +667,7 @@ export function NativeHistoryList(
                 tintColor: componentTheme.iconSubdued.val,
               };
             } else if (
-              webScrollHost !== undefined &&
+              !platformEnv.isNative &&
               !tableLayout &&
               leading?.kind === 'token' &&
               !leading.image &&
@@ -680,11 +687,7 @@ export function NativeHistoryList(
                 },
               };
             }
-            if (
-              webScrollHost !== undefined &&
-              !tableLayout &&
-              secondaryLeading
-            ) {
+            if (!platformEnv.isNative && !tableLayout && secondaryLeading) {
               [leading, secondaryLeading] = [leading, secondaryLeading].map(
                 (source) =>
                   source?.kind === 'token'
@@ -706,15 +709,26 @@ export function NativeHistoryList(
                     : source,
               );
             }
+            let height = model.row.height;
+            if (!platformEnv.isNative && !tableLayout) {
+              if (pending) {
+                height = pendingActions.get(history.id)?.length
+                  ? undefined
+                  : 60;
+              } else if (!showIcon) {
+                height = props.inTabList ? 68 : 60;
+              }
+            }
             return {
               ...model.row,
-              height:
-                webScrollHost !== undefined &&
-                pending &&
-                !tableLayout &&
-                !pendingActions.get(history.id)?.length
-                  ? 60
-                  : model.row.height,
+              hideLeading: showIcon ? undefined : true,
+              height,
+              style: showIcon
+                ? model.row.style
+                : {
+                    ...model.row.style,
+                    verticalPadding: 8,
+                  },
               leading,
               secondaryLeading,
               amounts,
@@ -779,10 +793,11 @@ export function NativeHistoryList(
       networkData,
       pendingActions,
       tableLayout,
-      webScrollHost,
       componentTheme,
       isDark,
       effectiveHideValue,
+      showIcon,
+      props.inTabList,
       settings.currencyInfo.symbol,
     ],
   );
@@ -794,14 +809,14 @@ export function NativeHistoryList(
     structure: rowStructure,
     generation: 1,
   });
-  if (webScrollHost !== undefined && webGeneration.structure !== rowStructure) {
+  if (!platformEnv.isNative && webGeneration.structure !== rowStructure) {
     // Commit structure and generation together, including interrupted renders.
     setWebGeneration({
       structure: rowStructure,
       generation: webGeneration.generation + 1,
     });
   }
-  const generation = webScrollHost === undefined ? 1 : webGeneration.generation;
+  const generation = platformEnv.isNative ? 1 : webGeneration.generation;
   const snapshot = useMemo<NativeListSnapshot>(
     () => ({
       schemaVersion: 1,
@@ -815,8 +830,8 @@ export function NativeHistoryList(
       rows,
       theme,
       capabilities: {
-        pullToRefresh: true,
-        refreshing,
+        pullToRefresh: refreshEnabled,
+        refreshing: refreshEnabled && refreshing,
         refreshTriggerDistance: 65,
         loadMore:
           webScrollHost === undefined &&
@@ -833,6 +848,7 @@ export function NativeHistoryList(
       bottom,
       webContentPadding,
       refreshing,
+      refreshEnabled,
       onEndReached,
       hasMore,
       isLoadingMore,
@@ -845,7 +861,7 @@ export function NativeHistoryList(
     [snapshot],
   );
   const [webSnapshot, setWebSnapshot] = useState(preparedSnapshot);
-  if (webScrollHost !== undefined && !isEqual(webSnapshot, preparedSnapshot)) {
+  if (!platformEnv.isNative && !isEqual(webSnapshot, preparedSnapshot)) {
     // Equal Web refreshes must not invalidate an open row action anchor.
     setWebSnapshot(preparedSnapshot);
   }
@@ -965,7 +981,7 @@ export function NativeHistoryList(
             ? { flex: 1 }
             : { flexGrow: 0, flexShrink: 0 }
         }
-        snapshot={webScrollHost === undefined ? preparedSnapshot : webSnapshot}
+        snapshot={platformEnv.isNative ? preparedSnapshot : webSnapshot}
         webScrollHost={webScrollHost}
         listHeader={ListHeaderComponent}
         listEmpty={empty}
@@ -982,20 +998,20 @@ export function NativeHistoryList(
             hasMore={hasMore}
           />
         }
-        onRefresh={onRefresh}
+        onRefresh={refreshEnabled ? onRefresh : undefined}
         onEndReached={webScrollHost === undefined ? onEndReached : undefined}
         onRowAction={handleRowAction}
         scrollPositionThresholds={
-          webScrollHost === undefined
+          platformEnv.isNative
             ? {
                 start: FREEZE_RELEASE_OFFSET,
                 end: FREEZE_ENGAGE_OFFSET,
-                enabled: frozenTopEnabled,
+                enabled: frozenTopEnabled && observeFrozenTop,
               }
             : undefined
         }
         onScrollPositionThresholdChange={
-          webScrollHost === undefined
+          platformEnv.isNative && observeFrozenTop
             ? ({ isBeyondThreshold }) => onAwayFromTopChange(isBeyondThreshold)
             : undefined
         }

@@ -37,7 +37,7 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 
 import { sumLocalWalletFrozen } from '../../localWallet/frozen';
-import { fetchLocalWalletNativeTokenPrice } from '../../localWallet/nativeTokenPrice';
+import { fetchLocalWalletNativeTokenQuote } from '../../localWallet/nativeTokenPrice';
 import {
   LOCAL_WALLET_DISPLAY_WAIT_MS,
   readLastLocalWalletPublicBalance,
@@ -49,6 +49,7 @@ import {
   buildLocalWalletNativeTokenList,
   getLocalWalletFiatValue,
   localWalletBalanceUnavailableError,
+  toLocalWalletTokenPrice,
 } from '../../localWallet/tokenList';
 
 import {
@@ -65,6 +66,7 @@ import {
 
 import type Vault from './Vault';
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
+import type { ILocalWalletNativeQuote } from '../../localWallet/nativeTokenPrice';
 import type { ILocalWalletBalanceRead } from '../../localWallet/privacyChainCacheStore';
 import type {
   ILocalWalletAccountBalance,
@@ -765,21 +767,23 @@ export async function fetchTokenList(
     return serverResponse;
   }
 
+  const quote = await zcashFetchNativeTokenQuote(vault, params.requestCurrency);
   return buildLocalWalletNativeTokenList({
     network,
     ...params.requestApiParams,
     balance: total,
     balanceParsed,
-    price: await zcashFetchNativeTokenPrice(vault, params.requestCurrency),
+    price: quote.price,
+    price24h: quote.price24h,
   });
 }
 
 // For when no backend row carries a quote; the request has no address.
-async function zcashFetchNativeTokenPrice(
+async function zcashFetchNativeTokenQuote(
   vault: Vault,
   requestCurrency?: string,
-): Promise<number | undefined> {
-  return fetchLocalWalletNativeTokenPrice({
+): Promise<ILocalWalletNativeQuote> {
+  return fetchLocalWalletNativeTokenQuote({
     backgroundApi: vault.backgroundApi,
     networkId: vault.networkId,
     requestCurrency,
@@ -937,7 +941,8 @@ export async function fetchTokenDetails(
   ) {
     return serverResponse;
   }
-  const price = await zcashFetchNativeTokenPrice(vault, params.requestCurrency);
+  const quote = await zcashFetchNativeTokenQuote(vault, params.requestCurrency);
+  const { price } = quote;
   return {
     data: {
       data: [
@@ -950,8 +955,8 @@ export async function fetchTokenDetails(
             logoURI: network.logoURI,
             isNative: true,
           },
-          price: price ?? 0,
-          price24h: 0,
+          price: toLocalWalletTokenPrice(price),
+          price24h: quote.price24h,
           balance: balance.spendable,
           balanceParsed: toParsed(spendable),
           frozenBalance: balance.frozen,

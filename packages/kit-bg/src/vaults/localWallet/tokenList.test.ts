@@ -16,6 +16,7 @@ function build(params: {
   balance: string;
   balanceParsed: string;
   price?: number;
+  price24h?: number;
 }) {
   const response = buildLocalWalletNativeTokenList({
     network,
@@ -43,8 +44,20 @@ describe('local wallet native token list', () => {
       balance: '2500000000000',
       balanceParsed: '2.5',
     });
-    expect(fiat).toMatchObject({ price: 0, fiatValue: '' });
+    // Same as an unpriced backend row: the price shows "--", not $0.00.
+    expect(fiat).toMatchObject({ price: null, fiatValue: '' });
+    expect(fiat.price24h).toBeUndefined();
     expect(tokens.fiatValue).toBeUndefined();
+  });
+
+  it('carries the quote 24h change', () => {
+    const { fiat } = build({
+      balance: '2500000000000',
+      balanceParsed: '2.5',
+      price: 150,
+      price24h: -2.5,
+    });
+    expect(fiat).toMatchObject({ price: 150, price24h: -2.5 });
   });
 
   it.each([undefined, 150])(

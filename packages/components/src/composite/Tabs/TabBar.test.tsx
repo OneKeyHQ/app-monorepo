@@ -1,10 +1,13 @@
 /**
  * @jest-environment jsdom
  */
+/* eslint-disable react-perf/jsx-no-new-array-as-prop, react-perf/jsx-no-new-function-as-prop, react-perf/jsx-no-new-object-as-prop */
 
 import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   TabBar as IndependentTabBar,
@@ -22,10 +25,15 @@ type IAnimatedReaction = {
   previous: unknown;
 };
 
+const mockScrollTo = jest.fn();
 const mockScrollToIndex = jest.fn();
 const mockAnimatedReactions: IAnimatedReaction[] = [];
-let mockListOnContentSizeChange: (() => void) | undefined;
-let mockListOnLayout: (() => void) | undefined;
+let mockScrollOnContentSizeChange: ((width: number) => void) | undefined;
+let mockScrollOnLayout: ((event: unknown) => void) | undefined;
+let mockViewportWidth = 200;
+let mockContentWidth = 432;
+let mockRTL = false;
+let mockItemLayouts = new Map<string, { x: number; width: number }>();
 const mockTabNames = ['Watchlist', 'Trending', 'Stocks', 'Perps'];
 const mockTabNamesBeforeInsert = ['Watchlist', 'Stocks', 'Perps'];
 const mockInitialFocusedTab = { value: 'Perps' } as SharedValue<string>;
@@ -107,15 +115,53 @@ jest.mock('use-debounce', () => ({
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: true },
+  default: { isNative: false },
 }));
 
-jest.mock('react-native', () => ({
-  StyleSheet: {
-    create: (styles: Record<string, unknown>) => styles,
-  },
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-}));
+jest.mock('react-native', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const View = React.forwardRef<
+    HTMLDivElement,
+    {
+      children?: ReactNode;
+      onLayout?: (event: unknown) => void;
+      testID?: string;
+    }
+  >(({ children, onLayout, testID }, ref) => {
+    const nodeRef = React.useRef<HTMLDivElement>(null);
+    const previousWidthRef = React.useRef<number | undefined>(undefined);
+    React.useImperativeHandle(ref, () => nodeRef.current as HTMLDivElement);
+    React.useLayoutEffect(() => {
+      if (testID?.startsWith('tab-bar-scroll-item-')) {
+        const name = testID.slice('tab-bar-scroll-item-'.length);
+        const layout = mockItemLayouts.get(name);
+        if (layout && nodeRef.current) {
+          nodeRef.current.getBoundingClientRect = () =>
+            ({
+              left: mockItemLayouts.get(name)?.x ?? 0,
+              width: mockItemLayouts.get(name)?.width ?? 0,
+            }) as DOMRect;
+          if (previousWidthRef.current !== layout.width) {
+            previousWidthRef.current = layout.width;
+            onLayout?.({ nativeEvent: { layout } });
+          }
+        }
+      }
+    }, [onLayout, testID]);
+    return (
+      <div ref={nodeRef} data-testid={testID}>
+        {children}
+      </div>
+    );
+  });
+  View.displayName = 'MockView';
+  return {
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    View,
+  };
+});
 
 jest.mock('../../content', () => ({
   Divider: () => <hr />,
@@ -123,6 +169,70 @@ jest.mock('../../content', () => ({
 
 jest.mock('../../layouts', () => {
   const React = jest.requireActual('react') as typeof import('react');
+
+  const ScrollView = React.forwardRef(
+    (
+      {
+        children,
+        onContentSizeChange,
+        onLayout,
+      }: {
+        children?: ReactNode;
+        onContentSizeChange?: (width: number, height: number) => void;
+        onLayout?: (event: unknown) => void;
+      },
+      ref,
+    ) => {
+      const nodeRef = React.useRef<HTMLDivElement>(null);
+      const previousSizeRef = React.useRef<
+        | {
+            viewport: number;
+            content: number;
+          }
+        | undefined
+      >(undefined);
+      React.useImperativeHandle(ref, () => ({
+        scrollTo: mockScrollTo,
+        getScrollableNode: () => nodeRef.current,
+        getInnerViewNode: () => nodeRef.current,
+      }));
+      mockScrollOnContentSizeChange = (width) =>
+        onContentSizeChange?.(width, 44);
+      mockScrollOnLayout = onLayout;
+      React.useLayoutEffect(() => {
+        if (nodeRef.current) {
+          Object.defineProperty(nodeRef.current, 'clientWidth', {
+            configurable: true,
+            get: () => mockViewportWidth,
+          });
+          Object.defineProperty(nodeRef.current, 'scrollWidth', {
+            configurable: true,
+            get: () => mockContentWidth,
+          });
+        }
+        if (previousSizeRef.current?.viewport !== mockViewportWidth) {
+          onLayout?.({ nativeEvent: { layout: { width: mockViewportWidth } } });
+        }
+        if (previousSizeRef.current?.content !== mockContentWidth) {
+          onContentSizeChange?.(mockContentWidth, 44);
+        }
+        previousSizeRef.current = {
+          viewport: mockViewportWidth,
+          content: mockContentWidth,
+        };
+      }, [onContentSizeChange, onLayout]);
+      return (
+        <div
+          ref={nodeRef}
+          data-testid="tab-bar-scroll-view"
+          style={{ direction: mockRTL ? 'rtl' : 'ltr' }}
+        >
+          {children}
+        </div>
+      );
+    },
+  );
+  ScrollView.displayName = 'MockScrollView';
 
   const ListView = React.forwardRef(
     (
@@ -142,14 +252,12 @@ jest.mock('../../layouts', () => {
       React.useImperativeHandle(ref, () => ({
         scrollToIndex: mockScrollToIndex,
       }));
-      mockListOnContentSizeChange = onContentSizeChange;
-      mockListOnLayout = onLayout;
       React.useLayoutEffect(() => {
         onLayout?.();
         onContentSizeChange?.();
       }, [onContentSizeChange, onLayout]);
       return (
-        <div>
+        <div data-testid="tab-bar-native-list">
           {data.map((item, index) => (
             <div key={item}>{renderItem({ item, index })}</div>
           ))}
@@ -161,9 +269,7 @@ jest.mock('../../layouts', () => {
 
   return {
     ListView,
-    ScrollView: ({ children }: { children?: ReactNode }) => (
-      <div>{children}</div>
-    ),
+    ScrollView,
   };
 });
 
@@ -229,10 +335,18 @@ describe('TabBar scrollable focus handling', () => {
   });
   beforeEach(() => {
     jest.useFakeTimers();
+    platformEnv.isNative = false;
+    mockScrollTo.mockReset();
     mockScrollToIndex.mockReset();
     mockAnimatedReactions.splice(0, mockAnimatedReactions.length);
-    mockListOnContentSizeChange = undefined;
-    mockListOnLayout = undefined;
+    mockScrollOnContentSizeChange = undefined;
+    mockScrollOnLayout = undefined;
+    mockViewportWidth = 200;
+    mockContentWidth = 432;
+    mockRTL = false;
+    mockItemLayouts = new Map(
+      mockTabNames.map((name, index) => [name, { x: index * 100, width: 100 }]),
+    );
     mockInitialFocusedTab.value = 'Perps';
     mockInteractiveFocusedTab.value = 'Watchlist';
     mockSecondaryFocusedTab.value = 'Watchlist';
@@ -264,18 +378,17 @@ describe('TabBar scrollable focus handling', () => {
       jest.advanceTimersByTime(100);
     });
 
-    expect(mockScrollToIndex).toHaveBeenLastCalledWith({
-      index: 3,
-      viewPosition: 1,
-    });
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 200, animated: true });
 
     act(() => {
-      mockListOnLayout?.();
-      mockListOnContentSizeChange?.();
+      mockScrollOnLayout?.({
+        nativeEvent: { layout: { width: mockViewportWidth } },
+      });
+      mockScrollOnContentSizeChange?.(mockContentWidth);
       jest.advanceTimersByTime(100);
     });
 
-    expect(mockScrollToIndex).toHaveBeenCalledTimes(1);
+    expect(mockScrollTo).toHaveBeenCalledTimes(1);
   });
 
   it('waits until the initially focused tab is available before aligning', () => {
@@ -292,7 +405,7 @@ describe('TabBar scrollable focus handling', () => {
     act(() => {
       jest.advanceTimersByTime(100);
     });
-    expect(mockScrollToIndex).not.toHaveBeenCalled();
+    expect(mockScrollTo).not.toHaveBeenCalled();
 
     rerender(
       <TabBar
@@ -307,14 +420,14 @@ describe('TabBar scrollable focus handling', () => {
     act(() => {
       jest.advanceTimersByTime(100);
     });
-    expect(mockScrollToIndex).toHaveBeenCalledTimes(1);
-    expect(mockScrollToIndex).toHaveBeenLastCalledWith({
-      index: 3,
-      viewPosition: 1,
-    });
+    expect(mockScrollTo).toHaveBeenCalledTimes(1);
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 200, animated: true });
   });
 
   it('realigns the focused tab when the tab structure changes', () => {
+    mockContentWidth = 332;
+    mockItemLayouts.set('Stocks', { x: 100, width: 100 });
+    mockItemLayouts.set('Perps', { x: 200, width: 100 });
     const { rerender } = render(
       <TabBar
         focusedTab={mockInitialFocusedTab}
@@ -328,10 +441,11 @@ describe('TabBar scrollable focus handling', () => {
     act(() => {
       jest.advanceTimersByTime(100);
     });
-    expect(mockScrollToIndex).toHaveBeenLastCalledWith({
-      index: 2,
-      viewPosition: 1,
-    });
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 100, animated: true });
+
+    mockContentWidth = 432;
+    mockItemLayouts.set('Stocks', { x: 200, width: 100 });
+    mockItemLayouts.set('Perps', { x: 300, width: 100 });
 
     rerender(
       <TabBar
@@ -346,11 +460,101 @@ describe('TabBar scrollable focus handling', () => {
     act(() => {
       jest.advanceTimersByTime(100);
     });
-    expect(mockScrollToIndex).toHaveBeenCalledTimes(2);
-    expect(mockScrollToIndex).toHaveBeenLastCalledWith({
-      index: 3,
-      viewPosition: 1,
+    expect(mockScrollTo).toHaveBeenCalledTimes(2);
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 200, animated: true });
+  });
+
+  it('remeasures equal-width tabs after reorder without size callbacks', () => {
+    mockInitialFocusedTab.value = 'Stocks';
+    const { rerender } = render(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+    act(() => jest.advanceTimersByTime(100));
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 150, animated: true });
+    mockScrollTo.mockClear();
+
+    mockItemLayouts.set('Trending', { x: 200, width: 100 });
+    mockItemLayouts.set('Stocks', { x: 100, width: 100 });
+    rerender(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={['Watchlist', 'Stocks', 'Trending', 'Perps']}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+    act(() => jest.advanceTimersByTime(100));
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 50, animated: true });
+  });
+
+  it('reads the selected tab position after an earlier tab grows', () => {
+    render(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+    act(() => jest.advanceTimersByTime(100));
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 200, animated: true });
+
+    mockItemLayouts.set('Watchlist', { x: 0, width: 150 });
+    mockItemLayouts.set('Trending', { x: 150, width: 100 });
+    mockItemLayouts.set('Stocks', { x: 250, width: 100 });
+    mockItemLayouts.set('Perps', { x: 350, width: 100 });
+    mockContentWidth = 482;
+    act(() => {
+      mockScrollOnContentSizeChange?.(482);
+      jest.advanceTimersByTime(100);
     });
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 250, animated: true });
+  });
+
+  it('retains the old non-keep leading alignment for the first three tabs', () => {
+    render(
+      <TabBar
+        focusedTab={mockInteractiveFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInteractiveTabPress}
+        scrollable
+      />,
+    );
+    fireEvent.click(screen.getByText('Stocks').parentElement as HTMLElement);
+    act(() => jest.advanceTimersByTime(100));
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 0, animated: true });
+    fireEvent.click(screen.getByText('Perps').parentElement as HTMLElement);
+    act(() => jest.advanceTimersByTime(100));
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 232, animated: true });
+  });
+
+  it('uses the web scrollLeft convention for RTL tab geometry', () => {
+    mockRTL = true;
+    mockItemLayouts = new Map(
+      mockTabNames.map((name, index) => [
+        name,
+        { x: (3 - index) * 100, width: 100 },
+      ]),
+    );
+    render(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+    act(() => jest.advanceTimersByTime(100));
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: -232, animated: true });
   });
 
   it('keeps the pressed tab focused while the pager reports intermediate tabs', () => {
@@ -386,10 +590,7 @@ describe('TabBar scrollable focus handling', () => {
     act(() => {
       jest.advanceTimersByTime(100);
     });
-    expect(mockScrollToIndex).toHaveBeenLastCalledWith({
-      index: 3,
-      viewPosition: 1,
-    });
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 200, animated: true });
   });
 
   it('accepts rapid presses on different tabs', () => {
@@ -449,5 +650,131 @@ describe('TabBar scrollable focus handling', () => {
     expect(screen.getAllByText('Stocks')[1].getAttribute('data-color')).toBe(
       '$text',
     );
+  });
+
+  it('aligns first, middle, and last tabs from measured widths', () => {
+    render(
+      <TabBar
+        focusedTab={mockInteractiveFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInteractiveTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+    fireEvent.click(screen.getByText('Trending').parentElement as HTMLElement);
+    act(() => jest.advanceTimersByTime(100));
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 50, animated: true });
+
+    fireEvent.click(screen.getByText('Perps').parentElement as HTMLElement);
+    act(() => jest.advanceTimersByTime(100));
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 200, animated: true });
+
+    fireEvent.click(screen.getByText('Watchlist').parentElement as HTMLElement);
+    act(() => jest.advanceTimersByTime(100));
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 0, animated: true });
+  });
+
+  it('clamps narrow content and realigns when a long label or viewport changes', () => {
+    mockViewportWidth = 500;
+    const { rerender } = render(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+    act(() => jest.advanceTimersByTime(100));
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 0, animated: true });
+
+    mockInitialFocusedTab.value = 'Trending';
+    mockViewportWidth = 200;
+    mockContentWidth = 492;
+    mockItemLayouts.set('Trending', { x: 100, width: 160 });
+    rerender(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+    act(() => runAnimatedReactions());
+    act(() => {
+      mockScrollOnLayout?.({ nativeEvent: { layout: { width: 200 } } });
+      mockScrollOnContentSizeChange?.(492);
+      jest.advanceTimersByTime(100);
+    });
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 80, animated: true });
+  });
+
+  it('keeps custom items and toolbar while deleting the selected last tab', () => {
+    const renderItem = jest.fn(
+      (props: { name: string; onPress: (name: string) => void }) => (
+        <button type="button" onClick={() => props.onPress(props.name)}>
+          Custom {props.name}
+        </button>
+      ),
+    );
+    const { rerender } = render(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInitialTabPress}
+        renderItem={renderItem}
+        renderToolbar={() => <span>Toolbar</span>}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+    expect(screen.getByText('Toolbar')).toBeTruthy();
+    expect(screen.getByText('Custom Perps')).toBeTruthy();
+    const retainedCustomItem = screen.getByText('Custom Stocks');
+    act(() => jest.advanceTimersByTime(100));
+    mockScrollTo.mockClear();
+
+    mockInitialFocusedTab.value = 'Stocks';
+    rerender(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames.slice(0, 3)}
+        onTabPress={mockInitialTabPress}
+        renderItem={renderItem}
+        renderToolbar={() => <span>Toolbar</span>}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+    act(() => {
+      runAnimatedReactions();
+      mockScrollOnContentSizeChange?.(332);
+      jest.advanceTimersByTime(100);
+    });
+    expect(screen.queryByText('Custom Perps')).toBeNull();
+    expect(screen.getByText('Custom Stocks')).toBe(retainedCustomItem);
+    expect(mockScrollTo).toHaveBeenLastCalledWith({ x: 100, animated: true });
+  });
+
+  it('keeps the native scrollable ListView behavior unchanged', () => {
+    platformEnv.isNative = true;
+    render(
+      <TabBar
+        focusedTab={mockInitialFocusedTab}
+        tabNames={mockTabNames}
+        onTabPress={mockInitialTabPress}
+        scrollable
+        keepFocusedTabVisible
+      />,
+    );
+    act(() => jest.advanceTimersByTime(100));
+    expect(screen.getByTestId('tab-bar-native-list')).toBeTruthy();
+    expect(mockScrollToIndex).toHaveBeenCalledWith({
+      index: 3,
+      viewPosition: 1,
+    });
+    expect(mockScrollTo).not.toHaveBeenCalled();
   });
 });

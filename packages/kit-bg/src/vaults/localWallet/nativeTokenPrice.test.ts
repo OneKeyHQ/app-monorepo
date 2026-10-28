@@ -23,6 +23,7 @@ import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
 import {
   applyLocalWalletNativePriceToHistoryTx,
   fetchLocalWalletNativeTokenPrice,
+  fetchLocalWalletNativeTokenQuote,
   isLocalWalletHistoryTxUnpriced,
 } from './nativeTokenPrice';
 
@@ -83,6 +84,25 @@ describe('local wallet native price lookup', () => {
         networkId: 'xmr--0',
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it('returns the 24h change with the price, and neither without a price', async () => {
+    const { backgroundApi } = createBackgroundApi();
+    mockFetchTokenDetailsByApi.mockResolvedValueOnce({
+      data: {
+        data: [{ info: { address: '' }, price: '150', price24h: '-2.5' }],
+      },
+    });
+    await expect(
+      fetchLocalWalletNativeTokenQuote({ backgroundApi, networkId: 'xmr--0' }),
+    ).resolves.toEqual({ price: 150, price24h: -2.5 });
+
+    mockFetchTokenDetailsByApi.mockResolvedValueOnce({
+      data: { data: [{ info: { address: '' }, price: 0, price24h: 3 }] },
+    });
+    await expect(
+      fetchLocalWalletNativeTokenQuote({ backgroundApi, networkId: 'xmr--0' }),
+    ).resolves.toEqual({});
   });
 });
 

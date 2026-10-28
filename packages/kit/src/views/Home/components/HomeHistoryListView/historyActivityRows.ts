@@ -81,6 +81,8 @@ export function formatHistoryNumber(
     };
   }
   if (!value || value === '-') return { text: '-' };
+  // Multi-asset summaries contain localized descriptions, not numeric values.
+  if (new BigNumber(value).isNaN()) return { text: value };
   const rendered = numberFormatAsRenderText(value, {
     formatter: options.balance ? 'balance' : 'value',
     formatterOptions: {

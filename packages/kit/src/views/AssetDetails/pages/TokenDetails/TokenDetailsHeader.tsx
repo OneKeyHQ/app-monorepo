@@ -17,9 +17,9 @@ import {
   XStack,
   YStack,
   useClipboard,
-  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useAppPagerPage } from '@onekeyhq/kit/src/components/AppPager/useAppPagerPage';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -29,6 +29,7 @@ import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAdd
 import { useDisplayAccountAddress } from '@onekeyhq/kit/src/hooks/useDisplayAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import {
@@ -1042,9 +1043,15 @@ const TokenDetailsHeaderScoped = withPrivacyChainPoolProvider(
 );
 
 function TokenDetailsHeaderWithTabFocus(props: IProps) {
-  const { isFocused } = useTabIsRefreshingFocused();
+  const { isFocused } = useAppPagerPage();
+  const isRouteFocused = useRouteIsFocused();
 
-  return <TokenDetailsHeaderScoped {...props} focusParam={isFocused} />;
+  return (
+    <TokenDetailsHeaderScoped
+      {...props}
+      focusParam={isFocused && isRouteFocused}
+    />
+  );
 }
 
 function TokenDetailsHeader(props: IProps) {

@@ -17,11 +17,16 @@ type ILocalWalletNativePriceQuery = {
   requestCurrency?: string;
 };
 
-async function fetchNativeQuotePrice({
+export type ILocalWalletNativeQuote = {
+  price?: number;
+  price24h?: number;
+};
+
+async function fetchNativeQuote({
   backgroundApi,
   networkId,
   requestCurrency,
-}: ILocalWalletNativePriceQuery): Promise<number | string | undefined> {
+}: ILocalWalletNativePriceQuery) {
   const chainVault = await vaultFactory.getChainOnlyVault({ networkId });
   const tokenAddress = await backgroundApi.serviceToken.getNativeTokenAddress({
     networkId,
@@ -32,24 +37,36 @@ async function fetchNativeQuotePrice({
     contractList: [tokenAddress],
     requestCurrency,
   });
-  return quote.data.data.find((token) => token.info.address === tokenAddress)
-    ?.price;
+  return quote.data.data.find((token) => token.info.address === tokenAddress);
+}
+
+// The API may send numbers as numeric strings, or null.
+function toFiniteNumber(value: number | string | null | undefined) {
+  const number = new BigNumber(value ?? '');
+  return number.isFinite() ? number.toNumber() : undefined;
 }
 
 // Local-wallet chains get no quote from an account-scoped request, so the
-// native price is asked for by network alone; no request carries an address.
-// A failed, missing or unusable quote is `undefined`, never 0.
+// native quote is asked for by network alone; no request carries an address.
+// A failed, missing or unusable value is `undefined`, never 0.
+export async function fetchLocalWalletNativeTokenQuote(
+  query: ILocalWalletNativePriceQuery,
+): Promise<ILocalWalletNativeQuote> {
+  let token: Awaited<ReturnType<typeof fetchNativeQuote>>;
+  try {
+    token = await fetchNativeQuote(query);
+  } catch {
+    return {};
+  }
+  const price = toFiniteNumber(token?.price);
+  if (price === undefined || price <= 0) return {};
+  return { price, price24h: toFiniteNumber(token?.price24h) };
+}
+
 export async function fetchLocalWalletNativeTokenPrice(
   query: ILocalWalletNativePriceQuery,
 ): Promise<number | undefined> {
-  let quotePrice: number | string | undefined;
-  try {
-    quotePrice = await fetchNativeQuotePrice(query);
-  } catch {
-    return undefined;
-  }
-  const price = new BigNumber(quotePrice ?? '');
-  return price.isFinite() && price.gt(0) ? price.toNumber() : undefined;
+  return (await fetchLocalWalletNativeTokenQuote(query)).price;
 }
 
 function isUnpricedNativeTransfer(transfer: IDecodedTxTransferInfo): boolean {

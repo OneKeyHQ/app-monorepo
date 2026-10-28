@@ -238,14 +238,34 @@ describe('xmr fiat value', () => {
       Promise.reject(new Error('40056')),
     );
     await expect(readTokenFiat(vault)).resolves.toMatchObject({
-      price: 0,
+      price: null,
       fiatValue: '',
     });
     const details = await vault.fetchTokenDetails({} as never);
     expect(details.data.data[0]).toMatchObject({
-      price: 0,
+      price: null,
       fiatValue: '',
       totalBalanceFiatValue: '',
     });
+    expect(details.data.data[0].price24h).toBeUndefined();
+  });
+
+  it('carries the quote 24h change like a backend row', async () => {
+    const { vault } = createPricedVault(async () => '150');
+    mockQuoteTokenDetails.mockImplementation(async () => ({
+      data: {
+        data: [{ info: { address: '' }, price: '150', price24h: '-2.5' }],
+      },
+    }));
+    const list = await vault.fetchTokenList({
+      requestApiParams: { networkId: 'xmr--0', accountAddress: ownAddress },
+      requestCurrency: 'usd',
+    } as never);
+    expect(Object.values(list.data.data.tokens.map)[0]).toMatchObject({
+      price: 150,
+      price24h: -2.5,
+    });
+    const details = await vault.fetchTokenDetails({} as never);
+    expect(details.data.data[0]).toMatchObject({ price: 150, price24h: -2.5 });
   });
 });

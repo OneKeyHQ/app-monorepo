@@ -112,6 +112,38 @@ import { useWebDappRecipientOptions } from './useWebDappRecipientOptions';
 
 import type { IRecipientQuickSelectTab } from './recipientQuickSelectTabUtils';
 import type { RouteProp } from '@react-navigation/core';
+import type { TextInputInstance, ViewInstance } from 'react-native';
+
+type IFocusVisibilityRequest = (
+  field: Pick<ViewInstance, 'measureInWindow'> | null,
+) => void;
+
+function getFocusedInputMeasurement(
+  target: unknown,
+): Pick<ViewInstance, 'measureInWindow'> | null {
+  if (!target || typeof target !== 'object') {
+    return null;
+  }
+  if (
+    'measureInWindow' in target &&
+    typeof target.measureInWindow === 'function'
+  ) {
+    return target as Pick<ViewInstance, 'measureInWindow'>;
+  }
+  if (
+    'getBoundingClientRect' in target &&
+    typeof target.getBoundingClientRect === 'function'
+  ) {
+    const element = target as HTMLElement;
+    return {
+      measureInWindow: (callback) => {
+        const rect = element.getBoundingClientRect();
+        callback(rect.left, rect.top, rect.width, rect.height);
+      },
+    };
+  }
+  return null;
+}
 
 interface IFormValues {
   accountId: string;
@@ -157,6 +189,9 @@ function SendDataInputContainer() {
     useAppNavigation<IPageNavigationProp<ISendInputFlowParamList>>();
 
   const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
+  const memoInputRef = useRef<TextInputInstance>(null);
+  const paymentIdInputRef = useRef<TextInputInstance>(null);
+  const noteInputRef = useRef<TextInputInstance>(null);
   const isNavigatingRef = useRef(false);
   const addressRiskContinuePendingRef = useRef(false);
   const navigateToAmountInputRef = useRef<(() => Promise<void>) | undefined>(
@@ -955,141 +990,204 @@ function SendDataInputContainer() {
     ],
   );
 
-  const renderMemoForm = useCallback(() => {
-    if (!displayMemoForm) return null;
-    const maxLength = memoMaxLength || 256;
-    const isNumericMemo = Boolean(numericOnlyMemo);
-    let memoInputLines = 2;
-    if (isNumericMemo) {
-      memoInputLines = memoValue?.length ? 2 : 1;
-    }
-    return (
-      <>
-        <Form.Field
-          label={intl.formatMessage({ id: ETranslations.send_tag })}
-          optional
-          name="memo"
-          labelAddon={
-            memoValue ? (
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                cursor="pointer"
-                hoverStyle={{ color: '$text' }}
-                onPress={() =>
-                  form.setValue('memo', '', {
-                    shouldValidate: true,
-                  })
-                }
-              >
-                {intl.formatMessage({ id: ETranslations.global_clear })}
-              </SizableText>
-            ) : undefined
-          }
-          rules={{
-            maxLength: isZcashMemo
-              ? undefined
-              : {
-                  value: maxLength,
-                  message: intl.formatMessage(
-                    {
-                      id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
-                    },
-                    {
-                      number: maxLength,
-                    },
-                  ),
-                },
-            validate: validateRecipientMemo,
-          }}
-        >
-          <TextArea
-            testID={SendTestIDs.memoTextarea}
-            numberOfLines={memoInputLines}
-            size={media.gtMd ? 'medium' : 'large'}
-            placeholder={
-              isZcashMemo && memoEncoding === 'hex'
-                ? 'ff000102'
-                : intl.formatMessage({ id: ETranslations.send_tag_placeholder })
+  const renderMemoForm = useCallback(
+    (requestFocusVisibility: IFocusVisibilityRequest) => {
+      if (!displayMemoForm) return null;
+      const maxLength = memoMaxLength || 256;
+      const isNumericMemo = Boolean(numericOnlyMemo);
+      let memoInputLines = 2;
+      if (isNumericMemo) {
+        memoInputLines = memoValue?.length ? 2 : 1;
+      }
+      return (
+        <>
+          <Form.Field
+            label={intl.formatMessage({ id: ETranslations.send_tag })}
+            optional
+            name="memo"
+            labelAddon={
+              memoValue ? (
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  cursor="pointer"
+                  hoverStyle={{ color: '$text' }}
+                  onPress={() =>
+                    form.setValue('memo', '', {
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  {intl.formatMessage({ id: ETranslations.global_clear })}
+                </SizableText>
+              ) : undefined
             }
-            keyboardType={
-              isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
-            }
-            autoCapitalize={isZcashMemo ? 'none' : undefined}
-            autoCorrect={isZcashMemo ? false : undefined}
-          />
-        </Form.Field>
-        {isZcashMemo ? (
-          <YStack gap="$2" mt="$2">
-            <Button
-              testID="zcash-memo-advanced"
-              alignSelf="flex-start"
-              size="small"
-              variant="tertiary"
-              iconAfter={
-                showZcashMemoAdvanced
-                  ? 'ChevronTopSmallOutline'
-                  : 'ChevronDownSmallOutline'
+            rules={{
+              maxLength: isZcashMemo
+                ? undefined
+                : {
+                    value: maxLength,
+                    message: intl.formatMessage(
+                      {
+                        id: ETranslations.dapp_connect_msg_description_can_be_up_to_int_characters,
+                      },
+                      {
+                        number: maxLength,
+                      },
+                    ),
+                  },
+              validate: validateRecipientMemo,
+            }}
+          >
+            <TextArea
+              ref={memoInputRef}
+              onFocus={() => requestFocusVisibility(memoInputRef.current)}
+              testID={SendTestIDs.memoTextarea}
+              numberOfLines={memoInputLines}
+              size={media.gtMd ? 'medium' : 'large'}
+              placeholder={
+                isZcashMemo && memoEncoding === 'hex'
+                  ? 'ff000102'
+                  : intl.formatMessage({
+                      id: ETranslations.send_tag_placeholder,
+                    })
               }
-              onPress={() => setShowZcashMemoAdvanced((value) => !value)}
-            >
-              {intl.formatMessage({ id: ETranslations.global_advanced })}
-            </Button>
-            {showZcashMemoAdvanced ? (
-              <XStack gap="$2">
-                {(['utf8', 'hex'] as const).map((encoding) => (
-                  <Button
-                    testID={`zcash-memo-encoding-${encoding}`}
-                    key={encoding}
-                    size="small"
-                    variant={
-                      memoEncoding === encoding ? 'primary' : 'secondary'
-                    }
-                    onPress={() => form.setValue('memoEncoding', encoding)}
-                  >
-                    {encoding === 'utf8' ? 'UTF-8' : 'HEX'}
-                  </Button>
-                ))}
-              </XStack>
-            ) : null}
-          </YStack>
-        ) : null}
-      </>
-    );
-  }, [
-    displayMemoForm,
-    form,
-    intl,
-    media.gtMd,
-    memoMaxLength,
-    memoValue,
-    numericOnlyMemo,
-    validateRecipientMemo,
-    isZcashMemo,
-    memoEncoding,
-    showZcashMemoAdvanced,
-  ]);
+              keyboardType={
+                isNumericMemo && platformEnv.isNative ? 'number-pad' : undefined
+              }
+              autoCapitalize={isZcashMemo ? 'none' : undefined}
+              autoCorrect={isZcashMemo ? false : undefined}
+            />
+          </Form.Field>
+          {isZcashMemo ? (
+            <YStack gap="$2" mt="$2">
+              <Button
+                testID="zcash-memo-advanced"
+                alignSelf="flex-start"
+                size="small"
+                variant="tertiary"
+                iconAfter={
+                  showZcashMemoAdvanced
+                    ? 'ChevronTopSmallOutline'
+                    : 'ChevronDownSmallOutline'
+                }
+                onPress={() => setShowZcashMemoAdvanced((value) => !value)}
+              >
+                {intl.formatMessage({ id: ETranslations.global_advanced })}
+              </Button>
+              {showZcashMemoAdvanced ? (
+                <XStack gap="$2">
+                  {(['utf8', 'hex'] as const).map((encoding) => (
+                    <Button
+                      testID={`zcash-memo-encoding-${encoding}`}
+                      key={encoding}
+                      size="small"
+                      variant={
+                        memoEncoding === encoding ? 'primary' : 'secondary'
+                      }
+                      onPress={() => form.setValue('memoEncoding', encoding)}
+                    >
+                      {encoding === 'utf8' ? 'UTF-8' : 'HEX'}
+                    </Button>
+                  ))}
+                </XStack>
+              ) : null}
+            </YStack>
+          ) : null}
+        </>
+      );
+    },
+    [
+      displayMemoForm,
+      form,
+      intl,
+      media.gtMd,
+      memoMaxLength,
+      memoValue,
+      numericOnlyMemo,
+      validateRecipientMemo,
+      isZcashMemo,
+      memoEncoding,
+      showZcashMemoAdvanced,
+    ],
+  );
 
-  const renderPaymentIdForm = useCallback(() => {
-    if (!displayPaymentIdForm) return null;
-    return (
-      <>
-        <XStack pt="$5" />
+  const renderPaymentIdForm = useCallback(
+    (requestFocusVisibility: IFocusVisibilityRequest) => {
+      if (!displayPaymentIdForm) return null;
+      return (
+        <>
+          <XStack pt="$5" />
+          <Form.Field
+            label="Payment ID"
+            optional
+            name="paymentId"
+            labelAddon={
+              paymentIdValue ? (
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  cursor="pointer"
+                  hoverStyle={{ color: '$text' }}
+                  onPress={() =>
+                    form.setValue('paymentId', '', {
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  {intl.formatMessage({ id: ETranslations.global_clear })}
+                </SizableText>
+              ) : undefined
+            }
+            rules={{
+              validate: (value) => {
+                if (!value) return undefined;
+                if (
+                  !hexUtils.isHexString(hexUtils.addHexPrefix(value)) ||
+                  hexUtils.stripHexPrefix(value).length !== 64
+                ) {
+                  return intl.formatMessage({
+                    id: ETranslations.form_payment_id_error_text,
+                  });
+                }
+              },
+            }}
+          >
+            <TextArea
+              ref={paymentIdInputRef}
+              onFocus={() => requestFocusVisibility(paymentIdInputRef.current)}
+              testID={SendTestIDs.paymentIdTextarea}
+              numberOfLines={2}
+              size={media.gtMd ? 'medium' : 'large'}
+              placeholder="Payment ID"
+            />
+          </Form.Field>
+        </>
+      );
+    },
+    [displayPaymentIdForm, form, intl, media.gtMd, paymentIdValue],
+  );
+
+  const renderNoteForm = useCallback(
+    (requestFocusVisibility: IFocusVisibilityRequest) => {
+      if (!displayNoteForm) return null;
+      const maxLength = noteMaxLength ?? 512;
+      return (
         <Form.Field
-          label="Payment ID"
+          label={intl.formatMessage({
+            id: ETranslations.global_Note,
+          })}
           optional
-          name="paymentId"
+          name="note"
           labelAddon={
-            paymentIdValue ? (
+            noteValue ? (
               <SizableText
                 size="$bodyMd"
                 color="$textSubdued"
                 cursor="pointer"
                 hoverStyle={{ color: '$text' }}
                 onPress={() =>
-                  form.setValue('paymentId', '', {
-                    shouldValidate: true,
-                  })
+                  form.setValue('note', '', { shouldValidate: true })
                 }
               >
                 {intl.formatMessage({ id: ETranslations.global_clear })}
@@ -1097,90 +1195,47 @@ function SendDataInputContainer() {
             ) : undefined
           }
           rules={{
-            validate: (value) => {
-              if (!value) return undefined;
-              if (
-                !hexUtils.isHexString(hexUtils.addHexPrefix(value)) ||
-                hexUtils.stripHexPrefix(value).length !== 64
-              ) {
-                return intl.formatMessage({
-                  id: ETranslations.form_payment_id_error_text,
-                });
-              }
+            maxLength: {
+              value: maxLength,
+              message: intl.formatMessage(
+                {
+                  id: ETranslations.send_memo_up_to_length,
+                },
+                {
+                  number: maxLength,
+                },
+              ),
             },
           }}
         >
           <TextArea
-            testID={SendTestIDs.paymentIdTextarea}
+            ref={noteInputRef}
+            onFocus={() => requestFocusVisibility(noteInputRef.current)}
+            testID={SendTestIDs.noteTextarea}
             numberOfLines={2}
             size={media.gtMd ? 'medium' : 'large'}
-            placeholder="Payment ID"
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_Note,
+            })}
           />
         </Form.Field>
-      </>
-    );
-  }, [displayPaymentIdForm, form, intl, media.gtMd, paymentIdValue]);
+      );
+    },
+    [displayNoteForm, form, intl, media.gtMd, noteMaxLength, noteValue],
+  );
 
-  const renderNoteForm = useCallback(() => {
-    if (!displayNoteForm) return null;
-    const maxLength = noteMaxLength ?? 512;
-    return (
-      <Form.Field
-        label={intl.formatMessage({
-          id: ETranslations.global_Note,
-        })}
-        optional
-        name="note"
-        labelAddon={
-          noteValue ? (
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              cursor="pointer"
-              hoverStyle={{ color: '$text' }}
-              onPress={() =>
-                form.setValue('note', '', { shouldValidate: true })
-              }
-            >
-              {intl.formatMessage({ id: ETranslations.global_clear })}
-            </SizableText>
-          ) : undefined
-        }
-        rules={{
-          maxLength: {
-            value: maxLength,
-            message: intl.formatMessage(
-              {
-                id: ETranslations.send_memo_up_to_length,
-              },
-              {
-                number: maxLength,
-              },
-            ),
-          },
-        }}
-      >
-        <TextArea
-          testID={SendTestIDs.noteTextarea}
-          numberOfLines={2}
-          size={media.gtMd ? 'medium' : 'large'}
-          placeholder={intl.formatMessage({
-            id: ETranslations.global_Note,
-          })}
-        />
-      </Form.Field>
-    );
-  }, [displayNoteForm, form, intl, media.gtMd, noteMaxLength, noteValue]);
-
-  const renderDataInput = useCallback(() => {
-    return (
-      <>
-        {renderMemoForm()}
-        {renderPaymentIdForm()}
-        {renderNoteForm()}
-      </>
-    );
-  }, [renderMemoForm, renderPaymentIdForm, renderNoteForm]);
+  const renderDataInput = useCallback(
+    (requestFocusVisibility: IFocusVisibilityRequest) => {
+      return (
+        <>
+          {renderMemoForm(requestFocusVisibility)}
+          {renderPaymentIdForm(requestFocusVisibility)}
+          {renderNoteForm(requestFocusVisibility)}
+        </>
+      );
+    },
+    [renderMemoForm, renderPaymentIdForm, renderNoteForm],
+  );
 
   useEffect(() => {
     if (token || nft) {
@@ -1597,7 +1652,7 @@ function SendDataInputContainer() {
 
   return (
     <Page
-      scrollEnabled
+      scrollEnabled={false}
       safeAreaEnabled
       scrollProps={{
         keyboardShouldPersistTaps: 'handled',
@@ -1617,7 +1672,7 @@ function SendDataInputContainer() {
             : undefined
         }
       />
-      <Page.Body px="$5" testID="send-recipient-amount-form">
+      <Page.Body px="$0" flex={1} testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
           config={{
             sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
@@ -1632,117 +1687,127 @@ function SendDataInputContainer() {
             },
           }}
         >
-          <Form form={form}>
-            {isNFT ? (
-              <Form.Field
-                label={intl.formatMessage({ id: ETranslations.global_nft })}
-                name="nft"
-              >
-                <ListItem
-                  mx="$0"
-                  borderWidth={1}
-                  borderColor="$border"
-                  borderRadius="$2"
-                >
-                  <XStack alignItems="center" gap="$1" flex={1}>
-                    <Token
-                      isNFT
-                      size="lg"
-                      tokenImageUri={nft?.metadata?.image}
-                      networkImageUri={network?.logoURI}
-                      networkId={network?.id}
-                      showNetworkIcon
-                    />
-                    <ListItem.Text
-                      flex={1}
-                      primary={nft?.metadata?.name ?? ''}
-                      secondary={
-                        <SizableText
-                          size="$bodyMd"
-                          color="$textSubdued"
-                          style={
-                            platformEnv.isNative
-                              ? undefined
-                              : { wordBreak: 'break-all' }
+          <RecipientQuickSelect
+            accountNetwork={network}
+            pagerHeader={(requestFocusVisibility) => (
+              <Form form={form}>
+                {isNFT ? (
+                  <Form.Field
+                    label={intl.formatMessage({
+                      id: ETranslations.global_nft,
+                    })}
+                    name="nft"
+                  >
+                    <ListItem
+                      mx="$0"
+                      borderWidth={1}
+                      borderColor="$border"
+                      borderRadius="$2"
+                    >
+                      <XStack alignItems="center" gap="$1" flex={1}>
+                        <Token
+                          isNFT
+                          size="lg"
+                          tokenImageUri={nft?.metadata?.image}
+                          networkImageUri={network?.logoURI}
+                          networkId={network?.id}
+                          showNetworkIcon
+                        />
+                        <ListItem.Text
+                          flex={1}
+                          primary={nft?.metadata?.name ?? ''}
+                          secondary={
+                            <SizableText
+                              size="$bodyMd"
+                              color="$textSubdued"
+                              style={
+                                platformEnv.isNative
+                                  ? undefined
+                                  : { wordBreak: 'break-all' }
+                              }
+                            >
+                              {!isNil(nft?.itemId)
+                                ? `${intl.formatMessage({
+                                    id: ETranslations.nft_token_id,
+                                  })}: ${accountUtils.shortenAddress({
+                                    address: nft.itemId,
+                                    leadingLength: 6,
+                                  })}`
+                                : ''}
+                            </SizableText>
                           }
-                        >
-                          {!isNil(nft?.itemId)
-                            ? `${intl.formatMessage({
-                                id: ETranslations.nft_token_id,
-                              })}: ${accountUtils.shortenAddress({
-                                address: nft.itemId,
-                                leadingLength: 6,
-                              })}`
-                            : ''}
-                        </SizableText>
-                      }
-                    />
-                  </XStack>
-                </ListItem>
-              </Form.Field>
-            ) : null}
-            <AddressInputField
-              name="to"
-              labelAddon={addressRiskCheckLabelAddon}
-              testID={SendTestIDs.recipientInput}
-              numberOfLines={
-                networkUtils.isLightningNetworkByNetworkId(
-                  currentAccount.networkId,
-                )
-                  ? 5
-                  : 2
-              }
-              actionsLayout="recipient"
-              placeholder={
-                // Lightning has its own placeholder ("Enter invoice, Lightning Address or LNURL")
-                networkUtils.isLightningNetworkByNetworkId(
-                  currentAccount.networkId,
-                )
-                  ? undefined
-                  : intl.formatMessage({
-                      id: ETranslations.search_or_paste_address__desc,
-                    })
-              }
-              onScanResult={onScanResult}
-              accountId={currentAccount.accountId}
-              networkId={currentAccount.networkId}
-              enableAddressBook
-              enableWalletName
-              enableVerifySendFundToSelf
-              enableAddressInteractionStatus
-              enableAddressContract
-              enableAllowListValidation={enableAllowListValidation}
-              onInputTypeChange={handleAddressInputChangeType}
-              hideNonBackedUpWallet
-              ignoreSimilarAddressInAddressBook
-              enableCheckSimilarAddressInAddressBook
-              hasQuickSelectMatches={hasQuickSelectMatches}
-              tokenAddress={badgeQueryTokenAddress}
-            />
-            {toSimilarAddress ? (
-              <Alert
-                type="warning"
-                title={intl.formatMessage({
-                  id: ETranslations.wallet_address_poisoning_alert,
-                })}
-              />
-            ) : null}
-            {renderDataInput()}
-            <RecipientQuickSelect
-              accountId={currentAccount.accountId}
-              networkId={currentAccount.networkId}
-              senderDeriveType={senderDeriveType}
-              searchKey={toAddressRaw}
-              isSearchMode={!!toAddressRaw?.trim()}
-              activeTab={quickSelectActiveTab}
-              onActiveTabChange={setQuickSelectActiveTab}
-              onInputTypeChange={handleAddressInputChangeType}
-              onMatchStatusChange={setHasQuickSelectMatches}
-              onSelect={handleQuickSelectRecipient}
-              hideTabs={recipientHiddenTabs}
-              keylessWalletsOnly={keylessWalletsOnly}
-            />
-          </Form>
+                        />
+                      </XStack>
+                    </ListItem>
+                  </Form.Field>
+                ) : null}
+                <AddressInputField
+                  name="to"
+                  labelAddon={addressRiskCheckLabelAddon}
+                  testID={SendTestIDs.recipientInput}
+                  numberOfLines={
+                    networkUtils.isLightningNetworkByNetworkId(
+                      currentAccount.networkId,
+                    )
+                      ? 5
+                      : 2
+                  }
+                  actionsLayout="recipient"
+                  placeholder={
+                    // Lightning has its own placeholder ("Enter invoice, Lightning Address or LNURL")
+                    networkUtils.isLightningNetworkByNetworkId(
+                      currentAccount.networkId,
+                    )
+                      ? undefined
+                      : intl.formatMessage({
+                          id: ETranslations.search_or_paste_address__desc,
+                        })
+                  }
+                  onScanResult={onScanResult}
+                  accountId={currentAccount.accountId}
+                  networkId={currentAccount.networkId}
+                  enableAddressBook
+                  enableWalletName
+                  enableVerifySendFundToSelf
+                  enableAddressInteractionStatus
+                  enableAddressContract
+                  enableAllowListValidation={enableAllowListValidation}
+                  onInputTypeChange={handleAddressInputChangeType}
+                  hideNonBackedUpWallet
+                  ignoreSimilarAddressInAddressBook
+                  enableCheckSimilarAddressInAddressBook
+                  hasQuickSelectMatches={hasQuickSelectMatches}
+                  tokenAddress={badgeQueryTokenAddress}
+                  onFocus={(event) =>
+                    requestFocusVisibility(
+                      getFocusedInputMeasurement(event.target),
+                    )
+                  }
+                />
+                {toSimilarAddress ? (
+                  <Alert
+                    type="warning"
+                    title={intl.formatMessage({
+                      id: ETranslations.wallet_address_poisoning_alert,
+                    })}
+                  />
+                ) : null}
+                {renderDataInput(requestFocusVisibility)}
+              </Form>
+            )}
+            accountId={currentAccount.accountId}
+            networkId={currentAccount.networkId}
+            senderDeriveType={senderDeriveType}
+            searchKey={toAddressRaw}
+            isSearchMode={!!toAddressRaw?.trim()}
+            activeTab={quickSelectActiveTab}
+            onActiveTabChange={setQuickSelectActiveTab}
+            onInputTypeChange={handleAddressInputChangeType}
+            onMatchStatusChange={setHasQuickSelectMatches}
+            onSelect={handleQuickSelectRecipient}
+            hideTabs={recipientHiddenTabs}
+            keylessWalletsOnly={keylessWalletsOnly}
+          />
         </AccountSelectorProviderMirror>
       </Page.Body>
       {(toResolved && !toPending) || isSubmitting ? (

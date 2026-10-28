@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -138,6 +137,7 @@ export function HomeNativePager({
     pages,
     initialTabName,
     pagerRef,
+    ref,
     onSelectionChange: handleSelectionChange,
     onBeforeCommand: handleBeforeCommand,
   });
@@ -149,22 +149,7 @@ export function HomeNativePager({
     focusedTab,
     indexDecimal,
     jumpToTab,
-    setIndex,
-    syncCurrentPage,
-    getCurrentIndex,
-    getFocusedTab,
   } = controller;
-  useImperativeHandle(
-    ref,
-    () => ({
-      jumpToTab,
-      setIndex,
-      getCurrentIndex,
-      getFocusedTab,
-      syncCurrentPage,
-    }),
-    [jumpToTab, setIndex, getCurrentIndex, getFocusedTab, syncCurrentPage],
-  );
   // Explicit top requests affect the active pane; owner changes remount all panes.
   const scrollToTop = useCallback(() => {
     pagerRef.current?.scrollToPageTop({ animated: false });

@@ -38,6 +38,13 @@ export function getLocalWalletFiatValue({
   return price === undefined ? '' : amount.multipliedBy(price).toFixed();
 }
 
+// An unpriced row carries the null price the backend sends for one, which
+// readers show as "--" or treat with their zero fallback; the shared type
+// still says number.
+export function toLocalWalletTokenPrice(price: number | undefined): number {
+  return price ?? (null as unknown as number);
+}
+
 /**
  * A native-token list synthesized from a locally scanned balance, for chains
  * the backend index cannot fully see. `$key` must match how the app keys token
@@ -53,6 +60,7 @@ export function buildLocalWalletNativeTokenList(params: {
   balance: string;
   balanceParsed: string;
   price?: number;
+  price24h?: number;
 }): IFetchServerTokenListResponse {
   const {
     network,
@@ -62,6 +70,7 @@ export function buildLocalWalletNativeTokenList(params: {
     balance,
     balanceParsed,
     price,
+    price24h,
   } = params;
 
   const key = `${networkId}_${xpub ?? accountAddress}_`;
@@ -71,8 +80,8 @@ export function buildLocalWalletNativeTokenList(params: {
   });
   const map: Record<string, ITokenFiat> = {
     [key]: {
-      price: price ?? 0,
-      price24h: 0,
+      price: toLocalWalletTokenPrice(price),
+      price24h,
       balance,
       balanceParsed,
       fiatValue,

@@ -77,7 +77,7 @@ import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { VaultBase } from '../../base/VaultBase';
 import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddressGate';
 import { localWalletText } from '../../localWallet/messages';
-import { fetchLocalWalletNativeTokenPrice } from '../../localWallet/nativeTokenPrice';
+import { fetchLocalWalletNativeTokenQuote } from '../../localWallet/nativeTokenPrice';
 import {
   isLocalWalletCacheEpochCurrent,
   readLocalWalletCacheEpoch,
@@ -87,6 +87,7 @@ import {
   buildLocalWalletNativeTokenList,
   getLocalWalletFiatValue,
   localWalletBalanceUnavailableError,
+  toLocalWalletTokenPrice,
 } from '../../localWallet/tokenList';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
@@ -111,6 +112,7 @@ import {
 import type { IEncodedTxXmr, IXmrHistoryItem } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
+import type { ILocalWalletNativeQuote } from '../../localWallet/nativeTokenPrice';
 import type {
   ILocalWalletAccountBalance,
   ILocalWalletCapability,
@@ -999,9 +1001,9 @@ export default class Vault extends VaultBase {
     params: IFetchServerTokenListParams,
   ): Promise<IFetchServerTokenListResponse> {
     const network = await this.getNetwork();
-    const [{ total, totalParsed }, price] = await Promise.all([
+    const [{ total, totalParsed }, quote] = await Promise.all([
       this.xmrGetBalanceForDisplay(),
-      this.xmrGetNativeTokenPrice(params.requestCurrency),
+      this.xmrGetNativeTokenQuote(params.requestCurrency),
     ]);
     const { networkId, accountAddress } = params.requestApiParams;
     return buildLocalWalletNativeTokenList({
@@ -1010,15 +1012,16 @@ export default class Vault extends VaultBase {
       accountAddress,
       balance: total,
       balanceParsed: totalParsed,
-      price,
+      price: quote.price,
+      price24h: quote.price24h,
     });
   }
 
   // Never through an account-scoped endpoint: the address stays on device.
-  private async xmrGetNativeTokenPrice(
+  private async xmrGetNativeTokenQuote(
     requestCurrency?: string,
-  ): Promise<number | undefined> {
-    return fetchLocalWalletNativeTokenPrice({
+  ): Promise<ILocalWalletNativeQuote> {
+    return fetchLocalWalletNativeTokenQuote({
       backgroundApi: this.backgroundApi,
       networkId: this.networkId,
       requestCurrency,
@@ -1029,11 +1032,12 @@ export default class Vault extends VaultBase {
     params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
     const network = await this.getNetwork();
-    const [{ total, totalParsed, spendable, spendableParsed }, price] =
+    const [{ total, totalParsed, spendable, spendableParsed }, quote] =
       await Promise.all([
         this.xmrGetBalanceForDisplay(),
-        this.xmrGetNativeTokenPrice(params.requestCurrency),
+        this.xmrGetNativeTokenQuote(params.requestCurrency),
       ]);
+    const { price } = quote;
     const known = total !== '' && spendable !== '';
     const frozen = known
       ? BigNumber.max(new BigNumber(total).minus(spendable), 0).toFixed()
@@ -1059,8 +1063,8 @@ export default class Vault extends VaultBase {
             frozenBalanceParsed: frozenParsed,
             totalBalance: total,
             totalBalanceParsed: totalParsed,
-            price: price ?? 0,
-            price24h: 0,
+            price: toLocalWalletTokenPrice(price),
+            price24h: quote.price24h,
             fiatValue: getLocalWalletFiatValue({
               amountParsed: spendableParsed,
               price,

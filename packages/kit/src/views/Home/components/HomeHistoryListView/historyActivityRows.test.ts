@@ -2,6 +2,8 @@ import { createIntl, createIntlCache } from 'react-intl';
 
 import { getTxActionTransferInfo } from '@onekeyhq/kit/src/components/TxAction/TxActionTransfer';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enCatalog from '@onekeyhq/shared/src/locale/json/en_US.json';
+import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   buildLocalWalletHistoryAddressGate,
   gateLocalWalletHistoryTx,
@@ -21,6 +23,16 @@ import {
 } from './historyActivityRows';
 
 jest.mock('@onekeyhq/kit/src/components/AddressInfo', () => ({}));
+jest.mock('@onekeyhq/shared/src/utils/numberUtils', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/utils/numberUtils')
+  >('@onekeyhq/shared/src/utils/numberUtils');
+  return {
+    __esModule: true,
+    ...actual,
+    numberFormatAsRenderText: jest.fn(actual.numberFormatAsRenderText),
+  };
+});
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({}));
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({}));
 jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({}));
@@ -94,6 +106,44 @@ const row = (tx: IAccountHistoryTx, tableLayout = true, isUTXO = true) =>
   }).row;
 
 describe('Home native history financial display parity', () => {
+  it.each([false, true])(
+    'keeps multi-asset summaries out of numeric formatting (receive: %s)',
+    (receive) => {
+      const transfers = [
+        { ...transfer('2'), tokenIdOnNetwork: 'usdc', symbol: 'USDC' },
+        { ...transfer('3'), tokenIdOnNetwork: 'eth', symbol: 'ETH' },
+      ];
+      const messages: Record<string, string> = enCatalog;
+      const formatter = jest.mocked(numberFormatAsRenderText).mockClear();
+      try {
+        const result = buildHistoryActivityRow({
+          history: history(receive ? [] : transfers, receive ? transfers : []),
+          tableLayout: false,
+          isUTXO: false,
+          hideValue: false,
+          currency: '$',
+          intl: createIntl({
+            locale: 'en-US',
+            messages,
+            onError: () => {},
+          }),
+        }).row;
+        expect(result.amounts.map((amount) => amount.text)).toEqual([
+          `${receive ? '+' : '-'}2 assets`,
+          'USDC and more',
+        ]);
+        expect(formatter).not.toHaveBeenCalled();
+
+        const numeric = row(history([transfer('7')], []), false, false);
+        expect(numeric.amounts[0].text).toContain('-7 BTC');
+        expect(numeric.amounts[1].text).toContain('$14');
+        expect(formatter).toHaveBeenCalled();
+      } finally {
+        formatter.mockClear();
+      }
+    },
+  );
+
   it.each([true, false])(
     'marks failed and dropped rows in table layout %s',
     (tableLayout) => {
