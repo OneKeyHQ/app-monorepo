@@ -103,14 +103,18 @@ it('retains an open sidebar through hidden tab measurements without replaying en
   expect(docked.getAttribute('data-enter-x')).toBeNull();
 });
 
-it('waits for a visible measurement and still switches modes on a real resize', () => {
-  render(<TestFrame />);
+it('ignores zero widths and applies real modal-time resizes before refocusing', () => {
+  const { rerender } = render(<TestFrame />);
   layout(0);
   fireEvent.click(screen.getByText('Toggle'));
   layout(1400);
   expect(screen.queryByTestId('sidebar')).toBeNull();
   fireEvent.click(screen.getByText('Toggle'));
+  mockIsFocused = false;
+  rerender(<TestFrame />);
   layout(1100);
+  mockIsFocused = true;
+  rerender(<TestFrame />);
   expect(
     screen.queryByTestId('market-detail-watchlist-sidebar-docked'),
   ).toBeNull();
@@ -120,5 +124,14 @@ it('waits for a visible measurement and still switches modes on a real resize', 
   expect(screen.getByTestId('sidebar')).toBe(sidebar);
   expect(
     screen.getByTestId('market-detail-watchlist-sidebar-overlay'),
+  ).toBeTruthy();
+
+  mockIsFocused = false;
+  rerender(<TestFrame />);
+  layout(1400);
+  mockIsFocused = true;
+  rerender(<TestFrame />);
+  expect(
+    screen.getByTestId('market-detail-watchlist-sidebar-docked'),
   ).toBeTruthy();
 });

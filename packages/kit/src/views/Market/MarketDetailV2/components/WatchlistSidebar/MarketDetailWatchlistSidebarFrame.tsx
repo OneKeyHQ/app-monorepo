@@ -76,17 +76,14 @@ export function MarketDetailWatchlistSidebarFrame({
       : 'overlay';
   const isOpen = mode === 'docked' ? dockedOpen : overlayOpen;
 
-  const handleLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      const { width } = event.nativeEvent.layout;
-      // Hidden navigation screens measure zero; keep the last visible mode
-      // so returning to the tab does not remount the sidebar.
-      if (isFocused && width > 0) {
-        setFrameWidth(width);
-      }
-    },
-    [isFocused],
-  );
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    // Hidden tabs measure zero, but a modal can blur a visible page. Keep
+    // real resizes under modals while ignoring hidden-tab measurements.
+    if (width > 0) {
+      setFrameWidth(width);
+    }
+  }, []);
 
   // Only an open the user asks for slides in; a docked sidebar that is
   // already open when the page appears shows in place.
