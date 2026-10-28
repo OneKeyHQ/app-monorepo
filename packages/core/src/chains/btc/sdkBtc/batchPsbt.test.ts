@@ -255,7 +255,7 @@ describe('computeBatchPsbtAmounts', () => {
     });
   });
 
-  it('returns null when an input has neither witnessUtxo nor nonWitnessUtxo', () => {
+  it('rejects an input with neither witnessUtxo nor nonWitnessUtxo', () => {
     const { script: accountScript } = makeP2wpkh();
     const psbt = new Psbt({ network: psbtNetwork });
     // No witnessUtxo/nonWitnessUtxo attached -> the input's spent value is
@@ -263,9 +263,9 @@ describe('computeBatchPsbtAmounts', () => {
     psbt.addInput({ hash: TXID_A, index: 0 });
     psbt.addOutput({ script: accountScript, value: 1000n });
 
-    expect(
+    expect(() =>
       computeBatchPsbtAmounts({ psbt, psbtNetwork, accountAddresses: [] }),
-    ).toBeNull();
+    ).toThrow('Missing UTXO');
   });
 
   it('returns null when outputs exceed inputs (negative fee)', () => {
@@ -494,7 +494,7 @@ describe('computeBatchPsbtAmounts - nonWitnessUtxo branch', () => {
     });
   });
 
-  it('returns null when the referenced vout is out of range for the funding tx', () => {
+  it('rejects a referenced vout outside the funding transaction', () => {
     const { script: accountScript } = makeP2wpkh();
     const { script: externalScript } = makeP2wpkh();
 
@@ -511,10 +511,34 @@ describe('computeBatchPsbtAmounts - nonWitnessUtxo branch', () => {
     });
     psbt.addOutput({ script: externalScript, value: 1000n });
 
-    expect(
+    expect(() =>
       computeBatchPsbtAmounts({ psbt, psbtNetwork, accountAddresses: [] }),
-    ).toBeNull();
+    ).toThrow('has no output #5');
   });
+
+  it.each(['value', 'script'] as const)(
+    'rejects conflicting %s records instead of returning a fallback summary',
+    (field) => {
+      const { script } = makeP2wpkh();
+      const fundingTx = new Transaction();
+      fundingTx.addInput(Buffer.alloc(32, 7), 0);
+      fundingTx.addOutput(script, 100_000n);
+      const psbt = new Psbt({ network: psbtNetwork });
+      psbt.addInput({
+        hash: fundingTx.getHash(),
+        index: 0,
+        nonWitnessUtxo: fundingTx.toBuffer(),
+        witnessUtxo: {
+          script: field === 'script' ? makeP2wpkh().script : script,
+          value: field === 'value' ? 99_100n : 100_000n,
+        },
+      });
+      psbt.addOutput({ script, value: 99_000n });
+      expect(() =>
+        computeBatchPsbtAmounts({ psbt, psbtNetwork, accountAddresses: [] }),
+      ).toThrow('Conflicting UTXO records');
+    },
+  );
 });
 
 describe('finalizeSignedPsbtHex', () => {
