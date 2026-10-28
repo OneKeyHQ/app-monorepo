@@ -346,19 +346,6 @@ export function useSwapTokenList(
       currentNetworkId,
       currentSelectNetworkId: currentSelectNetwork?.networkId,
       searchNetworkId,
-      searchNetworks: swapSupportAllNetworks
-        .filter(
-          (network) =>
-            !networkUtils.isAllNetwork({ networkId: network.networkId }) &&
-            (!lpToken ||
-              isTokenSelectorDappTokenFilterSupportedNetworkBase(network)),
-        )
-        .map((network) => ({
-          networkId: network.networkId,
-          lpToken: isTokenSelectorDappTokenFilterSupportedNetworkBase(network)
-            ? lpToken
-            : undefined,
-        })),
       keywords,
       swapType: from,
       lpToken,
@@ -378,7 +365,6 @@ export function useSwapTokenList(
     swapAddressInfo?.activeAccount?.network?.id,
     swapAddressInfo?.accountInfo?.account?.id,
     swapSupportAllAccounts,
-    swapSupportAllNetworks,
     keywords,
     searchNetworkId,
     lpToken,

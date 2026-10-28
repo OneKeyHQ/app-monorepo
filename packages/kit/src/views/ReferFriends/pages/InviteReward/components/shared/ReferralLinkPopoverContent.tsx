@@ -1,8 +1,10 @@
 import { useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   IconButton,
   SizableText,
   Stack,
@@ -13,14 +15,10 @@ import {
   usePopoverContext,
 } from '@onekeyhq/components';
 import { formatInviteUrlForDisplay } from '@onekeyhq/kit/src/views/ReferFriends/utils';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import {
-  WEB_APP_URL,
-  WEB_APP_URL_DEV,
-} from '@onekeyhq/shared/src/config/appConfig';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { buildReferralLinks } from './referralLinks';
+import { useReferralWebAppUrl } from './useReferralWebAppUrl';
 
 interface IReferralLinkItemProps {
   title: string;
@@ -92,21 +90,19 @@ function ReferralLinkItem({
 
 interface IReferralLinkPopoverContentProps {
   inviteUrl: string;
+  // Below the links, under a hairline: settings about what the invite pages
+  // show, which the invite card's menu carries.
+  footer?: ReactNode;
 }
 
 export function ReferralLinkPopoverContent({
   inviteUrl,
+  footer,
 }: IReferralLinkPopoverContentProps) {
   const intl = useIntl();
   const { copyUrl } = useClipboard();
   const { closePopover } = usePopoverContext();
-  const [devSettings] = useDevSettingsPersistAtom();
-
-  const webAppUrl = useMemo(() => {
-    const useTestUrl =
-      devSettings.enabled && devSettings.settings?.enableTestEndpoint;
-    return useTestUrl ? WEB_APP_URL_DEV : WEB_APP_URL;
-  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
+  const webAppUrl = useReferralWebAppUrl();
 
   const handleCopyLink = useCallback(
     (url: string) => {
@@ -133,6 +129,14 @@ export function ReferralLinkPopoverContent({
           onCopy={() => handleCopyLink(link.url)}
         />
       ))}
+      {footer ? (
+        <>
+          <Divider mx="$4" my="$1" />
+          <YStack px="$4" py="$3">
+            {footer}
+          </YStack>
+        </>
+      ) : null}
     </YStack>
   );
 }

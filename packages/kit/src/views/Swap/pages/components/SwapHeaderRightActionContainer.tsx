@@ -38,9 +38,10 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IActivityHubOpenReferral } from '@onekeyhq/kit/src/components/ActivityHub';
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useOpenPerksTab } from '@onekeyhq/kit/src/hooks/useReferFriends';
+import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useSwapActions,
@@ -379,7 +380,7 @@ const SwapSettingsDialogContent = ({
   swapType,
 }: {
   activityHubAction?: {
-    onOpenInviteeReward: () => void;
+    onOpenReferral: IActivityHubOpenReferral;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
   swapType?: ESwapTabSwitchType;
@@ -429,35 +430,29 @@ const SwapSettingsDialogContent = ({
     () => (
       <SegmentControl
         value={slippageItem.key}
-        options={swapSlippageItems.map((item) => {
-          const isActive = slippageItem.key === item.key;
-          return {
-            label: (
-              <XStack>
-                {item.key === ESwapSlippageSegmentKey.AUTO ? (
-                  <Icon
-                    name="Ai3StarOutline"
-                    size="$4.5"
-                    color="$iconSuccess"
-                    mr="$0.5"
-                  />
-                ) : null}
-                <SizableText
-                  size="$bodyMdMedium"
-                  color={isActive ? '$text' : '$textSubdued'}
-                >
-                  {intl.formatMessage({
-                    id:
-                      item.key === ESwapSlippageSegmentKey.AUTO
-                        ? ETranslations.slippage_tolerance_switch_auto
-                        : ETranslations.slippage_tolerance_switch_custom,
-                  })}
-                </SizableText>
-              </XStack>
-            ),
-            value: item.key,
-          };
-        })}
+        options={swapSlippageItems.map((item) => ({
+          label: ({ color }) => (
+            <XStack>
+              {item.key === ESwapSlippageSegmentKey.AUTO ? (
+                <Icon
+                  name="Ai3StarOutline"
+                  size="$4.5"
+                  color="$iconSuccess"
+                  mr="$0.5"
+                />
+              ) : null}
+              <SizableText size="$bodyMdMedium" color={color}>
+                {intl.formatMessage({
+                  id:
+                    item.key === ESwapSlippageSegmentKey.AUTO
+                      ? ETranslations.slippage_tolerance_switch_auto
+                      : ETranslations.slippage_tolerance_switch_custom,
+                })}
+              </SizableText>
+            </XStack>
+          ),
+          value: item.key,
+        }))}
         onChange={(value) => {
           const keyValue = value as ESwapSlippageSegmentKey;
           setNoPersistSettings((s) => ({
@@ -620,7 +615,7 @@ const SwapSettingsDialogContent = ({
           <>
             <Divider />
             <SwapActivityHubSettingsItem
-              onOpenInviteeReward={activityHubAction.onOpenInviteeReward}
+              onOpenReferral={activityHubAction.onOpenReferral}
             />
           </>
         ) : null}
@@ -875,7 +870,7 @@ type ISwapSettingsHeaderButtonProps = {
   compact?: boolean;
   showCustomSlippageValue?: boolean;
   activityHubAction?: {
-    onOpenInviteeReward: () => void;
+    onOpenReferral: IActivityHubOpenReferral;
   };
   marketPresetSettings?: IMarketPresetSettingsState;
 };
@@ -1010,12 +1005,12 @@ export function SwapSettingsHeaderButton({
 function SwapSettingsHeaderButtonWithActivityHub(
   props: Omit<ISwapSettingsHeaderButtonProps, 'activityHubAction'>,
 ) {
-  const openPerksTab = useOpenPerksTab();
+  const openReferralPage = useOpenReferralPage();
   const activityHubAction = useMemo(
     () => ({
-      onOpenInviteeReward: openPerksTab,
+      onOpenReferral: openReferralPage,
     }),
-    [openPerksTab],
+    [openReferralPage],
   );
 
   return (

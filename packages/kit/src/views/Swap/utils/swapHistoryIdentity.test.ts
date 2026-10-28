@@ -7,6 +7,7 @@ import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import {
   buildSwapHistoryIdentity,
   buildSwapHistoryOrderExplorerUrl,
+  getSwapBuildOrderId,
   getSwapHistoryProviderOrderId,
   shortenSwapOrderId,
 } from './swapHistoryIdentity';
@@ -86,6 +87,22 @@ describe('swapHistoryIdentity', () => {
       orderId: 'fusion-order-1',
       useOrderId: true,
     });
+  });
+});
+
+describe('getSwapBuildOrderId', () => {
+  it('prefers the provider order id, then the service order id', () => {
+    expect(
+      getSwapBuildOrderId(
+        createBuildRes({
+          orderId: 'service-order',
+          ctx: { changeHeroOrderId: 'changehero-order' },
+        }),
+      ),
+    ).toBe('changehero-order');
+    expect(
+      getSwapBuildOrderId(createBuildRes({ orderId: 'service-order' })),
+    ).toBe('service-order');
   });
 });
 

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   type ITradingViewNativeSource,
@@ -73,10 +75,13 @@ const STOCK_CHART_RANGE_LABELS: Record<IStockSimpleChartRange, ETranslations> =
     All: ETranslations.global_all,
   };
 
-function useSwapStockPrice(priceMode: 'share' | 'token') {
+function useSwapStockPrice(priceMode: 'share' | 'token', chartPrice?: string) {
   const { stockDetail, selectedTokenVariant } = useStockDetail();
   const { displayStockTokenDetail: tokenDetail } = useSwapStockTradeContext();
-  const price = priceMode === 'share' ? stockDetail?.price : tokenDetail?.price;
+  const price =
+    priceMode === 'share'
+      ? stockDetail?.price
+      : (chartPrice ?? tokenDetail?.price);
   const percent =
     priceMode === 'share'
       ? stockDetail?.priceChange24hPercent
@@ -109,13 +114,15 @@ function useSwapStockPrice(priceMode: 'share' | 'token') {
 }
 
 function StockPrice({
+  chartPrice,
   mobile,
   priceMode,
 }: {
+  chartPrice?: string;
   mobile?: boolean;
   priceMode: 'share' | 'token';
 }) {
-  const { price, percent, change } = useSwapStockPrice(priceMode);
+  const { price, percent, change } = useSwapStockPrice(priceMode, chartPrice);
   const { stockDetail, isStockDetailError, retryStockDetail } =
     useStockDetail();
   const selection = useSwapStockSelection();
@@ -325,22 +332,43 @@ export function SwapStockMobileHeader() {
   );
 }
 
-export function SwapStockVariantSelector() {
+export function SwapStockVariantSelector({
+  hasMarketPanel,
+}: {
+  hasMarketPanel: boolean;
+}) {
+  const { gtLg } = useMedia();
+  const showPrice = !hasMarketPanel;
   const selection = useSwapStockSelection();
   const { isTokenVariantPending } = useStockDetail();
   const variantLoading = Boolean(
     selection?.loadingScopes.tradeTarget || isTokenVariantPending,
   );
-  // `isTokenVariantPending` only covers an unresolved variant identity. Once
-  // the request settles with an error or no tradable variant, keep the cached
-  // price visible instead of leaving the ticket in a permanent skeleton state.
-  const tokenInfoLoading = variantLoading;
   // The same per-variant lookup the Market page feeds its selector, so the
   // balances in the list match the My position table below the chart.
   const portfolio = useSwapStockPortfolio();
   const intl = useIntl();
   const { currentStockToken, displayStockTokenDetail } =
     useSwapStockTradeContext();
+  const priceLabel = (
+    <BaseMarketTokenPrice
+      price={displayStockTokenDetail?.price ?? currentStockToken?.price ?? '--'}
+      tokenName={currentStockToken?.name ?? ''}
+      tokenSymbol={currentStockToken?.symbol ?? ''}
+      currency="$"
+      size="$bodyLgMedium"
+    />
+  );
+  let priceContent: ReactNode;
+  if (showPrice) {
+    if (variantLoading) {
+      priceContent = <Skeleton width={88} height={24} />;
+    } else if (gtLg) {
+      priceContent = priceLabel;
+    } else {
+      priceContent = <StockTokenInfoPopover label={priceLabel} />;
+    }
+  }
   return (
     <YStack gap="$1">
       <XStack
@@ -365,25 +393,7 @@ export function SwapStockVariantSelector() {
             resolvedVariantKeys={portfolio?.resolvedVariantKeys}
           />
         </Stack>
-        {tokenInfoLoading ? (
-          <Skeleton width={88} height={24} />
-        ) : (
-          <StockTokenInfoPopover
-            label={
-              <BaseMarketTokenPrice
-                price={
-                  displayStockTokenDetail?.price ??
-                  currentStockToken?.price ??
-                  '--'
-                }
-                tokenName={currentStockToken?.name ?? ''}
-                tokenSymbol={currentStockToken?.symbol ?? ''}
-                currency="$"
-                size="$bodyLgMedium"
-              />
-            }
-          />
-        )}
+        {priceContent}
       </XStack>
       {selection?.selectionError ? (
         <XStack alignItems="center" gap="$2">
@@ -471,6 +481,63 @@ export function SwapStockMarketPanel() {
     return getSwapKLineTradingViewNativeSource({ token: currentStockToken });
   }, [currentStockToken, priceMode, stockId]);
   const isSimpleChart = chartMode === 'simple' || !proChartSource;
+  // Each committed chart scope owns its price. An old chart callback cannot
+  // replace the quote after a token, source, or chart-mode switch.
+  const chartPriceScope = useMemo(
+    () => ({
+      stockId,
+      networkId: currentStockToken?.networkId,
+      tokenAddress: currentStockToken?.contractAddress,
+      priceMode,
+      isSimpleChart,
+      selectionPending: selection?.stockSelectionPending,
+    }),
+    [
+      stockId,
+      currentStockToken?.networkId,
+      currentStockToken?.contractAddress,
+      priceMode,
+      isSimpleChart,
+      selection?.stockSelectionPending,
+    ],
+  );
+  const activeChartPriceScopeRef = useRef<typeof chartPriceScope | null>(null);
+  const [chartPrice, setChartPrice] = useState<{
+    scope: typeof chartPriceScope;
+    price: string;
+  }>();
+  useLayoutEffect(() => {
+    activeChartPriceScopeRef.current = chartPriceScope;
+    return () => {
+      activeChartPriceScopeRef.current = null;
+    };
+  }, [chartPriceScope]);
+  const handleChartPriceUpdate = useCallback(
+    (price: number | undefined) => {
+      if (activeChartPriceScopeRef.current !== chartPriceScope) return;
+      if (
+        chartPriceScope.priceMode !== 'token' ||
+        chartPriceScope.selectionPending ||
+        price === undefined ||
+        !Number.isFinite(price) ||
+        price <= 0
+      ) {
+        setChartPrice((current) =>
+          current?.scope === chartPriceScope ? undefined : current,
+        );
+        return;
+      }
+      setChartPrice({
+        scope: chartPriceScope,
+        price: new BigNumber(price).toFixed(),
+      });
+    },
+    [chartPriceScope],
+  );
+  const handleProChartPriceUpdate = useCallback(
+    ({ price }: { price: number }) => handleChartPriceUpdate(price),
+    [handleChartPriceUpdate],
+  );
   const previousClose = getMarketStockChartPreviousClose({
     priceSource: priceMode,
     stockDetail,
@@ -503,7 +570,14 @@ export function SwapStockMarketPanel() {
           flexWrap="wrap"
         >
           <YStack gap="$2">
-            <StockPrice priceMode={priceMode} />
+            <StockPrice
+              priceMode={priceMode}
+              chartPrice={
+                chartPrice?.scope === chartPriceScope
+                  ? chartPrice.price
+                  : undefined
+              }
+            />
             <Stack
               minHeight={20}
               testID={
@@ -557,6 +631,8 @@ export function SwapStockMarketPanel() {
               <StockSimpleChartContent
                 retainOnRemount={retainOnRemount}
                 priceMode={priceMode}
+                priceScaleFormat="full"
+                onPriceUpdate={handleChartPriceUpdate}
                 range={range}
                 stockId={stockId}
                 stockDetail={stockDetail}
@@ -588,6 +664,7 @@ export function SwapStockMarketPanel() {
                   key={getTradingViewNativeSourceKey(proChartSource)}
                   testID="swap-stock-pro-chart"
                   source={proChartSource}
+                  onPriceUpdate={handleProChartPriceUpdate}
                   enablePreviousClose
                   previousClose={previousClose}
                   forcedChartType="candlestick"

@@ -25,6 +25,7 @@ import type { IMarketStockDetailInitialSection } from '@onekeyhq/shared/src/rout
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
+import { MARKET_DETAIL_TABS_MIN_HEIGHT } from '../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../testIDs';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
@@ -60,7 +61,7 @@ import type { DesktopInformationTabs } from '../components/InformationTabs/layou
 
 const MARKET_DETAIL_LAYOUT = {
   chartHeight: 456,
-  infoTabsHeight: 480,
+  infoTabsHeight: MARKET_DETAIL_TABS_MIN_HEIGHT,
 } as const;
 
 const SCROLL_CONTAINER_STYLE = { overflowY: 'auto' } as const;

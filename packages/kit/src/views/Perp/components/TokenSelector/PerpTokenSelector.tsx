@@ -2,6 +2,7 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   memo,
   startTransition,
   useCallback,
@@ -19,7 +20,6 @@ import {
   DebugRenderTracker,
   type IInputProps,
   type IListViewRef,
-  type IStackProps,
   Icon,
   ListView,
   NATIVE_HIT_SLOP,
@@ -390,11 +390,12 @@ function BasePerpTokenSelectorContent() {
   const inputQueryRef = useRef(searchQuery);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const refocusSearchOnClick = useRef(false);
-  const handlePointerDown = useCallback<
-    NonNullable<IStackProps['onPointerDownCapture']>
-  >((event) => {
-    refocusSearchOnClick.current = event.nativeEvent.pointerType === 'mouse';
-  }, []);
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      refocusSearchOnClick.current = event.nativeEvent.pointerType === 'mouse';
+    },
+    [],
+  );
   const handleSearchFocus = useCallback<NonNullable<IInputProps['onFocus']>>(
     (event) => {
       if (event.target instanceof HTMLInputElement) {
@@ -1076,6 +1077,7 @@ function BasePerpTokenSelectorContent() {
         const dynamicItems = getPerpTokenSelectorDynamicTabItems({
           items: perpSortedList,
           tokens: dynamicTab.tokens,
+          filteredQuery,
         });
         if (activeDynamicTabUserSort && sortField) {
           result = dynamicItems
@@ -1137,6 +1139,7 @@ function BasePerpTokenSelectorContent() {
   }, [
     displayActiveTab,
     displayPrimaryTab,
+    filteredQuery,
     activeDynamicTabUserSort,
     activeFavoritesTabUserSort,
     assetsByDex,
@@ -1528,16 +1531,7 @@ function BasePerpTokenSelectorContent() {
   ]);
 
   const content = (
-    <YStack
-      {...(platformEnv.isNative
-        ? undefined
-        : {
-            onPointerDownCapture: handlePointerDown,
-            onClickCapture: focusSearchInput,
-            onKeyDownCapture: handleFavoriteShortcut,
-            onWheelCapture: cancelPendingKeyboardScroll,
-          })}
-    >
+    <YStack>
       <YStack gap="$1">
         <XStack px="$2" pt="$2">
           <SearchBar
@@ -1713,7 +1707,19 @@ function BasePerpTokenSelectorContent() {
   );
   return (
     <DebugRenderTracker position="top-right" name="PerpTokenSelectorContent">
-      {content}
+      {platformEnv.isNative ? (
+        content
+      ) : (
+        <div
+          style={{ display: 'contents' }}
+          onPointerDownCapture={handlePointerDown}
+          onClickCapture={focusSearchInput}
+          onKeyDownCapture={handleFavoriteShortcut}
+          onWheelCapture={cancelPendingKeyboardScroll}
+        >
+          {content}
+        </div>
+      )}
     </DebugRenderTracker>
   );
 }

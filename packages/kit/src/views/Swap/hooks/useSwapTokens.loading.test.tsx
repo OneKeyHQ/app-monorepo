@@ -1207,9 +1207,6 @@ describe('useSwapTokenList loading lifecycle', () => {
     expect(mockFetchTokenList.mock.calls[0][0]).toMatchObject({
       networkId: allNetwork.networkId,
       keywords: solanaContract,
-      searchNetworks: expect.arrayContaining([
-        expect.objectContaining({ networkId: solanaNetwork.networkId }),
-      ]),
     });
     unmount();
   });
