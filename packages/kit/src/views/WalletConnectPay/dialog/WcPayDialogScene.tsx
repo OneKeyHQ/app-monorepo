@@ -19,6 +19,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { WC_PAY_SHELL_CONTENT_BOTTOM_INSET } from './wcPayDialogShellInset';
 import {
   describeWcPaySigningHeadline,
   describeWcPaySigningSummary,
@@ -52,23 +53,13 @@ import type {
 
 // Stable shell props. The modal overlay lane keeps later payment prompts
 // above the shell. The content inset is the contract the steps are drawn
-// against: 24 at the sides, 16 on top. Under the last element the native
-// sheet pads the system inset itself. On iOS that is the home-indicator
-// area, which reads as the footer's spacing, so nothing is added. On Android
-// it is only the navigation-bar inset: a separate system region under
-// 3-button navigation and a thin strip under gestures, so the footer sat
-// flush against the sheet's edge (OK-65646). Android keeps the native
-// Dialog's default 20 under the footer, like every other sheet; web keeps 24.
-function getShellContentBottomInset(): '$0' | '$5' | '$6' {
-  if (platformEnv.isNativeIOS) {
-    return '$0';
-  }
-  return platformEnv.isNative ? '$5' : '$6';
-}
+// against: 24 at the sides, 16 on top. The bottom inset differs per platform
+// (wcPayDialogShellInset.{ios,android}.ts explain why) because the native
+// sheet pads the system inset under the last element itself.
 const SHELL_CONTENT_CONTAINER_PROPS = {
   px: '$6',
   pt: '$4',
-  pb: getShellContentBottomInset(),
+  pb: WC_PAY_SHELL_CONTENT_BOTTOM_INSET,
 } as const;
 
 /**
