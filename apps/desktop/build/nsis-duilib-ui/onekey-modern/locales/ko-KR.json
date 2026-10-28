@@ -12,7 +12,7 @@
   "upgrade.title": "OneKey 업데이트", "upgrade.subtitle": "이전 설치 설정이 유지됩니다.", "upgrade.pathLabel": "업데이트 위치", "upgrade.install": "지금 업데이트",
   "uninstall.title": "OneKey 제거 중",
   "uninstall.confirmTitle": "OneKey를 제거할까요?",
-  "uninstall.confirmSubtitle": "이 컴퓨터에서 앱이 제거됩니다. 지갑 데이터는 삭제되지 않습니다.",
+  "uninstall.confirmSubtitle": "지갑과 설정을 포함한 모든 로컬 사용자 데이터가 영구적으로 삭제됩니다. 계속하기 전에 복구 구문 또는 개인 키를 백업하세요.",
   "uninstall.confirm": "제거",
   "uninstall.cancel": "취소", "uninstall.subtitle": "애플리케이션 파일을 안전하게 제거하고 있습니다. 이 창을 닫지 마세요.", "uninstall.status": "애플리케이션 파일을 정리하는 중…", "uninstall.finishTitle": "OneKey가 제거되었습니다", "uninstall.finishSubtitle": "애플리케이션 파일을 안전하게 제거했습니다. OneKey를 이용해 주셔서 감사합니다.", "uninstall.close": "완료", "uninstallError.title": "제거가 완료되지 않았습니다", "uninstallError.subtitle": "지금 다시 시도하거나 나중에 OneKey를 제거하세요.", "uninstallError.retry": "제거 다시 시도",
   "error.title": "설치가 완료되지 않았습니다", "error.subtitle": "기존 데이터는 안전합니다. 지금 다시 시도하거나 나중에 설치하세요.", "error.retry": "다시 시도", "finish.safeHint": "“OneKey 열기”를 클릭하여 시작하세요"

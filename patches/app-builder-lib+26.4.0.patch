@@ -230,7 +230,7 @@ index c345dee..931eba1 100644
      ${endif}
 
 diff --git a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
-index 917b3da..80b4653 100644
+index 917b3da..dfa3426 100644
 --- a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 @@ -28,6 +28,10 @@ Function un.onInit
@@ -244,3 +244,21 @@ index 917b3da..80b4653 100644
    !insertmacro initMultiUser
 
    !ifmacrodef customUnInit
+@@ -228,6 +232,9 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+   ${endIf}
+
+   ${if} $isDeleteAppData == "1"
++    !ifmacrodef customRemoveAppData
++      !insertmacro customRemoveAppData
++    !else
+     # electron always uses per user app data
+     ${if} $installMode == "all"
+       SetShellVarContext current
+@@ -243,6 +250,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+     ${if} $installMode == "all"
+       SetShellVarContext all
+     ${endif}
++    !endif
+   ${endif}
+
+   DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"

@@ -58,7 +58,7 @@
   "upgrade.install": "立即更新",
   "uninstall.title": "正在卸载 OneKey",
   "uninstall.confirmTitle": "卸载 OneKey？",
-  "uninstall.confirmSubtitle": "应用将从这台电脑中移除，你的钱包数据不会被删除。",
+  "uninstall.confirmSubtitle": "将永久删除本地所有用户数据，包括钱包和设置。继续前，请确保已备份助记词或私钥。",
   "uninstall.confirm": "确认卸载",
   "uninstall.cancel": "取消",
   "uninstall.subtitle": "正在安全移除应用文件，请不要关闭此窗口。",

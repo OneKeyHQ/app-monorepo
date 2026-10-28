@@ -8,7 +8,7 @@
   "options.title":"Escolha onde instalar","options.subtitle":"Use o local recomendado ou escolha outra pasta.","options.pathLabel":"Instalar em","options.browse":"Procurar","options.install":"Instalar agora","upgrade.title":"Atualizar o OneKey","upgrade.subtitle":"As configurações da instalação anterior serão mantidas.","upgrade.pathLabel":"Local da atualização","upgrade.install":"Atualizar agora",
   "uninstall.title":"Desinstalando o OneKey",
   "uninstall.confirmTitle": "Desinstalar o OneKey?",
-  "uninstall.confirmSubtitle": "O aplicativo será removido deste computador. Os dados da sua carteira não serão excluídos.",
+  "uninstall.confirmSubtitle": "Todos os dados locais do usuário, incluindo carteiras e configurações, serão excluídos permanentemente. Antes de continuar, faça backup das suas frases de recuperação ou chaves privadas.",
   "uninstall.confirm": "Desinstalar",
   "uninstall.cancel": "Cancelar","uninstall.subtitle":"Os arquivos do aplicativo estão sendo removidos com segurança. Mantenha esta janela aberta.","uninstall.status":"Organizando os arquivos do aplicativo…","uninstall.finishTitle":"O OneKey foi desinstalado","uninstall.finishSubtitle":"Os arquivos do aplicativo foram removidos com segurança. Obrigado por usar o OneKey.","uninstall.close":"Concluído","uninstallError.title":"A desinstalação não foi concluída","uninstallError.subtitle":"Tente novamente agora ou desinstale o OneKey mais tarde.","uninstallError.retry":"Tentar desinstalar novamente","error.title":"A instalação não foi concluída","error.subtitle":"Seus dados existentes estão intactos. Tente novamente ou instale mais tarde.","error.retry":"Tentar novamente","finish.safeHint":"Clique em “Abrir o OneKey” para começar"
 }
