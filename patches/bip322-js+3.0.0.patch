@@ -1,0 +1,59 @@
+diff --git a/node_modules/bip322-js/dist/BIP322.js b/node_modules/bip322-js/dist/BIP322.js
+index 856194c..19272aa 100644
+--- a/node_modules/bip322-js/dist/BIP322.js
++++ b/node_modules/bip322-js/dist/BIP322.js
+@@ -58,10 +58,14 @@ class BIP322 {
+      */
+     static buildToSpendTx(message, scriptPublicKey) {
+         // Create PSBT object for constructing the transaction
+-        const psbt = new bitcoin.Psbt();
++        // OneKey patch: build the virtual transaction without PSBT fee accounting.
++        // const psbt = new bitcoin.Psbt();
++        const tx = new bitcoin.Transaction();
+         // Set default value for nVersion and nLockTime
+-        psbt.setVersion(0); // nVersion = 0
+-        psbt.setLocktime(0); // nLockTime = 0
++        // psbt.setVersion(0);
++        tx.version = 0;
++        // psbt.setLocktime(0);
++        tx.locktime = 0;
+         // Compute the message hash - SHA256(SHA256(tag) || SHA256(tag) || message)
+         const messageHash = this.hashMessage(message);
+         // Construct the scriptSig - OP_0 PUSH32[ message_hash ]
+@@ -70,20 +74,23 @@ class BIP322 {
+         scriptSig.set(scriptSigPartOne);
+         scriptSig.set(messageHash, scriptSigPartOne.length);
+         // Set the input
+-        psbt.addInput({
+-            hash: '0'.repeat(64), // vin[0].prevout.hash = 0000...000
+-            index: 0xFFFFFFFF, // vin[0].prevout.n = 0xFFFFFFFF
+-            sequence: 0, // vin[0].nSequence = 0
+-            finalScriptSig: Buffer.from(scriptSig), // vin[0].scriptSig = OP_0 PUSH32[ message_hash ]
+-            witnessScript: Buffer.from([]) // vin[0].scriptWitness = []
+-        });
+-        // Set the output
+-        psbt.addOutput({
+-            value: 0, // vout[0].nValue = 0
+-            script: scriptPublicKey // vout[0].scriptPubKey = message_challenge
+-        });
++        // psbt.addInput({
++        // hash: '0'.repeat(64), // vin[0].prevout.hash = 0000...000
++        // index: 0xFFFFFFFF, // vin[0].prevout.n = 0xFFFFFFFF
++        // sequence: 0, // vin[0].nSequence = 0
++        // finalScriptSig: Buffer.from(scriptSig), // vin[0].scriptSig = OP_0 PUSH32[ message_hash ]
++        // witnessScript: Buffer.from([]) // vin[0].scriptWitness = []
++        // });
++        // // Set the output
++        // psbt.addOutput({
++        // value: 0, // vout[0].nValue = 0
++        // script: scriptPublicKey // vout[0].scriptPubKey = message_challenge
++        // });
++        tx.addInput(Buffer.alloc(32), 0xFFFFFFFF, 0, Buffer.from(scriptSig));
++        tx.addOutput(scriptPublicKey, 0);
+         // Return transaction
+-        return psbt.extractTransaction();
++        // return psbt.extractTransaction();
++        return tx;
+     }
+     /**
+      * Build a to_sign transaction using simple signature in accordance to the BIP-322.
