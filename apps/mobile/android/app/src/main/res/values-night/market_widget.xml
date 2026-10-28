@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="market_widget_background">#1C1F23</color>
+    <color name="market_widget_foreground">#F5F7FA</color>
+    <color name="market_widget_secondary">#A3ADB9</color>
+    <color name="market_widget_green">#49D99B</color>
+    <color name="market_widget_red">#FF7786</color>
+    <style name="Theme.MarketWidget" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/market_widget_background</item>
+        <item name="android:colorAccent">@color/market_widget_green</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/market_widget_background</item>
+        <item name="android:navigationBarColor">@color/market_widget_background</item>
+    </style>
+</resources>

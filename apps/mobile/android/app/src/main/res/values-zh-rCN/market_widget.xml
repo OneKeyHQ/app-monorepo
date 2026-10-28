@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">OneKey · 行情</string>
+    <string name="market_widget_watchlist_title">OneKey · 自选</string>
+    <string name="market_widget_single_description">查看单个币种的价格与 24 小时涨跌幅。</string>
+    <string name="market_widget_watchlist_description">显示 OneKey 自选列表中的前三项。没有自选时显示 BTC、ETH、SOL。以美元报价，更新由 Android 调度。</string>
+    <string name="market_widget_select_description">从 OneKey 自选列表中选择一个币种。以美元报价，更新由 Android 调度。</string>
+    <string name="market_widget_currency">USD · 24 小时涨跌</string>
+    <string name="market_widget_refresh">刷新行情</string>
+    <string name="market_widget_configure">编辑小组件</string>
+    <string name="market_widget_empty">此币种已不在自选列表中，点按重新选择。</string>
+    <string name="market_widget_configuration_error">打开 OneKey 以恢复小组件设置。</string>
+    <string name="market_widget_unavailable">暂无报价</string>
+    <string name="market_widget_updated_at">更新于 %1$s</string>
+    <string name="market_widget_cached_at">缓存于 %1$s</string>
+    <string name="market_widget_manage_watchlist">在 OneKey 中管理自选</string>
+    <string name="market_widget_save">保存小组件</string>
+    <string name="market_widget_choose_asset">请先选择币种</string>
+    <string name="market_widget_save_failed">无法保存，请重试。</string>
+</resources>

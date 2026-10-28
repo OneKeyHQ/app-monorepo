@@ -22,6 +22,7 @@ import {
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import { handleDeepLinkUrl } from '..';
+import { handleMarketWidgetLink } from '../marketWidgetLink';
 import {
   handleReferralLandingUrl,
   navigateToReferralLanding,
@@ -43,6 +44,10 @@ jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
   // presetNetworks (reached through earnUtils) wraps its lists in memoFn
   memoFn: (fn: unknown) => fn,
   memoizee: (fn: unknown) => fn,
+}));
+
+jest.mock('../marketWidgetLink', () => ({
+  handleMarketWidgetLink: jest.fn(async () => undefined),
 }));
 
 jest.mock(
@@ -151,6 +156,43 @@ async function flushAsyncTasks() {
 describe('handleDeepLinkUrl', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('routes native widget links to their typed handler before legacy parsing', async () => {
+    const originalIsNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      handleDeepLinkUrl({
+        url: 'onekey-wallet://market_widget?assetId=bitcoin',
+      });
+      await flushAsyncTasks();
+      expect(handleMarketWidgetLink).toHaveBeenCalledWith({
+        target: { kind: 'asset', assetId: 'bitcoin' },
+        shouldContinue: expect.any(Function),
+      });
+      const [{ shouldContinue }] = jest.mocked(handleMarketWidgetLink).mock
+        .calls[0];
+      expect(shouldContinue()).toBe(true);
+      handleDeepLinkUrl({ url: 'https://app.onekey.so/market' });
+      expect(shouldContinue()).toBe(false);
+      await flushAsyncTasks();
+    } finally {
+      platformEnv.isNative = originalIsNative;
+    }
+  });
+
+  it('ignores duplicate widget identity parameters instead of accepting the last value', async () => {
+    const originalIsNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      handleDeepLinkUrl({
+        url: 'onekey-wallet://market_widget?assetId=bitcoin&assetId=ethereum',
+      });
+      await flushAsyncTasks();
+      expect(handleMarketWidgetLink).not.toHaveBeenCalled();
+    } finally {
+      platformEnv.isNative = originalIsNative;
+    }
   });
 
   it('routes invited_by_friend app deep links through the referral request guard immediately', async () => {

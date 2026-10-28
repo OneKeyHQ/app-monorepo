@@ -1,0 +1,15 @@
+"Market price" = "Market price";
+"Market watchlist" = "Market watchlist";
+"A coin's USD price and 24-hour change." = "A coin's USD price and 24-hour change.";
+"The first coin in your watchlist. Open OneKey to change it." = "The first coin in your watchlist. Open OneKey to change it.";
+"The first three coins in your watchlist. Open OneKey to change them." = "The first three coins in your watchlist. Open OneKey to change them.";
+"Choose a coin. Leave empty to follow the first coin in your watchlist." = "Choose a coin. Leave empty to follow the first coin in your watchlist.";
+"Coin" = "Coin";
+"Coins" = "Coins";
+"Refresh prices" = "Refresh prices";
+"Coin no longer in watchlist. Edit this widget to choose another." = "Coin no longer in watchlist. Edit this widget to choose another.";
+"Open OneKey to sync your watchlist." = "Open OneKey to sync your watchlist.";
+"Updated" = "Updated";
+"ago" = "ago";
+"Prices unavailable" = "Prices unavailable";
+"24-hour change: %@" = "24-hour change: %@";
