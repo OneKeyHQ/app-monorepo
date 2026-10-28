@@ -646,7 +646,12 @@ function DeviceStageContainerCmp() {
       }
       qrScannerView={
         step === 'scanQr' ? (
-          <DeviceStageQrScanner sessionId={stage?.qrSessionId} />
+          // Keyed by session: a scan that supersedes another on this step
+          // mounts a fresh scanner, so the decoder resets.
+          <DeviceStageQrScanner
+            key={stage?.qrSessionId}
+            sessionId={stage?.qrSessionId}
+          />
         ) : undefined
       }
       onQrNext={handleQrNext}
