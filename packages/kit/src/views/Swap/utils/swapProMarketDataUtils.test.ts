@@ -1,4 +1,5 @@
 import {
+  SWAP_PRO_TRANSACTION_LIMIT,
   buildSwapProMarketData,
   mergeSwapProTransactions,
 } from './swapProMarketDataUtils';
@@ -40,6 +41,22 @@ function buildTransaction({
 }
 
 describe('swapProMarketDataUtils', () => {
+  it('retains enough recent trades to fill the space of the hidden statistics', () => {
+    const transactions = Array.from({ length: 15 }, (_, index) =>
+      buildTransaction({
+        hash: `${index}`,
+        price: '1',
+        timestamp: index,
+      }),
+    );
+
+    const result = mergeSwapProTransactions(transactions);
+    expect(result).toHaveLength(SWAP_PRO_TRANSACTION_LIMIT);
+    expect(result.map((transaction) => transaction.timestamp)).toEqual(
+      Array.from({ length: 12 }, (_, index) => 14 - index),
+    );
+  });
+
   it('keeps the latest unique transactions when a late snapshot arrives', () => {
     const liveTransaction = buildTransaction({
       hash: 'live',
