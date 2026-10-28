@@ -30,9 +30,14 @@ import {
   useSafeAreaInsets,
   useTheme,
 } from '@onekeyhq/components';
+import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
+import { useTradingViewNativeSubIndicatorCount } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsCustomSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -78,6 +83,21 @@ import {
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 const MOBILE_CHART_HEIGHT = 500;
+
+// Native sub-indicator panes extend the chart downward; the price pane keeps
+// its height.
+function useMobilePerpChartLayout() {
+  const [{ chartMode = 'tradingView' }] = usePerpsCustomSettingsAtom();
+  const subIndicatorCount = useTradingViewNativeSubIndicatorCount('perps');
+  const growsWithSubIndicators = platformEnv.isNative && chartMode === 'native';
+  return {
+    chartHeight: growsWithSubIndicators
+      ? MOBILE_CHART_HEIGHT +
+        subIndicatorCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT
+      : MOBILE_CHART_HEIGHT,
+    growsWithSubIndicators,
+  };
+}
 const IOS_CHART_BOTTOM_OVERLAP = 56;
 
 const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
@@ -201,23 +221,27 @@ function MobilePerpCandlesHeader({
   onInteractionOverlayOpenChange: (isOpen: boolean) => void;
 }) {
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const { chartHeight, growsWithSubIndicators } = useMobilePerpChartLayout();
   useEffect(
     () => () => {
       onInteractionOverlayOpenChange(false);
     },
     [onInteractionOverlayOpenChange],
   );
-  const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    const rect = getPerpsMobileLayoutTraceRect(event);
-    if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
-      tracePerpsMobileLayout('mobileMarket.candlesHeader.layout', {
-        rect,
-        chartHeight: MOBILE_CHART_HEIGHT,
-        bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
-      });
-      layoutRef.current = rect;
-    }
-  }, []);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
+        tracePerpsMobileLayout('mobileMarket.candlesHeader.layout', {
+          rect,
+          chartHeight,
+          bottomOverlap: IOS_CHART_BOTTOM_OVERLAP,
+        });
+        layoutRef.current = rect;
+      }
+    },
+    [chartHeight],
+  );
 
   return (
     <YStack mb={-IOS_CHART_BOTTOM_OVERLAP} onLayout={handleLayout}>
@@ -232,9 +256,10 @@ function MobilePerpCandlesHeader({
         simultaneousWithNativeGesture
         cancelChildTouches={false}
       >
-        <YStack h={MOBILE_CHART_HEIGHT} overflow="hidden">
+        <YStack h={chartHeight} overflow="hidden">
           <PerpCandles
             onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
+            nativeChartGrowsWithSubIndicators={growsWithSubIndicators}
           />
         </YStack>
       </HeaderScrollGestureWrapper>
@@ -248,6 +273,7 @@ function MobilePerpCandlesStatic({
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
+  const { chartHeight, growsWithSubIndicators } = useMobilePerpChartLayout();
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const rect = getPerpsMobileLayoutTraceRect(event);
     if (isPerpsMobileLayoutTraceRectChanged(layoutRef.current, rect)) {
@@ -269,9 +295,10 @@ function MobilePerpCandlesStatic({
           indefinite here, so `flex-basis: 0%` resolves the chart box to its
           content in WebKit (Safari collapses it and leaves the reserved space
           blank) while Blink grows it to the min-height. */}
-      <YStack h={MOBILE_CHART_HEIGHT} overflow="hidden">
+      <YStack h={chartHeight} overflow="hidden">
         <PerpCandles
           onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
+          nativeChartGrowsWithSubIndicators={growsWithSubIndicators}
         />
       </YStack>
     </YStack>

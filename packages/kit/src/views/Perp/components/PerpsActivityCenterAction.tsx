@@ -1,12 +1,14 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
   ActivityHubAction,
   ActivityHubContent,
+  shouldShowActivityHubInvitePanel,
+  useShowActivityHub,
 } from '@onekeyhq/kit/src/components/ActivityHub';
-import { useOpenPerksTab } from '@onekeyhq/kit/src/hooks/useReferFriends';
+import { useOpenReferralPage } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { PerpsCampaignIllustration } from './PerpsCampaignIllustration';
@@ -18,38 +20,52 @@ function usePerpsActivityHubProps() {
     [perpConfigCommon?.activityCards],
   );
 
-  const handleOpenInviteeReward = useOpenPerksTab();
+  const handleOpenReferral = useOpenReferralPage();
 
-  return { campaigns, handleOpenInviteeReward };
+  return { campaigns, handleOpenReferral };
 }
 
 export function PerpsActivityCenterContent({
-  copyAsUrl = false,
   closePopover,
   showTitle = true,
   menuLayout = false,
   menuPopoverLayout = false,
+  menuShortcuts,
+  renderMenuReferral,
 }: {
-  copyAsUrl?: boolean;
   closePopover: () => void;
   showTitle?: boolean;
   menuLayout?: boolean;
   menuPopoverLayout?: boolean;
+  menuShortcuts?: ReactNode;
+  renderMenuReferral?: (referral: ReactNode) => ReactNode;
 }) {
-  const { campaigns, handleOpenInviteeReward } = usePerpsActivityHubProps();
+  const { campaigns, handleOpenReferral } = usePerpsActivityHubProps();
+  const showActivityHub = useShowActivityHub();
+  // The menu already lists the campaigns, so the dialog holds only the
+  // invite panel.
+  const openInvitePanel = useCallback(() => {
+    showActivityHub({ source: 'Perps', onOpenReferral: handleOpenReferral });
+  }, [handleOpenReferral, showActivityHub]);
 
   return (
     <ActivityHubContent
       source="Perps"
-      copyAsUrl={copyAsUrl}
       closePopover={closePopover}
       showTitle={showTitle}
       menuLayout={menuLayout}
       menuPopoverLayout={menuPopoverLayout}
+      menuShortcuts={menuShortcuts}
+      renderMenuReferral={renderMenuReferral}
       campaignFallbackIllustration={
         menuLayout ? <PerpsCampaignIllustration trimmed /> : undefined
       }
-      onOpenInviteeReward={handleOpenInviteeReward}
+      onOpenReferral={handleOpenReferral}
+      onOpenInvitePanel={
+        menuLayout && shouldShowActivityHubInvitePanel()
+          ? openInvitePanel
+          : undefined
+      }
       campaigns={campaigns}
     />
   );
@@ -57,28 +73,25 @@ export function PerpsActivityCenterContent({
 
 export function PerpsActivityCenterAction({
   size = 'medium',
-  copyAsUrl = false,
   renderTrigger,
   open,
   onOpenChange,
 }: {
   size?: IButtonProps['size'];
-  copyAsUrl?: boolean;
   renderTrigger?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const { campaigns, handleOpenInviteeReward } = usePerpsActivityHubProps();
+  const { campaigns, handleOpenReferral } = usePerpsActivityHubProps();
 
   return (
     <ActivityHubAction
       source="Perps"
       size={size}
-      copyAsUrl={copyAsUrl}
       renderTrigger={renderTrigger}
       open={open}
       onOpenChange={onOpenChange}
-      onOpenInviteeReward={handleOpenInviteeReward}
+      onOpenReferral={handleOpenReferral}
       campaigns={campaigns}
     />
   );

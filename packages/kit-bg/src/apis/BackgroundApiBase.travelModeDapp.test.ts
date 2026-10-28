@@ -458,23 +458,26 @@ describe('BackgroundApiBase Travel Mode state control plane', () => {
     );
   });
 
-  it('publishes an incorrect-passcode status to the password prompt', async () => {
-    const { backgroundApi, passwordRuntimeAtom } = buildBackgroundApi();
+  it.each([EPasswordVerifyStatus.RETRY, EPasswordVerifyStatus.ERROR])(
+    'publishes the %s status to the password prompt',
+    async (value) => {
+      const { backgroundApi, passwordRuntimeAtom } = buildBackgroundApi();
 
-    await backgroundApi.setAtomValue(EAtomNames.passwordAtom, {
-      unLock: false,
-      passwordVerifyStatus: {
-        value: EPasswordVerifyStatus.ERROR,
-        message: 'Incorrect passcode',
-      },
-    });
+      await backgroundApi.setAtomValue(EAtomNames.passwordAtom, {
+        unLock: false,
+        passwordVerifyStatus: {
+          value,
+          message: 'Incorrect passcode',
+        },
+      });
 
-    expect(passwordRuntimeAtom.set).toHaveBeenCalledWith({
-      unLock: true,
-      passwordVerifyStatus: {
-        value: EPasswordVerifyStatus.ERROR,
-        message: 'Incorrect passcode',
-      },
-    });
-  });
+      expect(passwordRuntimeAtom.set).toHaveBeenCalledWith({
+        unLock: true,
+        passwordVerifyStatus: {
+          value,
+          message: 'Incorrect passcode',
+        },
+      });
+    },
+  );
 });

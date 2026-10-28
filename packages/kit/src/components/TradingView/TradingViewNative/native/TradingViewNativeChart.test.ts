@@ -5,6 +5,7 @@ import { getTradingViewNativeCandleX } from '../utils/chartViewport';
 import {
   createTradingViewNativeChartRuntime,
   resizeTradingViewNativeChartRuntime,
+  shouldHoldTradingViewNativeSubIndicatorResize,
 } from './chartRuntime';
 import {
   applyTradingViewNativeSubIndicatorLatestPaneValues,
@@ -376,6 +377,68 @@ describe('TradingViewNativeChart main-indicator updates', () => {
       shouldReplaceTradingViewNativeIndicatorSeries({
         current: previous,
         previous,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('shouldHoldTradingViewNativeSubIndicatorResize', () => {
+  const runtimeSize = { width: 402, height: 370 };
+
+  it('holds a pane-sized canvas change until the panes arrive', () => {
+    expect(
+      shouldHoldTradingViewNativeSubIndicatorResize({
+        canvasSize: { width: 402, height: 426 },
+        enabled: true,
+        runtimeSize,
+      }),
+    ).toBe(true);
+    expect(
+      shouldHoldTradingViewNativeSubIndicatorResize({
+        canvasSize: { width: 402, height: 314 },
+        enabled: true,
+        runtimeSize,
+      }),
+    ).toBe(true);
+  });
+
+  it('follows the canvas for other size changes', () => {
+    expect(
+      shouldHoldTradingViewNativeSubIndicatorResize({
+        canvasSize: { width: 402, height: 400 },
+        enabled: true,
+        runtimeSize,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldTradingViewNativeSubIndicatorResize({
+        canvasSize: { width: 874, height: 426 },
+        enabled: true,
+        runtimeSize,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldTradingViewNativeSubIndicatorResize({
+        canvasSize: { width: 402, height: 370 },
+        enabled: true,
+        runtimeSize,
+      }),
+    ).toBe(false);
+  });
+
+  it('follows the canvas when disabled or before the first measure', () => {
+    expect(
+      shouldHoldTradingViewNativeSubIndicatorResize({
+        canvasSize: { width: 402, height: 426 },
+        enabled: false,
+        runtimeSize,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldTradingViewNativeSubIndicatorResize({
+        canvasSize: { width: 402, height: 426 },
+        enabled: true,
+        runtimeSize: { width: 0, height: 0 },
       }),
     ).toBe(false);
   });

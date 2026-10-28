@@ -28,6 +28,7 @@ function buildRecord(
 function createEntity(initial: IReferralCodeData) {
   const entity = new SimpleDbEntityReferralCode();
   let stored: IReferralCodeData | undefined = initial;
+  jest.spyOn(entity, 'getRawData').mockImplementation(async () => stored);
   jest.spyOn(entity, 'setRawData').mockImplementation(async (dataOrBuilder) => {
     stored =
       typeof dataOrBuilder === 'function'
@@ -37,6 +38,52 @@ function createEntity(initial: IReferralCodeData) {
   });
   return { entity, getStored: () => stored };
 }
+
+describe('SimpleDbEntityReferralCode owned invite code', () => {
+  it('only returns an owned code to its matching account', async () => {
+    const { entity } = createEntity({
+      myReferralCode: 'CODE-A',
+      myReferralCodeUserId: 'USER-A',
+    });
+
+    await expect(
+      entity.getMyReferralCode({ onekeyUserId: 'USER-A' }),
+    ).resolves.toBe('CODE-A');
+    await expect(
+      entity.getMyReferralCode({ onekeyUserId: 'USER-B' }),
+    ).resolves.toBe('');
+  });
+
+  it('does not assign an unowned legacy code to the current account', async () => {
+    const { entity } = createEntity({ myReferralCode: 'LEGACY' });
+
+    await expect(
+      entity.getMyReferralCode({ onekeyUserId: 'USER-A' }),
+    ).resolves.toBe('');
+    await expect(entity.getMyReferralCode()).resolves.toBe('LEGACY');
+  });
+
+  it('updates the code and its owner together without losing other data', async () => {
+    const { entity, getStored } = createEntity({
+      myReferralCode: 'CODE-A',
+      myReferralCodeUserId: 'USER-A',
+      cachedInviteCode: 'DRAFT',
+    });
+
+    await entity.updateCode({
+      myReferralCode: 'CODE-B',
+      myReferralCodeUserId: 'USER-B',
+    });
+
+    await expect(
+      entity.getMyReferralCode({ onekeyUserId: 'USER-B' }),
+    ).resolves.toBe('CODE-B');
+    await expect(
+      entity.getMyReferralCode({ onekeyUserId: 'USER-A' }),
+    ).resolves.toBe('');
+    expect(getStored()?.cachedInviteCode).toBe('DRAFT');
+  });
+});
 
 describe('SimpleDbEntityReferralCode.markInstallReferralConsumedIfMatches', () => {
   it('remembers a bind made before the native code is captured', async () => {

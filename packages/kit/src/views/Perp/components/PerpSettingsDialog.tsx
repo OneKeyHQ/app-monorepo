@@ -23,6 +23,7 @@ import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsLayoutStateAtom,
   usePerpsSpotDustingAtom,
@@ -336,9 +337,13 @@ function PerpSettingsMainContent({
   showGuideEntry = false,
   onOpenActivityCenter,
   onOpenLayoutSettings,
+  referralContent,
+  showDevSettings = true,
   onOpenGuide,
 }: Omit<IPerpSettingsPopoverContentProps, 'closePopover'> & {
   onOpenLayoutSettings?: () => void;
+  referralContent?: ReactNode;
+  showDevSettings?: boolean;
 }) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
@@ -456,6 +461,8 @@ function PerpSettingsMainContent({
         </ListItem>
       ) : null}
 
+      {referralContent}
+
       {showGuideEntry ? (
         <ListItem
           testID={PerpTestIDs.GuideButton}
@@ -486,7 +493,7 @@ function PerpSettingsMainContent({
         />
       ) : null}
 
-      <DevAbstractionModeSelector />
+      {showDevSettings ? <DevAbstractionModeSelector /> : null}
     </YStack>
   );
 }
@@ -509,6 +516,7 @@ function PerpSettingsMenuContent({
 }: IPerpSettingsPopoverContentProps & { isPopover?: boolean }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const { showGuide } = useShowGuide({ forceModal: true });
   const closeThenOpen = (action: () => void) => {
     void runAfterActionListClose(closePopover, action, {
@@ -516,9 +524,34 @@ function PerpSettingsMenuContent({
     });
   };
 
+  const renderSettingsContent = (referralContent?: ReactNode) => (
+    <PerpSettingsMainContent
+      referralContent={referralContent}
+      showDevSettings={!isPopover}
+      showGuideEntry={isPopover && showGuideEntry}
+      showChartPositionSetting={isPopover && showChartPositionSetting}
+      onOpenGuide={() => closeThenOpen(onOpenGuide ?? showGuide)}
+      onOpenLayoutSettings={() =>
+        closeThenOpen(() => {
+          showPerpLayoutSettingsDialog({
+            title: intl.formatMessage({
+              id: ETranslations.perps_layout_settings__title,
+            }),
+            positionActionsTitle: intl.formatMessage({
+              id: ETranslations.perp_position_action_buttons__title,
+            }),
+          });
+        })
+      }
+    />
+  );
+
   return (
     <PerpMenu
       isPopover={isPopover}
+      hasCampaigns={Boolean(
+        showActivityCenterEntry && perpConfigCommon?.activityCards?.length,
+      )}
       layoutSettings={
         isPopover
           ? undefined
@@ -556,37 +589,29 @@ function PerpSettingsMenuContent({
                 void showIntercom();
               })
       }
-      settingsContent={
-        <PerpSettingsMainContent
-          showGuideEntry={isPopover && showGuideEntry}
-          showChartPositionSetting={isPopover && showChartPositionSetting}
-          onOpenGuide={() => closeThenOpen(onOpenGuide ?? showGuide)}
-          onOpenLayoutSettings={() =>
-            closeThenOpen(() => {
-              showPerpLayoutSettingsDialog({
-                title: intl.formatMessage({
-                  id: ETranslations.perps_layout_settings__title,
-                }),
-                positionActionsTitle: intl.formatMessage({
-                  id: ETranslations.perp_position_action_buttons__title,
-                }),
-              });
-            })
-          }
-        />
+      settingsContent={renderSettingsContent()}
+      popoverFooter={
+        isPopover && platformEnv.isDev ? (
+          <YStack px="$2" pb="$3">
+            <DevAbstractionModeSelector />
+          </YStack>
+        ) : undefined
       }
       onOpenPortfolio={
         onOpenPortfolio ? () => closeThenOpen(onOpenPortfolio) : undefined
       }
       renderActivityCenter={
         showActivityCenterEntry
-          ? () => (
+          ? (menuShortcuts) => (
               <PerpsActivityCenterContent
-                copyAsUrl
                 closePopover={closePopover}
                 showTitle={false}
                 menuLayout
                 menuPopoverLayout={isPopover}
+                menuShortcuts={menuShortcuts}
+                renderMenuReferral={
+                  isPopover ? renderSettingsContent : undefined
+                }
               />
             )
           : undefined
