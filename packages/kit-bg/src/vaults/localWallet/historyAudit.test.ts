@@ -91,6 +91,9 @@ it.each([null, 100])(
       getXmrRuntimeApi: async () => api,
       getXmrNetwork: async () => 'mainnet' as const,
       backgroundApi: {
+        serviceCustomRpc: {
+          ensureLocalWalletRemoteConfigLoaded: async () => {},
+        },
         simpleDb: {
           privacyChainXmrSent: entity,
           privacyChainState: {

@@ -88,6 +88,9 @@ function createHarness() {
       privacyChainXmrSent: {
         removeAccounts: jest.fn(record('xmrSent')),
       },
+      privacyChainZcashSent: {
+        removeAccounts: jest.fn(record('zcashSent')),
+      },
       privacyChainCache: {
         removeLastBalances: jest.fn(record('displayCaches')),
         removeNetworkLastBalances: jest.fn(record('displayCaches')),
@@ -169,6 +172,7 @@ const STEP_OF: Record<IRecorded, ILocalWalletLifecycleStep> = {
   viewingKeys: 'hostRecords',
   zcashTransparentJournal: 'hostRecords',
   xmrSent: 'hostRecords',
+  zcashSent: 'hostRecords',
   displayCaches: 'hostRecords',
   chainTips: 'hostRecords',
   walletState: 'hostRecords',

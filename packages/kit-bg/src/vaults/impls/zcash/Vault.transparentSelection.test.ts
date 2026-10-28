@@ -52,7 +52,18 @@ it.each([1, 3])(
         address: 't1-change',
         derivationPath: "m/44'/133'/0'/1/0",
       }),
-      zcashGetApi: async () => ({ quoteTransparentTx: quote }),
+      zcashGetApi: async () => ({
+        quoteTransparentTx: quote,
+        getTransactionPolicy: async ({
+          targetHeight,
+        }: {
+          targetHeight: number;
+        }) => ({
+          marginalFeeZat: '5000',
+          minimumFeeZat: '10000',
+          expiryHeight: targetHeight + 40,
+        }),
+      }),
     });
     const result = await vault['zcashBuildTransparentEncodedTx']({
       transferInfo: {

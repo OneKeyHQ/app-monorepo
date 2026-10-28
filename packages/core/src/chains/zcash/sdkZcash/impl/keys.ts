@@ -15,17 +15,47 @@ import type {
   IZcashDeriveAddressFromUfvkResult,
   IZcashDeriveTransparentXpubFromUfvkParams,
   IZcashGetChainTipParams,
+  IZcashInspectTransactionParams,
+  IZcashInspectedTransaction,
   IZcashNetwork,
   IZcashParseTransparentTransactionsParams,
   IZcashParsedTransparentTransaction,
   IZcashPcztReviewRequest,
   IZcashSignPcztParams,
+  IZcashTransactionPolicy,
   IZcashTransparentHardwareCreateParams,
   IZcashTransparentHardwareFinalizeParams,
   IZcashTransparentTxBuildResult,
   IZcashTransparentTxQuote,
   IZcashTransparentTxRequest,
 } from '../types/sdk';
+
+export async function inspectTransaction(
+  params: IZcashInspectTransactionParams,
+): Promise<IZcashInspectedTransaction> {
+  const keys = await getKeys();
+  return JSON.parse(
+    keys.inspectTransaction(stringUtils.stableStringify(params)),
+  ) as IZcashInspectedTransaction;
+}
+
+export async function getTransactionPolicy({
+  targetHeight,
+}: {
+  targetHeight: number;
+}): Promise<IZcashTransactionPolicy> {
+  if (
+    !Number.isSafeInteger(targetHeight) ||
+    targetHeight < 0 ||
+    targetHeight > 0xff_ff_ff_ff
+  ) {
+    throw new OneKeyLocalError('zcash: invalid target height');
+  }
+  const keys = await getKeys();
+  return JSON.parse(
+    keys.transactionPolicy(targetHeight),
+  ) as IZcashTransactionPolicy;
+}
 
 // Keys package has no storage/network/SQLite; a compile-time boundary keeps
 // spending material from reaching the scanning code even by accident.
@@ -244,9 +274,12 @@ async function buildStatelessShielding({
 }
 
 export async function buildTransparentTxWithAccountXprv(
-  params: IZcashTransparentTxRequest & { accountXprvHex: string },
+  params: IZcashTransparentTxRequest & {
+    accountXprvHex: string;
+    ufvk?: string;
+  },
 ): Promise<IZcashTransparentTxBuildResult> {
-  const { accountXprvHex, ...request } = params;
+  const { accountXprvHex, ufvk, ...request } = params;
   const keys = await getKeys();
   const accountXprvBytes = zcashHexToBytes(accountXprvHex);
   try {
@@ -258,13 +291,18 @@ export async function buildTransparentTxWithAccountXprv(
       return await buildStatelessShielding({
         request,
         create: () =>
-          keys.transparentShieldCreateWithAccountXprv(requestJson, accountXprv),
+          keys.transparentShieldCreateWithAccountXprv(
+            requestJson,
+            accountXprv,
+            ufvk,
+          ),
         sign: (original, proved) =>
           keys.transparentShieldSignWithAccountXprv(
             requestJson,
             accountXprv,
             original,
             proved,
+            ufvk,
           ),
       });
     }
@@ -287,6 +325,7 @@ export async function createTransparentHardwarePczt(
     stringUtils.stableStringify(params.request),
     params.accountXpub,
     params.seedFingerprintHex,
+    params.ufvk,
   );
   try {
     return { pcztHex: bytesToHex(pczt) };
@@ -310,6 +349,7 @@ export async function finalizeTransparentHardwarePczt(
       params.accountXpub,
       original,
       signed,
+      params.ufvk,
     );
     const runtime = await getRuntimeWasm();
     proved = runtime.pcztProveAtHeight(params.request.targetHeight, combined);

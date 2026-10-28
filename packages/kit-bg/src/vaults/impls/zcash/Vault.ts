@@ -69,6 +69,7 @@ import VaultBtc from '../btc/Vault';
 
 import {
   getZcashAccountUfvk,
+  getZcashStoredUfvk,
   hasZcashAccountViewingKey,
   refreshZcashAccountAddressCache,
 } from './accountMeta';
@@ -295,6 +296,18 @@ export default class Vault extends VaultBtc {
     });
   }
 
+  async zcashGetStoredUfvk({
+    accountId,
+  }: {
+    accountId: string;
+  }): Promise<string | undefined> {
+    return getZcashStoredUfvk({
+      backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
+      accountId,
+    });
+  }
+
   async zcashHasAccountViewingKey({
     accountId,
     vkFp,
@@ -396,6 +409,10 @@ export default class Vault extends VaultBtc {
   async resetLocalWalletCarrier(): Promise<void> {
     const api = await this.zcashGetApi();
     await api.resetCarrier();
+  }
+
+  async zcashGetObservedChainTip(): Promise<number | undefined> {
+    return zcashTransparent.zcashTransparentExpiryTip(this);
   }
 
   // Runtime first; falls back to a direct background fetch when the native file:// carrier can't reach lightwalletd.

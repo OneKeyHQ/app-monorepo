@@ -10,7 +10,6 @@ import {
 import { ZCASH_DECIMALS } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { toUserFacingZcashError } from '@onekeyhq/core/src/chains/zcash/sdkZcash/errorCopy';
 import {
-  TRANSPARENT_TX_EXPIRY_DELTA,
   TRUSTED_CONFIRMATIONS,
   UNTRUSTED_CONFIRMATIONS,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/policy';
@@ -32,6 +31,7 @@ import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheS
 import {
   ZCASH_TRANSPARENT_P2PKH_SCRIPT_RE,
   ZCASH_TRANSPARENT_PATH_RE,
+  getZcashTransactionPolicy,
   isZcashTransparentPayable,
   sameOutpoints,
   zcashTransparentError,
@@ -439,7 +439,7 @@ export async function zcashTransparentChange(
   };
 }
 
-export function zcashTransparentRequest(
+export async function zcashTransparentRequest(
   vault: Vault,
   {
     accountIndex,
@@ -462,12 +462,19 @@ export function zcashTransparentRequest(
     sendMax: boolean;
     change?: IZcashTransparentTxRequest['change'];
   },
-): IZcashTransparentTxRequest {
+): Promise<IZcashTransparentTxRequest> {
+  const { expiryHeight } = await getZcashTransactionPolicy(vault, targetHeight);
+  if (expiryHeight === null) {
+    throw zcashTransparentError(
+      'INVALID_TARGET_HEIGHT',
+      'Zcash network upgrade is too close. Retry after the upgrade.',
+    );
+  }
   return {
     network: 'main',
     accountIndex,
     targetHeight,
-    expiryHeight: targetHeight + TRANSPARENT_TX_EXPIRY_DELTA,
+    expiryHeight,
     utxos,
     selectedOutpoints,
     recipients: [
@@ -574,7 +581,8 @@ export async function zcashBuildTransparentEncodedTx(
       txid,
       vout,
     }));
-    const candidateRequest = zcashTransparentRequest(vault, {
+    // eslint-disable-next-line no-await-in-loop
+    const candidateRequest = await zcashTransparentRequest(vault, {
       accountIndex: fresh.accountIndex,
       targetHeight: fresh.targetHeight,
       // Explicit outpoints make unselected catalog entries irrelevant; don't serialize the whole wallet on every attempt.
@@ -679,7 +687,7 @@ export async function zcashPrepareFreshTransparentRequest(
       );
     }
   }
-  const request = zcashTransparentRequest(vault, {
+  const request = await zcashTransparentRequest(vault, {
     accountIndex: fresh.accountIndex,
     targetHeight: fresh.targetHeight,
     utxos: fresh.utxos,

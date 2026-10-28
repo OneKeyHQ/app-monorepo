@@ -2009,6 +2009,14 @@ class ServiceSend extends ServiceBase {
         signedTx: broadcastedTx,
         isSettled: isSettledOnAccept,
       });
+      if (vaultSettings.localWallet) {
+        void this.backgroundApi.servicePrivacyChain
+          .onLocalWalletTransactionBroadcast({
+            networkId,
+            encodedTx: unsignedTx.encodedTx,
+          })
+          .catch(() => undefined);
+      }
       diagnosticState.status = 'succeeded';
       return broadcastedTx;
     }

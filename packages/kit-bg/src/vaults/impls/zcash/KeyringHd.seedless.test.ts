@@ -88,14 +88,20 @@ function expectNoSeed(calls: unknown[][]) {
   calls.forEach((args) => args.forEach(visit));
 }
 
+const T_RECIPIENT = 't1Hsc1LR8yKnbbe3twRp88p6vFfC5t7DLbs';
+
 function createKeyring({
   api,
   accountXpub,
   pathIndex = 0,
+  recipient = T_RECIPIENT,
+  storedUfvk,
 }: {
   api: Record<string, jest.Mock>;
   accountXpub: string;
   pathIndex?: number;
+  recipient?: string;
+  storedUfvk?: string;
 }) {
   return Object.assign(Object.create(KeyringHd.prototype), {
     vault: {
@@ -105,7 +111,9 @@ function createKeyring({
       zcashPrepareFreshTransparentRequest: jest.fn(async () => ({
         network: 'main',
         accountIndex: pathIndex,
+        recipients: [{ address: recipient, amountZat: '1000' }],
       })),
+      zcashGetStoredUfvk: jest.fn(async () => storedUfvk),
     },
     backgroundApi: {
       serviceDevSetting: {
@@ -355,7 +363,9 @@ describe('Zcash KeyringHd never hands the seed to the SDK', () => {
     expect(buildTransparentTxWithAccountXprv).toHaveBeenCalledWith({
       network: 'main',
       accountIndex: 0,
+      recipients: [{ address: T_RECIPIENT, amountZat: '1000' }],
       accountXprvHex: expected.accountXprvHex,
+      ufvk: undefined,
     });
     const calls = buildTransparentTxWithAccountXprv.mock.calls as unknown[][];
     for (const [arg] of calls) {
@@ -363,5 +373,90 @@ describe('Zcash KeyringHd never hands the seed to the SDK', () => {
     }
     expectNoSeed(calls);
     expectIssuedSeedsWiped();
+  });
+
+  describe('a shielded payment from transparent funds', () => {
+    const signShielded = async (storedUfvk?: string) => {
+      const expected = deriveZcashAccountSecrets({
+        seed: TEST_SEED,
+        accountIndex: 0,
+      });
+      const deriveAccountKeys = jest.fn(async () => ({
+        ufvk: 'derived-ufvk',
+      }));
+      const buildTransparentTxWithAccountXprv = jest.fn(async () => ({
+        rawTxHex: '00',
+      }));
+      jest
+        .mocked(signTransparentTransaction)
+        .mockImplementation(async ({ sign }) => {
+          await sign();
+          return { txid: '', rawTx: '00', encodedTx: null };
+        });
+      jest.mocked(deriveZcashOrchardSpendingKey).mockClear();
+      const keyring = createKeyring({
+        api: { buildTransparentTxWithAccountXprv, deriveAccountKeys },
+        accountXpub: expected.accountXpub,
+        recipient: 'u1-recipient',
+        storedUfvk,
+      });
+      await (
+        keyring as unknown as {
+          signTransparentTransaction: (params: {
+            encodedTx: IEncodedTxZcash;
+            password: string;
+          }) => Promise<unknown>;
+        }
+      ).signTransparentTransaction({
+        encodedTx: { zcashMode: 'transparent' } as IEncodedTxZcash,
+        password: 'pw',
+      });
+      return { expected, deriveAccountKeys, buildTransparentTxWithAccountXprv };
+    };
+
+    it('uses the stored UFVK without deriving the Orchard key', async () => {
+      const { expected, deriveAccountKeys, buildTransparentTxWithAccountXprv } =
+        await signShielded('stored-ufvk');
+      expected.orchardSk.fill(0);
+      expect(deriveZcashOrchardSpendingKey).not.toHaveBeenCalled();
+      expect(deriveAccountKeys).not.toHaveBeenCalled();
+      expect(buildTransparentTxWithAccountXprv).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountXprvHex: expected.accountXprvHex,
+          ufvk: 'stored-ufvk',
+        }),
+      );
+      expectIssuedSeedsWiped();
+    });
+
+    it('rebuilds a missing UFVK from the seed and wipes the Orchard key', async () => {
+      const { expected, deriveAccountKeys, buildTransparentTxWithAccountXprv } =
+        await signShielded();
+      expect(deriveAccountKeys).toHaveBeenCalledWith({
+        network: 'main',
+        orchardSkHex: Buffer.from(expected.orchardSk).toString('hex'),
+        accountXpub: expected.accountXpub,
+        hdIndex: 0,
+      });
+      expected.orchardSk.fill(0);
+      const issuedKey = jest.mocked(deriveZcashOrchardSpendingKey).mock
+        .results[0]?.value as Uint8Array;
+      expect(issuedKey.every((b) => b === 0)).toBe(true);
+      expect(buildTransparentTxWithAccountXprv).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountXprvHex: expected.accountXprvHex,
+          ufvk: 'derived-ufvk',
+        }),
+      );
+      const calls = buildTransparentTxWithAccountXprv.mock.calls as unknown[][];
+      for (const [arg] of calls) {
+        expect(Object.keys(arg as object)).not.toContain('orchardSkHex');
+      }
+      expectNoSeed([
+        ...calls,
+        ...(deriveAccountKeys.mock.calls as unknown[][]),
+      ]);
+      expectIssuedSeedsWiped();
+    });
   });
 });

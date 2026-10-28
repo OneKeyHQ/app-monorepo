@@ -56,15 +56,17 @@ function setup() {
   };
   return {
     journal,
+    sentStore: { recordZcashSent: jest.fn().mockResolvedValue(undefined) },
     sign: jest.fn().mockResolvedValue(result),
     parseOutputs: jest.fn().mockResolvedValue(reviewedOutputs),
   };
 }
 
 it('retains reservations for signed transactions until broadcast resolution', async () => {
-  const { journal, sign, parseOutputs } = setup();
+  const { journal, sentStore, sign, parseOutputs } = setup();
   const signed = await signTransparentTransaction({
     journal,
+    sentStore,
     sign,
     parseOutputs,
     accountId: 'account',
@@ -87,7 +89,7 @@ it('retains reservations for signed transactions until broadcast resolution', as
 it.each([false, true])(
   'verifies change returned to the receive address (self-payment: %s)',
   async (selfPayment) => {
-    const { journal, sign, parseOutputs } = setup();
+    const { journal, sentStore, sign, parseOutputs } = setup();
     const address = selfPayment ? RECIPIENT : CHANGE;
     parseOutputs.mockResolvedValue([
       reviewedOutputs[0],
@@ -103,6 +105,7 @@ it.each([false, true])(
     await expect(
       signTransparentTransaction({
         journal,
+        sentStore,
         sign,
         parseOutputs,
         accountId: 'account',
@@ -117,6 +120,7 @@ it.each([false, true])(
     await expect(
       signTransparentTransaction({
         journal,
+        sentStore,
         sign,
         parseOutputs,
         accountId: 'account',
@@ -133,11 +137,12 @@ it.each([
   { spentOutpoints: [outpoints[0], outpoints[0]] },
   { spentOutpoints: [outpoints[0]] },
 ])('rejects a result differing from review: %j', async (change) => {
-  const { journal, sign, parseOutputs } = setup();
+  const { journal, sentStore, sign, parseOutputs } = setup();
   sign.mockResolvedValue({ ...result, ...change });
   await expect(
     signTransparentTransaction({
       journal,
+      sentStore,
       sign,
       parseOutputs,
       accountId: 'account',
@@ -155,7 +160,7 @@ it.each([
 it.each(['sign', 'save'] as const)(
   'releases the reservation when %s fails',
   async (stage) => {
-    const { journal, sign, parseOutputs } = setup();
+    const { journal, sentStore, sign, parseOutputs } = setup();
     (stage === 'sign'
       ? sign
       : journal.saveTransparentPendingTx
@@ -163,6 +168,7 @@ it.each(['sign', 'save'] as const)(
     await expect(
       signTransparentTransaction({
         journal,
+        sentStore,
         sign,
         parseOutputs,
         accountId: 'account',
@@ -175,7 +181,7 @@ it.each(['sign', 'save'] as const)(
 );
 
 it('reports a runtime failure in user wording', async () => {
-  const { journal, sign, parseOutputs } = setup();
+  const { journal, sentStore, sign, parseOutputs } = setup();
   sign.mockRejectedValue(
     Object.assign(new Error('INSUFFICIENT_FUNDS'), {
       code: 'INSUFFICIENT_FUNDS',
@@ -185,6 +191,7 @@ it('reports a runtime failure in user wording', async () => {
   await expect(
     signTransparentTransaction({
       journal,
+      sentStore,
       sign,
       parseOutputs,
       accountId: 'account',
@@ -200,11 +207,12 @@ it('reports a runtime failure in user wording', async () => {
 });
 
 it('does not release another owner when reservation acquisition fails', async () => {
-  const { journal, sign, parseOutputs } = setup();
+  const { journal, sentStore, sign, parseOutputs } = setup();
   journal.reserveTransparentOutpoints.mockRejectedValue(new Error('reserved'));
   await expect(
     signTransparentTransaction({
       journal,
+      sentStore,
       sign,
       parseOutputs,
       accountId: 'account',
@@ -239,11 +247,12 @@ it.each([
     ],
   ],
 ])('rejects a signed transaction with %s', async (_label, outputs) => {
-  const { journal, sign, parseOutputs } = setup();
+  const { journal, sentStore, sign, parseOutputs } = setup();
   parseOutputs.mockResolvedValue(outputs);
   await expect(
     signTransparentTransaction({
       journal,
+      sentStore,
       sign,
       parseOutputs,
       accountId: 'account',
@@ -256,13 +265,14 @@ it.each([
 it.each(['49999', '50001'])(
   'rejects a Max-send signed output of %s that differs from the reviewed amount',
   async (valueZat) => {
-    const { journal, sign, parseOutputs } = setup();
+    const { journal, sentStore, sign, parseOutputs } = setup();
     parseOutputs.mockResolvedValue([
       { valueZat, scriptPubKey: recipientScript },
     ]);
     await expect(
       signTransparentTransaction({
         journal,
+        sentStore,
         sign,
         parseOutputs,
         accountId: 'account',
@@ -280,13 +290,14 @@ it.each(['49999', '50001'])(
 );
 
 it('accepts a Max-send signed output matching the reviewed amount exactly', async () => {
-  const { journal, sign, parseOutputs } = setup();
+  const { journal, sentStore, sign, parseOutputs } = setup();
   parseOutputs.mockResolvedValue([
     { valueZat: '50000', scriptPubKey: recipientScript },
   ]);
   await expect(
     signTransparentTransaction({
       journal,
+      sentStore,
       sign,
       parseOutputs,
       accountId: 'account',
@@ -299,4 +310,83 @@ it('accepts a Max-send signed output matching the reviewed amount exactly', asyn
       },
     }),
   ).resolves.toMatchObject({ txid: result.txid });
+});
+
+describe('shielded payment record', () => {
+  const SHIELDED = 'u1shieldedrecipient';
+  const memoHex = `68656c6c6f${'00'.repeat(507)}`;
+  const shieldedEncodedTx = {
+    ...encodedTx,
+    zcashTo: SHIELDED,
+    zcashMemoHex: memoHex,
+  } as IEncodedTxZcash;
+  const shieldedRequest = {
+    ...request,
+    recipients: [{ address: SHIELDED, amountZat: '50000', memoHex }],
+  } as IZcashTransparentTxRequest;
+
+  it('keeps the typed recipient, amount and memo before the send is saved for broadcast', async () => {
+    const { journal, sentStore, sign, parseOutputs } = setup();
+    parseOutputs.mockResolvedValue([reviewedOutputs[1]]);
+    await signTransparentTransaction({
+      journal,
+      sentStore,
+      sign,
+      parseOutputs,
+      accountId: 'account',
+      encodedTx: shieldedEncodedTx,
+      request: shieldedRequest,
+    });
+    expect(sentStore.recordZcashSent).toHaveBeenCalledWith({
+      accountId: 'account',
+      txid: result.txid,
+      record: {
+        recipient: SHIELDED,
+        amountZat: '50000',
+        feeZat: '10000',
+        memoHex,
+        createdAt: expect.any(Number),
+      },
+    });
+    expect(sentStore.recordZcashSent.mock.invocationCallOrder[0]).toBeLessThan(
+      journal.saveTransparentPendingTx.mock.invocationCallOrder[0],
+    );
+    // The pending send carries no recipient or memo.
+    expect(
+      JSON.stringify(journal.saveTransparentPendingTx.mock.calls),
+    ).not.toMatch(new RegExp(`${SHIELDED}|${memoHex}`));
+  });
+
+  it('records nothing for a transparent recipient', async () => {
+    const { journal, sentStore, sign, parseOutputs } = setup();
+    await signTransparentTransaction({
+      journal,
+      sentStore,
+      sign,
+      parseOutputs,
+      accountId: 'account',
+      encodedTx,
+      request,
+    });
+    expect(sentStore.recordZcashSent).not.toHaveBeenCalled();
+  });
+
+  it('stops the send when the record cannot be kept', async () => {
+    const { journal, sentStore, sign, parseOutputs } = setup();
+    parseOutputs.mockResolvedValue([reviewedOutputs[1]]);
+    sentStore.recordZcashSent.mockRejectedValue(new Error('storage failed'));
+    await expect(
+      signTransparentTransaction({
+        journal,
+        sentStore,
+        sign,
+        parseOutputs,
+        accountId: 'account',
+        encodedTx: shieldedEncodedTx,
+        request: shieldedRequest,
+      }),
+    ).rejects.toThrow('storage failed');
+    expect(journal.saveTransparentPendingTx).not.toHaveBeenCalled();
+    expect(journal.releaseTransparentReservation).toHaveBeenCalledTimes(1);
+  });
 });

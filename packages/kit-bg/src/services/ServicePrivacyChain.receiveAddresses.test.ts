@@ -50,6 +50,9 @@ describe('Local wallet receive addresses', () => {
       },
       {
         backgroundApi: {
+          serviceCustomRpc: {
+            ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+          },
           serviceAccount: { getWalletSafe: async () => ({ isTemp: false }) },
         },
       },
@@ -109,6 +112,11 @@ describe('Local wallet send readiness', () => {
         >;
       },
       {
+        backgroundApi: {
+          serviceCustomRpc: {
+            ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+          },
+        },
         getLocalWalletSyncProgress: async () => progress,
         getLocalWalletAccountState: async () => accountState,
       },

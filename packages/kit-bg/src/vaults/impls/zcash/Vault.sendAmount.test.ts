@@ -13,9 +13,12 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 
+import { setLocalWalletRemoteConfigs } from '../../localWallet/remoteConfig';
+
 import Vault from './Vault';
 
 const originalIntl = appLocale.intl;
+afterEach(() => setLocalWalletRemoteConfigs({}));
 beforeAll(async () => {
   appLocale.setLocale('en-US', await loadLocaleMessages('en-US'));
 });
@@ -66,7 +69,11 @@ describe('Zcash send amount intent', () => {
       Object.create(Vault.prototype) as Vault,
       {
         accountId: account.id,
+        networkId: 'zec--0',
         backgroundApi: {
+          serviceCustomRpc: {
+            ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+          },
           simpleDb: {
             privacyChainState: {
               getZcashPrivacyModeState: async () => ({
@@ -76,7 +83,18 @@ describe('Zcash send amount intent', () => {
           },
           serviceAccount: { getDBAccount: async () => account },
         },
-        zcashGetApi: async () => ({ quotePczt }),
+        zcashGetApi: async () => ({
+          quotePczt,
+          getTransactionPolicy: async ({
+            targetHeight,
+          }: {
+            targetHeight: number;
+          }) => ({
+            marginalFeeZat: '5000',
+            minimumFeeZat: '10000',
+            expiryHeight: targetHeight + 40,
+          }),
+        }),
         zcashGetWalletAccount: async () => account,
         zcashGetBalanceSafe: async () => snapshot,
         getLocalWalletBalance: async () => snapshot,
@@ -145,6 +163,15 @@ describe('Zcash send amount intent', () => {
       },
     };
   }
+
+  it('refuses a private-source build while the server disables privacy', async () => {
+    const { vault, quotePczt } = createVault(balance('500000000', '0'));
+    setLocalWalletRemoteConfigs({ 'zec--0': { privacyDisabled: true } });
+    await expect(vault.buildEncodedTx(request('1'))).rejects.toThrow(
+      /not available/i,
+    );
+    expect(quotePczt).not.toHaveBeenCalled();
+  });
 
   it.each(['1', '2'])(
     'does not turn an entered %s ZEC into Max against a 1 ZEC snapshot',
@@ -398,7 +425,18 @@ describe('Zcash transparent send amount intent', () => {
           address: 't1-change',
           derivationPath: "m/44'/133'/0'/1/0",
         }),
-        zcashGetApi: async () => ({ quoteTransparentTx }),
+        zcashGetApi: async () => ({
+          quoteTransparentTx,
+          getTransactionPolicy: async ({
+            targetHeight,
+          }: {
+            targetHeight: number;
+          }) => ({
+            marginalFeeZat: '5000',
+            minimumFeeZat: '10000',
+            expiryHeight: targetHeight + 40,
+          }),
+        }),
       },
     );
     return { vault, quoteTransparentTx };

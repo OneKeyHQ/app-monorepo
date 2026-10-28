@@ -17,6 +17,14 @@ import Vault from './Vault';
 import { zcashReadTransparentForDisplay } from './vaultBalance';
 
 jest.mock('../../../dbs/local/localDbInstance');
+jest.mock('./vaultUtils', () => ({
+  ...jest.requireActual<typeof import('./vaultUtils')>('./vaultUtils'),
+  getZcashTransactionPolicy: async () => ({
+    marginalFeeZat: '5000',
+    minimumFeeZat: '10000',
+    expiryHeight: 3_000_040,
+  }),
+}));
 
 const pool = (amount: string) => ({
   spendable: amount,

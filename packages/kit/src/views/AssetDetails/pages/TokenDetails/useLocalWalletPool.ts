@@ -358,6 +358,16 @@ export function useLocalWalletPool({
   }, [refreshAddresses, refreshBalance, refreshState, refreshSyncProgress]);
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
+  useEffect(() => {
+    const refreshNetworkState = () => void refreshState();
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, refreshNetworkState);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.AddedCustomNetwork,
+        refreshNetworkState,
+      );
+    };
+  }, [refreshState]);
   const handleActionDone = useCallback(() => {
     refreshRef.current();
   }, []);

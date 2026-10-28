@@ -57,6 +57,10 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { vaultFactory } from '../../vaults/factory';
 import {
+  hideLocalWalletPrivatePools,
+  isLocalWalletPrivacyDisabled,
+} from '../../vaults/localWallet/remoteConfig';
+import {
   getVaultSettings,
   getVaultSettingsAccountDeriveInfo,
 } from '../../vaults/settings';
@@ -363,7 +367,15 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async getVaultSettings({ networkId }: { networkId: string }) {
-    return this._getVaultSettingsByNetworkId(networkId);
+    const settings = await this._getVaultSettingsByNetworkId(networkId);
+    if (!settings.localWallet) {
+      return settings;
+    }
+    await this.backgroundApi.serviceCustomRpc.ensureLocalWalletRemoteConfigLoaded();
+    // Privacy switched off by the server: pages see only the public pool.
+    return isLocalWalletPrivacyDisabled(networkId)
+      ? hideLocalWalletPrivatePools(settings)
+      : settings;
   }
 
   @backgroundMethod()

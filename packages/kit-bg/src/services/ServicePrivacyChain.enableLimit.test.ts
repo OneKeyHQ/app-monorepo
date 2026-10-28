@@ -186,6 +186,9 @@ function createService({
     Object.create(ServicePrivacyChain.prototype) as ITestService,
     {
       backgroundApi: {
+        serviceCustomRpc: {
+          ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+        },
         servicePassword: { promptPasswordVerifyByAccount },
         simpleDb: {
           privacyChainKeys: {

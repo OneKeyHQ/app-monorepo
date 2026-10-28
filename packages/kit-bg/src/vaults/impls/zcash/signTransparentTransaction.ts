@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
-import { zcashTransparentScriptForAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
+import {
+  isShieldedAddress,
+  zcashTransparentScriptForAddress,
+} from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { toUserFacingZcashError } from '@onekeyhq/core/src/chains/zcash/sdkZcash/errorCopy';
 import type {
   IZcashTransparentTxBuildResult,
@@ -12,6 +15,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import type { IEncodedTxZcash } from './types';
 import type { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
+import type { SimpleDbEntityPrivacyChainZcashSent } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainZcashSent';
 
 // The outputs the signed tx actually pays, checked against the review; a swapped recipient or change address shows up only here.
 function outputsMatchReview(
@@ -48,6 +52,7 @@ function outputsMatchReview(
 
 export async function signTransparentTransaction({
   journal,
+  sentStore,
   accountId,
   encodedTx,
   request,
@@ -60,6 +65,7 @@ export async function signTransparentTransaction({
     | 'saveTransparentPendingTx'
     | 'releaseTransparentReservation'
   >;
+  sentStore: Pick<SimpleDbEntityPrivacyChainZcashSent, 'recordZcashSent'>;
   accountId: string;
   encodedTx: IEncodedTxZcash;
   request: IZcashTransparentTxRequest;
@@ -99,6 +105,20 @@ export async function signTransparentTransaction({
       throw new OneKeyLocalError(
         'Zcash transparent signing result did not match the reviewed transaction',
       );
+    }
+    // Before broadcast: neither the backend nor the runtime can tell this wallet a shielded recipient or memo.
+    if (isShieldedAddress(encodedTx.zcashTo)) {
+      await sentStore.recordZcashSent({
+        accountId,
+        txid: result.txid,
+        record: {
+          recipient: encodedTx.zcashTo,
+          amountZat: encodedTx.zcashAmountValue,
+          feeZat: result.feeZat,
+          memoHex: encodedTx.zcashMemoHex,
+          createdAt: Date.now(),
+        },
+      });
     }
     await journal.saveTransparentPendingTx({
       accountId,

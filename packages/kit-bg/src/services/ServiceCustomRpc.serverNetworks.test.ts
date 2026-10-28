@@ -85,6 +85,30 @@ function buildService({
 }
 
 describe('ServiceCustomRpc server networks', () => {
+  it.each(['zec--0', 'xmr--0'])(
+    'reads %s privacy configuration from network extensions',
+    async (id) => {
+      const { service, upsertServerNetworks } = buildService({
+        cachedNetworks: [],
+        lastFetchTime: undefined,
+        serverNetworks: [
+          {
+            ...zcashDelisted,
+            id,
+            status: ENetworkStatus.LISTED,
+            extensions: { localWallet: { privacyDisabled: true } },
+          },
+        ],
+      });
+      await service.fetchNetworkFromServer();
+      expect(upsertServerNetworks).toHaveBeenCalledWith({
+        networkInfos: [],
+        delistedPresetNetworkIds: [],
+        localWalletConfigs: { [id]: { privacyDisabled: true } },
+      });
+    },
+  );
+
   it('ensureServerNetworksFetched fetches when the cache was never filled', async () => {
     const { service, get, upsertServerNetworks } = buildService({
       cachedNetworks: [],
@@ -98,6 +122,7 @@ describe('ServiceCustomRpc server networks', () => {
     expect(upsertServerNetworks).toHaveBeenCalledWith({
       networkInfos: [robinhood],
       delistedPresetNetworkIds: [],
+      localWalletConfigs: {},
     });
   });
 
@@ -213,6 +238,7 @@ describe('ServiceCustomRpc server networks', () => {
     expect(upsertServerNetworks).toHaveBeenCalledWith({
       networkInfos: [robinhood],
       delistedPresetNetworkIds: ['zec--0'],
+      localWalletConfigs: {},
     });
     // Reuses the "network list changed" refresh.
     expect(clearConfigSyncMeta).toHaveBeenCalledTimes(1);
@@ -237,6 +263,7 @@ describe('ServiceCustomRpc server networks', () => {
       expect(upsertServerNetworks).toHaveBeenCalledWith({
         networkInfos: [robinhood],
         delistedPresetNetworkIds: [],
+        localWalletConfigs: {},
       });
       expect(clearConfigSyncMeta).toHaveBeenCalledTimes(1);
     },
@@ -271,6 +298,7 @@ describe('ServiceCustomRpc server networks', () => {
     expect(upsertServerNetworks).toHaveBeenCalledWith({
       networkInfos: [robinhood],
       delistedPresetNetworkIds: [],
+      localWalletConfigs: {},
     });
   });
 

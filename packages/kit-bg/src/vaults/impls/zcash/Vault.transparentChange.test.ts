@@ -5,6 +5,11 @@ import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc/networks
 import type { IZcashTransparentTxRequest } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 
 import Vault from './Vault';
+import {
+  noteZcashChainHeight,
+  forgetZcashChainHeights,
+} from './vaultTransparent';
+import { getZcashTransactionPolicy } from './vaultUtils';
 
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 
@@ -55,7 +60,18 @@ it.each([false, true])(
           },
         ],
       }),
-      zcashGetApi: async () => ({ quoteTransparentTx }),
+      zcashGetApi: async () => ({
+        quoteTransparentTx,
+        getTransactionPolicy: async ({
+          targetHeight,
+        }: {
+          targetHeight: number;
+        }) => ({
+          marginalFeeZat: '5000',
+          minimumFeeZat: '10000',
+          expiryHeight: targetHeight + 40,
+        }),
+      }),
     });
 
     const encodedTx = await vault['zcashBuildTransparentEncodedTx']({
@@ -75,3 +91,27 @@ it.each([false, true])(
     expect(encodedTx.inputs[0].path).toBe("m/44'/133'/0'/1/0");
   },
 );
+
+it('uses a public UTXO height for display policy before any private scan', async () => {
+  const getTransactionPolicy = jest.fn().mockResolvedValue({
+    marginalFeeZat: '1000',
+    minimumFeeZat: '2000',
+    expiryHeight: 3_590_140,
+  });
+  const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+    networkId: 'zec--0',
+    backgroundApi: {
+      simpleDb: { privacyChainCache: { getChainTip: async () => undefined } },
+    },
+    zcashGetApi: async () => ({ getTransactionPolicy }),
+  });
+  forgetZcashChainHeights('zec--0');
+  noteZcashChainHeight('zec--0', 3_590_099);
+  await expect(getZcashTransactionPolicy(vault)).resolves.toMatchObject({
+    minimumFeeZat: '2000',
+  });
+  expect(getTransactionPolicy).toHaveBeenCalledWith({
+    targetHeight: 3_590_100,
+  });
+  forgetZcashChainHeights('zec--0');
+});

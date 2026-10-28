@@ -1,28 +1,36 @@
 import type { IZcashSendResult } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { setLocalWalletRemoteConfigs } from '../../localWallet/remoteConfig';
+
+import { getZcashAccountLifecycleMutex } from './lifecycle';
 import Vault from './Vault';
 
 jest.mock('../../../dbs/local/localDbInstance');
 
 describe('Zcash private send submission', () => {
+  afterEach(() => setLocalWalletRemoteConfigs({}));
+
   function createVault(result: IZcashSendResult | Error) {
     const submitPczt = jest.fn(async () => {
       if (result instanceof Error) throw result;
       return result;
     });
+    const ensureLoaded = jest.fn(async () => undefined);
     const account = { ufvk: 'uview-submit-test' };
+    const getWalletAccount = jest.fn(async () => account);
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       accountId: 'acc',
       networkId: 'zec--0',
       backgroundApi: {
+        serviceCustomRpc: { ensureLocalWalletRemoteConfigLoaded: ensureLoaded },
         simpleDb: {
           privacyChainState: {
             isZcashPrivacyModeEnabled: async () => true,
           },
         },
       },
-      zcashGetWalletAccount: async () => account,
+      zcashGetWalletAccount: getWalletAccount,
       zcashGetApi: async () => ({ submitPczt }),
     });
     const params = {
@@ -39,8 +47,69 @@ describe('Zcash private send submission', () => {
       vault,
       submitPczt,
       params,
+      account,
+      getWalletAccount,
+      ensureLoaded,
     };
   }
+
+  it('refuses an old confirmation while the server disables privacy', async () => {
+    const { vault, submitPczt, params } = createVault({
+      txid: 'tx1',
+      broadcastState: 'accepted',
+    });
+    setLocalWalletRemoteConfigs({ 'zec--0': { privacyDisabled: true } });
+    await expect(vault.broadcastTransaction(params as never)).rejects.toThrow(
+      ETranslations.global_not_available,
+    );
+    expect(submitPczt).not.toHaveBeenCalled();
+
+    setLocalWalletRemoteConfigs({});
+    await expect(
+      vault.broadcastTransaction(params as never),
+    ).resolves.toMatchObject({ txid: 'tx1' });
+  });
+
+  it('loads the persisted disable before submitting on a cold start', async () => {
+    const { vault, submitPczt, params, ensureLoaded } = createVault({
+      txid: 'tx1',
+      broadcastState: 'accepted',
+    });
+    ensureLoaded.mockImplementation(async () => {
+      setLocalWalletRemoteConfigs({ 'zec--0': { privacyDisabled: true } });
+    });
+    await expect(vault.broadcastTransaction(params as never)).rejects.toThrow(
+      ETranslations.global_not_available,
+    );
+    expect(submitPczt).not.toHaveBeenCalled();
+  });
+
+  it('rechecks a server disable after waiting for the lifecycle lock', async () => {
+    const { vault, submitPczt, params, account, getWalletAccount } =
+      createVault({
+        txid: 'tx1',
+        broadcastState: 'accepted',
+      });
+    const mutex = getZcashAccountLifecycleMutex({
+      networkId: vault.networkId,
+      ufvk: account.ufvk,
+    });
+    const release = await mutex.acquire();
+    let notifyReady: () => void = () => undefined;
+    const ready = new Promise<void>((resolve) => {
+      notifyReady = resolve;
+    });
+    getWalletAccount.mockImplementation(async () => {
+      notifyReady();
+      return account;
+    });
+    const pending = vault.broadcastTransaction(params as never);
+    await ready;
+    setLocalWalletRemoteConfigs({ 'zec--0': { privacyDisabled: true } });
+    release();
+    await expect(pending).rejects.toThrow(ETranslations.global_not_available);
+    expect(submitPczt).not.toHaveBeenCalled();
+  });
 
   it('reports a rejection with the node reason', async () => {
     const { vault, params } = createVault({

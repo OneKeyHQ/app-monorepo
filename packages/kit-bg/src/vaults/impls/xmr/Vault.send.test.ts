@@ -7,6 +7,7 @@ import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
+import { setLocalWalletRemoteConfigs } from '../../localWallet/remoteConfig';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 
 import Vault from './Vault';
@@ -90,6 +91,9 @@ function createVault(options?: {
     accountId: ACCOUNT_ID,
     networkId: 'xmr--0',
     backgroundApi: {
+      serviceCustomRpc: {
+        ensureLocalWalletRemoteConfigLoaded: jest.fn(async () => undefined),
+      },
       simpleDb: {
         privacyChainKeys,
         privacyChainState: { getXmrAccountState: async () => ({ ...state }) },
@@ -145,6 +149,7 @@ function createVault(options?: {
 
 afterEach(() => {
   jest.restoreAllMocks();
+  setLocalWalletRemoteConfigs({});
 });
 
 describe('xmr send: building', () => {
@@ -228,6 +233,24 @@ describe('xmr send: building', () => {
 
 // Cake Wallet refuses to build while 100 or more blocks are left to scan.
 describe('xmr send waits for the wallet to catch up', () => {
+  it('loads a persisted server disable before building from a caught-up scan', async () => {
+    const { vault, runtime } = createVault();
+    jest
+      .mocked(
+        vault.backgroundApi.serviceCustomRpc
+          .ensureLocalWalletRemoteConfigLoaded,
+      )
+      .mockImplementation(async () => {
+        setLocalWalletRemoteConfigs({ 'xmr--0': { privacyDisabled: true } });
+      });
+    await expect(
+      vault.buildEncodedTx({
+        transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.0001' }],
+      } as never),
+    ).rejects.toThrow(ETranslations.global_not_available);
+    expect(runtime.prepared).toHaveLength(0);
+  });
+
   function withProgress(
     vault: Vault,
     {
@@ -400,6 +423,25 @@ const broadcastEncodedTx: IEncodedTxXmr = {
 };
 
 describe('xmr send: broadcast', () => {
+  it('blocks a saved send after the server disables privacy', async () => {
+    const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
+    const { vault } = createVault({ broadcast });
+    setLocalWalletRemoteConfigs({ 'xmr--0': { privacyDisabled: true } });
+    await expect(
+      vault.buildUnsignedTx({ encodedTx: broadcastEncodedTx } as never),
+    ).rejects.toThrow(ETranslations.global_not_available);
+    await expect(
+      vault.broadcastTransaction({
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: broadcastEncodedTx,
+        },
+      } as never),
+    ).rejects.toThrow(ETranslations.global_not_available);
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+
   it('rejects a reviewed draft after a same-value delete and re-enable', async () => {
     const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
     const { vault, state } = createVault({ broadcast });
@@ -703,6 +745,16 @@ describe('xmr send: signing records the send', () => {
     vault.signTransaction({
       unsignedTx: { encodedTx: broadcastEncodedTx },
     } as never);
+
+  it('refuses the old confirmation page before asking the keyring to sign', async () => {
+    const { vault } = createVault();
+    const signTransaction = withKeyring(vault);
+    setLocalWalletRemoteConfigs({ 'xmr--0': { privacyDisabled: true } });
+    await expect(sign(vault)).rejects.toThrow(
+      ETranslations.global_not_available,
+    );
+    expect(signTransaction).not.toHaveBeenCalled();
+  });
 
   // The chain never names the recipient; this record is the only place it lives.
   it('records who was paid and the tx keys before returning the signed tx', async () => {

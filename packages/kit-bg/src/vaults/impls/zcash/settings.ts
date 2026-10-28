@@ -51,7 +51,7 @@ const settings: IVaultSettings = {
   hideTxUtxoListWhenPending: true,
   disabledSwapAction: true,
   // No minTransferAmount/utxoDustAmount override: the real dust floor is
-  // ZCASH_SHIELDING_THRESHOLD_ZAT, enforced by the Shield action.
+  // the height-dependent minimum fee, enforced by the Shield action.
   hasFrozenBalance: true,
   showAddressType: false,
   estimatedFeePollingInterval: 60,

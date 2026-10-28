@@ -17,9 +17,13 @@ import { withMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryS
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 
 import Vault from './Vault';
+import { forgetZcashTransparentHistorySnapshots } from './vaultHistory';
 import { createZcashSetupIncompleteError } from './vaultUtils';
 
 describe('Zcash private history when the runtime read fails', () => {
+  beforeEach(() =>
+    forgetZcashTransparentHistorySnapshots({ networkId: 'zec--0' }),
+  );
   function createVault(
     getHistory: jest.Mock,
     getSyncProgress: jest.Mock = jest
@@ -85,17 +89,93 @@ describe('Zcash private history when the runtime read fails', () => {
     expect(getHistory).not.toHaveBeenCalled();
   });
 
-  it('throws when the runtime read fails, never answering from an old page', async () => {
+  it('keeps the backend history available when the private read fails', async () => {
+    const vault = createVault(
+      jest.fn().mockRejectedValue(new Error('runtime down')),
+    );
+    const publicTx = {
+      id: 'public',
+      decodedTx: { txid: 'public', status: 'ok' },
+      privacyChainHistorySide: 'public',
+      privacyChainHistoryPoolIds: [0],
+    };
+    Object.assign(vault, {
+      zcashFetchTransparentHistory: async () => ({
+        txs: [publicTx],
+        snapshotComplete: false,
+      }),
+    });
+    await expect(vault.fetchAccountHistoryFromLocal(params)).resolves.toEqual([
+      publicTx,
+    ]);
+  });
+
+  it('returns the backend history while a private read is blocked', async () => {
+    const vault = createVault(jest.fn(() => new Promise(() => undefined)));
+    const publicTx = {
+      id: 'public',
+      decodedTx: { txid: 'public', status: 'ok' },
+      privacyChainHistorySide: 'public',
+      privacyChainHistoryPoolIds: [0],
+    };
+    Object.assign(vault, {
+      zcashFetchTransparentHistory: async () => ({
+        txs: [publicTx],
+        snapshotComplete: false,
+      }),
+    });
+    await expect(vault.fetchAccountHistoryFromLocal(params)).resolves.toEqual([
+      publicTx,
+    ]);
+  });
+
+  it('uses a late private result on the next refresh', async () => {
+    let finish: (rows: { txid: string }[]) => void = () => undefined;
     const getHistory = jest
       .fn()
-      .mockResolvedValueOnce([{ txid: 'tx-private' }])
-      .mockRejectedValueOnce(new Error('runtime down'));
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      )
+      .mockImplementationOnce(() => new Promise(() => undefined));
     const vault = createVault(getHistory);
-
-    await vault.fetchAccountHistoryFromLocal(params);
-    await expect(vault.fetchAccountHistoryFromLocal(params)).rejects.toThrow(
-      'runtime down',
+    Object.assign(vault, {
+      zcashFetchTransparentHistory: async () => ({
+        txs: [],
+        snapshotComplete: false,
+      }),
+    });
+    await expect(vault.fetchAccountHistoryFromLocal(params)).resolves.toEqual(
+      [],
     );
+    finish([{ txid: 'late-private' }]);
+    for (let turn = 0; turn < 20; turn += 1) await Promise.resolve();
+    const rows = await vault.fetchAccountHistoryFromLocal(params);
+    expect(rows?.map((row) => row.decodedTx.txid)).toEqual(['late-private']);
+  });
+
+  it('does not return a cached private snapshot after lifecycle clearing', async () => {
+    const getHistory = jest
+      .fn()
+      .mockResolvedValueOnce([{ txid: 'removed-private' }])
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    const vault = createVault(getHistory);
+    Object.assign(vault, {
+      zcashFetchTransparentHistory: async () => ({
+        txs: [],
+        snapshotComplete: false,
+      }),
+    });
+    await vault.fetchAccountHistoryFromLocal(params);
+    const pending = vault.fetchAccountHistoryFromLocal(params);
+    for (let turn = 0; turn < 20; turn += 1) await Promise.resolve();
+    forgetZcashTransparentHistorySnapshots({
+      networkId: 'zec--0',
+      accountIds: ['acc'],
+    });
+    await expect(pending).resolves.toEqual([]);
   });
 
   it('still returns history when the tip read fails', async () => {

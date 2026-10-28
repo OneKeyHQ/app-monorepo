@@ -39,6 +39,7 @@ import {
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { localWalletText } from '../../localWallet/messages';
+import { ensureLocalWalletPrivacyAvailable } from '../../localWallet/remoteConfig';
 
 import {
   getZcashAccountLifecycleMutex,
@@ -46,7 +47,7 @@ import {
 } from './lifecycle';
 import { parseZcashTransaction } from './transactionReview';
 import {
-  ZCASH_DISPLAY_FEE_ZAT,
+  getZcashTransactionPolicy,
   zcashDescribeError,
   zcashSpendSourceFromKey,
   zcashTrackUserOperation,
@@ -79,6 +80,7 @@ export async function zcashCreatePczt(
     accountId: params.accountId,
   });
   const api = await vault.zcashGetApi();
+  await ensureLocalWalletPrivacyAvailable(vault);
   try {
     return await zcashTrackUserOperation(() =>
       api.createPczt(account, {
@@ -105,6 +107,7 @@ export async function zcashProvePczt(
     accountId: params.accountId,
   });
   const api = await vault.zcashGetApi();
+  await ensureLocalWalletPrivacyAvailable(vault);
   try {
     return await zcashTrackUserOperation(() =>
       api.provePczt(account, { pcztHex: params.pcztHex }),
@@ -129,16 +132,19 @@ export async function estimateFee(
 ): Promise<IServerEstimateFeeResponse> {
   const network = await vault.getNetwork();
   // Exact ZIP-317 fee via the wasm proposer; falls back to the flat conventional fee when the quote can't run.
-  let feeZatValue = ZCASH_DISPLAY_FEE_ZAT;
   const encodedTx = params.encodedTx as IEncodedTxZcash | undefined;
-  if (encodedTx?.zcashMode === 'transparent' || encodedTx?.pcztHex) {
-    // Fixed at build time: the transparent plan or the built PCZT's own ZIP-317 fee; no quote beats the proposal itself.
-    feeZatValue = encodedTx.fee;
-  } else if (
+  let feeZatValue =
+    encodedTx?.zcashMode === 'transparent' || encodedTx?.pcztHex
+      ? encodedTx.fee
+      : (await getZcashTransactionPolicy(vault)).minimumFeeZat;
+  if (
+    encodedTx?.zcashMode !== 'transparent' &&
+    !encodedTx?.pcztHex &&
     encodedTx?.zcashTo &&
     encodedTx?.zcashAmountValue &&
     vault.accountId
   ) {
+    await ensureLocalWalletPrivacyAvailable(vault);
     try {
       const account = await vault.zcashGetWalletAccount({
         accountId: vault.accountId,
@@ -259,6 +265,7 @@ export async function buildEncodedTx(
         params.transferPayload?.isMaxSend === true,
     });
   }
+  await ensureLocalWalletPrivacyAvailable(vault);
   let amountValue = new BigNumber(transferInfo.amount)
     .shiftedBy(ZCASH_DECIMALS)
     .toFixed(0, BigNumber.ROUND_DOWN);
@@ -283,7 +290,9 @@ export async function buildEncodedTx(
     const spendable = new BigNumber(
       balanceForMax.poolsDetail[spendSource].spendable,
     );
-    let feeGuess = new BigNumber(ZCASH_DISPLAY_FEE_ZAT);
+    let feeGuess = new BigNumber(
+      (await getZcashTransactionPolicy(vault)).minimumFeeZat,
+    );
     let resolved: BigNumber | undefined;
     // Needed so the failure message can cite the exact shortfall instead of a bare 'not enough'.
     let shortfallZat: number | null = null;
@@ -350,7 +359,7 @@ export async function buildEncodedTx(
     outputs: [{ address: transferInfo.to, value: amountValue }],
     inputsForCoinSelect: [],
     outputsForCoinSelect: [],
-    fee: ZCASH_DISPLAY_FEE_ZAT,
+    fee: (await getZcashTransactionPolicy(vault)).minimumFeeZat,
     txSize: 0,
     zcashTo: transferInfo.to,
     zcashMemoHex: transferInfo.zcashMemoHex,
@@ -393,7 +402,7 @@ export async function buildHistoryTx(
       isLocalCreated: historyTx.isLocalCreated && hasSignedResult,
       decodedTx: {
         ...historyTx.decodedTx,
-        // Shielded memo plaintext must never enter the generic public history cache; confirmed memos are decrypted by the runtime.
+        // Memo plaintext must never enter the generic public history cache; the sender's copy lives only in simpleDb.privacyChainZcashSent.
         encodedTx: publicEncodedTx,
       },
       privacyChainHistorySide: 'public',
@@ -567,6 +576,7 @@ export async function zcashCombineSignedPczt(
   },
 ): Promise<{ pcztHex: string }> {
   const api = await vault.zcashGetApi();
+  await ensureLocalWalletPrivacyAvailable(vault);
   try {
     return await api.combinePczt({
       originalPcztHex: params.originalPcztHex,
@@ -680,6 +690,7 @@ export async function broadcastTransaction(
       .catch(() => undefined);
     return { ...broadcast, txid: expectedTxid };
   }
+  await ensureLocalWalletPrivacyAvailable(vault);
   const signedPcztHex = encodedTx?.signedPcztHex ?? signedTx.rawTx;
   if (!signedPcztHex) {
     throw new OneKeyLocalError('zcash: signed PCZT missing');
@@ -707,6 +718,7 @@ export async function broadcastTransaction(
         { code: 'STALE_PRIVACY_TRANSACTION', params: {} },
       );
     }
+    await ensureLocalWalletPrivacyAvailable(vault);
     try {
       return await zcashTrackUserOperation(() =>
         api.submitPczt(account, { pcztHex: signedPcztHex }),

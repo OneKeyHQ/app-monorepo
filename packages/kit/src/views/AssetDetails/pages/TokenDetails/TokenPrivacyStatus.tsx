@@ -96,6 +96,12 @@ export function useTokenPrivacyStatus({
       : ETranslations.privacy_balance_wallet_not_supported__desc;
     description = intl.formatMessage({ id, defaultMessage: id });
   }
+  if (lw.state?.privacyDisabled) {
+    state = 'disabled';
+    description = intl.formatMessage({
+      id: ETranslations.global_not_available,
+    });
+  }
 
   if (state !== 'error') {
     if (dataBlocked && state === 'preparing') {
@@ -111,10 +117,13 @@ export function useTokenPrivacyStatus({
     state,
     description,
     detail,
-    enableUnavailable: lw.isUnsupportedWallet,
+    enableUnavailable: lw.isUnsupportedWallet || !!lw.state?.privacyDisabled,
     busy: lw.busy,
     onSync:
-      lw.isReady && lw.enabled && !lw.isUnsupportedWallet
+      lw.isReady &&
+      lw.enabled &&
+      !lw.isUnsupportedWallet &&
+      !lw.state?.privacyDisabled
         ? handleSync
         : undefined,
     progress:

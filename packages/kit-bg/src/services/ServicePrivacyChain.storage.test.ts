@@ -9,6 +9,7 @@ import { SimpleDbEntityPrivacyChainJournal } from '../dbs/simple/entity/SimpleDb
 import { SimpleDbEntityPrivacyChainKeys } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import { SimpleDbEntityPrivacyChainXmrSent } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainXmrSent';
+import { SimpleDbEntityPrivacyChainZcashSent } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainZcashSent';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 const mockGetChainOnlyVault = jest.fn();
@@ -104,6 +105,29 @@ function createXmrSentDb(accountIds: string[] = []) {
   return entity;
 }
 
+function createZcashSentDb(accountIds: string[] = []) {
+  const entity = new SimpleDbEntityPrivacyChainZcashSent();
+  (entity as { appStorage: unknown }).appStorage = memoryStorage({
+    data: {
+      accounts: Object.fromEntries(
+        accountIds.map((id) => [
+          id,
+          {
+            tx: {
+              recipient: `u1${id}`,
+              amountZat: '1',
+              feeZat: '1',
+              createdAt: 1,
+            },
+          },
+        ]),
+      ),
+    },
+    updatedAt: 1,
+  });
+  return entity;
+}
+
 function scanRecord(accountId: string, walletId = 'hd-1') {
   return {
     networkId,
@@ -165,6 +189,7 @@ describe('removed-account gc', () => {
     const removeLastBalances = jest.fn(async () => undefined);
     const privacyChainJournal = createJournalDb(allIds);
     const privacyChainXmrSent = createXmrSentDb(allIds);
+    const privacyChainZcashSent = createZcashSentDb(allIds);
     const privacyChainState = createPrivacyChainDb({
       data: {
         accounts: Object.fromEntries(allIds.map((id) => [id, scanRecord(id)])),
@@ -201,6 +226,9 @@ describe('removed-account gc', () => {
       gcRunning: false,
       gcRequested: false,
       backgroundApi: {
+        serviceCustomRpc: {
+          ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+        },
         serviceAccount,
         simpleDb: {
           privacyChainKeys,
@@ -213,6 +241,7 @@ describe('removed-account gc', () => {
           },
           privacyChainJournal,
           privacyChainXmrSent,
+          privacyChainZcashSent,
           privacyChainState,
         },
       },
@@ -226,6 +255,7 @@ describe('removed-account gc', () => {
       privacyChainKeys,
       privacyChainJournal,
       privacyChainXmrSent,
+      privacyChainZcashSent,
       privacyChainState,
       removeLastBalances,
     };
@@ -271,6 +301,7 @@ describe('removed-account gc', () => {
       privacyChainKeys,
       privacyChainJournal,
       privacyChainXmrSent,
+      privacyChainZcashSent,
       privacyChainState,
       removeLastBalances,
     } = createGcHarness(async () => ({
@@ -291,6 +322,7 @@ describe('removed-account gc', () => {
     });
     await expect(privacyChainJournal.listAccountIds()).resolves.toEqual(kept);
     await expect(privacyChainXmrSent.listAccountIds()).resolves.toEqual(kept);
+    await expect(privacyChainZcashSent.listAccountIds()).resolves.toEqual(kept);
     await expect(
       privacyChainState.listAccountIds({ networkId }),
     ).resolves.toEqual(kept);
@@ -468,6 +500,9 @@ describe('removed-account gc', () => {
       gcRunning: false,
       gcRequested: false,
       backgroundApi: {
+        serviceCustomRpc: {
+          ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+        },
         serviceAccount,
         simpleDb: {
           privacyChainKeys: createKeysDb([]),
@@ -477,6 +512,7 @@ describe('removed-account gc', () => {
           },
           privacyChainJournal: createJournalDb(),
           privacyChainXmrSent: createXmrSentDb(),
+          privacyChainZcashSent: createZcashSentDb(),
           privacyChainState,
         },
       },
@@ -554,11 +590,15 @@ describe('pending local data drop retry', () => {
     const service = createService({
       ...lifecycleFields(),
       backgroundApi: {
+        serviceCustomRpc: {
+          ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+        },
         simpleDb: {
           privacyChainState: privacyChain,
           privacyChainKeys: createKeysDb([]),
           privacyChainJournal: createJournalDb(),
           privacyChainXmrSent: createXmrSentDb(),
+          privacyChainZcashSent: createZcashSentDb(),
           privacyChainCache: {
             removeLastBalances: jest.fn(async () => undefined),
             removeNetworkLastBalances: jest.fn(async () => undefined),
@@ -738,6 +778,9 @@ describe('pending local data drop retry', () => {
       pendingLocalDataDropRetry: retry.promise,
       requireAccountCapability: async () => ({ enableAccount }),
       backgroundApi: {
+        serviceCustomRpc: {
+          ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+        },
         simpleDb: { privacyChainState: createPrivacyChainDb() },
         serviceAccount: { getWalletSafe: async () => ({ isTemp: false }) },
       },
@@ -783,10 +826,14 @@ describe.each(['zec--0', 'xmr--0'])(
       const service = createService({
         ...lifecycleFields(),
         backgroundApi: {
+          serviceCustomRpc: {
+            ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+          },
           simpleDb: {
             privacyChainKeys,
             privacyChainState,
             privacyChainXmrSent: createXmrSentDb([liveAccountId]),
+            privacyChainZcashSent: createZcashSentDb([liveAccountId]),
             privacyChainCache: {
               removeLastBalances: jest.fn(async () => undefined),
             },

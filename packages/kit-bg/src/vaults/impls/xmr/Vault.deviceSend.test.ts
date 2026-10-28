@@ -97,6 +97,9 @@ function createHardwareVault({
     networkId: 'xmr--0',
     keyring,
     backgroundApi: {
+      serviceCustomRpc: {
+        ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+      },
       serviceAccount: { getWalletDeviceParams },
       serviceHardwareUI: { withHardwareProcessing },
       simpleDb: {

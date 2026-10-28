@@ -667,4 +667,29 @@ describe('Privacy network settings for a temp wallet', () => {
       screen.getByTestId('privacy-network-storage-error-hd-1--0').textContent,
     ).toContain('privacy_error_webview_outdated__msg');
   });
+
+  it.each(['zec--0', 'xmr--0'])(
+    'disables the Enable control for server-disabled %s',
+    async (networkId) => {
+      mockAccounts = [listItem({ networkId })];
+      mockAccountStates['hd-1--0'] = {
+        enabled: false,
+        paused: false,
+        privacyDisabled: true,
+      };
+      render(<PrivacyNetworkSettings />);
+      const button = await screen.findByTestId(
+        'privacy-network-enable-hd-1--0',
+      );
+      expect((button as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(button);
+      expect(mockEnable).not.toHaveBeenCalled();
+      expect(mockAdmission).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('privacy-network-resume-hd-1--0')).toBeNull();
+      expect(
+        screen.getByTestId('account-manager-privacy-network-account-hd-1--0')
+          .textContent,
+      ).toContain('global.not_available');
+    },
+  );
 });

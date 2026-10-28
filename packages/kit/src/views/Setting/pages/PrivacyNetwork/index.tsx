@@ -309,6 +309,7 @@ type IPrivacyAccountEntry = {
   networkId: string;
   enabled: boolean;
   paused: boolean;
+  privacyDisabled?: boolean;
   birthdayTimestamp?: number;
   birthdayHintTimestamp?: number;
   birthdayHeight?: number;
@@ -490,6 +491,7 @@ export default function PrivacyNetworkSettings({
               networkId: account.networkId,
               enabled: state.enabled,
               paused: state.paused,
+              privacyDisabled: state.privacyDisabled,
               birthdayTimestamp: state.birthdayTimestamp,
               birthdayHintTimestamp: state.birthdayHintTimestamp,
               birthdayHeight: state.birthdayHeight,
@@ -509,8 +511,11 @@ export default function PrivacyNetworkSettings({
       }
     };
     appEventBus.on(EAppEventBusNames.LocalWalletAccountsChanged, refresh);
+    const refreshNetworks = () => void refreshEntries();
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, refreshNetworks);
     return () => {
       appEventBus.off(EAppEventBusNames.LocalWalletAccountsChanged, refresh);
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, refreshNetworks);
     };
   }, [isFocused, networkIdFilter, refreshEntries]);
 
@@ -763,7 +768,7 @@ export default function PrivacyNetworkSettings({
     let status = intl.formatMessage({
       id: entry.paused ? ETranslations.syncing_paused__title : statusId,
     });
-    if (entry.walletIsTemp) {
+    if (entry.walletIsTemp || entry.privacyDisabled) {
       status = intl.formatMessage({ id: ETranslations.global_not_available });
     }
     return (
@@ -795,7 +800,7 @@ export default function PrivacyNetworkSettings({
               size="small"
               variant="secondary"
               loading={busyAccountId === entry.accountId}
-              disabled={busy}
+              disabled={busy || entry.privacyDisabled}
               onPress={() => void toggleAccountPause(entry)}
             >
               {intl.formatMessage({
@@ -811,7 +816,7 @@ export default function PrivacyNetworkSettings({
               size="small"
               variant="primary"
               loading={busyAccountId === entry.accountId}
-              disabled={busy}
+              disabled={busy || entry.privacyDisabled}
               onPress={() => void enableAccount(entry)}
             >
               {intl.formatMessage({ id: ETranslations.global_enable })}

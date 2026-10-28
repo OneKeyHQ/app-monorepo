@@ -104,11 +104,15 @@ async function setup() {
   };
   setXmrRuntimeApiLoader(async () => runtime as unknown as IXmrRuntimeApi);
   const backgroundApi = {
+    serviceCustomRpc: {
+      ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+    },
     simpleDb: {
       privacyChainState: state,
       privacyChainKeys: keys,
       privacyChainCache: cache,
       privacyChainXmrSent: { removeAccounts: async () => undefined },
+      privacyChainZcashSent: { removeAccounts: async () => undefined },
     },
     servicePrivacyChain: {
       onLocalWalletAccountsChanged: async () => undefined,

@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { zatoshiToZec } from '@onekeyhq/core/src/chains/zcash/sdkZcash/amount';
 import { ZCASH_POOL_IDS } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { readZcashRuntimeError } from '@onekeyhq/core/src/chains/zcash/sdkZcash/runtimeError';
@@ -6,6 +8,10 @@ import type {
   IZcashTxDetails,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { ILocalWalletHistoryAddressGate } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
@@ -13,6 +19,8 @@ import {
   PRIVACY_CHAIN_PUBLIC_POOL_ID,
   mergePrivacyChainHistoryTxs,
 } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { getZcashMemoDisplay } from '@onekeyhq/shared/src/utils/zcashMemo';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   EOnChainHistoryTransferType,
@@ -40,6 +48,11 @@ import {
   restoreZcashLocalTransparentPayment,
 } from './backendHistory';
 import {
+  clearZcashHistoryEnrichment,
+  getZcashHistoryEnrichment,
+  scheduleZcashHistoryEnrichment,
+} from './historyEnrichment';
+import {
   buildZcashLocalHistoryTx,
   findZcashLocalHistoryItem,
 } from './localHistory';
@@ -59,6 +72,30 @@ import {
 import type { IEncodedTxZcash } from './types';
 import type Vault from './Vault';
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
+import type { IZcashSentRecord } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainZcashSent';
+
+// A failed read only costs the recorded recipient and memo.
+async function listZcashSentRecords(
+  vault: Vault,
+  accountId: string,
+): Promise<Record<string, IZcashSentRecord>> {
+  try {
+    return await vault.backgroundApi.simpleDb.privacyChainZcashSent.listZcashSent(
+      { accountId },
+    );
+  } catch {
+    return {};
+  }
+}
+
+// Same fields the runtime returns for a memo it decrypted.
+function zcashSentMemoDetail(
+  sent: Pick<IZcashSentRecord, 'memoHex'> | undefined,
+): Pick<IOnChainHistoryTx, 'memo' | 'binaryMemos'> {
+  if (!sent?.memoHex) return {};
+  const { hex, hash, text } = getZcashMemoDisplay(sent.memoHex);
+  return { memo: text, binaryMemos: [{ hex, hash }] };
+}
 
 // Runtime owns shielded + locally-created history; backend owns transparent history. The open pool tab decides which answers.
 export async function zcashFetchBackendHistoryDetail(
@@ -82,6 +119,25 @@ export async function zcashFetchBackendHistoryDetail(
   const response = await vault.baseFetchAccountHistoryDetail(params);
   const detail = response.data.data.data;
   if (detail) {
+    const accountId = params.accountId || vault.accountId;
+    const snapshot = await readLocalWalletCacheEpoch({
+      backgroundApi: vault.backgroundApi,
+      accountId,
+    }).then(
+      (epoch) => ({ epoch }),
+      () => undefined,
+    );
+    const enrichment = snapshot
+      ? getZcashHistoryEnrichment({
+          networkId: params.networkId,
+          accountId,
+          txid: params.txid,
+          epoch: snapshot.epoch,
+        })
+      : undefined;
+    const sent = (
+      await listZcashSentRecords(vault, params.accountId || vault.accountId)
+    )[params.txid.toLowerCase()];
     const publicDetail: IOnChainHistoryTx = params.withUTXOs
       ? {
           ...detail,
@@ -97,12 +153,33 @@ export async function zcashFetchBackendHistoryDetail(
           inputOutputSource: 'public',
         }
       : normalizeZcashBackendHistoryTx(detail);
+    const recovered =
+      enrichment?.recoveredOutputs.length === 1
+        ? enrichment.recoveredOutputs[0]
+        : undefined;
     const restored = restoreZcashLocalTransparentPayment({
       tx: publicDetail,
       localTx: publicTx,
+      sent:
+        sent ??
+        (recovered
+          ? { ...recovered, feeZat: enrichment?.feeZat ?? undefined }
+          : undefined),
       withUTXOs: params.withUTXOs,
     });
-    response.data.data.data = restored;
+    response.data.data.data = {
+      ...restored,
+      ...(enrichment?.feeZat === null || enrichment?.feeZat === undefined
+        ? {}
+        : {
+            gasFee: zatoshiToZec(enrichment.feeZat),
+            gasFeeFiatValue:
+              restored.gasFee === zatoshiToZec(enrichment.feeZat)
+                ? restored.gasFeeFiatValue
+                : '',
+          }),
+      ...zcashSentMemoDetail(sent ?? recovered),
+    };
   }
   return response;
 }
@@ -384,6 +461,9 @@ export async function fetchAccountHistoryFromLocal(
 ): Promise<IAccountHistoryTx[] | undefined> {
   // honor the explicit param; this.accountId is '' on a chain-only vault
   const accountId = params.accountId || vault.accountId;
+  const publicRead = vault.zcashFetchTransparentHistory(params);
+  void publicRead.catch(() => undefined);
+  let privateUnavailable = false;
   let items: IZcashHistoryItem[];
   let chainTip: number | null | undefined;
   const loadCachedHistory = () =>
@@ -402,12 +482,10 @@ export async function fetchAccountHistoryFromLocal(
   // A paused account keeps its runtime rows; deletion clears its resume position.
   if (canReadZcashPrivateData(privacyModeState)) {
     try {
-      const account = await vault.zcashGetWalletAccount({ accountId });
-      const api = await vault.zcashGetApi();
-      const maxItems = 20_000;
-      items = await api.getHistory(account, { limit: maxItems, offset: 0 });
-      chainTip = (await api.getSyncProgress(account).catch(() => undefined))
-        ?.chainTip;
+      const read = await readPrivateHistory(vault, accountId);
+      privateUnavailable = read === undefined;
+      items = read?.items ?? [];
+      chainTip = read?.chainTip;
       noteZcashChainHeight(vault.networkId, chainTip);
     } catch (error) {
       // Not registered or set up yet: there is no private history to show.
@@ -415,8 +493,9 @@ export async function fetchAccountHistoryFromLocal(
         readZcashRuntimeError(error)?.code !== 'ACCOUNT_NOT_FOUND' &&
         !isZcashSetupIncompleteError(error)
       ) {
-        // As a failed backend fetch does, so the page keeps the rows it has.
-        throw error;
+        // A private-side failure must not hide the backend's public history.
+        privateUnavailable = true;
+        items = [];
       }
       items = [];
     }
@@ -447,11 +526,17 @@ export async function fetchAccountHistoryFromLocal(
       ),
     );
 
-  const privateTxs = await buildRows(items);
+  const privateTxs = !privateUnavailable
+    ? await buildRows(items)
+    : (await loadCachedHistory()).filter(
+        (tx) =>
+          tx.privacyChainHistorySide === 'private' ||
+          tx.privacyChainHistorySide === 'mixed',
+      );
 
   let publicTxs: IAccountHistoryTx[] = [];
   try {
-    const publicResult = await vault.zcashFetchTransparentHistory(params);
+    const publicResult = await publicRead;
     publicTxs = publicResult.txs;
     let settledTxids: Set<string> | undefined;
     // Only a complete snapshot may settle rows or raise the tip.
@@ -497,6 +582,75 @@ export async function fetchAccountHistoryFromLocal(
   return mergePrivacyChainHistoryTxs({ privateTxs, publicTxs });
 }
 
+type IPrivateHistoryRead = {
+  epoch: string | undefined;
+  pending?: Promise<{ items: IZcashHistoryItem[]; chainTip?: number | null }>;
+  landed?: { items: IZcashHistoryItem[]; chainTip?: number | null };
+};
+const privateHistoryReads = new LRUCache<string, IPrivateHistoryRead>({
+  max: 64,
+});
+
+async function readPrivateHistory(vault: Vault, accountId: string) {
+  const key = `${vault.networkId}:${accountId}`;
+  const epoch = await readLocalWalletCacheEpoch({
+    backgroundApi: vault.backgroundApi,
+    accountId,
+  });
+  let entry = privateHistoryReads.get(key);
+  if (!entry || entry.epoch !== epoch) {
+    entry = { epoch };
+    privateHistoryReads.set(key, entry);
+  }
+  const current = entry;
+  let returnedEarly = false;
+  if (!current.pending) {
+    const pending = (async () => {
+      const account = await vault.zcashGetWalletAccount({ accountId });
+      const api = await vault.zcashGetApi();
+      const items = await api.getHistory(account, { limit: 20_000, offset: 0 });
+      const chainTip = (
+        await api.getSyncProgress(account).catch(() => undefined)
+      )?.chainTip;
+      if (
+        privateHistoryReads.get(key) !== current ||
+        !(await isLocalWalletCacheEpochCurrent({
+          backgroundApi: vault.backgroundApi,
+          accountId,
+          epoch,
+        }))
+      )
+        return undefined;
+      const value = { items, chainTip };
+      current.landed = value;
+      if (returnedEarly)
+        appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
+      return value;
+    })();
+    // Keep late results for the next refresh instead of queueing another scan read.
+    current.pending = pending
+      .then((value) => value ?? { items: [] })
+      .finally(() => {
+        current.pending = undefined;
+      });
+  }
+  const result = await Promise.race([
+    current.pending,
+    timerUtils.wait(250).then(() => undefined),
+  ]);
+  returnedEarly = result === undefined;
+  if (
+    privateHistoryReads.get(key) !== current ||
+    !(await isLocalWalletCacheEpochCurrent({
+      backgroundApi: vault.backgroundApi,
+      accountId,
+      epoch,
+    }))
+  )
+    return undefined;
+  return result ?? current.landed;
+}
+
 const ZCASH_TRANSPARENT_FULL_REFRESH_MS = 10 * 60 * 1000;
 
 // Last complete backend snapshot per account, under the account epoch it was
@@ -519,6 +673,15 @@ export function forgetZcashTransparentHistorySnapshots({
   networkId: string;
   accountIds?: string[];
 }) {
+  clearZcashHistoryEnrichment({ networkId, accountIds });
+  for (const key of privateHistoryReads.keys()) {
+    if (
+      accountIds
+        ? accountIds.some((id) => key === `${networkId}:${id}`)
+        : key.startsWith(`${networkId}:`)
+    )
+      privateHistoryReads.delete(key);
+  }
   if (!accountIds) {
     zcashTransparentHistorySnapshots.clear();
     return;
@@ -579,6 +742,10 @@ export async function zcashFetchTransparentHistory(
   // Backend tip: the highest indexed block in this same snapshot. Confirmations
   // aren't used until the backend documents what height they count from.
   let tipHeight: number | undefined;
+  const epoch = await readLocalWalletCacheEpoch({
+    backgroundApi: vault.backgroundApi,
+    accountId,
+  });
   const cached = new Map(
     (
       await loadCachedLocalWalletHistory({
@@ -589,6 +756,7 @@ export async function zcashFetchTransparentHistory(
       })
     ).map((tx) => [tx.decodedTx.txid.toLowerCase(), tx]),
   );
+  const sentRecords = await listZcashSentRecords(vault, accountId);
   const backendPages: Parameters<typeof fetchCompleteZcashBackendHistory>[0] = {
     fetchPage: async ({ limit, maxTimestampMs }) => {
       const response = await client.post<{
@@ -615,11 +783,53 @@ export async function zcashFetchTransparentHistory(
             tipHeight = Math.max(tipHeight ?? 0, block);
           }
           const localTx = cached.get(onChainHistoryTx.tx.toLowerCase());
+          const enrichment = getZcashHistoryEnrichment({
+            networkId: params.networkId,
+            accountId,
+            txid: onChainHistoryTx.tx,
+            epoch,
+          });
+          const recovered =
+            enrichment?.recoveredOutputs.length === 1
+              ? enrichment.recoveredOutputs[0]
+              : undefined;
           const normalized = normalizeZcashBackendHistoryTx(onChainHistoryTx);
-          const restored = restoreZcashLocalTransparentPayment({
+          if (
+            !sentRecords[onChainHistoryTx.tx.toLowerCase()] &&
+            !localTx?.isLocalCreated &&
+            (!new BigNumber(normalized.gasFee).isFinite() ||
+              normalized.shieldedCounterparty)
+          ) {
+            scheduleZcashHistoryEnrichment(vault, {
+              accountId,
+              txids: [onChainHistoryTx.tx],
+              epoch,
+            });
+          }
+          if (enrichment?.feeZat !== null && enrichment?.feeZat !== undefined) {
+            const fee = zatoshiToZec(enrichment.feeZat);
+            normalized.gasFeeFiatValue =
+              normalized.gasFee === fee ? normalized.gasFeeFiatValue : '';
+            normalized.gasFee = fee;
+          }
+          const fromLocalRow = restoreZcashLocalTransparentPayment({
             tx: normalized,
             localTx,
           });
+          const restored =
+            fromLocalRow === normalized
+              ? restoreZcashLocalTransparentPayment({
+                  tx: normalized,
+                  sent:
+                    sentRecords[onChainHistoryTx.tx.toLowerCase()] ??
+                    (recovered
+                      ? {
+                          ...recovered,
+                          feeZat: enrichment?.feeZat ?? undefined,
+                        }
+                      : undefined),
+                })
+              : fromLocalRow;
           const built = await vault.buildOnChainHistoryTx({
             dbAccountCache,
             accountId,
@@ -631,7 +841,8 @@ export async function zcashFetchTransparentHistory(
             nfts: page.nfts,
             index: indexOffset + index,
           });
-          if (!built || restored === normalized) return built;
+          // A row restored from the sent record keeps the backend's encodedTx.
+          if (!built || fromLocalRow === normalized) return built;
           return {
             ...built,
             isLocalCreated: localTx?.isLocalCreated,
@@ -649,10 +860,7 @@ export async function zcashFetchTransparentHistory(
   };
   const snapshotKey = `${params.networkId}:${accountId}`;
   const addressKey = `${transparentAddress}:${xpub ?? ''}`;
-  const epoch = await readLocalWalletCacheEpoch({
-    backgroundApi: vault.backgroundApi,
-    accountId,
-  });
+
   const stored = zcashTransparentHistorySnapshots.get(snapshotKey);
   const snapshot =
     stored && stored.epoch === epoch && stored.addressKey === addressKey

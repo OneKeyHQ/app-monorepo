@@ -32,15 +32,19 @@ import XmrVault from '../impls/xmr/Vault';
 import ZcashVault from '../impls/zcash/Vault';
 
 import { localWalletText } from './messages';
+import { setLocalWalletRemoteConfigs } from './remoteConfig';
 
 const hostFetch = jest.mocked(xmrHostFetch!);
 const lightdInfo = jest.mocked(fetchZcashLightdInfoDirect);
 const HEIGHT = 3_512_327;
 
+beforeEach(() => setLocalWalletRemoteConfigs({}));
+
 afterEach(() => {
   jest.restoreAllMocks();
   hostFetch.mockReset();
   lightdInfo.mockReset();
+  setLocalWalletRemoteConfigs({});
 });
 
 // The real resolver over an in-memory custom RPC store; every write path is a
@@ -55,6 +59,7 @@ function createNodeStore(rows: Record<string, IDBCustomRpc | undefined>) {
   };
   const service = Object.create(ServiceCustomRpc.prototype) as ServiceCustomRpc;
   Object.assign(service, {
+    localWalletRemoteConfigLoaded: true,
     backgroundApi: {
       simpleDb: {
         customRpc: {
@@ -142,6 +147,43 @@ describe('privacy chain node resolution', () => {
         [networkId]: customRpcRow(networkId, 'https://custom.example', true),
       });
       await expect(resolve(service)).resolves.toBe('https://custom.example');
+    });
+
+    it('uses the remote default when the custom node is disabled', async () => {
+      setLocalWalletRemoteConfigs({
+        [networkId]: { nodeUrls: ['https://remote.example'] },
+      });
+      const { service, writes } = createNodeStore({
+        [networkId]: customRpcRow(networkId, 'https://custom.example', false),
+      });
+      await expect(resolve(service)).resolves.toBe('https://remote.example');
+      Object.values(writes).forEach((write) =>
+        expect(write).not.toHaveBeenCalled(),
+      );
+    });
+
+    it('keeps an enabled custom node ahead of the remote default', async () => {
+      setLocalWalletRemoteConfigs({
+        [networkId]: { nodeUrls: ['https://remote.example'] },
+      });
+      const { service } = createNodeStore({
+        [networkId]: customRpcRow(networkId, 'https://custom.example', true),
+      });
+      await expect(resolve(service)).resolves.toBe('https://custom.example');
+    });
+
+    it('reads a remote default update or removal on the next call', async () => {
+      const { service } = createNodeStore({});
+      setLocalWalletRemoteConfigs({
+        [networkId]: { nodeUrls: ['https://first.example'] },
+      });
+      await expect(resolve(service)).resolves.toBe('https://first.example');
+      setLocalWalletRemoteConfigs({
+        [networkId]: { nodeUrls: ['https://second.example'] },
+      });
+      await expect(resolve(service)).resolves.toBe('https://second.example');
+      setLocalWalletRemoteConfigs({});
+      await expect(resolve(service)).resolves.toBe(builtIn);
     });
 
     it('falls back to the built-in node when the custom node is off', async () => {

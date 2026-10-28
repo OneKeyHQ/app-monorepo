@@ -69,6 +69,9 @@ function createService({
   }));
   const service = Object.assign(Object.create(ServicePrivacyChain.prototype), {
     backgroundApi: {
+      serviceCustomRpc: {
+        ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+      },
       simpleDb: {
         privacyChainState: {
           listPendingAccountDeletions: async () => [],

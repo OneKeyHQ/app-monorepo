@@ -25,6 +25,3 @@ export function isZcashSpamRegionHeight(height: number | null | undefined) {
 
 // Zcash's target block interval, used to turn a block lag into elapsed time.
 export const ZCASH_TARGET_BLOCK_SECONDS = 75;
-
-// UI-facing string form; the core policy converts it to bigint before constructing transactions.
-export const ZCASH_SHIELDING_THRESHOLD_ZAT = '10000';

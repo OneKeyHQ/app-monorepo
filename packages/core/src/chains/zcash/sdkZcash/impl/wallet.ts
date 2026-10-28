@@ -39,6 +39,7 @@ import type {
   IZcashNetwork,
   IZcashSyncProgress,
   IZcashSyncResult,
+  IZcashSyncWalletOptions,
   IZcashTxDetails,
   IZcashWalletAccount,
 } from '../types/sdk';
@@ -271,7 +272,7 @@ const subtreeRootsFreshUntil = new Map<string, number>();
 
 export async function syncWallet(
   account: IZcashWalletAccount,
-  options: { activeUfvks: string[]; chainTip?: number | null },
+  options: IZcashSyncWalletOptions,
 ): Promise<IZcashSyncResult> {
   let networkSucceeded = false;
   let networkFailure: unknown;
@@ -353,6 +354,11 @@ export async function syncWallet(
     'historic',
   ] as const;
   let budget = BATCHES_PER_CALL;
+  const cap = options.maxBlocksPerBatch;
+  const blocksPerBatch =
+    typeof cap === 'number' && Number.isSafeInteger(cap) && cap > 0
+      ? Math.min(BLOCKS_PER_BATCH, cap)
+      : BLOCKS_PER_BATCH;
 
   // Set once a reorg rewinds the DB, to stop this pass — remaining lanes would run against a plan that no longer matches the database.
   let reorgRewoundTo: number | null = null;
@@ -370,7 +376,7 @@ export async function syncWallet(
       try {
         r = JSON.parse(
           await rt.syncStep(
-            BLOCKS_PER_BATCH,
+            blocksPerBatch,
             1,
             lane,
             JSON.stringify(activeUfvks),

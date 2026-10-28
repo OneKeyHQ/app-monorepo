@@ -110,6 +110,18 @@ beforeEach(() => {
 });
 
 describe('token privacy status', () => {
+  it('does not offer Sync or Enable while disabled by the server', () => {
+    const { result } = renderStatus(
+      pool({
+        enabled: false,
+        state: { enabled: false, paused: false, privacyDisabled: true },
+      }),
+    );
+    expect(result.current.state).toBe('disabled');
+    expect(result.current.description).toBe(ETranslations.global_not_available);
+    expect(result.current.enableUnavailable).toBe(true);
+    expect(result.current.onSync).toBeUndefined();
+  });
   it('keeps an opted-in paused account stopped without requiring setup again', () => {
     const { result } = renderStatus(
       pool({

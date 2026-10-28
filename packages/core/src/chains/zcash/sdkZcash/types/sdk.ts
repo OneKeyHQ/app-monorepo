@@ -13,6 +13,25 @@ export type IZcashRuntimeSelfTestResult = {
 
 export type IZcashNetwork = 'main' | 'test';
 
+export type IZcashTransactionPolicy = {
+  marginalFeeZat: string;
+  minimumFeeZat: string;
+  expiryHeight: number | null;
+};
+
+export type IZcashInspectTransactionParams = {
+  transaction: { txid: string; rawTx: string };
+  previousTransactions?: { txid: string; rawTx: string }[];
+  ufvk?: string;
+};
+
+export type IZcashInspectedTransaction = {
+  txid: string;
+  inputs: { txid: string; vout: number }[];
+  feeZat: string | null;
+  recoveredOutputs: { recipient: string; amountZat: string; memoHex: string }[];
+};
+
 export type IZcashGetChainTipParams = {
   network: IZcashNetwork;
   lightwalletdUrl: string;
@@ -152,6 +171,8 @@ export type IZcashTransparentHardwareCreateParams = {
   request: IZcashTransparentTxRequest;
   accountXpub: string;
   seedFingerprintHex: string;
+  // This account's UFVK: shielded outputs get its Orchard OVK so the sender can recover them.
+  ufvk?: string;
 };
 
 export type IZcashTransparentHardwareFinalizeParams = {
@@ -159,6 +180,8 @@ export type IZcashTransparentHardwareFinalizeParams = {
   accountXpub: string;
   originalPcztHex: string;
   signedPcztHex: string;
+  // The UFVK the PCZT was created with.
+  ufvk?: string;
 };
 
 export type IZcashCreatedPczt = {
@@ -188,6 +211,13 @@ export type IZcashWalletAccount = {
   // The runtime account's name: the host's viewing key fingerprint, so the
   // host can drop the account without its key.
   label: string;
+};
+
+export type IZcashSyncWalletOptions = {
+  activeUfvks: string[];
+  chainTip?: number | null;
+  // Server-set cap on blocks per scan step; never raises the platform default.
+  maxBlocksPerBatch?: number;
 };
 
 export type IZcashSyncResult = {
@@ -400,6 +430,12 @@ export type IZcashCapabilities = {
 };
 
 export type IZcashSdkApi = {
+  inspectTransaction: (
+    params: IZcashInspectTransactionParams,
+  ) => Promise<IZcashInspectedTransaction>;
+  getTransactionPolicy: (params: {
+    targetHeight: number;
+  }) => Promise<IZcashTransactionPolicy>;
   // Tears down a wedged carrier so the next call starts clean (desktop: terminates the Worker; in-thread: swaps the lease).
   resetCarrier: () => Promise<void>;
 
@@ -454,7 +490,10 @@ export type IZcashSdkApi = {
     params: IZcashTransparentTxRequest,
   ) => Promise<IZcashTransparentTxQuote>;
   buildTransparentTxWithAccountXprv: (
-    params: IZcashTransparentTxRequest & { accountXprvHex: string },
+    params: IZcashTransparentTxRequest & {
+      accountXprvHex: string;
+      ufvk?: string;
+    },
   ) => Promise<IZcashTransparentTxBuildResult>;
   createTransparentHardwarePczt: (
     params: IZcashTransparentHardwareCreateParams,
@@ -472,7 +511,7 @@ export type IZcashSdkApi = {
   ) => Promise<IZcashWalletAccount[]>;
   syncWallet: (
     account: IZcashWalletAccount,
-    options: { activeUfvks: string[]; chainTip?: number | null },
+    options: IZcashSyncWalletOptions,
   ) => Promise<IZcashSyncResult>;
   queueRescanFrom: (
     account: IZcashWalletAccount,

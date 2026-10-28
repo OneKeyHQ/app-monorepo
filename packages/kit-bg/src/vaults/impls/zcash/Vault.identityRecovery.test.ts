@@ -14,6 +14,7 @@ import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/Si
 import { SimpleDbEntityPrivacyChainKeys } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import { SimpleDbEntityPrivacyChainXmrSent } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainXmrSent';
+import { SimpleDbEntityPrivacyChainZcashSent } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainZcashSent';
 import ServicePrivacyChain from '../../../services/ServicePrivacyChain';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
@@ -46,6 +47,9 @@ describe('Zcash identity mismatch recovery', () => {
         ),
         privacyChainXmrSent: withMemoryStorage(
           new SimpleDbEntityPrivacyChainXmrSent(),
+        ),
+        privacyChainZcashSent: withMemoryStorage(
+          new SimpleDbEntityPrivacyChainZcashSent(),
         ),
         privacyChainCache: withMemoryStorage(
           new SimpleDbEntityPrivacyChainCache(),

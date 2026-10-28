@@ -35,6 +35,7 @@ import {
 import Vault from './Vault';
 
 import type { IEncodedTxZcash } from './types';
+import type { IZcashSentRecord } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainZcashSent';
 
 const txid = 'ab'.repeat(32);
 const sender = 't1-sender';
@@ -231,7 +232,10 @@ function backendPayment(): IOnChainHistoryTx {
   };
 }
 
-function createVault(initial = localPayment()) {
+function createVault(
+  initial: IAccountHistoryTx | null = localPayment(),
+  sentRecords: Record<string, IZcashSentRecord> = {},
+) {
   let cached = initial ? [initial] : [];
   const raw = backendPayment();
   jest
@@ -266,6 +270,9 @@ function createVault(initial = localPayment()) {
         },
         privacyChainJournal: {
           listTransparentPendingTxs: async () => [],
+        },
+        privacyChainZcashSent: {
+          listZcashSent: async () => sentRecords,
         },
         localHistory: {
           getAccountLocalHistoryConfirmedTxs: async () =>
@@ -601,4 +608,86 @@ it('keeps the payment and current price when an All Networks refresh replaces th
     mergeLocalTxDisplayFields({ localTx: local, onChainHistoryTx: btc })
       .decodedTx,
   ).toBe(btc.decodedTx);
+});
+
+describe('a shielded payment kept only in the sent record', () => {
+  // ZIP 302 text "hello".
+  const textMemo = `68656c6c6f${'00'.repeat(507)}`;
+  const sentRecord = (memoHex?: string): Record<string, IZcashSentRecord> => ({
+    [txid]: {
+      recipient,
+      amountZat: '80000',
+      feeZat: '20000',
+      memoHex,
+      createdAt: 1,
+    },
+  });
+
+  it('shows the typed recipient and amount once the local row is gone', async () => {
+    const { vault, runtime, getCached } = createVault(
+      null,
+      sentRecord(textMemo),
+    );
+    const rows = await vault.fetchAccountHistoryFromLocal(params);
+    expect(rows?.[0].decodedTx).toMatchObject({
+      nativeAmount: '0.0008',
+      totalFeeInNative: '0.0002',
+      to: recipient,
+    });
+    expect(rows?.[0].decodedTx.encodedTx).toBeUndefined();
+    expect(JSON.stringify(rows)).not.toContain(textMemo);
+    expect(getCached()).toEqual([]);
+    expect(runtime).not.toHaveBeenCalled();
+  });
+
+  it('shows the memo in the detail and its I/O view', async () => {
+    const { vault, raw } = createVault(null, sentRecord(textMemo));
+    const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
+      .data.data.data;
+    expect(summary).toMatchObject({
+      value: '0.0008',
+      gasFee: '0.0002',
+      to: recipient,
+      memo: 'hello',
+      binaryMemos: [{ hex: textMemo, hash: expect.any(String) }],
+    });
+    const io = (
+      await vault.fetchAccountHistoryDetail({
+        ...params,
+        txid,
+        withUTXOs: true,
+      })
+    ).data.data.data;
+    expect(io.sends).toEqual(raw.sends);
+    expect(io.memo).toBe('hello');
+  });
+
+  it('shows a binary memo as raw bytes only', async () => {
+    const binaryMemo = `ff${'00'.repeat(511)}`;
+    const { vault } = createVault(null, sentRecord(binaryMemo));
+    const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
+      .data.data.data;
+    expect(summary.memo).toBeUndefined();
+    expect(summary.binaryMemos).toEqual([
+      { hex: binaryMemo, hash: expect.any(String) },
+    ]);
+  });
+
+  it('shows no memo for a payment sent without one', async () => {
+    const { vault } = createVault(null, sentRecord());
+    const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
+      .data.data.data;
+    expect(summary.to).toBe(recipient);
+    expect(summary.memo).toBeUndefined();
+    expect(summary.binaryMemos).toBeUndefined();
+  });
+
+  it('leaves another transaction as the backend reports it', async () => {
+    const { vault } = createVault(null, {
+      ['cd'.repeat(32)]: sentRecord(textMemo)[txid],
+    });
+    const rows = await vault.fetchAccountHistoryFromLocal(params);
+    expect(rows?.[0].decodedTx.nativeAmount).toBe('0.001');
+    expect(rows?.[0].decodedTx.to).not.toBe(recipient);
+  });
 });

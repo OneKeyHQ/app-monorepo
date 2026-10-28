@@ -15,7 +15,6 @@ import type {
   IZcashPoolDetail,
   IZcashSpendSource,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
-import { ZCASH_SHIELDING_THRESHOLD_ZAT } from '@onekeyhq/shared/src/config/zcash';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -58,6 +57,7 @@ import {
 } from './backendToken';
 import {
   canReadZcashPrivateData,
+  getZcashTransactionPolicy,
   isZcashSetupIncompleteError,
   isZcashTransparentPayable,
   zcashDescribeError,
@@ -500,6 +500,9 @@ export async function getLocalWalletAccountBalance(
   ];
 
   const transparentSpendable = transparent.spendable;
+  const shieldingThreshold = (
+    await getZcashTransactionPolicy(vault).catch(() => undefined)
+  )?.minimumFeeZat;
   const transparentTotal = transparent.total;
   const transparentFrozen =
     transparentTotal && transparentSpendable
@@ -551,7 +554,8 @@ export async function getLocalWalletAccountBalance(
         // Dust below the threshold is rejected by the sweep proposer; a saved pair is display only.
         enabled:
           !transparent.stale &&
-          (transparentSpendable?.gte(ZCASH_SHIELDING_THRESHOLD_ZAT) ?? false),
+          shieldingThreshold !== undefined &&
+          (transparentSpendable?.gte(shieldingThreshold) ?? false),
       },
     },
     privatePool(

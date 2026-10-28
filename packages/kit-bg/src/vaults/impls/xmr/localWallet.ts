@@ -25,6 +25,7 @@ import {
   saveLastLocalWalletBalance,
   saveLastLocalWalletChainTip,
 } from '../../localWallet/privacyChainCacheStore';
+import { capLocalWalletScanBatch } from '../../localWallet/remoteConfig';
 import { runBoundedSyncTurn } from '../../localWallet/syncTurn';
 
 import {
@@ -905,7 +906,12 @@ export function buildXmrLocalWalletCapability(
               const stepStartedAt = Date.now();
               let raw: string;
               try {
-                raw = await api.syncStep(runtimeId, String(turn.stepBlocks));
+                raw = await api.syncStep(
+                  runtimeId,
+                  String(
+                    capLocalWalletScanBatch(vault.networkId, turn.stepBlocks),
+                  ),
+                );
               } catch (error) {
                 const runtimeError = readXmrRuntimeError(error);
                 // Reorg: roll back to the runtime's safe height and rescan

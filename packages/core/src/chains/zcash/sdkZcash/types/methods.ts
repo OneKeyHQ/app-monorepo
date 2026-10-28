@@ -8,6 +8,8 @@ export const ZCASH_SDK_METHODS = [
   'resetCarrier',
   'capabilities',
   'getChainTip',
+  'getTransactionPolicy',
+  'inspectTransaction',
   'prewarmPczt',
 
   'validateAddress',

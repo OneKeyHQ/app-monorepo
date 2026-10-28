@@ -7,8 +7,10 @@ import {
 } from '@onekeyhq/core/src/chains/zcash/accountSecrets';
 import type {
   IZcashAccountSecrets,
+  IZcashAccountTransparentSecrets,
   IZcashAccountViewingSecrets,
 } from '@onekeyhq/core/src/chains/zcash/accountSecrets';
+import { isShieldedAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import type {
   IZcashDeriveAccountKeysResult,
@@ -21,6 +23,7 @@ import { getPbkdf2KdfParamsForNonDbTx } from '@onekeyhq/shared/src/appCrypto/mod
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
+import { ensureLocalWalletPrivacyAvailable } from '../../localWallet/remoteConfig';
 import { KeyringHd as KeyringHdBtc } from '../btc/KeyringHd';
 
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
@@ -84,6 +87,11 @@ export class KeyringHd extends KeyringHdBtc {
       return this.signTransparentTransaction({ encodedTx, password });
     }
     const zcashVault = this.vault as Vault;
+    const privacyContext = {
+      backgroundApi: this.backgroundApi,
+      networkId: this.vault.networkId,
+    };
+    await ensureLocalWalletPrivacyAvailable(privacyContext);
 
     const meta =
       await this.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta({
@@ -103,6 +111,7 @@ export class KeyringHd extends KeyringHdBtc {
     const ufvk = await zcashVault.zcashGetAccountUfvk({ accountId, meta });
     const lifecycleMutex = getZcashLifecycleMutex(meta.vkFp);
     return lifecycleMutex.runExclusive(async () => {
+      await ensureLocalWalletPrivacyAvailable(privacyContext);
       const privacyModeEnabled =
         await this.backgroundApi.simpleDb.privacyChainState.isZcashPrivacyModeEnabled(
           {
@@ -120,6 +129,7 @@ export class KeyringHd extends KeyringHdBtc {
         pcztHex,
         encodedTx,
       });
+      await ensureLocalWalletPrivacyAvailable(privacyContext);
       // Signing verifies the proved PCZT against this review before using the keys.
       const signed = await this.signPcztHex({
         password,
@@ -132,6 +142,7 @@ export class KeyringHd extends KeyringHdBtc {
         originalPcztHex: proved.pcztHex,
         signedPcztHex: signed.pcztHex,
       });
+      await ensureLocalWalletPrivacyAvailable(privacyContext);
       const signedEncodedTx: IEncodedTxZcash = {
         ...encodedTx,
         signedPcztHex: combined.pcztHex,
@@ -152,33 +163,62 @@ export class KeyringHd extends KeyringHdBtc {
     password: string;
   }): Promise<ISignedTxPro> {
     const zcashVault = this.vault as Vault;
+    const accountId = this.vault.accountId;
     const request = await zcashVault.zcashPrepareFreshTransparentRequest({
       encodedTx,
     });
+    // A shielded payment is sealed to the account's OVK, from the stored UFVK or one rebuilt from the seed.
+    const isShielding = request.recipients.some(({ address }) =>
+      isShieldedAddress(address),
+    );
+    const storedUfvk = isShielding
+      ? await zcashVault.zcashGetStoredUfvk({ accountId })
+      : undefined;
+    const rebuildsUfvk = isShielding && !storedUfvk;
     return signTransparentTransaction({
       journal: this.backgroundApi.simpleDb.privacyChainJournal,
-      accountId: this.vault.accountId,
+      sentStore: this.backgroundApi.simpleDb.privacyChainZcashSent,
+      accountId,
       encodedTx,
       request,
       parseOutputs: (result) => zcashVault.zcashParseTransparentOutputs(result),
       sign: async () => {
-        // Transparent inputs only: no Orchard key is derived for this path.
+        // The Orchard key is derived only to rebuild a missing UFVK.
         return this.withAccountSecrets(
           {
             password,
-            derive: (seed) =>
-              deriveZcashAccountTransparentSecrets({
-                seed,
-                accountIndex: request.accountIndex,
-              }),
+            derive: (
+              seed,
+            ): IZcashAccountTransparentSecrets &
+              Partial<Pick<IZcashAccountSecrets, 'orchardSk'>> =>
+              rebuildsUfvk
+                ? deriveZcashAccountSecrets({
+                    seed,
+                    accountIndex: request.accountIndex,
+                  })
+                : deriveZcashAccountTransparentSecrets({
+                    seed,
+                    accountIndex: request.accountIndex,
+                  }),
           },
           async (secrets) => {
             const api = await zcashVault.zcashGetApi();
+            const ufvk = secrets.orchardSk
+              ? (
+                  await api.deriveAccountKeys({
+                    network: ZCASH_NETWORK_MAIN,
+                    orchardSkHex: bytesToHex(secrets.orchardSk),
+                    accountXpub: secrets.accountXpub,
+                    hdIndex: request.accountIndex,
+                  })
+                ).ufvk
+              : storedUfvk;
             // A shield proves its Orchard output here; hold off background sync on the same Worker.
             return zcashTrackUserOperation(() =>
               api.buildTransparentTxWithAccountXprv({
                 ...request,
                 accountXprvHex: secrets.accountXprvHex,
+                ufvk,
               }),
             );
           },

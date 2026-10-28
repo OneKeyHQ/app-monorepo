@@ -100,6 +100,7 @@ export function LocalWalletPoolStatus({
   );
   // No keyring for this wallet type (e.g. Monero hardware): withhold the toggle.
   const canEnable =
+    !lw.state?.privacyDisabled &&
     !lw.isUnsupportedWallet &&
     (accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isHwAccount({ accountId }));
@@ -207,7 +208,9 @@ export function LocalWalletPoolStatus({
 
   let disabledDescriptionId: ETranslations =
     ETranslations.privacy_balance_privacy_off__desc;
-  if (lw.isTempWallet) {
+  if (lw.state?.privacyDisabled) {
+    disabledDescriptionId = ETranslations.global_not_available;
+  } else if (lw.isTempWallet) {
     disabledDescriptionId = ETranslations.privacy_temp_wallet_unavailable__desc;
   } else if (lw.isUnsupportedWallet) {
     disabledDescriptionId =

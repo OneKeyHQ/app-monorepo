@@ -154,6 +154,26 @@ function pool(overrides: Partial<ILocalWalletPool>): ILocalWalletPool {
 describe('LocalWalletPoolStatus for a temp wallet', () => {
   const accountId = 'hw-1-passphrase--0';
 
+  it.each(['zec--0', 'xmr--0'])(
+    'withholds Enable and Resume when %s is disabled by the server',
+    (networkId) => {
+      render(
+        <LocalWalletPoolStatus
+          networkId={networkId}
+          accountId={accountId}
+          pool={pool({
+            state: { enabled: false, paused: false, privacyDisabled: true },
+          })}
+        />,
+      );
+      expect(screen.getByTestId('local-wallet-disabled-desc').textContent).toBe(
+        ETranslations.global_not_available,
+      );
+      expect(screen.queryByTestId('local-wallet-enable-button')).toBeNull();
+      expect(screen.queryByTestId('local-wallet-resume-button')).toBeNull();
+    },
+  );
+
   it('says privacy is unavailable and offers no Enable button', () => {
     render(
       <LocalWalletPoolStatus

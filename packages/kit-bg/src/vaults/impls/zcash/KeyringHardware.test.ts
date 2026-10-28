@@ -131,9 +131,13 @@ function createKeyring({
       zcashGetAccountUfvk: async () => 'ufvk-1',
       zcashResolveLightwalletdUrl: async () => 'https://custom.lwd:443',
       zcashParseTransparentOutputs: async () => [],
+      zcashGetStoredUfvk: async () => undefined,
       ...vault,
     },
     backgroundApi: {
+      serviceCustomRpc: {
+        ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+      },
       simpleDb: {
         privacyChainState: {
           ...createSeedFingerprintStore(),
@@ -143,6 +147,7 @@ function createKeyring({
         },
         privacyChainJournal: { ...journal },
         privacyChainKeys: createKeysStore(),
+        privacyChainZcashSent: { recordZcashSent: jest.fn(async () => {}) },
       },
       serviceAccount: {
         getDBAccountSafe: jest.fn().mockResolvedValue({ id: 'hw-1--acc' }),
@@ -560,11 +565,20 @@ describe('Zcash KeyringHardware', () => {
       expect(result.rawTx).toBe('abcd');
       expect(simpleDbZcash.getZcashAccountMeta).not.toHaveBeenCalled();
       expect(simpleDbZcash.isZcashPrivacyModeEnabled).not.toHaveBeenCalled();
+      // A shielded payment carries the device's UFVK; no privacy setup stored one.
+      const ufvk = address.startsWith('u1') ? 'viewing' : undefined;
+      expect(api.createTransparentHardwarePczt).toHaveBeenCalledWith({
+        request,
+        accountXpub: 'account-xpub',
+        seedFingerprintHex: '01'.repeat(32),
+        ufvk,
+      });
       expect(api.finalizeTransparentHardwarePczt).toHaveBeenCalledWith({
         request,
         accountXpub: 'account-xpub',
         originalPcztHex: 'aabb',
         signedPcztHex: 'ccdd',
+        ufvk,
       });
       expect(journal.saveTransparentPendingTx).toHaveBeenCalledWith({
         accountId: 'hw-1--acc',
@@ -902,6 +916,8 @@ describe('Zcash KeyringHardware transparent signing', () => {
     result = buildResult,
     deviceResponse = { success: true, payload: { pczt: 'ccdd' } },
     storedFingerprint = undefined as string | undefined,
+    storedUfvk = undefined as string | undefined,
+    recipients = request.recipients as { address: string }[],
   } = {}) {
     const reserveTransparentOutpoints = jest.fn(async () => undefined);
     const releaseTransparentReservation = jest.fn(async () => undefined);
@@ -926,7 +942,11 @@ describe('Zcash KeyringHardware transparent signing', () => {
       sdk: { zcashSignPczt },
       vault: {
         accountId,
-        zcashPrepareFreshTransparentRequest: jest.fn(async () => request),
+        zcashPrepareFreshTransparentRequest: jest.fn(async () => ({
+          ...request,
+          recipients,
+        })),
+        zcashGetStoredUfvk: jest.fn(async () => storedUfvk),
       },
       simpleDbZcash: { ...fingerprintStore },
       journal: {
@@ -1006,6 +1026,51 @@ describe('Zcash KeyringHardware transparent signing', () => {
         signedPcztHex: 'ccdd',
       }),
     );
+  });
+
+  it.each([
+    ['stored', 'stored-ufvk', 0],
+    ['missing', undefined, 1],
+  ])(
+    'seals a shielded payment with the account UFVK (%s UFVK)',
+    async (_label, storedUfvk, deviceCalls) => {
+      const shieldedRecipients = [{ address: 'u1-recipient' }];
+      const {
+        sign,
+        fetchDeviceViewingKeys,
+        createTransparentHardwarePczt,
+        finalizeTransparentHardwarePczt,
+      } = createTransparentKeyring({
+        storedFingerprint: 'ef'.repeat(32),
+        storedUfvk,
+        recipients: shieldedRecipients,
+      });
+
+      await expect(sign()).resolves.toMatchObject({ txid: buildResult.txid });
+
+      const ufvk = storedUfvk ?? 'device-ufvk';
+      expect(fetchDeviceViewingKeys).toHaveBeenCalledTimes(deviceCalls);
+      expect(createTransparentHardwarePczt).toHaveBeenCalledWith({
+        request: { ...request, recipients: shieldedRecipients },
+        accountXpub: 'xpub-account',
+        seedFingerprintHex: 'ef'.repeat(32),
+        ufvk,
+      });
+      expect(finalizeTransparentHardwarePczt).toHaveBeenCalledWith(
+        expect.objectContaining({ ufvk }),
+      );
+    },
+  );
+
+  it('refuses a device UFVK of another wallet for a shielded payment', async () => {
+    const { sign, createTransparentHardwarePczt } = createTransparentKeyring({
+      storedFingerprint: 'ab'.repeat(32),
+      recipients: [{ address: 'u1-recipient' }],
+    });
+
+    await expect(sign()).rejects.toThrow('device seed does not match');
+
+    expect(createTransparentHardwarePczt).not.toHaveBeenCalled();
   });
 
   it('tracks the local proving step as a user operation, not the device wait', async () => {

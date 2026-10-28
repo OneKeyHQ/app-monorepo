@@ -70,6 +70,21 @@ export type ILocalWalletSyncPolicy = {
   // Sending is refused while this many blocks or more are left to scan
   // (backfill plus tip lag). Absent: the spendable balance alone decides.
   sendMaxBlocksLeft?: number;
+  // A send from a localScan pool waits for a pass that ends after the send
+  // page asked for it with the account at the chain tip. A broadcast that
+  // touches scanned value gets `followUpSyncs` passes, the first at once.
+  sendSync?: {
+    followUpSyncs: number;
+    followUpIntervalMs: number;
+  };
+};
+
+export type ILocalWalletSendReadiness = {
+  blocksLeft: number | null;
+  canSend: boolean;
+  // Why a sendSync wait is not moving: the network is paused, or its last pass failed.
+  paused?: boolean;
+  syncError?: ILocalWalletSyncErrorKind;
 };
 
 // `key` is the value the vault expects back on the transfer (ITransferInfo
@@ -119,6 +134,8 @@ export type ILocalWalletPoolDescriptor = {
 
 export type ILocalWalletAccountState = {
   enabled: boolean;
+  // Server authority: local enable/resume cannot override it; stored intent is retained.
+  privacyDisabled?: boolean;
   // Opted out after having been enabled, with the resume position still on
   // disk; distinct from never-enabled, which offers setup instead of resume.
   paused: boolean;
@@ -252,6 +269,8 @@ export type ILocalWalletCapability = {
     sourcePool: string;
     toAddress: string;
   }) => Promise<void>;
+  // A broadcast transaction that spends or creates value the scan must find.
+  isLocalScanTransaction?: (encodedTx: IEncodedTx) => boolean;
   syncPolicy: ILocalWalletSyncPolicy;
   listAccounts: () => Promise<{
     accounts: ILocalWalletAccount[];

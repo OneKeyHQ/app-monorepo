@@ -1,3 +1,4 @@
+import { getLocalWalletRemoteConfig } from '../vaults/localWallet/remoteConfig';
 import { getVaultSettings } from '../vaults/settings';
 
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
@@ -102,8 +103,9 @@ export function createPrivacyChainRelayTargetSource(
   >,
 ): IPrivacyChainRelayTargetSource {
   return {
+    // Listed, scanning or not: public sends of a chain with privacy off still reach its node.
     getLocalWalletNetworkIds: () =>
-      backgroundApi.servicePrivacyChain.getLocalWalletNetworkIds(),
+      backgroundApi.servicePrivacyChain.getListedLocalWalletNetworkIds(),
     getNodeUrls: async (networkId) => {
       const [settings, active, customRpc] = await Promise.all([
         getVaultSettings({ networkId }),
@@ -111,7 +113,12 @@ export function createPrivacyChainRelayTargetSource(
         backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(networkId),
       ]);
       // A disabled custom row still counts: a request may finish while switching back to the built-in node.
-      return [...(settings.builtInRpcUrls ?? []), active, customRpc?.rpc];
+      return [
+        ...(settings.builtInRpcUrls ?? []),
+        ...(getLocalWalletRemoteConfig(networkId)?.nodeUrls ?? []),
+        active,
+        customRpc?.rpc,
+      ];
     },
   };
 }

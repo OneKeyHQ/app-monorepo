@@ -5,6 +5,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
+import { setLocalWalletRemoteConfigs } from '../../localWallet/remoteConfig';
 import VaultBtc from '../btc/Vault';
 
 import Vault from './Vault';
@@ -80,32 +81,41 @@ async function createVault(broadcastAuthorized?: boolean) {
 describe('Zcash transparent broadcast authorization', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    setLocalWalletRemoteConfigs({});
   });
 
-  it('persists authorization before transport and retains it with acceptance', async () => {
-    const { vault, journalDb } = await createVault(false);
-    jest
-      .spyOn(VaultBtc.prototype, 'broadcastTransaction')
-      .mockImplementation(async () => {
-        const [pending] = await journalDb.listTransparentPendingTxs({
-          accountId,
+  it.each([false, true])(
+    'persists transparent authorization and acceptance (privacy disabled: %s)',
+    async (privacyDisabled) => {
+      setLocalWalletRemoteConfigs({ 'zec--0': { privacyDisabled } });
+      const { vault, journalDb } = await createVault(false);
+      jest
+        .spyOn(VaultBtc.prototype, 'broadcastTransaction')
+        .mockImplementation(async () => {
+          const [pending] = await journalDb.listTransparentPendingTxs({
+            accountId,
+          });
+          expect(pending.broadcastAuthorized).toBe(true);
+          expect(pending.rawTx).toBe(rawTx);
+          return signedTx;
         });
-        expect(pending.broadcastAuthorized).toBe(true);
-        expect(pending.rawTx).toBe(rawTx);
-        return signedTx;
-      });
 
-    await expect(vault.broadcastTransaction(params)).resolves.toEqual(signedTx);
-    const [pending] = await journalDb.listTransparentPendingTxs({ accountId });
-    expect(pending).toMatchObject({
-      broadcastAuthorized: true,
-      broadcastState: 'accepted',
-      createdAt: 1,
-    });
-    expect(
-      await journalDb.listTransparentOutpointsInUse({ accountId }),
-    ).toEqual(new Set([`${'22'.repeat(32)}:0`]));
-  });
+      await expect(vault.broadcastTransaction(params)).resolves.toEqual(
+        signedTx,
+      );
+      const [pending] = await journalDb.listTransparentPendingTxs({
+        accountId,
+      });
+      expect(pending).toMatchObject({
+        broadcastAuthorized: true,
+        broadcastState: 'accepted',
+        createdAt: 1,
+      });
+      expect(
+        await journalDb.listTransparentOutpointsInUse({ accountId }),
+      ).toEqual(new Set([`${'22'.repeat(32)}:0`]));
+    },
+  );
 
   it.each(['transport timeout', 'node rejected'])(
     'releases the journal entry and input holds when the broadcast fails with %s',

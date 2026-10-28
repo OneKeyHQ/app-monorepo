@@ -1,4 +1,3 @@
-import { ZCASH_SHIELDING_THRESHOLD_ZAT } from '@onekeyhq/shared/src/config/zcash';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ZCASH_CURRENT_SHIELDED_POOL } from '../constants';
@@ -24,13 +23,6 @@ export const ALLOW_ZERO_CONF_SHIELDING = false;
 // FIXED. Orchard is withdraw-only since NU6.3 (consensus rejects change into
 // it); Sapling is view-only (no proving params) here, so Ironwood is the only option.
 export const FALLBACK_CHANGE_POOL = ZCASH_CURRENT_SHIELDED_POOL;
-
-// PRODUCT. Below this, shielding costs more in fees than it moves.
-export const SHIELDING_THRESHOLD_ZAT = BigInt(ZCASH_SHIELDING_THRESHOLD_ZAT);
-
-// PRODUCT. Expiry of host-built transparent txs; the signer always receives
-// the exact height, never picks a default itself.
-export const TRANSPARENT_TX_EXPIRY_DELTA = 10;
 
 // FIXED. Subtree roots only change when a shard fills (every few days on
 // mainnet); this TTL just covers a long-running desktop session.

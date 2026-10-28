@@ -9,6 +9,7 @@ import {
   ActionList,
   Alert,
   DebugRenderTracker,
+  Dialog,
   Divider,
   Icon,
   SizableText,
@@ -633,35 +634,57 @@ function TokenDetailsHeaderContent({
   );
 
   const poolAction = poolDisplay?.action;
-  // Both pool moves use Max so the selected source pays its own fee. Shield
-  // spends the indexer's transparent UTXOs; Withdraw spends scanned notes.
+  // Withdraw opens the amount step, like Ledger Live's self transfer: any
+  // amount from the private pool to the account's own public address. Shield
+  // sweeps with Max, so the indexer's transparent UTXOs pay their own fee.
   const handlePoolActionPress = useCallback(() => {
     if (!poolAction?.toAddress || !poolAction.amount) return;
-    const transfer = {
-      from: poolAction.fromAddress,
-      to: poolAction.toAddress,
-      amount: poolAction.amount,
-      ...(poolAction.type === 'shield'
-        ? { localWalletShield: true, localWalletSourcePool: 'transparent' }
-        : {}),
-      ...(poolAction.spendSource
-        ? { localWalletSpendSource: poolAction.spendSource }
-        : {}),
-    };
-    const prewarmSourcePool =
-      poolAction.type === 'shield' ? 'transparent' : poolAction.spendSource;
-    if (prewarmSourcePool) {
-      void backgroundApiProxy.servicePrivacyChain
-        .prewarmLocalWalletSend({
-          networkId,
-          accountId,
-          sourcePool: prewarmSourcePool,
-          toAddress: poolAction.toAddress,
-        })
-        .catch(() => undefined);
+    if (poolAction.type === 'withdraw') {
+      Dialog.confirm({
+        title: intl.formatMessage({ id: ETranslations.global_withdraw }),
+        description: intl.formatMessage({
+          id: ETranslations.privacy_unshield_warning__desc,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        onConfirm: async ({ close }) => {
+          await close();
+          navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+            screen: EModalSignatureConfirmRoutes.TxAmountInput,
+            params: {
+              networkId,
+              accountId,
+              isNFT: false,
+              token: tokenDetails?.info ?? tokenInfo,
+              recipientAddress: poolAction.toAddress,
+              isAllNetworks,
+              localWalletSourcePool: poolAction.spendSource,
+              onSuccess: poolAction.onDone,
+            },
+          });
+        },
+      });
+      return;
     }
+    void backgroundApiProxy.servicePrivacyChain
+      .prewarmLocalWalletSend({
+        networkId,
+        accountId,
+        sourcePool: 'transparent',
+        toAddress: poolAction.toAddress,
+      })
+      .catch(() => undefined);
     void navigationToTxConfirm({
-      transfersInfo: [transfer],
+      transfersInfo: [
+        {
+          from: poolAction.fromAddress,
+          to: poolAction.toAddress,
+          amount: poolAction.amount,
+          localWalletShield: true,
+          localWalletSourcePool: 'transparent',
+        },
+      ],
       transferPayload: {
         amountToSend: poolAction.amount,
         originalRecipient: poolAction.toAddress,
@@ -671,7 +694,17 @@ function TokenDetailsHeaderContent({
       isInternalTransfer: true,
       onSuccess: poolAction.onDone,
     });
-  }, [navigationToTxConfirm, poolAction, networkId, accountId]);
+  }, [
+    intl,
+    navigation,
+    navigationToTxConfirm,
+    poolAction,
+    networkId,
+    accountId,
+    tokenDetails?.info,
+    tokenInfo,
+    isAllNetworks,
+  ]);
 
   const { hideAccountAddress } = useDisplayAccountAddress({ networkId });
   const shouldShowAddressBlock = useMemo(() => {

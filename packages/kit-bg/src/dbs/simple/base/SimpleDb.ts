@@ -390,6 +390,19 @@ export class SimpleDb {
     return value;
   }
 
+  get privacyChainZcashSent() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@privacyChainZcashSent',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrivacyChainZcashSent').then(
+          ({ SimpleDbEntityPrivacyChainZcashSent }) =>
+            new SimpleDbEntityPrivacyChainZcashSent(),
+        ),
+    });
+    Object.defineProperty(this, 'privacyChainZcashSent', { value });
+    return value;
+  }
+
   get feeInfo() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@feeInfo',

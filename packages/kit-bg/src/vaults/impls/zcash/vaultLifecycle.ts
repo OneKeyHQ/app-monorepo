@@ -1,5 +1,6 @@
 import { uniq } from 'lodash';
 
+import { isShieldedAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import {
   ZCASH_LIGHTWALLETD_MAINNET,
   ZCASH_NETWORK_MAIN,
@@ -28,6 +29,7 @@ import {
   getLastLocalWalletChainTip,
   saveLastLocalWalletChainTip,
 } from '../../localWallet/privacyChainCacheStore';
+import { getLocalWalletRemoteConfig } from '../../localWallet/remoteConfig';
 
 import {
   clampZcashBirthdayHeight,
@@ -60,6 +62,7 @@ import {
 } from './vaultUtils';
 
 import type { KeyringHd } from './KeyringHd';
+import type { IEncodedTxZcash } from './types';
 import type Vault from './Vault';
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
@@ -246,6 +249,18 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
         desktop: timerUtils.getTimeDurationMs({ seconds: 5 }),
         default: timerUtils.getTimeDurationMs({ seconds: 30 }),
       },
+      // Ledger Live's shielded send: sync before, then 8 syncs 90 s apart.
+      sendSync: {
+        followUpSyncs: 8,
+        followUpIntervalMs: timerUtils.getTimeDurationMs({ seconds: 90 }),
+      },
+    },
+    isLocalScanTransaction: (encodedTx) => {
+      const tx = encodedTx as Partial<IEncodedTxZcash>;
+      return (
+        tx.zcashMode === 'privacy' ||
+        (typeof tx.zcashTo === 'string' && isShieldedAddress(tx.zcashTo))
+      );
     },
     listAccounts: () => vault.listLocalWalletAccounts(),
     listScanDataAccountIds: () =>
@@ -1124,6 +1139,8 @@ export async function syncLocalWalletGroupImpl(
     const result = await api.syncWallet(account, {
       activeUfvks: Array.from(new Set(accounts.map((item) => item.ufvk))),
       chainTip,
+      maxBlocksPerBatch: getLocalWalletRemoteConfig(vault.networkId)
+        ?.maxScanBatchBlocks,
     });
     for (const excluded of queuedExcludedRescans) {
       // A failed/interrupted scan leaves the durable cursor for retry.

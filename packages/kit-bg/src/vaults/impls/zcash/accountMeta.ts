@@ -60,6 +60,25 @@ export async function getZcashAccountUfvk({
   return key.value;
 }
 
+// Any stored UFVK, Privacy Mode on or off; Transparent Mode alone never stores one.
+export async function getZcashStoredUfvk({
+  backgroundApi,
+  networkId,
+  accountId,
+}: {
+  backgroundApi: IBackgroundApi;
+  networkId: string;
+  accountId: string;
+}): Promise<string | undefined> {
+  return (
+    await getLocalWalletViewingKey({
+      backgroundApi,
+      networkId,
+      accountId,
+    })
+  )?.value;
+}
+
 export async function hasZcashAccountViewingKey({
   backgroundApi,
   networkId,

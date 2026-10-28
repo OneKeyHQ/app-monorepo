@@ -32,7 +32,7 @@ jest.mock('./signTransparentTransaction', () => ({
 }));
 
 describe('Zcash KeyringHd transparent signing', () => {
-  it('tracks the shield build as a user operation and passes only the account xprv', async () => {
+  it('tracks the shield build as a user operation and passes only the account xprv and UFVK', async () => {
     jest
       .mocked(seedFromHdCredentialAsync)
       .mockImplementation(async () => Buffer.from(TEST_SEED));
@@ -60,6 +60,7 @@ describe('Zcash KeyringHd transparent signing', () => {
       vault: {
         accountId: 'hd-1--acc',
         zcashPrepareFreshTransparentRequest: jest.fn(async () => request),
+        zcashGetStoredUfvk: jest.fn(async () => 'stored-ufvk'),
         zcashGetApi: jest.fn(async () => ({
           buildTransparentTxWithAccountXprv,
         })),
@@ -83,6 +84,7 @@ describe('Zcash KeyringHd transparent signing', () => {
     expect(buildTransparentTxWithAccountXprv).toHaveBeenCalledWith({
       ...request,
       accountXprvHex: expected.accountXprvHex,
+      ufvk: 'stored-ufvk',
     });
     expect(
       JSON.stringify(buildTransparentTxWithAccountXprv.mock.calls),

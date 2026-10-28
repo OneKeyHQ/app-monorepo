@@ -4,26 +4,44 @@ import type {
   IZcashSpendSource,
   IZcashTransparentOutpoint,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { localWalletText } from '../../localWallet/messages';
+import { isLocalWalletPrivacyDisabled } from '../../localWallet/remoteConfig';
 
+import type Vault from './Vault';
 import type { IZcashPrivacyModeStateView } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 // Read-only views retain scanned data while a paused account stops scheduling and spending.
+// With privacy switched off by the server every account reads as transparent-only; nothing is deleted.
 export function canReadZcashPrivateData(
   state: IZcashPrivacyModeStateView,
 ): boolean {
+  if (isLocalWalletPrivacyDisabled(getNetworkIdsMap().zec)) {
+    return false;
+  }
   return (
     state.intent === 'on' ||
     (state.operation === undefined && state.resumeFromHeight !== undefined)
   );
 }
 
-// ZIP-317 fee (display estimate); pczt_create computes the exact fee.
-export const ZCASH_DISPLAY_FEE_ZAT = '10000';
+export async function getZcashTransactionPolicy(
+  vault: Vault,
+  targetHeight?: number,
+) {
+  const tip =
+    targetHeight === undefined
+      ? await vault.zcashGetObservedChainTip().catch(() => undefined)
+      : undefined;
+  const api = await vault.zcashGetApi();
+  return api.getTransactionPolicy({
+    targetHeight: targetHeight ?? (tip === undefined ? 0 : tip + 1),
+  });
+}
 
 export const ZCASH_TRANSPARENT_PATH_RE =
   /^m\/44'\/133'\/(\d+)'\/([01])\/(\d+)$/;

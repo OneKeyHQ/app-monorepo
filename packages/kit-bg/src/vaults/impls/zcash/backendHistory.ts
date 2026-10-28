@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 
 import type { IEncodedTxZcash } from './types';
+import type { IZcashSentRecord } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainZcashSent';
 
 function getLocalTransparentPayment({
   txid,
@@ -46,27 +47,51 @@ function getLocalTransparentPayment({
   };
 }
 
+type IRecoveredPayment = Pick<IZcashSentRecord, 'recipient' | 'amountZat'> & {
+  feeZat?: string;
+};
+
+function getRecordedPayment(sent: IRecoveredPayment | undefined) {
+  if (!sent) return undefined;
+  return {
+    from: '',
+    to: sent.recipient,
+    amount: zatoshiToZec(sent.amountZat),
+    fee: sent.feeZat === undefined ? undefined : zatoshiToZec(sent.feeZat),
+  };
+}
+
 // Rows rebuilt from this device's signed payment; normalizing again would read our own output as change.
 const locallyRestoredRows = new WeakSet<IOnChainHistoryTx>();
 
 export function restoreZcashLocalTransparentPayment({
   tx,
   localTx,
+  sent,
   withUTXOs = false,
 }: {
   tx: IOnChainHistoryTx;
   localTx?: IAccountHistoryTx;
+  // This device's record of a shielded payment; it outlives the local row.
+  sent?: IRecoveredPayment;
   withUTXOs?: boolean;
 }): IOnChainHistoryTx {
-  const payment = getLocalTransparentPayment({
+  const local = getLocalTransparentPayment({
     txid: tx.tx,
     networkId: tx.networkId,
     localTx,
   });
+  const payment = local
+    ? {
+        from: local.local.signer || local.local.owner,
+        to: local.encoded.zcashTo,
+        amount: local.amount,
+        fee: local.fee,
+      }
+    : getRecordedPayment(sent);
   if (!payment) return tx;
-  const { local, encoded, amount, fee } = payment;
-  const from = tx.from || local.signer || local.owner;
-  const to = encoded.zcashTo;
+  const { to, amount, fee } = payment;
+  const from = tx.from || payment.from;
   const transfer = {
     type: EOnChainHistoryTransferType.Transfer,
     from,
@@ -85,8 +110,9 @@ export function restoreZcashLocalTransparentPayment({
     to,
     shieldedCounterparty: undefined,
     value: amount,
-    gasFee: fee,
-    gasFeeFiatValue: tx.gasFee === fee ? tx.gasFeeFiatValue : '',
+    gasFee: fee ?? tx.gasFee,
+    gasFeeFiatValue:
+      fee === undefined || tx.gasFee === fee ? tx.gasFeeFiatValue : '',
     ...(withUTXOs
       ? {}
       : {

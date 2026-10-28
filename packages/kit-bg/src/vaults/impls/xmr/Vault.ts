@@ -82,6 +82,7 @@ import {
   isLocalWalletCacheEpochCurrent,
   readLocalWalletCacheEpoch,
 } from '../../localWallet/privacyChainCacheStore';
+import { ensureLocalWalletPrivacyAvailable } from '../../localWallet/remoteConfig';
 import {
   buildLocalWalletNativeTokenList,
   getLocalWalletFiatValue,
@@ -336,6 +337,7 @@ export default class Vault extends VaultBase {
 
   // Must be synced before building: an unscanned block may already have spent the outputs this send would pick.
   private async xmrAssertSyncedForSend(): Promise<void> {
+    await ensureLocalWalletPrivacyAvailable(this);
     const capability = this.getLocalWalletCapability();
     const { sendMaxBlocksLeft } = capability.syncPolicy;
     if (sendMaxBlocksLeft === undefined) return;
@@ -436,6 +438,7 @@ export default class Vault extends VaultBase {
 
   // A saved request cannot send until the runtime has applied its scan target.
   private async xmrPreparedEpoch(): Promise<string> {
+    await ensureLocalWalletPrivacyAvailable(this);
     const state =
       await this.backgroundApi.simpleDb.privacyChainState.getXmrAccountState({
         accountId: this.accountId,
@@ -779,6 +782,7 @@ export default class Vault extends VaultBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
+    await ensureLocalWalletPrivacyAvailable(this);
     const { xmrSentTxKeys, ...signedTx } = await super.signTransaction(params);
     const reviewed = parseXmrTransaction(signedTx.encodedTx);
     // Same guard as the broadcast: a record written after a deletion began would outlive it.
@@ -811,6 +815,7 @@ export default class Vault extends VaultBase {
   override async broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
+    await ensureLocalWalletPrivacyAvailable(this);
     const { signedTx } = params;
     const encodedTx = signedTx.encodedTx as IEncodedTxXmr | undefined;
     const wasBuilt = Boolean(

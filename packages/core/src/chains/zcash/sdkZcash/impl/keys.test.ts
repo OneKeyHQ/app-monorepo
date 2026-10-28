@@ -13,12 +13,16 @@ import {
   deriveTransparentXpubFromUfvk,
   finalizeTransparentHardwarePczt,
   getChainTip,
+  getTransactionPolicy,
+  inspectTransaction,
   parseTransparentTransactions,
   quoteTransparentTx,
   signPczt,
   validateAddress,
 } from './keys';
 
+const mockTransactionPolicy = jest.fn();
+const mockInspectTransaction = jest.fn();
 const mockValidateAddress = jest.fn();
 const mockChainTipAt = jest.fn<Promise<number>, [string]>();
 const mockUfvkFromAccountKeys = jest.fn();
@@ -43,6 +47,8 @@ const mockGetRuntimeWasm = jest.fn(async () => ({
 }));
 const mockGetKeys = jest.fn(async () => ({
   validateAddress: mockValidateAddress,
+  transactionPolicy: mockTransactionPolicy,
+  inspectTransaction: mockInspectTransaction,
   ufvkFromAccountKeys: mockUfvkFromAccountKeys,
   pcztVerifyReview: mockPcztVerifyReview,
   pcztSignWithAccountKeys: mockPcztSignWithAccountKeys,
@@ -304,6 +310,7 @@ describe('transparent keys-only transaction API', () => {
         ...request,
         recipients: [{ address: 'u1-recipient', amountZat: '50000' }],
         accountXprvHex: accountXprv.toString('hex'),
+        ufvk: 'uview-account',
       });
       if (fails) {
         await expect(result).rejects.toThrow('proof failed');
@@ -315,12 +322,16 @@ describe('transparent keys-only transaction API', () => {
         });
         expect(order).toEqual(['create', 'prove', 'sign', 'extract']);
         expect([...proved, ...signed]).toEqual([0, 0, 0, 0]);
+        expect(mockShieldSign.mock.calls.at(-1)?.[4]).toBe('uview-account');
       }
       expect([...original]).toEqual([0, 0]);
       expect(mockGetRuntime).not.toHaveBeenCalled();
-      expect(mockShieldCreate.mock.calls.at(-1)?.[1]).toBe(
-        bs58check.encode(accountXprv),
-      );
+      const [requestJson, xprv, ufvk] =
+        mockShieldCreate.mock.calls.at(-1) ?? [];
+      expect(xprv).toBe(bs58check.encode(accountXprv));
+      // The UFVK is a separate argument, never part of the approved request.
+      expect(ufvk).toBe('uview-account');
+      expect(requestJson).not.toContain('uview-account');
     },
   );
 
@@ -338,8 +349,10 @@ describe('transparent keys-only transaction API', () => {
         request,
         accountXpub: 'public',
         seedFingerprintHex: '01'.repeat(32),
+        ufvk: 'uview-account',
       });
       expect(created.pcztHex).toBe('0102');
+      expect(mockHardwareCreate.mock.calls.at(-1)?.[3]).toBe('uview-account');
       expect([...original]).toEqual([0, 0]);
       mockHardwareCombine.mockImplementation(() => {
         order.push('verify');
@@ -366,6 +379,7 @@ describe('transparent keys-only transaction API', () => {
         accountXpub: 'public',
         originalPcztHex: created.pcztHex,
         signedPcztHex: 'aabb',
+        ufvk: 'uview-account',
       });
       if (fails) {
         await expect(result).rejects.toThrow('signature rejected');
@@ -379,6 +393,7 @@ describe('transparent keys-only transaction API', () => {
         expect(order).toEqual(['verify', 'prove', 'extract']);
         expect([...combined, ...proved]).toEqual([0, 0, 0, 0]);
       }
+      expect(mockHardwareCombine.mock.calls.at(-1)?.[4]).toBe('uview-account');
       expect(mockGetRuntime).not.toHaveBeenCalled();
     },
   );
@@ -494,5 +509,52 @@ describe('parseTransparentTransactions', () => {
     );
     expect(mockGetRuntime).not.toHaveBeenCalled();
     expect(mockGetRuntimeWasm).not.toHaveBeenCalled();
+  });
+});
+
+describe('stateless transaction policy and history inspection', () => {
+  it('rejects an invalid height before entering WASM', async () => {
+    mockTransactionPolicy.mockClear();
+    for (const targetHeight of [-1, 1.5, Number.NaN, 0x1_00_00_00_00]) {
+      await expect(getTransactionPolicy({ targetHeight })).rejects.toThrow(
+        'invalid target height',
+      );
+    }
+    expect(mockTransactionPolicy).not.toHaveBeenCalled();
+  });
+
+  it('forwards the target height to the shared Rust policy without a wallet', async () => {
+    mockGetRuntime.mockClear();
+    const policy = {
+      marginalFeeZat: '1000',
+      minimumFeeZat: '2000',
+      expiryHeight: 3_590_140,
+    };
+    mockTransactionPolicy.mockReturnValue(JSON.stringify(policy));
+    await expect(
+      getTransactionPolicy({ targetHeight: 3_590_100 }),
+    ).resolves.toEqual(policy);
+    expect(mockTransactionPolicy).toHaveBeenCalledWith(3_590_100);
+    expect(mockGetRuntime).not.toHaveBeenCalled();
+  });
+
+  it('keeps outgoing recovery in the stateless local keys module', async () => {
+    mockGetRuntime.mockClear();
+    const request = {
+      transaction: { txid: 'txid', rawTx: 'raw' },
+      ufvk: 'ufvk',
+    };
+    const inspected = {
+      txid: 'txid',
+      inputs: [],
+      feeZat: null,
+      recoveredOutputs: [],
+    };
+    mockInspectTransaction.mockReturnValue(JSON.stringify(inspected));
+    await expect(inspectTransaction(request)).resolves.toEqual(inspected);
+    expect(mockInspectTransaction).toHaveBeenCalledWith(
+      stringUtils.stableStringify(request),
+    );
+    expect(mockGetRuntime).not.toHaveBeenCalled();
   });
 });

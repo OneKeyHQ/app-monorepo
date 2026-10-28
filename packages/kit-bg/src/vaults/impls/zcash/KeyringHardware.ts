@@ -1,4 +1,5 @@
 import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { isShieldedAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import type { IZcashTransparentTxRequest } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import { getSupportedZcashUnifiedAddressReceiverTypes } from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAddress';
@@ -15,6 +16,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
+import { ensureLocalWalletPrivacyAvailable } from '../../localWallet/remoteConfig';
 
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
 import {
@@ -390,6 +392,11 @@ export class KeyringHardware extends KeyringHardwareBase {
         deviceParams: checkIsDefined(params.deviceParams),
       });
     }
+    const privacyContext = {
+      backgroundApi: this.backgroundApi,
+      networkId: this.vault.networkId,
+    };
+    await ensureLocalWalletPrivacyAvailable(privacyContext);
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const accountId = this.vault.accountId;
@@ -413,6 +420,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const ufvk = await zcashVault.zcashGetAccountUfvk({ accountId, meta });
     const lifecycleMutex = getZcashLifecycleMutex(meta.vkFp);
     return lifecycleMutex.runExclusive(async () => {
+      await ensureLocalWalletPrivacyAvailable(privacyContext);
       const privacyModeEnabled =
         await this.backgroundApi.simpleDb.privacyChainState.isZcashPrivacyModeEnabled(
           {
@@ -433,6 +441,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       // The device signs a redacted copy and returns only signatures; the original keeps what proving needs.
       const device = await api.redactPcztForHardwareSigner({ pcztHex });
       const sdk = await this.getZcashSdk({ connectId });
+      await ensureLocalWalletPrivacyAvailable(privacyContext);
       const response = await sdk.zcashSignPczt(connectId, deviceId, {
         ...deviceParams.deviceCommonParams,
         pczt: device.pcztHex,
@@ -440,6 +449,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       if (!response.success) {
         throw convertDeviceError(response.payload);
       }
+      await ensureLocalWalletPrivacyAvailable(privacyContext);
       const combined = await zcashVault.zcashCombineSignedPczt({
         accountId,
         originalPcztHex: pcztHex,
@@ -449,6 +459,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         accountId,
         pcztHex: combined.pcztHex,
       });
+      await ensureLocalWalletPrivacyAvailable(privacyContext);
       const signedEncodedTx: IEncodedTxZcash = {
         ...encodedTx,
         signedPcztHex: proved.pcztHex,
@@ -461,39 +472,46 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  // Accounts added before the fingerprint was kept ask the device once; the returned key must derive this account's xpub.
-  private async resolveSeedFingerprint({
+  // A missing fingerprint (accounts added before it was kept) or a shielded payment's UFVK with
+  // none stored asks the device once; the returned key must derive this account's xpub.
+  private async resolveSigningViewingKeys({
     deviceParams,
     accountIndex,
     network,
     accountXpub,
+    needsUfvk,
   }: {
     deviceParams: IDeviceSharedCallParams;
     accountIndex: number;
     network: IZcashTransparentTxRequest['network'];
     accountXpub: string;
-  }): Promise<string> {
-    const walletId = accountUtils.getWalletIdFromAccountId({
-      accountId: this.vault.accountId,
-    });
-    const stored =
-      await this.backgroundApi.simpleDb.privacyChainState.getZcashWalletSeedFingerprint(
+    needsUfvk: boolean;
+  }): Promise<{ seedFingerprintHex: string; ufvk?: string }> {
+    const accountId = this.vault.accountId;
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    const [stored, storedUfvk] = await Promise.all([
+      this.backgroundApi.simpleDb.privacyChainState.getZcashWalletSeedFingerprint(
         {
           walletId,
         },
-      );
-    if (stored) {
-      return stored;
+      ),
+      needsUfvk
+        ? (this.vault as Vault).zcashGetStoredUfvk({ accountId })
+        : undefined,
+    ]);
+    if (stored && (!needsUfvk || storedUfvk)) {
+      return { seedFingerprintHex: stored, ufvk: storedUfvk };
     }
     const [viewingKeys] = await this.fetchDeviceViewingKeys({
       deviceParams,
       indexes: [accountIndex],
       showOnOnekeyFn: () => false,
     });
+    const ufvk = checkIsDefined(viewingKeys.ufvk);
     const api = await (this.vault as Vault).zcashGetApi();
     const { xpub } = await api.deriveTransparentXpubFromUfvk({
       network,
-      ufvk: checkIsDefined(viewingKeys.ufvk),
+      ufvk,
       hdIndex: accountIndex,
     });
     if (xpub !== accountXpub) {
@@ -505,7 +523,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       viewingKeys.seedFingerprint,
     ).toLowerCase();
     await this.rememberSeedFingerprint({ walletId, seedFingerprintHex });
-    return seedFingerprintHex;
+    return { seedFingerprintHex, ufvk: needsUfvk ? ufvk : undefined };
   }
 
   private async signTransparentTransaction({
@@ -529,23 +547,30 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
     return signTransparentTransaction({
       journal: this.backgroundApi.simpleDb.privacyChainJournal,
+      sentStore: this.backgroundApi.simpleDb.privacyChainZcashSent,
       accountId,
       encodedTx,
       request,
       parseOutputs: (result) => vault.zcashParseTransparentOutputs(result),
       sign: async () => {
         const api = await vault.zcashGetApi();
-        const seedFingerprintHex = await this.resolveSeedFingerprint({
-          deviceParams,
-          accountIndex: request.accountIndex,
-          network: request.network,
-          accountXpub,
-        });
+        // A shielded payment is sealed to the account's OVK so this wallet can recover it.
+        const { seedFingerprintHex, ufvk } =
+          await this.resolveSigningViewingKeys({
+            deviceParams,
+            accountIndex: request.accountIndex,
+            network: request.network,
+            accountXpub,
+            needsUfvk: request.recipients.some(({ address }) =>
+              isShieldedAddress(address),
+            ),
+          });
         // The firmware checks each input's seed fingerprint and pubkey, so a different device refuses to sign.
         const original = await api.createTransparentHardwarePczt({
           request,
           accountXpub,
           seedFingerprintHex,
+          ufvk,
         });
         const device = await api.redactPcztForHardwareSigner({
           pcztHex: original.pcztHex,
@@ -565,6 +590,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             accountXpub,
             originalPcztHex: original.pcztHex,
             signedPcztHex: response.payload.pczt,
+            ufvk,
           }),
         );
         if (

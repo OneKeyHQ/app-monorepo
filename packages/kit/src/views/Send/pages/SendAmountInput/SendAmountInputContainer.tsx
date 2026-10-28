@@ -119,7 +119,6 @@ import {
   openFiatCryptoUrl,
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { PRIVACY_CHAIN_SYNC_POLL_MS } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
@@ -192,6 +191,7 @@ import {
   getMaxSendStateAfterModeChange,
 } from './privateSendMaxAmountUtils';
 import { useLocalWalletSendPool } from './useLocalWalletSendPool';
+import { useLocalWalletSendReadiness } from './useLocalWalletSendReadiness';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -1403,19 +1403,13 @@ function SendAmountInputContainer() {
     networkId,
     recipientAddress,
   ]);
-  const { result: sendReadiness } = usePromiseResult(
-    async () => {
-      if (!hasLocalWallet || !currentAccountId) return undefined;
-      return backgroundApiProxy.servicePrivacyChain.getLocalWalletSendReadiness(
-        { networkId, accountId: currentAccountId },
-      );
-    },
-    [hasLocalWallet, networkId, currentAccountId],
-    {
-      pollingInterval: hasLocalWallet ? PRIVACY_CHAIN_SYNC_POLL_MS : undefined,
-    },
-  );
-  const isWaitingForSync = sendReadiness?.canSend === false;
+  const { isWaitingForSync, statusText: sendSyncStatusText } =
+    useLocalWalletSendReadiness({
+      enabled: hasLocalWallet,
+      networkId,
+      accountId: currentAccountId,
+      sourcePool: sendSourcePool,
+    });
   // Funds a view-only scan cannot prove unspent are not spendable until the
   // password confirms them, so ask before the amount, not after it fails.
   useEffect(() => {
@@ -4191,7 +4185,7 @@ function SendAmountInputContainer() {
       );
     }
 
-    if (isWaitingForSync && !isPrivacyPaused) {
+    if (sendSyncStatusText && !isPrivacyPaused) {
       addons.push(
         <SizableText
           key="send-waiting-sync"
@@ -4199,12 +4193,7 @@ function SendAmountInputContainer() {
           size="$bodySm"
           color="$textCaution"
         >
-          {intl.formatMessage(
-            {
-              id: ETranslations.privacy_send_waiting_sync__msg,
-            },
-            { blocks: sendReadiness?.blocksLeft ?? '—' },
-          )}
+          {sendSyncStatusText}
         </SizableText>,
       );
     }
@@ -4335,8 +4324,7 @@ function SendAmountInputContainer() {
     isPrivacyPaused,
     isSendPoolBalanceUnavailable,
     reloadSendPools,
-    isWaitingForSync,
-    sendReadiness?.blocksLeft,
+    sendSyncStatusText,
     hasLocalWallet,
     currentAccountId,
   ]);

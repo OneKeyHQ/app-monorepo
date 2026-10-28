@@ -82,6 +82,9 @@ function createService({
     return { password: promptedPassword };
   });
   const backgroundApi = {
+    serviceCustomRpc: {
+      ensureLocalWalletRemoteConfigLoaded: async () => undefined,
+    },
     simpleDb: {
       privacyChainKeys,
       privacyChainState,
@@ -96,6 +99,10 @@ function createService({
         removeAccounts: jest.fn(async () => undefined),
       },
       privacyChainXmrSent: {
+        listAccountIds: async () => [],
+        removeAccounts: jest.fn(async () => undefined),
+      },
+      privacyChainZcashSent: {
         listAccountIds: async () => [],
         removeAccounts: jest.fn(async () => undefined),
       },
