@@ -25,7 +25,10 @@ import { MarketStockStar } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/com
 import { parseMarketStockNumber } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/utils';
 import { applyMarketTokenListLiveOverrides } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
-import { useMarketWatchlistTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import {
+  marketWatchlistDataCacheRef,
+  useMarketWatchlistTokenList,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useWatchlistFilteredGroups } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
 import type { IMarketTokenListLiveOverride } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import { getMarketWatchlistRowKind } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/utils/marketWatchlistRowKind';
@@ -562,8 +565,18 @@ export function MobileSelectorWatchlistList({
       appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, refresh);
     };
   }, [watchListActions]);
-  const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
+  const {
+    data,
+    isLoading,
+    isSpotError,
+    isPerpsError,
+    hasUnresolvedSpotFavorites,
+    hasSettledAllSources,
+    refetch,
+  } = useMarketWatchlistTokenList({
     watchlist: watchListData ?? [],
+    isWatchlistReady: isMounted,
+    dataCacheRef: marketWatchlistDataCacheRef,
     pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
   });
@@ -572,10 +585,30 @@ export function MobileSelectorWatchlistList({
     groups[watchlistFilter],
     liveTokenOverride,
   );
+  const isError = {
+    all: isSpotError || isPerpsError,
+    spot: isSpotError,
+    // Unresolved spot favorites may be tokenized stocks: their classification
+    // comes from the API and is unknown when a cold request fails.
+    stocks:
+      isSpotError &&
+      (hasUnresolvedSpotFavorites ||
+        rows.some((item) => !item.stockId && !item.assetId)),
+    perps: isPerpsError,
+  }[watchlistFilter];
+  // Missing rows need first-load feedback only until requests settle, including
+  // failures. Later polling keeps the current empty or error view in place.
+  const hasMissingFavorites = data.length < (watchListData?.length ?? 0);
 
-  if (!isMounted || (isLoading && data.length === 0)) {
+  if (
+    !isMounted ||
+    (isLoading &&
+      !hasSettledAllSources &&
+      (data.length === 0 || (hasMissingFavorites && rows.length === 0)))
+  ) {
     return <CenteredSpinner />;
   }
+  // A failed refresh can retain successfully loaded cached sources.
   if (isError && rows.length === 0) {
     return (
       <LoadErrorMessage
@@ -602,7 +635,21 @@ export function MobileSelectorWatchlistList({
     );
   }
   return (
-    <TokenRowsList data={rows} tokenSubtitle="name" onItemPress={onItemPress} />
+    <TokenRowsList
+      data={rows}
+      tokenSubtitle="name"
+      onItemPress={onItemPress}
+      footer={
+        hasMissingFavorites && (!hasSettledAllSources || isError) ? (
+          <LoadMoreFooter
+            isLoading={isLoading && !hasSettledAllSources}
+            isError={isError}
+            testID="mobile-market-token-selector-favorites-retry"
+            onRetry={() => void refetch()}
+          />
+        ) : null
+      }
+    />
   );
 }
 

@@ -53,7 +53,7 @@ import {
 import { useSyncedMarketPerpsCategory } from '../components/MarketPerpsList/hooks/useSyncedMarketPerpsCategory';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
 import {
-  type IMarketWatchlistDataCache,
+  marketWatchlistDataCacheRef,
   useIsWatchlistTokenCacheReady,
 } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { MarketStockCategorySelector } from '../components/MarketTokenList/MarketStockCategorySelector';
@@ -414,9 +414,6 @@ function MobileLayoutComponent({
   );
   const pagerRef = useRef<CollapsiblePagerView>(null);
   // Keep successful data when the pager unmounts a distant page.
-  const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
-    undefined,
-  );
   const topCoinsDataCacheRef = useRef<IMarketTopCoinsDataCache | undefined>(
     undefined,
   );
@@ -965,7 +962,7 @@ function MobileLayoutComponent({
           {showWatchlistTab ? (
             <YStack key="watchlist" flex={1} bg="$bgApp">
               <MobileMarketNativeWatchlist
-                dataCacheRef={watchlistDataCacheRef}
+                dataCacheRef={marketWatchlistDataCacheRef}
                 selectedFilter={watchlistFilter}
                 listContainerProps={listContainerProps}
                 shouldSuppressItemPress={shouldSuppressItemPress}
