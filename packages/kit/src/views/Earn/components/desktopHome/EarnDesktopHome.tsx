@@ -60,6 +60,12 @@ import type { IUseEarnPortfolioReturn } from '../../hooks/useEarnPortfolio';
 
 type IHomeTab = 'earn' | 'loans';
 
+// Whether an account held tokens for Earns on your holding when the phone
+// layout last loaded: while it loads again, the section keeps placeholder
+// rows unless the account is known to have none, so they don't show and
+// then leave
+const hadHoldRowsByAccount = new Map<string, boolean>();
+
 const BROWSE_ANCHOR_ID = 'earn-desktop-browse';
 const BANNER_WIDTH = 460;
 // The banner block's own room around its card, each side
@@ -417,6 +423,20 @@ export function EarnDesktopHome({
   // for a wallet with nothing to earn on, the offer cards
   const showsHoldings =
     (!hasNoWallet && !hold.isLoaded) || hold.rows.length > 0;
+  const holdAccountKey = `${activeAccount.account?.id ?? ''}|${
+    activeAccount.indexedAccount?.id ?? ''
+  }`;
+  useEffect(() => {
+    if (hold.isLoaded) {
+      hadHoldRowsByAccount.set(holdAccountKey, hold.rows.length > 0);
+    }
+  }, [hold.isLoaded, hold.rows.length, holdAccountKey]);
+  // The phone layout has nothing to put in the section's place
+  const phoneShowsHoldings =
+    hold.rows.length > 0 ||
+    (!hasNoWallet &&
+      !hold.isLoaded &&
+      hadHoldRowsByAccount.get(holdAccountKey) !== false);
 
   const [tab, setTab] = useState<IHomeTab>('earn');
   // Earn mounts with the page, Loans once its markets are in and the page
@@ -541,6 +561,7 @@ export function EarnDesktopHome({
     return (
       <PortfolioPendingTxsProvider value={pendingTxsValue}>
         <EarnPhoneHome
+          headerKind={guide.isShown ? 'guide' : 'totals'}
           header={
             guide.isShown ? (
               <EarnDesktopGuideCard
@@ -568,9 +589,12 @@ export function EarnDesktopHome({
           banner={
             hasBannerContent ? (
               // Capped as under the hero on a wider screen, so the art keeps
-              // its proportions on a wide phone layout
+              // its proportions and the card its weight; centered there, so
+              // the space beside it is even
               <YStack
+                w="100%"
                 maxWidth={BANNER_WIDTH}
+                alignSelf="center"
                 onLayout={(event) =>
                   setStackedBannerWidth(
                     Math.round(event.nativeEvent.layout.width),
@@ -585,7 +609,7 @@ export function EarnDesktopHome({
               </YStack>
             ) : null
           }
-          showsHoldings={showsHoldings}
+          showsHoldings={phoneShowsHoldings}
           isHoldLoading={!hasNoWallet && !hold.isLoaded}
           holdRows={hold.rows}
           networkNames={hold.networkNames}

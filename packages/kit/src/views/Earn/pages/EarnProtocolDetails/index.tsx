@@ -45,13 +45,11 @@ import {
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  ETabEarnRoutes,
-  ITabEarnParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EModalStakingRoutes,
+  ETabEarnRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -199,7 +197,10 @@ const ProtocolHeader = ({
       EarnNavigation.pushToEarnPositions(navigation);
       return;
     }
-    void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
+    // My portfolio is a page of the web Earn stack (demo): it opens on top of
+    // this one, so back returns here. The shared push would clear the stack
+    // first, as it does for any page this one doesn't keep under it
+    navigation.push(ETabEarnRoutes.EarnPositions);
   }, [navigation]);
 
   const formattedMaturityDate = useMemo(() => {

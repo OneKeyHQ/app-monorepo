@@ -25,8 +25,11 @@ function EarnHomeShortcut({
       // only ever fit the English labels — the Portuguese "Loans" needs ~82pt
       // and was cut off mid-word with an ellipsis. Splitting the row into
       // thirds gives each label ~117pt without touching the type scale, and the
-      // labels stay centered on their own third.
+      // labels stay centered on their own third. Web reads flex 1 with an
+      // auto basis, which sizes each tile to its label; a zero basis keeps
+      // the thirds equal there too.
       flex={1}
+      flexBasis={0}
       gap="$1"
       ai="center"
       jc="center"

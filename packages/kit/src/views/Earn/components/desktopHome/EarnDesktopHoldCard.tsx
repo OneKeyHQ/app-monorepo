@@ -734,6 +734,10 @@ export function EarnDesktopHoldCardSkeleton({
   if (isPhone) {
     rowCount = PHONE_ROW_LIMIT;
   }
+  let skeletonRowsTop: '$1' | '$3' | 0 = isWide ? '$1' : 0;
+  if (variant === 'section' && !isWide) {
+    skeletonRowsTop = '$3';
+  }
   let title: ReactNode = (
     <SkeletonLine height={28} width={200} barHeight={20} />
   );
@@ -769,7 +773,8 @@ export function EarnDesktopHoldCardSkeleton({
       ) : null}
       <YStack
         gap="$2"
-        mt={isWide || variant !== 'section' ? '$1' : '$3'}
+        // Where the loaded rows sit in each layout
+        mt={skeletonRowsTop}
         px={isPhone ? '$pagePadding' : undefined}
       >
         {Array.from({ length: rowCount }).map((_, index) => (

@@ -102,15 +102,25 @@ const SEARCH_BAR_CONTAINER_PROPS = {
   borderColor: '$transparent' as const,
   overflow: 'hidden' as const,
 };
-// The network filter's trigger is a pill that takes a picked category's fill
-// while networks are picked. Its padding stays either way so the label holds
-// still, and its start pulls back so the label keeps the row's edge
+// At a phone's width the network filter is a pill like Collateral and Borrow,
+// on the page's edge, with their fill and the lighter one while networks are
+// picked (wider, it is the network pill beside the search)
 const NETWORK_TRIGGER_PROPS = {
-  px: '$3',
+  pl: '$3',
+  pr: '$2',
   py: '$1.5',
-  ml: '$-3',
   borderRadius: '$full',
+  pressStyle: { bg: '$bgActive' },
 } as const;
+// Beside the network pill at a phone's width, the search takes the rest of
+// the row, so a longer pill label doesn't move its far edge
+const NARROW_SEARCH_BAR_CONTAINER_PROPS = {
+  flex: 1,
+  borderRadius: '$full' as const,
+  bg: '$bgStrong' as const,
+  borderColor: '$transparent' as const,
+  overflow: 'hidden' as const,
+};
 // Hovers ease their color over the app's quick fade; under reduced motion
 // the color changes at once
 const HOVER_MOTION = {
@@ -590,6 +600,7 @@ function BasicEarnDesktopBorrowTab({
 }) {
   const intl = useIntl();
   const media = useMedia();
+  const reduceMotion = useReducedMotion();
   const isWide = media.gtMd;
 
   const { pairs } = useEarnDesktopLoanPairs(markets);
@@ -818,7 +829,7 @@ function BasicEarnDesktopBorrowTab({
             {assetFilters}
           </EarnDesktopPillScroller>
         )}
-        <XStack ai="center" gap="$3">
+        <XStack ai="center" gap="$3" w={isWide ? undefined : '100%'}>
           <NetworkFilterControl
             testID="earn-desktop-loans-network-filter"
             variant={isWide ? 'pill' : 'default'}
@@ -831,7 +842,11 @@ function BasicEarnDesktopBorrowTab({
             }}
             triggerProps={{
               ...NETWORK_TRIGGER_PROPS,
-              bg: selectedNetworkIds.length ? '$bgActive' : '$transparent',
+              bg: selectedNetworkIds.length ? '$bgActive' : '$bgSubdued',
+              hoverStyle: selectedNetworkIds.length
+                ? undefined
+                : { bg: '$bgHover' },
+              ...(reduceMotion ? undefined : HOVER_MOTION),
             }}
           />
           <SearchBar
@@ -845,7 +860,11 @@ function BasicEarnDesktopBorrowTab({
               setSearchText(text);
               resetPage();
             }}
-            containerProps={SEARCH_BAR_CONTAINER_PROPS}
+            containerProps={
+              isWide
+                ? SEARCH_BAR_CONTAINER_PROPS
+                : NARROW_SEARCH_BAR_CONTAINER_PROPS
+            }
           />
         </XStack>
       </XStack>

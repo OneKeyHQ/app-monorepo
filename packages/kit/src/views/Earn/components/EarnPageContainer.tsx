@@ -287,7 +287,26 @@ export function EarnPageContainer({
     </Page.Body>
   );
 
-  if (useNativeHeader || usePhoneWebHeader) {
+  if (usePhoneWebHeader) {
+    return (
+      <Page>
+        {/* A page's header options are merged, so the web bar's own (its logo
+            in the back button's place, its centered title) would stay after
+            the window narrows; these take them back */}
+        <Page.Header
+          headerShown
+          headerLeft={undefined}
+          headerTitleAlign="left"
+          headerTitle={renderNativeHeaderTitle}
+          headerRight={renderNativeHeaderRight}
+        />
+        {body}
+        {footer}
+      </Page>
+    );
+  }
+
+  if (useNativeHeader) {
     return (
       <Page>
         <Page.Header
