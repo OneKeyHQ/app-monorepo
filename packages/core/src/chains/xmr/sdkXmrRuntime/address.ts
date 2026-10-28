@@ -1,3 +1,5 @@
+import { loadXmrPureRuntimeInProcess } from './pureRuntimeFallback';
+
 import type { IXmrNetwork } from './types';
 
 export type IXmrDerivedAccount = {
@@ -40,15 +42,7 @@ export async function getXmrPureRuntime(): Promise<IXmrPureRuntimeApi> {
   if (runtimeLoader) {
     return runtimeLoader();
   }
-  const { loadXmrRuntime } = await import('./carrier/loadRuntime');
-  const api = await loadXmrRuntime();
-  return {
-    deriveAccount: api.deriveAccount,
-    deriveSubaddress: api.deriveSubaddress,
-    validateAddress: api.validateAddress,
-    signTransactionWithBip32Key: api.signTransactionWithBip32Key,
-    verifyTransaction: api.verifyTransaction,
-  };
+  return loadXmrPureRuntimeInProcess();
 }
 
 export async function deriveXmrAccount(params: {
