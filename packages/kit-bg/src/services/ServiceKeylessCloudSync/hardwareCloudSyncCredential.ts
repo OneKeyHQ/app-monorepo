@@ -35,6 +35,10 @@ export type IHardwareCloudKeyAdapter = {
   }): Promise<{ address: string; signature: string }>;
 };
 
+// Signs a server sign-in challenge on HARDWARE_CLOUD_SYNC_AUTH_PATH; returns a
+// base64 BIP-137 signature.
+export type IHardwareCloudSyncAuthSigner = (message: string) => Promise<string>;
+
 type IExpectedIdentity = Pick<
   IHardwareCloudKeyIdentity,
   'connectId' | 'deviceId' | 'walletXfp'

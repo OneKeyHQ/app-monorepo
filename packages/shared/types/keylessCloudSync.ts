@@ -39,7 +39,28 @@ export interface IKeylessCloudSyncCredential {
   encryptionKey: string;
   /** Password hash (computed from encryptionKey for sync item validation) */
   pwdHash: string; // TODO save to Wallet DB
+  // Hardware keys only: encryptionKey is then the data key (DEK) unwrapped
+  // from the server, and requests use these DPoP-bound tokens.
+  hardwareSession?: IHardwareCloudSyncSession;
 }
+
+export type IHardwareCloudSyncSession = {
+  // P-256 private JWK that binds the tokens to this App install.
+  deviceKeyJwk: IHardwareCloudSyncDeviceKeyJwk;
+  accessToken: string;
+  accessTokenExpiresAt: number;
+  refreshToken: string;
+  sessionId: string;
+  dekId: string;
+};
+
+export type IHardwareCloudSyncDeviceKeyJwk = {
+  kty: 'EC';
+  crv: 'P-256';
+  x: string;
+  y: string;
+  d: string;
+};
 
 /**
  * Keyless signature Header content (Base64 encoded for Header)

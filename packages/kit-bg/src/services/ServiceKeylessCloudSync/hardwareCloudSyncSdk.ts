@@ -1,8 +1,10 @@
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
+  HARDWARE_CLOUD_SYNC_AUTH_PATH,
   HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
   HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
   HARDWARE_CLOUD_SYNC_PATH,
+  assertHardwareCloudSyncAuthMessage,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -20,7 +22,10 @@ import {
   normalizeHardwareCloudWalletXfp,
 } from './hardwareCloudSyncCredential';
 
-import type { IHardwareCloudKeyIdentity } from './hardwareCloudSyncCredential';
+import type {
+  IHardwareCloudKeyIdentity,
+  IHardwareCloudSyncAuthSigner,
+} from './hardwareCloudSyncCredential';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
 
@@ -54,6 +59,7 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   expectedCredentialId,
   isCurrent,
   onDeviceCancelChange,
+  signAuth,
 }: {
   backgroundApi: IBackgroundApi;
   // From the device the user picked on the Cloud sync page.
@@ -64,6 +70,8 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
   isCurrent: () => boolean;
   // Receives a canceller once the hardware lease is held, then undefined.
   onDeviceCancelChange?: (cancel: (() => void) | undefined) => void;
+  // Runs while the device session is open, after the key is derived.
+  signAuth?: (signer: IHardwareCloudSyncAuthSigner) => Promise<void>;
 }): Promise<{
   credential: IKeylessCloudSyncCredential;
   source: IHardwareCloudSyncKeySource;
@@ -234,6 +242,22 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                     return response.payload;
                   },
                 },
+              });
+              assertCurrent();
+              await signAuth?.(async (message) => {
+                assertHardwareCloudSyncAuthMessage(message);
+                const response = await call(() =>
+                  sdk.btcSignMessage(connectId, deviceId, {
+                    path: HARDWARE_CLOUD_SYNC_AUTH_PATH,
+                    messageHex: Buffer.from(message, 'utf8').toString('hex'),
+                    coin: 'Bitcoin',
+                    useEmptyPassphrase: true,
+                  }),
+                );
+                assertSdkSuccess(response);
+                return Buffer.from(response.payload.signature, 'hex').toString(
+                  'base64',
+                );
               });
               assertCurrent();
               const source: IHardwareCloudSyncKeySource = {

@@ -24,24 +24,44 @@ import systemTimeUtils, {
   ELocalSystemTimeStatus,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+import type {
+  IHardwareCloudSyncSession,
+  IKeylessCloudSyncCredential,
+} from '@onekeyhq/shared/types/keylessCloudSync';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCheckServerStatusPostData,
+  ICloudSyncCheckServerStatusResult,
   ICloudSyncCredential,
   ICloudSyncDownloadPostData,
+  ICloudSyncDownloadResult,
   ICloudSyncRawDataJson,
   ICloudSyncUploadPostData,
+  ICloudSyncUploadResult,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import localDb from '../../dbs/local/localDb';
-import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
+import {
+  devSettingsPersistAtom,
+  primeCloudSyncPersistAtom,
+} from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
+import {
+  bootstrapHardwareCloudSyncDataKey,
+  createHardwareCloudSyncDeviceKey,
+  isHardwareCloudSyncKeyEnvelopeItem,
+  refreshHardwareCloudSyncSessionIfNeeded,
+  requestHardwareCloudSyncChallenge,
+  requestRawWithHardwareCloudSyncSession,
+  verifyHardwareCloudSyncChallenge,
+} from './hardwareCloudSyncSession';
+
+import type { IHardwareCloudSyncAuthSigner } from './hardwareCloudSyncCredential';
 import type { IDBCloudSyncItem, IDBWallet } from '../../dbs/local/types';
 
 @backgroundClass()
@@ -211,32 +231,78 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // the Cloud key locks. Wallet reads and ordinary sync must not queue on it.
     const { generateHardwareCloudSyncCredentialWithSdk } =
       await import('./hardwareCloudSyncSdk');
+    const client = await this.backgroundApi.servicePrime.getPrimeClient();
+    const deviceKeyJwk = createHardwareCloudSyncDeviceKey();
+    let authSession: IHardwareCloudSyncSession | undefined;
+    // Sign-in uses its own path and a server nonce, in the same device session.
+    const signAuth = async (signer: IHardwareCloudSyncAuthSigner) => {
+      const { challengeId, message } = await requestHardwareCloudSyncChallenge({
+        client,
+        jwk: deviceKeyJwk,
+      });
+      const signature = await signer(message);
+      authSession = await verifyHardwareCloudSyncChallenge({
+        client,
+        jwk: deviceKeyJwk,
+        challengeId,
+        signature,
+      });
+    };
     let derived: Awaited<
       ReturnType<typeof generateHardwareCloudSyncCredentialWithSdk>
     >;
     try {
-      derived = await generateHardwareCloudSyncCredentialWithSdk({
-        backgroundApi: this.backgroundApi,
-        connectId,
-        expectedCredentialId,
-        isCurrent,
-        onDeviceCancelChange: (cancel) => {
-          if (!cancel) {
-            if (this.hardwareCloudKeyDeviceCancel?.generation === generation) {
-              this.hardwareCloudKeyDeviceCancel = undefined;
+      if (await this.isHardwareCloudSyncSoftwareKeyEnabled()) {
+        const { generateHardwareCloudSyncCredentialWithSoftwareKey } =
+          await import('./hardwareCloudSyncSoftwareKey');
+        derived = await generateHardwareCloudSyncCredentialWithSoftwareKey({
+          isCurrent,
+          signAuth,
+        });
+      } else {
+        derived = await generateHardwareCloudSyncCredentialWithSdk({
+          backgroundApi: this.backgroundApi,
+          connectId,
+          expectedCredentialId,
+          isCurrent,
+          signAuth,
+          onDeviceCancelChange: (cancel) => {
+            if (!cancel) {
+              if (
+                this.hardwareCloudKeyDeviceCancel?.generation === generation
+              ) {
+                this.hardwareCloudKeyDeviceCancel = undefined;
+              }
+              return;
             }
-            return;
-          }
-          if (isCurrent()) {
-            this.hardwareCloudKeyDeviceCancel = { generation, cancel };
-          }
-        },
-      });
+            if (isCurrent()) {
+              this.hardwareCloudKeyDeviceCancel = { generation, cancel };
+            }
+          },
+        });
+      }
     } catch (error) {
       assertCurrent();
       throw error;
     }
-    const { credential, source } = derived;
+    assertCurrent();
+    if (!authSession) {
+      throw new OneKeyError('Cloud sync sign-in did not complete.');
+    }
+    // The signature-derived key only wraps the data key kept on the server.
+    const dataKey = await bootstrapHardwareCloudSyncDataKey({
+      client,
+      session: authSession,
+      kek: derived.credential.encryptionKey,
+    });
+    assertCurrent();
+    const { source } = derived;
+    const credential: IKeylessCloudSyncCredential = {
+      ...derived.credential,
+      encryptionKey: dataKey.dek,
+      pwdHash: dataKey.pwdHash,
+      hardwareSession: { ...authSession, dekId: dataKey.dekId },
+    };
 
     await this.runWithCloudSyncKeyLock(() =>
       this.repairCredentialMutex.runExclusive(async () => {
@@ -565,11 +631,105 @@ class ServiceKeylessCloudSync extends ServiceBase {
     };
   }
 
+  private async isHardwareCloudSyncSoftwareKeyEnabled(): Promise<boolean> {
+    if (!platformEnv.isDev) return false;
+    const devSettings = await devSettingsPersistAtom.get();
+    return !!(
+      devSettings.enabled && devSettings.settings?.hardwareCloudSyncSoftwareKey
+    );
+  }
+
+  private hardwareSessionRefresh:
+    | Promise<IKeylessCloudSyncCredential>
+    | undefined;
+
+  // One refresh at a time: a second use of a rotated refresh token makes the
+  // server revoke the whole session.
+  private async getFreshHardwareCredential(
+    credential: IKeylessCloudSyncCredential,
+  ): Promise<IKeylessCloudSyncCredential> {
+    if (this.hardwareSessionRefresh) return this.hardwareSessionRefresh;
+    const session = credential.hardwareSession;
+    if (!session) return credential;
+    const refreshing = (async () => {
+      const client = await this.backgroundApi.servicePrime.getPrimeClient();
+      const next = await refreshHardwareCloudSyncSessionIfNeeded({
+        client,
+        session,
+      });
+      if (!next) return credential;
+      const updated = { ...credential, hardwareSession: next };
+      await this.repairCredentialMutex.runExclusive(() =>
+        keylessSyncCredentialStorage.saveCredential(updated),
+      );
+      this.setKeylessCloudSyncCredentialCache(updated);
+      await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+      return updated;
+    })();
+    this.hardwareSessionRefresh = refreshing;
+    try {
+      return await refreshing;
+    } finally {
+      this.hardwareSessionRefresh = undefined;
+    }
+  }
+
+  private async hardwareSyncPost<T>({
+    credential,
+    urlPath,
+    postData,
+  }: {
+    credential: IKeylessCloudSyncCredential;
+    urlPath: string;
+    postData: Record<string, unknown>;
+  }) {
+    const fresh = await this.getFreshHardwareCredential(credential);
+    if (!fresh.hardwareSession) {
+      throw new OneKeyError('Cloud sync sign-in is missing.');
+    }
+    const client = await this.backgroundApi.servicePrime.getPrimeClient();
+    return requestRawWithHardwareCloudSyncSession<T>({
+      client,
+      session: fresh.hardwareSession,
+      method: 'POST',
+      urlPath,
+      data: { ...postData, pwdHash: fresh.pwdHash },
+    });
+  }
+
+  private async getHardwareSessionCredential(): Promise<
+    IKeylessCloudSyncCredential | undefined
+  > {
+    const syncCredential =
+      await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+    const credential = syncCredential?.keylessCredential;
+    return credential?.hardwareSession ? credential : undefined;
+  }
+
   async apiCheckServerStatusKeyless({
     postData,
   }: {
     postData: ICloudSyncCheckServerStatusPostData;
   }) {
+    const hardwareCredential = await this.getHardwareSessionCredential();
+    if (hardwareCredential) {
+      const response =
+        await this.hardwareSyncPost<ICloudSyncCheckServerStatusResult>({
+          credential: hardwareCredential,
+          urlPath: '/prime/v1/sync/check',
+          postData,
+        });
+      const data = response.data.data;
+      if (data) {
+        data.updated = data.updated?.filter(
+          (item) => !isHardwareCloudSyncKeyEnvelopeItem(item),
+        );
+        data.diff = data.diff?.filter(
+          (item) => !isHardwareCloudSyncKeyEnvelopeItem(item),
+        );
+      }
+      return { response, pwdHash: hardwareCredential.pwdHash };
+    }
     const auth = await this.getKeylessSyncAuth({
       postData,
     });
@@ -595,6 +755,25 @@ class ServiceKeylessCloudSync extends ServiceBase {
   }: {
     postData: ICloudSyncDownloadPostData;
   }) {
+    const hardwareCredential = await this.getHardwareSessionCredential();
+    if (hardwareCredential) {
+      const { data } = (
+        await this.hardwareSyncPost<ICloudSyncDownloadResult>({
+          credential: hardwareCredential,
+          urlPath: '/prime/v1/sync/download',
+          postData,
+        })
+      ).data;
+      return {
+        data: {
+          ...data,
+          serverData: data.serverData?.filter(
+            (item) => !isHardwareCloudSyncKeyEnvelopeItem(item),
+          ),
+        },
+        pwdHash: hardwareCredential.pwdHash,
+      };
+    }
     const auth = await this.getKeylessSyncAuth({
       postData,
     });
@@ -622,6 +801,16 @@ class ServiceKeylessCloudSync extends ServiceBase {
     postData: ICloudSyncUploadPostData;
     urlPath: string;
   }) {
+    const hardwareCredential = await this.getHardwareSessionCredential();
+    if (hardwareCredential) {
+      return (
+        await this.hardwareSyncPost<ICloudSyncUploadResult>({
+          credential: hardwareCredential,
+          urlPath,
+          postData,
+        })
+      ).data.data;
+    }
     const auth = await this.getKeylessSyncAuth({
       postData,
     });

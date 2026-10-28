@@ -12,6 +12,26 @@ export const HARDWARE_CLOUD_SYNC_PATH = "m/44'/0'/924823361'/1/835069775";
 export const HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX =
   'WARNING: Unlock ALL OneKey Cloud data. Sign ONLY in OneKey App, never in other apps or dApps.\nOneKey Cloud Key v1\nStandard wallet: ';
 
+// Signs server sign-in challenges. It must differ from HARDWARE_CLOUD_SYNC_PATH:
+// a server-chosen message on the key path could return the data key itself.
+export const HARDWARE_CLOUD_SYNC_AUTH_PATH = "m/44'/0'/924823361'/1/835069776";
+export const HARDWARE_CLOUD_SYNC_AUTH_MESSAGE_PREFIX =
+  'OneKey Cloud Sync sign-in\n';
+// Server-side records holding a wrapped data key; never synced into local data.
+export const HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE = 'HardwareKeyEnvelope';
+
+export function assertHardwareCloudSyncAuthMessage(message: string): void {
+  if (
+    typeof message !== 'string' ||
+    message.length > 512 ||
+    !message.startsWith(HARDWARE_CLOUD_SYNC_AUTH_MESSAGE_PREFIX) ||
+    message.includes(HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX) ||
+    !/\nNonce: [0-9a-f]{64}\n/.test(message)
+  ) {
+    throw new OneKeyLocalError('Invalid Cloud sync sign-in challenge');
+  }
+}
+
 // Followed by the SHA-256 hex of the canonical standard wallet XFP.
 export const HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX = 'hardware-cloud-v1-';
 
