@@ -260,12 +260,12 @@ function TokenDesktopLayoutBase({
           {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
           mt={MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET}
         >
-          <PerpetualTradingBanner px="$5" py="$2" pb="$3" />
           <MarketEmbeddedSwap
             swapToken={swapToken}
             inputDraftKey={swapInputDraftKey}
             disabled={disableTrade}
           />
+          <PerpetualTradingBanner px="$5" py="$2" iconGap="$1.5" />
         </YStack>
       </XStack>
     </YStack>

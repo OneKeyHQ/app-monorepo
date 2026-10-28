@@ -272,10 +272,6 @@ export function TopCoinsDesktopLayout({
           {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
           mt={MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET}
         >
-          {/* Shown only for tokens with a perps market, and hidden once
-              dismissed. Sits above the trade panel, where the pre-redesign
-              desktop layout carried it. */}
-          <PerpetualTradingBanner px="$5" py="$2" pb="$3" />
           {disableTrade ? (
             <TopCoinsUnavailableTradePanel symbol={swapToken.symbol} />
           ) : null}
@@ -284,6 +280,10 @@ export function TopCoinsDesktopLayout({
             inputDraftKey={swapInputDraftKey}
             disabled={disableTrade}
           />
+          {/* Shown only for tokens with a perps market, and hidden once
+              dismissed. Below the trade panel, so switching between tokens
+              with and without a perps market never moves the panel. */}
+          <PerpetualTradingBanner px="$5" py="$2" iconGap="$1.5" />
         </YStack>
       </XStack>
     </YStack>
