@@ -143,6 +143,16 @@ describe('PAGE_THEME_COLOR_SCRIPT top color lifetime', () => {
     expect(latest().color).toBe('rgb(16, 205, 126)');
   });
 
+  it('keeps the late correction when only an inner container scrolls', () => {
+    header.style.backgroundColor = 'rgb(10, 20, 30)';
+    const scroller = document.createElement('div');
+    document.body.appendChild(scroller);
+    scroller.dispatchEvent(new Event('scroll'));
+    jest.advanceTimersByTime(800);
+
+    expect(latest().color).toBe('rgb(10, 20, 30)');
+  });
+
   it('does not unlock the top for an ordinary anchor jump', () => {
     jest.advanceTimersByTime(800);
     header.style.backgroundColor = 'rgb(242, 254, 103)';

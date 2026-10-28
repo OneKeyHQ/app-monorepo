@@ -846,9 +846,20 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
         read(false);
       }, delay);
     };
-    var onScroll = function () {
-      // A late first-screen read must not sample a section reached by scrolling.
-      cancelTopCorrection();
+    var onScroll = function (event) {
+      var target = event && event.target;
+      // Only the page itself moving means the top edge may now be a lower
+      // section. A panel, ticker, or list scrolling inside the page must not
+      // drop the one late first-screen read. The listener stays on window
+      // capture so those inner scrolls still update the bottom color.
+      if (
+        target === document ||
+        target === document.documentElement ||
+        target === document.body ||
+        target === window
+      ) {
+        cancelTopCorrection();
+      }
       var now = Date.now();
       if (scrollBurstStartedAt === undefined) {
         scrollBurstStartedAt = now;

@@ -1078,3 +1078,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The top sample was one point at the viewport center, then an ancestor walk for opaque background-color. The green is a full-width linear-gradient behind the content (not an ancestor, and background-color is transparent). A narrow button at that point won after it stuck.
 **Fix**: Sample the top edge at 25/50/75% width, ignore layers narrower than 80% of the viewport, and read a wide linear-gradient at the sample point. body/html and theme-color stay fallbacks. Bottom-edge sampling is unchanged.
 **Catchable by**: Section 6: jsdom script tests for gradient, narrow button, and disagreeing points. Device check that WebView elementsFromPoint includes z-index -1 is NEW â€” not covered.
+
+## Case: Inner scroll cancelled the mobile browser late top-color read (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser)
+**Symptom**: A page with an auto-scrolling panel could keep the first-frame header color. The 800ms correction never ran.
+**Root Cause**: The scroll listener is on window in the capture phase so inner containers update the bottom color. That same handler cancelled the one late top read for every scroll event, including a panel that does not move the viewport.
+**Fix**: Cancel the late top read only when the scroll target is the document, documentElement, body, or window.
+**Catchable by**: Section 6: lifecycle test dispatches scroll on an inner element and still expects the late top color.
