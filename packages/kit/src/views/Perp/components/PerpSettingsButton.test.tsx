@@ -272,15 +272,30 @@ describe('Perps mobile flat menu', () => {
     const view = render(
       <PerpMenu
         isPopover
+        hasCampaigns
         onOpenHistory={jest.fn()}
         settingsContent={<span>Trading settings</span>}
-        renderActivityCenter={() => <span>Reward banner</span>}
+        popoverFooter={<span>Account Mode</span>}
+        renderActivityCenter={() => (
+          <>
+            <span>Trading settings</span>
+            <span>Referral</span>
+            <span>Reward banner</span>
+          </>
+        )}
       />,
     );
     expect(view.getByText('Trading settings')).toBeTruthy();
+    expect(view.getAllByText('Trading settings')).toHaveLength(1);
+    expect(view.getByText('Referral')).toBeTruthy();
     expect(view.getByText('perps_menu_features__title')).toBeTruthy();
-    expect(view.getByText('perps_menu_campaign_center__title')).toBeTruthy();
+    expect(view.queryByText('perps_menu_campaign_center__title')).toBeNull();
     expect(view.getByText('Reward banner')).toBeTruthy();
+    const footer = view.getByText('Account Mode');
+    expect(footer.parentElement?.lastElementChild).toBe(footer);
+    expect(footer.parentElement).toBe(
+      view.getByText('Reward banner').parentElement,
+    );
     expect(view.queryByTestId('perp-mobile-menu-shortcut-settings')).toBeNull();
     expect(view.queryByTestId('perp-mobile-menu-shortcut-history')).toBeNull();
     expect(view.queryByTestId('perp-mobile-menu-back')).toBeNull();
@@ -293,15 +308,27 @@ describe('Perps mobile flat menu', () => {
   it('shows shortcuts and campaigns together and returns from preferences', () => {
     const view = render(
       <PerpMenu
+        hasCampaigns
         onOpenHistory={jest.fn()}
         onOpenHelp={jest.fn()}
         settingsContent={<span>Trading settings</span>}
-        renderActivityCenter={() => <span>Reward banner</span>}
+        renderActivityCenter={(shortcuts) => (
+          <>
+            <div data-testid="combined-shortcuts">
+              {shortcuts}
+              <span>Referral</span>
+            </div>
+            <span>Reward banner</span>
+          </>
+        )}
       />,
     );
     expect(view.queryByRole('tablist')).toBeNull();
     expect(view.getByText('perps_menu_features__title')).toBeTruthy();
-    expect(view.getByText('perps_menu_campaign_center__title')).toBeTruthy();
+    expect(view.queryByText('perps_menu_campaign_center__title')).toBeNull();
+    expect(view.getByText('Referral').parentElement).toBe(
+      view.getByTestId('perp-mobile-menu-shortcut-help').parentElement,
+    );
     expect(view.getByText('Reward banner')).toBeTruthy();
     expect(view.getByTestId('perp-mobile-menu-shortcut-help')).toBeTruthy();
     fireEvent.click(view.getByTestId('perp-mobile-menu-shortcut-settings'));
@@ -313,6 +340,33 @@ describe('Perps mobile flat menu', () => {
     expect(view.getByTestId('perp-mobile-menu-shortcut-history')).toBeTruthy();
     expect(view.queryByTestId('perp-mobile-menu-close')).toBeNull();
   });
+
+  it.each([false, true])(
+    'only shows the feature heading with campaigns (popover: %s)',
+    (isPopover) => {
+      const props = {
+        isPopover,
+        onOpenHistory: jest.fn(),
+        settingsContent: <span>Trading settings</span>,
+        renderActivityCenter: (shortcuts?: ReactNode) => (
+          <>
+            {shortcuts}
+            <span>Referral</span>
+          </>
+        ),
+      };
+      const view = render(<PerpMenu {...props} />);
+      expect(view.queryByText('perps_menu_features__title')).toBeNull();
+      expect(view.getByText('Referral')).toBeTruthy();
+
+      view.rerender(<PerpMenu {...props} hasCampaigns />);
+      expect(view.getByText('perps_menu_features__title')).toBeTruthy();
+
+      view.rerender(<PerpMenu {...props} hasCampaigns={false} />);
+      expect(view.queryByText('perps_menu_features__title')).toBeNull();
+      expect(view.getByText('Referral')).toBeTruthy();
+    },
+  );
 
   it('keeps layout navigation internal and routes history, guide and support', () => {
     const onOpenHistory = jest.fn();
