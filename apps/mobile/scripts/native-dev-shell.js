@@ -1166,12 +1166,13 @@ async function promptIosSimulator(
 async function resolveTargetDevice({
   platform,
   requestedDevice,
-  fileSystem = fs,
   interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY),
   isIosPhysicalDeviceAvailable = isAvailableIosPhysicalDevice,
   chooseDevice = promptIosSimulator,
   runForOutputCommand = runForOutput,
   runCheckedCommand = runChecked,
+  fileSystem = fs,
+  developerDirectory = process.env.DEVELOPER_DIR,
 }) {
   const candidates =
     platform === 'android'
@@ -1210,45 +1211,51 @@ async function resolveTargetDevice({
   if (platform === 'ios' && !selected.physical) {
     // Wait for the selected simulator to finish booting, starting it if necessary.
     runCheckedCommand('xcrun', ['simctl', 'bootstatus', selected.id, '-b']);
-    try {
+    const selectedXcodePath = path.resolve(
+      developerDirectory?.trim() ||
+        runForOutputCommand('xcode-select', ['-p']).trim(),
+    );
+    const selectedDeveloperDirectory = selectedXcodePath.endsWith('.app')
+      ? path.join(selectedXcodePath, 'Contents', 'Developer')
+      : selectedXcodePath;
+    const simulatorApp = path.join(
+      selectedDeveloperDirectory,
+      'Applications',
+      'Simulator.app',
+    );
+    const xcodeSimulatorApp = path.resolve(
+      selectedDeveloperDirectory,
+      '..',
+      'Applications',
+      'Simulator.app',
+    );
+    const deviceHubApp = path.resolve(
+      selectedDeveloperDirectory,
+      '..',
+      'Applications',
+      'DeviceHub.app',
+    );
+    const selectedSimulatorApp = [simulatorApp, xcodeSimulatorApp].find(
+      (appPath) => fileSystem.existsSync(appPath),
+    );
+    if (selectedSimulatorApp) {
       runCheckedCommand('open', [
         '-a',
-        'Simulator',
+        selectedSimulatorApp,
         '--args',
         '-CurrentDeviceUDID',
         selected.id,
       ]);
-    } catch (error) {
-      const simctlPath = runForOutputCommand('xcrun', [
-        '--find',
-        'simctl',
-      ]).trim();
-      const developerDirectory = path.resolve(
-        path.dirname(simctlPath),
-        '../..',
-      );
-      const applicationsDirectory = path.resolve(
-        developerDirectory,
-        '../Applications',
-      );
-      const deviceHubApp = path.join(applicationsDirectory, 'DeviceHub.app');
-      if (
-        fileSystem.existsSync(
-          path.join(developerDirectory, 'Applications/Simulator.app'),
-        ) ||
-        fileSystem.existsSync(
-          path.join(applicationsDirectory, 'Simulator.app'),
-        ) ||
-        !fileSystem.existsSync(deviceHubApp)
-      ) {
-        throw error;
-      }
-      // Xcode 27 moved simulator windows into DeviceHub; its URL selects the device.
+    } else if (fileSystem.existsSync(deviceHubApp)) {
       runCheckedCommand('open', [
         '-a',
         deviceHubApp,
         `devices://device/open?id=${encodeURIComponent(selected.id)}`,
       ]);
+    } else {
+      throw new Error(
+        `[nativeDevShell] Neither Simulator.app nor DeviceHub.app exists in selected Xcode: ${selectedDeveloperDirectory}`,
+      );
     }
   }
   return selected;

@@ -6,6 +6,7 @@ import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import {
@@ -90,44 +91,64 @@ function TokenListHeader({ tableLayout }: IProps) {
   }
 
   return (
-    <ListItem testID="Wallet-Token-List-Header" minHeight={32}>
-      <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
-        <SortButton
-          label={intl.formatMessage({ id: ETranslations.global_asset })}
-          iconName={renderSortButton(ETokenListSortType.Name)}
-          onPress={() => {
-            updateTokenListSort({
-              sortType: ETokenListSortType.Name,
-              sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
-            });
-          }}
-        />
-      </Stack>
-      <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
-        <SortButton
-          label={intl.formatMessage({ id: ETranslations.global_balance })}
-          iconName={renderSortButton(ETokenListSortType.Value)}
-          onPress={() => {
-            updateTokenListSort({
-              sortType: ETokenListSortType.Value,
-              sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
-            });
-          }}
-        />
-      </Stack>
-      <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
-        <SortButton
-          label={intl.formatMessage({ id: ETranslations.global_price })}
-          iconName={renderSortButton(ETokenListSortType.Price)}
-          onPress={() => {
-            updateTokenListSort({
-              sortType: ETokenListSortType.Price,
-              sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
-            });
-          }}
-        />
-      </Stack>
-      <Stack flexGrow={1} flexBasis={0} />
+    <ListItem
+      testID="Wallet-Token-List-Header"
+      minHeight={32}
+      gap={platformEnv.isNative ? 8 : '$3'}
+    >
+      {platformEnv.isNative ? <Stack width={44} /> : null}
+      <XStack flex={1} gap={platformEnv.isNative ? 8 : '$3'}>
+        <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
+          <Stack ml={platformEnv.isNative ? -52 : 0}>
+            <SortButton
+              label={intl.formatMessage({ id: ETranslations.global_asset })}
+              iconName={renderSortButton(ETokenListSortType.Name)}
+              onPress={() => {
+                updateTokenListSort({
+                  sortType: ETokenListSortType.Name,
+                  sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+                });
+              }}
+            />
+          </Stack>
+        </Stack>
+        <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
+          <SortButton
+            label={intl.formatMessage({ id: ETranslations.global_balance })}
+            iconName={renderSortButton(ETokenListSortType.Value)}
+            onPress={() => {
+              updateTokenListSort({
+                sortType: ETokenListSortType.Value,
+                sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+              });
+            }}
+          />
+        </Stack>
+        <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
+          <SortButton
+            label={intl.formatMessage({ id: ETranslations.global_price })}
+            iconName={renderSortButton(ETokenListSortType.Price)}
+            onPress={() => {
+              updateTokenListSort({
+                sortType: ETokenListSortType.Price,
+                sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+              });
+            }}
+          />
+        </Stack>
+        {!platformEnv.isNative ? <Stack flexGrow={1} flexBasis={0} /> : null}
+      </XStack>
+      {platformEnv.isNative ? (
+        <SizableText
+          size="$bodyMdMedium"
+          px={11}
+          opacity={0}
+          pointerEvents="none"
+          aria-hidden
+        >
+          {intl.formatMessage({ id: ETranslations.global_swap })}
+        </SizableText>
+      ) : null}
     </ListItem>
   );
 }
