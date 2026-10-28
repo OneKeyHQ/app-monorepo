@@ -679,7 +679,6 @@ jobs:
             ./apps/web/web-build/static/media/
             ./apps/web/web-build/static/canvaskit/
             ./apps/web/web-build/static/zxing/
-            ./apps/web/web-build/static/chain-wasm/
             # Existing public iOS and Android association files; no directory glob.
             ./apps/web/web-build/.well-known/apple-app-site-association
             ./apps/web/web-build/.well-known/assetlinks.json

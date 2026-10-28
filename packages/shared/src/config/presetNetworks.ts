@@ -2394,6 +2394,9 @@ const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
 ];
 
+// The Web app (not web-embed) does not support the client-scanned privacy chains.
+const chainsUnsupportedOnWeb = new Set([zec, xmr]);
+
 export const presetNetworksMap = {
   xmr,
   // btc & btc fork
@@ -2562,7 +2565,7 @@ function validateNetworkCodes(networks: IServerNetwork[]): void {
 }
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => {
-  const networks = [
+  const allNetworks = [
     dangerAllNetworkRepresent,
     // btc & btc fork
     btc,
@@ -2671,6 +2674,9 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     stellarTestnet,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
+  const networks = platformEnv.isWeb
+    ? allNetworks.filter((network) => !chainsUnsupportedOnWeb.has(network))
+    : allNetworks;
 
   // Only run validation in development mode
   if (platformEnv.isDev) {

@@ -47,3 +47,29 @@ describe('Monero preset network', () => {
     expect(listed).toContain('xmr--0');
   });
 });
+
+describe('Web preset networks', () => {
+  it('leave out Zcash and Monero on Web only', () => {
+    let webNetworkIds: string[] = [];
+    jest.isolateModules(() => {
+      const actualPlatformEnv =
+        jest.requireActual<typeof import('../platformEnv')>('../platformEnv');
+      jest.doMock('../platformEnv', () => ({
+        __esModule: true,
+        default: { ...actualPlatformEnv.default, isWeb: true },
+      }));
+      const webPresetNetworks =
+        require('./presetNetworks') as typeof import('./presetNetworks');
+      webNetworkIds = webPresetNetworks
+        .getPresetNetworks()
+        .map((network) => network.id);
+    });
+
+    expect(webNetworkIds).toContain('btc--0');
+    expect(webNetworkIds).not.toContain('zec--0');
+    expect(webNetworkIds).not.toContain('xmr--0');
+    expect(getPresetNetworks().map((network) => network.id)).toEqual(
+      expect.arrayContaining(['zec--0', 'xmr--0']),
+    );
+  });
+});

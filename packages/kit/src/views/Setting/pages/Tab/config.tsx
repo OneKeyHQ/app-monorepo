@@ -559,18 +559,21 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             }),
             configs: [
               [
-                {
-                  id: 'privacy',
-                  icon: 'ShieldOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.trade_privacy_mode,
-                  }),
-                  testID: 'settings-wallet-privacy',
-                  settingRoute: EModalSettingRoutes.SettingPrivacy,
-                  onPress: (navigation) => {
-                    navigation?.push(EModalSettingRoutes.SettingPrivacy);
-                  },
-                },
+                // Lists the privacy chains, which Web does not offer.
+                !platformEnv.isWeb
+                  ? {
+                      id: 'privacy',
+                      icon: 'ShieldOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.trade_privacy_mode,
+                      }),
+                      testID: 'settings-wallet-privacy',
+                      settingRoute: EModalSettingRoutes.SettingPrivacy,
+                      onPress: (navigation) => {
+                        navigation?.push(EModalSettingRoutes.SettingPrivacy);
+                      },
+                    }
+                  : undefined,
                 {
                   id: 'address-book',
                   icon: 'ContactsOutline',
