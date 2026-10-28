@@ -34,6 +34,7 @@ module.exports = async () => {
       },
     },
     cacheDirectory: `${cacheDirectory}/.app-mono-jest-cache`,
+    testSequencer: '<rootDir>/development/jest/balancedTestSequencer.js',
     setupFilesAfterEnv: [
       './jest-setup.js',
       './node_modules/react-native-gesture-handler/jestSetup.js',
