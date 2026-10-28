@@ -320,12 +320,18 @@ function getPerpTokenSelectorDynamicTabItems<
 >({
   items,
   tokens,
+  filteredQuery,
   useSortedItemsOrder,
 }: {
   items: T[];
   tokens: string[];
+  filteredQuery?: string;
   useSortedItemsOrder?: boolean;
 }) {
+  if (filteredQuery?.trim()) {
+    return items;
+  }
+
   const tokenNameSet = new Set(
     tokens.map((token) => token.trim()).filter(Boolean),
   );

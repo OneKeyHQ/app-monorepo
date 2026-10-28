@@ -77,8 +77,7 @@ import {
 
 type IRewardModule = keyof IInviteeRewardsOverview;
 
-// Perks copy. Perks speaks of rewards, like its "My Rewards" entry in the
-// activity hub; the invite tab speaks of commission.
+// Perks copy. Perks speaks of rewards; the invite tab speaks of commission.
 function useBuildMyRewardsCopy() {
   const intl = useIntl();
   return useMemo(() => {
