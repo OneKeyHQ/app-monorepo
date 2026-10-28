@@ -9,8 +9,13 @@ import { OverlayDialogPresentation } from './OverlayDialogPresentation';
 
 import type { IOverlayViewProps } from '@onekeyfe/react-native-native-overlay';
 let mockProps: IOverlayViewProps;
+let mockSurfaceProps: { width?: unknown };
+const mockSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 jest.mock('react-native', () => ({
   useWindowDimensions: () => ({ width: 1000, height: 800 }),
+}));
+jest.mock('../../hooks/useLayout', () => ({
+  useSafeAreaInsets: () => mockSafeAreaInsets,
 }));
 jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: ({ children }: { children?: ReactNode }) => (
@@ -27,20 +32,28 @@ jest.mock('../../hooks/useStyle', () => ({
   useTheme: () => ({ bg: { val: '#fff' }, bgBackdrop: { val: '#0004' } }),
 }));
 jest.mock('../../primitives', () => ({
-  ThemeableStack: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
+  ThemeableStack: ({
+    children,
+    ...props
+  }: {
+    children?: ReactNode;
+    width?: unknown;
+  }) => {
+    mockSurfaceProps = props;
+    return <div>{children}</div>;
+  },
 }));
 jest.mock('../../layouts/ScrollView', () => ({
   ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: true, isNativeAndroid: true },
+  default: { isNative: true, isNativeAndroid: true, isNativeIOS: false },
 }));
 const nativeEnv = platformEnv as {
   isNative: boolean;
   isNativeAndroid: boolean;
+  isNativeIOS: boolean;
 };
 const pageScope = { hostKey: 'main', ownerKey: 'screen' };
 const dialogProps = {
@@ -57,6 +70,9 @@ const dialogProps = {
 afterEach(() => {
   nativeEnv.isNative = true;
   nativeEnv.isNativeAndroid = true;
+  nativeEnv.isNativeIOS = false;
+  mockSafeAreaInsets.left = 0;
+  mockSafeAreaInsets.right = 0;
 });
 it('delivers sheet animation completion only after the host finishes', () => {
   const onRequestClose = jest.fn();
@@ -118,4 +134,29 @@ it('leaves page overlays and non-Android presentations without a gesture root', 
   nativeEnv.isNativeAndroid = false;
   rerender(<OverlayDialogPresentation {...dialogProps} />);
   expect(queryByTestId('dialog-gesture-root')).toBeNull();
+});
+
+it('fits an iOS global sheet to the safe-area width of a landscape window', () => {
+  nativeEnv.isNativeAndroid = false;
+  nativeEnv.isNativeIOS = true;
+  mockSafeAreaInsets.left = 62;
+  mockSafeAreaInsets.right = 62;
+  render(<OverlayDialogPresentation {...dialogProps} isSheet />);
+  expect(mockSurfaceProps.width).toBe(876);
+});
+
+it('keeps page sheets and Android sheets at the window width', () => {
+  mockSafeAreaInsets.left = 62;
+  mockSafeAreaInsets.right = 62;
+  const { rerender } = render(
+    <OverlayDialogPresentation {...dialogProps} isSheet />,
+  );
+  expect(mockSurfaceProps.width).toBeUndefined();
+
+  nativeEnv.isNativeAndroid = false;
+  nativeEnv.isNativeIOS = true;
+  rerender(
+    <OverlayDialogPresentation {...dialogProps} isSheet page={pageScope} />,
+  );
+  expect(mockSurfaceProps.width).toBeUndefined();
 });
