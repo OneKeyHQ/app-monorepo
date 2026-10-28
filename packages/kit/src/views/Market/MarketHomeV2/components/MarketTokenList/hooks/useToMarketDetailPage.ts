@@ -109,11 +109,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
     const previewAddress = item.address ?? item.tokenAddress;
 
-    if (
-      (!previewAddress && !item.isNative) ||
-      !item.name ||
-      typeof item.decimals !== 'number'
-    ) {
+    if ((!previewAddress && !item.isNative) || !item.name) {
       return undefined;
     }
 

@@ -1,5 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+
+import { useIsFocused } from '@react-navigation/native';
 
 import { Stack, XStack } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -51,6 +53,7 @@ export function MarketDetailWatchlistSidebarFrame({
   hidden?: boolean;
   children: ReactNode;
 }) {
+  const isFocused = useIsFocused();
   const [{ open: savedDockedOpen }, setPersist] =
     useMarketDetailWatchlistSidebarPersistAtom();
   const [{ data: watchListData, isMounted: isWatchListMounted }] =
@@ -89,9 +92,9 @@ export function MarketDetailWatchlistSidebarFrame({
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
-    // A tab hidden by the navigator reports a 0px layout. Taking it would flip
-    // the frame to the overlay mode (closed) and back to docked on return,
-    // which remounts the sidebar and replays its slide-in.
+    // Hidden tabs measure zero, but a modal can blur a visible page. Keep
+    // real resizes under modals while ignoring hidden-tab measurements, which
+    // would flip the frame to the closed overlay mode and back on return.
     if (width > 0) {
       lastFrameWidth = width;
       setFrameWidth(width);
@@ -101,6 +104,11 @@ export function MarketDetailWatchlistSidebarFrame({
   // Only an open the user asks for slides in; a docked sidebar that is
   // already open when the page appears shows in place.
   const [animateDockedEnter, setAnimateDockedEnter] = useState(false);
+  useEffect(() => {
+    if (!isFocused) {
+      setAnimateDockedEnter(false);
+    }
+  }, [isFocused]);
 
   const setOpen = useCallback(
     (open: boolean) => {
