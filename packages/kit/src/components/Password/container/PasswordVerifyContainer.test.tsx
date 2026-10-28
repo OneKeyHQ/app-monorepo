@@ -25,6 +25,18 @@ import usePasswordProtection from '../hooks/usePasswordProtection';
 
 import PasswordVerifyContainer from './PasswordVerifyContainer';
 
+const mockAtomState: {
+  biologyAuthInfo: { authType: number[]; isSupport: boolean };
+  passwordPersist: { webAuthCredentialId?: string };
+} = {
+  biologyAuthInfo: { authType: [1], isSupport: true },
+  passwordPersist: {},
+};
+const mockWebAuth = {
+  verifiedPasswordWebAuth: jest.fn(),
+  checkWebAuth: jest.fn(),
+};
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -69,9 +81,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/password', () => ({
     jest.requireActual<typeof import('react')>('react').useState({
       passwordVerifyStatus: { value: 'default' },
     }),
-  usePasswordBiologyAuthInfoAtom: () => [{ authType: [1], isSupport: true }],
+  usePasswordBiologyAuthInfoAtom: () => [mockAtomState.biologyAuthInfo],
   usePasswordModeAtom: () => ['password'],
-  usePasswordPersistAtom: () => [{}],
+  usePasswordPersistAtom: () => [mockAtomState.passwordPersist],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/settings', () => ({
   useSettingsPersistAtom: () => [{ isBiologyAuthSwitchOn: true }],
@@ -91,6 +103,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     servicePassword: {
       verifyPassword: jest.fn(),
       verifyPasswordFromInput: jest.fn(),
+      getCachedPassword: jest.fn().mockResolvedValue(undefined),
       resetPasswordStatus: jest.fn(),
       waitPasswordEncryptorReady: jest.fn().mockResolvedValue(undefined),
     },
@@ -103,7 +116,7 @@ jest.mock('../../../views/Setting/hooks', () => ({
   useResetApp: jest.fn(),
 }));
 jest.mock('../../BiologyAuthComponent/hooks/useWebAuthActions', () => ({
-  useWebAuthActions: () => ({}),
+  useWebAuthActions: () => mockWebAuth,
 }));
 jest.mock('../components/PasswordVerify', () => ({
   __esModule: true,
@@ -119,6 +132,11 @@ function captured(): ComponentProps<typeof PasswordVerify> {
   assert(props, 'Password verification props were not captured');
   return props;
 }
+
+beforeEach(() => {
+  mockAtomState.biologyAuthInfo = { authType: [1], isSupport: true };
+  mockAtomState.passwordPersist = {};
+});
 
 describe('Windows Hello interrupted challenge handling', () => {
   const countAttempt = jest.fn();
@@ -247,6 +265,42 @@ describe('Windows Hello interrupted challenge handling', () => {
       });
       expect(countAttempt).not.toHaveBeenCalled();
       expect(setBiologyEnabled).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [0, { value: EPasswordVerifyStatus.RETRY }, 1, 0],
+    [
+      2,
+      { value: EPasswordVerifyStatus.RETRY, message: 'auth_biometric_failed' },
+      0,
+      1,
+    ],
+  ])(
+    'counts a dismissed passkey prompt with %s previous attempts',
+    async (attempts, status, counted, disabled) => {
+      platformEnv.isDesktopWin = false;
+      mockAtomState.biologyAuthInfo = { authType: [1], isSupport: false };
+      mockAtomState.passwordPersist = { webAuthCredentialId: 'credential-id' };
+      mockWebAuth.verifiedPasswordWebAuth.mockRejectedValue(
+        Object.assign(new Error(''), { name: BIOLOGY_AUTH_CANCEL_ERROR }),
+      );
+      const protection = jest
+        .mocked(usePasswordProtection)
+        .getMockImplementation();
+      assert(protection);
+      jest.mocked(usePasswordProtection).mockReturnValue({
+        ...protection(false),
+        verifyPeriodBiologyAuthAttempts: attempts,
+      });
+      render(<PasswordVerifyContainer onVerifyRes={jest.fn()} />);
+      await act(async () => {
+        await captured().onBiologyAuth();
+      });
+      expect(mockWebAuth.verifiedPasswordWebAuth).toHaveBeenCalledTimes(1);
+      expect(captured().status).toEqual(status);
+      expect(countAttempt).toHaveBeenCalledTimes(counted);
+      expect(setBiologyEnabled).toHaveBeenCalledTimes(disabled);
     },
   );
 

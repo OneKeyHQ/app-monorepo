@@ -338,6 +338,7 @@ const PasswordVerifyContainer = ({
         ...v,
         passwordVerifyStatus: { value: EPasswordVerifyStatus.VERIFYING },
       }));
+      const isWebAuth = !isEnable && isBiologyAuthEnable;
       try {
         if (isExtLockNoCachePassword) {
           // Try to retrieve password from secure storage (WebAuthn PRF)
@@ -375,7 +376,7 @@ const PasswordVerifyContainer = ({
           }
         } else {
           let biologyAuthRes;
-          if (!isEnable && isBiologyAuthEnable) {
+          if (isWebAuth) {
             // webAuth verify
             biologyAuthRes = await verifiedPasswordWebAuth();
           } else {
@@ -428,6 +429,11 @@ const PasswordVerifyContainer = ({
             className: EOneKeyErrorClassNames.IncorrectPassword,
           });
         const isCancel = error?.name === BIOLOGY_AUTH_CANCEL_ERROR;
+        // WebAuthn reports a lost or removed passkey the same way as a
+        // dismissed prompt, so its dismissals still count toward falling back
+        // to the passcode.
+        const isCountedCancel =
+          isCancel && (isExtLockNoCachePassword || isWebAuth);
         const isNativeBiometricError = error?.cause === biologyAuthNativeError;
         const isAborted =
           platformEnv.isDesktopWin &&
@@ -443,10 +449,18 @@ const PasswordVerifyContainer = ({
         if (isAborted) {
           message = undefined;
         } else if (isCancel) {
-          // Dismissing the system prompt is the user's choice, not a failed
-          // attempt: say nothing and leave the attempt counter alone. RETRY
-          // (not DEFAULT) keeps the prompt from reopening by itself.
-          message = undefined;
+          // Dismissing the system prompt is the user's choice: say nothing.
+          // RETRY (not DEFAULT) keeps the prompt from reopening by itself. Only
+          // a counted dismissal that reaches the limit explains why the
+          // biometric action goes away.
+          message =
+            isCountedCancel &&
+            verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+              ? intl.formatMessage(
+                  { id: ETranslations.auth_biometric_failed },
+                  { biometric: title },
+                )
+              : undefined;
           isRetry = true;
         } else if (isSecureStorageUnavailable) {
           // A secure-storage / keychain outage is not a wrong password.
@@ -481,13 +495,14 @@ const PasswordVerifyContainer = ({
           message = undefined;
         }
         // Skip biology auth protection for callback errors, secure-storage
-        // outages, DB open failures, and transient failures (message
-        // undefined): none of these is a real biometric/password attempt.
+        // outages, DB open failures, transient failures and uncounted
+        // dismissals (message undefined): none of these is a real
+        // biometric/password attempt.
         if (
           !isCallbackError &&
           !isSecureStorageUnavailable &&
           !isDbOpenError &&
-          message !== undefined
+          (message !== undefined || isCountedCancel)
         ) {
           if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
             setVerifyPeriodBiologyEnable(false);
