@@ -188,6 +188,7 @@ it.each([false, true])(
     expect(mockRiskCheck).toHaveBeenCalledWith(targetToken);
     expect(mockCommitToken).toHaveBeenCalledWith(targetToken, {
       resetReceiveAmount: true,
+      manual: true,
     });
     mockCurrentToken = targetToken;
     mockStockId = 'NVDA';
@@ -314,6 +315,7 @@ it('retains the target preview through commit and confirms variants independentl
   });
   expect(mockCommitToken).toHaveBeenCalledWith(targetToken, {
     resetReceiveAmount: true,
+    manual: true,
   });
   // The trade context may commit on a later render than the selection operation.
   expect(mockSelection?.pendingStock).toEqual(targetStock);
@@ -416,6 +418,7 @@ it('keeps the newest company visible when an earlier ticker request completes la
   expect(mockCommitToken).toHaveBeenCalledTimes(1);
   expect(mockCommitToken).toHaveBeenCalledWith(googleToken, {
     resetReceiveAmount: true,
+    manual: true,
   });
 });
 
@@ -465,8 +468,10 @@ it('moves a restored token to bStocks only once the fetched variant list confirm
     rerender(<Subject />);
   });
   expect(mockFetchVariantToken).toHaveBeenCalledWith(bStocks);
+  // An automatic variant correction keeps any Recent trades attribution.
   expect(mockCommitToken).toHaveBeenCalledWith(bStocksToken, {
     resetReceiveAmount: true,
+    manual: false,
   });
 });
 
@@ -560,6 +565,6 @@ it('keeps a manual pick confirmed in the risk prompt when the variant list lands
   act(() => onConfirm(() => undefined));
   expect(mockCommitToken).toHaveBeenCalledWith(
     expect.objectContaining({ contractAddress: '0xposition-b' }),
-    { resetReceiveAmount: true },
+    { resetReceiveAmount: true, manual: true },
   );
 });

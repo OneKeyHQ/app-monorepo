@@ -263,8 +263,6 @@ export function logSwapReviewApiResult({
       quoteId: swapInfo.reviewAnalyticsContext?.quoteId ?? quote.quoteId,
       orderId: getSwapReviewOrderId(swapInfo) ?? '',
       status,
-      message:
-        error === undefined ? undefined : getSwapReviewErrorMessage(error),
       swapType: getSwapExecutionTypeFromQuoteResult(quote),
       slippage: String(quote.slippage ?? ''),
       fromNetworkId: swapInfo.sender.token.networkId,
@@ -284,10 +282,12 @@ export function logSwapReviewApiResult({
     if (event === 'estimateFee') {
       defaultLogger.swap.swapEstimateFee.swapEstimateFee({
         ...params,
+        message:
+          error === undefined ? undefined : getSwapReviewErrorMessage(error),
         isBatch,
       });
     } else {
-      defaultLogger.swap.swapSendTx.swapSendTx(params);
+      defaultLogger.swap.swapSendTx.swapSendTx({ ...params, error });
     }
   } catch {
     // Analytics payload/transport failures must not interrupt transaction execution.

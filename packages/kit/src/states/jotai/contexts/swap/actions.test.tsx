@@ -73,7 +73,7 @@ import {
 
 import { jotaiContextStore } from '../../utils/jotaiContextStore';
 
-import { useSwapActions } from './actions';
+import { useSwapActions, useSwapRecentTokenPairAttribution } from './actions';
 import {
   ProviderJotaiContextSwap,
   swapActiveSelectedFromTokenBalanceAtom,
@@ -110,6 +110,7 @@ import {
   swapQuoteFetchingAtom,
   swapQuoteIntervalCountAtom,
   swapQuoteListAtom,
+  swapRecentTokenPairSelectionAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectTokenDetailFetchingAtom,
@@ -10090,5 +10091,199 @@ describe('useSwapActions', () => {
     expect(
       store.get(swapProPositionsCacheAtom()).byOwner[ownerKey].tokens,
     ).toEqual([ethToken]);
+  });
+});
+
+describe('Recent trades attribution', () => {
+  function renderActions() {
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    return { store, actions: result.current };
+  }
+
+  it('records the picked pair after applying it', async () => {
+    const { store, actions } = renderActions();
+    await act(async () => {
+      await actions.selectRecentTokenPair({
+        fromToken: usdcToken,
+        toToken: usdtToken,
+      });
+    });
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(usdcToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(usdtToken);
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual({
+      fromToken: usdcToken,
+      toToken: usdtToken,
+    });
+  });
+
+  it.each([
+    ['re-picking the same from token', 'from', usdcToken],
+    ['picking another to token', 'to', bnbToken],
+  ] as const)('ends the attribution on %s', async (_label, side, token) => {
+    const { store, actions } = renderActions();
+    await act(async () => {
+      await actions.selectRecentTokenPair({
+        fromToken: usdcToken,
+        toToken: usdtToken,
+      });
+    });
+    await act(async () => {
+      await (side === 'from'
+        ? actions.selectFromToken(token)
+        : actions.selectToToken(token));
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it('clears only the pick an order was attributed to', async () => {
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(
+      () => ({
+        actions: useSwapActions().current,
+        attribution: useSwapRecentTokenPairAttribution().current,
+      }),
+      { wrapper: Wrapper },
+    );
+    const { actions, attribution } = result.current;
+    const pickedOrder = { fromToken: usdcToken, toToken: usdtToken };
+    await act(async () => {
+      await actions.selectRecentTokenPair(pickedOrder);
+    });
+    expect(
+      attribution.getRecentTokenPairSelectionFor({
+        fromToken: ethToken,
+        toToken: uniToken,
+      }),
+    ).toBeUndefined();
+    const olderPick = attribution.getRecentTokenPairSelectionFor(pickedOrder);
+    expect(olderPick).toEqual(pickedOrder);
+
+    await act(async () => {
+      await actions.selectRecentTokenPair(pickedOrder);
+    });
+    act(() => {
+      attribution.clearRecentTokenPairSelection(olderPick!);
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual(pickedOrder);
+
+    const newerPick = attribution.getRecentTokenPairSelectionFor(pickedOrder);
+    act(() => {
+      attribution.clearRecentTokenPairSelection(newerPick!);
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it('ends the attribution when the pair is reversed', async () => {
+    const { store, actions } = renderActions();
+    await act(async () => {
+      await actions.selectRecentTokenPair({
+        fromToken: usdcToken,
+        toToken: usdtToken,
+      });
+    });
+    act(() => {
+      actions.alternationToken();
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it('records a Stock pick unless a user pick superseded it', () => {
+    const { store, actions } = renderActions();
+    act(() => {
+      store.set(swapSelectFromTokenAtom(), usdcToken);
+      store.set(swapSelectToTokenAtom(), usdtToken);
+    });
+
+    let generation = 0;
+    act(() => {
+      generation = actions.beginStockRecentTokenPairPick();
+      // An automatic sync landing meanwhile does not supersede the pick.
+      store.set(swapStockExecutionTokenSyncIdAtom(), 99);
+      actions.markRecentTokenPairSelection({ generation });
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toEqual({
+      fromToken: usdcToken,
+      toToken: usdtToken,
+    });
+
+    act(() => {
+      generation = actions.beginStockRecentTokenPairPick();
+      actions.endRecentTokenPairAttribution();
+      actions.markRecentTokenPairSelection({ generation });
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+
+  it('ends the attribution when switching tabs away and back', async () => {
+    const { store, Wrapper } = createWrapperWithStore((instance) => {
+      instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+    });
+    const { result } = renderHook(
+      () => ({
+        actions: useSwapActions().current,
+        attribution: useSwapRecentTokenPairAttribution().current,
+      }),
+      { wrapper: Wrapper },
+    );
+    const pickedPair = { fromToken: usdcToken, toToken: usdtToken };
+    await act(async () => {
+      await result.current.actions.selectRecentTokenPair(pickedPair);
+    });
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.LIMIT,
+        'evm--56',
+      );
+    });
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.SWAP,
+        'evm--56',
+      );
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+    expect(
+      result.current.attribution.getRecentTokenPairSelectionFor(pickedPair),
+    ).toBeUndefined();
+  });
+  it('drops a pending Stock pick when the tab changes before it syncs', async () => {
+    const { store, actions } = renderActions();
+    act(() => {
+      store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      store.set(swapSelectFromTokenAtom(), usdcToken);
+      store.set(swapSelectToTokenAtom(), usdtToken);
+    });
+    let generation = 0;
+    act(() => {
+      generation = actions.beginStockRecentTokenPairPick();
+    });
+    await act(async () => {
+      await actions.swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, 'evm--56');
+    });
+    act(() => {
+      actions.markRecentTokenPairSelection({ generation });
+    });
+    expect(store.get(swapRecentTokenPairSelectionAtom())).toBeUndefined();
+  });
+  it('ends the previous pick as soon as a new Stock pick starts', () => {
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(
+      () => ({
+        actions: useSwapActions().current,
+        attribution: useSwapRecentTokenPairAttribution().current,
+      }),
+      { wrapper: Wrapper },
+    );
+    const pairA = { fromToken: usdcToken, toToken: usdtToken };
+    act(() => {
+      store.set(swapRecentTokenPairSelectionAtom(), pairA);
+      result.current.actions.beginStockRecentTokenPairPick();
+    });
+    expect(
+      result.current.attribution.getRecentTokenPairSelectionFor(pairA),
+    ).toBeUndefined();
   });
 });
