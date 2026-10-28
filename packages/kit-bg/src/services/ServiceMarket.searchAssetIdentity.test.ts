@@ -239,11 +239,32 @@ it('skips a stalled candidate and resolves a later matching native asset', async
         : bitcoinDetail,
     );
     const search = service.searchV2Token('BTC');
-    await jest.advanceTimersByTimeAsync(2000);
-    expect(await search).toEqual([{ ...bitcoin, assetId: 'bitcoin' }]);
+    await jest.advanceTimersByTimeAsync(500);
+    expect(await Promise.race([search, Promise.resolve(undefined)])).toEqual([
+      { ...bitcoin, assetId: 'bitcoin' },
+    ]);
     expect(await service.searchV2Token('BTC')).toEqual([
       { ...bitcoin, assetId: 'bitcoin' },
     ]);
+    await jest.advanceTimersByTimeAsync(1500);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('retains the native favorite identity when detail arrives after one second', async () => {
+  jest.useFakeTimers();
+  try {
+    const { service, detail } = createService();
+    detail.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve(bitcoinDetail), 1500);
+        }),
+    );
+    const search = service.searchV2Token('BTC');
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(await search).toEqual([{ ...bitcoin, assetId: 'bitcoin' }]);
   } finally {
     jest.useRealTimers();
   }

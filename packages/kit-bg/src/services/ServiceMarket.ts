@@ -37,7 +37,6 @@ import ServiceBase from './ServiceBase';
 
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
 const SEARCH_ASSET_RESOLUTION_TIMEOUT_MS = 2000;
-const SEARCH_ASSET_CANDIDATE_TIMEOUT_MS = 1000;
 
 async function withSearchAssetTimeout<T>(
   promise: Promise<T>,
@@ -132,7 +131,7 @@ class ServiceMarket extends ServiceBase {
           currency: 'usd',
           autoHandleError: false,
         }),
-        SEARCH_ASSET_CANDIDATE_TIMEOUT_MS,
+        SEARCH_ASSET_RESOLUTION_TIMEOUT_MS,
       );
       return {
         assetId: detail.asset.assetId,
@@ -154,30 +153,38 @@ class ServiceMarket extends ServiceBase {
       const candidates = assets.filter(
         (asset) => asset.symbol.trim().toUpperCase() === symbol,
       );
+      let resolveMatch: ((assetId: string) => void) | undefined;
+      const matchedAsset = new Promise<string>((resolve) => {
+        resolveMatch = resolve;
+      });
       let failedCandidate: { error: unknown } | undefined;
-      for (const candidate of candidates) {
-        try {
-          const detail = await this._fetchMarketAssetNativeVariants(
-            candidate.assetId,
-          );
-          // A shared symbol is insufficient: verify the native network variant.
-          if (
-            resolveMarketAssetVariant({
-              detail,
-              networkId,
-              tokenAddress: '',
-              isNative: true,
-            })
-          ) {
-            return detail.assetId;
+      // Resolve the first verified match without waiting for stalled peers.
+      const completedCandidates = Promise.all(
+        candidates.map(async (candidate) => {
+          try {
+            const detail = await this._fetchMarketAssetNativeVariants(
+              candidate.assetId,
+            );
+            if (
+              resolveMarketAssetVariant({
+                detail,
+                networkId,
+                tokenAddress: '',
+                isNative: true,
+              })
+            ) {
+              resolveMatch?.(detail.assetId);
+            }
+          } catch (error) {
+            failedCandidate = { error };
           }
-        } catch (error) {
-          failedCandidate = { error };
-        }
-      }
-      // Rejected lookups are evicted so a transient failure can be retried.
-      if (failedCandidate) throw failedCandidate.error;
-      return undefined;
+        }),
+      ).then(() => {
+        // Rejected lookups are evicted so a transient failure can be retried.
+        if (failedCandidate) throw failedCandidate.error;
+        return undefined;
+      });
+      return Promise.race([matchedAsset, completedCandidates]);
     },
     {
       promise: true,
