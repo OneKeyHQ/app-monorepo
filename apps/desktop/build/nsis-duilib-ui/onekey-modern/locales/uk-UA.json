@@ -7,7 +7,7 @@
   "options.title":"Виберіть місце встановлення","options.subtitle":"Скористайтеся рекомендованим місцем або виберіть іншу папку.","options.pathLabel":"Встановити в","options.browse":"Огляд","options.install":"Встановити зараз","upgrade.title":"Оновити OneKey","upgrade.subtitle":"Попередні налаштування встановлення буде збережено.","upgrade.pathLabel":"Місце оновлення","upgrade.install":"Оновити зараз",
   "uninstall.title":"Видалення OneKey",
   "uninstall.confirmTitle": "Видалити OneKey?",
-  "uninstall.confirmSubtitle": "Усі локальні дані користувача, зокрема гаманці та налаштування, буде видалено назавжди. Перш ніж продовжити, створіть резервну копію фраз відновлення або приватних ключів.",
+  "uninstall.confirmSubtitle": "Усі локальні дані OneKey поточного облікового запису Windows, зокрема гаманці та налаштування, буде видалено назавжди. Перш ніж продовжити, створіть резервну копію фраз відновлення або приватних ключів.",
   "uninstall.confirm": "Видалити",
   "uninstall.cancel": "Скасувати","uninstall.subtitle":"Файли програми безпечно видаляються. Не закривайте це вікно.","uninstall.status":"Обробка файлів програми…","uninstall.finishTitle":"OneKey видалено","uninstall.finishSubtitle":"Файли програми безпечно видалено. Дякуємо, що користувалися OneKey.","uninstall.close":"Готово","uninstallError.title":"Видалення не завершено","uninstallError.subtitle":"Спробуйте ще раз зараз або видаліть OneKey пізніше.","uninstallError.retry":"Повторити видалення","error.title":"Встановлення не завершено","error.subtitle":"Ваші наявні дані не пошкоджено. Спробуйте ще раз або встановіть пізніше.","error.retry":"Спробувати ще раз","finish.safeHint":"Натисніть «Відкрити OneKey», щоб почати"
 }

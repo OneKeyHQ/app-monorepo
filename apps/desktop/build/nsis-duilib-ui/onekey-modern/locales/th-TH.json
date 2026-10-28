@@ -7,7 +7,7 @@
   "options.title":"เลือกตำแหน่งติดตั้ง","options.subtitle":"ใช้ตำแหน่งที่แนะนำหรือเลือกโฟลเดอร์อื่น","options.pathLabel":"ติดตั้งไปยัง","options.browse":"เรียกดู","options.install":"ติดตั้งตอนนี้","upgrade.title":"อัปเดต OneKey","upgrade.subtitle":"การตั้งค่าการติดตั้งก่อนหน้าจะยังคงอยู่","upgrade.pathLabel":"ตำแหน่งอัปเดต","upgrade.install":"อัปเดตตอนนี้",
   "uninstall.title":"กำลังถอนการติดตั้ง OneKey",
   "uninstall.confirmTitle": "ถอนการติดตั้ง OneKey หรือไม่",
-  "uninstall.confirmSubtitle": "ข้อมูลผู้ใช้ทั้งหมดในเครื่อง รวมถึงกระเป๋าเงินและการตั้งค่า จะถูกลบอย่างถาวร โปรดสำรองวลีการกู้คืนหรือคีย์ส่วนตัวก่อนดำเนินการต่อ",
+  "uninstall.confirmSubtitle": "ข้อมูล OneKey ทั้งหมดที่เก็บไว้ในเครื่องสำหรับบัญชี Windows ปัจจุบัน รวมถึงกระเป๋าเงินและการตั้งค่า จะถูกลบอย่างถาวร โปรดสำรองวลีการกู้คืนหรือคีย์ส่วนตัวก่อนดำเนินการต่อ",
   "uninstall.confirm": "ถอนการติดตั้ง",
   "uninstall.cancel": "ยกเลิก","uninstall.subtitle":"กำลังนำไฟล์แอปออกอย่างปลอดภัย โปรดเปิดหน้าต่างนี้ไว้","uninstall.status":"กำลังจัดการไฟล์แอป…","uninstall.finishTitle":"ถอนการติดตั้ง OneKey แล้ว","uninstall.finishSubtitle":"นำไฟล์แอปออกอย่างปลอดภัยแล้ว ขอบคุณที่ใช้ OneKey","uninstall.close":"เสร็จสิ้น","uninstallError.title":"ถอนการติดตั้งไม่เสร็จ","uninstallError.subtitle":"ลองอีกครั้งตอนนี้ หรือถอนการติดตั้ง OneKey ภายหลัง","uninstallError.retry":"ลองถอนการติดตั้งอีกครั้ง","error.title":"ติดตั้งไม่เสร็จ","error.subtitle":"ข้อมูลเดิมของคุณยังปลอดภัย ลองอีกครั้งหรือติดตั้งภายหลัง","error.retry":"ลองอีกครั้ง","finish.safeHint":"คลิก “เปิด OneKey” เพื่อเริ่มใช้งาน"
 }

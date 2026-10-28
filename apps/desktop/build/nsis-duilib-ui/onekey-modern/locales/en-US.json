@@ -58,7 +58,7 @@
   "upgrade.install": "Update now",
   "uninstall.title": "Uninstalling OneKey",
   "uninstall.confirmTitle": "Uninstall OneKey?",
-  "uninstall.confirmSubtitle": "All local user data, including wallets and settings, will be permanently deleted. Back up your recovery phrases or private keys before continuing.",
+  "uninstall.confirmSubtitle": "All local OneKey data for the current Windows account, including wallets and settings, will be permanently deleted. Back up your recovery phrases or private keys before continuing.",
   "uninstall.confirm": "Uninstall",
   "uninstall.cancel": "Cancel",
   "uninstall.subtitle": "Application files are being removed safely. Keep this window open.",

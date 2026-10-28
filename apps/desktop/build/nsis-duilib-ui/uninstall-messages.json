@@ -1,13 +1,13 @@
 {
-  "nl": "Alle lokale gebruikersgegevens worden permanent gewist, inclusief wallets en instellingen.\n\nZorg dat u een back-up van uw herstelzinnen of privésleutels hebt gemaakt voordat u doorgaat.",
-  "da": "Alle lokale brugerdata slettes permanent, herunder wallets og indstillinger.\n\nSørg for, at du har sikkerhedskopieret dine gendannelsesfraser eller private nøgler, før du fortsætter.",
-  "sv": "Alla lokala användardata raderas permanent, inklusive plånböcker och inställningar.\n\nSe till att du har säkerhetskopierat dina återställningsfraser eller privata nycklar innan du fortsätter.",
-  "nb": "Alle lokale brukerdata slettes permanent, inkludert lommebøker og innstillinger.\n\nSørg for at du har sikkerhetskopiert gjenopprettingsfrasene eller de private nøklene dine før du fortsetter.",
-  "fi": "Kaikki paikalliset käyttäjätiedot poistetaan pysyvästi, mukaan lukien lompakot ja asetukset.\n\nVarmista ennen jatkamista, että olet varmuuskopioinut palautuslauseesi tai yksityiset avaimesi.",
-  "pl": "Wszystkie lokalne dane użytkownika zostaną trwale usunięte, w tym portfele i ustawienia.\n\nPrzed kontynuowaniem upewnij się, że masz kopię zapasową fraz odzyskiwania lub kluczy prywatnych.",
-  "cs": "Všechna místní uživatelská data budou trvale odstraněna, včetně peněženek a nastavení.\n\nNež budete pokračovat, ujistěte se, že máte zálohované fráze pro obnovení nebo soukromé klíče.",
-  "sk": "Všetky miestne používateľské údaje sa natrvalo odstránia vrátane peňaženiek a nastavení.\n\nPred pokračovaním sa uistite, že máte zálohované frázy na obnovenie alebo súkromné kľúče.",
-  "hu": "Az összes helyi felhasználói adat véglegesen törlődik, beleértve a tárcákat és a beállításokat.\n\nA folytatás előtt győződjön meg arról, hogy biztonsági másolatot készített a helyreállítási kifejezésekről vagy a privát kulcsokról.",
-  "ar": "ستُحذف جميع بيانات المستخدم المحلية نهائياً، بما في ذلك المحافظ والإعدادات.\n\nقبل المتابعة، تأكد من الاحتفاظ بنسخة احتياطية من عبارات الاسترداد أو المفاتيح الخاصة.",
-  "tr": "Cüzdanlar ve ayarlar dahil tüm yerel kullanıcı verileri kalıcı olarak silinecektir.\n\nDevam etmeden önce kurtarma ifadelerinizi veya özel anahtarlarınızı yedeklediğinizden emin olun."
+  "nl": "Alle lokale OneKey-gegevens van het huidige Windows-account worden permanent gewist, inclusief wallets en instellingen.\n\nZorg dat u een back-up van uw herstelzinnen of privésleutels hebt gemaakt voordat u doorgaat.",
+  "da": "Alle lokale OneKey-data for den aktuelle Windows-konto slettes permanent, herunder wallets og indstillinger.\n\nSørg for, at du har sikkerhedskopieret dine gendannelsesfraser eller private nøgler, før du fortsætter.",
+  "sv": "Alla lokala OneKey-data för det aktuella Windows-kontot raderas permanent, inklusive plånböcker och inställningar.\n\nSe till att du har säkerhetskopierat dina återställningsfraser eller privata nycklar innan du fortsätter.",
+  "nb": "Alle lokale OneKey-data for den gjeldende Windows-kontoen slettes permanent, inkludert lommebøker og innstillinger.\n\nSørg for at du har sikkerhetskopiert gjenopprettingsfrasene eller de private nøklene dine før du fortsetter.",
+  "fi": "Kaikki nykyisen Windows-tilin paikalliset OneKey-tiedot poistetaan pysyvästi, mukaan lukien lompakot ja asetukset.\n\nVarmista ennen jatkamista, että olet varmuuskopioinut palautuslauseesi tai yksityiset avaimesi.",
+  "pl": "Wszystkie lokalne dane OneKey bieżącego konta Windows zostaną trwale usunięte, w tym portfele i ustawienia.\n\nPrzed kontynuowaniem upewnij się, że masz kopię zapasową fraz odzyskiwania lub kluczy prywatnych.",
+  "cs": "Všechna místní data OneKey aktuálního účtu Windows budou trvale odstraněna, včetně peněženek a nastavení.\n\nNež budete pokračovat, ujistěte se, že máte zálohované fráze pro obnovení nebo soukromé klíče.",
+  "sk": "Všetky miestne údaje OneKey aktuálneho účtu Windows sa natrvalo odstránia vrátane peňaženiek a nastavení.\n\nPred pokračovaním sa uistite, že máte zálohované frázy na obnovenie alebo súkromné kľúče.",
+  "hu": "A jelenlegi Windows-fiók összes helyi OneKey-adata véglegesen törlődik, beleértve a tárcákat és a beállításokat.\n\nA folytatás előtt győződjön meg arról, hogy biztonsági másolatot készített a helyreállítási kifejezésekről vagy a privát kulcsokról.",
+  "ar": "ستُحذف جميع بيانات OneKey المحلية لحساب Windows الحالي نهائياً، بما في ذلك المحافظ والإعدادات.\n\nقبل المتابعة، تأكد من الاحتفاظ بنسخة احتياطية من عبارات الاسترداد أو المفاتيح الخاصة.",
+  "tr": "Geçerli Windows hesabının cüzdanlar ve ayarlar dahil tüm yerel OneKey verileri kalıcı olarak silinecektir.\n\nDevam etmeden önce kurtarma ifadelerinizi veya özel anahtarlarınızı yedeklediğinizden emin olun."
 }

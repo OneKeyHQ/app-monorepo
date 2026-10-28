@@ -7,7 +7,7 @@
   "options.title":"Chọn nơi cài đặt","options.subtitle":"Dùng vị trí đề xuất hoặc chọn thư mục khác.","options.pathLabel":"Cài đặt vào","options.browse":"Duyệt","options.install":"Cài đặt ngay","upgrade.title":"Cập nhật OneKey","upgrade.subtitle":"Các thiết lập cài đặt trước đó sẽ được giữ nguyên.","upgrade.pathLabel":"Vị trí cập nhật","upgrade.install":"Cập nhật ngay",
   "uninstall.title":"Đang gỡ cài đặt OneKey",
   "uninstall.confirmTitle": "Gỡ cài đặt OneKey?",
-  "uninstall.confirmSubtitle": "Tất cả dữ liệu người dùng trên máy, bao gồm ví và cài đặt, sẽ bị xóa vĩnh viễn. Hãy sao lưu cụm từ khôi phục hoặc khóa riêng tư trước khi tiếp tục.",
+  "uninstall.confirmSubtitle": "Tất cả dữ liệu OneKey cục bộ của tài khoản Windows hiện tại, bao gồm ví và cài đặt, sẽ bị xóa vĩnh viễn. Hãy sao lưu cụm từ khôi phục hoặc khóa riêng tư trước khi tiếp tục.",
   "uninstall.confirm": "Gỡ cài đặt",
   "uninstall.cancel": "Hủy","uninstall.subtitle":"Các tệp ứng dụng đang được xóa an toàn. Hãy giữ cửa sổ này mở.","uninstall.status":"Đang sắp xếp các tệp ứng dụng…","uninstall.finishTitle":"OneKey đã được gỡ cài đặt","uninstall.finishSubtitle":"Các tệp ứng dụng đã được xóa an toàn. Cảm ơn bạn đã sử dụng OneKey.","uninstall.close":"Xong","uninstallError.title":"Gỡ cài đặt chưa hoàn tất","uninstallError.subtitle":"Hãy thử lại ngay hoặc gỡ cài đặt OneKey sau.","uninstallError.retry":"Thử gỡ cài đặt lại","error.title":"Cài đặt chưa hoàn tất","error.subtitle":"Dữ liệu hiện có của bạn vẫn nguyên vẹn. Hãy thử lại hoặc cài đặt sau.","error.retry":"Thử lại","finish.safeHint":"Nhấp vào “Mở OneKey” để bắt đầu sử dụng"
 }
