@@ -142,9 +142,11 @@ export function isZcashRuntimeDatabaseBroken(e: unknown): boolean {
 }
 
 export function createZcashSetupIncompleteError(): Error {
-  const error = new OneKeyLocalError(
-    localWalletText(ETranslations.privacy_error_setup_incomplete__msg),
-  );
+  // The key survives the UI bridge; the tag below does not.
+  const error = new OneKeyLocalError({
+    key: ETranslations.privacy_error_setup_incomplete__msg,
+    message: localWalletText(ETranslations.privacy_error_setup_incomplete__msg),
+  });
   (error as unknown as Record<string, unknown>)[ZCASH_SETUP_INCOMPLETE] = true;
   return error;
 }

@@ -29,6 +29,11 @@ import {
   useHardwareUiStateAtom,
   useThirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ILocalWalletAccountAddresses } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
+import {
+  isLocalWalletRuntimeUnavailableError,
+  isLocalWalletSetupIncompleteError,
+} from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
@@ -104,6 +109,32 @@ import type {
   IReceiveShareImageGeneratorRef,
 } from '../components/ReceiveShare';
 import type { RouteProp } from '@react-navigation/core';
+
+// Only a setup-incomplete read is repaired by Retry setup; the others re-read
+// or point to where the data can be deleted.
+type ILocalWalletAddressErrorKind =
+  | 'setupIncomplete'
+  | 'identityMismatch'
+  | 'runtimeUnavailable'
+  | 'failed';
+
+const LOCAL_WALLET_ADDRESS_ERROR_MESSAGES: Record<
+  ILocalWalletAddressErrorKind,
+  ETranslations
+> = {
+  setupIncomplete: ETranslations.privacy_error_setup_incomplete__msg,
+  identityMismatch: ETranslations.privacy_error_identity_mismatch__msg,
+  runtimeUnavailable: ETranslations.privacy_error_runtime_unavailable__msg,
+  failed: ETranslations.global_unknown_error_retry_message,
+};
+
+// Scoped to the network and account it was read for.
+type ILocalWalletAddressRead = {
+  networkId: string;
+  accountId: string;
+  addresses: ILocalWalletAccountAddresses | undefined;
+  errorKind?: ILocalWalletAddressErrorKind;
+};
 
 function ReceiveToken() {
   useDebugComponentRemountLog({
@@ -338,28 +369,55 @@ function ReceiveToken() {
 
   // Local-wallet chains expose a public and a private receive form; address, QR and on-device verification follow the displayed one.
   const localWalletAddressForms = vaultSettings?.localWallet?.addressForms;
-  const { result: localWalletAddressRead, run: reloadLocalWalletAddresses } =
-    usePromiseResult(async () => {
+  const {
+    result: localWalletAddressResult,
+    run: reloadLocalWalletAddresses,
+    isLoading: isLocalWalletAddressLoading,
+  } = usePromiseResult(
+    async (): Promise<ILocalWalletAddressRead | undefined> => {
       if (!localWalletAddressForms || !currentAccount?.id || !network?.id) {
         return undefined;
       }
+      const scope = { networkId: network.id, accountId: currentAccount.id };
       try {
         return {
+          ...scope,
           addresses:
             await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
-              {
-                networkId: network.id,
-                accountId: currentAccount.id,
-              },
+              scope,
             ),
         };
       } catch (error) {
         console.error('[privacyChain] receive address read failed', {
           error: error instanceof Error ? error.message : '',
         });
-        return { addresses: undefined, failed: true };
+        let errorKind: ILocalWalletAddressErrorKind = 'failed';
+        if (isLocalWalletRuntimeUnavailableError(error)) {
+          errorKind = 'runtimeUnavailable';
+        } else {
+          // Set by a repair that derived another key; repairing again cannot help.
+          const state = await backgroundApiProxy.servicePrivacyChain
+            .getLocalWalletAccountState(scope)
+            .catch(() => undefined);
+          if (state?.identityMismatch) {
+            errorKind = 'identityMismatch';
+          } else if (isLocalWalletSetupIncompleteError(error)) {
+            errorKind = 'setupIncomplete';
+          }
+        }
+        return { ...scope, addresses: undefined, errorKind };
       }
-    }, [localWalletAddressForms, network?.id, currentAccount?.id]);
+    },
+    [localWalletAddressForms, network?.id, currentAccount?.id],
+    { watchLoading: true },
+  );
+  // The read lags a network or account switch and does not re-run while the
+  // network picker covers the page: another scope's result is still loading.
+  const localWalletAddressRead =
+    localWalletAddressResult?.networkId === network?.id &&
+    localWalletAddressResult?.accountId === currentAccount?.id
+      ? localWalletAddressResult
+      : undefined;
   const localWalletAddresses = localWalletAddressRead?.addresses;
   // Opens on the form of the entry (token details pool tab, its Copy).
   const [requestedAddressForm, setReceiveAddressForm] = useState<
@@ -379,10 +437,15 @@ function ReceiveToken() {
     receiveAddressForm === 'private' &&
     localWalletAddresses !== undefined &&
     !localWalletPrivateAddress;
-  const isPrivateReceiveFailed =
+  const privateReceiveErrorKind =
+    localWalletAddressForms && receiveAddressForm === 'private'
+      ? localWalletAddressRead?.errorKind
+      : undefined;
+  const isPrivateAddressLoading =
     !!localWalletAddressForms &&
     receiveAddressForm === 'private' &&
-    localWalletAddressRead?.failed === true;
+    !!currentAccount &&
+    !localWalletAddressRead;
 
   let displayAddress = currentAccount?.address ?? '';
   if (isBtcUsedAddressVerifyMode) {
@@ -1680,7 +1743,8 @@ function ReceiveToken() {
     handleOpenNetworkSelector,
   ]);
 
-  // Placeholder while a switch resolves: header stays, no stale address.
+  // Placeholder while a switch or the private address read resolves: header
+  // stays, no stale address.
   const renderPlaceholderCard = useCallback(() => {
     if (!network) return null;
     const qrSize = platformEnv.isNative ? 208 : 176;
@@ -2021,6 +2085,61 @@ function ReceiveToken() {
   const isPressable = useMemo(() => {
     return !!(banner?.href || banner?.mode);
   }, [banner?.href, banner?.mode]);
+
+  const networkIdForPrivacySettings = network?.id;
+  const openPrivacyNetworkSettings = useCallback(() => {
+    if (!networkIdForPrivacySettings) return;
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingPrivacyNetwork,
+      params: { networkId: networkIdForPrivacySettings, walletId },
+    });
+  }, [navigation, networkIdForPrivacySettings, walletId]);
+
+  let privateReceiveErrorAction: React.ReactNode = null;
+  if (
+    privateReceiveErrorKind === 'setupIncomplete' &&
+    currentAccount &&
+    network
+  ) {
+    privateReceiveErrorAction = (
+      <SetupRepairControl
+        networkId={network.id}
+        accountId={currentAccount.id}
+        onDone={() => {
+          void reloadLocalWalletAddresses();
+        }}
+        onError={() => {
+          void reloadLocalWalletAddresses();
+        }}
+      />
+    );
+  } else if (privateReceiveErrorKind === 'identityMismatch') {
+    // Deleting the account's privacy data lives in the network settings.
+    privateReceiveErrorAction = (
+      <Button
+        testID="receive-local-wallet-open-privacy-settings"
+        size="small"
+        variant="tertiary"
+        onPress={openPrivacyNetworkSettings}
+      >
+        {intl.formatMessage({ id: ETranslations.global_settings })}
+      </Button>
+    );
+  } else if (privateReceiveErrorKind) {
+    privateReceiveErrorAction = (
+      <Button
+        testID="receive-local-wallet-address-retry"
+        size="small"
+        variant="tertiary"
+        loading={isLocalWalletAddressLoading}
+        onPress={() => {
+          void reloadLocalWalletAddresses();
+        }}
+      >
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    );
+  }
   return (
     <Page
       testID={ReceiveTestIDs.ReceiveTokenPage}
@@ -2068,7 +2187,7 @@ function ReceiveToken() {
               {shouldShowAddress ? renderAddressCell() : null}
             </ReceiveCard>
           ) : null}
-          {isPrivateReceiveFailed && currentAccount && network ? (
+          {privateReceiveErrorKind && currentAccount && network ? (
             <YStack
               testID="receive-local-wallet-address-failed"
               gap="$3"
@@ -2080,16 +2199,12 @@ function ReceiveToken() {
                 textAlign="center"
               >
                 {intl.formatMessage({
-                  id: ETranslations.privacy_error_setup_incomplete__msg,
+                  id: LOCAL_WALLET_ADDRESS_ERROR_MESSAGES[
+                    privateReceiveErrorKind
+                  ],
                 })}
               </SizableText>
-              <SetupRepairControl
-                networkId={network.id}
-                accountId={currentAccount.id}
-                onDone={() => {
-                  void reloadLocalWalletAddresses();
-                }}
-              />
+              {privateReceiveErrorAction}
             </YStack>
           ) : null}
           {isPrivateReceiveUnavailable && network ? (
@@ -2106,12 +2221,7 @@ function ReceiveToken() {
               <Button
                 testID="receive-open-privacy-settings"
                 variant="primary"
-                onPress={() =>
-                  navigation.pushModal(EModalRoutes.SettingModal, {
-                    screen: EModalSettingRoutes.SettingPrivacyNetwork,
-                    params: { networkId: network.id, walletId },
-                  })
-                }
+                onPress={openPrivacyNetworkSettings}
               >
                 {intl.formatMessage({
                   id: ETranslations.backup_turn_on,
@@ -2119,7 +2229,8 @@ function ReceiveToken() {
               </Button>
             </YStack>
           ) : null}
-          {isSwitchPending && !(currentAccount && displayAddress)
+          {(isSwitchPending || isPrivateAddressLoading) &&
+          !(currentAccount && displayAddress)
             ? renderPlaceholderCard()
             : null}
           {canShowShareEntry && shareData ? (

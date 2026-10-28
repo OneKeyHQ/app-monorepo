@@ -36,6 +36,17 @@ export function isLocalWalletSlotsFullError(error: unknown): boolean {
   );
 }
 
+// The account's viewing key is missing or names another key than its meta;
+// Retry setup derives it again.
+export function isLocalWalletSetupIncompleteError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { key?: unknown }).key ===
+      ETranslations.privacy_error_setup_incomplete__msg
+  );
+}
+
 // A runtime call abandoned by a watchdog: the Worker is alive but stuck.
 export function isLocalWalletRuntimeTimeoutError(error: unknown): boolean {
   const message = readErrorMessage(error);
@@ -45,7 +56,7 @@ export function isLocalWalletRuntimeTimeoutError(error: unknown): boolean {
   );
 }
 
-function isLocalWalletRuntimeUnavailableError(error: unknown): boolean {
+export function isLocalWalletRuntimeUnavailableError(error: unknown): boolean {
   return (
     getPrivacyChainRuntimeFailure(error) !== undefined ||
     isLocalWalletRuntimeTimeoutError(error)

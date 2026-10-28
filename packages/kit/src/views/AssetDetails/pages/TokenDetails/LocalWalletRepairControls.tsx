@@ -273,10 +273,13 @@ export function SetupRepairControl({
   networkId,
   accountId,
   onDone,
+  onError,
 }: {
   networkId: string;
   accountId: string;
   onDone: () => void;
+  // A failed repair can change what the caller shows (e.g. identity mismatch).
+  onError?: () => void;
 }) {
   const intl = useIntl();
   const [busy, setBusy] = useState(false);
@@ -294,10 +297,11 @@ export function SetupRepairControl({
       onDone();
     } catch (e) {
       console.error('[privacyChain] retryLocalWalletAccountSetup failed', e);
+      onError?.();
     } finally {
       setBusy(false);
     }
-  }, [networkId, accountId, onDone, intl]);
+  }, [networkId, accountId, onDone, onError, intl]);
 
   return (
     <Button

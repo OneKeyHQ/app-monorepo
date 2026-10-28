@@ -1,16 +1,23 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import {
+  createZcashIdentityMismatchError,
+  createZcashSetupIncompleteError,
+} from '../impls/zcash/vaultUtils';
+
 import { localWalletText } from './messages';
 import {
   LOCAL_WALLET_CHAIN_TIP_TIMEOUT_MESSAGE,
   LOCAL_WALLET_SYNC_TIMEOUT_MESSAGE,
   getLocalWalletSyncErrorKind,
+  isLocalWalletSetupIncompleteError,
   toLocalWalletUserFacingError,
   toastLocalWalletError,
 } from './userFacingError';
@@ -222,5 +229,25 @@ describe('getLocalWalletSyncErrorKind', () => {
     expect(
       getLocalWalletSyncErrorKind(zcashRuntimeError('STORAGE_UNSUPPORTED')),
     ).toBeUndefined();
+  });
+});
+
+describe('isLocalWalletSetupIncompleteError', () => {
+  it('still names a missing viewing key after the UI bridge', () => {
+    const error = createZcashSetupIncompleteError();
+    expect(isLocalWalletSetupIncompleteError(error)).toBe(true);
+    expect(isLocalWalletSetupIncompleteError(toPlainErrorObject(error))).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ['an identity mismatch', createZcashIdentityMismatchError()],
+    ['a dead runtime', workerFailure('zcash worker: crashed')],
+    ['a plain failure', new Error('boom')],
+  ])('leaves %s out', (_, error) => {
+    expect(isLocalWalletSetupIncompleteError(toPlainErrorObject(error))).toBe(
+      false,
+    );
   });
 });
