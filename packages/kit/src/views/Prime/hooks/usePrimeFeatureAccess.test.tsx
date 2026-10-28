@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import {
+  OneKeyErrorPrimeUserBanned,
   PrimeLoginDialogCancelError,
   PrimeLoginHandedOffToExtExpandTabError,
 } from '@onekeyhq/shared/src/errors';
@@ -35,6 +36,7 @@ const mockDialogLoading = jest.fn((_params: unknown) => ({
 }));
 let mockShouldRunInExpandTab = false;
 let mockHookPrime = false;
+let mockHookBanned = false;
 let mockAtom: IPrimeFreeTrialAtomData;
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -62,7 +64,7 @@ jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
   useOneKeyAuth: () => ({
     isPrimeSubscriptionActive: mockHookPrime,
     isLoggedIn: true,
-    user: { onekeyUserId: 'user-a' },
+    user: { onekeyUserId: 'user-a', isOneKeyIdBanned: mockHookBanned },
     loginOneKeyId: (params: unknown) => mockLoginOneKeyId(params) as unknown,
   }),
 }));
@@ -185,12 +187,29 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     jest.clearAllMocks();
     mockShouldRunInExpandTab = false;
     mockHookPrime = false;
+    mockHookBanned = false;
     mockIsLoggedIn.mockResolvedValue(true);
     mockIsPrimeSubscriptionActive.mockResolvedValue(false);
     mockGetPublicConfig.mockResolvedValue(undefined);
     mockRefreshQuota.mockResolvedValue(undefined);
     mockGetHeldReservationEnd.mockResolvedValue(undefined);
     setSnapshot(undefined);
+  });
+
+  it('rejects a banned account before using a cached Prime entitlement', async () => {
+    mockHookPrime = true;
+    mockHookBanned = true;
+    const result = renderAccessHook();
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+        }),
+      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+    });
+    expect(mockRefreshQuota).not.toHaveBeenCalled();
+    expect(mockGetPublicConfig).not.toHaveBeenCalled();
+    mockHookBanned = false;
   });
 
   it('lets Prime users in without any free-trial request', async () => {

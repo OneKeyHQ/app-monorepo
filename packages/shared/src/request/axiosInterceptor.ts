@@ -452,6 +452,7 @@ axios.interceptors.response.use(
         stashRequestAuthTokenOfError({
           error: serverApiError,
           requestAuthToken: String(requestAuthToken),
+          requestConfig: config,
         });
       }
       throw serverApiError;

@@ -17,15 +17,41 @@
  * The token intentionally cannot cross the bg/main bridge.
  */
 const requestAuthTokenByError = new WeakMap<object, string>();
+export type IOneKeyIdRequestContext = {
+  onekeyUserId?: string;
+  authStateGeneration: number;
+};
+const oneKeyIdContext = new WeakMap<object, IOneKeyIdRequestContext>();
+
+export function stashOneKeyIdRequestContext(
+  request: object,
+  context: IOneKeyIdRequestContext,
+) {
+  oneKeyIdContext.set(request, context);
+}
+
+export function takeOneKeyIdRequestContext(requestOrError: object) {
+  const context = oneKeyIdContext.get(requestOrError);
+  oneKeyIdContext.delete(requestOrError);
+  return context;
+}
 
 export function stashRequestAuthTokenOfError({
   error,
   requestAuthToken,
+  requestConfig,
 }: {
   error: object;
   requestAuthToken: string;
+  requestConfig?: object;
 }): void {
   requestAuthTokenByError.set(error, requestAuthToken);
+  if (requestConfig) {
+    const context = takeOneKeyIdRequestContext(requestConfig);
+    if (context) {
+      oneKeyIdContext.set(error, context);
+    }
+  }
 }
 
 /**

@@ -13,6 +13,8 @@ export type IPrimeSubscriptionInfo = {
   willRenew?: boolean;
 };
 export type IPrimeUserInfo = {
+  // Client-observed restriction for this OneKey ID, independent of wallet access.
+  isOneKeyIdBanned?: boolean;
   isLoggedIn: boolean; // local supabase sdk login status
   isLoggedInOnServer: boolean; // server api login status
   isEnablePrime: boolean | undefined;
