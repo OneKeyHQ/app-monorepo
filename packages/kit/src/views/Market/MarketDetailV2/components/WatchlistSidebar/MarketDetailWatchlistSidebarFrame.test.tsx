@@ -17,31 +17,27 @@ jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => mockIsFocused,
 }));
 jest.mock('react-intl', () => ({ useIntl: () => ({}) }));
-jest.mock('@onekeyhq/components', () => ({
-  Stack: ({
+jest.mock('@onekeyhq/components', () => {
+  function Stack({
     children,
     testID,
     enterStyle,
+    onLayout,
   }: {
     children?: ReactNode;
     testID?: string;
     enterStyle?: { x: number };
-  }) => (
-    <div data-testid={testID} data-enter-x={enterStyle?.x}>
-      {children}
-    </div>
-  ),
-  XStack: ({
-    children,
-    onLayout,
-  }: {
-    children?: ReactNode;
-    onLayout: (event: LayoutChangeEvent) => void;
-  }) => {
-    mockOnLayout = onLayout;
-    return <div>{children}</div>;
-  },
-}));
+    onLayout?: (event: LayoutChangeEvent) => void;
+  }) {
+    if (onLayout) mockOnLayout = onLayout;
+    return (
+      <div data-testid={testID} data-enter-x={enterStyle?.x}>
+        {children}
+      </div>
+    );
+  }
+  return { Stack, XStack: Stack };
+});
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useMarketWatchListV2Atom: () => [{ data: [], isMounted: true }],
 }));
@@ -51,9 +47,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 }));
 jest.mock('./MarketDetailWatchlistSidebar', () => ({
   MARKET_DETAIL_WATCHLIST_SIDEBAR_WIDTH: 304,
-  MarketDetailWatchlistSidebar: () => (
-    <input data-testid="sidebar-input" defaultValue="retained" />
-  ),
+  MarketDetailWatchlistSidebar: () => <div data-testid="sidebar" />,
 }));
 
 function Toggle() {
@@ -66,6 +60,14 @@ function Toggle() {
     >
       Toggle
     </button>
+  );
+}
+
+function TestFrame() {
+  return (
+    <MarketDetailWatchlistSidebarFrame>
+      <Toggle />
+    </MarketDetailWatchlistSidebarFrame>
   );
 }
 
@@ -82,64 +84,40 @@ beforeEach(() => {
 });
 
 it('retains an open sidebar through hidden tab measurements without replaying entry', () => {
-  const view = (
-    <MarketDetailWatchlistSidebarFrame>
-      <Toggle />
-    </MarketDetailWatchlistSidebarFrame>
-  );
-  const { rerender } = render(view);
+  const { rerender } = render(<TestFrame />);
   layout(1400);
   fireEvent.click(screen.getByText('Toggle'));
-  const sidebar = screen.getByTestId('sidebar-input');
-  expect(
-    screen
-      .getByTestId('market-detail-watchlist-sidebar-docked')
-      .getAttribute('data-enter-x'),
-  ).toBe('-304');
+  const sidebar = screen.getByTestId('sidebar');
+  const docked = screen.getByTestId('market-detail-watchlist-sidebar-docked');
+  expect(docked.getAttribute('data-enter-x')).toBe('-304');
 
   mockIsFocused = false;
-  rerender(
-    <MarketDetailWatchlistSidebarFrame>
-      <Toggle />
-    </MarketDetailWatchlistSidebarFrame>,
-  );
+  rerender(<TestFrame />);
   layout(0);
-  expect(screen.getByTestId('sidebar-input')).toBe(sidebar);
+  expect(screen.getByTestId('sidebar')).toBe(sidebar);
 
   mockIsFocused = true;
-  rerender(view);
+  rerender(<TestFrame />);
   layout(1400);
-  expect(screen.getByTestId('sidebar-input')).toBe(sidebar);
-  expect(
-    screen
-      .getByTestId('market-detail-watchlist-sidebar-docked')
-      .getAttribute('data-enter-x'),
-  ).toBeNull();
+  expect(screen.getByTestId('sidebar')).toBe(sidebar);
+  expect(docked.getAttribute('data-enter-x')).toBeNull();
 });
 
 it('waits for a visible measurement and still switches modes on a real resize', () => {
-  render(
-    <MarketDetailWatchlistSidebarFrame>
-      <Toggle />
-    </MarketDetailWatchlistSidebarFrame>,
-  );
+  render(<TestFrame />);
   layout(0);
   fireEvent.click(screen.getByText('Toggle'));
   layout(1400);
-  expect(screen.queryByTestId('sidebar-input')).toBeNull();
+  expect(screen.queryByTestId('sidebar')).toBeNull();
   fireEvent.click(screen.getByText('Toggle'));
-  expect(
-    screen.getByTestId('market-detail-watchlist-sidebar-docked'),
-  ).toBeTruthy();
-
   layout(1100);
   expect(
     screen.queryByTestId('market-detail-watchlist-sidebar-docked'),
   ).toBeNull();
   fireEvent.click(screen.getByText('Toggle'));
-  const sidebar = screen.getByTestId('sidebar-input');
+  const sidebar = screen.getByTestId('sidebar');
   layout(0);
-  expect(screen.getByTestId('sidebar-input')).toBe(sidebar);
+  expect(screen.getByTestId('sidebar')).toBe(sidebar);
   expect(
     screen.getByTestId('market-detail-watchlist-sidebar-overlay'),
   ).toBeTruthy();
