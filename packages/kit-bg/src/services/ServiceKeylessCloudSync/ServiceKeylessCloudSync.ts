@@ -701,8 +701,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
     | Promise<IKeylessCloudSyncCredential>
     | undefined;
 
-  // One refresh at a time: a second use of a rotated refresh token makes the
-  // server revoke the whole session.
+  // One refresh at a time: refreshing twice with one token voids the first
+  // reply's token, and later using it makes the server revoke the session.
+  // A failed refresh keeps the stored token; the server accepts it once more
+  // while the token from a lost reply is unused.
   private async getFreshHardwareCredential(
     credential: IKeylessCloudSyncCredential,
     { force }: { force?: boolean } = {},
@@ -794,13 +796,33 @@ class ServiceKeylessCloudSync extends ServiceBase {
   private async revokeOtherHardwareSessions(
     credential: IKeylessCloudSyncCredential,
   ) {
+    await this.revokeHardwareSession(credential, 'allExceptCurrent');
+  }
+
+  // Turning sync off ends this device's session on the server too. Best
+  // effort: the local key is deleted either way and the token expires.
+  private async revokeCurrentHardwareSession(
+    credential: IKeylessCloudSyncCredential,
+  ) {
+    try {
+      const fresh = await this.getFreshHardwareCredential(credential);
+      await this.revokeHardwareSession(fresh, 'current');
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+    }
+  }
+
+  private async revokeHardwareSession(
+    credential: IKeylessCloudSyncCredential,
+    scope: 'current' | 'allExceptCurrent',
+  ) {
     if (!credential.hardwareSession) return;
     try {
       const client = await this.backgroundApi.servicePrime.getPrimeClient();
       await revokeHardwareCloudSyncSession({
         client,
         session: credential.hardwareSession,
-        scope: 'allExceptCurrent',
+        scope,
       });
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
@@ -1739,6 +1761,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
     if (!shouldEnableKeyless) {
       const currentWalletId = await this.getCurrentCloudSyncKeylessWalletId();
       if (currentWalletId) {
+        const stored =
+          await keylessSyncCredentialStorage.getCredential(currentWalletId);
+        if (stored?.hardwareSession) {
+          await this.revokeCurrentHardwareSession(stored);
+        }
         await keylessSyncCredentialStorage.removeAllCredentials();
       }
     }

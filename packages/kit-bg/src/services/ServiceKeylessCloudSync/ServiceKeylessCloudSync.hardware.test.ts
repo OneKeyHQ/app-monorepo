@@ -86,6 +86,7 @@ jest.mock('./hardwareCloudSyncSession', () => ({
   ),
   getCurrentHardwareCloudSyncDataKeyId: jest.fn(),
   isHardwareCloudSyncKeyEnvelopeItem: jest.fn(() => false),
+  isHardwareCloudSyncUnauthorizedError: jest.fn(() => false),
   revokeHardwareCloudSyncSession: jest.fn(async () => undefined),
   refreshHardwareCloudSyncSessionIfNeeded: jest.fn(async () => undefined),
   requestRawWithHardwareCloudSyncSession: jest.fn(),
@@ -1133,6 +1134,55 @@ describe('a hardware key never outlives turned-off sync', () => {
     expect(refreshHardwareCloudSyncSessionIfNeeded).not.toHaveBeenCalled();
   });
 
+  test('a refresh whose reply was lost keeps the stored token for the next refresh', async () => {
+    const { service } = setup();
+    const hardwareSession = {
+      deviceKeyJwk: {
+        kty: 'EC' as const,
+        crv: 'P-256' as const,
+        x: 'x',
+        y: 'y',
+        d: 'd',
+      },
+      accessToken: 'public-test-access-1',
+      accessTokenExpiresAt: 0,
+      refreshToken: 'public-test-refresh-1',
+      sessionId: 'public-test-session',
+      dekId: 'public-test-dek',
+    };
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    const stored = { ...credential, hardwareSession };
+    mockStored = stored;
+    const { refreshHardwareCloudSyncSessionIfNeeded } = jest.requireMock<
+      typeof import('./hardwareCloudSyncSession')
+    >('./hardwareCloudSyncSession');
+    jest
+      .mocked(refreshHardwareCloudSyncSessionIfNeeded)
+      .mockRejectedValueOnce(new Error('public-test-timeout'))
+      .mockResolvedValueOnce({
+        ...hardwareSession,
+        accessToken: 'public-test-access-2',
+        accessTokenExpiresAt: Number.MAX_SAFE_INTEGER,
+        refreshToken: 'public-test-refresh-2',
+      });
+
+    await expect(service['getFreshHardwareCredential'](stored)).rejects.toThrow(
+      'public-test-timeout',
+    );
+    expect(mockStored).toBe(stored);
+
+    const fresh = await service['getFreshHardwareCredential'](stored);
+    expect(refreshHardwareCloudSyncSessionIfNeeded).toHaveBeenLastCalledWith(
+      expect.objectContaining({ session: hardwareSession }),
+    );
+    expect(fresh.hardwareSession?.refreshToken).toBe('public-test-refresh-2');
+    expect(mockStored?.hardwareSession?.refreshToken).toBe(
+      'public-test-refresh-2',
+    );
+  });
+
   test('finishing an interrupted reset records the new key generation', async () => {
     const { service } = setup();
     const hardwareSession = {
@@ -1184,5 +1234,68 @@ describe('a hardware key never outlives turned-off sync', () => {
     expect(mockConfig.hardwareCloudSyncKeyGenerations).toEqual({
       [source.credentialId]: 3,
     });
+  });
+
+  test('turning sync off revokes this device session on the server', async () => {
+    const { service } = setup();
+    const hardwareSession = {
+      deviceKeyJwk: {
+        kty: 'EC' as const,
+        crv: 'P-256' as const,
+        x: 'x',
+        y: 'y',
+        d: 'd',
+      },
+      accessToken: 'public-test-access',
+      accessTokenExpiresAt: Number.MAX_SAFE_INTEGER,
+      refreshToken: 'public-test-refresh',
+      sessionId: 'public-test-session',
+      dekId: 'public-test-dek',
+    };
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockStored = { ...credential, hardwareSession };
+    const { revokeHardwareCloudSyncSession } = jest.requireMock<
+      typeof import('./hardwareCloudSyncSession')
+    >('./hardwareCloudSyncSession');
+    jest.mocked(revokeHardwareCloudSyncSession).mockClear();
+    await service.setCloudSyncEnabledKeyless(false);
+    expect(revokeHardwareCloudSyncSession).toHaveBeenCalledWith(
+      expect.objectContaining({ session: hardwareSession, scope: 'current' }),
+    );
+    expect(mockStored).toBeUndefined();
+  });
+
+  test('turning sync off still deletes the key when the revoke fails', async () => {
+    const { service } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockStored = {
+      ...credential,
+      hardwareSession: {
+        deviceKeyJwk: {
+          kty: 'EC' as const,
+          crv: 'P-256' as const,
+          x: 'x',
+          y: 'y',
+          d: 'd',
+        },
+        accessToken: 'public-test-access',
+        accessTokenExpiresAt: Number.MAX_SAFE_INTEGER,
+        refreshToken: 'public-test-refresh',
+        sessionId: 'public-test-session',
+        dekId: 'public-test-dek',
+      },
+    };
+    const { revokeHardwareCloudSyncSession } = jest.requireMock<
+      typeof import('./hardwareCloudSyncSession')
+    >('./hardwareCloudSyncSession');
+    jest
+      .mocked(revokeHardwareCloudSyncSession)
+      .mockRejectedValueOnce(new Error('offline'));
+    await service.setCloudSyncEnabledKeyless(false);
+    expect(mockStored).toBeUndefined();
   });
 });
