@@ -310,7 +310,12 @@ describe('buildProtocolShares', () => {
       ['morpho', 24],
       ['spark', 17],
     ]);
-    expect(shares.rest).toEqual({ count: 2, percent: 6 });
+    expect(shares.rest).toMatchObject({ count: 2, percent: 6 });
+    // The bar's "2 more" names them
+    expect(shares.rest?.items.map((item) => [item.key, item.percent])).toEqual([
+      ['lido', 4],
+      ['pendle', 2],
+    ]);
     expect(shares.total).toBe(100);
   });
 
@@ -318,7 +323,14 @@ describe('buildProtocolShares', () => {
     const shares = buildProtocolShares({
       investments: [investment('morpho', '10')],
       lendingSupplies: [
-        { provider: 'aave', name: 'Aave', fiatValue: 30, netValue: 30 },
+        {
+          provider: 'aave',
+          name: 'Aave',
+          fiatValue: 50,
+          netValue: 30,
+          tokens: [{ symbol: 'ETH' }],
+          debtValue: 20,
+        },
         { provider: 'Morpho', name: 'Morpho', fiatValue: 10, netValue: 10 },
       ],
     });
@@ -326,6 +338,11 @@ describe('buildProtocolShares', () => {
       ['aave', 30],
       ['morpho', 20],
     ]);
+    // The hover card reads supplied 50, borrowed 20
+    expect(shares.top[0]).toMatchObject({
+      debtValue: 20,
+      tokens: [{ symbol: 'ETH' }],
+    });
     expect(shares.rest).toBeUndefined();
   });
 
@@ -345,7 +362,7 @@ describe('buildProtocolShares', () => {
         investment('lido', '0.4'),
       ],
     });
-    expect(shares.rest).toEqual({ count: 1, percent: 0 });
+    expect(shares.rest).toMatchObject({ count: 1, percent: 0 });
     expect(formatSharePercent(shares.rest?.percent ?? 0)).toBe('<1%');
     expect(formatSharePercent(shares.top[0].percent)).toBe('60%');
   });
@@ -368,7 +385,41 @@ describe('buildValueShares', () => {
       ['Pendle', 30],
       ['Spark', 6],
     ]);
-    expect(shares.rest).toEqual({ count: 1, percent: 4 });
+    expect(shares.rest).toMatchObject({ count: 1, percent: 4 });
+  });
+
+  it('keeps what each protocol holds and what is borrowed there', () => {
+    const shares = buildValueShares({
+      items: [
+        {
+          key: 'aave',
+          name: 'Aave',
+          value: 30,
+          tokens: [{ symbol: 'USDC' }, { symbol: 'ETH' }],
+          debtValue: 20,
+        },
+        {
+          key: 'morpho',
+          name: 'Morpho',
+          value: 25,
+          tokens: [{ symbol: 'USDC' }],
+        },
+        {
+          key: 'aave',
+          name: 'Aave',
+          value: 10,
+          tokens: [{ symbol: 'eth' }, { symbol: 'WBTC' }],
+          debtValue: 5,
+        },
+      ],
+    });
+    expect(shares.top[0]).toMatchObject({
+      key: 'aave',
+      value: 40,
+      debtValue: 25,
+      tokens: [{ symbol: 'USDC' }, { symbol: 'ETH' }, { symbol: 'WBTC' }],
+    });
+    expect(shares.top[1].debtValue).toBeUndefined();
   });
 });
 
@@ -1359,7 +1410,7 @@ describe('ready to earn', () => {
       ['USDC', 83],
       ['USDT', 10],
     ]);
-    expect(shares.rest).toEqual({ count: 1, percent: 7 });
+    expect(shares.rest).toMatchObject({ count: 1, percent: 7 });
     expect(shares.total).toBe(480);
   });
 });

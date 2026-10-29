@@ -35,7 +35,14 @@ export type ITabEarnParamList = {
         networkId?: string;
         marketAddress?: string;
       };
-  [ETabEarnRoutes.EarnPositions]: undefined;
+  [ETabEarnRoutes.EarnPositions]:
+    | undefined
+    | {
+        // A share of the DeFi home's split (demo 10-29): the page scrolls to
+        // those protocols' cards; focusAt tells one request from the next
+        focusProtocols?: string[];
+        focusAt?: number;
+      };
   // Tokens home (OK-58505): full token list (with in-page All/Stable/Non-Stable categories)
   [ETabEarnRoutes.EarnTokens]: undefined;
   // Standalone fixed-rate list (OK-58879)

@@ -548,6 +548,14 @@ export function EarnDesktopHome({
     walletGroups: wallet.networkGroups,
     markets,
   });
+  // A share of the split opens My portfolio at its protocols' cards
+  const handleOpenProtocols = useCallback(
+    (protocols: string[]) =>
+      EarnNavigation.pushToEarnPositions(navigation, {
+        focusProtocols: protocols,
+      }),
+    [navigation],
+  );
   const bannerCount = bannerList.filter(
     (banner) =>
       Boolean(banner.bannerId) && Boolean(banner.backgroundImage?.trim()),
@@ -689,6 +697,7 @@ export function EarnDesktopHome({
                 onOpenPortfolio={onOpenPortfolio}
                 onRefresh={onRefresh}
                 rewards={rewardPills}
+                onOpenProtocols={handleOpenProtocols}
                 onHeightChange={setHeroHeight}
               />
             )}

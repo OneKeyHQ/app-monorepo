@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { YStack, useMedia } from '@onekeyhq/components';
 import { ProviderJotaiContextDeFiList } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
 import { buildValueShares } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
+import type { IEarnDesktopShareToken } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
 import { ProtocolSplit } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/EarnDesktopProtocolSplit';
 import { useEarnDesktopSurfaces } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/useEarnDesktopSurfaces';
 import { DeFiOverviewGrid } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/DeFiOverviewGrid';
@@ -14,6 +15,41 @@ import type {
 } from '@onekeyhq/shared/types/defi';
 
 import type { IEarnProtocolView } from '../mobile/earnPositionModel';
+
+// What a protocol's cards hold (deposited and supplied rows, the most
+// valuable first, each symbol once) and what they owe
+function describeProtocolHoldings(protocol: IEarnProtocolView) {
+  const held = new Map<string, IEarnDesktopShareToken & { value: number }>();
+  let debtValue = 0;
+  protocol.positions.forEach((position) =>
+    position.sections.forEach((section) => {
+      if (section.kind === 'borrowed') {
+        section.assets.forEach((asset) => {
+          debtValue += Math.abs(asset.value || 0);
+        });
+        return;
+      }
+      if (section.kind !== 'deposited' && section.kind !== 'supplied') {
+        return;
+      }
+      section.assets.forEach((asset) => {
+        const key = asset.symbol.toUpperCase();
+        const current = held.get(key);
+        held.set(key, {
+          symbol: current?.symbol ?? asset.symbol,
+          logoURI: current?.logoURI ?? asset.meta?.logoUrl,
+          value: (current?.value ?? 0) + (asset.value || 0),
+        });
+      });
+    }),
+  );
+  return {
+    tokens: [...held.values()]
+      .toSorted((a, b) => b.value - a.value)
+      .map(({ symbol, logoURI }) => ({ symbol, logoURI })),
+    debtValue,
+  };
+}
 
 /**
  * The wide layout's allocation overview over the positions shown, from two
@@ -28,6 +64,7 @@ export function EarnPortfolioOverview({
   deFiProtocols,
   protocolMap,
   onPressProtocol,
+  onOpenSplitProtocols,
 }: {
   /** the protocol cards shown, after the network filter */
   protocols: IEarnProtocolView[];
@@ -35,6 +72,8 @@ export function EarnPortfolioOverview({
   deFiProtocols: IDeFiProtocol[];
   protocolMap: Record<string, IProtocolSummary>;
   onPressProtocol: (protocol: IDeFiProtocol) => void;
+  /** a share of the bar: its protocol's cards across networks */
+  onOpenSplitProtocols?: (protocolKeys: string[]) => void;
 }) {
   const media = useMedia();
   // The DeFi home's card colors, so the tiles read as the home's cards do
@@ -76,16 +115,22 @@ export function EarnPortfolioOverview({
       ) ?? 0,
     [valueByKey],
   );
-  // By protocol across networks, as the home splits its total
+  // By protocol across networks, as the home splits its total, with what
+  // each holds and owes for the bar's hover cards
   const shares = useMemo(
     () =>
       buildValueShares({
-        items: protocols.map((protocol) => ({
-          key: protocol.protocol.toLowerCase(),
-          name: protocol.name,
-          logoURI: protocol.logoURI,
-          value: protocol.value.value,
-        })),
+        items: protocols.map((protocol) => {
+          const { tokens, debtValue } = describeProtocolHoldings(protocol);
+          return {
+            key: protocol.protocol.toLowerCase(),
+            name: protocol.name,
+            logoURI: protocol.logoURI,
+            value: protocol.value.value,
+            tokens,
+            debtValue: debtValue || undefined,
+          };
+        }),
       }),
     [protocols],
   );
@@ -96,7 +141,7 @@ export function EarnPortfolioOverview({
   return (
     <ProviderJotaiContextDeFiList>
       <YStack px="$5" gap="$6" userSelect="none">
-        <ProtocolSplit shares={shares} />
+        <ProtocolSplit shares={shares} onOpenProtocols={onOpenSplitProtocols} />
         <DeFiOverviewGrid
           cols={cols}
           protocols={shownProtocols}

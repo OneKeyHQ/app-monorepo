@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIsFocused } from '@react-navigation/native';
@@ -13,8 +13,13 @@ import {
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  ETabEarnRoutes,
+  ITabEarnParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
@@ -145,6 +150,17 @@ export default function EarnPositions() {
   // page and its shared PortfolioTabContent exactly as before.
   const isMyPortfolioLayout = useMyPortfolioLayout();
   const { gtMd } = useMedia();
+  // A share of the DeFi home's split asks for its protocols' cards
+  const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnPositions>();
+  const focusProtocols = route.params?.focusProtocols;
+  const focusAt = route.params?.focusAt;
+  const focusRequest = useMemo(
+    () =>
+      focusProtocols?.length && focusAt
+        ? { protocols: focusProtocols, at: focusAt }
+        : undefined,
+    [focusAt, focusProtocols],
+  );
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -155,7 +171,7 @@ export default function EarnPositions() {
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
         {isMyPortfolioLayout || gtMd ? (
-          <MyPortfolioPage tableLayout={gtMd} />
+          <MyPortfolioPage tableLayout={gtMd} focusRequest={focusRequest} />
         ) : (
           <EarnPositionsContent />
         )}

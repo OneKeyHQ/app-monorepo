@@ -144,17 +144,26 @@ export function getAssetSortApr(
 
 // ---------- Hero split bar ----------
 
+export type IEarnDesktopShareToken = {
+  symbol: string;
+  logoURI?: string;
+};
+
 export type IEarnDesktopShare = {
   key: string;
   name: string;
   logoURI?: string;
   value: number;
   percent: number;
+  /** What it holds, the most valuable first: the bar's hover card names them */
+  tokens?: IEarnDesktopShareToken[];
+  /** Borrowed there: the value is what is supplied less this */
+  debtValue?: number;
 };
 
 export type IEarnDesktopShares = {
   top: IEarnDesktopShare[];
-  rest?: { count: number; percent: number };
+  rest?: { count: number; percent: number; items: IEarnDesktopShare[] };
   total: number;
 };
 
@@ -167,6 +176,9 @@ export type IEarnDesktopLendingSupply = {
   // there, its part of the split under Net Worth, as My portfolio's bar
   // counts it
   netValue: number;
+  /** The tokens supplied, the most valuable first */
+  tokens?: IEarnDesktopShareToken[];
+  debtValue?: number;
 };
 
 const DAYS_PER_YEAR = 365;
@@ -440,6 +452,7 @@ export function deriveLendingSupply({
   entries.forEach(({ market, reserves }) => {
     const marketKey = buildBorrowMarketKey(market);
     let marketTotal = 0;
+    const marketTokens: (IEarnDesktopShareToken & { value: number })[] = [];
     reserves?.supplied?.assets?.forEach((asset) => {
       if (
         reported.has(
@@ -454,6 +467,11 @@ export function deriveLendingSupply({
       }
       const fiatValue = toNumber(asset.suppliedAmount.fiatValue);
       marketTotal += fiatValue;
+      marketTokens.push({
+        symbol: asset.token.symbol,
+        logoURI: asset.token.logoURI,
+        value: fiatValue,
+      });
       interest24h +=
         (fiatValue * parseAprPercentValue(asset.apyDetail?.apy)) /
         100 /
@@ -475,6 +493,10 @@ export function deriveLendingSupply({
         logoURI: market.logoURI,
         fiatValue: marketTotal,
         netValue: Math.max(0, marketTotal - marketDebt),
+        tokens: marketTokens
+          .toSorted((a, b) => b.value - a.value)
+          .map(({ symbol, logoURI }) => ({ symbol, logoURI })),
+        debtValue: marketDebt,
       });
     }
   });
@@ -483,6 +505,20 @@ export function deriveLendingSupply({
     0,
   );
   return { supplied, lendingSupplies, lendingTotal, interest24h };
+}
+
+// What an investment holds, the most valuable first
+function listInvestmentTokens(
+  investment: IEarnPortfolioInvestment,
+): IEarnDesktopShareToken[] {
+  return investment.assets
+    .map((asset) => ({
+      symbol: asset.token.info.symbol,
+      logoURI: asset.token.info.logoURI,
+      value: toNumber(asset.metadata?.fiatValue),
+    }))
+    .toSorted((a, b) => b.value - a.value)
+    .map(({ symbol, logoURI }) => ({ symbol, logoURI }));
 }
 
 export function buildProtocolShares({
@@ -503,6 +539,7 @@ export function buildProtocolShares({
           name: detail.name,
           logoURI: detail.logoURI,
           value: toNumber(investment.totalFiatValue),
+          tokens: listInvestmentTokens(investment),
         };
       }),
       ...lendingSupplies.map((supply) => ({
@@ -510,10 +547,27 @@ export function buildProtocolShares({
         name: supply.name,
         logoURI: supply.logoURI,
         value: supply.netValue,
+        tokens: supply.tokens,
+        debtValue: supply.debtValue || undefined,
       })),
     ],
     topCount,
   });
+}
+
+// One list of the tokens two items hold, each symbol once, in their order
+function mergeShareTokens(
+  first?: IEarnDesktopShareToken[],
+  second?: IEarnDesktopShareToken[],
+) {
+  if (!first?.length || !second?.length) {
+    return first?.length ? first : second;
+  }
+  const seen = new Set(first.map((token) => token.symbol.toUpperCase()));
+  return [
+    ...first,
+    ...second.filter((token) => !seen.has(token.symbol.toUpperCase())),
+  ];
 }
 
 // The same bar over any list: items with one key add up, the first one's
@@ -531,9 +585,16 @@ export function buildValueShares({
       return;
     }
     const current = byKey.get(item.key);
+    if (!current) {
+      byKey.set(item.key, item);
+      return;
+    }
+    const debtValue = (current.debtValue ?? 0) + (item.debtValue ?? 0);
     byKey.set(item.key, {
-      ...(current ?? item),
-      value: (current?.value ?? 0) + item.value,
+      ...current,
+      value: current.value + item.value,
+      tokens: mergeShareTokens(current.tokens, item.tokens),
+      debtValue: debtValue || undefined,
     });
   });
   return rankShares(byKey.values(), topCount);
@@ -564,7 +625,14 @@ function rankShares(
   );
   return {
     top,
-    rest: { count: restItems.length, percent: restPercent },
+    rest: {
+      count: restItems.length,
+      percent: restPercent,
+      items: restItems.map((item) => ({
+        ...item,
+        percent: Math.round((item.value / total) * 100),
+      })),
+    },
     total,
   };
 }

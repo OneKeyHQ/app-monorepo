@@ -326,8 +326,20 @@ export async function safePushToEarnRoute(
 }
 
 export const EarnNavigation = {
-  pushToEarnPositions(navigation: IAppNavigation) {
-    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnPositions);
+  pushToEarnPositions(
+    navigation: IAppNavigation,
+    params?: {
+      // The protocols whose cards the page scrolls to
+      focusProtocols?: string[];
+    },
+  ) {
+    void safePushToEarnRoute(
+      navigation,
+      ETabEarnRoutes.EarnPositions,
+      params?.focusProtocols?.length
+        ? { focusProtocols: params.focusProtocols, focusAt: Date.now() }
+        : undefined,
+    );
   },
 
   // navigate from deep link (compatible with old format)

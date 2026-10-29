@@ -272,6 +272,7 @@ function BasicEarnDesktopHero({
   onOpenPortfolio,
   onRefresh,
   rewards,
+  onOpenProtocols,
   hidesSplit,
   onHeightChange,
 }: {
@@ -302,6 +303,8 @@ function BasicEarnDesktopHero({
   onRefresh?: () => void;
   /** The rewards to claim, in the row under the totals */
   rewards?: ReactNode;
+  /** A share of the split opens its protocols' positions */
+  onOpenProtocols?: (keys: string[]) => void;
   /** The phone layout leaves the split by protocol out */
   hidesSplit?: boolean;
   onHeightChange?: (height: number) => void;
@@ -516,7 +519,13 @@ function BasicEarnDesktopHero({
   } else if (isLoading) {
     split = <ProtocolSplitSkeleton />;
   } else if (shares.top.length) {
-    split = <ProtocolSplit shares={shares} />;
+    split = (
+      <ProtocolSplit
+        shares={shares}
+        onOpenProtocols={onOpenProtocols}
+        onWarm={warmEarnPositions}
+      />
+    );
   } else if (isReadyToEarn && readyToEarn?.shares.top.length) {
     split = <ProtocolSplit shares={readyToEarn.shares} />;
   }

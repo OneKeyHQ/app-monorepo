@@ -107,7 +107,10 @@ const TABLE_LAYOUT_MAX_WIDTH = 1140;
  */
 export function MyPortfolioPage({
   tableLayout = false,
+  focusRequest,
 }: {
+  /** The wide layout scrolls to these protocols' cards (the home's split) */
+  focusRequest?: { protocols: string[]; at: number };
   /**
    * The wide layout (media.gtMd), the way the wallet DeFi Portfolio lays
    * out on desktop: a centered column, the network filter on the tab row,
@@ -682,6 +685,7 @@ export function MyPortfolioPage({
                   >
                     {tableLayout ? (
                       <DeFiAssetsDesktopTab
+                        focusRequest={focusRequest}
                         protocols={visibleProtocols}
                         deFiProtocols={visibleDeFiProtocols}
                         protocolMap={view.protocolMap}
