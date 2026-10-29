@@ -209,15 +209,24 @@ class ServiceQrWallet extends ServiceBase {
    * showQr, the scan page's on scanQr — so every downstream contract
    * (silent-cancel toast policy, batch-flow termination) keeps holding.
    * With `owner`, only that caller's own session ends; a cancel that beats
-   * its session's registration keeps that session from opening.
+   * its session's registration keeps that session from opening. With
+   * `sessionId` (the stage scanner's), only that session ends.
    */
   @backgroundMethod()
   async cancelStageAirGapScan({
     scanning,
     owner,
-  }: { scanning?: boolean; owner?: string } = {}) {
+    sessionId,
+  }: { scanning?: boolean; owner?: string; sessionId?: number } = {}) {
     if (owner !== undefined && this.stageAirGapSession?.owner !== owner) {
       this.cancelledStageAirGapOwners.add(owner);
+      return;
+    }
+    // A replaced scanner's late cancel must not end the newer session.
+    if (
+      sessionId !== undefined &&
+      this.stageAirGapSession?.sessionId !== sessionId
+    ) {
       return;
     }
     await this.rejectStageAirGapSession(

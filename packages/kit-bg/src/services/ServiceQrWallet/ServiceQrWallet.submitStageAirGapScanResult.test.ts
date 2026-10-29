@@ -527,6 +527,36 @@ describe('ServiceQrWallet stage session owner', () => {
     await expect(exchange).rejects.toBeInstanceOf(SecureQRCodeDialogCancel);
   });
 
+  it("ignores a replaced scanner's cancel and ends only its own session", async () => {
+    const { service, codeShown } = createStageSessionService();
+    const shownFirst = codeShown();
+    const first = service.startTwoWayAirGapScan(
+      { type: 'bytes', cbor: 'a0' },
+      { owner: 'ui-a' },
+    );
+    const firstError = first.catch((error: unknown) => error);
+    const firstSessionId = await shownFirst;
+    const shownNext = codeShown();
+    const next = service.startTwoWayAirGapScan(
+      { type: 'bytes', cbor: 'a0' },
+      { owner: 'ui-b' },
+    );
+    const nextSessionId = await shownNext;
+    await expect(firstError).resolves.toBeInstanceOf(SecureQRCodeDialogCancel);
+
+    await service.cancelStageAirGapScan({
+      scanning: true,
+      sessionId: firstSessionId,
+    });
+    await expect(settledState(next)).resolves.toBe('pending');
+
+    await service.cancelStageAirGapScan({
+      scanning: true,
+      sessionId: nextSessionId,
+    });
+    await expect(next).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+  });
+
   it('lets the newer UI complete after superseding an already shown QR code', async () => {
     const { service, deviceStageBurst, codeShown } =
       createStageSessionService();
