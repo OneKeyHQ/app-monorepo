@@ -23,6 +23,7 @@ import { getTradingViewNativeSubIndicatorDefinition } from './definitions';
 
 import type {
   ITradingViewNativeSubIndicatorCalculation,
+  ITradingViewNativeSubIndicatorCalculationOptions,
   ITradingViewNativeSubIndicatorDefinition,
   ITradingViewNativeSubIndicatorInputDefinition,
   ITradingViewNativeSubIndicatorInputValue,
@@ -355,6 +356,7 @@ function calculateRawSubIndicator(
   indicator: ITradingViewNativeSubIndicator,
   inputs: Record<string, ITradingViewNativeSubIndicatorInputValue>,
   points: readonly IMarketTokenKLineDataPoint[],
+  { zeroVolumeIsMissing }: ITradingViewNativeSubIndicatorCalculationOptions,
 ): ITradingViewNativeRawCalculation {
   const closes = getSourceValues(points, 'close');
 
@@ -432,6 +434,7 @@ function calculateRawSubIndicator(
       const result = calculateTradingViewNativeOnBalanceVolume(
         points,
         getNumberInput(indicator, inputs, 'movingAveragePeriod'),
+        { zeroVolumeIsMissing },
       );
       return {
         paletteIndexes: {},
@@ -547,6 +550,7 @@ function calculateRawSubIndicator(
 export function calculateTradingViewNativeSubIndicator(
   instance: ITradingViewNativeSubIndicatorResolvedInstance,
   points: readonly IMarketTokenKLineDataPoint[],
+  options: ITradingViewNativeSubIndicatorCalculationOptions = {},
 ): ITradingViewNativeSubIndicatorCalculation {
   const runtimeIndicator: unknown = instance.indicator;
   if (
@@ -565,6 +569,7 @@ export function calculateTradingViewNativeSubIndicator(
     runtimeIndicator,
     inputValues,
     points,
+    options,
   );
 
   return createCalculation({
