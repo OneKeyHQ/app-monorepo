@@ -1301,6 +1301,49 @@ describe('TradingViewNativeContainer', () => {
     ).toEqual(['VOL']);
   });
 
+  it.each([
+    {
+      expectedObv: [0, 10, 20, null, null],
+      source: { kind: 'stock' as const, stockId: 'NVDA' },
+    },
+    {
+      expectedObv: [0, 10, 20, 20, 20],
+      source: {
+        kind: 'hyperliquid' as const,
+        coin: 'ETH',
+        environment: 'mainnet' as const,
+      },
+    },
+  ])(
+    'reads zero volume on $source.kind bars for OBV',
+    ({ expectedObv, source }) => {
+      mockDataState = { status: 'live' };
+      mockPoints = Array.from({ length: 5 }, (_, index) => ({
+        c: 100 + index,
+        h: 101 + index,
+        l: 99 + index,
+        o: 100 + index,
+        t: 1000 + index * 3600,
+        v: index < 3 ? 10 : 0,
+      }));
+      render(<TradingViewNativeContainer source={source} />);
+
+      const controlsProps = mockTradingViewNativeChartControlsContainer.mock
+        .calls[0][0] as {
+        onIndicatorChange: (indicator: 'OBV', desiredActive: boolean) => void;
+      };
+      act(() => controlsProps.onIndicatorChange('OBV', true));
+
+      const chartProps = mockTradingViewNativeChart.mock.calls.at(
+        -1,
+      )?.[0] as ITradingViewNativeChartProps;
+      expect(
+        chartProps.subIndicatorPanes?.[0]?.series.find(({ id }) => id === 'obv')
+          ?.values,
+      ).toEqual(expectedObv);
+    },
+  );
+
   it.each(['market', 'swap', 'perps'] as const)(
     'opens the %s mobile editor on the selected sub-indicator from its chart legend',
     (storageNamespace) => {
