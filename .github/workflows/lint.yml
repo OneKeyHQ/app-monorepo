@@ -82,10 +82,11 @@ jobs:
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
           ONEKEY_OXLINT_PASS: standard
+          ONEKEY_LINT_SKIP_TSC: 'true'
         run: |
           mkdir -p ci-ai
           set +e
-          yarn lint:no-tsc 2>&1 | tee ci-ai/lint-output.log
+          yarn lint 2>&1 | tee ci-ai/lint-output.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
