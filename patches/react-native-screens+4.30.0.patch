@@ -462,7 +462,7 @@ index 0000000..eaa5010
 +    override fun getEventData(): WritableMap = Arguments.createMap().apply { putInt("dismissCount", 1) }
 +}
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt
-index 2f2133b..f5ba190 100644
+index 2f2133b..fb84a93 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt
 @@ -16,6 +16,7 @@ import androidx.annotation.RequiresApi
@@ -514,7 +514,7 @@ index 2f2133b..f5ba190 100644
          isBeingRemoved = true
          if (!isRemovalTransitionStarted) {
              isRemovalTransitionStarted = true
-@@ -463,55 +477,140 @@ class Screen(
+@@ -463,59 +477,196 @@ class Screen(
      }
  
      fun endRemovalTransition() {
@@ -526,10 +526,6 @@ index 2f2133b..f5ba190 100644
 +            return
          }
 -    }
--
--    private fun endTransitionRecursive(parent: ViewGroup) {
--        parent.children.forEach { childView ->
--            parent.endViewTransition(childView)
 +        isRemovalTransitionStarted = false
 +        isBeingRemoved = false
 +        // OneKey patch: release tracked transition edges and suppressed RecyclerViews in reverse order.
@@ -559,6 +555,10 @@ index 2f2133b..f5ba190 100644
 +    //     }
 +    // }
  
+-    private fun endTransitionRecursive(parent: ViewGroup) {
+-        parent.children.forEach { childView ->
+-            parent.endViewTransition(childView)
+-
 -            if (childView is ScreenStackHeaderConfig) {
 -                endTransitionRecursive(childView.toolbar)
 +    private fun startTransitionRecursive(parent: ViewGroup?) {
@@ -671,29 +671,84 @@ index 2f2133b..f5ba190 100644
 +        val state = recyclerViewOwners[recyclerView]
 +        if (state == null) {
 +            val wasSuppressed = recyclerView.isLayoutSuppressed
-+            recyclerViewOwners[recyclerView] = RecyclerViewOwner(1, wasSuppressed)
-+            if (!wasSuppressed) recyclerView.suppressLayout(true)
-+            if (isRemovalTransitionStarted) recyclerView.itemAnimator?.endAnimations()
++            val owner = RecyclerViewOwner(1, wasSuppressed)
++            recyclerViewOwners[recyclerView] = owner
++            applyRecyclerViewSuppression(recyclerView, owner)
 +        } else {
 +            state.count += 1
++            applyRecyclerViewSuppression(recyclerView, state)
 +        }
 +    }
  
 -                if (child is ViewGroup) {
 -                    startTransitionRecursive(child)
--                }
++    private fun applyRecyclerViewSuppression(
++        recyclerView: RecyclerView,
++        owner: RecyclerViewOwner,
++    ) {
++        if (owner.wasSuppressed || recyclerViewOwners[recyclerView] !== owner || owner.count <= 0) {
++            return
++        }
++        if (!recyclerView.isComputingLayout) {
++            try {
++                if (!recyclerView.isLayoutSuppressed) {
++                    recyclerView.suppressLayout(true)
+                 }
++                recyclerView.itemAnimator?.endAnimations()
++                return
++            } catch (_: IllegalStateException) {
++                // RecyclerView is still in layout or scroll; retry on the next UI frame.
++            }
++        }
++        if (owner.pendingSync != null || !recyclerView.isAttachedToWindow) {
++            return
++        }
++        val retry =
++            Runnable {
++                owner.pendingSync = null
++                applyRecyclerViewSuppression(recyclerView, owner)
++            }
++        owner.pendingSync = retry
++        recyclerView.post(retry)
++    }
++
 +    private fun releaseRecyclerView(recyclerView: RecyclerView) {
 +        val state = recyclerViewOwners[recyclerView] ?: return
 +        state.count -= 1
 +        if (state.count == 0) {
 +            recyclerViewOwners.remove(recyclerView)
++            state.pendingSync?.let {
++                recyclerView.removeCallbacks(it)
++                state.pendingSync = null
++            }
 +            if (!state.wasSuppressed) {
-+                recyclerView.suppressLayout(false)
-+                recyclerView.requestLayout()
++                restoreRecyclerViewSuppression(recyclerView)
              }
          }
      }
-@@ -566,6 +665,7 @@ class Screen(
+ 
++    private fun restoreRecyclerViewSuppression(recyclerView: RecyclerView) {
++        if (recyclerViewOwners.containsKey(recyclerView) || !recyclerView.isLayoutSuppressed) {
++            return
++        }
++        if (!recyclerView.isComputingLayout) {
++            try {
++                recyclerView.suppressLayout(false)
++                recyclerView.requestLayout()
++                return
++            } catch (_: IllegalStateException) {
++                // RecyclerView is still in layout or scroll; retry on the next UI frame.
++            }
++        }
++        if (recyclerView.isAttachedToWindow) {
++            recyclerView.post { restoreRecyclerViewSuppression(recyclerView) }
++        }
++    }
++
+     // We do not want to perform any action, therefore do not need to override the associated method.
+     @SuppressLint("ClickableViewAccessibility")
+     override fun onTouchEvent(event: MotionEvent?): Boolean =
+@@ -566,6 +717,7 @@ class Screen(
      }
  
      override fun onDetachedFromWindow() {
@@ -701,12 +756,16 @@ index 2f2133b..f5ba190 100644
          super.onDetachedFromWindow()
          // Rotation may reset the shadow state while this screen is covered. Republish it on the
          // next layout, even if the native frame is identical to the one before detaching.
-@@ -666,6 +766,10 @@ class Screen(
+@@ -666,6 +818,14 @@ class Screen(
  
      companion object {
          const val TAG = "Screen"
 +        private data class TransitionEdge(val parent: ViewGroup, val child: View)
-+        private data class RecyclerViewOwner(var count: Int, val wasSuppressed: Boolean)
++        private class RecyclerViewOwner(
++            var count: Int,
++            val wasSuppressed: Boolean,
++            var pendingSync: Runnable? = null,
++        )
 +        private val transitionEdgeOwners = IdentityHashMap<ViewGroup, IdentityHashMap<View, Int>>()
 +        private val recyclerViewOwners = IdentityHashMap<RecyclerView, RecyclerViewOwner>()
      }
