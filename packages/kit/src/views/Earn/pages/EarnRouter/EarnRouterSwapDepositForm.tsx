@@ -15,9 +15,7 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   HeightTransition,
-  Page,
   SizableText,
-  Stack,
   Toast,
   YStack,
   useDeepCompareEffect,
@@ -52,7 +50,7 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { EarnLendingSummary } from '../../../Borrow/components/ManagePosition/modules/InfoDisplaySection/EarnLendingSummary';
-import { EarnFooterFade } from '../../../Staking/components/EarnFooterFade';
+import { EarnFormFooter } from '../../../Staking/components/EarnFormFooter';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { usePendleTransactionDetails } from '../../../Staking/components/ProtocolDetails/PendleSharedComponents';
 import {
@@ -1661,49 +1659,20 @@ export function EarnRouterSwapDepositForm({
         </HeightTransition>
       </YStack>
       {summary}
-      {isInModalContext ? (
-        <Page.Footer>
-          <EarnFooterFade>
-            <Stack
-              bg="$bgApp"
-              flexDirection="column"
-              $gtMd={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                jc: 'space-between',
-              }}
-            >
-              {progress ? (
-                <Stack pl="$5" $md={{ pt: '$5' }}>
-                  {progress}
-                </Stack>
-              ) : (
-                <Stack />
-              )}
-              <Page.FooterActions
-                onConfirmText={confirmText}
-                confirmButtonProps={confirmButtonProps}
-              />
-            </Stack>
-            <PercentageStageOnKeyboard
-              onSelectPercentageStage={
-                isLocked ? undefined : handleSelectPercentage
-              }
-              reserveSpaceUntilKeyboardShown={!isLocked}
-            />
-          </EarnFooterFade>
-        </Page.Footer>
-      ) : (
-        <YStack bg="$bgApp" gap="$5">
-          {progress}
-          <Page.FooterActions
-            p={0}
-            onConfirmText={confirmText}
-            buttonContainerProps={{ $gtMd: { ml: '0' }, w: '100%' }}
-            confirmButtonProps={{ ...confirmButtonProps, w: '100%' }}
+      <EarnFormFooter
+        isInModalContext={Boolean(isInModalContext)}
+        progress={progress}
+        confirmText={confirmText}
+        confirmButtonProps={confirmButtonProps}
+        keyboardStage={
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={
+              isLocked ? undefined : handleSelectPercentage
+            }
+            reserveSpaceUntilKeyboardShown={!isLocked}
           />
-        </YStack>
-      )}
+        }
+      />
     </StakingFormWrapper>
   );
 }

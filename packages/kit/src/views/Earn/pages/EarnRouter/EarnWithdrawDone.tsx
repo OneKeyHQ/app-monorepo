@@ -8,6 +8,10 @@ import { Page, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EarnFooterFade } from '../../../Staking/components/EarnFooterFade';
+import {
+  EARN_FULL_WIDTH_BUTTONS,
+  EARN_HALF_BUTTON,
+} from '../../../Staking/components/EarnFormFooter';
 import { ProtocolSwitchRow } from '../../../Staking/components/UniversalStake';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 
@@ -105,8 +109,15 @@ export function EarnWithdrawDone({
               id: ETranslations.earn_deposit,
             })}
             onConfirm={onDeposit}
-            confirmButtonProps={{ testID: 'earn-withdraw-deposit-better' }}
-            cancelButtonProps={{ testID: 'earn-withdraw-done' }}
+            buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
+            confirmButtonProps={{
+              ...EARN_HALF_BUTTON,
+              testID: 'earn-withdraw-deposit-better',
+            }}
+            cancelButtonProps={{
+              ...EARN_HALF_BUTTON,
+              testID: 'earn-withdraw-done',
+            }}
           />
         </EarnFooterFade>
       </Page.Footer>

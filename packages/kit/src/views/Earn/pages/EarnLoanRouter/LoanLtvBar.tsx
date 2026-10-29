@@ -364,6 +364,9 @@ export function LoanLtvBar({
               top: 0,
               left: posAt(bar.cap),
               transform: `translateX(${bar.cap > 0.8 ? '-100%' : '-50%'})`,
+              // Its own width, not the room right of the wall: near the end
+              // of a phone-width bar that room is narrower than the figure
+              width: 'max-content',
               whiteSpace: 'nowrap',
               transition: `left ${GLIDE}`,
             }}
@@ -371,6 +374,7 @@ export function LoanLtvBar({
             <SizableText
               size="$bodySm"
               color="$textSubdued"
+              numberOfLines={1}
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
               {capLabel}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   useIsFocused,
@@ -92,8 +92,15 @@ function measureSpaceBelow(content: HTMLElement, viewport: HTMLElement) {
  * (the navigator's stand-in at the full size), it eases from there to its
  * height, centered, and holds its top edge from then on
  */
-export function useLoanModalHeight(maxHeight: number) {
+export function useLoanModalHeight(
+  maxHeight: number,
+  // The height what it holds can take at the most, for the wide window's
+  // columns, which scroll by themselves within it
+  onRoom?: (room: number) => void,
+) {
   const { gtMd } = useMedia();
+  const onRoomRef = useRef(onRoom);
+  onRoomRef.current = onRoom;
   const isFocused = useIsFocused();
   // Still the top page of its own modal, with another modal over it
   const routeKey = useRoute().key;
@@ -130,6 +137,7 @@ export function useLoanModalHeight(maxHeight: number) {
     // The height its top edge is held for; centered until it is set
     let anchorHeight: number | undefined;
     let frame = 0;
+    let lastRoom = -1;
 
     const measure = () => {
       // Layout sizes: the modal's opening animation scales it, which the
@@ -144,18 +152,19 @@ export function useLoanModalHeight(maxHeight: number) {
       const above =
         (contentRect.top - viewport.getBoundingClientRect().top) / scale +
         viewport.scrollTop;
-      const desired =
-        measureChrome(viewport, modal) +
-        above +
-        contentRect.height / scale +
-        measureSpaceBelow(content, viewport);
-      return Math.ceil(
-        Math.min(
-          desired,
-          maxHeight,
-          window.innerHeight * MODAL_MAX_WINDOW_SHARE,
-        ),
+      const chrome = measureChrome(viewport, modal);
+      const below = measureSpaceBelow(content, viewport);
+      const limit = Math.min(
+        maxHeight,
+        window.innerHeight * MODAL_MAX_WINDOW_SHARE,
       );
+      const room = Math.floor(limit - chrome - above - below);
+      if (room !== lastRoom) {
+        lastRoom = room;
+        onRoomRef.current?.(room);
+      }
+      const desired = chrome + above + contentRect.height / scale + below;
+      return Math.ceil(Math.min(desired, limit));
     };
 
     const render = () => {

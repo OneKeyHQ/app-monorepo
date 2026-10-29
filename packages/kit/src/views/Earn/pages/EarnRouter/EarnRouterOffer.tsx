@@ -91,6 +91,14 @@ export function useEarnRouterOffers({
   };
 }
 
+// The token an offer takes in: a market's reserve, or the protocol row's own
+// (the full list tags each row with it)
+export const getOfferSymbol = (
+  offer: IEarnDesktopHoldOffer,
+  fallback: string,
+) =>
+  offer.kind === 'lending' ? offer.offer.symbol : offer.item.symbol || fallback;
+
 export const getOfferName = (offer: IEarnDesktopHoldOffer) =>
   offer.kind === 'lending'
     ? offer.offer.marketLabel

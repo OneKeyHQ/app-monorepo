@@ -13,7 +13,6 @@ import {
   Icon,
   IconButton,
   NumberSizeableText,
-  Page,
   SizableText,
   Skeleton,
   Stack,
@@ -79,7 +78,7 @@ import {
   getTypedAmountValue,
   isInvalidAmount,
 } from '../../utils/utils';
-import { EarnFooterFade } from '../EarnFooterFade';
+import { EarnFormFooter } from '../EarnFormFooter';
 import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
@@ -2678,63 +2677,23 @@ export function UniversalWithdraw({
         }
       />
       {beforeFooter}
-      {isInModalContext ? (
-        <Page.Footer>
-          <EarnFooterFade>
-            <Stack
-              bg="$bgApp"
-              flexDirection="column"
-              $gtMd={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                jc: 'space-between',
-              }}
-            >
-              {withdrawProgress ? (
-                <Stack pl="$5" $md={{ pt: '$5' }}>
-                  {withdrawProgress}
-                </Stack>
-              ) : (
-                <Stack />
-              )}
-              <Page.FooterActions
-                onConfirmText={effectiveConfirmText}
-                confirmButtonProps={{
-                  onPress: handleConfirmPress,
-                  loading: buttonLoading,
-                  disabled: buttonDisabled,
-                  ...EARN_BUTTON_LOOK_TRANSITION,
-                }}
-              />
-            </Stack>
-            <PercentageStageOnKeyboard
-              onSelectPercentageStage={onSelectPercentageStage}
-              reserveSpaceUntilKeyboardShown={!amountInputDisabled}
-            />
-          </EarnFooterFade>
-        </Page.Footer>
-      ) : (
-        <YStack bg="$bgApp" gap="$5">
-          {withdrawProgress}
-          <Page.FooterActions
-            p={0}
-            onConfirmText={effectiveConfirmText}
-            buttonContainerProps={{
-              $gtMd: {
-                ml: '0',
-              },
-              w: '100%',
-            }}
-            confirmButtonProps={{
-              onPress: handleConfirmPress,
-              loading: buttonLoading,
-              disabled: buttonDisabled,
-              w: '100%',
-              ...EARN_BUTTON_LOOK_TRANSITION,
-            }}
+      <EarnFormFooter
+        isInModalContext={isInModalContext}
+        progress={withdrawProgress}
+        confirmText={effectiveConfirmText}
+        confirmButtonProps={{
+          onPress: handleConfirmPress,
+          loading: buttonLoading,
+          disabled: buttonDisabled,
+          ...EARN_BUTTON_LOOK_TRANSITION,
+        }}
+        keyboardStage={
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
           />
-        </YStack>
-      )}
+        }
+      />
     </StakingFormWrapper>
   );
 }

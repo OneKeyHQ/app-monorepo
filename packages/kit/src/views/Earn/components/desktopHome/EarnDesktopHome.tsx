@@ -4,7 +4,13 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -54,6 +60,7 @@ import {
   useEarnDesktopHoldData,
   useEarnDesktopOpenHoldRow,
 } from './useEarnDesktopHoldData';
+import { useEarnRouterEntries } from './useEarnRouterEntries';
 
 import type { IEarnDesktopOpenRequest } from './earnDesktopHome.utils';
 import type { IUseEarnPortfolioReturn } from '../../hooks/useEarnPortfolio';
@@ -540,6 +547,38 @@ export function EarnDesktopHome({
     () => EarnNavigation.pushToEarnHoldings(navigation),
     [navigation],
   );
+  // The routers' quick entries: the phone's Earn and Loans tiles, the
+  // buttons beside Net Worth
+  const { openEarnRouter, openLoansRouter } = useEarnRouterEntries({
+    holdRows: hold.rows,
+    walletGroups: wallet.networkGroups,
+    markets,
+  });
+  const routerActions = useMemo(
+    () => (
+      <>
+        <Button
+          testID="earn-desktop-open-earn-router"
+          size="medium"
+          variant="secondary"
+          icon="DollarOutline"
+          onPress={openEarnRouter}
+        >
+          {intl.formatMessage({ id: ETranslations.earn_title })}
+        </Button>
+        <Button
+          testID="earn-desktop-open-loans-router"
+          size="medium"
+          variant="secondary"
+          icon="HandCoinsOutline"
+          onPress={openLoansRouter}
+        >
+          {intl.formatMessage({ id: ETranslations.earn_loans__action })}
+        </Button>
+      </>
+    ),
+    [intl, openEarnRouter, openLoansRouter],
+  );
 
   const bannerCount = bannerList.filter(
     (banner) =>
@@ -639,6 +678,8 @@ export function EarnDesktopHome({
           isFaqLoading={isFaqLoading}
           onOpenTokens={handleOpenTokensPage}
           onOpenLoans={handleOpenLoansPage}
+          onOpenEarnRouter={openEarnRouter}
+          onOpenLoansRouter={openLoansRouter}
           onOpenProtocols={handleOpenProtocolsPage}
           onOpenHoldRow={handleOpenHoldRow}
           onOpenHoldings={handleOpenHoldingsPage}
@@ -680,6 +721,7 @@ export function EarnDesktopHome({
                 onOpenPortfolio={onOpenPortfolio}
                 onRefresh={onRefresh}
                 rewards={rewardPills}
+                actions={routerActions}
                 onHeightChange={setHeroHeight}
               />
             )}

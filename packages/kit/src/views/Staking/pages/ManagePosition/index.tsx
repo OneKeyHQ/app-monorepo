@@ -2,9 +2,10 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import { Page, YStack } from '@onekeyhq/components';
+import { Page, YStack, useMedia } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -16,20 +17,24 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  type EModalStakingRoutes,
+  EModalRoutes,
+  EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { type ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import type { IEarnAssetPick } from '@onekeyhq/shared/types/earn/earnAssetSelect';
 import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { EarnNavigation } from '../../../Earn/earnUtils';
+import { EarnAssetPickTrigger } from '../../../Earn/pages/EarnAssetSelect/EarnAssetPickTrigger';
 import { EarnDepositDone } from '../../../Earn/pages/EarnRouter/EarnDepositDone';
 import {
   EarnOfferSwitcher,
@@ -44,9 +49,13 @@ import {
   useEarnRouterOffers,
 } from '../../../Earn/pages/EarnRouter/EarnRouterOffer';
 import { EarnWithdrawDone } from '../../../Earn/pages/EarnRouter/EarnWithdrawDone';
+import { useEarnNetworkAssets } from '../../../Earn/pages/EarnRouter/useEarnNetworkAssets';
 import { EarnFormLeavingContext } from '../../components/EarnFooterFade';
 import { EarnOutcomeCarryContext } from '../../components/UniversalStake/EarnFormSummary';
-import { useFitModalHeight } from '../../hooks/useFitModalHeight';
+import {
+  easeModalHeightChanges,
+  useFitModalHeight,
+} from '../../hooks/useFitModalHeight';
 
 import { HeaderRightView } from './components/HeaderRight';
 import {
@@ -98,7 +107,10 @@ const ManagePositionPage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.ManagePosition
   >();
-  const fitModalRef = useFitModalHeight();
+  // The wide router's columns scroll by themselves within what the modal
+  // can show
+  const [columnsRoom, setColumnsRoom] = useState<number>();
+  const fitModalRef = useFitModalHeight(true, undefined, setColumnsRoom);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
 
@@ -177,6 +189,7 @@ const ManagePositionPage = () => {
   } = resolvedParams;
 
   const navigation = useAppNavigation();
+  const intl = useIntl();
   // Opened for the token's offers on a network (a home row), or switched to
   // them by a withdrawal's better rate
   const [offersEntry, setOffersEntry] = useState<
@@ -189,6 +202,21 @@ const ManagePositionPage = () => {
       }
     | undefined
   >(route.params.earnOffers);
+  // The router: the title picks what to earn on, a token or a kind of token
+  // compared across its tokens on this network. A details page's own
+  // deposit (that offer alone) keeps its token
+  const isRouter = Boolean(offersEntry && !offersEntry.offerOnly);
+  const routeAssetClass = route.params.earnOffers?.assetClass;
+  const [assetPick, setAssetPick] = useState<IEarnAssetPick>(() =>
+    routeAssetClass
+      ? { kind: 'class', assetClass: routeAssetClass }
+      : { kind: 'token', symbol },
+  );
+  const handleAssetPick = useCallback((pick: IEarnAssetPick) => {
+    // The form under the title is built again around the new offers
+    easeModalHeightChanges();
+    setAssetPick(pick);
+  }, []);
   // A form showing one side hands its History and quote controls up here,
   // for the modal's header
   const [headerControls, setHeaderControls] =
@@ -245,6 +273,60 @@ const ManagePositionPage = () => {
       }),
     [selectedProtocol.networkId],
   );
+  // What the network pays on, token by token: the title's selector lists it
+  const networkAssets = useEarnNetworkAssets({
+    networkId: selectedProtocol.networkId,
+    enabled: isRouter,
+  });
+  // A kind of token lists its offers beside the form, so the modal widens
+  // for it; a token takes the width its own offers need
+  const { gtLg: isWideScreen } = useMedia();
+  const handlePickAsset = useCallback(
+    (pick: IEarnAssetPick) => {
+      handleAssetPick(pick);
+      const earnOffers = route.params.earnOffers;
+      if (!earnOffers || !isWideScreen) {
+        return;
+      }
+      const wide =
+        pick.kind === 'class' ||
+        (networkAssets.offersBySymbol.get(pick.symbol.toLowerCase())?.length ??
+          0) > 1;
+      if (Boolean(earnOffers.wide) !== wide) {
+        navigation.setParams({ earnOffers: { ...earnOffers, wide } });
+      }
+    },
+    [
+      handleAssetPick,
+      isWideScreen,
+      navigation,
+      networkAssets.offersBySymbol,
+      route.params.earnOffers,
+    ],
+  );
+  const handleOpenAssetSelect = useCallback(() => {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.EarnRouterAssetSelect,
+      params: {
+        purpose: 'earn',
+        title: intl.formatMessage({ id: ETranslations.earn_title }),
+        tokens: networkAssets.tokens,
+        selected: assetPick,
+        networkId: selectedProtocol.networkId,
+        networkName: networkAssets.networkName ?? network?.name,
+        onSelect: handlePickAsset,
+      },
+    });
+  }, [
+    assetPick,
+    handlePickAsset,
+    intl,
+    navigation,
+    network?.name,
+    networkAssets.networkName,
+    networkAssets.tokens,
+    selectedProtocol.networkId,
+  ]);
   // One side of a position names its protocol as the token's offers modal
   // does, with the rate in it, so the card above the button needn't
   const positionRow = positionOffer ? (
@@ -469,6 +551,22 @@ const ManagePositionPage = () => {
         amount={offersEntry.amount}
         onHeaderRightChange={setHeaderControls}
         onDeposited={handleOffersDeposited}
+        assetPick={isRouter ? assetPick : undefined}
+        networkAssets={isRouter ? networkAssets : undefined}
+        onAssetPickChange={isRouter ? handlePickAsset : undefined}
+        pickPill={
+          isRouter ? (
+            <EarnAssetPickTrigger
+              variant="pill"
+              pick={assetPick}
+              tokens={networkAssets.tokens}
+              purpose="earn"
+              fallbackLogoURI={offersEntry.tokenImageUri ?? tokenImageUri}
+              onPress={handleOpenAssetSelect}
+            />
+          ) : undefined
+        }
+        columnsRoom={columnsRoom}
       />
     );
   } else if (withdrawn) {
@@ -519,6 +617,15 @@ const ManagePositionPage = () => {
     );
   }
 
+  // The router is Earn's window, its pick heading the form; the done view
+  // names what went in
+  let title: string = symbol;
+  if (depositDone) {
+    title = depositDone.symbol;
+  } else if (isRouter && !withdrawn) {
+    title = intl.formatMessage({ id: ETranslations.earn_title });
+  }
+
   return (
     // The form's footer is drawn by the page, outside the body below: it
     // reads this to fade with the form
@@ -528,7 +635,7 @@ const ManagePositionPage = () => {
         scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
       >
         <Page.Header
-          title={symbol}
+          title={title}
           headerRight={
             headerControls
               ? () => (

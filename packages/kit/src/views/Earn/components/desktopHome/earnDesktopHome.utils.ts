@@ -1382,6 +1382,9 @@ export type IEarnDesktopLendingOffer = {
   reserveAddress: string;
   symbol: string;
   logoURI: string;
+  // The token's own name and contract, for the routers' selector
+  tokenName?: string;
+  tokenAddress?: string;
   apy: string;
   tvlText?: string;
   depositedFiatValue?: number;
@@ -1412,6 +1415,8 @@ export function collectLendingOffers({
         reserveAddress: asset.reserveAddress,
         symbol: asset.token.symbol,
         logoURI: asset.token.logoURI,
+        tokenName: asset.token.name,
+        tokenAddress: asset.token.address,
         apy: asset.apyDetail.apy,
         tvlText: asset.reserveSize?.text,
         depositedFiatValue: supplied?.get(

@@ -24,7 +24,6 @@ import {
   HeightTransition,
   Icon,
   NumberSizeableText,
-  Page,
   Popover,
   SizableText,
   Skeleton,
@@ -105,7 +104,7 @@ import {
   isInvalidAmount,
 } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
-import { EarnFooterFade } from '../EarnFooterFade';
+import { EarnFormFooter } from '../EarnFormFooter';
 import { showEarnRiskWarningDialog } from '../EarnRiskWarningDialog';
 import { useShowStakeEstimateGasAlert } from '../EstimateNetworkFee';
 import { EarnPlatformBonusSection } from '../ProtocolDetails/EarnPlatformBonusSection';
@@ -2851,30 +2850,6 @@ export function UniversalStake({
     onAutoSubmit,
   ]);
 
-  const footerContent = (
-    <YStack bg="$bgApp" gap="$5">
-      {isShowStakeProgress ? <Stack>{stakeProgress}</Stack> : null}
-      <Page.FooterActions
-        p={0}
-        onConfirmText={effectiveOnConfirmText}
-        buttonContainerProps={{
-          $gtMd: {
-            ml: '0',
-          },
-          w: '100%',
-        }}
-        confirmButtonProps={{
-          onPress: handleConfirmPress,
-          loading: buttonLoading,
-          disabled: buttonDisabled,
-          w: '100%',
-          color: isConfirmWordHeld ? '$transparent' : undefined,
-          ...EARN_BUTTON_LOOK_TRANSITION,
-        }}
-      />
-    </YStack>
-  );
-
   const tradeOrBuyContent =
     isPendleProvider || hideTradeOrBuy ? null : (
       <TradeOrBuy
@@ -3167,45 +3142,24 @@ export function UniversalStake({
       ) : null}
       {platformBonusContent}
       {beforeFooter}
-      {isInModalContext ? (
-        <Page.Footer>
-          <EarnFooterFade>
-            <Stack
-              bg="$bgApp"
-              flexDirection="column"
-              $gtMd={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                jc: 'space-between',
-              }}
-            >
-              {isShowStakeProgress ? (
-                <Stack pl="$5" $md={{ pt: '$5' }}>
-                  {stakeProgress}
-                </Stack>
-              ) : (
-                <Stack />
-              )}
-              <Page.FooterActions
-                onConfirmText={effectiveOnConfirmText}
-                confirmButtonProps={{
-                  onPress: handleConfirmPress,
-                  loading: buttonLoading,
-                  disabled: buttonDisabled,
-                  color: isConfirmWordHeld ? '$transparent' : undefined,
-                  ...EARN_BUTTON_LOOK_TRANSITION,
-                }}
-              />
-            </Stack>
-            <PercentageStageOnKeyboard
-              onSelectPercentageStage={onSelectPercentageStage}
-              reserveSpaceUntilKeyboardShown={!amountInputDisabled}
-            />
-          </EarnFooterFade>
-        </Page.Footer>
-      ) : (
-        <YStack>{footerContent}</YStack>
-      )}
+      <EarnFormFooter
+        isInModalContext={isInModalContext}
+        progress={isShowStakeProgress ? stakeProgress : null}
+        confirmText={effectiveOnConfirmText}
+        confirmButtonProps={{
+          onPress: handleConfirmPress,
+          loading: buttonLoading,
+          disabled: buttonDisabled,
+          color: isConfirmWordHeld ? '$transparent' : undefined,
+          ...EARN_BUTTON_LOOK_TRANSITION,
+        }}
+        keyboardStage={
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
+          />
+        }
+      />
     </StakingFormWrapper>
   );
 }

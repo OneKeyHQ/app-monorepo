@@ -380,6 +380,15 @@ export const StakeSection = ({
     if (picked) {
       return picked;
     }
+    const preferSymbol = payWith?.preferSymbol?.toLowerCase();
+    const preferred = preferSymbol
+      ? pay.heldTokens.find(
+          (item) => item.token.symbol.toLowerCase() === preferSymbol,
+        )
+      : undefined;
+    if (preferred) {
+      return preferred;
+    }
     return payWith?.preferDepositToken
       ? pay.heldTokens.find((item) => item.isDepositToken)
       : pay.defaultToken;
@@ -390,7 +399,19 @@ export const StakeSection = ({
     pay.tokens,
     payKey,
     payWith?.preferDepositToken,
+    payWith?.preferSymbol,
   ]);
+  // Told to the deposit modal, which marks the protocols a swap comes before
+  const onPayTokenChange = payWith?.onTokenChange;
+  const payTokenSymbol = payToken?.token.symbol;
+  const isPayTokenPicked = Boolean(findPayToken(pay.tokens, payKey));
+  useEffect(() => {
+    onPayTokenChange?.(
+      payTokenSymbol
+        ? { symbol: payTokenSymbol, isPicked: isPayTokenPicked }
+        : undefined,
+    );
+  }, [isPayTokenPicked, onPayTokenChange, payTokenSymbol]);
   // After a swap paid for the deposit: the deposit form takes over on the
   // tokens it brought in, filled with them and pressed once by itself, as
   // the swap's press asked. Only for the provider the swap was for; picking

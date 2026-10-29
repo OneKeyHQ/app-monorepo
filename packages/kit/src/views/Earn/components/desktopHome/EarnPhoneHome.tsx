@@ -26,7 +26,7 @@ import type {
 /**
  * The DeFi home on a phone-wide screen: the same totals, rows and windows as
  * the wide layout, with its lists one tap away instead of in tabs. From the
- * top: the totals (or the guide), the Tokens, Loans and Protocols entries,
+ * top: the totals (or the guide), the Earn, Loans and Protocols entries,
  * the banner, the wallet's tokens, Trending tokens and Fixed Income as the
  * phone app shows them, the first Loans pairs, then the questions
  */
@@ -44,6 +44,8 @@ export function EarnPhoneHome({
   isFaqLoading,
   onOpenTokens,
   onOpenLoans,
+  onOpenEarnRouter,
+  onOpenLoansRouter,
   onOpenProtocols,
   onOpenHoldRow,
   onOpenHoldings,
@@ -69,6 +71,9 @@ export function EarnPhoneHome({
   isFaqLoading: boolean;
   onOpenTokens: () => void;
   onOpenLoans: () => void;
+  // The tiles open the two routers: the deposit window and the Loans window
+  onOpenEarnRouter: () => void;
+  onOpenLoansRouter: () => void;
   onOpenProtocols: () => void;
   onOpenHoldRow: (row: IEarnDesktopHoldRow) => void;
   onOpenHoldings: () => void;
@@ -98,7 +103,8 @@ export function EarnPhoneHome({
         <EasedSection easeKey={headerKind}>{header}</EasedSection>
       </YStack>
       <EarnHomeShortcuts
-        onOpenLoans={onOpenLoans}
+        onOpenEarn={onOpenEarnRouter}
+        onOpenLoans={onOpenLoansRouter}
         onOpenTokens={onOpenTokens}
         onOpenProtocols={onOpenProtocols}
       />

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   useIsFocused,
@@ -194,8 +194,13 @@ function releaseModal(
 export function useFitModalHeight(
   enabled = true,
   maxHeight: number = MODAL_MAX_HEIGHT,
+  // The height what it holds can take at the most, for a window whose
+  // columns scroll by themselves within it
+  onRoom?: (room: number) => void,
 ) {
   const { gtMd } = useMedia();
+  const onRoomRef = useRef(onRoom);
+  onRoomRef.current = onRoom;
   const isFocused = useIsFocused();
   // Still the top page of its own modal, with another modal over it
   const routeKey = useRoute().key;
@@ -242,6 +247,7 @@ export function useFitModalHeight(
     // Once pressed or typed in, the height its top edge is kept for
     let anchorHeight: number | undefined;
     let frame = 0;
+    let lastRoom = -1;
 
     const remainingJump = (now: number) => {
       if (!jumpFrom) {
@@ -270,18 +276,18 @@ export function useFitModalHeight(
       const above =
         (contentRect.top - viewport.getBoundingClientRect().top) / scale +
         viewport.scrollTop;
-      const desired =
-        chrome +
-        above +
-        contentRect.height / scale +
-        measureSpaceBelow(content, viewport);
-      return Math.ceil(
-        Math.min(
-          desired,
-          maxHeight,
-          window.innerHeight * MODAL_MAX_WINDOW_SHARE,
-        ),
+      const below = measureSpaceBelow(content, viewport);
+      const limit = Math.min(
+        maxHeight,
+        window.innerHeight * MODAL_MAX_WINDOW_SHARE,
       );
+      const room = Math.floor(limit - chrome - above - below);
+      if (room !== lastRoom) {
+        lastRoom = room;
+        onRoomRef.current?.(room);
+      }
+      const desired = chrome + above + contentRect.height / scale + below;
+      return Math.ceil(Math.min(desired, limit));
     };
 
     const render = (now: number) => {

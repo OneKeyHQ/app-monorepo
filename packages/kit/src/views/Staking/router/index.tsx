@@ -59,6 +59,13 @@ const EarnLoanRouter = LazyLoad(
 // suspend
 export const preloadEarnLoanRouter = () => EarnLoanRouter.preload();
 
+const EarnRouterAssetSelect = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnAssetSelect'),
+);
+// Loaded while a router's form shows, as Pay with's picker
+export const preloadEarnRouterAssetSelect = () =>
+  EarnRouterAssetSelect.preload();
+
 const EarnPayWithTokenRisk = LazyLoad(
   () =>
     import('@onekeyhq/kit/src/views/Swap/pages/modal/TokenRiskReminderModal'),
@@ -230,6 +237,22 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
         (
           route.params as
             | IModalStakingParamList[EModalStakingRoutes.EarnPayWithTokenSelect]
+            | undefined
+        )?.modalHeight ?? EARN_PAY_WITH_PICKER_SIZE.height,
+    }),
+  },
+  {
+    name: EModalStakingRoutes.EarnRouterAssetSelect,
+    component: EarnRouterAssetSelect,
+    // Opens as Pay with's picker does, over the router it picks for: at its
+    // own size, the form under it still. Narrow windows keep it full screen
+    disableStackAnimation: true,
+    modalContentMaxWidth: EARN_PAY_WITH_PICKER_SIZE.width,
+    options: ({ route }) => ({
+      modalContentMaxHeight:
+        (
+          route.params as
+            | IModalStakingParamList[EModalStakingRoutes.EarnRouterAssetSelect]
             | undefined
         )?.modalHeight ?? EARN_PAY_WITH_PICKER_SIZE.height,
     }),

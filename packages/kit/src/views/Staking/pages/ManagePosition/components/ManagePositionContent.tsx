@@ -31,6 +31,10 @@ import type {
   IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
 
+import {
+  EarnFormFooter,
+  useIsEarnActionInline,
+} from '../../../components/EarnFormFooter';
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
@@ -80,10 +84,17 @@ export type IManagePositionPayWith = {
   // The pick, held by a caller that outlives the form (the Earn Router page
   // keeps it across offers)
   selectedKey?: string;
+  // Comparing a kind of token, the one Pay with stays on as the cards
+  // change, where the wallet holds it (else the form's own choice)
+  preferSymbol?: string;
   onSelectedKeyChange?: (key: string) => void;
   // Wide windows: the picker's height when the form is in a taller modal
   // (the desktop Earn guide), which it takes on
   pickerHeight?: number;
+  // The token it pays with now, and whether it was picked rather than the
+  // form's own choice: the deposit modal marks the protocols a swap comes
+  // before
+  onTokenChange?: (token?: { symbol: string; isPicked: boolean }) => void;
 };
 
 export type IManagePositionFooterAction = {
@@ -207,6 +218,7 @@ export const ManageSectionShell = ({
   isInModalContext?: boolean;
 }) => {
   const intl = useIntl();
+  const isActionInline = useIsEarnActionInline(Boolean(isInModalContext));
   const { primaryLabel, secondaryLabel } = useMemo(() => {
     if (
       [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type)
@@ -300,6 +312,22 @@ export const ManageSectionShell = ({
   // The loaded deposit form shows "Not enough X?" only without Pay with, and
   // the withdraw form never; its Details row waits for an amount
   const showsTradeOrBuy = !hasPayWith && activeIndex === 0;
+  const shellAction = (
+    <EarnFormFooter
+      isInModalContext={Boolean(isInModalContext)}
+      confirmText={confirmLabel}
+      confirmButtonProps={{
+        testID: 'earn-manage-shell-confirm',
+        disabled: true,
+        color: holdsConfirmWord ? '$transparent' : undefined,
+      }}
+      keyboardStage={
+        <PercentageStageOnKeyboard
+          reserveSpaceUntilKeyboardShown={reserveKeyboardAccessorySpace}
+        />
+      }
+    />
+  );
 
   return (
     <YStack gap={isInModalContext ? undefined : '$1.5'}>
@@ -516,36 +544,11 @@ export const ManageSectionShell = ({
           <BorrowInfoSectionSkeleton action={borrowAction} />
         ) : null}
 
-        {/* Inline action button only for the non-modal (details) layout. In the
-            modal the real button sits in Page.Footer, so we render nothing here
-            to avoid a stray full-width button that vanishes on load. */}
-        {isInModalContext ? null : (
-          <Button
-            testID="earn-manage-shell-confirm"
-            size="medium"
-            variant="primary"
-            disabled
-            width="100%"
-            color={holdsConfirmWord ? '$transparent' : undefined}
-          >
-            {confirmLabel}
-          </Button>
-        )}
+        {/* The loading form's button where the loaded form's will be: under
+            the form on a page and in a wide window, else the modal's footer */}
+        {isActionInline ? shellAction : null}
       </YStack>
-      {isInModalContext ? (
-        <Page.Footer>
-          <Page.FooterActions
-            onConfirmText={confirmLabel}
-            confirmButtonProps={{
-              disabled: true,
-              color: holdsConfirmWord ? '$transparent' : undefined,
-            }}
-          />
-          <PercentageStageOnKeyboard
-            reserveSpaceUntilKeyboardShown={reserveKeyboardAccessorySpace}
-          />
-        </Page.Footer>
-      ) : null}
+      {isActionInline ? null : shellAction}
     </YStack>
   );
 };

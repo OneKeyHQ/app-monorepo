@@ -4,6 +4,12 @@ import type {
   IEarnAvailableAsset,
 } from '../../types/earn';
 import type {
+  IEarnAssetClass,
+  IEarnAssetPick,
+  IEarnAssetSelectPurpose,
+  IEarnAssetSelectToken,
+} from '../../types/earn/earnAssetSelect';
+import type {
   EManagePositionType,
   IBorrowAsset,
   IEarnAlert,
@@ -46,6 +52,9 @@ export enum EModalStakingRoutes {
   EarnPayWithTokenRisk = 'EarnPayWithTokenRisk',
   // A Loans row's pair in every market that takes it (demo 10-27)
   EarnLoanRouter = 'EarnLoanRouter',
+  // The routers' token selector: what to earn on, a loan's two sides, one
+  // token or a kind of token (demo 10-29)
+  EarnRouterAssetSelect = 'EarnRouterAssetSelect',
 }
 
 type IBaseRouteParams = {
@@ -140,6 +149,9 @@ export type IModalStakingParamList = {
       amount?: string;
       offerOnly?: boolean;
       wide?: boolean;
+      // Every token of the kind compared, the symbol's among them (the Earn
+      // button opens the most valuable holding's kind)
+      assetClass?: IEarnAssetClass;
     };
     // Fires after a deposit/withdraw confirms, before this modal pops. The
     // inline wide-layout ManagePositionPart takes the same callback as a prop;
@@ -171,8 +183,26 @@ export type IModalStakingParamList = {
   [EModalStakingRoutes.EarnLoanRouter]: {
     collateral: string;
     borrow: string;
+    // A kind of token on that side in place of the token: its every token
+    // compared (the Loans button opens the loan side on Stable Tokens)
+    collateralClass?: IEarnAssetClass;
+    borrowClass?: IEarnAssetClass;
     routeKey?: string;
     wide?: boolean;
+  };
+  [EModalStakingRoutes.EarnRouterAssetSelect]: {
+    purpose: IEarnAssetSelectPurpose;
+    title: string;
+    tokens: IEarnAssetSelectToken[];
+    selected?: IEarnAssetPick;
+    // Earn's list is the deposit's network's: named over the list and in
+    // the line for a pasted address it doesn't have
+    networkId?: string;
+    networkName?: string;
+    // Wide windows: over a taller modal, its height (as Pay with's picker)
+    modalHeight?: number;
+    // Called with the pick after the list closes
+    onSelect: (pick: IEarnAssetPick) => void;
   };
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;

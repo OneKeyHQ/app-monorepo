@@ -57,21 +57,34 @@ function EarnHomeShortcut({
 export function EarnHomeShortcuts({
   onOpenLoans,
   onOpenTokens,
+  onOpenEarn,
   onOpenProtocols,
 }: {
   onOpenLoans: () => void;
   onOpenTokens: () => void;
+  // Where given, the first tile is Earn: the deposit window on the wallet's
+  // tokens, in place of the token list (demo 10-29)
+  onOpenEarn?: () => void;
   onOpenProtocols: () => void;
 }) {
   const intl = useIntl();
   return (
     <XStack px="$pagePadding" pb="$5" jc="space-between">
-      <EarnHomeShortcut
-        icon="DollarOutline"
-        label={intl.formatMessage({ id: ETranslations.earn_tokens__title })}
-        testID={EarnTestIDs.homeShortcut('tokens')}
-        onPress={onOpenTokens}
-      />
+      {onOpenEarn ? (
+        <EarnHomeShortcut
+          icon="DollarOutline"
+          label={intl.formatMessage({ id: ETranslations.earn_title })}
+          testID={EarnTestIDs.homeShortcut('earn')}
+          onPress={onOpenEarn}
+        />
+      ) : (
+        <EarnHomeShortcut
+          icon="DollarOutline"
+          label={intl.formatMessage({ id: ETranslations.earn_tokens__title })}
+          testID={EarnTestIDs.homeShortcut('tokens')}
+          onPress={onOpenTokens}
+        />
+      )}
       <EarnHomeShortcut
         icon="HandCoinsOutline"
         label={intl.formatMessage({ id: ETranslations.earn_loans__action })}

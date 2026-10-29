@@ -14,8 +14,10 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Badge,
+  HeightTransition,
   Icon,
   Page,
+  ScrollView,
   SizableText,
   Skeleton,
   Stack,
@@ -32,13 +34,16 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import {
+  EJotaiContextStoreNames,
+  useCurrencyPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  EModalStakingRoutes,
-  IModalStakingParamList,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
@@ -46,44 +51,62 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { BorrowNavigation } from '../../../Borrow/borrowUtils';
 import { resolveHealthFactorValueColor } from '../../../Borrow/components/healthFactorValueColor';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
+import {
+  EARN_FULL_WIDTH_BUTTONS,
+  EARN_HALF_BUTTON,
+  EarnFormActionPlacementContext,
+  EarnFormFooter,
+} from '../../../Staking/components/EarnFormFooter';
+import { useEarnRiskWarningGate } from '../../../Staking/components/EarnRiskWarningDialog';
 import { StakeProgress } from '../../../Staking/components/StakeProgress';
 import { StakingAmountInput } from '../../../Staking/components/StakingAmountInput';
+import { StakingAmountResultLine } from '../../../Staking/components/StakingAmountResultLine';
 import {
   EarnFormRow,
   EarnFormSummary,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
-import { EARN_DESKTOP_LOAN_LTV } from '../../components/desktopHome/earnDesktopHome.utils';
+import {
+  EARN_DESKTOP_LOAN_LTV,
+  isSameLoanAsset,
+} from '../../components/desktopHome/earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 import { EarnLoanAssetLogos } from '../../components/desktopHome/EarnLoanAssetLogos';
-import { useEarnDesktopMarkets } from '../../components/desktopHome/useEarnDesktopHomeData';
+import {
+  useEarnDesktopMarkets,
+  useEarnDesktopWalletHoldings,
+} from '../../components/desktopHome/useEarnDesktopHomeData';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
+import { getEarnAssetClassLabel } from '../EarnAssetSelect/earnAssetClassLabel';
+import { EarnAssetPickTrigger } from '../EarnAssetSelect/EarnAssetPickTrigger';
 import {
   EarnDoneHeader,
   formatDoneAmount,
 } from '../EarnRouter/EarnDepositDone';
-import { EARN_OFFER_ROUTES_COLUMN_WIDTH } from '../EarnRouter/earnRouter.utils';
+import {
+  EARN_OFFER_ROUTES_COLUMN_WIDTH,
+  listPayTokens,
+} from '../EarnRouter/earnRouter.utils';
 
 import { LoanLtvBar } from './LoanLtvBar';
 import {
   LOAN_HEALTH_TEXT_COLOR,
-  buildLoanRoutes,
-  getLoanBorrowOptions,
-  getLoanCollateralOptions,
+  buildLoanRoutesForPicks,
+  buildLoanSelectTokens,
   getLoanForLtv,
   getLoanForPositionLtv,
   getLoanHealthTone,
   getLoanLtvBar,
   getLoanRouteMetrics,
-  pickLoanBorrowSymbol,
+  pickLoanBorrowPick,
   rankLoanRoutes,
 } from './loanRouter.utils';
 import { EARN_LOAN_MODAL_SIZE } from './loanRouterModal';
 import {
   LoanPairTitle,
+  LoanPickPills,
   LoanRouteList,
-  LoanTokenList,
   formatLoanFiat,
   formatLoanLtv,
   formatLoanNet,
@@ -95,14 +118,16 @@ import {
 } from './LoanRouterParts';
 import { useLoanToneColors } from './loanToneColors';
 import { useLoanModalHeight } from './useLoanModalHeight';
+import { useLoanPayWith } from './useLoanPayWith';
 import { useLoanRouterFacts } from './useLoanRouterFacts';
 import { useLoanRouterRun } from './useLoanRouterRun';
 
-import type { ILoanPositionAsset } from './loanRouter.utils';
+import type { ILoanPositionAsset, ILoanRoute } from './loanRouter.utils';
 import type { ILoanRouteItem } from './LoanRouterParts';
 import type { ILoanRunDone, ILoanRunPlan } from './useLoanRouterRun';
 import type { IHealthFactorDetail } from '../../../Borrow/components/healthFactorValueColor';
 import type { IEarnOutcome } from '../../../Staking/components/UniversalStake/EarnFormSummary';
+import type { IEarnAssetPick } from '../EarnAssetSelect/earnAssetSelect.utils';
 
 // A collateral and a loan, and every market that takes the pair, as
 // LlamaSwap's Borrow tab lays them out: the amounts on the left, the markets
@@ -129,6 +154,21 @@ const formatHealth = (value: number) =>
   value >= 100 ? '>100' : new BigNumber(value).toFixed(2);
 
 const noop = () => undefined;
+
+// The line under the Pay with box grows in this long, as the deposit modal's
+const SUPPLY_LINE_MS = 200;
+
+// A pick's name: the token, or the kind's ("Stable Tokens", "BTC")
+const usePickLabel = () => {
+  const intl = useIntl();
+  return useCallback(
+    (pick: IEarnAssetPick) =>
+      pick.kind === 'token'
+        ? pick.symbol
+        : getEarnAssetClassLabel(intl, pick.assetClass),
+    [intl],
+  );
+};
 
 const isSameSymbol = (a: string, b: string) =>
   a.toUpperCase() === b.toUpperCase();
@@ -376,6 +416,8 @@ function EarnLoanRouterPage() {
   const {
     collateral: routeCollateral,
     borrow: routeBorrow,
+    collateralClass: routeCollateralClass,
+    borrowClass: routeBorrowClass,
     routeKey,
     wide,
   } = route.params as IRouteParams;
@@ -383,9 +425,25 @@ function EarnLoanRouterPage() {
   const reduceMotion = useReducedMotion();
   const currencyInfo = useCurrency();
   const currency = currencyInfo.symbol;
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const pickLabel = usePickLabel();
 
-  const [collateralSymbol, setCollateralSymbol] = useState(routeCollateral);
-  const [borrowSymbol, setBorrowSymbol] = useState(routeBorrow);
+  // What backs the loan and the loan: each a token, or a kind of token whose
+  // markets all compare
+  const [collateralPick, setCollateralPick] = useState<IEarnAssetPick>(() =>
+    routeCollateralClass
+      ? { kind: 'class', assetClass: routeCollateralClass }
+      : { kind: 'token', symbol: routeCollateral },
+  );
+  const [borrowPick, setBorrowPick] = useState<IEarnAssetPick>(() =>
+    routeBorrowClass
+      ? { kind: 'class', assetClass: routeBorrowClass }
+      : { kind: 'token', symbol: routeBorrow },
+  );
+  const isClassMode =
+    collateralPick.kind === 'class' || borrowPick.kind === 'class';
+  // What the first box holds: an amount of what Pay with pays with (the
+  // collateral itself unless another token is picked or held)
   const [collateralAmount, setCollateralAmount] = useState('');
   // The loan typed by hand, an emptied box included; otherwise it follows
   // the LTV bar
@@ -401,6 +459,12 @@ function EarnLoanRouterPage() {
   const [done, setDone] = useState<ILoanRunDone>();
   // After a press whose supply went in and whose loan didn't
   const [suppliedNote, setSuppliedNote] = useState<string>();
+  // A swap brought the collateral: the box holds what came in, as the
+  // collateral itself, and the press goes on by itself once
+  const [handoff, setHandoff] = useState<{
+    routeKey: string;
+    autoStart: boolean;
+  }>();
 
   const { markets, isLoaded: isMarketsLoaded } = useEarnDesktopMarkets({
     isActive: true,
@@ -419,18 +483,69 @@ function EarnLoanRouterPage() {
     [stableAssets],
   );
 
-  const collateralOptions = useMemo(
+  // The wallet on the markets' networks, for the selector's balances (read
+  // fresh unless the home just did)
+  const marketNetworkIds = useMemo(
     () =>
-      getLoanCollateralOptions({ markets, stableSymbols, isHeld: () => false }),
-    [markets, stableSymbols],
+      Array.from(
+        new Set(markets.map((entry) => entry.market.networkId)),
+      ).toSorted(),
+    [markets],
   );
-  const borrowOptions = useMemo(
-    () => getLoanBorrowOptions({ markets, collateralSymbol, stableSymbols }),
-    [collateralSymbol, markets, stableSymbols],
+  const wallet = useEarnDesktopWalletHoldings({
+    isActive: true,
+    refreshNetworkIds: marketNetworkIds,
+  });
+  const holdings = useMemo(() => {
+    const byToken = new Map<
+      string,
+      Map<string, { amount: string; fiatValueUsd: string }>
+    >();
+    wallet.networkGroups.forEach((group) => {
+      listPayTokens({ group, depositSymbol: '' }).forEach((item) => {
+        const key = item.token.symbol.toUpperCase();
+        const byNetwork = byToken.get(key) ?? new Map();
+        const kept = byNetwork.get(group.networkId);
+        byNetwork.set(group.networkId, {
+          amount: toBigNumber(kept?.amount).plus(item.amount).toFixed(),
+          fiatValueUsd: toBigNumber(kept?.fiatValueUsd)
+            .plus(item.fiatValueUsd)
+            .toFixed(),
+        });
+        byToken.set(key, byNetwork);
+      });
+    });
+    return byToken;
+  }, [wallet.networkGroups]);
+  const supplyTokens = useMemo(
+    () =>
+      buildLoanSelectTokens({
+        markets,
+        side: 'supply',
+        stableSymbols,
+        holdings,
+      }),
+    [holdings, markets, stableSymbols],
+  );
+  const borrowTokens = useMemo(
+    () =>
+      buildLoanSelectTokens({
+        markets,
+        side: 'borrow',
+        collateral: collateralPick,
+        stableSymbols,
+      }),
+    [collateralPick, markets, stableSymbols],
   );
   const routes = useMemo(
-    () => buildLoanRoutes({ markets, collateralSymbol, borrowSymbol }),
-    [borrowSymbol, collateralSymbol, markets],
+    () =>
+      buildLoanRoutesForPicks({
+        markets,
+        collateral: collateralPick,
+        borrow: borrowPick,
+        stableSymbols,
+      }),
+    [borrowPick, collateralPick, markets, stableSymbols],
   );
   const {
     byRoute,
@@ -438,41 +553,134 @@ function EarnLoanRouterPage() {
     refresh,
   } = useLoanRouterFacts({ routes });
 
+  // Where Pay with pays: the picked market's network (the first market's
+  // until one is picked)
+  const payRoute = routes.find((item) => item.key === pickedKey) ?? routes[0];
+  const payRouteFacts = payRoute ? byRoute.get(payRoute.key) : undefined;
+  const payWith = useLoanPayWith({
+    route: payRoute,
+    networkAccountId: payRouteFacts?.networkAccountId,
+    typedAmount: collateralAmount,
+    isLocked: false,
+  });
+  const { payToken } = payWith;
+  // Paid with another token: a swap buys the collateral first. Once it has,
+  // the box holds the collateral itself
+  const isSwapping = payWith.isSwapping && !handoff;
+  // One unit of what pays, in the currency the markets answer in
+  const payPrice = (() => {
+    const usd = new BigNumber(payToken?.priceUsd ?? '');
+    if (!isSwapping || !usd.isFinite() || usd.lte(0)) {
+      return undefined;
+    }
+    const converted = new BigNumber(
+      convertFiat({
+        value: usd,
+        sourceCurrency: USD_CURRENCY_ID,
+        targetCurrency: currencyInfo.id,
+        currencyMap,
+      }),
+    );
+    return converted.isFinite() && converted.gt(0)
+      ? converted.toNumber()
+      : undefined;
+  })();
+
   // The prices the boxes go by: the picked market's, else the first known
   const priceRoute = useMemo(() => {
-    const picked = routes.find((item) => item.key === pickedKey);
-    const withPrices = (key?: string) => {
-      const facts = key ? byRoute.get(key) : undefined;
-      return facts?.collateralPrice && facts?.borrowPrice ? facts : undefined;
+    const withPrices = (item?: ILoanRoute) => {
+      const facts = item ? byRoute.get(item.key) : undefined;
+      return item && facts?.collateralPrice && facts?.borrowPrice
+        ? { route: item, facts }
+        : undefined;
     };
     return (
-      withPrices(picked?.key) ??
-      routes.map((item) => withPrices(item.key)).find(Boolean)
+      withPrices(routes.find((item) => item.key === pickedKey)) ??
+      routes.map((item) => withPrices(item)).find(Boolean)
     );
   }, [byRoute, pickedKey, routes]);
   const borrowDecimals =
     routes.find((item) => item.key === pickedKey)?.borrow.decimals ??
     routes[0]?.borrow.decimals ??
     6;
-  const newCollateralValue = priceRoute?.collateralPrice
-    ? toBigNumber(collateralAmount).times(priceRoute.collateralPrice).toNumber()
-    : 0;
+  // The token the box is in: what pays, or the collateral itself
+  const boxSymbol = isSwapping
+    ? (payToken?.token.symbol ?? '')
+    : (payRoute?.collateral.symbol ?? '');
+  // What the box puts in, in the currency: the swap's estimate where it is
+  // quoted (what it brings, at the market's price), else at the pay token's
+  // price; the collateral's own at its market's price
+  const typedValue = (() => {
+    const typed = toBigNumber(collateralAmount);
+    if (!typed.gt(0)) {
+      return 0;
+    }
+    if (isSwapping) {
+      if (payWith.estimatedSupply && payRouteFacts?.collateralPrice) {
+        return toBigNumber(payWith.estimatedSupply)
+          .times(payRouteFacts.collateralPrice)
+          .toNumber();
+      }
+      return payPrice ? typed.times(payPrice).toNumber() : 0;
+    }
+    const price =
+      payRouteFacts?.collateralPrice ?? priceRoute?.facts.collateralPrice;
+    return price ? typed.times(price).toNumber() : 0;
+  })();
+  // The collateral each market takes in for it: the amount itself in the
+  // box's own token; what the swap brings for the market Pay with pays
+  // into; the same value in its token for the others, so the markets
+  // compare the same plan
+  const supplyAmountOf = useCallback(
+    (item?: ILoanRoute) => {
+      if (!item || !toBigNumber(collateralAmount).gt(0)) {
+        return '';
+      }
+      if (boxSymbol && isSameLoanAsset(item.collateral.symbol, boxSymbol)) {
+        return collateralAmount;
+      }
+      if (isSwapping && item.key === payRoute?.key && payWith.estimatedSupply) {
+        return payWith.estimatedSupply;
+      }
+      const price = byRoute.get(item.key)?.collateralPrice;
+      if (!price || !typedValue) {
+        return '';
+      }
+      return new BigNumber(typedValue)
+        .div(price)
+        .decimalPlaces(
+          Math.min(item.collateral.decimals, 8),
+          BigNumber.ROUND_DOWN,
+        )
+        .toFixed();
+    },
+    [
+      boxSymbol,
+      byRoute,
+      collateralAmount,
+      isSwapping,
+      payRoute?.key,
+      payWith.estimatedSupply,
+      typedValue,
+    ],
+  );
+  const newCollateralValue = typedValue;
   const borrowAmount =
     typedBorrow ??
     (draggedLtv !== undefined
       ? getLoanForPositionLtv({
           ltv: draggedLtv,
-          collateralValue: priceRoute?.collateralValue ?? 0,
-          debtValue: priceRoute?.debtValue ?? 0,
+          collateralValue: priceRoute?.facts.collateralValue ?? 0,
+          debtValue: priceRoute?.facts.debtValue ?? 0,
           newCollateralValue,
-          borrowPrice: priceRoute?.borrowPrice,
+          borrowPrice: priceRoute?.facts.borrowPrice,
           decimals: borrowDecimals,
         })
       : getLoanForLtv({
-          collateralAmount,
+          collateralAmount: supplyAmountOf(priceRoute?.route),
           ltv: EARN_DESKTOP_LOAN_LTV,
-          collateralPrice: priceRoute?.collateralPrice,
-          borrowPrice: priceRoute?.borrowPrice,
+          collateralPrice: priceRoute?.facts.collateralPrice,
+          borrowPrice: priceRoute?.facts.borrowPrice,
           decimals: borrowDecimals,
         }));
   // Before amounts are typed, every market is worked out at the bar's LTV
@@ -489,14 +697,14 @@ function EarnLoanRouterPage() {
             metrics: getLoanRouteMetrics({
               route: item,
               facts,
-              collateralAmount,
+              collateralAmount: supplyAmountOf(item),
               borrowAmount,
               ltvStage: typedBorrow ? undefined : previewLtv,
             }),
           };
         }),
       ),
-    [borrowAmount, byRoute, collateralAmount, previewLtv, routes, typedBorrow],
+    [borrowAmount, byRoute, previewLtv, routes, supplyAmountOf, typedBorrow],
   );
   // A drag re-ranks the markets once it ends, not under the pointer
   const items = useMemo(() => {
@@ -511,7 +719,13 @@ function EarnLoanRouterPage() {
     return rankedItems.toSorted((a, b) => at(a.route.key) - at(b.route.key));
   }, [isSliding, rankedItems]);
   const pickedItem = items.find((item) => item.route.key === pickedKey);
-  const usableItem = items.find((item) => !item.metrics.block);
+  // Unpicked, the check goes to the best market whose collateral the wallet
+  // holds there (no swap first), else to the best one
+  const usableItem =
+    items.find(
+      (item) =>
+        !item.metrics.block && toBigNumber(item.facts?.walletBalance).gt(0),
+    ) ?? items.find((item) => !item.metrics.block);
   // The market of the row the modal opened from (or one picked while the
   // figures loaded) that doesn't lend the token to the account at all gives
   // way to the best one that can take the loan
@@ -549,7 +763,8 @@ function EarnLoanRouterPage() {
     networkAccountId: selectedFacts?.networkAccountId,
     onDone: handleDone,
   });
-  const isLocked = run.phase !== 'idle';
+  // Nothing changes while a press runs: the swap, then the steps after it
+  const isLocked = run.phase !== 'idle' || payWith.isSwapRunning;
 
   // A supply that went in without its loan: the collateral now counts in
   // the market, so the form goes on with the loan alone
@@ -582,22 +797,38 @@ function EarnLoanRouterPage() {
 
   const collateralToken = selectedRoute?.collateral;
   const borrowToken = selectedRoute?.borrow;
+  const findSelectToken = (tokens: typeof supplyTokens, pick: IEarnAssetPick) =>
+    pick.kind === 'token'
+      ? tokens.find((item) => isSameSymbol(item.symbol, pick.symbol))
+      : undefined;
   const collateralLogo =
     collateralToken?.logoURI ??
-    collateralOptions.find((item) => item.symbol === collateralSymbol)?.logoURI;
+    findSelectToken(supplyTokens, collateralPick)?.logoURI;
   const borrowLogo =
-    borrowToken?.logoURI ??
-    borrowOptions.find((item) => item.symbol === borrowSymbol)?.logoURI;
+    borrowToken?.logoURI ?? findSelectToken(borrowTokens, borrowPick)?.logoURI;
+  const borrowSymbol =
+    borrowToken?.symbol ??
+    (borrowPick.kind === 'token' ? borrowPick.symbol : '');
   const networkLogoURI = selectedRoute?.market.network.logoURI;
-  const walletBalance = selectedFacts?.walletBalance;
+  // What the box can take: the pay token's balance, or the collateral's
+  const boxBalance = isSwapping
+    ? payToken?.amount
+    : selectedFacts?.walletBalance;
+  const boxDecimals = isSwapping
+    ? (payToken?.token.decimals ?? 8)
+    : (collateralToken?.decimals ?? 8);
 
+  // The box's value: at what pays's price, or the collateral's
+  const boxUnitPrice = isSwapping
+    ? payPrice
+    : priceRoute?.facts.collateralPrice;
   const collateralValue =
-    priceRoute?.collateralPrice !== undefined
-      ? toBigNumber(collateralAmount).times(priceRoute.collateralPrice)
+    boxUnitPrice !== undefined
+      ? toBigNumber(collateralAmount).times(boxUnitPrice)
       : undefined;
   const borrowValue =
-    priceRoute?.borrowPrice !== undefined
-      ? toBigNumber(borrowAmount).times(priceRoute.borrowPrice)
+    priceRoute?.facts.borrowPrice !== undefined
+      ? toBigNumber(borrowAmount).times(priceRoute.facts.borrowPrice)
       : undefined;
 
   // ---------- The two boxes ----------
@@ -608,25 +839,27 @@ function EarnLoanRouterPage() {
   }, []);
   const handleCollateralStage = useCallback(
     (percent: number) => {
-      if (!walletBalance) {
+      if (!boxBalance) {
         return;
       }
       setSuppliedNote(undefined);
-      setCollateralAmount(
-        shareOf(walletBalance, percent, collateralToken?.decimals ?? 8),
-      );
+      setCollateralAmount(shareOf(boxBalance, percent, boxDecimals));
     },
-    [collateralToken?.decimals, walletBalance],
+    [boxBalance, boxDecimals],
   );
+  // Paid with the network's coin, Max keeps the fees of the swap and of the
+  // steps after it
   const handleCollateralMax = useCallback(() => {
-    if (!walletBalance) {
+    if (!boxBalance) {
       return;
     }
     setSuppliedNote(undefined);
     setCollateralAmount(
-      shareOf(walletBalance, 100, collateralToken?.decimals ?? 8),
+      isSwapping && payWith.payMax !== undefined
+        ? payWith.payMax
+        : shareOf(boxBalance, 100, boxDecimals),
     );
-  }, [collateralToken?.decimals, walletBalance]);
+  }, [boxBalance, boxDecimals, isSwapping, payWith.payMax]);
   // A token changed starts the loan over: half the collateral's value
   const resetLoan = useCallback(() => {
     setTypedBorrow(undefined);
@@ -665,98 +898,136 @@ function EarnLoanRouterPage() {
         setTypedBorrow(borrowAmount);
         setDraggedLtv(undefined);
       }
+      setHandoff(undefined);
       setPickedKey(key);
     },
     [borrowAmount, draggedLtv, typedBorrow],
   );
 
+  // The box keeps its value when another market moves Pay with to another
+  // token (another network): the same plan in the new token. A pick in Pay
+  // with's picker starts it over instead
+  const boxTokenKey = `${payRoute?.market.networkId ?? ''}|${boxSymbol}`;
+  const boxPrice = isSwapping ? payPrice : payRouteFacts?.collateralPrice;
+  const lastBoxRef = useRef({
+    key: boxTokenKey,
+    symbol: boxSymbol,
+    price: boxPrice,
+  });
+  useEffect(() => {
+    const last = lastBoxRef.current;
+    lastBoxRef.current = {
+      key: boxTokenKey,
+      symbol: boxSymbol,
+      price: boxPrice,
+    };
+    if (last.key === boxTokenKey || !toBigNumber(collateralAmount).gt(0)) {
+      return;
+    }
+    if (isSameLoanAsset(last.symbol, boxSymbol)) {
+      return;
+    }
+    if (last.price && boxPrice) {
+      setCollateralAmount(
+        toBigNumber(collateralAmount)
+          .times(last.price)
+          .div(boxPrice)
+          .precision(6, BigNumber.ROUND_DOWN)
+          .toFixed(),
+      );
+      return;
+    }
+    setCollateralAmount('');
+    // Only when the box's token changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boxTokenKey]);
+
+  // The picks, in the shared selector over the window
   const handleCollateralPick = useCallback(
-    (symbol: string) => {
-      setCollateralSymbol(symbol);
+    (pick: IEarnAssetPick) => {
+      setCollateralPick(pick);
       setCollateralAmount('');
       setSuppliedNote(undefined);
+      setHandoff(undefined);
       setPickedKey(undefined);
+      payWith.setPickedKey(undefined);
       resetLoan();
-      const nextOptions = getLoanBorrowOptions({
+      const nextBorrow = pickLoanBorrowPick({
         markets,
-        collateralSymbol: symbol,
+        collateral: pick,
+        current: borrowPick,
         stableSymbols,
       });
-      const nextBorrow = pickLoanBorrowSymbol({
-        options: nextOptions,
-        current: borrowSymbol,
-      });
       if (nextBorrow) {
-        setBorrowSymbol(nextBorrow);
+        setBorrowPick(nextBorrow);
       }
     },
-    [borrowSymbol, markets, resetLoan, stableSymbols],
+    [borrowPick, markets, payWith, resetLoan, stableSymbols],
   );
   // A loan typed in one token means nothing in another
   const handleBorrowPick = useCallback(
-    (symbol: string) => {
-      setBorrowSymbol(symbol);
+    (pick: IEarnAssetPick) => {
+      setBorrowPick(pick);
+      setHandoff(undefined);
       setPickedKey(undefined);
       resetLoan();
     },
     [resetLoan],
   );
-
-  const collateralPopover = useMemo(
-    () => ({
-      title: intl.formatMessage({ id: ETranslations.defi_collateral }),
-      content: function CollateralList({
-        isOpen,
-        closePopover,
-      }: {
-        isOpen?: boolean;
-        closePopover: () => void;
-      }) {
-        return (
-          <LoanTokenList
-            testID="earn-loan-collateral-list"
-            isOpen={isOpen}
-            options={collateralOptions}
-            selectedSymbol={collateralSymbol}
-            onSelect={handleCollateralPick}
-            closePopover={closePopover}
-          />
-        );
-      },
-    }),
-    [collateralOptions, collateralSymbol, handleCollateralPick, intl],
+  const openSelect = useCallback(
+    (side: 'supply' | 'borrow') => {
+      const isSupply = side === 'supply';
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.EarnRouterAssetSelect,
+        params: {
+          purpose: isSupply ? 'loanSupply' : 'loanBorrow',
+          title: intl.formatMessage({
+            id: isSupply
+              ? ETranslations.defi_collateral
+              : ETranslations.global_borrow,
+          }),
+          tokens: isSupply ? supplyTokens : borrowTokens,
+          selected: isSupply ? collateralPick : borrowPick,
+          onSelect: isSupply ? handleCollateralPick : handleBorrowPick,
+        },
+      });
+    },
+    [
+      borrowPick,
+      borrowTokens,
+      collateralPick,
+      handleBorrowPick,
+      handleCollateralPick,
+      intl,
+      navigation,
+      supplyTokens,
+    ],
   );
-  const borrowPopover = useMemo(
-    () => ({
-      title: intl.formatMessage({ id: ETranslations.global_borrow }),
-      content: function BorrowList({
-        isOpen,
-        closePopover,
-      }: {
-        isOpen?: boolean;
-        closePopover: () => void;
-      }) {
-        return (
-          <LoanTokenList
-            testID="earn-loan-borrow-list"
-            isOpen={isOpen}
-            options={borrowOptions}
-            selectedSymbol={borrowSymbol}
-            onSelect={handleBorrowPick}
-            closePopover={closePopover}
-          />
-        );
-      },
-    }),
-    [borrowOptions, borrowSymbol, handleBorrowPick, intl],
+  const openCollateralSelect = useCallback(
+    () => openSelect('supply'),
+    [openSelect],
   );
+  const openBorrowSelect = useCallback(
+    () => openSelect('borrow'),
+    [openSelect],
+  );
+  // Pay with's own picker: Swap's, on the market's network
+  const handleOpenPayWith = useCallback(() => {
+    payWith.openPicker((isNewToken) => {
+      if (isNewToken) {
+        setCollateralAmount('');
+        setHandoff(undefined);
+        resetLoan();
+      }
+    });
+  }, [payWith, resetLoan]);
 
   const hasCollateral = toBigNumber(collateralAmount).gt(0);
   const hasLoan = toBigNumber(borrowAmount).gt(0);
   const isInsufficient =
     hasCollateral &&
-    walletBalance !== undefined &&
-    toBigNumber(collateralAmount).gt(walletBalance);
+    boxBalance !== undefined &&
+    toBigNumber(collateralAmount).gt(boxBalance);
 
   // The most the picked market lends of the token with this collateral.
   // Where the account has nothing there yet, only once collateral is typed:
@@ -789,36 +1060,79 @@ function EarnLoanRouterPage() {
       .toFixed();
   })();
 
+  // The swap's estimate under the Pay with box: the collateral it brings
+  // (the last amount's, dimmed, while this one's is quoted), a dash before
+  // an amount or with no route
+  const supplyLine =
+    isSwapping && hasCollateral && payWith.shownSupply && collateralToken
+      ? `≈ ${numberFormat(payWith.shownSupply, { formatter: 'balance' })} ${
+          collateralToken.symbol
+        }`
+      : '–';
   const collateralBox = (
-    <StakingAmountInput
-      boxTestID="earn-loan-collateral"
-      title={intl.formatMessage({ id: ETranslations.defi_collateral })}
-      disabled={isLocked}
-      hasError={isInsufficient}
-      value={collateralAmount}
-      onChange={handleCollateralChange}
-      onSelectPercentageStage={handleCollateralStage}
-      tokenSelectorTriggerProps={{
-        selectedTokenImageUri: collateralLogo,
-        selectedTokenImageLoading: !collateralLogo && !isMarketsLoaded,
-        selectedNetworkImageUri: networkLogoURI,
-        selectedTokenSymbol: collateralSymbol,
-        popover: collateralOptions.length ? collateralPopover : undefined,
-      }}
-      valueProps={{
-        value: collateralValue?.toFixed(),
-        currency,
-      }}
-      balanceProps={{
-        value: walletBalance,
-        loading: Boolean(selectedRoute) && !selectedFacts,
-        onPress: handleCollateralMax,
-      }}
-      enableMaxAmount
-      maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
-      inputProps={{ testID: 'earn-loan-collateral-input', placeholder: '0' }}
-    />
+    <YStack>
+      <StakingAmountInput
+        boxTestID="earn-loan-collateral"
+        // Paid with the collateral itself the box is the collateral; paid
+        // with another token it is what leaves the wallet
+        title={
+          isSwapping
+            ? EARN_DESKTOP_DEMO_COPY.payWith
+            : intl.formatMessage({ id: ETranslations.defi_collateral })
+        }
+        disabled={isLocked}
+        hasError={isInsufficient}
+        value={collateralAmount}
+        onChange={handleCollateralChange}
+        onSelectPercentageStage={handleCollateralStage}
+        tokenSelectorTriggerProps={{
+          selectedTokenImageUri: isSwapping
+            ? payToken?.token.logoURI
+            : collateralLogo,
+          selectedTokenImageLoading: !collateralLogo && !isMarketsLoaded,
+          selectedNetworkImageUri: networkLogoURI,
+          selectedTokenSymbol: isSwapping
+            ? payToken?.token.symbol
+            : (collateralToken?.symbol ?? pickLabel(collateralPick)),
+          disabled: isLocked,
+          onPress: payRoute ? handleOpenPayWith : undefined,
+          ...buildKeyboardPressProps(
+            isLocked || !payRoute ? undefined : handleOpenPayWith,
+          ),
+          testID: 'earn-loan-pay-with-trigger',
+        }}
+        valueProps={{
+          value: collateralValue?.toFixed(),
+          currency,
+        }}
+        balanceProps={{
+          value: boxBalance,
+          loading: isSwapping
+            ? !payWith.isLoaded
+            : Boolean(selectedRoute) && !selectedFacts,
+          onPress: isLocked ? undefined : handleCollateralMax,
+        }}
+        enableMaxAmount
+        maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
+        inputProps={{ testID: 'earn-loan-collateral-input', placeholder: '0' }}
+      />
+      {/* What the swap brings and goes in as collateral, under what pays
+          for it. It grows in with a pick of another token in Pay with */}
+      <HeightTransition duration={SUPPLY_LINE_MS} hide={!isSwapping}>
+        <YStack pt="$2" aria-hidden={!isSwapping}>
+          <StakingAmountResultLine
+            testID="earn-loan-swap-supply-amount"
+            label={EARN_DESKTOP_DEMO_COPY.youSupply}
+            value={supplyLine}
+            isPlaceholder={!supplyLine.startsWith('≈')}
+            loading={payWith.isQuoting}
+          />
+        </YStack>
+      </HeightTransition>
+    </YStack>
   );
+  // The loan's own token: the picked market's. What to borrow is picked in
+  // the title
   const borrowBox = (
     <StakingAmountInput
       boxTestID="earn-loan-borrow"
@@ -832,8 +1146,7 @@ function EarnLoanRouterPage() {
         selectedTokenImageUri: borrowLogo,
         selectedTokenImageLoading: !borrowLogo && !isMarketsLoaded,
         selectedNetworkImageUri: networkLogoURI,
-        selectedTokenSymbol: borrowSymbol,
-        popover: borrowOptions.length ? borrowPopover : undefined,
+        selectedTokenSymbol: borrowSymbol || pickLabel(borrowPick),
       }}
       valueProps={{
         value: borrowValue?.toFixed(),
@@ -857,7 +1170,7 @@ function EarnLoanRouterPage() {
   // ---------- The market position: the LTV bar ----------
 
   const selectedNewCollateralValue = selectedFacts?.collateralPrice
-    ? toBigNumber(collateralAmount)
+    ? toBigNumber(supplyAmountOf(selectedRoute))
         .times(selectedFacts.collateralPrice)
         .toNumber()
     : 0;
@@ -1191,19 +1504,72 @@ function EarnLoanRouterPage() {
         })
       : undefined;
   // A loan typed with no collateral borrows against what the market already
-  // holds; otherwise the press supplies, then borrows
-  const actionLabel =
-    !hasCollateral && hasLoan
-      ? intl.formatMessage({ id: ETranslations.global_borrow })
-      : EARN_DESKTOP_DEMO_COPY.supplyAndBorrow;
+  // holds; otherwise the press supplies, then borrows. Paid with another
+  // token, a swap brings the collateral first
+  let actionLabel = EARN_DESKTOP_DEMO_COPY.supplyAndBorrow;
+  if (!hasCollateral && hasLoan) {
+    actionLabel = intl.formatMessage({ id: ETranslations.global_borrow });
+  } else if (isSwapping) {
+    actionLabel = EARN_DESKTOP_DEMO_COPY.swapSupplyAndBorrow;
+  }
   const buttonText = isInsufficient
     ? intl.formatMessage({ id: ETranslations.earn_insufficient_balance })
     : actionLabel;
+  // The swap needs its quote for exactly this amount, and a route
+  const isSwapReady =
+    !isSwapping ||
+    !hasCollateral ||
+    (payWith.canSwap &&
+      Boolean(payWith.estimatedSupply) &&
+      !payWith.isQuoting &&
+      !payWith.hasNoRoute);
   const canStart =
     Boolean(selectedRoute && selectedFacts?.networkAccountId) &&
     hasLoan &&
     !blockText &&
-    !isInsufficient;
+    !isInsufficient &&
+    isSwapReady;
+  const isPressRunning = run.isRunning || payWith.isSwapRunning;
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+  const startPlan = useCallback(
+    (supplyAmount: string) => {
+      if (!selectedRoute || !selectedFacts?.networkAccountId) {
+        return;
+      }
+      void run.start({
+        route: selectedRoute,
+        networkAccountId: selectedFacts.networkAccountId,
+        collateralAmount: supplyAmount,
+        borrowAmount,
+        marketLogoURI: selectedRoute.market.logoURI,
+      });
+    },
+    [borrowAmount, run, selectedFacts?.networkAccountId, selectedRoute],
+  );
+  const { swap } = payWith;
+  // One press: the market's risk notice, then the swap; once what it bought
+  // is in the wallet the box holds it as the collateral and the press goes
+  // on by itself (supply, then the loan). A rejected swap changes nothing
+  const startSwapPlan = useCallback(async () => {
+    if (!selectedRoute) {
+      return;
+    }
+    const accepted = await ensureRiskAccepted({
+      provider: selectedRoute.market.provider,
+      symbol: selectedRoute.collateral.symbol,
+      networkId: selectedRoute.market.networkId,
+    });
+    if (!accepted) {
+      return;
+    }
+    const swapped = await swap({ payAmount: collateralAmount });
+    if (!swapped) {
+      return;
+    }
+    setCollateralAmount(swapped.amount);
+    setHandoff({ routeKey: selectedRoute.key, autoStart: true });
+    void refresh();
+  }, [collateralAmount, ensureRiskAccepted, refresh, selectedRoute, swap]);
   const handlePress = useCallback(() => {
     if (!selectedRoute || !selectedFacts?.networkAccountId) {
       return;
@@ -1212,21 +1578,36 @@ function EarnLoanRouterPage() {
     // The market stays the one pressed on, however the list re-ranks while
     // the steps run or after them
     setPickedKey(selectedRoute.key);
-    void run.start({
-      route: selectedRoute,
-      networkAccountId: selectedFacts.networkAccountId,
-      collateralAmount: hasCollateral ? collateralAmount : '0',
-      borrowAmount,
-      marketLogoURI: selectedRoute.market.logoURI,
-    });
+    if (isSwapping && hasCollateral) {
+      void startSwapPlan();
+      return;
+    }
+    startPlan(hasCollateral ? supplyAmountOf(selectedRoute) : '0');
   }, [
-    borrowAmount,
-    collateralAmount,
     hasCollateral,
-    run,
+    isSwapping,
     selectedFacts?.networkAccountId,
     selectedRoute,
+    startPlan,
+    startSwapPlan,
+    supplyAmountOf,
   ]);
+  // After the swap: the press goes on once by itself with what came in,
+  // unless the market can't take the loan with it (it came in under the
+  // quote): then the form shows why, ready to press
+  const handoffStartKey =
+    handoff?.autoStart && run.phase === 'idle' ? handoff.routeKey : undefined;
+  useEffect(() => {
+    if (!handoffStartKey) {
+      return;
+    }
+    setHandoff((prev) => (prev ? { ...prev, autoStart: false } : prev));
+    if (canStart && selectedRoute?.key === handoffStartKey) {
+      startPlan(collateralAmount);
+    }
+    // Once per hand-off
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoffStartKey]);
 
   const progressStep = (() => {
     if (run.hasApprovalStep) {
@@ -1265,25 +1646,40 @@ function EarnLoanRouterPage() {
     ].filter(isElement);
     return lines.length ? <YStack gap="$3">{lines}</YStack> : null;
   })();
-  const progress = showsProgress ? (
-    <StakeProgress
-      currentStep={progressStep}
-      step1Label={
-        run.hasApprovalStep
-          ? intl.formatMessage({ id: ETranslations.global_approve })
-          : intl.formatMessage({ id: ETranslations.defi_supply })
-      }
-      step2Label={
-        run.hasApprovalStep
-          ? intl.formatMessage({ id: ETranslations.defi_supply })
-          : intl.formatMessage({ id: ETranslations.global_borrow })
-      }
-      step3LabelId={
-        run.hasApprovalStep ? ETranslations.global_borrow : undefined
-      }
-      isRunning
-    />
-  ) : null;
+  // While the swap runs: its step, then the two after it. Once it is in,
+  // the supply's own steps take over (an approval among them where needed)
+  let progress: ReactElement | null = null;
+  if (payWith.isSwapRunning) {
+    progress = (
+      <StakeProgress
+        currentStep={1}
+        step1Label={intl.formatMessage({ id: ETranslations.global_swap })}
+        step2Label={intl.formatMessage({ id: ETranslations.defi_supply })}
+        step3LabelId={ETranslations.global_borrow}
+        isRunning
+      />
+    );
+  } else if (showsProgress) {
+    progress = (
+      <StakeProgress
+        currentStep={progressStep}
+        step1Label={
+          run.hasApprovalStep
+            ? intl.formatMessage({ id: ETranslations.global_approve })
+            : intl.formatMessage({ id: ETranslations.defi_supply })
+        }
+        step2Label={
+          run.hasApprovalStep
+            ? intl.formatMessage({ id: ETranslations.defi_supply })
+            : intl.formatMessage({ id: ETranslations.global_borrow })
+        }
+        step3LabelId={
+          run.hasApprovalStep ? ETranslations.global_borrow : undefined
+        }
+        isRunning
+      />
+    );
+  }
 
   // ---------- Done ----------
 
@@ -1330,33 +1726,121 @@ function EarnLoanRouterPage() {
       navigation.setParams({ wide: isBeside });
     }
   }, [isBeside, navigation, wide]);
-  const fitModalRef = useLoanModalHeight(EARN_LOAN_MODAL_SIZE.height);
-  const renderTitle = useCallback(
-    () => (
-      <LoanPairTitle
-        collateral={{ symbol: collateralSymbol, logoURI: collateralLogo }}
-        borrow={{ symbol: borrowSymbol, logoURI: borrowLogo }}
-      />
-    ),
-    [borrowLogo, borrowSymbol, collateralLogo, collateralSymbol],
+  // Beside the form, the two columns scroll by themselves within what the
+  // modal can show
+  const [columnsRoom, setColumnsRoom] = useState<number>();
+  const fitModalRef = useLoanModalHeight(
+    EARN_LOAN_MODAL_SIZE.height,
+    setColumnsRoom,
+  );
+  // The done view names the pair that went in; the form is the Loans
+  // window, its picks heading the form
+  const renderDoneTitle = useCallback(
+    () =>
+      done ? (
+        <LoanPairTitle
+          collateral={{
+            symbol: done.plan.route.collateral.symbol,
+            logoURI: done.plan.route.collateral.logoURI,
+          }}
+          borrow={{
+            symbol: done.plan.route.borrow.symbol,
+            logoURI: done.plan.route.borrow.logoURI,
+          }}
+        />
+      ) : null,
+    [done],
+  );
+  const pickRow = (
+    <LoanPickPills
+      collateral={
+        <EarnAssetPickTrigger
+          variant="pill"
+          testID="earn-loan-collateral-pick"
+          pick={collateralPick}
+          tokens={supplyTokens}
+          purpose="loanSupply"
+          fallbackLogoURI={collateralLogo}
+          onPress={openCollateralSelect}
+        />
+      }
+      borrow={
+        <EarnAssetPickTrigger
+          variant="pill"
+          testID="earn-loan-borrow-pick"
+          pick={borrowPick}
+          tokens={borrowTokens}
+          purpose="loanBorrow"
+          fallbackLogoURI={borrowLogo}
+          onPress={openBorrowSelect}
+        />
+      }
+    />
+  );
+
+  // A kind of token on a side: each card names its own pair. A card whose
+  // collateral the wallet doesn't hold there (or not the token Pay with was
+  // set to) buys it first
+  const listItems = useMemo(
+    () =>
+      items.map((item) => {
+        const onPayNetwork =
+          Boolean(payRoute) &&
+          item.route.market.networkId === payRoute?.market.networkId;
+        let needsSwap = false;
+        if (item.facts) {
+          needsSwap =
+            onPayNetwork && payWith.isPicked && payToken
+              ? !isSameLoanAsset(
+                  payToken.token.symbol,
+                  item.route.collateral.symbol,
+                )
+              : !toBigNumber(item.facts.walletBalance).gt(0);
+        }
+        return {
+          ...item,
+          pairLabel: isClassMode
+            ? `${item.route.collateral.symbol} / ${item.route.borrow.symbol}`
+            : undefined,
+          needsSwap:
+            needsSwap && !(handoff && item.route.key === handoff.routeKey),
+        };
+      }),
+    [handoff, isClassMode, items, payRoute, payToken, payWith.isPicked],
   );
 
   const routeList = (
     <LoanRouteList
-      items={items}
+      items={listItems}
       selectedKey={isPickListed ? pickedKey : undefined}
       isLoading={!isMarketsLoaded}
       isSettled={isFactsLoaded}
       currency={currency}
       emptyText={EARN_DESKTOP_DEMO_COPY.loanNoMarket(
-        collateralSymbol,
-        borrowSymbol,
+        pickLabel(collateralPick),
+        pickLabel(borrowPick),
       )}
       onSelect={isLocked ? noop : handlePickRoute}
     />
   );
+  // The button, as Swap's: under the form in a wide window, else the modal's
+  // footer
+  const action = (
+    <EarnFormFooter
+      isInModalContext
+      progress={progress}
+      confirmText={buttonText}
+      confirmButtonProps={{
+        testID: 'earn-loan-submit',
+        onPress: handlePress,
+        loading: isPressRunning,
+        disabled: !canStart && !isPressRunning,
+      }}
+    />
+  );
   const form = doneView ?? (
     <YStack gap="$5">
+      {pickRow}
       <YStack gap="$2">
         {collateralBox}
         {/* The loan comes out of the collateral above it */}
@@ -1385,11 +1869,15 @@ function EarnLoanRouterPage() {
         {ltvBlock}
       </YStack>
       {/* In one column the markets come after what the amounts make, so
-          typing or dragging shows its result without a scroll */}
+          typing or dragging shows its result without a scroll. Beside them
+          the button comes right after the result, as on Swap, and the
+          account's position under it */}
       {summary}
+      {isBeside ? notes : null}
+      {isBeside ? action : null}
       {details}
       {isBeside ? null : routeList}
-      {notes}
+      {isBeside ? null : notes}
     </YStack>
   );
 
@@ -1402,63 +1890,63 @@ function EarnLoanRouterPage() {
         onCancel={handleOpenPortfolio}
         onConfirmText={intl.formatMessage({ id: ETranslations.global_done })}
         onConfirm={handleFinish}
-        cancelButtonProps={{ testID: 'earn-loan-done-portfolio' }}
-        confirmButtonProps={{ testID: 'earn-loan-done-finish' }}
+        buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
+        cancelButtonProps={{
+          ...EARN_HALF_BUTTON,
+          testID: 'earn-loan-done-portfolio',
+        }}
+        confirmButtonProps={{
+          ...EARN_HALF_BUTTON,
+          testID: 'earn-loan-done-finish',
+        }}
       />
     </Page.Footer>
   ) : (
-    // As the deposit modal's: the steps on the left while they run, the
-    // button on the right
-    <Page.Footer>
-      <Stack
-        bg="$bgApp"
-        flexDirection="column"
-        $gtMd={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          jc: 'space-between',
-        }}
-      >
-        {progress ? (
-          <Stack pl="$5" $md={{ pt: '$5' }}>
-            {progress}
-          </Stack>
-        ) : (
-          <Stack />
-        )}
-        <Page.FooterActions
-          onConfirmText={buttonText}
-          confirmButtonProps={{
-            testID: 'earn-loan-submit',
-            onPress: handlePress,
-            loading: run.isRunning,
-            disabled: !canStart && !run.isRunning,
-          }}
-        />
-      </Stack>
-    </Page.Footer>
+    action
   );
 
   return (
     <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
-      <Page.Header headerTitle={renderTitle} />
+      <Page.Header
+        title={
+          done
+            ? undefined
+            : intl.formatMessage({ id: ETranslations.earn_loans__action })
+        }
+        headerTitle={done ? renderDoneTitle : undefined}
+      />
       <Page.Body>
         {/* What the modal fits its height to, up to its size */}
         <YStack ref={fitModalRef}>
           {isBeside && !done ? (
-            <XStack testID="earn-loan-router" ai="flex-start">
-              <YStack flex={1} minWidth={0} px="$5" pt="$2.5" pb="$5">
-                {form}
-              </YStack>
-              <YStack
+            // Each column scrolls by itself: the markets move under the
+            // pointer while the form and its button stay
+            <XStack
+              testID="earn-loan-router"
+              ai="stretch"
+              maxHeight={columnsRoom}
+            >
+              <ScrollView
+                flex={1}
+                minWidth={0}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <EarnFormActionPlacementContext.Provider value="inline">
+                  <YStack px="$5" pt="$2.5" pb="$5">
+                    {form}
+                  </YStack>
+                </EarnFormActionPlacementContext.Provider>
+              </ScrollView>
+              <ScrollView
+                testID="earn-loan-routes-column"
                 w={EARN_OFFER_ROUTES_COLUMN_WIDTH}
                 flexShrink={0}
-                pt="$2.5"
-                pb="$5"
-                pr="$5"
               >
-                {routeList}
-              </YStack>
+                <YStack pt="$2.5" pb="$5" pr="$5">
+                  {routeList}
+                </YStack>
+              </ScrollView>
             </XStack>
           ) : (
             <YStack testID="earn-loan-router" px="$5" pt="$2.5" pb="$5">
@@ -1467,7 +1955,7 @@ function EarnLoanRouterPage() {
           )}
         </YStack>
       </Page.Body>
-      {footer}
+      {isBeside && !done ? null : footer}
     </Page>
   );
 }

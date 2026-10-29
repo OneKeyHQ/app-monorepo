@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,6 +7,7 @@ import { Platform } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
+  Badge,
   Icon,
   ScrollView,
   SearchBar,
@@ -386,6 +388,10 @@ export type ILoanRouteItem = {
   route: ILoanRoute;
   facts?: ILoanRouteFacts;
   metrics: ILoanRouteMetrics;
+  // A kind of token on a side: the card names its own pair
+  pairLabel?: string;
+  // The wallet doesn't hold this collateral there: a swap buys it first
+  needsSwap?: boolean;
 };
 
 // Under the market's name, past its logo
@@ -470,7 +476,16 @@ function solidSlideColors(
 const netApyColor = (value?: number): IColorTokens | undefined =>
   isLoanLoss(value) ? '$textCritical' : undefined;
 
-function MarketCell({ route }: { route: ILoanRoute }) {
+function MarketCell({
+  route,
+  pairLabel,
+  needsSwap,
+}: {
+  route: ILoanRoute;
+  pairLabel?: string;
+  needsSwap?: boolean;
+}) {
+  const intl = useIntl();
   return (
     <XStack ai="center" gap="$3" minWidth={0} flex={1}>
       <ProtocolImage
@@ -481,9 +496,38 @@ function MarketCell({ route }: { route: ILoanRoute }) {
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {route.marketLabel}
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-          {route.market.network.name}
-        </SizableText>
+        {/* The swap's tag sits by the tokens, as on the deposit modal's
+            cards */}
+        <XStack ai="center" gap="$1.5" minWidth={0}>
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {pairLabel
+              ? EARN_DESKTOP_DEMO_COPY.loanPairOn(
+                  pairLabel,
+                  route.market.network.name,
+                )
+              : route.market.network.name}
+          </SizableText>
+          {needsSwap ? (
+            <Badge
+              testID={`earn-loan-route-swap-${route.key}`}
+              badgeType="default"
+              badgeSize="sm"
+              flexShrink={0}
+              // Taller than the small line it sits on: it overhangs it
+              // rather than making these cards taller than the rest
+              my="$-0.5"
+            >
+              <Badge.Text>
+                {intl.formatMessage({ id: ETranslations.global_swap })}
+              </Badge.Text>
+            </Badge>
+          ) : null}
+        </XStack>
       </YStack>
     </XStack>
   );
@@ -720,7 +764,11 @@ function RouteRow({
       {...pressProps}
     >
       <XStack ai="center" gap="$3">
-        <MarketCell route={route} />
+        <MarketCell
+          route={route}
+          pairLabel={item.pairLabel}
+          needsSwap={item.needsSwap}
+        />
         {/* What the plan makes here, named under it */}
         <YStack ai="flex-end" flexShrink={0} gap="$0.5">
           <SizableText
@@ -915,6 +963,31 @@ export function LoanRouteList({
 }
 
 // ---------- The pair's title ----------
+
+/**
+ * The two picks as the window's title, each a button that opens the
+ * selector, as the deposit modal's title is its pick: what backs the loan,
+ * then the loan
+ */
+// The two picks heading the Loans form, written as the markets' pairs are:
+// collateral / borrow
+export function LoanPickPills({
+  collateral,
+  borrow,
+}: {
+  collateral: ReactNode;
+  borrow: ReactNode;
+}) {
+  return (
+    <XStack ai="center" gap="$2" minWidth={0}>
+      {collateral}
+      <SizableText size="$bodyLgMedium" color="$textSubdued" flexShrink={0}>
+        /
+      </SizableText>
+      {borrow}
+    </XStack>
+  );
+}
 
 export function LoanPairTitle({
   collateral,

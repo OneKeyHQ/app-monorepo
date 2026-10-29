@@ -10,6 +10,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { EarnFooterFade } from '../../../Staking/components/EarnFooterFade';
+import {
+  EARN_FULL_WIDTH_BUTTONS,
+  EARN_HALF_BUTTON,
+} from '../../../Staking/components/EarnFormFooter';
 import { EarnOutcomeRow } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 
@@ -130,8 +134,15 @@ export function EarnDepositDone({
               id: ETranslations.global_done,
             })}
             onConfirm={onDone}
-            cancelButtonProps={{ testID: 'earn-deposit-done-portfolio' }}
-            confirmButtonProps={{ testID: 'earn-deposit-done' }}
+            buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
+            cancelButtonProps={{
+              ...EARN_HALF_BUTTON,
+              testID: 'earn-deposit-done-portfolio',
+            }}
+            confirmButtonProps={{
+              ...EARN_HALF_BUTTON,
+              testID: 'earn-deposit-done',
+            }}
           />
         </EarnFooterFade>
       </Page.Footer>

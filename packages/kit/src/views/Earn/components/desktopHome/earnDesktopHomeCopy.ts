@@ -87,6 +87,8 @@ export const EARN_DESKTOP_DEMO_COPY = {
   guideGoToPosition: 'Go to position',
   // The Loans router: a collateral and a loan, and the markets that take them
   supplyAndBorrow: 'Supply and Borrow',
+  // Paid with another token: the swap that brings the collateral first
+  swapSupplyAndBorrow: 'Swap, Supply and Borrow',
   loanLtv: 'LTV',
   // Under the LTV bar's wall
   loanMaxShort: (ltv: string) => `Max ${ltv}`,
@@ -111,6 +113,16 @@ export const EARN_DESKTOP_DEMO_COPY = {
   loanLanding: 'Supply sent. The loan follows once it is confirmed.',
   loanSupplied: (amount: string, market: string) =>
     `${amount} is supplied to ${market}. Borrow when you're ready.`,
+  // The routers' token selector (10-29): a kind's row names its first
+  // tokens; a pasted address no token here has says why
+  classMembers: (shown: string[], rest: number) =>
+    rest > 0 ? `${shown.join(', ')} and ${rest} more` : shown.join(', '),
+  assetSelectNoEarn: (network: string) =>
+    `This token has no Earn options on ${network}`,
+  assetSelectNoLoan: 'No market here takes this token',
+  loanPairOn: (pair: string, network: string) => `${pair} on ${network}`,
+  // Under one token's offers, where another of its kind pays more
+  earnClassHint: (kind: string) => `Compare all ${kind}`,
   loanDone: (borrowed: string, market: string, supplied?: string) =>
     supplied
       ? `${supplied} supplied and ${borrowed} borrowed on ${market}`

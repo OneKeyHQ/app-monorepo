@@ -20,6 +20,7 @@ import {
   type ITabEarnParamList,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IEarnAssetClass } from '@onekeyhq/shared/types/earn/earnAssetSelect';
 
 import { shouldResetEarnRouteStackBeforePush } from './utils/earnNavigationPolicy';
 import {
@@ -523,6 +524,8 @@ export const EarnNavigation = {
       offerOnly?: boolean;
       // More than one offer: the modal opens wide, the offers beside the form
       wide?: boolean;
+      // Every token of the kind on the network, the symbol's among them
+      assetClass?: IEarnAssetClass;
     },
   ) {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -539,6 +542,7 @@ export const EarnNavigation = {
           amount: params.amount,
           offerOnly: params.offerOnly,
           wide: params.wide,
+          assetClass: params.assetClass,
         },
       },
     });

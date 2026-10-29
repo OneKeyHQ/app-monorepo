@@ -88,13 +88,76 @@ export type ILoanRoutePosition = Pick<
   | 'healthFactorDetail'
 >;
 
+type IMarketParams = {
+  provider: string;
+  networkId: string;
+  marketAddress: string;
+};
+
+const readMarketPosition = (params: IMarketParams & { accountId: string }) =>
+  // The health factor alongside, so a position's figure is the server's
+  Promise.all([
+    backgroundApiProxy.serviceStaking
+      .getBorrowReserves(params)
+      .catch(() => undefined),
+    backgroundApiProxy.serviceStaking
+      .getBorrowHealthFactor(params)
+      .catch(() => undefined),
+  ]);
+
+/**
+ * One read of every route's figures asks each thing once: a kind of token
+ * on either side lists many pairs in the same markets, which share the
+ * account's position there, their reserves and the network's account
+ */
+export function createLoanReads() {
+  const kept = new Map<string, Promise<unknown>>();
+  const once = <T>(key: string, read: () => Promise<T>): Promise<T> => {
+    let promise = kept.get(key) as Promise<T> | undefined;
+    if (!promise) {
+      promise = read();
+      kept.set(key, promise);
+    }
+    return promise;
+  };
+  const marketKey = (params: IMarketParams) =>
+    `${params.provider}|${params.networkId}|${params.marketAddress}`;
+  return {
+    networkAccountId: (account: ILoanRouterAccount, networkId: string) =>
+      once(`account|${networkId}`, () =>
+        getLoanNetworkAccountId({ account, networkId }),
+      ),
+    reserveDetails: (params: IMarketParams & { reserveAddress: string }) =>
+      once(`reserve|${marketKey(params)}|${params.reserveAddress}`, () =>
+        backgroundApiProxy.serviceStaking
+          .getBorrowReserveDetails(params)
+          .catch(() => undefined),
+      ),
+    position: (params: IMarketParams & { accountId: string }) =>
+      once(`position|${marketKey(params)}|${params.accountId}`, () =>
+        readMarketPosition(params),
+      ),
+    eModeStatus: (params: IMarketParams & { accountId: string }) =>
+      once(`eMode|${marketKey(params)}|${params.accountId}`, () =>
+        backgroundApiProxy.serviceStaking
+          .getBorrowEModeStatus(params)
+          .catch(() => undefined),
+      ),
+  };
+}
+
+export type ILoanReads = ReturnType<typeof createLoanReads>;
+
 /** The account's position in the route's market, from its reserve lists */
 export async function readLoanRoutePosition({
   route,
   networkAccountId,
+  reads,
 }: {
   route: ILoanRoute;
   networkAccountId: string;
+  // Shared with the other routes read at the same time
+  reads?: ILoanReads;
 }): Promise<ILoanRoutePosition | undefined> {
   const { market } = route;
   const marketParams = {
@@ -103,15 +166,9 @@ export async function readLoanRoutePosition({
     marketAddress: market.marketAddress,
     accountId: networkAccountId,
   };
-  // The health factor alongside, so a position's figure is the server's
-  const [reserves, healthFactor] = await Promise.all([
-    backgroundApiProxy.serviceStaking
-      .getBorrowReserves(marketParams)
-      .catch(() => undefined),
-    backgroundApiProxy.serviceStaking
-      .getBorrowHealthFactor(marketParams)
-      .catch(() => undefined),
-  ]);
+  const [reserves, healthFactor] = reads
+    ? await reads.position(marketParams)
+    : await readMarketPosition(marketParams);
   if (!reserves) {
     return undefined;
   }
@@ -189,9 +246,11 @@ export async function readLoanRoutePosition({
 async function readRouteFacts({
   route,
   account,
+  reads,
 }: {
   route: ILoanRoute;
   account: ILoanRouterAccount;
+  reads: ILoanReads;
 }): Promise<ILoanRouteFacts> {
   const { market } = route;
   const marketParams = {
@@ -199,25 +258,21 @@ async function readRouteFacts({
     networkId: market.networkId,
     marketAddress: market.marketAddress,
   };
-  const networkAccountId = await getLoanNetworkAccountId({
+  const networkAccountId = await reads.networkAccountId(
     account,
-    networkId: market.networkId,
-  });
+    market.networkId,
+  );
   const [collateralDetail, borrowDetail, position] = await Promise.all([
-    backgroundApiProxy.serviceStaking
-      .getBorrowReserveDetails({
-        ...marketParams,
-        reserveAddress: route.collateral.reserveAddress,
-      })
-      .catch(() => undefined),
-    backgroundApiProxy.serviceStaking
-      .getBorrowReserveDetails({
-        ...marketParams,
-        reserveAddress: route.borrow.reserveAddress,
-      })
-      .catch(() => undefined),
+    reads.reserveDetails({
+      ...marketParams,
+      reserveAddress: route.collateral.reserveAddress,
+    }),
+    reads.reserveDetails({
+      ...marketParams,
+      reserveAddress: route.borrow.reserveAddress,
+    }),
     networkAccountId
-      ? readLoanRoutePosition({ route, networkAccountId })
+      ? readLoanRoutePosition({ route, networkAccountId, reads })
       : undefined,
   ]);
   const maxLtvPercent = parseLoanFigure(
@@ -234,9 +289,10 @@ async function readRouteFacts({
     !position.canBorrowHere &&
     market.provider.toLowerCase() === EBorrowProviderEnum.Aave
   ) {
-    const status = await backgroundApiProxy.serviceStaking
-      .getBorrowEModeStatus({ ...marketParams, accountId: networkAccountId })
-      .catch(() => undefined);
+    const status = await reads.eModeStatus({
+      ...marketParams,
+      accountId: networkAccountId,
+    });
     if (status?.eModeId) {
       eModeLabel = status.categories.find(
         (category) => category.eModeId === status.eModeId,
@@ -287,10 +343,14 @@ export function useLoanRouterFacts({ routes }: { routes: ILoanRoute[] }) {
 
   const { result, isLoading, run } = usePromiseResult(
     async () => {
+      const reads = createLoanReads();
       const entries = await Promise.all(
         routes.map(
           async (route) =>
-            [route.key, await readRouteFacts({ route, account })] as const,
+            [
+              route.key,
+              await readRouteFacts({ route, account, reads }),
+            ] as const,
         ),
       );
       return { scope, routesKey, byRoute: new Map(entries) };

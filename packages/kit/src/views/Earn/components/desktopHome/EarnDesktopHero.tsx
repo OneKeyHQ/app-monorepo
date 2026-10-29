@@ -73,6 +73,8 @@ const REFRESH_WIDTH = 12 + 36;
 // Growing back needs this much room, so a total ticking over the edge of a
 // size does not flip between two
 const GROW_SPARE_WIDTH = 8;
+// Between the total and the buttons beside it
+const ACTIONS_GAP = 16;
 const MIN_TICK_MS = 1000;
 const MAX_TICK_MS = 60_000;
 // How far a hidden amount's asterisks drop, as a share of their size
@@ -273,6 +275,7 @@ function BasicEarnDesktopHero({
   onRefresh,
   rewards,
   hidesSplit,
+  actions,
   onHeightChange,
 }: {
   totalFiatValue: string;
@@ -304,6 +307,8 @@ function BasicEarnDesktopHero({
   rewards?: ReactNode;
   /** The phone layout leaves the split by protocol out */
   hidesSplit?: boolean;
+  /** At the right of the total: the routers' quick entries (demo 10-29) */
+  actions?: ReactNode;
   onHeightChange?: (height: number) => void;
 }) {
   const intl = useIntl();
@@ -383,13 +388,18 @@ function BasicEarnDesktopHero({
   const [heroWidth, setHeroWidth] = useState(0);
   const [fullWidth, setFullWidth] = useState(0);
   const [fontSize, setFontSize] = useState<ITotalFontSize>(TOTAL_FONT_SIZE);
-  if (heroWidth && fullWidth) {
+  // The buttons beside the total take their room first
+  const [actionsWidth, setActionsWidth] = useState(0);
+  const totalRoom = actions
+    ? heroWidth - actionsWidth - ACTIONS_GAP
+    : heroWidth;
+  if (heroWidth && fullWidth && (!actions || actionsWidth)) {
     const fits = (size: ITotalFontSize) =>
       (fullWidth * size) / TOTAL_FONT_SIZE +
         (isReadyToEarn ? 0 : ENTRY_PADDING_WIDTH + CHEVRON_SIZE[size].px) +
         (onRefresh ? REFRESH_WIDTH : 0) +
         (size > fontSize ? GROW_SPARE_WIDTH : 0) <=
-      heroWidth;
+      totalRoom;
     const nextFontSize = TOTAL_FONT_SIZES.find(fits) ?? MIN_TOTAL_FONT_SIZE;
     if (nextFontSize !== fontSize) {
       setFontSize(nextFontSize);
@@ -593,92 +603,118 @@ function BasicEarnDesktopHero({
         {/* As on the phone, the total and its chevron open Positions. The
             highlight pads the number evenly: the chevron's own margin is its
             right side, and the negative margins keep the number in place */}
-        {isLoading ? (
-          // The wallet home's balance skeleton
-          <SkeletonLine height={TOTAL_FONT_SIZE} width={209} barHeight={40} />
-        ) : (
-          // The refresh button follows the total, as on the wallet home
-          <XStack ai="center" gap="$3" alignSelf="flex-start" maxWidth="100%">
-            {isReadyToEarn ? (
-              // Not a way into My portfolio, which has nothing yet
-              <YStack
-                testID="earn-desktop-ready-to-earn"
-                h={TOTAL_FONT_SIZE}
-                jc="center"
-                minWidth={0}
-                flexShrink={1}
-              >
-                <TotalValue
-                  value={shownValue}
-                  currency={currency}
-                  fontSize={fontSize}
-                  isHidden={isHidden}
-                />
-              </YStack>
+        <XStack ai="center" gap={ACTIONS_GAP}>
+          <YStack flex={1} minWidth={0} ai="flex-start">
+            {isLoading ? (
+              // The wallet home's balance skeleton
+              <SkeletonLine
+                height={TOTAL_FONT_SIZE}
+                width={209}
+                barHeight={40}
+              />
             ) : (
+              // The refresh button follows the total, as on the wallet home
               <XStack
-                testID={EarnTestIDs.portfolioEntry}
-                role="button"
-                aria-label={label}
                 ai="center"
-                gap="$1"
-                minWidth={0}
-                flexShrink={1}
-                pl="$2.5"
-                ml="$-2.5"
-                py="$1"
-                my="$-1"
-                borderRadius="$3"
-                cursor="pointer"
-                userSelect="none"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                transition={reduceMotion ? undefined : 'quick'}
-                animateOnly={ANIMATE_ONLY_BG_COLOR}
-                onPress={onOpenPortfolio}
-                onHoverIn={warmEarnPositions}
-                onFocus={warmEarnPositions}
-                {...buildKeyboardPressProps(onOpenPortfolio)}
+                gap="$3"
+                alignSelf="flex-start"
+                maxWidth="100%"
               >
-                {/* Every size keeps the 48px line, so nothing below moves */}
-                <YStack
-                  h={TOTAL_FONT_SIZE}
-                  jc="center"
-                  minWidth={0}
-                  flexShrink={1}
-                >
-                  <TotalValue
-                    value={value}
-                    currency={currency}
-                    fontSize={fontSize}
-                    isHidden={isHidden}
+                {isReadyToEarn ? (
+                  // Not a way into My portfolio, which has nothing yet
+                  <YStack
+                    testID="earn-desktop-ready-to-earn"
+                    h={TOTAL_FONT_SIZE}
+                    jc="center"
+                    minWidth={0}
+                    flexShrink={1}
+                  >
+                    <TotalValue
+                      value={shownValue}
+                      currency={currency}
+                      fontSize={fontSize}
+                      isHidden={isHidden}
+                    />
+                  </YStack>
+                ) : (
+                  <XStack
+                    testID={EarnTestIDs.portfolioEntry}
+                    role="button"
+                    aria-label={label}
+                    ai="center"
+                    gap="$1"
+                    minWidth={0}
+                    flexShrink={1}
+                    pl="$2.5"
+                    ml="$-2.5"
+                    py="$1"
+                    my="$-1"
+                    borderRadius="$3"
+                    cursor="pointer"
+                    userSelect="none"
+                    hoverStyle={{ bg: '$bgHover' }}
+                    pressStyle={{ bg: '$bgActive' }}
+                    transition={reduceMotion ? undefined : 'quick'}
+                    animateOnly={ANIMATE_ONLY_BG_COLOR}
+                    onPress={onOpenPortfolio}
+                    onHoverIn={warmEarnPositions}
+                    onFocus={warmEarnPositions}
+                    {...buildKeyboardPressProps(onOpenPortfolio)}
+                  >
+                    {/* Every size keeps the 48px line, so nothing below moves */}
+                    <YStack
+                      h={TOTAL_FONT_SIZE}
+                      jc="center"
+                      minWidth={0}
+                      flexShrink={1}
+                    >
+                      <TotalValue
+                        value={value}
+                        currency={currency}
+                        fontSize={fontSize}
+                        isHidden={isHidden}
+                      />
+                    </YStack>
+                    <Icon
+                      name="ChevronRightSmallOutline"
+                      size={CHEVRON_SIZE[fontSize].token}
+                      color="$iconSubdued"
+                      flexShrink={0}
+                    />
+                  </XStack>
+                )}
+                {onRefresh ? (
+                  <IconButton
+                    testID="earn-desktop-refresh"
+                    hotKey
+                    aria-label={intl.formatMessage({
+                      id: ETranslations.global_refresh,
+                    })}
+                    icon="RefreshCcwOutline"
+                    variant="tertiary"
+                    loading={isRefreshing}
+                    transition={reduceMotion ? undefined : 'quick'}
+                    animateOnly={ANIMATE_ONLY_BG_COLOR}
+                    onPress={onRefresh}
                   />
-                </YStack>
-                <Icon
-                  name="ChevronRightSmallOutline"
-                  size={CHEVRON_SIZE[fontSize].token}
-                  color="$iconSubdued"
-                  flexShrink={0}
-                />
+                ) : null}
               </XStack>
             )}
-            {onRefresh ? (
-              <IconButton
-                testID="earn-desktop-refresh"
-                hotKey
-                aria-label={intl.formatMessage({
-                  id: ETranslations.global_refresh,
-                })}
-                icon="RefreshCcwOutline"
-                variant="tertiary"
-                loading={isRefreshing}
-                transition={reduceMotion ? undefined : 'quick'}
-                animateOnly={ANIMATE_ONLY_BG_COLOR}
-                onPress={onRefresh}
-              />
-            ) : null}
-          </XStack>
-        )}
+          </YStack>
+          {actions ? (
+            <XStack
+              testID="earn-desktop-router-entries"
+              ai="center"
+              gap="$2"
+              flexShrink={0}
+              onLayout={(event) =>
+                setActionsWidth(Math.ceil(event.nativeEvent.layout.width))
+              }
+            >
+              {actions}
+            </XStack>
+          ) : null}
+        </XStack>
         {earningsRow}
       </YStack>
       <RewardsRow

@@ -15,6 +15,7 @@ import {
   isSameLoanAsset,
   toLtvFraction,
 } from '../../components/desktopHome/earnDesktopHome.utils';
+import { isInAssetPick } from '../EarnAssetSelect/earnAssetSelect.utils';
 
 import type { ILoanLtvTone } from './loanLtvBar.types';
 import type { IHealthFactorDetail } from '../../../Borrow/components/healthFactorValueColor';
@@ -23,6 +24,10 @@ import type {
   IEarnDesktopLoanAssetType,
   IEarnDesktopMarketReserves,
 } from '../../components/desktopHome/earnDesktopHome.utils';
+import type {
+  IEarnAssetPick,
+  IEarnAssetSelectToken,
+} from '../EarnAssetSelect/earnAssetSelect.utils';
 
 // The Loans router: a collateral and a loan, and every market that takes the
 // pair, each worked out for the amounts typed. One market is one candidate,
@@ -189,6 +194,228 @@ const toRouterToken = (
   reserveAddress,
 });
 
+type ISupplyAsset = ReturnType<typeof getMarketAssets>['collateral'][number];
+type ILentAsset = ReturnType<typeof getMarketAssets>['borrow'][number];
+type IMarketAsset = ISupplyAsset | ILentAsset;
+
+const toRoute = (
+  market: IEarnDesktopMarketReserves['market'],
+  supplied: ISupplyAsset,
+  lent: ILentAsset,
+): ILoanRoute => ({
+  key: `${buildBorrowMarketKey(market)}|${
+    supplied.reserveAddress || supplied.token.symbol
+  }|${lent.reserveAddress || lent.token.symbol}`,
+  market,
+  marketLabel: getBorrowMarketLabel(market),
+  collateral: {
+    ...toRouterToken(supplied.token, supplied.reserveAddress, market.networkId),
+    supplyApy: toNumber(supplied.apyDetail?.apy),
+    liquidationLtv: toLtvFraction(supplied.liquidationLtv),
+  },
+  borrow: {
+    ...toRouterToken(lent.token, lent.reserveAddress, market.networkId),
+    borrowApy: toNumber(lent.apyDetail?.apy),
+    borrowFactor: toNumber(lent.borrowFactor) || 1,
+  },
+});
+
+/**
+ * Every market and pair the two picks take in: a token on a side, or any
+ * token of a kind there. Never a token against itself (ETH and WETH)
+ */
+export function buildLoanRoutesForPicks({
+  markets,
+  collateral,
+  borrow,
+  stableSymbols,
+}: {
+  markets: IEarnDesktopMarketReserves[];
+  collateral: IEarnAssetPick;
+  borrow: IEarnAssetPick;
+  stableSymbols: Set<string>;
+}): ILoanRoute[] {
+  const routes: ILoanRoute[] = [];
+  markets.forEach((entry) => {
+    const assets = getMarketAssets(entry);
+    const supplied = assets.collateral.filter((asset) =>
+      isInAssetPick({
+        symbol: asset.token.symbol,
+        pick: collateral,
+        stableSymbols,
+      }),
+    );
+    const lent = assets.borrow.filter((asset) =>
+      isInAssetPick({
+        symbol: asset.token.symbol,
+        pick: borrow,
+        stableSymbols,
+      }),
+    );
+    supplied.forEach((supply) => {
+      lent.forEach((loan) => {
+        if (
+          isSameLoanAsset(supply.token.symbol, loan.token.symbol) ||
+          (Boolean(loan.reserveAddress) &&
+            loan.reserveAddress === supply.reserveAddress)
+        ) {
+          return;
+        }
+        routes.push(toRoute(entry.market, supply, loan));
+      });
+    });
+  });
+  return routes;
+}
+
+type ISelectTokenDraft = IEarnAssetSelectToken & { networkIds: Set<string> };
+
+// A token the selector lists once, gathering each network it is offered on
+function gatherSelectToken({
+  bySymbol,
+  asset,
+  market,
+  stableSymbols,
+}: {
+  bySymbol: Map<string, ISelectTokenDraft>;
+  asset: IMarketAsset;
+  market: IEarnDesktopMarketReserves['market'];
+  stableSymbols: Set<string>;
+}) {
+  const key = asset.token.symbol.toUpperCase();
+  let draft = bySymbol.get(key);
+  if (!draft) {
+    draft = {
+      symbol: asset.token.symbol,
+      name: asset.token.name || asset.token.symbol,
+      logoURI: asset.token.logoURI,
+      type: getLoanAssetType(asset.token.symbol, stableSymbols),
+      networks: [],
+      addresses: [],
+      networkIds: new Set(),
+    };
+    bySymbol.set(key, draft);
+  }
+  if (!draft.networkIds.has(market.networkId)) {
+    draft.networkIds.add(market.networkId);
+    draft.networks.push({
+      id: market.networkId,
+      name: market.network.name,
+      logoURI: market.network.logoURI,
+    });
+  }
+  const address = asset.token.address?.toLowerCase();
+  if (
+    address &&
+    !draft.addresses.some(
+      (item) => item.networkId === market.networkId && item.address === address,
+    )
+  ) {
+    draft.addresses.push({ networkId: market.networkId, address });
+  }
+  return draft;
+}
+
+const toSelectTokens = (bySymbol: Map<string, ISelectTokenDraft>) =>
+  [...bySymbol.values()].map(
+    ({ networkIds: _networkIds, ...token }): IEarnAssetSelectToken => token,
+  );
+
+/**
+ * The Loans window's two lists for the selector: every collateral a market
+ * lends something else against, with what the wallet holds of it there; and
+ * what the markets lend against the collateral picked, at its lowest rate
+ */
+export function buildLoanSelectTokens({
+  markets,
+  side,
+  collateral,
+  stableSymbols,
+  holdings,
+}: {
+  markets: IEarnDesktopMarketReserves[];
+  side: 'supply' | 'borrow';
+  // The borrow side lists what is lent against it
+  collateral?: IEarnAssetPick;
+  stableSymbols: Set<string>;
+  // What the wallet holds, by symbol (in upper case) and network
+  holdings?: Map<string, Map<string, { amount: string; fiatValueUsd: string }>>;
+}): IEarnAssetSelectToken[] {
+  const bySymbol = new Map<string, ISelectTokenDraft>();
+  markets.forEach((entry) => {
+    const assets = getMarketAssets(entry);
+    if (side === 'supply') {
+      assets.collateral.forEach((asset) => {
+        const lendsAgainst = assets.borrow.some(
+          (lent) => !isSameLoanAsset(lent.token.symbol, asset.token.symbol),
+        );
+        if (lendsAgainst) {
+          gatherSelectToken({
+            bySymbol,
+            asset,
+            market: entry.market,
+            stableSymbols,
+          });
+        }
+      });
+      return;
+    }
+    const takes = collateral
+      ? assets.collateral.filter((asset) =>
+          isInAssetPick({
+            symbol: asset.token.symbol,
+            pick: collateral,
+            stableSymbols,
+          }),
+        )
+      : assets.collateral;
+    if (!takes.length) {
+      return;
+    }
+    assets.borrow.forEach((asset) => {
+      if (
+        takes.every((supply) =>
+          isSameLoanAsset(supply.token.symbol, asset.token.symbol),
+        )
+      ) {
+        return;
+      }
+      const draft = gatherSelectToken({
+        bySymbol,
+        asset,
+        market: entry.market,
+        stableSymbols,
+      });
+      const apy = toNumber(asset.apyDetail?.apy);
+      if (apy > 0 && (draft.rate === undefined || apy < draft.rate)) {
+        draft.rate = apy;
+      }
+    });
+  });
+  if (side === 'supply' && holdings) {
+    bySymbol.forEach((draft, key) => {
+      const byNetwork = holdings.get(key);
+      if (!byNetwork) {
+        return;
+      }
+      let amount = new BigNumber(0);
+      let fiat = new BigNumber(0);
+      draft.networkIds.forEach((networkId) => {
+        const held = byNetwork.get(networkId);
+        if (held) {
+          amount = amount.plus(held.amount);
+          fiat = fiat.plus(held.fiatValueUsd);
+        }
+      });
+      if (amount.gt(0)) {
+        draft.balance = amount.toFixed();
+        draft.fiatValue = fiat.toNumber();
+      }
+    });
+  }
+  return toSelectTokens(bySymbol);
+}
+
 /** Every market that takes the collateral and lends the loan */
 export function buildLoanRoutes({
   markets,
@@ -325,6 +552,44 @@ export function getLoanBorrowOptions({
     });
   });
   return sortOptions([...bySymbol.values()], () => false);
+}
+
+/**
+ * The loan once the collateral is picked again: the one picked while the
+ * markets still lend it (a kind of token while they lend any of it), else the
+ * one the most networks lend, a stable token first
+ */
+export function pickLoanBorrowPick({
+  markets,
+  collateral,
+  current,
+  stableSymbols,
+}: {
+  markets: IEarnDesktopMarketReserves[];
+  collateral: IEarnAssetPick;
+  current: IEarnAssetPick;
+  stableSymbols: Set<string>;
+}): IEarnAssetPick | undefined {
+  const lent = buildLoanSelectTokens({
+    markets,
+    side: 'borrow',
+    collateral,
+    stableSymbols,
+  });
+  const keeps =
+    current.kind === 'token'
+      ? lent.some((token) => isSameSymbol(token.symbol, current.symbol))
+      : lent.some((token) => token.type === current.assetClass);
+  if (keeps) {
+    return current;
+  }
+  const [first] = lent.toSorted(
+    (a, b) =>
+      Number(b.type === 'stable') - Number(a.type === 'stable') ||
+      b.networks.length - a.networks.length ||
+      a.symbol.localeCompare(b.symbol),
+  );
+  return first ? { kind: 'token', symbol: first.symbol } : undefined;
 }
 
 /** The loan to pick for a collateral: the one the most markets lend, stable first */

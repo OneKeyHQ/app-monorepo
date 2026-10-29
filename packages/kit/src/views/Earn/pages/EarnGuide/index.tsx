@@ -42,6 +42,10 @@ import {
   ReceiveCardCell,
 } from '../../../Receive/components/ReceiveCard';
 import { ReceiveQRCode } from '../../../Receive/components/ReceiveQRCode';
+import {
+  EARN_FULL_WIDTH_BUTTONS,
+  EARN_HALF_BUTTON,
+} from '../../../Staking/components/EarnFormFooter';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { ManageSectionShell } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
@@ -642,7 +646,11 @@ function EarnGuidePage() {
             id: ETranslations.global_connect_wallet,
           })}
           onConfirm={() => showAccountSelector()}
-          confirmButtonProps={{ testID: 'earn-guide-connect' }}
+          buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
+          confirmButtonProps={{
+            ...EARN_HALF_BUTTON,
+            testID: 'earn-guide-connect',
+          }}
         />
       );
     } else if (canBuy || isPreview) {
@@ -651,7 +659,8 @@ function EarnGuidePage() {
           key="buy"
           onConfirmText={intl.formatMessage({ id: ETranslations.global_buy })}
           onConfirm={() => (canBuy ? handleFiatCrypto(undefined) : undefined)}
-          confirmButtonProps={{ testID: 'earn-guide-buy' }}
+          buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
+          confirmButtonProps={{ ...EARN_HALF_BUTTON, testID: 'earn-guide-buy' }}
         />
       );
     }
@@ -670,7 +679,9 @@ function EarnGuidePage() {
         key="vault"
         onConfirmText={copy.guideUseVault}
         onConfirm={handleUseVault}
+        buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
         confirmButtonProps={{
+          ...EARN_HALF_BUTTON,
           disabled: !vaultOffer,
           testID: 'earn-guide-use-vault',
         }}
@@ -739,12 +750,16 @@ function EarnGuidePage() {
         key="done"
         onConfirmText={copy.guideGoToPosition}
         onConfirm={() => handleFinish(true)}
-        confirmButtonProps={{ testID: 'earn-guide-go-to-position' }}
+        buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
+        confirmButtonProps={{
+          ...EARN_HALF_BUTTON,
+          testID: 'earn-guide-go-to-position',
+        }}
         onCancelText={intl.formatMessage({ id: ETranslations.global_done })}
         // Taking the close argument keeps the footer from closing as well:
         // the finish closes
         onCancel={(_close) => handleFinish(false)}
-        cancelButtonProps={{ testID: 'earn-guide-done' }}
+        cancelButtonProps={{ ...EARN_HALF_BUTTON, testID: 'earn-guide-done' }}
       />
     );
   }
