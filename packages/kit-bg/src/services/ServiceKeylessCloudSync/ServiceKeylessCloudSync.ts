@@ -870,6 +870,14 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const pending = credential.pendingDataKey;
     if (pending && serverDekId === pending.dekId) {
       const updated = await this.commitHardwareDataKey(credential, pending);
+      // The generation was computed here before the flush, not read back
+      // from the server.
+      if (credential.source?.type === 'hardware' && pending.generation) {
+        await this.recordHardwareKeyGeneration(
+          credential.source.credentialId,
+          pending.generation,
+        );
+      }
       await this.revokeOtherHardwareSessions(updated);
       return updated;
     }

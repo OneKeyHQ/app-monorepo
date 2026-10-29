@@ -442,7 +442,7 @@ describe('hardware Cloud sync session', () => {
       const newSalt = JSON.parse(c.post.mock.calls[2][1].lock.data).kekSalt;
       expect(newSalt).toMatch(/^[0-9a-f]{32}$/);
       expect(newSalt).not.toBe(JSON.parse(lock.data).kekSalt);
-      expect(savePending).toHaveBeenCalledWith(next);
+      expect(savePending).toHaveBeenCalledWith({ ...next, generation: 2 });
       // Only records under the current key are carried over.
       expect(items.map((i) => i.id)).toEqual(['a']);
       await expect(

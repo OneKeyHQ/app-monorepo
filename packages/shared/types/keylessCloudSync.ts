@@ -48,6 +48,8 @@ export interface IKeylessCloudSyncCredential {
     dek: string;
     dekId: string;
     pwdHash: string;
+    // Envelope generation of the new key; absent in older saved credentials.
+    generation?: number;
   };
 }
 

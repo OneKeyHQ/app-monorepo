@@ -707,7 +707,9 @@ export async function rotateHardwareCloudSyncDataKey<
   deriveKek: IHardwareCloudSyncKekDeriver;
   current: IHardwareCloudSyncDataKey;
   localItems: T[];
-  savePending: (next: IHardwareCloudSyncDataKey) => Promise<void>;
+  savePending: (
+    next: IHardwareCloudSyncDataKey & { generation: number },
+  ) => Promise<void>;
   minGeneration?: number;
 }): Promise<{
   next: IHardwareCloudSyncDataKey;
@@ -788,7 +790,7 @@ export async function rotateHardwareCloudSyncDataKey<
     },
   ];
 
-  await savePending(next);
+  await savePending({ ...next, generation: envelope.generation });
   await requestWithHardwareCloudSyncSession({
     client,
     session,

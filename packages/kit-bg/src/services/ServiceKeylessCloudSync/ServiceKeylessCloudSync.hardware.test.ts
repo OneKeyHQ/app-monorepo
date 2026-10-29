@@ -84,7 +84,9 @@ jest.mock('./hardwareCloudSyncSession', () => ({
       previousPwdHashes: [],
     }),
   ),
+  getCurrentHardwareCloudSyncDataKeyId: jest.fn(),
   isHardwareCloudSyncKeyEnvelopeItem: jest.fn(() => false),
+  revokeHardwareCloudSyncSession: jest.fn(async () => undefined),
   refreshHardwareCloudSyncSessionIfNeeded: jest.fn(async () => undefined),
   requestRawWithHardwareCloudSyncSession: jest.fn(),
 }));
@@ -1129,5 +1131,58 @@ describe('a hardware key never outlives turned-off sync', () => {
     });
     expect(fresh.hardwareSession?.refreshToken).toBe('public-test-refresh-2');
     expect(refreshHardwareCloudSyncSessionIfNeeded).not.toHaveBeenCalled();
+  });
+
+  test('finishing an interrupted reset records the new key generation', async () => {
+    const { service } = setup();
+    const hardwareSession = {
+      deviceKeyJwk: {
+        kty: 'EC' as const,
+        crv: 'P-256' as const,
+        x: 'x',
+        y: 'y',
+        d: 'd',
+      },
+      accessToken: 'public-test-access',
+      accessTokenExpiresAt: Number.MAX_SAFE_INTEGER,
+      refreshToken: 'public-test-refresh',
+      sessionId: 'public-test-session',
+      dekId: 'public-test-dek-2',
+    };
+    const pending = {
+      dek: 'public-test-placeholder-dek-3',
+      dekId: 'public-test-dek-3',
+      pwdHash: 'keyless-test-hardware-3',
+      generation: 3,
+    };
+    mockConfig = {
+      ...mockConfig,
+      hardwareCloudSyncKeyGenerations: { [source.credentialId]: 2 },
+    };
+    const { getCurrentHardwareCloudSyncDataKeyId } = jest.requireMock<
+      typeof import('./hardwareCloudSyncSession')
+    >('./hardwareCloudSyncSession');
+    jest
+      .mocked(getCurrentHardwareCloudSyncDataKeyId)
+      .mockResolvedValueOnce(pending.dekId);
+    const commit = jest
+      .spyOn(
+        service as unknown as {
+          commitHardwareDataKey: (
+            c: IKeylessCloudSyncCredential,
+          ) => Promise<IKeylessCloudSyncCredential>;
+        },
+        'commitHardwareDataKey',
+      )
+      .mockImplementation(async (c) => ({ ...c, pendingDataKey: undefined }));
+    await service['handleHardwareDataKeyRefused']({
+      ...credential,
+      hardwareSession,
+      pendingDataKey: pending,
+    });
+    expect(commit).toHaveBeenCalled();
+    expect(mockConfig.hardwareCloudSyncKeyGenerations).toEqual({
+      [source.credentialId]: 3,
+    });
   });
 });
