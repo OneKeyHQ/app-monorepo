@@ -49,6 +49,8 @@ export default function MobileUnifoldDepositTrackerModal() {
     [closeModal],
   );
   const expectedRecipient = route.params?.expectedRecipient;
+  const tradingUiMode = route.params?.tradingUiMode;
+  const analyticsEntrySource = route.params?.analyticsEntrySource;
   const openedFromTransfer = route.params?.openedFromTransfer === true;
   const handleDepositPress = useCallback(() => {
     if (!expectedRecipient) {
@@ -60,8 +62,16 @@ export default function MobileUnifoldDepositTrackerModal() {
     }
     navigation.replace(EModalPerpRoutes.MobileUnifoldDepositTransfer, {
       expectedRecipient,
+      tradingUiMode,
+      analyticsEntrySource,
     });
-  }, [expectedRecipient, navigation, openedFromTransfer]);
+  }, [
+    expectedRecipient,
+    navigation,
+    openedFromTransfer,
+    tradingUiMode,
+    analyticsEntrySource,
+  ]);
 
   return (
     <Page safeAreaEnabled>
