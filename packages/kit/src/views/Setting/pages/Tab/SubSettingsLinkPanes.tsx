@@ -32,15 +32,15 @@ function makeLinkPane(component: ComponentType<any>) {
     // Link panes host full feature pages that fetch on mount, so mount them
     // only while their tab is selected — each visit re-mounts with fresh data.
     // Key off the tab navigator's own state, NOT `useIsFocused`: hierarchical
-    // focus also drops when another modal covers the settings modal (or an
-    // iPad drill-down pushes onto the outer settings stack), and unmounting
-    // there loses in-flight state such as the connection pane's account-change
-    // observer.
+    // focus also drops when another modal covers the settings modal, and
+    // unmounting there loses in-flight state such as the connection pane's
+    // account-change observer.
     if (activeRouteName !== name) {
       return null;
     }
     return (
       <TabSubStackNavigator
+        pushedScreenPresentation="modal"
         config={buildSubSettingsPaneStack(name as string, component)}
       />
     );

@@ -180,4 +180,10 @@ export interface IThirdPartyHardwareAdapter {
     deviceId: string,
     options?: { connectId?: string },
   ): Promise<void>;
+
+  /**
+   * Ledger-only: runs a check that the connected device holds this wallet;
+   * an open-app ask meanwhile names the app and says why it opens.
+   */
+  runWalletMatchCheck?<T>(check: () => Promise<T>): Promise<T>;
 }

@@ -1,8 +1,15 @@
 /** @jest-environment jsdom */
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EFullScreenPushRoutes,
+  EModalRoutes,
+  ERootRoutes,
+  EScanQrCodeModalPages,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import {
   resetAboveMainRoute,
+  resetScanModalRoute,
   rootNavigationRef,
   switchTab,
   switchTabAsync,
@@ -128,6 +135,80 @@ it('leaves the trading route alone when there are no overlays', () => {
 
   expect(dispatch).not.toHaveBeenCalled();
 });
+
+it.each(['params', 'state'] as const)(
+  'closes a cancelled scanner by request ID using nested %s',
+  (shape) => {
+    const mainRoute = getRootState().routes[0];
+    const scanParams = { scanRequestId: 'old-scan' };
+    const oldScan = {
+      name: ERootRoutes.Modal,
+      ...(shape === 'params'
+        ? {
+            params: {
+              screen: EModalRoutes.ScanQrCodeModal,
+              params: {
+                screen: EScanQrCodeModalPages.ScanQrCodeStack,
+                params: scanParams,
+              },
+            },
+          }
+        : {
+            state: {
+              index: 0,
+              routes: [
+                {
+                  name: EModalRoutes.ScanQrCodeModal,
+                  state: {
+                    index: 0,
+                    routes: [
+                      {
+                        name: EScanQrCodeModalPages.ScanQrCodeStack,
+                        params: scanParams,
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          }),
+    };
+    const newScan = {
+      name: ERootRoutes.Modal,
+      params: {
+        screen: EModalRoutes.ScanQrCodeModal,
+        params: { params: { scanRequestId: 'new-scan' } },
+      },
+    };
+    const actionCenter = {
+      name: ERootRoutes.FullScreenPush,
+      params: { screen: EFullScreenPushRoutes.ActionCenter },
+    };
+    const dispatch = jest.fn();
+    Object.assign(rootNavigationRef, {
+      current: {
+        getRootState: () => ({
+          index: 3,
+          routes: [mainRoute, oldScan, newScan, actionCenter],
+        }),
+        dispatch,
+      },
+    });
+    resetScanModalRoute({ scanRequestId: 'old-scan' });
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'RESET',
+      payload: { index: 2, routes: [mainRoute, newScan, actionCenter] },
+    });
+    dispatch.mockClear();
+    resetScanModalRoute({ scanRequestId: 'missing-scan' });
+    expect(dispatch).not.toHaveBeenCalled();
+    resetScanModalRoute();
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'RESET',
+      payload: { index: 0, routes: [mainRoute] },
+    });
+  },
+);
 
 it.each([ETabRoutes.Perp, ETabRoutes.WebviewPerpTrade])(
   'dismisses nested history overlays from Home before selecting %s',

@@ -41,6 +41,7 @@ import {
   getPrimeInfiniPaymentEntryGuard,
   getPrimeInfiniPendingPaymentContext,
 } from '../../hooks/primeInfiniExternalCheckoutGuard';
+import { retirePrimeWebCheckout } from '../../hooks/retirePrimeWebCheckout';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { usePrimeWebCheckoutPurchase } from '../../hooks/usePrimeWebCheckoutPurchase';
@@ -274,11 +275,8 @@ export function usePrimePurchaseCallback({
   const intl = useIntl();
 
   const purchaseByWebviewUnchecked = usePurchasePackageWebview();
-  const {
-    purchaseByHostedLink,
-    fallbackToHostedLink,
-    resumePendingHostedCheckout,
-  } = usePrimeWebCheckoutPurchase();
+  const { purchaseByHostedLink, fallbackToHostedLink } =
+    usePrimeWebCheckoutPurchase();
   const { purchaseByCrypto: purchaseByCryptoUnchecked } =
     usePrimeInfiniPurchase({ networkId });
 
@@ -316,9 +314,9 @@ export function usePrimePurchaseCallback({
         | undefined;
       try {
         const purchaseUserId = user?.onekeyUserId;
-        if (await resumePendingHostedCheckout()) {
-          return;
-        }
+        // A click is always a new payment; an earlier hosted checkout neither
+        // gates nor resumes it. See retirePrimeWebCheckout.
+        await retirePrimeWebCheckout(purchaseUserId);
         beginStripePaymentElementAttempt();
         let purchaseResult:
           | Awaited<ReturnType<NonNullable<typeof purchasePackageWeb>>>
@@ -366,7 +364,6 @@ export function usePrimePurchaseCallback({
       }
     },
     [
-      resumePendingHostedCheckout,
       fallbackToHostedLink,
       intl.locale,
       purchasePackageWeb,

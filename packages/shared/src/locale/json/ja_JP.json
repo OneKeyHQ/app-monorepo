@@ -2979,6 +2979,7 @@
   "market.most_market_cap": "最大の時価総額",
   "market.move_to_top": "トップに移動",
   "market.net_vol": "純取引高",
+  "market.no_positions": "ポジションはありません",
   "market.number_day_abbr": "{number}日",
   "market.number_hour_abbr": "{number}時間",
   "market.number_minute_abbr": "{number}分",

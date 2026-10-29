@@ -2979,6 +2979,7 @@
   "market.most_market_cap": "最大市值",
   "market.move_to_top": "移至頂部",
   "market.net_vol": "淨成交額",
+  "market.no_positions": "暫無倉位",
   "market.number_day_abbr": "{number}日",
   "market.number_hour_abbr": "{number}時",
   "market.number_minute_abbr": "{number}分",

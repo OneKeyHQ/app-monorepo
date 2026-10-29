@@ -30,7 +30,7 @@ import type { IEncodedTxStellar } from '../chains/stellar/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
 import type { IEncodedTxTon } from '../chains/ton/types';
 import type { IEncodedTxTron } from '../chains/tron/types';
-import type { IEncodedTxXmr } from '../chains/xmr/types';
+import type { IEncodedTxXmr, IXmrSentTxKeys } from '../chains/xmr/types';
 import type { IEncodedTxXrp } from '../chains/xrp/types';
 import type BigNumber from 'bignumber.js';
 
@@ -142,6 +142,8 @@ export type ISignedTxResult = ISignedTx & {
   publicKey?: string; // hex string
   digest?: string; // hex string
   txKey?: string; // hex string for Monero
+  // Monero: proof keys the vault moves into its sent record, so they never leave signing
+  xmrSentTxKeys?: IXmrSentTxKeys;
   pendingTx?: boolean; // It is used for Aptos to wait for the chain to get the transaction state
   // for lightning network
   nonce?: number;

@@ -56,6 +56,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IEstimateFeeParams,
@@ -116,6 +117,7 @@ import {
 import { ESignedTxBroadcastStatus } from '../types';
 
 import { VaultContext } from './VaultContext';
+import { keyringMapSupportsAccount } from './walletTypeSupport';
 
 import type { KeyringBase } from './KeyringBase';
 import type {
@@ -124,6 +126,7 @@ import type {
   IDBUtxoAccount,
   IDBWalletType,
 } from '../../dbs/local/types';
+import type { ILocalWalletCapability } from '../localWallet/types';
 import type {
   IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
@@ -435,6 +438,18 @@ export abstract class VaultBaseChainOnly extends VaultContext {
       valid: false,
     });
   }
+
+  // Client-scanned chains return their scheduler/UI contract here;
+  // server-indexed chains return undefined.
+  getLocalWalletCapability(): ILocalWalletCapability | undefined {
+    return undefined;
+  }
+
+  // Whether this chain has a keyring for the wallet that owns `accountId`,
+  // so the UI never offers a control the chain cannot back.
+  supportsAccountWalletType(_params: { accountId: string }): boolean {
+    return true;
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -445,6 +460,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   keyring!: KeyringBase;
 
   abstract keyringMap: IKeyringMap;
+
+  override supportsAccountWalletType({
+    accountId,
+  }: {
+    accountId: string;
+  }): boolean {
+    return keyringMapSupportsAccount({
+      keyringMap: this.keyringMap,
+      accountId,
+    });
+  }
 
   async init(config: IVaultInitConfig) {
     await this.initKeyring(config);
@@ -555,6 +581,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return null;
   }
 
+  // The user left the review page without sending. Chains that reserve
+  // inputs while building (Zcash PCZTs) give them back here.
+  async releaseUnsignedTx(_params: { unsignedTx: IUnsignedTxPro }) {
+    return Promise.resolve();
+  }
+
   async precheckUnsignedTx(params: {
     unsignedTx: IUnsignedTxPro;
     precheckTiming: ESendPreCheckTimingEnum;
@@ -611,6 +643,45 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve({
       encodedTx,
     });
+  }
+
+  // Watch-only local-wallet scans may need the spend key for follow-up work
+  // (Monero key images); the scheduler asks after each sync turn while unlocked.
+  async localWalletHasPasswordWork(): Promise<boolean> {
+    return false;
+  }
+
+  // Returns whether wallet state changed.
+  async localWalletDoPasswordWork(_params: {
+    password: string;
+  }): Promise<boolean> {
+    return false;
+  }
+
+  // The same follow-up work for a hardware account, done by its device; only
+  // ever on the user's request, never from a background sync turn.
+  async localWalletHasDeviceWork(): Promise<boolean> {
+    return false;
+  }
+
+  // Returns whether wallet state changed.
+  async localWalletDoDeviceWork(_params: {
+    deviceParams: IDeviceSharedCallParams;
+  }): Promise<boolean> {
+    return false;
+  }
+
+  // A defined result replaces the server history query entirely; undefined
+  // means a server-indexed chain.
+  async fetchAccountHistoryFromLocal(_params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+    xpub?: string;
+    // Pull-to-refresh; a vault may use it to skip incremental shortcuts.
+    isManualRefresh?: boolean;
+  }): Promise<IAccountHistoryTx[] | undefined> {
+    return undefined;
   }
 
   async buildFetchHistoryListParams(params: {
@@ -1603,7 +1674,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchAccountHistoryDetailByApi(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
-    const { accountId, ...rest } = params;
+    // Client-side-only fields; the backend never needs them.
+    const {
+      accountId,
+      withUTXOs: _withUTXOs,
+      privacyChainPoolId: _privacyChainPoolId,
+      ...rest
+    } = params;
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );

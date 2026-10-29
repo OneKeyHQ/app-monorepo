@@ -2979,6 +2979,7 @@
   "market.most_market_cap": "시가총액이 가장 많은",
   "market.move_to_top": "맨 위로 이동",
   "market.net_vol": "순 거래대금",
+  "market.no_positions": "포지션 없음",
   "market.number_day_abbr": "{number}일",
   "market.number_hour_abbr": "{number}시간",
   "market.number_minute_abbr": "{number}분",

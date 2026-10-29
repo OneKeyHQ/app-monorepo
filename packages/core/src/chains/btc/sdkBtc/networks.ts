@@ -170,6 +170,22 @@ const dash: IBtcForkNetwork = {
   wif: 0xcc,
 };
 
+// zcash (transparent): single-byte pubKeyHash/scriptHash placeholders; the real 2-byte
+// t-address prefixes (t1=0x1cb8, t3=0x1cbd) are applied in chains/zcash/sdkZcash.
+const zcash: IBtcForkNetwork = {
+  // Length byte is 22 (0x16): zcashd's strMessageMagic, not Bitcoin's 24.
+  messagePrefix: '\x16Zcash Signed Message:\n',
+  bech32: '',
+  bip32: {
+    public: 0x04_88_b2_1e,
+    private: 0x04_88_ad_e4,
+  },
+  pubKeyHash: 0x00,
+  scriptHash: 0x05,
+  wif: 0x80,
+  maximumFeeRate: 10_000, // zcash
+};
+
 // neurai
 const xna: IBtcForkNetwork = {
   messagePrefix: '\x19Neurai Signed Message:\n',
@@ -192,6 +208,7 @@ const extendedNetworks: Record<string, IBtcForkNetwork> = {
   ltc,
   bch,
   doge,
+  zec: zcash,
   xna, // neurai
   btg,
   dgb,

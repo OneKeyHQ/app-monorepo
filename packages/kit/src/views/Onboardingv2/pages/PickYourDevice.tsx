@@ -252,7 +252,14 @@ export default function PickYourDevice() {
                 >
                   {name}
                 </SizableText>
-                <XStack gap="$2" $gtMd={{ minHeight: '$6' }}>
+                {/* The narrow card's image fills its right half: the tags
+                    wrap before reaching it. */}
+                <XStack
+                  gap="$2"
+                  flexWrap="wrap"
+                  maxWidth="50%"
+                  $gtMd={{ minHeight: '$6', maxWidth: '100%' }}
+                >
                   {tags?.map((tag) => (
                     <YStack
                       key={tag}

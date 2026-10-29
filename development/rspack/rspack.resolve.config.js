@@ -3,6 +3,7 @@ const path = require('path');
 function createBaseResolveOptions({
   basePath,
   enableSentryMinimalCompat,
+  excludeChainRuntimes,
   extensions,
 }) {
   return {
@@ -60,6 +61,14 @@ function createBaseResolveOptions({
               __dirname,
               '../module-resolver/sentry-minimal-compat',
             ),
+          }
+        : {}),
+      // Empty modules: the chain wasm and its workers stay out of the bundle.
+      ...(excludeChainRuntimes
+        ? {
+            '@onekeyfe/zcash-runtime': false,
+            '@onekeyfe/zcash-keys': false,
+            '@onekeyfe/monero-runtime': false,
           }
         : {}),
       'bn.js$': require.resolve('bn.js'),

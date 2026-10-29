@@ -2979,6 +2979,7 @@
   "market.most_market_cap": "Наибольшая рыночная капитализация",
   "market.move_to_top": "Переместить вверх",
   "market.net_vol": "Чистый объём",
+  "market.no_positions": "Нет позиций",
   "market.number_day_abbr": "{number}д",
   "market.number_hour_abbr": "{number}ч",
   "market.number_minute_abbr": "{number}мин",

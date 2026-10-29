@@ -576,9 +576,11 @@ describe('Dialog bounded sheet layout opt-in', () => {
         .getAttribute('data-max-height'),
     ).toBe('763');
 
+    // Still a compact width, so the dialog stays a sheet; 768 and wider
+    // would center it.
     mockWindowDimensions.current = {
       height: 390,
-      width: 844,
+      width: 600,
       scale: 1,
       fontScale: 1,
     };
@@ -635,6 +637,11 @@ describe('Dialog bounded sheet layout opt-in', () => {
 
   it('keeps a tablet floating dialog on a single bounded scroll view', () => {
     mockMediaMd.current = false;
+    // Native centers dialogs from the window width, not the clamped media.
+    mockWindowDimensions.current = {
+      ...mockWindowDimensions.current,
+      width: 834,
+    };
     render(<DialogContainer {...boundedDialogProps} />);
 
     expect(screen.getByTestId('dialog-bounded-scroll')).toBeTruthy();
@@ -667,4 +674,38 @@ it('honors sheet pan dismissal and forwards its presentation callback', () => {
   expect(screen.queryByTestId('header-drag-zone')).toBeNull();
   fireEvent.click(screen.getByTestId('sheet-presented'));
   expect(onAnimationComplete).toHaveBeenCalledWith({ open: true });
+});
+
+describe('Dialog presentation across width classes', () => {
+  const setWindowWidth = (width: number) => {
+    mockWindowDimensions.current = {
+      height: 669,
+      width,
+      scale: 1,
+      fontScale: 1,
+    };
+  };
+  const isSheet = () =>
+    screen.getByTestId('overlay-dialog').getAttribute('data-sheet');
+
+  it.each([
+    [951, 669, 'false', 'true'],
+    [669, 951, 'true', 'false'],
+  ])(
+    'keeps the %s presentation through exit before reopening at %s',
+    (initial, next, openedSheet, reopenedSheet) => {
+      setWindowWidth(initial);
+      const { rerender } = render(<DialogContainer {...dialogProps} />);
+      expect(isSheet()).toBe(openedSheet);
+
+      setWindowWidth(next);
+      rerender(<DialogContainer {...dialogProps} />);
+      expect(isSheet()).toBe(openedSheet);
+
+      rerender(<DialogContainer {...dialogProps} open={false} />);
+      expect(isSheet()).toBe(openedSheet);
+      rerender(<DialogContainer {...dialogProps} />);
+      expect(isSheet()).toBe(reopenedSheet);
+    },
+  );
 });

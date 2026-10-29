@@ -2979,6 +2979,7 @@
   "market.most_market_cap": "Kapitalisasi pasar terbesar",
   "market.move_to_top": "Pindah ke atas",
   "market.net_vol": "Volume bersih",
+  "market.no_positions": "Tidak ada posisi",
   "market.number_day_abbr": "{number}D",
   "market.number_hour_abbr": "{number}H",
   "market.number_minute_abbr": "{number}m",

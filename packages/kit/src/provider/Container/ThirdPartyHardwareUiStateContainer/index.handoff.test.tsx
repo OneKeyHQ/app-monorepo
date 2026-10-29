@@ -6,9 +6,8 @@ import { ThirdPartyHardwareUiStateContainer } from '.';
 import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { act, render } from '@testing-library/react';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, resetScanModalRoute } from '@onekeyhq/components';
 import { showThirdPartyDeviceSelectionDialog } from '@onekeyhq/kit/src/components/Hardware/ThirdPartyDeviceSelectionDialog';
-import { SecureQRToast } from '@onekeyhq/kit/src/components/SecureQRToast';
 import { EThirdPartyHardwareUiAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IThirdPartyHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
@@ -16,13 +15,23 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { yieldDeviceStageToDialog } from '../DeviceStageContainer/waitForDeviceStageExit';
 
 let mockUiState: IThirdPartyHardwareUiState | undefined;
 const mockUiListeners = new Set<() => void>();
+let mockVisible = true;
+const mockVisibilityListeners = new Set<(visible: boolean) => void>();
+jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
+  getCurrentVisibilityState: () => mockVisible,
+  onVisibilityStateChange: (listener: (visible: boolean) => void) => {
+    mockVisibilityListeners.add(listener);
+    return () => {
+      mockVisibilityListeners.delete(listener);
+    };
+  },
+}));
 const mockSubscribe = (listener: () => void) => {
   mockUiListeners.add(listener);
   return () => {
@@ -33,14 +42,33 @@ const mockCancel = jest.fn(async () => undefined);
 const mockUiResponse = jest.fn(async (_params: unknown) => undefined);
 const mockClearUiState = jest.fn(async (_params: unknown) => true);
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
-const mockStartScan = jest.fn<Promise<{ raw: string }>, [unknown]>(
-  () => new Promise(() => undefined),
+// The stage presents the code, then scans the device's answer.
+const mockTwoWayScan = jest.fn<
+  Promise<{ type: string; cbor: string }>,
+  [
+    { type: string; cbor: string },
+    { owner?: string; notice?: { key?: string } },
+  ]
+>(() => new Promise(() => undefined));
+const mockCancelStageScan = jest.fn(
+  async (_params: { owner?: string }) => undefined,
 );
-const mockDecodeUr = jest.fn(async (_raw: string) => ({
-  type: 'crypto-multi-accounts',
-  cbor: Buffer.from('a0', 'hex'),
+const mockStageScan = jest.fn<
+  Promise<{ type: string; cbor: string } | undefined>,
+  [{ owner?: string }]
+>(() => new Promise(() => undefined));
+const mockLegacyScan = jest.fn(async () => ({ raw: 'ur:bytes/mock' }));
+
+jest.mock('../../../views/ScanQrCode/hooks/useScanQrCodeLazy', () => ({
+  __esModule: true,
+  default: () => ({ start: mockLegacyScan }),
 }));
-const mockScanHook = { start: mockStartScan };
+const mockHandleQrRequest = jest.fn(
+  async (_params: { uiRequestId: string }) => undefined,
+);
+const mockResolveScan = jest.fn(async (_params: unknown) => undefined);
+const mockRejectScan = jest.fn(async (_params: unknown) => undefined);
+const mockClaimScan = jest.fn(async (_params: { promiseId: number }) => true);
 
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 jest.mock('@onekeyhq/components', () => ({
@@ -51,11 +79,30 @@ jest.mock('@onekeyhq/components', () => ({
   ShowCustom: () => null,
   YStack: () => null,
   SizableText: () => null,
+  resetScanModalRoute: jest.fn(),
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    servicePromise: {
+      resolveCallback: (params: unknown) => mockResolveScan(params),
+      rejectCallback: (params: unknown) => mockRejectScan(params),
+    },
+    serviceQrWallet: {
+      claimLegacyAirGapScan: (params: { promiseId: number }) =>
+        mockClaimScan(params),
+      scanAirGapOnStage: (options: { owner?: string }) =>
+        mockStageScan(options),
+      startTwoWayAirGapScan: (
+        appUr: { type: string; cbor: string },
+        options: { owner?: string; notice?: { key?: string } },
+      ) => mockTwoWayScan(appUr, options),
+      cancelStageAirGapScan: (params: { owner?: string }) =>
+        mockCancelStageScan(params),
+    },
     serviceThirdPartyHardware: {
+      handleKeystoneQrRequest: (params: { uiRequestId: string }) =>
+        mockHandleQrRequest(params),
       thirdPartyHardwareUiResponse: (params: unknown) => mockUiResponse(params),
       thirdPartyHardwareCancel: () => mockCancel(),
       clearThirdPartyHardwareUiStateIfCurrent: (params: unknown) =>
@@ -78,9 +125,6 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
     thirdPartyHardwareUiStateAtom: { get: async () => mockUiState },
   };
 });
-jest.mock('@onekeyhq/qr-wallet-sdk', () => ({
-  airGapUrUtils: { qrcodeToUr: (raw: string) => mockDecodeUr(raw) },
-}));
 jest.mock('../../../components/Hardware/Hardware', () => ({
   EnterPhase: () => null,
 }));
@@ -101,17 +145,8 @@ jest.mock(
     ),
   }),
 );
-jest.mock('../../../components/SecureQRToast', () => ({
-  SecureQRToast: {
-    show: jest.fn(() => ({ close: jest.fn().mockResolvedValue(undefined) })),
-  },
-}));
 jest.mock('../../../hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
-}));
-jest.mock('../../../views/ScanQrCode/hooks/useScanQrCodeLazy', () => ({
-  __esModule: true,
-  default: () => mockScanHook,
 }));
 jest.mock('../DeviceStageContainer/waitForDeviceStageExit', () => ({
   yieldDeviceStageToDialog: jest.fn(),
@@ -178,8 +213,18 @@ function holdExit() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockVisible = true;
   mockUiState = undefined;
   jest.mocked(yieldDeviceStageToDialog).mockResolvedValue(false);
+  // Reset, not clear: an unconsumed once-value must not reach the next test.
+  mockTwoWayScan.mockReset();
+  mockTwoWayScan.mockImplementation(() => new Promise(() => undefined));
+  mockStageScan.mockReset();
+  mockStageScan.mockImplementation(() => new Promise(() => undefined));
+  mockLegacyScan.mockReset();
+  mockLegacyScan.mockResolvedValue({ raw: 'ur:bytes/mock' });
+  mockClaimScan.mockReset();
+  mockClaimScan.mockResolvedValue(true);
 });
 
 it.each([
@@ -282,140 +327,200 @@ it('opens the next selection after the user cancels one', async () => {
   expect(showThirdPartyDeviceSelectionDialog).toHaveBeenCalledTimes(2);
 });
 
-it('waits before opening the Keystone scanner', async () => {
-  mockUiState = qrState(false);
-  const release = holdExit();
-  render(<ThirdPartyHardwareUiStateContainer />);
-  expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(1);
-  expect(mockStartScan).not.toHaveBeenCalled();
-  await release();
-  expect(mockStartScan).toHaveBeenCalledTimes(1);
-});
+it.each([true, false])(
+  'delegates a Keystone QR request to bg (display=%s)',
+  async (display) => {
+    mockUiState = qrState(display);
+    const view = render(<ThirdPartyHardwareUiStateContainer />);
+    await flush();
+    expect(mockHandleQrRequest).toHaveBeenCalledWith({ uiRequestId: 'ui-qr' });
+    expect(mockTwoWayScan).not.toHaveBeenCalled();
+    expect(mockStageScan).not.toHaveBeenCalled();
+    expect(mockLegacyScan).not.toHaveBeenCalled();
+    view.unmount();
+    await flush();
+    expect(mockCancel).not.toHaveBeenCalled();
+    expect(mockCancelStageScan).not.toHaveBeenCalled();
+    expect(mockClearUiState).not.toHaveBeenCalled();
+  },
+);
 
-it('waits before showing the Keystone QR so the stage cannot cover it', async () => {
+it('keeps the surviving viewport attached when another viewport unmounts', async () => {
   mockUiState = qrState(true);
-  const releaseDisplay = holdExit();
-  render(<ThirdPartyHardwareUiStateContainer />);
-  expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(1);
-  expect(SecureQRToast.show).not.toHaveBeenCalled();
-  await releaseDisplay();
-  expect(SecureQRToast.show).toHaveBeenCalledTimes(1);
-
-  const releaseScan = holdExit();
-  await act(async () => {
-    jest.mocked(SecureQRToast.show).mock.calls[0][0].onConfirm?.();
+  const tab = render(<ThirdPartyHardwareUiStateContainer />);
+  const popup = render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  expect(mockHandleQrRequest).toHaveBeenCalledTimes(2);
+  popup.unmount();
+  await flush();
+  expect(mockCancel).not.toHaveBeenCalled();
+  expect(mockCancelStageScan).not.toHaveBeenCalled();
+  publishState({ ...qrState(true), uiRequestId: 'next-qr' });
+  await flush();
+  expect(mockHandleQrRequest).toHaveBeenLastCalledWith({
+    uiRequestId: 'next-qr',
   });
-  expect(yieldDeviceStageToDialog).toHaveBeenCalledTimes(2);
-  expect(mockStartScan).not.toHaveBeenCalled();
-  await releaseScan();
-  expect(mockStartScan).toHaveBeenCalledTimes(1);
+  tab.unmount();
 });
 
-it('opens the explicit export scanner before any device response or error', async () => {
-  mockUiState = {
-    ...qrState(true),
-    payload: {
-      urType: 'qr-hardware-call',
-      urData: 'a0',
-      allowAccountExport: true,
-    },
-  };
-  mockStartScan.mockResolvedValueOnce({ raw: 'fixture-account-export' });
+it('returns a legacy camera result to the background callback', async () => {
   render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+  });
   await flush();
-  const props = jest.mocked(SecureQRToast.show).mock.calls[0][0];
-  expect(props.title).toBe(ETranslations.device_stage_connect_vendor__title);
-  expect(props.message).toBe(ETranslations.device_stage_show_qr__title);
-  expect(props.extraAction?.title).toBe(
-    ETranslations.keystone_specialized_firmware__title,
+  expect(mockLegacyScan).toHaveBeenCalledTimes(1);
+  expect(mockLegacyScan).toHaveBeenCalledWith(
+    expect.objectContaining({ scanRequestId: 'air-gap:42' }),
   );
-  expect(props.extraAction?.description).toBe(
-    ETranslations.keystone_account_export__desc,
-  );
-  expect(props.extraAction?.label).toBe(
-    ETranslations.keystone_scan_account_export__action,
-  );
-  expect(props.extraAction?.testID).toBe('keystone-scan-account-export-btn');
-  expect(mockStartScan).not.toHaveBeenCalled();
+  expect(mockResolveScan).toHaveBeenCalledWith({
+    id: 42,
+    data: { raw: 'ur:bytes/mock' },
+  });
   expect(mockUiResponse).not.toHaveBeenCalled();
-  await act(async () => {
-    await props.extraAction?.onPress();
-  });
-  expect(mockStartScan).toHaveBeenCalledTimes(1);
-  expect(mockUiResponse).toHaveBeenCalledWith({
-    vendor: EHardwareVendor.keystone,
-    response: {
-      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
-      payload: {
-        urType: 'crypto-multi-accounts',
-        urData: 'a0',
-        accountExport: true,
-      },
-    },
-  });
   expect(mockCancel).not.toHaveBeenCalled();
 });
 
-it('keeps signing QR scans on the normal response path', async () => {
-  mockUiState = qrState(true);
-  mockStartScan.mockResolvedValueOnce({ raw: 'fixture-signature' });
-  mockDecodeUr.mockResolvedValueOnce({
-    type: 'eth-signature',
-    cbor: Buffer.from('a1', 'hex'),
-  });
+it('closes only the cancelled fallback scan and ignores its delayed result', async () => {
+  let resolveOldScan: (result: { raw: string }) => void = () => undefined;
+  mockLegacyScan.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveOldScan = resolve;
+      }),
+  );
   render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 41 });
+  });
   await flush();
-  const props = jest.mocked(SecureQRToast.show).mock.calls[0][0];
-  expect(props.title).toBeUndefined();
-  expect(props.extraAction).toBeUndefined();
-  await act(async () => {
-    props.onConfirm?.();
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+    appEventBus.emit(EAppEventBusNames.CancelAirGapQrcodeScan, {
+      promiseId: 41,
+    });
   });
-  expect(mockUiResponse).toHaveBeenCalledWith({
-    vendor: EHardwareVendor.keystone,
-    response: {
-      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
-      payload: { urType: 'eth-signature', urData: 'a1' },
-    },
-  });
-});
-
-it('reports undecodable export data to the SDK instead of treating it as cancellation', async () => {
-  mockUiState = {
-    ...qrState(true),
-    payload: {
-      urType: 'qr-hardware-call',
-      urData: 'a0',
-      allowAccountExport: true,
-    },
-  };
-  mockStartScan.mockResolvedValueOnce({ raw: 'not-an-account-code' });
-  mockDecodeUr.mockRejectedValueOnce(new Error('Cannot decode code'));
-  render(<ThirdPartyHardwareUiStateContainer />);
   await flush();
-  await act(async () => {
-    await jest
-      .mocked(SecureQRToast.show)
-      .mock.calls[0][0].extraAction?.onPress();
+  expect(resetScanModalRoute).toHaveBeenCalledWith({
+    scanRequestId: 'air-gap:41',
   });
-  expect(mockUiResponse).toHaveBeenCalledWith({
-    vendor: EHardwareVendor.keystone,
-    response: {
-      type: UI_RESPONSE.RECEIVE_QR_RESPONSE,
-      payload: { urType: '', urData: '', accountExport: true },
-    },
+  resolveOldScan({ raw: 'ur:bytes/old' });
+  await flush();
+  expect(mockResolveScan).toHaveBeenCalledTimes(1);
+  expect(mockResolveScan).toHaveBeenCalledWith({
+    id: 42,
+    data: { raw: 'ur:bytes/mock' },
   });
+  expect(mockRejectScan).not.toHaveBeenCalled();
   expect(mockCancel).not.toHaveBeenCalled();
 });
 
-it('does not open the scanner after its QR request was cancelled during the exit', async () => {
-  mockUiState = qrState(false);
+it('does not open a fallback camera cancelled while waiting for the stage', async () => {
   const release = holdExit();
-  const view = render(<ThirdPartyHardwareUiStateContainer />);
-  view.unmount();
+  render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+    appEventBus.emit(EAppEventBusNames.CancelAirGapQrcodeScan, {
+      promiseId: 42,
+    });
+  });
   await release();
-  expect(mockStartScan).not.toHaveBeenCalled();
-  expect(mockCancel).toHaveBeenCalledTimes(1);
+  await flush();
+  expect(mockLegacyScan).not.toHaveBeenCalled();
+  expect(mockResolveScan).not.toHaveBeenCalled();
+  expect(mockRejectScan).not.toHaveBeenCalled();
+});
+
+it('opens a fallback camera in only the viewport that claims it', async () => {
+  mockClaimScan.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+  mockLegacyScan.mockImplementationOnce(() => new Promise(() => undefined));
+  const owner = render(<ThirdPartyHardwareUiStateContainer />);
+  const other = render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+  });
+  await flush();
+  expect(mockClaimScan).toHaveBeenCalledTimes(2);
+  expect(mockLegacyScan).toHaveBeenCalledTimes(1);
+  other.unmount();
+  await flush();
+  expect(mockRejectScan).not.toHaveBeenCalled();
+  owner.unmount();
+  await flush();
+  expect(mockRejectScan).toHaveBeenCalledWith({
+    id: 42,
+    error: expect.any(Error),
+  });
+  expect(mockCancel).not.toHaveBeenCalled();
+});
+
+it('settles a claim that finishes after its viewport closes', async () => {
+  let claim: (value: boolean) => void = () => undefined;
+  mockClaimScan.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        claim = resolve;
+      }),
+  );
+  const view = render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+  });
+  await flush();
+  view.unmount();
+  claim(true);
+  await flush();
+  expect(mockLegacyScan).not.toHaveBeenCalled();
+  expect(mockRejectScan).toHaveBeenCalledWith({
+    id: 42,
+    error: expect.any(Error),
+  });
+});
+
+it.each([true, false])(
+  'wakes successive QR requests while unfocused (display=%s)',
+  async (display) => {
+    mockVisible = false;
+    mockUiState = qrState(display);
+    const view = render(<ThirdPartyHardwareUiStateContainer />);
+    await flush();
+    expect(mockHandleQrRequest).toHaveBeenCalledWith({ uiRequestId: 'ui-qr' });
+    publishState({ ...qrState(display), uiRequestId: 'next-qr' });
+    view.rerender(<ThirdPartyHardwareUiStateContainer />);
+    await flush();
+    expect(mockHandleQrRequest).toHaveBeenLastCalledWith({
+      uiRequestId: 'next-qr',
+    });
+    expect(mockClaimScan).not.toHaveBeenCalled();
+    expect(mockLegacyScan).not.toHaveBeenCalled();
+  },
+);
+
+it('keeps the background request running while the fallback camera waits for focus', async () => {
+  mockVisible = false;
+  mockUiState = qrState(false);
+  render(<ThirdPartyHardwareUiStateContainer />);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+  });
+  await flush();
+  expect(mockHandleQrRequest).toHaveBeenCalledTimes(1);
+  expect(mockHandleQrRequest).toHaveBeenCalledWith({ uiRequestId: 'ui-qr' });
+  expect(mockClaimScan).not.toHaveBeenCalled();
+  mockVisible = true;
+  act(() => {
+    mockVisibilityListeners.forEach((listener) => listener(true));
+  });
+  await flush();
+  expect(mockHandleQrRequest).toHaveBeenCalledTimes(2);
+  expect(mockHandleQrRequest).toHaveBeenCalledWith({ uiRequestId: 'ui-qr' });
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+    appEventBus.emit(EAppEventBusNames.ScanAirGapQrcode, { promiseId: 42 });
+  });
+  await flush();
+  expect(mockClaimScan).toHaveBeenCalledTimes(1);
+  expect(mockLegacyScan).toHaveBeenCalledTimes(1);
 });
 
 it('hands the stage to the Bluetooth settings dialog', async () => {

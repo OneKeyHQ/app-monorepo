@@ -12,4 +12,8 @@ export const developerRouters: ITabSubNavigatorConfig<any, any>[] = [];
 export default function EmptyDevStub() {
   return null;
 }
+
+// Privacy settings imports this named component from the pruned Gallery module.
+export { EmptyDevStub as ZcashDebugSettings };
+
 export const galleryScreenList: any[] = [];
