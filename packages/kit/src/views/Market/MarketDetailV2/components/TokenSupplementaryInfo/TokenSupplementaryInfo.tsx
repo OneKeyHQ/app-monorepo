@@ -98,35 +98,35 @@ function TokenOverviewLinks() {
   }
 
   return (
-    <XStack testID="token-mobile-overview-links" ai="center" gap="$3" pt="$2">
+    <XStack testID="token-mobile-overview-links" ai="center" gap="$2">
       <TokenSecurityAlert variant="overview" />
       {website ? (
-        <XStack bg="$bgStrong" borderRadius="$full" p="$2">
+        <XStack bg="$bgStrong" borderRadius="$full" p={5}>
           <InteractiveIcon
             testID="token-mobile-overview-website"
             icon="GlobusOutline"
             onPress={handleOpenWebsite}
-            size="$4"
+            size="$5"
           />
         </XStack>
       ) : null}
       {twitter ? (
-        <XStack bg="$bgStrong" borderRadius="$full" p="$2">
+        <XStack bg="$bgStrong" borderRadius="$full" p={5}>
           <InteractiveIcon
             testID="token-mobile-overview-twitter"
             icon="Xbrand"
             onPress={handleOpenTwitter}
-            size="$4"
+            size="$5"
           />
         </XStack>
       ) : null}
       {address ? (
-        <XStack bg="$bgStrong" borderRadius="$full" p="$2">
+        <XStack bg="$bgStrong" borderRadius="$full" p={5}>
           <InteractiveIcon
             testID="token-mobile-overview-search"
             icon="SearchOutline"
             onPress={handleOpenXSearch}
-            size="$4"
+            size="$5"
           />
         </XStack>
       ) : null}
@@ -323,7 +323,12 @@ export function TokenSupplementaryInfo({
 
   if (variant === 'overview') {
     return (
-      <YStack width="100%" px={px ?? '$5'} py="$6" gap="$5">
+      <YStack
+        width="100%"
+        px={px ?? '$5'}
+        py={isMobileOverview ? '$8' : '$6'}
+        gap={isMobileOverview ? '$8' : '$5'}
+      >
         <XStack width="100%" flexWrap="wrap" rowGap="$6">
           {rows.map((item) => (
             <YStack
@@ -332,7 +337,7 @@ export function TokenSupplementaryInfo({
               width={isMobileOverview ? '50%' : undefined}
               minWidth={isMobileOverview ? 0 : 144}
               pr="$2.5"
-              gap="$1"
+              gap={isMobileOverview ? '$1.5' : '$1'}
             >
               <OverviewStatLabel
                 item={item}

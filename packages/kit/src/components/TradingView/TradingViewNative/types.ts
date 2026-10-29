@@ -173,6 +173,8 @@ export interface ITradingViewNativeProps {
   enableDrawings?: boolean;
   /** Let the enclosing page claim vertical drags on an embedded native chart. */
   prioritizePageScroll?: boolean;
+  /** Opt-in for the hover zoom/scroll/reset bar on desktop web charts. */
+  enableNavigationControls?: boolean;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
   onReferenceLineAction?: (
@@ -204,6 +206,11 @@ export interface ITradingViewNativeProps {
   nativeControlsFlushHorizontalInset?: boolean;
   showNativeChartCloseControl?: boolean;
   showNativeIndicatorQuickBar?: boolean;
+  /**
+   * The parent grows the chart container by one pane height per visible
+   * sub-indicator, so the main price chart keeps its height.
+   */
+  nativeChartGrowsWithSubIndicators?: boolean;
   isNativeChartFullscreen?: boolean;
   nativeChartFullscreenHeader?: ReactNode;
   isChartSwitchDisabled?: boolean;

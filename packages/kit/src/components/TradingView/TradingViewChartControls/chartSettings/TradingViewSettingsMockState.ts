@@ -121,6 +121,7 @@ export type ITradingViewChartSettingsOptions = {
   pastEvents: boolean;
   clickInteraction: boolean;
   crossLine: boolean;
+  navigationButtons: boolean;
 };
 
 export type ITradingViewChartSettingsValue = {
@@ -1677,6 +1678,7 @@ export function createTradingViewChartSettingsValue(): ITradingViewChartSettings
       pastEvents: false,
       clickInteraction: false,
       crossLine: true,
+      navigationButtons: true,
     },
     latestPriceLine: {
       upColor: TRADING_VIEW_NATIVE_THEME_COLORS.positive,

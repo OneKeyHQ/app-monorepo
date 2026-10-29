@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -89,6 +90,7 @@ type IStockSimpleChartProps = {
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
   priceScaleFormat?: 'stock' | 'full';
+  onPriceUpdate?: (price: number | undefined) => void;
   onRequestRetry?: () => void;
   requestError?: boolean;
 };
@@ -121,6 +123,7 @@ export function StockSimpleChartContent({
   range,
   priceMode,
   priceScaleFormat,
+  onPriceUpdate,
   requestError = false,
   onRequestRetry,
   retainPreviousRange = false,
@@ -464,7 +467,7 @@ export function StockSimpleChartContent({
     </YStack>
   );
 
-  let chartPlaceholder;
+  let chartPlaceholder: ReactNode;
   // Retain only another range of this asset; never expose a previous asset.
   if (requestError) {
     chartPlaceholder = renderChartError();
@@ -500,6 +503,19 @@ export function StockSimpleChartContent({
       </YStack>
     );
   }
+
+  useEffect(() => {
+    const price = chartData.at(-1)?.[1];
+    onPriceUpdate?.(
+      active &&
+        !chartPlaceholder &&
+        typeof price === 'number' &&
+        Number.isFinite(price) &&
+        price > 0
+        ? price
+        : undefined,
+    );
+  }, [active, chartData, chartPlaceholder, onPriceUpdate]);
 
   let placeholder = chartPlaceholder;
   if (platformEnv.isNative && placeholder) {

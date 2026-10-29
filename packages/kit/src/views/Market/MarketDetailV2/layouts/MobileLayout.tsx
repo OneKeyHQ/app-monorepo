@@ -88,6 +88,7 @@ import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData'
 import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartLayout } from '../hooks/useMarketNativeChartLayout';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
+import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import { useMarketTradingViewParams } from '../hooks/useTokenDetail';
 import { useTradingViewSubIndicatorCount } from '../hooks/useTradingViewSubIndicatorCount';
@@ -137,6 +138,8 @@ function ModuleLoadingFallback({ minHeight }: { minHeight?: number }) {
 
 // Large Button: 12pt vertical padding x2, 24pt line, 1pt border x2.
 const SWAP_PANEL_BUTTON_HEIGHT = 50;
+// Space between the chart (Simple or Pro) and the information tabs.
+const MOBILE_CHART_BOTTOM_SPACING = 20;
 
 // Stands in for the chart's interval row until the chart can mount, so that
 // row is not an empty band while the token identity resolves.
@@ -165,13 +168,13 @@ function SwapPanelFooterSkeleton() {
   return (
     <YStack testID="market-detail-swap-panel-skeleton">
       <Divider />
-      <XStack px="$5" pt="$2.5" gap="$2" alignItems="center">
-        <SizableText size="$bodySmMedium">
+      <XStack px="$5" pt="$3.5" pb="$1" gap="$1" alignItems="center">
+        <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_myposition,
           })}
         </SizableText>
-        <Skeleton.BodySm w={40} />
+        <Skeleton.BodyMd w={40} />
       </XStack>
       <XStack px="$5" pb={bottom || '$4'} pt="$2.5" gap="$2.5">
         <Stack flex={1}>
@@ -589,13 +592,18 @@ export function MobileLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing, isPortfolioPending } = usePortfolioData({
+  const isStockPortfolio = platformEnv.isNative && isStockRoute && !!stockId;
+  const tokenPortfolio = usePortfolioData({
     tokenAddress,
     networkId,
-    accountAddress,
+    accountAddress: isStockPortfolio ? undefined : accountAddress,
     xpub,
     isStock: Boolean(isStockToken || isStockRoute),
   });
+  const stockPortfolio = useStockPortfolioData({ enabled: isStockPortfolio });
+  const { portfolioData, isRefreshing, isPortfolioPending } = isStockPortfolio
+    ? stockPortfolio
+    : tokenPortfolio;
   const isModalPage = useIsOverlayPage();
   const inPageDialog = useInPageDialog(
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
@@ -883,7 +891,10 @@ export function MobileLayout({
             </DelayedFreeze>
           </YStack>
         </MarketDetailHeaderGesture>
-        <Stack position="relative">
+        <Stack
+          position="relative"
+          pb={isChartFullscreen ? 0 : MOBILE_CHART_BOTTOM_SPACING}
+        >
           {isSimpleChart ? (
             <MarketDetailHeaderGesture
               disabled={isChartFullscreen}
@@ -1201,6 +1212,10 @@ export function MobileLayout({
         portfolioData={portfolioData}
         onShowSwapDialog={showSwapDialog}
         isPortfolioPending={isPortfolioPending}
+        isPortfolioIncomplete={
+          isStockPortfolio && stockPortfolio.isPortfolioIncomplete
+        }
+        onRefreshPortfolio={stockPortfolio.fetchPortfolio}
         executionReady={isSwapTokenReady && isSwapExecutionReady}
         footerMode={footerMode}
         mobileLayout
@@ -1264,6 +1279,7 @@ export function MobileLayout({
                 detailKind === 'stock' && isSimpleChart
                   ? STOCK_MOBILE_PRICE_HEADER_HEIGHT +
                     MOBILE_SIMPLE_CHART_HEIGHT +
+                    MOBILE_CHART_BOTTOM_SPACING +
                     TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT
                   : undefined
               }
@@ -1273,6 +1289,9 @@ export function MobileLayout({
               pendingHeader={informationHeader}
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
+              hasPortfolioAccount={
+                isStockPortfolio ? stockPortfolio.hasAccount : undefined
+              }
               isRefreshing={isRefreshing}
               isPortfolioPending={isPortfolioPending}
               tokenLogoUrl={tokenDetail?.logoUrl}

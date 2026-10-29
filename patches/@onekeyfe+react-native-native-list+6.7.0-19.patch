@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
-index ce1ba74..a5975d5 100644
+index 1b49188..a75bff1 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
 @@ -1,6 +1,6 @@
@@ -10,7 +10,7 @@ index ce1ba74..a5975d5 100644
  import type { ActionAnchorInvalidatedEvent, EndReachedEvent, NativeListSnapshot, ReorderEvent, RowActionEvent, RowModel, RowPatch, SelectionDeltaEvent, VisibleRangeChangedEvent } from './models';
  export type ActionAnchorState = Readonly<{
      token: string;
-@@ -97,7 +97,7 @@ export type NativeListProps = Omit<ViewProps, 'children'> & Readonly<{
+@@ -114,7 +114,7 @@ export type NativeListProps = Omit<ViewProps, 'children'> & Readonly<{
      /** Web only: visible sticky chrome above the parent's list viewport. */
      webStickyInset?: number;
      /** Web only. Hosts the section index inside this container. */
@@ -20,7 +20,7 @@ index ce1ba74..a5975d5 100644
      keyboardDismissMode?: NativeListKeyboardDismissMode;
      /**
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts
-index 599a206..da0c68b 100644
+index 78adf10..8374216 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts
 @@ -1,6 +1,6 @@
@@ -31,7 +31,7 @@ index 599a206..da0c68b 100644
  import type {
    ActionAnchorInvalidatedEvent,
    EndReachedEvent,
-@@ -142,7 +142,7 @@ export type NativeListProps = Omit<ViewProps, 'children'> &
+@@ -161,7 +161,7 @@ export type NativeListProps = Omit<ViewProps, 'children'> &
      /** Web only: visible sticky chrome above the parent's list viewport. */
      webStickyInset?: number;
      /** Web only. Hosts the section index inside this container. */

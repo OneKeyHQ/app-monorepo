@@ -37,11 +37,14 @@ import { MarketAboutDescription } from '../MarketAboutDescription';
 // Figma 25703:19148: label (bodyMd, 20px line) + 6px gap + value (headingXl,
 // 28px line).
 const TOP_COINS_STAT_CELL_HEIGHT = 54;
+// Mobile cells: 20pt label, 6pt gap, 24pt value.
+const TOP_COINS_COMPACT_STAT_CELL_HEIGHT = 50;
 // Figma 25713:20533. Period items show the percentage alone; only the
 // all-time-high item carries its price. Items lay out at content width so a
 // long translated label wraps as a whole instead of being cut off.
 const TOP_COINS_PERFORMANCE_ITEM_MIN_WIDTH = 112;
 const TOP_COINS_EARN_ARTWORK_SIZE = 56;
+const TOP_COINS_COMPACT_EARN_ARTWORK_SIZE = 40;
 const topCoinsEarnArtwork = require('@onekeyhq/kit/assets/market_earn_growth.png');
 
 function normalizeAssetValue(value?: string | number | null) {
@@ -57,17 +60,23 @@ function TopCoinsStatItem({
   rank,
   width = '33.33%',
   valueSize = '$headingXl',
+  compact,
 }: {
   label: string;
   value: string;
   rank?: number;
   width?: '33.33%' | '50%';
-  valueSize?: '$headingXl' | '$headingLg';
+  valueSize?: '$headingXl' | '$headingMd';
+  compact?: boolean;
 }) {
   return (
     <YStack
       width={width}
-      height={TOP_COINS_STAT_CELL_HEIGHT}
+      height={
+        compact
+          ? TOP_COINS_COMPACT_STAT_CELL_HEIGHT
+          : TOP_COINS_STAT_CELL_HEIGHT
+      }
       pr="$2.5"
       gap="$1.5"
     >
@@ -93,11 +102,13 @@ function TopCoinsPerformanceItem({
   percentage,
   inlinePrice,
   width,
+  compact,
 }: {
   label: string;
   percentage?: string | number;
   inlinePrice?: string;
   width?: '50%';
+  compact?: boolean;
 }) {
   return (
     <YStack
@@ -106,20 +117,27 @@ function TopCoinsPerformanceItem({
       flexBasis="auto"
       width={width}
       minWidth={width ? 0 : TOP_COINS_PERFORMANCE_ITEM_MIN_WIDTH}
-      py="$2"
+      py={compact ? '$0' : '$2'}
       justifyContent="center"
-      gap="$2.5"
+      gap={compact ? '$1.5' : '$2.5'}
     >
-      <SizableText size="$bodyMdMedium" color="$textSubdued" numberOfLines={1}>
+      <SizableText
+        size={compact ? '$bodyMd' : '$bodyMdMedium'}
+        color="$textSubdued"
+        numberOfLines={1}
+      >
         {label}
       </SizableText>
       <XStack gap="$2" alignItems="baseline">
-        <PriceChangePercentage size="$headingLg" numberOfLines={1}>
+        <PriceChangePercentage
+          size={compact ? '$headingMd' : '$headingLg'}
+          numberOfLines={1}
+        >
           {percentage ?? '--'}
         </PriceChangePercentage>
         {inlinePrice ? (
           <NumberSizeableText
-            size="$bodyMd"
+            size={compact ? '$bodySmMedium' : '$bodyMd'}
             formatter="price"
             formatterOptions={{ currency: '$' }}
             numberOfLines={1}
@@ -179,17 +197,20 @@ function TopCoinsStatsAndPerformance({
     [intl, performance],
   );
 
-  const statWidth = columns === 2 ? '50%' : '33.33%';
-  const valueSize = columns === 2 ? '$headingLg' : '$headingXl';
-  const performanceWidth = columns === 2 ? '50%' : undefined;
+  const isCompact = columns === 2;
+  const statWidth = isCompact ? '50%' : '33.33%';
+  const valueSize = isCompact ? '$headingMd' : '$headingXl';
+  const performanceWidth = isCompact ? '50%' : undefined;
 
   return (
     <YStack px="$5">
-      <YStack py={columns === 2 ? '$5' : '$8'}>
+      {/* Mobile starts 32pt below the tabs, matching the stock overview. */}
+      <YStack pt="$8" pb={isCompact ? '$6' : '$8'}>
         <XStack flexWrap="wrap" rowGap="$6">
           <TopCoinsStatItem
             width={statWidth}
             valueSize={valueSize}
+            compact={isCompact}
             label={intl.formatMessage({ id: ETranslations.global_market_cap })}
             value={formatStatValueWithFormatter(
               market?.marketCap ?? tokenDetail?.marketCap,
@@ -200,6 +221,7 @@ function TopCoinsStatsAndPerformance({
           <TopCoinsStatItem
             width={statWidth}
             valueSize={valueSize}
+            compact={isCompact}
             label={intl.formatMessage({
               id: ETranslations.dexmarket_stock_24h_volume,
             })}
@@ -211,6 +233,7 @@ function TopCoinsStatsAndPerformance({
           <TopCoinsStatItem
             width={statWidth}
             valueSize={valueSize}
+            compact={isCompact}
             label={intl.formatMessage({
               id: ETranslations.global_circulating_supply,
             })}
@@ -222,6 +245,7 @@ function TopCoinsStatsAndPerformance({
           <TopCoinsStatItem
             width={statWidth}
             valueSize={valueSize}
+            compact={isCompact}
             label={intl.formatMessage({ id: ETranslations.global_fdv })}
             value={formatStatValueWithFormatter(
               market?.fdv ?? tokenDetail?.fdv,
@@ -231,6 +255,7 @@ function TopCoinsStatsAndPerformance({
           <TopCoinsStatItem
             width={statWidth}
             valueSize={valueSize}
+            compact={isCompact}
             label={intl.formatMessage({
               id: ETranslations.global_total_supply,
             })}
@@ -242,6 +267,7 @@ function TopCoinsStatsAndPerformance({
           <TopCoinsStatItem
             width={statWidth}
             valueSize={valueSize}
+            compact={isCompact}
             label={intl.formatMessage({ id: ETranslations.global_max_supply })}
             value={
               market?.maxSupply === 'unlimited'
@@ -254,11 +280,15 @@ function TopCoinsStatsAndPerformance({
           />
         </XStack>
       </YStack>
-      <YStack py={columns === 2 ? '$5' : '$8'} gap="$6">
+      <YStack py="$8" gap="$6">
         <SizableText size="$headingXl">
           {intl.formatMessage({ id: ETranslations.market_performance })}
         </SizableText>
-        <XStack flexWrap="wrap" columnGap={columns === 2 ? 0 : '$4'}>
+        <XStack
+          flexWrap="wrap"
+          columnGap={isCompact ? 0 : '$4'}
+          rowGap={isCompact ? '$6' : undefined}
+        >
           {performanceItems.map((item) => (
             <TopCoinsPerformanceItem
               key={item.key}
@@ -266,6 +296,7 @@ function TopCoinsStatsAndPerformance({
               percentage={item.percentage}
               inlinePrice={item.inlinePrice}
               width={performanceWidth}
+              compact={isCompact}
             />
           ))}
         </XStack>
@@ -296,11 +327,16 @@ function TopCoinsEarnSection({
   earnAsset,
   symbol,
   onPress,
+  compact,
 }: {
   earnAsset: IRecommendAsset;
   symbol: string;
   onPress: () => void;
+  compact?: boolean;
 }) {
+  const artworkSize = compact
+    ? TOP_COINS_COMPACT_EARN_ARTWORK_SIZE
+    : TOP_COINS_EARN_ARTWORK_SIZE;
   const intl = useIntl();
   const aprText = resolveEarnAprText(earnAsset);
 
@@ -330,11 +366,11 @@ function TopCoinsEarnSection({
         >
           <Image
             source={topCoinsEarnArtwork}
-            width={TOP_COINS_EARN_ARTWORK_SIZE}
-            height={TOP_COINS_EARN_ARTWORK_SIZE}
+            width={artworkSize}
+            height={artworkSize}
           />
           <SizableText
-            size="$headingLg"
+            size={compact ? '$bodyLgMedium' : '$headingLg'}
             flex={1}
             flexBasis={0}
             minWidth={0}
@@ -408,6 +444,7 @@ export function TopCoinsOverviewContent({
           earnAsset={earnAsset}
           symbol={symbol}
           onPress={handleEarnPress}
+          compact={columns === 2}
         />
       ) : null}
       {about ? (

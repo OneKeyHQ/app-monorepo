@@ -58,6 +58,7 @@ import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/d
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import { resolveDesktopCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
@@ -1554,12 +1555,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     }
   });
 
-  const filter = {
-    urls: [
-      'http://127.0.0.1:21320/*',
-      'http://localhost:21320/*',
-      'https://mainnet.optimism.io/*',
-    ],
+  const filter: Electron.WebRequestFilter = {
+    urls: ['http://*/*', 'https://*/*'],
+    // Only XHR/fetch carry the UA bridge. Keep every destination so Chromium's
+    // original bridge header is also removed after cross-origin redirects.
+    types: ['xhr'],
   };
 
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
@@ -1673,19 +1673,30 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     filter,
     (details, callback) => {
       const { url } = details;
+      let requestHeaders = resolveDesktopCustomUAHeaders(
+        url,
+        details.requestHeaders,
+      );
       if (
         url.startsWith('http://127.0.0.1:21320/') ||
         url.startsWith('http://localhost:21320/')
       ) {
         // resolve onekey bridge CORS error
-        details.requestHeaders.Origin = 'https://jssdk.onekey.so';
+        requestHeaders = {
+          ...requestHeaders,
+          Origin: 'https://jssdk.onekey.so',
+        };
       } else if (url.startsWith('https://mainnet.optimism.io/')) {
         // add metamask header to resolve rate-limit
-        details.requestHeaders.Origin =
-          'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn';
+        requestHeaders = {
+          ...requestHeaders,
+          Origin: 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn',
+        };
       }
 
-      callback({ cancel: false, requestHeaders: details.requestHeaders });
+      callback(
+        requestHeaders === details.requestHeaders ? {} : { requestHeaders },
+      );
     },
   );
 
@@ -2607,8 +2618,9 @@ function startWebviewMemoryMonitoring() {
 // token from app.getName() verbatim, so the actual default UA contains
 // `OneKey Wallet/<electronVer>` (with the space from APP_NAME above) — and
 // some packaging paths can also surface the no-space `OneKeyWallet/` form.
-// Match both, and normalize to the canonical no-space `OneKeyWallet/<APP_VERSION>`
-// that buildCustomUA() emits, so chromium and our X-Onekey-* injection agree.
+// Match both, and normalize to the no-space `OneKeyWallet/<APP_VERSION>` so the
+// Chromium's default UA carries the real app version. OneKey API requests
+// use buildCustomUA()'s `OneKey <platform> <version>` via the request hook.
 // Run synchronously at module load (before `ready` fires) so the very first
 // webContents created in the ready handler already sees the patched UA —
 // `app.userAgentFallback` is readable/writable before `ready`.

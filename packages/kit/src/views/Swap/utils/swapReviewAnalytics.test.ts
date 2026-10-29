@@ -454,6 +454,19 @@ describe('swap review API correlation', () => {
     );
   });
 
+  it('hands the raw failure to the send scene for sanitizing', async () => {
+    const failure = new TypeError('send 0xabc failed');
+    await expect(
+      trackSwapReviewApi('sendTx', swapInfo, async () => {
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+    expect(mockSendTx).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'fail', error: failure }),
+    );
+    expect(mockSendTx.mock.calls[0][0]).not.toHaveProperty('message');
+  });
+
   it('preserves request outcomes even if telemetry fails', async () => {
     const telemetryFailure = new Error('Telemetry unavailable');
     const requestFailure = new Error('RPC failure');

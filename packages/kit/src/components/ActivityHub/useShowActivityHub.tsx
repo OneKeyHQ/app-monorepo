@@ -6,58 +6,47 @@ import { Dialog, useDialogInstance, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ActivityHubContent } from './ActivityHubContent';
-import { getActivityHubLayout } from './layout';
+import { ACTIVITY_HUB_PANEL_WIDTH } from './layout';
 
-import type { IActivityHubCampaign, IActivityHubSource } from './types';
+import type { IActivityHubOpenReferral, IActivityHubSource } from './types';
 
 type IShowActivityHubParams = {
   source: IActivityHubSource;
-  copyAsUrl?: boolean;
-  onOpenInviteeReward: () => void;
-  campaigns?: IActivityHubCampaign[];
+  onOpenReferral: IActivityHubOpenReferral;
 };
 
 function ActivityHubDialogContent({
   source,
-  copyAsUrl,
-  onOpenInviteeReward,
-  campaigns,
-  isCompactPanel,
-}: IShowActivityHubParams & { isCompactPanel: boolean }) {
+  onOpenReferral,
+}: IShowActivityHubParams) {
   const dialog = useDialogInstance();
 
   return (
     <ActivityHubContent
       source={source}
-      copyAsUrl={copyAsUrl}
       showTitle={false}
-      isCompactPanel={isCompactPanel}
       closePopover={() => dialog.close()}
-      onOpenInviteeReward={onOpenInviteeReward}
-      campaigns={campaigns}
+      onOpenReferral={onOpenReferral}
     />
   );
 }
 
-// Surfaces that cannot host the gift popover (the Swap settings sheet) open the
-// same hub content as a dialog instead.
+// Pointer-layout surfaces that cannot host the gift popover (the Swap settings
+// sheet, the Perps menu) open the invite panel as a dialog instead. Their
+// campaigns, if any, are listed where they are opened from.
 export function useShowActivityHub() {
   const intl = useIntl();
   const { gtMd } = useMedia();
 
   return useCallback(
     (params: IShowActivityHubParams) => {
-      const hasCampaigns = Boolean(params.campaigns?.length);
-      // Unlike Popover, Dialog only degrades to a sheet below the md
-      // breakpoint. Above it every platform (native tablets included) renders a
+      // Dialog degrades to a sheet below the md breakpoint; above it, a
       // floating panel that honours floatingPanelProps.
-      const isCompactPanel = gtMd && !hasCampaigns;
-      const { panelWidth } = getActivityHubLayout(hasCampaigns);
       Dialog.show({
-        title: intl.formatMessage({ id: ETranslations.perps_activity_hub }),
+        title: intl.formatMessage({ id: ETranslations.referral_home__title }),
         floatingPanelProps: gtMd
           ? {
-              width: panelWidth,
+              width: ACTIVITY_HUB_PANEL_WIDTH,
             }
           : undefined,
         showFooter: false,
@@ -66,12 +55,7 @@ export function useShowActivityHub() {
           px: '$0',
           pb: '$0',
         },
-        renderContent: (
-          <ActivityHubDialogContent
-            {...params}
-            isCompactPanel={isCompactPanel}
-          />
-        ),
+        renderContent: <ActivityHubDialogContent {...params} />,
       });
     },
     [gtMd, intl],

@@ -242,3 +242,19 @@ it('uses the real live-price polling hook to replace the stale Swap snapshot end
     mockMarketActions.current.applyChartPriceUpdate,
   ).not.toHaveBeenCalled();
 });
+
+it('publishes the actual displayed last point and clears it when the chart fails', async () => {
+  const onPriceUpdate = jest.fn();
+  const props = {
+    ...base,
+    isNative: false,
+    tokenDetail: { price: '100' } as IMarketTokenDetail,
+    onPriceUpdate,
+  };
+  const { rerender } = render(<StockSimpleChartContent {...props} />);
+  expect(onPriceUpdate).toHaveBeenLastCalledWith(100);
+  await act(async () => mockRunLivePrice?.());
+  expect(onPriceUpdate).toHaveBeenLastCalledWith(110);
+  rerender(<StockSimpleChartContent {...props} requestError />);
+  expect(onPriceUpdate).toHaveBeenLastCalledWith(undefined);
+});

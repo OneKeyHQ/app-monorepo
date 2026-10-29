@@ -1,10 +1,13 @@
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
+  Button,
   Dialog,
   Divider,
   Icon,
   SizableText,
+  Stack,
   XStack,
 } from '@onekeyhq/components';
 import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
@@ -22,7 +25,8 @@ function TokenSecurityAlert({
   variant = 'default',
 }: {
   showLeadingDivider?: boolean;
-  variant?: 'default' | 'overview';
+  // `badge`: the mobile price header. `overview`: the mobile overview links.
+  variant?: 'default' | 'badge' | 'overview';
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
@@ -68,27 +72,49 @@ function TokenSecurityAlert({
     cautionCount,
   );
 
+  const label = `${intl.formatMessage({
+    id: ETranslations.dexmarket_audit,
+  })} ${count}`;
+
+  if (variant === 'badge') {
+    return (
+      <Badge
+        testID="market-token-security-badge"
+        badgeType="default"
+        badgeSize="sm"
+        px="$2"
+        py="$1"
+        gap="$1.5"
+        borderRadius="$full"
+        cursor="pointer"
+        hitSlop={NATIVE_HIT_SLOP}
+        onPress={handlePress}
+      >
+        {/* A 12px slot the 16px glyph overhangs evenly, as the badge's
+            leading icon does in the design. */}
+        <Stack w="$3" h="$4" ai="center" jc="center">
+          <Icon name="BugOutline" size="$4" color={color} />
+        </Stack>
+        <Badge.Text size="$bodySm" color="$textSubdued">
+          {label}
+        </Badge.Text>
+      </Badge>
+    );
+  }
+
   if (variant === 'overview') {
     return (
-      <XStack
+      <Button
         testID="market-token-security-overview"
+        size="small"
+        variant="secondary"
+        icon="BugOutline"
+        iconColor={color}
+        color="$textSubdued"
         onPress={handlePress}
-        cursor="pointer"
-        ai="center"
-        gap="$1"
-        px="$2"
-        py="$2"
-        bg="$bgStrong"
-        borderRadius="$full"
       >
-        <Icon name="BugOutline" size="$4" color={color} />
-        <SizableText size="$bodySmMedium" color="$text">
-          {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
-        </SizableText>
-        <SizableText size="$bodySmMedium" color="$text">
-          {count}
-        </SizableText>
-      </XStack>
+        {label}
+      </Button>
     );
   }
 

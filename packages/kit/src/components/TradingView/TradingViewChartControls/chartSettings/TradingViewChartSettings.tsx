@@ -70,6 +70,7 @@ const OPTION_TRANSLATION_IDS: Record<
   pastEvents: ETranslations.market_chart_settings__show_past_events,
   clickInteraction: ETranslations.market_chart_settings__chart_interaction,
   crossLine: ETranslations.market_chart_settings__crosshair,
+  navigationButtons: ETranslations.chart_navigation_buttons__title,
 };
 
 const APPEARANCE_ITEM_TRANSLATION_IDS: Record<string, ETranslations> = {
@@ -729,23 +730,39 @@ export function TradingViewChartSettings({
 
   const renderLayoutSettings = () => (
     <YStack>
-      {isOptionVisible('clickInteraction') ? (
+      {isOptionVisible('clickInteraction') ||
+      isOptionVisible('navigationButtons') ? (
         <SettingsGroup
           title={intl.formatMessage({
             id: ETranslations.market_chart_settings__chart_interface,
           })}
         >
-          <SettingsCheckboxRow
-            label={intl.formatMessage({
-              id: OPTION_TRANSLATION_IDS.clickInteraction,
-            })}
-            testID="click-interaction"
-            value={settingsValue.options.clickInteraction}
-            disabled={submitInProgress}
-            onChange={(checked) =>
-              handleOptionChange('clickInteraction', checked)
-            }
-          />
+          {isOptionVisible('clickInteraction') ? (
+            <SettingsCheckboxRow
+              label={intl.formatMessage({
+                id: OPTION_TRANSLATION_IDS.clickInteraction,
+              })}
+              testID="click-interaction"
+              value={settingsValue.options.clickInteraction}
+              disabled={submitInProgress}
+              onChange={(checked) =>
+                handleOptionChange('clickInteraction', checked)
+              }
+            />
+          ) : null}
+          {isOptionVisible('navigationButtons') ? (
+            <SettingsCheckboxRow
+              label={intl.formatMessage({
+                id: OPTION_TRANSLATION_IDS.navigationButtons,
+              })}
+              testID="navigation-buttons"
+              value={settingsValue.options.navigationButtons}
+              disabled={submitInProgress}
+              onChange={(checked) =>
+                handleOptionChange('navigationButtons', checked)
+              }
+            />
+          ) : null}
         </SettingsGroup>
       ) : null}
 

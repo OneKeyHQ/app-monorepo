@@ -7,9 +7,11 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -28,6 +30,7 @@ import {
   useClipboard,
   useMedia,
   useSafeAreaInsets,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -116,6 +119,7 @@ import {
 } from '../../utils/swapTokenSelectorCacheUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import { buildSwapTokenNativeListSnapshot } from './SwapTokenSelectModal.nativeList';
 import {
   buildSwapStockMetadataKey,
   buildSwapStockSelectableNetworks,
@@ -129,6 +133,12 @@ import {
   normalizeSwapStockSelectableToken,
 } from './SwapTokenSelectModal.utils';
 
+import type {
+  ActionAnchorInvalidatedEvent,
+  NativeListRef,
+  NativeListTheme,
+  RowActionEvent,
+} from '@onekeyfe/react-native-native-list';
 import type { RouteProp } from '@react-navigation/core';
 import type { FlatList } from 'react-native';
 
@@ -326,6 +336,7 @@ const SwapTokenSelectPage = ({
     ? route.params?.defaultNetworkId
     : undefined;
   const intl = useIntl();
+  const colors = useTheme();
   const [searchInputValue, setSearchInputValue] = useState<string>('');
   const {
     searchKeyword,
@@ -533,6 +544,10 @@ const SwapTokenSelectPage = ({
     type,
   ]);
   const listViewRef = useRef<FlatList>(null);
+  const nativeListRef = useRef<NativeListRef>(null);
+  const nativeMenuRef = useRef<
+    { token: string; close: () => void } | undefined
+  >(undefined);
   const handleLpTokenFilterChange = useCallback(
     (value: boolean) => {
       setTokenSelectorFilter((prev) => ({
@@ -543,6 +558,7 @@ const SwapTokenSelectPage = ({
         offset: 0,
         animated: false,
       });
+      nativeListRef.current?.scrollToOffset({ offset: 0, animated: false });
     },
     [setTokenSelectorFilter],
   );
@@ -917,6 +933,7 @@ const SwapTokenSelectPage = ({
         offset: 0,
         animated: false,
       });
+      nativeListRef.current?.scrollToOffset({ offset: 0, animated: false });
     },
     [setCurrentSelectNetwork],
   );
@@ -1153,6 +1170,166 @@ const SwapTokenSelectPage = ({
     ],
   );
 
+  const useNativeTokenRows = !isSwapStockSelectTarget;
+  const nativeListTheme = useMemo<NativeListTheme>(
+    () => ({
+      background: colors.bgApp.val,
+      rowBackground: colors.bgApp.val,
+      rowSelectedBackground: colors.bgActive.val,
+      rowPressedBackground: colors.bgActive.val,
+      rowHoverBackground: platformEnv.isNative ? undefined : colors.bgHover.val,
+      subduedBackground: colors.bgSubdued.val,
+      strongBackground: colors.bgStrong.val,
+      primaryText: colors.text.val,
+      secondaryText: colors.textSubdued.val,
+      disabledText: colors.textDisabled.val,
+      icon: colors.icon.val,
+      iconSubdued: colors.iconSubdued.val,
+      separator: colors.borderSubdued.val,
+      accent: colors.iconActive.val,
+      positive: colors.textSuccess.val,
+      negative: colors.textCritical.val,
+    }),
+    [colors],
+  );
+  const { snapshot: nativeListSnapshot, tokensByKey: nativeTokensByKey } =
+    useMemo(
+      () =>
+        buildSwapTokenNativeListSnapshot({
+          tokens: useNativeTokenRows ? displayTokens : EMPTY_SWAP_TOKEN_LIST,
+          theme: nativeListTheme,
+          disabledNetworkIds: disableNetworks,
+          searchKeyword: requestedSearchKeyword,
+          isMediumScreen: md,
+          isDesktopSelector: Boolean(useDesktopTokenSelector),
+          currencySymbol: settingsPersistAtom.currencyInfo.symbol,
+          oppositeToken:
+            type === ESwapDirectionType.FROM
+              ? toTokenRef.current
+              : fromTokenRef.current,
+          otherNetworkStartIndex,
+          warningIndex: alertIndex,
+          warningText: intl.formatMessage({
+            id: ETranslations.token_selector_unverified_token_warning,
+          }),
+          warningBorderWidth: StyleSheet.hairlineWidth,
+          searchSectionTitles,
+        }),
+      [
+        useNativeTokenRows,
+        displayTokens,
+        nativeListTheme,
+        disableNetworks,
+        requestedSearchKeyword,
+        md,
+        useDesktopTokenSelector,
+        settingsPersistAtom.currencyInfo.symbol,
+        type,
+        otherNetworkStartIndex,
+        alertIndex,
+        intl,
+        searchSectionTitles,
+      ],
+    );
+  useEffect(() => {
+    if (!useNativeTokenRows) {
+      nativeMenuRef.current?.close();
+      nativeMenuRef.current = undefined;
+    }
+  }, [useNativeTokenRows]);
+  useEffect(
+    () => () => {
+      nativeMenuRef.current?.close();
+      nativeMenuRef.current = undefined;
+    },
+    [],
+  );
+  const handleNativeRowAction = useCallback(
+    (event: RowActionEvent) => {
+      const token = nativeTokensByKey.get(event.rowKey ?? '');
+      if (!token) return;
+      if (event.actionKey === 'press') {
+        if (disableNetworks.includes(token.networkId)) {
+          disableNetworksOnClick();
+        } else {
+          void onSelectToken(token);
+        }
+      } else if (
+        event.actionKey === 'menu' &&
+        !token.isNative &&
+        event.anchor
+      ) {
+        const anchor = event.anchor;
+        nativeMenuRef.current?.close();
+        nativeListRef.current?.setActionAnchorState({
+          token: anchor.token,
+          open: true,
+        });
+        const activeMenu: NonNullable<typeof nativeMenuRef.current> = {
+          token: anchor.token,
+          close: () => undefined,
+        };
+        nativeMenuRef.current = activeMenu;
+        const menu = ActionList.show({
+          title: token.symbol,
+          triggerRect: anchor.windowRect,
+          onClose: () => {
+            if (nativeMenuRef.current === activeMenu) {
+              nativeListRef.current?.setActionAnchorState({
+                token: anchor.token,
+                open: false,
+                restoreFocus: true,
+              });
+              nativeMenuRef.current = undefined;
+            }
+          },
+          items: [
+            {
+              icon: 'Copy3Outline',
+              label: intl.formatMessage({
+                id: ETranslations.global_copy_token_contract,
+              }),
+              onPress: () => copyText(token.contractAddress),
+            },
+            {
+              icon: 'OpenOutline',
+              label: intl.formatMessage({
+                id: ETranslations.swap_token_selector_contract_info,
+              }),
+              onPress: async () => {
+                const url =
+                  await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+                    networkId: token.networkId,
+                    type: 'token',
+                    param: token.contractAddress,
+                  });
+                openUrlExternal(url);
+              },
+            },
+          ],
+        });
+        activeMenu.close = menu.close;
+      }
+    },
+    [
+      copyText,
+      disableNetworks,
+      disableNetworksOnClick,
+      intl,
+      nativeTokensByKey,
+      onSelectToken,
+    ],
+  );
+  const handleNativeAnchorInvalidated = useCallback(
+    (event: ActionAnchorInvalidatedEvent) => {
+      if (nativeMenuRef.current?.token === event.token) {
+        nativeMenuRef.current.close();
+        nativeMenuRef.current = undefined;
+      }
+    },
+    [],
+  );
+
   const networkFilterData = useMemo(() => {
     return buildSwapTokenSelectorNetworkView({
       type,
@@ -1301,6 +1478,11 @@ const SwapTokenSelectPage = ({
             onDisableNetworksClick={disableNetworksOnClick}
             onSelectToken={onSelectToken}
             listViewRef={listViewRef}
+            nativeListRef={nativeListRef}
+            nativeListSnapshot={nativeListSnapshot}
+            onNativeRowAction={handleNativeRowAction}
+            onNativeAnchorInvalidated={handleNativeAnchorInvalidated}
+            useNativeTokenRows={useNativeTokenRows}
             popularTokens={currentNetworkPopularTokens}
             showPopularTokens={shouldShowPopularTokens}
             showLpTokenFilterSwitch={showLpTokenFilterSwitch}
@@ -1386,6 +1568,7 @@ const SwapTokenSelectPage = ({
               networks={networkFilterData.networks}
               sameChainNetwork={networkFilterData.sameChainNetwork}
               sameChainBadgeText={sameChainBadgeText}
+              fitToAvailableWidth
               maxVisibleNetworks={
                 md
                   ? swapNetworksCommonCountMD -
@@ -1399,31 +1582,68 @@ const SwapTokenSelectPage = ({
             />
             {shouldShowPopularTokens ? <Divider mt="$2" /> : null}
             <YStack flex={1}>
-              <ListView
-                useFlashList={platformEnv.isNative}
-                ref={listViewRef}
-                data={displayTokens}
-                keyExtractor={getSwapTokenSelectorTokenKey}
-                renderItem={renderItem}
-                estimatedItemSize={60}
-                ListHeaderComponent={
-                  shouldShowPopularTokens ? (
-                    <YStack px="$5" pt="$3" gap="$2">
-                      <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
-                        {intl.formatMessage({
-                          id: ETranslations.swap_token_selector_popular_token,
-                        })}
-                      </SizableText>
-                      <SwapPopularTokenGroup
-                        onSelectToken={onSelectToken}
-                        tokens={currentNetworkPopularTokens}
-                      />
-                    </YStack>
-                  ) : null
-                }
-                ListFooterComponent={<Stack h={bottom || '$2'} />}
-                ListEmptyComponent={tokenListEmptyComponent}
-              />
+              {useNativeTokenRows ? (
+                <NativeList
+                  ref={nativeListRef}
+                  style={{ flex: 1 }}
+                  snapshot={nativeListSnapshot}
+                  keyboardDismissMode="on-drag"
+                  keyboardShouldPersistTaps="handled"
+                  onRowAction={handleNativeRowAction}
+                  onActionAnchorInvalidated={handleNativeAnchorInvalidated}
+                  listHeader={
+                    shouldShowPopularTokens ? (
+                      <YStack px="$5" pt="$3" gap="$2">
+                        <SizableText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          pr="$2"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.swap_token_selector_popular_token,
+                          })}
+                        </SizableText>
+                        <SwapPopularTokenGroup
+                          onSelectToken={onSelectToken}
+                          tokens={currentNetworkPopularTokens}
+                        />
+                      </YStack>
+                    ) : null
+                  }
+                  listFooter={<Stack h={bottom || '$2'} />}
+                  listEmpty={tokenListEmptyComponent}
+                />
+              ) : (
+                <ListView
+                  useFlashList={platformEnv.isNative}
+                  ref={listViewRef}
+                  data={displayTokens}
+                  keyExtractor={getSwapTokenSelectorTokenKey}
+                  renderItem={renderItem}
+                  estimatedItemSize={60}
+                  ListHeaderComponent={
+                    shouldShowPopularTokens ? (
+                      <YStack px="$5" pt="$3" gap="$2">
+                        <SizableText
+                          size="$bodyMd"
+                          color="$textSubdued"
+                          pr="$2"
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.swap_token_selector_popular_token,
+                          })}
+                        </SizableText>
+                        <SwapPopularTokenGroup
+                          onSelectToken={onSelectToken}
+                          tokens={currentNetworkPopularTokens}
+                        />
+                      </YStack>
+                    ) : null
+                  }
+                  ListFooterComponent={<Stack h={bottom || '$2'} />}
+                  ListEmptyComponent={tokenListEmptyComponent}
+                />
+              )}
             </YStack>
           </>
         )}

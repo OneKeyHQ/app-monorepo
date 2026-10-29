@@ -991,29 +991,6 @@ const PreSwapDialogContent = ({
             <>
               <Divider testID="swap-stock-review-divider" />
               <YStack testID="swap-stock-review-info" gap="$3">
-                {stockReviewDisplay.sharePrice ? (
-                  <XStack
-                    testID="swap-stock-review-share-price"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    gap="$3"
-                  >
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {intl.formatMessage({
-                        id: ETranslations.market_token_price,
-                      })}
-                    </SizableText>
-                    <NumberSizeableText
-                      size="$bodyMdMedium"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settingsPersist.currencyInfo.symbol,
-                      }}
-                    >
-                      {stockReviewDisplay.sharePrice}
-                    </NumberSizeableText>
-                  </XStack>
-                ) : null}
                 <XStack
                   testID="swap-stock-review-estimated-shares"
                   alignItems="center"

@@ -2,6 +2,7 @@
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   memo,
   startTransition,
   useCallback,
@@ -19,7 +20,6 @@ import {
   DebugRenderTracker,
   type IInputProps,
   type IListViewRef,
-  type IStackProps,
   Icon,
   ListView,
   NATIVE_HIT_SLOP,
@@ -388,13 +388,15 @@ function BasePerpTokenSelectorContent() {
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
   const inputQueryRef = useRef(searchQuery);
+  const [inputQuery, setInputQuery] = useState(searchQuery);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const refocusSearchOnClick = useRef(false);
-  const handlePointerDown = useCallback<
-    NonNullable<IStackProps['onPointerDownCapture']>
-  >((event) => {
-    refocusSearchOnClick.current = event.nativeEvent.pointerType === 'mouse';
-  }, []);
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      refocusSearchOnClick.current = event.nativeEvent.pointerType === 'mouse';
+    },
+    [],
+  );
   const handleSearchFocus = useCallback<NonNullable<IInputProps['onFocus']>>(
     (event) => {
       if (event.target instanceof HTMLInputElement) {
@@ -435,6 +437,7 @@ function BasePerpTokenSelectorContent() {
   }, []);
   const [keyboardSelection, setKeyboardSelection] = useState<{
     key: string;
+    index: number;
     query: string;
     tab: string;
   }>();
@@ -1076,6 +1079,7 @@ function BasePerpTokenSelectorContent() {
         const dynamicItems = getPerpTokenSelectorDynamicTabItems({
           items: perpSortedList,
           tokens: dynamicTab.tokens,
+          filteredQuery,
         });
         if (activeDynamicTabUserSort && sortField) {
           result = dynamicItems
@@ -1137,6 +1141,7 @@ function BasePerpTokenSelectorContent() {
   }, [
     displayActiveTab,
     displayPrimaryTab,
+    filteredQuery,
     activeDynamicTabUserSort,
     activeFavoritesTabUserSort,
     assetsByDex,
@@ -1176,27 +1181,129 @@ function BasePerpTokenSelectorContent() {
     [],
   );
   const keyboardResultsReady =
-    isPerpTokenSelectorSpotTab(displayPrimaryTab) ||
-    (filteredQuery ?? '') === searchQuery;
-  const keyboardSelectedKey =
-    keyboardResultsReady &&
+    inputQuery === searchQuery &&
+    (isPerpTokenSelectorSpotTab(displayPrimaryTab) ||
+      (filteredQuery ?? '') === searchQuery);
+  const selectionMatchesResults =
     keyboardSelection?.query === searchQuery &&
-    keyboardSelection?.tab === displayActiveTab
-      ? keyboardSelection.key
+    keyboardSelection?.tab === displayActiveTab;
+  const selectedKeyIndex = selectionMatchesResults
+    ? activeTabData.findIndex(
+        (item) => keyExtractor(item) === keyboardSelection.key,
+      )
+    : -1;
+  const keyboardSelectedIndex =
+    !platformEnv.isNative && keyboardResultsReady && activeTabData.length
+      ? Math.max(
+          0,
+          selectedKeyIndex >= 0
+            ? selectedKeyIndex
+            : Math.min(
+                selectionMatchesResults ? keyboardSelection.index : 0,
+                activeTabData.length - 1,
+              ),
+        )
+      : -1;
+  const keyboardSelectedKey =
+    keyboardSelectedIndex >= 0
+      ? keyExtractor(activeTabData[keyboardSelectedIndex])
       : undefined;
-  const keyboardSelectedIndex = activeTabData.findIndex(
-    (item) => keyExtractor(item) === keyboardSelectedKey,
+  const scrollToKeyboardItem = useCallback(
+    (index: number) => {
+      const item = activeTabData[index];
+      const coin = item?.spotUniverse?.name ?? item?.tokenName;
+      const row = coin ? keyboardRowRefs.current.get(coin) : undefined;
+      pendingKeyboardScroll.current = undefined;
+      if (row) {
+        row.scrollIntoView({ block: 'nearest' });
+      } else if (coin) {
+        pendingKeyboardScroll.current = coin;
+        // Mount virtualized targets before their actual bounds are scrolled.
+        listRef.current?.scrollToOffset?.({
+          offset: Math.max(0, (index - 3) * TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT),
+          animated: false,
+        });
+      }
+    },
+    [activeTabData],
+  );
+  useEffect(() => {
+    if (!keyboardSelectedKey) return;
+    if (
+      selectionMatchesResults &&
+      keyboardSelection.key === keyboardSelectedKey &&
+      keyboardSelection.index === keyboardSelectedIndex
+    ) {
+      return;
+    }
+    // A removed favorite keeps its position, or falls back to the new last row.
+    if (!selectionMatchesResults || selectedKeyIndex < 0) {
+      scrollToKeyboardItem(keyboardSelectedIndex);
+    }
+    setKeyboardSelection({
+      key: keyboardSelectedKey,
+      index: keyboardSelectedIndex,
+      query: searchQuery,
+      tab: displayActiveTab,
+    });
+  }, [
+    displayActiveTab,
+    keyboardSelectedIndex,
+    keyboardSelectedKey,
+    keyboardSelection,
+    scrollToKeyboardItem,
+    searchQuery,
+    selectedKeyIndex,
+    selectionMatchesResults,
+  ]);
+  const handleMouseMove = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (
+        !keyboardResultsReady ||
+        inputQueryRef.current !== searchQuery ||
+        !(event.target instanceof Node)
+      ) {
+        return;
+      }
+      for (const [coin, row] of keyboardRowRefs.current) {
+        if (row.contains(event.target)) {
+          const index = activeTabData.findIndex(
+            (item) => (item.spotUniverse?.name ?? item.tokenName) === coin,
+          );
+          if (index >= 0 && index !== keyboardSelectedIndex) {
+            pendingKeyboardScroll.current = undefined;
+            setKeyboardSelection({
+              key: keyExtractor(activeTabData[index]),
+              index,
+              query: searchQuery,
+              tab: displayActiveTab,
+            });
+          }
+          break;
+        }
+      }
+    },
+    [
+      activeTabData,
+      displayActiveTab,
+      keyExtractor,
+      keyboardResultsReady,
+      keyboardSelectedIndex,
+      searchQuery,
+    ],
   );
   const handleSearchInputChange = useCallback<
     NonNullable<IInputProps['onChange']>
   >((event) => {
     inputQueryRef.current = event.nativeEvent.text.trim().slice(0, 64);
+    setInputQuery(inputQueryRef.current);
     pendingKeyboardScroll.current = undefined;
     setKeyboardSelection(undefined);
   }, []);
   const handleSearchQueryChange = useCallback(
     (query: string) => {
       inputQueryRef.current = query.trim().slice(0, 64);
+      setInputQuery(inputQueryRef.current);
       pendingKeyboardScroll.current = undefined;
       setKeyboardSelection(undefined);
       setSearchQuery(query);
@@ -1312,6 +1419,7 @@ function BasePerpTokenSelectorContent() {
         inputTarget.value.trim().slice(0, 64) !== inputQueryRef.current
       ) {
         inputQueryRef.current = inputTarget.value.trim().slice(0, 64);
+        setInputQuery(inputQueryRef.current);
         pendingKeyboardScroll.current = undefined;
         setKeyboardSelection(undefined);
       }
@@ -1320,11 +1428,7 @@ function BasePerpTokenSelectorContent() {
           keyboardEvent.metaKey ||
           keyboardEvent.ctrlKey ||
           keyboardEvent.altKey ||
-          keyboardEvent.shiftKey ||
-          inputQueryRef.current ||
-          (typeof HTMLInputElement !== 'undefined' &&
-            inputTarget instanceof HTMLInputElement &&
-            inputTarget.value.length > 0)
+          keyboardEvent.shiftKey
         ) {
           return;
         }
@@ -1332,7 +1436,11 @@ function BasePerpTokenSelectorContent() {
         const index = primaryTabs.findIndex(
           (tab) => tab.tabId === displayPrimaryTab,
         );
-        const nextTab = primaryTabs[index + (key === 'ArrowRight' ? 1 : -1)];
+        const nextTab =
+          primaryTabs[
+            (index + (key === 'ArrowRight' ? 1 : -1) + primaryTabs.length) %
+              primaryTabs.length
+          ];
         if (nextTab) setPrimaryTab(nextTab.tabId);
         return;
       }
@@ -1368,25 +1476,11 @@ function BasePerpTokenSelectorContent() {
       const nextItem = activeTabData[nextIndex];
       setKeyboardSelection({
         key: keyExtractor(nextItem),
+        index: nextIndex,
         query: searchQuery,
         tab: displayActiveTab,
       });
-      const coin = nextItem.spotUniverse?.name ?? nextItem.tokenName;
-      const row = coin ? keyboardRowRefs.current.get(coin) : undefined;
-      pendingKeyboardScroll.current = undefined;
-      if (row) {
-        row.scrollIntoView({ block: 'nearest' });
-      } else {
-        pendingKeyboardScroll.current = coin;
-        // Mount virtualized targets before their actual bounds are scrolled.
-        listRef.current?.scrollToOffset?.({
-          offset: Math.max(
-            0,
-            (nextIndex - 3) * TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT,
-          ),
-          animated: false,
-        });
-      }
+      scrollToKeyboardItem(nextIndex);
     },
     [
       activeTabData,
@@ -1396,6 +1490,7 @@ function BasePerpTokenSelectorContent() {
       keyboardResultsReady,
       keyboardSelectedIndex,
       primaryTabs,
+      scrollToKeyboardItem,
       searchQuery,
       setPrimaryTab,
     ],
@@ -1528,16 +1623,7 @@ function BasePerpTokenSelectorContent() {
   ]);
 
   const content = (
-    <YStack
-      {...(platformEnv.isNative
-        ? undefined
-        : {
-            onPointerDownCapture: handlePointerDown,
-            onClickCapture: focusSearchInput,
-            onKeyDownCapture: handleFavoriteShortcut,
-            onWheelCapture: cancelPendingKeyboardScroll,
-          })}
-    >
+    <YStack>
       <YStack gap="$1">
         <XStack px="$2" pt="$2">
           <SearchBar
@@ -1672,12 +1758,16 @@ function BasePerpTokenSelectorContent() {
           borderTopWidth="$px"
           borderTopColor="$borderSubdued"
         >
-          <XStack gap="$1">
-            <Badge badgeSize="sm">↑↓</Badge>
+          <XStack gap="$1" opacity={keyboardSelectedIndex < 0 ? 0.5 : 1}>
+            <Badge badgeSize="sm">
+              <Badge.Text color="$text">↑↓</Badge.Text>
+            </Badge>
           </XStack>
           <XStack gap="$1.5" alignItems="center">
-            <Badge badgeSize="sm">←→</Badge>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <Badge badgeSize="sm">
+              <Badge.Text color="$text">←→</Badge.Text>
+            </Badge>
+            <SizableText size="$bodySm" color="$text">
               {intl.formatMessage({ id: ETranslations.global_switch })}
             </SizableText>
           </XStack>
@@ -1686,8 +1776,10 @@ function BasePerpTokenSelectorContent() {
             alignItems="center"
             opacity={keyboardSelectedIndex < 0 ? 0.5 : 1}
           >
-            <Badge badgeSize="sm">Enter</Badge>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <Badge badgeSize="sm">
+              <Badge.Text color="$text">Enter</Badge.Text>
+            </Badge>
+            <SizableText size="$bodySm" color="$text">
               {intl.formatMessage({ id: ETranslations.dexmarket_select_token })}
             </SizableText>
           </XStack>
@@ -1696,14 +1788,18 @@ function BasePerpTokenSelectorContent() {
             alignItems="center"
             opacity={keyboardSelectedIndex < 0 ? 0.5 : 1}
           >
-            <Badge badgeSize="sm">{`${shortcutsKeys.CmdOrCtrl}S`}</Badge>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <Badge badgeSize="sm">
+              <Badge.Text color="$text">{`${shortcutsKeys.CmdOrCtrl}S`}</Badge.Text>
+            </Badge>
+            <SizableText size="$bodySm" color="$text">
               {intl.formatMessage({ id: ETranslations.global_favorites })}
             </SizableText>
           </XStack>
           <XStack gap="$1.5" alignItems="center">
-            <Badge badgeSize="sm">Esc</Badge>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <Badge badgeSize="sm">
+              <Badge.Text color="$text">Esc</Badge.Text>
+            </Badge>
+            <SizableText size="$bodySm" color="$text">
               {intl.formatMessage({ id: ETranslations.global_close })}
             </SizableText>
           </XStack>
@@ -1713,7 +1809,20 @@ function BasePerpTokenSelectorContent() {
   );
   return (
     <DebugRenderTracker position="top-right" name="PerpTokenSelectorContent">
-      {content}
+      {platformEnv.isNative ? (
+        content
+      ) : (
+        <div
+          style={{ display: 'contents' }}
+          onPointerDownCapture={handlePointerDown}
+          onMouseMoveCapture={handleMouseMove}
+          onClickCapture={focusSearchInput}
+          onKeyDownCapture={handleFavoriteShortcut}
+          onWheelCapture={cancelPendingKeyboardScroll}
+        >
+          {content}
+        </div>
+      )}
     </DebugRenderTracker>
   );
 }

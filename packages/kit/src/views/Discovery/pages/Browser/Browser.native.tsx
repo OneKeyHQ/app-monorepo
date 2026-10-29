@@ -56,6 +56,11 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
+import {
+  PAGE_DRAWS_UNDER_BROWSER_BAR,
+  getBarReservedHeight,
+} from '../../components/MobileBrowser/browserChrome';
+import { PageBottomColorFill } from '../../components/MobileBrowser/BrowserChromeCapsule';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
@@ -104,6 +109,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     zIndex: 3,
+  },
+  // Under the iPhone bottom bar, behind the WebView (whose scroll view draws
+  // past its frame there): the page's bottom color shows where the page has
+  // no more content to draw (its end, or a short or app-like page). Only the
+  // bar's area: the WebView covers the rest. Height set from the safe area.
+  iosPageBackdrop: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   iosWebPageRootLayerVisible: {
     opacity: 1,
@@ -505,17 +520,7 @@ function MobileBrowser() {
     },
     [navigation],
   );
-  const browserChrome = useMemo(
-    () => ({
-      progress: chromeProgress,
-      layoutExpanded,
-      onExpand: expandBrowserChrome,
-      onSearchBarPress: handleSearchBarPress,
-    }),
-    [chromeProgress, layoutExpanded, expandBrowserChrome, handleSearchBarPress],
-  );
-
-  const { top } = useSafeAreaInsets();
+  const { top, bottom: bottomInset } = useSafeAreaInsets();
   // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
   // matches the Wallet header's glass search bar) and is nudged down so its
   // center vertically aligns with the Wallet search bar — which sits centered in
@@ -545,6 +550,16 @@ function MobileBrowser() {
       showTabBar();
     });
   }, [takeScreenshot, setDisplayHomePage, activeTabId]);
+
+  const browserChrome = useMemo(
+    () => ({
+      progress: chromeProgress,
+      layoutExpanded,
+      onExpand: expandBrowserChrome,
+      onSearchBarPress: handleSearchBarPress,
+    }),
+    [chromeProgress, layoutExpanded, expandBrowserChrome, handleSearchBarPress],
+  );
 
   useAndroidHardwareBack({
     displayHomePage,
@@ -644,7 +659,7 @@ function MobileBrowser() {
       ) : (
         <MobileBrowserHeader
           chrome={browserChrome}
-          onGoBackHome={handleGoBackHome}
+          onCloseTab={closeCurrentWebTab}
         />
       )}
       <Page.Body>
@@ -714,14 +729,29 @@ function MobileBrowser() {
                 }
                 style={[
                   styles.webPageRootLayer,
-                  webPageBottomStyle,
                   webPageShiftStyle,
                   shouldShowRootWebPageLayer
                     ? styles.iosWebPageRootLayerVisible
                     : styles.iosWebPageRootLayerHidden,
                 ]}
               >
-                {content}
+                {PAGE_DRAWS_UNDER_BROWSER_BAR ? (
+                  <PageBottomColorFill
+                    tabId={activeTabId}
+                    style={[
+                      styles.iosPageBackdrop,
+                      { height: getBarReservedHeight(bottomInset) },
+                    ]}
+                  />
+                ) : null}
+                {/* The WebView's own box: ends above the bar
+                    (webPageBottomStyle) while this layer reaches the screen
+                    bottom. */}
+                <Animated.View
+                  style={[StyleSheet.absoluteFill, webPageBottomStyle]}
+                >
+                  {content}
+                </Animated.View>
               </Animated.View>
             ) : null}
             <Freeze freeze={!displayBottomBar}>
@@ -738,6 +768,7 @@ function MobileBrowser() {
                 <MobileBrowserBottomBar
                   id={activeTabId ?? ''}
                   chrome={browserChrome}
+                  onMinimize={handleGoBackHome}
                 />
               </Animated.View>
             </Freeze>
@@ -829,6 +860,7 @@ function MobileBrowser() {
                   <MobileBrowserBottomBar
                     id={activeTabId ?? ''}
                     chrome={browserChrome}
+                    onMinimize={handleGoBackHome}
                   />
                 </Animated.View>
               </Freeze>

@@ -92,6 +92,8 @@ import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenU
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
 
+import { primePersistAtom } from '../states/jotai/atoms/prime';
+
 import ServiceBase from './ServiceBase';
 
 import type { IDBWallet } from '../dbs/local/types';
@@ -123,13 +125,15 @@ class ServiceReferralCode extends ServiceBase {
 
   @backgroundMethod()
   async getSummaryInfo() {
+    const { onekeyUserId } = await primePersistAtom.get();
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const summary = await client.get<{
       data: IInviteSummary;
     }>('/rebate/v1/invite/summary');
-    if (summary.data.data.inviteCode) {
+    if (summary.data.data.inviteCode && onekeyUserId) {
       await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
         summary.data.data.inviteCode,
+        onekeyUserId,
       );
     }
     return summary.data.data;
@@ -659,9 +663,32 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getMyReferralCode() {
-    const myReferralCode =
-      await this.backgroundApi.simpleDb.referralCode.getMyReferralCode();
+  async getCachedMyReferralCode(params?: { onekeyUserId: string }) {
+    const user = await primePersistAtom.get();
+    const onekeyUserId = params?.onekeyUserId ?? user.onekeyUserId;
+    if (
+      !onekeyUserId ||
+      user.onekeyUserId !== onekeyUserId ||
+      !user.isLoggedIn ||
+      !user.isLoggedInOnServer
+    ) {
+      return '';
+    }
+    const code =
+      await this.backgroundApi.simpleDb.referralCode.getMyReferralCode({
+        onekeyUserId,
+      });
+    const currentUser = await primePersistAtom.get();
+    return currentUser.onekeyUserId === onekeyUserId &&
+      currentUser.isLoggedIn &&
+      currentUser.isLoggedInOnServer
+      ? code
+      : '';
+  }
+
+  @backgroundMethod()
+  async getMyReferralCode(params?: { onekeyUserId: string }) {
+    const myReferralCode = await this.getCachedMyReferralCode(params);
     setTimeout(async () => {
       const isLogin = await this.backgroundApi.servicePrime.isLoggedIn();
       if (isLogin) {
@@ -778,10 +805,33 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateMyReferralCode(code: string) {
-    await this.backgroundApi.simpleDb.referralCode.updateCode({
-      myReferralCode: code,
-    });
+  async updateMyReferralCode(code: string, onekeyUserId: string) {
+    const staleWriteError = new OneKeyLocalError('Referral code owner changed');
+    try {
+      // Check ownership inside the storage mutex, after any queued writes.
+      await this.backgroundApi.simpleDb.referralCode.setRawData(
+        async (rawData) => {
+          const user = await primePersistAtom.get();
+          if (
+            !onekeyUserId ||
+            onekeyUserId !== user.onekeyUserId ||
+            !user.isLoggedIn ||
+            !user.isLoggedInOnServer
+          ) {
+            throw staleWriteError;
+          }
+          return {
+            ...rawData,
+            myReferralCode: code,
+            myReferralCodeUserId: onekeyUserId,
+          };
+        },
+      );
+    } catch (error) {
+      if (error !== staleWriteError) {
+        throw error;
+      }
+    }
   }
 
   @backgroundMethod()
