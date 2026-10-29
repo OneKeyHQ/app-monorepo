@@ -3384,7 +3384,7 @@
   "perp_account_mode_ui_updated__msg": "อัปเดต UI โหมดบัญชี",
   "perp_account_mode_updated__msg": "อัปเดตโหมดบัญชีแล้ว",
   "perp_account_mode_updating__msg": "กำลังอัปเดตโหมดบัญชี…",
-  "perp_aggressive_limit_buy_price_warning__msg": "Your limit price is {percentage}% above the current best ask of {referencePrice}. The order may execute immediately at market price. Please confirm your limit price.",
+  "perp_aggressive_limit_buy_price_warning__msg": "ราคาลิมิตของคุณสูงกว่าราคาเสนอขายที่ดีที่สุดในปัจจุบันที่ {referencePrice} อยู่ {percentage}% คำสั่งอาจได้รับการดำเนินการทันทีที่ราคาตลาด โปรดยืนยันราคาลิมิตของคุณ",
   "perp_aggressive_limit_sell_warning__msg": "ราคาลิมิตของคุณต่ำกว่าราคาเสนอซื้อที่ดีที่สุดในปัจจุบันที่ {referencePrice} อยู่ {percentage}% คำสั่งอาจได้รับการดำเนินการทันทีที่ราคาตลาด โปรดยืนยันราคาลิมิตของคุณ",
   "perp_average_price__title": "ราคาเฉลี่ย",
   "perp_backstop_liquidation__title": "การชำระบัญชีแบบแบ็กสต็อป",
