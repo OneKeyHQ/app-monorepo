@@ -777,13 +777,34 @@ export function NormalManageContent({
       }
     }
 
+    // Before the server's own names (or with no wallet to ask for them): a
+    // lending market's sides keep their names, Supply and Withdraw, or
+    // Borrow and Repay, as they read once a wallet is connected
+    const isSupplySide = [
+      EManagePositionType.Supply,
+      EManagePositionType.Withdraw,
+    ].includes(type);
+    const isBorrowSide = [
+      EManagePositionType.Borrow,
+      EManagePositionType.Repay,
+    ].includes(type);
+    let primaryId = ETranslations.earn_deposit;
+    if (isSupplySide) {
+      primaryId = ETranslations.defi_supply;
+    } else if (isBorrowSide) {
+      primaryId = ETranslations.global_borrow;
+    }
     return [
       {
-        title: intl.formatMessage({ id: ETranslations.earn_deposit }),
+        title: intl.formatMessage({ id: primaryId }),
         type: EStakingActionType.Deposit,
       },
       {
-        title: intl.formatMessage({ id: ETranslations.global_withdraw }),
+        title: intl.formatMessage({
+          id: isBorrowSide
+            ? ETranslations.defi_repay
+            : ETranslations.global_withdraw,
+        }),
         type: EStakingActionType.Withdraw,
       },
     ];
@@ -1052,6 +1073,7 @@ export function NormalManageContent({
       }
       offerSwitch={offerSwitch}
       isEarnLending={isEarnLending}
+      actionLabel={tabNames[1]}
     />
   );
 

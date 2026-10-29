@@ -60,7 +60,7 @@ type IEarnGuideSnapshot = {
   isModalOpen?: boolean;
   /** The modal's green header, where the growing card's green ends */
   headerHeight?: number;
-  /** The modal closed on a finish (Done, Go to position), not
+  /** The modal closed on a finish (Done, My portfolio), not
       back to the card */
   closesOnFinish?: boolean;
 };

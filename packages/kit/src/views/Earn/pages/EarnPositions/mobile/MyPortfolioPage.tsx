@@ -38,6 +38,7 @@ import type {
   IEarnRewardsPortfolioStage,
 } from '@onekeyhq/shared/types/staking';
 
+import { useHomeNetWorth } from '../../../components/desktopHome/earnNetWorthStore';
 import { useEarnDesktopAccountMarkets } from '../../../components/desktopHome/useEarnDesktopHomeData';
 import { NetworkFilterControl } from '../../../components/NetworkFilterControl';
 import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabContent';
@@ -188,6 +189,7 @@ export function MyPortfolioPage({
     activeAccount.indexedAccount?.id ||
     activeAccount.account?.id ||
     '';
+  const homeNetWorth = useHomeNetWorth(filterAccountKey);
   const [networkSelection, setNetworkSelection] = useState<{
     accountKey: string;
     networkIds: string[];
@@ -655,9 +657,14 @@ export function MyPortfolioPage({
                     }
                   : { py: '$2' })}
               >
-                {/* DeFi Assets leaves the positions' rewards out; Rewards counts them */}
+                {/* DeFi Assets leaves the positions' rewards out; Rewards counts them.
+                    On web the total is the home's Net Worth, the same figure
+                    under the same name (demo 10-29) */}
                 <PortfolioTotalsHeader
-                  defiAssetsFiatValue={String(view.totalValue)}
+                  defiAssetsFiatValue={
+                    (platformEnv.isNative ? undefined : homeNetWorth) ??
+                    String(view.totalValue)
+                  }
                   rewardsFiatValue={rewardsHeaderFiat}
                   isLoading={isFirstLoad}
                 />

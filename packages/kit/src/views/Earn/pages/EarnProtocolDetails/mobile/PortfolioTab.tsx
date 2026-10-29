@@ -55,6 +55,7 @@ function PortfolioRow({
   tokenInfo,
   onPress,
   onRedeem,
+  redeemLabel,
   onActionSuccess,
 }: {
   item: IPortfolioRow;
@@ -63,6 +64,8 @@ function PortfolioRow({
   tokenInfo?: IEarnTokenInfo;
   onPress?: () => void;
   onRedeem?: () => void;
+  // The footer's name for it, the form's verb
+  redeemLabel?: string;
   onActionSuccess?: () => void;
 }) {
   const intl = useIntl();
@@ -139,7 +142,8 @@ function PortfolioRow({
             variant="secondary"
             onPress={onRedeem}
           >
-            {intl.formatMessage({ id: ETranslations.earn_redeem })}
+            {redeemLabel ??
+              intl.formatMessage({ id: ETranslations.earn_redeem })}
           </Button>
         ) : null}
       </XStack>
@@ -383,6 +387,7 @@ export function PortfolioTab({
                     ? onRedeem
                     : undefined
                 }
+                redeemLabel={holdingRedeem?.label}
                 onActionSuccess={onActionSuccess}
               />
             ))}

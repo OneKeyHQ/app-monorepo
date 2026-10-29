@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Icon, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
 import type { ILoanLtvTone } from '@onekeyhq/kit/src/views/Earn/pages/EarnLoanRouter/loanLtvBar.types';
 import {
@@ -101,8 +101,12 @@ export function EarnLendingSummary({
   isAmountComing,
   isDimmed = false,
   keepsFiguresWhenEmptied = true,
+  loanMarketLabel,
 }: {
   action?: 'supply' | 'withdraw';
+  // The market's name ("Aave Core"), for the line that says the supply
+  // backs the account's loans there
+  loanMarketLabel?: string;
   // The position's health factor now, from the market: shown until an
   // amount has its own (the answer for an empty amount doesn't carry it)
   currentHealthFactor?: IEarnText;
@@ -318,11 +322,25 @@ export function EarnLendingSummary({
   } else if (isHealthFigure(currentHealthFactor)) {
     healthValue = <BeforeAfter current={withHealthTone(currentHealthFactor)} />;
   }
+  // Supplied as collateral, the money also backs the account's loans here,
+  // which is why its Health Factor moves: said in words, as Earn is read as
+  // saving (demo 10-29)
+  const backsLoans =
+    hasLoans &&
+    confirmation?.canBeCollateral !== false &&
+    confirmation?.usageAsCollateral !== false;
   if (hasLoans) {
     rows.push(
       <EarnFormRow
         key="health-factor"
         label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
+        caption={
+          backsLoans ? (
+            <SizableText size="$bodySm" color="$textSubdued">
+              {EARN_DESKTOP_DEMO_COPY.alsoBacksLoan(loanMarketLabel)}
+            </SizableText>
+          ) : undefined
+        }
         value={healthValue}
         // The same for every amount, so it stays as it is while the factor
         // above it changes

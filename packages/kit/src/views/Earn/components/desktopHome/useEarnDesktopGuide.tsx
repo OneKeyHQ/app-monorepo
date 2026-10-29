@@ -214,7 +214,7 @@ export function useEarnDesktopGuide({
     [isWide, pushGuide, reducedMotion, runGhost],
   );
   // The modal's way out, drawn here: back into the card where it is now,
-  // or in place after a finish (Done, Go to position), with the card
+  // or in place after a finish (Done, My portfolio), with the card
   // scrolled away, or with reduced motion
   useEffect(() => {
     earnGuideStore.setCloseDrawer((leave, shownStep, leaveRendersPage) => {

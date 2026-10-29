@@ -120,6 +120,7 @@ export const WithdrawSection = ({
   onRepayWithCollateralSetupReadyProgressKeyChange,
   offerSwitch,
   isEarnLending,
+  actionLabel,
 }: {
   accountId: string;
   networkId: string;
@@ -139,6 +140,8 @@ export const WithdrawSection = ({
   // The Earn lending details page's form: the withdrawal is of the page's
   // asset alone, in the Earn forms' look
   isEarnLending?: boolean;
+  // The side's verb as its tab names it, for the button
+  actionLabel?: string;
   borrowAction?: 'supply' | 'withdraw' | 'borrow' | 'repay';
   defaultCollateralReserveAddress?: string;
   borrowActionLabel?: string;
@@ -1575,6 +1578,7 @@ export const WithdrawSection = ({
           // The box says what it takes; the action's name is on the tab and
           // the button
           inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
+          actionLabel={actionLabel}
           minAmount={
             Number(protocolInfo?.minUnstakeAmount) > 0
               ? String(protocolInfo?.minUnstakeAmount)

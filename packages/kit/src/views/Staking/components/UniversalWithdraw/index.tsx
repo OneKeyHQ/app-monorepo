@@ -131,6 +131,10 @@ type IUniversalWithdrawProps = {
   balance: string;
   price: string;
 
+  // The side's own verb, as its tab says it (Sell Early, Redeem): the
+  // button says what the entry that opened it said (demo 10-29)
+  actionLabel?: string;
+
   accountId?: string;
   networkId?: string;
 
@@ -461,6 +465,7 @@ export function UniversalWithdraw({
   receiptTokenRate,
   protocolInfo,
   tokenInfo,
+  actionLabel,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
   const navigation = useAppNavigation();
   const handleWithdrawAction = useHandleWithdraw();
@@ -2250,11 +2255,15 @@ export function UniversalWithdraw({
   const shouldResumeEthenaCooldownUnstake =
     isEthenaCooldownWithdrawPath && pendingEthenaCooldownUnstake;
 
-  const withdrawActionLabel = intl.formatMessage({
-    id: isPendleProvider
-      ? ETranslations.global_swap
-      : ETranslations.global_withdraw,
-  });
+  // Pendle's side is a sale or a redemption, named on its tab; never "Swap",
+  // which the row that opened it doesn't say
+  const withdrawActionLabel =
+    (isPendleProvider ? actionLabel : undefined) ??
+    intl.formatMessage({
+      id: isPendleProvider
+        ? ETranslations.global_swap
+        : ETranslations.global_withdraw,
+    });
   const confirmText = useMemo(() => {
     // One press approves, then withdraws by itself once the approval is on
     // chain, so the button names both

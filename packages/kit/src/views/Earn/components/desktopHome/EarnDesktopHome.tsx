@@ -46,6 +46,7 @@ import {
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopRewardPills } from './EarnDesktopRewardPills';
 import { EarnDesktopTiles } from './EarnDesktopTiles';
+import { publishHomeNetWorth } from './earnNetWorthStore';
 import { EarnPhoneHome } from './EarnPhoneHome';
 import { useContentStable } from './useContentStable';
 import { useEarnDesktopFadeIn } from './useEarnDesktopFadeIn';
@@ -56,6 +57,7 @@ import {
 } from './useEarnDesktopHoldData';
 import { useEarnRouterEntries } from './useEarnRouterEntries';
 
+import type { IEarnDesktopCategoryRequest } from './EarnDesktopEarnTab';
 import type { IEarnDesktopOpenRequest } from './earnDesktopHome.utils';
 import type { IUseEarnPortfolioReturn } from '../../hooks/useEarnPortfolio';
 
@@ -424,6 +426,20 @@ export function EarnDesktopHome({
   // for a wallet with nothing to earn on, the offer cards
   const showsHoldings =
     (!hasNoWallet && !hold.isLoaded) || hold.rows.length > 0;
+  // My portfolio's total shows this figure, once it is whole
+  const netWorthAccountKey =
+    activeAccount.account?.indexedAccountId ||
+    activeAccount.indexedAccount?.id ||
+    activeAccount.account?.id ||
+    '';
+  useEffect(() => {
+    if (!isHeroLoading && !hasNoWallet && netWorthAccountKey) {
+      publishHomeNetWorth({
+        accountKey: netWorthAccountKey,
+        value: totalFiatValue,
+      });
+    }
+  }, [hasNoWallet, isHeroLoading, netWorthAccountKey, totalFiatValue]);
   const holdAccountKey = `${activeAccount.account?.id ?? ''}|${
     activeAccount.indexedAccount?.id ?? ''
   }`;
@@ -487,6 +503,15 @@ export function EarnDesktopHome({
   }, []);
   const handleOpenTokens = useCallback(() => {
     setTab('earn');
+    scrollToBrowse();
+  }, [scrollToBrowse]);
+  // The Fixed Income card's title: the Earn tab showing Fixed Income, as
+  // the Trending card's title shows the Earn tab
+  const [categoryRequest, setCategoryRequest] =
+    useState<IEarnDesktopCategoryRequest>();
+  const handleOpenFixedIncome = useCallback(() => {
+    setTab('earn');
+    setCategoryRequest({ category: 'fixedIncome', at: Date.now() });
     scrollToBrowse();
   }, [scrollToBrowse]);
   // The Loans card's title, as the Trending card's opens the Earn tab
@@ -765,7 +790,9 @@ export function EarnDesktopHome({
             lendingOffers={lendingOffers}
             onOpenLoans={handleOpenLoansTab}
             onOpenTokens={handleOpenTokens}
+            onOpenFixedIncome={handleOpenFixedIncome}
             onOpenHoldRow={handleOpenHoldRow}
+            onOpenLoanPair={handleOpenLoanPair}
           />
         </YStack>
         {/* 28 px, plus the room under the "N more" line and over the tab
@@ -786,6 +813,7 @@ export function EarnDesktopHome({
               walletHoldings={wallet.holdings}
               hasWallet={!hasNoWallet}
               openRequest={openRequest}
+              categoryRequest={categoryRequest}
             />
           </YStack>
           {isLoansMounted ? (

@@ -507,6 +507,12 @@ export const StakeSection = ({
           ? payTokenAddressesKey.split(',')
           : [],
         modalHeight: pickerHeight,
+        selectedToken: payToken
+          ? {
+              address: payToken.token.address,
+              isNative: Boolean(payToken.token.isNative),
+            }
+          : undefined,
         onSelect: handlePickPayToken,
       },
     });
@@ -515,6 +521,7 @@ export const StakeSection = ({
     handlePickPayToken,
     navigation,
     networkId,
+    payToken,
     payTokenAddressesKey,
     pickerHeight,
   ]);

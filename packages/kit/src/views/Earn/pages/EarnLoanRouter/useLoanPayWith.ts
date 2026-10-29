@@ -339,6 +339,12 @@ export function useLoanPayWith({
           payTokenAddresses: payTokenAddressesKey
             ? payTokenAddressesKey.split(',')
             : [],
+          selectedToken: payToken
+            ? {
+                address: payToken.token.address,
+                isNative: Boolean(payToken.token.isNative),
+              }
+            : undefined,
           onSelect: (token: ISwapToken) => {
             const item = toPickedPayToken({
               token,
@@ -364,7 +370,7 @@ export function useLoanPayWith({
       navigation,
       networkId,
       pay.heldTokens,
-      payToken?.key,
+      payToken,
       payTokenAddressesKey,
     ],
   );

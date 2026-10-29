@@ -279,11 +279,17 @@ const formatRate = (value: number) => `${value.toFixed(2)}%`;
 
 // Red when the loan costs more than the collateral earns. A gain stays in the
 // text color: in a list of loans, green read as borrowing to earn more
-function NetApyText({ value }: { value: number }) {
+function NetApyText({
+  value,
+  size = '$bodyLgMedium',
+}: {
+  value: number;
+  size?: '$bodyLgMedium' | '$bodyMdMedium';
+}) {
   const rounded = Number(value.toFixed(2));
   const color = rounded < 0 ? '$textCritical' : '$text';
   return (
-    <SizableText size="$bodyLgMedium" color={color} numberOfLines={1}>
+    <SizableText size={size} color={color} numberOfLines={1}>
       {`${rounded > 0 ? '+' : ''}${formatRate(rounded)}`}
     </SizableText>
   );
@@ -492,6 +498,10 @@ function BasicPairRow({
 const PairRow = memo(BasicPairRow);
 // The phone home's Loans section shows the same rows
 export const EarnDesktopLoanPairRow = PairRow;
+// And the wide home's Loans card, the pair and its rate
+export const EarnDesktopLoanPairIcons = PairIcons;
+export const EarnDesktopLoanNetApy = NetApyText;
+export const warmEarnLoanRouter = warmLoanRouter;
 
 const getPairKey = (pair: IEarnDesktopLoanPair) => pair.key;
 

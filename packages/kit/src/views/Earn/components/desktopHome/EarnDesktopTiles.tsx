@@ -1,7 +1,13 @@
 import type { ReactNode } from 'react';
-import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
@@ -15,26 +21,37 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IElement } from '@onekeyhq/components';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
-import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
-import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
 import { EarnNavigation } from '../../earnUtils';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
-import { useNavigateToEarnAsset } from '../../hooks/useNavigateToEarnAsset';
+import { useWarmOffersDeposit } from '../../pages/EarnRouter/useWarmOffersDeposit';
 
+import {
+  EarnDesktopLoanNetApy,
+  EarnDesktopLoanPairIcons,
+  useEarnDesktopLoanPairs,
+  warmEarnLoanRouter,
+} from './EarnDesktopBorrowTab';
 import { ANIMATE_ONLY_BG_COLOR } from './earnDesktopColorEase';
 import {
   EarnDesktopHoldCard,
   EarnDesktopHoldCardSkeleton,
   OfferRate,
 } from './EarnDesktopHoldCard';
-import { buildLoanOffers, buildOfferRows } from './earnDesktopHome.utils';
+import {
+  EARN_DESKTOP_LOAN_LTV,
+  buildOfferRows,
+  collectNetworkOffers,
+  pickLoanPreviewPairs,
+} from './earnDesktopHome.utils';
+import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import {
   EarnDesktopSurfaceProvider,
   SurfaceToken,
@@ -44,9 +61,10 @@ import {
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
+  IEarnDesktopHoldOffer,
   IEarnDesktopHoldRow,
   IEarnDesktopLendingOffer,
-  IEarnDesktopLoanOffer,
+  IEarnDesktopLoanPair,
   IEarnDesktopMarketReserves,
   IEarnDesktopOfferKind,
   IEarnDesktopOfferRow,
@@ -54,9 +72,6 @@ import type {
 
 const ROW_LIMIT = 3;
 const ROW_HEIGHT = 50;
-
-const formatPercent = (value: number | string) =>
-  `${new BigNumber(value).toFixed(2)}%`;
 
 // A second line that repeats the first ("sUSD3" under "sUSD3") says nothing
 const distinctName = (name: string | undefined, symbol: string) =>
@@ -158,10 +173,19 @@ function TileFrame({ children }: { children: ReactNode }) {
   );
 }
 
-function TileHead({ title, onPress }: { title: string; onPress?: () => void }) {
+function TileHead({
+  title,
+  caption,
+  onPress,
+}: {
+  title: string;
+  /** What the rows' rate is, on the right, as the Loans list's header says */
+  caption?: string;
+  onPress?: () => void;
+}) {
   // Subdued until hovered, the way the tabs below brighten
   const [isHovered, setIsHovered] = useState(false);
-  return (
+  const head = (
     <XStack
       ai="center"
       gap="$0.5"
@@ -195,6 +219,17 @@ function TileHead({ title, onPress }: { title: string; onPress?: () => void }) {
       ) : null}
     </XStack>
   );
+  if (!caption) {
+    return head;
+  }
+  return (
+    <XStack ai="center" jc="space-between" gap="$3">
+      {head}
+      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+        {caption}
+      </SizableText>
+    </XStack>
+  );
 }
 
 function TileRow({
@@ -204,6 +239,7 @@ function TileRow({
   right,
   testID,
   onPress,
+  onWarm,
 }: {
   icon: ReactNode;
   primary: ReactNode;
@@ -211,6 +247,8 @@ function TileRow({
   right?: ReactNode;
   testID?: string;
   onPress?: () => void;
+  /** Gets what the row opens ready while the pointer rests on it */
+  onWarm?: () => void;
 }) {
   // Opaque card steps rather than a translucent wash, so the network badges'
   // rings take the row's color as it changes
@@ -241,6 +279,10 @@ function TileRow({
               userSelect: 'none' as const,
               onPress,
               ...handlers,
+              onHoverIn: () => {
+                handlers?.onHoverIn();
+                onWarm?.();
+              },
             }
           : undefined)}
         {...buildKeyboardPressProps(onPress)}
@@ -304,9 +346,11 @@ function TileSkeleton() {
 function NetworkOfferRow({
   row,
   onPress,
+  onWarm,
 }: {
   row: IEarnDesktopOfferRow;
   onPress: () => void;
+  onWarm: () => void;
 }) {
   const [best] = row.offers;
   const symbol = earnUtils.getDisplaySymbol(row.asset);
@@ -317,6 +361,7 @@ function NetworkOfferRow({
     <TileRow
       testID={`earn-desktop-offer-${row.networkId}-${row.asset.symbol}`}
       onPress={onPress}
+      onWarm={onWarm}
       icon={
         <SurfaceToken
           size="md"
@@ -349,81 +394,62 @@ function NetworkOfferRow({
 type IOfferLists = {
   trending: IEarnDesktopOfferRow[];
   fixed: IEarnDesktopOfferRow[];
-  loans: IEarnDesktopLoanOffer[];
+  loans: IEarnDesktopLoanPair[];
 };
 
-// A card is its title over three rows; the rows say the rates
+type IOfferTileActions = {
+  /** The Trending card's title: the Earn tab */
+  onOpenTokens: () => void;
+  /** The Fixed Income card's title: the Earn tab on Fixed Income */
+  onOpenFixedIncome: () => void;
+  /** The Loans card's title: the Loans tab */
+  onOpenLoans: () => void;
+  /** A token row: the Earn window on that token and network */
+  onOpenOfferRow: (row: IEarnDesktopOfferRow) => void;
+  onWarmOfferRow: (row: IEarnDesktopOfferRow) => void;
+  /** A pair row: the Loans window on that pair */
+  onOpenLoanPair: (pair: IEarnDesktopLoanPair) => void;
+};
+
+// A card is its title over three rows; the rows say the rates. Every row
+// opens a window on what it shows, as the holdings' rows do
 function OfferTile({
   kind,
   lists,
-  onOpenTokens,
-  onOpenLoans,
+  actions,
 }: {
   kind: IEarnDesktopOfferKind;
   lists: IOfferLists;
-  onOpenTokens: () => void;
-  /** The Loans card's title opens the Loans tab */
-  onOpenLoans: () => void;
+  actions: IOfferTileActions;
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const accountId = activeAccount.account?.id;
-  const indexedAccountId = activeAccount.indexedAccount?.id;
-  const navigateToAsset = useNavigateToEarnAsset();
   const { trending, fixed, loans } = lists;
 
-  if (kind === 'trending') {
-    if (!trending.length) {
+  if (kind === 'trending' || kind === 'fixedIncome') {
+    const isTrending = kind === 'trending';
+    const rows = isTrending ? trending : fixed;
+    if (!rows.length) {
       return <TileSkeleton />;
     }
     return (
       <TileFrame>
         <TileHead
           title={intl.formatMessage({
-            id: ETranslations.trending_tokens__title,
+            id: isTrending
+              ? ETranslations.trending_tokens__title
+              : ETranslations.earn_fixed_income,
           })}
-          onPress={onOpenTokens}
+          onPress={
+            isTrending ? actions.onOpenTokens : actions.onOpenFixedIncome
+          }
         />
         <YStack mt="$2">
-          {trending.map((row) => (
+          {rows.map((row) => (
             <NetworkOfferRow
               key={row.key}
               row={row}
-              onPress={() =>
-                void navigateToAsset(
-                  row.asset,
-                  EAvailableAssetsTypeEnum.SimpleEarn,
-                )
-              }
-            />
-          ))}
-        </YStack>
-      </TileFrame>
-    );
-  }
-
-  if (kind === 'fixedIncome') {
-    if (!fixed.length) {
-      return <TileSkeleton />;
-    }
-    return (
-      <TileFrame>
-        <TileHead
-          title={intl.formatMessage({ id: ETranslations.earn_fixed_income })}
-          onPress={() => EarnNavigation.pushToEarnFixedRateTokens(navigation)}
-        />
-        <YStack mt="$2">
-          {fixed.map((row) => (
-            <NetworkOfferRow
-              key={row.key}
-              row={row}
-              onPress={() =>
-                void navigateToAsset(
-                  row.asset,
-                  EAvailableAssetsTypeEnum.FixedRate,
-                )
-              }
+              onPress={() => actions.onOpenOfferRow(row)}
+              onWarm={() => actions.onWarmOfferRow(row)}
             />
           ))}
         </YStack>
@@ -439,40 +465,43 @@ function OfferTile({
       <TileFrame>
         <TileHead
           title={intl.formatMessage({ id: ETranslations.earn_loans__action })}
-          onPress={onOpenLoans}
+          caption={EARN_DESKTOP_DEMO_COPY.loanNetApyHeader(
+            `${EARN_DESKTOP_LOAN_LTV * 100}%`,
+          )}
+          onPress={actions.onOpenLoans}
         />
         <YStack mt="$2">
-          {loans.map((offer) => (
+          {loans.map((pair) => (
             <TileRow
-              key={`${buildBorrowMarketKey(offer.market)}-${offer.reserveAddress}`}
-              testID={`earn-desktop-loan-${offer.market.networkId}-${offer.symbol}`}
-              // A row's rate is what supplying pays: it opens the asset's
-              // supply page, as the Earn table's row for the market does
-              onPress={() =>
-                EarnNavigation.pushToEarnLendingDetails(navigation, {
-                  networkId: offer.market.networkId,
-                  provider: offer.market.provider,
-                  marketAddress: offer.market.marketAddress,
-                  reserveAddress: offer.reserveAddress,
-                  symbol: offer.symbol,
-                  logoURI: offer.logoURI,
-                  accountId,
-                  indexedAccountId,
-                })
+              key={pair.key}
+              testID={`earn-desktop-loan-card-${pair.key}`}
+              onPress={() => actions.onOpenLoanPair(pair)}
+              onWarm={warmEarnLoanRouter}
+              icon={<EarnDesktopLoanPairIcons pair={pair} />}
+              primary={
+                <RowText>{`${pair.collateral.symbol} / ${pair.borrow.symbol}`}</RowText>
               }
-              icon={
-                <SurfaceToken
-                  size="md"
-                  tokenImageUri={offer.logoURI}
-                  networkId={offer.market.networkId}
-                />
+              secondary={
+                <XStack ai="center" gap="$1" minWidth={0}>
+                  <NetworkAvatar
+                    networkId={pair.market.networkId}
+                    size="$3.5"
+                  />
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    flexShrink={1}
+                  >
+                    {pair.marketLabel}
+                  </SizableText>
+                </XStack>
               }
-              primary={<RowText>{offer.symbol}</RowText>}
-              secondary={<RowText subdued>{offer.marketLabel}</RowText>}
               right={
-                <SizableText size="$bodyMdMedium">
-                  {formatPercent(offer.apy)}
-                </SizableText>
+                <EarnDesktopLoanNetApy
+                  value={pair.netApy}
+                  size="$bodyMdMedium"
+                />
               }
             />
           ))}
@@ -509,7 +538,9 @@ function BasicEarnDesktopTiles({
   lendingOffers,
   onOpenLoans,
   onOpenTokens,
+  onOpenFixedIncome,
   onOpenHoldRow,
+  onOpenLoanPair,
 }: {
   holdRows: IEarnDesktopHoldRow[];
   networkNames: Map<string, string>;
@@ -524,9 +555,13 @@ function BasicEarnDesktopTiles({
   lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
   onOpenLoans: () => void;
   onOpenTokens: () => void;
+  onOpenFixedIncome: () => void;
   onOpenHoldRow: (row: IEarnDesktopHoldRow) => void;
+  onOpenLoanPair: (pair: IEarnDesktopLoanPair) => void;
 }) {
   const media = useMedia();
+  const navigation = useAppNavigation();
+  const warmDeposit = useWarmOffersDeposit();
   // Every protocol's rate and TVL in one list, the one the Earn table reads.
   // Trending and Fixed Income wait for it: without it their rows would be
   // the lending rates alone, in no order
@@ -541,8 +576,12 @@ function BasicEarnDesktopTiles({
     );
     return bySymbol;
   }, [providers]);
+  // The Loans card: the Loans list's first pairs, as the phone's section
+  const { pairs: loanPairs, isStableListIn } = useEarnDesktopLoanPairs(markets);
   const offerLists = useMemo<IOfferLists>(() => {
-    const loans = buildLoanOffers(markets, ROW_LIMIT);
+    const loans = isStableListIn
+      ? pickLoanPreviewPairs(loanPairs, ROW_LIMIT)
+      : [];
     if (!protocolsBySymbol.size) {
       return { trending: [], fixed: [], loans };
     }
@@ -568,11 +607,60 @@ function BasicEarnDesktopTiles({
     };
   }, [
     fixedRateAssets,
+    isStableListIn,
     lendingOffers,
-    markets,
+    loanPairs,
     protocolsBySymbol,
     trendingAssets,
   ]);
+
+  // Every offer for a row's token on its network, of either kind: the
+  // window lists them all and opens on the one the row shows
+  const allOffersOf = useCallback(
+    (row: IEarnDesktopOfferRow): IEarnDesktopHoldOffer[] => {
+      const symbolKey = row.asset.symbol.toLowerCase();
+      return collectNetworkOffers({
+        networkId: row.networkId,
+        protocols: (protocolsBySymbol.get(symbolKey) ?? []).filter(
+          (item) =>
+            item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly,
+        ),
+        lendingOffers: lendingOffers.get(symbolKey) ?? [],
+      });
+    },
+    [lendingOffers, protocolsBySymbol],
+  );
+  const actions = useMemo<IOfferTileActions>(
+    () => ({
+      onOpenTokens,
+      onOpenFixedIncome,
+      onOpenLoans,
+      onOpenLoanPair,
+      onOpenOfferRow: (row) =>
+        EarnNavigation.pushToEarnOffersDeposit(navigation, {
+          symbol: row.asset.symbol,
+          networkId: row.networkId,
+          logoURI: row.asset.logoURI,
+          offerKey: row.offers[0]?.key,
+          wide: allOffersOf(row).length > 1,
+        }),
+      onWarmOfferRow: (row) =>
+        warmDeposit({
+          symbol: row.asset.symbol,
+          networkId: row.networkId,
+          offers: allOffersOf(row),
+        }),
+    }),
+    [
+      allOffersOf,
+      navigation,
+      onOpenFixedIncome,
+      onOpenLoanPair,
+      onOpenLoans,
+      onOpenTokens,
+      warmDeposit,
+    ],
+  );
 
   if (isLoading) {
     return (
@@ -607,19 +695,14 @@ function BasicEarnDesktopTiles({
       );
     }
     if (kind === 'borrow') {
-      return !offerLists.loans.length && isMarketsLoaded;
+      return !offerLists.loans.length && isMarketsLoaded && isStableListIn;
     }
     return true;
   };
   const tiles = OFFER_KINDS.filter((kind) => !isOfferUnavailable(kind)).map(
     (kind) => (
       <TileSlot key={kind}>
-        <OfferTile
-          kind={kind}
-          lists={offerLists}
-          onOpenTokens={onOpenTokens}
-          onOpenLoans={onOpenLoans}
-        />
+        <OfferTile kind={kind} lists={offerLists} actions={actions} />
       </TileSlot>
     ),
   );

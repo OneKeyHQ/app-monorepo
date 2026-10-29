@@ -748,7 +748,7 @@ function EarnGuidePage() {
     footer = (
       <Page.Footer
         key="done"
-        onConfirmText={copy.guideGoToPosition}
+        onConfirmText={copy.guideGoToPortfolio}
         onConfirm={() => handleFinish(true)}
         buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
         confirmButtonProps={{

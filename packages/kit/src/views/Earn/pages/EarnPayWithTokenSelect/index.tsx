@@ -17,6 +17,7 @@ import {
   Alert,
   Divider,
   Empty,
+  Icon,
   ListView,
   Page,
   SizableText,
@@ -64,6 +65,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import {
   EARN_PAY_WITH_PICKER_SIZE,
   buildPayWithPickerHeldDeFiKey,
@@ -184,8 +186,14 @@ function EarnPayWithTokenSelectPage() {
     IModalStakingParamList,
     EModalStakingRoutes.EarnPayWithTokenSelect
   >();
-  const { accountId, networkId, payTokenAddresses, modalHeight, onSelect } =
-    route.params;
+  const {
+    accountId,
+    networkId,
+    payTokenAddresses,
+    modalHeight,
+    selectedToken,
+    onSelect,
+  } = route.params;
   const { gtMd, md } = useMedia();
   const { bottom } = useSafeAreaInsets();
   const { copyText, getClipboard } = useClipboard();
@@ -612,6 +620,16 @@ function EarnPayWithTokenSelectPage() {
       const contractAddressDisplay = md
         ? accountUtils.shortenAddress({ address: raw.contractAddress })
         : raw.contractAddress;
+      // The token paying now: the row lit and checked, as the Deposit
+      // picker marks its pick
+      const isSelected = Boolean(
+        selectedToken &&
+        (selectedToken.isNative
+          ? raw.isNative
+          : !raw.isNative &&
+            raw.contractAddress?.toLowerCase() ===
+              selectedToken.address.toLowerCase()),
+      );
       const tokenItem: ITokenListItemProps = {
         isSearch: Boolean(keyword),
         tokenImageSrc: raw.logoURI,
@@ -664,8 +682,21 @@ function EarnPayWithTokenSelectPage() {
           <TokenListItem
             {...tokenItem}
             {...(useDesktopTokenSelector ? { mx: '$4', px: '$1' } : {})}
+            {...(isSelected ? { bg: '$bgHover' } : undefined)}
+            aria-selected={isSelected}
             moreComponent={
-              <Stack alignSelf="center">
+              <XStack alignSelf="center" ai="center" gap="$1">
+                {/* Its place kept on every row, so the figures line up */}
+                {isSelected ? (
+                  <Icon
+                    name="CheckLargeOutline"
+                    size="$5"
+                    color="$iconSuccess"
+                    flexShrink={0}
+                  />
+                ) : (
+                  <Stack w="$5" h="$5" flexShrink={0} />
+                )}
                 <ActionList
                   title={tokenItem.tokenSymbol ?? ''}
                   disabled={raw.isNative}
@@ -706,7 +737,7 @@ function EarnPayWithTokenSelectPage() {
                     },
                   ]}
                 />
-              </Stack>
+              </XStack>
             }
           />
         </PickerRow>
@@ -720,6 +751,7 @@ function EarnPayWithTokenSelectPage() {
       keyword,
       md,
       searchTitle,
+      selectedToken,
       settingsPersist.currencyInfo.symbol,
       useDesktopTokenSelector,
     ],
@@ -747,7 +779,8 @@ function EarnPayWithTokenSelectPage() {
   return (
     <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.token_selector_title })}
+        // Named for what it picks, as the Deposit picker is (demo 10-29)
+        title={EARN_DESKTOP_DEMO_COPY.payWith}
         // Swap's token column alone: the app's usual modal width. Over a
         // taller modal, its height (as on the route)
         modalContentMaxWidth={

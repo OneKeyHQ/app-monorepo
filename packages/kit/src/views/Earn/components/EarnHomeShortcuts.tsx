@@ -87,7 +87,13 @@ export function EarnHomeShortcuts({
       )}
       <EarnHomeShortcut
         icon="HandCoinsOutline"
-        label={intl.formatMessage({ id: ETranslations.earn_loans__action })}
+        // Beside Earn it is the other thing to do, Borrow: the window it
+        // opens borrows. "Loans" stays the list's name (demo 10-29)
+        label={intl.formatMessage({
+          id: onOpenEarn
+            ? ETranslations.global_borrow
+            : ETranslations.earn_loans__action,
+        })}
         testID={EarnTestIDs.borrowEntryButton}
         onPress={onOpenLoans}
       />

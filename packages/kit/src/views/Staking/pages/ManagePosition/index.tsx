@@ -373,8 +373,10 @@ const ManagePositionPage = () => {
       screen: EModalStakingRoutes.EarnRouterAssetSelect,
       params: {
         purpose: 'earn',
-        // Not the window's own title: the selector opens over it
-        title: intl.formatMessage({ id: ETranslations.token_selector_title }),
+        // Named for what it picks, the token to deposit, as the Loans
+        // window's pickers are ("Collateral", "Borrow"); Pay with's own is
+        // "Pay with" (demo 10-29)
+        title: intl.formatMessage({ id: ETranslations.earn_deposit }),
         tokens: networkAssets.tokens,
         selected: assetPick,
         networkId: selectedProtocol.networkId,

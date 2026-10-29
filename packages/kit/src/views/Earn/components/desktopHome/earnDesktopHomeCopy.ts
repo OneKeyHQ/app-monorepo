@@ -9,8 +9,7 @@ export const EARN_DESKTOP_DEMO_COPY = {
   intro: 'Intro',
   aYear: 'a year',
   more: (count: number) => `${count} more`,
-  // Pay with, and the swap-then-deposit path. The real deposit form takes
-  // "Est. annual rewards" from the server
+  // Pay with, and the swap-then-deposit path
   payWith: 'Pay with',
   // Under the Pay with box: about what the swap brings in, in the button's
   // word (Supply on a lending market)
@@ -20,7 +19,12 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // A lending form's one press that approves, then supplies or repays, named
   // as the vaults' "Approve and Deposit" is
   approveAnd: (action: string) => `Approve and ${action}`,
-  estAnnualRewards: 'Est. annual rewards',
+  // The interest an amount earns in a year, named as "Est. 24h earnings" is:
+  // "rewards" are what is claimed
+  estAnnualRewards: 'Est. annual earnings',
+  // Under a lending form's Health Factor: a supply that is collateral
+  alsoBacksLoan: (market?: string) =>
+    market ? `Also backs your ${market} loan` : 'Also backs your loan',
   // Pendle's result before its first quote, in the server's own words for
   // it once the quote is in
   atMaturityYouGet: 'At Maturity You Get',
@@ -65,9 +69,11 @@ export const EARN_DESKTOP_DEMO_COPY = {
     'Add ETH for network fees',
     'Choose a vault',
     'Deposit USDC',
-    'View your position',
+    'See it in My portfolio',
   ],
-  guideActions: ['Add ETH', 'Choose vault', 'Deposit', 'View position'],
+  // The step names the card's button and the modal's steps show: the card's
+  // rows, shortened only where a row is a sentence
+  guideActions: ['Add ETH', 'Choose a vault', 'Deposit', 'My portfolio'],
   guideGasTitle: 'Add ETH on Base',
   guideGasBody: (amount: string) =>
     `Network fees are paid in ETH, not USDC. Add about ${amount} ETH, enough for this deposit and a later withdrawal.`,
@@ -80,11 +86,10 @@ export const EARN_DESKTOP_DEMO_COPY = {
   guideUseVault: 'Use this vault',
   guideDepositTitle: 'Deposit USDC',
   guideWithdrawNote:
-    "Withdraw anytime from your position: your USDC and what it earned come back to this wallet, unless the vault's funds are all lent out at that moment.",
+    "Withdraw anytime from My portfolio: your USDC and what it earned come back to this wallet, unless the vault's funds are all lent out at that moment.",
   guideDoneTitle: "You're earning",
-  guideDoneBody:
-    'Your deposit is on the positions page, with Redeem on its row.',
-  guideGoToPosition: 'Go to position',
+  guideDoneBody: 'Your deposit is in My portfolio, with Withdraw on its row.',
+  guideGoToPortfolio: 'My portfolio',
   // The Loans router: a collateral and a loan, and the markets that take them
   supplyAndBorrow: 'Supply and Borrow',
   // Paid with another token: the swap that brings the collateral first

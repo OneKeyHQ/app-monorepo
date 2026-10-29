@@ -16,6 +16,7 @@ import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolVal
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IEarnPortfolioPosition,
@@ -148,9 +149,9 @@ export function PositionPnlLine({
 }
 
 /**
- * The holding's Redeem, or Sell early for a Pendle PT before maturity, as
- * the detail page's footer reads; the manage page sells the PT on its
- * withdraw tab. Off, not gone, when the server says the page's own Redeem
+ * The holding's way out, named as the form it opens names it: Withdraw, or
+ * for a Pendle PT Sell early before maturity and Redeem after (demo 10-29);
+ * the manage page sells the PT on its withdraw tab. Off, not gone, when the server says the page's own Redeem
  * would be (withdrawals switched off, nothing withdrawable), as the page
  * keeps it. The phone card and the wide layout's holding share it.
  */
@@ -165,12 +166,17 @@ export function useHoldingRedeem(
     return undefined;
   }
   const byOrder = Boolean(source.earn.redeem?.byOrder);
+  const isPendle = earnUtils.isPendleProvider({
+    providerName: source.earn.manage.provider,
+  });
+  let labelId = ETranslations.global_withdraw;
+  if (isPendle) {
+    labelId = sellsEarly(source)
+      ? ETranslations.defi_sell_early
+      : ETranslations.earn_redeem;
+  }
   return {
-    label: intl.formatMessage({
-      id: sellsEarly(source)
-        ? ETranslations.defi_sell_early
-        : ETranslations.earn_redeem,
-    }),
+    label: intl.formatMessage({ id: labelId }),
     disabled: source.earn.redeem?.disabled,
     onPress: () => onRedeem(source.earn.manage, { byOrder }),
     // An order-picking withdrawal opens its own list, not the form, and a

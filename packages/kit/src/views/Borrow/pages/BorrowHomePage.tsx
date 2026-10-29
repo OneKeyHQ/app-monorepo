@@ -126,14 +126,14 @@ function BorrowHomePageContent() {
   return (
     <Page>
       <Page.Header
-        // Reached from Loans on web (the Loans tab, the cards of the
-        // account's loans, the Loans window), the page says so; the market
-        // picker under it names the market (demo 10-29)
-        title={intl.formatMessage({
-          id: platformEnv.isNative
-            ? ETranslations.global_borrow
-            : ETranslations.earn_loans__action,
-        })}
+        // On web the market picker under the header is the page's name: one
+        // market's supply and loans. "Loans" names the list of pairs only
+        // (demo 10-29)
+        title={
+          platformEnv.isNative
+            ? intl.formatMessage({ id: ETranslations.global_borrow })
+            : ''
+        }
         headerRight={showBorrowHistoryAction ? renderHeaderRight : undefined}
       />
       <Page.Body pt={bodyPaddingTop} opacity={isHeaderHeightSettled ? 1 : 0}>

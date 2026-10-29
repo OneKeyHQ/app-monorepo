@@ -50,6 +50,7 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { EarnLendingSummary } from '../../../Borrow/components/ManagePosition/modules/InfoDisplaySection/EarnLendingSummary';
+import { useBorrowMarketLabel } from '../../../Borrow/hooks/useBorrowMarketLabel';
 import { EarnFormFooter } from '../../../Staking/components/EarnFormFooter';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { usePendleTransactionDetails } from '../../../Staking/components/ProtocolDetails/PendleSharedComponents';
@@ -849,6 +850,16 @@ export function EarnRouterSwapDepositForm({
     amount: shownDeposit,
     isDisabled,
   });
+  // A lending market's name, for the line that says the supply backs its
+  // loans
+  const lendingMarketLabel = useBorrowMarketLabel({
+    networkId,
+    marketAddress:
+      summaryRequest?.kind === 'lending'
+        ? summaryRequest.marketAddress
+        : undefined,
+    enabled: summaryRequest?.kind === 'lending',
+  });
   // An answer shows when it is for this amount's estimate, or is the one on
   // screen (dimmed while the next is worked out). One for an earlier
   // estimate that was never on screen (it came in after the amount
@@ -1337,6 +1348,7 @@ export function EarnRouterSwapDepositForm({
   if (summaryRequest?.kind === 'lending') {
     summary = isDisabled ? null : (
       <EarnLendingSummary
+        loanMarketLabel={lendingMarketLabel}
         amountValue={shownDeposit}
         tokenSymbol={depositToken.symbol}
         price={depositToken.priceUsd}

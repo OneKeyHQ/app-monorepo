@@ -286,9 +286,16 @@ export function buildRewardsOutcome({
   const answerTokens = amountRewards
     .map((reward) => readAmountToken(reward.title.text.trim()))
     .filter((token): token is string => Boolean(token));
+  // The interest an amount earns is "earnings" in Earn, as the home's
+  // "Est. 24h earnings" says: the server's "annual rewards" reads as the
+  // rewards to claim (demo 10-29). Other titles stay the server's
+  const serverLabel = transactionConfirmation?.title?.text?.trim();
   return {
     tokens: offerTokens?.length ? offerTokens : answerTokens,
-    label: transactionConfirmation?.title?.text?.trim() || placeholderLabel,
+    label:
+      serverLabel && !/annual rewards/i.test(serverLabel)
+        ? serverLabel
+        : placeholderLabel,
     tooltip: transactionConfirmation?.tooltip,
     values: withoutValues
       ? []
@@ -713,6 +720,7 @@ export function EarnFormRow({
   tooltip,
   value,
   note,
+  caption,
   isLoading,
   testID,
 }: {
@@ -722,6 +730,9 @@ export function EarnFormRow({
   // A line under the value that doesn't change with the amount (Health
   // Factor's liquidation line): it never dims
   note?: ReactNode;
+  // A line under the label that says what the row is to this form (a
+  // supply that backs a loan, beside its Health Factor)
+  caption?: ReactNode;
   // The value's own answer on its way, where it has one
   isLoading?: boolean;
   testID?: string;
@@ -733,9 +744,17 @@ export function EarnFormRow({
   );
   // Top-aligned, so a value with a second line keeps its first line level
   // with the label
+  const labelBlock = caption ? (
+    <YStack flexShrink={1} gap="$0.5">
+      <RowLabel label={label} tooltip={tooltip} />
+      {caption}
+    </YStack>
+  ) : (
+    <RowLabel label={label} tooltip={tooltip} />
+  );
   return (
     <XStack testID={testID} jc="space-between" ai="flex-start" gap="$3">
-      <RowLabel label={label} tooltip={tooltip} />
+      {labelBlock}
       {note ? (
         <YStack flexShrink={1} ai="flex-end">
           {valueLine}

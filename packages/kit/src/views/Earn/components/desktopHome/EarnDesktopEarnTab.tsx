@@ -99,7 +99,17 @@ import type {
 } from './earnDesktopHome.utils';
 import type { IEarnDesktopSortState } from './EarnDesktopSortLabel';
 
-type ITokenCategory = 'all' | 'stable' | 'nonStable' | 'fixedIncome';
+export type IEarnDesktopTokenCategory =
+  | 'all'
+  | 'stable'
+  | 'nonStable'
+  | 'fixedIncome';
+type ITokenCategory = IEarnDesktopTokenCategory;
+/** A category the home's cards ask the tab to show */
+export type IEarnDesktopCategoryRequest = {
+  category: IEarnDesktopTokenCategory;
+  at: number;
+};
 
 const TOKEN_CATEGORIES: { value: ITokenCategory; labelId: ETranslations }[] = [
   { value: 'all', labelId: ETranslations.global_all },
@@ -1205,6 +1215,7 @@ function BasicEarnDesktopEarnTab({
   walletHoldings,
   hasWallet,
   openRequest,
+  categoryRequest,
 }: {
   trendingAssets: IEarnAvailableAsset[];
   fixedRateAssets: IEarnAvailableAsset[];
@@ -1215,6 +1226,7 @@ function BasicEarnDesktopEarnTab({
   /** False once it's known no wallet is connected */
   hasWallet: boolean;
   openRequest?: IEarnDesktopOpenRequest;
+  categoryRequest?: IEarnDesktopCategoryRequest;
 }) {
   const intl = useIntl();
   const media = useMedia();
@@ -1506,6 +1518,23 @@ function BasicEarnDesktopEarnTab({
         ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
   }, [allRows, openRequest]);
+
+  // A card's title asks for its category: every token of it, the other
+  // filters let go
+  const handledCategoryAtRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (
+      !categoryRequest ||
+      handledCategoryAtRef.current === categoryRequest.at
+    ) {
+      return;
+    }
+    handledCategoryAtRef.current = categoryRequest.at;
+    setCategory(categoryRequest.category);
+    setSearchText('');
+    setSelectedNetworkIds([]);
+    setOpenKey(undefined);
+  }, [categoryRequest]);
 
   const isFiltered = Boolean(
     searchText.trim() || selectedNetworkIds.length || category !== 'all',

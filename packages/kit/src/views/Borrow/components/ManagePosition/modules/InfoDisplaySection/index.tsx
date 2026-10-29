@@ -2,6 +2,7 @@ import { StyleSheet } from 'react-native';
 
 import { Divider, YStack } from '@onekeyhq/components';
 import { useBorrowHealthFactor } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowHealthFactor';
+import { useBorrowMarketLabel } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowMarketLabel';
 
 import { useManagePositionContext } from '../../ManagePositionContext';
 
@@ -199,10 +200,17 @@ export function InfoDisplaySection({
     accountId: state.accountId,
     enabled: state.isEarnForm,
   });
+  // The market's name, for the line that says a supply backs its loans
+  const marketLabel = useBorrowMarketLabel({
+    networkId: state.networkId,
+    marketAddress: state.borrowMarketAddress,
+    enabled: Boolean(state.isEarnForm),
+  });
 
   if (state.isEarnForm) {
     return (
       <EarnLendingSummary
+        loanMarketLabel={marketLabel}
         action={state.action === 'withdraw' ? 'withdraw' : 'supply'}
         currentHealthFactor={healthFactorData?.healthFactor?.text}
         amountValue={state.amountValue}

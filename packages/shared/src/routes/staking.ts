@@ -175,6 +175,9 @@ export type IModalStakingParamList = {
     payTokenAddresses?: string[];
     // Wide windows: over a taller modal (the desktop Earn guide), its height
     modalHeight?: number;
+    // The token paying now, checked in the list as the other pickers check
+    // theirs
+    selectedToken?: { address: string; isNative: boolean };
     // Called with the pick after the picker closes
     onSelect: (token: ISwapToken) => void;
   };

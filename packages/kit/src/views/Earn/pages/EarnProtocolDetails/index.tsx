@@ -181,6 +181,7 @@ const ProtocolHeader = ({
   providerSubtitle,
   yieldSheetData,
   apyFigureSize = '$heading2xl',
+  portfolioProtocol,
 }: {
   symbol: string;
   apyDetail: IStakeEarnDetail['apyDetail'];
@@ -196,6 +197,8 @@ const ProtocolHeader = ({
   yieldSheetData?: IEarnPopupActionIcon['data'];
   // The split figure's size: the phone's, or the wide page's larger one
   apyFigureSize?: ISizableTextProps['size'];
+  // My portfolio opens at this protocol's cards
+  portfolioProtocol?: string;
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -207,9 +210,18 @@ const ProtocolHeader = ({
     }
     // My portfolio is a page of the web Earn stack (demo): it opens on top of
     // this one, so back returns here. The shared push would clear the stack
-    // first, as it does for any page this one doesn't keep under it
-    navigation.push(ETabEarnRoutes.EarnPositions);
-  }, [navigation]);
+    // first, as it does for any page this one doesn't keep under it. It
+    // opens at this protocol's cards, as the home's split does
+    navigation.push(
+      ETabEarnRoutes.EarnPositions,
+      portfolioProtocol
+        ? {
+            focusProtocols: [portfolioProtocol.toLowerCase()],
+            focusAt: Date.now(),
+          }
+        : undefined,
+    );
+  }, [navigation, portfolioProtocol]);
 
   const formattedMaturityDate = useMemo(() => {
     if (maturityText?.text) {
@@ -406,7 +418,7 @@ const ProtocolHeader = ({
           onPress={handleMyPortfolio}
         >
           <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.earn_positions })}
+            {intl.formatMessage({ id: ETranslations.earn_my_portfolio__title })}
           </SizableText>
           <Icon
             size="$bodySmMedium"
@@ -990,6 +1002,7 @@ const DetailsPartComponent = ({
                   maturityText={detailInfo.nums?.maturity}
                   providerSubtitle={providerSubtitle}
                   yieldSheetData={yieldSheetData}
+                  portfolioProtocol={provider}
                 />
                 <ChartSection
                   networkId={networkId}
@@ -1090,6 +1103,7 @@ const DetailsPartComponent = ({
                   onShare={onShare}
                   yieldSheetData={yieldSheetData}
                   apyFigureSize="$heading3xl"
+                  portfolioProtocol={provider}
                 />
                 <ChartSection
                   networkId={networkId}
@@ -1699,13 +1713,15 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     if (!showRedeem) {
       return undefined;
     }
+    // Named as the form it opens names it (demo 10-29)
+    let labelId = ETranslations.global_withdraw;
+    if (isPendle) {
+      labelId = isMatured
+        ? ETranslations.earn_redeem
+        : ETranslations.defi_sell_early;
+    }
     return {
-      label: intl.formatMessage({
-        id:
-          isPendle && !isMatured
-            ? ETranslations.defi_sell_early
-            : ETranslations.earn_redeem,
-      }),
+      label: intl.formatMessage({ id: labelId }),
       // Pendle sends no actions: its Redeem follows the holding's flag from
       // the positions read, the same the card greys on.
       disabled: isPendle

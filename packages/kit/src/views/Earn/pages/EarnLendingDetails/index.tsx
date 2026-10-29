@@ -40,11 +40,8 @@ import {
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import type {
-  ETabEarnRoutes,
-  ITabEarnParamList,
-} from '@onekeyhq/shared/src/routes';
+import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IBorrowApy,
@@ -137,11 +134,14 @@ function LendingHeader({
   logoURI,
   apyDetail,
   onShare,
+  portfolioProtocol,
 }: {
   symbol: string;
   logoURI?: string;
   apyDetail: IBorrowApy;
   onShare?: () => void;
+  // My portfolio opens at this protocol's cards
+  portfolioProtocol?: string;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -150,8 +150,18 @@ function LendingHeader({
       EarnNavigation.pushToEarnPositions(navigation);
       return;
     }
-    void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
-  }, [navigation]);
+    // On top of this page, as a vault page opens it, so back returns here;
+    // at this protocol's cards
+    navigation.push(
+      ETabEarnRoutes.EarnPositions,
+      portfolioProtocol
+        ? {
+            focusProtocols: [portfolioProtocol.toLowerCase()],
+            focusAt: Date.now(),
+          }
+        : undefined,
+    );
+  }, [navigation, portfolioProtocol]);
 
   // As a vault's headline (demo 10-29): the market's own rate in green and
   // what is added to it in its color, where the market sends a breakdown
@@ -238,7 +248,7 @@ function LendingHeader({
           onPress={handleMyPortfolio}
         >
           <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.earn_positions })}
+            {intl.formatMessage({ id: ETranslations.earn_my_portfolio__title })}
           </SizableText>
           <Icon
             size="$bodySmMedium"
@@ -540,6 +550,7 @@ function LendingDetailsPartComponent({
                   logoURI={logoURI}
                   apyDetail={details.supply.apyDetail}
                   onShare={onShare}
+                  portfolioProtocol={provider}
                 />
                 <LendingChart
                   networkId={networkId}

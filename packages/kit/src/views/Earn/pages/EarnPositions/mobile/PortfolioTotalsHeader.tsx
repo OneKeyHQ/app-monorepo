@@ -14,6 +14,7 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { DottedUnderlineText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/DottedUnderline';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IEarnTextTooltip } from '@onekeyhq/shared/types/staking';
 
 import { usePortfolioTableLayout } from './portfolioTableLayout';
@@ -118,8 +119,11 @@ export function PortfolioTotalsHeader({
     <YStack px="$5" pt="$2" pb="$4" gap="$3">
       <XStack gap={isTableLayout ? '$16' : '$4'}>
         <TotalCell
+          // On web the home's name for the same figure (demo 10-29)
           label={intl.formatMessage({
-            id: ETranslations.earn_defi_assets__title,
+            id: platformEnv.isNative
+              ? ETranslations.earn_defi_assets__title
+              : ETranslations.defi_net_worth,
           })}
           value={defiAssetsFiatValue}
           fill={!isTableLayout}
