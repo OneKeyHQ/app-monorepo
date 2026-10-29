@@ -1,3 +1,4 @@
+import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +19,10 @@ const BRANDING_ANIMATION = { enter: { type: 'none' } } as const;
 const NOTCH_THRESHOLD = 44; // Notch devices: insets.top >= 44
 const DYNAMIC_ISLAND_THRESHOLD = 55; // Dynamic Island: insets.top 55-65
 const DYNAMIC_ISLAND_AIR_THRESHOLD = 65; // iPhone 17 Air: insets.top >= 65
+
+// The pill sits beside a top-center notch or Dynamic Island. Foldable iPhones
+// (iPhone Duo) keep their camera in a side strip, so it would float alone.
+const isFoldableIPhone = ReactNativeDeviceUtils.isDualScreenDevice();
 
 const getLogoTop = (insetsTop: number): number => {
   // iPhone 17 Air (insets.top >= 65)
@@ -46,7 +51,12 @@ export function ScreenshotBranding() {
 
   // The fullscreen chart rotates natively before the landscape insets reach
   // JS, so hide when it opens instead of waiting for them.
-  if (!isNotchOrDynamicIsland || isTravelMode || isChartFullscreen) {
+  if (
+    !isNotchOrDynamicIsland ||
+    isFoldableIPhone ||
+    isTravelMode ||
+    isChartFullscreen
+  ) {
     return null;
   }
 
