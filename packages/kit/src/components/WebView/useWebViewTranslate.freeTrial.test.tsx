@@ -2,6 +2,10 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import {
+  OneKeyErrorPrimeUserBanned,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
 import { PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
@@ -115,10 +119,12 @@ async function flush() {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((r) => {
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((r, j) => {
     resolve = r;
+    reject = j;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 function startedSessionIds() {
@@ -133,10 +139,12 @@ async function startSession(
     engine = ETranslateEngine.standard,
     entitlementSource,
     onAITranslateUnavailable,
+    onAccountBanned,
   }: {
     engine?: ETranslateEngine;
     entitlementSource?: 'prime' | 'freeTrial';
     onAITranslateUnavailable?: jest.Mock;
+    onAccountBanned?: jest.Mock;
   } = {},
 ) {
   const { result, unmount } = renderHook(() =>
@@ -148,6 +156,7 @@ async function startSession(
       entitlementSource,
       onFreeTrialUnavailable,
       onAITranslateUnavailable,
+      onAccountBanned,
     }),
   );
   act(() => {
@@ -640,6 +649,132 @@ describe('useWebViewTranslate free-trial stop', () => {
       targetLang: 'zh',
     });
     expect(onFreeTrialUnavailable).not.toHaveBeenCalled();
+  });
+
+  it.each([ETranslateEngine.ai, ETranslateEngine.standard])(
+    'stops %s once on concurrent bans and ignores further DOM messages and navigation',
+    async (engine) => {
+      const onAccountBanned = jest.fn();
+      const pending = deferred<unknown>();
+      mockApiTranslate
+        .mockReturnValueOnce(pending.promise)
+        .mockRejectedValue({ code: '90012' });
+      const { result, sessionId } = await startSession(jest.fn(), {
+        engine,
+        onAccountBanned,
+      });
+      await act(async () => {
+        request(sessionId, 'pending', ['a']);
+        request(sessionId, 'banned', ['b']);
+        await flush();
+      });
+      expect(onAccountBanned).toHaveBeenCalledTimes(1);
+      expect(result.current.translatingRef.current).toBe(false);
+      expect(responses()).toContainEqual(
+        expect.objectContaining({ id: 'banned', abort: true }),
+      );
+      expect(commands()).toEqual(['start', 'restore']);
+      await act(async () => {
+        pending.reject(new OneKeyErrorPrimeUserBanned());
+        request(sessionId, 'later-dom', ['c']);
+        notifyTabNavigation(TAB_ID);
+        notifyTabNavigationEnd(TAB_ID);
+        jest.advanceTimersByTime(1000);
+        await flush();
+      });
+      expect(mockApiTranslate).toHaveBeenCalledTimes(2);
+      expect(onAccountBanned).toHaveBeenCalledTimes(1);
+      expect(commands()).toEqual(['start', 'restore']);
+    },
+  );
+
+  it('does not retry a concurrent transient failure after the session was banned', async () => {
+    const pending = deferred<unknown>();
+    mockApiTranslate
+      .mockReturnValueOnce(pending.promise)
+      .mockRejectedValueOnce({ code: 90_012 });
+    const { sessionId } = await startSession(jest.fn(), {
+      onAccountBanned: jest.fn(),
+    });
+    await act(async () => {
+      request(sessionId, 'network', ['a']);
+      request(sessionId, 'ban', ['b']);
+      await flush();
+      pending.reject(new OneKeyLocalError('network failure'));
+      await flush();
+      jest.advanceTimersByTime(1000);
+      await flush();
+    });
+    expect(mockApiTranslate).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not stop a new session or send a new request for a stale session', async () => {
+    const pending = deferred<unknown>();
+    mockApiTranslate.mockReturnValueOnce(pending.promise);
+    const onAccountBanned = jest.fn();
+    const { result, sessionId } = await startSession(jest.fn(), {
+      onAccountBanned,
+    });
+    act(() => request(sessionId, 'old', ['a']));
+    act(() => {
+      result.current.startTranslate('en');
+      jest.advanceTimersByTime(100);
+    });
+    await act(async () => {
+      request(sessionId, 'old-dom', ['b']);
+      pending.reject({ code: 90_012 });
+      await flush();
+    });
+    expect(mockApiTranslate).toHaveBeenCalledTimes(1);
+    expect(result.current.translatingRef.current).toBe(true);
+    expect(onAccountBanned).not.toHaveBeenCalled();
+    expect(commands()).toEqual(['start', 'restore', 'start']);
+  });
+
+  it('preserves retry and success for an ordinary transient error', async () => {
+    mockApiTranslate
+      .mockRejectedValueOnce(new OneKeyLocalError('temporary failure'))
+      .mockResolvedValueOnce({
+        translations: ['translated'],
+        hasBilledBatch: true,
+      });
+    const { result, sessionId } = await startSession(jest.fn());
+    await act(async () => {
+      request(sessionId, 'retry', ['a']);
+      await flush();
+      jest.advanceTimersByTime(1000);
+      await flush();
+    });
+    expect(mockApiTranslate).toHaveBeenCalledTimes(2);
+    expect(responses()).toContainEqual(
+      expect.objectContaining({ id: 'retry', translations: ['translated'] }),
+    );
+    expect(result.current.translatingRef.current).toBe(true);
+  });
+
+  it('stops desktop translation and ignores queued console messages after a ban', async () => {
+    mockedPlatformEnv.isNative = false;
+    mockedPlatformEnv.isDesktop = true;
+    try {
+      mockApiTranslate.mockRejectedValue(new OneKeyErrorPrimeUserBanned());
+      const onAccountBanned = jest.fn();
+      const { sessionId, result } = await startSession(jest.fn(), {
+        onAccountBanned,
+      });
+      await act(async () => {
+        desktopRequest(sessionId, 'ban', ['a']);
+        await flush();
+        desktopRequest(sessionId, 'queued', ['b']);
+        await flush();
+      });
+      expect(onAccountBanned).toHaveBeenCalledTimes(1);
+      expect(mockApiTranslate).toHaveBeenCalledTimes(1);
+      expect(result.current.translatingRef.current).toBe(false);
+      expect(commands()).toEqual(['start', 'restore']);
+    } finally {
+      mockedPlatformEnv.isNative = true;
+      mockedPlatformEnv.isDesktop = false;
+    }
   });
 
   it('logs the free-trial usage once, and only after a billed batch', async () => {
