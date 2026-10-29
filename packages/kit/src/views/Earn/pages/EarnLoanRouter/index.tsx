@@ -1760,6 +1760,7 @@ function EarnLoanRouterPage() {
           tokens={supplyTokens}
           purpose="loanSupply"
           fallbackLogoURI={collateralLogo}
+          networkLogoURI={networkLogoURI}
           onPress={openCollateralSelect}
         />
       }
@@ -1771,6 +1772,7 @@ function EarnLoanRouterPage() {
           tokens={borrowTokens}
           purpose="loanBorrow"
           fallbackLogoURI={borrowLogo}
+          networkLogoURI={networkLogoURI}
           onPress={openBorrowSelect}
         />
       }
@@ -1839,7 +1841,8 @@ function EarnLoanRouterPage() {
   );
   const form = doneView ?? (
     <YStack gap="$5">
-      {pickRow}
+      {/* Beside the markets it heads both columns instead */}
+      {isBeside ? null : pickRow}
       <YStack gap="$2">
         {collateralBox}
         {/* The loan comes out of the collateral above it */}
@@ -1923,31 +1926,37 @@ function EarnLoanRouterPage() {
             the form's fixed one */}
         <YStack ref={fitModalRef} flex={isBeside ? 1 : undefined}>
           {isBeside && !done ? (
-            // Each column scrolls by itself: the markets move under the
-            // pointer while the form and its button stay
-            <XStack testID="earn-loan-router" flex={1} ai="stretch">
-              <ScrollView
-                flex={1}
-                minWidth={0}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                <EarnFormActionPlacementContext.Provider value="inline">
-                  <YStack px="$5" pt="$2.5" pb="$5">
-                    {form}
+            // The picks head both columns, so the markets start level with
+            // the Supply box. Each column scrolls by itself: the markets move
+            // under the pointer while the form and its button stay
+            <YStack flex={1}>
+              <YStack px="$5" pt="$2.5">
+                {pickRow}
+              </YStack>
+              <XStack testID="earn-loan-router" flex={1} ai="stretch">
+                <ScrollView
+                  flex={1}
+                  minWidth={0}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <EarnFormActionPlacementContext.Provider value="inline">
+                    <YStack px="$5" pt="$5" pb="$5">
+                      {form}
+                    </YStack>
+                  </EarnFormActionPlacementContext.Provider>
+                </ScrollView>
+                <ScrollView
+                  testID="earn-loan-routes-column"
+                  w={EARN_OFFER_ROUTES_COLUMN_WIDTH}
+                  flexShrink={0}
+                >
+                  <YStack pt="$5" pb="$5" pr="$5">
+                    {routeList}
                   </YStack>
-                </EarnFormActionPlacementContext.Provider>
-              </ScrollView>
-              <ScrollView
-                testID="earn-loan-routes-column"
-                w={EARN_OFFER_ROUTES_COLUMN_WIDTH}
-                flexShrink={0}
-              >
-                <YStack pt="$2.5" pb="$5" pr="$5">
-                  {routeList}
-                </YStack>
-              </ScrollView>
-            </XStack>
+                </ScrollView>
+              </XStack>
+            </YStack>
           ) : (
             <YStack testID="earn-loan-router" px="$5" pt="$2.5" pb="$5">
               {form}

@@ -28,10 +28,10 @@ import type {
 export const EARN_OFFERS_MODAL_WIDTH = 920;
 // The offers' column beside the form, its right padding included
 export const EARN_OFFER_ROUTES_COLUMN_WIDTH = 420;
-// The two routers' windows (Earn's offers, Loans' markets) share one fixed
-// height, within 90% of the window: what they hold scrolls inside, so a pick
-// never changes the window's size
-export const EARN_ROUTER_MODAL_HEIGHT = 800;
+// The Earn router's window keeps one height, the app's usual modal one, within
+// 90% of the window: what it holds scrolls inside, so a pick never changes
+// the window's size
+export const EARN_ROUTER_MODAL_HEIGHT = 640;
 
 // ---------- Pay with ----------
 

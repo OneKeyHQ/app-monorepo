@@ -1045,31 +1045,35 @@ export function EarnOffersDeposit({
     </XStack>
   ) : null;
   // The form's place and the offers' column, as they will land, filling the
-  // window's fixed size. Each scrolls by itself: the offers move under the
+  // window's fixed size. The pick heads both, so the offers start level with
+  // the amount box. Each column scrolls by itself: the offers move under the
   // pointer while the form and its button, under it as on Swap, stay
   const besideForm = (form: ReactNode, column: ReactNode) => (
-    <XStack flex={1} ai="stretch">
-      <ScrollView
-        flex={1}
-        minWidth={0}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <EarnFormActionPlacementContext.Provider value="inline">
-          {pickRow}
-          {form}
-        </EarnFormActionPlacementContext.Provider>
-      </ScrollView>
-      <ScrollView
-        testID="earn-offer-routes-column"
-        w={EARN_OFFER_ROUTES_COLUMN_WIDTH}
-        flexShrink={0}
-      >
-        <YStack pt="$2.5" pb="$5" pr="$5">
-          {column}
-        </YStack>
-      </ScrollView>
-    </XStack>
+    <YStack flex={1}>
+      {pickRow}
+      <XStack flex={1} ai="stretch">
+        <ScrollView
+          flex={1}
+          minWidth={0}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <EarnFormActionPlacementContext.Provider value="inline">
+            {form}
+          </EarnFormActionPlacementContext.Provider>
+        </ScrollView>
+        <ScrollView
+          testID="earn-offer-routes-column"
+          w={EARN_OFFER_ROUTES_COLUMN_WIDTH}
+          flexShrink={0}
+        >
+          {/* The form's own top space, so the first offer meets the box */}
+          <YStack pt="$2.5" pb="$5" pr="$5">
+            {column}
+          </YStack>
+        </ScrollView>
+      </XStack>
+    </YStack>
   );
   const withPick = (form: ReactNode) =>
     pickRow ? (

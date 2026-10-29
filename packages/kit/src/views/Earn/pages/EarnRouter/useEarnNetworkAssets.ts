@@ -36,6 +36,7 @@ export type IEarnNetworkAssets = {
   offersBySymbol: Map<string, IEarnDesktopHoldOffer[]>;
   stableSymbols: Set<string>;
   networkName?: string;
+  networkLogoURI?: string;
   isLoaded: boolean;
 };
 
@@ -233,6 +234,7 @@ export function useEarnNetworkAssets({
       offersBySymbol,
       stableSymbols,
       networkName: network?.name,
+      networkLogoURI: network?.logoURI,
       isLoaded: protocols !== NO_PROTOCOLS && isMarketsLoaded,
     };
   }, [

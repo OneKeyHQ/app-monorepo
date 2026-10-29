@@ -28,6 +28,7 @@ export function EarnAssetPickTrigger({
   tokens,
   purpose,
   fallbackLogoURI,
+  networkLogoURI,
   variant = 'title',
   isLeading = true,
   testID = 'earn-asset-pick-trigger',
@@ -39,6 +40,8 @@ export function EarnAssetPickTrigger({
   purpose: IEarnAssetSelectPurpose;
   // The token's logo before the list is in
   fallbackLogoURI?: string;
+  // The pill's token carries its chain, as the amount box's token does
+  networkLogoURI?: string;
   // First in the title: its text starts where a plain title's would
   isLeading?: boolean;
   testID?: string;
@@ -75,7 +78,8 @@ export function EarnAssetPickTrigger({
         ai="center"
         gap="$2"
         h="$10"
-        pl={pick.kind === 'class' ? '$2' : '$2.5'}
+        // The logo sits concentric with the pill's round end
+        pl="$2"
         pr="$3"
         borderRadius="$full"
         borderCurve="continuous"
@@ -100,7 +104,11 @@ export function EarnAssetPickTrigger({
             ringColor={isHovered ? '$bgStrongHover' : '$bgStrong'}
           />
         ) : (
-          <Token size="xs" tokenImageUri={token?.logoURI || fallbackLogoURI} />
+          <Token
+            size="sm"
+            tokenImageUri={token?.logoURI || fallbackLogoURI}
+            networkImageUri={networkLogoURI}
+          />
         )}
         <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
           {label}
