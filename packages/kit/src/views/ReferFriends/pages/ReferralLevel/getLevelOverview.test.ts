@@ -102,6 +102,114 @@ describe('getLevelOverview', () => {
     expect(target.remaining.isZero()).toBe(true);
     expect(target.progressPct).toBe(100);
   });
+
+  it('keeps upgrades available for floor users without a retention warning', () => {
+    const overview = getLevelOverview(
+      {
+        ...detail(2),
+        levelPolicy: 'floor',
+        floorUntil: '2026-10-30T16:00:00.000Z',
+      },
+      Date.parse('2026-10-29T00:00:00.000Z'),
+    );
+
+    expect(overview.levelPolicy).toBe('floor');
+    expect(overview.floorUntil).toBe('2026-10-30T16:00:00.000Z');
+    expect(overview.retentionStatus).toBe('none');
+    expect(overview.nextLevel?.label).toBe('Diamond');
+    expect(overview.upgradeTargets).toHaveLength(2);
+  });
+
+  it('does not offer automatic upgrades or retention for a fixed level', () => {
+    const overview = getLevelOverview({ ...detail(1), levelPolicy: 'fixed' });
+
+    expect(overview.levelPolicy).toBe('fixed');
+    expect(overview.currentLevel?.label).toBe('Silver');
+    expect(overview.nextLevel?.label).toBe('Gold');
+    expect(overview.retentionStatus).toBe('none');
+    expect(overview.upgradeTargets).toEqual([]);
+  });
+
+  it('ends expired floor protection without changing the server-provided level', () => {
+    const data: IInviteLevelDetail = {
+      ...detail(2),
+      levelPolicy: 'floor',
+      floorUntil: '2026-10-30T16:00:00.000Z',
+    };
+    const overview = getLevelOverview(
+      data,
+      Date.parse('2026-10-30T16:00:00.000Z'),
+    );
+
+    expect(overview.levelPolicy).toBe('normal');
+    expect(overview.floorUntil).toBeUndefined();
+    expect(overview.currentLevel).toBe(data.levels[1]);
+    expect(overview.retentionStatus).toBe('kept');
+    expect(overview.upgradeTargets).toHaveLength(2);
+    expect(data.levelPolicy).toBe('floor');
+  });
+
+  it('recognizes a legacy level lock when the policy field is absent', () => {
+    const overview = getLevelOverview({
+      ...detail(1),
+      levelLock: { isLocked: true },
+    });
+
+    expect(overview.levelPolicy).toBe('fixed');
+    expect(overview.upgradeTargets).toEqual([]);
+  });
+
+  it('uses the explicit policy instead of inferring it from the level lock', () => {
+    expect(
+      getLevelOverview({
+        ...detail(1),
+        levelPolicy: 'normal',
+        levelLock: { isLocked: true },
+      }).levelPolicy,
+    ).toBe('normal');
+  });
+
+  it('returns to normal progression when protection is removed', () => {
+    const protectedDetail: IInviteLevelDetail = {
+      ...detail(2),
+      levelPolicy: 'floor',
+    };
+    expect(getLevelOverview(protectedDetail).retentionStatus).toBe('none');
+    expect(
+      getLevelOverview({
+        ...protectedDetail,
+        levelPolicy: 'normal',
+      }).retentionStatus,
+    ).toBe('kept');
+    expect(
+      getLevelOverview({
+        ...protectedDetail,
+        levelPolicy: 'normal',
+        floorUntil: '2026-10-30T16:00:00.000Z',
+      }).floorUntil,
+    ).toBeUndefined();
+  });
+
+  it.each(['normal', 'floor', 'fixed'] as const)(
+    'keeps standard rules unchanged when a plan is added or removed with %s',
+    (levelPolicy) => {
+      const data: IInviteLevelDetail = { ...detail(2), levelPolicy };
+      const before = JSON.stringify(data);
+      const normalRates = getLevelOverview(data);
+      const withPlan = getLevelOverview({
+        ...data,
+        partnerPlan: { planId: 'test-plan' },
+        configs: { HardwareSales: { status: 'ok', rebate: 50, discount: 0 } },
+      });
+
+      expect(withPlan).toEqual(normalRates);
+      expect(withPlan.currentLevel).toBe(data.levels[1]);
+      expect(JSON.stringify(data)).toBe(before);
+      expect(getLevelOverview({ ...data, partnerPlan: null })).toEqual(
+        normalRates,
+      );
+    },
+  );
 });
 
 describe('getLevelCommissionRateItems', () => {

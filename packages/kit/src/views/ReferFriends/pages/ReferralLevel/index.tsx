@@ -22,6 +22,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteLevelDetail } from '@onekeyhq/shared/src/referralCode/type';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -29,7 +30,13 @@ import {
   ReferFriendsLoadError,
   ReferFriendsPageContainer,
 } from '../../components';
+import { PartnerBenefitsBadge } from '../../components/PartnerBenefitsBadge';
 import { ReferFriendsTestIDs } from '../../testIDs';
+import {
+  getInviteValueSummary,
+  selectInviteValueLineItems,
+} from '../InviteReward/components/getInviteValueLine';
+import { RateBreakdown } from '../InviteReward/components/InviteValueLine';
 import {
   INVITE_CARD_BORDER_COLOR,
   useInviteListCardStyle,
@@ -37,12 +44,29 @@ import {
 
 import { LevelListSection } from './components/LevelListSection';
 import { LevelStatusCard } from './components/LevelStatusCard';
-import { getLevelOverview } from './getLevelOverview';
+import { useLevelOverview } from './hooks/useLevelOverview';
 
 function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
   const intl = useIntl();
-  const overview = useMemo(() => getLevelOverview(data), [data]);
+  const overview = useLevelOverview(data);
   const { currentLevel, nextLevel, retentionStatus, upgradeTargets } = overview;
+  const cardStyle = useInviteListCardStyle();
+  const hasPartnerPlan = Boolean(data.partnerPlan);
+  const currentRates = useMemo(
+    () =>
+      getInviteValueSummary(
+        selectInviteValueLineItems({
+          commissionRates: [],
+          configs: Array.isArray(currentLevel?.commissionRates)
+            ? undefined
+            : currentLevel?.commissionRates,
+          effectiveConfigs: data.configs,
+          partnerPlan: data.partnerPlan,
+        }),
+        { includeZeroRates: true },
+      ),
+    [currentLevel?.commissionRates, data.configs, data.partnerPlan],
+  );
 
   return (
     <ScrollView>
@@ -59,14 +83,47 @@ function ReferralLevelContent({ data }: { data: IInviteLevelDetail }) {
               retentionStatus={retentionStatus}
               nextLevel={nextLevel}
               upgradeTargets={upgradeTargets}
+              levelPolicy={overview.levelPolicy}
+              floorUntil={overview.floorUntil}
             />
+          ) : null}
+          {hasPartnerPlan ? (
+            <YStack {...cardStyle}>
+              {currentRates ? (
+                <RateBreakdown
+                  title={intl.formatMessage({
+                    id: ETranslations.referral_current_rates__title,
+                  })}
+                  hasPartnerPlan
+                  rows={currentRates.rows}
+                  youLabel={intl.formatMessage({
+                    id: ETranslations.referral_upgrade_you,
+                  })}
+                  friendLabel={intl.formatMessage({
+                    id: ETranslations.referral_upgrade_user,
+                  })}
+                />
+              ) : (
+                <YStack p="$5" gap="$2" ai="flex-start">
+                  <PartnerBenefitsBadge showInfo />
+                  <SizableText color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.global_not_available,
+                    })}
+                  </SizableText>
+                </YStack>
+              )}
+            </YStack>
           ) : null}
           {/* Every level's conditions and rates; the current level's progress
               is already in the card above, so the list starts collapsed. */}
           <YStack gap="$3" pt="$4">
             <SizableText size="$headingMd">
               {intl.formatMessage({
-                id: ETranslations.referral_all_levels__title,
+                id:
+                  hasPartnerPlan || overview.levelPolicy !== 'normal'
+                    ? ETranslations.referral_standard_levels__title
+                    : ETranslations.referral_all_levels__title,
               })}
             </SizableText>
             <LevelListSection
@@ -169,6 +226,9 @@ function ReferralLevelPage() {
     [],
     {
       watchLoading: true,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      pollingInterval: timerUtils.getTimeDurationMs({ minute: 1 }),
       // A failed request ends in the retry state instead of an endless spinner.
       undefinedResultIfError: true,
     },

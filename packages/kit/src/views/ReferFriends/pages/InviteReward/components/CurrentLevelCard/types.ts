@@ -1,9 +1,9 @@
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 
-export interface ICurrentLevelCardProps {
-  rebateConfig: IInviteSummary['rebateConfig'];
-  rebateLevels: IInviteSummary['rebateLevels'];
-}
+export type ICurrentLevelCardProps = Pick<
+  IInviteSummary,
+  'rebateConfig' | 'rebateLevels' | 'configs' | 'partnerPlan'
+>;
 
 export interface IUseCurrentLevelCardReturn {
   levelLabel: string;
