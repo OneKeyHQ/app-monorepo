@@ -69,16 +69,19 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppRoute', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
-  const state: { assets: unknown[] } = { assets: [] };
+  const state: { assets: unknown[]; isLoading?: boolean } = { assets: [] };
   (
     globalThis as unknown as {
-      __borrowTokenSelectPromiseResultMock: { assets: unknown[] };
+      __borrowTokenSelectPromiseResultMock: {
+        assets: unknown[];
+        isLoading?: boolean;
+      };
     }
   ).__borrowTokenSelectPromiseResultMock = state;
   return {
     usePromiseResult: () => ({
       result: { assets: state.assets },
-      isLoading: false,
+      isLoading: state.isLoading,
     }),
   };
 });
@@ -139,6 +142,7 @@ type ITokenSelectRoute = {
 };
 
 type IListProps = {
+  isLoading: boolean;
   onPressRow: (item: IBorrowAsset) => void;
   columns: {
     label: string;
@@ -170,7 +174,10 @@ const routeMock = (
 ).__borrowTokenSelectRouteMock;
 const promiseResultMock = (
   globalThis as unknown as {
-    __borrowTokenSelectPromiseResultMock: { assets: IBorrowAsset[] };
+    __borrowTokenSelectPromiseResultMock: {
+      assets: IBorrowAsset[];
+      isLoading?: boolean;
+    };
   }
 ).__borrowTokenSelectPromiseResultMock;
 const mediaMock = (
@@ -216,8 +223,25 @@ describe('BorrowTokenSelectModal selection navigation', () => {
     navigationMock.push.mockReset();
     navigationMock.pushModal.mockReset();
     promiseResultMock.assets = [asset];
+    promiseResultMock.isLoading = false;
     mediaMock.gtMd = false;
   });
+
+  it.each(['borrow', 'supply'] as const)(
+    'shows loading before the first uncached %s request and empty after it settles',
+    (action) => {
+      routeMock.current = { params: { ...baseParams, action } };
+      promiseResultMock.assets = [];
+      promiseResultMock.isLoading = undefined;
+
+      const view = render(<BorrowTokenSelectModal />);
+      expect(listMock.current?.isLoading).toBe(true);
+
+      promiseResultMock.isLoading = false;
+      view.rerender(<BorrowTokenSelectModal />);
+      expect(listMock.current?.isLoading).toBe(false);
+    },
+  );
 
   it('immediately pushes Manage Position on the current StakingModal stack', () => {
     routeMock.current = {

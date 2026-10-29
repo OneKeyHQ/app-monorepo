@@ -445,7 +445,7 @@ export default function BorrowTokenSelectModal() {
         ) : (
           <BorrowTableList<IBorrowSelectAsset>
             data={assetsToRender}
-            isLoading={Boolean(isLoading)}
+            isLoading={isLoading ?? initialAssetsList === EMPTY_ASSETS_LIST}
             columns={columns}
             hideEmptyState={foldedAssets.length > 0}
             skeletonCount={6}
