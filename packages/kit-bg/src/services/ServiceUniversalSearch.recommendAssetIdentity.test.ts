@@ -1,6 +1,7 @@
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
+import ServiceMarket from './ServiceMarket';
 import ServiceUniversalSearch from './ServiceUniversalSearch';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -41,15 +42,13 @@ it.each(['failed', 'empty', 'zero-priced'] as const)(
           volume_24h: '0',
         },
       ]);
-    const resolveSearchTokenAssets = jest.fn(
-      async (tokens: IMarketSearchV2Token[]) =>
-        tokens.map((token) =>
-          token.isNative ? { ...token, assetId: 'bitcoin' } : token,
-        ),
-    );
+    const serviceMarket = new ServiceMarket({ backgroundApi: {} });
+    jest
+      .spyOn(serviceMarket, 'fetchTrendingV2')
+      .mockImplementation(fetchTrendingV2);
     const service = new ServiceUniversalSearch({
       backgroundApi: {
-        serviceMarket: { fetchTrendingV2, resolveSearchTokenAssets },
+        serviceMarket,
         serviceMarketV2: {
           fetchMarketBasicConfig: jest.fn(async () => ({
             data: {
@@ -59,6 +58,7 @@ it.each(['failed', 'empty', 'zero-priced'] as const)(
               ],
               searchRecommendTokens: [
                 {
+                  assetId: 'bitcoin',
                   name: 'Bitcoin',
                   symbol: 'BTC',
                   chainId: 'btc',
@@ -101,14 +101,6 @@ it.each(['failed', 'empty', 'zero-priced'] as const)(
     const result = await service.universalSearchRecommend({
       searchTypes: [EUniversalSearchType.V2MarketToken],
     });
-    expect(resolveSearchTokenAssets).toHaveBeenCalledWith([
-      expect.objectContaining({ network: 'btc--0', isNative: true }),
-      expect.objectContaining({
-        network: 'evm--1',
-        address: '0xbtc',
-        isNative: false,
-      }),
-    ]);
     expect(result[EUniversalSearchType.V2MarketToken]?.items).toEqual([
       expect.objectContaining({
         payload: expect.objectContaining({ assetId: 'bitcoin', symbol: 'BTC' }),

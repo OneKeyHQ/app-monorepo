@@ -27,11 +27,14 @@ import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
 import {
   PAGE_THEME_COLOR_SCRIPT,
   applyCachedPageThemeColor,
-  setPageThemeColor,
+  clearPageColors,
+  documentUrlOf,
+  isNewDocumentLoad,
   tryDispatchPageThemeMessage,
 } from '../../utils/pageThemeColor';
 import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
+import { PAGE_DRAWS_UNDER_BROWSER_BAR } from '../MobileBrowser/browserChrome';
 
 import BrowserLoadingBar from './BrowserLoadingBar';
 
@@ -100,13 +103,27 @@ function WebContent({
   // Ask the page for its color (once per URL) so the browser chrome can tint
   // itself to match, like Safari.
   const lastThemeUrlRef = useRef('');
+  // The document last loaded here, ignoring its hash: a different document is
+  // what makes the bottom color stale (see applyCachedPageThemeColor).
+  const lastDocumentUrlRef = useRef('');
 
   const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {
     notifyTabNavigation(id);
-    applyCachedPageThemeColor(id, nativeEvent.url);
+    // A hash change, or Android's same-document history update, reloads
+    // nothing: the document keeps its colors.
+    const isNewDocument = isNewDocumentLoad({
+      url: nativeEvent.url ?? '',
+      previousDocumentUrl: lastDocumentUrlRef.current,
+      loading: nativeEvent.loading,
+      isAndroid: !!platformEnv.isNativeAndroid,
+    });
+    lastDocumentUrlRef.current = documentUrlOf(nativeEvent.url ?? '');
+    applyCachedPageThemeColor(id, nativeEvent.url, isNewDocument);
     // A full load runs the theme script itself (injectedJavaScript); only
     // SPA navigations need it injected again.
-    lastThemeUrlRef.current = nativeEvent.url;
+    // Android also reports SPA changes here without loading a new document.
+    // Keep those URLs pending until requestPageThemeColor re-injects the script.
+    if (isNewDocument) lastThemeUrlRef.current = nativeEvent.url;
 
     if (
       nativeEvent.url !== url &&
@@ -168,6 +185,12 @@ function WebContent({
       });
       // In-page (SPA) navigations don't fire onLoadEnd.
       if (!loading) {
+        // iOS reports pushState/replaceState through the history shim as a
+        // load-finish, so no load-start ever updated the document baseline. Sync
+        // it here, or a later anchor jump on this route compares its URL with
+        // the previous route's and counts as a new document, dropping the bottom
+        // color for good.
+        lastDocumentUrlRef.current = documentUrlOf(navUrl ?? '');
         requestPageThemeColor(navUrl);
       }
     },
@@ -235,7 +258,7 @@ function WebContent({
       if (id !== homeTab.id) {
         delete webviewRefs[id];
       }
-      setPageThemeColor(id, undefined);
+      clearPageColors(id);
     },
     [id],
   );
@@ -249,6 +272,7 @@ function WebContent({
         pullToRefreshEnabled={!platformEnv.isNativeAndroid}
         src={url}
         mediaPermissionWhitelist={fiatPaySiteWhitelist}
+        scrollViewClipsToBounds={!PAGE_DRAWS_UNDER_BROWSER_BAR}
         customReceiveHandler={customReceiveHandler}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {

@@ -13,7 +13,7 @@ const NativeHistoryListWithBrowser = lazy(() =>
 );
 
 export function HomeHistoryListView(props: IHomeHistoryListViewProps) {
-  if (props.plainMode || !props.observeFrozenTop) {
+  if (props.plainMode) {
     const {
       frozenTopEnabled: _enabled,
       frozenTopIdentityKey: _identity,

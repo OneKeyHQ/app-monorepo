@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { ReactNode } from 'react';
 
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
@@ -112,6 +113,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { isAccountSwitchDiagnosticsEnabled } from '@onekeyhq/shared/src/performance/enabled';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalReceiveRoutes,
@@ -150,9 +152,12 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { useHomeNativeRefresh } from '../../hooks/useHomeNativeRefresh';
 import { useTabIsRefreshingFocused } from '../../hooks/useHomeTab';
+import { HomeTestIDs } from '../../testIDs';
 import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { RichBlock } from '../RichBlock/RichBlock';
+import { RichBlockHeader } from '../RichBlock/RichBlockHeader';
 
 import {
   WALLET_ASSET_STATUS_BASIS,
@@ -312,10 +317,22 @@ const TokenListDustSweepAction = memo(function TokenListDustSweepAction({
 function TokenListBlock({
   tableLayout,
   showRecentHistory,
+  nativeListFooter,
+  nativeListSidecar,
+  nativeListSidecarLayout,
 }: {
   tableLayout?: boolean;
   showRecentHistory?: boolean;
+  nativeListFooter?: ReactNode;
+  nativeListSidecar?: ReactNode;
+  nativeListSidecarLayout?: Readonly<{
+    width: number;
+    gap: number;
+    maxContentWidth: number;
+  }>;
 }) {
+  const { refreshing: nativeRefreshing, onRefresh: onNativeRefresh } =
+    useHomeNativeRefresh();
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
   // Outer-route focus: false when user is on Market/Swap (Home tab inactive),
@@ -4141,6 +4158,7 @@ function TokenListBlock({
   const renderContent = useCallback(() => {
     return (
       <TokenListView
+        tokenItemTestIDPrefix={HomeTestIDs.tokenItemTestIDPrefix}
         limit={6}
         plainMode
         withHeader
@@ -4195,11 +4213,30 @@ function TokenListBlock({
             </Stack>
           ) : null
         }
-        listViewStyleProps={{
-          ListHeaderComponentStyle: {
-            pt: '$3',
-          },
-        }}
+        nativeListHeader={
+          platformEnv.isNative ? (
+            <Stack pt="$3">
+              <RichBlockHeader
+                withTitleSeparator
+                title={intl.formatMessage({
+                  id: ETranslations.global_universal_search_tabs_tokens,
+                })}
+                subTitle={renderSubTitle()}
+                headerActions={
+                  <TokenListDustSweepAction showLabel={tableLayout} />
+                }
+                headerContainerProps={{ px: '$pagePadding' }}
+              />
+            </Stack>
+          ) : undefined
+        }
+        nativeListFooter={platformEnv.isNative ? nativeListFooter : undefined}
+        nativeListSidecar={platformEnv.isNative ? nativeListSidecar : undefined}
+        nativeListSidecarLayout={
+          platformEnv.isNative ? nativeListSidecarLayout : undefined
+        }
+        onRefresh={platformEnv.isNative ? onNativeRefresh : undefined}
+        refreshing={platformEnv.isNative ? nativeRefreshing : undefined}
       />
     );
   }, [
@@ -4220,6 +4257,12 @@ function TokenListBlock({
     network?.id,
     network?.isAllNetworks,
     network?.name,
+    nativeListFooter,
+    nativeListSidecar,
+    nativeListSidecarLayout,
+    nativeRefreshing,
+    onNativeRefresh,
+    renderSubTitle,
     scopedLpTokenList,
     scopedLpTokenListMap,
     scopedLpTokenListState,
@@ -4230,17 +4273,21 @@ function TokenListBlock({
     <DustSweepEntryCapabilitiesProvider
       isFocused={Boolean(isFocused && isRouteFocused)}
     >
-      <RichBlock
-        withTitleSeparator
-        title={intl.formatMessage({
-          id: ETranslations.global_universal_search_tabs_tokens,
-        })}
-        subTitle={renderSubTitle()}
-        headerActions={<TokenListDustSweepAction showLabel={tableLayout} />}
-        headerContainerProps={{ px: '$pagePadding' }}
-        content={renderContent()}
-        plainContentContainer
-      />
+      {platformEnv.isNative ? (
+        renderContent()
+      ) : (
+        <RichBlock
+          withTitleSeparator
+          title={intl.formatMessage({
+            id: ETranslations.global_universal_search_tabs_tokens,
+          })}
+          subTitle={renderSubTitle()}
+          headerActions={<TokenListDustSweepAction showLabel={tableLayout} />}
+          headerContainerProps={{ px: '$pagePadding' }}
+          content={renderContent()}
+          plainContentContainer
+        />
+      )}
     </DustSweepEntryCapabilitiesProvider>
   );
 }

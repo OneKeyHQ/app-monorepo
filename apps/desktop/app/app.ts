@@ -23,6 +23,7 @@ import {
   inAppPurchase,
   ipcMain,
   nativeTheme,
+  net,
   powerMonitor,
   session,
   shell,
@@ -52,9 +53,13 @@ import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/d
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import { resolveDesktopCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
+import { fetchBytesWithIdleTimeout } from '@onekeyhq/shared/src/utils/fetchWithIdleTimeout';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
+import type { IFetchStreamRequest } from '@onekeyhq/shared/types/fetchStream';
 
 import {
   checkFileHash,
@@ -1285,6 +1290,80 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     });
   }
 
+  // The renderer's fetch obeys CORS and mixed content; the main process does not.
+  ipcMain.removeHandler(ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST);
+  ipcMain.handle(
+    ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST,
+    async (
+      event,
+      params: { url: string; contentType: string; body: Uint8Array },
+    ) => {
+      // Main window only: dApp webviews share the preload, and this is a POST-anywhere relay.
+      const currentMainWebContentsId =
+        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
+      if (event.sender.id !== currentMainWebContentsId) {
+        return { ok: false, error: 'not allowed' };
+      }
+      try {
+        const { url, contentType, body } = params;
+        // Only http(s): never let the renderer reach file:// etc. through us.
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return {
+            ok: false,
+            error: `unsupported protocol ${parsed.protocol}`,
+          };
+        }
+        // Same limits as FETCH_STREAM: no credentials, no cross-host redirects.
+        if (parsed.username || parsed.password) {
+          return { ok: false, error: 'URL credentials are not supported' };
+        }
+        // Idle timeout only: batches can take minutes. `net.fetch` follows the system proxy;
+        // Node's fetch would bypass it and expose the user's IP.
+        const response = await fetchBytesWithIdleTimeout(
+          url,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': contentType },
+            credentials: 'omit',
+            redirect: 'error',
+            // A zero-length body is a GET-shaped call in Monero's binary API; some proxies reject an empty buffer.
+            body: body.length > 0 ? Buffer.from(body) : undefined,
+          },
+          undefined,
+          (input, init) => net.fetch(String(input), init),
+        );
+        if (!response.ok) {
+          return {
+            ok: false,
+            error: `node answered HTTP ${response.status} ${response.statusText}`,
+          };
+        }
+        return { ok: true, bytes: response.bytes };
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+  );
+
+  const fetchStreamRequest = createFetchStreamHandler((input, init) =>
+    net.fetch(String(input), init),
+  );
+  ipcMain.removeHandler(ipcMessageKeys.FETCH_STREAM);
+  ipcMain.handle(
+    ipcMessageKeys.FETCH_STREAM,
+    async (event, request: IFetchStreamRequest) => {
+      const mainId =
+        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
+      if (event.sender.id !== mainId)
+        return { ok: false, error: 'not allowed' };
+      return fetchStreamRequest(request);
+    },
+  );
+
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_MEMORY_USAGE);
@@ -1550,12 +1629,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     }
   });
 
-  const filter = {
-    urls: [
-      'http://127.0.0.1:21320/*',
-      'http://localhost:21320/*',
-      'https://mainnet.optimism.io/*',
-    ],
+  const filter: Electron.WebRequestFilter = {
+    urls: ['http://*/*', 'https://*/*'],
+    // Only XHR/fetch carry the UA bridge. Keep every destination so Chromium's
+    // original bridge header is also removed after cross-origin redirects.
+    types: ['xhr'],
   };
 
   // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
@@ -1669,19 +1747,30 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     filter,
     (details, callback) => {
       const { url } = details;
+      let requestHeaders = resolveDesktopCustomUAHeaders(
+        url,
+        details.requestHeaders,
+      );
       if (
         url.startsWith('http://127.0.0.1:21320/') ||
         url.startsWith('http://localhost:21320/')
       ) {
         // resolve onekey bridge CORS error
-        details.requestHeaders.Origin = 'https://jssdk.onekey.so';
+        requestHeaders = {
+          ...requestHeaders,
+          Origin: 'https://jssdk.onekey.so',
+        };
       } else if (url.startsWith('https://mainnet.optimism.io/')) {
         // add metamask header to resolve rate-limit
-        details.requestHeaders.Origin =
-          'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn';
+        requestHeaders = {
+          ...requestHeaders,
+          Origin: 'chrome-extension://nkbihfbeogaeaoehlefnkodbefgpgknn',
+        };
       }
 
-      callback({ cancel: false, requestHeaders: details.requestHeaders });
+      callback(
+        requestHeaders === details.requestHeaders ? {} : { requestHeaders },
+      );
     },
   );
 
@@ -2603,8 +2692,9 @@ function startWebviewMemoryMonitoring() {
 // token from app.getName() verbatim, so the actual default UA contains
 // `OneKey Wallet/<electronVer>` (with the space from APP_NAME above) — and
 // some packaging paths can also surface the no-space `OneKeyWallet/` form.
-// Match both, and normalize to the canonical no-space `OneKeyWallet/<APP_VERSION>`
-// that buildCustomUA() emits, so chromium and our X-Onekey-* injection agree.
+// Match both, and normalize to the no-space `OneKeyWallet/<APP_VERSION>` so the
+// Chromium's default UA carries the real app version. OneKey API requests
+// use buildCustomUA()'s `OneKey <platform> <version>` via the request hook.
 // Run synchronously at module load (before `ready` fires) so the very first
 // webContents created in the ready handler already sees the patched UA —
 // `app.userAgentFallback` is readable/writable before `ready`.

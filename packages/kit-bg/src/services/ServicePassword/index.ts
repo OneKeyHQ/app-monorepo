@@ -377,6 +377,9 @@ export default class ServicePassword extends ServiceBase {
       void this.backgroundApi.serviceKeylessWallet
         .tryMigrateLocalExistingKeylessBackendShareToV2()
         .catch(() => undefined);
+      void this.backgroundApi.servicePrivacyChain
+        .runLocalWalletPasswordWork()
+        .catch(() => undefined);
     }
 
     if (!skipBackgroundTasks) {

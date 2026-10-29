@@ -135,6 +135,7 @@ function Button({
   );
 }
 jest.mock('@onekeyhq/components', () => ({
+  rootNavigationRef: { current: undefined },
   createStackNavigator: () => createTestStack(),
   useTheme: () => ({ bgApp: { val: '#fff' }, text: { val: '#000' } }),
   useIsOverlayPage: () => mockOverlay,
@@ -255,6 +256,9 @@ jest.mock('@onekeyhq/shared/src/tabBar/hideTabBarRequests', () => ({
   createHideTabBarOwnerId: (scope: string) => scope,
   requestHideTabBar: jest.fn(),
   releaseHideTabBar: jest.fn(),
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  getRootRoutersLength: () => 1,
 }));
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
 jest.mock('@onekeyhq/kit/src/components/Token/TokenGroup', () => ({
@@ -571,9 +575,11 @@ const success: IResult = {
   receiptUnavailable: false,
 };
 async function completeItem({
+  onBuilding,
   onSigning,
   onBroadcast,
 }: Parameters<typeof executeDustSweepItem>[0]) {
+  onBuilding();
   onSigning();
   onBroadcast('tx');
   return success;
@@ -691,7 +697,8 @@ it.each([true, false])(
 
 it('does not show a title refresh spinner while executing a cached selection', async () => {
   const pending = deferred<IResult>();
-  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+  execute.mockImplementation(async ({ onBuilding, onSigning, onBroadcast }) => {
+    onBuilding();
     onSigning();
     onBroadcast('tx');
     return pending.promise;
@@ -710,7 +717,8 @@ it('keeps the desktop network bar mounted and its expansion independent of sweep
   const pending = deferred<IResult>();
   execute
     .mockImplementation(completeItem)
-    .mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    .mockImplementationOnce(async ({ onBuilding, onSigning, onBroadcast }) => {
+      onBuilding();
       onSigning();
       onBroadcast('tx');
       return pending.promise;
@@ -745,11 +753,14 @@ it.each([false, true])(
   async (native) => {
     mockNative = native;
     const pending = deferred<IResult>();
-    execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
-      onSigning();
-      onBroadcast('tx');
-      return pending.promise;
-    });
+    execute.mockImplementation(
+      async ({ onBuilding, onSigning, onBroadcast }) => {
+        onBuilding();
+        onSigning();
+        onBroadcast('tx');
+        return pending.promise;
+      },
+    );
     mountFlow();
     fireEvent.click(activeButton('Convert twice'));
     expect(flowRoutes()?.map((route) => route.name)).toEqual(
@@ -773,7 +784,8 @@ it.each([false, true])(
   async (native) => {
     mockNative = native;
     const pending = deferred<IResult>();
-    execute.mockImplementation(async ({ onSigning }) => {
+    execute.mockImplementation(async ({ onBuilding, onSigning }) => {
+      onBuilding();
       onSigning();
       return pending.promise;
     });
@@ -820,7 +832,8 @@ it('Again returns to selection in the same provider and a new Convert creates a 
 
 it('preserves an ancestor reset destination after confirmation instead of replacing it with Back', async () => {
   const pending = deferred<IResult>();
-  execute.mockImplementation(async ({ onSigning }) => {
+  execute.mockImplementation(async ({ onBuilding, onSigning }) => {
+    onBuilding();
     onSigning();
     return pending.promise;
   });
@@ -878,7 +891,8 @@ function activeTestId(testID: string) {
 it('keeps the completed mobile result in the live sheet without a Details entry', async () => {
   mockNative = true;
   mockActualResults = true;
-  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+  execute.mockImplementation(async ({ onBuilding, onSigning, onBroadcast }) => {
+    onBuilding();
     onSigning();
     onBroadcast('failed-transaction');
     return { status: 'failed', message: 'Provider rejected this token' };
@@ -900,7 +914,8 @@ it('keeps the completed mobile result in the live sheet without a Details entry'
 it('offers Leave in the mobile live sheet when a submission is unknown', async () => {
   mockNative = true;
   mockActualResults = true;
-  execute.mockImplementation(async ({ onSigning }) => {
+  execute.mockImplementation(async ({ onBuilding, onSigning }) => {
+    onBuilding();
     onSigning();
     throw new DustSweepUnknownSubmission();
   });
@@ -921,7 +936,8 @@ it('offers Leave in the mobile live sheet while Stop waits for a pending item', 
   mockNative = true;
   mockActualResults = true;
   const pending = deferred<IResult>();
-  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+  execute.mockImplementation(async ({ onBuilding, onSigning, onBroadcast }) => {
+    onBuilding();
     onSigning();
     onBroadcast('pending-transaction');
     return pending.promise;
@@ -945,7 +961,8 @@ it('keeps the mobile token list clear of the live sheet it sits under', async ()
   mockActualResults = true;
   mockSafeBottom = 34;
   const pending = deferred<IResult>();
-  execute.mockImplementation(async ({ onSigning }) => {
+  execute.mockImplementation(async ({ onBuilding, onSigning }) => {
+    onBuilding();
     onSigning();
     return pending.promise;
   });
@@ -965,7 +982,8 @@ it('keeps the mobile token list clear of the live sheet it sits under', async ()
 it('keeps pending mobile Details and Done from resetting or restarting the session', async () => {
   mockNative = true;
   mockActualResults = true;
-  execute.mockImplementation(async ({ onSigning }) => {
+  execute.mockImplementation(async ({ onBuilding, onSigning }) => {
+    onBuilding();
     onSigning();
     throw new DustSweepUnknownSubmission();
   });
@@ -1031,7 +1049,8 @@ it('bubbles selection Back through the first modal screen without starting execu
 it('allows Cancel, waits for signing on Leave, then exits the whole native modal', async () => {
   mockNative = true;
   const pending = deferred<IResult>();
-  execute.mockImplementation(async ({ onSigning }) => {
+  execute.mockImplementation(async ({ onBuilding, onSigning }) => {
+    onBuilding();
     onSigning();
     return pending.promise;
   });
@@ -1097,16 +1116,22 @@ it.each([false, true])(
     mockNative = native;
     const first = deferred<IResult>();
     const second = deferred<IResult>();
-    execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-      onSigning();
-      onBroadcast('first');
-      return first.promise;
-    });
-    execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
-      onSigning();
-      onBroadcast('second');
-      return second.promise;
-    });
+    execute.mockImplementationOnce(
+      async ({ onBuilding, onSigning, onBroadcast }) => {
+        onBuilding();
+        onSigning();
+        onBroadcast('first');
+        return first.promise;
+      },
+    );
+    execute.mockImplementationOnce(
+      async ({ onBuilding, onSigning, onBroadcast }) => {
+        onBuilding();
+        onSigning();
+        onBroadcast('second');
+        return second.promise;
+      },
+    );
     mountFlow();
     await act(async () => fireEvent.click(activeButton('Convert twice')));
     fireEvent.click(activeButton('Local back'));

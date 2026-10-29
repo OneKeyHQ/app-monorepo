@@ -161,7 +161,7 @@ export function PerpsTokenListSection({
             initialNumToRender={15}
             maxToRenderPerBatch={20}
             contentContainerStyle={{ paddingBottom: tabBarHeight }}
-            ListEmptyComponent={TableEmptyComponent}
+            ListEmptyComponent={TableEmptyComponent ?? undefined}
           />
         )}
       </Stack>

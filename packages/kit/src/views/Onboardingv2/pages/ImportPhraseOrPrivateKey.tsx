@@ -31,6 +31,7 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2ImportPhraseOrPrivateKeyTab,
 } from '@onekeyhq/shared/src/routes';
+import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -49,9 +50,8 @@ import { OnboardingTestIDs } from '../testIDs';
 import type { IPhaseInputAreaInstance } from '../components/PhaseInputArea';
 import type { RouteProp } from '@react-navigation/core';
 import type {
-  NativeSyntheticEvent,
-  TextInput,
-  TextInputSelectionChangeEventData,
+  TextInputInstance,
+  TextInputSelectionChangeEvent,
 } from 'react-native';
 
 function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
@@ -88,7 +88,7 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
   );
 
   const handleSelectionChange = useCallback(
-    (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
+    (e: TextInputSelectionChangeEvent) => {
       selectionRef.current = e.nativeEvent.selection;
     },
     [],
@@ -185,7 +185,7 @@ function PrivateKeyInput({ value = '', onChangeText }: ITextAreaInputProps) {
 
   return (
     <TextAreaInput
-      ref={inputRef as RefObject<TextInput>}
+      ref={inputRef as RefObject<TextInputInstance>}
       allowPaste
       allowScan
       addOns={eyeToggleAddOn}
@@ -268,6 +268,16 @@ export default function ImportPhraseOrPrivateKey() {
         try {
           const { mnemonic, mnemonicType } =
             await phaseInputAreaRef.current.submit();
+          if (mnemonicType === EMnemonicType.TON) {
+            navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+              mnemonic,
+              mnemonicType,
+              isWalletBackedUp: true,
+            });
+            return;
+          }
+          // The privacy-chain scan-start question is asked later on the token
+          // details page (LocalWalletPoolStatus), not during import.
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             mnemonic,
             mnemonicType,

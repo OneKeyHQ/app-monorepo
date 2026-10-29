@@ -257,6 +257,7 @@ const TradingViewNativeContent = memo(
     enablePreviousClose = false,
     enableNativeChartSettings,
     enableDrawings = false,
+    enableNavigationControls = false,
     prioritizePageScroll = false,
     nativeChartSettingsInToolbar = false,
     mobileToolbarExtra,
@@ -267,6 +268,7 @@ const TradingViewNativeContent = memo(
     nativeControlsFlushHorizontalInset,
     showNativeChartCloseControl,
     showNativeIndicatorQuickBar = false,
+    nativeChartGrowsWithSubIndicators = false,
     isNativeChartFullscreen,
     nativeChartFullscreenHeader,
     isChartSwitchDisabled,
@@ -494,9 +496,13 @@ const TradingViewNativeContent = memo(
           cache: subIndicatorCalculationCache,
           instances: visibleSubIndicatorInstances,
           points: primarySeriesPoints,
+          // Stock feeds send zero volume for bars they have no volume for,
+          // such as after hours. Elsewhere zero can mean nothing traded.
+          zeroVolumeIsMissing: source.kind === 'stock',
         }),
       [
         primarySeriesPoints,
+        source.kind,
         subIndicatorCalculationCache,
         visibleSubIndicatorInstances,
       ],
@@ -1082,6 +1088,9 @@ const TradingViewNativeContent = memo(
             enableNativeChartSettings={enableNativeChartSettings}
             mobileSettingsControl={mobileSettingsControl}
             enablePreviousClose={enablePreviousClose}
+            enableNavigationButtons={
+              enableNavigationControls && !isCompactDisplayMode
+            }
             intervalConfig={intervalConfig}
             activeIndicatorValues={activeIndicatorValues}
             maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
@@ -1114,6 +1123,9 @@ const TradingViewNativeContent = memo(
                 !isCompactDisplayMode &&
                 storageNamespace !== 'swap'
               }
+              enableNavigationControls={
+                enableNavigationControls && !isCompactDisplayMode
+              }
               drawingStorageKey={drawingSourceKey}
               loadDrawingHistory={loadDrawingHistory}
               prioritizePageScroll={
@@ -1139,8 +1151,9 @@ const TradingViewNativeContent = memo(
               initialRightOffset={initialRightOffset}
               isMobileLayout={isMobileControlsLayout}
               resizesWithSubIndicatorPanes={Boolean(
-                showNativeIndicatorQuickBar &&
-                onNativeIndicatorQuickBarChange &&
+                (nativeChartGrowsWithSubIndicators ||
+                  (showNativeIndicatorQuickBar &&
+                    onNativeIndicatorQuickBarChange)) &&
                 !isNativeChartFullscreen,
               )}
               isSwitchingInterval={isSwitchingInterval}

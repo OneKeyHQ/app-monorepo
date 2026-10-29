@@ -299,19 +299,8 @@ export function InformationPanel({
       (mobileDetailKind === 'trending' ||
         (!platformEnv.isNative && mobileDetailKind === 'topCoin')) &&
       securityData ? (
-        <XStack
-          testID="market-detail-security-row"
-          ai="center"
-          gap="$1"
-          bg="$bgStrong"
-          borderRadius="$full"
-          px="$2"
-          py="$1.5"
-        >
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
-          </SizableText>
-          <TokenSecurityAlert />
+        <XStack testID="market-detail-security-row" py="$1">
+          <TokenSecurityAlert variant="badge" />
         </XStack>
       ) : null}
       {isMobileLayout ? null : (

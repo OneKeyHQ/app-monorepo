@@ -36,15 +36,18 @@ export type IDustSweepNetwork = {
   balanceUsd: string;
   denySingleSwapProvider?: string;
 };
-export type IDustSweepItemStatus =
-  | 'waiting'
-  | 'preparing'
-  | 'signing'
-  | 'broadcasted'
-  | 'success'
-  | 'skipped'
-  | 'failed'
-  | 'unknown';
+export enum EDustSweepItemStatus {
+  Waiting = 'waiting',
+  Preparing = 'preparing',
+  Building = 'building',
+  Signing = 'signing',
+  Broadcasted = 'broadcasted',
+  Success = 'success',
+  Skipped = 'skipped',
+  Failed = 'failed',
+  Unknown = 'unknown',
+}
+export type IDustSweepItemStatus = `${EDustSweepItemStatus}`;
 export type IDustSweepItem = {
   token: IDustSweepToken;
   status: IDustSweepItemStatus;

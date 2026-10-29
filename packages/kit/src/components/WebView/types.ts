@@ -55,6 +55,10 @@ export interface IInpageProviderWebViewProps
    * Only works in iOS and Android devices.
    */
   webviewDebuggingEnabled?: boolean;
+  /** @platform ios
+   * @description Recreate the WebView when iOS kills its content process.
+   */
+  recreateOnContentProcessTerminate?: boolean;
   /** @platform native
    * @description Open website in desktop mode or mobile mode
    */
@@ -91,6 +95,12 @@ export interface IInpageProviderWebViewProps
    * @description URL string that specifies the directory WKWebView can read from when loading local file URLs.
    */
   allowingReadAccessToURL?: string;
+  /** @platform ios
+   * @description Let page content draw past the WebView's frame (e.g. under a
+   * floating toolbar); the page is still laid out within the frame.
+   * @default true
+   */
+  scrollViewClipsToBounds?: boolean;
   /** @platform native
    * @description Whitelisted origins that may request camera or microphone access.
    */

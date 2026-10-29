@@ -83,9 +83,67 @@ describe('useMarketDetailDisplayData', () => {
       name: 'Apple Inc.',
       logoUrl: 'https://example.com/aapl.png',
       decimalsResolved: false,
+      logoUrls: ['https://example.com/aapl.png'],
     });
     expect(result.current.isPreviewTokenDetail).toBe(true);
     expect(result.current.isStockToken).toBe(true);
+  });
+
+  it.each([
+    { source: 'preview', networkId: 'btc--0', decimals: 8 },
+    { source: 'cached detail', networkId: 'btc--0', decimals: 8 },
+    { source: 'preview', networkId: 'evm--1', decimals: 18 },
+    { source: 'preview', networkId: 'sol--101', decimals: 9 },
+  ])(
+    'uses native decimals for $networkId before $source metadata refreshes',
+    ({ source, networkId, decimals }) => {
+      mockTokenDetailData.networkId = networkId;
+      mockTokenDetailData.isNative = true;
+      const token = {
+        address: '',
+        networkId,
+        isNative: true,
+        name: 'Native asset',
+        symbol: 'NATIVE',
+        logoUrl: '',
+        decimals: 0,
+      };
+      if (source === 'preview') {
+        mockTokenDetailData.tokenDetailPreview = { ...token, selectedAt: 1 };
+      } else {
+        mockTokenDetailData.tokenDetail = { ...token, decimalsResolved: true };
+      }
+
+      const { result } = renderHook(useMarketDetailDisplayData);
+
+      expect(result.current.tokenDetail).toMatchObject({
+        networkId,
+        decimals,
+        decimalsResolved: true,
+      });
+      expect(result.current.isPreviewTokenDetail).toBe(source === 'preview');
+    },
+  );
+
+  it('keeps zero decimals for a non-native token on a native-capable network', () => {
+    const tokenAddress = '0x0000000000000000000000000000000000000001';
+    mockTokenDetailData.networkId = 'evm--1';
+    mockTokenDetailData.tokenAddress = tokenAddress;
+    mockTokenDetailData.tokenDetail = {
+      address: tokenAddress,
+      networkId: 'evm--1',
+      isNative: false,
+      name: 'Indivisible token',
+      symbol: 'TOKEN',
+      logoUrl: '',
+      decimals: 0,
+      decimalsResolved: true,
+    };
+
+    const { result } = renderHook(useMarketDetailDisplayData);
+
+    expect(result.current.tokenDetail).toBe(mockTokenDetailData.tokenDetail);
+    expect(result.current.tokenDetail?.decimals).toBe(0);
   });
 
   it.each([
@@ -122,7 +180,10 @@ describe('useMarketDetailDisplayData', () => {
       }
 
       const { result } = renderHook(() => useMarketDetailDisplayData());
-      expect(result.current.tokenDetail).toBe(mockTokenDetailData.tokenDetail);
+      expect(result.current.tokenDetail).toEqual({
+        ...mockTokenDetailData.tokenDetail,
+        logoUrls: ['https://example.com/sui.png'],
+      });
       expect(result.current.isPreviewTokenDetail).toBe(false);
     },
   );
@@ -208,6 +269,84 @@ describe('useMarketDetailDisplayData', () => {
     });
     expect(result.current.isPreviewTokenDetail).toBe(true);
   });
+
+  it('keeps the preview image mode after the detail response clears the preview', () => {
+    const address = '0x0000000000000000000000000000000000000001';
+    const logoUrl = 'https://example.com/token.png';
+    mockTokenDetailData.tokenAddress = address;
+    mockTokenDetailData.networkId = 'evm--1';
+    mockTokenDetailData.tokenDetailPreview = {
+      address,
+      networkId: 'evm--1',
+      name: 'Token',
+      symbol: 'TOKEN',
+      decimals: 18,
+      tokenImageUri: logoUrl,
+      price: 1,
+      selectedAt: 1,
+    };
+    const { result, rerender } = renderHook(useMarketDetailDisplayData);
+    expect(result.current.tokenDetail?.logoUrls).toEqual([logoUrl]);
+
+    mockTokenDetailData.tokenDetail = {
+      address,
+      networkId: 'evm--1',
+      name: 'Token',
+      symbol: 'TOKEN',
+      decimals: 18,
+      logoUrl,
+      logoUrls: [logoUrl, 'https://example.com/fallback.png'],
+      price: '2',
+    };
+    mockTokenDetailData.tokenDetailPreview = undefined;
+    rerender();
+    expect(result.current.tokenDetail).toMatchObject({ logoUrl, price: '2' });
+    expect(result.current.tokenDetail?.logoUrls).toEqual([
+      logoUrl,
+      'https://example.com/fallback.png',
+    ]);
+    expect(result.current.isPreviewTokenDetail).toBe(false);
+
+    mockTokenDetailData.tokenDetail = {
+      ...mockTokenDetailData.tokenDetail,
+      price: '3',
+    };
+    rerender();
+    expect(result.current.tokenDetail?.logoUrls).toEqual([
+      logoUrl,
+      'https://example.com/fallback.png',
+    ]);
+    expect(result.current.tokenDetail?.price).toBe('3');
+
+    mockTokenDetailData.tokenDetail = {
+      ...mockTokenDetailData.tokenDetail,
+      logoUrls: undefined,
+    };
+    rerender();
+    expect(result.current.tokenDetail?.logoUrls).toEqual([logoUrl]);
+
+    // Losing the detail must not resurrect preview quotes or trading metadata.
+    mockTokenDetailData.tokenDetail = undefined;
+    rerender();
+    expect(result.current.tokenDetail).toBeUndefined();
+
+    // Switching away also discards the retained image for a later return.
+    mockTokenDetailData.tokenAddress =
+      '0x0000000000000000000000000000000000000002';
+    rerender();
+    mockTokenDetailData.tokenAddress = address;
+    mockTokenDetailData.tokenDetail = {
+      address,
+      networkId: 'evm--1',
+      name: 'Token',
+      symbol: 'TOKEN',
+      decimals: 18,
+      logoUrl,
+      logoUrls: [logoUrl],
+    };
+    rerender();
+    expect(result.current.tokenDetail).toBe(mockTokenDetailData.tokenDetail);
+  });
 });
 
 describe('preserveMarketDetailPreviewImage', () => {
@@ -223,10 +362,7 @@ describe('preserveMarketDetailPreviewImage', () => {
   const tokenDetail: IMarketTokenDetail = {
     ...previewTokenDetail,
     logoUrl: previewTokenDetail.logoUrl,
-    logoUrls: [
-      previewTokenDetail.logoUrl,
-      'https://example.com/detail-fallback.png',
-    ],
+    logoUrls: [previewTokenDetail.logoUrl],
     price: '1.23',
   };
 
@@ -280,6 +416,26 @@ describe('preserveMarketDetailPreviewImage', () => {
       }),
     ).toBe(tokenDetail);
   });
+
+  it.each([undefined, [previewTokenDetail.logoUrl]])(
+    'preserves additional detail fallback sources when preview logoUrls is %p',
+    (logoUrls) => {
+      const fullDetail = {
+        ...tokenDetail,
+        logoUrls: [
+          previewTokenDetail.logoUrl,
+          'https://example.com/detail-fallback.png',
+        ],
+      };
+
+      expect(
+        preserveMarketDetailPreviewImage({
+          previewTokenDetail: { ...previewTokenDetail, logoUrls },
+          tokenDetail: fullDetail,
+        }),
+      ).toBe(fullDetail);
+    },
+  );
 
   it('uses full-detail images when the preview has no image source', () => {
     expect(

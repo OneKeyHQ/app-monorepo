@@ -1,6 +1,13 @@
 import { createIntl, createIntlCache } from 'react-intl';
 
+import { getTxActionTransferInfo } from '@onekeyhq/kit/src/components/TxAction/TxActionTransfer';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enCatalog from '@onekeyhq/shared/src/locale/json/en_US.json';
+import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  buildLocalWalletHistoryAddressGate,
+  gateLocalWalletHistoryTx,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
@@ -8,6 +15,7 @@ import {
   EDecodedTxActionType,
   EDecodedTxStatus,
 } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
 
 import {
   buildHistoryActivityRow,
@@ -15,6 +23,16 @@ import {
 } from './historyActivityRows';
 
 jest.mock('@onekeyhq/kit/src/components/AddressInfo', () => ({}));
+jest.mock('@onekeyhq/shared/src/utils/numberUtils', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/utils/numberUtils')
+  >('@onekeyhq/shared/src/utils/numberUtils');
+  return {
+    __esModule: true,
+    ...actual,
+    numberFormatAsRenderText: jest.fn(actual.numberFormatAsRenderText),
+  };
+});
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({}));
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({}));
 jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({}));
@@ -30,11 +48,20 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {},
 }));
 
+const historyMessages: Record<string, string> = {
+  [ETranslations.private_send_private_option]: 'Private',
+  [ETranslations.privacy_history_pool__title]: '{pool} pool',
+  [ETranslations.privacy_history_shielded__title]: 'Shielded',
+};
 const intl = createIntl(
-  { locale: 'en-US', onError: () => {} },
+  {
+    locale: 'en-US',
+    messages: historyMessages,
+    onError: () => {},
+  },
   createIntlCache(),
 );
-const transfer = (amount: string) => ({
+const transfer = (amount: string): IDecodedTxTransferInfo => ({
   amount,
   tokenIdOnNetwork: 'btc',
   symbol: 'BTC',
@@ -43,6 +70,8 @@ const transfer = (amount: string) => ({
   from: 'a',
   to: 'b',
   price: '2',
+  isNative: true,
+  isNFT: false,
 });
 function history(
   sends: ReturnType<typeof transfer>[],
@@ -77,6 +106,44 @@ const row = (tx: IAccountHistoryTx, tableLayout = true, isUTXO = true) =>
   }).row;
 
 describe('Home native history financial display parity', () => {
+  it.each([false, true])(
+    'keeps multi-asset summaries out of numeric formatting (receive: %s)',
+    (receive) => {
+      const transfers = [
+        { ...transfer('2'), tokenIdOnNetwork: 'usdc', symbol: 'USDC' },
+        { ...transfer('3'), tokenIdOnNetwork: 'eth', symbol: 'ETH' },
+      ];
+      const messages: Record<string, string> = enCatalog;
+      const formatter = jest.mocked(numberFormatAsRenderText).mockClear();
+      try {
+        const result = buildHistoryActivityRow({
+          history: history(receive ? [] : transfers, receive ? transfers : []),
+          tableLayout: false,
+          isUTXO: false,
+          hideValue: false,
+          currency: '$',
+          intl: createIntl({
+            locale: 'en-US',
+            messages,
+            onError: () => {},
+          }),
+        }).row;
+        expect(result.amounts.map((amount) => amount.text)).toEqual([
+          `${receive ? '+' : '-'}2 assets`,
+          'USDC and more',
+        ]);
+        expect(formatter).not.toHaveBeenCalled();
+
+        const numeric = row(history([transfer('7')], []), false, false);
+        expect(numeric.amounts[0].text).toContain('-7 BTC');
+        expect(numeric.amounts[1].text).toContain('$14');
+        expect(formatter).toHaveBeenCalled();
+      } finally {
+        formatter.mockClear();
+      }
+    },
+  );
+
   it.each([true, false])(
     'marks failed and dropped rows in table layout %s',
     (tableLayout) => {
@@ -327,5 +394,350 @@ describe('Home native history financial display parity', () => {
     const tx = history([], []);
     tx.decodedTx.actions = [];
     expect(row(tx).disabled).toBe(true);
+  });
+});
+
+describe('Home history shielded endpoints', () => {
+  const gatedRow = ({
+    localWalletAddresses,
+    ...params
+  }: Parameters<typeof buildHistoryActivityRow>[0] & {
+    localWalletAddresses?: { publicAddress?: string; privateAddress?: string };
+  }) => {
+    const settings = params.localWallet as
+      | (NonNullable<typeof params.localWallet> & {
+          addressForms?: { publicLabel?: string };
+        })
+      | undefined;
+    const gated = settings
+      ? gateLocalWalletHistoryTx(
+          buildLocalWalletHistoryAddressGate({
+            localWallet: {
+              ...settings,
+              addressForms:
+                'addressForms' in settings
+                  ? settings.addressForms
+                  : { publicLabel: 'transparent' },
+            },
+            addresses: localWalletAddresses,
+          }),
+          params.history,
+        )
+      : params.history;
+    return buildHistoryActivityRow({ ...params, history: gated });
+  };
+  const T1 = `t1${'A'.repeat(33)}`;
+  const U1 = `u1${'q'.repeat(90)}`;
+  const localWallet: NonNullable<
+    Parameters<typeof buildHistoryActivityRow>[0]['localWallet']
+  > = {
+    pools: [
+      { id: 0, kind: 'public' as const, label: 'Transparent' },
+      { id: 4, kind: 'private' as const, label: 'Ironwood' },
+    ],
+    hiddenEndpointLabelId: ETranslations.privacy_history_shielded__title,
+    publicAddressPattern: '^t[13][1-9A-HJ-NP-Za-km-z]{33}$',
+    privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
+  };
+  const shieldedRow = ({
+    side,
+    marker,
+    address = '',
+    settings = localWallet,
+    addresses,
+  }: {
+    side: 'from' | 'to';
+    marker?: { poolId?: number; isOwn?: boolean };
+    address?: string;
+    settings?: typeof localWallet;
+    addresses?: { publicAddress?: string; privateAddress?: string };
+  }) => {
+    const entry = {
+      ...transfer('1'),
+      from: side === 'from' ? address : T1,
+      to: side === 'to' ? address : T1,
+      ...(side === 'from' ? { shieldedFrom: marker } : { shieldedTo: marker }),
+    };
+    const tx = history(
+      side === 'to' ? [entry] : [],
+      side === 'from' ? [entry] : [],
+    );
+    return gatedRow({
+      history: tx,
+      tableLayout: false,
+      isUTXO: false,
+      localWallet: settings,
+      localWalletAddresses: addresses,
+      hideValue: false,
+      currency: '$',
+      intl,
+    });
+  };
+
+  it('names a hidden counterparty by pool and never looks it up as an address', () => {
+    const result = shieldedRow({ side: 'from', marker: { poolId: 4 } });
+    expect(result.address).toBe('');
+    expect(result.row.description).toBe('Ironwood pool');
+  });
+
+  it("uses the chain's own name when the counterparty's pool is unknown", () => {
+    expect(shieldedRow({ side: 'to', marker: {} }).row.description).toBe(
+      'Shielded',
+    );
+    expect(
+      shieldedRow({
+        side: 'to',
+        marker: {},
+        settings: {
+          ...localWallet,
+          hiddenEndpointLabelId: ETranslations.private_send_private_option,
+        },
+      }).row.description,
+    ).toBe('Private');
+  });
+
+  it('names our spending side by pool, never filling in the displayed address', () => {
+    const own = { poolId: 4, isOwn: true };
+    const scanning = shieldedRow({
+      side: 'from',
+      marker: own,
+      addresses: { publicAddress: T1, privateAddress: U1 },
+    });
+    expect(scanning.address).toBe('');
+    expect(scanning.row.description).toBe('Ironwood pool');
+    const notScanning = shieldedRow({
+      side: 'from',
+      marker: own,
+      addresses: { publicAddress: T1 },
+    });
+    expect(notScanning.address).toBe('');
+    expect(notScanning.row.description).toBe('Ironwood pool');
+  });
+
+  it('never claims which own address a note reached when the row cannot tell', () => {
+    const result = shieldedRow({
+      side: 'to',
+      marker: { poolId: 4, isOwn: true },
+      addresses: { publicAddress: T1, privateAddress: U1 },
+    });
+    expect(result.address).toBe('');
+    expect(result.row.description).toBe('Ironwood pool');
+  });
+
+  it('shows our transparent address only when it is the displayed one', () => {
+    const own = (addresses: { publicAddress?: string }) => {
+      const tx = history([{ ...transfer('1'), from: T1, to: T1 }], []);
+      tx.decodedTx.owner = T1;
+      return gatedRow({
+        history: tx,
+        tableLayout: false,
+        isUTXO: false,
+        localWallet,
+        localWalletAddresses: addresses,
+        hideValue: false,
+        currency: '$',
+        intl,
+      });
+    };
+    expect(own({ publicAddress: T1 }).address).toBe(T1);
+    const mismatch = own({ publicAddress: `t1${'C'.repeat(33)}` });
+    expect(mismatch.address).toBe('');
+    expect(mismatch.row.description).toBe('Transparent pool');
+  });
+
+  it('names a row whose target is our own change address by pool', () => {
+    const change = `t1${'H'.repeat(33)}`;
+    const tx = history(
+      [{ ...transfer('1'), from: T1, to: '', isOwn: true }],
+      [{ ...transfer('1'), from: '', to: change, isOwn: true }],
+    );
+    tx.decodedTx.owner = T1;
+    const result = gatedRow({
+      history: tx,
+      tableLayout: false,
+      isUTXO: true,
+      localWallet,
+      localWalletAddresses: { publicAddress: T1, privateAddress: U1 },
+      hideValue: false,
+      currency: '$',
+      intl,
+    });
+    expect(result.address).toBe('');
+    expect(result.row.description).toBe('Transparent pool');
+  });
+
+  it("shows another account's t1 as the sender of a transparent receive", () => {
+    const sender = `t1${'S'.repeat(33)}`;
+    const tx = history(
+      [],
+      [{ ...transfer('1'), from: sender, to: T1, isOwn: true }],
+    );
+    tx.decodedTx.owner = T1;
+    tx.decodedTx.payload = {
+      type: EOnChainHistoryTxType.Receive,
+      value: '1',
+      label: '',
+    };
+    const result = gatedRow({
+      history: tx,
+      tableLayout: false,
+      isUTXO: true,
+      localWallet,
+      localWalletAddresses: { publicAddress: T1, privateAddress: U1 },
+      hideValue: false,
+      currency: '$',
+      intl,
+    });
+    expect(result.address).toBe(sender);
+    expect(result.row.description).not.toBe('Shielded');
+  });
+
+  it('shows a transparent multi-address count as text, on BTC as before', () => {
+    const count = intl.formatMessage(
+      { id: ETranslations.global_count_addresses },
+      { count: 2 },
+    );
+    const tx = history(
+      [
+        { ...transfer('1'), from: `t1${'B'.repeat(33)}` },
+        { ...transfer('1'), from: `t1${'C'.repeat(33)}` },
+      ],
+      [{ ...transfer('2'), to: T1, isOwn: true }],
+    );
+    tx.decodedTx.payload = {
+      type: EOnChainHistoryTxType.Receive,
+      value: '2',
+      label: '',
+    };
+    const build = (settings?: typeof localWallet) =>
+      gatedRow({
+        history: tx,
+        tableLayout: false,
+        isUTXO: true,
+        localWallet: settings,
+        localWalletAddresses: { publicAddress: T1 },
+        hideValue: false,
+        currency: '$',
+        intl,
+      });
+    expect(
+      getTxActionTransferInfo({
+        action: tx.decodedTx.actions[0],
+        decodedTx: tx.decodedTx,
+        isUTXO: true,
+        intl,
+      }),
+    ).toMatchObject({ transferTarget: count, transferTargetIsCount: true });
+    const zcash = build(localWallet);
+    expect(zcash.address).toBe('');
+    expect(zcash.row.description).toBe(count);
+    expect(build().address).toBe(count);
+  });
+
+  it('shows the Monero primary address only while Receive shows it', () => {
+    const primary = `4${'A'.repeat(94)}`;
+    const monero = {
+      pools: [{ id: 1, kind: 'private' as const, label: 'Monero' }],
+      hiddenEndpointLabelId: ETranslations.private_send_private_option,
+      publicAddressPattern: '^$',
+      privateAddressPattern: '^[1-9A-HJ-NP-Za-km-z]{95}$',
+      addressForms: {
+        privateLabel: ETranslations.privacy_receive_private_address__title,
+      },
+    };
+    const toSelf = (addresses: {
+      publicAddress?: string;
+      privateAddress?: string;
+    }) => {
+      const tx = history(
+        [{ ...transfer('1'), from: primary, to: primary, isOwn: true }],
+        [],
+      );
+      tx.decodedTx.owner = primary;
+      return gatedRow({
+        history: tx,
+        tableLayout: false,
+        isUTXO: false,
+        localWallet: monero,
+        localWalletAddresses: addresses,
+        hideValue: false,
+        currency: '$',
+        intl,
+      });
+    };
+    expect(
+      toSelf({ publicAddress: primary, privateAddress: primary }).address,
+    ).toBe(primary);
+    const paused = toSelf({ publicAddress: primary });
+    expect(paused.address).toBe('');
+    expect(paused.row.description).toBe('Private');
+  });
+
+  it('shows an exactly known recipient', () => {
+    const result = shieldedRow({ side: 'to', address: U1 });
+    expect(result.address).toBe(U1);
+  });
+
+  it('keeps an ordinary address description unchanged', () => {
+    const tx = history([transfer('1')], []);
+    const plain = gatedRow({
+      history: tx,
+      tableLayout: false,
+      isUTXO: true,
+      hideValue: false,
+      currency: '$',
+      intl,
+    });
+    expect(plain.address).toBe('b');
+    expect(plain.row.description).toBe('b');
+    const zcash = shieldedRow({ side: 'to', address: T1 });
+    expect(zcash.address).toBe(T1);
+  });
+});
+
+describe('Home history local wallet rows match TxActionTransfer', () => {
+  const T1 = `t1${'A'.repeat(33)}`;
+  const U1 = `u1${'q'.repeat(90)}`;
+  const localWallet = {
+    publicAddressPattern: '^t[13][1-9A-HJ-NP-Za-km-z]{33}$',
+  };
+  const build = (
+    tx: IAccountHistoryTx,
+    settings: typeof localWallet | undefined,
+  ) =>
+    buildHistoryActivityRow({
+      history: tx,
+      intl,
+      tableLayout: true,
+      isUTXO: false,
+      hideValue: false,
+      currency: '$',
+      localWallet: settings,
+    });
+  const labelledSend = () => {
+    const tx = history([transfer('1')], []);
+    const assetTransfer = tx.decodedTx.actions[0].assetTransfer;
+    if (assetTransfer) assetTransfer.label = 'Server label';
+    return tx;
+  };
+
+  it('keeps Send for a local-wallet row the server labelled', () => {
+    const send = intl.formatMessage({ id: ETranslations.global_send });
+    expect(build(labelledSend(), localWallet).row.title).toBe(send);
+    expect(build(labelledSend(), undefined).row.title).toBe('Server label');
+  });
+
+  it('shows a private send recipient only when it is a public address', () => {
+    const privateSend = (recipient: string) => {
+      const tx = history([transfer('1')], []);
+      tx.decodedTx.payload = {
+        ...tx.decodedTx.payload,
+        type: EOnChainHistoryTxType.PrivateSend,
+        privateSend: { originalRecipient: recipient },
+      } as typeof tx.decodedTx.payload;
+      return tx;
+    };
+    expect(build(privateSend(T1), localWallet).address).toBe(T1);
+    expect(build(privateSend(U1), localWallet).address).toBe('');
   });
 });

@@ -156,9 +156,10 @@ export default function WebAccountPanelPopoverContent({
         <YStack w="100%">
           <WebAccountPanelHeader title={backLabel} onBack={back} />
           <PerpsActivityCenterContent
-            copyAsUrl
             closePopover={closePopover}
             showTitle={false}
+            menuLayout
+            menuPopoverLayout
           />
         </YStack>
       );

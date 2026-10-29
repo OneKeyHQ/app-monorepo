@@ -108,6 +108,15 @@ const mockPipeline = {
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
+jest.mock('../../hooks/useHomeNativeRefresh', () => ({
+  useHomeNativeRefresh: () => ({
+    refreshing: false,
+    onRefresh: mockNoop,
+    onScrollBeginDrag: mockNoop,
+    onScroll: mockNoop,
+    onScrollEndDrag: mockNoop,
+  }),
+}));
 jest.mock('@onekeyhq/components', () => ({
   Stack: () => null,
   Skeleton: { HeadingLg: () => null },

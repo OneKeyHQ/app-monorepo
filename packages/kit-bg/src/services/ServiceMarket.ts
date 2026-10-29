@@ -38,6 +38,26 @@ import ServiceBase from './ServiceBase';
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
 const SEARCH_ASSET_RESOLUTION_TIMEOUT_MS = 2000;
 
+async function withSearchAssetTimeout<T>(
+  promise: Promise<T>,
+  timeout: number,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new OneKeyLocalError('Market asset lookup timed out')),
+          timeout,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 @backgroundClass()
 class ServiceMarket extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -91,7 +111,10 @@ class ServiceMarket extends ServiceBase {
 
   _fetchMarketAssetIdentityList = memoizee(
     async () => {
-      const assets = await this.fetchMarketAssetList();
+      const assets = await withSearchAssetTimeout(
+        this.fetchMarketAssetList(),
+        SEARCH_ASSET_RESOLUTION_TIMEOUT_MS,
+      );
       return assets.list.map(({ assetId, symbol }) => ({ assetId, symbol }));
     },
     {
@@ -102,11 +125,14 @@ class ServiceMarket extends ServiceBase {
 
   _fetchMarketAssetNativeVariants = memoizee(
     async (assetId: string) => {
-      const detail = await this.fetchMarketAssetDetail({
-        assetId,
-        currency: 'usd',
-        autoHandleError: false,
-      });
+      const detail = await withSearchAssetTimeout(
+        this.fetchMarketAssetDetail({
+          assetId,
+          currency: 'usd',
+          autoHandleError: false,
+        }),
+        SEARCH_ASSET_RESOLUTION_TIMEOUT_MS,
+      );
       return {
         assetId: detail.asset.assetId,
         selectedVariant: detail.selectedVariant,
@@ -127,29 +153,38 @@ class ServiceMarket extends ServiceBase {
       const candidates = assets.filter(
         (asset) => asset.symbol.trim().toUpperCase() === symbol,
       );
+      let resolveMatch: ((assetId: string) => void) | undefined;
+      const matchedAsset = new Promise<string>((resolve) => {
+        resolveMatch = resolve;
+      });
       let failedCandidate: { error: unknown } | undefined;
-      for (const candidate of candidates) {
-        try {
-          const detail = await this._fetchMarketAssetNativeVariants(
-            candidate.assetId,
-          );
-          if (
-            resolveMarketAssetVariant({
-              detail,
-              networkId,
-              tokenAddress: '',
-              isNative: true,
-            })
-          ) {
-            return detail.assetId;
+      // Resolve the first verified match without waiting for stalled peers.
+      const completedCandidates = Promise.all(
+        candidates.map(async (candidate) => {
+          try {
+            const detail = await this._fetchMarketAssetNativeVariants(
+              candidate.assetId,
+            );
+            if (
+              resolveMarketAssetVariant({
+                detail,
+                networkId,
+                tokenAddress: '',
+                isNative: true,
+              })
+            ) {
+              resolveMatch?.(detail.assetId);
+            }
+          } catch (error) {
+            failedCandidate = { error };
           }
-        } catch (error) {
-          failedCandidate = { error };
-        }
-      }
-      // Do not cache a transient lookup failure as an absent native identity.
-      if (failedCandidate) throw failedCandidate.error;
-      return undefined;
+        }),
+      ).then(() => {
+        // Rejected lookups are evicted so a transient failure can be retried.
+        if (failedCandidate) throw failedCandidate.error;
+        return undefined;
+      });
+      return Promise.race([matchedAsset, completedCandidates]);
     },
     {
       promise: true,
@@ -175,7 +210,7 @@ class ServiceMarket extends ServiceBase {
               );
               return assetId ? { ...token, assetId } : token;
             } catch {
-              // Asset metadata must not hide otherwise usable search results.
+              // Optional metadata must not prevent searching or navigation.
               return token;
             }
           },

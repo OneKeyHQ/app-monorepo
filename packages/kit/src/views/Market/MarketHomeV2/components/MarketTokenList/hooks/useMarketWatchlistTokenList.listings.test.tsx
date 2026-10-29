@@ -3,14 +3,19 @@ import type { RefObject } from 'react';
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketListingWatchlistQuote,
   IMarketWatchListItemV2,
 } from '@onekeyhq/shared/types/market';
-import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketPerpsTokenListData,
+  IMarketStockPublicItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   type IMarketWatchlistDataCache,
+  marketWatchlistDataCacheRef,
   useMarketWatchlistTokenList,
 } from './useMarketWatchlistTokenList';
 
@@ -27,7 +32,16 @@ const mockBatch = jest.fn<Promise<{ list: unknown[] }>, unknown[]>(
     list: [],
   }),
 );
+const mockPerps = jest.fn<Promise<IMarketPerpsTokenListData>, []>(async () => ({
+  tokens: [],
+  updatedAt: 0,
+}));
+const mockTokenSearchAliases = jest.fn(async () => ({}));
 const mockNetworks: [] = [];
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false },
+}));
 jest.mock('@onekeyhq/components', () => ({ useCarouselIndex: () => 0 }));
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
   useMarketBasicConfig: () => ({ networkList: mockNetworks }),
@@ -35,7 +49,11 @@ jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceHyperliquid: {
+      getTokenSearchAliases: () => mockTokenSearchAliases(),
+    },
     serviceMarketV2: {
+      fetchMarketPerpsTokenList: () => mockPerps(),
       fetchMarketListingWatchlistQuote: (...args: unknown[]) =>
         mockQuote(...args),
       fetchMarketStockBatch: (params: { stockIds: string[] }) =>
@@ -59,12 +77,20 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
         // before the request resolves. The flag stays false on the render
         // that changed the deps.
         setLoading(true);
-        void methodRef.current().then((value) => {
-          if (active) {
-            setResult(value);
-            setLoading(false);
-          }
-        });
+        void methodRef.current().then(
+          (value) => {
+            if (active) {
+              setResult(value);
+              setLoading(false);
+            }
+          },
+          () => {
+            // A rejected request keeps the previous result and stops loading.
+            if (active) {
+              setLoading(false);
+            }
+          },
+        );
         return () => {
           active = false;
         };
@@ -89,7 +115,132 @@ const stockItem = (
 });
 beforeEach(() => {
   jest.clearAllMocks();
+  platformEnv.isNative = false;
   mockStockBatch.mockResolvedValue([]);
+  mockPerps.mockResolvedValue({ tokens: [], updatedAt: 0 });
+  marketWatchlistDataCacheRef.current = undefined;
+});
+
+it.each([false, true])(
+  'settles failed requests until the watchlist identity changes, native=%s',
+  async (isNative) => {
+    platformEnv.isNative = isNative;
+    mockBatch.mockRejectedValue(new Error('network'));
+    const watchlist = [
+      { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 0 },
+    ];
+    const { result, rerender } = renderHook(
+      ({ items }: { items: IMarketWatchListItemV2[] }) =>
+        useMarketWatchlistTokenList({ watchlist: items, pollingInterval: 0 }),
+      { initialProps: { items: watchlist } },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.hasSettledAllSources).toBe(true);
+    expect(result.current.hasLoadedAllSources).toBe(false);
+    expect(result.current.isSpotError).toBe(isNative);
+    expect(result.current.isPerpsError).toBe(false);
+    expect(result.current.hasUnresolvedSpotFavorites).toBe(true);
+
+    let resolveSpot: (value: { list: unknown[] }) => void = () => {};
+    mockBatch.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSpot = resolve;
+      }),
+    );
+    rerender({ items: [...watchlist] });
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.hasSettledAllSources).toBe(true);
+
+    rerender({
+      items: [
+        ...watchlist,
+        { chainId: 'evm--1', contractAddress: '0xnew', sortIndex: 1 },
+      ],
+    });
+    expect(result.current.hasSettledAllSources).toBe(false);
+    await act(async () => resolveSpot({ list: [] }));
+    await waitFor(() => expect(result.current.hasLoadedAllSources).toBe(true));
+    expect(result.current.hasSettledAllSources).toBe(true);
+    expect(result.current.isSpotError).toBe(false);
+    // A successful batch can still omit a favorite; it remains unresolved.
+    expect(result.current.hasUnresolvedSpotFavorites).toBe(true);
+  },
+);
+
+it.each([false, true])(
+  'resolves spot coverage from the current favorites and cache, cached=%s',
+  async (hasCachedSpot) => {
+    platformEnv.isNative = true;
+    mockBatch.mockRejectedValue(new Error('network'));
+    mockStockBatch.mockResolvedValue([stockItem('AAPL')]);
+    const watchlist = [
+      {
+        chainId: 'evm--1',
+        contractAddress: '0x1111111111111111111111111111111111111111',
+        sortIndex: 0,
+      },
+      { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 1 },
+    ];
+    const spotToken = {
+      address: '0x1111111111111111111111111111111111111111',
+      name: 'Aave',
+      symbol: 'AAVE',
+      decimals: 18,
+      networkId: 'evm--1',
+    };
+    const dataCacheRef: RefObject<IMarketWatchlistDataCache | undefined> = {
+      current: hasCachedSpot ? { spot: { list: [spotToken] } } : undefined,
+    };
+    const { result, rerender } = renderHook(
+      ({ items }: { items: IMarketWatchListItemV2[] }) =>
+        useMarketWatchlistTokenList({
+          watchlist: items,
+          pollingInterval: 0,
+          dataCacheRef,
+        }),
+      { initialProps: { items: watchlist } },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isSpotError).toBe(true);
+    expect(result.current.hasUnresolvedSpotFavorites).toBe(!hasCachedSpot);
+    expect(result.current.data).toHaveLength(hasCachedSpot ? 2 : 1);
+
+    // A cache for AAVE does not cover a newly added spot favorite.
+    mockBatch.mockResolvedValue({ list: [spotToken] });
+    rerender({
+      items: [
+        ...watchlist,
+        {
+          chainId: 'evm--1',
+          contractAddress: '0x2222222222222222222222222222222222222222',
+          sortIndex: 2,
+        },
+      ],
+    });
+    await waitFor(() => expect(result.current.isSpotError).toBe(false));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.hasUnresolvedSpotFavorites).toBe(true);
+
+    rerender({ items: watchlist });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.hasUnresolvedSpotFavorites).toBe(false);
+  },
+);
+
+it('reports Perps refresh failures separately from Spot errors', async () => {
+  platformEnv.isNative = true;
+  mockPerps.mockRejectedValue(new Error('network'));
+  const watchlist = [
+    { perpsCoin: 'BTC', chainId: '', contractAddress: '', sortIndex: 0 },
+  ];
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.isPerpsError).toBe(true);
+  expect(result.current.isSpotError).toBe(false);
+  expect(result.current.isError).toBe(true);
+  expect(result.current.hasSettledAllSources).toBe(true);
 });
 it('holds the first paint until spot and listing quotes have both settled', async () => {
   let resolveSpot: (value: { list: unknown[] }) => void = () => {};
@@ -612,4 +763,208 @@ it('keeps cached rows and holds back only the uncovered listing', async () => {
   expect(second.result.current.data).toEqual([
     expect.objectContaining({ id: 'stock:AAPL', name: 'Apple', price: 321 }),
   ]);
+});
+
+it('reuses home quotes in the selector without restoring removed favorites', async () => {
+  mockStockBatch.mockResolvedValue([stockItem('AAPL'), stockItem('MSFT')]);
+  mockBatch.mockResolvedValue({
+    list: [
+      {
+        address: '0xaave',
+        name: 'Aave',
+        symbol: 'AAVE',
+        decimals: 18,
+        networkId: 'evm--1',
+      },
+    ],
+  });
+  mockPerps.mockResolvedValue({
+    tokens: [
+      {
+        name: 'BTC',
+        displayName: 'BTC',
+        maxLeverage: 40,
+        tokenImageUrl: '',
+        markPrice: '100000',
+        prevDayPrice: '99000',
+        change24hPercent: 1,
+        volume24h: '1000000',
+        openInterest: '1000',
+        fundingRate: '0.0001',
+      },
+    ],
+    updatedAt: 0,
+  });
+  const watchlist = [
+    { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+    { stockId: 'MSFT', chainId: '', contractAddress: '', sortIndex: 1 },
+    { perpsCoin: 'BTC', chainId: '', contractAddress: '', sortIndex: 2 },
+    { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 3 },
+  ];
+  const home = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist,
+      pollingInterval: 0,
+      dataCacheRef: marketWatchlistDataCacheRef,
+    }),
+  );
+  await waitFor(() => expect(home.result.current.data).toHaveLength(4));
+  home.unmount();
+
+  mockStockBatch.mockReturnValue(new Promise(() => {}));
+  mockPerps.mockReturnValue(new Promise(() => {}));
+  mockBatch.mockReturnValue(new Promise(() => {}));
+  const cachedQuotes = marketWatchlistDataCacheRef.current;
+  const selectorWatchlist = watchlist.filter((item) => item.stockId !== 'MSFT');
+  const pendingWatchlist: IMarketWatchListItemV2[] = [];
+  const selector = renderHook(
+    ({ ready }: { ready: boolean }) =>
+      useMarketWatchlistTokenList({
+        watchlist: ready ? selectorWatchlist : pendingWatchlist,
+        isWatchlistReady: ready,
+        pollingInterval: 0,
+        dataCacheRef: marketWatchlistDataCacheRef,
+      }),
+    { initialProps: { ready: false } },
+  );
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(marketWatchlistDataCacheRef.current).toEqual(cachedQuotes);
+
+  selector.rerender({ ready: true });
+  expect(selector.result.current.data.map((item) => item.symbol)).toEqual([
+    'AAPL',
+    'BTC',
+    'AAVE',
+  ]);
+  selector.unmount();
+
+  const reopenedSelector = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist: selectorWatchlist,
+      pollingInterval: 0,
+      dataCacheRef: marketWatchlistDataCacheRef,
+    }),
+  );
+  expect(
+    reopenedSelector.result.current.data.map((item) => item.symbol),
+  ).toEqual(['AAPL', 'BTC', 'AAVE']);
+  await act(async () => {
+    await Promise.resolve();
+  });
+});
+
+it('keeps a hydrated empty watchlist empty and clears its quote cache', async () => {
+  const watchlist: IMarketWatchListItemV2[] = [];
+  marketWatchlistDataCacheRef.current = {
+    listing: [{ key: 'stock:AAPL', quote: undefined }],
+  };
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist,
+      isWatchlistReady: true,
+      pollingInterval: 0,
+      dataCacheRef: marketWatchlistDataCacheRef,
+    }),
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toEqual([]);
+  expect(marketWatchlistDataCacheRef.current?.listing).toEqual([]);
+});
+
+it('reports a failed spot request as not loaded rather than an empty watchlist', async () => {
+  mockBatch.mockRejectedValue(new Error('network'));
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist: [
+        { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 0 },
+      ],
+      pollingInterval: 0,
+    }),
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toEqual([]);
+  // Desktop and web leave `isError` to native; the missing result is the signal.
+  expect(result.current.isError).toBe(false);
+  expect(result.current.hasLoadedAllSources).toBe(false);
+});
+it('reports loaded sources when a successful batch drops every favorite', async () => {
+  mockBatch.mockResolvedValue({ list: [] });
+  const { result } = renderHook(() =>
+    useMarketWatchlistTokenList({
+      watchlist: [
+        { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 0 },
+      ],
+      pollingInterval: 0,
+    }),
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toEqual([]);
+  expect(result.current.hasLoadedAllSources).toBe(true);
+});
+it('does not count the previous watchlist result as loaded after a failed request', async () => {
+  mockBatch.mockResolvedValue({ list: [] });
+  const { result, rerender } = renderHook(
+    ({ watchlist }: { watchlist: IMarketWatchListItemV2[] }) =>
+      useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    { initialProps: { watchlist: [] as IMarketWatchListItemV2[] } },
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+  // The new request fails, and usePromiseResult keeps the empty result from
+  // the previous watchlist.
+  mockBatch.mockRejectedValue(new Error('network'));
+  rerender({
+    watchlist: [{ chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 0 }],
+  });
+  await waitFor(() => expect(mockBatch).toHaveBeenCalled());
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+  expect(result.current.data).toEqual([]);
+  expect(result.current.hasLoadedAllSources).toBe(false);
+});
+it('does not count a listing as loaded while its first paint is held', async () => {
+  mockBatch.mockResolvedValue({ list: [] });
+  const { result, rerender } = renderHook(
+    ({ watchlist }: { watchlist: IMarketWatchListItemV2[] }) =>
+      useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    { initialProps: { watchlist: [] as IMarketWatchListItemV2[] } },
+  );
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+  mockStockBatch.mockReturnValue(
+    new Promise<IMarketStockPublicItem[]>(() => {}),
+  );
+  rerender({
+    watchlist: [
+      { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 0 },
+    ],
+  });
+  await waitFor(() => expect(mockStockBatch).toHaveBeenCalled());
+  expect(result.current.data).toEqual([]);
+  expect(result.current.hasLoadedAllSources).toBe(false);
+});
+it('does not count a new listing as loaded from the previous quote batch', async () => {
+  mockBatch.mockResolvedValue({ list: [] });
+  const spot = { chainId: 'evm--1', contractAddress: '0xaave', sortIndex: 0 };
+  const { result, rerender } = renderHook(
+    ({ watchlist }: { watchlist: IMarketWatchListItemV2[] }) =>
+      useMarketWatchlistTokenList({ watchlist, pollingInterval: 0 }),
+    { initialProps: { watchlist: [spot] as IMarketWatchListItemV2[] } },
+  );
+  // The batch drops the only favorite, so the list settles loaded and empty.
+  await waitFor(() => expect(result.current.hasLoadedAllSources).toBe(true));
+  expect(result.current.data).toEqual([]);
+
+  mockStockBatch.mockReturnValue(
+    new Promise<IMarketStockPublicItem[]>(() => {}),
+  );
+  rerender({
+    watchlist: [
+      spot,
+      { stockId: 'AAPL', chainId: '', contractAddress: '', sortIndex: 1 },
+    ],
+  });
+  await waitFor(() => expect(mockStockBatch).toHaveBeenCalled());
+  expect(result.current.hasLoadedAllSources).toBe(false);
 });

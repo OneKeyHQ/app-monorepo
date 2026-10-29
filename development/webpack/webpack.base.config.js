@@ -22,6 +22,10 @@ const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
+// Chain runtime wasm gets its `wbg` imports from the JS glue; emit as an asset.
+const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
+const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
+const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -68,6 +72,10 @@ const baseResolve = ({ platform, configName, basePath }) => ({
       'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
     'react-native/Libraries/EventEmitter/NativeEventEmitter$':
       'react-native-web/dist/vendor/react-native/NativeEventEmitter',
+    'react-native/Libraries/Image/AssetRegistry$':
+      'react-native-web/dist/modules/AssetRegistry',
+    '@react-native/assets-registry/registry$':
+      'react-native-web/dist/modules/AssetRegistry',
     '@react-aria/focus': path.join(
       basePath,
       '../../node_modules/@react-aria/focus/src/index.ts',
@@ -85,6 +93,14 @@ const baseResolve = ({ platform, configName, basePath }) => ({
       '../../node_modules/@react-aria/utils/src/index.ts',
     ),
     'bn.js$': require.resolve('bn.js'),
+    // Web ships no Zcash/Monero (web-embed does); mirrors rspack.resolve.config.js.
+    ...(platform === 'web'
+      ? {
+          '@onekeyfe/zcash-runtime': false,
+          '@onekeyfe/zcash-keys': false,
+          '@onekeyfe/monero-runtime': false,
+        }
+      : {}),
   },
   fallback: {
     'crypto':
@@ -305,8 +321,17 @@ module.exports = ({ platform, basePath, configName }) => {
               },
             },
             {
+              test: CHAIN_RUNTIME_WASM_TEST,
+              type: 'asset/resource',
+              generator: { filename: 'static/chain-wasm/[name][ext]' },
+            },
+            {
               test: /\.wasm$/,
-              exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
+              exclude: [
+                CANVASKIT_WASM_TEST,
+                ZXING_READER_WASM_TEST,
+                ...CHAIN_RUNTIME_WASM_TEST,
+              ],
               type: 'webassembly/async',
             },
             {

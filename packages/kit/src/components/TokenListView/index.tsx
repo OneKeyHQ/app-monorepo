@@ -1,5 +1,5 @@
-import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactElement, ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,13 +7,10 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   type IYStackProps,
-  ListView,
   SizableText,
   Stack,
-  Tabs,
   XStack,
   YStack,
-  useStyle,
 } from '@onekeyhq/components';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
@@ -23,10 +20,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import {
-  buildCrossNetworkSearchListData,
-  isTokenSelectorSyntheticRow,
-} from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
+import { buildCrossNetworkSearchListData } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import type { ITokenSelectorListRow } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
@@ -69,21 +63,17 @@ import {
 } from '../../states/jotai/contexts/tokenList/cells';
 import { useTokenManagement } from '../../views/AssetList/hooks/useTokenManagement';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
-import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
 import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
 
 import { computeShowTokenListSkeleton } from './computeShowTokenListSkeleton';
 import { computeTokenListOwnerMismatch } from './computeTokenListOwnerMismatch';
-import {
-  CrossNetworkSearchSyntheticRow,
-  TokenSelectorSearchErrorView,
-} from './CrossNetworkSearchRows';
+import { TokenSelectorSearchErrorView } from './CrossNetworkSearchRows';
+import { NativeTokenSelectorList } from './NativeTokenSelectorList';
 import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
-import { TokenListItem } from './TokenListItem';
 import {
   TokenListViewContext,
   useTokenListViewContext,
@@ -99,6 +89,7 @@ import type {
 // fresh `{}` to `useMemo` deps every render (would defeat memoization).
 const EMPTY_FIAT_MAP: Record<string, ITokenFiat> = {};
 const EMPTY_AGGREGATE_MAP: Record<string, { tokens: IAccountToken[] }> = {};
+let nextDisclosureScopeId = 0;
 
 type IProps = {
   accountId: string;
@@ -208,15 +199,15 @@ type IProps = {
     }
   >;
   onRefresh?: () => void;
-  listViewStyleProps?: Pick<
-    ComponentProps<typeof ListView>,
-    | 'ListHeaderComponentStyle'
-    | 'ListFooterComponentStyle'
-    | 'contentContainerStyle'
-  >;
-  // Scroll feed for a collapsing header rendered above the list.
-  onScroll?: ComponentProps<typeof ListView>['onScroll'];
-  scrollEventThrottle?: number;
+  refreshing?: boolean;
+  nativeListHeader?: ReactNode;
+  nativeListFooter?: ReactNode;
+  nativeListSidecar?: ReactNode;
+  nativeListSidecarLayout?: Readonly<{
+    width: number;
+    gap: number;
+    maxContentWidth: number;
+  }>;
   showNetworkIcon?: boolean;
   allAggregateTokenMap?: Record<
     string,
@@ -257,7 +248,6 @@ function TokenListViewCmp(props: IProps) {
     withHeader,
     withFooter,
     withPrice,
-    inTabList = false,
     withNetwork,
     withSwapAction,
     onManageToken,
@@ -276,10 +266,12 @@ function TokenListViewCmp(props: IProps) {
     browseEmptyTitle,
     emptyAccountView,
     showActiveAccountTokenList = false,
-    listViewStyleProps,
-    onScroll,
-    scrollEventThrottle,
     onRefresh,
+    refreshing,
+    nativeListHeader,
+    nativeListFooter,
+    nativeListSidecar,
+    nativeListSidecarLayout,
     showNetworkIcon,
     allAggregateTokenMap,
     hideZeroBalanceTokens,
@@ -320,6 +312,13 @@ function TokenListViewCmp(props: IProps) {
     isOverflow: false,
     isSliced: true,
   });
+  const [structuralTransitionCommand, setStructuralTransitionCommand] =
+    useState<{ scope: number; id: string }>();
+  const [expandedContentScope, setExpandedContentScope] = useState<number>();
+  const transitionSequenceRef = useRef(0);
+  const disclosureScopeRef = useRef<{ owner: string; id: number } | undefined>(
+    undefined,
+  );
 
   const [activeAccountTokenListAtomValue] = useActiveAccountTokenListAtom();
   // SETTLED owner identity for the switch skeleton (red-team C-F1): the
@@ -394,7 +393,13 @@ function TokenListViewCmp(props: IProps) {
     visibleTokenListMap = selectorFiatMap;
   }
 
-  const { networksMap, useCellSeam } = useTokenListViewContext();
+  const {
+    networksMap,
+    ownedAggregateTokenListMap,
+    useCellSeam,
+    zeroFillMissingFiat,
+    zeroFillNetworkIds,
+  } = useTokenListViewContext();
   // HOME projection path marker — read the SAME context flag the leaves read so
   // home/leaf agree (spec §5, PR-S). The wrapper computes
   // `useCellSeam = enableCellSeam && !isTokenSelector &&
@@ -405,6 +410,26 @@ function TokenListViewCmp(props: IProps) {
   // on the home projection path (PR-6: free the HOME data path of the legacy
   // atom values).
   const isHomeProjectionPath = !!useCellSeam;
+  const disclosureOwner = `${accountId}__${networkId}__${
+    isHomeProjectionPath ? listStructure.ownerKey : ''
+  }`;
+  if (disclosureScopeRef.current?.owner !== disclosureOwner) {
+    nextDisclosureScopeId += 1;
+    disclosureScopeRef.current = {
+      owner: disclosureOwner,
+      id: nextDisclosureScopeId,
+    };
+  }
+  const disclosureScope = disclosureScopeRef.current.id;
+  const issueStructuralTransition = useCallback((sliced: boolean) => {
+    const scope = disclosureScopeRef.current?.id;
+    if (scope === undefined) return;
+    transitionSequenceRef.current += 1;
+    const id = `${scope}:${transitionSequenceRef.current}`;
+    setOverFlowState((previous) => ({ ...previous, isSliced: sliced }));
+    setStructuralTransitionCommand({ scope, id });
+    if (!sliced) setExpandedContentScope(scope);
+  }, []);
 
   const tokenManagementEnabled =
     !deferTokenManagement || tokenListState.initialized;
@@ -1019,34 +1044,6 @@ function TokenListViewCmp(props: IProps) {
     }
   }, [tokenListState.isRefreshing]);
 
-  const {
-    ListHeaderComponentStyle,
-    ListFooterComponentStyle,
-    contentContainerStyle,
-  } = listViewStyleProps || {};
-
-  const resolvedContentContainerStyle = useStyle(contentContainerStyle || {}, {
-    resolveValues: 'auto',
-  });
-
-  const resolvedListHeaderComponentStyle = useStyle(
-    ListHeaderComponentStyle || {},
-    {
-      resolveValues: 'auto',
-    },
-  );
-
-  const resolvedListFooterComponentStyle = useStyle(
-    ListFooterComponentStyle || {},
-    {
-      resolveValues: 'auto',
-    },
-  );
-
-  const ListComponent = useMemo(() => {
-    return inTabList ? Tabs.FlatList : ListView;
-  }, [inTabList]);
-
   const EmptyComponentElement = useMemo(() => {
     if (showSkeleton) {
       return (
@@ -1129,9 +1126,7 @@ function TokenListViewCmp(props: IProps) {
             testID="token-list-show-more-btn"
             size="medium"
             variant="secondary"
-            onPress={() =>
-              setOverFlowState((prev) => ({ ...prev, isSliced: false }))
-            }
+            onPress={() => issueStructuralTransition(false)}
             flex={1}
           >
             {intl.formatMessage({ id: ETranslations.global_show_more })}
@@ -1164,9 +1159,7 @@ function TokenListViewCmp(props: IProps) {
               testID="token-list-show-less-btn"
               size="medium"
               variant="secondary"
-              onPress={() =>
-                setOverFlowState((prev) => ({ ...prev, isSliced: true }))
-              }
+              onPress={() => issueStructuralTransition(true)}
               flex={1}
             >
               {intl.formatMessage({ id: ETranslations.global_show_less })}
@@ -1188,172 +1181,189 @@ function TokenListViewCmp(props: IProps) {
     footerTipText,
     intl,
     hideDeFiMarkedTokens,
+    issueStructuralTransition,
   ]);
 
-  if (plainMode) {
-    if (showSkeleton) {
-      return <ListLoading isTokenSelectorView={!tableLayout} />;
-    }
-
-    if (!listData || listData.length === 0) {
-      return searchKey ? (
-        <EmptySearch
-          onManageToken={onManageToken}
-          manageTokenEnabled={manageTokenEnabled}
-          {...emptyProps}
-        />
-      ) : (
-        <EmptyToken {...emptyProps} />
-      );
-    }
-
-    return (
-      <YStack testID={testID}>
-        {withHeader ? (
-          <TokenListHeader
-            onManageToken={onManageToken}
+  const disclosureEnabled =
+    (platformEnv.isNative || platformEnv.isWeb) &&
+    plainMode &&
+    (overFlowState.isOverflow ||
+      (!!limit && displayCountForOverflow > limit)) &&
+    !showSkeleton &&
+    listData.length > 0;
+  useEffect(() => {
+    setExpandedContentScope((current) => {
+      if (!disclosureEnabled) return undefined;
+      if (!overFlowState.isSliced) return disclosureScope;
+      return current === disclosureScope ? current : undefined;
+    });
+  }, [disclosureEnabled, disclosureScope, overFlowState.isSliced]);
+  useEffect(() => {
+    setStructuralTransitionCommand((current) =>
+      disclosureEnabled && current?.scope === disclosureScope
+        ? current
+        : undefined,
+    );
+  }, [disclosureEnabled, disclosureScope]);
+  const keepExpandedContent =
+    !overFlowState.isSliced || expandedContentScope === disclosureScope;
+  const expandedContent =
+    disclosureEnabled && keepExpandedContent ? (
+      <Stack key={disclosureScope}>
+        {withFooter ? (
+          <TokenListFooter
+            tableLayout={tableLayout}
+            hideZeroBalanceTokens={hideZeroBalanceTokens}
+            hideDeFiMarkedTokens={hideDeFiMarkedTokens}
+            hasTokens={displayCount > 0}
             manageTokenEnabled={manageTokenEnabled}
-            {...(tokens.length > 0 && {
-              tableLayout,
-            })}
+            plainMode={plainMode}
           />
         ) : null}
-        {listData.map((item) => (
-          <TokenListItem
-            hideValue={hideValue}
-            hideBalanceAndValue={hideBalanceAndValue}
-            token={item}
-            key={homeRowKeys?.get(item.$key) ?? item.$key}
-            onPress={onPressToken}
-            tableLayout={tableLayout}
-            withPrice={withPrice}
-            isAllNetworks={isAllNetworks}
-            withNetwork={withNetwork}
-            isTokenSelector={isTokenSelector}
-            withSwapAction={withSwapAction}
-            showNetworkIcon={showNetworkIcon}
-            withAggregateBadge={withAggregateBadge}
-            showProcessingState={!!exchangeFilter}
-            testIDPrefix={tokenItemTestIDPrefix}
-            {...(tableLayout
-              ? undefined
-              : {
-                  mx: '$2',
-                  px: '$3',
-                })}
-          />
-        ))}
-        {renderPlainModeFooter()}
-      </YStack>
-    );
-  }
+        {!tokenSelectorSearchKey && footerTipText ? (
+          <Stack jc="center" ai="center" pt="$3">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {footerTipText}
+            </SizableText>
+          </Stack>
+        ) : null}
+      </Stack>
+    ) : undefined;
+  const structureToggle = disclosureEnabled ? (
+    <XStack pt="$3" px="$5" jc="center" ai="center">
+      <Button
+        testID={
+          overFlowState.isSliced
+            ? 'token-list-show-more-btn'
+            : 'token-list-show-less-btn'
+        }
+        size="medium"
+        variant="secondary"
+        onPress={() => issueStructuralTransition(!overFlowState.isSliced)}
+        flex={1}
+      >
+        {intl.formatMessage({
+          id: overFlowState.isSliced
+            ? ETranslations.global_show_more
+            : ETranslations.global_show_less,
+        })}
+      </Button>
+    </XStack>
+  ) : undefined;
+  const activeStructuralCommand =
+    structuralTransitionCommand?.scope === disclosureScope
+      ? structuralTransitionCommand
+      : undefined;
+  const listHeader = (
+    <Stack>
+      {nativeListHeader}
+      {withHeader ? (
+        <TokenListHeader
+          onManageToken={onManageToken}
+          manageTokenEnabled={manageTokenEnabled}
+          {...(listData.length > 0 ? { tableLayout } : undefined)}
+        />
+      ) : null}
+    </Stack>
+  );
+  const listFooter = plainMode ? (
+    <>
+      {!disclosureEnabled && !showSkeleton && listData.length
+        ? renderPlainModeFooter()
+        : null}
+      {nativeListFooter}
+    </>
+  ) : (
+    <Stack pb="$5">
+      {withFooter ? (
+        <TokenListFooter
+          tableLayout={tableLayout}
+          hideZeroBalanceTokens={hideZeroBalanceTokens}
+          hasTokens={displayCount > 0}
+          manageTokenEnabled={manageTokenEnabled}
+          plainMode={plainMode}
+        />
+      ) : null}
+      {addPaddingOnListFooter ? <Stack h="$16" /> : null}
+    </Stack>
+  );
+  const structuralAnchorToken =
+    listData[Math.max(0, Math.min(limit ?? 1, listData.length) - 1)];
 
   return (
-    <ListComponent
-      testID={testID}
-      // @ts-ignore
-      estimatedItemSize={tableLayout ? undefined : 60}
-      showsVerticalScrollIndicator={false}
-      onScroll={onScroll}
-      scrollEventThrottle={scrollEventThrottle}
-      refreshControl={
-        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+    <NativeTokenSelectorList
+      rows={showSkeleton ? [] : selectorListRows}
+      networkId={networkId}
+      networksMap={networksMap}
+      tokenListMap={visibleTokenListMap}
+      aggregateTokenFiatMap={
+        isTokenSelector
+          ? props.tokenSelectorAggregateTokenFiatMap
+          : hostAggregateTokenFiatMap
       }
-      extraData={selectorListRows.length}
-      // Synthetic section rows only exist when crossNetworkGroupingActive;
-      // otherwise this IS listData. Cast because ListView's item type stays
-      // IAccountToken while synthetic rows only carry `$key`.
-      data={selectorListRows as unknown as IAccountToken[]}
-      // Only pass a discriminator when the array can actually be mixed, so the
-      // home list and the non-opted-in selector routes keep their props (and
-      // FlashList's single recycling pool) unchanged.
-      getItemType={
-        crossNetworkGroupingActive
-          ? (item: unknown) => {
-              const row = item as ITokenSelectorListRow;
-              return isTokenSelectorSyntheticRow(row)
-                ? row.syntheticRowType
-                : 'token';
+      aggregateTokenListMap={
+        isTokenSelector
+          ? tokenSelectorAggregateTokenListMap
+          : ownedAggregateTokenListMap
+      }
+      allAggregateTokenMap={allAggregateTokenMap}
+      isAllNetworks={isAllNetworks}
+      withNetwork={withNetwork}
+      crossNetworkGroupingActive={crossNetworkGroupingActive}
+      showNetworkIcon={showNetworkIcon}
+      hideValue={hideValue}
+      hideBalanceAndValue={hideBalanceAndValue}
+      zeroFillMissingFiat={!!zeroFillMissingFiat}
+      zeroFillNetworkIds={zeroFillNetworkIds}
+      showProcessingState={!!exchangeFilter}
+      isTokenSelector={!!isTokenSelector}
+      isSearching={
+        isTokenSelector ? tokenSelectorSearchTokenState.isSearching : false
+      }
+      currentNetworkName={crossNetworkCurrentNetworkName}
+      onPressToken={onPressToken}
+      onSearchTokensRetry={onSearchTokensRetry}
+      empty={EmptyComponentElement}
+      footerTipText={
+        plainMode || tokenSelectorSearchKey ? undefined : footerTipText
+      }
+      testID={testID}
+      tokenItemTestIDPrefix={tokenItemTestIDPrefix}
+      homeCellSeam={isHomeProjectionPath}
+      tableLayout={tableLayout}
+      withPrice={withPrice}
+      withSwapAction={withSwapAction}
+      withAggregateBadge={withAggregateBadge}
+      rowKeys={homeRowKeys}
+      header={listHeader}
+      footer={listFooter}
+      expandedContent={expandedContent}
+      structureToggle={structureToggle}
+      disclosure={
+        disclosureEnabled
+          ? { expanded: !overFlowState.isSliced, expandedTrailingInset: 20 }
+          : undefined
+      }
+      sidecar={nativeListSidecar}
+      sidecarLayout={nativeListSidecarLayout}
+      structuralTransition={
+        activeStructuralCommand && plainMode
+          ? {
+              id: activeStructuralCommand.id,
+              durationMs: 220,
+              anchorKey:
+                homeRowKeys?.get(structuralAnchorToken?.$key ?? '') ??
+                structuralAnchorToken?.$key,
             }
           : undefined
       }
-      windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
-      contentContainerStyle={resolvedContentContainerStyle as any}
-      ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
-      ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
-      ListHeaderComponent={
-        withHeader ? (
-          <TokenListHeader
-            onManageToken={onManageToken}
-            manageTokenEnabled={manageTokenEnabled}
-            {...(tokens.length > 0 && {
-              tableLayout,
-            })}
-          />
-        ) : null
-      }
-      ListEmptyComponent={EmptyComponentElement}
-      renderItem={({ item, index }) => {
-        const row = item as unknown as ITokenSelectorListRow;
-        return (
-          <>
-            {isTokenSelectorSyntheticRow(row) ? (
-              <CrossNetworkSearchSyntheticRow
-                key={row.$key}
-                rowType={row.syntheticRowType}
-                currentNetworkName={crossNetworkCurrentNetworkName}
-                onRetry={onSearchTokensRetry}
-              />
-            ) : (
-              <TokenListItem
-                hideValue={hideValue}
-                hideBalanceAndValue={hideBalanceAndValue}
-                token={item}
-                key={item.$key}
-                onPress={onPressToken}
-                tableLayout={tableLayout}
-                withPrice={withPrice}
-                isAllNetworks={isAllNetworks}
-                withNetwork={
-                  withNetwork ||
-                  (crossNetworkGroupingActive && item.networkId !== networkId)
-                }
-                isTokenSelector={isTokenSelector}
-                withSwapAction={withSwapAction}
-                showNetworkIcon={showNetworkIcon}
-                withAggregateBadge={withAggregateBadge}
-                showProcessingState={!!exchangeFilter}
-                testIDPrefix={tokenItemTestIDPrefix}
-              />
-            )}
-            {isTokenSelector &&
-            tokenSelectorSearchTokenState.isSearching &&
-            index === selectorListRows.length - 1 ? (
-              <ListLoading isTokenSelectorView={!tableLayout} />
-            ) : null}
-          </>
-        );
-      }}
-      ListFooterComponent={
-        <Stack pb="$5">
-          {withFooter ? (
-            <TokenListFooter
-              tableLayout={tableLayout}
-              hideZeroBalanceTokens={hideZeroBalanceTokens}
-              hasTokens={displayCount > 0}
-              manageTokenEnabled={manageTokenEnabled}
-              plainMode={plainMode}
-            />
-          ) : null}
-          {!tokenSelectorSearchKey && footerTipText ? (
-            <Stack jc="center" ai="center" pt="$3">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {footerTipText}
-              </SizableText>
-            </Stack>
-          ) : null}
-          {addPaddingOnListFooter ? <Stack h="$16" /> : null}
-        </Stack>
+      onRefresh={onRefresh}
+      refreshing={refreshing}
+      useExternalWebScrollHost={!!plainMode}
+      ownerKey={
+        isHomeProjectionPath
+          ? listStructure.ownerKey
+          : `${accountId}__${networkId}`
       }
     />
   );

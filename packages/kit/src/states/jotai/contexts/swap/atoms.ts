@@ -182,10 +182,16 @@ export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
   ISwapNetwork[]
 >([]);
 
-// Cached networks make the selector usable before fresh default configuration arrives.
+// Automatic default-pair resolution settles once per entry; failed uses local defaults.
 export const {
   atom: swapDefaultConfigStatusAtom,
   use: useSwapDefaultConfigStatusAtom,
+} = contextAtom<ISwapDefaultConfigStatus>('pending');
+
+// Network refreshes continue after the automatic pair has chosen local defaults.
+export const {
+  atom: swapNetworkConfigStatusAtom,
+  use: useSwapNetworkConfigStatusAtom,
 } = contextAtom<ISwapDefaultConfigStatus>('pending');
 
 export const {
@@ -238,6 +244,19 @@ export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
     coldStartCache: true,
     coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
   });
+
+export type ISwapTokenPair = { fromToken: ISwapToken; toToken: ISwapToken };
+
+// The pair last picked from the "Recent trades" chips, so an order can report
+// whether it still trades that pair.
+export const { atom: swapRecentTokenPairSelectionAtom } = contextAtom<
+  ISwapTokenPair | undefined
+>(undefined);
+
+// Bumped by every user token pick (not by automatic syncs), so a Stock
+// "Recent trades" pick still waiting on its sync knows if it was superseded.
+export const { atom: swapRecentTokenPairPickGenerationAtom } =
+  contextAtom<number>(0);
 
 export const {
   atom: swapLastNonLimitSelectedTokensAtom,

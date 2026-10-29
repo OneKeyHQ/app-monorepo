@@ -8,11 +8,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 
-import {
-  useFocusEffect,
-  usePreventRemove,
-  useRoute,
-} from '@react-navigation/core';
+import { usePreventRemove, useRoute } from '@react-navigation/core';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -51,12 +47,8 @@ import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/S
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  createHideTabBarOwnerId,
-  releaseHideTabBar,
-  requestHideTabBar,
-} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { useHeaderHeightCacheKey } from '../Earn/hooks/useHeaderHeightCacheKey';
@@ -78,7 +70,8 @@ import {
   DustSweepScreenProvider,
   useDustSweep,
 } from './DustSweepProvider';
-import { getDustSweepPresentation } from './stateMachine';
+import { useDustSweepTabBarVisibility } from './hooks/useDustSweepTabBarVisibility';
+import { EDustSweepPhase, getDustSweepPresentation } from './stateMachine';
 
 import type { IDustSweepState } from './stateMachine';
 import type { NavigationAction, RouteProp } from '@react-navigation/core';
@@ -333,12 +326,12 @@ function DustSweepPageContent() {
   const { progress, unknown } = getDustSweepPresentation(state);
   const title = intl.formatMessage({ id: ETranslations.title_dust_sweep });
   let subtitle: string | undefined;
-  if (!selecting && state.phase !== 'completed') {
+  if (!selecting && state.phase !== EDustSweepPhase.Completed) {
     if (unknown)
       subtitle = intl.formatMessage({
         id: ETranslations.global_pending,
       });
-    else if (state.phase === 'paused')
+    else if (state.phase === EDustSweepPhase.Paused)
       subtitle = `${intl.formatMessage({
         id: ETranslations.sweep_dust_sweep_paused,
       })} ${progress}/${state.items.length}`;
@@ -380,7 +373,7 @@ function DustSweepPageContent() {
   usePreventRemove(
     execution && !approvedRemovalAction && !selecting,
     ({ data }) => {
-      if (state.phase === 'completed') {
+      if (state.phase === EDustSweepPhase.Completed) {
         setApprovedRemovalAction(data.action);
         return;
       }
@@ -398,7 +391,8 @@ function DustSweepPageContent() {
             }),
             state.items.some(
               (item) =>
-                ['signing', 'broadcasted'].includes(item.status) ||
+                item.status === EDustSweepItemStatus.Signing ||
+                item.status === EDustSweepItemStatus.Broadcasted ||
                 item.approvalTxIds?.length,
             )
               ? intl.formatMessage({
@@ -490,7 +484,7 @@ function DustSweepPageContent() {
   }, []);
   useEffect(() => {
     if (
-      (!isFocused || selecting || state.phase === 'completed') &&
+      (!isFocused || selecting || state.phase === EDustSweepPhase.Completed) &&
       !leavePending.current
     )
       closeLeaveDialog();
@@ -671,7 +665,9 @@ function DustSweepPageContent() {
                 >
                   <DustSweepDirectionIcon
                     desktop
-                    running={isFocused && state.phase === 'running'}
+                    running={
+                      isFocused && state.phase === EDustSweepPhase.Running
+                    }
                   />
                 </Stack>
               </Stack>
@@ -747,16 +743,7 @@ export default function DustSweepPage() {
   const overlay = useIsOverlayPage();
   // Small screens open this Home sub page full screen, so the bottom tab bar
   // must not cover the action footer.
-  useFocusEffect(
-    useCallback(() => {
-      if (desktop) return undefined;
-      const ownerId = createHideTabBarOwnerId('dust-sweep');
-      requestHideTabBar(ownerId);
-      return () => {
-        releaseHideTabBar(ownerId);
-      };
-    }, [desktop]),
-  );
+  useDustSweepTabBarVisibility(!desktop);
   if (!route.params?.walletId || !route.params.accountId) {
     return (
       <Page>

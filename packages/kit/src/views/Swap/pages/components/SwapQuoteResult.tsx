@@ -74,6 +74,7 @@ import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 
 interface ISwapQuoteResultProps {
   quoteResult?: IFetchQuoteResult;
+  fixedReverseRate?: boolean;
   onOpenProviderList?: () => void;
   refreshAction: (manual?: boolean) => void;
 }
@@ -145,6 +146,7 @@ function SwapQuoteResultAccordion({
 }
 
 const SwapQuoteResult = ({
+  fixedReverseRate,
   onOpenProviderList,
   quoteResult,
   refreshAction,
@@ -399,6 +401,7 @@ const SwapQuoteResult = ({
         }
         renderTrigger={(open) => (
           <SwapQuoteResultRate
+            fixedReverse={fixedReverseRate}
             rate={quoteResultForDisplay?.instantRate}
             quoting={quoting}
             fromToken={fromToken}

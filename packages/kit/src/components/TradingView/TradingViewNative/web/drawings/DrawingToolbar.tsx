@@ -41,6 +41,7 @@ import {
   DrawingAnchorFields,
   DrawingStyleOptions,
 } from '../../drawings/DrawingStyleOptions';
+import { DRAWING_ICON_STROKE_WIDTH } from '../../drawings/iconPaths';
 
 import { TRADING_VIEW_DRAWING_ICONS } from './icons';
 import {
@@ -212,7 +213,7 @@ export function DrawingIcon({
   name: keyof typeof TRADING_VIEW_DRAWING_ICONS;
   color?: string;
 }) {
-  const definition = TRADING_VIEW_DRAWING_ICONS[name];
+  const isChevron = name === 'chevron';
   return (
     <Stack
       render="span"
@@ -221,30 +222,22 @@ export function DrawingIcon({
       justifyContent="center"
       flexShrink={0}
       pointerEvents="none"
-      width={name === 'chevron' ? 12 : 20}
-      height={name === 'chevron' ? 12 : 20}
+      width={isChevron ? 12 : 20}
+      height={isChevron ? 12 : 20}
     >
-      {'icon' in definition ? (
-        <Icon
-          name={definition.icon}
-          size={name === 'chevron' ? '$3' : '$5'}
-          style={{ color }}
-        />
-      ) : (
-        <svg
-          width="100%"
-          height="100%"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={color}
-          strokeWidth={2}
-          strokeLinecap="square"
-          strokeLinejoin="miter"
-          focusable="false"
-        >
-          <path d={definition.path} />
-        </svg>
-      )}
+      <svg
+        width="100%"
+        height="100%"
+        viewBox={isChevron ? '0 0 12 16' : '0 0 24 24'}
+        fill="none"
+        stroke={color}
+        strokeWidth={DRAWING_ICON_STROKE_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        focusable="false"
+      >
+        <path d={TRADING_VIEW_DRAWING_ICONS[name]} />
+      </svg>
     </Stack>
   );
 }

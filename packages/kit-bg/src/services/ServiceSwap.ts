@@ -142,6 +142,7 @@ import {
   swapLimitOrdersLoadingAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import { isAddressWithheldFromBackend } from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -746,7 +747,7 @@ export default class ServiceSwap extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
         '/swap/v1/networks',
-        // Abort the request before releasing local default-token fallbacks.
+        // Bound transport separately from the UI's default-token wait budget.
         { params: requestParams, timeout: 10_000 },
       );
       const allClientSupportNetworks =
@@ -895,8 +896,6 @@ export default class ServiceSwap extends ServiceBase {
   private async fetchSwapTokensInternal(
     {
       networkId,
-      contractSearchNetworkId,
-      searchNetworks,
       keywords,
       limit = 50,
       accountAddress,
@@ -1012,15 +1011,13 @@ export default class ServiceSwap extends ServiceBase {
       };
       const requests = buildSwapTokenSearchRequests({
         params,
-        contractSearchNetworkId,
-        searchNetworks,
       });
       throwIfCanceled();
       const responses = await Promise.allSettled(
         requests.map(({ endpoint, params: requestParams }) => {
           const fetchTokens = () => {
             // A superseded search may have waited behind other requests. Never
-            // spend a newly available slot sending its remaining chain calls.
+            // spend a newly available slot sending its remaining requests.
             throwIfCanceled();
             return client.get<IFetchResponse<ISwapToken[]>>(endpoint, {
               ...requestConfig,
@@ -1326,6 +1323,7 @@ export default class ServiceSwap extends ServiceBase {
     accountAddress: string;
     accountId: string;
   }): Promise<boolean> {
+    if (await isAddressWithheldFromBackend({ networkId })) return false;
     return this.checkTokenPrivateSendSupportedMemo(
       networkId,
       contractAddress,
