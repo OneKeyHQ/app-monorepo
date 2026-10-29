@@ -801,12 +801,24 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   // Turning sync off ends this device's session on the server too. Best
   // effort: the local key is deleted either way and the token expires.
+  // Sync is already off, so storage refuses a refreshed token; refresh here
+  // without storing it, as it only has to last until the revoke.
   private async revokeCurrentHardwareSession(
     credential: IKeylessCloudSyncCredential,
   ) {
+    const session = credential.hardwareSession;
+    if (!session) return;
     try {
-      const fresh = await this.getFreshHardwareCredential(credential);
-      await this.revokeHardwareSession(fresh, 'current');
+      // Let a refresh in flight finish first, so one token is not sent twice.
+      await this.hardwareSessionRefresh?.catch(() => undefined);
+      const client = await this.backgroundApi.servicePrime.getPrimeClient();
+      const fresh =
+        (await refreshHardwareCloudSyncSessionIfNeeded({ client, session })) ??
+        session;
+      await this.revokeHardwareSession(
+        { ...credential, hardwareSession: fresh },
+        'current',
+      );
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
     }
