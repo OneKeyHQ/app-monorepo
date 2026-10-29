@@ -27,7 +27,8 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 function loadModule() {
   let loaded: typeof import('./orientation') | undefined;
   jest.isolateModules(() => {
-    loaded = jest.requireActual('./orientation');
+    loaded =
+      jest.requireActual<typeof import('./orientation')>('./orientation');
   });
   return loaded as typeof import('./orientation');
 }
