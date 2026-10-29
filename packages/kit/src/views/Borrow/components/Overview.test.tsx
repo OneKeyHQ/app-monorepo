@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { BorrowTestIDs } from '../testIDs';
 
 import { Overview } from './Overview';
@@ -102,14 +104,23 @@ jest.mock('./BorrowRewardsMetric', () => ({
   __esModule: true,
   BorrowRewardsMetric: () => null,
 }));
+jest.mock('./BorrowTableList/BorrowBalanceText', () => ({
+  BorrowBalanceText: ({ text }: { text: { text: string } }) => (
+    <span data-testid="compact-net-worth">{text.text}</span>
+  ),
+}));
 
-// Both metric components are stubbed down to the cell they occupy: what is
-// under test is whether Overview renders a cell at all, not what it says.
+// Keep the metric cells lightweight while allowing Overview's custom value
+// to be checked independently of the formatter.
 jest.mock('./OverviewMetric', () => ({
   __esModule: true,
-  OverviewMetric: ({ testID }: { testID?: string }) => (
-    <div data-testid={testID} />
-  ),
+  OverviewMetric: ({
+    testID,
+    valueText,
+  }: {
+    testID?: string;
+    valueText?: ReactNode;
+  }) => <div data-testid={testID}>{valueText}</div>,
 }));
 jest.mock('./BorrowHealthFactorSummary', () => {
   const { BorrowTestIDs: ids } =
@@ -137,6 +148,7 @@ function renderOverview(props?: {
 describe('Overview position metrics', () => {
   beforeEach(() => {
     media.gtMd = false;
+    Object.assign(platformEnv, { isNative: false });
   });
 
   it('shows all three headline numbers on phones once a position exists', () => {
@@ -145,6 +157,23 @@ describe('Overview position metrics', () => {
     expect(queryByTestId(BorrowTestIDs.overviewNetWorth)).toBeTruthy();
     expect(queryByTestId(BorrowTestIDs.overviewHealthFactor)).toBeTruthy();
     expect(queryByTestId(BorrowTestIDs.overviewNetApy)).toBeTruthy();
+  });
+
+  it('uses compact fiat text only for native net worth', () => {
+    Object.assign(platformEnv, { isNative: true });
+    const { getByTestId, queryByTestId, rerender } = renderOverview();
+
+    expect(getByTestId('compact-net-worth').textContent).toBe('$0.00');
+    expect(
+      getByTestId(BorrowTestIDs.overviewNetWorth).contains(
+        getByTestId('compact-net-worth'),
+      ),
+    ).toBe(true);
+    expect(getByTestId(BorrowTestIDs.overviewNetApy).textContent).toBe('');
+
+    Object.assign(platformEnv, { isNative: false });
+    rerender(<Overview eModeStatus={null} overviewData={overviewData} />);
+    expect(queryByTestId('compact-net-worth')).toBeNull();
   });
 
   // All three describe a position, so a market the user holds nothing in has
