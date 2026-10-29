@@ -22,9 +22,13 @@ env:
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
-  lint:
+  # tsc, the standard oxlint pass, oxfmt, and the lightweight checks. The
+  # type-aware pass runs in lint-type-aware on another runner because tsgo and
+  # tsgolint cannot share one 16 GB runner.
+  lint-checks:
+    name: lint checks (${{ matrix.node-version }})
     runs-on: ubuntu-24.04
-    # About eight minutes of checks plus six minutes for a cold install and margin.
+    # About five minutes of checks plus six minutes for a cold install and margin.
     timeout-minutes: 15
 
     strategy:
@@ -89,6 +93,7 @@ jobs:
       - name: Run lint
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
+          ONEKEY_OXLINT_PASS: standard
         run: |
           mkdir -p ci-ai
           set +e
@@ -149,3 +154,93 @@ jobs:
       - name: Unmount dependency image
         if: always() && steps.dependencies.outcome != 'skipped'
         run: python3 .github/scripts/ci-dependencies.py cleanup
+
+  lint-type-aware:
+    name: lint type-aware (${{ matrix.node-version }})
+    runs-on: ubuntu-24.04
+    # About three minutes of type-aware lint plus six minutes for a cold install and margin.
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
+          check-latest: true
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Write lint AI prompt
+        run: |
+          mkdir -p ci-ai
+          node .github/scripts/ciFailureIssue.js prompt lint > ci-ai/lint-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and lint-output.log." > ci-ai/lint-ai-prompt.md
+
+      - name: Install Dependency
+        id: dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        uses: ./.github/actions/install-dependencies
+
+      - name: Run type-aware lint
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+          ONEKEY_OXLINT_PASS: type-aware
+        run: |
+          mkdir -p ci-ai
+          set +e
+          node ./development/lint/eslint.js 2>&1 | tee ci-ai/lint-output.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+
+      - name: Upload lint AI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-ai-lint-type-aware-diagnostics
+          path: |
+            ci-ai/lint-ai-prompt.md
+            ci-ai/lint-output.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Explain lint failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-lint-type-aware-diagnostics\`"
+            echo "- Open: \`lint-output.log\` and \`lint-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-lint-type-aware-diagnostics and inspect lint-output.log"
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
+
+  # Keeps the required "lint (24.x)" check name stable for branch protection.
+  lint:
+    name: lint (24.x)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [lint-checks, lint-type-aware]
+    if: always()
+
+    steps:
+      - name: Check lint jobs
+        run: |
+          if [ "${{ needs.lint-checks.result }}" != "success" ] || [ "${{ needs.lint-type-aware.result }}" != "success" ]; then
+            echo "::error::lint checks: ${{ needs.lint-checks.result }}, lint type-aware: ${{ needs.lint-type-aware.result }}"
+            exit 1
+          fi
