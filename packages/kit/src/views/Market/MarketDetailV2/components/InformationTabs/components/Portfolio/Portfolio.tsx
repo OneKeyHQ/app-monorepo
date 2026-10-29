@@ -37,7 +37,8 @@ interface IPortfolioProps {
   // True until the page knows whether the asset has a position (account still
   // loading, or the first request for it not back yet).
   isPending?: boolean;
-  // The first request for this asset failed, so holdings are unknown.
+  // A holdings request failed with nothing to fall back on, so an empty list
+  // means unknown rather than no positions.
   isFailed?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;

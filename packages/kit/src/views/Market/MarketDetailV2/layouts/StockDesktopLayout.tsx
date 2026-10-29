@@ -858,16 +858,19 @@ function StockPosition({
   portfolioData,
   isRefreshing,
   hasAccount,
+  isPortfolioIncomplete,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
+  isPortfolioIncomplete?: boolean;
 }) {
   return (
     <Portfolio
       standalone
       isStock
       hasAccount={hasAccount}
+      isFailed={isPortfolioIncomplete}
       portfolioData={portfolioData}
       isRefreshing={isRefreshing}
       isMarketDetail
@@ -1277,11 +1280,13 @@ function StockOverview({
   portfolioData,
   isRefreshing,
   hasAccount,
+  isPortfolioIncomplete,
   initialSection,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
+  isPortfolioIncomplete?: boolean;
   initialSection?: IMarketStockDetailInitialSection;
 }) {
   const intl = useIntl();
@@ -1357,6 +1362,7 @@ function StockOverview({
             portfolioData={portfolioData}
             isRefreshing={isRefreshing}
             hasAccount={hasAccount}
+            isPortfolioIncomplete={isPortfolioIncomplete}
           />
         </YStack>
       )}
@@ -1403,6 +1409,7 @@ export function StockDesktopLayout({
     resolvedVariantKeys,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
+    isPortfolioIncomplete: isStockPortfolioIncomplete,
   } = useStockPortfolioData();
   const { priceMode, handlePriceModeChange, sharePriceAvailable } =
     useStockPriceSource();
@@ -1462,6 +1469,7 @@ export function StockDesktopLayout({
             portfolioData={stockPortfolioData}
             isRefreshing={isStockPortfolioRefreshing}
             hasAccount={hasStockPortfolioAccount}
+            isPortfolioIncomplete={isStockPortfolioIncomplete}
             initialSection={initialSection}
           />
         </YStack>

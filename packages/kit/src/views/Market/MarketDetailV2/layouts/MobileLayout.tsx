@@ -1295,7 +1295,9 @@ export function MobileLayout({
               isRefreshing={isRefreshing}
               isPortfolioPending={isPortfolioPending}
               isPortfolioFailed={
-                !isStockPortfolio && tokenPortfolio.isPortfolioFailed
+                isStockPortfolio
+                  ? stockPortfolio.isPortfolioIncomplete
+                  : tokenPortfolio.isPortfolioFailed
               }
               tokenLogoUrl={tokenDetail?.logoUrl}
               detailKind={detailKind}
