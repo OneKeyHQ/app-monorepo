@@ -19,6 +19,8 @@ import type {
 import { settingsPersistAtom } from '../states/jotai/atoms/settings';
 import { vaultFactory } from '../vaults/factory';
 import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
+import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import { fetchLocalWalletNativeTokenPrice } from '../vaults/localWallet/nativeTokenPrice';
 
 import ServiceBase from './ServiceBase';
 
@@ -58,6 +60,15 @@ class ServiceGas extends ServiceBase {
 
   @backgroundMethod()
   async batchEstimateFee(params: IBatchEstimateFeeParams) {
+    if (
+      await isLocalWalletNetwork({
+        networkId: params.networkId,
+      })
+    ) {
+      throw new OneKeyLocalError(
+        'Privacy transaction fees must be estimated locally',
+      );
+    }
     const controller = new AbortController();
     this._estimateFeeController = controller;
 
@@ -106,7 +117,8 @@ class ServiceGas extends ServiceBase {
     // fee estimation across the app (Send / Swap / Perps / Earn / dApp ...)
     // to opt out of sponsored gas. Backend then returns no quote and
     // downstream code naturally falls back to user-paid.
-    const { useGasAccountByDefault } = await settingsPersistAtom.get();
+    const { useGasAccountByDefault, currencyInfo } =
+      await settingsPersistAtom.get();
     if (useGasAccountByDefault === false) {
       rest.gasAccountEnabled = false;
     }
@@ -120,6 +132,17 @@ class ServiceGas extends ServiceBase {
     this._estimateFeeController = null;
 
     const feeInfo = resp.data.data;
+    let nativeTokenPrice = feeInfo.nativeTokenPrice?.price;
+    if (
+      nativeTokenPrice === undefined &&
+      (await isLocalWalletNetwork({ networkId: params.networkId }))
+    ) {
+      nativeTokenPrice = await fetchLocalWalletNativeTokenPrice({
+        backgroundApi: this.backgroundApi,
+        networkId: params.networkId,
+        requestCurrency: currencyInfo?.id ?? 'usd',
+      });
+    }
 
     const feeResult = {
       common: {
@@ -128,7 +151,7 @@ class ServiceGas extends ServiceBase {
         feeSymbol: feeInfo.feeSymbol,
         nativeDecimals: feeInfo.nativeDecimals,
         nativeSymbol: feeInfo.nativeSymbol,
-        nativeTokenPrice: feeInfo.nativeTokenPrice?.price,
+        nativeTokenPrice,
       },
       gas: feeInfo.gas,
       gasEIP1559: feeInfo.gasEIP1559,

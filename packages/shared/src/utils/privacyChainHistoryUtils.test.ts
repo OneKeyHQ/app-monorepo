@@ -1,0 +1,610 @@
+import {
+  isPrivacyChainHistoryVisible,
+  mergePrivacyChainHistoryTxs,
+  projectPrivacyChainHistoryTxToPool,
+} from './privacyChainHistoryUtils';
+
+import type {
+  IAccountHistoryTx,
+  IPrivacyChainHistorySide,
+} from '../../types/history';
+
+type ITestTx = {
+  source: 'private' | 'public';
+  decodedTx: { txid: string };
+  privacyChainHistoryPoolIds?: number[];
+  privacyChainHistorySide?: IPrivacyChainHistorySide;
+  privacyChainHistoryPoolDeltas?: Record<string, string>;
+};
+
+const tx = (txid: string, source: 'private' | 'public'): ITestTx => ({
+  source,
+  decodedTx: { txid },
+});
+
+describe('isPrivacyChainHistoryVisible', () => {
+  it('keeps exact future pool IDs distinct', () => {
+    expect(
+      isPrivacyChainHistoryVisible({
+        txPoolIds: [4, 99],
+        selectedPoolId: 99,
+      }),
+    ).toBe(true);
+    expect(
+      isPrivacyChainHistoryVisible({
+        txPoolIds: [4, 99],
+        selectedPoolId: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it('aggregates exact pools only for the current public/private view', () => {
+    expect(
+      isPrivacyChainHistoryVisible({
+        txPoolIds: [0, 4, 99],
+        selectedSide: 'public',
+      }),
+    ).toBe(true);
+    expect(
+      isPrivacyChainHistoryVisible({
+        txPoolIds: [0, 4, 99],
+        selectedSide: 'private',
+      }),
+    ).toBe(true);
+  });
+
+  it('shows mixed transactions on both sides', () => {
+    expect(
+      isPrivacyChainHistoryVisible({ txSide: 'mixed', selectedSide: 'public' }),
+    ).toBe(true);
+    expect(
+      isPrivacyChainHistoryVisible({
+        txSide: 'mixed',
+        selectedSide: 'private',
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps public and private rows on their own side', () => {
+    expect(
+      isPrivacyChainHistoryVisible({
+        txSide: 'public',
+        selectedSide: 'public',
+      }),
+    ).toBe(true);
+    expect(
+      isPrivacyChainHistoryVisible({
+        txSide: 'public',
+        selectedSide: 'private',
+      }),
+    ).toBe(false);
+  });
+
+  it('does not expose unclassified rows in a selected side', () => {
+    expect(isPrivacyChainHistoryVisible({ selectedSide: 'private' })).toBe(
+      false,
+    );
+  });
+
+  it('does not put a row with unknown pools into every exact pool tab', () => {
+    expect(
+      isPrivacyChainHistoryVisible({
+        txPoolIds: [],
+        selectedPoolId: 3,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('projectPrivacyChainHistoryTxToPool', () => {
+  const historyTx = {
+    id: 'history-a',
+    privacyChainHistoryPoolDeltas: {
+      '0': '-2.5',
+      '4': '2',
+      '99': '0',
+    },
+    decodedTx: {
+      txid: 'a',
+      nativeAmount: '0.6',
+      totalFeeInNative: '0',
+      actions: [
+        {
+          assetTransfer: {
+            sends: [{ amount: '0.6', symbol: 'ZEC' }],
+            receives: [],
+          },
+        },
+      ],
+    },
+  } as unknown as IAccountHistoryTx;
+
+  it.each([
+    [0, '2.5', 1, 0],
+    [4, '2', 0, 1],
+    [99, '0', 1, 0],
+  ] as const)(
+    'projects signed pool %s without dropping a zero delta',
+    (poolId, amount, sendCount, receiveCount) => {
+      const projected = projectPrivacyChainHistoryTxToPool({
+        tx: historyTx,
+        selectedPoolId: poolId,
+      });
+      const transfer = projected.decodedTx.actions[0].assetTransfer;
+      expect(projected.decodedTx.nativeAmount).toBe(amount);
+      expect(transfer?.sends).toHaveLength(sendCount);
+      expect(transfer?.receives).toHaveLength(receiveCount);
+      expect((transfer?.sends[0] ?? transfer?.receives[0])?.amount).toBe(
+        amount,
+      );
+    },
+  );
+
+  it('does not mutate the aggregate cached row', () => {
+    projectPrivacyChainHistoryTxToPool({ tx: historyTx, selectedPoolId: 4 });
+    expect(historyTx.decodedTx.nativeAmount).toBe('0.6');
+    expect(historyTx.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '0.6',
+    );
+  });
+
+  it('shows the net spend when the fee is unavailable', () => {
+    const projected = projectPrivacyChainHistoryTxToPool({
+      tx: {
+        ...historyTx,
+        decodedTx: { ...historyTx.decodedTx, totalFeeInNative: undefined },
+      },
+      selectedPoolId: 0,
+    });
+
+    expect(projected.decodedTx.nativeAmount).toBe('2.5');
+    expect(projected.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '2.5',
+    );
+  });
+
+  it('can establish the receiving pool amount without the sender fee', () => {
+    const projected = projectPrivacyChainHistoryTxToPool({
+      tx: {
+        ...historyTx,
+        decodedTx: { ...historyTx.decodedTx, totalFeeInNative: undefined },
+      },
+      selectedPoolId: 4,
+    });
+
+    expect(projected.decodedTx.nativeAmount).toBe('2');
+  });
+});
+
+describe('mergePrivacyChainHistoryTxs', () => {
+  it('lets the indexer win a collision: the transparent leg is backend-only', () => {
+    const merged = mergePrivacyChainHistoryTxs({
+      privateTxs: [
+        {
+          ...tx('a', 'private'),
+          privacyChainHistoryPoolIds: [0, 4],
+          privacyChainHistoryPoolDeltas: { '0': '1', '4': '-1.0001' },
+        },
+      ],
+      publicTxs: [
+        {
+          ...tx('a', 'public'),
+          privacyChainHistoryPoolIds: [0],
+          privacyChainHistorySide: 'public' as const,
+        },
+      ],
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      source: 'public',
+      privacyChainHistoryPoolIds: [0, 4],
+      privacyChainHistorySide: 'mixed',
+      privacyChainHistoryPoolDeltas: { '0': '1', '4': '-1.0001' },
+    });
+  });
+
+  it('adds local shielded rows the indexer cannot see', () => {
+    const merged = mergePrivacyChainHistoryTxs({
+      privateTxs: [{ ...tx('a', 'private'), privacyChainHistoryPoolIds: [4] }],
+      publicTxs: [tx('b', 'public')],
+    });
+    expect(merged.map((t) => t.decodedTx.txid)).toEqual(['b', 'a']);
+    expect(merged[1].privacyChainHistorySide).toBe('private');
+  });
+
+  it('never lets the local scan represent a transparent leg', () => {
+    const merged = mergePrivacyChainHistoryTxs({
+      privateTxs: [
+        {
+          ...tx('a', 'private'),
+          privacyChainHistoryPoolIds: [0, 4],
+          privacyChainHistoryPoolDeltas: { '0': '-1', '4': '0.9999' },
+        },
+        { ...tx('b', 'private'), privacyChainHistoryPoolIds: [0] },
+      ],
+      publicTxs: [],
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      decodedTx: { txid: 'a' },
+      privacyChainHistoryPoolIds: [4],
+      privacyChainHistorySide: 'private',
+      privacyChainHistoryPoolDeltas: { '4': '0.9999' },
+    });
+  });
+
+  it('carries the public half alone before the scan has found anything', () => {
+    const merged = mergePrivacyChainHistoryTxs({
+      privateTxs: [],
+      publicTxs: [tx('a', 'public'), tx('b', 'public')],
+    });
+    expect(merged.map((t) => t.decodedTx.txid)).toEqual(['a', 'b']);
+  });
+
+  it('does not duplicate a txid the public half reports twice', () => {
+    const merged = mergePrivacyChainHistoryTxs({
+      privateTxs: [{ ...tx('a', 'private'), privacyChainHistoryPoolIds: [4] }],
+      publicTxs: [tx('a', 'public'), tx('a', 'public')],
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0].source).toBe('public');
+  });
+
+  it('deduplicates by txid even when cache ids differ', () => {
+    const merged = mergePrivacyChainHistoryTxs({
+      privateTxs: [
+        {
+          id: 'runtime-id',
+          source: 'private',
+          decodedTx: { txid: 'a' },
+          privacyChainHistoryPoolIds: [4],
+        },
+      ],
+      publicTxs: [
+        { id: 'backend-id$key', source: 'public', decodedTx: { txid: 'a' } },
+      ],
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe('backend-id$key');
+  });
+
+  it('merges differently cased hashes without losing private pools or duplicating public rows', () => {
+    const hash = 'ab'.repeat(32);
+    const merged = mergePrivacyChainHistoryTxs({
+      privateTxs: [
+        { ...tx(hash, 'private'), privacyChainHistoryPoolIds: [0, 4] },
+      ],
+      publicTxs: [tx(hash.toUpperCase(), 'public'), tx(hash, 'public')],
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      source: 'public',
+      privacyChainHistoryPoolIds: [0, 4],
+      privacyChainHistorySide: 'mixed',
+    });
+  });
+});
+
+describe('projectPrivacyChainHistoryTxToPool fee handling', () => {
+  it('preserves a known same-pool self-payment instead of replacing it with its net debit', () => {
+    const selfTransfer = {
+      id: 'self-transfer',
+      privacyChainHistoryPoolIds: [4],
+      privacyChainHistoryPoolDeltas: { '4': '-0.0001' },
+      decodedTx: {
+        txid: 'self-transfer',
+        nativeAmount: '1',
+        totalFeeInNative: '0.0001',
+        actions: [
+          {
+            assetTransfer: {
+              from: 'Ironwood pool',
+              to: 'Ironwood pool',
+              sends: [{ amount: '1', isNative: true }],
+              receives: [],
+            },
+          },
+        ],
+      },
+    } as unknown as IAccountHistoryTx;
+    expect(
+      projectPrivacyChainHistoryTxToPool({
+        tx: selfTransfer,
+        selectedPoolId: 4,
+      }).decodedTx.nativeAmount,
+    ).toBe('1');
+  });
+
+  it('does not display a fee-only pool debit as a second payment', () => {
+    const selfTransfer = {
+      id: 'self-transfer',
+      privacyChainHistoryPoolIds: [4],
+      privacyChainHistoryPoolDeltas: { '4': '-0.0001' },
+      decodedTx: {
+        txid: 'self-transfer',
+        totalFeeInNative: '0.0001',
+        actions: [
+          {
+            assetTransfer: {
+              sends: [{ amount: '1', isNative: true }],
+              receives: [],
+            },
+          },
+        ],
+      },
+    } as unknown as IAccountHistoryTx;
+    const projected = projectPrivacyChainHistoryTxToPool({
+      tx: selfTransfer,
+      selectedPoolId: 4,
+    });
+    expect(projected.decodedTx.nativeAmount).toBe('0');
+    expect(projected.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '0',
+    );
+    expect(projected.decodedTx.totalFeeInNative).toBe('0.0001');
+  });
+
+  it('shows the transferred amount on the paying pool, fee excluded', () => {
+    const sent = {
+      id: 's',
+      privacyChainHistoryPoolIds: [4],
+      privacyChainHistoryPoolDeltas: { '4': '-0.0501' },
+      decodedTx: {
+        txid: 's',
+        owner: 't1own',
+        totalFeeInNative: '0.0001',
+        nativeAmount: '0.05',
+        actions: [
+          {
+            assetTransfer: {
+              from: 't1own',
+              to: 'u1recipient',
+              sends: [{ from: 't1own', to: 'u1recipient', amount: '0.05' }],
+              receives: [],
+            },
+          },
+        ],
+      },
+    } as unknown as IAccountHistoryTx;
+    const projected = projectPrivacyChainHistoryTxToPool({
+      tx: sent,
+      selectedPoolId: 4,
+    });
+    expect(projected.decodedTx.nativeAmount).toBe('0.05');
+    expect(projected.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '0.05',
+    );
+  });
+});
+
+describe('projectPrivacyChainHistoryTxToPool on an indexer-backed mixed row', () => {
+  const withdraw = {
+    id: 'w',
+    privacyChainHistoryPoolIds: [0, 4],
+    privacyChainHistorySide: 'mixed',
+    privacyChainHistoryPoolDeltas: { '0': '0.028112', '4': '-0.028212' },
+    decodedTx: {
+      txid: 'w',
+      owner: 't1own',
+      nativeAmount: '0.028112',
+      actions: [
+        {
+          assetTransfer: {
+            from: 'Shielded',
+            to: 't1own',
+            sends: [{ from: 'Shielded', to: '', amount: '0.028112' }],
+            receives: [{ from: '', to: 't1own', amount: '0.028112' }],
+          },
+        },
+      ],
+    },
+  } as unknown as IAccountHistoryTx;
+
+  it('keeps an explicit zero fee from the backend', () => {
+    const [merged] = mergePrivacyChainHistoryTxs({
+      publicTxs: [
+        {
+          ...withdraw,
+          decodedTx: { ...withdraw.decodedTx, totalFeeInNative: '0' },
+        },
+      ],
+      privateTxs: [
+        {
+          ...withdraw,
+          decodedTx: { ...withdraw.decodedTx, totalFeeInNative: '0.0001' },
+        },
+      ],
+    });
+    expect(merged.decodedTx.totalFeeInNative).toBe('0');
+  });
+
+  it.each([undefined, ''])(
+    'keeps a runtime-known fee when the indexer fee is %s',
+    (fee) => {
+      const [merged] = mergePrivacyChainHistoryTxs({
+        publicTxs: [
+          {
+            ...withdraw,
+            decodedTx: { ...withdraw.decodedTx, totalFeeInNative: fee },
+          },
+        ],
+        privateTxs: [
+          {
+            ...withdraw,
+            decodedTx: { ...withdraw.decodedTx, totalFeeInNative: '0.0001' },
+          },
+        ],
+      });
+      expect(merged.decodedTx.nativeAmount).toBe('0.028112');
+      expect(merged.decodedTx.totalFeeInNative).toBe('0.0001');
+      expect(
+        projectPrivacyChainHistoryTxToPool({ tx: merged, selectedPoolId: 4 })
+          .decodedTx.nativeAmount,
+      ).toBe('0.028112');
+    },
+  );
+
+  it('shows the shielded side of a withdraw as a send to the own address', () => {
+    const projected = projectPrivacyChainHistoryTxToPool({
+      tx: withdraw,
+      selectedPoolId: 4,
+    });
+    const transfer = projected.decodedTx.actions[0].assetTransfer;
+    expect(transfer?.sends).toEqual([
+      expect.objectContaining({
+        from: '',
+        shieldedFrom: { poolId: 4, isOwn: true },
+        to: 't1own',
+        amount: '0.028212',
+      }),
+    ]);
+    expect(transfer?.receives).toEqual([]);
+    expect(transfer).toMatchObject({
+      from: '',
+      shieldedFrom: { poolId: 4, isOwn: true },
+      to: 't1own',
+    });
+  });
+
+  it('projects a shield into the own private pool without inventing a public recipient', () => {
+    const projected = projectPrivacyChainHistoryTxToPool({
+      tx: {
+        ...withdraw,
+        privacyChainHistoryPoolDeltas: { '0': '-1.0001', '4': '1' },
+        decodedTx: {
+          ...withdraw.decodedTx,
+          actions: [
+            {
+              ...withdraw.decodedTx.actions[0],
+              assetTransfer: {
+                from: 't1own',
+                to: '',
+                shieldedTo: {},
+                sends: [{ from: 't1own', to: '', amount: '1' }],
+                receives: [],
+              },
+            },
+          ],
+        },
+      } as unknown as IAccountHistoryTx,
+      selectedPoolId: 4,
+    });
+    const transfer = projected.decodedTx.actions[0].assetTransfer;
+    expect(transfer).toMatchObject({
+      from: 't1own',
+      to: '',
+      shieldedTo: { poolId: 4, isOwn: true },
+      sends: [],
+      receives: [
+        {
+          from: 't1own',
+          to: '',
+          shieldedTo: { poolId: 4, isOwn: true },
+          amount: '1',
+        },
+      ],
+    });
+  });
+
+  it('leaves the public side as the indexer described it', () => {
+    const projected = projectPrivacyChainHistoryTxToPool({
+      tx: withdraw,
+      selectedPoolId: 0,
+    });
+    const transfer = projected.decodedTx.actions[0].assetTransfer;
+    expect(transfer?.receives).toEqual([
+      expect.objectContaining({ from: '', to: 't1own', amount: '0.028112' }),
+    ]);
+  });
+});
+
+describe('projectPrivacyChainHistoryTxToPool with shielded endpoints', () => {
+  const selfTransfer = (
+    shieldedFrom: { poolId?: number; isOwn?: boolean },
+    shieldedTo: { poolId?: number; isOwn?: boolean },
+  ) =>
+    ({
+      id: 'self-transfer',
+      privacyChainHistoryPoolIds: [4],
+      privacyChainHistoryPoolDeltas: { '4': '-0.0001' },
+      decodedTx: {
+        txid: 'self-transfer',
+        nativeAmount: '1',
+        totalFeeInNative: '0.0001',
+        actions: [
+          {
+            assetTransfer: {
+              from: '',
+              to: '',
+              shieldedFrom,
+              shieldedTo,
+              sends: [{ amount: '1', isNative: true }],
+              receives: [],
+            },
+          },
+        ],
+      },
+    }) as unknown as IAccountHistoryTx;
+
+  it('preserves a same-pool self-payment named by pool id', () => {
+    expect(
+      projectPrivacyChainHistoryTxToPool({
+        tx: selfTransfer(
+          { poolId: 4, isOwn: true },
+          { poolId: 4, isOwn: true },
+        ),
+        selectedPoolId: 4,
+      }).decodedTx.nativeAmount,
+    ).toBe('1');
+  });
+
+  it.each([
+    [
+      { poolId: 3, isOwn: true },
+      { poolId: 4, isOwn: true },
+    ],
+    // A received note: the hidden sender paid into our pool.
+    [{ poolId: 4 }, { poolId: 4, isOwn: true }],
+    [{}, {}],
+  ])('does not treat %j -> %j as a same-pool move', (from, to) => {
+    expect(
+      projectPrivacyChainHistoryTxToPool({
+        tx: selfTransfer(from, to),
+        selectedPoolId: 4,
+      }).decodedTx.nativeAmount,
+    ).toBe('0');
+  });
+
+  it('keeps a shielded destination empty instead of borrowing a template address', () => {
+    const row = {
+      id: 'mixed',
+      privacyChainHistoryPoolIds: [0, 4],
+      privacyChainHistorySide: 'mixed',
+      privacyChainHistoryPoolDeltas: { '0': '0.5', '4': '-0.6' },
+      decodedTx: {
+        txid: 'mixed',
+        owner: 't1own',
+        actions: [
+          {
+            assetTransfer: {
+              from: 't1own',
+              to: '',
+              shieldedTo: {},
+              sends: [{ from: 't1own', to: 't1change', amount: '0.6' }],
+              receives: [],
+            },
+          },
+        ],
+      },
+    } as unknown as IAccountHistoryTx;
+    const [send] =
+      projectPrivacyChainHistoryTxToPool({ tx: row, selectedPoolId: 4 })
+        .decodedTx.actions[0].assetTransfer?.sends ?? [];
+    expect(send).toMatchObject({
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 4, isOwn: true },
+      shieldedTo: {},
+    });
+  });
+});

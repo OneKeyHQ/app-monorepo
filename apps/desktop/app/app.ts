@@ -23,6 +23,7 @@ import {
   inAppPurchase,
   ipcMain,
   nativeTheme,
+  net,
   powerMonitor,
   session,
   shell,
@@ -53,9 +54,12 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import { resolveDesktopCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
+import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
+import { fetchBytesWithIdleTimeout } from '@onekeyhq/shared/src/utils/fetchWithIdleTimeout';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
+import type { IFetchStreamRequest } from '@onekeyhq/shared/types/fetchStream';
 
 import {
   checkFileHash,
@@ -1285,6 +1289,80 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       resetCpuWatchdogStateForTesting();
     });
   }
+
+  // The renderer's fetch obeys CORS and mixed content; the main process does not.
+  ipcMain.removeHandler(ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST);
+  ipcMain.handle(
+    ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST,
+    async (
+      event,
+      params: { url: string; contentType: string; body: Uint8Array },
+    ) => {
+      // Main window only: dApp webviews share the preload, and this is a POST-anywhere relay.
+      const currentMainWebContentsId =
+        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
+      if (event.sender.id !== currentMainWebContentsId) {
+        return { ok: false, error: 'not allowed' };
+      }
+      try {
+        const { url, contentType, body } = params;
+        // Only http(s): never let the renderer reach file:// etc. through us.
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return {
+            ok: false,
+            error: `unsupported protocol ${parsed.protocol}`,
+          };
+        }
+        // Same limits as FETCH_STREAM: no credentials, no cross-host redirects.
+        if (parsed.username || parsed.password) {
+          return { ok: false, error: 'URL credentials are not supported' };
+        }
+        // Idle timeout only: batches can take minutes. `net.fetch` follows the system proxy;
+        // Node's fetch would bypass it and expose the user's IP.
+        const response = await fetchBytesWithIdleTimeout(
+          url,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': contentType },
+            credentials: 'omit',
+            redirect: 'error',
+            // A zero-length body is a GET-shaped call in Monero's binary API; some proxies reject an empty buffer.
+            body: body.length > 0 ? Buffer.from(body) : undefined,
+          },
+          undefined,
+          (input, init) => net.fetch(String(input), init),
+        );
+        if (!response.ok) {
+          return {
+            ok: false,
+            error: `node answered HTTP ${response.status} ${response.statusText}`,
+          };
+        }
+        return { ok: true, bytes: response.bytes };
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+  );
+
+  const fetchStreamRequest = createFetchStreamHandler((input, init) =>
+    net.fetch(String(input), init),
+  );
+  ipcMain.removeHandler(ipcMessageKeys.FETCH_STREAM);
+  ipcMain.handle(
+    ipcMessageKeys.FETCH_STREAM,
+    async (event, request: IFetchStreamRequest) => {
+      const mainId =
+        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
+      if (event.sender.id !== mainId)
+        return { ok: false, error: 'not allowed' };
+      return fetchStreamRequest(request);
+    },
+  );
 
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);

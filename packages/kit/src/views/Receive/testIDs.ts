@@ -9,6 +9,8 @@ export const ReceiveTestIDs = {
   SkipVerifyButton: 'receive-skip-verify-button',
   AddressTypeSelector: 'receive-address-type-selector',
   AddressTypeMenuButton: 'receive-address-type-menu-button',
+  LocalWalletAddressFormSelect: 'receive-local-wallet-address-form-select',
+  LocalWalletAddressFormTrigger: 'receive-local-wallet-address-form-trigger',
   Banner: 'receive-banner',
   PageHeading: 'receive-page-heading',
   CardHeaderNetworkEta: 'receive-card-network-eta',

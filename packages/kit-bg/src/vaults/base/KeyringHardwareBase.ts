@@ -33,6 +33,12 @@ import type {
   IPrepareHardwareAccountsParams,
 } from '../types';
 
+// Firmware refusals of a derivation path the device cannot use.
+const UNSUPPORTED_PATH_DEVICE_ERRORS = [
+  'Failure_DataError,Forbidden key path',
+  'Failure_DataError,Non-hardened paths unsupported on Ed25519',
+];
+
 export type IWalletPassphraseState = {
   passphraseState?: string;
   useEmptyPassphrase?: boolean;
@@ -241,11 +247,11 @@ export abstract class KeyringHardwareBase extends KeyringBase {
           !hasErrorItem?.success &&
           hasErrorItem?.payload?.error
         ) {
+          const deviceError = hasErrorItem.payload.error;
           if (
-            // response.payload.code === HardwareErrorCode.RuntimeError &&
-            hasErrorItem?.payload?.error?.indexOf(
-              'Failure_DataError,Forbidden key path',
-            ) !== -1
+            UNSUPPORTED_PATH_DEVICE_ERRORS.some((item) =>
+              deviceError.includes(item),
+            )
           ) {
             throw new UnsupportedAddressTypeError();
           }

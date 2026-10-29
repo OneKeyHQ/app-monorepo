@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "Speicher",
   "privacy_sync_waiting_wifi__msg": "Warten auf WLAN",
   "privacy_temp_wallet_unavailable__desc": "Für versteckte Wallets, die beim Schließen der App gelöscht werden, nicht verfügbar. Aktiviere „Zugänglich halten“, um die Funktion zu nutzen.",
+  "privacy_unshield_warning__desc": "Betrag und Empfängeradresse werden öffentlich auf der Blockchain sichtbar.",
   "private_key_imported_feedback_desc": "Dein Private-Key-Konto ist bereit",
   "private_key_imported_feedback_title": "Erfolgreich importiert",
   "private_send.arrival_in": "Ankunft in",

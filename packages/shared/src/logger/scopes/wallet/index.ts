@@ -4,6 +4,7 @@ import { EScopeName } from '../../types';
 import { AddressTypeScene } from './scenes/addressType';
 import { WalletBalanceScene } from './scenes/balance';
 import { KeylessScene } from './scenes/keyless';
+import { PrivacyChainScene } from './scenes/privacyChain';
 import { WalletActionsScene } from './scenes/walletActions';
 import { WalletBannerScene } from './scenes/walletBanner';
 
@@ -19,4 +20,6 @@ export class WalletScope extends BaseScope {
   addressType = this.createScene('addressType', AddressTypeScene);
 
   keyless = this.createScene('keyless', KeylessScene);
+
+  privacyChain = this.createScene('privacyChain', PrivacyChainScene);
 }
