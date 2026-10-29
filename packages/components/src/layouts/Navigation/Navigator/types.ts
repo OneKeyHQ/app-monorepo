@@ -81,10 +81,28 @@ export interface ICommonNavigatorConfig<
       }) => ICommonScreenOptions);
 }
 
+export interface ITabSubStackNavigatorProps {
+  config: ITabSubNavigatorConfig<string, any>[] | null;
+  /**
+   * Header style for screens pushed above the first one. `modal` gives them
+   * the opaque modal-stack header, for panes that host modal routes (the
+   * Settings split layout). Native only; defaults to `tab`.
+   */
+  pushedScreenPresentation?: 'tab' | 'modal';
+}
+
 export interface ITabNavigatorExtraConfig<RouteName extends string> {
   name: RouteName;
   children: ITabSubNavigatorConfig<any, any>[];
   freezeOnBlur?: boolean;
+}
+
+// A round button the native tab bar draws above itself while the system shows
+// it as a vertical bar (the iPhone Duo side strip). iOS only.
+export interface ITabBarSideAccessory {
+  icon: ImageSourcePropType;
+  label: string;
+  onPress: () => void;
 }
 
 export interface ITabNavigatorProps<RouteName extends string> {
@@ -93,4 +111,5 @@ export interface ITabNavigatorProps<RouteName extends string> {
   showTabBar?: boolean;
   bottomMenu: ReactElement;
   webPageTabBar: ReactElement;
+  sideAccessory?: ITabBarSideAccessory;
 }

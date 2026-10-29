@@ -20,3 +20,4 @@ export * from './useVisibilityChange';
 export * from './useSplitView';
 export * from './useIsTablet';
 export * from './nativeTabletRealWidthMedia';
+export * from './useIsWideNativeWindow';
