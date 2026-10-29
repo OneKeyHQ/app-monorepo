@@ -752,6 +752,122 @@ describe('useWebViewTranslate free-trial stop', () => {
     expect(result.current.translatingRef.current).toBe(true);
   });
 
+  it.each(
+    (['prime', 'freeTrial'] as const).flatMap((entitlementSource) =>
+      [false, true].flatMap((desktop) =>
+        [false, true].map((navigationEnded) => ({
+          entitlementSource,
+          desktop,
+          navigationEnded,
+        })),
+      ),
+    ),
+  )(
+    'translates and retries the previous sid during navigation: %j',
+    async ({ entitlementSource, desktop, navigationEnded }) => {
+      mockedPlatformEnv.isNative = !desktop;
+      mockedPlatformEnv.isDesktop = desktop;
+      try {
+        mockApiTranslate
+          .mockRejectedValueOnce(new OneKeyLocalError('temporary failure'))
+          .mockResolvedValueOnce({
+            translations: ['translated'],
+            hasBilledBatch: true,
+          });
+        const { result, sessionId } = await startSession(jest.fn(), {
+          entitlementSource,
+        });
+        await act(async () => {
+          notifyTabNavigation(TAB_ID);
+          if (navigationEnded) notifyTabNavigationEnd(TAB_ID);
+          // Android SPA navigation can keep the original script alive. Even
+          // after load end, the next start command has not reached it yet.
+          expect(startedSessionIds()).toEqual([sessionId]);
+          (desktop ? desktopRequest : request)(sessionId, 'retry', ['a']);
+          await flush();
+          jest.advanceTimersByTime(500);
+          await flush();
+        });
+        expect(mockApiTranslate).toHaveBeenCalledTimes(2);
+        expect(responses()).toContainEqual(
+          expect.objectContaining({
+            id: 'retry',
+            translations: ['translated'],
+          }),
+        );
+        expect(result.current.translatingRef.current).toBe(true);
+      } finally {
+        mockedPlatformEnv.isNative = true;
+        mockedPlatformEnv.isDesktop = false;
+      }
+    },
+  );
+
+  it.each([false, true])(
+    'stops sticky translation on a ban during navigation (ended: %s)',
+    async (navigationEnded) => {
+      mockApiTranslate.mockRejectedValue({ code: 90_012 });
+      const onAccountBanned = jest.fn();
+      const { result, sessionId } = await startSession(jest.fn(), {
+        onAccountBanned,
+      });
+      await act(async () => {
+        notifyTabNavigation(TAB_ID);
+        if (navigationEnded) notifyTabNavigationEnd(TAB_ID);
+        request(sessionId, 'ban', ['a']);
+        request(sessionId, 'sibling', ['b']);
+        await flush();
+        request(sessionId, 'queued', ['c']);
+        notifyTabNavigationEnd(TAB_ID);
+        jest.advanceTimersByTime(1000);
+        await flush();
+      });
+      expect(mockApiTranslate).toHaveBeenCalledTimes(2);
+      expect(onAccountBanned).toHaveBeenCalledTimes(1);
+      expect(result.current.translatingRef.current).toBe(false);
+      expect(commands()).toEqual(['start', 'restore']);
+    },
+  );
+
+  it('invalidates all navigation sessions on restore before an account restart', async () => {
+    const lateBan = deferred<unknown>();
+    mockApiTranslate
+      .mockReturnValueOnce(lateBan.promise)
+      .mockRejectedValueOnce(new OneKeyLocalError('temporary failure'));
+    const onAccountBanned = jest.fn();
+    const { result, sessionId } = await startSession(jest.fn(), {
+      onAccountBanned,
+    });
+    act(() => {
+      request(sessionId, 'late-ban', ['a']);
+      notifyTabNavigation(TAB_ID);
+      notifyTabNavigationEnd(TAB_ID);
+      jest.advanceTimersByTime(100);
+    });
+    const nextSessionId = startedSessionIds()[1];
+    await act(async () => {
+      request(nextSessionId, 'retry', ['b']);
+      await flush();
+      notifyTabNavigation(TAB_ID);
+      // The page hook restores when identity changes, including while the
+      // active UI sid is null. All earlier document sessions must end.
+      result.current.restoreOriginal();
+      result.current.startTranslate('zh');
+      request(sessionId, 'old-dom', ['c']);
+      request(nextSessionId, 'next-dom', ['d']);
+      lateBan.reject({ code: 90_012 });
+      jest.advanceTimersByTime(1000);
+      await flush();
+    });
+    expect(mockApiTranslate).toHaveBeenCalledTimes(2);
+    expect(onAccountBanned).not.toHaveBeenCalled();
+    expect(result.current.translatingRef.current).toBe(true);
+    expect(responses()).toContainEqual(
+      expect.objectContaining({ id: 'retry', abort: true }),
+    );
+    expect(commands()).toEqual(['start', 'start', 'restore', 'start']);
+  });
+
   it('stops desktop translation and ignores queued console messages after a ban', async () => {
     mockedPlatformEnv.isNative = false;
     mockedPlatformEnv.isDesktop = true;
@@ -775,6 +891,76 @@ describe('useWebViewTranslate free-trial stop', () => {
       mockedPlatformEnv.isNative = true;
       mockedPlatformEnv.isDesktop = false;
     }
+  });
+
+  it('ignores a late ban and retry after a tab closes and reopens', async () => {
+    const lateBan = deferred<unknown>();
+    mockApiTranslate
+      .mockReturnValueOnce(lateBan.promise)
+      .mockRejectedValueOnce(new OneKeyLocalError('temporary failure'));
+    const oldOnAccountBanned = jest.fn();
+    const { sessionId, unmount } = await startSession(jest.fn(), {
+      onAccountBanned: oldOnAccountBanned,
+    });
+    await act(async () => {
+      request(sessionId, 'ban', ['a']);
+      request(sessionId, 'retry', ['b']);
+      await flush();
+    });
+    unmount();
+    const onAccountBanned = jest.fn();
+    const { result } = await startSession(jest.fn(), { onAccountBanned });
+    await act(async () => {
+      lateBan.reject(new OneKeyErrorPrimeUserBanned());
+      jest.advanceTimersByTime(1000);
+      await flush();
+    });
+    expect(mockApiTranslate).toHaveBeenCalledTimes(2);
+    expect(oldOnAccountBanned).not.toHaveBeenCalled();
+    expect(onAccountBanned).not.toHaveBeenCalled();
+    expect(result.current.translatingRef.current).toBe(true);
+    expect(commands()).toEqual(['start', 'start']);
+  });
+
+  it('does not bill previous navigation sessions while a free-trial stop drains', async () => {
+    const pending = deferred<unknown>();
+    mockApiTranslate
+      .mockReturnValueOnce(pending.promise)
+      .mockRejectedValueOnce(new OneKeyLocalError('temporary failure'))
+      .mockResolvedValueOnce({
+        translations: ['limit'],
+        freeTrialError: EXHAUSTED,
+      });
+    const { sessionId } = await startSession(jest.fn());
+    act(() => {
+      notifyTabNavigation(TAB_ID);
+      notifyTabNavigationEnd(TAB_ID);
+      jest.advanceTimersByTime(100);
+    });
+    const nextSessionId = startedSessionIds()[1];
+    await act(async () => {
+      request(sessionId, 'pending', ['a']);
+      request(sessionId, 'retry', ['b']);
+      await flush();
+      request(nextSessionId, 'limit', ['limit']);
+      await flush();
+      request(sessionId, 'late-dom', ['original']);
+      jest.advanceTimersByTime(1000);
+      await flush();
+    });
+    expect(mockApiTranslate).toHaveBeenCalledTimes(3);
+    expect(responses()).toContainEqual(
+      expect.objectContaining({ id: 'late-dom', translations: ['original'] }),
+    );
+    expect(commands()).toEqual(['start', 'start']);
+    await act(async () => {
+      pending.resolve({ translations: ['billed'], hasBilledBatch: true });
+      await flush();
+    });
+    expect(responses()).toContainEqual(
+      expect.objectContaining({ id: 'pending', translations: ['billed'] }),
+    );
+    expect(commands()).toEqual(['start', 'start', 'stop']);
   });
 
   it('logs the free-trial usage once, and only after a billed batch', async () => {
