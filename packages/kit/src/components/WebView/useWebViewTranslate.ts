@@ -57,6 +57,8 @@ export type IFreeTrialTranslateStopPayload = {
   targetLang: string;
 };
 
+type ITranslateRequestState = 'pending' | 'cancelled' | 'unavailable';
+
 type ITranslateRequestOptions = {
   // `billed`: at least one batch was translated (and billed) by the server;
   // false when every batch fell back to the original text.
@@ -64,7 +66,7 @@ type ITranslateRequestOptions = {
   onFailure?: (sessionId?: string) => void;
   onAccountBanned?: (sessionId?: string) => void;
   isSessionAllowed?: (sessionId?: string) => boolean;
-  isRequestPending?: (data: ITranslateRequest) => Promise<boolean>;
+  checkRequest?: (data: ITranslateRequest) => Promise<ITranslateRequestState>;
   onTranslateUnavailable?: (payload: {
     code: number;
     sessionId?: string;
@@ -186,7 +188,7 @@ function handleTranslateRequest(
     onFailure,
     onAccountBanned,
     isSessionAllowed,
-    isRequestPending,
+    checkRequest,
     onTranslateUnavailable,
     isSessionFreeTrialStopped,
     onRequestStart,
@@ -199,35 +201,43 @@ function handleTranslateRequest(
   // it never triggers the whole-request retry below (which would re-bill the
   // batches that already succeeded).
   const attemptTranslate = async (): Promise<
-    | {
-        translations: ITranslateResult;
-        freeTrialError?: IPrimeFreeTrialError;
-        hasBilledBatch: boolean;
-      }
-    | null
-    | undefined
+    | { status: 'response'; data: Awaited<ReturnType<typeof translateTexts>> }
+    | { status: 'aborted' | 'fallback'; failed: boolean }
   > => {
     let lastErr: unknown;
+    let hadApiFailure = false;
     for (let attempt = 1; attempt <= TRANSLATE_MAX_ATTEMPTS; attempt += 1) {
       // Another concurrent request may have stopped this session while the
       // retry delay was pending. Never bill an explicitly ended session.
       if (isSessionAllowed && !isSessionAllowed(data.sessionId))
-        return undefined;
-      if (isSessionFreeTrialStopped?.(data.sessionId)) return null;
-      if (isRequestPending && !(await isRequestPending(data))) return undefined;
+        return { status: 'aborted', failed: hadApiFailure };
+      if (isSessionFreeTrialStopped?.(data.sessionId))
+        return { status: 'fallback', failed: hadApiFailure };
+      const requestState = await checkRequest?.(data);
+      if (requestState && requestState !== 'pending') {
+        return {
+          status: 'aborted',
+          failed: hadApiFailure || requestState === 'unavailable',
+        };
+      }
       // A ban, identity change or free-trial stop can arrive during the check.
       if (isSessionAllowed && !isSessionAllowed(data.sessionId))
-        return undefined;
-      if (isSessionFreeTrialStopped?.(data.sessionId)) return null;
+        return { status: 'aborted', failed: hadApiFailure };
+      if (isSessionFreeTrialStopped?.(data.sessionId))
+        return { status: 'fallback', failed: hadApiFailure };
       try {
-        return await translateTexts(
-          data.texts,
-          data.targetLang,
-          engine,
-          testFlag,
-        );
+        return {
+          status: 'response',
+          data: await translateTexts(
+            data.texts,
+            data.targetLang,
+            engine,
+            testFlag,
+          ),
+        };
       } catch (err) {
         lastErr = err;
+        hadApiFailure = true;
         if (isPrimeUserBannedError(err)) throw err;
         if (
           engine === ETranslateEngine.ai &&
@@ -241,7 +251,7 @@ function handleTranslateRequest(
       }
     }
     console.error('[Translate] API error:', lastErr);
-    return null;
+    return { status: 'fallback', failed: true };
   };
 
   const handler = async () => {
@@ -262,8 +272,9 @@ function handleTranslateRequest(
     }
     onRequestStart?.(data.sessionId);
     try {
-      const result = await attemptTranslate();
-      if (result) {
+      const outcome = await attemptTranslate();
+      if (outcome.status === 'response') {
+        const result = outcome.data;
         // Already billed translations are written back first.
         sendTranslationResponse(tabId, data.id, {
           translations: result.translations,
@@ -283,9 +294,9 @@ function handleTranslateRequest(
           });
         }
       } else {
-        onFailure?.(data.sessionId);
+        if (outcome.failed) onFailure?.(data.sessionId);
         const aborted =
-          result === undefined ||
+          outcome.status === 'aborted' ||
           (isSessionAllowed && !isSessionAllowed(data.sessionId));
         sendTranslationResponse(tabId, data.id, {
           translations: aborted ? undefined : data.texts,
@@ -421,31 +432,33 @@ export function useWebViewTranslate({
   const allowedSessionIdsRef = useRef(new Set<string>());
   const navigationVersionRef = useRef(0);
   const requestChecksRef = useRef(
-    new Map<string, (pending: boolean) => void>(),
+    new Map<string, (state: ITranslateRequestState) => void>(),
   );
   const clearRequestChecks = useCallback(() => {
-    for (const finish of requestChecksRef.current.values()) finish(false);
+    for (const finish of requestChecksRef.current.values()) finish('cancelled');
   }, []);
   const handleRequestCheck = useCallback((data: ITranslateRequestCheck) => {
-    requestChecksRef.current.get(data.id)?.(data.pending === true);
+    requestChecksRef.current.get(data.id)?.(
+      data.pending === true ? 'pending' : 'unavailable',
+    );
   }, []);
-  const isRequestPending = useCallback(
-    async (data: ITranslateRequest) => {
+  const checkRequest = useCallback(
+    async (data: ITranslateRequest): Promise<ITranslateRequestState> => {
       const { sessionId } = data;
-      if (!sessionId) return false;
+      if (!sessionId) return 'cancelled';
       while (allowedSessionIdsRef.current.has(sessionId)) {
         const navigationVersion = navigationVersionRef.current;
         // A load-start alone cannot distinguish SPA history updates from a
         // destroyed document. Confirm a live recipient before every API attempt.
         // Do not cache a positive answer: a provisional load may replace that
         // page before the next retry, without another load-start event.
-        const pending = await new Promise<boolean>((resolve) => {
+        const state = await new Promise<ITranslateRequestState>((resolve) => {
           const checkId = generateUUID({ removeDashes: true });
           const timer = setTimeout(
-            () => finish(false),
+            () => finish('unavailable'),
             TRANSLATE_REQUEST_CHECK_TIMEOUT_MS,
           );
-          function finish(value: boolean) {
+          function finish(value: ITranslateRequestState) {
             clearTimeout(timer);
             requestChecksRef.current.delete(checkId);
             resolve(value);
@@ -458,14 +471,17 @@ export function useWebViewTranslate({
               requestId: data.id,
               sessionId,
             }),
-            () => finish(false),
+            () => finish('unavailable'),
           );
         });
-        if (!pending || !allowedSessionIdsRef.current.has(sessionId))
-          return false;
-        if (navigationVersion === navigationVersionRef.current) return true;
+        // Keep the first terminal cause: a timeout/negative reply that beat
+        // restore is still a failure, while explicit cancellation is not.
+        if (state !== 'pending') return state;
+        if (!allowedSessionIdsRef.current.has(sessionId)) return 'cancelled';
+        if (navigationVersion === navigationVersionRef.current)
+          return 'pending';
       }
-      return false;
+      return 'cancelled';
     },
     [tabId],
   );
@@ -778,14 +794,14 @@ export function useWebViewTranslate({
       onFreeTrialError: handleFreeTrialError,
       onFailure,
       isSessionAllowed,
-      isRequestPending,
+      checkRequest,
       onAccountBanned: handleAccountBanned,
     }),
     [
       handleFreeTrialError,
       onFailure,
       isSessionAllowed,
-      isRequestPending,
+      checkRequest,
       handleAccountBanned,
       isSessionFreeTrialStopped,
       onRequestEnd,
