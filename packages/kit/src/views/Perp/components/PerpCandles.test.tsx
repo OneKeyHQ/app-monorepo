@@ -11,6 +11,8 @@ import type { ITradingViewPerpsV2Props } from '@onekeyhq/kit/src/components/Trad
 import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { buildActiveTradeDisplay } from '../hooks/useActiveTradeDisplayUtils';
+
 import { PerpMarketWorkspacePanel } from './MarketDetail/PerpMarketWorkspacePanel';
 import { PerpCandles } from './PerpCandles';
 
@@ -18,6 +20,7 @@ let mockAccountAddress: string | undefined;
 let mockCoin = 'ETH';
 let mockInstrumentMode: 'perp' | 'spot' = 'perp';
 let mockSzDecimals: number | undefined = 2;
+let mockTradeDisplay: ReturnType<typeof buildActiveTradeDisplay> | undefined;
 const mockChartMount = jest.fn();
 const mockChartUnmount = jest.fn();
 const mockChartUserAddress = jest.fn();
@@ -108,12 +111,13 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
 }));
 
 jest.mock('../hooks/useActiveTradeDisplay', () => ({
-  useActiveTradeDisplay: () => ({
-    baseName: mockCoin,
-    coin: mockCoin,
-    displayName: mockCoin,
-    mode: 'perp',
-  }),
+  useActiveTradeDisplay: () =>
+    mockTradeDisplay ?? {
+      baseName: mockCoin,
+      coin: mockCoin,
+      displayName: mockCoin,
+      mode: 'perp',
+    },
 }));
 
 jest.mock('./MarketDetail/PerpFundingChart', () => ({
@@ -167,6 +171,7 @@ beforeEach(() => {
   mockCoin = 'ETH';
   mockInstrumentMode = 'perp';
   mockSzDecimals = 2;
+  mockTradeDisplay = undefined;
   mockCustomSettings = { showChartLines: false };
 });
 
@@ -224,6 +229,63 @@ it.each([
     } finally {
       view.unmount();
       jest.useRealTimers();
+    }
+  },
+);
+
+it.each([
+  ['perp', 'ZEC', 'USDC', 'ZECUSDC', 'ZEC'],
+  ['perp', 'xyz:ZEC', 'USDC', 'ZECUSDC', 'xyzZEC'],
+  ['spot', 'ZEC', 'USDC', 'ZEC/USDC', 'ZEC'],
+  ['spot', 'LINK', 'USDT0', 'LINK/USDT0', 'LINK'],
+] as const)(
+  'shows the complete %s pair for %s/%s with its base token icon',
+  (mode, baseName, quoteName, name, imageName) => {
+    const nativePlatform = jest.replaceProperty(platformEnv, 'isNative', true);
+    mockCustomSettings.chartMode = 'native';
+    mockCoin = mode === 'spot' ? '@143' : baseName;
+    mockTradeDisplay = buildActiveTradeDisplay({
+      tradeInstrument:
+        mode === 'spot'
+          ? {
+              mode,
+              coin: mockCoin,
+              assetId: 10_143,
+              universe: {
+                name: mockCoin,
+                index: 143,
+                tokens: [1, 0],
+                isCanonical: true,
+                assetId: 10_143,
+                baseName,
+                quoteName,
+                displayName: baseName,
+                baseSzDecimals: 2,
+              },
+            }
+          : { mode, coin: mockCoin, assetId: 1, universe: undefined },
+      perpsAsset: {
+        coin: mockCoin,
+        assetId: 1,
+        universe: undefined,
+        margin: undefined,
+      },
+    });
+    try {
+      renderTradingViewCandles();
+      const image = `https://uni.onekey-asset.com/static/hyperliquid/${imageName}.png`;
+      expect(
+        mockNativeChart.mock.lastCall?.[0].nativeChartFullscreenHeader,
+      ).toMatchObject({
+        props: {
+          name,
+          ...(mode === 'spot'
+            ? { tokenImageUri: image }
+            : { tokenImageUris: [image] }),
+        },
+      });
+    } finally {
+      nativePlatform.restore();
     }
   },
 );

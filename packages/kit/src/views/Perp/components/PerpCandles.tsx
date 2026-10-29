@@ -54,18 +54,18 @@ function PerpNativeCandles({
   const metadata = usePerpsNativeChartMetadata();
   const orderMenu = usePerpsChartOrderMenu(enableTradingUi);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
-  const { baseName, coin, mode } = useActiveTradeDisplay();
+  const { baseName, coin, displayName, mode } = useActiveTradeDisplay();
   const fullscreenHeader = useMemo(
     () =>
       platformEnv.isNative ? (
         <TradingViewNativeTokenHeader
-          name={baseName}
+          name={mode === 'spot' ? displayName : `${displayName}USDC`}
           {...(mode === 'spot'
             ? { tokenImageUri: getHyperliquidTokenImageUrl(baseName) }
             : { tokenImageUris: getHyperliquidTokenImageUris(coin) })}
         />
       ) : undefined,
-    [baseName, coin, mode],
+    [baseName, coin, displayName, mode],
   );
   return (
     <TradingViewNative
