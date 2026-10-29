@@ -808,5 +808,9 @@
     isTranslating: function () {
       return isTranslating;
     },
+    isRequestPending: function (id, requestSessionId) {
+      const entry = pendingResolvers[id];
+      return !!entry && entry.sessionId === requestSessionId;
+    },
   };
 })();

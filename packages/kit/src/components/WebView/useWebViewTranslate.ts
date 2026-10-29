@@ -26,8 +26,10 @@ import { getWebviewWrapperRef } from '../../views/Discovery/utils/explorerUtils'
 import {
   TRANSLATE_COMMAND_TYPE,
   TRANSLATE_CONSOLE_PREFIX,
+  TRANSLATE_REQUEST_CHECK_TYPE,
   TRANSLATE_REQUEST_TYPE,
   TRANSLATE_RESPONSE_TYPE,
+  createTranslateRequestCheckScript,
   offTabNavigation,
   offTabNavigationEnd,
   onTabNavigation,
@@ -39,7 +41,11 @@ import {
 import translateInjectScript from './translateInject.text-js';
 import { createMessageInjectedScript } from './utils';
 
-import type { ITranslateRequest } from './translateBridge';
+import type {
+  ITranslateMessage,
+  ITranslateRequest,
+  ITranslateRequestCheck,
+} from './translateBridge';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebView } from 'react-native-webview';
 
@@ -58,6 +64,7 @@ type ITranslateRequestOptions = {
   onFailure?: (sessionId?: string) => void;
   onAccountBanned?: (sessionId?: string) => void;
   isSessionAllowed?: (sessionId?: string) => boolean;
+  isRequestPending?: (data: ITranslateRequest) => Promise<boolean>;
   onTranslateUnavailable?: (payload: {
     code: number;
     sessionId?: string;
@@ -83,21 +90,32 @@ type ITranslateResponsePayload = {
   abort?: boolean;
 };
 
-function injectScript(tabId: string, script: string) {
+function injectScript(tabId: string, script: string, onFailure?: () => void) {
   const ref = getWebviewWrapperRef(tabId);
-  if (!ref) return;
+  if (!ref) {
+    onFailure?.();
+    return;
+  }
 
   if (platformEnv.isNative) {
     try {
       (ref.innerRef as WebView)?.injectJavaScript(script);
     } catch (e) {
       console.error('[Translate] injectJavaScript error:', e);
+      onFailure?.();
     }
   } else if (platformEnv.isDesktop) {
     try {
-      void (ref.innerRef as IElectronWebView)?.executeJavaScript(script);
+      const result = (ref.innerRef as IElectronWebView)?.executeJavaScript(
+        script,
+      );
+      void Promise.resolve(result).catch((e: unknown) => {
+        console.error('[Translate] executeJavaScript error:', e);
+        onFailure?.();
+      });
     } catch (e) {
       console.error('[Translate] executeJavaScript error:', e);
+      onFailure?.();
     }
   }
 }
@@ -141,6 +159,8 @@ function isAITranslateUnavailableError(error: unknown): error is IOneKeyError {
 const TRANSLATE_MAX_ATTEMPTS = 2;
 const TRANSLATE_RETRY_DELAY_MS = 500;
 const TRANSLATE_START_DELAY_MS = 50;
+// Do not spend quota if the current WebView cannot confirm a live recipient.
+const TRANSLATE_REQUEST_CHECK_TIMEOUT_MS = 3000;
 
 function sendTranslationResponse(
   tabId: string,
@@ -166,6 +186,7 @@ function handleTranslateRequest(
     onFailure,
     onAccountBanned,
     isSessionAllowed,
+    isRequestPending,
     onTranslateUnavailable,
     isSessionFreeTrialStopped,
     onRequestStart,
@@ -177,16 +198,26 @@ function handleTranslateRequest(
   // A free-trial error comes back in the return value, never as a throw, so
   // it never triggers the whole-request retry below (which would re-bill the
   // batches that already succeeded).
-  const attemptTranslate = async (): Promise<{
-    translations: ITranslateResult;
-    freeTrialError?: IPrimeFreeTrialError;
-    hasBilledBatch: boolean;
-  } | null> => {
+  const attemptTranslate = async (): Promise<
+    | {
+        translations: ITranslateResult;
+        freeTrialError?: IPrimeFreeTrialError;
+        hasBilledBatch: boolean;
+      }
+    | null
+    | undefined
+  > => {
     let lastErr: unknown;
     for (let attempt = 1; attempt <= TRANSLATE_MAX_ATTEMPTS; attempt += 1) {
       // Another concurrent request may have stopped this session while the
       // retry delay was pending. Never bill an explicitly ended session.
-      if (isSessionAllowed && !isSessionAllowed(data.sessionId)) return null;
+      if (isSessionAllowed && !isSessionAllowed(data.sessionId))
+        return undefined;
+      if (isSessionFreeTrialStopped?.(data.sessionId)) return null;
+      if (isRequestPending && !(await isRequestPending(data))) return undefined;
+      // A ban, identity change or free-trial stop can arrive during the check.
+      if (isSessionAllowed && !isSessionAllowed(data.sessionId))
+        return undefined;
       if (isSessionFreeTrialStopped?.(data.sessionId)) return null;
       try {
         return await translateTexts(
@@ -253,7 +284,9 @@ function handleTranslateRequest(
         }
       } else {
         onFailure?.(data.sessionId);
-        const aborted = isSessionAllowed && !isSessionAllowed(data.sessionId);
+        const aborted =
+          result === undefined ||
+          (isSessionAllowed && !isSessionAllowed(data.sessionId));
         sendTranslationResponse(tabId, data.id, {
           translations: aborted ? undefined : data.texts,
           sessionId: data.sessionId,
@@ -386,6 +419,56 @@ export function useWebViewTranslate({
   // script follows a new sid only after the delayed start command arrives.
   // Keep those sessions valid until this translation run explicitly ends.
   const allowedSessionIdsRef = useRef(new Set<string>());
+  const navigationVersionRef = useRef(0);
+  const requestChecksRef = useRef(
+    new Map<string, (pending: boolean) => void>(),
+  );
+  const clearRequestChecks = useCallback(() => {
+    for (const finish of requestChecksRef.current.values()) finish(false);
+  }, []);
+  const handleRequestCheck = useCallback((data: ITranslateRequestCheck) => {
+    requestChecksRef.current.get(data.id)?.(data.pending === true);
+  }, []);
+  const isRequestPending = useCallback(
+    async (data: ITranslateRequest) => {
+      const { sessionId } = data;
+      if (!sessionId) return false;
+      while (allowedSessionIdsRef.current.has(sessionId)) {
+        const navigationVersion = navigationVersionRef.current;
+        // A load-start alone cannot distinguish SPA history updates from a
+        // destroyed document. Confirm a live recipient before every API attempt.
+        // Do not cache a positive answer: a provisional load may replace that
+        // page before the next retry, without another load-start event.
+        const pending = await new Promise<boolean>((resolve) => {
+          const checkId = generateUUID({ removeDashes: true });
+          const timer = setTimeout(
+            () => finish(false),
+            TRANSLATE_REQUEST_CHECK_TIMEOUT_MS,
+          );
+          function finish(value: boolean) {
+            clearTimeout(timer);
+            requestChecksRef.current.delete(checkId);
+            resolve(value);
+          }
+          requestChecksRef.current.set(checkId, finish);
+          injectScript(
+            tabId,
+            createTranslateRequestCheckScript({
+              checkId,
+              requestId: data.id,
+              sessionId,
+            }),
+            () => finish(false),
+          );
+        });
+        if (!pending || !allowedSessionIdsRef.current.has(sessionId))
+          return false;
+        if (navigationVersion === navigationVersionRef.current) return true;
+      }
+      return false;
+    },
+    [tabId],
+  );
   const sessionEngineRef = useRef(engine);
   const engineRef = useRef(engine);
   const displayModeRef = useRef(displayMode);
@@ -445,6 +528,7 @@ export function useWebViewTranslate({
 
   useEffect(() => {
     onTabNavigation(tabId, () => {
+      navigationVersionRef.current += 1;
       for (const sessionId of trialAttemptsRef.current.keys())
         finishTrialAttempt(sessionId, true);
       activeSessionIdRef.current = null;
@@ -486,9 +570,10 @@ export function useWebViewTranslate({
       // tabId; without a session they are all ignored.
       activeSessionIdRef.current = null;
       allowedSessionIdsRef.current.clear();
+      clearRequestChecks();
       freeTrialStoppedSessionRef.current = null;
     },
-    [clearFreeTrialStopTimer, finishTrialAttempt],
+    [clearFreeTrialStopTimer, clearRequestChecks, finishTrialAttempt],
   );
 
   const logTranslateSuccess = useCallback(
@@ -536,6 +621,7 @@ export function useWebViewTranslate({
 
   const restoreOriginal = useCallback(() => {
     allowedSessionIdsRef.current.clear();
+    clearRequestChecks();
     finishTrialAttempt(activeSessionIdRef.current, true);
     if (startTimerRef.current) {
       clearTimeout(startTimerRef.current);
@@ -558,7 +644,7 @@ export function useWebViewTranslate({
     handledUnavailableSessionRef.current = null;
     activeSessionIdRef.current = null;
     translatingRef.current = false;
-  }, [tabId, clearFreeTrialStopTimer, finishTrialAttempt]);
+  }, [tabId, clearFreeTrialStopTimer, clearRequestChecks, finishTrialAttempt]);
 
   // Sends `stop` (keeps the written translations, unlike `restore`) once the
   // page has no request in flight: `stop` drops the script's pending
@@ -573,6 +659,7 @@ export function useWebViewTranslate({
       }
       freeTrialStopSentSessionRef.current = sessionId;
       allowedSessionIdsRef.current.clear();
+      clearRequestChecks();
       clearFreeTrialStopTimer();
       injectScript(
         tabId,
@@ -587,7 +674,7 @@ export function useWebViewTranslate({
         activeSessionIdRef.current = null;
       }
     },
-    [tabId, clearFreeTrialStopTimer],
+    [tabId, clearFreeTrialStopTimer, clearRequestChecks],
   );
 
   const isSessionFreeTrialStopped = useCallback(
@@ -691,12 +778,14 @@ export function useWebViewTranslate({
       onFreeTrialError: handleFreeTrialError,
       onFailure,
       isSessionAllowed,
+      isRequestPending,
       onAccountBanned: handleAccountBanned,
     }),
     [
       handleFreeTrialError,
       onFailure,
       isSessionAllowed,
+      isRequestPending,
       handleAccountBanned,
       isSessionFreeTrialStopped,
       onRequestEnd,
@@ -756,8 +845,10 @@ export function useWebViewTranslate({
           try {
             const data = JSON.parse(
               event.message.slice(TRANSLATE_CONSOLE_PREFIX.length),
-            ) as ITranslateRequest;
-            if (data.type === TRANSLATE_REQUEST_TYPE) {
+            ) as ITranslateMessage;
+            if (data.type === TRANSLATE_REQUEST_CHECK_TYPE) {
+              handleRequestCheck(data);
+            } else if (data.type === TRANSLATE_REQUEST_TYPE) {
               handleTranslateRequest(tabId, data, selectedEngine, {
                 onSuccess: ({ billed }) =>
                   logTranslateSuccess(data.targetLang, data.sessionId, billed),
@@ -789,6 +880,7 @@ export function useWebViewTranslate({
       logTranslateSuccess,
       handleTranslateUnavailable,
       freeTrialRequestOptions,
+      handleRequestCheck,
     ],
   );
 
@@ -841,15 +933,19 @@ export function useWebViewTranslate({
       freeTrialStoppedSessionRef.current = null;
       clearFreeTrialStopTimer();
 
-      registerTranslateHandler(tabId, (data) =>
+      registerTranslateHandler(tabId, (data) => {
+        if (data.type === TRANSLATE_REQUEST_CHECK_TYPE) {
+          handleRequestCheck(data);
+          return;
+        }
         handleTranslateRequest(tabId, data, selectedEngine, {
           onSuccess: ({ billed }) =>
             logTranslateSuccess(data.targetLang, data.sessionId, billed),
           onTranslateUnavailable: handleTranslateUnavailable,
           ...freeTrialRequestOptions,
           testFlag,
-        }),
-      );
+        });
+      });
 
       ensureInjected(selectedEngine, testFlag);
       if (startTimerRef.current) {
@@ -873,6 +969,7 @@ export function useWebViewTranslate({
     [
       tabId,
       ensureInjected,
+      handleRequestCheck,
       handleTranslateUnavailable,
       logTranslateSuccess,
       restoreOriginal,
