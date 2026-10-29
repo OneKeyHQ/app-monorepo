@@ -94,27 +94,21 @@ async function handOffCardCheckoutToExpandTab({
   closeExtensionPopupAfterExpandTabOpen();
 }
 
-// Coalesce rapid starts in this UI runtime until the checkout is opened.
-// After that, a new explicit intent replaces the persisted pending attempt.
-const startingCheckouts = new Map<string | undefined, Promise<void>>();
-
-export function startPrimeHostedCardCheckout(
-  params: IPrimeHostedCardCheckoutParams,
-): Promise<void> {
-  const pending = startingCheckouts.get(params.onekeyUserId);
-  if (pending) {
-    return pending;
-  }
-  const completion = openPrimeHostedCardCheckout(params).finally(() => {
-    startingCheckouts.delete(params.onekeyUserId);
-  });
-  startingCheckouts.set(params.onekeyUserId, completion);
-  return completion;
-}
-
 // Opens the RevenueCat hosted card checkout (Web Purchase Link) and waits for
 // RevenueCat to confirm the purchase. Errors end in a toast, never a throw.
-async function openPrimeHostedCardCheckout({
+//
+// Every call is a new payment for the plan, currency and environment the user
+// just selected (OK-65674), the same as clicking the embedded card checkout
+// again. Do not resume, reuse or de-duplicate an earlier attempt here, not
+// even for rapid repeated clicks: each of those can open the plan of an
+// earlier click instead of the one the user picked last.
+// - An earlier hosted page the user left open stays payable; the client
+//   cannot cancel it. That is accepted product behavior. On the extension the
+//   new checkout reuses the old checkout's tab while it still shows that page.
+// - The pending record written below only lets the waiting dialog and the
+//   recovery hook detect this attempt's result after the user leaves the app.
+//   It never decides what a click does; the next attempt replaces it.
+export async function startPrimeHostedCardCheckout({
   intl,
   onekeyUserId,
   email,
@@ -205,7 +199,7 @@ async function openPrimeHostedCardCheckout({
     if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
       throw new OneKeyLocalError('Prime purchase user changed');
     }
-    const candidate: IPrimeWebCheckoutPendingSession = {
+    const session: IPrimeWebCheckoutPendingSession = {
       checkoutId: generateUUID(),
       onekeyUserId,
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -219,17 +213,15 @@ async function openPrimeHostedCardCheckout({
       checkoutUrl,
       startedAt: Date.now(),
     };
-    // Keep pending tracking for returns and late entitlement recovery, while
-    // replacing the previous attempt with this intent's resolved package.
-    const { session, reused, replacedSession } =
+    const { replacedSession } =
       await backgroundApiProxy.simpleDb.prime.acquireWebCheckoutPendingSession({
-        session: candidate,
+        session,
       });
     if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
       throw new OneKeyLocalError('Prime purchase user changed');
     }
-    // Another surface may already be opening this session. Keep it recoverable
-    // even when this caller fails to open or record its checkout tab.
+    // The record stays even if opening fails: the page may already be open in
+    // the browser, so its payment must still be detected.
     const openResult = await openPrimeWebCheckoutPage(session, {
       email,
       replacedSession,
@@ -237,7 +229,6 @@ async function openPrimeHostedCardCheckout({
     logPrimeWebCheckoutFlow({
       stage: 'open',
       status: 'succeeded',
-      reason: reused ? 'reusedCheckout' : undefined,
       isSandbox: isSandboxKey,
       subscriptionPeriod: selectedSubscriptionPeriod,
       featureName,
@@ -311,6 +302,39 @@ export async function fallbackToPrimeHostedCardCheckout({
     return;
   }
   await startPrimeHostedCardCheckout({ ...params, fallbackFrom: trigger });
+}
+
+// Called when the user starts an embedded card payment, which makes it the
+// current attempt. Removing the previous hosted record, rather than resuming
+// it, keeps the click a new payment (see startPrimeHostedCardCheckout). It
+// must not stay either: hosted success is matched by entitlement (Web Billing
+// store, sandbox mode, purchase time), so recovery would settle the embedded
+// purchase as the old hosted checkout and report the success a second time.
+// If the user later pays the old page instead, RevenueCat still activates
+// Prime and the next user info refresh shows it, only without the hosted
+// success toast and event.
+export async function discardPrimeHostedCardCheckout(
+  onekeyUserId: string | undefined,
+) {
+  if (!onekeyUserId) {
+    return;
+  }
+  try {
+    const session =
+      await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
+        onekeyUserId,
+      });
+    if (session) {
+      // Compare-and-clear keeps a hosted checkout started meanwhile.
+      await backgroundApiProxy.simpleDb.prime.clearWebCheckoutPendingSession({
+        onekeyUserId,
+        expectedCheckoutId: session.checkoutId,
+      });
+    }
+  } catch {
+    // A stale record can only repeat a success report; it must not block
+    // the payment the user just chose.
+  }
 }
 
 const FALLBACK_TRIGGERS = new Set<string>([

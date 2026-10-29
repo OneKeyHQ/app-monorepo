@@ -274,8 +274,11 @@ export function usePrimePurchaseCallback({
   const intl = useIntl();
 
   const purchaseByWebviewUnchecked = usePurchasePackageWebview();
-  const { purchaseByHostedLink, fallbackToHostedLink } =
-    usePrimeWebCheckoutPurchase();
+  const {
+    purchaseByHostedLink,
+    fallbackToHostedLink,
+    discardPendingHostedCheckout,
+  } = usePrimeWebCheckoutPurchase();
   const { purchaseByCrypto: purchaseByCryptoUnchecked } =
     usePrimeInfiniPurchase({ networkId });
 
@@ -313,6 +316,9 @@ export function usePrimePurchaseCallback({
         | undefined;
       try {
         const purchaseUserId = user?.onekeyUserId;
+        // A click is always a new payment; an earlier hosted checkout neither
+        // gates nor resumes it. See discardPrimeHostedCardCheckout.
+        await discardPendingHostedCheckout();
         beginStripePaymentElementAttempt();
         let purchaseResult:
           | Awaited<ReturnType<NonNullable<typeof purchasePackageWeb>>>
@@ -360,6 +366,7 @@ export function usePrimePurchaseCallback({
       }
     },
     [
+      discardPendingHostedCheckout,
       fallbackToHostedLink,
       intl.locale,
       purchasePackageWeb,

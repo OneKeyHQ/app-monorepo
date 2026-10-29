@@ -355,6 +355,7 @@ jest.mock('./usePurchasePackageWebview', () => ({
 
 const mockPurchaseByHostedLink = jest.fn(async () => undefined);
 const mockFallbackToHostedLink = jest.fn(async () => undefined);
+const mockDiscardPendingHostedCheckout = jest.fn(async () => undefined);
 const mockCardPaymentErrorToast = jest.fn<void, [unknown]>();
 let mockCardCheckoutMode: 'embedded' | 'hostedLink' = 'embedded';
 
@@ -369,6 +370,7 @@ jest.mock('../../hooks/usePrimeWebCheckoutPurchase', () => ({
   usePrimeWebCheckoutPurchase: () => ({
     purchaseByHostedLink: mockPurchaseByHostedLink,
     fallbackToHostedLink: mockFallbackToHostedLink,
+    discardPendingHostedCheckout: mockDiscardPendingHostedCheckout,
   }),
 }));
 
@@ -1301,15 +1303,19 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       expect(mockPurchaseByHostedLink).not.toHaveBeenCalled();
     });
 
-    it('starts a new embedded payment without gating on the old hosted session', async () => {
+    it('discards the old hosted record and starts a new embedded payment', async () => {
       mockGetHostedPendingSession.mockResolvedValue({ checkoutId: 'previous' });
 
       await selectCard();
 
       expect(mockGetHostedPendingSession).not.toHaveBeenCalled();
+      expect(mockDiscardPendingHostedCheckout).toHaveBeenCalledTimes(1);
       expect(mockPurchasePackageWeb).toHaveBeenCalledWith(
         expect.objectContaining({ subscriptionPeriod: 'P1M', currency: 'EUR' }),
       );
+      expect(
+        mockDiscardPendingHostedCheckout.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockPurchasePackageWeb.mock.invocationCallOrder[0]);
       expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
     });
 
@@ -1318,6 +1324,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       await selectCard();
 
       expect(mockPurchasePackageWeb).toHaveBeenCalledTimes(2);
+      expect(mockDiscardPendingHostedCheckout).toHaveBeenCalledTimes(2);
       expect(mockGetHostedPendingSession).not.toHaveBeenCalled();
       expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
     });

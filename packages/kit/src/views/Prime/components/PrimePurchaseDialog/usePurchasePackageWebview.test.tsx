@@ -13,6 +13,9 @@ const mockGetApiKey = jest.fn(async () => ({
   apiKey: 'current-web-key',
   isSandboxKey: false,
 }));
+const mockDiscardHostedCheckout = jest.fn<Promise<void>, [unknown]>(
+  async () => undefined,
+);
 const mockNavigation = { popStack: mockPopStack };
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
@@ -43,6 +46,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('../../hooks/getPrimePaymentApiKey', () => ({
   getPrimePaymentApiKey: () => mockGetApiKey(),
 }));
+jest.mock('../../hooks/primeHostedCardCheckout', () => ({
+  discardPrimeHostedCardCheckout: (onekeyUserId: unknown) =>
+    mockDiscardHostedCheckout(onekeyUserId),
+}));
 
 describe('Android card payment entry', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -67,6 +74,11 @@ describe('Android card payment entry', () => {
     });
 
     expect(mockGetPendingSession).not.toHaveBeenCalled();
+    expect(mockDiscardHostedCheckout).toHaveBeenCalledTimes(2);
+    expect(mockDiscardHostedCheckout).toHaveBeenCalledWith('user-1');
+    expect(mockDiscardHostedCheckout.mock.invocationCallOrder[1]).toBeLessThan(
+      mockOpenWebview.mock.invocationCallOrder[1],
+    );
     expect(mockPopStack).toHaveBeenCalledTimes(2);
     expect(mockOpenWebview).toHaveBeenCalledTimes(2);
     expect(mockOpenWebview).toHaveBeenNthCalledWith(
@@ -91,6 +103,7 @@ describe('Android card payment entry', () => {
     });
     expect(mockPopStack).not.toHaveBeenCalled();
     expect(mockGetApiKey).not.toHaveBeenCalled();
+    expect(mockDiscardHostedCheckout).not.toHaveBeenCalled();
     expect(mockOpenWebview).not.toHaveBeenCalled();
   });
 });
