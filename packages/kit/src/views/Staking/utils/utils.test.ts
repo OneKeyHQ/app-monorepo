@@ -1,8 +1,49 @@
+import type { IEarnTokenItem } from '@onekeyhq/shared/types/staking';
+
 import {
   buildBorrowTag,
   buildLocalTxStatusSyncId,
+  createEarnActionScopeGuard,
+  normalizeEarnActionAmountScope,
   parseBorrowTag,
+  resolveEarnStakeRequestSymbol,
+  resolveEarnStakeType,
+  resolveSelectedStakeAsset,
 } from './utils';
+
+describe('earn action scope guard', () => {
+  it('keeps equivalent valid amounts in the same scope without collapsing invalid input', () => {
+    expect(normalizeEarnActionAmountScope('1.0')).toBe(
+      normalizeEarnActionAmountScope('1'),
+    );
+    expect(normalizeEarnActionAmountScope('')).not.toBe(
+      normalizeEarnActionAmountScope('0'),
+    );
+    expect(normalizeEarnActionAmountScope('invalid')).not.toBe(
+      normalizeEarnActionAmountScope('0'),
+    );
+  });
+  it('continues an approval only while its original scope remains current', async () => {
+    const scope = createEarnActionScopeGuard();
+    scope.update('account-a|asset-a|amount-1');
+    const sameAction = scope.capture();
+    await Promise.resolve();
+    expect(sameAction()).toBe(true);
+
+    scope.update('account-a|asset-a|amount-2');
+    scope.update('account-a|asset-a|amount-1');
+    expect(sameAction()).toBe(false);
+    expect(scope.capture()()).toBe(true);
+  });
+
+  it('invalidates in-flight approval after the owning form is removed', () => {
+    const scope = createEarnActionScopeGuard();
+    scope.update('account-a|asset-a|amount-1');
+    const action = scope.capture();
+    scope.invalidate();
+    expect(action()).toBe(false);
+  });
+});
 
 describe('buildLocalTxStatusSyncId', () => {
   it('keeps existing provider tags backward compatible', () => {
@@ -117,5 +158,102 @@ describe('borrow set-collateral tags', () => {
         reserveAddress: '',
       },
     });
+  });
+});
+
+describe('Earn deposit asset paths', () => {
+  it.each([
+    ['Etherfi', 'eETH', 'ETH', true, 'wrap', 'ETH'],
+    ['Etherfi', 'ETH', 'WETH', false, 'normal', 'WETH'],
+    ['Etherfi', 'ETH', 'eETH', false, undefined, 'eETH'],
+    ['Etherfi', 'USDC', 'USDT', false, undefined, 'USDT'],
+    ['Native', 'WETH', 'ETH', true, 'wrap', 'WETH'],
+    ['Native', 'WETH', 'WETH', false, 'normal', 'WETH'],
+    ['Native', 'USDT', 'USDT', false, undefined, 'USDT'],
+    ['Pendle', 'PT-USDE', 'ETH', true, undefined, 'PT-USDE'],
+  ])(
+    '%s %s entry selecting %s resolves its deposit path and request identity',
+    (
+      providerName,
+      protocolSymbol,
+      tokenSymbol,
+      tokenIsNative,
+      expectedType,
+      expectedSymbol,
+    ) => {
+      expect(
+        resolveEarnStakeType({
+          providerName,
+          vaultSymbol: protocolSymbol,
+          tokenSymbol,
+          tokenIsNative,
+        }),
+      ).toBe(expectedType);
+      expect(
+        resolveEarnStakeRequestSymbol({
+          providerName,
+          protocolSymbol,
+          tokenSymbol,
+          tokenIsNative,
+          wrappedTokenSymbol: 'WETH',
+        }),
+      ).toBe(expectedSymbol);
+    },
+  );
+
+  const assets: IEarnTokenItem[] = ['ETH', 'WETH', 'eETH'].map(
+    (symbol, index) => ({
+      info: {
+        address: index
+          ? `0x000000000000000000000000000000000000000${index}`
+          : '',
+        symbol,
+        name: symbol,
+        decimals: 18,
+        isNative: index === 0,
+      },
+      balance: '0',
+      balanceParsed: '0',
+      fiatValue: '0',
+      price: '1',
+      price24h: '0',
+    }),
+  );
+
+  it.each([assets[1], assets[2]])(
+    'preserves a $info.symbol entry instead of defaulting to native ETH',
+    (entry) => {
+      expect(
+        resolveSelectedStakeAsset({ assets, initialToken: entry.info }),
+      ).toBe(entry);
+    },
+  );
+
+  it('retains the selected WETH asset when balances refresh', () => {
+    const refreshedWeth = { ...assets[1], balanceParsed: '2' };
+    expect(
+      resolveSelectedStakeAsset({
+        assets: [assets[0], refreshedWeth, assets[2]],
+        selectedToken: assets[1].info,
+        initialToken: assets[2].info,
+      }),
+    ).toBe(refreshedWeth);
+  });
+
+  it('does not keep an asset from another vault or a stale list while loading', () => {
+    expect(
+      resolveSelectedStakeAsset({
+        assets: [assets[0]],
+        selectedToken: assets[1].info,
+        initialToken: assets[2].info,
+      }),
+    ).toBe(assets[0]);
+    expect(
+      resolveSelectedStakeAsset({
+        assets: [],
+        selectedToken: assets[1].info,
+        initialToken: assets[2].info,
+      }),
+    ).toBeUndefined();
   });
 });

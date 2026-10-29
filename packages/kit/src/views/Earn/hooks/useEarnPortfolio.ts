@@ -10,6 +10,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { earnTestnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -252,7 +253,11 @@ function normalizeInvestmentResult(
   const normalizedProtocol = {
     ...result.protocol,
     ...(resolvedProtocolVault ? { vault: resolvedProtocolVault } : {}),
-    symbol: params.symbol,
+    symbol: earnUtils.isEtherFiProvider({
+      providerName: result.protocol.providerDetail.code,
+    })
+      ? result.protocol.symbol || params.symbol
+      : params.symbol,
   };
 
   const key = createEarnPortfolioRequestKey({
@@ -275,12 +280,22 @@ function normalizeInvestmentResult(
       protocolVault: result.protocol.vault,
       requestVault: params.vault,
     });
+    const assetProtocol = earnUtils.isEtherFiProvider({
+      providerName: result.protocol.providerDetail.code,
+    })
+      ? normalizedProtocol
+      : {
+          ...result.protocol,
+          symbol: result.protocol.symbol?.trim()
+            ? result.protocol.symbol
+            : params.symbol,
+        };
     return {
       ...asset,
       metadata: {
         protocol: resolvedAssetVault
-          ? { ...result.protocol, vault: resolvedAssetVault }
-          : result.protocol,
+          ? { ...assetProtocol, vault: resolvedAssetVault }
+          : assetProtocol,
         network: result.network,
         fiatValue: result.totalFiatValue,
         fiatValueUsd: result.totalFiatValueUsd,
@@ -831,6 +846,7 @@ export const useEarnPortfolio = ({
               }
 
               const resolvedKeys = new Set<string>();
+              let hasUnidentifiedItem = false;
               response.items.forEach((item) => {
                 const matchedRequest = matchEarnPortfolioBatchRequest({
                   group,
@@ -839,6 +855,7 @@ export const useEarnPortfolio = ({
                     item.assets[0]?.token.info.symbol ||
                     '',
                   vault: item.protocol.vault,
+                  symbolIsAuthoritative: Boolean(item.protocol.symbol?.trim()),
                 });
 
                 if (
@@ -846,6 +863,22 @@ export const useEarnPortfolio = ({
                   (matchedRequest.accountId &&
                     matchedRequest.accountId !== accountIdValue)
                 ) {
+                  if (!item.protocol.vault) hasUnidentifiedItem = true;
+                  return;
+                }
+
+                // EtherFi returns a zero-value item while request history is
+                // syncing; it is not proof that an earlier position is empty.
+                const itemValue = new BigNumber(item.totalFiatValue || '0');
+                if (
+                  earnUtils.isEtherFiProvider({
+                    providerName: group.provider,
+                  }) &&
+                  (!itemValue.isFinite() || itemValue.lte(0))
+                ) {
+                  const key = createEarnPortfolioRequestKey(matchedRequest);
+                  resolvedKeys.add(key);
+                  normalKeysFailedInThisSession.add(key);
                   return;
                 }
 
@@ -853,11 +886,36 @@ export const useEarnPortfolio = ({
                 resolvedKeys.add(createEarnPortfolioRequestKey(matchedRequest));
               });
 
-              // Errors, missing items and ambiguous vaults cannot prove an empty
-              // position. Keep the previous value until a matching result arrives.
-              group.requestsByKey.forEach((_request, key) => {
+              const failedKeys = new Set<string>();
+              let hasUnidentifiedError = false;
+              response.errors.forEach((error) => {
+                const request = matchEarnPortfolioBatchRequest({
+                  group,
+                  symbol: error.symbol,
+                  vault: error.vault,
+                });
+                if (request) {
+                  failedKeys.add(createEarnPortfolioRequestKey(request));
+                } else if (!error.vault) {
+                  hasUnidentifiedError = true;
+                }
+              });
+              group.requestsByKey.forEach((request, key) => {
                 if (!resolvedKeys.has(key)) {
-                  normalKeysFailedInThisSession.add(key);
+                  // EtherFi includes syncing positions and omits confirmed empty vaults.
+                  if (
+                    earnUtils.isEtherFiProvider({
+                      providerName: group.provider,
+                    }) &&
+                    request.vault &&
+                    !failedKeys.has(key) &&
+                    !hasUnidentifiedError &&
+                    !hasUnidentifiedItem
+                  ) {
+                    applyResult({ key, source: 'normal', remove: true });
+                  } else {
+                    normalKeysFailedInThisSession.add(key);
+                  }
                 }
               });
             }),

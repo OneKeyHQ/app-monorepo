@@ -33,7 +33,11 @@ export const createEarnPortfolioRequestKey = (
         contractAddress: request.vault,
       })
     : request.vault;
-  return `${request.provider}_${request.symbol}_${vault || ''}_${request.networkId}`;
+  // EtherFi deposit assets share a single position per vault.
+  const isEtherFi = request.provider.toLowerCase() === 'etherfi';
+  const symbol = isEtherFi && vault ? '' : request.symbol;
+  const provider = isEtherFi ? 'etherfi' : request.provider;
+  return `${provider}_${symbol}_${vault || ''}_${request.networkId}`;
 };
 
 export const shouldUseEarnPortfolioBatchFetch = ({
@@ -68,11 +72,30 @@ export const matchEarnPortfolioBatchRequest = ({
   group,
   symbol,
   vault,
+  symbolIsAuthoritative = true,
 }: {
   group: IEarnPortfolioBatchTaskGroup;
   symbol: string;
   vault?: string;
+  symbolIsAuthoritative?: boolean;
 }) => {
+  if (!symbolIsAuthoritative && !vault) {
+    return undefined;
+  }
+  if (vault && !symbolIsAuthoritative) {
+    const vaultKey = createEarnPortfolioRequestKey({
+      provider: group.provider,
+      symbol: '',
+      vault,
+      networkId: group.networkId,
+    });
+    const candidates = Array.from(group.requestsByKey.values()).filter(
+      (request) =>
+        request.vault &&
+        createEarnPortfolioRequestKey({ ...request, symbol: '' }) === vaultKey,
+    );
+    return candidates.length === 1 ? candidates[0] : undefined;
+  }
   const exactKey = createEarnPortfolioRequestKey({
     provider: group.provider,
     symbol,

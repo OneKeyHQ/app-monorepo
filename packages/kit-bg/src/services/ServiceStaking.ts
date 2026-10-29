@@ -907,11 +907,13 @@ class ServiceStaking extends ServiceBase {
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
-    params.amount = amountNumber.isNaN() ? '0' : amountNumber.toFixed();
     const resp = await client.get<{
       data: IStakeTransactionConfirmation;
     }>(`/earn/v1/transaction-confirmation`, {
-      params,
+      params: {
+        ...params,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+      },
     });
     return resp.data.data;
   }

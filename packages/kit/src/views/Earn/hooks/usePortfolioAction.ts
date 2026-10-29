@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EEarnLabels,
@@ -44,6 +46,7 @@ export const usePortfolioAction = ({
   onSuccess,
 }: IUsePortfolioActionParams) => {
   const [loading, setLoading] = useState(false);
+  const appNavigation = useAppNavigation();
 
   // Get earnAccount to use the correct accountId for claim. An indexed
   // account alone (all networks on an HD or hardware wallet, a network whose
@@ -268,42 +271,75 @@ export const usePortfolioAction = ({
     ],
   );
 
-  const handleCancelWithdrawalAction = useCallback(async () => {
-    setLoading(true);
-    try {
-      await handleWithdraw({
-        amount: '0',
-        symbol,
-        provider,
-        protocolVault: earnUtils.shouldSendEarnProtocolVault({
-          providerName: provider,
-        })
-          ? vault
-          : undefined,
-        withdrawAll: false,
-        withdrawType: 'cancel',
-        stakingInfo: {
-          label: EEarnLabels.Withdraw,
-          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-          protocolLogoURI: providerLogoURI || '',
-          tags: stakeTag ? [stakeTag] : [],
-        },
-        onSuccess: async () => {
-          await onSuccess?.();
-        },
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    handleWithdraw,
-    onSuccess,
-    provider,
-    providerLogoURI,
-    stakeTag,
-    symbol,
-    vault,
-  ]);
+  const handleCancelWithdrawalAction = useCallback(
+    // Aggregated actions open a picker; legacy actions retain direct cancellation.
+    async () => {
+      if (earnUtils.isEtherFiProvider({ providerName: provider })) {
+        if (!earnAccountId) return;
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.WithdrawOptions,
+          params: {
+            accountId: earnAccountId,
+            networkId,
+            symbol,
+            provider,
+            withdrawType: 'cancel',
+            protocolInfo: {
+              symbol,
+              provider,
+              vault: vault ?? '',
+              networkId,
+              stakeTag: stakeTag || '',
+              providerDetail: {
+                name: provider,
+                logoURI: providerLogoURI || '',
+              },
+            },
+            onSuccess,
+          },
+        });
+        return;
+      }
+      setLoading(true);
+      try {
+        await handleWithdraw({
+          amount: '0',
+          symbol,
+          provider,
+          protocolVault: earnUtils.shouldSendEarnProtocolVault({
+            providerName: provider,
+          })
+            ? vault
+            : undefined,
+          withdrawAll: false,
+          withdrawType: 'cancel',
+          stakingInfo: {
+            label: EEarnLabels.Withdraw,
+            protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+            protocolLogoURI: providerLogoURI || '',
+            tags: stakeTag ? [stakeTag] : [],
+          },
+          onSuccess: async () => {
+            await onSuccess?.();
+          },
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      appNavigation,
+      earnAccountId,
+      networkId,
+      handleWithdraw,
+      onSuccess,
+      provider,
+      providerLogoURI,
+      stakeTag,
+      symbol,
+      vault,
+    ],
+  );
 
   const handleAction = useCallback(
     ({

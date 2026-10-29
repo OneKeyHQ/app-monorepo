@@ -307,7 +307,7 @@ const ProtocolDetailsPage = () => {
           accountId: earnAccount?.accountId ?? '',
           networkId: earnAccount?.networkId ?? '',
           provider: result?.provider.name,
-          symbol: result?.token.info.symbol,
+          symbol,
           request: { origin: 'https://app.falcon.finance/', scope: 'ethereum' },
         });
       },
@@ -318,6 +318,7 @@ const ProtocolDetailsPage = () => {
       earnAccount?.networkId,
       falconUSDfRegister,
       result,
+      symbol,
     ],
   );
   // const { bindInviteCode } = useReferFriends();
@@ -446,7 +447,7 @@ const ProtocolDetailsPage = () => {
               error={isErrorState({ result, isLoading })}
               onRefresh={run}
             >
-              <ProtocolDetails details={result}>
+              <ProtocolDetails details={result} symbol={symbol}>
                 {earnAccount?.accountAddress ? (
                   <>
                     <StakedValueSection

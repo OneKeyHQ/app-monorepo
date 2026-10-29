@@ -111,6 +111,8 @@ export type IEarnStakeType = 'wrap' | 'normal';
 
 export type IEarnWithdrawType = 'instant' | 'queued' | 'cancel';
 
+export type IEarnAmountUnit = 'shares';
+
 export type IEarnClaimType = 'normal' | 'airdrop';
 
 export type IEarnWithdrawApproveInfo = {
@@ -242,7 +244,7 @@ export type IWithdrawBaseParams = {
   slippage?: number;
   effectiveApy?: string | number;
 
-  identity?: string; // sol pubkey
+  identity?: string;
   signature?: string; // lido unstake, stakefish withdraw all
   deadline?: number; // lido unstake
   protocolVault?: string; // protocol vault
@@ -1976,6 +1978,8 @@ export type IClaimableListItemExtra = {
 export type IClaimableListItem = {
   id: string;
   amount: string;
+  /** Request submission time, in Unix seconds. */
+  timestamp?: number;
   fiatValue?: string;
   isPending?: boolean;
   babylonExtra?: IBabylonPortfolioItem;

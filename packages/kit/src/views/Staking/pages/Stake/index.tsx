@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Alert, Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -34,13 +34,14 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { UniversalStake } from '../../components/UniversalStake';
+import { useEtherFiStakeApproval } from '../../hooks/useEtherFiStakeApproval';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import {
   buildStakeTokenUniqueKey,
-  normalizeStakeTokenAddress,
+  resolveEarnStakeRequestSymbol,
+  resolveEarnStakeType,
   resolveNativeEarnProtocolSymbol,
-  resolveNativeEarnStakeRequestSymbol,
-  resolveNativeEarnStakeType,
+  resolveSelectedStakeAsset,
   resolveStakeTokenAddress,
 } from '../../utils/utils';
 
@@ -63,6 +64,8 @@ function BasicStakePage() {
     () => earnUtils.isNativeProvider({ providerName }),
     [providerName],
   );
+  const isEtherFiProvider = earnUtils.isEtherFiProvider({ providerName });
+  const supportsWrappedStake = isNativeProvider || isEtherFiProvider;
   const [selectedStakeAsset, setSelectedStakeAsset] = useState<
     IEarnTokenItem | undefined
   >(undefined);
@@ -75,26 +78,47 @@ function BasicStakePage() {
     [isNativeProvider, protocolInfo?.symbol],
   );
 
-  const { result: stakeAssetsList } = usePromiseResult(
+  const stakeAssetsScopeKey = [
+    accountId,
+    networkId,
+    providerName,
+    protocolInfo?.vault,
+    stakeAssetsSymbol,
+  ].join(':');
+
+  const { result: stakeAssetsList, run: retryStakeAssets } = usePromiseResult(
     async () => {
-      if (!isNativeProvider || !accountId || !stakeAssetsSymbol) {
+      if (!supportsWrappedStake || !accountId || !stakeAssetsSymbol) {
         return undefined;
       }
-      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
-        accountId,
-        networkId,
-        provider: providerName,
-        symbol: stakeAssetsSymbol,
-        vault: protocolInfo?.vault || undefined,
-        action: 'stake',
-      });
+      try {
+        const response =
+          await backgroundApiProxy.serviceStaking.getEarnAssetsList({
+            accountId,
+            networkId,
+            provider: providerName,
+            symbol: stakeAssetsSymbol,
+            vault: protocolInfo?.vault || undefined,
+            action: 'stake',
+          });
+        return {
+          assets: response.assets,
+          scopeKey: stakeAssetsScopeKey,
+          status: 'success' as const,
+        };
+      } catch (error) {
+        if (!isEtherFiProvider) throw error;
+        return { scopeKey: stakeAssetsScopeKey, status: 'error' as const };
+      }
     },
     [
-      isNativeProvider,
+      supportsWrappedStake,
+      isEtherFiProvider,
       accountId,
       networkId,
       providerName,
       stakeAssetsSymbol,
+      stakeAssetsScopeKey,
       protocolInfo?.vault,
     ],
     {
@@ -103,72 +127,36 @@ function BasicStakePage() {
   );
 
   const selectableStakeAssets = useMemo(() => {
-    return stakeAssetsList?.assets ?? [];
-  }, [stakeAssetsList?.assets]);
+    return stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+      stakeAssetsList.status === 'success'
+      ? stakeAssetsList.assets
+      : [];
+  }, [stakeAssetsList, stakeAssetsScopeKey]);
+  const stakeAssetsError =
+    isEtherFiProvider &&
+    stakeAssetsList?.scopeKey === stakeAssetsScopeKey &&
+    stakeAssetsList.status === 'error';
 
-  useEffect(() => {
-    if (!selectableStakeAssets.length) {
-      setSelectedStakeAsset(undefined);
-      return;
-    }
-
-    const isSameStakeToken = (
-      asset: IEarnTokenItem,
-      tokenToMatch?: {
-        address?: string;
-        isNative?: boolean;
-        symbol?: string;
-      },
-    ) => {
-      if (!tokenToMatch) {
-        return false;
-      }
-      const assetAddress = normalizeStakeTokenAddress({
-        address: asset.info.address,
-        isNative: asset.info.isNative,
-      });
-      const tokenAddress = normalizeStakeTokenAddress({
-        address: tokenToMatch.address,
-        isNative: tokenToMatch.isNative,
-      });
-      return (
-        assetAddress === tokenAddress &&
-        asset.info.symbol.toLowerCase() === tokenToMatch.symbol?.toLowerCase()
-      );
-    };
-
-    setSelectedStakeAsset((prev) => {
-      if (prev) {
-        const matchedPrev = selectableStakeAssets.find((asset) =>
-          isSameStakeToken(asset, prev.info),
-        );
-        if (matchedPrev) {
-          return matchedPrev;
-        }
-      }
-
-      return (
-        selectableStakeAssets.find((asset) =>
-          isSameStakeToken(asset, tokenInfo?.token),
-        ) ?? selectableStakeAssets[0]
-      );
-    });
-  }, [selectableStakeAssets, tokenInfo?.token]);
+  const activeStakeAsset = resolveSelectedStakeAsset({
+    assets: selectableStakeAssets,
+    selectedToken: selectedStakeAsset?.info,
+    initialToken: tokenInfo?.token,
+  });
 
   const effectiveStakeTokenInfo = useMemo(() => {
-    if (!tokenInfo || !selectedStakeAsset) {
+    if (!tokenInfo || !activeStakeAsset) {
       return tokenInfo;
     }
     return {
       ...tokenInfo,
-      balanceParsed: selectedStakeAsset.balanceParsed || '0',
-      price: selectedStakeAsset.price || '0',
+      balanceParsed: activeStakeAsset.balanceParsed || '0',
+      price: activeStakeAsset.price || '0',
       token: {
         ...tokenInfo.token,
-        ...selectedStakeAsset.info,
+        ...activeStakeAsset.info,
       } as IEarnTokenInfo['token'],
     };
-  }, [selectedStakeAsset, tokenInfo]);
+  }, [activeStakeAsset, tokenInfo]);
 
   const selectedStakeTokenAddress = useMemo(
     () =>
@@ -182,45 +170,47 @@ function BasicStakePage() {
     ],
   );
 
-  const nativeWrappedStakeToken = useMemo(() => {
-    if (!isNativeProvider) {
+  const wrappedStakeAsset = useMemo(() => {
+    if (!supportsWrappedStake) {
       return undefined;
     }
     return selectableStakeAssets.find(
       (asset) =>
         !asset.info.isNative && asset.info.symbol.toUpperCase() === 'WETH',
-    )?.info;
-  }, [isNativeProvider, selectableStakeAssets]);
+    );
+  }, [supportsWrappedStake, selectableStakeAssets]);
 
-  const nativeStakeType = useMemo(
+  const stakeType = useMemo(
     () =>
-      resolveNativeEarnStakeType({
-        isNativeProvider,
+      resolveEarnStakeType({
+        providerName,
+        tokenSymbol: effectiveStakeTokenInfo?.token.symbol,
         vaultSymbol: stakeAssetsSymbol,
         tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       }),
     [
       effectiveStakeTokenInfo?.token?.isNative,
-      isNativeProvider,
+      effectiveStakeTokenInfo?.token.symbol,
+      providerName,
       stakeAssetsSymbol,
     ],
   );
 
   const stakeRequestSymbol = useMemo(
     () =>
-      resolveNativeEarnStakeRequestSymbol({
-        isNativeProvider,
+      resolveEarnStakeRequestSymbol({
+        providerName,
         protocolSymbol: stakeAssetsSymbol || protocolInfo?.symbol,
         tokenSymbol:
           effectiveStakeTokenInfo?.token.symbol || tokenInfo?.token.symbol,
         tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
-        wrappedTokenSymbol: nativeWrappedStakeToken?.symbol,
+        wrappedTokenSymbol: wrappedStakeAsset?.info.symbol,
       }),
     [
       effectiveStakeTokenInfo?.token?.isNative,
       effectiveStakeTokenInfo?.token.symbol,
-      isNativeProvider,
-      nativeWrappedStakeToken?.symbol,
+      providerName,
+      wrappedStakeAsset?.info.symbol,
       protocolInfo?.symbol,
       stakeAssetsSymbol,
       tokenInfo?.token.symbol,
@@ -228,12 +218,12 @@ function BasicStakePage() {
   );
 
   const selectedStakeTokenUniqueKey = useMemo(() => {
-    if (selectedStakeAsset?.info) {
+    if (activeStakeAsset?.info) {
       return buildStakeTokenUniqueKey({
-        uniqueKey: selectedStakeAsset.info.uniqueKey,
-        address: selectedStakeAsset.info.address,
-        symbol: selectedStakeAsset.info.symbol,
-        isNative: selectedStakeAsset.info.isNative,
+        uniqueKey: activeStakeAsset.info.uniqueKey,
+        address: activeStakeAsset.info.address,
+        symbol: activeStakeAsset.info.symbol,
+        isNative: activeStakeAsset.info.isNative,
       });
     }
     return buildStakeTokenUniqueKey({
@@ -242,21 +232,38 @@ function BasicStakePage() {
       symbol: effectiveStakeTokenInfo?.token.symbol,
       isNative: effectiveStakeTokenInfo?.token.isNative,
     });
-  }, [effectiveStakeTokenInfo?.token, selectedStakeAsset?.info]);
+  }, [effectiveStakeTokenInfo?.token, activeStakeAsset?.info]);
 
   const token = effectiveStakeTokenInfo?.token as IToken;
+  const selectedStakeApproval = useEtherFiStakeApproval({
+    enabled: isEtherFiProvider,
+    networkId,
+    provider: providerName,
+    symbol:
+      stakeType === 'wrap'
+        ? wrappedStakeAsset?.info.symbol
+        : activeStakeAsset?.info.symbol,
+    vault: protocolInfo?.vault,
+  });
+  const stakeApprove = isEtherFiProvider
+    ? selectedStakeApproval.approve
+    : protocolInfo?.approve;
+  const isStakeAssetReady =
+    !isEtherFiProvider ||
+    Boolean(
+      activeStakeAsset &&
+      stakeApprove?.approveTarget &&
+      stakeApprove.approveType &&
+      (stakeType !== 'wrap' || wrappedStakeAsset),
+    );
   const approveSpenderAddress = useMemo(
     () =>
       earnUtils.resolveEarnApproveSpenderAddress({
         providerName: protocolInfo?.provider || '',
         protocolVault: protocolInfo?.vault,
-        backendApproveTarget: protocolInfo?.approve?.approveTarget,
+        backendApproveTarget: stakeApprove?.approveTarget,
       }),
-    [
-      protocolInfo?.provider,
-      protocolInfo?.vault,
-      protocolInfo?.approve?.approveTarget,
-    ],
+    [protocolInfo?.provider, protocolInfo?.vault, stakeApprove?.approveTarget],
   );
   const effectiveApproveType = useMemo(() => {
     return earnUtils.resolveEarnApproveType({
@@ -264,15 +271,23 @@ function BasicStakePage() {
       networkId,
       tokenIsNative: effectiveStakeTokenInfo?.token?.isNative,
       approveSpenderAddress,
-      backendApproveType: protocolInfo?.approve?.approveType,
+      backendApproveType: stakeApprove?.approveType,
     });
   }, [
     protocolInfo?.provider,
-    protocolInfo?.approve?.approveType,
+    stakeApprove?.approveType,
     effectiveStakeTokenInfo?.token?.isNative,
     approveSpenderAddress,
     networkId,
   ]);
+
+  const allowanceScopeKey = [
+    accountId,
+    networkId,
+    effectiveApproveType,
+    approveSpenderAddress,
+    effectiveStakeTokenInfo?.token.address,
+  ].join(':');
 
   const { result: allowanceResult } = usePromiseResult(
     async () => {
@@ -288,6 +303,7 @@ function BasicStakePage() {
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            providerName,
             networkId,
             approveType: effectiveApproveType,
             approveSpenderAddress,
@@ -295,11 +311,13 @@ function BasicStakePage() {
           tokenAddress: effectiveStakeTokenInfo?.token.address || '',
         });
 
-      return { allowanceParsed };
+      return { allowanceParsed, scopeKey: allowanceScopeKey };
     },
     [
+      allowanceScopeKey,
       accountId,
       networkId,
+      providerName,
       approveSpenderAddress,
       effectiveApproveType,
       effectiveStakeTokenInfo?.token?.isNative,
@@ -309,6 +327,11 @@ function BasicStakePage() {
       watchLoading: true,
     },
   );
+
+  const selectedTokenAllowance =
+    allowanceResult?.scopeKey === allowanceScopeKey
+      ? allowanceResult?.allowanceParsed
+      : undefined;
 
   const { removePermitCache } = useEarnActions().current;
 
@@ -324,7 +347,16 @@ function BasicStakePage() {
     }
   }, [providerName]);
 
-  const handleStake = useUniversalStake({ accountId, networkId });
+  const handleStake = useUniversalStake({
+    accountId,
+    networkId,
+    scopeKey: [
+      providerName,
+      protocolInfo?.vault,
+      selectedStakeTokenAddress,
+      stakeType,
+    ].join('|'),
+  });
 
   const handleOpenStakeTokenSelector = useCallback(() => {
     if (!accountId || !stakeAssetsSymbol) {
@@ -334,10 +366,10 @@ function BasicStakePage() {
     if (effectiveStakeTokenInfo?.token.isNative) {
       currentAddress = 'native';
     }
-    if (selectedStakeAsset?.info) {
-      currentAddress = selectedStakeAsset.info.isNative
+    if (activeStakeAsset?.info) {
+      currentAddress = activeStakeAsset.info.isNative
         ? 'native'
-        : selectedStakeAsset.info.address;
+        : activeStakeAsset.info.address;
     }
 
     appNavigation.pushModal(EModalRoutes.StakingModal, {
@@ -363,12 +395,12 @@ function BasicStakePage() {
     networkId,
     providerName,
     protocolInfo?.vault,
-    selectedStakeAsset?.info,
+    activeStakeAsset?.info,
     stakeAssetsSymbol,
   ]);
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
-    if (!isNativeProvider || !selectableStakeAssets.length) {
+    if (!supportsWrappedStake || !selectableStakeAssets.length) {
       return undefined;
     }
 
@@ -381,28 +413,32 @@ function BasicStakePage() {
     };
   }, [
     handleOpenStakeTokenSelector,
-    isNativeProvider,
+    supportsWrappedStake,
     selectableStakeAssets.length,
   ]);
 
   const onConfirm = useCallback(
-    async ({
-      amount,
-      approveType,
-      permitSignature,
-      unsignedMessage,
-      message,
-      effectiveApy,
-      validatorPubkey,
-      stakeType: confirmStakeType,
-      onStepChange,
-    }: IApproveConfirmFnParams) => {
-      if (!token) {
+    async (
+      {
+        amount,
+        approveType,
+        permitSignature,
+        unsignedMessage,
+        message,
+        effectiveApy,
+        validatorPubkey,
+        stakeType: confirmStakeType,
+        onStepChange,
+      }: IApproveConfirmFnParams,
+      isActionCurrent?: () => boolean,
+    ) => {
+      if (!token || !isStakeAssetReady) {
         // Nothing was started, so the form keeps what the user typed.
         return false;
       }
-      const effectiveStakeType = confirmStakeType ?? nativeStakeType;
+      const effectiveStakeType = confirmStakeType ?? stakeType;
       return handleStake({
+        isActionCurrent,
         amount,
         approveType,
         permitSignature,
@@ -412,7 +448,7 @@ function BasicStakePage() {
         validatorPublicKey: validatorPubkey,
         stakeType: effectiveStakeType,
         postWrapStakeToken:
-          effectiveStakeType === 'wrap' ? nativeWrappedStakeToken : undefined,
+          effectiveStakeType === 'wrap' ? wrappedStakeAsset?.info : undefined,
         postWrapApproveSpenderAddress:
           effectiveStakeType === 'wrap' ? approveSpenderAddress : undefined,
         symbol: stakeRequestSymbol,
@@ -447,6 +483,14 @@ function BasicStakePage() {
             removePermitCache({
               accountId,
               networkId,
+              providerName,
+              approveSpenderAddress:
+                earnUtils.resolveEarnAllowanceSpenderAddress({
+                  providerName,
+                  networkId,
+                  approveType,
+                  approveSpenderAddress,
+                }),
               tokenAddress: effectiveStakeTokenInfo?.token.address || '',
               amount,
             });
@@ -473,6 +517,7 @@ function BasicStakePage() {
     },
     [
       handleStake,
+      isStakeAssetReady,
       token,
       stakeRequestSymbol,
       providerName,
@@ -487,8 +532,8 @@ function BasicStakePage() {
       networkId,
       effectiveStakeTokenInfo?.token.address,
       selectedStakeTokenAddress,
-      nativeStakeType,
-      nativeWrappedStakeToken,
+      stakeType,
+      wrappedStakeAsset,
       approveSpenderAddress,
     ],
   );
@@ -552,16 +597,40 @@ function BasicStakePage() {
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={protocolInfo?.provider}
           onConfirm={onConfirm}
+          isDisabled={!isStakeAssetReady}
+          beforeFooter={
+            stakeAssetsError || selectedStakeApproval.error ? (
+              <Alert
+                type="critical"
+                title={intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                })}
+                action={{
+                  primary: intl.formatMessage({
+                    id: ETranslations.global_retry,
+                  }),
+                  onPrimaryPress: () => {
+                    if (stakeAssetsError) void retryStakeAssets();
+                    if (selectedStakeApproval.error) {
+                      void selectedStakeApproval.retry();
+                    }
+                  },
+                }}
+              />
+            ) : undefined
+          }
           approveType={effectiveApproveType}
           currentAllowance={
-            allowanceResult?.allowanceParsed ?? currentAllowance
+            isEtherFiProvider
+              ? selectedTokenAllowance
+              : (allowanceResult?.allowanceParsed ?? currentAllowance)
           }
           minTransactionFee={protocolInfo?.minTransactionFee}
           estimateFeeUTXO={estimateFeeUTXO}
           onFeeRateChange={onFeeRateChange}
           tokenInfo={effectiveStakeTokenInfo}
           protocolInfo={protocolInfo}
-          stakeType={nativeStakeType}
+          stakeType={stakeType}
           approveTarget={{
             accountId,
             networkId,
@@ -569,10 +638,10 @@ function BasicStakePage() {
             token: effectiveStakeTokenInfo?.token,
           }}
           postWrapApproveTarget={
-            nativeStakeType === 'wrap'
+            stakeType === 'wrap'
               ? {
                   spenderAddress: approveSpenderAddress,
-                  token: nativeWrappedStakeToken,
+                  token: wrappedStakeAsset?.info,
                 }
               : undefined
           }

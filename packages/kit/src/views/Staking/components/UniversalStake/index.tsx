@@ -48,6 +48,7 @@ import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnA
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -75,12 +76,16 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageWithoutVerify';
+import { useEtherFiLegacyApproval } from '../../hooks/useEtherFiLegacyApproval';
 import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import {
   countDecimalPlaces,
+  createEarnActionScopeGuard,
+  getStakeTransactionConfirmationAction,
   isInvalidAmount,
+  normalizeEarnActionAmountScope,
   shouldShowStakingSummaryCard,
 } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
@@ -452,7 +457,10 @@ type IUniversalStakeProps = {
   // pre-flight check failed), so the form keeps the amount the user typed.
   // Deliberately not `boolean | void`: a caller that forgets to return the
   // hook's result would silently reset the form.
-  onConfirm?: (params: IApproveConfirmFnParams) => Promise<boolean>;
+  onConfirm?: (
+    params: IApproveConfirmFnParams,
+    isActionCurrent?: () => boolean,
+  ) => Promise<boolean>;
   onFeeRateChange?: (rate: string) => void;
 
   tokenInfo?: IEarnTokenInfo;
@@ -468,6 +476,8 @@ type IUniversalStakeProps = {
     token?: IToken;
   };
   beforeFooter?: ReactElement | null;
+  onLegacyApprovalCleared?: () => void;
+  isLegacyApprovalBlocked?: boolean;
   footerActionOverride?: IManagePositionFooterAction;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   showApyDetail?: boolean;
@@ -512,6 +522,8 @@ export function UniversalStake({
   postWrapApproveTarget,
   currentAllowance,
   beforeFooter,
+  onLegacyApprovalCleared,
+  isLegacyApprovalBlocked,
   footerActionOverride,
   protocolSwitchConfig,
   showApyDetail = false,
@@ -532,6 +544,14 @@ export function UniversalStake({
   pendleSlippage,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
+  const legacyApproval = useEtherFiLegacyApproval({
+    accountId,
+    networkId,
+    provider: providerName,
+    vault: protocolInfo?.vault,
+    onCleared: onLegacyApprovalCleared,
+    skip: isLegacyApprovalBlocked,
+  });
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
@@ -540,6 +560,7 @@ export function UniversalStake({
   transactionConfirmationAmountRef.current = amountValue;
   const [approving, setApproving] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const submissionLockRef = useRef(false);
   const [selectedValidator, setSelectedValidator] = useState<
     string | undefined
   >(ongoingValidator?.select?.defaultValue);
@@ -589,6 +610,32 @@ export function UniversalStake({
     () => requestSymbol || tokenInfo?.token.symbol || tokenSymbol || '',
     [requestSymbol, tokenInfo?.token.symbol, tokenSymbol],
   );
+  const approvalScopeKey = JSON.stringify([
+    accountId,
+    networkId,
+    providerName,
+    protocolInfo?.vault,
+    actionSymbol,
+    approveTarget.accountId,
+    approveTarget.networkId,
+    approveTarget.spenderAddress,
+    approveTarget.token?.address,
+    approveType,
+    normalizeEarnActionAmountScope(amountValue),
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
+    stakeType,
+    selectedValidator,
+    pendleSlippage,
+  ]);
+  const approvalScopeGuardRef = useRef<ReturnType<
+    typeof createEarnActionScopeGuard
+  > | null>(null);
+  if (!approvalScopeGuardRef.current) {
+    approvalScopeGuardRef.current = createEarnActionScopeGuard();
+  }
+  const approvalScopeGuard = approvalScopeGuardRef.current;
+  approvalScopeGuard.update(approvalScopeKey);
   const isStakefishEthStake = useMemo(
     () => isStakefishProvider && actionSymbol.toUpperCase() === 'ETH',
     [actionSymbol, isStakefishProvider],
@@ -636,6 +683,7 @@ export function UniversalStake({
     trackAllowance,
     fetchAllowanceResponse,
   } = useTrackTokenAllowance({
+    providerName,
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
     tokenAddress: approveTarget.token?.address || '',
@@ -651,9 +699,18 @@ export function UniversalStake({
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
 
+    permitSignatureRef.current = undefined;
+    permit2DataRef.current = undefined;
     if (usePermit2Approve) {
       // Check permit cache first
       const permitCache = getPermitCache({
+        providerName,
+        approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          providerName,
+          networkId: approveTarget.networkId,
+          approveType,
+          approveSpenderAddress: approveTarget.spenderAddress,
+        }),
         accountId: approveTarget.accountId,
         networkId: approveTarget.networkId,
         tokenAddress: approveTarget.token?.address || '',
@@ -673,6 +730,9 @@ export function UniversalStake({
     allowance,
     usePermit2Approve,
     getPermitCache,
+    providerName,
+    approveType,
+    approveTarget.spenderAddress,
     approveTarget.accountId,
     approveTarget.networkId,
     approveTarget.token?.address,
@@ -684,6 +744,17 @@ export function UniversalStake({
   const shouldApprove = isFocus
     ? shouldApproveWhenFocused
     : useApprove && lastFocusedShouldApproveRef.current;
+  const isWrapStake = stakeType === 'wrap';
+  const confirmationAction = getStakeTransactionConfirmationAction({
+    stakeType,
+    shouldApprove,
+    usePermitApprove: usePermit2Approve,
+  });
+  const isPreparationStep = isWrapStake || confirmationAction === 'approve';
+  // The existing confirmation endpoint describes the deposit, not its wrap or approval.
+  const isEtherFiPreparationStep =
+    earnUtils.isEtherFiProvider({ providerName }) && isPreparationStep;
+  const hideYieldPreview = isPreparationStep || shouldApprove;
 
   const [transactionConfirmation, setTransactionConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
@@ -695,7 +766,10 @@ export function UniversalStake({
       : undefined;
 
   const fetchTransactionConfirmation = useCallback(
-    async (amount: string) => {
+    async (
+      amount: string,
+      action: ECheckAmountActionType | 'approve' = confirmationAction,
+    ) => {
       if (isDisabled) {
         return undefined;
       }
@@ -706,7 +780,8 @@ export function UniversalStake({
           symbol: actionSymbol,
           vault: shouldSendProtocolVault ? protocolInfo?.vault || '' : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
-          action: ECheckAmountActionType.STAKING,
+          action:
+            action === 'approve' ? ECheckAmountActionType.STAKING : action,
           amount,
           identity: stakefishIdentity,
           inputTokenAddress: transactionInputTokenAddress,
@@ -727,7 +802,46 @@ export function UniversalStake({
       transactionInputTokenAddress,
       transactionOutputTokenAddress,
       pendleSlippage,
+      confirmationAction,
     ],
+  );
+
+  const transactionConfirmationScopeRef = useRef({
+    fetchConfirmation: fetchTransactionConfirmation,
+    isEtherFiPreparationStep,
+    amount: amountValue,
+    generation: 0,
+  });
+  if (
+    transactionConfirmationScopeRef.current.fetchConfirmation !==
+      fetchTransactionConfirmation ||
+    transactionConfirmationScopeRef.current.isEtherFiPreparationStep !==
+      isEtherFiPreparationStep ||
+    transactionConfirmationScopeRef.current.amount !== amountValue
+  ) {
+    transactionConfirmationScopeRef.current = {
+      fetchConfirmation: fetchTransactionConfirmation,
+      isEtherFiPreparationStep,
+      amount: amountValue,
+      generation: transactionConfirmationScopeRef.current.generation + 1,
+    };
+  }
+  const transactionConfirmationDataScopeRef = useRef<
+    | { fetchConfirmation: typeof fetchTransactionConfirmation; amount: string }
+    | undefined
+  >(undefined);
+  const updateTransactionConfirmation = useCallback(
+    (
+      response: IStakeTransactionConfirmation | undefined,
+      amount = amountValue,
+    ) => {
+      transactionConfirmationDataScopeRef.current = {
+        fetchConfirmation: fetchTransactionConfirmation,
+        amount,
+      };
+      setTransactionConfirmation(response);
+    },
+    [fetchTransactionConfirmation, amountValue],
   );
 
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
@@ -742,20 +856,25 @@ export function UniversalStake({
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
+      const fetchConfirmation = fetchTransactionConfirmation;
+      const generation = transactionConfirmationScopeRef.current.generation;
+      const isCurrentRequest = () =>
+        transactionConfirmationAmountRef.current === amount &&
+        transactionConfirmationScopeRef.current.generation === generation;
       setTransactionConfirmationLoading(true);
       try {
-        const resp = await fetchTransactionConfirmation(amount || '0');
-        if (transactionConfirmationAmountRef.current !== amount) {
+        const resp = await fetchConfirmation(amount || '0');
+        if (!isCurrentRequest()) {
           return;
         }
-        setTransactionConfirmation(resp);
-        if (resp && amount && Number(amount) > 0) {
+        updateTransactionConfirmation(resp, amount);
+        if (resp && amount && Number(amount) > 0 && !isPreparationStep) {
           onQuoteReset?.();
         }
       } catch {
         // keep stale state
       } finally {
-        if (transactionConfirmationAmountRef.current === amount) {
+        if (isCurrentRequest()) {
           setTransactionConfirmationSettled(true);
           setTransactionConfirmationLoading(false);
         }
@@ -764,15 +883,20 @@ export function UniversalStake({
     350,
   );
 
+  useEffect(() => {
+    // Switching ETH/WETH can keep the same amount, but the old quote describes a different action.
+    transactionConfirmationDataScopeRef.current = undefined;
+    setTransactionConfirmation(undefined);
+    setTransactionConfirmationLoading(false);
+    setTransactionConfirmationSettled(false);
+  }, [fetchTransactionConfirmation, isEtherFiPreparationStep]);
+
   const protocolVault = shouldSendProtocolVault
     ? protocolInfo?.vault || ''
     : undefined;
 
   const fetchEstimateFeeResp = useCallback(
-    async (amount?: string) => {
-      if (shouldApprove && usePermit2Approve) {
-        return undefined;
-      }
+    async (amount?: string, action = confirmationAction) => {
       if (!amount) {
         return undefined;
       }
@@ -781,20 +905,26 @@ export function UniversalStake({
         return undefined;
       }
 
+      const needsAllowance = amountNumber.gt(allowance);
       const permitParams: {
-        approveType?: 'permit';
+        approveType?: EApproveType.Permit;
         permitSignature?: string;
-      } = {};
-
-      if (usePermit2Approve && !shouldApprove) {
-        permitParams.approveType = EApproveType.Permit;
-        if (permitSignatureRef.current) {
-          const amountBN = BigNumber(amount);
-          const allowanceBN = BigNumber(allowance);
-          if (amountBN.gt(allowanceBN)) {
-            permitParams.permitSignature = permitSignatureRef.current;
-          }
-        }
+      } = usePermit2Approve ? { approveType: EApproveType.Permit } : {};
+      if (
+        usePermit2Approve &&
+        needsAllowance &&
+        permitSignatureRef.current &&
+        permit2DataRef.current
+      ) {
+        permitParams.permitSignature = permitSignatureRef.current;
+      }
+      // A freshly signed permit is available before React updates shouldApprove.
+      if (
+        usePermit2Approve &&
+        needsAllowance &&
+        !permitParams.permitSignature
+      ) {
+        return undefined;
       }
 
       const account = await backgroundApiProxy.serviceAccount.getAccount({
@@ -805,7 +935,7 @@ export function UniversalStake({
         networkId,
         provider: providerName,
         symbol: actionSymbol,
-        action: shouldApprove ? 'approve' : 'stake',
+        action,
         amount: amountNumber.toFixed(),
         protocolVault,
         accountAddress: account?.address,
@@ -822,7 +952,7 @@ export function UniversalStake({
       networkId,
       protocolVault,
       providerName,
-      shouldApprove,
+      confirmationAction,
       actionSymbol,
       transactionInputTokenAddress,
       transactionOutputTokenAddress,
@@ -840,15 +970,21 @@ export function UniversalStake({
   );
 
   const checkEstimateGasAlert = useCallback(
-    async (onNext: () => Promise<void> | undefined) => {
+    async (
+      onNext: () => Promise<void> | undefined,
+      action = confirmationAction,
+      isCurrent: () => boolean = () => true,
+    ) => {
+      if (!isCurrent()) return;
       if (usePermit2Approve) {
         return onNext();
       }
 
       setApproving(true);
 
-      const response = await fetchEstimateFeeResp(amountValue);
+      const response = await fetchEstimateFeeResp(amountValue, action);
 
+      if (!isCurrent()) return;
       setApproving(false);
       if (!response) {
         return onNext();
@@ -866,7 +1002,7 @@ export function UniversalStake({
         estFiatValue: response.feeFiatValue,
         onConfirm: async (dialogInstance: IDialogInstance) => {
           await dialogInstance.close();
-          await onNext();
+          if (isCurrent()) await onNext();
         },
       });
     },
@@ -875,18 +1011,31 @@ export function UniversalStake({
       fetchEstimateFeeResp,
       amountValue,
       showEstimateGasAlert,
+      confirmationAction,
     ],
   );
 
   const prevShouldApproveRef = useRef<boolean | undefined>(undefined);
-  const isWrapStake = stakeType === 'wrap';
   const wrapStakeLabel = useMemo(
     () =>
       intl.formatMessage(
         { id: ETranslations.Limit_native_token_no_sell_wrap },
-        { token: actionSymbol || tokenInfo?.token.symbol || tokenSymbol || '' },
+        {
+          token:
+            postWrapApproveTarget?.token?.symbol ||
+            actionSymbol ||
+            tokenInfo?.token.symbol ||
+            tokenSymbol ||
+            '',
+        },
       ),
-    [actionSymbol, intl, tokenInfo?.token.symbol, tokenSymbol],
+    [
+      actionSymbol,
+      intl,
+      postWrapApproveTarget?.token?.symbol,
+      tokenInfo?.token.symbol,
+      tokenSymbol,
+    ],
   );
 
   const fetchPostWrapAllowance = useCallback(async () => {
@@ -987,7 +1136,11 @@ export function UniversalStake({
       void debouncedFetchEstimateFeeResp(amountValue);
     }
     prevShouldApproveRef.current = shouldApprove;
-    if (!isInvalidAmount(amountValue) && amountValueBN.isGreaterThan(0)) {
+    if (
+      !isEtherFiPreparationStep &&
+      !isInvalidAmount(amountValue) &&
+      amountValueBN.isGreaterThan(0)
+    ) {
       void debouncedFetchTransactionConfirmation(amountValue);
     } else {
       debouncedFetchTransactionConfirmation.cancel();
@@ -1002,25 +1155,33 @@ export function UniversalStake({
     amountValue,
     debouncedFetchEstimateFeeResp,
     debouncedFetchTransactionConfirmation,
+    fetchTransactionConfirmation,
     stakefishIdentity,
+    isEtherFiPreparationStep,
   ]);
 
   const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
-    enabled: isPendleProvider,
+    enabled: isPendleProvider && !isPreparationStep,
     refreshKey,
     amountValue,
     fetchTransactionConfirmation,
-    setTransactionConfirmation,
+    setTransactionConfirmation: updateTransactionConfirmation,
     onQuoteReset,
     onQuoteRefreshingChange,
   });
 
   useEffect(
     () => () => {
+      approvalScopeGuard.invalidate();
       allowanceAbortRef.current?.abort();
     },
-    [],
+    [approvalScopeGuard],
   );
+
+  useEffect(() => {
+    allowanceAbortRef.current?.abort();
+    setApproving(false);
+  }, [approvalScopeKey]);
 
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
@@ -1074,7 +1235,12 @@ export function UniversalStake({
           inputTokenAddress: transactionInputTokenAddress,
           outputTokenAddress: transactionOutputTokenAddress,
           slippage: pendleSlippage,
-          stakeType,
+          // Validate the full deposit before wrapping, including the vault's pause/lock state.
+          stakeType:
+            stakeType === 'wrap' &&
+            earnUtils.isEtherFiProvider({ providerName })
+              ? 'normal'
+              : stakeType,
         });
         if (requestId !== checkAmountRequestIdRef.current) {
           return;
@@ -1126,6 +1292,7 @@ export function UniversalStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
+      if (submitting || submissionLockRef.current) return;
       if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
@@ -1149,7 +1316,7 @@ export function UniversalStake({
         void debouncedFetchEstimateFeeResp(value);
       }
     },
-    [decimals, debouncedFetchEstimateFeeResp],
+    [decimals, debouncedFetchEstimateFeeResp, submitting],
   );
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
@@ -1284,8 +1451,8 @@ export function UniversalStake({
     amountValue?.length > 0 && !!checkAmountMessage;
 
   const amountInputDisabled = useMemo(() => {
-    return isDisabled || isStakingCapFull;
-  }, [isDisabled, isStakingCapFull]);
+    return isDisabled || isStakingCapFull || submitting;
+  }, [isDisabled, isStakingCapFull, submitting]);
 
   const isDisable = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
@@ -1313,212 +1480,280 @@ export function UniversalStake({
     }
   }, [estimateFeeResp?.coverFeeSeconds]);
 
-  const onSubmit = useCallback(async () => {
-    Keyboard.dismiss();
+  const onSubmit = useCallback(
+    async (
+      freshFee?: IEarnEstimateFeeResp,
+      isApprovalCurrent?: () => boolean,
+      signedPermit?: {
+        signature: string;
+        unsignedMessage?: IEarnPermit2ApproveSignData;
+      },
+    ) => {
+      const isCurrent = isApprovalCurrent ?? approvalScopeGuard.capture();
+      if (!isCurrent()) return;
+      Keyboard.dismiss();
 
-    // Bot Wallet deactivated warning
-    const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
-      accountId,
-    });
-    if (isDeactivatedBot) {
-      const confirmed = await showBotWalletDeactivatedWarningDialog();
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    // OK-59196: Stakefish signs a provider-facing message before any hook runs,
-    // so the disclaimer has to gate this pre-transaction step. Not a duplicate
-    // of the gate inside useUniversalStake — that one only covers the transaction
-    // itself, and once accepted this call resolves immediately. Only create-new
-    // validator stakes sign, so a top up never reaches this dialog.
-    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
-      const riskAcceptedBeforeSigning = await showEarnRiskWarningDialog({
-        provider: providerName,
-        symbol: actionSymbol,
-        networkId,
-        title: intl.formatMessage({ id: ETranslations.global_warning }),
-      });
-      if (!riskAcceptedBeforeSigning) {
-        return;
-      }
-    }
-
-    // Stakefish ETH: sign before building the staking transaction. Only the
-    // create-new-validator flow needs it; the Earn API routes a top up by
-    // publicKey (the selected validator) and the signature would take priority
-    // over it in the stake build, so signing a top up only blocks the build.
-    if (isStakefishCreateNewValidator && !stakefishPermitSignatureRef.current) {
-      setApproving(true);
-      try {
-        const { signature, message } = await signPersonalMessage({
-          networkId,
-          accountId,
-          provider: providerName,
-          symbol: actionSymbol,
-          amount: new BigNumber(amountValue).toFixed(),
-          action: 'stake',
-        });
-        stakefishPermitSignatureRef.current = signature;
-        stakefishPermitMessageRef.current = message;
-      } catch (error) {
-        console.error('Stakefish permit sign error:', error);
-        setApproving(false);
-        return;
-      }
-      setApproving(false);
-    }
-
-    // Determine permitSignature source: Morpho uses permitSignatureRef, Stakefish uses stakefishPermitSignatureRef.
-    // Stakefish only attaches it for a new validator; a top up must stay
-    // signature-free so the Earn API routes it by publicKey.
-    let finalPermitSignature: string | undefined;
-    let finalMessage: string | undefined;
-    let finalUnsignedMessage: IEarnPermit2ApproveSignData | undefined;
-    if (usePermit2Approve) {
-      finalPermitSignature = permitSignatureRef.current;
-      finalUnsignedMessage = permit2DataRef.current;
-    } else if (isStakefishCreateNewValidator) {
-      finalPermitSignature = stakefishPermitSignatureRef.current;
-      finalMessage = stakefishPermitMessageRef.current;
-    }
-
-    const permitSignatureParams = finalPermitSignature
-      ? {
-          approveType: usePermit2Approve ? approveType : undefined,
-          permitSignature: finalPermitSignature,
-          unsignedMessage: finalUnsignedMessage,
-          message: finalMessage,
-        }
-      : undefined;
-
-    // Stakefish specific params: validatorPubkey only for existing validator.
-    const stakefishParams =
-      isStakefishProvider && !isStakefishCreateNewValidator && selectedValidator
-        ? { validatorPubkey: selectedValidator }
-        : undefined;
-
-    const resetAmount = () => {
-      setAmountValue('');
-      setCheckoutAmountMessage('');
-      setCheckAmountAlerts([]);
-      // Reset stakefish permit signature and message
-      stakefishPermitSignatureRef.current = undefined;
-      stakefishPermitMessageRef.current = undefined;
-    };
-    const handleConfirm = async () => {
-      setSubmitting(true);
-      try {
-        if (isWrapStake) {
-          let shouldShowApproveStep = true;
-          try {
-            const allowanceValue = await fetchPostWrapAllowance();
-            shouldShowApproveStep =
-              getShouldShowPostWrapApproveStep(allowanceValue);
-          } catch {
-            shouldShowApproveStep = true;
+      // Approval can auto-continue before React receives the new allowance.
+      // Fetch the deposit quote explicitly so APY and price-impact checks never use the empty approval preview.
+      let depositConfirmation = transactionConfirmation;
+      if (
+        shouldApprove ||
+        !depositConfirmation ||
+        transactionConfirmationDataScopeRef.current?.fetchConfirmation !==
+          fetchTransactionConfirmation ||
+        transactionConfirmationDataScopeRef.current?.amount !== amountValue
+      ) {
+        try {
+          depositConfirmation = await fetchTransactionConfirmation(
+            amountValue,
+            ECheckAmountActionType.STAKING,
+          );
+        } catch (error) {
+          if (isCurrent()) {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
           }
-          setShouldShowPostWrapApproveStepOverride(shouldShowApproveStep);
-          setStakeProgressStep(EStakeProgressStep.approve);
-        }
-
-        const started = await onConfirm?.({
-          amount: amountValue,
-          effectiveApy: transactionConfirmation?.effectiveApy,
-          stakeType,
-          onStepChange: handleStakeProgressChange,
-          ...permitSignatureParams,
-          ...stakefishParams,
-        });
-        if (started === false) {
           return;
         }
-        resetAmount();
-        // Auto-refresh quote countdown after swap completes
-        onQuoteReset?.();
-      } finally {
-        setSubmitting(false);
       }
-    };
-
-    // Check high price impact (Pendle only)
-    if (isPendleProvider) {
-      const payFiatValue =
-        Number(amountValue) > 0 && Number(tokenInfo?.price) > 0
-          ? new BigNumber(amountValue)
-              .multipliedBy(tokenInfo?.price ?? '0')
-              .toFixed()
-          : undefined;
-      const impactInfo = calcPriceImpactInfo({
-        payFiatValue,
-        receiveConfig: receiveInputConfig,
-        receiveDescription: transactionConfirmation?.receive,
+      if (!isCurrent()) return;
+      // A successful empty preview is valid for legacy protocols; only request failures block submission.
+      // Bot Wallet deactivated warning
+      const isDeactivatedBot = await isAccountIdDeactivatedBotWallet({
+        accountId,
       });
-      if (impactInfo) {
-        const userConfirmed = await showHighPriceImpactDialog(intl, {
-          percent: impactInfo.percent,
-          lossAmount: `${currencySymbol}${impactInfo.lossAmount}`,
-        });
-        if (!userConfirmed) return;
+      if (!isCurrent()) return;
+      if (isDeactivatedBot) {
+        const confirmed = await showBotWalletDeactivatedWarningDialog();
+        if (!confirmed || !isCurrent()) {
+          return;
+        }
       }
-    }
 
-    if (estimateFeeResp) {
-      const daySpent =
-        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
-
-      if (daySpent && daySpent > 5) {
-        showEstimateGasAlert({
-          daysConsumed: formatStakingDistanceToNowStrict(
-            estimateFeeResp.coverFeeSeconds,
-          ),
-          estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: async (dialogInstance: IDialogInstance) => {
-            await dialogInstance.close();
-            await handleConfirm();
-          },
+      // OK-59196: Stakefish signs a provider-facing message before any hook runs,
+      // so the disclaimer has to gate this pre-transaction step. Not a duplicate
+      // of the gate inside useUniversalStake — that one only covers the transaction
+      // itself, and once accepted this call resolves immediately. Only create-new
+      // validator stakes sign, so a top up never reaches this dialog.
+      if (
+        isStakefishCreateNewValidator &&
+        !stakefishPermitSignatureRef.current
+      ) {
+        const riskAcceptedBeforeSigning = await showEarnRiskWarningDialog({
+          provider: providerName,
+          symbol: actionSymbol,
+          networkId,
+          title: intl.formatMessage({ id: ETranslations.global_warning }),
         });
+        if (!riskAcceptedBeforeSigning || !isCurrent()) {
+          return;
+        }
+      }
+
+      // Stakefish ETH: sign before building the staking transaction. Only the
+      // create-new-validator flow needs it; the Earn API routes a top up by
+      // publicKey (the selected validator) and the signature would take priority
+      // over it in the stake build, so signing a top up only blocks the build.
+      if (
+        isStakefishCreateNewValidator &&
+        !stakefishPermitSignatureRef.current
+      ) {
+        setApproving(true);
+        try {
+          const { signature, message } = await signPersonalMessage({
+            networkId,
+            accountId,
+            provider: providerName,
+            symbol: actionSymbol,
+            amount: new BigNumber(amountValue).toFixed(),
+            action: 'stake',
+          });
+          if (!isCurrent()) return;
+          stakefishPermitSignatureRef.current = signature;
+          stakefishPermitMessageRef.current = message;
+        } catch (error) {
+          console.error('Stakefish permit sign error:', error);
+          setApproving(false);
+          return;
+        }
+        setApproving(false);
+      }
+
+      // Reuse an ERC-20 permit only when the existing allowance is insufficient.
+      // Stakefish only attaches it for a new validator; a top up must stay
+      // signature-free so the Earn API routes it by publicKey.
+      let finalPermitSignature: string | undefined;
+      let finalMessage: string | undefined;
+      let finalUnsignedMessage: IEarnPermit2ApproveSignData | undefined;
+      if (usePermit2Approve && new BigNumber(amountValue).gt(allowance)) {
+        finalPermitSignature =
+          signedPermit?.signature ?? permitSignatureRef.current;
+        finalUnsignedMessage =
+          signedPermit?.unsignedMessage ?? permit2DataRef.current;
+      } else if (isStakefishCreateNewValidator) {
+        finalPermitSignature = stakefishPermitSignatureRef.current;
+        finalMessage = stakefishPermitMessageRef.current;
+      }
+
+      const permitSignatureParams = finalPermitSignature
+        ? {
+            approveType: usePermit2Approve ? approveType : undefined,
+            permitSignature: finalPermitSignature,
+            unsignedMessage: finalUnsignedMessage,
+            message: finalMessage,
+          }
+        : undefined;
+
+      // Stakefish specific params: validatorPubkey only for existing validator.
+      const stakefishParams =
+        isStakefishProvider &&
+        !isStakefishCreateNewValidator &&
+        selectedValidator
+          ? { validatorPubkey: selectedValidator }
+          : undefined;
+
+      const resetAmount = () => {
+        setAmountValue('');
+        setCheckoutAmountMessage('');
+        setCheckAmountAlerts([]);
+        // Reset stakefish permit signature and message
+        stakefishPermitSignatureRef.current = undefined;
+        stakefishPermitMessageRef.current = undefined;
+      };
+      const handleConfirm = async () => {
+        if (!isCurrent() || submissionLockRef.current) return;
+        submissionLockRef.current = true;
+        setSubmitting(true);
+        try {
+          if (isWrapStake) {
+            let shouldShowApproveStep = true;
+            try {
+              const allowanceValue = await fetchPostWrapAllowance();
+              shouldShowApproveStep =
+                getShouldShowPostWrapApproveStep(allowanceValue);
+            } catch {
+              shouldShowApproveStep = true;
+            }
+            if (!isCurrent()) return;
+            setShouldShowPostWrapApproveStepOverride(shouldShowApproveStep);
+            setStakeProgressStep(EStakeProgressStep.approve);
+          }
+
+          const started = await onConfirm?.(
+            {
+              amount: amountValue,
+              effectiveApy: depositConfirmation?.effectiveApy,
+              stakeType,
+              onStepChange: handleStakeProgressChange,
+              ...permitSignatureParams,
+              ...stakefishParams,
+            },
+            isCurrent,
+          );
+          if (started === false) {
+            return;
+          }
+          if (!isCurrent()) return;
+          resetAmount();
+          // Auto-refresh quote countdown after swap completes
+          onQuoteReset?.();
+        } catch (error) {
+          // Closing the fee dialog settles its promise before transaction building finishes.
+          errorToastUtils.toastIfError(error);
+          errorToastUtils.showToastOfError(error);
+        } finally {
+          submissionLockRef.current = false;
+          setSubmitting(false);
+        }
+      };
+
+      // Check high price impact (Pendle only)
+      if (isPendleProvider) {
+        const payFiatValue =
+          Number(amountValue) > 0 && Number(tokenInfo?.price) > 0
+            ? new BigNumber(amountValue)
+                .multipliedBy(tokenInfo?.price ?? '0')
+                .toFixed()
+            : undefined;
+        const impactInfo = calcPriceImpactInfo({
+          payFiatValue,
+          receiveConfig: receiveInputConfig,
+          receiveDescription: depositConfirmation?.receive,
+        });
+        if (impactInfo) {
+          const userConfirmed = await showHighPriceImpactDialog(intl, {
+            percent: impactInfo.percent,
+            lossAmount: `${currencySymbol}${impactInfo.lossAmount}`,
+          });
+          if (!userConfirmed || !isCurrent()) return;
+        }
+      }
+
+      const confirmationFee = freshFee ?? estimateFeeResp;
+      if (confirmationFee) {
+        const daySpent =
+          Number(confirmationFee.coverFeeSeconds || 0) / 3600 / 24;
+
+        if (daySpent && daySpent > 5) {
+          showEstimateGasAlert({
+            daysConsumed: formatStakingDistanceToNowStrict(
+              confirmationFee.coverFeeSeconds,
+            ),
+            estFiatValue: confirmationFee.feeFiatValue,
+            onConfirm: async (dialogInstance: IDialogInstance) => {
+              await dialogInstance.close();
+              await handleConfirm();
+            },
+          });
+          return;
+        }
+      }
+
+      if (!usePermit2Approve || (usePermit2Approve && !shouldApprove)) {
+        await checkEstimateGasAlert(
+          handleConfirm,
+          ECheckAmountActionType.STAKING,
+          isCurrent,
+        );
         return;
       }
-    }
 
-    if (!usePermit2Approve || (usePermit2Approve && !shouldApprove)) {
-      await checkEstimateGasAlert(handleConfirm);
-      return;
-    }
-
-    await handleConfirm();
-  }, [
-    usePermit2Approve,
-    approveType,
-    estimateFeeResp,
-    shouldApprove,
-    onConfirm,
-    amountValue,
-    showEstimateGasAlert,
-    checkEstimateGasAlert,
-    isStakefishProvider,
-    isPendleProvider,
-    selectedValidator,
-    isStakefishCreateNewValidator,
-    signPersonalMessage,
-    networkId,
-    accountId,
-    actionSymbol,
-    providerName,
-    onQuoteReset,
-    intl,
-    currencySymbol,
-    tokenInfo?.price,
-    receiveInputConfig,
-    transactionConfirmation?.effectiveApy,
-    transactionConfirmation?.receive,
-    stakeType,
-    isWrapStake,
-    fetchPostWrapAllowance,
-    getShouldShowPostWrapApproveStep,
-    handleStakeProgressChange,
-  ]);
+      await handleConfirm();
+    },
+    [
+      usePermit2Approve,
+      approvalScopeGuard,
+      approveType,
+      allowance,
+      estimateFeeResp,
+      shouldApprove,
+      onConfirm,
+      amountValue,
+      showEstimateGasAlert,
+      checkEstimateGasAlert,
+      isStakefishProvider,
+      isPendleProvider,
+      selectedValidator,
+      isStakefishCreateNewValidator,
+      signPersonalMessage,
+      networkId,
+      accountId,
+      actionSymbol,
+      providerName,
+      onQuoteReset,
+      intl,
+      currencySymbol,
+      tokenInfo?.price,
+      receiveInputConfig,
+      transactionConfirmation,
+      fetchTransactionConfirmation,
+      stakeType,
+      isWrapStake,
+      fetchPostWrapAllowance,
+      getShouldShowPostWrapApproveStep,
+      handleStakeProgressChange,
+    ],
+  );
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
 
@@ -1532,123 +1767,144 @@ export function UniversalStake({
   // press event would otherwise land in the options slot.
   const usdtResetReentryRef = useRef(false);
 
-  const resetUSDTApproveValue = useCallback(async () => {
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: approveTarget.accountId,
-      networkId: approveTarget.networkId,
-    });
-    const approveResetInfo: IApproveInfo = {
-      owner: account.address,
-      spender: approveTarget.spenderAddress,
-      amount: '0',
-      isMax: false,
-      tokenInfo: {
-        ...tokenInfo?.token,
-        address: tokenInfo?.token.address ?? '',
-        symbol: tokenInfo?.token.symbol ?? '',
-        decimals: tokenInfo?.token.decimals ?? 0,
-        isNative: !!tokenInfo?.token.isNative,
-        name: tokenInfo?.token.name ?? (tokenInfo?.token.symbol || ''),
-      },
-    };
-    const approvesInfo = [approveResetInfo];
-    await navigationToTxConfirm({
-      approvesInfo,
-      onSuccess() {
-        // Poll for allowance updates until it becomes 0
-        const pollAllowanceUntilZero = async () => {
-          try {
+  const resetUSDTApproveValue = useCallback(
+    async (isCurrent: () => boolean) => {
+      if (!isCurrent()) return;
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+      });
+      if (!isCurrent()) return;
+      const approveResetInfo: IApproveInfo = {
+        owner: account.address,
+        spender: approveTarget.spenderAddress,
+        amount: '0',
+        isMax: false,
+        tokenInfo: {
+          ...tokenInfo?.token,
+          address: tokenInfo?.token.address ?? '',
+          symbol: tokenInfo?.token.symbol ?? '',
+          decimals: tokenInfo?.token.decimals ?? 0,
+          isNative: !!tokenInfo?.token.isNative,
+          name: tokenInfo?.token.name ?? (tokenInfo?.token.symbol || ''),
+        },
+      };
+      const approvesInfo = [approveResetInfo];
+      await navigationToTxConfirm({
+        approvesInfo,
+        isNavigationCurrent: isCurrent,
+        onSuccess() {
+          if (!isCurrent()) return;
+          // Poll for allowance updates until it becomes 0
+          const pollAllowanceUntilZero = () => {
             let attempts = 0;
             const maxAttempts = 10; // Prevent infinite polling
             const pollInterval = 3000; // 3 seconds between polls
 
-            const checkAllowance = async () => {
-              // Fetch latest allowance
-              const allowanceInfo = await fetchAllowanceResponse();
+            async function checkAllowance() {
+              try {
+                if (!isCurrent()) return;
+                // Fetch latest allowance
+                const allowanceInfo = await fetchAllowanceResponse();
+                if (!isCurrent()) return;
 
-              if (allowanceInfo) {
-                // Allowance is now 0: the USDT reset landed on-chain. Re-enter
-                // the approve step to continue the flow (approve the new amount
-                // then submit the stake). onApprove re-reads the allowance, sees
-                // 0, and skips the reset branch — no loop. Without this the flow
-                // dead-ended right after the reset tx, so the stake never fired
-                // (OK-58027). Keep approving=true; onApprove owns the state from
-                // here — but observe rejections: onApprove awaits getAccount /
-                // navigationToTxConfirm outside any try/catch, and a swallowed
-                // reject would leave the confirm button stuck loading+disabled.
-                if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
-                  // Bypass the approving-reentry guard: this deliberate
-                  // re-entry runs with approving === true (OK-58027)
-                  usdtResetReentryRef.current = true;
-                  void onApproveRef.current?.().catch((e) => {
-                    console.error(
-                      'Re-enter approve after USDT reset failed:',
-                      e,
-                    );
-                    setApproving(false);
-                  });
-                  return;
+                if (allowanceInfo) {
+                  // Allowance is now 0: the USDT reset landed on-chain. Re-enter
+                  // the approve step to continue the flow (approve the new amount
+                  // then submit the stake). onApprove re-reads the allowance, sees
+                  // 0, and skips the reset branch — no loop. Without this the flow
+                  // dead-ended right after the reset tx, so the stake never fired
+                  // (OK-58027). Keep approving=true; onApprove owns the state from
+                  // here — but observe rejections: onApprove awaits getAccount /
+                  // navigationToTxConfirm outside any try/catch, and a swallowed
+                  // reject would leave the confirm button stuck loading+disabled.
+                  if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
+                    // Bypass the approving-reentry guard: this deliberate
+                    // re-entry runs with approving === true (OK-58027)
+                    usdtResetReentryRef.current = true;
+                    void onApproveRef.current?.().catch((e) => {
+                      console.error(
+                        'Re-enter approve after USDT reset failed:',
+                        e,
+                      );
+                      if (isCurrent()) setApproving(false);
+                    });
+                    return;
+                  }
                 }
+
+                attempts += 1;
+
+                if (attempts < maxAttempts) {
+                  scheduleCheck();
+                } else {
+                  if (isCurrent()) setApproving(false);
+                }
+              } catch (error) {
+                console.error('Error polling for allowance:', error);
+                if (isCurrent()) setApproving(false);
               }
+            }
+            function scheduleCheck() {
+              setTimeout(() => {
+                void checkAllowance();
+              }, pollInterval);
+            }
+            scheduleCheck();
+          };
 
-              attempts += 1;
+          // Start polling for USDT reset
+          pollAllowanceUntilZero();
+        },
+        onFail() {
+          if (isCurrent()) setApproving(false);
+        },
+        onCancel() {
+          if (isCurrent()) setApproving(false);
+        },
+      });
+    },
+    [
+      approveTarget.accountId,
+      approveTarget.networkId,
+      approveTarget.spenderAddress,
+      fetchAllowanceResponse,
+      navigationToTxConfirm,
+      tokenInfo?.token,
+    ],
+  );
 
-              if (attempts < maxAttempts) {
-                setTimeout(checkAllowance, pollInterval);
-              } else {
-                setApproving(false);
-              }
-            };
-
-            // Start the recursive polling
-            setTimeout(checkAllowance, pollInterval);
-          } catch (error) {
-            console.error('Error polling for allowance:', error);
-            setApproving(false);
-          }
-        };
-
-        // Start polling for USDT reset
-        void pollAllowanceUntilZero();
-      },
-      onFail() {
-        setApproving(false);
-      },
-      onCancel() {
-        setApproving(false);
-      },
-    });
-  }, [
-    approveTarget.accountId,
-    approveTarget.networkId,
-    approveTarget.spenderAddress,
-    fetchAllowanceResponse,
-    navigationToTxConfirm,
-    tokenInfo?.token,
-  ]);
-
-  const showResetUSDTApproveValueDialog = useCallback(() => {
-    Dialog.show({
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_continue,
-      }),
-      showExitButton: false,
-      dismissOnOverlayPress: false,
-      onCancel: () => {
-        setApproving(false);
-      },
-      onConfirm: () => {
-        void resetUSDTApproveValue();
-      },
-      title: intl.formatMessage({
-        id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
-      }),
-      icon: 'ErrorOutline',
-    });
-  }, [intl, resetUSDTApproveValue]);
+  const showResetUSDTApproveValueDialog = useCallback(
+    (isCurrent: () => boolean) => {
+      Dialog.show({
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        showExitButton: false,
+        dismissOnOverlayPress: false,
+        onCancel: () => {
+          if (isCurrent()) setApproving(false);
+        },
+        onConfirm: () => {
+          void resetUSDTApproveValue(isCurrent).catch((error: unknown) => {
+            if (isCurrent()) {
+              errorToastUtils.toastIfError(error);
+              errorToastUtils.showToastOfError(error);
+              setApproving(false);
+            }
+          });
+        },
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
+        }),
+        icon: 'ErrorOutline',
+      });
+    },
+    [intl, resetUSDTApproveValue],
+  );
 
   const waitForAllowanceAfterApprove = useCallback(
     async ({
@@ -1713,6 +1969,7 @@ export function UniversalStake({
 
   const onApprove = useCallback(async () => {
     Keyboard.dismiss();
+    const isCurrent = approvalScopeGuard.capture();
     // Take the approving lock synchronously BEFORE any await (review P1):
     // the confirm button's loading derives from `approving`, so awaiting
     // first would leave a double-tap window as wide as one bg IPC roundtrip.
@@ -1735,6 +1992,7 @@ export function UniversalStake({
       networkId: approveTarget.networkId,
       title: intl.formatMessage({ id: ETranslations.global_warning }),
     });
+    if (!isCurrent()) return;
     if (!riskConfirmed) {
       setApproving(false);
       return;
@@ -1746,6 +2004,7 @@ export function UniversalStake({
     } catch (e) {
       console.error(e);
     }
+    if (!isCurrent()) return;
     permitSignatureRef.current = undefined;
     permit2DataRef.current = undefined;
     showStakeProgressRef.current[amountValue] = true;
@@ -1755,9 +2014,15 @@ export function UniversalStake({
 
     if (tokenInfo?.token && earnUtils.isUSDTonETHNetwork(tokenInfo?.token)) {
       if (allowanceBN.gt(0) && amountBN.gt(allowanceBN)) {
-        showResetUSDTApproveValueDialog();
+        showResetUSDTApproveValueDialog(isCurrent);
         return;
       }
+    }
+
+    if (usePermit2Approve && amountBN.lte(allowanceBN)) {
+      setApproving(false);
+      await onSubmit(undefined, isCurrent);
+      return;
     }
 
     if (usePermit2Approve) {
@@ -1765,6 +2030,15 @@ export function UniversalStake({
         try {
           // Check permit cache first
           const permitCache = getPermitCache({
+            providerName,
+            approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress(
+              {
+                providerName,
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              },
+            ),
             accountId: approveTarget.accountId,
             networkId: approveTarget.networkId,
             tokenAddress: tokenInfo?.token?.address ?? '',
@@ -1774,8 +2048,14 @@ export function UniversalStake({
           if (permitCache) {
             permitSignatureRef.current = permitCache.signature;
             permit2DataRef.current = permitCache.permit2Data;
-            void onSubmit();
-            setApproving(false);
+            const cachedFee = await fetchEstimateFeeResp(amountValue);
+            if (!isCurrent()) return;
+            setEstimateFeeResp(cachedFee);
+            await onSubmit(cachedFee, isCurrent, {
+              signature: permitCache.signature,
+              unsignedMessage: permitCache.permit2Data,
+            });
+            if (isCurrent()) setApproving(false);
             return;
           }
 
@@ -1785,13 +2065,23 @@ export function UniversalStake({
             token: tokenInfo?.token as IToken,
             amountValue,
             providerName,
-            vaultAddress: approveTarget.spenderAddress,
+            vaultAddress: protocolVault || '',
           });
+          if (!isCurrent()) return;
           permitSignatureRef.current = signature;
           permit2DataRef.current = unsignedMessage;
 
           // Update permit cache
           updatePermitCache({
+            providerName,
+            approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress(
+              {
+                providerName,
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              },
+            ),
             accountId: approveTarget.accountId,
             networkId: approveTarget.networkId,
             tokenAddress: tokenInfo?.token?.address ?? '',
@@ -1802,20 +2092,25 @@ export function UniversalStake({
           });
 
           const freshFee = await fetchEstimateFeeResp(amountValue);
+          if (!isCurrent()) return;
           setEstimateFeeResp(freshFee);
 
-          await onSubmit();
-          setApproving(false);
+          await onSubmit(freshFee, isCurrent, { signature, unsignedMessage });
+          if (isCurrent()) setApproving(false);
         } catch (error: unknown) {
-          console.error('Permit sign error:', error);
-          defaultLogger.staking.page.permitSignError({
-            error: error instanceof Error ? error.message : String(error),
-          });
-          setApproving(false);
+          if (isCurrent()) {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+            console.error('Permit sign error:', error);
+            defaultLogger.staking.page.permitSignError({
+              error: error instanceof Error ? error.message : String(error),
+            });
+            setApproving(false);
+          }
         }
       };
 
-      void checkEstimateGasAlert(handlePermit2Approve);
+      void checkEstimateGasAlert(handlePermit2Approve, undefined, isCurrent);
       return;
     }
 
@@ -1823,6 +2118,7 @@ export function UniversalStake({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
+    if (!isCurrent()) return;
 
     await navigationToTxConfirm({
       approvesInfo: [
@@ -1833,7 +2129,9 @@ export function UniversalStake({
           tokenInfo: approveTarget.token,
         },
       ],
+      isNavigationCurrent: isCurrent,
       onSuccess(data) {
+        if (!isCurrent()) return;
         trackAllowance(data[0].decodedTx.txid);
         allowanceAbortRef.current?.abort();
         const abortController = new AbortController();
@@ -1844,25 +2142,35 @@ export function UniversalStake({
               requiredAmount: amountValue,
               signal: abortController.signal,
             });
-            if (!allowanceReady) {
+            if (!allowanceReady || !isCurrent()) {
               return;
             }
-            const freshFee = await fetchEstimateFeeResp(amountValue);
+            const freshFee = await fetchEstimateFeeResp(
+              amountValue,
+              ECheckAmountActionType.STAKING,
+            );
+            if (!isCurrent()) return;
             setEstimateFeeResp(freshFee);
-            await onSubmit();
+            await onSubmit(freshFee, isCurrent);
+          } catch (error) {
+            if (isCurrent()) {
+              errorToastUtils.toastIfError(error);
+              errorToastUtils.showToastOfError(error);
+            }
           } finally {
-            setApproving(false);
+            if (isCurrent()) setApproving(false);
           }
         })();
       },
       onFail() {
-        setApproving(false);
+        if (isCurrent()) setApproving(false);
       },
       onCancel() {
-        setApproving(false);
+        if (isCurrent()) setApproving(false);
       },
     });
   }, [
+    approvalScopeGuard,
     approving,
     allowance,
     amountValue,
@@ -1878,6 +2186,8 @@ export function UniversalStake({
     checkEstimateGasAlert,
     getPermitCache,
     getPermitSignature,
+    approveType,
+    protocolVault,
     providerName,
     actionSymbol,
     updatePermitCache,
@@ -1914,6 +2224,9 @@ export function UniversalStake({
     transactionConfirmation,
     amountValue,
     showApyDetail,
+    stakeType,
+    action: confirmationAction,
+    hideYieldPreview,
     receiveInputConfig,
     networkLogoURI,
     isQuoteExpired,
@@ -1935,7 +2248,7 @@ export function UniversalStake({
       return pendleAccordionItems;
     }
 
-    if (transactionConfirmation?.receive) {
+    if (!isEtherFiPreparationStep && transactionConfirmation?.receive) {
       items.push(
         <CalculationListItem key="receive">
           <CalculationListItem.Label
@@ -1991,6 +2304,7 @@ export function UniversalStake({
     estimateFeeResp,
     estimateFeeUTXO,
     isPendleLikeLayout,
+    isEtherFiPreparationStep,
     onFeeRateChange,
     pendleAccordionItems,
     providerName,
@@ -2062,7 +2376,7 @@ export function UniversalStake({
   const confirmOnPress = useMemo(() => {
     if (effectiveShowExpiredRefresh) return handleLocalRefreshQuote;
     if (shouldApprove) return onApprove;
-    return onSubmit;
+    return () => onSubmit();
   }, [
     effectiveShowExpiredRefresh,
     shouldApprove,
@@ -2071,19 +2385,93 @@ export function UniversalStake({
     onSubmit,
   ]);
 
-  const effectiveOnConfirmText = footerActionOverride?.text ?? onConfirmText;
+  const actionIdentity = [
+    accountId,
+    networkId,
+    providerName,
+    protocolInfo?.vault,
+    amountValue,
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
+    stakeType,
+    approveType,
+  ].join('|');
+  const actionIdentityRef = useRef(actionIdentity);
+  actionIdentityRef.current = actionIdentity;
+  const confirmOnPressRef = useRef(confirmOnPress);
+  confirmOnPressRef.current = confirmOnPress;
+  const footerActionOverrideRef = useRef(footerActionOverride);
+  footerActionOverrideRef.current = footerActionOverride;
+
+  const legacyActionAvailable =
+    legacyApproval.status === 'required' ||
+    legacyApproval.status === 'pending' ||
+    legacyApproval.status === 'unknown';
+  const legacyActionLoading =
+    legacyApproval.status === 'checking' ||
+    legacyApproval.status === 'submitting';
+  let effectiveOnConfirmText = footerActionOverride?.text ?? onConfirmText;
+  if (!footerActionOverride && legacyApproval.status === 'required') {
+    effectiveOnConfirmText = intl.formatMessage(
+      { id: ETranslations.global_revoke_approve },
+      { symbol: 'liquidUSD' },
+    );
+  } else if (!footerActionOverride && legacyApproval.status === 'pending') {
+    effectiveOnConfirmText = intl.formatMessage({
+      id: ETranslations.global_pending,
+    });
+  } else if (!footerActionOverride && legacyApproval.status === 'unknown') {
+    effectiveOnConfirmText = intl.formatMessage({
+      id: ETranslations.global_retry,
+    });
+  }
   const effectiveConfirmOnPress =
-    footerActionOverride?.onPress ?? confirmOnPress;
+    footerActionOverride?.onPress ??
+    (() => {
+      if (submissionLockRef.current) return;
+      if (legacyApproval.status === 'required') {
+        void legacyApproval.revoke();
+        return;
+      }
+      if (
+        legacyApproval.status === 'pending' ||
+        legacyApproval.status === 'unknown'
+      ) {
+        Toast.message({
+          title: intl.formatMessage({
+            id:
+              legacyApproval.status === 'pending'
+                ? ETranslations.global_pending
+                : ETranslations.global_an_error_occurred,
+          }),
+        });
+        void legacyApproval.refresh();
+        return;
+      }
+      void (async () => {
+        if (
+          (await legacyApproval.verifyBeforeAction()) &&
+          actionIdentityRef.current === actionIdentity &&
+          confirmOnPressRef.current === confirmOnPress &&
+          !footerActionOverrideRef.current
+        )
+          confirmOnPress();
+      })();
+    });
   const baseConfirmLoading = effectiveShowExpiredRefresh
     ? quoteRefreshing
     : loadingAllowance || approving || submitting || checkAmountLoading;
   const baseConfirmDisabled = effectiveShowExpiredRefresh ? false : isDisable;
-  const effectiveConfirmLoading = footerActionOverride
-    ? Boolean(footerActionOverride.loading)
-    : baseConfirmLoading;
-  const effectiveConfirmDisabled = footerActionOverride
-    ? Boolean(footerActionOverride.disabled)
-    : baseConfirmDisabled;
+  let effectiveConfirmLoading = baseConfirmLoading || legacyActionLoading;
+  let effectiveConfirmDisabled = legacyApproval.blocked || baseConfirmDisabled;
+  if (footerActionOverride) {
+    effectiveConfirmLoading = Boolean(footerActionOverride.loading);
+    effectiveConfirmDisabled = Boolean(footerActionOverride.disabled);
+  } else if (legacyActionAvailable) {
+    effectiveConfirmLoading = false;
+    effectiveConfirmDisabled = false;
+  }
+  effectiveConfirmDisabled = submitting || effectiveConfirmDisabled;
 
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
@@ -2275,9 +2663,10 @@ export function UniversalStake({
     />
   );
 
-  const platformBonus = suppressPlatformBonus
-    ? undefined
-    : transactionConfirmation?.platformBonus;
+  const platformBonus =
+    suppressPlatformBonus || hideYieldPreview
+      ? undefined
+      : transactionConfirmation?.platformBonus;
   const shouldShowPlatformBonus = Boolean(platformBonus);
 
   const platformBonusContent = platformBonus ? (
@@ -2301,6 +2690,7 @@ export function UniversalStake({
   const shouldReserveCompactSummary =
     Boolean(protocolSwitchConfig) && isStakefishProvider;
   const summaryPending =
+    !hideYieldPreview &&
     !hasSummarySection &&
     !isPendleLikeLayout &&
     (!protocolSwitchConfig || shouldReserveCompactSummary) &&
@@ -2384,7 +2774,11 @@ export function UniversalStake({
             ) : null}
           </Stack>
           <ManagePageV2ReceiveInput
-            receive={transactionConfirmation?.receive}
+            receive={
+              isEtherFiPreparationStep
+                ? undefined
+                : transactionConfirmation?.receive
+            }
             config={effectiveReceiveInputConfig}
             fiatSymbol={currencySymbol}
             payFiatValue={currentValue}
@@ -2649,7 +3043,9 @@ export function UniversalStake({
             />
           </Stack>
           <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
+            onSelectPercentageStage={
+              amountInputDisabled ? undefined : onSelectPercentageStage
+            }
             reserveSpaceUntilKeyboardShown={!amountInputDisabled}
           />
         </Page.Footer>

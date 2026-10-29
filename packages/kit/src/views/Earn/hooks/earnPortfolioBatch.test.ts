@@ -19,6 +19,67 @@ const buildRequest = (
 });
 
 describe('earnPortfolioBatch', () => {
+  it('groups all EtherFi vault entries into one account batch and matches input symbols', () => {
+    const requests = [
+      { symbol: 'eETH', vault: 'liquid-eth-vault' },
+      { symbol: 'USDC', vault: 'liquid-usd-vault' },
+      { symbol: 'WBTC', vault: 'liquid-btc-vault' },
+    ].map((entry) =>
+      buildRequest({
+        ...entry,
+        provider: 'etherfi',
+        networkId: 'evm--1',
+      }),
+    );
+
+    const { batchGroups } = buildEarnPortfolioBatchGroups({
+      requests,
+    });
+
+    expect(batchGroups).toHaveLength(1);
+    expect(batchGroups[0].requestsByKey.size).toBe(3);
+    requests.forEach((request) => {
+      expect(
+        matchEarnPortfolioBatchRequest({
+          group: batchGroups[0],
+          symbol: request.symbol,
+          vault: request.vault,
+        }),
+      ).toEqual(request);
+    });
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: batchGroups[0],
+        symbol: 'liquidETH',
+        vault: 'liquid-eth-vault',
+      }),
+    ).toEqual(requests[0]);
+  });
+
+  it('uses the vault identity when a partial refresh selects a different EtherFi input', () => {
+    const usdt = buildRequest({
+      symbol: 'USDT',
+      vault: '0x1234',
+      provider: 'etherfi',
+      networkId: 'evm--1',
+    });
+    const usdc = { ...usdt, symbol: 'USDC' };
+    const { batchGroups } = buildEarnPortfolioBatchGroups({
+      requests: [usdt, usdc],
+    });
+    expect(batchGroups[0].requestsByKey.size).toBe(1);
+    expect(
+      createEarnPortfolioRequestKey({ ...usdt, provider: 'EtherFi' }),
+    ).toBe(createEarnPortfolioRequestKey(usdc));
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: batchGroups[0],
+        symbol: 'USDT',
+        vault: '0x1234',
+      }),
+    ).toEqual(usdc);
+  });
+
   it('matches EVM vaults with different casing without changing request addresses', () => {
     const requests = [
       buildRequest({
@@ -186,6 +247,50 @@ describe('earnPortfolioBatch', () => {
         group: batchGroups[0],
         symbol: request.symbol,
         vault: 'another-vault',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('uses a unique vault when the response symbol is only a receipt token', () => {
+    const request = buildRequest({
+      networkId: 'evm--1',
+      vault: '0xAbCd000000000000000000000000000000000001',
+    });
+    const { batchGroups } = buildEarnPortfolioBatchGroups({
+      requests: [request],
+    });
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: batchGroups[0],
+        symbol: 'receipt',
+        vault: request.vault?.toLowerCase(),
+        symbolIsAuthoritative: false,
+      }),
+    ).toBe(request);
+
+    const ambiguous = buildEarnPortfolioBatchGroups({
+      requests: [request, { ...request, symbol: 'USDT' }],
+    });
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: ambiguous.batchGroups[0],
+        symbol: 'USDC',
+        vault: request.vault,
+        symbolIsAuthoritative: false,
+      }),
+    ).toBeUndefined();
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: ambiguous.batchGroups[0],
+        symbol: 'USDC',
+        symbolIsAuthoritative: false,
+      }),
+    ).toBeUndefined();
+    expect(
+      matchEarnPortfolioBatchRequest({
+        group: batchGroups[0],
+        symbol: 'another-protocol',
+        vault: request.vault,
       }),
     ).toBeUndefined();
   });

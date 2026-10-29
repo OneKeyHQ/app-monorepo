@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -61,6 +64,7 @@ function useTxTrack({
 }
 
 export function useTrackTokenAllowance({
+  providerName,
   networkId,
   accountId,
   initialValue,
@@ -69,6 +73,7 @@ export function useTrackTokenAllowance({
   spenderAddress,
   approveType,
 }: {
+  providerName: string;
   networkId: string;
   accountId: string;
   initialValue?: string;
@@ -85,6 +90,7 @@ export function useTrackTokenAllowance({
   const allowanceTargetKey = [
     accountId,
     networkId,
+    providerName,
     tokenAddress,
     spenderAddress,
     approveType ?? '',
@@ -94,14 +100,26 @@ export function useTrackTokenAllowance({
   const [allowanceState, setAllowanceState] = useState<{
     targetKey: string;
     value: string;
+    available: boolean;
+    error: boolean;
   }>(() => ({
     targetKey: allowanceTargetKey,
     value: initialValue ?? '0',
+    available: initialValue !== undefined && !shouldFetchInitialAllowance,
+    error: false,
   }));
   const allowance =
     allowanceState.targetKey === allowanceTargetKey
       ? allowanceState.value
       : '0';
+  const allowanceAvailable =
+    allowanceState.targetKey === allowanceTargetKey && allowanceState.available;
+  const allowanceError =
+    allowanceState.targetKey === allowanceTargetKey && allowanceState.error;
+  const [retryRequest, setRetryRequest] = useState<{
+    targetKey: string;
+    sequence: number;
+  }>();
   const [trackTxId, setTrackTxId] = useState<string>('');
   const [loading, setLoading] = useState(shouldFetchInitialAllowance);
   const txDetails = useTxTrack({
@@ -115,6 +133,8 @@ export function useTrackTokenAllowance({
     setAllowanceState({
       targetKey: allowanceTargetKey,
       value: initialValue ?? '0',
+      available: initialValue !== undefined && !shouldFetchInitialAllowance,
+      error: false,
     });
   }, [allowanceTargetKey, initialValue, shouldFetchInitialAllowance]);
   const fetchAllowanceResponse = useCallback(
@@ -124,25 +144,48 @@ export function useTrackTokenAllowance({
         accountId,
         tokenAddress,
         spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          providerName,
           networkId,
           approveType,
           approveSpenderAddress: spenderAddress,
         }),
       }),
-    [accountId, approveType, networkId, spenderAddress, tokenAddress],
+    [
+      accountId,
+      approveType,
+      networkId,
+      providerName,
+      spenderAddress,
+      tokenAddress,
+    ],
   );
   useEffect(() => {
     let cancelled = false;
     if (isExistApproveTarget) {
       const fetchAllowance = async () => {
-        if (!txDetails && !shouldFetchInitialAllowance) {
+        if (
+          !txDetails &&
+          !shouldFetchInitialAllowance &&
+          retryRequest?.targetKey !== allowanceTargetKey
+        ) {
           if (!cancelled) {
             setLoading(false);
           }
           return;
         }
         try {
+          setAllowanceState((previous) => ({
+            ...previous,
+            available: false,
+            error: false,
+          }));
           const allowanceInfo = await fetchAllowanceResponse();
+          const parsedAllowance = new BigNumber(
+            allowanceInfo?.allowanceParsed ?? '',
+          );
+          if (!parsedAllowance.isFinite() || parsedAllowance.isNegative()) {
+            throw new OneKeyLocalError('Allowance unavailable');
+          }
           if (
             !cancelled &&
             allowanceInfo &&
@@ -151,7 +194,20 @@ export function useTrackTokenAllowance({
             setAllowanceState({
               targetKey: allowanceTargetKey,
               value: allowanceInfo.allowanceParsed,
+              available: true,
+              error: false,
             });
+          }
+        } catch {
+          if (
+            !cancelled &&
+            allowanceTargetKeyRef.current === allowanceTargetKey
+          ) {
+            setAllowanceState((previous) => ({
+              ...previous,
+              available: false,
+              error: true,
+            }));
           }
         } finally {
           if (
@@ -162,7 +218,7 @@ export function useTrackTokenAllowance({
           }
         }
       };
-      void fetchAllowance().catch(() => undefined);
+      void fetchAllowance();
     }
     return () => {
       cancelled = true;
@@ -180,10 +236,27 @@ export function useTrackTokenAllowance({
     isExistApproveTarget,
     initialValue,
     shouldFetchInitialAllowance,
+    retryRequest,
   ]);
+  const retryAllowance = useCallback(() => {
+    setLoading(true);
+    setAllowanceState((previous) => ({ ...previous, error: false }));
+    setRetryRequest((previous) => ({
+      targetKey: allowanceTargetKey,
+      sequence: (previous?.sequence ?? 0) + 1,
+    }));
+  }, [allowanceTargetKey]);
   const trackAllowance = useCallback((txid: string) => {
     setTrackTxId(txid);
     setLoading(true);
   }, []);
-  return { allowance, trackAllowance, loading, fetchAllowanceResponse };
+  return {
+    allowance,
+    allowanceAvailable,
+    allowanceError,
+    retryAllowance,
+    trackAllowance,
+    loading,
+    fetchAllowanceResponse,
+  };
 }

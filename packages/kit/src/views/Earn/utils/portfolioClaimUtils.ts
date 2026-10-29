@@ -101,10 +101,12 @@ export function resolveUniquePortfolioClaimSourceIdentity({
   return identities.size === 1 ? Array.from(identities.values())[0] : null;
 }
 
+/** Resolve protocol and airdrop source identities; missing or conflicting identities fail closed. */
 export function resolvePortfolioClaimProtocolIdentity({
   isAirdrop,
   providerName,
   assetSymbol,
+  protocolSymbol,
   assetVault,
   claimSymbol,
   claimSymbolStatus,
@@ -113,16 +115,19 @@ export function resolvePortfolioClaimProtocolIdentity({
   isAirdrop: boolean;
   providerName: string;
   assetSymbol: string;
+  protocolSymbol?: string;
   assetVault?: string;
   claimSymbol?: string;
   claimSymbolStatus?: IEarnPortfolioClaimSymbolStatus;
   sourceIdentity?: IPortfolioClaimProtocolIdentity | null;
 }): IPortfolioClaimProtocolIdentity | null {
   if (!isAirdrop) {
-    return {
-      symbol: assetSymbol,
-      vault: assetVault,
-    };
+    return protocolSymbol?.trim()
+      ? {
+          symbol: protocolSymbol,
+          vault: assetVault,
+        }
+      : null;
   }
 
   if (earnUtils.isPendleProvider({ providerName })) {
