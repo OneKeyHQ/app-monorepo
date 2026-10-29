@@ -225,6 +225,9 @@ function makeService(
     serviceHistory: {
       saveSendConfirmHistoryTxs: jest.fn().mockResolvedValue(undefined),
     },
+    servicePrivacyChain: {
+      onLocalWalletTransactionBroadcast: jest.fn().mockResolvedValue(undefined),
+    },
     simpleDb: {
       broadcastRecords,
     },
@@ -535,6 +538,29 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
     expect(vault.broadcastTransaction).not.toHaveBeenCalled();
     expect(broadcastRecords.upsertRecord).not.toHaveBeenCalled();
     expect(vault.checkSignedTxBroadcastStatus).not.toHaveBeenCalled();
+  });
+
+  it('keeps no signed payload for a local-scan chain, so a retry signs again', async () => {
+    const { service, vault, backgroundApi, broadcastRecords } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0')];
+    backgroundApi.serviceNetwork.getVaultSettings.mockResolvedValue({
+      maxRetryBroadcastTxCount: 0,
+      minRetryBroadcastTxInterval: 0,
+      nonceRequired: false,
+      localWallet: {},
+    });
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
+    await batchSend(service, unsignedTxs);
+
+    expect(broadcastRecords.upsertRecord).not.toHaveBeenCalled();
+    expect(broadcastRecords.records.size).toBe(0);
+    expect(signedUuids(vault)).toEqual(['u0', 'u0']);
+    expect(broadcastTxids(vault)).toEqual([
+      signatureOf('u0'),
+      signatureOf('u0'),
+    ]);
   });
 
   it('honors the background tracking cache before consulting persisted records', async () => {

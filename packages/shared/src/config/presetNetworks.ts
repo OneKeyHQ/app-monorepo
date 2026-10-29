@@ -1401,6 +1401,51 @@ const bch: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const zec: IServerNetwork = {
+  'chainId': '0',
+  'code': 'zec',
+  'decimals': 8,
+  'id': 'zec--0',
+  'impl': 'zec',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/zec.png',
+  'name': 'Zcash',
+  'shortcode': 'zec',
+  'shortname': 'ZEC',
+  'symbol': 'ZEC',
+  'feeMeta': {
+    'decimals': 8,
+    'symbol': 'ZEC',
+  },
+  'defaultEnabled': true,
+  'backendIndex': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+// Monero is client-scanned: scanning is opt-in per account and costs real
+// bandwidth, so the network ships disabled by default.
+const xmr: IServerNetwork = {
+  'chainId': '0',
+  'code': 'xmr',
+  'decimals': 12,
+  'id': 'xmr--0',
+  'impl': 'xmr',
+  'isTestnet': false,
+  'logoURI': 'https://common.onekey-asset.com/chain/monero.png',
+  'name': 'Monero',
+  'shortcode': 'xmr',
+  'shortname': 'XMR',
+  'symbol': 'XMR',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'XMR',
+  },
+  'defaultEnabled': false,
+  // No backend indexer: the runtime is the only source of balances and history.
+  'backendIndex': false,
+  'status': ENetworkStatus.LISTED,
+};
+
 const ltc: IServerNetwork = {
   'chainId': '0',
   'code': 'ltc',
@@ -2349,12 +2394,17 @@ const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
 ];
 
+// The Web app (not web-embed) does not support the client-scanned privacy chains.
+const chainsUnsupportedOnWeb = new Set([zec, xmr]);
+
 export const presetNetworksMap = {
+  xmr,
   // btc & btc fork
   btc,
   doge,
   bch,
   ltc,
+  zec,
   neurai,
   tbtc,
   sbtc,
@@ -2515,13 +2565,14 @@ function validateNetworkCodes(networks: IServerNetwork[]): void {
 }
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => {
-  const networks = [
+  const allNetworks = [
     dangerAllNetworkRepresent,
     // btc & btc fork
     btc,
     doge,
     bch,
     ltc,
+    zec,
     neurai,
     tbtc,
     sbtc,
@@ -2609,6 +2660,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     nexa,
     kaspa,
     dnx,
+    xmr,
     fil,
     algo,
     sui,
@@ -2622,6 +2674,9 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     stellarTestnet,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
+  const networks = platformEnv.isWeb
+    ? allNetworks.filter((network) => !chainsUnsupportedOnWeb.has(network))
+    : allNetworks;
 
   // Only run validation in development mode
   if (platformEnv.isDev) {
