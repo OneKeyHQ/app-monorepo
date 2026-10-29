@@ -1,10 +1,13 @@
+import { EConnectorInteraction } from '@onekeyfe/hwk-adapter-core';
 import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core/ui-events';
 
 import {
   EThirdPartyHardwareUiAction,
+  type IThirdPartyHardwareUiState,
   thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { LedgerAdapter } from './LedgerAdapter';
 
@@ -251,6 +254,47 @@ describe('LedgerAdapter', () => {
         ],
       },
     });
+  });
+
+  it('names the app to open only while checking this wallet', async () => {
+    const listeners = new Map<string, (event: unknown) => void>();
+    const hw = {
+      on: jest.fn((type: string, listener: (event: unknown) => void) => {
+        listeners.set(type, listener);
+      }),
+    };
+    const setUiState = jest
+      .spyOn(thirdPartyHardwareUiStateAtom, 'set')
+      .mockResolvedValue(undefined);
+    setUiState.mockClear();
+    const adapter = new LedgerAdapter(hw as never);
+    const askToOpenApp = () =>
+      listeners.get('ui-event')?.({
+        type: EConnectorInteraction.ConfirmOpenApp,
+        payload: { sessionId: 'session-1', appName: 'Bitcoin' },
+      });
+
+    askToOpenApp();
+    await adapter.runWalletMatchCheck(async () => {
+      askToOpenApp();
+    });
+    await expect(
+      adapter.runWalletMatchCheck(async () => {
+        throw new OneKeyLocalError({ message: 'rejected on device' });
+      }),
+    ).rejects.toThrow('rejected on device');
+    askToOpenApp();
+
+    expect(
+      setUiState.mock.calls.map(
+        ([state]) => (state as IThirdPartyHardwareUiState).payload,
+      ),
+    ).toEqual([
+      undefined,
+      { appName: 'Bitcoin', openAppReason: 'walletMatch' },
+      undefined,
+    ]);
+    setUiState.mockRestore();
   });
 
   it('does not repeatedly log completed install progress', () => {

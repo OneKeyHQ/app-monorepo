@@ -11,6 +11,7 @@ import {
   getThirdPartyHardwareRetryAction,
 } from '../../hardware/thirdPartyHardwareRetry';
 import { ETranslations } from '../../locale';
+import platformEnv from '../../platformEnv';
 import {
   THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
   THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
@@ -126,6 +127,24 @@ describe('convertThirdPartyDeviceError', () => {
       ETranslations.hardware_third_party_qr_request_too_large__msg,
     );
     expect(error.payload?.recovery).toEqual({ scope: 'transport' });
+  });
+
+  it('asks for fewer accounts instead of USB where Keystone has no USB', () => {
+    const { isNative } = platformEnv;
+    Object.assign(platformEnv, { isNative: true });
+    try {
+      const error = convertThirdPartyDeviceError({
+        code: ThirdPartyHwErrorCode.QrRequestTooLarge,
+        error: 'Keystone QR requests take at most 10 account paths here',
+        params: { limit: 10, requested: 11 },
+      });
+      expect(error.key).toBe(
+        ETranslations.hardware_third_party_qr_request_too_large_no_usb__msg,
+      );
+      expect(error.info).toMatchObject({ count: 10 });
+    } finally {
+      Object.assign(platformEnv, { isNative });
+    }
   });
 
   it('maps invalid firmware metadata responses to network errors', () => {
@@ -461,9 +480,16 @@ describe('convertThirdPartyDeviceError', () => {
     ).toBe(ETranslations.hardware_third_party_path_not_supported__msg);
   });
 
-  it.each([undefined, 'account-not-exported', 'other-path'])(
+  it.each([
+    [undefined, ETranslations.hardware_third_party_path_not_supported__msg],
+    [
+      'account-not-exported',
+      ETranslations.hardware_third_party_keystone_account_not_in_qr__msg,
+    ],
+    ['other-path', ETranslations.hardware_third_party_path_not_supported__msg],
+  ])(
     'does not infer a Bitcoin account limit from path refusal reason %s',
-    (reason) => {
+    (reason, key) => {
       const error = convertThirdPartyDeviceError(
         {
           code: THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
@@ -472,10 +498,39 @@ describe('convertThirdPartyDeviceError', () => {
         },
         { vendor: 'Keystone' },
       );
-      expect(error.key).toBe(
-        ETranslations.hardware_third_party_path_not_supported__msg,
-      );
+      expect(error.key).toBe(key);
       expect(error.payload?.params?.reason).toBe(reason);
+    },
+  );
+
+  it.each([
+    [
+      ThirdPartyHwErrorCode.InvalidParams,
+      ETranslations.hardware_third_party_method_not_supported,
+    ],
+    [
+      ThirdPartyHwErrorCode.DeviceMismatch,
+      ETranslations.hardware_third_party_device_mismatch,
+    ],
+  ])(
+    'says a scanned code is the wrong code, not code %s’s usual wording',
+    (code, usualKey) => {
+      expect(
+        convertThirdPartyDeviceError(
+          {
+            code,
+            error: 'Scanned code is not this request’s answer',
+            params: { reason: 'unexpected-qr-code' },
+          },
+          { vendor: 'Keystone' },
+        ).key,
+      ).toBe(ETranslations.feedback_invalid_qr_code);
+      expect(
+        convertThirdPartyDeviceError(
+          { code, error: 'other failure' },
+          { vendor: 'Keystone' },
+        ).key,
+      ).toBe(usualKey);
     },
   );
 
