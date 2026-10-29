@@ -67,6 +67,8 @@ export type IFormatterOptions = {
   keepLeadingZero?: boolean;
   /** Minimum leading fractional zeros to render as a subscript. @default 5 */
   minLeadingZeros?: number;
+  /** `priceChangeCapped` only: fraction digits below the cap. @default 2 */
+  fractionDigits?: number;
 };
 
 export interface IDisplayNumber {
@@ -672,9 +674,11 @@ export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
   const min = new BigNumber(-99_999);
   const max = new BigNumber(99_999);
   const clampedValue = BigNumber.max(min, BigNumber.min(max, val));
-  const finalValue = clampedValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP);
-
-  const digits = isCapped ? 0 : 2;
+  const digits = isCapped ? 0 : (options?.fractionDigits ?? 2);
+  const finalValue = clampedValue.decimalPlaces(
+    isCapped ? 2 : digits,
+    BigNumber.ROUND_HALF_UP,
+  );
 
   const nanOrZero = handleNaNOrZero(
     finalValue,

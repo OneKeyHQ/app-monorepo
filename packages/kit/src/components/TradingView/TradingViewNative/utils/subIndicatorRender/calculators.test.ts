@@ -85,6 +85,12 @@ function calculate(
   );
 }
 
+function buildPointsWithoutVolume(): IMarketTokenKLineDataPoint[] {
+  return buildTestPoints().map((point, index) =>
+    index >= 40 && index < 50 ? { ...point, v: 0 } : point,
+  );
+}
+
 function expectFiniteOrNullValues(values: readonly (number | null)[]): void {
   expect(
     values.every(
@@ -226,6 +232,24 @@ describe('TradingViewNative sub-indicator calculators adapter', () => {
       calculateTradingViewNativeCommodityChannelIndex(points, {
         movingAveragePeriod: 3,
         period: 4,
+      }),
+    );
+  });
+
+  it('tells OBV whether zero volume means nothing was reported', () => {
+    const points = buildPointsWithoutVolume();
+    const instance = createResolvedInstance('OBV', { movingAveragePeriod: 3 });
+
+    expect(
+      calculateTradingViewNativeSubIndicator(instance, points).plots,
+    ).toEqual(calculateTradingViewNativeOnBalanceVolume(points, 3));
+    expect(
+      calculateTradingViewNativeSubIndicator(instance, points, {
+        zeroVolumeIsMissing: true,
+      }).plots,
+    ).toEqual(
+      calculateTradingViewNativeOnBalanceVolume(points, 3, {
+        zeroVolumeIsMissing: true,
       }),
     );
   });
