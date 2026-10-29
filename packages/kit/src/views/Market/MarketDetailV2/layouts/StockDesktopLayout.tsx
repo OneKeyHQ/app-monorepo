@@ -858,11 +858,13 @@ function StockPosition({
   portfolioData,
   isRefreshing,
   hasAccount,
+  isPortfolioPending,
   isPortfolioIncomplete,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
+  isPortfolioPending?: boolean;
   isPortfolioIncomplete?: boolean;
 }) {
   return (
@@ -870,6 +872,7 @@ function StockPosition({
       standalone
       isStock
       hasAccount={hasAccount}
+      isPending={isPortfolioPending}
       isFailed={isPortfolioIncomplete}
       portfolioData={portfolioData}
       isRefreshing={isRefreshing}
@@ -1280,12 +1283,14 @@ function StockOverview({
   portfolioData,
   isRefreshing,
   hasAccount,
+  isPortfolioPending,
   isPortfolioIncomplete,
   initialSection,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
+  isPortfolioPending?: boolean;
   isPortfolioIncomplete?: boolean;
   initialSection?: IMarketStockDetailInitialSection;
 }) {
@@ -1362,6 +1367,7 @@ function StockOverview({
             portfolioData={portfolioData}
             isRefreshing={isRefreshing}
             hasAccount={hasAccount}
+            isPortfolioPending={isPortfolioPending}
             isPortfolioIncomplete={isPortfolioIncomplete}
           />
         </YStack>
@@ -1409,6 +1415,7 @@ export function StockDesktopLayout({
     resolvedVariantKeys,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
+    isPortfolioPending: isStockPortfolioPending,
     isPortfolioIncomplete: isStockPortfolioIncomplete,
   } = useStockPortfolioData();
   const { priceMode, handlePriceModeChange, sharePriceAvailable } =
@@ -1469,6 +1476,7 @@ export function StockDesktopLayout({
             portfolioData={stockPortfolioData}
             isRefreshing={isStockPortfolioRefreshing}
             hasAccount={hasStockPortfolioAccount}
+            isPortfolioPending={isStockPortfolioPending}
             isPortfolioIncomplete={isStockPortfolioIncomplete}
             initialSection={initialSection}
           />
