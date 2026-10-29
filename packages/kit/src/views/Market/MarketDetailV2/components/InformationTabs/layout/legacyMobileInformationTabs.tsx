@@ -198,6 +198,7 @@ export function MobileInformationTabs({
             isRefreshing={!!isRefreshing}
             accountAddress={accountAddress}
             tokenLogoUrl={tokenLogoUrl}
+            showPnlUnsupportedHint
             scrollEnabled={scrollEnabled}
           />
         </DelayedFreeze>

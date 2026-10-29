@@ -11,6 +11,10 @@ import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/
 
 import { MarketDetailList } from '../../layout/MarketDetailScroll';
 
+import {
+  PnlUnsupportedHint,
+  hasPnlUnsupportedPosition,
+} from './components/PnlUnsupportedHint';
 import { PortfolioSkeleton } from './components/PortfolioSkeleton';
 import { PortfolioHeaderNormal } from './layout/PortfolioHeaderNormal';
 import { PortfolioHeaderSmall } from './layout/PortfolioHeaderSmall';
@@ -37,6 +41,8 @@ interface IPortfolioProps {
   standalone?: boolean;
   isStock?: boolean;
   onItemPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
+  // Market detail pages show a hint below the list when a holding has no PnL.
+  showPnlUnsupportedHint?: boolean;
 }
 
 function PortfolioBase({
@@ -50,6 +56,7 @@ function PortfolioBase({
   standalone = false,
   isStock = false,
   onItemPress,
+  showPnlUnsupportedHint = false,
 }: IPortfolioProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
@@ -115,6 +122,11 @@ function PortfolioBase({
     [canShowPortfolio, currencyMap, isStock, portfolioData],
   );
 
+  const pnlUnsupportedHint =
+    showPnlUnsupportedHint && hasPnlUnsupportedPosition(data) ? (
+      <PnlUnsupportedHint />
+    ) : undefined;
+
   if (standalone) {
     return (
       <YStack>
@@ -130,6 +142,7 @@ function PortfolioBase({
               </Fragment>
             ))
           : emptyContent}
+        {pnlUnsupportedHint}
       </YStack>
     );
   }
@@ -145,6 +158,7 @@ function PortfolioBase({
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       ListEmptyComponent={emptyContent}
+      ListFooterComponent={pnlUnsupportedHint}
     />
   );
 }

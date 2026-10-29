@@ -219,6 +219,7 @@ export function DesktopInformationTabs({
           isPending={isPortfolioPending}
           accountAddress={accountAddress}
           tokenLogoUrl={tokenLogoUrl}
+          showPnlUnsupportedHint
         />
       </Tabs.Tab>,
       shouldShowLiquidityPoolsTab && (
