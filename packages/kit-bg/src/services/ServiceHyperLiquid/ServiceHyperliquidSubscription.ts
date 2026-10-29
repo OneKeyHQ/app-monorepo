@@ -82,6 +82,7 @@ import {
   invalidatePerpsLiquidationRiskInputs,
   setPerpsAbstractionModeWithRiskInvalidation,
 } from './liquidationRiskInputs';
+import { ChaseOrderBookSubscriptions } from './utils/ChaseOrderBookSubscriptions';
 import {
   FastL2Book,
   type IFastL2Frame,
@@ -194,6 +195,26 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private _client: IHyperliquidWsClient | null = null;
+
+  private readonly _chaseOrderBooks = new ChaseOrderBookSubscriptions((coin) =>
+    this.backgroundApi.serviceHyperliquid.fetchL2BookByCoin({ coin }),
+  );
+
+  @backgroundMethod()
+  async subscribeChaseOrderBook(params: {
+    coin: string;
+    subscriptionId: string;
+  }): Promise<void> {
+    this._chaseOrderBooks.subscribe(params);
+  }
+
+  @backgroundMethod()
+  async unsubscribeChaseOrderBook(params: {
+    coin: string;
+    subscriptionId: string;
+  }): Promise<void> {
+    this._chaseOrderBooks.unsubscribe(params);
+  }
 
   private _clientInitPromise: Promise<IHyperliquidWsClient> | null = null;
 

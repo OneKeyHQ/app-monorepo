@@ -481,7 +481,7 @@ function PerpOpenOrdersList({
     [actions, ensureTradingEnabled, intl],
   );
 
-  const resolveChaseTargetPrice = useCallback(
+  const getChaseOrderSzDecimals = useCallback(
     async (order: IPerpsFrontendOrder) => {
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
@@ -495,7 +495,14 @@ function PerpOpenOrdersList({
           }),
         );
       }
+      return szDecimals;
+    },
+    [intl],
+  );
 
+  const resolveChaseTargetPrice = useCallback(
+    async (order: IPerpsFrontendOrder) => {
+      const szDecimals = await getChaseOrderSzDecimals(order);
       const book =
         await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
           coin: order.coin,
@@ -521,16 +528,13 @@ function PerpOpenOrdersList({
         );
       }
 
-      return {
-        price: nextPrice.toFixed(),
-        szDecimals,
-      };
+      return nextPrice.toFixed();
     },
-    [intl],
+    [getChaseOrderSzDecimals, intl],
   );
 
   const handleChaseOrder = useCallback(
-    async (order: IPerpsFrontendOrder, preparedTargetPrice?: string) => {
+    async (order: IPerpsFrontendOrder) => {
       if (
         !canMutateScopedOrders ||
         !canChasePerpsOrder(order) ||
@@ -554,8 +558,7 @@ function PerpOpenOrdersList({
       await runChasingOrderTask(order.oid, async () => {
         try {
           await ensureTradingEnabled();
-          const targetPrice =
-            preparedTargetPrice ?? (await resolveChaseTargetPrice(order)).price;
+          const targetPrice = await resolveChaseTargetPrice(order);
 
           const latestAccountAddress = normalizePerpsAccountAddress(
             activeAccountAddressRef.current,
@@ -637,7 +640,7 @@ function PerpOpenOrdersList({
 
       await runChasingOrderTask(order.oid, async () => {
         try {
-          const { price, szDecimals } = await resolveChaseTargetPrice(order);
+          const szDecimals = await getChaseOrderSzDecimals(order);
           const latestAccountAddress = normalizePerpsAccountAddress(
             activeAccountAddressRef.current,
           );
@@ -657,10 +660,9 @@ function PerpOpenOrdersList({
           }
           showChaseOrderConfirmDialog({
             order,
-            targetPrice: price,
             szDecimals,
             intl,
-            onConfirm: () => handleChaseOrder(order, price),
+            onConfirm: () => handleChaseOrder(order),
           });
         } catch (error) {
           Toast.error({
@@ -679,10 +681,10 @@ function PerpOpenOrdersList({
       canMutateScopedOrders,
       currentUser?.accountAddress,
       handleChaseOrder,
+      getChaseOrderSzDecimals,
       intl,
       isChasingOrder,
       perpsCustomSettings.skipOrderConfirm,
-      resolveChaseTargetPrice,
       runChasingOrderTask,
     ],
   );

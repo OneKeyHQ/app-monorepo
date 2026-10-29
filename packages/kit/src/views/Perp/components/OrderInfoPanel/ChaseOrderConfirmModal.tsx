@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,13 +9,23 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatPriceToSignificantDigits,
+  resolveBboOrderPrice,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { getTifLabel } from '../../utils/timeInForce';
@@ -26,7 +36,6 @@ import type { IntlShape } from 'react-intl';
 
 interface IChaseOrderConfirmContentProps {
   order: IPerpsFrontendOrder;
-  targetPrice: string;
   szDecimals: number;
 }
 
@@ -51,9 +60,78 @@ function ChaseOrderConfirmRow({
   );
 }
 
+function ChaseOrderTargetPrice({
+  order,
+  szDecimals,
+}: IChaseOrderConfirmContentProps) {
+  const intl = useIntl();
+  const [price, setPrice] = useState<string>();
+  useEffect(() => {
+    const params = { coin: order.coin, subscriptionId: generateUUID() };
+    let disposed = false;
+    let acquired = false;
+    setPrice(undefined);
+    const onUpdate = (
+      data: IAppEventBusPayload[EAppEventBusNames.PerpsChaseOrderBookUpdate],
+    ) => {
+      if (
+        disposed ||
+        data.coin !== order.coin ||
+        data.subscriptionId !== params.subscriptionId
+      )
+        return;
+      const nextPrice =
+        data.bestBid && data.bestAsk
+          ? resolveBboOrderPrice({
+              bid: data.bestBid,
+              ask: data.bestAsk,
+              side: order.side === 'B' ? 'long' : 'short',
+              type: 'queue',
+              offsetTicks: 0,
+              szDecimals,
+            })?.toFixed()
+          : undefined;
+      setPrice(nextPrice);
+    };
+    const release = () => {
+      if (!acquired) return;
+      acquired = false;
+      void backgroundApiProxy.serviceHyperliquidSubscription
+        .unsubscribeChaseOrderBook(params)
+        .catch(() => undefined);
+    };
+    appEventBus.on(EAppEventBusNames.PerpsChaseOrderBookUpdate, onUpdate);
+    void backgroundApiProxy.serviceHyperliquidSubscription
+      .subscribeChaseOrderBook(params)
+      .then(() => {
+        acquired = true;
+        if (disposed) release();
+      })
+      .catch(() => {
+        if (!disposed) setPrice(undefined);
+      });
+    return () => {
+      disposed = true;
+      appEventBus.off(EAppEventBusNames.PerpsChaseOrderBookUpdate, onUpdate);
+      release();
+    };
+  }, [order.coin, order.side, szDecimals]);
+  return (
+    <ChaseOrderConfirmRow
+      label={intl.formatMessage({
+        id: ETranslations.perp_chase_target_price__title,
+      })}
+      value={
+        price
+          ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(price, szDecimals))}`
+          : '--'
+      }
+    />
+  );
+}
+
 function ChaseOrderConfirmContent({
   order,
-  targetPrice,
   szDecimals,
 }: IChaseOrderConfirmContentProps) {
   const intl = useIntl();
@@ -113,12 +191,7 @@ function ChaseOrderConfirmContent({
           })}
           value={formatPrice(order.limitPx)}
         />
-        <ChaseOrderConfirmRow
-          label={intl.formatMessage({
-            id: ETranslations.perp_chase_target_price__title,
-          })}
-          value={formatPrice(targetPrice)}
-        />
+        <ChaseOrderTargetPrice order={order} szDecimals={szDecimals} />
         <ChaseOrderConfirmRow
           label={intl.formatMessage({
             id: ETranslations.perp_chase_unfilled_size__title,
@@ -161,7 +234,6 @@ function ChaseOrderConfirmContent({
 
 export function showChaseOrderConfirmDialog({
   order,
-  targetPrice,
   szDecimals,
   intl,
   onConfirm,
@@ -177,11 +249,7 @@ export function showChaseOrderConfirmDialog({
       id: ETranslations.chase_order_confirmation__desc,
     }),
     renderContent: (
-      <ChaseOrderConfirmContent
-        order={order}
-        targetPrice={targetPrice}
-        szDecimals={szDecimals}
-      />
+      <ChaseOrderConfirmContent order={order} szDecimals={szDecimals} />
     ),
     // Together with the content's $1 padding, match OrderConfirmContent's $4 button gap.
     contentContainerProps: { pb: '$3' },
