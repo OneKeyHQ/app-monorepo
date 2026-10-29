@@ -221,6 +221,7 @@ export interface IActionTabBarProps {
 
 export interface IAmountInputSectionProps {
   title?: string;
+  onAmountFocusChange: (inputId: string, focused: boolean) => void;
 }
 
 export interface IInfoDisplaySectionProps {
@@ -231,6 +232,7 @@ export interface IInfoDisplaySectionProps {
 export interface IActionFooterProps {
   isInModalContext?: boolean;
   beforeFooter?: ReactElement | null;
+  isAmountFocused: boolean;
 }
 
 // ============================================================================

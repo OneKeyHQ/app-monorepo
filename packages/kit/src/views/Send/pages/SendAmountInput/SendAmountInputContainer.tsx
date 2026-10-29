@@ -81,6 +81,10 @@ import SwapProviderInfoItem, {
 import SwapQuoteResultRate from '@onekeyhq/kit/src/views/Swap/components/SwapQuoteResultRate';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import {
+  getSwapQuoteLimitMessage,
+  isSwapQuoteAvailable,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapErrorUtils';
+import {
   EJotaiContextStoreNames,
   useCurrencyPersistAtom,
   useInscriptionProtectionStateAtom,
@@ -120,7 +124,6 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
-import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
@@ -131,7 +134,6 @@ import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
-  ESwapProviderSort,
   privateSendHelpCenterUrl,
   privateSendProvider,
   swapDefaultSetTokens,
@@ -190,6 +192,7 @@ import {
   calcPrivateSendNativeTokenMaxAmount,
   getMaxSendStateAfterModeChange,
 } from './privateSendMaxAmountUtils';
+import { selectPrivateSendQuote } from './privateSendQuoteUtils';
 import { useLocalWalletSendPool } from './useLocalWalletSendPool';
 import { useLocalWalletSendReadiness } from './useLocalWalletSendReadiness';
 
@@ -521,16 +524,6 @@ function getPrivateSendSendValue({
 
 function isPositivePrivateSendAmount(amount?: string | number) {
   return Boolean(getPositivePrivateSendAmount(amount));
-}
-
-function isPrivateSendQuoteUsable(
-  quote?: IFetchQuoteResult,
-): quote is IFetchQuoteResult & { toAmount: string } {
-  return Boolean(
-    quote?.info.provider &&
-    !quote.errorMessage &&
-    isPositivePrivateSendAmount(quote.toAmount),
-  );
 }
 
 function isPrivateSendQuoteEventMatched({
@@ -1774,16 +1767,10 @@ function SendAmountInputContainer() {
             quoteError,
           };
         }
-        const selectedQuote =
-          sortSwapQuotes(
-            quotes.filter((item) => isPrivateSendQuoteUsable(item)),
-            {
-              sort: ESwapProviderSort.RECOMMENDED,
-              fromTokenAmount: amountBN.toFixed(),
-            },
-          )[0] ??
-          quotes.find((item) => item.info.provider) ??
-          quotes[0];
+        const selectedQuote = selectPrivateSendQuote(
+          quotes,
+          amountBN.toFixed(),
+        );
 
         return {
           selectedQuote,
@@ -1842,12 +1829,13 @@ function SendAmountInputContainer() {
               quote.info.provider === privateSendProviderSelection.provider &&
               quote.info.providerName ===
                 privateSendProviderSelection.providerName &&
-              isPrivateSendQuoteUsable(quote),
+              isSwapQuoteAvailable(quote, privateSendAmount),
           )
         : undefined;
     return selectedQuote ?? scopedPrivateSendQuoteResult?.selectedQuote;
   }, [
     privateSendProviderSelection,
+    privateSendAmount,
     privateSendQuoteScopeKey,
     scopedPrivateSendQuoteResult,
   ]);
@@ -1884,7 +1872,10 @@ function SendAmountInputContainer() {
     const quoteMessage =
       scopedPrivateSendQuoteResult.quoteError ??
       scopedPrivateSendQuoteResult.selectedQuote?.errorMessage;
-    const isQuoteUsable = isPrivateSendQuoteUsable(privateSendQuote);
+    const isQuoteUsable = isSwapQuoteAvailable(
+      privateSendQuote,
+      privateSendAmount,
+    );
     const status = isQuoteUsable && !quoteMessage ? 'success' : 'failed';
     const message =
       quoteMessage ??
@@ -1949,8 +1940,15 @@ function SendAmountInputContainer() {
     if (scopedPrivateSendQuoteResult?.quoteError) {
       return scopedPrivateSendQuoteResult.quoteError;
     }
+    const limitMessage = getSwapQuoteLimitMessage({
+      intl,
+      limit: privateSendQuote?.limit,
+      fromTokenAmount: privateSendAmount,
+      fromTokenSymbol: privateSendToken?.symbol,
+    });
+    if (limitMessage) return limitMessage;
     if (privateSendQuote?.errorMessage) return privateSendQuote.errorMessage;
-    if (!isPrivateSendQuoteUsable(privateSendQuote)) {
+    if (!isSwapQuoteAvailable(privateSendQuote, privateSendAmount)) {
       return intl.formatMessage({
         id: ETranslations.swap_page_alert_no_provider_supports_trade,
       });
@@ -1963,6 +1961,7 @@ function SendAmountInputContainer() {
     isPrivateSendQuoteScopeMatched,
     privateSendAmount,
     privateSendQuote,
+    privateSendToken?.symbol,
     privateSendQuoteRecipientErrorTranslationId,
     scopedPrivateSendQuoteResult?.quoteError,
     sendMode,
@@ -2110,8 +2109,6 @@ function SendAmountInputContainer() {
     if (!shouldShowMinAmountHint) {
       return undefined;
     }
-    // Mirror the displayed effective min. Private Send keeps provider limits
-    // out of the form validator to avoid quote/error feedback loops.
     // Lightning BTC unit displays the min converted from sats.
     const displayMinAmount =
       isLightningNetwork && lnUnit === ELightningUnit.BTC
@@ -3296,7 +3293,7 @@ function SendAmountInputContainer() {
             if (
               !privateSendToken ||
               !isPrivateSendQuoteScopeMatched ||
-              !isPrivateSendQuoteUsable(privateSendQuote) ||
+              !isSwapQuoteAvailable(privateSendQuote, privateSendAmount) ||
               !tokenDetails
             ) {
               throw new OneKeyLocalError(
@@ -3827,7 +3824,7 @@ function SendAmountInputContainer() {
       if (isPrivateSendQuoteRefreshing) return true;
       if (privateSendQuoteError) return true;
       if (isPrivateSendAmountBelowMin) return true;
-      if (!isPrivateSendQuoteUsable(privateSendQuote)) {
+      if (!isSwapQuoteAvailable(privateSendQuote, privateSendAmount)) {
         return true;
       }
     }
@@ -3850,6 +3847,7 @@ function SendAmountInputContainer() {
     privateSendQuoteError,
     isPrivateSendAmountBelowMin,
     privateSendQuote,
+    privateSendAmount,
   ]);
 
   // Keep ref in sync with isSubmitDisabled

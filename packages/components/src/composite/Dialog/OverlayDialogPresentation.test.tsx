@@ -143,19 +143,25 @@ it('leaves page overlays and non-Android presentations without a gesture root', 
   expect(queryByTestId('dialog-gesture-root')).toBeNull();
 });
 
-it('fits an iOS global sheet to the safe-area width of a landscape window', () => {
+it('leaves an iOS global sheet to the width the overlay reports', () => {
   nativeEnv.isNativeAndroid = false;
   mockPlatformOS = 'ios';
   mockSafeAreaInsets.left = 62;
   mockSafeAreaInsets.right = 62;
   render(<OverlayDialogPresentation {...dialogProps} isSheet />);
-  expect(mockSurfaceProps.width).toBe(876);
+  // The overlay lays the content out at the platform's sheet width.
+  expect(mockSurfaceProps.width).toBeUndefined();
 });
 
 it('fits an Android global sheet to the app content beside a side navigation bar', () => {
   mockContentFrame.width = 952;
   render(<OverlayDialogPresentation {...dialogProps} isSheet />);
-  expect(mockSurfaceProps.width).toBe(952);
+  // Capped at the overlay's max-width surface.
+  expect(mockSurfaceProps.width).toBe(540);
+
+  mockContentFrame.width = 360;
+  render(<OverlayDialogPresentation {...dialogProps} isSheet />);
+  expect(mockSurfaceProps.width).toBe(360);
 });
 
 it('keeps page sheets and web sheets at the window width', () => {

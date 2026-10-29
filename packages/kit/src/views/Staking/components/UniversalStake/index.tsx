@@ -35,6 +35,7 @@ import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { useAmountInputFocus } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard/useAmountInputFocus';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -50,6 +51,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -473,6 +475,7 @@ type IUniversalStakeProps = {
   showApyDetail?: boolean;
   suppressPlatformBonus?: boolean;
   isInModalContext?: boolean;
+  showStandaloneKeyboardFooter?: boolean;
   ongoingValidator?: IEarnSelectField;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
   transactionInputTokenAddress?: string;
@@ -517,6 +520,7 @@ export function UniversalStake({
   showApyDetail = false,
   suppressPlatformBonus = false,
   isInModalContext = false,
+  showStandaloneKeyboardFooter = false,
   ongoingValidator,
   receiveInputConfig,
   transactionInputTokenAddress,
@@ -531,6 +535,7 @@ export function UniversalStake({
   onQuoteRefreshingChange,
   pendleSlippage,
 }: PropsWithChildren<IUniversalStakeProps>) {
+  const { isAmountFocused, onAmountFocusChange } = useAmountInputFocus();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { handleOpenWebSite } = useBrowserAction().current;
@@ -2377,6 +2382,8 @@ export function UniversalStake({
                 currency: currentValue ? currencySymbol : undefined,
               }}
               enableMaxAmount
+              usePercentageKeyboardAccessory
+              onAmountFocusChange={onAmountFocusChange}
               onSelectPercentageStage={onSelectPercentageStage}
             />
             {amountInputDisabled ? (
@@ -2648,13 +2655,28 @@ export function UniversalStake({
               }}
             />
           </Stack>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
-          />
+          {platformEnv.isNativeIOSPhone ? null : (
+            <PercentageStageOnKeyboard
+              isAmountFocused={isAmountFocused && !amountInputDisabled}
+              onSelectPercentageStage={onSelectPercentageStage}
+              reserveSpaceUntilKeyboardShown={!amountInputDisabled}
+            />
+          )}
         </Page.Footer>
       ) : (
-        <YStack>{footerContent}</YStack>
+        <>
+          <YStack>{footerContent}</YStack>
+          {platformEnv.isNative &&
+          !platformEnv.isNativeIOSPhone &&
+          showStandaloneKeyboardFooter ? (
+            <Page.Footer>
+              <PercentageStageOnKeyboard
+                isAmountFocused={isAmountFocused && !amountInputDisabled}
+                onSelectPercentageStage={onSelectPercentageStage}
+              />
+            </Page.Footer>
+          ) : null}
+        </>
       )}
     </StakingFormWrapper>
   );
