@@ -33,6 +33,7 @@ import {
 import { StockTokenInfoPopover } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockTokenInfo/StockTokenInfoPopover';
 import { StockTokenVariantSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockTokenVariantSelector';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
+import { MarketDesktopChartContainer } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/MarketDesktopChartContainer';
 import {
   MARKET_CHART_TOOLBAR_HEIGHT,
   MARKET_SIMPLE_CHART_RANGE_GAP,
@@ -545,6 +546,57 @@ export function SwapStockMarketPanel() {
     tokenDetail,
     tokenDetailNetworkId: currentStockToken?.networkId,
   });
+  const chartToolbar = (
+    <XStack
+      testID="swap-stock-chart-toolbar"
+      height={MARKET_CHART_TOOLBAR_HEIGHT}
+      py="$1"
+      gap="$3"
+      alignItems="center"
+    >
+      <XStack
+        flex={1}
+        minWidth={isSimpleChart ? rangeSelectorWidth : 0}
+        alignItems="center"
+        gap="$0.5"
+      >
+        {isSimpleChart
+          ? chartRanges.map((value) => (
+              <Stack
+                key={value}
+                minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
+                height={32}
+                flexShrink={0}
+              >
+                <Button
+                  testID={`swap-stock-chart-range-${value}`}
+                  minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
+                  height={32}
+                  m="$0"
+                  px="$2"
+                  borderWidth={0}
+                  size="small"
+                  variant={range === value ? 'secondary' : 'tertiary'}
+                  borderRadius="$full"
+                  onPress={() => setRange(value)}
+                >
+                  {intl.formatMessage({
+                    id: STOCK_CHART_RANGE_LABELS[value],
+                  })}
+                </Button>
+              </Stack>
+            ))
+          : null}
+      </XStack>
+      {/* Reflect what is drawn: with no Pro source the simple chart
+          stands in, so the control must not claim Pro. */}
+      <StockChartModeControl
+        mode={isSimpleChart ? 'simple' : 'pro'}
+        onChange={(mode) => setChartDisplayMode({ mode })}
+      />
+    </XStack>
+  );
+
   return (
     <YStack
       testID={SwapTestIDs.stockMarketPanel}
@@ -622,7 +674,11 @@ export function SwapStockMarketPanel() {
             ))}
           </XStack>
         </XStack>
-        <YStack height={360} gap="$4">
+        <MarketDesktopChartContainer
+          testID="swap-stock-chart"
+          isFullscreen={false}
+          footer={chartToolbar}
+        >
           <YStack flex={1} minHeight={0} minWidth={0}>
             {selection?.stockSelectionPending ? (
               <Skeleton width="100%" height="100%" />
@@ -675,57 +731,7 @@ export function SwapStockMarketPanel() {
               </Stack>
             ) : null}
           </YStack>
-          {/* Same toolbar as the Market stock chart: ranges lead, Simple/Pro
-              trails. Pro carries its own interval row inside the widget. */}
-          <XStack
-            testID="swap-stock-chart-toolbar"
-            height={MARKET_CHART_TOOLBAR_HEIGHT}
-            py="$1"
-            gap="$3"
-            alignItems="center"
-          >
-            <XStack
-              flex={1}
-              minWidth={isSimpleChart ? rangeSelectorWidth : 0}
-              alignItems="center"
-              gap="$0.5"
-            >
-              {isSimpleChart
-                ? chartRanges.map((value) => (
-                    <Stack
-                      key={value}
-                      minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
-                      height={32}
-                      flexShrink={0}
-                    >
-                      <Button
-                        testID={`swap-stock-chart-range-${value}`}
-                        minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
-                        height={32}
-                        m="$0"
-                        px="$2"
-                        borderWidth={0}
-                        size="small"
-                        variant={range === value ? 'secondary' : 'tertiary'}
-                        borderRadius="$full"
-                        onPress={() => setRange(value)}
-                      >
-                        {intl.formatMessage({
-                          id: STOCK_CHART_RANGE_LABELS[value],
-                        })}
-                      </Button>
-                    </Stack>
-                  ))
-                : null}
-            </XStack>
-            {/* Reflect what is drawn: with no Pro source the simple chart
-                stands in, so the control must not claim Pro. */}
-            <StockChartModeControl
-              mode={isSimpleChart ? 'simple' : 'pro'}
-              onChange={(mode) => setChartDisplayMode({ mode })}
-            />
-          </XStack>
-        </YStack>
+        </MarketDesktopChartContainer>
       </YStack>
       <SwapStockMyPosition />
       <SwapStockMarketDataGrid

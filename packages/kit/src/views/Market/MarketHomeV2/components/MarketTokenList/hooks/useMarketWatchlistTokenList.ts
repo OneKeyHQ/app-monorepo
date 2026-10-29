@@ -108,6 +108,8 @@ export interface IMarketWatchlistListingQuoteEntry {
 }
 
 export interface IMarketWatchlistDataCache {
+  // The selector also reuses a successful empty result for these favorites.
+  emptyWatchlistKey?: string;
   spot?: Awaited<
     ReturnType<
       typeof backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch

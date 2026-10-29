@@ -1071,3 +1071,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: Those overlays are siblings above the canvas. Their pointer-enter handlers hide only the crosshair, and the canvas handler that hides the button stops receiving moves.
 **Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
 **Catchable by**: NEW — not covered (same pattern as the previous case: overlays above a canvas take its pointer events)
+
+## Case: Native Market search and recommendations did not share Top Coins favorites (OK-64236)
+**Date**: 2026-10-28 | **Platforms**: Desktop/Web single JS runtime; iOS/Android/extension background services and UI consumers, with separate JS heaps on those targets
+**Symptom**: A native coin favorited in Top Coins appeared unfavorited in search or recommendations, allowing another favorite for the same asset.
+**Root Cause**: Native results missing the backend asset ID used a chain/address favorite key while Top Coins used an asset key. A stalled metadata candidate could also leave the memoized identity lookup pending and prevent matching later candidates.
+**Fix**: Resolve missing native asset IDs using verified network variants, preserve backend identities, bound metadata and candidate requests, and share the result across search, trending, and fallback recommendations. Existing duplicate favorites are not migrated.
+**Catchable by**: Section 4: Data flow end-to-end: API → state → UI; Section 5: No race conditions in async operations
+
+## Case: Universal search hid the Market background and reset its scroll position (OK-65811)
+**Date**: 2026-10-28 | **Platforms**: Desktop/Web single JS runtime; native Market rendering is unchanged
+**Symptom**: Opening universal search blanked the Market page beneath the backdrop and reset its scroll position.
+**Root Cause**: The Market freeze guard treated modal coverage as leaving the page. React Freeze suspended to an empty fallback and hid the DOM. Comparing root depth alone also thawed an already inactive Market when another tab opened a modal.
+**Fix**: Retain the Market background only while it owns modal coverage, clear that ownership when leaving at the same root depth, and continue freezing genuinely inactive pages. Regression tests cover search coverage, returning from modals, and another tab opening a modal.
+**Catchable by**: Section 2: React Check; Section 4: Business Logic & Regression
+
+## Case: Desktop tray popover blank in production builds (OK-65749)
+**Date**: 2026-10-28 | **Platforms**: Desktop (macOS menu-bar tray renderer; production builds only)
+**Symptom**: On App 6.7.0 the menu-bar tray popover rendered as an empty white panel. 6.6.1 on the same machine worked, and the bug never reproduced in a dev session. Logs showed the tray renderer alive at ~0% CPU with no `did-fail-load`, `render-process-gone`, or Sentry events.
+**Root Cause**: The preload hardening in #13770 stopped exposing `$mmkvSync` to the tray window, but the tray shares the main renderer bundle. `dbPerfMonitor` reads `syncStorage.getBoolean()` at module evaluation time behind `platformEnv.isDev ||`, so only production builds reached `ipc()` in `syncStorageInstance.desktop.ts`, which called `globalThis.$mmkvSync(...)` unguarded. The resulting `TypeError` fired before React mounted and left the transparent window showing the white `index.html` body.
+**Fix**: The desktop syncStorage adapter looks up the bridge per call and degrades to an empty store when it is absent: reads return `undefined`, `getAllKeys` returns `[]`, writes are no-ops, and a single warning is logged. Unit tests cover the bridged and bridge-less paths; the bridge-less cases failed with the original TypeError before the fix.
+**Catchable by**: Section 4: Shared hook/utility modified → checked all consumers (the #13770 preload change removed a bridge without checking every renderer that loads the shared bundle); Section 1: Error cases handled (an unguarded global bridge call); NEW — a dev-only short-circuit (`isDev ||`) hides a production-only code path, so bridge/global access gated behind it must be verified with a production build or with the flag forced off

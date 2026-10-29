@@ -179,7 +179,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                  * dependencies on every parent render and restarts an unchanged
                  * logo request, which is visible as a flash after cold start.
                  */}
-                <Token size="md" tokenImageUri={stock.logoUrl} />
+                <Token size="lg" tokenImageUri={stock.logoUrl} />
                 <YStack flex={1} minWidth={0}>
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {stock.symbol}
@@ -200,7 +200,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                       </Badge>
                     ))}
                     <SizableText
-                      size={md ? '$bodyMd' : '$bodySm'}
+                      size="$bodyMd"
                       color="$textSubdued"
                       numberOfLines={1}
                       ellipsizeMode="tail"

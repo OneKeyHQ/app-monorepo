@@ -3,6 +3,9 @@ export enum EPasswordVerifyStatus {
   VERIFYING = 'verifying',
   VERIFIED = 'verified',
   ERROR = 'error',
+  // Not verified, but trying again is all it takes (wrong passcode, dismissed
+  // biometric prompt): shown as a neutral hint rather than a field error.
+  RETRY = 'retry',
 }
 
 export type IPasswordSecuritySession = {

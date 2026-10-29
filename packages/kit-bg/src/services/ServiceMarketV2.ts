@@ -12,6 +12,7 @@ import {
   MARKET_STOCK_BATCH_MAX_IDS,
 } from '@onekeyhq/shared/src/consts/marketConsts';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -1074,6 +1075,7 @@ class ServiceMarketV2 extends ServiceBase {
         error,
       );
       if (throwOnError) {
+        errorToastUtils.toastIfErrorDisable(error);
         throw error;
       }
       // Return empty list on error instead of throwing

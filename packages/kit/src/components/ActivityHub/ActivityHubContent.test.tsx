@@ -5,7 +5,13 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 
 const mockOpenUrlExternal = jest.fn();
 const mockPopoverClose = jest.fn();
@@ -13,6 +19,7 @@ const mockHubShown = jest.fn();
 const mockHubActionPressed = jest.fn();
 const mockPopoverFloatingPanelProps = jest.fn();
 let mockGtMd = true;
+let mockIsLoggedIn = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -64,7 +71,7 @@ jest.mock('@onekeyhq/components', () => {
         { 'data-testid': testID, onClick: onPress, type: 'button' },
         title,
       ),
-    Icon: Primitive,
+    Icon: ({ name }: { name: string }) => <span data-testid={`icon-${name}`} />,
     Image: Primitive,
     LottieView: Primitive,
     Popover: ({
@@ -92,6 +99,12 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
+  usePrimePersistAtom: () => [
+    { isLoggedIn: mockIsLoggedIn, isLoggedInOnServer: mockIsLoggedIn },
+  ],
+}));
+
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     referral: {
@@ -111,6 +124,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
     isNative: false,
+    isWeb: false,
   },
 }));
 
@@ -180,7 +194,36 @@ describe('ActivityHubContent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGtMd = true;
+    mockIsLoggedIn = true;
     platformEnv.isNative = false;
+    platformEnv.isWeb = false;
+  });
+
+  it('hides the duplicate invite title until the user signs in', () => {
+    mockIsLoggedIn = false;
+    const props = {
+      source: 'Swap' as const,
+      closePopover: jest.fn(),
+      onOpenReferral: jest.fn(),
+    };
+    const { rerender } = render(<ActivityHubContent {...props} />);
+    expect(screen.queryByText(ETranslations.referral_home__title)).toBeNull();
+    mockIsLoggedIn = true;
+    rerender(<ActivityHubContent {...props} />);
+    expect(screen.getByText(ETranslations.referral_home__title)).toBeTruthy();
+  });
+
+  it('keeps the activity hub title when signed out with campaigns', () => {
+    mockIsLoggedIn = false;
+    render(
+      <ActivityHubContent
+        source="Perps"
+        closePopover={jest.fn()}
+        onOpenReferral={jest.fn()}
+        campaigns={CAMPAIGNS}
+      />,
+    );
+    expect(screen.getByText(ETranslations.perps_activity_hub)).toBeTruthy();
   });
 
   it('opens the referral page from the native tile after the host closes', async () => {
@@ -286,11 +329,16 @@ describe('ActivityHubContent', () => {
         onOpenInvitePanel={onOpenInvitePanel}
         showTitle={false}
         menuLayout
+        menuShortcuts={<span data-testid="menu-shortcut">History</span>}
       />,
     );
 
     // The menu keeps its Referral row instead of the inline panel.
     expect(screen.queryByTestId('activity-hub-open-perks')).toBeNull();
+    expect(screen.getByTestId('activity-hub-referral').parentElement).toBe(
+      screen.getByTestId('menu-shortcut').parentElement,
+    );
+    expect(screen.getAllByTestId('activity-hub-referral')).toHaveLength(1);
     fireEvent.click(screen.getByTestId('activity-hub-referral'));
 
     await waitFor(() => expect(onOpenInvitePanel).toHaveBeenCalledTimes(1));
@@ -300,6 +348,79 @@ describe('ActivityHubContent', () => {
       action: 'open_invite_panel',
     });
   });
+
+  it('keeps referral actions and campaigns when the popover places referral inside settings', async () => {
+    const onOpenInvitePanel = jest.fn();
+    const closePopover = jest.fn(() => Promise.resolve());
+    render(
+      <ActivityHubContent
+        source="Perps"
+        closePopover={closePopover}
+        onOpenReferral={jest.fn()}
+        onOpenInvitePanel={onOpenInvitePanel}
+        showTitle={false}
+        menuLayout
+        menuPopoverLayout
+        campaigns={CAMPAIGNS}
+        renderMenuReferral={(referral) => (
+          <div data-testid="settings-list">
+            {referral}
+            <span>Trading guide</span>
+          </div>
+        )}
+      />,
+    );
+    const referral = screen.getByTestId('activity-hub-referral');
+    expect(referral.textContent).toBe(ETranslations.referral_title);
+    expect(within(referral).queryByTestId('icon-GiftOutline')).toBeNull();
+    expect(
+      within(referral).getByTestId('icon-ChevronRightOutline'),
+    ).toBeTruthy();
+    expect(screen.getByTestId('settings-list').firstElementChild).toBe(
+      referral,
+    );
+    expect(referral.nextElementSibling?.textContent).toBe('Trading guide');
+    expect(getCampaignCard()).toBeTruthy();
+    fireEvent.click(referral);
+    await waitFor(() => expect(onOpenInvitePanel).toHaveBeenCalledTimes(1));
+    expect(closePopover).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { menuPopoverLayout: false, isWeb: false },
+    { menuPopoverLayout: true, isWeb: false },
+    { menuPopoverLayout: false, isWeb: true },
+    { menuPopoverLayout: true, isWeb: true },
+  ])(
+    'only shows the menu campaign heading outside web when campaigns exist (popover: $menuPopoverLayout, web: $isWeb)',
+    ({ menuPopoverLayout, isWeb }) => {
+      platformEnv.isWeb = isWeb;
+      const props = {
+        source: 'Perps' as const,
+        closePopover: jest.fn(),
+        onOpenReferral: jest.fn(),
+        showTitle: false,
+        menuLayout: true,
+        menuPopoverLayout,
+      };
+      const view = render(<ActivityHubContent {...props} />);
+      const heading = ETranslations.perps_menu_campaign_center__title;
+      expect(screen.queryByText(heading)).toBeNull();
+
+      view.rerender(<ActivityHubContent {...props} campaigns={CAMPAIGNS} />);
+      if (isWeb) {
+        expect(screen.queryByText(heading)).toBeNull();
+      } else {
+        expect(screen.getByText(heading)).toBeTruthy();
+      }
+      expect(getCampaignCard()).toBeTruthy();
+      expect(screen.getAllByTestId('activity-hub-referral')).toHaveLength(1);
+
+      view.rerender(<ActivityHubContent {...props} campaigns={[]} />);
+      expect(screen.queryByText(heading)).toBeNull();
+      expect(screen.getByTestId('activity-hub-referral')).toBeTruthy();
+    },
+  );
 
   it('opens the referral page from the native gift when there are no campaigns', () => {
     platformEnv.isNative = true;
