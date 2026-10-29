@@ -13,8 +13,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
