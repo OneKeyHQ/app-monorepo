@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import { formatTradingViewNativePriceTick } from '../utils/chartLayout';
+
 import {
   getTradingViewNativeCanvasPriceAxisWidth,
   isTradingViewNativeCanvasMainPriceAxisPointer,
@@ -50,7 +52,7 @@ function createCanvas(options?: {
 }
 
 describe('TradingViewNative web canvas layout', () => {
-  it('keeps the plot width stable when live price digits have different kerning', () => {
+  it('keeps plot width stable across live price kerning and trimmed decimal zeros', () => {
     const canvas = createCanvas({ priceKerning: true });
     const labels = {
       ...LABELS,
@@ -59,15 +61,20 @@ describe('TradingViewNative web canvas layout', () => {
       widestPrice: '88888.8',
     };
     const priceScale = { mode: 'linear' as const, rangeScale: 1 };
-    const widthFor = (currentPrice: string) =>
+    const widthFor = (price: number) =>
       getTradingViewNativeCanvasPriceAxisWidth(
         canvas,
-        { ...labels, currentPrice },
+        {
+          ...labels,
+          currentPrice: formatTradingViewNativePriceTick(price, 4, 1),
+        },
         priceScale,
       );
-    expect(widthFor('80311.0')).toBe(widthFor('80310.0'));
-    expect(widthFor('81111.0')).toBe(widthFor('80888.0'));
-    expect(widthFor('100000.0')).toBeGreaterThan(widthFor('80310.0'));
+    expect(formatTradingViewNativePriceTick(80_311, 4, 1)).toBe('80311');
+    expect(widthFor(80_311.1)).toBe(widthFor(80_311));
+    expect(widthFor(80_311)).toBe(widthFor(80_310));
+    expect(widthFor(81_111)).toBe(widthFor(80_888));
+    expect(widthFor(100_000)).toBeGreaterThan(widthFor(80_310));
   });
 
   it('grows the price axis for labels introduced by manual scaling', () => {

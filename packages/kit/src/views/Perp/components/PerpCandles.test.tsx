@@ -3,7 +3,10 @@ import type { ReactNode } from 'react';
 import { act, render } from '@testing-library/react-native';
 
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-import type { ITradingViewNativeProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import {
+  type ITradingViewNativeProps,
+  TradingViewNative,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import type { ITradingViewPerpsV2Props } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -12,6 +15,8 @@ import { PerpCandles } from './PerpCandles';
 
 let mockAccountAddress: string | undefined;
 let mockCoin = 'ETH';
+let mockInstrumentMode: 'perp' | 'spot' = 'perp';
+let mockSzDecimals: number | undefined = 2;
 const mockChartMount = jest.fn();
 const mockChartUnmount = jest.fn();
 const mockChartUserAddress = jest.fn();
@@ -49,12 +54,29 @@ jest.mock('@onekeyhq/components', () => ({
   XStack: ({ children }: { children?: ReactNode }) => children,
   YStack: ({ children }: { children?: ReactNode }) => children,
   SizableText: () => null,
+  LottieView: () => null,
   DebugRenderTracker: ({ children }: { children?: ReactNode }) => children,
   useMedia: () => ({ gtMd: true }),
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
-  useActiveTradeInstrumentAtom: () => [{ mode: 'perp', coin: mockCoin }],
+  useActiveTradeInstrumentAtom: () => [
+    {
+      mode: mockInstrumentMode,
+      coin: mockCoin,
+      assetId: mockSzDecimals === undefined ? undefined : 1,
+      universe:
+        mockSzDecimals === undefined
+          ? undefined
+          : {
+              assetId: 1,
+              name: mockCoin,
+              szDecimals: mockSzDecimals,
+              baseSzDecimals: mockSzDecimals,
+              maxLeverage: 10,
+            },
+    },
+  ],
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -110,10 +132,6 @@ jest.mock('../hooks/usePerpsNativeChartMarks', () => ({
   usePerpsNativeChartMarks: () => [],
 }));
 
-jest.mock('../hooks/usePerpsNativeChartMetadata', () => ({
-  usePerpsNativeChartMetadata: () => ({}),
-}));
-
 jest.mock('../hooks/usePerpsChartOrderMenu', () => ({
   usePerpsChartOrderMenu: () => ({}),
 }));
@@ -146,8 +164,68 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockAccountAddress = '0xABC';
   mockCoin = 'ETH';
+  mockInstrumentMode = 'perp';
+  mockSzDecimals = 2;
   mockCustomSettings = { showChartLines: false };
 });
+
+it('covers unknown precision until metadata arrives without remounting the chart', () => {
+  mockCustomSettings.chartMode = 'native';
+  mockSzDecimals = undefined;
+  const view = renderTradingViewCandles();
+
+  expect(mockNativeChart.mock.lastCall?.[0].priceDecimalPlaces).toBeUndefined();
+  expect(mockNativeChart.mock.lastCall?.[0].isPricePrecisionLoading).toBe(true);
+  const chart = view.UNSAFE_getByType(TradingViewNative);
+
+  mockSzDecimals = 2;
+  view.rerender(<PerpCandles />);
+  expect(mockNativeChart.mock.lastCall?.[0].priceDecimalPlaces).toBe(4);
+  expect(mockNativeChart.mock.lastCall?.[0].isPricePrecisionLoading).toBe(
+    false,
+  );
+  expect(view.UNSAFE_getByType(TradingViewNative)).toBe(chart);
+});
+
+it.each([
+  ['perp', 6],
+  ['spot', 8],
+] as const)(
+  'bounds missing %s metadata and accepts late precision without remounting',
+  (mode, fallbackDecimals) => {
+    jest.useFakeTimers();
+    mockInstrumentMode = mode;
+    mockCustomSettings.chartMode = 'native';
+    mockSzDecimals = undefined;
+    const view = renderTradingViewCandles();
+    try {
+      act(() => jest.advanceTimersByTime(4000));
+      mockCoin = mode === 'spot' ? '@143' : 'ZEC';
+      view.rerender(<PerpCandles />);
+      const chart = view.UNSAFE_getByType(TradingViewNative);
+      act(() => jest.advanceTimersByTime(1000));
+      expect(mockNativeChart.mock.lastCall?.[0].isPricePrecisionLoading).toBe(
+        true,
+      );
+      act(() => jest.advanceTimersByTime(4000));
+      expect(mockNativeChart.mock.lastCall?.[0].isPricePrecisionLoading).toBe(
+        false,
+      );
+      expect(mockNativeChart.mock.lastCall?.[0].priceDecimalPlaces).toBe(
+        fallbackDecimals,
+      );
+      mockSzDecimals = 2;
+      view.rerender(<PerpCandles />);
+      expect(mockNativeChart.mock.lastCall?.[0].priceDecimalPlaces).toBe(
+        fallbackDecimals - 2,
+      );
+      expect(view.UNSAFE_getByType(TradingViewNative)).toBe(chart);
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
+  },
+);
 
 describe('PerpCandles account switch', () => {
   it('leaves the rebuild decision to the chart instead of remounting it', () => {

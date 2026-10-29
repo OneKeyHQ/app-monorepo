@@ -72,6 +72,7 @@ function PerpNativeCandles({
       {...props}
       {...metadata}
       {...orderMenu}
+      isPricePrecisionLoading={metadata.priceDecimalPlaces === undefined}
       nativeChartFullscreenHeader={fullscreenHeader}
       chartComponents={chartComponents}
       onReferenceLineAction={

@@ -150,7 +150,7 @@ describe('TradingViewNative chart component scene', () => {
           kind: 'text',
           font: 'priceAxis',
           paint: 'currentPriceLabelText',
-          text: drawing.points[0].price.toFixed(2),
+          text: ['104.2', '104.1', '104'][renderIndex],
         });
       });
       expect(scene.layout).toEqual(baseline.layout);

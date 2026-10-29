@@ -49,6 +49,7 @@ import { getTradingViewNativeChartComponentPriceAxisLabel } from '../utils/chart
 import { getTradingViewNativeIndicatorPriceAxisLabel } from '../utils/chartIndicators';
 import {
   getTradingViewNativeChartWidth,
+  getTradingViewNativeCurrentPriceAxisLabel,
   getTradingViewNativePriceAxisLabel,
   getTradingViewNativePriceAxisWidth,
   getTradingViewNativeScaledPriceAxisLabel,
@@ -146,6 +147,7 @@ export const TradingViewNativeChart = memo(
     chartPictureVersion,
     extendTimeAxisBorderToCanvasEdge = false,
     currentPriceLabel,
+    priceAxisDecimalPlaces,
     priceDecimalPlaces,
     hasVolume,
     indicatorSeries,
@@ -462,9 +464,6 @@ export const TradingViewNativeChart = memo(
         return 0;
       }
       const measuredPriceAxisFont = resources.value.fonts.priceAxis;
-      const currentPriceLabelBounds = measuredPriceAxisFont.measureText(
-        chartSettings.options.latestPrice ? currentPriceLabel : '',
-      );
       const measureCandidateLabel = (label: string) => {
         'worklet';
 
@@ -493,9 +492,13 @@ export const TradingViewNativeChart = memo(
         ),
       );
       return getTradingViewNativePriceAxisWidth({
-        currentPriceLabelWidth: Math.max(
-          currentPriceLabelBounds.x + currentPriceLabelBounds.width,
-          0,
+        currentPriceLabelWidth: measureCandidateLabel(
+          chartSettings.options.latestPrice
+            ? getTradingViewNativeCurrentPriceAxisLabel(
+                currentPriceLabel,
+                priceDecimalPlaces,
+              )
+            : '',
         ),
         minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
           PRICE_SCALE_CONTROL_NATIVE_SIZING,
@@ -566,6 +569,7 @@ export const TradingViewNativeChart = memo(
         crosshair: runtime.crosshair,
         extendTimeAxisBorderToCanvasEdge,
         currentPriceLabel: runtime.currentPriceLabel,
+        priceAxisDecimalPlaces,
         priceDecimalPlaces,
         hasVolume: runtime.hasVolume,
         height: runtime.size.height,
@@ -594,6 +598,7 @@ export const TradingViewNativeChart = memo(
     }, [
       candleLabels,
       dateFormatTemplate,
+      priceAxisDecimalPlaces,
       priceDecimalPlaces,
       enableDrawings,
       drawingText,
