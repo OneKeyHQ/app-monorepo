@@ -20,7 +20,10 @@ const LABELS: ITradingViewNativeCanvasPriceAxisLabels = {
   yAxisVisible: true,
 };
 
-function createCanvas(options?: { scaleWithFont?: boolean }) {
+function createCanvas(options?: {
+  scaleWithFont?: boolean;
+  priceKerning?: boolean;
+}) {
   return {
     getBoundingClientRect: () =>
       ({
@@ -37,13 +40,36 @@ function createCanvas(options?: { scaleWithFont?: boolean }) {
       font: '',
       measureText(label: string) {
         const fontSize = options?.scaleWithFont ? parseFloat(this.font) : 12;
-        return { width: label.length * (fontSize / 2) };
+        const kerning = options?.priceKerning
+          ? (label.match(/11/g)?.length ?? 0)
+          : 0;
+        return { width: label.length * (fontSize / 2) - kerning };
       },
     }),
   } as unknown as HTMLCanvasElement;
 }
 
 describe('TradingViewNative web canvas layout', () => {
+  it('keeps the plot width stable when live price digits have different kerning', () => {
+    const canvas = createCanvas({ priceKerning: true });
+    const labels = {
+      ...LABELS,
+      autoPriceRange: { minPrice: 79_184, maxPrice: 81_014 },
+      priceDecimalPlaces: 1,
+      widestPrice: '88888.8',
+    };
+    const priceScale = { mode: 'linear' as const, rangeScale: 1 };
+    const widthFor = (currentPrice: string) =>
+      getTradingViewNativeCanvasPriceAxisWidth(
+        canvas,
+        { ...labels, currentPrice },
+        priceScale,
+      );
+    expect(widthFor('80311.0')).toBe(widthFor('80310.0'));
+    expect(widthFor('81111.0')).toBe(widthFor('80888.0'));
+    expect(widthFor('100000.0')).toBeGreaterThan(widthFor('80310.0'));
+  });
+
   it('grows the price axis for labels introduced by manual scaling', () => {
     const canvas = createCanvas();
     const autoWidth = getTradingViewNativeCanvasPriceAxisWidth(canvas, LABELS, {
