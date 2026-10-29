@@ -3385,7 +3385,7 @@
   "perp_account_mode_updated__msg": "खाता मोड अपडेट हो गया",
   "perp_account_mode_updating__msg": "खाता मोड अपडेट हो रहा है…",
   "perp_aggressive_limit_buy_price_warning__msg": "Your limit price is {percentage}% above the current best ask of {referencePrice}. The order may execute immediately at market price. Please confirm your limit price.",
-  "perp_aggressive_limit_sell_warning__msg": "Your limit price is {percentage}% below the current best bid of {referencePrice}. The order may execute immediately at market price. Please confirm your limit price.",
+  "perp_aggressive_limit_sell_warning__msg": "आपकी लिमिट कीमत मौजूदा सर्वोत्तम खरीद कीमत {referencePrice} से {percentage}% कम है। ऑर्डर बाज़ार मूल्य पर तुरंत निष्पादित हो सकता है। कृपया अपनी लिमिट कीमत की पुष्टि करें।",
   "perp_average_price__title": "औसत मूल्य",
   "perp_backstop_liquidation__title": "बैकस्टॉप लिक्विडेशन",
   "perp_basic_order__title": "बुनियादी आदेश",

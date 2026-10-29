@@ -3,13 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  SizableText,
-  Spinner,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -623,20 +617,15 @@ const OpenOrdersRow = memo(
               {canChaseOrder ? (
                 <XStack
                   testID={PerpTestIDs.ChaseOrderButton(order.oid)}
-                  gap="$1"
+                  p="$1"
+                  mx="$-1"
+                  borderRadius="$1"
                   alignItems="center"
                   cursor={isChasingOrder ? 'default' : 'pointer'}
                   onPress={isChasingOrder ? undefined : handleChaseOrder}
                 >
-                  {isChasingOrder ? (
-                    <Spinner
-                      size="small"
-                      color="$textInteractive"
-                      scale={0.65}
-                    />
-                  ) : null}
                   <SizableText
-                    color={isChasingOrder ? '$textDisabled' : '$bgAccent'}
+                    color="$bgAccent"
                     hoverStyle={
                       isChasingOrder
                         ? undefined
@@ -650,16 +639,25 @@ const OpenOrdersRow = memo(
                   </SizableText>
                 </XStack>
               ) : null}
-              <SizableText
-                color="$bgAccent"
-                hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-                size="$bodySmMedium"
+              <XStack
+                testID={PerpTestIDs.CancelOrderButton(order.oid)}
+                p="$1"
+                mx="$-1"
+                borderRadius="$1"
+                alignItems="center"
+                cursor="pointer"
                 onPress={handleCancelOrder}
               >
-                {intl.formatMessage({
-                  id: ETranslations.perp_open_orders_cancel,
-                })}
-              </SizableText>
+                <SizableText
+                  color="$bgAccent"
+                  hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+                  size="$bodySmMedium"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_open_orders_cancel,
+                  })}
+                </SizableText>
+              </XStack>
             </XStack>
           </XStack>
         ) : null}

@@ -3385,7 +3385,7 @@
   "perp_account_mode_updated__msg": "Modalità account aggiornata",
   "perp_account_mode_updating__msg": "Aggiornamento modalità account…",
   "perp_aggressive_limit_buy_price_warning__msg": "Your limit price is {percentage}% above the current best ask of {referencePrice}. The order may execute immediately at market price. Please confirm your limit price.",
-  "perp_aggressive_limit_sell_warning__msg": "Your limit price is {percentage}% below the current best bid of {referencePrice}. The order may execute immediately at market price. Please confirm your limit price.",
+  "perp_aggressive_limit_sell_warning__msg": "Il tuo prezzo limite è inferiore del {percentage}% al miglior prezzo di acquisto attuale di {referencePrice}. L’ordine potrebbe essere eseguito immediatamente al prezzo di mercato. Conferma il tuo prezzo limite.",
   "perp_average_price__title": "Prezzo medio",
   "perp_backstop_liquidation__title": "Liquidazione backstop",
   "perp_basic_order__title": "Ordine di base",
