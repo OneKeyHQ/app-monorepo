@@ -209,7 +209,7 @@ export function MobileInformationTabs({
             isPending={isPortfolioPending}
             accountAddress={accountAddress}
             tokenLogoUrl={tokenLogoUrl}
-            showPnlUnsupportedHint
+            isMarketDetail
             scrollEnabled={scrollEnabled}
           />
         </DelayedFreeze>

@@ -1,4 +1,5 @@
 import { Fragment, memo, useCallback, useMemo } from 'react';
+import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -41,8 +42,9 @@ interface IPortfolioProps {
   standalone?: boolean;
   isStock?: boolean;
   onItemPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
-  // Market detail pages show a hint below the list when a holding has no PnL.
-  showPnlUnsupportedHint?: boolean;
+  // Market detail pages show a "No positions" empty state, and a hint below
+  // the list when a holding has no PnL. Swap keeps the plain empty state.
+  isMarketDetail?: boolean;
 }
 
 function PortfolioBase({
@@ -56,7 +58,7 @@ function PortfolioBase({
   standalone = false,
   isStock = false,
   onItemPress,
-  showPnlUnsupportedHint = false,
+  isMarketDetail = false,
 }: IPortfolioProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
@@ -94,10 +96,25 @@ function PortfolioBase({
     [],
   );
 
-  const emptyContent =
-    isPending || (canShowPortfolio && isRefreshing) ? (
-      <PortfolioSkeleton />
-    ) : (
+  let emptyContent: ReactElement;
+  if (isPending || (canShowPortfolio && isRefreshing)) {
+    emptyContent = <PortfolioSkeleton />;
+  } else if (isMarketDetail) {
+    // Same illustration and title as the Perps positions empty state, without
+    // its CTAs since the trade panel is already on the page.
+    emptyContent = (
+      <Empty
+        testID="market-detail-portfolio-empty"
+        illustration="Orders"
+        illustrationProps={{ size: gtLg ? 100 : 88, mb: -12 }}
+        title={intl.formatMessage({ id: ETranslations.market_no_positions })}
+        titleProps={{ size: '$headingSm', color: '$text', mb: 0 }}
+        justifyContent="flex-start"
+        py="$6"
+      />
+    );
+  } else {
+    emptyContent = (
       <Empty
         description={intl.formatMessage({
           id: ETranslations.dexmarket_details_nodata,
@@ -105,6 +122,7 @@ function PortfolioBase({
         pt="$16"
       />
     );
+  }
 
   const data = useMemo(
     () =>
@@ -123,7 +141,7 @@ function PortfolioBase({
   );
 
   const pnlUnsupportedHint =
-    showPnlUnsupportedHint && hasPnlUnsupportedPosition(data) ? (
+    isMarketDetail && hasPnlUnsupportedPosition(data) ? (
       <PnlUnsupportedHint />
     ) : undefined;
 

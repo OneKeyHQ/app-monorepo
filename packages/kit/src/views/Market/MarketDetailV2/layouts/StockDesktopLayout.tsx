@@ -870,7 +870,7 @@ function StockPosition({
       hasAccount={hasAccount}
       portfolioData={portfolioData}
       isRefreshing={isRefreshing}
-      showPnlUnsupportedHint
+      isMarketDetail
     />
   );
 }

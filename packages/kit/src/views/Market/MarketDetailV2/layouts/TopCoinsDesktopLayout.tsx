@@ -123,7 +123,7 @@ function TopCoinsInformation({
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
           tokenLogoUrl={tokenLogoUrl}
-          showPnlUnsupportedHint
+          isMarketDetail
         />
       </YStack>
     );

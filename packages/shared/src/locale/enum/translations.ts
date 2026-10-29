@@ -2984,6 +2984,7 @@ export enum ETranslations {
   market_most_market_cap = 'market.most_market_cap',
   market_move_to_top = 'market.move_to_top',
   market_net_vol = 'market.net_vol',
+  market_no_positions = 'market.no_positions',
   market_number_day_abbr = 'market.number_day_abbr',
   market_number_hour_abbr = 'market.number_hour_abbr',
   market_number_minute_abbr = 'market.number_minute_abbr',

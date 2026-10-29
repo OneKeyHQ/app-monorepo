@@ -2979,6 +2979,7 @@
   "market.most_market_cap": "সর্বাধিক বাজার মূল্য",
   "market.move_to_top": "শীর্ষে যান",
   "market.net_vol": "নিট ভলিউম",
+  "market.no_positions": "কোনো পজিশন নেই",
   "market.number_day_abbr": "{number}D",
   "market.number_hour_abbr": "{number}H",
   "market.number_minute_abbr": "{number}m",

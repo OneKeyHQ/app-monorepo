@@ -2979,6 +2979,7 @@
   "market.most_market_cap": "Most market cap",
   "market.move_to_top": "Move to top",
   "market.net_vol": "Net vol",
+  "market.no_positions": "No positions",
   "market.number_day_abbr": "{number}D",
   "market.number_hour_abbr": "{number}H",
   "market.number_minute_abbr": "{number}m",
