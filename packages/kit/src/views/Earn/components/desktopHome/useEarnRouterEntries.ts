@@ -23,8 +23,8 @@ import type {
 const NO_STABLE_SYMBOLS = new Set<string>();
 
 /**
- * The two routers' quick entries (the phone home's Earn and Loans tiles, the
- * wide home's buttons beside Net Worth). Earn opens the deposit window on
+ * The two routers' quick entries (the phone home's Earn and Loans tiles; the
+ * wide home has none, its rows open the routers). Earn opens the deposit window on
  * what the wallet holds most of, comparing its whole kind there, paid with
  * the token itself. Loans opens the Loans window on the most valuable token
  * a market takes as collateral, against stable tokens (against ETH when the

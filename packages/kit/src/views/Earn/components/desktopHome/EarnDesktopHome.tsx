@@ -4,13 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import {
-  Button,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -173,7 +167,7 @@ function HomeTabs({
       label: intl.formatMessage({ id: ETranslations.earn_title }),
     },
     {
-      // Same words as the Loans button above
+      // Same words as the phone's Loans entry
       value: 'loans',
       label: intl.formatMessage({ id: ETranslations.earn_loans__action }),
     },
@@ -547,39 +541,13 @@ export function EarnDesktopHome({
     () => EarnNavigation.pushToEarnHoldings(navigation),
     [navigation],
   );
-  // The routers' quick entries: the phone's Earn and Loans tiles, the
-  // buttons beside Net Worth
+  // The routers' quick entries: the phone's Earn and Loans tiles. The wide
+  // home has none: its holdings and Loans rows open the routers themselves
   const { openEarnRouter, openLoansRouter } = useEarnRouterEntries({
     holdRows: hold.rows,
     walletGroups: wallet.networkGroups,
     markets,
   });
-  const routerActions = useMemo(
-    () => (
-      <>
-        <Button
-          testID="earn-desktop-open-earn-router"
-          size="medium"
-          variant="secondary"
-          icon="DollarOutline"
-          onPress={openEarnRouter}
-        >
-          {intl.formatMessage({ id: ETranslations.earn_title })}
-        </Button>
-        <Button
-          testID="earn-desktop-open-loans-router"
-          size="medium"
-          variant="secondary"
-          icon="HandCoinsOutline"
-          onPress={openLoansRouter}
-        >
-          {intl.formatMessage({ id: ETranslations.earn_loans__action })}
-        </Button>
-      </>
-    ),
-    [intl, openEarnRouter, openLoansRouter],
-  );
-
   const bannerCount = bannerList.filter(
     (banner) =>
       Boolean(banner.bannerId) && Boolean(banner.backgroundImage?.trim()),
@@ -721,7 +689,6 @@ export function EarnDesktopHome({
                 onOpenPortfolio={onOpenPortfolio}
                 onRefresh={onRefresh}
                 rewards={rewardPills}
-                actions={routerActions}
                 onHeightChange={setHeroHeight}
               />
             )}
