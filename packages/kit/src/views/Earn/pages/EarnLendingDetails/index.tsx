@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import {
   IconButton,
   Image,
   Page,
+  Popover,
   SizableText,
   Stack,
   XStack,
@@ -32,6 +33,11 @@ import {
   EJotaiContextStoreNames,
   useDevSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -41,6 +47,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
+  IBorrowApy,
   IBorrowReserveDetail,
   IEarnText,
   IEarnTooltip,
@@ -49,6 +56,7 @@ import type {
 import { getBorrowMarketLabel } from '../../../Borrow/borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
 import { BorrowNavigation } from '../../../Borrow/borrowUtils';
+import { ApyDetailPopoverContent } from '../../../Borrow/components/BorrowTableList/ApyTextV2';
 import { useBorrowMarkets } from '../../../Borrow/hooks/useBorrowMarkets';
 import { PlatformBonusSection } from '../../../Borrow/pages/ReserveDetails/components/PlatformBonusSection';
 import { RiskSection } from '../../../Borrow/pages/ReserveDetails/components/RiskSection';
@@ -63,6 +71,10 @@ import {
   isErrorState,
   isLoadingState,
 } from '../../../Staking/components/PageFrame';
+import {
+  DOTTED_UNDERLINE_PROPS,
+  DottedRule,
+} from '../../../Staking/components/ProtocolDetails/DottedUnderline';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { GridItem } from '../../../Staking/components/ProtocolDetails/GridItemV2';
 import { OverviewSkeleton } from '../../../Staking/components/StakingSkeleton';
@@ -74,11 +86,20 @@ import {
 import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
+import { EasedSection } from '../../components/desktopHome/EarnEasedSection';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
 import { ApyChart } from '../EarnProtocolDetails/components/ApyChart';
+import { DesktopInvestmentSection } from '../EarnProtocolDetails/components/DesktopInvestmentSection';
+import { NarrowInvestmentSection } from '../EarnProtocolDetails/components/NarrowInvestmentSection';
 import { StickyFormColumn } from '../EarnProtocolDetails/components/StickyFormColumn';
+
+import { buildLendingHeadlineApyParts } from './lendingHeadlineApy.utils';
+import { useLendingSupplyHolding } from './useLendingSupplyHolding';
+
+import type { IEarnHoldingRedeem } from '../EarnPositions/mobile/EarnHoldingSections';
+import type { IEarnPositionView } from '../EarnPositions/mobile/earnPositionModel';
 
 // A lending market's supply side (Aave, Kamino) as an Earn details page,
 // built like a vault's: the same frame, header, chart, grid and form column,
@@ -114,12 +135,12 @@ function ManagersRow({
 function LendingHeader({
   symbol,
   logoURI,
-  apy,
+  apyDetail,
   onShare,
 }: {
   symbol: string;
   logoURI?: string;
-  apy: string;
+  apyDetail: IBorrowApy;
   onShare?: () => void;
 }) {
   const intl = useIntl();
@@ -132,6 +153,54 @@ function LendingHeader({
     void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
   }, [navigation]);
 
+  // As a vault's headline (demo 10-29): the market's own rate in green and
+  // what is added to it in its color, where the market sends a breakdown
+  // that adds up. The whole figure opens the breakdown, marked by a dotted
+  // rule; without one it is the plain figure it was
+  const popupData = apyDetail.button?.data;
+  const parts = useMemo(
+    () => buildLendingHeadlineApyParts(apyDetail),
+    [apyDetail],
+  );
+  const apyLabel = intl.formatMessage({ id: ETranslations.global_apy });
+  const singleFigure = `${new BigNumber(apyDetail.apy || 0).toFixed(2)}%`;
+  const underline = popupData ? DOTTED_UNDERLINE_PROPS : undefined;
+  const figure = (
+    <XStack ai="baseline" alignSelf="flex-start">
+      <YStack>
+        <XStack ai="baseline">
+          {parts ? (
+            <>
+              <SizableText size="$heading3xl" color="$success10" {...underline}>
+                {parts.base}
+              </SizableText>
+              {parts.bonus ? (
+                <SizableText
+                  size="$heading3xl"
+                  color={parts.bonusColor}
+                  {...underline}
+                >
+                  {parts.bonus}
+                </SizableText>
+              ) : null}
+            </>
+          ) : (
+            <SizableText size="$heading3xl" color="$textSuccess" {...underline}>
+              {singleFigure}
+            </SizableText>
+          )}
+        </XStack>
+        {popupData && platformEnv.isNativeAndroid ? <DottedRule /> : null}
+      </YStack>
+      <SizableText
+        size="$heading3xl"
+        color={parts ? '$success10' : '$textSuccess'}
+      >
+        {` ${apyLabel}`}
+      </SizableText>
+    </XStack>
+  );
+
   return (
     <YStack gap="$2.5">
       <XStack gap="$2" ai="center" minWidth={0}>
@@ -141,11 +210,17 @@ function LendingHeader({
         </SizableText>
       </XStack>
       <XStack gap="$2" ai="center">
-        <SizableText size="$heading3xl" color="$textSuccess">
-          {`${new BigNumber(apy || 0).toFixed(2)}% ${intl.formatMessage({
-            id: ETranslations.global_apy,
-          })}`}
-        </SizableText>
+        {popupData ? (
+          <Popover
+            title={intl.formatMessage({ id: ETranslations.global_details })}
+            renderTrigger={<Stack cursor="pointer">{figure}</Stack>}
+            renderContent={<ApyDetailPopoverContent popupData={popupData} />}
+            floatingPanelProps={{ w: 360 }}
+            placement="bottom-start"
+          />
+        ) : (
+          figure
+        )}
         {onShare ? (
           <IconButton
             testID="earn-lending-share"
@@ -176,8 +251,7 @@ function LendingHeader({
   );
 }
 
-// The supply rate drawn as a vault page draws its rate, with the same High
-// and Low over it
+// The supply rate drawn as a vault page draws its rate
 function LendingChart({
   networkId,
   provider,
@@ -199,15 +273,6 @@ function LendingChart({
     action: 'supply',
     timePeriod: CHART_PERIOD,
   });
-  const { high, low } = useMemo(() => {
-    const values = history
-      .map((item) => Number(item.apy))
-      .filter((value) => Number.isFinite(value));
-    if (!values.length) {
-      return { high: null, low: null };
-    }
-    return { high: Math.max(...values), low: Math.min(...values) };
-  }, [history]);
 
   // Nothing to draw once the answer is in and empty: no axis, no frame
   if (!isLoading && !history.length) {
@@ -215,27 +280,9 @@ function LendingChart({
   }
 
   return (
-    <YStack gap="$3">
-      {gtMd && high !== null && low !== null ? (
-        <XStack gap="$4" pt="$6">
-          <YStack>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.market_high })}
-            </SizableText>
-            <SizableText size="$bodyMd" color="$text">
-              {high.toFixed(2)}%
-            </SizableText>
-          </YStack>
-          <YStack>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.market_low })}
-            </SizableText>
-            <SizableText size="$bodyMd" color="$text">
-              {low.toFixed(2)}%
-            </SizableText>
-          </YStack>
-        </XStack>
-      ) : null}
+    // Wide, the chart keeps the room the High and Low figures had above it,
+    // as on a vault's page (demo 10-29)
+    <YStack gap="$3" pt={gtMd ? '$6' : undefined}>
       <ApyChart
         apyHistory={isLoading ? undefined : history}
         primaryApyLabel={intl.formatMessage({
@@ -323,6 +370,9 @@ function LendingDetailsPartComponent({
   marketLabel,
   marketLogoURI,
   onShare,
+  holding,
+  holdingRedeem,
+  onHoldingActionSuccess,
 }: {
   details: IBorrowReserveDetail | undefined;
   isLoading: boolean;
@@ -336,8 +386,13 @@ function LendingDetailsPartComponent({
   marketLabel?: string;
   marketLogoURI?: string;
   onShare?: () => void;
+  // The account's supply of this reserve, and its row's Withdraw
+  holding?: IEarnPositionView;
+  holdingRedeem?: IEarnHoldingRedeem;
+  onHoldingActionSuccess?: () => void;
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const currencyInfo = useCurrency();
   const { supplyBadge } = useBorrowBadges(details);
   const { result: network } = usePromiseResult(
@@ -479,18 +534,42 @@ function LendingDetailsPartComponent({
         {details ? (
           <YStack gap="$8">
             <YStack>
-              <LendingHeader
-                symbol={symbol}
-                logoURI={logoURI}
-                apy={details.supply.apyDetail.apy}
-                onShare={onShare}
-              />
-              <LendingChart
-                networkId={networkId}
-                provider={provider}
-                marketAddress={marketAddress}
-                reserveAddress={reserveAddress}
-              />
+              <YStack>
+                <LendingHeader
+                  symbol={symbol}
+                  logoURI={logoURI}
+                  apyDetail={details.supply.apyDetail}
+                  onShare={onShare}
+                />
+                <LendingChart
+                  networkId={networkId}
+                  provider={provider}
+                  marketAddress={marketAddress}
+                  reserveAddress={reserveAddress}
+                />
+              </YStack>
+              {/* What the account supplies here, under the rate, as a
+                  vault's page has its holding (demo 10-29). It eases in when
+                  the read lands; without one there is no gap */}
+              <EasedSection>
+                {holding ? (
+                  <YStack pt="$8">
+                    {gtMd ? (
+                      <DesktopInvestmentSection
+                        holding={holding}
+                        redeem={holdingRedeem}
+                        onActionSuccess={onHoldingActionSuccess}
+                      />
+                    ) : (
+                      <NarrowInvestmentSection
+                        holding={holding}
+                        redeem={holdingRedeem}
+                        onActionSuccess={onHoldingActionSuccess}
+                      />
+                    )}
+                  </YStack>
+                ) : null}
+              </EasedSection>
             </YStack>
             <PlatformBonusSection platformBonus={details.platformBonus} />
             <LendingGridSection
@@ -637,6 +716,58 @@ const EarnLendingDetailsPage = () => {
   }, [marketAddress, markets, networkId, provider]);
   const marketLabel = market ? getBorrowMarketLabel(market) : undefined;
 
+  // The account's supply of this reserve, from the market's own read
+  const {
+    holding,
+    withdrawDisabled,
+    refresh: refreshHolding,
+  } = useLendingSupplyHolding({
+    market,
+    accountId: earnAccount?.account?.id,
+    provider,
+    networkId,
+    marketAddress,
+    reserveAddress,
+  });
+  // The page's figures and the account's supply, read again together
+  const refreshAll = useCallback(() => {
+    void refreshData();
+    void refreshHolding();
+  }, [refreshData, refreshHolding]);
+  // A supply or withdrawal settling, from the form, the narrow page's
+  // windows or elsewhere: read again once the history says so, as a vault's
+  // page does
+  useEffect(() => {
+    const handleHistoryTxStatusChanged = () => {
+      refreshAll();
+    };
+    const handleLocalPendingTxConfirmed = (
+      payload: IAppEventBusPayload[EAppEventBusNames.LocalPendingTxConfirmed],
+    ) => {
+      if (payload.networkId === networkId) {
+        refreshAll();
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.HistoryTxStatusChanged,
+      handleHistoryTxStatusChanged,
+    );
+    appEventBus.on(
+      EAppEventBusNames.LocalPendingTxConfirmed,
+      handleLocalPendingTxConfirmed,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.HistoryTxStatusChanged,
+        handleHistoryTxStatusChanged,
+      );
+      appEventBus.off(
+        EAppEventBusNames.LocalPendingTxConfirmed,
+        handleLocalPendingTxConfirmed,
+      );
+    };
+  }, [networkId, refreshAll]);
+
   // DeFi › USDC › Aave Core, as a vault's page reads DeFi › USDC › Morpho
   const breadcrumbProps = useMemo(
     () => ({
@@ -768,6 +899,20 @@ const EarnLendingDetailsPage = () => {
     reserveAddress,
     symbol,
   ]);
+  // The supply's row: wide, its Withdraw turns the form beside it to
+  // Withdraw, as a vault's Redeem does; narrow, it opens the market's
+  // withdraw, as the footer's does. It greys where the market's own does
+  const [formTab, setFormTab] = useState<'deposit' | 'withdraw'>('deposit');
+  const turnFormToWithdraw = useCallback(() => setFormTab('withdraw'), []);
+  const holdingRedeem = useMemo<IEarnHoldingRedeem>(
+    () => ({
+      label: intl.formatMessage({ id: ETranslations.global_withdraw }),
+      disabled: withdrawDisabled,
+      onPress: gtMd ? turnFormToWithdraw : handleOpenWithdraw,
+    }),
+    [gtMd, handleOpenWithdraw, intl, turnFormToWithdraw, withdrawDisabled],
+  );
+
   const pageFooter = useMemo(() => {
     // Until the reserve is in there is nothing to act on: no button over the
     // loading skeleton
@@ -852,6 +997,9 @@ const EarnLendingDetailsPage = () => {
             marketLabel={marketLabel}
             marketLogoURI={market?.logoURI}
             onShare={gtMd ? handleShare : undefined}
+            holding={holding}
+            holdingRedeem={holdingRedeem}
+            onHoldingActionSuccess={refreshAll}
           />
         </Stack>
         {gtMd ? (
@@ -873,7 +1021,9 @@ const EarnLendingDetailsPage = () => {
                   providerLogoUri={market?.logoURI}
                   payWith={payWith}
                   isEarnLending
-                  onStakeWithdrawSuccess={refreshData}
+                  defaultTab={formTab}
+                  onTabChange={setFormTab}
+                  onStakeWithdrawSuccess={refreshAll}
                 />
               </YStack>
             </YStack>

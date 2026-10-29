@@ -6,10 +6,17 @@ import type {
   IBorrowReserveItem,
 } from '@onekeyhq/shared/types/staking';
 
-import { withLendingMarketPositions } from './earnLendingPositions';
-import { buildEarnPortfolioView, sumEarnDefiAssets } from './earnPositionModel';
+import {
+  lendingSupplyPositionOf,
+  withLendingMarketPositions,
+} from './earnLendingPositions';
+import {
+  buildEarnPortfolioView,
+  buildHoldingView,
+  sumEarnDefiAssets,
+} from './earnPositionModel';
 import { position, token } from './earnPositionModel.fixtures';
-import { findLoanMarketOf } from './myPortfolio.utils';
+import { findLoanMarketOf, holdingRowActionOf } from './myPortfolio.utils';
 
 import type { IEarnDesktopAccountMarket } from '../../../components/desktopHome/useEarnDesktopHomeData';
 
@@ -215,5 +222,83 @@ describe('withLendingMarketPositions', () => {
       networkId: 'evm--1',
       marketAddress: AAVE_CORE.marketAddress,
     });
+  });
+});
+
+describe('lendingSupplyPositionOf', () => {
+  // The account's Aave Core rows as the market reads them: ETH backs the
+  // cbBTC loan, DAI is supplied with its collateral switch off
+  const entry = (): IEarnDesktopAccountMarket => {
+    const read = reserves({
+      supplied: [
+        ['ETH', '0.001214', '2.80'],
+        ['DAI', '0.7527', '0.75'],
+        ['ARB', '0.0000075', '0'],
+      ],
+      borrowed: [['cbBTC', '0.00001847', '1.47']],
+    });
+    read.supplied.assets[0].apyDetail = { apy: '1.32' };
+    read.supplied.assets[0].usageAsCollateral = true;
+    read.supplied.assets[1].usageAsCollateral = false;
+    return { market: AAVE_CORE, reserves: read, healthFactor: HEALTH };
+  };
+
+  it("gives a supply that backs the market's loan the market's health factor", () => {
+    const supply = lendingSupplyPositionOf({
+      entry: entry(),
+      reserveAddress: '0xETH',
+    });
+    expect(supply?.assets.map((asset) => [asset.symbol, asset.value])).toEqual([
+      ['ETH', 2.8],
+    ]);
+    expect(supply?.debts).toEqual([]);
+    expect(supply?.metrics.healthFactor).toBe(1.59);
+    expect(supply?.groupId).toBe(
+      'aave:evm--1:0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2:0xeth',
+    );
+    // A day at 1.32%: 2.80 * 0.0132 / 365
+    expect(
+      Number(supply?.earn.investment.earnings24hFiatValue).toFixed(6),
+    ).toBe('0.000101');
+  });
+
+  it("leaves the health factor off a supply the market doesn't count as collateral", () => {
+    const supply = lendingSupplyPositionOf({
+      entry: entry(),
+      reserveAddress: '0xdai',
+    });
+    expect(supply?.assets[0].symbol).toBe('DAI');
+    expect(supply?.metrics.healthFactor).toBeNull();
+  });
+
+  it('keeps dust worth less than a cent, and has nothing where nothing is supplied', () => {
+    expect(
+      lendingSupplyPositionOf({ entry: entry(), reserveAddress: '0xarb' })
+        ?.assets[0].symbol,
+    ).toBe('ARB');
+    expect(
+      lendingSupplyPositionOf({ entry: entry(), reserveAddress: '0xusdc' }),
+    ).toBeUndefined();
+  });
+
+  it('draws as a Supplied row with its way out where the page gives one', () => {
+    const supply = lendingSupplyPositionOf({
+      entry: entry(),
+      reserveAddress: '0xeth',
+    });
+    const view = buildHoldingView({
+      sources: supply ? [supply] : [],
+      provider: 'aave',
+      translate,
+    });
+    expect(view?.sections.map((section) => section.kind)).toEqual(['supplied']);
+    expect(view?.meta?.healthFactor).toBe(1.59);
+    const [row] = view?.sections[0].assets ?? [];
+    expect(
+      holdingRowActionOf({ kind: 'supplied', asset: row, redeemable: true }),
+    ).toEqual({ kind: 'redeem' });
+    expect(
+      holdingRowActionOf({ kind: 'supplied', asset: row, redeemable: false }),
+    ).toBeUndefined();
   });
 });

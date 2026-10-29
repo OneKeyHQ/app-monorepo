@@ -131,6 +131,28 @@ const INITIAL_ACCOUNT_RESULT: IAccountMarketsResult = {
 const accountMarketsMemory = new Map<string, IAccountMarketsResult>();
 
 /**
+ * What the DeFi home last read for the selected account in one market, for a
+ * page it opens (a reserve's supply page) to start from while it asks again
+ */
+export function useRememberedAccountMarket(
+  marketKey: string,
+): IEarnDesktopAccountMarket | undefined {
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const {
+    activeAccount: { indexedAccount },
+  } = useActiveAccount({ num: 0 });
+  const indexedAccountId =
+    selectedAccount.indexedAccountId || indexedAccount?.id;
+  // The home's scope for the account, as useEarnDesktopAccountMarkets keys it
+  const scope = `${selectedAccount.othersWalletAccountId || ''}|${
+    indexedAccountId ?? ''
+  }`;
+  return accountMarketsMemory
+    .get(scope)
+    ?.entries.find((entry) => buildBorrowMarketKey(entry.market) === marketKey);
+}
+
+/**
  * The account's position in each market. No endpoint spans markets yet, so
  * this asks each market for the account on that market's network. Results are
  * tagged with the account they belong to, so a switch never shows the

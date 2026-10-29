@@ -11,6 +11,7 @@ import { EarnPositionHealthFactorRow } from '../../EarnPositions/EarnPositionHea
 import { useHoldingRedeem } from '../../EarnPositions/mobile/EarnPositionCard';
 import { HoldingInvestmentGrid } from '../mobile/PortfolioTab';
 
+import type { IEarnHoldingRedeem } from '../../EarnPositions/mobile/EarnHoldingSections';
 import type { IEarnPositionCardHandlers } from '../../EarnPositions/mobile/EarnPositionCard';
 import type { IEarnPositionView } from '../../EarnPositions/mobile/earnPositionModel';
 
@@ -18,20 +19,25 @@ import type { IEarnPositionView } from '../../EarnPositions/mobile/earnPositionM
  * The wide page's own holding, where the phone has its Portfolio tab: the
  * figures, then the holding's rows as My portfolio's wide layout draws them,
  * the same card on both pages (demo 10-29). Redeem shows, reads and greys
- * as there; the page decides where it goes. Claim works as it does there
+ * as there; the page decides where it goes. Claim works as it does there.
+ * A page whose holding My portfolio has no Redeem for (a lending supply)
+ * hands its own way out instead
  */
 export function DesktopInvestmentSection({
   holding,
   onRedeem,
+  redeem: ownRedeem,
   onActionSuccess,
 }: {
   holding: IEarnPositionView;
   onRedeem?: IEarnPositionCardHandlers['onRedeem'];
+  redeem?: IEarnHoldingRedeem;
   // A claim broadcast from the rows: the page reads its numbers again
   onActionSuccess?: () => void;
 }) {
   const intl = useIntl();
-  const redeem = useHoldingRedeem(holding, onRedeem);
+  const cardRedeem = useHoldingRedeem(holding, onRedeem);
+  const redeem = ownRedeem ?? cardRedeem;
   const pendingTxsValue = useMemo(
     () => ({
       onRefresh: async () => {

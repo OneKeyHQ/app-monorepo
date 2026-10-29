@@ -370,7 +370,10 @@ export function holdingRowActionOf({
 }): IEarnHoldingRowAction | undefined {
   const { origin } = asset;
   switch (kind) {
+    // A lending supply's row too: its own way out where its page offers one
+    // (the supply page's Withdraw); My portfolio's market cards offer none
     case 'deposited':
+    case 'supplied':
       return redeemable ? { kind: 'redeem' } : undefined;
     case 'rewards': {
       if (asset.status === 'pending') {

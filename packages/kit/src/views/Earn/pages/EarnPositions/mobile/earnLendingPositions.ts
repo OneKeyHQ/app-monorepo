@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { getBorrowMarketLabel } from '@onekeyhq/kit/src/views/Borrow/borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '@onekeyhq/kit/src/views/Borrow/borrowMarketKey';
+import { hasPositiveBorrowBalance } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
 import { readLoanHealth } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
 import type { IEarnDesktopAccountMarket } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/useEarnDesktopHomeData';
 import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
@@ -11,6 +12,7 @@ import type {
 } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type {
   IBorrowBalance,
+  IBorrowMarketItem,
   IBorrowToken,
 } from '@onekeyhq/shared/types/staking';
 
@@ -55,6 +57,78 @@ const sumValues = (assets: IDeFiAsset[]) =>
 
 const isSameProvider = (a: string, b: string) =>
   a.toLowerCase() === b.toLowerCase();
+
+/**
+ * One market's position as My portfolio and the supply page read it: the
+ * market's name and logo, the account's rows, the health factor where a loan
+ * rides on them, opening the market's own page
+ */
+function buildLendingPosition({
+  market,
+  groupId,
+  symbol,
+  assets,
+  debts,
+  health,
+  earnings24hFiatValue,
+}: {
+  market: IBorrowMarketItem;
+  groupId: string;
+  symbol: string;
+  assets: IDeFiAsset[];
+  debts: IDeFiAsset[];
+  health: ReturnType<typeof readLoanHealth> | undefined;
+  earnings24hFiatValue: string;
+}): IEarnPortfolioPosition {
+  const name = getBorrowMarketLabel(market);
+  const netValue = sumValues(assets).minus(sumValues(debts));
+  return {
+    networkId: market.networkId,
+    owner: '',
+    protocol: market.provider.toLowerCase(),
+    // As the home's split names the protocol
+    protocolName:
+      market.provider.charAt(0).toUpperCase() + market.provider.slice(1),
+    protocolLogo: market.logoURI,
+    chain: market.networkId.split('--')[0] ?? '',
+    category: 'lending',
+    assets,
+    debts,
+    rewards: [],
+    metrics: { healthFactor: health?.value ?? null },
+    source: {
+      provider: EARN_LENDING_MARKET_SOURCE,
+      fetchedAt: '',
+      ttl: 0,
+      cached: false,
+    },
+    groupId,
+    name,
+    earn: {
+      manage: {
+        networkId: market.networkId,
+        provider: market.provider,
+        symbol,
+        vault: market.marketAddress,
+      },
+      action: 'manage',
+      symbol,
+      vault: market.marketAddress,
+      vaultName: name,
+      providerLogoURI: market.logoURI,
+      network: {
+        networkId: market.networkId,
+        name: market.network.name,
+        logoURI: market.network.logoURI,
+      },
+      investment: {
+        totalFiatValue: netValue.toFixed(),
+        earnings24hFiatValue,
+      },
+      healthFactorDetail: health?.detail,
+    },
+  };
+}
 
 /**
  * The account's positions in the lending markets that the positions API
@@ -115,55 +189,17 @@ export function withLendingMarketPositions({
       return;
     }
     const health = debts.length ? readLoanHealth(healthFactor) : undefined;
-    const symbol = assets[0]?.symbol ?? debts[0]?.symbol ?? '';
-    const name = getBorrowMarketLabel(market);
-    const netValue = sumValues(assets).minus(sumValues(debts));
-    added.push({
-      networkId: market.networkId,
-      owner: '',
-      protocol: market.provider.toLowerCase(),
-      // As the home's split names the protocol
-      protocolName:
-        market.provider.charAt(0).toUpperCase() + market.provider.slice(1),
-      protocolLogo: market.logoURI,
-      chain: market.networkId.split('--')[0] ?? '',
-      category: 'lending',
-      assets,
-      debts,
-      rewards: [],
-      metrics: { healthFactor: health?.value ?? null },
-      source: {
-        provider: EARN_LENDING_MARKET_SOURCE,
-        fetchedAt: '',
-        ttl: 0,
-        cached: false,
-      },
-      groupId: buildBorrowMarketKey(market),
-      name,
-      earn: {
-        manage: {
-          networkId: market.networkId,
-          provider: market.provider,
-          symbol,
-          vault: market.marketAddress,
-        },
-        action: 'manage',
-        symbol,
-        vault: market.marketAddress,
-        vaultName: name,
-        providerLogoURI: market.logoURI,
-        network: {
-          networkId: market.networkId,
-          name: market.network.name,
-          logoURI: market.network.logoURI,
-        },
-        investment: {
-          totalFiatValue: netValue.toFixed(),
-          earnings24hFiatValue: '0',
-        },
-        healthFactorDetail: health?.detail,
-      },
-    });
+    added.push(
+      buildLendingPosition({
+        market,
+        groupId: buildBorrowMarketKey(market),
+        symbol: assets[0]?.symbol ?? debts[0]?.symbol ?? '',
+        assets,
+        debts,
+        health,
+        earnings24hFiatValue: '0',
+      }),
+    );
   });
   if (!added.length) {
     return response;
@@ -176,4 +212,64 @@ export function withLendingMarketPositions({
     ];
   });
   return { ...response, positions };
+}
+
+/** The account's supplied row of one reserve in the market, if it has one */
+export function findSuppliedReserve({
+  entry,
+  reserveAddress,
+}: {
+  entry: IEarnDesktopAccountMarket;
+  reserveAddress: string;
+}) {
+  // A network's own coin is the empty address (Aave's ETH)
+  return entry.reserves?.supplied?.assets?.find(
+    (asset) =>
+      asset.reserveAddress.toLowerCase() === reserveAddress.toLowerCase(),
+  );
+}
+
+/**
+ * The account's supply of one reserve, as that reserve's supply page shows it
+ * (demo 10-29): its row alone, the borrowing staying with Loans. The market's
+ * health factor comes with it where a loan rides on the supply, that is where
+ * the market has a loan and counts this supply as collateral (Kamino doesn't
+ * say, and counts every deposit). Its day's earnings are its value at the
+ * reserve's supply rate. Undefined while there is nothing supplied
+ */
+export function lendingSupplyPositionOf({
+  entry,
+  reserveAddress,
+}: {
+  entry: IEarnDesktopAccountMarket;
+  reserveAddress: string;
+}): IEarnPortfolioPosition | undefined {
+  const { market, reserves, healthFactor } = entry;
+  const supplied = findSuppliedReserve({ entry, reserveAddress });
+  if (!supplied) {
+    return undefined;
+  }
+  const asset = toDeFiAsset({
+    token: supplied.token,
+    balance: supplied.suppliedAmount,
+  });
+  // Dust worth less than a cent is still the account's: the amount decides
+  if (!new BigNumber(asset.amount).gt(0)) {
+    return undefined;
+  }
+  const hasLoan = (reserves?.borrowed?.assets ?? []).some((loan) =>
+    hasPositiveBorrowBalance(loan.borrowedAmount),
+  );
+  const backsLoan = hasLoan && supplied.usageAsCollateral !== false;
+  const value = toBigNumber(supplied.suppliedAmount.fiatValue);
+  const apy = toBigNumber(supplied.apyDetail?.apy);
+  return buildLendingPosition({
+    market,
+    groupId: `${buildBorrowMarketKey(market)}:${supplied.reserveAddress}`,
+    symbol: supplied.token.symbol,
+    assets: [asset],
+    debts: [],
+    health: backsLoan ? readLoanHealth(healthFactor) : undefined,
+    earnings24hFiatValue: value.times(apy).div(100).div(365).toFixed(),
+  });
 }
