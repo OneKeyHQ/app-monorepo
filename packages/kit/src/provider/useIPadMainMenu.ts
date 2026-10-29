@@ -25,8 +25,14 @@ import { showAboutDialog } from './showAboutDialog';
 function isSettingsModalOnTop() {
   const routes = rootNavigationRef.current?.getRootState()?.routes;
   const topRoute = routes?.[routes.length - 1];
+  // Once the modal navigator has mounted, its state names the focused modal;
+  // `params.screen` only describes the initial navigation.
+  const modalState = topRoute?.state;
+  const focusedModal =
+    modalState?.routes[modalState.index ?? modalState.routes.length - 1]?.name;
   return (
-    (topRoute?.params as { screen?: string } | undefined)?.screen ===
+    (focusedModal ??
+      (topRoute?.params as { screen?: string } | undefined)?.screen) ===
     EModalRoutes.SettingModal
   );
 }

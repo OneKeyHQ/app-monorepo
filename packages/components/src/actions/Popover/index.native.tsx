@@ -545,10 +545,33 @@ interface IAnchorRect {
   height: number;
 }
 
+// Mirrors floating-ui's `offset` for the bottom/top placements native uses:
+// mainAxis is the gap from the trigger, crossAxis shifts horizontally, and
+// alignmentAxis replaces crossAxis for start/end alignments.
+function resolveAnchoredOffset(
+  offset: IPopoverProps['offset'],
+  placement: IPopoverProps['placement'],
+): { mainAxis: number; crossAxis: number } {
+  if (typeof offset === 'number') return { mainAxis: offset, crossAxis: 0 };
+  if (!offset || typeof offset === 'function') {
+    return { mainAxis: ANCHORED_DEFAULT_OFFSET, crossAxis: 0 };
+  }
+  const align = (placement ?? 'bottom-end').split('-')[1];
+  const { mainAxis = 0, crossAxis = 0, alignmentAxis } = offset;
+  if (align && typeof alignmentAxis === 'number') {
+    return {
+      mainAxis,
+      crossAxis: align === 'end' ? -alignmentAxis : alignmentAxis,
+    };
+  }
+  return { mainAxis, crossAxis };
+}
+
 function getAnchoredFrame({
   anchor,
   placement,
   offset,
+  crossOffset,
   width: preferredWidth,
   maxHeight: preferredMaxHeight,
   window,
@@ -557,6 +580,7 @@ function getAnchoredFrame({
   anchor: IAnchorRect;
   placement: IPopoverProps['placement'];
   offset: number;
+  crossOffset: number;
   width: number;
   maxHeight?: number;
   window: { width: number; height: number };
@@ -576,7 +600,7 @@ function getAnchoredFrame({
   } else {
     left = anchor.x + anchor.width / 2 - width / 2;
   }
-  left = Math.min(Math.max(left, minX), maxX - width);
+  left = Math.min(Math.max(left + crossOffset, minX), maxX - width);
 
   const spaceBelow =
     window.height -
@@ -631,12 +655,23 @@ function AnchoredPopover({
   onAnimationComplete?: (info: { open: boolean }) => void;
 }) {
   useDeferredGuideBlocker(isOpen);
-  useDismissKeyboard(isOpen);
+  // Unlike the sheet, this stays mounted while closed, so dismiss the
+  // keyboard on open/close transitions only, never on mount.
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (wasOpenRef.current === isOpen) return;
+    wasOpenRef.current = isOpen;
+    void Keyboard.dismissWithDelay(50);
+  }, [isOpen]);
   const level = useNestedOverlayLevel();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const [windowOffset, setWindowOffset] = useState<{ x: number; y: number }>();
   const [windowOffsetRequest, setWindowOffsetRequest] = useState(0);
+  useEffect(() => {
+    // Drop the last offset so a reopen waits for a fresh one.
+    if (!isOpen) setWindowOffset(undefined);
+  }, [isOpen]);
   useEffect(() => {
     if (anchorIsModalRelative && isOpen && anchor) {
       setWindowOffsetRequest((request) => request + 1);
@@ -701,11 +736,13 @@ function AnchoredPopover({
     trapFocus: _trapFocus,
     ...panelProps
   } = floatingPanelProps ?? {};
+  const resolvedOffset = resolveAnchoredOffset(offset, placement);
   const frame = screenAnchor
     ? getAnchoredFrame({
         anchor: screenAnchor,
         placement,
-        offset: typeof offset === 'number' ? offset : ANCHORED_DEFAULT_OFFSET,
+        offset: resolvedOffset.mainAxis,
+        crossOffset: resolvedOffset.crossAxis,
         width: resolveAnchoredPanelWidth(panelWidthProp),
         maxHeight:
           typeof panelMaxHeightProp === 'number'
@@ -818,6 +855,11 @@ function BasicPopover({
   const [anchor, setAnchor] = useState<IAnchorRect | undefined>();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   useEffect(() => {
+    // Drop the last measurement so a reopen waits for a fresh one instead of
+    // presenting at the old position and jumping.
+    if (!isOpen) setAnchor(undefined);
+  }, [isOpen]);
+  useEffect(() => {
     if (!isAnchored || !isOpen || nativeAnchorRect) return;
     // Re-measure on every window size change so the panel follows its
     // trigger when the window resizes or rotates within the wide range. The
@@ -847,7 +889,9 @@ function BasicPopover({
     popoverOpen,
     resolvedSheetProps,
   } = useNativePortalLifecycle({
-    isOpen,
+    // The anchored panel reports its own close; the sheet lifecycle would
+    // otherwise complete before the panel's exit animation.
+    isOpen: isAnchored ? false : isOpen,
     sheetProps,
     mountNativePortalBeforeOpen,
   });
@@ -899,7 +943,7 @@ function BasicPopover({
           floatingPanelProps={rest.floatingPanelProps}
           renderContent={rest.renderContent}
           closePopover={closePopover}
-          onAnimationComplete={resolvedSheetProps?.onAnimationComplete}
+          onAnimationComplete={sheetProps?.onAnimationComplete}
         />
       </>
     );

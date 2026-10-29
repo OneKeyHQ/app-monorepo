@@ -20,6 +20,7 @@ import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { Footer } from '../../components/Footer';
 import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
@@ -104,9 +105,13 @@ export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
   // Customer service sits above the tab bar while iOS shows it as a vertical
   // bar in the iPhone Duo side strip; the native tab bar hides it otherwise.
+  // Travel mode hides support entry points, as in More and Settings.
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
   const sideAccessory = useMemo(
     () =>
-      platformEnv.isNativeIOS
+      platformEnv.isNativeIOS && !isTravelMode
         ? {
             icon: require('@onekeyhq/components/svg/outline/help-support.svg'),
             label: intl.formatMessage({
@@ -117,7 +122,7 @@ export function TabNavigator() {
             },
           }
         : undefined,
-    [intl],
+    [intl, isTravelMode],
   );
   const isLandscape = useIsSplitView();
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);

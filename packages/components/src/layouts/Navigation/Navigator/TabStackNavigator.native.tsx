@@ -61,10 +61,14 @@ function BasicTabSubStackNavigator({
       {config
         .filter(({ disable }) => !disable)
         .map(
-          ({ name, component, translationId, headerShown = true }, index) => {
+          (
+            { name, component, translationId, options, headerShown = true },
+            index,
+          ) => {
             if (index > 0 && pushedScreenPresentation === 'modal') {
               // Pages built for the modal stack expect its opaque header, not
               // the root tab's Liquid Glass bar that content extends under.
+              // Their own title and options apply on top, as in the modal flow.
               // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
               const modalScreenOptions = (optionsInfo: {
                 navigation: any;
@@ -77,6 +81,12 @@ function BasicTabSubStackNavigator({
                   titleColor: theme.text.val,
                   pageType: EPageType.modal,
                 }),
+                title: translationId
+                  ? intl.formatMessage({ id: translationId })
+                  : '',
+                ...(typeof options === 'function'
+                  ? options(optionsInfo)
+                  : options),
               });
               return (
                 <Stack.Screen
