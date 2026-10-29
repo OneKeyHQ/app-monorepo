@@ -6502,6 +6502,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@intercom/intercom-react-native@npm:10.8.1":
+  version: 10.8.1
+  resolution: "@intercom/intercom-react-native@npm:10.8.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/e4d07b18e4a27dde421f59aec2d735f67ec21889d1a0e2891b4254a375db0c8dd4f21179a0d6dc3aa93070bf6c4690e7e164ce8c41630c41e0d04cc0559c813e
+  languageName: node
+  linkType: hard
+
 "@intercom/messenger-js-sdk@npm:^0.0.14":
   version: 0.0.14
   resolution: "@intercom/messenger-js-sdk@npm:0.0.14"
@@ -10998,6 +11008,7 @@ __metadata:
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@gorhom/bottom-sheet": "npm:5.2.14"
+    "@intercom/intercom-react-native": "npm:10.8.1"
     "@notifee/react-native": "npm:9.1.8"
     "@onekeyfe/react-native-app-update": "npm:6.7.0-19"
     "@onekeyfe/react-native-auto-size-input": "npm:6.7.0-19"

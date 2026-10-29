@@ -27,6 +27,7 @@ import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainerLazy } from './HardwareUiStateContainer/Lazy';
 import InAppNotification from './InAppNotification';
+import { IntercomNotificationContainer } from './IntercomNotificationContainer';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
 import { LocalDbDowngradeDialogContainer } from './LocalDbDowngradeDialogContainer';
@@ -67,6 +68,7 @@ function DetailRouter() {
       <InAppNotification />
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />
+      <IntercomNotificationContainer />
       <Bootstrap />
       <FullWindowOverlayContainer />
       <AirGapQrcodeDialogContainer />

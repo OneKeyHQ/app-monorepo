@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
@@ -33,11 +34,13 @@ function SupportHubItem({
   title,
   link,
   onPress,
+  showUnreadDot,
 }: {
   icon: IIconProps['name'];
   title: string;
   link?: string;
   onPress?: () => void;
+  showUnreadDot?: boolean;
 }) {
   return (
     <XStack
@@ -63,8 +66,21 @@ function SupportHubItem({
       }
     >
       <XStack alignItems="center" gap="$2.5" flex={1}>
-        <Stack borderRadius="$full" p="$2" bg="$bgStrong">
+        <Stack borderRadius="$full" p="$2" bg="$bgStrong" position="relative">
           <Icon name={icon} size="$6" />
+          {showUnreadDot ? (
+            <Stack
+              testID="support-hub-unread-dot"
+              position="absolute"
+              top={0}
+              right={0}
+              width="$2"
+              height="$2"
+              borderRadius="$full"
+              bg="$bgCriticalStrong"
+              pointerEvents="none"
+            />
+          ) : null}
         </Stack>
         <SizableText size="$bodyMdMedium">{title}</SizableText>
       </XStack>
@@ -148,6 +164,7 @@ function SupportHub({
   const intl = useIntl();
   const themeVariant = useThemeVariant();
   const [devSettings] = useDevSettingsPersistAtom();
+  const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
 
   const defaultHelpCenterLink = useHelpLink({
     path: '',
@@ -279,6 +296,7 @@ function SupportHub({
             content={
               <SupportHubItem
                 icon="HelpSupportOutline"
+                showUnreadDot={hasUnreadSupportMessages}
                 title={intl.formatMessage({
                   id: ETranslations.global_contact_us,
                 })}
@@ -315,6 +333,7 @@ function SupportHub({
     );
   }, [
     intl,
+    hasUnreadSupportMessages,
     resolvedHelpCenterTitle,
     resolvedHelpCenterLink,
     bannerData,

@@ -119,12 +119,18 @@ export const getCurrentLocale = async (): Promise<string | undefined> => {
 export const getIntercomLanguageOverride = async (): Promise<string> =>
   toIntercomLanguageOverride(await getCurrentLocale());
 
+export type IShowIntercomParams = {
+  requestId?: string;
+  conversationId?: string;
+};
+
 export const buildIntercomUrl = (
   baseUrl: string,
   params?: {
     token?: string;
     instanceId?: string;
     requestId?: string;
+    conversationId?: string;
     languageOverride?: string;
   },
 ): string => {
@@ -146,6 +152,11 @@ export const buildIntercomUrl = (
   if (params?.requestId) {
     const separator = url.includes('?') ? '&' : '?';
     url += `${separator}requestId=${encodeURIComponent(params.requestId)}`;
+  }
+
+  if (params?.conversationId) {
+    const separator = url.includes('?') ? '&' : '?';
+    url += `${separator}conversationId=${encodeURIComponent(params.conversationId)}`;
   }
 
   if (params?.languageOverride) {

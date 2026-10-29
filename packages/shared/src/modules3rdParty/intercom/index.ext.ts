@@ -1,10 +1,23 @@
-import { buildIntercomUrl, getCustomerJWT, getInstanceId } from './utils';
+import {
+  type IShowIntercomParams,
+  buildIntercomUrl,
+  getCustomerJWT,
+  getInstanceId,
+} from './utils';
 
 export const initIntercom = async () => {
   console.log('initIntercom');
 };
 
-export const showIntercom = async (params?: { requestId?: string }) => {
+export const setIntercomTheme = async (_theme: 'light' | 'dark') => {
+  // The extension opens the website instead of the native SDK.
+};
+
+export const setIntercomInAppMessageVisibility = async (_visible: boolean) => {
+  // The extension does not embed the Messenger in its wallet UI.
+};
+
+export const showIntercom = async (params?: IShowIntercomParams) => {
   const token = await getCustomerJWT();
   const instanceId = await getInstanceId();
 
@@ -13,6 +26,7 @@ export const showIntercom = async (params?: { requestId?: string }) => {
     token,
     instanceId,
     requestId: params?.requestId,
+    conversationId: params?.conversationId,
   });
 
   window.open(url);

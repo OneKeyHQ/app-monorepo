@@ -14,11 +14,14 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
+import { isSupportNotification } from '@onekeyhq/shared/src/utils/supportNotificationUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -45,6 +48,7 @@ import type {
   INotificationShowResult,
 } from '@onekeyhq/shared/types/notification';
 import {
+  ENotificationCommand,
   ENotificationPermission,
   ENotificationPermissionRecoveryAction,
   ENotificationPermissionRecoveryTestScenario,
@@ -164,6 +168,18 @@ export default class ServiceNotification extends ServiceBase {
 
   pushClient: INotificationPushClient = {};
 
+  private supportNotificationForeground = false;
+
+  @backgroundMethod()
+  async setSupportNotificationForeground({
+    isForeground,
+  }: {
+    isForeground: boolean;
+  }) {
+    // Native main and bg have separate AppState JS instances.
+    this.supportNotificationForeground = isForeground;
+  }
+
   @backgroundMethod()
   async getPushClient() {
     return this.pushClient;
@@ -220,7 +236,13 @@ export default class ServiceNotification extends ServiceBase {
     }
 
     // websocket push should show notification by ourselves
-    if (messageInfo.pushSource === 'websocket') {
+    const isSupportMessage = isSupportNotification(messageInfo.extras);
+    const suppressForegroundSupport =
+      isSupportMessage &&
+      (platformEnv.isNative
+        ? this.supportNotificationForeground
+        : !platformEnv.isExtension && getCurrentVisibilityState());
+    if (messageInfo.pushSource === 'websocket' && !suppressForegroundSupport) {
       if (!(await this.isNotificationShowed(msgId))) {
         const prefix = showMessagePushSource ? '[wss:] ' : '';
         // jpush will show notification automatically
@@ -233,7 +255,7 @@ export default class ServiceNotification extends ServiceBase {
           remotePushMessageInfo: messageInfo,
         };
         await this.showNotification(notificationParams);
-        if (!platformEnv.isNativeIOS) {
+        if (!platformEnv.isNativeIOS && !isSupportMessage) {
           appEventBus.emit(
             EAppEventBusNames.ShowInAppPushNotification,
             notificationParams,
@@ -317,6 +339,33 @@ export default class ServiceNotification extends ServiceBase {
   };
 
   isColdStartByNotificationDone = false;
+
+  private pendingSupportConversation: { conversationId?: string } | undefined;
+
+  @backgroundMethod()
+  async requestOpenSupportConversation({
+    conversationId,
+  }: {
+    conversationId?: string;
+  }) {
+    // Keep the intent in bg until a foreground is mounted and can claim it.
+    this.pendingSupportConversation = { conversationId };
+    if (platformEnv.isExtensionBackground) {
+      await extUtils.openExpandTab({});
+    }
+    appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
+      action: ENotificationCommand.openSupportConversation,
+    });
+  }
+
+  @backgroundMethod()
+  async takePendingSupportConversation(): Promise<
+    { conversationId?: string } | undefined
+  > {
+    const pendingConversation = this.pendingSupportConversation;
+    this.pendingSupportConversation = undefined;
+    return pendingConversation;
+  }
 
   @backgroundMethod()
   async handleColdStartByNotification(params: INotificationClickParams) {

@@ -50,7 +50,10 @@ import {
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
-import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import {
+  initIntercom,
+  setIntercomTheme,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import {
   createDistinctChangeCounter,
@@ -96,6 +99,7 @@ import useAppNavigation from '../hooks/useAppNavigation';
 import { useHandleAppStateActive } from '../hooks/useHandleAppStateActive';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
+import { useThemeVariant } from '../hooks/useThemeVariant';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 import { registerHomeTokenListOwnerCacheInvalidation } from '../states/jotai/contexts/tokenList/cells/ownerCacheInvalidation';
 import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
@@ -614,6 +618,15 @@ const useLogVersionInfo = () => {
 
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
+  const theme = useThemeVariant();
+
+  useEffect(() => {
+    if (platformEnv.isNativeMainThread) {
+      void setIntercomTheme(theme).catch(() => {
+        console.warn('Failed to update Intercom theme');
+      });
+    }
+  }, [theme]);
 
   useEffect(() => {
     const timer = setTimeout(
@@ -621,7 +634,9 @@ export const useIntercomInit = () => {
         if (isInitializedRef.current) {
           return;
         }
-        void initIntercom();
+        void initIntercom().catch(() => {
+          console.warn('Failed to initialize Intercom');
+        });
         isInitializedRef.current = true;
       },
       timerUtils.getTimeDurationMs({ seconds: 10 }),

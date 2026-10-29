@@ -42,6 +42,7 @@ import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-li
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
@@ -524,6 +525,7 @@ interface IMoreActionContentGridItemProps {
   onPress: () => void;
   ignorePress?: boolean;
   showRedDot?: boolean;
+  showUnreadDot?: boolean;
   showBadges?: boolean;
   badges?: number;
   lottieSrc?: any;
@@ -539,6 +541,7 @@ function MoreActionContentGridItem({
   testID,
   trackID,
   showRedDot,
+  showUnreadDot,
   showBadges,
   badges = 0,
   lottieSrc,
@@ -629,6 +632,7 @@ function MoreActionContentGridItem({
         $group-press={desktopIconPressStyle}
         borderRadius="$3"
         borderCurve="continuous"
+        position="relative"
       >
         <YStack>
           {icon ? <Icon size="$6" color="$icon" name={icon} /> : null}
@@ -678,6 +682,19 @@ function MoreActionContentGridItem({
             </Stack>
           ) : null}
         </YStack>
+        {showUnreadDot ? (
+          <Stack
+            testID="more-action-support-unread-dot"
+            position="absolute"
+            top={6}
+            right={6}
+            width="$2"
+            height="$2"
+            borderRadius="$full"
+            bg="$bgCriticalStrong"
+            pointerEvents="none"
+          />
+        ) : null}
         {/* Only show Prime badge for non-Prime users */}
         {isPrimeFeature && !hidePrimeBadge && !isPrimeUser ? (
           <Stack
@@ -1498,6 +1515,7 @@ const showDevModeEntryInMoreMenu = platformEnv.isDev && platformEnv.isNative;
 
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
+  const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
   const showReviewControlledFeatures = useReviewControl();
   const navigation = useAppNavigation();
   const { closePopover } = usePopoverContext();
@@ -1541,6 +1559,7 @@ const MoreActionMoreGrid = () => {
         icon: 'HelpSupportOutline' as const,
         onPress: handleHelpAndSupport,
         trackID: 'wallet-customer-support',
+        showUnreadDot: hasUnreadSupportMessages,
       },
 
       {
@@ -1575,6 +1594,7 @@ const MoreActionMoreGrid = () => {
     ];
   }, [
     handleHelpAndSupport,
+    hasUnreadSupportMessages,
     handleRedeem,
     intl,
     themeVariant,
@@ -1945,9 +1965,13 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const isDesktopMode = useIsDesktopModeUIInTabPages();
   const isShowUpgradeDot = useIsShowAppUpdateDot();
   const isShowRedDot = useIsShowRedDot();
+  const hasUnreadSupportMessages = useIntercomUnreadCount() > 0;
 
   // Large dot for mobile
   const dot = useMemo(() => {
+    if (hasUnreadSupportMessages) {
+      return <Dot color="$bgCriticalStrong" />;
+    }
     if (isShowUpgradeDot) {
       return (
         <Dot
@@ -1959,18 +1983,23 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
       );
     }
     return null;
-  }, [isDesktopMode, isShowUpgradeDot]);
+  }, [hasUnreadSupportMessages, isDesktopMode, isShowUpgradeDot]);
 
   // Small dot for desktop (similar to DesktopTabItem)
   const desktopDot = useMemo(() => {
-    if (!isShowUpgradeDot && !isShowRedDot) return null;
+    if (!isShowUpgradeDot && !isShowRedDot && !hasUnreadSupportMessages) {
+      return null;
+    }
     return (
       <Stack
         width="$3"
         height="$3"
-        // Update dot uses accent (brand green) to match the header "Update
-        // now" button; the notification (non-update) dot stays critical red.
-        bg={isShowUpgradeDot ? '$bgAccent' : '$bgCriticalStrong'}
+        // Unread support takes priority over the green update indicator.
+        bg={
+          isShowUpgradeDot && !hasUnreadSupportMessages
+            ? '$bgAccent'
+            : '$bgCriticalStrong'
+        }
         borderRadius="$full"
         position="absolute"
         right={-4}
@@ -1979,7 +2008,7 @@ function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
         borderColor="$bgSidebar"
       />
     );
-  }, [isShowUpgradeDot, isShowRedDot]);
+  }, [isShowUpgradeDot, isShowRedDot, hasUnreadSupportMessages]);
 
   const handleMoreActionPage = useCallback(() => {
     rootNavigationRef.current?.navigate(ERootRoutes.FullScreenPush, {

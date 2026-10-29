@@ -3,6 +3,7 @@ import { CommonActions, StackActions } from '@react-navigation/native';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 
 import {
+  ENotificationCommand,
   ENotificationPermission,
   ENotificationPushMessageAckAction,
   ENotificationPushMessageMode,
@@ -581,6 +582,26 @@ export function parseNotificationPayload(
         }
         // Merge extras.params with data, extras.params takes precedence for orderId etc.
         const mergedData = { ...data, ...extras?.params };
+        if (action === ENotificationCommand.openSupportConversation) {
+          const { conversationId } = mergedData;
+          if (
+            conversationId !== undefined &&
+            conversationId !== null &&
+            typeof conversationId !== 'string'
+          ) {
+            fallbackHandler();
+            return false;
+          }
+          void appGlobals.$backgroundApiProxy.serviceNotification
+            .requestOpenSupportConversation({
+              conversationId:
+                typeof conversationId === 'string'
+                  ? conversationId.trim() || undefined
+                  : undefined,
+            })
+            .catch(fallbackHandler);
+          return true;
+        }
         appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
           action,
           data: mergedData,

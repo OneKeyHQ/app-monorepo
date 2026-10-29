@@ -78,6 +78,7 @@
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
+    "@intercom/intercom-react-native": "10.8.1",
     "@notifee/react-native": "9.1.8",
     "@onekeyfe/react-native-app-update": "6.7.0-19",
     "@onekeyfe/react-native-auto-size-input": "6.7.0-19",

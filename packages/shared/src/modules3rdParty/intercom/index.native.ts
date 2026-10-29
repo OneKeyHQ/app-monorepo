@@ -1,35 +1,284 @@
-import openUrlUtils from '../../utils/openUrlUtils';
+import { NativeEventEmitter, NativeModules } from 'react-native';
+
+import { OneKeyLocalError } from '../../errors';
+import platformEnv from '../../platformEnv';
 
 import {
-  buildIntercomUrl,
-  getCustomerJWT,
+  getCurrentIntercomUserId as getCurrentUserId,
+  getIntercomCredentials as getUserCredentials,
+} from './identity';
+import {
+  type IShowIntercomParams,
   getInstanceId,
   getIntercomLanguageOverride,
 } from './utils';
+import { showIntercom as showWebIntercom } from './webView.native';
 
-export const initIntercom = async () => {
-  console.log('initIntercom');
+type IIntercomSdk = typeof import('@intercom/intercom-react-native');
+type IUserId = string | null;
+
+let sdkPromise: Promise<IIntercomSdk> | undefined;
+let sessionPromise: Promise<void> | undefined;
+let requestedUserId: IUserId | undefined;
+let activeUserId: IUserId | undefined;
+let activeSessionGeneration = 0;
+let sessionGeneration = 0;
+let unreadRequestId = 0;
+let unreadCount = 0;
+let currentTheme: 'light' | 'dark' | undefined;
+let inAppMessagesVisible = false;
+const unreadListeners = new Set<() => void>();
+
+function getNativeSdkApiKey() {
+  return platformEnv.isNativeAndroid
+    ? process.env.INTERCOM_ANDROID_API_KEY
+    : process.env.INTERCOM_IOS_API_KEY;
+}
+
+function canUseNativeSdk() {
+  // Older installed binaries and Catalyst keep the existing WebView entry.
+  return (
+    !platformEnv.isNativeIOSMacCatalyst &&
+    !!getNativeSdkApiKey() &&
+    !!NativeModules.IntercomEventEmitter
+  );
+}
+
+function setUnreadCount(count: number) {
+  unreadCount = count;
+  unreadListeners.forEach((listener) => listener());
+}
+
+export const getIntercomUnreadCount = () => unreadCount;
+
+export const subscribeToIntercomUnreadCount = (listener: () => void) => {
+  unreadListeners.add(listener);
+  return () => {
+    unreadListeners.delete(listener);
+  };
 };
 
-export const showIntercom = async (params?: { requestId?: string }) => {
-  const token = await getCustomerJWT();
-  const instanceId = await getInstanceId();
-  const languageOverride = await getIntercomLanguageOverride();
+async function refreshUnreadCount(sdk: IIntercomSdk) {
+  const generation = activeSessionGeneration;
+  unreadRequestId += 1;
+  const requestId = unreadRequestId;
+  const count = await sdk.default.getUnreadConversationCount();
+  const userId = await getCurrentUserId();
+  if (
+    generation === sessionGeneration &&
+    requestId === unreadRequestId &&
+    activeUserId === userId
+  ) {
+    setUnreadCount(count);
+  }
+}
 
-  const supportUrl = 'https://intercom.onekey.so/';
+async function isCurrentSession(userId: IUserId, generation: number) {
+  const currentUserId = await getCurrentUserId();
+  return generation === sessionGeneration && currentUserId === userId;
+}
 
-  const url = buildIntercomUrl(supportUrl, {
-    token,
-    instanceId,
-    requestId: params?.requestId,
-    languageOverride,
+async function loadSdk() {
+  if (!sdkPromise) {
+    sdkPromise = (async () => {
+      const apiKey = getNativeSdkApiKey();
+      if (!apiKey) {
+        throw new OneKeyLocalError('Intercom native SDK key is not configured');
+      }
+      const sdk = await import('@intercom/intercom-react-native');
+      await sdk.default.initialize(apiKey, 'vbbj4ssb');
+      await sdk.default.setLauncherVisibility(sdk.Visibility.GONE);
+      await sdk.default.setInAppMessageVisibility(
+        inAppMessagesVisible ? sdk.Visibility.VISIBLE : sdk.Visibility.GONE,
+      );
+      const emitter = new NativeEventEmitter(
+        NativeModules.IntercomEventEmitter,
+      );
+      // One listener belongs to the main runtime for the native SDK lifetime.
+      emitter.addListener(
+        sdk.IntercomEvents.IntercomUnreadCountDidChange,
+        () => {
+          void refreshUnreadCount(sdk).catch(() => {
+            console.warn('Failed to refresh Intercom unread count');
+          });
+        },
+      );
+      sdk.default.bootstrapEventListeners();
+      return sdk;
+    })();
+    void sdkPromise.catch(() => {
+      sdkPromise = undefined;
+    });
+  }
+  return sdkPromise;
+}
+
+export async function setIntercomInAppMessageVisibility(visible: boolean) {
+  if (!platformEnv.isNativeMainThread || !canUseNativeSdk()) {
+    return;
+  }
+  inAppMessagesVisible = visible;
+  if (sdkPromise) {
+    const sdk = await sdkPromise;
+    await sdk.default.setInAppMessageVisibility(
+      inAppMessagesVisible ? sdk.Visibility.VISIBLE : sdk.Visibility.GONE,
+    );
+  }
+}
+
+export async function setIntercomTheme(theme: 'light' | 'dark') {
+  if (!platformEnv.isNativeMainThread || !canUseNativeSdk()) {
+    return;
+  }
+  currentTheme = theme;
+  // Keep theme changes from eagerly initializing the native SDK.
+  if (sdkPromise) {
+    const sdk = await sdkPromise;
+    await sdk.default.setThemeMode(
+      currentTheme === 'dark' ? sdk.ThemeMode.DARK : sdk.ThemeMode.LIGHT,
+    );
+  }
+}
+
+async function syncSession(
+  sdk: IIntercomSdk,
+  userId: IUserId,
+  generation: number,
+) {
+  if (generation !== sessionGeneration) {
+    return;
+  }
+  const credentials = userId ? await getUserCredentials(userId) : undefined;
+  if (!(await isCurrentSession(userId, generation))) {
+    return;
+  }
+  if (userId && !credentials) {
+    return;
+  }
+
+  const loggedIn = await sdk.default.isUserLoggedIn();
+  const previous = loggedIn
+    ? await sdk.default.fetchLoggedInUserAttributes()
+    : {};
+  const wasIdentified = !!(previous.userId || previous.email);
+  let sameIdentity = !wasIdentified;
+  if (credentials) {
+    sameIdentity = previous.userId === credentials.attributes.userId;
+  }
+
+  if (!(await isCurrentSession(userId, generation))) {
+    return;
+  }
+  await sdk.default.removeUserJwtProvider();
+  if (loggedIn && !sameIdentity) {
+    await sdk.default.hideIntercom();
+    // Preserve the anonymous session so identifying it can retain its history.
+    if (wasIdentified) {
+      await sdk.default.logout();
+    }
+  }
+  if (!(await isCurrentSession(userId, generation))) {
+    return;
+  }
+
+  if (credentials && userId) {
+    await sdk.default.setUserJwt(credentials.token);
+    if (!loggedIn || !sameIdentity) {
+      await sdk.default.loginUserWithUserAttributes(credentials.attributes);
+    }
+    await sdk.default.setUserJwtProvider(async () => {
+      if (!(await isCurrentSession(userId, generation))) {
+        return null;
+      }
+      const refreshed = await getUserCredentials(userId);
+      return (await isCurrentSession(userId, generation))
+        ? (refreshed?.token ?? null)
+        : null;
+    });
+  } else if (!loggedIn || !sameIdentity) {
+    await sdk.default.loginUnidentifiedUser();
+  }
+
+  if (!(await isCurrentSession(userId, generation))) {
+    return;
+  }
+  activeUserId = userId;
+  activeSessionGeneration = generation;
+  await sdk.default.updateUser({
+    languageOverride: await getIntercomLanguageOverride(),
   });
+  const instanceId = await getInstanceId();
+  if (instanceId) {
+    await sdk.default.logEvent('client info', { instanceId });
+  }
+  await refreshUnreadCount(sdk);
+}
 
-  openUrlUtils.openUrlInApp(url, 'Support');
-};
+export async function initIntercom() {
+  if (!platformEnv.isNativeMainThread || !canUseNativeSdk()) {
+    return;
+  }
+  const userId = await getCurrentUserId();
+  if (sessionPromise && requestedUserId === userId) {
+    return sessionPromise;
+  }
+  requestedUserId = userId;
+  sessionGeneration += 1;
+  const generation = sessionGeneration;
+  setUnreadCount(0);
+  const previous = sessionPromise ?? Promise.resolve();
+  const operation = previous
+    .catch(() => undefined)
+    .then(async () => {
+      await syncSession(await loadSdk(), userId, generation);
+    });
+  sessionPromise = operation;
+  try {
+    await operation;
+  } catch (error) {
+    if (sessionPromise === operation) {
+      sessionPromise = undefined;
+    }
+    throw error;
+  }
+}
 
-// Empty update function for native compatibility
-// Native doesn't use the Intercom SDK, so this is a no-op
-export const update = () => {
-  // No-op for native
-};
+export async function showIntercom(params?: IShowIntercomParams) {
+  if (!platformEnv.isNativeMainThread) {
+    throw new OneKeyLocalError('Intercom must be opened in the main runtime');
+  }
+  if (!canUseNativeSdk()) {
+    return showWebIntercom(params);
+  }
+  await initIntercom();
+  const generation = activeSessionGeneration;
+  const userId = activeUserId;
+  if (userId === undefined || !(await isCurrentSession(userId, generation))) {
+    throw new OneKeyLocalError('Intercom user changed; please try again');
+  }
+  const sdk = await loadSdk();
+  if (currentTheme) {
+    await setIntercomTheme(currentTheme).catch(() => {
+      console.warn('Failed to update Intercom theme');
+    });
+  }
+  if (params?.requestId) {
+    const instanceId = await getInstanceId();
+    await sdk.default.logEvent('client info', {
+      ...(instanceId ? { instanceId } : {}),
+      requestId: params.requestId,
+    });
+  }
+  if (!(await isCurrentSession(userId, generation))) {
+    throw new OneKeyLocalError('Intercom user changed; please try again');
+  }
+  if (params?.conversationId) {
+    await sdk.default.presentContent(
+      sdk.IntercomContent.conversationWithConversationId(params.conversationId),
+    );
+  } else {
+    await sdk.default.present();
+  }
+}
+
+export const update = () => {};

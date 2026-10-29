@@ -325,6 +325,9 @@ jobs:
         uses: ./.github/actions/shared-env
         with:
           checkout_ref: ${{ inputs.checkout_ref || '' }}
+          additional_env: |
+            INTERCOM_IOS_API_KEY=${{ secrets.INTERCOM_IOS_API_KEY }}
+            INTERCOM_ANDROID_API_KEY=${{ secrets.INTERCOM_ANDROID_API_KEY }}
           env_file_name: '.env'
           sentry_project: 'react-native'
           covalent_key: ${{ secrets.COVALENT_KEY }}

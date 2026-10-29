@@ -54,6 +54,9 @@ function buildEnvExposedToClientDangerously({ platform }) {
     // shared/src/modules3rdParty/onramper/realClient.native.ts.
     transformInlineEnvironmentVariables.push('ONRAMPER_CLIENT_ID');
     transformInlineEnvironmentVariables.push('ONRAMPER_API_KEY');
+    // Publishable Messenger SDK keys, not server REST access tokens.
+    transformInlineEnvironmentVariables.push('INTERCOM_IOS_API_KEY');
+    transformInlineEnvironmentVariables.push('INTERCOM_ANDROID_API_KEY');
   }
 
   return transformInlineEnvironmentVariables;

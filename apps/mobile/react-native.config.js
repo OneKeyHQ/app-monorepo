@@ -2,6 +2,7 @@ const isMacCatalystBuild = process.env.ONEKEY_MAC_CATALYST === '1';
 
 // These bundled or transitive native binaries lack Mac Catalyst slices.
 const macCatalystExcludedDependencies = [
+  '@intercom/intercom-react-native',
   '@onekeyfe/react-native-lite-card',
   '@onekeyfe/react-native-sni-connect',
   '@onramper/onramper-react-native',

@@ -1,5 +1,8 @@
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
 import { ENotificationCommand } from '@onekeyhq/shared/types/notification';
+
+import { whenAppUnlocked } from '../../../utils/passwordUtils';
 
 type ICommandContext = {
   toInviteRewardPage: (params?: IInviteRewardRouteParams) => Promise<void>;
@@ -12,6 +15,14 @@ type ICommandHandler = (params: {
 }) => void | Promise<void>;
 
 const notificationCommandRegistry: Record<string, ICommandHandler> = {
+  [ENotificationCommand.openSupportConversation]: async ({ data }) => {
+    const conversationId = data?.conversationId;
+    await whenAppUnlocked();
+    await showIntercom({
+      conversationId:
+        typeof conversationId === 'string' ? conversationId : undefined,
+    });
+  },
   [ENotificationCommand.openRewardDistributionHistoryModal]: ({ context }) => {
     // Payout history belongs to the invite tab, so open it under that tab
     // rather than the one the user last left.
@@ -28,16 +39,16 @@ const notificationCommandRegistry: Record<string, ICommandHandler> = {
   },
 };
 
-export function executeNotificationCommand(
+export async function executeNotificationCommand(
   action: string,
   context: ICommandContext,
   data?: Record<string, unknown>,
-): boolean {
+): Promise<boolean> {
   const handler = notificationCommandRegistry[action];
   if (!handler) {
     console.warn(`[Notification] Unknown action: ${action}`);
     return false;
   }
-  void handler({ context, data });
+  await handler({ context, data });
   return true;
 }
