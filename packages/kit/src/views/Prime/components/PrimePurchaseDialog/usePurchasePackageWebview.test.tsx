@@ -104,14 +104,26 @@ describe('Android card payment entry', () => {
     );
   });
 
-  it('keeps a racing replacement and does not open the Android embedded page', async () => {
+  it('keeps a racing replacement and still opens the Android embedded page', async () => {
     mockClearPendingSession.mockResolvedValueOnce(false);
     const { result } = renderHook(() => usePurchasePackageWebview());
     await expect(
       result.current({ selectedSubscriptionPeriod: 'P1M' }),
-    ).rejects.toThrow('session changed');
-    expect(mockPopStack).not.toHaveBeenCalled();
-    expect(mockOpenWebview).not.toHaveBeenCalled();
+    ).resolves.toBeUndefined();
+    expect(mockPopStack).toHaveBeenCalledTimes(1);
+    expect(mockOpenWebview).toHaveBeenCalledTimes(1);
+  });
+
+  it('still opens the Android embedded page when the hosted record cannot be read', async () => {
+    mockGetPendingSession.mockRejectedValueOnce(
+      new Error('storage unavailable'),
+    );
+    const { result } = renderHook(() => usePurchasePackageWebview());
+    await expect(
+      result.current({ selectedSubscriptionPeriod: 'P1M' }),
+    ).resolves.toBeUndefined();
+    expect(mockClearPendingSession).not.toHaveBeenCalled();
+    expect(mockOpenWebview).toHaveBeenCalledTimes(1);
   });
 
   it('does not open a payment without a selected plan', async () => {

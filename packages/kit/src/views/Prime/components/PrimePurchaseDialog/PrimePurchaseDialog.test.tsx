@@ -1333,17 +1333,25 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
     });
 
-    it('does not start embedded or fallback when a newer hosted attempt wins retirement', async () => {
+    it('still starts the embedded payment when a newer hosted attempt owns the record', async () => {
       mockGetHostedPendingSession.mockResolvedValue({ checkoutId: 'previous' });
       mockClearHostedPendingSession.mockResolvedValueOnce(false);
       await selectCard();
-      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
-      expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
-      expect(mockCardPaymentErrorToast).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'Prime web checkout session changed',
-        }),
+      expect(mockPurchasePackageWeb).toHaveBeenCalledWith(
+        expect.objectContaining({ subscriptionPeriod: 'P1M', currency: 'EUR' }),
       );
+      expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
+      expect(mockCardPaymentErrorToast).not.toHaveBeenCalled();
+    });
+
+    it('still starts the embedded payment when the hosted record cannot be read', async () => {
+      mockGetHostedPendingSession.mockRejectedValueOnce(
+        new Error('storage unavailable'),
+      );
+      await selectCard();
+      expect(mockClearHostedPendingSession).not.toHaveBeenCalled();
+      expect(mockPurchasePackageWeb).toHaveBeenCalledTimes(1);
+      expect(mockCardPaymentErrorToast).not.toHaveBeenCalled();
     });
   });
 });
