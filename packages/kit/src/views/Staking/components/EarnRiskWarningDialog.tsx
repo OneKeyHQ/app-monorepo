@@ -9,6 +9,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -38,6 +39,7 @@ function EarnRiskWarningContent({
   onCancel: () => void;
 }) {
   const intl = useIntl();
+  const dialogInstance = useDialogInstance();
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // react-intl ships a different React type version here; match the rich-text
@@ -48,14 +50,15 @@ function EarnRiskWarningContent({
         size="$bodyMd"
         color="$textInfo"
         textDecorationLine="underline"
-        onPress={() => {
+        onPress={async () => {
+          await dialogInstance.close();
           openUrlExternal(ONEKEY_TERMS_OF_USE_URL);
         }}
       >
         {chunks}
       </SizableText>
     ),
-    [],
+    [dialogInstance],
   );
 
   return (
