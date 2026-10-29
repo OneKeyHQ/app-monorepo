@@ -1,11 +1,10 @@
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 import Svg, { Circle } from 'react-native-svg';
 
 import type { IIconProps } from '@onekeyhq/components';
 import {
+  Divider,
   Icon,
-  IconButton,
   SizableText,
   Stack,
   XStack,
@@ -13,8 +12,8 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { openGuideUrl } from './Guide/perpGuideData';
 import { PerpsRecallIllustration } from './PerpsRecallIllustration';
@@ -39,9 +38,10 @@ export function PerpsRecallProgressCard({
   hasEnded: boolean;
   onOpenHelp?: () => void;
 }) {
-  const intl = useIntl();
-  const helpLabel = intl.formatMessage({
-    id: ETranslations.settings_help_center,
+  const deadline = formatDate(progress.deadline, {
+    formatTemplate: 'MMM d, yyyy',
+    locale: 'en-US',
+    timeZone: 'UTC',
   });
   const achieved = progress.status === 'achieved';
   const paid = progress.payoutStatus === 'paid';
@@ -109,21 +109,21 @@ export function PerpsRecallProgressCard({
             alignSelf="flex-start"
             maxWidth="100%"
             alignItems="center"
-            gap="$1.5"
-            px="$2.5"
-            py="$1.5"
+            gap="$1"
+            px="$2"
+            py="$1"
             borderRadius="$full"
             bg={paid ? '$brand3' : '$bgSubdued'}
             {...(awaitingPayout && { bg: '$bgInfo' })}
           >
             <Icon
               name={statusIcon}
-              size="$4"
+              size="$3.5"
               color={paid ? '$textInteractive' : '$iconSubdued'}
               {...(awaitingPayout && { color: '$iconInfo' })}
             />
             <SizableText
-              size="$bodySmMedium"
+              size="$bodyXsMedium"
               color={paid ? '$textInteractive' : '$textSubdued'}
               {...(awaitingPayout && { color: '$textInfo' })}
               flexShrink={1}
@@ -146,39 +146,45 @@ export function PerpsRecallProgressCard({
         </Stack>
       </XStack>
 
-      <XStack
-        alignItems="center"
-        gap="$3"
-        p="$3"
-        borderRadius="$4"
-        bg="$bgSubdued"
-      >
-        <RecallProgressRing percentage={percentage} achieved={achieved} />
-        <YStack flex={1} minWidth={0} gap="$1">
-          <SizableText size="$bodyMdMedium">
-            {achieved ? 'Trading target completed' : 'Trading volume'}
-          </SizableText>
+      <YStack gap="$4" p="$3" borderRadius="$4" bg="$bgStrong">
+        <XStack alignItems="center" gap="$3">
+          <RecallProgressRing percentage={percentage} achieved={achieved} />
+          <YStack flex={1} minWidth={0} gap="$1">
+            <SizableText size="$bodyMdMedium">
+              {achieved ? 'Trading target completed' : 'Trading volume'}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              testID="perps-recall-traded"
+            >
+              {achieved
+                ? `$${formatRewardAmount(progress.volume)}`
+                : `$${formatRewardAmount(progress.volume)} / $${formatRewardAmount(target)}`}
+            </SizableText>
+          </YStack>
+        </XStack>
+        <Divider borderColor="$borderSubdued" />
+        <SizableText
+          testID="perps-recall-details"
+          size="$bodySm"
+          color="$textSubdued"
+        >
+          {`Campaign ${hasEnded ? 'ended' : 'ends'} on ${deadline}. `}
           <SizableText
+            testID="perps-recall-help"
             size="$bodySm"
-            color="$textSubdued"
-            testID="perps-recall-traded"
+            color="$textInteractive"
+            textDecorationLine="underline"
+            cursor="pointer"
+            accessibilityRole="link"
+            onPress={onOpenHelp ?? (() => openGuideUrl(HELP_CENTER_URL))}
           >
-            {achieved
-              ? `$${formatRewardAmount(progress.volume)}`
-              : `$${formatRewardAmount(progress.volume)} / $${formatRewardAmount(target)}`}
-          </SizableText>
-        </YStack>
-        <IconButton
-          testID="perps-recall-help"
-          icon="QuestionmarkOutline"
-          size="small"
-          variant="tertiary"
-          flexShrink={0}
-          title={helpLabel}
-          accessibilityLabel={helpLabel}
-          onPress={onOpenHelp ?? (() => openGuideUrl(HELP_CENTER_URL))}
-        />
-      </XStack>
+            Learn more
+          </SizableText>{' '}
+          about this campaign.
+        </SizableText>
+      </YStack>
     </YStack>
   );
 }

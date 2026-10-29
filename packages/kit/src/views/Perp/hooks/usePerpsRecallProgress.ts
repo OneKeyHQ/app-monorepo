@@ -5,14 +5,20 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useDevSettingsPersistAtom,
+  usePerpsActiveAccountAtom,
   usePerpsRecallProgressAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function usePerpsRecallProgress() {
   const [{ instanceId }] = useSettingsPersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();
+  const [activeAccount] = usePerpsActiveAccountAtom();
+  const isWatchingAccount = accountUtils.isWatchingAccount({
+    accountId: activeAccount.accountId ?? '',
+  });
   const [snapshot] = usePerpsRecallProgressAtom();
   const { run: refresh } = usePromiseResult(
     () => backgroundApiProxy.serviceReferralCode.fetchPerpsRecallProgress(),
@@ -36,6 +42,7 @@ export function usePerpsRecallProgress() {
   );
 
   const progress =
+    !isWatchingAccount &&
     snapshot.instanceId === instanceId.trim().toLowerCase()
       ? snapshot.progress
       : null;
