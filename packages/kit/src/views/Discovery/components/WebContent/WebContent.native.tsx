@@ -121,7 +121,9 @@ function WebContent({
     applyCachedPageThemeColor(id, nativeEvent.url, isNewDocument);
     // A full load runs the theme script itself (injectedJavaScript); only
     // SPA navigations need it injected again.
-    lastThemeUrlRef.current = nativeEvent.url;
+    // Android also reports SPA changes here without loading a new document.
+    // Keep those URLs pending until requestPageThemeColor re-injects the script.
+    if (isNewDocument) lastThemeUrlRef.current = nativeEvent.url;
 
     if (
       nativeEvent.url !== url &&
