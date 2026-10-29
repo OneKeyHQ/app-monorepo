@@ -24,10 +24,11 @@ import {
 import { SettingTestIDs } from '../../testIDs';
 
 import { useSettingsConfig } from './config';
+import { useSettingsLayout } from './useIsTabNavigator';
 
 const mockPlatform = platformEnv;
 let mockGtMd = false;
-let mockWideNativeWindow = false;
+let mockWindowDimensions = { width: 390, height: 844 };
 let mockTravelMode = false;
 let mockDevEnabled = false;
 let mockPaneIndex = 0;
@@ -48,6 +49,10 @@ jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 jest.mock('react-native', () => ({
   Keyboard: { dismiss: jest.fn() },
   StyleSheet: { hairlineWidth: 1 },
+  useWindowDimensions: () => mockWindowDimensions,
+}));
+jest.mock('../../../../../../components/src/hooks/useStyle', () => ({
+  useMedia: () => ({ gtMd: mockGtMd }),
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -102,7 +107,10 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Stack,
     getTokenValue: () => 16,
     isNativeTablet: () => mockPlatform.isNativeIOSPad || mockGtMd,
-    useIsWideNativeWindow: () => mockWideNativeWindow,
+    useIsWideNativeWindow: jest.requireActual<
+      typeof import('@onekeyhq/components/src/hooks/useIsWideNativeWindow')
+    >('../../../../../../components/src/hooks/useIsWideNativeWindow')
+      .useIsWideNativeWindow,
     useMedia: () => {
       React.useSyncExternalStore(
         (listener) => {
@@ -180,6 +188,12 @@ jest.mock('@react-navigation/bottom-tabs', () => {
         const routes = screens.map(({ props }) => ({
           key: props.name,
           name: props.name,
+          state: {
+            index:
+              props.name === initialRouteName
+                ? mockPaneIndex
+                : mockInactivePaneIndex,
+          },
         }));
         return React.createElement(
           React.Fragment,
@@ -438,6 +452,13 @@ describe.each([
     isWideWindow: true,
   },
   {
+    name: 'narrow iPad',
+    isIOSPad: true,
+    isAndroid: false,
+    gtMd: false,
+    isWideWindow: false,
+  },
+  {
     name: 'wide Android',
     isIOSPad: false,
     isAndroid: true,
@@ -447,12 +468,14 @@ describe.each([
 ])(
   'Travel Mode settings on $name',
   ({ isIOSPad, isAndroid, gtMd, isWideWindow }) => {
-    const isTabNavigator = isIOSPad || gtMd || isWideWindow;
+    const isTabNavigator = gtMd || isWideWindow;
     beforeEach(() => {
       jest.clearAllMocks();
       mockTravelMode = true;
       mockGtMd = gtMd;
-      mockWideNativeWindow = isWideWindow;
+      mockWindowDimensions = isWideWindow
+        ? { width: 834, height: 669 }
+        : { width: 390, height: 844 };
       mockPlatform.isNativeIOSPad = isIOSPad;
       mockPlatform.isNativeIOS = !isAndroid;
       mockPlatform.isNativeAndroid = isAndroid;
@@ -531,80 +554,114 @@ describe.each([
   },
 );
 
-it('preserves a native pane draft across folding until returning to its root', () => {
-  Object.assign(mockPlatform, {
-    isNative: true,
-    isNativeIOS: true,
-    isNativeIOSPad: false,
-  });
-  mockGtMd = false;
-  mockWideNativeWindow = true;
-  mockPaneIndex = 1;
-  const refreshLayout = () =>
-    act(() => {
-      mockLayoutVersion += 1;
-      mockLayoutListeners.forEach((listener) => listener());
+describe.each([false, true])(
+  'resizing Settings with isIOSPad=%s',
+  (isIOSPad) => {
+    it('preserves a native pane draft until returning to its root', () => {
+      Object.assign(mockPlatform, {
+        isNative: true,
+        isNativeIOS: true,
+        isNativeIOSPad: isIOSPad,
+      });
+      mockGtMd = false;
+      mockWindowDimensions = { width: 912, height: 669 };
+      mockPaneIndex = 1;
+      mockInactivePaneIndex = 0;
+      const refreshLayout = () =>
+        act(() => {
+          mockLayoutVersion += 1;
+          mockLayoutListeners.forEach((listener) => listener());
+        });
+      render(<SettingTab />);
+      const draft = screen.getByLabelText('Pane draft');
+      fireEvent.change(draft, { target: { value: 'Unsubmitted network' } });
+
+      mockWindowDimensions = { width: 390, height: 844 };
+      refreshLayout();
+      expect(screen.getByLabelText('Pane draft')).toBe(draft);
+      expect((draft as HTMLInputElement).value).toBe('Unsubmitted network');
+      expect(screen.queryByLabelText('Search')).toBeNull();
+      expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
+        headerShown: false,
+      });
+
+      mockWindowDimensions = { width: 912, height: 669 };
+      refreshLayout();
+      expect(screen.getByLabelText('Pane draft')).toBe(draft);
+
+      mockWindowDimensions = { width: 390, height: 844 };
+      mockPaneIndex = 0;
+      refreshLayout();
+      expect(screen.queryByLabelText('Pane draft')).toBeNull();
+      expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
+        headerShown: true,
+      });
     });
-  render(<SettingTab />);
-  const draft = screen.getByLabelText('Pane draft');
-  fireEvent.change(draft, { target: { value: 'Unsubmitted network' } });
 
-  mockWideNativeWindow = false;
-  refreshLayout();
-  expect(screen.getByLabelText('Pane draft')).toBe(draft);
-  expect((draft as HTMLInputElement).value).toBe('Unsubmitted network');
-  expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
-    headerShown: false,
-  });
+    it('retains an inactive category draft when folding from another category root', () => {
+      Object.assign(mockPlatform, {
+        isNative: true,
+        isNativeIOS: true,
+        isNativeIOSPad: isIOSPad,
+      });
+      mockGtMd = false;
+      mockWindowDimensions = { width: 912, height: 669 };
+      mockPaneIndex = 0;
+      mockInactivePaneIndex = 1;
+      const refreshLayout = () =>
+        act(() => {
+          mockLayoutVersion += 1;
+          mockLayoutListeners.forEach((listener) => listener());
+        });
+      render(<SettingTab />);
+      const draft = screen.getByLabelText('Pane draft');
+      fireEvent.change(draft, { target: { value: 'Inactive network draft' } });
 
-  mockWideNativeWindow = true;
-  refreshLayout();
-  expect(screen.getByLabelText('Pane draft')).toBe(draft);
+      mockWindowDimensions = { width: 390, height: 844 };
+      refreshLayout();
+      expect(screen.getByLabelText('Pane draft')).toBe(draft);
+      expect((draft as HTMLInputElement).value).toBe('Inactive network draft');
+      expect(screen.getByLabelText('Search')).toBeTruthy();
 
-  mockWideNativeWindow = false;
-  mockPaneIndex = 0;
-  refreshLayout();
-  expect(screen.queryByLabelText('Pane draft')).toBeNull();
-  expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
-    headerShown: true,
-  });
-});
+      mockWindowDimensions = { width: 912, height: 669 };
+      refreshLayout();
+      expect(screen.getByLabelText('Pane draft')).toBe(draft);
+      expect((draft as HTMLInputElement).value).toBe('Inactive network draft');
 
-it('retains an inactive category draft when folding from another category root', () => {
-  Object.assign(mockPlatform, {
-    isNative: true,
-    isNativeIOS: true,
-    isNativeIOSPad: false,
-  });
-  mockGtMd = false;
-  mockWideNativeWindow = true;
-  mockPaneIndex = 0;
-  mockInactivePaneIndex = 1;
-  const refreshLayout = () =>
-    act(() => {
-      mockLayoutVersion += 1;
-      mockLayoutListeners.forEach((listener) => listener());
+      mockWindowDimensions = { width: 390, height: 844 };
+      mockInactivePaneIndex = 0;
+      refreshLayout();
+      expect(screen.queryByLabelText('Pane draft')).toBeNull();
+      expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
+        headerShown: true,
+      });
     });
-  render(<SettingTab />);
-  const draft = screen.getByLabelText('Pane draft');
-  fireEvent.change(draft, { target: { value: 'Inactive network draft' } });
+  },
+);
 
-  mockWideNativeWindow = false;
-  refreshLayout();
-  expect(screen.getByLabelText('Pane draft')).toBe(draft);
-  expect((draft as HTMLInputElement).value).toBe('Inactive network draft');
-  expect(screen.getByLabelText('Search')).toBeTruthy();
-
-  mockWideNativeWindow = true;
-  refreshLayout();
-  expect(screen.getByLabelText('Pane draft')).toBe(draft);
-  expect((draft as HTMLInputElement).value).toBe('Inactive network draft');
-
-  mockWideNativeWindow = false;
-  mockInactivePaneIndex = 0;
-  refreshLayout();
-  expect(screen.queryByLabelText('Pane draft')).toBeNull();
-  expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
-    headerShown: true,
-  });
-});
+it.each([
+  { isIOSPad: true, width: 320, height: 1024, sidebar: false },
+  { isIOSPad: true, width: 410, height: 1024, sidebar: false },
+  { isIOSPad: true, width: 640, height: 1024, sidebar: false },
+  { isIOSPad: true, width: 767, height: 1024, sidebar: false },
+  { isIOSPad: true, width: 768, height: 1024, sidebar: true },
+  { isIOSPad: true, width: 1024, height: 600, sidebar: true },
+  { isIOSPad: false, width: 669, height: 912, sidebar: true },
+  { isIOSPad: false, width: 912, height: 669, sidebar: true },
+  { isIOSPad: false, width: 420, height: 912, sidebar: false },
+  { isIOSPad: false, width: 912, height: 420, sidebar: false },
+])(
+  'uses sidebar=$sidebar at $width x $height with isIOSPad=$isIOSPad',
+  ({ isIOSPad, width, height, sidebar }) => {
+    Object.assign(mockPlatform, {
+      isNative: true,
+      isNativeIOS: true,
+      isNativeIOSPad: isIOSPad,
+    });
+    mockGtMd = false;
+    mockWindowDimensions = { width, height };
+    const { result } = renderHook(() => useSettingsLayout());
+    expect(result.current.isTabNavigator).toBe(sidebar);
+    expect(result.current.isMobileLayout).toBe(!sidebar);
+  },
+);

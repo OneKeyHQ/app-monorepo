@@ -6,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export const useIsTabNavigator = () => {
   const { gtMd } = useMedia();
   const isWideNativeWindow = useIsWideNativeWindow();
-  return platformEnv.isNativeIOSPad || gtMd || isWideNativeWindow;
+  return gtMd || isWideNativeWindow;
 };
 
 /**
