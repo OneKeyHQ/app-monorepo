@@ -100,6 +100,8 @@ import {
 } from '../utils/marketTradingViewSubIndicatorCount';
 import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
+import { shouldShowMobileNativeChart } from './mobileChartVisibility';
+
 import type { SwapPanel } from '../components/SwapPanel/legacySwapPanel';
 import type { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
 
@@ -384,7 +386,7 @@ export function MobileLayout({
   disablePerpsBanner,
   disableTrade,
   isChartFullscreen,
-  isTradingViewNative,
+  isTradingViewNative: preferredIsTradingViewNative,
   onChartFullscreenChange,
   onChartSwitch,
   isNative: routeIsNative = false,
@@ -437,6 +439,12 @@ export function MobileLayout({
     tokenDetailPreview,
     isNative,
     websocketConfig,
+  });
+  const isTradingViewNative = shouldShowMobileNativeChart({
+    isNativeChartPreferred: preferredIsTradingViewNative,
+    hasTradingViewParams: Boolean(marketTradingViewParams),
+    // This chart always plots the token price.
+    isSharePrice: false,
   });
   let marketTradingViewKey = 'v2';
   if (isTradingViewNative) {
