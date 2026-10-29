@@ -1914,12 +1914,17 @@ class ServiceSend extends ServiceBase {
       // Persist the signed payload before the broadcast leaves: if the
       // request fails ambiguously the node may still have it, and a retry
       // must ask the chain for this signature instead of signing a fresh tx.
-      await this.rememberBroadcastAttempt({
-        unsignedTx,
-        signedTx,
-        networkId,
-        accountId,
-      });
+      // Local-scan chains keep none at rest: their payload carries view keys
+      // and spend details. A retry signs again and the chain refuses the
+      // duplicate spend.
+      if (!vaultSettings.localWallet) {
+        await this.rememberBroadcastAttempt({
+          unsignedTx,
+          signedTx,
+          networkId,
+          accountId,
+        });
+      }
       const { txid } = await runBroadcast().catch(async (error) => {
         // A node that evaluated and refused the payload never held it, so
         // the retry may sign at once instead of waiting for a chain verdict.
