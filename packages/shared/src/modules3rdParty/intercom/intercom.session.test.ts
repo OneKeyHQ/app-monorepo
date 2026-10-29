@@ -1,6 +1,7 @@
 let mockUserId: string | null = 'A';
 const mockUnreadCallbacks: ((count: number) => void)[] = [];
 const mockApiGetCustomerJWT = jest.fn<Promise<{ token: string }>, []>();
+const mockNotifyOpenFailed = jest.fn((_error: unknown) => {});
 const mockSdk = {
   default: jest.fn(),
   boot: jest.fn(),
@@ -34,6 +35,9 @@ jest.mock('../../appGlobals', () => ({
   },
 }));
 jest.mock('../../errors', () => ({ OneKeyLocalError: Error }));
+jest.mock('./openFailure', () => ({
+  notifyIntercomOpenFailed: (error: unknown) => mockNotifyOpenFailed(error),
+}));
 jest.mock('./utils', () => ({
   getInstanceId: async () => 'test-instance',
   getIntercomLanguageOverride: async () => 'en',
@@ -234,7 +238,10 @@ describe('desktop Intercom identity ownership', () => {
     await subject.initIntercom();
     mockUserId = 'B';
     mockApiGetCustomerJWT.mockRejectedValueOnce(new Error('offline'));
-    await expect(subject.showIntercom()).rejects.toThrow('offline');
+    await subject.showIntercom();
+    expect(mockNotifyOpenFailed).toHaveBeenLastCalledWith(
+      expect.objectContaining({ message: 'offline' }),
+    );
     expect(mockSdk.shutdown).toHaveBeenCalledTimes(1);
     expect(subject.getIntercomUnreadCount()).toBe(0);
     expect(mockSdk.show).not.toHaveBeenCalled();

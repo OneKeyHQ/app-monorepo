@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/onboarding';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import {
   EAppUpdateStatus,
   EUpdateFileType,
@@ -619,6 +620,7 @@ const useLogVersionInfo = () => {
 export const useIntercomInit = () => {
   const isInitializedRef = useRef(false);
   const theme = useThemeVariant();
+  const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
 
   useEffect(() => {
     if (platformEnv.isNativeMainThread) {
@@ -629,20 +631,26 @@ export const useIntercomInit = () => {
   }, [theme]);
 
   useEffect(() => {
+    const syncIntercom = () => {
+      void initIntercom().catch(() => {
+        console.warn('Failed to initialize Intercom');
+      });
+    };
+    // Keep the first sync off the startup path; later sign-in/out changes
+    // re-sync immediately so unread state follows the current identity.
+    if (isInitializedRef.current) {
+      syncIntercom();
+      return;
+    }
     const timer = setTimeout(
       () => {
-        if (isInitializedRef.current) {
-          return;
-        }
-        void initIntercom().catch(() => {
-          console.warn('Failed to initialize Intercom');
-        });
         isInitializedRef.current = true;
+        syncIntercom();
       },
       timerUtils.getTimeDurationMs({ seconds: 10 }),
     );
     return () => clearTimeout(timer);
-  }, []);
+  }, [onekeyUserId, isLoggedIn]);
 };
 
 export const useLaunchEvents = (): void => {

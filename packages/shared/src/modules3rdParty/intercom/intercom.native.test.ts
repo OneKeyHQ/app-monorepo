@@ -12,6 +12,9 @@ const mockGetCustomerJWT = jest.fn<Promise<{ token: string }>, []>();
 const mockWebIntercom = jest.fn<Promise<void>, [IShowIntercomParams?]>(
   async () => {},
 );
+const mockAddListener = jest.fn();
+const mockNotifyOpenFailed = jest.fn((_error: unknown) => {});
+const mockStorage = new Map<string, boolean>();
 const mockPlatformEnv = {
   isNativeMainThread: true,
   isNativeIOSMacCatalyst: false,
@@ -64,6 +67,7 @@ jest.mock('react-native', () => ({
   NativeModules: mockNativeModules,
   NativeEventEmitter: class {
     addListener(_name: string, listener: () => void) {
+      mockAddListener();
       mockOnUnreadChanged = listener;
     }
   },
@@ -87,6 +91,20 @@ jest.mock('../../platformEnv', () => ({
   default: mockPlatformEnv,
 }));
 jest.mock('../../errors', () => ({ OneKeyLocalError: Error }));
+jest.mock('./openFailure', () => ({
+  notifyIntercomOpenFailed: (error: unknown) => mockNotifyOpenFailed(error),
+}));
+jest.mock('../../storage/appStorage', () => ({
+  __esModule: true,
+  default: {
+    syncStorage: {
+      getBoolean: (key: string) => mockStorage.get(key),
+      set: async (key: string, value: boolean) => {
+        mockStorage.set(key, value);
+      },
+    },
+  },
+}));
 jest.mock('./webView.native', () => ({
   showIntercom: (params?: IShowIntercomParams) => mockWebIntercom(params),
 }));
@@ -100,6 +118,14 @@ function createToken(userId: string) {
     'base64url',
   );
   return `header.${claims}.signature`;
+}
+
+const SUPPORT_OPENED_KEY = 'onekey_intercom_native_support_opened';
+
+function expectOpenFailure(message: string) {
+  expect(mockNotifyOpenFailed).toHaveBeenLastCalledWith(
+    expect.objectContaining({ message: expect.stringContaining(message) }),
+  );
 }
 
 function deferred<T>() {
@@ -146,6 +172,9 @@ describe.each(['ios', 'android'])('%s Intercom SDK integration', (platform) => {
     mockPlatformEnv.isNativeIOSMacCatalyst = false;
     mockPlatformEnv.isNativeAndroid = platform === 'android';
     mockGetCustomerJWT.mockReset();
+    mockStorage.clear();
+    // Most cases model an anonymous user who has contacted support before.
+    mockStorage.set(SUPPORT_OPENED_KEY, true);
     process.env.INTERCOM_IOS_API_KEY = 'test-ios-sdk-key';
     process.env.INTERCOM_ANDROID_API_KEY = 'test-android-sdk-key';
     subject = await import('./index.native');
@@ -155,7 +184,8 @@ describe.each(['ios', 'android'])('%s Intercom SDK integration', (platform) => {
     mockPlatformEnv.isNativeMainThread = false;
     await subject.setIntercomInAppMessageVisibility(true);
     await subject.initIntercom();
-    await expect(subject.showIntercom()).rejects.toThrow('main runtime');
+    await subject.showIntercom();
+    expectOpenFailure('main runtime');
     expect(mockSdk.initialize).not.toHaveBeenCalled();
     expect(mockSdk.setInAppMessageVisibility).not.toHaveBeenCalled();
 
@@ -169,7 +199,6 @@ describe.each(['ios', 'android'])('%s Intercom SDK integration', (platform) => {
   });
 
   it('retains an existing anonymous session and publishes live unread changes', async () => {
-    await subject.setIntercomInAppMessageVisibility(true);
     mockLoggedInUser = {};
     mockUnreadCount = 3;
     const listener = jest.fn();
@@ -186,7 +215,7 @@ describe.each(['ios', 'android'])('%s Intercom SDK integration', (platform) => {
     expect(mockSdk.logout).not.toHaveBeenCalled();
     expect(subject.getIntercomUnreadCount()).toBe(3);
     expect(mockSdk.setLauncherVisibility).toHaveBeenCalledWith('GONE');
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenCalledWith('VISIBLE');
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenCalledWith('GONE');
 
     mockUnreadCount = 0;
     mockOnUnreadChanged?.();
@@ -200,40 +229,23 @@ describe.each(['ios', 'android'])('%s Intercom SDK integration', (platform) => {
     expect(listener).not.toHaveBeenCalled();
   });
 
-  it('hides messages until allowed without resetting the session or unread count', async () => {
+  it('keeps in-app messages off without resetting the session or unread count', async () => {
     mockUnreadCount = 3;
-    await subject.setIntercomInAppMessageVisibility(false);
-    expect(mockSdk.initialize).not.toHaveBeenCalled();
-    await subject.initIntercom();
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
-
-    await subject.setIntercomInAppMessageVisibility(true);
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith(
-      'VISIBLE',
-    );
-    await subject.setIntercomInAppMessageVisibility(false);
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenLastCalledWith('GONE');
-    expect(subject.getIntercomUnreadCount()).toBe(3);
-    expect(mockSdk.initialize).toHaveBeenCalledTimes(1);
-    expect(mockSdk.loginUnidentifiedUser).toHaveBeenCalledTimes(1);
-    expect(mockSdk.logout).not.toHaveBeenCalled();
-  });
-
-  it('does not restore messages after locking during SDK initialization', async () => {
     const initialized = deferred<boolean>();
     mockSdk.initialize.mockImplementationOnce(() => initialized.promise);
     const starting = subject.initIntercom();
     await flushEvents();
     const allowingMessages = subject.setIntercomInAppMessageVisibility(true);
-    const locking = subject.setIntercomInAppMessageVisibility(false);
     initialized.resolve(true);
-    await Promise.all([starting, allowingMessages, locking]);
-    expect(mockSdk.setInAppMessageVisibility).toHaveBeenCalled();
-    expect(
-      mockSdk.setInAppMessageVisibility.mock.calls.every(
-        ([visibility]) => visibility === 'GONE',
-      ),
-    ).toBe(true);
+    await Promise.all([starting, allowingMessages]);
+    await subject.setIntercomInAppMessageVisibility(true);
+
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenCalledTimes(1);
+    expect(mockSdk.setInAppMessageVisibility).toHaveBeenCalledWith('GONE');
+    expect(subject.getIntercomUnreadCount()).toBe(3);
+    expect(mockSdk.initialize).toHaveBeenCalledTimes(1);
+    expect(mockSdk.loginUnidentifiedUser).toHaveBeenCalledTimes(1);
+    expect(mockSdk.logout).not.toHaveBeenCalled();
   });
 
   it('preserves support access on older binaries or without SDK configuration', async () => {
@@ -313,7 +325,8 @@ describe.each(['ios', 'android'])('%s Intercom SDK integration', (platform) => {
   it('rejects an unusable identity token without downgrading a signed-in user', async () => {
     mockUserId = 'onekey-user';
     mockGetCustomerJWT.mockResolvedValue({ token: '' });
-    await expect(subject.showIntercom()).rejects.toThrow('identity token');
+    await subject.showIntercom();
+    expectOpenFailure('identity token');
     expect(mockSdk.loginUnidentifiedUser).not.toHaveBeenCalled();
     expect(mockSdk.present).not.toHaveBeenCalled();
   });
@@ -326,7 +339,8 @@ describe.each(['ios', 'android'])('%s Intercom SDK integration', (platform) => {
     mockGetCustomerJWT.mockResolvedValue({
       token: `header.${claims}.signature`,
     });
-    await expect(subject.showIntercom()).rejects.toThrow('identity token');
+    await subject.showIntercom();
+    expectOpenFailure('identity token');
     expect(mockSdk.setUserJwt).not.toHaveBeenCalled();
     expect(mockSdk.loginUserWithUserAttributes).not.toHaveBeenCalled();
     expect(mockSdk.loginUnidentifiedUser).not.toHaveBeenCalled();
@@ -382,8 +396,48 @@ describe.each(['ios', 'android'])('%s Intercom SDK integration', (platform) => {
     mockUserId = null;
     const anonymousSession = subject.initIntercom();
     trackingResponse.resolve(true);
-    await expect(opening).rejects.toThrow('user changed');
+    await opening;
+    expectOpenFailure('user changed');
     await anonymousSession;
     expect(mockSdk.present).not.toHaveBeenCalled();
+  });
+
+  it('keeps the SDK off for anonymous users who never contacted support', async () => {
+    mockStorage.clear();
+    await subject.initIntercom();
+    expect(mockSdk.initialize).not.toHaveBeenCalled();
+
+    mockUserId = 'onekey-user';
+    mockGetCustomerJWT.mockResolvedValue({
+      token: createToken('intercom-user'),
+    });
+    await subject.initIntercom();
+    expect(mockSdk.initialize).toHaveBeenCalledTimes(1);
+    expect(mockSdk.logEvent).not.toHaveBeenCalled();
+
+    mockUserId = null;
+    await subject.initIntercom();
+    expect(mockSdk.logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports client info and remembers support only when opened', async () => {
+    mockStorage.clear();
+    await subject.showIntercom();
+    expect(mockSdk.logEvent).toHaveBeenCalledTimes(1);
+    expect(mockSdk.logEvent).toHaveBeenCalledWith('client info', {
+      instanceId: 'test-instance',
+    });
+    expect(mockStorage.get(SUPPORT_OPENED_KEY)).toBe(true);
+    expect(mockSdk.present).toHaveBeenCalledTimes(1);
+    expect(mockNotifyOpenFailed).not.toHaveBeenCalled();
+  });
+
+  it('registers SDK listeners before subscribing to unread changes', async () => {
+    await subject.initIntercom();
+    expect(mockSdk.bootstrapEventListeners).toHaveBeenCalledTimes(1);
+    expect(mockAddListener).toHaveBeenCalledTimes(1);
+    expect(
+      mockSdk.bootstrapEventListeners.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockAddListener.mock.invocationCallOrder[0]);
   });
 });

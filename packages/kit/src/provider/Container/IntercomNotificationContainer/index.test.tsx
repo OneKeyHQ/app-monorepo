@@ -6,7 +6,7 @@ import { IntercomNotificationContainer } from '.';
 
 import { act, render } from '@testing-library/react';
 
-import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 
 import type { IIntercomNavigationState } from './visibility';
 
@@ -70,8 +70,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({
 }));
 
 const main: IIntercomNavigationState = {
-  type: 'stack',
-  routes: [{ name: 'Main' }],
+  routes: [{ name: ERootRoutes.Main }],
 };
 
 describe('Intercom notification visibility integration', () => {
@@ -93,7 +92,7 @@ describe('Intercom notification visibility integration', () => {
     expect(mockSetVisibility).toHaveBeenLastCalledWith(true);
   });
 
-  it('does not restore on unlock while a signing flow is still open', () => {
+  it('does not restore on unlock while a modal flow is still open', () => {
     const screen = render(<IntercomNotificationContainer />);
     expect(mockSetVisibility).toHaveBeenLastCalledWith(true);
     mockIsLocked = true;
@@ -101,8 +100,8 @@ describe('Intercom notification visibility integration', () => {
     expect(mockSetVisibility).toHaveBeenLastCalledWith(false);
     act(() => {
       mockRouterChange?.({
-        type: 'stack',
-        routes: [{ name: EModalRoutes.SignatureConfirmModal }],
+        index: 1,
+        routes: [{ name: ERootRoutes.Main }, { name: ERootRoutes.Modal }],
       });
     });
     mockIsLocked = false;

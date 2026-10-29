@@ -237,6 +237,8 @@ export default class ServiceNotification extends ServiceBase {
 
     // websocket push should show notification by ourselves
     const isSupportMessage = isSupportNotification(messageInfo.extras);
+    // The extension background cannot tell whether a wallet UI is focused,
+    // so it keeps showing system notifications for support replies.
     const suppressForegroundSupport =
       isSupportMessage &&
       (platformEnv.isNative

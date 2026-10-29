@@ -27,7 +27,7 @@ export function IntercomNotificationContainer() {
   const [isRouteAllowed, setIsRouteAllowed] = useState(false);
   const handleRouterChange = useCallback(
     (state: IIntercomNavigationState | undefined) => {
-      setIsRouteAllowed(shouldShowIntercomInAppMessages(false, state));
+      setIsRouteAllowed(shouldShowIntercomInAppMessages(state));
     },
     [],
   );

@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '../../errors';
 
 import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
+import { notifyIntercomOpenFailed } from './openFailure';
 import {
   type IShowIntercomParams,
   getInstanceId,
@@ -219,7 +220,7 @@ export const initIntercom = async (settings?: Partial<InitType>) => {
   }
 };
 
-export const showIntercom = async (params?: IShowIntercomParams) => {
+const openIntercom = async (params?: IShowIntercomParams) => {
   await initIntercom();
   const userId = activeUserId;
   const generation = activeGeneration;
@@ -256,6 +257,14 @@ export const showIntercom = async (params?: IShowIntercomParams) => {
     showConversation(params.conversationId);
   } else {
     show();
+  }
+};
+
+export const showIntercom = async (params?: IShowIntercomParams) => {
+  try {
+    await openIntercom(params);
+  } catch (error) {
+    notifyIntercomOpenFailed(error);
   }
 };
 
