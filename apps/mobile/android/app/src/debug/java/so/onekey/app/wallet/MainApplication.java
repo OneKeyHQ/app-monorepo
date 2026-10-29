@@ -1,11 +1,14 @@
 package so.onekey.app.wallet;
 
+import android.content.SharedPreferences;
 import android.net.Uri;
+import android.preference.PreferenceManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.backgroundthread.BackgroundThreadManager;
+import com.facebook.react.packagerconnection.PackagerConnectionSettings;
 import com.margelo.nitro.nativelogger.OneKeyLog;
 
 import java.io.ByteArrayOutputStream;
@@ -25,6 +28,10 @@ public final class MainApplication extends BaseMainApplication {
   private static final Pattern DEV_SESSION_ID_PATTERN = Pattern.compile("^wk-[0-9a-f]{12}-dev-[0-9a-f]{12}-[0-9a-f]{16}$");
   private static final int MAX_DEV_SESSION_BYTES = 2 * 1024 * 1024;
   private static final long MAX_DEV_VENDOR_BYTES = 512L * 1024L * 1024L;
+  private static final String DEV_SESSION_PREFS_NAME = "onekey-dev-session";
+  private static final String DEV_SESSION_DEBUG_SERVER_HOST_KEY = "debugServerHost";
+  private static final String DEV_SESSION_PREVIOUS_DEBUG_SERVER_HOST_KEY = "previousDebugServerHost";
+  private static final String REACT_NATIVE_DEBUG_SERVER_HOST_KEY = "debug_http_host";
 
   @Nullable
   private BuildVariantBundleInfo buildVariantBundleInfo;
@@ -106,6 +113,15 @@ public final class MainApplication extends BaseMainApplication {
     ) {
       throw new IllegalStateException("DevSession Metro URL must be an HTTP(S) origin");
     }
+    // React Native's packager connection picks https and wss from port 443
+    // alone, so any other pairing would send reload and debugger traffic over
+    // the wrong scheme.
+    boolean secure = "https".equals(scheme);
+    int defaultPort = secure ? 443 : 80;
+    int port = uri.getPort() == -1 ? defaultPort : uri.getPort();
+    if (secure != (port == 443)) {
+      throw new IllegalStateException("DevSession Metro URL must use HTTPS exactly on port 443");
+    }
     return value.replaceAll("/$", "");
   }
 
@@ -140,9 +156,68 @@ public final class MainApplication extends BaseMainApplication {
     return builder.build().toString();
   }
 
+  // The host PackagerConnectionSettings persisted, or null while it uses the
+  // default; its getter cannot tell the two apart.
+  @Nullable
+  @SuppressWarnings("deprecation")
+  private String readPersistedDebugServerHost() {
+    String host = PreferenceManager.getDefaultSharedPreferences(this)
+      .getString(REACT_NATIVE_DEBUG_SERVER_HOST_KEY, null);
+    return host == null || host.isEmpty() ? null : host;
+  }
+
+  // React Native's packager connection (HMR, reload, debugger) reads its own
+  // persisted host instead of the bundle URL, so point it at the session's
+  // Metro. The host it replaces is kept for a plain debug build to restore,
+  // unless an earlier session wrote it.
+  private void applyDevSessionDebugServerHost(@NonNull String metroBaseUrl) {
+    Uri uri = Uri.parse(metroBaseUrl);
+    String host = uri.getEncodedAuthority();
+    // An implicit HTTPS port must be spelled out for the packager connection.
+    if ("https".equals(uri.getScheme()) && uri.getPort() == -1) {
+      host += ":443";
+    }
+    SharedPreferences sessionPreferences =
+      getSharedPreferences(DEV_SESSION_PREFS_NAME, MODE_PRIVATE);
+    String earlierSessionHost =
+      sessionPreferences.getString(DEV_SESSION_DEBUG_SERVER_HOST_KEY, null);
+    String currentHost = readPersistedDebugServerHost();
+    SharedPreferences.Editor editor = sessionPreferences.edit()
+      .putString(DEV_SESSION_DEBUG_SERVER_HOST_KEY, host);
+    if (currentHost == null) {
+      editor.remove(DEV_SESSION_PREVIOUS_DEBUG_SERVER_HOST_KEY);
+    } else if (!currentHost.equals(earlierSessionHost)) {
+      editor.putString(DEV_SESSION_PREVIOUS_DEBUG_SERVER_HOST_KEY, currentHost);
+    }
+    editor.apply();
+    new PackagerConnectionSettings(this).setDebugServerHost(host);
+  }
+
+  // Restores the host the session replaced, unless it was changed since.
+  private void releaseDevSessionDebugServerHost() {
+    SharedPreferences sessionPreferences =
+      getSharedPreferences(DEV_SESSION_PREFS_NAME, MODE_PRIVATE);
+    String sessionHost = sessionPreferences.getString(DEV_SESSION_DEBUG_SERVER_HOST_KEY, null);
+    if (sessionHost == null) {
+      return;
+    }
+    if (sessionHost.equals(readPersistedDebugServerHost())) {
+      String previousHost =
+        sessionPreferences.getString(DEV_SESSION_PREVIOUS_DEBUG_SERVER_HOST_KEY, null);
+      PackagerConnectionSettings settings = new PackagerConnectionSettings(this);
+      if (previousHost == null) {
+        settings.resetDebugServerHost();
+      } else {
+        settings.setDebugServerHost(previousHost);
+      }
+    }
+    sessionPreferences.edit().clear().apply();
+  }
+
   @Override
   protected synchronized void configureBuildVariantRuntime() {
     if (!BuildConfig.ONEKEY_DEV_SHELL) {
+      releaseDevSessionDebugServerHost();
       return;
     }
     if (buildVariantBundleInfo != null) {
@@ -235,6 +310,7 @@ public final class MainApplication extends BaseMainApplication {
       ) {
         throw new IllegalStateException("DevSession private common.hbc integrity mismatch");
       }
+      applyDevSessionDebugServerHost(metroBaseUrl);
       buildVariantBundleInfo = new BuildVariantBundleInfo(
         commonFile.getAbsolutePath(),
         fingerprint,

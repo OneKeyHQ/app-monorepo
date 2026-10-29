@@ -2189,6 +2189,18 @@ class ServiceSend extends ServiceBase {
     // later txs of the batch, and the first one when a retry dropped txs
     // that are already on chain.
     const hasEarlierBroadcast = (broadcastedTxs?.size ?? 0) > 0;
+    const hasDeFiAction = unsignedTxs.some(
+      (tx) =>
+        !!(tx.payload as { defiActionInfo?: unknown } | undefined)
+          ?.defiActionInfo,
+    );
+    const shouldTrackDeFiTransactions =
+      hasDeFiAction &&
+      !signOnly &&
+      !(await this.isAlwaysSignOnlySendTxInDev().catch(() => {
+        console.error('[ServiceDeFi] Unable to read the sign-only setting');
+        return false;
+      }));
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const txUuid = unsignedTxs[i].uuid;
@@ -2304,101 +2316,121 @@ class ServiceSend extends ServiceBase {
             accountId,
           });
         }
-        const decodedTx = await this.buildDecodedTx({
-          networkId,
-          accountId,
-          unsignedTx,
-          feeInfo,
-          transferPayload,
-          saveToLocalHistory: true,
-        });
-        if (isPrivateSend) {
-          decodedTx.payload = {
-            value:
-              transferPayload?.amountToSend ?? decodedTx.payload?.value ?? '',
-            label:
-              decodedTx.payload?.label ?? EOnChainHistoryTxType.PrivateSend,
-            type: EOnChainHistoryTxType.PrivateSend,
-            privateSend: {
-              ...transferPayload?.privateSend,
-              originalRecipient: transferPayload?.originalRecipient,
-            },
-          };
-          decodedTx.actions = decodedTx.actions.map((action) =>
-            action.assetTransfer
-              ? {
-                  ...action,
-                  assetTransfer: {
-                    ...action.assetTransfer,
-                    isInternalSwap: false,
-                  },
-                }
-              : action,
-          );
-          decodedTx.outputActions = decodedTx.outputActions?.map((action) =>
-            action.assetTransfer
-              ? {
-                  ...action,
-                  assetTransfer: {
-                    ...action.assetTransfer,
-                    isInternalSwap: false,
-                  },
-                }
-              : action,
-          );
-        }
-
-        const data = {
-          signedTx,
-          decodedTx,
-          feeInfo: feeInfo?.feeInfo,
-          approveInfo: unsignedTx.approveInfo,
-        };
         const hasDeFiActionInfo = Boolean(
           (unsignedTx.payload as { defiActionInfo?: unknown } | undefined)
             ?.defiActionInfo,
         );
-
-        // For batch approve+swap/staking: only return the swap/staking tx result
-        // For bulk send and DeFi portfolio action batches: return all business tx results
-        const shouldReturnData = Boolean(
-          !isMultiTxs ||
-          unsignedTx.swapInfo ||
-          unsignedTx.stakingInfo ||
-          unsignedTx.transfersInfo ||
-          hasDeFiActionInfo,
-        );
-        if (shouldReturnData) {
-          result.push(data);
-        }
-
-        // A replayed tx whose first attempt already ran this bookkeeping
-        // must not add a second signature record or history entry.
-        if (!broadcastRecord?.isSettled) {
-          await this.backgroundApi.serviceSignature.addItemFromSendProcess(
-            data,
-            sourceInfo,
-          );
-          if (signedTx && !signOnly) {
-            await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
-              networkId,
-              accountId,
-              data: {
-                signedTx,
-                decodedTx,
-              },
-              replaceTxInfo,
-              primeInfiniPayment: signedTx.primeInfiniPayment,
-            });
-            await this.markBroadcastRecordSettled({ unsignedTx });
-          }
-        }
-
-        if (!signOnly && txUuid && broadcastedTxs) {
-          broadcastedTxs.set(txUuid, {
-            status: 'recorded',
-            returnedData: shouldReturnData ? data : undefined,
+        try {
+          const decodedTx = await this.buildDecodedTx({
+            networkId,
+            accountId,
+            unsignedTx,
+            feeInfo,
+            transferPayload,
+            saveToLocalHistory: true,
           });
+          if (isPrivateSend) {
+            decodedTx.payload = {
+              value:
+                transferPayload?.amountToSend ?? decodedTx.payload?.value ?? '',
+              label:
+                decodedTx.payload?.label ?? EOnChainHistoryTxType.PrivateSend,
+              type: EOnChainHistoryTxType.PrivateSend,
+              privateSend: {
+                ...transferPayload?.privateSend,
+                originalRecipient: transferPayload?.originalRecipient,
+              },
+            };
+            decodedTx.actions = decodedTx.actions.map((action) =>
+              action.assetTransfer
+                ? {
+                    ...action,
+                    assetTransfer: {
+                      ...action.assetTransfer,
+                      isInternalSwap: false,
+                    },
+                  }
+                : action,
+            );
+            decodedTx.outputActions = decodedTx.outputActions?.map((action) =>
+              action.assetTransfer
+                ? {
+                    ...action,
+                    assetTransfer: {
+                      ...action.assetTransfer,
+                      isInternalSwap: false,
+                    },
+                  }
+                : action,
+            );
+          }
+
+          const data = {
+            signedTx,
+            decodedTx,
+            feeInfo: feeInfo?.feeInfo,
+            approveInfo: unsignedTx.approveInfo,
+          };
+          // For batch approve+swap/staking: only return the swap/staking tx result
+          // For bulk send and DeFi portfolio action batches: return all business tx results
+          const shouldReturnData = Boolean(
+            !isMultiTxs ||
+            unsignedTx.swapInfo ||
+            unsignedTx.stakingInfo ||
+            unsignedTx.transfersInfo ||
+            hasDeFiActionInfo,
+          );
+          if (shouldReturnData) {
+            result.push(data);
+          }
+
+          // A replayed tx whose first attempt already ran this bookkeeping
+          // must not add a second signature record or history entry.
+          if (!broadcastRecord?.isSettled) {
+            await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+              data,
+              sourceInfo,
+            );
+            if (signedTx && !signOnly) {
+              await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs(
+                {
+                  networkId,
+                  accountId,
+                  data: {
+                    signedTx,
+                    decodedTx,
+                  },
+                  replaceTxInfo,
+                  primeInfiniPayment: signedTx.primeInfiniPayment,
+                },
+              );
+              await this.markBroadcastRecordSettled({ unsignedTx });
+            }
+          }
+
+          if (!signOnly && txUuid && broadcastedTxs) {
+            broadcastedTxs.set(txUuid, {
+              status: 'recorded',
+              returnedData: shouldReturnData ? data : undefined,
+            });
+          }
+        } finally {
+          if (
+            shouldTrackDeFiTransactions &&
+            hasDeFiActionInfo &&
+            signedTx.txid
+          ) {
+            try {
+              this.backgroundApi.serviceDeFi.trackSubmittedDeFiTransaction({
+                accountId,
+                networkId,
+                txid: signedTx.txid,
+              });
+            } catch (error) {
+              // Tracking is advisory and must never change a broadcast result.
+              console.error('[ServiceDeFi] transaction tracking failed', error);
+            }
+          }
         }
       }
     }

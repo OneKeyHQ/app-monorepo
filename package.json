@@ -241,7 +241,7 @@
     "bech32": "^2.0.0",
     "biginteger": "^1.0.3",
     "bignumber.js": "9.1.2",
-    "bip174": "3.0.0-rc.1",
+    "bip174": "3.0.1",
     "browserify-zlib": "^0.2.0",
     "colord": "^2.9.3",
     "crypto-browserify": "^3.12.0",
@@ -443,6 +443,8 @@
     "yaml": "^2.8.0"
   },
   "resolutions": {
+    "@onekeyfe/hwk-ledger-adapter/bitcoinjs-lib": "npm:@onekeyfe/bitcoinjs-lib@7.0.2",
+    "@onekeyfe/hwk-keystone-adapter/bitcoinjs-lib": "npm:@onekeyfe/bitcoinjs-lib@7.0.2",
     "hermes-compiler": "260318099.0.4",
     "@keystonehq/bc-ur-registry": "0.8.0",
     "react-native-nitro-modules": "0.37.0",

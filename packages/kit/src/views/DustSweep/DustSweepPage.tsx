@@ -8,11 +8,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 
-import {
-  useFocusEffect,
-  usePreventRemove,
-  useRoute,
-} from '@react-navigation/core';
+import { usePreventRemove, useRoute } from '@react-navigation/core';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -51,11 +47,6 @@ import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/S
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  createHideTabBarOwnerId,
-  releaseHideTabBar,
-  requestHideTabBar,
-} from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
@@ -79,6 +70,7 @@ import {
   DustSweepScreenProvider,
   useDustSweep,
 } from './DustSweepProvider';
+import { useDustSweepTabBarVisibility } from './hooks/useDustSweepTabBarVisibility';
 import { EDustSweepPhase, getDustSweepPresentation } from './stateMachine';
 
 import type { IDustSweepState } from './stateMachine';
@@ -751,16 +743,7 @@ export default function DustSweepPage() {
   const overlay = useIsOverlayPage();
   // Small screens open this Home sub page full screen, so the bottom tab bar
   // must not cover the action footer.
-  useFocusEffect(
-    useCallback(() => {
-      if (desktop) return undefined;
-      const ownerId = createHideTabBarOwnerId('dust-sweep');
-      requestHideTabBar(ownerId);
-      return () => {
-        releaseHideTabBar(ownerId);
-      };
-    }, [desktop]),
-  );
+  useDustSweepTabBarVisibility(!desktop);
   if (!route.params?.walletId || !route.params.accountId) {
     return (
       <Page>
