@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -15,6 +24,11 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
+import { formatNativeSelectorAmount } from '@onekeyhq/kit/src/components/TokenListView/nativeSelectorFormat';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
@@ -34,9 +48,10 @@ import {
   sortTokensByOrder,
   sortTokensCommon,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
@@ -55,14 +70,185 @@ import {
   useAggregateSubTokenFiat,
   useAggregateSubTokenFiatMap,
 } from '../../../states/jotai/contexts/tokenList/cells';
+import { convertFiat } from '../../../utils/fiatConvert';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
+import { useHomeNativeListTheme } from '../../Home/hooks/useHomeNativeListTheme';
 import { AssetSelectorTestIDs } from '../testIDs';
 
+import type {
+  IdentityRow,
+  NativeListSnapshot,
+  RowActionEvent,
+  TrailingAccessory,
+} from '@onekeyfe/react-native-native-list';
 import type { RouteProp } from '@react-navigation/core';
 
 // Preset LISTED networks, available synchronously. Used to seed networkMap so the
 // list does not flash empty while the dynamic (server-fetched) networks resolve.
 const listedNetworkMap = getListedNetworkMap();
+
+type INativeAggregateRowEntry = {
+  row: IdentityRow;
+  onPress: () => void;
+};
+
+function NativeAggregateRowMirror({
+  token,
+  network,
+  tokenInfo,
+  accountId,
+  isAddressMissing,
+  canCreateAddress,
+  loading,
+  showSpinner,
+  isOtherTokenProcessing,
+  hideBalanceAndValue,
+  onPress,
+  onRowChange,
+}: {
+  token: IAccountToken;
+  network?: IServerNetwork;
+  tokenInfo?: ITokenFiat;
+  accountId?: string;
+  isAddressMissing: boolean;
+  canCreateAddress: boolean;
+  loading: boolean;
+  showSpinner: boolean;
+  isOtherTokenProcessing: boolean;
+  hideBalanceAndValue?: boolean;
+  onPress: () => void;
+  onRowChange: (
+    key: string,
+    entry: INativeAggregateRowEntry | undefined,
+  ) => void;
+}) {
+  const intl = useIntl();
+  const theme = useHomeNativeListTheme();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const row = useMemo<IdentityRow | undefined>(() => {
+    if (isAddressMissing && !canCreateAddress) return undefined;
+    const balance = tokenRebaseUtils.applyBalanceMultiplier({
+      amount: tokenInfo?.balanceParsed,
+      balanceMultiplier: tokenInfo?.balanceMultiplier,
+    });
+    const targetCurrency = currencyInfo?.id ?? '';
+    const sourceCurrency = tokenInfo?.currency ?? targetCurrency;
+    const rawFiatValue = tokenInfo
+      ? tokenInfo.fiatValue || '0'
+      : UNAVAILABLE_DISPLAY;
+    const fiatValue =
+      rawFiatValue === UNAVAILABLE_DISPLAY
+        ? UNAVAILABLE_DISPLAY
+        : convertFiat({
+            value: String(rawFiatValue),
+            sourceCurrency,
+            targetCurrency,
+            currencyMap,
+          });
+    const unit =
+      currencyMap[targetCurrency]?.unit ?? currencyMap[sourceCurrency]?.unit;
+    const balanceText =
+      balance === undefined
+        ? { text: '' }
+        : formatNativeSelectorAmount(String(balance), 'balance');
+    const valueText = formatNativeSelectorAmount(
+      String(fiatValue),
+      'value',
+      unit,
+    );
+    const trailing: TrailingAccessory[] = [];
+    if (!hideBalanceAndValue && !isAddressMissing) {
+      trailing.push({
+        kind: 'valuePair',
+        primary: balanceText.text,
+        secondary: valueText.text,
+        primaryTextSegments: balanceText.segments,
+        secondaryTextSegments: valueText.segments,
+      });
+    }
+    if (showSpinner) {
+      trailing.push({ kind: 'spinner' });
+    } else if (!accountId) {
+      trailing.push({
+        kind: 'icon',
+        name: 'PlusLargeOutline',
+        tintColor: theme.iconSubdued,
+      });
+    }
+    return {
+      type: 'identity',
+      key: token.$key,
+      testID: AssetSelectorTestIDs.aggregateTokenListItem,
+      height: 60,
+      title: token.networkName || network?.name || '',
+      subtitle: !accountId
+        ? intl.formatMessage({
+            id: loading
+              ? ETranslations.global_creating_address
+              : ETranslations.global_create_address,
+          })
+        : undefined,
+      leading: {
+        kind: 'network',
+        image:
+          !network?.isCustomNetwork && network?.logoURI
+            ? { uri: network.logoURI, width: 40, height: 40 }
+            : undefined,
+        fallbackText: network?.isCustomNetwork
+          ? network.name?.[0]?.toUpperCase()
+          : undefined,
+        fallbackIcon: network?.isCustomNetwork
+          ? undefined
+          : {
+              name: 'GlobusOutline',
+              tintColor: theme.iconSubdued,
+            },
+        backgroundColor: network?.isCustomNetwork
+          ? theme.inverseBackground
+          : undefined,
+        fallbackTextColor: network?.isCustomNetwork
+          ? theme.inverseText
+          : undefined,
+      },
+      trailing,
+      disabled: isOtherTokenProcessing,
+      opacity: isOtherTokenProcessing ? 0.5 : 1,
+      style: {
+        horizontalPadding: 12,
+        verticalPadding: 8,
+        leadingGap: 12,
+        image: { width: 40, height: 40, shape: 'circle' },
+        title: { token: '$bodyLg', fontWeight: 'medium' },
+        subtitle: { token: '$bodyMd', color: theme.secondaryText },
+      },
+    };
+  }, [
+    accountId,
+    canCreateAddress,
+    currencyInfo?.id,
+    currencyMap,
+    hideBalanceAndValue,
+    intl,
+    isAddressMissing,
+    isOtherTokenProcessing,
+    loading,
+    network,
+    showSpinner,
+    theme,
+    token.$key,
+    token.networkName,
+    tokenInfo,
+  ]);
+  useLayoutEffect(() => {
+    onRowChange(token.$key, row ? { row, onPress } : undefined);
+  }, [onPress, onRowChange, row, token.$key]);
+  useEffect(
+    () => () => onRowChange(token.$key, undefined),
+    [onRowChange, token.$key],
+  );
+  return null;
+}
 
 // Account scope the selector looks addresses up in and creates them for. The
 // page's own account (route params) decides where it carries one; the home
@@ -111,6 +297,7 @@ export function AggregateTokenListItem({
   fallbackAccountId,
   createAddressForNetwork,
   beginSelection,
+  onNativeRowChange,
 }: {
   token: IAccountToken;
   aggKey: string;
@@ -147,6 +334,10 @@ export function AggregateTokenListItem({
   // Marks this row as the selector's latest pick; the returned check tells
   // whether it still is once the row has created its address.
   beginSelection: () => () => boolean;
+  onNativeRowChange?: (
+    key: string,
+    entry: INativeAggregateRowEntry | undefined,
+  ) => void;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -273,6 +464,25 @@ export function AggregateTokenListItem({
   const showSpinner = loading || isCurrentTokenProcessing;
 
   // No address here and none can be created: the row would only fail on tap.
+  if (onNativeRowChange) {
+    return (
+      <NativeAggregateRowMirror
+        token={token}
+        network={network}
+        tokenInfo={tokenInfo}
+        accountId={accountId}
+        isAddressMissing={isAddressMissing}
+        canCreateAddress={canCreateAddress}
+        loading={loading}
+        showSpinner={showSpinner}
+        isOtherTokenProcessing={isOtherTokenProcessing}
+        hideBalanceAndValue={hideBalanceAndValue}
+        onPress={handleOnPress}
+        onRowChange={onNativeRowChange}
+      />
+    );
+  }
+
   if (isAddressMissing && !canCreateAddress) {
     return null;
   }
@@ -646,54 +856,92 @@ function AggregateTokenSelector() {
       ? (processingTokenState.token?.$key ?? null)
       : null;
 
-  const renderAggregateTokensList = useCallback(() => {
-    if (!filteredAggregateTokens || filteredAggregateTokens.length === 0) {
-      if (searchKey) {
-        return <EmptySearch mt="24%" />;
-      }
-      return <Empty mt="24%" />;
+  const [nativeRowsByKey, setNativeRowsByKey] = useState<
+    Map<string, IdentityRow>
+  >(() => new Map());
+  const nativeRowActions = useRef(new Map<string, () => void>());
+  const handleNativeRowChange = useCallback(
+    (key: string, entry: INativeAggregateRowEntry | undefined) => {
+      if (entry) nativeRowActions.current.set(key, entry.onPress);
+      else nativeRowActions.current.delete(key);
+      setNativeRowsByKey((current) => {
+        if (isEqual(current.get(key), entry?.row)) return current;
+        if (!entry && !current.has(key)) return current;
+        const next = new Map(current);
+        if (entry) next.set(key, entry.row);
+        else next.delete(key);
+        return next;
+      });
+    },
+    [],
+  );
+  const handleNativeRowAction = useCallback((event: RowActionEvent) => {
+    if (event.actionKey === 'press' && event.rowKey) {
+      nativeRowActions.current.get(event.rowKey)?.();
     }
-
-    return filteredAggregateTokens.map((token) => (
-      <AggregateTokenListItem
-        key={token.$key}
-        token={token}
-        aggKey={aggregateToken.$key}
-        network={networkMap.get(token.networkId ?? '')}
-        onPress={handleOnPressToken}
-        allNetworksState={allNetworksState}
-        refreshAllNetworkState={refreshAllNetworkState}
-        processingTokenKey={processingTokenKey}
-        hideBalanceAndValue={hideBalanceAndValue}
-        walletId={walletId}
-        indexedAccountId={indexedAccountId}
-        fallbackAccountId={accountId}
-        createAddressForNetwork={createAddressForNetwork}
-        beginSelection={beginSelection}
-      />
-    ));
-  }, [
-    filteredAggregateTokens,
-    aggregateToken.$key,
-    networkMap,
-    handleOnPressToken,
-    searchKey,
-    allNetworksState,
-    refreshAllNetworkState,
-    processingTokenKey,
-    hideBalanceAndValue,
-    walletId,
-    indexedAccountId,
-    accountId,
-    createAddressForNetwork,
-    beginSelection,
-  ]);
+  }, []);
+  const nativeTheme = useHomeNativeListTheme();
+  const nativeSnapshot = useMemo<NativeListSnapshot>(
+    () => ({
+      schemaVersion: 1,
+      generation: 1,
+      layout: { kind: 'linear', contentPaddingHorizontal: 8 },
+      rows: filteredAggregateTokens.flatMap((token) => {
+        const row = nativeRowsByKey.get(token.$key);
+        return row ? [row] : [];
+      }),
+      theme: nativeTheme,
+    }),
+    [filteredAggregateTokens, nativeRowsByKey, nativeTheme],
+  );
+  const nativeRowControllers = useMemo(
+    () =>
+      filteredAggregateTokens.map((token) => (
+        <AggregateTokenListItem
+          key={token.$key}
+          token={token}
+          aggKey={aggregateToken.$key}
+          network={networkMap.get(token.networkId ?? '')}
+          onPress={handleOnPressToken}
+          allNetworksState={allNetworksState}
+          refreshAllNetworkState={refreshAllNetworkState}
+          processingTokenKey={processingTokenKey}
+          hideBalanceAndValue={hideBalanceAndValue}
+          walletId={walletId}
+          indexedAccountId={indexedAccountId}
+          fallbackAccountId={accountId}
+          createAddressForNetwork={createAddressForNetwork}
+          beginSelection={beginSelection}
+          onNativeRowChange={handleNativeRowChange}
+        />
+      )),
+    [
+      filteredAggregateTokens,
+      aggregateToken.$key,
+      networkMap,
+      handleOnPressToken,
+      allNetworksState,
+      refreshAllNetworkState,
+      processingTokenKey,
+      hideBalanceAndValue,
+      walletId,
+      indexedAccountId,
+      accountId,
+      createAddressForNetwork,
+      beginSelection,
+      handleNativeRowChange,
+    ],
+  );
 
   const aggregateTokenSymbol =
     aggregateToken.commonSymbol || aggregateToken.symbol;
+  let listEmpty;
+  if (filteredAggregateTokens.length === 0) {
+    listEmpty = searchKey ? <EmptySearch mt="24%" /> : <Empty mt="24%" />;
+  }
 
   return (
-    <Page scrollEnabled safeAreaEnabled>
+    <Page safeAreaEnabled>
       <Page.Header
         title={
           title ||
@@ -716,11 +964,20 @@ function AggregateTokenSelector() {
         }}
       />
       <Page.Body
+        flex={1}
         $platform-web={{
           pb: '$3',
         }}
       >
-        {renderAggregateTokensList()}
+        {nativeRowControllers}
+        <NativeList
+          style={{ flex: 1 }}
+          snapshot={nativeSnapshot}
+          listEmpty={listEmpty}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          onRowAction={handleNativeRowAction}
+        />
       </Page.Body>
     </Page>
   );
