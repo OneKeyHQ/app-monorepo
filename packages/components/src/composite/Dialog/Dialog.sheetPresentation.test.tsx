@@ -688,18 +688,24 @@ describe('Dialog presentation across width classes', () => {
   const isSheet = () =>
     screen.getByTestId('overlay-dialog').getAttribute('data-sheet');
 
-  it('keeps the presentation it opened with until it closes', () => {
-    setWindowWidth(951);
-    const { rerender } = render(<DialogContainer {...dialogProps} />);
-    expect(isSheet()).toBe('false');
+  it.each([
+    [951, 669, 'false', 'true'],
+    [669, 951, 'true', 'false'],
+  ])(
+    'keeps the %s presentation through exit before reopening at %s',
+    (initial, next, openedSheet, reopenedSheet) => {
+      setWindowWidth(initial);
+      const { rerender } = render(<DialogContainer {...dialogProps} />);
+      expect(isSheet()).toBe(openedSheet);
 
-    // Folding the iPhone Duo to the outer display while open.
-    setWindowWidth(669);
-    rerender(<DialogContainer {...dialogProps} />);
-    expect(isSheet()).toBe('false');
+      setWindowWidth(next);
+      rerender(<DialogContainer {...dialogProps} />);
+      expect(isSheet()).toBe(openedSheet);
 
-    rerender(<DialogContainer {...dialogProps} open={false} />);
-    rerender(<DialogContainer {...dialogProps} />);
-    expect(isSheet()).toBe('true');
-  });
+      rerender(<DialogContainer {...dialogProps} open={false} />);
+      expect(isSheet()).toBe(openedSheet);
+      rerender(<DialogContainer {...dialogProps} />);
+      expect(isSheet()).toBe(reopenedSheet);
+    },
+  );
 });

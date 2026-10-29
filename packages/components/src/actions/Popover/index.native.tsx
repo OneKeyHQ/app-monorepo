@@ -537,7 +537,7 @@ function resolveAnchoredPanelWidth(width: unknown): number | undefined {
   }
   return undefined;
 }
-function resolveAnchoredPanelMaxHeight(maxHeight: unknown) {
+function resolveAnchoredPanelMaxSize(maxHeight: unknown) {
   if (typeof maxHeight === 'number') return maxHeight;
   if (typeof maxHeight === 'string' && maxHeight.startsWith('$')) {
     const value = Number(getTokenValue(maxHeight as Token, 'size'));
@@ -572,12 +572,17 @@ function AnchoredPopover({
   closePopover,
   onAnimationComplete,
   anchorIsModalRelative,
+  anchorMeasurement,
 }: {
   isOpen: boolean;
   anchor: IAnchorRect | undefined;
   // A rect from `measureInWindow`, relative to the enclosing native modal;
   // the overlay reports the offset that maps it onto the screen.
   anchorIsModalRelative: boolean;
+  // Increases with every trigger measurement. The modal can move while the
+  // trigger keeps its modal-relative rect (rotation, window resize), so each
+  // measurement asks for the offset again.
+  anchorMeasurement: number;
   placement: IPopoverProps['placement'];
   offset: IPopoverProps['offset'];
   floatingPanelProps: IPopoverProps['floatingPanelProps'];
@@ -616,7 +621,7 @@ function AnchoredPopover({
     if (anchorIsModalRelative && isOpen && anchor) {
       setWindowOffsetRequest((request) => request + 1);
     }
-  }, [anchor, anchorIsModalRelative, isOpen]);
+  }, [anchor, anchorIsModalRelative, anchorMeasurement, isOpen]);
   const handleWindowOffset = useCallback(
     (next: { x: number; y: number }) =>
       setReportedOffset((prev) =>
@@ -676,7 +681,7 @@ function AnchoredPopover({
   const {
     width: panelWidthLonghand,
     w: panelWidthShorthand,
-    maxWidth: _maxWidth,
+    maxWidth: panelMaxWidthProp,
     maxHeight: panelMaxHeightProp,
     style: _style,
     onOpenAutoFocus: _openFocus,
@@ -685,16 +690,21 @@ function AnchoredPopover({
     ...panelProps
   } = floatingPanelProps ?? {};
   const resolvedOffset = resolveAnchoredOffset(offset, placement);
+  const panelWidth = resolveAnchoredPanelWidth(
+    panelWidthLonghand ?? panelWidthShorthand,
+  );
+  const panelMaxWidth = resolveAnchoredPanelMaxSize(panelMaxWidthProp);
   const frame = screenAnchor
     ? getAnchoredFrame({
         anchor: screenAnchor,
         placement,
         offset: resolvedOffset.mainAxis,
         crossOffset: resolvedOffset.crossAxis,
-        width: resolveAnchoredPanelWidth(
-          panelWidthLonghand ?? panelWidthShorthand,
-        ),
-        maxHeight: resolveAnchoredPanelMaxHeight(panelMaxHeightProp),
+        width:
+          panelWidth === undefined
+            ? undefined
+            : Math.min(panelWidth, panelMaxWidth ?? panelWidth),
+        maxHeight: resolveAnchoredPanelMaxSize(panelMaxHeightProp),
         window,
         insets,
       })
@@ -731,7 +741,7 @@ function AnchoredPopover({
         >
           <YStack
             width={frame.panelWidth}
-            maxWidth={frame.width}
+            maxWidth={Math.min(frame.width, panelMaxWidth ?? frame.width)}
             maxHeight={frame.panelMaxHeight}
             backgroundColor="$bg"
             borderRadius="$4"
@@ -820,6 +830,7 @@ function BasicPopover({
   }>();
   const anchor =
     measuredAnchor?.cycle === openCycle ? measuredAnchor.rect : undefined;
+  const [anchorMeasurement, setAnchorMeasurement] = useState(0);
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   useEffect(() => {
     if (!isAnchored || !isOpen || nativeAnchorRect) return;
@@ -829,6 +840,7 @@ function BasicPopover({
     // once the rotation animation is over.
     const measure = () => {
       triggerRef.current?.measureInWindow((x, y, width, height) => {
+        setAnchorMeasurement((count) => count + 1);
         setMeasuredAnchor((prev) =>
           prev &&
           prev.cycle === openCycle &&
@@ -907,7 +919,10 @@ function BasicPopover({
         <AnchoredPopover
           isOpen={Boolean(isOpen)}
           anchor={nativeAnchorRect ?? anchor}
-          anchorIsModalRelative={!nativeAnchorRect}
+          // Only iOS measures triggers relative to an enclosing native modal
+          // and reports the modal's offset; Android's rects are on-screen.
+          anchorIsModalRelative={!nativeAnchorRect && !!platformEnv.isNativeIOS}
+          anchorMeasurement={anchorMeasurement}
           placement={rest.placement}
           offset={rest.offset}
           floatingPanelProps={rest.floatingPanelProps}

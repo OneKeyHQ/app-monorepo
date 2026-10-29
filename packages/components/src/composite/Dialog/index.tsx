@@ -252,13 +252,15 @@ const HEADER_DRAG_ZONE_MIN_HEIGHT = 24;
 // open would swap sheet and card and remount its content, dropping input and
 // focus, so the presentation chosen when it opened holds until it closes.
 function useValueLatchedWhileOpen<T>(open: boolean, value: T): T {
-  const latchedRef = useRef<{ value: T } | undefined>(undefined);
-  if (!open) {
-    latchedRef.current = undefined;
-  } else if (!latchedRef.current) {
-    latchedRef.current = { value };
+  const latchedRef = useRef(value);
+  const wasOpenRef = useRef(false);
+  if (open && !wasOpenRef.current) {
+    latchedRef.current = value;
   }
-  return latchedRef.current ? latchedRef.current.value : value;
+  wasOpenRef.current = open;
+  // Closing still renders the exit animation with the original presentation.
+  // Refresh only when the next open cycle starts.
+  return latchedRef.current;
 }
 
 function DialogFrame({

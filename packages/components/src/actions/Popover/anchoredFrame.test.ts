@@ -66,6 +66,26 @@ describe('getAnchoredFrame', () => {
     expect(frame.panelWidth).toBe(240);
   });
 
+  it.each(['right-start', 'left-start'] as const)(
+    'keeps %s menus usable near the bottom edge',
+    (placement) => {
+      const frame = frameFor({ placement, anchor: { ...trigger, y: 620 } });
+      expect(frame.height).toBeGreaterThanOrEqual(240);
+      expect(frame.top).toBeGreaterThanOrEqual(8);
+      expect(frame.top + frame.height).toBeLessThanOrEqual(641);
+      expect(frame.justifyContent).toBe('flex-end');
+    },
+  );
+
+  it('keeps centered side menus usable near an edge', () => {
+    const frame = frameFor({
+      placement: 'right',
+      anchor: { ...trigger, y: 630 },
+    });
+    expect(frame.height).toBeGreaterThanOrEqual(240);
+    expect(frame.top + frame.height).toBeLessThanOrEqual(641);
+  });
+
   it('flips a side placement when that side is too narrow', () => {
     const frame = frameFor({
       placement: 'right',
@@ -80,11 +100,11 @@ describe('getAnchoredFrame', () => {
   it('keeps a side placement whose side is the only one with room', () => {
     const frame = frameFor({
       placement: 'left-end',
-      anchor: { ...trigger, x: 100 },
+      anchor: { ...trigger, x: 100, y: 300 },
     });
     expect(frame.alignItems).toBe('flex-start');
     expect(frame.justifyContent).toBe('flex-end');
-    expect(frame.top + frame.height).toBe(trigger.y + trigger.height);
+    expect(frame.top + frame.height).toBe(300 + trigger.height);
   });
 });
 

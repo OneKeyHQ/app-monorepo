@@ -65,22 +65,47 @@ function getAnchoredCrossSpan({
   length,
   min,
   max,
+  minSize = 0,
 }: {
   align: string | undefined;
   start: number;
   length: number;
   min: number;
   max: number;
+  minSize?: number;
 }): { offset: number; size: number; align: IAnchoredAlign } {
-  if (align === 'start') {
+  // Shift the cross-axis alignment near an edge so a side menu can use
+  // the room on the other side instead of collapsing beside its trigger.
+  const availableAfter = max - clamp(start, min, max);
+  const availableBefore = clamp(start + length, min, max) - min;
+  let effectiveAlign = align;
+  if (
+    align === 'start' &&
+    availableAfter < minSize &&
+    availableBefore > availableAfter
+  ) {
+    effectiveAlign = 'end';
+  } else if (
+    align === 'end' &&
+    availableBefore < minSize &&
+    availableAfter > availableBefore
+  ) {
+    effectiveAlign = 'start';
+  }
+  if (effectiveAlign === 'start') {
     const offset = clamp(start, min, max);
     return { offset, size: max - offset, align: 'flex-start' };
   }
-  if (align === 'end') {
+  if (effectiveAlign === 'end') {
     const end = clamp(start + length, min, max);
     return { offset: min, size: end - min, align: 'flex-end' };
   }
-  const middle = clamp(start + length / 2, min, max);
+  const halfMinimum = Math.min(minSize, max - min) / 2;
+  const middle = clamp(
+    start + length / 2,
+    min + halfMinimum,
+    max - halfMinimum,
+  );
   const half = Math.min(middle - min, max - middle);
   return { offset: middle - half, size: half * 2, align: 'center' };
 }
@@ -133,6 +158,7 @@ export function getAnchoredFrame({
       length: anchor.height,
       min: minY,
       max: maxY,
+      minSize: limitHeight(ANCHORED_MIN_HEIGHT),
     });
     return {
       left: openLeft ? minX : rightStart,

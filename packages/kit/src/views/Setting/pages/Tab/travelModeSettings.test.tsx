@@ -3,7 +3,14 @@
 
 import SettingTab from './';
 
-import { fireEvent, render, renderHook, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,6 +30,9 @@ let mockGtMd = false;
 let mockWideNativeWindow = false;
 let mockTravelMode = false;
 let mockDevEnabled = false;
+let mockPaneIndex = 0;
+let mockLayoutVersion = 0;
+const mockLayoutListeners = new Set<() => void>();
 const mockNavigation = {
   dispatch: jest.fn(),
   emit: jest.fn(() => ({ defaultPrevented: false })),
@@ -92,7 +102,18 @@ jest.mock('@onekeyhq/components', () => {
     getTokenValue: () => 16,
     isNativeTablet: () => mockPlatform.isNativeIOSPad || mockGtMd,
     useIsWideNativeWindow: () => mockWideNativeWindow,
-    useMedia: () => ({ gtMd: mockGtMd }),
+    useMedia: () => {
+      React.useSyncExternalStore(
+        (listener) => {
+          mockLayoutListeners.add(listener);
+          return () => {
+            mockLayoutListeners.delete(listener);
+          };
+        },
+        () => mockLayoutVersion,
+      );
+      return { gtMd: mockGtMd };
+    },
     useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
     DesktopTabItem: ({
       label,
@@ -117,6 +138,19 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('@react-navigation/native', () => ({
+  useRoute: () => ({ key: 'settings-root' }),
+  useNavigationState: (selector: (state: unknown) => unknown) =>
+    selector({
+      routes: [
+        {
+          key: 'settings-root',
+          state: {
+            index: 0,
+            routes: [{ state: { index: mockPaneIndex } }],
+          },
+        },
+      ],
+    }),
   CommonActions: {
     navigate: (payload: unknown) => ({ type: 'NAVIGATE', payload }),
   },
@@ -143,20 +177,30 @@ jest.mock('@react-navigation/bottom-tabs', () => {
           key: props.name,
           name: props.name,
         }));
-        return tabBar({
-          state: {
-            key: 'settings-tabs',
-            routes,
-            index: routes.findIndex(({ name }) => name === initialRouteName),
-          },
-          descriptors: Object.fromEntries(
-            screens.map(({ props }) => [
-              props.name,
-              { options: props.options },
-            ]),
-          ),
-          navigation: mockNavigation,
-        });
+        return React.createElement(
+          React.Fragment,
+          null,
+          mockPaneIndex > 0
+            ? React.createElement('input', {
+                'aria-label': 'Pane draft',
+                defaultValue: '',
+              })
+            : null,
+          tabBar({
+            state: {
+              key: 'settings-tabs',
+              routes,
+              index: routes.findIndex(({ name }) => name === initialRouteName),
+            },
+            descriptors: Object.fromEntries(
+              screens.map(({ props }) => [
+                props.name,
+                { options: props.options },
+              ]),
+            ),
+            navigation: mockNavigation,
+          }),
+        );
       },
     }),
   };
@@ -482,3 +526,42 @@ describe.each([
     });
   },
 );
+
+it('preserves a native pane draft across folding until returning to its root', () => {
+  Object.assign(mockPlatform, {
+    isNative: true,
+    isNativeIOS: true,
+    isNativeIOSPad: false,
+  });
+  mockGtMd = false;
+  mockWideNativeWindow = true;
+  mockPaneIndex = 1;
+  const refreshLayout = () =>
+    act(() => {
+      mockLayoutVersion += 1;
+      mockLayoutListeners.forEach((listener) => listener());
+    });
+  render(<SettingTab />);
+  const draft = screen.getByLabelText('Pane draft');
+  fireEvent.change(draft, { target: { value: 'Unsubmitted network' } });
+
+  mockWideNativeWindow = false;
+  refreshLayout();
+  expect(screen.getByLabelText('Pane draft')).toBe(draft);
+  expect((draft as HTMLInputElement).value).toBe('Unsubmitted network');
+  expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
+    headerShown: false,
+  });
+
+  mockWideNativeWindow = true;
+  refreshLayout();
+  expect(screen.getByLabelText('Pane draft')).toBe(draft);
+
+  mockWideNativeWindow = false;
+  mockPaneIndex = 0;
+  refreshLayout();
+  expect(screen.queryByLabelText('Pane draft')).toBeNull();
+  expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
+    headerShown: true,
+  });
+});
