@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import { runInNewContext } from 'node:vm';
+
 import { act, renderHook } from '@testing-library/react';
 
 import {
@@ -13,6 +15,7 @@ import { PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE } from '@onekeyhq/shared/types/pr
 import {
   TRANSLATE_COMMAND_TYPE,
   TRANSLATE_CONSOLE_PREFIX,
+  TRANSLATE_REQUEST_CHECK_TYPE,
   TRANSLATE_REQUEST_TYPE,
   TRANSLATE_RESPONSE_TYPE,
   notifyTabNavigation,
@@ -27,6 +30,8 @@ const mockApiTranslate = jest.fn();
 const mockInjectJavaScript = jest.fn();
 const mockAddEventListener = jest.fn();
 const mockFreeTrialUsageSuccess = jest.fn();
+const mockIsRequestPending = jest.fn((_id: string, _sid: string) => true);
+let mockDocumentHasTranslator = true;
 
 jest.mock('./translateInject.text-js', () => 'INJECT_SCRIPT', {
   virtual: true,
@@ -202,6 +207,36 @@ describe('useWebViewTranslate free-trial stop', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockApiTranslate.mockReset();
+    mockDocumentHasTranslator = true;
+    mockIsRequestPending.mockReset().mockReturnValue(true);
+    // Execute the actual probe in a separate page JS context, as on native.
+    // Replacing this context removes the old document's pending requests.
+    mockInjectJavaScript.mockImplementation((script: string) => {
+      if (!script.includes(TRANSLATE_REQUEST_CHECK_TYPE)) return;
+      runInNewContext(script, {
+        __onekeyTranslate: mockDocumentHasTranslator
+          ? { isRequestPending: mockIsRequestPending }
+          : undefined,
+        ...(mockedPlatformEnv.isNative
+          ? {
+              ReactNativeWebView: {
+                postMessage: (data: string) =>
+                  tryDispatchTranslateMessage(TAB_ID, data),
+              },
+            }
+          : {
+              console: {
+                log: (message: string) => {
+                  const listener = mockAddEventListener.mock.calls.findLast(
+                    ([name]) => name === 'console-message',
+                  )?.[1] as ((event: { message: string }) => void) | undefined;
+                  listener?.({ message });
+                },
+              },
+            }),
+      });
+    });
   });
 
   afterEach(() => {
@@ -265,8 +300,9 @@ describe('useWebViewTranslate free-trial stop', () => {
     const { result, sessionId } = await startSession(jest.fn(), {
       entitlementSource: 'freeTrial',
     });
-    act(() => {
+    await act(async () => {
       request(sessionId, 'tr_cancelled', ['private text']);
+      await flush();
       result.current.restoreOriginal();
     });
     await act(async () => {
@@ -715,7 +751,10 @@ describe('useWebViewTranslate free-trial stop', () => {
     const { result, sessionId } = await startSession(jest.fn(), {
       onAccountBanned,
     });
-    act(() => request(sessionId, 'old', ['a']));
+    await act(async () => {
+      request(sessionId, 'old', ['a']);
+      await flush();
+    });
     act(() => {
       result.current.startTranslate('en');
       jest.advanceTimersByTime(100);
@@ -838,8 +877,9 @@ describe('useWebViewTranslate free-trial stop', () => {
     const { result, sessionId } = await startSession(jest.fn(), {
       onAccountBanned,
     });
-    act(() => {
+    await act(async () => {
       request(sessionId, 'late-ban', ['a']);
+      await flush();
       notifyTabNavigation(TAB_ID);
       notifyTabNavigationEnd(TAB_ID);
       jest.advanceTimersByTime(100);
@@ -867,6 +907,170 @@ describe('useWebViewTranslate free-trial stop', () => {
     );
     expect(commands()).toEqual(['start', 'start', 'restore', 'start']);
   });
+
+  it.each([false, true])(
+    'does not bill destroyed-page requests or retries (desktop: %s)',
+    async (desktop) => {
+      mockedPlatformEnv.isNative = !desktop;
+      mockedPlatformEnv.isDesktop = desktop;
+      try {
+        const sendRequest = desktop ? desktopRequest : request;
+        mockApiTranslate
+          .mockRejectedValueOnce(new OneKeyLocalError('temporary failure'))
+          .mockResolvedValueOnce({
+            translations: ['new page'],
+            hasBilledBatch: true,
+          });
+        const { sessionId, result } = await startSession(jest.fn());
+        await act(async () => {
+          sendRequest(sessionId, 'retry', ['old page']);
+          await flush();
+          notifyTabNavigation(TAB_ID);
+          // A replacement document, including a reload at the same URL,
+          // has no old translator or pending request to receive the result.
+          mockDocumentHasTranslator = false;
+          sendRequest(sessionId, 'queued', ['more old text']);
+          jest.advanceTimersByTime(500);
+          await flush();
+        });
+        expect(mockApiTranslate).toHaveBeenCalledTimes(1);
+        expect(responses()).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: 'retry', abort: true }),
+            expect.objectContaining({ id: 'queued', abort: true }),
+          ]),
+        );
+        expect(result.current.translatingRef.current).toBe(true);
+
+        act(() => {
+          notifyTabNavigationEnd(TAB_ID);
+          jest.advanceTimersByTime(100);
+        });
+        const nextSessionId = startedSessionIds()[1];
+        mockDocumentHasTranslator = true;
+        mockIsRequestPending.mockImplementation(
+          (_id, sid) => sid === nextSessionId,
+        );
+        await act(async () => {
+          sendRequest(sessionId, 'old-after-start', ['old page']);
+          sendRequest(nextSessionId, 'new', ['new page']);
+          await flush();
+        });
+        expect(mockApiTranslate).toHaveBeenCalledTimes(2);
+        expect(responses()).toContainEqual(
+          expect.objectContaining({ id: 'new', translations: ['new page'] }),
+        );
+      } finally {
+        mockedPlatformEnv.isNative = true;
+        mockedPlatformEnv.isDesktop = false;
+      }
+    },
+  );
+
+  it('rechecks the recipient when a provisional load replaces a previously confirmed page', async () => {
+    const { sessionId } = await startSession(jest.fn());
+    mockApiTranslate.mockRejectedValueOnce(
+      new OneKeyLocalError('temporary failure'),
+    );
+    await act(async () => {
+      // The old page is still live at navigation start, so its first request
+      // is legitimate. It disappears before retry, without a second start.
+      notifyTabNavigation(TAB_ID);
+      request(sessionId, 'retry', ['old page']);
+      await flush();
+      mockDocumentHasTranslator = false;
+      jest.advanceTimersByTime(500);
+      await flush();
+    });
+    expect(mockApiTranslate).toHaveBeenCalledTimes(1);
+    expect(responses()).toContainEqual(
+      expect.objectContaining({ id: 'retry', abort: true }),
+    );
+  });
+
+  it('rechecks an old positive probe received after another navigation', async () => {
+    const { sessionId } = await startSession(jest.fn());
+    let oldReply = '';
+    mockInjectJavaScript.mockImplementationOnce((script: string) => {
+      runInNewContext(script, {
+        __onekeyTranslate: { isRequestPending: () => true },
+        ReactNativeWebView: {
+          postMessage: (data: string) => {
+            oldReply = data;
+          },
+        },
+      });
+    });
+    await act(async () => {
+      request(sessionId, 'pending-check', ['old page']);
+      notifyTabNavigation(TAB_ID);
+      mockDocumentHasTranslator = false;
+      expect(oldReply).not.toBe('');
+      tryDispatchTranslateMessage(TAB_ID, oldReply);
+      await flush();
+    });
+    expect(mockApiTranslate).not.toHaveBeenCalled();
+    expect(responses()).toContainEqual(
+      expect.objectContaining({ id: 'pending-check', abort: true }),
+    );
+  });
+
+  it.each(['timeout', 'restore', 'unmount'] as const)(
+    'does not bill an unanswered probe after %s',
+    async (end) => {
+      const { sessionId, result, unmount } = await startSession(jest.fn());
+      mockInjectJavaScript.mockImplementationOnce(() => undefined);
+      await act(async () => {
+        request(sessionId, 'pending-check', ['page text']);
+        await flush();
+        if (end === 'restore') result.current.restoreOriginal();
+        if (end === 'unmount') unmount();
+        jest.advanceTimersByTime(3000);
+        await flush();
+      });
+      expect(mockApiTranslate).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBe(0);
+      expect(responses()).toContainEqual(
+        expect.objectContaining({ id: 'pending-check', abort: true }),
+      );
+    },
+  );
+
+  it.each([false, true])(
+    'does not bill when the WebView rejects the probe (desktop: %s)',
+    async (desktop) => {
+      mockedPlatformEnv.isNative = !desktop;
+      mockedPlatformEnv.isDesktop = desktop;
+      const logError = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      try {
+        const error = new OneKeyLocalError('WebView destroyed');
+        const { sessionId } = await startSession(jest.fn());
+        mockInjectJavaScript.mockImplementationOnce(() => {
+          if (desktop) return Promise.reject(error);
+          throw error;
+        });
+        await act(async () => {
+          (desktop ? desktopRequest : request)(sessionId, 'destroyed', [
+            'old page',
+          ]);
+          await flush();
+        });
+        expect(mockApiTranslate).not.toHaveBeenCalled();
+        jest.runAllTicks();
+        expect(jest.getTimerCount()).toBe(0);
+        expect(logError).toHaveBeenCalledWith(expect.any(String), error);
+        expect(responses()).toContainEqual(
+          expect.objectContaining({ id: 'destroyed', abort: true }),
+        );
+      } finally {
+        logError.mockRestore();
+        mockedPlatformEnv.isNative = true;
+        mockedPlatformEnv.isDesktop = false;
+      }
+    },
+  );
 
   it('stops desktop translation and ignores queued console messages after a ban', async () => {
     mockedPlatformEnv.isNative = false;
