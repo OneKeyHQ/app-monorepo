@@ -18,6 +18,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  packages: read
+
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
 
@@ -236,6 +240,7 @@ jobs:
     timeout-minutes: 5
     needs: [lint-checks, lint-type-aware]
     if: always()
+    permissions: {}
 
     steps:
       - name: Check lint jobs
