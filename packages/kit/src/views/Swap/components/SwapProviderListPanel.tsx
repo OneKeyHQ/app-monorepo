@@ -61,6 +61,10 @@ import {
   SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
   SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
 } from '../utils/swapDesktopCardShadow';
+import {
+  getSwapQuoteLimitError,
+  isSwapQuoteAvailable,
+} from '../utils/swapErrorUtils';
 
 import SwapProviderListItem from './SwapProviderListItem';
 import SwapRefreshButton from './SwapRefreshButton';
@@ -400,18 +404,18 @@ const SwapProviderListPanel = ({
 
   const availableList = useMemo(
     () =>
-      displayList.filter(
-        (item) => item.toAmount && !item.limit?.min && !item.limit?.max,
+      displayList.filter((item) =>
+        isSwapQuoteAvailable(item, fromTokenAmount.value),
       ),
-    [displayList],
+    [displayList, fromTokenAmount.value],
   );
 
   const unavailableList = useMemo(
     () =>
       displayList.filter(
-        (item) => !item.toAmount || item.limit?.min || item.limit?.max,
+        (item) => !isSwapQuoteAvailable(item, fromTokenAmount.value),
       ),
-    [displayList],
+    [displayList, fromTokenAmount.value],
   );
 
   // Auto-scroll to selected provider when loading completes (OK-49778)
@@ -457,22 +461,13 @@ const SwapProviderListPanel = ({
 
   const renderItem = useCallback(
     (item: IFetchQuoteResult) => {
-      let disabled = !item.toAmount;
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
-      if (item.limit) {
-        if (item.limit.min) {
-          const minBN = new BigNumber(item.limit.min);
-          if (fromTokenAmountBN.lt(minBN)) {
-            disabled = false;
-          }
-        }
-        if (item.limit.max) {
-          const maxBN = new BigNumber(item.limit.max);
-          if (fromTokenAmountBN.gt(maxBN)) {
-            disabled = false;
-          }
-        }
-      }
+      const hasLimitError = !!getSwapQuoteLimitError({
+        limit: item.limit,
+        fromTokenAmount: fromTokenAmount.value,
+      });
+      // Preserve the existing Swap interaction for limited providers.
+      const disabled =
+        !hasLimitError && !isSwapQuoteAvailable(item, fromTokenAmount.value);
       const itemKey = buildSwapQuoteProviderKey(item);
       const isNewItem = isNewItemRef.current.has(itemKey);
       const selected = Boolean(

@@ -2619,13 +2619,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
     const walletId = addressInfo.accountInfo?.wallet?.id;
     const accountId = addressInfo.accountInfo?.account?.id;
+    const sourceAccount = addressInfo.activeAccount?.dbAccount;
+    const activeAccountId = addressInfo.activeAccount?.account?.id;
+    const isWatchingAccountNetworkUnsupported = Boolean(
+      directionType === ESwapDirectionType.FROM &&
+      addressInfo.isAddressInfoReady &&
+      !addressInfo.address &&
+      addressInfo.activeAccount?.ready &&
+      accountUtils.isWatchingWallet({ walletId }) &&
+      sourceAccount &&
+      accountUtils.isWatchingAccount({ accountId: sourceAccount.id }) &&
+      (!activeAccountId || activeAccountId === sourceAccount.id) &&
+      !accountUtils.isAccountCompatibleWithNetwork({
+        account: sourceAccount,
+        networkId: activeNetworkId,
+      }),
+    );
 
     const accountNetworkNotSupported =
-      await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
+      isWatchingAccountNetworkUnsupported ||
+      (await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported({
         walletId,
         accountId,
         activeNetworkId,
-      });
+      }));
     if (accountNetworkNotSupported) {
       let unsupportedMessage = message;
       if (!unsupportedMessage) {
