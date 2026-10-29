@@ -1,4 +1,4 @@
-import type { ComponentType, ReactElement } from 'react';
+import type { ComponentType, ReactElement, Ref } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import type {
   IInputProps,
+  IInputRef,
   IKeyOfIcons,
   IStackProps,
   IXStackProps,
@@ -41,8 +42,12 @@ export type ITokenSelectorPopoverProps = {
 export type IAmountInputFormItemProps = IFormFieldProps<
   string,
   {
-    inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {
+    inputProps?: Omit<
+      IInputProps,
+      'value' | 'onChangeText' | 'onChange' | 'ref'
+    > & {
       loading?: boolean;
+      ref?: Ref<IInputRef>;
     };
     enableMaxAmount?: boolean;
     maxAmountText?: string;
