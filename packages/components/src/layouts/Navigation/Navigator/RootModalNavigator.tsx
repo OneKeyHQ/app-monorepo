@@ -9,7 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Theme } from '../../../content/Theme';
 import { EPageType } from '../../../hocs';
-import { useTheme } from '../../../hooks';
+import { useTheme, useThemeName } from '../../../hooks';
 import { makeRootModalStackOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -52,6 +52,9 @@ const styles = StyleSheet.create({
 });
 
 function HorizontalSafeAreaModalContent({ children }: { children: ReactNode }) {
+  const theme = useTheme();
+  // `theme.*.val` reads are non-reactive on native; follow light/dark switches.
+  useThemeName();
   const { left, right } = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const viewRef = useRef<ViewInstance>(null);
@@ -76,8 +79,13 @@ function HorizontalSafeAreaModalContent({ children }: { children: ReactNode }) {
     const paddingRight = frame
       ? Math.max(0, right - (windowWidth - frame.x - frame.width))
       : 0;
-    return [styles.horizontalSafeArea, { paddingLeft, paddingRight }];
-  }, [frame, left, right, windowWidth]);
+    // The padded strip shows this color: pages paint `bgApp`, so the
+    // background still reaches the screen edge while content stays inset.
+    return [
+      styles.horizontalSafeArea,
+      { paddingLeft, paddingRight, backgroundColor: theme.bgApp.val },
+    ];
+  }, [frame, left, right, windowWidth, theme.bgApp.val]);
 
   return (
     <View ref={viewRef} style={style} onLayout={measureFrame}>
