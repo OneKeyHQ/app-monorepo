@@ -137,6 +137,8 @@ const settings: IVaultSettings = {
   // Watch-only scans cannot prove outputs unspent without key images; shown as frozen until the password confirms.
   hasFrozenBalance: true,
   showAddressType: false,
+  // Off until swap support for Monero ships.
+  disabledSwapAction: true,
 
   minTransferAmount: '0.000000000001',
 

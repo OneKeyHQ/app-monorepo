@@ -26,6 +26,10 @@ describe('xmr vault settings', () => {
     expect(localWallet?.hideAddressOnTokenDetails).toBe(true);
   });
 
+  it('turns the swap entry off', () => {
+    expect(settings.disabledSwapAction).toBe(true);
+  });
+
   // Otherwise max-send confirms balance-minus-fee, not the amount signed.
   it('keeps the confirm page on the amount the built transaction carries', () => {
     expect(settings.ignoreUpdateNativeAmount).toBe(true);
