@@ -15,6 +15,8 @@ export enum ETokenDappType {
 export type ITokenDappType = ETokenDappType | (string & {});
 
 export type IToken = {
+  // CI speed probe B: exported type change, revert before merge.
+  ciSpeedProbe?: string;
   decimals: number;
   name: string;
   symbol: string;
