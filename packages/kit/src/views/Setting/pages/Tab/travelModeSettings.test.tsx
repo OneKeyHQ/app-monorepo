@@ -31,6 +31,7 @@ let mockWideNativeWindow = false;
 let mockTravelMode = false;
 let mockDevEnabled = false;
 let mockPaneIndex = 0;
+let mockInactivePaneIndex = 0;
 let mockLayoutVersion = 0;
 const mockLayoutListeners = new Set<() => void>();
 const mockNavigation = {
@@ -146,7 +147,10 @@ jest.mock('@react-navigation/native', () => ({
           key: 'settings-root',
           state: {
             index: 0,
-            routes: [{ state: { index: mockPaneIndex } }],
+            routes: [
+              { state: { index: mockPaneIndex } },
+              { state: { index: mockInactivePaneIndex } },
+            ],
           },
         },
       ],
@@ -180,7 +184,7 @@ jest.mock('@react-navigation/bottom-tabs', () => {
         return React.createElement(
           React.Fragment,
           null,
-          mockPaneIndex > 0
+          mockPaneIndex > 0 || mockInactivePaneIndex > 0
             ? React.createElement('input', {
                 'aria-label': 'Pane draft',
                 defaultValue: '',
@@ -559,6 +563,45 @@ it('preserves a native pane draft across folding until returning to its root', (
 
   mockWideNativeWindow = false;
   mockPaneIndex = 0;
+  refreshLayout();
+  expect(screen.queryByLabelText('Pane draft')).toBeNull();
+  expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({
+    headerShown: true,
+  });
+});
+
+it('retains an inactive category draft when folding from another category root', () => {
+  Object.assign(mockPlatform, {
+    isNative: true,
+    isNativeIOS: true,
+    isNativeIOSPad: false,
+  });
+  mockGtMd = false;
+  mockWideNativeWindow = true;
+  mockPaneIndex = 0;
+  mockInactivePaneIndex = 1;
+  const refreshLayout = () =>
+    act(() => {
+      mockLayoutVersion += 1;
+      mockLayoutListeners.forEach((listener) => listener());
+    });
+  render(<SettingTab />);
+  const draft = screen.getByLabelText('Pane draft');
+  fireEvent.change(draft, { target: { value: 'Inactive network draft' } });
+
+  mockWideNativeWindow = false;
+  refreshLayout();
+  expect(screen.getByLabelText('Pane draft')).toBe(draft);
+  expect((draft as HTMLInputElement).value).toBe('Inactive network draft');
+  expect(screen.getByLabelText('Search')).toBeTruthy();
+
+  mockWideNativeWindow = true;
+  refreshLayout();
+  expect(screen.getByLabelText('Pane draft')).toBe(draft);
+  expect((draft as HTMLInputElement).value).toBe('Inactive network draft');
+
+  mockWideNativeWindow = false;
+  mockInactivePaneIndex = 0;
   refreshLayout();
   expect(screen.queryByLabelText('Pane draft')).toBeNull();
   expect(mockNavigation.setOptions).toHaveBeenLastCalledWith({

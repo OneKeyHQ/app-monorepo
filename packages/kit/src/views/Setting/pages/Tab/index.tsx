@@ -269,9 +269,11 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   // status bar, so the window's top inset would only push the sidebar down.
   const sidebarTop =
     platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad ? 0 : top;
-  // A pane with an in-flight subpage stays mounted after folding, but its
-  // sidebar must not take space from the now compact page.
-  if (!isTabNavigator) return null;
+  // A pushed page uses the full compact window. If another category owns
+  // the retained draft, keep its sidebar entry reachable from the active root.
+  if (!isTabNavigator && (routes[state.index]?.state?.index ?? 0) > 0) {
+    return null;
+  }
   return (
     <YStack
       w={192}
@@ -403,8 +405,7 @@ function SettingTab() {
   const route = useRoute();
   const hasPushedPanePage = useNavigationState((state) => {
     const tabs = state.routes.find(({ key }) => key === route.key)?.state;
-    const pane = tabs?.routes[tabs.index ?? 0]?.state;
-    return (pane?.index ?? 0) > 0;
+    return tabs?.routes.some((pane) => (pane.state?.index ?? 0) > 0) ?? false;
   });
   const retainedPaneRef = useRef(false);
   if (isTabNavigator) {
@@ -412,8 +413,8 @@ function SettingTab() {
   } else if (!hasPushedPanePage) {
     retainedPaneRef.current = false;
   }
-  // Native pane pages own live form state. Keep their navigator mounted
-  // until the user returns, while SideBar collapses in a compact window.
+  // Every native pane owns live form state, including inactive categories.
+  // Keep the navigator until all pushed pages return to their roots.
   const showTabNavigator =
     isTabNavigator ||
     (platformEnv.isNative && retainedPaneRef.current && hasPushedPanePage);
