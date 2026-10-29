@@ -1,11 +1,4 @@
-import type { ITokenListHeaderLayout } from './tokenListRowLayout';
-
-export const TOKEN_ROW_ICON_SIZE_WIDE = 32;
-export const TOKEN_ROW_ICON_SIZE_COMPACT = 40;
-
-export function getTokenRowIconSize(gtMd: boolean): number {
-  return gtMd ? TOKEN_ROW_ICON_SIZE_WIDE : TOKEN_ROW_ICON_SIZE_COMPACT;
-}
+import type { ITokenListHeaderLayout } from './tokenListRowLayoutShared';
 
 // Native rows: 44px leading slot, 8px gaps, and the header `ListItem` keeps
 // its default horizontal box.

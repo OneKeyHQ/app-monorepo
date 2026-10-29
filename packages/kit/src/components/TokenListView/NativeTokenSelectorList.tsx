@@ -58,7 +58,7 @@ import { ListLoading } from '../Loading';
 import { formatNativeSelectorAmount } from './nativeSelectorFormat';
 import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import TokenActionsView from './TokenActionsView';
-import { getTokenRowIconSize } from './tokenListRowLayout';
+import { getTokenRowIconSize } from './tokenListRowLayoutShared';
 
 import type {
   DataRow,

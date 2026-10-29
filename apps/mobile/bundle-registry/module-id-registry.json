@@ -22923,6 +22923,7 @@
     "packages/kit/src/components/TokenListView/resolveMapTokenFiat.ts": 21560,
     "packages/kit/src/components/TokenListView/tokenListRowLayout.native.ts": 20682,
     "packages/kit/src/components/TokenListView/tokenListRowLayout.ts": 20407,
+    "packages/kit/src/components/TokenListView/tokenListRowLayoutShared.ts": 1708,
     "packages/kit/src/components/TokenListView/useTokenFiatField.ts": 12052,
     "packages/kit/src/components/TokenListView/utils.ts": 13108,
     "packages/kit/src/components/TokenSelectorFilter/TokenSelectorLpTokenSwitch.tsx": 9195,
