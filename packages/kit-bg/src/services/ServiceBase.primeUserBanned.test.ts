@@ -2,17 +2,24 @@ import { AxiosError } from 'axios';
 
 import {
   OneKeyErrorPrimeUserBanned,
+  OneKeyLocalError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
 
-import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import type {
+  AxiosInstance,
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+} from 'axios';
 
 const REQUEST_TOKEN = 'test-request-token';
 const mockHandleBanned = jest.fn(async () => undefined);
 const mockUser = { onekeyUserId: 'user-a', isOneKeyIdBanned: false };
+const mockReadPrimeUser = jest.fn(async () => mockUser);
+const mockReadAuthGeneration = jest.fn(async () => 7);
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -31,7 +38,7 @@ jest.mock('../states/jotai/atoms/devSettings', () => ({
   },
 }));
 jest.mock('../states/jotai/atoms/prime', () => ({
-  primePersistAtom: { get: async () => mockUser },
+  primePersistAtom: { get: () => mockReadPrimeUser() },
 }));
 jest.mock('./ServicePrime/primeAuthSessionAccess', () => ({
   readAuthTokenOrNull: (read: () => Promise<string>) => read(),
@@ -112,7 +119,7 @@ describe('OneKey ID client through global and service interceptors', () => {
         simpleDb: {
           prime: {
             getActiveAuthToken: async () => REQUEST_TOKEN,
-            getAuthStateGeneration: async () => 7,
+            getAuthStateGeneration: () => mockReadAuthGeneration(),
           },
         },
         servicePrime: { handlePrimeUserBanned: mockHandleBanned },
@@ -123,10 +130,13 @@ describe('OneKey ID client through global and service interceptors', () => {
 
   beforeEach(() => {
     mockHandleBanned.mockClear();
+    mockUser.isOneKeyIdBanned = false;
+    mockReadPrimeUser.mockReset().mockResolvedValue(mockUser);
+    mockReadAuthGeneration.mockReset().mockResolvedValue(7);
   });
 
   function respondWith(status: number, code: number) {
-    client.defaults.adapter = async (config) => {
+    const adapter = jest.fn(async (config: InternalAxiosRequestConfig) => {
       const response = {
         config,
         data: { code, message: 'server message' },
@@ -144,7 +154,9 @@ describe('OneKey ID client through global and service interceptors', () => {
         );
       }
       return response;
-    };
+    });
+    client.defaults.adapter = adapter;
+    return adapter;
   }
 
   test.each([
@@ -210,5 +222,69 @@ describe('OneKey ID client through global and service interceptors', () => {
       data: { code: 0 },
     });
     expect(mockHandleBanned).not.toHaveBeenCalled();
+  });
+
+  describe.each(['user projection', 'auth generation'] as const)(
+    'when Prime %s storage is unavailable',
+    (source) => {
+      let storageError: OneKeyLocalError;
+
+      beforeEach(() => {
+        storageError = new OneKeyLocalError(
+          'Prime storage temporarily unavailable',
+        );
+        if (source === 'user projection') {
+          mockReadPrimeUser.mockRejectedValue(storageError);
+        } else {
+          mockReadAuthGeneration.mockRejectedValue(storageError);
+        }
+      });
+
+      test.each([
+        '/wallet/v1/account/transaction/history',
+        '/wallet/v1/token/list',
+      ])(
+        'sends independent request %s without reading Prime restriction state',
+        async (url) => {
+          const adapter = respondWith(200, 0);
+
+          await expect(client.get(url)).resolves.toMatchObject({
+            data: { code: 0 },
+          });
+
+          expect(adapter).toHaveBeenCalledTimes(1);
+          expect(mockReadPrimeUser).not.toHaveBeenCalled();
+          expect(mockReadAuthGeneration).not.toHaveBeenCalled();
+        },
+      );
+
+      test.each([
+        '/prime/v1/user/devices',
+        '/rebate/v1/user/info',
+        '/wallet/v1/account/transaction/export-task/create',
+      ])('blocks restricted request %s before the network', async (url) => {
+        const adapter = respondWith(200, 0);
+
+        await expect(client.get(url)).rejects.toBe(storageError);
+
+        expect(mockReadPrimeUser).toHaveBeenCalledTimes(1);
+        expect(adapter).not.toHaveBeenCalled();
+      });
+    },
+  );
+
+  test.each([
+    '/prime/v1/user/devices',
+    '/rebate/v1/user/info',
+    '/wallet/v1/account/transaction/export-task/create',
+  ])('still blocks known-banned feature request %s', async (url) => {
+    const adapter = respondWith(200, 0);
+    mockUser.isOneKeyIdBanned = true;
+
+    await expect(client.get(url)).rejects.toBeInstanceOf(
+      OneKeyErrorPrimeUserBanned,
+    );
+
+    expect(adapter).not.toHaveBeenCalled();
   });
 });

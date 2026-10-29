@@ -78,24 +78,25 @@ export default class ServiceBase {
         await getEndpointInfo({ name }),
       );
       client.interceptors.request.use(async (config) => {
-        // Keep Prime storage initialization out of unrelated services' load graph.
-        const { primePersistAtom } =
-          await import('../states/jotai/atoms/prime');
-        const user = await primePersistAtom.get();
-        const authStateGeneration =
-          await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
-        stashOneKeyIdRequestContext(config, {
-          onekeyUserId: user.onekeyUserId,
-          authStateGeneration,
-          requestUrl: config.url,
-        });
-        // Restrict OneKey ID service calls, leaving independent wallet APIs alone.
-        if (
-          user.isOneKeyIdBanned &&
-          isOneKeyIdFeatureRequest(config.url) &&
-          !isPrimeBannedAccountRecoveryRequest(config)
-        ) {
-          throw new OneKeyErrorPrimeUserBanned();
+        if (isOneKeyIdFeatureRequest(config.url)) {
+          // Restriction state is mandatory for OneKey ID features. Independent
+          // wallet requests must not depend on Prime storage being available.
+          const { primePersistAtom } =
+            await import('../states/jotai/atoms/prime');
+          const user = await primePersistAtom.get();
+          const authStateGeneration =
+            await this.backgroundApi.simpleDb.prime.getAuthStateGeneration();
+          stashOneKeyIdRequestContext(config, {
+            onekeyUserId: user.onekeyUserId,
+            authStateGeneration,
+            requestUrl: config.url,
+          });
+          if (
+            user.isOneKeyIdBanned &&
+            !isPrimeBannedAccountRecoveryRequest(config)
+          ) {
+            throw new OneKeyErrorPrimeUserBanned();
+          }
         }
         const headers = config.headers as {
           get?: (headerName: string) => unknown;
