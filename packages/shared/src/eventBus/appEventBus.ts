@@ -375,6 +375,7 @@ export interface IAppEventBusPayload {
     accountId: string;
     indexedAccountId?: string;
     networkId: string;
+    overviewRequestRevision?: number;
     overview: IFetchAccountDeFiPositionsResp['data']['totals'];
     protocols: IDeFiProtocol[];
     protocolMap: Record<string, IProtocolSummary>;
