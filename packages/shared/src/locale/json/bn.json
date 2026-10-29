@@ -3384,7 +3384,7 @@
   "perp_account_mode_ui_updated__msg": "অ্যাকাউন্ট মোড ইউআই আপডেট হয়েছে",
   "perp_account_mode_updated__msg": "অ্যাকাউন্ট মোড আপডেট হয়েছে",
   "perp_account_mode_updating__msg": "অ্যাকাউন্ট মোড আপডেট হচ্ছে…",
-  "perp_aggressive_limit_buy_price_warning__msg": "Your limit price is {percentage}% above the current best ask of {referencePrice}. The order may execute immediately at market price. Please confirm your limit price.",
+  "perp_aggressive_limit_buy_price_warning__msg": "আপনার লিমিট মূল্য বর্তমান সেরা বিক্রয়মূল্য {referencePrice}-এর চেয়ে {percentage}% বেশি। অর্ডারটি বাজারমূল্যে অবিলম্বে কার্যকর হতে পারে। অনুগ্রহ করে আপনার লিমিট মূল্য নিশ্চিত করুন।",
   "perp_aggressive_limit_sell_warning__msg": "আপনার লিমিট মূল্য বর্তমান সেরা ক্রয়মূল্য {referencePrice}-এর চেয়ে {percentage}% কম। অর্ডারটি বাজারমূল্যে অবিলম্বে কার্যকর হতে পারে। অনুগ্রহ করে আপনার লিমিট মূল্য নিশ্চিত করুন।",
   "perp_average_price__title": "গড় মূল্য",
   "perp_backstop_liquidation__title": "ব্যাকস্টপ লিকুইডেশন",

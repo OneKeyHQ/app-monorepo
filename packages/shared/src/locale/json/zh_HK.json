@@ -3384,7 +3384,7 @@
   "perp_account_mode_ui_updated__msg": "帳戶模式介面已更新",
   "perp_account_mode_updated__msg": "帳戶模式已更新",
   "perp_account_mode_updating__msg": "正在更新帳戶模式…",
-  "perp_aggressive_limit_buy_price_warning__msg": "Your limit price is {percentage}% above the current best ask of {referencePrice}. The order may execute immediately at market price. Please confirm your limit price.",
+  "perp_aggressive_limit_buy_price_warning__msg": "你的限價比目前賣一價 {referencePrice} 高 {percentage}%。訂單可能立即以市價成交，請確認限價是否正確。",
   "perp_aggressive_limit_sell_warning__msg": "你的限價比目前買一價 {referencePrice} 低 {percentage}%。訂單可能立即以市價成交，請確認限價是否正確。",
   "perp_average_price__title": "平均價格",
   "perp_backstop_liquidation__title": "兜底清算",
