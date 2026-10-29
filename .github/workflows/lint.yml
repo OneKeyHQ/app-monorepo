@@ -70,6 +70,22 @@ jobs:
       - name: Check third-party native storage compatibility
         run: yarn check:third-party-native-storage
 
+      # development/lint/ts.js writes the tsgo incremental build info into the
+      # Yarn cache folder; restore the latest copy so tsc only rechecks changes.
+      - name: Locate TypeScript build info
+        id: tsc-cache
+        run: echo "path=$(yarn config get cacheFolder)/.app-mono-ts-cache" >> "$GITHUB_OUTPUT"
+
+      - name: Restore TypeScript build info
+        uses: actions/cache/restore@v4
+        continue-on-error: true
+        with:
+          path: ${{ steps.tsc-cache.outputs.path }}
+          key: tsc-buildinfo-${{ runner.os }}-${{ hashFiles('yarn.lock') }}-${{ github.sha }}
+          restore-keys: |
+            tsc-buildinfo-${{ runner.os }}-${{ hashFiles('yarn.lock') }}-
+            tsc-buildinfo-${{ runner.os }}-
+
       - name: Run lint
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
@@ -80,6 +96,16 @@ jobs:
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
+
+      # Build info stays valid even when later lint passes fail, since tsc
+      # validates every file by content hash before reusing cached results.
+      - name: Save TypeScript build info
+        if: always() && steps.tsc-cache.outputs.path != ''
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: ${{ steps.tsc-cache.outputs.path }}
+          key: tsc-buildinfo-${{ runner.os }}-${{ hashFiles('yarn.lock') }}-${{ github.sha }}
 
       - name: Test developer scripts
         run: >-
