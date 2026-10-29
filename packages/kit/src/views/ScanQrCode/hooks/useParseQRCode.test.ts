@@ -8,7 +8,10 @@ import { parseQRCodeWithDeps } from './useParseQRCode';
 import type { IParseQRCodeRuntimeDeps } from './useParseQRCode';
 
 const mockParse = jest.fn<Promise<unknown>, unknown[]>();
-const mockResetScanModalRoute = jest.fn<void, []>();
+const mockResetScanModalRoute = jest.fn<
+  void,
+  [options?: { scanRequestId: string }]
+>();
 
 jest.mock('@onekeyhq/components', () => ({
   Dialog: { confirm: jest.fn() },
@@ -16,7 +19,8 @@ jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: { current: undefined },
   useClipboard: jest.fn(),
   resetAboveMainRoute: jest.fn(),
-  resetScanModalRoute: () => mockResetScanModalRoute(),
+  resetScanModalRoute: (options?: { scanRequestId: string }) =>
+    mockResetScanModalRoute(options),
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -76,4 +80,19 @@ it('closes the scan page for a code that can never be accepted', async () => {
   await expect(parseFrame()).rejects.toBe(invalid);
   expect(mockResetScanModalRoute).toHaveBeenCalledTimes(1);
   expect(isRetryableQrParseFailure(invalid)).toBe(false);
+});
+
+it('keeps a late parse failure scoped to the scanner that produced it', async () => {
+  const invalid = { key: ETranslations.feedback_invalid_qr_code };
+  mockParse.mockRejectedValueOnce(invalid);
+  await expect(
+    parseQRCodeWithDeps(
+      'UR:BYTES/old',
+      { popNavigation: true, autoExecuteParsedAction: false },
+      { ...deps, scanRequestId: 'old-scan' },
+    ),
+  ).rejects.toBe(invalid);
+  expect(mockResetScanModalRoute).toHaveBeenCalledWith({
+    scanRequestId: 'old-scan',
+  });
 });

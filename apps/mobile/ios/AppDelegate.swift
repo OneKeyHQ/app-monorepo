@@ -23,6 +23,14 @@ private enum NitroModuleBridge {
     return cls.perform(NSSelectorFromString("sharedInstance"))?.takeUnretainedValue() as? NSObject
   }
 
+  // MainMenuController (ReactNativeDeviceUtils) owns the iPadOS menu bar content.
+  static func buildMainMenu(with builder: any UIMenuBuilder) {
+    guard let cls = NSClassFromString("ReactNativeDeviceUtils.MainMenuController") as? NSObject.Type else { return }
+    let selector = NSSelectorFromString("buildMenuWithBuilder:")
+    guard cls.responds(to: selector) else { return }
+    _ = cls.perform(selector, with: builder)
+  }
+
   // OneKeyLog is @objc in ReactNativeNativeLogger
   static func logInfo(_ tag: String, _ message: String) {
     guard let cls = NSClassFromString("ReactNativeNativeLogger.OneKeyLog") as? NSObject.Type else { return }
@@ -356,6 +364,12 @@ class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider {
       UserDefaults.standard.set(0, forKey: BootRecoveryKeys.consecutiveBootFailCount)
       UserDefaults.standard.synchronize()
     }
+  }
+
+  // The iPadOS menu bar shows once the app runs in a resizable window.
+  override func buildMenu(with builder: any UIMenuBuilder) {
+    super.buildMenu(with: builder)
+    NitroModuleBridge.buildMainMenu(with: builder)
   }
 
   // Background URLSession events (concurrent/background downloads).

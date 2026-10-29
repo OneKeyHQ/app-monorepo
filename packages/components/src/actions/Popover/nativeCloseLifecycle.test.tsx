@@ -68,6 +68,12 @@ jest.mock('../../hooks/useLayout', () => ({
   useSafeAreaInsets: () => ({ top: 20 }),
 }));
 jest.mock('../../hooks/usePage', () => ({ usePageWidth: () => 400 }));
+// ActionList mounts its popover directly only in expanded windows; without a
+// trigger that popover still opens the native sheet these tests drive.
+jest.mock('../../hooks/useOverlayWidthClass', () => ({
+  OVERLAY_SHEET_MAX_WIDTH: 540,
+  useOverlayWidthClass: () => 'expanded',
+}));
 jest.mock('../../layouts/Page/PageContext', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return { usePageContext: () => ({}), PageContext: React.createContext({}) };

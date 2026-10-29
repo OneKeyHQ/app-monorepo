@@ -8,7 +8,11 @@ import {
 } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { CommonActions } from '@react-navigation/native';
+import {
+  CommonActions,
+  useNavigationState,
+  useRoute,
+} from '@react-navigation/native';
 import { Keyboard, StyleSheet } from 'react-native';
 
 import type {
@@ -150,6 +154,16 @@ function TabItemView({
       };
     }
 
+    // DesktopTabItem only lays rows out horizontally at `gtMd`; the sidebar
+    // also shows on wide iOS windows whose media stays `md` (iPhone Duo).
+    const tabBarItemStyle = {
+      flexDirection: 'row',
+      px: '$2',
+      borderRadius: '$2',
+      ...(isActive ? { bg: '$bgActive' } : undefined),
+      ...(options.tabBarItemStyle as IStackStyle | undefined),
+    } as IStackStyle;
+
     return (
       <DesktopTabItem
         onPress={handlePress}
@@ -163,7 +177,7 @@ function TabItemView({
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         tabBarStyle={options.tabBarStyle}
-        tabBarItemStyle={options.tabBarItemStyle}
+        tabBarItemStyle={tabBarItemStyle}
         {...(selectedBackgroundColor
           ? { bg: selectedBackgroundColor }
           : undefined)}
@@ -181,6 +195,7 @@ function TabItemView({
 }
 
 function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const { isTabNavigator } = useSettingsLayout();
   const { routes } = state;
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
@@ -250,11 +265,20 @@ function SideBar({ state, descriptors, navigation }: BottomTabBarProps) {
   }, [routes, state.index, state.key, descriptors, navigation]);
 
   const { top, bottom } = useSafeAreaInsets();
+  // An iPhone page sheet (iPhone Duo inner display) already starts below the
+  // status bar, so the window's top inset would only push the sidebar down.
+  const sidebarTop =
+    platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad ? 0 : top;
+  // A pushed page uses the full compact window. If another category owns
+  // the retained draft, keep its sidebar entry reachable from the active root.
+  if (!isTabNavigator && (routes[state.index]?.state?.index ?? 0) > 0) {
+    return null;
+  }
   return (
     <YStack
       w={192}
       bg="$bgSubdued"
-      pt={top}
+      pt={sidebarTop}
       pb={bottom}
       borderRightWidth={StyleSheet.hairlineWidth}
       borderColor="$neutral3"
@@ -378,6 +402,22 @@ const MemoizedSettingsTabNavigator = memo(SettingsTabNavigator);
 function SettingTab() {
   const { isTabNavigator, isMobileLayout } = useSettingsLayout();
   const appNavigation = useAppNavigation();
+  const route = useRoute();
+  const hasPushedPanePage = useNavigationState((state) => {
+    const tabs = state.routes.find(({ key }) => key === route.key)?.state;
+    return tabs?.routes.some((pane) => (pane.state?.index ?? 0) > 0) ?? false;
+  });
+  const retainedPaneRef = useRef(false);
+  if (isTabNavigator) {
+    retainedPaneRef.current = true;
+  } else if (!hasPushedPanePage) {
+    retainedPaneRef.current = false;
+  }
+  // Every native pane owns live form state, including inactive categories.
+  // Keep the navigator until all pushed pages return to their roots.
+  const showTabNavigator =
+    isTabNavigator ||
+    (platformEnv.isNative && retainedPaneRef.current && hasPushedPanePage);
   const hasLoggedOpenRef = useRef(false);
   useEffect(() => {
     if (hasLoggedOpenRef.current) {
@@ -389,12 +429,10 @@ function SettingTab() {
     });
   }, [isMobileLayout, isTabNavigator]);
   useLayoutEffect(() => {
-    if (isTabNavigator) {
-      appNavigation.setOptions({
-        headerShown: !isTabNavigator,
-      });
-    }
-  }, [appNavigation, isTabNavigator]);
+    appNavigation.setOptions({
+      headerShown: !showTabNavigator,
+    });
+  }, [appNavigation, showTabNavigator]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
@@ -402,7 +440,7 @@ function SettingTab() {
         sceneName: EAccountSelectorSceneName.home,
       }}
     >
-      {isTabNavigator ? <MemoizedSettingsTabNavigator /> : <SettingList />}
+      {showTabNavigator ? <MemoizedSettingsTabNavigator /> : <SettingList />}
     </AccountSelectorProviderMirror>
   );
 }
