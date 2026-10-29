@@ -493,9 +493,11 @@ describe('Monero KeyringHardware', () => {
     function createSigningKeyring({
       sign,
       network,
+      verifyTransaction = jest.fn(async () => undefined),
     }: {
       sign?: jest.Mock;
       network?: 'mainnet' | 'testnet';
+      verifyTransaction?: jest.Mock;
     } = {}) {
       const assembleDeviceTransaction = jest.fn(async () =>
         JSON.stringify({ txid: 'ab'.repeat(32), rawHex: '0200' }),
@@ -509,9 +511,14 @@ describe('Monero KeyringHardware', () => {
           moneroSignTransaction,
         },
         network,
-        runtime: { assembleDeviceTransaction },
+        runtime: { assembleDeviceTransaction, verifyTransaction },
       });
-      return { keyring, moneroSignTransaction, assembleDeviceTransaction };
+      return {
+        keyring,
+        moneroSignTransaction,
+        assembleDeviceTransaction,
+        verifyTransaction,
+      };
     }
 
     function signParams(tx: Record<string, unknown> = encodedTx) {
@@ -610,7 +617,10 @@ describe('Monero KeyringHardware', () => {
       const assembleDeviceTransaction = jest.fn();
       const keyring = createKeyring({
         sdk: { moneroGetAddress: jest.fn(), moneroGetWatchKey: jest.fn() },
-        runtime: { assembleDeviceTransaction },
+        runtime: {
+          assembleDeviceTransaction,
+          verifyTransaction: jest.fn(async () => undefined),
+        },
       });
 
       await expect(keyring.signTransaction(signParams())).rejects.toThrow(
@@ -619,21 +629,42 @@ describe('Monero KeyringHardware', () => {
       expect(assembleDeviceTransaction).not.toHaveBeenCalled();
     });
 
-    it('refuses a plan that does not match the review before reaching the device', async () => {
-      const { keyring, moneroSignTransaction } = createSigningKeyring();
-      await expect(
-        keyring.signTransaction(
-          signParams({ ...encodedTx, feeAtomic: '1', amount: '1' }),
-        ),
-      ).rejects.toThrow('does not match the review');
+    it('has the runtime check the plan against the review before reaching the device', async () => {
+      const { keyring, moneroSignTransaction, verifyTransaction } =
+        createSigningKeyring({ network: 'testnet' });
 
-      const testnet = createSigningKeyring({ network: 'testnet' });
-      await expect(
-        testnet.keyring.signTransaction(signParams()),
-      ).rejects.toThrow('does not match the review');
+      await keyring.signTransaction(signParams());
 
+      expect(verifyTransaction).toHaveBeenCalledWith(
+        encodedTx.devicePlanJson,
+        stringUtils.stableStringify({
+          network: 'testnet',
+          fromAddress: ADDRESS,
+          toAddress: encodedTx.to,
+          amountAtomic: encodedTx.amountAtomic,
+          feeAtomic: encodedTx.feeAtomic,
+          changeAtomic: encodedTx.changeAtomic,
+          isMaxSend: false,
+        }),
+      );
+      expect(verifyTransaction.mock.invocationCallOrder[0]).toBeLessThan(
+        moneroSignTransaction.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('refuses a plan the runtime rejects without reaching the device', async () => {
+      const { keyring, moneroSignTransaction, assembleDeviceTransaction } =
+        createSigningKeyring({
+          verifyTransaction: jest
+            .fn()
+            .mockRejectedValue(new Error('review mismatch: toAddress')),
+        });
+
+      await expect(keyring.signTransaction(signParams())).rejects.toThrow(
+        'review mismatch: toAddress',
+      );
       expect(moneroSignTransaction).not.toHaveBeenCalled();
-      expect(testnet.moneroSignTransaction).not.toHaveBeenCalled();
+      expect(assembleDeviceTransaction).not.toHaveBeenCalled();
     });
 
     it('refuses a transaction built for software signing', async () => {

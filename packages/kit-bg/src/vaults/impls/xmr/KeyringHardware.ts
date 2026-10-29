@@ -1,6 +1,4 @@
 // cspell:ignore clsags randMult
-import { isEqual } from 'lodash';
-
 import { openXmrDeviceKeyImages } from '@onekeyhq/core/src/chains/xmr/deviceKeyImages';
 import type {
   IXmrDeviceKeyImage,
@@ -11,7 +9,10 @@ import {
   parseXmrAssembledTransaction,
   parseXmrDevicePlan,
 } from '@onekeyhq/core/src/chains/xmr/deviceSigning';
-import { parseXmrTransaction } from '@onekeyhq/core/src/chains/xmr/transactionReview';
+import {
+  getXmrReviewRequest,
+  parseXmrTransaction,
+} from '@onekeyhq/core/src/chains/xmr/transactionReview';
 import {
   getXmrSpendPublicKeyFromAddress,
   serializeXmrViewingKeyPair,
@@ -219,25 +220,18 @@ export class KeyringHardware extends KeyringHardwareBase {
         'xmr: transaction sender does not match the signing account',
       );
     }
+    const vault = this.vault as Vault;
+    const api = await vault.getXmrRuntimeApi();
+    // Like software signing: the runtime checks the plan against the review
+    // (network, sender, recipient, amount, fee, change) before the device sees it.
+    await api.verifyTransaction(
+      encodedTx.devicePlanJson,
+      stringUtils.stableStringify(
+        getXmrReviewRequest(encodedTx, await vault.getXmrNetwork()),
+      ),
+    );
     const networkType = await this.getNetworkType();
     const plan = parseXmrDevicePlan(encodedTx.devicePlanJson);
-    const planned = {
-      networkType: plan.networkType,
-      fee: plan.expected.fee,
-      amount: plan.expected.recipientAmount,
-      change: plan.expected.changeAmount,
-    };
-    const reviewed = {
-      networkType,
-      fee: encodedTx.feeAtomic,
-      amount: encodedTx.amountAtomic,
-      change: encodedTx.changeAtomic,
-    };
-    if (!isEqual(planned, reviewed)) {
-      throw new OneKeyLocalError(
-        'xmr: the device signing plan does not match the review',
-      );
-    }
 
     const { dbDevice, deviceCommonParams } = checkIsDefined(
       params.deviceParams,
@@ -259,7 +253,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { signatures, openingKey, salt, randMult, txEncKeys, ...parts } =
       response.payload;
     const clsags = openXmrDeviceSignatures({ openingKey, signatures });
-    const api = await (this.vault as Vault).getXmrRuntimeApi();
     const assembled = parseXmrAssembledTransaction(
       await api.assembleDeviceTransaction(
         encodedTx.devicePlanJson,
