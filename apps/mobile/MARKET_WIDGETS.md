@@ -36,7 +36,14 @@ Android Widget 已随主 APK 打包，Provider、配置页和后台任务均已�
 
 ## iOS 发布配置
 
-在 Apple Developer 账户中注册 `so.onekey.wallet.MarketWidget`，并为其启用 `group.so.onekey.wallet` App Group。根据发布渠道创建对应的 Provisioning Profile，将其 Base64 编码内容保存到 `release-ios` 工作流使用的仓库 Secret：`ADHOC_MARKET_WIDGET_PROFILE`。
+在 Apple Developer 账户中注册 `so.onekey.wallet.MarketWidget`，并为其启用 `group.so.onekey.wallet` App Group。分别创建以下 Provisioning Profile，使用与主 App CI 签名一致的分发证书，将各自的 Base64 编码内容保存到对应的仓库 Secret：
+
+| 分发用途 | Profile 类型 | GitHub Secret |
+| --- | --- | --- |
+| 安装到已登记的测试设备 | Ad Hoc | `ADHOC_MARKET_WIDGET_PROFILE` |
+| TestFlight / App Store | App Store Connect | `APPSTORE_MARKET_WIDGET_PROFILE` |
+
+`release-ios` 初始化签名时加载 Ad Hoc Profile；进入 App Store 分发分支后，主 App、通知扩展、App Clip 和 Widget 都切换到各自的 App Store Profile，再执行 EAS 构建和自动提交。缺少 Widget 的 App Store Secret 时会明确失败，不会继续使用 Ad Hoc Profile 提交。手动触发 `release-ios` 的现有入口仍用于内部 Ad Hoc 分发。
 
 工作流会将 `OneKeyMarketWidget` 加入本地 EAS 签名配置，并保持扩展的版本号和构建号与主 App 一致。不要将 Provisioning Profile 或签名证书提交到仓库。如果使用其他分发流程，也需要在对应的 EAS 签名配置中配置匹配的 Profile。
 

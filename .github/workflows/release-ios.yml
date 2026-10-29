@@ -279,6 +279,8 @@ jobs:
 
       - name: Build on EAS And Auto Submit
         if: ${{ github.event.workflow_run }}
+        env:
+          MARKET_WIDGET_APPSTORE_PROFILE: ${{ secrets.APPSTORE_MARKET_WIDGET_PROFILE }}
         run: |
           cd apps/mobile
 
@@ -294,11 +296,16 @@ jobs:
           if [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
             eas build --profile="${INTERNAL_PROFILE}" --platform ios --non-interactive --no-wait
           else
+            if [ -z "$MARKET_WIDGET_APPSTORE_PROFILE" ]; then
+              echo "::error::Configure APPSTORE_MARKET_WIDGET_PROFILE for so.onekey.wallet.MarketWidget with the group.so.onekey.wallet App Group."
+              exit 1
+            fi
             # eas build --profile=production --platform ios --non-interactive --no-wait
             # replace APP STORE provision
             echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
             echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
             echo ${{ secrets.APPSTORE_APP_CLIP_PROFILE }} | base64 -d > ./ios/certs/appclip-profile.mobileprovision
+            printf '%s' "$MARKET_WIDGET_APPSTORE_PROFILE" | base64 -d > ./ios/certs/market-widget-profile.mobileprovision
 
             eas build --profile="${STORE_PROFILE}" --platform ios --non-interactive --no-wait --auto-submit
           fi
