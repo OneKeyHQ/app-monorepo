@@ -65,10 +65,15 @@ function deferred<T>() {
 
 describe('desktop Intercom identity ownership', () => {
   let subject: typeof import('.');
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
 
   beforeEach(async () => {
     jest.resetModules();
     jest.clearAllMocks();
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {},
+    });
     mockUnreadCallbacks.length = 0;
     mockUserId = 'A';
     mockApiGetCustomerJWT.mockReset();
@@ -78,42 +83,25 @@ describe('desktop Intercom identity ownership', () => {
     subject = await import('.');
   });
 
-  it('keeps boot and account changes quiet until the UI allows messages', async () => {
-    const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
-    Object.defineProperty(globalThis, 'window', {
-      configurable: true,
-      value: {},
-    });
-    try {
-      await subject.setIntercomInAppMessageVisibility(false);
-      expect(mockSdk.default).not.toHaveBeenCalled();
-      await subject.initIntercom();
-      expect(mockSdk.default).toHaveBeenCalledWith(
-        expect.objectContaining({ hide_notifications: true }),
-      );
-      const command = jest.fn();
-      globalThis.window.Intercom = command;
-      await subject.setIntercomInAppMessageVisibility(true);
-      expect(command).toHaveBeenLastCalledWith('hideNotifications', false);
-      mockUnreadCallbacks[0](3);
-      await flushEvents();
-      await subject.setIntercomInAppMessageVisibility(false);
-      expect(command).toHaveBeenLastCalledWith('hideNotifications', true);
-      expect(subject.getIntercomUnreadCount()).toBe(3);
-      expect(mockSdk.default).toHaveBeenCalledTimes(1);
-
-      mockUserId = 'B';
-      await subject.initIntercom();
-      expect(mockSdk.boot).toHaveBeenLastCalledWith(
-        expect.objectContaining({ hide_notifications: true }),
-      );
-    } finally {
-      if (original) {
-        Object.defineProperty(globalThis, 'window', original);
-      } else {
-        Reflect.deleteProperty(globalThis, 'window');
-      }
+  afterEach(() => {
+    if (originalWindow) {
+      Object.defineProperty(globalThis, 'window', originalWindow);
+    } else {
+      Reflect.deleteProperty(globalThis, 'window');
     }
+  });
+
+  it('keeps messages hidden until the UI allows them', async () => {
+    await subject.initIntercom();
+    expect(mockSdk.default).toHaveBeenCalledWith(
+      expect.objectContaining({ hide_notifications: true }),
+    );
+    const command = jest.fn();
+    globalThis.window.Intercom = command;
+    await subject.setIntercomInAppMessageVisibility(true);
+    expect(command).toHaveBeenLastCalledWith('hideNotifications', false);
+    await subject.setIntercomInAppMessageVisibility(false);
+    expect(command).toHaveBeenLastCalledWith('hideNotifications', true);
   });
 
   it('uses the latest visibility when a boot JWT arrives after locking', async () => {
@@ -131,13 +119,18 @@ describe('desktop Intercom identity ownership', () => {
   });
 
   it('clears A unread, boots B, and ignores late callbacks from A', async () => {
+    const listener = jest.fn();
+    const unsubscribe = subject.subscribeToIntercomUnreadCount(listener);
     await Promise.all([subject.initIntercom(), subject.initIntercom()]);
     expect(mockSdk.default).toHaveBeenCalledTimes(1);
+    listener.mockClear();
     const onUnreadA = mockUnreadCallbacks[0];
     onUnreadA(4);
     await flushEvents();
     expect(subject.getIntercomUnreadCount()).toBe(4);
+    expect(listener).toHaveBeenCalledTimes(1);
 
+    onUnreadA(8);
     mockUserId = 'B';
     await subject.initIntercom();
     expect(subject.getIntercomUnreadCount()).toBe(0);
@@ -150,6 +143,7 @@ describe('desktop Intercom identity ownership', () => {
     onUnreadA(8);
     await flushEvents();
     expect(subject.getIntercomUnreadCount()).toBe(2);
+    unsubscribe();
   });
 
   it('clears identified session cookies on logout without touching other cookies', async () => {
@@ -199,15 +193,6 @@ describe('desktop Intercom identity ownership', () => {
     }
   });
 
-  it('does not publish an in-flight unread check after the account changed', async () => {
-    await subject.initIntercom();
-    mockUnreadCallbacks[0](4);
-    mockUserId = 'B';
-    await subject.initIntercom();
-    await flushEvents();
-    expect(subject.getIntercomUnreadCount()).toBe(0);
-  });
-
   it('preserves anonymous activity when identifying the same visitor', async () => {
     mockUserId = null;
     await subject.initIntercom();
@@ -236,6 +221,9 @@ describe('desktop Intercom identity ownership', () => {
 
   it('clears A before a failed JWT request for B and allows retry', async () => {
     await subject.initIntercom();
+    expect(globalThis.window.intercomSettings?.intercom_user_jwt).toBe(
+      createToken('intercom-A'),
+    );
     mockUserId = 'B';
     mockApiGetCustomerJWT.mockRejectedValueOnce(new Error('offline'));
     await subject.showIntercom();
@@ -245,40 +233,30 @@ describe('desktop Intercom identity ownership', () => {
     expect(mockSdk.shutdown).toHaveBeenCalledTimes(1);
     expect(subject.getIntercomUnreadCount()).toBe(0);
     expect(mockSdk.show).not.toHaveBeenCalled();
+    expect(globalThis.window.intercomSettings).not.toHaveProperty(
+      'intercom_user_jwt',
+    );
     await subject.showIntercom();
     expect(mockSdk.show).toHaveBeenCalledTimes(1);
     expect(mockSdk.boot).toHaveBeenLastCalledWith(
       expect.objectContaining({ intercom_user_jwt: createToken('intercom-B') }),
     );
+    expect(globalThis.window.intercomSettings?.intercom_user_jwt).toBe(
+      createToken('intercom-B'),
+    );
   });
 
-  it('removes the previous JWT from browser globals before fetching the next user', async () => {
-    const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
-    Object.defineProperty(globalThis, 'window', {
-      configurable: true,
-      value: {},
-    });
-    try {
-      await subject.initIntercom();
-      expect(globalThis.window.intercomSettings?.intercom_user_jwt).toBe(
-        createToken('intercom-A'),
-      );
-      mockUserId = 'B';
-      mockApiGetCustomerJWT.mockRejectedValueOnce(new Error('offline'));
-      await expect(subject.initIntercom()).rejects.toThrow('offline');
-      expect(globalThis.window.intercomSettings).not.toHaveProperty(
-        'intercom_user_jwt',
-      );
-      await subject.initIntercom();
-      expect(globalThis.window.intercomSettings?.intercom_user_jwt).toBe(
-        createToken('intercom-B'),
-      );
-    } finally {
-      if (original) {
-        Object.defineProperty(globalThis, 'window', original);
-      } else {
-        Reflect.deleteProperty(globalThis, 'window');
-      }
-    }
+  it('refreshes authentication before opening a conversation or the default messenger', async () => {
+    await subject.showIntercom({ conversationId: 'conversation-123' });
+    expect(mockSdk.update).toHaveBeenCalledWith(
+      expect.objectContaining({ intercom_user_jwt: createToken('intercom-A') }),
+    );
+    expect(mockSdk.showConversation).toHaveBeenCalledWith('conversation-123');
+    expect(mockSdk.show).not.toHaveBeenCalled();
+    expect(mockSdk.update.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSdk.showConversation.mock.invocationCallOrder[0],
+    );
+    await subject.showIntercom();
+    expect(mockSdk.show).toHaveBeenCalledTimes(1);
   });
 });

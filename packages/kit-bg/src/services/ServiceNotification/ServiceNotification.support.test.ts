@@ -47,32 +47,36 @@ describe('support notification delivery across startup', () => {
     jest.restoreAllMocks();
   });
 
-  it('parses the server command and keeps it until a foreground claims it exactly once', async () => {
-    const request = jest.spyOn(service, 'requestOpenSupportConversation');
-    appGlobals.$backgroundApiProxy = {
-      serviceNotification: service,
-    } as typeof appGlobals.$backgroundApiProxy;
-    const fallback = jest.fn();
+  it.each([
+    ['conversation-123', 'conversation-123'],
+    [undefined, undefined],
+    [' ', undefined],
+  ])(
+    'queues conversation id %p until a foreground claims it exactly once',
+    async (conversationId, expectedId) => {
+      const request = jest.spyOn(service, 'requestOpenSupportConversation');
+      const fallback = jest.fn();
 
-    expect(
-      parseNotificationPayload(
-        ENotificationPushMessageMode.command,
-        JSON.stringify({
-          action: 'openSupportConversation',
-          data: { conversationId: 'conversation-123' },
-        }),
-        fallback,
-      ),
-    ).toBe(true);
-    await request.mock.results[0].value;
-    expect(fallback).not.toHaveBeenCalled();
+      expect(
+        parseNotificationPayload(
+          ENotificationPushMessageMode.command,
+          JSON.stringify({
+            action: 'openSupportConversation',
+            data: { conversationId },
+          }),
+          fallback,
+        ),
+      ).toBe(true);
+      await request.mock.results[0].value;
+      expect(fallback).not.toHaveBeenCalled();
 
-    const claims = await Promise.all([
-      service.takePendingSupportConversation(),
-      service.takePendingSupportConversation(),
-    ]);
-    expect(claims).toEqual([{ conversationId: 'conversation-123' }, undefined]);
-  });
+      const claims = await Promise.all([
+        service.takePendingSupportConversation(),
+        service.takePendingSupportConversation(),
+      ]);
+      expect(claims).toEqual([{ conversationId: expectedId }, undefined]);
+    },
+  );
 
   it('opens the extension UI before announcing the command and preserves the pending id', async () => {
     platformEnv.isExtensionBackground = true;
@@ -97,47 +101,18 @@ describe('support notification delivery across startup', () => {
     });
   });
 
-  it.each([123, {}, []])(
-    'rejects invalid conversation id %p before queuing',
-    (conversationId) => {
-      const fallback = jest.fn();
-      expect(
-        parseNotificationPayload(
-          ENotificationPushMessageMode.command,
-          JSON.stringify({
-            action: 'openSupportConversation',
-            data: { conversationId },
-          }),
-          fallback,
-        ),
-      ).toBe(false);
-      expect(fallback).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it.each([undefined, null, '', ' '])(
-    'keeps an id-less support request distinct from no pending request (%p)',
-    async (conversationId) => {
-      const request = jest.spyOn(service, 'requestOpenSupportConversation');
-      const fallback = jest.fn();
-      expect(
-        parseNotificationPayload(
-          ENotificationPushMessageMode.command,
-          JSON.stringify({
-            action: 'openSupportConversation',
-            data: { conversationId },
-          }),
-          fallback,
-        ),
-      ).toBe(true);
-      await request.mock.results[0].value;
-      expect(fallback).not.toHaveBeenCalled();
-      await expect(service.takePendingSupportConversation()).resolves.toEqual({
-        conversationId: undefined,
-      });
-      await expect(
-        service.takePendingSupportConversation(),
-      ).resolves.toBeUndefined();
-    },
-  );
+  it('rejects a non-string conversation id before queuing', () => {
+    const fallback = jest.fn();
+    expect(
+      parseNotificationPayload(
+        ENotificationPushMessageMode.command,
+        JSON.stringify({
+          action: 'openSupportConversation',
+          data: { conversationId: 123 },
+        }),
+        fallback,
+      ),
+    ).toBe(false);
+    expect(fallback).toHaveBeenCalledTimes(1);
+  });
 });

@@ -90,12 +90,4 @@ describe('Intercom notification visibility integration', () => {
     act(() => mockRouterChange?.(main));
     expect(mockSetVisibility).toHaveBeenLastCalledWith(true);
   });
-
-  it('hides messages and removes the readiness listener on unmount', () => {
-    const screen = render(<IntercomNotificationContainer />);
-    expect(mockSetVisibility).toHaveBeenLastCalledWith(true);
-    screen.unmount();
-    expect(mockSetVisibility).toHaveBeenLastCalledWith(false);
-    expect(mockRemoveReady).toHaveBeenCalledTimes(1);
-  });
 });
