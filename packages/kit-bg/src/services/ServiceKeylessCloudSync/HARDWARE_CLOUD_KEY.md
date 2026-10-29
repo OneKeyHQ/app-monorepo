@@ -56,7 +56,7 @@ desktop builds using direct WebUSB or DesktopWebBle, in the web build using
 WebUSB, and in the browser extension using WebUSB. Bridge on any platform fails closed. On web and
 in the extension the credential has no OS secure storage and falls back to the
 same ordinary storage and fixed local wrapper as Keyless there (IndexedDB on
-web, `chrome.storage.local` in the extension). Device debug logging must be off, and
+web and in the extension). Device debug logging must be off, and
 the sensitive background scope suppresses device event forwarding. The App does
 not patch the hardware SDK: `hd-core` still keeps `btcSignMessage` payloads in
 its in-memory log ring (`getLogs`) until the SDK adds it to
@@ -287,6 +287,18 @@ This work neither upgrades the boundary to device-presence protection while sync
 is on nor adds a new leak/storage backend. Requiring OS secure storage everywhere
 or reauthorization on every unlock would be a separate product/platform
 compatibility choice; it is not silently enabled.
+
+Sync after activation needs no device: requests use the stored data key and
+DPoP-bound tokens, and the background refreshes the access token with the stored
+refresh token. A failed refresh keeps the stored token. The server rotates the
+refresh token on every use and revokes the session when an older token comes
+back, with one exception: the token the current one replaced still refreshes
+while the current one is unused, because the reply that carried it was lost (App
+killed, network dropped). Without this, a lost reply would make the user sign
+with the device again. The e2ee-server mock implements the rule; the production
+server must check and rotate in one atomic step. The device is needed again only
+after a revoke (sync turned off here, a key reset on another device, an older
+token reused), a refresh token that expired, or a lost local key.
 
 The isolated regressions cover key deletion on turn off and on switching back to
 Keyless, re-signing to turn sync on again, a different seed after deletion,
