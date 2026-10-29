@@ -529,6 +529,14 @@ function resolveAnchoredPanelWidth(width: unknown): number {
   }
   return ANCHORED_PANEL_WIDTH;
 }
+function resolveAnchoredPanelMaxHeight(maxHeight: unknown) {
+  if (typeof maxHeight === 'number') return maxHeight;
+  if (typeof maxHeight === 'string' && maxHeight.startsWith('$')) {
+    const value = Number(getTokenValue(maxHeight as Token, 'size'));
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return undefined;
+}
 const ANCHORED_VIEWPORT_PADDING = 8;
 const ANCHORED_DEFAULT_OFFSET = 8;
 // Below this much room the panel opens on the other side of the trigger.
@@ -726,8 +734,11 @@ function AnchoredPopover({
     [handleClosePopover, isOpen],
   );
 
+  // Size props, including the `w` shorthand, are resolved into the frame;
+  // left in `panelProps` they would resize the panel after it is placed.
   const {
-    width: panelWidthProp,
+    width: panelWidthLonghand,
+    w: panelWidthShorthand,
     maxWidth: _maxWidth,
     maxHeight: panelMaxHeightProp,
     style: _style,
@@ -743,11 +754,10 @@ function AnchoredPopover({
         placement,
         offset: resolvedOffset.mainAxis,
         crossOffset: resolvedOffset.crossAxis,
-        width: resolveAnchoredPanelWidth(panelWidthProp),
-        maxHeight:
-          typeof panelMaxHeightProp === 'number'
-            ? panelMaxHeightProp
-            : undefined,
+        width: resolveAnchoredPanelWidth(
+          panelWidthLonghand ?? panelWidthShorthand,
+        ),
+        maxHeight: resolveAnchoredPanelMaxHeight(panelMaxHeightProp),
         window,
         insets,
       })
