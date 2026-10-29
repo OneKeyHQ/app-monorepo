@@ -253,7 +253,7 @@ function MobilePerpCandlesHeader({
         verticalPanMaxPointers={chartMode === 'native' ? 1 : undefined}
         excludeRightEdgeRatio={0.1}
         scrollScale={1.2}
-        disableMomentum
+        disableMomentum={chartMode !== 'native'}
         simultaneousWithNativeGesture
         cancelChildTouches={false}
       >
