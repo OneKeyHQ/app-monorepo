@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "Bộ nhớ",
   "privacy_sync_waiting_wifi__msg": "Đang chờ Wi-Fi",
   "privacy_temp_wallet_unavailable__desc": "Không khả dụng cho ví ẩn bị xóa khi đóng ứng dụng. Bật “Duy trì khả năng truy cập” để sử dụng.",
+  "privacy_unshield_warning__desc": "Số tiền và địa chỉ người nhận sẽ được công khai trên blockchain.",
   "private_key_imported_feedback_desc": "Tài khoản khóa riêng của bạn đã sẵn sàng",
   "private_key_imported_feedback_title": "Nhập thành công",
   "private_send.arrival_in": "Đến trong",
