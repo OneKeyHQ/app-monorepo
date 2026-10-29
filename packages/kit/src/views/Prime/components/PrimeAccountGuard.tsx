@@ -14,6 +14,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { primeUserBannedMessage } from '@onekeyhq/shared/src/prime/primeUserBanned';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 function PrimeBannedAccount() {
@@ -26,7 +27,7 @@ function PrimeBannedAccount() {
 
   return (
     <Page>
-      <Page.Header title="OneKey ID" />
+      <Page.Header title="OneKey ID" headerShown />
       <Page.Body>
         <YStack p="$5" gap="$5">
           <SizableText>
@@ -35,7 +36,11 @@ function PrimeBannedAccount() {
           <Button
             testID="prime-banned-delete-account-btn"
             variant="destructive"
-            onPress={() => navigation.push(EPrimePages.PrimeDeleteAccount)}
+            onPress={() =>
+              navigation.pushModal(EModalRoutes.PrimeModal, {
+                screen: EPrimePages.PrimeDeleteAccount,
+              })
+            }
           >
             {intl.formatMessage({ id: ETranslations.id_delete_onekey_id })}
           </Button>

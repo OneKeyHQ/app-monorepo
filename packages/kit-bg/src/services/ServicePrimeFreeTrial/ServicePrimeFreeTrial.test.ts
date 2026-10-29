@@ -6,6 +6,7 @@ import {
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IPrimeFreeTrialAtomData,
   IPrimeFreeTrialFeatureQuota,
@@ -275,6 +276,7 @@ describe('ServicePrimeFreeTrial', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllTimers();
     jest.useRealTimers();
   });
@@ -934,6 +936,33 @@ describe('ServicePrimeFreeTrial', () => {
       ).rejects.toBeTruthy();
       expect(mockOneKeyIdClient.post).toHaveBeenCalledTimes(1);
     });
+
+    test.each([
+      new OneKeyErrorPrimeUserBanned(),
+      { code: '90012', className: 'OneKeyErrorPrimeUserBanned' },
+    ])(
+      'does not retry a ban discovered while capturing the request: %j',
+      async (error) => {
+        const { service, servicePrime, simpleDb } = createService();
+        const wait = jest.spyOn(timerUtils, 'wait');
+        servicePrime.captureOneKeyIdAuthRequestConfig.mockRejectedValue(error);
+
+        await expect(
+          service.startUsage({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: 'usage-banned-race',
+          }),
+        ).rejects.toBe(error);
+
+        expect(
+          servicePrime.captureOneKeyIdAuthRequestConfig,
+        ).toHaveBeenCalledTimes(1);
+        expect(wait).not.toHaveBeenCalled();
+        expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+        expect(simpleDb.records.size).toBe(0);
+        wait.mockRestore();
+      },
+    );
   });
 
   describe('usage results', () => {
