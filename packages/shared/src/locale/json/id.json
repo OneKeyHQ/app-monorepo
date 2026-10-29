@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "Penyimpanan",
   "privacy_sync_waiting_wifi__msg": "Menunggu Wi-Fi",
   "privacy_temp_wallet_unavailable__desc": "Tidak tersedia untuk dompet tersembunyi yang dihapus saat aplikasi ditutup. Aktifkan “Tetap dapat diakses” untuk menggunakannya.",
+  "privacy_unshield_warning__desc": "Jumlah dan alamat penerima akan terlihat publik di blockchain.",
   "private_key_imported_feedback_desc": "Akun kunci pribadi Anda siap",
   "private_key_imported_feedback_title": "Berhasil diimpor",
   "private_send.arrival_in": "Tiba dalam",

@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "स्टोरेज",
   "privacy_sync_waiting_wifi__msg": "Wi-Fi का इंतज़ार",
   "privacy_temp_wallet_unavailable__desc": "ऐप बंद होने पर मिटने वाले छिपे वॉलेट के लिए उपलब्ध नहीं है। इसका उपयोग करने के लिए “पहुँच बनाए रखें” चालू करें।",
+  "privacy_unshield_warning__desc": "राशि और प्राप्तकर्ता का पता ब्लॉकचेन पर सार्वजनिक होंगे।",
   "private_key_imported_feedback_desc": "आपका प्राइवेट की खाता तैयार है",
   "private_key_imported_feedback_title": "सफलतापूर्वक आयात किया गया",
   "private_send.arrival_in": "आगमन में",

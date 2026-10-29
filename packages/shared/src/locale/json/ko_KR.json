@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "저장 공간",
   "privacy_sync_waiting_wifi__msg": "Wi-Fi 대기 중",
   "privacy_temp_wallet_unavailable__desc": "앱 종료 시 삭제되는 숨겨진 지갑에서는 사용할 수 없습니다. 사용하려면 “접근 가능 상태 유지”를 켜세요.",
+  "privacy_unshield_warning__desc": "금액과 받는 주소가 블록체인에 공개됩니다.",
   "private_key_imported_feedback_desc": "개인 키 계정이 준비되었습니다",
   "private_key_imported_feedback_title": "성공적으로 가져왔습니다",
   "private_send.arrival_in": "도착 시간",

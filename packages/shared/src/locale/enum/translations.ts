@@ -4507,6 +4507,7 @@ export enum ETranslations {
   privacy_sync_storage__title = 'privacy_sync_storage__title',
   privacy_sync_waiting_wifi__msg = 'privacy_sync_waiting_wifi__msg',
   privacy_temp_wallet_unavailable__desc = 'privacy_temp_wallet_unavailable__desc',
+  privacy_unshield_warning__desc = 'privacy_unshield_warning__desc',
   private_key_imported_feedback_desc = 'private_key_imported_feedback_desc',
   private_key_imported_feedback_title = 'private_key_imported_feedback_title',
   private_send_arrival_in = 'private_send.arrival_in',

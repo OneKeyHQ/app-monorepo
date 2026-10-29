@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "ストレージ",
   "privacy_sync_waiting_wifi__msg": "Wi-Fi 待機中",
   "privacy_temp_wallet_unavailable__desc": "アプリ終了時に消去される隠しウォレットでは利用できません。「アクセスを維持」をオンにすると利用できます。",
+  "privacy_unshield_warning__desc": "金額と受取アドレスがブロックチェーン上で公開されます",
   "private_key_imported_feedback_desc": "秘密鍵アカウントを作成しました",
   "private_key_imported_feedback_title": "インポートに成功しました",
   "private_send.arrival_in": "到着予定",

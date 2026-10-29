@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "Storage",
   "privacy_sync_waiting_wifi__msg": "Waiting for Wi-Fi",
   "privacy_temp_wallet_unavailable__desc": "Unavailable for hidden wallets that clear on app close. Turn on “Keep accessible” to use it.",
+  "privacy_unshield_warning__desc": "The amount and recipient address will be public on-chain.",
   "private_key_imported_feedback_desc": "Your private key account is ready",
   "private_key_imported_feedback_title": "Imported successfully",
   "private_send.arrival_in": "Arrival in",
