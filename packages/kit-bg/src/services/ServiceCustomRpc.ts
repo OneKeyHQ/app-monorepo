@@ -667,25 +667,30 @@ class ServiceCustomRpc extends ServiceBase {
         !presetNetworkIds.includes(n.id) &&
         networkUtils.isEvmNetwork({ networkId: n.id }),
     );
-    // Only the status of a preset's entry is read: TRASH hides the preset,
-    // LISTED or no entry keeps it.
-    const delistedPresetNetworkIds = serverNetworks
-      .filter(
-        (n) =>
-          presetNetworkIds.includes(n.id) && n.status === ENetworkStatus.TRASH,
-      )
-      .map((n) => n.id)
-      .toSorted();
+    // Only local-wallet presets read their entry: TRASH hides the preset,
+    // LISTED or no entry keeps it. Every other preset ignores the server.
+    const delisted: string[] = [];
     const localWalletConfigs: Record<string, ILocalWalletRemoteConfig> = {};
     for (const n of serverNetworks) {
-      const config = presetNetworkIds.includes(n.id)
-        ? parseLocalWalletRemoteConfig(n.extensions?.localWallet)
-        : undefined;
-      // eslint-disable-next-line no-await-in-loop
-      if (config && (await getVaultSettings({ networkId: n.id })).localWallet) {
-        localWalletConfigs[n.id] = config;
+      const isPreset = presetNetworkIds.includes(n.id);
+      const isTrash = n.status === ENetworkStatus.TRASH;
+      const config = parseLocalWalletRemoteConfig(n.extensions?.localWallet);
+      const hasEffect = isTrash || config !== undefined;
+      if (
+        isPreset &&
+        hasEffect &&
+        // eslint-disable-next-line no-await-in-loop
+        (await getVaultSettings({ networkId: n.id })).localWallet
+      ) {
+        if (isTrash) {
+          delisted.push(n.id);
+        }
+        if (config) {
+          localWalletConfigs[n.id] = config;
+        }
       }
     }
+    const delistedPresetNetworkIds = delisted.toSorted();
 
     // Snapshot the previous server-network set so the refresh event below is only
     // fanned out when the set actually changed (id added/removed or status

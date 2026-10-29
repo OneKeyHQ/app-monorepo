@@ -244,6 +244,26 @@ describe('ServiceCustomRpc server networks', () => {
     expect(clearConfigSyncMeta).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores a TRASH entry for a preset without a local wallet', async () => {
+    const { service, upsertServerNetworks } = buildService({
+      cachedNetworks: [robinhood],
+      lastFetchTime: Date.now(),
+      serverNetworks: [
+        robinhood,
+        { ...zcashDelisted, id: 'evm--1' },
+        { ...zcashDelisted, id: 'btc--0' },
+      ],
+    });
+
+    await service.fetchNetworkFromServer();
+
+    expect(upsertServerNetworks).toHaveBeenCalledWith({
+      networkInfos: [robinhood],
+      delistedPresetNetworkIds: [],
+      localWalletConfigs: {},
+    });
+  });
+
   it.each([
     ['LISTED', [{ ...zcashDelisted, status: ENetworkStatus.LISTED }]],
     ['absent', [] as IServerNetwork[]],
