@@ -48,6 +48,13 @@
       "block": "wires %s to %s",
       "count": 1,
       "reason": "Under Jest every image require() resolves to the one moduleNameMapper stub, so HwWalletAvatarImages cannot tell Pro2Black from Pro2Silver at runtime: only the source says which file each key holds. The byte-compare cases prove the art differs; this pins the wiring so a key aliased onto a sibling art is caught."
+    },
+    {
+      "file": "packages/components/src/hooks/hookBarrels.test.ts",
+      "rule": "source-text-assertion",
+      "block": "re-exports the same hooks on web as on native",
+      "count": 1,
+      "reason": "Web builds resolve hooks/index.web-only.tsx before index.tsx with export presence checks off, so a re-export missing from the web barrel is undefined at runtime (it crashed web Settings). Both barrels import the whole UI layer (Toast, Button, expo modules) and cannot be loaded under Jest, so the test compares their re-export lists. Replace with a web bundle export check if one is added."
     }
   ]
 }

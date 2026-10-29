@@ -675,3 +675,31 @@ it('honors sheet pan dismissal and forwards its presentation callback', () => {
   fireEvent.click(screen.getByTestId('sheet-presented'));
   expect(onAnimationComplete).toHaveBeenCalledWith({ open: true });
 });
+
+describe('Dialog presentation across width classes', () => {
+  const setWindowWidth = (width: number) => {
+    mockWindowDimensions.current = {
+      height: 669,
+      width,
+      scale: 1,
+      fontScale: 1,
+    };
+  };
+  const isSheet = () =>
+    screen.getByTestId('overlay-dialog').getAttribute('data-sheet');
+
+  it('keeps the presentation it opened with until it closes', () => {
+    setWindowWidth(951);
+    const { rerender } = render(<DialogContainer {...dialogProps} />);
+    expect(isSheet()).toBe('false');
+
+    // Folding the iPhone Duo to the outer display while open.
+    setWindowWidth(669);
+    rerender(<DialogContainer {...dialogProps} />);
+    expect(isSheet()).toBe('false');
+
+    rerender(<DialogContainer {...dialogProps} open={false} />);
+    rerender(<DialogContainer {...dialogProps} />);
+    expect(isSheet()).toBe('true');
+  });
+});

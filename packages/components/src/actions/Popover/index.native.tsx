@@ -35,6 +35,11 @@ import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
+import {
+  type IAnchorRect,
+  getAnchoredFrame,
+  resolveAnchoredOffset,
+} from './anchoredFrame';
 import { PopoverContext, usePopoverContext } from './context';
 import {
   runPopoverCloseSideEffects,
@@ -521,13 +526,16 @@ function RawPopover({
 const ANCHORED_PANEL_WIDTH = 384;
 
 // The panel is positioned in points, so size tokens (`$56`) resolve here.
-function resolveAnchoredPanelWidth(width: unknown): number {
+// Unset widths get the default panel width; `'auto'` and other values that
+// are not points size the panel to its content (`undefined`).
+function resolveAnchoredPanelWidth(width: unknown): number | undefined {
+  if (width === undefined) return ANCHORED_PANEL_WIDTH;
   if (typeof width === 'number') return width;
   if (typeof width === 'string' && width.startsWith('$')) {
     const value = Number(getTokenValue(width as Token, 'size'));
     if (Number.isFinite(value) && value > 0) return value;
   }
-  return ANCHORED_PANEL_WIDTH;
+  return undefined;
 }
 function resolveAnchoredPanelMaxHeight(maxHeight: unknown) {
   if (typeof maxHeight === 'number') return maxHeight;
@@ -537,102 +545,19 @@ function resolveAnchoredPanelMaxHeight(maxHeight: unknown) {
   }
   return undefined;
 }
-const ANCHORED_VIEWPORT_PADDING = 8;
-const ANCHORED_DEFAULT_OFFSET = 8;
-// Below this much room the panel opens on the other side of the trigger.
-const ANCHORED_MIN_HEIGHT = 240;
 // Longer than the system rotation and window resize animations.
 const ANCHORED_SETTLE_MS = 500;
 const ANCHORED_BACKDROP = { color: 'transparent', dismissOnPress: true };
 const ANCHORED_SHADOW_OFFSET = { width: 0, height: 8 };
 
-interface IAnchorRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-// Mirrors floating-ui's `offset` for the bottom/top placements native uses:
-// mainAxis is the gap from the trigger, crossAxis shifts horizontally, and
-// alignmentAxis replaces crossAxis for start/end alignments.
-function resolveAnchoredOffset(
-  offset: IPopoverProps['offset'],
-  placement: IPopoverProps['placement'],
-): { mainAxis: number; crossAxis: number } {
-  if (typeof offset === 'number') return { mainAxis: offset, crossAxis: 0 };
-  if (!offset || typeof offset === 'function') {
-    return { mainAxis: ANCHORED_DEFAULT_OFFSET, crossAxis: 0 };
-  }
-  const align = (placement ?? 'bottom-end').split('-')[1];
-  const { mainAxis = 0, crossAxis = 0, alignmentAxis } = offset;
-  if (align && typeof alignmentAxis === 'number') {
-    return {
-      mainAxis,
-      crossAxis: align === 'end' ? -alignmentAxis : alignmentAxis,
-    };
-  }
-  return { mainAxis, crossAxis };
-}
-
-function getAnchoredFrame({
-  anchor,
-  placement,
-  offset,
-  crossOffset,
-  width: preferredWidth,
-  maxHeight: preferredMaxHeight,
-  window,
-  insets,
-}: {
-  anchor: IAnchorRect;
-  placement: IPopoverProps['placement'];
-  offset: number;
-  crossOffset: number;
-  width: number;
-  maxHeight?: number;
-  window: { width: number; height: number };
-  insets: { top: number; left: number; bottom: number; right: number };
-}) {
-  const minX = insets.left + ANCHORED_VIEWPORT_PADDING;
-  const maxX = window.width - insets.right - ANCHORED_VIEWPORT_PADDING;
-  const width = Math.max(0, Math.min(preferredWidth, maxX - minX));
-  // Native panels open below or above the trigger; side placements map to
-  // below so the panel never covers its trigger on narrow side rails.
-  const [side, align] = (placement ?? 'bottom-end').split('-');
-  let left: number;
-  if (align === 'start') {
-    left = anchor.x;
-  } else if (align === 'end') {
-    left = anchor.x + anchor.width - width;
-  } else {
-    left = anchor.x + anchor.width / 2 - width / 2;
-  }
-  left = Math.min(Math.max(left + crossOffset, minX), maxX - width);
-
-  const spaceBelow =
-    window.height -
-    insets.bottom -
-    ANCHORED_VIEWPORT_PADDING -
-    (anchor.y + anchor.height + offset);
-  const spaceAbove = anchor.y - offset - insets.top - ANCHORED_VIEWPORT_PADDING;
-  const preferAbove = side === 'top';
-  const openAbove = preferAbove
-    ? spaceAbove >= ANCHORED_MIN_HEIGHT || spaceAbove >= spaceBelow
-    : spaceBelow < ANCHORED_MIN_HEIGHT && spaceAbove > spaceBelow;
-  const available = Math.max(0, openAbove ? spaceAbove : spaceBelow);
-  const maxHeight =
-    preferredMaxHeight !== undefined
-      ? Math.min(preferredMaxHeight, available)
-      : available;
-  return openAbove
-    ? {
-        left,
-        width,
-        maxHeight,
-        bottom: window.height - (anchor.y - offset),
-      }
-    : { left, width, maxHeight, top: anchor.y + anchor.height + offset };
+// Counts open cycles: it increases on the render where `isOpen` turns true,
+// so state measured in an earlier cycle can be told apart from fresh state.
+function useOpenCycle(isOpen: boolean) {
+  const cycleRef = useRef(0);
+  const wasOpenRef = useRef(false);
+  if (isOpen && !wasOpenRef.current) cycleRef.current += 1;
+  wasOpenRef.current = isOpen;
+  return cycleRef.current;
 }
 
 // Wide-window presentation: a panel placed under (or above) its trigger in a
@@ -674,12 +599,19 @@ function AnchoredPopover({
   const level = useNestedOverlayLevel();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  const [windowOffset, setWindowOffset] = useState<{ x: number; y: number }>();
+  // An offset from an earlier open is ignored, so a reopen waits for a fresh
+  // one; the closing panel keeps its offset through the exit animation.
+  const openCycle = useOpenCycle(isOpen);
+  const openCycleRef = useRef(openCycle);
+  openCycleRef.current = openCycle;
+  const [reportedOffset, setReportedOffset] = useState<{
+    cycle: number;
+    x: number;
+    y: number;
+  }>();
+  const windowOffset =
+    reportedOffset?.cycle === openCycle ? reportedOffset : undefined;
   const [windowOffsetRequest, setWindowOffsetRequest] = useState(0);
-  useEffect(() => {
-    // Drop the last offset so a reopen waits for a fresh one.
-    if (!isOpen) setWindowOffset(undefined);
-  }, [isOpen]);
   useEffect(() => {
     if (anchorIsModalRelative && isOpen && anchor) {
       setWindowOffsetRequest((request) => request + 1);
@@ -687,8 +619,13 @@ function AnchoredPopover({
   }, [anchor, anchorIsModalRelative, isOpen]);
   const handleWindowOffset = useCallback(
     (next: { x: number; y: number }) =>
-      setWindowOffset((prev) =>
-        prev && prev.x === next.x && prev.y === next.y ? prev : next,
+      setReportedOffset((prev) =>
+        prev &&
+        prev.cycle === openCycleRef.current &&
+        prev.x === next.x &&
+        prev.y === next.y
+          ? prev
+          : { cycle: openCycleRef.current, x: next.x, y: next.y },
       ),
     [],
   );
@@ -786,40 +723,51 @@ function AnchoredPopover({
           position="absolute"
           left={frame.left}
           top={frame.top}
-          bottom={frame.bottom}
           width={frame.width}
-          maxHeight={frame.maxHeight}
-          backgroundColor="$bg"
-          borderRadius="$4"
-          borderWidth="$px"
-          borderColor="$borderSubdued"
-          borderCurve="continuous"
-          overflow="hidden"
-          elevation={8}
-          shadowColor="black"
-          shadowOpacity={0.12}
-          shadowRadius={24}
-          shadowOffset={ANCHORED_SHADOW_OFFSET}
-          {...panelProps}
+          height={frame.height}
+          alignItems={frame.alignItems}
+          justifyContent={frame.justifyContent}
+          pointerEvents="box-none"
         >
-          <ScrollView
-            flexShrink={1}
-            nestedScrollEnabled
-            showsVerticalScrollIndicator={false}
+          <YStack
+            width={frame.panelWidth}
+            maxWidth={frame.width}
+            maxHeight={frame.panelMaxHeight}
+            backgroundColor="$bg"
+            borderRadius="$4"
+            borderWidth="$px"
+            borderColor="$borderSubdued"
+            borderCurve="continuous"
+            overflow="hidden"
+            elevation={8}
+            shadowColor="black"
+            shadowOpacity={0.12}
+            shadowRadius={24}
+            shadowOffset={ANCHORED_SHADOW_OFFSET}
+            {...panelProps}
           >
-            <ModalPortalProvider>
-              <PopoverContext.Provider value={popoverContextValue}>
-                {RenderContent
-                  ? ((
-                      <RenderContent
-                        isOpen={isOpen}
-                        closePopover={handleClosePopover}
-                      />
-                    ) as ReactElement)
-                  : (renderContent as ReactElement)}
-              </PopoverContext.Provider>
-            </ModalPortalProvider>
-          </ScrollView>
+            <ScrollView
+              // Size to the content and shrink to the max height; the default
+              // flexGrow would fill a content-sized panel to the region height.
+              flexGrow={0}
+              flexShrink={1}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={false}
+            >
+              <ModalPortalProvider>
+                <PopoverContext.Provider value={popoverContextValue}>
+                  {RenderContent
+                    ? ((
+                        <RenderContent
+                          isOpen={isOpen}
+                          closePopover={handleClosePopover}
+                        />
+                      ) as ReactElement)
+                    : (renderContent as ReactElement)}
+                </PopoverContext.Provider>
+              </ModalPortalProvider>
+            </ScrollView>
+          </YStack>
         </YStack>
       ) : null}
     </OverlayView>
@@ -862,13 +810,17 @@ function BasicPopover({
   }, [closePopover, isAnchored, isOpen]);
 
   const triggerRef = useRef<ViewInstance>(null);
-  const [anchor, setAnchor] = useState<IAnchorRect | undefined>();
+  // A measurement from an earlier open is ignored, so a reopen waits for a
+  // fresh one instead of presenting at the old position and jumping; the
+  // closing panel keeps its position through the exit animation.
+  const openCycle = useOpenCycle(Boolean(isOpen));
+  const [measuredAnchor, setMeasuredAnchor] = useState<{
+    cycle: number;
+    rect: IAnchorRect;
+  }>();
+  const anchor =
+    measuredAnchor?.cycle === openCycle ? measuredAnchor.rect : undefined;
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  useEffect(() => {
-    // Drop the last measurement so a reopen waits for a fresh one instead of
-    // presenting at the old position and jumping.
-    if (!isOpen) setAnchor(undefined);
-  }, [isOpen]);
   useEffect(() => {
     if (!isAnchored || !isOpen || nativeAnchorRect) return;
     // Re-measure on every window size change so the panel follows its
@@ -877,21 +829,29 @@ function BasicPopover({
     // once the rotation animation is over.
     const measure = () => {
       triggerRef.current?.measureInWindow((x, y, width, height) => {
-        setAnchor((prev) =>
+        setMeasuredAnchor((prev) =>
           prev &&
-          prev.x === x &&
-          prev.y === y &&
-          prev.width === width &&
-          prev.height === height
+          prev.cycle === openCycle &&
+          prev.rect.x === x &&
+          prev.rect.y === y &&
+          prev.rect.width === width &&
+          prev.rect.height === height
             ? prev
-            : { x, y, width, height },
+            : { cycle: openCycle, rect: { x, y, width, height } },
         );
       });
     };
     measure();
     const timer = setTimeout(measure, ANCHORED_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [isAnchored, isOpen, nativeAnchorRect, windowHeight, windowWidth]);
+  }, [
+    isAnchored,
+    isOpen,
+    nativeAnchorRect,
+    openCycle,
+    windowHeight,
+    windowWidth,
+  ]);
 
   const {
     shouldUseNativePortalLifecycle,

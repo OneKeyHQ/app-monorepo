@@ -248,6 +248,19 @@ const HEADER_DRAG_ZONE_MIN_HEIGHT = 24;
  *
  * @returns The rendered dialog UI as a React element.
  */
+// Folding or resizing a window across the expanded width while a dialog is
+// open would swap sheet and card and remount its content, dropping input and
+// focus, so the presentation chosen when it opened holds until it closes.
+function useValueLatchedWhileOpen<T>(open: boolean, value: T): T {
+  const latchedRef = useRef<{ value: T } | undefined>(undefined);
+  if (!open) {
+    latchedRef.current = undefined;
+  } else if (!latchedRef.current) {
+    latchedRef.current = { value };
+  }
+  return latchedRef.current ? latchedRef.current.value : value;
+}
+
 function DialogFrame({
   open,
   onHeaderCloseButtonPress,
@@ -338,8 +351,10 @@ function DialogFrame({
   // Expanded windows center the dialog; narrower ones use a sheet, capped in
   // width on medium windows (see useOverlayWidthClass).
   const overlayWidthClass = useOverlayWidthClass();
-  const useSheetPresentation =
-    overlayWidthClass !== 'expanded' && !isNativeCentered;
+  const useSheetPresentation = useValueLatchedWhileOpen(
+    Boolean(open),
+    overlayWidthClass !== 'expanded' && !isNativeCentered,
+  );
   const centeredInset = Math.max(safeAreaTop, safeAreaBottom, 16);
 
   // Native OneKey login opt-in (OK-63232): cap + scroll inside the overlay
