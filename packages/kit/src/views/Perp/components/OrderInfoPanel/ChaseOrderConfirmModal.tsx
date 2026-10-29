@@ -183,6 +183,8 @@ export function showChaseOrderConfirmDialog({
         szDecimals={szDecimals}
       />
     ),
+    // Together with the content's $1 padding, match OrderConfirmContent's $4 button gap.
+    contentContainerProps: { pb: '$3' },
     showFooter: true,
     showConfirmButton: true,
     showCancelButton: true,
