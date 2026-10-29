@@ -446,6 +446,7 @@ export function useWebViewTranslate({
     async (data: ITranslateRequest): Promise<ITranslateRequestState> => {
       const { sessionId } = data;
       if (!sessionId) return 'cancelled';
+      const initialNavigationVersion = navigationVersionRef.current;
       while (allowedSessionIdsRef.current.has(sessionId)) {
         const navigationVersion = navigationVersionRef.current;
         // A load-start alone cannot distinguish SPA history updates from a
@@ -461,7 +462,15 @@ export function useWebViewTranslate({
           function finish(value: ITranslateRequestState) {
             clearTimeout(timer);
             requestChecksRef.current.delete(checkId);
-            resolve(value);
+            // Capture the cause when the probe settles, before another nav
+            // can run ahead of its promise continuation. A lost recipient
+            // after navigation cancels this check, including any re-probes.
+            resolve(
+              value === 'unavailable' &&
+                initialNavigationVersion !== navigationVersionRef.current
+                ? 'cancelled'
+                : value,
+            );
           }
           requestChecksRef.current.set(checkId, finish);
           injectScript(
@@ -475,7 +484,7 @@ export function useWebViewTranslate({
           );
         });
         // Keep the first terminal cause: a timeout/negative reply that beat
-        // restore is still a failure, while explicit cancellation is not.
+        // navigation/restore is still a failure; cancellation is not.
         if (state !== 'pending') return state;
         if (!allowedSessionIdsRef.current.has(sessionId)) return 'cancelled';
         if (navigationVersion === navigationVersionRef.current)
