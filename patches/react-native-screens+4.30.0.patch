@@ -462,10 +462,19 @@ index 0000000..eaa5010
 +    override fun getEventData(): WritableMap = Arguments.createMap().apply { putInt("dismissCount", 1) }
 +}
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt
-index 2f2133b..fb84a93 100644
+index 2f2133b..6f7568f 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt
-@@ -16,6 +16,7 @@ import androidx.annotation.RequiresApi
+@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
+ import android.content.pm.ActivityInfo
+ import android.graphics.Paint
+ import android.os.Build
++import android.os.Handler
++import android.os.Looper
+ import android.os.Parcelable
+ import android.util.SparseArray
+ import android.view.MotionEvent
+@@ -16,6 +18,7 @@ import androidx.annotation.RequiresApi
  import androidx.coordinatorlayout.widget.CoordinatorLayout
  import androidx.core.view.children
  import androidx.fragment.app.Fragment
@@ -473,7 +482,7 @@ index 2f2133b..fb84a93 100644
  import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
  import com.facebook.react.bridge.ReactContext
  import com.facebook.react.uimanager.PixelUtil
-@@ -39,6 +40,7 @@ import com.swmansion.rnscreens.events.SheetDetentChangedEvent
+@@ -39,6 +42,7 @@ import com.swmansion.rnscreens.events.SheetDetentChangedEvent
  import com.swmansion.rnscreens.ext.asScreenStackFragment
  import com.swmansion.rnscreens.gamma.common.FragmentProviding
  import com.swmansion.rnscreens.utils.pxToDp
@@ -481,7 +490,7 @@ index 2f2133b..fb84a93 100644
  import kotlin.math.max
  
  @SuppressLint("ViewConstructor") // Only we construct this view, it is never inflated.
-@@ -67,6 +69,13 @@ class Screen(
+@@ -67,6 +71,13 @@ class Screen(
      var replaceAnimation = ReplaceAnimation.POP
      var stackAnimation = StackAnimation.DEFAULT
      var isGestureEnabled = true
@@ -495,7 +504,7 @@ index 2f2133b..fb84a93 100644
      var screenOrientation: Int? = null
          private set
      var screenId: String? = null
-@@ -79,6 +88,10 @@ class Screen(
+@@ -79,6 +90,10 @@ class Screen(
  
      // Keeps `startTransitionRecursive` / `endTransitionRecursive` calls paired. Should be used on UI thread only.
      private var isRemovalTransitionStarted = false
@@ -506,7 +515,7 @@ index 2f2133b..fb84a93 100644
  
      // Props for controlling modal presentation
      var isSheetGrabberVisible: Boolean = false
-@@ -455,6 +468,7 @@ class Screen(
+@@ -455,6 +470,7 @@ class Screen(
      }
  
      fun startRemovalTransition() {
@@ -514,7 +523,7 @@ index 2f2133b..fb84a93 100644
          isBeingRemoved = true
          if (!isRemovalTransitionStarted) {
              isRemovalTransitionStarted = true
-@@ -463,59 +477,196 @@ class Screen(
+@@ -463,57 +479,219 @@ class Screen(
      }
  
      fun endRemovalTransition() {
@@ -558,9 +567,6 @@ index 2f2133b..fb84a93 100644
 -    private fun endTransitionRecursive(parent: ViewGroup) {
 -        parent.children.forEach { childView ->
 -            parent.endViewTransition(childView)
--
--            if (childView is ScreenStackHeaderConfig) {
--                endTransitionRecursive(childView.toolbar)
 +    private fun startTransitionRecursive(parent: ViewGroup?) {
 +        if (!isRemovalTransitionStarted) return
 +        parent?.let {
@@ -577,12 +583,12 @@ index 2f2133b..fb84a93 100644
 +                    if (!isRemovalTransitionStarted) return
 +                    visitTransitionChild(it, it.getChildAt(i))
 +                }
-             }
++            }
 +        }
 +    }
  
--            if (childView is ViewGroup) {
--                endTransitionRecursive(childView)
+-            if (childView is ScreenStackHeaderConfig) {
+-                endTransitionRecursive(childView.toolbar)
 +    private fun visitTransitionChild(
 +        parent: ViewGroup,
 +        child: View?,
@@ -603,9 +609,11 @@ index 2f2133b..fb84a93 100644
 +                // child?.let { view -> it.startViewTransition(view) }
 +                child?.let { view -> acquireTransitionEdge(parent, view) }
              }
-         }
++        }
 +        if (!isRemovalTransitionStarted) return
-+
+ 
+-            if (childView is ViewGroup) {
+-                endTransitionRecursive(childView)
 +        if (child is ScreenStackHeaderConfig) {
 +            // we want to start transition on children of the toolbar too,
 +            // which is not a child of ScreenStackHeaderConfig
@@ -615,26 +623,8 @@ index 2f2133b..fb84a93 100644
 +        if (isRemovalTransitionStarted && child is ViewGroup) {
 +            startTransitionRecursive(child)
 +        }
-     }
- 
--    private fun startTransitionRecursive(parent: ViewGroup?) {
--        parent?.let {
--            for (i in 0 until it.childCount) {
--                val child = it.getChildAt(i)
--
--                if (parent is SwipeRefreshLayout && child is ImageView) {
--                    // SwipeRefreshLayout class which has CircleImageView as a child,
--                    // does not handle `startViewTransition` properly.
--                    // It has a custom `getChildDrawingOrder` method which returns
--                    // wrong index if we called `startViewTransition` on the views on new arch.
--                    // We add a simple View to bump the number of children to make it work.
--                    // Appended, not inserted at `i`: a filler before the circle inflates the
--                    // index `onMeasure` caches for it, which then outlives the child it points at.
--                    // TODO: find a better way to handle this scenario
--                    it.addView(View(context))
--                } else {
--                    child?.let { view -> it.startViewTransition(view) }
--                }
++    }
++
 +    private fun acquireTransitionEdge(
 +        parent: ViewGroup,
 +        child: View,
@@ -659,96 +649,137 @@ index 2f2133b..fb84a93 100644
 +            edge.parent.endViewTransition(edge.child)
 +        }
 +    }
++
++    private fun acquireRecyclerView(recyclerView: RecyclerView) {
++        if (removalRecyclerViewSet.put(recyclerView, true) != null) return
++        removalRecyclerViews.add(recyclerView)
++        val state = recyclerViewOwners[recyclerView]
++        val owner =
++            if (state == null) {
++                RecyclerViewOwner(
++                    count = 1,
++                    wasSuppressed = recyclerView.isLayoutSuppressed,
++                    needsEndAnimations = true,
++                ).also { recyclerViewOwners[recyclerView] = it }
++            } else {
++                state.count += 1
++                state.needsEndAnimations = true
++                state
+             }
++        owner.remainingRetries = MAX_SUPPRESSION_SYNC_RETRIES
++        syncRecyclerViewSuppression(recyclerView, owner)
++    }
++
++    private fun releaseRecyclerView(recyclerView: RecyclerView) {
++        val owner = recyclerViewOwners[recyclerView] ?: return
++        if (owner.count > 0) {
++            owner.count -= 1
++        }
++        if (owner.count == 0) {
++            owner.needsEndAnimations = false
+         }
++        owner.remainingRetries = MAX_SUPPRESSION_SYNC_RETRIES
++        syncRecyclerViewSuppression(recyclerView, owner)
+     }
+ 
+-    private fun startTransitionRecursive(parent: ViewGroup?) {
+-        parent?.let {
+-            for (i in 0 until it.childCount) {
+-                val child = it.getChildAt(i)
+-
+-                if (parent is SwipeRefreshLayout && child is ImageView) {
+-                    // SwipeRefreshLayout class which has CircleImageView as a child,
+-                    // does not handle `startViewTransition` properly.
+-                    // It has a custom `getChildDrawingOrder` method which returns
+-                    // wrong index if we called `startViewTransition` on the views on new arch.
+-                    // We add a simple View to bump the number of children to make it work.
+-                    // Appended, not inserted at `i`: a filler before the circle inflates the
+-                    // index `onMeasure` caches for it, which then outlives the child it points at.
+-                    // TODO: find a better way to handle this scenario
+-                    it.addView(View(context))
+-                } else {
+-                    child?.let { view -> it.startViewTransition(view) }
++    private fun syncRecyclerViewSuppression(
++        recyclerView: RecyclerView,
++        owner: RecyclerViewOwner,
++    ) {
++        if (recyclerViewOwners[recyclerView] !== owner) return
++        owner.pendingSync?.let {
++            mainHandler.removeCallbacks(it)
++            owner.pendingSync = null
++        }
++        if (owner.count > 0) {
++            if (!recyclerView.isComputingLayout) {
++                try {
++                    if (!owner.wasSuppressed && !recyclerView.isLayoutSuppressed) {
++                        recyclerView.suppressLayout(true)
++                    }
++                    if (owner.needsEndAnimations) {
++                        owner.needsEndAnimations = false
++                        recyclerView.itemAnimator?.endAnimations()
++                    }
++                    return
++                } catch (_: IllegalStateException) {
++                    // RecyclerView is still in layout or scroll; retry on the next UI frame.
+                 }
++            }
++            if (owner.remainingRetries > 0 && recyclerView.isAttachedToWindow) {
++                owner.remainingRetries -= 1
++                scheduleRecyclerViewSync(recyclerView, owner)
++            }
++            return
++        }
  
 -                if (child is ScreenStackHeaderConfig) {
 -                    // we want to start transition on children of the toolbar too,
 -                    // which is not a child of ScreenStackHeaderConfig
 -                    startTransitionRecursive(child.toolbar)
 -                }
-+    private fun acquireRecyclerView(recyclerView: RecyclerView) {
-+        if (removalRecyclerViewSet.put(recyclerView, true) != null) return
-+        removalRecyclerViews.add(recyclerView)
-+        val state = recyclerViewOwners[recyclerView]
-+        if (state == null) {
-+            val wasSuppressed = recyclerView.isLayoutSuppressed
-+            val owner = RecyclerViewOwner(1, wasSuppressed)
-+            recyclerViewOwners[recyclerView] = owner
-+            applyRecyclerViewSuppression(recyclerView, owner)
-+        } else {
-+            state.count += 1
-+            applyRecyclerViewSuppression(recyclerView, state)
-+        }
-+    }
- 
--                if (child is ViewGroup) {
--                    startTransitionRecursive(child)
-+    private fun applyRecyclerViewSuppression(
-+        recyclerView: RecyclerView,
-+        owner: RecyclerViewOwner,
-+    ) {
-+        if (owner.wasSuppressed || recyclerViewOwners[recyclerView] !== owner || owner.count <= 0) {
-+            return
-+        }
-+        if (!recyclerView.isComputingLayout) {
-+            try {
-+                if (!recyclerView.isLayoutSuppressed) {
-+                    recyclerView.suppressLayout(true)
-                 }
-+                recyclerView.itemAnimator?.endAnimations()
-+                return
-+            } catch (_: IllegalStateException) {
-+                // RecyclerView is still in layout or scroll; retry on the next UI frame.
-+            }
-+        }
-+        if (owner.pendingSync != null || !recyclerView.isAttachedToWindow) {
-+            return
-+        }
-+        val retry =
-+            Runnable {
-+                owner.pendingSync = null
-+                applyRecyclerViewSuppression(recyclerView, owner)
-+            }
-+        owner.pendingSync = retry
-+        recyclerView.post(retry)
-+    }
-+
-+    private fun releaseRecyclerView(recyclerView: RecyclerView) {
-+        val state = recyclerViewOwners[recyclerView] ?: return
-+        state.count -= 1
-+        if (state.count == 0) {
++        if (owner.wasSuppressed || !recyclerView.isLayoutSuppressed) {
 +            recyclerViewOwners.remove(recyclerView)
-+            state.pendingSync?.let {
-+                recyclerView.removeCallbacks(it)
-+                state.pendingSync = null
-+            }
-+            if (!state.wasSuppressed) {
-+                restoreRecyclerViewSuppression(recyclerView)
-             }
-         }
-     }
- 
-+    private fun restoreRecyclerViewSuppression(recyclerView: RecyclerView) {
-+        if (recyclerViewOwners.containsKey(recyclerView) || !recyclerView.isLayoutSuppressed) {
 +            return
 +        }
 +        if (!recyclerView.isComputingLayout) {
 +            try {
 +                recyclerView.suppressLayout(false)
 +                recyclerView.requestLayout()
++                recyclerViewOwners.remove(recyclerView)
 +                return
 +            } catch (_: IllegalStateException) {
 +                // RecyclerView is still in layout or scroll; retry on the next UI frame.
 +            }
 +        }
-+        if (recyclerView.isAttachedToWindow) {
-+            recyclerView.post { restoreRecyclerViewSuppression(recyclerView) }
++        if (owner.remainingRetries > 0) {
++            owner.remainingRetries -= 1
++            if (scheduleRecyclerViewSync(recyclerView, owner)) {
++                return
++            }
 +        }
++        recyclerViewOwners.remove(recyclerView)
 +    }
-+
+ 
+-                if (child is ViewGroup) {
+-                    startTransitionRecursive(child)
+-                }
++    private fun scheduleRecyclerViewSync(
++        recyclerView: RecyclerView,
++        owner: RecyclerViewOwner,
++    ): Boolean {
++        val retry =
++            Runnable {
++                owner.pendingSync = null
++                syncRecyclerViewSuppression(recyclerView, owner)
+             }
++        owner.pendingSync = retry
++        val posted = mainHandler.post(retry)
++        if (!posted) {
++            owner.pendingSync = null
+         }
++        return posted
+     }
+ 
      // We do not want to perform any action, therefore do not need to override the associated method.
-     @SuppressLint("ClickableViewAccessibility")
-     override fun onTouchEvent(event: MotionEvent?): Boolean =
-@@ -566,6 +717,7 @@ class Screen(
+@@ -566,6 +744,7 @@ class Screen(
      }
  
      override fun onDetachedFromWindow() {
@@ -756,14 +787,18 @@ index 2f2133b..fb84a93 100644
          super.onDetachedFromWindow()
          // Rotation may reset the shadow state while this screen is covered. Republish it on the
          // next layout, even if the native frame is identical to the one before detaching.
-@@ -666,6 +818,14 @@ class Screen(
+@@ -666,6 +845,18 @@ class Screen(
  
      companion object {
          const val TAG = "Screen"
++        private const val MAX_SUPPRESSION_SYNC_RETRIES = 4
++        private val mainHandler = Handler(Looper.getMainLooper())
 +        private data class TransitionEdge(val parent: ViewGroup, val child: View)
 +        private class RecyclerViewOwner(
 +            var count: Int,
 +            val wasSuppressed: Boolean,
++            var needsEndAnimations: Boolean,
++            var remainingRetries: Int = MAX_SUPPRESSION_SYNC_RETRIES,
 +            var pendingSync: Runnable? = null,
 +        )
 +        private val transitionEdgeOwners = IdentityHashMap<ViewGroup, IdentityHashMap<View, Int>>()
