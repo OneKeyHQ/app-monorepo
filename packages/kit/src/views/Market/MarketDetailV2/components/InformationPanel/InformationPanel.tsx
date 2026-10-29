@@ -11,6 +11,7 @@ import {
   BaseMarketTokenPrice,
   MarketTokenPrice,
 } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -278,14 +279,30 @@ export function InformationPanel({
                 {priceChangeValue}
               </NumberSizeableText>
             ) : null}
-            <SizableText
-              size={isMobileLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
-              color={priceChangeColor}
-            >
-              {priceChangeValue !== undefined
-                ? `(${priceChangeDisplay})`
-                : priceChangeDisplay}
-            </SizableText>
+            {isMobileLayout ? (
+              // A range move is a full-precision string that can run to many
+              // digits (1Y, All), so it goes through the capped number
+              // formatter rather than the 24h figure's character cut.
+              <XStack alignItems="baseline">
+                {priceChangeValue !== undefined ? (
+                  <SizableText size="$bodyMdMedium" color={priceChangeColor}>
+                    (
+                  </SizableText>
+                ) : null}
+                <PriceChangePercentage size="$bodyMdMedium">
+                  {priceChange24hPercent}
+                </PriceChangePercentage>
+                {priceChangeValue !== undefined ? (
+                  <SizableText size="$bodyMdMedium" color={priceChangeColor}>
+                    )
+                  </SizableText>
+                ) : null}
+              </XStack>
+            ) : (
+              <SizableText size="$bodyLgMedium" color={priceChangeColor}>
+                {priceChangeDisplay}
+              </SizableText>
+            )}
             {isMobileLayout ? (
               <SizableText
                 testID="market-mobile-price-change-label"

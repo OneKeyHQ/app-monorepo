@@ -51,6 +51,15 @@ describe('downsampleChartLine', () => {
     );
   });
 
+  it('still thins when a live quote trails the last bar by a minute', () => {
+    const data = series(288);
+    const lastTime = data.at(-1)![0];
+    const withLive: IMarketTokenChart = [...data, [lastTime + 60, 1]];
+    const sampled = downsampleChartLine(withLive, 72);
+    expect(sampled.length).toBeLessThanOrEqual(72);
+    expect(sampled.at(-1)).toBe(withLive.at(-1));
+  });
+
   it('keeps only real samples, in time order', () => {
     const data = series(50);
     const sampled = downsampleChartLine(data, 12);

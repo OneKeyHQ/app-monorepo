@@ -1,12 +1,14 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
+// The typical bar spacing. A median rather than the smallest gap, so a live
+// quote a minute after the last bar cannot pass for the series' interval.
 function getBarInterval(data: IMarketTokenChart) {
-  let interval = Number.POSITIVE_INFINITY;
-  for (let i = 1; i < data.length; i += 1) {
-    const gap = data[i][0] - data[i - 1][0];
-    if (gap > 0 && gap < interval) interval = gap;
-  }
-  return Number.isFinite(interval) ? interval : undefined;
+  const gaps = data
+    .slice(1)
+    .map(([time], index) => time - data[index][0])
+    .filter((gap) => gap > 0)
+    .toSorted((a, b) => a - b);
+  return gaps.length ? gaps[Math.floor(gaps.length / 2)] : undefined;
 }
 
 /**
