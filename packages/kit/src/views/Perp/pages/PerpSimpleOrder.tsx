@@ -51,6 +51,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalPerpRoutes,
@@ -371,6 +372,13 @@ function SimpleOrderContent() {
               if (submitting) return;
               await dialog.close();
               if (!mountedRef.current || !nativeNavigation.isFocused()) return;
+              if (perpsSettings.mobileTradingMode === 'simple') {
+                defaultLogger.perp.common.perpTradingModeSwitch({
+                  fromMode: 'simple',
+                  toMode: 'pro',
+                  source: 'orderSettings',
+                });
+              }
               setPerpsSettings((previous) => ({
                 ...previous,
                 mobileTradingMode: 'pro',
@@ -629,6 +637,7 @@ function SimpleOrderContent() {
         await actions.current.submitOrder({
           assetId: instrument.assetId,
           expectedAccountAddress: accountAddress,
+          tradingUiMode: 'simple',
           formData,
           price: orderPrice,
         });
@@ -646,6 +655,7 @@ function SimpleOrderContent() {
       intl,
       expectedCoin: route.params.coin,
       expectedAccountAddress: accountAddress,
+      tradingUiMode: 'simple',
       formData,
       price: orderPrice,
       aggressiveLimitPriceWarning,

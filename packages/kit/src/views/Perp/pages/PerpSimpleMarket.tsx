@@ -501,6 +501,7 @@ function SimpleMarketContent() {
                 disabled={!valid || submitting}
                 onPress={() =>
                   showClosePositionDialog({
+                    tradingUiMode: 'simple',
                     position: currentPosition.position,
                     type: 'market',
                     intl,

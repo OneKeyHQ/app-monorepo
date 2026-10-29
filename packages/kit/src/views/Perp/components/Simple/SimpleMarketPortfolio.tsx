@@ -46,7 +46,7 @@ export function SimpleMarketPortfolio({
     chasingOrderIds,
     handleCancelOrder,
     handleChaseOrderPress,
-  } = useOpenOrderActions(accountAddress);
+  } = useOpenOrderActions(accountAddress, 'simple');
   const [twapState] = usePerpsActiveTwapOrdersAtom();
   const twapOrders = getPerpsAccountScopedListData({
     activeAccountAddress: accountAddress,

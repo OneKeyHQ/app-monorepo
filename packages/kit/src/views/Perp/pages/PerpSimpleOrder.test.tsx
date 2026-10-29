@@ -15,6 +15,14 @@ const route = {
   name: 'MobilePerpSimpleOrder',
   params: { coin: 'BTC', side: 'long' },
 };
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    perp: {
+      common: { perpTradingModeSwitch: jest.fn() },
+    },
+  },
+}));
+
 const submitOrder = jest.fn().mockResolvedValue(undefined);
 const showDepositWithdrawModal = jest.fn();
 let inputAmount = '100';
@@ -275,6 +283,7 @@ it('opens confirmation with the order route owner even without an inherited owne
   expect(showOrderConfirmDialog).toHaveBeenCalledWith(
     expect.objectContaining({
       sourcePage: { hostKey: 'modal-host', ownerKey: 'simple-order-route' },
+      tradingUiMode: 'simple',
       formData: expect.objectContaining({ type: 'market' }),
     }),
   );
@@ -297,6 +306,7 @@ it('keeps aggressive warnings on the order route when confirmation is skipped', 
   expect(showOrderConfirmDialog).toHaveBeenCalledWith(
     expect.objectContaining({
       sourcePage: { hostKey: 'modal-host', ownerKey: 'simple-order-route' },
+      tradingUiMode: 'simple',
       aggressiveLimitPriceWarning: warning,
       formData: expect.objectContaining({ type: 'limit', price: '52000' }),
     }),
@@ -315,6 +325,7 @@ it('submits directly when confirmation is skipped and no warning is present', as
   expect(submitOrder).toHaveBeenCalledWith({
     assetId: 0,
     expectedAccountAddress: 'account-a',
+    tradingUiMode: 'simple',
     price: '50000',
     formData: expect.objectContaining({ type: 'market', size: '0.002' }),
   });

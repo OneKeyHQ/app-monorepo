@@ -4,7 +4,10 @@ import { act, renderHook } from '@testing-library/react';
 
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
-import { usePerpTokenSelectorSelection } from './usePerpTokenSelectorSelection';
+import {
+  usePerpTokenSelectorOpenAnalytics,
+  usePerpTokenSelectorSelection,
+} from './usePerpTokenSelectorSelection';
 import { useSimpleMarketFocus } from './useSimpleMarketFocus';
 
 let mockRouteNames = [EModalPerpRoutes.MobileTokenSelector];
@@ -33,6 +36,8 @@ const mockActions = {
   switchTradeInstrument: jest.fn(async () => true),
 };
 const mockToast = jest.fn();
+const mockOpen = jest.fn<void, [unknown]>();
+const mockTokenClick = jest.fn<void, [unknown]>();
 const mockActionsRef = { current: mockActions };
 
 jest.mock('@react-navigation/core', () => ({
@@ -52,6 +57,10 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsCustomSettingsAtom: () => [mockSettings],
+  usePerpsActiveAccountAtom: () => [{ walletType: 'hd' }],
+  usePerpTokenSelectorConfigPersistAtom: () => [
+    { activeTab: 'perps', field: 'volume24h', direction: 'desc' },
+  ],
   appIsLocked: { get: jest.fn(async () => false) },
   useAppIsLockedAtom: () => [false],
 }));
@@ -72,6 +81,21 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
   default: {
     toastIfError: (error: unknown) => {
       mockToast(error);
+    },
+  },
+}));
+
+jest.mock('./usePerpsTradingUiMode', () => ({
+  usePerpsTradingUiMode: () => mockSettings.mobileTradingMode,
+}));
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    perp: {
+      tokenSelector: {
+        perpTokenSelectorOpen: (params: unknown) => mockOpen(params),
+        perpTokenSelectorTokenClick: (params: unknown) =>
+          mockTokenClick(params),
+      },
     },
   },
 }));
@@ -226,6 +250,7 @@ it('ignores repeated taps while selection is in flight', async () => {
   });
   expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(1);
   expect(mockNavigation.replace).toHaveBeenCalledTimes(1);
+  expect(mockTokenClick).toHaveBeenCalledTimes(1);
 });
 
 it('does not navigate when an instrument switch is superseded', async () => {
@@ -304,4 +329,45 @@ it('ignores stale spot selections in simple mode', async () => {
   expect(mockNavigation.popStack).not.toHaveBeenCalled();
   expect(mockNavigation.replace).not.toHaveBeenCalled();
   expect(onLoadingChange).not.toHaveBeenCalled();
+  expect(mockTokenClick).not.toHaveBeenCalled();
+});
+
+it.each(['simple', 'pro'] as const)(
+  'logs mobile %s selections with the existing event',
+  async (mode) => {
+    mockSettings.mobileTradingMode = mode;
+    const { result } = setup();
+    await act(async () => result.current('ETH'));
+    expect(mockTokenClick).toHaveBeenCalledTimes(1);
+    expect(mockTokenClick).toHaveBeenCalledWith({
+      tradingUiMode: mode,
+      activeTab: 'perps',
+      token: 'ETH',
+      tradeMode: 'perp',
+      sortField: 'volume24h',
+      sortDirection: 'desc',
+      walletType: 'hd',
+    });
+  },
+);
+
+it('logs one open per mounted mobile selector and does not log again on instrument updates', () => {
+  const { rerender, unmount } = renderHook(() =>
+    usePerpTokenSelectorOpenAnalytics(),
+  );
+  expect(mockOpen).toHaveBeenCalledWith({
+    tradingUiMode: 'simple',
+    currentToken: 'BTC',
+    tradeMode: 'perp',
+    walletType: 'hd',
+  });
+  mockInstrument = { mode: 'perp', coin: 'ETH' };
+  rerender();
+  expect(mockOpen).toHaveBeenCalledTimes(1);
+  unmount();
+  renderHook(() => usePerpTokenSelectorOpenAnalytics());
+  expect(mockOpen).toHaveBeenCalledTimes(2);
+  expect(mockOpen).toHaveBeenLastCalledWith(
+    expect.objectContaining({ currentToken: 'ETH' }),
+  );
 });

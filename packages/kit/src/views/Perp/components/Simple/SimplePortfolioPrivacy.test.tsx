@@ -13,6 +13,7 @@ import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useTradeHistoryFilters } from '../../hooks/useTradeHistoryFilters';
 
+import { PerpsMobileModeSelector } from './PerpsMobileMode';
 import { SimpleMarketPortfolio } from './SimpleMarketPortfolio';
 import { SimpleOrderSummary } from './SimpleOrderSummary';
 import { SimplePortfolioTabs } from './SimplePortfolioTabs';
@@ -22,6 +23,19 @@ import {
 } from './SimplePositionCard';
 import { SimpleTradeHistory } from './SimpleTradeHistory';
 import { SimpleTwapEntry } from './SimpleTwapEntry';
+
+let mockTradingMode: 'simple' | 'pro' = 'simple';
+const mockModeSelectorOpen = jest.fn<void, [unknown]>();
+const mockModeDialogShow = jest.fn(
+  (options: { renderContent: React.ReactNode; onClose: () => void }) => ({
+    close: async () => options.onClose(),
+  }),
+);
+jest.mock('../../PerpsProviderMirror', () => ({
+  PerpsProviderMirror: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
 
 let mockHideValue = false;
 let mockAccountAddress = 'account-a';
@@ -73,6 +87,20 @@ let mockTwapState: {
   accountAddress: string;
   twapOrders: { twapId: number; state: { coin: string } }[];
 } = { accountAddress: 'account-a', twapOrders: [] };
+const mockTradingModeSwitch = jest.fn<void, [unknown]>();
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    perp: {
+      common: {
+        perpTradingModeSwitch: (params: unknown) =>
+          mockTradingModeSwitch(params),
+        perpTradingModeSelectorOpen: (params: unknown) =>
+          mockModeSelectorOpen(params),
+      },
+    },
+  },
+}));
+
 jest.mock('@onekeyhq/kit/src/components/RollingNumberText', () => ({
   RollingNumberText: (
     props: import('@onekeyhq/components').ISizableTextProps,
@@ -122,6 +150,12 @@ jest.mock('@onekeyhq/components', () => {
       </div>
     );
   return {
+    Dialog: {
+      show: (options: {
+        renderContent: React.ReactNode;
+        onClose: () => void;
+      }) => mockModeDialogShow(options),
+    },
     Button: Box,
     SizableText: Box,
     NumberSizeableText: Box,
@@ -142,7 +176,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsActiveAccountAtom: () => [{ accountAddress: mockAccountAddress }],
   useSettingsValuePersistAtom: () => [{ hideValue: mockHideValue }],
   usePerpsCustomSettingsAtom: () => [
-    { mobileTradingMode: 'simple' },
+    { mobileTradingMode: mockTradingMode },
     mockSetSettings,
   ],
 }));
@@ -274,6 +308,11 @@ it('keeps TWAP accessible inside the orders tab when no basic orders exist', asy
   expect(mockSetViewState).toHaveBeenCalledWith({
     infoPanelTab: 'OpenOrders',
     openOrdersSubTab: 'twap',
+  });
+  expect(mockTradingModeSwitch).toHaveBeenCalledWith({
+    fromMode: 'simple',
+    toMode: 'pro',
+    source: 'twapOrders',
   });
   const updateSettings = mockSetSettings.mock.calls[0][0] as (previous: {
     mobileTradingMode: string;
@@ -599,4 +638,45 @@ it('shows position-sized triggers with unspecified quantities, market price and 
   expect(card.textContent).toContain('perp.open_orders_trigger_condition');
   expect(card.textContent).toContain('perp.open_orders_cancel');
   mockOrders = [];
+});
+
+it.each(['simple', 'pro'] as const)(
+  'tracks opening and confirming a change from %s',
+  async (mode) => {
+    mockTradingMode = mode;
+    mockTradingModeSwitch.mockClear();
+    mockModeSelectorOpen.mockClear();
+    mockModeDialogShow.mockClear();
+    const { getByTestId } = render(<PerpsMobileModeSelector />);
+    fireEvent.click(getByTestId('perps-mode-switch'));
+    fireEvent.click(getByTestId('perps-mode-switch'));
+    expect(mockModeSelectorOpen).toHaveBeenCalledTimes(1);
+    expect(mockModeSelectorOpen).toHaveBeenCalledWith({ tradingUiMode: mode });
+    const dialog = render(mockModeDialogShow.mock.calls[0][0].renderContent);
+    const nextMode = mode === 'simple' ? 'pro' : 'simple';
+    fireEvent.click(dialog.getByTestId(`perps-mode-dialog-${nextMode}`));
+    expect(mockTradingModeSwitch).not.toHaveBeenCalled();
+    await act(async () =>
+      fireEvent.click(dialog.getByTestId('perps-mode-dialog-confirm')),
+    );
+    expect(mockTradingModeSwitch).toHaveBeenCalledTimes(1);
+    expect(mockTradingModeSwitch).toHaveBeenCalledWith({
+      fromMode: mode,
+      toMode: nextMode,
+      source: 'modeSelector',
+    });
+    mockTradingMode = 'simple';
+  },
+);
+
+it('does not track confirming the current trading mode as a switch', async () => {
+  mockTradingModeSwitch.mockClear();
+  mockModeDialogShow.mockClear();
+  const { getByTestId } = render(<PerpsMobileModeSelector />);
+  fireEvent.click(getByTestId('perps-mode-switch'));
+  const dialog = render(mockModeDialogShow.mock.calls[0][0].renderContent);
+  await act(async () =>
+    fireEvent.click(dialog.getByTestId('perps-mode-dialog-confirm')),
+  );
+  expect(mockTradingModeSwitch).not.toHaveBeenCalled();
 });

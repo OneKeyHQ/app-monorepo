@@ -104,6 +104,10 @@ const mockRecoverSubscriptionsAfterLivenessProof = jest.fn<
   [{ disabledCount: number }]
 >();
 
+jest.mock('@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode', () => ({
+  usePerpsTradingUiMode: () => 'simple',
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
@@ -1226,29 +1230,36 @@ describe('reviewed trading account propagation', () => {
     jest.spyOn(perpsActiveAssetDataAtom, 'get').mockResolvedValue(undefined);
   });
   afterEach(() => jest.restoreAllMocks());
-  it('forwards the confirmed account through standard order submission', async () => {
-    const store = createStore();
-    store.set(activeTradeInstrumentAtom(), {
-      mode: 'perp',
-      coin: 'BTC',
-      assetId: 0,
-      universe: undefined,
-    });
-    const { result } = renderHook(() => useHyperliquidActions(), {
-      wrapper: createWrapper(store),
-    });
-    await act(async () => {
-      await result.current.current.submitOrder({
+  it.each(['simple', 'pro', undefined] as const)(
+    'forwards the confirmed account and UI mode %s through standard order submission',
+    async (tradingUiMode) => {
+      const store = createStore();
+      store.set(activeTradeInstrumentAtom(), {
+        mode: 'perp',
+        coin: 'BTC',
         assetId: 0,
-        price: '50000',
-        expectedAccountAddress: '0xconfirmed',
-        formData: { ...store.get(tradingFormAtom()), size: '0.1' },
+        universe: undefined,
       });
-    });
-    expect(mockOrderOpen).toHaveBeenCalledWith(
-      expect.objectContaining({ expectedAccountAddress: '0xconfirmed' }),
-    );
-  });
+      const { result } = renderHook(() => useHyperliquidActions(), {
+        wrapper: createWrapper(store),
+      });
+      await act(async () => {
+        await result.current.current.submitOrder({
+          assetId: 0,
+          price: '50000',
+          expectedAccountAddress: '0xconfirmed',
+          tradingUiMode,
+          formData: { ...store.get(tradingFormAtom()), size: '0.1' },
+        });
+      });
+      expect(mockOrderOpen).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expectedAccountAddress: '0xconfirmed',
+          tradingUiMode: tradingUiMode ?? 'pro',
+        }),
+      );
+    },
+  );
 
   it('forwards the leverage dialog account separately from the SDK request', async () => {
     const { result } = renderHook(() => useHyperliquidActions(), {

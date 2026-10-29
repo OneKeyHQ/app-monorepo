@@ -98,6 +98,8 @@ import {
   ETriggerOrderType,
   type IL2BookOptions,
   type IPerpOrderBookTickOptionPersist,
+  type IPerpsTradeAnalyticsContext,
+  type IPerpsTradingUiMode,
   type IPlaceOrderByCoinParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -2635,6 +2637,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         assetId: number;
         expectedAccountAddress?: string;
+        tradingUiMode?: IPerpsTradingUiMode;
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
@@ -2673,6 +2676,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             const result =
               await backgroundApiProxy.serviceHyperliquidExchange.orderOpen({
                 assetId: params.assetId,
+                tradingUiMode: params.tradingUiMode ?? 'pro',
                 expectedAccountAddress: params.expectedAccountAddress,
                 isBuy: formData.side === 'long',
                 size: resolvedSize,
@@ -3231,6 +3235,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         assetId: number;
         expectedAccountAddress?: string;
+        tradingUiMode?: IPerpsTradingUiMode;
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
@@ -3292,6 +3297,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return this.orderOpen.call(set, {
         assetId: params.assetId,
         expectedAccountAddress: params.expectedAccountAddress,
+        tradingUiMode: params.tradingUiMode ?? 'pro',
         formData,
         slippage: params.slippage,
         price: params.price,
@@ -3304,6 +3310,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         asset: number;
         expectedAccountAddress?: string;
         leverage: number;
@@ -3318,7 +3325,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               leverage: params.leverage,
               isCross: params.isCross,
             },
-            { expectedAccountAddress: params.expectedAccountAddress },
+            {
+              expectedAccountAddress: params.expectedAccountAddress,
+              tradingUiMode: params.tradingUiMode,
+            },
           );
 
           const formData = get(tradingFormAtom());
@@ -3337,6 +3347,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         asset: number;
         isBuy: boolean;
         ntli: number;
@@ -3350,6 +3361,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               isBuy: params.isBuy,
               ntli: params.ntli,
             },
+            { tradingUiMode: params.tradingUiMode },
           );
         },
         actionType: EActionType.UPDATE_ISOLATED_MARGIN,
@@ -3398,12 +3410,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         limitPx?: string;
         slippage?: number;
       }[],
+      analyticsContext: IPerpsTradeAnalyticsContext = {},
     ) => {
       return withToast({
         asyncFn: async () => {
           const result =
             await backgroundApiProxy.serviceHyperliquidExchange.ordersClose(
               params,
+              analyticsContext,
             );
           return result;
         },
@@ -3474,6 +3488,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       _set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         coin: string;
         oid: number;
         newPrice: string;
@@ -3502,6 +3517,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
               coin: params.coin,
+              tradingUiMode: params.tradingUiMode,
               oid: params.oid,
               newPrice: params.newPrice,
               isBuy: existing.side === 'B',
@@ -3560,6 +3576,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         orders: Array<{
           assetId: number;
           oid: number;
@@ -3574,14 +3591,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             assetId: order.assetId,
             oid: order.oid,
           }));
-          const result = params.expectedAccountAddress
-            ? await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
-                cancels,
-                { expectedAccountAddress: params.expectedAccountAddress },
-              )
-            : await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
-                cancels,
-              );
+          const result =
+            params.expectedAccountAddress || params.tradingUiMode
+              ? await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+                  cancels,
+                  {
+                    expectedAccountAddress: params.expectedAccountAddress,
+                    tradingUiMode: params.tradingUiMode,
+                  },
+                )
+              : await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+                  cancels,
+                );
           if (params.expectedAccountAddress) {
             const activeAccount = await perpsActiveAccountAtom.get();
             if (
@@ -3700,6 +3721,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         assetId: number;
         expectedAccountAddress: string;
         positionSize: string;
@@ -3718,6 +3740,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               await backgroundApiProxy.serviceHyperliquidExchange.setPositionTpsl(
                 {
                   assetId: params.assetId,
+                  tradingUiMode: params.tradingUiMode,
                   expectedAccountAddress: params.expectedAccountAddress,
                   positionSize: params.positionSize,
                   isBuy: params.isBuy,
@@ -3741,6 +3764,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         userAccountId: string;
         amount: string;
         destinationId: IUsdcWithdrawDestinationId;
@@ -3751,6 +3775,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return withToast({
         asyncFn: async () => {
           await backgroundApiProxy.serviceHyperliquidExchange.withdraw({
+            tradingUiMode: params.tradingUiMode,
             userAccountId: params.userAccountId,
             amount: params.amount,
             destinationId: params.destinationId,
@@ -3949,9 +3974,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       _get,
       _set,
       params: {
+        tradingUiMode?: IPerpsTradingUiMode;
         position: IPerpsAssetPosition['position'];
         isMobile: boolean;
         onShowDialog: (params: {
+          tradingUiMode?: IPerpsTradingUiMode;
           coin: string;
           szDecimals: number;
           assetId: number;
@@ -3975,6 +4002,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       const tpslParams = {
+        tradingUiMode: params.tradingUiMode,
         coin: position.coin,
         szDecimals: tokenInfo.universe?.szDecimals ?? 2,
         assetId: tokenInfo.assetId,

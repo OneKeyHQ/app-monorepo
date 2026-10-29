@@ -47,6 +47,7 @@ import {
   type ISpotAssetCtxsMap,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
+  usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
   usePerpsFavoritesOrderPersistAtom,
   useSpotAssetCtxsMapAtom,
@@ -89,7 +90,11 @@ import {
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
-import { usePerpTokenSelectorSelection } from '../../hooks/usePerpTokenSelectorSelection';
+import { usePerpsTradingUiMode } from '../../hooks/usePerpsTradingUiMode';
+import {
+  usePerpTokenSelectorOpenAnalytics,
+  usePerpTokenSelectorSelection,
+} from '../../hooks/usePerpTokenSelectorSelection';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
@@ -366,6 +371,9 @@ function MobileTokenSelectorModal({
 }: {
   onLoadingChange: (isLoading: boolean) => void;
 }) {
+  usePerpTokenSelectorOpenAnalytics();
+  const tradingUiMode = usePerpsTradingUiMode();
+  const [account] = usePerpsActiveAccountAtom();
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const { searchQuery, setSearchQuery } = usePerpTokenSelector();
@@ -652,14 +660,33 @@ function MobileTokenSelectorModal({
     },
     [actions, activeTab, setSelectorConfig],
   );
+  const handleCategoryTabPress = useCallback(
+    (tab: string) => {
+      if (tab === displayActiveTab) return;
+      defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
+        tradingUiMode,
+        tab,
+        previousTab: displayActiveTab,
+        walletType: account.walletType ?? 'unknown',
+      });
+      setActiveTab(tab);
+    },
+    [account.walletType, displayActiveTab, setActiveTab, tradingUiMode],
+  );
   const setPrimaryTab = useCallback(
     (tab: string) => {
       if (tab === displayPrimaryTab) {
         return;
       }
+      defaultLogger.perp.tokenSelector.perpTokenSelectorPrimaryTabClick({
+        tradingUiMode,
+        tab,
+        previousTab: displayPrimaryTab,
+        walletType: account.walletType ?? 'unknown',
+      });
       setActiveTab(tab);
     },
-    [displayPrimaryTab, setActiveTab],
+    [account.walletType, displayPrimaryTab, setActiveTab, tradingUiMode],
   );
 
   const computeSortValues = useCallback(
@@ -1183,11 +1210,30 @@ function MobileTokenSelectorModal({
 
   const handleSortPress = useCallback(
     (field: IPerpTokenSortField) => {
+      const nextConfig = getNextPerpTokenSelectorSortConfig({
+        prev: selectorConfig,
+        field,
+      });
+      defaultLogger.perp.tokenSelector.perpTokenSelectorSortClick({
+        tradingUiMode,
+        activeTab: displayActiveTab,
+        field: nextConfig.field,
+        direction: nextConfig.direction,
+        previousField: selectorConfig?.field ?? '',
+        previousDirection: selectorConfig?.direction ?? '',
+        walletType: account.walletType ?? 'unknown',
+      });
       setSelectorConfig((prev: IPerpTokenSelectorConfig | null) => {
         return getNextPerpTokenSelectorSortConfig({ prev, field });
       });
     },
-    [setSelectorConfig],
+    [
+      account.walletType,
+      displayActiveTab,
+      selectorConfig,
+      setSelectorConfig,
+      tradingUiMode,
+    ],
   );
   const activeSortTab =
     selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
@@ -1338,7 +1384,7 @@ function MobileTokenSelectorModal({
                   id={tab.tabId}
                   name={tab.name}
                   isFocused={displayActiveTab === tab.tabId}
-                  onPress={setActiveTab}
+                  onPress={handleCategoryTabPress}
                 />
               ))}
             </ScrollableFilterBar>

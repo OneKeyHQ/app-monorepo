@@ -10,6 +10,7 @@ interface IMockExchangeClient {
   order: jest.Mock;
   modify: jest.Mock;
   updateLeverage: jest.Mock;
+  updateIsolatedMargin: jest.Mock;
   twapCancel: jest.Mock;
   cancel: jest.Mock;
 }
@@ -44,6 +45,9 @@ jest.mock('@nktkas/hyperliquid', () => ({
         updateLeverage: jest
           .fn()
           .mockResolvedValue({ status: 'ok', response: { type: 'default' } }),
+        updateIsolatedMargin: jest
+          .fn()
+          .mockResolvedValue({ status: 'ok', response: { type: 'default' } }),
         modify: jest.fn().mockResolvedValue({
           status: 'ok',
           response: { type: 'default' },
@@ -70,9 +74,18 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
     onLocaleChange: () => () => {},
   },
 }));
+const mockExchangeLog = jest.fn<void, [string, unknown]>();
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
-    perp: { hyperliquid: new Proxy({}, { get: () => jest.fn() }) },
+    perp: {
+      hyperliquid: new Proxy(
+        {},
+        {
+          get: (_target, event) => (params: unknown) =>
+            mockExchangeLog(String(event), params),
+        },
+      ),
+    },
   },
 }));
 
@@ -192,6 +205,97 @@ describe('ServiceHyperliquidExchange account guard', () => {
   afterEach(() => {
     globalThis.$onekeyIsInBackground = previousScope;
   });
+
+  describe.each(['simple', 'pro', undefined] as const)(
+    'analytics mode %s',
+    (tradingUiMode) => {
+      it.each([
+        ['orderOpen', false],
+        ['orderOpen', true],
+        ['ordersClose', false],
+        ['ordersClose', true],
+        ['setPositionTpsl', false],
+        ['setPositionTpsl', true],
+        ['modifyOrder', false],
+        ['modifyOrder', true],
+        ['cancelOrder', false],
+        ['cancelOrder', true],
+        ['updateLeverage', false],
+        ['updateLeverage', true],
+        ['updateIsolatedMargin', false],
+        ['updateIsolatedMargin', true],
+      ] as const)(
+        'logs %s with failure=%s without sending metadata to the SDK',
+        async (event, fail) => {
+          const client = mockExchangeClients[0];
+          const options = { tradingUiMode };
+          const sdkMethod = {
+            orderOpen: client.order,
+            ordersClose: client.order,
+            setPositionTpsl: client.order,
+            modifyOrder: client.modify,
+            cancelOrder: client.cancel,
+            updateLeverage: client.updateLeverage,
+            updateIsolatedMargin: client.updateIsolatedMargin,
+          }[event];
+          if (fail)
+            sdkMethod.mockRejectedValueOnce(new Error('exchange unavailable'));
+          const calls = {
+            orderOpen: () =>
+              service.orderOpen({
+                assetId: 0,
+                isBuy: true,
+                size: '0.1',
+                price: '100',
+                type: 'limit',
+                tradingUiMode,
+              }),
+            ordersClose: () =>
+              service.ordersClose(
+                [{ assetId: 0, isBuy: true, size: '0.1', midPx: '100' }],
+                options,
+              ),
+            setPositionTpsl: () =>
+              service.setPositionTpsl({
+                assetId: 0,
+                expectedAccountAddress: ADDRESS_A,
+                positionSize: '0.1',
+                isBuy: true,
+                tpTriggerPx: '120',
+                tradingUiMode,
+              }),
+            modifyOrder: () =>
+              service.amendOrderPriceByOid({ ...chaseParams, tradingUiMode }),
+            cancelOrder: () =>
+              service.cancelOrder([{ assetId: 0, oid: 7 }], options),
+            updateLeverage: () =>
+              service.updateLeverage(
+                { asset: 0, leverage: 5, isCross: true },
+                options,
+              ),
+            updateIsolatedMargin: () =>
+              service.updateIsolatedMargin(
+                { asset: 0, isBuy: true, ntli: 100 },
+                options,
+              ),
+          };
+          if (fail) await expect(calls[event]()).rejects.toThrow();
+          else await calls[event]();
+          expect(mockExchangeLog).toHaveBeenCalledWith(
+            event,
+            expect.objectContaining({
+              tradingUiMode: tradingUiMode ?? 'pro',
+              status: fail ? 'fail' : 'success',
+            }),
+          );
+          expect(sdkMethod).toHaveBeenCalledTimes(1);
+          expect(JSON.stringify(sdkMethod.mock.calls)).not.toContain(
+            'tradingUiMode',
+          );
+        },
+      );
+    },
+  );
 
   it('preserves the localized price error when setting position TP/SL', async () => {
     await expect(

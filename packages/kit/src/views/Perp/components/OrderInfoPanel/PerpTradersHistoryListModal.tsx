@@ -35,6 +35,7 @@ import {
   usePerpTradesHistoryViewAllUrl,
   usePerpTwapHistoryViewAllUrl,
 } from '../../hooks/usePerpOrderInfoPanel';
+import { usePerpsTradingUiMode } from '../../hooks/usePerpsTradingUiMode';
 import { useUnifoldDepositTrackerAvailability } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradeHistoryFilters } from '../../hooks/useTradeHistoryFilters';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
@@ -134,6 +135,7 @@ function TabHeader({
 }
 
 export function PerpTradersHistoryListModal() {
+  const tradingUiMode = usePerpsTradingUiMode();
   const intl = useIntl();
   const { perpTabShowWeb } = usePerpTabConfig();
   const actions = useHyperliquidActions();
@@ -205,8 +207,10 @@ export function PerpTradersHistoryListModal() {
     }
     navigation.push(EModalPerpRoutes.MobileUnifoldDepositTracker, {
       expectedRecipient: safeRecipient,
+      tradingUiMode,
+      analyticsEntrySource: 'depositHistory',
     });
-  }, [navigation, safeRecipient]);
+  }, [navigation, safeRecipient, tradingUiMode]);
 
   useEffect(() => {
     if (activeTab === 'Account') {

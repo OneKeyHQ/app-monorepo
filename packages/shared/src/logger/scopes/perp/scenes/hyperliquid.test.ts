@@ -1,4 +1,8 @@
-import { HyperLiquidScene, stripSensitiveFields } from './hyperliquid';
+import {
+  HyperLiquidScene,
+  dispatchHyperLiquidOrderLog,
+  stripSensitiveFields,
+} from './hyperliquid';
 
 const accountAddress = '0x1111111111111111111111111111111111111111';
 const exchangeAccountAddress = '0x2222222222222222222222222222222222222222';
@@ -108,4 +112,34 @@ describe('hyperliquid log payload', () => {
     });
     expect(payload).not.toHaveProperty('extra');
   });
+});
+
+describe.each(['simple', 'pro'] as const)('order mode %s', (tradingUiMode) => {
+  test.each(['success', 'fail'] as const)(
+    'preserves mode on %s without wallet addresses',
+    (status) => {
+      const scene = new HyperLiquidScene();
+      const emit = jest.spyOn(scene, '_emitLog').mockImplementation(() => {});
+      dispatchHyperLiquidOrderLog({
+        scene,
+        action: 'orderOpen',
+        payload: {
+          accountAddress,
+          exchangeAccountAddress,
+          walletType: 'hd',
+          tradingUiMode,
+          status,
+          duration: 12,
+          request: { orders: [], grouping: 'na' },
+        },
+      });
+      expect(emit).toHaveBeenCalledTimes(1);
+      const payload = emit.mock.calls[0][1][0];
+      expect(payload).toEqual(
+        expect.objectContaining({ tradingUiMode, status }),
+      );
+      expect(JSON.stringify(payload)).not.toContain(accountAddress);
+      expect(JSON.stringify(payload)).not.toContain(exchangeAccountAddress);
+    },
+  );
 });

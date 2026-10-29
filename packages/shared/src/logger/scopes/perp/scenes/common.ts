@@ -1,3 +1,5 @@
+import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/types';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -5,9 +7,24 @@ import type {
   EPerpPageEnterSource,
   IPerpAccountStatusParams,
   IPerpTradeButtonClickParams,
+  IPerpTradingModeSwitchParams,
 } from '../type';
 
 export class CommonScene extends BaseScene {
+  /** Track opening the mode selector, including visits without a switch. */
+  @LogToServer()
+  public perpTradingModeSelectorOpen(params: {
+    tradingUiMode: IPerpsTradingUiMode;
+  }) {
+    return params;
+  }
+
+  /** Track confirmed changes and the entry that led to professional mode. */
+  @LogToServer()
+  public perpTradingModeSwitch(params: IPerpTradingModeSwitchParams) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public perpPageView({

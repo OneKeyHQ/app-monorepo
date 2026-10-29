@@ -28,6 +28,7 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
@@ -81,16 +82,27 @@ export function PerpsMobileModeSelector() {
   const select = useCallback(
     (mode: 'simple' | 'pro') => {
       void dialogRef.current?.close();
+      const fromMode = settings.mobileTradingMode ?? 'pro';
+      if (fromMode !== mode) {
+        defaultLogger.perp.common.perpTradingModeSwitch({
+          fromMode,
+          toMode: mode,
+          source: 'modeSelector',
+        });
+      }
       setSettings((prev) =>
         prev.mobileTradingMode === mode
           ? prev
           : { ...prev, mobileTradingMode: mode },
       );
     },
-    [setSettings],
+    [setSettings, settings.mobileTradingMode],
   );
   const open = useCallback(() => {
     if (disabled || dialogRef.current) return;
+    defaultLogger.perp.common.perpTradingModeSelectorOpen({
+      tradingUiMode: settings.mobileTradingMode ?? 'pro',
+    });
     dialogRef.current = Dialog.show({
       title: intl.formatMessage({ id: ETranslations.perp_simple_mode__title }),
       showFooter: false,
@@ -103,7 +115,7 @@ export function PerpsMobileModeSelector() {
         dialogRef.current = undefined;
       },
     });
-  }, [disabled, intl, select]);
+  }, [disabled, intl, select, settings.mobileTradingMode]);
   return (
     <Button
       testID="perps-mode-switch"

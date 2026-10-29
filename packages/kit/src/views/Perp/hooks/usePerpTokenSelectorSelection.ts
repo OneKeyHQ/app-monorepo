@@ -1,18 +1,47 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  usePerpTokenSelectorConfigPersistAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsCustomSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalPerpRoutes,
   type IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
+import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
+import { usePerpsTradingUiMode } from './usePerpsTradingUiMode';
+
+// All mobile entries share this mounted page, including simple-mode shortcuts.
+export function usePerpTokenSelectorOpenAnalytics() {
+  const tradingUiMode = usePerpsTradingUiMode();
+  const [account] = usePerpsActiveAccountAtom();
+  const [instrument] = useActiveTradeInstrumentAtom();
+  const logged = useRef(false);
+  useEffect(() => {
+    if (logged.current) return;
+    logged.current = true;
+    defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+      tradingUiMode,
+      currentToken: instrument.coin,
+      tradeMode: instrument.mode === 'spot' ? 'spot' : 'perp',
+      walletType: account.walletType ?? 'unknown',
+    });
+  }, [account.walletType, instrument.coin, instrument.mode, tradingUiMode]);
+}
 
 export function usePerpTokenSelectorSelection({
   onLoadingChange,
@@ -21,6 +50,9 @@ export function usePerpTokenSelectorSelection({
   onLoadingChange: (isLoading: boolean) => void;
   spotUniverses: ISpotUniverse[];
 }) {
+  const tradingUiMode = usePerpsTradingUiMode();
+  const [account] = usePerpsActiveAccountAtom();
+  const [selectorConfig] = usePerpTokenSelectorConfigPersistAtom();
   const navigation = useAppNavigation();
   const nativeNavigation =
     useNavigation<IPageNavigationProp<IModalPerpParamList>>();
@@ -38,6 +70,15 @@ export function usePerpTokenSelectorSelection({
       const openSimpleMarket =
         !isSpot && settings.mobileTradingMode === 'simple';
       try {
+        defaultLogger.perp.tokenSelector.perpTokenSelectorTokenClick({
+          tradingUiMode,
+          activeTab: selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+          token: coin,
+          tradeMode: isSpot ? 'spot' : 'perp',
+          sortField: selectorConfig?.field ?? '',
+          sortDirection: selectorConfig?.direction ?? 'desc',
+          walletType: account.walletType ?? 'unknown',
+        });
         onLoadingChange(true);
         const subscriptionRecoveryProof =
           await actions.current.captureInstrumentSwitchSubscriptionProof({
@@ -85,6 +126,9 @@ export function usePerpTokenSelectorSelection({
       }
     },
     [
+      account.walletType,
+      selectorConfig,
+      tradingUiMode,
       actions,
       isFocused,
       nativeNavigation,

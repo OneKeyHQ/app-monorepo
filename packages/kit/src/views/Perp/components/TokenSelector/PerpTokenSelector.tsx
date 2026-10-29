@@ -47,6 +47,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { prewarmPerpsTokenSelectorImages } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import { usePerpsTradingUiMode } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode';
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import {
   type ISpotAssetCtxsMap,
@@ -380,6 +381,7 @@ function TokenListHeader({
 }
 
 function BasePerpTokenSelectorContent() {
+  const tradingUiMode = usePerpsTradingUiMode();
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -547,13 +549,19 @@ function BasePerpTokenSelectorContent() {
       pendingKeyboardScroll.current = undefined;
       setKeyboardSelection(undefined);
       defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
+        tradingUiMode,
         tab,
         previousTab: displayActiveTab,
         walletType: activePerpsAccount.walletType ?? 'unknown',
       });
       updateActiveTab(tab);
     },
-    [activePerpsAccount.walletType, displayActiveTab, updateActiveTab],
+    [
+      tradingUiMode,
+      activePerpsAccount.walletType,
+      displayActiveTab,
+      updateActiveTab,
+    ],
   );
   const setPrimaryTab = useCallback(
     (tab: string) => {
@@ -563,13 +571,19 @@ function BasePerpTokenSelectorContent() {
       pendingKeyboardScroll.current = undefined;
       setKeyboardSelection(undefined);
       defaultLogger.perp.tokenSelector.perpTokenSelectorPrimaryTabClick({
+        tradingUiMode,
         tab,
         previousTab: displayPrimaryTab,
         walletType: activePerpsAccount.walletType ?? 'unknown',
       });
       updateActiveTab(tab);
     },
-    [activePerpsAccount.walletType, displayPrimaryTab, updateActiveTab],
+    [
+      tradingUiMode,
+      activePerpsAccount.walletType,
+      displayPrimaryTab,
+      updateActiveTab,
+    ],
   );
 
   const handleSelectToken = useCallback(
@@ -580,6 +594,7 @@ function BasePerpTokenSelectorContent() {
       );
       try {
         defaultLogger.perp.tokenSelector.perpTokenSelectorTokenClick({
+          tradingUiMode,
           activeTab: displayActiveTab,
           token: symbol,
           tradeMode: isSpotToken ? 'spot' : 'perp',
@@ -609,6 +624,7 @@ function BasePerpTokenSelectorContent() {
       }
     },
     [
+      tradingUiMode,
       activePerpsAccount.walletType,
       closePopover,
       actions,
@@ -1731,6 +1747,7 @@ function PerpTokenSelectorContent() {
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
+  const tradingUiMode = usePerpsTradingUiMode();
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
@@ -1789,6 +1806,7 @@ function BasePerpTokenSelector() {
         isOpeningRef.current = false;
       });
       defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+        tradingUiMode,
         currentToken: baseName,
         tradeMode: mode === 'spot' ? 'spot' : 'perp',
         walletType: activePerpsAccount.walletType ?? 'unknown',
@@ -1801,6 +1819,7 @@ function BasePerpTokenSelector() {
       prewarmTokenSelectorImages,
       baseName,
       mode,
+      tradingUiMode,
       activePerpsAccount.walletType,
     ],
   );
@@ -2004,7 +2023,6 @@ const BasePerpTokenSelectorMobileView = memo(
 BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
 function BasePerpTokenSelectorMobile() {
   const navigation = useAppNavigation();
-  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const isSplitMainActive = useIsSplitMainActive();
   const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
   const isOpeningRef = useRef(false);
@@ -2031,25 +2049,13 @@ function BasePerpTokenSelectorMobile() {
     ).finally(() => {
       isOpeningRef.current = false;
     });
-    defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-      currentToken: coin,
-      tradeMode: mode === 'spot' ? 'spot' : 'perp',
-      walletType: activePerpsAccount.walletType ?? 'unknown',
-    });
     const openTokenSelector = isSplitMainActive
       ? navigation.pushFullModal
       : navigation.pushModal;
     openTokenSelector(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [
-    activePerpsAccount.walletType,
-    coin,
-    isSplitMainActive,
-    mode,
-    navigation,
-    prewarmTokenSelectorImages,
-  ]);
+  }, [isSplitMainActive, navigation, prewarmTokenSelectorImages]);
 
   return (
     <BasePerpTokenSelectorMobileView
