@@ -68,6 +68,9 @@ export type IPrimeCloudSyncPersistAtomData = {
   isCloudSyncEnabledKeyless?: boolean;
   currentCloudSyncKeylessWalletId?: string | null;
   hardwareCloudSyncKeySource?: IHardwareCloudSyncKeySource;
+  // Highest hardware Cloud key generation accepted, by credentialId. Kept when
+  // the key is removed, so a server cannot roll a reset back later.
+  hardwareCloudSyncKeyGenerations?: Record<string, number>;
 };
 export const {
   target: primeCloudSyncPersistAtom,

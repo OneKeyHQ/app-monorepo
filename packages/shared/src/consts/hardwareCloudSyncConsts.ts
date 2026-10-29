@@ -34,13 +34,18 @@ export function isHardwareCloudSyncKekSalt(
   return typeof kekSalt === 'string' && /^[0-9a-f]{32}$/.test(kekSalt);
 }
 
+// The exact sign-in template: the server fills in only the nonce, the DPoP key
+// tag and the expiry, so it cannot put its own text on the device screen.
+const HARDWARE_CLOUD_SYNC_AUTH_MESSAGE_PATTERN =
+  /^OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App\.\nNonce: [0-9a-f]{64}\nDevice: [A-Za-z0-9_-]{8}\nExpires: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
 export function assertHardwareCloudSyncAuthMessage(message: string): void {
   if (
     typeof message !== 'string' ||
     message.length > 512 ||
     !message.startsWith(HARDWARE_CLOUD_SYNC_AUTH_MESSAGE_PREFIX) ||
     message.includes(HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX) ||
-    !/\nNonce: [0-9a-f]{64}\n/.test(message)
+    !HARDWARE_CLOUD_SYNC_AUTH_MESSAGE_PATTERN.test(message)
   ) {
     throw new OneKeyLocalError('Invalid Cloud sync sign-in challenge');
   }

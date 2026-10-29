@@ -6,6 +6,7 @@ import {
   HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
   HARDWARE_CLOUD_SYNC_KEK_VERSION,
   HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+  assertHardwareCloudSyncAuthMessage,
   isHardwareCloudSyncKekSalt,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -37,6 +38,9 @@ type IKeyEnvelope = {
   kekVersion: 1;
   // Part of the message the device signs for this envelope's KEK.
   kekSalt: string;
+  // Starts at 1 and grows by one on each reset. It is bound into the wrapped
+  // key, so the server cannot relabel an older envelope as newer.
+  generation: number;
   wrappedDek: string;
   createdAt: number;
 };
@@ -188,7 +192,43 @@ export async function requestHardwareCloudSyncChallenge({
   >(`${AUTH_BASE}/challenge`, {
     deviceKeyJwk: getHardwareCloudSyncDevicePublicJwk(jwk),
   });
-  return response.data.data;
+  const challenge = response.data.data;
+  assertHardwareCloudSyncChallengeFor({ message: challenge?.message, jwk });
+  return challenge;
+}
+
+// RFC 7638 thumbprint of the DPoP public key, as the server derives it.
+export function getHardwareCloudSyncDeviceKeyThumbprint(
+  jwk: IHardwareCloudSyncDeviceKeyJwk,
+): string {
+  const { crv, kty, x, y } = jwk;
+  return toBase64url(sha256(Buffer.from(JSON.stringify({ crv, kty, x, y }))));
+}
+
+const CHALLENGE_MAX_LIFETIME_MS = 15 * 60 * 1000;
+
+// A challenge is signed only for this request's own device key and while it is
+// fresh, so a replayed or foreign challenge never reaches the device.
+export function assertHardwareCloudSyncChallengeFor({
+  message,
+  jwk,
+  now = Date.now(),
+}: {
+  message: string;
+  jwk: IHardwareCloudSyncDeviceKeyJwk;
+  now?: number;
+}): void {
+  assertHardwareCloudSyncAuthMessage(message);
+  const device = /\nDevice: (\S+)\n/.exec(message)?.[1];
+  const expiresAt = Date.parse(/\nExpires: (\S+)$/.exec(message)?.[1] ?? '');
+  if (
+    device !== getHardwareCloudSyncDeviceKeyThumbprint(jwk).slice(0, 8) ||
+    !Number.isFinite(expiresAt) ||
+    expiresAt <= now ||
+    expiresAt > now + CHALLENGE_MAX_LIFETIME_MS
+  ) {
+    throw new OneKeyLocalError('Invalid Cloud sync sign-in challenge');
+  }
 }
 
 export async function verifyHardwareCloudSyncChallenge({
@@ -290,12 +330,20 @@ export function isHardwareCloudSyncKeyEnvelopeItem(item: {
   return item?.dataType === HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE;
 }
 
-type IEnvelopeContext = Pick<IKeyEnvelope, 'dekId' | 'kekVersion' | 'kekSalt'>;
+type IEnvelopeContext = Pick<
+  IKeyEnvelope,
+  'dekId' | 'kekVersion' | 'kekSalt' | 'generation'
+>;
 
 // Binds the wrapped key to its envelope, so the server cannot pair one
 // envelope's wrappedDek with another dekId.
-function envelopeItemId({ dekId, kekVersion, kekSalt }: IEnvelopeContext) {
-  return `${ENVELOPE_ITEM_ID}:v${kekVersion}:${dekId}:${kekSalt}`;
+function envelopeItemId({
+  dekId,
+  kekVersion,
+  kekSalt,
+  generation,
+}: IEnvelopeContext) {
+  return `${ENVELOPE_ITEM_ID}:v${kekVersion}:g${generation}:${dekId}:${kekSalt}`;
 }
 
 async function wrapDek({
@@ -358,6 +406,8 @@ function parseEnvelope(data: string | undefined): IKeyEnvelope | undefined {
     !/^[0-9a-f]{32}$/.test(envelope.dekId) ||
     envelope.kekVersion !== HARDWARE_CLOUD_SYNC_KEK_VERSION ||
     !isHardwareCloudSyncKekSalt(envelope.kekSalt) ||
+    !Number.isSafeInteger(envelope.generation) ||
+    (envelope.generation ?? 0) < 1 ||
     typeof envelope.wrappedDek !== 'string' ||
     !envelope.wrappedDek
   ) {
@@ -381,7 +431,10 @@ async function readLockEnvelope({
 
 // A new data key with its own salt; the device signs the salted message once
 // per call of deriveKek.
-async function createEnvelope(deriveKek: IHardwareCloudSyncKekDeriver) {
+async function createEnvelope(
+  deriveKek: IHardwareCloudSyncKekDeriver,
+  generation: number,
+) {
   const dek = bufferUtils.bytesToHex(randomBytes(32));
   const dekId = bufferUtils.bytesToHex(randomBytes(16));
   const kekSalt = bufferUtils.bytesToHex(randomBytes(16));
@@ -390,6 +443,7 @@ async function createEnvelope(deriveKek: IHardwareCloudSyncKekDeriver) {
     dekId,
     kekVersion: HARDWARE_CLOUD_SYNC_KEK_VERSION,
     kekSalt,
+    generation,
   };
   const envelope: IKeyEnvelope = {
     ...context,
@@ -402,6 +456,16 @@ async function createEnvelope(deriveKek: IHardwareCloudSyncKekDeriver) {
     pwdHash: computeHardwareCloudSyncPwdHash(dekId),
   };
   return { dataKey, envelope };
+}
+
+// A Lock older than one this device already accepted for the wallet is a
+// rollback to a key a reset was meant to retire.
+function assertNotRolledBack(envelope: IKeyEnvelope, minGeneration: number) {
+  if (envelope.generation < minGeneration) {
+    throw new OneKeyLocalError(
+      'Cloud sync key on the server is older than this device has seen',
+    );
+  }
 }
 
 function envelopeRecord(envelope: IKeyEnvelope) {
@@ -460,12 +524,16 @@ export async function bootstrapHardwareCloudSyncDataKey({
   client,
   session,
   deriveKek,
+  minGeneration = 0,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
   deriveKek: IHardwareCloudSyncKekDeriver;
+  // Highest key generation this device accepted for the wallet.
+  minGeneration?: number;
 }): Promise<
   IHardwareCloudSyncDataKey & {
+    generation: number;
     // Earlier keys of this wallet, after another device reset it.
     previousPwdHashes: string[];
   }
@@ -473,6 +541,7 @@ export async function bootstrapHardwareCloudSyncDataKey({
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const existing = await readLockEnvelope({ client, session });
     if (existing) {
+      assertNotRolledBack(existing, minGeneration);
       const kek = await deriveKek(existing.kekSalt);
       const dek = await unwrapDek({ kek, envelope: existing });
       const pwdHash = computeHardwareCloudSyncPwdHash(existing.dekId);
@@ -480,6 +549,7 @@ export async function bootstrapHardwareCloudSyncDataKey({
         dek,
         dekId: existing.dekId,
         pwdHash,
+        generation: existing.generation,
         previousPwdHashes: await listPreviousPwdHashes({
           client,
           session,
@@ -488,7 +558,10 @@ export async function bootstrapHardwareCloudSyncDataKey({
       };
     }
 
-    const { dataKey, envelope } = await createEnvelope(deriveKek);
+    const { dataKey, envelope } = await createEnvelope(
+      deriveKek,
+      minGeneration + 1,
+    );
     try {
       await requestWithHardwareCloudSyncSession({
         client,
@@ -510,7 +583,11 @@ export async function bootstrapHardwareCloudSyncDataKey({
           localData: [envelopeRecord(envelope)],
         },
       });
-      return { ...dataKey, previousPwdHashes: [] };
+      return {
+        ...dataKey,
+        generation: envelope.generation,
+        previousPwdHashes: [],
+      };
     } catch (error) {
       if (!isHardwareCloudSyncPwdHashInvalidError(error) || attempt === 2) {
         throw error;
@@ -623,6 +700,7 @@ export async function rotateHardwareCloudSyncDataKey<
   current,
   localItems,
   savePending,
+  minGeneration = 0,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
@@ -630,15 +708,38 @@ export async function rotateHardwareCloudSyncDataKey<
   current: IHardwareCloudSyncDataKey;
   localItems: T[];
   savePending: (next: IHardwareCloudSyncDataKey) => Promise<void>;
-}): Promise<{ next: IHardwareCloudSyncDataKey; items: T[] }> {
+  minGeneration?: number;
+}): Promise<{
+  next: IHardwareCloudSyncDataKey;
+  items: T[];
+  generation: number;
+}> {
   const existing = await readLockEnvelope({ client, session });
   // Nobody reset it meanwhile. The wallet itself was checked by its identity
   // before the device signs.
   if (!existing || existing.dekId !== current.dekId) {
     throw new OneKeyLocalError('Cloud sync key changed. Sync again first.');
   }
+  assertNotRolledBack(existing, minGeneration);
+  // The data version the re-encrypted copy is built from. The flush is
+  // refused if anything was uploaded after this, instead of dropping it.
+  const { nonce: serverNonce } = await requestWithHardwareCloudSyncSession<{
+    nonce: number;
+  }>({
+    client,
+    session,
+    method: 'POST',
+    urlPath: '/prime/v1/sync/check',
+    data: { pwdHash: current.pwdHash, nonce: 0, localData: [] },
+  });
+  if (!Number.isSafeInteger(serverNonce)) {
+    throw new OneKeyLocalError('Cloud sync data version is unavailable');
+  }
   // New salt and data key: signatures taken for the old envelope stop working.
-  const { dataKey: next, envelope } = await createEnvelope(deriveKek);
+  const { dataKey: next, envelope } = await createEnvelope(
+    deriveKek,
+    existing.generation + 1,
+  );
   const items = await reencryptHardwareCloudSyncItems({
     items: localItems,
     from: current,
@@ -646,20 +747,10 @@ export async function rotateHardwareCloudSyncDataKey<
   });
   // The server copy is the source: it also holds records this device keeps
   // no local copy of, such as other devices' wallets.
-  const { serverData } = await requestWithHardwareCloudSyncSession<{
-    serverData: Array<{
-      key: string;
-      dataType: string;
-      data?: string;
-      dataTimestamp?: number;
-      isDeleted?: boolean;
-    }>;
-  }>({
+  const serverData = await downloadAllForReset({
     client,
     session,
-    method: 'POST',
-    urlPath: '/prime/v1/sync/download',
-    data: { pwdHash: current.pwdHash, includeDeleted: true, limit: 100_000 },
+    pwdHash: current.pwdHash,
   });
   const [envelopeRecords, records] = [
     (serverData ?? []).filter((item) =>
@@ -707,6 +798,7 @@ export async function rotateHardwareCloudSyncDataKey<
       nonce: 0,
       pwdHash: next.pwdHash,
       expectedPwdHash: current.pwdHash,
+      expectedNonce: serverNonce,
       lock: {
         key: 'lock',
         dataType: 'Lock',
@@ -727,5 +819,59 @@ export async function rotateHardwareCloudSyncDataKey<
       ],
     },
   });
-  return { next, items };
+  return { next, items, generation: envelope.generation };
+}
+
+type IServerSyncRecord = {
+  key: string;
+  dataType: string;
+  data?: string;
+  dataTimestamp?: number;
+  isDeleted?: boolean;
+};
+
+const RESET_DOWNLOAD_PAGE_SIZE = 1000;
+const RESET_DOWNLOAD_MAX_PAGES = 1000;
+
+// Every record, page by page: a partial copy would lose the rest on flush.
+async function downloadAllForReset({
+  client,
+  session,
+  pwdHash,
+}: {
+  client: AxiosInstance;
+  session: IHardwareCloudSyncSession;
+  pwdHash: string;
+}): Promise<IServerSyncRecord[]> {
+  const all: IServerSyncRecord[] = [];
+  for (let page = 0; page < RESET_DOWNLOAD_MAX_PAGES; page += 1) {
+    const { serverData } = await requestWithHardwareCloudSyncSession<{
+      serverData: IServerSyncRecord[];
+    }>({
+      client,
+      session,
+      method: 'POST',
+      urlPath: '/prime/v1/sync/download',
+      data: {
+        pwdHash,
+        includeDeleted: true,
+        skip: page * RESET_DOWNLOAD_PAGE_SIZE,
+        limit: RESET_DOWNLOAD_PAGE_SIZE,
+      },
+    });
+    const items = serverData ?? [];
+    all.push(...items);
+    if (items.length < RESET_DOWNLOAD_PAGE_SIZE) return all;
+  }
+  throw new OneKeyLocalError('Too much Cloud sync data to reset at once');
+}
+
+// Stale data version response code, shared with the local mock server.
+export const HARDWARE_CLOUD_SYNC_NONCE_INVALID_CODE = 90_011;
+
+export function isHardwareCloudSyncNonceInvalidError(error: unknown) {
+  return (
+    (error as { code?: unknown } | undefined)?.code ===
+    HARDWARE_CLOUD_SYNC_NONCE_INVALID_CODE
+  );
 }

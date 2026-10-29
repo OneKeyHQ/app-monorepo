@@ -10,9 +10,11 @@ import type { IHardwareCloudSyncSession } from '@onekeyhq/shared/types/keylessCl
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 import {
+  assertHardwareCloudSyncChallengeFor,
   bootstrapHardwareCloudSyncDataKey,
   computeHardwareCloudSyncPwdHash,
   createHardwareCloudSyncDeviceKey,
+  getHardwareCloudSyncDeviceKeyThumbprint,
   getHardwareCloudSyncDevicePublicJwk,
   reencryptHardwareCloudSyncItems,
   requestWithHardwareCloudSyncSession,
@@ -227,9 +229,15 @@ describe('hardware Cloud sync session', () => {
     const nonce = 'ab'.repeat(32);
     expect(() =>
       assertHardwareCloudSyncAuthMessage(
-        `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${nonce}\nDevice: abcd1234`,
+        `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${nonce}\nDevice: abcd1234\nExpires: 2030-01-01T00:00:00.000Z`,
       ),
     ).not.toThrow();
+    // Extra server-chosen text is never shown on the device.
+    expect(() =>
+      assertHardwareCloudSyncAuthMessage(
+        `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${nonce}\nDevice: abcd1234\nExpires: 2030-01-01T00:00:00.000Z\nSend 1 BTC to approve`,
+      ),
+    ).toThrow();
     expect(() =>
       assertHardwareCloudSyncAuthMessage(
         buildHardwareCloudSyncMessage(
@@ -266,6 +274,10 @@ describe('hardware Cloud sync session', () => {
       }),
     ],
     ['kekVersion 2', (e: Record<string, unknown>) => ({ ...e, kekVersion: 2 })],
+    [
+      'no generation',
+      (e: Record<string, unknown>) => ({ ...e, generation: undefined }),
+    ],
   ])('refuses to sign for a Lock with %s', async (_name, mutate) => {
     const first = fakeClient();
     first.get.mockResolvedValue(ok({ lock: null }));
@@ -292,6 +304,80 @@ describe('hardware Cloud sync session', () => {
     ).rejects.toThrow('Invalid Cloud sync key envelope');
     expect(deriveKek).not.toHaveBeenCalled();
     expect(c.post).not.toHaveBeenCalled();
+  });
+
+  async function createdLock() {
+    const first = fakeClient();
+    first.get.mockResolvedValue(ok({ lock: null }));
+    first.post.mockResolvedValue(ok({}));
+    await bootstrapHardwareCloudSyncDataKey({
+      client: first.client,
+      session: session(),
+      deriveKek: wallet(WALLET),
+    });
+    return first.post.mock.calls[0][1].lock as { data: string };
+  }
+
+  test('refuses a Lock older than a key generation already seen', async () => {
+    const lock = await createdLock();
+    expect(JSON.parse(lock.data).generation).toBe(1);
+    const c = fakeClient();
+    c.get.mockResolvedValue(ok({ lock }));
+    const deriveKek = wallet(WALLET);
+    await expect(
+      bootstrapHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek,
+        minGeneration: 2,
+      }),
+    ).rejects.toThrow('older than this device has seen');
+    expect(deriveKek).not.toHaveBeenCalled();
+  });
+
+  test('a relabelled generation does not unwrap', async () => {
+    const lock = await createdLock();
+    const relabelled = {
+      ...lock,
+      data: JSON.stringify({ ...JSON.parse(lock.data), generation: 9 }),
+    };
+    const c = fakeClient();
+    c.get.mockResolvedValue(ok({ lock: relabelled }));
+    await expect(
+      bootstrapHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('signs only a fresh challenge for this request device key', () => {
+    const jwk = createHardwareCloudSyncDeviceKey();
+    const tag = getHardwareCloudSyncDeviceKeyThumbprint(jwk).slice(0, 8);
+    const now = Date.parse('2030-01-01T00:00:00.000Z');
+    const message = (device: string, expires: string) =>
+      `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${'ab'.repeat(32)}\nDevice: ${device}\nExpires: ${expires}`;
+    expect(() =>
+      assertHardwareCloudSyncChallengeFor({
+        message: message(tag, '2030-01-01T00:05:00.000Z'),
+        jwk,
+        now,
+      }),
+    ).not.toThrow();
+    for (const [device, expires] of [
+      ['zzzzzzzz', '2030-01-01T00:05:00.000Z'],
+      [tag, '2029-12-31T23:59:59.000Z'],
+      [tag, '2030-01-02T00:00:00.000Z'],
+    ]) {
+      expect(() =>
+        assertHardwareCloudSyncChallengeFor({
+          message: message(device, expires),
+          jwk,
+          now,
+        }),
+      ).toThrow('Invalid Cloud sync sign-in challenge');
+    }
   });
 
   describe('data key reset', () => {
@@ -339,6 +425,7 @@ describe('hardware Cloud sync session', () => {
       const c = fakeClient();
       c.get.mockResolvedValue(ok({ lock }));
       c.post
+        .mockResolvedValueOnce(ok({ nonce: 7 }))
         .mockResolvedValueOnce(ok({ serverData }))
         .mockResolvedValueOnce(ok({}));
       const savePending = jest.fn(async () => undefined);
@@ -352,7 +439,7 @@ describe('hardware Cloud sync session', () => {
       });
       expect(next.dek).not.toBe(key.dek);
       expect(next.pwdHash).toBe(computeHardwareCloudSyncPwdHash(next.dekId));
-      const newSalt = JSON.parse(c.post.mock.calls[1][1].lock.data).kekSalt;
+      const newSalt = JSON.parse(c.post.mock.calls[2][1].lock.data).kekSalt;
       expect(newSalt).toMatch(/^[0-9a-f]{32}$/);
       expect(newSalt).not.toBe(JSON.parse(lock.data).kekSalt);
       expect(savePending).toHaveBeenCalledWith(next);
@@ -367,7 +454,7 @@ describe('hardware Cloud sync session', () => {
         }),
       ).resolves.toBe('raw-a');
 
-      const flush = c.post.mock.calls[1] as [
+      const flush = c.post.mock.calls[2] as [
         string,
         {
           localData: Array<{
@@ -382,7 +469,10 @@ describe('hardware Cloud sync session', () => {
       expect(flush[1]).toMatchObject({
         pwdHash: next.pwdHash,
         expectedPwdHash: key.pwdHash,
+        // Refused if anything was uploaded after the copy was read.
+        expectedNonce: 7,
       });
+      expect(JSON.parse(c.post.mock.calls[2][1].lock.data).generation).toBe(2);
       const types = flush[1].localData.map(
         (i: { dataType: string }) => i.dataType,
       );
@@ -408,6 +498,40 @@ describe('hardware Cloud sync session', () => {
           dataType: 'BrowserBookmark',
         }),
       ).resolves.toBe('raw-from-other-device');
+    });
+
+    test('reads every page of server records before resetting', async () => {
+      const { key, lock } = await firstDevice();
+      const deleted = (n: number, from: number) =>
+        Array.from({ length: n }, (_, i) => ({
+          key: `k${from + i}`,
+          dataType: 'BrowserBookmark',
+          data: '',
+          isDeleted: true,
+        }));
+      const c = fakeClient();
+      c.get.mockResolvedValue(ok({ lock }));
+      c.post
+        .mockResolvedValueOnce(ok({ nonce: 3 }))
+        .mockResolvedValueOnce(ok({ serverData: deleted(1000, 0) }))
+        .mockResolvedValueOnce(ok({ serverData: deleted(2, 1000) }))
+        .mockResolvedValueOnce(ok({}));
+      await rotateHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+        current: key,
+        localItems: [],
+        savePending: jest.fn(async () => undefined),
+      });
+      expect(c.post.mock.calls[1][1]).toMatchObject({ skip: 0, limit: 1000 });
+      expect(c.post.mock.calls[2][1]).toMatchObject({
+        skip: 1000,
+        limit: 1000,
+      });
+      const flushed = c.post.mock.calls[3][1].localData as unknown[];
+      // 1002 records plus the new envelope.
+      expect(flushed).toHaveLength(1003);
     });
 
     test('refuses when the server key was already reset', async () => {

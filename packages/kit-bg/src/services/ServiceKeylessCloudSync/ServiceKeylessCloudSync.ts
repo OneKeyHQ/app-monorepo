@@ -57,6 +57,7 @@ import {
   createHardwareCloudSyncDeviceKey,
   getCurrentHardwareCloudSyncDataKeyId,
   isHardwareCloudSyncKeyEnvelopeItem,
+  isHardwareCloudSyncNonceInvalidError,
   isHardwareCloudSyncPwdHashInvalidError,
   isHardwareCloudSyncUnauthorizedError,
   reencryptHardwareCloudSyncItems,
@@ -318,7 +319,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
         client,
         session,
         deriveKek: device.deriveKek,
+        minGeneration: await this.getHardwareKeyGeneration(device.credentialId),
       });
+      await this.recordHardwareKeyGeneration(
+        device.credentialId,
+        dataKey.generation,
+      );
       previousPwdHashes = dataKey.previousPwdHashes;
       return {
         keylessWalletId: device.credentialId,
@@ -982,6 +988,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
         client,
         session,
         deriveKek: device.deriveKek,
+        minGeneration: await this.getHardwareKeyGeneration(source.credentialId),
         current: {
           dek: credential.encryptionKey,
           dekId: session.dekId,
@@ -993,6 +1000,16 @@ class ServiceKeylessCloudSync extends ServiceBase {
             ...credential,
             pendingDataKey: pending,
           }),
+      }).catch(async (error: unknown) => {
+        // Refused outright: the server kept the old key, so drop the pending.
+        if (!isHardwareCloudSyncNonceInvalidError(error)) throw error;
+        await this.saveHardwareCredential({
+          ...credential,
+          pendingDataKey: undefined,
+        });
+        throw new OneKeyError(
+          'Cloud sync data changed during the reset. Try again.',
+        );
       });
       return credential;
     };
@@ -1011,10 +1028,37 @@ class ServiceKeylessCloudSync extends ServiceBase {
       rotated.next,
       rotated.items,
     );
+    await this.recordHardwareKeyGeneration(
+      source.credentialId,
+      rotated.generation,
+    );
     await this.revokeOtherHardwareSessions(updated);
     await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
       callerName: 'Reset hardware Cloud sync key',
       forceSync: true,
+    });
+  }
+
+  private async getHardwareKeyGeneration(credentialId: string) {
+    const { hardwareCloudSyncKeyGenerations } =
+      await primeCloudSyncPersistAtom.get();
+    return hardwareCloudSyncKeyGenerations?.[credentialId] ?? 0;
+  }
+
+  private async recordHardwareKeyGeneration(
+    credentialId: string,
+    generation: number,
+  ) {
+    await primeCloudSyncPersistAtom.set((value) => {
+      const known = value.hardwareCloudSyncKeyGenerations?.[credentialId] ?? 0;
+      if (generation <= known) return value;
+      return {
+        ...value,
+        hardwareCloudSyncKeyGenerations: {
+          ...value.hardwareCloudSyncKeyGenerations,
+          [credentialId]: generation,
+        },
+      };
     });
   }
 

@@ -465,7 +465,7 @@ describe('hardware Cloud SDK adapter', () => {
     await generateHardwareCloudSyncCredentialWithSdk({
       unlock: async (device) => {
         await device.signAuth(
-          `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${nonce}\nDevice: abcd1234`,
+          `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${nonce}\nDevice: abcd1234\nExpires: 2030-01-01T00:00:00.000Z`,
         );
         await device.deriveKek(TEST_SALT);
         return { ...mockCredential, keylessWalletId: device.credentialId };
