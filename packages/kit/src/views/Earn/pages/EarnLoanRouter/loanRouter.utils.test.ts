@@ -104,6 +104,8 @@ const facts = (overrides: Partial<ILoanRouteFacts> = {}): ILoanRouteFacts => ({
   borrowableNow: 0,
   collateralAssets: [],
   debtAssets: [],
+  positionNetValue: 0,
+  positionAnnualNet: 0,
   canBorrowHere: true,
   ...overrides,
 });
@@ -325,7 +327,7 @@ describe('getLoanRouteMetrics', () => {
     expect(metrics.netApy).toBeUndefined();
   });
 
-  it('keeps the rate to a plan its collateral could carry alone', () => {
+  it("gives the plan's own rate where the market holds no position", () => {
     const position = facts({
       collateralPrice: 1,
       weightedCollateral: 100_000,
@@ -340,16 +342,46 @@ describe('getLoanRouteMetrics', () => {
     });
     // (0 - 700 x 4.5%) / 300
     expect(within.netApy).toBeCloseTo(-10.5);
-    // Past the pair's 73%: the position carries the rest
+    expect(within.netApyBefore).toBeUndefined();
+    // Past the pair's 73% it is still a rate
     const past = getLoanRouteMetrics({
       route: core,
       facts: position,
       collateralAmount: '1000',
       borrowAmount: '800',
     });
-    expect(past.netApy).toBeUndefined();
+    // (0 - 800 x 4.5%) / 200
+    expect(past.netApy).toBeCloseTo(-18);
     expect(past.annualNet).toBeCloseTo(-36);
     expect(past.block).toBeUndefined();
+  });
+
+  it("gives the whole position's rate, before and after, where it has one", () => {
+    const position = facts({
+      collateralPrice: 1,
+      weightedCollateral: 100_000,
+      collateralValue: 125_000,
+      borrowableNow: 50_000,
+      positionNetValue: 10_000,
+      positionAnnualNet: 300,
+    });
+    const untyped = getLoanRouteMetrics({
+      route: core,
+      facts: position,
+      collateralAmount: '',
+      borrowAmount: '',
+    });
+    expect(untyped.netApyBefore).toBeCloseTo(3);
+    expect(untyped.netApy).toBeCloseTo(3);
+    const typed = getLoanRouteMetrics({
+      route: core,
+      facts: position,
+      collateralAmount: '1000',
+      borrowAmount: '700',
+    });
+    // (300 - 700 x 4.5%) / (10,000 + 300)
+    expect(typed.netApy).toBeCloseTo((300 - 31.5) / 103);
+    expect(typed.netApyBefore).toBeCloseTo(3);
   });
 
   it('holds only a fresh pair to its limit before amounts are typed', () => {

@@ -598,11 +598,19 @@ export function toLedgerClaimAsset({
   item,
   networkName,
   networkLogoURI,
+  claimSymbol,
 }: {
   group: IEarnRewardsPortfolioGroup;
   item: IEarnRewardsPortfolioItem;
   networkName: string;
   networkLogoURI: string;
+  /**
+   * The token of the Earn product the reward's vault belongs to, where the
+   * product list names one: the claim the home's reward pills and DeFi
+   * Assets make for the same reward (demo 10-29). Without it the claim is
+   * matched to the account's positions
+   */
+  claimSymbol?: string;
 }): IEarnPortfolioAirdropAsset | undefined {
   const button = item.buttons?.[0];
   if (!button) {
@@ -628,6 +636,9 @@ export function toLedgerClaimAsset({
     metadata: {
       protocol: {
         vault: item.vault,
+        ...(claimSymbol
+          ? { claimSymbol, claimSymbolStatus: 'matched' as const }
+          : {}),
         providerDetail: {
           code: group.provider,
           name: group.providerName,

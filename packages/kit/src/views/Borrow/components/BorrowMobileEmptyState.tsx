@@ -51,7 +51,7 @@ export function BorrowMobileEmptyState({
             token={item.token}
             amountLabel={{
               text: `${intl.formatMessage({
-                id: ETranslations.global_balance,
+                id: ETranslations.global_wallet_balance,
               })}:`,
             }}
             amount={item.walletBalance.title}

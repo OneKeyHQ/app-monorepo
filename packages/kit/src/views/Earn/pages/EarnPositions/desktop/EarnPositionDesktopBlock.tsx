@@ -169,7 +169,12 @@ export function HoldingSectionsTable({
 }) {
   const intl = useIntl();
   const { effectiveDeposit } = position;
-  const balanceLabel = intl.formatMessage({ id: ETranslations.global_balance });
+  // The first column names what the tokens are (Deposited, Supplied); this
+  // one says how many: never a bare "Balance", which elsewhere is the
+  // wallet's (demo 10-29)
+  const balanceLabel = intl.formatMessage({
+    id: ETranslations.content__amount,
+  });
   const valueLabel = intl.formatMessage({ id: ETranslations.global_value });
   return (
     <YStack>

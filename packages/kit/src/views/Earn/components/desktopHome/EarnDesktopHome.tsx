@@ -549,6 +549,14 @@ export function EarnDesktopHome({
     ],
   );
 
+  // The "+N" reward pill: My portfolio on its Rewards tab, where the rest
+  // of the rewards are (demo 10-29)
+  const onOpenRewards = useCallback(
+    () =>
+      EarnNavigation.pushToEarnPositions(navigation, { focusTab: 'rewards' }),
+    [navigation],
+  );
+
   // The phone layout's entries and its sections' full lists are pages
   const handleOpenTokensPage = useCallback(
     () => EarnNavigation.pushToEarnTokens(navigation),
@@ -610,10 +618,10 @@ export function EarnDesktopHome({
     () => (
       <EarnDesktopRewardPills
         rows={claimableRewards}
-        onOpenMore={onOpenPortfolio}
+        onOpenMore={onOpenRewards}
       />
     ),
-    [claimableRewards, onOpenPortfolio],
+    [claimableRewards, onOpenRewards],
   );
 
   // A phone-wide screen gets the phone's arrangement of the same data

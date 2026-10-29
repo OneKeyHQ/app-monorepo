@@ -331,13 +331,19 @@ export const EarnNavigation = {
     params?: {
       // The protocols whose cards the page scrolls to
       focusProtocols?: string[];
+      // The tab it opens on
+      focusTab?: 'rewards';
     },
   ) {
     void safePushToEarnRoute(
       navigation,
       ETabEarnRoutes.EarnPositions,
-      params?.focusProtocols?.length
-        ? { focusProtocols: params.focusProtocols, focusAt: Date.now() }
+      params?.focusProtocols?.length || params?.focusTab
+        ? {
+            focusProtocols: params.focusProtocols,
+            focusTab: params.focusTab,
+            focusAt: Date.now(),
+          }
         : undefined,
     );
   },

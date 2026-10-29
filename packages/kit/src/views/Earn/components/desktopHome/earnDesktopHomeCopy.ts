@@ -95,10 +95,10 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // Paid with another token: the swap that brings the collateral first
   swapSupplyAndBorrow: 'Swap, Supply and Borrow',
   loanLtv: 'LTV',
+  // The bar before anything is typed: the position's own (demo 10-29)
+  loanCurrentLtv: 'Current LTV',
   // Under the LTV bar's wall
   loanMaxShort: (ltv: string) => `Max ${ltv}`,
-  // In place of Net APY where no rate holds: what the plan makes a year
-  loanNetPerYear: 'Net per year',
   loanPositionTitle: (market: string) => `Your ${market} position`,
   // The account's loans, a card per market, above the Loans list
   yourLoans: 'Your loans',

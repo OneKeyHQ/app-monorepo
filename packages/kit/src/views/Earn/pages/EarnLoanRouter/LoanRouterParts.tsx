@@ -74,16 +74,6 @@ export const formatLoanFiat = (value: number, currency: string) =>
 export const isLoanLoss = (value?: number) =>
   value !== undefined && value < -1e-9;
 
-// "≈ -$0.02 a year", "-< $0.01 a year": the value formatter writes anything
-// under a cent, a cost too, as "< $0.01", so the sign goes in front here
-export const formatLoanYearly = (value: number, currency: string) => {
-  const amount = formatLoanFiat(Math.abs(value), currency);
-  const sign = isLoanLoss(value) ? '-' : '';
-  return Math.abs(value) < 0.01
-    ? `${sign}${amount} ${EARN_DESKTOP_DEMO_COPY.aYear}`
-    : `≈ ${sign}${amount} ${EARN_DESKTOP_DEMO_COPY.aYear}`;
-};
-
 // "-$0.04", "-< $0.01": what a plan makes a year where no rate holds
 export const formatLoanNet = (value: number, currency: string) => {
   const amount = formatLoanFiat(Math.abs(value), currency);
@@ -804,8 +794,8 @@ function RouteRow({
   // reason line start under the market's name past them
   const isPair = Boolean(item.pairLabel);
   const indent = isPair ? PAIR_FIGURES_INDENT : FIGURES_INDENT;
-  // Where the plan's Net APY doesn't hold (the market's position carries
-  // part of the loan), what it makes or costs a year
+  // The position's Net APY there after the plan; where none holds (it would
+  // owe more than it holds), what the plan makes or costs a year
   const yearly = metrics.netApy === undefined ? metrics.annualNet : undefined;
   return (
     <YStack

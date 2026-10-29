@@ -418,6 +418,29 @@ describe('toLedgerClaimAsset', () => {
     });
   });
 
+  it("claims the product's token where the product list names one", () => {
+    const asset = toLedgerClaimAsset({
+      group,
+      item,
+      networkName: 'Ethereum',
+      networkLogoURI: 'e.png',
+      claimSymbol: 'USDT',
+    });
+    expect(asset?.metadata.protocol).toMatchObject({
+      vault: '0xvault',
+      claimSymbol: 'USDT',
+      claimSymbolStatus: 'matched',
+    });
+    const plain = toLedgerClaimAsset({
+      group,
+      item,
+      networkName: 'Ethereum',
+      networkLogoURI: 'e.png',
+    });
+    expect(plain?.metadata.protocol.claimSymbol).toBeUndefined();
+    expect(plain?.metadata.protocol.claimSymbolStatus).toBeUndefined();
+  });
+
   it('yields nothing for a row without a button', () => {
     expect(
       toLedgerClaimAsset({

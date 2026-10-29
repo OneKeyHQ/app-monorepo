@@ -386,6 +386,37 @@ export function summarizeLoanPosition(reserves?: IBorrowReserveItem) {
 }
 
 /**
+ * A market position's yield: every supply's interest less every loan's in a
+ * year, and what is supplied less what is borrowed. Its Net APY is the one
+ * over the other, the figure the market's page and the Loans window both
+ * show (demo 10-29)
+ */
+export function summarizeLoanPositionYield(reserves?: IBorrowReserveItem) {
+  let netValue = 0;
+  let annualNet = 0;
+  (reserves?.supplied?.assets ?? []).forEach((asset) => {
+    const value = toNumber(asset.suppliedAmount?.fiatValue);
+    netValue += value;
+    annualNet += (value * toNumber(asset.apyDetail?.apy)) / 100;
+  });
+  (reserves?.borrowed?.assets ?? []).forEach((asset) => {
+    const value = toNumber(asset.borrowedAmount?.fiatValue);
+    netValue -= value;
+    annualNet -= (value * toNumber(asset.apyDetail?.apy)) / 100;
+  });
+  return { netValue, annualNet };
+}
+
+/** A Net APY in %, where the position is worth more than it owes */
+export const toLoanPositionNetApy = ({
+  netValue,
+  annualNet,
+}: {
+  netValue: number;
+  annualNet: number;
+}) => (netValue > 0 ? (annualNet / netValue) * 100 : undefined);
+
+/**
  * A market position's health factor as the server reads it, the Borrow
  * page's: its risk detail (color and status), its figure, and the figure as
  * a number to order by

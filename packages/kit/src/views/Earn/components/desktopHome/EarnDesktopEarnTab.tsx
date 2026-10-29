@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import {
+  Fragment,
   createContext,
   memo,
   useCallback,
@@ -54,6 +55,8 @@ import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { EarnNavigation } from '../../earnUtils';
 import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
+import { getEarnAssetClassLabel } from '../../pages/EarnAssetSelect/earnAssetClassLabel';
+import { EARN_ASSET_CLASS_ORDER } from '../../pages/EarnAssetSelect/earnAssetSelect.utils';
 import { EarnTestIDs } from '../../testIDs';
 import {
   LIST_FOLD_MS,
@@ -71,6 +74,7 @@ import {
   buildTokenOffers,
   findPositionDeposit,
   getAssetSortApr,
+  getLoanAssetType,
 } from './earnDesktopHome.utils';
 import { EarnDesktopPillScroller } from './EarnDesktopPillScroller';
 import {
@@ -91,6 +95,7 @@ import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
   IEarnDesktopLendingOffer,
+  IEarnDesktopLoanAssetType,
   IEarnDesktopNetworkView,
   IEarnDesktopOpenRequest,
   IEarnDesktopPortfolioDeposits,
@@ -99,10 +104,11 @@ import type {
 } from './earnDesktopHome.utils';
 import type { IEarnDesktopSortState } from './EarnDesktopSortLabel';
 
+// The kinds of token Loans and every picker group by, in their order; Fixed
+// Income is a kind of product, last and set apart (demo 10-29)
 export type IEarnDesktopTokenCategory =
   | 'all'
-  | 'stable'
-  | 'nonStable'
+  | IEarnDesktopLoanAssetType
   | 'fixedIncome';
 type ITokenCategory = IEarnDesktopTokenCategory;
 /** A category the home's cards ask the tab to show */
@@ -110,13 +116,6 @@ export type IEarnDesktopCategoryRequest = {
   category: IEarnDesktopTokenCategory;
   at: number;
 };
-
-const TOKEN_CATEGORIES: { value: ITokenCategory; labelId: ETranslations }[] = [
-  { value: 'all', labelId: ETranslations.global_all },
-  { value: 'stable', labelId: ETranslations.earn_stable_tokens__action },
-  { value: 'nonStable', labelId: ETranslations.earn_non_stable_tokens__action },
-  { value: 'fixedIncome', labelId: ETranslations.earn_fixed_income },
-];
 
 // The header, the token rows and the offers under an open row share one
 // column layout, so an offer's TVL and APR sit under the token's numbers
@@ -211,43 +210,66 @@ const shouldSendVault = (providerName: string) =>
   earnUtils.shouldSendEarnProtocolVault({ providerName });
 
 function CategoryPills({
+  categories,
   value,
   onChange,
 }: {
+  /** The kinds the list has tokens of, in order */
+  categories: ITokenCategory[];
   value: ITokenCategory;
   onChange: (value: ITokenCategory) => void;
 }) {
   const intl = useIntl();
   const media = useMedia();
   const reduceMotion = useReducedMotion();
+  const labelOf = (category: ITokenCategory) => {
+    if (category === 'all') {
+      return intl.formatMessage({ id: ETranslations.global_all });
+    }
+    if (category === 'fixedIncome') {
+      return intl.formatMessage({ id: ETranslations.earn_fixed_income });
+    }
+    return getEarnAssetClassLabel(intl, category);
+  };
   const pills = (
-    <XStack gap="$2">
-      {TOKEN_CATEGORIES.map((category) => {
-        const isFocused = category.value === value;
+    <XStack gap="$2" ai="center">
+      {categories.map((category) => {
+        const isFocused = category === value;
         return (
-          <XStack
-            key={category.value}
-            role="button"
-            aria-pressed={isFocused}
-            px="$3"
-            py="$1.5"
-            bg={isFocused ? '$bgActive' : '$bgSubdued'}
-            borderRadius="$full"
-            cursor="pointer"
-            userSelect="none"
-            hoverStyle={isFocused ? undefined : { bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-            {...(reduceMotion ? undefined : HOVER_MOTION)}
-            onPress={() => onChange(category.value)}
-            {...buildKeyboardPressProps(() => onChange(category.value), 2)}
-          >
-            <SizableText
-              size="$bodyMdMedium"
-              color={isFocused ? '$text' : '$textSubdued'}
+          <Fragment key={category}>
+            {/* A product, not a kind of token: apart from the kinds */}
+            {category === 'fixedIncome' ? (
+              <Stack
+                w="$px"
+                h="$4"
+                mx="$1"
+                bg="$borderSubdued"
+                flexShrink={0}
+              />
+            ) : null}
+            <XStack
+              role="button"
+              aria-pressed={isFocused}
+              px="$3"
+              py="$1.5"
+              bg={isFocused ? '$bgActive' : '$bgSubdued'}
+              borderRadius="$full"
+              cursor="pointer"
+              userSelect="none"
+              hoverStyle={isFocused ? undefined : { bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+              {...(reduceMotion ? undefined : HOVER_MOTION)}
+              onPress={() => onChange(category)}
+              {...buildKeyboardPressProps(() => onChange(category), 2)}
             >
-              {intl.formatMessage({ id: category.labelId })}
-            </SizableText>
-          </XStack>
+              <SizableText
+                size="$bodyMdMedium"
+                color={isFocused ? '$text' : '$textSubdued'}
+              >
+                {labelOf(category)}
+              </SizableText>
+            </XStack>
+          </Fragment>
         );
       })}
     </XStack>
@@ -1342,24 +1364,40 @@ function BasicEarnDesktopEarnTab({
   // row skips the render when a refetch or poll changed other tokens only
   const allRows = useStableItems(builtRows, getRowKey);
 
-  // Fixed-rate tokens have a category of their own, so Stable and Non-Stable
-  // keep to the flexible ones, as on the Tokens page
+  // A token's kind, as Loans and the pickers read it
+  const classOfRow = useMemo(() => {
+    const upperStable = new Set(
+      Array.from(stableSymbols, (symbol) => symbol.toUpperCase()),
+    );
+    return (row: IEarnTableRow) =>
+      getLoanAssetType(row.asset.symbol, upperStable);
+  }, [stableSymbols]);
+  // The kinds the list has tokens of, then Fixed Income where it has some
+  const categories = useMemo<ITokenCategory[]>(() => {
+    const present = new Set(
+      allRows.filter((row) => !row.isFixedRate).map(classOfRow),
+    );
+    return [
+      'all',
+      ...EARN_ASSET_CLASS_ORDER.filter((type) => present.has(type)),
+      ...(allRows.some((row) => row.isFixedRate)
+        ? (['fixedIncome'] as const)
+        : []),
+    ];
+  }, [allRows, classOfRow]);
+  // Fixed-rate tokens have a category of their own, so the kinds keep to
+  // the flexible ones, as on the Tokens page
   const categoryRows = useMemo(() => {
-    if (category === 'stable') {
-      return allRows.filter(
-        (row) => !row.isFixedRate && stableSymbols.has(row.asset.symbol),
-      );
-    }
-    if (category === 'nonStable') {
-      return allRows.filter(
-        (row) => !row.isFixedRate && !stableSymbols.has(row.asset.symbol),
-      );
+    if (category === 'all') {
+      return allRows;
     }
     if (category === 'fixedIncome') {
       return allRows.filter((row) => row.isFixedRate);
     }
-    return allRows;
-  }, [allRows, category, stableSymbols]);
+    return allRows.filter(
+      (row) => !row.isFixedRate && classOfRow(row) === category,
+    );
+  }, [allRows, category, classOfRow]);
 
   const { availableNetworkIds, networkAssetCounts } = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1550,7 +1588,11 @@ function BasicEarnDesktopEarnTab({
   return (
     <YStack gap="$4">
       <XStack ai="center" jc="space-between" gap="$4" flexWrap="wrap">
-        <CategoryPills value={category} onChange={setCategory} />
+        <CategoryPills
+          categories={categories}
+          value={category}
+          onChange={setCategory}
+        />
         <XStack ai="center" gap="$3">
           <NetworkFilterControl
             testID="earn-desktop-earn-network-filter"

@@ -87,6 +87,8 @@ function findScrollArea(node: HTMLElement): HTMLElement | null {
 }
 
 export type IEarnOutcomeValue = {
+  // What it is now, quieter and before an arrow ("2.79% → 2.95%")
+  before?: string;
   main: string;
   // After the figure, quieter: its dollar value, or "(in sUSD3)"
   suffix?: string;
@@ -579,6 +581,22 @@ function OutcomeValues({
                   flexWrap="wrap"
                   minHeight="$6"
                 >
+                  {value.before ? (
+                    <XStack ai="center" gap="$1.5">
+                      <SizableText
+                        size="$bodyMd"
+                        color="$textSubdued"
+                        fontVariant={TABULAR_NUMS}
+                      >
+                        {value.before}
+                      </SizableText>
+                      <Icon
+                        name="ArrowRightOutline"
+                        size="$4"
+                        color="$iconDisabled"
+                      />
+                    </XStack>
+                  ) : null}
                   {main}
                   {suffix}
                   {tooltip}

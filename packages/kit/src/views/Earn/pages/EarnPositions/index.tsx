@@ -153,6 +153,7 @@ export default function EarnPositions() {
   // A share of the DeFi home's split asks for its protocols' cards
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnPositions>();
   const focusProtocols = route.params?.focusProtocols;
+  const focusTab = route.params?.focusTab;
   const focusAt = route.params?.focusAt;
   const focusRequest = useMemo(
     () =>
@@ -160,6 +161,10 @@ export default function EarnPositions() {
         ? { protocols: focusProtocols, at: focusAt }
         : undefined,
     [focusAt, focusProtocols],
+  );
+  const tabRequest = useMemo(
+    () => (focusTab && focusAt ? { tab: focusTab, at: focusAt } : undefined),
+    [focusAt, focusTab],
   );
   return (
     <AccountSelectorProviderMirror
@@ -171,7 +176,11 @@ export default function EarnPositions() {
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
         {isMyPortfolioLayout || gtMd ? (
-          <MyPortfolioPage tableLayout={gtMd} focusRequest={focusRequest} />
+          <MyPortfolioPage
+            tableLayout={gtMd}
+            focusRequest={focusRequest}
+            tabRequest={tabRequest}
+          />
         ) : (
           <EarnPositionsContent />
         )}

@@ -172,7 +172,8 @@ export function HoldingInvestmentGrid({
     <XStack flexWrap="wrap" {...gridProps}>
       <GridItem
         title={{
-          text: intl.formatMessage({ id: ETranslations.global_balance }),
+          // What the holding is worth; "Balance" is the wallet's (demo 10-29)
+          text: intl.formatMessage({ id: ETranslations.global_value }),
         }}
         descriptionComponent={
           // As the card prints it: a holding no price is known for reads

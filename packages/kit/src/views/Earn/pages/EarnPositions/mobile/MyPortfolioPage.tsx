@@ -109,9 +109,12 @@ const TABLE_LAYOUT_MAX_WIDTH = 1140;
 export function MyPortfolioPage({
   tableLayout = false,
   focusRequest,
+  tabRequest,
 }: {
   /** The wide layout scrolls to these protocols' cards (the home's split) */
   focusRequest?: { protocols: string[]; at: number };
+  /** Opens on this tab, its Claimable rewards (the home's "+N" pill) */
+  tabRequest?: { tab: 'rewards'; at: number };
   /**
    * The wide layout (media.gtMd), the way the wallet DeFi Portfolio lays
    * out on desktop: a centered column, the network filter on the tab row,
@@ -135,7 +138,9 @@ export function MyPortfolioPage({
       estimatedHeaderHeight,
     });
 
-  const [primaryTab, setPrimaryTab] = useState<IPrimaryTab>('assets');
+  const [primaryTab, setPrimaryTab] = useState<IPrimaryTab>(
+    tabRequest?.tab ?? 'assets',
+  );
   // On web a tab once shown stays mounted and hides while the other shows,
   // so coming back to DeFi Assets costs a display change instead of building
   // its cards again. The apps keep mounting the selected tab only
@@ -177,6 +182,17 @@ export function MyPortfolioPage({
           animateOnly: ANIMATE_ONLY_OPACITY,
         } as const);
   const [stage, setStage] = useState<IEarnRewardsPortfolioStage>('claimable');
+  // A later request on the page already open (the home's "+N" pressed again
+  // after going back) turns it to Rewards' Claimable too
+  const handledTabRequestAtRef = useRef(tabRequest?.at);
+  useEffect(() => {
+    if (!tabRequest || handledTabRequestAtRef.current === tabRequest.at) {
+      return;
+    }
+    handledTabRequestAtRef.current = tabRequest.at;
+    setPrimaryTab(tabRequest.tab);
+    setStage('claimable');
+  }, [tabRequest]);
   // The network filter belongs to the account it was picked on (OK-64596):
   // another account opens on All networks, in the same render, instead of
   // keeping a network it may hold nothing on. The account is the indexed

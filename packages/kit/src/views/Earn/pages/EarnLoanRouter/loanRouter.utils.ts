@@ -13,9 +13,13 @@ import {
   getLoanAssetType,
   getLoanNetApy,
   isSameLoanAsset,
+  toLoanPositionNetApy,
   toLtvFraction,
 } from '../../components/desktopHome/earnDesktopHome.utils';
-import { isInAssetPick } from '../EarnAssetSelect/earnAssetSelect.utils';
+import {
+  EARN_ASSET_CLASS_ORDER,
+  isInAssetPick,
+} from '../EarnAssetSelect/earnAssetSelect.utils';
 
 import type { ILoanLtvTone } from './loanLtvBar.types';
 import type { IHealthFactorDetail } from '../../../Borrow/components/healthFactorValueColor';
@@ -467,13 +471,8 @@ export function buildLoanRoutes({
   return routes;
 }
 
-const ASSET_TYPE_ORDER: IEarnDesktopLoanAssetType[] = [
-  'stable',
-  'eth',
-  'btc',
-  'sol',
-  'other',
-];
+// The order the Earn tab, the Loans filters and the pickers share
+const ASSET_TYPE_ORDER = EARN_ASSET_CLASS_ORDER;
 
 // Held first, then by kind as the Loans filters order them, then by name
 const sortOptions = (
@@ -640,6 +639,10 @@ export type ILoanRouteFacts = {
   // What counts as collateral there, and what is borrowed
   collateralAssets: ILoanPositionAsset[];
   debtAssets: ILoanPositionAsset[];
+  // The whole position's yield: every supply's interest less every loan's
+  // in a year, over what is supplied less what is borrowed
+  positionNetValue: number;
+  positionAnnualNet: number;
   // The market lends the token to this account (Aave's E-Mode narrows it)
   canBorrowHere: boolean;
   eModeLabel?: string;
@@ -656,13 +659,14 @@ export type ILoanRouteBlock =
 
 export type ILoanRouteMetrics = {
   // In %; for the amounts once they are typed, at the chosen LTV before.
-  // The plan's own, over what it puts in net of the loan, and only while its
-  // collateral could carry the loan alone (within the pair's Max LTV). Past
-  // that the market's position carries the rest and the plan's net value is
-  // small or below zero, so no rate holds: annualNet says what it makes
+  // With a position in the market, the whole position's after the plan, as
+  // the market's page reads it (demo 10-29); a fresh market's is the plan's
+  // own. None where the position would owe more than it holds
   netApy?: number;
+  // The position's Net APY now, where the market has one
+  netApyBefore?: number;
   // What the collateral earns less what the loan costs in a year, in the
-  // currency
+  // currency: the plan's own, which ranks the markets
   annualNet?: number;
   // Over the market's whole position: before and after
   healthFactorBefore?: number;
@@ -708,21 +712,35 @@ export function getLoanRouteMetrics({
   const metrics: ILoanRouteMetrics = {};
   const pairMaxLtv =
     facts?.maxLtv !== undefined ? facts.maxLtv / borrowFactor : undefined;
+  // A position in the market: its Net APY now, and after the plan joins it
+  const hasPositionYield =
+    Boolean(facts) &&
+    ((facts?.positionNetValue ?? 0) !== 0 ||
+      (facts?.positionAnnualNet ?? 0) !== 0);
+  if (hasPositionYield && facts) {
+    metrics.netApyBefore = toLoanPositionNetApy({
+      netValue: facts.positionNetValue,
+      annualNet: facts.positionAnnualNet,
+    });
+  }
   if (collateralValue > 0 || loanValue > 0) {
     const annualNet =
       (collateralValue * supplyApy - loanValue * borrowApy) / 100;
     const netValue = collateralValue - loanValue;
     metrics.annualNet = annualNet;
-    const standsAlone =
-      netValue > 0 &&
-      (pairMaxLtv === undefined ||
-        loanValue <= collateralValue * pairMaxLtv * (1 + 1e-9));
-    if (standsAlone) {
-      metrics.netApy = (annualNet / netValue) * 100;
-    }
+    metrics.netApy =
+      hasPositionYield && facts
+        ? toLoanPositionNetApy({
+            netValue: facts.positionNetValue + netValue,
+            annualNet: facts.positionAnnualNet + annualNet,
+          })
+        : toLoanPositionNetApy({ netValue, annualNet });
     if (collateralValue > 0) {
       metrics.ltv = loanValue / collateralValue;
     }
+  } else if (hasPositionYield) {
+    // Nothing typed: the position as it is
+    metrics.netApy = metrics.netApyBefore;
   } else {
     const ltv = ltvStage ?? EARN_DESKTOP_LOAN_LTV;
     metrics.netApy = getLoanNetApy({ supplyApy, borrowApy, ltv });

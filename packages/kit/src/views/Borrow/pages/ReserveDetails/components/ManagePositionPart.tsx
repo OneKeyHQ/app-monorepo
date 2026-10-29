@@ -101,8 +101,9 @@ export const ManagePositionPart = ({
 
   const labels = {
     myInfo: intl.formatMessage({ id: ETranslations.defi_my_info }),
+    // The wallet's (demo 10-29)
     balance: intl.formatMessage({
-      id: ETranslations.global_balance,
+      id: ETranslations.global_wallet_balance,
     }),
     availableToBorrow: intl.formatMessage({
       id: ETranslations.defi_available_to_borrow,

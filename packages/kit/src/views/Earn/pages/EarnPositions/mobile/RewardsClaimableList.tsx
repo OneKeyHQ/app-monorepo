@@ -12,10 +12,12 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,7 +26,11 @@ import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking'
 
 import { WrappedActionButton } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
-import { resolveUniquePortfolioClaimSourceIdentity } from '../../../utils/portfolioClaimUtils';
+import {
+  buildPortfolioClaimSymbolMap,
+  getPortfolioProtocolIdentityKey,
+  resolveUniquePortfolioClaimSourceIdentity,
+} from '../../../utils/portfolioClaimUtils';
 
 import { ClaimableRewardRow, RewardTableHeader } from './ClaimableRewardRow';
 import { isCheckRow } from './earnPositionModel';
@@ -192,6 +198,22 @@ export function RewardsClaimableList({
     () => mergeRewardGroups({ positionGroups, ledgerGroups }),
     [positionGroups, ledgerGroups],
   );
+  // The Earn products, to name a ledger reward's claim the way the home's
+  // reward pills do: a reward its product names claims here too, even where
+  // the account holds nothing in that vault (demo 10-29)
+  const hasLedgerRows = ledgerGroups.length > 0;
+  const { result: productClaimSymbols } = usePromiseResult(
+    async () => {
+      if (!hasLedgerRows) {
+        return undefined;
+      }
+      return buildPortfolioClaimSymbolMap(
+        await backgroundApiProxy.serviceStaking.getAvailableAssetsV2(),
+      );
+    },
+    [hasLedgerRows],
+    { initResult: undefined, undefinedResultIfError: true },
+  );
 
   if (groups.length === 0) {
     if (isLoading) {
@@ -258,11 +280,22 @@ export function RewardsClaimableList({
             })}
             {group.ledgerItems.map(({ group: ledgerGroup, item }, index) => {
               const network = networkInfoById.get(ledgerGroup.networkId);
+              const productMatch = productClaimSymbols?.get(
+                getPortfolioProtocolIdentityKey({
+                  networkId: ledgerGroup.networkId,
+                  provider: ledgerGroup.provider,
+                  vault: item.vault,
+                }),
+              );
               const asset = toLedgerClaimAsset({
                 group: ledgerGroup,
                 item,
                 networkName: network?.name ?? '',
                 networkLogoURI: network?.logoURI ?? '',
+                claimSymbol:
+                  productMatch?.status === 'matched'
+                    ? productMatch.symbol
+                    : undefined,
               });
               const reward = asset?.airdropAssets[0];
               return (

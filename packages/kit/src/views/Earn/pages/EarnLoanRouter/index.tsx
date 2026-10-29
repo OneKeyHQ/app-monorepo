@@ -25,7 +25,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ColorTokens } from '@onekeyhq/components';
+import type { ColorTokens, IBadgeType } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -109,9 +109,7 @@ import {
   LoanRouteList,
   formatLoanFiat,
   formatLoanLtv,
-  formatLoanNet,
   formatLoanPercent,
-  formatLoanYearly,
   getLoanBlockText,
   isLendingClosed,
   isLoanLoss,
@@ -122,6 +120,7 @@ import { useLoanPayWith } from './useLoanPayWith';
 import { useLoanRouterFacts } from './useLoanRouterFacts';
 import { useLoanRouterRun } from './useLoanRouterRun';
 
+import type { ILoanLtvTone } from './loanLtvBar.types';
 import type { ILoanPositionAsset, ILoanRoute } from './loanRouter.utils';
 import type { ILoanRouteItem } from './LoanRouterParts';
 import type { ILoanRunDone, ILoanRunPlan } from './useLoanRouterRun';
@@ -209,6 +208,19 @@ const scaleHealth = (value: number | undefined, scale: number) =>
 const healthColorOf = (value: number): ColorTokens =>
   LOAN_HEALTH_TEXT_COLOR[getLoanHealthTone(value)];
 
+// A health factor's band as the Borrow page's status badge reads it, and
+// the app's word for a band the server hasn't named for this position
+const HEALTH_TONE_BADGE: Record<ILoanLtvTone, IBadgeType> = {
+  success: 'success',
+  caution: 'warning',
+  critical: 'critical',
+};
+const HEALTH_TONE_WORD: Record<ILoanLtvTone, ETranslations> = {
+  success: ETranslations.perp_portfolio_health_status_healthy,
+  caution: ETranslations.perp_portfolio_health_status_moderate,
+  critical: ETranslations.perp_portfolio_health_status_high_risk,
+};
+
 // The health factor in the Borrow page's words: the position as it stands is
 // the server's figure, color and status; once amounts are typed, the figure
 // before and after, each in its band's color
@@ -221,6 +233,7 @@ function HealthFactorValue({
   after?: number;
   current?: IHealthFactorDetail;
 }) {
+  const intl = useIntl();
   if (after === undefined) {
     return <RowValue>–</RowValue>;
   }
@@ -240,6 +253,7 @@ function HealthFactorValue({
       </XStack>
     );
   }
+  const afterBadge = HEALTH_TONE_BADGE[getLoanHealthTone(after)];
   return (
     <XStack ai="center" gap="$1.5">
       {before !== undefined ? (
@@ -264,6 +278,15 @@ function HealthFactorValue({
       >
         {formatHealth(after)}
       </SizableText>
+      {/* The band it lands in, in the market page's word: the server's own
+          where the position stays in its band (demo 10-29) */}
+      <Badge badgeType={afterBadge}>
+        {current?.status?.tag && current.status.badge === afterBadge
+          ? current.status.tag
+          : intl.formatMessage({
+              id: HEALTH_TONE_WORD[getLoanHealthTone(after)],
+            })}
+      </Badge>
     </XStack>
   );
 }
@@ -1213,11 +1236,17 @@ function EarnLoanRouterPage() {
   );
   const isChanging = hasLoan || hasCollateral;
 
+  // Before anything is typed the bar is the position as it stands, not a
+  // loan on offer
+  const ltvLabel =
+    hasPosition && !isChanging
+      ? EARN_DESKTOP_DEMO_COPY.loanCurrentLtv
+      : EARN_DESKTOP_DEMO_COPY.loanLtv;
   const ltvBlock = (
     <YStack testID="earn-loan-ltv" px="$3.5" pt="$3" gap="$1">
       <XStack jc="space-between" ai="center">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {EARN_DESKTOP_DEMO_COPY.loanLtv}
+          {ltvLabel}
         </SizableText>
         <LtvValue
           before={
@@ -1239,9 +1268,7 @@ function EarnLoanRouterPage() {
         onSlideStart={handleSlideStart}
         onSlideEnd={handleSlideEnd}
         valueText={
-          ltvBar
-            ? `${EARN_DESKTOP_DEMO_COPY.loanLtv} ${formatLoanLtv(ltvBar.value)}`
-            : undefined
+          ltvBar ? `${ltvLabel} ${formatLoanLtv(ltvBar.value)}` : undefined
         }
         capLabel={
           ltvBar?.cap !== undefined
@@ -1357,42 +1384,32 @@ function EarnLoanRouterPage() {
         enterStyle: FADE_IN,
       };
 
-  // The loan's own result: what this collateral earns less what this loan
-  // costs, as a rate while the collateral could carry the loan alone; past
-  // that (the market's position carries the rest) as money a year. Where
-  // the account has nothing in the market, its risk too. A market that
+  // The position's Net APY in the market, as its page reads it: as it is,
+  // then with the plan in it, the way LTV and Health Factor read. A fresh
+  // market's is the plan's own. Always a rate (demo 10-29). A market that
   // doesn't lend the token has no result: a dash
-  const netYearly =
-    !isClosed && selectedMetrics?.netApy === undefined
-      ? selectedMetrics?.annualNet
-      : undefined;
   const netApyLabel = intl.formatMessage({ id: ETranslations.defi_net_apy });
+  const netApyAfter = isClosed ? undefined : selectedMetrics?.netApy;
+  const netApyBefore = isClosed ? undefined : selectedMetrics?.netApyBefore;
   let outcome: IEarnOutcome;
   if (isFiguresLoading) {
     outcome = { label: netApyLabel, values: [] };
-  } else if (netYearly !== undefined) {
-    outcome = {
-      label: EARN_DESKTOP_DEMO_COPY.loanNetPerYear,
-      isEarning: netYearly >= 0.01,
-      // In the cards' red, so a cost under a cent reads as one too
-      isCost: isLoanLoss(netYearly),
-      values: [{ main: formatLoanNet(netYearly, currency) }],
-    };
   } else {
     outcome = {
       label: netApyLabel,
-      isEarning: !isClosed && (selectedMetrics?.netApy ?? 0) > 0,
-      isCost: !isClosed && isLoanLoss(selectedMetrics?.netApy),
+      isEarning: (netApyAfter ?? 0) > 0,
+      // In the cards' red
+      isCost: isLoanLoss(netApyAfter),
       values:
-        isClosed || selectedMetrics?.netApy === undefined
+        netApyAfter === undefined
           ? []
           : [
               {
-                main: formatLoanPercent(selectedMetrics.netApy),
-                suffix:
-                  isChanging && selectedMetrics.annualNet !== undefined
-                    ? formatLoanYearly(selectedMetrics.annualNet, currency)
+                before:
+                  isChanging && netApyBefore !== undefined
+                    ? formatLoanPercent(netApyBefore)
                     : undefined,
+                main: formatLoanPercent(netApyAfter),
               },
             ],
     };
@@ -1872,12 +1889,12 @@ function EarnLoanRouterPage() {
       </YStack>
       {/* In one column the markets come after what the amounts make, so
           typing or dragging shows its result without a scroll. Beside them
-          the button comes right after the result, as on Swap, and the
-          account's position under it */}
+          the button comes after the result and the account's position, so
+          the Health Factor it leaves is read before the press (demo 10-29) */}
       {summary}
+      {details}
       {isBeside ? notes : null}
       {isBeside ? action : null}
-      {details}
       {isBeside ? null : routeList}
       {isBeside ? null : notes}
     </YStack>

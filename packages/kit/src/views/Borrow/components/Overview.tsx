@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,6 +16,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IBorrowEModeStatus } from '@onekeyhq/shared/types/staking';
 
+import {
+  summarizeLoanPositionYield,
+  toLoanPositionNetApy,
+} from '../../Earn/components/desktopHome/earnDesktopHome.utils';
 import { EarnActionIcon } from '../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../Staking/components/ProtocolDetails/EarnText';
 import { PendingIndicator } from '../../Staking/components/StakingActivityIndicator';
@@ -148,7 +153,22 @@ export const Overview = ({
 
   const netWorthText =
     reserves.data?.overview?.netWorth ?? placeholderAmountText;
-  const netApyText = withNetApySignColor(reserves.data?.overview?.netApy) ?? {
+  // On web the figure the Loans window shows for this market, worked out
+  // the same way from the same positions: one Net APY (demo 10-29)
+  const clientNetApy = useMemo(() => {
+    if (platformEnv.isNative || !reserves.data) {
+      return undefined;
+    }
+    const value = toLoanPositionNetApy(
+      summarizeLoanPositionYield(reserves.data),
+    );
+    return value === undefined
+      ? undefined
+      : { text: `${new BigNumber(value).toFixed(2)}%` };
+  }, [reserves.data]);
+  const netApyText = withNetApySignColor(
+    clientNetApy ?? reserves.data?.overview?.netApy,
+  ) ?? {
     text: '-',
     color: '$textSubdued',
   };

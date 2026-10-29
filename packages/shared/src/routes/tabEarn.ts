@@ -41,6 +41,8 @@ export type ITabEarnParamList = {
         // A share of the DeFi home's split (demo 10-29): the page scrolls to
         // those protocols' cards; focusAt tells one request from the next
         focusProtocols?: string[];
+        // The home's "+N" reward pill opens the Rewards tab (demo 10-29)
+        focusTab?: 'rewards';
         focusAt?: number;
       };
   // Tokens home (OK-58505): full token list (with in-page All/Stable/Non-Stable categories)

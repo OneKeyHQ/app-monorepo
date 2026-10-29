@@ -14,6 +14,7 @@ import {
   countsAsLoanCollateral,
   readLoanHealth,
   summarizeLoanPosition,
+  summarizeLoanPositionYield,
   toLtvFraction,
 } from '../../components/desktopHome/earnDesktopHome.utils';
 import { parseFormattedLiquidityValue } from '../../utils/availableAssetsUtils';
@@ -83,6 +84,8 @@ export type ILoanRoutePosition = Pick<
   | 'borrowableNow'
   | 'collateralAssets'
   | 'debtAssets'
+  | 'positionNetValue'
+  | 'positionAnnualNet'
   | 'canBorrowHere'
   | 'walletBalance'
   | 'healthFactorDetail'
@@ -212,6 +215,8 @@ export async function readLoanRoutePosition({
   );
   const { collateralValue, collateralAssets, debtValue, debtAssets } =
     summarizeLoanPosition(reserves);
+  const { netValue: positionNetValue, annualNet: positionAnnualNet } =
+    summarizeLoanPositionYield(reserves);
   // With an account the list holds only what it can borrow here: Aave's
   // E-Mode leaves out the assets outside its category
   const lent = (reserves.borrow?.assets ?? []).find((asset) =>
@@ -236,6 +241,8 @@ export async function readLoanRoutePosition({
     borrowableNow: toNumber(lent?.available?.fiatValue),
     collateralAssets,
     debtAssets,
+    positionNetValue,
+    positionAnnualNet,
     canBorrowHere: Boolean(lent),
     walletBalance: held?.walletBalance?.amount ?? held?.walletBalance?.number,
     healthFactorDetail:
@@ -316,6 +323,8 @@ async function readRouteFacts({
     borrowableNow: position?.borrowableNow ?? 0,
     collateralAssets: position?.collateralAssets ?? [],
     debtAssets: position?.debtAssets ?? [],
+    positionNetValue: position?.positionNetValue ?? 0,
+    positionAnnualNet: position?.positionAnnualNet ?? 0,
     // Without the account's list there is no telling: the server decides
     canBorrowHere: position ? position.canBorrowHere : true,
     walletBalance: position?.walletBalance,

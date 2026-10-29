@@ -574,7 +574,9 @@ function EarnRouterAssetSelectPage() {
       : intl.formatMessage({ id: ETranslations.earn_tokens__title });
   let figureLabel = intl.formatMessage({ id: ETranslations.global_apy });
   if (purpose === 'loanSupply') {
-    figureLabel = intl.formatMessage({ id: ETranslations.global_balance });
+    figureLabel = intl.formatMessage({
+      id: ETranslations.global_wallet_balance,
+    });
   } else if (purpose === 'loanBorrow') {
     figureLabel = intl.formatMessage({ id: ETranslations.defi_borrow_apy });
   }

@@ -42,6 +42,7 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { preloadEarnLoanRouter } from '../../../Staking/router';
 import { EarnNavigation } from '../../earnUtils';
+import { EARN_ASSET_CLASS_ORDER } from '../../pages/EarnAssetSelect/earnAssetSelect.utils';
 import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
 
@@ -132,13 +133,8 @@ const HOVER_MOTION = {
 
 type IAssetFilter = 'all' | 'wallet' | IEarnDesktopLoanAssetType;
 
-const ASSET_TYPE_ORDER: IEarnDesktopLoanAssetType[] = [
-  'btc',
-  'eth',
-  'sol',
-  'stable',
-  'other',
-];
+// The kinds in the order the Earn tab and every picker show them
+const ASSET_TYPE_ORDER = EARN_ASSET_CLASS_ORDER;
 
 function useAssetTypeLabel() {
   const intl = useIntl();
