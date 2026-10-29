@@ -26,9 +26,6 @@ import type {
 } from '../LightweightChart/types';
 
 const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
-// Kept in sync with `priceScaleMinimumWidth` below, so the price axis reserves
-// a stable width instead of resizing with the figures it prints.
-const PRICE_SCALE_WIDTH = 88;
 // The widest sub-$1 form the title can print is 4 leading zeros + 4 significant
 // digits (`0.0000653`), i.e. 10 characters. Anything smaller makes the axis fall
 // back to `$0.0₄653` and read as a different price than the title.
@@ -421,8 +418,9 @@ export function StockPriceLineChart({
         showTimeScale
         priceScaleMargins={PRICE_SCALE_MARGINS}
         priceScaleEntireTextOnly
-        // Let the native canvas measure its labels instead of reserving desktop space.
-        priceScaleMinimumWidth={platformEnv.isNative ? 0 : PRICE_SCALE_WIDTH}
+        // The right axis draws its labels left-aligned, so any reserved width
+        // shows up as a gap after short prices. Let it fit its widest label.
+        priceScaleMinimumWidth={0}
         timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
         priceFormatter={priceFormatter}
         priceTickFormatter={priceTickFormatter}

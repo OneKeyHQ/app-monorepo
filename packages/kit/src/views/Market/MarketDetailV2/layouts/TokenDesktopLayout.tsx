@@ -39,7 +39,7 @@ import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 
 const TOKEN_DETAIL_MAIN_COLUMN_WIDTH = 832;
-const TOKEN_DETAIL_COLUMN_GAP = 12;
+const TOKEN_DETAIL_COLUMN_GAP = 0;
 const TOKEN_DETAIL_HORIZONTAL_GUTTER = 20;
 const TOKEN_DETAIL_CHART_SECTION_MIN_HEIGHT = 848;
 
@@ -260,12 +260,12 @@ function TokenDesktopLayoutBase({
           {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
           mt={MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET}
         >
-          <PerpetualTradingBanner px="$5" py="$2" pb="$3" />
           <MarketEmbeddedSwap
             swapToken={swapToken}
             inputDraftKey={swapInputDraftKey}
             disabled={disableTrade}
           />
+          <PerpetualTradingBanner px="$5" py="$2" iconGap="$1.5" />
         </YStack>
       </XStack>
     </YStack>

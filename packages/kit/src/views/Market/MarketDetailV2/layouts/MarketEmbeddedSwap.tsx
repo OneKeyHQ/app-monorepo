@@ -60,12 +60,7 @@ const MemoEmbeddedSwap = memo(LazyEmbeddedSwap);
 
 function MarketEmbeddedSwapLoading() {
   return (
-    <YStack
-      testID="market-embedded-swap-trade-loading"
-      width="100%"
-      minHeight={520}
-      gap="$4"
-    >
+    <YStack testID="market-embedded-swap-trade-loading" width="100%" gap="$4">
       <Skeleton h="$10" w="$44" borderRadius="$full" />
       <XStack h="$13" alignItems="center" justifyContent="space-between">
         <XStack alignItems="center" gap="$2">
@@ -257,7 +252,6 @@ function MarketEmbeddedSwapContent({
     <Stack
       testID="market-embedded-swap-trade-ready"
       width="100%"
-      minHeight={520}
       overflow="hidden"
     >
       <MemoEmbeddedSwap

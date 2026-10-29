@@ -1,5 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+
+import { useIsFocused } from '@react-navigation/native';
 
 import { Stack, XStack } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -36,6 +38,13 @@ const OVERLAY_ENTER_STYLE = {
   x: -(MARKET_DETAIL_WATCHLIST_SIDEBAR_WIDTH + 32),
 };
 
+// Leaving the Market tab can unmount the detail page, and a remount would
+// start without a width or a default, leaving the sidebar out until the first
+// layout and then pushing the page over. The last measured values seed the
+// next mount instead; its own layout still corrects them right after.
+let lastFrameWidth: number | undefined;
+let lastDefaultDockedOpen: boolean | undefined;
+
 export function MarketDetailWatchlistSidebarFrame({
   hidden,
   children,
@@ -44,18 +53,24 @@ export function MarketDetailWatchlistSidebarFrame({
   hidden?: boolean;
   children: ReactNode;
 }) {
+  const isFocused = useIsFocused();
   const [{ open: savedDockedOpen }, setPersist] =
     useMarketDetailWatchlistSidebarPersistAtom();
   const [{ data: watchListData, isMounted: isWatchListMounted }] =
     useMarketWatchListV2Atom();
   // Until the user picks a state, the sidebar opens for users who have
-  // favorites. The answer is fixed once the watchlist loads, so removing the
-  // last favorite from the open sidebar does not snap it shut.
+  // favorites. Each mount answers once the watchlist loads and then keeps it,
+  // so removing the last favorite from the open sidebar does not snap it shut.
+  // The previous mount's answer only covers the frames before that.
   const [defaultDockedOpen, setDefaultDockedOpen] = useState<
     boolean | undefined
-  >(undefined);
-  if (defaultDockedOpen === undefined && isWatchListMounted) {
-    setDefaultDockedOpen((watchListData?.length ?? 0) > 0);
+  >(lastDefaultDockedOpen);
+  const [hasResolvedDefault, setHasResolvedDefault] = useState(false);
+  if (!hasResolvedDefault && isWatchListMounted) {
+    const nextDefaultDockedOpen = (watchListData?.length ?? 0) > 0;
+    lastDefaultDockedOpen = nextDefaultDockedOpen;
+    setHasResolvedDefault(true);
+    setDefaultDockedOpen(nextDefaultDockedOpen);
   }
   const dockedOpen = savedDockedOpen ?? defaultDockedOpen ?? false;
   const [overlayOpen, setOverlayOpen] = useState(false);
@@ -63,7 +78,9 @@ export function MarketDetailWatchlistSidebarFrame({
   // app navigation, so seeding from it could mount the docked sidebar (and
   // start its fetch) only to turn it into a closed overlay one layout later.
   // Until then neither sidebar nor the header toggle renders.
-  const [frameWidth, setFrameWidth] = useState<number | undefined>(undefined);
+  const [frameWidth, setFrameWidth] = useState<number | undefined>(
+    lastFrameWidth,
+  );
   const isReady = frameWidth !== undefined;
 
   const mode: IMarketDetailWatchlistSidebarMode =
@@ -74,12 +91,24 @@ export function MarketDetailWatchlistSidebarFrame({
   const isOpen = mode === 'docked' ? dockedOpen : overlayOpen;
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    setFrameWidth(event.nativeEvent.layout.width);
+    const { width } = event.nativeEvent.layout;
+    // Hidden tabs measure zero, but a modal can blur a visible page. Keep
+    // real resizes under modals while ignoring hidden-tab measurements, which
+    // would flip the frame to the closed overlay mode and back on return.
+    if (width > 0) {
+      lastFrameWidth = width;
+      setFrameWidth(width);
+    }
   }, []);
 
   // Only an open the user asks for slides in; a docked sidebar that is
   // already open when the page appears shows in place.
   const [animateDockedEnter, setAnimateDockedEnter] = useState(false);
+  useEffect(() => {
+    if (!isFocused) {
+      setAnimateDockedEnter(false);
+    }
+  }, [isFocused]);
 
   const setOpen = useCallback(
     (open: boolean) => {
