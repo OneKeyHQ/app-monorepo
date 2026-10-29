@@ -25036,6 +25036,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useBtcMetadata.ts": 10036,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketChartPriceUpdate.ts": 16639,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailBackNavigation.ts": 7361,
+    "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailChartMode.ts": 22490,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailDisplayData.ts": 13685,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailPositionTab.ts": 13049,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailTabBarVisibility.ts": 14580,
