@@ -94,70 +94,49 @@ async function handOffCardCheckoutToExpandTab({
   closeExtensionPopupAfterExpandTabOpen();
 }
 
-type IStartingCheckout = Pick<
-  IPrimeHostedCardCheckoutParams,
-  'selectedSubscriptionPeriod' | 'currency'
-> & {
-  paymentKey: ReturnType<typeof getPrimePaymentApiKey>;
-  promise: Promise<void>;
-};
+const lastCheckoutStarts = new Map<string | undefined, Promise<void>>();
 
-// Coalesce consecutive identical selections. Different selections start in
-// order, so a slower old start cannot overwrite the latest plan/environment.
-const startingCheckouts = new Map<string | undefined, IStartingCheckout>();
-
+// Every call is a new payment for the plan, currency and environment the user
+// just selected (OK-65674), the same as clicking the embedded card checkout
+// again. Do not resume, reuse or de-duplicate an earlier attempt here, not
+// even for rapid repeated clicks: each of those can open the plan of an
+// earlier click instead of the one the user picked last.
+// - Starts only run in click order, none is skipped: the last click's page
+//   opens last (in front) and its record is the one kept.
+// - An earlier hosted page the user left open stays payable; the client
+//   cannot cancel it. That is accepted product behavior. On the extension the
+//   new checkout reuses the old checkout's tab while it still shows that page.
+// - The pending record written below only lets the waiting dialog and the
+//   recovery hook detect this attempt's result after the user leaves the app.
+//   It never decides what a click does; the next attempt replaces it.
 export function startPrimeHostedCardCheckout(
   params: IPrimeHostedCardCheckoutParams,
 ): Promise<void> {
-  const previous = startingCheckouts.get(params.onekeyUserId);
-  const paymentKey = getPrimePaymentApiKey({ apiKeyType: 'web' });
-  const completion = (async () => {
-    const { isSandboxKey } = await paymentKey;
-    if (
-      previous &&
-      previous.selectedSubscriptionPeriod ===
-        params.selectedSubscriptionPeriod &&
-      previous.currency === params.currency &&
-      (await previous.paymentKey.catch(() => undefined))?.isSandboxKey ===
-        isSandboxKey
-    ) {
-      await previous.promise;
-      return;
-    }
-    await previous?.promise;
-    await openPrimeHostedCardCheckout(params, isSandboxKey);
-  })()
-    .catch((error: unknown) => {
-      reportPrimeHostedCardCheckoutStartError({ ...params, error });
-    })
+  const previous = lastCheckoutStarts.get(params.onekeyUserId);
+  const completion = (previous ?? Promise.resolve())
+    // An earlier start never stops this one.
+    .catch(() => undefined)
+    .then(() => openPrimeHostedCardCheckout(params))
     .finally(() => {
-      if (startingCheckouts.get(params.onekeyUserId)?.promise === completion) {
-        startingCheckouts.delete(params.onekeyUserId);
+      if (lastCheckoutStarts.get(params.onekeyUserId) === completion) {
+        lastCheckoutStarts.delete(params.onekeyUserId);
       }
     });
-  startingCheckouts.set(params.onekeyUserId, {
-    selectedSubscriptionPeriod: params.selectedSubscriptionPeriod,
-    currency: params.currency,
-    paymentKey,
-    promise: completion,
-  });
+  lastCheckoutStarts.set(params.onekeyUserId, completion);
   return completion;
 }
 
 // Opens the RevenueCat hosted card checkout (Web Purchase Link) and waits for
 // RevenueCat to confirm the purchase. Errors end in a toast, never a throw.
-async function openPrimeHostedCardCheckout(
-  {
-    intl,
-    onekeyUserId,
-    email,
-    selectedSubscriptionPeriod,
-    currency,
-    featureName,
-    fallbackFrom,
-  }: IPrimeHostedCardCheckoutParams,
-  isSandboxKey: boolean,
-) {
+async function openPrimeHostedCardCheckout({
+  intl,
+  onekeyUserId,
+  email,
+  selectedSubscriptionPeriod,
+  currency,
+  featureName,
+  fallbackFrom,
+}: IPrimeHostedCardCheckoutParams) {
   try {
     if (platformEnv.isExtensionUiPopup) {
       await handOffCardCheckoutToExpandTab({
@@ -190,6 +169,10 @@ async function openPrimeHostedCardCheckout(
     if (!onekeyUserId) {
       throw new OneKeyLocalError('User not logged in');
     }
+    const { isSandboxKey } = await getPrimePaymentApiKey({
+      apiKeyType: 'web',
+    });
+
     // Never open a second checkout for an active subscriber, e.g. a
     // purchase the server projection has not caught up with yet.
     const baselineEntitlement = await fetchPrimeWebCheckoutEntitlement({
@@ -236,7 +219,7 @@ async function openPrimeHostedCardCheckout(
     if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
       throw new OneKeyLocalError('Prime purchase user changed');
     }
-    const candidate: IPrimeWebCheckoutPendingSession = {
+    const session: IPrimeWebCheckoutPendingSession = {
       checkoutId: generateUUID(),
       onekeyUserId,
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -250,17 +233,15 @@ async function openPrimeHostedCardCheckout(
       checkoutUrl,
       startedAt: Date.now(),
     };
-    // Keep pending tracking for returns and late entitlement recovery, while
-    // replacing the previous attempt with this intent's resolved package.
-    const { session, reused, replacedSession } =
+    const { replacedSession } =
       await backgroundApiProxy.simpleDb.prime.acquireWebCheckoutPendingSession({
-        session: candidate,
+        session,
       });
     if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
       throw new OneKeyLocalError('Prime purchase user changed');
     }
-    // Another surface may already be opening this session. Keep it recoverable
-    // even when this caller fails to open or record its checkout tab.
+    // The record stays even if opening fails: the page may already be open in
+    // the browser, so its payment must still be detected.
     const openResult = await openPrimeWebCheckoutPage(session, {
       email,
       replacedSession,
@@ -268,7 +249,6 @@ async function openPrimeHostedCardCheckout(
     logPrimeWebCheckoutFlow({
       stage: 'open',
       status: 'succeeded',
-      reason: reused ? 'reusedCheckout' : undefined,
       isSandbox: isSandboxKey,
       subscriptionPeriod: selectedSubscriptionPeriod,
       featureName,
@@ -277,44 +257,25 @@ async function openPrimeHostedCardCheckout(
       showPrimeWebCheckoutWaitingDialog({ session });
     }
   } catch (error) {
-    reportPrimeHostedCardCheckoutStartError({
-      error,
-      intl,
-      selectedSubscriptionPeriod,
+    logPrimeWebCheckoutFlow({
+      stage: 'open',
+      status: 'failed',
+      subscriptionPeriod: selectedSubscriptionPeriod,
       featureName,
     });
+    primePaymentUtils.trackPrimeSubscriptionFailed({
+      error,
+      paymentMethod: 'stripe',
+      subscriptionPeriod: selectedSubscriptionPeriod,
+      featureName,
+      cardCheckoutFlow: 'hostedLink',
+    });
+    Toast.error({
+      title: intl.formatMessage({
+        id: ETranslations.prime_payment_start_failed__msg,
+      }),
+    });
   }
-}
-
-function reportPrimeHostedCardCheckoutStartError({
-  error,
-  intl,
-  selectedSubscriptionPeriod,
-  featureName,
-}: Pick<
-  IPrimeHostedCardCheckoutParams,
-  'intl' | 'selectedSubscriptionPeriod' | 'featureName'
-> & {
-  error: unknown;
-}) {
-  logPrimeWebCheckoutFlow({
-    stage: 'open',
-    status: 'failed',
-    subscriptionPeriod: selectedSubscriptionPeriod,
-    featureName,
-  });
-  primePaymentUtils.trackPrimeSubscriptionFailed({
-    error,
-    paymentMethod: 'stripe',
-    subscriptionPeriod: selectedSubscriptionPeriod,
-    featureName,
-    cardCheckoutFlow: 'hostedLink',
-  });
-  Toast.error({
-    title: intl.formatMessage({
-      id: ETranslations.prime_payment_start_failed__msg,
-    }),
-  });
 }
 
 function confirmPrimeHostedCardCheckoutFallback(intl: IntlShape) {

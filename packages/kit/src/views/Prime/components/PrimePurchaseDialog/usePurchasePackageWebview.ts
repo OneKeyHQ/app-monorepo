@@ -35,6 +35,8 @@ export function usePurchasePackageWebview() {
       const { apiKey, isSandboxKey } = await getPrimePaymentApiKey({
         apiKeyType: 'web',
       });
+      // A click is always a new payment; an earlier hosted checkout neither
+      // gates nor resumes it. See retirePrimeWebCheckout.
       await retirePrimeWebCheckout(user?.onekeyUserId);
       navigation.popStack();
 

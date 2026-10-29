@@ -3976,7 +3976,6 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
         startedAt: expect.any(Number),
       }),
     });
-    expect(acquired.reused).toBe(false);
     expect(acquired.replacedSession?.checkoutId).toBe('checkout-1');
     await expect(
       entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-2' }),
@@ -4000,29 +3999,12 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
     ]);
 
     expect(acquisitions).toEqual([
-      { session: annual, reused: false, replacedSession: undefined },
-      { session: monthly, reused: false, replacedSession: annual },
+      { replacedSession: undefined },
+      { replacedSession: annual },
     ]);
     expect(
       getPersisted().webCheckoutPendingSessionByUserId?.['user-1'],
     ).toEqual(monthly);
-  });
-
-  test('deduplicates concurrent acquisition of the same attempt', async () => {
-    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
-    const session = buildSession();
-    await expect(
-      Promise.all([
-        entity.acquireWebCheckoutPendingSession({ session }),
-        entity.acquireWebCheckoutPendingSession({ session }),
-      ]),
-    ).resolves.toEqual([
-      { session, reused: false, replacedSession: undefined },
-      { session, reused: true },
-    ]);
-    expect(
-      getPersisted().webCheckoutPendingSessionByUserId?.['user-1'],
-    ).toEqual(session);
   });
 
   test('keeps different accounts independent when replacing the environment', async () => {
@@ -4039,11 +4021,7 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
     await entity.acquireWebCheckoutPendingSession({ session: otherUser });
     await expect(
       entity.acquireWebCheckoutPendingSession({ session: production }),
-    ).resolves.toEqual({
-      session: production,
-      reused: false,
-      replacedSession: original,
-    });
+    ).resolves.toEqual({ replacedSession: original });
     expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
       'user-1': production,
       'user-2': otherUser,

@@ -72,15 +72,13 @@ it('allows a fresh embedded attempt when no hosted record exists', async () => {
   expect(mockClear).not.toHaveBeenCalled();
 });
 
-it('preserves a replacement and aborts the racing embedded start', async () => {
+it('keeps a racing replacement and continues the embedded payment', async () => {
   const replacement = { ...session, checkoutId: 'new-checkout' };
   mockClear.mockImplementationOnce(async () => {
     mockPending = replacement;
     return false;
   });
-  await expect(retirePrimeWebCheckout('user-1')).rejects.toThrow(
-    'session changed',
-  );
+  await expect(retirePrimeWebCheckout('user-1')).resolves.toBeUndefined();
   expect(mockPending).toBe(replacement);
 });
 
@@ -100,10 +98,32 @@ it('does not continue after the account changes during retirement', async () => 
   );
 });
 
-it('keeps storage failures visible before an embedded purchase can start', async () => {
+it('continues the embedded payment when reading the record fails', async () => {
   mockRead.mockRejectedValueOnce(new Error('storage unavailable'));
+  await expect(retirePrimeWebCheckout('user-1')).resolves.toBeUndefined();
+  expect(mockClear).not.toHaveBeenCalled();
+});
+
+it('continues the embedded payment when clearing the record fails', async () => {
+  mockClear.mockRejectedValueOnce(new Error('storage unavailable'));
+  await expect(retirePrimeWebCheckout('user-1')).resolves.toBeUndefined();
+  expect(mockUser).toHaveBeenCalledTimes(2);
+});
+
+it('still stops on an identity change after a failed read', async () => {
+  mockRead.mockRejectedValueOnce(new Error('storage unavailable'));
+  mockUser.mockResolvedValue({ isLoggedIn: true, onekeyUserId: 'user-2' });
   await expect(retirePrimeWebCheckout('user-1')).rejects.toThrow(
-    'storage unavailable',
+    'user changed',
   );
   expect(mockClear).not.toHaveBeenCalled();
+});
+
+it('still stops on an identity change after a failed clear', async () => {
+  mockClear.mockRejectedValueOnce(new Error('storage unavailable'));
+  mockUser.mockResolvedValueOnce({ isLoggedIn: true, onekeyUserId: 'user-1' });
+  mockUser.mockResolvedValueOnce({ isLoggedIn: false, onekeyUserId: '' });
+  await expect(retirePrimeWebCheckout('user-1')).rejects.toThrow(
+    'user changed',
+  );
 });

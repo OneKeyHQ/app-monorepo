@@ -314,6 +314,8 @@ export function usePrimePurchaseCallback({
         | undefined;
       try {
         const purchaseUserId = user?.onekeyUserId;
+        // A click is always a new payment; an earlier hosted checkout neither
+        // gates nor resumes it. See retirePrimeWebCheckout.
         await retirePrimeWebCheckout(purchaseUserId);
         beginStripePaymentElementAttempt();
         let purchaseResult:
