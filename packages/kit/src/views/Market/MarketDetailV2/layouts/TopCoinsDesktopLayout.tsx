@@ -95,6 +95,7 @@ function TopCoinsUnavailableTradePanel({ symbol }: { symbol: string }) {
 function TopCoinsInformation({
   portfolioData,
   isRefreshing,
+  isPortfolioFailed,
   tokenLogoUrl,
   accountAddress,
   isAssetDetailLoading,
@@ -102,6 +103,7 @@ function TopCoinsInformation({
 }: {
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  isPortfolioFailed?: boolean;
   tokenLogoUrl?: string;
   accountAddress?: string;
   isAssetDetailLoading: boolean;
@@ -122,6 +124,7 @@ function TopCoinsInformation({
           accountAddress={accountAddress}
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
+          isFailed={isPortfolioFailed}
           tokenLogoUrl={tokenLogoUrl}
           isMarketDetail
         />
@@ -184,6 +187,7 @@ export function TopCoinsDesktopLayout({
   portfolioData,
   accountAddress,
   isRefreshing,
+  isPortfolioFailed,
   tokenLogoUrl,
   showFavoriteButton,
   isChartFullscreen,
@@ -204,6 +208,7 @@ export function TopCoinsDesktopLayout({
   portfolioData: IMarketAccountPortfolioItem[];
   accountAddress?: string;
   isRefreshing?: boolean;
+  isPortfolioFailed?: boolean;
   tokenLogoUrl?: string;
   showFavoriteButton: boolean;
   isChartFullscreen: boolean;
@@ -263,6 +268,7 @@ export function TopCoinsDesktopLayout({
             portfolioData={portfolioData}
             accountAddress={accountAddress}
             isRefreshing={isRefreshing}
+            isPortfolioFailed={isPortfolioFailed}
             tokenLogoUrl={tokenLogoUrl}
             isAssetDetailLoading={Boolean(isAssetDetailLoading)}
             assetDetail={assetDetail}

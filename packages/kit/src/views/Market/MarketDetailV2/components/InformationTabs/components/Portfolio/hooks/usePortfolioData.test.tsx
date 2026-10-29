@@ -247,12 +247,39 @@ describe('usePortfolioData', () => {
       }),
     );
     expect(result.current.isPortfolioPending).toBe(true);
+    expect(result.current.isPortfolioFailed).toBe(false);
 
     await act(async () => {
       await expect(mockCapturedMethod?.()).rejects.toThrow('offline');
     });
 
     expect(result.current.isPortfolioPending).toBe(false);
+    expect(result.current.isPortfolioFailed).toBe(true);
     expect(result.current.portfolioData).toEqual([]);
+  });
+
+  it('clears the failed state once a result for this token is back', async () => {
+    mockFetchMarketAccountPortfolio.mockRejectedValue(new Error('offline'));
+    const { result, rerender } = renderHook(() =>
+      usePortfolioData({
+        tokenAddress: '0xsame',
+        networkId: 'evm--8453',
+        accountAddress: '0xaccount',
+      }),
+    );
+    await act(async () => {
+      await expect(mockCapturedMethod?.()).rejects.toThrow('offline');
+    });
+    expect(result.current.isPortfolioFailed).toBe(true);
+
+    mockPortfolioResult = {
+      list: [],
+      networkId: 'evm--8453',
+      tokenAddress: '0xsame',
+      accountAddress: '0xaccount',
+    };
+    rerender();
+    expect(result.current.isPortfolioFailed).toBe(false);
+    expect(result.current.isPortfolioPending).toBe(false);
   });
 });

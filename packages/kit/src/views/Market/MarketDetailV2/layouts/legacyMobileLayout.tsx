@@ -537,7 +537,7 @@ export function MobileLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing } = usePortfolioData({
+  const { portfolioData, isRefreshing, isPortfolioFailed } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
@@ -1063,6 +1063,7 @@ export function MobileLayout({
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
+              isPortfolioFailed={isPortfolioFailed}
               tokenLogoUrl={tokenDetail?.logoUrl}
             />
           </YStack>
@@ -1098,6 +1099,7 @@ export function MobileLayout({
       isTradingViewScrollLocked,
       portfolioData,
       isRefreshing,
+      isPortfolioFailed,
       tokenDetail?.logoUrl,
       handleSecondTabTouchStart,
       handleSecondTabTouchEnd,

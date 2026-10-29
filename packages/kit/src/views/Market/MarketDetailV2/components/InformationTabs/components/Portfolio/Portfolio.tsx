@@ -37,6 +37,8 @@ interface IPortfolioProps {
   // True until the page knows whether the asset has a position (account still
   // loading, or the first request for it not back yet).
   isPending?: boolean;
+  // The first request for this asset failed, so holdings are unknown.
+  isFailed?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   standalone?: boolean;
@@ -53,6 +55,7 @@ function PortfolioBase({
   portfolioData,
   isRefreshing,
   isPending = false,
+  isFailed = false,
   tokenLogoUrl,
   scrollEnabled = true,
   standalone = false,
@@ -99,7 +102,7 @@ function PortfolioBase({
   let emptyContent: ReactElement;
   if (isPending || (canShowPortfolio && isRefreshing)) {
     emptyContent = <PortfolioSkeleton />;
-  } else if (isMarketDetail) {
+  } else if (isMarketDetail && !isFailed) {
     // Same illustration and title as the Perps positions empty state, without
     // its CTAs since the trade panel is already on the page.
     emptyContent = (

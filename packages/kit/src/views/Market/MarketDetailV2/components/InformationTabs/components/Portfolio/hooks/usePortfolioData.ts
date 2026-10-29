@@ -105,10 +105,13 @@ export function usePortfolioData({
 
   // The first result for this token and account is not back yet. The
   // position list shows a skeleton then instead of a brief "No data".
-  const isPortfolioPending =
-    !isCurrentPortfolioScope &&
-    failedScopeKey !==
-      getPortfolioScopeKey({ networkId, tokenAddress, accountAddress });
+  const isFailedScope =
+    failedScopeKey ===
+    getPortfolioScopeKey({ networkId, tokenAddress, accountAddress });
+  const isPortfolioPending = !isCurrentPortfolioScope && !isFailedScope;
+  // No result for this token and account yet, and the last request failed, so
+  // whether there is a position is unknown.
+  const isPortfolioFailed = !isCurrentPortfolioScope && isFailedScope;
 
   const portfolioData = useMemo(() => {
     const items = isCurrentPortfolioScope ? portfolioResult?.list || [] : [];
@@ -120,6 +123,7 @@ export function usePortfolioData({
   return {
     portfolioData,
     isPortfolioPending,
+    isPortfolioFailed,
     fetchPortfolio,
     isRefreshing,
     onRefresh,
