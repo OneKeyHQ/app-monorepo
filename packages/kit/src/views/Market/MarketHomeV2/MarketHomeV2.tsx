@@ -529,7 +529,6 @@ function BaseMarketHome() {
 }
 
 export function MarketHomeV2() {
-  // CI speed probe A: body-only change, revert before merge.
   markMarketPerf('market-home-render');
   useMarketRenderCommitProbe('MarketHomeV2');
   if (process.env.NODE_ENV !== 'production') {

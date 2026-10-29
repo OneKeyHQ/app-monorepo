@@ -61,11 +61,6 @@ export function stableStringify(
 }
 
 // capitalizeWords("hello world") => "Hello World"
-// CI speed probe B: new export, revert before merge.
-export function ciSpeedProbeIdentity(value: string): string {
-  return value;
-}
-
 export function capitalizeWords(str: string): string {
   return str.replace(/\b\w/g, (match) => match.toUpperCase());
 }

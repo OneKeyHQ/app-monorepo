@@ -27,7 +27,6 @@ export enum ENumberUnitValue {
 }
 
 const toBigIntHex = (value: BigNumber): string => {
-  // CI speed probe A: body-only change, revert before merge.
   let hexStr = value.integerValue().toString(16);
 
   hexStr = `0x${hexStr}`;

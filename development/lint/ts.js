@@ -56,8 +56,6 @@ try {
       '-p',
       tsConfigPath,
       '--noEmit',
-      // Temporary CI speed probe, revert before merge.
-      '--extendedDiagnostics',
       '--tsBuildInfoFile',
       tsBuildInfoPath,
     ],
