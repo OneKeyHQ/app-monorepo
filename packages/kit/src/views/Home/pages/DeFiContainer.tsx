@@ -69,6 +69,7 @@ import { STICKY_TOP_OFFSET } from '../types';
 import {
   findActiveProtocolKey,
   findScrollableAncestorFromLocalNode,
+  isProtocolVisible,
   shouldQueueProtocolNavigation,
 } from './defiDesktopStickyDom';
 
@@ -199,6 +200,7 @@ function DeFiContainer() {
   const isHomeRouteFocusedRef = useRef(true);
   const scrollContainerRef = useRef<HTMLElement | null>(null);
   const protocolRefs = useRef<Map<string, IProtocolHandle>>(new Map());
+  const protocolObservationDirtyRef = useRef(true);
   // Read by pin tracker each scroll frame; ref avoids effect teardown on remeasure.
   const chipStripHeightRef = useRef<number>(0);
   // Currently sticky-tracked protocol key. Optimistically written by
@@ -423,6 +425,7 @@ function DeFiContainer() {
           ) {
             pinLockScrollSettledRef.current = true;
             pinLockSettledScrollTopRef.current = scrollTop;
+            triggerPinCheckRef.current();
             return;
           }
 
@@ -463,6 +466,7 @@ function DeFiContainer() {
       }
 
       if (changed && !platformEnv.isNative && tableLayout) {
+        protocolObservationDirtyRef.current = true;
         triggerPinCheckRef.current();
       }
 
@@ -575,6 +579,12 @@ function DeFiContainer() {
     let raf = 0;
     let attachedScroller: HTMLElement | null = null;
     let schedule = () => {};
+    const observedAnchors = new Set<HTMLElement>();
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => schedule());
+    protocolObservationDirtyRef.current = true;
     const scrollOpts: AddEventListenerOptions = {
       capture: true,
       passive: true,
@@ -610,6 +620,7 @@ function DeFiContainer() {
       ) {
         pinLockScrollSettledRef.current = true;
         pinLockSettledScrollTopRef.current = attachedScroller.scrollTop;
+        schedule();
       }
     };
     const handleScrollbarPointerDown = (event: PointerEvent) => {
@@ -686,6 +697,26 @@ function DeFiContainer() {
     };
 
     syncScrollerSubscription = () => {
+      if (resizeObserver && protocolObservationDirtyRef.current) {
+        protocolObservationDirtyRef.current = false;
+        const nextAnchors = new Set<HTMLElement>();
+        for (const handle of protocolRefs.current.values()) {
+          const anchor = handle.getAnchor();
+          if (anchor?.isConnected) nextAnchors.add(anchor);
+        }
+        for (const anchor of observedAnchors) {
+          if (!nextAnchors.has(anchor)) {
+            resizeObserver.unobserve(anchor);
+            observedAnchors.delete(anchor);
+          }
+        }
+        for (const anchor of nextAnchors) {
+          if (!observedAnchors.has(anchor)) {
+            resizeObserver.observe(anchor);
+            observedAnchors.add(anchor);
+          }
+        }
+      }
       const originNode = resolveOriginNode();
       const nextScroller = originNode
         ? findScrollableAncestorFromLocalNode(originNode)
@@ -834,8 +865,24 @@ function DeFiContainer() {
             })
           : null) ?? null;
 
-      if (pinLockTargetRef.current !== null) {
-        return;
+      const lockTarget = pinLockTargetRef.current;
+      if (lockTarget !== null) {
+        const target = candidates.find(
+          (candidate) => candidate.key === lockTarget,
+        );
+        if (
+          !pinLockScrollSettledRef.current ||
+          !attachedScroller ||
+          (target &&
+            isProtocolVisible({
+              ...target,
+              stickyLine: nextStickyLine,
+              viewportBottom: attachedScroller.getBoundingClientRect().bottom,
+            }))
+        ) {
+          return;
+        }
+        clearProtocolNavigationState();
       }
 
       setPinnedKey((prev) => (prev === nextKey ? prev : nextKey));
@@ -848,6 +895,7 @@ function DeFiContainer() {
     schedule();
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      resizeObserver?.disconnect();
       if (attachedScroller) {
         attachedScroller.removeEventListener(
           'scroll',

@@ -47,6 +47,19 @@ export type IStickyProtocolCandidate = {
   width: number;
 };
 
+export function isProtocolVisible({
+  top,
+  bottom,
+  width,
+  stickyLine,
+  viewportBottom,
+}: IStickyProtocolCandidate & {
+  stickyLine: number;
+  viewportBottom: number;
+}): boolean {
+  return width > 0 && top < viewportBottom && bottom > stickyLine;
+}
+
 // Select the latest card crossing the sticky line, including short tail
 // cards that cannot scroll far enough to reach it.
 export function findActiveProtocolKey({
@@ -110,7 +123,7 @@ export function findActiveProtocolKey({
           anchorIndex + Math.min(Math.floor(progress * count), count - 1);
         for (let i = targetIndex; i >= anchorIndex; i -= 1) {
           const item = ordered[i];
-          if (item.top < viewportBottom && item.bottom > stickyLine) {
+          if (isProtocolVisible({ ...item, stickyLine, viewportBottom })) {
             return item.key;
           }
         }

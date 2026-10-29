@@ -3,6 +3,7 @@ import {
   findOverflowAncestorFromLocalNode,
   findScrollableAncestorFromLocalNode,
   isChipFullyVisible,
+  isProtocolVisible,
   shouldQueueProtocolNavigation,
 } from '../defiDesktopStickyDom';
 
@@ -303,6 +304,21 @@ describe('defiDesktopStickyDom', () => {
         }),
       ).toBe('first');
     });
+  });
+
+  it('treats a rearranged protocol as invisible outside the unobscured viewport', () => {
+    const candidate = { key: 'selected', top: 500, bottom: 600, width: 100 };
+    const viewport = { stickyLine: 100, viewportBottom: 800 };
+    expect(isProtocolVisible({ ...candidate, ...viewport })).toBe(true);
+    expect(isProtocolVisible({ ...candidate, ...viewport, top: 800 })).toBe(
+      false,
+    );
+    expect(isProtocolVisible({ ...candidate, ...viewport, bottom: 100 })).toBe(
+      false,
+    );
+    expect(isProtocolVisible({ ...candidate, ...viewport, width: 0 })).toBe(
+      false,
+    );
   });
 
   describe('shouldQueueProtocolNavigation', () => {
