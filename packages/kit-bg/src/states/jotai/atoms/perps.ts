@@ -837,14 +837,16 @@ export type IPerpsActiveAssetCtxMidPriceSource =
   | 'disabled';
 
 export const perpsActiveAssetCtxMidPriceBySourceAtomCache = new Map<
-  IPerpsActiveAssetCtxMidPriceSource,
+  string,
   ReturnType<typeof globalAtomComputedR<string | undefined>>
 >();
 
 function getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(
   source: IPerpsActiveAssetCtxMidPriceSource,
+  coin?: string,
 ) {
-  let entry = perpsActiveAssetCtxMidPriceBySourceAtomCache.get(source);
+  const key = coin === undefined ? source : `${source}:${coin}`;
+  let entry = perpsActiveAssetCtxMidPriceBySourceAtomCache.get(key);
   if (!entry) {
     entry = globalAtomComputedR<string | undefined>({
       read: (get) => {
@@ -855,18 +857,23 @@ function getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(
           source === 'display'
             ? get(perpsActiveAssetCtxDisplayAtom.atom())
             : get(perpsActiveAssetCtxAtom.atom());
+        if (coin !== undefined && assetCtx?.coin !== coin) return undefined;
         return assetCtx?.ctx?.midPrice;
       },
     });
-    perpsActiveAssetCtxMidPriceBySourceAtomCache.set(source, entry);
+    perpsActiveAssetCtxMidPriceBySourceAtomCache.set(key, entry);
   }
   return entry;
 }
 
 export function usePerpsActiveAssetCtxMidPriceBySource(
   source: IPerpsActiveAssetCtxMidPriceSource,
+  coin?: string,
 ): string | undefined {
-  const { use } = getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(source);
+  const { use } = getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(
+    source,
+    coin,
+  );
   const [midPrice] = use();
   return midPrice;
 }
@@ -1182,6 +1189,7 @@ export interface IPerpsCustomSettings {
   positionActionVisibility?: Partial<
     Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
   >;
+  mobileTradingMode?: 'simple' | 'pro';
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
@@ -1199,6 +1207,7 @@ export const {
   name: EAtomNames.perpsCustomSettingsAtom,
   persist: true,
   initialValue: {
+    mobileTradingMode: 'pro',
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
@@ -1213,6 +1222,7 @@ export const {
 
 export interface IPerpsTradingPreferences {
   sizeInputUnit: 'token' | 'usd' | 'margin';
+  simpleSizeInputUnit?: 'token' | 'usd' | 'margin';
   slippage: number;
 }
 export const {

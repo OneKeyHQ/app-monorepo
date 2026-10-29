@@ -3,13 +3,13 @@ import { useIntl } from 'react-intl';
 
 import { Page, ScrollView } from '@onekeyhq/components';
 import type { useInTabDialog } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalPerpRoutes,
   IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 
+import { usePerpGoToTrade } from '../../hooks/usePerpGoToTrade';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
@@ -59,9 +59,9 @@ export function showPerpPortfolioDialog(
   return dialogRef;
 }
 
-export function PerpPortfolioPage() {
+function PerpPortfolioPageContent() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
+  const { goToTrade } = usePerpGoToTrade();
   const route =
     useRoute<
       RouteProp<IModalPerpParamList, EModalPerpRoutes.MobilePortfolioPage>
@@ -71,16 +71,24 @@ export function PerpPortfolioPage() {
       <Page.Header title={getPortfolioTitle(intl)} />
       <Page.Body>
         <ScrollView>
-          <PerpsProviderMirror>
-            <PerpPortfolioContent
-              isMobile
-              initialChartType={route.params?.initialChartType}
-              onStartTrading={() => navigation.popStack()}
-            />
-          </PerpsProviderMirror>
+          <PerpPortfolioContent
+            isMobile
+            initialChartType={route.params?.initialChartType}
+            onStartTrading={() => {
+              void goToTrade();
+            }}
+          />
         </ScrollView>
       </Page.Body>
     </Page>
+  );
+}
+
+export function PerpPortfolioPage() {
+  return (
+    <PerpsProviderMirror>
+      <PerpPortfolioPageContent />
+    </PerpsProviderMirror>
   );
 }
 

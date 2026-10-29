@@ -9,6 +9,7 @@ import {
   Page,
   SizableText,
   Stack,
+  XStack,
   YStack,
   useIsSplitView,
   useMedia,
@@ -17,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { usePerpsActivePositionAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useAccountIsAutoCreatingAtom,
@@ -26,6 +28,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsComputedAccountValueAtom,
+  usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
@@ -46,6 +49,10 @@ import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
+import {
+  PerpsMobileMode,
+  PerpsMobileModeSelector,
+} from '../components/Simple/PerpsMobileMode';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
@@ -77,16 +84,26 @@ import type { LayoutChangeEvent } from 'react-native';
 // across the seg:Perp ↔ seg:MobilePerpMarket boundary and break the
 // split-bundle integrity check. Lazy-load here too so the edge stays async.
 const MobilePerpMarketInline = LazyLoadPage(loadPerpsMobileMarketPage);
-const PERP_NATIVE_HEADER_ROW_HEIGHT = 44;
+const PerpSimpleLayout = LazyLoadPage(
+  () => import('../layouts/PerpSimpleLayout'),
+  undefined,
+  // This inline layout inherits its background from the parent Page.
+  true,
+);
 const PERP_NATIVE_HEADER_TOP_OFFSET = 20;
-const PERP_NATIVE_IOS_HEADER_TOP_PADDING = 26;
 
 function PerpLayout() {
   const { gtMd } = useMedia();
   if (gtMd && !platformEnv.isNative) {
     return <PerpDesktopLayout />;
   }
-  return <PerpMobileLayout />;
+  return (
+    <PerpsMobileMode>
+      {(mode) =>
+        mode === 'simple' ? <PerpSimpleLayout /> : <PerpMobileLayout />
+      }
+    </PerpsMobileMode>
+  );
 }
 
 function PerpBodyContent() {
@@ -195,7 +212,16 @@ function PerpAnalyticsTracker() {
 }
 
 function PerpContent() {
+  const themeVariant = useThemeVariant();
+  const [settings] = usePerpsCustomSettingsAtom();
   const { gtMd } = useMedia();
+  const isSimpleMode =
+    (platformEnv.isNative || !gtMd) && settings.mobileTradingMode === 'simple';
+  const pageBackground =
+    isSimpleMode && themeVariant === 'light' ? '$bgSubdued' : '$bgApp';
+  const headerRowHeight = platformEnv.isNativeIOS && isSimpleMode ? 56 : 44;
+  // Both iOS modes center the header content at safe-area top + 28.
+  const headerTopPadding = platformEnv.isNativeIOS && !isSimpleMode ? 26 : 20;
   const { top: safeAreaTop } = useSafeAreaInsets();
   const resolvedSafeAreaTop =
     safeAreaTop || initialWindowMetrics?.insets.top || 0;
@@ -214,10 +240,9 @@ function PerpContent() {
 
   const fallbackTabPageHeight = platformEnv.isNative
     ? resolvedSafeAreaTop +
-      PERP_NATIVE_HEADER_ROW_HEIGHT +
-      (platformEnv.isNativeIOS
-        ? PERP_NATIVE_IOS_HEADER_TOP_PADDING - PERP_NATIVE_HEADER_TOP_OFFSET
-        : 0)
+      headerRowHeight +
+      headerTopPadding -
+      PERP_NATIVE_HEADER_TOP_OFFSET
     : 92;
   const [measuredTabPageHeight, setMeasuredTabPageHeight] = useState<
     number | undefined
@@ -243,26 +268,36 @@ function PerpContent() {
   const handleDownloadApp = useCallback(() => {
     openUrlExternal(DOWNLOAD_MOBILE_APP_URL);
   }, []);
+  const headerLeftItems = (
+    <XStack alignItems="center" gap="$1">
+      <SizableText size="$headingXl">
+        {intl.formatMessage({ id: ETranslations.global_perp })}
+      </SizableText>
+      {platformEnv.isNative || !gtMd ? (
+        <PerpsAccountSelectorProviderMirror>
+          <PerpsProviderMirror>
+            <PerpsMobileModeSelector />
+          </PerpsProviderMirror>
+        </PerpsAccountSelectorProviderMirror>
+      ) : null}
+    </XStack>
+  );
+  const headerRightItems = (
+    <PerpsAccountSelectorProviderMirror perfDebugName="perp-header">
+      <PerpsProviderMirror>
+        <PerpsHeaderRight />
+      </PerpsProviderMirror>
+    </PerpsAccountSelectorProviderMirror>
+  );
 
   const header = (
     <TabPageHeader
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Perp}
       headerPx="$4"
-      customHeaderLeftItems={
-        platformEnv.isWebDappMode ? undefined : (
-          <SizableText size="$headingXl">
-            {intl.formatMessage({ id: ETranslations.global_perp })}
-          </SizableText>
-        )
-      }
-      customHeaderRightItems={
-        <PerpsAccountSelectorProviderMirror perfDebugName="perp-header">
-          <PerpsProviderMirror>
-            <PerpsHeaderRight />
-          </PerpsProviderMirror>
-        </PerpsAccountSelectorProviderMirror>
-      }
+      headerHeight={headerRowHeight}
+      customHeaderLeftItems={headerLeftItems}
+      customHeaderRightItems={headerRightItems}
       customToolbarItems={
         <>
           {!gtMd && !platformEnv.isNative ? (
@@ -289,7 +324,7 @@ function PerpContent() {
   );
 
   return (
-    <Page>
+    <Page backgroundColor={pageBackground}>
       {platformEnv.isNative ? (
         <>
           <Stack h={tabPageHeight} />
@@ -297,16 +332,8 @@ function PerpContent() {
             position="absolute"
             top={-PERP_NATIVE_HEADER_TOP_OFFSET}
             left={0}
-            bg="$bgApp"
-            // iOS: shift the floating header down 6px so its content centers at
-            // safe-area top+28, matching the Wallet header. The MDHeader non-home
-            // row is h=44 → center top+22 with the -20/pt($5) cancel; pt=26
-            // (=20 offset + 6) lands it at top+28. Other platforms keep $5.
-            pt={
-              platformEnv.isNativeIOS
-                ? PERP_NATIVE_IOS_HEADER_TOP_PADDING
-                : '$5'
-            }
+            bg={pageBackground}
+            pt={headerTopPadding}
             width="100%"
             onLayout={handleTabPageLayout}
             zIndex={FLOAT_NAV_BAR_Z_INDEX}
@@ -315,7 +342,20 @@ function PerpContent() {
           </YStack>
         </>
       ) : (
-        header
+        <>
+          {header}
+          {platformEnv.isWebDappMode && !gtMd ? (
+            <XStack
+              alignItems="center"
+              justifyContent="space-between"
+              px="$4"
+              h={44}
+            >
+              {headerLeftItems}
+              {headerRightItems}
+            </XStack>
+          ) : null}
+        </>
       )}
       <Page.Body>
         <LazyPageContainer>
@@ -346,6 +386,7 @@ function ExtPerpNull() {
 export default function Perp() {
   const canRenderPerp = useNativePerpFeatureGuard();
   const splitViewType = useSplitViewType();
+  const [perpsSettings] = usePerpsCustomSettingsAtom();
   const isLandscape = useIsSplitView();
   const isFocused = useIsFocused();
 
@@ -364,7 +405,9 @@ export default function Perp() {
   // whenever the user has another tab focused on the SUB pane. Only render
   // the chart when this tab is actually the active SUB tab.
   if (splitViewType === ESplitViewType.SUB && isLandscape) {
-    return isFocused ? <MobilePerpMarketInline /> : null;
+    return isFocused && perpsSettings.mobileTradingMode !== 'simple' ? (
+      <MobilePerpMarketInline />
+    ) : null;
   }
 
   return (

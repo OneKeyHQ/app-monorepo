@@ -58,12 +58,17 @@ function getCanonicalTabId(tabId: string) {
   return tabId.trim();
 }
 
-function buildPrimaryTabs(fixedTabNames: IFixedTabNames): IPerpDynamicTab[] {
-  return PRIMARY_TAB_IDS.map((tabId) => ({
-    tabId,
-    name: fixedTabNames[tabId],
-    tokens: [],
-  }));
+function buildPrimaryTabs(
+  fixedTabNames: IFixedTabNames,
+  { includeSpot = true }: { includeSpot?: boolean } = {},
+): IPerpDynamicTab[] {
+  return PRIMARY_TAB_IDS.filter((tabId) => includeSpot || tabId !== 'spot').map(
+    (tabId) => ({
+      tabId,
+      name: fixedTabNames[tabId],
+      tokens: [],
+    }),
+  );
 }
 
 function normalizeServerTabs(serverTabs: IPerpDynamicTab[] | null | undefined) {
@@ -95,11 +100,13 @@ function normalizeServerTabs(serverTabs: IPerpDynamicTab[] | null | undefined) {
 function buildPerpTokenSelectorTabs({
   serverTabs,
   fixedTabNames,
+  includeSpot = true,
 }: {
   serverTabs: IPerpDynamicTab[] | null | undefined;
   fixedTabNames: IFixedTabNames;
+  includeSpot?: boolean;
 }) {
-  const primaryTabs = buildPrimaryTabs(fixedTabNames);
+  const primaryTabs = buildPrimaryTabs(fixedTabNames, { includeSpot });
   const categoryTabs = buildPerpTokenSelectorCategoryTabs({
     serverTabs,
     fixedTabNames,

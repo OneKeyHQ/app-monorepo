@@ -9,6 +9,9 @@ interface IMockExchangeClient {
   userAddress: string;
   order: jest.Mock;
   modify: jest.Mock;
+  updateLeverage: jest.Mock;
+  twapCancel: jest.Mock;
+  cancel: jest.Mock;
 }
 
 const mockExchangeClients: IMockExchangeClient[] = [];
@@ -30,6 +33,17 @@ jest.mock('@nktkas/hyperliquid', () => ({
             data: { statuses: [{ resting: { oid: 1 } }] },
           },
         }),
+        cancel: jest.fn().mockResolvedValue({
+          status: 'ok',
+          response: { type: 'cancel', data: { statuses: ['success'] } },
+        }),
+        twapCancel: jest.fn().mockResolvedValue({
+          status: 'ok',
+          response: { type: 'twapCancel', data: { status: 'success' } },
+        }),
+        updateLeverage: jest
+          .fn()
+          .mockResolvedValue({ status: 'ok', response: { type: 'default' } }),
         modify: jest.fn().mockResolvedValue({
           status: 'ok',
           response: { type: 'default' },
@@ -194,6 +208,109 @@ describe('ServiceHyperliquidExchange account guard', () => {
     expect(orderCalls()).toBe(0);
   });
 
+  it('rejects a confirmed order after the selected account changes', async () => {
+    await switchTo(ADDRESS_B);
+    await expect(
+      service.orderOpen({
+        assetId: 0,
+        isBuy: true,
+        size: '0.1',
+        price: '100',
+        type: 'limit',
+        expectedAccountAddress: ADDRESS_A,
+      }),
+    ).rejects.toThrow(accountChangedMessage);
+    expect(orderCalls()).toBe(0);
+  });
+
+  it('updates leverage for the expected account', async () => {
+    await service.updateLeverage(
+      { asset: 0, leverage: 5, isCross: true },
+      { expectedAccountAddress: ADDRESS_A },
+    );
+    expect(mockExchangeClients[0].updateLeverage).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a stale leverage dialog after an account switch', async () => {
+    await switchTo(ADDRESS_B);
+    await expect(
+      service.updateLeverage(
+        { asset: 0, leverage: 5, isCross: true },
+        { expectedAccountAddress: ADDRESS_A },
+      ),
+    ).rejects.toThrow(accountChangedMessage);
+    for (const client of mockExchangeClients)
+      expect(client.updateLeverage).not.toHaveBeenCalled();
+  });
+
+  it('rejects leverage changes if the account switches during log preparation', async () => {
+    jest
+      .spyOn(
+        service as unknown as { _buildLogContext: () => Promise<object> },
+        '_buildLogContext',
+      )
+      .mockImplementationOnce(async () => {
+        await switchTo(ADDRESS_B);
+        return {};
+      });
+    await expect(
+      service.updateLeverage(
+        { asset: 0, leverage: 5, isCross: true },
+        { expectedAccountAddress: ADDRESS_A },
+      ),
+    ).rejects.toThrow(accountChangedMessage);
+    for (const client of mockExchangeClients)
+      expect(client.updateLeverage).not.toHaveBeenCalled();
+  });
+
+  it.each(['order', 'twap'] as const)(
+    'rejects stale %s cancellation when background has already switched accounts',
+    async (kind) => {
+      await switchTo(ADDRESS_B);
+      const options = { expectedAccountAddress: ADDRESS_A };
+      const pending =
+        kind === 'order'
+          ? service.cancelOrder([{ assetId: 0, oid: 7 }], options)
+          : service.cancelTwapOrder({ assetId: 0, twapId: 7 }, options);
+      await expect(pending).rejects.toThrow(accountChangedMessage);
+      for (const client of mockExchangeClients) {
+        expect(client.cancel).not.toHaveBeenCalled();
+        expect(client.twapCancel).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it('cancels TWAP for the expected account', async () => {
+    await service.cancelTwapOrder(
+      { assetId: 0, twapId: 7 },
+      { expectedAccountAddress: ADDRESS_A },
+    );
+    expect(mockExchangeClients[0].twapCancel).toHaveBeenCalledWith({
+      a: 0,
+      t: 7,
+    });
+  });
+
+  it('rejects TWAP cancellation if the account switches during log preparation', async () => {
+    jest
+      .spyOn(
+        service as unknown as { _buildLogContext: () => Promise<object> },
+        '_buildLogContext',
+      )
+      .mockImplementationOnce(async () => {
+        await switchTo(ADDRESS_B);
+        return {};
+      });
+    await expect(
+      service.cancelTwapOrder(
+        { assetId: 0, twapId: 7 },
+        { expectedAccountAddress: ADDRESS_A },
+      ),
+    ).rejects.toThrow(accountChangedMessage);
+    for (const client of mockExchangeClients)
+      expect(client.twapCancel).not.toHaveBeenCalled();
+  });
+
   it('signs an add-position order with the confirmed account', async () => {
     await service.placeOrderByCoin(addPositionParams);
 
@@ -256,5 +373,98 @@ describe('ServiceHyperliquidExchange account guard', () => {
 
     await expect(pending).rejects.toThrow(accountChangedMessage);
     expect(orderCalls()).toBe(0);
+  });
+});
+
+describe('exchange order account guard', () => {
+  function createService() {
+    const response = {
+      status: 'ok',
+      response: { type: 'order', data: { statuses: [] } },
+    };
+    const client = { order: jest.fn().mockResolvedValue(response) };
+    const service = {
+      _account: '0xagent',
+      _userAddress: '0xUSER',
+      _exchangeClient: client,
+      checkAccountCanTrade: jest.fn(),
+      _resolveExpectedAccountAddress: jest.fn().mockResolvedValue('0xuser'),
+      _formatOrdersForHyperLiquid: jest.fn().mockResolvedValue([]),
+      getExchangeClientForTrading: jest.fn().mockResolvedValue(client),
+      _buildLogContext: jest.fn().mockResolvedValue({}),
+      _composeOrderLogExtra: jest.fn(),
+      _resolveOrderOpenIsFirstTime: jest.fn(),
+      _markOrderOpenSucceeded: jest.fn(),
+      backgroundApi: {
+        serviceRookieGuide: { recordTaskCompleted: jest.fn() },
+      },
+    };
+    const submit = () =>
+      ServiceHyperliquidExchange.prototype.placeOrderRaw.call(
+        service as unknown as ServiceHyperliquidExchange,
+        { orders: [], grouping: 'na' },
+        { expectedAccountAddress: '0xuser' },
+      );
+    return { service, client, submit, response };
+  }
+
+  const previousScope = globalThis.$onekeyIsInBackground;
+  afterEach(() => {
+    globalThis.$onekeyIsInBackground = previousScope;
+  });
+
+  beforeEach(() => {
+    globalThis.$onekeyIsInBackground = true;
+    mockActiveAccountState.value = {
+      accountAddress: '0xuser',
+    };
+  });
+
+  it('accepts an agent signer serving the expected user', async () => {
+    const { submit, client, response } = createService();
+    await expect(submit()).resolves.toEqual(response);
+    expect(client.order).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a changed selected account before dispatch', async () => {
+    mockActiveAccountState.value = {
+      accountAddress: '0xother',
+    };
+    const { submit, client } = createService();
+    await expect(submit()).rejects.toThrow(accountChangedMessage);
+    expect(client.order).not.toHaveBeenCalled();
+  });
+
+  it('accepts a wallet signing directly for the expected user', async () => {
+    const { submit, service, client } = createService();
+    service._account = '0xuser';
+    await submit();
+    expect(client.order).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears client ownership when disposed', async () => {
+    const { service } = createService();
+    await ServiceHyperliquidExchange.prototype.dispose.call(
+      service as unknown as ServiceHyperliquidExchange,
+    );
+    expect(service._userAddress).toBeNull();
+    expect(service._exchangeClient).toBeNull();
+  });
+
+  it('rejects a client belonging to another user', async () => {
+    const { submit, service, client } = createService();
+    service._userAddress = '0xother';
+    await expect(submit()).rejects.toThrow(accountChangedMessage);
+    expect(client.order).not.toHaveBeenCalled();
+  });
+
+  it('rejects a client replaced while order preparation is awaiting', async () => {
+    const { submit, service, client } = createService();
+    service._buildLogContext.mockImplementation(async () => {
+      service._exchangeClient = { order: jest.fn() };
+      return {};
+    });
+    await expect(submit()).rejects.toThrow(accountChangedMessage);
+    expect(client.order).not.toHaveBeenCalled();
   });
 });

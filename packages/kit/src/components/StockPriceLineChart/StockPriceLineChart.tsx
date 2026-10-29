@@ -113,6 +113,9 @@ export function StockPriceLineChart({
   testID,
   hoverLabelShowsPrice = true,
   hoverLabelLargePrice = false,
+  showPriceScale = true,
+  showHoverLabel = true,
+  clearHoverOnTouchEnd = false,
   onHoverChange,
 }: {
   data: IMarketTokenChart;
@@ -135,6 +138,9 @@ export function StockPriceLineChart({
   hoverLabelShowsPrice?: boolean;
   // Lifts the card's price to $bodyMdMedium, 2px under the time.
   hoverLabelLargePrice?: boolean;
+  showPriceScale?: boolean;
+  showHoverLabel?: boolean;
+  clearHoverOnTouchEnd?: boolean;
   // Called with undefined when the pointer leaves the plot, and on unmount.
   onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
 }) {
@@ -143,6 +149,15 @@ export function StockPriceLineChart({
   const { formatDate } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
+  const useNativeScrub = platformEnv.isNative;
+  const pointerTrackingRef = useRef(false);
+  const startHover = useCallback(() => {
+    pointerTrackingRef.current = true;
+  }, []);
+  const clearHover = useCallback(() => {
+    pointerTrackingRef.current = false;
+    setHoverData(null);
+  }, []);
   const priceFormatter = useCallback(
     (price: number) => {
       if (priceScaleFormat === 'full') return formatChartPriceFull(price);
@@ -174,6 +189,14 @@ export function StockPriceLineChart({
       y?: number;
     }) => {
       if (
+        clearHoverOnTouchEnd &&
+        !platformEnv.isNative &&
+        !pointerTrackingRef.current
+      ) {
+        setHoverData(null);
+        return;
+      }
+      if (
         time !== undefined &&
         price !== undefined &&
         x !== undefined &&
@@ -184,17 +207,16 @@ export function StockPriceLineChart({
         setHoverData(null);
       }
     },
-    [],
+    [clearHoverOnTouchEnd],
   );
-  // Native charts keep tracking locally across refreshes. Keep an optional price
-  // header on that point too, until it leaves the refreshed range.
+  // Keep a held point across live refreshes until it leaves the selected range.
   useEffect(() => {
     setHoverData((current) => {
-      if (!platformEnv.isNative || !current) return null;
+      if ((!useNativeScrub && !clearHoverOnTouchEnd) || !current) return null;
       const point = data.find(([time]) => time === current.time);
       return point ? { ...current, price: point[1] } : null;
     });
-  }, [data]);
+  }, [data, useNativeScrub, clearHoverOnTouchEnd]);
 
   const hoverPoint = useMemo<IStockPriceLineChartHoverPoint | undefined>(() => {
     if (!hoverData) {
@@ -270,22 +292,23 @@ export function StockPriceLineChart({
   // moves; only the solid overlay drawn on top of it is cut at the cursor.
   const hoveredTime = hoverData?.time;
   const solidData = useMemo(() => {
-    if (platformEnv.isNative || hoveredTime === undefined) {
+    if (useNativeScrub || hoveredTime === undefined) {
       return data;
     }
     const upToCursor = data.filter(([time]) => time <= hoveredTime);
     // An empty overlay would drop the overlay series entirely and rebuild the
     // chart mid-scrub, so it always keeps at least the first point.
     return upToCursor.length > 0 ? upToCursor : data.slice(0, 1);
-  }, [data, hoveredTime]);
+  }, [data, hoveredTime, useNativeScrub]);
 
   const nativeScrubOptions = useMemo<
     ILightweightChartNativeScrubOptions | undefined
   >(() => {
-    if (!platformEnv.isNative) return undefined;
+    if (!useNativeScrub) return undefined;
     return {
       labels: Object.fromEntries(
         data.map(([time, price]) => {
+          if (!showHoverLabel) return [time, { time: '' }];
           const parts = numberFormatAsRaw(String(price), {
             formatter: 'price',
             formatterOptions: HOVER_PRICE_FORMATTER_OPTIONS,
@@ -318,12 +341,17 @@ export function StockPriceLineChart({
       textColor: theme.text.val,
       timeColor: theme.textDisabled.val,
       largePrice: hoverLabelLargePrice,
+      showTooltip: showHoverLabel,
+      exitOnTouchEnd: clearHoverOnTouchEnd,
     };
   }, [
     data,
     formatDate,
     hoverLabelShowsPrice,
     hoverLabelLargePrice,
+    showHoverLabel,
+    clearHoverOnTouchEnd,
+    useNativeScrub,
     theme.bg.val,
     theme.borderSubdued.val,
     theme.text.val,
@@ -385,6 +413,13 @@ export function StockPriceLineChart({
       testID={testID}
       position="relative"
       height={height}
+      onTouchStart={clearHoverOnTouchEnd ? startHover : undefined}
+      onPointerDown={clearHoverOnTouchEnd ? startHover : undefined}
+      onTouchEnd={clearHoverOnTouchEnd ? clearHover : undefined}
+      onTouchCancel={clearHoverOnTouchEnd ? clearHover : undefined}
+      onPointerUp={clearHoverOnTouchEnd ? clearHover : undefined}
+      onPointerCancel={clearHoverOnTouchEnd ? clearHover : undefined}
+      onPointerLeave={clearHoverOnTouchEnd ? clearHover : undefined}
       onLayout={(event) => {
         const width = event.nativeEvent.layout.width;
         if (width !== chartWidth) {
@@ -407,9 +442,9 @@ export function StockPriceLineChart({
         crosshairVertLineColor={crosshairVertLineColor}
         crosshairVertLineStyle={CROSSHAIR_VERT_LINE_STYLE}
         seriesType="dotted-area"
-        showPriceScale
+        showPriceScale={showPriceScale}
         referenceLine={referenceLine}
-        showLastValue={showCurrentPriceLabel}
+        showLastValue={showPriceScale && showCurrentPriceLabel}
         showLastValuePriceLine={false}
         lastValueLabelColor={currentPriceLabelColor}
         showLastPointMarker={false}
@@ -436,7 +471,7 @@ export function StockPriceLineChart({
             : handleHover
         }
       />
-      {!platformEnv.isNative && hoverData && tooltipPosition ? (
+      {showHoverLabel && !useNativeScrub && hoverData && tooltipPosition ? (
         <Stack
           testID="stock-price-line-chart-hover-label"
           position="absolute"
