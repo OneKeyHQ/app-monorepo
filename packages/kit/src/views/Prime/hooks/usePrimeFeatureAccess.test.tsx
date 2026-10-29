@@ -30,6 +30,7 @@ const mockGetHeldReservationEnd = jest.fn();
 const mockLoginOneKeyId = jest.fn();
 const mockPushFullModal = jest.fn();
 const mockToastMessage = jest.fn();
+const mockShowToastOfError = jest.fn<void, [unknown]>();
 const mockDialogClose = jest.fn(async () => undefined);
 const mockDialogLoading = jest.fn((_params: unknown) => ({
   close: mockDialogClose,
@@ -92,6 +93,13 @@ jest.mock('@onekeyhq/components', () => ({
   },
   Toast: { message: (params: unknown) => mockToastMessage(params) as unknown },
   rootNavigationRef: { current: undefined },
+}));
+
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
+  __esModule: true,
+  default: {
+    showToastOfError: (error: unknown) => mockShowToastOfError(error),
+  },
 }));
 
 // Toasts read their copy from the zh-CN catalog.
@@ -196,7 +204,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     setSnapshot(undefined);
   });
 
-  it('rejects a banned account before using a cached Prime entitlement', async () => {
+  it('denies a banned account with feedback before using a cached Prime entitlement', async () => {
     mockHookPrime = true;
     mockHookBanned = true;
     const result = renderAccessHook();
@@ -205,8 +213,11 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
         }),
-      ).rejects.toBeInstanceOf(OneKeyErrorPrimeUserBanned);
+      ).resolves.toEqual({ granted: false });
     });
+    expect(mockShowToastOfError).toHaveBeenCalledWith(
+      expect.any(OneKeyErrorPrimeUserBanned),
+    );
     expect(mockRefreshQuota).not.toHaveBeenCalled();
     expect(mockGetPublicConfig).not.toHaveBeenCalled();
     mockHookBanned = false;
