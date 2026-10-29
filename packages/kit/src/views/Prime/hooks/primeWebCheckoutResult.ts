@@ -20,8 +20,9 @@ export type IPrimeWebCheckoutResult =
   // an older Web Billing purchase, or the other sandbox mode).
   | { status: 'activatedElsewhere'; entitlement: IPrimeWebCheckoutEntitlement };
 
-// Checkout opens only while Prime is inactive, so an active entitlement is
-// attributed to this checkout only when every field points at it.
+// This recovers account entitlement, not an individual checkout/order. The
+// stored packageId identifies an offering package, not the charged product or
+// a revocable server checkout, so it cannot provide payment exclusivity.
 export function evaluatePrimeWebCheckoutResult({
   session,
   entitlement,

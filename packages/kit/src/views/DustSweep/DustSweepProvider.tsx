@@ -84,6 +84,8 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     resume,
     refresh: refreshNetworks,
     isRefreshing: isRefreshingNetworks,
+    isNetworkVerified,
+    revalidate,
   } = data;
   const [networkId, setNetworkId] = useState(params.networkId);
   const networkChoiceScope = useRef<typeof loadParams | undefined>(undefined);
@@ -131,11 +133,34 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   useEffect(() => {
     if (selecting) resume();
   }, [resume, selecting]);
+  useEffect(() => {
+    if (selecting && data.needsRevalidation && !isRefreshingNetworks()) {
+      revalidate();
+    }
+  }, [data.needsRevalidation, isRefreshingNetworks, revalidate, selecting]);
   const retry = useCallback(() => {
     if (!selecting || isReconciling()) return;
     networkChoiceScope.current = loadParams;
     refreshNetworks();
   }, [refreshNetworks, loadParams, isReconciling, selecting]);
+  useEffect(() => {
+    if (
+      selecting &&
+      isFocused &&
+      data.needsContextRefresh &&
+      !reconciling &&
+      !isRefreshingNetworks()
+    ) {
+      retry();
+    }
+  }, [
+    data.needsContextRefresh,
+    isFocused,
+    isRefreshingNetworks,
+    reconciling,
+    retry,
+    selecting,
+  ]);
   const autoRefreshTimerActive = useDustSweepNetworkRefresh({
     params: loadParams,
     isFocused,
@@ -277,7 +302,13 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   );
   // Nothing is quoted while selecting: every selected token is submitted and
   // quoted on its own turn, and one without a quote is skipped then.
-  const canStart = selecting && isFocused && assetsReady && selected.length > 0;
+  const canStart =
+    selecting &&
+    isFocused &&
+    assetsReady &&
+    !!current &&
+    isNetworkVerified(current) &&
+    selected.length > 0;
   const selectedValueUsd = selected
     .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
     .toFixed();
@@ -418,6 +449,8 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     if (
       !snapshot ||
       !canStart ||
+      !current ||
+      !isNetworkVerified(current) ||
       activeLoadParams.current !== loadParams ||
       !suspend()
     )
@@ -440,6 +473,8 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   }, [
     snapshot,
     canStart,
+    current,
+    isNetworkVerified,
     loadParams,
     startSession,
     hidden.length,

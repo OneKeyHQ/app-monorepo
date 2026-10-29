@@ -104,6 +104,8 @@ export const ipcMessageKeys = {
 
   // System Resources
   SYSTEM_GET_CPU_USAGE: 'system/getCpuUsage',
+  PRIVACY_CHAIN_NODE_REQUEST: 'privacyChain/nodeRequest',
+  FETCH_STREAM: 'fetch/stream',
   SYSTEM_GET_MEMORY_USAGE: 'system/getMemoryUsage',
 
   // Boot Recovery

@@ -1,3 +1,6 @@
+import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
+import type { IZcashSdkApi } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+
 import type OffscreenApiAdaSdk from '../OffscreenApiAdaSdk';
 import type OffscreenApiKaspaSdk from '../OffscreenApiKaspaSdk';
 import type OffscreenApiThirdPartyHardware from '../OffscreenApiThirdPartyHardware';
@@ -7,5 +10,7 @@ export interface IOffscreenApi {
   hardwareSDKLowLevel: LowLevelCoreApi;
   adaSdk: OffscreenApiAdaSdk;
   kaspaSdk: OffscreenApiKaspaSdk;
+  zcashSdk: IZcashSdkApi;
+  xmrRuntime: IXmrRuntimeApi;
   thirdPartyHardware: OffscreenApiThirdPartyHardware;
 }

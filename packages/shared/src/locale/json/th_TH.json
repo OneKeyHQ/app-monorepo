@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "พื้นที่จัดเก็บ",
   "privacy_sync_waiting_wifi__msg": "กำลังรอ Wi-Fi",
   "privacy_temp_wallet_unavailable__desc": "ไม่พร้อมใช้งานสำหรับกระเป๋าที่ซ่อนซึ่งจะถูกล้างเมื่อปิดแอป เปิด “ให้เข้าถึงได้ต่อไป” เพื่อใช้งาน",
+  "privacy_unshield_warning__desc": "จำนวนเงินและที่อยู่ผู้รับจะเปิดเผยต่อสาธารณะบนบล็อกเชน",
   "private_key_imported_feedback_desc": "บัญชีคีย์ส่วนตัวของคุณพร้อมแล้ว",
   "private_key_imported_feedback_title": "นำเข้าเรียบร้อยแล้ว",
   "private_send.arrival_in": "มาถึงใน",

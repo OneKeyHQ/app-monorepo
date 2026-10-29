@@ -1,0 +1,693 @@
+/* eslint-disable import/first */
+
+jest.mock('../../../dbs/local/localDbInstance');
+
+import { getOnChainHistoryTxStatus } from '@onekeyhq/shared/src/utils/historyUtils';
+import {
+  getPrivacyChainEndpointFlow,
+  getPrivacyChainPublicDisplayFlow,
+} from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import {
+  buildLocalWalletHistoryAddressGate,
+  gateLocalWalletHistoryTx,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import {
+  EOnChainHistoryTransferType,
+  EOnChainHistoryTxStatus,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IOnChainHistoryTx,
+} from '@onekeyhq/shared/types/history';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+
+import { mergeLocalTxDisplayFields } from '../../../services/ServiceHistory';
+import VaultBtc from '../btc/Vault';
+
+import {
+  normalizeZcashBackendHistoryTx,
+  restoreZcashLocalTransparentPayment,
+} from './backendHistory';
+import Vault from './Vault';
+
+import type { IEncodedTxZcash } from './types';
+import type { IZcashSentRecord } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainZcashSent';
+
+const txid = 'ab'.repeat(32);
+const sender = 't1-sender';
+const recipient = 'u1-recipient';
+const params = {
+  accountId: 'account',
+  networkId: 'zec--0',
+  accountAddress: sender,
+  xpub: 'test-xpub',
+};
+
+it('retains explicit change metadata without rewriting transfers', async () => {
+  const vault = Object.create(Vault.prototype) as Vault;
+  const raw = backendPayment();
+  raw.receives = [{ ...raw.sends[0], to: sender, isChange: true }];
+  const action = await vault.buildHistoryTransferAction({
+    tx: raw,
+    tokens: {},
+    nfts: {},
+  });
+  expect(action.assetTransfer?.receives[0]).toMatchObject({
+    from: sender,
+    to: sender,
+    amount: raw.receives[0].amount,
+    isOwn: true,
+    isChange: true,
+  });
+  expect(action.assetTransfer?.from).toBe(raw.from);
+  expect(action.assetTransfer?.to).toBe(raw.to);
+});
+
+it('marks a shielded note by pool instead of exposing its label as an address', () => {
+  const vault = Object.create(Vault.prototype) as Vault;
+  expect(
+    vault.buildHistoryTransfer({
+      transfer: {
+        ...backendPayment().sends[0],
+        type: EOnChainHistoryTransferType.Shielded,
+        from: '',
+        to: '',
+        address: 'Shielded',
+        label: 'Shielded',
+        poolId: 4,
+      },
+      tokens: {},
+      nfts: {},
+    }),
+  ).toMatchObject({
+    from: '',
+    to: '',
+    tokenIdOnNetwork: '',
+    isShielded: true,
+    shieldedFrom: { poolId: 4 },
+    shieldedTo: { poolId: 4 },
+  });
+});
+
+it('keeps mixed recipients after gating a summary that points at public change', async () => {
+  const vault = Object.create(Vault.prototype) as Vault;
+  const raw = backendPayment();
+  const publicRecipient = 't1external';
+  const change = 't1change';
+  raw.to = change;
+  raw.receives = [
+    { ...raw.sends[0], to: publicRecipient, isOwn: false, isChange: false },
+    {
+      ...raw.sends[0],
+      type: EOnChainHistoryTransferType.Shielded,
+      from: '',
+      to: '',
+      poolId: 4,
+      isOwn: false,
+      isChange: false,
+    },
+    { ...raw.sends[0], to: change, isOwn: true, isChange: true },
+  ];
+  const action = await vault.buildHistoryTransferAction({
+    tx: normalizeZcashBackendHistoryTx(raw),
+    tokens: {},
+    nfts: {},
+  });
+  const pools = [
+    { id: 0, kind: 'public' as const, label: 'Public' },
+    { id: 4, kind: 'private' as const, label: 'Private' },
+  ];
+  const row = localPayment();
+  row.decodedTx.actions = [action];
+  const gated = gateLocalWalletHistoryTx(
+    buildLocalWalletHistoryAddressGate({
+      addresses: { publicAddress: sender },
+      ownerAddress: sender,
+      localWallet: {
+        pools,
+        publicAddressPattern: '^t1',
+        addressForms: { publicLabel: 'Public' },
+      },
+    }),
+    row,
+  );
+  const transfer = gated.decodedTx.actions[0].assetTransfer;
+  expect(
+    getPrivacyChainPublicDisplayFlow({ publicAddressPattern: '^t1', transfer })
+      .to,
+  ).toEqual([publicRecipient]);
+  expect(
+    getPrivacyChainEndpointFlow({
+      pools,
+      publicAddressPattern: '^t1',
+      transfer,
+      outputTransfers: raw.receives,
+      isSent: true,
+    }).to,
+  ).toEqual([{ kind: 'pool', poolId: 4 }]);
+  expect(raw.receives).toHaveLength(3);
+});
+
+function encoded(): IEncodedTxZcash {
+  return {
+    inputs: [],
+    inputsForCoinSelect: [],
+    outputsForCoinSelect: [],
+    txSize: 0,
+    outputs: [{ address: recipient, value: '80000' }],
+    zcashMode: 'transparent',
+    zcashTo: recipient,
+    zcashAmountValue: '80000',
+    zcashMemoHex: 'ff',
+    fee: '20000',
+    zcashTransparentBuild: {
+      txid,
+      rawTx: '00ff',
+      feeZat: '20000',
+      expiryHeight: 100,
+      spentOutpoints: [],
+    },
+  };
+}
+
+function localPayment(): IAccountHistoryTx {
+  return {
+    id: 'local-payment',
+    isLocalCreated: true,
+    privacyChainHistorySide: 'public',
+    privacyChainHistoryPoolIds: [0],
+    decodedTx: {
+      txid,
+      networkId: params.networkId,
+      accountId: params.accountId,
+      owner: sender,
+      signer: sender,
+      nonce: 0,
+      extraInfo: null,
+      to: recipient,
+      actions: [],
+      status: EDecodedTxStatus.Pending,
+      encodedTx: encoded(),
+    },
+  };
+}
+
+function backendPayment(): IOnChainHistoryTx {
+  return {
+    tx: txid,
+    networkId: params.networkId,
+    key: `${params.networkId}_`,
+    riskLevel: 0,
+    type: EOnChainHistoryTxType.Send,
+    sends: [
+      {
+        type: EOnChainHistoryTransferType.Transfer,
+        from: sender,
+        to: '',
+        token: '',
+        key: `${params.networkId}_`,
+        amount: '0.001',
+        label: '',
+        isOwn: true,
+      },
+    ],
+    receives: [],
+    from: sender,
+    to: '',
+    value: '0.001',
+    gasFee: '',
+    gasFeeFiatValue: '',
+    label: '',
+    status: EOnChainHistoryTxStatus.Success,
+    timestamp: 2,
+    block: 30,
+    confirmations: 1,
+    nonce: 0,
+    functionCode: '',
+    params: [],
+  };
+}
+
+function createVault(
+  initial: IAccountHistoryTx | null = localPayment(),
+  sentRecords: Record<string, IZcashSentRecord> = {},
+) {
+  let cached = initial ? [initial] : [];
+  const raw = backendPayment();
+  jest
+    .spyOn(VaultBtc.prototype, 'buildOnChainHistoryTx')
+    .mockImplementation(async ({ onChainHistoryTx: tx }) => ({
+      id: tx.tx,
+      decodedTx: {
+        txid: tx.tx,
+        networkId: tx.networkId,
+        accountId: params.accountId,
+        owner: sender,
+        signer: tx.from,
+        nonce: 0,
+        extraInfo: null,
+        to: tx.to,
+        actions: [],
+        status: getOnChainHistoryTxStatus(tx.status),
+        nativeAmount: tx.value,
+        totalFeeInNative: tx.gasFee,
+        totalFeeFiatValue: tx.gasFeeFiatValue,
+      },
+    }));
+  const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+    accountId: params.accountId,
+    networkId: params.networkId,
+    backgroundApi: {
+      simpleDb: {
+        privacyChainState: {
+          getAccountEpoch: jest.fn().mockResolvedValue(undefined),
+          getZcashAccountMeta: async () => null,
+          getZcashPrivacyModeState: async () => ({ intent: 'off' }),
+        },
+        privacyChainJournal: {
+          listTransparentPendingTxs: async () => [],
+        },
+        privacyChainZcashSent: {
+          listZcashSent: async () => sentRecords,
+        },
+        localHistory: {
+          getAccountLocalHistoryConfirmedTxs: async () =>
+            cached.filter(
+              (tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending,
+            ),
+          getAccountLocalHistoryPendingTxs: async () =>
+            cached.filter(
+              (tx) => tx.decodedTx.status === EDecodedTxStatus.Pending,
+            ),
+          saveLocalHistoryTxs: async ({
+            pendingTxs,
+            confirmedTxs,
+          }: {
+            pendingTxs: IAccountHistoryTx[];
+            confirmedTxs: IAccountHistoryTx[];
+          }) => {
+            cached = [...pendingTxs, ...confirmedTxs];
+          },
+        },
+      },
+      serviceToken: { getToken: async () => undefined },
+      servicePrivacyChain: {
+        getLocalWalletAccountAddresses: async () => ({ publicAddress: sender }),
+      },
+      serviceAccount: {
+        getDBAccountSafe: async () => ({ address: sender, xpub: params.xpub }),
+      },
+      serviceAccountProfile: { _getWalletTypeHeader: async () => ({}) },
+      serviceHistory: {
+        getOneKeyIdAuthHeaders: async () => ({}),
+        getClient: async () => ({
+          post: async () => ({
+            data: {
+              data: { data: [raw], tokens: {}, nfts: {}, hasMore: false },
+            },
+          }),
+        }),
+      },
+    },
+    getAccount: async () => ({ address: sender }),
+    baseFetchAccountHistoryDetail: async (
+      _request: Parameters<Vault['baseFetchAccountHistoryDetail']>[0],
+    ) => ({
+      data: { data: { data: raw, tokens: {}, nfts: {} } },
+    }),
+  });
+  const runtime = jest
+    .spyOn(vault, 'zcashGetApi')
+    .mockRejectedValue(
+      new Error('transparent history must not initialize the wallet runtime'),
+    );
+  return { vault, runtime, raw, getCached: () => cached };
+}
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
+it('retains the signed payment across confirmation, serialization and repeated refreshes', async () => {
+  const { vault, runtime, getCached } = createVault();
+  await vault.fetchAccountHistoryFromLocal(params);
+  const saved = JSON.parse(JSON.stringify(getCached()[0])) as IAccountHistoryTx;
+  const restarted = createVault(saved);
+  for (const instance of [vault, restarted.vault]) {
+    const rows = await instance.fetchAccountHistoryFromLocal(params);
+    expect(rows?.[0].decodedTx).toMatchObject({
+      status: EDecodedTxStatus.Confirmed,
+      nativeAmount: '0.0008',
+      totalFeeInNative: '0.0002',
+      to: recipient,
+      encodedTx: { zcashAmountValue: '80000', fee: '20000' },
+    });
+    expect(rows?.[0].decodedTx.totalFeeFiatValue).toBeUndefined();
+    expect(
+      (rows?.[0].decodedTx.encodedTx as IEncodedTxZcash).zcashMemoHex,
+    ).toBeUndefined();
+  }
+  expect(runtime).not.toHaveBeenCalled();
+  expect(restarted.runtime).not.toHaveBeenCalled();
+});
+
+it('restores summary facts while preserving the real input/output arrays and chain status', async () => {
+  const { vault, raw } = createVault();
+  const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
+    .data.data.data;
+  expect(summary).toMatchObject({
+    value: '0.0008',
+    gasFee: '0.0002',
+    to: recipient,
+    block: 30,
+  });
+  expect(summary.receives[0]).toMatchObject({
+    to: recipient,
+    amount: '0.0008',
+  });
+  const io = (
+    await vault.fetchAccountHistoryDetail({ ...params, txid, withUTXOs: true })
+  ).data.data.data;
+  expect(io.sends).toEqual(raw.sends);
+  expect(io.receives).toEqual(raw.receives);
+  expect(io.inputOutputSource).toBe('public');
+  raw.status = EOnChainHistoryTxStatus.Failed;
+  const failed = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
+    .data.data.data;
+  expect(failed.status).toBe(EOnChainHistoryTxStatus.Failed);
+});
+
+it('preserves an explicit transparent self payment instead of replacing it with the fee', () => {
+  const local = localPayment();
+  (local.decodedTx.encodedTx as IEncodedTxZcash).zcashTo = sender;
+  const tx = restoreZcashLocalTransparentPayment({
+    tx: { ...backendPayment(), to: sender, value: '0.0002', gasFee: '0.0002' },
+    localTx: local,
+  });
+  expect(tx.value).toBe('0.0008');
+  expect(tx.receives).toEqual([
+    expect.objectContaining({ to: sender, isOwn: true, amount: '0.0008' }),
+  ]);
+});
+
+function createLegacySelfTransfer() {
+  const local = localPayment();
+  local.isLocalCreated = false;
+  const context = createVault(local);
+  Object.assign(context.raw, {
+    from: sender,
+    to: sender,
+    value: '0.00015',
+    gasFee: '0.00015',
+  });
+  context.raw.sends = context.raw.sends.map((send) => ({
+    ...send,
+    to: sender,
+  }));
+  const detail: IOnChainHistoryTx = {
+    ...context.raw,
+    sends: ['0.0006', '0.00035', '0.0001'].map((amount) => ({
+      ...context.raw.sends[0],
+      amount,
+      isOwn: false,
+    })),
+    receives: [
+      {
+        ...context.raw.sends[0],
+        from: '',
+        to: sender,
+        amount: '0.0009',
+        isOwn: false,
+      },
+    ],
+  };
+  const fetchDetail = jest
+    .spyOn(context.vault, 'baseFetchAccountHistoryDetail')
+    .mockImplementation(async (request) => ({
+      data: {
+        data: {
+          data: request.accountAddress ? context.raw : detail,
+          tokens: {},
+          nfts: {},
+        },
+      },
+    }));
+  return { ...context, detail, fetchDetail };
+}
+
+it('preserves a sparse backend summary without inferring a private recipient', async () => {
+  const { vault, fetchDetail, runtime } = createLegacySelfTransfer();
+  const rows = await vault.fetchAccountHistoryFromLocal(params);
+  expect(rows?.[0].decodedTx).toMatchObject({
+    nativeAmount: '0.00015',
+    totalFeeInNative: '0.00015',
+    to: sender,
+    status: EDecodedTxStatus.Confirmed,
+  });
+  expect(rows?.[0].isLocalCreated).not.toBe(true);
+  expect(
+    rows?.[0].decodedTx.actions[0]?.assetTransfer?.shieldedTo,
+  ).toBeUndefined();
+  expect(fetchDetail).not.toHaveBeenCalled();
+  expect(runtime).not.toHaveBeenCalled();
+});
+
+it('keeps the public I/O of an unsigned t1 -> t1 row as the backend reports it', async () => {
+  const { vault, detail } = createLegacySelfTransfer();
+  const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
+    .data.data.data;
+  expect(summary).toMatchObject({
+    value: '0.00015',
+    gasFee: '0.00015',
+    to: sender,
+  });
+  expect(summary.shieldedCounterparty).toBeUndefined();
+  const io = (
+    await vault.fetchAccountHistoryDetail({
+      accountId: params.accountId,
+      networkId: params.networkId,
+      txid,
+      withUTXOs: true,
+    })
+  ).data.data.data;
+  expect(io.sends).toEqual(detail.sends);
+  expect(io.receives).toEqual(detail.receives);
+});
+
+it('does not fetch I/O when a signed transparent self-payment is already known', async () => {
+  const local = localPayment();
+  (local.decodedTx.encodedTx as IEncodedTxZcash).zcashTo = sender;
+  const { vault, raw } = createVault(local);
+  raw.from = sender;
+  raw.to = sender;
+  const fetchDetail = jest.spyOn(vault, 'baseFetchAccountHistoryDetail');
+  const rows = await vault.fetchAccountHistoryFromLocal(params);
+  expect(rows?.[0].decodedTx.nativeAmount).toBe('0.0008');
+  expect(fetchDetail).not.toHaveBeenCalled();
+});
+
+it.each([
+  'unsigned',
+  'different transaction',
+  'different network',
+  'private cache',
+])('does not infer a payment from %s', async (scenario) => {
+  const local = localPayment();
+  if (scenario === 'unsigned') local.isLocalCreated = false;
+  if (scenario === 'different transaction')
+    local.decodedTx.txid = 'cd'.repeat(32);
+  if (scenario === 'different network') local.decodedTx.networkId = 'btc--0';
+  if (scenario === 'private cache') local.privacyChainHistorySide = 'private';
+  const { vault } = createVault(local);
+  const rows = await vault.fetchAccountHistoryFromLocal(params);
+  expect(rows?.[0].decodedTx.nativeAmount).toBe('0.001');
+  expect(rows?.[0].decodedTx.to).not.toBe(recipient);
+});
+
+it('saves signed payment fields without retaining memo plaintext or raw signed bytes', async () => {
+  const { vault } = createVault();
+  const row = localPayment();
+  const signedEncoded = encoded();
+  (row.decodedTx.encodedTx as IEncodedTxZcash).zcashTransparentBuild =
+    undefined;
+  (row.decodedTx.encodedTx as IEncodedTxZcash).zcashAmountValue = '100000';
+  jest.spyOn(vault, 'baseBuildHistoryTx').mockResolvedValue(row);
+  const saved = await vault.buildHistoryTx({
+    decodedTx: row.decodedTx,
+    signedTx: { txid, rawTx: '00ff', encodedTx: signedEncoded },
+  });
+  const stored = saved.decodedTx.encodedTx as IEncodedTxZcash;
+  expect(saved.isLocalCreated).toBe(true);
+  expect(stored.zcashTransparentBuild).toBeUndefined();
+  expect(stored.zcashAmountValue).toBe('80000');
+  expect(stored.fee).toBe('20000');
+  expect(stored.zcashMemoHex).toBeUndefined();
+});
+
+it('keeps the payment and current price when an All Networks refresh replaces the row', () => {
+  const local = localPayment();
+  const transfer = {
+    from: sender,
+    to: recipient,
+    amount: '0.0008',
+    tokenIdOnNetwork: '',
+    isNative: true,
+    icon: '',
+    symbol: 'ZEC',
+    name: 'Zcash',
+    isNFT: false,
+  };
+  local.decodedTx.actions = [
+    {
+      type: EDecodedTxActionType.ASSET_TRANSFER,
+      assetTransfer: {
+        from: sender,
+        to: recipient,
+        sends: [transfer],
+        receives: [],
+      },
+    },
+  ];
+  const indexed: IAccountHistoryTx = {
+    ...local,
+    privacyChainHistorySide: undefined,
+    decodedTx: {
+      ...local.decodedTx,
+      status: EDecodedTxStatus.Confirmed,
+      block: 30,
+      nativeAmount: '0.001',
+      totalFeeInNative: undefined,
+      encodedTx: undefined,
+      to: 'Shielded',
+      actions: [
+        {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
+            from: sender,
+            to: 'Shielded',
+            sends: [{ ...transfer, amount: '0.001', price: '1000' }],
+            receives: [],
+          },
+        },
+      ],
+    },
+  };
+  const merged = mergeLocalTxDisplayFields({
+    localTx: local,
+    onChainHistoryTx: indexed,
+  });
+  expect(merged.decodedTx).toMatchObject({
+    nativeAmount: '0.0008',
+    totalFeeInNative: '0.0002',
+    to: recipient,
+    status: EDecodedTxStatus.Confirmed,
+    block: 30,
+  });
+  expect(merged.decodedTx.actions[0].assetTransfer?.sends).toEqual([
+    { ...transfer, price: '1000' },
+  ]);
+  expect(
+    mergeLocalTxDisplayFields({ localTx: merged, onChainHistoryTx: indexed })
+      .decodedTx,
+  ).toEqual(merged.decodedTx);
+  expect(
+    mergeLocalTxDisplayFields({
+      localTx: local,
+      onChainHistoryTx: { ...indexed, privacyChainHistorySide: 'mixed' },
+    }).decodedTx,
+  ).toBe(indexed.decodedTx);
+  const btc = {
+    ...indexed,
+    decodedTx: { ...indexed.decodedTx, networkId: 'btc--0' },
+  };
+  expect(
+    mergeLocalTxDisplayFields({ localTx: local, onChainHistoryTx: btc })
+      .decodedTx,
+  ).toBe(btc.decodedTx);
+});
+
+describe('a shielded payment kept only in the sent record', () => {
+  // ZIP 302 text "hello".
+  const textMemo = `68656c6c6f${'00'.repeat(507)}`;
+  const sentRecord = (memoHex?: string): Record<string, IZcashSentRecord> => ({
+    [txid]: {
+      recipient,
+      amountZat: '80000',
+      feeZat: '20000',
+      memoHex,
+      createdAt: 1,
+    },
+  });
+
+  it('shows the typed recipient and amount once the local row is gone', async () => {
+    const { vault, runtime, getCached } = createVault(
+      null,
+      sentRecord(textMemo),
+    );
+    const rows = await vault.fetchAccountHistoryFromLocal(params);
+    expect(rows?.[0].decodedTx).toMatchObject({
+      nativeAmount: '0.0008',
+      totalFeeInNative: '0.0002',
+      to: recipient,
+    });
+    expect(rows?.[0].decodedTx.encodedTx).toBeUndefined();
+    expect(JSON.stringify(rows)).not.toContain(textMemo);
+    expect(getCached()).toEqual([]);
+    expect(runtime).not.toHaveBeenCalled();
+  });
+
+  it('shows the memo in the detail and its I/O view', async () => {
+    const { vault, raw } = createVault(null, sentRecord(textMemo));
+    const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
+      .data.data.data;
+    expect(summary).toMatchObject({
+      value: '0.0008',
+      gasFee: '0.0002',
+      to: recipient,
+      memo: 'hello',
+      binaryMemos: [{ hex: textMemo, hash: expect.any(String) }],
+    });
+    const io = (
+      await vault.fetchAccountHistoryDetail({
+        ...params,
+        txid,
+        withUTXOs: true,
+      })
+    ).data.data.data;
+    expect(io.sends).toEqual(raw.sends);
+    expect(io.memo).toBe('hello');
+  });
+
+  it('shows a binary memo as raw bytes only', async () => {
+    const binaryMemo = `ff${'00'.repeat(511)}`;
+    const { vault } = createVault(null, sentRecord(binaryMemo));
+    const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
+      .data.data.data;
+    expect(summary.memo).toBeUndefined();
+    expect(summary.binaryMemos).toEqual([
+      { hex: binaryMemo, hash: expect.any(String) },
+    ]);
+  });
+
+  it('shows no memo for a payment sent without one', async () => {
+    const { vault } = createVault(null, sentRecord());
+    const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
+      .data.data.data;
+    expect(summary.to).toBe(recipient);
+    expect(summary.memo).toBeUndefined();
+    expect(summary.binaryMemos).toBeUndefined();
+  });
+
+  it('leaves another transaction as the backend reports it', async () => {
+    const { vault } = createVault(null, {
+      ['cd'.repeat(32)]: sentRecord(textMemo)[txid],
+    });
+    const rows = await vault.fetchAccountHistoryFromLocal(params);
+    expect(rows?.[0].decodedTx.nativeAmount).toBe('0.001');
+    expect(rows?.[0].decodedTx.to).not.toBe(recipient);
+  });
+});
