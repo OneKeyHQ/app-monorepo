@@ -15,7 +15,6 @@ import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabRoutes,
   type IWebViewPageParams,
@@ -256,26 +255,13 @@ function BaseNotificationHandlerContainer() {
       data?: Record<string, unknown>;
     }) => {
       try {
-        let commandData = data;
-        if (action === ENotificationCommand.openSupportConversation) {
-          // Extension notification clicks focus the expand tab, which owns unlock.
-          if (platformEnv.isExtension && !platformEnv.isExtensionUiExpandTab) {
-            return;
-          }
-          const pendingConversation =
-            await backgroundApiProxy.serviceNotification.takePendingSupportConversation();
-          if (!pendingConversation) {
-            return;
-          }
-          commandData = pendingConversation;
-        }
         const success = await executeNotificationCommand(
           action,
           {
             toInviteRewardPage,
             openHardwareSalesOrderDetail,
           },
-          commandData,
+          data,
         );
         if (!success) {
           showFallbackUpdateDialog(null);

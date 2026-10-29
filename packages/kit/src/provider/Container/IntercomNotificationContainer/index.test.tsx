@@ -33,6 +33,13 @@ jest.mock('@onekeyhq/components', () => ({
     callback: (state: IIntercomNavigationState | undefined) => void,
   ) => {
     mockRouterChange = callback;
+    // Mirrors the real hook, which syncs once on mount.
+    // oxlint-disable-next-line @typescript-eslint/no-require-imports
+    const { useEffect } = require('react') as typeof import('react');
+    useEffect(() => {
+      callback(mockState);
+      // oxlint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
   },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({

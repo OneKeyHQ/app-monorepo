@@ -5,10 +5,7 @@ import platformEnv from '../../platformEnv';
 import appStorage from '../../storage/appStorage';
 import { EAppSyncStorageKeys } from '../../storage/syncStorageKeys';
 
-import {
-  getCurrentIntercomUserId as getCurrentUserId,
-  getIntercomCredentials as getUserCredentials,
-} from './identity';
+import { getCurrentIntercomUserId, getIntercomCredentials } from './identity';
 import { notifyIntercomOpenFailed } from './openFailure';
 import {
   type IShowIntercomParams,
@@ -65,7 +62,7 @@ async function refreshUnreadCount(sdk: IIntercomSdk) {
   unreadRequestId += 1;
   const requestId = unreadRequestId;
   const count = await sdk.default.getUnreadConversationCount();
-  const userId = await getCurrentUserId();
+  const userId = await getCurrentIntercomUserId();
   if (
     generation === sessionGeneration &&
     requestId === unreadRequestId &&
@@ -76,8 +73,12 @@ async function refreshUnreadCount(sdk: IIntercomSdk) {
 }
 
 async function isCurrentSession(userId: IUserId, generation: number) {
-  const currentUserId = await getCurrentUserId();
+  const currentUserId = await getCurrentIntercomUserId();
   return generation === sessionGeneration && currentUserId === userId;
+}
+
+function toSdkThemeMode(sdk: IIntercomSdk, theme: 'light' | 'dark') {
+  return theme === 'dark' ? sdk.ThemeMode.DARK : sdk.ThemeMode.LIGHT;
 }
 
 async function loadSdk() {
@@ -91,6 +92,9 @@ async function loadSdk() {
       await sdk.default.initialize(apiKey, 'vbbj4ssb');
       await sdk.default.setLauncherVisibility(sdk.Visibility.GONE);
       await sdk.default.setInAppMessageVisibility(sdk.Visibility.GONE);
+      if (currentTheme) {
+        await sdk.default.setThemeMode(toSdkThemeMode(sdk, currentTheme));
+      }
       // The SDK requires its Android listener before app-owned emitters.
       sdk.default.bootstrapEventListeners();
       const emitter = new NativeEventEmitter(
@@ -123,12 +127,11 @@ export async function setIntercomTheme(theme: 'light' | 'dark') {
     return;
   }
   currentTheme = theme;
-  // Keep theme changes from eagerly initializing the native SDK.
+  // Keep theme changes from eagerly initializing the native SDK; loadSdk
+  // applies the latest theme once it initializes.
   if (sdkPromise) {
     const sdk = await sdkPromise;
-    await sdk.default.setThemeMode(
-      currentTheme === 'dark' ? sdk.ThemeMode.DARK : sdk.ThemeMode.LIGHT,
-    );
+    await sdk.default.setThemeMode(toSdkThemeMode(sdk, theme));
   }
 }
 
@@ -140,7 +143,7 @@ async function syncSession(
   if (generation !== sessionGeneration) {
     return;
   }
-  const credentials = userId ? await getUserCredentials(userId) : undefined;
+  const credentials = userId ? await getIntercomCredentials(userId) : undefined;
   if (!(await isCurrentSession(userId, generation))) {
     return;
   }
@@ -153,10 +156,9 @@ async function syncSession(
     ? await sdk.default.fetchLoggedInUserAttributes()
     : {};
   const wasIdentified = !!(previous.userId || previous.email);
-  let sameIdentity = !wasIdentified;
-  if (credentials) {
-    sameIdentity = previous.userId === credentials.attributes.userId;
-  }
+  const sameIdentity = credentials
+    ? previous.userId === credentials.attributes.userId
+    : !wasIdentified;
 
   if (!(await isCurrentSession(userId, generation))) {
     return;
@@ -182,7 +184,7 @@ async function syncSession(
       if (!(await isCurrentSession(userId, generation))) {
         return null;
       }
-      const refreshed = await getUserCredentials(userId);
+      const refreshed = await getIntercomCredentials(userId);
       return (await isCurrentSession(userId, generation))
         ? (refreshed?.token ?? null)
         : null;
@@ -239,7 +241,7 @@ export async function initIntercom() {
   if (!platformEnv.isNativeMainThread || !canUseNativeSdk()) {
     return;
   }
-  const userId = await getCurrentUserId();
+  const userId = await getCurrentIntercomUserId();
   // Anonymous users only need the SDK after they have contacted support;
   // a loaded SDK still syncs so sign-out clears the previous identity.
   if (userId === null && !sdkPromise && !hasOpenedNativeSupport()) {
@@ -255,18 +257,13 @@ async function openIntercom(params?: IShowIntercomParams) {
   if (!canUseNativeSdk()) {
     return showWebIntercom(params);
   }
-  await syncCurrentSession(await getCurrentUserId());
+  await syncCurrentSession(await getCurrentIntercomUserId());
   const generation = activeSessionGeneration;
   const userId = activeUserId;
   if (userId === undefined || !(await isCurrentSession(userId, generation))) {
     throw new OneKeyLocalError('Intercom user changed; please try again');
   }
   const sdk = await loadSdk();
-  if (currentTheme) {
-    await setIntercomTheme(currentTheme).catch(() => {
-      console.warn('Failed to update Intercom theme');
-    });
-  }
   const instanceId = await getInstanceId();
   if (instanceId || params?.requestId) {
     await sdk.default.logEvent('client info', {

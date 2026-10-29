@@ -31,9 +31,10 @@ export function IntercomNotificationContainer() {
     if (!navigation) {
       return;
     }
-    const syncRoute = () => handleRouterChange(navigation.getRootState());
-    syncRoute();
-    return navigation.addListener('ready', syncRoute);
+    // useOnRouterChange syncs a ready container; this covers a later ready.
+    return navigation.addListener('ready', () =>
+      handleRouterChange(navigation.getRootState()),
+    );
   }, [handleRouterChange]);
 
   const visible = !isLocked && isRouteAllowed;

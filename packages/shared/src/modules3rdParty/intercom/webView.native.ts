@@ -8,10 +8,6 @@ import {
   getIntercomLanguageOverride,
 } from './utils';
 
-export const initIntercom = async () => {
-  console.log('initIntercom');
-};
-
 export const showIntercom = async (params?: IShowIntercomParams) => {
   const token = await getCustomerJWT();
   const instanceId = await getInstanceId();
@@ -28,10 +24,4 @@ export const showIntercom = async (params?: IShowIntercomParams) => {
   });
 
   openUrlUtils.openUrlInApp(url, 'Support');
-};
-
-// Empty update function for native compatibility
-// Native doesn't use the Intercom SDK, so this is a no-op
-export const update = () => {
-  // No-op for native
 };

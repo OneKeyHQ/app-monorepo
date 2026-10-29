@@ -1,7 +1,9 @@
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
 import { ENotificationCommand } from '@onekeyhq/shared/types/notification';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 
 type ICommandContext = {
@@ -15,13 +17,19 @@ type ICommandHandler = (params: {
 }) => void | Promise<void>;
 
 const notificationCommandRegistry: Record<string, ICommandHandler> = {
-  [ENotificationCommand.openSupportConversation]: async ({ data }) => {
-    const conversationId = data?.conversationId;
+  // The validated conversation id waits in bg until a foreground claims it.
+  [ENotificationCommand.openSupportConversation]: async () => {
+    // Extension notification clicks focus the expand tab, which owns unlock.
+    if (platformEnv.isExtension && !platformEnv.isExtensionUiExpandTab) {
+      return;
+    }
+    const pending =
+      await backgroundApiProxy.serviceNotification.takePendingSupportConversation();
+    if (!pending) {
+      return;
+    }
     await whenAppUnlocked();
-    await showIntercom({
-      conversationId:
-        typeof conversationId === 'string' ? conversationId : undefined,
-    });
+    await showIntercom({ conversationId: pending.conversationId });
   },
   [ENotificationCommand.openRewardDistributionHistoryModal]: ({ context }) => {
     // Payout history belongs to the invite tab, so open it under that tab

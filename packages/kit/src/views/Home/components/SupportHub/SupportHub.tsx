@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -69,17 +70,7 @@ function SupportHubItem({
         <Stack borderRadius="$full" p="$2" bg="$bgStrong" position="relative">
           <Icon name={icon} size="$6" />
           {showUnreadDot ? (
-            <Stack
-              testID="support-hub-unread-dot"
-              position="absolute"
-              top={0}
-              right={0}
-              width="$2"
-              height="$2"
-              borderRadius="$full"
-              bg="$bgCriticalStrong"
-              pointerEvents="none"
-            />
+            <SupportUnreadDot testID="support-hub-unread-dot" />
           ) : null}
         </Stack>
         <SizableText size="$bodyMdMedium">{title}</SizableText>

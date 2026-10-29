@@ -128,9 +128,10 @@ async function bootSession(
     activeUserId = undefined;
     activeGeneration = 0;
   }
-  const credentials = userId ? await getIntercomCredentials(userId) : undefined;
-  const languageOverride =
-    settings?.language_override || (await getIntercomLanguageOverride());
+  const [credentials, languageOverride] = await Promise.all([
+    userId ? getIntercomCredentials(userId) : undefined,
+    settings?.language_override || getIntercomLanguageOverride(),
+  ]);
   if (!(await isCurrentSession(userId, generation))) {
     return;
   }
@@ -233,9 +234,11 @@ const openIntercom = async (params?: IShowIntercomParams) => {
     trackEvent,
     update: updateIntercom,
   } = await loadIntercomSdk();
-  const instanceIdValue = await getInstanceId();
-  const languageOverride = await getIntercomLanguageOverride();
-  const credentials = userId ? await getIntercomCredentials(userId) : undefined;
+  const [instanceIdValue, languageOverride, credentials] = await Promise.all([
+    getInstanceId(),
+    getIntercomLanguageOverride(),
+    userId ? getIntercomCredentials(userId) : undefined,
+  ]);
 
   if (!(await isCurrentSession(userId, generation))) {
     throw new OneKeyLocalError('Intercom user changed; please try again');

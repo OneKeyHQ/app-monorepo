@@ -623,11 +623,9 @@ export const useIntercomInit = () => {
   const [{ onekeyUserId, isLoggedIn }] = usePrimePersistAtom();
 
   useEffect(() => {
-    if (platformEnv.isNativeMainThread) {
-      void setIntercomTheme(theme).catch(() => {
-        console.warn('Failed to update Intercom theme');
-      });
-    }
+    void setIntercomTheme(theme).catch(() => {
+      console.warn('Failed to update Intercom theme');
+    });
   }, [theme]);
 
   useEffect(() => {
@@ -652,6 +650,12 @@ export const useIntercomInit = () => {
     return () => clearTimeout(timer);
   }, [onekeyUserId, isLoggedIn]);
 };
+
+// Leaf component so prime-atom and theme updates skip the rest of Bootstrap.
+function IntercomSessionSync() {
+  useIntercomInit();
+  return null;
+}
 
 export const useLaunchEvents = (): void => {
   const intl = useIntl();
@@ -1166,7 +1170,6 @@ export function Bootstrap() {
   useDesktopEvents();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
-  useIntercomInit();
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
@@ -1178,6 +1181,7 @@ export function Bootstrap() {
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
       <PrivacyChainForeground />
+      <IntercomSessionSync />
       <SplitViewPrompt />
       {LazyExtensionMarketTokenDetailHashNavigation ? (
         <Suspense fallback={null}>

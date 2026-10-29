@@ -42,6 +42,7 @@ import GiftExpandOnLight from '@onekeyhq/kit/assets/animations/gift-expand-on-li
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
@@ -683,16 +684,10 @@ function MoreActionContentGridItem({
           ) : null}
         </YStack>
         {showUnreadDot ? (
-          <Stack
+          <SupportUnreadDot
             testID="more-action-support-unread-dot"
-            position="absolute"
             top={6}
             right={6}
-            width="$2"
-            height="$2"
-            borderRadius="$full"
-            bg="$bgCriticalStrong"
-            pointerEvents="none"
           />
         ) : null}
         {/* Only show Prime badge for non-Prime users */}

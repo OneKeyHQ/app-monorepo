@@ -49,6 +49,7 @@ import { useKeylessWallet } from '@onekeyhq/kit/src/components/KeylessWallet/use
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -744,17 +745,7 @@ function SupportButton({ text }: { text: string }) {
         hasUnreadSupportMessages ? (
           <Stack position="relative">
             {button}
-            <Stack
-              testID="settings-support-unread-dot"
-              position="absolute"
-              top={0}
-              right={0}
-              width="$2"
-              height="$2"
-              borderRadius="$full"
-              bg="$bgCriticalStrong"
-              pointerEvents="none"
-            />
+            <SupportUnreadDot testID="settings-support-unread-dot" />
           </Stack>
         ) : (
           button

@@ -432,6 +432,18 @@ describe.each(['ios', 'android'])('%s Intercom SDK integration', (platform) => {
     expect(mockNotifyOpenFailed).not.toHaveBeenCalled();
   });
 
+  it('applies the latest theme when the SDK initializes, not on each open', async () => {
+    await subject.setIntercomTheme('dark');
+    expect(mockSdk.initialize).not.toHaveBeenCalled();
+    await subject.showIntercom();
+    await subject.showIntercom();
+    expect(mockSdk.setThemeMode).toHaveBeenCalledTimes(1);
+    expect(mockSdk.setThemeMode).toHaveBeenCalledWith('DARK');
+
+    await subject.setIntercomTheme('light');
+    expect(mockSdk.setThemeMode).toHaveBeenLastCalledWith('LIGHT');
+  });
+
   it('registers SDK listeners before subscribing to unread changes', async () => {
     await subject.initIntercom();
     expect(mockSdk.bootstrapEventListeners).toHaveBeenCalledTimes(1);
