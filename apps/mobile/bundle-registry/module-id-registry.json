@@ -25794,6 +25794,7 @@
     "packages/kit/src/views/Prime/hooks/primeWebPurchaseLink.ts": 23081,
     "packages/kit/src/views/Prime/hooks/purchasesSdkLogout.native.ts": 19795,
     "packages/kit/src/views/Prime/hooks/requestPrimeRedemption.ts": 21001,
+    "packages/kit/src/views/Prime/hooks/retirePrimeWebCheckout.ts": 1692,
     "packages/kit/src/views/Prime/hooks/revenueCatNativeCompatibility.native.ts": 13906,
     "packages/kit/src/views/Prime/hooks/usePrimeAvailable.tsx": 984,
     "packages/kit/src/views/Prime/hooks/usePrimeFeatureAccess.tsx": 10064,
