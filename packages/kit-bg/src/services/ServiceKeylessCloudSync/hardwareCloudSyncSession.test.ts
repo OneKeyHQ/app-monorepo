@@ -5,6 +5,7 @@ import {
   assertHardwareCloudSyncAuthMessage,
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IHardwareCloudSyncSession } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
@@ -17,6 +18,7 @@ import {
   getHardwareCloudSyncDeviceKeyThumbprint,
   getHardwareCloudSyncDevicePublicJwk,
   reencryptHardwareCloudSyncItems,
+  requestHardwareCloudSyncChallenge,
   requestWithHardwareCloudSyncSession,
   rotateHardwareCloudSyncDataKey,
 } from './hardwareCloudSyncSession';
@@ -53,7 +55,125 @@ function session(): IHardwareCloudSyncSession {
 
 const ok = <T>(data: T) => ({ data: { code: 0, message: 'ok', data } });
 
+const MINUTE = 60 * 1000;
+
+// Server minus local clock: what the app estimates now, and what measuring
+// the server clock again finds.
+let estimatedClockOffsetMs = 0;
+let measuredClockOffsetMs = 0;
+let refreshServerTime: jest.SpyInstance;
+
+const proofIatMs = (config: { headers: Record<string, string> }) =>
+  (
+    JSON.parse(
+      Buffer.from(config.headers.DPoP.split('.')[1], 'base64url').toString(),
+    ) as { iat: number }
+  ).iat * 1000;
+
+const unauthorized = () =>
+  Object.assign(new Error('Unauthorized'), { response: { status: 401 } });
+
 describe('hardware Cloud sync session', () => {
+  beforeEach(() => {
+    estimatedClockOffsetMs = 0;
+    measuredClockOffsetMs = 0;
+    jest
+      .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+      .mockImplementation(() => Date.now() + estimatedClockOffsetMs);
+    jest
+      .spyOn(systemTimeUtils, 'ensureFreshServerTime')
+      .mockResolvedValue(true);
+    refreshServerTime = jest
+      .spyOn(systemTimeUtils, 'refreshServerTime')
+      .mockImplementation(async () => {
+        estimatedClockOffsetMs = measuredClockOffsetMs;
+        return true;
+      });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('server clock', () => {
+    test('DPoP proofs carry the server time when the local clock is off', async () => {
+      estimatedClockOffsetMs = -120 * MINUTE;
+      const { client, get } = fakeClient();
+      get.mockResolvedValue(ok({ lock: null }));
+      await requestWithHardwareCloudSyncSession({
+        client,
+        session: session(),
+        method: 'GET',
+        urlPath: '/prime/v1/sync/lock',
+      });
+      const iat = proofIatMs(get.mock.calls[0][1]);
+      expect(Math.abs(iat - (Date.now() - 120 * MINUTE))).toBeLessThan(5000);
+    });
+
+    test('a proof refused for a stale clock is resent once with a new proof', async () => {
+      // The estimate predates a sleep; the server is 10 minutes further on.
+      measuredClockOffsetMs = 10 * MINUTE;
+      const { client, post } = fakeClient();
+      post
+        .mockRejectedValueOnce(unauthorized())
+        .mockResolvedValueOnce(ok({ nonce: 3 }));
+      await expect(
+        requestWithHardwareCloudSyncSession({
+          client,
+          session: session(),
+          method: 'POST',
+          urlPath: '/prime/v1/sync/check',
+          data: {},
+        }),
+      ).resolves.toEqual({ nonce: 3 });
+      expect(post).toHaveBeenCalledTimes(2);
+      const [first, second] = post.mock.calls.map(
+        (call) => call[2] as { headers: Record<string, string> },
+      );
+      expect(proofIatMs(second) - proofIatMs(first)).toBeGreaterThan(
+        9 * MINUTE,
+      );
+      expect(second.headers.DPoP).not.toBe(first.headers.DPoP);
+    });
+
+    test('a refusal the clock does not explain is not resent', async () => {
+      const { client, post } = fakeClient();
+      post.mockRejectedValue(unauthorized());
+      await expect(
+        requestWithHardwareCloudSyncSession({
+          client,
+          session: session(),
+          method: 'POST',
+          urlPath: '/prime/v1/sync/check',
+          data: {},
+        }),
+      ).rejects.toMatchObject({ response: { status: 401 } });
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(refreshServerTime).toHaveBeenCalledTimes(1);
+    });
+
+    test('sign-in checks the challenge against a fresh server clock', async () => {
+      // The local clock runs 10 minutes ahead and nothing measured it yet.
+      measuredClockOffsetMs = -10 * MINUTE;
+      const jwk = createHardwareCloudSyncDeviceKey();
+      const expires = new Date(Date.now() - 10 * MINUTE + 2 * MINUTE);
+      const message = `OneKey Cloud Sync sign-in\nOnly confirm this inside the OneKey App.\nNonce: ${'ab'.repeat(
+        32,
+      )}\nDevice: ${getHardwareCloudSyncDeviceKeyThumbprint(jwk).slice(
+        0,
+        8,
+      )}\nExpires: ${expires.toISOString()}`;
+      const { client, post } = fakeClient();
+      post.mockResolvedValue(
+        ok({ challengeId: 'public-test-challenge', message }),
+      );
+      await expect(
+        requestHardwareCloudSyncChallenge({ client, jwk }),
+      ).resolves.toMatchObject({ challengeId: 'public-test-challenge' });
+      expect(refreshServerTime).toHaveBeenCalledTimes(1);
+    });
+  });
+
   test('DPoP proofs verify as ES256 and bind method, URL and token', async () => {
     const { client, get } = fakeClient();
     const s = session();

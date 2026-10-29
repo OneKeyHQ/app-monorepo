@@ -10,7 +10,9 @@ import {
   isHardwareCloudSyncKekSalt,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import type {
   IHardwareCloudSyncDeviceKeyJwk,
@@ -25,6 +27,9 @@ const AUTH_BASE = '/prime/v1/hw-sync/auth';
 const ENVELOPE_ITEM_ID = 'hardware-cloud-dek';
 // Refresh a little early so a request never races the expiry.
 const ACCESS_TOKEN_REFRESH_MARGIN_MS = 60 * 1000;
+// Half the 60 seconds the server allows a proof's time: a refused proof that
+// was this far off the re-measured server clock was refused for its time.
+const PROOF_CLOCK_RETRY_THRESHOLD_MS = 30 * 1000;
 
 type ITokenResponse = {
   accessToken: string;
@@ -81,16 +86,40 @@ export function getHardwareCloudSyncDevicePublicJwk(
   return { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y };
 }
 
+// The server checks proof and challenge times against its own clock, and many
+// devices run minutes or hours off it. Local clock until the server's is known.
+function getServerClockOffsetMs(): number {
+  const estimated = systemTimeUtils.getEstimatedServerTime();
+  return estimated === undefined ? 0 : estimated - Date.now();
+}
+
+async function measureServerClockOffsetMs({
+  force,
+}: { force?: boolean } = {}): Promise<number> {
+  try {
+    if (force) {
+      await systemTimeUtils.refreshServerTime();
+    } else {
+      await systemTimeUtils.ensureFreshServerTime();
+    }
+  } catch (error) {
+    errorUtils.autoPrintErrorIgnore(error);
+  }
+  return getServerClockOffsetMs();
+}
+
 function buildPossessionProof({
   jwk,
   htm,
   htu,
   accessToken,
+  now,
 }: {
   jwk: IHardwareCloudSyncDeviceKeyJwk;
   htm: string;
   htu: string;
   accessToken?: string;
+  now: number;
 }): string {
   const header = {
     typ: 'dpop+jwt',
@@ -100,7 +129,7 @@ function buildPossessionProof({
   const payload: Record<string, unknown> = {
     htm,
     htu,
-    iat: Math.floor(Date.now() / 1000),
+    iat: Math.floor(now / 1000),
     jti: randomHex(32),
   };
   if (accessToken) {
@@ -147,21 +176,38 @@ async function requestRaw<T>({
   jwk: IHardwareCloudSyncDeviceKeyJwk;
   accessToken?: string;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
-  const headers: Record<string, string> = {
-    DPoP: buildPossessionProof({
-      jwk,
-      htm: method,
-      htu: getHtu(client, urlPath),
-      accessToken,
-    }),
+  const send = (clockOffsetMs: number) => {
+    const headers: Record<string, string> = {
+      DPoP: buildPossessionProof({
+        jwk,
+        htm: method,
+        htu: getHtu(client, urlPath),
+        accessToken,
+        now: Date.now() + clockOffsetMs,
+      }),
+    };
+    if (accessToken) {
+      headers.Authorization = `DPoP ${accessToken}`;
+    }
+    const config: AxiosRequestConfig = { headers };
+    return method === 'GET'
+      ? client.get<IApiClientResponse<T>>(urlPath, config)
+      : client.post<IApiClientResponse<T>>(urlPath, data, config);
   };
-  if (accessToken) {
-    headers.Authorization = `DPoP ${accessToken}`;
+  const clockOffsetMs = await measureServerClockOffsetMs();
+  try {
+    return await send(clockOffsetMs);
+  } catch (error) {
+    // A proof with a stale time is refused like a bad token, for example when
+    // the estimate predates a sleep. Resend once only if the re-measured clock
+    // explains it; the new proof is not a replay of the refused one.
+    if (!isHardwareCloudSyncUnauthorizedError(error)) throw error;
+    const measured = await measureServerClockOffsetMs({ force: true });
+    if (Math.abs(measured - clockOffsetMs) < PROOF_CLOCK_RETRY_THRESHOLD_MS) {
+      throw error;
+    }
+    return send(measured);
   }
-  const config: AxiosRequestConfig = { headers };
-  return method === 'GET'
-    ? client.get<IApiClientResponse<T>>(urlPath, config)
-    : client.post<IApiClientResponse<T>>(urlPath, data, config);
 }
 
 function toSession(
@@ -186,6 +232,9 @@ export async function requestHardwareCloudSyncChallenge({
   client: AxiosInstance;
   jwk: IHardwareCloudSyncDeviceKeyJwk;
 }) {
+  // Measured fresh: the server may spend the challenge before it checks the
+  // sign-in proof, so a stale clock here would cost the user another signature.
+  const clockOffsetMs = await measureServerClockOffsetMs({ force: true });
   // The server recovers the identity key from the signature.
   const response = await client.post<
     IApiClientResponse<{ challengeId: string; message: string }>
@@ -193,7 +242,11 @@ export async function requestHardwareCloudSyncChallenge({
     deviceKeyJwk: getHardwareCloudSyncDevicePublicJwk(jwk),
   });
   const challenge = response.data.data;
-  assertHardwareCloudSyncChallengeFor({ message: challenge?.message, jwk });
+  assertHardwareCloudSyncChallengeFor({
+    message: challenge?.message,
+    jwk,
+    now: Date.now() + clockOffsetMs,
+  });
   return challenge;
 }
 
