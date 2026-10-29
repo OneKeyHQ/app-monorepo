@@ -30,7 +30,6 @@ import {
   useSafeAreaInsets,
   useTheme,
 } from '@onekeyhq/components';
-import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { useTradingViewNativeSubIndicatorCount } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
@@ -77,12 +76,11 @@ import {
 } from '../utils/mobileLayoutTrace';
 import {
   type IMobilePerpMarketTab,
+  getMobilePerpMarketChartHeight,
   getMobilePerpMarketPageScrollState,
   getMobilePerpMarketPagerHeight,
 } from '../utils/mobilePerpMarketScrollState';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
-
-const MOBILE_CHART_HEIGHT = 500;
 
 // Native sub-indicator panes extend the chart downward; the price pane keeps
 // its height.
@@ -91,10 +89,11 @@ function useMobilePerpChartLayout() {
   const subIndicatorCount = useTradingViewNativeSubIndicatorCount('perps');
   const growsWithSubIndicators = platformEnv.isNative && chartMode === 'native';
   return {
-    chartHeight: growsWithSubIndicators
-      ? MOBILE_CHART_HEIGHT +
-        subIndicatorCount * TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT
-      : MOBILE_CHART_HEIGHT,
+    chartHeight: getMobilePerpMarketChartHeight({
+      isNativeChart: chartMode === 'native',
+      isNative: Boolean(platformEnv.isNative),
+      subIndicatorCount,
+    }),
     growsWithSubIndicators,
   };
 }
