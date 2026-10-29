@@ -166,6 +166,11 @@ export function LightweightChart({
   } | null>(null);
   const pulseLastPointRef = useRef(pulseLastPoint);
   pulseLastPointRef.current = pulseLastPoint;
+  // The crosshair stops feeding the position while the pulse is off (a closed
+  // market), so drop it; a reopened pulse starts at the tail, not a stale point.
+  useEffect(() => {
+    if (!pulseLastPoint) setHoverPointPosition(null);
+  }, [pulseLastPoint]);
 
   const chartConfig = useChartConfig({
     data,
