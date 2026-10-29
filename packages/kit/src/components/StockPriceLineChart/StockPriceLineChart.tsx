@@ -12,6 +12,7 @@ import { numberFormatAsRaw } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
+import { downsampleChartLine } from '../LightweightChart/utils/downsampleChartLine';
 import {
   formatChartPrice,
   formatChartPriceFull,
@@ -54,6 +55,11 @@ const DIMMED_LINE_ALPHA_RATIO = 0.35;
 // lightweight-charts `LineStyle.Dashed`: reads as one continuous guide next to
 // the sparser large-dashed default.
 const CROSSHAIR_VERT_LINE_STYLE = 2;
+// Width, in px/pt, given to each drawn point. Denser data turns into short
+// jitter that no curve can smooth, so a chart keeps only as many evenly spaced
+// closes as fit: a phone's 1D falls to about 20-minute bars, while a chart
+// 1152px or wider keeps the full 5-minute series.
+const MIN_POINT_SPACING = 4;
 
 function fadeLineColor(color: string) {
   const parsed = colord(color);
@@ -104,7 +110,7 @@ export type IStockPriceLineChartHoverPoint = {
 };
 
 export function StockPriceLineChart({
-  data,
+  data: sourceData,
   height,
   pulseLastPoint,
   previousClose,
@@ -147,6 +153,19 @@ export function StockPriceLineChart({
   const { formatDate } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
+  // Everything drawn or scrubbed reads the thinned series, so the hover snaps
+  // only to points that sit on the line. Until the width is known, the full
+  // series is drawn.
+  const data = useMemo(
+    () =>
+      chartWidth > 0
+        ? downsampleChartLine(
+            sourceData,
+            Math.floor(chartWidth / MIN_POINT_SPACING),
+          )
+        : sourceData,
+    [sourceData, chartWidth],
+  );
   const priceFormatter = useCallback(
     (price: number) => {
       if (priceScaleFormat === 'full') return formatChartPriceFull(price);
@@ -415,6 +434,7 @@ export function StockPriceLineChart({
         crosshairVertLineColor={crosshairVertLineColor}
         crosshairVertLineStyle={CROSSHAIR_VERT_LINE_STYLE}
         seriesType="dotted-area"
+        lineType="curved"
         showPriceScale
         referenceLine={referenceLine}
         showLastValue={showCurrentPriceLabel}

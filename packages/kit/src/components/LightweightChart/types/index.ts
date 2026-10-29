@@ -9,7 +9,10 @@ import type {
 } from 'lightweight-charts';
 
 export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
-export type ILightweightChartLineType = 'simple' | 'steps';
+// `curved`: monotone cubic through every point, so the line never overshoots a
+// real high or low. Honored by the dotted-area series and its overlay line on
+// web and the native canvas; the Catalyst WebView draws it straight.
+export type ILightweightChartLineType = 'simple' | 'steps' | 'curved';
 export type ILightweightChartPriceScalePosition = 'left' | 'right';
 export type ILightweightChartSeriesType =
   | 'area'
