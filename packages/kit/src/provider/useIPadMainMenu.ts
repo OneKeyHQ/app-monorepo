@@ -16,6 +16,7 @@ import mainMenu from '@onekeyhq/shared/src/modules/MainMenu';
 import type { IMainMenuCommand } from '@onekeyhq/shared/src/modules/MainMenu';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
@@ -45,7 +46,26 @@ export const useIPadMainMenu = platformEnv.isNativeIOSPad
       const navigation = useAppNavigation();
       const onLock = useOnLock();
 
+      // Travel Mode hides About and the official channels, as Settings does;
+      // empty values remove those menu items.
+      const isTravelMode =
+        travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+        'travel-mode';
+
       useEffect(() => {
+        if (isTravelMode) {
+          mainMenu.setConfig({
+            aboutTitle: '',
+            preferencesTitle: intl.formatMessage({
+              id: ETranslations.menu_preferences,
+            }),
+            lockNowTitle: intl.formatMessage({
+              id: ETranslations.menu_lock_now,
+            }),
+            helpLinks: [],
+          });
+          return;
+        }
         mainMenu.setConfig({
           aboutTitle: intl.formatMessage({
             id: ETranslations.menu_about_onekey_wallet,
@@ -73,13 +93,14 @@ export const useIPadMainMenu = platformEnv.isNativeIOSPad
             { title: 'X', url: APP_MENU_X_URL },
           ],
         });
-      }, [intl]);
+      }, [intl, isTravelMode]);
 
       const handleCommandRef =
         useRef<(command: IMainMenuCommand) => void>(noop);
       handleCommandRef.current = (command) => {
         switch (command) {
           case 'about':
+            if (isTravelMode) break;
             showAboutDialog({
               intl,
               platformLabel: `iPadOS ${String(Platform.Version)}`,
