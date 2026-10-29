@@ -17,6 +17,7 @@ import { WebView } from 'react-native-webview';
 
 import { Stack } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WEB_EMBED_ANDROID_LOCAL_ORIGIN } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import GeckoView from '@onekeyhq/shared/src/modules3rdParty/geckoview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -36,6 +37,20 @@ import type {
 } from 'react-native-webview/lib/WebViewTypes';
 
 export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
+
+const WEB_EMBED_ANDROID_LOCAL_HOST = new URL(WEB_EMBED_ANDROID_LOCAL_ORIGIN)
+  .host;
+
+// Android web-embed origin serves privileged local files; only web-embed sets it via
+// `nativeWebviewSource`, never a `src` (dApp tab, external page).
+function isWebEmbedLocalOriginSrc(src: string | undefined): boolean {
+  if (!platformEnv.isNativeAndroid || !src) return false;
+  try {
+    return new URL(src).host.toLowerCase() === WEB_EMBED_ANDROID_LOCAL_HOST;
+  } catch {
+    return false;
+  }
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -63,10 +78,12 @@ const NativeWebView = forwardRef(
       useGeckoView,
       allowsBackForwardNavigationGestures = true,
       disableBridge,
+      recreateOnContentProcessTerminate,
       ...props
     }: INativeWebViewProps,
     ref,
   ) => {
+    const safeSrc = isWebEmbedLocalOriginSrc(src) ? 'about:blank' : src;
     const webviewRef = useRef<WebView>(undefined);
     const refreshControlRef = useMemo(() => createRef<RefreshControl>(), []);
     const [isRefresh] = useState(false);
@@ -304,6 +321,13 @@ const NativeWebView = forwardRef(
       [],
     );
 
+    // iOS can kill the WebContent process under memory pressure, leaving a dead WebView.
+    const handleContentProcessDidTerminate = useCallback(() => {
+      if (isUnmountingRef.current) return;
+      console.warn('WebView content process terminated, recreating WebView');
+      setWebViewKey((prev) => prev + 1);
+    }, []);
+
     const debuggingEnabled = useMemo(() => {
       if (__DEV__) {
         return true;
@@ -332,7 +356,7 @@ const NativeWebView = forwardRef(
             injectedJavaScriptBeforeContentLoaded={
               injectedJavaScriptBeforeContentLoaded || ''
             }
-            source={{ uri: src }}
+            source={{ uri: safeSrc }}
             onMessage={webviewOnMessage as any}
             onLoadingProgress={safeOnLoadProgress as any}
             onLoadingStart={webViewOnLoadStart}
@@ -362,7 +386,7 @@ const NativeWebView = forwardRef(
           allowsInlineMediaPlayback
           // disable video autoplay
           mediaPlaybackRequiresUserAction
-          source={{ uri: src }}
+          source={{ uri: safeSrc }}
           onMessage={webviewOnMessage}
           onLoadStart={webViewOnLoadStart}
           onLoad={safeOnLoad}
@@ -374,12 +398,19 @@ const NativeWebView = forwardRef(
           scrollEventThrottle={16}
           webviewDebuggingEnabled={debuggingEnabled}
           onRenderProcessGone={handleRenderProcessGone}
+          onContentProcessDidTerminate={
+            recreateOnContentProcessTerminate
+              ? handleContentProcessDidTerminate
+              : undefined
+          }
           {...props}
         />
       );
     }, [
       debuggingEnabled,
       handleRenderProcessGone,
+      handleContentProcessDidTerminate,
+      recreateOnContentProcessTerminate,
       injectedJavaScriptBeforeContentLoaded,
       safeOnLoad,
       safeOnLoadEnd,
@@ -391,7 +422,7 @@ const NativeWebView = forwardRef(
       pullToRefreshEnabled,
       renderError,
       renderLoading,
-      src,
+      safeSrc,
       useGeckoView,
       webViewKey,
       webViewOnLoadStart,
