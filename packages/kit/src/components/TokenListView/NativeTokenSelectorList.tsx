@@ -58,6 +58,7 @@ import { ListLoading } from '../Loading';
 import { formatNativeSelectorAmount } from './nativeSelectorFormat';
 import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import TokenActionsView from './TokenActionsView';
+import { getTokenRowIconSize } from './tokenListRowLayout';
 
 import type {
   DataRow,
@@ -384,7 +385,7 @@ export function NativeTokenSelectorList({
       }
     >();
     const targetCurrency = settings.currencyInfo?.id ?? '';
-    const iconSize = gtMd ? 32 : 40;
+    const iconSize = getTokenRowIconSize(gtMd);
     for (const item of rows) {
       if (isTokenSelectorSyntheticRow(item)) {
         switch (item.syntheticRowType) {
