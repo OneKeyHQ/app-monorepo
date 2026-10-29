@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import type { ITradingViewPerpsV2Props } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpMarketWorkspacePanel } from './MarketDetail/PerpMarketWorkspacePanel';
 import { PerpCandles } from './PerpCandles';
@@ -223,6 +224,28 @@ it.each([
     } finally {
       view.unmount();
       jest.useRealTimers();
+    }
+  },
+);
+
+it.each([false, true])(
+  'coordinates the native chart with page scrolling only on iOS (%s)',
+  (isNativeIOS) => {
+    const nativeIOSPlatform = jest.replaceProperty(
+      platformEnv,
+      'isNativeIOS',
+      isNativeIOS,
+    );
+    mockCustomSettings.chartMode = 'native';
+
+    try {
+      renderTradingViewCandles();
+
+      expect(mockNativeChart.mock.lastCall?.[0].prioritizePageScroll).toBe(
+        isNativeIOS,
+      );
+    } finally {
+      nativeIOSPlatform.restore();
     }
   },
 );

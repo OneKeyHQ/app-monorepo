@@ -219,6 +219,7 @@ function MobilePerpCandlesHeader({
   isInteractionOverlayOpen: boolean;
   onInteractionOverlayOpenChange: (isOpen: boolean) => void;
 }) {
+  const [{ chartMode }] = usePerpsCustomSettingsAtom();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const { chartHeight, growsWithSubIndicators } = useMobilePerpChartLayout();
   useEffect(
@@ -247,8 +248,9 @@ function MobilePerpCandlesHeader({
       <MobilePerpMarketHeader />
       <HeaderScrollGestureWrapper
         disabled={isInteractionOverlayOpen}
-        panActiveOffsetY={[-4, 4]}
-        panFailOffsetX={[-40, 40]}
+        panActiveOffsetY={chartMode === 'native' ? [-12, 12] : [-4, 4]}
+        panFailOffsetX={chartMode === 'native' ? [-12, 12] : [-40, 40]}
+        verticalPanMaxPointers={chartMode === 'native' ? 1 : undefined}
         excludeRightEdgeRatio={0.1}
         scrollScale={1.2}
         disableMomentum
