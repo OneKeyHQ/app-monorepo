@@ -124,6 +124,7 @@ const mockSupersedePaymentSession = jest.fn<
 let mockPendingChoice: 'replace' | 'resume' | 'cancel' = 'resume';
 const mockPurchasePackageWeb = jest.fn(async () => undefined);
 const mockGetHostedPendingSession = jest.fn<Promise<unknown>, []>();
+const mockClearHostedPendingSession = jest.fn<Promise<boolean>, [unknown]>();
 const mockGooglePlayIsAvailable = jest.fn(async () => false);
 const mockPlatformEnv = {
   isDev: false,
@@ -176,6 +177,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     simpleDb: {
       prime: {
         getWebCheckoutPendingSession: () => mockGetHostedPendingSession(),
+        clearWebCheckoutPendingSession: (params: unknown) =>
+          mockClearHostedPendingSession(params),
         supersedeInfiniPendingPaymentSession: (
           ...args: Parameters<typeof mockSupersedePaymentSession>
         ) => mockSupersedePaymentSession(...args),
@@ -400,6 +403,8 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     mockPlatformEnv.isMas = false;
     mockPackagesResult = undefined;
     mockCardCheckoutMode = 'embedded';
+    mockGetHostedPendingSession.mockResolvedValue(undefined);
+    mockClearHostedPendingSession.mockResolvedValue(true);
     mockGooglePlayIsAvailable.mockResolvedValue(false);
     mockPendingChoice = 'resume';
     mockGetPrimeInfiniPendingPaymentContext.mockResolvedValue({
@@ -1301,12 +1306,18 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       expect(mockPurchaseByHostedLink).not.toHaveBeenCalled();
     });
 
-    it('starts a new embedded payment without gating on the old hosted session', async () => {
+    it('retires the old hosted record before starting a new embedded payment', async () => {
       mockGetHostedPendingSession.mockResolvedValue({ checkoutId: 'previous' });
 
       await selectCard();
 
-      expect(mockGetHostedPendingSession).not.toHaveBeenCalled();
+      expect(mockClearHostedPendingSession).toHaveBeenCalledWith({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: 'previous',
+      });
+      expect(
+        mockClearHostedPendingSession.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockPurchasePackageWeb.mock.invocationCallOrder[0]);
       expect(mockPurchasePackageWeb).toHaveBeenCalledWith(
         expect.objectContaining({ subscriptionPeriod: 'P1M', currency: 'EUR' }),
       );
@@ -1318,8 +1329,21 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       await selectCard();
 
       expect(mockPurchasePackageWeb).toHaveBeenCalledTimes(2);
-      expect(mockGetHostedPendingSession).not.toHaveBeenCalled();
+      expect(mockGetHostedPendingSession).toHaveBeenCalledTimes(2);
       expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
+    });
+
+    it('does not start embedded or fallback when a newer hosted attempt wins retirement', async () => {
+      mockGetHostedPendingSession.mockResolvedValue({ checkoutId: 'previous' });
+      mockClearHostedPendingSession.mockResolvedValueOnce(false);
+      await selectCard();
+      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+      expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
+      expect(mockCardPaymentErrorToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Prime web checkout session changed',
+        }),
+      );
     });
   });
 });

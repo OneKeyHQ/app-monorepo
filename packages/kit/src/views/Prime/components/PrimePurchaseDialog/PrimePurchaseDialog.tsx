@@ -41,6 +41,7 @@ import {
   getPrimeInfiniPaymentEntryGuard,
   getPrimeInfiniPendingPaymentContext,
 } from '../../hooks/primeInfiniExternalCheckoutGuard';
+import { retirePrimeWebCheckout } from '../../hooks/retirePrimeWebCheckout';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { usePrimeWebCheckoutPurchase } from '../../hooks/usePrimeWebCheckoutPurchase';
@@ -313,6 +314,7 @@ export function usePrimePurchaseCallback({
         | undefined;
       try {
         const purchaseUserId = user?.onekeyUserId;
+        await retirePrimeWebCheckout(purchaseUserId);
         beginStripePaymentElementAttempt();
         let purchaseResult:
           | Awaited<ReturnType<NonNullable<typeof purchasePackageWeb>>>

@@ -94,35 +94,70 @@ async function handOffCardCheckoutToExpandTab({
   closeExtensionPopupAfterExpandTabOpen();
 }
 
-// Coalesce rapid starts in this UI runtime until the checkout is opened.
-// After that, a new explicit intent replaces the persisted pending attempt.
-const startingCheckouts = new Map<string | undefined, Promise<void>>();
+type IStartingCheckout = Pick<
+  IPrimeHostedCardCheckoutParams,
+  'selectedSubscriptionPeriod' | 'currency'
+> & {
+  paymentKey: ReturnType<typeof getPrimePaymentApiKey>;
+  promise: Promise<void>;
+};
+
+// Coalesce consecutive identical selections. Different selections start in
+// order, so a slower old start cannot overwrite the latest plan/environment.
+const startingCheckouts = new Map<string | undefined, IStartingCheckout>();
 
 export function startPrimeHostedCardCheckout(
   params: IPrimeHostedCardCheckoutParams,
 ): Promise<void> {
-  const pending = startingCheckouts.get(params.onekeyUserId);
-  if (pending) {
-    return pending;
-  }
-  const completion = openPrimeHostedCardCheckout(params).finally(() => {
-    startingCheckouts.delete(params.onekeyUserId);
+  const previous = startingCheckouts.get(params.onekeyUserId);
+  const paymentKey = getPrimePaymentApiKey({ apiKeyType: 'web' });
+  const completion = (async () => {
+    const { isSandboxKey } = await paymentKey;
+    if (
+      previous &&
+      previous.selectedSubscriptionPeriod ===
+        params.selectedSubscriptionPeriod &&
+      previous.currency === params.currency &&
+      (await previous.paymentKey.catch(() => undefined))?.isSandboxKey ===
+        isSandboxKey
+    ) {
+      await previous.promise;
+      return;
+    }
+    await previous?.promise;
+    await openPrimeHostedCardCheckout(params, isSandboxKey);
+  })()
+    .catch((error: unknown) => {
+      reportPrimeHostedCardCheckoutStartError({ ...params, error });
+    })
+    .finally(() => {
+      if (startingCheckouts.get(params.onekeyUserId)?.promise === completion) {
+        startingCheckouts.delete(params.onekeyUserId);
+      }
+    });
+  startingCheckouts.set(params.onekeyUserId, {
+    selectedSubscriptionPeriod: params.selectedSubscriptionPeriod,
+    currency: params.currency,
+    paymentKey,
+    promise: completion,
   });
-  startingCheckouts.set(params.onekeyUserId, completion);
   return completion;
 }
 
 // Opens the RevenueCat hosted card checkout (Web Purchase Link) and waits for
 // RevenueCat to confirm the purchase. Errors end in a toast, never a throw.
-async function openPrimeHostedCardCheckout({
-  intl,
-  onekeyUserId,
-  email,
-  selectedSubscriptionPeriod,
-  currency,
-  featureName,
-  fallbackFrom,
-}: IPrimeHostedCardCheckoutParams) {
+async function openPrimeHostedCardCheckout(
+  {
+    intl,
+    onekeyUserId,
+    email,
+    selectedSubscriptionPeriod,
+    currency,
+    featureName,
+    fallbackFrom,
+  }: IPrimeHostedCardCheckoutParams,
+  isSandboxKey: boolean,
+) {
   try {
     if (platformEnv.isExtensionUiPopup) {
       await handOffCardCheckoutToExpandTab({
@@ -155,10 +190,6 @@ async function openPrimeHostedCardCheckout({
     if (!onekeyUserId) {
       throw new OneKeyLocalError('User not logged in');
     }
-    const { isSandboxKey } = await getPrimePaymentApiKey({
-      apiKeyType: 'web',
-    });
-
     // Never open a second checkout for an active subscriber, e.g. a
     // purchase the server projection has not caught up with yet.
     const baselineEntitlement = await fetchPrimeWebCheckoutEntitlement({
@@ -246,25 +277,44 @@ async function openPrimeHostedCardCheckout({
       showPrimeWebCheckoutWaitingDialog({ session });
     }
   } catch (error) {
-    logPrimeWebCheckoutFlow({
-      stage: 'open',
-      status: 'failed',
-      subscriptionPeriod: selectedSubscriptionPeriod,
-      featureName,
-    });
-    primePaymentUtils.trackPrimeSubscriptionFailed({
+    reportPrimeHostedCardCheckoutStartError({
       error,
-      paymentMethod: 'stripe',
-      subscriptionPeriod: selectedSubscriptionPeriod,
+      intl,
+      selectedSubscriptionPeriod,
       featureName,
-      cardCheckoutFlow: 'hostedLink',
-    });
-    Toast.error({
-      title: intl.formatMessage({
-        id: ETranslations.prime_payment_start_failed__msg,
-      }),
     });
   }
+}
+
+function reportPrimeHostedCardCheckoutStartError({
+  error,
+  intl,
+  selectedSubscriptionPeriod,
+  featureName,
+}: Pick<
+  IPrimeHostedCardCheckoutParams,
+  'intl' | 'selectedSubscriptionPeriod' | 'featureName'
+> & {
+  error: unknown;
+}) {
+  logPrimeWebCheckoutFlow({
+    stage: 'open',
+    status: 'failed',
+    subscriptionPeriod: selectedSubscriptionPeriod,
+    featureName,
+  });
+  primePaymentUtils.trackPrimeSubscriptionFailed({
+    error,
+    paymentMethod: 'stripe',
+    subscriptionPeriod: selectedSubscriptionPeriod,
+    featureName,
+    cardCheckoutFlow: 'hostedLink',
+  });
+  Toast.error({
+    title: intl.formatMessage({
+      id: ETranslations.prime_payment_start_failed__msg,
+    }),
+  });
 }
 
 function confirmPrimeHostedCardCheckoutFallback(intl: IntlShape) {

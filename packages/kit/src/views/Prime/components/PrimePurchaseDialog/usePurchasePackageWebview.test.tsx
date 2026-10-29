@@ -9,6 +9,7 @@ import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 const mockPopStack = jest.fn();
 const mockOpenWebview = jest.fn<void, [unknown]>();
 const mockGetPendingSession = jest.fn(async () => ({ checkoutId: 'previous' }));
+const mockClearPendingSession = jest.fn<Promise<boolean>, [unknown]>();
 const mockGetApiKey = jest.fn(async () => ({
   apiKey: 'current-web-key',
   isSandboxKey: false,
@@ -35,8 +36,18 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    servicePrime: {
+      getLocalUserInfo: async () => ({
+        isLoggedIn: true,
+        onekeyUserId: 'user-1',
+      }),
+    },
     simpleDb: {
-      prime: { getWebCheckoutPendingSession: () => mockGetPendingSession() },
+      prime: {
+        getWebCheckoutPendingSession: () => mockGetPendingSession(),
+        clearWebCheckoutPendingSession: (params: unknown) =>
+          mockClearPendingSession(params),
+      },
     },
   },
 }));
@@ -45,7 +56,10 @@ jest.mock('../../hooks/getPrimePaymentApiKey', () => ({
 }));
 
 describe('Android card payment entry', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockClearPendingSession.mockResolvedValue(true);
+  });
 
   it('opens a fresh embedded payment with the current plan and environment on re-entry', async () => {
     const { result } = renderHook(() => usePurchasePackageWebview());
@@ -66,7 +80,13 @@ describe('Android card payment entry', () => {
       });
     });
 
-    expect(mockGetPendingSession).not.toHaveBeenCalled();
+    expect(mockClearPendingSession).toHaveBeenCalledWith({
+      onekeyUserId: 'user-1',
+      expectedCheckoutId: 'previous',
+    });
+    expect(mockClearPendingSession.mock.invocationCallOrder[0]).toBeLessThan(
+      mockOpenWebview.mock.invocationCallOrder[0],
+    );
     expect(mockPopStack).toHaveBeenCalledTimes(2);
     expect(mockOpenWebview).toHaveBeenCalledTimes(2);
     expect(mockOpenWebview).toHaveBeenNthCalledWith(
@@ -82,6 +102,16 @@ describe('Android card payment entry', () => {
         }),
       }),
     );
+  });
+
+  it('keeps a racing replacement and does not open the Android embedded page', async () => {
+    mockClearPendingSession.mockResolvedValueOnce(false);
+    const { result } = renderHook(() => usePurchasePackageWebview());
+    await expect(
+      result.current({ selectedSubscriptionPeriod: 'P1M' }),
+    ).rejects.toThrow('session changed');
+    expect(mockPopStack).not.toHaveBeenCalled();
+    expect(mockOpenWebview).not.toHaveBeenCalled();
   });
 
   it('does not open a payment without a selected plan', async () => {

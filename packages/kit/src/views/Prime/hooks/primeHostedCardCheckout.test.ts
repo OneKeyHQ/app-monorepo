@@ -8,6 +8,8 @@ import {
 } from './primeHostedCardCheckout';
 import { buildPrimeWebPurchaseLinkUrl } from './primeWebPurchaseLink';
 
+import type { IPrimeHostedCardCheckoutParams } from './primeHostedCardCheckout';
+import type { IPrimeWebPurchaseLinkPackage } from './primeWebPurchaseLink';
 import type { IntlShape } from 'react-intl';
 
 /*
@@ -45,12 +47,18 @@ const mockFetchEntitlement = jest.fn<
   Promise<{ isActive: boolean } | undefined>,
   [unknown]
 >();
-const mockResolvePackage = jest.fn(async () => ({
-  packageId: '$rc_annual',
-  offeringId: 'Sandbox_testing',
-  subscriptionPeriod: 'P1Y' as const,
-  amount: 99,
-  currency: 'USD',
+type IResolvePackageParams = {
+  subscriptionPeriod: 'P1Y' | 'P1M';
+  currency?: string;
+  isSandbox: boolean;
+};
+const mockResolvePackage = jest.fn<
+  Promise<IPrimeWebPurchaseLinkPackage>,
+  [IResolvePackageParams]
+>();
+const mockGetPaymentKey = jest.fn(async () => ({
+  apiKey: 'sandbox-key',
+  isSandboxKey: true,
 }));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -115,7 +123,7 @@ jest.mock('../primeSubscriptionPurchaseSuccess', () => ({
 }));
 
 jest.mock('./getPrimePaymentApiKey', () => ({
-  getPrimePaymentApiKey: async () => ({ isSandboxKey: true }),
+  getPrimePaymentApiKey: () => mockGetPaymentKey(),
 }));
 
 jest.mock('./primePaymentUtils', () => ({
@@ -134,7 +142,8 @@ jest.mock('./primeWebCheckout', () => ({
   logPrimeWebCheckoutSessionFlow: jest.fn(),
   openPrimeWebCheckoutPage: (session: unknown, options: unknown) =>
     mockOpenPage(session, options),
-  resolvePrimeWebCheckoutPackage: () => mockResolvePackage(),
+  resolvePrimeWebCheckoutPackage: (params: IResolvePackageParams) =>
+    mockResolvePackage(params),
 }));
 
 const intl = { formatMessage: jest.fn(() => '') } as unknown as IntlShape;
@@ -158,14 +167,46 @@ const previousSession: IPrimeWebCheckoutPendingSession = {
   startedAt: Date.now() - 60_000,
 };
 
-function startCheckout() {
+function startCheckout(
+  overrides: Partial<IPrimeHostedCardCheckoutParams> = {},
+) {
   return startPrimeHostedCardCheckout({
     intl,
     onekeyUserId: 'user-1',
     email: 'a@example.com',
     selectedSubscriptionPeriod: 'P1Y',
+    ...overrides,
   });
 }
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+const concurrentSelections: {
+  label: string;
+  next: Partial<IPrimeHostedCardCheckoutParams>;
+  initialSandbox: boolean;
+  sandbox: boolean;
+}[] = [
+  {
+    label: 'plan',
+    next: { selectedSubscriptionPeriod: 'P1M' },
+    initialSandbox: true,
+    sandbox: true,
+  },
+  {
+    label: 'currency',
+    next: { currency: 'EUR' },
+    initialSandbox: false,
+    sandbox: false,
+  },
+  { label: 'environment', next: {}, initialSandbox: true, sandbox: false },
+];
 
 describe('startPrimeHostedCardCheckout', () => {
   beforeEach(() => {
@@ -175,6 +216,19 @@ describe('startPrimeHostedCardCheckout', () => {
     mockAcquiredSessions.clear();
     mockIsUserCurrent.mockResolvedValue(true);
     mockFetchEntitlement.mockResolvedValue(undefined);
+    mockGetPaymentKey.mockResolvedValue({
+      apiKey: 'sandbox-key',
+      isSandboxKey: true,
+    });
+    mockResolvePackage.mockImplementation(
+      async ({ subscriptionPeriod, currency, isSandbox }) => ({
+        packageId: subscriptionPeriod === 'P1M' ? '$rc_monthly' : '$rc_annual',
+        offeringId: isSandbox ? 'Sandbox_testing' : 'Default_offering',
+        subscriptionPeriod,
+        amount: subscriptionPeriod === 'P1M' ? 12 : 99,
+        currency: currency ?? 'USD',
+      }),
+    );
     mockGetPendingSession.mockResolvedValue(undefined);
     mockAcquirePendingSession.mockImplementation(async ({ session }) => {
       const stored = await mockGetPendingSession({
@@ -288,6 +342,12 @@ describe('startPrimeHostedCardCheckout', () => {
     );
 
     const completion = startCheckout();
+    await new Promise<void>((resolve) => {
+      queueMicrotask(resolve);
+    });
+    await new Promise<void>((resolve) => {
+      queueMicrotask(resolve);
+    });
     expect(mockOpenExpandTab).toHaveBeenCalledTimes(1);
     expect(mockClosePopup).not.toHaveBeenCalled();
     openTab?.();
@@ -309,6 +369,101 @@ describe('startPrimeHostedCardCheckout', () => {
     expect(
       new Set(openedSessions.map(({ checkoutId }) => checkoutId)).size,
     ).toBe(1);
+  });
+
+  it.each(concurrentSelections)(
+    'preserves a different $label selected while the first checkout is still starting',
+    async ({ next, sandbox, initialSandbox }) => {
+      const blockedPackage = deferred<IPrimeWebPurchaseLinkPackage>();
+      const resolving = deferred<void>();
+      mockGetPaymentKey.mockResolvedValue({
+        apiKey: 'initial-key',
+        isSandboxKey: initialSandbox,
+      });
+      mockResolvePackage.mockImplementationOnce(async () => {
+        resolving.resolve();
+        return blockedPackage.promise;
+      });
+      const first = startCheckout();
+      await resolving.promise;
+      mockGetPaymentKey.mockResolvedValueOnce({
+        apiKey: sandbox ? 'sandbox-key' : 'production-key',
+        isSandboxKey: sandbox,
+      });
+      const second = startCheckout(next);
+      blockedPackage.resolve({
+        packageId: '$rc_annual',
+        offeringId: initialSandbox ? 'Sandbox_testing' : 'Default_offering',
+        subscriptionPeriod: 'P1Y',
+        amount: 99,
+        currency: 'USD',
+      });
+      await Promise.all([first, second]);
+
+      expect(mockAcquirePendingSession).toHaveBeenCalledTimes(2);
+      const latest = mockAcquiredSessions.get('user-1');
+      expect(latest).toMatchObject({
+        subscriptionPeriod: next.selectedSubscriptionPeriod ?? 'P1Y',
+        currency: next.currency ?? 'USD',
+        isSandbox: sandbox,
+      });
+      expect(mockOpenPage).toHaveBeenLastCalledWith(latest, expect.anything());
+    },
+  );
+
+  it('keeps invocation order when the later environment snapshot resolves first', async () => {
+    let release!: (value: { apiKey: string; isSandboxKey: boolean }) => void;
+    mockGetPaymentKey.mockReturnValueOnce(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    const first = startCheckout();
+    const second = startCheckout({ selectedSubscriptionPeriod: 'P1M' });
+    release({ apiKey: 'sandbox-key', isSandboxKey: true });
+    await Promise.all([first, second]);
+    expect(mockAcquirePendingSession).toHaveBeenCalledTimes(2);
+    expect(mockAcquiredSessions.get('user-1')?.subscriptionPeriod).toBe('P1M');
+  });
+
+  it('coalesces repeated presses of a new selection while an older selection finishes', async () => {
+    await Promise.all([
+      startCheckout(),
+      startCheckout({ selectedSubscriptionPeriod: 'P1M' }),
+      startCheckout({ selectedSubscriptionPeriod: 'P1M' }),
+    ]);
+    expect(mockAcquirePendingSession).toHaveBeenCalledTimes(2);
+    expect(mockAcquiredSessions.get('user-1')?.subscriptionPeriod).toBe('P1M');
+  });
+
+  it('keeps the new selection registered after the preceding start finishes', async () => {
+    const blockedPackage = deferred<IPrimeWebPurchaseLinkPackage>();
+    const resolving = deferred<void>();
+    mockResolvePackage.mockResolvedValueOnce({
+      packageId: '$rc_annual',
+      offeringId: 'Sandbox_testing',
+      subscriptionPeriod: 'P1Y',
+      amount: 99,
+      currency: 'USD',
+    });
+    mockResolvePackage.mockImplementationOnce(async () => {
+      resolving.resolve();
+      return blockedPackage.promise;
+    });
+    const first = startCheckout();
+    const second = startCheckout({ selectedSubscriptionPeriod: 'P1M' });
+    await first;
+    await resolving.promise;
+    const duplicate = startCheckout({ selectedSubscriptionPeriod: 'P1M' });
+    blockedPackage.resolve({
+      packageId: '$rc_monthly',
+      offeringId: 'Sandbox_testing',
+      subscriptionPeriod: 'P1M',
+      amount: 12,
+      currency: 'USD',
+    });
+    await Promise.all([second, duplicate]);
+    expect(mockAcquirePendingSession).toHaveBeenCalledTimes(2);
   });
 
   it('does not open another checkout for an active subscriber', async () => {
