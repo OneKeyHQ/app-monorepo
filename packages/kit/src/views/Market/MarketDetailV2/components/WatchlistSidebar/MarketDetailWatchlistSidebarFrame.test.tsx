@@ -1,17 +1,18 @@
 /** @jest-environment jsdom */
 
-import { useContext, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
-import { MarketDetailWatchlistSidebarContext } from './MarketDetailWatchlistSidebarContext';
-import { MarketDetailWatchlistSidebarFrame } from './MarketDetailWatchlistSidebarFrame';
-
+import type * as ContextModule from './MarketDetailWatchlistSidebarContext';
+import type * as FrameModule from './MarketDetailWatchlistSidebarFrame';
 import type { LayoutChangeEvent } from 'react-native';
 
 let mockIsFocused = true;
 let mockOnLayout: (event: LayoutChangeEvent) => void;
+let mockWatchList: { data: unknown[]; isMounted: boolean };
+let mockInitialPersist: { open?: boolean };
 
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => mockIsFocused,
@@ -39,16 +40,21 @@ jest.mock('@onekeyhq/components', () => {
   return { Stack, XStack: Stack };
 });
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
-  useMarketWatchListV2Atom: () => [{ data: [], isMounted: true }],
+  useMarketWatchListV2Atom: () => [mockWatchList],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useMarketDetailWatchlistSidebarPersistAtom: () =>
-    useState<{ open: boolean }>({ open: false }),
+    useState<{ open?: boolean }>(mockInitialPersist),
 }));
 jest.mock('./MarketDetailWatchlistSidebar', () => ({
   MARKET_DETAIL_WATCHLIST_SIDEBAR_WIDTH: 304,
   MarketDetailWatchlistSidebar: () => <div data-testid="sidebar" />,
 }));
+
+// The frame remembers the last mount's width and default in module scope, so
+// each test loads a fresh copy.
+let MarketDetailWatchlistSidebarContext: typeof ContextModule.MarketDetailWatchlistSidebarContext;
+let MarketDetailWatchlistSidebarFrame: typeof FrameModule.MarketDetailWatchlistSidebarFrame;
 
 function Toggle() {
   const sidebar = useContext(MarketDetailWatchlistSidebarContext);
@@ -81,6 +87,18 @@ function layout(width: number) {
 
 beforeEach(() => {
   mockIsFocused = true;
+  mockWatchList = { data: [], isMounted: true };
+  mockInitialPersist = { open: false };
+  jest.isolateModules(() => {
+    // Share the test's React so the fresh frame's hooks run in this renderer.
+    jest.doMock('react', () => React);
+    ({ MarketDetailWatchlistSidebarContext } = jest.requireActual<
+      typeof ContextModule
+    >('./MarketDetailWatchlistSidebarContext'));
+    ({ MarketDetailWatchlistSidebarFrame } = jest.requireActual<
+      typeof FrameModule
+    >('./MarketDetailWatchlistSidebarFrame'));
+  });
 });
 
 it('retains an open sidebar through hidden tab measurements without replaying entry', () => {
@@ -134,4 +152,46 @@ it('ignores zero widths and applies real modal-time resizes before refocusing', 
   expect(
     screen.getByTestId('market-detail-watchlist-sidebar-docked'),
   ).toBeTruthy();
+});
+
+describe('before the user picks a state', () => {
+  const DOCKED_TEST_ID = 'market-detail-watchlist-sidebar-docked';
+
+  beforeEach(() => {
+    mockInitialPersist = {};
+  });
+
+  function mountFrame() {
+    const result = render(<TestFrame />);
+    layout(1400);
+    return result;
+  }
+
+  it('re-reads the favorites on each mount', () => {
+    mountFrame().unmount();
+
+    // A first favorite added elsewhere opens the sidebar on the next visit.
+    mockWatchList = { data: [{}], isMounted: true };
+    const second = mountFrame();
+    expect(screen.getByTestId(DOCKED_TEST_ID)).toBeTruthy();
+
+    // Removing the last favorite keeps this mount's answer.
+    mockWatchList = { data: [], isMounted: true };
+    second.rerender(<TestFrame />);
+    expect(screen.getByTestId(DOCKED_TEST_ID)).toBeTruthy();
+    second.unmount();
+
+    // The next visit reads the empty watchlist again.
+    mountFrame();
+    expect(screen.queryByTestId(DOCKED_TEST_ID)).toBeNull();
+  });
+
+  it('keeps the last answer until the watchlist loads on a remount', () => {
+    mockWatchList = { data: [{}], isMounted: true };
+    mountFrame().unmount();
+
+    mockWatchList = { data: [], isMounted: false };
+    render(<TestFrame />);
+    expect(screen.getByTestId(DOCKED_TEST_ID)).toBeTruthy();
+  });
 });
