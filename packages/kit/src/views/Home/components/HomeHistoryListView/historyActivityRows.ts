@@ -11,11 +11,20 @@ import {
   getTxActionTransferInfo,
   groupTransfersByToken,
 } from '@onekeyhq/kit/src/components/TxAction/TxActionTransfer';
+import {
+  resolvePrivacyChainTargetDisplay,
+  toPrivacyChainLocalWalletDisplay,
+} from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
+import type { IPrivacyChainLocalWalletSettings } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  collectPrivacyChainOwnAddresses,
+  getPrivacyChainPublicDisplayAddress,
+} from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import {
   TX_RISKY_LEVEL_MALICIOUS,
@@ -75,6 +84,8 @@ export function formatHistoryNumber(
     };
   }
   if (!value || value === '-') return { text: '-' };
+  // Multi-asset summaries contain localized descriptions, not numeric values.
+  if (new BigNumber(value).isNaN()) return { text: value };
   const rendered = numberFormatAsRenderText(value, {
     formatter: options.balance ? 'balance' : 'value',
     formatterOptions: {
@@ -173,6 +184,7 @@ function buildHistoryActivityRowUnchecked({
   intl,
   tableLayout,
   isUTXO,
+  localWallet,
   hideValue,
   currency,
   isAllNetworks,
@@ -182,6 +194,7 @@ function buildHistoryActivityRowUnchecked({
   intl: IntlShape;
   tableLayout: boolean;
   isUTXO?: boolean;
+  localWallet?: IPrivacyChainLocalWalletSettings;
   hideValue: boolean;
   currency: string;
   isAllNetworks?: boolean;
@@ -201,6 +214,7 @@ function buildHistoryActivityRowUnchecked({
   const label = (id: ETranslations) => intl.formatMessage({ id });
   let title = '';
   let address = '';
+  let shieldedTargetLabel = '';
   let leading: LeadingVisual = { kind: 'icon', name: 'Document2Outline' };
   let amounts: IHistoryAmount[] = [];
   let secondaryLeading: LeadingVisual | undefined;
@@ -221,6 +235,29 @@ function buildHistoryActivityRowUnchecked({
     address = privateSend
       ? (decodedTx.payload?.privateSend?.originalRecipient ?? '')
       : info.transferTarget;
+    if (!privateSend && localWallet && info.transferTargetIsCount) {
+      address = '';
+      shieldedTargetLabel = info.transferTarget;
+    } else if (!privateSend && localWallet) {
+      const target = resolvePrivacyChainTargetDisplay({
+        intl,
+        localWallet: toPrivacyChainLocalWalletDisplay(localWallet),
+        address: info.transferTarget,
+        shielded: info.transferTargetShielded,
+        side: info.transferTargetSide,
+        ownAddresses: collectPrivacyChainOwnAddresses({
+          owner: decodedTx.owner,
+          transfer: action.assetTransfer,
+        }),
+      });
+      address = target?.address ?? '';
+      shieldedTargetLabel = target?.address ? '' : (target?.poolLabel ?? '');
+    } else if (localWallet) {
+      address = getPrivacyChainPublicDisplayAddress({
+        publicAddressPattern: localWallet.publicAddressPattern,
+        address,
+      });
+    }
     const bothDirections = sends.length > 0 && receives.length > 0;
     const sendOnly =
       privateSend ||
@@ -352,8 +389,14 @@ function buildHistoryActivityRowUnchecked({
       decodedTx.actions[0]?.assetTransfer?.isInternalStaking
     )
       icon = 'CoinsOutline';
+    // A local-wallet row's server label describes the wrong side; as in
+    // TxActionTransfer, it never overrides Send/Receive.
     if (privateSend) title = label(ETranslations.private_send_private_send);
-    else if (decodedTx.status !== EDecodedTxStatus.Pending && info.label)
+    else if (
+      decodedTx.status !== EDecodedTxStatus.Pending &&
+      info.label &&
+      !localWallet
+    )
       title = info.label;
     if (!info.label && decodedTx.actions[0]?.assetTransfer?.isInternalSwap)
       title = label(ETranslations.global_swap);
@@ -520,7 +563,8 @@ function buildHistoryActivityRowUnchecked({
       });
   }
   const time = decodedTx.updatedAt ?? decodedTx.createdAt;
-  const shortAddress = accountUtils.shortenAddress({ address });
+  const shortAddress =
+    accountUtils.shortenAddress({ address }) || shieldedTargetLabel;
   const description = [
     time && (tableLayout || !shortAddress)
       ? formatTime(new Date(time), {

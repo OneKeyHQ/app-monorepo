@@ -18,20 +18,18 @@ const PERPS_BANNER_ID = 'perps-trading-banner';
 export function PerpetualTradingBanner({
   pl,
   pr,
-  pb,
   px,
   py = '$3',
+  iconGap = '$2',
   stableLayout = false,
-  reserveSpace = false,
   disabled = false,
 }: {
   pl?: string;
   pr?: string;
-  pb?: string;
   px?: string;
   py?: string;
+  iconGap?: string;
   stableLayout?: boolean;
-  reserveSpace?: boolean;
   disabled?: boolean;
 }) {
   const intl = useIntl();
@@ -68,7 +66,7 @@ export function PerpetualTradingBanner({
   }, [hlTicker, navigateToPerps, perpDisabled, tokenDetail?.symbol]);
 
   const isVisible = Boolean(hlTicker) && (!stableLayout || initiallyVisible);
-  const shouldReserveSpace = reserveSpace || (stableLayout && initiallyVisible);
+  const shouldReserveSpace = stableLayout && initiallyVisible;
 
   if (
     disabled ||
@@ -93,7 +91,6 @@ export function PerpetualTradingBanner({
         ? {}
         : { 'aria-hidden': !isVisible, inert: !isVisible })}
       py={py}
-      pb={pb ?? py}
       pl={pl ?? px}
       pr={pr ?? px}
       alignItems="center"
@@ -103,7 +100,7 @@ export function PerpetualTradingBanner({
       pressStyle={{ opacity: 0.6 }}
       userSelect="none"
     >
-      <XStack alignItems="center" gap="$2" flex={1}>
+      <XStack alignItems="center" gap={iconGap} flex={1}>
         <Icon name="SpeakerPromoteOutline" size="$5" color="$iconSubdued" />
         <SizableText size="$bodyMd" flex={1} numberOfLines={1}>
           {title} →

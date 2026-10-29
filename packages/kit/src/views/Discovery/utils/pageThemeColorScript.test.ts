@@ -1,9 +1,9 @@
 /** @jest-environment jsdom */
-// Covers the injected page script's scroll throttle, which decides how often
-// the page is measured. Reads are counted through elementsFromPoint, which the
-// script calls exactly once per read; counting posted messages would miss reads
-// whose result is unchanged (the script drops duplicate reports).
+// Scroll reads only measure the bottom edge. The top tint remains locked;
+// counting hit-tests also covers reads whose reported color did not change.
 import { PAGE_THEME_COLOR_SCRIPT } from './pageThemeColor';
+
+const CALLS_PER_READ = 1;
 
 const SETTLE_MS = 150;
 const MAX_WAIT_MS = 1000;
@@ -69,12 +69,12 @@ describe('PAGE_THEME_COLOR_SCRIPT scroll throttle', () => {
     }
     advanceTo(start + MAX_WAIT_MS);
     scroll();
-    expect(elementsFromPoint).toHaveBeenCalledTimes(1);
+    expect(elementsFromPoint).toHaveBeenCalledTimes(CALLS_PER_READ);
 
     // That read ran before the page's own scroll handlers; the layout they
     // settle on still has to be read.
     advanceTo(start + MAX_WAIT_MS + SETTLE_MS + 10);
-    expect(elementsFromPoint).toHaveBeenCalledTimes(2);
+    expect(elementsFromPoint).toHaveBeenCalledTimes(2 * CALLS_PER_READ);
   });
 
   it('reads once a scroll settles, not during it', () => {
@@ -87,7 +87,7 @@ describe('PAGE_THEME_COLOR_SCRIPT scroll throttle', () => {
     }
     expect(elementsFromPoint).toHaveBeenCalledTimes(0);
     advanceTo(start + 500 + SETTLE_MS + 10);
-    expect(elementsFromPoint).toHaveBeenCalledTimes(1);
+    expect(elementsFromPoint).toHaveBeenCalledTimes(CALLS_PER_READ);
   });
 
   it('does not read on the first event of a later gesture', () => {
@@ -98,13 +98,13 @@ describe('PAGE_THEME_COLOR_SCRIPT scroll throttle', () => {
       scroll();
     }
     advanceTo(start + 200 + SETTLE_MS + 10);
-    expect(elementsFromPoint).toHaveBeenCalledTimes(1);
+    expect(elementsFromPoint).toHaveBeenCalledTimes(CALLS_PER_READ);
 
     // A second gesture more than one max wait later: the first burst's start
     // must have been cleared, so this event only schedules a read.
     advanceTo(start + 200 + SETTLE_MS + 10 + MAX_WAIT_MS + 100);
     scroll();
-    expect(elementsFromPoint).toHaveBeenCalledTimes(1);
+    expect(elementsFromPoint).toHaveBeenCalledTimes(CALLS_PER_READ);
   });
 
   it('keeps reading about once a second while a scroller never stops', () => {
@@ -114,13 +114,19 @@ describe('PAGE_THEME_COLOR_SCRIPT scroll throttle', () => {
       advanceTo(start + t);
       scroll();
     }
-    // One per max-wait window, where a plain debounce would never read.
-    expect(elementsFromPoint.mock.calls.length).toBeGreaterThanOrEqual(4);
-    expect(elementsFromPoint.mock.calls.length).toBeLessThanOrEqual(6);
+    // One read per max-wait window, where a plain debounce would never read.
+    expect(elementsFromPoint.mock.calls.length).toBeGreaterThanOrEqual(
+      4 * CALLS_PER_READ,
+    );
+    expect(elementsFromPoint.mock.calls.length).toBeLessThanOrEqual(
+      6 * CALLS_PER_READ,
+    );
 
     // The burst still ends with a trailing read once it stops.
     const duringBurst = elementsFromPoint.mock.calls.length;
     advanceTo(start + 5000 + SETTLE_MS + 10);
-    expect(elementsFromPoint).toHaveBeenCalledTimes(duringBurst + 1);
+    expect(elementsFromPoint).toHaveBeenCalledTimes(
+      duringBurst + CALLS_PER_READ,
+    );
   });
 });

@@ -182,6 +182,14 @@ export interface ITradingViewNativeSubIndicatorResolvedInstance {
   settings: ITradingViewNativeSubIndicatorResolvedSettings;
 }
 
+export interface ITradingViewNativeSubIndicatorCalculationOptions {
+  /**
+   * Read a zero volume as "not reported" instead of "nothing traded". Stock
+   * charts get zero volume for bars their feed has no volume for.
+   */
+  zeroVolumeIsMissing?: boolean;
+}
+
 export interface ITradingViewNativeSubIndicatorCalculation {
   indicator: ITradingViewNativeSubIndicator;
   inputValues: Record<string, ITradingViewNativeSubIndicatorInputValue>;

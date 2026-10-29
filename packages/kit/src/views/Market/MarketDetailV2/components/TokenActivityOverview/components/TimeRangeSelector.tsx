@@ -92,6 +92,7 @@ export function TimeRangeSelector({
               <SizableText
                 size={desktopRedesign ? '$bodyMd' : '$bodySm'}
                 color={isLoading ? '$textSubdued' : getPercentageColor(opt)}
+                numberOfLines={1}
               >
                 {isLoading ? '--' : opt.percentageChange}
               </SizableText>

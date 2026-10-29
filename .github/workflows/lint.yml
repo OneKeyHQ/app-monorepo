@@ -18,13 +18,21 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  packages: read
+
 env:
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
-  lint:
+  # tsc, the standard oxlint pass, and the type-aware oxlint pass each take
+  # minutes and the latter two need ~7-10 GB, so they run on separate 16 GB
+  # runners. This job covers the standard pass, oxfmt, and lightweight checks.
+  lint-checks:
+    name: lint checks (${{ matrix.node-version }})
     runs-on: ubuntu-24.04
-    # About eight minutes of checks plus six minutes for a cold install and margin.
+    # About three minutes of checks plus six minutes for a cold install and margin.
     timeout-minutes: 15
 
     strategy:
@@ -73,6 +81,8 @@ jobs:
       - name: Run lint
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
+          ONEKEY_OXLINT_PASS: standard
+          ONEKEY_LINT_SKIP_TSC: 'true'
         run: |
           mkdir -p ci-ai
           set +e
@@ -124,3 +134,193 @@ jobs:
       - name: Unmount dependency image
         if: always() && steps.dependencies.outcome != 'skipped'
         run: python3 .github/scripts/ci-dependencies.py cleanup
+
+  lint-tsc:
+    name: lint tsc (${{ matrix.node-version }})
+    runs-on: ubuntu-24.04
+    # Up to four minutes for a full recheck plus six minutes for a cold install and margin.
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
+          check-latest: true
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Write lint AI prompt
+        run: |
+          mkdir -p ci-ai
+          node .github/scripts/ciFailureIssue.js prompt lint > ci-ai/lint-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and lint-output.log." > ci-ai/lint-ai-prompt.md
+
+      - name: Install Dependency
+        id: dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        uses: ./.github/actions/install-dependencies
+
+      # development/lint/ts.js writes the tsgo incremental build info into the
+      # Yarn cache folder; restore the latest copy so tsc only rechecks changes.
+      - name: Locate TypeScript build info
+        id: tsc-cache
+        run: echo "path=$(yarn config get cacheFolder)/.app-mono-ts-cache" >> "$GITHUB_OUTPUT"
+
+      - name: Restore TypeScript build info
+        uses: actions/cache/restore@v4
+        continue-on-error: true
+        with:
+          path: ${{ steps.tsc-cache.outputs.path }}
+          key: tsc-buildinfo-${{ runner.os }}-${{ hashFiles('yarn.lock') }}-${{ github.sha }}
+          restore-keys: |
+            tsc-buildinfo-${{ runner.os }}-${{ hashFiles('yarn.lock') }}-
+            tsc-buildinfo-${{ runner.os }}-
+
+      - name: Run tsc
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          mkdir -p ci-ai
+          set +e
+          yarn _tsc 2>&1 | tee ci-ai/lint-output.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+
+      # Save even when tsc fails: tsc validates every file by content hash
+      # before reusing cached results, so partial build info stays valid.
+      - name: Save TypeScript build info
+        if: always() && steps.tsc-cache.outputs.path != ''
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: ${{ steps.tsc-cache.outputs.path }}
+          key: tsc-buildinfo-${{ runner.os }}-${{ hashFiles('yarn.lock') }}-${{ github.sha }}
+
+      - name: Upload lint AI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-ai-lint-tsc-diagnostics
+          path: |
+            ci-ai/lint-ai-prompt.md
+            ci-ai/lint-output.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Explain lint failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-lint-tsc-diagnostics\`"
+            echo "- Open: \`lint-output.log\` and \`lint-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-lint-tsc-diagnostics and inspect lint-output.log"
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
+
+  lint-type-aware:
+    name: lint type-aware (${{ matrix.node-version }})
+    runs-on: ubuntu-24.04
+    # About three minutes of type-aware lint plus six minutes for a cold install and margin.
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          package-manager-cache: false
+          check-latest: true
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Write lint AI prompt
+        run: |
+          mkdir -p ci-ai
+          node .github/scripts/ciFailureIssue.js prompt lint > ci-ai/lint-ai-prompt.md || \
+            echo "AI prompt generation failed; inspect the failed step log and lint-output.log." > ci-ai/lint-ai-prompt.md
+
+      - name: Install Dependency
+        id: dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        uses: ./.github/actions/install-dependencies
+
+      - name: Run type-aware lint
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+          ONEKEY_OXLINT_PASS: type-aware
+        run: |
+          mkdir -p ci-ai
+          set +e
+          node ./development/lint/eslint.js 2>&1 | tee ci-ai/lint-output.log
+          status=${PIPESTATUS[0]}
+          set -e
+          exit "$status"
+
+      - name: Upload lint AI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-ai-lint-type-aware-diagnostics
+          path: |
+            ci-ai/lint-ai-prompt.md
+            ci-ai/lint-output.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Explain lint failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo "### CI diagnostics"
+            echo "- Download artifact: \`ci-ai-lint-type-aware-diagnostics\`"
+            echo "- Open: \`lint-output.log\` and \`lint-ai-prompt.md\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=CI diagnostics::Download ci-ai-lint-type-aware-diagnostics and inspect lint-output.log"
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
+
+  # Keeps the required "lint (24.x)" check name stable for branch protection.
+  lint:
+    name: lint (24.x)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [lint-tsc, lint-checks, lint-type-aware]
+    if: always()
+    permissions: {}
+
+    steps:
+      - name: Check lint jobs
+        run: |
+          if [ "${{ needs.lint-tsc.result }}" != "success" ] || [ "${{ needs.lint-checks.result }}" != "success" ] || [ "${{ needs.lint-type-aware.result }}" != "success" ]; then
+            echo "::error::lint tsc: ${{ needs.lint-tsc.result }}, lint checks: ${{ needs.lint-checks.result }}, lint type-aware: ${{ needs.lint-type-aware.result }}"
+            exit 1
+          fi

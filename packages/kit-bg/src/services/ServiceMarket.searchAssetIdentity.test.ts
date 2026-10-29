@@ -1,5 +1,9 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
+import type {
+  IMarketAssetDetailData,
+  IMarketAssetListItem,
+  IMarketSearchV2Token,
+} from '@onekeyhq/shared/types/market';
 
 import ServiceMarket from './ServiceMarket';
 
@@ -33,13 +37,111 @@ const token: IMarketSearchV2Token = {
   volume_24h: '0',
 };
 
+const bitcoin: IMarketSearchV2Token = {
+  ...token,
+  name: 'Bitcoin',
+  symbol: 'BTC',
+  network: 'btc--0',
+  address: 'native',
+  decimals: 8,
+};
+const bitcoinAsset: IMarketAssetListItem = {
+  assetId: 'bitcoin',
+  symbol: 'BTC',
+  logoUrl: '',
+  price: '100000',
+  priceChange24hPercent: '1',
+  priceChange7dPercent: '2',
+  marketCap: '2000000',
+  volume24h: '1000000',
+  sparkline24h: [],
+};
+const bitcoinDetail: IMarketAssetDetailData = {
+  asset: { assetId: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', logoUrl: '' },
+  selectedVariant: {
+    variantId: 'bitcoin-btc--0-native',
+    networkId: 'btc--0',
+    tokenAddress: '',
+    networkName: 'Bitcoin',
+    networkSymbol: 'BTC',
+    networkLogoUrl: '',
+    isNative: true,
+    isDefault: true,
+  },
+  variants: [],
+  about: '',
+  market: {
+    price: '100000',
+    priceChange24h: '1000',
+    priceChange24hPercent: '1',
+    marketCap: '2000000',
+    marketCapRank: 1,
+    volume24h: '1000000',
+    circulatingSupply: '20',
+    fdv: '2100000',
+    totalSupply: '21',
+    maxSupply: '21',
+  },
+  performance: {
+    priceChange7dPercent: '2',
+    price7dAgo: '98000',
+    priceChange30dPercent: '3',
+    price30dAgo: '97000',
+    priceChange3mPercent: '4',
+    price3mAgo: '96000',
+    priceChange1yPercent: '5',
+    price1yAgo: '95000',
+    allTimeHighChangePercent: '-10',
+    allTimeHighPrice: '110000',
+  },
+};
+
+beforeEach(() => {
+  mockGet.mockReset();
+});
+
+function createService(tokens: IMarketSearchV2Token[] = [bitcoin]) {
+  const service = new ServiceMarket({ backgroundApi: {} });
+  mockGet.mockResolvedValue({ data: { data: tokens } });
+  const list = jest
+    .spyOn(service, 'fetchMarketAssetList')
+    .mockResolvedValue({ list: [bitcoinAsset], total: 1 });
+  const detail = jest
+    .spyOn(service, 'fetchMarketAssetDetail')
+    .mockResolvedValue(bitcoinDetail);
+  return { service, list, detail };
+}
+
 it.each(['search', 'trending'] as const)(
-  '%s preserves backend asset identities without inferring missing ones',
+  '%s shares the Top Coins favorite identity for native BTC without an assetId',
   async (entry) => {
-    const service = new ServiceMarket({ backgroundApi: {} });
+    const { service } = createService();
+    const result =
+      entry === 'search'
+        ? await service.searchV2Token('BTC')
+        : await service.fetchTrendingV2();
+    expect(result).toEqual([{ ...bitcoin, assetId: 'bitcoin' }]);
+    expect(
+      getMarketWatchlistKey({
+        assetId: result[0].assetId,
+        chainId: result[0].network,
+        contractAddress: result[0].address,
+      }),
+    ).toBe(
+      getMarketWatchlistKey({
+        assetId: bitcoinAsset.assetId,
+        chainId: '',
+        contractAddress: '',
+      }),
+    );
+  },
+);
+
+it.each(['search', 'trending'] as const)(
+  '%s preserves backend asset identities and unrelated tokens',
+  async (entry) => {
     const tokens = [
       { ...token, assetId: 'eth' },
-      { ...token, network: 'evm--8453' },
       {
         ...token,
         symbol: 'USDC',
@@ -47,25 +149,139 @@ it.each(['search', 'trending'] as const)(
         isNative: false,
         assetId: 'usdc',
       },
+      { ...bitcoin, isNative: false, address: '0xbtc' },
+      { ...bitcoin, stockId: 'BTC' },
     ];
-    mockGet.mockReset();
-    mockGet.mockImplementation(async (path: string) => {
-      if (path !== `/utility/v2/market/${entry}`)
-        throw new OneKeyLocalError('asset metadata unavailable');
-      return { data: { data: tokens } };
-    });
-    const assetList = jest
-      .spyOn(service, 'fetchMarketAssetList')
-      .mockRejectedValue(new Error('offline'));
-    const assetDetail = jest
-      .spyOn(service, 'fetchMarketAssetDetail')
-      .mockRejectedValue(new Error('offline'));
+    const { service, list, detail } = createService(tokens);
     const result =
       entry === 'search'
         ? await service.searchV2Token('ETH')
         : await service.fetchTrendingV2();
     expect(result).toEqual(tokens);
-    expect(assetList).not.toHaveBeenCalled();
-    expect(assetDetail).not.toHaveBeenCalled();
+    expect(list).not.toHaveBeenCalled();
+    expect(detail).not.toHaveBeenCalled();
   },
 );
+
+it('does not assign an asset identity to a same-symbol native coin on another network', async () => {
+  const tokens = [{ ...bitcoin, network: 'btc--1' }];
+  const { service } = createService(tokens);
+  expect(await service.searchV2Token('BTC')).toEqual(tokens);
+});
+
+it('keeps search available and retries a failed metadata lookup', async () => {
+  const { service, list } = createService();
+  list.mockRejectedValueOnce(new Error('offline'));
+  expect(await service.searchV2Token('BTC')).toEqual([bitcoin]);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(await service.searchV2Token('BTC')).toEqual([
+    { ...bitcoin, assetId: 'bitcoin' },
+  ]);
+});
+
+it('continues after a failed same-symbol candidate and shares cached metadata across searches', async () => {
+  const { service, list, detail } = createService();
+  list.mockResolvedValue({
+    list: [{ ...bitcoinAsset, assetId: 'unavailable-btc' }, bitcoinAsset],
+    total: 2,
+  });
+  detail.mockRejectedValueOnce(new Error('candidate unavailable'));
+  expect(await service.searchV2Token('BTC')).toEqual([
+    { ...bitcoin, assetId: 'bitcoin' },
+  ]);
+  expect(await service.fetchTrendingV2()).toEqual([
+    { ...bitcoin, assetId: 'bitcoin' },
+  ]);
+  expect(list).toHaveBeenCalledTimes(1);
+  expect(detail).toHaveBeenCalledTimes(2);
+});
+
+it.each(['resolve', 'reject'] as const)(
+  'bounds metadata waiting and handles a late %s without losing later lookups',
+  async (settlement) => {
+    jest.useFakeTimers();
+    try {
+      const { service, detail } = createService();
+      let completeDetail: ((value: IMarketAssetDetailData) => void) | undefined;
+      let failDetail: ((error: Error) => void) | undefined;
+      detail.mockReturnValueOnce(
+        new Promise((resolve, reject) => {
+          completeDetail = resolve;
+          failDetail = reject;
+        }),
+      );
+      const search = service.searchV2Token('BTC');
+      await jest.advanceTimersByTimeAsync(2000);
+      expect(await search).toEqual([bitcoin]);
+      if (settlement === 'resolve') completeDetail?.(bitcoinDetail);
+      else failDetail?.(new Error('late metadata failure'));
+      await jest.advanceTimersByTimeAsync(1);
+      expect(await service.searchV2Token('BTC')).toEqual([
+        { ...bitcoin, assetId: 'bitcoin' },
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  },
+);
+
+it('skips a stalled candidate and resolves a later matching native asset', async () => {
+  jest.useFakeTimers();
+  try {
+    const { service, list, detail } = createService();
+    list.mockResolvedValue({
+      list: [{ ...bitcoinAsset, assetId: 'stalled-btc' }, bitcoinAsset],
+      total: 2,
+    });
+    detail.mockImplementation(async ({ assetId }) =>
+      assetId === 'stalled-btc'
+        ? new Promise<IMarketAssetDetailData>(() => undefined)
+        : bitcoinDetail,
+    );
+    const search = service.searchV2Token('BTC');
+    await jest.advanceTimersByTimeAsync(500);
+    expect(await Promise.race([search, Promise.resolve(undefined)])).toEqual([
+      { ...bitcoin, assetId: 'bitcoin' },
+    ]);
+    expect(await service.searchV2Token('BTC')).toEqual([
+      { ...bitcoin, assetId: 'bitcoin' },
+    ]);
+    await jest.advanceTimersByTimeAsync(1500);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('retains the native favorite identity when detail arrives after one second', async () => {
+  jest.useFakeTimers();
+  try {
+    const { service, detail } = createService();
+    detail.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve(bitcoinDetail), 1500);
+        }),
+    );
+    const search = service.searchV2Token('BTC');
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(await search).toEqual([{ ...bitcoin, assetId: 'bitcoin' }]);
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it('retries a stalled asset list instead of retaining its pending lookup', async () => {
+  jest.useFakeTimers();
+  try {
+    const { service, list } = createService();
+    list.mockReturnValueOnce(new Promise(() => undefined));
+    const search = service.searchV2Token('BTC');
+    await jest.advanceTimersByTimeAsync(2001);
+    expect(await search).toEqual([bitcoin]);
+    expect(await service.searchV2Token('BTC')).toEqual([
+      { ...bitcoin, assetId: 'bitcoin' },
+    ]);
+  } finally {
+    jest.useRealTimers();
+  }
+});
