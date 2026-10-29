@@ -201,8 +201,7 @@ export const SuppliedCard = ({
           <AssetWithAmountField
             token={item.token}
             amountLabel={{ text: labels.suppliedWithColon }}
-            amount={item.suppliedAmount.title}
-            amountDescription={item.suppliedAmount.description}
+            balance={item.suppliedAmount}
             platformBonusApy={item.platformBonusApy}
           />
         ),
@@ -254,10 +253,7 @@ export const SuppliedCard = ({
         align: 'flex-end' as const,
         key: 'supplied',
         render: (item: ISuppliedAssetRow) => (
-          <AmountField
-            title={item.suppliedAmount.title}
-            description={item.suppliedAmount.description}
-          />
+          <AmountField balance={item.suppliedAmount} />
         ),
         flex: 1,
         minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
