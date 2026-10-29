@@ -372,6 +372,184 @@ describe('useWebViewTranslate free-trial stop', () => {
     expect(mockApiTranslate).not.toHaveBeenCalled();
   });
 
+  it.each(
+    [false, true].flatMap((desktop) =>
+      (['restore-pending', 'restore-confirmed', 'unmount'] as const).map(
+        (end) => ({ desktop, end }),
+      ),
+    ),
+  )(
+    'records pre-API recipient-check cancellation once: %j',
+    async ({ desktop, end }) => {
+      mockedPlatformEnv.isNative = !desktop;
+      mockedPlatformEnv.isDesktop = desktop;
+      try {
+        const { sessionId, result, unmount } = await startSession(jest.fn(), {
+          entitlementSource: 'freeTrial',
+        });
+        if (end !== 'restore-confirmed')
+          mockInjectJavaScript.mockImplementationOnce(() => undefined);
+        await act(async () => {
+          const sendRequest = desktop ? desktopRequest : request;
+          sendRequest(sessionId, 'first', ['private text']);
+          sendRequest(sessionId, 'sibling', ['more private text']);
+          // Even a positive probe must not start the API after restore wins.
+          if (end === 'unmount') unmount();
+          else result.current.restoreOriginal();
+          await flush();
+          jest.advanceTimersByTime(3000);
+          await flush();
+        });
+        expect(mockApiTranslate).not.toHaveBeenCalled();
+        expect(mockTrialResult).toHaveBeenCalledTimes(1);
+        expect(mockTrialResult).toHaveBeenCalledWith(
+          expect.objectContaining({
+            attemptId: sessionId,
+            result: 'cancelled',
+            source: 'client',
+          }),
+        );
+        expect(mockFreeTrialUsageSuccess).not.toHaveBeenCalled();
+        expect(responses()).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: 'first', abort: true }),
+            expect.objectContaining({ id: 'sibling', abort: true }),
+          ]),
+        );
+      } finally {
+        mockedPlatformEnv.isNative = true;
+        mockedPlatformEnv.isDesktop = false;
+      }
+    },
+  );
+
+  it.each(
+    (['timeout', 'missing-document'] as const).flatMap((reason) =>
+      [false, true].map((restore) => ({ reason, restore })),
+    ),
+  )(
+    'keeps recipient-check failures distinct from cancellation: %j',
+    async ({ reason, restore }) => {
+      const { sessionId, result } = await startSession(jest.fn(), {
+        entitlementSource: 'freeTrial',
+      });
+      if (reason === 'timeout')
+        mockInjectJavaScript.mockImplementationOnce(() => undefined);
+      else mockDocumentHasTranslator = false;
+      await act(async () => {
+        request(sessionId, 'unavailable', ['private text']);
+        if (reason === 'timeout') jest.advanceTimersByTime(3000);
+        // The negative reply/timeout won. A subsequent restore before the
+        // awaiting continuation resumes must not relabel it as cancellation.
+        if (restore) result.current.restoreOriginal();
+        await flush();
+      });
+      expect(mockApiTranslate).not.toHaveBeenCalled();
+      expect(mockTrialResult).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({ attemptId: sessionId, result: 'failed' }),
+      );
+      expect(mockFreeTrialUsageSuccess).not.toHaveBeenCalled();
+      expect(responses()).toContainEqual(
+        expect.objectContaining({ id: 'unavailable', abort: true }),
+      );
+    },
+  );
+
+  it.each(['response', 'retry-check'] as const)(
+    'keeps a real API failure when restoring during %s',
+    async (phase) => {
+      const error = new OneKeyLocalError('network failed');
+      const pending = deferred<unknown>();
+      mockApiTranslate.mockReturnValueOnce(pending.promise);
+      const { sessionId, result } = await startSession(jest.fn(), {
+        entitlementSource: 'freeTrial',
+      });
+      await act(async () => {
+        request(sessionId, 'failed', ['private text']);
+        await flush();
+      });
+      expect(mockApiTranslate).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        if (phase === 'response') result.current.restoreOriginal();
+        pending.reject(error);
+        await flush();
+        if (phase === 'retry-check')
+          mockInjectJavaScript.mockImplementationOnce(() => undefined);
+        jest.advanceTimersByTime(500);
+        await flush();
+        if (phase === 'retry-check') result.current.restoreOriginal();
+        await flush();
+      });
+      expect(mockApiTranslate).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({ attemptId: sessionId, result: 'failed' }),
+      );
+    },
+  );
+
+  it('waits for a billed sibling when restoring a pending recipient check', async () => {
+    const billed = deferred<unknown>();
+    mockApiTranslate.mockReturnValueOnce(billed.promise);
+    const { sessionId, result } = await startSession(jest.fn(), {
+      entitlementSource: 'freeTrial',
+    });
+    mockInjectJavaScript.mockImplementationOnce(() => undefined);
+    await act(async () => {
+      request(sessionId, 'check', ['not sent']);
+      request(sessionId, 'billed', ['sent']);
+      await flush();
+      result.current.restoreOriginal();
+      await flush();
+    });
+    expect(mockApiTranslate).toHaveBeenCalledTimes(1);
+    expect(mockTrialResult).not.toHaveBeenCalled();
+    await act(async () => {
+      billed.resolve({ translations: ['translated'], hasBilledBatch: true });
+      await flush();
+    });
+    expect(mockTrialResult).toHaveBeenCalledTimes(1);
+    expect(mockTrialResult).toHaveBeenCalledWith(
+      expect.objectContaining({ attemptId: sessionId, result: 'success' }),
+    );
+    expect(responses()).toContainEqual(
+      expect.objectContaining({ id: 'billed', translations: ['translated'] }),
+    );
+  });
+
+  it('keeps cancellation attached to the old attempt when translation restarts', async () => {
+    const { sessionId, result } = await startSession(jest.fn(), {
+      entitlementSource: 'freeTrial',
+    });
+    mockInjectJavaScript.mockImplementationOnce(() => undefined);
+    await act(async () => {
+      request(sessionId, 'old', ['private text']);
+      result.current.startTranslate('zh');
+      jest.advanceTimersByTime(100);
+      await flush();
+    });
+    const nextSessionId = startedSessionIds()[1];
+    mockApiTranslate.mockResolvedValueOnce({
+      translations: ['translated'],
+      hasBilledBatch: true,
+    });
+    await act(async () => {
+      request(nextSessionId, 'new', ['new text']);
+      await flush();
+    });
+    expect(mockApiTranslate).toHaveBeenCalledTimes(1);
+    expect(mockTrialResult.mock.calls).toEqual([
+      [expect.objectContaining({ attemptId: sessionId, result: 'cancelled' })],
+      [
+        expect.objectContaining({
+          attemptId: nextSessionId,
+          result: 'success',
+        }),
+      ],
+    ]);
+  });
+
   it('corrects an earlier failed request group when the streaming session later delivers billed translations', async () => {
     mockApiTranslate
       .mockResolvedValueOnce({
