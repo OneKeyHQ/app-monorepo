@@ -1234,6 +1234,18 @@ class ServicePrime extends ServiceBase {
         }
       }),
     );
+    if (
+      settledResults.some(
+        (result) =>
+          result.status === 'rejected' && isPrimeUserBannedError(result.reason),
+      )
+    ) {
+      // The active UI session owns this feedback. Concurrent batches and
+      // stale sessions must not produce automatic background-call toasts.
+      const error = new OneKeyErrorPrimeUserBanned();
+      error.autoToast = false;
+      throw error;
+    }
     const rejected = settledResults.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );

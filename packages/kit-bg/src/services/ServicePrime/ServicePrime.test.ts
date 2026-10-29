@@ -8336,6 +8336,32 @@ describe('ServicePrime.apiTranslate free-trial batches', () => {
     });
   });
 
+  it.each(['typed', 'serialized'] as const)(
+    'surfaces a %s ban without automatic per-request toasts',
+    async (kind) => {
+      const { service, post } = createTranslateService(() => ({ code: 0 }));
+      post.mockRejectedValue(
+        kind === 'typed'
+          ? new OneKeyErrorPrimeUserBanned()
+          : { code: '90012', autoToast: true },
+      );
+      await expect(translate(service)).rejects.toMatchObject({
+        code: 90_012,
+        autoToast: false,
+      });
+    },
+  );
+
+  it('prioritizes a concurrent ban over AI-unavailable fallback', async () => {
+    const { service } = createTranslateService((batch) => ({
+      code: batch[0] === 'a1' ? 90_104 : 90_012,
+    }));
+    await expect(translate(service)).rejects.toMatchObject({
+      code: 90_012,
+      autoToast: false,
+    });
+  });
+
   it('keeps the billed batches when another batch is exhausted', async () => {
     const { service, backgroundApi, post } = createTranslateService((batch) =>
       batch[0] === 'b1'

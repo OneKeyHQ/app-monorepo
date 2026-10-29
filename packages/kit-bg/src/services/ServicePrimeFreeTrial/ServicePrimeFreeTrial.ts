@@ -1485,6 +1485,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
         }
         if (
           isUserChangedError(error) ||
+          isPrimeUserBannedError(error) ||
           error instanceof OneKeyErrorPrimeLoginInvalidToken ||
           error instanceof OneKeyErrorPrimeLoginExceedDeviceLimit
         ) {
@@ -1497,6 +1498,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
             (current) =>
               current ? { ...current, nextReportAt: undefined } : current,
           );
+          // Cancel any older backoff timer as well; the durable result is
+          // retried when the owner's usable session is restored.
+          if (isPrimeUserBannedError(error)) this.scheduleReportRetry();
           return;
         }
         this.trace({
@@ -1592,7 +1596,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
         clearTimeout(this.reportRetryTimer);
         this.reportRetryTimer = undefined;
       }
-      if (!nextAt || !user.isLoggedIn) {
+      if (!nextAt || !user.isLoggedIn || user.isOneKeyIdBanned) {
         return;
       }
       const delay = nextAt - Date.now();

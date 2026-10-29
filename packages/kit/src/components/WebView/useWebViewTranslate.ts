@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
@@ -55,6 +56,8 @@ type ITranslateRequestOptions = {
   // false when every batch fell back to the original text.
   onSuccess?: (result: { billed: boolean }) => void;
   onFailure?: (sessionId?: string) => void;
+  onAccountBanned?: (sessionId?: string) => void;
+  isSessionActive?: (sessionId?: string) => boolean;
   onTranslateUnavailable?: (payload: {
     code: number;
     sessionId?: string;
@@ -161,6 +164,8 @@ function handleTranslateRequest(
   {
     onSuccess,
     onFailure,
+    onAccountBanned,
+    isSessionActive,
     onTranslateUnavailable,
     isSessionFreeTrialStopped,
     onRequestStart,
@@ -179,6 +184,9 @@ function handleTranslateRequest(
   } | null> => {
     let lastErr: unknown;
     for (let attempt = 1; attempt <= TRANSLATE_MAX_ATTEMPTS; attempt += 1) {
+      // Another concurrent request may have stopped this session while the
+      // retry delay was pending. Never bill a stopped or replaced session.
+      if (isSessionActive && !isSessionActive(data.sessionId)) return null;
       try {
         return await translateTexts(
           data.texts,
@@ -188,6 +196,7 @@ function handleTranslateRequest(
         );
       } catch (err) {
         lastErr = err;
+        if (isPrimeUserBannedError(err)) throw err;
         if (
           engine === ETranslateEngine.ai &&
           isAITranslateUnavailableError(err)
@@ -204,6 +213,13 @@ function handleTranslateRequest(
   };
 
   const handler = async () => {
+    if (isSessionActive && !isSessionActive(data.sessionId)) {
+      sendTranslationResponse(tabId, data.id, {
+        sessionId: data.sessionId,
+        abort: true,
+      });
+      return;
+    }
     if (isSessionFreeTrialStopped?.(data.sessionId)) {
       // The session hit its free-trial limit: no new billed request.
       sendTranslationResponse(tabId, data.id, {
@@ -242,7 +258,13 @@ function handleTranslateRequest(
         });
       }
     } catch (err) {
-      if (
+      if (isPrimeUserBannedError(err)) {
+        sendTranslationResponse(tabId, data.id, {
+          sessionId: data.sessionId,
+          abort: true,
+        });
+        onAccountBanned?.(data.sessionId);
+      } else if (
         engine === ETranslateEngine.ai &&
         isAITranslateUnavailableError(err)
       ) {
@@ -271,6 +293,7 @@ export function useWebViewTranslate({
   dappUrl,
   onAITranslateUnavailable,
   onFreeTrialUnavailable,
+  onAccountBanned,
   entitlementSource,
   currentTargetLang,
 }: {
@@ -286,6 +309,7 @@ export function useWebViewTranslate({
   // Free trial exhausted (90600) or closed (90601) during a session; called
   // once per session after the session was stopped.
   onFreeTrialUnavailable?: (payload: IFreeTrialTranslateStopPayload) => void;
+  onAccountBanned?: () => void;
   // Analytics only: Prime subscription or monthly free trial.
   entitlementSource?: 'prime' | 'freeTrial';
   currentTargetLang?: string;
@@ -377,6 +401,7 @@ export function useWebViewTranslate({
   // re-register nav handlers on every render.
   const onAITranslateUnavailableRef = useRef(onAITranslateUnavailable);
   const onFreeTrialUnavailableRef = useRef(onFreeTrialUnavailable);
+  const onAccountBannedRef = useRef(onAccountBanned);
   const entitlementSourceRef = useRef(entitlementSource);
   entitlementSourceRef.current = entitlementSource;
   engineRef.current = engine;
@@ -385,6 +410,7 @@ export function useWebViewTranslate({
   targetLangRef.current = currentTargetLang;
   onAITranslateUnavailableRef.current = onAITranslateUnavailable;
   onFreeTrialUnavailableRef.current = onFreeTrialUnavailable;
+  onAccountBannedRef.current = onAccountBanned;
 
   // Free-trial stop state of the current page's session.
   const freeTrialStoppedSessionRef = useRef<string | null>(null);
@@ -624,6 +650,24 @@ export function useWebViewTranslate({
     if (attempt) attempt.failed = true;
   }, []);
 
+  const isSessionActive = useCallback(
+    (sessionId?: string) =>
+      Boolean(sessionId) && sessionId === activeSessionIdRef.current,
+    [],
+  );
+
+  const handleAccountBanned = useCallback(
+    (sessionId?: string) => {
+      onFailure(sessionId);
+      if (!isSessionActive(sessionId)) return;
+      // restoreOriginal invalidates the session before notifying the UI, so
+      // sibling failures and late DOM messages cannot show repeated toasts.
+      restoreOriginal();
+      onAccountBannedRef.current?.();
+    },
+    [isSessionActive, onFailure, restoreOriginal],
+  );
+
   const freeTrialRequestOptions = useMemo(
     () => ({
       isSessionFreeTrialStopped,
@@ -631,10 +675,14 @@ export function useWebViewTranslate({
       onRequestEnd,
       onFreeTrialError: handleFreeTrialError,
       onFailure,
+      isSessionActive,
+      onAccountBanned: handleAccountBanned,
     }),
     [
       handleFreeTrialError,
       onFailure,
+      isSessionActive,
+      handleAccountBanned,
       isSessionFreeTrialStopped,
       onRequestEnd,
       onRequestStart,
