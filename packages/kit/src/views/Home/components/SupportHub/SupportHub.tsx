@@ -12,6 +12,7 @@ import {
   Theme,
   XStack,
   YStack,
+  useCarouselPressSuppressor,
 } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -93,15 +94,21 @@ function SupportHubBannerItem({
   themeVariant: string;
   intl: ReturnType<typeof useIntl>;
 }) {
+  const shouldSuppressPress = useCarouselPressSuppressor();
+  const handlePress = useCallback(() => {
+    if (shouldSuppressPress()) {
+      return;
+    }
+    openWebView({ url: item.url, source: 'in-app' });
+  }, [item.url, shouldSuppressPress]);
+
   return (
     <YStack
       height={151}
       justifyContent="center"
       px="$4"
       position="relative"
-      onPress={() => {
-        openWebView({ url: item.url, source: 'in-app' });
-      }}
+      onPress={handlePress}
     >
       <Stack
         position="absolute"
