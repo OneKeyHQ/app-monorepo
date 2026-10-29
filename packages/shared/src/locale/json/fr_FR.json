@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "Stockage",
   "privacy_sync_waiting_wifi__msg": "En attente du Wi-Fi",
   "privacy_temp_wallet_unavailable__desc": "Indisponible pour les portefeuilles cachés effacés à la fermeture de l’application. Activez « Garder accessible » pour l’utiliser.",
+  "privacy_unshield_warning__desc": "Le montant et l’adresse du destinataire seront publics sur la blockchain.",
   "private_key_imported_feedback_desc": "Votre compte de clé privée est prêt",
   "private_key_imported_feedback_title": "Importé avec succès",
   "private_send.arrival_in": "Arrivée dans",

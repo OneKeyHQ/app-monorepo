@@ -10,6 +10,7 @@ const ts = require('typescript');
 const ROOT_DIR = path.resolve(__dirname, '../..');
 const OXLINT_CONFIG_PATH = path.join(ROOT_DIR, '.oxlintrc.json');
 const DEFAULT_TSGOLINT_GOMEMLIMIT = '11GiB';
+const OXLINT_PASS_ENV = 'ONEKEY_OXLINT_PASS';
 
 const getTimestamp = () => new Date().toLocaleTimeString();
 
@@ -260,9 +261,34 @@ function createSignalCleanupHandler({
   };
 }
 
+// CI runs the type-aware pass in a separate job so it can overlap with tsc and
+// the standard pass on another runner; local runs keep the full sequence.
+function resolveLintPasses(value) {
+  if (!value || value === 'all') {
+    return { standard: true, typeAware: true, format: true };
+  }
+  if (value === 'standard') {
+    return { standard: true, typeAware: false, format: true };
+  }
+  if (value === 'type-aware') {
+    return { standard: false, typeAware: true, format: false };
+  }
+  throw new Error(
+    `Unsupported ${OXLINT_PASS_ENV} value: ${value} (expected all, standard, or type-aware)`,
+  );
+}
+
 async function main() {
   // Detect CI environment - most CI platforms set CI=true
   const isCI = Boolean(process.env.CI);
+
+  let passes;
+  try {
+    passes = resolveLintPasses(process.env[OXLINT_PASS_ENV]);
+  } catch (error) {
+    console.error(error.message);
+    exit(1);
+  }
 
   console.log(`[${getTimestamp()}] Lint check started...`);
 
@@ -302,90 +328,96 @@ async function main() {
       `Using ${cpus} threads for oxlint...${isCI ? ' (CI mode, no --fix)' : ''}`,
     );
 
-    // Pass 1: Standard native rules + JS plugins without spawning tsgolint.
-    const standardStartTime = Date.now();
-    const standardPass = await runOxlintPass({
-      oxlintBin,
-      args: [
-        '--tsconfig',
-        './tsconfig.json',
-        '--deny-warnings',
-        `--threads=${cpus}`,
-        '.',
-        ...fixArgs,
-      ],
-      env: process.env,
-      onChild: setActiveChild,
-    });
-    const standardDuration = ((Date.now() - standardStartTime) / 1000).toFixed(
-      2,
-    );
-
-    if (standardPass.errors > 0 || standardPass.warnings > 0) {
-      console.log(standardPass.output);
-      console.log(
-        `[${getTimestamp()}] Oxlint check failed with ${standardPass.errors} error(s) and ${standardPass.warnings} warning(s). (${standardDuration}s)`,
-      );
-      exit(1);
-    }
-
-    console.log(
-      `[${getTimestamp()}] Oxlint standard + JS plugins pass completed. (${standardDuration}s)`,
-    );
-
-    // Pass 2: Type-aware rules via tsgolint with jsPlugins stripped so the Node
-    // host process stays under ~650 MB RSS while tsgolint runs.
-    const rawConfig = fs.readFileSync(OXLINT_CONFIG_PATH, 'utf8');
-    const typeAwareConfig = createTypeAwareOxlintConfig(
-      parseOxlintConfig(rawConfig),
-    );
-    fs.writeFileSync(
-      tempConfigPath,
-      `${JSON.stringify(typeAwareConfig, null, 2)}\n`,
-    );
-
-    try {
-      const typeAwareStartTime = Date.now();
-      const typeAwarePass = await runOxlintPass({
+    if (passes.standard) {
+      // Pass 1: Standard native rules + JS plugins without spawning tsgolint.
+      const standardStartTime = Date.now();
+      const standardPass = await runOxlintPass({
         oxlintBin,
         args: [
-          '-c',
-          `./${tempConfigName}`,
           '--tsconfig',
           './tsconfig.json',
-          '--type-aware',
           '--deny-warnings',
           `--threads=${cpus}`,
           '.',
           ...fixArgs,
         ],
-        env: {
-          ...process.env,
-          GOMEMLIMIT: process.env.GOMEMLIMIT || DEFAULT_TSGOLINT_GOMEMLIMIT,
-        },
+        env: process.env,
         onChild: setActiveChild,
       });
-      const typeAwareDuration = (
-        (Date.now() - typeAwareStartTime) /
+      const standardDuration = (
+        (Date.now() - standardStartTime) /
         1000
       ).toFixed(2);
 
-      if (typeAwarePass.errors > 0 || typeAwarePass.warnings > 0) {
-        console.log(typeAwarePass.output);
-        const oxlintDuration = ((Date.now() - oxlintStartTime) / 1000).toFixed(
-          2,
-        );
+      if (standardPass.errors > 0 || standardPass.warnings > 0) {
+        console.log(standardPass.output);
         console.log(
-          `[${getTimestamp()}] Oxlint check failed with ${typeAwarePass.errors} error(s) and ${typeAwarePass.warnings} warning(s). (${oxlintDuration}s)`,
+          `[${getTimestamp()}] Oxlint check failed with ${standardPass.errors} error(s) and ${standardPass.warnings} warning(s). (${standardDuration}s)`,
         );
         exit(1);
       }
 
       console.log(
-        `[${getTimestamp()}] Oxlint type-aware pass completed. (${typeAwareDuration}s)`,
+        `[${getTimestamp()}] Oxlint standard + JS plugins pass completed. (${standardDuration}s)`,
       );
-    } finally {
-      removeTempTypeAwareConfig(tempConfigPath);
+    }
+
+    if (passes.typeAware) {
+      // Pass 2: Type-aware rules via tsgolint with jsPlugins stripped so the Node
+      // host process stays under ~650 MB RSS while tsgolint runs.
+      const rawConfig = fs.readFileSync(OXLINT_CONFIG_PATH, 'utf8');
+      const typeAwareConfig = createTypeAwareOxlintConfig(
+        parseOxlintConfig(rawConfig),
+      );
+      fs.writeFileSync(
+        tempConfigPath,
+        `${JSON.stringify(typeAwareConfig, null, 2)}\n`,
+      );
+
+      try {
+        const typeAwareStartTime = Date.now();
+        const typeAwarePass = await runOxlintPass({
+          oxlintBin,
+          args: [
+            '-c',
+            `./${tempConfigName}`,
+            '--tsconfig',
+            './tsconfig.json',
+            '--type-aware',
+            '--deny-warnings',
+            `--threads=${cpus}`,
+            '.',
+            ...fixArgs,
+          ],
+          env: {
+            ...process.env,
+            GOMEMLIMIT: process.env.GOMEMLIMIT || DEFAULT_TSGOLINT_GOMEMLIMIT,
+          },
+          onChild: setActiveChild,
+        });
+        const typeAwareDuration = (
+          (Date.now() - typeAwareStartTime) /
+          1000
+        ).toFixed(2);
+
+        if (typeAwarePass.errors > 0 || typeAwarePass.warnings > 0) {
+          console.log(typeAwarePass.output);
+          const oxlintDuration = (
+            (Date.now() - oxlintStartTime) /
+            1000
+          ).toFixed(2);
+          console.log(
+            `[${getTimestamp()}] Oxlint check failed with ${typeAwarePass.errors} error(s) and ${typeAwarePass.warnings} warning(s). (${oxlintDuration}s)`,
+          );
+          exit(1);
+        }
+
+        console.log(
+          `[${getTimestamp()}] Oxlint type-aware pass completed. (${typeAwareDuration}s)`,
+        );
+      } finally {
+        removeTempTypeAwareConfig(tempConfigPath);
+      }
     }
 
     const oxlintDuration = ((Date.now() - oxlintStartTime) / 1000).toFixed(2);
@@ -407,39 +439,45 @@ async function main() {
     exit(1);
   }
 
-  // ============================================
-  // Run Oxfmt separately from lint rules
-  // ============================================
-  console.log(`[${getTimestamp()}] Oxfmt check started...`);
-  const oxfmtStartTime = Date.now();
+  if (passes.format) {
+    // ============================================
+    // Run Oxfmt separately from lint rules
+    // ============================================
+    console.log(`[${getTimestamp()}] Oxfmt check started...`);
+    const oxfmtStartTime = Date.now();
 
-  try {
-    const oxfmtBin = resolvePackageBinary('oxfmt');
-    const oxfmtArgs = [
-      ...(isCI ? ['--check'] : []),
-      '**/*.{js,jsx,ts,tsx,mjs,cjs}',
-    ];
-    await spawnNodeBinary({
-      binPath: oxfmtBin,
-      args: oxfmtArgs,
-      onChild: setActiveChild,
-    });
-    const oxfmtDuration = ((Date.now() - oxfmtStartTime) / 1000).toFixed(2);
-    console.log(`[${getTimestamp()}] Oxfmt check passed. (${oxfmtDuration}s)`);
-  } catch (error) {
-    const oxfmtDuration = ((Date.now() - oxfmtStartTime) / 1000).toFixed(2);
-    if (error.stdout) {
-      console.log(error.stdout.toString('utf-8'));
+    try {
+      const oxfmtBin = resolvePackageBinary('oxfmt');
+      const oxfmtArgs = [
+        ...(isCI ? ['--check'] : []),
+        '**/*.{js,jsx,ts,tsx,mjs,cjs}',
+      ];
+      await spawnNodeBinary({
+        binPath: oxfmtBin,
+        args: oxfmtArgs,
+        onChild: setActiveChild,
+      });
+      const oxfmtDuration = ((Date.now() - oxfmtStartTime) / 1000).toFixed(2);
+      console.log(
+        `[${getTimestamp()}] Oxfmt check passed. (${oxfmtDuration}s)`,
+      );
+    } catch (error) {
+      const oxfmtDuration = ((Date.now() - oxfmtStartTime) / 1000).toFixed(2);
+      if (error.stdout) {
+        console.log(error.stdout.toString('utf-8'));
+      }
+      if (error.stderr) {
+        console.error(error.stderr.toString('utf-8'));
+      }
+      console.log(
+        `[${getTimestamp()}] Oxfmt check failed. (${oxfmtDuration}s)`,
+      );
+      exit(1);
+    } finally {
+      process.removeListener('exit', cleanupOnExit);
+      process.removeListener('SIGINT', cleanupOnSignal);
+      process.removeListener('SIGTERM', cleanupOnSignal);
     }
-    if (error.stderr) {
-      console.error(error.stderr.toString('utf-8'));
-    }
-    console.log(`[${getTimestamp()}] Oxfmt check failed. (${oxfmtDuration}s)`);
-    exit(1);
-  } finally {
-    process.removeListener('exit', cleanupOnExit);
-    process.removeListener('SIGINT', cleanupOnSignal);
-    process.removeListener('SIGTERM', cleanupOnSignal);
   }
 }
 
@@ -458,6 +496,7 @@ module.exports = {
   getTempTypeAwareConfigPath,
   parseOxlintConfig,
   parseOxlintCounts,
+  resolveLintPasses,
   resolvePackageBinary,
   stripJsPluginRules,
 };

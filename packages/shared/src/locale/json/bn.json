@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "স্টোরেজ",
   "privacy_sync_waiting_wifi__msg": "Wi-Fi-এর জন্য অপেক্ষা",
   "privacy_temp_wallet_unavailable__desc": "অ্যাপ বন্ধ হলে মুছে যায় এমন গোপন ওয়ালেটে এটি উপলব্ধ নয়। ব্যবহার করতে “অ্যাক্সেসযোগ্য রাখুন” চালু করুন।",
+  "privacy_unshield_warning__desc": "পরিমাণ এবং প্রাপকের ঠিকানা ব্লকচেইনে প্রকাশিত হবে।",
   "private_key_imported_feedback_desc": "আপনার প্রাইভেট কী অ্যাকাউন্ট প্রস্তুত",
   "private_key_imported_feedback_title": "সফলভাবে ইম্পোর্ট করা হয়েছে",
   "private_send.arrival_in": "আগমন সময়",
