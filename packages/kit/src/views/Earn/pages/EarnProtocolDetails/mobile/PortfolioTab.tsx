@@ -11,7 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IBadgeType } from '@onekeyhq/components';
+import type { IBadgeType, IXStackProps } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -148,12 +148,16 @@ function PortfolioRow({
 }
 
 /**
- * My investment over the holding's card (product 10-14): the balance and
- * the 24h earnings first, then Spark's Effective APY, which the positions
- * carry on the effective deposit. The APY cell that repeated the headline
- * is gone.
+ * My investment's figures, over the holding's card (product 10-14): the
+ * balance and the 24h earnings first, then Spark's Effective APY, which the
+ * positions carry on the effective deposit. The APY cell that repeated the
+ * headline is gone. The wide detail page shows the same figures, in its own
+ * grid's spacing
  */
-function HoldingInvestment({ holding }: { holding: IEarnPositionView }) {
+export function HoldingInvestmentGrid({
+  holding,
+  ...gridProps
+}: { holding: IEarnPositionView } & IXStackProps) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const apy = holding.effectiveDeposit?.apy;
@@ -161,69 +165,76 @@ function HoldingInvestment({ holding }: { holding: IEarnPositionView }) {
     holding.source.earn.investment.earnings24hFiatValue || '0',
   );
   return (
+    <XStack flexWrap="wrap" {...gridProps}>
+      <GridItem
+        title={{
+          text: intl.formatMessage({ id: ETranslations.global_balance }),
+        }}
+        descriptionComponent={
+          // As the card prints it: a holding no price is known for reads
+          // "price unavailable", never a zero that says it is empty.
+          <ProtocolValueCell
+            value={holding.value.value}
+            currencySymbol={currencyInfo.symbol}
+            priceUnavailableLabel={intl.formatMessage({
+              id: ETranslations.wallet_price_unavailable,
+            })}
+            partialPriceUnavailableLabel={intl.formatMessage({
+              id: ETranslations.wallet_partial_price_unavailable,
+            })}
+            isUnavailable={!holding.value.hasAvailableValue}
+            showPriceUnavailableTooltip={
+              holding.value.hasAvailableValue &&
+              holding.value.hasUnavailableValue
+            }
+            size="$bodyLgMedium"
+            justifyContent="flex-start"
+            numberOfLines={1}
+          />
+        }
+      />
+      <GridItem
+        title={{
+          text: intl.formatMessage({ id: ETranslations.earn_24h_earnings }),
+        }}
+        descriptionComponent={
+          <NumberSizeableTextWrapper
+            hideValue
+            size="$bodyLgMedium"
+            color={earnings24h.gt(0) ? '$textSuccess' : '$text'}
+            formatter="value"
+            formatterOptions={{
+              currency: currencyInfo.symbol,
+              showPlusMinusSigns: earnings24h.gt(0),
+            }}
+            numberOfLines={1}
+          >
+            {earnings24h.toFixed()}
+          </NumberSizeableTextWrapper>
+        }
+      />
+      {apy ? (
+        <GridItem
+          title={apy.title}
+          description={apy.description}
+          tooltip={apy.tooltip}
+          tooltipTrigger="title"
+        />
+      ) : null}
+    </XStack>
+  );
+}
+
+function HoldingInvestment({ holding }: { holding: IEarnPositionView }) {
+  const intl = useIntl();
+  return (
     <YStack gap="$2">
       <SizableText size="$headingMd" color="$text">
         {intl.formatMessage({
           id: ETranslations.wallet_defi_position_module_investment,
         })}
       </SizableText>
-      <XStack flexWrap="wrap" m="$-3">
-        <GridItem
-          title={{
-            text: intl.formatMessage({ id: ETranslations.global_balance }),
-          }}
-          descriptionComponent={
-            // As the card prints it: a holding no price is known for reads
-            // "price unavailable", never a zero that says it is empty.
-            <ProtocolValueCell
-              value={holding.value.value}
-              currencySymbol={currencyInfo.symbol}
-              priceUnavailableLabel={intl.formatMessage({
-                id: ETranslations.wallet_price_unavailable,
-              })}
-              partialPriceUnavailableLabel={intl.formatMessage({
-                id: ETranslations.wallet_partial_price_unavailable,
-              })}
-              isUnavailable={!holding.value.hasAvailableValue}
-              showPriceUnavailableTooltip={
-                holding.value.hasAvailableValue &&
-                holding.value.hasUnavailableValue
-              }
-              size="$bodyLgMedium"
-              justifyContent="flex-start"
-              numberOfLines={1}
-            />
-          }
-        />
-        <GridItem
-          title={{
-            text: intl.formatMessage({ id: ETranslations.earn_24h_earnings }),
-          }}
-          descriptionComponent={
-            <NumberSizeableTextWrapper
-              hideValue
-              size="$bodyLgMedium"
-              color={earnings24h.gt(0) ? '$textSuccess' : '$text'}
-              formatter="value"
-              formatterOptions={{
-                currency: currencyInfo.symbol,
-                showPlusMinusSigns: earnings24h.gt(0),
-              }}
-              numberOfLines={1}
-            >
-              {earnings24h.toFixed()}
-            </NumberSizeableTextWrapper>
-          }
-        />
-        {apy ? (
-          <GridItem
-            title={apy.title}
-            description={apy.description}
-            tooltip={apy.tooltip}
-            tooltipTrigger="title"
-          />
-        ) : null}
-      </XStack>
+      <HoldingInvestmentGrid holding={holding} m="$-3" />
     </YStack>
   );
 }

@@ -157,9 +157,10 @@ function HoldingTableRow({
  * A holding's panels as the wallet DeFi Portfolio's sectioned table: a
  * subdued header strip per panel (its title, Balance, Value), then a line
  * per token with the row's own action at the end, where the phone puts it.
- * The effective deposit hangs under the deposit rows' balances.
+ * The effective deposit hangs under the deposit rows' balances. The wide
+ * detail page shows its holding with the same table
  */
-function HoldingSectionsTable({
+export function HoldingSectionsTable({
   position,
   redeem,
 }: {
@@ -224,8 +225,11 @@ function HoldingSectionsTable({
           (section.kind === 'deposited' || section.kind === 'supplied') ? (
             <XStack px="$2" pb="$2" gap={PROTOCOL_TABLE_COLUMN_GAP}>
               <Stack width={POSITION_COLUMN_WIDTH} flexShrink={0} />
+              {/* The line has the Value column too, empty on it, so it
+                  keeps to one line where the table is narrow (the wide
+                  detail page) */}
               <XStack
-                flex={BALANCE_FLEX_WITHOUT_REWARDS}
+                flex={BALANCE_FLEX_WITHOUT_REWARDS + USD_FLEX_WITHOUT_REWARDS}
                 flexBasis={0}
                 minWidth={0}
                 ai="center"
@@ -234,11 +238,6 @@ function HoldingSectionsTable({
               >
                 <EffectiveDepositText effectiveDeposit={effectiveDeposit} />
               </XStack>
-              <Stack
-                flex={USD_FLEX_WITHOUT_REWARDS}
-                flexBasis={0}
-                minWidth={0}
-              />
               <Stack width={ACTION_COLUMN_WIDTH} flexShrink={0} />
             </XStack>
           ) : null}
