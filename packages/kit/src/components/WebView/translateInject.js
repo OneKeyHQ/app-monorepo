@@ -137,7 +137,8 @@
         return;
       }
       if (entry) {
-        entry.resolve(data.translations);
+        // An abort is not a translation fallback: do not cache original text.
+        entry.resolve(data.abort ? null : data.translations);
         delete pendingResolvers[data.id];
       }
     }
@@ -466,14 +467,27 @@
       addLoadingIndicator(item.node);
     }
 
+    function cleanupBatchIndicators() {
+      for (let j = 0; j < texts.length; j += 1) {
+        const entries = batchMap[texts[j]];
+        for (let k = 0; k < entries.length; k += 1) {
+          removeLoadingIndicator(entries[k].node);
+        }
+      }
+    }
+
     translateAPI(texts, sourceLang, targetLang)
       .then(function (translations) {
+        if (translations === null) {
+          cleanupBatchIndicators();
+          return;
+        }
         for (let j = 0; j < texts.length; j += 1) {
           const original = texts[j];
+          const entries = batchMap[original];
           const translated = (translations && translations[j]) || original;
           cacheTranslation(original, translated);
 
-          const entries = batchMap[original];
           for (let k = 0; k < entries.length; k += 1) {
             const entry = entries[k];
             // Race condition guard — verify node state hasn't changed
@@ -495,12 +509,7 @@
       })
       .catch(function (err) {
         console.error('[OneKey Translate] error:', err);
-        for (let j = 0; j < texts.length; j += 1) {
-          const entries = batchMap[texts[j]];
-          for (let k = 0; k < entries.length; k += 1) {
-            removeLoadingIndicator(entries[k].node);
-          }
-        }
+        cleanupBatchIndicators();
       });
 
     if (pendingBatch.length > 0) scheduleBatchSend();

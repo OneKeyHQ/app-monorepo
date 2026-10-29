@@ -41,7 +41,8 @@ function sentRequests(): ITranslateRequest[] {
 function respond(message: {
   id: string;
   sessionId: string;
-  translations: string[];
+  translations?: string[];
+  abort?: boolean;
 }) {
   globalThis.dispatchEvent(
     new MessageEvent('message', {
@@ -154,5 +155,61 @@ describe('translateInject sessions', () => {
     await flushMicrotasks();
 
     expect(textNode.nodeValue).toBe('Hello world');
+  });
+
+  it('clears an aborted batch without caching its original text as a translation', async () => {
+    // jsdom lacks constructable stylesheet updates used by the spinner.
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync = jest.fn();
+    jest.spyOn(globalThis, 'CSSStyleSheet').mockReturnValue(sheet);
+    const translate = loadScript();
+    translate.start('zh', 'replace', 'session-a');
+    jest.advanceTimersByTime(BATCH_DELAY_MS);
+    const [request] = sentRequests();
+    expect(
+      document.querySelector('[data-onekey-translate-loading]'),
+    ).not.toBeNull();
+
+    respond({ id: request.id, sessionId: 'session-a', abort: true });
+    await flushMicrotasks();
+    expect(textNode.nodeValue).toBe('Hello world');
+    expect(
+      document.querySelector('[data-onekey-translate-loading]'),
+    ).toBeNull();
+
+    // Following a new sid preserves the document cache. The same text in
+    // newly added DOM must still reach the API after the earlier abort.
+    translate.start('zh', 'replace', 'session-b');
+    const addedText = document.createTextNode('Hello world');
+    document.getElementById('text')?.appendChild(addedText);
+    await flushMicrotasks();
+    jest.advanceTimersByTime(BATCH_DELAY_MS);
+    const nextRequest = sentRequests()[1];
+    expect(nextRequest).toMatchObject({
+      sessionId: 'session-b',
+      texts: ['Hello world'],
+    });
+    respond({
+      id: nextRequest.id,
+      sessionId: 'session-b',
+      translations: ['你好世界'],
+    });
+    await flushMicrotasks();
+    expect(addedText.nodeValue).toBe('你好世界');
+  });
+
+  it('ignores an abort with a mismatched sid and still accepts the billed answer', async () => {
+    const translate = loadScript();
+    translate.start('zh', 'replace', 'session-a');
+    jest.advanceTimersByTime(BATCH_DELAY_MS);
+    const [request] = sentRequests();
+    respond({ id: request.id, sessionId: 'session-b', abort: true });
+    respond({
+      id: request.id,
+      sessionId: 'session-a',
+      translations: ['你好世界'],
+    });
+    await flushMicrotasks();
+    expect(textNode.nodeValue).toBe('你好世界');
   });
 });

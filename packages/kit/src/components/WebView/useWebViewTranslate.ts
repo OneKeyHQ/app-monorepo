@@ -57,7 +57,7 @@ type ITranslateRequestOptions = {
   onSuccess?: (result: { billed: boolean }) => void;
   onFailure?: (sessionId?: string) => void;
   onAccountBanned?: (sessionId?: string) => void;
-  isSessionActive?: (sessionId?: string) => boolean;
+  isSessionAllowed?: (sessionId?: string) => boolean;
   onTranslateUnavailable?: (payload: {
     code: number;
     sessionId?: string;
@@ -165,7 +165,7 @@ function handleTranslateRequest(
     onSuccess,
     onFailure,
     onAccountBanned,
-    isSessionActive,
+    isSessionAllowed,
     onTranslateUnavailable,
     isSessionFreeTrialStopped,
     onRequestStart,
@@ -185,8 +185,9 @@ function handleTranslateRequest(
     let lastErr: unknown;
     for (let attempt = 1; attempt <= TRANSLATE_MAX_ATTEMPTS; attempt += 1) {
       // Another concurrent request may have stopped this session while the
-      // retry delay was pending. Never bill a stopped or replaced session.
-      if (isSessionActive && !isSessionActive(data.sessionId)) return null;
+      // retry delay was pending. Never bill an explicitly ended session.
+      if (isSessionAllowed && !isSessionAllowed(data.sessionId)) return null;
+      if (isSessionFreeTrialStopped?.(data.sessionId)) return null;
       try {
         return await translateTexts(
           data.texts,
@@ -213,7 +214,7 @@ function handleTranslateRequest(
   };
 
   const handler = async () => {
-    if (isSessionActive && !isSessionActive(data.sessionId)) {
+    if (isSessionAllowed && !isSessionAllowed(data.sessionId)) {
       sendTranslationResponse(tabId, data.id, {
         sessionId: data.sessionId,
         abort: true,
@@ -252,9 +253,11 @@ function handleTranslateRequest(
         }
       } else {
         onFailure?.(data.sessionId);
+        const aborted = isSessionAllowed && !isSessionAllowed(data.sessionId);
         sendTranslationResponse(tabId, data.id, {
-          translations: data.texts,
+          translations: aborted ? undefined : data.texts,
           sessionId: data.sessionId,
+          abort: aborted,
         });
       }
     } catch (err) {
@@ -379,6 +382,10 @@ export function useWebViewTranslate({
   const hasLoggedSuccessRef = useRef(false);
   const hasLoggedFreeTrialUsageRef = useRef(false);
   const activeSessionIdRef = useRef<string | null>(null);
+  // Navigation can keep the same document alive (Android SPA), and its
+  // script follows a new sid only after the delayed start command arrives.
+  // Keep those sessions valid until this translation run explicitly ends.
+  const allowedSessionIdsRef = useRef(new Set<string>());
   const sessionEngineRef = useRef(engine);
   const engineRef = useRef(engine);
   const displayModeRef = useRef(displayMode);
@@ -455,6 +462,7 @@ export function useWebViewTranslate({
         startTimerRef.current = null;
       }
       if (!translatingRef.current) {
+        allowedSessionIdsRef.current.clear();
         unregisterTranslateHandler(tabId);
       }
       onNavigate?.(translatingRef.current);
@@ -477,6 +485,7 @@ export function useWebViewTranslate({
       // stop, restore or report on the new page, which commands reach by
       // tabId; without a session they are all ignored.
       activeSessionIdRef.current = null;
+      allowedSessionIdsRef.current.clear();
       freeTrialStoppedSessionRef.current = null;
     },
     [clearFreeTrialStopTimer, finishTrialAttempt],
@@ -526,6 +535,7 @@ export function useWebViewTranslate({
   );
 
   const restoreOriginal = useCallback(() => {
+    allowedSessionIdsRef.current.clear();
     finishTrialAttempt(activeSessionIdRef.current, true);
     if (startTimerRef.current) {
       clearTimeout(startTimerRef.current);
@@ -562,6 +572,7 @@ export function useWebViewTranslate({
         return;
       }
       freeTrialStopSentSessionRef.current = sessionId;
+      allowedSessionIdsRef.current.clear();
       clearFreeTrialStopTimer();
       injectScript(
         tabId,
@@ -581,7 +592,11 @@ export function useWebViewTranslate({
 
   const isSessionFreeTrialStopped = useCallback(
     (sessionId?: string) =>
-      Boolean(sessionId) && freeTrialStoppedSessionRef.current === sessionId,
+      Boolean(
+        sessionId &&
+        allowedSessionIdsRef.current.has(sessionId) &&
+        freeTrialStoppedSessionRef.current,
+      ),
     [],
   );
 
@@ -650,22 +665,22 @@ export function useWebViewTranslate({
     if (attempt) attempt.failed = true;
   }, []);
 
-  const isSessionActive = useCallback(
+  const isSessionAllowed = useCallback(
     (sessionId?: string) =>
-      Boolean(sessionId) && sessionId === activeSessionIdRef.current,
+      Boolean(sessionId && allowedSessionIdsRef.current.has(sessionId)),
     [],
   );
 
   const handleAccountBanned = useCallback(
     (sessionId?: string) => {
       onFailure(sessionId);
-      if (!isSessionActive(sessionId)) return;
+      if (!isSessionAllowed(sessionId)) return;
       // restoreOriginal invalidates the session before notifying the UI, so
       // sibling failures and late DOM messages cannot show repeated toasts.
       restoreOriginal();
       onAccountBannedRef.current?.();
     },
-    [isSessionActive, onFailure, restoreOriginal],
+    [isSessionAllowed, onFailure, restoreOriginal],
   );
 
   const freeTrialRequestOptions = useMemo(
@@ -675,13 +690,13 @@ export function useWebViewTranslate({
       onRequestEnd,
       onFreeTrialError: handleFreeTrialError,
       onFailure,
-      isSessionActive,
+      isSessionAllowed,
       onAccountBanned: handleAccountBanned,
     }),
     [
       handleFreeTrialError,
       onFailure,
-      isSessionActive,
+      isSessionAllowed,
       handleAccountBanned,
       isSessionFreeTrialStopped,
       onRequestEnd,
@@ -814,6 +829,10 @@ export function useWebViewTranslate({
           ended: false,
         });
       }
+      if (freeTrialStoppedSessionRef.current) {
+        allowedSessionIdsRef.current.clear();
+      }
+      allowedSessionIdsRef.current.add(sid);
       activeSessionIdRef.current = sid;
       sessionEngineRef.current = selectedEngine;
       handledUnavailableSessionRef.current = null;
