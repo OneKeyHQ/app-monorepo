@@ -1,11 +1,10 @@
 import { memo } from 'react';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
-import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
+import { useIntl } from 'react-intl';
 
-// TODO: replace with a translation key once the copy is translated.
-const PNL_UNSUPPORTED_HINT_TEXT =
-  "PnL calculation isn't supported for this token.";
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 // A missing `pnl` means the server has not said, so only an explicit `false`
 // counts as unsupported.
@@ -16,6 +15,7 @@ export function hasPnlUnsupportedPosition(
 }
 
 function PnlUnsupportedHintBase() {
+  const intl = useIntl();
   return (
     <XStack
       testID="market-detail-portfolio-pnl-unsupported-hint"
@@ -27,7 +27,9 @@ function PnlUnsupportedHintBase() {
     >
       <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
       <SizableText size="$bodySm" color="$textSubdued" flexShrink={1}>
-        {PNL_UNSUPPORTED_HINT_TEXT}
+        {intl.formatMessage({
+          id: ETranslations.market_pnl_not_supported_for_token,
+        })}
       </SizableText>
     </XStack>
   );

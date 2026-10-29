@@ -8,13 +8,17 @@ import {
   hasPnlUnsupportedPosition,
 } from './PnlUnsupportedHint';
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+
 jest.mock('@onekeyhq/components', () => ({
   Icon: () => null,
   SizableText: ({ children }: { children: string }) => <span>{children}</span>,
   XStack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
-const HINT_TEXT = "PnL calculation isn't supported for this token.";
+const HINT_KEY = 'market.pnl_not_supported_for_token';
 
 describe('hasPnlUnsupportedPosition', () => {
   const pnl = (isPnlSupported: boolean) => ({
@@ -39,8 +43,8 @@ describe('hasPnlUnsupportedPosition', () => {
 });
 
 describe('PnlUnsupportedHint', () => {
-  it('shows the hint text', () => {
+  it('shows the translated hint', () => {
     const view = render(<PnlUnsupportedHint />);
-    expect(view.getByText(HINT_TEXT)).toBeTruthy();
+    expect(view.getByText(HINT_KEY)).toBeTruthy();
   });
 });
