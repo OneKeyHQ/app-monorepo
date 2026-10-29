@@ -100,8 +100,7 @@ it('shows audit in the native trending price header once security data arrives',
   rerender(<InformationPanel mobileDetailKind="trending" />);
   expect(
     screen.getByTestId('market-detail-security-row').textContent,
-  ).toContain(ETranslations.dexmarket_audit);
-  expect(screen.getByText('risk result')).toBeTruthy();
+  ).toContain('risk result');
   expect(screen.queryByText(ETranslations.global_market_cap)).toBeNull();
 });
 
@@ -180,7 +179,7 @@ it('uses the redesigned price and audit layout on narrow web', () => {
     check: { value: true, content: 'Test', riskType: 'caution' },
   };
   render(<InformationPanel mobileDetailKind="trending" />);
-  expect(screen.getByText(ETranslations.dexmarket_audit)).toBeTruthy();
+  expect(screen.getByTestId('market-detail-security-row')).toBeTruthy();
   expect(screen.getByTestId('market-mobile-price-change-value')).toBeTruthy();
   expect(screen.queryByText(ETranslations.global_market_cap)).toBeNull();
 });

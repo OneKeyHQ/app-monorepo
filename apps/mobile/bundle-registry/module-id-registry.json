@@ -24263,6 +24263,7 @@
     "packages/kit/src/views/DustSweep/hooks/useDustSweepPreview.ts": 2697,
     "packages/kit/src/views/DustSweep/hooks/useDustSweepReconciliation.ts": 19635,
     "packages/kit/src/views/DustSweep/hooks/useDustSweepSession.ts": 2256,
+    "packages/kit/src/views/DustSweep/hooks/useDustSweepTabBarVisibility.ts": 2691,
     "packages/kit/src/views/DustSweep/hooks/useNavigateToDustSweep.ts": 1064,
     "packages/kit/src/views/DustSweep/stateMachine.ts": 13709,
     "packages/kit/src/views/DustSweep/utils/DustSweepError.ts": 17255,

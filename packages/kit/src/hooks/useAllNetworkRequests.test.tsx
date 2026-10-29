@@ -365,6 +365,34 @@ describe('Home All Networks dispatch ownership', () => {
     expect(hook.published).not.toHaveBeenCalled();
   });
 
+  it('does not publish the previous owner accounts when their preflight resolves after a switch without an external guard', async () => {
+    const oldAccounts = deferred<IAllNetworkAccountInfo[]>();
+    getAccounts.mockReturnValueOnce(oldAccounts.promise);
+    const hook = setup({ guarded: false });
+    const oldRun = hook.result.current.run();
+    await waitFor(() => expect(getAccounts).toHaveBeenCalledTimes(1));
+
+    hook.switchOwner('b');
+    await act(() => hook.result.current.run());
+    await act(async () => {
+      oldAccounts.resolve(accountsFor('a').accountsInfo);
+      await oldRun;
+    });
+
+    await waitFor(() => expect(hook.published).toHaveBeenCalledTimes(1));
+    expect(hook.accountsData).toHaveBeenCalledTimes(1);
+    expect(hook.accountsData).toHaveBeenCalledWith({
+      accounts: accountsFor('b').accountsInfo,
+      allAccounts: accountsFor('b').accountsInfo,
+    });
+    expect(hook.fetch.mock.calls.map(([request]) => request.accountId)).toEqual(
+      accountsFor('b').accountsInfo.map(({ accountId }) => accountId),
+    );
+    expect(hook.published.mock.calls[0][0]).toEqual(
+      accountsFor('b').accountsInfo.map(({ networkId }) => ({ networkId })),
+    );
+  });
+
   it('stops queued cache probes and does not seed their stale results', async () => {
     const cache = deferred<IRound>();
     const hook = setup();

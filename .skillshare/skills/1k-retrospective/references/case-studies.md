@@ -1072,6 +1072,27 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: The canvas and the button hide the button on pointer leave unless the pointer moves between the two. It reads the native `relatedTarget`, because React's synthetic leave event reports `window` for nodes React does not manage.
 **Catchable by**: NEW — not covered (same pattern as the previous case: overlays above a canvas take its pointer events)
 
+## Case: Mobile browser top chrome missed gradient pages and copied a button color (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser; Android/iPad bottom bar follows the top color)
+**Symptom**: On Tinyman the header stayed white, and after scroll it turned the yellow of the "Go to Tinyman v2" button. Android's bottom bar copied that color.
+**Root Cause**: The top sample was one point at the viewport center, then an ancestor walk for opaque background-color. The green is a full-width linear-gradient behind the content (not an ancestor, and background-color is transparent). A narrow button at that point won after it stuck.
+**Fix**: Sample the top edge at 25/50/75% width, ignore layers narrower than 80% of the viewport, and read a wide linear-gradient at the sample point. body/html and theme-color stay fallbacks. Bottom-edge sampling is unchanged.
+**Catchable by**: Section 6: jsdom script tests for gradient, narrow button, and disagreeing points. Device check that WebView elementsFromPoint includes z-index -1 is NEW — not covered.
+
+## Case: Inner scroll cancelled the mobile browser late top-color read (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser)
+**Symptom**: A page with an auto-scrolling panel could keep the first-frame header color. The 800ms correction never ran.
+**Root Cause**: The scroll listener is on window in the capture phase so inner containers update the bottom color. That same handler cancelled the one late top read for every scroll event, including a panel that does not move the viewport.
+**Fix**: Cancel the late top read only when the scroll target is the document, documentElement, body, or window.
+**Catchable by**: Section 6: lifecycle test dispatches scroll on an inner element and still expects the late top color.
+
+## Case: Opaque body was skipped and a hidden negative-z color painted the header (OK-65819)
+**Date**: 2026-10-28 | **Platforms**: iOS, Android (in-app browser)
+**Symptom**: With an opaque html background and an opaque body, the header could take the color of a z-index -1 layer the body covers.
+**Root Cause**: The top walk skipped body whenever it had no background-image, then accepted the next wide layer. That is right only when the body background has propagated to the canvas, which requires html to paint nothing. Once html paints, the body background is drawn above negative z-index descendants.
+**Fix**: Stop at an opaque body when html paints any background. Keep looking through body when html is transparent, when body is transparent, or when body itself is a stacking context.
+**Catchable by**: Section 6: top-color tests for opaque html plus opaque body, translucent html, and a transformed body.
+
 ## Case: Native Market search and recommendations did not share Top Coins favorites (OK-64236)
 **Date**: 2026-10-28 | **Platforms**: Desktop/Web single JS runtime; iOS/Android/extension background services and UI consumers, with separate JS heaps on those targets
 **Symptom**: A native coin favorited in Top Coins appeared unfavorited in search or recommendations, allowing another favorite for the same asset.

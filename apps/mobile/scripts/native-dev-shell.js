@@ -84,7 +84,7 @@ function assertPlatform(platform) {
   return platform;
 }
 
-function parseMetroBaseUrl(value) {
+function parseMetroBaseUrl(value, platform) {
   let metroUrl;
   try {
     metroUrl = new URL(value);
@@ -105,6 +105,17 @@ function parseMetroBaseUrl(value) {
     throw new Error(
       '[nativeDevShell] --metro-url must be an HTTP(S) origin without credentials, path, query, or fragment.',
     );
+  }
+  // React Native's Android packager connection picks https and wss from port
+  // 443 alone; the debug shell rejects any other pairing at startup.
+  if (platform === 'android') {
+    const secure = metroUrl.protocol === 'https:';
+    const port = metroUrl.port || (secure ? '443' : '80');
+    if (secure !== (port === '443')) {
+      throw new Error(
+        '[nativeDevShell] Android --metro-url must use https:// exactly on port 443; React Native picks the packager connection scheme from the port.',
+      );
+    }
   }
   return metroUrl.toString().replace(/\/$/u, '');
 }
@@ -430,7 +441,7 @@ async function writeDevSession({
   sessionId = createSessionId({ deviceId }),
 }) {
   const targetPlatform = assertPlatform(platform);
-  const metroBaseUrl = parseMetroBaseUrl(metroUrl);
+  const metroBaseUrl = parseMetroBaseUrl(metroUrl, targetPlatform);
   const vendorManifest = loadVendorManifest(targetPlatform);
   const contract = getContractManifest(targetPlatform);
   if (vendorManifest.nativeContractKey !== contract.nativeContractKey) {
@@ -575,14 +586,19 @@ function parseArgs(argv = process.argv.slice(2)) {
     }
     index += 1;
   }
+  const platform = assertPlatform(values.platform);
   return {
     command,
     artifact: values.artifact,
     device: values.device,
     metroPort: values['metro-port'],
-    metroUrl: values['metro-url'],
+    // Validate before any shell or vendor work starts.
+    metroUrl:
+      values['metro-url'] === undefined
+        ? undefined
+        : parseMetroBaseUrl(values['metro-url'], platform),
     output: values.output,
-    platform: assertPlatform(values.platform),
+    platform,
     shell: values.shell || 'auto',
     vendor: values.vendor || 'auto',
     webEmbedReceipt: values['web-embed-receipt'],
