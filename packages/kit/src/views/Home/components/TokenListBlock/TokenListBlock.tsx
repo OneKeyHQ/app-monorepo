@@ -3527,7 +3527,15 @@ function TokenListBlock({
         defiFiat: homePortfolioDisplay.defiFiatUsd,
         perpsFiat: homePortfolioDisplay.perpsFiatUsd,
       },
-      totalFiat: accountTokensValue,
+      totalFiat:
+        homePortfolioDisplay.tokenFiatUsd === undefined
+          ? accountTokensValue
+          : convertFiat({
+              value: homePortfolioDisplay.tokenFiatUsd,
+              sourceCurrency: USD_CURRENCY_ID,
+              targetCurrency: totalFiatCurrency,
+              currencyMap,
+            }),
       totalFiatCurrency,
       totalTokenCount: portfolioTokens.length,
       tokenMap,
@@ -3542,6 +3550,7 @@ function TokenListBlock({
     accountTokensValue,
     accountTokensWorth.currency,
     currencyInfo?.id,
+    currencyMap,
     device?.connectId,
     device?.id,
     hasCurrentHomePortfolioSnapshot,

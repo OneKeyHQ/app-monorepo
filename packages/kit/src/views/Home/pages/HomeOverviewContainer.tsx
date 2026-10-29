@@ -72,6 +72,7 @@ import { HomeTestIDs } from '../testIDs';
 
 import {
   resolveHomeOverviewBalanceHold,
+  resolveHomePortfolioSnapshot,
   shouldIncludeKnownDeFiWorth,
 } from './homeOverviewBalanceHold';
 
@@ -155,7 +156,9 @@ function HomeOverviewContainer() {
     network,
   });
 
-  const { result: perpsNetWorthUsd } = usePromiseResult<string | undefined>(
+  const { result: perpsSnapshot } = usePromiseResult<
+    { ownerKey: string; netWorthUsd: string } | undefined
+  >(
     async () => {
       if (!isPerpsEnabled) return undefined;
       const accountId = account?.id;
@@ -188,17 +191,27 @@ function HomeOverviewContainer() {
           { address },
         );
 
-      return snapshot?.netWorthUsd;
+      return snapshot?.netWorthUsd === undefined
+        ? undefined
+        : {
+            ownerKey: buildOverviewOwnerKey(accountId, network?.id),
+            netWorthUsd: snapshot.netWorthUsd,
+          };
     },
-    [account?.id, account?.indexedAccountId, isPerpsEnabled],
+    [account?.id, account?.indexedAccountId, network?.id, isPerpsEnabled],
     {
       swrKey:
         account?.id || account?.indexedAccountId
-          ? `home-overview-perps-worth:${account?.indexedAccountId ?? account?.id}`
+          ? `home-overview-perps-worth:${network?.id}:${account?.indexedAccountId ?? account?.id}`
           : undefined,
       pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
     },
   );
+
+  const perpsNetWorthUsd =
+    perpsSnapshot?.ownerKey === buildOverviewOwnerKey(account?.id, network?.id)
+      ? perpsSnapshot?.netWorthUsd
+      : undefined;
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -1076,7 +1089,7 @@ function HomeOverviewContainer() {
     !showSkeleton &&
     renderedBalanceString !== null &&
     renderedBalanceString !== undefined;
-  useEffect(() => {
+  useLayoutEffect(() => {
     const isCurrentOwnerBalance =
       !!currentOverviewOwnerKey &&
       !(canReuseLatestDisplayedBalance && !currentConfirmedBalance);
@@ -1107,7 +1120,7 @@ function HomeOverviewContainer() {
       : undefined;
     let perpsFiatUsd: string | undefined;
     if (isLive) {
-      perpsFiatUsd = isPerpsEnabled ? (perpsNetWorthUsd ?? '0') : '0';
+      perpsFiatUsd = isPerpsEnabled ? perpsNetWorthUsd : '0';
     }
     const next = {
       ownerKey: isCurrentOwnerBalance ? currentOverviewOwnerKey : '',
@@ -1120,14 +1133,20 @@ function HomeOverviewContainer() {
       perpsFiatUsd,
       isLive,
     };
-    setHomePortfolioDisplay((prev) =>
-      Object.keys(next).every(
+    setHomePortfolioDisplay((prev) => {
+      const snapshot = resolveHomePortfolioSnapshot({
+        previous: prev,
+        candidate: next,
+        isReady: isLive,
+      });
+      return Object.keys(snapshot).every(
         (key) =>
-          prev[key as keyof typeof next] === next[key as keyof typeof next],
-      )
+          prev[key as keyof typeof snapshot] ===
+          snapshot[key as keyof typeof snapshot],
+      ) && Object.keys(prev).length === Object.keys(snapshot).length
         ? prev
-        : next,
-    );
+        : snapshot;
+    });
   }, [
     accountDeFiOverview.currency,
     accountDeFiOverview.netWorth,

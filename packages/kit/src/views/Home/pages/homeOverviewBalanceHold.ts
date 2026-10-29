@@ -98,3 +98,41 @@ export function shouldIncludeKnownDeFiWorth({
   }
   return deFiGraceExpired && isDeFiOverviewOwnerMatched;
 }
+
+export interface IHomePortfolioSnapshot {
+  ownerKey: string;
+  totalFiatUsd?: string;
+  tokenFiatUsd?: string;
+  defiFiatUsd?: string;
+  perpsFiatUsd?: string;
+  isLive: boolean;
+}
+
+// Publish the rendered total immediately; retain held categories only for that same total.
+export function resolveHomePortfolioSnapshot({
+  previous,
+  candidate,
+  isReady,
+}: {
+  previous: IHomePortfolioSnapshot;
+  candidate: IHomePortfolioSnapshot;
+  isReady: boolean;
+}): IHomePortfolioSnapshot {
+  if (!candidate.ownerKey || candidate.totalFiatUsd === undefined) {
+    return { ownerKey: candidate.ownerKey, isLive: false };
+  }
+  if (isReady) {
+    return { ...candidate, isLive: true };
+  }
+  if (
+    previous.ownerKey === candidate.ownerKey &&
+    previous.totalFiatUsd === candidate.totalFiatUsd
+  ) {
+    return { ...previous, isLive: false };
+  }
+  return {
+    ownerKey: candidate.ownerKey,
+    totalFiatUsd: candidate.totalFiatUsd,
+    isLive: false,
+  };
+}

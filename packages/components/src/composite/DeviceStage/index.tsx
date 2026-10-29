@@ -585,6 +585,8 @@ export function DeviceStage({
   vendorModel,
   vendorModelName,
   appName,
+  transferProgress,
+  transferMetrics,
   installProgress,
   installQueue,
   installActiveIndex,
@@ -2271,6 +2273,47 @@ export function DeviceStage({
   // — never for a flight settling over the other glyphs.
   const bluetoothBadgePaused =
     capsuleGlyph !== 'bluetooth' || pose !== 'capsule' || poseInFlight;
+  const transferPercent =
+    step === 'processing' &&
+    typeof transferProgress === 'number' &&
+    Number.isFinite(transferProgress)
+      ? Math.max(0, Math.min(100, Math.round(transferProgress)))
+      : undefined;
+  const transferAccessibilityValue = useMemo(
+    () => ({ min: 0, max: 100, now: transferPercent }),
+    [transferPercent],
+  );
+  const transferredBytes = transferMetrics?.transferredBytes;
+  const totalBytes = transferMetrics?.totalBytes;
+  const rateBytesPerSecond = transferMetrics?.rateBytesPerSecond;
+  const formatTransferBytes = (bytes: number) =>
+    bytes >= 1024 * 1024
+      ? `${(bytes / 1024 / 1024).toFixed(1)} MiB`
+      : `${(bytes / 1024).toFixed(1)} KiB`;
+  const transferSizeText =
+    typeof transferredBytes === 'number' &&
+    Number.isFinite(transferredBytes) &&
+    typeof totalBytes === 'number' &&
+    Number.isFinite(totalBytes) &&
+    totalBytes > 0
+      ? `${formatTransferBytes(Math.max(0, Math.min(transferredBytes, totalBytes)))} / ${formatTransferBytes(totalBytes)}`
+      : undefined;
+  const transferSpeedText =
+    typeof rateBytesPerSecond === 'number' &&
+    Number.isFinite(rateBytesPerSecond) &&
+    rateBytesPerSecond > 0
+      ? `${formatTransferBytes(rateBytesPerSecond)}/s`
+      : undefined;
+  const transferRetryText =
+    typeof transferMetrics?.retryCount === 'number' &&
+    Number.isSafeInteger(transferMetrics.retryCount) &&
+    transferMetrics.retryCount > 0
+      ? `${intl.formatMessage({ id: ETranslations.global_retry })} ${transferMetrics.retryCount}`
+      : undefined;
+  const transferTitle =
+    transferPercent !== undefined
+      ? intl.formatMessage({ id: ETranslations.hardware_transferring_data })
+      : capsuleText.title;
   const capsule = useMemo(
     () => (
       <XStack
@@ -2319,17 +2362,59 @@ export function DeviceStage({
             the notice too — the sweep is a waiting affordance, and the
             notice waits for nothing. */}
           <ShimmerTitle paused={pose !== 'capsule' || capsuleGlyph === 'error'}>
-            {capsuleText.title}
+            {transferTitle}
           </ShimmerTitle>
-          {capsuleText.sub ? (
+          {capsuleText.sub && transferPercent === undefined ? (
             <SizableText size="$bodyMd" color="$textSubdued">
               {capsuleText.sub}
             </SizableText>
           ) : null}
+          {transferPercent !== undefined ? (
+            <YStack gap="$1" mt="$1" minWidth={120}>
+              <SizableText size="$bodySmMedium" color="$textSubdued">
+                {`${transferPercent}%`}
+              </SizableText>
+              <Stack
+                testID="device-stage-transfer-progress"
+                accessibilityRole="progressbar"
+                accessibilityValue={transferAccessibilityValue}
+                h="$1"
+                borderRadius="$full"
+                bg="$neutral5"
+                overflow="hidden"
+              >
+                <Stack h="100%" width={`${transferPercent}%`} bg="$bgPrimary" />
+              </Stack>
+              {transferSizeText ? (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {transferSizeText}
+                </SizableText>
+              ) : null}
+              {transferSpeedText || transferRetryText ? (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {[transferRetryText, transferSpeedText]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </SizableText>
+              ) : null}
+            </YStack>
+          ) : null}
         </YStack>
       </XStack>
     ),
-    [bluetoothBadgePaused, capsuleGlyph, capsuleText, pose, vendorImageSource],
+    [
+      bluetoothBadgePaused,
+      capsuleGlyph,
+      capsuleText,
+      transferTitle,
+      transferSizeText,
+      transferSpeedText,
+      transferRetryText,
+      pose,
+      transferAccessibilityValue,
+      transferPercent,
+      vendorImageSource,
+    ],
   );
 
   const dismissLabel = useMemo(
