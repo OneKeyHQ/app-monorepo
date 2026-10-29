@@ -507,8 +507,12 @@ export type IZcashSdkApi = {
 
   prepareWalletAccounts: (
     accounts: IZcashWalletAccount[],
-    options?: { retainedLabels: string[] },
   ) => Promise<IZcashWalletAccount[]>;
+  // True only when every runtime account the host does not keep was removed.
+  purgeUnknownAccounts: (
+    opener: IZcashWalletAccount,
+    options: { retainedLabels: string[] },
+  ) => Promise<boolean>;
   syncWallet: (
     account: IZcashWalletAccount,
     options: IZcashSyncWalletOptions,

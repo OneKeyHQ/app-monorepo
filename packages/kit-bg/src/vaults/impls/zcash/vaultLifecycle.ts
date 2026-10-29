@@ -224,10 +224,9 @@ export async function zcashPurgeRuntimeOrphans(
       accountId: opener.accountId,
     });
     const api = await vault.zcashGetApi();
-    await api.prepareWalletAccounts([account], {
+    return api.purgeUnknownAccounts(account, {
       retainedLabels: uniq(retained.map(({ vkFp }) => vkFp)),
     });
-    return true;
   });
 }
 

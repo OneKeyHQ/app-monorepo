@@ -28,6 +28,7 @@ export const ZCASH_SDK_METHODS = [
   'redactPcztForHardwareSigner',
 
   'prepareWalletAccounts',
+  'purgeUnknownAccounts',
   'syncWallet',
   'queueRescanFrom',
   'rescanWallet',

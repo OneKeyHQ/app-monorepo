@@ -44,6 +44,7 @@ import {
   getSyncProgress,
   getTxDetails,
   prepareWalletAccounts,
+  purgeUnknownAccounts,
   purgeWallet,
   queueRescanFrom,
   readBalance,
@@ -238,6 +239,7 @@ const api: IZcashSdkApi = {
 
   // Leased: every one of these opens or uses the wallet database.
   prepareWalletAccounts: leased(prepareWalletAccounts),
+  purgeUnknownAccounts: leased(purgeUnknownAccounts),
   syncWallet: leased(syncWallet),
   queueRescanFrom: async (account, params) => {
     const queued = await leasedQueueRescanFrom(account, params);

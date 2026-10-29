@@ -10,6 +10,7 @@ import {
   getSyncProgress,
   getTxDetails,
   prepareWalletAccounts,
+  purgeUnknownAccounts,
   purgeWallet,
   readBalance,
   readHistory,
@@ -484,8 +485,9 @@ describe('readSyncProgress', () => {
   });
 });
 
-describe('prepareWalletAccounts retention', () => {
+describe('purgeUnknownAccounts', () => {
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
   });
 
@@ -499,10 +501,12 @@ describe('prepareWalletAccounts retention', () => {
     } as unknown as Awaited<ReturnType<typeof withWallet>>['rt'];
     jest.mocked(withWallet).mockResolvedValue({ rt, accountUuid: 'active' });
 
-    await prepareWalletAccounts(
-      [{ ...account, ufvk: 'active', label: 'active' }],
-      { retainedLabels: ['paused'] },
-    );
+    await expect(
+      purgeUnknownAccounts(
+        { ...account, ufvk: 'active', label: 'active' },
+        { retainedLabels: ['paused'] },
+      ),
+    ).resolves.toBe(true);
 
     expect(removeAccount).toHaveBeenCalledTimes(1);
     expect(removeAccount).toHaveBeenCalledWith('orphan');
@@ -514,7 +518,7 @@ describe('prepareWalletAccounts retention', () => {
   });
 
   // Registered before accounts were named by label: only its key still finds it.
-  it('keeps an account being prepared by its key even under an older name', async () => {
+  it('keeps the opener by its key even under an older name', async () => {
     const removeAccount = jest.fn(async () => undefined);
     const rt = {
       accountByUfvk: (ufvk: string) =>
@@ -527,15 +531,18 @@ describe('prepareWalletAccounts retention', () => {
       .mocked(withWallet)
       .mockResolvedValue({ rt, accountUuid: 'legacy-uuid' });
 
-    await prepareWalletAccounts([{ ...account, ufvk: 'active' }], {
-      retainedLabels: [],
-    });
+    await expect(
+      purgeUnknownAccounts(
+        { ...account, ufvk: 'active' },
+        { retainedLabels: [] },
+      ),
+    ).resolves.toBe(true);
 
     expect(removeAccount).toHaveBeenCalledTimes(1);
     expect(removeAccount).toHaveBeenCalledWith('orphan');
   });
 
-  it('removes nothing when a label names more than one account', async () => {
+  it('removes nothing and reports it when a label names more than one account', async () => {
     const removeAccount = jest.fn(async () => undefined);
     const rt = {
       accountByUfvk: (ufvk: string) => JSON.stringify({ uuid: ufvk }),
@@ -548,11 +555,73 @@ describe('prepareWalletAccounts retention', () => {
     jest.mocked(withWallet).mockResolvedValue({ rt, accountUuid: 'active' });
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    await prepareWalletAccounts([{ ...account, ufvk: 'active' }], {
-      retainedLabels: ['twin'],
-    });
+    await expect(
+      purgeUnknownAccounts(
+        { ...account, ufvk: 'active' },
+        { retainedLabels: ['twin'] },
+      ),
+    ).resolves.toBe(false);
 
     expect(removeAccount).not.toHaveBeenCalled();
+  });
+
+  it('reports a removal that failed, after trying the other orphans', async () => {
+    const removeAccount = jest.fn(async (uuid: string) => {
+      if (uuid === 'orphan-a') throw new OneKeyLocalError('STORAGE_ERROR');
+    });
+    const rt = {
+      accountByUfvk: (ufvk: string) => JSON.stringify({ uuid: ufvk }),
+      accountByName: () => 'null',
+      listAccounts: () => JSON.stringify(['active', 'orphan-a', 'orphan-b']),
+      removeAccount,
+    } as unknown as Awaited<ReturnType<typeof withWallet>>['rt'];
+    jest.mocked(withWallet).mockResolvedValue({ rt, accountUuid: 'active' });
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(
+      purgeUnknownAccounts(
+        { ...account, ufvk: 'active' },
+        { retainedLabels: [] },
+      ),
+    ).resolves.toBe(false);
+
+    expect(removeAccount.mock.calls).toEqual([['orphan-a'], ['orphan-b']]);
+  });
+
+  it('reports nothing done when the opener registration is deferred', async () => {
+    jest.mocked(withWallet).mockRejectedValue(
+      Object.assign(new Error('DATABASE_ERROR'), {
+        payload: {
+          code: 'DATABASE_ERROR',
+          params: { operation: 'importAccount', reason: 'checkpointsDiverged' },
+        },
+      }),
+    );
+
+    await expect(
+      purgeUnknownAccounts(
+        { ...account, ufvk: 'active' },
+        { retainedLabels: [] },
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it('keeps other opener errors fatal', async () => {
+    const error = new OneKeyLocalError('DATABASE_LOCKED');
+    jest.mocked(withWallet).mockRejectedValue(error);
+
+    await expect(
+      purgeUnknownAccounts(
+        { ...account, ufvk: 'active' },
+        { retainedLabels: [] },
+      ),
+    ).rejects.toBe(error);
+  });
+});
+
+describe('prepareWalletAccounts', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('does not infer ownership from an active-only registration call', async () => {
