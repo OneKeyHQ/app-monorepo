@@ -46,6 +46,12 @@ import {
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import {
+  APP_MENU_GITHUB_URL,
+  APP_MENU_HELP_CENTER_URL,
+  APP_MENU_OFFICIAL_WEBSITE_URL,
+  APP_MENU_X_URL,
+} from '@onekeyhq/shared/src/consts/appMenuConsts';
+import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
@@ -610,28 +616,26 @@ const initMenu = () => {
         {
           label: i18nText(ElectronTranslations.menu_visit_help_center),
           click: async () => {
-            await shell.openExternal('https://help.onekey.so');
+            await shell.openExternal(APP_MENU_HELP_CENTER_URL);
           },
         },
         { type: 'separator' },
         {
           label: i18nText(ElectronTranslations.menu_official_website),
           click: async () => {
-            await shell.openExternal('https://onekey.so');
+            await shell.openExternal(APP_MENU_OFFICIAL_WEBSITE_URL);
           },
         },
         {
           label: 'Github',
           click: async () => {
-            await shell.openExternal(
-              'https://github.com/OneKeyHQ/app-monorepo',
-            );
+            await shell.openExternal(APP_MENU_GITHUB_URL);
           },
         },
         {
           label: 'X',
           click: async () => {
-            await shell.openExternal('https://x.com/onekeyhq');
+            await shell.openExternal(APP_MENU_X_URL);
           },
         },
       ],
