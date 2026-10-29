@@ -216,7 +216,8 @@ describe('getLoanRouteMetrics', () => {
       collateralAmount: '1',
       borrowAmount: '60000',
     });
-    expect(over.block).toEqual({ kind: 'maxLtv', maxLtv: 0.73 });
+    // With what the LTV would be: 60,000 / 80,000
+    expect(over.block).toEqual({ kind: 'maxLtv', maxLtv: 0.73, ltv: 0.75 });
 
     const dry = getLoanRouteMetrics({
       route: core,
@@ -287,6 +288,7 @@ describe('getLoanRouteMetrics', () => {
     expect(metrics.block).toEqual({
       kind: 'maxLtv',
       maxLtv: metrics.maxLtv,
+      ltv: metrics.ltv,
     });
     expect(metrics.ltv).toBeGreaterThan(metrics.maxLtv ?? 1);
   });
@@ -392,7 +394,7 @@ describe('getLoanRouteMetrics', () => {
       borrowAmount: '',
       ltvStage: 0.75,
     });
-    expect(fresh.block).toEqual({ kind: 'maxLtv', maxLtv: 0.73 });
+    expect(fresh.block).toEqual({ kind: 'maxLtv', maxLtv: 0.73, ltv: 0.75 });
     expect(fresh.maxLtv).toBeCloseTo(0.73);
 
     const withPosition = getLoanRouteMetrics({
@@ -431,7 +433,7 @@ describe('getLoanRouteMetrics', () => {
       borrowAmount: '61',
     });
     expect(metrics.maxLtv).toBeCloseTo(0.6);
-    expect(metrics.block).toEqual({ kind: 'maxLtv', maxLtv: 0.6 });
+    expect(metrics.block).toEqual({ kind: 'maxLtv', maxLtv: 0.6, ltv: 0.61 });
   });
 });
 

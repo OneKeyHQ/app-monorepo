@@ -108,7 +108,10 @@ export function getLoanBlockText({
         formatCompactFiat(block.liquidity, currency),
       );
     case 'maxLtv':
-      return EARN_DESKTOP_DEMO_COPY.loanMaxLtv(formatLoanLtv(block.maxLtv));
+      return EARN_DESKTOP_DEMO_COPY.loanMaxLtv(
+        formatLoanLtv(block.maxLtv),
+        block.ltv === undefined ? undefined : formatLoanLtv(block.ltv),
+      );
     default:
       return '';
   }

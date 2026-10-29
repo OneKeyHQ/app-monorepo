@@ -307,7 +307,11 @@ async function readRouteFacts({
     }
   }
   return {
-    hasAccount: Boolean(networkAccountId),
+    // With no wallet at all every market shows its rates, and the window's
+    // button connects one (demo 10-29)
+    hasAccount:
+      Boolean(networkAccountId) ||
+      (!account.accountId && !account.indexedAccountId),
     networkAccountId,
     collateralPrice:
       parseLoanFigure(collateralDetail?.oraclePrice) || undefined,

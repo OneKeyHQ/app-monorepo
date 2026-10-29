@@ -29,6 +29,7 @@ import type { ColorTokens, IBadgeType } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -117,7 +118,7 @@ import {
 import { useLoanToneColors } from './loanToneColors';
 import { useLoanModalHeight } from './useLoanModalHeight';
 import { useLoanPayWith } from './useLoanPayWith';
-import { useLoanRouterFacts } from './useLoanRouterFacts';
+import { useLoanRouterAccount, useLoanRouterFacts } from './useLoanRouterFacts';
 import { useLoanRouterRun } from './useLoanRouterRun';
 
 import type { ILoanLtvTone } from './loanLtvBar.types';
@@ -446,6 +447,12 @@ function EarnLoanRouterPage() {
   } = route.params as IRouteParams;
   const { gtLg } = useMedia();
   const reduceMotion = useReducedMotion();
+  const loanAccount = useLoanRouterAccount();
+  const hasNoWallet = !loanAccount.accountId && !loanAccount.indexedAccountId;
+  const { showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
   const currencyInfo = useCurrency();
   const currency = currencyInfo.symbol;
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -1842,8 +1849,20 @@ function EarnLoanRouterPage() {
     />
   );
   // The button, as Swap's: under the form in a wide window, else the modal's
-  // footer
-  const action = (
+  // footer. With no wallet the window still shows every market's rates, and
+  // the button connects one, as the deposit window's does (demo 10-29)
+  const action = hasNoWallet ? (
+    <EarnFormFooter
+      isInModalContext
+      confirmText={intl.formatMessage({
+        id: ETranslations.global_connect_wallet,
+      })}
+      confirmButtonProps={{
+        testID: 'earn-loan-connect-wallet',
+        onPress: showAccountSelector,
+      }}
+    />
+  ) : (
     <EarnFormFooter
       isInModalContext
       progress={progress}

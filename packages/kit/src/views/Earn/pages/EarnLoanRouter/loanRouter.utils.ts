@@ -655,7 +655,8 @@ export type ILoanRouteBlock =
   | { kind: 'account' }
   | { kind: 'borrowable'; eModeLabel?: string }
   | { kind: 'liquidity'; liquidity: number }
-  | { kind: 'maxLtv'; maxLtv: number };
+  // ltv: what the position's LTV there would be, so the reason says why
+  | { kind: 'maxLtv'; maxLtv: number; ltv?: number };
 
 export type ILoanRouteMetrics = {
   // In %; for the amounts once they are typed, at the chosen LTV before.
@@ -808,6 +809,7 @@ export function getLoanRouteMetrics({
         metrics.block = {
           kind: 'maxLtv',
           maxLtv: metrics.maxLtv ?? pairMaxLtv,
+          ltv: metrics.ltv,
         };
       }
     } else if (
@@ -817,7 +819,7 @@ export function getLoanRouteMetrics({
     ) {
       // Before amounts are typed only a fresh pair is held to its limit: a
       // position's spare room may take more
-      metrics.block = { kind: 'maxLtv', maxLtv: pairMaxLtv };
+      metrics.block = { kind: 'maxLtv', maxLtv: pairMaxLtv, ltv: ltvStage };
     }
   }
   return metrics;

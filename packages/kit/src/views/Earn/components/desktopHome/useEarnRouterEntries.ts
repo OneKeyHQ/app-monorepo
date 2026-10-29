@@ -11,6 +11,7 @@ import { buildLoanSelectTokens } from '../../pages/EarnLoanRouter/loanRouter.uti
 import { listPayTokens } from '../../pages/EarnRouter/earnRouter.utils';
 
 import { getLoanAssetType, isSameLoanAsset } from './earnDesktopHome.utils';
+import { EARN_GUIDE_SYMBOL, getEarnGuideNetworkId } from './earnGuide.utils';
 
 import type {
   IEarnDesktopHoldRow,
@@ -28,8 +29,11 @@ const NO_STABLE_SYMBOLS = new Set<string>();
  * what the wallet holds most of, comparing its whole kind there, paid with
  * the token itself. Loans opens the Loans window on the most valuable token
  * a market takes as collateral, against stable tokens (against ETH when the
- * collateral is stable itself). With nothing to start from, each opens its
- * list instead
+ * collateral is stable itself). With nothing to start from (no wallet, or
+ * nothing it holds earns or backs a loan), each still opens its window: Earn
+ * on USDC on Base, the guide's example, and Loans on ETH against stable
+ * tokens; their rates show, and without a wallet the button connects one
+ * (demo 10-29)
  */
 export function useEarnRouterEntries({
   holdRows,
@@ -50,7 +54,12 @@ export function useEarnRouterEntries({
   const openEarnRouter = useCallback(() => {
     const [top] = dataRef.current.holdRows;
     if (!top) {
-      EarnNavigation.pushToEarnTokens(navigation);
+      EarnNavigation.pushToEarnOffersDeposit(navigation, {
+        symbol: EARN_GUIDE_SYMBOL,
+        networkId: getEarnGuideNetworkId(),
+        wide: true,
+        assetClass: 'stable',
+      });
       return;
     }
     const type = getLoanAssetType(top.asset.symbol, NO_STABLE_SYMBOLS);
@@ -85,7 +94,13 @@ export function useEarnRouterEntries({
       return Boolean(pick);
     });
     if (!pick) {
-      EarnNavigation.pushToEarnLoans(navigation);
+      EarnNavigation.pushToEarnLoanRouter(navigation, {
+        collateral: '',
+        borrow: '',
+        collateralClass: 'eth',
+        borrowClass: 'stable',
+        wide: gtLg,
+      });
       return;
     }
     const isStable = getLoanAssetType(pick, NO_STABLE_SYMBOLS) === 'stable';

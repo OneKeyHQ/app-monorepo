@@ -112,7 +112,11 @@ export const EARN_DESKTOP_DEMO_COPY = {
       ? `Your E-Mode here (${eMode}) doesn't lend ${symbol}`
       : `This market doesn't lend ${symbol} to this account`,
   loanLiquidity: (amount: string) => `Only ${amount} left to borrow`,
-  loanMaxLtv: (ltv: string) => `Max LTV here is ${ltv}`,
+  // With what the position's LTV there would be, so it says why (demo 10-29)
+  loanMaxLtv: (ltv: string, wouldBe?: string) =>
+    wouldBe
+      ? `LTV here would be ${wouldBe}, max ${ltv}`
+      : `Max LTV here is ${ltv}`,
   loanNoMarket: (collateral: string, borrow: string) =>
     `No market lends ${borrow} against ${collateral}`,
   loanLanding: 'Supply sent. The loan follows once it is confirmed.',
