@@ -18,32 +18,6 @@ let mockRouterChange:
 let mockReady: (() => void) | undefined;
 const mockRemoveReady = jest.fn();
 const mockSetVisibility = jest.fn(async (_visible: boolean) => {});
-const mockSetForeground = jest.fn(
-  async (_params: { isForeground: boolean }) => {},
-);
-const mockRemoveVisibility = jest.fn();
-let mockVisibilityChange: ((visible: boolean) => void) | undefined;
-
-jest.mock('../../../background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: {
-    serviceNotification: {
-      setSupportNotificationForeground: (params: { isForeground: boolean }) =>
-        mockSetForeground(params),
-    },
-  },
-}));
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  __esModule: true,
-  default: { isNativeMainThread: true },
-}));
-jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
-  getCurrentVisibilityState: () => true,
-  onVisibilityStateChange: (callback: (visible: boolean) => void) => {
-    mockVisibilityChange = callback;
-    return mockRemoveVisibility;
-  },
-}));
 
 jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
@@ -80,7 +54,6 @@ describe('Intercom notification visibility integration', () => {
     mockState = main;
     mockRouterChange = undefined;
     mockReady = undefined;
-    mockVisibilityChange = undefined;
   });
 
   it('waits for navigation readiness before allowing messages', () => {
@@ -117,20 +90,5 @@ describe('Intercom notification visibility integration', () => {
     screen.unmount();
     expect(mockSetVisibility).toHaveBeenLastCalledWith(false);
     expect(mockRemoveReady).toHaveBeenCalledTimes(1);
-    expect(mockRemoveVisibility).toHaveBeenCalledTimes(1);
-    expect(mockSetForeground).toHaveBeenLastCalledWith({ isForeground: false });
-  });
-
-  it('relays foreground changes independently of lock and signing scenes', () => {
-    const screen = render(<IntercomNotificationContainer />);
-    expect(mockSetForeground).toHaveBeenLastCalledWith({ isForeground: true });
-    mockIsLocked = true;
-    screen.rerender(<IntercomNotificationContainer />);
-    expect(mockSetVisibility).toHaveBeenLastCalledWith(false);
-    expect(mockSetForeground).toHaveBeenLastCalledWith({ isForeground: true });
-    act(() => mockVisibilityChange?.(false));
-    expect(mockSetForeground).toHaveBeenLastCalledWith({ isForeground: false });
-    act(() => mockVisibilityChange?.(true));
-    expect(mockSetForeground).toHaveBeenLastCalledWith({ isForeground: true });
   });
 });

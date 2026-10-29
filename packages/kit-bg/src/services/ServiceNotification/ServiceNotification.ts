@@ -14,14 +14,12 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import notificationsUtils, {
   NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
-import { isSupportNotification } from '@onekeyhq/shared/src/utils/supportNotificationUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -168,18 +166,6 @@ export default class ServiceNotification extends ServiceBase {
 
   pushClient: INotificationPushClient = {};
 
-  private supportNotificationForeground = false;
-
-  @backgroundMethod()
-  async setSupportNotificationForeground({
-    isForeground,
-  }: {
-    isForeground: boolean;
-  }) {
-    // Native main and bg have separate AppState JS instances.
-    this.supportNotificationForeground = isForeground;
-  }
-
   @backgroundMethod()
   async getPushClient() {
     return this.pushClient;
@@ -236,15 +222,7 @@ export default class ServiceNotification extends ServiceBase {
     }
 
     // websocket push should show notification by ourselves
-    const isSupportMessage = isSupportNotification(messageInfo.extras);
-    // The extension background cannot tell whether a wallet UI is focused,
-    // so it keeps showing system notifications for support replies.
-    const suppressForegroundSupport =
-      isSupportMessage &&
-      (platformEnv.isNative
-        ? this.supportNotificationForeground
-        : !platformEnv.isExtension && getCurrentVisibilityState());
-    if (messageInfo.pushSource === 'websocket' && !suppressForegroundSupport) {
+    if (messageInfo.pushSource === 'websocket') {
       if (!(await this.isNotificationShowed(msgId))) {
         const prefix = showMessagePushSource ? '[wss:] ' : '';
         // jpush will show notification automatically
@@ -257,7 +235,7 @@ export default class ServiceNotification extends ServiceBase {
           remotePushMessageInfo: messageInfo,
         };
         await this.showNotification(notificationParams);
-        if (!platformEnv.isNativeIOS && !isSupportMessage) {
+        if (!platformEnv.isNativeIOS) {
           appEventBus.emit(
             EAppEventBusNames.ShowInAppPushNotification,
             notificationParams,

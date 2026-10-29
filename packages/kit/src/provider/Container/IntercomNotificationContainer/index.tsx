@@ -3,13 +3,6 @@ import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { rootNavigationRef, useOnRouterChange } from '@onekeyhq/components';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { setIntercomInAppMessageVisibility } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  getCurrentVisibilityState,
-  onVisibilityStateChange,
-} from '@onekeyhq/shared/src/utils/appVisibility';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import {
   type IIntercomNavigationState,
@@ -32,27 +25,6 @@ export function IntercomNotificationContainer() {
     [],
   );
   useOnRouterChange(handleRouterChange);
-
-  useEffect(() => {
-    if (!platformEnv.isNativeMainThread) {
-      return;
-    }
-    const syncForeground = (isForeground: boolean) => {
-      void backgroundApiProxy.serviceNotification
-        .setSupportNotificationForeground({ isForeground })
-        .catch(() => {
-          console.warn(
-            'Failed to update support notification foreground state',
-          );
-        });
-    };
-    const unsubscribe = onVisibilityStateChange(syncForeground);
-    syncForeground(getCurrentVisibilityState());
-    return () => {
-      unsubscribe();
-      syncForeground(false);
-    };
-  }, []);
 
   useEffect(() => {
     const navigation = rootNavigationRef.current;

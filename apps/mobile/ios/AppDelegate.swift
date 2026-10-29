@@ -1313,20 +1313,6 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #if !targetEnvironment(macCatalyst)
 extension AppDelegate:JPUSHRegisterDelegate {
   //MARK - JPUSHRegisterDelegate
-  private func isSupportNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
-    let body = userInfo["body"] as? [AnyHashable: Any] ?? userInfo
-    let extras = body["extras"] as? [AnyHashable: Any] ?? body
-    let isCommand = (extras["mode"] as? NSNumber) == NSNumber(value: 6) ||
-      (extras["mode"] as? String) == "6"
-    guard isCommand,
-          let payload = extras["payload"] as? String,
-          let data = payload.data(using: .utf8),
-          let command = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-      return false
-    }
-    return command["action"] as? String == "openSupportConversation"
-  }
-
   @available(iOS 10.0, *)
   func jpushNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                withCompletionHandler completionHandler: ((Int) -> Void)) {
@@ -1345,12 +1331,7 @@ extension AppDelegate:JPUSHRegisterDelegate {
       NitroModuleBridge.logInfo("App", "received local notification: \(userInfo)")
     }
 
-    // willPresent runs in the foreground; keep delivery events and badge updates.
-    if isSupportNotification(userInfo) {
-      completionHandler(Int(UNNotificationPresentationOptions.badge.rawValue))
-    } else {
-      completionHandler(Int(UNNotificationPresentationOptions.badge.rawValue | UNNotificationPresentationOptions.sound.rawValue | UNNotificationPresentationOptions.alert.rawValue))
-    }
+    completionHandler(Int(UNNotificationPresentationOptions.badge.rawValue | UNNotificationPresentationOptions.sound.rawValue | UNNotificationPresentationOptions.alert.rawValue))
   }
 
   @available(iOS 10.0, *)

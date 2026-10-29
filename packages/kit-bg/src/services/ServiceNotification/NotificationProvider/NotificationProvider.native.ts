@@ -19,7 +19,6 @@ import { setBadgeCountAsync } from '@onekeyhq/shared/src/modules3rdParty/expo-no
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { isSupportNotification } from '@onekeyhq/shared/src/utils/supportNotificationUtils';
 import type {
   IJPushNotificationLocalEvent,
   INativeNotificationCenterMessageInfo,
@@ -111,18 +110,13 @@ export default class NotificationProvider extends NotificationProviderBase {
       }
     });
     setNotificationHandler({
-      handleNotification: async ({
-        request,
-      }): Promise<NotificationBehavior> => {
-        const quiet = isSupportNotification(request.content.data);
-        return {
-          shouldShowBanner: !quiet,
-          shouldShowList: !quiet,
-          shouldPlaySound: !quiet,
+      handleNotification: async ({ request: _request }) =>
+        ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
           shouldSetBadge: true,
           priority: AndroidNotificationPriority.DEFAULT,
-        };
-      },
+        }) as NotificationBehavior,
     });
 
     // Notifications.removeNotificationSubscription(sub1);

@@ -1,6 +1,4 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
-import { isSupportNotification } from '@onekeyhq/shared/src/utils/supportNotificationUtils';
 import type {
   INotificationPermissionDetail,
   INotificationRemoveParams,
@@ -60,12 +58,6 @@ export default class NotificationProvider extends NotificationProviderBase {
     params: INotificationShowParams,
   ): Promise<INotificationShowResult> {
     this.fixShowParams(params);
-    if (
-      isSupportNotification(params.remotePushMessageInfo?.extras) &&
-      getCurrentVisibilityState()
-    ) {
-      return { notificationId: params.notificationId };
-    }
     const { title, description, icon, notificationId } = params;
     let notification: Notification | undefined;
 
