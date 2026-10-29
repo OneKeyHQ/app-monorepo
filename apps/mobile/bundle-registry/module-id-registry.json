@@ -26216,6 +26216,7 @@
     "packages/kit/src/views/Send/pages/SendAmountInput/hooks/useSiblingDeriveBalances.ts": 1136,
     "packages/kit/src/views/Send/pages/SendAmountInput/privateSendAmountLayoutUtils.ts": 1481,
     "packages/kit/src/views/Send/pages/SendAmountInput/privateSendMaxAmountUtils.ts": 13928,
+    "packages/kit/src/views/Send/pages/SendAmountInput/privateSendQuoteUtils.ts": 544,
     "packages/kit/src/views/Send/pages/SendAmountInput/useLocalWalletSendPool.ts": 18678,
     "packages/kit/src/views/Send/pages/SendAmountInput/useLocalWalletSendReadiness.ts": 4080,
     "packages/kit/src/views/Send/pages/SendConfirm/SendConfirmActionsContainer.tsx": 682,
