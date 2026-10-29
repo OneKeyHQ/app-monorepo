@@ -4,16 +4,29 @@ import type { ReactNode } from 'react';
 
 import { render, screen } from '@testing-library/react';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { TokenListHeader } from './TokenListHeader';
 
 let mockGtMd = true;
+let mockLayoutEngine: 'web' | 'native' = 'web';
 
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  __esModule: true,
-  default: { isNative: false },
-}));
+// Jest resolves the web platform file; route the header layout through the
+// real web or native implementation per test so both contracts are exercised
+// against one React instance.
+jest.mock('./tokenListRowLayout', () => {
+  const web = jest.requireActual<typeof import('./tokenListRowLayout')>(
+    './tokenListRowLayout',
+  );
+  const native = jest.requireActual<
+    typeof import('./tokenListRowLayout.native')
+  >('./tokenListRowLayout.native');
+  return {
+    ...web,
+    getTokenListHeaderLayout: (gtMd: boolean) =>
+      (mockLayoutEngine === 'native' ? native : web).getTokenListHeaderLayout(
+        gtMd,
+      ),
+  };
+});
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -78,8 +91,6 @@ jest.mock('../../states/jotai/contexts/tokenList', () => ({
   }),
 }));
 
-const env = platformEnv as unknown as { isNative: boolean };
-
 function readHeaderGeometry() {
   const header = screen.getByTestId('Wallet-Token-List-Header');
   const leading = header.firstElementChild as HTMLElement | null;
@@ -102,7 +113,7 @@ function readHeaderGeometry() {
 
 describe('TokenListHeader table geometry', () => {
   beforeEach(() => {
-    env.isNative = false;
+    mockLayoutEngine = 'web';
     mockGtMd = true;
   });
 
@@ -143,7 +154,7 @@ describe('TokenListHeader table geometry', () => {
   });
 
   it('keeps the native row geometry', () => {
-    env.isNative = true;
+    mockLayoutEngine = 'native';
     render(<TokenListHeader tableLayout withSwapAction />);
     expect(readHeaderGeometry()).toEqual({
       gap: '8',

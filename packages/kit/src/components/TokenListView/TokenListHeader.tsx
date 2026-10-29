@@ -12,7 +12,6 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import {
@@ -20,7 +19,7 @@ import {
   useTokenListSortAtom,
 } from '../../states/jotai/contexts/tokenList';
 
-import { getTokenRowIconSize } from './tokenListRowLayout';
+import { getTokenListHeaderLayout } from './tokenListRowLayout';
 
 type IProps = {
   tableLayout?: boolean;
@@ -32,14 +31,9 @@ type IProps = {
 // Table rows are NativeList `dataRow`s (see NativeTokenSelectorList), so the
 // header mirrors each engine's row geometry rather than an equal-width grid:
 // a leading slot for the token icon, the inter-cell gap, and the footprint of
-// the trailing swap button.
-// Native rows: 44px leading slot, 8px gaps.
-// Web rows: `horizontalPadding: 12`, 12px flex gap, 32px (gtMd) / 40px icon,
-// trailing button with 10px padding plus a 1px border.
-const NATIVE_LEADING_WIDTH = 44;
-const NATIVE_CELL_GAP = 8;
-const WEB_ROW_HORIZONTAL_PADDING = 12;
-const WEB_CELL_GAP = 12;
+// the trailing swap button. The per-platform numbers live in
+// `tokenListRowLayout` (web) and `tokenListRowLayout.native`.
+// Trailing swap button on both engines: 10px padding plus a 1px border.
 const SWAP_BUTTON_HORIZONTAL_INSET = 11;
 
 function SortButton({
@@ -113,10 +107,8 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
     return null;
   }
 
-  const cellGap = platformEnv.isNative ? NATIVE_CELL_GAP : WEB_CELL_GAP;
-  const leadingWidth = platformEnv.isNative
-    ? NATIVE_LEADING_WIDTH
-    : getTokenRowIconSize(gtMd);
+  const { leadingWidth, cellGap, containerProps } =
+    getTokenListHeaderLayout(gtMd);
   // Pull the asset label back over the leading slot so it starts at the row
   // edge while the column itself keeps the row's cell width.
   const assetLabelInset = -(leadingWidth + cellGap);
@@ -126,9 +118,7 @@ function TokenListHeader({ tableLayout, withSwapAction }: IProps) {
       testID="Wallet-Token-List-Header"
       minHeight={32}
       gap={cellGap}
-      {...(platformEnv.isNative
-        ? undefined
-        : { mx: 0, px: WEB_ROW_HORIZONTAL_PADDING })}
+      {...containerProps}
     >
       <Stack width={leadingWidth} />
       <XStack flex={1} gap={cellGap}>
