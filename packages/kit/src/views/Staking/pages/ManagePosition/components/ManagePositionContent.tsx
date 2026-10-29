@@ -213,8 +213,8 @@ export const ManageSectionShell = ({
   // Trending entry (with a protocol switcher) renders a different card stack
   // than the details entry, so the skeleton mirrors whichever will land.
   hasProtocolSwitch?: boolean;
-  // In the modal the action button lives in Page.Footer (bottom-right), so the
-  // shell must not render an inline full-width button there.
+  // In the modal the action button lives in the footer (the form's full
+  // width), so the shell must not render one under the form there.
   isInModalContext?: boolean;
 }) => {
   const intl = useIntl();

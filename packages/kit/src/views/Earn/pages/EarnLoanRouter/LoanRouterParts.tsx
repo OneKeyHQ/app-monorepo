@@ -9,6 +9,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import {
   Badge,
   Icon,
+  Image,
   ScrollView,
   SearchBar,
   SizableText,
@@ -34,6 +35,7 @@ import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared
 import { ANIMATE_ONLY_BG_COLOR } from '../../components/desktopHome/earnDesktopColorEase';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import { EarnAssetLogos } from '../EarnAssetSelect/EarnAssetLogos';
 
 import { useLoanToneColors } from './loanToneColors';
 
@@ -396,6 +398,8 @@ export type ILoanRouteItem = {
 
 // Under the market's name, past its logo
 const FIGURES_INDENT = '$12';
+// Past the pair's two logos instead, comparing a kind of token: 58 + 12
+const PAIR_FIGURES_INDENT = 70;
 const CHECK_SIZE = '$6';
 // The line under the figures that says why a market can't take the loan,
 // and the card's gap above it
@@ -476,22 +480,77 @@ function solidSlideColors(
 const netApyColor = (value?: number): IColorTokens | undefined =>
   isLoanLoss(value) ? '$textCritical' : undefined;
 
+// Comparing pairs across a kind of token, the pair leads: the collateral's
+// logo and the borrowed token's, overlapped as the app's token groups are,
+// the market's on them where a network's would be, as the deposit modal
+// puts the protocol's on a token
+function PairOnMarketImage({
+  route,
+  ringColor,
+  hoverRingColor,
+}: {
+  route: ILoanRoute;
+  ringColor: IColorTokens;
+  hoverRingColor?: IColorTokens;
+}) {
+  return (
+    <Stack position="relative" flexShrink={0}>
+      <EarnAssetLogos
+        logos={[route.collateral.logoURI ?? '', route.borrow.logoURI ?? '']}
+        size="md"
+        ringColor={ringColor}
+        groupHoverRingColor={hoverRingColor}
+      />
+      {route.market.logoURI ? (
+        <Stack
+          position="absolute"
+          bottom={-2}
+          right={-2}
+          p={1}
+          bg="$bgApp"
+          borderRadius="$1.5"
+        >
+          <Image
+            w="$4"
+            h="$4"
+            borderRadius="$1"
+            source={{ uri: route.market.logoURI }}
+          />
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+}
+
 function MarketCell({
   route,
   pairLabel,
   needsSwap,
+  ringColor,
+  hoverRingColor,
 }: {
   route: ILoanRoute;
   pairLabel?: string;
   needsSwap?: boolean;
+  // The card's color around the pair's logos, and as it is hovered
+  ringColor: IColorTokens;
+  hoverRingColor?: IColorTokens;
 }) {
   const intl = useIntl();
   return (
     <XStack ai="center" gap="$3" minWidth={0} flex={1}>
-      <ProtocolImage
-        logoURI={route.market.logoURI}
-        networkLogoURI={route.market.network.logoURI}
-      />
+      {pairLabel ? (
+        <PairOnMarketImage
+          route={route}
+          ringColor={ringColor}
+          hoverRingColor={hoverRingColor}
+        />
+      ) : (
+        <ProtocolImage
+          logoURI={route.market.logoURI}
+          networkLogoURI={route.market.network.logoURI}
+        />
+      )}
       <YStack flex={1} minWidth={0} gap="$0.5">
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {route.marketLabel}
@@ -607,10 +666,13 @@ function RouteFigure({
 function RouteReasonLine({
   text,
   isReserved,
+  indent,
   testID,
 }: {
   text?: string;
   isReserved: boolean;
+  // Under the market's name
+  indent: number | '$12';
   testID: string;
 }) {
   const noteColor = useLoanToneColors().note;
@@ -644,7 +706,7 @@ function RouteReasonLine({
           <SizableText
             size="$bodySm"
             style={{ color: noteColor }}
-            pl={FIGURES_INDENT}
+            pl={indent}
             testID={testID}
             transition={reduceMotion ? undefined : 'quick'}
             animateOnly={ANIMATE_ONLY_OPACITY}
@@ -736,6 +798,12 @@ function RouteRow({
           ...buildKeyboardPressProps(select, 2),
         };
   const textColor = isBlocked ? '$textDisabled' : undefined;
+  const isLit = isSelected && isSettled && !isLendingClosed(block);
+  const cardColor: IColorTokens = isLit ? '$bgActive' : '$bgSubdued';
+  // A kind of token on a side: the pair's logos lead, the figures and the
+  // reason line start under the market's name past them
+  const isPair = Boolean(item.pairLabel);
+  const indent = isPair ? PAIR_FIGURES_INDENT : FIGURES_INDENT;
   // Where the plan's Net APY doesn't hold (the market's position carries
   // part of the loan), what it makes or costs a year
   const yearly = metrics.netApy === undefined ? metrics.annualNet : undefined;
@@ -748,11 +816,9 @@ function RouteRow({
       py="$3.5"
       // Nothing to pick where the market doesn't lend the token at all, and
       // nothing picked while the figures load
-      bg={
-        isSelected && isSettled && !isLendingClosed(block)
-          ? '$bgActive'
-          : '$bgSubdued'
-      }
+      bg={cardColor}
+      // The logos' rings follow its color as it is hovered
+      group
       borderRadius="$3"
       borderCurve="continuous"
       userSelect="none"
@@ -768,6 +834,10 @@ function RouteRow({
           route={route}
           pairLabel={item.pairLabel}
           needsSwap={item.needsSwap}
+          ringColor={cardColor}
+          hoverRingColor={
+            isSelected || isBlocked || !isSettled ? undefined : '$bgHover'
+          }
         />
         {/* What the plan makes here, named under it */}
         <YStack ai="flex-end" flexShrink={0} gap="$0.5">
@@ -792,7 +862,7 @@ function RouteRow({
           isWaiting={!isSettled}
         />
       </XStack>
-      <XStack pl={FIGURES_INDENT} pr="$9" gap="$3">
+      <XStack pl={indent} pr="$9" gap="$3">
         <RouteFigure
           label={intl.formatMessage({ id: ETranslations.defi_supply_apy })}
           value={formatLoanPercent(route.collateral.supplyApy)}
@@ -819,6 +889,7 @@ function RouteRow({
       <RouteReasonLine
         text={block ? getLoanBlockText({ block, route, currency }) : undefined}
         isReserved={!isSettled}
+        indent={indent}
         testID={`earn-loan-route-block-${route.key}`}
       />
     </YStack>

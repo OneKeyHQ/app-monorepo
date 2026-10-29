@@ -27,6 +27,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
+import {
+  EARN_FULL_WIDTH_BUTTONS,
+  EARN_HALF_BUTTON,
+} from '../../../Staking/components/EarnFormFooter';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 
 import { EModeAssetsTable } from './EModeAssetsTable';
@@ -596,7 +600,9 @@ function BorrowEModeSwitchView() {
         <Page.Footer>
           <Page.FooterActions
             onConfirmText={footerText}
+            buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
             confirmButtonProps={{
+              ...EARN_HALF_BUTTON,
               testID: 'borrow-e-mode-footer-confirm',
               onPress: onFooterConfirm,
               loading:

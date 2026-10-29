@@ -12,7 +12,6 @@ import {
   IconButton,
   Image,
   NumberSizeableText,
-  Page,
   Popover,
   SegmentControl,
   SizableText,
@@ -26,6 +25,7 @@ import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/Percenta
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { EarnFormFooter } from '@onekeyhq/kit/src/views/Staking/components/EarnFormFooter';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { StakeProgress } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
@@ -1280,81 +1280,31 @@ function RepayWithCollateralForm({
       </StakingFormWrapper>
 
       {beforeFooter}
-      {isInModalContext ? (
-        <Page.Footer>
-          {setupProgressStep ? (
-            <Stack
-              bg="$bgApp"
-              flexDirection="column"
-              $gtMd={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                jc: 'space-between',
-              }}
-            >
-              <Stack pl="$5" $md={{ pt: '$5' }}>
-                <StakeProgress
-                  currentStep={setupProgressStep}
-                  step1LabelId={ETranslations.defi_refundable_setup_fee}
-                  step2LabelId={ETranslations.defi_repay}
-                />
-              </Stack>
-              <Page.FooterActions
-                onConfirmText={intl.formatMessage({
-                  id: ETranslations.defi_repay,
-                })}
-                confirmButtonProps={{
-                  onPress: handleSubmit,
-                  loading: submitting || checkAmountLoading,
-                  disabled: isButtonDisabled,
-                }}
-              />
-            </Stack>
-          ) : (
-            <Page.FooterActions
-              onConfirmText={intl.formatMessage({
-                id: ETranslations.defi_repay,
-              })}
-              confirmButtonProps={{
-                onPress: handleSubmit,
-                loading: submitting || checkAmountLoading,
-                disabled: isButtonDisabled,
-              }}
+      {/* As every Earn form's: one button the form's full width, in the
+          modal's footer or under the form, the steps above it */}
+      <EarnFormFooter
+        isInModalContext={Boolean(isInModalContext)}
+        progress={
+          setupProgressStep ? (
+            <StakeProgress
+              currentStep={setupProgressStep}
+              step1LabelId={ETranslations.defi_refundable_setup_fee}
+              step2LabelId={ETranslations.defi_repay}
             />
-          )}
+          ) : null
+        }
+        confirmText={intl.formatMessage({ id: ETranslations.defi_repay })}
+        confirmButtonProps={{
+          onPress: handleSubmit,
+          loading: submitting || checkAmountLoading,
+          disabled: isButtonDisabled,
+        }}
+        keyboardStage={
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
           />
-        </Page.Footer>
-      ) : (
-        <YStack bg="$bgApp" gap="$5">
-          {setupProgressStep ? (
-            <Stack>
-              <StakeProgress
-                currentStep={setupProgressStep}
-                step1LabelId={ETranslations.defi_refundable_setup_fee}
-                step2LabelId={ETranslations.defi_repay}
-              />
-            </Stack>
-          ) : null}
-          <Page.FooterActions
-            p={0}
-            onConfirmText={intl.formatMessage({ id: ETranslations.defi_repay })}
-            buttonContainerProps={{
-              $gtMd: {
-                ml: '0',
-              },
-              w: '100%',
-            }}
-            confirmButtonProps={{
-              onPress: handleSubmit,
-              loading: submitting || checkAmountLoading,
-              disabled: isButtonDisabled,
-              w: '100%',
-            }}
-          />
-        </YStack>
-      )}
+        }
+      />
     </>
   );
 }

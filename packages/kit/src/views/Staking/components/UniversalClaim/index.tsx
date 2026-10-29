@@ -35,6 +35,7 @@ import {
 
 import { countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
+import { EARN_FULL_WIDTH_BUTTONS, EARN_HALF_BUTTON } from '../EarnFormFooter';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import {
@@ -376,7 +377,9 @@ export const UniversalClaim = ({
           onConfirmText={intl.formatMessage({
             id: ETranslations.earn_claim,
           })}
+          buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
           confirmButtonProps={{
+            ...EARN_HALF_BUTTON,
             onPress,
             loading,
             disabled: isDisable,

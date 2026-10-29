@@ -1726,12 +1726,11 @@ function EarnLoanRouterPage() {
       navigation.setParams({ wide: isBeside });
     }
   }, [isBeside, navigation, wide]);
-  // Beside the form, the two columns scroll by themselves within what the
-  // modal can show
-  const [columnsRoom, setColumnsRoom] = useState<number>();
+  // The form keeps the routers' fixed size, what it holds scrolling inside;
+  // the done view is as tall as it is
   const fitModalRef = useLoanModalHeight(
     EARN_LOAN_MODAL_SIZE.height,
-    setColumnsRoom,
+    Boolean(done),
   );
   // The done view names the pair that went in; the form is the Loans
   // window, its picks heading the form
@@ -1906,7 +1905,11 @@ function EarnLoanRouterPage() {
   );
 
   return (
-    <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
+    // Beside the form, each column scrolls by itself and nothing else does
+    <Page
+      scrollEnabled={!isBeside}
+      scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
+    >
       <Page.Header
         title={
           done
@@ -1916,16 +1919,13 @@ function EarnLoanRouterPage() {
         headerTitle={done ? renderDoneTitle : undefined}
       />
       <Page.Body>
-        {/* What the modal fits its height to, up to its size */}
-        <YStack ref={fitModalRef}>
+        {/* What the done view's modal fits its height to; the columns fill
+            the form's fixed one */}
+        <YStack ref={fitModalRef} flex={isBeside ? 1 : undefined}>
           {isBeside && !done ? (
             // Each column scrolls by itself: the markets move under the
             // pointer while the form and its button stay
-            <XStack
-              testID="earn-loan-router"
-              ai="stretch"
-              maxHeight={columnsRoom}
-            >
+            <XStack testID="earn-loan-router" flex={1} ai="stretch">
               <ScrollView
                 flex={1}
                 minWidth={0}

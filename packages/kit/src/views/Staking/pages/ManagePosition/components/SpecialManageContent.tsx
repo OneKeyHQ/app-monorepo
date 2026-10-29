@@ -21,6 +21,10 @@ import type {
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 
+import {
+  EARN_FULL_WIDTH_BUTTONS,
+  EARN_HALF_BUTTON,
+} from '../../../components/EarnFormFooter';
 import { EarnActionIcon } from '../../../components/ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../../../components/ProtocolDetails/EarnText';
 import { EarnTooltip } from '../../../components/ProtocolDetails/EarnTooltip';
@@ -214,7 +218,9 @@ export function SpecialManageContent({
       return (
         <Page.FooterActions
           onConfirmText={primaryButton.text}
+          buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
           confirmButtonProps={{
+            ...EARN_HALF_BUTTON,
             onPress: primaryButton.onPress,
             disabled: primaryButton.disabled,
             loading: primaryButton.loading,
@@ -228,9 +234,11 @@ export function SpecialManageContent({
         <Page.FooterActions
           onCancelText={secondaryButton?.text}
           onConfirmText={primaryButton?.text}
+          buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
           cancelButtonProps={
             secondaryButton
               ? {
+                  ...EARN_HALF_BUTTON,
                   onPress: secondaryButton.onPress,
                   disabled: secondaryButton.disabled,
                   loading: secondaryButton.loading,
@@ -240,6 +248,7 @@ export function SpecialManageContent({
           confirmButtonProps={
             primaryButton
               ? {
+                  ...EARN_HALF_BUTTON,
                   onPress: primaryButton.onPress,
                   disabled: primaryButton.disabled,
                   loading: primaryButton.loading,

@@ -138,12 +138,14 @@ function measureSpaceBelow(content: HTMLElement, viewport: HTMLElement) {
   return space;
 }
 
-// Back to the navigator's usual size (90% of the window, up to 640) and
-// centered, then the navigator's own styles again
+// Back to the navigator's size (90% of the window, up to 640, or up to the
+// route's own height where it declares one) and centered, then the
+// navigator's own styles again
 function releaseModal(
   modal: HTMLElement,
   container: HTMLElement,
   reduceMotion: boolean,
+  maxHeight: number = MODAL_MAX_HEIGHT,
 ) {
   const clear = () => {
     releases.delete(modal);
@@ -154,7 +156,7 @@ function releaseModal(
   const marginFrom = parseFloat(modal.style.marginTop) || 0;
   const to = Math.min(
     container.clientHeight * MODAL_MAX_WINDOW_SHARE,
-    MODAL_MAX_HEIGHT,
+    maxHeight,
   );
   if (reduceMotion || (Math.abs(to - from) < 1 && Math.abs(marginFrom) < 1)) {
     clear();
@@ -189,18 +191,20 @@ function releaseModal(
  * this sets its height. Another page pushed in the same modal (History) gets
  * the usual size back; a modal opened over it (Pay with's picker) leaves it
  * as it is, to grow out of it and shrink back into it. A route that declares
- * a taller modal (modalContentMaxHeight) passes the same height as maxHeight
+ * a taller modal (modalContentMaxHeight) passes the same height as maxHeight.
+ * A page that stops fitting to take a fixed size the route declares (the
+ * Earn router grown from one offer) passes that height as releaseMaxHeight:
+ * the modal eases to it as the navigator's size takes over
  */
 export function useFitModalHeight(
   enabled = true,
   maxHeight: number = MODAL_MAX_HEIGHT,
-  // The height what it holds can take at the most, for a window whose
-  // columns scroll by themselves within it
-  onRoom?: (room: number) => void,
+  releaseMaxHeight?: number,
 ) {
   const { gtMd } = useMedia();
-  const onRoomRef = useRef(onRoom);
-  onRoomRef.current = onRoom;
+  // Read as fitting stops, in the render that stops it
+  const releaseMaxHeightRef = useRef(releaseMaxHeight);
+  releaseMaxHeightRef.current = releaseMaxHeight;
   const isFocused = useIsFocused();
   // Still the top page of its own modal, with another modal over it
   const routeKey = useRoute().key;
@@ -247,7 +251,6 @@ export function useFitModalHeight(
     // Once pressed or typed in, the height its top edge is kept for
     let anchorHeight: number | undefined;
     let frame = 0;
-    let lastRoom = -1;
 
     const remainingJump = (now: number) => {
       if (!jumpFrom) {
@@ -281,11 +284,6 @@ export function useFitModalHeight(
         maxHeight,
         window.innerHeight * MODAL_MAX_WINDOW_SHARE,
       );
-      const room = Math.floor(limit - chrome - above - below);
-      if (room !== lastRoom) {
-        lastRoom = room;
-        onRoomRef.current?.(room);
-      }
       const desired = chrome + above + contentRect.height / scale + below;
       return Math.ceil(Math.min(desired, limit));
     };
@@ -464,7 +462,12 @@ export function useFitModalHeight(
       // Still on screen (another page pushed on top): the usual size comes
       // back. Closed: the modal leaves at the size and place it had
       if (content.isConnected) {
-        releaseModal(modal, container, reduceMotion);
+        releaseModal(
+          modal,
+          container,
+          reduceMotion,
+          releaseMaxHeightRef.current,
+        );
       }
     };
   }, [content, isActive, maxHeight, reduceMotion]);

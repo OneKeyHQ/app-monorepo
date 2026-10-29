@@ -614,7 +614,6 @@ export function EarnOffersDeposit({
   networkAssets,
   onAssetPickChange,
   pickPill,
-  columnsRoom,
 }: {
   symbol: string;
   networkId: string;
@@ -651,9 +650,6 @@ export function EarnOffersDeposit({
   onAssetPickChange?: (pick: IEarnAssetPick) => void;
   // The pick's control, at the head of the form
   pickPill?: ReactNode;
-  // Beside the form: the height the two columns can take, each scrolling
-  // by itself within it
-  columnsRoom?: number;
 }) {
   const intl = useIntl();
   const pickedClass: IEarnAssetClass | undefined =
@@ -992,8 +988,10 @@ export function EarnOffersDeposit({
   );
 
   const { gtLg } = useMedia();
+  // The full router lists its offers whatever their number
   const listsRoutes =
-    offersLayout === 'routes' && (offers.length > 1 || Boolean(classHint));
+    offersLayout === 'routes' &&
+    (offers.length > 1 || Boolean(classHint) || routesBeside);
   // Beside the form only where the modal is wide and the window holds it;
   // under the amount box otherwise
   const isRoutesBeside = listsRoutes && routesBeside && gtLg;
@@ -1046,11 +1044,11 @@ export function EarnOffersDeposit({
       {pickPill}
     </XStack>
   ) : null;
-  // The form's place and the offers' column, as they will land. Each
-  // scrolls by itself within the window's height: the offers move under
-  // the pointer while the form and its button, under it as on Swap, stay
+  // The form's place and the offers' column, as they will land, filling the
+  // window's fixed size. Each scrolls by itself: the offers move under the
+  // pointer while the form and its button, under it as on Swap, stay
   const besideForm = (form: ReactNode, column: ReactNode) => (
-    <XStack ai="stretch" maxHeight={columnsRoom}>
+    <XStack flex={1} ai="stretch">
       <ScrollView
         flex={1}
         minWidth={0}

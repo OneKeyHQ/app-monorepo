@@ -16,10 +16,8 @@ import {
   IconButton,
   Image,
   NumberSizeableText,
-  Page,
   Popover,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -64,6 +62,7 @@ import { useFalconEventEndedDialog } from '../../hooks/useFalconEventEndedDialog
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
+import { EarnFormFooter } from '../EarnFormFooter';
 import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
@@ -1068,42 +1067,34 @@ export function ApproveBaseStake({
           networkId={approveTarget.networkId}
         />
       </YStack>
-      <Page.Footer>
-        <Stack
-          bg="$bgApp"
-          flexDirection="column"
-          $gtMd={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            jc: 'space-between',
-          }}
-        >
-          <Stack pl="$5" $md={{ pt: '$5' }}>
-            {isShowStakeProgress ? (
-              <StakeProgress
-                approveType={approveType ?? EApproveType.Legacy}
-                currentStep={
-                  isDisable || shouldApprove
-                    ? EStakeProgressStep.approve
-                    : EStakeProgressStep.deposit
-                }
-              />
-            ) : null}
-          </Stack>
-
-          <Page.FooterActions
-            onConfirmText={onConfirmText}
-            confirmButtonProps={{
-              onPress: shouldApprove ? onApprove : onSubmit,
-              loading: loadingAllowance || approving,
-              disabled: isDisable,
-            }}
+      {/* As every Earn form's: one button the form's full width, the steps
+          above it */}
+      <EarnFormFooter
+        isInModalContext
+        progress={
+          isShowStakeProgress ? (
+            <StakeProgress
+              approveType={approveType ?? EApproveType.Legacy}
+              currentStep={
+                isDisable || shouldApprove
+                  ? EStakeProgressStep.approve
+                  : EStakeProgressStep.deposit
+              }
+            />
+          ) : null
+        }
+        confirmText={onConfirmText}
+        confirmButtonProps={{
+          onPress: shouldApprove ? onApprove : onSubmit,
+          loading: loadingAllowance || approving,
+          disabled: isDisable,
+        }}
+        keyboardStage={
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
           />
-        </Stack>
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-      </Page.Footer>
+        }
+      />
     </StakingFormWrapper>
   );
 }

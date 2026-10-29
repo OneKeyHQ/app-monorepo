@@ -148,7 +148,13 @@ export type IModalStakingParamList = {
       offerKey?: string;
       amount?: string;
       offerOnly?: boolean;
+      // The full router: the Earn router's fixed size, its offers listed
+      // beside the form where the window holds them. Unset, one offer in a
+      // modal as tall as its form
       wide?: boolean;
+      // The window can't hold the offers beside the form: the full router
+      // at the usual width, its offers under the form
+      narrow?: boolean;
       // Every token of the kind compared, the symbol's among them (the Earn
       // button opens the most valuable holding's kind)
       assetClass?: IEarnAssetClass;

@@ -41,6 +41,7 @@ import {
   EarnOffersDeposit,
 } from '../../../Earn/pages/EarnRouter/EarnOffersDeposit';
 import {
+  EARN_ROUTER_MODAL_HEIGHT,
   findOffer,
   pickBetterOffer,
 } from '../../../Earn/pages/EarnRouter/earnRouter.utils';
@@ -79,6 +80,9 @@ type ISelectedProtocol = {
 const PAY_WITH: IManagePositionPayWith = {};
 // Once a deposit is out the form fades this long, then the done view
 const FORM_OUT_MS = 150;
+// Growing into the full router, the columns fade in this long after the
+// window starts taking its size (the navigator's 250 ms), as it lands
+const ROUTER_GROW_MS = 200;
 
 function getProtocolKey(protocol: ISelectedProtocol) {
   return `${protocol.provider.toLowerCase()}-${protocol.networkId}-${protocol.vault ?? ''}`;
@@ -107,10 +111,14 @@ const ManagePositionPage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.ManagePosition
   >();
-  // The wide router's columns scroll by themselves within what the modal
-  // can show
-  const [columnsRoom, setColumnsRoom] = useState<number>();
-  const fitModalRef = useFitModalHeight(true, undefined, setColumnsRoom);
+  // The full Earn router keeps the routers' fixed size, what it holds
+  // scrolling inside; otherwise the modal is as tall as its form
+  const isFullRouter = Boolean(route.params.earnOffers?.wide);
+  const fitModalRef = useFitModalHeight(
+    !isFullRouter,
+    undefined,
+    isFullRouter ? EARN_ROUTER_MODAL_HEIGHT : undefined,
+  );
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
 
@@ -278,32 +286,88 @@ const ManagePositionPage = () => {
     networkId: selectedProtocol.networkId,
     enabled: isRouter,
   });
-  // A kind of token lists its offers beside the form, so the modal widens
-  // for it; a token takes the width its own offers need
+  // A transaction that went out: the form (its footer and the header's
+  // History with it) fades, then the done view takes its place
+  const reduceMotion = useReducedMotion();
+  const [isFormLeaving, setIsFormLeaving] = useState(false);
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(doneTimerRef.current), []);
+  const leaveFormThen = useCallback(
+    (showDone: () => void) => {
+      if (reduceMotion) {
+        showDone();
+        return;
+      }
+      setIsFormLeaving(true);
+      clearTimeout(doneTimerRef.current);
+      doneTimerRef.current = setTimeout(() => {
+        showDone();
+        setIsFormLeaving(false);
+      }, FORM_OUT_MS);
+    },
+    [reduceMotion],
+  );
+  // One offer's window growing into the full router: the form fades, the
+  // window takes the router's size (the navigator eases its width, the
+  // height eases as fitting stops) and the columns fade in as it lands
+  const growIntoRouter = useCallback(
+    (grow: () => void) => {
+      if (reduceMotion) {
+        grow();
+        return;
+      }
+      setIsFormLeaving(true);
+      clearTimeout(doneTimerRef.current);
+      doneTimerRef.current = setTimeout(() => {
+        grow();
+        doneTimerRef.current = setTimeout(
+          () => setIsFormLeaving(false),
+          ROUTER_GROW_MS,
+        );
+      }, FORM_OUT_MS);
+    },
+    [reduceMotion],
+  );
+  // A kind of token, or a token's several offers, are the full router's:
+  // one offer's window grows into it, and the full router stays as it is
   const { gtLg: isWideScreen } = useMedia();
   const handlePickAsset = useCallback(
     (pick: IEarnAssetPick) => {
-      handleAssetPick(pick);
       const earnOffers = route.params.earnOffers;
-      if (!earnOffers || !isWideScreen) {
-        return;
-      }
-      const wide =
+      const listsOffers =
         pick.kind === 'class' ||
         (networkAssets.offersBySymbol.get(pick.symbol.toLowerCase())?.length ??
           0) > 1;
-      if (Boolean(earnOffers.wide) !== wide) {
-        navigation.setParams({ earnOffers: { ...earnOffers, wide } });
+      if (earnOffers?.wide || !listsOffers) {
+        handleAssetPick(pick);
+        return;
       }
+      growIntoRouter(() => {
+        handleAssetPick(pick);
+        navigation.setParams({ earnOffers: { ...earnOffers, wide: true } });
+      });
     },
     [
+      growIntoRouter,
       handleAssetPick,
-      isWideScreen,
       navigation,
       networkAssets.offersBySymbol,
       route.params.earnOffers,
     ],
   );
+  // Where the window can't hold the offers beside the form, the full router
+  // keeps the usual width, its offers under the form
+  const isColumns = isFullRouter && isWideScreen;
+  useEffect(() => {
+    const earnOffers = route.params.earnOffers;
+    if (earnOffers?.wide && Boolean(earnOffers.narrow) === isWideScreen) {
+      navigation.setParams({
+        earnOffers: { ...earnOffers, narrow: !isWideScreen },
+      });
+    }
+  }, [isWideScreen, navigation, route.params.earnOffers]);
   const handleOpenAssetSelect = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.EarnRouterAssetSelect,
@@ -343,29 +407,6 @@ const ManagePositionPage = () => {
     offer: NonNullable<typeof better>;
     fromOffer?: typeof from;
   }>();
-  // A transaction that went out: the form (its footer and the header's
-  // History with it) fades, then the done view takes its place
-  const reduceMotion = useReducedMotion();
-  const [isFormLeaving, setIsFormLeaving] = useState(false);
-  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  useEffect(() => () => clearTimeout(doneTimerRef.current), []);
-  const leaveFormThen = useCallback(
-    (showDone: () => void) => {
-      if (reduceMotion) {
-        showDone();
-        return;
-      }
-      setIsFormLeaving(true);
-      clearTimeout(doneTimerRef.current);
-      doneTimerRef.current = setTimeout(() => {
-        showDone();
-        setIsFormLeaving(false);
-      }, FORM_OUT_MS);
-    },
-    [reduceMotion],
-  );
   const handleWithdrawn = useCallback(
     (info: { amount: string; tokenImageUri?: string }) => {
       if (!better || !new BigNumber(info.amount).gt(0)) {
@@ -378,18 +419,24 @@ const ManagePositionPage = () => {
     },
     [better, from, leaveFormThen, navigation],
   );
-  // The better rate opens here, in this modal, with what was withdrawn
+  // The better rate opens here, in this modal, with what was withdrawn: the
+  // token has two offers here at least, so the window grows into the full
+  // router, that offer picked
   const handleDepositBetter = useCallback(() => {
     if (!withdrawn) {
       return;
     }
-    setOffersEntry({
-      offerKey: withdrawn.offer.key,
-      amount: withdrawn.amount,
-      tokenImageUri: withdrawn.tokenImageUri,
+    const earnOffers = route.params.earnOffers;
+    growIntoRouter(() => {
+      setOffersEntry({
+        offerKey: withdrawn.offer.key,
+        amount: withdrawn.amount,
+        tokenImageUri: withdrawn.tokenImageUri,
+      });
+      setWithdrawn(undefined);
+      navigation.setParams({ earnOffers: { ...earnOffers, wide: true } });
     });
-    setWithdrawn(undefined);
-  }, [withdrawn]);
+  }, [growIntoRouter, navigation, route.params.earnOffers, withdrawn]);
 
   // A deposit that went out: what went where shows in the form's place
   // until Done or My portfolio closes the modal
@@ -548,7 +595,7 @@ const ManagePositionPage = () => {
         logoURI={offersEntry.tokenImageUri ?? tokenImageUri}
         offerKey={offersEntry.offerKey}
         offerOnly={offersEntry.offerOnly}
-        routesBeside={offersEntry.wide}
+        routesBeside={isFullRouter}
         amount={offersEntry.amount}
         onHeaderRightChange={setHeaderControls}
         onDeposited={handleOffersDeposited}
@@ -567,7 +614,6 @@ const ManagePositionPage = () => {
             />
           ) : undefined
         }
-        columnsRoom={columnsRoom}
       />
     );
   } else if (withdrawn) {
@@ -631,8 +677,10 @@ const ManagePositionPage = () => {
     // The form's footer is drawn by the page, outside the body below: it
     // reads this to fade with the form
     <EarnFormLeavingContext.Provider value={isFormLeaving}>
+      {/* Beside the form, each column scrolls by itself and nothing else
+          does */}
       <Page
-        scrollEnabled
+        scrollEnabled={!isColumns}
         scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
       >
         <Page.Header
@@ -652,9 +700,11 @@ const ManagePositionPage = () => {
           }
         />
         <Page.Body>
-          {/* What the modal fits its height to, up to its usual size */}
+          {/* What the modal fits its height to, up to its usual size; the
+              full router's columns fill its fixed one */}
           <YStack
             ref={fitModalRef}
+            flex={isColumns ? 1 : undefined}
             opacity={isFormLeaving ? 0 : 1}
             transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY}

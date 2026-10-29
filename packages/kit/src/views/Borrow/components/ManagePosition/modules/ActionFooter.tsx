@@ -11,18 +11,14 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
-import { Page, Stack, YStack } from '@onekeyhq/components';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
-import { EarnFooterFade } from '@onekeyhq/kit/src/views/Staking/components/EarnFooterFade';
+import { EarnFormFooter } from '@onekeyhq/kit/src/views/Staking/components/EarnFormFooter';
 import {
   EStakeProgressStep,
   StakeProgress,
 } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
-import {
-  EARN_BUTTON_LOOK_TRANSITION,
-  EarnFormSwitchingContext,
-} from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
+import { EarnFormSwitchingContext } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BorrowTestIDs } from '../../../testIDs';
@@ -238,30 +234,6 @@ export function ActionFooter({
     ? EARN_DESKTOP_DEMO_COPY.approveAnd(businessActionLabel)
     : businessActionLabel;
 
-  const footerContent = (
-    <Page.FooterActions
-      $gtMd={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-      }}
-      // Inline (the Earn Router page) the button spans the form, as the
-      // staking form's inline footer does
-      {...(isInModalContext
-        ? undefined
-        : { p: 0, buttonContainerProps: { $gtMd: { ml: '0' }, w: '100%' } })}
-      onConfirmText={confirmText}
-      confirmButtonProps={{
-        testID: BorrowTestIDs.actionConfirmBtn,
-        onPress: handleConfirm,
-        loading: isConfirmLoading,
-        disabled: isButtonDisabled,
-        ...(isInModalContext ? undefined : { w: '100%' }),
-        ...(isEarnForm ? EARN_BUTTON_LOOK_TRANSITION : undefined),
-      }}
-    />
-  );
-
   // The Earn forms show the steps once pressed, not before: the button
   // already names them ("Approve and Supply")
   const isShowStakeProgress =
@@ -286,38 +258,26 @@ export function ActionFooter({
   return (
     <>
       {beforeFooter ?? state.beforeFooter}
-      {isInModalContext ? (
-        <Page.Footer>
-          <EarnFooterFade>
-            <Stack
-              bg="$bgApp"
-              flexDirection="column"
-              $gtMd={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                jc: 'space-between',
-              }}
-            >
-              {progressContent ? (
-                <Stack pl="$5" $md={{ pt: '$5' }}>
-                  {progressContent}
-                </Stack>
-              ) : null}
-              {footerContent}
-            </Stack>
-            <PercentageStageOnKeyboard
-              onSelectPercentageStage={
-                isFormInteractionLocked ? undefined : onSelectPercentageStage
-              }
-            />
-          </EarnFooterFade>
-        </Page.Footer>
-      ) : (
-        <YStack bg="$bgApp" gap="$5">
-          {progressContent}
-          {footerContent}
-        </YStack>
-      )}
+      {/* As every Earn form's: one button the form's full width, in the
+          modal's footer or under the form, the steps above it */}
+      <EarnFormFooter
+        isInModalContext={Boolean(isInModalContext)}
+        progress={progressContent}
+        confirmText={confirmText}
+        confirmButtonProps={{
+          testID: BorrowTestIDs.actionConfirmBtn,
+          onPress: handleConfirm,
+          loading: isConfirmLoading,
+          disabled: isButtonDisabled,
+        }}
+        keyboardStage={
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={
+              isFormInteractionLocked ? undefined : onSelectPercentageStage
+            }
+          />
+        }
+      />
     </>
   );
 }
