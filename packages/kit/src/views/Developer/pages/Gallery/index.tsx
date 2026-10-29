@@ -6,6 +6,10 @@ import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 const ComponentsScreen = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components'),
 );
+const PrivacyTokenDetailsGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PrivacyTokenDetails'),
+);
 const AccountModelGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccountModelGallery'),
@@ -69,6 +73,10 @@ const NetworkDoctorGallery = LazyLoadPage(
 const JotaiContextGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/JotaiContextGallery'),
+);
+const ZcashWasmGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ZcashWasmGallery'),
 );
 const JotaiGlobalGallery = LazyLoadPage(
   () =>
@@ -344,6 +352,10 @@ export const galleryScreenList: {
 }[] = [
   { name: EGalleryRoutes.Components, component: ComponentsScreen },
   {
+    name: EGalleryRoutes.ComponentPrivacyTokenDetails,
+    component: PrivacyTokenDetailsGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentTypography,
     component: TypographyGallery,
   },
@@ -586,6 +598,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCryptoGallery,
     component: CryptoGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentZcashWasm,
+    component: ZcashWasmGallery,
   },
   {
     name: EGalleryRoutes.ComponentPlayground,

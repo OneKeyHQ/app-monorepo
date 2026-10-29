@@ -49,6 +49,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openTravelModeSettingsWithAdmission } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import {
   useAppUpdatePersistAtom,
@@ -362,6 +363,9 @@ export function ClearPendingTransactionsListItem({
   ...props
 }: ICustomElementProps) {
   const intl = useIntl();
+  const {
+    activeAccount: { network, account, indexedAccount },
+  } = useActiveAccount({ num: 0 });
   const onPress = useCallback(() => {
     logItemClick?.();
     Dialog.show({
@@ -376,7 +380,15 @@ export function ClearPendingTransactionsListItem({
         id: ETranslations.global_clear,
       }),
       onConfirm: async () => {
-        await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+        await backgroundApiProxy.serviceSetting.clearPendingTransaction({
+          selectedAccount: network
+            ? {
+                networkId: network.id,
+                accountId: account?.id,
+                indexedAccountId: indexedAccount?.id,
+              }
+            : undefined,
+        });
         appEventBus.emit(
           EAppEventBusNames.ClearLocalHistoryPendingTxs,
           undefined,
@@ -388,7 +400,7 @@ export function ClearPendingTransactionsListItem({
         });
       },
     });
-  }, [intl, logItemClick]);
+  }, [account?.id, indexedAccount?.id, intl, logItemClick, network]);
   return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
 }
 

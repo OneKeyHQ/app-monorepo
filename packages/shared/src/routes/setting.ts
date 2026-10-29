@@ -43,6 +43,9 @@ export enum EModalSettingRoutes {
   SettingManageAccountActivity = 'SettingManageAccountActivity',
   SettingAlignPrimaryAccount = 'SettingAlignPrimaryAccount',
   SettingFloatingIconModal = 'SettingFloatingIconModal',
+  SettingPrivacy = 'SettingPrivacy',
+  SettingPrivacyNetwork = 'SettingPrivacyNetwork',
+  SettingDevZcashRuntimeModal = 'SettingDevZcashRuntimeModal',
   // Dev JS Bundle Manager
   SettingDevBundleManagerModal = 'SettingDevBundleManagerModal',
   SettingDevBundleVersionList = 'SettingDevBundleVersionList',
@@ -92,7 +95,8 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingClearAppCache]: undefined;
   [EModalSettingRoutes.SettingAccountDerivationModal]: undefined;
   [EModalSettingRoutes.SettingSpendUTXOModal]: undefined;
-  [EModalSettingRoutes.SettingCustomRPC]: undefined;
+  // networkId: scope the list to one chain and skip the chain picker.
+  [EModalSettingRoutes.SettingCustomRPC]: { networkId?: string } | undefined;
   [EModalSettingRoutes.SettingChainListSearch]: undefined;
   [EModalSettingRoutes.SettingCustomNetwork]:
     | {
@@ -136,6 +140,11 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
+  [EModalSettingRoutes.SettingPrivacy]: undefined;
+  [EModalSettingRoutes.SettingPrivacyNetwork]:
+    | { networkId?: string; walletId?: string }
+    | undefined;
+  [EModalSettingRoutes.SettingDevZcashRuntimeModal]: undefined;
   // Dev JS Bundle Manager
   [EModalSettingRoutes.SettingDevBundleManagerModal]: undefined;
   [EModalSettingRoutes.SettingDevBundleVersionList]: undefined;
