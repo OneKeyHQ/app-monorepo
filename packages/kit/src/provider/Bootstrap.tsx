@@ -3,7 +3,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
-import { debounce, isEqual, noop, upperFirst } from 'lodash';
+import { debounce, isEqual, noop } from 'lodash';
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 
@@ -93,6 +93,7 @@ import {
 } from '../components/AppUpdate';
 import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import useAppNavigation from '../hooks/useAppNavigation';
+import { useHandleAppStateActive } from '../hooks/useHandleAppStateActive';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
@@ -101,6 +102,8 @@ import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationI
 import { registerSwapTokenSelectorCacheInvalidation } from '../views/Swap/utils/swapTokenSelectorCacheInvalidation';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
+import { showAboutDialog } from './showAboutDialog';
+import { useIPadMainMenu } from './useIPadMainMenu';
 
 import type { IntlShape } from 'react-intl';
 
@@ -111,6 +114,14 @@ const useOnLockCallback = platformEnv.isDesktop
 const useAppUpdateInfoCallback = platformEnv.isDesktop
   ? useAppUpdateInfo
   : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
+
+function PrivacyChainForeground() {
+  const wakeSync = useCallback(() => {
+    void backgroundApiProxy.servicePrivacyChain.wakeLocalWalletSync();
+  }, []);
+  useHandleAppStateActive(wakeSync);
+  return null;
+}
 
 const LazyExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
@@ -431,40 +442,11 @@ const useAboutVersion =
         const intl = useIntl();
         useEffect(() => {
           desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
-            const versionString = intl.formatMessage(
-              {
-                id: ETranslations.settings_version_versionnum,
-              },
-              {
-                'versionNum': ` ${process.env.VERSION || 1}(${
-                  platformEnv.buildNumber || 1
-                })`,
-              },
-            );
-            Dialog.show({
-              showFooter: false,
-              renderContent: (
-                <YStack gap={4} alignItems="center" pt="$4">
-                  <Image
-                    // eslint-disable-next-line @typescript-eslint/no-require-imports
-                    source={require('../../assets/logo.png')}
-                    size={72}
-                    borderRadius="$full"
-                  />
-                  <YStack gap="$2" pt="$4" alignItems="center">
-                    <SizableText size="$heading2xl">OneKey</SizableText>
-                    <SizableText size="$bodySm">
-                      {`${globalThis.desktopApi.platform}-${
-                        globalThis.desktopApi.arch || 'unknown'
-                      }`}
-                    </SizableText>
-                    <SizableText size="$bodySm">
-                      {upperFirst(versionString)}
-                    </SizableText>
-                    <SizableText size="$bodySm">Copyright © OneKey</SizableText>
-                  </YStack>
-                </YStack>
-              ),
+            showAboutDialog({
+              intl,
+              platformLabel: `${globalThis.desktopApi.platform}-${
+                globalThis.desktopApi.arch || 'unknown'
+              }`,
             });
           });
           // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1132,6 +1114,7 @@ export function Bootstrap() {
   useFetchPerpConfig();
   useAboutVersion();
   useDesktopEvents();
+  useIPadMainMenu();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
   useIntercomInit();
@@ -1145,6 +1128,7 @@ export function Bootstrap() {
           per-mount useEffect that previously lived in
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
+      <PrivacyChainForeground />
       <SplitViewPrompt />
       {LazyExtensionMarketTokenDetailHashNavigation ? (
         <Suspense fallback={null}>

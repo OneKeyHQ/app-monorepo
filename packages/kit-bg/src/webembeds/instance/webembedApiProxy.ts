@@ -1,3 +1,4 @@
+import type { IZcashSdkApi } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -66,6 +67,15 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     }
   }
 
+  // Before a remount: the old WebView will never answer its pending calls.
+  rejectPendingCalls(reason: string) {
+    const rejectPending = (globalThis as any)
+      .__onekeyRejectPendingWebEmbedBridgeCalls as
+      | ((reason: string) => void)
+      | undefined;
+    rejectPending?.(reason);
+  }
+
   protected override async callRemoteApi(options: {
     module: IWebembedApiKeys;
     method: string;
@@ -129,6 +139,19 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       asyncThenSupport: true,
     },
   );
+
+  chainZcash: IZcashSdkApi = this._createProxyModule<IWebembedApiKeys>(
+    'chainZcash',
+    undefined,
+    {
+      asyncThenSupport: true,
+    },
+  );
+
+  chainXmr: IWebembedApi['chainXmr'] =
+    this._createProxyModule<IWebembedApiKeys>('chainXmr', undefined, {
+      asyncThenSupport: true,
+    });
 
   secret: WebEmbedApiSecret =
     this._createProxyModule<IWebembedApiKeys>('secret');

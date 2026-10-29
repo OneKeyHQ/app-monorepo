@@ -169,7 +169,7 @@ export interface IDesktopLayoutProps {
 export function DesktopLayout({
   active,
   isChartFullscreen,
-  isTradingViewNative,
+  isTradingViewNative: preferredIsTradingViewNative,
   onChartSwitch,
   onChartFullscreenChange,
   isNative: routeIsNative,
@@ -429,10 +429,6 @@ export function DesktopLayout({
     shouldUseStockDesktopLayout,
     stockId,
   ]);
-  useIframeWheelPassthrough({
-    disabled: isChartFullscreen || isTradingViewNative,
-    scrollRef: scrollContainerRef,
-  });
   const handleChartFullscreenChange = useCallback(
     (isFullscreen: boolean) => {
       onChartFullscreenChange(isFullscreen);
@@ -456,6 +452,15 @@ export function DesktopLayout({
     websocketConfig,
   });
   const effectiveMarketTradingViewParams = marketTradingViewParams;
+  // TradingView draws a stock's share price on its own, but a token chart
+  // needs its params, so the native chart stands in until they load.
+  const isTradingViewNative =
+    preferredIsTradingViewNative ||
+    (!effectiveMarketTradingViewParams && !isStockSharePrice);
+  useIframeWheelPassthrough({
+    disabled: isChartFullscreen || isTradingViewNative,
+    scrollRef: scrollContainerRef,
+  });
   const [{ mode: chartDisplayMode }] =
     useMarketDetailChartDisplayModePersistAtom();
   const tradingViewNativeSource = useMemo<ITradingViewNativeSource>(() => {

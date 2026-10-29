@@ -51,18 +51,8 @@ include ':app'
 includeBuild(expoAutolinking.reactNativeGradlePlugin)
 includeBuild("build-logic")
 
-def reactNativeSource = new File(
-  providers.exec {
-    workingDir(rootDir)
-    commandLine("node", "--print", "require.resolve('react-native/package.json')")
-  }.standardOutput.asText.get().trim()
-).getParentFile()
-includeBuild(reactNativeSource) {
-  dependencySubstitution {
-    substitute(module('com.facebook.react:react-android')).using(project(':packages:react-native:ReactAndroid'))
-    substitute(module('com.facebook.react:react-native')).using(project(':packages:react-native:ReactAndroid'))
-  }
-}
+// Use prebuilt React Native and Hermes AARs to avoid source builds.
+// RN native source patches will be included in OneKey's own AARs once published.
 
 // Stub module for @onekeyfe/react-native-app-update flavor isolation
 include ':app-update-noop'

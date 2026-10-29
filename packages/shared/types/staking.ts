@@ -2651,10 +2651,7 @@ export interface IBorrowAsset {
     logoURI: string;
   };
   canBeCollateral?: boolean;
-  balance?: {
-    title: IEarnText;
-    description: IEarnText;
-  };
+  balance?: IBorrowBalance;
   walletBalance?: IBorrowBalance;
   available?: IBorrowBalance;
   borrowed?: IBorrowBalance;

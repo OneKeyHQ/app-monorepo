@@ -19,8 +19,49 @@ function clearHistoryTxDisplayStatus(tx: IAccountHistoryTx) {
   return rest;
 }
 
+// Only public-side rows are cached; private rows belong to the chain runtime.
+export function canPersistLocalHistoryTx({
+  tx,
+}: {
+  networkId: string;
+  tx: IAccountHistoryTx;
+}) {
+  if (tx.privacyChainHistorySide === undefined) {
+    // Rows with pool ids come from a local-wallet runtime; cache only if marked public.
+    return tx.privacyChainHistoryPoolIds === undefined;
+  }
+  return tx.privacyChainHistorySide === 'public';
+}
+
 function clearHistoryTxsDisplayStatus(txs: IAccountHistoryTx[]) {
   return txs.map((tx) => clearHistoryTxDisplayStatus(tx));
+}
+
+function sanitizeLocalHistoryTxs({
+  networkId,
+  txs,
+}: {
+  networkId: string;
+  txs: IAccountHistoryTx[];
+}) {
+  return clearHistoryTxsDisplayStatus(
+    txs.filter((tx) => canPersistLocalHistoryTx({ networkId, tx })),
+  );
+}
+
+function getStoredLocalHistoryNetworkId({
+  key,
+  txs,
+}: {
+  key: string;
+  txs: IAccountHistoryTx[];
+}) {
+  // Keys are `${networkId}_...`; networkIds never contain '_'.
+  const [prefix] = key.split('_');
+  if (prefix && prefix.includes('--')) {
+    return prefix;
+  }
+  return txs[0]?.decodedTx.networkId ?? '';
 }
 
 function clearLocalHistoryDisplayStatus(
@@ -30,16 +71,23 @@ function clearLocalHistoryDisplayStatus(
     return data;
   }
   return {
+    ...data,
     pendingTxs: Object.fromEntries(
       Object.entries(data.pendingTxs ?? {}).map(([key, txs]) => [
         key,
-        clearHistoryTxsDisplayStatus(txs),
+        sanitizeLocalHistoryTxs({
+          networkId: getStoredLocalHistoryNetworkId({ key, txs }),
+          txs,
+        }),
       ]),
     ),
     confirmedTxs: Object.fromEntries(
       Object.entries(data.confirmedTxs ?? {}).map(([key, txs]) => [
         key,
-        clearHistoryTxsDisplayStatus(txs),
+        sanitizeLocalHistoryTxs({
+          networkId: getStoredLocalHistoryNetworkId({ key, txs }),
+          txs,
+        }),
       ]),
     ),
   };
@@ -108,7 +156,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       pendingTxs: Object.fromEntries(
         Object.entries(pendingTxs).map(([key, txs]) => [
           key,
-          clearHistoryTxsDisplayStatus(txs),
+          sanitizeLocalHistoryTxs({ networkId, txs }),
         ]),
       ),
     };
@@ -158,7 +206,11 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
           nextConfirmed[key] = txs;
         }
       }
-      return { pendingTxs: nextPending, confirmedTxs: nextConfirmed };
+      return {
+        ...base,
+        pendingTxs: nextPending,
+        confirmedTxs: nextConfirmed,
+      };
     });
   }
 
@@ -302,18 +354,28 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     let finalConfirmedTxs = rawData?.confirmedTxs?.[key] ?? [];
 
     if (pendingTxs) {
+      const previousById = new Map(finalPendingTxs.map((tx) => [tx.id, tx]));
+      const storablePendingTxs = sanitizeLocalHistoryTxs({
+        networkId,
+        txs: pendingTxs,
+      });
       finalPendingTxs = uniqBy(
         [
-          ...pendingTxs.map((tx) =>
-            clearHistoryTxDisplayStatus({
+          ...storablePendingTxs.map((tx) => {
+            const previous = previousById.get(tx.id)?.decodedTx;
+            const createdAt = Math.min(
+              previous?.createdAt ?? now,
+              tx.decodedTx.createdAt ?? now,
+            );
+            return {
               ...tx,
               decodedTx: {
                 ...tx.decodedTx,
-                createdAt: now,
-                updatedAt: now,
+                createdAt,
+                updatedAt: createdAt,
               },
-            }),
-          ),
+            };
+          }),
           ...finalPendingTxs,
         ],
         (tx) => tx.id,
@@ -323,7 +385,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     if (confirmedTxs) {
       finalConfirmedTxs = uniqBy(
         [
-          ...confirmedTxs.map((tx) => clearHistoryTxDisplayStatus(tx)),
+          ...sanitizeLocalHistoryTxs({ networkId, txs: confirmedTxs }),
           ...finalConfirmedTxs.map((tx) => clearHistoryTxDisplayStatus(tx)),
         ],
         (tx) => tx.id,
@@ -462,9 +524,10 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
         }
       }
       if (pendingTxsToUpdate) {
-        pendingTxsToUpdateMap[key] = pendingTxsToUpdate.map((tx) =>
-          clearHistoryTxDisplayStatus(tx),
-        );
+        pendingTxsToUpdateMap[key] = sanitizeLocalHistoryTxs({
+          networkId,
+          txs: pendingTxsToUpdate,
+        });
       }
 
       // confirmedTxsToUpdate build
@@ -475,9 +538,10 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
         let finalConfirmedTxs = rawData?.confirmedTxs?.[key] || [];
         finalConfirmedTxs = uniqBy(
           [
-            ...(confirmedTxsToSave ?? []).map((tx) =>
-              clearHistoryTxDisplayStatus(tx),
-            ),
+            ...sanitizeLocalHistoryTxs({
+              networkId,
+              txs: confirmedTxsToSave ?? [],
+            }),
             ...finalConfirmedTxs.map((tx) => clearHistoryTxDisplayStatus(tx)),
           ],
           (tx) => tx.id,
@@ -736,6 +800,29 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
         pendingTxs: {},
         confirmedTxs,
       };
+    });
+  }
+
+  async clearAccountLocalHistory({
+    networkId,
+    accountAddress,
+    xpub,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
+  }) {
+    const key = buildAccountLocalAssetsKey({
+      networkId,
+      accountAddress,
+      xpub,
+    });
+    return this.setRawData((rawData) => {
+      const pendingTxs = { ...rawData?.pendingTxs };
+      const confirmedTxs = { ...rawData?.confirmedTxs };
+      delete pendingTxs[key];
+      delete confirmedTxs[key];
+      return { ...rawData, pendingTxs, confirmedTxs };
     });
   }
 

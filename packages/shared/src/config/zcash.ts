@@ -1,0 +1,27 @@
+// Lowest height the low-level wallet registration flow accepts. Keep
+// separate from the product scan floor below, which starts at Orchard
+// since this wallet cannot spend Sapling.
+export const ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET = 419_201;
+
+// NU5 / Orchard activation, mainnet (zcash_protocol consensus.rs). Deepest
+// product scan: this wallet cannot spend Sapling (no proving parameters).
+export const ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET = 1_687_104;
+// Wall-clock time of that activation block; paired with the block interval
+// to estimate a chain tip when the network is unreachable.
+export const ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS = Date.UTC(2022, 4, 31);
+
+export const ZCASH_SPAM_REGION_START_MAINNET = 1_710_000;
+export const ZCASH_SPAM_REGION_END_MAINNET = 1_960_000;
+
+// The 2022 spam wall: shielded output volume here is 100x+ a recent block,
+// so a scan crossing it looks hung without this being named on screen.
+export function isZcashSpamRegionHeight(height: number | null | undefined) {
+  return (
+    typeof height === 'number' &&
+    height >= ZCASH_SPAM_REGION_START_MAINNET &&
+    height <= ZCASH_SPAM_REGION_END_MAINNET
+  );
+}
+
+// Zcash's target block interval, used to turn a block lag into elapsed time.
+export const ZCASH_TARGET_BLOCK_SECONDS = 75;

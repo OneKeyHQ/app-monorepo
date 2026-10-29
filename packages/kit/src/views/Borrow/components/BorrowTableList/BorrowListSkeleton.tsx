@@ -1,6 +1,7 @@
 import { Empty, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IBorrowListSkeletonProps<T> = {
   columns: ITableColumn<T>[];
@@ -109,7 +110,13 @@ export const EmptyStateSkeleton = <T,>({
   <Stack position="relative" overflow="hidden">
     <Empty
       title={emptyContent}
-      titleProps={{ size: '$bodyMd', color: 'transparent' }}
+      titleProps={{ size: '$bodyMd' }}
+      opacity={0}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      {...(platformEnv.isRuntimeBrowser
+        ? { 'aria-hidden': true as const }
+        : {})}
     />
     <Stack
       position="absolute"

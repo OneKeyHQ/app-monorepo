@@ -16,9 +16,11 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { Footer } from '../../components/Footer';
 import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
@@ -99,7 +101,29 @@ function FloatingDevModeBackButton() {
 }
 
 export function TabNavigator() {
+  const intl = useIntl();
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
+  // Customer service sits above the tab bar while iOS shows it as a vertical
+  // bar in the iPhone Duo side strip; the native tab bar hides it otherwise.
+  // Travel mode hides support entry points, as in More and Settings.
+  const isTravelMode =
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+    'travel-mode';
+  const sideAccessory = useMemo(
+    () =>
+      platformEnv.isNativeIOS && !isTravelMode
+        ? {
+            icon: require('@onekeyhq/components/svg/outline/help-support.svg'),
+            label: intl.formatMessage({
+              id: ETranslations.settings_contact_us,
+            }),
+            onPress: () => {
+              void showIntercom();
+            },
+          }
+        : undefined,
+    [intl, isTravelMode],
+  );
   const isLandscape = useIsSplitView();
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
   const config = useTabRouterConfig(routerConfigParams);
@@ -194,6 +218,7 @@ export function TabNavigator() {
         )}
         bottomMenu={<BottomMenu />}
         webPageTabBar={<WebPageTabBar />}
+        sideAccessory={sideAccessory}
       />
       {platformEnv.isDev && shouldHideExtTabBar ? (
         <FloatingDevModeBackButton />

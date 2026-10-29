@@ -70,6 +70,7 @@ function QrStep({ index, text }: { index: number; text: string }) {
 export function QrPresent({
   value,
   valueUr,
+  notice,
   onNext,
   onRenderReady,
 }: {
@@ -77,6 +78,8 @@ export function QrPresent({
   /** The animated multi-part UR — outranks `value`; the QRCode rotates
    * the parts itself and draws the line style device cameras decode. */
   valueUr?: IAirGapUrJson;
+  /** The flow's own note under the steps (a specialized firmware's path). */
+  notice?: string;
   onNext?: () => void;
   onRenderReady?: () => void;
 }) {
@@ -134,6 +137,18 @@ export function QrPresent({
           >
             {intl.formatMessage({ id: ETranslations.global_next })}
           </Button>
+          {notice ? (
+            <SizableText
+              testID="device-stage-qr-notice"
+              pt="$4"
+              borderTopWidth={1}
+              borderTopColor="$borderSubdued"
+              size="$bodyMdMedium"
+              color="$textCritical"
+            >
+              {notice}
+            </SizableText>
+          ) : null}
         </YStack>
       ) : null}
     </YStack>
