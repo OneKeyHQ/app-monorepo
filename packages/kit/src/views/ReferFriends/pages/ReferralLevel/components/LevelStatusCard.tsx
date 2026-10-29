@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { LevelPolicyNotice } from '@onekeyhq/kit/src/views/ReferFriends/components/LevelPolicyNotice';
 import { CardTextAction } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CardTextAction';
 import {
   INVITE_CARD_BORDER_COLOR,
@@ -19,7 +20,10 @@ import {
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/useInviteCardStyle';
 import { getDisplayLabel } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IInviteLevelItem } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IInviteLevelItem,
+  IInviteUserConfig,
+} from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
@@ -61,11 +65,15 @@ export function LevelStatusCard({
   retentionStatus,
   nextLevel,
   upgradeTargets,
+  levelPolicy,
+  floorUntil,
 }: {
   level: IInviteLevelItem;
   retentionStatus: ILevelRetentionStatus;
   nextLevel?: IInviteLevelItem;
   upgradeTargets: ILevelTarget[];
+  levelPolicy: NonNullable<IInviteUserConfig['levelPolicy']>;
+  floorUntil?: string;
 }) {
   const intl = useIntl();
   const cardStyle = useInviteListCardStyle();
@@ -78,20 +86,34 @@ export function LevelStatusCard({
       showFooter: false,
       renderContent: (
         <YStack gap="$2">
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.referral_referral_level_desc1,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.referral_referral_level_desc2,
-            })}
-          </SizableText>
+          {levelPolicy !== 'normal' ? (
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({
+                id:
+                  levelPolicy === 'floor'
+                    ? ETranslations.referral_level_protected__desc
+                    : ETranslations.referral_level_fixed__desc,
+              })}
+            </SizableText>
+          ) : null}
+          {levelPolicy !== 'fixed' ? (
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.referral_referral_level_desc1,
+              })}
+            </SizableText>
+          ) : null}
+          {levelPolicy === 'normal' ? (
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.referral_referral_level_desc2,
+              })}
+            </SizableText>
+          ) : null}
         </YStack>
       ),
     });
-  }, [intl]);
+  }, [intl, levelPolicy]);
 
   const hasTargets = Boolean(nextLevel) && upgradeTargets.length > 0;
 
@@ -121,6 +143,7 @@ export function LevelStatusCard({
             {getDisplayLabel(intl, level.labelKey, level.label)}
           </SizableText>
           <RetentionStatus status={retentionStatus} />
+          <LevelPolicyNotice policy={levelPolicy} floorUntil={floorUntil} />
         </YStack>
         <CardTextAction
           testID={ReferFriendsTestIDs.levelRulesBtn}
@@ -130,14 +153,23 @@ export function LevelStatusCard({
           onPress={showRules}
         />
       </XStack>
-      <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
-      {nextLevel && hasTargets ? (
-        <UpgradeTargetsSection nextLevel={nextLevel} targets={upgradeTargets} />
-      ) : (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.referral_top_level__msg })}
-        </SizableText>
-      )}
+      {levelPolicy !== 'fixed' ? (
+        <>
+          <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
+          {nextLevel && hasTargets ? (
+            <UpgradeTargetsSection
+              nextLevel={nextLevel}
+              targets={upgradeTargets}
+            />
+          ) : (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.referral_top_level__msg,
+              })}
+            </SizableText>
+          )}
+        </>
+      ) : null}
     </YStack>
   );
 }

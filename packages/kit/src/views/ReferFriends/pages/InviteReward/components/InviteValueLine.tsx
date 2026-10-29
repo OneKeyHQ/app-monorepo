@@ -12,6 +12,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { PartnerBenefitsBadge } from '@onekeyhq/kit/src/views/ReferFriends/components/PartnerBenefitsBadge';
 import { CardTextAction } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CardTextAction';
 import { useNavigateToReferralLevel } from '@onekeyhq/kit/src/views/ReferFriends/pages/ReferralLevel/hooks/useNavigateToReferralLevel';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -33,13 +34,14 @@ import type {
   IInviteValueSummary,
 } from './getInviteValueLine';
 
-function RateBreakdown({
+export function RateBreakdown({
   title,
   titleIcon,
   rows,
   youLabel,
   friendLabel,
   onOpenLevels,
+  hasPartnerPlan,
 }: {
   // Desktop popovers have no header bar, so the title opens the content; the
   // compact sheet shows it in its own header instead.
@@ -48,15 +50,17 @@ function RateBreakdown({
   rows: IInviteValueRow[];
   youLabel: string;
   friendLabel: string;
-  onOpenLevels: () => void;
+  onOpenLevels?: () => void;
+  hasPartnerPlan?: boolean;
 }) {
   const intl = useIntl();
   return (
     <YStack px="$5" py="$4" gap="$2">
       {title ? (
-        <XStack ai="center" gap="$2" pb="$1">
+        <XStack ai="center" gap="$2" pb="$1" flexWrap="wrap">
           {titleIcon ? <Image w="$4" h="$4" src={titleIcon} /> : null}
           <SizableText size="$bodyMdMedium">{title}</SizableText>
+          {hasPartnerPlan ? <PartnerBenefitsBadge showInfo /> : null}
         </XStack>
       ) : null}
       <XStack gap="$3">
@@ -109,15 +113,17 @@ function RateBreakdown({
           </SizableText>
         </XStack>
       ))}
-      <XStack pt="$2">
-        <CardTextAction
-          testID={ReferFriendsTestIDs.inviteAllLevelsBtn}
-          label={intl.formatMessage({
-            id: ETranslations.referral_level_details__action,
-          })}
-          onPress={onOpenLevels}
-        />
-      </XStack>
+      {onOpenLevels ? (
+        <XStack pt="$2">
+          <CardTextAction
+            testID={ReferFriendsTestIDs.inviteAllLevelsBtn}
+            label={intl.formatMessage({
+              id: ETranslations.referral_level_details__action,
+            })}
+            onPress={onOpenLevels}
+          />
+        </XStack>
+      ) : null}
     </YStack>
   );
 }
@@ -137,10 +143,24 @@ export function useInviteValueSummary({
         enabled: item.rate.enabled,
       })),
       configs: props.rebateConfig.configs,
+      effectiveConfigs: props.configs,
+      partnerPlan: props.partnerPlan,
     });
-    return getInviteValueSummary(items);
-  }, [commissionRates, props.rebateConfig.configs]);
-  return { levelLabel, levelIcon, summary };
+    return getInviteValueSummary(items, {
+      includeZeroRates: Boolean(props.partnerPlan),
+    });
+  }, [
+    commissionRates,
+    props.rebateConfig.configs,
+    props.configs,
+    props.partnerPlan,
+  ]);
+  return {
+    levelLabel,
+    levelIcon,
+    summary,
+    hasPartnerPlan: Boolean(props.partnerPlan),
+  };
 }
 
 // Names every paying product in one line; the rate opens the per-product
@@ -161,11 +181,13 @@ function RatePopover({
   const intl = useIntl();
   const navigateToReferralLevel = useNavigateToReferralLevel();
   const { gtMd } = useMedia();
-  const { levelLabel, levelIcon, summary } = valueSummary;
-  const title = intl.formatMessage(
-    { id: ETranslations.referral_level_rates__title },
-    { level: levelLabel },
-  );
+  const { levelLabel, levelIcon, summary, hasPartnerPlan } = valueSummary;
+  const title = hasPartnerPlan
+    ? intl.formatMessage({ id: ETranslations.referral_current_rates__title })
+    : intl.formatMessage(
+        { id: ETranslations.referral_level_rates__title },
+        { level: levelLabel },
+      );
 
   if (!summary) {
     return trigger;
@@ -181,7 +203,8 @@ function RatePopover({
       renderContent={({ closePopover }) => (
         <RateBreakdown
           title={gtMd ? title : undefined}
-          titleIcon={levelIcon}
+          titleIcon={hasPartnerPlan ? undefined : levelIcon}
+          hasPartnerPlan={hasPartnerPlan}
           rows={summary.rows}
           youLabel={intl.formatMessage({
             id: ETranslations.referral_upgrade_you,
@@ -252,11 +275,15 @@ export function RateLineTrigger({
   centered?: boolean;
 }) {
   const { md } = useMedia();
-  const { summary } = valueSummary;
+  const { summary, hasPartnerPlan } = valueSummary;
   if (!summary) {
-    return null;
+    return hasPartnerPlan ? (
+      <XStack jc={centered ? 'center' : undefined}>
+        <PartnerBenefitsBadge />
+      </XStack>
+    ) : null;
   }
-  return (
+  const rateLine = (
     <RatePopover
       valueSummary={valueSummary}
       trigger={
@@ -264,6 +291,7 @@ export function RateLineTrigger({
           testID={testID}
           jc={centered ? 'center' : undefined}
           cursor="default"
+          maxWidth="100%"
           // On touch layouts a single text line is too short to tap; the
           // padding grows the touch area to 44px and the margin keeps the
           // layout where it was. Pointer layouts open it on hover, so the
@@ -277,5 +305,20 @@ export function RateLineTrigger({
         </XStack>
       }
     />
+  );
+  if (!hasPartnerPlan) {
+    return rateLine;
+  }
+  return (
+    <XStack
+      ai="center"
+      jc={centered ? 'center' : undefined}
+      gap="$2"
+      flexWrap="wrap"
+      maxWidth="100%"
+    >
+      {rateLine}
+      <PartnerBenefitsBadge />
+    </XStack>
   );
 }

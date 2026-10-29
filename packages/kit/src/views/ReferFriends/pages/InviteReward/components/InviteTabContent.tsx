@@ -95,6 +95,8 @@ export const InviteTabContent = memo(function InviteTabContent({
   const valueSummary = useInviteValueSummary({
     rebateConfig: summaryInfo.rebateConfig,
     rebateLevels: summaryInfo.rebateLevels,
+    configs: summaryInfo.configs,
+    partnerPlan: summaryInfo.partnerPlan,
     levelDetail,
   });
   const navigateToInviteCodes = useNavigateToInviteCodes();
