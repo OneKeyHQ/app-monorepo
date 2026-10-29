@@ -101,6 +101,7 @@ jest.mock('../TradingViewV2ChartControls', () => ({
   },
   getTradingViewNativeSubIndicatorCountForSnapshot: () => 0,
   useNativeIndicatorActiveValues: () => ({}),
+  useShowNativeIndicatorsDialog: () => jest.fn(),
 }));
 jest.mock('./TradingViewRuntimeView', () => {
   const React = jest.requireActual<typeof import('react')>('react');
