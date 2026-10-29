@@ -137,13 +137,20 @@ import type {
 // Market pages and chart history resolve XMR from.
 const XMR_COINGECKO_ID = 'monero';
 
-async function postXmrNodeRequest(url: string): Promise<string> {
+async function postXmrNodeRequest(url: string, body = ''): Promise<string> {
   if (xmrHostFetch) {
     return bufferUtils.bytesToUtf8(
-      await xmrHostFetch(url, 'application/json', new Uint8Array()),
+      await xmrHostFetch(
+        url,
+        'application/json',
+        bufferUtils.utf8ToBytes(body),
+      ),
     );
   }
-  const response = await fetch(url, { method: 'POST' });
+  const response = await fetch(url, {
+    method: 'POST',
+    ...(body ? { body, headers: { 'content-type': 'application/json' } } : {}),
+  });
   if (!response.ok) {
     throw new OneKeyLocalError(
       localWalletText(ETranslations.privacy_error_node_unreachable__msg),
@@ -152,27 +159,31 @@ async function postXmrNodeRequest(url: string): Promise<string> {
   return response.text();
 }
 
-const XMR_NODE_NETWORKS: readonly string[] = [
-  'mainnet',
-  'stagenet',
-  'testnet',
-  'fakechain',
-];
+// Genesis block hashes, the same table the runtime checks a node against.
+const XMR_GENESIS_NETWORKS: Record<string, string> = {
+  '418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3': 'mainnet',
+  '48ca7cd3c8de5b6a4d53d2861fbdaedca141553559f9be9520068053cda8430b': 'testnet',
+  '76ee3cc98646292206cd3e86f74d88b4dcc1d937088645e9b0cbca84b7ce74eb':
+    'stagenet',
+};
 
-// Undefined when the node does not say: partial proxies may not serve /get_info.
-async function readXmrNodeNetwork(url: string): Promise<string | undefined> {
+// Undefined when the node's chain cannot be confirmed.
+async function readXmrNodeNetwork(base: string): Promise<string | undefined> {
   try {
-    const info = JSON.parse(await postXmrNodeRequest(url)) as Record<
-      string,
-      unknown
-    >;
-    if (
-      typeof info.nettype === 'string' &&
-      XMR_NODE_NETWORKS.includes(info.nettype)
-    ) {
-      return info.nettype;
-    }
-    return XMR_NODE_NETWORKS.find((name) => info[name] === true);
+    const reply = JSON.parse(
+      await postXmrNodeRequest(
+        `${base}/json_rpc`,
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: '0',
+          method: 'on_get_block_hash',
+          params: [0],
+        }),
+      ),
+    ) as { result?: unknown };
+    return typeof reply.result === 'string'
+      ? XMR_GENESIS_NETWORKS[reply.result.toLowerCase()]
+      : undefined;
   } catch {
     return undefined;
   }
@@ -1308,10 +1319,14 @@ export default class Vault extends VaultBase {
     }
     const responseTime = Date.now() - start;
     if (params.validateChainId) {
-      // Lenient: only a node that names a different network is rejected.
-      const nodeNetwork = await readXmrNodeNetwork(`${base}/get_info`);
-      if (nodeNetwork && nodeNetwork !== (await this.getXmrNetwork())) {
-        throw new OneKeyLocalError('xmr: the node is on a different network');
+      // The runtime refuses a node whose chain it cannot confirm; so does this.
+      const nodeNetwork = await readXmrNodeNetwork(base);
+      if (nodeNetwork !== (await this.getXmrNetwork())) {
+        throw new OneKeyLocalError(
+          nodeNetwork
+            ? 'xmr: the node is on a different network'
+            : 'xmr: the node did not confirm its network',
+        );
       }
     }
     return {

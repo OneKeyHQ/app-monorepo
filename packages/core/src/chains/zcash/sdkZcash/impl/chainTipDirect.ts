@@ -14,12 +14,6 @@ const GET_LATEST_BLOCK_PATH =
   '/cash.z.wallet.sdk.rpc.CompactTxStreamer/GetLatestBlock';
 const GET_LIGHTD_INFO_PATH =
   '/cash.z.wallet.sdk.rpc.CompactTxStreamer/GetLightdInfo';
-// LightdInfo.chainName values reported by lightwalletd and Zaino.
-export const ZCASH_LIGHTD_CHAIN_NAMES: readonly string[] = [
-  'main',
-  'test',
-  'regtest',
-];
 const GRPC_WEB_FRAME_HEADER_BYTES = 5;
 const GRPC_WEB_TRAILER_FLAG = 0x80;
 const DEFAULT_TIMEOUT_MS = 10_000;

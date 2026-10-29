@@ -3,7 +3,6 @@
 import { validateZcashTransparentAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import {
-  ZCASH_LIGHTD_CHAIN_NAMES,
   fetchZcashChainTipDirect,
   fetchZcashLightdInfoDirect,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
@@ -196,16 +195,16 @@ export default class Vault extends VaultBtc {
         return { ok: false, chainTip: tip, reason: 'wrong-chain' };
       }
       if (options?.validateChain) {
-        // Lenient: only a known, different chain name rejects; no answer keeps the pass.
+        // The runtime refuses a node whose chain it cannot confirm; so does this.
         const info = await fetchZcashLightdInfoDirect({
           lightwalletdUrl: normalized,
         });
-        if (
-          info &&
-          ZCASH_LIGHTD_CHAIN_NAMES.includes(info.chainName) &&
-          info.chainName !== ZCASH_NETWORK_MAIN
-        ) {
-          return { ok: false, chainTip: tip, reason: 'wrong-chain' };
+        if (info?.chainName !== ZCASH_NETWORK_MAIN) {
+          return {
+            ok: false,
+            chainTip: tip,
+            reason: info ? 'wrong-chain' : 'unconfirmed-chain',
+          };
         }
       }
       return { ok: true, chainTip: tip };
