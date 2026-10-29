@@ -380,10 +380,10 @@ function main() {
       0,
     );
   const budgets = {
-    // The expected hardware onboarding assets raised Linux CI output to
-    // 166931278 bytes (run 35951858232). Keep about 3.6% headroom for growth.
+    // Linux CI output with the Zcash and Monero runtime wasm measured
+    // 186073416 bytes (run 40808182907); about 2% headroom.
     // Trust the CI number when the margin is thin; macOS builds differ.
-    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 173000000),
+    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 190000000),
     // Keep enough headroom for expected route and chunk growth while the total
     // output size budget continues to guard against broader regressions.
     jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 1000),
@@ -392,10 +392,12 @@ function main() {
     // @walletconnect/pay stack in the single-file MV3 background
     // bundle, ~0.38 MB measured against the same-day x run) adds on top of
     // that. The TradingView drawing tool translations then raised Linux CI to
-    // 41954632 bytes (run 40249909402), so 41 MiB leaves about 2.5% headroom.
+    // 41954632 bytes (run 40249909402). The bitcoinjs update (#14185) and the
+    // Zcash and Monero privacy code then raised it to 43165216 bytes
+    // (run 40809910421), so 44 MiB leaves about 6.9% headroom.
     backgroundBytes: readBudget(
       'EXT_BUILD_MAX_BACKGROUND_BYTES',
-      41 * 1024 * 1024,
+      44 * 1024 * 1024,
     ),
   };
 

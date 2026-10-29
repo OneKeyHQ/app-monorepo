@@ -4,7 +4,7 @@ import { Base64 } from 'js-base64';
 import { isString } from 'lodash';
 import isEmail from 'validator/lib/isEmail';
 
-import { OneKeyLocalError } from '../errors';
+import { OneKeyLocalError } from '../errors/errors/localError';
 
 import { generateUUID } from './miscUtils';
 

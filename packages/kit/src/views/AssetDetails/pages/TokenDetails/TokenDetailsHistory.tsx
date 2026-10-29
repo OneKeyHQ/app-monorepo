@@ -33,6 +33,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  isPrivacyChainHistoryVisible,
+  projectPrivacyChainHistoryTxToPool,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -65,6 +69,7 @@ function TokenDetailsHistoryContent({
     ListHeaderComponent,
     isTabView,
     inTabList,
+    privacyHistoryPoolId,
   } = props;
 
   const isRouteFocused = useRouteIsFocused();
@@ -211,10 +216,27 @@ function TokenDetailsHistoryContent({
 
   const resolvedHistory = useMemo(() => {
     const firstPageHistory = tokenHistory ?? cachedHistory ?? [];
-    return appendedTxs.length
+    const mergedHistory = appendedTxs.length
       ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
       : firstPageHistory;
-  }, [tokenHistory, cachedHistory, appendedTxs]);
+    if (privacyHistoryPoolId === undefined) {
+      return mergedHistory;
+    }
+    return mergedHistory
+      .filter((tx) =>
+        isPrivacyChainHistoryVisible({
+          txPoolIds: tx.privacyChainHistoryPoolIds,
+          txSide: tx.privacyChainHistorySide,
+          selectedPoolId: privacyHistoryPoolId,
+        }),
+      )
+      .map((tx) =>
+        projectPrivacyChainHistoryTxToPool({
+          tx,
+          selectedPoolId: privacyHistoryPoolId,
+        }),
+      );
+  }, [tokenHistory, cachedHistory, appendedTxs, privacyHistoryPoolId]);
 
   // OK-57070: same native top-insertion jitter fix as the wallet history tab.
   // Only engages inside the collapsible tab (where the scroll position is
@@ -296,12 +318,14 @@ function TokenDetailsHistoryContent({
         accountAddress,
         xpub,
         historyTx: tx,
+        privacyChainPoolId: privacyHistoryPoolId,
       });
     },
     [
       accountId,
       navigation,
       networkId,
+      privacyHistoryPoolId,
       settings.currencyInfo.symbol,
       tokenInfo,
       historyCacheKey,
