@@ -18,6 +18,10 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import { StockMarketStatusBadge } from '../../../components/PerpsBadges';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
 import { useBtcMetadataContext } from '../../hooks/BtcMetadataContext';
+import {
+  useMarketPriceChangeLabelId,
+  useMarketSimpleChartRangePriceChange,
+} from '../../hooks/MarketSimpleChartRangeChangeContext';
 import { useMarketDetailDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import {
   MARKET_CAP_FORMATTER,
@@ -167,6 +171,9 @@ export function InformationPanel({
     useMarketDetailDisplayData();
   const btcMetadata = useBtcMetadataContext();
   const isMobileLayout = platformEnv.isNative || mobileDetailKind !== undefined;
+  // Read before the early returns below; only the mobile header shows it.
+  const rangePriceChange = useMarketSimpleChartRangePriceChange('token');
+  const priceChangeLabelId = useMarketPriceChangeLabelId('token');
   const tokenAddress = tokenDetail?.address;
 
   const { securityData } = useTokenSecurity({
@@ -184,7 +191,7 @@ export function InformationPanel({
     name = '',
     symbol = '',
     price: currentPrice = '--',
-    priceChange24hPercent = '--',
+    priceChange24hPercent: tokenPriceChange24hPercent = '--',
     marketCap,
     liquidity,
     priceConverted,
@@ -208,6 +215,9 @@ export function InformationPanel({
     MARKET_CAP_FORMATTER,
   );
 
+  const mobileRangePriceChange = isMobileLayout ? rangePriceChange : undefined;
+  const priceChange24hPercent =
+    mobileRangePriceChange?.priceChangePercent ?? tokenPriceChange24hPercent;
   const { color: priceChangeColor, display: priceChangeDisplay } =
     formatPriceChangeDisplay(priceChange24hPercent);
 
@@ -215,6 +225,7 @@ export function InformationPanel({
     ? resolveDisplayedPriceChange({
         price: currentPrice,
         priceChangePercent: priceChange24hPercent,
+        reportedPriceChangeValue: mobileRangePriceChange?.priceChangeValue,
       })?.toFixed()
     : undefined;
 
@@ -275,6 +286,17 @@ export function InformationPanel({
                 ? `(${priceChangeDisplay})`
                 : priceChangeDisplay}
             </SizableText>
+            {isMobileLayout ? (
+              <SizableText
+                testID="market-mobile-price-change-label"
+                // Figma 25227:67442: 10px from the change, past the row's 6px gap.
+                ml="$1"
+                size="$bodyMd"
+                color="$textSubdued"
+              >
+                {intl.formatMessage({ id: priceChangeLabelId })}
+              </SizableText>
+            ) : null}
           </XStack>
         </YStack>
         <XStack

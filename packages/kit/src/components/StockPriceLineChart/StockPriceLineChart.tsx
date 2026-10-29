@@ -114,6 +114,7 @@ export function StockPriceLineChart({
   hoverLabelShowsPrice = true,
   hoverLabelLargePrice = false,
   onHoverChange,
+  trend = 'up',
 }: {
   data: IMarketTokenChart;
   height: number;
@@ -137,6 +138,9 @@ export function StockPriceLineChart({
   hoverLabelLargePrice?: boolean;
   // Called with undefined when the pointer leaves the plot, and on unmount.
   onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
+  // Direction of the drawn range: the line, its fill, the live pulse and the
+  // last-price badge all take the matching success or critical color.
+  trend?: 'up' | 'down';
 }) {
   const theme = useTheme();
   const intl = useIntl();
@@ -213,7 +217,10 @@ export function StockPriceLineChart({
     };
   }, [data, hoverData]);
 
-  const solidLineColor = theme.textSuccess.val;
+  const isDown = trend === 'down';
+  const solidLineColor = isDown
+    ? theme.textCritical.val
+    : theme.textSuccess.val;
   // Constant for the life of the chart: only the overlay's data follows the
   // cursor, so hovering never re-creates the chart instance.
   const dimmedLineColor = useMemo(
@@ -224,7 +231,8 @@ export function StockPriceLineChart({
   const pageBackgroundColor = theme.bgApp.val;
   // Figma stock detail (25907:24812 / 25907:24808): the dashed guide is
   // `border/strong`, its tag and axis label sit on `bg/primary-active` with
-  // `text/inverse`, and the live price tag on `bg/success-strong`.
+  // `text/inverse`, and the live price tag on `bg/success-strong` (or
+  // `bg/critical-strong` on a falling range).
   const previousCloseLineColor = theme.borderStrong.val;
   // The design library's `bg/primary-active` is ~50% black in light mode, but
   // the app's `$bgPrimaryActive` maps to primary11 (~61%) there. primary10
@@ -235,7 +243,7 @@ export function StockPriceLineChart({
   );
   const previousCloseLabelTextColor = theme.textInverse.val;
   const currentPriceLabelColor = flattenColor(
-    theme.bgSuccessStrong.val,
+    isDown ? theme.bgCriticalStrong.val : theme.bgSuccessStrong.val,
     pageBackgroundColor,
   );
   const previousCloseLabel = intl.formatMessage({
