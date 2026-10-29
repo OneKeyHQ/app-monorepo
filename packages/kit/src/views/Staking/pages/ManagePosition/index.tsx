@@ -309,7 +309,8 @@ const ManagePositionPage = () => {
       screen: EModalStakingRoutes.EarnRouterAssetSelect,
       params: {
         purpose: 'earn',
-        title: intl.formatMessage({ id: ETranslations.earn_title }),
+        // Not the window's own title: the selector opens over it
+        title: intl.formatMessage({ id: ETranslations.token_selector_title }),
         tokens: networkAssets.tokens,
         selected: assetPick,
         networkId: selectedProtocol.networkId,
