@@ -139,6 +139,10 @@ export interface ILightweightChartProps {
   secondaryLineData?: ILightweightSecondaryLineChart;
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
+  // Web only, curved dotted-area overlay: draws the overlay up to the bar at
+  // this time. Unlike passing a shorter series, the curve keeps the shape it
+  // has over the full series.
+  secondaryLineEndTime?: number;
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;

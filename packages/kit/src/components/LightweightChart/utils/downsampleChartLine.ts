@@ -1,11 +1,21 @@
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
+function getBarInterval(data: IMarketTokenChart) {
+  let interval = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < data.length; i += 1) {
+    const gap = data[i][0] - data[i - 1][0];
+    if (gap > 0 && gap < interval) interval = gap;
+  }
+  return Number.isFinite(interval) ? interval : undefined;
+}
+
 /**
- * Thins a line to at most `maxPoints` by keeping every n-th point, counted
- * back from the latest one: each kept point is the close of a coarser bar, the
- * same series a longer API interval would return. The spacing stays even, so
- * the chart's evenly spaced time axis still reads linearly and every hover step
- * covers the same span. The first point is kept too, as the range's baseline.
+ * Thins a line to at most `maxPoints` by keeping the bars that open on a
+ * coarser grid of absolute time, like the closes a longer API interval would
+ * return. The grid does not move as new bars arrive, so a refresh only adds a
+ * point at the end instead of reshuffling the history, and the spacing stays
+ * even for the chart's evenly spaced time axis. The first and the latest bar
+ * are always kept, so the drawn range and the live tail are unchanged.
  */
 export function downsampleChartLine(
   data: IMarketTokenChart,
@@ -13,15 +23,19 @@ export function downsampleChartLine(
 ): IMarketTokenChart {
   const count = data.length;
   const limit = Math.floor(maxPoints);
-  if (limit >= count || limit < 2) {
+  // Two slots are held back for the first and the latest bar.
+  if (limit >= count || limit < 4) {
     return data;
   }
-  // One slot goes to the first point, the rest to evenly spaced closes.
-  const step = Math.ceil((count - 1) / (limit - 1));
-  const sampled: IMarketTokenChart = [];
-  for (let index = count - 1; index > 0; index -= step) {
-    sampled.push(data[index]);
+  const interval = getBarInterval(data);
+  if (interval === undefined) {
+    return data;
   }
-  sampled.push(data[0]);
-  return sampled.toReversed();
+  const step = Math.ceil((count - 1) / (limit - 3));
+  return data.filter(
+    ([time], index) =>
+      index === 0 ||
+      index === count - 1 ||
+      Math.round(time / interval) % step === 0,
+  );
 }

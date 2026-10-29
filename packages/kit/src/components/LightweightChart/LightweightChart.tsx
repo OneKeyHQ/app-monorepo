@@ -103,6 +103,7 @@ export function LightweightChart({
   secondaryLineData,
   secondaryLineColor,
   secondaryLineWidth,
+  secondaryLineEndTime,
   lineWidth,
   showPriceScale,
   showHorzGridLines,
@@ -144,6 +145,10 @@ export function LightweightChart({
   const secondarySeriesRef = useRef<
     ISeriesApi<'Line'> | IDottedAreaSeriesApi | null
   >(null);
+  // Set only for a curved overlay, which can be cut without replacing its data.
+  const curvedOverlaySeriesRef = useRef<IDottedAreaSeriesApi | null>(null);
+  const secondaryLineEndTimeRef = useRef(secondaryLineEndTime);
+  secondaryLineEndTimeRef.current = secondaryLineEndTime;
   const secondaryPointSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const heightRef = useRef(height);
   heightRef.current = height;
@@ -412,7 +417,7 @@ export function LightweightChart({
           // A curved primary needs the overlay drawn by the same curve, or the
           // two lines part between points; the built-in LineSeries curve is a
           // different spline.
-          const secondarySeries =
+          const curvedOverlaySeries =
             isDottedArea && currentChartConfig.lineType === 'curved'
               ? chart.addCustomSeries(createDottedAreaSeriesPaneView(), {
                   priceScaleId: currentChartConfig.priceScalePosition,
@@ -421,18 +426,24 @@ export function LightweightChart({
                   lineWidth: normalizedSecondaryLineWidth,
                   showPattern: false,
                   curved: true,
+                  drawUntilTime:
+                    secondaryLineEndTimeRef.current ?? Number.POSITIVE_INFINITY,
                   showLastPointMarker: false,
                   priceLineVisible: false,
                   lastValueVisible: false,
                 })
-              : chart.addSeries(LineSeries, {
-                  priceScaleId: currentChartConfig.priceScalePosition,
-                  color: overlayLineColor,
-                  lineWidth: normalizedSecondaryLineWidth,
-                  priceLineVisible: false,
-                  lastValueVisible: false,
-                  crosshairMarkerVisible: false,
-                });
+              : null;
+          curvedOverlaySeriesRef.current = curvedOverlaySeries;
+          const secondarySeries =
+            curvedOverlaySeries ??
+            chart.addSeries(LineSeries, {
+              priceScaleId: currentChartConfig.priceScalePosition,
+              color: overlayLineColor,
+              lineWidth: normalizedSecondaryLineWidth,
+              priceLineVisible: false,
+              lastValueVisible: false,
+              crosshairMarkerVisible: false,
+            });
           secondarySeries.setData(currentChartConfig.secondaryLineData);
           secondarySeriesRef.current = secondarySeries;
 
@@ -621,6 +632,7 @@ export function LightweightChart({
       chartRef.current = null;
       seriesRef.current = null;
       secondarySeriesRef.current = null;
+      curvedOverlaySeriesRef.current = null;
       secondaryPointSeriesRef.current = null;
       lastPointPositionUpdaterRef.current = undefined;
     };
@@ -710,6 +722,14 @@ export function LightweightChart({
       }
     };
   }, [chartConfig.data, preserveChartInstanceOnDataChange]);
+
+  // A curved overlay is cut by an option instead of new data, so the curve
+  // stays fitted to the whole series and the cut line keeps its exact shape.
+  useEffect(() => {
+    curvedOverlaySeriesRef.current?.applyOptions({
+      drawUntilTime: secondaryLineEndTime ?? Number.POSITIVE_INFINITY,
+    });
+  }, [secondaryLineEndTime]);
 
   // The overlay series is re-cut on every crosshair step by charts that dim the
   // part of the line past the cursor, so it gets its own update path: replacing

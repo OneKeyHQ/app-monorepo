@@ -134,6 +134,21 @@ describe('dotted area curve', () => {
     );
   });
 
+  it('stops the line at the cut time but keeps the full-series curve', () => {
+    const full = renderRange({ from: 0, to: 4 }, undefined, {
+      curved: true,
+      showPattern: false,
+    });
+    const cut = renderRange({ from: 0, to: 4 }, undefined, {
+      curved: true,
+      showPattern: false,
+      drawUntilTime: 1,
+    });
+    expect(cut.bezierCurveTo.mock.calls).toEqual(
+      full.bezierCurveTo.mock.calls.slice(0, 1),
+    );
+  });
+
   it('skips the fill when the pattern is off', () => {
     const context = renderRange({ from: 0, to: 4 }, undefined, {
       curved: true,

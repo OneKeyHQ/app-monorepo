@@ -293,18 +293,11 @@ export function StockPriceLineChart({
     ],
   );
 
-  // The whole range stays on the main (faded) series so the price scale never
-  // moves; only the solid overlay drawn on top of it is cut at the cursor.
-  const hoveredTime = hoverData?.time;
-  const solidData = useMemo(() => {
-    if (platformEnv.isNative || hoveredTime === undefined) {
-      return data;
-    }
-    const upToCursor = data.filter(([time]) => time <= hoveredTime);
-    // An empty overlay would drop the overlay series entirely and rebuild the
-    // chart mid-scrub, so it always keeps at least the first point.
-    return upToCursor.length > 0 ? upToCursor : data.slice(0, 1);
-  }, [data, hoveredTime]);
+  // The whole range stays on both series so the price scale never moves; on
+  // web the solid overlay is cut at the cursor (native cuts it while
+  // scrubbing), still curved over the full series so it never leaves the
+  // faded line underneath.
+  const solidLineEndTime = platformEnv.isNative ? undefined : hoverData?.time;
 
   const nativeScrubOptions = useMemo<
     ILightweightChartNativeScrubOptions | undefined
@@ -428,7 +421,8 @@ export function StockPriceLineChart({
         // read as the chart's fill, not as part of the faded tail.
         patternColor={solidLineColor}
         pulseLastPointColor={solidLineColor}
-        secondaryLineData={solidData}
+        secondaryLineData={data}
+        secondaryLineEndTime={solidLineEndTime}
         secondaryLineColor={solidLineColor}
         secondaryLineWidth={2}
         crosshairVertLineColor={crosshairVertLineColor}
