@@ -13,6 +13,7 @@ export * from './jotaiContextStoreMap';
 export * from './localDb';
 export * from './onboarding';
 export * from './password';
+export * from './privacyChain';
 export * from './settings';
 export * from './spotlight';
 export * from './v4migration';

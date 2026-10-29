@@ -5,6 +5,7 @@ import { Button, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { markWebEmbedChannelPayload } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
 
@@ -52,6 +53,10 @@ export interface IWebViewProps
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
   webviewDebuggingEnabled?: boolean;
+  /** @platform ios
+   * @description Recreate the WebView when iOS kills its content process.
+   */
+  recreateOnContentProcessTerminate?: boolean;
   /** @platform native
    * @description Open website in desktop mode or mobile mode
    */
@@ -86,6 +91,12 @@ export interface IWebViewProps
   disableBridge?: boolean;
   /** Keep customReceiveHandler active, but do not forward messages to background bridge. */
   skipBackgroundBridge?: boolean;
+  /** @platform native
+   * @description Marks messages as coming from the app's singleton web-embed
+   * page, which may use the web-embed-only `$private` methods. Never set it on
+   * a WebView that loads anything else.
+   */
+  isWebEmbedChannel?: boolean;
   /** @platform desktop
    * @description Electron <webview> partition string.
    * @see IInpageProviderWebViewProps.partition
@@ -103,6 +114,7 @@ const WebView: FC<IWebViewProps> = ({
   webviewDebuggingEnabled,
   pullToRefreshEnabled,
   skipBackgroundBridge,
+  isWebEmbedChannel,
   ...rest
 }) => {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
@@ -114,12 +126,14 @@ const WebView: FC<IWebViewProps> = ({
         return customResult;
       }
 
-      const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
+      const result = await backgroundApiProxy.bridgeReceiveHandler(
+        markWebEmbedChannelPayload(payload, !!isWebEmbedChannel),
+      );
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
     },
-    [customReceiveHandler, skipBackgroundBridge],
+    [customReceiveHandler, skipBackgroundBridge, isWebEmbedChannel],
   );
   const webviewRef = useRef<IWebViewRef | null>(null);
   const handleWebViewRef = useCallback(

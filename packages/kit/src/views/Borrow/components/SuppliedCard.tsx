@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { XStack, useMedia } from '@onekeyhq/components';
+import { Stack, XStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -37,8 +37,10 @@ import {
   BORROW_TABLE_COLLATERAL_COLUMN_MIN_WIDTH,
   BorrowAPYField,
   BorrowTableList,
+  CollateralBadge,
 } from './BorrowTableList';
 import { Card } from './Card';
+import { getCollateralCellState } from './collateralControls.utils';
 import { CollateralSwitchCell } from './CollateralSwitchCell';
 
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
@@ -184,6 +186,9 @@ export const SuppliedCard = ({
       }),
       supplyApy: intl.formatMessage({ id: ETranslations.defi_supply_apy }),
       collateral: intl.formatMessage({ id: ETranslations.defi_collateral }),
+      collateralNotAvailable: intl.formatMessage({
+        id: ETranslations.global_not_available,
+      }),
       withdraw: intl.formatMessage({ id: ETranslations.global_withdraw }),
       apy: intl.formatMessage({ id: ETranslations.global_apy }),
       assetSupplied: `${asset} / ${supplied}`,
@@ -201,8 +206,7 @@ export const SuppliedCard = ({
           <AssetWithAmountField
             token={item.token}
             amountLabel={{ text: labels.suppliedWithColon }}
-            amount={item.suppliedAmount.title}
-            amountDescription={item.suppliedAmount.description}
+            balance={item.suppliedAmount}
             platformBonusApy={item.platformBonusApy}
           />
         ),
@@ -254,10 +258,7 @@ export const SuppliedCard = ({
         align: 'flex-end' as const,
         key: 'supplied',
         render: (item: ISuppliedAssetRow) => (
-          <AmountField
-            title={item.suppliedAmount.title}
-            description={item.suppliedAmount.description}
-          />
+          <AmountField balance={item.suppliedAmount} />
         ),
         flex: 1,
         minWidth: BORROW_TABLE_AMOUNT_COLUMN_MIN_WIDTH,
@@ -278,9 +279,27 @@ export const SuppliedCard = ({
               label: labels.collateral,
               align: 'center' as const,
               key: 'collateral',
-              render: (item: ISuppliedAssetRow) => (
-                <CollateralSwitchCell item={item} eModeId={item.eModeId} />
-              ),
+              render: (item: ISuppliedAssetRow) => {
+                const collateralState = getCollateralCellState(item);
+                if (collateralState === 'hidden') return null;
+                if (collateralState === 'unavailable') {
+                  return (
+                    <Stack
+                      role="img"
+                      aria-label={[
+                        item.token.symbol,
+                        labels.collateral,
+                        labels.collateralNotAvailable,
+                      ].join(', ')}
+                    >
+                      <CollateralBadge canBeCollateral={false} />
+                    </Stack>
+                  );
+                }
+                return (
+                  <CollateralSwitchCell item={item} eModeId={item.eModeId} />
+                );
+              },
               flex: BORROW_TABLE_COLLATERAL_COLUMN_FLEX,
               minWidth: BORROW_TABLE_COLLATERAL_COLUMN_MIN_WIDTH,
               maxWidth: BORROW_TABLE_COLLATERAL_COLUMN_MAX_WIDTH,

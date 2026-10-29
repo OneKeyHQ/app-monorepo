@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "Armazenamento",
   "privacy_sync_waiting_wifi__msg": "Aguardando Wi-Fi",
   "privacy_temp_wallet_unavailable__desc": "Indisponível para carteiras ocultas que são apagadas ao fechar o aplicativo. Ative “Manter acessível” para usar.",
+  "privacy_unshield_warning__desc": "O valor e o endereço do destinatário serão públicos na blockchain.",
   "private_key_imported_feedback_desc": "Sua conta de chave privada está pronta",
   "private_key_imported_feedback_title": "Importado com sucesso",
   "private_send.arrival_in": "Chegada em",

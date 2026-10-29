@@ -16,6 +16,10 @@ function initBackgroundBridgeEarly() {
   const bridge = bridgeSetup.background.createHostBridge({
     receiveHandler: backgroundApiProxy.bridgeReceiveHandler,
   });
+  const { guardOffscreenPort } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../background/offscreenPortGuard') as typeof import('../background/offscreenPortGuard');
+  guardOffscreenPort(bridge);
   backgroundApiProxy.connectBridge(bridge as unknown as JsBridgeBase);
   // backgroundApiProxy.serviceNotification.init().catch((e) => {
   //   debugLogger.notification.error(
@@ -35,6 +39,16 @@ function installOffscreenApiProxyEarly() {
 
   appGlobals.$offscreenApiProxy = offscreenApiProxy;
   return offscreenApiProxy;
+}
+
+function installPrivacyChainNodeRequestLate() {
+  // Lets the offscreen document reach nodes that send no CORS headers.
+  void import('../background/privacyChainNodeRequest').then((m) =>
+    m.installPrivacyChainNodeRequestListener(),
+  );
+  void import('../background/fetchStream').then((m) =>
+    m.installFetchStreamListener(),
+  );
 }
 
 function installDevReloadListenerLate() {
@@ -155,6 +169,7 @@ console.log(
 );
 setupServiceWorkerRuntimeLate();
 installDevReloadListenerLate();
+installPrivacyChainNodeRequestLate();
 setupManifestV2RedirectLate();
 
 if (process.env.NODE_ENV !== 'production') {

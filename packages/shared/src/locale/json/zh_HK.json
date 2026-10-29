@@ -4502,6 +4502,7 @@
   "privacy_sync_storage__title": "儲存空間",
   "privacy_sync_waiting_wifi__msg": "等待 Wi-Fi",
   "privacy_temp_wallet_unavailable__desc": "關閉應用程式時會清除的隱藏錢包暫不支援此功能。開啟「保持可存取」後即可使用。",
+  "privacy_unshield_warning__desc": "金額及收款地址將公開在鏈上",
   "private_key_imported_feedback_desc": "您的私鑰帳戶已準備就緒",
   "private_key_imported_feedback_title": "匯入成功",
   "private_send.arrival_in": "預計完成",

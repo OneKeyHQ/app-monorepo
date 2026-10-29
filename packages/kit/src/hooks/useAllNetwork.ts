@@ -705,14 +705,17 @@ function useAllNetworkRequests<T>(params: {
       const isSupersededRun = () =>
         ownedRun.generation !== undefined &&
         activeRunGenerationRef.current !== ownedRun.generation;
-      const isCurrentRun = () =>
-        !runCanceled && !isSupersededRun() && (isRunCurrent?.() ?? true);
       const runnerOwnerKey = buildAllNetworkRunOwnerKey({
         accountId: currentAccountId,
         networkId: currentNetworkId,
         walletId: currentWalletId,
         isAllNetworks,
       });
+      const isCurrentRun = () =>
+        !runCanceled &&
+        !isSupersededRun() &&
+        liveRunOwnerKeyRef.current === runnerOwnerKey &&
+        (isRunCurrent?.() ?? true);
       const ignoreDisabledForThisRun = ignoreDisabledRef.current;
       ignoreDisabledRef.current = false;
       const effectiveDisabled = disabled && !ignoreDisabledForThisRun;
@@ -1753,6 +1756,7 @@ function useAllNetworkRequests<T>(params: {
 
   return {
     run: runWithQueue,
+    supersedeActiveRun,
     runAccountRequests,
     result,
     isEmptyAccount,

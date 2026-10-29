@@ -36,6 +36,7 @@ import {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -8590,6 +8591,82 @@ describe('useSwapActions', () => {
 
     expect(store.get(swapAlertsAtom()).states).toHaveLength(1);
   });
+
+  it.each([
+    { impl: 'sol', ready: true, stale: false, expected: true },
+    { impl: 'evm', ready: true, stale: false, expected: false },
+    { impl: 'sol', ready: false, stale: false, expected: false },
+    { impl: 'sol', ready: true, stale: true, expected: false },
+  ])(
+    'checks a watching account against the source network: $impl, ready=$ready, stale=$stale',
+    async ({ impl, ready, stale, expected }) => {
+      const watchingAccount = {
+        ...evmAccount,
+        id: 'watching--501--test',
+        impl,
+      };
+      const watchingAccountInfo: IAccountSelectorActiveAccountInfo = {
+        ...activeAccountInfo,
+        account: undefined,
+        dbAccount: watchingAccount,
+        wallet: {
+          ...externalWallet,
+          id: WALLET_TYPE_WATCHING,
+          type: WALLET_TYPE_WATCHING,
+        },
+      };
+      const watchingAddressInfo: ISwapAddressInfo = {
+        ...fromAddressInfo,
+        address: undefined,
+        networkId: usdtToken.networkId,
+        accountInfo: watchingAccountInfo,
+        activeAccount: stale
+          ? {
+              ...watchingAccountInfo,
+              account: { ...evmAccount, id: 'watching--other' },
+            }
+          : watchingAccountInfo,
+        isAddressInfoReady: ready,
+      };
+      const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+        storeInstance.set(swapNetworks(), [evmSwapNetwork]);
+        storeInstance.set(swapSelectFromTokenAtom(), usdtToken);
+        storeInstance.set(swapSelectToTokenAtom(), ethToken);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await withMutedConsoleError(async () => {
+        await act(async () => {
+          await result.current.checkSwapWarning(
+            watchingAddressInfo,
+            watchingAddressInfo,
+            { allowNoConnectWallet: false },
+          );
+        });
+      });
+
+      expect(
+        store
+          .get(swapAlertsAtom())
+          .states.some((item) => Boolean(item.isAccountNetworkUnsupported)),
+      ).toBe(expected);
+      if (expected) {
+        expect(store.get(swapAlertsAtom()).states).toContainEqual(
+          expect.objectContaining({
+            alertLevel: ESwapAlertLevel.ERROR,
+            accountNetworkUnsupportedContext: {
+              accountId: undefined,
+              walletId: WALLET_TYPE_WATCHING,
+              networkId: usdtToken.networkId,
+              directionType: ESwapDirectionType.FROM,
+            },
+          }),
+        );
+      }
+    },
+  );
 
   it('keeps the unsupported-account alert with an identity-only source account', async () => {
     const identityOnlyAccountInfo = {

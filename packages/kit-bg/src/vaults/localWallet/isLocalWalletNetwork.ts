@@ -1,0 +1,48 @@
+import { getVaultSettings } from '../settings';
+
+// Privacy (local-wallet) chains review their own transactions and own
+// recipient validation; generic code asks this instead of naming a chain.
+export async function isLocalWalletNetwork({
+  networkId,
+}: {
+  networkId: string;
+}): Promise<boolean> {
+  try {
+    return !!(await getVaultSettings({ networkId })).localWallet;
+  } catch {
+    return false;
+  }
+}
+
+// Such a chain's addresses never reach address-scoped backend endpoints.
+export async function isAddressWithheldFromBackend({
+  networkId,
+}: {
+  networkId: string;
+}): Promise<boolean> {
+  try {
+    return (
+      (await getVaultSettings({ networkId })).localWallet
+        ?.withholdAddressFromBackend === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+// False only when the chain declares an address shape the input cannot have.
+export async function mayBeLocalWalletAddress({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}): Promise<boolean> {
+  try {
+    const pattern = (await getVaultSettings({ networkId })).localWallet
+      ?.addressShapePattern;
+    return !pattern || new RegExp(pattern).test(address);
+  } catch {
+    return true;
+  }
+}
