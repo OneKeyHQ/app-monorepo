@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -43,6 +43,15 @@ export function usePortfolioData({
   // The scope whose last request failed, so its first load stops showing a
   // skeleton. Cleared by the next successful request.
   const [failedScopeKey, setFailedScopeKey] = useState<string | undefined>();
+  const scopeKey = getPortfolioScopeKey({
+    networkId,
+    tokenAddress,
+    accountAddress,
+  });
+  // Only the request for the selected scope may update the failed state, so
+  // an older one settling late cannot clear or replace it.
+  const latestScopeKeyRef = useRef(scopeKey);
+  latestScopeKeyRef.current = scopeKey;
   const {
     result: portfolioResult,
     isLoading: isRefreshing,
@@ -53,6 +62,11 @@ export function usePortfolioData({
         return { list: [], networkId, tokenAddress, accountAddress };
       }
 
+      const requestScopeKey = getPortfolioScopeKey({
+        networkId,
+        tokenAddress,
+        accountAddress,
+      });
       try {
         const result =
           await backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
@@ -64,12 +78,14 @@ export function usePortfolioData({
             // reads as "no position" and wipes rows already on screen.
             throwOnError: true,
           });
-        setFailedScopeKey(undefined);
+        if (latestScopeKeyRef.current === requestScopeKey) {
+          setFailedScopeKey(undefined);
+        }
         return { ...result, networkId, tokenAddress, accountAddress };
       } catch (error) {
-        setFailedScopeKey(
-          getPortfolioScopeKey({ networkId, tokenAddress, accountAddress }),
-        );
+        if (latestScopeKeyRef.current === requestScopeKey) {
+          setFailedScopeKey(requestScopeKey);
+        }
         throw error;
       }
     },
@@ -105,9 +121,7 @@ export function usePortfolioData({
 
   // The first result for this token and account is not back yet. The
   // position list shows a skeleton then instead of a brief "No data".
-  const isFailedScope =
-    failedScopeKey ===
-    getPortfolioScopeKey({ networkId, tokenAddress, accountAddress });
+  const isFailedScope = failedScopeKey === scopeKey;
   const isPortfolioPending = !isCurrentPortfolioScope && !isFailedScope;
   // No result for this token and account yet, and the last request failed, so
   // whether there is a position is unknown.
