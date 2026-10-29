@@ -789,7 +789,7 @@ function getChartInitScript(): string {
       var pulseElement = document.getElementById('pulse');
       var pulseFrameId = 0;
       // Time of the point under the crosshair. While set, the pulse rides that
-      // point instead of the tail, like the web and Skia charts.
+      // point instead of the tail, like the web and native charts.
       window.pulseHoverTime = undefined;
       // Placed on the next frame: autoscale and axis width settle after
       // setData, so reading coordinates right away lands on the old layout.
