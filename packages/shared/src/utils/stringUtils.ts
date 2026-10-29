@@ -62,6 +62,7 @@ export function stableStringify(
 
 // capitalizeWords("hello world") => "Hello World"
 export function capitalizeWords(str: string): string {
+  // CI speed probe A: body-only change, revert before merge.
   return str.replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
