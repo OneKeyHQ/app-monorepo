@@ -49,6 +49,50 @@ export function toPsbtNetwork(
   return getBtcForkNetwork(network.code);
 }
 
+export function getPsbtInputUtxo({
+  psbt,
+  index,
+}: {
+  psbt: Psbt;
+  index: number;
+}): { script: Uint8Array; value: bigint } {
+  const input = psbt.data.inputs[index];
+  const txInput = psbt.txInputs[index];
+  if (!input || !txInput) {
+    throw new OneKeyLocalError(`Missing PSBT input #${index}`);
+  }
+  if (input.nonWitnessUtxo) {
+    const parent = Transaction.fromBuffer(input.nonWitnessUtxo);
+    if (!Buffer.from(parent.getHash()).equals(Buffer.from(txInput.hash))) {
+      throw new OneKeyLocalError(
+        `Non-witness UTXO hash does not match input #${index}`,
+      );
+    }
+    const prevout = parent.outs[txInput.index];
+    if (!prevout) {
+      throw new OneKeyLocalError(
+        `Non-witness UTXO has no output #${txInput.index} for input #${index}`,
+      );
+    }
+    if (
+      input.witnessUtxo &&
+      (input.witnessUtxo.value !== prevout.value ||
+        !Buffer.from(input.witnessUtxo.script).equals(
+          Buffer.from(prevout.script),
+        ))
+    ) {
+      throw new OneKeyLocalError(
+        `Conflicting UTXO records for input #${index}`,
+      );
+    }
+    return prevout;
+  }
+  if (!input.witnessUtxo) {
+    throw new OneKeyLocalError(`Missing UTXO for input #${index}`);
+  }
+  return input.witnessUtxo;
+}
+
 // psbtToTx
 export function decodedPsbt({
   psbt,
@@ -60,23 +104,8 @@ export function decodedPsbt({
   const inputs = psbt.txInputs.map((input, index) => {
     // oxlint-disable-next-line unicorn/no-array-reverse
     const txid = Buffer.from(input.hash).reverse().toString('hex');
-    let value: bigint | undefined;
-    let script: Buffer | undefined;
-    const v = psbt.data.inputs[index];
-    if (v.witnessUtxo) {
-      script = Buffer.from(v.witnessUtxo?.script);
-      value = BigInt(v.witnessUtxo?.value);
-    } else if (v.nonWitnessUtxo) {
-      const tx = Transaction.fromBuffer(v.nonWitnessUtxo);
-      const output = tx.outs[input.index];
-      script = Buffer.from(output.script);
-      value = BigInt(output.value);
-    }
-
-    let address = '';
-    if (script) {
-      address = scriptPkToAddress(script, psbtNetwork);
-    }
+    const { value, script } = getPsbtInputUtxo({ psbt, index });
+    const address = scriptPkToAddress(Buffer.from(script), psbtNetwork);
 
     return {
       txid,
@@ -100,10 +129,7 @@ export function decodedPsbt({
     };
   });
 
-  const inputValue = inputs.reduce(
-    (sum, input) => sum + (input.value ?? 0n),
-    0n,
-  );
+  const inputValue = inputs.reduce((sum, input) => sum + input.value, 0n);
   const outputValue = outputs.reduce(
     (sum, output) => sum + BigInt(output.value),
     0n,

@@ -67,6 +67,7 @@ import {
 } from './hooks';
 import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDetail';
 import { useSwapStockBackTrip } from './hooks/useMarketDetailBackNavigation';
+import { useMarketDetailChartMode } from './hooks/useMarketDetailChartMode';
 import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
@@ -428,11 +429,13 @@ function MarketDetailV2(
   const media = useMedia();
   const setSplitViewDetailFullscreen = useSetSplitViewDetailFullscreen();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  const [isTradingViewNative, setIsTradingViewNative] = useState(true);
+  const { isTradingViewNative, toggleChartMode } = useMarketDetailChartMode();
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
+  // Mobile layouts can show the native chart while TradingView is preferred,
+  // e.g. for a stock's share price, so they leave fullscreen themselves when
+  // TradingView takes over instead of following the preference here.
   const supportsChartFullscreen = Boolean(
-    isDesktopChartLayout ||
-    ((platformEnv.isNative || platformEnv.isWeb) && isTradingViewNative),
+    isDesktopChartLayout || platformEnv.isNative || platformEnv.isWeb,
   );
   const effectiveIsChartFullscreen =
     supportsChartFullscreen && isChartFullscreen;
@@ -461,8 +464,8 @@ function MarketDetailV2(
     if (!isDesktopChartLayout) {
       handleChartFullscreenChange(false);
     }
-    setIsTradingViewNative((currentValue) => !currentValue);
-  }, [handleChartFullscreenChange, isDesktopChartLayout]);
+    toggleChartMode();
+  }, [handleChartFullscreenChange, isDesktopChartLayout, toggleChartMode]);
   const handleFullscreenRemove = useCallback(
     ({ data }: { data: { action: NavigationAction } }) => {
       handleChartFullscreenChange(false);

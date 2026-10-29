@@ -1,0 +1,16 @@
+import { createXmrRuntimeProxy } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/proxy';
+import { workerApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/workerClient';
+
+import type { IWebembedApi } from './instance/IWebembedApi';
+
+// WebEmbed owns the transport; Hermes cannot run wasm, so on iOS/Android the runtime lives here.
+class WebEmbedApiChainXmr {
+  constructor() {
+    Object.assign(
+      this,
+      createXmrRuntimeProxy(() => workerApi),
+    );
+  }
+}
+
+export default WebEmbedApiChainXmr as unknown as new () => IWebembedApi['chainXmr'];

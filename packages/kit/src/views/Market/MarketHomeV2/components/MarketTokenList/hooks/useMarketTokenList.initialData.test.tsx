@@ -237,6 +237,48 @@ describe('useMarketTokenList initial data', () => {
     swrCacheUtils.flushNow();
   });
 
+  it('reuses unchanged API rows with missing token precision after refetch', async () => {
+    const actualHelpers = jest.requireActual<
+      typeof import('../utils/tokenListHelpers')
+    >('../utils/tokenListHelpers');
+    const previousImplementation =
+      mockTransformApiItemToToken.getMockImplementation();
+    mockTransformApiItemToToken.mockImplementation(
+      actualHelpers.transformApiItemToToken,
+    );
+    mockFetchMarketTokenList.mockImplementation(async () => ({
+      list: [
+        {
+          address: '0xtoken',
+          name: 'Token',
+          symbol: 'TOKEN',
+          decimals: null as unknown as number,
+        },
+      ],
+      total: 1,
+    }));
+
+    try {
+      const { result } = renderHook(() =>
+        useMarketTokenList({
+          networkId: 'evm--1',
+          pollingInterval: 0,
+          type: 'trending',
+        }),
+      );
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      const previousRows = result.current.data;
+      await act(async () => result.current.refetch());
+
+      expect(result.current.data[0]).toBe(previousRows[0]);
+      expect(result.current.data).toBe(previousRows);
+    } finally {
+      if (previousImplementation) {
+        mockTransformApiItemToToken.mockImplementation(previousImplementation);
+      }
+    }
+  });
+
   it('paints the default Trending seed before the remote response arrives', async () => {
     const seed = {
       ...createResponse('0xseed', 'Seed Token', 'SEED'),

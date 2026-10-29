@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, SearchBar, Stack } from '@onekeyhq/components';
+import { Page, SearchBar, Stack, Toast } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -11,6 +11,7 @@ import {
   useSwapActions,
   useSwapProSelectTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { isMarketTokenDecimalsReady } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketTokenIdentity';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -61,6 +62,14 @@ const SwapProSelectTokenPage = ({
   );
   const navigation = useAppNavigation();
   const handleTokenSelect = (token: IMarketToken) => {
+    if (!isMarketTokenDecimalsReady(token)) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_an_error_occurred,
+        }),
+      });
+      return;
+    }
     if (
       !equalTokenNoCaseSensitive({
         token1: swapProTokenSelect,
