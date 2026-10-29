@@ -18746,6 +18746,7 @@
     "packages/components/src/actions/Pagination/index.tsx": 24153,
     "packages/components/src/actions/Pagination/usePagination.ts": 6891,
     "packages/components/src/actions/Popover/PopoverContent.native.tsx": 8002,
+    "packages/components/src/actions/Popover/anchoredFrame.ts": 2213,
     "packages/components/src/actions/Popover/context.ts": 11486,
     "packages/components/src/actions/Popover/index.native.tsx": 8785,
     "packages/components/src/actions/Popover/index.tsx": 17115,
