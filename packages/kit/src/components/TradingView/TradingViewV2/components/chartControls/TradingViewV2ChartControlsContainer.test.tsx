@@ -58,6 +58,14 @@ jest.mock('../indicatorControls/hooks/useNativeIndicatorActiveValues', () => ({
   canToggleTradingViewNativeIndicatorOn: () => true,
 }));
 
+const mockShowIndicatorsDialog = jest.fn<void, []>();
+
+jest.mock('../indicatorControls/hooks/useShowNativeIndicatorsDialog', () => ({
+  useShowNativeIndicatorsDialog: () => mockShowIndicatorsDialog,
+}));
+
+let mockNativeChartControlsOverrides: Record<string, unknown> = {};
+
 jest.mock('./hooks/useNativeChartControls', () => ({
   useNativeChartControls: () => ({
     activeChartType: 1,
@@ -82,6 +90,7 @@ jest.mock('./hooks/useNativeChartControls', () => ({
     showChartTypeToggle: false,
     showIndicatorPopover: false,
     showPriceMarketCapSelect: false,
+    ...mockNativeChartControlsOverrides,
   }),
 }));
 
@@ -128,7 +137,48 @@ function renderControls({
 describe('TradingViewV2ChartControlsContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockNativeChartControlsOverrides = {};
   });
+
+  it.each<{
+    enableNativeChartSettings: boolean;
+    layoutMode: 'desktop' | 'mobile';
+    expectedVisible: boolean;
+  }>([
+    {
+      enableNativeChartSettings: true,
+      layoutMode: 'mobile',
+      expectedVisible: false,
+    },
+    {
+      enableNativeChartSettings: false,
+      layoutMode: 'mobile',
+      expectedVisible: true,
+    },
+    {
+      enableNativeChartSettings: true,
+      layoutMode: 'desktop',
+      expectedVisible: true,
+    },
+  ])(
+    'shows chart style and indicator controls on $layoutMode with native settings $enableNativeChartSettings: $expectedVisible',
+    ({ enableNativeChartSettings, layoutMode, expectedVisible }) => {
+      mockNativeChartControlsOverrides = {
+        hasVisibleIndicators: true,
+        showChartTypeSelect: true,
+        showChartTypeToggle: true,
+      };
+      renderControls({ enableNativeChartSettings, layoutMode });
+
+      expect(mockTradingViewChartControls.mock.calls[0][0]).toEqual(
+        expect.objectContaining({
+          hasVisibleIndicators: expectedVisible,
+          showChartTypeSelect: expectedVisible,
+          showChartTypeToggle: expectedVisible,
+        }),
+      );
+    },
+  );
 
   it.each<{
     enableNativeChartSettings: boolean;
@@ -210,6 +260,44 @@ describe('TradingViewV2ChartControlsContainer', () => {
     );
     settingsProps.onOpenSettings();
     expect(mockShowTradingViewChartSettingsDialog).toHaveBeenCalledTimes(1);
+  });
+
+  it('moves mobile chart style options into the settings dialog', () => {
+    const chartTypes = [
+      { value: 1, label: 'Candles', id: 'candle' },
+      { value: 2, label: 'Line', id: 'line' },
+    ];
+    mockNativeChartControlsOverrides = { chartTypes };
+    const onOpenChartSettings = jest.fn();
+    renderControls({ onOpenChartSettings });
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      onSettingsPress: () => void;
+    };
+    controlsProps.onSettingsPress();
+
+    expect(onOpenChartSettings).not.toHaveBeenCalled();
+    const settingsProps = mockDialogShow.mock.calls[0][0].renderContent
+      .props as IMobileSettingsProps & {
+      tradingViewChartStyle?: {
+        activeChartType?: number;
+        chartTypes: unknown[];
+      };
+    };
+    expect(settingsProps.tradingViewChartStyle).toEqual(
+      expect.objectContaining({ activeChartType: 1, chartTypes }),
+    );
+  });
+
+  it('opens the shared indicators dialog from the header trigger', () => {
+    renderControls({ layoutMode: 'desktop' });
+
+    const controlsProps = mockTradingViewChartControls.mock.calls[0][0] as {
+      onShowIndicatorsDialog: () => void;
+    };
+    controlsProps.onShowIndicatorsDialog();
+
+    expect(mockShowIndicatorsDialog).toHaveBeenCalledTimes(1);
   });
 
   it('keeps desktop settings on the full settings dialog', () => {

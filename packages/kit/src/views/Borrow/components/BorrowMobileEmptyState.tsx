@@ -54,8 +54,7 @@ export function BorrowMobileEmptyState({
                 id: ETranslations.global_balance,
               })}:`,
             }}
-            amount={item.walletBalance.title}
-            amountDescription={item.walletBalance.description}
+            balance={item.walletBalance}
             platformBonusApy={item.platformBonusApy}
           />
         ),

@@ -127,6 +127,7 @@ import { BorrowCard } from './BorrowCard';
 type IBorrowAsset = IBorrowReserveItem['borrow']['assets'][number];
 
 type ICellProps = {
+  balance?: IBorrowAsset['available'];
   amount?: IEarnText;
   amountDescription?: IEarnText;
   amountLabel?: IEarnText;
@@ -243,20 +244,16 @@ describe('BorrowCard reserve balance presentation', () => {
       gtMd: false,
       columnIndex: 0,
       expectedLabel: 'global_asset / global_balance',
-      amountProp: 'amount',
-      descriptionProp: 'amountDescription',
     },
     {
       platform: 'desktop',
       gtMd: true,
       columnIndex: 1,
       expectedLabel: 'global_balance',
-      amountProp: 'title',
-      descriptionProp: 'description',
     },
   ] as const)(
     'uses the reserve available field for $platform balance display and sorting',
-    ({ gtMd, columnIndex, expectedLabel, amountProp, descriptionProp }) => {
+    ({ gtMd, columnIndex, expectedLabel }) => {
       mediaMock.gtMd = gtMd;
       render(<BorrowCard />);
 
@@ -268,10 +265,7 @@ describe('BorrowCard reserve balance presentation', () => {
       expect(props?.defaultSortKey).toBe('balance');
       expect(props?.defaultSortDirection).toBe('desc');
       expect(balanceColumn?.label).toBe(expectedLabel);
-      expect(renderedCell?.props[amountProp]).toEqual(asset.available.title);
-      expect(renderedCell?.props[descriptionProp]).toEqual(
-        asset.available.description,
-      );
+      expect(renderedCell?.props.balance).toEqual(asset.available);
 
       if (gtMd) {
         const comparator = balanceColumn?.comparator;

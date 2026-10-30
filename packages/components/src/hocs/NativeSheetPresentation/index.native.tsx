@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { OVERLAY_SHEET_MAX_WIDTH } from '../../hooks/useOverlayWidthClass';
 import { useTheme } from '../../hooks/useStyle';
 
 import type { INativeSheetPresentationProps } from './types';
@@ -68,6 +69,7 @@ export function NativeSheetPresentation({
     () => ({
       height,
       maxHeight,
+      maxWidth: OVERLAY_SHEET_MAX_WIDTH,
       cornerRadius,
       showHandle,
       backgroundColor: backgroundColor ?? String(theme.bg.val),

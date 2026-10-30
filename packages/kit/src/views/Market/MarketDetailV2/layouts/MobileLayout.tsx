@@ -111,7 +111,10 @@ import {
 } from '../utils/marketTradingViewSubIndicatorCount';
 import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
-import { shouldShowMobileSimpleChart } from './mobileChartVisibility';
+import {
+  shouldShowMobileNativeChart,
+  shouldShowMobileSimpleChart,
+} from './mobileChartVisibility';
 import {
   MOBILE_SIMPLE_CHART_HEIGHT,
   MobileChartModeControl,
@@ -397,9 +400,6 @@ export function MobileLayout({
     stockId,
   } = useStockDetail();
   const { priceMode } = useStockPriceSource();
-  // The legacy token-only chart cannot render the selected share series.
-  const isTradingViewNative =
-    preferredIsTradingViewNative || priceMode === 'share';
   const detailKind = resolveMarketMobileDetailKind({
     isStockToken: Boolean(isStockToken || isStockRoute),
     marketTokenCategory,
@@ -464,6 +464,18 @@ export function MobileLayout({
     isNative,
     websocketConfig,
   });
+  const isTradingViewNative = shouldShowMobileNativeChart({
+    isNativeChartPreferred: preferredIsTradingViewNative,
+    hasTradingViewParams: Boolean(marketTradingViewParams),
+    isSharePrice: priceMode === 'share',
+  });
+  // Only the native chart has a fullscreen mode here. Leave it when
+  // TradingView takes over, e.g. once its chart params arrive.
+  useEffect(() => {
+    if (isChartFullscreen && !isTradingViewNative) {
+      onChartFullscreenChange(false);
+    }
+  }, [isChartFullscreen, isTradingViewNative, onChartFullscreenChange]);
   let marketTradingViewKey = 'v2';
   if (!isTradingViewNative && marketTradingViewParams) {
     marketTradingViewKey = [
@@ -1294,6 +1306,11 @@ export function MobileLayout({
               }
               isRefreshing={isRefreshing}
               isPortfolioPending={isPortfolioPending}
+              isPortfolioFailed={
+                isStockPortfolio
+                  ? stockPortfolio.isPortfolioIncomplete
+                  : tokenPortfolio.isPortfolioFailed
+              }
               tokenLogoUrl={tokenDetail?.logoUrl}
               detailKind={detailKind}
               marketAssetDetail={marketAssetDetail}

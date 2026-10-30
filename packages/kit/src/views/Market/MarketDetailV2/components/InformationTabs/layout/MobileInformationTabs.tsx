@@ -138,6 +138,7 @@ export function MobileInformationTabs({
   hasPortfolioAccount,
   isRefreshing,
   isPortfolioPending,
+  isPortfolioFailed,
   tokenLogoUrl,
   scrollEnabled = true,
   freezeContent = false,
@@ -156,6 +157,7 @@ export function MobileInformationTabs({
   isRefreshing?: boolean;
   // The first holdings result for this token is not back yet.
   isPortfolioPending?: boolean;
+  isPortfolioFailed?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   freezeContent?: boolean;
@@ -207,8 +209,10 @@ export function MobileInformationTabs({
             hasAccount={hasPortfolioAccount}
             isRefreshing={!!isRefreshing}
             isPending={isPortfolioPending}
+            isFailed={isPortfolioFailed}
             accountAddress={accountAddress}
             tokenLogoUrl={tokenLogoUrl}
+            isMarketDetail
             scrollEnabled={scrollEnabled}
           />
         </DelayedFreeze>
@@ -326,6 +330,7 @@ export function MobileInformationTabs({
     hasPortfolioAccount,
     isRefreshing,
     isPortfolioPending,
+    isPortfolioFailed,
     isNative,
     isBTCNetwork,
     tokenLogoUrl,

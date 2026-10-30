@@ -297,6 +297,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.HideAirGapQrcode]: {
     flag?: string; // close toast should skipReject: flag=skipReject
   };
+  [EAppEventBusNames.ScanAirGapQrcode]: {
+    promiseId: number;
+  };
+  [EAppEventBusNames.CancelAirGapQrcodeScan]: {
+    promiseId: number;
+  };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.V4RealmInit]: undefined;
   [EAppEventBusNames.SyncDeviceLabelToWalletName]: {

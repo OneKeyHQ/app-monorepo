@@ -7,7 +7,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -38,25 +37,20 @@ export function isDustSweepNetworkSupported({
 
 type IDustSweepEntryCapabilities = {
   supportedNetworkIds?: ReadonlySet<string>;
-  isRefreshing: boolean;
-  // Home tab and route are both focused.
   isFocused: boolean;
 };
 
 const DustSweepEntryCapabilitiesContext =
   createContext<IDustSweepEntryCapabilities>({
     supportedNetworkIds: undefined,
-    isRefreshing: false,
     isFocused: true,
   });
-
-const FOCUS_REVALIDATION_TIMEOUT_MS = 3000;
 
 export function DustSweepEntryCapabilitiesProvider({
   children,
   isFocused,
 }: PropsWithChildren<{ isFocused: boolean }>) {
-  const { result, isLoading } = usePromiseResult(
+  const { result } = usePromiseResult(
     async () => {
       const { loadDustSweepEntryCapabilities } =
         await import('../utils/loadNetworks');
@@ -73,39 +67,6 @@ export function DustSweepEntryCapabilitiesProvider({
       undefinedResultIfError: true,
     },
   );
-  // Focus revalidation starts on an idle callback, so right after Home
-  // regains focus `isLoading` is still false while the rules may be stale.
-  // Treat them as stale from the focus until that revalidation has run.
-  const [staleSinceFocus, setStaleSinceFocus] = useState(false);
-  const wasUnfocused = useRef(!isFocused);
-  const sawRevalidation = useRef(false);
-  useEffect(() => {
-    if (!isFocused) {
-      wasUnfocused.current = true;
-      return;
-    }
-    if (!wasUnfocused.current) return;
-    wasUnfocused.current = false;
-    sawRevalidation.current = false;
-    setStaleSinceFocus(true);
-  }, [isFocused]);
-  useEffect(() => {
-    if (!staleSinceFocus) return;
-    if (isLoading) {
-      sawRevalidation.current = true;
-      return;
-    }
-    if (sawRevalidation.current) setStaleSinceFocus(false);
-  }, [isLoading, staleSinceFocus]);
-  useEffect(() => {
-    if (!staleSinceFocus) return undefined;
-    // Never hold the entry if a revalidation is skipped.
-    const timer = setTimeout(
-      () => setStaleSinceFocus(false),
-      FOCUS_REVALIDATION_TIMEOUT_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [staleSinceFocus]);
   const supportedNetworkIds = useMemo(
     () => result && new Set(result.map((network) => network.networkId)),
     [result],
@@ -113,12 +74,9 @@ export function DustSweepEntryCapabilitiesProvider({
   const capabilities = useMemo(
     () => ({
       supportedNetworkIds,
-      // Keep the existing entry mounted while capabilities revalidate, but
-      // prevent navigation until the destination rules are current.
-      isRefreshing: Boolean(result && (isLoading || staleSinceFocus)),
       isFocused,
     }),
-    [isFocused, isLoading, result, staleSinceFocus, supportedNetworkIds],
+    [isFocused, supportedNetworkIds],
   );
   return createElement(
     DustSweepEntryCapabilitiesContext.Provider,
@@ -133,9 +91,11 @@ export function useNavigateToDustSweep() {
   return useCallback(
     async (
       params: Omit<IDustSweepRouteParams, 'walletId'> & { walletId?: string },
+      isCurrent?: () => boolean,
     ) => {
       const { navigateToDustSweep } =
         await import('../utils/navigateToDustSweep');
+      if (isCurrent && !isCurrent()) return;
       await navigateToDustSweep({ params, intl });
     },
     [intl],
@@ -145,13 +105,41 @@ export function useNavigateToDustSweep() {
 // Entry points that open Dust Sweep for the active Home account.
 export function useActiveAccountDustSweep() {
   const navigateToDustSweep = useNavigateToDustSweep();
-  const { supportedNetworkIds, isRefreshing, isFocused } = useContext(
+  const { supportedNetworkIds, isFocused } = useContext(
     DustSweepEntryCapabilitiesContext,
   );
   const {
     activeAccount: { account, wallet, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const walletId = wallet?.id;
+  const scopeKey = JSON.stringify([
+    walletId,
+    account?.id,
+    indexedAccount?.id,
+    network?.id,
+  ]);
+  const scopeRef = useRef({ scopeKey, isFocused, generation: 0 });
+  if (
+    scopeRef.current.scopeKey !== scopeKey ||
+    scopeRef.current.isFocused !== isFocused
+  ) {
+    scopeRef.current = {
+      scopeKey,
+      isFocused,
+      generation: scopeRef.current.generation + 1,
+    };
+  }
+  const mountedRef = useRef(true);
+  const openingRef = useRef<{
+    generation: number;
+    promise: Promise<void>;
+  } | null>(null);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   // Mirrors the navigation handler's guards so entries never lead to the
   // "account does not support swap" dialog.
   const canDustSweep =
@@ -166,15 +154,25 @@ export function useActiveAccountDustSweep() {
       isAllNetworks: network?.isAllNetworks,
       supportedNetworkIds,
     });
+  const canDustSweepRef = useRef(canDustSweep);
+  canDustSweepRef.current = canDustSweep;
   const navigate = useCallback(
-    (entry: IDustSweepEntry) =>
-      navigateToDustSweep({
-        accountId: account?.id,
-        walletId,
-        indexedAccountId: indexedAccount?.id,
-        networkId: network?.isAllNetworks ? undefined : network?.id,
-        entry,
-      }),
+    (entry: IDustSweepEntry, generation: number) =>
+      navigateToDustSweep(
+        {
+          accountId: account?.id,
+          walletId,
+          indexedAccountId: indexedAccount?.id,
+          networkId: network?.isAllNetworks ? undefined : network?.id,
+          entry,
+        },
+        () =>
+          mountedRef.current &&
+          scopeRef.current.isFocused &&
+          canDustSweepRef.current &&
+          scopeRef.current.generation === generation &&
+          scopeRef.current.scopeKey === scopeKey,
+      ),
     [
       navigateToDustSweep,
       account?.id,
@@ -182,44 +180,23 @@ export function useActiveAccountDustSweep() {
       indexedAccount?.id,
       network?.id,
       network?.isAllNetworks,
+      scopeKey,
     ],
   );
-  // Capabilities revalidate whenever Home regains focus (e.g. back from Dust
-  // Sweep). Keep the entry looking enabled meanwhile; a tap during the refresh
-  // waits for it and opens only if Home is still focused on the same account
-  // and network, and that account is still supported.
-  const scopeKey = [
-    walletId,
-    account?.id,
-    indexedAccount?.id,
-    network?.id,
-  ].join('|');
-  const [pendingEntry, setPendingEntry] = useState<{
-    entry: IDustSweepEntry;
-    scopeKey: string;
-  }>();
   const openDustSweep = useCallback(
     (entry: IDustSweepEntry) => {
       if (!canDustSweep) return undefined;
-      if (isRefreshing) {
-        setPendingEntry({ entry, scopeKey });
-        return undefined;
-      }
-      return navigate(entry);
+      const { generation } = scopeRef.current;
+      if (openingRef.current?.generation === generation)
+        return openingRef.current.promise;
+      const pending = navigate(entry, generation).finally(() => {
+        if (openingRef.current?.promise === pending) openingRef.current = null;
+      });
+      openingRef.current = { generation, promise: pending };
+      return pending;
     },
-    [canDustSweep, isRefreshing, navigate, scopeKey],
+    [canDustSweep, navigate],
   );
-  useEffect(() => {
-    if (!pendingEntry) return;
-    // Leaving Home or switching account/network drops the queued tap.
-    if (!isFocused || pendingEntry.scopeKey !== scopeKey) {
-      setPendingEntry(undefined);
-      return;
-    }
-    if (isRefreshing) return;
-    setPendingEntry(undefined);
-    if (canDustSweep) void navigate(pendingEntry.entry);
-  }, [canDustSweep, isFocused, isRefreshing, navigate, pendingEntry, scopeKey]);
   return {
     canDustSweep,
     openDustSweep,

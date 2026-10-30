@@ -3,17 +3,11 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import {
   InputAccessoryView,
-  Keyboard,
   type StyleProp,
   type TextStyle,
 } from 'react-native';
 
-import {
-  Button,
-  XStack,
-  YStack,
-  useIsKeyboardShown,
-} from '@onekeyhq/components';
+import { XStack, YStack } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
@@ -45,10 +39,9 @@ import {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapTabSwitchType,
-  SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
-import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
+import { PercentageStageOnKeyboard } from '../../components/PercentageStageOnKeyboard';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
@@ -74,68 +67,7 @@ import { getSwapTokenDisplayFiatValue } from '../../utils/swapDisplayFiatValue';
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import SwapInputActions from './SwapInputActions';
 
-export function PercentageStageOnKeyboard({
-  onSelectPercentageStage,
-  stageList,
-}: {
-  onSelectPercentageStage?: (stage: number) => void;
-  stageList?: number[];
-}) {
-  const isShow = useIsKeyboardShown();
-  const [{ swapPercentageInputStageShowForNative }] =
-    useInAppNotificationAtom();
-  let viewShow = platformEnv.isNativeIOS;
-  if (!platformEnv.isNativeIOS) {
-    viewShow = isShow && swapPercentageInputStageShowForNative;
-  }
-
-  const stageListToShow = useMemo(() => {
-    if (stageList && stageList.length > 0) {
-      return stageList;
-    }
-    return SwapPercentageInputStageForNative;
-  }, [stageList]);
-
-  return viewShow ? (
-    <XStack
-      alignItems="center"
-      gap="$1"
-      justifyContent="space-around"
-      bg="$bgSubdued"
-      h="$10"
-    >
-      <>
-        {stageListToShow.map((stage) => (
-          <SwapPercentageStageBadge
-            badgeSize="lg"
-            key={`swap-percentage-input-stage-${stage}`}
-            stage={stage}
-            borderRadius={0}
-            onSelectStage={onSelectPercentageStage}
-            flex={1}
-            justifyContent="center"
-            alignItems="center"
-            h="$10"
-          />
-        ))}
-        <Button
-          testID="swap-stage-list-to-show-btn"
-          icon="KeyboardDownOutline"
-          flex={1}
-          h="$10"
-          size="small"
-          justifyContent="center"
-          borderRadius={0}
-          alignItems="center"
-          variant="tertiary"
-          onPress={() => {
-            Keyboard.dismiss();
-          }}
-        />
-      </>
-    </XStack>
-  ) : null;
-}
+export { PercentageStageOnKeyboard } from '../../components/PercentageStageOnKeyboard';
 
 interface ISwapInputContainerProps {
   inputAccessoryViewID: string;

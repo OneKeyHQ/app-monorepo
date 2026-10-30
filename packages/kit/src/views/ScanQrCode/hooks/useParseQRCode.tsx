@@ -66,12 +66,13 @@ export type IParseQRCodeRuntimeDeps = {
   navigation: IAppNavigation;
   clipboard: ReturnType<typeof useClipboard>;
   intl: ReturnType<typeof useIntl>;
+  scanRequestId?: string;
 };
 
 export async function parseQRCodeWithDeps(
   value: Parameters<IQRCodeHandlerParse<IBaseValue>>[0],
   params: Parameters<IQRCodeHandlerParse<IBaseValue>>[1],
-  { navigation, clipboard, intl }: IParseQRCodeRuntimeDeps,
+  { navigation, clipboard, intl, scanRequestId }: IParseQRCodeRuntimeDeps,
 ) {
   const showCopyDialog = (content: string) => {
     Dialog.confirm({
@@ -117,7 +118,7 @@ export async function parseQRCodeWithDeps(
         // preserving caller routes (e.g. onboarding). This avoids
         // goBack() animated dismiss which causes RNSScreenStack
         // window=NIL and blocks Fabric commits on the underlying page.
-        resetScanModalRoute();
+        resetScanModalRoute(scanRequestId ? { scanRequestId } : undefined);
         if (!platformEnv.isNativeIOS) {
           await timerUtils.wait(100);
         }

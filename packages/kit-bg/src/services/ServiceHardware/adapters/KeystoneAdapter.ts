@@ -148,6 +148,7 @@ export class KeystoneAdapter
           : {}),
         payload: {
           vendor: event.payload.vendor,
+          reason: event.payload.reason,
           ...(requestId ? { requestId } : {}),
         },
       });
