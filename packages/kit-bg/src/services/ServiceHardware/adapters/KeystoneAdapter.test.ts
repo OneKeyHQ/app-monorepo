@@ -114,14 +114,22 @@ describe('KeystoneAdapter', () => {
       expect(new KeystoneAdapter(hw as never).vendor).toBe('keystone');
 
       listeners.get(UI_REQUEST.REQUEST_QR_FALLBACK_CONFIRM)?.({
-        payload: { vendor: 'keystone', ...(requestId ? { requestId } : {}) },
+        payload: {
+          vendor: 'keystone',
+          reason: 'wallet-mismatch',
+          ...(requestId ? { requestId } : {}),
+        },
       });
 
       expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith({
         action: 'request-keystone-qr-fallback-confirm',
         uiRequestId: expect.any(String),
         vendor: 'keystone',
-        payload: { vendor: 'keystone', ...(requestId ? { requestId } : {}) },
+        payload: {
+          vendor: 'keystone',
+          reason: 'wallet-mismatch',
+          ...(requestId ? { requestId } : {}),
+        },
       });
     },
   );

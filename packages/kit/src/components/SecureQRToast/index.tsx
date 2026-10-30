@@ -30,13 +30,6 @@ interface ISecureQRToastBaseProps {
   onConfirmText?: string;
   onCancel?: () => void;
   showConfirmButton?: boolean;
-  extraAction?: {
-    label: string;
-    title?: string;
-    description?: string;
-    onPress: () => void | Promise<void>;
-    testID?: string;
-  };
 }
 
 const SecureQRToastBase = ({
@@ -50,7 +43,6 @@ const SecureQRToastBase = ({
   onConfirmText,
   onCancel,
   showConfirmButton = true,
-  extraAction,
 }: ISecureQRToastBaseProps) => {
   const intl = useIntl();
   const [show, setShow] = useState(showQRCode);
@@ -186,33 +178,6 @@ const SecureQRToastBase = ({
           </Button>
         ) : null}
       </XStack>
-      {extraAction ? (
-        <YStack
-          testID="secure-qr-toast-extra-action-section"
-          mt="$5"
-          pt="$4"
-          gap="$3"
-          borderTopWidth={1}
-          borderTopColor="$borderSubdued"
-        >
-          {extraAction.title ? (
-            <SizableText size="$headingSm">{extraAction.title}</SizableText>
-          ) : null}
-          {extraAction.description ? (
-            <SizableText size="$bodySm" color="$textSubdued">
-              {extraAction.description}
-            </SizableText>
-          ) : null}
-          <Button
-            variant="secondary"
-            icon="ScanOutline"
-            testID={extraAction.testID}
-            onPress={extraAction.onPress}
-          >
-            {extraAction.label}
-          </Button>
-        </YStack>
-      ) : null}
     </YStack>
   );
 };
@@ -229,7 +194,6 @@ export const SecureQRToast = {
     onCancel,
     onConfirmText,
     showConfirmButton,
-    extraAction,
     ...props
   }: ISecureQRToastBaseProps & IShowToasterProps) =>
     Toast.show({
@@ -245,7 +209,6 @@ export const SecureQRToast = {
           onConfirmText={onConfirmText}
           onCancel={onCancel}
           showConfirmButton={showConfirmButton}
-          extraAction={extraAction}
         />
       ),
       ...props,
