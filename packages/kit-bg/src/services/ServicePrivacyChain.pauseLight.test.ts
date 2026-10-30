@@ -87,8 +87,12 @@ describe('Privacy sync light pause state', () => {
     );
   }
 
-  function capabilityForAccounts(accountIds: string[]) {
+  function capabilityForAccounts(
+    accountIds: string[],
+    syncPolicy: { sendMaxBlocksLeft?: number } = {},
+  ) {
     return {
+      syncPolicy,
       listAccounts: async () => ({
         accounts: accountIds.map((accountId) => ({
           accountId,
@@ -157,35 +161,53 @@ describe('Privacy sync light pause state', () => {
     const pass = (
       service: ReturnType<typeof createService>,
       accountIds = ['account'],
+      syncPolicy: { sendMaxBlocksLeft?: number } = {},
     ) =>
       service.refreshAutoBoost({
         networkId,
         accountIds,
-        capability: capabilityForAccounts(accountIds),
+        capability: capabilityForAccounts(accountIds, syncPolicy),
       });
 
-    it('turns on at the threshold and off once below it', async () => {
+    it('turns on at the threshold and stays on until sending is allowed', async () => {
       const service = createService();
+      const sendGate = { sendMaxBlocksLeft: 100 };
       publishBehind('account', {
         backfill: PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT - 1,
         tipLag: 0,
       });
-      await pass(service);
+      await pass(service, ['account'], sendGate);
       expect(mockPublished.boostingNetworkIds).toEqual([]);
 
       publishBehind('account', {
         backfill: PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT,
         tipLag: 0,
       });
-      await pass(service);
+      await pass(service, ['account'], sendGate);
       expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
 
-      publishBehind('account', {
-        backfill: PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT - 1,
-        tipLag: 0,
-      });
-      await pass(service);
+      publishBehind('account', { backfill: 100, tipLag: 0 });
+      await pass(service, ['account'], sendGate);
+      expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
+
+      publishBehind('account', { backfill: 99, tipLag: 0 });
+      await pass(service, ['account'], sendGate);
       expect(mockPublished.boostingNetworkIds).toEqual([]);
+    });
+
+    // Zcash doesn't gate sends; its tip-lag warning (48 blocks) closes the light instead.
+    it('stays on until only ordinary tip lag is left where sends are not gated', async () => {
+      const service = createService();
+      service.foregroundBoostRequestedByNetwork[networkId] = true;
+      publishBehind('account', { backfill: 0, tipLag: 48 });
+      await pass(service);
+      expect(service.foregroundBoostRequestedByNetwork[networkId]).toBe(true);
+
+      publishBehind('account', { backfill: 0, tipLag: 47 });
+      await pass(service);
+      expect(
+        service.foregroundBoostRequestedByNetwork[networkId],
+      ).toBeUndefined();
     });
 
     it('counts how far the scan trails the tip', async () => {

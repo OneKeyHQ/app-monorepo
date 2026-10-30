@@ -4604,6 +4604,7 @@ class ServicePrivacyChain extends ServiceBase {
     // A completed turn can describe accounts deleted or replaced while it ran.
     const accounts = await this.listScannableAccounts(candidate.capability);
     const { progress } = await privacyChainAtom.get();
+    const settings = await getVaultSettings({ networkId });
     if ((this.orphanCleanupGeneration.get(networkId) ?? 0) !== generation) {
       return;
     }
@@ -4633,13 +4634,21 @@ class ServicePrivacyChain extends ServiceBase {
         hasUnknownProgress = true;
       }
     }
-    const wanted =
-      shouldStartBoost({
-        trigger: 'auto-backfill',
-        networkId,
-        remainingBlocks: mostRemaining,
-      }) ||
-      (wasRequested && hasUnknownProgress);
+    // Once on, the light stays until sending is allowed, or where sends aren't gated, until only
+    // ordinary tip lag is left.
+    const closeBelowBlocks =
+      candidate.capability.syncPolicy.sendMaxBlocksLeft ??
+      settings.localWallet?.tipLagWarningBlocks ??
+      1;
+    const isNearlyDone =
+      !hasUnknownProgress && (mostRemaining ?? 0) < closeBelowBlocks;
+    const wanted = wasRequested
+      ? !isNearlyDone
+      : shouldStartBoost({
+          trigger: 'auto-backfill',
+          networkId,
+          remainingBlocks: mostRemaining,
+        });
     if (wanted === wasRequested) {
       return;
     }
