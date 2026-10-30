@@ -329,6 +329,9 @@ it('keeps cross-network badges scoped and dispatches the selected token and retr
   if (ethRow?.type === 'identity' && arbRow?.type === 'identity') {
     expect(ethRow.badges).toEqual([]);
     expect(arbRow.badges).toEqual([{ key: 'network', text: 'Arbitrum' }]);
+    // The 60dp row must round to the nearest pixel: Android's legacy sub-400dp
+    // 0.9 row scale clipped the subtitle under the unscaled line boxes (OK-66072).
+    expect(ethRow).toMatchObject({ height: 60, heightRounding: 'nearest' });
   }
   fireEvent.click(getByTestId(arbToken.$key));
   expect(onPressToken).toHaveBeenCalledWith(arbToken);
