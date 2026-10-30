@@ -1,0 +1,11 @@
+[
+  {
+    "seq": 1,
+    "commit": "0c606efa9d721d1d2392955e486af84cce9075dc",
+    "date": "2026-10-30T14:25:15Z",
+    "prs": [
+      "#14236"
+    ],
+    "notes": "fix: optimize network handling (#14236). Built from release/v6.6.3-d812872 (v6.6.3 + BUILD_NUMBER 2026102381 + #14236); bundle version 26132167"
+  }
+]
