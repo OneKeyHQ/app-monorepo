@@ -281,6 +281,8 @@ struct MarketWidgetStore {
       if configuration.privacyMasked == true {
         try? FileManager.default.removeItem(at: directory.appendingPathComponent("trending-v1.json"))
         try? FileManager.default.removeItem(at: directory.appendingPathComponent("selected-hot-v1.json"))
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent("lock-screen-assets-v1.json"))
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent("lock-screen-catalog-v1.json"))
       }
       pruneQuotes(keeping: permittedAssets())
     }
@@ -333,7 +335,9 @@ struct MarketWidgetStore {
 
   func assetWithMetadata(_ asset: MarketWidgetAsset) -> MarketWidgetAsset {
     let catalogAsset = permitsRequests(for: asset) ? trending()?.assets.first { $0.id == asset.id } : nil
-    let candidates = [quote(for: asset)?.asset, metadata(for: asset), asset, catalogAsset].compactMap { $0 }
+    let candidates = [quote(for: asset)?.asset, metadata(for: asset), asset, catalogAsset,
+      lockScreenAsset(id: asset.id), storedLockScreenAssets(filename: "lock-screen-catalog-v1.json").first { $0.id == asset.id },
+      MarketWidgetAsset.defaults.first { $0.id == asset.id }].compactMap { $0 }
     func value(_ keyPath: KeyPath<MarketWidgetAsset, String>) -> String {
       candidates.map { $0[keyPath: keyPath] }.first {
         !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -496,6 +500,64 @@ struct MarketWidgetStore {
     guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return [] }
     return configuration.assets + (trending()?.assets ?? []) + savedHotSelections()
       + ((try? storedProfiles()) ?? []).filter { $0.source == .hot }.compactMap(\.asset)
+      + lockScreenAssets()
+  }
+
+  func lockScreenAsset(id: String) -> MarketWidgetAsset? {
+    lockScreenAssets().first { $0.id == id }
+  }
+
+  private func lockScreenAssets() -> [MarketWidgetAsset] {
+    storedLockScreenAssets(filename: "lock-screen-assets-v1.json")
+  }
+
+  private func storedLockScreenAssets(filename: String) -> [MarketWidgetAsset] {
+    guard let configuration = configuration().configuration, configuration.privacyMasked != true,
+          let directory,
+          let data = try? Data(contentsOf: directory.appendingPathComponent(filename)),
+          data.count <= 1_048_576,
+          let stored = try? JSONDecoder().decode(MarketWidgetLockScreenAssets.self, from: data),
+          stored.schemaVersion == 1, stored.assets.count <= 256,
+          stored.assets.allSatisfy(\.isValid), Set(stored.assets.map(\.id)).count == stored.assets.count else { return [] }
+    return stored.assets
+  }
+
+  // Public picker metadata is separate from selections and never permits quote requests on its own.
+  func cacheLockScreenCandidates(_ assets: [MarketWidgetAsset]) throws {
+    guard assets.count <= 100, assets.allSatisfy(\.isValid) else { throw MarketWidgetError.invalidConfiguration }
+    let directory = try preparedDirectory()
+    try coordinateWrite(at: directory) {
+      guard let configuration = configuration().configuration, configuration.privacyMasked != true else {
+        throw MarketWidgetError.privacyMasked
+      }
+      let previous = storedLockScreenAssets(filename: "lock-screen-catalog-v1.json")
+      if assets.allSatisfy({ asset in previous.contains(asset) }) { return }
+      var seen = Set<String>()
+      let merged = (assets + previous).filter { seen.insert($0.id).inserted }
+      let stored = MarketWidgetLockScreenAssets(schemaVersion: 1, assets: Array(merged.prefix(256)))
+      let data = try JSONEncoder().encode(stored)
+      guard data.count <= 1_048_576 else { throw MarketWidgetError.invalidConfiguration }
+      try data.write(to: directory.appendingPathComponent("lock-screen-catalog-v1.json"), options: .atomic)
+    }
+  }
+
+  // Intent entities retain their public identity, so an evicted cache entry can be restored on resolution.
+  func rememberLockScreenAssets(_ assets: [MarketWidgetAsset]) throws {
+    guard assets.count <= 100, assets.allSatisfy(\.isValid) else { throw MarketWidgetError.invalidConfiguration }
+    let directory = try preparedDirectory()
+    try coordinateWrite(at: directory) {
+      guard let configuration = configuration().configuration, configuration.privacyMasked != true else {
+        throw MarketWidgetError.privacyMasked
+      }
+      var seen = Set<String>()
+      let enriched = assets.map { assetWithMetadata($0) }
+      let merged = (enriched + lockScreenAssets()).filter { seen.insert($0.id).inserted }
+      let stored = MarketWidgetLockScreenAssets(schemaVersion: 1, assets: Array(merged.prefix(256)))
+      let data = try JSONEncoder().encode(stored)
+      guard data.count <= 1_048_576 else { throw MarketWidgetError.invalidConfiguration }
+      try data.write(to: directory.appendingPathComponent("lock-screen-assets-v1.json"), options: .atomic)
+      pruneQuotes(keeping: permittedAssets())
+    }
   }
 
   private func savedHotSelections() -> [MarketWidgetAsset] {
@@ -611,6 +673,11 @@ struct MarketWidgetCatalog: Codable {
       && Set(assets.map(\.id)).count == assets.count
       && fetchedAt.timeIntervalSince1970 > 0 && fetchedAt <= Date().addingTimeInterval(60)
   }
+}
+
+private struct MarketWidgetLockScreenAssets: Codable {
+  let schemaVersion: Int
+  let assets: [MarketWidgetAsset]
 }
 
 enum MarketWidgetError: Error {

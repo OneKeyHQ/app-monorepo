@@ -6,6 +6,12 @@ struct OneKeyMarketWidgets: WidgetBundle {
   var body: some Widget {
     singleWidget()
     listWidget()
+    if #available(iOS 17.0, *) {
+      MarketLockScreenWatchlistWidget()
+      MarketLockScreenCompactWidget()
+      MarketLockScreenPriceWidget()
+      MarketLockScreenChartWidget()
+    }
   }
 
   private func singleWidget() -> some Widget {
@@ -21,6 +27,65 @@ struct OneKeyMarketWidgets: WidgetBundle {
     } else {
       return WidgetBundleBuilder.buildOptional(WidgetBundleBuilder.buildLimitedAvailability(LegacyMarketWatchlistWidget()))
     }
+  }
+}
+
+@available(iOS 17.0, *)
+struct MarketLockScreenWatchlistWidget: Widget {
+  let kind = "OneKeyMarketLockScreenWatchlist"
+  var body: some WidgetConfiguration {
+    AppIntentConfiguration(kind: kind, intent: MarketLockScreenListIntent.self, provider: MarketLockScreenListProvider()) {
+      MarketLockScreenView(entry: $0, style: .watchlist)
+    }
+    .configurationDisplayName("Watchlist")
+    .description("Three coins and their USD prices. Tap after adding to choose each coin.")
+    .supportedFamilies([.accessoryRectangular])
+    .contentMarginsDisabled()
+  }
+}
+
+@available(iOS 17.0, *)
+struct MarketLockScreenCompactWidget: Widget {
+  let kind = "OneKeyMarketLockScreenCompact"
+  var body: some WidgetConfiguration {
+    AppIntentConfiguration(kind: kind, intent: MarketLockScreenSpotIntent.self,
+                           provider: MarketLockScreenSpotProvider(includingChart: false)) {
+      MarketLockScreenView(entry: $0, style: .compact)
+    }
+    .configurationDisplayName("Follow spot")
+    .description("A compact USD price. Tap after adding to choose a coin.")
+    .supportedFamilies([.accessoryCircular])
+    .contentMarginsDisabled()
+  }
+}
+
+@available(iOS 17.0, *)
+struct MarketLockScreenPriceWidget: Widget {
+  let kind = "OneKeyMarketLockScreenPrice"
+  var body: some WidgetConfiguration {
+    AppIntentConfiguration(kind: kind, intent: MarketLockScreenSpotIntent.self,
+                           provider: MarketLockScreenSpotProvider(includingChart: false)) {
+      MarketLockScreenView(entry: $0, style: .price)
+    }
+    .configurationDisplayName("Follow spot")
+    .description("A large USD price and 24-hour change. Tap after adding to choose a coin.")
+    .supportedFamilies([.accessoryRectangular])
+    .contentMarginsDisabled()
+  }
+}
+
+@available(iOS 17.0, *)
+struct MarketLockScreenChartWidget: Widget {
+  let kind = "OneKeyMarketLockScreenChart"
+  var body: some WidgetConfiguration {
+    AppIntentConfiguration(kind: kind, intent: MarketLockScreenSpotIntent.self,
+                           provider: MarketLockScreenSpotProvider(includingChart: true)) {
+      MarketLockScreenView(entry: $0, style: .chart)
+    }
+    .configurationDisplayName("Follow spot")
+    .description("A USD price and 24-hour trend. Tap after adding to choose a coin.")
+    .supportedFamilies([.accessoryRectangular])
+    .contentMarginsDisabled()
   }
 }
 

@@ -13,6 +13,10 @@ final class MarketWidgetModule: NSObject {
       if try MarketWidgetStore().saveConfiguration(json: json) {
         WidgetCenter.shared.reloadTimelines(ofKind: "OneKeyMarketSingle")
         WidgetCenter.shared.reloadTimelines(ofKind: "OneKeyMarketWatchlist")
+        for kind in ["OneKeyMarketLockScreenWatchlist", "OneKeyMarketLockScreenCompact",
+                     "OneKeyMarketLockScreenPrice", "OneKeyMarketLockScreenChart"] {
+          WidgetCenter.shared.reloadTimelines(ofKind: kind)
+        }
       }
       resolve(nil)
     } catch {
