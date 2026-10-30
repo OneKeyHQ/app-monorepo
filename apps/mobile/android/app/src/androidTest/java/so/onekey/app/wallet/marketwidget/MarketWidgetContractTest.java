@@ -4,7 +4,10 @@ import static org.junit.Assert.*;
 
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.appwidget.AppWidgetManager;
+import android.net.Uri;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -16,7 +19,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @RunWith(AndroidJUnit4.class)
@@ -52,15 +57,172 @@ public final class MarketWidgetContractTest {
     }
 
     @Test
-    public void emptyWatchlistUsesDefaultsButCorruptionDoesNot() throws Exception {
+    public void emptyWatchlistAndCorruptionDoNotSubstituteDifferentAssets() throws Exception {
         MarketWidgetStore.setConfiguration(context, "{\"schemaVersion\":1,\"assets\":[]}");
         assertTrue(MarketWidgetStore.configuration(context).assets.isEmpty());
-        assertEquals("btc", MarketWidgetStore.assets(context, 1, true).get(0).assetId);
-        assertEquals(3, MarketWidgetStore.assets(context, 2, false).size());
+        assertTrue(MarketWidgetStore.assets(context, 1, true).isEmpty());
+        assertTrue(MarketWidgetStore.assets(context, 2, false).isEmpty());
         context.getSharedPreferences("onekey_public_market_widgets_v1", Context.MODE_PRIVATE)
             .edit().putString("configuration", "broken").commit();
         assertFalse(MarketWidgetStore.configuration(context).valid);
         assertTrue(MarketWidgetStore.assets(context, 1, true).isEmpty());
+    }
+
+    @Test
+    public void equivalentConfigurationDoesNotRequestAnotherRefreshAndInvalidInputDoesNotReplaceIt() throws Exception {
+        String first = "{\"schemaVersion\":1,\"assets\":[{\"kind\":\"asset\",\"assetId\":\"btc\"}],\"locale\":\"en_US\"}";
+        assertTrue(MarketWidgetStore.setConfiguration(context, first));
+        MarketWidgetData.Asset bitcoin = MarketWidgetStore.configuration(context).assets.get(0);
+        MarketWidgetStore.saveQuote(context, bitcoin,
+            new MarketWidgetData.Quote(new BigDecimal("123"), null, "BTC", "Bitcoin", 12345L));
+        String equivalent = "{\"privacyMasked\":false,\"greenUp\":true,\"locale\":\"en-US\","
+            + "\"assets\":[{\"assetId\":\"btc\",\"kind\":\"asset\",\"symbol\":\"\",\"name\":\"\",\"iconUrl\":\"\"}],\"schemaVersion\":1}";
+        assertFalse(MarketWidgetStore.setConfiguration(context, equivalent));
+        assertEquals(12345L, MarketWidgetStore.quote(context, bitcoin).fetchedAt);
+        try {
+            MarketWidgetStore.setConfiguration(context, "{\"schemaVersion\":2,\"assets\":[]}");
+            fail("Invalid input must not replace the last valid configuration");
+        } catch (org.json.JSONException expected) { }
+        assertFalse(MarketWidgetStore.setConfiguration(context, equivalent));
+        context.getSharedPreferences(STORE_NAME, Context.MODE_PRIVATE).edit().putString("configuration", "broken").commit();
+        assertTrue(MarketWidgetStore.setConfiguration(context, "{\"schemaVersion\":1,\"assets\":[]}"));
+        assertTrue(MarketWidgetStore.configuration(context).valid);
+    }
+
+    @Test
+    public void configurationComparisonIncludesOrderMetadataPresentationAndPrivacy() throws Exception {
+        JSONObject configuration = new JSONObject(MarketWidgetData.defaults().json());
+        assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+        org.json.JSONArray original = configuration.getJSONArray("assets");
+        configuration.put("assets", new org.json.JSONArray().put(original.get(1)).put(original.get(0)).put(original.get(2)));
+        assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+        JSONObject asset = configuration.getJSONArray("assets").getJSONObject(0);
+        for (String key : new String[]{"symbol", "name", "iconUrl"}) {
+            asset.put(key, "iconUrl".equals(key) ? "https://example.com/eth.png" : "updated");
+            assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+            assertFalse(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+        }
+        configuration.put("greenUp", false);
+        assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+        configuration.put("locale", "zh-CN");
+        assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+        configuration.put("privacyMasked", true);
+        assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+        assertFalse(MarketWidgetStore.canDisplay(context));
+        configuration.put("privacyMasked", false);
+        assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+        JSONObject nativeAsset = new JSONObject().put("kind", "token").put("chainId", "evm--1")
+            .put("contractAddress", "").put("isNative", true).put("requestTokenAddress", "");
+        configuration.put("assets", new org.json.JSONArray().put(nativeAsset));
+        assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+        nativeAsset.put("requestTokenAddress", "0xeeee");
+        assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+        nativeAsset.put("chainId", "evm--56");
+        assertTrue(MarketWidgetStore.setConfiguration(context, configuration.toString()));
+    }
+
+    @Test
+    public void refreshPlanDeduplicatesAssetsAndKeepsChartsOnlyForListDemand() {
+        MarketWidgetData.Asset bitcoin = MarketWidgetData.defaults().assets.get(0);
+        MarketWidgetData.Asset ethereum = MarketWidgetData.defaults().assets.get(1);
+        Map<String, MarketWidgetRefreshService.AssetRequest> requests = new LinkedHashMap<>();
+        MarketWidgetRefreshService.addAssetRequest(requests, bitcoin, false);
+        MarketWidgetRefreshService.addAssetRequest(requests, bitcoin, false);
+        assertEquals(1, requests.size());
+        assertFalse(requests.get(bitcoin.key()).needsChart);
+        MarketWidgetRefreshService.addAssetRequest(requests, bitcoin, true);
+        MarketWidgetRefreshService.addAssetRequest(requests, bitcoin, false);
+        MarketWidgetRefreshService.addAssetRequest(requests, ethereum, false);
+        assertEquals(2, requests.size());
+        assertTrue(requests.get(bitcoin.key()).needsChart);
+        assertFalse(requests.get(ethereum.key()).needsChart);
+    }
+
+    @Test
+    public void refreshPlanKeepsLatestRequestMetadataWithoutLosingEarlierChartDemand() throws Exception {
+        JSONObject identity = new JSONObject().put("kind", "token").put("chainId", "evm--1")
+            .put("contractAddress", "").put("isNative", true).put("requestTokenAddress", "")
+            .put("symbol", "OLD").put("name", "Old name");
+        MarketWidgetData.Asset first = new MarketWidgetData.Asset(identity);
+        identity.put("requestTokenAddress", "0xeeee").put("symbol", "ETH").put("name", "Ethereum")
+            .put("iconUrl", "https://example.com/eth.png");
+        MarketWidgetData.Asset latest = new MarketWidgetData.Asset(identity);
+        assertEquals(first.key(), latest.key());
+        Map<String, MarketWidgetRefreshService.AssetRequest> requests = new LinkedHashMap<>();
+        MarketWidgetRefreshService.addAssetRequest(requests, first, true);
+        MarketWidgetRefreshService.addAssetRequest(requests, latest, false);
+        assertEquals(1, requests.size());
+        MarketWidgetRefreshService.AssetRequest request = requests.get(first.key());
+        assertSame(latest, request.asset);
+        assertEquals("0xeeee", MarketWidgetClient.endpoint(request.asset).getQueryParameter("tokenAddress"));
+        assertTrue(request.needsChart);
+    }
+
+    @Test
+    public void onlyOneProviderOwnsPeriodicRefreshAndSinglesResumeAfterLastListIsRemoved() {
+        assertTrue(MarketWidgetProvider.ownsPeriodicRefresh(false, 0));
+        for (int listCount : new int[]{1, 3}) {
+            assertFalse(MarketWidgetProvider.ownsPeriodicRefresh(false, listCount));
+            assertTrue(MarketWidgetProvider.ownsPeriodicRefresh(true, listCount));
+        }
+        assertTrue(MarketWidgetProvider.ownsPeriodicRefresh(false, 0));
+    }
+
+    @Test
+    public void onlyDynamicHotWidgetsNeedTheRanking() throws Exception {
+        MarketWidgetData.Asset hot = token("evm--1", "0xabc");
+        MarketWidgetStore.saveHot(context, java.util.Collections.singletonList(hot), 12345L);
+        MarketWidgetStore.configure(context, 1, MarketWidgetStore.HOT, hot.key(), true);
+        MarketWidgetStore.configure(context, 2, MarketWidgetStore.HOT, null, false);
+        assertFalse(MarketWidgetStore.needsHotRanking(context, 1, true));
+        assertTrue(MarketWidgetStore.needsHotRanking(context, 2, false));
+        assertFalse(MarketWidgetStore.needsHotRanking(context, 3, true));
+        context.getSharedPreferences(STORE_NAME, Context.MODE_PRIVATE).edit().putString("source_3", MarketWidgetStore.HOT).commit();
+        assertTrue(MarketWidgetStore.needsHotRanking(context, 3, true));
+        MarketWidgetStore.saveHot(context, java.util.Collections.singletonList(token("sol--101", "Next")), 23456L);
+        assertEquals(hot.key(), MarketWidgetStore.assets(context, 1, true).get(0).key());
+        assertFalse(MarketWidgetStore.needsHotRanking(context, 1, true));
+        MarketWidgetStore.setConfiguration(context, "{\"schemaVersion\":1,\"assets\":[],\"privacyMasked\":true}");
+        assertFalse(MarketWidgetStore.needsHotRanking(context, 2, false));
+        assertFalse(MarketWidgetStore.needsHotRanking(context, 3, true));
+    }
+
+    @Test
+    public void existingLegacyCardsKeepTheirDisplayedSourceAndSelectionWhenEditing() throws Exception {
+        MarketWidgetStore.setConfiguration(context, MarketWidgetData.defaults().json());
+        assertFalse(MarketWidgetStore.isConfigured(context, 101));
+        Intent edit = MarketWidgetProvider.configureIntent(context, 101);
+        assertTrue(edit.getBooleanExtra(MarketWidgetConfigureActivity.EXTRA_EDIT_EXISTING, false));
+        MarketWidgetConfigureActivity.InitialEditorState list =
+            MarketWidgetConfigureActivity.initialEditorState(context, edit, 101, false);
+        assertEquals(MarketWidgetStore.WATCHLIST, list.source);
+        assertNull(list.assetKey);
+        // An already-issued PendingIntent can outlive the app update that added the extra.
+        Intent legacyEdit = new Intent().setData(Uri.parse("onekey-widget-configure://widget/101"));
+        MarketWidgetConfigureActivity.InitialEditorState single =
+            MarketWidgetConfigureActivity.initialEditorState(context, legacyEdit, 101, true);
+        assertEquals(MarketWidgetStore.WATCHLIST, single.source);
+        assertEquals(MarketWidgetStore.assets(context, 101, true).get(0).key(), single.assetKey);
+        assertFalse(MarketWidgetStore.isConfigured(context, 101));
+    }
+
+    @Test
+    public void launcherCreationStartsHotWithoutPersistingUntilConfirmation() throws Exception {
+        MarketWidgetStore.setConfiguration(context, MarketWidgetData.defaults().json());
+        Intent create = new Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 102);
+        MarketWidgetConfigureActivity.InitialEditorState initial =
+            MarketWidgetConfigureActivity.initialEditorState(context, create, 102, true);
+        assertEquals(MarketWidgetStore.HOT, initial.source);
+        assertNull(initial.assetKey);
+        assertFalse(MarketWidgetStore.isConfigured(context, 102));
+        assertEquals(MarketWidgetStore.WATCHLIST, MarketWidgetStore.source(context, 102));
+        MarketWidgetStore.configure(context, 102, MarketWidgetStore.WATCHLIST,
+            MarketWidgetData.defaults().assets.get(1).key(), true);
+        MarketWidgetConfigureActivity.InitialEditorState reconfigured =
+            MarketWidgetConfigureActivity.initialEditorState(context, create, 102, true);
+        assertEquals(MarketWidgetStore.WATCHLIST, reconfigured.source);
+        assertEquals(MarketWidgetStore.assets(context, 102, true).get(0).key(), reconfigured.assetKey);
     }
 
     @Test
@@ -198,6 +360,86 @@ public final class MarketWidgetContractTest {
         assertNull(MarketWidgetData.number("Infinity"));
         assertNull(MarketWidgetData.number("1e9999999"));
         assertNull(MarketWidgetData.number(true));
+    }
+
+    @Test
+    public void hotAndWatchlistInstancesStayIndependentWhenRankingChanges() throws Exception {
+        MarketWidgetData.Configuration defaults = MarketWidgetData.defaults();
+        MarketWidgetStore.setConfiguration(context, defaults.json());
+        MarketWidgetData.Asset first = token("evm--1", "0xabc");
+        MarketWidgetData.Asset next = token("sol--101", "ABC");
+        MarketWidgetStore.saveHot(context, java.util.Arrays.asList(first, next), 12345L);
+        MarketWidgetStore.configure(context, 1, MarketWidgetStore.HOT, first.key(), true);
+        MarketWidgetStore.configure(context, 2, MarketWidgetStore.WATCHLIST, defaults.assets.get(1).key(), true);
+        MarketWidgetStore.configure(context, 3, MarketWidgetStore.HOT, null, false);
+        MarketWidgetStore.saveHot(context, java.util.Collections.singletonList(next), 23456L);
+        assertEquals(first.key(), MarketWidgetStore.assets(context, 1, true).get(0).key());
+        assertEquals("eth", MarketWidgetStore.assets(context, 2, true).get(0).assetId);
+        assertEquals(next.key(), MarketWidgetStore.assets(context, 3, false).get(0).key());
+        MarketWidgetStore.restoreWidget(context, 1, 11);
+        assertEquals(MarketWidgetStore.HOT, MarketWidgetStore.source(context, 11));
+        assertEquals(first.key(), MarketWidgetStore.assets(context, 11, true).get(0).key());
+        assertFalse(MarketWidgetStore.isConfigured(context, 1));
+    }
+
+    @Test
+    public void privacyMaskHidesBothSourcesAndRejectsInflightCacheWrites() throws Exception {
+        MarketWidgetData.Asset asset = MarketWidgetData.defaults().assets.get(0);
+        MarketWidgetData.Asset hot = token("evm--1", "0xabc");
+        MarketWidgetStore.saveHot(context, java.util.Collections.singletonList(hot), 12345L);
+        MarketWidgetStore.configure(context, 2, MarketWidgetStore.HOT, hot.key(), true);
+        MarketWidgetData.Quote quote = new MarketWidgetData.Quote(new BigDecimal("12"), null, "BTC", "Bitcoin", 12345L);
+        MarketWidgetStore.saveQuote(context, asset, quote);
+        MarketWidgetStore.saveQuote(context, hot, quote);
+        MarketWidgetStore.setConfiguration(context, "{\"schemaVersion\":1,\"privacyMasked\":true,\"assets\":[]}");
+        assertTrue(MarketWidgetStore.assets(context, 1, true).isEmpty());
+        assertTrue(MarketWidgetStore.assets(context, 2, true).isEmpty());
+        MarketWidgetStore.saveQuote(context, hot, quote);
+        MarketWidgetStore.saveHot(context, java.util.Collections.singletonList(hot), 23456L);
+        MarketWidgetStore.setConfiguration(context, MarketWidgetData.defaults().json());
+        assertNull(MarketWidgetStore.quote(context, asset));
+        assertNull(MarketWidgetStore.quote(context, hot));
+        assertTrue(MarketWidgetStore.availableAssets(context, MarketWidgetStore.HOT).isEmpty());
+    }
+
+    @Test
+    public void realTrendingIdentitiesAndIconsDoNotBecomeTopCoinDefaults() throws Exception {
+        JSONObject envelope = new JSONObject("{\"code\":0,\"data\":["
+            + "{\"network\":\"btc--0\",\"address\":\"\",\"isNative\":true,\"symbol\":\"BTC\","
+            + "\"logoUrl\":\"https://coin-images.coingecko.com/coins/images/1/small/bitcoin.png?1\"},"
+            + "{\"network\":\"sol--101\",\"address\":\"AbCd\",\"symbol\":\"MEME\"}]}");
+        java.util.List<MarketWidgetData.Asset> trending = MarketWidgetClient.decodeHot(envelope);
+        assertEquals(2, trending.size());
+        assertEquals("token", trending.get(0).kind);
+        assertEquals("btc--0", trending.get(0).chainId);
+        assertTrue(trending.get(0).isNative);
+        assertTrue(trending.get(0).iconUrl.endsWith("?1"));
+        assertEquals("AbCd", trending.get(1).contractAddress);
+        assertEquals("", MarketWidgetData.imageUrl("http://example.com/coin.png"));
+        assertEquals("", MarketWidgetData.imageUrl("https://user:password@example.com/icon.png"));
+    }
+
+    @Test
+    public void historyAcceptsNumbersAndScientificNotationButRejectsInsufficientOrStaleSeries() throws Exception {
+        long fetchedAt = 1793260800000L;
+        long now = fetchedAt / 1000;
+        org.json.JSONArray points = new org.json.JSONArray();
+        for (int index = 24; index >= 0; index--) {
+            points.put(new JSONObject().put("t", now - index * 3600 - 28)
+                .put("c", index % 2 == 0 ? "1.2e-5" : 0.000013));
+        }
+        MarketWidgetData.History history = MarketWidgetClient.decodeHistory(points, fetchedAt);
+        assertEquals(25, history.prices.size());
+        assertEquals(86400L, (long) history.times.get(24) - history.times.get(0));
+        assertNotNull(MarketWidgetData.History.cached(history.json().toString()));
+        try {
+            MarketWidgetClient.decodeHistory(points, fetchedAt + 48 * 3600_000L);
+            fail("Old data must not be relabeled as the last 24 hours");
+        } catch (java.io.IOException expected) { }
+        try {
+            MarketWidgetClient.decodeHistory(new org.json.JSONArray().put(points.get(0)), fetchedAt);
+            fail("A single quote must not become a fabricated chart");
+        } catch (java.io.IOException expected) { }
     }
 
     private static MarketWidgetData.Asset token(String network, String address) throws Exception {

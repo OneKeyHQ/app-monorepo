@@ -1,5 +1,6 @@
 import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
+import type { IMarketWidgetKind } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import type {
   EMarketBannerType,
   IMarketStockDetailPreview,
@@ -12,9 +13,18 @@ export enum EModalMarketRoutes {
   MobileTokenSelector = 'MobileTokenSelector',
   MarketChartSettings = 'MarketChartSettings',
   MarketIndicatorSettings = 'MarketIndicatorSettings',
+  MarketWidgetList = 'MarketWidgetList',
+  MarketWidgetEditor = 'MarketWidgetEditor',
 }
 
 export type IModalMarketParamList = {
+  [EModalMarketRoutes.MarketWidgetList]:
+    | { kind?: IMarketWidgetKind }
+    | undefined;
+  [EModalMarketRoutes.MarketWidgetEditor]: {
+    profileId?: string;
+    kind?: IMarketWidgetKind;
+  };
   [EModalMarketRoutes.MarketDetailV2]: {
     tokenAddress?: string;
     network?: string;

@@ -29,6 +29,7 @@ final class MarketWidgetData {
         final boolean isNative;
         final String symbol;
         final String name;
+        final String iconUrl;
 
         Asset(JSONObject value) throws JSONException {
             kind = value.getString("kind");
@@ -44,6 +45,7 @@ final class MarketWidgetData {
                 ? identity(value, "requestTokenAddress", 256, true) : "";
             symbol = displayString(value.optString("symbol", ""), 40);
             name = displayString(value.optString("name", ""), 100);
+            iconUrl = imageUrl(value.optString("iconUrl", ""));
         }
 
         String key() {
@@ -83,7 +85,7 @@ final class MarketWidgetData {
         }
 
         JSONObject json() throws JSONException {
-            JSONObject value = new JSONObject().put("kind", kind).put("symbol", symbol).put("name", name);
+            JSONObject value = new JSONObject().put("kind", kind).put("symbol", symbol).put("name", name).put("iconUrl", iconUrl);
             if ("asset".equals(kind)) return value.put("assetId", assetId);
             return value.put("chainId", chainId).put("contractAddress", contractAddress)
                 .put("requestTokenAddress", requestTokenAddress).put("isNative", isNative);
@@ -95,6 +97,7 @@ final class MarketWidgetData {
         final boolean greenUp;
         final String locale;
         final boolean valid;
+        final boolean privacyMasked;
 
         Configuration(String raw) throws JSONException {
             this(raw, true);
@@ -119,6 +122,7 @@ final class MarketWidgetData {
                 if (identities.add(asset.key())) assets.add(asset);
             }
             greenUp = value.optBoolean("greenUp", true);
+            privacyMasked = value.optBoolean("privacyMasked", false);
             String language = value.optString("locale", "en-US").replace('_', '-');
             locale = language.matches("[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}") ? language : "en-US";
         }
@@ -127,7 +131,11 @@ final class MarketWidgetData {
             JSONArray items = new JSONArray();
             for (Asset asset : assets) items.put(asset.json());
             return new JSONObject().put("schemaVersion", 1).put("assets", items)
-                .put("greenUp", greenUp).put("locale", locale).toString();
+                .put("greenUp", greenUp).put("locale", locale).put("privacyMasked", privacyMasked).toString();
+        }
+
+        boolean sameContent(Configuration other) throws JSONException {
+            return valid && other.valid && json().equals(other.json());
         }
 
         static Configuration invalid() {
@@ -145,8 +153,14 @@ final class MarketWidgetData {
         final String symbol;
         final String name;
         final long fetchedAt;
+        final String iconUrl;
 
         Quote(BigDecimal price, BigDecimal change, String symbol, String name, long fetchedAt) {
+            this(price, change, symbol, name, fetchedAt, "");
+        }
+
+        Quote(BigDecimal price, BigDecimal change, String symbol, String name, long fetchedAt, String iconUrl) {
+            this.iconUrl = imageUrl(iconUrl);
             this.price = price;
             this.change = change;
             this.symbol = displayString(symbol, 40);
@@ -157,7 +171,7 @@ final class MarketWidgetData {
         JSONObject json() throws JSONException {
             return new JSONObject().put("price", price.toPlainString())
                 .put("change", change == null ? JSONObject.NULL : change.toPlainString())
-                .put("symbol", symbol).put("name", name).put("fetchedAt", fetchedAt);
+                .put("symbol", symbol).put("name", name).put("fetchedAt", fetchedAt).put("iconUrl", iconUrl);
         }
 
         static Quote cached(String raw) {
@@ -167,11 +181,47 @@ final class MarketWidgetData {
                 long time = value.getLong("fetchedAt");
                 if (price == null || price.signum() < 0 || time <= 0) return null;
                 return new Quote(price, number(value.opt("change")), value.optString("symbol"),
-                    value.optString("name"), time);
+                    value.optString("name"), time, value.optString("iconUrl", ""));
             } catch (Exception ignored) {
                 return null;
             }
         }
+    }
+
+    static final class History {
+        final List<BigDecimal> prices;
+        final List<Long> times;
+        final long fetchedAt;
+
+        History(List<BigDecimal> prices, List<Long> times, long fetchedAt) {
+            this.prices = prices;
+            this.times = times;
+            this.fetchedAt = fetchedAt;
+        }
+
+        JSONObject json() throws JSONException {
+            JSONArray points = new JSONArray();
+            for (int index = 0; index < prices.size(); index++) {
+                points.put(new JSONObject().put("t", times.get(index)).put("c", prices.get(index).toPlainString()));
+            }
+            return new JSONObject().put("points", points).put("fetchedAt", fetchedAt);
+        }
+
+        static History cached(String raw) {
+            try {
+                JSONObject value = new JSONObject(raw);
+                return MarketWidgetClient.decodeHistory(value.getJSONArray("points"), value.getLong("fetchedAt"));
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+    }
+
+    static String imageUrl(String raw) {
+        if (raw.length() > 2048) return "";
+        Uri uri = Uri.parse(raw);
+        return "https".equals(uri.getScheme()) && uri.getHost() != null
+            && uri.getUserInfo() == null ? raw : "";
     }
 
     static BigDecimal number(Object value) {

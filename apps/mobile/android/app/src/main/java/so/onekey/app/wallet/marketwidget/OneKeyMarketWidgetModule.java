@@ -29,9 +29,10 @@ public final class OneKeyMarketWidgetModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void setConfiguration(String json, Promise promise) {
         try {
-            MarketWidgetStore.setConfiguration(getReactApplicationContext(), json);
-            MarketWidgetProvider.renderAll(getReactApplicationContext());
-            MarketWidgetRefreshService.configurationChanged(getReactApplicationContext());
+            if (MarketWidgetStore.setConfiguration(getReactApplicationContext(), json)) {
+                MarketWidgetProvider.renderAll(getReactApplicationContext());
+                MarketWidgetRefreshService.configurationChanged(getReactApplicationContext());
+            }
             promise.resolve(null);
         } catch (Exception error) {
             promise.reject("MARKET_WIDGET_CONFIGURATION_FAILED", "Could not update market widgets", error);

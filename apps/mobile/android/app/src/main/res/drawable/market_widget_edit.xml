@@ -1,3 +1,4 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="18dp" android:height="18dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path android:fillColor="@color/market_widget_secondary" android:pathData="M3,17.25V21h3.75L17.81,9.94l-3.75,-3.75zM20.71,7.04a1,1 0,0 0,0 -1.42l-2.34,-2.33a1,1 0,0 0,-1.42 0l-1.83,1.83 3.75,3.75z" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="20dp" android:height="20dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="@android:color/transparent" android:strokeColor="@color/market_widget_secondary" android:strokeWidth="1.8" android:pathData="M12,2.8L20,7.4V16.6L12,21.2L4,16.6V7.4Z" />
+    <path android:fillColor="@color/market_widget_secondary" android:pathData="M12,8L16,12L12,16L8,12Z" />
 </vector>

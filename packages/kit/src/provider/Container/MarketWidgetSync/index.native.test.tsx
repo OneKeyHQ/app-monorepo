@@ -84,6 +84,7 @@ describe('native market widget sync host', () => {
       schemaVersion: 1,
       locale: 'zh-CN',
       greenUp: true,
+      privacyMasked: false,
       assets: [
         {
           kind: 'token',
@@ -106,7 +107,7 @@ describe('native market widget sync host', () => {
     act(() => mockAppStateChanged?.('active'));
     await waitFor(() => expect(mockSetConfiguration).toHaveBeenCalledTimes(3));
     expect(mockSetConfiguration).toHaveBeenLastCalledWith(
-      expect.objectContaining({ assets: [] }),
+      expect.objectContaining({ assets: [], privacyMasked: false }),
     );
   });
 
@@ -126,7 +127,32 @@ describe('native market widget sync host', () => {
     await waitFor(() => expect(mockSetConfiguration).toHaveBeenCalledTimes(1));
     expect(mockReadWatchlist).not.toHaveBeenCalled();
     expect(mockSetConfiguration).toHaveBeenLastCalledWith(
-      expect.objectContaining({ assets: [] }),
+      expect.objectContaining({ assets: [], privacyMasked: true }),
+    );
+  });
+
+  it('distinguishes an empty watchlist from a masked runtime on foreground sync', async () => {
+    mockWatchlist = [];
+    render(<MarketWidgetSync />);
+    await waitFor(() => expect(mockSetConfiguration).toHaveBeenCalledTimes(1));
+    expect(mockSetConfiguration).toHaveBeenLastCalledWith(
+      expect.objectContaining({ assets: [], privacyMasked: false }),
+    );
+
+    mockMasked = true;
+    act(() => mockAppStateChanged?.('active'));
+    await waitFor(() => expect(mockSetConfiguration).toHaveBeenCalledTimes(2));
+    expect(mockReadWatchlist).toHaveBeenCalledTimes(1);
+    expect(mockSetConfiguration).toHaveBeenLastCalledWith(
+      expect.objectContaining({ assets: [], privacyMasked: true }),
+    );
+
+    mockMasked = false;
+    act(() => mockAppStateChanged?.('active'));
+    await waitFor(() => expect(mockSetConfiguration).toHaveBeenCalledTimes(3));
+    expect(mockReadWatchlist).toHaveBeenCalledTimes(2);
+    expect(mockSetConfiguration).toHaveBeenLastCalledWith(
+      expect.objectContaining({ assets: [], privacyMasked: false }),
     );
   });
 });

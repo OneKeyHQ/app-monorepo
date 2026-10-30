@@ -177,7 +177,8 @@
         android:screenOrientation="portrait"
         android:exported="false" />
     <activity android:name=".marketwidget.MarketWidgetConfigureActivity"
-        android:theme="@style/Theme.MarketWidget" android:exported="true">
+        android:theme="@style/Theme.MarketWidget" android:exported="true"
+        android:taskAffinity="" android:excludeFromRecents="true">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
       </intent-filter>

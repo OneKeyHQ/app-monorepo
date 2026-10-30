@@ -2,6 +2,7 @@ import type { IMarketWatchListItemV2 } from '../../types/market';
 import type {
   IMarketWidgetAsset,
   IMarketWidgetConfiguration,
+  IMarketWidgetKind,
 } from '../modules/MarketWidget/types';
 
 export const MARKET_WIDGET_MAX_ASSETS = 20;
@@ -11,6 +12,7 @@ const MARKET_WIDGET_QUERY_KEYS = new Set([
   'contractAddress',
   'isNative',
 ]);
+const MARKET_WIDGET_EDITOR_QUERY_KEYS = new Set(['profileId', 'kind']);
 
 const validAssetId = (value: unknown): value is string =>
   typeof value === 'string' && /^[A-Za-z0-9._:-]{1,128}$/u.test(value);
@@ -63,6 +65,7 @@ export function buildMarketWidgetAssets(
 
 export type IMarketWidgetLinkTarget =
   | { kind: 'home' }
+  | { kind: 'editor'; profileId?: string; widgetKind?: IMarketWidgetKind }
   | Pick<Extract<IMarketWidgetAsset, { kind: 'asset' }>, 'kind' | 'assetId'>
   | Pick<
       Extract<IMarketWidgetAsset, { kind: 'token' }>,
@@ -109,7 +112,7 @@ export function parseMarketWidgetLinkUrl(url: string): {
     const parsed = new URL(url);
     if (
       parsed.protocol !== 'onekey-wallet:' ||
-      parsed.hostname !== 'market_widget'
+      !['market_widget', 'market_widget_config'].includes(parsed.hostname)
     ) {
       return { matches: false };
     }
@@ -123,11 +126,39 @@ export function parseMarketWidgetLinkUrl(url: string): {
       return { matches: true };
     }
     const params: Record<string, string> = {};
+    const isEditor = parsed.hostname === 'market_widget_config';
+    const allowedKeys = isEditor
+      ? MARKET_WIDGET_EDITOR_QUERY_KEYS
+      : MARKET_WIDGET_QUERY_KEYS;
     for (const [key, value] of parsed.searchParams.entries()) {
-      if (!MARKET_WIDGET_QUERY_KEYS.has(key) || Object.hasOwn(params, key)) {
+      if (!allowedKeys.has(key) || Object.hasOwn(params, key)) {
         return { matches: true };
       }
       params[key] = value;
+    }
+    if (isEditor) {
+      if (Object.keys(params).length === 0) {
+        return { matches: true, target: { kind: 'editor' } };
+      }
+      if (Object.keys(params).length !== 1) return { matches: true };
+      if (
+        params.profileId &&
+        /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(
+          params.profileId,
+        )
+      ) {
+        return {
+          matches: true,
+          target: { kind: 'editor', profileId: params.profileId.toLowerCase() },
+        };
+      }
+      if (params.kind === 'single' || params.kind === 'list') {
+        return {
+          matches: true,
+          target: { kind: 'editor', widgetKind: params.kind },
+        };
+      }
+      return { matches: true };
     }
     return { matches: true, target: parseMarketWidgetLink(params) };
   } catch {

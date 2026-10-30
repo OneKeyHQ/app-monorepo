@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
+import android.graphics.Bitmap;
 import android.widget.RemoteViews;
 
 import java.math.BigDecimal;
@@ -31,7 +32,15 @@ public class MarketWidgetProvider extends AppWidgetProvider {
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
         for (int id : ids) render(context, id);
-        MarketWidgetRefreshService.schedule(context);
+        int listWidgetCount = manager.getAppWidgetIds(new ComponentName(context, MarketWatchlistWidgetProvider.class)).length;
+        if (ownsPeriodicRefresh(this instanceof MarketWatchlistWidgetProvider, listWidgetCount)) {
+            MarketWidgetRefreshService.schedule(context);
+        }
+    }
+
+    static boolean ownsPeriodicRefresh(boolean listProvider, int listWidgetCount) {
+        // Both providers have periodic broadcasts, but only one should fetch their shared assets.
+        return listProvider || listWidgetCount == 0;
     }
 
     @Override
@@ -57,6 +66,8 @@ public class MarketWidgetProvider extends AppWidgetProvider {
     @Override
     public void onDisabled(Context context) {
         MarketWidgetRefreshService.cancelIfUnused(context);
+        // The remaining single widgets take over without waiting for their next periodic broadcast.
+        if (this instanceof MarketWatchlistWidgetProvider) MarketWidgetRefreshService.schedule(context);
     }
 
     @Override
@@ -68,7 +79,8 @@ public class MarketWidgetProvider extends AppWidgetProvider {
             options.putBoolean(AppWidgetManager.OPTION_APPWIDGET_RESTORE_COMPLETED, true);
             manager.updateAppWidgetOptions(newIds[index], options);
         }
-        onUpdate(context, manager, newIds);
+        for (int id : newIds) render(context, id);
+        MarketWidgetRefreshService.configurationChanged(context);
     }
 
     static int[] allIds(Context context) {
@@ -96,6 +108,21 @@ public class MarketWidgetProvider extends AppWidgetProvider {
     }
 
     static void render(Context context, int id) {
+        // Publish under the same lock as privacy/configuration writes so an old render cannot win a race.
+        synchronized (MarketWidgetStore.class) {
+            renderLocked(context, id);
+        }
+    }
+
+    static Intent configureIntent(Context context, int id) {
+        return new Intent(context, MarketWidgetConfigureActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .setData(Uri.parse("onekey-widget-configure://widget/" + id))
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+            .putExtra(MarketWidgetConfigureActivity.EXTRA_EDIT_EXISTING, true);
+    }
+
+    private static void renderLocked(Context context, int id) {
         if (!owns(context, id)) return;
         Context textContext = MarketWidgetStore.localized(context);
         boolean single = isSingle(context, id);
@@ -103,23 +130,18 @@ public class MarketWidgetProvider extends AppWidgetProvider {
         List<MarketWidgetData.Asset> assets = MarketWidgetStore.assets(context, id, single);
         RemoteViews views = new RemoteViews(context.getPackageName(),
             single ? R.layout.market_widget_single : R.layout.market_widget_watchlist);
-        views.setTextViewText(R.id.market_widget_title, "OneKey");
-        views.setTextViewText(R.id.market_widget_currency, textContext.getString(R.string.market_widget_currency));
-        views.setContentDescription(R.id.market_widget_refresh, textContext.getString(R.string.market_widget_refresh));
+        boolean hot = MarketWidgetStore.HOT.equals(MarketWidgetStore.source(context, id));
+        views.setTextViewText(R.id.market_widget_title, textContext.getString(hot
+            ? R.string.market_widget_source_hot : R.string.market_widget_source_watchlist));
         views.setContentDescription(R.id.market_widget_configure, textContext.getString(R.string.market_widget_configure));
-
-        Intent refresh = new Intent(context, single ? MarketSingleWidgetProvider.class : MarketWatchlistWidgetProvider.class)
-            .setAction(REFRESH).setData(Uri.parse("onekey-widget-refresh://widget/" + id));
-        views.setOnClickPendingIntent(R.id.market_widget_refresh, PendingIntent.getBroadcast(context, id, refresh,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-        Intent configure = new Intent(context, MarketWidgetConfigureActivity.class)
-            .setData(Uri.parse("onekey-widget-configure://widget/" + id))
-            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id);
+        Intent configure = configureIntent(context, id);
         PendingIntent configureIntent = PendingIntent.getActivity(context, id, configure,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         views.setOnClickPendingIntent(R.id.market_widget_configure, configureIntent);
-        views.setTextViewText(R.id.market_widget_empty, textContext.getString(configuration.valid
-            ? R.string.market_widget_empty : R.string.market_widget_configuration_error));
+        int emptyText = !configuration.valid ? R.string.market_widget_configuration_error
+            : configuration.privacyMasked ? R.string.market_widget_private
+            : hot ? R.string.market_widget_hot_unavailable : R.string.market_widget_watchlist_empty;
+        views.setTextViewText(R.id.market_widget_empty, textContext.getString(emptyText));
         views.setOnClickPendingIntent(R.id.market_widget_empty, configureIntent);
         views.setViewVisibility(R.id.market_widget_empty, assets.isEmpty() ? View.VISIBLE : View.GONE);
 
@@ -127,19 +149,28 @@ public class MarketWidgetProvider extends AppWidgetProvider {
         int[] symbols = {R.id.market_widget_symbol_1, R.id.market_widget_symbol_2, R.id.market_widget_symbol_3};
         int[] prices = {R.id.market_widget_price_1, R.id.market_widget_price_2, R.id.market_widget_price_3};
         int[] changes = {R.id.market_widget_change_1, R.id.market_widget_change_2, R.id.market_widget_change_3};
-        int[] times = {R.id.market_widget_time_1, R.id.market_widget_time_2, R.id.market_widget_time_3};
         int[] identities = {R.id.market_widget_identity_1, R.id.market_widget_identity_2, R.id.market_widget_identity_3};
+        int[] icons = {R.id.market_widget_icon_1, R.id.market_widget_icon_2, R.id.market_widget_icon_3};
+        int[] charts = {R.id.market_widget_chart_1, R.id.market_widget_chart_2, R.id.market_widget_chart_3};
         Locale locale = Locale.forLanguageTag(configuration.locale);
+        String status = "";
         for (int index = 0; index < (single ? 1 : 3); index++) {
             views.setViewVisibility(rows[index], index < assets.size() ? View.VISIBLE : View.GONE);
+            if (!single && index > 0) views.setViewVisibility(index == 1
+                ? R.id.market_widget_separator_2 : R.id.market_widget_separator_3,
+                index < assets.size() ? View.VISIBLE : View.GONE);
             if (index >= assets.size()) continue;
             MarketWidgetData.Asset asset = assets.get(index);
             MarketWidgetData.Quote quote = MarketWidgetStore.quote(context, asset);
             String symbol = quote != null && !quote.symbol.isEmpty() ? quote.symbol : asset.label();
+            String name = quote != null && !quote.name.isEmpty() ? quote.name : asset.name;
             views.setTextViewText(symbols[index], symbol);
-            views.setTextViewText(identities[index], "token".equals(asset.kind) ? asset.chainId
-                : quote != null && !quote.name.isEmpty() ? quote.name : asset.name);
+            if (!single) views.setTextViewText(identities[index], name);
             views.setTextViewText(prices[index], quote == null ? "—" : price(quote.price, locale));
+            Bitmap icon = MarketWidgetImages.cached(context, asset);
+            if (icon == null) views.setImageViewResource(icons[index], R.drawable.market_widget_token_placeholder);
+            else views.setImageViewBitmap(icons[index], icon);
+            views.setContentDescription(icons[index], symbol);
             String change = "—";
             int color = textContext.getColor(R.color.market_widget_secondary);
             if (quote != null && quote.change != null) {
@@ -154,21 +185,33 @@ public class MarketWidgetProvider extends AppWidgetProvider {
             }
             views.setTextViewText(changes[index], change);
             views.setTextColor(changes[index], color);
+            if (!single) {
+                MarketWidgetData.History history = MarketWidgetStore.history(context, asset);
+                if (history != null && System.currentTimeMillis() - history.fetchedAt > STALE_AFTER_MS) history = null;
+                views.setImageViewBitmap(charts[index], MarketWidgetImages.chart(history, color,
+                    context.getResources().getDisplayMetrics().density));
+                views.setContentDescription(charts[index], textContext.getString(history == null
+                    ? R.string.market_widget_chart_unavailable : R.string.market_widget_chart));
+            }
             if (quote == null) {
-                views.setTextViewText(times[index], textContext.getString(R.string.market_widget_unavailable));
+                status = textContext.getString(R.string.market_widget_unavailable);
             } else {
                 boolean stale = MarketWidgetStore.failed(context, asset)
                     || System.currentTimeMillis() - quote.fetchedAt > STALE_AFTER_MS;
                 String date = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, locale)
                     .format(new Date(quote.fetchedAt));
-                views.setTextViewText(times[index], textContext.getString(stale
-                    ? R.string.market_widget_cached_at : R.string.market_widget_updated_at, date));
+                if (stale) status = textContext.getString(R.string.market_widget_cached_at, date);
+                views.setContentDescription(rows[index], symbol + ", " + price(quote.price, locale) + ", "
+                    + change + ", " + textContext.getString(stale ? R.string.market_widget_cached_at
+                        : R.string.market_widget_updated_at, date));
             }
             Intent open = new Intent(Intent.ACTION_VIEW, asset.deepLink(), context, MainLauncherActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             views.setOnClickPendingIntent(rows[index], PendingIntent.getActivity(context, id * 3 + index, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
+        views.setTextViewText(R.id.market_widget_status, status);
+        views.setViewVisibility(R.id.market_widget_status, status.isEmpty() ? View.GONE : View.VISIBLE);
         AppWidgetManager.getInstance(context).updateAppWidget(id, views);
     }
 

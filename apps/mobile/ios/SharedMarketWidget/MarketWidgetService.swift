@@ -1,20 +1,107 @@
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 actor MarketWidgetService {
   static let shared = MarketWidgetService()
+  private let store: MarketWidgetStore
+  private let session: URLSession
+  private var trendingRequest: Task<MarketWidgetCatalog, Error>?
   private var requests: [String: Task<MarketWidgetQuote, Error>] = [:]
+  private var chartRequests: [String: Task<MarketWidgetQuote, Error>] = [:]
 
-  func quote(for asset: MarketWidgetAsset, locale: String, force: Bool = false) async throws -> MarketWidgetQuote {
-    let store = MarketWidgetStore()
+  init(store: MarketWidgetStore = MarketWidgetStore(), session: URLSession = .shared) {
+    self.store = store
+    self.session = session
+  }
+
+  func quote(for asset: MarketWidgetAsset, locale: String, includingChart: Bool = false,
+             force: Bool = false) async throws -> MarketWidgetQuote {
+    guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
+    var quote = try await price(for: asset, locale: locale, force: force)
+    if includingChart { quote = await withChart(quote, asset: asset, locale: locale) }
+    guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
+    return quote.merging(store.quote(for: asset))
+  }
+
+  private func price(for asset: MarketWidgetAsset, locale: String, force: Bool) async throws -> MarketWidgetQuote {
     if let cached = store.quote(for: asset),
        Date().timeIntervalSince(cached.fetchedAt) < (force ? 15 : 300) { return cached }
     if let request = requests[asset.id] { return try await request.value }
-    let request = Task { try await Self.fetch(asset: asset, locale: locale) }
+    let request = Task {
+      let quote = try await Self.fetch(asset: asset, locale: locale, store: store, session: session)
+      try? store.saveQuote(quote)
+      return quote
+    }
     requests[asset.id] = request
     defer { requests[asset.id] = nil }
-    let quote = try await request.value
-    try? store.saveQuote(quote)
-    return quote
+    return try await request.value
+  }
+
+  private func withChart(_ quote: MarketWidgetQuote, asset: MarketWidgetAsset, locale: String) async -> MarketWidgetQuote {
+    let current = quote.merging(store.quote(for: asset))
+    if current.chart != nil, let fetchedAt = current.chartFetchedAt,
+       Date().timeIntervalSince(fetchedAt) < 900 { return current }
+    if let request = chartRequests[asset.id] {
+      return current.merging(try? await request.value)
+    }
+    let request = Task {
+      let points = try await Self.fetchChart(asset: asset, locale: locale, store: store, session: session)
+      guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
+      var updated = quote
+      updated.chart = points
+      updated.chartFetchedAt = Date()
+      try? store.saveQuote(updated)
+      return updated
+    }
+    chartRequests[asset.id] = request
+    defer { chartRequests[asset.id] = nil }
+    return current.merging(try? await request.value)
+  }
+
+  func trending(locale: String) async throws -> MarketWidgetCatalog {
+    guard let configuration = store.configuration().configuration, configuration.privacyMasked != true else {
+      throw MarketWidgetError.invalidConfiguration
+    }
+    if let cached = store.trending(), Date().timeIntervalSince(cached.fetchedAt) < 900 { return cached }
+    if let trendingRequest { return try await trendingRequest.value }
+    let task = Task {
+      var request = try Self.request(for: MarketWidgetAsset.defaults[0], locale: locale)
+      request.url = URL(string: "https://utility.onekeycn.com/utility/v2/market/trending")
+      let catalog = try Self.decodeTrending(try await Self.response(for: request, session: session), fetchedAt: Date())
+      try store.saveTrending(catalog)
+      return catalog
+    }
+    trendingRequest = task
+    defer { trendingRequest = nil }
+    return try await task.value
+  }
+
+  static func prepareEditorMetadata(store: MarketWidgetStore = MarketWidgetStore(),
+                                    session: URLSession = .shared) async {
+    guard let configuration = store.configuration().configuration, configuration.privacyMasked != true else { return }
+    var seen = Set<String>()
+    let assets = (store.assets(for: .watchlist) + store.assets(for: .hot) + store.profiles().compactMap(\.asset))
+      .filter { seen.insert($0.id).inserted }
+      .filter { asset in
+        let known = store.assetWithMetadata(asset)
+        return known.symbol.isEmpty || known.name.isEmpty
+      }
+    // Only display metadata is needed here; charts and icon downloads remain widget work.
+    for start in stride(from: 0, to: assets.count, by: 4) {
+      await withTaskGroup(of: Void.self) { group in
+        for asset in assets[start..<min(start + 4, assets.count)] {
+          group.addTask {
+            guard store.permitsRequests(for: asset) else { return }
+            do {
+              let data = try await response(for: request(for: asset, locale: configuration.locale), session: session)
+              let quote = try decode(data, asset: asset, fetchedAt: Date())
+              try store.saveMetadata(quote.asset)
+            } catch { return }
+          }
+        }
+      }
+    }
   }
 
   static func request(for asset: MarketWidgetAsset, locale: String) throws -> URLRequest {
@@ -52,11 +139,114 @@ actor MarketWidgetService {
     return request
   }
 
-  private static func fetch(asset: MarketWidgetAsset, locale: String) async throws -> MarketWidgetQuote {
-    let (data, response) = try await URLSession.shared.data(for: request(for: asset, locale: locale))
+  private static func response(for request: URLRequest, session: URLSession = .shared) async throws -> Data {
+    let (data, response) = try await session.data(for: request)
     guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode),
           data.count <= 1_048_576 else { throw MarketWidgetError.invalidResponse }
-    return try decode(data, asset: asset, fetchedAt: Date())
+    return data
+  }
+
+  static func fetch(asset: MarketWidgetAsset, locale: String, store: MarketWidgetStore = MarketWidgetStore(),
+                    session: URLSession = .shared) async throws -> MarketWidgetQuote {
+    guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
+    let quote = try decode(try await response(for: request(for: asset, locale: locale), session: session), asset: asset, fetchedAt: Date())
+    // A detail request can finish after the host masks widgets or removes this asset.
+    guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
+    await fetchIcon(asset: quote.asset, store: store, session: session)
+    return quote.merging(store.quote(for: asset))
+  }
+
+  static func chartRequest(for asset: MarketWidgetAsset, locale: String, now: Date = Date()) throws -> URLRequest {
+    var request = try self.request(for: asset, locale: locale)
+    guard let url = request.url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+      throw MarketWidgetError.invalidConfiguration
+    }
+    components.path = components.path.replacingOccurrences(of: "/detail", with: "/kline")
+    components.queryItems = (components.queryItems ?? []) + [
+      URLQueryItem(name: "interval", value: "1H"),
+      URLQueryItem(name: "timeFrom", value: String(Int(now.timeIntervalSince1970) - 86400)),
+      URLQueryItem(name: "timeTo", value: String(Int(now.timeIntervalSince1970))),
+    ]
+    request.url = components.url
+    return request
+  }
+
+  private static func fetchChart(asset: MarketWidgetAsset, locale: String, store: MarketWidgetStore,
+                                 session: URLSession) async throws -> [MarketWidgetChartPoint] {
+    guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
+    return try decodeChart(try await response(for: chartRequest(for: asset, locale: locale), session: session))
+  }
+
+  static func decodeChart(_ data: Data, now: Date = Date()) throws -> [MarketWidgetChartPoint] {
+    let envelope = try JSONDecoder().decode(ChartEnvelope.self, from: data)
+    guard envelope.code == 0, let values = envelope.data?.points, values.count <= 96 else {
+      throw MarketWidgetError.invalidResponse
+    }
+    var timestamps = Set<Double>()
+    let points = values.compactMap { point -> MarketWidgetChartPoint? in
+      guard let close = point.c.value, let number = Double(close), number.isFinite, number > 0,
+            point.t.isFinite, point.t > now.timeIntervalSince1970 - 90000,
+            point.t <= now.timeIntervalSince1970 + 60, timestamps.insert(point.t).inserted else { return nil }
+      return .init(timestamp: point.t, value: number)
+    }.sorted { $0.timestamp < $1.timestamp }
+    guard points.count >= 12, let first = points.first, let last = points.last,
+          last.timestamp - first.timestamp >= 18 * 3600 else {
+      throw MarketWidgetError.invalidResponse
+    }
+    return points
+  }
+
+  static func decodeTrending(_ data: Data, fetchedAt: Date) throws -> MarketWidgetCatalog {
+    let envelope = try JSONDecoder().decode(TrendingEnvelope.self, from: data)
+    guard envelope.code == 0, let entries = envelope.data, entries.count <= 100 else {
+      throw MarketWidgetError.invalidResponse
+    }
+    var seen = Set<String>()
+    let assets = entries.compactMap { entry -> MarketWidgetAsset? in
+      let asset: MarketWidgetAsset
+      if let assetId = entry.assetId, !assetId.isEmpty {
+        asset = .init(kind: .asset, assetId: assetId, chainId: nil, contractAddress: nil,
+          isNative: nil, symbol: entry.symbol, name: entry.name, logoURL: entry.logoUrl)
+      } else {
+        asset = .init(kind: .token, assetId: nil, chainId: entry.network,
+          contractAddress: entry.address, isNative: entry.isNative,
+          requestTokenAddress: entry.address, symbol: entry.symbol, name: entry.name, logoURL: entry.logoUrl)
+      }
+      return asset.isValid && seen.insert(asset.id).inserted ? asset : nil
+    }
+    let catalog = MarketWidgetCatalog(assets: Array(assets.prefix(20)), fetchedAt: fetchedAt)
+    guard catalog.isValid else { throw MarketWidgetError.invalidResponse }
+    return catalog
+  }
+
+  static func validIconURL(_ value: String?) -> URL? {
+    guard let value, value.count <= 2048, let url = URL(string: value), url.scheme == "https",
+          url.user == nil, url.password == nil, url.port == nil,
+          let host = url.host?.lowercased(),
+          host == "onekey-asset.com" || host.hasSuffix(".onekey-asset.com")
+            || host == "coin-images.coingecko.com" || host == "assets.coingecko.com" else { return nil }
+    return url
+  }
+
+  private static func fetchIcon(asset: MarketWidgetAsset, store: MarketWidgetStore, session: URLSession) async {
+    guard store.permitsRequests(for: asset), store.icon(for: asset) == nil,
+          let url = validIconURL(asset.logoURL) else { return }
+    do {
+      let (data, response) = try await session.data(for: URLRequest(url: url, timeoutInterval: 6))
+      guard let response = response as? HTTPURLResponse, response.statusCode == 200,
+            validIconURL(response.url?.absoluteString) != nil, data.count <= 262_144,
+            let source = CGImageSourceCreateWithData(data as CFData, nil),
+            let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+              kCGImageSourceCreateThumbnailFromImageAlways: true,
+              kCGImageSourceThumbnailMaxPixelSize: 96,
+              kCGImageSourceCreateThumbnailWithTransform: true,
+            ] as CFDictionary) else { return }
+      let png = NSMutableData()
+      guard let destination = CGImageDestinationCreateWithData(png, UTType.png.identifier as CFString, 1, nil) else { return }
+      CGImageDestinationAddImage(destination, image, nil)
+      guard CGImageDestinationFinalize(destination) else { return }
+      try store.saveIcon(png as Data, for: asset)
+    } catch { return }
   }
 
   static func decode(_ data: Data, asset: MarketWidgetAsset, fetchedAt: Date) throws -> MarketWidgetQuote {
@@ -65,12 +255,14 @@ actor MarketWidgetService {
     let fields: QuoteFields
     let symbol: String
     let name: String
+    let logoURL: String?
     if asset.kind == .asset {
       guard let identity = payload.asset, identity.assetId == asset.assetId,
             let market = payload.market else { throw MarketWidgetError.invalidResponse }
       fields = market
       symbol = identity.symbol
       name = identity.name
+      logoURL = identity.logoUrl
     } else {
       guard let token = payload.token,
             token.networkId == nil || token.networkId == asset.chainId else {
@@ -89,6 +281,7 @@ actor MarketWidgetService {
       fields = token
       symbol = token.symbol ?? asset.symbol
       name = token.name ?? asset.name
+      logoURL = token.logoUrl
     }
     guard let price = fields.price?.value,
           let value = MarketWidgetQuote.decimal(price), value >= 0 else {
@@ -97,7 +290,7 @@ actor MarketWidgetService {
     let enriched = MarketWidgetAsset(kind: asset.kind, assetId: asset.assetId,
       chainId: asset.chainId, contractAddress: asset.contractAddress, isNative: asset.isNative,
       requestTokenAddress: asset.requestTokenAddress,
-      symbol: symbol, name: name)
+      symbol: symbol, name: name, logoURL: logoURL ?? asset.logoURL)
     let quote = MarketWidgetQuote(asset: enriched, price: price,
       change24h: fields.priceChange24hPercent?.value.flatMap {
         MarketWidgetQuote.decimal($0) == nil ? nil : $0
@@ -116,6 +309,7 @@ actor MarketWidgetService {
     let assetId: String
     let symbol: String
     let name: String
+    let logoUrl: String?
   }
   private struct QuoteFields: Decodable {
     let price: NumericValue?
@@ -125,6 +319,20 @@ actor MarketWidgetService {
     let isNative: Bool?
     let symbol: String?
     let name: String?
+    let logoUrl: String?
+  }
+  private struct ChartEnvelope: Decodable { let code: Int; let data: ChartPayload? }
+  private struct ChartPayload: Decodable { let points: [ChartPoint] }
+  private struct ChartPoint: Decodable { let t: Double; let c: NumericValue }
+  private struct TrendingEnvelope: Decodable { let code: Int; let data: [TrendingAsset]? }
+  private struct TrendingAsset: Decodable {
+    let assetId: String?
+    let network: String?
+    let address: String?
+    let isNative: Bool?
+    let symbol: String
+    let name: String
+    let logoUrl: String?
   }
   private struct NumericValue: Decodable {
     let value: String?
