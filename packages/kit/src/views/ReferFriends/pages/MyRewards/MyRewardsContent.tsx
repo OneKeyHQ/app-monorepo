@@ -47,12 +47,16 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteeRewardsOverview } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IEarnSummaryV2, IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { CompactFieldRow } from '../../components/CompactFieldRow';
 import { InviteeRewardNoWallet } from '../../components/InviteeRewardNoWallet';
 import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
-import { BenefitsTabPlaceholder } from '../InviteReward/components/BenefitsTabPlaceholder';
+import {
+  BenefitsTabPlaceholder,
+  useBenefitsBindStatus,
+} from '../InviteReward/components/BenefitsTabPlaceholder';
 import { INVITE_REWARD_SUBJECT_ICON } from '../InviteReward/components/getInviteRewardRows';
 import { InviteStatCell } from '../InviteReward/components/InviteStatCell';
 import { PartDot } from '../InviteReward/components/PartDot';
@@ -1174,9 +1178,13 @@ function MyRewardsContentBody({
       : undefined;
 
   const walletAddress = earnAccount?.accountAddress;
+  // Started here, beside the overview, so an empty Perks tab does not wait on
+  // it once the overview lands.
+  const bindStatus = useBenefitsBindStatus();
 
   const {
     result: overviewResult,
+    setResult: setOverviewResult,
     isLoading: isLoadingOverview,
     run: reloadOverview,
   } = usePromiseResult(
@@ -1192,7 +1200,21 @@ function MyRewardsContentBody({
       return { address, overview };
     },
     [walletAddress],
-    { watchLoading: true, undefinedResultIfReRun: true },
+    {
+      watchLoading: true,
+      // The cached overview paints while the fresh one loads, so the product
+      // skeleton does not collapse into the empty card on every open. The
+      // address check below keeps another address's overview out.
+      swrKey: walletAddress
+        ? swrKeys.referralPerksOverview({ walletAddress })
+        : undefined,
+      // A failed product would reopen on its error row before the retry.
+      swrShouldPersist: (result) =>
+        result !== undefined &&
+        Object.values(result.overview).every(
+          (module) => module.status === 'success',
+        ),
+    },
   );
   // A just-switched account still has the previous overview for one render.
   const overview =
@@ -1267,13 +1289,15 @@ function MyRewardsContentBody({
     (!hasAccount && isAccountPending) ||
     (hasAccount && earnAccount === undefined);
   const isUnsupported = hasAccount && !isResolving && !earnAccount;
-  const isLoading = isResolving || Boolean(isLoadingOverview || !overview);
+  const isLoading = isResolving || !overview;
   const payout = isLoading ? undefined : getPayoutToken(overview);
   const rows = MODULES.map((module) =>
     getModuleRow(module, isLoading, overview),
   );
   const handleRowPress = (row: IModuleRow) => {
     if (row.status === 'error') {
+      // Back to the skeleton while the retry runs.
+      setOverviewResult(undefined);
       void reloadOverview();
       return;
     }
@@ -1307,7 +1331,7 @@ function MyRewardsContentBody({
       );
     }
     if (!isLoading && hasNoRewards(overview)) {
-      return <BenefitsTabPlaceholder />;
+      return <BenefitsTabPlaceholder bindStatus={bindStatus} />;
     }
     if (md) {
       return (

@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 const mockReloadOverview = jest.fn();
+const mockSetOverviewResult = jest.fn();
 const mockShowDialog = jest.fn();
 const mockCopyText = jest.fn();
 let mockIsCompact = false;
@@ -115,6 +116,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     return {
       isLoading: mockOverviewResult.isLoading,
       run: mockReloadOverview,
+      setResult: mockSetOverviewResult,
       result:
         mockOverviewResult.result && address
           ? { address, overview: mockOverviewResult.result }
@@ -201,6 +203,7 @@ jest.mock('../../components/ReferralCardEmpty', () => ({
 
 jest.mock('../InviteReward/components/BenefitsTabPlaceholder', () => ({
   BenefitsTabPlaceholder: () => <div data-testid="perks-placeholder" />,
+  useBenefitsBindStatus: () => ({}),
 }));
 
 jest.mock('../InviteReward/components/getInviteRewardRows', () => ({
@@ -248,6 +251,7 @@ import { MyRewardsContent } from './MyRewardsContent';
 describe('MyRewardsContent', () => {
   beforeEach(() => {
     mockReloadOverview.mockReset();
+    mockSetOverviewResult.mockReset();
     mockShowDialog.mockReset();
     mockCopyText.mockReset();
     mockPerksHomeShown.mockReset();
@@ -478,6 +482,7 @@ describe('MyRewardsContent', () => {
 
     fireEvent.click(screen.getByTestId('my-rewards-module-earn'));
     expect(mockPerksProductOpened).toHaveBeenCalledTimes(1);
+    expect(mockSetOverviewResult).toHaveBeenCalledWith(undefined);
     expect(mockReloadOverview).toHaveBeenCalledTimes(1);
     expect(mockPerksHomeShown).toHaveBeenCalledWith({
       status: 'partial',
@@ -1072,6 +1077,30 @@ describe('MyRewardsContent', () => {
       status: 'empty',
       entry: 'route',
     });
+  });
+
+  it('paints a cached empty overview while the fresh one loads', () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: { distributed: [], undistributed: [] },
+        },
+      },
+      isLoading: true,
+    };
+    render(<MyRewardsContent />);
+    expect(screen.getByTestId('perks-placeholder')).toBeTruthy();
+    expect(screen.queryByTestId('my-rewards-module-perps')).toBeNull();
+    expect(mockPerksHomeShown).not.toHaveBeenCalled();
   });
 
   it('keeps an unpaid Perps reward out of the empty state', () => {
