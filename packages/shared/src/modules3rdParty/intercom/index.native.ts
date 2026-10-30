@@ -94,14 +94,9 @@ async function loadSdk() {
   if (!sdkPromise) {
     sdkPromise = (async () => {
       const sdk = await import('@intercom/intercom-react-native');
-      // Both platforms initialize before either JS runtime starts. Native owns
-      // readiness and keys, so OTA configuration cannot strand an old session.
-      await sdk.default.setLauncherVisibility(sdk.Visibility.GONE);
-      await sdk.default.setInAppMessageVisibility(sdk.Visibility.GONE);
-      await sdk.default.suppressProactiveContent([
-        sdk.ProactiveContentType.Carousel,
-        sdk.ProactiveContentType.Survey,
-      ]);
+      // Native initialization (BaseMainApplication / OneKeyIntercom.mm) owns
+      // the keys and already hides the launcher, in-app messages and proactive
+      // content before either JS runtime starts.
       if (currentTheme) {
         await sdk.default.setThemeMode(toSdkThemeMode(sdk, currentTheme));
       }

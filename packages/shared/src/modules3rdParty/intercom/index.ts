@@ -23,7 +23,6 @@ let sessionGeneration = 0;
 let unreadRevision = 0;
 let hasBooted = false;
 let sdkInitialized = false;
-let configuredSettings: Partial<InitType> | undefined;
 let inAppMessagesVisible = false;
 let messengerLocked = false;
 const unreadCountListeners = new Set<() => void>();
@@ -123,16 +122,12 @@ async function isCurrentSession(userId: string | null, generation: number) {
   return generation === sessionGeneration && currentUserId === userId;
 }
 
-async function bootSession(
-  userId: string | null,
-  generation: number,
-  settings?: Partial<InitType>,
-) {
+async function bootSession(userId: string | null, generation: number) {
   const sdk = await loadIntercomSdk();
   if (!(await isCurrentSession(userId, generation))) {
     return;
   }
-  const appId = settings?.app_id || process.env.INTERCOM_APP_ID || 'vbbj4ssb';
+  const appId = process.env.INTERCOM_APP_ID || 'vbbj4ssb';
   if (hasBooted && activeUserId !== null && activeUserId !== userId) {
     sdk.shutdown();
     clearIntercomCookies();
@@ -143,7 +138,7 @@ async function bootSession(
   }
   const [credentials, languageOverride] = await Promise.all([
     userId ? getIntercomCredentials(userId) : undefined,
-    settings?.language_override || getIntercomLanguageOverride(),
+    getIntercomLanguageOverride(),
   ]);
   if (!(await isCurrentSession(userId, generation))) {
     return;
@@ -160,7 +155,6 @@ async function bootSession(
     horizontal_padding: 10,
     vertical_padding: 55,
     ...(languageOverride ? { language_override: languageOverride } : {}),
-    ...settings,
     hide_notifications: !inAppMessagesVisible,
     ...(credentials ? { intercom_user_jwt: credentials.token } : {}),
   };
@@ -207,13 +201,10 @@ async function bootSession(
   });
 }
 
-export const initIntercom = async (settings?: Partial<InitType>) => {
+export const initIntercom = async () => {
   const userId = await getCurrentIntercomUserId();
-  if (intercomInitPromise && !settings && requestedUserId === userId) {
+  if (intercomInitPromise && requestedUserId === userId) {
     return intercomInitPromise;
-  }
-  if (settings) {
-    configuredSettings = settings;
   }
   requestedUserId = userId;
   sessionGeneration += 1;
@@ -222,7 +213,7 @@ export const initIntercom = async (settings?: Partial<InitType>) => {
   const previous = intercomInitPromise ?? Promise.resolve();
   const operation = previous
     .catch(() => undefined)
-    .then(() => bootSession(userId, generation, configuredSettings));
+    .then(() => bootSession(userId, generation));
   intercomInitPromise = operation;
   try {
     await operation;

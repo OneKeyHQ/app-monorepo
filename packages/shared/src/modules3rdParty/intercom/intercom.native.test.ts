@@ -30,9 +30,6 @@ const mockPlatformEnv = {
 };
 const mockSdk = {
   initialize: jest.fn(async () => true),
-  setLauncherVisibility: jest.fn(async () => true),
-  setInAppMessageVisibility: jest.fn(async (_visibility: string) => true),
-  suppressProactiveContent: jest.fn(async (_types: string[]) => true),
   setThemeMode: jest.fn(async (_theme: string) => true),
   isUserLoggedIn: jest.fn(async () => mockLoggedInUser !== undefined),
   fetchLoggedInUserAttributes: jest.fn(async () => mockLoggedInUser ?? {}),
@@ -65,9 +62,7 @@ const mockSdk = {
 jest.mock('@intercom/intercom-react-native', () => ({
   __esModule: true,
   default: mockSdk,
-  Visibility: { GONE: 'GONE', VISIBLE: 'VISIBLE' },
   ThemeMode: { DARK: 'DARK', LIGHT: 'LIGHT' },
-  ProactiveContentType: { Carousel: 'CAROUSEL', Survey: 'SURVEY' },
   IntercomEvents: { IntercomUnreadCountDidChange: 'unread-changed' },
   IntercomContent: {
     conversationWithConversationId: (id: string) => ({ id }),
@@ -209,12 +204,6 @@ describe('native Intercom SDK integration', () => {
       expect(mockSdk.loginUnidentifiedUser).not.toHaveBeenCalled();
       expect(mockSdk.logout).not.toHaveBeenCalled();
       expect(subject.getIntercomUnreadCount()).toBe(3);
-      expect(mockSdk.setLauncherVisibility).toHaveBeenCalledWith('GONE');
-      expect(mockSdk.setInAppMessageVisibility).toHaveBeenCalledWith('GONE');
-      expect(mockSdk.suppressProactiveContent).toHaveBeenCalledWith([
-        'CAROUSEL',
-        'SURVEY',
-      ]);
       expect(mockSdk.setThemeMode).toHaveBeenCalledWith('DARK');
 
       listener.mockClear();
@@ -252,7 +241,7 @@ describe('native Intercom SDK integration', () => {
     const policy = { validFromMs: 1234, lockAtMs: 301_234 };
     await subject.setIntercomMessengerLocked(false, policy);
     expect(mockUpdateLockPolicy).toHaveBeenCalledWith(false, 1234, 301_234);
-    expect(mockSdk.setLauncherVisibility).not.toHaveBeenCalled();
+    expect(mockSdk.bootstrapEventListeners).not.toHaveBeenCalled();
     mockUpdateLockPolicy.mockClear();
     mockPlatformEnv.isNativeMainThread = false;
     await subject.setIntercomMessengerLocked(true, policy);
