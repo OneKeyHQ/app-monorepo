@@ -154,6 +154,7 @@ interface IDesktopInformationTabsProps {
   isRefreshing?: boolean;
   // The first holdings result for this token is not back yet.
   isPortfolioPending?: boolean;
+  isPortfolioFailed?: boolean;
   isBTCNetwork?: boolean;
   tokenLogoUrl?: string;
 }
@@ -162,6 +163,7 @@ export function DesktopInformationTabs({
   portfolioData,
   isRefreshing,
   isPortfolioPending,
+  isPortfolioFailed,
   isBTCNetwork,
   tokenLogoUrl,
 }: IDesktopInformationTabsProps) {
@@ -217,8 +219,10 @@ export function DesktopInformationTabs({
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
           isPending={isPortfolioPending}
+          isFailed={isPortfolioFailed}
           accountAddress={accountAddress}
           tokenLogoUrl={tokenLogoUrl}
+          isMarketDetail
         />
       </Tabs.Tab>,
       shouldShowLiquidityPoolsTab && (
@@ -254,6 +258,7 @@ export function DesktopInformationTabs({
     portfolioData,
     isRefreshing,
     isPortfolioPending,
+    isPortfolioFailed,
     holdersTabName,
     isNative,
     tokenLogoUrl,

@@ -1,6 +1,14 @@
 import { memo } from 'react';
 
-import { TradingViewIndicatorQuickBar } from '../../../TradingViewChartControls/indicatorSelector/NativeIndicatorQuickBar';
+import { useIntl } from 'react-intl';
+
+import { IconButton } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import {
+  TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT,
+  TradingViewIndicatorQuickBar,
+} from '../../../TradingViewChartControls/indicatorSelector/NativeIndicatorQuickBar';
 
 import { useNativeIndicatorControls } from './hooks/useNativeIndicatorActiveValues';
 
@@ -16,6 +24,7 @@ export const TradingViewNativeIndicatorQuickBar = memo(
     maxSelectableSubIndicatorCount,
     splitSections = false,
     onIndicatorSelect,
+    onIndicatorsDialogPress,
     onControlInteraction,
     onTouchScroll,
   }: {
@@ -24,9 +33,11 @@ export const TradingViewNativeIndicatorQuickBar = memo(
     maxSelectableSubIndicatorCount?: number;
     splitSections?: boolean;
     onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
+    onIndicatorsDialogPress?: () => void;
     onControlInteraction?: () => void;
     onTouchScroll?: (deltaY: number) => void;
   }) => {
+    const intl = useIntl();
     const {
       activeIndicatorValues,
       mainIndicators,
@@ -53,6 +64,23 @@ export const TradingViewNativeIndicatorQuickBar = memo(
         canToggleIndicatorOn={canToggleIndicatorOn}
         onIndicatorPress={handleIndicatorPress}
         splitSections={splitSections}
+        settingsControl={
+          onIndicatorsDialogPress ? (
+            <IconButton
+              testID="trading-view-native-indicators-quick-bar-trigger"
+              size="small"
+              variant="tertiary"
+              icon="ChartTrending2Outline"
+              iconSize="$5"
+              width="$10"
+              height={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+              accessibilityLabel={intl.formatMessage({
+                id: ETranslations.market_indicators,
+              })}
+              onPress={onIndicatorsDialogPress}
+            />
+          ) : undefined
+        }
         onControlInteraction={onControlInteraction}
         onTouchScroll={onTouchScroll}
       />

@@ -1220,6 +1220,11 @@ export const swrKeys = {
     accountId: string;
     networkId: string;
   }) => [NS.tronAccountResources, 'v1', networkId, accountId].join(':'),
+  // Perks tab rewards overview, one entry per EVM address (OK-66043). A
+  // reopen paints the last result — the product list or the empty state —
+  // instead of the product-list skeleton collapsing into the empty card.
+  referralPerksOverview: ({ walletAddress }: { walletAddress: string }) =>
+    [NS.referralPerksOverview, 'v1', walletAddress.toLowerCase()].join(':'),
   discoveryHomePageData: () => [NS.discoveryHomePageData, 'v1'].join(':'),
   discoveryHomeBookmarks: () => [NS.discoveryHomeBookmarks, 'v1'].join(':'),
   // Account selector left sidebar wallet list. One slot per
