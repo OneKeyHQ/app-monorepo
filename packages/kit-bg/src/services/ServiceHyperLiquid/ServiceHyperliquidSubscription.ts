@@ -1524,7 +1524,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // A prior pauseSubscriptions() may have unwatched the atoms; reinstall
     // before the reconcile (OK-53014 ordering).
     this._watchSubscriptionAtoms();
-    await this.updateSubscriptions();
+    await this._reconcileOpenSocketSubscriptionsOnResume();
     return true;
   }
 

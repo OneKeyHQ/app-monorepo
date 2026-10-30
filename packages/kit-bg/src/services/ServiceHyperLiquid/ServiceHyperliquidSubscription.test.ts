@@ -82,7 +82,7 @@ describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
 describe('ServiceHyperliquidSubscription BBO lifecycle', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('refreshes only BBO once on resume before reconciling subscriptions', async () => {
+  it('refreshes only BBO once after concurrent liveness recovery', async () => {
     const service = createService();
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(false);
     const spec: ISubscriptionSpec<ESubscriptionType.BBO> = {
@@ -104,8 +104,11 @@ describe('ServiceHyperliquidSubscription BBO lifecycle', () => {
       _destroySubscription: (
         s: ISubscriptionSpec<ESubscriptionType>,
       ) => Promise<boolean>;
-      _reconcileOpenSocketSubscriptionsOnResume: () => Promise<void>;
+      _watchSubscriptionAtoms: () => void;
     };
+    jest
+      .spyOn(internals, '_watchSubscriptionAtoms')
+      .mockImplementation(() => {});
     const destroy = jest
       .spyOn(internals, '_destroySubscription')
       .mockResolvedValue(true);
@@ -122,10 +125,10 @@ describe('ServiceHyperliquidSubscription BBO lifecycle', () => {
       EAppEventBusNames.HyperliquidDataUpdate,
       expect.objectContaining({ subType: ESubscriptionType.BBO, data: null }),
     );
-    await service.enableSubscriptionsHandler();
+    const disabledCount = await service.getSubscriptionsHandlerDisabledCount();
     await Promise.all([
-      internals._reconcileOpenSocketSubscriptionsOnResume(),
-      internals._reconcileOpenSocketSubscriptionsOnResume(),
+      service.recoverSubscriptionsAfterLivenessProof({ disabledCount }),
+      service.recoverSubscriptionsAfterLivenessProof({ disabledCount }),
     ]);
     expect(destroy).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledTimes(1);
@@ -352,6 +355,16 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
 });
 
 describe('ServiceHyperliquidSubscription liveness recovery', () => {
+  beforeEach(() => {
+    jest
+      .spyOn(
+        ServiceHyperliquidSubscription.prototype,
+        'buildRequiredSubscriptionsMap',
+      )
+      .mockResolvedValue(undefined);
+  });
+  afterEach(() => jest.restoreAllMocks());
+
   it('rejects a proof older than the latest disable', async () => {
     const service = createService();
     const update = jest
