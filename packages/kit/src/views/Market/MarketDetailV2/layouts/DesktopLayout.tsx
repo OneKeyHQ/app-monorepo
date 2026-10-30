@@ -261,13 +261,14 @@ export function DesktopLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing, isPortfolioPending } = usePortfolioData({
-    tokenAddress,
-    networkId,
-    accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
-    xpub: shouldUseStockDesktopLayout ? undefined : xpub,
-    isStock: Boolean(isStockToken || isStockRoute),
-  });
+  const { portfolioData, isRefreshing, isPortfolioPending, isPortfolioFailed } =
+    usePortfolioData({
+      tokenAddress,
+      networkId,
+      accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
+      xpub: shouldUseStockDesktopLayout ? undefined : xpub,
+      isStock: Boolean(isStockToken || isStockRoute),
+    });
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
@@ -708,6 +709,7 @@ export function DesktopLayout({
           portfolioData={portfolioData}
           accountAddress={accountAddress}
           isRefreshing={isRefreshing}
+          isPortfolioFailed={isPortfolioFailed}
           tokenLogoUrl={displayTokenDetail?.logoUrl}
           marketTokenId={marketTokenId}
           assetDetail={marketAssetDetail}
@@ -739,6 +741,7 @@ export function DesktopLayout({
         portfolioData={portfolioData}
         isRefreshing={isRefreshing}
         isPortfolioPending={isPortfolioPending}
+        isPortfolioFailed={isPortfolioFailed}
         isBTCNetwork={isBTCNetwork}
         isBTCMainnet={isBTCMainnet}
         tokenLogoUrl={tokenDetail?.logoUrl}

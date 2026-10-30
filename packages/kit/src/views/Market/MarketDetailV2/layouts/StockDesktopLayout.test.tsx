@@ -17,6 +17,8 @@ const mockSetChartDisplayMode = jest.fn();
 const mockRecordTabChange = jest.fn();
 let mockPreferPosition = false;
 let mockPortfolioData: IMarketAccountPortfolioDisplayItem[] = [];
+let mockIsPortfolioPending = false;
+let mockIsPortfolioIncomplete = false;
 const mockStockSimpleChart = jest.fn(
   (_props: { priceMode: 'share' | 'token'; range: string }) => (
     <div data-testid="stock-simple-chart" />
@@ -63,7 +65,7 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Button,
     DashText: Stack,
-    Empty: () => null,
+    Empty: ({ testID }: { testID?: string }) => <div data-testid={testID} />,
     Tooltip: Stack,
     Icon: Stack,
     NumberSizeableText: Stack,
@@ -152,6 +154,8 @@ jest.mock('../hooks/useStockPortfolioData', () => ({
     portfolioData: mockPortfolioData,
     hasAccount: true,
     isRefreshing: false,
+    isPortfolioPending: mockIsPortfolioPending,
+    isPortfolioIncomplete: mockIsPortfolioIncomplete,
     resolvedVariantKeys: [],
   }),
 }));
@@ -330,6 +334,49 @@ describe('useStockDetailTab', () => {
 });
 
 describe('StockDesktopLayout positions', () => {
+  const renderLayout = () =>
+    render(
+      <StockDesktopLayout
+        marketTradingView={<div />}
+        swapToken={{
+          networkId: 'evm--1',
+          contractAddress: '0xaapl',
+          symbol: 'AAPL',
+          decimals: 18,
+        }}
+        swapInputDraftKey="stock-portfolio-test"
+        chartMode="native"
+        showFavoriteButton={false}
+        isChartFullscreen={false}
+        chartFullscreenZIndex={1}
+        onChartSwitch={jest.fn()}
+        onEnterChartFullscreen={jest.fn()}
+      />,
+    );
+
+  afterEach(() => {
+    mockIsPortfolioPending = false;
+    mockIsPortfolioIncomplete = false;
+  });
+
+  it.each([
+    ['settled with no holdings', false, false, true],
+    ['still loading', true, false, false],
+    ['failed with nothing cached', false, true, false],
+  ] as const)(
+    'shows No positions: %s',
+    (_case, isPending, isIncomplete, showsNoPositions) => {
+      mockPreferPosition = true;
+      mockPortfolioData = [];
+      mockIsPortfolioPending = isPending;
+      mockIsPortfolioIncomplete = isIncomplete;
+      const view = renderLayout();
+      expect(Boolean(view.queryByTestId('market-detail-portfolio-empty'))).toBe(
+        showsNoPositions,
+      );
+    },
+  );
+
   it.each([
     ['', true],
     ['NaN', true],

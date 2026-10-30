@@ -144,6 +144,7 @@ function TokenDesktopLayoutBase({
   portfolioData,
   isRefreshing,
   isPortfolioPending,
+  isPortfolioFailed,
   isBTCNetwork,
   isBTCMainnet,
   tokenLogoUrl,
@@ -164,6 +165,7 @@ function TokenDesktopLayoutBase({
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   isPortfolioPending?: boolean;
+  isPortfolioFailed?: boolean;
   isBTCNetwork: boolean;
   isBTCMainnet: boolean;
   tokenLogoUrl?: string;
@@ -249,6 +251,7 @@ function TokenDesktopLayoutBase({
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
               isPortfolioPending={isPortfolioPending}
+              isPortfolioFailed={isPortfolioFailed}
               isBTCNetwork={isBTCNetwork}
               tokenLogoUrl={tokenLogoUrl}
             />
