@@ -31,7 +31,8 @@ export function MarketWidgetSync() {
     const sync = () => {
       void configurationSync.request(async () => {
         await travelModeManager.ready;
-        const watchlist = travelModeManager.isMaskingDataSync()
+        const privacyMasked = travelModeManager.isMaskingDataSync();
+        const watchlist = privacyMasked
           ? []
           : (await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2())
               .data;
@@ -50,7 +51,13 @@ export function MarketWidgetSync() {
             }
           }),
         );
-        return { schemaVersion: 1, assets, greenUp: true, locale };
+        return {
+          schemaVersion: 1,
+          assets,
+          greenUp: true,
+          locale,
+          privacyMasked,
+        };
       });
     };
     sync();

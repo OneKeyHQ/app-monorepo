@@ -4,7 +4,14 @@
 
 import { act, render, waitFor } from '@testing-library/react';
 
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  ERootRoutes,
+  ETabMarketRoutes,
+} from '@onekeyhq/shared/src/routes';
+
+import { EModalMarketRoutes } from '../../Market/router/types';
 
 import { OnboardingOnMount } from './OnboardingOnMount';
 
@@ -21,10 +28,20 @@ let mockRootState: {
   routes: { name: ERootRoutes }[];
 };
 let mockWalletClear: (() => void) | undefined;
+let mockCurrentRouteName: string | undefined;
+let mockCurrentRouteParams:
+  | { screen?: string; params?: { screen?: string } }
+  | undefined;
 
 jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
-    current: { getRootState: () => mockRootState },
+    current: {
+      getRootState: () => mockRootState,
+      getCurrentRoute: () =>
+        mockCurrentRouteName
+          ? { name: mockCurrentRouteName, params: mockCurrentRouteParams }
+          : undefined,
+    },
   },
 }));
 
@@ -94,6 +111,9 @@ function restoreOnboardingRoute() {
 describe('OnboardingOnMount Web startup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    Object.assign(platformEnv, { isWeb: true, isNative: false });
+    mockCurrentRouteName = undefined;
+    mockCurrentRouteParams = undefined;
     mockRootState = { index: 0, routes: [{ name: ERootRoutes.Main }] };
     mockIsOnboardingDone.mockResolvedValue({ isOnboardingDone: false });
   });
@@ -191,5 +211,134 @@ describe('OnboardingOnMount Web startup', () => {
     });
 
     expect(mockToOnBoardingPage).not.toHaveBeenCalled();
+  });
+});
+
+describe('OnboardingOnMount native widget startup', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Object.assign(platformEnv, { isWeb: false, isNative: true });
+    mockCurrentRouteName = 'TabHome';
+    mockCurrentRouteParams = undefined;
+    mockRootState = { index: 0, routes: [{ name: ERootRoutes.Main }] };
+    mockIsOnboardingDone.mockResolvedValue({ isOnboardingDone: false });
+  });
+
+  it.each([
+    EModalMarketRoutes.MarketWidgetEditor,
+    EModalMarketRoutes.MarketWidgetList,
+    ETabMarketRoutes.TabMarket,
+    ETabMarketRoutes.MarketDetailV2,
+    ETabMarketRoutes.MarketNativeDetail,
+  ])(
+    'preserves %s reached while the startup status is pending',
+    async (route) => {
+      let resolveStatus:
+        | ((status: { isOnboardingDone: boolean }) => void)
+        | undefined;
+      mockIsOnboardingDone.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveStatus = resolve;
+        }),
+      );
+      render(<OnboardingOnMount />);
+      await waitFor(() =>
+        expect(mockIsOnboardingDone).toHaveBeenCalledTimes(1),
+      );
+
+      await act(async () => {
+        mockCurrentRouteName = route;
+        resolveStatus?.({ isOnboardingDone: false });
+      });
+
+      expect(mockToOnBoardingPage).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    EModalMarketRoutes.MarketWidgetEditor,
+    EModalMarketRoutes.MarketWidgetList,
+  ])(
+    'preserves a focused pending MarketModal → %s before its lazy child mounts',
+    async (screen) => {
+      let resolveStatus:
+        | ((status: { isOnboardingDone: boolean }) => void)
+        | undefined;
+      mockIsOnboardingDone.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveStatus = resolve;
+        }),
+      );
+      render(<OnboardingOnMount />);
+      await waitFor(() =>
+        expect(mockIsOnboardingDone).toHaveBeenCalledTimes(1),
+      );
+      await act(async () => {
+        mockCurrentRouteName = ERootRoutes.Modal;
+        mockCurrentRouteParams = {
+          screen: EModalRoutes.MarketModal,
+          params: { screen },
+        };
+        resolveStatus?.({ isOnboardingDone: false });
+      });
+      expect(mockToOnBoardingPage).not.toHaveBeenCalled();
+    },
+  );
+
+  it('preserves the intermediate MarketModal navigator before its editor mounts', async () => {
+    mockCurrentRouteName = EModalRoutes.MarketModal;
+    mockCurrentRouteParams = { screen: EModalMarketRoutes.MarketWidgetEditor };
+    await act(async () => {
+      render(<OnboardingOnMount />);
+    });
+    expect(mockToOnBoardingPage).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      screen: EModalRoutes.SettingModal,
+      params: { screen: EModalMarketRoutes.MarketWidgetEditor },
+    },
+    {
+      screen: EModalRoutes.MarketModal,
+      params: { screen: EModalMarketRoutes.MarketBannerDetail },
+    },
+  ])(
+    'does not exempt another pending modal destination: %j',
+    async (params) => {
+      mockCurrentRouteName = ERootRoutes.Modal;
+      mockCurrentRouteParams = params;
+      render(<OnboardingOnMount />);
+      await waitFor(() =>
+        expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1),
+      );
+    },
+  );
+
+  it('still opens onboarding for an incomplete native Home startup', async () => {
+    render(<OnboardingOnMount />);
+    await waitFor(() => expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1));
+  });
+
+  it('opens onboarding on wallet clear even when a public market page is focused', async () => {
+    mockCurrentRouteName = EModalMarketRoutes.MarketWidgetEditor;
+    await act(async () => {
+      render(<OnboardingOnMount />);
+    });
+    expect(mockToOnBoardingPage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      mockWalletClear?.();
+    });
+
+    expect(mockIsOnboardingDone).toHaveBeenCalledTimes(2);
+    expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the existing Web behavior when a market page is focused', async () => {
+    Object.assign(platformEnv, { isWeb: true, isNative: false });
+    mockCurrentRouteName = ETabMarketRoutes.TabMarket;
+    render(<OnboardingOnMount />);
+    await waitFor(() => expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1));
   });
 });

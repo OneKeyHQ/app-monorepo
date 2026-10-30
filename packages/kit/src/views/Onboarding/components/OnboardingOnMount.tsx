@@ -20,18 +20,30 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  ERootRoutes,
+  ETabMarketRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { EModalMarketRoutes } from '../../Market/router/types';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
 let lastAutoStartV4MigrationTime = 0;
 let isBaseSettingsMigrated = false;
 let downgradeConfirmDialogShown = false;
 let isAutoStartV4MigrationShown = false;
+const publicMarketRoutes = new Set<string>([
+  EModalMarketRoutes.MarketWidgetEditor,
+  EModalMarketRoutes.MarketWidgetList,
+  ETabMarketRoutes.TabMarket,
+  ETabMarketRoutes.MarketDetailV2,
+  ETabMarketRoutes.MarketNativeDetail,
+]);
 
 function DowngradeWarningDialogContent({
   onConfirm,
@@ -168,6 +180,37 @@ function OnboardingOnMountCmp() {
         !platformEnv.isWebDappMode &&
         !platformEnv.isExtensionUiSidePanel
       ) {
+        if (platformEnv.isNative && checkingV4Migration) {
+          // A cold widget link may navigate while the startup status is pending.
+          const route = rootNavigationRef.current?.getCurrentRoute();
+          let pendingMarketParams: unknown;
+          if (
+            route?.name === ERootRoutes.Modal &&
+            route.params &&
+            'screen' in route.params &&
+            route.params.screen === EModalRoutes.MarketModal &&
+            'params' in route.params
+          ) {
+            pendingMarketParams = route.params.params;
+          } else if (route?.name === EModalRoutes.MarketModal) {
+            pendingMarketParams = route.params;
+          }
+          // The focused modal's lazy child may not have mounted a route yet.
+          const pendingWidgetEditor =
+            pendingMarketParams !== null &&
+            typeof pendingMarketParams === 'object' &&
+            'screen' in pendingMarketParams &&
+            (pendingMarketParams.screen ===
+              EModalMarketRoutes.MarketWidgetEditor ||
+              pendingMarketParams.screen ===
+                EModalMarketRoutes.MarketWidgetList);
+          if (
+            (route && publicMarketRoutes.has(route.name)) ||
+            pendingWidgetEditor
+          ) {
+            return;
+          }
+        }
         if (platformEnv.isWeb) {
           // Read the active route after the check: the browser may restore
           // onboarding, while wallet clear may leave an inactive entry.

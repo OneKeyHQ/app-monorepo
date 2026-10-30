@@ -139,6 +139,55 @@ describe('market widget configuration', () => {
 });
 
 describe('market widget deep link identity', () => {
+  it('routes editor links by stable profile identity or widget family', () => {
+    expect(
+      parseMarketWidgetLinkUrl('onekey-wallet://market_widget_config'),
+    ).toEqual({
+      matches: true,
+      target: { kind: 'editor' },
+    });
+    expect(
+      parseMarketWidgetLinkUrl('onekey-wallet://market_widget_config?kind=list')
+        .target,
+    ).toEqual({
+      kind: 'editor',
+      widgetKind: 'list',
+    });
+    expect(
+      parseMarketWidgetLinkUrl(
+        'onekey-wallet://market_widget_config?kind=single',
+      ).target,
+    ).toEqual({
+      kind: 'editor',
+      widgetKind: 'single',
+    });
+    expect(
+      parseMarketWidgetLinkUrl(
+        'onekey-wallet://market_widget_config?profileId=4BDFEB88-A55D-4A91-BEDB-DF13ACFAEA39',
+      ).target,
+    ).toEqual({
+      kind: 'editor',
+      profileId: '4bdfeb88-a55d-4a91-bedb-df13acfaea39',
+    });
+  });
+
+  it.each([
+    '?profileId=',
+    '?profileId=bitcoin',
+    '?profileId=4bdfeb88-a55d-4a91-bedb-df13acfaea39&kind=single',
+    '?kind=single&kind=list',
+    '?profileId=4bdfeb88-a55d-4a91-bedb-df13acfaea39&profileId=4bdfeb88-a55d-4a91-bedb-df13acfaea39',
+    '?kind=large',
+    '?assetId=bitcoin',
+    '?__proto__=single',
+    '/private?kind=single',
+    '?kind=single#fragment',
+  ])('rejects ambiguous or malformed editor identity: %s', (suffix) => {
+    expect(
+      parseMarketWidgetLinkUrl(`onekey-wallet://market_widget_config${suffix}`),
+    ).toEqual({ matches: true });
+  });
+
   it('distinguishes an asset listing from a chain token and native token', () => {
     expect(
       parseMarketWidgetLinkUrl('onekey-wallet://market_widget?assetId=bitcoin')

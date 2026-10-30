@@ -14,39 +14,60 @@ struct MarketWidgetEntry: TimelineEntry {
   let rows: [MarketWidgetRow]
   let isWatchlist: Bool
   let selectionUnavailable: Bool
+  var source: MarketWidgetSource = .watchlist
+  var profileID: String? = nil
+  var profileUnavailable = false
+
+  var editorURL: URL? {
+    MarketWidgetEditorLink.url(profileID: profileID, kind: isWatchlist ? .list : .single)
+  }
 
   static func placeholder(isWatchlist: Bool) -> MarketWidgetEntry {
     MarketWidgetEntry(date: Date(), configuration: .initial,
       rows: MarketWidgetAsset.defaults.prefix(isWatchlist ? 3 : 1).map {
         MarketWidgetRow(asset: $0, quote: nil, failed: false)
-      }, isWatchlist: isWatchlist, selectionUnavailable: false)
+      }, isWatchlist: isWatchlist, selectionUnavailable: false, source: .hot)
   }
 
-  static func snapshot(isWatchlist: Bool, selected: [MarketWidgetAsset]? = nil) -> MarketWidgetEntry {
+  private static func entry(selection: MarketWidgetSelection, isWatchlist: Bool,
+                            store: MarketWidgetStore) -> MarketWidgetEntry {
+    MarketWidgetEntry(date: Date(), configuration: selection.configuration,
+      rows: selection.assets.map { MarketWidgetRow(asset: $0, quote: store.quote(for: $0), failed: false) },
+      isWatchlist: isWatchlist, selectionUnavailable: selection.selectionUnavailable,
+      source: selection.source, profileID: selection.profileID, profileUnavailable: selection.profileUnavailable)
+  }
+
+  static func snapshot(isWatchlist: Bool, selected: [MarketWidgetAsset]? = nil,
+                       source: MarketWidgetSource = .watchlist, profileID: String? = nil) -> MarketWidgetEntry {
     let store = MarketWidgetStore()
-    let configuration = store.configuration().configuration
-    let available = configuration?.displayAssets ?? []
-    let selectionUnavailable = selected?.contains { selected in
-      !available.contains { $0.id == selected.id }
-    } ?? false
-    let canonicalSelection = selected?.compactMap { configuration?.asset(withID: $0.id) }
-    let assets = selectionUnavailable ? [] : Array((canonicalSelection ?? available).prefix(isWatchlist ? 3 : 1))
-    return MarketWidgetEntry(date: Date(), configuration: configuration,
-      rows: assets.map { MarketWidgetRow(asset: $0, quote: store.quote(for: $0), failed: false) },
-      isWatchlist: isWatchlist, selectionUnavailable: selectionUnavailable)
+    return entry(selection: store.selection(kind: isWatchlist ? .list : .single, profileID: profileID,
+      legacySource: source, legacyAsset: selected?.first), isWatchlist: isWatchlist, store: store)
   }
 
-  static func timeline(isWatchlist: Bool, selected: [MarketWidgetAsset]? = nil) async -> Timeline<MarketWidgetEntry> {
-    let snapshot = snapshot(isWatchlist: isWatchlist, selected: selected)
+  static func timeline(isWatchlist: Bool, selected: [MarketWidgetAsset]? = nil,
+                       source: MarketWidgetSource = .watchlist, profileID: String? = nil,
+                       store: MarketWidgetStore = MarketWidgetStore(),
+                       service: MarketWidgetService = .shared) async -> Timeline<MarketWidgetEntry> {
+    let kind: MarketWidgetKind = isWatchlist ? .list : .single
+    let initial = store.selection(kind: kind, profileID: profileID, legacySource: source, legacyAsset: selected?.first)
+    if initial.source == .hot && initial.configuration.map({ $0.privacyMasked != true }) == true {
+      if profileID == nil, let asset = selected?.first { try? store.rememberHotAsset(asset) }
+      // A fixed coin remains valid after leaving the ranking; only dynamic selections need the catalog.
+      if isWatchlist || (initial.profile?.asset == nil && selected?.first == nil) {
+        _ = try? await service.trending(locale: initial.configuration?.locale ?? "en-US")
+      }
+    }
+    let selection = store.selection(kind: kind, profileID: profileID, legacySource: source, legacyAsset: selected?.first)
+    let snapshot = entry(selection: selection, isWatchlist: isWatchlist, store: store)
     let rows = await withTaskGroup(of: (Int, MarketWidgetRow).self) { group in
       for (index, row) in snapshot.rows.enumerated() {
         group.addTask {
           do {
-            let quote = try await MarketWidgetService.shared.quote(
-              for: row.asset, locale: snapshot.configuration?.locale ?? "en-US")
+            let quote = try await service.quote(
+              for: row.asset, locale: snapshot.configuration?.locale ?? "en-US", includingChart: isWatchlist)
             return (index, MarketWidgetRow(asset: row.asset, quote: quote, failed: false))
           } catch {
-            return (index, MarketWidgetRow(asset: row.asset, quote: row.quote, failed: true))
+            return (index, MarketWidgetRow(asset: row.asset, quote: row.quote?.withFreshChart(), failed: true))
           }
         }
       }
@@ -54,14 +75,15 @@ struct MarketWidgetEntry: TimelineEntry {
       for await result in group { results.append(result) }
       return results.sorted { $0.0 < $1.0 }.map(\.1)
     }
-    // An in-flight request must not publish a watchlist that was cleared or changed meanwhile.
-    guard MarketWidgetStore().configuration().configuration == snapshot.configuration else {
-      return Timeline(entries: [.snapshot(isWatchlist: isWatchlist, selected: selected)],
-                      policy: .after(Date().addingTimeInterval(15 * 60)))
+    // Re-resolve the bound profile after awaits; edits must not publish the previous selection.
+    let current = store.selection(kind: kind, profileID: profileID, legacySource: source, legacyAsset: selected?.first)
+    guard current == selection else {
+      return Timeline(entries: [entry(selection: current, isWatchlist: isWatchlist, store: store)],
+        policy: .after(Date().addingTimeInterval(15 * 60)))
     }
     let entry = MarketWidgetEntry(date: Date(), configuration: snapshot.configuration,
-      rows: rows, isWatchlist: isWatchlist, selectionUnavailable: snapshot.selectionUnavailable)
-    // This is a requested reload time; WidgetKit decides when it can actually run.
+      rows: rows, isWatchlist: isWatchlist, selectionUnavailable: snapshot.selectionUnavailable,
+      source: snapshot.source, profileID: snapshot.profileID, profileUnavailable: snapshot.profileUnavailable)
     return Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(15 * 60)))
   }
 }

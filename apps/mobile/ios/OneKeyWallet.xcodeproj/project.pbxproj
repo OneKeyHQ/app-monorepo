@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AE1C50C6CF0B466EB0CE5E82 /* MarketWidgetService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B05C4D6557651549826573C8 /* MarketWidgetService.swift */; };
+		D1675C543F9747BC98BD0002 /* MarketWidgetAssets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D1675C543F9747BC98BD0003 /* MarketWidgetAssets.xcassets */; };
 		00150D8E2550895727C68738 /* MarketWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F973B21C4F7985CA645E5B /* MarketWidgetData.swift */; };
 		076068C02E7EF3BA00E007B2 /* BuildFile in Embed Frameworks */ = {isa = PBXBuildFile; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */; };
@@ -122,6 +124,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D1675C543F9747BC98BD0003 /* MarketWidgetAssets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = MarketWidgetAssets.xcassets; sourceTree = "<group>"; };
 		0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07A167A82E576AF7006A3117 /* OneKeyLogo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = OneKeyLogo.icon; sourceTree = "<group>"; };
 		07B1C3A02F08000000E00001 /* RecoveryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RecoveryViewController.swift; path = OneKeyWallet/RecoveryViewController.swift; sourceTree = "<group>"; };
@@ -278,6 +281,7 @@
 		1F13053CAC772C3DE316FE82 /* SharedMarketWidget */ = {
 			isa = PBXGroup;
 			children = (
+				D1675C543F9747BC98BD0003 /* MarketWidgetAssets.xcassets */,
 				C5F973B21C4F7985CA645E5B /* MarketWidgetData.swift */,
 				B05C4D6557651549826573C8 /* MarketWidgetService.swift */,
 			);
@@ -603,6 +607,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2D7ABFACD016A166E5D9967B /* Localizable.strings in Resources */,
+				D1675C543F9747BC98BD0002 /* MarketWidgetAssets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -897,6 +902,7 @@
 				A1C00000000000000000000C /* AppClipAttributionModule.swift in Sources */,
 				A1C00000000000000000000D /* AppClipAttributionModule.m in Sources */,
 				00150D8E2550895727C68738 /* MarketWidgetData.swift in Sources */,
+				AE1C50C6CF0B466EB0CE5E82 /* MarketWidgetService.swift in Sources */,
 				87CC3FF58F52829A885B64AC /* MarketWidgetModule.swift in Sources */,
 				855CFDE445F2D1F1407C6BA1 /* MarketWidgetModule.m in Sources */,
 			);

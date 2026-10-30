@@ -1,14 +1,21 @@
-import { Toast } from '@onekeyhq/components';
+import { StackActions } from '@react-navigation/native';
+
+import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalRoutes,
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 import type { IMarketTokenDetailRouteParams } from '@onekeyhq/shared/src/routes/tabMarket';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IMarketWidgetLinkTarget } from '@onekeyhq/shared/src/utils/marketWidgetUtils';
@@ -17,6 +24,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
+import { EModalMarketRoutes } from '../../../views/Market/router/types';
 import { prepareMarketDetailTabBarTransition } from '../../../views/Market/utils/marketDetailNavigation';
 
 import { createMarketWidgetLinkHandler } from './marketWidgetLinkUtils';
@@ -26,7 +34,38 @@ type IWidgetDetail = {
   params: IMarketTokenDetailRouteParams;
 };
 
-const handleLink = createMarketWidgetLinkHandler<IWidgetDetail | undefined>({
+type IWidgetDestination =
+  | Extract<IMarketWidgetLinkTarget, { kind: 'editor' }>
+  | { kind: 'detail'; detail: IWidgetDetail }
+  | { kind: 'home' };
+
+function dismissAndroidMoreMenu() {
+  if (!platformEnv.isNativeAndroid) return;
+  const root = rootNavigationRef.current;
+  const state = root?.getRootState();
+  const current = state?.routes[state.index];
+  const screen =
+    current?.state?.routes[current.state.index ?? 0]?.name ??
+    (current?.params && 'screen' in current.params
+      ? current.params.screen
+      : undefined);
+  if (
+    !state?.index ||
+    current?.name !== ERootRoutes.FullScreenPush ||
+    screen !== EFullScreenPushRoutes.ActionCenter
+  ) {
+    return;
+  }
+  // Main's tab navigation can be handled below this root overlay on Android.
+  // Dismiss only the focused More page, preserving other root flows.
+  root?.dispatch({
+    ...StackActions.pop(1),
+    source: current.key,
+    target: state.key,
+  });
+}
+
+const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
   waitForUnlock: whenAppUnlocked,
   isReady: () =>
     Boolean(
@@ -36,7 +75,15 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDetail | undefined>({
   wait: () => timerUtils.wait(100),
   isAllowed: () => !travelModeManager.isMaskingDataSync(),
   async resolve(target) {
-    if (target.kind === 'home') return undefined;
+    if (target.kind === 'home') return target;
+    if (target.kind === 'editor') {
+      if (!marketWidget.supportsProfileEditing()) {
+        throw new OneKeyLocalError(
+          'Market widget profile editing is unavailable',
+        );
+      }
+      return target;
+    }
     let token: {
       chainId: string;
       contractAddress: string;
@@ -51,7 +98,7 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDetail | undefined>({
           currency: 'usd',
           autoHandleError: false,
         });
-      if (!selectedVariant) return undefined;
+      if (!selectedVariant) return { kind: 'home' };
       token = {
         chainId: selectedVariant.networkId,
         contractAddress: selectedVariant.tokenAddress,
@@ -63,32 +110,48 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDetail | undefined>({
       token = target;
     }
     return {
-      screen:
-        token.isNative && !token.contractAddress
-          ? ETabMarketRoutes.MarketNativeDetail
-          : ETabMarketRoutes.MarketDetailV2,
-      params: {
-        network:
-          networkUtils.getNetworkShortCode({ networkId: token.chainId }) ||
-          token.chainId,
-        tokenAddress: token.contractAddress,
-        isNative: token.isNative,
-        marketTokenId: token.marketTokenId,
-        marketVariantId: token.marketVariantId,
-        ...(token.marketTokenId
-          ? { marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID }
-          : {}),
-        showFavoriteButton: true,
+      kind: 'detail',
+      detail: {
+        screen:
+          token.isNative && !token.contractAddress
+            ? ETabMarketRoutes.MarketNativeDetail
+            : ETabMarketRoutes.MarketDetailV2,
+        params: {
+          network:
+            networkUtils.getNetworkShortCode({ networkId: token.chainId }) ||
+            token.chainId,
+          tokenAddress: token.contractAddress,
+          isNative: token.isNative,
+          marketTokenId: token.marketTokenId,
+          marketVariantId: token.marketVariantId,
+          ...(token.marketTokenId
+            ? { marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID }
+            : {}),
+          showFavoriteButton: true,
+        },
       },
     };
   },
-  navigate(detail) {
+  navigate(destination) {
     const navigation = appGlobals.$rootAppNavigation;
-    if (detail) {
+    if (destination.kind !== 'editor') dismissAndroidMoreMenu();
+    if (destination.kind === 'editor') {
+      if (destination.profileId) {
+        navigation?.pushModal(EModalRoutes.MarketModal, {
+          screen: EModalMarketRoutes.MarketWidgetEditor,
+          params: { profileId: destination.profileId },
+        });
+      } else {
+        navigation?.pushModal(EModalRoutes.MarketModal, {
+          screen: EModalMarketRoutes.MarketWidgetList,
+          params: { kind: destination.widgetKind },
+        });
+      }
+    } else if (destination.kind === 'detail') {
       prepareMarketDetailTabBarTransition();
       navigation?.navigate(ERootRoutes.Main, {
         screen: ETabRoutes.Market,
-        params: detail,
+        params: destination.detail,
       });
     } else {
       navigation?.navigate(ERootRoutes.Main, {

@@ -17,4 +17,23 @@
     <string name="market_widget_save">保存小组件</string>
     <string name="market_widget_choose_asset">请先选择币种</string>
     <string name="market_widget_save_failed">无法保存，请重试。</string>
+    <string name="market_widget_source_watchlist">我的自选</string>
+    <string name="market_widget_source_hot">热门币种</string>
+    <string name="market_widget_source">内容来源</string>
+    <string name="market_widget_coin">币种</string>
+    <string name="market_widget_edit_title">编辑行情小组件</string>
+    <string name="market_widget_edit_description">查看加密货币价格与 24 小时走势。</string>
+    <string name="market_widget_search">搜索币种</string>
+    <string name="market_widget_done">确定</string>
+    <string name="market_widget_loading">正在加载币种…</string>
+    <string name="market_widget_load_failed">暂时无法加载币种，点击重试。</string>
+    <string name="market_widget_no_coins">未找到币种</string>
+    <string name="market_widget_watchlist_empty">在 OneKey 中添加自选币种。</string>
+    <string name="market_widget_hot_unavailable">热门币种暂不可用，点击编辑。</string>
+    <string name="market_widget_private">打开 OneKey 以显示行情小组件。</string>
+    <string name="market_widget_chart">24 小时价格走势</string>
+    <string name="market_widget_chart_unavailable">24 小时曲线暂不可用</string>
+    <string name="market_widget_back">返回</string>
+    <string name="market_widget_selected">已选择</string>
+    <string name="market_widget_preview">示例</string>
 </resources>

@@ -155,6 +155,33 @@ describe('handleDeepLinkUrl', () => {
     jest.clearAllMocks();
   });
 
+  it('routes a widget editor link through the same unlock and request guard', async () => {
+    const originalIsNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      handleDeepLinkUrl({
+        url: 'onekey-wallet://market_widget_config?profileId=4bdfeb88-a55d-4a91-bedb-df13acfaea39',
+      });
+      await flushAsyncTasks();
+      expect(handleMarketWidgetLink).toHaveBeenCalledWith({
+        target: {
+          kind: 'editor',
+          profileId: '4bdfeb88-a55d-4a91-bedb-df13acfaea39',
+        },
+        shouldContinue: expect.any(Function),
+      });
+      const [{ shouldContinue }] = jest.mocked(handleMarketWidgetLink).mock
+        .calls[0];
+      handleDeepLinkUrl({
+        url: 'onekey-wallet://market_widget?assetId=bitcoin',
+      });
+      expect(shouldContinue()).toBe(false);
+      await flushAsyncTasks();
+    } finally {
+      platformEnv.isNative = originalIsNative;
+    }
+  });
+
   it('routes native widget links to their typed handler before legacy parsing', async () => {
     const originalIsNative = platformEnv.isNative;
     platformEnv.isNative = true;

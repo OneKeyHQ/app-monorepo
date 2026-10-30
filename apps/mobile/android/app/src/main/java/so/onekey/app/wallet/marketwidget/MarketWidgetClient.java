@@ -3,6 +3,7 @@ package so.onekey.app.wallet.marketwidget;
 import android.net.Uri;
 
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -11,6 +12,11 @@ import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.TreeMap;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -34,7 +40,11 @@ final class MarketWidgetClient {
     }
 
     static MarketWidgetData.Quote fetch(MarketWidgetData.Asset asset, String locale) throws Exception {
-        HttpsURLConnection connection = (HttpsURLConnection) new URL(endpoint(asset).toString()).openConnection();
+        return decode(asset, request(endpoint(asset), locale), System.currentTimeMillis());
+    }
+
+    private static JSONObject request(Uri uri, String locale) throws Exception {
+        HttpsURLConnection connection = (HttpsURLConnection) new URL(uri.toString()).openConnection();
         connection.setConnectTimeout(8_000);
         connection.setReadTimeout(8_000);
         connection.setInstanceFollowRedirects(false);
@@ -61,8 +71,7 @@ final class MarketWidgetClient {
                     if (bytes.size() + count > 512 * 1024) throw new IOException("Market response too large");
                     bytes.write(buffer, 0, count);
                 }
-                return decode(asset, new JSONObject(bytes.toString(StandardCharsets.UTF_8.name())),
-                    System.currentTimeMillis());
+                return new JSONObject(bytes.toString(StandardCharsets.UTF_8.name()));
             }
         } finally {
             connection.disconnect();
@@ -101,7 +110,69 @@ final class MarketWidgetClient {
         BigDecimal price = MarketWidgetData.number(quote.opt("price"));
         if (price == null || price.signum() < 0) throw new IOException("Market price unavailable");
         return new MarketWidgetData.Quote(price, MarketWidgetData.number(quote.opt("priceChange24hPercent")),
-            identity.optString("symbol", asset.symbol), identity.optString("name", asset.name), fetchedAt);
+            identity.optString("symbol", asset.symbol), identity.optString("name", asset.name), fetchedAt,
+            identity.optString("logoUrl", asset.iconUrl));
+    }
+
+    static List<MarketWidgetData.Asset> fetchHot(String locale) throws Exception {
+        return decodeHot(request(Uri.parse("https://utility.onekeycn.com/utility/v2/market/trending"), locale));
+    }
+
+    static List<MarketWidgetData.Asset> decodeHot(JSONObject envelope) throws Exception {
+        if (envelope.getInt("code") != 0) throw new IOException("Hot coins unavailable");
+        JSONArray items = envelope.getJSONArray("data");
+        List<MarketWidgetData.Asset> result = new ArrayList<>();
+        Set<String> keys = new HashSet<>();
+        for (int index = 0; index < Math.min(items.length(), MarketWidgetData.MAX_ASSETS); index++) {
+            JSONObject item = items.getJSONObject(index);
+            try {
+                MarketWidgetData.Asset asset = new MarketWidgetData.Asset(new JSONObject()
+                    .put("kind", "token").put("chainId", item.getString("network"))
+                    .put("contractAddress", item.optString("address", ""))
+                    .put("requestTokenAddress", item.optString("address", ""))
+                    .put("isNative", item.optBoolean("isNative", false))
+                    .put("symbol", item.optString("symbol", ""))
+                    .put("name", item.optString("name", ""))
+                    .put("iconUrl", item.optString("logoUrl", "")));
+                if (keys.add(asset.key())) result.add(asset);
+            } catch (org.json.JSONException ignored) {
+                // A malformed entry must not replace a different valid market identity.
+            }
+        }
+        if (result.isEmpty()) throw new IOException("Hot coins unavailable");
+        return result;
+    }
+
+    static MarketWidgetData.History fetchHistory(MarketWidgetData.Asset asset, String locale) throws Exception {
+        long now = System.currentTimeMillis();
+        Uri detail = endpoint(asset);
+        Uri uri = detail.buildUpon().path(detail.getPath().replace("/detail", "/kline"))
+            .appendQueryParameter("interval", "1H")
+            .appendQueryParameter("timeFrom", Long.toString(now / 1000 - 86400))
+            .appendQueryParameter("timeTo", Long.toString(now / 1000)).build();
+        JSONObject envelope = request(uri, locale);
+        if (envelope.getInt("code") != 0) throw new IOException("Chart unavailable");
+        return decodeHistory(envelope.getJSONObject("data").getJSONArray("points"), now);
+    }
+
+    static MarketWidgetData.History decodeHistory(JSONArray points, long fetchedAt) throws Exception {
+        if (points.length() > 300 || fetchedAt <= 0) throw new IOException("Invalid chart");
+        TreeMap<Long, BigDecimal> ordered = new TreeMap<>();
+        long now = fetchedAt / 1000;
+        for (int index = 0; index < points.length(); index++) {
+            JSONObject point = points.getJSONObject(index);
+            BigDecimal price = MarketWidgetData.number(point.opt("c"));
+            long time = point.optLong("t", 0);
+            // The service rounds the first candle down to the minute/hour boundary.
+            if (price != null && price.signum() >= 0 && time >= now - 90000 && time <= now + 60) {
+                ordered.put(time, price);
+            }
+        }
+        if (ordered.size() < 12 || ordered.lastKey() - ordered.firstKey() < 18 * 3600) {
+            throw new IOException("Insufficient 24-hour chart data");
+        }
+        return new MarketWidgetData.History(new ArrayList<>(ordered.values()),
+            new ArrayList<>(ordered.keySet()), fetchedAt);
     }
 
     private static boolean sameAddress(String network, String requested, String returned) {
