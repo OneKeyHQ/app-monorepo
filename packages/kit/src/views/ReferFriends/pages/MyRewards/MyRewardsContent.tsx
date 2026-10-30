@@ -1182,6 +1182,11 @@ function MyRewardsContentBody({
   // it once the overview lands.
   const bindStatus = useBenefitsBindStatus();
 
+  // Overviews this mount fetched. A cached one paints first but is not what
+  // this visit loaded, so the analytics below wait for one of these.
+  const fetchedOverviewResultsRef = useRef(
+    new WeakSet<{ address: string; overview: IInviteeRewardsOverview }>(),
+  );
   const {
     result: overviewResult,
     setResult: setOverviewResult,
@@ -1197,14 +1202,18 @@ function MyRewardsContentBody({
         await backgroundApiProxy.serviceReferralCode.getInviteeRewardsOverview({
           walletAddress: address,
         });
-      return { address, overview };
+      const fetched = { address, overview };
+      fetchedOverviewResultsRef.current.add(fetched);
+      return fetched;
     },
     [walletAddress],
     {
       watchLoading: true,
       // The cached overview paints while the fresh one loads, so the product
       // skeleton does not collapse into the empty card on every open. The
-      // address check below keeps another address's overview out.
+      // address check below keeps another address's overview out; it
+      // compares lowercased, like the key, so a cache entry written under
+      // another casing of the same address still paints.
       swrKey: walletAddress
         ? swrKeys.referralPerksOverview({ walletAddress })
         : undefined,
@@ -1218,7 +1227,8 @@ function MyRewardsContentBody({
   );
   // A just-switched account still has the previous overview for one render.
   const overview =
-    overviewResult && overviewResult.address === walletAddress
+    overviewResult &&
+    overviewResult.address.toLowerCase() === walletAddress?.toLowerCase()
       ? overviewResult.overview
       : undefined;
 
@@ -1246,7 +1256,14 @@ function MyRewardsContentBody({
       return;
     } else if (isUnsupported) {
       status = 'no_evm';
-    } else if (isLoadingOverview || !overview) {
+    } else if (
+      isLoadingOverview ||
+      !overview ||
+      !overviewResult ||
+      !fetchedOverviewResultsRef.current.has(overviewResult)
+    ) {
+      // A cached overview reports nothing: the address would be marked as
+      // reported before the fetched one could say what it holds.
       return;
     } else {
       status = getPerksHomeStatus(overview);
@@ -1269,6 +1286,7 @@ function MyRewardsContentBody({
     hasAccount,
     isLoadingOverview,
     overview,
+    overviewResult,
     walletAddress,
   ]);
 
