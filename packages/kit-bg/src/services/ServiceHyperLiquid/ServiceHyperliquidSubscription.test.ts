@@ -80,10 +80,15 @@ describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
 });
 
 describe('ServiceHyperliquidSubscription BBO lifecycle', () => {
-  afterEach(() => jest.restoreAllMocks());
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
 
-  it('refreshes only BBO once after concurrent liveness recovery', async () => {
+  it.each([1, 0])('dedupes BBO recovery: socket=%s', async (readyState) => {
     const service = createService();
+    const client = { transport: { socket: { readyState, retryCount: 0 } } };
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(false);
     const spec: ISubscriptionSpec<ESubscriptionType.BBO> = {
       key: 'bbo:ETH',
@@ -101,11 +106,24 @@ describe('ServiceHyperliquidSubscription BBO lifecycle', () => {
       },
     };
     const internals = service as unknown as {
+      _client: typeof client;
+      getWebSocketClient: () => Promise<typeof client>;
+      _updateSubscriptionsCore: () => Promise<void>;
+      _markNetworkStatusSocketOpen: () => Promise<void>;
+      _startPingLoop: () => void;
+      _resumeRecoveryPromise: Promise<void> | null;
+      _subscriptionUpdateRecoveryPromise: Promise<void> | null;
       _destroySubscription: (
         s: ISubscriptionSpec<ESubscriptionType>,
       ) => Promise<boolean>;
       _watchSubscriptionAtoms: () => void;
     };
+    internals._client = client;
+    jest.spyOn(internals, 'getWebSocketClient').mockResolvedValue(client);
+    jest
+      .spyOn(internals, '_markNetworkStatusSocketOpen')
+      .mockResolvedValue(undefined);
+    jest.spyOn(internals, '_startPingLoop').mockImplementation(() => {});
     jest
       .spyOn(internals, '_watchSubscriptionAtoms')
       .mockImplementation(() => {});
@@ -115,8 +133,8 @@ describe('ServiceHyperliquidSubscription BBO lifecycle', () => {
     jest
       .spyOn(service, 'buildRequiredSubscriptionsMap')
       .mockResolvedValue(undefined);
-    const update = jest
-      .spyOn(service, 'updateSubscriptions')
+    const reconcile = jest
+      .spyOn(internals, '_updateSubscriptionsCore')
       .mockImplementation(async () => {
         expect(destroy).toHaveBeenCalledWith(spec);
       });
@@ -126,12 +144,23 @@ describe('ServiceHyperliquidSubscription BBO lifecycle', () => {
       expect.objectContaining({ subType: ESubscriptionType.BBO, data: null }),
     );
     const disabledCount = await service.getSubscriptionsHandlerDisabledCount();
-    await Promise.all([
+    setTimeout(() => {
+      client.transport.socket.readyState = WebSocket.OPEN;
+    }, 10);
+    let results: boolean[] | undefined;
+    const recovery = Promise.all([
       service.recoverSubscriptionsAfterLivenessProof({ disabledCount }),
       service.recoverSubscriptionsAfterLivenessProof({ disabledCount }),
-    ]);
+    ]).then((value) => {
+      results = value;
+    });
+    await jest.advanceTimersByTimeAsync(500);
+    expect(results).toEqual([true, true]);
+    await recovery;
     expect(destroy).toHaveBeenCalledTimes(1);
-    expect(update).toHaveBeenCalledTimes(1);
+    expect(reconcile).toHaveBeenCalledTimes(1);
+    expect(internals._resumeRecoveryPromise).toBeNull();
+    expect(internals._subscriptionUpdateRecoveryPromise).toBeNull();
   });
 });
 
@@ -355,7 +384,17 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
 });
 
 describe('ServiceHyperliquidSubscription liveness recovery', () => {
+  const livenessInternals =
+    ServiceHyperliquidSubscription.prototype as unknown as {
+      getWebSocketClient: () => Promise<{
+        transport: { socket: { readyState: number } };
+      }>;
+      _enqueueSubscriptionReconcile: () => Promise<void>;
+    };
   beforeEach(() => {
+    jest.spyOn(livenessInternals, 'getWebSocketClient').mockResolvedValue({
+      transport: { socket: { readyState: WebSocket.OPEN } },
+    });
     jest
       .spyOn(
         ServiceHyperliquidSubscription.prototype,
@@ -368,7 +407,7 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
   it('rejects a proof older than the latest disable', async () => {
     const service = createService();
     const update = jest
-      .spyOn(service, 'updateSubscriptions')
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
       .mockResolvedValue(undefined);
     await service.disableSubscriptionsHandler();
     const proofCount = await service.getSubscriptionsHandlerDisabledCount();
@@ -391,7 +430,9 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
     jest
       .spyOn(internals, '_watchSubscriptionAtoms')
       .mockImplementation(() => {});
-    jest.spyOn(service, 'updateSubscriptions').mockResolvedValue(undefined);
+    jest
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
+      .mockResolvedValue(undefined);
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
     try {
       await service.disableSubscriptionsHandler();
@@ -413,7 +454,9 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
 
   it('does not announce a rejected recovery', async () => {
     const service = createService();
-    jest.spyOn(service, 'updateSubscriptions').mockResolvedValue(undefined);
+    jest
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
+      .mockResolvedValue(undefined);
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
     try {
       await service.disableSubscriptionsHandler();
@@ -443,7 +486,7 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
       .spyOn(internals, '_watchSubscriptionAtoms')
       .mockImplementation(() => {});
     const update = jest
-      .spyOn(service, 'updateSubscriptions')
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
       .mockResolvedValue(undefined);
     await service.disableSubscriptionsHandler();
     const proofCount = await service.getSubscriptionsHandlerDisabledCount();
@@ -467,7 +510,9 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
     const watch = jest
       .spyOn(internals, '_watchSubscriptionAtoms')
       .mockImplementation(() => {});
-    jest.spyOn(service, 'updateSubscriptions').mockResolvedValue(undefined);
+    jest
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
+      .mockResolvedValue(undefined);
     await service.disableSubscriptionsHandler();
     const proofCount = await service.getSubscriptionsHandlerDisabledCount();
     await service.disableSubscriptionsHandler();
@@ -483,7 +528,7 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
   it('enables and reconciles when the proof matches the latest generation', async () => {
     const service = createService();
     const update = jest
-      .spyOn(service, 'updateSubscriptions')
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
       .mockResolvedValue(undefined);
     await service.disableSubscriptionsHandler();
     const proofCount = await service.getSubscriptionsHandlerDisabledCount();

@@ -1260,6 +1260,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     forceRebuild?: boolean;
     reason?: string;
   }): Promise<void> {
+    const client = await this.getWebSocketClient();
+    if (client.transport?.socket?.readyState !== WebSocket.OPEN) {
+      await this._recoverNotOpenSocketBeforeSubscriptionUpdate({
+        client,
+        reason: params?.reason ?? 'resumeSubscriptions',
+      });
+      return;
+    }
     if (this._resumeRecoveryPromise) {
       await this._resumeRecoveryPromise;
       return;
@@ -1298,7 +1306,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         await this._cleanupAllSubscriptions();
         await timerUtils.wait(50);
       }
-      await this.updateSubscriptions();
+      // Keep socket recovery outside this single-flight to avoid re-entering it.
+      this._hasInitialSubscription = true;
+      await this._enqueueSubscriptionReconcile();
     })().finally(() => {
       this._resumeRecoveryPromise = null;
     });
