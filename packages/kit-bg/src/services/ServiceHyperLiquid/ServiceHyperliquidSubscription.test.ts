@@ -79,6 +79,59 @@ describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
   });
 });
 
+describe('ServiceHyperliquidSubscription BBO lifecycle', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('refreshes only BBO once on resume before reconciling subscriptions', async () => {
+    const service = createService();
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(false);
+    const spec: ISubscriptionSpec<ESubscriptionType.BBO> = {
+      key: 'bbo:ETH',
+      type: ESubscriptionType.BBO,
+      params: { coin: 'ETH' },
+      priority: 2,
+    };
+    service.allSubSpecsMap = {
+      [spec.key]: spec,
+      allMids: {
+        key: 'allMids',
+        type: ESubscriptionType.ALL_MIDS,
+        params: {},
+        priority: 2,
+      },
+    };
+    const internals = service as unknown as {
+      _destroySubscription: (
+        s: ISubscriptionSpec<ESubscriptionType>,
+      ) => Promise<boolean>;
+      _reconcileOpenSocketSubscriptionsOnResume: () => Promise<void>;
+    };
+    const destroy = jest
+      .spyOn(internals, '_destroySubscription')
+      .mockResolvedValue(true);
+    jest
+      .spyOn(service, 'buildRequiredSubscriptionsMap')
+      .mockResolvedValue(undefined);
+    const update = jest
+      .spyOn(service, 'updateSubscriptions')
+      .mockImplementation(async () => {
+        expect(destroy).toHaveBeenCalledWith(spec);
+      });
+    await service.disableSubscriptionsHandler();
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HyperliquidDataUpdate,
+      expect.objectContaining({ subType: ESubscriptionType.BBO, data: null }),
+    );
+    await service.enableSubscriptionsHandler();
+    await Promise.all([
+      internals._reconcileOpenSocketSubscriptionsOnResume(),
+      internals._reconcileOpenSocketSubscriptionsOnResume(),
+    ]);
+    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('ServiceHyperliquidSubscription ping measurement', () => {
   it('cancels the old measurement and measures immediately on the same reconnected client', async () => {
     const service = createService();

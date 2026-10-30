@@ -1451,12 +1451,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
-  updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo) => {
-    const activeInstrument = get(activeTradeInstrumentAtom());
-    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
+  updateBbo = contextAtomMethod(async (get, set, data: HL.IWsBbo | null) => {
     if (!data) {
+      set(bboAtom(), null);
       return;
     }
+    const activeInstrument = get(activeTradeInstrumentAtom());
+    const activeCoin = activeInstrument.coin || (await this._getActiveCoin());
     if (activeCoin !== data.coin) {
       const currentBbo = get(bboAtom());
       if (
