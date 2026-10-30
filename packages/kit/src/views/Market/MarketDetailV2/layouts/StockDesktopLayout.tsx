@@ -858,18 +858,25 @@ function StockPosition({
   portfolioData,
   isRefreshing,
   hasAccount,
+  isPortfolioPending,
+  isPortfolioIncomplete,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
+  isPortfolioPending?: boolean;
+  isPortfolioIncomplete?: boolean;
 }) {
   return (
     <Portfolio
       standalone
       isStock
       hasAccount={hasAccount}
+      isPending={isPortfolioPending}
+      isFailed={isPortfolioIncomplete}
       portfolioData={portfolioData}
       isRefreshing={isRefreshing}
+      isMarketDetail
     />
   );
 }
@@ -1276,11 +1283,15 @@ function StockOverview({
   portfolioData,
   isRefreshing,
   hasAccount,
+  isPortfolioPending,
+  isPortfolioIncomplete,
   initialSection,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
+  isPortfolioPending?: boolean;
+  isPortfolioIncomplete?: boolean;
   initialSection?: IMarketStockDetailInitialSection;
 }) {
   const intl = useIntl();
@@ -1356,6 +1367,8 @@ function StockOverview({
             portfolioData={portfolioData}
             isRefreshing={isRefreshing}
             hasAccount={hasAccount}
+            isPortfolioPending={isPortfolioPending}
+            isPortfolioIncomplete={isPortfolioIncomplete}
           />
         </YStack>
       )}
@@ -1402,6 +1415,8 @@ export function StockDesktopLayout({
     resolvedVariantKeys,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
+    isPortfolioPending: isStockPortfolioPending,
+    isPortfolioIncomplete: isStockPortfolioIncomplete,
   } = useStockPortfolioData();
   const { priceMode, handlePriceModeChange, sharePriceAvailable } =
     useStockPriceSource();
@@ -1461,6 +1476,8 @@ export function StockDesktopLayout({
             portfolioData={stockPortfolioData}
             isRefreshing={isStockPortfolioRefreshing}
             hasAccount={hasStockPortfolioAccount}
+            isPortfolioPending={isStockPortfolioPending}
+            isPortfolioIncomplete={isStockPortfolioIncomplete}
             initialSection={initialSection}
           />
         </YStack>
