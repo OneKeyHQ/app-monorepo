@@ -24867,6 +24867,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Holders/layout/index.ts": 11028,
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/Portfolio.tsx": 10496,
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/components/PnlCell.tsx": 15437,
+    "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/components/PnlUnsupportedHint.tsx": 14738,
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/components/PortfolioSkeleton.tsx": 20109,
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/hooks/usePortfolioData.ts": 21317,
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/index.tsx": 12480,
