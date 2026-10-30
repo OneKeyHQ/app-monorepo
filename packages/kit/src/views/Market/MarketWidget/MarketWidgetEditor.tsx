@@ -36,6 +36,7 @@ import {
   getMarketWidgetAssetSearchText,
   getMarketWidgetAssetSubtitle,
   getMarketWidgetAssetTitle,
+  getMarketWidgetProfileTitle,
   isMarketWidgetAssetAvailable,
 } from './assetIdentity';
 import { MarketWidgetStateView } from './MarketWidgetStateView';
@@ -162,20 +163,13 @@ export default function MarketWidgetEditor() {
     editor,
     validate: async () => true,
     getInput: () => {
-      const sourceName =
-        source === 'hot'
-          ? copy.hotCoins
-          : intl.formatMessage({ id: ETranslations.global_watchlist });
-      let contentName = copy.marketList;
-      if (kind === 'single') {
-        contentName = asset
-          ? getMarketWidgetAssetTitle(asset)
-          : copy.singleCoin;
-      }
       return {
         id: profileId,
         kind,
-        name: `${sourceName} · ${contentName}`.slice(0, 40),
+        name: getMarketWidgetProfileTitle({ kind, source, asset }, copy).slice(
+          0,
+          40,
+        ),
         source,
         asset: kind === 'single' ? asset : undefined,
       };
@@ -224,9 +218,7 @@ export default function MarketWidgetEditor() {
             <YStack px="$5" pb="$3">
               <SearchBar
                 testID="market-widget-coin-search"
-                placeholder={intl.formatMessage({
-                  id: ETranslations.global_search_tokens,
-                })}
+                placeholder={copy.searchCoins}
                 value={query}
                 onChangeText={setQuery}
               />
@@ -291,9 +283,7 @@ export default function MarketWidgetEditor() {
                 items={[
                   {
                     value: 'watchlist',
-                    label: intl.formatMessage({
-                      id: ETranslations.global_watchlist,
-                    }),
+                    label: copy.watchlist,
                   },
                   { value: 'hot', label: copy.hotCoins },
                 ]}

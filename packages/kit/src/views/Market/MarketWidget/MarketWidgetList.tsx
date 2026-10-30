@@ -1,17 +1,17 @@
-import { useIntl } from 'react-intl';
-
 import { Alert, Empty, Page, SizableText, YStack } from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketWidgetKind } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 
 import { EModalMarketRoutes } from '../router/types';
 
-import { getMarketWidgetAssetTitle } from './assetIdentity';
+import {
+  getMarketWidgetAssetTitle,
+  getMarketWidgetProfileTitle,
+} from './assetIdentity';
 import { MarketWidgetStateView } from './MarketWidgetStateView';
 import { useMarketWidgetCopy } from './useMarketWidgetCopy';
 import { useMarketWidgetEditorState } from './useMarketWidgetEditorState';
@@ -21,7 +21,6 @@ import type { IModalMarketParamList } from '../router/types';
 const kinds: IMarketWidgetKind[] = ['single', 'list'];
 
 export default function MarketWidgetList() {
-  const intl = useIntl();
   const copy = useMarketWidgetCopy();
   const navigation =
     useAppNavigation<IModalNavigationProp<IModalMarketParamList>>();
@@ -91,16 +90,12 @@ export default function MarketWidgetList() {
                   <ListItem
                     key={profile.id}
                     testID={`market-widget-profile-${profile.id}`}
-                    title={profile.name}
+                    title={getMarketWidgetProfileTitle(profile, copy)}
                     subtitle={[
                       profile.kind === 'single'
                         ? copy.singleCoin
                         : copy.marketList,
-                      profile.source === 'hot'
-                        ? copy.hotCoins
-                        : intl.formatMessage({
-                            id: ETranslations.global_watchlist,
-                          }),
+                      profile.source === 'hot' ? copy.hotCoins : copy.watchlist,
                       profile.kind === 'single' && profile.asset
                         ? getMarketWidgetAssetTitle(profile.asset)
                         : undefined,

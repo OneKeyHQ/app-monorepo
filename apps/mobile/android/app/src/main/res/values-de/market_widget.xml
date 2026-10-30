@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">Einzelner Coin</string>
+    <string name="market_widget_watchlist_title">Marktliste</string>
+    <string name="market_widget_single_description">USD-Kurs und 24-Stunden-Änderung eines Coins.</string>
+    <string name="market_widget_watchlist_description">Drei Coins mit USD-Kursen und 24-Stunden-Charts.</string>
+    <string name="market_widget_configure">Widget bearbeiten</string>
+    <string name="market_widget_empty">Dieser Coin ist nicht mehr in der gewählten Quelle enthalten. Wähle einen anderen Coin aus.</string>
+    <string name="market_widget_configuration_error">Öffne OneKey, um die Widget-Einstellungen zu prüfen.</string>
+    <string name="market_widget_cached_at">Zwischengespeichert: %1$s</string>
+    <string name="market_widget_source_watchlist">Beobachtungsliste</string>
+    <string name="market_widget_source_hot">Beliebte Coins</string>
+    <string name="market_widget_source">Quelle</string>
+    <string name="market_widget_coin">Coin</string>
+    <string name="market_widget_edit_title">Widget bearbeiten</string>
+    <string name="market_widget_edit_description">Coin-Kurse und ihre Entwicklung über 24 Stunden verfolgen.</string>
+    <string name="market_widget_search">Coins suchen</string>
+    <string name="market_widget_load_failed">Coins konnten nicht geladen werden. Zum Wiederholen tippen.</string>
+    <string name="market_widget_watchlist_empty">Füge in OneKey Coins zu deiner Beobachtungsliste hinzu.</string>
+    <string name="market_widget_hot_unavailable">Beliebte Coins sind nicht verfügbar. Zum Bearbeiten tippen.</string>
+    <string name="market_widget_private">Öffne OneKey, um Markt-Widgets anzuzeigen.</string>
+    <string name="market_widget_chart">24-Stunden-Kurschart</string>
+    <string name="market_widget_chart_unavailable">24-Stunden-Chart nicht verfügbar</string>
+    <string name="market_widget_selected">Ausgewählt</string>
+    <string name="market_widget_quote_updated_at">%1$s, Kurs %2$s USD, 24-Stunden-Änderung %3$s. Aktualisiert: %4$s.</string>
+    <string name="market_widget_quote_cached_at">%1$s, Kurs %2$s USD, 24-Stunden-Änderung %3$s. Zwischengespeichert: %4$s.</string>
+    <string name="market_widget_unavailable">Kein Preis verfügbar</string>
+    <string name="market_widget_save_failed">Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.</string>
+    <string name="market_widget_done">Bestätigen</string>
+    <string name="market_widget_loading">Wird geladen...</string>
+    <string name="market_widget_no_coins">Keine Ergebnisse gefunden</string>
+    <string name="market_widget_back">Zurück</string>
+</resources>

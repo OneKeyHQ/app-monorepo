@@ -3,7 +3,10 @@ import type {
   IMarketWidgetEditorState,
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 
-import { isMarketWidgetAssetAvailable } from './assetIdentity';
+import {
+  getMarketWidgetProfileTitle,
+  isMarketWidgetAssetAvailable,
+} from './assetIdentity';
 
 const bitcoin: IMarketWidgetAsset = {
   kind: 'asset',
@@ -33,6 +36,35 @@ const state: IMarketWidgetEditorState = {
     },
   ],
 };
+
+describe('widget configuration display language', () => {
+  const copy = {
+    hotCoins: '热门币种',
+    watchlist: '自选',
+    singleCoin: '单币行情',
+    marketList: '行情列表',
+  };
+
+  it('translates an existing configuration without changing its identity or stored name', () => {
+    const profile = { ...state.profiles[0], name: 'Hot Coins · BTC' };
+    const previous = { ...profile };
+
+    expect(getMarketWidgetProfileTitle(profile, copy)).toBe('热门币种 · BTC');
+    expect(
+      getMarketWidgetProfileTitle(profile, { ...copy, hotCoins: '熱門幣種' }),
+    ).toBe('熱門幣種 · BTC');
+    expect(profile).toEqual(previous);
+  });
+
+  it('localizes list and missing-coin labels without using a stale saved title', () => {
+    expect(
+      getMarketWidgetProfileTitle({ kind: 'list', source: 'watchlist' }, copy),
+    ).toBe('自选 · 行情列表');
+    expect(
+      getMarketWidgetProfileTitle({ kind: 'single', source: 'hot' }, copy),
+    ).toBe('热门币种 · 单币行情');
+  });
+});
 
 describe('widget editor selection availability', () => {
   it('retains a coin that left hot only for its existing hot configuration', () => {

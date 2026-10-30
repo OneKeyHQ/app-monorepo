@@ -24,6 +24,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import so.onekey.app.wallet.R;
+
 @RunWith(AndroidJUnit4.class)
 public final class MarketWidgetContractTest {
     private static final String STORE_NAME = "onekey_public_market_widgets_v1";
@@ -360,6 +362,47 @@ public final class MarketWidgetContractTest {
         assertNull(MarketWidgetData.number("Infinity"));
         assertNull(MarketWidgetData.number("1e9999999"));
         assertNull(MarketWidgetData.number(true));
+    }
+
+    @Test
+    public void widgetResourcesFollowAppLanguageAndDistinguishTraditionalChinese() throws Exception {
+        String[][] cases = {
+            {"en-US", "Source", "Coin"},
+            {"zh-CN", "来源", "币种"},
+            {"zh-HK", "來源", "幣種"},
+            {"zh-TW", "來源", "幣種"},
+            {"de", "Quelle", "Coin"},
+            {"id", "Sumber", "Koin"},
+        };
+        for (String[] item : cases) {
+            JSONObject configuration = new JSONObject(MarketWidgetData.defaults().json()).put("locale", item[0]);
+            MarketWidgetStore.setConfiguration(context, configuration.toString());
+            Context localized = MarketWidgetStore.localized(context);
+            assertEquals(item[0], item[1], localized.getString(R.string.market_widget_source));
+            assertEquals(item[0], item[2], localized.getString(R.string.market_widget_coin));
+        }
+    }
+
+    @Test
+    public void translatedQuoteDescriptionsFormatEveryParameterWithoutDuplicatingCurrency() throws Exception {
+        for (String language : new String[]{"bn", "de", "en-US", "es", "fr-FR", "hi-IN", "id", "it-IT",
+            "ja-JP", "ko-KR", "pt", "pt-BR", "ru", "th-TH", "uk-UA", "vi", "zh-CN", "zh-HK", "zh-TW"}) {
+            MarketWidgetStore.setConfiguration(context,
+                new JSONObject(MarketWidgetData.defaults().json()).put("locale", language).toString());
+            Context localized = MarketWidgetStore.localized(context);
+            for (int template : new int[]{R.string.market_widget_quote_updated_at, R.string.market_widget_quote_cached_at}) {
+                String label = localized.getString(template, "BTC", "123.45", "+1.25%", "12:34");
+                assertTrue(language, label.contains("BTC"));
+                assertTrue(language, label.contains("123.45"));
+                assertTrue(language, label.contains("+1.25%"));
+                assertTrue(language, label.contains("12:34"));
+                assertFalse(language, label.contains("$s"));
+                assertFalse(language, label.contains("{price}"));
+            }
+        }
+        assertEquals("1,234.50", MarketWidgetProvider.price(new BigDecimal("1234.5"), Locale.US, false));
+        assertEquals("1.234,50", MarketWidgetProvider.price(new BigDecimal("1234.5"), Locale.GERMANY, false));
+        assertEquals("<0,000000000001", MarketWidgetProvider.price(new BigDecimal("1e-20"), Locale.GERMANY, false));
     }
 
     @Test

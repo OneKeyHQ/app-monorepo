@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">एक कॉइन</string>
+    <string name="market_widget_watchlist_title">बाज़ार सूची</string>
+    <string name="market_widget_single_description">एक कॉइन की USD कीमत और 24 घंटे का बदलाव।</string>
+    <string name="market_widget_watchlist_description">तीन कॉइन की USD कीमतें और 24 घंटे के चार्ट।</string>
+    <string name="market_widget_configure">विजेट संपादित करें</string>
+    <string name="market_widget_empty">यह कॉइन अब चुने गए स्रोत में नहीं है। दूसरा कॉइन चुनें।</string>
+    <string name="market_widget_configuration_error">विजेट की सेटिंग जांचने के लिए OneKey खोलें।</string>
+    <string name="market_widget_cached_at">कैश में सहेजा गया: %1$s</string>
+    <string name="market_widget_source_watchlist">पसंदीदा</string>
+    <string name="market_widget_source_hot">लोकप्रिय कॉइन</string>
+    <string name="market_widget_source">स्रोत</string>
+    <string name="market_widget_coin">कॉइन</string>
+    <string name="market_widget_edit_title">विजेट संपादित करें</string>
+    <string name="market_widget_edit_description">कॉइन की कीमतों और 24 घंटे के रुझानों पर नज़र रखें।</string>
+    <string name="market_widget_search">कॉइन खोजें</string>
+    <string name="market_widget_load_failed">कॉइन लोड नहीं हो सके। फिर से कोशिश करने के लिए टैप करें।</string>
+    <string name="market_widget_watchlist_empty">OneKey में अपनी निगरानी सूची में कॉइन जोड़ें।</string>
+    <string name="market_widget_hot_unavailable">लोकप्रिय कॉइन उपलब्ध नहीं हैं। संपादित करने के लिए टैप करें।</string>
+    <string name="market_widget_private">बाज़ार विजेट दिखाने के लिए OneKey खोलें।</string>
+    <string name="market_widget_chart">24 घंटे का कीमत चार्ट</string>
+    <string name="market_widget_chart_unavailable">24 घंटे का चार्ट उपलब्ध नहीं</string>
+    <string name="market_widget_selected">चुना गया</string>
+    <string name="market_widget_quote_updated_at">%1$s, कीमत %2$s USD, 24 घंटे का बदलाव %3$s। अपडेट किया गया: %4$s।</string>
+    <string name="market_widget_quote_cached_at">%1$s, कीमत %2$s USD, 24 घंटे का बदलाव %3$s। कैश में सहेजा गया: %4$s।</string>
+    <string name="market_widget_unavailable">कोई मूल्य उपलब्ध नहीं है</string>
+    <string name="market_widget_save_failed">एक अनपेक्षित त्रुटि हुई। कृपया पुनः प्रयास करें।</string>
+    <string name="market_widget_done">पुष्टि करें</string>
+    <string name="market_widget_loading">लोड हो रहा है...</string>
+    <string name="market_widget_no_coins">कोई परिणाम नहीं मिला</string>
+    <string name="market_widget_back">वापस</string>
+</resources>

@@ -1,6 +1,7 @@
 import type {
   IMarketWidgetAsset,
   IMarketWidgetEditorState,
+  IMarketWidgetProfile,
   IMarketWidgetSource,
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 
@@ -17,6 +18,25 @@ export function getMarketWidgetAssetTitle(asset: IMarketWidgetAsset) {
   return asset.contractAddress.length > 14
     ? `${asset.contractAddress.slice(0, 6)}…${asset.contractAddress.slice(-4)}`
     : asset.contractAddress;
+}
+
+export function getMarketWidgetProfileTitle(
+  profile: Pick<IMarketWidgetProfile, 'kind' | 'source' | 'asset'>,
+  copy: {
+    hotCoins: string;
+    watchlist: string;
+    singleCoin: string;
+    marketList: string;
+  },
+) {
+  const source = profile.source === 'hot' ? copy.hotCoins : copy.watchlist;
+  let content = copy.marketList;
+  if (profile.kind === 'single') {
+    content = profile.asset
+      ? getMarketWidgetAssetTitle(profile.asset)
+      : copy.singleCoin;
+  }
+  return `${source} · ${content}`;
 }
 
 export function getMarketWidgetAssetSubtitle(asset: IMarketWidgetAsset) {

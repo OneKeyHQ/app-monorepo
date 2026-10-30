@@ -85,6 +85,11 @@ public final class MarketWidgetConfigureActivity extends Activity {
         if (!"configuration".equals(key)) return;
         runOnUiThread(() -> {
             if (isFinishing() || isDestroyed()) return;
+            Locale locale = Locale.forLanguageTag(MarketWidgetStore.configuration(this).locale);
+            if (!locale.equals(getResources().getConfiguration().getLocales().get(0))) {
+                recreate();
+                return;
+            }
             if (activeSheet != null) activeSheet.dismiss();
             coinAdapter = null;
             reloadAssets();

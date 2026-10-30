@@ -4,15 +4,15 @@ import WidgetKit
 
 @available(iOS 17.0, *)
 extension MarketWidgetSource: AppEnum {
-  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Source"
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "market_widget_source__title"
   static var caseDisplayRepresentations: [MarketWidgetSource: DisplayRepresentation] = [
-    .watchlist: "Watchlist", .hot: "Hot Coins",
+    .watchlist: "market_widget_watchlist__title", .hot: "market_widget_hot_coins__title",
   ]
 }
 
 @available(iOS 17.0, *)
 struct MarketWidgetAssetEntity: AppEntity {
-  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Coin"
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "market_widget_coin__title"
   static var defaultQuery = MarketWidgetAssetQuery()
   let id: String
   let asset: MarketWidgetAsset
@@ -65,7 +65,7 @@ struct MarketWidgetAssetQuery: EntityStringQuery {
 
 @available(iOS 17.0, *)
 struct MarketSingleProfileEntity: AppEntity {
-  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Widget configuration"
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "market_widget_configuration__title"
   static var defaultQuery = MarketSingleProfileQuery()
   let id: String
   let name: String
@@ -79,11 +79,15 @@ struct MarketSingleProfileQuery: EntityStringQuery {
     return identifiers.compactMap { value in
       guard let id = UUID(uuidString: value)?.uuidString.lowercased() else { return nil }
       let profile = store.profile(id: id, kind: .single)
-      return MarketSingleProfileEntity(id: id, name: profile?.name ?? String(localized: "Configuration unavailable"))
+      return MarketSingleProfileEntity(id: id,
+        name: profile.map { MarketWidgetLocalization.profileName($0) }
+          ?? String(localized: "market_widget_configuration_unavailable__msg"))
     }
   }
   func suggestedEntities() async throws -> [MarketSingleProfileEntity] {
-    MarketWidgetStore().profiles(kind: .single).map { MarketSingleProfileEntity(id: $0.id, name: $0.name) }
+    MarketWidgetStore().profiles(kind: .single).map {
+      MarketSingleProfileEntity(id: $0.id, name: MarketWidgetLocalization.profileName($0))
+    }
   }
   func entities(matching string: String) async throws -> [MarketSingleProfileEntity] {
     try await suggestedEntities().filter { string.isEmpty || $0.name.localizedCaseInsensitiveContains(string) }
@@ -93,7 +97,7 @@ struct MarketSingleProfileQuery: EntityStringQuery {
 
 @available(iOS 17.0, *)
 struct MarketListProfileEntity: AppEntity {
-  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Widget configuration"
+  static var typeDisplayRepresentation: TypeDisplayRepresentation = "market_widget_configuration__title"
   static var defaultQuery = MarketListProfileQuery()
   let id: String
   let name: String
@@ -107,11 +111,15 @@ struct MarketListProfileQuery: EntityStringQuery {
     return identifiers.compactMap { value in
       guard let id = UUID(uuidString: value)?.uuidString.lowercased() else { return nil }
       let profile = store.profile(id: id, kind: .list)
-      return MarketListProfileEntity(id: id, name: profile?.name ?? String(localized: "Configuration unavailable"))
+      return MarketListProfileEntity(id: id,
+        name: profile.map { MarketWidgetLocalization.profileName($0) }
+          ?? String(localized: "market_widget_configuration_unavailable__msg"))
     }
   }
   func suggestedEntities() async throws -> [MarketListProfileEntity] {
-    MarketWidgetStore().profiles(kind: .list).map { MarketListProfileEntity(id: $0.id, name: $0.name) }
+    MarketWidgetStore().profiles(kind: .list).map {
+      MarketListProfileEntity(id: $0.id, name: MarketWidgetLocalization.profileName($0))
+    }
   }
   func entities(matching string: String) async throws -> [MarketListProfileEntity] {
     try await suggestedEntities().filter { string.isEmpty || $0.name.localizedCaseInsensitiveContains(string) }
@@ -121,11 +129,11 @@ struct MarketListProfileQuery: EntityStringQuery {
 
 @available(iOS 17.0, *)
 struct MarketSingleIntent: WidgetConfigurationIntent {
-  static var title: LocalizedStringResource = "Market price"
-  static var description = IntentDescription("Create a configuration in OneKey, then select it here.")
-  @Parameter(title: "Configuration") var profile: MarketSingleProfileEntity?
-  @Parameter(title: "Source", default: .hot) var source: MarketWidgetSource?
-  @Parameter(title: "Coin") var asset: MarketWidgetAssetEntity?
+  static var title: LocalizedStringResource = "market_widget_single__title"
+  static var description = IntentDescription("market_widget_choose_configuration__desc")
+  @Parameter(title: "market_widget_configuration__title") var profile: MarketSingleProfileEntity?
+  @Parameter(title: "market_widget_source__title", default: .hot) var source: MarketWidgetSource?
+  @Parameter(title: "market_widget_coin__title") var asset: MarketWidgetAssetEntity?
   static var parameterSummary: some ParameterSummary {
     Summary { \.$profile }
   }
@@ -133,10 +141,10 @@ struct MarketSingleIntent: WidgetConfigurationIntent {
 
 @available(iOS 17.0, *)
 struct MarketListIntent: WidgetConfigurationIntent {
-  static var title: LocalizedStringResource = "Market watchlist"
-  static var description = IntentDescription("Create a configuration in OneKey, then select it here.")
-  @Parameter(title: "Configuration") var profile: MarketListProfileEntity?
-  @Parameter(title: "Source", default: .hot) var source: MarketWidgetSource?
+  static var title: LocalizedStringResource = "market_widget_list__title"
+  static var description = IntentDescription("market_widget_choose_configuration__desc")
+  @Parameter(title: "market_widget_configuration__title") var profile: MarketListProfileEntity?
+  @Parameter(title: "market_widget_source__title", default: .hot) var source: MarketWidgetSource?
   static var parameterSummary: some ParameterSummary { Summary { \.$profile } }
 }
 

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">Одна монета</string>
+    <string name="market_widget_watchlist_title">Список котирувань</string>
+    <string name="market_widget_single_description">Ціна монети в USD і зміна за 24 години.</string>
+    <string name="market_widget_watchlist_description">Три монети з цінами в USD і графіками за 24 години.</string>
+    <string name="market_widget_configure">Змінити віджет</string>
+    <string name="market_widget_empty">Цієї монети більше немає у вибраному джерелі. Виберіть іншу.</string>
+    <string name="market_widget_configuration_error">Відкрийте OneKey, щоб перевірити налаштування віджета.</string>
+    <string name="market_widget_cached_at">У кеші: %1$s</string>
+    <string name="market_widget_source_watchlist">Обране</string>
+    <string name="market_widget_source_hot">Популярні монети</string>
+    <string name="market_widget_source">Джерело</string>
+    <string name="market_widget_coin">Монета</string>
+    <string name="market_widget_edit_title">Змінити віджет</string>
+    <string name="market_widget_edit_description">Стежте за цінами монет і динамікою за 24 години.</string>
+    <string name="market_widget_search">Пошук монет</string>
+    <string name="market_widget_load_failed">Не вдалося завантажити монети. Торкніться, щоб повторити.</string>
+    <string name="market_widget_watchlist_empty">Додайте монети до списку спостереження в OneKey.</string>
+    <string name="market_widget_hot_unavailable">Популярні монети недоступні. Торкніться, щоб змінити.</string>
+    <string name="market_widget_private">Відкрийте OneKey, щоб показати віджети ринку.</string>
+    <string name="market_widget_chart">Графік ціни за 24 години</string>
+    <string name="market_widget_chart_unavailable">Графік за 24 години недоступний</string>
+    <string name="market_widget_selected">Вибрано</string>
+    <string name="market_widget_quote_updated_at">%1$s, ціна %2$s USD, зміна за 24 години %3$s. Оновлено: %4$s.</string>
+    <string name="market_widget_quote_cached_at">%1$s, ціна %2$s USD, зміна за 24 години %3$s. У кеші: %4$s.</string>
+    <string name="market_widget_unavailable">Ціна недоступна</string>
+    <string name="market_widget_save_failed">Сталася непередбачена помилка. Будь ласка, спробуйте ще раз.</string>
+    <string name="market_widget_done">Так</string>
+    <string name="market_widget_loading">Завантаження...</string>
+    <string name="market_widget_no_coins">Не знайдено результатів</string>
+    <string name="market_widget_back">Назад</string>
+</resources>

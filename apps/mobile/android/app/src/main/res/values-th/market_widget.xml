@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">เหรียญเดียว</string>
+    <string name="market_widget_watchlist_title">รายการราคา</string>
+    <string name="market_widget_single_description">ราคา USD และการเปลี่ยนแปลงใน 24 ชั่วโมงของเหรียญหนึ่งรายการ</string>
+    <string name="market_widget_watchlist_description">สามเหรียญพร้อมราคา USD และกราฟ 24 ชั่วโมง</string>
+    <string name="market_widget_configure">แก้ไขวิดเจ็ต</string>
+    <string name="market_widget_empty">เหรียญนี้ไม่อยู่ในแหล่งข้อมูลที่เลือกแล้ว ให้เลือกเหรียญอื่น</string>
+    <string name="market_widget_configuration_error">เปิด OneKey เพื่อตรวจสอบการตั้งค่าวิดเจ็ต</string>
+    <string name="market_widget_cached_at">แคชเมื่อ %1$s</string>
+    <string name="market_widget_source_watchlist">รายการโปรด</string>
+    <string name="market_widget_source_hot">เหรียญยอดนิยม</string>
+    <string name="market_widget_source">แหล่งข้อมูล</string>
+    <string name="market_widget_coin">เหรียญ</string>
+    <string name="market_widget_edit_title">แก้ไขวิดเจ็ต</string>
+    <string name="market_widget_edit_description">ติดตามราคาเหรียญและแนวโน้มใน 24 ชั่วโมง</string>
+    <string name="market_widget_search">ค้นหาเหรียญ</string>
+    <string name="market_widget_load_failed">โหลดเหรียญไม่ได้ แตะเพื่อลองอีกครั้ง</string>
+    <string name="market_widget_watchlist_empty">เพิ่มเหรียญในรายการติดตามบน OneKey</string>
+    <string name="market_widget_hot_unavailable">เหรียญยอดนิยมไม่พร้อมใช้งาน แตะเพื่อแก้ไข</string>
+    <string name="market_widget_private">เปิด OneKey เพื่อแสดงวิดเจ็ตตลาด</string>
+    <string name="market_widget_chart">กราฟราคา 24 ชั่วโมง</string>
+    <string name="market_widget_chart_unavailable">กราฟ 24 ชั่วโมงไม่พร้อมใช้งาน</string>
+    <string name="market_widget_selected">เลือกแล้ว</string>
+    <string name="market_widget_quote_updated_at">%1$s ราคา %2$s USD การเปลี่ยนแปลงใน 24 ชั่วโมง %3$s อัปเดตเมื่อ %4$s</string>
+    <string name="market_widget_quote_cached_at">%1$s ราคา %2$s USD การเปลี่ยนแปลงใน 24 ชั่วโมง %3$s แคชเมื่อ %4$s</string>
+    <string name="market_widget_unavailable">ไม่มีข้อมูลราคา</string>
+    <string name="market_widget_save_failed">เกิดข้อผิดพลาดที่ไม่คาดคิด โปรดลองอีกครั้ง</string>
+    <string name="market_widget_done">ยืนยัน</string>
+    <string name="market_widget_loading">กำลังโหลด...</string>
+    <string name="market_widget_no_coins">ไม่พบผลลัพธ์</string>
+    <string name="market_widget_back">กลับ</string>
+</resources>

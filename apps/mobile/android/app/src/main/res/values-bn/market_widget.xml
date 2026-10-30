@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="market_widget_single_title">একটি কয়েন</string>
+    <string name="market_widget_watchlist_title">বাজার তালিকা</string>
+    <string name="market_widget_single_description">একটি কয়েনের USD মূল্য ও 24 ঘণ্টার পরিবর্তন।</string>
+    <string name="market_widget_watchlist_description">তিনটি কয়েনের USD মূল্য ও 24 ঘণ্টার চার্ট।</string>
+    <string name="market_widget_configure">উইজেট সম্পাদনা</string>
+    <string name="market_widget_empty">এই কয়েনটি নির্বাচিত উৎসে আর নেই। অন্য কয়েন বেছে নিন।</string>
+    <string name="market_widget_configuration_error">উইজেটের সেটিংস দেখতে OneKey খুলুন।</string>
+    <string name="market_widget_cached_at">ক্যাশে সংরক্ষিত: %1$s</string>
+    <string name="market_widget_source_watchlist">পছন্দের</string>
+    <string name="market_widget_source_hot">জনপ্রিয় কয়েন</string>
+    <string name="market_widget_source">উৎস</string>
+    <string name="market_widget_coin">কয়েন</string>
+    <string name="market_widget_edit_title">উইজেট সম্পাদনা</string>
+    <string name="market_widget_edit_description">কয়েনের মূল্য ও 24 ঘণ্টার প্রবণতা দেখুন।</string>
+    <string name="market_widget_search">কয়েন খুঁজুন</string>
+    <string name="market_widget_load_failed">কয়েন লোড করা যায়নি। আবার চেষ্টা করতে ট্যাপ করুন।</string>
+    <string name="market_widget_watchlist_empty">OneKey-তে আপনার নজরতালিকায় কয়েন যোগ করুন।</string>
+    <string name="market_widget_hot_unavailable">জনপ্রিয় কয়েন উপলব্ধ নেই। সম্পাদনা করতে ট্যাপ করুন।</string>
+    <string name="market_widget_private">বাজার উইজেট দেখাতে OneKey খুলুন।</string>
+    <string name="market_widget_chart">24 ঘণ্টার মূল্য চার্ট</string>
+    <string name="market_widget_chart_unavailable">24 ঘণ্টার চার্ট উপলব্ধ নেই</string>
+    <string name="market_widget_selected">নির্বাচিত</string>
+    <string name="market_widget_quote_updated_at">%1$s, মূল্য %2$s USD, 24 ঘণ্টার পরিবর্তন %3$s। আপডেট হয়েছে: %4$s।</string>
+    <string name="market_widget_quote_cached_at">%1$s, মূল্য %2$s USD, 24 ঘণ্টার পরিবর্তন %3$s। ক্যাশে সংরক্ষিত: %4$s।</string>
+    <string name="market_widget_unavailable">কোনো মূল্য উপলব্ধ নেই</string>
+    <string name="market_widget_save_failed">একটি অপ্রত্যাশিত ত্রুটি ঘটেছে। দয়া করে আবার চেষ্টা করুন।</string>
+    <string name="market_widget_done">ঠিক</string>
+    <string name="market_widget_loading">লোড হচ্ছে...</string>
+    <string name="market_widget_no_coins">কোন ফলাফল পাওয়া যায়নি</string>
+    <string name="market_widget_back">পেছনে</string>
+</resources>

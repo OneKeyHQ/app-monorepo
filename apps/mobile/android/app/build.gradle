@@ -297,6 +297,12 @@ android {
     		dimension "dimension"
     	}
     }
+    bundle {
+        language {
+            // App language changes independently of the system; keep every Widget language installed.
+            enableSplit = false
+        }
+    }
     packagingOptions {
         exclude 'META-INF/DEPENDENCIES'
         exclude 'META-INF/INDEX.LIST'

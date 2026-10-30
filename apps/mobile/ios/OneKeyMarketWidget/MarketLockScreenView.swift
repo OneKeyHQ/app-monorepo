@@ -102,7 +102,7 @@ struct MarketLockScreenView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel(row.map(accessibilityLabel) ?? "Price unavailable")
+    .accessibilityLabel(row.map(accessibilityLabel) ?? unavailableLabel)
   }
 
   private var chart: some View {
@@ -123,10 +123,10 @@ struct MarketLockScreenView: View {
         .frame(height: 16)
         if let points = row.quote?.chart, MarketLockScreenChartGeometry.isValid(points) {
           MarketLockScreenChart(points: points)
-            .accessibilityLabel("24-hour chart")
+            .accessibilityLabel(localized("market_widget_chart__desc"))
         } else {
           Text("—").font(.system(size: 13)).frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityLabel("Chart unavailable")
+            .accessibilityLabel(localized("market_widget_chart_unavailable__msg"))
         }
       } else { unavailable }
     }
@@ -136,7 +136,15 @@ struct MarketLockScreenView: View {
     Text("—")
       .font(.system(size: 16))
       .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .accessibilityLabel(isMasked ? "Prices hidden" : "Price unavailable")
+      .accessibilityLabel(unavailableLabel)
+  }
+
+  private var unavailableLabel: String {
+    localized(isMasked ? "market_widget_prices_hidden__msg" : "wallet.price_unavailable")
+  }
+
+  private func localized(_ key: String, arguments: [CVarArg] = []) -> String {
+    MarketWidgetLocalization.text(key, locale: locale, arguments: arguments)
   }
 
   private func symbol(_ row: MarketWidgetRow) -> String {
@@ -163,8 +171,8 @@ struct MarketLockScreenView: View {
 
   private func accessibilityLabel(_ row: MarketWidgetRow) -> String {
     let change = MarketLockScreenFormatting.change(row.quote?.change24h, locale: locale)
-    let state = row.failed ? ", cached" : ""
-    return "\(symbol(row)), USD \(price(row)), 24-hour change \(change)\(state)"
+    return localized(row.failed ? "market_widget_quote_cached__desc" : "market_widget_quote__desc",
+      arguments: [symbol(row), price(row), change])
   }
 }
 
