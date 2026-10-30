@@ -4,7 +4,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
 import { redactErrorMessageForLocalLog } from '../../../utils/redactErrorMessage';
 
 export class RequestScene extends BaseScene {
@@ -54,6 +54,29 @@ export class RequestScene extends BaseScene {
         networkId,
       },
     ];
+  }
+
+  // The response listed rows whose $key has no fiat entry in the same group's
+  // map. Home shows those rows with a "--" price and an empty balance / value
+  // column (OK-66042); the client cannot synthesize the fiat, so record which
+  // network / symbols the server left unpriced. $keys carry the account
+  // address and stay out of the server payload.
+  @LogToServer()
+  @LogToLocal({ level: 'warn' })
+  public fetchAccountTokensMapMissingKeys({
+    networkId,
+    flag,
+    missingCount,
+    groups,
+    symbols,
+  }: {
+    networkId?: string;
+    flag: string;
+    missingCount: number;
+    groups: Record<string, number>;
+    symbols: string[];
+  }) {
+    return [{ networkId, flag, missingCount, groups, symbols }];
   }
 
   @LogToLocal({ level: 'error' })

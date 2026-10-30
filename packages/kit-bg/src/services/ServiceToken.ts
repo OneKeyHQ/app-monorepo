@@ -36,6 +36,7 @@ import {
   buildAggregateTokenMapKeyForAggregateConfig,
   buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
+  findTokenKeysMissingFromMap,
   getEmptyTokenData,
   getMergedTokenData,
   normalizeTokenSearchResults,
@@ -684,6 +685,27 @@ class ServiceToken extends ServiceBase {
       requestCurrency,
     });
     throwIfRequestAborted();
+
+    // OK-66042: a row listed in `data` without a `map` entry reaches Home as a
+    // "--" price with an empty balance / value column. Log the mismatch at the
+    // response boundary so an intermittent server omission is attributable.
+    const keysMissingFromMap = findTokenKeysMissingFromMap(resp.data.data);
+    if (keysMissingFromMap.length > 0) {
+      const groups: Record<string, number> = {};
+      for (const item of keysMissingFromMap) {
+        groups[item.group] = (groups[item.group] ?? 0) + 1;
+      }
+      defaultLogger.token.request.fetchAccountTokensMapMissingKeys({
+        networkId,
+        flag: flag ?? '',
+        missingCount: keysMissingFromMap.length,
+        groups,
+        symbols: uniq(keysMissingFromMap.map((item) => item.symbol)).slice(
+          0,
+          10,
+        ),
+      });
+    }
 
     const resolvedCurrency = await this.normalizeTokensRespToUsd(
       resp.data.data,
